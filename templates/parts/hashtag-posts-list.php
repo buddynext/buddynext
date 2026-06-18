@@ -34,8 +34,6 @@ declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
-global $wpdb;
-
 $args = array(
 	'hashtag_posts'   => isset( $hashtag_posts ) ? (array) $hashtag_posts : array(),
 	'current_user_id' => isset( $current_user_id ) ? (int) $current_user_id : 0,
@@ -106,24 +104,15 @@ else :
 		$jt_title   = (string) ( $jt_post->title ?? '' );
 		$jt_author  = (string) ( $jt_post->author_name ?? __( 'Community Member', 'buddynext' ) );
 		$jt_uid     = (int) ( $jt_post->author_id ?? 0 );
-		$jt_init    = function_exists( 'bn_initials' ) ? bn_initials( $jt_author ) : strtoupper( substr( $jt_author, 0, 2 ) );
+		$jt_init    = \BuddyNext\Profile\AvatarService::initials_for( $jt_author );
 		$jt_avatar  = $jt_uid ? get_avatar_url( $jt_uid, array( 'size' => 72 ) ) : '';
 		$jt_replies = absint( $jt_post->reply_count ?? 0 );
 		$jt_votes   = (int) ( $jt_post->vote_score ?? 0 );
 
-		$jt_space_slug = '';
-		if ( ! empty( $jt_post->space_id ) && function_exists( '\\Jetonomy\\table' ) ) {
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$jt_space_slug = (string) $wpdb->get_var(
-				$wpdb->prepare(
-					'SELECT slug FROM ' . \Jetonomy\table( 'spaces' ) . ' WHERE id = %d',
-					(int) $jt_post->space_id
-				)
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		}
-		$jt_url = $jt_space_slug
-			? home_url( '/community/s/' . $jt_space_slug . '/t/' . ( $jt_post->slug ?? $jt_id ) . '/' )
+		// The bridge (JetonomyBridge::get_related_discussions) supplies a ready
+		// public URL, so the template needs no jt_* table access.
+		$jt_url = ! empty( $jt_post->url )
+			? (string) $jt_post->url
 			: home_url( '/community/' );
 		?>
 		<article class="bn-card bn-card-bridge bn-card-bridge--jetonomy" data-interactive>

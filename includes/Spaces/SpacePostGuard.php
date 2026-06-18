@@ -59,38 +59,70 @@ class SpacePostGuard {
 			return $data;
 		}
 
-		$user_id       = (int) $user_id;
-		$members       = new SpaceMemberService();
-		$role          = ( 'active' === $members->get_status( $space_id, $user_id ) )
-			? (string) $members->get_role( $space_id, $user_id )
-			: '';
-		$is_site_admin = user_can( $user_id, 'manage_options' );
-
-		// "Who can post" threshold: members | mods | owner.
-		if ( ! $is_site_admin ) {
-			$who       = (string) get_option( 'bn_space_' . $space_id . '_who_can_post', 'members' );
-			$role_rank = array(
-				'member'    => 1,
-				'moderator' => 2,
-				'owner'     => 3,
+		// "Who can post" threshold (members | mods | owner). Shared with the
+		// space-home feed panel so the composer the template renders and the
+		// server gate below evaluate the exact same rule.
+		if ( ! self::can_post( $space_id, (int) $user_id ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'You do not have permission to post in this space.', 'buddynext' ),
+				array( 'status' => 403 )
 			);
-			$req_rank  = array(
-				'members' => 1,
-				'mods'    => 2,
-				'owner'   => 3,
-			);
-			if ( ( $role_rank[ $role ] ?? 0 ) < ( $req_rank[ $who ] ?? 1 ) ) {
-				return new WP_Error(
-					'forbidden',
-					__( 'You do not have permission to post in this space.', 'buddynext' ),
-					array( 'status' => 403 )
-				);
-			}
 		}
 
 		// No pre-publish approval gate: members post freely (FB / LinkedIn
 		// model) and moderation is reactive — problematic posts are reported and
 		// removed via the moderation queue, never held for editorial sign-off.
 		return $data;
+	}
+
+	/**
+	 * Whether a user satisfies the space's "Who can post" threshold.
+	 *
+	 * Single source of truth for the posting gate: the space-home feed panel
+	 * uses it to decide whether to render the composer, and enforce() uses it
+	 * to block server-side. A site admin always passes; otherwise the user's
+	 * active space role must meet the configured threshold (members | mods |
+	 * owner). Archived-space read-only state is enforced by the caller, not here.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $user_id  User ID.
+	 * @return bool
+	 */
+	public static function can_post( int $space_id, int $user_id ): bool {
+		$space_id = (int) $space_id;
+		$user_id  = (int) $user_id;
+
+		if ( $space_id <= 0 || $user_id <= 0 ) {
+			return false;
+		}
+
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return true;
+		}
+
+		$members = new SpaceMemberService();
+		$role    = ( 'active' === $members->get_status( $space_id, $user_id ) )
+			? (string) $members->get_role( $space_id, $user_id )
+			: '';
+
+		// Non-members never satisfy the gate.
+		if ( '' === $role ) {
+			return false;
+		}
+
+		$who       = (string) get_option( 'bn_space_' . $space_id . '_who_can_post', 'members' );
+		$role_rank = array(
+			'member'    => 1,
+			'moderator' => 2,
+			'owner'     => 3,
+		);
+		$req_rank  = array(
+			'members' => 1,
+			'mods'    => 2,
+			'owner'   => 3,
+		);
+
+		return ( $role_rank[ $role ] ?? 0 ) >= ( $req_rank[ $who ] ?? 1 );
 	}
 }

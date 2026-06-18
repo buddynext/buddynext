@@ -31,7 +31,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-global $wpdb;
+use BuddyNext\Profile\AvatarService;
 
 $current_user_id = get_current_user_id();
 
@@ -69,120 +69,66 @@ if ( ! in_array( $sort_by, $allowed_sorts, true ) ) {
 	$sort_by = 'newest';
 }
 
-// Build SQL conditionals.
-// report_count is derived via subquery (no denormalized column in bn_reports).
-$type_sql    = ( 'all' !== $filter_type ) ? $wpdb->prepare( ' AND r.object_type = %s', $filter_type ) : '';
-$urgency_sql = ( 'urgent' === $filter_urgency ) ? ' HAVING report_count >= 3' : '';
-$sort_sql    = ( 'most_reported' === $sort_by ) ? 'ORDER BY report_count DESC, r.created_at DESC' : 'ORDER BY r.created_at DESC';
+$bn_mod    = buddynext_service( 'moderation' );
+$bn_posts  = buddynext_service( 'post_service' );
+$bn_spaces = buddynext_service( 'spaces' );
 
-// Stats query.
-// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching
-$stats = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-	"SELECT
-		SUM( CASE WHEN status = 'pending' THEN 1 ELSE 0 END )                                             AS pending,
-		SUM( CASE WHEN status IN ('dismissed','resolved') AND DATE(created_at) = CURDATE() THEN 1 ELSE 0 END ) AS resolved_today,
-		COUNT(*)                                                                                           AS total_all_time
-	 FROM {$wpdb->prefix}bn_reports"
+// Queue summary counters in one service pass (replaces the in-template stats SQL).
+$queue_stats     = $bn_mod->queue_stats();
+$pending_count   = (int) $queue_stats['pending'];
+$resolved_today  = (int) $queue_stats['resolved_today'];
+$total_all_time  = (int) $queue_stats['total_all_time'];
+$suspended_count = (int) $queue_stats['at_risk'];
+
+// Fetch the consolidated queue (one row per reported object, reasons merged,
+// offender strikes + identity enriched) via the service the REST controller uses.
+$queue   = $bn_mod->get_queue(
+	array(
+		'per_page'    => 50,
+		'object_type' => 'all' !== $filter_type ? $filter_type : '',
+		'enrich'      => true,
+	)
 );
+$reports = (array) ( $queue['items'] ?? array() );
 
-// Count users with 3+ active strikes (proxy for suspended/at-risk accounts).
-$suspended_count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-	"SELECT COUNT(*) FROM (
-		SELECT user_id FROM {$wpdb->prefix}bn_user_strikes
-		WHERE is_reversed = 0
-		GROUP BY user_id HAVING COUNT(*) >= 3
-	 ) AS at_risk"
-);
-// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching
-
-$urgent_count   = 0; // Computed after fetching reports (requires per-object count).
-$pending_count  = (int) ( $stats->pending ?? 0 );
-$resolved_today = (int) ( $stats->resolved_today ?? 0 );
-$total_all_time = (int) ( $stats->total_all_time ?? 0 );
-
-// Fetch pending reports grouped by reported object with aggregated counts.
-// $type_sql is built from wpdb->prepare(); $urgency_sql and $sort_sql use validated literals only.
-// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching
-$reports = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-	"SELECT r.object_type, r.object_id, r.reason, MIN(r.status) AS status,
-	        MIN(r.created_at) AS created_at, COUNT(*) AS report_count,
-	        MAX(r.reporter_id) AS reporter_id, MAX(r.id) AS id,
-	        st.strikes_count,
-	        u.display_name AS offender_name, u.user_registered AS offender_joined
-	 FROM {$wpdb->prefix}bn_reports AS r
-	 LEFT JOIN (
-		 SELECT user_id, COUNT(*) AS strikes_count
-		 FROM {$wpdb->prefix}bn_user_strikes
-		 WHERE is_reversed = 0
-		 GROUP BY user_id
-	 ) AS st ON st.user_id = r.object_id AND r.object_type = 'user'
-	 LEFT JOIN {$wpdb->users} AS u ON u.ID = r.object_id AND r.object_type = 'user'
-	 WHERE r.status = 'pending'
-	 $type_sql
-	 GROUP BY r.object_type, r.object_id, r.reason
-	 $urgency_sql
-	 $sort_sql
-	 LIMIT 50"
-);
-// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching
-
-$urgent_count = count( array_filter( (array) $reports, fn( $r ) => (int) $r->report_count >= 3 ) );
-
-// Collect all object IDs per type to resolve display content.
-$post_ids  = array();
-$user_ids  = array();
-$space_ids = array();
-foreach ( $reports ?? array() as $rpt ) {
-	switch ( $rpt->object_type ) {
-		case 'post':
-		case 'comment':
-			$post_ids[] = (int) $rpt->object_id;
-			break;
-		case 'user':
-			$user_ids[] = (int) $rpt->object_id;
-			break;
-		case 'space':
-			$space_ids[] = (int) $rpt->object_id;
-			break;
-	}
+// Urgency filter + most-reported sort run in PHP on report_count — the service
+// returns the count, so no SQL fragment assembly lives in this template.
+if ( 'urgent' === $filter_urgency ) {
+	$reports = array_values( array_filter( $reports, static fn( $r ) => (int) ( $r['report_count'] ?? 0 ) >= 3 ) );
+}
+if ( 'most_reported' === $sort_by ) {
+	usort(
+		$reports,
+		static fn( $a, $b ) => (int) ( $b['report_count'] ?? 0 ) <=> (int) ( $a['report_count'] ?? 0 )
+			?: strcmp( (string) ( $b['created_at'] ?? '' ), (string) ( $a['created_at'] ?? '' ) )
+	);
 }
 
-// Batch-fetch post/comment content excerpts.
+$urgent_count = count( array_filter( $reports, static fn( $r ) => (int) ( $r['report_count'] ?? 0 ) >= 3 ) );
+
+// Resolve display content (post/comment excerpts + author, space names) through
+// the owning services — both are cache-backed and capped at the 50-row queue.
 $post_excerpts = array();
-if ( ! empty( $post_ids ) ) {
-	$placeholders = implode( ', ', array_fill( 0, count( $post_ids ), '%d' ) );
-	// $placeholders is built entirely from hardcoded '%d' strings — no user data.
-	// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-	$post_rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$wpdb->prepare(
-			"SELECT id, content, user_id FROM {$wpdb->prefix}bn_posts WHERE id IN ($placeholders)",
-			...$post_ids
-		)
-	);
-	// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-	foreach ( $post_rows ?? array() as $pr ) {
-		$post_excerpts[ (int) $pr->id ] = array(
-			'content'   => $pr->content,
-			'author_id' => (int) $pr->user_id,
-		);
+$space_names   = array();
+foreach ( $reports as $rpt ) {
+	$obj_type = (string) ( $rpt['object_type'] ?? '' );
+	$obj_id   = (int) ( $rpt['object_id'] ?? 0 );
+	if ( $obj_id <= 0 ) {
+		continue;
 	}
-}
-
-// Batch-fetch space names.
-$space_names = array();
-if ( ! empty( $space_ids ) ) {
-	$placeholders = implode( ', ', array_fill( 0, count( $space_ids ), '%d' ) );
-	// $placeholders is built entirely from hardcoded '%d' strings — no user data.
-	// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-	$space_rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$wpdb->prepare(
-			"SELECT id, name FROM {$wpdb->prefix}bn_spaces WHERE id IN ($placeholders)",
-			...$space_ids
-		)
-	);
-	// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-	foreach ( $space_rows ?? array() as $sr ) {
-		$space_names[ (int) $sr->id ] = $sr->name;
+	if ( in_array( $obj_type, array( 'post', 'comment' ), true ) && ! isset( $post_excerpts[ $obj_id ] ) ) {
+		$bn_mod_post = $bn_posts->get( $obj_id );
+		if ( null !== $bn_mod_post ) {
+			$post_excerpts[ $obj_id ] = array(
+				'content'   => (string) ( $bn_mod_post['content'] ?? '' ),
+				'author_id' => (int) ( $bn_mod_post['user_id'] ?? 0 ),
+			);
+		}
+	} elseif ( 'space' === $obj_type && ! isset( $space_names[ $obj_id ] ) ) {
+		$space = $bn_spaces->get( $obj_id );
+		if ( null !== $space ) {
+			$space_names[ $obj_id ] = (string) ( $space['name'] ?? '' );
+		}
 	}
 }
 
@@ -232,20 +178,6 @@ $reason_badge = static function ( string $reason ): array {
 		'label' => __( 'Off-topic', 'buddynext' ),
 		'tone'  => 'info',
 	);
-};
-
-/**
- * Return initials (up to 2 chars) from a display name.
- *
- * @param string $name Display name.
- * @return string Uppercase initials.
- */
-$initials = static function ( string $name ): string {
-	$parts = array_filter( explode( ' ', trim( $name ) ) );
-	if ( count( $parts ) >= 2 ) {
-		return strtoupper( mb_substr( (string) reset( $parts ), 0, 1 ) . mb_substr( (string) end( $parts ), 0, 1 ) );
-	}
-	return strtoupper( mb_substr( $name, 0, 2 ) );
 };
 
 /**
@@ -415,28 +347,33 @@ do_action( 'buddynext_moderation_queue_before' );
 		<div class="bn-mod-list" role="list">
 			<?php
 			foreach ( $reports as $report ) :
-				$report_id     = (int) $report->id;
-				$obj_id        = (int) $report->object_id;
-				$obj_type      = $report->object_type;
-				$reason        = (string) ( $report->reason ?? '' );
-				$report_count  = (int) ( $report->report_count ?? 1 );
-				$strikes_count = (int) ( $report->strikes_count ?? 0 );
-				$is_suspended  = (bool) ( $report->suspended ?? false );
-				$created_at    = (string) ( $report->created_at ?? '' );
+				$report_id     = (int) $report['id'];
+				$obj_id        = (int) $report['object_id'];
+				$obj_type      = (string) $report['object_type'];
+				$reason        = (string) ( $report['reason'] ?? '' );
+				$report_count  = (int) ( $report['report_count'] ?? 1 );
+				$strikes_count = (int) ( $report['strikes_count'] ?? 0 );
+				$created_at    = (string) ( $report['created_at'] ?? '' );
 
 				$severity = $severity_class( $report_count, $reason );
 				$rbadge   = $reason_badge( $reason );
 
-				// Determine offender identity.
+				// Determine offender identity — offender_name/offender_joined are
+				// supplied by the service's enrich pass for 'user' reports.
 				if ( 'user' === $obj_type ) {
-					$offender_user = get_userdata( $obj_id );
-					$offender_name = $offender_user ? $offender_user->display_name : __( 'Unknown user', 'buddynext' );
-					$joined_date   = $offender_user ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( (int) strtotime( $offender_user->user_registered ), time() ) ) : '';
+					$offender_name = (string) ( $report['offender_name'] ?? '' );
+					if ( '' === $offender_name ) {
+						$offender_name = __( 'Unknown user', 'buddynext' );
+					}
+					$offender_joined = (string) ( $report['offender_joined'] ?? '' );
+					$joined_date     = '' !== $offender_joined
+						? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( (int) strtotime( $offender_joined ), time() ) )
+						: '';
 				} else {
 					$offender_name = __( 'Reported content', 'buddynext' );
 					$joined_date   = '';
 				}
-				$offender_inits = $initials( $offender_name );
+				$offender_inits = AvatarService::initials_for( $offender_name );
 
 				// Offender user ID for user-level actions (warn / strike / suspend).
 				// user reports → the reported user; post/comment → content author.
@@ -476,9 +413,9 @@ do_action( 'buddynext_moderation_queue_before' );
 				$iso_datetime = $created_ts ? gmdate( DATE_ATOM, $created_ts ) : '';
 
 				// Reporter avatar initials.
-				$reporter_id    = (int) $report->reporter_id;
+				$reporter_id    = (int) ( $report['reporter_id'] ?? 0 );
 				$reporter_user  = get_userdata( $reporter_id );
-				$reporter_inits = $reporter_user ? $initials( $reporter_user->display_name ) : '?';
+				$reporter_inits = $reporter_user ? AvatarService::initials_for( $reporter_user->display_name ) : '?';
 				?>
 				<article class="bn-report-row"
 					role="listitem"
@@ -514,7 +451,7 @@ do_action( 'buddynext_moderation_queue_before' );
 							<?php endif; ?>
 						</div>
 
-						<?php if ( $joined_date || $strikes_count > 0 || $is_suspended ) : ?>
+						<?php if ( $joined_date || $strikes_count > 0 ) : ?>
 							<div class="bn-report-row__meta">
 								<?php if ( $joined_date ) : ?>
 									<span>
@@ -549,10 +486,6 @@ do_action( 'buddynext_moderation_queue_before' );
 										);
 										?>
 									</span>
-								<?php endif; ?>
-								<?php if ( $is_suspended ) : ?>
-									<span class="bn-report-row__meta-dot" aria-hidden="true"></span>
-									<span class="bn-report-row__suspended"><?php esc_html_e( 'Suspended', 'buddynext' ); ?></span>
 								<?php endif; ?>
 							</div>
 						<?php endif; ?>
@@ -602,11 +535,14 @@ do_action( 'buddynext_moderation_queue_before' );
 							 * cluster, before Free's built-in action buttons.
 							 *
 							 * Pro hooks here to inject bulk-select checkboxes,
-							 * extra inline actions, or status badges. The
-							 * report object is the raw row from bn_reports
-							 * (with the same shape used by the rest of the
-							 * template — id, object_type, object_id, reason,
-							 * report_count, strikes_count, created_at...).
+							 * extra inline actions, or status badges. The report
+							 * is the consolidated, hydrated queue item from
+							 * ModerationService::get_queue() (one row per reported
+							 * object) — keys: id, reporter_id, object_type,
+							 * object_id, reason, reasons, report_count,
+							 * reporter_count, status, created_at, plus offender
+							 * enrichment (strikes_count, offender_name,
+							 * offender_joined) on 'user' reports.
 							 *
 							 * Output is rendered verbatim inside a
 							 * .bn-report-row__actions container — handlers
@@ -614,7 +550,7 @@ do_action( 'buddynext_moderation_queue_before' );
 							 *
 							 * @since 1.1.0
 							 *
-							 * @param object $report Row from bn_reports.
+							 * @param array<string,mixed> $report Hydrated queue item.
 							 */
 							do_action( 'buddynext_mod_queue_row_actions', $report );
 							?>

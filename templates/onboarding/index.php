@@ -19,6 +19,9 @@
 
 declare(strict_types=1);
 
+use BuddyNext\Feed\ExploreService;
+use BuddyNext\Profile\AvatarService;
+
 // Guest gate and "already completed" redirect are enforced upstream in
 // PageRouter::dispatch_hub_template() so they fire before wp_head().
 $ob_user_id = get_current_user_id();
@@ -27,8 +30,6 @@ $ob_user = get_userdata( $ob_user_id );
 if ( ! $ob_user ) {
 	wp_die( esc_html__( 'User not found.', 'buddynext' ) );
 }
-
-global $wpdb;
 
 $display_name  = $ob_user->display_name;
 $current_login = $ob_user->user_login;
@@ -41,19 +42,16 @@ if ( '' === $current_slug ) {
 	$current_slug = $current_login;
 }
 
-$name_parts = explode( ' ', $display_name );
-$initials   = '';
-foreach ( array_slice( $name_parts, 0, 2 ) as $part ) {
-	$initials .= mb_strtoupper( mb_substr( $part, 0, 1 ) );
-}
-$initials = ! empty( $initials ) ? $initials : mb_strtoupper( mb_substr( $current_login, 0, 2 ) );
+$initials = '' !== trim( $display_name )
+	? AvatarService::initials_for( $display_name )
+	: AvatarService::initials_for( $current_login );
 
 $avatar_url = get_avatar_url( $ob_user_id, array( 'size' => 100 ) );
 // Custom uploaded avatar only (empty for the generated initials fallback) — the
 // live preview shows the photo when set, the initial otherwise.
 $custom_avatar = (string) get_user_meta( $ob_user_id, 'bn_avatar', true );
 $bio           = (string) get_user_meta( $ob_user_id, 'bn_bio', true );
-$saved_step = max( 1, (int) get_user_meta( $ob_user_id, 'bn_onboarding_step', true ) );
+$saved_step    = max( 1, (int) get_user_meta( $ob_user_id, 'bn_onboarding_step', true ) );
 // Dev-only: ?_step=N (with redo) lets the user jump to a specific step
 // for testing. Requires ?redo=1 to opt in so a stray bookmarked link
 // can't be used to skip past a step.
@@ -61,48 +59,46 @@ if ( isset( $_GET['redo'] ) && isset( $_GET['_step'] ) ) { // phpcs:ignore WordP
 	$saved_step = max( 1, min( 4, (int) $_GET['_step'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 }
 
-// Recommended spaces (step 2) — pull from bn_spaces.
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-$recommended_spaces = $wpdb->get_results( "SELECT id, name, member_count, description, avatar_url FROM {$wpdb->prefix}bn_spaces ORDER BY member_count DESC LIMIT 6" );
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+$bn_ob_spaces  = buddynext_service( 'spaces' );
+$bn_ob_members = buddynext_service( 'space_members' );
+$bn_ob_follows = buddynext_service( 'follows' );
+$bn_ob_explore = new ExploreService();
 
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$joined_space_ids_raw = $wpdb->get_col(
-	$wpdb->prepare(
-		"SELECT space_id FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active'",
-		$ob_user_id
+// Recommended spaces (step 2) — most-populated spaces via the service the
+// REST controller uses (returns hydrated id/name/member_count/description/avatar_url).
+$recommended_spaces = $bn_ob_spaces->list_spaces(
+	array(
+		'orderby'  => 'member_count',
+		'order'    => 'DESC',
+		'per_page' => 6,
 	)
 );
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$joined_space_ids = array_map( 'intval', $joined_space_ids_raw );
 
-// Suggested people to follow (step 3).
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$suggested_users = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT u.ID, u.display_name, u.user_login,
-		        um.meta_value AS headline,
-		        ( SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows f2
-		          WHERE f2.following_id = u.ID ) AS follower_count
-		FROM {$wpdb->users} u
-		LEFT JOIN {$wpdb->usermeta} um ON um.user_id = u.ID AND um.meta_key = 'bn_headline'
-		WHERE u.ID != %d
-		ORDER BY follower_count DESC
-		LIMIT 5",
-		$ob_user_id
-	)
-);
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+// Spaces the user already belongs to + people they already follow (prefill the
+// Join / Follow button states) via bulk service accessors.
+$joined_space_ids  = $bn_ob_members->spaces_for_user( $ob_user_id );
+$already_following = $bn_ob_follows->following( $ob_user_id );
 
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$already_following = $wpdb->get_col(
-	$wpdb->prepare(
-		"SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d",
-		$ob_user_id
-	)
-);
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$already_following = array_map( 'intval', $already_following );
+// Suggested people to follow (step 3) — shared discovery accessor, then enrich
+// each candidate with headline + follower count through the service layer.
+$suggested_users = array();
+foreach ( $bn_ob_explore->suggested_member_ids( 5 ) as $sug_uid ) {
+	$sug_uid = (int) $sug_uid;
+	if ( $sug_uid <= 0 || $sug_uid === $ob_user_id ) {
+		continue;
+	}
+	$sug_wp_user = get_userdata( $sug_uid );
+	if ( ! $sug_wp_user ) {
+		continue;
+	}
+	$suggested_users[] = array(
+		'id'             => $sug_uid,
+		'display_name'   => $sug_wp_user->display_name,
+		'user_login'     => $sug_wp_user->user_login,
+		'headline'       => (string) get_user_meta( $sug_uid, 'bn_headline', true ),
+		'follower_count' => $bn_ob_follows->follower_count( $sug_uid ),
+	);
+}
 
 $rest_nonce = wp_create_nonce( 'wp_rest' );
 $rest_root  = esc_url_raw( rest_url( 'buddynext/v1/' ) );
@@ -110,13 +106,13 @@ $rest_root  = esc_url_raw( rest_url( 'buddynext/v1/' ) );
 // Read the user's master channel prefs so the toggles render with the
 // right initial state. Defaults mirror NotificationController::get_notification_channels:
 // in-app + email default on; push defaults to whether Pro Push is installed.
-$channel_prefs   = get_user_meta( $ob_user_id, 'bn_channel_prefs', true );
-$channel_prefs   = is_array( $channel_prefs ) ? $channel_prefs : array();
-$push_available  = class_exists( '\\BuddyNextPro\\Push\\PushDispatcher' );
-$initial_email   = array_key_exists( 'email', $channel_prefs )  ? (bool) $channel_prefs['email']  : true;
-$initial_in_app  = array_key_exists( 'in_app', $channel_prefs ) ? (bool) $channel_prefs['in_app'] : true;
-$initial_push    = array_key_exists( 'push', $channel_prefs )   ? (bool) $channel_prefs['push']   : $push_available;
-$initial_sound   = array_key_exists( 'sound', $channel_prefs )  ? (bool) $channel_prefs['sound']  : false;
+$channel_prefs  = get_user_meta( $ob_user_id, 'bn_channel_prefs', true );
+$channel_prefs  = is_array( $channel_prefs ) ? $channel_prefs : array();
+$push_available = class_exists( '\\BuddyNextPro\\Push\\PushDispatcher' );
+$initial_email  = array_key_exists( 'email', $channel_prefs ) ? (bool) $channel_prefs['email'] : true;
+$initial_in_app = array_key_exists( 'in_app', $channel_prefs ) ? (bool) $channel_prefs['in_app'] : true;
+$initial_push   = array_key_exists( 'push', $channel_prefs ) ? (bool) $channel_prefs['push'] : $push_available;
+$initial_sound  = array_key_exists( 'sound', $channel_prefs ) ? (bool) $channel_prefs['sound'] : false;
 
 // Step config (label, icon) — V2-aligned set:
 // 1 Profile · 2 Spaces · 3 People · 4 Notifications.
@@ -151,14 +147,14 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 	echo wp_interactivity_data_wp_context(
 		array(
-			'step'              => $saved_step,
-			'totalSteps'        => $total_steps,
-			'joinedSpaces'      => $joined_space_ids,
-			'followingUsers'    => $already_following,
-			'displayName'       => $display_name,
-			'displayNameDirty'  => false,
+			'step'                => $saved_step,
+			'totalSteps'          => $total_steps,
+			'joinedSpaces'        => $joined_space_ids,
+			'followingUsers'      => $already_following,
+			'displayName'         => $display_name,
+			'displayNameDirty'    => false,
 			'userLogin'           => $current_slug,
-			'bio'               => $bio,
+			'bio'                 => $bio,
 			'avatarUrl'           => $custom_avatar,
 			'usernameAvailable'   => true,
 			'usernameChecking'    => false,
@@ -168,11 +164,11 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			'channelPush'         => $initial_push,
 			'channelSound'        => $initial_sound,
 			'pushAvailable'       => $push_available,
-			'saving'            => false,
-			'error'             => '',
-			'restNonce'         => $rest_nonce,
-			'restUrl'           => $rest_root,
-			'redirectUrl'       => esc_url_raw( $activity_url ),
+			'saving'              => false,
+			'error'               => '',
+			'restNonce'           => $rest_nonce,
+			'restUrl'             => $rest_root,
+			'redirectUrl'         => esc_url_raw( $activity_url ),
 		)
 	);
 	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -184,7 +180,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 		<div class="bn-ob-form">
 
 		<!-- Form header: brand + step counter (no separate progress bar — the
-		     stepper below is itself the progress indicator). -->
+			stepper below is itself the progress indicator). -->
 		<div class="bn-ob-form-head">
 			<span class="bn-ob-form-head__step" data-wp-text="state.stepLabel"><?php echo esc_html( sprintf( /* translators: 1: current step, 2: total steps */ __( 'Step %1$d of %2$d', 'buddynext' ), $saved_step, $total_steps ) ); ?></span>
 		</div>
@@ -351,7 +347,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 				<?php if ( $recommended_spaces ) : ?>
 					<?php foreach ( $recommended_spaces as $space ) : ?>
 						<?php
-						$space_id  = (int) $space->id;
+						$space_id  = (int) $space['id'];
 						$is_joined = in_array( $space_id, $joined_space_ids, true );
 						?>
 						<div class="bn-card bn-ob-space-card" data-interactive="true">
@@ -359,30 +355,30 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 								<span class="bn-avatar bn-ob-space-avatar"
 									data-size="md"
 									aria-hidden="true">
-									<?php if ( ! empty( $space->avatar_url ) ) : ?>
-										<img src="<?php echo esc_url( (string) $space->avatar_url ); ?>"
-											alt="<?php echo esc_attr( (string) $space->name ); ?>" loading="lazy" />
+									<?php if ( ! empty( $space['avatar_url'] ) ) : ?>
+										<img src="<?php echo esc_url( (string) $space['avatar_url'] ); ?>"
+											alt="<?php echo esc_attr( (string) $space['name'] ); ?>" loading="lazy" />
 									<?php else : ?>
 										<?php buddynext_icon( 'home' ); ?>
 									<?php endif; ?>
 								</span>
 								<div class="bn-ob-space-card__meta">
-									<h3 class="bn-ob-space-card__name"><?php echo esc_html( $space->name ); ?></h3>
+									<h3 class="bn-ob-space-card__name"><?php echo esc_html( (string) $space['name'] ); ?></h3>
 									<p class="bn-ob-space-card__members">
 										<?php
 										echo esc_html(
 											sprintf(
 												/* translators: %s: member count */
 												__( '%s members', 'buddynext' ),
-												number_format_i18n( (int) $space->member_count )
+												number_format_i18n( (int) $space['member_count'] )
 											)
 										);
 										?>
 									</p>
 								</div>
 							</div>
-							<?php if ( ! empty( $space->description ) ) : ?>
-								<p class="bn-ob-space-card__desc"><?php echo esc_html( wp_trim_words( $space->description, 14 ) ); ?></p>
+							<?php if ( ! empty( $space['description'] ) ) : ?>
+								<p class="bn-ob-space-card__desc"><?php echo esc_html( wp_trim_words( (string) $space['description'], 14 ) ); ?></p>
 							<?php endif; ?>
 							<button class="bn-btn bn-ob-space-card__cta"
 								type="button"
@@ -447,16 +443,13 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 					<ul class="bn-ob-people" role="list">
 						<?php foreach ( $suggested_users as $sug_user ) : ?>
 							<?php
-							$sug_id         = (int) $sug_user->ID;
-							$sug_name       = $sug_user->display_name;
-							$sug_login      = $sug_user->user_login;
-							$sug_headline   = ! empty( $sug_user->headline ) ? $sug_user->headline : '';
-							$sug_followers  = (int) $sug_user->follower_count;
-							$sug_avatar_url = get_avatar_url( $sug_id, array( 'size' => 72 ) );
-							$sug_initials   = '';
-							foreach ( array_slice( explode( ' ', $sug_name ), 0, 2 ) as $p ) {
-								$sug_initials .= mb_strtoupper( mb_substr( $p, 0, 1 ) );
-							}
+							$sug_id           = (int) $sug_user['id'];
+							$sug_name         = (string) $sug_user['display_name'];
+							$sug_login        = (string) $sug_user['user_login'];
+							$sug_headline     = ! empty( $sug_user['headline'] ) ? (string) $sug_user['headline'] : '';
+							$sug_followers    = (int) $sug_user['follower_count'];
+							$sug_avatar_url   = get_avatar_url( $sug_id, array( 'size' => 72 ) );
+							$sug_initials     = AvatarService::initials_for( $sug_name );
 							$is_following_sug = in_array( $sug_id, $already_following, true );
 							?>
 							<li class="bn-ob-person">
@@ -544,7 +537,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			<header class="bn-ob-step__head">
 				<span class="bn-ob-step__icon" aria-hidden="true"><?php buddynext_icon( 'bell' ); ?></span>
 				<h1 id="bn-ob-step-4-title" class="bn-ob-step__title"><?php esc_html_e( 'How should we ping you?', 'buddynext' ); ?></h1>
-				<p class="bn-ob-step__sub"><?php esc_html_e( "Pick the channels you want to hear from. You can fine-tune which events on each channel from your settings.", 'buddynext' ); ?></p>
+				<p class="bn-ob-step__sub"><?php esc_html_e( 'Pick the channels you want to hear from. You can fine-tune which events on each channel from your settings.', 'buddynext' ); ?></p>
 			</header>
 
 			<div class="bn-ob-channels" role="group" aria-label="<?php esc_attr_e( 'Notification channels', 'buddynext' ); ?>">
@@ -662,7 +655,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 				</div>
 
 				<p class="bn-ob-canvas__caption">
-					<?php esc_html_e( "This is how other members will see you. Update anything from your profile later.", 'buddynext' ); ?>
+					<?php esc_html_e( 'This is how other members will see you. Update anything from your profile later.', 'buddynext' ); ?>
 				</p>
 			</div>
 		</aside>

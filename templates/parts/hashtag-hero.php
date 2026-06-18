@@ -106,6 +106,9 @@ do_action( 'buddynext_part_hashtag_hero_before', $args );
 					data-wp-on--click="actions.toggleFollowHashtag"
 					data-hashtag="<?php echo esc_attr( $bn_slug ); ?>"
 					aria-pressed="<?php echo $bn_follows ? 'true' : 'false'; ?>"
+					data-wp-class--following="context.following"
+					data-wp-bind--aria-pressed="state.hashtagFollowPressed"
+					data-wp-bind--data-current-state="state.hashtagFollowState"
 				>
 					<?php // Both labels render; the .following class on the button (toggled by toggleFollowHashtag) swaps which is visible, so the button stays in sync after a click. ?>
 					<span class="bn-htf__icon" aria-hidden="true"><?php buddynext_icon( 'check' ); ?></span>

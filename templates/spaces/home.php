@@ -51,22 +51,6 @@ if ( ! function_exists( 'bn_space_category_icon' ) ) {
 	}
 }
 
-if ( ! function_exists( 'bn_sh_initials' ) ) {
-	/**
-	 * Return initials (up to 2 chars) from a display name.
-	 *
-	 * @param string $name Full display name.
-	 * @return string Uppercase initials.
-	 */
-	function bn_sh_initials( string $name ): string {
-		$parts = array_filter( explode( ' ', trim( $name ) ) );
-		if ( count( $parts ) >= 2 ) {
-			return strtoupper( mb_substr( $parts[0], 0, 1 ) . mb_substr( end( $parts ), 0, 1 ) );
-		}
-		return strtoupper( mb_substr( $name, 0, 2 ) );
-	}
-}
-
 if ( ! function_exists( 'bn_sh_avatar_color' ) ) {
 	/**
 	 * Return a deterministic avatar background colour based on a user id.
@@ -81,7 +65,11 @@ if ( ! function_exists( 'bn_sh_avatar_color' ) ) {
 }
 
 
-global $wpdb;
+// ── Services ──────────────────────────────────────────────────────────────────
+
+$bn_space_service  = new \BuddyNext\Spaces\SpaceService();
+$bn_member_service = new \BuddyNext\Spaces\SpaceMemberService();
+$bn_feed_service   = buddynext_service( 'feed' );
 
 // ── Resolve space ─────────────────────────────────────────────────────────────
 
@@ -91,39 +79,43 @@ if ( ! $space_id ) {
 	wp_die( esc_html__( 'Space not found.', 'buddynext' ) );
 }
 
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$space = $wpdb->get_row(
-	$wpdb->prepare(
-		"SELECT s.*, c.name AS category_name, c.slug AS category_slug
-		FROM {$wpdb->prefix}bn_spaces s
-		LEFT JOIN {$wpdb->prefix}bn_space_categories c ON c.id = s.category_id
-		WHERE s.id = %d
-		LIMIT 1",
-		$space_id
-	)
-);
+$bn_space_arr = $bn_space_service->get( $space_id );
 
-if ( ! $space ) {
+if ( null === $bn_space_arr ) {
 	wp_die( esc_html__( 'Space not found.', 'buddynext' ) );
 }
+
+// Parts (hero, about, members, feed, sidebar) read $space as an object and need
+// the category name/slug the bare space row does not carry. Resolve the category
+// through its owning service, then expose the space as an object so the shared
+// parts keep their existing property access untouched.
+$bn_category_name = '';
+$bn_category_slug = '';
+if ( ! empty( $bn_space_arr['category_id'] ) ) {
+	$bn_category = ( new \BuddyNext\Spaces\SpaceCategoryService() )->get_by_id( (int) $bn_space_arr['category_id'] );
+	if ( is_array( $bn_category ) ) {
+		$bn_category_name = (string) ( $bn_category['name'] ?? '' );
+		$bn_category_slug = (string) ( $bn_category['slug'] ?? '' );
+	}
+}
+$bn_space_arr['category_name'] = $bn_category_name;
+$bn_space_arr['category_slug'] = $bn_category_slug;
+
+$space = (object) $bn_space_arr;
 
 $current_user_id = get_current_user_id();
 
 // ── Current user's membership ─────────────────────────────────────────────────
 
-if ( $current_user_id ) {
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$membership = $wpdb->get_row(
-		$wpdb->prepare(
-			"SELECT role, status FROM {$wpdb->prefix}bn_space_members
-			WHERE space_id = %d AND user_id = %d LIMIT 1",
-			$space_id,
-			$current_user_id
-		)
-	);
-} else {
-	$membership = null;
-}
+$bn_member_role_now   = $current_user_id ? $bn_member_service->get_role( $space_id, $current_user_id ) : null;
+$bn_member_status_now = $current_user_id ? $bn_member_service->get_status( $space_id, $current_user_id ) : null;
+
+$membership = ( null !== $bn_member_status_now )
+	? (object) array(
+		'role'   => (string) $bn_member_role_now,
+		'status' => (string) $bn_member_status_now,
+	)
+	: null;
 
 $is_member    = $membership && 'active' === $membership->status;
 $is_admin_mod = $membership && 'active' === $membership->status && in_array( $membership->role, array( 'owner', 'moderator' ), true );
@@ -142,24 +134,10 @@ $is_guest     = ( 0 === (int) $current_user_id );
 
 // Posting permission (Permissions panel → "Who can post"): members | mods | owner.
 // A site admin, or any member whose role meets the configured threshold, may post.
-// This drives whether the composer is rendered in the feed panel; the REST
-// endpoint enforces the same rule server-side so the gate is not bypassable.
-$bn_member_role   = ( $membership && 'active' === $membership->status ) ? (string) $membership->role : '';
-$bn_who_can_post  = (string) get_option( 'bn_space_' . $space_id . '_who_can_post', 'members' );
-$bn_role_rank     = array(
-	'member'    => 1,
-	'moderator' => 2,
-	'owner'     => 3,
-);
-$bn_required_rank = array(
-	'members' => 1,
-	'mods'    => 2,
-	'owner'   => 3,
-);
-$bn_can_post      = $is_member && (
-	current_user_can( 'manage_options' )
-	|| ( $bn_role_rank[ $bn_member_role ] ?? 0 ) >= ( $bn_required_rank[ $bn_who_can_post ] ?? 1 )
-);
+// This drives whether the composer is rendered in the feed panel; the rank rule
+// lives in SpacePostGuard::can_post(), which the REST create path enforces too,
+// so the visible composer and the server gate stay in lockstep.
+$bn_can_post = $is_member && \BuddyNext\Spaces\SpacePostGuard::can_post( $space_id, $current_user_id );
 
 // An archived space is read-only: no composer for anyone (mirrors the
 // PostService/CommentService/join guards). A banner explains the state.
@@ -186,128 +164,78 @@ if ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_hidden_from_non_members
 $gate_feed = ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->content_requires_membership( (string) $space->type ) && ! $is_member && ! current_user_can( 'manage_options' ) );
 
 // ── Fetch posts for the feed ──────────────────────────────────────────────────
+// All post data flows through FeedService, which hydrates each row via
+// PostService::hydrate() — the same path the space-feed REST controller uses.
 
 $feed_posts  = array();
 $pinned_post = null;
 
 if ( ! $gate_feed ) {
-	// Pinned announcement.
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$pinned_post = $wpdb->get_row(
-		$wpdb->prepare(
-			"SELECT p.*, u.display_name AS author_name, um.meta_value AS author_avatar_url
-			FROM {$wpdb->prefix}bn_posts p
-			INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
-			LEFT JOIN {$wpdb->usermeta} um ON um.user_id = p.user_id AND um.meta_key = 'buddynext_avatar_url'
-			WHERE p.space_id = %d AND p.is_pinned = 1 AND p.status = 'published'
-				AND ( p.scheduled_at IS NULL OR p.scheduled_at <= UTC_TIMESTAMP() )
-			ORDER BY p.created_at DESC LIMIT 1",
-			$space_id
-		)
-	);
+	// Pinned announcement (hydrated post array). The feed panel renders it as an
+	// object and shows the author's name, which hydrate() does not carry, so we
+	// enrich a single display_name onto the object before handing it over.
+	$bn_pinned_arr = $bn_feed_service->space_pinned_post( $space_id );
+	if ( is_array( $bn_pinned_arr ) ) {
+		$bn_pinned_author       = get_userdata( (int) ( $bn_pinned_arr['user_id'] ?? 0 ) );
+		$bn_pinned_arr['author_name'] = $bn_pinned_author ? $bn_pinned_author->display_name : __( 'Admin', 'buddynext' );
+		$pinned_post            = (object) $bn_pinned_arr;
+	}
 
-	// Regular feed posts.
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$feed_posts = $wpdb->get_results(
-		$wpdb->prepare(
-			"SELECT p.*, u.display_name AS author_name,
-			( SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions r WHERE r.object_type = 'post' AND r.object_id = p.id ) AS reaction_count,
-			( SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments cm WHERE cm.object_type = 'post' AND cm.object_id = p.id ) AS comment_count,
-			sm.role AS author_role
-			FROM {$wpdb->prefix}bn_posts p
-			INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
-			LEFT JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = p.space_id AND sm.user_id = p.user_id
-			WHERE p.space_id = %d AND p.is_pinned = 0 AND p.status = 'published'
-				AND ( p.scheduled_at IS NULL OR p.scheduled_at <= UTC_TIMESTAMP() )
-			ORDER BY p.created_at DESC
-			LIMIT 20",
-			$space_id
-		),
-		ARRAY_A
+	// Regular feed posts (hydrated arrays; pinned post excluded by FeedService).
+	$bn_space_feed = $bn_feed_service->space_feed( $space_id, $current_user_id, null, 20 );
+	$feed_posts    = array_values(
+		array_filter(
+			(array) ( $bn_space_feed['items'] ?? array() ),
+			static function ( $bn_p ) {
+				// The pinned post leads as its own card above the feed, so drop it
+				// from the regular list to avoid showing it twice.
+				return empty( $bn_p['is_pinned'] );
+			}
+		)
 	);
 }
 
 // ── Fetch sidebar members ─────────────────────────────────────────────────────
+// Owners/moderators always lead the sidebar; fetch them in full (they are few)
+// and a capped preview of regular members. Each row is exposed as an object so
+// the sidebar markup keeps its existing property access.
+$bn_to_objects = static function ( array $rows ): array {
+	return array_map(
+		static function ( array $r ): object {
+			// space-members-panel falls back to user_login when display_name is
+			// empty; the service carries user_nicename, so mirror it across.
+			$r['user_login'] = $r['user_login'] ?? ( $r['user_nicename'] ?? '' );
+			return (object) $r;
+		},
+		$rows
+	);
+};
 
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$sidebar_members = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT sm.role, sm.user_id, u.display_name
-		FROM {$wpdb->prefix}bn_space_members sm
-		INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id
-		WHERE sm.space_id = %d AND sm.status = 'active'
-		ORDER BY FIELD( sm.role, 'owner', 'moderator', 'member' ), sm.joined_at ASC
-		LIMIT 10",
-		$space_id
-	)
+$bn_mods = array_merge(
+	$bn_member_service->get_members( $space_id, $current_user_id, 0, 0, array( 'role' => 'owner' ) ),
+	$bn_member_service->get_members( $space_id, $current_user_id, 0, 0, array( 'role' => 'moderator' ) )
 );
+$bn_regulars     = $bn_member_service->get_members( $space_id, $current_user_id, 10, 0, array( 'role' => 'member' ) );
+$sidebar_members = $bn_to_objects( array_merge( $bn_mods, $bn_regulars ) );
 
 // ── Top contributors ──────────────────────────────────────────────────────────
 
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$top_contributors = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT p.user_id, u.display_name, COUNT(*) AS post_count
-		FROM {$wpdb->prefix}bn_posts p
-		INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
-		WHERE p.space_id = %d AND p.status = 'published'
-			AND ( p.scheduled_at IS NULL OR p.scheduled_at <= UTC_TIMESTAMP() )
-		GROUP BY p.user_id
-		ORDER BY post_count DESC
-		LIMIT 3",
-		$space_id
-	)
-);
+$top_contributors = $bn_to_objects( $bn_space_service->top_contributors( $space_id, 3 ) );
 
 // ── Counts for stat strip + tabs ──────────────────────────────────────────────
 
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$bn_post_count = (int) $wpdb->get_var(
-	$wpdb->prepare(
-		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND status = 'published' AND ( scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP() )",
-		$space_id
-	)
-);
-
+$bn_post_count  = $bn_feed_service->space_post_count( $space_id );
 // Media tab count — posts in this space carrying at least one media attachment.
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$bn_media_count = (int) $wpdb->get_var(
-	$wpdb->prepare(
-		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
-		 WHERE space_id = %d AND status = 'published' AND ( scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP() )
-		   AND media_ids IS NOT NULL AND media_ids != '[]' AND media_ids != ''",
-		$space_id
-	)
-);
+$bn_media_count = $bn_feed_service->space_media_post_count( $space_id );
 
-// Moderation tab count — reports against content in this space that
-// still need a decision. `pending` is the queued state; `escalated` is
-// also still actionable (admin review). Resolved only when the viewer
-// is admin/mod; everyone else gets 0 so the count chip never leaks
-// the queue size to non-moderators.
-$bn_mod_count = 0;
-// Pending join requests waiting on an owner/mod decision. Surfaced alongside
-// reports so the Moderation tab badge and summary reflect everything the
-// moderator still needs to action — otherwise join requests are invisible at
-// the space level (only reachable by opening the full queue and switching tabs).
+// Moderation tab counts — open reports + pending join requests for this space.
+// Resolved only when the viewer may moderate; everyone else gets 0 so the count
+// chip never leaks the queue size to non-moderators.
+$bn_mod_count     = 0;
 $bn_pending_count = 0;
 if ( $can_moderate ) {
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$bn_mod_count = (int) $wpdb->get_var(
-		$wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports
-			 WHERE space_id = %d AND status IN ( 'pending', 'escalated' )",
-			$space_id
-		)
-	);
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$bn_pending_count = (int) $wpdb->get_var(
-		$wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members
-			 WHERE space_id = %d AND status = 'pending'",
-			$space_id
-		)
-	);
+	$bn_mod_count     = buddynext_service( 'moderation' )->count_open_reports_for_space( $space_id );
+	$bn_pending_count = $bn_member_service->count_pending_requests( $space_id );
 }
 
 $active_tab       = isset( $_GET['bn_tab'] ) ? sanitize_key( wp_unslash( $_GET['bn_tab'] ) ) : 'feed'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -322,24 +250,16 @@ $rest_nonce      = wp_create_nonce( 'wp_rest' );
 // Per-space notification preference for the current user.
 $bn_notif_pref = 'all';
 if ( $is_member ) {
-	$bn_notif_pref = ( new \BuddyNext\Spaces\SpaceMemberService() )->get_notification_pref( $space_id, $current_user_id );
+	$bn_notif_pref = $bn_member_service->get_notification_pref( $space_id, $current_user_id );
 }
 
-// Members and moderation tabs require fetched data when active.
+// Members tab requires the full roster when active. Exposed as objects so the
+// members panel keeps its existing property access.
 $bn_full_members = array();
 $bn_tab_lookup   = isset( $_GET['bn_tab'] ) ? sanitize_key( wp_unslash( $_GET['bn_tab'] ) ) : 'feed'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 if ( 'members' === $bn_tab_lookup && ! $gate_feed ) {
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$bn_full_members = $wpdb->get_results(
-		$wpdb->prepare(
-			"SELECT sm.user_id, sm.role, u.display_name, u.user_login
-			 FROM {$wpdb->prefix}bn_space_members sm
-			 INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id
-			 WHERE sm.space_id = %d AND sm.status = 'active'
-			 ORDER BY FIELD( sm.role, 'owner', 'moderator', 'member' ), sm.joined_at ASC
-			 LIMIT 100",
-			$space_id
-		)
+	$bn_full_members = $bn_to_objects(
+		$bn_member_service->get_members( $space_id, $current_user_id, 100, 0 )
 	);
 }
 
@@ -438,7 +358,7 @@ add_action(
 						<?php
 						$bn_mod_uid   = (int) $bn_mod->user_id;
 						$bn_mod_name  = $bn_mod->display_name ?? __( 'Member', 'buddynext' );
-						$bn_mod_init  = bn_sh_initials( $bn_mod_name );
+						$bn_mod_init  = \BuddyNext\Profile\AvatarService::initials_for( (string) $bn_mod_name );
 						$bn_mod_url   = \BuddyNext\Core\PageRouter::profile_url( $bn_mod_uid );
 						$bn_mod_owner = 'owner' === $bn_mod->role;
 						?>
@@ -494,7 +414,7 @@ add_action(
 					<?php
 					$bn_uid   = (int) $bn_m->user_id;
 					$bn_mname = $bn_m->display_name ?? __( 'Member', 'buddynext' );
-					$bn_init  = bn_sh_initials( $bn_mname );
+					$bn_init  = \BuddyNext\Profile\AvatarService::initials_for( (string) $bn_mname );
 					$bn_murl  = \BuddyNext\Core\PageRouter::profile_url( $bn_uid );
 					?>
 					<li class="bn-sh-side-member">
@@ -536,7 +456,7 @@ add_action(
 					<?php
 					$bn_cuid  = (int) $bn_c->user_id;
 					$bn_cname = $bn_c->display_name ?? __( 'Member', 'buddynext' );
-					$bn_cinit = bn_sh_initials( $bn_cname );
+					$bn_cinit = \BuddyNext\Profile\AvatarService::initials_for( (string) $bn_cname );
 					$bn_curl  = \BuddyNext\Core\PageRouter::profile_url( $bn_cuid );
 					?>
 					<li class="bn-sh-side-member">
@@ -773,27 +693,11 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 			// Media tab — media shared in this space, gathered from the space's
 			// own posts (BuddyNext owns the post↔media linkage) and resolved
 			// BN-native. No WP attachments, no dropped mvs_media CPT — all media
-			// lives in mvs_media_index and renders through MediaRenderer.
-			$space_media_ids = array();
-			if ( \BuddyNext\Media\MediaClient::available() ) {
-				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$bn_space_media_rows = $wpdb->get_col(
-					$wpdb->prepare(
-						"SELECT media_ids FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND media_ids IS NOT NULL AND media_ids != '' AND status = 'published' AND ( scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP() ) ORDER BY created_at DESC LIMIT 60",
-						$space_id
-					)
-				);
-				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				foreach ( $bn_space_media_rows as $bn_json ) {
-					$bn_decoded = json_decode( (string) $bn_json, true );
-					if ( is_array( $bn_decoded ) ) {
-						foreach ( $bn_decoded as $bn_mid ) {
-							$space_media_ids[] = absint( $bn_mid );
-						}
-					}
-				}
-				$space_media_ids = array_slice( array_values( array_unique( array_filter( $space_media_ids ) ) ), 0, 24 );
-			}
+			// lives in mvs_media_index and renders through MediaRenderer. The
+			// flatten/de-dup/cap pipeline lives in FeedService::space_media_ids().
+			$space_media_ids = \BuddyNext\Media\MediaClient::available()
+				? $bn_feed_service->space_media_ids( $space_id, 24 )
+				: array();
 			?>
 			<?php if ( ! empty( $space_media_ids ) ) : ?>
 				<?php echo \BuddyNext\Media\MediaRenderer::gallery( $space_media_ids ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer::gallery() returns escaped markup. ?>

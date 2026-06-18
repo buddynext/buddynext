@@ -9,49 +9,46 @@ import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '../shell/rest-client.js';
 
 store( 'buddynext/feed', {
+	state: {
+		/**
+		 * aria-pressed string for the hashtag follow control, derived from the
+		 * row/page context. Interactivity directives can't eval ternaries, so the
+		 * boolean → 'true'/'false' mapping lives here.
+		 */
+		get hashtagFollowPressed() {
+			return getContext().following ? 'true' : 'false';
+		},
+		/**
+		 * data-current-state string ('following' | 'follow') driving the visible
+		 * label + icon via CSS on the hero follow button.
+		 */
+		get hashtagFollowState() {
+			return getContext().following ? 'following' : 'follow';
+		},
+	},
 	actions: {
 		/**
 		 * Follow or unfollow a hashtag.
 		 *
-		 * Prefers the clicked button's data-hashtag attribute over the page
-		 * context so the same action can drive multiple chips (header, sidebar
-		 * card, related-tag list) without each needing its own context.
+		 * Reactive single-source: each follow control lives inside its own
+		 * data-wp-context carrying { hashtag, following }. The action flips
+		 * ctx.following and the template re-renders the class / aria-pressed /
+		 * label off that one value (data-wp-class / data-wp-bind--aria-pressed /
+		 * data-wp-text), so there is no querySelectorAll + classList paint loop.
 		 */
-		toggleFollowHashtag: async function ( event ) {
+		toggleFollowHashtag: async function () {
 			var ctx = getContext();
 			if ( ! ctx || ! ctx.restNonce ) { return; }
 
-			var clicked   = event && event.target ? event.target.closest( '[data-hashtag]' ) : null;
-			var slug      = clicked ? clicked.getAttribute( 'data-hashtag' ) : ctx.hashtag;
+			var slug = ctx.hashtag;
 			if ( ! slug ) { return; }
 
-			var following = clicked
-				? ( clicked.getAttribute( 'aria-pressed' ) === 'true' )
-				: ctx.following;
+			var following = !! ctx.following;
 			var url       = '/hashtags/' + encodeURIComponent( slug ) + '/follow';
 			var method    = following ? 'DELETE' : 'POST';
 
-			// Optimistic UI update. Only mirror to context if this click is
-			// for the page-level hashtag (header button), not a sidebar chip.
-			if ( slug === ctx.hashtag ) {
-				ctx.following = ! following;
-			}
-
-			// Update button/switch state in the DOM (outside reactive context).
-			var buttons = document.querySelectorAll(
-				'[data-hashtag="' + slug + '"]'
-			);
-			buttons.forEach( function ( btn ) {
-				var isSwitch = ( btn.getAttribute( 'role' ) === 'switch' );
-				if ( isSwitch ) {
-					btn.setAttribute( 'aria-checked', ! following ? 'true' : 'false' );
-				} else {
-					btn.classList.toggle( 'following', ! following );
-					btn.setAttribute( 'aria-pressed', ! following ? 'true' : 'false' );
-					// Drives the visible label (Follow vs Following) + icon via CSS.
-					btn.setAttribute( 'data-current-state', ! following ? 'following' : 'follow' );
-				}
-			} );
+			// Optimistic, reactive update — bindings follow ctx.following.
+			ctx.following = ! following;
 
 			try {
 				var res = await restFetch( url, {
@@ -61,20 +58,7 @@ store( 'buddynext/feed', {
 				} );
 
 				if ( ! res.ok ) {
-					// Roll back on failure.
-					if ( slug === ctx.hashtag ) {
-						ctx.following = following;
-					}
-					buttons.forEach( function ( btn ) {
-						var isSwitch = ( btn.getAttribute( 'role' ) === 'switch' );
-						if ( isSwitch ) {
-							btn.setAttribute( 'aria-checked', following ? 'true' : 'false' );
-						} else {
-							btn.classList.toggle( 'following', following );
-							btn.setAttribute( 'aria-pressed', following ? 'true' : 'false' );
-							btn.setAttribute( 'data-current-state', following ? 'following' : 'follow' );
-						}
-					} );
+					ctx.following = following; // Roll back.
 					if ( window.bnToast ) {
 						window.bnToast( 'Could not update follow state. Try again.', { type: 'error' } );
 					}
@@ -87,10 +71,7 @@ store( 'buddynext/feed', {
 					);
 				}
 			} catch ( _e ) {
-				// Roll back silently on network error.
-				if ( slug === ctx.hashtag ) {
-					ctx.following = following;
-				}
+				ctx.following = following; // Roll back silently.
 				if ( window.bnToast ) {
 					window.bnToast( 'Network error. Try again.', { type: 'error' } );
 				}

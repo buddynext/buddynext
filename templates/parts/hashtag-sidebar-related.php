@@ -13,6 +13,9 @@
  * @var array $related_tags    Required. Related-hashtag rows (each with slug + post_count).
  * @var bool  $is_logged_in    Optional. Whether viewer is logged in. Default false.
  * @var int   $current_user_id Optional. Viewing user ID. Default 0.
+ * @var array $following_map    Optional. slug => bool map of which related tags the
+ *                              viewer follows (resolved once by HashtagService::following_map(),
+ *                              killing the per-row is_following() N+1). Default [].
  * @var array $classes         Optional. Extra CSS classes appended to `.bn-sidebar-widget`.
  *
  * Fires:
@@ -30,12 +33,11 @@ defined( 'ABSPATH' ) || exit;
 
 use BuddyNext\Core\PageRouter;
 
-global $wpdb;
-
 $args = array(
 	'related_tags'    => isset( $related_tags ) ? (array) $related_tags : array(),
 	'is_logged_in'    => isset( $is_logged_in ) ? (bool) $is_logged_in : false,
 	'current_user_id' => isset( $current_user_id ) ? (int) $current_user_id : 0,
+	'following_map'   => isset( $following_map ) ? (array) $following_map : array(),
 	'classes'         => isset( $classes ) ? (array) $classes : array(),
 );
 
@@ -63,58 +65,66 @@ $bn_class   = trim(
 	)
 );
 
-$bn_related     = (array) $args['related_tags'];
-$bn_logged_in   = (bool) $args['is_logged_in'];
-$bn_viewer_id   = (int) $args['current_user_id'];
-$hashtags_table = $wpdb->prefix . 'bn_hashtags';
-$follows_table  = $wpdb->prefix . 'bn_hashtag_follows';
+$bn_related      = (array) $args['related_tags'];
+$bn_logged_in    = (bool) $args['is_logged_in'];
+$bn_following_map = (array) $args['following_map'];
 
 do_action( 'buddynext_part_hashtag_sidebar_related_before', $args );
 ?>
 <div class="<?php echo esc_attr( $bn_class ); ?>">
 	<h2 class="bn-sidebar-widget__title"><?php esc_html_e( 'Related hashtags', 'buddynext' ); ?></h2>
 	<ul class="bn-hashtag-related">
-		<?php foreach ( $bn_related as $rel_tag ) : ?>
-			<?php
-			$rel_following = false;
-			if ( $bn_logged_in ) {
-				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$rel_following = (bool) $wpdb->get_var(
-					$wpdb->prepare(
-						"SELECT 1 FROM {$follows_table} hf
-						 INNER JOIN {$hashtags_table} h ON h.id = hf.hashtag_id
-						 WHERE hf.user_id = %d AND h.slug = %s LIMIT 1",
-						$bn_viewer_id,
-						$rel_tag->slug
-					)
-				);
-				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		<?php
+		foreach ( $bn_related as $rel_tag ) :
+			// Service rows are arrays; tolerate object rows defensively.
+			$rel_tag    = (array) $rel_tag;
+			$rel_slug   = (string) ( $rel_tag['slug'] ?? '' );
+			$rel_count  = absint( $rel_tag['post_count'] ?? 0 );
+			if ( '' === $rel_slug ) {
+				continue;
 			}
+			// Follow state resolved once via following_map() — no per-row query.
+			$rel_following = ! empty( $bn_following_map[ $rel_slug ] );
 			?>
 			<li class="bn-hashtag-related__row">
 				<a class="bn-badge bn-hashtag-related__chip" data-tone="accent"
-					href="<?php echo esc_url( PageRouter::hashtag_feed_url( $rel_tag->slug ) ); ?>"
-				>#<?php echo esc_html( $rel_tag->slug ); ?></a>
+					href="<?php echo esc_url( PageRouter::hashtag_feed_url( $rel_slug ) ); ?>"
+				>#<?php echo esc_html( $rel_slug ); ?></a>
 				<span class="bn-hashtag-related__count">
 					<?php
 					printf(
 						/* translators: %s: post count */
 						esc_html__( '%s posts', 'buddynext' ),
-						esc_html( number_format_i18n( absint( $rel_tag->post_count ) ) )
+						esc_html( number_format_i18n( $rel_count ) )
 					);
 					?>
 				</span>
 				<?php if ( $bn_logged_in ) : ?>
+					<?php
+					// Each chip carries its own reactive context so the follow
+					// toggle re-renders class / aria-pressed / label off the one
+					// ctx.following value (no querySelectorAll paint loop).
+					$rel_ctx = wp_json_encode(
+						array(
+							'hashtag'   => $rel_slug,
+							'following' => $rel_following,
+						)
+					);
+					?>
 					<button
-						class="bn-btn bn-hashtag-related__follow"
+						class="bn-btn bn-hashtag-related__follow<?php echo $rel_following ? ' following' : ''; ?>"
 						data-variant="<?php echo $rel_following ? 'secondary' : 'primary'; ?>"
 						data-size="xs"
 						type="button"
+						data-wp-context="<?php echo esc_attr( (string) $rel_ctx ); ?>"
 						data-wp-on--click="actions.toggleFollowHashtag"
-						data-hashtag="<?php echo esc_attr( $rel_tag->slug ); ?>"
+						data-wp-class--following="context.following"
+						data-wp-bind--aria-pressed="state.hashtagFollowPressed"
+						data-hashtag="<?php echo esc_attr( $rel_slug ); ?>"
 						aria-pressed="<?php echo $rel_following ? 'true' : 'false'; ?>"
 					>
-						<?php echo $rel_following ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?>
+						<span class="bn-hashtag-related__follow-on"><?php esc_html_e( 'Following', 'buddynext' ); ?></span>
+						<span class="bn-hashtag-related__follow-off"><?php esc_html_e( 'Follow', 'buddynext' ); ?></span>
 					</button>
 				<?php endif; ?>
 			</li>

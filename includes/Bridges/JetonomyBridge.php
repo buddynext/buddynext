@@ -675,11 +675,16 @@ class JetonomyBridge {
 		$jt_posts = \Jetonomy\Models\Tag::list_by_tag( $hashtag_slug, 5 );
 
 		foreach ( $jt_posts as $jt_post ) {
+			// Resolve the public discussion URL here (the bridge owns Jetonomy
+			// table access) so the hashtag template never queries jt_* itself.
+			$jt_url = $this->discussion_url( (int) $jt_post->id, (int) $jt_post->space_id );
+
 			$discussions[] = array(
 				'id'          => (int) $jt_post->id,
 				'title'       => $jt_post->title,
 				'slug'        => $jt_post->post_slug,
 				'space_id'    => (int) $jt_post->space_id,
+				'url'         => '' !== $jt_url ? $jt_url : home_url( '/community/' ),
 				'author_id'   => (int) $jt_post->author_id,
 				'author_name' => $jt_post->author_name,
 				'reply_count' => (int) $jt_post->reply_count,

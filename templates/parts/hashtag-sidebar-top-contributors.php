@@ -64,14 +64,20 @@ do_action( 'buddynext_part_hashtag_sidebar_top_contributors_before', $args );
 <div class="<?php echo esc_attr( $bn_class ); ?>">
 	<h2 class="bn-sidebar-widget__title"><?php esc_html_e( 'Top contributors', 'buddynext' ); ?></h2>
 	<ul class="bn-hashtag-contributors">
-		<?php foreach ( $bn_contributors as $contrib ) : ?>
-			<?php
-			$contrib_id      = (int) $contrib->user_id;
-			$contrib_user    = get_userdata( $contrib_id );
-			$contrib_display = $contrib_user instanceof WP_User ? $contrib_user->display_name : __( 'Community Member', 'buddynext' );
-			$contrib_init    = function_exists( 'bn_initials' ) ? bn_initials( $contrib_display ) : strtoupper( substr( $contrib_display, 0, 2 ) );
-			$contrib_avatar  = get_avatar_url( $contrib_id, array( 'size' => 72 ) );
-			$contrib_url     = PageRouter::profile_url( $contrib_id );
+		<?php
+		foreach ( $bn_contributors as $contrib ) :
+			// HashtagService::top_contributors() returns arrays (user_id,
+			// display_name, post_count); tolerate object rows defensively.
+			$contrib         = (array) $contrib;
+			$contrib_id      = (int) ( $contrib['user_id'] ?? 0 );
+			$contrib_display = (string) ( $contrib['display_name'] ?? '' );
+			if ( '' === $contrib_display ) {
+				$contrib_display = __( 'Community Member', 'buddynext' );
+			}
+			$contrib_init   = \BuddyNext\Profile\AvatarService::initials_for( $contrib_display );
+			$contrib_count  = (int) ( $contrib['post_count'] ?? 0 );
+			$contrib_avatar = get_avatar_url( $contrib_id, array( 'size' => 72 ) );
+			$contrib_url    = PageRouter::profile_url( $contrib_id );
 			?>
 			<li class="bn-hashtag-contributors__row">
 				<a class="bn-hashtag-contributors__link" href="<?php echo esc_url( $contrib_url ); ?>">
@@ -96,8 +102,8 @@ do_action( 'buddynext_part_hashtag_sidebar_top_contributors_before', $args );
 							<?php
 							printf(
 								/* translators: %d: number of posts */
-								esc_html( _n( '%d post', '%d posts', (int) $contrib->post_count, 'buddynext' ) ),
-								(int) $contrib->post_count
+								esc_html( _n( '%d post', '%d posts', $contrib_count, 'buddynext' ) ),
+								absint( $contrib_count )
 							);
 							?>
 						</span>
