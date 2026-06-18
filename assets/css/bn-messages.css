@@ -116,6 +116,10 @@
 }
 
 .bn-dm-rail__head {
+	/* Group the "Messages" heading and its unread count together on the left
+	   instead of inheriting .bn-split__rail-head's space-between, which shoved
+	   the badge to the far edge and left a dead gap across the header. */
+	justify-content: flex-start;
 	gap: var(--bn-s2);
 }
 
