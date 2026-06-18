@@ -877,6 +877,7 @@ class AdminHub {
 		// column shows the active tab's body. The H1 is the active tab's label
 		// since the panel already conveys the section context.
 		echo '<div class="wrap bn-admin-hub bn-admin-hub--paneled' . ( $is_wide ? ' is-wide' : '' ) . '" data-section="' . esc_attr( $section_key ) . '">';
+		$this->render_brand_bar();
 		echo '<div class="bn-admin-hub__shell">';
 		$this->render_nav_panel( (string) $section_key, $active_slug );
 		echo '<div class="bn-admin-hub__content">';
@@ -889,6 +890,46 @@ class AdminHub {
 		echo '</div><!-- .bn-admin-hub__content -->';
 		echo '</div><!-- .bn-admin-hub__shell -->';
 		echo '</div><!-- .wrap -->';
+	}
+
+	/**
+	 * Render the branded top bar shown on every BuddyNext admin page.
+	 *
+	 * Brand mark + plugin name + version (ux-foundation Rule), so the whole admin
+	 * reads as one product. Hosts the "Search" affordance that opens WordPress's
+	 * native command palette, and an optional Docs link (filterable, hidden until
+	 * a URL is provided). Brand name is a span, not an <h1> — the page H1 stays
+	 * the active tab label.
+	 *
+	 * @return void
+	 */
+	private function render_brand_bar(): void {
+		$version  = defined( 'BUDDYNEXT_VERSION' ) ? (string) constant( 'BUDDYNEXT_VERSION' ) : '';
+		$logo_url = ( defined( 'BUDDYNEXT_URL' ) ? (string) constant( 'BUDDYNEXT_URL' ) : '' ) . 'assets/images/buddynext-logo.svg';
+		echo '<div class="bn-admin-hub__brand">';
+		echo '<img class="bn-admin-hub__brand-logo" src="' . esc_url( $logo_url ) . '" alt="BuddyNext" />';
+		if ( '' !== $version ) {
+			echo '<span class="bn-admin-hub__brand-ver">v' . esc_html( $version ) . '</span>';
+		}
+		echo '<span class="bn-admin-hub__brand-spacer"></span>';
+
+		if ( wp_script_is( 'wp-commands', 'registered' ) ) {
+			echo '<button type="button" class="bn-admin-hub__brand-search" data-bn-open-command>'
+				. '<span>' . esc_html__( 'Search', 'buddynext' ) . '</span> <kbd>&#8984;K</kbd></button>';
+		}
+
+		/**
+		 * Filter the admin Docs link URL. Empty (default) hides the link so there
+		 * is never a dead link; set it to surface a "Docs" button in the brand bar.
+		 *
+		 * @param string $url Docs URL.
+		 */
+		$docs = (string) apply_filters( 'buddynext_admin_docs_url', '' );
+		if ( '' !== $docs ) {
+			echo '<a class="bn-admin-hub__brand-link" href="' . esc_url( $docs ) . '" target="_blank" rel="noopener">'
+				. esc_html__( 'Docs', 'buddynext' ) . '</a>';
+		}
+		echo '</div>';
 	}
 
 	/**

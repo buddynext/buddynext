@@ -538,3 +538,71 @@
 	.bn-admin-hub--paneled .bn-admin-hub__shell { grid-template-columns: 1fr; }
 	.bn-admin-hub__panel { position: static; max-height: none; }
 }
+
+/* --------------------------------------------------------------------------
+   Branded top bar (every admin page) — mark + name + version + search
+   -------------------------------------------------------------------------- */
+.bn-admin-hub__brand {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3, 12px);
+	padding: var(--bn-s2, 8px) 0 var(--bn-s4, 16px);
+	margin-bottom: var(--bn-s4, 16px);
+	border-bottom: 1px solid var(--bn-line);
+}
+.bn-admin-hub__brand-mark {
+	width: 30px;
+	height: 30px;
+	border-radius: var(--bn-r-md, 8px);
+	display: grid;
+	place-items: center;
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg, #fff);
+	font-family: var(--bn-font-display, var(--bn-font-ui));
+	font-weight: var(--bn-fw-bold, 700);
+	font-size: 12px;
+	letter-spacing: -0.02em;
+}
+.bn-admin-hub__brand-name {
+	font-family: var(--bn-font-display, var(--bn-font-ui));
+	font-weight: var(--bn-fw-bold, 700);
+	font-size: var(--bn-text-lg);
+	letter-spacing: -0.01em;
+	color: var(--bn-ink);
+}
+.bn-admin-hub__brand-ver {
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	background: var(--bn-sunken);
+	padding: 2px 8px;
+	border-radius: var(--bn-r-full, 999px);
+}
+.bn-admin-hub__brand-spacer { flex: 1; }
+.bn-admin-hub__brand-search,
+.bn-admin-hub__brand-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-semibold, 600);
+	padding: 6px 11px;
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md, 8px);
+	color: var(--bn-ink-2);
+	background: var(--bn-surface);
+	cursor: pointer;
+	text-decoration: none;
+}
+.bn-admin-hub__brand-search:hover,
+.bn-admin-hub__brand-link:hover { background: var(--bn-sunken); color: var(--bn-ink); }
+.bn-admin-hub__brand-search kbd {
+	font-family: var(--bn-font-mono);
+	font-size: 10px;
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line);
+	border-radius: 4px;
+	padding: 0 4px;
+	color: var(--bn-ink-3);
+}
+.bn-admin-hub__brand-logo { height: 28px; width: auto; display: block; flex: none; }

@@ -2092,3 +2092,34 @@ button.bn-btn-danger:hover {
 	.bn-social-card__toggle { margin-left: 0; width: 100%; }
 	.bn-copy-row { flex-direction: column; }
 }
+
+/* --------------------------------------------------------------------------
+   Uniform premium tables — every admin list/queue (not WP form-table layouts)
+   -------------------------------------------------------------------------- */
+.bn-admin-hub__content table:not(.form-table) {
+	width: 100%;
+	border-collapse: collapse;
+	background: var(--bn-a-bg);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-lg);
+	font-size: var(--bn-a-text-sm);
+	overflow: hidden;
+}
+.bn-admin-hub__content table:not(.form-table) th {
+	text-align: start;
+	font-size: var(--bn-a-text-xs);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--bn-a-text-3);
+	font-weight: var(--bn-a-fw-semibold);
+	padding: var(--bn-a-s3) var(--bn-a-s4);
+	border-bottom: 1px solid var(--bn-a-border);
+	background: var(--bn-a-bg-subtle);
+}
+.bn-admin-hub__content table:not(.form-table) td {
+	padding: var(--bn-a-s3) var(--bn-a-s4);
+	border-top: 1px solid var(--bn-a-border-soft);
+	color: var(--bn-a-text-1);
+	vertical-align: middle;
+}
+.bn-admin-hub__content table:not(.form-table) tbody tr:hover td { background: var(--bn-a-bg-subtle); }
