@@ -330,10 +330,21 @@
 
 .bn-sd-side-row__icon {
 	display: inline-flex;
-	width: 18px;
-	height: 18px;
-	color: var(--bn-ink-3);
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: var(--bn-r-md);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-2);
 	flex-shrink: 0;
+	overflow: hidden;
+}
+
+.bn-sd-side-row__icon img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
 }
 
 .bn-sd-side-row__icon svg {

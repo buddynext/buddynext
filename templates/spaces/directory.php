@@ -241,6 +241,25 @@ if ( ! function_exists( 'bn_space_category_icon' ) ) {
 	}
 }
 
+if ( ! function_exists( 'bn_space_side_emblem' ) ) {
+	/**
+	 * Sidebar space emblem: the real space avatar when set, else the category
+	 * glyph. Keeps the spaces-directory sidebar consistent with the activity
+	 * sidebar (which shows the real avatar); the category icon is the fallback so
+	 * a row is never empty. Single helper used by every directory sidebar list.
+	 *
+	 * @param object $space Space row exposing ->avatar_url and ->category_slug.
+	 * @return string Safe markup (escaped img, or wp_kses-sanitized SVG).
+	 */
+	function bn_space_side_emblem( $space ): string {
+		$avatar = isset( $space->avatar_url ) ? (string) $space->avatar_url : '';
+		if ( '' !== $avatar ) {
+			return '<img src="' . esc_url( $avatar ) . '" alt="" width="28" height="28" loading="lazy">';
+		}
+		return bn_space_category_icon( isset( $space->category_slug ) ? (string) $space->category_slug : '' );
+	}
+}
+
 // ── Right sidebar widgets ────────────────────────────────────────────────────
 // Registered on the shared hub-shell action. The shell detects via
 // has_action() after the inner buffer flushes and renders the right column.
@@ -256,7 +275,7 @@ add_action(
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$bn_my_spaces = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT s.id, s.name, s.slug, s.category_id, c.slug AS category_slug
+					"SELECT s.id, s.name, s.slug, s.category_id, s.avatar_url, c.slug AS category_slug
 					FROM {$wpdb->prefix}bn_spaces s
 					INNER JOIN {$wpdb->prefix}bn_space_members m ON m.space_id = s.id
 					LEFT JOIN {$wpdb->prefix}bn_space_categories c ON c.id = s.category_id
@@ -276,7 +295,7 @@ add_action(
 					<?php foreach ( $bn_my_spaces as $bn_ms ) : ?>
 						<li>
 							<a href="<?php echo esc_url( buddynext_space_url( $bn_ms->slug ) ); ?>" class="bn-sd-side-row">
-								<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo bn_space_category_icon( $bn_ms->category_slug ?? '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
+								<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo bn_space_side_emblem( $bn_ms ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
 								<span><?php echo esc_html( $bn_ms->name ); ?></span>
 							</a>
 						</li>
@@ -301,7 +320,7 @@ add_action(
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$bn_featured = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT s.id, s.name, s.slug, s.member_count, c.slug AS category_slug
+				"SELECT s.id, s.name, s.slug, s.member_count, s.avatar_url, c.slug AS category_slug
 				FROM {$wpdb->prefix}bn_spaces s
 				LEFT JOIN {$wpdb->prefix}bn_space_categories c ON c.id = s.category_id
 				WHERE s.type = 'open'
@@ -319,7 +338,7 @@ add_action(
 				<?php foreach ( $bn_featured as $bn_f ) : ?>
 					<li>
 						<a href="<?php echo esc_url( buddynext_space_url( $bn_f->slug ) ); ?>" class="bn-sd-side-row">
-							<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo bn_space_category_icon( $bn_f->category_slug ?? '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
+							<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo bn_space_side_emblem( $bn_f ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
 							<span class="bn-sd-side-row__main">
 								<span><?php echo esc_html( $bn_f->name ); ?></span>
 								<span class="bn-sd-side-row__meta"><?php echo esc_html( number_format_i18n( (int) $bn_f->member_count ) ); ?> <?php esc_html_e( 'members', 'buddynext' ); ?></span>
