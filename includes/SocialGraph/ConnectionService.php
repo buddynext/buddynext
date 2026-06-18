@@ -473,8 +473,16 @@ class ConnectionService {
 
 		$map = array();
 		foreach ( (array) $rows as $row ) {
-			$peer         = ( (int) $row->requester_id === $viewer_id ) ? (int) $row->recipient_id : (int) $row->requester_id;
-			$map[ $peer ] = (string) $row->status;
+			$peer   = ( (int) $row->requester_id === $viewer_id ) ? (int) $row->recipient_id : (int) $row->requester_id;
+			$status = (string) $row->status;
+			// Encode the pending direction here — this query already knows who the
+			// requester is, so the directory can label sent vs received without a
+			// per-row pending_sent() lookup (which was both an N+1 and capped at
+			// LIMIT 20, mislabelling peers beyond the first 20).
+			if ( 'pending' === $status ) {
+				$status = ( (int) $row->requester_id === $viewer_id ) ? 'pending-sent' : 'pending-received';
+			}
+			$map[ $peer ] = $status;
 			$low          = min( $viewer_id, $peer );
 			$high         = max( $viewer_id, $peer );
 			// Prime the per-pair cache that status() / pair_row() read, so a

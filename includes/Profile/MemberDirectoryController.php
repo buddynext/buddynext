@@ -291,19 +291,18 @@ class MemberDirectoryController extends BaseRestController {
 			'can_follow'     => $can_follow,
 			'can_connect'    => $can_connect,
 			'is_following'   => $is_following,
-			'connection'     => $this->shape_connection_state( $viewer_id, $uid, $conn_status ),
+			'connection'     => $this->shape_connection_state( $conn_status ),
 		);
 	}
 
 	/**
 	 * Resolve direction-aware connection state for a peer.
 	 *
-	 * @param int         $viewer_id Viewer user ID.
-	 * @param int         $peer_id   Peer user ID.
-	 * @param string|null $status    Symmetric status string from ConnectionService.
+	 * @param string|null $status Direction-aware status from ConnectionService::statuses_for()
+	 *                            (accepted / pending-sent / pending-received / …), or null.
 	 * @return array{state:string,can_message:bool}
 	 */
-	private function shape_connection_state( int $viewer_id, int $peer_id, ?string $status ): array {
+	private function shape_connection_state( ?string $status ): array {
 		if ( null === $status || 'declined' === $status || 'withdrawn' === $status ) {
 			return array(
 				'state'       => 'none',
@@ -316,15 +315,16 @@ class MemberDirectoryController extends BaseRestController {
 				'can_message' => true,
 			);
 		}
-		if ( 'pending' === $status ) {
-			$conns = buddynext_service( 'connections' );
-			$sent  = $conns->pending_sent( $viewer_id );
-			if ( in_array( $peer_id, $sent, true ) ) {
-				return array(
-					'state'       => 'pending-sent',
-					'can_message' => false,
-				);
-			}
+		// Direction comes from the page-level statuses_for() map (pending-sent /
+		// pending-received), so there is no per-row pending_sent() query. A bare
+		// 'pending' (defensive fallback) is treated as received.
+		if ( 'pending-sent' === $status ) {
+			return array(
+				'state'       => 'pending-sent',
+				'can_message' => false,
+			);
+		}
+		if ( 'pending-received' === $status || 'pending' === $status ) {
 			return array(
 				'state'       => 'pending-received',
 				'can_message' => false,
