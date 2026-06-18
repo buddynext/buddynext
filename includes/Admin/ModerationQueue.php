@@ -67,6 +67,7 @@ class ModerationQueue {
 		AdminHub::register_tab( 'moderation', 'reports', __( 'Reports', 'buddynext' ), array( $this, 'render_reports' ), array( 'position' => 10 ) );
 		AdminHub::register_tab( 'moderation', 'suspensions', __( 'Suspensions', 'buddynext' ), array( $this, 'render_suspensions' ), array( 'position' => 20 ) );
 		AdminHub::register_tab( 'moderation', 'appeals', __( 'Appeals', 'buddynext' ), array( $this, 'render_appeals' ), array( 'position' => 30 ) );
+		AdminHub::register_tab( 'moderation', 'log', __( 'Moderation Log', 'buddynext' ), array( $this, 'render_log' ), array( 'position' => 40 ) );
 	}
 
 	// ── Renderers ───────────────────────────────────────────────────────────
@@ -468,6 +469,90 @@ class ModerationQueue {
 		<?php
 	}
 
+	/**
+	 * Render the Moderation Log (audit trail) tab — a paginated, read-only view
+	 * of bn_mod_log so site owners can review every moderator action.
+	 *
+	 * @return void
+	 */
+	public function render_log(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$page     = isset( $_GET['log_page'] ) ? max( 1, absint( wp_unslash( $_GET['log_page'] ) ) ) : 1;
+		$per_page = 30;
+		$result   = ( new \BuddyNext\Moderation\ModerationLogService() )->get_log(
+			array(
+				'page'     => $page,
+				'per_page' => $per_page,
+			)
+		);
+		$items    = (array) ( $result['items'] ?? array() );
+		$total    = (int) ( $result['total'] ?? 0 );
+		$pages    = (int) ceil( $total / $per_page );
+		?>
+		<div class="bn-settings-section">
+			<div class="bn-ss-header">
+				<span class="bn-ss-title"><?php esc_html_e( 'Moderation log', 'buddynext' ); ?></span>
+				<span class="bn-ss-count"><?php echo esc_html( (string) $total ); ?></span>
+			</div>
+			<div class="bn-ss-body">
+				<?php if ( empty( $items ) ) : ?>
+					<p><?php esc_html_e( 'No moderator actions have been recorded yet.', 'buddynext' ); ?></p>
+				<?php else : ?>
+				<table class="widefat striped">
+					<thead>
+						<tr>
+							<th><?php esc_html_e( 'When', 'buddynext' ); ?></th>
+							<th><?php esc_html_e( 'Moderator', 'buddynext' ); ?></th>
+							<th><?php esc_html_e( 'Action', 'buddynext' ); ?></th>
+							<th><?php esc_html_e( 'Target member', 'buddynext' ); ?></th>
+							<th><?php esc_html_e( 'Object', 'buddynext' ); ?></th>
+							<th><?php esc_html_e( 'Note', 'buddynext' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php
+						foreach ( $items as $row ) :
+							$actor  = (int) ( $row['actor_id'] ?? 0 ) > 0 ? get_userdata( (int) $row['actor_id'] ) : null;
+							$target = (int) ( $row['target_user_id'] ?? 0 ) > 0 ? get_userdata( (int) $row['target_user_id'] ) : null;
+							$object = '';
+							if ( ! empty( $row['object_type'] ) && ! empty( $row['object_id'] ) ) {
+								$object = (string) $row['object_type'] . ' #' . (int) $row['object_id'];
+							}
+							?>
+							<tr>
+								<td><?php echo esc_html( $this->ago( (string) ( $row['created_at'] ?? '' ) ) ); ?></td>
+								<td><?php echo esc_html( $actor ? $actor->display_name : ( (int) ( $row['actor_id'] ?? 0 ) > 0 ? '#' . (int) $row['actor_id'] : __( 'System', 'buddynext' ) ) ); ?></td>
+								<td><code><?php echo esc_html( (string) ( $row['action'] ?? '' ) ); ?></code></td>
+								<td><?php echo esc_html( $target ? $target->display_name : ( (int) ( $row['target_user_id'] ?? 0 ) > 0 ? '#' . (int) $row['target_user_id'] : '—' ) ); ?></td>
+								<td><?php echo esc_html( '' !== $object ? $object : '—' ); ?></td>
+								<td><?php echo esc_html( (string) ( $row['note'] ?? '' ) ); ?></td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+					<?php if ( $pages > 1 ) : ?>
+					<div class="bn-mod-log-pagination tablenav">
+						<div class="tablenav-pages">
+							<?php
+							$base = remove_query_arg( 'log_page' );
+							for ( $i = 1; $i <= $pages; $i++ ) :
+								$url = add_query_arg( 'log_page', $i, $base );
+								?>
+								<?php if ( $i === $page ) : ?>
+									<span class="tablenav-pages-navspan button disabled"><?php echo esc_html( (string) $i ); ?></span>
+								<?php else : ?>
+									<a class="button" href="<?php echo esc_url( $url ); ?>"><?php echo esc_html( (string) $i ); ?></a>
+								<?php endif; ?>
+							<?php endfor; ?>
+						</div>
+					</div>
+				<?php endif; ?>
+				<?php endif; ?>
+			</div>
+		</div>
+		<?php
+	}
+
 	// ── Action handlers ─────────────────────────────────────────────────────
 
 	/**
@@ -594,7 +679,7 @@ class ModerationQueue {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified in guard() above.
 		$post_id = isset( $_POST['post_id'] ) ? absint( wp_unslash( $_POST['post_id'] ) ) : 0;
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified in guard() above.
-		$op = isset( $_POST['op'] ) ? sanitize_key( wp_unslash( (string) $_POST['op'] ) ) : '';
+		$op      = isset( $_POST['op'] ) ? sanitize_key( wp_unslash( (string) $_POST['op'] ) ) : '';
 		$service = new \BuddyNext\Feed\PostService();
 
 		$result    = true;
@@ -833,7 +918,7 @@ class ModerationQueue {
 	private function current_tab(): string {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( (string) $_GET['tab'] ) ) : 'reports';
-		return in_array( $tab, array( 'pending', 'reports', 'suspensions', 'appeals' ), true ) ? $tab : 'reports';
+		return in_array( $tab, array( 'pending', 'reports', 'suspensions', 'appeals', 'log' ), true ) ? $tab : 'reports';
 	}
 
 	/**
