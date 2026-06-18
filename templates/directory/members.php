@@ -608,6 +608,18 @@ if ( $current_user_id > 0 ) {
 		</button>
 	</div>
 
+	<?php
+	// Distinguish "you are the only member" from "filters matched nothing". On a
+	// fresh single-user site the viewer is excluded from the directory, so the
+	// grid is empty with NO active filters — show an invite-oriented message
+	// instead of "No members match your filters" (which contradicted the sidebar
+	// showing the admin). The Reset-filters button only makes sense with filters.
+	$bn_filters_active = ( '' !== $search_term )
+		|| ( 'all' !== $relation_raw )
+		|| $bn_online_only
+		|| ( '' !== $type_slug_filter );
+	$bn_only_member    = empty( $members ) && ! $bn_filters_active && $current_user_id > 0 && 0 === $total_users;
+	?>
 	<div
 		class="bn-md-empty"
 		data-wp-bind--hidden="!state.showEmpty"
@@ -616,13 +628,20 @@ if ( $current_user_id > 0 ) {
 		<?php
 		buddynext_get_template(
 			'parts/empty-state.php',
-			array(
-				'icon'  => 'users',
-				'title' => __( 'No members match your filters', 'buddynext' ),
-				'body'  => __( 'Try widening your filters or clearing the search term.', 'buddynext' ),
-			)
+			$bn_only_member
+				? array(
+					'icon'  => 'users',
+					'title' => __( "You're the only member so far", 'buddynext' ),
+					'body'  => __( 'Invite others to join and they will show up here.', 'buddynext' ),
+				)
+				: array(
+					'icon'  => 'users',
+					'title' => __( 'No members match your filters', 'buddynext' ),
+					'body'  => __( 'Try widening your filters or clearing the search term.', 'buddynext' ),
+				)
 		);
 		?>
+		<?php if ( ! $bn_only_member ) : ?>
 		<div class="bn-md-empty__actions">
 			<button
 				type="button"
@@ -632,6 +651,7 @@ if ( $current_user_id > 0 ) {
 				data-wp-on--click="actions.resetFilters"
 			><?php esc_html_e( 'Reset filters', 'buddynext' ); ?></button>
 		</div>
+		<?php endif; ?>
 	</div>
 
 	<?php
