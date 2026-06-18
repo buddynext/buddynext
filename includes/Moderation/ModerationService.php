@@ -448,15 +448,25 @@ class ModerationService {
 	/**
 	 * Set or clear a post's content warning.
 	 *
-	 * @internal Performs NO capability check. Callers MUST gate first; the only
-	 *           REST caller is behind ModerationController::require_admin.
+	 * Requires manage_options capability on the acting user. Returns false immediately
+	 * when the actor lacks the capability so no DB write is attempted. The REST caller
+	 * (ModerationController::set_content_warning) is already behind require_admin, but
+	 * this in-method guard ensures programmatic callers are also gated correctly.
 	 *
 	 * @param int    $post_id      Post id.
 	 * @param bool   $has_warning  Whether the post carries a warning.
 	 * @param string $warning_type Warning type slug (caller validates against the allowed set).
-	 * @return bool|null True on success, false on DB error, null when the post does not exist.
+	 * @param int    $actor_id     ID of the user performing the action. Defaults to the current user.
+	 * @return bool|null True on success, false on DB error or insufficient permissions,
+	 *                   null when the post does not exist.
 	 */
-	public function set_post_content_warning( int $post_id, bool $has_warning, string $warning_type ): ?bool {
+	public function set_post_content_warning( int $post_id, bool $has_warning, string $warning_type, int $actor_id = 0 ): ?bool {
+		$actor_id = $actor_id > 0 ? $actor_id : get_current_user_id();
+
+		if ( ! user_can( $actor_id, 'manage_options' ) ) {
+			return false;
+		}
+
 		global $wpdb;
 
 		if ( $post_id <= 0 ) {

@@ -1315,7 +1315,7 @@ class ModerationController extends BaseRestController {
 			);
 		}
 
-		$result = ( new ModerationService() )->set_post_content_warning( $post_id, $has_warning, $warning_type );
+		$result = ( new ModerationService() )->set_post_content_warning( $post_id, $has_warning, $warning_type, get_current_user_id() );
 
 		if ( null === $result ) {
 			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
