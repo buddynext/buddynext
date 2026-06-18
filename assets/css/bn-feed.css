@@ -1937,7 +1937,17 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	border: 1px solid var(--border, #e5e7eb);
 	border-radius: var(--r-md, 8px);
 	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-	overflow: hidden;
+	/* Bound the results list so a large match set scrolls inside the dropdown
+	   (showing ~7-8 members at once) instead of ballooning the page. */
+	max-height: 320px;
+	overflow-x: hidden;
+	overflow-y: auto;
+}
+/* The invite-member modal's body is overflow-y:auto, which would clip this
+   absolutely-positioned dropdown (it sits below the input). The body content
+   is short, so let the dropdown extend past it instead of being cut off. */
+[data-bn-modal="invite-member"] .bn-modal__body {
+	overflow: visible;
 }
 .bn-composer__typeahead-item {
 	display: flex;
