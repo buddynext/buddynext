@@ -1160,11 +1160,10 @@ class PageRouter {
 	 * Resolve the WPMediaVerse client-nav deny-list paths.
 	 *
 	 * WPMediaVerse renders its surfaces in its OWN Interactivity router region,
-	 * so links to them must full-load (not client-swap into buddynext/main). The
-	 * landing surfaces are admin-mapped pages (Explore/Dashboard/Upload — options
-	 * mvs_page_explore/dashboard/upload), and media items + member galleries live
-	 * under the /media/ rewrite base. Resolve all of them from config rather than
-	 * hardcoding a slug, so renaming a mapped page still denies it.
+	 * so links to them must full-load (not client-swap into buddynext/main). BN's
+	 * only WPMediaVerse nav target is the admin-mapped Explore Media page (option
+	 * mvs_page_explore) — resolved from config so a renamed page still denies it —
+	 * plus the /media/ rewrite base for any media-item permalink in BN content.
 	 *
 	 * @return string[] Path prefixes that must full-load (empty when MVS inactive).
 	 */
@@ -1172,17 +1171,19 @@ class PageRouter {
 		if ( ! class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) {
 			return array();
 		}
-		$paths = array();
-		foreach ( array( 'mvs_page_explore', 'mvs_page_dashboard', 'mvs_page_upload' ) as $bn_opt ) {
-			$bn_pid = (int) get_option( $bn_opt, 0 );
-			if ( $bn_pid > 0 ) {
-				$bn_path = wp_parse_url( (string) get_permalink( $bn_pid ), PHP_URL_PATH );
-				if ( is_string( $bn_path ) && '' !== $bn_path ) {
-					$paths[] = $bn_path;
-				}
+		// BN links to ONE WPMediaVerse surface — the Explore Media page (the Media
+		// nav tab). My Media / Upload are not BN nav targets (BN renders its own
+		// media tab on the member profile + uploads via its composer), so they are
+		// deliberately not denied. The /media/ rewrite base is kept so a media-item
+		// permalink surfaced in BN content still full-loads.
+		$paths      = array( '/media/' );
+		$explore_id = (int) get_option( 'mvs_page_explore', 0 );
+		if ( $explore_id > 0 ) {
+			$bn_path = wp_parse_url( (string) get_permalink( $explore_id ), PHP_URL_PATH );
+			if ( is_string( $bn_path ) && '' !== $bn_path ) {
+				$paths[] = $bn_path;
 			}
 		}
-		$paths[] = '/media/';
 		return array_values( array_unique( array_filter( $paths ) ) );
 	}
 
