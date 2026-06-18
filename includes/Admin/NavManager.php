@@ -1341,6 +1341,17 @@ class NavManager extends AdminPageBase {
 					<?php esc_html_e( '— Cannot be removed, only hidden.', 'buddynext' ); ?>
 				</div>
 			</div>
+			<?php else : ?>
+			<div class="bn-config-divider"></div>
+			<div class="bn-cf">
+				<label class="bn-check-row bn-tab-delete">
+					<input type="checkbox" name="<?php echo esc_attr( $n( 'delete' ) ); ?>" value="1">
+					<?php esc_html_e( 'Delete this custom tab', 'buddynext' ); ?>
+				</label>
+				<span class="bn-cf-hint">
+					<?php esc_html_e( 'Removes the tab on Save. Custom tabs (unlike core tabs) can be deleted.', 'buddynext' ); ?>
+				</span>
+			</div>
 			<?php endif; ?>
 
 		</div><!-- /.bn-config-body -->
@@ -1476,6 +1487,14 @@ class NavManager extends AdminPageBase {
 				}
 
 				$cfg = (array) $cfg;
+
+				// A custom tab flagged for deletion is dropped by simply not
+				// re-adding it to the rebuilt overrides (the option is replaced
+				// wholesale on save). Core tabs can't be deleted — only hidden — so
+				// the delete flag is honoured only for custom tabs.
+				if ( ! empty( $cfg['delete'] ) && ! empty( $existing[ $slug ]['custom'] ) ) {
+					continue;
+				}
 
 				$overrides[ $slug ] = array(
 					'label'          => sanitize_text_field( (string) ( $cfg['label'] ?? '' ) ),
