@@ -82,6 +82,20 @@ class BlockService {
 			return new WP_Error( 'block_failed', __( 'Could not block this user. Please try again.', 'buddynext' ) );
 		}
 
+		// Twitter/X/Instagram behaviour: a block severs any existing follow and
+		// connection between the two users (both directions), and an unblock does
+		// NOT restore them. Route through the canonical services so follower /
+		// following / connection counts, caches and hooks all stay correct
+		// instead of duplicating that relationship logic here.
+		$follows = buddynext_service( 'follows' );
+		$follows->unfollow( $blocker_id, $blocked_id );
+		$follows->unfollow( $blocked_id, $blocker_id );
+
+		$connections = buddynext_service( 'connections' );
+		$connections->remove_connection( $blocker_id, $blocked_id ); // accepted, either direction
+		$connections->withdraw_request( $blocker_id, $blocked_id );  // pending blocker -> blocked
+		$connections->withdraw_request( $blocked_id, $blocker_id );  // pending blocked -> blocker
+
 		$this->invalidate_block_cache( $blocker_id, $blocked_id );
 
 		if ( $wpdb->rows_affected > 0 ) {
