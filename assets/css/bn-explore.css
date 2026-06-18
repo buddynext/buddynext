@@ -283,6 +283,24 @@ a.ec-title:hover { color: var(--brand); }
 }
 .ec-open-thread:hover { text-decoration: underline; }
 
+/* ── Poll card ───────────────────────────────────────────────────────────── */
+.ec-kicker--poll { display: inline-flex; align-items: center; gap: var(--s1); color: var(--brand); }
+.ec-poll-glyph { display: inline-flex; align-items: center; }
+.ec-poll-glyph svg { width: 13px; height: 13px; }
+.ec-poll-meta { margin-top: var(--s2); font-size: var(--text-xs); color: var(--text-3); }
+.ec-foot--poll { justify-content: space-between; }
+.ec-poll-vote {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	font-size: var(--text-xs);
+	font-weight: var(--fw-semibold);
+	color: var(--brand);
+	text-decoration: none;
+}
+.ec-poll-vote svg { width: 14px; height: 14px; }
+.ec-poll-vote:hover { text-decoration: underline; }
+
 /* ── Member card ─────────────────────────────────────────────────────────── */
 .ec-card--member .ec-member-link {
 	display: flex;

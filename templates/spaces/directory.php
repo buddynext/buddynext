@@ -28,8 +28,6 @@ declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
-global $wpdb;
-
 // ── Query parameters ─────────────────────────────────────────────────────────
 
 $current_user_id = get_current_user_id();
@@ -39,166 +37,90 @@ $bn_visibility   = isset( $_GET['bn_type'] ) ? sanitize_key( wp_unslash( $_GET['
 $bn_orderby      = isset( $_GET['bn_sort'] ) ? sanitize_key( wp_unslash( $_GET['bn_sort'] ) ) : 'popular'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_paged        = isset( $_GET['bn_page'] ) ? max( 1, absint( $_GET['bn_page'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_per_page     = 18;
-$bn_offset       = ( $bn_paged - 1 ) * $bn_per_page;
+$bn_scope        = isset( $_GET['bn_scope'] ) ? sanitize_key( wp_unslash( $_GET['bn_scope'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $rest_nonce      = wp_create_nonce( 'wp_rest' );
 
-// ── Build ORDER BY ────────────────────────────────────────────────────────────
-
-$order_map = array(
-	'popular'      => 's.member_count DESC',
-	'active'       => 's.member_count DESC',
-	'newest'       => 's.created_at DESC',
-	'alphabetical' => 's.name ASC',
-);
-$order_sql = isset( $order_map[ $bn_orderby ] ) ? $order_map[ $bn_orderby ] : 's.member_count DESC';
-
-// ── Fetch categories ──────────────────────────────────────────────────────────
-
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$categories = $wpdb->get_results(
-	"SELECT id, name, slug FROM {$wpdb->prefix}bn_space_categories ORDER BY name ASC"
-);
-
-// ── Build main spaces query ────────────────────────────────────────────────────
-
 $bn_is_site_admin = current_user_can( 'manage_options' );
-$bn_unlisted      = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->unlisted_keys();
-$query_args       = array();
+$bn_space_service = new \BuddyNext\Spaces\SpaceService();
 
-if ( $bn_unlisted && ! $bn_is_site_admin ) {
-	// Hide unlisted (secret-equivalent) spaces from the directory, EXCEPT the
-	// viewer's own — a space they own, or one where they hold an active
-	// membership (which includes the owner row written at creation). Site
-	// admins skip this exclusion entirely (clause not added). Others' secret
-	// spaces stay hidden for non-members.
-	$bn_unlisted_in = implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $bn_unlisted ) );
-	if ( $current_user_id > 0 ) {
-		$where_parts  = array(
-			'( s.type NOT IN ( ' . $bn_unlisted_in . ' )'
-			. ' OR s.owner_id = %d'
-			. ' OR s.id IN ( SELECT space_id FROM ' . $wpdb->prefix . "bn_space_members WHERE user_id = %d AND status = 'active' ) )",
-		);
-		$query_args[] = $current_user_id;
-		$query_args[] = $current_user_id;
-	} else {
-		$where_parts = array( 's.type NOT IN ( ' . $bn_unlisted_in . ' )' );
-	}
-} else {
-	$where_parts = array( '1=1' );
+// ── Categories (chip row + per-card category label resolution) ────────────────
+// Single source: the same service the category controller uses. Each row carries
+// id / name / slug; we build an id→row map so per-card category_name/slug are
+// resolved in PHP without a join (list_spaces() rows expose category_id only).
+$bn_categories  = $bn_space_service->categories_with_counts();
+$bn_cat_by_id   = array();
+$bn_cat_by_slug = array();
+foreach ( $bn_categories as $bn_cat_row ) {
+	$bn_cat_by_id[ (int) $bn_cat_row['id'] ]        = $bn_cat_row;
+	$bn_cat_by_slug[ (string) $bn_cat_row['slug'] ] = $bn_cat_row;
 }
 
-if ( ! empty( $bn_search ) ) {
-	$where_parts[] = '( s.name LIKE %s OR s.description LIKE %s )';
-	$like          = '%' . $wpdb->esc_like( $bn_search ) . '%';
-	$query_args[]  = $like;
-	$query_args[]  = $like;
+// ── Resolve the active scope/filter into service args ─────────────────────────
+// Mirrors SpaceController::list_spaces() so the SSR grid and the GET /spaces
+// REST route the reactive filter calls return the identical set of spaces.
+$bn_sort_map                           = array(
+	'popular'      => array( 'member_count', 'DESC' ),
+	'active'       => array( 'member_count', 'DESC' ),
+	'newest'       => array( 'created_at', 'DESC' ),
+	'alphabetical' => array( 'name', 'ASC' ),
+);
+list( $bn_orderby_col, $bn_order_dir ) = $bn_sort_map[ $bn_orderby ] ?? $bn_sort_map['popular'];
+
+$bn_query_args = array(
+	'per_page' => $bn_per_page,
+	'page'     => $bn_paged,
+	'orderby'  => $bn_orderby_col,
+	'order'    => $bn_order_dir,
+	'viewer'   => $current_user_id,
+	'is_admin' => $bn_is_site_admin,
+);
+
+// Visibility-type chip (rarely used; kept for shareable ?bn_type= links).
+if ( '' !== $bn_visibility && \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_valid( $bn_visibility ) ) {
+	$bn_query_args['type'] = $bn_visibility;
 }
 
-if ( ! empty( $bn_cat_slug ) ) {
-	$where_parts[] = 'c.slug = %s';
-	$query_args[]  = $bn_cat_slug;
+// Category chip → category_id (service filters on the id, not the slug).
+if ( '' !== $bn_cat_slug && isset( $bn_cat_by_slug[ $bn_cat_slug ] ) ) {
+	$bn_query_args['category_id'] = (int) $bn_cat_by_slug[ $bn_cat_slug ]['id'];
 }
 
-if ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_valid( $bn_visibility ) ) {
-	// Unlisted (secret-equivalent) types are dropped for everyone by the default
-	// exclusion above. When one is explicitly requested via the chip, restrict to
-	// the viewer's own active memberships so it stays usable for invitees.
-	if ( ! \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_listed( $bn_visibility ) ) {
-		$where_parts = array( 's.type = %s' );
-		$query_args  = array( $bn_visibility );
-		// Secret-type chip: site admins see every space of this type; everyone
-		// else is restricted to spaces they own or actively belong to, so
-		// others' secret spaces stay hidden.
-		if ( ! $bn_is_site_admin ) {
-			$where_parts[] = '( s.owner_id = %d OR s.id IN ( SELECT space_id FROM ' . $wpdb->prefix . "bn_space_members WHERE user_id = %d AND status = 'active' ) )";
-			$query_args[]  = $current_user_id;
-			$query_args[]  = $current_user_id;
-		}
-		if ( ! empty( $bn_search ) ) {
-			$where_parts[] = '( s.name LIKE %s OR s.description LIKE %s )';
-			$like          = '%' . $wpdb->esc_like( $bn_search ) . '%';
-			$query_args[]  = $like;
-			$query_args[]  = $like;
-		}
-		if ( ! empty( $bn_cat_slug ) ) {
-			$where_parts[] = 'c.slug = %s';
-			$query_args[]  = $bn_cat_slug;
-		}
-	} else {
-		$where_parts[] = 's.type = %s';
-		$query_args[]  = $bn_visibility;
-	}
-}
-
-// "My Spaces" scope — restrict the grid to spaces the viewer owns or actively
-// belongs to. Reuses the same owner/active-membership predicate as the secret
-// branch above; ignored for guests (no "mine" to scope to).
-$bn_scope = isset( $_GET['bn_scope'] ) ? sanitize_key( wp_unslash( $_GET['bn_scope'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+// "My Spaces" scope → the service's `member` arg (owned or active membership).
 if ( 'mine' === $bn_scope && $current_user_id > 0 ) {
-	$where_parts[] = '( s.owner_id = %d OR s.id IN ( SELECT space_id FROM ' . $wpdb->prefix . "bn_space_members WHERE user_id = %d AND status = 'active' ) )";
-	$query_args[]  = $current_user_id;
-	$query_args[]  = $current_user_id;
+	$bn_query_args['member'] = $current_user_id;
 }
 
-$where_sql = implode( ' AND ', $where_parts );
-
-$join_sql = ! empty( $bn_cat_slug )
-	? "INNER JOIN {$wpdb->prefix}bn_space_categories c ON c.id = s.category_id"
-	: "LEFT JOIN {$wpdb->prefix}bn_space_categories c ON c.id = s.category_id";
-
-// Count for pagination.
-$count_base = "SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces s {$join_sql} WHERE {$where_sql}";
-
-if ( ! empty( $query_args ) ) {
-	// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$total_spaces = (int) $wpdb->get_var( $wpdb->prepare( $count_base, $query_args ) );
+// ── Fetch spaces + total via the service layer ────────────────────────────────
+if ( '' !== $bn_search ) {
+	// search() applies the same secret-space visibility predicate; it has no
+	// paginated-total variant (the REST route returns search rows unpaginated
+	// too), so the subtitle/pager reflect the returned batch.
+	$bn_spaces    = $bn_space_service->search( $bn_search, $bn_query_args );
+	$total_spaces = count( $bn_spaces );
 } else {
-	// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$total_spaces = (int) $wpdb->get_var( $count_base );
+	$bn_listing   = $bn_space_service->list_spaces_with_total( $bn_query_args );
+	$bn_spaces    = $bn_listing['items'];
+	$total_spaces = (int) $bn_listing['total'];
 }
 
 $total_pages = (int) ceil( $total_spaces / $bn_per_page );
 
-// Fetch spaces.
-// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$data_base = "SELECT s.id, s.name, s.slug, s.description, s.type, s.cover_image_url, s.avatar_url, s.member_count, s.created_at,
-	c.name AS category_name, c.slug AS category_slug
-	FROM {$wpdb->prefix}bn_spaces s
-	{$join_sql}
-	WHERE {$where_sql}
-	ORDER BY {$order_sql}
-	LIMIT %d OFFSET %d";
-// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-$data_args   = array_merge( $query_args, array( $bn_per_page, $bn_offset ) );
-$prepare_sql = ! empty( $data_args )
-	// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-	? $wpdb->prepare( $data_base, $data_args )
-	// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-	: $data_base;
-
-// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$spaces = $wpdb->get_results( $prepare_sql );
-
-// ── Fetch current user membership for all returned spaces ─────────────────────
-
+// ── Current user's membership across the returned spaces (one query) ──────────
 $membership_map = array();
-if ( $current_user_id && ! empty( $spaces ) ) {
-	$space_ids       = array_map( 'intval', wp_list_pluck( $spaces, 'id' ) );
-	$id_placeholders = implode( ',', array_fill( 0, count( $space_ids ), '%d' ) );
-	$membership_args = array_merge( array( $current_user_id ), $space_ids );
-	// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$memberships = $wpdb->get_results(
-		$wpdb->prepare(
-			"SELECT space_id, role, status FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND space_id IN ({$id_placeholders})", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$membership_args
-		)
-	);
-	// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	foreach ( $memberships as $bn_m ) {
-		$membership_map[ (int) $bn_m->space_id ] = $bn_m;
-	}
+if ( $current_user_id && ! empty( $bn_spaces ) ) {
+	$bn_space_ids   = array_map( static fn( $s ) => (int) $s['id'], $bn_spaces );
+	$membership_map = ( new \BuddyNext\Spaces\SpaceMemberService() )->membership_map( $current_user_id, $bn_space_ids );
 }
+
+// Categories list for the create-space modal (expects objects with ->id/->name).
+$categories = array_map(
+	static fn( $c ) => (object) array(
+		'id'   => (int) $c['id'],
+		'name' => (string) $c['name'],
+		'slug' => (string) $c['slug'],
+	),
+	$bn_categories
+);
 
 // ── Per-space tone palette (deterministic by id) ──────────────────────────────
 
@@ -248,15 +170,15 @@ if ( ! function_exists( 'bn_space_side_emblem' ) ) {
 	 * sidebar (which shows the real avatar); the category icon is the fallback so
 	 * a row is never empty. Single helper used by every directory sidebar list.
 	 *
-	 * @param object $space Space row exposing ->avatar_url and ->category_slug.
+	 * @param array<string, mixed> $space Hydrated space row (avatar_url, category_slug).
 	 * @return string Safe markup (escaped img, or wp_kses-sanitized SVG).
 	 */
-	function bn_space_side_emblem( $space ): string {
-		$avatar = isset( $space->avatar_url ) ? (string) $space->avatar_url : '';
+	function bn_space_side_emblem( array $space ): string {
+		$avatar = isset( $space['avatar_url'] ) ? (string) $space['avatar_url'] : '';
 		if ( '' !== $avatar ) {
 			return '<img src="' . esc_url( $avatar ) . '" alt="" width="28" height="28" loading="lazy">';
 		}
-		return bn_space_category_icon( isset( $space->category_slug ) ? (string) $space->category_slug : '' );
+		return bn_space_category_icon( isset( $space['category_slug'] ) ? (string) $space['category_slug'] : '' );
 	}
 }
 
@@ -265,38 +187,44 @@ if ( ! function_exists( 'bn_space_side_emblem' ) ) {
 // has_action() after the inner buffer flushes and renders the right column.
 add_action(
 	'buddynext_right_sidebar',
-	static function () use ( $current_user_id, $wpdb ) {
+	static function () use ( $current_user_id, $bn_space_service, $bn_cat_by_id ) {
 		// Categories are filtered from the primary chip row at the top of the
 		// directory now (single-select scope + category), so the old sidebar
 		// "Categories" card was removed to avoid two places doing the same job.
 
-		// Card: Your spaces (members only).
+		// Resolve the category slug for a hydrated space row (rows carry
+		// category_id; the emblem helper wants the slug) so a row is never empty.
+		$bn_resolve_slug = static function ( array $space ) use ( $bn_cat_by_id ): array {
+			$cid                    = isset( $space['category_id'] ) ? (int) $space['category_id'] : 0;
+			$space['category_slug'] = $cid && isset( $bn_cat_by_id[ $cid ] )
+				? (string) $bn_cat_by_id[ $cid ]['slug']
+				: '';
+			return $space;
+		};
+
+		// Card: Your spaces (members only). The service's `member` arg INNER JOINs
+		// the viewer's active memberships and lifts the secret-space exclusion.
 		if ( $current_user_id ) {
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$bn_my_spaces = $wpdb->get_results(
-				$wpdb->prepare(
-					"SELECT s.id, s.name, s.slug, s.category_id, s.avatar_url, c.slug AS category_slug
-					FROM {$wpdb->prefix}bn_spaces s
-					INNER JOIN {$wpdb->prefix}bn_space_members m ON m.space_id = s.id
-					LEFT JOIN {$wpdb->prefix}bn_space_categories c ON c.id = s.category_id
-					WHERE m.user_id = %d AND m.status = 'active'
-					ORDER BY m.joined_at DESC
-					LIMIT %d",
-					$current_user_id,
-					6
+			$bn_my_spaces = $bn_space_service->list_spaces(
+				array(
+					'member'   => $current_user_id,
+					'viewer'   => $current_user_id,
+					'per_page' => 6,
 				)
 			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 			if ( ! empty( $bn_my_spaces ) ) {
 				ob_start();
 				?>
 				<ul class="bn-sd-side-list">
-					<?php foreach ( $bn_my_spaces as $bn_ms ) : ?>
+					<?php
+					foreach ( $bn_my_spaces as $bn_ms ) :
+						$bn_ms = $bn_resolve_slug( $bn_ms );
+						?>
 						<li>
-							<a href="<?php echo esc_url( buddynext_space_url( $bn_ms->slug ) ); ?>" class="bn-sd-side-row">
+							<a href="<?php echo esc_url( buddynext_space_url( $bn_ms['slug'] ) ); ?>" class="bn-sd-side-row">
 								<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo bn_space_side_emblem( $bn_ms ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
-								<span><?php echo esc_html( $bn_ms->name ); ?></span>
+								<span><?php echo esc_html( $bn_ms['name'] ); ?></span>
 							</a>
 						</li>
 					<?php endforeach; ?>
@@ -317,31 +245,31 @@ add_action(
 		}
 
 		// Card 3: Featured spaces (highest member-count, type=open).
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$bn_featured = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT s.id, s.name, s.slug, s.member_count, s.avatar_url, c.slug AS category_slug
-				FROM {$wpdb->prefix}bn_spaces s
-				LEFT JOIN {$wpdb->prefix}bn_space_categories c ON c.id = s.category_id
-				WHERE s.type = 'open'
-				ORDER BY s.member_count DESC
-				LIMIT %d",
-				5
+		$bn_featured = $bn_space_service->list_spaces(
+			array(
+				'type'     => 'open',
+				'orderby'  => 'member_count',
+				'order'    => 'DESC',
+				'per_page' => 5,
+				'viewer'   => $current_user_id,
+				'is_admin' => current_user_can( 'manage_options' ),
 			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( ! empty( $bn_featured ) ) {
 			ob_start();
 			?>
 			<ul class="bn-sd-side-list">
-				<?php foreach ( $bn_featured as $bn_f ) : ?>
+				<?php
+				foreach ( $bn_featured as $bn_f ) :
+					$bn_f = $bn_resolve_slug( $bn_f );
+					?>
 					<li>
-						<a href="<?php echo esc_url( buddynext_space_url( $bn_f->slug ) ); ?>" class="bn-sd-side-row">
+						<a href="<?php echo esc_url( buddynext_space_url( $bn_f['slug'] ) ); ?>" class="bn-sd-side-row">
 							<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo bn_space_side_emblem( $bn_f ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
 							<span class="bn-sd-side-row__main">
-								<span><?php echo esc_html( $bn_f->name ); ?></span>
-								<span class="bn-sd-side-row__meta"><?php echo esc_html( number_format_i18n( (int) $bn_f->member_count ) ); ?> <?php esc_html_e( 'members', 'buddynext' ); ?></span>
+								<span><?php echo esc_html( $bn_f['name'] ); ?></span>
+								<span class="bn-sd-side-row__meta"><?php echo esc_html( number_format_i18n( (int) $bn_f['member_count'] ) ); ?> <?php esc_html_e( 'members', 'buddynext' ); ?></span>
 							</span>
 						</a>
 					</li>
@@ -551,7 +479,7 @@ $bn_subtitle = sprintf(
 	// instead of a Reset-filters CTA that would no-op.
 	$bn_filters_active = ( '' !== $bn_search ) || ( '' !== $bn_cat_slug ) || ( 'mine' === $bn_scope ) || ( 'popular' !== $bn_orderby );
 	?>
-	<?php if ( empty( $spaces ) && ! $bn_filters_active ) : ?>
+	<?php if ( empty( $bn_spaces ) && ! $bn_filters_active ) : ?>
 
 		<div class="bn-sd-empty" data-bn-sd-empty>
 			<?php
@@ -576,7 +504,7 @@ $bn_subtitle = sprintf(
 			<?php endif; ?>
 		</div>
 
-	<?php elseif ( empty( $spaces ) ) : ?>
+	<?php elseif ( empty( $bn_spaces ) ) : ?>
 
 		<div class="bn-sd-empty" data-bn-sd-empty>
 			<?php
@@ -608,22 +536,32 @@ $bn_subtitle = sprintf(
 		?>
 		<div class="bn-sd-grid" role="list" data-bn-sd-grid<?php echo 'auto' !== $bn_sd_cols ? ' data-cols="' . esc_attr( $bn_sd_cols ) . '"' : ''; ?>>
 
-			<?php foreach ( $spaces as $space ) : ?>
+			<?php foreach ( $bn_spaces as $space ) : ?>
 				<?php
-				$space_id     = (int) $space->id;
+				$space_id     = (int) $space['id'];
 				$membership   = $membership_map[ $space_id ] ?? null;
-				$is_admin_mod = $membership && in_array( $membership->role, array( 'admin', 'moderator', 'owner' ), true ) && 'active' === $membership->status;
-				$is_member    = $membership && 'active' === $membership->status;
-				$is_pending   = $membership && 'pending' === $membership->status;
+				$is_admin_mod = $membership && in_array( $membership['role'], array( 'admin', 'moderator', 'owner' ), true ) && 'active' === $membership['status'];
+				$is_member    = $membership && 'active' === $membership['status'];
+				$is_pending   = $membership && 'pending' === $membership['status'];
 
-				$privacy_label = \BuddyNext\Spaces\SpaceService::type_label( (string) $space->type );
-				$privacy_tone  = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->tone( (string) $space->type );
+				$space_type    = (string) ( $space['type'] ?? 'open' );
+				$space_name    = (string) ( $space['name'] ?? '' );
+				$space_slug    = (string) ( $space['slug'] ?? '' );
+				$privacy_label = \BuddyNext\Spaces\SpaceService::type_label( $space_type );
+				$privacy_tone  = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->tone( $space_type );
+
+				// Resolve the card's category label/slug from the chip-row map
+				// (rows carry category_id only; no per-row join needed).
+				$bn_card_cat_id   = isset( $space['category_id'] ) ? (int) $space['category_id'] : 0;
+				$bn_card_cat      = $bn_card_cat_id && isset( $bn_cat_by_id[ $bn_card_cat_id ] ) ? $bn_cat_by_id[ $bn_card_cat_id ] : null;
+				$bn_card_cat_name = $bn_card_cat ? (string) $bn_card_cat['name'] : '';
+				$bn_card_cat_slug = $bn_card_cat ? (string) $bn_card_cat['slug'] : '';
 
 				$cover_tone = bn_space_cover_tone( $space_id );
-				$cat_icon   = bn_space_category_icon( $space->category_slug ?? '' );
+				$cat_icon   = bn_space_category_icon( $bn_card_cat_slug );
 
-				$space_url    = buddynext_space_url( $space->slug );
-				$member_count = number_format_i18n( (int) $space->member_count );
+				$space_url    = buddynext_space_url( $space_slug );
+				$member_count = number_format_i18n( (int) ( $space['member_count'] ?? 0 ) );
 				?>
 
 				<?php
@@ -631,12 +569,12 @@ $bn_subtitle = sprintf(
 				// used by templates/parts/space-hero.php: avatar → category
 				// icon → first-letter glyph. Never leave the emblem empty.
 				$bn_card_emblem = '';
-				if ( ! empty( $space->avatar_url ) ) {
+				if ( ! empty( $space['avatar_url'] ) ) {
 					$bn_card_emblem = sprintf(
 						'<img src="%s" alt="" loading="lazy">',
-						esc_url( $space->avatar_url )
+						esc_url( (string) $space['avatar_url'] )
 					);
-				} elseif ( ! empty( $space->category_slug ) ) {
+				} elseif ( '' !== $bn_card_cat_slug ) {
 					// Real category — render its icon. Pre-sanitised by
 					// IconService::render(), pass through wp_kses with
 					// the same allowlist used elsewhere.
@@ -644,15 +582,15 @@ $bn_subtitle = sprintf(
 				} else {
 					$bn_card_emblem = sprintf(
 						'<span class="bn-sd-card__emblem-letter">%s</span>',
-						esc_html( mb_strtoupper( mb_substr( (string) $space->name, 0, 1 ) ) )
+						esc_html( mb_strtoupper( mb_substr( $space_name, 0, 1 ) ) )
 					);
 				}
 				?>
-				<article class="bn-card bn-sd-card" data-interactive role="listitem" aria-label="<?php echo esc_attr( sprintf( '%s (%s)', $space->name, $privacy_label ) ); ?>">
+				<article class="bn-card bn-sd-card" data-interactive role="listitem" aria-label="<?php echo esc_attr( sprintf( '%s (%s)', $space_name, $privacy_label ) ); ?>">
 					<a href="<?php echo esc_url( $space_url ); ?>" tabindex="-1" aria-hidden="true" class="bn-sd-card__cover-link">
 						<div class="bn-sd-card__cover" data-tone="<?php echo esc_attr( $cover_tone ); ?>">
-							<?php if ( ! empty( $space->cover_image_url ) ) : ?>
-								<img src="<?php echo esc_url( $space->cover_image_url ); ?>" alt="" loading="lazy">
+							<?php if ( ! empty( $space['cover_image_url'] ) ) : ?>
+								<img src="<?php echo esc_url( (string) $space['cover_image_url'] ); ?>" alt="" loading="lazy">
 							<?php endif; ?>
 							<div class="bn-sd-card__emblem" aria-hidden="true"><?php echo $bn_card_emblem; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- branches above each escape their content. ?></div>
 						</div>
@@ -661,19 +599,19 @@ $bn_subtitle = sprintf(
 					<div class="bn-sd-card__body">
 						<a href="<?php echo esc_url( $space_url ); ?>" class="bn-sd-card__name-link">
 							<h2 class="bn-sd-card__name"
-								aria-label="<?php echo esc_attr( sprintf( '%s (%s)', $space->name, $privacy_label ) ); ?>"
-							><?php echo esc_html( $space->name ); ?><span class="bn-badge" data-tone="<?php echo esc_attr( $privacy_tone ); ?>"><?php echo esc_html( $privacy_label ); ?></span></h2>
+								aria-label="<?php echo esc_attr( sprintf( '%s (%s)', $space_name, $privacy_label ) ); ?>"
+							><?php echo esc_html( $space_name ); ?><span class="bn-badge" data-tone="<?php echo esc_attr( $privacy_tone ); ?>"><?php echo esc_html( $privacy_label ); ?></span></h2>
 						</a>
 
-						<?php if ( ! empty( $space->category_name ) ) : ?>
+						<?php if ( '' !== $bn_card_cat_name ) : ?>
 							<div class="bn-sd-card__category">
 								<?php buddynext_icon( 'hash' ); ?>
-								<?php echo esc_html( $space->category_name ); ?>
+								<?php echo esc_html( $bn_card_cat_name ); ?>
 							</div>
 						<?php endif; ?>
 
-						<?php if ( ! empty( $space->description ) ) : ?>
-							<p class="bn-sd-card__desc"><?php echo esc_html( wp_trim_words( $space->description, 18 ) ); ?></p>
+						<?php if ( ! empty( $space['description'] ) ) : ?>
+							<p class="bn-sd-card__desc"><?php echo esc_html( wp_trim_words( (string) $space['description'], 18 ) ); ?></p>
 						<?php endif; ?>
 
 						<div class="bn-sd-card__stats">
@@ -688,7 +626,7 @@ $bn_subtitle = sprintf(
 						<div class="bn-sd-card__foot">
 							<?php if ( 0 === (int) $current_user_id ) : ?>
 								<a
-									href="<?php echo esc_url( \BuddyNext\Core\PageRouter::auth_url() . '?redirect_to=' . rawurlencode( buddynext_space_url( $space->slug ) ) ); ?>"
+									href="<?php echo esc_url( \BuddyNext\Core\PageRouter::auth_url() . '?redirect_to=' . rawurlencode( buddynext_space_url( $space_slug ) ) ); ?>"
 									class="bn-btn"
 									data-variant="primary"
 									data-size="sm"
@@ -696,7 +634,7 @@ $bn_subtitle = sprintf(
 
 							<?php elseif ( $is_admin_mod ) : ?>
 								<a
-									href="<?php echo esc_url( buddynext_space_settings_url( $space->slug ) ); ?>"
+									href="<?php echo esc_url( buddynext_space_settings_url( $space_slug ) ); ?>"
 									class="bn-btn"
 									data-variant="secondary"
 									data-size="sm"
@@ -724,7 +662,7 @@ $bn_subtitle = sprintf(
 									aria-label="<?php esc_attr_e( 'Request pending — click to cancel', 'buddynext' ); ?>"
 								><?php esc_html_e( 'Requested', 'buddynext' ); ?></button>
 
-							<?php elseif ( 'direct' === \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) $space->type ) ) : ?>
+							<?php elseif ( 'direct' === \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( $space_type ) ) : ?>
 								<button
 									class="bn-btn"
 									data-variant="primary"
@@ -770,15 +708,15 @@ $bn_subtitle = sprintf(
 
 	<?php if ( buddynext_can( get_current_user_id(), 'buddynext-spaces/create' ) ) : ?>
 		<?php
-		global $wpdb;
 		// Root spaces the viewer owns — the only spaces they may nest a sub-space
 		// under. Empty for most users, so the modal's parent field stays hidden.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$bn_create_parent_spaces = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT id, name FROM {$wpdb->prefix}bn_spaces WHERE owner_id = %d AND parent_id IS NULL ORDER BY name ASC LIMIT 100",
-				get_current_user_id()
-			)
+		// The modal renders objects (->id/->name), so the hydrated rows are cast.
+		$bn_create_parent_spaces = array_map(
+			static fn( $s ) => (object) array(
+				'id'   => (int) $s['id'],
+				'name' => (string) $s['name'],
+			),
+			$bn_space_service->owned_root_spaces( get_current_user_id() )
 		);
 		buddynext_get_template(
 			'partials/create-space-modal.php',

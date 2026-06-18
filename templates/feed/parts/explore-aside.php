@@ -24,10 +24,10 @@ defined( 'ABSPATH' ) || exit;
 
 use BuddyNext\Core\PageRouter;
 use BuddyNext\Feed\ExploreService;
+use BuddyNext\Hashtags\HashtagService;
+use BuddyNext\Spaces\SpaceService;
 
 $bn_viewer = isset( $current_user_id ) ? (int) $current_user_id : get_current_user_id();
-
-global $wpdb;
 
 /**
  * Fires at the top of the Explore aside. Pro hooks a live community-pulse card
@@ -40,14 +40,9 @@ global $wpdb;
 do_action( 'buddynext_explore_aside_pulse', $bn_viewer );
 
 // ── Trending tags ──────────────────────────────────────────────────────────
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$bn_trending = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT slug, post_count FROM {$wpdb->prefix}bn_hashtags WHERE post_count > 0 ORDER BY post_count DESC, id DESC LIMIT %d",
-		5
-	)
-);
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+// Cached, service-owned trending (24h rolling window + transient layer); the
+// same source the hashtag REST endpoint serves.
+$bn_trending = ( new HashtagService() )->trending( 5 );
 
 if ( ! empty( $bn_trending ) ) {
 	$bn_activity = trailingslashit( PageRouter::activity_url() );
@@ -57,17 +52,22 @@ if ( ! empty( $bn_trending ) ) {
 		<?php
 		$bn_rank = 0;
 		foreach ( $bn_trending as $bn_tag ) :
+			$bn_tag_slug  = (string) ( $bn_tag['slug'] ?? '' );
+			$bn_tag_count = (int) ( $bn_tag['post_count'] ?? 0 );
+			if ( '' === $bn_tag_slug ) {
+				continue;
+			}
 			++$bn_rank;
-			$bn_tag_url = esc_url( $bn_activity . 'hashtag/' . rawurlencode( (string) $bn_tag->slug ) . '/' );
+			$bn_tag_url = esc_url( $bn_activity . 'hashtag/' . rawurlencode( $bn_tag_slug ) . '/' );
 			?>
 			<li class="bn-ex-trend__row">
 				<span class="bn-ex-trend__rank"><?php echo esc_html( number_format_i18n( $bn_rank ) ); ?></span>
 				<a class="bn-ex-trend__info" href="<?php echo $bn_tag_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_url() applied above. ?>">
-					<span class="bn-ex-trend__tag">#<?php echo esc_html( $bn_tag->slug ); ?></span>
+					<span class="bn-ex-trend__tag">#<?php echo esc_html( $bn_tag_slug ); ?></span>
 					<span class="bn-ex-trend__stat">
 						<?php
 						/* translators: %s: formatted post count. */
-						echo esc_html( sprintf( _n( '%s post', '%s posts', (int) $bn_tag->post_count, 'buddynext' ), number_format_i18n( (int) $bn_tag->post_count ) ) );
+						echo esc_html( sprintf( _n( '%s post', '%s posts', $bn_tag_count, 'buddynext' ), number_format_i18n( $bn_tag_count ) ) );
 						?>
 					</span>
 				</a>
@@ -140,33 +140,30 @@ if ( ! empty( $bn_people ) ) {
 }
 
 // ── Browse by category ─────────────────────────────────────────────────────
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$bn_categories = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT c.id, c.name, c.slug, COUNT(s.id) AS space_count
-		   FROM {$wpdb->prefix}bn_space_categories c
-		   LEFT JOIN {$wpdb->prefix}bn_spaces s
-		          ON s.category_id = c.id AND s.is_archived = 0 AND s.type IN ('open','private')
-		  GROUP BY c.id, c.name, c.slug, c.sort_order
-		  ORDER BY c.sort_order ASC, c.name ASC
-		  LIMIT %d",
-		6
-	)
-);
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+// Service-owned categories with a live per-row space count (single owner of
+// bn_space_categories); the directory chip row consumes the same source.
+$bn_categories = ( new SpaceService() )->categories_with_counts( 6 );
 
 if ( ! empty( $bn_categories ) ) {
 	$bn_spaces_base = PageRouter::spaces_url();
 	ob_start();
 	?>
 	<div class="bn-ex-cats">
-		<?php foreach ( $bn_categories as $bn_cat ) : ?>
-			<a class="bn-ex-cat" href="<?php echo esc_url( add_query_arg( 'category', (string) $bn_cat->slug, $bn_spaces_base ) ); ?>">
-				<span class="bn-ex-cat__name"><?php echo esc_html( $bn_cat->name ); ?></span>
+		<?php
+		foreach ( $bn_categories as $bn_cat ) :
+			$bn_cat_slug  = (string) ( $bn_cat['slug'] ?? '' );
+			$bn_cat_name  = (string) ( $bn_cat['name'] ?? '' );
+			$bn_cat_count = (int) ( $bn_cat['space_count'] ?? 0 );
+			if ( '' === $bn_cat_slug ) {
+				continue;
+			}
+			?>
+			<a class="bn-ex-cat" href="<?php echo esc_url( add_query_arg( 'category', $bn_cat_slug, $bn_spaces_base ) ); ?>">
+				<span class="bn-ex-cat__name"><?php echo esc_html( $bn_cat_name ); ?></span>
 				<span class="bn-ex-cat__count">
 					<?php
 					/* translators: %s: formatted space count. */
-					echo esc_html( sprintf( _n( '%s space', '%s spaces', (int) $bn_cat->space_count, 'buddynext' ), number_format_i18n( (int) $bn_cat->space_count ) ) );
+					echo esc_html( sprintf( _n( '%s space', '%s spaces', $bn_cat_count, 'buddynext' ), number_format_i18n( $bn_cat_count ) ) );
 					?>
 				</span>
 			</a>

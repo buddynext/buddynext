@@ -804,6 +804,7 @@ function buddynext_date_local( string $gmt_datetime, string $format = '' ): stri
  * here, never by ad-hoc inline checks.
  *
  * Returned kinds (all real-data driven — no fabricated card types):
+ *   - 'post-poll'  : a poll post → recognizable poll card (click-through to vote).
  *   - 'post-media' : carries at least one media attachment → image card.
  *   - 'post-forum' : a discussion / forum post → tinted, taller thread card.
  *   - 'post-text'  : everything else → plain text card.
@@ -812,13 +813,20 @@ function buddynext_date_local( string $gmt_datetime, string $format = '' ): stri
  *
  * @param array<string,mixed> $post A post row with at least type / content /
  *                                  media_ids.
- * @return string One of: post-media, post-forum, post-text.
+ * @return string One of: post-poll, post-media, post-forum, post-text.
  */
 function buddynext_explore_card_kind( array $post ): string {
 	$type      = (string) ( $post['type'] ?? 'text' );
 	$media_ids = $post['media_ids'] ?? null;
 
-	// Media wins first: anything with an attachment reads best as an image card.
+	// Poll wins before media so a poll never renders as a plain text/link teaser
+	// (it stored no recognizable affordance before): polls read as a question +
+	// "Vote" call-to-action card.
+	if ( 'poll' === $type ) {
+		return 'post-poll';
+	}
+
+	// Media wins next: anything with an attachment reads best as an image card.
 	$has_media = false;
 	if ( is_array( $media_ids ) ) {
 		$has_media = ! empty( $media_ids );

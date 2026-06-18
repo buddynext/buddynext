@@ -10,6 +10,7 @@
  * beside the name.
  *
  * The grid mixes entity types, so this partial switches on $card['kind']:
+ *   - post-poll  : a poll post                    → poll card (Vote CTA)
  *   - post-media : a post carrying an attachment  → image card
  *   - post-quote : short, high-engagement text    → pull-quote card (span-2)
  *   - post-forum : a Jetonomy forum/discussion    → tinted thread card (span-tall)
@@ -259,6 +260,51 @@ $bn_render_foot = static function ( string $av, string $tone, string $name, stri
 	</div>
 	<?php
 };
+
+// ── post-poll: recognizable poll card (question + Vote call-to-action) ───────
+// Polls previously fell through to the plain post-text card, so a member could
+// not tell a poll from any other text post on Explore. The poll kicker + glyph
+// make it identifiable; the whole card and the footer CTA click through to the
+// post where the member can vote.
+if ( 'post-poll' === $bn_kind ) :
+	$bn_poll_options = $bn_post['poll_options'] ?? array();
+	$bn_poll_count   = is_array( $bn_poll_options ) ? count( $bn_poll_options ) : 0;
+	$bn_poll_q       = '' !== $bn_headline ? $bn_headline : __( 'Community poll', 'buddynext' );
+	?>
+	<article class="ec-card is-poll" data-kind="post-poll">
+		<a class="ec-body" href="<?php echo esc_url( $bn_purl ); ?>">
+			<div class="ec-kicker ec-kicker--poll">
+				<span class="ec-poll-glyph" aria-hidden="true"><?php buddynext_icon( 'bar-chart-2' ); ?></span>
+				<?php echo '' !== $bn_kicker ? esc_html( __( 'Poll · ', 'buddynext' ) . $bn_kicker ) : esc_html__( 'Poll', 'buddynext' ); ?>
+			</div>
+			<div class="ec-title"><?php echo esc_html( wp_trim_words( $bn_poll_q, 18, '…' ) ); ?></div>
+			<?php if ( $bn_poll_count > 0 ) : ?>
+				<div class="ec-poll-meta">
+					<?php
+					/* translators: %s: formatted number of poll options. */
+					echo esc_html( sprintf( _n( '%s option', '%s options', $bn_poll_count, 'buddynext' ), number_format_i18n( $bn_poll_count ) ) );
+					?>
+				</div>
+			<?php endif; ?>
+		</a>
+		<div class="ec-foot ec-foot--poll">
+			<a class="ec-poll-vote" href="<?php echo esc_url( $bn_purl ); ?>">
+				<?php buddynext_icon( 'bar-chart-2' ); ?>
+				<?php esc_html_e( 'Vote', 'buddynext' ); ?>
+			</a>
+			<span class="stats">
+				<?php if ( $bn_reactions > 0 ) : ?>
+					<span title="<?php esc_attr_e( 'Reactions', 'buddynext' ); ?>"><?php buddynext_icon( 'heart' ); ?><?php echo esc_html( number_format_i18n( $bn_reactions ) ); ?></span>
+				<?php endif; ?>
+				<?php if ( $bn_comments > 0 ) : ?>
+					<span title="<?php esc_attr_e( 'Comments', 'buddynext' ); ?>"><?php buddynext_icon( 'message-circle' ); ?><?php echo esc_html( number_format_i18n( $bn_comments ) ); ?></span>
+				<?php endif; ?>
+			</span>
+		</div>
+	</article>
+	<?php
+	return;
+endif;
 
 // ── post-forum: tinted, taller discussion/thread card ───────────────────────
 if ( 'post-forum' === $bn_kind ) :

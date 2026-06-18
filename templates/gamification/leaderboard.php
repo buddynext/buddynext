@@ -343,8 +343,7 @@ $updated_iso = gmdate( 'c' );
 				$delta         = (int) ( $rank_changes[ $uid ] ?? 0 );
 				$trend         = ( 0 === $delta ) ? 'flat' : ( $delta > 0 ? 'up' : 'down' );
 				$ribbon        = $ribbon_by_user[ $uid ] ?? array();
-				$last_space    = strrchr( $display, ' ' );
-				$initials      = strtoupper( substr( $display, 0, 1 ) . substr( false === $last_space ? '' : $last_space, 1, 1 ) );
+				$initials      = \BuddyNext\Profile\AvatarService::initials_for( $display );
 				?>
 				<li>
 					<article class="bn-card bn-lb-row"
