@@ -420,6 +420,7 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="bn-prefs-reset-title"
+		hidden
 		data-wp-bind--hidden="!context.resetConfirmOpen">
 		<div class="bn-modal__panel" data-size="sm">
 			<header class="bn-modal__head">

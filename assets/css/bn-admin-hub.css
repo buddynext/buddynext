@@ -329,8 +329,8 @@
 /* Wrap every <form> + standalone <table.wp-list-table> in a card chrome.
    Excludes the .bn-admin-hub__picker (the wide-layout select) and the
    .bn-admin-search stub (handled separately). */
-.bn-admin-hub__main form:not(.bn-admin-hub__form-bare):not(.bn-admin-hub__picker),
-.bn-admin-hub__main--wide form:not(.bn-admin-hub__form-bare):not(.bn-admin-hub__picker),
+.bn-admin-hub__main form:not(.bn-admin-hub__form-bare):not(.bn-admin-hub__picker):not(.bn-modal__panel),
+.bn-admin-hub__main--wide form:not(.bn-admin-hub__form-bare):not(.bn-admin-hub__picker):not(.bn-modal__panel),
 .bn-admin-hub__main > table.wp-list-table,
 .bn-admin-hub__main--wide > table.wp-list-table {
 	background: var(--bn-surface, #fff);
@@ -364,8 +364,8 @@
  *   2. Forms inside our .bn-settings-section card vocabulary — the section is
  *      already the card; a second card is the "double container" bug.
  * ───────────────────────────────────────────────────────────────────────── */
-.bn-admin-hub__main form:not(.bn-admin-hub__picker):not(:has(.form-table)):not(:has(textarea)):not(:has(select)):not(:has(input[type="text"])):not(:has(input[type="email"])):not(:has(input[type="url"])):not(:has(input[type="number"])):not(:has(input[type="search"])):not(:has(input[type="password"])):not(:has(input[type="checkbox"])):not(:has(input[type="radio"])):not(:has(input[type="file"])):not(:has(input[type="color"])),
-.bn-admin-hub__main--wide form:not(.bn-admin-hub__picker):not(:has(.form-table)):not(:has(textarea)):not(:has(select)):not(:has(input[type="text"])):not(:has(input[type="email"])):not(:has(input[type="url"])):not(:has(input[type="number"])):not(:has(input[type="search"])):not(:has(input[type="password"])):not(:has(input[type="checkbox"])):not(:has(input[type="radio"])):not(:has(input[type="file"])):not(:has(input[type="color"])) {
+.bn-admin-hub__main form:not(.bn-modal__panel):not(.bn-admin-hub__picker):not(:has(.form-table)):not(:has(textarea)):not(:has(select)):not(:has(input[type="text"])):not(:has(input[type="email"])):not(:has(input[type="url"])):not(:has(input[type="number"])):not(:has(input[type="search"])):not(:has(input[type="password"])):not(:has(input[type="checkbox"])):not(:has(input[type="radio"])):not(:has(input[type="file"])):not(:has(input[type="color"])),
+.bn-admin-hub__main--wide form:not(.bn-modal__panel):not(.bn-admin-hub__picker):not(:has(.form-table)):not(:has(textarea)):not(:has(select)):not(:has(input[type="text"])):not(:has(input[type="email"])):not(:has(input[type="url"])):not(:has(input[type="number"])):not(:has(input[type="search"])):not(:has(input[type="password"])):not(:has(input[type="checkbox"])):not(:has(input[type="radio"])):not(:has(input[type="file"])):not(:has(input[type="color"])) {
 	background: none;
 	border: 0;
 	box-shadow: none;
