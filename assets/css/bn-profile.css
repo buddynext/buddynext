@@ -1190,6 +1190,11 @@
 	display: flex;
 	align-items: center;
 	gap: 10px;
+	/* Let the row shrink gracefully on narrow screens: name + handle truncate
+	   (min-width:0 below) and the avatar + remove button never shrink; flex-wrap
+	   is the safety net so the remove button drops to a second line instead of
+	   overflowing the card on very small widths. */
+	flex-wrap: wrap;
 	padding: 6px 8px;
 	border-radius: var(--bn-r-md, 8px);
 	background: var(--bn-sunken, #f3f4f6);
@@ -1198,9 +1203,29 @@
 	width: 32px;
 	height: 32px;
 	border-radius: 50%;
+	flex-shrink: 0;
 }
-.bn-ep-relation__name { font-weight: 500; color: var(--bn-ink-1); }
-.bn-ep-relation__handle { color: var(--bn-ink-3); font-size: var(--bn-text-xs); flex: 1; }
+.bn-ep-relation__name {
+	font-weight: 500;
+	color: var(--bn-ink-1);
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.bn-ep-relation__handle {
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.bn-ep-relation [data-bn-relation-remove] {
+	flex-shrink: 0;
+	margin-inline-start: auto;
+}
 
 /* Profile completeness chip — circular ring with % label. Clicking
    the chip takes the owner to /edit. Owner-only; hidden when pct
