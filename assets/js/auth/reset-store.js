@@ -9,6 +9,7 @@
  * signup store: same rest() helper, inline field errors, generic messaging.
  */
 import { store, getContext } from '@wordpress/interactivity';
+import { restFetch } from '../shell/rest-client.js';
 
 function ctx() {
 	try {
@@ -19,12 +20,17 @@ function ctx() {
 }
 
 function rest( c, path, opts ) {
-	const url     = ( c.restUrl || '/wp-json/buddynext/v1/' ) + String( path ).replace( /^\//, '' );
-	const headers = Object.assign(
-		{ 'X-WP-Nonce': c.restNonce || '', 'Content-Type': 'application/json' },
-		( opts && opts.headers ) || {}
-	);
-	return fetch( url, Object.assign( {}, opts || {}, { headers, credentials: 'same-origin' } ) );
+	opts = opts || {};
+	const init = {
+		base: c.restUrl || '/wp-json/buddynext/v1/',
+		nonce: c.restNonce || '',
+		method: opts.method,
+		toastOnError: false,
+	};
+	if ( typeof opts.body !== 'undefined' ) {
+		init.body = opts.body;
+	}
+	return restFetch( '/' + String( path ).replace( /^\//, '' ), init );
 }
 
 function toast( message, tone ) {
@@ -74,9 +80,9 @@ store( 'buddynext/auth-reset', {
 			try {
 				const r = yield rest( c, 'auth/lost-password', {
 					method: 'POST',
-					body:   JSON.stringify( { user_login: c.login || '' } ),
+					body:   { user_login: c.login || '' },
 				} );
-				const data = yield r.json();
+				const data = r.data;
 				c.submitting = false;
 				// Always a generic success (no account enumeration).
 				c.done = true;
@@ -104,13 +110,13 @@ store( 'buddynext/auth-reset', {
 			try {
 				const r = yield rest( c, 'auth/reset-password', {
 					method: 'POST',
-					body:   JSON.stringify( {
+					body:   {
 						key:      c.resetKey || '',
 						login:    c.resetLogin || '',
 						password: c.password || '',
-					} ),
+					},
 				} );
-				const data = yield r.json();
+				const data = r.data;
 				if ( ! r.ok || ! ( data && data.success ) ) {
 					if ( data && data.data && data.data.fields ) {
 						c.fieldErrors = data.data.fields;

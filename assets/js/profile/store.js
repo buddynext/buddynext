@@ -1,15 +1,12 @@
 /* BuddyNext - Profile Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
 import { bnToast, bnConfirm, bnConnectNoteDialog } from '../shell/dialog.js';
+import { restFetch } from '../shell/rest-client.js';
 
 /* -- Shared helpers ----------------------------------------------------- */
 
 var slugTimer = null;
 var slugAbort = null;
-
-function apiUrl( path ) {
-	return ( window.wpApiSettings && window.wpApiSettings.root || '/wp-json/' ) + path;
-}
 
 function nonce() {
 	return getContext().restNonce || '';
@@ -518,8 +515,8 @@ function profileSaveUrl() {
 	var root   = document.querySelector( '[data-wp-interactive="buddynext/profile"]' );
 	var target = root ? parseInt( root.getAttribute( 'data-bn-profile-user' ) || '0', 10 ) : 0;
 	return target > 0
-		? apiUrl( 'buddynext/v1/users/' + target + '/profile' )
-		: apiUrl( 'buddynext/v1/me/profile' );
+		? '/users/' + target + '/profile'
+		: '/me/profile';
 }
 
 /* Master save flow - submits all fields, handles 200 / 422 / 5xx. */
@@ -530,14 +527,14 @@ async function doSave( ctx ) {
 	clearErrors( ctx );
 
 	try {
-		var res = await fetch( profileSaveUrl(), {
-			method:  'PUT',
-			headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
-			body:    JSON.stringify( buildPayload( ctx ) ),
+		var res = await restFetch( profileSaveUrl(), {
+			method:       'PUT',
+			nonce:        nonce(),
+			body:         buildPayload( ctx ),
+			toastOnError: false,
 		} );
 
-		var json = {};
-		try { json = await res.json(); } catch ( _e ) {}
+		var json = res.data || {};
 
 		if ( res.ok ) {
 			ctx.saved   = true;
@@ -562,10 +559,11 @@ async function doAutoSave( ctx ) {
 	if ( ctx.saving ) { return; }
 	ctx.saving = true;
 	try {
-		var res = await fetch( profileSaveUrl(), {
-			method:  'PUT',
-			headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
-			body:    JSON.stringify( buildPayload( ctx ) ),
+		var res = await restFetch( profileSaveUrl(), {
+			method:       'PUT',
+			nonce:        nonce(),
+			body:         buildPayload( ctx ),
+			toastOnError: false,
 		} );
 		if ( res.ok ) {
 			ctx.saved   = true;
@@ -906,11 +904,12 @@ store( 'buddynext/profile', {
 			var btn = event && event.target && event.target.closest( 'button' );
 			if ( btn ) { btn.disabled = true; }
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/me/data-export' ), {
-					headers: { 'X-WP-Nonce': nonce() },
+				var res = await restFetch( '/me/data-export', {
+					nonce:        nonce(),
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
-				var data = await res.json();
+				var data = res.data;
 				var blob = new Blob( [ JSON.stringify( data, null, 2 ) ], { type: 'application/json' } );
 				var url  = URL.createObjectURL( blob );
 				var a    = document.createElement( 'a' );
@@ -943,11 +942,12 @@ store( 'buddynext/profile', {
 
 			if ( btn ) { btn.disabled = true; }
 			try {
-				var res  = await fetch( apiUrl( 'buddynext/v1/me/account' ), {
-					method:  'DELETE',
-					headers: { 'X-WP-Nonce': nonce() },
+				var res  = await restFetch( '/me/account', {
+					method:       'DELETE',
+					nonce:        nonce(),
+					toastOnError: false,
 				} );
-				var data = await res.json();
+				var data = res.data || {};
 				if ( res.ok && data.deleted ) {
 					window.location.href = data.redirect_to || '/';
 				} else {
@@ -1038,9 +1038,10 @@ store( 'buddynext/profile', {
 			if ( ! btn ) { return; }
 			var provider = btn.getAttribute( 'data-provider' );
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/me/social/' + provider ), {
-					method:  'DELETE',
-					headers: { 'X-WP-Nonce': nonce() },
+				var res = await restFetch( '/me/social/' + provider, {
+					method:       'DELETE',
+					nonce:        nonce(),
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
 				bnToast( ( window.bnI18n && window.bnI18n.socialUnlinked ) || 'Account unlinked', { tone: 'success' } );
@@ -1072,10 +1073,11 @@ store( 'buddynext/profile', {
 			// listener; genuine edits to other fields still set the dirty flag.
 			if ( event && typeof event.stopPropagation === 'function' ) { event.stopPropagation(); }
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/users/' + userId + '/member-type' ), {
-					method:  'PUT',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
-					body:    JSON.stringify( { type_slug: sel.value } ),
+				var res = await restFetch( '/users/' + userId + '/member-type', {
+					method:       'PUT',
+					nonce:        nonce(),
+					body:         { type_slug: sel.value },
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
 				bnToast( ( window.bnI18n && window.bnI18n.memberTypeSaved ) || 'Member type updated', { tone: 'success' } );
@@ -1102,10 +1104,11 @@ store( 'buddynext/profile', {
 			payload[ prefKey ] = next;
 
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/me/profile' ), {
-					method:  'PUT',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
-					body:    JSON.stringify( payload ),
+				var res = await restFetch( '/me/profile', {
+					method:       'PUT',
+					nonce:        nonce(),
+					body:         payload,
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
 					throw new Error( 'http_' + res.status );
@@ -1251,17 +1254,19 @@ store( 'buddynext/profile', {
 
 			slugTimer = setTimeout( function () {
 				slugAbort = new AbortController();
-				fetch(
-					apiUrl( 'buddynext/v1/profile-slug/check?slug=' + encodeURIComponent( slug ) ),
-					{ headers: { 'X-WP-Nonce': ctx.restNonce }, signal: slugAbort.signal }
-				).then( function ( r ) { return r.json(); } )
-				 .then( function ( json ) {
-				 	ctx.slugAvailable = json.available;
-				 	ctx.slugChecking  = false;
-				 } )
-				 .catch( function ( e ) {
-				 	if ( e.name !== 'AbortError' ) { ctx.slugChecking = false; }
-				 } );
+				var thisAbort = slugAbort;
+				restFetch(
+					'/profile-slug/check?slug=' + encodeURIComponent( slug ),
+					{ nonce: ctx.restNonce, signal: thisAbort.signal, toastOnError: false }
+				).then( function ( res ) {
+					// A superseding keystroke aborts this request — leave the
+					// checking state alone so the newer request owns the UI.
+					if ( thisAbort.signal.aborted ) { return; }
+					if ( res.ok && res.data ) {
+						ctx.slugAvailable = res.data.available;
+					}
+					ctx.slugChecking = false;
+				} );
 			}, 400 );
 		},
 
@@ -1275,18 +1280,19 @@ store( 'buddynext/profile', {
 			ctx.slugSaving = true;
 			ctx.slugSaved  = false;
 
-			fetch( apiUrl( 'buddynext/v1/me/profile-slug' ), {
-				method:  'PUT',
-				headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.restNonce },
-				body:    JSON.stringify( { slug: slug } ),
-			} ).then( function ( r ) { return r.json(); } )
-			   .then( function ( json ) {
-			   	ctx.profileUrl  = json.url;
-			   	ctx.profileSlug = json.slug;
-			   	ctx.slugSaved   = true;
-			   	setTimeout( function () { ctx.slugSaved = false; }, 3000 );
-			   } )
-			   .catch( function () {} )
+			restFetch( '/me/profile-slug', {
+				method:       'PUT',
+				nonce:        ctx.restNonce,
+				body:         { slug: slug },
+				toastOnError: false,
+			} ).then( function ( res ) {
+				if ( res.ok && res.data ) {
+					ctx.profileUrl  = res.data.url;
+					ctx.profileSlug = res.data.slug;
+					ctx.slugSaved   = true;
+					setTimeout( function () { ctx.slugSaved = false; }, 3000 );
+				}
+			} )
 			   .finally( function () { ctx.slugSaving = false; } );
 		},
 
@@ -1367,12 +1373,13 @@ store( 'buddynext/profile', {
 				// REST API rejects with 403 (rest_cookie_invalid_nonce) and the
 				// upload surfaces as "Upload failed". ctx was captured up-front
 				// for exactly this reason.
-				var res  = await fetch( apiUrl( 'buddynext/v1/me/avatar' ), {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
-					body:    formData,
+				var res  = await restFetch( '/me/avatar', {
+					method:       'POST',
+					nonce:        ctx.restNonce,
+					body:         formData,
+					toastOnError: false,
 				} );
-				var data = await res.json();
+				var data = res.data || {};
 				if ( res.ok && data.avatar_url ) {
 					ctx.avatarUrl = data.avatar_url;
 					// Live-refresh the (non-reactive) hero preview and reveal the
@@ -1403,9 +1410,10 @@ store( 'buddynext/profile', {
 			if ( ! ok ) { return; }
 
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/me/avatar' ), {
-					method:  'DELETE',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
+				var res = await restFetch( '/me/avatar', {
+					method:       'DELETE',
+					nonce:        ctx.restNonce,
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					ctx.avatarUrl = '';
@@ -1449,12 +1457,13 @@ store( 'buddynext/profile', {
 
 				// Captured nonce — nonce() (getContext post-await) returns empty
 				// and 403s. See handleAvatarFileChange for the full rationale.
-				var res  = await fetch( apiUrl( 'buddynext/v1/me/cover' ), {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
-					body:    formData,
+				var res  = await restFetch( '/me/cover', {
+					method:       'POST',
+					nonce:        ctx.restNonce,
+					body:         formData,
+					toastOnError: false,
 				} );
-				var data = await res.json();
+				var data = res.data || {};
 				if ( res.ok && data.cover_url ) {
 					ctx.coverUrl    = data.cover_url;
 					ctx.coverFocalX = repos.x;
@@ -1492,9 +1501,10 @@ store( 'buddynext/profile', {
 			ctx.isFollowing   = true;
 			ctx.followerCount = ( ctx.followerCount || 0 ) + 1;
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/follow' ), {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
+				var res = await restFetch( '/users/' + ctx.profileUserId + '/follow', {
+					method:       'POST',
+					nonce:        ctx.restNonce,
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'follow_failed' ); }
 				bnToast( 'Followed', { tone: 'success' } );
@@ -1511,9 +1521,10 @@ store( 'buddynext/profile', {
 			ctx.isFollowing   = false;
 			ctx.followerCount = Math.max( 0, ( ctx.followerCount || 1 ) - 1 );
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/follow' ), {
-					method:  'DELETE',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
+				var res = await restFetch( '/users/' + ctx.profileUserId + '/follow', {
+					method:       'DELETE',
+					nonce:        ctx.restNonce,
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'unfollow_failed' ); }
 				bnToast( 'Unfollowed', { tone: 'info' } );
@@ -1535,10 +1546,11 @@ store( 'buddynext/profile', {
 			ctx.connectionPending = true;
 			ctx.showConnect       = false;
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/connect' ), {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-					body:    JSON.stringify( { note: note } ),
+				var res = await restFetch( '/users/' + ctx.profileUserId + '/connect', {
+					method:       'POST',
+					nonce:        ctx.restNonce,
+					body:         { note: note },
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'connect_failed' ); }
 				bnToast( 'Connection request sent', { tone: 'success' } );
@@ -1552,9 +1564,10 @@ store( 'buddynext/profile', {
 		async withdrawRequest() {
 			var ctx = getContext();
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/connect' ), {
-					method:  'DELETE',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
+				var res = await restFetch( '/users/' + ctx.profileUserId + '/connect', {
+					method:       'DELETE',
+					nonce:        ctx.restNonce,
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					ctx.connectionPending = false;
@@ -1567,9 +1580,10 @@ store( 'buddynext/profile', {
 		async acceptRequest() {
 			var ctx = getContext();
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/connect/accept' ), {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
+				var res = await restFetch( '/users/' + ctx.profileUserId + '/connect/accept', {
+					method:       'POST',
+					nonce:        ctx.restNonce,
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					ctx.connectionReceived = false;
@@ -1583,9 +1597,10 @@ store( 'buddynext/profile', {
 		async declineRequest() {
 			var ctx = getContext();
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/connect/decline' ), {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
+				var res = await restFetch( '/users/' + ctx.profileUserId + '/connect/decline', {
+					method:       'POST',
+					nonce:        ctx.restNonce,
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					ctx.connectionReceived = false;
@@ -1598,9 +1613,10 @@ store( 'buddynext/profile', {
 		async disconnectUser() {
 			var ctx = getContext();
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/connect' ), {
-					method:  'DELETE',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
+				var res = await restFetch( '/users/' + ctx.profileUserId + '/connect', {
+					method:       'DELETE',
+					nonce:        ctx.restNonce,
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					ctx.isConnected       = false;
@@ -1662,9 +1678,10 @@ store( 'buddynext/profile', {
 			ctx.moreMenuOpen = false;
 			var method = wasMuted ? 'DELETE' : 'POST';
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/mute' ), {
-					method:  method,
-					headers: { 'X-WP-Nonce': ctx.restNonce },
+				var res = await restFetch( '/users/' + ctx.profileUserId + '/mute', {
+					method:       method,
+					nonce:        ctx.restNonce,
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'mute_failed' ); }
 				bnToast( wasMuted ? 'Unmuted' : 'Muted', { tone: 'success' } );
@@ -1681,9 +1698,10 @@ store( 'buddynext/profile', {
 			ctx.moreMenuOpen = false;
 			var method = wasRestricted ? 'DELETE' : 'POST';
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/restrict' ), {
-					method:  method,
-					headers: { 'X-WP-Nonce': ctx.restNonce },
+				var res = await restFetch( '/users/' + ctx.profileUserId + '/restrict', {
+					method:       method,
+					nonce:        ctx.restNonce,
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'restrict_failed' ); }
 				bnToast(
@@ -1719,9 +1737,10 @@ store( 'buddynext/profile', {
 			if ( ctx.blockSubmitting ) { return; }
 			ctx.blockSubmitting = true;
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/block' ), {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
+				var res = await restFetch( '/users/' + ctx.profileUserId + '/block', {
+					method:       'POST',
+					nonce:        ctx.restNonce,
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'block_failed' ); }
 				ctx.isBlocked        = true;
@@ -1765,20 +1784,21 @@ store( 'buddynext/profile', {
 			if ( ctx.reportSubmitting ) { return; }
 			ctx.reportSubmitting = true;
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/reports' ), {
-					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.restNonce },
-					body:    JSON.stringify( {
+				var res = await restFetch( '/reports', {
+					method:       'POST',
+					nonce:        ctx.restNonce,
+					toastOnError: false,
+					body:         {
 						object_type: 'user',
 						object_id:   ctx.profileUserId,
 						reason:      ctx.reportReason || 'other',
 						notes:       ctx.reportNotes  || '',
-					} ),
+					},
 				} );
 				if ( ! res.ok && res.status !== 201 ) {
 					// Surface the server's reason — e.g. the 409 "You have already
 					// reported this member." — rather than a generic retry message.
-					var data = await res.json().catch( function () { return {}; } );
+					var data = res.data || {};
 					bnToast( data.message || 'Could not submit report. Try again.', { tone: 'danger' } );
 					return;
 				}
@@ -1810,13 +1830,13 @@ store( 'buddynext/profile', {
 			var email = input ? ( input.value || '' ).trim() : '';
 			ctx.emailChangeSubmitting = true;
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/auth/change-email' ), {
-					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
-					body:    JSON.stringify( { email: email } ),
+				var res = await restFetch( '/auth/change-email', {
+					method:       'POST',
+					nonce:        nonce(),
+					body:         { email: email },
+					toastOnError: false,
 				} );
-				var json = {};
-				try { json = await res.json(); } catch ( _e ) {}
+				var json = res.data || {};
 				if ( res.ok && json && json.saved ) {
 					ctx.emailChangeOpen = false;
 					if ( input ) { input.value = ''; }
@@ -1888,13 +1908,13 @@ store( 'buddynext/profile', {
 
 			ctx.passwordChangeSubmitting = true;
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/auth/change-password' ), {
-					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
-					body:    JSON.stringify( { current_password: curr, new_password: next } ),
+				var res = await restFetch( '/auth/change-password', {
+					method:       'POST',
+					nonce:        nonce(),
+					body:         { current_password: curr, new_password: next },
+					toastOnError: false,
 				} );
-				var json = {};
-				try { json = await res.json(); } catch ( _e ) {}
+				var json = res.data || {};
 				if ( res.ok && json && json.saved ) {
 					ctx.passwordChangeOpen = false;
 					if ( curInput ) { curInput.value = ''; }
@@ -1921,9 +1941,10 @@ store( 'buddynext/profile', {
 			if ( ctx.signOutSubmitting ) { return; }
 			ctx.signOutSubmitting = true;
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/auth/sign-out-everywhere' ), {
-					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
+				var res = await restFetch( '/auth/sign-out-everywhere', {
+					method:       'POST',
+					nonce:        nonce(),
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
 				bnToast( 'Signed out of every other session.', { tone: 'success' } );
@@ -1953,11 +1974,12 @@ store( 'buddynext/profile', {
 			ctx.twofaBusy = true;
 			ctx.twofaError = '';
 			try {
-				const res = await fetch( apiUrl( 'buddynext/v1/account/2fa/setup' ), {
-					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
+				const res = await restFetch( '/account/2fa/setup', {
+					method:       'POST',
+					nonce:        nonce(),
+					toastOnError: false,
 				} );
-				const json = await res.json();
+				const json = res.data || {};
 				if ( res.ok && json && json.success ) {
 					ctx.twofaSecret = json.secret || '';
 					ctx.twofaUri = json.otpauth_uri || '';
@@ -1978,12 +2000,13 @@ store( 'buddynext/profile', {
 			ctx.twofaBusy = true;
 			ctx.twofaError = '';
 			try {
-				const res = await fetch( apiUrl( 'buddynext/v1/account/2fa/confirm' ), {
-					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
-					body:    JSON.stringify( { code: ctx.twofaCode || '' } ),
+				const res = await restFetch( '/account/2fa/confirm', {
+					method:       'POST',
+					nonce:        nonce(),
+					body:         { code: ctx.twofaCode || '' },
+					toastOnError: false,
 				} );
-				const json = await res.json();
+				const json = res.data || {};
 				if ( res.ok && json && json.success ) {
 					ctx.twofaBackupCodes = json.backup_codes || [];
 					ctx.twofaBackupRemaining = ctx.twofaBackupCodes.length;
@@ -2022,12 +2045,13 @@ store( 'buddynext/profile', {
 			ctx.twofaBusy = true;
 			ctx.twofaError = '';
 			try {
-				const res = await fetch( apiUrl( 'buddynext/v1/account/2fa/backup' ), {
-					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
-					body:    JSON.stringify( { password: ctx.twofaPassword || '' } ),
+				const res = await restFetch( '/account/2fa/backup', {
+					method:       'POST',
+					nonce:        nonce(),
+					body:         { password: ctx.twofaPassword || '' },
+					toastOnError: false,
 				} );
-				const json = await res.json();
+				const json = res.data || {};
 				if ( res.ok && json && json.success ) {
 					ctx.twofaBackupCodes = json.backup_codes || [];
 					ctx.twofaBackupRemaining = ctx.twofaBackupCodes.length;
@@ -2049,12 +2073,13 @@ store( 'buddynext/profile', {
 			ctx.twofaBusy = true;
 			ctx.twofaError = '';
 			try {
-				const res = await fetch( apiUrl( 'buddynext/v1/account/2fa/disable' ), {
-					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
-					body:    JSON.stringify( { password: ctx.twofaPassword || '' } ),
+				const res = await restFetch( '/account/2fa/disable', {
+					method:       'POST',
+					nonce:        nonce(),
+					body:         { password: ctx.twofaPassword || '' },
+					toastOnError: false,
 				} );
-				const json = await res.json();
+				const json = res.data || {};
 				if ( res.ok && json && json.success ) {
 					ctx.twofaEnabled = false;
 					ctx.twofaBackupRemaining = 0;
@@ -2080,9 +2105,10 @@ async function doUnblock( ctx ) {
 	ctx.isBlocked    = false;
 	ctx.moreMenuOpen = false;
 	try {
-		var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/block' ), {
-			method:  'DELETE',
-			headers: { 'X-WP-Nonce': ctx.restNonce },
+		var res = await restFetch( '/users/' + ctx.profileUserId + '/block', {
+			method:       'DELETE',
+			nonce:        ctx.restNonce,
+			toastOnError: false,
 		} );
 		if ( ! res.ok ) { throw new Error( 'unblock_failed' ); }
 		bnToast( 'Unblocked', { tone: 'info' } );

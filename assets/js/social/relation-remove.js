@@ -21,6 +21,9 @@
  * because the event listener is attached on a guard flag.
  */
 
+import { restFetch } from '../shell/rest-client.js';
+import { onNavReady } from '../shell/nav-init.js';
+
 const INSTALLED = '__bnRelationRemoveInstalled';
 
 function installRelationRemove() {
@@ -59,11 +62,10 @@ function installRelationRemove() {
 		}
 
 		try {
-			const url     = ( window.wpApiSettings?.root || '/wp-json/' ) + `buddynext/v1/users/${ userId }/${ action }`;
-			const res     = await fetch( url, {
-				method:      'DELETE',
-				headers:     { 'X-WP-Nonce': wpNonce },
-				credentials: 'include',
+			const res     = await restFetch( `/users/${ userId }/${ action }`, {
+				method:       'DELETE',
+				nonce:        wpNonce,
+				toastOnError: false,
 			} );
 			if ( ! res.ok ) { throw new Error( 'remove_failed_' + res.status ); }
 			row.remove();
@@ -76,10 +78,6 @@ function installRelationRemove() {
 	} );
 }
 
-if ( 'loading' === document.readyState ) {
-	document.addEventListener( 'DOMContentLoaded', installRelationRemove );
-} else {
-	installRelationRemove();
-}
+onNavReady( installRelationRemove, { once: true } );
 
 export { installRelationRemove };

@@ -49,6 +49,8 @@ BuddyNext leans on two canonical skills for engineering standards. They are the 
 
 **Invoke them when relevant.** When writing a REST controller, ask the `/wp-plugin-development` skill what it requires. When adding a new component or CSS token, ask `/ux-audit`. The v2 design source (`docs/v2 Plans/`) is BuddyNext's specialisation on top of the `/ux-audit` foundation.
 
+**Frontend interactivity & client-side navigation:** the normative standard lives at [`docs/standards/frontend-interactivity.md`](docs/standards/frontend-interactivity.md) (v1.0; reference impl Jetonomy 1.5.0). All frontend REST goes through the shared `restFetch` client (`assets/js/shell/rest-client.js`); imperative init is bound via `onNavReady()` (`assets/js/shell/nav-init.js`) so it survives a client-side swap; the router region + navigate action live in `assets/js/shell/navigate.js` and `templates/shell/hub-shell.php` behind the `buddynext_client_nav_enabled` filter (default off — staged activation per surface). See [`docs/plans/frontend-interactivity-adoption.md`](docs/plans/frontend-interactivity-adoption.md) for the full plan + status.
+
 ### Local tooling (vendored in this repo — run from the repo root)
 
 | Command | Purpose |

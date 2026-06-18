@@ -254,19 +254,4 @@ $bn_explore_filters = array(
 	 */
 	do_action( 'buddynext_feed_explore_after', $current_user_id );
 	?>
-
-	<!-- REST config for Interactivity API store -->
-	<script type="application/json" id="bn-feed-explore-config">
-	<?php
-	echo wp_json_encode(
-		array(
-			'restUrl'   => esc_url_raw( rest_url( 'buddynext/v1/' ) ),
-			'restNonce' => $rest_nonce,
-			'userId'    => $current_user_id,
-			'isGuest'   => $is_guest,
-			'searchUrl' => esc_url_raw( \BuddyNext\Core\PageRouter::activity_url() ),
-		)
-	);
-	?>
-	</script>
 </div>

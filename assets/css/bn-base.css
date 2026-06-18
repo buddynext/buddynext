@@ -2331,6 +2331,11 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	align-items: center;
 	gap: 6px;
 	text-decoration: none;
+	/* Keep a multi-word label ("For you") + its count chip on one line; under
+	   width pressure the .bn-tabs row scrolls horizontally rather than wrapping
+	   a tab's text into two rows. */
+	white-space: nowrap;
+	flex: 0 0 auto;
 }
 /* Hover / focus / active read as a soft SAME-TONE highlight (accent at low
    opacity) — never a heavy fill and never a box. Keyboard focus adds a clean

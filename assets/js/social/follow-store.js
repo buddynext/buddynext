@@ -25,15 +25,9 @@
 
 import { store, getContext } from '@wordpress/interactivity';
 import { bnToast, bnConnectNoteDialog } from '../shell/dialog.js';
+import { restFetch } from '../shell/rest-client.js';
 
 /* -- Helpers ----------------------------------------------------------- */
-
-function apiUrl( ctx, path ) {
-	if ( ctx && ctx.restUrl ) {
-		return ctx.restUrl.replace( /\/$/, '' ) + path;
-	}
-	return ( ( window.wpApiSettings && window.wpApiSettings.root ) || '/wp-json/' ) + 'buddynext/v1' + path;
-}
 
 function ctxNonce( ctx ) {
 	return ( ctx && ctx.nonce ) || '';
@@ -110,9 +104,11 @@ store( 'buddynext/follow-button', {
 			}
 
 			try {
-				const res = await fetch( apiUrl( ctx, '/users/' + userId + '/follow' ), {
-					method:  ( wasFollowing || wasPending ) ? 'DELETE' : 'POST',
-					headers: { 'X-WP-Nonce': ctxNonce( ctx ) },
+				const res = await restFetch( '/users/' + userId + '/follow', {
+					method:       ( wasFollowing || wasPending ) ? 'DELETE' : 'POST',
+					base:         ctx.restUrl || undefined,
+					nonce:        ctxNonce( ctx ),
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'follow_failed_' + res.status ); }
 				let msg;
@@ -152,9 +148,11 @@ store( 'buddynext/follow-requests', {
 			if ( ctx.busy || ctx.hidden ) { return; }
 			ctx.busy = true;
 			try {
-				const res = await fetch( apiUrl( ctx, '/me/follow-requests/' + ctx.followerId + '/approve' ), {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctxNonce( ctx ) },
+				const res = await restFetch( '/me/follow-requests/' + ctx.followerId + '/approve', {
+					method:       'POST',
+					base:         ctx.restUrl || undefined,
+					nonce:        ctxNonce( ctx ),
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'approve_failed_' + res.status ); }
 				ctx.hidden = true;
@@ -170,9 +168,11 @@ store( 'buddynext/follow-requests', {
 			if ( ctx.busy || ctx.hidden ) { return; }
 			ctx.busy = true;
 			try {
-				const res = await fetch( apiUrl( ctx, '/me/follow-requests/' + ctx.followerId + '/reject' ), {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctxNonce( ctx ) },
+				const res = await restFetch( '/me/follow-requests/' + ctx.followerId + '/reject', {
+					method:       'POST',
+					base:         ctx.restUrl || undefined,
+					nonce:        ctxNonce( ctx ),
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'reject_failed_' + res.status ); }
 				ctx.hidden = true;
@@ -203,9 +203,11 @@ store( 'buddynext/connection-requests', {
 			if ( ctx.busy || ctx.hidden ) { return; }
 			ctx.busy = true;
 			try {
-				const res = await fetch( apiUrl( ctx, '/users/' + ctx.requesterId + '/connect/accept' ), {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctxNonce( ctx ) },
+				const res = await restFetch( '/users/' + ctx.requesterId + '/connect/accept', {
+					method:       'POST',
+					base:         ctx.restUrl || undefined,
+					nonce:        ctxNonce( ctx ),
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'accept_failed_' + res.status ); }
 				ctx.hidden = true;
@@ -221,9 +223,11 @@ store( 'buddynext/connection-requests', {
 			if ( ctx.busy || ctx.hidden ) { return; }
 			ctx.busy = true;
 			try {
-				const res = await fetch( apiUrl( ctx, '/users/' + ctx.requesterId + '/connect/decline' ), {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctxNonce( ctx ) },
+				const res = await restFetch( '/users/' + ctx.requesterId + '/connect/decline', {
+					method:       'POST',
+					base:         ctx.restUrl || undefined,
+					nonce:        ctxNonce( ctx ),
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'decline_failed_' + res.status ); }
 				ctx.hidden = true;
@@ -278,13 +282,12 @@ store( 'buddynext/connection-button', {
 			const prev = ctx.status;
 			ctx.status = 'pending-sent';
 			try {
-				const res = await fetch( apiUrl( ctx, '/users/' + ctx.userId + '/connect' ), {
-					method:  'POST',
-					headers: {
-						'X-WP-Nonce':   ctxNonce( ctx ),
-						'Content-Type': 'application/json',
-					},
-					body: JSON.stringify( { note: note } ),
+				const res = await restFetch( '/users/' + ctx.userId + '/connect', {
+					method:       'POST',
+					base:         ctx.restUrl || undefined,
+					nonce:        ctxNonce( ctx ),
+					body:         { note: note },
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'connect_failed_' + res.status ); }
 				bnToast( 'Connection request sent to @' + name, { tone: 'success' } );
@@ -300,9 +303,11 @@ store( 'buddynext/connection-button', {
 			const prev = ctx.status;
 			ctx.status = '';
 			try {
-				const res = await fetch( apiUrl( ctx, '/users/' + ctx.userId + '/connect' ), {
-					method:  'DELETE',
-					headers: { 'X-WP-Nonce': ctxNonce( ctx ) },
+				const res = await restFetch( '/users/' + ctx.userId + '/connect', {
+					method:       'DELETE',
+					base:         ctx.restUrl || undefined,
+					nonce:        ctxNonce( ctx ),
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'withdraw_failed_' + res.status ); }
 				bnToast( 'Request to @' + name + ' withdrawn', { tone: 'info' } );
@@ -318,9 +323,11 @@ store( 'buddynext/connection-button', {
 			const prev = ctx.status;
 			ctx.status = 'accepted';
 			try {
-				const res = await fetch( apiUrl( ctx, '/users/' + ctx.userId + '/connect/accept' ), {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctxNonce( ctx ) },
+				const res = await restFetch( '/users/' + ctx.userId + '/connect/accept', {
+					method:       'POST',
+					base:         ctx.restUrl || undefined,
+					nonce:        ctxNonce( ctx ),
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'accept_failed_' + res.status ); }
 				bnToast( 'Connected with @' + name, { tone: 'success' } );
@@ -336,9 +343,11 @@ store( 'buddynext/connection-button', {
 			const prev = ctx.status;
 			ctx.status = '';
 			try {
-				const res = await fetch( apiUrl( ctx, '/users/' + ctx.userId + '/connect/decline' ), {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctxNonce( ctx ) },
+				const res = await restFetch( '/users/' + ctx.userId + '/connect/decline', {
+					method:       'POST',
+					base:         ctx.restUrl || undefined,
+					nonce:        ctxNonce( ctx ),
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'decline_failed_' + res.status ); }
 				bnToast( 'Request from @' + name + ' declined', { tone: 'info' } );
@@ -354,9 +363,11 @@ store( 'buddynext/connection-button', {
 			const prev = ctx.status;
 			ctx.status = '';
 			try {
-				const res = await fetch( apiUrl( ctx, '/users/' + ctx.userId + '/connect' ), {
-					method:  'DELETE',
-					headers: { 'X-WP-Nonce': ctxNonce( ctx ) },
+				const res = await restFetch( '/users/' + ctx.userId + '/connect', {
+					method:       'DELETE',
+					base:         ctx.restUrl || undefined,
+					nonce:        ctxNonce( ctx ),
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'disconnect_failed_' + res.status ); }
 				bnToast( 'Disconnected from @' + name, { tone: 'info' } );

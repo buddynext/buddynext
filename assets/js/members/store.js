@@ -15,6 +15,8 @@
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnToast, bnConnectNoteDialog } from '../shell/dialog.js';
+import { restFetch } from '../shell/rest-client.js';
+import { onNavReady } from '../shell/nav-init.js';
 
 const SEARCH_DEBOUNCE_MS = 250;
 const VIEW_STORAGE_KEY   = 'bn_members_view';
@@ -22,13 +24,6 @@ const VIEW_STORAGE_KEY   = 'bn_members_view';
 let searchTimer = null;
 
 /* -- Helpers ----------------------------------------------------------- */
-
-function apiUrl( ctx, path ) {
-	if ( ctx && ctx.restUrl ) {
-		return ctx.restUrl.replace( /\/$/, '' ) + path;
-	}
-	return ( ( window.wpApiSettings && window.wpApiSettings.root ) || '/wp-json/' ) + 'buddynext/v1' + path;
-}
 
 function restNonce( ctx ) {
 	return ( ctx && ctx.restNonce ) || ( window.wpApiSettings && window.wpApiSettings.nonce ) || '';
@@ -429,6 +424,12 @@ function buildCard( item ) {
  * operates on the card's own plain-object context (not a getContext() proxy,
  * which does not exist for dynamically-inserted nodes). */
 function wireCardListeners( article, cardCtx, item ) {
+	// Idempotency guard: a card element is wired exactly once. JS-built cards
+	// are fresh nodes, but the guard keeps a re-run (e.g. after a client-side
+	// navigation re-init) from double-binding listeners onto the same element.
+	if ( article.dataset.bnMemberWired === '1' ) { return; }
+	article.dataset.bnMemberWired = '1';
+
 	const followBtn  = article.querySelector( '.bn-md-card__follow' );
 	const connectBtn = article.querySelector( '.bn-md-card__connect-primary' );
 	const decideWrap = article.querySelector( '.bn-md-card__connect-decide' );
@@ -462,9 +463,11 @@ function wireCardListeners( article, cardCtx, item ) {
 			cardCtx.isFollowing = ! was;
 			paintFollow();
 			try {
-				const res = await fetch( apiUrl( cardCtx, '/users/' + cardCtx.userId + '/follow' ), {
-					method:  was ? 'DELETE' : 'POST',
-					headers: { 'X-WP-Nonce': restNonce( cardCtx ) },
+				const res = await restFetch( '/users/' + cardCtx.userId + '/follow', {
+					method:       was ? 'DELETE' : 'POST',
+					base:         cardCtx.restUrl || undefined,
+					nonce:        restNonce( cardCtx ),
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'follow_failed_' + res.status ); }
 				bnToast( was ? 'Unfollowed @' + name : 'Now following @' + name, { tone: 'success' } );
@@ -483,7 +486,7 @@ function wireCardListeners( article, cardCtx, item ) {
 		connectBtn.addEventListener( 'click', async () => {
 			const cur = cardCtx.connection || 'none';
 			if ( cur === 'pending-received' ) { return; }
-			const endpoint = apiUrl( cardCtx, '/users/' + cardCtx.userId + '/connect' );
+			const endpoint = '/users/' + cardCtx.userId + '/connect';
 			if ( cur === 'none' ) {
 				// LinkedIn-style optional note. Cancelling leaves the button as-is.
 				const note = await bnConnectNoteDialog( {
@@ -492,10 +495,12 @@ function wireCardListeners( article, cardCtx, item ) {
 				if ( note === null ) { return; }
 				cardCtx.connection = 'pending-sent'; paintConnect();
 				try {
-					const res = await fetch( endpoint, {
-						method:  'POST',
-						headers: { 'X-WP-Nonce': restNonce( cardCtx ), 'Content-Type': 'application/json' },
-						body:    JSON.stringify( { note: note } ),
+					const res = await restFetch( endpoint, {
+						method:       'POST',
+						base:         cardCtx.restUrl || undefined,
+						nonce:        restNonce( cardCtx ),
+						body:         { note: note },
+						toastOnError: false,
 					} );
 					if ( ! res.ok ) { throw new Error( 'connect_failed_' + res.status ); }
 					bnToast( 'Connection request sent to @' + name, { tone: 'success' } );
@@ -509,7 +514,7 @@ function wireCardListeners( article, cardCtx, item ) {
 				const prev = cur;
 				cardCtx.connection = 'none'; paintConnect();
 				try {
-					const res = await fetch( endpoint, { method: 'DELETE', headers: { 'X-WP-Nonce': restNonce( cardCtx ) } } );
+					const res = await restFetch( endpoint, { method: 'DELETE', base: cardCtx.restUrl || undefined, nonce: restNonce( cardCtx ), toastOnError: false } );
 					if ( ! res.ok ) { throw new Error( 'connect_remove_failed_' + res.status ); }
 					bnToast( prev === 'accepted' ? 'Disconnected from @' + name : 'Request to @' + name + ' withdrawn', { tone: 'info' } );
 				} catch ( _e ) {
@@ -528,9 +533,9 @@ function wireCardListeners( article, cardCtx, item ) {
 			cardCtx.connection = accept ? 'accepted' : 'none';
 			paintConnect();
 			try {
-				const res = await fetch(
-					apiUrl( cardCtx, '/users/' + cardCtx.userId + '/connect/' + ( accept ? 'accept' : 'decline' ) ),
-					{ method: 'POST', headers: { 'X-WP-Nonce': restNonce( cardCtx ) } }
+				const res = await restFetch(
+					'/users/' + cardCtx.userId + '/connect/' + ( accept ? 'accept' : 'decline' ),
+					{ method: 'POST', base: cardCtx.restUrl || undefined, nonce: restNonce( cardCtx ), toastOnError: false }
 				);
 				if ( ! res.ok ) { throw new Error( 'decide_failed_' + res.status ); }
 				bnToast( accept ? 'Connected with @' + name : 'Request from @' + name + ' declined', { tone: accept ? 'success' : 'info' } );
@@ -580,9 +585,11 @@ function wireCardKebab( article, cardCtx, item ) {
 				cardCtx.isMuted = ! was;
 				el.textContent = cardCtx.isMuted ? 'Unmute' : 'Mute';
 				try {
-					const res = await fetch( apiUrl( cardCtx, '/users/' + cardCtx.userId + '/mute' ), {
-						method:  was ? 'DELETE' : 'POST',
-						headers: { 'X-WP-Nonce': restNonce( cardCtx ) },
+					const res = await restFetch( '/users/' + cardCtx.userId + '/mute', {
+						method:       was ? 'DELETE' : 'POST',
+						base:         cardCtx.restUrl || undefined,
+						nonce:        restNonce( cardCtx ),
+						toastOnError: false,
 					} );
 					if ( ! res.ok ) { throw new Error( 'mute_failed' ); }
 					bnToast( was ? 'Unmuted @' + name : 'Muted @' + name, { tone: 'success' } );
@@ -658,13 +665,15 @@ async function refresh( ctx ) {
 	ctx.hasError = false;
 	ctx.error    = '';
 	try {
-		const res = await fetch( apiUrl( ctx, '/members?' + buildQuery( ctx ) ), {
-			headers: { 'X-WP-Nonce': restNonce( ctx ) },
+		const res = await restFetch( '/members?' + buildQuery( ctx ), {
+			base:         ctx.restUrl || undefined,
+			nonce:        restNonce( ctx ),
+			toastOnError: false,
 		} );
 		if ( ! res.ok ) {
 			throw new Error( 'rest_' + res.status );
 		}
-		const json = await res.json();
+		const json = res.data || {};
 		const items = Array.isArray( json.items ) ? json.items : [];
 		renderGrid( items );
 		ctx.isEmpty = items.length === 0;
@@ -887,9 +896,11 @@ const memberStore = store( 'buddynext/members', {
 			const name    = ctx.displayName || 'member';
 			ctx.isFollowing = ! wasFollow;
 			try {
-				const res = await fetch( apiUrl( ctx, '/users/' + ctx.userId + '/follow' ), {
-					method:  wasFollow ? 'DELETE' : 'POST',
-					headers: { 'X-WP-Nonce': restNonce( ctx ) },
+				const res = await restFetch( '/users/' + ctx.userId + '/follow', {
+					method:       wasFollow ? 'DELETE' : 'POST',
+					base:         ctx.restUrl || undefined,
+					nonce:        restNonce( ctx ),
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'follow_failed_' + res.status ); }
 				bnToast(
@@ -920,10 +931,12 @@ const memberStore = store( 'buddynext/members', {
 				if ( note === null ) { return; }
 				ctx.connection = 'pending-sent';
 				try {
-					const res = await fetch( apiUrl( ctx, '/users/' + ctx.userId + '/connect' ), {
-						method:  'POST',
-						headers: { 'X-WP-Nonce': restNonce( ctx ), 'Content-Type': 'application/json' },
-						body:    JSON.stringify( { note: note } ),
+					const res = await restFetch( '/users/' + ctx.userId + '/connect', {
+						method:       'POST',
+						base:         ctx.restUrl || undefined,
+						nonce:        restNonce( ctx ),
+						body:         { note: note },
+						toastOnError: false,
 					} );
 					if ( ! res.ok ) { throw new Error( 'connect_failed_' + res.status ); }
 					bnToast( 'Connection request sent to @' + name, { tone: 'success' } );
@@ -936,9 +949,11 @@ const memberStore = store( 'buddynext/members', {
 			if ( cur === 'pending-sent' ) {
 				ctx.connection = 'none';
 				try {
-					const res = await fetch( apiUrl( ctx, '/users/' + ctx.userId + '/connect' ), {
-						method:  'DELETE',
-						headers: { 'X-WP-Nonce': restNonce( ctx ) },
+					const res = await restFetch( '/users/' + ctx.userId + '/connect', {
+						method:       'DELETE',
+						base:         ctx.restUrl || undefined,
+						nonce:        restNonce( ctx ),
+						toastOnError: false,
 					} );
 					if ( ! res.ok ) { throw new Error( 'withdraw_failed_' + res.status ); }
 					bnToast( 'Request to @' + name + ' withdrawn', { tone: 'info' } );
@@ -951,9 +966,11 @@ const memberStore = store( 'buddynext/members', {
 			if ( cur === 'accepted' ) {
 				ctx.connection = 'none';
 				try {
-					const res = await fetch( apiUrl( ctx, '/users/' + ctx.userId + '/connect' ), {
-						method:  'DELETE',
-						headers: { 'X-WP-Nonce': restNonce( ctx ) },
+					const res = await restFetch( '/users/' + ctx.userId + '/connect', {
+						method:       'DELETE',
+						base:         ctx.restUrl || undefined,
+						nonce:        restNonce( ctx ),
+						toastOnError: false,
 					} );
 					if ( ! res.ok ) { throw new Error( 'disconnect_failed_' + res.status ); }
 					bnToast( 'Disconnected from @' + name, { tone: 'info' } );
@@ -970,9 +987,11 @@ const memberStore = store( 'buddynext/members', {
 			const prev = ctx.connection;
 			ctx.connection = 'accepted';
 			try {
-				const res = await fetch( apiUrl( ctx, '/users/' + ctx.userId + '/connect/accept' ), {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': restNonce( ctx ) },
+				const res = await restFetch( '/users/' + ctx.userId + '/connect/accept', {
+					method:       'POST',
+					base:         ctx.restUrl || undefined,
+					nonce:        restNonce( ctx ),
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'accept_failed_' + res.status ); }
 				bnToast( 'Connected with @' + name, { tone: 'success' } );
@@ -988,9 +1007,11 @@ const memberStore = store( 'buddynext/members', {
 			const prev = ctx.connection;
 			ctx.connection = 'none';
 			try {
-				const res = await fetch( apiUrl( ctx, '/users/' + ctx.userId + '/connect/decline' ), {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': restNonce( ctx ) },
+				const res = await restFetch( '/users/' + ctx.userId + '/connect/decline', {
+					method:       'POST',
+					base:         ctx.restUrl || undefined,
+					nonce:        restNonce( ctx ),
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'decline_failed_' + res.status ); }
 				bnToast( 'Request from @' + name + ' declined', { tone: 'info' } );
@@ -1035,9 +1056,11 @@ const memberStore = store( 'buddynext/members', {
 			ctx.isMuted  = ! was;
 			ctx.menuOpen = false;
 			try {
-				const res = await fetch( apiUrl( ctx, '/users/' + ctx.userId + '/mute' ), {
-					method:  was ? 'DELETE' : 'POST',
-					headers: { 'X-WP-Nonce': restNonce( ctx ) },
+				const res = await restFetch( '/users/' + ctx.userId + '/mute', {
+					method:       was ? 'DELETE' : 'POST',
+					base:         ctx.restUrl || undefined,
+					nonce:        restNonce( ctx ),
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'mute_failed' ); }
 				bnToast( was ? 'Unmuted @' + name : 'Muted @' + name, { tone: 'success' } );
@@ -1135,9 +1158,9 @@ function openBlockModal( userId, displayName, originEl ) {
 				const targetId = parseInt( modal.dataset.targetId || '0', 10 );
 				const name     = modal.dataset.targetName || 'member';
 				try {
-					const res = await fetch(
-						restUrl.replace( /\/$/, '' ) + '/users/' + targetId + '/block',
-						{ method: 'POST', headers: { 'X-WP-Nonce': nonce } }
+					const res = await restFetch(
+						'/users/' + targetId + '/block',
+						{ method: 'POST', base: restUrl || undefined, nonce: nonce, toastOnError: false }
 					);
 					if ( ! res.ok ) { throw new Error( 'block_failed' ); }
 					modal.hidden = true;
@@ -1183,24 +1206,26 @@ function openReportModal( targetType, targetId, displayName, originEl ) {
 				const reason = ( reasonSel && reasonSel.value ) || 'other';
 				const notes  = ( notesEl && notesEl.value )  || '';
 				try {
-					const res = await fetch(
-						restUrl.replace( /\/$/, '' ) + '/reports',
+					const res = await restFetch(
+						'/reports',
 						{
-							method:  'POST',
-							headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
-							body:    JSON.stringify( {
+							method:       'POST',
+							base:         restUrl || undefined,
+							nonce:        nonce,
+							toastOnError: false,
+							body:         {
 								object_type: modal.dataset.targetType || 'user',
 								object_id:   parseInt( modal.dataset.targetId || '0', 10 ),
 								reason:      reason,
 								notes:       notes,
-							} ),
+							},
 						}
 					);
 					if ( ! res.ok && res.status !== 201 ) {
 						// Surface the server's reason — e.g. the 409 "You have
 						// already reported this member." — instead of a generic
 						// failure the user misreads as "the submit failed, retry".
-						const data = await res.json().catch( () => ( {} ) );
+						const data = res.data || {};
 						bnToast( data.message || 'Could not submit report. Try again.', { tone: 'danger' } );
 						return;
 					}
@@ -1227,12 +1252,6 @@ function bindOnce( el, flag, fn ) {
 	fn();
 }
 
-if ( typeof document !== 'undefined' ) {
-	if ( document.readyState === 'loading' ) {
-		document.addEventListener( 'DOMContentLoaded', () => { applyViewClass( readView() ); } );
-	} else {
-		applyViewClass( readView() );
-	}
-}
+onNavReady( () => { applyViewClass( readView() ); } );
 
 export default memberStore;

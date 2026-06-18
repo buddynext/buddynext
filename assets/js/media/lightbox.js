@@ -67,14 +67,17 @@
 	// ── REST ────────────────────────────────────────────────────────────────
 	function api( path, opts ) {
 		opts = opts || {};
-		opts.headers = Object.assign( { 'X-WP-Nonce': cfg.nonce || '' }, opts.headers || {} );
+		var init = {
+			base: REST,
+			nonce: cfg.nonce || '',
+			method: opts.method,
+			toastOnError: false,
+		};
 		if ( opts.json ) {
-			opts.headers['Content-Type'] = 'application/json';
-			opts.body = JSON.stringify( opts.json );
-			delete opts.json;
+			init.body = opts.json;
 		}
-		return fetch( REST + path, opts ).then( function ( r ) {
-			return r.ok ? r.json().catch( function () { return {}; } ) : Promise.reject( r );
+		return window.buddynextRest.restFetch( path, init ).then( function ( res ) {
+			return res.ok ? ( res.data || {} ) : Promise.reject( res );
 		} );
 	}
 

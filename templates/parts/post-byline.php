@@ -177,7 +177,7 @@ do_action( 'buddynext_part_post_byline_before', $args );
 					?>
 					<a class="bn-post-card__space-link" href="<?php echo esc_url( $bn_space_url ); ?>">
 						<?php buddynext_icon( 'users' ); ?>
-						<?php echo esc_html( (string) $bn_space['name'] ); ?>
+						<span class="bn-post-card__space-name"><?php echo esc_html( (string) $bn_space['name'] ); ?></span>
 					</a>
 					<span class="bn-post-card__sep" aria-hidden="true">&middot;</span>
 					<?php

@@ -6,6 +6,7 @@
  * On 422, surfaces per-field errors inline.
  */
 import { store, getContext } from '@wordpress/interactivity';
+import { restFetch } from '../shell/rest-client.js';
 
 const STRENGTH_LABELS = [ '', 'Weak', 'Fair', 'Good', 'Strong' ];
 
@@ -18,12 +19,17 @@ function ctx() {
 }
 
 function rest( c, path, opts ) {
-	const url     = ( c.restUrl || '/wp-json/buddynext/v1/' ) + String( path ).replace( /^\//, '' );
-	const headers = Object.assign(
-		{ 'X-WP-Nonce': c.restNonce || '', 'Content-Type': 'application/json' },
-		( opts && opts.headers ) || {}
-	);
-	return fetch( url, Object.assign( {}, opts || {}, { headers, credentials: 'same-origin' } ) );
+	opts = opts || {};
+	const init = {
+		base: c.restUrl || '/wp-json/buddynext/v1/',
+		nonce: c.restNonce || '',
+		method: opts.method,
+		toastOnError: false,
+	};
+	if ( typeof opts.body !== 'undefined' ) {
+		init.body = opts.body;
+	}
+	return restFetch( '/' + String( path ).replace( /^\//, '' ), init );
 }
 
 function toast( message, tone ) {
@@ -196,9 +202,9 @@ store( 'buddynext/auth-signup', {
 				}
 				const r = yield rest( c, 'auth/register', {
 					method: 'POST',
-					body:   JSON.stringify( body ),
+					body:   body,
 				} );
-				const data = yield r.json();
+				const data = r.data;
 				if ( ! r.ok || ! ( data && data.success ) ) {
 					if ( data && data.data && data.data.fields ) {
 						c.fieldErrors = data.data.fields;

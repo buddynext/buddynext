@@ -6,6 +6,7 @@
  * under the same namespace — WP Interactivity API merges the two calls.
  */
 import { store, getContext } from '@wordpress/interactivity';
+import { restFetch } from '../shell/rest-client.js';
 
 store( 'buddynext/feed', {
 	actions: {
@@ -27,7 +28,7 @@ store( 'buddynext/feed', {
 			var following = clicked
 				? ( clicked.getAttribute( 'aria-pressed' ) === 'true' )
 				: ctx.following;
-			var url       = ctx.restUrl + 'hashtags/' + encodeURIComponent( slug ) + '/follow';
+			var url       = '/hashtags/' + encodeURIComponent( slug ) + '/follow';
 			var method    = following ? 'DELETE' : 'POST';
 
 			// Optimistic UI update. Only mirror to context if this click is
@@ -53,9 +54,10 @@ store( 'buddynext/feed', {
 			} );
 
 			try {
-				var res = await fetch( url, {
+				var res = await restFetch( url, {
 					method:  method,
-					headers: { 'X-WP-Nonce': ctx.restNonce },
+					nonce:   ctx.restNonce,
+					toastOnError: false,
 				} );
 
 				if ( ! res.ok ) {
@@ -153,13 +155,12 @@ store( 'buddynext/feed', {
 			if ( ! jtId ) { return; }
 
 			try {
-				await fetch( '/wp-json/jetonomy/v1/posts/' + jtId + '/vote', {
+				await restFetch( '/posts/' + jtId + '/vote', {
+					base:    '/wp-json/jetonomy/v1',
 					method:  'POST',
-					headers: {
-						'X-WP-Nonce':    ctx.restNonce,
-						'Content-Type':  'application/json',
-					},
-					body: JSON.stringify( { direction: direction } ),
+					nonce:   ctx.restNonce,
+					body:    { direction: direction },
+					toastOnError: false,
 				} );
 			} catch ( _e ) {}
 		},
@@ -175,10 +176,11 @@ store( 'buddynext/feed', {
 			if ( ! postId ) { return; }
 
 			try {
-				var res = await fetch( ctx.restUrl + 'reactions/toggle', {
+				var res = await restFetch( '/reactions/toggle', {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-					body:    JSON.stringify( { object_type: 'post', object_id: parseInt( postId, 10 ), emoji: 'like' } ),
+					nonce:   ctx.restNonce,
+					body:    { object_type: 'post', object_id: parseInt( postId, 10 ), emoji: 'like' },
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					btn.classList.toggle( 'active' );
@@ -208,9 +210,10 @@ store( 'buddynext/feed', {
 			if ( ! postId ) { return; }
 
 			try {
-				var res = await fetch( ctx.restUrl + 'posts/' + postId + '/share', {
+				var res = await restFetch( '/posts/' + postId + '/share', {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
+					nonce:   ctx.restNonce,
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					btn.classList.add( 'active' );
@@ -227,9 +230,10 @@ store( 'buddynext/feed', {
 			if ( ! postId ) { return; }
 
 			try {
-				var res = await fetch( ctx.restUrl + 'posts/' + postId + '/bookmark', {
+				var res = await restFetch( '/posts/' + postId + '/bookmark', {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
+					nonce:   ctx.restNonce,
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					btn.classList.toggle( 'active' );

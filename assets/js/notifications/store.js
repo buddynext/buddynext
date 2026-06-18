@@ -9,6 +9,8 @@
  * Companion service: includes/Notifications/NotificationMessageService.php.
  */
 import { store, getContext } from '@wordpress/interactivity';
+import { restFetch } from '../shell/rest-client.js';
+import { onNavReady } from '../shell/nav-init.js';
 
 // Relation-removal handler for the Muted-list sidecard's Unmute button
 // (Pattern D-15). Side-effect import — installs a single document-level
@@ -107,10 +109,9 @@ function toast( message, tone ) {
  * here — partial-swap reflects the URL change on forward navigation, but
  * the simplest contract is that popstate restores the prior page state
  * from scratch. Attached once per page load. */
-var popstateBound = false;
 function bindPopState() {
-	if ( popstateBound || typeof window === 'undefined' ) { return; }
-	popstateBound = true;
+	if ( typeof window === 'undefined' || window.__bnNotifPopstateBound ) { return; }
+	window.__bnNotifPopstateBound = true;
 	window.addEventListener( 'popstate', function () {
 		// Only respond when our entry pushed the state — other pages on
 		// this site own their own popstate semantics.
@@ -120,11 +121,7 @@ function bindPopState() {
 	} );
 }
 
-if ( typeof window !== 'undefined' && 'complete' === document.readyState ) {
-	bindPopState();
-} else if ( typeof window !== 'undefined' ) {
-	window.addEventListener( 'DOMContentLoaded', bindPopState );
-}
+onNavReady( bindPopState, { once: true } );
 
 store( 'buddynext/notifications', {
 	state: {
@@ -154,9 +151,11 @@ store( 'buddynext/notifications', {
 			ctx.markedAll   = true;
 
 			try {
-				var res = await fetch( ctx.restUrl + '/read-all', {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.nonce },
+				var res = await restFetch( '/read-all', {
+					base: ctx.restUrl,
+					nonce: ctx.nonce,
+					method: 'POST',
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
 					throw new Error( 'http_' + res.status );
@@ -201,9 +200,11 @@ store( 'buddynext/notifications', {
 			}
 
 			try {
-				var res = await fetch( ctx.restUrl + '/' + notifId + '/read', {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.nonce },
+				var res = await restFetch( '/' + notifId + '/read', {
+					base: ctx.restUrl,
+					nonce: ctx.nonce,
+					method: 'POST',
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
 					throw new Error( 'http_' + res.status );
@@ -256,9 +257,11 @@ store( 'buddynext/notifications', {
 			}
 
 			try {
-				var res = await fetch( ctx.restUrl + '/' + notifId + '/read', {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.nonce },
+				var res = await restFetch( '/' + notifId + '/read', {
+					base: ctx.restUrl,
+					nonce: ctx.nonce,
+					method: 'POST',
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
 					throw new Error( 'http_' + res.status );
@@ -296,9 +299,11 @@ store( 'buddynext/notifications', {
 			}
 
 			try {
-				var res = await fetch( ctx.restUrl + '/' + notifId, {
-					method:  'DELETE',
-					headers: { 'X-WP-Nonce': ctx.nonce },
+				var res = await restFetch( '/' + notifId, {
+					base: ctx.restUrl,
+					nonce: ctx.nonce,
+					method: 'DELETE',
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
 					throw new Error( 'http_' + res.status );
@@ -335,15 +340,17 @@ store( 'buddynext/notifications', {
 			var apiBase = ctx.restUrl.replace( /(\/buddynext\/v1)\/.*$/, '$1' );
 
 			try {
-				var res  = await fetch( apiBase + '/spaces/' + spaceId + '/join', {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.nonce },
+				var res  = await restFetch( '/spaces/' + spaceId + '/join', {
+					base: apiBase,
+					nonce: ctx.nonce,
+					method: 'POST',
+					toastOnError: false,
 				} );
-				var data = await res.json();
+				var data = res.data || {};
 
 				if ( res.ok && data.joined ) {
 					if ( notifId ) {
-						fetch( ctx.restUrl + '/' + notifId + '/read', { method: 'POST', headers: { 'X-WP-Nonce': ctx.nonce } } );
+						restFetch( '/' + notifId + '/read', { base: ctx.restUrl, nonce: ctx.nonce, method: 'POST', toastOnError: false } );
 						if ( row.classList.contains( 'bn-notif-row--unread' ) ) {
 							row.classList.remove( 'bn-notif-row--unread' );
 							if ( ctx.unreadCount > 0 ) { ctx.unreadCount = ctx.unreadCount - 1; }
@@ -386,14 +393,16 @@ store( 'buddynext/notifications', {
 			var apiBase = ctx.restUrl.replace( /(\/buddynext\/v1)\/.*$/, '$1' );
 
 			try {
-				var res = await fetch( apiBase + '/spaces/' + spaceId + '/leave', {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.nonce },
+				var res = await restFetch( '/spaces/' + spaceId + '/leave', {
+					base: apiBase,
+					nonce: ctx.nonce,
+					method: 'POST',
+					toastOnError: false,
 				} );
 
 				if ( res.ok ) {
 					if ( notifId ) {
-						fetch( ctx.restUrl + '/' + notifId + '/read', { method: 'POST', headers: { 'X-WP-Nonce': ctx.nonce } } );
+						restFetch( '/' + notifId + '/read', { base: ctx.restUrl, nonce: ctx.nonce, method: 'POST', toastOnError: false } );
 						if ( row.classList.contains( 'bn-notif-row--unread' ) && ctx.unreadCount > 0 ) {
 							ctx.unreadCount = ctx.unreadCount - 1;
 							adjustUnreadTabBadges( -1, row.dataset.notifType );
@@ -420,9 +429,11 @@ store( 'buddynext/notifications', {
 			var notifId = btn ? btn.dataset.notifId : null;
 			if ( ! notifId || ! ctx ) { return; }
 			try {
-				await fetch( ctx.restUrl + '/' + notifId + '/read', {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.nonce },
+				await restFetch( '/' + notifId + '/read', {
+					base: ctx.restUrl,
+					nonce: ctx.nonce,
+					method: 'POST',
+					toastOnError: false,
 				} );
 				if ( ctx.unreadCount > 0 ) {
 					ctx.unreadCount = ctx.unreadCount - 1;
@@ -544,12 +555,14 @@ store( 'buddynext/notifications', {
 			var ctx = getContext();
 			if ( ! ctx || ! ctx.restUrl ) { return; }
 			try {
-				var res = await fetch( ctx.restUrl + '/unread-count', {
-					method:  'GET',
-					headers: { 'X-WP-Nonce': ctx.nonce || '' },
+				var res = await restFetch( '/unread-count', {
+					base: ctx.restUrl,
+					nonce: ctx.nonce || '',
+					method: 'GET',
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) { return; }
-				var json = await res.json();
+				var json = res.data;
 				if ( json && typeof json.count !== 'undefined' ) {
 					ctx.unreadCount = Number( json.count ) || 0;
 				}
@@ -576,8 +589,10 @@ store( 'buddynext/notifications', {
  * window when Soketi pushes a new event; we kick the count refresh
  * immediately so Pro can pre-empt the poll. Free relies on the poll alone.
  */
-( function bootstrapNotifPolling() {
+function bootstrapNotifPolling() {
 	if ( typeof window === 'undefined' || typeof document === 'undefined' ) { return; }
+	if ( window.__bnNotifPollInstalled ) { return; }
+	window.__bnNotifPollInstalled = true;
 
 	var COLD_INTERVAL = 30000;
 	var HOT_INTERVAL  = 5000;
@@ -632,13 +647,14 @@ store( 'buddynext/notifications', {
 		if ( ! ctx || ! ctx.restUrl ) { return; }
 
 		try {
-			var res = await fetch( ctx.restUrl + '/unread-count', {
-				method:  'GET',
-				credentials: 'same-origin',
-				headers: { 'X-WP-Nonce': ctx.nonce || '' },
+			var res = await restFetch( '/unread-count', {
+				base: ctx.restUrl,
+				nonce: ctx.nonce || '',
+				method: 'GET',
+				toastOnError: false,
 			} );
 			if ( ! res.ok ) { return; }
-			var json = await res.json();
+			var json = res.data;
 			if ( ! json || typeof json.count === 'undefined' ) { return; }
 
 			var fresh = Number( json.count ) || 0;
@@ -694,13 +710,14 @@ store( 'buddynext/notifications', {
 			if ( ! ctx || ! ctx.restUrl ) { return false; }
 			// restUrl points at /me/notifications — derive the channels URL.
 			var base = ctx.restUrl.replace( /\/me\/notifications.*$/, '/me/notification-channels' );
-			var res = await fetch( base, {
-				method:  'GET',
-				credentials: 'same-origin',
-				headers: { 'X-WP-Nonce': ctx.nonce || '' },
+			var res = await restFetch( '', {
+				base: base,
+				nonce: ctx.nonce || '',
+				method: 'GET',
+				toastOnError: false,
 			} );
 			if ( ! res.ok ) { soundEnabledCache = false; return false; }
-			var json = await res.json();
+			var json = res.data;
 			soundEnabledCache = !! ( json && json.channels && json.channels.sound );
 			return soundEnabledCache;
 		} catch ( _e ) {
@@ -743,10 +760,8 @@ store( 'buddynext/notifications', {
 	// next 60s of polling runs at 5s cadence.
 	document.addEventListener( 'click', kickHot, { passive: true, capture: true } );
 
-	// Bootstrap when DOM is ready.
-	if ( 'complete' === document.readyState || 'interactive' === document.readyState ) {
-		schedule();
-	} else {
-		window.addEventListener( 'DOMContentLoaded', schedule );
-	}
-} )();
+	// Bootstrap the polling schedule (singleton — installed once above).
+	schedule();
+}
+
+onNavReady( bootstrapNotifPolling, { once: true } );

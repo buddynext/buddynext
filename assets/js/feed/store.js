@@ -1,6 +1,8 @@
 /* BuddyNext — Feed Interactivity API store. */
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnPrompt, bnReportDialog, bnToast } from '../shell/dialog.js';
+import { restFetch } from '../shell/rest-client.js';
+import { onNavReady } from '../shell/nav-init.js';
 
 /* ── Comment helpers (vanilla DOM — outside WP Interactivity API scope) ── */
 
@@ -354,14 +356,15 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			reactCount.textContent = String( Math.max( 0, cur + delta ) );
 
 			try {
-				const res = await fetch( restUrl + '/reactions/toggle', {
+				const res = await restFetch( '/reactions/toggle', {
 					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
-					body:    JSON.stringify( {
+					nonce,
+					toastOnError: false,
+					body:    {
 						object_type: 'comment',
 						object_id:   comment.id,
 						emoji:       next || prev || 'like',
-					} ),
+					},
 				} );
 				if ( ! res.ok ) { throw new Error( 'reaction failed' ); }
 			} catch ( _e ) {
@@ -464,13 +467,14 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 					return;
 				}
 				try {
-					const res = await fetch( restUrl + '/comments/' + comment.id, {
+					const res = await restFetch( '/comments/' + comment.id, {
 						method:  'PUT',
-						headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
-						body:    JSON.stringify( { content: next } ),
+						nonce,
+						toastOnError: false,
+						body:    { content: next },
 					} );
 					if ( res.ok ) {
-						const updated = await res.json();
+						const updated = res.data;
 						para.textContent = updated.content;
 						if ( ! body.querySelector( '.bn-comment__edited' ) ) {
 							const editedMark = document.createElement( 'span' );
@@ -508,8 +512,8 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			if ( ! ok ) {
 				return;
 			}
-			const res = await fetch( restUrl + '/comments/' + comment.id, {
-				method: 'DELETE', headers: { 'X-WP-Nonce': nonce },
+			const res = await restFetch( '/comments/' + comment.id, {
+				method: 'DELETE', nonce, toastOnError: false,
 			} );
 			if ( res.ok ) {
 				// Soft-delete: replace text + grey out, preserve thread.
@@ -536,9 +540,10 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		pinBtn.addEventListener( 'click', async () => {
 			const wasPinned = wrap.classList.contains( 'bn-comment-card--pinned' );
 			try {
-				const res = await fetch( restUrl + '/comments/' + comment.id + '/pin', {
+				const res = await restFetch( '/comments/' + comment.id + '/pin', {
 					method:  wasPinned ? 'DELETE' : 'POST',
-					headers: { 'X-WP-Nonce': nonce },
+					nonce,
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					wrap.classList.toggle( 'bn-comment-card--pinned', ! wasPinned );
@@ -578,22 +583,23 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 				return;
 			}
 			try {
-				const res = await fetch( restUrl + '/reports', {
+				const res = await restFetch( '/reports', {
 					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
-					body:    JSON.stringify( {
+					nonce,
+					toastOnError: false,
+					body:    {
 						object_type: 'comment',
 						object_id:   comment.id,
 						reason:      result.reason,
 						notes:       result.notes,
-					} ),
+					},
 				} );
 				if ( res.ok || res.status === 201 ) {
 					bnToast( 'Report submitted. Thanks for keeping the community safe.', { tone: 'success' } );
 				} else {
 					// Surface the server's reason (e.g. the 409 "already reported"
 					// message) instead of a generic failure the user reads as "retry".
-					const data = await res.json().catch( () => ( {} ) );
+					const data = res.data || {};
 					bnToast( data.message || 'Could not submit report. Try again.', { tone: 'danger' } );
 				}
 			} catch ( _e ) {
@@ -645,13 +651,14 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 				return;
 			}
 			try {
-				const res = await fetch( restUrl + '/comments', {
+				const res = await restFetch( '/comments', {
 					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
-					body:    JSON.stringify( { object_type: 'post', object_id: postId, content, parent_id: comment.id } ),
+					nonce,
+					toastOnError: false,
+					body:    { object_type: 'post', object_id: postId, content, parent_id: comment.id },
 				} );
 				if ( res.ok ) {
-					const reply = await res.json();
+					const reply = res.data;
 					if ( ! repliesEl ) {
 						repliesEl = document.createElement( 'div' );
 						repliesEl.className = 'bn-comment__replies';
@@ -743,15 +750,15 @@ function* bnLoadComments( ctx ) {
 	}
 
 	try {
-		const res = yield fetch(
-			ctx.restUrl + '/comments?object_type=post&object_id=' + ctx.postId + '&per_page=20',
-			{ headers: { 'X-WP-Nonce': ctx.reactNonce } }
+		const res = yield restFetch(
+			'/comments?object_type=post&object_id=' + ctx.postId + '&per_page=20',
+			{ nonce: ctx.reactNonce, toastOnError: false }
 		);
 		while ( listEl.firstChild ) {
 			listEl.removeChild( listEl.firstChild );
 		}
 		if ( res.ok ) {
-			const data = yield res.json();
+			const data = res.data;
 			listEl.dataset.loaded = '1';
 			( data.items || [] ).forEach( ( comment ) => {
 				listEl.appendChild(
@@ -1006,10 +1013,11 @@ store( 'buddynext/post-card', {
 			ctx.reactionLabel = newType ? label : ( ctx.reactDefaultLabel || 'React' );
 
 			try {
-				const res = yield fetch( ctx.restUrl + '/reactions/toggle', {
+				const res = yield restFetch( '/reactions/toggle', {
 					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.reactNonce },
-					body:    JSON.stringify( { object_type: 'post', object_id: ctx.postId, emoji: newType } ),
+					nonce:   ctx.reactNonce,
+					toastOnError: false,
+					body:    { object_type: 'post', object_id: ctx.postId, emoji: newType },
 				} );
 				if ( ! res.ok ) {
 					ctx.reactionType  = prev; // Revert on failure.
@@ -1026,9 +1034,10 @@ store( 'buddynext/post-card', {
 			const prev   = ctx.bookmarked;
 			ctx.bookmarked = ! prev;
 			try {
-				const res = yield fetch( ctx.restUrl + '/posts/' + ctx.postId + '/bookmark', {
+				const res = yield restFetch( '/posts/' + ctx.postId + '/bookmark', {
 					method,
-					headers: { 'X-WP-Nonce': ctx.bookmarkNonce },
+					nonce: ctx.bookmarkNonce,
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					if ( window.bnToast ) { window.bnToast( ctx.bookmarked ? 'Saved' : 'Removed from saved' ); }
@@ -1108,9 +1117,10 @@ store( 'buddynext/post-card', {
 				return;
 			}
 			try {
-				const res = yield fetch( ctx.restUrl + '/posts/' + ctx.postId, {
+				const res = yield restFetch( '/posts/' + ctx.postId, {
 					method:  'DELETE',
-					headers: { 'X-WP-Nonce': ctx.reactNonce },
+					nonce:   ctx.reactNonce,
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					document.querySelector( '[data-post-id="' + ctx.postId + '"]' )?.remove();
@@ -1162,9 +1172,10 @@ store( 'buddynext/post-card', {
 			ctx.shareCount  = prevCount + 1;
 			ctx.shareShared = true;
 			try {
-				const res = yield fetch( ctx.restUrl + '/posts/' + ctx.postId + '/share', {
+				const res = yield restFetch( '/posts/' + ctx.postId + '/share', {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.shareNonce },
+					nonce:   ctx.shareNonce,
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
 					ctx.shareCount  = prevCount;
@@ -1184,10 +1195,11 @@ store( 'buddynext/post-card', {
 				return;
 			}
 			try {
-				const res = yield fetch( ctx.restUrl + '/reports', {
+				const res = yield restFetch( '/reports', {
 					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.reportNonce },
-					body:    JSON.stringify( {
+					nonce:   ctx.reportNonce,
+					toastOnError: false,
+					body:    {
 						object_type: 'post',
 						object_id:   ctx.postId,
 						reason:      result.reason,
@@ -1195,7 +1207,7 @@ store( 'buddynext/post-card', {
 						// Tag the report with the post's space so space moderators
 						// see it in their scoped queue (0 = global feed).
 						space_id:    parseInt( ctx.spaceId, 10 ) || 0,
-					} ),
+					},
 				} );
 				if ( res.ok || res.status === 201 ) {
 					// Reflect the reported state immediately so the action menu
@@ -1211,7 +1223,7 @@ store( 'buddynext/post-card', {
 						ctx.hasReported = true;
 						ctx.optionsOpen = false;
 					}
-					const data = yield res.json().catch( () => ( {} ) );
+					const data = res.data || {};
 					bnToast( data.message || 'Could not submit report. Try again.', { tone: 'danger' } );
 				}
 			} catch ( _e ) {
@@ -1244,11 +1256,12 @@ store( 'buddynext/post-card', {
 			// author typed — the rendered node has nl2br/mention/hashtag markup baked in.
 			let rawContent = '';
 			try {
-				const res = yield fetch( ctx.restUrl + '/posts/' + ctx.postId, {
-					headers: { 'X-WP-Nonce': ctx.reactNonce },
+				const res = yield restFetch( '/posts/' + ctx.postId, {
+					nonce: ctx.reactNonce,
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					const data = yield res.json();
+					const data = res.data;
 					rawContent = ( data && typeof data.content === 'string' ) ? data.content : '';
 				}
 			} catch ( _e ) {
@@ -1307,10 +1320,11 @@ store( 'buddynext/post-card', {
 				}
 				saveBtn.disabled = true;
 				try {
-					const res = await fetch( ctx.restUrl + '/posts/' + ctx.postId, {
+					const res = await restFetch( '/posts/' + ctx.postId, {
 						method:  'PUT',
-						headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.reactNonce },
-						body:    JSON.stringify( { content: next } ),
+						nonce:   ctx.reactNonce,
+						toastOnError: false,
+						body:    { content: next },
 					} );
 					if ( ! res.ok ) {
 						throw new Error( 'update failed' );
@@ -1338,9 +1352,10 @@ store( 'buddynext/post-card', {
 			// Optimistically flip; `prev` decides the verb (pin -> POST, unpin -> DELETE).
 			ctx.isPinned = ! prev;
 			try {
-				const res = yield fetch( ctx.restUrl + '/posts/' + ctx.postId + '/pin', {
+				const res = yield restFetch( '/posts/' + ctx.postId + '/pin', {
 					method:  prev ? 'DELETE' : 'POST',
-					headers: { 'X-WP-Nonce': ctx.reactNonce },
+					nonce:   ctx.reactNonce,
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					bnToast( ctx.isPinned ? 'Post pinned' : 'Post unpinned', { tone: 'success' } );
@@ -1348,7 +1363,7 @@ store( 'buddynext/post-card', {
 					ctx.isPinned = prev;
 					let message = prev ? 'Could not unpin this post. Try again.' : 'Could not pin this post. Try again.';
 					try {
-						const data = yield res.json();
+						const data = res.data;
 						if ( data && data.message ) {
 							message = data.message;
 						}
@@ -1422,15 +1437,16 @@ store( 'buddynext/post-card', {
 			};
 
 			try {
-				const res = yield fetch( ctx.restUrl + '/comments', {
+				const res = yield restFetch( '/comments', {
 					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.reactNonce },
-					body:    JSON.stringify( { object_type: 'post', object_id: ctx.postId, content } ),
+					nonce:   ctx.reactNonce,
+					toastOnError: false,
+					body:    { object_type: 'post', object_id: ctx.postId, content },
 				} );
 				if ( res.ok ) {
 					// Clear any stale error alert from a previous failed attempt.
 					inputEl?.closest( '.bn-post-card__comments' )?.querySelector( '.bn-comment-submit-error' )?.remove();
-					const comment       = yield res.json();
+					const comment       = res.data;
 					comment.author_name = comment.author_name || 'You';
 					const listEl        = document.querySelector( '[data-comment-list="' + ctx.postId + '"]' );
 					if ( listEl ) {
@@ -1456,13 +1472,14 @@ store( 'buddynext/post-card', {
 				return;
 			}
 			try {
-				const res = yield fetch( ctx.restUrl + '/posts/' + ctx.postId + '/vote', {
+				const res = yield restFetch( '/posts/' + ctx.postId + '/vote', {
 					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.pollNonce },
-					body:    JSON.stringify( { option_id: optionId } ),
+					nonce:   ctx.pollNonce,
+					toastOnError: false,
+					body:    { option_id: optionId },
 				} );
 				if ( res.ok ) {
-					const data = yield res.json();
+					const data = res.data;
 					if ( window.bnToast ) { window.bnToast( 'Vote recorded' ); }
 					if ( data.results ) {
 						const total = data.results.reduce( ( s, r ) => s + r.vote_count, 0 );
@@ -1481,9 +1498,10 @@ store( 'buddynext/post-card', {
 		* dismissAnnouncement() {
 			const ctx = getContext();
 			try {
-				yield fetch( ctx.restUrl + '/feed/announcements/' + ctx.postId + '/dismiss', {
+				yield restFetch( '/feed/announcements/' + ctx.postId + '/dismiss', {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.dismissNonce },
+					nonce:   ctx.dismissNonce,
+					toastOnError: false,
 				} );
 			} catch ( _e ) {}
 			document.querySelector( '.bn-post-card--announcement' )?.remove();
@@ -1492,9 +1510,10 @@ store( 'buddynext/post-card', {
 		* endAnnouncement() {
 			const ctx = getContext();
 			try {
-				const res = yield fetch( ctx.restUrl + '/feed/announcements/' + ctx.postId + '/end', {
+				const res = yield restFetch( '/feed/announcements/' + ctx.postId + '/end', {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.dismissNonce },
+					nonce:   ctx.dismissNonce,
+					toastOnError: false,
 				} );
 				// Only drop the banner once the server confirms the end —
 				// removing it on a 403/404/500 gave a false sense of success.
@@ -1561,13 +1580,12 @@ function maybeDetectLink( ctx ) {
 		// Bail if the URL changed again during the debounce window.
 		if ( detectFirstUrl( ctx.content ) !== url ) { return; }
 		try {
-			const base = ctx.restUrl || '';
-			const res  = await fetch(
-				base + '/link-preview?url=' + encodeURIComponent( url ),
-				{ headers: { 'X-WP-Nonce': ctx.restNonce } }
+			const res  = await restFetch(
+				'/link-preview?url=' + encodeURIComponent( url ),
+				{ nonce: ctx.restNonce, toastOnError: false }
 			);
 			if ( ! res.ok ) { return; }
-			const data = await res.json();
+			const data = res.data;
 			// Only render a card if the URL is still the active one.
 			if ( detectFirstUrl( ctx.content ) !== url ) { return; }
 			ctx.linkUrl   = url;
@@ -1708,10 +1726,11 @@ function scheduleDraftSave( ctx ) {
 		// the local path keeps working even if the endpoint isn't shipped.
 		try {
 			if ( window.localStorage.getItem( 'bn_composer_cloud_sync' ) === '1' ) {
-				fetch( ctx.restUrl + '/me/drafts', {
+				restFetch( '/me/drafts', {
 					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.restNonce },
-					body:    JSON.stringify( { payload } ),
+					nonce:   ctx.restNonce,
+					toastOnError: false,
+					body:    { payload },
 				} ).catch( () => {} );
 			}
 		} catch ( _e ) {}
@@ -1735,8 +1754,9 @@ try {
 // global. Each composer is keyed by the user_id of the current viewer so
 // switching accounts on the same browser keeps drafts isolated.
 function restoreDraftsOnLoad() {
-	const composers = document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"]' );
+	const composers = document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"]:not([data-bn-draft-wired])' );
 	composers.forEach( ( el ) => {
+		el.dataset.bnDraftWired = '1';
 		let ctxData;
 		try { ctxData = JSON.parse( el.getAttribute( 'data-wp-context' ) || '{}' ); }
 		catch ( _e ) { return; }
@@ -1800,11 +1820,7 @@ function restoreDraftsOnLoad() {
 	}
 }
 
-if ( document.readyState === 'loading' ) {
-	document.addEventListener( 'DOMContentLoaded', restoreDraftsOnLoad );
-} else {
-	restoreDraftsOnLoad();
-}
+onNavReady( restoreDraftsOnLoad );
 
 store( 'buddynext/post-composer', {
 	state: {
@@ -1974,17 +1990,16 @@ store( 'buddynext/post-composer', {
 						formData.append( 'file', file );
 
 						try {
-							const res = await fetch( mvsBase + '/media', {
+							const res = await restFetch( '/media', {
 								method:  'POST',
-								headers: { 'X-WP-Nonce': nonce },
+								base:    mvsBase,
+								nonce,
+								toastOnError: false,
 								body:    formData,
 							} );
 
 							if ( res.ok ) {
-								const text = await res.text();
-								// MVS may prepend DB error HTML before JSON — extract JSON.
-								const jsonStart = text.indexOf( '{' );
-								const data      = jsonStart >= 0 ? JSON.parse( text.substring( jsonStart ) ) : {};
+								const data      = res.data || {};
 								const mediaId   = data.id || data.media_id;
 								// Engine-signed URLs only — never a WP-attachment source_url.
 								const thumbUrl  = data.thumbnail_url || data.file_url || '';
@@ -2222,10 +2237,11 @@ store( 'buddynext/post-composer', {
 			}
 
 			try {
-				const res = yield fetch( ctx.restUrl + '/posts', {
+				const res = yield restFetch( '/posts', {
 					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.restNonce },
-					body:    JSON.stringify( body ),
+					nonce:   ctx.restNonce,
+					toastOnError: false,
+					body,
 				} );
 				if ( res.ok ) {
 					const userId = parseInt( ctx.userId, 10 );
@@ -2256,10 +2272,8 @@ store( 'buddynext/post-composer', {
 					return;
 				}
 				let msg = 'Could not publish your post. Try again.';
-				try {
-					const data = yield res.json();
-					if ( data && data.message ) { msg = data.message; }
-				} catch ( _e2 ) {}
+				const data = res.data;
+				if ( data && data.message ) { msg = data.message; }
 				ctx.errorMessage = msg;
 				ctx.submitting   = false;
 			} catch ( _e ) {
@@ -2302,10 +2316,11 @@ store( 'buddynext/post-composer', {
 				body.space_id = voiceSpaceId;
 			}
 			try {
-				const res = yield fetch( ctx.restUrl + '/posts', {
+				const res = yield restFetch( '/posts', {
 					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.restNonce },
-					body:    JSON.stringify( body ),
+					nonce:   ctx.restNonce,
+					toastOnError: false,
+					body,
 				} );
 				if ( res.ok ) {
 					if ( window.bnToast ) { window.bnToast( 'Voice room scheduled', 'success' ); }
@@ -2371,7 +2386,7 @@ store( 'buddynext/post-composer', {
 	callbacks: {
 		// Re-apply a restored draft into the LIVE store once Interactivity has
 		// hydrated. restoreDraftsOnLoad() patches the data-wp-context attribute
-		// on DOMContentLoaded, but if Interactivity hydrates first the live
+		// on initial load / nav, but if Interactivity hydrates first the live
 		// context keeps draftStatus='' (and the textarea binding wins), so the
 		// "Draft restored" status never appears. Running here via data-wp-init
 		// (post-hydration) sets the live context directly, so the status +
@@ -2408,12 +2423,11 @@ store( 'buddynext/announcement', {
 			const ctx    = getContext();
 			const banner = document.querySelector( '[data-bn-rest-nonce]' );
 			const nonce  = banner?.dataset.bnRestNonce || '';
-			const restUrl = banner?.dataset.bnRestUrl
-				|| ( ( window.wpApiSettings?.root || '' ) + 'buddynext/v1' );
 			try {
-				yield fetch( restUrl + '/feed/announcements/' + ctx.announcementId + '/dismiss', {
+				yield restFetch( '/feed/announcements/' + ctx.announcementId + '/dismiss', {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': nonce },
+					nonce,
+					toastOnError: false,
 				} );
 			} catch ( _e ) {}
 			document.querySelector( '.bn-announcement' )?.remove();
@@ -2429,12 +2443,11 @@ store( 'buddynext/spaces', {
 			const ctx    = getContext();
 			const banner = document.querySelector( '[data-bn-rest-nonce]' );
 			const nonce  = banner?.dataset.bnRestNonce || '';
-			const restUrl = banner?.dataset.bnRestUrl
-				|| ( ( window.wpApiSettings?.root || '' ) + 'buddynext/v1' );
 			try {
-				const res = yield fetch( restUrl + '/spaces/' + ctx.spaceId + '/join', {
+				const res = yield restFetch( '/spaces/' + ctx.spaceId + '/join', {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': nonce },
+					nonce,
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					event.target.textContent = 'Joined';
@@ -2554,17 +2567,12 @@ store( 'buddynext/spaces', {
 		if ( perPage ) { params.per_page = perPage; }
 		if ( filter )  { params.filter = filter; }
 
-		var headers = { Accept: 'application/json' };
-		if ( restNonce ) { headers[ 'X-WP-Nonce' ] = restNonce; }
-
-		fetch( buildUrl( restUrl, params ), { headers: headers, credentials: 'same-origin' } )
-			.then( function ( r ) {
-				if ( ! r.ok ) {
-					throw new Error( 'http_' + r.status );
+		restFetch( buildUrl( restUrl, params ), { nonce: restNonce, toastOnError: false } )
+			.then( function ( res ) {
+				if ( ! res.ok ) {
+					throw new Error( 'http_' + res.status );
 				}
-				return r.json();
-			} )
-			.then( function ( data ) {
+				var data = res.data;
 				showSpinner( trigger, false );
 
 				var html = ( data && typeof data.html === 'string' ) ? data.html : '';
@@ -2582,6 +2590,8 @@ store( 'buddynext/spaces', {
 			.catch( function () {
 				showSpinner( trigger, false );
 				observer.disconnect();
+				// Allow the manual retry to re-attach a fresh observer.
+				delete trigger.dataset.bnInfiniteWired;
 				showError( trigger, function () { startObserver( trigger ); } );
 			} );
 	}
@@ -2590,6 +2600,13 @@ store( 'buddynext/spaces', {
 		if ( ! ( 'IntersectionObserver' in window ) ) {
 			return;
 		}
+		// Guard so a trigger that survives a client-side navigation isn't
+		// observed twice (a duplicate observer would double-fetch the next
+		// page). The error-retry path clears the flag before re-calling.
+		if ( trigger.dataset.bnInfiniteWired ) {
+			return;
+		}
+		trigger.dataset.bnInfiniteWired = '1';
 
 		var loading = false;
 
@@ -2617,11 +2634,7 @@ store( 'buddynext/spaces', {
 		} );
 	}
 
-	if ( document.readyState === 'loading' ) {
-		document.addEventListener( 'DOMContentLoaded', init );
-	} else {
-		init();
-	}
+	onNavReady( init );
 } )();
 
 /* ── Share modal ─────────────────────────────────────────────────────────── */
@@ -2697,10 +2710,11 @@ store( 'buddynext/share-modal', {
 			ctx.busy  = true;
 			ctx.error = '';
 			try {
-				const res = yield fetch( ctx.restUrl + '/posts/' + ctx.postId + '/share', {
+				const res = yield restFetch( '/posts/' + ctx.postId + '/share', {
 					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.nonce },
-					body:    JSON.stringify( { content: ( ctx.note || '' ).trim() } ),
+					nonce:   ctx.nonce,
+					toastOnError: false,
+					body:    { content: ( ctx.note || '' ).trim() },
 				} );
 				if ( res.ok ) {
 					if ( window.bnToast ) { window.bnToast( 'Reposted', 'success' ); }
@@ -2891,9 +2905,10 @@ store( 'buddynext/feed', {
 
 /* ── Wire Enter-to-search on the explore search input ─────────────────── */
 
-document.addEventListener( 'DOMContentLoaded', () => {
+function initExploreSearch() {
 	const input = document.getElementById( 'bn-explore-search-input' );
-	if ( ! input ) { return; }
+	if ( ! input || input.dataset.bnSearchWired ) { return; }
+	input.dataset.bnSearchWired = '1';
 	input.addEventListener( 'keydown', ( e ) => {
 		if ( e.key !== 'Enter' ) { return; }
 		e.preventDefault();
@@ -2903,12 +2918,15 @@ document.addEventListener( 'DOMContentLoaded', () => {
 		target_url.searchParams.set( 'q', q );
 		window.location.href = target_url.toString();
 	} );
-} );
+}
+
+onNavReady( initExploreSearch );
 
 /*
    Composer enhancements — char counter, image drag-drop, and @ / # typeahead.
-   Hooked on DOMContentLoaded so every page that ships the post-composer
-   partial gets these features without per-page wiring.
+   Bound via onNavReady (Flavor A) so every page that ships the post-composer
+   partial gets these features on initial load AND after a client-side
+   navigation. Per-textarea dataset.bnEnhanced keeps re-runs idempotent.
    ---------------------------------------------------------------- */
 const COMPOSER_CHAR_MAX = 5000;
 
@@ -3142,8 +3160,8 @@ function attachMentionHashtagTypeahead( textarea ) {
 			? `${ REST_BASE }/members?search=${ encodeURIComponent( query ) }&per_page=5`
 			: `${ REST_BASE }/hashtags/autocomplete?q=${ encodeURIComponent( query ) }&limit=5`;
 		try {
-			const r = await fetch( url, { signal: fetchAbort.signal, credentials: 'include' } );
-			const data = await r.json();
+			const r = await restFetch( url, { signal: fetchAbort.signal, toastOnError: false } );
+			const data = r.data;
 			if ( kind === '@' ) {
 				const items = Array.isArray( data.items ) ? data.items : [];
 				return items.slice( 0, 5 ).map( ( m ) => {
@@ -3220,11 +3238,7 @@ function attachMentionHashtagTypeahead( textarea ) {
 	textarea.addEventListener( 'blur', () => setTimeout( closeDropdown, 150 ) );
 }
 
-if ( document.readyState === 'loading' ) {
-	document.addEventListener( 'DOMContentLoaded', initComposerEnhancements );
-} else {
-	initComposerEnhancements();
-}
+onNavReady( initComposerEnhancements );
 
 /*
    Realtime "new posts" pill — listens for Pro's bn:realtime:post-new
@@ -3235,147 +3249,172 @@ if ( document.readyState === 'loading' ) {
 
    No-op when no realtime layer is active (the event never fires).
    ---------------------------------------------------------------- */
+const POLL_INTERVAL = 60000;
+
+// Per-page state for the pill. Re-seeded on every (re-)init so the once-bound
+// document listeners always read the freshly-swapped feed / watermark / nonce.
+const bnPill = {
+	feed:      null,
+	pill:      null,
+	pendingIds: new Set(),
+	watermark: 0,
+	filter:    'for-you',
+	restUrl:   '',
+	restNonce: '',
+	pollTimer: null,
+};
+
+function bnPillRender() {
+	if ( bnPill.pendingIds.size === 0 ) {
+		if ( bnPill.pill ) { bnPill.pill.remove(); bnPill.pill = null; }
+		return;
+	}
+	if ( ! bnPill.feed ) { return; }
+	if ( ! bnPill.pill ) {
+		const pill = document.createElement( 'button' );
+		pill.type = 'button';
+		pill.className = 'bn-feed-new-pill';
+		pill.setAttribute( 'role', 'status' );
+		pill.setAttribute( 'aria-live', 'polite' );
+		pill.addEventListener( 'click', () => {
+			window.location.reload();
+		} );
+		bnPill.feed.parentElement.insertBefore( pill, bnPill.feed );
+		bnPill.pill = pill;
+	}
+	const n = bnPill.pendingIds.size;
+	bnPill.pill.textContent = n === 1
+		? '1 new post — refresh to view'
+		: `${ n } new posts — refresh to view`;
+}
+
+async function bnPillPoll() {
+	if ( document.hidden || ! bnPill.restUrl ) { return; }
+	try {
+		const url = bnPill.restUrl + '/feed/new-count?after_id=' + encodeURIComponent( bnPill.watermark ) +
+			'&filter=' + encodeURIComponent( bnPill.filter );
+		const res = await restFetch( url, { nonce: bnPill.restNonce || '', toastOnError: false } );
+		if ( ! res.ok ) { return; }
+		const json = res.data;
+		if ( ! json || typeof json.count === 'undefined' ) { return; }
+		const fresh = Number( json.count ) || 0;
+		const newestId = Number( json.newest_id ) || bnPill.watermark;
+		if ( fresh > 0 && newestId > bnPill.watermark ) {
+			// Synthesize ids above the watermark so the pill counts the delta
+			// without needing the individual ids. The renderer keys off a Set,
+			// so distinct synthetic ids are sufficient for an accurate count.
+			for ( let i = 1; i <= fresh; i++ ) {
+				document.dispatchEvent( new CustomEvent( 'bn:realtime:post-new', {
+					detail: { post_id: bnPill.watermark + i, user_id: 0 },
+				} ) );
+			}
+			bnPill.watermark = newestId;
+		}
+	} catch ( _e ) {
+		// Network failure — retry next tick.
+	}
+}
+
+function bnPillSchedule() {
+	if ( bnPill.pollTimer ) { window.clearTimeout( bnPill.pollTimer ); bnPill.pollTimer = null; }
+	bnPill.pollTimer = window.setTimeout( function () {
+		bnPillPoll().finally( bnPillSchedule );
+	}, POLL_INTERVAL );
+}
+
+/*
+   Realtime "new posts" pill — listens for Pro's bn:realtime:post-new
+   custom events (fired by buddynext-pro/assets/js/realtime/store.js
+   when Soketi delivers a post.new message on the subscribed feed
+   channel). Accumulates the count, shows a sticky pill at the top
+   of the feed list, and reloads the feed when clicked.
+
+   No-op when no realtime layer is active (the event never fires).
+
+   Flavor B hybrid singleton: the document `bn:realtime:post-new` and
+   `visibilitychange` listeners install ONCE behind window.__bnPillInited
+   (they read the module-level bnPill state, so a swapped feed is covered
+   without re-binding). On every (re-)init the per-page state is re-seeded
+   and the existing poll timer is cleared before a fresh one is scheduled —
+   so a client navigation never stacks a second poll chain or listener.
+   ---------------------------------------------------------------- */
 function initRealtimeNewPostsPill() {
 	const feed = document.querySelector( '.bn-feed-list, .bn-explore-grid' );
-	if ( ! feed ) {
-		return;
-	}
 	// Skip explore — it ranks by engagement, not chrono; a "new post"
 	// at the top makes no sense there.
-	const grid = feed.classList.contains( 'bn-explore-grid' );
-	if ( grid ) {
+	if ( ! feed || feed.classList.contains( 'bn-explore-grid' ) ) {
+		// Tear down any pill carried over from a previous (feed) page.
+		if ( bnPill.pollTimer ) { window.clearTimeout( bnPill.pollTimer ); bnPill.pollTimer = null; }
+		if ( bnPill.pill ) { bnPill.pill.remove(); bnPill.pill = null; }
+		bnPill.feed = null;
+		bnPill.pendingIds = new Set();
 		return;
 	}
 
-	let pendingIds = new Set();
-	let pill = null;
-
-	const renderPill = () => {
-		if ( pendingIds.size === 0 ) {
-			if ( pill ) { pill.remove(); pill = null; }
-			return;
-		}
-		if ( ! pill ) {
-			pill = document.createElement( 'button' );
-			pill.type = 'button';
-			pill.className = 'bn-feed-new-pill';
-			pill.setAttribute( 'role', 'status' );
-			pill.setAttribute( 'aria-live', 'polite' );
-			pill.addEventListener( 'click', () => {
-				window.location.reload();
-			} );
-			feed.parentElement.insertBefore( pill, feed );
-		}
-		const n = pendingIds.size;
-		pill.textContent = n === 1
-			? '1 new post — refresh to view'
-			: `${ n } new posts — refresh to view`;
-	};
-
-	document.addEventListener( 'bn:realtime:post-new', ( e ) => {
-		const id = parseInt( e.detail?.post_id, 10 );
-		const author = parseInt( e.detail?.user_id, 10 );
-		if ( ! id ) { return; }
-		// Skip the viewer's own posts — they're shown immediately
-		// by the composer's local insertion logic.
-		const composer = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
-		let viewerId = 0;
-		if ( composer ) {
-			try { viewerId = parseInt( JSON.parse( composer.dataset.wpContext || '{}' ).userId, 10 ); } catch ( _e ) {}
-		}
-		if ( author === viewerId ) { return; }
-		pendingIds.add( id );
-		renderPill();
-	} );
-
-	// ---- Free producer: visibility-aware 60s poll of /feed/new-count ----
-	// Mirrors the notifications-store poll (assets/js/notifications/store.js):
-	// a document.hidden guard, a re-poll on tab focus, and the wp_rest nonce.
-	// When the server reports posts newer than our watermark, we dispatch
-	// `bn:realtime:post-new` for the delta so the existing pill renderer above
-	// fires unchanged. Pro's Soketi path pre-empts this — both feed the same
-	// listener, so the pill behaves identically with or without Pro.
-	const POLL_INTERVAL = 60000;
+	// Re-seed per-page state for the freshly-rendered feed.
+	bnPill.feed = feed;
+	bnPill.pendingIds = new Set();
+	if ( bnPill.pill ) { bnPill.pill.remove(); bnPill.pill = null; }
 
 	// REST root + nonce come from the always-present composer context; the feed
 	// page on /activity renders the composer for every logged-in member.
 	const composerEl = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
-	if ( ! composerEl ) { return; }
-	let restUrl = '';
-	let restNonce = '';
-	try {
-		const cfg = JSON.parse( composerEl.dataset.wpContext || '{}' );
-		restUrl   = cfg.restUrl || '';
-		restNonce = cfg.restNonce || '';
-	} catch ( _e ) {}
-	if ( ! restUrl ) { return; }
+	bnPill.restUrl   = '';
+	bnPill.restNonce = '';
+	if ( composerEl ) {
+		try {
+			const cfg = JSON.parse( composerEl.dataset.wpContext || '{}' );
+			bnPill.restUrl   = cfg.restUrl || '';
+			bnPill.restNonce = cfg.restNonce || '';
+		} catch ( _e ) {}
+	}
 
 	// Active home-feed filter (defaults to for-you). The new-count query must
 	// scope to the same source blend the user is actually viewing.
 	const activeTab = document.querySelector( '.bn-feed-filter-tab[aria-current="true"]' );
-	const filter = ( activeTab && activeTab.dataset.filter ) || 'for-you';
+	bnPill.filter = ( activeTab && activeTab.dataset.filter ) || 'for-you';
 
 	// Seed the watermark from the newest post-card already rendered. The pill
 	// only ever cares about posts above this id.
-	let watermark = 0;
+	bnPill.watermark = 0;
 	feed.querySelectorAll( '[data-post-id]' ).forEach( ( card ) => {
 		const cardId = parseInt( card.dataset.postId, 10 );
-		if ( cardId > watermark ) { watermark = cardId; }
+		if ( cardId > bnPill.watermark ) { bnPill.watermark = cardId; }
 	} );
 
-	let pollTimer = null;
+	// Install the document-delegated listeners exactly once.
+	if ( ! window.__bnPillInited ) {
+		window.__bnPillInited = true;
 
-	async function pollNewCount() {
-		if ( document.hidden ) { return; }
-		try {
-			const url = restUrl + '/feed/new-count?after_id=' + encodeURIComponent( watermark ) +
-				'&filter=' + encodeURIComponent( filter );
-			const res = await fetch( url, {
-				method:      'GET',
-				credentials: 'same-origin',
-				headers:     { 'X-WP-Nonce': restNonce || '' },
-			} );
-			if ( ! res.ok ) { return; }
-			const json = await res.json();
-			if ( ! json || typeof json.count === 'undefined' ) { return; }
-			const fresh = Number( json.count ) || 0;
-			const newestId = Number( json.newest_id ) || watermark;
-			if ( fresh > 0 && newestId > watermark ) {
-				// Synthesize ids above the watermark so the pill counts the delta
-				// without needing the individual ids. The renderer keys off a Set,
-				// so distinct synthetic ids are sufficient for an accurate count.
-				for ( let i = 1; i <= fresh; i++ ) {
-					document.dispatchEvent( new CustomEvent( 'bn:realtime:post-new', {
-						detail: { post_id: watermark + i, user_id: 0 },
-					} ) );
-				}
-				watermark = newestId;
+		document.addEventListener( 'bn:realtime:post-new', ( e ) => {
+			if ( ! bnPill.feed ) { return; }
+			const id = parseInt( e.detail?.post_id, 10 );
+			const author = parseInt( e.detail?.user_id, 10 );
+			if ( ! id ) { return; }
+			// Skip the viewer's own posts — they're shown immediately
+			// by the composer's local insertion logic.
+			const composer = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
+			let viewerId = 0;
+			if ( composer ) {
+				try { viewerId = parseInt( JSON.parse( composer.dataset.wpContext || '{}' ).userId, 10 ); } catch ( _e ) {}
 			}
-		} catch ( _e ) {
-			// Network failure — retry next tick.
-		}
+			if ( author === viewerId ) { return; }
+			bnPill.pendingIds.add( id );
+			bnPillRender();
+		} );
+
+		// Re-poll immediately when the tab regains focus after being hidden.
+		document.addEventListener( 'visibilitychange', function () {
+			if ( ! document.hidden ) { bnPillPoll(); }
+		} );
 	}
 
-	function scheduleNewCount() {
-		if ( pollTimer ) { window.clearTimeout( pollTimer ); }
-		pollTimer = window.setTimeout( function () {
-			pollNewCount().finally( scheduleNewCount );
-		}, POLL_INTERVAL );
-	}
-
-	// Re-poll immediately when the tab regains focus after being hidden.
-	document.addEventListener( 'visibilitychange', function () {
-		if ( ! document.hidden ) { pollNewCount(); }
-	} );
-
-	scheduleNewCount();
+	// Clear any in-flight poll chain before reseeding so navigations never
+	// stack a second timer feeding the same listener.
+	bnPillSchedule();
 }
 
-if ( document.readyState === 'loading' ) {
-	document.addEventListener( 'DOMContentLoaded', initRealtimeNewPostsPill );
-} else {
-	initRealtimeNewPostsPill();
-}
+onNavReady( initRealtimeNewPostsPill );
 
 /*
    Realtime comment indicator — listens for `bn:realtime:comment-added`
@@ -3387,6 +3426,12 @@ if ( document.readyState === 'loading' ) {
    No-op when no realtime layer is active or the thread isn't open.
    ---------------------------------------------------------------- */
 function initRealtimeCommentIndicator() {
+	// Flavor B singleton — the delegated document listener queries the DOM
+	// fresh on each event, so it already covers content swapped in by a
+	// client-side navigation. Install it exactly once; any re-run is a no-op.
+	if ( window.__bnCommentIndicatorInited ) { return; }
+	window.__bnCommentIndicatorInited = true;
+
 	document.addEventListener( 'bn:realtime:comment-added', ( e ) => {
 		const postId      = parseInt( e.detail?.post_id, 10 );
 		const commenterId = parseInt( e.detail?.user_id, 10 );
@@ -3438,11 +3483,7 @@ function initRealtimeCommentIndicator() {
 	} );
 }
 
-if ( document.readyState === 'loading' ) {
-	document.addEventListener( 'DOMContentLoaded', initRealtimeCommentIndicator );
-} else {
-	initRealtimeCommentIndicator();
-}
+onNavReady( initRealtimeCommentIndicator, { once: true } );
 
 /*
    Reactors popover — opens an FB-style "people who reacted" panel
@@ -3452,6 +3493,13 @@ if ( document.readyState === 'loading' ) {
    trigger. Click-outside or Escape closes.
    ---------------------------------------------------------------- */
 function initReactorsPopover() {
+	// Flavor B singleton — the delegated document click/keydown + window resize
+	// listeners and the single body-appended panel cover content swapped in by a
+	// client-side navigation. Install once behind the window flag so a re-run
+	// adds no duplicate listeners and no duplicate body panel.
+	if ( window.__bnReactorsInited ) { return; }
+	window.__bnReactorsInited = true;
+
 	const REST_BASE = ( window.wpApiSettings?.root || '/wp-json/' ) + 'buddynext/v1';
 	let panel = null;
 	let activeTrigger = null;
@@ -3552,8 +3600,8 @@ function initReactorsPopover() {
 		positionPanel( trigger );
 		try {
 			const url = `${ REST_BASE }/reactions/list?object_type=${ encodeURIComponent( objectType ) }&object_id=${ encodeURIComponent( objectId ) }&limit=100`;
-			const r = await fetch( url, { credentials: 'include' } );
-			const data = await r.json();
+			const r = await restFetch( url, { toastOnError: false } );
+			const data = r.data;
 			renderList( data.items || [], data.total || ( data.items || [] ).length );
 			positionPanel( trigger );
 		} catch ( _e ) {
@@ -3572,11 +3620,7 @@ function initReactorsPopover() {
 	window.addEventListener( 'resize', closePanel );
 }
 
-if ( document.readyState === 'loading' ) {
-	document.addEventListener( 'DOMContentLoaded', initReactorsPopover );
-} else {
-	initReactorsPopover();
-}
+onNavReady( initReactorsPopover, { once: true } );
 
 /* ── Emoji insert picker (composer + comment editor) ─────────────────────
  * Inserts a Unicode emoji at the caret of a target textarea/input. The
@@ -3623,6 +3667,13 @@ function bnInsertAtCaret( field, text ) {
 }
 
 function initEmojiPicker() {
+	// Flavor B singleton — the delegated document click/keydown + window
+	// resize/scroll listeners and the lazily body-appended panel cover content
+	// swapped in by a client-side navigation. Install once behind the window
+	// flag so a re-run adds no duplicate listeners and no duplicate body panel.
+	if ( window.__bnEmojiPickerInited ) { return; }
+	window.__bnEmojiPickerInited = true;
+
 	let panel = null;
 	let activeTrigger = null;
 
@@ -3710,8 +3761,4 @@ function initEmojiPicker() {
 	window.addEventListener( 'scroll', closePanel, true );
 }
 
-if ( document.readyState === 'loading' ) {
-	document.addEventListener( 'DOMContentLoaded', initEmojiPicker );
-} else {
-	initEmojiPicker();
-}
+onNavReady( initEmojiPicker, { once: true } );

@@ -30,6 +30,18 @@
 ( function () {
 	'use strict';
 
+	// Inlined nav-init (once) — this file is a classic IIFE, not an ES module,
+	// so it cannot import shell/nav-init.js. Chrome/global setup persists across
+	// client-side navigations, so it binds on initial load only (no
+	// buddynext:navigated binding) — equivalent to onNavReady( init, { once: true } ).
+	function onNavReadyOnce( init ) {
+		if ( document.readyState === 'loading' ) {
+			document.addEventListener( 'DOMContentLoaded', init );
+		} else {
+			init();
+		}
+	}
+
 	var SCALES = [ '100', '110', '120' ];
 
 	function readScale() {
@@ -166,11 +178,7 @@
 			n.setAttribute( 'aria-pressed', match ? 'true' : 'false' );
 		}
 	}
-	if ( document.readyState === 'loading' ) {
-		document.addEventListener( 'DOMContentLoaded', syncPressed );
-	} else {
-		syncPressed();
-	}
+	onNavReadyOnce( syncPressed );
 
 	// Follow the theme's colour-mode toggle (Reign + sibling WBcom themes) so
 	// the BN surface flips with it — one control, both layers.
@@ -257,11 +265,7 @@
 
 	// Re-sync the rail toggle's accessible state once the rail markup exists
 	// (the before-paint bootstrap above runs before the rail button renders).
-	if ( document.readyState === 'loading' ) {
-		document.addEventListener( 'DOMContentLoaded', function () {
-			applyRail( readRailCollapsed() );
-		} );
-	} else {
+	onNavReadyOnce( function () {
 		applyRail( readRailCollapsed() );
-	}
+	} );
 }() );

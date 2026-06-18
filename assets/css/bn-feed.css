@@ -1218,6 +1218,24 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 		margin-block-start: var(--bn-s2);
 	}
 
+	/* Facebook-style compact byline on narrow cards: author name on row 1, then
+	   ONE meta line — "Space · time · audience-icon" — on row 2 (never a 3rd
+	   row). The @handle (Facebook has no handles; it just repeats the name above)
+	   and the privacy WORD (the lock icon + aria-label convey it) are dropped on
+	   mobile only — desktop is unchanged. The meta stays on one line: if the
+	   space name is long it truncates with an ellipsis while the dot separators,
+	   time, and privacy icon stay fully pinned. */
+	.bn-post-card__meta .bn-post-card__handle,
+	.bn-post-card__meta .bn-post-card__handle + .bn-post-card__sep {
+		display: none;
+	}
+	.bn-post-card__privacy > span { display: none; }
+	.bn-post-card__meta { flex-wrap: nowrap; min-width: 0; gap: 3px; }
+	.bn-post-card__meta > * { flex-shrink: 0; }
+	.bn-post-card__space-link { min-width: 0; flex-shrink: 1; }
+	.bn-post-card__space-link .bn-icon { flex-shrink: 0; }
+	.bn-post-card__space-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 	.bn-composer { padding: var(--bn-s3); }
 
 	.bn-post-card {

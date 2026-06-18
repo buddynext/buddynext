@@ -1,11 +1,9 @@
 /* BuddyNext — Spaces Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
+import { restFetch } from '../shell/rest-client.js';
+import { onNavReady } from '../shell/nav-init.js';
 
 /* ── Shared helpers ────────────────────────────────────────────────── */
-
-function apiUrl( path ) {
-	return ( window.wpApiSettings && window.wpApiSettings.root || '/wp-json/' ) + path;
-}
 
 /**
  * Resolve nonce. Tries the Interactivity API context first (works when
@@ -272,15 +270,15 @@ async function moderateJoinRequest( event, action ) {
 	if ( row ) { row.style.opacity = '0.5'; }
 
 	try {
-		var res = await fetch(
-			apiUrl( 'buddynext/v1/spaces/' + spaceId + '/members/' + userId + '/' + action ),
+		var res = await restFetch(
+			'/spaces/' + spaceId + '/members/' + userId + '/' + action,
 			{
 				method:  'POST',
-				headers: { 'X-WP-Nonce': resolveNonce() },
+				nonce:   resolveNonce(),
+				toastOnError: false,
 			}
 		);
-		var data = {};
-		try { data = await res.json(); } catch ( _parse ) {}
+		var data = res.data || {};
 
 		var ok = res.ok && ( ( 'approve' === action ) ? data.approved : data.declined );
 
@@ -393,11 +391,12 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( btn ) { btn.disabled = true; btn.textContent = '\u2026'; }
 
 			try {
-				var res  = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/join' ), {
+				var res  = await restFetch( '/spaces/' + spaceId + '/join', {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': resolveNonce() },
+					nonce:   resolveNonce(),
+					toastOnError: false,
 				} );
-				var data = await res.json();
+				var data = res.data || {};
 
 				if ( res.ok && data.joined ) {
 					swapButtonState( btn, 'joined' );
@@ -442,11 +441,12 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( btn ) { btn.disabled = true; btn.textContent = '…'; }
 
 			try {
-				var res  = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/join' ), {
+				var res  = await restFetch( '/spaces/' + spaceId + '/join', {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': resolveNonce() },
+					nonce:   resolveNonce(),
+					toastOnError: false,
 				} );
-				var data = await res.json();
+				var data = res.data || {};
 
 				if ( res.ok && data.joined ) {
 					if ( window.bnToast ) { window.bnToast( __i18n( 'Invitation accepted.' ), 'success' ); }
@@ -476,9 +476,10 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( btn ) { btn.disabled = true; btn.textContent = '…'; }
 
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/leave' ), {
+				var res = await restFetch( '/spaces/' + spaceId + '/leave', {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': resolveNonce() },
+					nonce:   resolveNonce(),
+					toastOnError: false,
 				} );
 
 				if ( res.ok ) {
@@ -507,11 +508,12 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( btn ) { btn.disabled = true; btn.textContent = '\u2026'; }
 
 			try {
-				var res  = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/join' ), {
+				var res  = await restFetch( '/spaces/' + spaceId + '/join', {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': resolveNonce() },
+					nonce:   resolveNonce(),
+					toastOnError: false,
 				} );
-				var data = await res.json();
+				var data = res.data || {};
 
 				if ( res.ok && ( data.pending || data.requested ) ) {
 					swapButtonState( btn, 'pending' );
@@ -558,15 +560,14 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( cfg && cfg.cancelUrl ) { body.cancel_url = cfg.cancelUrl; }
 
 			try {
-				var res  = await fetch( apiUrl( endpoint ), {
+				var res  = await restFetch( '/' + endpoint, {
+					base:    ( ( window.wpApiSettings && window.wpApiSettings.root ) || '/wp-json/' ).replace( /\/+$/, '' ),
 					method:  'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce':   resolveNonce(),
-					},
-					body: JSON.stringify( body ),
+					nonce:   resolveNonce(),
+					body:    body,
+					toastOnError: false,
 				} );
-				var data = await res.json();
+				var data = res.data || {};
 
 				if ( res.ok && data && data.url ) {
 					window.location.href = data.url;
@@ -599,11 +600,12 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( btn ) { btn.disabled = true; btn.textContent = '\u2026'; }
 
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/leave' ), {
+				var res = await restFetch( '/spaces/' + spaceId + '/leave', {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': resolveNonce() },
+					nonce:   resolveNonce(),
+					toastOnError: false,
 				} );
-				var data = await res.json();
+				var data = res.data || {};
 
 				if ( res.ok && data.left ) {
 					// Decide button to show based on card privacy badge.
@@ -656,11 +658,12 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( btn ) { btn.disabled = true; btn.textContent = '\u2026'; }
 
 			try {
-				var res  = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/leave' ), {
+				var res  = await restFetch( '/spaces/' + spaceId + '/leave', {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': resolveNonce() },
+					nonce:   resolveNonce(),
+					toastOnError: false,
 				} );
-				var data = await res.json();
+				var data = res.data || {};
 
 				if ( res.ok && ( data.left || data.cancelled ) ) {
 					swapButtonState( btn, 'request' );
@@ -790,17 +793,15 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( submitBtn ) { submitBtn.disabled = true; submitBtn.textContent = 'Posting\u2026'; }
 
 			try {
-				var res  = await fetch( apiUrl( 'buddynext/v1/posts' ), {
+				var res  = await restFetch( '/posts', {
 					method:  'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce':   resolveNonce(),
-					},
-					body: JSON.stringify( {
+					nonce:   resolveNonce(),
+					body: {
 						content:  content,
 						space_id: parseInt( spaceId, 10 ),
 						type:     'text',
-					} ),
+					},
+					toastOnError: false,
 				} );
 
 				if ( res.ok ) {
@@ -845,17 +846,15 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( countEl ) { countEl.textContent = String( count ); }
 
 			try {
-				await fetch( apiUrl( 'buddynext/v1/reactions/toggle' ), {
+				await restFetch( '/reactions/toggle', {
 					method:  'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce':   resolveNonce(),
-					},
-					body: JSON.stringify( {
+					nonce:   resolveNonce(),
+					body: {
 						object_type: 'post',
 						object_id:   parseInt( postId, 10 ),
 						emoji:       'love',
-					} ),
+					},
+					toastOnError: false,
 				} );
 			} catch ( _e ) {
 				// Revert optimistic update on network failure.
@@ -928,22 +927,19 @@ var storeInstance = store( 'buddynext/spaces', {
 				reportItem.className   = 'bn-post-card__menu-item';
 				reportItem.addEventListener( 'click', function () {
 					dropdown.classList.remove( 'bn-post-card__menu-dropdown--open' );
-					fetch( apiUrl( 'buddynext/v1/reports' ), {
+					restFetch( '/reports', {
 						method:  'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							'X-WP-Nonce':   resolveNonce(),
-						},
-						body: JSON.stringify( { object_type: 'post', object_id: parseInt( postId, 10 ) } ),
+						nonce:   resolveNonce(),
+						body:    { object_type: 'post', object_id: parseInt( postId, 10 ) },
+						toastOnError: false,
 					} ).then( function ( res ) {
 						if ( res.ok || res.status === 201 ) {
 							if ( window.bnToast ) { window.bnToast( 'Report submitted. Thanks for keeping the community safe.', { tone: 'success' } ); }
 							return;
 						}
 						// Surface the server's reason (e.g. 409 already reported).
-						return res.json().then( function ( data ) {
-							if ( window.bnToast ) { window.bnToast( ( data && data.message ) || 'Could not submit report. Try again.', { tone: 'danger' } ); }
-						} );
+						var data = res.data;
+						if ( window.bnToast ) { window.bnToast( ( data && data.message ) || 'Could not submit report. Try again.', { tone: 'danger' } ); }
 					} ).catch( function () {
 						if ( window.bnToast ) { window.bnToast( 'Could not submit report. Try again.', { tone: 'danger' } ); }
 					} );
@@ -982,13 +978,11 @@ var storeInstance = store( 'buddynext/spaces', {
 			btn.disabled = true;
 
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/posts/' + postId + '/share' ), {
+				var res = await restFetch( '/posts/' + postId + '/share', {
 					method:  'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce':   resolveNonce(),
-					},
-					body: JSON.stringify( {} ),
+					nonce:   resolveNonce(),
+					body:    {},
+					toastOnError: false,
 				} );
 
 				if ( res.ok ) {
@@ -1033,13 +1027,11 @@ var storeInstance = store( 'buddynext/spaces', {
 
 			btn.disabled = true;
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/members/' + userId + '/role' ), {
+				var res = await restFetch( '/spaces/' + spaceId + '/members/' + userId + '/role', {
 					method:  'PUT',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce':   resolveNonce(),
-					},
-					body: JSON.stringify( { role: role } ),
+					nonce:   resolveNonce(),
+					body:    { role: role },
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					if ( window.bnToast ) { window.bnToast( __i18n( 'Role updated.' ), 'success' ); }
@@ -1079,9 +1071,10 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( row ) { row.style.opacity = '0.4'; }
 			btn.disabled = true;
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/members/' + userId ), {
+				var res = await restFetch( '/spaces/' + spaceId + '/members/' + userId, {
 					method:  'DELETE',
-					headers: { 'X-WP-Nonce': resolveNonce() },
+					nonce:   resolveNonce(),
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					if ( row ) { row.parentNode && row.parentNode.removeChild( row ); }
@@ -1114,13 +1107,11 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( row ) { row.style.opacity = '0.4'; }
 			btn.disabled = true;
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/bans' ), {
+				var res = await restFetch( '/spaces/' + spaceId + '/bans', {
 					method:  'POST',
-					headers: {
-						'X-WP-Nonce':   resolveNonce(),
-						'Content-Type': 'application/json',
-					},
-					body: JSON.stringify( { user_id: parseInt( userId, 10 ) } ),
+					nonce:   resolveNonce(),
+					body:    { user_id: parseInt( userId, 10 ) },
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					if ( row ) { row.parentNode && row.parentNode.removeChild( row ); }
@@ -1168,20 +1159,18 @@ var storeInstance = store( 'buddynext/spaces', {
 
 			btn.disabled = true;
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/transfer' ), {
+				var res = await restFetch( '/spaces/' + spaceId + '/transfer', {
 					method:  'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce':   resolveNonce(),
-					},
-					body: JSON.stringify( { new_owner_id: parseInt( newOwnerId, 10 ) } ),
+					nonce:   resolveNonce(),
+					body:    { new_owner_id: parseInt( newOwnerId, 10 ) },
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					if ( window.bnToast ) { window.bnToast( __i18n( 'Ownership transferred.' ), 'success' ); }
 					closeAllSpaceModals();
 					setTimeout( function () { window.location.reload(); }, 600 );
 				} else {
-					var data = await res.json();
+					var data = res.data || {};
 					var errEl = modal.querySelector( '[data-bn-transfer-error]' );
 					if ( errEl ) {
 						errEl.textContent = ( data && data.message ) || __i18n( 'Could not transfer ownership.' );
@@ -1236,12 +1225,11 @@ var storeInstance = store( 'buddynext/spaces', {
 
 			btn.disabled = true;
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId ), {
+				var res = await restFetch( '/spaces/' + spaceId, {
 					method:  'DELETE',
-					headers: {
-						'X-WP-Nonce':                resolveNonce(),
-						'X-BN-Confirm-Space-Name':   expected,
-					},
+					nonce:   resolveNonce(),
+					headers: { 'X-BN-Confirm-Space-Name': expected },
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					if ( window.bnToast ) { window.bnToast( __i18n( 'Space deleted.' ), 'success' ); }
@@ -1288,13 +1276,11 @@ var storeInstance = store( 'buddynext/spaces', {
 			var origLabel = btn.textContent;
 			btn.textContent = __i18n( 'Saving…' );
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId ), {
+				var res = await restFetch( '/spaces/' + spaceId, {
 					method:  'PUT',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce':   resolveNonce(),
-					},
-					body: JSON.stringify( payload ),
+					nonce:   resolveNonce(),
+					body:    payload,
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					if ( window.bnToast ) { window.bnToast( __i18n( 'Changes saved.' ), 'success' ); }
@@ -1329,13 +1315,11 @@ var storeInstance = store( 'buddynext/spaces', {
 
 			btn.disabled = true;
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/permissions' ), {
+				var res = await restFetch( '/spaces/' + spaceId + '/permissions', {
 					method:  'PUT',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce':   resolveNonce(),
-					},
-					body: JSON.stringify( payload ),
+					nonce:   resolveNonce(),
+					body:    payload,
+					toastOnError: false,
 				} );
 				if ( res.ok && window.bnToast ) {
 					window.bnToast( __i18n( 'Permissions saved.' ), 'success' );
@@ -1370,9 +1354,10 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( ! spaceId ) { return; }
 			btn.disabled = true;
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/archive' ), {
+				var res = await restFetch( '/spaces/' + spaceId + '/archive', {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': resolveNonce() },
+					nonce:   resolveNonce(),
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					if ( window.bnToast ) { window.bnToast( __i18n( 'Space archived.' ), 'success' ); }
@@ -1440,13 +1425,11 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( trigger ) { trigger.setAttribute( 'aria-expanded', 'false' ); }
 
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/notification-pref' ), {
+				var res = await restFetch( '/spaces/' + spaceId + '/notification-pref', {
 					method:  'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce':   resolveNonce(),
-					},
-					body: JSON.stringify( { pref: pref } ),
+					nonce:   resolveNonce(),
+					body:    { pref: pref },
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
 					// Rollback.
@@ -1537,19 +1520,17 @@ var storeInstance = store( 'buddynext/spaces', {
 			}
 
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/invite' ), {
+				var res = await restFetch( '/spaces/' + spaceId + '/invite', {
 					method:  'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce':   resolveNonce(),
-					},
-					body: JSON.stringify( { identifier: identifier } ),
+					nonce:   resolveNonce(),
+					body:    { identifier: identifier },
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					if ( window.bnToast ) { window.bnToast( __i18n( 'Invitation sent.' ), 'success' ); }
 					closeAllSpaceModals();
 				} else {
-					var data = await res.json().catch( function () { return {}; } );
+					var data = res.data || {};
 					if ( errEl ) {
 						errEl.textContent = ( data && data.message ) || __i18n( 'Could not send the invitation.' );
 						errEl.removeAttribute( 'hidden' );
@@ -1733,15 +1714,13 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( bnParentEl && parseInt( bnParentEl.value || '0', 10 ) > 0 ) { payload.parent_id = parseInt( bnParentEl.value, 10 ); }
 
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/spaces' ), {
+				var res = await restFetch( '/spaces', {
 					method:  'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce':   resolveNonce(),
-					},
-					body: JSON.stringify( payload ),
+					nonce:   resolveNonce(),
+					body:    payload,
+					toastOnError: false,
 				} );
-				var data = await res.json();
+				var data = res.data || {};
 
 				if ( res.ok && data && data.id ) {
 					if ( window.bnToast ) { window.bnToast( __i18n( 'Space created.' ), 'success' ); }
@@ -2067,18 +2046,26 @@ async function executeSpacesFilter() {
 	params.set( 'per_page', '18' );
 
 	try {
-		var res = await fetch( apiUrl( 'buddynext/v1/spaces?' + params.toString() ), {
+		var res = await restFetch( '/spaces?' + params.toString(), {
 			method:  'GET',
-			headers: { 'X-WP-Nonce': resolveNonce() },
+			nonce:   resolveNonce(),
 			signal:  bnSpacesFilterAbort ? bnSpacesFilterAbort.signal : undefined,
+			toastOnError: false,
 		} );
 
 		if ( ! res.ok ) {
+			// A superseded keystroke aborts the in-flight request; restFetch
+			// resolves it to { ok:false, status:0 } rather than throwing, so a
+			// status of 0 means "aborted/network" — never flash the error state
+			// when the abort controller is the cause.
+			if ( bnSpacesFilterAbort && bnSpacesFilterAbort.signal && bnSpacesFilterAbort.signal.aborted ) {
+				return;
+			}
 			setDirectoryUiState( 'error' );
 			return;
 		}
 
-		var rows = await res.json();
+		var rows = res.data;
 		if ( ! Array.isArray( rows ) ) { rows = ( rows && rows.items ) || []; }
 
 		var grid = document.querySelector( '[data-bn-sd-grid]' );
@@ -2202,7 +2189,6 @@ function attachInviteTypeahead( input ) {
 	input.dataset.bnInviteEnhanced = '1';
 	input.setAttribute( 'autocomplete', 'off' );
 
-	var restBase = ( window.wpApiSettings && window.wpApiSettings.root || '/wp-json/' ) + 'buddynext/v1';
 	var wrap     = input.parentElement;
 	if ( wrap && 'static' === getComputedStyle( wrap ).position ) {
 		wrap.style.position = 'relative';
@@ -2268,8 +2254,8 @@ function attachInviteTypeahead( input ) {
 			abort.abort();
 		}
 		abort = new AbortController();
-		fetch( restBase + '/members?search=' + encodeURIComponent( q ) + '&per_page=6', { signal: abort.signal, credentials: 'include' } )
-			.then( function ( r ) { return r.json(); } )
+		restFetch( '/members?search=' + encodeURIComponent( q ) + '&per_page=6', { signal: abort.signal, nonce: resolveNonce(), toastOnError: false } )
+			.then( function ( res ) { return res.data; } )
 			.then( function ( data ) {
 				var rows = data && Array.isArray( data.items ) ? data.items : [];
 				items = rows.map( function ( m ) {
@@ -2332,11 +2318,12 @@ function initInviteTypeahead() {
 	].filter( Boolean ).forEach( attachInviteTypeahead );
 }
 
-document.addEventListener( 'DOMContentLoaded', function () {
+function initSpacesImperative() {
 	initInviteTypeahead();
 
 	var searchInput = document.querySelector( 'input[name="bn_search"]' );
-	if ( searchInput ) {
+	if ( searchInput && ! searchInput.dataset.bnSpaceSearchWired ) {
+		searchInput.dataset.bnSpaceSearchWired = '1';
 		searchInput.addEventListener( 'input', function () {
 			applySpacesFilter();
 		} );
@@ -2345,9 +2332,11 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	// sidebar). Type pills drive applySpacesFilter via actions.setType.
 
 	// Suppress the form submit on reactive filter forms so Enter does
-	// not reload the page.
+	// not reload the page. Per-form guard so a re-init after a client-side
+	// navigation can never double-bind the submit listener.
 	var reactiveForm = document.querySelector( '[data-bn-reactive]' );
-	if ( reactiveForm ) {
+	if ( reactiveForm && ! reactiveForm.dataset.bnSpaceFormWired ) {
+		reactiveForm.dataset.bnSpaceFormWired = '1';
 		reactiveForm.addEventListener( 'submit', function ( e ) {
 			e.preventDefault();
 			applySpacesFilter();
@@ -2357,7 +2346,8 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	// Auto-derive slug from name in the create-space modal.
 	var nameInput = document.querySelector( '[data-bn-create-space-name]' );
 	var slugInput = document.querySelector( '[data-bn-create-space-slug]' );
-	if ( nameInput && slugInput ) {
+	if ( nameInput && slugInput && ! nameInput.dataset.bnSpaceSlugWired ) {
+		nameInput.dataset.bnSpaceSlugWired = '1';
 		var slugTouched = false;
 		slugInput.addEventListener( 'input', function () {
 			slugTouched = true;
@@ -2372,33 +2362,41 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		} );
 	}
 
-	// Close sort popover on outside click.
-	document.addEventListener( 'click', function ( e ) {
-		var popover = document.querySelector( '[data-bn-sort-popover]' );
-		if ( ! popover ) { return; }
-		var list = popover.querySelector( '[data-bn-sort-list]' );
-		if ( ! list || list.hasAttribute( 'hidden' ) ) { return; }
-		if ( ! popover.contains( e.target ) ) {
-			closeSortPopover();
-		}
-	} );
+	// Close sort popover on outside click. Document-level singleton — installed
+	// once behind a window flag so re-init never stacks duplicate listeners.
+	if ( ! window.__bnSpaceSortCloseBound ) {
+		window.__bnSpaceSortCloseBound = true;
+		document.addEventListener( 'click', function ( e ) {
+			var popover = document.querySelector( '[data-bn-sort-popover]' );
+			if ( ! popover ) { return; }
+			var list = popover.querySelector( '[data-bn-sort-list]' );
+			if ( ! list || list.hasAttribute( 'hidden' ) ) { return; }
+			if ( ! popover.contains( e.target ) ) {
+				closeSortPopover();
+			}
+		} );
+	}
 
-	// Close notif popover on outside click.
-	document.addEventListener( 'click', function ( e ) {
-		var popover = document.querySelector( '[data-bn-notif-popover]' );
-		if ( ! popover ) { return; }
-		var list = popover.querySelector( '[data-bn-notif-list]' );
-		if ( ! list || list.hasAttribute( 'hidden' ) ) { return; }
-		if ( ! popover.contains( e.target ) ) {
-			list.setAttribute( 'hidden', '' );
-			var trigger = popover.querySelector( '[data-bn-notif-trigger]' );
-			if ( trigger ) { trigger.setAttribute( 'aria-expanded', 'false' ); }
-		}
-	} );
+	// Close notif popover on outside click. Document-level singleton.
+	if ( ! window.__bnSpaceNotifCloseBound ) {
+		window.__bnSpaceNotifCloseBound = true;
+		document.addEventListener( 'click', function ( e ) {
+			var popover = document.querySelector( '[data-bn-notif-popover]' );
+			if ( ! popover ) { return; }
+			var list = popover.querySelector( '[data-bn-notif-list]' );
+			if ( ! list || list.hasAttribute( 'hidden' ) ) { return; }
+			if ( ! popover.contains( e.target ) ) {
+				list.setAttribute( 'hidden', '' );
+				var trigger = popover.querySelector( '[data-bn-notif-trigger]' );
+				if ( trigger ) { trigger.setAttribute( 'aria-expanded', 'false' ); }
+			}
+		} );
+	}
 
 	// Delete-space gate: enable submit only when typed name matches.
 	var gate = document.querySelector( '[data-bn-delete-gate]' );
-	if ( gate ) {
+	if ( gate && ! gate.dataset.bnSpaceGateWired ) {
+		gate.dataset.bnSpaceGateWired = '1';
 		gate.addEventListener( 'input', function () {
 			var modal    = gate.closest( '[data-bn-modal="delete-space-confirm"]' );
 			var submit   = modal ? modal.querySelector( '[data-bn-delete-submit]' ) : null;
@@ -2410,7 +2408,9 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			if ( err ) { err.setAttribute( 'hidden', '' ); err.textContent = ''; }
 		} );
 	}
-} );
+}
+
+onNavReady( initSpacesImperative );
 
 /* ── Delegated UI helpers (modal close + native-confirm bridge) ─────────
  *
@@ -2773,17 +2773,19 @@ document.addEventListener( 'keydown', function ( event ) {
 	function uploadImage( kind, file ) {
 		var body = new FormData();
 		body.append( 'image', file );
-		return fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/' + kind ), {
+		return restFetch( '/spaces/' + spaceId + '/' + kind, {
 			method:  'POST',
-			headers: { 'X-WP-Nonce': imageNonce },
+			nonce:   imageNonce,
 			body:    body,
+			toastOnError: false,
 		} );
 	}
 
 	function deleteImage( kind ) {
-		return fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/' + kind ), {
+		return restFetch( '/spaces/' + spaceId + '/' + kind, {
 			method:  'DELETE',
-			headers: { 'X-WP-Nonce': imageNonce },
+			nonce:   imageNonce,
+			toastOnError: false,
 		} );
 	}
 
@@ -2838,7 +2840,7 @@ document.addEventListener( 'keydown', function ( event ) {
 			pickFile( function ( file ) {
 				preview.setAttribute( 'aria-busy', 'true' );
 				uploadImage( 'cover', file ).then( function ( res ) {
-					return res.ok ? res.json() : Promise.reject( res );
+					return res.ok ? res.data : Promise.reject( res );
 				} ).then( function ( data ) {
 					paint( data.cover_image_url || '' );
 					if ( window.bnToast ) { window.bnToast( __i18n( 'Cover updated.' ), 'success' ); }
@@ -2887,7 +2889,7 @@ document.addEventListener( 'keydown', function ( event ) {
 				var orig = btn.textContent;
 				btn.textContent = __i18n( 'Uploading…' );
 				uploadImage( 'avatar', file ).then( function ( res ) {
-					return res.ok ? res.json() : Promise.reject( res );
+					return res.ok ? res.data : Promise.reject( res );
 				} ).then( function ( data ) {
 					if ( current && data.avatar_url ) {
 						current.innerHTML = '';
