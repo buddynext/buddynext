@@ -527,12 +527,21 @@
  */
 .bn-dm-msg__meta {
 	position: absolute;
-	top: calc(100% + 2px);
+	/* Hover timestamp as a floating chip (Messenger-style): it sits just below
+	   the bubble and may overlay the tightly-grouped next message, but its own
+	   surface background + shadow keep it fully legible instead of colliding
+	   with the bubble text. This preserves tight consecutive grouping (no
+	   permanent reserved gap) while fixing the "timestamp partially hidden". */
+	top: calc(100% - 2px);
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s2);
+	padding: 2px var(--bn-s2);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-surface);
+	box-shadow: var(--bn-shadow-sm, 0 1px 4px rgba(0, 0, 0, 0.14));
 	font-size: var(--bn-text-2xs);
-	color: var(--bn-ink-4);
+	color: var(--bn-ink-3);
 	white-space: nowrap;
 	opacity: 0;
 	pointer-events: none;
@@ -553,9 +562,8 @@
 	opacity: 1;
 }
 
-/* Lift the hovered/focused row above the following message so its timestamp,
-   which overflows into the inter-message gap, is never occluded by the next
-   consecutive bubble. */
+/* Lift the hovered/focused row so its floating timestamp chip is never
+   occluded by the following consecutive bubble. */
 .bn-dm-msg:hover,
 .bn-dm-msg:focus-within {
 	z-index: 2;
@@ -570,6 +578,11 @@
 		opacity: 1;
 		pointer-events: auto;
 		margin-top: 2px;
+		/* Inline (in flow) on touch — drop the floating-chip background/shadow so
+		   it reads as a plain timestamp line, not a pill on every message. */
+		padding: 0;
+		background: none;
+		box-shadow: none;
 	}
 	.bn-dm-msg.is-mine .bn-dm-msg__meta {
 		justify-content: flex-end;
@@ -1168,8 +1181,13 @@
 
 .bn-dm-emoji-pop__grid {
 	display: grid;
-	grid-template-columns: repeat(10, 1fr);
+	grid-template-columns: repeat(8, 1fr);
 	gap: 2px;
+	/* Keep every emoji inside the popover — cap the grid and scroll internally
+	   so rows can never spill out of the bottom edge onto the composer. */
+	max-height: 200px;
+	overflow-y: auto;
+	overscroll-behavior: contain;
 }
 
 .bn-dm-emoji-pop__item {
