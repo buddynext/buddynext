@@ -126,6 +126,37 @@ store( 'buddynext/moderation', {
 			bnToast( res.ok ? 'User suspended for 7 days.' : 'Could not suspend the user.', { tone: res.ok ? 'success' : 'danger' } );
 		},
 
+		/* ── Account-status (member-facing) ────────────────────────── */
+
+		* submitAppeal( event ) {
+			if ( event && event.preventDefault ) { event.preventDefault(); }
+			const ctx     = getContext();
+			const field   = document.getElementById( 'bn-acct-appeal-msg' );
+			const message = field ? field.value.trim() : '';
+			if ( ! ctx.suspensionId || ! ctx.restNonce ) { return; }
+			if ( message.length < 10 ) {
+				bnToast( 'Please describe why you are appealing (at least 10 characters).', { tone: 'danger' } );
+				if ( field ) { field.focus(); }
+				return;
+			}
+			// Real route: POST /appeals { suspension_id, message }.
+			const res = yield restFetch( 'appeals', {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'POST',
+				body: { suspension_id: ctx.suspensionId, message },
+				toastOnError: false,
+			} );
+			if ( res.ok ) {
+				bnToast( 'Your appeal has been submitted.', { tone: 'success' } );
+				// Reload so the banner re-renders in its "under review" state.
+				window.location.reload();
+			} else {
+				const emsg = ( res.data && res.data.message ) ? res.data.message : 'Could not submit your appeal. Try again.';
+				bnToast( emsg, { tone: 'danger' } );
+			}
+		},
+
 		/* ── Space moderation actions ──────────────────────────────── */
 
 		viewReportedPost() {

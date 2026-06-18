@@ -987,9 +987,10 @@ class PageRouter {
 			case 'feed':
 				$assets->enqueue( 'feed' );
 				// Account-status (the viewer's own moderation standing) reuses the
-				// moderation stylesheet for its banner + detail-row chrome.
+				// moderation stylesheet for its banner + detail-row chrome and the
+				// moderation Interactivity store for the appeal-submission form.
 				if ( 'account-status' === (string) get_query_var( 'bn_feed_section', '' ) ) {
-					wp_enqueue_style( 'bn-moderation' );
+					$assets->enqueue( 'moderation' );
 				}
 				// Explore is BuddyNext's signature discovery surface — its own
 				// stylesheet (bn-explore.css) so the masonry grid + varied cards

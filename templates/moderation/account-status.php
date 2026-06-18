@@ -115,17 +115,7 @@ foreach ( $bn_as_appeals as $bn_as_ap ) {
 					<?php esc_html_e( 'Your account is suspended', 'buddynext' ); ?>
 				</h2>
 				<p class="bn-acct-banner__lead">
-					<?php
-					if ( '' !== $bn_as_expires ) {
-						printf(
-							/* translators: %s: local date and time the suspension lifts. */
-							esc_html__( 'Your account is suspended until %s.', 'buddynext' ),
-							'<strong>' . esc_html( $bn_as_expires ) . '</strong>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- value escaped inline.
-						);
-					} else {
-						esc_html_e( 'Your account is suspended indefinitely.', 'buddynext' );
-					}
-					?>
+					<?php esc_html_e( 'The moderation team has suspended your account. The details are below.', 'buddynext' ); ?>
 				</p>
 
 				<dl class="bn-acct-details">
@@ -161,25 +151,59 @@ foreach ( $bn_as_appeals as $bn_as_ap ) {
 					</div>
 				</dl>
 
-				<p class="bn-acct-banner__appeal">
-					<?php if ( $bn_as_has_pending_appeal ) : ?>
+				<?php if ( $bn_as_has_pending_appeal ) : ?>
+					<p class="bn-acct-banner__appeal">
 						<?php esc_html_e( 'You have submitted an appeal. The moderation team will review it and notify you of the decision.', 'buddynext' ); ?>
-					<?php else : ?>
-						<?php esc_html_e( 'If you believe this action was a mistake, you can appeal it below.', 'buddynext' ); ?>
-					<?php endif; ?>
-				</p>
+					</p>
+				<?php else : ?>
+					<?php
+					$bn_as_appeal_ctx = wp_json_encode(
+						array(
+							'suspensionId' => (int) ( $bn_as_suspension['id'] ?? 0 ),
+							'restUrl'      => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+							'restNonce'    => wp_create_nonce( 'wp_rest' ),
+						)
+					);
+					?>
+					<form
+						class="bn-acct-appeal"
+						data-wp-interactive="buddynext/moderation"
+						data-wp-context="<?php echo esc_attr( (string) $bn_as_appeal_ctx ); ?>"
+						data-wp-on--submit="actions.submitAppeal"
+					>
+						<label class="bn-acct-appeal__label" for="bn-acct-appeal-msg">
+							<?php esc_html_e( 'Appeal this decision', 'buddynext' ); ?>
+						</label>
+						<p class="bn-acct-appeal__hint">
+							<?php esc_html_e( 'If you believe this was a mistake, tell the moderation team why. They will review your appeal and notify you of the outcome.', 'buddynext' ); ?>
+						</p>
+						<textarea
+							id="bn-acct-appeal-msg"
+							class="bn-input bn-acct-appeal__field"
+							name="message"
+							rows="4"
+							maxlength="2000"
+							required
+							placeholder="<?php esc_attr_e( 'Explain why you are appealing…', 'buddynext' ); ?>"
+						></textarea>
+						<div class="bn-acct-appeal__actions">
+							<button type="submit" class="bn-btn" data-variant="primary">
+								<?php esc_html_e( 'Submit appeal', 'buddynext' ); ?>
+							</button>
+						</div>
+					</form>
+				<?php endif; ?>
 
 				<?php
 				/**
-				 * Fires inside the suspension banner, after the appeal note.
+				 * Fires inside the suspension banner, after the appeal form/note.
 				 *
-				 * The appeal submission form (front-end) hooks here so the
-				 * "appeal this suspension" control renders directly beneath the
-				 * details a suspended member is reading.
+				 * Pro can hook here to extend the appeal experience (e.g. attach
+				 * evidence) directly beneath the details a suspended member reads.
 				 *
-				 * @param array<string,mixed> $suspension       Active suspension row.
+				 * @param array<string,mixed> $suspension         Active suspension row.
 				 * @param bool                $has_pending_appeal Whether a pending appeal already exists.
-				 * @param int                 $user_id          Viewer ID.
+				 * @param int                 $user_id            Viewer ID.
 				 */
 				do_action( 'buddynext_account_status_appeal', $bn_as_suspension, $bn_as_has_pending_appeal, $bn_as_user_id );
 				?>
@@ -206,7 +230,6 @@ foreach ( $bn_as_appeals as $bn_as_ap ) {
 					$bn_as_s_date   = $bn_as_date( $bn_as_strike['created_at'] ?? '' );
 					?>
 					<li class="bn-acct-list__item">
-						<span class="bn-acct-list__icon" aria-hidden="true"><?php buddynext_icon( 'flag' ); ?></span>
 						<div class="bn-acct-list__body">
 							<div class="bn-acct-list__reason">
 								<?php echo '' !== $bn_as_s_reason ? esc_html( $bn_as_s_reason ) : esc_html__( 'Community guideline strike', 'buddynext' ); ?>
@@ -240,7 +263,6 @@ foreach ( $bn_as_appeals as $bn_as_ap ) {
 					$bn_as_w_date = $bn_as_date( $bn_as_warn['created_at'] ?? '' );
 					?>
 					<li class="bn-acct-list__item">
-						<span class="bn-acct-list__icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
 						<div class="bn-acct-list__body">
 							<div class="bn-acct-list__reason">
 								<?php echo '' !== $bn_as_w_note ? esc_html( $bn_as_w_note ) : esc_html__( 'Community guideline warning', 'buddynext' ); ?>

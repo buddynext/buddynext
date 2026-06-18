@@ -1019,8 +1019,7 @@
 	color: var(--bn-ink-2);
 }
 
-.bn-acct-section__icon svg,
-.bn-acct-list__icon svg {
+.bn-acct-section__icon svg {
 	width: var(--bn-s4);
 	height: var(--bn-s4);
 }
@@ -1043,12 +1042,6 @@
 	background: var(--bn-surface);
 }
 
-.bn-acct-list__icon {
-	flex-shrink: 0;
-	color: var(--bn-ink-3);
-	margin-top: var(--bn-s1);
-}
-
 .bn-acct-list__body {
 	flex: 1 1 auto;
 	min-width: 0;
@@ -1069,6 +1062,40 @@
 .bn-acct-list__meta {
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
+}
+
+/* Appeal form (inside the suspension banner). */
+.bn-acct-appeal {
+	margin-top: var(--bn-s4);
+	padding-top: var(--bn-s4);
+	border-top: 1px solid var(--bn-line);
+}
+
+.bn-acct-appeal__label {
+	display: block;
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink-1);
+	margin-bottom: var(--bn-s1);
+}
+
+.bn-acct-appeal__hint {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-2);
+	margin: 0 0 var(--bn-s2);
+}
+
+.bn-acct-appeal__field {
+	width: 100%;
+	resize: vertical;
+	min-height: calc(var(--bn-s10) + var(--bn-s6));
+	background: var(--bn-surface);
+}
+
+.bn-acct-appeal__actions {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: var(--bn-s3);
 }
 
 /* ──────────────────────────────────────────────────────────────────────
