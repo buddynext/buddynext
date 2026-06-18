@@ -3,6 +3,40 @@
 > Status: LOCKED (owner decisions 2026-06-18). Scope: **presentation only**.
 > Sequence: **by section, Free + Pro together**, worst offenders first.
 > Ambition: **set a new premium UX bar** consistent with the whole Wbcom portfolio.
+> Visual target = HTML prototype `docs/v2 Plans/v2/admin-app.html` (signed off 2026-06-18).
+> Admin viewports: **desktop + iPad only** (no phone layout — backend, not frontend).
+> Admin uses a **single color scheme** (no dark/light toggle).
+
+## Porting plan — applying the prototype to the plugin (locked 2026-06-18)
+
+Execution: **solo, section by section** (live plugin — tight control, no patchwork).
+
+### Phase 1 — Foundation (build the shared layer; flips most screens at once)
+1. **Single `assets/css/bn-ui.css`** (ux-foundation Rule 9): port the prototype primitives —
+   `.bn-card`(+`__head/__body`), `.bn-btn` (variants x sizes), `.bn-input/select/textarea/toggle`,
+   `.bn-badge`, `.bn-empty`, `.bn-table`, `.bn-pager`, `.bn-kpi`, `.bn-savebar`, command palette.
+   Consolidate today's 7 admin CSS files (`bn-admin`,`-hub`,`-dialogs`,`-email`,`-members`,`-nav`,
+   `-taxonomy`) into it. Tokens stay in `tokens.css`/`bn-base.css`. Single scheme; no dark toggle.
+2. **Reconcile `AdminPageBase`**: `open_section()` / `render_*_row()` emit the new `.bn-card`
+   vocabulary; alias `.bn-settings-section` during transition. Most settings screens conform for free.
+3. **Shared primitives as PHP helpers/partials**: `bn_admin_pager()` (real LIMIT/OFFSET + COUNT(*)),
+   a list partial (KPI row + filter bar + `.bn-table` + pager), `render_empty_state()`,
+   `render_savebar()`, page-head with **Docs + Tutorial** slots, and the Free standalone **Cmd/K
+   command palette** (`AdminNavIndex` over `AdminHub::get_all_tabs()` + `command-palette.js`).
+
+### Phase 2 — Roll out by section (worst offenders first)
+Moderation -> Campaigns/Email -> Monetization -> Members -> Spaces -> Settings/Platform ->
+Engagement -> Realtime/Push -> Overview. Per screen: convert markup to primitives, fill any
+missing options from `admin-screen-coverage-matrix.md`, browser-verify (desktop + iPad), smoke
+the save path.
+
+### Phase 3 — Cross-cutting gates
+RTL (logical properties), a11y (focus rings, aria, empty/loading states), then the ux-foundation
+pre-merge checklist + `wppqa` rule gate + `bin/check.sh` per section.
+
+### Guardrails
+Presentation only (never touch a save/handler path; smoke each form after). Verify per screen.
+One section per commit batch. Coverage matrix is the per-screen DoD. Pro extends Free's `AdminPageBase`.
 
 **Goal:** Bring all 32 BuddyNext admin screens (Free + Pro) up to the `ux-foundation`
 contract — the portfolio-wide visual + interaction standard — so the backend reads
