@@ -55,12 +55,14 @@ class SpaceCategoryController extends BaseRestController {
 							'sanitize_callback' => 'sanitize_textarea_field',
 						),
 						'color'       => array(
-							'required' => false,
-							'type'     => 'string',
+							'required'          => false,
+							'type'              => 'string',
+							'sanitize_callback' => 'sanitize_hex_color',
 						),
 						'text_color'  => array(
-							'required' => false,
-							'type'     => 'string',
+							'required'          => false,
+							'type'              => 'string',
+							'sanitize_callback' => 'sanitize_hex_color',
 						),
 						'show_in_dir' => array(
 							'required' => false,
@@ -102,12 +104,14 @@ class SpaceCategoryController extends BaseRestController {
 							'sanitize_callback' => 'sanitize_textarea_field',
 						),
 						'color'       => array(
-							'required' => false,
-							'type'     => 'string',
+							'required'          => false,
+							'type'              => 'string',
+							'sanitize_callback' => 'sanitize_hex_color',
 						),
 						'text_color'  => array(
-							'required' => false,
-							'type'     => 'string',
+							'required'          => false,
+							'type'              => 'string',
+							'sanitize_callback' => 'sanitize_hex_color',
 						),
 						'show_in_dir' => array(
 							'required' => false,

@@ -56,7 +56,7 @@ class SearchIndexListener implements ListenerInterface {
 	/**
 	 * Map a space's `type` to a search-index `visibility`.
 	 *
-	 * bn_spaces.type is enum('open','private','secret'); only 'open' spaces are
+	 * Space type is enum('open','private','secret'); only 'open' spaces are
 	 * publicly searchable. Both 'private' and 'secret' must index as private so
 	 * SearchService's `visibility = 'public'` filter excludes them from guest /
 	 * non-member results. Centralised here so the indexing call sites cannot
@@ -169,7 +169,7 @@ class SearchIndexListener implements ListenerInterface {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, user_id, content, privacy, status
+				"SELECT id, user_id, content, privacy, status, space_id
 				 FROM {$wpdb->prefix}bn_posts
 				 WHERE id = %d",
 				$post_id
@@ -191,7 +191,8 @@ class SearchIndexListener implements ListenerInterface {
 			'',
 			$content,
 			$author_id,
-			$visibility
+			$visibility,
+			(int) $row['space_id']
 		);
 	}
 
@@ -280,7 +281,7 @@ class SearchIndexListener implements ListenerInterface {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT id, user_id, content, privacy, status
+					"SELECT id, user_id, content, privacy, status, space_id
 					 FROM {$wpdb->prefix}bn_posts
 					 WHERE status = 'published'
 					 LIMIT %d OFFSET %d",
@@ -299,7 +300,8 @@ class SearchIndexListener implements ListenerInterface {
 					'',
 					wp_strip_all_tags( (string) $row['content'] ),
 					(int) $row['user_id'],
-					$visibility
+					$visibility,
+					(int) $row['space_id']
 				);
 			}
 

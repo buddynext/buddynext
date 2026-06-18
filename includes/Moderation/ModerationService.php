@@ -1801,7 +1801,7 @@ class ModerationService {
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_user_suspensions
-				 WHERE user_id = %d AND (expires_at IS NULL OR expires_at > NOW())",
+				 WHERE user_id = %d AND lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())",
 				$user_id
 			)
 		);

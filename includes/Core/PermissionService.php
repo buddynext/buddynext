@@ -176,7 +176,16 @@ class PermissionService {
 
 		// Space-scoped check: when a space_id is in context, resolve the user's
 		// role within that specific space from bn_space_members.
-		if ( isset( $context['space_id'] ) && str_starts_with( $capability, 'buddynext-spaces/' ) ) {
+		if (
+			isset( $context['space_id'] )
+			&& str_starts_with( $capability, 'buddynext-spaces/' )
+			// "join" is an entry capability performed by a non-member, who by
+			// definition has no in-space role yet — so it is gated by the
+			// community role below, not the in-space role. The space type
+			// (open/request/invite) is still enforced separately in the join
+			// flow, so this never lets anyone into private or secret spaces.
+			&& 'buddynext-spaces/join' !== $capability
+		) {
 			$space_role = $this->get_space_role( $user_id, (int) $context['space_id'] );
 			$user_level = self::ROLE_HIERARCHY[ $space_role ] ?? 0;
 			return $user_level >= $req_level;

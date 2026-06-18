@@ -69,8 +69,9 @@ class Abilities {
 			wp_register_ability(
 				$ability,
 				array(
-					'label'  => $this->label_for( $ability ),
-					'plugin' => 'buddynext',
+					'label'       => $this->label_for( $ability ),
+					'description' => $this->description_for( $ability ),
+					'plugin'      => 'buddynext',
 				)
 			);
 		}
@@ -85,12 +86,27 @@ class Abilities {
 	 * @return string
 	 */
 	private function label_for( string $ability ): string {
-		$slug  = str_replace( 'buddynext-', '', $ability );
-		$parts = explode( '/', $slug, 2 );
+		$slug   = str_replace( 'buddynext-', '', $ability );
+		$parts  = explode( '/', $slug, 2 );
 		$domain = ucfirst( str_replace( '-', ' ', $parts[0] ) );
 		$action = isset( $parts[1] ) ? ucfirst( str_replace( '-', ' ', $parts[1] ) ) : '';
 
 		return '' !== $action ? $domain . ': ' . $action : $domain;
+	}
+
+	/**
+	 * Build a human-readable description for an ability slug.
+	 *
+	 * WordPress 7.0+ Abilities API rejects a registration whose properties lack
+	 * a non-empty 'description' string (emitting a _doing_it_wrong notice on every
+	 * page load). Derived from the label so it can never drift from the catalog.
+	 *
+	 * @param string $ability Ability slug.
+	 * @return string
+	 */
+	private function description_for( string $ability ): string {
+		/* translators: %s: human-readable ability label, e.g. "Feed: Create post". */
+		return sprintf( __( 'Controls the "%s" permission in BuddyNext.', 'buddynext' ), $this->label_for( $ability ) );
 	}
 
 	/**
