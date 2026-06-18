@@ -955,12 +955,6 @@ class SpaceController extends BaseRestController {
 		$space_id = (int) $request->get_param( 'id' );
 		$user_id  = get_current_user_id();
 
-		// Role-map enforcement (space-banned users are hard-denied inside can()).
-		$gate = $this->require_cap( 'buddynext-spaces/join', array( 'space_id' => $space_id ) );
-		if ( is_wp_error( $gate ) ) {
-			return $gate;
-		}
-
 		$space = ( new SpaceService() )->get( $space_id );
 
 		if ( null === $space ) {
@@ -994,6 +988,17 @@ class SpaceController extends BaseRestController {
 				return $result;
 			}
 			return new WP_REST_Response( array( 'joined' => true ), 200 );
+		}
+
+		// Role-map enforcement, applied only to non-invited joins. A standing
+		// invitation is itself the authorization to join, so it returns above
+		// before this gate — otherwise a subscriber whose role-map lacks the
+		// join cap was 403'd ("Your role does not permit this action") even
+		// though they were explicitly invited. The space ban above is enforced
+		// regardless.
+		$gate = $this->require_cap( 'buddynext-spaces/join', array( 'space_id' => $space_id ) );
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
 		}
 
 		// Invite-only types: require a standing invitation.
