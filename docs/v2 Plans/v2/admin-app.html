@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en" data-bn-theme="light" data-bn-density="comfortable">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuddyNext — Admin (full navigable prototype)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css">
+<style>
+/* Full navigable admin prototype — HTML/CSS/JS only, NO plugin code.
+   Covers every section/tab (data-driven), with ⌘K search + per-screen docs links. */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--bn-font-ui);background:var(--bn-canvas);color:var(--bn-ink);font-size:var(--bn-text-sm);
+  display:grid;grid-template-columns:200px 248px 1fr;min-height:100vh}
+svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+a{color:inherit;text-decoration:none}
+
+/* faux WP rail */
+.wp-rail{background:#1d2327;color:#c3c4c7;font:13px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:var(--bn-s3) 0;position:sticky;top:0;height:100vh;overflow-y:auto}
+.wp-rail-brand{padding:14px 18px;font-size:17px;font-weight:600;color:#fff;border-bottom:1px solid #2c3338;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.wp-rail-item{display:flex;align-items:center;gap:10px;padding:8px 18px;color:#c3c4c7;cursor:pointer;border-left:3px solid transparent}
+.wp-rail-item:hover{color:#3a9fd6}.wp-rail-item.on{background:#0073aa;color:#fff;border-left-color:#3a9fd6}
+.wp-rail-item svg{width:16px;height:16px;opacity:.85}
+
+/* in-page settings nav */
+.nav{border-right:1px solid var(--bn-line);background:var(--bn-surface);padding:var(--bn-s4) var(--bn-s3);overflow-y:auto;position:sticky;top:0;height:100vh}
+.nav-search{display:flex;align-items:center;gap:8px;border:1px solid var(--bn-line);border-radius:var(--bn-r-md);padding:8px 10px;color:var(--bn-ink-3);margin-bottom:var(--bn-s4);font-size:var(--bn-text-xs);cursor:pointer;background:var(--bn-canvas)}
+.nav-search kbd{margin-left:auto;font-family:var(--bn-font-mono);font-size:10px;background:var(--bn-surface);border:1px solid var(--bn-line);border-radius:4px;padding:1px 5px}
+.grp{margin-bottom:var(--bn-s4)}
+.grp-h{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--bn-ink-3);padding:0 8px var(--bn-s2)}
+.grp-h .pro{font-size:9px;background:var(--bn-paid-bg,var(--bn-accent-50));color:var(--bn-paid,var(--bn-accent-700));padding:1px 6px;border-radius:var(--bn-r-full);font-weight:700}
+.lnk{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:var(--bn-r-md);color:var(--bn-ink-2);cursor:pointer;font-size:var(--bn-text-sm);font-weight:500}
+.lnk svg{width:15px;height:15px;color:var(--bn-ink-3)}
+.lnk:hover{background:var(--bn-canvas);color:var(--bn-ink)}
+.lnk.on{background:var(--bn-accent-50);color:var(--bn-accent-700);font-weight:600}
+.lnk.on svg{color:var(--bn-accent-600)}
+
+/* main */
+.main{min-width:0;overflow-y:auto;height:100vh}
+.topbar{background:var(--bn-surface);border-bottom:1px solid var(--bn-line);padding:var(--bn-s3) var(--bn-s5);display:flex;align-items:center;gap:var(--bn-s3);position:sticky;top:0;z-index:10}
+.crumb{display:flex;align-items:center;gap:6px;color:var(--bn-ink-2);font-size:var(--bn-text-sm)}
+.crumb b{color:var(--bn-ink);font-weight:600}.crumb svg{width:12px;height:12px;color:var(--bn-ink-3)}
+.sp{flex:1}
+.tg{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--bn-line);background:var(--bn-surface);color:var(--bn-ink-2);border-radius:var(--bn-r-md);padding:6px 10px;cursor:pointer;font-size:var(--bn-text-xs)}
+.tg:hover{background:var(--bn-canvas)}
+.wrap{padding:var(--bn-s6) var(--bn-s8);max-width:960px}
+@media(max-width:1200px){.wrap{padding:var(--bn-s5)}}
+
+/* page head with docs/tutorial slots */
+.phead{margin-bottom:var(--bn-s5)}
+.phead-top{display:flex;align-items:flex-start;gap:var(--bn-s4)}
+.phead h1{font-family:var(--bn-font-display);font-size:var(--bn-text-2xl);font-weight:700;letter-spacing:-.02em}
+.phead p{color:var(--bn-ink-2);margin-top:4px;max-width:64ch}
+.phead .links{margin-left:auto;display:flex;gap:var(--bn-s2);flex:none}
+.dl{display:inline-flex;align-items:center;gap:6px;font-size:var(--bn-text-xs);font-weight:600;padding:6px 11px;border-radius:var(--bn-r-md);border:1px solid var(--bn-line);color:var(--bn-ink-2);cursor:pointer}
+.dl:hover{background:var(--bn-surface);color:var(--bn-ink)}
+.dl.vid{color:var(--bn-accent-700);border-color:var(--bn-accent-200)}
+
+/* cards + fields */
+.card{background:var(--bn-surface);border:1px solid var(--bn-line);border-radius:var(--bn-r-lg);box-shadow:var(--bn-shadow-xs);margin-bottom:var(--bn-s5);overflow:hidden}
+.card-h{display:flex;align-items:center;gap:var(--bn-s3);padding:var(--bn-s4) var(--bn-s5);border-bottom:1px solid var(--bn-line-faint,var(--bn-line))}
+.card-h .ico{width:30px;height:30px;border-radius:var(--bn-r-md);display:grid;place-items:center;background:var(--bn-accent-50);color:var(--bn-accent-600)}
+.card-h h3{font-family:var(--bn-font-display);font-size:var(--bn-text-base);font-weight:600}
+.card-h .d{color:var(--bn-ink-3);font-size:var(--bn-text-xs);margin-top:1px}
+.card-h .help{margin-left:auto;color:var(--bn-ink-3);cursor:pointer}.card-h .help:hover{color:var(--bn-accent-600)}
+.card.danger{border-color:var(--bn-danger)}.card.danger .card-h .ico{background:var(--bn-danger-bg);color:var(--bn-danger)}
+.card-b{padding:0 var(--bn-s5)}
+.fr{display:flex;align-items:center;gap:var(--bn-s5);padding:var(--bn-s4) 0;border-bottom:1px solid var(--bn-line-faint,var(--bn-line))}
+.fr:last-child{border-bottom:0}
+.fr .m{flex:1;min-width:0}.fr .m label{font-weight:600;font-size:var(--bn-text-sm);display:block}
+.fr .m p{color:var(--bn-ink-2);font-size:var(--bn-text-xs);margin-top:2px}
+.fr .c{flex:none}
+input[type=text],select,textarea{font-family:inherit;font-size:var(--bn-text-sm);color:var(--bn-ink);background:var(--bn-canvas);border:1px solid var(--bn-line);border-radius:var(--bn-r-md);padding:8px 11px;min-width:240px}
+textarea{min-height:64px;width:320px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--bn-accent);box-shadow:var(--bn-ring,0 0 0 3px var(--bn-accent-100))}
+.sw{width:42px;height:24px;border-radius:var(--bn-r-full);background:var(--bn-accent);position:relative;cursor:pointer}
+.sw::after{content:"";position:absolute;top:3px;inset-inline-start:21px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:var(--bn-shadow-sm)}
+.sw.off{background:var(--bn-line-strong,var(--bn-line))}.sw.off::after{inset-inline-start:3px}
+.swatch{width:38px;height:38px;border-radius:var(--bn-r-md);border:1px solid var(--bn-line);background:var(--bn-accent)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:7px;font-family:inherit;font-size:var(--bn-text-sm);font-weight:600;padding:8px 14px;border-radius:var(--bn-r-md);border:1px solid transparent;cursor:pointer}
+.btn svg{width:15px;height:15px}
+.btn.pri{background:var(--bn-accent);color:var(--bn-accent-fg)}.btn.pri:hover{background:var(--bn-accent-600)}
+.btn.gho{background:var(--bn-surface);border-color:var(--bn-line);color:var(--bn-ink)}.btn.gho:hover{background:var(--bn-canvas)}
+.btn.dan{background:var(--bn-danger);color:#fff}
+.btn:focus-visible{outline:none;box-shadow:var(--bn-ring,0 0 0 3px var(--bn-accent-100))}
+.callout{display:flex;gap:10px;background:var(--bn-info-bg);border:1px solid color-mix(in oklch,var(--bn-info) 30%,transparent);border-radius:var(--bn-r-md);padding:var(--bn-s3) var(--bn-s4);margin-bottom:var(--bn-s5);font-size:var(--bn-text-xs)}
+.callout svg{color:var(--bn-info)}
+
+/* KPI (dashboard) */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--bn-s4);margin-bottom:var(--bn-s5)}
+@media(max-width:1100px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--bn-surface);border:1px solid var(--bn-line);border-radius:var(--bn-r-lg);padding:var(--bn-s4);box-shadow:var(--bn-shadow-xs)}
+.kpi .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.kpi .ti{width:34px;height:34px;border-radius:var(--bn-r-md);display:grid;place-items:center;background:var(--bn-accent-50);color:var(--bn-accent-600)}
+.kpi .v{font-family:var(--bn-font-display);font-size:28px;font-weight:700;letter-spacing:-.02em}
+.kpi .l{color:var(--bn-ink-3);font-size:var(--bn-text-xs);margin-top:2px}
+.dl-up{font-family:var(--bn-font-mono);font-size:11px;color:var(--bn-success);background:var(--bn-success-bg);padding:2px 7px;border-radius:var(--bn-r-full);font-weight:600}
+
+/* table (list) */
+.toolbar{display:flex;gap:var(--bn-s2);margin-bottom:var(--bn-s4);align-items:center}
+.toolbar .search{flex:1;max-width:280px;display:flex;align-items:center;gap:8px;border:1px solid var(--bn-line);border-radius:var(--bn-r-md);padding:7px 10px;color:var(--bn-ink-3);font-size:var(--bn-text-xs);background:var(--bn-surface)}
+table{width:100%;border-collapse:collapse;font-size:var(--bn-text-sm);background:var(--bn-surface);border:1px solid var(--bn-line);border-radius:var(--bn-r-lg);overflow:hidden}
+th{text-align:start;color:var(--bn-ink-3);font-size:var(--bn-text-xs);text-transform:uppercase;letter-spacing:.04em;padding:var(--bn-s3) var(--bn-s4);border-bottom:1px solid var(--bn-line)}
+td{padding:var(--bn-s3) var(--bn-s4);border-bottom:1px solid var(--bn-line-faint,var(--bn-line))}
+tr:last-child td{border-bottom:0}
+.u{display:flex;align-items:center;gap:10px}
+.av{width:30px;height:30px;border-radius:var(--bn-r-full);background:var(--bn-accent);color:var(--bn-accent-fg);display:grid;place-items:center;font-size:11px;font-weight:600}
+.pill{font-size:var(--bn-text-xs);font-weight:600;padding:3px 9px;border-radius:var(--bn-r-full)}
+.pill.ok{background:var(--bn-success-bg);color:var(--bn-success)}
+.pill.warn{background:var(--bn-warn-bg);color:var(--bn-warn)}
+.pill.mut{background:var(--bn-canvas);color:var(--bn-ink-3)}
+
+/* editor (split) */
+.edit{display:grid;grid-template-columns:1fr 300px;gap:var(--bn-s5)}
+@media(max-width:1100px){.edit{grid-template-columns:1fr}}
+.meta-card{background:var(--bn-surface);border:1px solid var(--bn-line);border-radius:var(--bn-r-lg);padding:var(--bn-s4);height:fit-content}
+.meta-card h4{font-size:var(--bn-text-xs);text-transform:uppercase;letter-spacing:.05em;color:var(--bn-ink-3);margin-bottom:var(--bn-s3)}
+
+/* wizard */
+.steps{display:flex;gap:var(--bn-s2);margin-bottom:var(--bn-s5)}
+.step{flex:1;padding:var(--bn-s3);border:1px solid var(--bn-line);border-radius:var(--bn-r-md);background:var(--bn-surface);display:flex;gap:10px;align-items:center;font-size:var(--bn-text-xs)}
+.step .n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--bn-canvas);color:var(--bn-ink-3);font-weight:700}
+.step.on{border-color:var(--bn-accent)}.step.on .n{background:var(--bn-accent);color:var(--bn-accent-fg)}
+.step.done .n{background:var(--bn-success);color:#fff}
+
+/* save bar */
+.savebar{position:sticky;bottom:var(--bn-s5);background:var(--bn-surface);border:1px solid var(--bn-line);border-radius:var(--bn-r-lg);box-shadow:var(--bn-shadow-md);padding:var(--bn-s3) var(--bn-s4);display:flex;align-items:center;gap:var(--bn-s3);margin-top:var(--bn-s5)}
+.savebar .dot{width:8px;height:8px;border-radius:50%;background:var(--bn-warn)}.savebar .t{color:var(--bn-ink-2);font-size:var(--bn-text-xs)}
+
+/* command palette */
+.pal-bg{position:fixed;inset:0;background:rgba(15,18,25,.45);backdrop-filter:blur(2px);display:none;z-index:100;align-items:flex-start;justify-content:center;padding-top:12vh}
+.pal-bg.show{display:flex}
+.pal{width:560px;max-width:92vw;background:var(--bn-surface);border:1px solid var(--bn-line);border-radius:var(--bn-r-xl);box-shadow:var(--bn-shadow-lg);overflow:hidden}
+.pal-in{display:flex;align-items:center;gap:10px;padding:var(--bn-s4) var(--bn-s5);border-bottom:1px solid var(--bn-line)}
+.pal-in svg{color:var(--bn-ink-3)}
+.pal-in input{border:0;background:transparent;font-size:var(--bn-text-lg);width:100%;color:var(--bn-ink);min-width:0}
+.pal-in input:focus{outline:none;box-shadow:none}
+.pal-list{max-height:52vh;overflow-y:auto;padding:var(--bn-s2)}
+.pal-it{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:var(--bn-r-md);cursor:pointer}
+.pal-it .ti{width:28px;height:28px;border-radius:var(--bn-r-sm);display:grid;place-items:center;background:var(--bn-canvas);color:var(--bn-ink-3)}
+.pal-it .lab{font-weight:600;font-size:var(--bn-text-sm)}
+.pal-it .ctx{color:var(--bn-ink-3);font-size:var(--bn-text-xs);margin-left:auto;font-family:var(--bn-font-mono)}
+.pal-it.sel,.pal-it:hover{background:var(--bn-accent-50)}.pal-it.sel .lab{color:var(--bn-accent-700)}
+.pal-empty{padding:var(--bn-s6);text-align:center;color:var(--bn-ink-3);font-size:var(--bn-text-sm)}
+
+@media(max-width:1024px){body{grid-template-columns:0 220px 1fr}.wp-rail{display:none}}
+@media(max-width:768px){body{grid-template-columns:1fr}.nav{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="wp-rail">
+  <div class="wp-rail-brand"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg> BuddyNext</div>
+  <div class="wp-rail-item on"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg> BuddyNext</div>
+  <div class="wp-rail-item"><svg viewBox="0 0 24 24"><path d="M12 20h9M3 20h2M5 20V8a2 2 0 0 1 2-2h2"/></svg> Posts</div>
+  <div class="wp-rail-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82"/></svg> Settings</div>
+</nav>
+
+<!-- in-page IA nav (data-view routes) -->
+<aside class="nav" id="nav"></aside>
+
+<div class="main">
+  <div class="topbar">
+    <div class="crumb"><span>BuddyNext</span><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg><b id="crumb">Overview</b></div>
+    <div class="sp"></div>
+    <button class="tg" id="palBtn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> Search <kbd style="font-family:var(--bn-font-mono);font-size:10px">⌘K</kbd></button>
+  </div>
+  <div class="wrap" id="screen"><!-- rendered by JS --></div>
+</div>
+
+<!-- command palette -->
+<div class="pal-bg" id="palBg">
+  <div class="pal">
+    <div class="pal-in"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="palInput" placeholder="Search any setting, screen, or action…" autocomplete="off"></div>
+    <div class="pal-list" id="palList"></div>
+  </div>
+</div>
+
+<script>
+// Lucide-ish inline icons by key
+const I = {
+  gauge:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  cog:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82M4.6 9a1.65 1.65 0 0 0-.33-1.82"/>',
+  brush:'<circle cx="13.5" cy="6.5" r="2.5"/><circle cx="6.5" cy="12" r="2.5"/><path d="M12 2a10 10 0 1 0 10 10c0-1.5-3-1-3-3s3-1.5 3-3"/>',
+  menu:'<path d="M3 7h18M3 12h18M3 17h18"/>',
+  toggle:'<path d="M20 7h-9M14 17H5M17 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM7 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>',
+  plug:'<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>',
+  tool:'<path d="M14.7 6.3a4 4 0 0 1-5 5L4 17v3h3l5.7-5.7a4 4 0 0 0 5-5Z"/>',
+  hook:'<path d="M22 12A10 10 0 1 1 12 2"/><path d="M12 6v6l4 2"/>',
+  users:'<circle cx="9" cy="7" r="4"/><path d="M2 21v-1a7 7 0 0 1 14 0v1"/>',
+  tag:'<path d="M20.6 4.6a2 2 0 0 0-1.4-.6H14l-9 9 5.4 5.4 9-9V4.6Z"/><circle cx="16" cy="8" r="1"/>',
+  userplus:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>',
+  shield:'<path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5Z"/>',
+  lock:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  grid:'<path d="M3 7h18M3 12h18M3 17h18"/>',
+  spark:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  heart:'<path d="M20.8 5.6a5 5 0 0 0-7-.4L12 7l-1.8-1.8a5 5 0 1 0-7 7L12 21l8.8-8.8a5 5 0 0 0 0-7Z"/>',
+  bell:'<path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
+  mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/>',
+  zap:'<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>',
+  phone:'<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+  send:'<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>',
+  drip:'<path d="M12 2s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11Z"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/>',
+  flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1Z"/><path d="M4 22v-7"/>',
+  robot:'<rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M8 14h.01M16 14h.01"/>',
+  coin:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4"/>',
+  card:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
+  key:'<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.5 12.5 8-8 3 3-3 3"/>',
+  chart:'<path d="M3 3v18h18"/><path d="m7 14 3-3 3 3 4-5"/>'
+};
+const ic = k => '<svg viewBox="0 0 24 24">'+(I[k]||I.cog)+'</svg>';
+
+// Field helpers
+const F = {
+  toggle:(l,p,on=true)=>({l,p,c:`<div class="sw ${on?'':'off'}" onclick="this.classList.toggle('off')"></div>`}),
+  text:(l,p,v='')=>({l,p,c:`<input type="text" value="${v}">`}),
+  num:(l,p,v='')=>({l,p,c:`<input type="text" value="${v}" style="min-width:90px">`}),
+  area:(l,p,v='')=>({l,p,c:`<textarea>${v}</textarea>`}),
+  sel:(l,p,o=[])=>({l,p,c:`<select>${o.map(x=>`<option>${x}</option>`).join('')}</select>`}),
+  color:(l,p)=>({l,p,c:`<div class="swatch"></div>`})
+};
+
+// ===== The full IA + every settings screen (data-driven => guaranteed coverage) =====
+const GROUPS = [
+  {h:'Workspace', items:[['overview','Overview','gauge']]},
+  {h:'Settings', items:[['general','General','cog'],['appearance','Appearance','brush'],['navigation','Navigation','menu']]},
+  {h:'Platform', items:[['features','Features','toggle'],['integrations','Integrations','plug'],['tools','Tools','tool'],['webhooks','Webhooks','hook']]},
+  {h:'Members', items:[['members','Directory','users'],['labels','Labels','tag'],['registration','Registration','userplus'],['roles','Roles','shield'],['privacy','Privacy','lock']]},
+  {h:'Spaces', items:[['spaces','Directory','grid'],['spaces-settings','Space settings','cog']]},
+  {h:'Engagement', items:[['insights','Insights','chart'],['social','Social graph','spark'],['reactions','Reactions','heart']]},
+  {h:'Notifications', items:[['notifications','Notifications','bell'],['email','Email','mail'],['templates','Templates','file']]},
+  {h:'Realtime & Push', pro:true, items:[['realtime','Realtime','zap'],['push','Push','phone'],['push-prefs','Push defaults','bell']]},
+  {h:'Campaigns', pro:true, items:[['broadcasts','Broadcasts','send'],['drip','Drip','drip'],['scheduled','Scheduled','clock'],['ai-feed','AI Feed','robot']]},
+  {h:'Moderation', items:[['mod-settings','Settings','shield'],['mod-queue','Queue','flag']]},
+  {h:'Auto-Moderation', pro:true, items:[['rules','Rules','toggle'],['ai-mod','AI moderation','robot']]},
+  {h:'Monetization', pro:true, items:[['plans','Plans','coin'],['subscriptions','Subscriptions','card'],['stripe','Stripe','card'],['license','License','key']]}
+];
+
+// Settings-pattern screens (title, sub, icon, docs, cards[])
+const S = {
+  general:{t:'General',s:'Core identity and defaults for your community.',i:'cog',cards:[
+    {t:'Identity',i:'users',d:'Name, tagline, and logo shown in headers and emails.',f:[F.text('Community name','Header, page titles, and email From-name.','Acme Community'),F.text('Tagline','One line that sums up your community.','Where builders meet.'),F.color('Brand color','Drives accents, buttons, and active states.')]},
+    {t:'Posting defaults',i:'spark',d:'Applied to new posts and who can see the community.',f:[F.toggle('Public community','Anyone can browse without an account.',false),F.sel('Default post privacy','Pre-selected in the composer.',['Public','Members only','Connections']),F.num('Posts per page','How many load before "show more".','20')]}],
+    danger:{t:'Reset all settings',d:'Restore every BuddyNext option to its default value.'}},
+  appearance:{t:'Appearance',s:'Theme, colors, fonts, and layout density for the community UI.',i:'brush',cards:[
+    {t:'Theme',i:'brush',d:'Light, dark, or follow the visitor system preference.',f:[F.sel('Color mode','Default theme for members.',['Auto','Light','Dark']),F.sel('Accent hue','Rotates the whole palette.',['Indigo','Blue','Teal','Orange']),F.sel('Density','Spacing scale across the UI.',['Comfortable','Compact'])]},
+    {t:'Branding',i:'tag',d:'Logo and login imagery.',f:[F.text('Logo URL','Shown in the header.',''),F.toggle('Show "Powered by"','Footer credit link.',true)]}]},
+  navigation:{t:'Navigation',s:'Choose which destinations appear in the member nav and their order.',i:'menu',cards:[
+    {t:'Primary nav',i:'menu',d:'Toggle and reorder the top-level member menu.',f:[F.toggle('Feed','',true),F.toggle('Spaces','',true),F.toggle('Members','',true),F.toggle('Messages','',true)]}]},
+  features:{t:'Features',s:'Turn whole subsystems on or off. Off features add zero runtime cost.',i:'toggle',cards:[
+    {t:'Community features',i:'toggle',d:'Each toggle enables a full feature area.',f:[F.toggle('Spaces','Sub-communities members can join.',true),F.toggle('Direct messages','1:1 and group messaging.',true),F.toggle('Hashtags','Topic discovery.',true),F.toggle('Polls','Polls in the composer.',true)]}]},
+  integrations:{t:'Integrations',s:'Connect Wbcom and third-party plugins. One-click install where available.',i:'plug',cards:[
+    {t:'Available integrations',i:'plug',d:'Bridges activate automatically when the plugin is present.',f:[F.toggle('Gamification','Points, badges, ranks.',true),F.toggle('Career Board','Jobs + resumes in the feed.',false),F.toggle('Jetonomy','Discussions in Explore.',true)]}]},
+  tools:{t:'Tools',s:'Maintenance utilities and import/export.',i:'tool',cards:[
+    {t:'Maintenance',i:'tool',d:'Safe to run any time.',f:[F.toggle('Background tasks healthy','Action Scheduler is processing the queue.',true)]},
+    {t:'Import / Export',i:'file',d:'Move settings between sites.',f:[F.text('Export','Download all settings as JSON.',''),F.text('Import','Restore from a previous export.','')]}]},
+  webhooks:{t:'Webhooks',s:'Send community events to external endpoints (HMAC-signed).',i:'hook',cards:[
+    {t:'Endpoints',i:'hook',d:'Failed deliveries retry with backoff.',f:[F.text('Endpoint URL','Where events POST to.',''),F.text('Secret','HMAC signing key.','')]}]},
+  labels:{t:'Member labels',s:'Color-coded labels you can assign to members (Verified, Staff, Expert).',i:'tag',cards:[
+    {t:'Labels',i:'tag',d:'Shown on profiles and member cards.',f:[F.text('Label name','e.g. Verified','Verified'),F.color('Color','Pill color.')]}]},
+  registration:{t:'Registration',s:'How new members join and what they confirm.',i:'userplus',cards:[
+    {t:'Sign-up',i:'userplus',d:'Control the join flow.',f:[F.toggle('Open registration','Anyone can create an account.',true),F.toggle('Email verification','Require confirming an email.',true),F.sel('Default role','Role new members get.',['Member','Subscriber'])]}]},
+  roles:{t:'Roles & capabilities',s:'Who can post, moderate, and manage spaces.',i:'shield',cards:[
+    {t:'Capabilities',i:'shield',d:'Map community abilities to WordPress roles.',f:[F.sel('Can create spaces','','Members'),F.sel('Can moderate','','Moderators'),F.toggle('Members can invite','',true)]}]},
+  privacy:{t:'Privacy',s:'Default visibility for profiles, activity, and messaging.',i:'lock',cards:[
+    {t:'Defaults',i:'lock',d:'Members can override their own.',f:[F.sel('Profile visibility','','Members'),F.sel('Who can DM','',['Everyone','Connections only']),F.toggle('Show online status','',true)]}]},
+  'spaces-settings':{t:'Space settings',s:'Defaults applied to newly created spaces.',i:'cog',cards:[
+    {t:'Defaults',i:'grid',d:'',f:[F.sel('Default space privacy','',['Open','Private','Secret']),F.toggle('Allow members to create spaces','',true)]}]},
+  social:{t:'Social graph',s:'Follows, connections, and blocking behavior.',i:'spark',cards:[
+    {t:'Connections',i:'spark',d:'',f:[F.toggle('Follows','One-way following.',true),F.toggle('Connections','Mutual friend requests.',true),F.toggle('DM only between connections','Dating-style gating.',false)]}]},
+  reactions:{t:'Reactions',s:'Emoji reactions available on posts (Pro adds custom).',i:'heart',cards:[
+    {t:'Reaction set',i:'heart',d:'Up to 20 total.',f:[F.toggle('Like','',true),F.toggle('Celebrate','',true),F.toggle('Custom reactions','Pro: add your own.',true)]}]},
+  notifications:{t:'Notifications',s:'Which events notify members and how.',i:'bell',cards:[
+    {t:'Channels',i:'bell',d:'',f:[F.toggle('In-app','',true),F.toggle('Email','',true),F.toggle('Web push','Pro.',false)]}]},
+  email:{t:'Email',s:'Sender identity and delivery for all community email.',i:'mail',cards:[
+    {t:'Identity',i:'mail',d:'',f:[F.text('From name','','Acme Community'),F.text('From email','','community@acme.test'),F.text('Reply-to','','')]}]},
+  templates:{t:'Email templates',s:'Edit the wording of every transactional email.',i:'file',cards:[
+    {t:'Templates',i:'file',d:'16 templates, branded shell.',f:[F.sel('Edit template','',['Welcome','Verification','Digest','Mention']),F.toggle('Branded header','',true)]}]},
+  realtime:{t:'Realtime',s:'Live updates via WebSocket (Soketi). Pro.',i:'zap',cards:[
+    {t:'Connection',i:'zap',d:'',f:[F.toggle('Enable realtime','',false),F.text('Host','',''),F.text('App key','','')]}]},
+  push:{t:'Mobile push',s:'FCM / APNs push for the mobile app. Pro.',i:'phone',cards:[
+    {t:'Firebase',i:'phone',d:'',f:[F.toggle('Enable push','',false),F.text('Project ID','','')]}]},
+  'push-prefs':{t:'Push defaults',s:'Default push categories members can opt out of.',i:'bell',cards:[
+    {t:'Categories',i:'bell',d:'',f:[F.toggle('Mentions','',true),F.toggle('New followers','',true),F.toggle('Digest','',false)]}]},
+  'ai-feed':{t:'AI Feed',s:'Re-rank the home feed by engagement + affinity. Pro.',i:'robot',cards:[
+    {t:'Ranking',i:'robot',d:'',f:[F.toggle('Enable AI ranking','',false),F.num('Decay (days)','Older signals fade.','14')]}]},
+  'mod-settings':{t:'Moderation settings',s:'Thresholds and rules that drive the queue.',i:'shield',cards:[
+    {t:'Thresholds',i:'shield',d:'',f:[F.num('Strikes before warn','','3'),F.num('Strikes before suspend','','5'),F.toggle('Hold first post','Pre-moderate new members.',false)]}]},
+  stripe:{t:'Stripe',s:'Accept payments for membership plans. Pro.',i:'card',cards:[
+    {t:'Keys',i:'key',d:'Test or live, derived from the key prefix.',f:[F.text('Publishable key','',''),F.text('Secret key','',''),F.text('Webhook secret','','')]}]},
+  license:{t:'License',s:'Activate Pro to receive updates. Features never gate on license.',i:'key',cards:[
+    {t:'License key',i:'key',d:'',f:[F.text('Key','','••••••••••••'),F.toggle('Auto-updates','',true)]}]},
+  subscriptions:{t:'Subscriptions',s:'Active member subscriptions (read-only list + manage).',i:'card',cards:[
+    {t:'Overview',i:'card',d:'Use the list view for per-member detail.',f:[F.num('Active subscriptions','','318'),F.num('MRR','','$4,120')]}]},
+  rules:{t:'Auto-moderation rules',s:'Block or flag content automatically before a human reviews it. Pro.',i:'toggle',cards:[
+    {t:'Rule types',i:'toggle',d:'Owner-extensible, run in the safeguard pipeline.',f:[F.toggle('Keyword block','Reject posts with banned words.',true),F.toggle('Link block','Reject disallowed domains.',true),F.toggle('Rate limit','Cap posts per member per minute.',true),F.toggle('Threshold auto-remove','Hide content past a report count.',false)]}]},
+  'ai-mod':{t:'AI moderation',s:'Classify content with an AI provider and act on the verdict. Pro.',i:'robot',cards:[
+    {t:'Classifier',i:'robot',d:'Fails open — downtime never blocks posting.',f:[F.sel('Provider','',['Disabled','Local heuristic','OpenAI','Anthropic']),F.num('Threshold','Score 0–1 to act on.','0.8'),F.toggle('Auto-remove over threshold','',false)]}]}
+};
+
+// ===== rendering =====
+const screen = document.getElementById('screen');
+const crumb = document.getElementById('crumb');
+const docsLinks = key => `<div class="links">
+  <a class="dl" href="#docs/${key}"><svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg> Docs</a>
+  <a class="dl vid" href="#video/${key}"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m10 9 5 3-5 3z"/></svg> Tutorial</a></div>`;
+
+function phead(t,s,key){return `<div class="phead"><div class="phead-top"><div><h1>${t}</h1><p>${s}</p></div>${docsLinks(key)}</div></div>`;}
+function field(f){return `<div class="fr"><div class="m"><label>${f.l}</label>${f.p?`<p>${f.p}</p>`:''}</div><div class="c">${f.c}</div></div>`;}
+function card(c){return `<div class="card"><div class="card-h"><span class="ico">${ic(c.i)}</span><div><h3>${c.t}</h3>${c.d?`<div class="d">${c.d}</div>`:''}</div><span class="help" title="Open docs for ${c.t}"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 2.5M12 17h.01"/></svg></span></div><div class="card-b">${c.f.map(field).join('')}</div></div>`;}
+function dangerCard(d){return `<div class="card danger"><div class="card-h"><span class="ico"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg></span><div><h3>Danger zone</h3><div class="d">Irreversible.</div></div></div><div class="card-b"><div class="fr"><div class="m"><label>${d.t}</label><p>${d.d}</p></div><div class="c"><button class="btn dan">Reset to defaults</button></div></div></div></div>`;}
+function savebar(){return `<div class="savebar"><span class="dot"></span><span class="t">Unsaved changes</span><div class="sp"></div><button class="btn gho">Discard</button><button class="btn pri">Save changes</button></div>`;}
+
+function renderSettings(key){const d=S[key];if(!d)return renderPlaceholder(key);
+  return phead(d.t,d.s,key)
+    + `<div class="callout"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg> Every setting ships a sensible default — launch as-is, then tune.</div>`
+    + d.cards.map(card).join('') + (d.danger?dangerCard(d.danger):'') + savebar();}
+
+function renderPlaceholder(key){return phead(title(key),'This screen follows the standard settings pattern.',key)+card({t:'Settings',i:'cog',d:'',f:[F.toggle('Enabled','',true)]})+savebar();}
+
+function renderOverview(){
+  const k=(l,v,i,d)=>`<div class="kpi"><div class="top"><span class="ti">${ic(i)}</span><span class="dl-up">${d}</span></div><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  return phead('Overview','Your community at a glance — growth, attention, next steps.','overview')
+   +`<div class="kpis">${k('Total members','1,284','users','▲ 12%')}${k('Active spaces','37','grid','▲ 4')}${k('Posts today','412','spark','▲ 8%')}${k('Pending reports','5','flag','review')}</div>`
+   +card({t:'Get started',i:'zap',d:'3 of 5 done',f:[F.toggle('Brand your community','Logo + accent set.',true),F.toggle('Invite members','1,284 joined.',true),F.toggle('Set up a payment gateway','Start earning.',false)]})
+   +tableCard('Recent activity',['Member','Action','Status'],[
+     ['AK·Aanya K.','Created a post','<span class="pill ok">Published</span>'],
+     ['JL·Jia L.','Reported a comment','<span class="pill warn">Pending</span>'],
+     ['DS·Dan S.','Purchased Pro plan','<span class="pill ok">Active</span>']]);
+}
+function tableCard(t,cols,rows){
+  return `<div class="card"><div class="card-h"><span class="ico">${ic('clock')}</span><div><h3>${t}</h3></div></div><div style="padding:var(--bn-s4) var(--bn-s5)"><table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map((c,i)=>{if(i===0&&c.includes('·')){const idx=c.indexOf('·'),ini=c.slice(0,idx),nm=c.slice(idx+1);return `<td><div class="u"><span class="av">${ini}</span>${nm}</div></td>`;}return `<td>${c}</td>`;}).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+}
+const LISTS={
+  members:{t:'Members',s:'Everyone in your community. Filter, sort, and act in bulk.',cols:['Member','Joined','Role','Status'],
+    rows:[['AK·Aanya Kapoor','2d ago','Member','<span class="pill ok">Active</span>'],['RM·Ravi Mehta','1w ago','Moderator','<span class="pill ok">Active</span>'],['JL·Jia Li','3w ago','Member','<span class="pill mut">Suspended</span>']]},
+  spaces:{t:'Spaces',s:'All sub-communities. Open, private, or secret.',cols:['Space','Members','Privacy','Status'],
+    rows:[['D·Design','312','Open','<span class="pill ok">Active</span>'],['F·Founders','88','Private','<span class="pill ok">Active</span>']]},
+  'mod-queue':{t:'Moderation queue',s:'Reports awaiting review. Oldest first.',cols:['Reported','Reason','Reporter','Status'],
+    rows:[['C·Comment by Dan','Spam','Jia L.','<span class="pill warn">Pending</span>'],['P·Post by Sam','Harassment','Ravi M.','<span class="pill warn">Pending</span>']]},
+  broadcasts:{t:'Broadcasts',s:'One-off newsletters to member segments.',cols:['Campaign','Segment','Recipients','Status'],
+    rows:[['S·Spring update','All members','1,284','<span class="pill ok">Sent</span>'],['F·Founders note','Founders','88','<span class="pill warn">Scheduled</span>']]},
+  drip:{t:'Drip sequences',s:'Automated multi-step welcome emails.',cols:['Sequence','Trigger','Steps','Status'],
+    rows:[['W·Welcome series','On join','4','<span class="pill ok">Active</span>'],['O·Onboarding','Profile complete','3','<span class="pill mut">Draft</span>']]},
+  scheduled:{t:'Scheduled posts',s:'Posts queued to publish later.',cols:['Author','Preview','When','Status'],
+    rows:[['RM·Ravi M.','Product launch announcement…','Tomorrow 09:00','<span class="pill warn">Scheduled</span>']]},
+  subscriptions:{t:'Subscriptions',s:'Active member subscriptions.',cols:['Member','Plan','Renews','Status'],
+    rows:[['DS·Dan S.','Pro','in 22 days','<span class="pill ok">Active</span>'],['AK·Aanya K.','Pro','in 3 days','<span class="pill warn">Past due</span>']]}
+};
+function renderList(key){
+  const cfg = LISTS[key] || {t:title(key),s:'Browse and manage '+title(key).toLowerCase()+'.',cols:['Item','Status'],rows:[['—·Example item','<span class="pill mut">—</span>']]};
+  return phead(cfg.t,cfg.s,key)
+   +`<div class="toolbar"><div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> Filter ${cfg.t.toLowerCase()}…</div><button class="btn gho">All statuses ▾</button><div class="sp"></div><button class="btn pri">+ Add</button></div>`
+   +tableCardRaw(cfg.cols,cfg.rows);
+}
+function tableCardRaw(cols,rows){return `<table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map((c,i)=>{if(i===0&&c.includes('·')){const idx=c.indexOf('·'),ini=c.slice(0,idx),nm=c.slice(idx+1);return `<td><div class="u"><span class="av">${ini||'—'}</span>${nm}</div></td>`;}return `<td>${c}</td>`;}).join('')}</tr>`).join('')}</tbody></table>`;}
+
+function renderEditor(){
+  return phead('Edit plan','Create or edit a membership plan and what it unlocks.','plans')
+   +`<div class="edit"><div>`
+   +card({t:'Plan details',i:'coin',d:'',f:[F.text('Plan name','','Pro'),F.area('Description','','Full access to premium spaces and DMs.'),F.num('Price','','9'),F.sel('Billing','',['Monthly','Yearly','One-time'])]})
+   +card({t:'Entitlements',i:'shield',d:'What this plan unlocks.',f:[F.toggle('Premium spaces','',true),F.toggle('Unlimited DMs','',true),F.toggle('Profile badge','',true)]})
+   +`</div><div class="meta-card"><h4>Publish</h4><div class="fr"><div class="m"><label>Status</label></div><div class="c"><select><option>Active</option><option>Inactive</option></select></div></div><button class="btn pri" style="width:100%;justify-content:center;margin-top:8px">Save plan</button><button class="btn gho" style="width:100%;justify-content:center;margin-top:8px">Preview checkout</button></div></div>`;
+}
+function renderWizard(){
+  const step=(n,l,st)=>`<div class="step ${st}"><span class="n">${st==='done'?'✓':n}</span>${l}</div>`;
+  return phead('Setup wizard','Five quick steps to a launch-ready community.','wizard')
+   +`<div class="steps">${step(1,'Brand','done')}${step(2,'Features','done')}${step(3,'Spaces','on')}${step(4,'Invite','')}${step(5,'Launch','')}</div>`
+   +card({t:'Create your first spaces',i:'grid',d:'Spaces are the rooms of your community. Add a few to start.',f:[F.text('Space name','','General'),F.sel('Privacy','',['Open','Private']),F.text('Add another','','Introductions')]})
+   +`<div class="savebar"><div class="sp"></div><button class="btn gho">Back</button><button class="btn pri">Continue →</button></div>`;
+}
+
+function title(key){for(const g of GROUPS)for(const[k,l]of g.items)if(k===key)return l;return key;}
+function sectionOf(key){for(const g of GROUPS)for(const it of g.items)if(it[0]===key)return g.h;return '';}
+
+function route(key){
+  let html;
+  if(key==='overview')html=renderOverview();
+  else if(['members','spaces','mod-queue','subscriptions','broadcasts','drip','scheduled'].includes(key))html=renderList(key);
+  else if(key==='plans')html=renderEditor();
+  else if(key==='wizard')html=renderWizard();
+  else if(key==='insights')html=renderOverview();
+  else html=renderSettings(key);
+  screen.innerHTML=html; screen.scrollTop=0;
+  crumb.textContent=title(key);
+  document.querySelectorAll('.lnk').forEach(a=>a.classList.toggle('on',a.dataset.view===key));
+}
+
+// build nav
+document.getElementById('nav').innerHTML =
+ `<div class="nav-search" id="navSearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> Search settings <kbd>⌘K</kbd></div>`
+ + GROUPS.map(g=>`<div class="grp"><div class="grp-h">${g.h}${g.pro?'<span class="pro">PRO</span>':''}</div>${g.items.map(([k,l,i])=>`<div class="lnk" data-view="${k}">${ic(i)} ${l}</div>`).join('')}</div>`).join('');
+document.querySelectorAll('.lnk').forEach(a=>a.addEventListener('click',()=>route(a.dataset.view)));
+
+// ===== command palette (search any setting) =====
+const INDEX=[];
+GROUPS.forEach(g=>g.items.forEach(([k,l,i])=>{INDEX.push({key:k,label:l,ctx:g.h,icon:i});
+  const sd=S[k]; if(sd) sd.cards.forEach(c=>c.f.forEach(f=>INDEX.push({key:k,label:f.l,ctx:l,icon:c.i})));}));
+const palBg=document.getElementById('palBg'),palInput=document.getElementById('palInput'),palList=document.getElementById('palList');
+let sel=0,results=[];
+function openPal(){palBg.classList.add('show');palInput.value='';filterPal('');palInput.focus();}
+function closePal(){palBg.classList.remove('show');}
+function filterPal(q){q=q.toLowerCase().trim();
+  results=!q?INDEX.slice(0,8):INDEX.filter(x=>(x.label+' '+x.ctx).toLowerCase().includes(q)).slice(0,12);
+  sel=0;
+  palList.innerHTML=results.length?results.map((r,n)=>`<div class="pal-it ${n===0?'sel':''}" data-n="${n}"><span class="ti">${ic(r.icon)}</span><span class="lab">${r.label}</span><span class="ctx">${r.ctx}</span></div>`).join('')
+    :`<div class="pal-empty">No settings match "${q}"</div>`;
+  palList.querySelectorAll('.pal-it').forEach(el=>el.addEventListener('click',()=>{go(results[+el.dataset.n]);}));}
+function go(r){if(!r)return;closePal();route(r.key);}
+palInput.addEventListener('input',e=>filterPal(e.target.value));
+document.getElementById('palBtn').addEventListener('click',openPal);
+document.getElementById('navSearch').addEventListener('click',openPal);
+palBg.addEventListener('click',e=>{if(e.target===palBg)closePal();});
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();openPal();}
+  if(!palBg.classList.contains('show'))return;
+  if(e.key==='Escape')closePal();
+  if(e.key==='ArrowDown'){e.preventDefault();sel=Math.min(sel+1,results.length-1);paintSel();}
+  if(e.key==='ArrowUp'){e.preventDefault();sel=Math.max(sel-1,0);paintSel();}
+  if(e.key==='Enter')go(results[sel]);
+});
+function paintSel(){palList.querySelectorAll('.pal-it').forEach((el,n)=>el.classList.toggle('sel',n===sel));}
+
+// boot
+route('overview');
+</script>
+</body>
+</html>
