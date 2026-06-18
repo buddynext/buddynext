@@ -226,7 +226,11 @@ if ( ! $is_admin ) {
 	}
 }
 $can_edit     = ( $is_own_post && $within_edit_window ) || $is_admin;
-$can_delete   = $is_own_post || $is_admin;
+// Mirror the server (PostController::delete_post): deleting your own post is
+// always allowed; deleting anyone else's requires buddynext-feed/delete-any-post.
+// buddynext_can() already grants that to WP admins (manage_options bypass) AND
+// community moderators, so the affordance now shows for mods, not just admins.
+$can_delete   = $is_own_post || ( $current_user_id > 0 && buddynext_can( $current_user_id, 'buddynext-feed/delete-any-post' ) );
 $can_pin      = $is_own_post || $is_admin;
 $can_report   = ( $current_user_id > 0 && ! $is_own_post );
 
