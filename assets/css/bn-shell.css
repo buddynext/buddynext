@@ -274,15 +274,30 @@ body.admin-bar .bn-app__rail {
 }
 
 /* ── Rail collapse toggle ────────────────────────────────────────────────── */
+/* Rail header — logo (left) + compact collapse toggle (right) on one row. */
+.bn-rail__head {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
+	margin-bottom: var(--bn-s2);
+	min-height: var(--bn-s10);
+}
+/* Collapsed rail: stack logo over the toggle, both centred in the icon column. */
+[data-bn-rail="collapsed"] .bn-rail__head {
+	flex-direction: column;
+	gap: var(--bn-s1);
+	padding-inline: var(--bn-s1);
+}
+
 .bn-rail__logo {
 	display: flex;
 	align-items: center;
-	padding: var(--bn-s2) var(--bn-s3);
-	margin-bottom: var(--bn-s1);
+	min-width: 0;
 }
 .bn-rail__logo img {
 	max-width: 100%;
-	max-height: 40px;
+	max-height: var(--bn-rail-logo-maxh);
 	width: auto;
 	height: auto;
 	object-fit: contain;
@@ -290,19 +305,21 @@ body.admin-bar .bn-app__rail {
 /* Collapsed rail: keep the logo within the icon-only column. */
 [data-bn-rail="collapsed"] .bn-rail__logo {
 	justify-content: center;
-	padding-inline: var(--bn-s1);
 }
 [data-bn-rail="collapsed"] .bn-rail__logo img {
-	max-height: 28px;
+	max-height: var(--bn-rail-logo-maxh-sm);
 }
 
+/* Compact, square icon button — not a full-width bar (which read as an input). */
 .bn-rail__toggle {
-	display: flex;
+	flex: 0 0 auto;
+	margin-inline-start: auto;
+	display: inline-flex;
 	align-items: center;
-	justify-content: flex-end;
-	width: 100%;
-	padding: var(--bn-s2) var(--bn-s3);
-	margin-bottom: var(--bn-s2);
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	padding: 0;
 	background: transparent;
 	border: 0;
 	border-radius: var(--bn-r-sm);
@@ -360,6 +377,7 @@ body.admin-bar .bn-app__rail {
 }
 [data-bn-rail="collapsed"] .bn-rail__toggle {
 	justify-content: center;
+	margin-inline-start: 0;
 }
 [data-bn-rail="collapsed"] .bn-rail__toggle .bn-rail__icon {
 	transform: rotate(180deg);
@@ -540,31 +558,3 @@ body.admin-bar .bn-app__rail {
 	.bn-notif-dropdown { width: calc(100vw - var(--bn-s4)); right: -60px; }
 }
 
-/* ── Community brand (rail top) ─────────────────────────────────────────── */
-.bn-rail__brand {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-s2);
-	min-height: var(--bn-s10);
-	padding: var(--bn-s1) var(--bn-s2);
-	margin-bottom: var(--bn-s2);
-	text-decoration: none;
-	color: var(--bn-ink, inherit);
-	font-weight: var(--bn-fw-bold);
-	font-size: var(--bn-text-md);
-	overflow: hidden;
-}
-.bn-rail__logo {
-	max-height: var(--bn-rail-logo-maxh);
-	max-width: 100%;
-	width: auto;
-	object-fit: contain;
-	display: block;
-}
-.bn-rail__brand-name {
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-[data-bn-rail="collapsed"] .bn-rail__brand { justify-content: center; padding-inline: 0; }
-[data-bn-rail="collapsed"] .bn-rail__logo { max-height: var(--bn-rail-logo-maxh-sm); }

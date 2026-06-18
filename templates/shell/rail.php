@@ -149,24 +149,28 @@ if ( 'feed' === $hub && 'explore' === (string) get_query_var( 'bn_activity_actio
 	// the site navigation — previously the option was only consumed by the auth
 	// page and emails.
 	$bn_rail_logo = (string) get_option( 'buddynext_logo_url', '' );
-	if ( '' !== $bn_rail_logo ) :
-		?>
-		<a class="bn-rail__logo" href="<?php echo esc_url( PageRouter::activity_url() ); ?>" aria-label="<?php echo esc_attr( get_bloginfo( 'name' ) ); ?>">
-			<img src="<?php echo esc_url( $bn_rail_logo ); ?>" alt="<?php echo esc_attr( get_bloginfo( 'name' ) ); ?>">
-		</a>
-	<?php endif; ?>
-	<?php // Collapse toggle — shrinks the rail to an icon-only panel. State is
-		// persisted in localStorage and stamped on <html data-bn-rail> before
-		// paint by assets/js/shell/font-scale.js. ?>
-	<button
-		type="button"
-		class="bn-rail__toggle"
-		data-bn-action="toggle-rail"
-		aria-label="<?php esc_attr_e( 'Collapse navigation', 'buddynext' ); ?>"
-		title="<?php esc_attr_e( 'Collapse navigation', 'buddynext' ); ?>"
-	>
-		<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'chevron-left' ); ?></span>
-	</button>
+	// Header row: optional community logo on the left, compact collapse toggle on
+	// the right. Grouping them in one flex row keeps spacing consistent and stops
+	// the logo and the control from overlapping. The collapse toggle shrinks the
+	// rail to an icon-only panel; state is persisted in localStorage and stamped
+	// on <html data-bn-rail> before paint by assets/js/shell/font-scale.js.
+	?>
+	<div class="bn-rail__head">
+		<?php if ( '' !== $bn_rail_logo ) : ?>
+			<a class="bn-rail__logo" href="<?php echo esc_url( PageRouter::activity_url() ); ?>" aria-label="<?php echo esc_attr( get_bloginfo( 'name' ) ); ?>">
+				<img src="<?php echo esc_url( $bn_rail_logo ); ?>" alt="<?php echo esc_attr( get_bloginfo( 'name' ) ); ?>">
+			</a>
+		<?php endif; ?>
+		<button
+			type="button"
+			class="bn-rail__toggle"
+			data-bn-action="toggle-rail"
+			aria-label="<?php esc_attr_e( 'Collapse navigation', 'buddynext' ); ?>"
+			title="<?php esc_attr_e( 'Collapse navigation', 'buddynext' ); ?>"
+		>
+			<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'chevron-left' ); ?></span>
+		</button>
+	</div>
 	<div class="bn-rail__group">
 		<?php foreach ( $bn_rail_items as $bn_item ) : ?>
 			<?php
