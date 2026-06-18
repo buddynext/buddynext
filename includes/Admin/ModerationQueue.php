@@ -483,22 +483,23 @@ class ModerationQueue {
 		$actor     = get_current_user_id();
 		$service   = new ModerationService();
 
+		$result = true;
 		switch ( $op ) {
 			case 'dismiss':
-				$service->dismiss( $report_id, $actor );
+				$result = $service->dismiss( $report_id, $actor );
 				break;
 			case 'resolve':
-				$service->resolve( $report_id, $actor );
+				$result = $service->resolve( $report_id, $actor );
 				break;
 			case 'remove':
-				$service->remove_content( $report_id, $actor );
+				$result = $service->remove_content( $report_id, $actor );
 				break;
 			case 'escalate':
-				$service->escalate( $report_id, $actor );
+				$result = $service->escalate( $report_id, $actor );
 				break;
 		}
 
-		$this->redirect_back( 'reports' );
+		$this->redirect_back( 'reports', $result );
 	}
 
 	/**
@@ -515,19 +516,20 @@ class ModerationQueue {
 		$service = new ModerationService();
 		$tab     = isset( $_POST['return_tab'] ) ? sanitize_key( wp_unslash( (string) $_POST['return_tab'] ) ) : 'reports';
 
+		$result = true;
 		switch ( $op ) {
 			case 'strike':
-				$service->issue_strike( $user_id, $actor, __( 'Issued from the moderation queue.', 'buddynext' ) );
+				$result = $service->issue_strike( $user_id, $actor, __( 'Issued from the moderation queue.', 'buddynext' ) );
 				break;
 			case 'suspend':
-				$service->suspend_user( $user_id, $actor, __( 'Suspended from the moderation queue.', 'buddynext' ) );
+				$result = $service->suspend_user( $user_id, $actor, __( 'Suspended from the moderation queue.', 'buddynext' ) );
 				break;
 			case 'unsuspend':
-				$service->unsuspend_user( $user_id, $actor );
+				$result = $service->unsuspend_user( $user_id, $actor );
 				break;
 		}
 
-		$this->redirect_back( $tab );
+		$this->redirect_back( $tab, $result );
 	}
 
 	/**
@@ -542,11 +544,11 @@ class ModerationQueue {
 		$decision  = isset( $_POST['decision'] ) ? sanitize_key( wp_unslash( (string) $_POST['decision'] ) ) : '';
 		$actor     = get_current_user_id();
 
-		if ( in_array( $decision, array( 'approved', 'denied' ), true ) ) {
-			( new ModerationService() )->resolve_appeal( $appeal_id, $actor, $decision );
-		}
+		$result = in_array( $decision, array( 'approved', 'denied' ), true )
+			? ( new ModerationService() )->resolve_appeal( $appeal_id, $actor, $decision )
+			: new \WP_Error( 'bn_invalid_decision', __( 'Choose approve or deny.', 'buddynext' ) );
 
-		$this->redirect_back( 'appeals' );
+		$this->redirect_back( 'appeals', $result );
 	}
 
 	/**
@@ -563,13 +565,14 @@ class ModerationQueue {
 		$op = isset( $_POST['op'] ) ? sanitize_key( wp_unslash( (string) $_POST['op'] ) ) : '';
 		$service = new \BuddyNext\Feed\PostService();
 
+		$result = true;
 		if ( 'approve' === $op ) {
-			$service->approve_pending( $post_id );
+			$result = $service->approve_pending( $post_id );
 		} elseif ( 'reject' === $op ) {
-			$service->reject_pending( $post_id );
+			$result = $service->reject_pending( $post_id );
 		}
 
-		$this->redirect_back( 'pending' );
+		$this->redirect_back( 'pending', $result );
 	}
 
 	// ── Small render + flow helpers ─────────────────────────────────────────
@@ -737,27 +740,35 @@ class ModerationQueue {
 	}
 
 	/**
-	 * Redirect back to a moderation tab with a success flag.
+	 * Redirect back to a moderation tab, reflecting the action's outcome.
 	 *
-	 * @param string $tab Tab slug.
+	 * A WP_Error result (e.g. unsuspending a user who is not suspended, or acting
+	 * on a missing appeal/report) redirects with the error message so the
+	 * moderator sees a real failure notice instead of a false "Done." — every
+	 * handler must pass the service return value here.
+	 *
+	 * @param string          $tab    Tab slug.
+	 * @param mixed|\WP_Error $result Service return value; WP_Error means failure.
 	 * @return void
 	 */
-	private function redirect_back( string $tab ): void {
-		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'    => 'buddynext-moderation',
-					'tab'     => $tab,
-					'bn_done' => '1',
-				),
-				admin_url( 'admin.php' )
-			)
+	private function redirect_back( string $tab, $result = true ): void {
+		$args = array(
+			'page' => 'buddynext-moderation',
+			'tab'  => $tab,
 		);
+
+		if ( is_wp_error( $result ) ) {
+			$args['bn_error'] = rawurlencode( $result->get_error_message() );
+		} else {
+			$args['bn_done'] = '1';
+		}
+
+		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
 		exit;
 	}
 
 	/**
-	 * Print the post-action success notice when present.
+	 * Print the post-action success or error notice when present.
 	 *
 	 * @return void
 	 */
@@ -765,6 +776,13 @@ class ModerationQueue {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( ! empty( $_GET['bn_done'] ) ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Done.', 'buddynext' ) . '</p></div>';
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! empty( $_GET['bn_error'] ) ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$bn_err = sanitize_text_field( wp_unslash( (string) $_GET['bn_error'] ) );
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( $bn_err ) . '</p></div>';
 		}
 	}
 

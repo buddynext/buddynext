@@ -950,7 +950,7 @@ class ModerationService {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
+		$lifted = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$wpdb->prefix}bn_user_suspensions
 				 SET lifted_at = %s, lifted_by = %d
@@ -963,6 +963,13 @@ class ModerationService {
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// No active suspension to lift — report it instead of a silent success, so
+		// a moderator who unsuspends the wrong/already-active user sees a real
+		// notice rather than a false "Done.".
+		if ( ! $lifted ) {
+			return new WP_Error( 'bn_not_suspended', __( 'That user is not currently suspended.', 'buddynext' ) );
+		}
 
 		/**
 		 * Fires after a user suspension is lifted.
@@ -1437,6 +1444,13 @@ class ModerationService {
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// Appeal row does not exist (appeals are always filed by a real user, so
+		// user_id is never 0 for a genuine row). Report it instead of updating
+		// zero rows and returning a false success.
+		if ( $user_id <= 0 ) {
+			return new WP_Error( 'bn_appeal_not_found', __( 'That appeal no longer exists.', 'buddynext' ) );
+		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
