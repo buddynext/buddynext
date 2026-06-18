@@ -866,6 +866,212 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────────
+ * 2b. Account status (member-facing — /me/account-status/)
+ *
+ * The viewer's own moderation standing. Reuses .bn-mod-shell / .bn-mod-header
+ * chrome; the banner + detail rows + standing lists are specific to this page.
+ * ────────────────────────────────────────────────────────────────────── */
+
+.bn-acct__header {
+	margin-bottom: var(--bn-s4);
+}
+
+/* Clean-standing state. */
+.bn-acct-clean {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s10) var(--bn-s6);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-surface);
+}
+
+.bn-acct-clean__icon {
+	display: inline-flex;
+	width: var(--bn-s10);
+	height: var(--bn-s10);
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-success-bg);
+	color: var(--bn-success);
+}
+
+.bn-acct-clean__icon svg {
+	width: var(--bn-s6);
+	height: var(--bn-s6);
+}
+
+.bn-acct-clean__title {
+	font-size: var(--bn-text-lg);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink-1);
+}
+
+.bn-acct-clean__text {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	max-width: 42ch;
+}
+
+/* Suspension banner. */
+.bn-acct-banner {
+	display: flex;
+	gap: var(--bn-s4);
+	padding: var(--bn-s5);
+	border: 1px solid var(--bn-danger);
+	border-inline-start-width: 3px;
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-danger-bg);
+	margin-bottom: var(--bn-s5);
+}
+
+.bn-acct-banner__icon {
+	flex-shrink: 0;
+	display: inline-flex;
+	width: var(--bn-s8);
+	height: var(--bn-s8);
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-surface);
+	color: var(--bn-danger);
+}
+
+.bn-acct-banner__icon svg {
+	width: var(--bn-s5);
+	height: var(--bn-s5);
+}
+
+.bn-acct-banner__body {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.bn-acct-banner__title {
+	font-size: var(--bn-text-lg);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink-1);
+	margin: 0 0 var(--bn-s1);
+}
+
+.bn-acct-banner__lead {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	margin: 0 0 var(--bn-s4);
+}
+
+.bn-acct-banner__appeal {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	margin: var(--bn-s4) 0 0;
+}
+
+/* Definition-list detail rows (reason / dates / restrictions). */
+.bn-acct-details {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+	margin: 0;
+}
+
+.bn-acct-details__row {
+	display: grid;
+	grid-template-columns: 9rem 1fr;
+	gap: var(--bn-s3);
+}
+
+.bn-acct-details__key {
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-semibold);
+	text-transform: uppercase;
+	letter-spacing: var(--bn-ls-wide, 0.04em);
+	color: var(--bn-ink-3);
+	margin: 0;
+}
+
+.bn-acct-details__val {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-1);
+	margin: 0;
+}
+
+/* Standing lists (strikes / warnings / appeals). */
+.bn-acct-section {
+	margin-bottom: var(--bn-s5);
+}
+
+.bn-acct-section__title {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	font-size: var(--bn-text-base);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink-1);
+	margin: 0 0 var(--bn-s3);
+}
+
+.bn-acct-section__icon {
+	display: inline-flex;
+	color: var(--bn-ink-2);
+}
+
+.bn-acct-section__icon svg,
+.bn-acct-list__icon svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+
+.bn-acct-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+}
+
+.bn-acct-list__item {
+	display: flex;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3) var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+}
+
+.bn-acct-list__icon {
+	flex-shrink: 0;
+	color: var(--bn-ink-3);
+	margin-top: var(--bn-s1);
+}
+
+.bn-acct-list__body {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.bn-acct-list__head {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin-bottom: var(--bn-s1);
+}
+
+.bn-acct-list__reason {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-1);
+}
+
+.bn-acct-list__meta {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
  * 3. High-contrast + forced colours
  * ────────────────────────────────────────────────────────────────────── */
 
@@ -977,5 +1183,17 @@
 	.bn-ca-subheader__actions {
 		margin-inline-start: 0;
 		width: 100%;
+	}
+
+	/* Account status: stack the detail rows under 640px. */
+	.bn-acct-details__row {
+		grid-template-columns: 1fr;
+		gap: var(--bn-s1);
+	}
+
+	.bn-acct-banner {
+		flex-direction: column;
+		gap: var(--bn-s3);
+		padding: var(--bn-s4);
 	}
 }

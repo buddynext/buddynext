@@ -855,11 +855,24 @@ class NotificationMessageService {
 			case 'bn.member_suspended':
 			case 'bn.user_unsuspended':
 			case 'bn.user_shadow_banned':
-			case 'bn.appeal_submitted':
 			case 'bn.appeal_resolved':
-			case 'bn.report_resolved':
+				// The recipient's OWN moderation record. Open the account-status
+				// page, which explains the action, reason, duration, restrictions,
+				// and appeal state — not the recipient's profile Posts tab, which
+				// carries none of that context.
 				$me = $viewer_id;
-				return $me > 0 ? PageRouter::profile_url( $me ) : '';
+				return $me > 0 ? PageRouter::account_status_url() : '';
+
+			case 'bn.appeal_submitted':
+				// Moderator-facing (sent to every admin) — open the community
+				// moderation surface where appeals are reviewed, not the admin's
+				// own profile.
+				return PageRouter::community_admin_url();
+
+			case 'bn.report_resolved':
+				// Reporter-facing — their report is closed and nothing on their own
+				// profile is actionable, so send them to the feed.
+				return PageRouter::activity_url();
 
 			case 'bn.new_report':
 				// Moderator-facing — send them to the community moderation surface.

@@ -315,7 +315,7 @@ class PageRouter {
 		if ( ! is_user_logged_in() ) {
 			$feed_section          = (string) get_query_var( 'bn_feed_section', '' );
 			$activity_action       = (string) get_query_var( 'bn_activity_action', '' );
-			$guarded_feed_sections = array( '', 'home', 'bookmarks', 'saved' );
+			$guarded_feed_sections = array( '', 'home', 'bookmarks', 'saved', 'account-status' );
 
 			// The explore feed shares the 'feed' hub with an empty feed_section,
 			// so it would otherwise be swept up by the guarded-section check
@@ -986,6 +986,11 @@ class PageRouter {
 		switch ( $hub ) {
 			case 'feed':
 				$assets->enqueue( 'feed' );
+				// Account-status (the viewer's own moderation standing) reuses the
+				// moderation stylesheet for its banner + detail-row chrome.
+				if ( 'account-status' === (string) get_query_var( 'bn_feed_section', '' ) ) {
+					wp_enqueue_style( 'bn-moderation' );
+				}
 				// Explore is BuddyNext's signature discovery surface — its own
 				// stylesheet (bn-explore.css) so the masonry grid + varied cards
 				// evolve independently of the activity feed (bn-feed.css).
@@ -1219,6 +1224,9 @@ class PageRouter {
 				if ( 'bookmarks' === $section ) {
 					return 'feed/bookmarks.php';
 				}
+				if ( 'account-status' === $section ) {
+					return 'moderation/account-status.php';
+				}
 				$action = (string) get_query_var( 'bn_activity_action', '' );
 				switch ( $action ) {
 					case 'explore':
@@ -1427,11 +1435,13 @@ class PageRouter {
 	}
 
 	/**
-	 * Register Bookmarks hub rewrite rule.
+	 * Register the personal /me/ section rewrite rules.
 	 *
-	 * /me/bookmarks/ resolves to the feed hub with the bookmarks section, which
-	 * renders the authenticated user's saved-post list. Auth is enforced inside
-	 * the bookmarks template (guests redirected to the auth surface).
+	 * /me/bookmarks/ resolves to the feed hub's bookmarks section (the viewer's
+	 * saved-post list); /me/account-status/ resolves to the account-status
+	 * section (the viewer's own moderation standing — suspensions, strikes,
+	 * warnings, appeals). Both are login-gated upstream in
+	 * dispatch_hub_template() via $guarded_feed_sections.
 	 *
 	 * @return void
 	 */
@@ -1439,6 +1449,11 @@ class PageRouter {
 		add_rewrite_rule(
 			'^me/bookmarks/?$',
 			'index.php?bn_hub=feed&bn_feed_section=bookmarks',
+			'top'
+		);
+		add_rewrite_rule(
+			'^me/account-status/?$',
+			'index.php?bn_hub=feed&bn_feed_section=account-status',
 			'top'
 		);
 	}
@@ -1839,6 +1854,21 @@ class PageRouter {
 	 */
 	public static function bookmarks_url(): string {
 		return trailingslashit( home_url( '/me/bookmarks' ) );
+	}
+
+	/**
+	 * Return the Account Status URL for the active user.
+	 *
+	 * Path is /me/account-status/ — same for every viewer; the template reads
+	 * the current user's own moderation standing (active suspension, strikes,
+	 * warnings, appeals). This is the destination for moderation notifications
+	 * about the recipient's own account, so a suspended/warned member lands on a
+	 * page that explains the action instead of their profile's Posts tab.
+	 *
+	 * @return string Absolute trailing-slashed URL.
+	 */
+	public static function account_status_url(): string {
+		return trailingslashit( home_url( '/me/account-status' ) );
 	}
 
 	/**
