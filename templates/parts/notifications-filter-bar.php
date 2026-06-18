@@ -80,17 +80,29 @@ do_action( 'buddynext_part_notifications_filter_bar_before', $args );
 			)
 		);
 		?>
+		<?php
+		// Per-tab context lets the store's derived getters resolve this tab's
+		// own key for the active highlight and its live unread count
+		// (markRead/markAllRead mutate state.tabCounts) without a per-tab
+		// handler. The real <a href> falls through to the shell's `navigate`
+		// action, which swaps the router region and re-renders the
+		// server-correct active state + counts.
+		$bn_tab_ctx = (string) wp_json_encode( array( 'tabKey' => $filter_key ) );
+		?>
 		<a href="<?php echo esc_url( $tab_url ); ?>"
 			class="bn-tab<?php echo $is_active ? ' is-active' : ''; ?>"
 			role="tab"
 			data-filter="<?php echo esc_attr( $filter_key ); ?>"
-			data-wp-on--click="actions.setFilter"
+			data-wp-context="<?php echo esc_attr( $bn_tab_ctx ); ?>"
+			data-wp-class--is-active="state.tabIsActive"
 			aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>"
+			data-wp-bind--aria-selected="state.tabIsActive"
 			aria-current="<?php echo $is_active ? 'page' : 'false'; ?>">
 			<?php echo esc_html( $filter_label ); ?>
-			<?php if ( $filter_count > 0 ) : ?>
-				<span class="bn-tab__count"><?php echo esc_html( (string) min( $filter_count, 99 ) ); ?></span>
-			<?php endif; ?>
+			<span class="bn-tab__count"
+				data-wp-text="state.tabCountLabel"
+				data-wp-bind--hidden="state.tabCountHidden"
+				<?php echo $filter_count > 0 ? '' : 'hidden'; ?>><?php echo esc_html( (string) min( $filter_count, 99 ) ); ?></span>
 		</a>
 	<?php endforeach; ?>
 </nav>

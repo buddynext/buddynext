@@ -6,7 +6,9 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'BuddyNext\\ActivityLog\\ActivityLogService' => $baseDir . '/includes/ActivityLog/ActivityLogService.php',
     'BuddyNext\\Admin\\AdminHub' => $baseDir . '/includes/Admin/AdminHub.php',
+    'BuddyNext\\Admin\\AdminNavIndex' => $baseDir . '/includes/Admin/AdminNavIndex.php',
     'BuddyNext\\Admin\\AdminPageBase' => $baseDir . '/includes/Admin/AdminPageBase.php',
     'BuddyNext\\Admin\\AppearanceTab' => $baseDir . '/includes/Admin/AppearanceTab.php',
     'BuddyNext\\Admin\\EmailEditor' => $baseDir . '/includes/Admin/EmailEditor.php',
@@ -70,6 +72,7 @@ return array(
     'BuddyNext\\Demo\\DemoCommand' => $baseDir . '/includes/Demo/DemoCommand.php',
     'BuddyNext\\Demo\\DemoDataService' => $baseDir . '/includes/Demo/DemoDataService.php',
     'BuddyNext\\Engagement\\SessionTracker' => $baseDir . '/includes/Engagement/SessionTracker.php',
+    'BuddyNext\\Engagement\\StreakService' => $baseDir . '/includes/Engagement/StreakService.php',
     'BuddyNext\\Feed\\BookmarkController' => $baseDir . '/includes/Feed/BookmarkController.php',
     'BuddyNext\\Feed\\BookmarkService' => $baseDir . '/includes/Feed/BookmarkService.php',
     'BuddyNext\\Feed\\ComposerDraftController' => $baseDir . '/includes/Feed/ComposerDraftController.php',
@@ -83,6 +86,7 @@ return array(
     'BuddyNext\\Feed\\PollService' => $baseDir . '/includes/Feed/PollService.php',
     'BuddyNext\\Feed\\PostController' => $baseDir . '/includes/Feed/PostController.php',
     'BuddyNext\\Feed\\PostService' => $baseDir . '/includes/Feed/PostService.php',
+    'BuddyNext\\Feed\\ScheduledPostsPublisher' => $baseDir . '/includes/Feed/ScheduledPostsPublisher.php',
     'BuddyNext\\Feed\\ShareController' => $baseDir . '/includes/Feed/ShareController.php',
     'BuddyNext\\Feed\\ShareService' => $baseDir . '/includes/Feed/ShareService.php',
     'BuddyNext\\Feed\\SinglePostMeta' => $baseDir . '/includes/Feed/SinglePostMeta.php',
@@ -107,6 +111,7 @@ return array(
     'BuddyNext\\Moderation\\ModerationListener' => $baseDir . '/includes/Moderation/ModerationListener.php',
     'BuddyNext\\Moderation\\ModerationLogService' => $baseDir . '/includes/Moderation/ModerationLogService.php',
     'BuddyNext\\Moderation\\ModerationService' => $baseDir . '/includes/Moderation/ModerationService.php',
+    'BuddyNext\\Moderation\\PreModerationService' => $baseDir . '/includes/Moderation/PreModerationService.php',
     'BuddyNext\\Moderation\\SafeguardService' => $baseDir . '/includes/Moderation/SafeguardService.php',
     'BuddyNext\\Nav\\MenuRenderer' => $baseDir . '/includes/Nav/MenuRenderer.php',
     'BuddyNext\\Nav\\NavOverrides' => $baseDir . '/includes/Nav/NavOverrides.php',

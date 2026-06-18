@@ -677,6 +677,7 @@ class Plugin {
 		$container->bind( 'hashtags', fn() => new HashtagService() );
 		$container->bind( 'moderation', fn() => new ModerationService() );
 		$container->bind( 'mod_log', fn() => new ModerationLogService() );
+		$container->bind( 'activity_log', fn() => new \BuddyNext\ActivityLog\ActivityLogService() );
 		$container->bind( 'member_types', fn( $c ) => new \BuddyNext\MemberTypes\MemberTypeService( $c->get( 'cache' ) ) );
 		$container->bind( 'rest_router', fn() => new Router() );
 		$container->bind( 'template_loader', fn() => new TemplateLoader() );

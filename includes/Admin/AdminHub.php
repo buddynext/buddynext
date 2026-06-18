@@ -339,6 +339,78 @@ class AdminHub {
 	}
 
 	/**
+	 * Consolidated counters for the community-admin overview.
+	 *
+	 * Computes the today/yesterday member and post counts (with the post
+	 * day-over-day percentage), and delegates the report and pending-join totals
+	 * to their owning services so the panel never assembles its own SQL.
+	 * The site-wide totals (members, spaces) reuse {@see Insights::metrics()},
+	 * which already caches them; this method only adds the small day-window
+	 * counts the dashboard needs that Insights does not track.
+	 *
+	 * @return array{
+	 *     members_total:int, members_new_today:int,
+	 *     active_spaces:int,
+	 *     posts_today:int, posts_yesterday:int, posts_pct:int,
+	 *     open_reports:int, urgent_reports:int,
+	 *     pending_joins:int
+	 * }
+	 */
+	public static function overview_stats(): array {
+		global $wpdb;
+
+		$insights = new Insights();
+		$metrics  = $insights->metrics();
+
+		$today_start     = gmdate( 'Y-m-d 00:00:00' );
+		$yesterday_start = gmdate( 'Y-m-d 00:00:00', strtotime( '-1 day' ) );
+		$yesterday_end   = gmdate( 'Y-m-d 23:59:59', strtotime( '-1 day' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$members_new_today = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->users} WHERE user_registered >= %s",
+				$today_start
+			)
+		);
+
+		$posts_today = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE status = 'published' AND created_at >= %s",
+				$today_start
+			)
+		);
+
+		$posts_yesterday = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE status = 'published' AND created_at BETWEEN %s AND %s",
+				$yesterday_start,
+				$yesterday_end
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$posts_pct = $posts_yesterday > 0
+			? (int) round( ( ( $posts_today - $posts_yesterday ) / $posts_yesterday ) * 100 )
+			: 0;
+
+		$moderation = buddynext_service( 'moderation' );
+		$spaces     = buddynext_service( 'spaces' );
+
+		return array(
+			'members_total'     => (int) ( $metrics['members_total'] ?? 0 ),
+			'members_new_today' => $members_new_today,
+			'active_spaces'     => (int) ( $metrics['spaces_total'] ?? 0 ),
+			'posts_today'       => $posts_today,
+			'posts_yesterday'   => $posts_yesterday,
+			'posts_pct'         => $posts_pct,
+			'open_reports'      => $moderation->count_open_reports(),
+			'urgent_reports'    => $moderation->count_urgent_reports(),
+			'pending_joins'     => $spaces->count_pending_joins_all(),
+		);
+	}
+
+	/**
 	 * Register WordPress hooks.
 	 *
 	 * @return void

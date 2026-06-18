@@ -24,8 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 use BuddyNext\Core\PageRouter;
 use BuddyNext\Notifications\NotificationPrefCatalogue;
 use BuddyNext\Notifications\NotificationPrefService;
-
-global $wpdb;
+use BuddyNext\Profile\AvatarService;
 
 // Guest gate is enforced upstream in PageRouter::dispatch_hub_template().
 $current_user_id = get_current_user_id();
@@ -58,22 +57,13 @@ $channels = array(
 	'sound'  => array_key_exists( 'sound', $stored_channels ) ? (bool) $stored_channels['sound'] : false,
 );
 
-// Spaces the user belongs to with their notification_pref.
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$joined_spaces = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT s.id, s.name, s.slug, s.avatar_url, COALESCE( NULLIF( sm.notification_pref, '' ), 'all' ) AS pref
-		 FROM {$wpdb->prefix}bn_spaces s
-		 INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active'
-		 ORDER BY s.name ASC",
-		$current_user_id
-	)
-);
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+// Spaces the user belongs to with their notification_pref (active memberships
+// only). Service returns assoc rows: space_id, name, slug, avatar_url, pref.
+$joined_spaces = $pref_service->list_space_notification_prefs( $current_user_id );
 
 $space_prefs = array();
-foreach ( (array) $joined_spaces as $sp ) {
-	$space_prefs[ (int) $sp->id ] = (string) $sp->pref;
+foreach ( $joined_spaces as $sp ) {
+	$space_prefs[ (int) $sp['space_id'] ] = (string) $sp['pref'];
 }
 
 // Frequency option metadata.
@@ -321,21 +311,22 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 			<div class="bn-prefs-spaces" role="list">
 				<?php
 				foreach ( $joined_spaces as $sp ) :
-					$space_id     = (int) $sp->id;
-					$current_pref = (string) $sp->pref;
-					$avatar       = (string) ( $sp->avatar_url ?? '' );
-					$initial      = mb_substr( (string) $sp->name, 0, 1 );
+					$space_id     = (int) $sp['space_id'];
+					$current_pref = (string) $sp['pref'];
+					$space_name   = (string) $sp['name'];
+					$avatar       = (string) ( $sp['avatar_url'] ?? '' );
+					$initial      = AvatarService::initials_for( $space_name );
 					?>
 					<div class="bn-prefs-space" role="listitem">
 						<a class="bn-prefs-space__head" href="<?php echo esc_url( PageRouter::space_url( $space_id ) ); ?>">
 							<?php if ( '' !== $avatar ) : ?>
 								<img class="bn-prefs-space__avatar" src="<?php echo esc_url( $avatar ); ?>" alt="" width="40" height="40" loading="lazy">
 							<?php else : ?>
-								<span class="bn-prefs-space__avatar bn-prefs-space__avatar--initial" aria-hidden="true"><?php echo esc_html( strtoupper( $initial ) ); ?></span>
+								<span class="bn-prefs-space__avatar bn-prefs-space__avatar--initial" aria-hidden="true"><?php echo esc_html( $initial ); ?></span>
 							<?php endif; ?>
-							<span class="bn-prefs-space__name"><?php echo esc_html( (string) $sp->name ); ?></span>
+							<span class="bn-prefs-space__name"><?php echo esc_html( $space_name ); ?></span>
 						</a>
-						<div class="bn-prefs-space__controls" role="radiogroup" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: space name */ __( 'Notification preference for %s', 'buddynext' ), $sp->name ) ); ?>">
+						<div class="bn-prefs-space__controls" role="radiogroup" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: space name */ __( 'Notification preference for %s', 'buddynext' ), $space_name ) ); ?>">
 							<?php
 							foreach ( $space_pref_options as $pref_value => $pref_label ) :
 								$is_active = ( $current_pref === $pref_value );

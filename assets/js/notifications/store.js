@@ -59,30 +59,31 @@ function filterKeyForType( type ) {
 }
 
 /**
- * Adjust the unread filter-tab count badges by `delta`.
+ * Adjust the reactive unread filter-tab counts by `delta`.
  *
  * Every notification belongs to All + Unread, so both always move. When a row
  * type is supplied, its dedicated tab (Mentions / Reactions / Comments /
  * Spaces / …) is moved too, so every visible count stays in step without a
- * reload. The rail bell badge tracks ctx.unreadCount separately.
+ * reload. Mutating ctx.tabCounts re-renders the tab badges via the reactive
+ * data-wp-text / data-wp-bind--hidden bindings on the filter bar — no DOM
+ * paint loop. The rail bell badge tracks ctx.unreadCount separately.
  *
- * @param {number} delta Amount to add (use -1 when marking one read).
+ * @param {Object} ctx    Interactivity context (carries tabCounts).
+ * @param {number} delta  Amount to add (use -1 when marking one read).
  * @param {string} [type] Raw notification type, to also move its type tab.
  */
-function adjustUnreadTabBadges( delta, type ) {
+function adjustUnreadTabBadges( ctx, delta, type ) {
+	if ( ! ctx || ! ctx.tabCounts ) {
+		return;
+	}
 	var filters = [ 'all', 'unread' ];
 	var typeKey = type ? filterKeyForType( type ) : '';
 	if ( typeKey ) {
 		filters.push( typeKey );
 	}
 	filters.forEach( function ( filter ) {
-		var badge = document.querySelector( '.bn-tab[data-filter="' + filter + '"] .bn-tab__count' );
-		if ( ! badge ) {
-			return;
-		}
-		var next = Math.max( 0, ( parseInt( badge.textContent, 10 ) || 0 ) + delta );
-		badge.textContent = String( next );
-		badge.hidden = ( 0 === next );
+		var current = parseInt( ctx.tabCounts[ filter ], 10 ) || 0;
+		ctx.tabCounts[ filter ] = Math.max( 0, current + delta );
 	} );
 }
 
@@ -104,25 +105,6 @@ function toast( message, tone ) {
 	}
 }
 
-/* popstate guard so browser back / forward navigates between filter tabs
- * without a full reload. The simplest correct behaviour is a full reload
- * here — partial-swap reflects the URL change on forward navigation, but
- * the simplest contract is that popstate restores the prior page state
- * from scratch. Attached once per page load. */
-function bindPopState() {
-	if ( typeof window === 'undefined' || window.__bnNotifPopstateBound ) { return; }
-	window.__bnNotifPopstateBound = true;
-	window.addEventListener( 'popstate', function () {
-		// Only respond when our entry pushed the state — other pages on
-		// this site own their own popstate semantics.
-		if ( window.history.state && window.history.state.bnFilter ) {
-			window.location.reload();
-		}
-	} );
-}
-
-onNavReady( bindPopState, { once: true } );
-
 store( 'buddynext/notifications', {
 	state: {
 		get unreadLabel() {
@@ -137,6 +119,26 @@ store( 'buddynext/notifications', {
 			var ctx = getContext();
 			return !! ( ctx && ctx.hasError );
 		},
+		// Filter-bar tab derived state. Each .bn-tab carries its own
+		// { tabKey } context; these getters resolve that key against the
+		// shared activeFilter + tabCounts so the active highlight and unread
+		// badge are reactive (no querySelector paint, no setFilter handler —
+		// the real <a href> routes through the shell's navigate action).
+		get tabIsActive() {
+			var ctx = getContext();
+			return !! ( ctx && ctx.tabKey && ctx.activeFilter === ctx.tabKey );
+		},
+		get tabCountLabel() {
+			var ctx = getContext();
+			if ( ! ctx || ! ctx.tabKey || ! ctx.tabCounts ) { return ''; }
+			var n = parseInt( ctx.tabCounts[ ctx.tabKey ], 10 ) || 0;
+			return n > 99 ? '99+' : String( n );
+		},
+		get tabCountHidden() {
+			var ctx = getContext();
+			if ( ! ctx || ! ctx.tabKey || ! ctx.tabCounts ) { return true; }
+			return ( parseInt( ctx.tabCounts[ ctx.tabKey ], 10 ) || 0 ) <= 0;
+		},
 	},
 
 	actions: {
@@ -145,10 +147,17 @@ store( 'buddynext/notifications', {
 			if ( ! ctx || ! ctx.restUrl ) {
 				return;
 			}
-			var previous = ctx.unreadCount || 0;
-			// Optimistic update.
+			var previous     = ctx.unreadCount || 0;
+			var prevCounts   = ctx.tabCounts ? JSON.parse( JSON.stringify( ctx.tabCounts ) ) : null;
+			// Optimistic update. Zeroing tabCounts re-renders every tab badge
+			// reactively via the filter bar's data-wp-text bindings.
 			ctx.unreadCount = 0;
 			ctx.markedAll   = true;
+			if ( ctx.tabCounts ) {
+				Object.keys( ctx.tabCounts ).forEach( function ( key ) {
+					ctx.tabCounts[ key ] = 0;
+				} );
+			}
 
 			try {
 				var res = await restFetch( '/read-all', {
@@ -160,9 +169,10 @@ store( 'buddynext/notifications', {
 				if ( ! res.ok ) {
 					throw new Error( 'http_' + res.status );
 				}
-				// Strip presentation state for every visible row.
-				var counts = document.querySelectorAll( '.bn-tab__count, .bn-notif-badge' );
-				counts.forEach( function ( el ) { el.hidden = true; } );
+				// Clear the per-row unread presentation on the visible list.
+				// These rows are server-rendered (not in the reactive context),
+				// so toggling their unread class/pulse here is the legitimate
+				// path — the badge counts are already reactive above.
 				var pulses = document.querySelectorAll( '.bn-notif-row__pulse' );
 				pulses.forEach( function ( el ) { el.hidden = true; } );
 				var rows = document.querySelectorAll( '.bn-notif-row--unread' );
@@ -171,6 +181,9 @@ store( 'buddynext/notifications', {
 				// Rollback.
 				ctx.unreadCount = previous;
 				ctx.markedAll   = false;
+				if ( prevCounts ) {
+					ctx.tabCounts = prevCounts;
+				}
 				toast( 'Could not mark all as read.', 'error' );
 			}
 		},
@@ -196,7 +209,7 @@ store( 'buddynext/notifications', {
 				if ( ctx && ctx.unreadCount > 0 ) {
 					ctx.unreadCount = ctx.unreadCount - 1;
 				}
-				adjustUnreadTabBadges( -1, row.dataset.notifType );
+				adjustUnreadTabBadges( ctx, -1, row.dataset.notifType );
 			}
 
 			try {
@@ -217,7 +230,7 @@ store( 'buddynext/notifications', {
 					if ( ctx ) {
 						ctx.unreadCount = previous;
 					}
-					adjustUnreadTabBadges( 1, row ? row.dataset.notifType : '' );
+					adjustUnreadTabBadges( ctx, 1, row ? row.dataset.notifType : '' );
 				}
 				toast( 'Could not mark this notification as read.', 'error' );
 				return;
@@ -246,7 +259,7 @@ store( 'buddynext/notifications', {
 				if ( ctx && ctx.unreadCount > 0 ) {
 					ctx.unreadCount = ctx.unreadCount - 1;
 				}
-				adjustUnreadTabBadges( -1, row.dataset.notifType );
+				adjustUnreadTabBadges( ctx, -1, row.dataset.notifType );
 				if ( btn ) {
 					var parent = btn.parentElement;
 					btn.remove();
@@ -271,7 +284,7 @@ store( 'buddynext/notifications', {
 					ctx.unreadCount = previous;
 				}
 				if ( wasUnread ) {
-					adjustUnreadTabBadges( 1, row ? row.dataset.notifType : '' );
+					adjustUnreadTabBadges( ctx, 1, row ? row.dataset.notifType : '' );
 				}
 				toast( 'Could not mark this notification as read.', 'error' );
 			}
@@ -354,7 +367,7 @@ store( 'buddynext/notifications', {
 						if ( row.classList.contains( 'bn-notif-row--unread' ) ) {
 							row.classList.remove( 'bn-notif-row--unread' );
 							if ( ctx.unreadCount > 0 ) { ctx.unreadCount = ctx.unreadCount - 1; }
-							adjustUnreadTabBadges( -1, row.dataset.notifType );
+							adjustUnreadTabBadges( ctx, -1, row.dataset.notifType );
 						}
 					}
 					toast( 'Invitation accepted — you have joined the space.', 'success' );
@@ -405,7 +418,7 @@ store( 'buddynext/notifications', {
 						restFetch( '/' + notifId + '/read', { base: ctx.restUrl, nonce: ctx.nonce, method: 'POST', toastOnError: false } );
 						if ( row.classList.contains( 'bn-notif-row--unread' ) && ctx.unreadCount > 0 ) {
 							ctx.unreadCount = ctx.unreadCount - 1;
-							adjustUnreadTabBadges( -1, row.dataset.notifType );
+							adjustUnreadTabBadges( ctx, -1, row.dataset.notifType );
 						}
 					}
 					toast( 'Invitation declined.', 'info' );
@@ -452,104 +465,12 @@ store( 'buddynext/notifications', {
 			window.location.reload();
 		},
 
-		/**
-		 * Reactive filter-tab switch — no full page reload.
-		 *
-		 * Click handler on each .bn-tab anchor. Suppresses native navigation,
-		 * fetches the same URL with HX-Request: true so PageRouter returns the
-		 * raw template content (no theme chrome), parses the response, and
-		 * adopts the child nodes of the `[data-bn-notif-content]` region into
-		 * the current document. Updates the URL via history.pushState so
-		 * back/forward works, and keeps the Interactivity store's activeFilter
-		 * in sync.
-		 *
-		 * Same-origin only — the response comes from our own PageRouter, which
-		 * has already run every esc_* / esc_url / esc_html on the template.
-		 * We never inject foreign HTML.
-		 */
-		setFilter: async function ( event ) {
-			var ctx = getContext();
-			var tab = event && event.target ? event.target.closest( '[data-filter]' ) : null;
-			if ( ! tab || ! ctx ) { return; }
-
-			// Let cmd/ctrl + click open in a new tab as a regular anchor.
-			if ( event.metaKey || event.ctrlKey || event.shiftKey || event.altKey ) { return; }
-			event.preventDefault();
-
-			var filter = tab.dataset.filter || 'all';
-			if ( ctx.activeFilter === filter ) { return; }
-
-			var href = tab.getAttribute( 'href' ) || '';
-			if ( ! href ) { return; }
-
-			// Mark the active tab immediately for visual feedback.
-			var allTabs = document.querySelectorAll( '.bn-notif-tabs .bn-tab' );
-			allTabs.forEach( function ( t ) {
-				var isActive = ( t.dataset.filter === filter );
-				t.classList.toggle( 'is-active', isActive );
-				t.setAttribute( 'aria-selected', isActive ? 'true' : 'false' );
-				t.setAttribute( 'aria-current', isActive ? 'page' : 'false' );
-			} );
-
-			ctx.activeFilter = filter;
-
-			var contentEl = document.querySelector( '[data-bn-notif-content]' );
-			if ( contentEl ) {
-				contentEl.setAttribute( 'aria-busy', 'true' );
-			}
-
-			try {
-				var res = await fetch( href, {
-					method:  'GET',
-					credentials: 'same-origin',
-					headers: { 'HX-Request': 'true', 'X-Requested-With': 'XMLHttpRequest' },
-				} );
-				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
-				var html = await res.text();
-
-				// Parse the same-origin partial in an inert document so no
-				// script runs and resources do not pre-fetch. Adopt the
-				// children of the fresh content region into the current page.
-				var doc = ( new DOMParser() ).parseFromString( html, 'text/html' );
-				var fresh = doc.querySelector( '[data-bn-notif-content]' );
-				if ( fresh && contentEl ) {
-					// Drain old children, then adopt new ones. Avoids
-					// innerHTML so we never re-parse already-server-safe HTML
-					// through the live document.
-					while ( contentEl.firstChild ) {
-						contentEl.removeChild( contentEl.firstChild );
-					}
-					var node = fresh.firstChild;
-					while ( node ) {
-						var next = node.nextSibling;
-						contentEl.appendChild( document.adoptNode( node ) );
-						node = next;
-					}
-				}
-
-				// Replace URL without scroll jump.
-				if ( window.history && window.history.pushState ) {
-					window.history.pushState( { bnFilter: filter }, '', href );
-				}
-
-				// Pull the updated unread count from the new content's data
-				// attribute (set below in the template) so the badge stays
-				// in sync.
-				var freshCount = contentEl ? contentEl.getAttribute( 'data-unread-count' ) : null;
-				if ( freshCount !== null && ctx ) {
-					ctx.unreadCount = Number( freshCount ) || 0;
-				}
-			} catch ( _e ) {
-				// Fallback: full navigation.
-				window.location.href = href;
-				return;
-			} finally {
-				if ( contentEl ) {
-					contentEl.removeAttribute( 'aria-busy' );
-				}
-			}
-		},
-
+		// Filter-tab switching is handled entirely by the shell's `navigate`
+		// action (assets/js/shell/navigate.js): each .bn-tab is a real <a href>
+		// inside the data-wp-router-region="buddynext/main" region, so a click
+		// swaps that region via the Interactivity Router and the server
+		// re-renders the active tab + counts. The previous hand-rolled
+		// fetch + DOMParser + pushState SPA router was removed in favour of it.
 
 		refreshUnreadCount: async function () {
 			var ctx = getContext();

@@ -14,21 +14,21 @@ class ComposerStaticInitc535f1ffe9541d51d4e2f2d8e41d40e7
     );
 
     public static $prefixLengthsPsr4 = array (
-        'S' => 
+        'S' =>
         array (
             'SzepeViktor\\PHPStan\\WordPress\\' => 30,
         ),
-        'P' => 
+        'P' =>
         array (
             'PhpParser\\' => 10,
             'PHPCSStandards\\Composer\\Plugin\\Installers\\PHPCodeSniffer\\' => 57,
         ),
-        'D' => 
+        'D' =>
         array (
             'Doctrine\\Instantiator\\' => 22,
             'DeepCopy\\' => 9,
         ),
-        'B' => 
+        'B' =>
         array (
             'BuddyNext\\Tests\\' => 16,
             'BuddyNext\\' => 10,
@@ -36,38 +36,40 @@ class ComposerStaticInitc535f1ffe9541d51d4e2f2d8e41d40e7
     );
 
     public static $prefixDirsPsr4 = array (
-        'SzepeViktor\\PHPStan\\WordPress\\' => 
+        'SzepeViktor\\PHPStan\\WordPress\\' =>
         array (
             0 => __DIR__ . '/..' . '/szepeviktor/phpstan-wordpress/src',
         ),
-        'PhpParser\\' => 
+        'PhpParser\\' =>
         array (
             0 => __DIR__ . '/..' . '/nikic/php-parser/lib/PhpParser',
         ),
-        'PHPCSStandards\\Composer\\Plugin\\Installers\\PHPCodeSniffer\\' => 
+        'PHPCSStandards\\Composer\\Plugin\\Installers\\PHPCodeSniffer\\' =>
         array (
             0 => __DIR__ . '/..' . '/dealerdirect/phpcodesniffer-composer-installer/src',
         ),
-        'Doctrine\\Instantiator\\' => 
+        'Doctrine\\Instantiator\\' =>
         array (
             0 => __DIR__ . '/..' . '/doctrine/instantiator/src/Doctrine/Instantiator',
         ),
-        'DeepCopy\\' => 
+        'DeepCopy\\' =>
         array (
             0 => __DIR__ . '/..' . '/myclabs/deep-copy/src/DeepCopy',
         ),
-        'BuddyNext\\Tests\\' => 
+        'BuddyNext\\Tests\\' =>
         array (
             0 => __DIR__ . '/../..' . '/tests',
         ),
-        'BuddyNext\\' => 
+        'BuddyNext\\' =>
         array (
             0 => __DIR__ . '/../..' . '/includes',
         ),
     );
 
     public static $classMap = array (
+        'BuddyNext\\ActivityLog\\ActivityLogService' => __DIR__ . '/../..' . '/includes/ActivityLog/ActivityLogService.php',
         'BuddyNext\\Admin\\AdminHub' => __DIR__ . '/../..' . '/includes/Admin/AdminHub.php',
+        'BuddyNext\\Admin\\AdminNavIndex' => __DIR__ . '/../..' . '/includes/Admin/AdminNavIndex.php',
         'BuddyNext\\Admin\\AdminPageBase' => __DIR__ . '/../..' . '/includes/Admin/AdminPageBase.php',
         'BuddyNext\\Admin\\AppearanceTab' => __DIR__ . '/../..' . '/includes/Admin/AppearanceTab.php',
         'BuddyNext\\Admin\\EmailEditor' => __DIR__ . '/../..' . '/includes/Admin/EmailEditor.php',
@@ -131,6 +133,7 @@ class ComposerStaticInitc535f1ffe9541d51d4e2f2d8e41d40e7
         'BuddyNext\\Demo\\DemoCommand' => __DIR__ . '/../..' . '/includes/Demo/DemoCommand.php',
         'BuddyNext\\Demo\\DemoDataService' => __DIR__ . '/../..' . '/includes/Demo/DemoDataService.php',
         'BuddyNext\\Engagement\\SessionTracker' => __DIR__ . '/../..' . '/includes/Engagement/SessionTracker.php',
+        'BuddyNext\\Engagement\\StreakService' => __DIR__ . '/../..' . '/includes/Engagement/StreakService.php',
         'BuddyNext\\Feed\\BookmarkController' => __DIR__ . '/../..' . '/includes/Feed/BookmarkController.php',
         'BuddyNext\\Feed\\BookmarkService' => __DIR__ . '/../..' . '/includes/Feed/BookmarkService.php',
         'BuddyNext\\Feed\\ComposerDraftController' => __DIR__ . '/../..' . '/includes/Feed/ComposerDraftController.php',
@@ -144,6 +147,7 @@ class ComposerStaticInitc535f1ffe9541d51d4e2f2d8e41d40e7
         'BuddyNext\\Feed\\PollService' => __DIR__ . '/../..' . '/includes/Feed/PollService.php',
         'BuddyNext\\Feed\\PostController' => __DIR__ . '/../..' . '/includes/Feed/PostController.php',
         'BuddyNext\\Feed\\PostService' => __DIR__ . '/../..' . '/includes/Feed/PostService.php',
+        'BuddyNext\\Feed\\ScheduledPostsPublisher' => __DIR__ . '/../..' . '/includes/Feed/ScheduledPostsPublisher.php',
         'BuddyNext\\Feed\\ShareController' => __DIR__ . '/../..' . '/includes/Feed/ShareController.php',
         'BuddyNext\\Feed\\ShareService' => __DIR__ . '/../..' . '/includes/Feed/ShareService.php',
         'BuddyNext\\Feed\\SinglePostMeta' => __DIR__ . '/../..' . '/includes/Feed/SinglePostMeta.php',
@@ -168,6 +172,7 @@ class ComposerStaticInitc535f1ffe9541d51d4e2f2d8e41d40e7
         'BuddyNext\\Moderation\\ModerationListener' => __DIR__ . '/../..' . '/includes/Moderation/ModerationListener.php',
         'BuddyNext\\Moderation\\ModerationLogService' => __DIR__ . '/../..' . '/includes/Moderation/ModerationLogService.php',
         'BuddyNext\\Moderation\\ModerationService' => __DIR__ . '/../..' . '/includes/Moderation/ModerationService.php',
+        'BuddyNext\\Moderation\\PreModerationService' => __DIR__ . '/../..' . '/includes/Moderation/PreModerationService.php',
         'BuddyNext\\Moderation\\SafeguardService' => __DIR__ . '/../..' . '/includes/Moderation/SafeguardService.php',
         'BuddyNext\\Nav\\MenuRenderer' => __DIR__ . '/../..' . '/includes/Nav/MenuRenderer.php',
         'BuddyNext\\Nav\\NavOverrides' => __DIR__ . '/../..' . '/includes/Nav/NavOverrides.php',

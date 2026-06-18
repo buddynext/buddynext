@@ -34,6 +34,8 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 use BuddyNext\Core\PageRouter;
+use BuddyNext\Feed\PostService;
+use BuddyNext\Profile\AvatarService;
 
 $bn_post         = $post ?? array();
 $current_user_id = absint( $current_user_id ?? 0 );
@@ -66,42 +68,33 @@ $share_count     = absint( $bn_post['share_count'] ?? 0 );
 // Top-3 reaction types for the engagement-summary chip strip (v2 prototype
 // pattern: `<emoji> 24 · <emoji> 12 · <emoji> 8`). Skipped entirely when
 // the post has no reactions — no query overhead on engagement-less posts.
+// Ordering + counts both come from ReactionService (cached): top_reactions()
+// gives the canonical DESC order, get_counts() the per-slug totals — they share
+// the same cache key, so this is one query the first time and cache hits after.
 $top_reactions = array();
 if ( $reaction_count > 0 && $bn_post_id > 0 ) {
-	global $wpdb;
-	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$rows = $wpdb->get_results(
-		$wpdb->prepare(
-			"SELECT emoji, COUNT(*) AS n
-			   FROM {$wpdb->prefix}bn_reactions
-			  WHERE object_type = 'post' AND object_id = %d
-			  GROUP BY emoji
-			  ORDER BY n DESC, emoji ASC
-			  LIMIT 3",
-			$bn_post_id
-		),
-		ARRAY_A
-	);
-	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	foreach ( (array) $rows as $row ) {
+	$bn_reaction_svc    = buddynext_service( 'reactions' );
+	$bn_reaction_order  = $bn_reaction_svc->top_reactions( 'post', $bn_post_id, 3 );
+	$bn_reaction_counts = $bn_reaction_svc->get_counts( 'post', $bn_post_id );
+	foreach ( $bn_reaction_order as $bn_reaction_slug ) {
 		$top_reactions[] = array(
-			'slug'  => sanitize_key( (string) $row['emoji'] ),
-			'count' => (int) $row['n'],
+			'slug'  => sanitize_key( (string) $bn_reaction_slug ),
+			'count' => (int) ( $bn_reaction_counts[ $bn_reaction_slug ] ?? 0 ),
 		);
 	}
 }
-/**
- * Normalise a JSON-or-array column into an array.
- *
- * bn_posts stores media_ids and link_meta as JSON strings. Some callers decode
- * them before rendering, the feed query does not — so accept either and decode
- * a string here, otherwise a posted link preview rendered as an empty shell
- * (title/description/thumbnail all missing).
- *
- * @param mixed $value Raw column value (JSON string or already-decoded array).
- * @return array<mixed>
- */
 if ( ! function_exists( 'bn_post_card_to_array' ) ) {
+	/**
+	 * Normalise a JSON-or-array column into an array.
+	 *
+	 * The bn_posts table stores media_ids and link_meta as JSON strings. Some
+	 * callers decode them before rendering, the feed query does not — so accept
+	 * either and decode a string here, otherwise a posted link preview rendered as
+	 * an empty shell (title/description/thumbnail all missing).
+	 *
+	 * @param mixed $value Raw column value (JSON string or already-decoded array).
+	 * @return array<mixed>
+	 */
 	function bn_post_card_to_array( $value ): array {
 		if ( is_array( $value ) ) {
 			return $value;
@@ -124,19 +117,20 @@ $cw_type_raw = $bn_post['content_warning_type'] ?? '';
 $cw_type     = in_array( $cw_type_raw, array( 'nsfw', 'spoilers', 'violence', 'language' ), true ) ? $cw_type_raw : '';
 
 // ── Shared post (type='share' only) ─────────────────────────────────────────────
+// Hydrated via PostService::get() (the same accessor the REST controller and
+// single-post template use), so the embed reads canonical, decoded fields — no
+// raw SELECT, no JSON-decode workaround. filter_visible() gates it to published
+// posts the viewer may actually see (it enforces published-status, blocks,
+// secret-space, followers-only, private and author-suspension), so an embed for
+// a removed or hidden original collapses to the "no longer available" fallback.
 $shared_post    = null;
 $shared_post_id = absint( $bn_post['shared_post_id'] ?? 0 );
 if ( 'share' === $bn_post_type && $shared_post_id > 0 ) {
-	global $wpdb;
-	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$shared_post = $wpdb->get_row(
-		$wpdb->prepare(
-			"SELECT * FROM {$wpdb->prefix}bn_posts WHERE id = %d AND status = 'published' LIMIT 1",
-			$shared_post_id
-		),
-		ARRAY_A
-	);
-	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$bn_post_service = new PostService();
+	$bn_shared_ok    = in_array( $shared_post_id, $bn_post_service->filter_visible( array( $shared_post_id ), $current_user_id ), true );
+	if ( $bn_shared_ok ) {
+		$shared_post = $bn_post_service->get( $shared_post_id );
+	}
 }
 
 // ── Author ─────────────────────────────────────────────────────────────────────
@@ -146,13 +140,8 @@ $username     = $author ? $author->user_nicename : '';
 $avatar_url   = get_avatar_url( $post_author_id, array( 'size' => 68 ) );
 $profile_link = $post_author_id > 0 ? PageRouter::profile_url( $post_author_id ) : '#';
 
-// Initials fallback.
-$name_parts = array_filter( explode( ' ', trim( $display_name ) ) );
-if ( count( $name_parts ) >= 2 ) {
-	$initials = strtoupper( substr( (string) reset( $name_parts ), 0, 1 ) . substr( (string) end( $name_parts ), 0, 1 ) );
-} else {
-	$initials = strtoupper( substr( $display_name, 0, 2 ) );
-}
+// Initials fallback — shared canonical helper (supersedes the inline copy).
+$initials = AvatarService::initials_for( (string) $display_name );
 
 // Member type badge.
 $member_type_slug  = get_user_meta( $post_author_id, 'bn_member_type', true );
@@ -164,7 +153,7 @@ $post_time    = buddynext_time_ago( $created_at );
 $edited_label = $edited_at ? esc_html__( '(edited)', 'buddynext' ) : '';
 
 // ── Permissions ────────────────────────────────────────────────────────────────
-$is_own_post  = ( $current_user_id > 0 && $current_user_id === $post_author_id );
+$is_own_post = ( $current_user_id > 0 && $current_user_id === $post_author_id );
 
 // ── Connection degree (1st / 2nd) for the byline badge ──────────────────────────
 // Mirrors the degree pill already shipped on parts/profile-hero + parts/member-card.
@@ -210,7 +199,7 @@ if (
 	// Show the button only when NOT already following.
 	$byline_show_follow = ! $GLOBALS['bn_byline_follow_memo'][ $bn_follow_key ];
 }
-$is_admin     = ( $current_user_id > 0 && user_can( $current_user_id, 'manage_options' ) );
+$is_admin = ( $current_user_id > 0 && user_can( $current_user_id, 'manage_options' ) );
 
 // The Edit affordance must respect the same window the REST update path enforces
 // (PostService::update): a non-admin author may only edit within
@@ -225,14 +214,14 @@ if ( ! $is_admin ) {
 		$within_edit_window = $created_ts > 0 && ( time() - $created_ts ) <= $edit_window * MINUTE_IN_SECONDS;
 	}
 }
-$can_edit     = ( $is_own_post && $within_edit_window ) || $is_admin;
+$can_edit = ( $is_own_post && $within_edit_window ) || $is_admin;
 // Mirror the server (PostController::delete_post): deleting your own post is
 // always allowed; deleting anyone else's requires buddynext-feed/delete-any-post.
 // buddynext_can() already grants that to WP admins (manage_options bypass) AND
 // community moderators, so the affordance now shows for mods, not just admins.
-$can_delete   = $is_own_post || ( $current_user_id > 0 && buddynext_can( $current_user_id, 'buddynext-feed/delete-any-post' ) );
-$can_pin      = $is_own_post || $is_admin;
-$can_report   = ( $current_user_id > 0 && ! $is_own_post );
+$can_delete = $is_own_post || ( $current_user_id > 0 && buddynext_can( $current_user_id, 'buddynext-feed/delete-any-post' ) );
+$can_pin    = $is_own_post || $is_admin;
+$can_report = ( $current_user_id > 0 && ! $is_own_post );
 
 // Reactions are a site-owner-toggleable feature (Settings → Features, default on).
 // When the owner disables it the React button + emoji picker and the engagement
@@ -241,7 +230,7 @@ $can_report   = ( $current_user_id > 0 && ! $is_own_post );
 $bn_reactions_enabled = ! function_exists( 'buddynext_service' )
 	|| ! is_object( buddynext_service( 'features' ) )
 	|| buddynext_service( 'features' )->is_enabled( 'reactions' );
-$can_react    = ( $current_user_id > 0 && $bn_reactions_enabled );
+$can_react            = ( $current_user_id > 0 && $bn_reactions_enabled );
 
 // Comments are a site-owner-toggleable feature (Settings → Features, default on).
 // When the owner disables it the Comment button, the comment composer, and the
@@ -250,7 +239,7 @@ $can_react    = ( $current_user_id > 0 && $bn_reactions_enabled );
 $bn_comments_enabled = ! function_exists( 'buddynext_service' )
 	|| ! is_object( buddynext_service( 'features' ) )
 	|| buddynext_service( 'features' )->is_enabled( 'comments' );
-$can_comment  = ( $current_user_id > 0 && $bn_comments_enabled );
+$can_comment         = ( $current_user_id > 0 && $bn_comments_enabled );
 
 // Re-shares and bookmarks are site-owner toggles (BuddyNext → Social). When the
 // owner disables a feature the corresponding action control must disappear, not

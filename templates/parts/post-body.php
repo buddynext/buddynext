@@ -41,6 +41,7 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 use BuddyNext\Core\PageRouter;
+use BuddyNext\Profile\AvatarService;
 
 $args = array(
 	'bn_post'           => isset( $bn_post ) && is_array( $bn_post ) ? $bn_post : array(),
@@ -304,12 +305,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 			$orig_content        = $bn_shared_post['content'] ?? '';
 			$orig_post_url       = PageRouter::profile_url( (int) ( $bn_shared_post['user_id'] ?? 0 ) );
 				$orig_single_url = PageRouter::post_url( (int) ( $bn_shared_post['id'] ?? 0 ) );
-			$orig_parts          = array_filter( explode( ' ', trim( (string) $orig_name ) ) );
-			if ( count( $orig_parts ) >= 2 ) {
-				$orig_initials = strtoupper( substr( (string) reset( $orig_parts ), 0, 1 ) . substr( (string) end( $orig_parts ), 0, 1 ) );
-			} else {
-				$orig_initials = strtoupper( substr( (string) $orig_name, 0, 2 ) );
-			}
+			$orig_initials       = AvatarService::initials_for( (string) $orig_name );
 			?>
 			<blockquote class="bn-post-card__shared bn-post-card__shared-embed" role="article" aria-label="<?php esc_attr_e( 'Shared post', 'buddynext' ); ?>">
 				<div class="bn-post-card__shared-header">

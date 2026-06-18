@@ -28,8 +28,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use BuddyNext\Notifications\NotificationMessageService;
-
-global $wpdb;
+use BuddyNext\Notifications\NotificationService;
+use BuddyNext\Profile\AvatarService;
 
 // Guest gate is enforced upstream in PageRouter::dispatch_hub_template().
 $current_user_id = get_current_user_id();
@@ -41,33 +41,17 @@ if ( ! in_array( $active_filter, $allowed_filters, true ) ) {
 	$active_filter = 'all';
 }
 
-// Build WHERE clause for the active filter.
-$filter_sql    = '';
-$filter_types  = array();
-$filter_unread = ( 'unread' === $active_filter );
-if ( 'reaction' === $active_filter ) {
-	$filter_types = array( 'bn.post_reacted' );
-} elseif ( 'comment' === $active_filter ) {
-	$filter_types = array( 'bn.post_commented' );
-} elseif ( 'mention' === $active_filter ) {
-	$filter_types = array( 'bn.mention' );
-} elseif ( 'follow' === $active_filter ) {
-	$filter_types = array( 'bn.new_follower', 'bn.connection_accepted', 'bn.connection_requested' );
-} elseif ( 'space' === $active_filter ) {
-	$filter_types = array( 'bn.space_invite', 'bn.space_join_requested', 'bn.space_new_post' );
-} elseif ( 'message' === $active_filter ) {
-	$filter_types = array( 'bn.new_message' );
-}
-
-if ( ! empty( $filter_types ) ) {
-	$type_count = count( $filter_types );
-	$type_phs   = implode( ', ', array_fill( 0, $type_count, '%s' ) );
-	// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnquotedComplexPlaceholder,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-	$filter_sql = $wpdb->prepare( " AND n.type IN ($type_phs)", $filter_types );
-	// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnquotedComplexPlaceholder,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-} elseif ( $filter_unread ) {
-	$filter_sql = ' AND n.is_read = 0';
-}
+// Filter-key -> notification type list. Shared between the type-filtered fetch
+// below and the per-type unread tally (so the in-template SQL is gone but the
+// "which types belong to which tab" mapping stays declarative).
+$filter_type_map = array(
+	'reaction' => array( 'bn.post_reacted' ),
+	'comment'  => array( 'bn.post_commented' ),
+	'mention'  => array( 'bn.mention' ),
+	'follow'   => array( 'bn.new_follower', 'bn.connection_accepted', 'bn.connection_requested' ),
+	'space'    => array( 'bn.space_invite', 'bn.space_join_requested', 'bn.space_new_post' ),
+	'message'  => array( 'bn.new_message' ),
+);
 
 // Pagination (simple offset; cap at 25 per page).
 $bn_per_page = 25;
@@ -75,94 +59,114 @@ $bn_per_page = 25;
 $bn_paged  = isset( $_GET['paged'] ) ? max( 1, (int) sanitize_text_field( wp_unslash( $_GET['paged'] ) ) ) : 1;
 $bn_offset = ( $bn_paged - 1 ) * $bn_per_page;
 
-// Count total rows for pagination (filtered).
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$count_sql   = "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications AS n WHERE n.recipient_id = %d" . $filter_sql;
-$total_count = (int) $wpdb->get_var( $wpdb->prepare( $count_sql, $current_user_id ) );
+$notification_service = new NotificationService();
 
-$base_sql = "SELECT n.id, n.type, n.sender_id, n.object_id, n.object_type, n.group_key, n.group_count, n.is_read, n.created_at, n.data
-	 FROM {$wpdb->prefix}bn_notifications AS n
-	 WHERE n.recipient_id = %d"
-	. $filter_sql .
-	' ORDER BY n.created_at DESC LIMIT %d OFFSET %d';
-$rows     = $wpdb->get_results( $wpdb->prepare( $base_sql, $current_user_id, $bn_per_page, $bn_offset ) );
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+// Map the active filter tab onto the service's read-state filter. The 'unread'
+// tab maps to the read-state filter; the type tabs all list 'all' read-states
+// and are narrowed in PHP after fetch (the type set is small and capped at one
+// page, so this stays a single query + a cheap in-memory filter).
+$svc_filter     = ( 'unread' === $active_filter ) ? 'unread' : 'all';
+$active_types   = $filter_type_map[ $active_filter ] ?? array();
+$is_type_filter = ! empty( $active_types );
+
+// For type tabs we cannot push the type set through count_for_user(), so fetch
+// a generous page and count the matched rows; All / Unread use the service
+// count directly. Type tabs are inherently small.
+if ( $is_type_filter ) {
+	$listed      = $notification_service->list_for_user( $current_user_id, null, 200, 'all', 0 );
+	$all_items   = array_values(
+		array_filter(
+			$listed['items'] ?? array(),
+			static function ( array $item ) use ( $active_types ): bool {
+				return in_array( (string) ( $item['type'] ?? '' ), $active_types, true );
+			}
+		)
+	);
+	$total_count = count( $all_items );
+	$items       = array_slice( $all_items, $bn_offset, $bn_per_page );
+} else {
+	$listed      = $notification_service->list_for_user( $current_user_id, null, $bn_per_page, $svc_filter, $bn_offset );
+	$items       = $listed['items'] ?? array();
+	$total_count = $notification_service->count_for_user( $current_user_id, $svc_filter );
+}
+
+// Hydrated service rows are associative; the row/group parts read them as
+// objects, so coerce. They carry id/type/sender_id/object_id/object_type/
+// group_key/group_count/is_read/created_at — exactly what the parts render.
+$rows = array_map(
+	static function ( array $item ): object {
+		return (object) $item;
+	},
+	$items
+);
 
 $total_pages = (int) max( 1, ceil( $total_count / $bn_per_page ) );
 
-// Count unread per type for tab + sidebar badges.
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-$unread_counts = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT
-			SUM( CASE WHEN is_read = 0 THEN 1 ELSE 0 END ) AS total_unread,
-			SUM( CASE WHEN is_read = 0 AND type IN ('bn.post_reacted') THEN 1 ELSE 0 END ) AS reaction_unread,
-			SUM( CASE WHEN is_read = 0 AND type IN ('bn.post_commented') THEN 1 ELSE 0 END ) AS comment_unread,
-			SUM( CASE WHEN is_read = 0 AND type IN ('bn.mention') THEN 1 ELSE 0 END ) AS mention_unread,
-			SUM( CASE WHEN is_read = 0 AND type IN ('bn.new_follower','bn.connection_accepted','bn.connection_requested') THEN 1 ELSE 0 END ) AS follow_unread,
-			SUM( CASE WHEN is_read = 0 AND type IN ('bn.space_invite','bn.space_join_requested','bn.space_new_post') THEN 1 ELSE 0 END ) AS space_unread,
-			SUM( CASE WHEN is_read = 0 AND type IN ('bn.new_message') THEN 1 ELSE 0 END ) AS message_unread
-		 FROM {$wpdb->prefix}bn_notifications
-		 WHERE recipient_id = %d",
-		$current_user_id
-	),
-	ARRAY_A
-);
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+// Per-type unread counts -> tab + sidebar badges (replaces the in-template
+// conditional-SUM query). Aggregate the per-type map onto each filter tab.
+$type_unread = $notification_service->unread_counts_by_type( $current_user_id );
+$sum_types   = static function ( array $types ) use ( $type_unread ): int {
+	$sum = 0;
+	foreach ( $types as $t ) {
+		$sum += (int) ( $type_unread[ $t ] ?? 0 );
+	}
+	return $sum;
+};
 
-$counts          = ! empty( $unread_counts ) ? $unread_counts[0] : array();
-$total_unread    = (int) ( $counts['total_unread'] ?? 0 );
-$reaction_unread = (int) ( $counts['reaction_unread'] ?? 0 );
-$comment_unread  = (int) ( $counts['comment_unread'] ?? 0 );
-$mention_unread  = (int) ( $counts['mention_unread'] ?? 0 );
-$follow_unread   = (int) ( $counts['follow_unread'] ?? 0 );
-$space_unread    = (int) ( $counts['space_unread'] ?? 0 );
-$message_unread  = (int) ( $counts['message_unread'] ?? 0 );
+$total_unread    = array_sum( array_map( 'intval', $type_unread ) );
+$reaction_unread = $sum_types( $filter_type_map['reaction'] );
+$comment_unread  = $sum_types( $filter_type_map['comment'] );
+$mention_unread  = $sum_types( $filter_type_map['mention'] );
+$follow_unread   = $sum_types( $filter_type_map['follow'] );
+$space_unread    = $sum_types( $filter_type_map['space'] );
+$message_unread  = $sum_types( $filter_type_map['message'] );
 
-// Prefetch actor display names + avatar URLs in a single pass to avoid N+1.
-$actor_ids  = array_unique( array_filter( array_column( $rows ?? array(), 'sender_id' ) ) );
+// Message composer service: composes per-row copy/url/icon/tone/label AND
+// primes the WP user cache (compose_batch -> cache_users), so the actor avatar
+// lookups below resolve without N+1 get_userdata() round-trips.
+$message_service = null;
+if ( function_exists( 'buddynext_service' ) ) {
+	$message_service = buddynext_service( 'notification_message' );
+}
+if ( ! $message_service instanceof NotificationMessageService ) {
+	$message_service = new NotificationMessageService();
+}
+
+/**
+ * Compose every visible row up-front so render_row() is a pure presenter.
+ *
+ * @var array<int,array<string,mixed>> $composed_rows id => composed payload.
+ */
+$composed_rows = array();
+$composed_list = $message_service->compose_batch( $items );
+foreach ( $items as $i => $item ) {
+	$composed_rows[ (int) $item['id'] ] = $composed_list[ $i ] ?? array();
+}
+
+/**
+ * Build the actor avatar map (display name + initials + avatar URL) from the
+ * composed payloads. compose_batch() already primed the user cache, so
+ * get_avatar_url() is a cache hit; initials come from the shared AvatarService.
+ *
+ * @var array<int,array<string,string>> $actor_data
+ */
 $actor_data = array();
-foreach ( $actor_ids as $actor_id ) {
-	$actor_id   = (int) $actor_id;
-	$actor_user = get_userdata( $actor_id );
-	if ( ! $actor_user ) {
-		$actor_data[ $actor_id ] = array(
-			'display_name' => __( 'Someone', 'buddynext' ),
-			'initials'     => '?',
-			'avatar_url'   => '',
-		);
+foreach ( $composed_rows as $payload ) {
+	$actor_id = (int) ( $payload['actor_id'] ?? 0 );
+	if ( $actor_id <= 0 || isset( $actor_data[ $actor_id ] ) ) {
 		continue;
 	}
-	$display                 = $actor_user->display_name;
-	$first                   = mb_substr( $display, 0, 1 );
-	$last_word               = strrchr( $display, ' ' );
-	$second                  = $last_word ? mb_substr( ltrim( $last_word ), 0, 1 ) : '';
-	$initials                = strtoupper( $first . $second );
+	$name                    = (string) ( $payload['actor_name'] ?? '' );
 	$actor_data[ $actor_id ] = array(
-		'display_name' => $display,
-		'initials'     => $initials,
+		'display_name' => $name,
+		'initials'     => AvatarService::initials_for( $name ),
 		'avatar_url'   => get_avatar_url( $actor_id, array( 'size' => 56 ) ),
 	);
 }
 
-// Recent actors - last 6 distinct senders who triggered a notification for this user.
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-$recent_actor_ids = $wpdb->get_col(
-	$wpdb->prepare(
-		"SELECT sender_id
-		 FROM {$wpdb->prefix}bn_notifications
-		 WHERE recipient_id = %d AND sender_id > 0
-		 GROUP BY sender_id
-		 ORDER BY MAX(created_at) DESC
-		 LIMIT %d",
-		$current_user_id,
-		6
-	)
-);
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-
+// Recent actors - last 6 distinct senders who triggered a notification.
 $recent_actors = array();
-foreach ( $recent_actor_ids ?? array() as $actor_id ) {
+foreach ( $notification_service->recent_actor_ids( $current_user_id, 6 ) as $actor_id ) {
 	$actor_id = (int) $actor_id;
 	if ( isset( $actor_data[ $actor_id ] ) ) {
 		$recent_actors[ $actor_id ] = $actor_data[ $actor_id ];
@@ -172,13 +176,10 @@ foreach ( $recent_actor_ids ?? array() as $actor_id ) {
 	if ( ! $actor_user ) {
 		continue;
 	}
-	$display                    = $actor_user->display_name;
-	$first                      = mb_substr( $display, 0, 1 );
-	$last_word                  = strrchr( $display, ' ' );
-	$second                     = $last_word ? mb_substr( ltrim( $last_word ), 0, 1 ) : '';
+	$display                    = (string) $actor_user->display_name;
 	$recent_actors[ $actor_id ] = array(
 		'display_name' => $display,
-		'initials'     => strtoupper( $first . $second ),
+		'initials'     => AvatarService::initials_for( $display ),
 		'avatar_url'   => get_avatar_url( $actor_id, array( 'size' => 56 ) ),
 	);
 }
@@ -202,29 +203,6 @@ foreach ( $rows ?? array() as $row ) {
 	} else {
 		$groups['older'][] = $row;
 	}
-}
-
-// Resolve the message-composer service from the container if available, with
-// a direct instantiation fallback for partial bootstraps.
-$message_service = null;
-if ( function_exists( 'buddynext_service' ) ) {
-	$message_service = buddynext_service( 'notification_message' );
-}
-if ( ! $message_service instanceof NotificationMessageService ) {
-	$message_service = new NotificationMessageService();
-}
-
-/**
- * Compose every visible row up-front so render_row() is a pure presenter.
- *
- * Returns a map keyed by row id with the message + url + icon + tone + label.
- *
- * @var array<int,array<string,mixed>> $composed_rows
- */
-$composed_rows = array();
-foreach ( $rows ?? array() as $row_obj ) {
-	$row_array                               = (array) $row_obj;
-	$composed_rows[ (int) $row_array['id'] ] = $message_service->compose( $row_array );
 }
 
 /**
@@ -453,6 +431,20 @@ $initial_context = wp_json_encode(
 		'restUrl'      => rest_url( 'buddynext/v1/me/notifications' ),
 		'unreadCount'  => $total_unread,
 		'hasError'     => false,
+		// Per-filter unread counts power the reactive tab + sidebar badges
+		// (data-wp-text). markRead/markAllRead mutate these in place so the
+		// badges stay in step without a DOM paint loop. The server re-renders
+		// these fresh on every router navigation.
+		'tabCounts'    => array(
+			'all'      => $total_unread,
+			'unread'   => $total_unread,
+			'mention'  => $mention_unread,
+			'comment'  => $comment_unread,
+			'reaction' => $reaction_unread,
+			'follow'   => $follow_unread,
+			'space'    => $space_unread,
+			'message'  => $message_unread,
+		),
 	)
 );
 ?>
@@ -512,10 +504,7 @@ $initial_context = wp_json_encode(
 	);
 	?>
 
-	<div class="bn-notifs-main__content"
-		data-bn-notif-content
-		data-unread-count="<?php echo esc_attr( (string) $total_unread ); ?>"
-		data-active-filter="<?php echo esc_attr( $active_filter ); ?>">
+	<div class="bn-notifs-main__content">
 
 	<?php
 	$group_labels = array(

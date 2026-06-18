@@ -49,8 +49,6 @@ if ( ! function_exists( 'bn_space_category_icon' ) ) {
 	}
 }
 
-global $wpdb;
-
 // ── Resolve space ─────────────────────────────────────────────────────────────
 
 $space_id = isset( $space_id ) ? absint( $space_id ) : 0;
@@ -74,24 +72,46 @@ if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/manage-settings',
 	return;
 }
 
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$space = $wpdb->get_row(
-	$wpdb->prepare(
-		"SELECT s.*, c.name AS category_name, c.slug AS category_slug
-		FROM {$wpdb->prefix}bn_spaces s
-		LEFT JOIN {$wpdb->prefix}bn_space_categories c ON c.id = s.category_id
-		WHERE s.id = %d LIMIT 1",
-		$space_id
-	)
-);
+// Services own every read/write below; the template holds no SQL. The
+// settings parts expect `$space` as an object carrying the joined
+// `category_name`/`category_slug`, so each fresh load runs through this
+// closure: SpaceService::get() (canonical hydrate + cache) enriched with the
+// category row via SpaceCategoryService, then cast to an object.
+$bn_space_service    = new \BuddyNext\Spaces\SpaceService();
+$bn_category_service = new \BuddyNext\Spaces\SpaceCategoryService();
+
+$bn_load_space = static function ( int $sid ) use ( $bn_space_service, $bn_category_service ): ?object {
+	$row = $bn_space_service->get( $sid );
+	if ( null === $row ) {
+		return null;
+	}
+	$row['category_name'] = null;
+	$row['category_slug'] = null;
+	if ( ! empty( $row['category_id'] ) ) {
+		$cat = $bn_category_service->get_by_id( (int) $row['category_id'] );
+		if ( null !== $cat ) {
+			$row['category_name'] = $cat['name'] ?? null;
+			$row['category_slug'] = $cat['slug'] ?? null;
+		}
+	}
+	return (object) $row;
+};
+
+$space = $bn_load_space( $space_id );
 
 if ( ! $space ) {
 	wp_die( esc_html__( 'Space not found.', 'buddynext' ) );
 }
 
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$categories = $wpdb->get_results(
-	"SELECT id, name, slug FROM {$wpdb->prefix}bn_space_categories ORDER BY name ASC"
+// Category options for the General panel's <select> — the part reads each row
+// as an object (`->id`, `->name`), so map the service arrays accordingly.
+$categories = array_map(
+	static fn( array $c ): object => (object) array(
+		'id'   => (int) ( $c['id'] ?? 0 ),
+		'name' => (string) ( $c['name'] ?? '' ),
+		'slug' => (string) ( $c['slug'] ?? '' ),
+	),
+	$bn_category_service->get_all()
 );
 
 // ── Active settings tab ───────────────────────────────────────────────────────
@@ -153,26 +173,14 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		}
 
 		if ( ! empty( $update_data ) ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->update(
-				$wpdb->prefix . 'bn_spaces',
-				$update_data,
-				array( 'id' => $space_id ),
-				null,
-				array( '%d' )
-			);
-
-			// Bust SpaceService caches so subsequent reads (incl. the re-fetch
-			// below and the next page load) reflect the new values.
-			wp_cache_delete( "space_{$space_id}", 'buddynext_spaces' );
-			if ( isset( $space->slug ) && '' !== (string) $space->slug ) {
-				wp_cache_delete( "space_slug_{$space->slug}", 'buddynext_spaces' );
-			}
+			// Route through the service: validation, cache invalidation and the
+			// buddynext_space_updated hook all run here (the raw $wpdb->update
+			// path skipped every one of them).
+			$bn_space_service->update( $space_id, get_current_user_id(), $update_data );
 		}
 
-		// Re-fetch fresh space data.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$space       = $wpdb->get_row( $wpdb->prepare( "SELECT s.*, c.name AS category_name, c.slug AS category_slug FROM {$wpdb->prefix}bn_spaces s LEFT JOIN {$wpdb->prefix}bn_space_categories c ON c.id = s.category_id WHERE s.id = %d LIMIT 1", $space_id ) );
+		// Re-fetch fresh space data through the service (cache busted above).
+		$space       = $bn_load_space( $space_id );
 		$save_notice = 'success';
 	}
 }
@@ -210,21 +218,12 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_transfer_nonce'] ) ) 
 		if ( $bn_new_owner > 0 && $bn_new_owner !== (int) $space->owner_id ) {
 			$bn_xfer_service = new \BuddyNext\Spaces\SpaceMemberService();
 			if ( $bn_xfer_service->is_member( $space_id, $bn_new_owner ) ) {
-				// Demote current owner to member, promote new owner.
-				$bn_xfer_service->change_role( $space_id, (int) $space->owner_id, 'member', get_current_user_id() );
-				$bn_xfer_service->change_role( $space_id, $bn_new_owner, 'owner', get_current_user_id() );
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$wpdb->update(
-					$wpdb->prefix . 'bn_spaces',
-					array( 'owner_id' => $bn_new_owner ),
-					array( 'id' => $space_id ),
-					array( '%d' ),
-					array( '%d' )
-				);
-				wp_cache_delete( "space_{$space_id}", 'buddynext_spaces' );
+				// Single service call: it demotes the current owner, promotes the
+				// new owner (both via change_role), updates bn_spaces.owner_id,
+				// busts the cache and fires buddynext_space_ownership_transferred.
+				$bn_space_service->transfer_ownership( $space_id, $bn_new_owner, get_current_user_id() );
 				$save_notice = 'success';
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$space = $wpdb->get_row( $wpdb->prepare( "SELECT s.*, c.name AS category_name, c.slug AS category_slug FROM {$wpdb->prefix}bn_spaces s LEFT JOIN {$wpdb->prefix}bn_space_categories c ON c.id = s.category_id WHERE s.id = %d LIMIT 1", $space_id ) );
+				$space       = $bn_load_space( $space_id );
 			} else {
 				$save_notice = 'error';
 			}
@@ -279,31 +278,19 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_members_nonce'] ) ) {
 			$acting_user_id = get_current_user_id();
 
 			if ( $target_user && 'promote' === $member_action ) {
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$wpdb->update(
-					$wpdb->prefix . 'bn_space_members',
-					array( 'role' => 'moderator' ),
-					array(
-						'space_id' => $space_id,
-						'user_id'  => $target_user,
-					),
-					array( '%s' ),
-					array( '%d', '%d' )
-				);
-				$save_notice = 'success';
+				// change_role validates the role + acting permission, busts the
+				// member cache and fires the role-change hook (the raw UPDATE did none).
+				$promote_result = $member_service->change_role( $space_id, $target_user, 'moderator', $acting_user_id );
+				$save_notice    = is_wp_error( $promote_result ) ? 'error' : 'success';
+				if ( is_wp_error( $promote_result ) ) {
+					$save_error_message = $promote_result->get_error_message();
+				}
 			} elseif ( $target_user && 'demote' === $member_action ) {
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$wpdb->update(
-					$wpdb->prefix . 'bn_space_members',
-					array( 'role' => 'member' ),
-					array(
-						'space_id' => $space_id,
-						'user_id'  => $target_user,
-					),
-					array( '%s' ),
-					array( '%d', '%d' )
-				);
-				$save_notice = 'success';
+				$demote_result = $member_service->change_role( $space_id, $target_user, 'member', $acting_user_id );
+				$save_notice   = is_wp_error( $demote_result ) ? 'error' : 'success';
+				if ( is_wp_error( $demote_result ) ) {
+					$save_error_message = $demote_result->get_error_message();
+				}
 			} elseif ( $target_user && 'remove' === $member_action ) {
 				$remove_result = $member_service->remove( $space_id, $target_user, $acting_user_id );
 				$save_notice   = ( ! is_wp_error( $remove_result ) ) ? 'success' : 'error';
@@ -350,18 +337,38 @@ $mod_banned_words = (string) get_option( 'bn_space_' . $space_id . '_banned_word
 // Notifications option.
 $default_notification_pref = (string) get_option( 'bn_space_' . $space_id . '_default_notification_pref', 'all' );
 
-// Members list — always fetched so members tab renders without conditional query.
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$space_members = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT sm.user_id, sm.role, sm.status, u.display_name, u.user_login, u.user_email
-		FROM {$wpdb->prefix}bn_space_members sm
-		INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id
-		WHERE sm.space_id = %d AND sm.status = 'active'
-		ORDER BY FIELD(sm.role,'owner','moderator','member'), u.display_name ASC
-		LIMIT 200",
-		$space_id
-	)
+// Members list — always fetched so the members tab renders without a
+// conditional query. SpaceMemberService::get_members() returns the active
+// roster (limit 200) as arrays; the members part reads each row as an object
+// (`->user_id`, `->role`, `->display_name`, `->user_login`), so map to objects,
+// using user_nicename as the @handle. Re-group owner → moderator → member in
+// PHP to keep the previous visual order (the service orders by join date).
+$bn_member_service = new \BuddyNext\Spaces\SpaceMemberService();
+$bn_member_rows    = $bn_member_service->get_members( $space_id, get_current_user_id(), 200 );
+$bn_role_rank      = array(
+	'owner'     => 0,
+	'moderator' => 1,
+	'member'    => 2,
+);
+usort(
+	$bn_member_rows,
+	static function ( array $a, array $b ) use ( $bn_role_rank ): int {
+		$ra = $bn_role_rank[ $a['role'] ?? 'member' ] ?? 3;
+		$rb = $bn_role_rank[ $b['role'] ?? 'member' ] ?? 3;
+		if ( $ra !== $rb ) {
+			return $ra <=> $rb;
+		}
+		return strcasecmp( (string) ( $a['display_name'] ?? '' ), (string) ( $b['display_name'] ?? '' ) );
+	}
+);
+$space_members = array_map(
+	static fn( array $m ): object => (object) array(
+		'user_id'      => (int) ( $m['user_id'] ?? 0 ),
+		'role'         => (string) ( $m['role'] ?? 'member' ),
+		'display_name' => (string) ( $m['display_name'] ?? '' ),
+		'user_login'   => (string) ( $m['user_nicename'] ?? '' ),
+	),
+	$bn_member_rows
 );
 
 $space_url     = buddynext_space_url( $space->slug ?? '' );
@@ -641,13 +648,14 @@ foreach ( $builtin_tabs as $bn_t ) {
 
 		// Danger: build eligible-new-owner list lazily, then register the row.
 		if ( 'danger' === $settings_tab ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$bn_xfer_candidates  = $wpdb->get_results(
-				$wpdb->prepare(
-					"SELECT sm.user_id, u.display_name FROM {$wpdb->prefix}bn_space_members sm INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id WHERE sm.space_id = %d AND sm.status = 'active' AND sm.user_id != %d ORDER BY u.display_name ASC LIMIT 200",
-					$space_id,
-					(int) $space->owner_id
-				)
+			// transfer_candidates() returns every active member except the owner,
+			// joined to wp_users. Map to objects for the danger part's <select>.
+			$bn_xfer_candidates  = array_map(
+				static fn( array $c ): object => (object) array(
+					'user_id'      => (int) ( $c['user_id'] ?? 0 ),
+					'display_name' => (string) ( $c['display_name'] ?? '' ),
+				),
+				$bn_member_service->transfer_candidates( $space_id, (int) $space->owner_id )
 			);
 			$bn_panels['danger'] = array(
 				'parts/space-settings-panel-danger.php',

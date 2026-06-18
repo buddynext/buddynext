@@ -18,8 +18,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-global $wpdb;
-
 // ── Permission gate ───────────────────────────────────────────────────────────
 
 if ( ! current_user_can( 'manage_options' ) && ! buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate' ) ) {
@@ -34,97 +32,33 @@ $bn_admin_user   = get_userdata( $current_user_id );
 $admin_section = isset( $_GET['bn_admin'] ) ? sanitize_key( wp_unslash( $_GET['bn_admin'] ) ) : 'overview'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $admin_base    = buddynext_community_admin_url();
 
-// ── Platform stats ────────────────────────────────────────────────────────────
+// ── Platform stats (consolidated via AdminHub::overview_stats) ─────────────────
 
-// Total members.
-$total_members = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->users}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+$bn_ca_stats         = \BuddyNext\Admin\AdminHub::overview_stats();
+$total_members       = (int) $bn_ca_stats['members_total'];
+$new_today           = (int) $bn_ca_stats['members_new_today'];
+$active_spaces       = (int) $bn_ca_stats['active_spaces'];
+$open_reports        = (int) $bn_ca_stats['open_reports'];
+$urgent_reports      = (int) $bn_ca_stats['urgent_reports'];
+$posts_today         = (int) $bn_ca_stats['posts_today'];
+$posts_pct           = (int) $bn_ca_stats['posts_pct'];
+$total_pending_joins = (int) $bn_ca_stats['pending_joins'];
 
-// New members today.
-$today_start = gmdate( 'Y-m-d 00:00:00' );
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$new_today = (int) $wpdb->get_var(
-	$wpdb->prepare(
-		"SELECT COUNT(*) FROM {$wpdb->users} WHERE user_registered >= %s",
-		$today_start
-	)
-);
+// ── Recent signups (WP-native, registration-ordered) ──────────────────────────
 
-// Active spaces.
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$active_spaces = (int) $wpdb->get_var(
-	"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces"
-);
-
-// Spaces pending approval — bn_spaces has no approval-state column; always 0 until schema adds one.
-$pending_spaces = 0;
-
-// Open reports.
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$open_reports = (int) $wpdb->get_var(
-	"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE status = 'pending'"
-);
-
-// Urgent (high reporter count) reports.
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$urgent_reports = (int) $wpdb->get_var(
-	"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports r WHERE r.status = 'pending' AND ( SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE object_type = r.object_type AND object_id = r.object_id ) >= 3"
-);
-
-// Posts today.
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$posts_today = (int) $wpdb->get_var(
-	$wpdb->prepare(
-		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE status = 'published' AND created_at >= %s",
-		$today_start
-	)
-);
-
-// Posts yesterday for comparison.
-$yesterday_start = gmdate( 'Y-m-d 00:00:00', strtotime( '-1 day' ) );
-$yesterday_end   = gmdate( 'Y-m-d 23:59:59', strtotime( '-1 day' ) );
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$posts_yesterday = (int) $wpdb->get_var(
-	$wpdb->prepare(
-		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE status = 'published' AND created_at BETWEEN %s AND %s",
-		$yesterday_start,
-		$yesterday_end
-	)
-);
-
-// All pending space join requests.
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$total_pending_joins = (int) $wpdb->get_var(
-	"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members WHERE status = 'pending'"
-);
-
-// ── Recent signups ────────────────────────────────────────────────────────────
-
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$recent_signups = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT ID, display_name, user_email, user_registered
-		FROM {$wpdb->users}
-		ORDER BY user_registered DESC
-		LIMIT %d",
-		10
+$recent_signups = get_users(
+	array(
+		'orderby' => 'registered',
+		'order'   => 'DESC',
+		'number'  => 10,
+		'fields'  => array( 'ID', 'display_name', 'user_email', 'user_registered' ),
 	)
 );
 
 // ── Pending space join requests (cross-space) ─────────────────────────────────
 
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$pending_joins = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT sm.user_id, sm.space_id, sm.joined_at, u.display_name AS member_name, s.name AS space_name, s.slug AS space_slug
-		FROM {$wpdb->prefix}bn_space_members sm
-		INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id
-		INNER JOIN {$wpdb->prefix}bn_spaces s ON s.id = sm.space_id
-		WHERE sm.status = 'pending'
-		ORDER BY sm.joined_at ASC
-		LIMIT %d",
-		10
-	)
-);
+$bn_ca_spaces  = buddynext_service( 'spaces' );
+$pending_joins = $bn_ca_spaces->get_pending_join_requests_all( 10 );
 
 // ── Pending moderation appeals (suspension appeals awaiting review) ───────────
 
@@ -153,66 +87,22 @@ if ( ! empty( $bn_appeal_user_ids ) ) {
 }
 $bn_appeal_susps = $bn_ca_mod->get_suspensions_by_ids( $bn_appeal_susp_ids );
 
-// ── Open reports (cross-space) ────────────────────────────────────────────────
+// ── Open reports (cross-space, consolidated per content group) ─────────────────
 
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$report_rows = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT r.id, r.reason, r.created_at, s.name AS space_name,
-		        ( SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE object_type = r.object_type AND object_id = r.object_id ) AS reporter_count
-		FROM {$wpdb->prefix}bn_reports r
-		LEFT JOIN {$wpdb->prefix}bn_spaces s ON s.id = r.space_id
-		WHERE r.status = 'pending'
-		ORDER BY reporter_count DESC, r.created_at ASC
-		LIMIT %d",
-		10
+$bn_ca_queue = $bn_ca_mod->get_queue(
+	array(
+		'per_page' => 10,
+		'page'     => 1,
 	)
 );
+$report_rows = $bn_ca_queue['items'];
 
 // ── Recent activity log (site-wide) ──────────────────────────────────────────
 
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$activity_rows = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT al.action, al.object_type, al.object_id, al.created_at, u.display_name AS actor_name
-		FROM {$wpdb->prefix}bn_activity_log al
-		LEFT JOIN {$wpdb->users} u ON u.ID = al.user_id
-		ORDER BY al.created_at DESC
-		LIMIT %d",
-		20
-	)
-);
+$bn_ca_log     = buddynext_service( 'activity_log' );
+$activity_rows = $bn_ca_log->recent( 20 );
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-if ( ! function_exists( 'bn_initials' ) ) {
-	/**
-	 * Return initials (up to 2 chars) from a display name.
-	 *
-	 * @param string $name Full display name.
-	 * @return string Uppercase initials.
-	 */
-	function bn_initials( string $name ): string {
-		$parts = array_filter( explode( ' ', trim( $name ) ) );
-		if ( count( $parts ) >= 2 ) {
-			return strtoupper( mb_substr( $parts[0], 0, 1 ) . mb_substr( end( $parts ), 0, 1 ) );
-		}
-		return strtoupper( mb_substr( $name, 0, 2 ) );
-	}
-}
-
-if ( ! function_exists( 'bn_avatar_color' ) ) {
-	/**
-	 * Return a deterministic avatar background colour based on a user id.
-	 *
-	 * @param int $user_id WordPress user ID.
-	 * @return string CSS hex colour.
-	 */
-	function bn_avatar_color( int $user_id ): string {
-		$colors = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#d97706' );
-		return $colors[ $user_id % count( $colors ) ];
-	}
-}
 
 if ( ! function_exists( 'bn_time_diff' ) ) {
 	/**
@@ -266,10 +156,6 @@ if ( ! function_exists( 'bn_report_severity' ) ) {
 		return 'low';
 	}
 }
-
-$posts_pct = $posts_yesterday > 0
-	? (int) round( ( ( $posts_today - $posts_yesterday ) / $posts_yesterday ) * 100 )
-	: 0;
 
 /**
  * Fires before the community-admin inner content.
@@ -411,22 +297,7 @@ $posts_pct_abs = abs( $posts_pct );
 				<div class="bn-stat" role="listitem">
 					<div class="bn-stat__label"><?php esc_html_e( 'Active spaces', 'buddynext' ); ?></div>
 					<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $active_spaces ) ); ?></div>
-					<?php if ( $pending_spaces > 0 ) : ?>
-						<div class="bn-stat__delta" data-trend="flat">
-							<?php buddynext_icon( 'alert-triangle' ); ?>
-							<span>
-								<?php
-								printf(
-									/* translators: %s: number of spaces pending approval. */
-									esc_html__( '%s pending approval', 'buddynext' ),
-									esc_html( number_format_i18n( $pending_spaces ) )
-								);
-								?>
-							</span>
-						</div>
-					<?php else : ?>
-						<div class="bn-stat__delta" data-trend="flat"><?php esc_html_e( 'No pending', 'buddynext' ); ?></div>
-					<?php endif; ?>
+					<div class="bn-stat__delta" data-trend="flat"><?php esc_html_e( 'across the community', 'buddynext' ); ?></div>
 				</div>
 
 				<div class="bn-stat" role="listitem">
@@ -548,10 +419,10 @@ $posts_pct_abs = abs( $posts_pct );
 							if ( $displayed >= $show_limit ) {
 								break;
 							}
-							$rpt_count    = (int) ( $rpt->reporter_count ?? 1 );
+							$rpt_count    = (int) ( $rpt['reporter_count'] ?? 1 );
 							$rpt_severity = bn_report_severity( $rpt_count );
-							$rpt_reason   = ucfirst( (string) ( $rpt->reason ?? __( 'Report', 'buddynext' ) ) );
-							$rpt_ts       = isset( $rpt->created_at ) ? (int) strtotime( (string) $rpt->created_at . ' UTC' ) : 0;
+							$rpt_reason   = ucfirst( (string) ( $rpt['reason'] ?? __( 'Report', 'buddynext' ) ) );
+							$rpt_ts       = ! empty( $rpt['created_at'] ) ? (int) strtotime( (string) $rpt['created_at'] . ' UTC' ) : 0;
 							$rpt_iso      = $rpt_ts ? gmdate( DATE_ATOM, $rpt_ts ) : '';
 							$rpt_time     = $rpt_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( $rpt_ts, time() ) ) : '';
 							++$displayed;
@@ -583,7 +454,7 @@ $posts_pct_abs = abs( $posts_pct );
 										add_query_arg(
 											array(
 												'bn_admin' => 'reports',
-												'bn_report_id' => (int) $rpt->id,
+												'bn_report_id' => (int) $rpt['id'],
 											),
 											$admin_base
 										)
@@ -645,7 +516,7 @@ $posts_pct_abs = abs( $posts_pct );
 							?>
 							<div class="bn-ca-appeal" data-appeal-id="<?php echo esc_attr( (string) $ap_id ); ?>" data-wp-context="<?php echo esc_attr( (string) $ap_ctx ); ?>">
 								<div class="bn-ca-appeal__head">
-									<span class="bn-avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( bn_initials( $ap_name ) ); ?></span>
+									<span class="bn-avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( \BuddyNext\Profile\AvatarService::initials_for( $ap_name ) ); ?></span>
 									<div class="bn-ca-appeal__who">
 										<a class="bn-ca-appeal__name" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::profile_url( $ap_uid ) ); ?>"><?php echo esc_html( $ap_name ); ?></a>
 										<span class="bn-ca-appeal__meta"><?php echo esc_html( $ap_when ); ?></span>
@@ -698,11 +569,11 @@ $posts_pct_abs = abs( $posts_pct );
 					<?php else : ?>
 						<?php foreach ( $pending_joins as $join ) : ?>
 							<?php
-							$j_uid    = (int) $join->user_id;
-							$j_sid    = (int) $join->space_id;
-							$j_member = (string) ( $join->member_name ?? __( 'Member', 'buddynext' ) );
-							$j_space  = (string) ( $join->space_name ?? __( 'Space', 'buddynext' ) );
-							$j_inits  = bn_initials( $j_member );
+							$j_uid    = (int) $join['user_id'];
+							$j_sid    = (int) $join['space_id'];
+							$j_member = '' !== (string) ( $join['member_name'] ?? '' ) ? (string) $join['member_name'] : __( 'Member', 'buddynext' );
+							$j_space  = '' !== (string) ( $join['space_name'] ?? '' ) ? (string) $join['space_name'] : __( 'Space', 'buddynext' );
+							$j_inits  = \BuddyNext\Profile\AvatarService::initials_for( $j_member );
 							?>
 							<div class="bn-ca-row">
 								<span class="bn-avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( $j_inits ); ?></span>
@@ -763,8 +634,8 @@ $posts_pct_abs = abs( $posts_pct );
 						<?php foreach ( $recent_signups as $signup ) : ?>
 							<?php
 							$su_uid   = (int) $signup->ID;
-							$su_name  = (string) ( $signup->display_name ?? __( 'Member', 'buddynext' ) );
-							$su_init  = bn_initials( $su_name );
+							$su_name  = '' !== (string) ( $signup->display_name ?? '' ) ? (string) $signup->display_name : __( 'Member', 'buddynext' );
+							$su_init  = \BuddyNext\Profile\AvatarService::initials_for( $su_name );
 							$su_email = (string) ( $signup->user_email ?? '' );
 							$su_ts    = isset( $signup->user_registered ) ? (int) strtotime( (string) $signup->user_registered ) : 0;
 							$su_iso   = $su_ts ? gmdate( DATE_ATOM, $su_ts ) : '';
@@ -812,12 +683,13 @@ $posts_pct_abs = abs( $posts_pct );
 						<?php else : ?>
 							<?php foreach ( $activity_rows as $act ) : ?>
 								<?php
-								$act_action = (string) ( $act->action ?? 'note' );
+								$act_action = '' !== (string) ( $act['action'] ?? '' ) ? (string) $act['action'] : 'note';
 								$act_icon   = bn_activity_icon( $act_action );
-								$act_desc   = isset( $act->action, $act->object_type )
-									? ucfirst( str_replace( '_', ' ', (string) $act->action ) ) . ' (' . (string) $act->object_type . ')'
+								$act_type   = (string) ( $act['object_type'] ?? '' );
+								$act_desc   = '' !== (string) ( $act['action'] ?? '' )
+									? ucfirst( str_replace( '_', ' ', (string) $act['action'] ) ) . ( '' !== $act_type ? ' (' . $act_type . ')' : '' )
 									: '';
-								$act_ts     = isset( $act->created_at ) ? (int) strtotime( (string) $act->created_at ) : 0;
+								$act_ts     = ! empty( $act['created_at'] ) ? (int) strtotime( (string) $act['created_at'] ) : 0;
 								$act_iso    = $act_ts ? gmdate( DATE_ATOM, $act_ts ) : '';
 								$act_meta   = $act_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( $act_ts, time() ) ) : '';
 								$act_report = ( 'post_flagged' === $act_action );

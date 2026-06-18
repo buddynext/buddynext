@@ -1095,6 +1095,72 @@ class SpaceService {
 	}
 
 	/**
+	 * Count pending join requests across every space (site-wide).
+	 *
+	 * The cross-space counterpart to {@see count_pending_joins()}, for the
+	 * community-admin overview where a single manager triages requests from all
+	 * spaces in one stream.
+	 *
+	 * @return int
+	 */
+	public function count_pending_joins_all(): int {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members WHERE status = 'pending'"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Return pending join requests across every space (site-wide), enriched with
+	 * member and space identity in one query so the cross-space admin queue
+	 * renders without a per-row lookup.
+	 *
+	 * The cross-space counterpart to {@see get_pending_join_requests()}; ordered
+	 * oldest-first so the longest-waiting request surfaces at the top.
+	 *
+	 * @param int $limit Max rows to return. Capped at 100.
+	 * @return array<int, array{user_id:int, space_id:int, requested_at:string, member_name:string, space_name:string, space_slug:string}>
+	 */
+	public function get_pending_join_requests_all( int $limit = 10 ): array {
+		global $wpdb;
+
+		$limit = max( 1, min( 100, $limit ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT sm.user_id, sm.space_id, sm.joined_at,
+				        u.display_name AS member_name,
+				        s.name AS space_name, s.slug AS space_slug
+				 FROM {$wpdb->prefix}bn_space_members sm
+				 INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id
+				 INNER JOIN {$wpdb->prefix}bn_spaces s ON s.id = sm.space_id
+				 WHERE sm.status = 'pending'
+				 ORDER BY sm.joined_at ASC
+				 LIMIT %d",
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map(
+			static fn( $r ) => array(
+				'user_id'      => (int) $r['user_id'],
+				'space_id'     => (int) $r['space_id'],
+				'requested_at' => (string) $r['joined_at'],
+				'member_name'  => (string) $r['member_name'],
+				'space_name'   => (string) $r['space_name'],
+				'space_slug'   => (string) $r['space_slug'],
+			),
+			(array) $rows
+		);
+	}
+
+	/**
 	 * Hydrate a raw DB row into a typed space array.
 	 *
 	 * @param array $row Raw ARRAY_A row from bn_spaces.
