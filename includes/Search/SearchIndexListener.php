@@ -54,6 +54,22 @@ class SearchIndexListener implements ListenerInterface {
 	}
 
 	/**
+	 * Map a space's `type` to a search-index `visibility`.
+	 *
+	 * bn_spaces.type is enum('open','private','secret'); only 'open' spaces are
+	 * publicly searchable. Both 'private' and 'secret' must index as private so
+	 * SearchService's `visibility = 'public'` filter excludes them from guest /
+	 * non-member results. Centralised here so the indexing call sites cannot
+	 * drift out of sync again.
+	 *
+	 * @param string $type Space type.
+	 * @return string 'public' or 'private'.
+	 */
+	private static function space_visibility( string $type ): string {
+		return 'open' === $type ? 'public' : 'private';
+	}
+
+	/**
 	 * Handle buddynext_index_user — index or re-index a single user.
 	 *
 	 * @param int $user_id User ID to index.
@@ -216,7 +232,7 @@ class SearchIndexListener implements ListenerInterface {
 			return;
 		}
 
-		$visibility = 'secret' === $row['type'] ? 'private' : 'public';
+		$visibility = self::space_visibility( (string) $row['type'] );
 		$owner_id   = (int) $row['owner_id'];
 		$title      = (string) $row['name'];
 		$content    = wp_strip_all_tags( (string) ( $row['description'] ?? '' ) );
@@ -328,7 +344,7 @@ class SearchIndexListener implements ListenerInterface {
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 
 			foreach ( (array) $space_rows as $space_row ) {
-				$visibility = 'secret' === $space_row['type'] ? 'private' : 'public';
+				$visibility = self::space_visibility( (string) $space_row['type'] );
 				$search_service->index(
 					'space',
 					(int) $space_row['id'],

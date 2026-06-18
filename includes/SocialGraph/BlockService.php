@@ -34,6 +34,18 @@ class BlockService {
 	private const CACHE_TTL = 600;
 
 	/**
+	 * Per-request memo for is_blocking_either(), keyed by the unordered user
+	 * pair ("min:max"). Class-static (not function-static) so the single
+	 * invalidation chokepoint — invalidate_block_cache() — can drop a pair's
+	 * entry the instant a block/mute/restrict changes within the same request.
+	 * Otherwise a block→unblock in one request would keep returning a stale
+	 * "blocked" verdict for the rest of that request.
+	 *
+	 * @var array<string,bool>
+	 */
+	private static array $blocking_pair_cache = array();
+
+	/**
 	 * Block a user.
 	 *
 	 * If a mute already exists for this pair it is upgraded to a block.
@@ -498,10 +510,9 @@ class BlockService {
 		// The same viewer/author pair is checked repeatedly across follow and
 		// connection buttons in one feed render. Memoise per request, keyed by
 		// the unordered pair (the check is symmetric).
-		static $cache = array();
 		$key = $user_a < $user_b ? "{$user_a}:{$user_b}" : "{$user_b}:{$user_a}";
-		if ( isset( $cache[ $key ] ) ) {
-			return $cache[ $key ];
+		if ( isset( self::$blocking_pair_cache[ $key ] ) ) {
+			return self::$blocking_pair_cache[ $key ];
 		}
 
 		global $wpdb;
@@ -521,9 +532,9 @@ class BlockService {
 			)
 		);
 
-		$cache[ $key ] = $count > 0;
+		self::$blocking_pair_cache[ $key ] = $count > 0;
 
-		return $cache[ $key ];
+		return self::$blocking_pair_cache[ $key ];
 	}
 
 	/**
@@ -760,5 +771,11 @@ class BlockService {
 		wp_cache_delete( "blocked_users_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "muted_users_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "restricted_users_{$user_b}", self::CACHE_GROUP );
+
+		// Drop the per-request is_blocking_either() memo for this pair so a
+		// block/unblock (or mute/restrict change) within one request never
+		// returns a stale verdict.
+		$pair_key = $user_a < $user_b ? "{$user_a}:{$user_b}" : "{$user_b}:{$user_a}";
+		unset( self::$blocking_pair_cache[ $pair_key ] );
 	}
 }

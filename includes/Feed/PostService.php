@@ -79,7 +79,7 @@ class PostService {
 		}
 
 		if ( 'poll' === $type ) {
-			if ( ! '0' !== (string) get_option( 'buddynext_allow_polls', '1' ) ) {
+			if ( '0' === (string) get_option( 'buddynext_allow_polls', '1' ) ) {
 				return new WP_Error(
 					'polls_disabled',
 					__( 'Polls are disabled on this community.', 'buddynext' ),
@@ -551,7 +551,10 @@ class PostService {
 		// Cascade the remaining post references so no orphan rows survive a delete.
 		$wpdb->delete( $wpdb->prefix . 'bn_post_hashtags', array( 'post_id' => $post_id ), array( '%d' ) );
 		$wpdb->delete( $wpdb->prefix . 'bn_feed_items', array( 'post_id' => $post_id ), array( '%d' ) );
-		$wpdb->delete( $wpdb->prefix . 'bn_announcement_dismissals', array( 'post_id' => $post_id ), array( '%d' ) );
+		// Announcement dismissals live in user_meta (bn_dismissed_announcements),
+		// not a table, so there is nothing to cascade here. A stale post ID left
+		// in a user's dismissed-array is harmless — the post is gone and can
+		// never render.
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_notifications',
 			array(
