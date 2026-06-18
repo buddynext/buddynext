@@ -46,7 +46,33 @@ class ModerationListener implements ListenerInterface {
 		add_action( 'buddynext_post_approved', array( $this, 'on_post_approved' ), 10, 2 );
 		add_action( 'buddynext_post_rejected', array( $this, 'on_post_rejected' ), 10, 3 );
 
-		// Schedule daily moderation queue alert if not already registered.
+		// Schedule the daily moderation-queue alert. Deferred to wp_loaded because
+		// Action Scheduler is not initialised until 'init'; scheduling here at
+		// plugins_loaded would no-op AND leave the job unscheduled.
+		add_action( 'wp_loaded', array( $this, 'schedule_queue_check' ) );
+	}
+
+	/**
+	 * Ensure the daily moderation-queue alert is scheduled.
+	 *
+	 * Runs on Action Scheduler (group 'buddynext') when available — one
+	 * observable, retrying queue runnable off real system cron — and falls back
+	 * to native WP-Cron when AS is absent. Idempotent; clears any legacy native
+	 * WP-Cron event before registering the AS action so it never double-runs.
+	 *
+	 * @return void
+	 */
+	public function schedule_queue_check(): void {
+		if ( function_exists( 'as_schedule_recurring_action' ) && function_exists( 'as_next_scheduled_action' ) ) {
+			if ( false === as_next_scheduled_action( 'buddynext_daily_queue_check', array(), 'buddynext' ) ) {
+				if ( wp_next_scheduled( 'buddynext_daily_queue_check' ) ) {
+					wp_clear_scheduled_hook( 'buddynext_daily_queue_check' );
+				}
+				as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'buddynext_daily_queue_check', array(), 'buddynext' );
+			}
+			return;
+		}
+
 		if ( ! wp_next_scheduled( 'buddynext_daily_queue_check' ) ) {
 			wp_schedule_event( time(), 'daily', 'buddynext_daily_queue_check' );
 		}

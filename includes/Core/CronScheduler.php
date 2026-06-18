@@ -1,10 +1,12 @@
 <?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
- * WP-Cron job registration for BuddyNext background tasks.
+ * Recurring background-job registration for BuddyNext.
  *
- * Registers custom cron schedules and ensures all recurring events are
- * scheduled at boot.  All job handles are defined here so that other code
- * can reference them by constant rather than bare string.
+ * Recurring jobs run on Action Scheduler (group 'buddynext') when available —
+ * one observable, retrying queue that can be driven off real system cron so
+ * nothing executes inside a visitor request — and fall back to native WP-Cron
+ * when AS is absent. All job handles are defined here so other code references
+ * them by constant rather than bare string.
  *
  * Jobs defined:
  *   buddynext_daily_digest         — daily (first run at activation time, then every 24h)
@@ -69,6 +71,12 @@ class CronScheduler {
 	 */
 	public const JOB_RECOUNT_STATS = 'buddynext_recount_stats';
 
+	/**
+	 * Action Scheduler group for every BuddyNext recurring job, so all jobs are
+	 * observable together (Tools -> Scheduled Actions) and bulk-cancelable.
+	 */
+	public const GROUP = 'buddynext';
+
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
 	/**
@@ -130,6 +138,9 @@ class CronScheduler {
 	/**
 	 * Unschedule all BuddyNext cron events (called on plugin deactivation).
 	 *
+	 * Clears both the Action Scheduler actions (current) and any native WP-Cron
+	 * events (legacy installs / AS-absent fallback) so nothing is left armed.
+	 *
 	 * @return void
 	 */
 	public function clear_events(): void {
@@ -147,6 +158,9 @@ class CronScheduler {
 		);
 
 		foreach ( $jobs as $hook ) {
+			if ( function_exists( 'as_unschedule_all_actions' ) ) {
+				as_unschedule_all_actions( $hook, array(), self::GROUP );
+			}
 			wp_clear_scheduled_hook( $hook );
 		}
 	}
@@ -177,26 +191,64 @@ class CronScheduler {
 		// 3. Remove the recurring 5-min webhook retry poll (single-event now).
 		wp_clear_scheduled_hook( 'buddynext_webhook_retry' );
 
-		// 4. If recount_stats is still on buddynext_5min, migrate it to 'daily'.
-		$recur = wp_get_schedule( 'buddynext_recount_stats' );
-		if ( false !== $recur && 'daily' !== $recur ) {
-			wp_clear_scheduled_hook( 'buddynext_recount_stats' );
-			// Let schedule_events() re-add it at 'daily' on the next wp_loaded.
-		}
+		// 4. The six surviving recurring jobs migrate from native WP-Cron to
+		// Action Scheduler automatically: schedule_events() -> maybe_schedule()
+		// clears each legacy WP-Cron event and registers the AS action on the
+		// next wp_loaded. Nothing to do here beyond the legacy drops above.
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────
 
 	/**
-	 * Schedule an event if it is not already scheduled.
+	 * Schedule a recurring job, preferring Action Scheduler.
 	 *
-	 * @param string $hook  WP-Cron event hook.
-	 * @param string $recur Recurrence slug (e.g. 'daily', 'weekly').
+	 * Action Scheduler gives one observable queue (Tools -> Scheduled Actions),
+	 * automatic retries, and a single runner that can be driven off real system
+	 * cron (see DISABLE_WP_CRON guidance in docs/plans/cron-as-audit.md) so jobs
+	 * never execute inside a visitor request. When AS is unavailable the method
+	 * falls back to a native WP-Cron event so the job still runs.
+	 *
+	 * Idempotent: a no-op once the action/event exists. On an existing install it
+	 * clears the legacy native WP-Cron event before registering the AS action so
+	 * the job never double-runs across both systems.
+	 *
+	 * @param string $hook  Job hook (also the action hook the handler listens on).
+	 * @param string $recur Recurrence slug ('daily', 'weekly').
 	 * @return void
 	 */
 	private function maybe_schedule( string $hook, string $recur ): void {
+		if ( function_exists( 'as_schedule_recurring_action' ) && function_exists( 'as_next_scheduled_action' ) ) {
+			if ( false === as_next_scheduled_action( $hook, array(), self::GROUP ) ) {
+				// Don't double-run alongside a legacy native WP-Cron event.
+				if ( wp_next_scheduled( $hook ) ) {
+					wp_clear_scheduled_hook( $hook );
+				}
+				as_schedule_recurring_action( time(), self::recurrence_seconds( $recur ), $hook, array(), self::GROUP );
+			}
+			return;
+		}
+
+		// Fallback: native WP-Cron when Action Scheduler is unavailable.
 		if ( ! wp_next_scheduled( $hook ) ) {
 			wp_schedule_event( time(), $recur, $hook );
+		}
+	}
+
+	/**
+	 * Map a WordPress recurrence slug to an Action Scheduler interval in seconds.
+	 *
+	 * @param string $recur Recurrence slug ('daily', 'weekly').
+	 * @return int Interval in seconds (defaults to daily for unknown slugs).
+	 */
+	private static function recurrence_seconds( string $recur ): int {
+		switch ( $recur ) {
+			case 'weekly':
+				return WEEK_IN_SECONDS;
+			case 'hourly':
+				return HOUR_IN_SECONDS;
+			case 'daily':
+			default:
+				return DAY_IN_SECONDS;
 		}
 	}
 }

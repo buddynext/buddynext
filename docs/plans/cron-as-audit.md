@@ -54,3 +54,33 @@ Frequent unconditional polls (1x 1-min, 3x 5-min, 1x 30-min) -> mostly daily/wee
 
 ## Pattern to standardize
 A small helper: schedule a recurring job ONLY when there's pending work, and unschedule inside the handler when the queue is empty; re-arm from the write path that creates work. Document it so new features follow it (minimal-cron by default).
+
+## AS-consolidation pass (2026-06-18) — DONE
+
+Goal: one observable, retrying queue, runnable off real cron. Scoped deliberately by job shape:
+
+- **Always-on recurring jobs -> Action Scheduler** (they run regardless, so AS is the right home — retries + Tools -> Scheduled Actions visibility + single real-cron runner):
+  - Free `CronScheduler`: daily/weekly digests, 3 cleanups, `recount_stats` -> `as_schedule_recurring_action`, group `buddynext`, AS-first with native WP-Cron fallback when AS is unavailable. `maybe_schedule()` clears any legacy native event before registering the AS action so a job never double-runs; `clear_events()` clears both.
+  - Free `ModerationListener::buddynext_daily_queue_check` -> same pattern (group `buddynext`).
+  - Pro `SubscriptionService::buddynextpro_expire_subscriptions` -> same pattern (group `buddynextpro`) + a `deactivate_cron()` that clears both AS + WP-Cron.
+  - Handlers are unchanged: AS fires the same action hook the `add_action()` handlers already listen on.
+- **On-demand self-(un)scheduling jobs stay event-driven** (already the minimal pattern — dormant unless pending work exists, so there is nothing to consolidate and no idle polling):
+  - Free `ScheduledPostsPublisher` (single event armed at the next due time).
+  - Pro `BroadcastService` + `DripEnrollmentService` (self-arm on write, self-unschedule when the queue drains). A future phase may move these to AS purely for send-retry observability; not done now to avoid churning working email features pre-beta.
+- **Reactive single events stay native** (`OutboundWebhookService` deliver/retry, `OnboardingListener` 24h/72h nudges, `SearchService` reindex-all): already single-shot + on-demand; native `wp_schedule_single_event` is fine.
+
+### The real performance lever — run the queue off REAL cron (rule 5)
+Moving jobs to AS does NOT by itself reduce in-request work, because AS's own runner is triggered by WP-Cron by default. The win comes from taking cron out of visitor requests entirely. On the QA box and every production site:
+
+```php
+// wp-config.php
+define( 'DISABLE_WP_CRON', true );
+```
+```cron
+# system crontab — every minute, drives BOTH WP-Cron events and the AS queue
+* * * * * cd /path/to/site && wp action-scheduler run --quiet >/dev/null 2>&1
+* * * * * wget -q -O - https://site.test/wp-cron.php?doing_wp_cron >/dev/null 2>&1
+```
+This is the single biggest "fast community" lever — with it, no background job ever executes inside a member's page load. Document for site owners; ensure the QA/prod environment has it. See [[action-scheduler-standard]] rule 6.
+
+Also prune AS tables (`actionscheduler_*`) so completed/failed logs don't bloat — AS's built-in retention handles this by default; verify it's on.
