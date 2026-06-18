@@ -257,7 +257,7 @@ const GROUPS = [
   {h:'Notifications', items:[['notifications','Notifications','bell'],['email','Email','mail'],['templates','Templates','file']]},
   {h:'Realtime & Push', pro:true, items:[['realtime','Realtime','zap'],['push','Push','phone'],['push-prefs','Push defaults','bell']]},
   {h:'Campaigns', pro:true, items:[['broadcasts','Broadcasts','send'],['drip','Drip','drip'],['scheduled','Scheduled','clock'],['ai-feed','AI Feed','robot']]},
-  {h:'Moderation', items:[['mod-settings','Settings','shield'],['mod-queue','Queue','flag']]},
+  {h:'Moderation', items:[['mod-settings','Settings','shield'],['mod-pending','Pending','flag'],['mod-reports','Reports','flag'],['mod-suspensions','Suspensions','shield'],['mod-appeals','Appeals','file'],['mod-log','Log','clock'],['mod-bulk','Bulk','toggle']]},
   {h:'Auto-Moderation', pro:true, items:[['rules','Rules','toggle'],['ai-mod','AI moderation','robot']]},
   {h:'Monetization', pro:true, items:[['plans','Plans','coin'],['subscriptions','Subscriptions','card'],['stripe','Stripe','card'],['license','License','key']]}
 ];
@@ -394,32 +394,62 @@ function tableCard(t,cols,rows){
   return `<div class="card"><div class="card-h"><span class="ico">${ic('clock')}</span><div><h3>${t}</h3></div></div><div style="padding:var(--bn-s4) var(--bn-s5)"><table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map((c,i)=>{if(i===0&&c.includes('·')){const idx=c.indexOf('·'),ini=c.slice(0,idx),nm=c.slice(idx+1);return `<td><div class="u"><span class="av">${ini}</span>${nm}</div></td>`;}return `<td>${c}</td>`;}).join('')}</tr>`).join('')}</tbody></table></div></div>`;
 }
 const LISTS={
-  members:{t:'Members',s:'Everyone in your community. Filter, sort, and act in bulk.',cols:['Member','Joined','Role','Status'],
-    rows:[['AK·Aanya Kapoor','2d ago','Member','<span class="pill ok">Active</span>'],['RM·Ravi Mehta','1w ago','Moderator','<span class="pill ok">Active</span>'],['JL·Jia Li','3w ago','Member','<span class="pill mut">Suspended</span>']]},
-  spaces:{t:'Spaces',s:'All sub-communities. Open, private, or secret.',cols:['Space','Members','Privacy','Status'],
-    rows:[['D·Design','312','Open','<span class="pill ok">Active</span>'],['F·Founders','88','Private','<span class="pill ok">Active</span>']]},
-  'mod-queue':{t:'Moderation queue',s:'Reports awaiting review. Oldest first.',cols:['Reported','Reason','Reporter','Status'],
-    rows:[['C·Comment by Dan','Spam','Jia L.','<span class="pill warn">Pending</span>'],['P·Post by Sam','Harassment','Ravi M.','<span class="pill warn">Pending</span>']]},
-  broadcasts:{t:'Broadcasts',s:'One-off newsletters to member segments.',cols:['Campaign','Segment','Recipients','Status'],
-    rows:[['S·Spring update','All members','1,284','<span class="pill ok">Sent</span>'],['F·Founders note','Founders','88','<span class="pill warn">Scheduled</span>']]},
-  drip:{t:'Drip sequences',s:'Automated multi-step welcome emails.',cols:['Sequence','Trigger','Steps','Status'],
-    rows:[['W·Welcome series','On join','4','<span class="pill ok">Active</span>'],['O·Onboarding','Profile complete','3','<span class="pill mut">Draft</span>']]},
-  scheduled:{t:'Scheduled posts',s:'Posts queued to publish later.',cols:['Author','Preview','When','Status'],
-    rows:[['RM·Ravi M.','Product launch announcement…','Tomorrow 09:00','<span class="pill warn">Scheduled</span>']]},
-  subscriptions:{t:'Subscriptions',s:'Active member subscriptions.',cols:['Member','Plan','Renews','Status'],
-    rows:[['DS·Dan S.','Pro','in 22 days','<span class="pill ok">Active</span>'],['AK·Aanya K.','Pro','in 3 days','<span class="pill warn">Past due</span>']]}
+  members:{t:'Members',s:'Everyone in your community. Filter, sort, and act in bulk.',
+    kpis:[['Total members','1,284','users'],['Active','1,180','spark'],['New this week','36','userplus','▲ 9'],['Suspended','12','shield']],
+    filters:['All statuses ▾','All roles ▾'],
+    cols:['Member','Email','Role','Status','Joined','Last active','Actions'],
+    rows:[['AK·Aanya Kapoor','aanya@acme.test','Member','<span class="pill ok">Active</span>','2d ago','3h ago','View · Edit'],['RM·Ravi Mehta','ravi@acme.test','Moderator','<span class="pill ok">Active</span>','1w ago','1h ago','View · Edit'],['JL·Jia Li','jia@acme.test','Member','<span class="pill mut">Suspended</span>','3w ago','5d ago','Unsuspend']]},
+  spaces:{t:'Spaces',s:'All sub-communities. Open, private, or secret.',
+    kpis:[['Total','37','grid'],['Open','28','grid'],['Private','7','lock'],['Secret','2','shield']],
+    filters:['All types ▾'],
+    cols:['Space','Type','Members','Posts','Owner','Created','Actions'],
+    rows:[['D·Design','Open','312','1,204','Aanya K.','Mar 3','Edit · Delete'],['F·Founders','Private','88','642','Ravi M.','Jan 12','Edit · Delete']]},
+  'mod-pending':{t:'Pending posts',s:'Posts held for approval. Oldest first.',filters:['All spaces ▾'],
+    cols:['Post','Author','Space','Held','Actions'],
+    rows:[['P·Welcome to all the newcomers…','Dan S.','General','2h','Approve · Reject'],['P·Check out my new portfolio…','Sam T.','Design','5h','Approve · Reject']]},
+  'mod-reports':{t:'Reports',s:'Reported content awaiting review.',filters:['All reasons ▾'],
+    cols:['Reported content','Reason','Reporter','When','Actions'],
+    rows:[['C·Comment by Dan','Spam','Jia L.','1h','Dismiss · Resolve · Remove'],['P·Post by Sam','Harassment','Reported by 3','3h','Dismiss · Resolve · Remove']]},
+  'mod-suspensions':{t:'Suspensions',s:'Currently suspended members.',
+    cols:['Member','Reason','Expires','Actions'],
+    rows:[['JL·Jia Li','Repeated spam','in 4 days','Lift'],['BT·Bo Tran','Harassment','Permanent','Lift']]},
+  'mod-appeals':{t:'Appeals',s:'Suspension appeals awaiting a decision.',
+    cols:['Member','Appeal','When','Decision'],
+    rows:[['JL·Jia Li','It was a misunderstanding — I had…','2d','Approve · Deny']]},
+  'mod-log':{t:'Moderation log',s:'Audit trail of every moderator action.',
+    cols:['When','Moderator','Action','Target','Object','Note'],
+    rows:[['1h','Ravi M.','resolve_report','Dan S.','comment #482','spam'],['3h','Admin','suspend_user','Jia L.','—','3 strikes']]},
+  'mod-bulk':{t:'Bulk moderation',s:'Select multiple reports or members and act in one pass. Pro.',filters:['Bulk: Dismiss','Bulk: Remove','Bulk: Warn','Bulk: Suspend'],
+    cols:['☐','Reported content','Reason','Reporter','When'],
+    rows:[['☐','Comment by Dan','Spam','Jia L.','1h'],['☐','Post by Sam','Harassment','3 users','3h']]},
+  broadcasts:{t:'Broadcasts',s:'One-off newsletters to member segments.',
+    kpis:[['Sent','24','send'],['Scheduled','2','clock'],['Avg. open rate','42%','spark','▲ 3%']],
+    filters:['All statuses ▾'],
+    cols:['Campaign','Segment','Recipients','Status','Actions'],
+    rows:[['S·Spring update','All members','1,284','<span class="pill ok">Sent</span>','View · Duplicate'],['F·Founders note','Founders','88','<span class="pill warn">Scheduled</span>','Edit · Send now']]},
+  drip:{t:'Drip sequences',s:'Automated multi-step welcome emails.',filters:['All triggers ▾'],
+    cols:['Sequence','Trigger','Steps','Enabled','Actions'],
+    rows:[['W·Welcome series','On join','4','<span class="pill ok">On</span>','Edit · Delete'],['O·Onboarding','Profile complete','3','<span class="pill mut">Off</span>','Edit · Delete']]},
+  scheduled:{t:'Scheduled posts',s:'Posts queued to publish later.',
+    cols:['Author','Preview','Scheduled for','Actions'],
+    rows:[['RM·Ravi M.','Product launch announcement…','Tomorrow 09:00','Preview · Publish now · Cancel']]},
+  subscriptions:{t:'Subscriptions',s:'Active member subscriptions.',
+    kpis:[['Active','318','card'],['Trialing','24','clock'],['MRR','$4,120','coin','▲ 6%'],['Past due','7','shield']],
+    filters:['All statuses ▾','All tiers ▾'],
+    cols:['Subscriber','Tier','Status','Started','Renews','Actions'],
+    rows:[['DS·Dan S.','Pro','<span class="pill ok">Active</span>','Apr 2','in 22 days','View · Revoke'],['AK·Aanya K.','Pro','<span class="pill warn">Past due</span>','Mar 9','in 3 days','View · Revoke']]}
 };
 // Total rows per list (drives the SHARED pager). Real data plugs in later.
-const TOTALS={members:1284,spaces:37,'mod-queue':142,broadcasts:24,drip:6,scheduled:9,subscriptions:318};
+const TOTALS={members:1284,spaces:37,'mod-pending':18,'mod-reports':142,'mod-suspensions':12,'mod-appeals':4,'mod-log':2840,'mod-bulk':142,broadcasts:24,drip:6,scheduled:9,subscriptions:349};
 const PER_PAGE=20;
 
 function renderList(key,page=1){
   const cfg = LISTS[key] || {t:title(key),s:'Browse and manage '+title(key).toLowerCase()+'.',cols:['Item','Status'],rows:[['—·Example item','<span class="pill mut">—</span>']]};
   const total = TOTALS[key] != null ? TOTALS[key] : cfg.rows.length;
-  return phead(cfg.t,cfg.s,key)
-   +`<div class="toolbar"><div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> Filter ${cfg.t.toLowerCase()}…</div><button class="btn gho">All statuses ▾</button><div class="sp"></div><button class="btn pri">+ Add</button></div>`
-   +tableCardRaw(cfg.cols,cfg.rows)
-   +renderPager(key,total,page,PER_PAGE);
+  const kpis = cfg.kpis ? `<div class="kpis">${cfg.kpis.map(k=>`<div class="kpi"><div class="top"><span class="ti">${ic(k[2]||'gauge')}</span>${k[3]?`<span class="dl-up">${k[3]}</span>`:''}</div><div class="v">${k[1]}</div><div class="l">${k[0]}</div></div>`).join('')}</div>` : '';
+  const fbtns = (cfg.filters||['All statuses ▾']).map(f=>`<button class="btn gho">${f}</button>`).join('');
+  const toolbar = `<div class="toolbar"><div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> Filter ${cfg.t.toLowerCase()}…</div>${fbtns}<div class="sp"></div><button class="btn pri">+ Add</button></div>`;
+  return phead(cfg.t,cfg.s,key)+kpis+toolbar+tableCardRaw(cfg.cols,cfg.rows)+renderPager(key,total,page,PER_PAGE);
 }
 
 // ===== SHARED pagination — one component for every large listing =====
@@ -470,7 +500,7 @@ function sectionOf(key){for(const g of GROUPS)for(const it of g.items)if(it[0]==
 function route(key){
   let html;
   if(key==='overview')html=renderOverview();
-  else if(['members','spaces','mod-queue','subscriptions','broadcasts','drip','scheduled'].includes(key))html=renderList(key);
+  else if(['members','spaces','mod-pending','mod-reports','mod-suspensions','mod-appeals','mod-log','mod-bulk','subscriptions','broadcasts','drip','scheduled'].includes(key))html=renderList(key);
   else if(key==='plans')html=renderEditor();
   else if(key==='wizard')html=renderWizard();
   else if(key==='insights')html=renderOverview();
