@@ -191,7 +191,10 @@ do_action( 'buddynext_part_space_hero_before', $args );
 				</div>
 			<?php endif; ?>
 
-			<?php if ( $bn_is_owner ) : ?>
+			<?php if ( $bn_is_guest ) : ?>
+				<?php // Guests already get the "Log in to join" CTA from the first chain above; show no join/request action here, otherwise both buttons render at once. ?>
+
+			<?php elseif ( $bn_is_owner ) : ?>
 				<button
 					type="button"
 					class="bn-btn"
