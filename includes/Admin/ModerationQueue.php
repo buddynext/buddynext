@@ -530,23 +530,20 @@ class ModerationQueue {
 						<?php endforeach; ?>
 					</tbody>
 				</table>
-					<?php if ( $pages > 1 ) : ?>
-					<div class="bn-mod-log-pagination tablenav">
-						<div class="tablenav-pages">
-							<?php
-							$base = remove_query_arg( 'log_page' );
-							for ( $i = 1; $i <= $pages; $i++ ) :
-								$url = add_query_arg( 'log_page', $i, $base );
-								?>
-								<?php if ( $i === $page ) : ?>
-									<span class="bn-btn" data-variant="secondary" data-size="sm" aria-current="page"><?php echo esc_html( (string) $i ); ?></span>
-								<?php else : ?>
-									<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( $url ); ?>"><?php echo esc_html( (string) $i ); ?></a>
-								<?php endif; ?>
-							<?php endfor; ?>
-						</div>
-					</div>
-				<?php endif; ?>
+					<?php
+					// Shared paginator — numbered links PLUS Prev/Next and the nav/aria
+					// a11y wrapper, matching the rest of the admin. Self-guards at one page.
+					AdminPageBase::render_pagination(
+						$page,
+						(int) $pages,
+						(int) $total,
+						$per_page,
+						static function ( int $p ): string {
+							return add_query_arg( 'log_page', $p, remove_query_arg( 'log_page' ) );
+						},
+						__( 'Moderation log pagination', 'buddynext' )
+					);
+					?>
 				<?php endif; ?>
 			</div>
 		</div>
