@@ -527,9 +527,10 @@
 		gap: var(--bn-s3);
 	}
 
-	.bn-md-card {
-		padding: var(--bn-s3);
-	}
+	/* No card-level padding on mobile: the cover banner is meant to sit flush
+	   to the card edges and the body already supplies its own padding
+	   (40px var(--bn-s4) var(--bn-s4)). Adding padding here pushed the cover
+	   inward and double-padded the body, causing the excessive spacing. */
 
 	.bn-md-card__bio {
 		display: none;
