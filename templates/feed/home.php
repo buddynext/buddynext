@@ -288,7 +288,6 @@ if ( function_exists( 'buddynext_service' ) ) {
 
 // ── REST nonce + URLs ───────────────────────────────────────────────────────
 $rest_nonce  = wp_create_nonce( 'wp_rest' );
-$explore_url = PageRouter::explore_url();
 
 // ── Right sidebar widgets ────────────────────────────────────────────────
 // Register sidebar widget callbacks on the shared hub-shell action. The shell
@@ -329,23 +328,10 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 	);
 	?>
 
-	<!-- Hub-level tabs (Home / Explore) -->
-	<div class="bn-tabs bn-feed-tabs" role="tablist">
-		<a href="<?php echo esc_url( PageRouter::activity_url() ); ?>"
-			class="bn-tab"
-			role="tab"
-			aria-selected="true">
-			<?php esc_html_e( 'Home', 'buddynext' ); ?>
-		</a>
-		<a href="<?php echo esc_url( $explore_url ); ?>"
-			class="bn-tab"
-			role="tab"
-			aria-selected="false">
-			<?php esc_html_e( 'Explore', 'buddynext' ); ?>
-		</a>
-	</div>
-
-	<!-- Home feed filter tabs (For you / Following / Spaces / Network) -->
+	<!-- Home feed filter tabs (For you / Following / Spaces / Network).
+		The redundant Home/Explore hub-tab row was removed: Explore lives in the
+		left rail and "Home" was just the current page — two full-width tab rows
+		for that cost vertical space (worst at 390px) for no IA value. -->
 	<!-- Carries the .bn-tabs/.bn-tab primitive so it matches the Home/Explore row
 		and every other tab bar (font, focus ring, overflow scroll-fade); the
 		.bn-feed-filter-tab* classes + aria-current are kept for the feed-tabs JS. -->
