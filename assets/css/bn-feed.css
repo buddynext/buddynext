@@ -78,7 +78,10 @@
 .bn-post-card__announcement-bar {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
+	/* gap separates the End action from the × close; the badge takes the free
+	   space (margin-inline-end: auto below) so End + × cluster at the trailing
+	   edge instead of End floating in the middle (space-between did that). */
+	gap: var(--bn-s2);
 	background: var(--bn-accent-100);
 	padding: var(--bn-s2) var(--bn-s3);
 	border-radius: var(--bn-r-md);
@@ -89,6 +92,8 @@
 	display: inline-flex;
 	align-items: center;
 	gap: var(--bn-s1);
+	/* Push the trailing controls (End, ×) to the right edge. */
+	margin-inline-end: auto;
 	font-size: var(--bn-text-xs);
 	font-weight: 700;
 	color: var(--bn-accent-700);
