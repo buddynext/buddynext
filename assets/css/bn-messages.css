@@ -1080,11 +1080,11 @@
 	position: absolute;
 	bottom: calc(100% + 6px);
 	inset-inline-start: 0;
-	display: grid;
-	grid-template-columns: repeat(10, 1fr);
-	gap: 2px;
+	display: block;
+	/* Stay inside the composer/pane: never wider than the viewport gutter, and
+	   if anchored near the right edge the browser keeps it on-screen. */
 	width: 320px;
-	max-width: 80vw;
+	max-width: min(320px, calc(100vw - 24px));
 	padding: var(--bn-s2);
 	background: var(--bn-surface);
 	border: 1px solid var(--bn-line);
@@ -1095,6 +1095,35 @@
 
 .bn-dm-emoji-pop[hidden] {
 	display: none;
+}
+
+.bn-dm-emoji-pop__close {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-inline-start: auto;
+	margin-bottom: var(--bn-s1);
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--bn-r-sm, 6px);
+	background: transparent;
+	color: var(--bn-ink, #1a1a1a);
+	font-size: 20px;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.bn-dm-emoji-pop__close:hover {
+	background: var(--bn-sunken);
+	color: var(--bn-ink);
+}
+
+.bn-dm-emoji-pop__grid {
+	display: grid;
+	grid-template-columns: repeat(10, 1fr);
+	gap: 2px;
 }
 
 .bn-dm-emoji-pop__item {

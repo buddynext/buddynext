@@ -699,16 +699,35 @@ const { actions } = store( 'buddynext/messages', {
 				return;
 			}
 			if ( ! pop.dataset.built ) {
+				// Close (×) control — always visible, themed via CSS so it reads in
+				// light + dark and on mobile (previously there was no close button).
+				const close = document.createElement( 'button' );
+				close.type = 'button';
+				close.className = 'bn-dm-emoji-pop__close';
+				close.setAttribute( 'aria-label', ( window.wp && window.wp.i18n ) ? window.wp.i18n.__( 'Close emoji picker', 'buddynext' ) : 'Close emoji picker' );
+				close.textContent = '×';
+				pop.appendChild( close );
+
+				// Emoji grid lives in its own child so the close button is not a grid
+				// cell (which would shove a column off and break containment).
+				const grid = document.createElement( 'div' );
+				grid.className = 'bn-dm-emoji-pop__grid';
 				EMOJI_SET.forEach( ( ch ) => {
 					const b = document.createElement( 'button' );
 					b.type = 'button';
 					b.className = 'bn-dm-emoji-pop__item';
 					b.dataset.emojiChar = ch;
 					b.textContent = ch;
-					pop.appendChild( b );
+					grid.appendChild( b );
 				} );
+				pop.appendChild( grid );
+
 				pop.dataset.built = '1';
 				pop.addEventListener( 'click', ( e ) => {
+					if ( e.target.closest( '.bn-dm-emoji-pop__close' ) ) {
+						pop.hidden = true;
+						return;
+					}
 					const opt = e.target.closest( '[data-emoji-char]' );
 					if ( opt ) {
 						insertAtCursor( document.getElementById( 'bn-dm-input' ), opt.dataset.emojiChar );
