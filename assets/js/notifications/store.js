@@ -600,6 +600,10 @@ function bootstrapNotifPolling() {
 
 	var hotUntil = 0;
 	var timerId  = null;
+	// Last unread count seen by the poll, so a count increase (a newly-arrived
+	// notification) can trigger the sound. Null until the first poll seeds it —
+	// a page load with pre-existing unread items must not chime.
+	var lastPolledCount = null;
 
 	function findContext() {
 		var wrap = document.querySelector( '[data-wp-interactive="buddynext/notifications"]' );
@@ -659,6 +663,17 @@ function bootstrapNotifPolling() {
 
 			var fresh = Number( json.count ) || 0;
 			paintBadge( fresh );
+
+			// Play the notification sound when the poll detects newly-arrived
+			// notifications (the count went up). bn:notification:new has no
+			// producer on Free, so without this the "Play a sound" channel never
+			// fired for poll-driven (non-realtime) notifications. The first poll
+			// only seeds lastPolledCount so an initial load with existing unread
+			// items doesn't chime.
+			if ( null !== lastPolledCount && fresh > lastPolledCount ) {
+				maybePlaySound();
+			}
+			lastPolledCount = fresh;
 
 			// Sync the Interactivity context (in-place mutation) so
 			// state.unreadLabel and state.badgeHidden re-evaluate.
