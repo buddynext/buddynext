@@ -53,6 +53,12 @@ screen against `TAB_PLACEMENT` and `audit/manifest.json` before marking the sect
 - **C — List table (filter row + list):** Members Directory, Spaces Directory,
   Moderation Pending/Reports/Suspensions/Appeals/Bulk, Broadcasts, Drip, Scheduled,
   Member Labels, Mod Rules, Subscriptions, Email Templates.
+  **Shared pagination:** every Pattern C list uses ONE pagination primitive
+  (`.bn-pager` — result range "1–20 of N", rows-per-page select, windowed prev/next
+  with ellipsis). Single component, single place — members, spaces, reports, logs,
+  subscriptions, broadcasts, drip, scheduled all consume it (never a bespoke pager).
+  Maps to the big-site contract: `LIMIT`+`OFFSET` + `COUNT(*)` + prev/next.
+  Demonstrated in `admin-app.html` (`renderPager()`).
 - **D — Editor (form + meta sidebar):** Add/Edit Membership tier, Add/Edit Broadcast,
   Add/Edit Drip sequence, Add/Edit Mod rule, Member edit.
 - **E — Wizard:** the first-run SetupWizard.

@@ -114,6 +114,20 @@ tr:last-child td{border-bottom:0}
 .pill.warn{background:var(--bn-warn-bg);color:var(--bn-warn)}
 .pill.mut{background:var(--bn-canvas);color:var(--bn-ink-3)}
 
+/* shared pagination — used by EVERY large list (members, reports, logs, spaces, …) */
+.pager{display:flex;align-items:center;gap:var(--bn-s4);padding:var(--bn-s3) var(--bn-s4);margin-top:var(--bn-s3);background:var(--bn-surface);border:1px solid var(--bn-line);border-radius:var(--bn-r-lg);font-size:var(--bn-text-xs);color:var(--bn-ink-2)}
+.pager .info{color:var(--bn-ink-3)}
+.pager .per{display:flex;align-items:center;gap:6px}
+.pager .per select{min-width:0;padding:4px 8px}
+.pager .sp{flex:1}
+.pager .pgnav{display:flex;align-items:center;gap:4px}
+.pgbtn{min-width:30px;height:30px;display:inline-grid;place-items:center;border:1px solid var(--bn-line);background:var(--bn-surface);border-radius:var(--bn-r-md);cursor:pointer;color:var(--bn-ink-2);font-weight:600;padding:0 8px;font-size:var(--bn-text-xs)}
+.pgbtn:hover{background:var(--bn-canvas);color:var(--bn-ink)}
+.pgbtn[aria-current]{background:var(--bn-accent);color:var(--bn-accent-fg);border-color:var(--bn-accent)}
+.pgbtn[disabled]{opacity:.4;cursor:default}
+.pgell{padding:0 2px;color:var(--bn-ink-3)}
+@media(max-width:768px){.pager{flex-wrap:wrap}.pager .per{display:none}}
+
 /* editor (split) */
 .edit{display:grid;grid-template-columns:1fr 300px;gap:var(--bn-s5)}
 @media(max-width:1100px){.edit{grid-template-columns:1fr}}
@@ -353,11 +367,43 @@ const LISTS={
   subscriptions:{t:'Subscriptions',s:'Active member subscriptions.',cols:['Member','Plan','Renews','Status'],
     rows:[['DS·Dan S.','Pro','in 22 days','<span class="pill ok">Active</span>'],['AK·Aanya K.','Pro','in 3 days','<span class="pill warn">Past due</span>']]}
 };
-function renderList(key){
+// Total rows per list (drives the SHARED pager). Real data plugs in later.
+const TOTALS={members:1284,spaces:37,'mod-queue':142,broadcasts:24,drip:6,scheduled:9,subscriptions:318};
+const PER_PAGE=20;
+
+function renderList(key,page=1){
   const cfg = LISTS[key] || {t:title(key),s:'Browse and manage '+title(key).toLowerCase()+'.',cols:['Item','Status'],rows:[['—·Example item','<span class="pill mut">—</span>']]};
+  const total = TOTALS[key] != null ? TOTALS[key] : cfg.rows.length;
   return phead(cfg.t,cfg.s,key)
    +`<div class="toolbar"><div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> Filter ${cfg.t.toLowerCase()}…</div><button class="btn gho">All statuses ▾</button><div class="sp"></div><button class="btn pri">+ Add</button></div>`
-   +tableCardRaw(cfg.cols,cfg.rows);
+   +tableCardRaw(cfg.cols,cfg.rows)
+   +renderPager(key,total,page,PER_PAGE);
+}
+
+// ===== SHARED pagination — one component for every large listing =====
+function pageList(cur,pages){
+  if(pages<=7) return Array.from({length:pages},(_,i)=>i+1);
+  const keep=new Set([1,2,pages-1,pages,cur-1,cur,cur+1]);
+  const arr=[...keep].filter(n=>n>=1&&n<=pages).sort((a,b)=>a-b);
+  const out=[];let prev=0;
+  for(const n of arr){ if(n-prev>1) out.push('…'); out.push(n); prev=n; }
+  return out;
+}
+function renderPager(key,total,page,per){
+  const pages=Math.max(1,Math.ceil(total/per));
+  const start=total?((page-1)*per+1):0, end=Math.min(page*per,total);
+  const pbtn=n=> n==='…'?`<span class="pgell">…</span>`
+    :`<button class="pgbtn" data-key="${key}" data-page="${n}" ${n===page?'aria-current="page"':''}>${n}</button>`;
+  return `<div class="pager" role="navigation" aria-label="Pagination">
+    <span class="info">${start.toLocaleString()}–${end.toLocaleString()} of ${total.toLocaleString()}</span>
+    <span class="per">Rows <select onchange="">${[10,20,50,100].map(x=>`<option ${x===per?'selected':''}>${x}</option>`).join('')}</select></span>
+    <span class="sp"></span>
+    <span class="pgnav">
+      <button class="pgbtn" data-key="${key}" data-page="${page-1}" ${page<=1?'disabled':''} aria-label="Previous page">‹</button>
+      ${pages>1?pageList(page,pages).map(pbtn).join(''):''}
+      <button class="pgbtn" data-key="${key}" data-page="${page+1}" ${page>=pages?'disabled':''} aria-label="Next page">›</button>
+    </span>
+  </div>`;
 }
 function tableCardRaw(cols,rows){return `<table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map((c,i)=>{if(i===0&&c.includes('·')){const idx=c.indexOf('·'),ini=c.slice(0,idx),nm=c.slice(idx+1);return `<td><div class="u"><span class="av">${ini||'—'}</span>${nm}</div></td>`;}return `<td>${c}</td>`;}).join('')}</tr>`).join('')}</tbody></table>`;}
 
@@ -397,6 +443,14 @@ document.getElementById('nav').innerHTML =
  `<div class="nav-search" id="navSearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> Search settings <kbd>⌘K</kbd></div>`
  + GROUPS.map(g=>`<div class="grp"><div class="grp-h">${g.h}${g.pro?'<span class="pro">PRO</span>':''}</div>${g.items.map(([k,l,i])=>`<div class="lnk" data-view="${k}">${ic(i)} ${l}</div>`).join('')}</div>`).join('');
 document.querySelectorAll('.lnk').forEach(a=>a.addEventListener('click',()=>route(a.dataset.view)));
+
+// shared pager: delegated paging for every list (no inline handlers)
+document.addEventListener('click',e=>{
+  const b=e.target.closest('.pgbtn[data-page]');
+  if(!b||b.disabled)return;
+  const k=b.dataset.key,n=+b.dataset.page;
+  if(n>=1){screen.innerHTML=renderList(k,n);screen.scrollTop=0;}
+});
 
 // ===== command palette (search any setting) =====
 const INDEX=[];
