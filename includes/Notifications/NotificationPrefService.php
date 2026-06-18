@@ -79,15 +79,17 @@ class NotificationPrefService {
 		$email_freq = isset( $entry['default_email_freq'] ) ? (string) $entry['default_email_freq'] : 'immediate';
 
 		if ( isset( self::ADMIN_DEFAULT_OPTION[ $type ] ) ) {
-			// Only let the site-owner default override the catalogue default when
-			// the option actually holds a value. The option can exist as an empty
-			// string (e.g. a checkbox that was never given a real boolean on save);
-			// casting '' to (bool) would read as "off" and silently suppress the
-			// type - notably @mentions, which every comparable platform delivers
-			// by default. Empty/unset falls back to the catalogue default.
+			// Apply the site-owner default whenever the option EXISTS. Only an
+			// absent option (null) means "never configured" and falls back to the
+			// catalogue default — the toggle's hidden 0 field guarantees every
+			// save persists a value. A stored boolean false comes back from the
+			// options table as an empty string, so '' here is an explicit OFF, not
+			// "unset"; rest_sanitize_boolean() maps '' / '0' / false → false and
+			// '1' / true → true. The previous '' !== guard treated a saved-OFF as
+			// unset, so turning a default toggle off had no effect.
 			$admin_val = get_option( self::ADMIN_DEFAULT_OPTION[ $type ], null );
-			if ( null !== $admin_val && '' !== $admin_val ) {
-				$on_site = (bool) $admin_val;
+			if ( null !== $admin_val ) {
+				$on_site = (bool) rest_sanitize_boolean( $admin_val );
 			}
 		}
 
