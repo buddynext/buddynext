@@ -499,6 +499,18 @@ class ModerationQueue {
 				break;
 		}
 
+		// Audit trail: log the successful action (mirrors the REST controller's
+		// action names) so admin-queue actions appear in bn_mod_log too.
+		$report_actions = array(
+			'dismiss'  => 'dismiss_report',
+			'resolve'  => 'resolve_report',
+			'remove'   => 'remove_content',
+			'escalate' => 'escalate_report',
+		);
+		if ( ! is_wp_error( $result ) && isset( $report_actions[ $op ] ) ) {
+			( new \BuddyNext\Moderation\ModerationLogService() )->log( $actor, $report_actions[ $op ], array( 'report_id' => $report_id ) );
+		}
+
 		$this->redirect_back( 'reports', $result );
 	}
 
@@ -529,6 +541,15 @@ class ModerationQueue {
 				break;
 		}
 
+		$user_actions = array(
+			'strike'    => 'issue_strike',
+			'suspend'   => 'suspend_user',
+			'unsuspend' => 'unsuspend_user',
+		);
+		if ( ! is_wp_error( $result ) && isset( $user_actions[ $op ] ) ) {
+			( new \BuddyNext\Moderation\ModerationLogService() )->log( $actor, $user_actions[ $op ], array( 'target_user_id' => $user_id ) );
+		}
+
 		$this->redirect_back( $tab, $result );
 	}
 
@@ -548,6 +569,17 @@ class ModerationQueue {
 			? ( new ModerationService() )->resolve_appeal( $appeal_id, $actor, $decision )
 			: new \WP_Error( 'bn_invalid_decision', __( 'Choose approve or deny.', 'buddynext' ) );
 
+		if ( ! is_wp_error( $result ) ) {
+			( new \BuddyNext\Moderation\ModerationLogService() )->log(
+				$actor,
+				'resolve_appeal',
+				array(
+					'appeal_id' => $appeal_id,
+					'decision'  => $decision,
+				)
+			);
+		}
+
 		$this->redirect_back( 'appeals', $result );
 	}
 
@@ -565,11 +597,18 @@ class ModerationQueue {
 		$op = isset( $_POST['op'] ) ? sanitize_key( wp_unslash( (string) $_POST['op'] ) ) : '';
 		$service = new \BuddyNext\Feed\PostService();
 
-		$result = true;
+		$result    = true;
+		$op_action = '';
 		if ( 'approve' === $op ) {
-			$result = $service->approve_pending( $post_id );
+			$result    = $service->approve_pending( $post_id );
+			$op_action = 'approve_pending';
 		} elseif ( 'reject' === $op ) {
-			$result = $service->reject_pending( $post_id );
+			$result    = $service->reject_pending( $post_id );
+			$op_action = 'reject_pending';
+		}
+
+		if ( ! is_wp_error( $result ) && '' !== $op_action ) {
+			( new \BuddyNext\Moderation\ModerationLogService() )->log( get_current_user_id(), $op_action, array( 'post_id' => $post_id ) );
 		}
 
 		$this->redirect_back( 'pending', $result );

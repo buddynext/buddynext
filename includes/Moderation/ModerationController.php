@@ -1413,6 +1413,8 @@ class ModerationController extends BaseRestController {
 			return $result;
 		}
 
+		( new ModerationLogService() )->log( $actor_id, 'warn_user', array( 'target_user_id' => $user_id ) );
+
 		return new WP_REST_Response(
 			array(
 				'warned'  => true,
@@ -1437,6 +1439,8 @@ class ModerationController extends BaseRestController {
 
 		( new ModerationService() )->set_shadow_ban( $user_id );
 
+		( new ModerationLogService() )->log( get_current_user_id(), 'shadow_ban', array( 'target_user_id' => $user_id ) );
+
 		return new WP_REST_Response(
 			array(
 				'shadow_banned' => true,
@@ -1460,6 +1464,8 @@ class ModerationController extends BaseRestController {
 		}
 
 		( new ModerationService() )->remove_shadow_ban( $user_id );
+
+		( new ModerationLogService() )->log( get_current_user_id(), 'remove_shadow_ban', array( 'target_user_id' => $user_id ) );
 
 		return new WP_REST_Response(
 			array(
@@ -1721,6 +1727,15 @@ class ModerationController extends BaseRestController {
 			return $result;
 		}
 
+		( new ModerationLogService() )->log(
+			$actor_id,
+			'space_ban',
+			array(
+				'target_user_id' => $user_id,
+				'space_id'       => $space_id,
+			)
+		);
+
 		return new WP_REST_Response(
 			array(
 				'banned'   => true,
@@ -1777,6 +1792,15 @@ class ModerationController extends BaseRestController {
 				array( 'status' => 404 )
 			);
 		}
+
+		( new ModerationLogService() )->log(
+			get_current_user_id(),
+			'space_unban',
+			array(
+				'target_user_id' => $user_id,
+				'space_id'       => $space_id,
+			)
+		);
 
 		return new WP_REST_Response(
 			array(
