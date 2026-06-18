@@ -456,6 +456,27 @@ export function bnConnectNoteDialog( opts ) {
 }
 
 /**
+ * Resolve the note for a connection request according to the site's connect
+ * style, so every Connect surface behaves identically from one switch.
+ *
+ * Default (Facebook 1-click): resolves '' immediately, no dialog — the request
+ * sends in a single click. When the owner enables connectRequireNote (LinkedIn
+ * style), this opens the note dialog and resolves the entered note ('' if sent
+ * blank, null if the member cancels). The flag is read from the shared
+ * window.bnShellData so there is one source of truth across all connect buttons.
+ *
+ * @param {Object} [opts] Forwarded to bnConnectNoteDialog when the dialog shows.
+ * @return {Promise<string|null>} Note text, '' when none/disabled, null on cancel.
+ */
+export function bnResolveConnectNote( opts ) {
+	const data = ( typeof window !== 'undefined' && window.bnShellData ) || {};
+	if ( ! data.connectRequireNote ) {
+		return Promise.resolve( '' );
+	}
+	return bnConnectNoteDialog( opts );
+}
+
+/**
  * Show a transient toast. Auto-dismisses after `timeout` ms (default 3000).
  * Multiple toasts stack inside a single .bn-toast-container.
  *

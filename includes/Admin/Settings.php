@@ -69,6 +69,7 @@ class Settings extends AdminPageBase {
 		'buddynext_enable_link_preview'        => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_enable_emoji_picker'        => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_post_edit_window'           => array( 'integer', 'absint' ),
+		'buddynext_connection_require_note'    => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
 
 		// Spaces.
 		'buddynext_space_creation_role'        => array( 'string', 'sanitize_key' ),
@@ -624,6 +625,7 @@ class Settings extends AdminPageBase {
 			'buddynext_enable_emoji_picker',
 			'buddynext_post_edit_window',
 			'buddynext_enabled_reactions',
+			'buddynext_connection_require_note',
 		),
 		'spaces'        => array(
 			'buddynext_space_creation_role',
@@ -1546,6 +1548,18 @@ class Settings extends AdminPageBase {
 			</div>
 		</div>
 		<?php
+
+		$this->close_section();
+
+		// ── Connections ────────────────────────────────────────────────────
+		$this->open_section( __( 'Connections', 'buddynext' ) );
+
+		$this->render_toggle_row(
+			'buddynext_connection_require_note',
+			__( 'Ask for a note when connecting', 'buddynext' ),
+			__( 'Off (default): one click sends the connection request, like Facebook. On: the member is asked to add a short note with their request, like LinkedIn - and that note is delivered to the recipient as a direct-message request so they can decide whether to engage before accepting.', 'buddynext' ),
+			'1' === (string) get_option( 'buddynext_connection_require_note', '0' )
+		);
 
 		$this->close_section();
 	}

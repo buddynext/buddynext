@@ -21,6 +21,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Bridges;
 
 use BuddyNext\Notifications\NotificationService;
+use BuddyNext\Media\MediaClient;
 
 /**
  * WPMediaVerse ↔ BuddyNext integration layer.
@@ -104,6 +105,81 @@ class WPMediaVerseBridge {
 		// When a user comments on a photo via the lightbox, create a matching
 		// bn_comments entry threaded under the BuddyNext post that holds the media.
 		add_action( 'mvs_comment_created', array( $this, 'sync_lightbox_comment' ), 10, 3 );
+
+		// LinkedIn-style connect note → DM message request. When a connection
+		// request carries a note (only when the owner enabled the note step), the
+		// note is delivered to the recipient as a direct-message request so they
+		// can read the context and decide whether to engage before accepting.
+		add_action( 'buddynext_connection_requested', array( $this, 'deliver_note_as_message_request' ), 10, 4 );
+	}
+
+	/**
+	 * Deliver a connection-request note to the recipient as a DM message request.
+	 *
+	 * Fired on buddynext_connection_requested. Only acts when a note is present —
+	 * the note step is opt-in via buddynext_connection_require_note, so a 1-click
+	 * connect carries no note and this is a no-op. The note is written into a
+	 * conversation between the two users; because they are not yet connected, the
+	 * recipient's participant lands as a pending request, so it surfaces under
+	 * their Messages "Requests" tab to accept or decline — it never auto-opens an
+	 * active thread with someone they have not chosen to engage.
+	 *
+	 * The recipient's DM access level is forced to "followers" for the duration of
+	 * the conversation lookup so the engine's can_message() returns is_request for
+	 * the not-yet-connected pair (it otherwise keys "request vs active" off the DM
+	 * access setting, which on an "everyone" site would open a normal thread).
+	 * "followers" (not "mutual") is the right force: a non-follower sender resolves
+	 * to allowed + is_request, whereas "mutual" denies a non-follower outright. The
+	 * recipient's own block / "who can DM me" rules still apply via the existing
+	 * mvs_can_send_message gate, so this never bypasses their privacy. The filter
+	 * is removed immediately after, so no other DM send is affected.
+	 *
+	 * Hooked on: buddynext_connection_requested( int, int, int, string ).
+	 *
+	 * @param int    $connection_id Connection row ID (unused).
+	 * @param int    $requester_id  User who sent the connection request.
+	 * @param int    $recipient_id  User receiving the request.
+	 * @param string $note          Optional note attached to the request.
+	 * @return void
+	 */
+	public function deliver_note_as_message_request( int $connection_id, int $requester_id, int $recipient_id, string $note = '' ): void {
+		unset( $connection_id );
+
+		$note = trim( $note );
+		if ( '' === $note || $requester_id <= 0 || $recipient_id <= 0 ) {
+			return;
+		}
+
+		$svc = MediaClient::messaging();
+		if ( ! is_object( $svc )
+			|| ! method_exists( $svc, 'find_or_create_conversation' )
+			|| ! method_exists( $svc, 'send_message' ) ) {
+			return;
+		}
+
+		// Force a pending request (not an active thread) for the not-yet-connected
+		// pair, scoped to just the conversation lookup below. "followers" makes a
+		// non-follower sender resolve to allowed + is_request; "mutual" would deny.
+		$force_request = static function (): string {
+			return 'followers';
+		};
+		add_filter( 'mvs_dm_access_level', $force_request, 99 );
+
+		try {
+			$conv    = $svc->find_or_create_conversation( $requester_id, $recipient_id );
+			$conv_id = is_array( $conv ) ? (int) ( $conv['conversation_id'] ?? 0 ) : 0;
+
+			if ( $conv_id > 0 ) {
+				$svc->send_message( $conv_id, $requester_id, array( 'content' => $note ) );
+			}
+		} catch ( \Throwable $e ) {
+			// Best-effort: the connection request itself already succeeded and its
+			// in-app notification still fires. Never let a messaging-engine error
+			// bubble back into the connect flow.
+			unset( $e );
+		} finally {
+			remove_filter( 'mvs_dm_access_level', $force_request, 99 );
+		}
 	}
 
 	/**

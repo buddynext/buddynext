@@ -14,7 +14,7 @@
  */
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnConnectNoteDialog } from '../shell/dialog.js';
+import { bnToast, bnResolveConnectNote } from '../shell/dialog.js';
 import { restFetch } from '../shell/rest-client.js';
 import { onNavReady } from '../shell/nav-init.js';
 
@@ -489,7 +489,7 @@ function wireCardListeners( article, cardCtx, item ) {
 			const endpoint = '/users/' + cardCtx.userId + '/connect';
 			if ( cur === 'none' ) {
 				// LinkedIn-style optional note. Cancelling leaves the button as-is.
-				const note = await bnConnectNoteDialog( {
+				const note = await bnResolveConnectNote( {
 					body: 'Add a personal message to your request to @' + name + ', or send it without one.',
 				} );
 				if ( note === null ) { return; }
@@ -925,7 +925,7 @@ const memberStore = store( 'buddynext/members', {
 			if ( cur === 'pending-received' ) { return; }
 			if ( cur === 'none' ) {
 				// LinkedIn-style optional note. Cancelling leaves the button as-is.
-				const note = await bnConnectNoteDialog( {
+				const note = await bnResolveConnectNote( {
 					body: 'Add a personal message to your request to @' + name + ', or send it without one.',
 				} );
 				if ( note === null ) { return; }
