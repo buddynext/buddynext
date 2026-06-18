@@ -334,6 +334,21 @@ class PageRouter {
 			$hub_override   = isset( $nav_overrides[ $hub ] ) ? (array) $nav_overrides[ $hub ] : array();
 			$override_login = ! empty( $hub_override['login_required'] ) && ! $is_explore;
 
+			// Public explore landing: when "Public explore feed" is on and the Feed
+			// tab is not explicitly login-required, a guest hitting the personalised
+			// base feed (/activity/ or its Home view) should land on the public
+			// explore feed rather than the login wall — that is the whole point of
+			// the setting. Personal sections (bookmarks/saved) still require login.
+			if ( 'feed' === $hub
+				&& ! $is_explore
+				&& in_array( $feed_section, array( '', 'home' ), true )
+				&& ! $override_login
+				&& (bool) get_option( 'buddynext_public_explore', true )
+			) {
+				wp_safe_redirect( self::explore_url() );
+				exit;
+			}
+
 			$needs_login =
 				$override_login
 				|| in_array( $hub, array( 'messages', 'notifications', 'onboarding', 'settings' ), true )
