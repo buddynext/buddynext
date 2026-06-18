@@ -1,5 +1,24 @@
 # BuddyNext Changelog
 
+## 0.6.0-beta1 - June 2026
+
+QA hardening across moderation, email, and navigation, membership enforcement seams for BuddyNext Pro, and a front-end plugin-isolation fix. Pairs with BuddyNext Pro 0.6.0-beta1.
+
+* New      - Membership enforcement seams (entitlement gates) that BuddyNext Pro plans hook into.
+* New      - Custom navigation tabs can now be deleted.
+* Improve  - Moderation: full audit trail; the admin queue now surfaces action failures instead of false-success notices.
+* Improve  - Email: every seeded template is shown in the editor; Preview Text is applied as the inbox preheader; sends are logged.
+* Improve  - Navigation: Messages and integration-bridge options are gated on their required plugin being active.
+* Improve  - Appearance logo and default theme reflect on the front end; pin/unpin updates the feed without a reload.
+* Improve  - Settings: hide Connect for unconfigured social providers; gate Direct Messaging on WPMediaVerse.
+* Fix      - Duplicate transactional emails on moderation actions (2-3 copies) reduced to one.
+* Fix      - Social-login verified email is now recognized (meta key mismatch).
+* Fix      - Isolation mu-plugin no longer strips BuddyNext Pro on front-end routes, and matches route segments exactly so pages like /membership/ are not mis-isolated.
+* Fix      - Allow assigning an existing page whose slug matches a hub.
+* Security - Masked secret input fields (render_password_row) for admin credentials.
+* Compat   - Pairs with BuddyNext Pro 0.6.0-beta1. Install both together.
+
+
 ## Unreleased
 
 ### Notifications (true production)
@@ -508,3 +527,4 @@ their production-readiness row claimed.
 ## 0.2.0 — 2026-05-20
 
 Beta dogfooding release. Baseline before the v2 architecture sweep.
+
