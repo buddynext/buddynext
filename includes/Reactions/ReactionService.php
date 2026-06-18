@@ -193,6 +193,40 @@ class ReactionService {
 	}
 
 	/**
+	 * Human-readable, translatable label for a reaction slug.
+	 *
+	 * Single source of truth for reaction labels across the picker, the React
+	 * button, and the post-card context. Built-in slugs map to their canonical
+	 * label; unknown (Pro custom) slugs fall back to a humanised slug, and the
+	 * buddynext_reaction_meta filter can override any of them.
+	 *
+	 * @param string $slug Reaction type slug.
+	 * @return string Translated label.
+	 */
+	public static function label( string $slug ): string {
+		$slug    = sanitize_key( $slug );
+		$builtin = array(
+			'like'  => __( 'Like', 'buddynext' ),
+			'love'  => __( 'Love', 'buddynext' ),
+			'haha'  => __( 'Haha', 'buddynext' ),
+			'wow'   => __( 'Wow', 'buddynext' ),
+			'sad'   => __( 'Sad', 'buddynext' ),
+			'angry' => __( 'Angry', 'buddynext' ),
+		);
+		$label = $builtin[ $slug ] ?? ucfirst( str_replace( array( '-', '_' ), ' ', $slug ) );
+		$meta  = (array) apply_filters(
+			'buddynext_reaction_meta',
+			array(
+				'label' => $label,
+				'char'  => '',
+				'color' => '',
+			),
+			$slug
+		);
+		return isset( $meta['label'] ) && '' !== (string) $meta['label'] ? (string) $meta['label'] : $label;
+	}
+
+	/**
 	 * Toggle a reaction and return the updated counts for all types.
 	 *
 	 * Spec-named alias for toggle() that also returns a full counts array.

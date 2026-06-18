@@ -825,6 +825,14 @@ store( 'buddynext/post-card', {
 		get reactionType() {
 			try { return getContext().reactionType || null; } catch ( _e ) { return null; }
 		},
+		// Label shown on the React button — the current reaction's name, or the
+		// default "React" when the viewer has not reacted.
+		get reactionLabel() {
+			try {
+				const ctx = getContext();
+				return ctx.reactionLabel || ctx.reactDefaultLabel || 'React';
+			} catch ( _e ) { return 'React'; }
+		},
 		get pollOptionPctText() {
 			try {
 				const ctx = getContext();
@@ -978,15 +986,24 @@ store( 'buddynext/post-card', {
 			}
 		},
 		* setReaction( event ) {
-			const ctx  = getContext();
-			const type = event.target.closest( '[data-reaction-type]' )?.dataset.reactionType || 'like';
+			const ctx    = getContext();
+			const optEl  = event.target.closest( '[data-reaction-type]' );
+			const type   = optEl?.dataset.reactionType || 'like';
+			// The picker option carries the translated reaction label (title /
+			// aria-label), so the React button label can mirror the icon without
+			// duplicating the label map in JS.
+			const label  = optEl?.getAttribute( 'title' ) || optEl?.getAttribute( 'aria-label' ) || type;
 
 			ctx.reactionPickerOpen = false;
 			const newType = ctx.reactionType === type ? null : type;
 			const prev    = ctx.reactionType;
+			const prevLbl = ctx.reactionLabel;
 
-			// Optimistic update — apply immediately, revert on failure.
-			ctx.reactionType = newType;
+			// Optimistic update — apply immediately, revert on failure. The label
+			// follows the type: the chosen reaction's name, or the default when
+			// toggling the reaction off.
+			ctx.reactionType  = newType;
+			ctx.reactionLabel = newType ? label : ( ctx.reactDefaultLabel || 'React' );
 
 			try {
 				const res = yield fetch( ctx.restUrl + '/reactions/toggle', {
@@ -995,10 +1012,12 @@ store( 'buddynext/post-card', {
 					body:    JSON.stringify( { object_type: 'post', object_id: ctx.postId, emoji: newType } ),
 				} );
 				if ( ! res.ok ) {
-					ctx.reactionType = prev; // Revert on failure.
+					ctx.reactionType  = prev; // Revert on failure.
+					ctx.reactionLabel = prevLbl;
 				}
 			} catch ( _e ) {
-				ctx.reactionType = prev; // Revert on error.
+				ctx.reactionType  = prev; // Revert on error.
+				ctx.reactionLabel = prevLbl;
 			}
 		},
 		* toggleBookmark() {

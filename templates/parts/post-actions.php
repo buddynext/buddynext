@@ -111,7 +111,15 @@ do_action( 'buddynext_part_post_actions_before', $args );
 				buddynext_icon( 'heart' );
 				?>
 			</span>
-			<span class="bn-post-card__action-label"><?php esc_html_e( 'React', 'buddynext' ); ?></span>
+			<?php
+			// Label reflects the viewer's current reaction (e.g. "Love") and falls
+			// back to "React" when none. Bound to state.reactionLabel so picking a
+			// reaction updates the label in step with the icon.
+			$bn_react_label = ( ! empty( $args['user_reaction'] ) && class_exists( '\BuddyNext\Reactions\ReactionService' ) )
+				? \BuddyNext\Reactions\ReactionService::label( (string) $args['user_reaction'] )
+				: __( 'React', 'buddynext' );
+			?>
+			<span class="bn-post-card__action-label" data-wp-text="state.reactionLabel"><?php echo esc_html( $bn_react_label ); ?></span>
 		</button>
 
 		<div
@@ -177,7 +185,7 @@ do_action( 'buddynext_part_post_actions_before', $args );
 
 				// Prefer the bundled Fluent SVG; custom slugs have none, so fall
 				// back to a colour-tinted text glyph so the button is visible.
-				$bn_glyph = \BuddyNext\Core\IconService::render_emoji( $reaction_key, '', $reaction_label );
+				$bn_glyph      = \BuddyNext\Core\IconService::render_emoji( $reaction_key, '', $reaction_label );
 				$bn_chip_style = '';
 				if ( '' === $bn_glyph ) {
 					if ( '' === $reaction_char ) {
@@ -195,14 +203,16 @@ do_action( 'buddynext_part_post_actions_before', $args );
 					title="<?php echo esc_attr( $reaction_label ); ?>"
 					data-wp-on--click="actions.setReaction"
 					data-reaction-type="<?php echo esc_attr( $reaction_key ); ?>"
-				><span class="bn-reaction-icon bn-reaction-icon--<?php echo esc_attr( $reaction_key ); ?>" aria-hidden="true"<?php echo '' !== $bn_chip_style ? ' style="' . esc_attr( $bn_chip_style ) . '"' : ''; ?>><?php
-					if ( '' !== $bn_glyph ) {
-						// IconService::render_emoji() returns sanitized markup.
-						echo $bn_glyph; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-					} else {
-						echo '<span class="bn-reaction-glyph">' . esc_html( $reaction_char ) . '</span>';
-					}
-				?></span></button>
+				><span class="bn-reaction-icon bn-reaction-icon--<?php echo esc_attr( $reaction_key ); ?>" aria-hidden="true"<?php echo '' !== $bn_chip_style ? ' style="' . esc_attr( $bn_chip_style ) . '"' : ''; ?>>
+				<?php
+				if ( '' !== $bn_glyph ) {
+					// IconService::render_emoji() returns sanitized markup.
+					echo $bn_glyph; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				} else {
+					echo '<span class="bn-reaction-glyph">' . esc_html( $reaction_char ) . '</span>';
+				}
+				?>
+				</span></button>
 			<?php endforeach; ?>
 		</div>
 	</div>

@@ -385,6 +385,14 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				'bookmarked'        => $is_bookmarked,
 				'hasReported'       => $has_reported,
 				'reactionType'      => $my_reaction_type,
+				// Translatable label shown on the React button: the current
+				// reaction's name when reacted, else the default "React". Kept in
+				// sync with the icon by the post-card store so picking a reaction
+				// updates the label too (data-wp-text="state.reactionLabel").
+				'reactionLabel'     => ( $my_reaction_type && class_exists( '\BuddyNext\Reactions\ReactionService' ) )
+					? \BuddyNext\Reactions\ReactionService::label( (string) $my_reaction_type )
+					: __( 'React', 'buddynext' ),
+				'reactDefaultLabel' => __( 'React', 'buddynext' ),
 				'reactNonce'        => $react_nonce,
 				'shareNonce'        => $share_nonce,
 				'bookmarkNonce'     => $bookmark_nonce,
