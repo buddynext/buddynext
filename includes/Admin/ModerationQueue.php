@@ -698,6 +698,13 @@ class ModerationQueue {
 			$op_action = 'reject_pending';
 		}
 
+		// approve_pending()/reject_pending() return a bool, not a WP_Error — so a
+		// false (post already handled / not found) must surface as a failure
+		// instead of being logged and redirected as a phantom success.
+		if ( false === $result ) {
+			$result = new \WP_Error( 'premod_action_failed', __( 'Could not update that post. It may already have been handled.', 'buddynext' ) );
+		}
+
 		if ( ! is_wp_error( $result ) && '' !== $op_action ) {
 			( new \BuddyNext\Moderation\ModerationLogService() )->log( get_current_user_id(), $op_action, array( 'post_id' => $post_id ) );
 		}

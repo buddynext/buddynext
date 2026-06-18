@@ -221,7 +221,7 @@ class SearchIndexListener implements ListenerInterface {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, name, description, type, owner_id
+				"SELECT id, name, description, type, owner_id, is_archived
 				 FROM {$wpdb->prefix}bn_spaces
 				 WHERE id = %d",
 				$space_id
@@ -230,6 +230,13 @@ class SearchIndexListener implements ListenerInterface {
 		);
 
 		if ( ! $row ) {
+			return;
+		}
+
+		// Archived spaces must not stay searchable — drop them from the index.
+		// This path also fires on the archive action via on_space_updated.
+		if ( 1 === (int) $row['is_archived'] ) {
+			buddynext_service( 'search' )->deindex( 'space', $space_id );
 			return;
 		}
 
@@ -335,7 +342,7 @@ class SearchIndexListener implements ListenerInterface {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 			$space_rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT id, name, description, type, owner_id
+					"SELECT id, name, description, type, owner_id, is_archived
 					 FROM {$wpdb->prefix}bn_spaces
 					 LIMIT %d OFFSET %d",
 					$batch_size,
@@ -346,6 +353,12 @@ class SearchIndexListener implements ListenerInterface {
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 
 			foreach ( (array) $space_rows as $space_row ) {
+				// Skip + drop archived spaces so a reindex purges any that were
+				// archived after their last index.
+				if ( 1 === (int) $space_row['is_archived'] ) {
+					$search_service->deindex( 'space', (int) $space_row['id'] );
+					continue;
+				}
 				$visibility = self::space_visibility( (string) $space_row['type'] );
 				$search_service->index(
 					'space',

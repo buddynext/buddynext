@@ -88,8 +88,9 @@ class FollowService {
 			$wpdb->prepare(
 				"SELECT blocker_id
 				 FROM {$wpdb->prefix}bn_blocks
-				 WHERE ( blocker_id = %d AND blocked_id = %d )
-				    OR ( blocker_id = %d AND blocked_id = %d )
+				 WHERE ( ( blocker_id = %d AND blocked_id = %d )
+				      OR ( blocker_id = %d AND blocked_id = %d ) )
+				   AND type = 'block'
 				 LIMIT 1",
 				$follower_id,
 				$following_id,
