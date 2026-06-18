@@ -221,7 +221,7 @@ class SearchService {
 		$excluded_where =
 			" AND si.author_id NOT IN (
 			    SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
-			    WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())
+			    WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
 			  )
 			  AND si.author_id NOT IN (
 			    SELECT user_id FROM {$wpdb->usermeta}

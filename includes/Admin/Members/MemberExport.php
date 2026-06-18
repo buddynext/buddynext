@@ -81,7 +81,7 @@ class MemberExport {
 		$suspended_ids = array_flip(
 			(array) $wpdb->get_col(
 				"SELECT DISTINCT user_id FROM {$wpdb->prefix}bn_user_suspensions
-				 WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())"
+				 WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())"
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared

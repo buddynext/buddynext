@@ -227,7 +227,7 @@ class SafeguardService {
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
 				 WHERE user_id = %d
-				   AND created_at >= DATE_SUB(NOW(), INTERVAL 1 MINUTE)",
+				   AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE)",
 				$user_id
 			)
 		);
@@ -387,7 +387,7 @@ class SafeguardService {
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
 				 WHERE user_id = %d
 				   AND content = %s
-				   AND created_at >= DATE_SUB( NOW(), INTERVAL %d MINUTE )",
+				   AND created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL %d MINUTE )",
 				$user_id,
 				$trimmed,
 				$window

@@ -171,7 +171,7 @@ class Members extends AdminPageBase {
 				"SELECT DISTINCT user_id
 				 FROM {$wpdb->prefix}bn_user_suspensions
 				 WHERE lifted_at IS NULL
-				   AND (expires_at IS NULL OR expires_at > NOW())"
+				   AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())"
 			);
 
 			if ( empty( $suspended_ids ) ) {
@@ -200,7 +200,7 @@ class Members extends AdminPageBase {
 			$suspended_set = array_flip(
 				(array) $wpdb->get_col(
 					$wpdb->prepare(
-						"SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions WHERE user_id IN ({$placeholders}) AND lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())",
+						"SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions WHERE user_id IN ({$placeholders}) AND lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())",
 						...$int_ids
 					)
 				)

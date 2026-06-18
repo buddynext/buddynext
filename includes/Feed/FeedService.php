@@ -677,7 +677,7 @@ class FeedService {
 				 WHERE p.is_announcement = 1
 				   AND p.type = 'announcement'
 				   AND p.status = 'published'
-				   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > NOW())
+				   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > UTC_TIMESTAMP())
 				 ORDER BY p.created_at DESC
 				 LIMIT 1"
 				: $wpdb->prepare(
@@ -685,7 +685,7 @@ class FeedService {
 				 WHERE p.is_announcement = 1
 				   AND p.type = 'announcement'
 				   AND p.status = 'published'
-				   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > NOW()){$exclude_sql}
+				   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > UTC_TIMESTAMP()){$exclude_sql}
 				 ORDER BY p.created_at DESC
 				 LIMIT 1",
 					$params

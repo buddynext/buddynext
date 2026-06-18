@@ -188,7 +188,7 @@ class MemberDirectoryService {
 			    SELECT 1 FROM {$wpdb->prefix}bn_user_suspensions s_ex
 			    WHERE s_ex.user_id = u.ID
 			      AND s_ex.lifted_at IS NULL
-			      AND (s_ex.expires_at IS NULL OR s_ex.expires_at > NOW())
+			      AND (s_ex.expires_at IS NULL OR s_ex.expires_at > UTC_TIMESTAMP())
 			  )",
 			"NOT EXISTS (
 			    SELECT 1 FROM {$wpdb->usermeta} um_ban

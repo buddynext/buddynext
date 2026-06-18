@@ -508,7 +508,7 @@ class ExploreService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$suspended = $wpdb->get_col(
 			"SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
-			 WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())"
+			 WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())"
 		);
 		$shadow    = $wpdb->get_col(
 			$wpdb->prepare(

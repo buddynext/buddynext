@@ -1076,7 +1076,7 @@ class ModerationService {
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_user_suspensions
 				 WHERE user_id = %d
 				   AND lifted_at IS NULL
-				   AND (expires_at IS NULL OR expires_at > NOW())",
+				   AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())",
 				$user_id
 			)
 		);
@@ -1114,7 +1114,7 @@ class ModerationService {
 
 		return "AND {$column} NOT IN (
 			    SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
-			    WHERE lifted_at IS NULL AND hide_posts = 1 AND (expires_at IS NULL OR expires_at > NOW())
+			    WHERE lifted_at IS NULL AND hide_posts = 1 AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
 			  )
 			  AND {$column} NOT IN (
 			    SELECT user_id FROM {$wpdb->usermeta}
@@ -1143,7 +1143,7 @@ class ModerationService {
 				 FROM {$wpdb->prefix}bn_user_suspensions
 				 WHERE user_id = %d
 				   AND lifted_at IS NULL
-				   AND (expires_at IS NULL OR expires_at > NOW())
+				   AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
 				 ORDER BY id DESC
 				 LIMIT 1",
 				$user_id
@@ -1186,7 +1186,7 @@ class ModerationService {
 				"SELECT id, user_id, suspended_by, reason, duration_days, hide_posts, expires_at, created_at
 				 FROM {$wpdb->prefix}bn_user_suspensions
 				 WHERE lifted_at IS NULL
-				   AND (expires_at IS NULL OR expires_at > NOW())
+				   AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
 				 ORDER BY id DESC
 				 LIMIT %d",
 				$limit
@@ -1801,7 +1801,7 @@ class ModerationService {
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_user_suspensions
-				 WHERE user_id = %d AND lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())",
+				 WHERE user_id = %d AND lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())",
 				$user_id
 			)
 		);
@@ -1828,7 +1828,7 @@ class ModerationService {
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}bn_user_suspensions
-				 WHERE user_id = %d AND lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())
+				 WHERE user_id = %d AND lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
 				 ORDER BY id DESC LIMIT 1",
 				$user_id
 			),
