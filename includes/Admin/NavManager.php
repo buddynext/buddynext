@@ -280,7 +280,7 @@ class NavManager extends AdminPageBase {
 											name="bn_hub[<?php echo esc_attr( $hub ); ?>][slug]"
 											value="<?php echo esc_attr( $slug_val ); ?>"
 											class="bn-text-input bn-pages-slug-input"
-											pattern="[a-z0-9-]+"
+											pattern="[a-z0-9\-]+"
 											spellcheck="false"
 											placeholder="<?php echo esc_attr( $cfg['default'] ); ?>">
 										<span class="bn-field-hint"><?php echo esc_html( trailingslashit( home_url( '/' . ( '' !== $slug_val ? $slug_val : $cfg['default'] ) ) ) ); ?></span>
