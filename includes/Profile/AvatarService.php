@@ -52,6 +52,11 @@ class AvatarService {
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
 	/**
+	 * Exact prefix of the initials-avatar data URI this service generates.
+	 */
+	private const AVATAR_DATA_PREFIX = 'data:image/svg+xml;base64,';
+
+	/**
 	 * Register WordPress hooks.
 	 *
 	 * @return void
@@ -59,15 +64,18 @@ class AvatarService {
 	public function init(): void {
 		add_filter( 'pre_get_avatar_data', array( $this, 'filter_avatar_data' ), 10, 2 );
 		add_filter( 'kses_allowed_protocols', array( $this, 'allow_data_protocol' ) );
+		add_filter( 'clean_url', array( $this, 'restrict_data_urls' ), 10, 2 );
 	}
 
 	/**
-	 * Allow data: URIs to pass through esc_url() so SVG initials avatars render.
+	 * Allow the data: scheme through esc_url()'s protocol check.
 	 *
-	 * WordPress's esc_url() strips any URL whose scheme is not in the allowed
-	 * protocols list. Since our fallback avatar is a data:image/svg+xml;base64
-	 * data URI, we add 'data' here so it survives the img src attribute escaping
-	 * inside get_avatar().
+	 * Required so the SVG initials avatar (a data:image/svg+xml;base64 URI) is not
+	 * stripped to '' by core get_avatar() or the many templates that esc_url() the
+	 * avatar URL. esc_url() aborts to '' BEFORE the clean_url filter when a scheme
+	 * is disallowed, so the scheme must be permitted here for restrict_data_urls()
+	 * to then narrow it back down — without that ordering a data: URL never reaches
+	 * clean_url at all.
 	 *
 	 * @param string[] $protocols Allowed URL protocols.
 	 * @return string[]
@@ -75,6 +83,34 @@ class AvatarService {
 	public function allow_data_protocol( array $protocols ): array {
 		$protocols[] = 'data';
 		return $protocols;
+	}
+
+	/**
+	 * Permit ONLY our initials-avatar data URI; strip every other data: URL.
+	 *
+	 * The allow_data_protocol() filter opens the data: scheme globally, which alone would
+	 * also let data:text/html (and any other data: URL) pass esc_url() site-wide —
+	 * the reported issue. This runs in clean_url (which, unlike the protocol list,
+	 * receives the URL) and returns '' for any data: URL that is not our exact
+	 * base64 SVG-image avatar, restoring WordPress's default-deny for everything
+	 * else. The avatar payload is base64 ([A-Za-z0-9+/=]) after a fixed prefix, so
+	 * it cannot break out of an href/src attribute.
+	 *
+	 * @param string $good_url     esc_url()'s cleaned URL.
+	 * @param string $original_url The URL passed into esc_url() before cleaning.
+	 * @return string
+	 */
+	public function restrict_data_urls( string $good_url, string $original_url ): string {
+		if ( 0 !== stripos( $original_url, 'data:' ) ) {
+			return $good_url; // Not a data: URL — leave every other URL untouched.
+		}
+		if ( 0 === strpos( $original_url, self::AVATAR_DATA_PREFIX ) ) {
+			$payload = substr( $original_url, strlen( self::AVATAR_DATA_PREFIX ) );
+			if ( '' !== $payload && 1 === preg_match( '#^[A-Za-z0-9+/]+={0,2}$#', $payload ) ) {
+				return $good_url; // Our initials avatar — allow it.
+			}
+		}
+		return ''; // Any other data: URL (e.g. data:text/html) — block, as core does.
 	}
 
 	// ── Filter ────────────────────────────────────────────────────────────────
