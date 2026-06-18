@@ -515,7 +515,10 @@ class MemberTypeService {
 		$cache_key = 'bn_member_type_count_' . $type_id;
 		$cached    = $this->cache->get( $cache_key );
 
-		if ( false !== $cached ) {
+		// CacheService::get() returns null (not false) on a miss, so checking
+		// `false !==` treated every miss as a hit and returned (int) null = 0 —
+		// the count was permanently 0. Detect the real miss with `null !==`.
+		if ( null !== $cached ) {
 			return (int) $cached;
 		}
 
