@@ -1806,6 +1806,22 @@ a.bn-space-row:hover .bn-space-name {
 .bn-pf-task__cta:hover { text-decoration: underline; }
 
 /* ── Profile view — responsive ────────────────────────────────────────── */
+/* WCAG 1.4.10 reflow: the desktop header is a rigid "avatar | 1fr identity |
+   actions" grid. Because the actions column is auto-sized (Follow/Connect/
+   Message/Share/More can be ~370px wide), between ~770px and 1024px — the band
+   hit by high browser zoom — it squeezed the 1fr identity column down to ~0,
+   crushing the member name and bio. Stack the header to a single column before
+   that happens; the 768/640/400 rules below refine the stacked layout further. */
+@media (max-width: 1024px) {
+	.bn-pf-head {
+		grid-template-columns: 1fr;
+	}
+	.bn-pf-actions {
+		justify-self: start;
+		justify-content: flex-start;
+	}
+}
+
 @media (max-width: 768px) {
 	.bn-pf-head {
 		grid-template-columns: 1fr;
