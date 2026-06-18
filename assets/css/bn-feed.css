@@ -2477,7 +2477,9 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	display: flex;
 	align-items: center;
 	gap: var(--s2);
-	flex-wrap: wrap;
+	/* No wrap: the datetime input (flex:1 + min-width:0) absorbs the row and
+	   shrinks instead, so the × clear button stays inline rather than wrapping
+	   to its own line. */
 }
 .bn-composer__schedule-label {
 	display: inline-flex;
@@ -2486,6 +2488,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	font-size: var(--text-sm);
 	font-weight: 600;
 	color: var(--text-2);
+	flex-shrink: 0;
 }
 .bn-composer__schedule-label svg { width: 16px; height: 16px; }
 .bn-composer__schedule-input {
@@ -2510,6 +2513,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	flex-shrink: 0;
 }
 .bn-composer__schedule-clear:hover { color: var(--text-1); background: var(--bg-subtle); }
 .bn-composer__schedule-clear svg { width: 16px; height: 16px; }
