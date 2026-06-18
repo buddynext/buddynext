@@ -31,7 +31,7 @@ $args = array(
 /** Sanitized partial arguments. @var array<string,mixed> $args */
 $args = (array) apply_filters( 'buddynext_part_dm_delete_modal_args', $args );
 
-$bn_classes = array_merge( array( 'bn-modal-backdrop', 'bn-dm-confirm' ), array_filter( (array) $args['classes'], 'is_string' ) );
+$bn_classes = array_merge( array( 'bn-modal-backdrop', 'bn-dm-confirm', 'is-hidden' ), array_filter( (array) $args['classes'], 'is_string' ) );
 /** Computed root-class list. @var array<int,string> $bn_classes */
 $bn_classes = (array) apply_filters( 'buddynext_part_dm_delete_modal_classes', $bn_classes, $args );
 $bn_class   = trim(

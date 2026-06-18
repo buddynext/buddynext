@@ -1046,6 +1046,10 @@
 	width: 1px;
 	height: 1px;
 	pointer-events: none;
+	/* Suppress the native checkbox box entirely so it can't paint through the
+	   circular/square .bn-wizard__option-mark in the Pages list. */
+	-webkit-appearance: none;
+	appearance: none;
 }
 .bn-wizard__option-icon {
 	width: 36px;
@@ -1095,6 +1099,13 @@
 }
 .bn-wizard__option-mark .bn-icon { width: 12px; height: 12px; }
 .bn-wizard__option[data-selected="true"] .bn-wizard__option-mark {
+	background: var(--bn-accent);
+	border-color: var(--bn-accent);
+	color: var(--bn-accent-fg, #fff);
+}
+/* Pages list uses <li.bn-wizard__page> (no [data-selected] state); the mark's
+   filled state keys off the sibling checkbox so there is exactly one indicator. */
+.bn-wizard__page-check input:checked + .bn-wizard__option-mark {
 	background: var(--bn-accent);
 	border-color: var(--bn-accent);
 	color: var(--bn-accent-fg, #fff);

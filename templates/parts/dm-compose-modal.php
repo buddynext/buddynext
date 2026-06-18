@@ -26,7 +26,7 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 ?>
 <div
-	class="bn-modal-backdrop bn-dm-compose"
+	class="bn-modal-backdrop bn-dm-compose is-hidden"
 	role="dialog"
 	aria-modal="true"
 	aria-labelledby="bn-dm-compose-title"
