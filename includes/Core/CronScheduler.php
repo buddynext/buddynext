@@ -197,6 +197,50 @@ class CronScheduler {
 		// next wp_loaded. Nothing to do here beyond the legacy drops above.
 	}
 
+	/**
+	 * Report background-task health for the Tools diagnostics surface.
+	 *
+	 * Background jobs run automatically on a normal WordPress install (WP-Cron
+	 * fires the Action Scheduler runner on page loads). They only stall when the
+	 * site has WP-Cron disabled (`DISABLE_WP_CRON`) without a system cron wired
+	 * to drive it — then scheduled actions pile up overdue and nothing processes
+	 * them. This detects that case so the admin can be told to add a server cron.
+	 *
+	 * @return array{wp_cron_disabled: bool, as_available: bool, overdue: int, stalled: bool}
+	 */
+	public static function health(): array {
+		$wp_cron_disabled = defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON;
+		$as_available     = function_exists( 'as_get_scheduled_actions' ) && function_exists( 'as_get_datetime_object' );
+		$overdue          = 0;
+
+		if ( $as_available ) {
+			// Pending actions whose scheduled time passed over an hour ago — a
+			// reliable "the runner is not firing" signal (a healthy site clears
+			// these within minutes). Capped: we only need "are tasks piling up?".
+			$ids = as_get_scheduled_actions(
+				array(
+					'status'       => 'pending',
+					'date'         => as_get_datetime_object( '-1 hour' ),
+					'date_compare' => '<=',
+					'per_page'     => 50,
+				),
+				'ids'
+			);
+
+			$overdue = is_array( $ids ) ? count( $ids ) : 0;
+		}
+
+		return array(
+			'wp_cron_disabled' => $wp_cron_disabled,
+			'as_available'     => $as_available,
+			'overdue'          => $overdue,
+			// Stalled only when nothing is driving the queue: WP-Cron off AND
+			// actions overdue. A few overdue actions with WP-Cron on just means a
+			// quiet, low-traffic site, cleared on the next visit.
+			'stalled'          => $wp_cron_disabled && $overdue > 0,
+		);
+	}
+
 	// ── Private helpers ───────────────────────────────────────────────────────
 
 	/**

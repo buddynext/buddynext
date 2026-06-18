@@ -23,6 +23,7 @@ namespace BuddyNext\Admin;
 
 use BuddyNext\Core\CacheService;
 use BuddyNext\Core\CounterService;
+use BuddyNext\Core\CronScheduler;
 use BuddyNext\Demo\DemoAdmin;
 
 /**
@@ -70,6 +71,7 @@ class ToolsTab {
 			}
 		}
 
+		$this->render_background_tasks_section();
 		$this->render_repair_section();
 		$this->render_cache_section();
 		$this->render_export_import_section();
@@ -79,6 +81,71 @@ class ToolsTab {
 	}
 
 	// ── Sections ────────────────────────────────────────────────────────────
+
+	/**
+	 * Background tasks (Action Scheduler) health + system-cron guidance.
+	 *
+	 * Background jobs run automatically on a normal install. This surfaces a
+	 * clear, actionable note ONLY when the site has WP-Cron disabled and tasks
+	 * are piling up overdue — the one case where the admin must add a server
+	 * cron for digests, cleanups, scheduled posts, and emails to keep running.
+	 *
+	 * @return void
+	 */
+	private function render_background_tasks_section(): void {
+		$health   = CronScheduler::health();
+		$cron_url = site_url( 'wp-cron.php?doing_wp_cron' );
+		$command  = sprintf( "*/5 * * * * wget -q -O - '%s' >/dev/null 2>&1", $cron_url );
+		?>
+		<div class="bn-settings-section">
+			<div class="bn-ss-header">
+				<span class="bn-ss-title"><?php esc_html_e( 'Background tasks', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-ss-body">
+				<p class="bn-av-section-desc">
+					<?php esc_html_e( 'Digests, cleanups, scheduled posts, and emails run on Action Scheduler in the background. On a normal site these run automatically — no setup needed.', 'buddynext' ); ?>
+				</p>
+
+				<?php if ( $health['stalled'] ) : ?>
+					<div class="notice notice-warning inline">
+						<p>
+							<strong><?php esc_html_e( 'Background tasks are not running.', 'buddynext' ); ?></strong>
+							<?php
+							printf(
+								/* translators: %d: number of overdue scheduled tasks. */
+								esc_html__( 'WordPress cron is disabled on this site (DISABLE_WP_CRON) and %d scheduled task(s) are overdue. Add a server-level cron job so the queue is processed:', 'buddynext' ),
+								(int) $health['overdue']
+							);
+							?>
+						</p>
+						<p><code><?php echo esc_html( $command ); ?></code></p>
+						<p class="description">
+							<?php esc_html_e( 'Run that on your server (or ask your host) to fire WordPress cron every 5 minutes. This is a server change, not a plugin setting — BuddyNext never disables WordPress cron for you.', 'buddynext' ); ?>
+						</p>
+					</div>
+				<?php elseif ( $health['wp_cron_disabled'] ) : ?>
+					<p class="bn-av-section-desc">
+						<?php esc_html_e( 'WordPress cron is disabled on this site. Background tasks are keeping up, which means a system cron is already driving them. No action needed.', 'buddynext' ); ?>
+					</p>
+				<?php else : ?>
+					<p class="bn-av-section-desc">
+						<?php
+						if ( $health['overdue'] > 0 ) {
+							printf(
+								/* translators: %d: number of tasks waiting to run. */
+								esc_html__( 'Status: running automatically. %d task(s) are waiting and will process on the next site activity.', 'buddynext' ),
+								(int) $health['overdue']
+							);
+						} else {
+							esc_html_e( 'Status: running automatically. No overdue tasks.', 'buddynext' );
+						}
+						?>
+					</p>
+				<?php endif; ?>
+			</div>
+		</div>
+		<?php
+	}
 
 	/**
 	 * Repair / recount counters.
