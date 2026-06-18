@@ -6,6 +6,35 @@ import { onNavReady } from '../shell/nav-init.js';
 /* ── Shared helpers ────────────────────────────────────────────────── */
 
 /**
+ * The space-settings form the user last touched (the one the reactive savebar
+ * submits / rolls back). Set by the savebarMarkDirty action; read by the
+ * savebar submit/cancel actions and the beforeunload guard.
+ *
+ * @type {HTMLFormElement|null}
+ */
+var bnSavebarDirtyForm = null;
+
+/**
+ * Roll a space-settings form back to its captured pristine values (data-bn-default).
+ *
+ * @param {HTMLFormElement} form Form to restore.
+ */
+function bnSavebarRollback( form ) {
+	if ( ! form ) { return; }
+	var inputs = form.querySelectorAll( 'input, textarea, select' );
+	for ( var i = 0; i < inputs.length; i++ ) {
+		var el = inputs[ i ];
+		if ( 'hidden' === el.type ) { continue; }
+		if ( ! ( 'bnDefault' in el.dataset ) ) { continue; }
+		if ( 'checkbox' === el.type || 'radio' === el.type ) {
+			el.checked = '1' === el.dataset.bnDefault;
+		} else {
+			el.value = el.dataset.bnDefault;
+		}
+	}
+}
+
+/**
  * Resolve nonce. Tries the Interactivity API context first (works when
  * called inside a directive callback), then reads the data-wp-context
  * attribute from the root interactive element (works from plain DOM
@@ -374,6 +403,36 @@ function syncPendingCounters() {
 /* ── Store ─────────────────────────────────────────────────────────── */
 
 var storeInstance = store( 'buddynext/spaces', {
+
+	/* ── Reactive UI state (single source) ─────────────────────────────────
+	 *
+	 * Drives the Space Settings sticky savebar and the danger-zone modals via
+	 * data-wp-bind--hidden — replacing the old imperative showState() dataset/
+	 * .hidden paint loop and the openSpaceModal()/.hidden modal toggles. The
+	 * settings page is a single global instance, so these live on global store
+	 * state (not per-element context); getters derive the per-block `hidden`
+	 * booleans because Interactivity directives can't evaluate === / ! inline.
+	 *
+	 * savebarPhase: 'idle' | 'dirty' | 'saving' | 'saved'
+	 * ─────────────────────────────────────────────────────────────────────── */
+	state: {
+		savebarPhase:  'idle',
+		modalTransferOpen: false,
+		modalDeleteOpen:   false,
+		modalArchiveOpen:  false,
+
+		// Savebar: the bar is hidden only in the idle phase; each status pill is
+		// hidden unless its phase is the active one.
+		get savebarHidden() { return 'idle' === storeInstance.state.savebarPhase; },
+		get savebarDirtyHidden() { return 'dirty' !== storeInstance.state.savebarPhase; },
+		get savebarSavingHidden() { return 'saving' !== storeInstance.state.savebarPhase; },
+		get savebarSavedHidden() { return 'saved' !== storeInstance.state.savebarPhase; },
+
+		// Danger-zone modals: hidden is the negation of the open flag.
+		get modalTransferHidden() { return ! storeInstance.state.modalTransferOpen; },
+		get modalDeleteHidden() { return ! storeInstance.state.modalDeleteOpen; },
+		get modalArchiveHidden() { return ! storeInstance.state.modalArchiveOpen; },
+	},
 
 	actions: {
 
@@ -1004,10 +1063,11 @@ var storeInstance = store( 'buddynext/spaces', {
 		/* ── Space-settings modal openers ──────────────────────────────── */
 
 		/**
-		 * Open the delete-space confirm modal.
+		 * Open the simple delete-space confirm modal (reactive flag).
 		 */
 		openDeleteSpaceModal: function () {
-			openSpaceModal( 'delete-space' );
+			storeInstance.state.modalDeleteOpen = true;
+			focusFirstInModal( 'delete-space' );
 		},
 
 		/* ── Settings: members tab inline actions ──────────────────────── */
@@ -1130,10 +1190,11 @@ var storeInstance = store( 'buddynext/spaces', {
 		/* ── Settings: transfer ownership ─────────────────────────────── */
 
 		/**
-		 * Open the transfer-ownership confirm modal.
+		 * Open the transfer-ownership confirm modal (reactive flag).
 		 */
 		openTransferOwnershipModal: function () {
-			openSpaceModal( 'transfer-ownership' );
+			storeInstance.state.modalTransferOpen = true;
+			focusFirstInModal( 'transfer-ownership' );
 		},
 
 		/**
@@ -1334,10 +1395,11 @@ var storeInstance = store( 'buddynext/spaces', {
 		},
 
 		/**
-		 * Open the archive-space confirm modal.
+		 * Open the archive-space confirm modal (reactive flag).
 		 */
 		openArchiveSpaceModal: function () {
-			openSpaceModal( 'archive-space' );
+			storeInstance.state.modalArchiveOpen = true;
+			focusFirstInModal( 'archive-space' );
 		},
 
 		/**
@@ -1370,6 +1432,52 @@ var storeInstance = store( 'buddynext/spaces', {
 				btn.disabled = false;
 				if ( window.bnToast ) { window.bnToast( __i18n( 'Could not archive the space. Try again.' ), 'danger' ); }
 			}
+		},
+
+		/* ── Settings: reactive sticky savebar ─────────────────────────────
+		 *
+		 * Replaces the old imperative showState() dataset/.hidden paint loop.
+		 * Each settings form fires input/change → savebarMarkDirty flips
+		 * state.savebarPhase to 'dirty' (the bar + the dirty pill bind their
+		 * hidden off that phase). Save submits the dirty form; Cancel rolls it
+		 * back to the captured defaults. */
+
+		/**
+		 * Mark the touched settings form dirty and surface the savebar.
+		 *
+		 * @param {Event} event input/change event from a settings form.
+		 */
+		savebarMarkDirty: function ( event ) {
+			var form = event && event.currentTarget
+				? event.currentTarget
+				: ( event && event.target ? event.target.closest( 'form' ) : null );
+			if ( ! form ) { return; }
+			bnSavebarDirtyForm = form;
+			storeInstance.state.savebarPhase = 'dirty';
+		},
+
+		/**
+		 * Submit the currently-dirty settings form (native POST preserves the
+		 * wp_nonce field + validation). Flips to the 'saving' phase first.
+		 */
+		savebarSubmit: function () {
+			var form = bnSavebarDirtyForm;
+			if ( ! form ) { return; }
+			if ( ! form.reportValidity || form.reportValidity() ) {
+				storeInstance.state.savebarPhase = 'saving';
+				// Let the beforeunload guard pass the POST through.
+				form.dataset.bnSubmitting = '1';
+				form.submit();
+			}
+		},
+
+		/**
+		 * Roll back unsaved edits and settle the savebar back to idle.
+		 */
+		savebarCancel: function () {
+			if ( bnSavebarDirtyForm ) { bnSavebarRollback( bnSavebarDirtyForm ); }
+			bnSavebarDirtyForm = null;
+			storeInstance.state.savebarPhase = 'idle';
 		},
 
 		/* ── Space home: notification pref + tab switch ──────────────────── */
@@ -2428,11 +2536,43 @@ function openSpaceModal( name ) {
 }
 
 /**
- * Hide every `[data-bn-modal]` backdrop on the page.
+ * Move initial focus into a reactive modal after the directive flips its
+ * `hidden` binding. The bind runs on the next render tick, so defer the focus
+ * to a microtask/raf so the element is focusable (not display:none) by then.
+ *
+ * @param {string} name Modal name (data-bn-modal value).
+ */
+function focusFirstInModal( name ) {
+	requestAnimationFrame( function () {
+		var modal = document.querySelector( '[data-bn-modal="' + name + '"]' );
+		if ( ! modal || modal.hidden ) { return; }
+		var focusable = modal.querySelector( 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])' );
+		if ( focusable ) { focusable.focus(); }
+	} );
+}
+
+/**
+ * Hide every modal on the page.
+ *
+ * The danger-zone modals (transfer / delete / archive) are REACTIVE — their
+ * `hidden` is bound to store state — so clear those flags rather than poking
+ * `.hidden` (which the binding would immediately overwrite). The remaining
+ * imperative modals (invite / create-space / delete-space-confirm) still toggle
+ * `.hidden` directly.
  */
 function closeAllSpaceModals() {
+	if ( storeInstance && storeInstance.state ) {
+		storeInstance.state.modalTransferOpen = false;
+		storeInstance.state.modalDeleteOpen   = false;
+		storeInstance.state.modalArchiveOpen  = false;
+	}
 	var modals = document.querySelectorAll( '[data-bn-modal]' );
 	for ( var i = 0; i < modals.length; i++ ) {
+		// Skip the reactive danger modals — their binding owns `hidden`.
+		var name = modals[ i ].getAttribute( 'data-bn-modal' );
+		if ( 'transfer-ownership' === name || 'delete-space' === name || 'archive-space' === name ) {
+			continue;
+		}
 		modals[ i ].hidden = true;
 	}
 }
@@ -2631,9 +2771,6 @@ document.addEventListener( 'keydown', function ( event ) {
 	var forms     = root.querySelectorAll( 'form.bn-space-settings__form' );
 	if ( ! forms.length ) { return; }
 
-	var dirtyForm  = null;
-	var savedTimer = null;
-
 	function captureDefaults( form ) {
 		var inputs = form.querySelectorAll( 'input, textarea, select' );
 		for ( var i = 0; i < inputs.length; i++ ) {
@@ -2647,80 +2784,29 @@ document.addEventListener( 'keydown', function ( event ) {
 		}
 	}
 
-	function showState( name ) {
-		var states = savebar.querySelectorAll( '[data-bn-savebar-state]' );
-		for ( var i = 0; i < states.length; i++ ) {
-			states[ i ].hidden = states[ i ].dataset.bnSavebarState !== name;
-		}
-		if ( 'idle' === name ) {
-			savebar.hidden = true;
-		} else {
-			savebar.hidden = false;
-		}
-	}
-
-	function markDirty( form ) {
-		dirtyForm = form;
-		if ( savedTimer ) { clearTimeout( savedTimer ); savedTimer = null; }
-		showState( 'dirty' );
-	}
-
-	function markClean() {
-		dirtyForm = null;
-		showState( 'idle' );
-	}
-
-	function rollback( form ) {
-		var inputs = form.querySelectorAll( 'input, textarea, select' );
-		for ( var i = 0; i < inputs.length; i++ ) {
-			var el = inputs[ i ];
-			if ( 'hidden' === el.type ) { continue; }
-			if ( ! ( 'bnDefault' in el.dataset ) ) { continue; }
-			if ( 'checkbox' === el.type || 'radio' === el.type ) {
-				el.checked = '1' === el.dataset.bnDefault;
-			} else {
-				el.value = el.dataset.bnDefault;
-			}
-		}
-	}
-
+	// Capture each form's pristine values so Cancel can roll back without a
+	// reload. Dirty-tracking, phase changes and submit are reactive now —
+	// driven by the store's savebar* actions (data-wp-on--input/change/click in
+	// the SSR markup), which set storeInstance.state.savebarPhase. This IIFE
+	// only owns the pristine snapshot + the beforeunload guard.
 	for ( var i = 0; i < forms.length; i++ ) {
-		(function ( form ) {
-			captureDefaults( form );
-			form.addEventListener( 'input', function () { markDirty( form ); } );
-			form.addEventListener( 'change', function () { markDirty( form ); } );
-		})( forms[ i ] );
+		captureDefaults( forms[ i ] );
 	}
 
-	var submitBtn = savebar.querySelector( '[data-bn-savebar-submit]' );
-	if ( submitBtn ) {
-		submitBtn.addEventListener( 'click', function () {
-			if ( ! dirtyForm ) { return; }
-			if ( ! dirtyForm.reportValidity || dirtyForm.reportValidity() ) {
-				showState( 'saving' );
-				// Stop the beforeunload guard from blocking the form POST.
-				dirtyForm.dataset.bnSubmitting = '1';
-				dirtyForm.submit();
-			}
-		} );
-	}
-
-	var cancelBtn = savebar.querySelector( '[data-bn-savebar-cancel]' );
-	if ( cancelBtn ) {
-		cancelBtn.addEventListener( 'click', function () {
-			if ( dirtyForm ) { rollback( dirtyForm ); }
-			markClean();
-		} );
-	}
-
-	// If the page server-rendered with a success notice, flash "saved" briefly.
+	// If the page server-rendered with a success notice, flash "saved" briefly,
+	// then settle back to idle — both via reactive state, no .hidden poke.
 	if ( document.querySelector( '.bn-space-settings__notice[data-tone="success"]' ) ) {
-		showState( 'saved' );
-		savedTimer = setTimeout( function () { showState( 'idle' ); }, 2400 );
+		storeInstance.state.savebarPhase = 'saved';
+		setTimeout( function () {
+			if ( 'saved' === storeInstance.state.savebarPhase ) {
+				storeInstance.state.savebarPhase = 'idle';
+			}
+		}, 2400 );
 	}
 
 	window.addEventListener( 'beforeunload', function ( event ) {
-		if ( dirtyForm && '1' !== dirtyForm.dataset.bnSubmitting ) {
+		var dirtyForm = bnSavebarDirtyForm;
+		if ( dirtyForm && '1' !== dirtyForm.dataset.bnSubmitting && 'saving' !== storeInstance.state.savebarPhase ) {
 			event.preventDefault();
 			event.returnValue = '';
 		}

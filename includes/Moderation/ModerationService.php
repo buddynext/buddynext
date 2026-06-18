@@ -892,7 +892,7 @@ class ModerationService {
 				),
 				ARRAY_A
 			);
-			$meta_rows = $wpdb->get_results(
+			$meta_rows   = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT ID, display_name, user_registered FROM {$wpdb->users}
 					 WHERE ID IN ({$placeholders})",
@@ -914,11 +914,11 @@ class ModerationService {
 		}
 
 		foreach ( $items as &$item ) {
-			$is_user                  = 'user' === ( $item['object_type'] ?? '' );
-			$uid                      = $is_user ? (int) $item['object_id'] : 0;
-			$item['strikes_count']    = $is_user ? ( $strike_counts[ $uid ] ?? 0 ) : 0;
-			$item['offender_name']    = $is_user && isset( $user_meta[ $uid ] ) ? $user_meta[ $uid ]['name'] : null;
-			$item['offender_joined']  = $is_user && isset( $user_meta[ $uid ] ) ? $user_meta[ $uid ]['joined'] : null;
+			$is_user                 = 'user' === ( $item['object_type'] ?? '' );
+			$uid                     = $is_user ? (int) $item['object_id'] : 0;
+			$item['strikes_count']   = $is_user ? ( $strike_counts[ $uid ] ?? 0 ) : 0;
+			$item['offender_name']   = $is_user && isset( $user_meta[ $uid ] ) ? $user_meta[ $uid ]['name'] : null;
+			$item['offender_joined'] = $is_user && isset( $user_meta[ $uid ] ) ? $user_meta[ $uid ]['joined'] : null;
 		}
 		unset( $item );
 
@@ -1191,8 +1191,12 @@ class ModerationService {
 	public function moderation_exclude_sql( string $column = 'user_id' ): string {
 		global $wpdb;
 
-		$column = preg_replace( '/[^a-zA-Z0-9_]/', '', $column );
-		if ( '' === $column ) {
+		// Allow word chars plus a single dot so a table-qualified column
+		// (e.g. 'sm.user_id') survives sanitisation — get_members()/count_members()
+		// pass a qualified column, and stripping the dot produced an invalid
+		// identifier ('smuser_id') that silently errored the whole query.
+		$column = preg_replace( '/[^a-zA-Z0-9_.]/', '', $column );
+		if ( '' === $column || ! preg_match( '/^[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)?$/', $column ) ) {
 			$column = 'user_id';
 		}
 

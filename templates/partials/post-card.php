@@ -399,6 +399,12 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				'commentCount'      => $comment_count,
 				'shareCount'        => $share_count,
 				'shareShared'       => false,
+				// Reactor "who reacted" popover — SSR-present, toggled
+				// reactively (state.reactorsHidden). reactionCount seeds the
+				// popover heading before the fetched list resolves.
+				'reactorsOpen'      => false,
+				'reactorsLoaded'    => false,
+				'reactionCount'     => $reaction_count,
 				'restUrl'           => rest_url( 'buddynext/v1' ),
 				'context'           => $context,
 			)

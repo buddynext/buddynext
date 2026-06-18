@@ -82,19 +82,24 @@ do_action( 'buddynext_part_post_reaction_summary_before', $args );
 	<?php if ( $bn_reaction_n > 0 ) : ?>
 		<?php
 		// Clickable reactor-list trigger — opens the FB-style popover
-		// listing who reacted with what. data-bn-reactors attribute is
-		// the hook the feed JS uses to wire the click handler.
+		// listing who reacted with what. The popover is SSR-present (one
+		// per card) and toggled reactively via the post-card store
+		// (context.reactorsOpen → state.reactorsHidden); the trigger sets
+		// the open flag and lazy-loads the list. No createElement panel build.
 		$bn_reactors_label = sprintf(
 			/* translators: %d: total number of reactions */
 			_n( 'See %d reaction', 'See all %d reactions', $bn_reaction_n, 'buddynext' ),
 			$bn_reaction_n
 		);
 		?>
+		<span class="bn-post-card__reactors-wrap">
 		<button
 			type="button"
 			class="bn-post-card__reactors-trigger"
 			aria-label="<?php echo esc_attr( $bn_reactors_label ); ?>"
-			data-bn-reactors
+			aria-haspopup="dialog"
+			data-wp-on--click="actions.toggleReactors"
+			data-wp-bind--aria-expanded="state.reactorsExpanded"
 			data-bn-object-type="post"
 			data-bn-object-id="<?php echo absint( (int) $args['bn_post_id'] ); ?>"
 			data-bn-count="<?php echo esc_attr( (string) $bn_reaction_n ); ?>"
@@ -128,6 +133,29 @@ do_action( 'buddynext_part_post_reaction_summary_before', $args );
 			</span>
 		<?php endif; ?>
 		</button>
+		<?php
+		// SSR-present "who reacted" popover. Visibility is reactive
+		// (data-wp-bind--hidden from the post-card store, single source =
+		// context.reactorsOpen). The fetched reactor rows are inherently
+		// dynamic data — they are filled into .bn-reactors-popover__list by
+		// the loadReactors action (no data-wp-* directives on those rows).
+		?>
+		<div
+			class="bn-reactors-popover"
+			role="dialog"
+			aria-label="<?php esc_attr_e( 'People who reacted', 'buddynext' ); ?>"
+			hidden
+			data-wp-bind--hidden="state.reactorsHidden"
+		>
+			<div class="bn-reactors-popover__head" data-wp-text="state.reactorsHeading">
+				<?php
+				/* translators: %d: total number of reactions */
+				echo esc_html( sprintf( _n( '%d reaction', '%d reactions', $bn_reaction_n, 'buddynext' ), $bn_reaction_n ) );
+				?>
+			</div>
+			<ul class="bn-reactors-popover__list"></ul>
+		</div>
+		</span>
 	<?php endif; ?>
 </div>
 <?php

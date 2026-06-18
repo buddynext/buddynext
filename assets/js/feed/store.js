@@ -712,6 +712,41 @@ function adjustCommentCount( postId, delta ) {
 	btn.setAttribute( 'aria-label', 1 === n ? '1 comment' : n + ' comments' );
 }
 
+/* ── Reactors popover row builder ─────────────────────────────────────────
+ * The "who reacted" popover shell is SSR-present in each post card
+ * (post-reaction-summary.php) and toggled reactively (state.reactorsHidden).
+ * Its rows are inherently dynamic data fetched from /reactions/list, so they
+ * are built here with safe DOM methods and appended into the SSR list — never
+ * carrying data-wp-* directives (the rows are JS-built; per the Interactivity
+ * contract directives stay on the server-rendered shell). */
+function buildReactorRow( r, emojiBase ) {
+	const li = document.createElement( 'li' );
+	li.className = 'bn-reactors-popover__item';
+	if ( r.avatar_url ) {
+		const img = document.createElement( 'img' );
+		img.src = r.avatar_url;
+		img.alt = '';
+		img.width = 32;
+		img.height = 32;
+		img.className = 'bn-reactors-popover__avatar';
+		li.appendChild( img );
+	}
+	const name = document.createElement( 'span' );
+	name.className = 'bn-reactors-popover__name';
+	name.textContent = r.display_name || ( 'User #' + r.user_id );
+	li.appendChild( name );
+	if ( r.emoji && emojiBase ) {
+		const img = document.createElement( 'img' );
+		img.src = emojiBase + r.emoji + '.svg';
+		img.alt = r.emoji;
+		img.width = 18;
+		img.height = 18;
+		img.className = 'bn-reactors-popover__emoji';
+		li.appendChild( img );
+	}
+	return li;
+}
+
 /* ── Post card ───────────────────────────────────────────────────────────── */
 
 /**
@@ -897,6 +932,19 @@ store( 'buddynext/post-card', {
 		get commentsHidden() {
 			try { return ! getContext().commentsOpen; } catch ( _e ) { return true; }
 		},
+		// "Who reacted" popover — single source is context.reactorsOpen.
+		get reactorsHidden() {
+			try { return ! getContext().reactorsOpen; } catch ( _e ) { return true; }
+		},
+		get reactorsExpanded() {
+			try { return !! getContext().reactorsOpen; } catch ( _e ) { return false; }
+		},
+		get reactorsHeading() {
+			try {
+				const n = getContext().reactionCount || 0;
+				return n === 1 ? "1 reaction" : n + " reactions";
+			} catch ( _e ) { return ""; }
+		},
 		get shareBtnClass() {
 			try {
 				return getContext().shareShared
@@ -1056,6 +1104,66 @@ store( 'buddynext/post-card', {
 			ctx.optionsOpen = ! ctx.optionsOpen;
 		},
 		/**
+		 * Toggle this card's "who reacted" popover. The panel is SSR-present
+		 * (post-reaction-summary.php) and its visibility binds reactively to
+		 * context.reactorsOpen (state.reactorsHidden), so this action only flips
+		 * the flag and lazy-loads the reactor list once. Closing other cards'
+		 * open popovers is handled by closePopups via the document binding.
+		 *
+		 * @param {MouseEvent} event The click event on the reactors trigger.
+		 */
+		* toggleReactors( event ) {
+			const ctx      = getContext();
+			const willOpen = ! ctx.reactorsOpen;
+			ctx.reactorsOpen = willOpen;
+			if ( ! willOpen || ctx.reactorsLoaded ) {
+				return;
+			}
+			// Resolve the SSR list container scoped to THIS card so a feed of
+			// many cards never cross-fills. The trigger carries the object id.
+			const trigger = event && event.target ? event.target.closest( '[data-bn-object-id]' ) : null;
+			const card    = getElement()?.ref || null;
+			const listEl  = card ? card.querySelector( '.bn-reactors-popover__list' ) : null;
+			if ( ! listEl ) {
+				return;
+			}
+			const objectType = ( trigger && trigger.dataset.bnObjectType ) || 'post';
+			const objectId   = ( trigger && trigger.dataset.bnObjectId ) || ctx.postId;
+			ctx.reactorsLoaded = true;
+			while ( listEl.firstChild ) { listEl.removeChild( listEl.firstChild ); }
+			const loading = document.createElement( 'li' );
+			loading.className = 'bn-reactors-popover__loading';
+			loading.textContent = 'Loading…';
+			listEl.appendChild( loading );
+			try {
+				const res = yield restFetch(
+					'/reactions/list?object_type=' + encodeURIComponent( objectType ) + '&object_id=' + encodeURIComponent( objectId ) + '&limit=100',
+					{ nonce: ctx.reactNonce, toastOnError: false }
+				);
+				while ( listEl.firstChild ) { listEl.removeChild( listEl.firstChild ); }
+				if ( res.ok ) {
+					const items = ( res.data && res.data.items ) || [];
+					const total = ( res.data && res.data.total ) || items.length;
+					ctx.reactionCount = total;
+					const emojiBase = document.querySelector( '[data-emoji-base]' )?.dataset.emojiBase || '';
+					items.forEach( ( r ) => listEl.appendChild( buildReactorRow( r, emojiBase ) ) );
+				} else {
+					const err = document.createElement( 'li' );
+					err.className = 'bn-reactors-popover__error';
+					err.textContent = 'Could not load reactions. Try again.';
+					listEl.appendChild( err );
+					ctx.reactorsLoaded = false;
+				}
+			} catch ( _e ) {
+				while ( listEl.firstChild ) { listEl.removeChild( listEl.firstChild ); }
+				const err = document.createElement( 'li' );
+				err.className = 'bn-reactors-popover__error';
+				err.textContent = 'Could not load reactions. Try again.';
+				listEl.appendChild( err );
+				ctx.reactorsLoaded = false;
+			}
+		},
+		/**
 		 * Dismiss this card's open popovers (reaction picker, options menu) when
 		 * a click lands outside their trigger/popover. Bound to the document via
 		 * data-wp-on-document--click on the card root, so it also closes a picker
@@ -1067,7 +1175,7 @@ store( 'buddynext/post-card', {
 		 */
 		closePopups( event ) {
 			const ctx = getContext();
-			if ( ! ctx || ( ! ctx.reactionPickerOpen && ! ctx.optionsOpen ) ) {
+			if ( ! ctx || ( ! ctx.reactionPickerOpen && ! ctx.optionsOpen && ! ctx.reactorsOpen ) ) {
 				return;
 			}
 			const ref = getElement()?.ref || null;
@@ -1084,6 +1192,12 @@ store( 'buddynext/post-card', {
 				const menuWrap = ref.querySelector( '.bn-post-card__menu-wrap' );
 				if ( ! menuWrap || ! menuWrap.contains( event.target ) ) {
 					ctx.optionsOpen = false;
+				}
+			}
+			if ( ctx.reactorsOpen ) {
+				const reactorsWrap = ref.querySelector( '.bn-post-card__reactors-wrap' );
+				if ( ! reactorsWrap || ! reactorsWrap.contains( event.target ) ) {
+					ctx.reactorsOpen = false;
 				}
 			}
 		},
@@ -1104,6 +1218,7 @@ store( 'buddynext/post-card', {
 			}
 			ctx.reactionPickerOpen = false;
 			ctx.optionsOpen        = false;
+			ctx.reactorsOpen       = false;
 		},
 		* deletePost() {
 			const ctx = getContext();
@@ -3484,143 +3599,6 @@ function initRealtimeCommentIndicator() {
 }
 
 onNavReady( initRealtimeCommentIndicator, { once: true } );
-
-/*
-   Reactors popover — opens an FB-style "people who reacted" panel
-   when the user clicks the per-emoji summary chip on a post card.
-   Fetches /reactions/list with limit=100. Lazy-builds the popover
-   once and re-uses the same DOM node, repositioning it for each
-   trigger. Click-outside or Escape closes.
-   ---------------------------------------------------------------- */
-function initReactorsPopover() {
-	// Flavor B singleton — the delegated document click/keydown + window resize
-	// listeners and the single body-appended panel cover content swapped in by a
-	// client-side navigation. Install once behind the window flag so a re-run
-	// adds no duplicate listeners and no duplicate body panel.
-	if ( window.__bnReactorsInited ) { return; }
-	window.__bnReactorsInited = true;
-
-	const REST_BASE = ( window.wpApiSettings?.root || '/wp-json/' ) + 'buddynext/v1';
-	let panel = null;
-	let activeTrigger = null;
-
-	const ensurePanel = () => {
-		if ( panel ) { return panel; }
-		panel = document.createElement( 'div' );
-		panel.className = 'bn-reactors-popover';
-		panel.setAttribute( 'role', 'dialog' );
-		panel.setAttribute( 'aria-label', 'People who reacted' );
-		panel.hidden = true;
-		document.body.appendChild( panel );
-		return panel;
-	};
-
-	const closePanel = () => {
-		if ( panel ) { panel.hidden = true; }
-		activeTrigger = null;
-	};
-
-	const positionPanel = ( trigger ) => {
-		const r = trigger.getBoundingClientRect();
-		panel.style.position = 'absolute';
-		panel.style.top      = ( window.scrollY + r.bottom + 6 ) + 'px';
-		panel.style.left     = ( window.scrollX + r.left ) + 'px';
-	};
-
-	const renderList = ( items, total ) => {
-		const header = document.createElement( 'div' );
-		header.className = 'bn-reactors-popover__head';
-		header.textContent = total === 1 ? '1 reaction' : `${ total } reactions`;
-
-		const list = document.createElement( 'ul' );
-		list.className = 'bn-reactors-popover__list';
-		items.forEach( ( r ) => {
-			const li = document.createElement( 'li' );
-			li.className = 'bn-reactors-popover__item';
-			if ( r.avatar_url ) {
-				const img = document.createElement( 'img' );
-				img.src = r.avatar_url;
-				img.alt = '';
-				img.width = 32;
-				img.height = 32;
-				img.className = 'bn-reactors-popover__avatar';
-				li.appendChild( img );
-			}
-			const name = document.createElement( 'span' );
-			name.className = 'bn-reactors-popover__name';
-			name.textContent = r.display_name || `User #${ r.user_id }`;
-			li.appendChild( name );
-
-			// Emoji badge — pull from the same vendor base as the comment
-			// builder. We look up the closest comment-list ancestor of any
-			// open thread; if none, the emoji is omitted (graceful fallback).
-			const emojiBase = document.querySelector( '[data-emoji-base]' )?.dataset.emojiBase;
-			if ( r.emoji && emojiBase ) {
-				const img = document.createElement( 'img' );
-				img.src = emojiBase + r.emoji + '.svg';
-				img.alt = r.emoji;
-				img.width = 18;
-				img.height = 18;
-				img.className = 'bn-reactors-popover__emoji';
-				li.appendChild( img );
-			}
-
-			list.appendChild( li );
-		} );
-
-		panel.replaceChildren();
-		panel.appendChild( header );
-		panel.appendChild( list );
-	};
-
-	document.addEventListener( 'click', async ( e ) => {
-		const trigger = e.target.closest( '[data-bn-reactors]' );
-		if ( ! trigger ) {
-			// Outside-click on an open panel closes it.
-			if ( panel && ! panel.hidden && ! e.target.closest( '.bn-reactors-popover' ) ) {
-				closePanel();
-			}
-			return;
-		}
-		e.preventDefault();
-		if ( activeTrigger === trigger && panel && ! panel.hidden ) {
-			closePanel();
-			return;
-		}
-		activeTrigger = trigger;
-		ensurePanel();
-		const objectType = trigger.dataset.bnObjectType || 'post';
-		const objectId   = trigger.dataset.bnObjectId   || '0';
-		panel.replaceChildren();
-		const loading = document.createElement( 'div' );
-		loading.className = 'bn-reactors-popover__loading';
-		loading.textContent = 'Loading…';
-		panel.appendChild( loading );
-		panel.hidden = false;
-		positionPanel( trigger );
-		try {
-			const url = `${ REST_BASE }/reactions/list?object_type=${ encodeURIComponent( objectType ) }&object_id=${ encodeURIComponent( objectId ) }&limit=100`;
-			const r = await restFetch( url, { toastOnError: false } );
-			const data = r.data;
-			renderList( data.items || [], data.total || ( data.items || [] ).length );
-			positionPanel( trigger );
-		} catch ( _e ) {
-			panel.replaceChildren();
-			const err = document.createElement( 'div' );
-			err.className = 'bn-reactors-popover__error';
-			err.textContent = 'Could not load reactions. Try again.';
-			panel.appendChild( err );
-		}
-	} );
-
-	document.addEventListener( 'keydown', ( e ) => {
-		if ( e.key === 'Escape' ) { closePanel(); }
-	} );
-
-	window.addEventListener( 'resize', closePanel );
-}
-
-onNavReady( initReactorsPopover, { once: true } );
 
 /* ── Emoji insert picker (composer + comment editor) ─────────────────────
  * Inserts a Unicode emoji at the caret of a target textarea/input. The

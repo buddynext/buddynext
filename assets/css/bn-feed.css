@@ -2036,10 +2036,17 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 
 /* Reactor list popover — opens when a user clicks the per-emoji
    summary chip on a post card. FB-style stacked list of avatars +
-   names + emoji badges. Single instance is reused across triggers
-   (the JS lazily creates it and re-positions per click). */
+   names + emoji badges. The popover is SSR-present per card and
+   anchored under its trigger via the relative .reactors-wrap; its
+   visibility is reactive (data-wp-bind--hidden from the post-card store). */
+.bn-post-card__reactors-wrap {
+	position: relative;
+	display: inline-flex;
+}
 .bn-reactors-popover {
 	position: absolute;
+	inset-block-start: calc(100% + 6px);
+	inset-inline-start: 0;
 	z-index: 1000;
 	min-inline-size: 260px;
 	max-inline-size: 340px;

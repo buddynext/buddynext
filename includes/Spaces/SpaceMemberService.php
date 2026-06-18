@@ -1230,22 +1230,61 @@ class SpaceMemberService {
 	 * Count active members of a space (respecting the same block filter as
 	 * get_members()), without loading the rows. Powers paginated totals.
 	 *
-	 * @param int $space_id  Space ID.
-	 * @param int $viewer_id Viewing user ID; when non-zero, blocked users are excluded.
+	 * Accepts the same optional $args refinements as get_members() so a filtered
+	 * roster (search / role / exclude_suspended) reports a matching total — the
+	 * members template paginates on this count, so any divergence from the listed
+	 * rows skews the page count. When a name search is active the wp_users JOIN is
+	 * added so the search columns resolve.
+	 *
+	 * @param int                  $space_id  Space ID.
+	 * @param int                  $viewer_id Viewing user ID; when non-zero, blocked users are excluded.
+	 * @param array<string, mixed> $args      Optional search / role / exclude_suspended refinements.
 	 * @return int
 	 */
-	public function count_members( int $space_id, int $viewer_id = 0 ): int {
+	public function count_members( int $space_id, int $viewer_id = 0, array $args = array() ): int {
 		global $wpdb;
 
 		$block_where = $this->member_block_where( $viewer_id );
+
+		// Optional role filter (validated against the allow-list) — mirrors get_members().
+		$role_where = '';
+		$role       = isset( $args['role'] ) ? (string) $args['role'] : '';
+		if ( in_array( $role, self::ALLOWED_ROLES, true ) ) {
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$role_where = $wpdb->prepare( ' AND sm.role = %s', $role );
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+
+		// Optional name search across the three identity columns — needs the JOIN.
+		$search_where = '';
+		$search_join  = '';
+		$search       = isset( $args['search'] ) ? trim( (string) $args['search'] ) : '';
+		if ( '' !== $search ) {
+			$search_join = " INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id";
+			$like        = '%' . $wpdb->esc_like( $search ) . '%';
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$search_where = $wpdb->prepare(
+				' AND ( u.display_name LIKE %s OR u.user_login LIKE %s OR u.user_nicename LIKE %s )',
+				$like,
+				$like,
+				$like
+			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+
+		// Optional suspension / shadow-ban exclusion via the canonical builder.
+		$moderation_where = '';
+		if ( ! empty( $args['exclude_suspended'] ) ) {
+			$moderation_where = ' ' . buddynext_service( 'moderation' )->moderation_exclude_sql( 'sm.user_id' );
+		}
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		return (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*)
-				 FROM {$wpdb->prefix}bn_space_members sm
+				 FROM {$wpdb->prefix}bn_space_members sm{$search_join}
 				 WHERE sm.space_id = %d AND sm.status = 'active'
-				   {$block_where}",
+				   {$block_where}{$role_where}{$search_where}{$moderation_where}",
 				$space_id
 			)
 		);

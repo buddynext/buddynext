@@ -124,13 +124,16 @@ do_action( 'buddynext_part_space_settings_panel_danger_before', $args );
 	</div>
 </div>
 
-<!-- Transfer-ownership modal -->
+<!-- Transfer-ownership modal — REACTIVE: hidden bound to context.modalTransfer
+	via the buddynext/spaces state getter; the opener action flips the flag, and
+	data-bn-modal-close / Escape clear it. No imperative .hidden toggle. -->
 <div
 	class="bn-modal-backdrop"
 	role="dialog"
 	aria-modal="true"
 	aria-labelledby="bn-transfer-title"
 	hidden
+	data-wp-bind--hidden="state.modalTransferHidden"
 	data-bn-modal="transfer-ownership"
 	data-bn-space-id="<?php echo esc_attr( (string) $bn_space_id ); ?>"
 >
@@ -189,13 +192,14 @@ buddynext_get_template(
 );
 ?>
 
-<!-- Delete-space confirm modal -->
+<!-- Delete-space confirm modal — REACTIVE: hidden bound to context.modalDelete. -->
 <div
 	class="bn-modal-backdrop"
 	role="dialog"
 	aria-modal="true"
 	aria-labelledby="bn-delete-space-title"
 	hidden
+	data-wp-bind--hidden="state.modalDeleteHidden"
 	data-bn-modal="delete-space"
 >
 	<div class="bn-modal__panel" data-tone="danger" data-size="sm">
@@ -231,13 +235,14 @@ buddynext_get_template(
 	</div>
 </div>
 
-<!-- Archive-space confirm modal -->
+<!-- Archive-space confirm modal — REACTIVE: hidden bound to context.modalArchive. -->
 <div
 	class="bn-modal-backdrop"
 	role="dialog"
 	aria-modal="true"
 	aria-labelledby="bn-archive-space-title"
 	hidden
+	data-wp-bind--hidden="state.modalArchiveHidden"
 	data-bn-modal="archive-space"
 >
 	<div class="bn-modal__panel" data-size="sm">

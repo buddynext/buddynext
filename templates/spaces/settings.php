@@ -466,8 +466,15 @@ foreach ( $builtin_tabs as $bn_t ) {
 	echo esc_attr(
 		wp_json_encode(
 			array(
-				'restNonce' => wp_create_nonce( 'wp_rest' ),
-				'restUrl'   => rest_url( 'buddynext/v1' ),
+				'restNonce'     => wp_create_nonce( 'wp_rest' ),
+				'restUrl'       => rest_url( 'buddynext/v1' ),
+				// Reactive savebar + danger-modal state (single source). The
+				// savebar binds its hidden states off `savebarState`; each
+				// danger modal binds its `hidden` off its own boolean flag.
+				'savebarState'  => 'idle',
+				'modalTransfer' => false,
+				'modalDelete'   => false,
+				'modalArchive'  => false,
 			)
 		)
 	);
@@ -675,7 +682,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 		$bn_wrap_form = in_array( $settings_tab, array( 'general', 'privacy', 'integrations' ), true );
 		if ( $bn_wrap_form ) :
 			?>
-			<form method="post" action="" enctype="multipart/form-data" class="bn-space-settings__form" data-bn-settings-general-form data-space-id="<?php echo esc_attr( (string) $space_id ); ?>" data-rest-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>">
+			<form method="post" action="" enctype="multipart/form-data" class="bn-space-settings__form" data-bn-settings-general-form data-space-id="<?php echo esc_attr( (string) $space_id ); ?>" data-rest-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>" data-wp-on--input="actions.savebarMarkDirty" data-wp-on--change="actions.savebarMarkDirty">
 				<?php wp_nonce_field( 'bn_space_settings_' . $space_id, 'bn_space_settings_nonce' ); ?>
 				<input type="hidden" name="bn_settings_subtab" value="<?php echo esc_attr( $settings_tab ); ?>" />
 				<?php
@@ -711,26 +718,43 @@ foreach ( $builtin_tabs as $bn_t ) {
 	</div>
 
 	<!-- Sticky save bar — matches Profile edit + Notification prefs pattern.
-		Wired by assets/js/spaces/store.js: listens for input/change on every
-		form inside .bn-space-settings, surfaces the bar when dirty, runs the
-		beforeunload guard, and submits the currently-dirty form on click. -->
+		REACTIVE: visibility is driven by `context.savebarState` (idle | dirty |
+		saving | saved) via data-wp-bind--hidden + state getters; no imperative
+		.hidden/dataset paint loop. assets/js/spaces/store.js owns the
+		dirty-tracking (delegated input/change) + rollback + form submit and
+		mutates `savebarState`; the markup never sets .hidden itself. -->
 	<div
 		class="bn-space-settings__savebar"
 		role="region"
 		aria-label="<?php esc_attr_e( 'Save changes', 'buddynext' ); ?>"
 		data-bn-space-settings-savebar
+		data-wp-bind--hidden="state.savebarHidden"
 		hidden
 	>
 		<div class="bn-space-settings__savebar-inner">
-			<div class="bn-space-settings__savebar-status bn-space-settings__savebar-status--dirty" data-bn-savebar-state="dirty">
+			<div
+				class="bn-space-settings__savebar-status bn-space-settings__savebar-status--dirty"
+				data-bn-savebar-state="dirty"
+				data-wp-bind--hidden="state.savebarDirtyHidden"
+			>
 				<span class="bn-space-settings__savebar-dot" aria-hidden="true"></span>
 				<span><?php esc_html_e( 'Unsaved changes', 'buddynext' ); ?></span>
 			</div>
-			<div class="bn-space-settings__savebar-status bn-space-settings__savebar-status--saving" data-bn-savebar-state="saving" hidden>
+			<div
+				class="bn-space-settings__savebar-status bn-space-settings__savebar-status--saving"
+				data-bn-savebar-state="saving"
+				data-wp-bind--hidden="state.savebarSavingHidden"
+				hidden
+			>
 				<span class="bn-space-settings__savebar-spinner" aria-hidden="true"></span>
 				<span><?php esc_html_e( 'Saving…', 'buddynext' ); ?></span>
 			</div>
-			<div class="bn-space-settings__savebar-status bn-space-settings__savebar-status--saved" data-bn-savebar-state="saved" hidden>
+			<div
+				class="bn-space-settings__savebar-status bn-space-settings__savebar-status--saved"
+				data-bn-savebar-state="saved"
+				data-wp-bind--hidden="state.savebarSavedHidden"
+				hidden
+			>
 				<?php buddynext_icon( 'check' ); ?>
 				<span><?php esc_html_e( 'All changes saved', 'buddynext' ); ?></span>
 			</div>
@@ -741,6 +765,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 					data-variant="ghost"
 					data-size="md"
 					data-bn-savebar-cancel
+					data-wp-on--click="actions.savebarCancel"
 				><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
 				<button
 					type="button"
@@ -748,6 +773,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 					data-variant="primary"
 					data-size="md"
 					data-bn-savebar-submit
+					data-wp-on--click="actions.savebarSubmit"
 				><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
 			</div>
 		</div>

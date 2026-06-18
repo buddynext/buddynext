@@ -20,7 +20,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-global $wpdb;
+use BuddyNext\Moderation\ModerationService;
+use BuddyNext\Moderation\ModerationLogService;
+use BuddyNext\Profile\AvatarService;
+use BuddyNext\Spaces\SpaceMemberService;
+use BuddyNext\Spaces\SpaceService;
 
 // ── Resolve space ─────────────────────────────────────────────────────────────
 
@@ -45,17 +49,17 @@ if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate', array(
 	return;
 }
 
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$space = $wpdb->get_row(
-	$wpdb->prepare(
-		"SELECT id, name, slug, type, member_count, category_id, cover_image_url FROM {$wpdb->prefix}bn_spaces WHERE id = %d LIMIT 1",
-		$space_id
-	)
-);
+// Canonical hydrate via SpaceService (no SQL here); cast to object for the
+// header markup below which reads $space->name / ->slug / ->type / ->member_count.
+$bn_mod_svc     = new ModerationService();
+$bn_mod_log_svc = new ModerationLogService();
+$bn_member_svc  = new SpaceMemberService();
+$bn_space_row   = ( new SpaceService() )->get( $space_id );
 
-if ( ! $space ) {
+if ( null === $bn_space_row ) {
 	wp_die( esc_html__( 'Space not found.', 'buddynext' ) );
 }
+$space = (object) $bn_space_row;
 
 // ── Active filter tab ─────────────────────────────────────────────────────────
 
@@ -67,96 +71,56 @@ if ( ! in_array( $mod_tab, $allowed_mod_tabs, true ) ) {
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
+// All counts come from the moderation services so the template holds no SQL.
 
-// Open reports for this space.
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$open_reports_count = (int) $wpdb->get_var(
-	$wpdb->prepare(
-		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE space_id = %d AND status = 'pending'",
-		$space_id
-	)
-);
+// Open reports for this space (distinct reported-content groups — matches the list).
+$open_reports_count = $bn_mod_svc->count_open_reports_for_space( $space_id );
 
-// Pending member requests.
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$pending_count = (int) $wpdb->get_var(
-	$wpdb->prepare(
-		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND status = 'pending'",
-		$space_id
-	)
-);
+// Pending member requests for this space.
+$pending_count = $bn_member_svc->count_pending_requests( $space_id );
 
-// Members warned this week.
-$week_ago = gmdate( 'Y-m-d H:i:s', strtotime( '-7 days' ) );
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$warned_this_week = (int) $wpdb->get_var(
-	$wpdb->prepare(
-		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_mod_log WHERE space_id = %d AND action = 'warn' AND created_at >= %s",
-		$space_id,
-		$week_ago
+// Members warned this week — scoped, action-filtered, dated log read.
+$warned_this_week = (int) ( $bn_mod_log_svc->get_log(
+	array(
+		'space_id' => $space_id,
+		'action'   => 'warn',
+		'since'    => '-7 days',
+		'per_page' => 1,
 	)
-);
+)['total'] ?? 0 );
 
-// Total actions all time.
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$total_actions = (int) $wpdb->get_var(
-	$wpdb->prepare(
-		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_mod_log WHERE space_id = %d",
-		$space_id
+// Total actions all time for this space.
+$total_actions = (int) ( $bn_mod_log_svc->get_log(
+	array(
+		'space_id' => $space_id,
+		'per_page' => 1,
 	)
-);
+)['total'] ?? 0 );
 
 // ── Fetch open reports ────────────────────────────────────────────────────────
-
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$open_reports = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT r.*,
-		u.display_name AS reported_user_name,
-		( SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports r2 WHERE r2.object_type = r.object_type AND r2.object_id = r.object_id AND r2.space_id = %d ) AS reporter_count,
-		( SELECT COUNT(*) FROM {$wpdb->prefix}bn_user_strikes us WHERE us.user_id = r.object_id ) AS strike_count,
-		sm.joined_at
-		FROM {$wpdb->prefix}bn_reports r
-		LEFT JOIN {$wpdb->users} u ON u.ID = r.object_id AND r.object_type = 'user'
-		LEFT JOIN {$wpdb->prefix}bn_space_members sm ON sm.user_id = r.object_id AND sm.space_id = %d
-		WHERE r.space_id = %d AND r.status = 'pending'
-		ORDER BY reporter_count DESC, r.created_at DESC
-		LIMIT 20",
-		$space_id,
-		$space_id,
-		$space_id
+// get_queue() consolidates per-content reports, enriches user reports with
+// strike count / offender name, and scopes by space_ids — replacing the
+// hand-rolled aggregation + strike subqueries this template used to assemble.
+$open_reports = $bn_mod_svc->get_queue(
+	array(
+		'space_ids' => array( $space_id ),
+		'enrich'    => true,
+		'per_page'  => 20,
 	)
-);
+)['items'];
 
 // ── Fetch pending members ─────────────────────────────────────────────────────
-
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$pending_members = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT sm.*, u.display_name, u.user_email
-		FROM {$wpdb->prefix}bn_space_members sm
-		INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id
-		WHERE sm.space_id = %d AND sm.status = 'pending'
-		ORDER BY sm.joined_at ASC
-		LIMIT 20",
-		$space_id
-	)
-);
+// get_pending_requests() returns user_id + requested_at; resolve display names
+// via WP core get_userdata() (no SQL) for the bounded list.
+$pending_members = $bn_member_svc->get_pending_requests( $space_id, 20 );
 
 // ── Fetch moderation activity log ─────────────────────────────────────────────
-
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$mod_log = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT ml.*, u.display_name AS moderator_name
-		FROM {$wpdb->prefix}bn_mod_log ml
-		LEFT JOIN {$wpdb->users} u ON u.ID = ml.actor_id
-		WHERE ml.space_id = %d
-		ORDER BY ml.created_at DESC
-		LIMIT 20",
-		$space_id
+$mod_log = $bn_mod_log_svc->get_log(
+	array(
+		'space_id' => $space_id,
+		'per_page' => 20,
 	)
-);
+)['items'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -197,22 +161,6 @@ if ( ! function_exists( 'bn_report_priority' ) ) {
 			return 'warn';
 		}
 		return 'info';
-	}
-}
-
-if ( ! function_exists( 'bn_initials' ) ) {
-	/**
-	 * Return initials (up to 2 chars) from a display name.
-	 *
-	 * @param string $name Full display name.
-	 * @return string Uppercase initials.
-	 */
-	function bn_initials( string $name ): string {
-		$parts = array_filter( explode( ' ', trim( $name ) ) );
-		if ( count( $parts ) >= 2 ) {
-			return strtoupper( mb_substr( $parts[0], 0, 1 ) . mb_substr( end( $parts ), 0, 1 ) );
-		}
-		return strtoupper( mb_substr( $name, 0, 2 ) );
 	}
 }
 
@@ -377,27 +325,31 @@ $mod_privacy = array(
 						>
 						<?php foreach ( $open_reports as $report ) : ?>
 							<?php
-							$reported_uid = (int) $report->object_id;
-							$r_name       = $report->reported_user_name ?? __( 'Unknown', 'buddynext' );
-							$r_avatar_url = $reported_uid ? get_avatar_url( $reported_uid, array( 'size' => 80 ) ) : '';
-							$r_count      = (int) ( $report->reporter_count ?? 1 );
-							$r_strikes    = (int) ( $report->strike_count ?? 0 );
-							$r_reason     = $report->reason ?? '';
-							$r_content    = $report->content_snapshot ?? '';
-							$r_time       = isset( $report->created_at ) ? bn_time_diff( $report->created_at ) : '';
+							$reported_uid = (int) ( $report['object_id'] ?? 0 );
+							$is_user_rep  = 'user' === ( $report['object_type'] ?? '' );
+							$r_name       = ( $is_user_rep && ! empty( $report['offender_name'] ) )
+								? (string) $report['offender_name']
+								: __( 'Unknown', 'buddynext' );
+							$r_avatar_url = ( $is_user_rep && $reported_uid ) ? get_avatar_url( $reported_uid, array( 'size' => 80 ) ) : '';
+							$r_count      = (int) ( $report['reporter_count'] ?? 1 );
+							$r_strikes    = (int) ( $report['strikes_count'] ?? 0 );
+							$r_reason     = (string) ( $report['reason'] ?? '' );
+							$r_content    = '';
+							$r_time       = ! empty( $report['created_at'] ) ? bn_time_diff( (string) $report['created_at'] ) : '';
 							$r_tone       = bn_report_priority( $r_count );
+							$r_id         = (int) ( $report['id'] ?? 0 );
 							?>
 							<article
 								class="bn-card bn-space-mod__report"
 								data-tone="<?php echo esc_attr( $r_tone ); ?>"
-								data-wp-context='{"reportId":<?php echo (int) $report->id; ?>,"userId":<?php echo (int) $reported_uid; ?>,"spaceId":<?php echo (int) $space_id; ?>}'
+								data-wp-context='{"reportId":<?php echo (int) $r_id; ?>,"userId":<?php echo (int) $reported_uid; ?>,"spaceId":<?php echo (int) $space_id; ?>}'
 							>
 								<div class="bn-space-mod__report-head">
 									<span class="bn-avatar" data-size="md" aria-hidden="true">
 										<?php if ( $r_avatar_url ) : ?>
 											<img src="<?php echo esc_url( $r_avatar_url ); ?>" alt="" loading="lazy">
 										<?php else : ?>
-											<?php echo esc_html( bn_initials( $r_name ) ); ?>
+											<?php echo esc_html( AvatarService::initials_for( $r_name ) ); ?>
 										<?php endif; ?>
 									</span>
 
@@ -462,7 +414,7 @@ $mod_privacy = array(
 											data-variant="ghost"
 											data-size="sm"
 											data-wp-on--click="actions.viewReportedPost"
-											data-report-id="<?php echo esc_attr( (string) $report->id ); ?>"
+											data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
 										><?php esc_html_e( 'View post', 'buddynext' ); ?></button>
 
 										<button
@@ -471,7 +423,7 @@ $mod_privacy = array(
 											data-variant="ghost"
 											data-size="sm"
 											data-wp-on--click="actions.dismissReport"
-											data-report-id="<?php echo esc_attr( (string) $report->id ); ?>"
+											data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
 										><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Dismiss', 'buddynext' ); ?></button>
 
 										<button
@@ -480,7 +432,7 @@ $mod_privacy = array(
 											data-variant="secondary"
 											data-size="sm"
 											data-wp-on--click="actions.warnMember"
-											data-report-id="<?php echo esc_attr( (string) $report->id ); ?>"
+											data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
 											data-user-id="<?php echo esc_attr( (string) $reported_uid ); ?>"
 										><?php buddynext_icon( 'alert-triangle' ); ?> <?php esc_html_e( 'Warn', 'buddynext' ); ?></button>
 
@@ -490,7 +442,7 @@ $mod_privacy = array(
 											data-variant="danger"
 											data-size="sm"
 											data-wp-on--click="actions.removeContent"
-											data-report-id="<?php echo esc_attr( (string) $report->id ); ?>"
+											data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
 											data-bn-confirm="<?php echo esc_attr( __( 'Remove this content? It will be hidden from the space.', 'buddynext' ) ); ?>"
 										><?php buddynext_icon( 'trash' ); ?> <?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
 
@@ -500,7 +452,7 @@ $mod_privacy = array(
 											data-variant="danger"
 											data-size="sm"
 											data-wp-on--click="actions.removeFromSpace"
-											data-report-id="<?php echo esc_attr( (string) $report->id ); ?>"
+											data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
 											data-user-id="<?php echo esc_attr( (string) $reported_uid ); ?>"
 											data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
 											data-bn-confirm="<?php echo esc_attr( __( 'Remove this member from the space? This does not suspend their platform account.', 'buddynext' ) ); ?>"
@@ -550,17 +502,18 @@ $mod_privacy = array(
 							<ul class="bn-space-mod__pending-list" role="list">
 								<?php foreach ( $pending_members as $pm ) : ?>
 									<?php
-									$pm_uid    = (int) $pm->user_id;
-									$pm_name   = $pm->display_name ?? __( 'Member', 'buddynext' );
+									$pm_uid    = (int) ( $pm['user_id'] ?? 0 );
+									$pm_user   = $pm_uid ? get_userdata( $pm_uid ) : false;
+									$pm_name   = ( $pm_user instanceof WP_User ) ? $pm_user->display_name : __( 'Member', 'buddynext' );
 									$pm_avatar = get_avatar_url( $pm_uid, array( 'size' => 80 ) );
-									$pm_time   = isset( $pm->joined_at ) ? bn_time_diff( $pm->joined_at ) : '';
+									$pm_time   = ! empty( $pm['requested_at'] ) ? bn_time_diff( (string) $pm['requested_at'] ) : '';
 									?>
 									<li class="bn-space-mod__pending-row" role="listitem">
 										<span class="bn-avatar" data-size="md" aria-hidden="true">
 											<?php if ( $pm_avatar ) : ?>
 												<img src="<?php echo esc_url( $pm_avatar ); ?>" alt="" loading="lazy">
 											<?php else : ?>
-												<?php echo esc_html( bn_initials( $pm_name ) ); ?>
+												<?php echo esc_html( AvatarService::initials_for( (string) $pm_name ) ); ?>
 											<?php endif; ?>
 										</span>
 										<div class="bn-space-mod__pending-info">
@@ -616,17 +569,20 @@ $mod_privacy = array(
 							<ul class="bn-space-mod__log-list" role="list">
 								<?php foreach ( $mod_log as $log ) : ?>
 									<?php
-									$log_action_slug = bn_mod_action_icon( $log->action ?? 'note' );
-									$log_time        = isset( $log->created_at ) ? bn_time_diff( $log->created_at ) : '';
-									$log_is_me       = ( (int) $log->actor_id === $current_uid );
+									$log_action_slug = bn_mod_action_icon( (string) ( $log['action'] ?? 'note' ) );
+									$log_time        = ! empty( $log['created_at'] ) ? bn_time_diff( (string) $log['created_at'] ) : '';
+									$log_actor_id    = (int) ( $log['actor_id'] ?? 0 );
+									$log_is_me       = ( $log_actor_id === $current_uid );
+									$log_actor       = ( ! $log_is_me && $log_actor_id ) ? get_userdata( $log_actor_id ) : false;
+									$log_actor_name  = ( $log_actor instanceof WP_User ) ? $log_actor->display_name : '';
 									?>
 									<li class="bn-space-mod__log-row" role="listitem">
 										<span class="bn-space-mod__log-icon" aria-hidden="true"><?php buddynext_icon( $log_action_slug ); ?></span>
-										<span class="bn-space-mod__log-desc"><?php echo esc_html( $log->note ?? '' ); ?></span>
+										<span class="bn-space-mod__log-desc"><?php echo esc_html( (string) ( $log['note'] ?? '' ) ); ?></span>
 										<?php if ( $log_is_me ) : ?>
 											<span class="bn-space-mod__log-actor"><?php esc_html_e( 'by You', 'buddynext' ); ?></span>
-										<?php elseif ( ! empty( $log->moderator_name ) ) : ?>
-											<span class="bn-space-mod__log-actor"><?php echo esc_html( $log->moderator_name ); ?></span>
+										<?php elseif ( '' !== $log_actor_name ) : ?>
+											<span class="bn-space-mod__log-actor"><?php echo esc_html( $log_actor_name ); ?></span>
 										<?php endif; ?>
 										<span class="bn-space-mod__log-time"><?php echo esc_html( $log_time ); ?></span>
 									</li>
