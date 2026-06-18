@@ -287,7 +287,11 @@ class MemberDirectoryService {
 				case 'most_active':
 				case 'online':
 					if ( isset( $cursor_data['last_active'], $cursor_data['id'] ) ) {
-						$where_clauses[] = '(CAST(um_active.meta_value AS UNSIGNED) < %d OR (CAST(um_active.meta_value AS UNSIGNED) = %d AND u.ID < %d))';
+						// COALESCE must mirror the ORDER BY (CAST(COALESCE(...,0))) — a
+						// user with no bn_last_active meta is NULL from the LEFT JOIN, and
+						// CAST(NULL) comparisons yield NULL (never TRUE), so the row would
+						// slip past the cursor and repeat on every page (infinite loop).
+						$where_clauses[] = '(CAST(COALESCE(um_active.meta_value, 0) AS UNSIGNED) < %d OR (CAST(COALESCE(um_active.meta_value, 0) AS UNSIGNED) = %d AND u.ID < %d))';
 						$params[]        = (int) $cursor_data['last_active'];
 						$params[]        = (int) $cursor_data['last_active'];
 						$params[]        = (int) $cursor_data['id'];
