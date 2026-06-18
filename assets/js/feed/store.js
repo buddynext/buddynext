@@ -1220,6 +1220,9 @@ store( 'buddynext/post-card', {
 		},
 		* editPost() {
 			const ctx     = getContext();
+			// Close the kebab menu as soon as Edit is chosen — entering edit mode
+			// is a committed action, so the dropdown should not linger open.
+			ctx.optionsOpen = false;
 			const element = getElement();
 			const card    = element && element.ref ? element.ref.closest( '.bn-post-card' ) : null;
 			if ( ! card ) {
