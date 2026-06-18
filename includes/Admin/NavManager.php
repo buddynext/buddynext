@@ -357,8 +357,17 @@ class NavManager extends AdminPageBase {
 				wp_safe_redirect( add_query_arg( 'bn_notice', 'pages_conflict', $pages_url ) );
 				exit;
 			}
-			$existing = get_page_by_path( $slug, OBJECT, array( 'page', 'post' ) );
-			if ( $existing instanceof \WP_Post && (int) get_option( $cfg['page_opt'], 0 ) !== (int) $existing->ID ) {
+			// A page/post already owns this slug. That is only a real conflict when
+			// it is some OTHER page — if the admin is (re)assigning that very page
+			// as this hub's backing page, or it is already assigned, allow it.
+			// Without the page_id check, you could never assign an existing page
+			// whose slug matches the hub slug (e.g. a hand-made "members" page).
+			$selected_page_id = absint( ( (array) ( $raw[ $hub ] ?? array() ) )['page_id'] ?? 0 );
+			$existing         = get_page_by_path( $slug, OBJECT, array( 'page', 'post' ) );
+			if ( $existing instanceof \WP_Post
+				&& (int) get_option( $cfg['page_opt'], 0 ) !== (int) $existing->ID
+				&& $selected_page_id !== (int) $existing->ID
+			) {
 				wp_safe_redirect( add_query_arg( 'bn_notice', 'pages_conflict', $pages_url ) );
 				exit;
 			}
