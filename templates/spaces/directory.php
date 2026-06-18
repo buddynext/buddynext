@@ -401,9 +401,9 @@ $bn_sort_options = array(
 	'alphabetical' => __( 'A → Z', 'buddynext' ),
 );
 
-// Section-head actions slot — Create-space CTA (logged-in only).
+// Section-head actions slot — Create-space CTA (only for users allowed to create spaces).
 $bn_actions_html = '';
-if ( current_user_can( 'read' ) ) {
+if ( buddynext_can( get_current_user_id(), 'buddynext-spaces/create' ) ) {
 	$bn_actions_html = sprintf(
 		'<button type="button" class="bn-btn" data-variant="primary" data-size="md" data-wp-on--click="actions.openCreate" data-bn-create-space-trigger>%s</button>',
 		esc_html__( 'Create a space', 'buddynext' )
@@ -571,7 +571,7 @@ $bn_subtitle = sprintf(
 				)
 			);
 			?>
-			<?php if ( current_user_can( 'read' ) ) : ?>
+			<?php if ( buddynext_can( get_current_user_id(), 'buddynext-spaces/create' ) ) : ?>
 				<button
 					type="button"
 					class="bn-btn"
@@ -631,7 +631,7 @@ $bn_subtitle = sprintf(
 
 				$space_url    = buddynext_space_url( $space->slug );
 				$member_count = number_format_i18n( (int) $space->member_count );
-	?>
+				?>
 
 				<?php
 				// Resolve directory-card emblem with the same fallback chain
@@ -775,7 +775,7 @@ $bn_subtitle = sprintf(
 
 	</div><!-- /.bn-sd-results -->
 
-	<?php if ( current_user_can( 'read' ) ) : ?>
+	<?php if ( buddynext_can( get_current_user_id(), 'buddynext-spaces/create' ) ) : ?>
 		<?php
 		global $wpdb;
 		// Root spaces the viewer owns — the only spaces they may nest a sub-space
