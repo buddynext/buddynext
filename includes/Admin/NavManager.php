@@ -479,9 +479,20 @@ class NavManager extends AdminPageBase {
 	/**
 	 * Return the sorted, override-applied list of registered navigation tabs.
 	 *
-	 * Applies the `buddynext_nav_tabs` filter so third-party code can inject,
-	 * remove, or reorder tabs.  Admin overrides stored via this page are
+	 * This builds the catalogue the admin nav editor renders. The
+	 * `buddynext_nav_tabs` filter lets third-party code inject, remove, or
+	 * reorder tabs in that editor; admin overrides stored via this page are
 	 * applied last and take precedence over filter output.
+	 *
+	 * Front-end rendering is separate: the rail, profile tab bar, space tab bar
+	 * and mobile bar each apply their own per-surface filter
+	 * (`buddynext_rail_items`, `buddynext_part_profile_tab_bar_args`,
+	 * `buddynext_space_tabs`, `buddynext_mobile_nav_items`), and the admin
+	 * overrides saved here are mirrored onto them by Nav\NavOverrides. A
+	 * main-nav tab registered programmatically through `buddynext_nav_tabs`
+	 * (with a `url`) is additionally surfaced on the left rail by
+	 * Nav\NavOverrides::apply_rail so the documented filter reaches the front
+	 * end too.
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
@@ -766,7 +777,16 @@ class NavManager extends AdminPageBase {
 	/**
 	 * Built-in mobile bottom navigation items.
 	 *
-	 * Shares slugs with the main nav so page assignments are inherited.
+	 * These MUST mirror the real 5-slot bottom bar rendered by
+	 * templates/partials/nav.php: feed, spaces, create, notifications, profile.
+	 * Only feed / spaces / notifications are overridable (hide / relabel /
+	 * visibility) through Nav\NavOverrides::apply_mobile_items(); the centre
+	 * Create button and the Profile shortcut are fixed slots (Create must stay
+	 * centred), so they are flagged `locked` — shown for context but not
+	 * configurable. Order is intentionally fixed on mobile, so the config panel
+	 * hides the Position field for this scope.
+	 *
+	 * Slugs are shared with the main nav so page assignments are inherited.
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
@@ -774,27 +794,28 @@ class NavManager extends AdminPageBase {
 		return array(
 			array(
 				'slug'        => 'feed',
-				'label'       => __( 'Home', 'buddynext' ),
+				'label'       => __( 'Feed', 'buddynext' ),
 				'order'       => 10,
 				'icon'        => 'tab-feed',
 				'description' => __( 'Home feed (inherits main nav page)', 'buddynext' ),
 				'capability'  => 'read',
 			),
 			array(
-				'slug'        => 'explore',
-				'label'       => __( 'Explore', 'buddynext' ),
-				'order'       => 20,
-				'icon'        => 'tab-explore',
-				'description' => __( 'Explore public content', 'buddynext' ),
-				'capability'  => 'read',
-			),
-			array(
 				'slug'        => 'spaces',
 				'label'       => __( 'Spaces', 'buddynext' ),
-				'order'       => 30,
+				'order'       => 20,
 				'icon'        => 'tab-spaces',
 				'description' => __( 'Browse spaces', 'buddynext' ),
 				'capability'  => 'read',
+			),
+			array(
+				'slug'        => 'create',
+				'label'       => __( 'Create', 'buddynext' ),
+				'order'       => 30,
+				'icon'        => 'tab-feed',
+				'description' => __( 'Centre compose button — fixed slot, always shown.', 'buddynext' ),
+				'capability'  => 'read',
+				'locked'      => true,
 			),
 			array(
 				'slug'        => 'notifications',
@@ -805,13 +826,13 @@ class NavManager extends AdminPageBase {
 				'capability'  => 'read',
 			),
 			array(
-				'slug'            => 'messages',
-				'label'           => __( 'Messages', 'buddynext' ),
-				'order'           => 50,
-				'icon'            => 'tab-messages',
-				'description'     => __( 'Direct messages badge', 'buddynext' ),
-				'capability'      => 'read',
-				'requires_plugin' => 'WPMediaVerse',
+				'slug'        => 'profile',
+				'label'       => __( 'Profile', 'buddynext' ),
+				'order'       => 50,
+				'icon'        => 'tab-people',
+				'description' => __( 'Profile shortcut — fixed slot, always shown.', 'buddynext' ),
+				'capability'  => 'read',
+				'locked'      => true,
 			),
 		);
 	}
@@ -1019,8 +1040,8 @@ class NavManager extends AdminPageBase {
 			</div>
 
 			<ul class="bn-nav-list" id="<?php echo esc_attr( $list_id ); ?>">
-				<?php foreach ( $tabs as $idx => $tab ) : ?>
-					<?php $this->render_nav_row( $scope, $tab, $idx ); ?>
+				<?php foreach ( $tabs as $tab ) : ?>
+					<?php $this->render_nav_row( $scope, $tab ); ?>
 				<?php endforeach; ?>
 			</ul>
 
@@ -1044,15 +1065,15 @@ class NavManager extends AdminPageBase {
 	 *
 	 * @param string               $scope Scope slug.
 	 * @param array<string, mixed> $tab   Resolved tab entry.
-	 * @param int                  $idx   Zero-based index used for input names.
 	 * @return void
 	 */
-	private function render_nav_row( string $scope, array $tab, int $idx ): void {
+	private function render_nav_row( string $scope, array $tab ): void {
 		$slug    = sanitize_key( (string) ( $tab['slug'] ?? '' ) );
 		$label   = (string) ( $tab['label'] ?? '' );
 		$icon    = (string) ( $tab['icon'] ?? '' );
 		$hidden  = ! empty( $tab['hidden'] );
 		$is_core = empty( $tab['custom'] );
+		$locked  = ! empty( $tab['locked'] );
 		$row_id  = 'bn-row-' . $scope . '-' . $slug;
 
 		// A tab that depends on another plugin (e.g. Messages → WPMediaVerse) is
@@ -1066,18 +1087,17 @@ class NavManager extends AdminPageBase {
 			data-scope="<?php echo esc_attr( $scope ); ?>"
 			id="<?php echo esc_attr( $row_id ); ?>"
 			<?php echo $hidden ? 'data-row-hidden' : ''; ?>
+			<?php echo $locked ? ' data-row-locked' : ''; ?>
 			<?php echo $dep_missing ? ' data-row-dependency' : ''; ?>>
 
-			<input type="hidden"
-					name="bn_nav_slug[<?php echo esc_attr( $scope ); ?>][<?php echo esc_attr( (string) $idx ); ?>]"
-					value="<?php echo esc_attr( $slug ); ?>">
-
+			<?php if ( 'mobile' !== $scope ) : ?>
 			<button type="button"
 					class="bn-drag-row__handle"
 					aria-label="<?php esc_attr_e( 'Drag to reorder', 'buddynext' ); ?>"
 					title="<?php esc_attr_e( 'Drag to reorder', 'buddynext' ); ?>">
 				<span></span>
 			</button>
+			<?php endif; ?>
 
 			<div class="bn-nav-row-icon" aria-hidden="true">
 				<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG read from plugin file.
@@ -1088,7 +1108,9 @@ class NavManager extends AdminPageBase {
 			<div class="bn-drag-row__body">
 				<div class="bn-nav-row-name">
 					<?php echo esc_html( $label ); ?>
-					<?php if ( $is_core ) : ?>
+					<?php if ( $locked ) : ?>
+						<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Fixed', 'buddynext' ); ?></span>
+					<?php elseif ( $is_core ) : ?>
 						<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Core', 'buddynext' ); ?></span>
 					<?php else : ?>
 						<span class="bn-badge" data-tone="accent"><?php esc_html_e( 'Custom', 'buddynext' ); ?></span>
@@ -1125,6 +1147,7 @@ class NavManager extends AdminPageBase {
 			</div>
 
 			<div class="bn-drag-row__actions">
+				<?php if ( ! $locked ) : ?>
 				<button type="button"
 						class="bn-config-btn"
 						data-scope="<?php echo esc_attr( $scope ); ?>"
@@ -1134,14 +1157,19 @@ class NavManager extends AdminPageBase {
 					echo $this->svg( 'icon-config' );
 					?>
 				</button>
+				<?php endif; ?>
 				<?php
-				$toggle_title = $dep_missing
-					? sprintf(
+				if ( $locked ) {
+					$toggle_title = __( 'Fixed slot, always shown', 'buddynext' );
+				} elseif ( $dep_missing ) {
+					$toggle_title = sprintf(
 						/* translators: %s: required plugin name */
 						__( 'Requires the %s plugin', 'buddynext' ),
 						$requires
-					)
-					: ( $hidden ? __( 'Hidden, click to show', 'buddynext' ) : __( 'Visible, click to hide', 'buddynext' ) );
+					);
+				} else {
+					$toggle_title = $hidden ? __( 'Hidden, click to show', 'buddynext' ) : __( 'Visible, click to hide', 'buddynext' );
+				}
 				?>
 				<label class="bn-toggle-wrap"
 						title="<?php echo esc_attr( $toggle_title ); ?>">
@@ -1149,8 +1177,8 @@ class NavManager extends AdminPageBase {
 							class="bn-toggle-input screen-reader-text"
 							name="bn_nav_visible[<?php echo esc_attr( $scope ); ?>][<?php echo esc_attr( $slug ); ?>]"
 							value="1"
-							<?php checked( ! $hidden && ! $dep_missing ); ?>
-							<?php disabled( $dep_missing ); ?>>
+							<?php checked( $locked || ( ! $hidden && ! $dep_missing ) ); ?>
+							<?php disabled( $dep_missing || $locked ); ?>>
 					<span class="bn-toggle"
 							role="switch"
 							aria-checked="<?php echo ( $hidden || $dep_missing ) ? 'false' : 'true'; ?>"
@@ -1180,6 +1208,11 @@ class NavManager extends AdminPageBase {
 	 */
 	private function render_all_config_panels( string $scope, array $tabs, string $first_slug ): void {
 		foreach ( $tabs as $tab ) {
+			// Locked slots (mobile Create / Profile) are fixed and not
+			// configurable, so they render no config card.
+			if ( ! empty( $tab['locked'] ) ) {
+				continue;
+			}
 			$slug      = sanitize_key( (string) ( $tab['slug'] ?? '' ) );
 			$panel_id  = 'bn-config-' . $scope . '-' . $slug;
 			$is_active = ( $slug === $first_slug );
@@ -1248,6 +1281,7 @@ class NavManager extends AdminPageBase {
 						maxlength="50">
 			</div>
 
+			<?php if ( 'mobile' !== $scope ) : ?>
 			<div class="bn-cf">
 				<label for="bn-cfg-order-<?php echo esc_attr( $slug ); ?>">
 					<?php esc_html_e( 'Position', 'buddynext' ); ?>
@@ -1260,6 +1294,11 @@ class NavManager extends AdminPageBase {
 						max="999"
 						class="bn-cf-position-input">
 			</div>
+			<?php else : ?>
+			<input type="hidden"
+					name="<?php echo esc_attr( $n( 'order' ) ); ?>"
+					value="<?php echo esc_attr( (string) $order ); ?>">
+			<?php endif; ?>
 
 			<?php if ( $has_routing ) : ?>
 			<div class="bn-cf">

@@ -111,9 +111,12 @@ final class NavOverrides {
 	public function apply_rail( $items, $hub = '' ): array {
 		$items     = (array) $items;
 		$overrides = $this->overrides( 'main' );
-		if ( empty( $overrides ) ) {
-			return $items;
-		}
+
+		// NOTE: do not early-return when there are no overrides. The
+		// buddynext_nav_tabs bridge below must still run on a default site so a
+		// programmatically registered main-nav tab reaches the rail even when the
+		// admin has saved no nav overrides. The override loops below are no-ops
+		// against an empty override set.
 
 		$index = 0;
 		foreach ( $items as &$item ) {
@@ -190,6 +193,43 @@ final class NavOverrides {
 				'order' => isset( $ov['order'] ) ? max( 1, (int) $ov['order'] ) : $fallback_order,
 			);
 			$fallback_order += 10;
+		}
+
+		// Bridge the documented main-nav filter to the front end. NavManager's
+		// editor builds its catalogue from buddynext_nav_tabs, but that filter is
+		// otherwise admin-only — a tab a plugin registers there never reached the
+		// rail. Applying it here with an empty seed yields only the tabs
+		// third-party code added (core defaults are seeded inside NavManager, not
+		// via add_filter), so each programmatic main-nav tab carrying a URL is
+		// surfaced as a rail link, deduped against existing keys + capability-gated.
+		$registered = (array) apply_filters( 'buddynext_nav_tabs', array() );
+		$rail_keys  = array();
+		foreach ( $items as $existing_item ) {
+			$rail_keys[ sanitize_key( (string) ( $existing_item['key'] ?? '' ) ) ] = true;
+		}
+		foreach ( $registered as $reg ) {
+			if ( ! is_array( $reg ) ) {
+				continue;
+			}
+			$slug = sanitize_key( (string) ( $reg['slug'] ?? '' ) );
+			$url  = esc_url_raw( (string) ( $reg['url'] ?? '' ) );
+			if ( '' === $slug || '' === $url || isset( $rail_keys[ $slug ] ) ) {
+				continue;
+			}
+			$cap = sanitize_key( (string) ( $reg['capability'] ?? 'read' ) );
+			if ( '' !== $cap && ! current_user_can( $cap ) ) {
+				continue;
+			}
+			$rail_keys[ $slug ] = true;
+			$items[]            = array(
+				'key'   => $slug,
+				'label' => sanitize_text_field( (string) ( $reg['label'] ?? $slug ) ),
+				'url'   => $url,
+				'icon'  => sanitize_key( (string) ( $reg['icon'] ?? 'link' ) ),
+				'show'  => true,
+				'order' => isset( $reg['order'] ) ? max( 1, (int) $reg['order'] ) : $fallback_order,
+			);
+			$fallback_order    += 10;
 		}
 
 		usort(

@@ -171,7 +171,10 @@
 
 	if ( window.jQuery && window.jQuery.fn.sortable ) {
 		var $ = window.jQuery;
-		var scopes = [ 'main', 'profile', 'space', 'mobile' ];
+		// Mobile is omitted: its bottom bar is a fixed 5-slot strip (centre
+		// Create stays centred), so order is never applied — a drag handle
+		// there would be a no-op. See NavOverrides::apply_mobile_items().
+		var scopes = [ 'main', 'profile', 'space' ];
 		scopes.forEach( function ( sc ) {
 			var listId = '#bn-nav-sortable-' + sc;
 			if ( $( listId ).length ) {
