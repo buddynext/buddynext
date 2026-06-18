@@ -614,25 +614,66 @@ class ConnectionService {
 	/**
 	 * Return user IDs that both $user_a and $user_b are each accepted-connected to.
 	 *
-	 * Because bn_connections is directional (one row per pair, either
-	 * requester_id or recipient_id can be the "acting" user), we first resolve
-	 * both users' full accepted-connection lists via the cache-backed
-	 * connections() method, then intersect them in PHP. This avoids a complex
-	 * bidirectional SQL join and re-uses cached data.
+	 * The bn_connections table is directional (one row per pair; either
+	 * requester_id or recipient_id can be the "acting" user), so each side's set is
+	 * the non-self party of its accepted rows. The intersection is computed
+	 * entirely in SQL via a self-join of the two sets — the database returns
+	 * only the mutual IDs, instead of loading both users' full connection lists
+	 * into PHP for an array_intersect() (which exhausted memory on large graphs).
 	 *
 	 * @param int $user_a First user.
 	 * @param int $user_b Second user.
+	 * @param int $limit  Optional cap on returned IDs (0 = all). A degree check
+	 *                    can pass 1 to test existence without materialising all.
 	 * @return int[]
 	 */
-	public function mutual_connections( int $user_a, int $user_b ): array {
-		// Fetch each user's FULL connection list (connections() defaults to the
-		// first 20), otherwise the intersection silently misses mutuals beyond
-		// page 1 for anyone with more than 20 connections. connection_count() is
-		// cache-backed, so this stays a bounded, accurate query.
-		$connections_a = $this->connections( $user_a, max( 1, $this->connection_count( $user_a ) ) );
-		$connections_b = $this->connections( $user_b, max( 1, $this->connection_count( $user_b ) ) );
+	public function mutual_connections( int $user_a, int $user_b, int $limit = 0 ): array {
+		if ( $user_a <= 0 || $user_b <= 0 || $user_a === $user_b ) {
+			return array();
+		}
 
-		return array_values( array_intersect( $connections_a, $connections_b ) );
+		global $wpdb;
+
+		$cache_key = "mutual_{$user_a}_{$user_b}_{$limit}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return (array) $cached;
+		}
+
+		$limit_sql = $limit > 0 ? ' LIMIT ' . (int) $limit : '';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT ca.uid FROM (
+				     SELECT CASE WHEN requester_id = %d THEN recipient_id ELSE requester_id END AS uid
+				       FROM {$wpdb->prefix}bn_connections
+				      WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted'
+				 ) ca
+				 INNER JOIN (
+				     SELECT CASE WHEN requester_id = %d THEN recipient_id ELSE requester_id END AS uid
+				       FROM {$wpdb->prefix}bn_connections
+				      WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted'
+				 ) cb ON cb.uid = ca.uid
+				 WHERE ca.uid NOT IN ( %d, %d )
+				 ORDER BY ca.uid{$limit_sql}",
+				$user_a,
+				$user_a,
+				$user_a,
+				$user_b,
+				$user_b,
+				$user_b,
+				$user_a,
+				$user_b
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$result = array_map( 'intval', (array) $rows );
+
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $result;
 	}
 
 	/**
@@ -650,7 +691,7 @@ class ConnectionService {
 			return 1;
 		}
 
-		if ( ! empty( $this->mutual_connections( $viewer_id, $subject_id ) ) ) {
+		if ( ! empty( $this->mutual_connections( $viewer_id, $subject_id, 1 ) ) ) {
 			return 2;
 		}
 
