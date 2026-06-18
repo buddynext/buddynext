@@ -194,6 +194,23 @@ class Plugin {
 			add_action(
 				'admin_init',
 				static function (): void {
+					// Only consume the one-shot activation redirect on a genuine,
+					// user-facing admin page load. admin_init also fires for AJAX,
+					// REST, cron and Heartbeat requests; letting any of those
+					// read-and-delete the transient was a race that swallowed the
+					// redirect before the browser reached the Plugins page.
+					if ( wp_doing_ajax() || wp_doing_cron() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
+						return;
+					}
+					// Browser page loads are GET; ignore POST/PUT admin actions.
+					if ( 'GET' !== strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ?? 'GET' ) ) ) ) {
+						return;
+					}
+					// Never hijack the screen during bulk (multi-plugin) activation.
+					// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only presence check, no state mutation.
+					if ( isset( $_GET['activate-multi'] ) ) {
+						return;
+					}
 					if ( ! get_transient( 'buddynext_do_activation_redirect' ) ) {
 						return;
 					}
