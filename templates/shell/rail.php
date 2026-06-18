@@ -110,6 +110,56 @@ $bn_rail_items = array(
 	),
 );
 
+// Personal "You" group — Profile / Edit Profile / Bookmarks / Settings. These
+// render under the "You" heading at the foot of the rail and, like the community
+// items above, are part of $bn_rail_items so the Navigation admin governs them
+// too (hide / relabel / reorder / cap-gate via Nav\NavOverrides::apply_rail).
+// The `group` key keeps them in their own visual section after the override sort;
+// `order` 200+ keeps them below the community items and any bridge-injected tab.
+if ( $bn_rail_current_user ) {
+	$bn_bookmarks_active = ( 'feed' === $hub && 'bookmarks' === (string) get_query_var( 'bn_feed_section', '' ) );
+	$bn_settings_active  = ( 'settings' === $hub || ( 'notifications' === $hub && 'prefs' === (string) get_query_var( 'bn_notif_section', '' ) ) );
+
+	$bn_rail_items[] = array(
+		'key'   => 'profile',
+		'label' => __( 'Profile', 'buddynext' ),
+		'url'   => PageRouter::profile_url( $bn_rail_current_user ),
+		'icon'  => 'user',
+		'show'  => true,
+		'group' => 'you',
+		'order' => 200,
+	);
+	$bn_rail_items[] = array(
+		'key'   => 'edit-profile',
+		'label' => __( 'Edit Profile', 'buddynext' ),
+		'url'   => PageRouter::edit_profile_url( $bn_rail_current_user ),
+		'icon'  => 'edit',
+		'show'  => true,
+		'group' => 'you',
+		'order' => 210,
+	);
+	$bn_rail_items[] = array(
+		'key'    => 'bookmarks',
+		'label'  => __( 'Bookmarks', 'buddynext' ),
+		'url'    => PageRouter::bookmarks_url(),
+		'icon'   => 'bookmark',
+		'show'   => true,
+		'group'  => 'you',
+		'order'  => 220,
+		'active' => $bn_bookmarks_active,
+	);
+	$bn_rail_items[] = array(
+		'key'    => 'settings',
+		'label'  => __( 'Settings', 'buddynext' ),
+		'url'    => PageRouter::settings_url(),
+		'icon'   => 'settings',
+		'show'   => true,
+		'group'  => 'you',
+		'order'  => 230,
+		'active' => $bn_settings_active,
+	);
+}
+
 /**
  * Filter the left-rail navigation items.
  *
@@ -140,6 +190,46 @@ if ( '' === $bn_rail_active && 'feed' === $hub ) {
 // instead of the Activity row.
 if ( 'feed' === $hub && 'explore' === (string) get_query_var( 'bn_activity_action', '' ) ) {
 	$bn_rail_active = 'explore';
+}
+
+// Single renderer for one rail link, shared by the community group and the "You"
+// group below so both stay byte-identical. An item is active when it carries an
+// explicit `active` flag (bridged surfaces, bookmarks/settings sub-routes) or its
+// key matches the resolved active hub.
+$bn_render_rail_item = static function ( array $bn_item ) use ( $bn_rail_active ): void {
+	$bn_is_active = ! empty( $bn_item['active'] ) || ( ! empty( $bn_item['key'] ) && $bn_item['key'] === $bn_rail_active );
+	$bn_icon_slug = ! empty( $bn_item['icon'] ) ? (string) $bn_item['icon'] : 'home';
+	$bn_badge     = isset( $bn_item['badge'] ) ? (int) $bn_item['badge'] : 0;
+	?>
+	<a
+		href="<?php echo esc_url( (string) $bn_item['url'] ); ?>"
+		class="bn-rail__item"
+		title="<?php echo esc_attr( (string) $bn_item['label'] ); ?>"
+		<?php echo $bn_is_active ? 'aria-current="page"' : ''; ?>
+	>
+		<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( $bn_icon_slug ); ?></span>
+		<span class="bn-rail__label"><?php echo esc_html( (string) $bn_item['label'] ); ?></span>
+		<?php if ( $bn_badge > 0 ) : ?>
+			<span class="bn-rail__badge"><?php echo esc_html( $bn_badge > 99 ? '99+' : (string) $bn_badge ); ?></span>
+		<?php endif; ?>
+	</a>
+	<?php
+};
+
+// Split the override-applied items into the community group (top, no heading) and
+// the personal "You" group (bottom, under its heading). Hidden items (show=false,
+// set by the admin override) drop out here.
+$bn_main_items = array();
+$bn_you_items  = array();
+foreach ( $bn_rail_items as $bn_item ) {
+	if ( empty( $bn_item['show'] ) ) {
+		continue;
+	}
+	if ( 'you' === (string) ( $bn_item['group'] ?? '' ) ) {
+		$bn_you_items[] = $bn_item;
+	} else {
+		$bn_main_items[] = $bn_item;
+	}
 }
 ?>
 <nav class="bn-app__rail" aria-label="<?php esc_attr_e( 'Community navigation', 'buddynext' ); ?>">
@@ -172,59 +262,17 @@ if ( 'feed' === $hub && 'explore' === (string) get_query_var( 'bn_activity_actio
 		</button>
 	</div>
 	<div class="bn-rail__group">
-		<?php foreach ( $bn_rail_items as $bn_item ) : ?>
-			<?php
-			if ( empty( $bn_item['show'] ) ) {
-				continue;
-			}
-			$bn_is_active = ! empty( $bn_item['active'] ) || ( ! empty( $bn_item['key'] ) && $bn_item['key'] === $bn_rail_active );
-			$bn_icon_slug = ! empty( $bn_item['icon'] ) ? (string) $bn_item['icon'] : 'home';
-			$bn_badge     = isset( $bn_item['badge'] ) ? (int) $bn_item['badge'] : 0;
-			?>
-			<a
-				href="<?php echo esc_url( (string) $bn_item['url'] ); ?>"
-				class="bn-rail__item"
-				title="<?php echo esc_attr( (string) $bn_item['label'] ); ?>"
-				<?php echo $bn_is_active ? 'aria-current="page"' : ''; ?>
-			>
-				<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( $bn_icon_slug ); ?></span>
-				<span class="bn-rail__label"><?php echo esc_html( (string) $bn_item['label'] ); ?></span>
-				<?php if ( $bn_badge > 0 ) : ?>
-					<span class="bn-rail__badge"><?php echo esc_html( $bn_badge > 99 ? '99+' : (string) $bn_badge ); ?></span>
-				<?php endif; ?>
-			</a>
+		<?php foreach ( $bn_main_items as $bn_item ) : ?>
+			<?php $bn_render_rail_item( $bn_item ); ?>
 		<?php endforeach; ?>
 	</div>
 
-	<?php if ( $bn_rail_current_user ) : ?>
+	<?php if ( ! empty( $bn_you_items ) ) : ?>
 		<div class="bn-rail__group">
 			<div class="bn-rail__heading"><?php esc_html_e( 'You', 'buddynext' ); ?></div>
-			<a href="<?php echo esc_url( PageRouter::profile_url( $bn_rail_current_user ) ); ?>" class="bn-rail__item" title="<?php esc_attr_e( 'Profile', 'buddynext' ); ?>">
-				<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'user' ); ?></span>
-				<span class="bn-rail__label"><?php esc_html_e( 'Profile', 'buddynext' ); ?></span>
-			</a>
-			<a href="<?php echo esc_url( PageRouter::edit_profile_url( $bn_rail_current_user ) ); ?>" class="bn-rail__item" title="<?php esc_attr_e( 'Edit Profile', 'buddynext' ); ?>">
-				<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'edit' ); ?></span>
-				<span class="bn-rail__label"><?php esc_html_e( 'Edit Profile', 'buddynext' ); ?></span>
-			</a>
-			<?php
-			$bn_bookmarks_url    = PageRouter::bookmarks_url();
-			$bn_bookmarks_active = ( 'feed' === $hub && 'bookmarks' === (string) get_query_var( 'bn_feed_section', '' ) );
-			?>
-			<a
-				href="<?php echo esc_url( $bn_bookmarks_url ); ?>"
-				class="bn-rail__item"
-				title="<?php esc_attr_e( 'Bookmarks', 'buddynext' ); ?>"
-				<?php echo $bn_bookmarks_active ? 'aria-current="page"' : ''; ?>
-			>
-				<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'bookmark' ); ?></span>
-				<span class="bn-rail__label"><?php esc_html_e( 'Bookmarks', 'buddynext' ); ?></span>
-			</a>
-			<a href="<?php echo esc_url( PageRouter::settings_url() ); ?>" class="bn-rail__item" title="<?php esc_attr_e( 'Settings', 'buddynext' ); ?>"
-				<?php echo ( 'settings' === $hub || ( 'notifications' === $hub && 'prefs' === (string) get_query_var( 'bn_notif_section', '' ) ) ) ? 'aria-current="page"' : ''; ?>>
-				<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'settings' ); ?></span>
-				<span class="bn-rail__label"><?php esc_html_e( 'Settings', 'buddynext' ); ?></span>
-			</a>
+			<?php foreach ( $bn_you_items as $bn_item ) : ?>
+				<?php $bn_render_rail_item( $bn_item ); ?>
+			<?php endforeach; ?>
 		</div>
 	<?php endif; ?>
 </nav>

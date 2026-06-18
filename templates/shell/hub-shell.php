@@ -85,7 +85,7 @@ $bn_region_attrs = $bn_client_nav ? ' data-wp-interactive="buddynext" data-wp-ro
 
 	<div class="<?php echo esc_attr( $bn_shell_classes ); ?>">
 
-		<?php if ( $bn_community_nav ) : ?>
+		<?php if ( buddynext_community_rail_enabled() ) : ?>
 			<?php buddynext_get_template( 'shell/rail.php', array( 'hub' => $hub ) ); ?>
 		<?php endif; ?>
 
@@ -124,7 +124,7 @@ $bn_region_attrs = $bn_client_nav ? ' data-wp-interactive="buddynext" data-wp-ro
 
 	</div>
 
-	<?php if ( $bn_community_nav ) : ?>
+	<?php if ( buddynext_community_mobile_nav_enabled() ) : ?>
 		<?php buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => '' ) ); ?>
 	<?php endif; ?>
 

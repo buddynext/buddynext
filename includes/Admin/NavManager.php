@@ -1829,6 +1829,48 @@ class NavManager extends AdminPageBase {
 				'capability'  => 'read',
 				'hidden'      => true,
 			),
+			// Personal "You" group shown at the foot of the left rail. These are
+			// nav-only items (no backing page) rendered by templates/shell/rail.php
+			// under the "You" heading and flowed through buddynext_rail_items, so
+			// hide / relabel / reorder / cap-gate apply here the same as the
+			// community tabs above. login_required because they target the current
+			// member.
+			array(
+				'slug'           => 'profile',
+				'label'          => __( 'Profile', 'buddynext' ),
+				'order'          => 200,
+				'icon'           => 'tab-profile',
+				'description'    => __( 'The current member\'s own profile.', 'buddynext' ),
+				'capability'     => 'read',
+				'login_required' => true,
+			),
+			array(
+				'slug'           => 'edit-profile',
+				'label'          => __( 'Edit Profile', 'buddynext' ),
+				'order'          => 210,
+				'icon'           => 'tab-edit',
+				'description'    => __( 'Edit the current member\'s own profile.', 'buddynext' ),
+				'capability'     => 'read',
+				'login_required' => true,
+			),
+			array(
+				'slug'           => 'bookmarks',
+				'label'          => __( 'Bookmarks', 'buddynext' ),
+				'order'          => 220,
+				'icon'           => 'tab-bookmark',
+				'description'    => __( 'Posts the current member has bookmarked.', 'buddynext' ),
+				'capability'     => 'read',
+				'login_required' => true,
+			),
+			array(
+				'slug'           => 'settings',
+				'label'          => __( 'Settings', 'buddynext' ),
+				'order'          => 230,
+				'icon'           => 'tab-settings',
+				'description'    => __( 'The current member\'s account and notification settings.', 'buddynext' ),
+				'capability'     => 'read',
+				'login_required' => true,
+			),
 		);
 	}
 }

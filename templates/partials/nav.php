@@ -149,13 +149,26 @@ if ( $bn_nav_current_user ) :
 		),
 	);
 
+	// The mobile bar has its own key space (feed/spaces/create/notifications/
+	// profile); $bn_nav_active uses the main-nav keys (feed/members/spaces/
+	// notifications/messages). Map onto the mobile keys so both the active-item
+	// highlight below AND the buddynext_mobile_nav_items filter receive a
+	// mobile-correct value — the filter previously got the main-nav key (e.g.
+	// 'members'), which no mobile slot uses.
+	$bn_mobile_active_map = array(
+		'feed'          => 'feed',
+		'spaces'        => 'spaces',
+		'notifications' => 'notifications',
+	);
+	$bn_mobile_active = isset( $bn_mobile_active_map[ $bn_nav_active ] ) ? $bn_mobile_active_map[ $bn_nav_active ] : '';
+
 	/**
 	 * Filter the mobile bottom-bar items.
 	 *
 	 * @param array<int,array<string,mixed>> $items  Bar item definitions.
-	 * @param string                         $active Active section key.
+	 * @param string                         $active Active mobile-bar key (feed / spaces / notifications / profile / '').
 	 */
-	$bn_mobile_items = (array) apply_filters( 'buddynext_mobile_nav_items', $bn_mobile_items, $bn_nav_active );
+	$bn_mobile_items = (array) apply_filters( 'buddynext_mobile_nav_items', $bn_mobile_items, $bn_mobile_active );
 
 	// Split the visible bar slots from any "overflow" entries (admin-created
 	// custom tabs flagged by NavOverrides::apply_mobile_items). The bar is a fixed
@@ -200,7 +213,7 @@ if ( $bn_nav_current_user ) :
 		$bn_m_create = isset( $bn_m_item['type'] ) && 'create' === $bn_m_item['type'];
 		$bn_m_more   = isset( $bn_m_item['type'] ) && 'more' === $bn_m_item['type'];
 		$bn_m_badge  = ! empty( $bn_m_item['badge'] );
-		$bn_m_active = ! $bn_m_create && ! $bn_m_more && '' !== $bn_m_key && $bn_m_key === $bn_nav_active;
+		$bn_m_active = ! $bn_m_create && ! $bn_m_more && '' !== $bn_m_key && $bn_m_key === $bn_mobile_active;
 		$bn_m_class  = 'bn-mobile-nav__item'
 			. ( $bn_m_create ? ' bn-mobile-nav__item--create' : '' )
 			. ( $bn_m_more ? ' bn-mobile-nav__item--more' : '' )

@@ -45,6 +45,8 @@ class Settings extends AdminPageBase {
 		'buddynext_enable_dm'                  => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_default_dm_access'          => array( 'string', 'sanitize_key' ),
 		'buddynext_enable_community_nav'       => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_enable_community_rail'      => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_enable_community_mobile_nav' => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_member_dir_columns'         => array( 'string', array( self::class, 'sanitize_dir_columns' ) ),
 
 		// Registration.
@@ -599,6 +601,8 @@ class Settings extends AdminPageBase {
 			'buddynext_enable_dm',
 			'buddynext_default_dm_access',
 			'buddynext_enable_community_nav',
+			'buddynext_enable_community_rail',
+			'buddynext_enable_community_mobile_nav',
 			'buddynext_member_dir_columns',
 			'buddynext_spaces_dir_columns',
 		),
@@ -1038,6 +1042,20 @@ class Settings extends AdminPageBase {
 			__( 'Auto-place the community menu in your theme', 'buddynext' ),
 			__( 'Drops the Feed / Members / Spaces menu into your theme automatically. Turn off to use your theme\'s own menu instead. To rename, reorder, or hide individual items, use the Navigation tab.', 'buddynext' ),
 			(bool) get_option( 'buddynext_enable_community_nav', true )
+		);
+
+		$this->render_toggle_row(
+			'buddynext_enable_community_rail',
+			__( 'Show the desktop sidebar rail', 'buddynext' ),
+			__( 'The left navigation rail on desktop hub pages. Turn off to hide the desktop rail while keeping the mobile bottom bar. Only applies when community navigation (above) is on.', 'buddynext' ),
+			(bool) get_option( 'buddynext_enable_community_rail', true )
+		);
+
+		$this->render_toggle_row(
+			'buddynext_enable_community_mobile_nav',
+			__( 'Show the mobile bottom tab bar', 'buddynext' ),
+			__( 'The bottom navigation bar on mobile hub pages. Turn off to hide the mobile bar while keeping the desktop rail. Only applies when community navigation (above) is on.', 'buddynext' ),
+			(bool) get_option( 'buddynext_enable_community_mobile_nav', true )
 		);
 
 		$this->close_section();

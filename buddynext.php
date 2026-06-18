@@ -513,6 +513,30 @@ function buddynext_community_nav_enabled(): bool {
 }
 
 /**
+ * Whether the desktop left rail should render.
+ *
+ * Sub-toggle of the community-nav master: the rail shows only when the master
+ * is on AND the rail sub-toggle is on, so an owner can keep the mobile bottom
+ * bar but hide the desktop rail (e.g. to rely on theme menus on desktop).
+ *
+ * @return bool
+ */
+function buddynext_community_rail_enabled(): bool {
+	return buddynext_community_nav_enabled() && (bool) get_option( 'buddynext_enable_community_rail', true );
+}
+
+/**
+ * Whether the mobile bottom tab bar should render.
+ *
+ * Sub-toggle of the community-nav master (see buddynext_community_rail_enabled).
+ *
+ * @return bool
+ */
+function buddynext_community_mobile_nav_enabled(): bool {
+	return buddynext_community_nav_enabled() && (bool) get_option( 'buddynext_enable_community_mobile_nav', true );
+}
+
+/**
  * Echo a Microsoft Fluent reaction emoji inline.
  *
  * Reads the SVG from `assets/emoji/<slug>.svg` and emits an `<img>` tag
