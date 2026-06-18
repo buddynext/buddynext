@@ -86,9 +86,11 @@ $bn_explore_filters = array(
 		<section class="bn-explore-hero">
 			<?php
 			// Community name (Settings → General → Community Name) as the landing
-			// brand line. The description already renders as the hero title below;
-			// the name was configured but never shown on the landing page.
-			$bn_community_name = trim( (string) get_option( 'buddynext_site_name', (string) get_bloginfo( 'name' ) ) );
+			// brand line — shown only when the owner has explicitly set one. We do
+			// NOT fall back to the WP site title here: that just duplicates the title
+			// already in the theme header and reads as clutter. The description
+			// renders as the hero title below regardless.
+			$bn_community_name = trim( (string) get_option( 'buddynext_site_name', '' ) );
 			if ( '' !== $bn_community_name ) :
 				?>
 				<div class="bn-explore-hero__brand"><?php echo esc_html( $bn_community_name ); ?></div>
