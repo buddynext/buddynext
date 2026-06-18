@@ -1,6 +1,6 @@
 /* BuddyNext - Profile Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
-import { bnToast, bnConfirm, bnConnectNoteDialog } from '../shell/dialog.js';
+import { bnToast, bnConfirm, bnResolveConnectNote } from '../shell/dialog.js';
 import { restFetch } from '../shell/rest-client.js';
 
 /* -- Shared helpers ----------------------------------------------------- */
@@ -1550,7 +1550,7 @@ store( 'buddynext/profile', {
 			var ctx = getContext();
 			if ( ! ctx.showConnect ) { return; }
 			// LinkedIn-style optional note. Cancelling leaves the CTA untouched.
-			var note = await bnConnectNoteDialog( {
+			var note = await bnResolveConnectNote( {
 				body: 'Add a personal message to your connection request, or send it without one.',
 			} );
 			if ( note === null ) { return; }

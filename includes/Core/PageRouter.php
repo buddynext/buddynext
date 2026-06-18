@@ -864,18 +864,18 @@ class PageRouter {
 		// dropdown all lose their REST config. Defer the attach to
 		// wp_enqueue_scripts (priority 20), once the handle exists.
 		$bn_shell_data = array(
-			'restNonce'         => wp_create_nonce( 'wp_rest' ),
-			'restSearchUrl'     => esc_url_raw( rest_url( 'buddynext/v1/search' ) ),
-			'restNotifsUrl'     => esc_url_raw( rest_url( 'buddynext/v1/me/notifications?per_page=5' ) ),
-			'restNotifsReadUrl' => esc_url_raw( rest_url( 'buddynext/v1/me/notifications/read-all' ) ),
-			'restUserUrl'       => esc_url_raw( rest_url( 'buddynext/v1/users/' ) ),
-			'feedUrl'           => self::activity_url(),
+			'restNonce'          => wp_create_nonce( 'wp_rest' ),
+			'restSearchUrl'      => esc_url_raw( rest_url( 'buddynext/v1/search' ) ),
+			'restNotifsUrl'      => esc_url_raw( rest_url( 'buddynext/v1/me/notifications?per_page=5' ) ),
+			'restNotifsReadUrl'  => esc_url_raw( rest_url( 'buddynext/v1/me/notifications/read-all' ) ),
+			'restUserUrl'        => esc_url_raw( rest_url( 'buddynext/v1/users/' ) ),
+			'feedUrl'            => self::activity_url(),
 			// Soft chime played by notifications/store.js maybePlaySound() when the
 			// member has the "Play a sound" channel enabled. The asset previously
 			// did not exist and this key was never injected, so the sound channel
 			// was a dead toggle.
-			'notifSoundUrl'     => defined( 'BUDDYNEXT_URL' ) ? esc_url_raw( BUDDYNEXT_URL . 'assets/sounds/notif.wav' ) : '',
-			'navUrls'           => array(
+			'notifSoundUrl'      => defined( 'BUDDYNEXT_URL' ) ? esc_url_raw( BUDDYNEXT_URL . 'assets/sounds/notif.wav' ) : '',
+			'navUrls'            => array(
 				'feed'          => self::activity_url(),
 				'members'       => self::people_url(),
 				'spaces'        => self::spaces_url(),
@@ -889,14 +889,14 @@ class PageRouter {
 			// exact bug class the standard prevents). The navigate action is
 			// wired and inert until this flips true. Filterable for staged
 			// activation once surfaces are verified.
-			'clientNav'         => (bool) apply_filters( 'buddynext_client_nav_enabled', true ),
+			'clientNav'          => (bool) apply_filters( 'buddynext_client_nav_enabled', true ),
 			// Deny-list path prefixes for the client-side navigate action.
 			// Routes matching these full-load instead of client-navigating
 			// (rich editors + security-sensitive flows). Resolved server-side
 			// because hub slugs are admin-configurable — the action cannot
 			// assume fixed path segments. Default = client-nav (deny-list, not
 			// allow-list), so new routes are fast by default.
-			'navDeny'           => array(
+			'navDeny'            => array(
 				'auth'       => wp_parse_url( self::auth_url(), PHP_URL_PATH ),
 				'signup'     => wp_parse_url( self::signup_url(), PHP_URL_PATH ),
 				'verify'     => wp_parse_url( self::verify_url(), PHP_URL_PATH ),
@@ -905,6 +905,13 @@ class PageRouter {
 				'spaces'     => wp_parse_url( self::spaces_url(), PHP_URL_PATH ),
 				'people'     => wp_parse_url( self::people_url(), PHP_URL_PATH ),
 			),
+			// Connect-request style. Default false = 1-click connect (Facebook).
+			// When the owner turns on buddynext_connection_require_note, the
+			// Connect button opens a note dialog (LinkedIn) and the note is
+			// delivered to the recipient's DM as a message request. Read once here
+			// so every connect surface shares one source of truth instead of
+			// threading the flag through each button's data-wp-context.
+			'connectRequireNote' => ( '1' === (string) get_option( 'buddynext_connection_require_note', '0' ) ),
 		);
 		// Base config for the shared REST client module (@buddynext/rest-client).
 		// Emitted on bn-shell-extras (always enqueued on every hub) so the

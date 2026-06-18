@@ -24,7 +24,7 @@
  */
 
 import { store, getContext } from '@wordpress/interactivity';
-import { bnToast, bnConnectNoteDialog } from '../shell/dialog.js';
+import { bnToast, bnResolveConnectNote } from '../shell/dialog.js';
 import { restFetch } from '../shell/rest-client.js';
 
 /* -- Helpers ----------------------------------------------------------- */
@@ -272,7 +272,7 @@ store( 'buddynext/connection-button', {
 			// LinkedIn-style "Add a note" step. The note is optional — confirming
 			// with an empty textarea sends a note-less request; cancelling aborts
 			// without touching state. The server caps the note at 280 chars.
-			const note = await bnConnectNoteDialog( {
+			const note = await bnResolveConnectNote( {
 				body: 'Add a personal message to your request to @' + name + ', or send it without one.',
 			} );
 			if ( note === null ) {
