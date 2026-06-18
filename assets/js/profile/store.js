@@ -519,6 +519,17 @@ function profileSaveUrl() {
 		: '/me/profile';
 }
 
+/* Resolve a profile sub-resource endpoint (avatar / cover) for the user being
+   edited — /users/{id}/{segment} when an admin is editing someone else (the same
+   data-bn-profile-user target profileSaveUrl uses), else the own /me/{segment}.
+   Without this, avatar/cover uploads always hit /me/* and an admin editing
+   another member's profile would overwrite their OWN avatar/cover. */
+function profileResourcePath( segment ) {
+	var root   = document.querySelector( '[data-wp-interactive="buddynext/profile"]' );
+	var target = root ? parseInt( root.getAttribute( 'data-bn-profile-user' ) || '0', 10 ) : 0;
+	return target > 0 ? '/users/' + target + '/' + segment : '/me/' + segment;
+}
+
 /* Master save flow - submits all fields, handles 200 / 422 / 5xx. */
 async function doSave( ctx ) {
 	if ( ctx.saving ) { return; }
@@ -1373,7 +1384,7 @@ store( 'buddynext/profile', {
 				// REST API rejects with 403 (rest_cookie_invalid_nonce) and the
 				// upload surfaces as "Upload failed". ctx was captured up-front
 				// for exactly this reason.
-				var res  = await restFetch( '/me/avatar', {
+				var res  = await restFetch( profileResourcePath( 'avatar' ), {
 					method:       'POST',
 					nonce:        ctx.restNonce,
 					body:         formData,
@@ -1410,7 +1421,7 @@ store( 'buddynext/profile', {
 			if ( ! ok ) { return; }
 
 			try {
-				var res = await restFetch( '/me/avatar', {
+				var res = await restFetch( profileResourcePath( 'avatar' ), {
 					method:       'DELETE',
 					nonce:        ctx.restNonce,
 					toastOnError: false,
@@ -1457,7 +1468,7 @@ store( 'buddynext/profile', {
 
 				// Captured nonce — nonce() (getContext post-await) returns empty
 				// and 403s. See handleAvatarFileChange for the full rationale.
-				var res  = await restFetch( '/me/cover', {
+				var res  = await restFetch( profileResourcePath( 'cover' ), {
 					method:       'POST',
 					nonce:        ctx.restNonce,
 					body:         formData,
