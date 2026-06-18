@@ -477,7 +477,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				data-wp-on--click="actions.submit"
 				data-wp-bind--disabled="state.submitting">
 				<span class="bn-composer__submit-label"
-					data-wp-text="state.submitLabel"><?php esc_html_e( 'Share', 'buddynext' ); ?></span>
+					data-wp-text="state.submitLabel"><?php esc_html_e( 'Post', 'buddynext' ); ?></span>
 			</button>
 
 		</div>

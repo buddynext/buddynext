@@ -1904,7 +1904,7 @@ store( 'buddynext/post-composer', {
 			try { return getContext().privacy === 'private'; } catch ( _e ) { return false; }
 		},
 		get submitLabel() {
-			try { return getContext().submitting ? 'Sharing…' : 'Share'; } catch ( _e ) { return 'Share'; }
+			try { return getContext().submitting ? 'Posting…' : 'Post'; } catch ( _e ) { return 'Post'; }
 		},
 		get draftStatusHidden() {
 			try { return ! ( getContext().draftStatus || '' ); } catch ( _e ) { return true; }
