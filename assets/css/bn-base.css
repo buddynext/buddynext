@@ -2691,7 +2691,14 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	border-bottom: 1px solid var(--bn-line-faint);
 	cursor: pointer;
 	transition: background var(--bn-dur-fast) var(--bn-ease);
+	/* Rail items are whole-row links; the row's hover + active states convey
+	   interactivity, so drop the inherited underline (WP-admin defaults links
+	   to underline) that cluttered the title/meta text. */
+	text-decoration: none;
 }
+.bn-split__rail-item,
+.bn-split__rail-item:hover,
+.bn-split__rail-item:focus { text-decoration: none; }
 .bn-split__rail-item:hover { background: var(--bn-sunken); }
 .bn-split__rail-item[aria-current="true"],
 .bn-split__rail-item[data-active] {
