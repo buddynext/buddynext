@@ -52,6 +52,16 @@
 	border-bottom: 1px solid var(--bn-line);
 }
 
+/* WordPress core `.notice` flash boxes that section pages echo at the top of
+   their content sit directly beneath the section tab strip. Core's zeroed /
+   negative notice margins let them ride up and overlap the tabs (e.g. the Push
+   and Push Preferences tabs vanished behind the "saved" notice). Give echoed
+   notices breathing room and force them to clear so the tab strip stays visible. */
+.bn-admin-hub__main .notice {
+	margin: var(--bn-s3, 12px) 0 var(--bn-s4, 16px);
+	clear: both;
+}
+
 .bn-admin-hub__tab {
 	box-sizing: border-box;
 	display: inline-flex;
