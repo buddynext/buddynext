@@ -91,6 +91,7 @@ class Settings extends AdminPageBase {
 		'buddynext_blocked_ips'                => array( 'string', array( self::class, 'sanitize_ip_list' ) ),
 		'buddynext_banned_hashtags'            => array( 'string', 'sanitize_textarea_field' ),
 		'buddynext_post_rate_limit'            => array( 'integer', 'absint' ),
+		'buddynext_comment_rate_limit'         => array( 'integer', 'absint' ),
 		'buddynext_new_member_post_threshold'  => array( 'integer', 'absint' ),
 		'buddynext_duplicate_post_window'      => array( 'integer', 'absint' ),
 		'buddynext_premod_mode'                => array( 'string', 'sanitize_key' ),
@@ -645,6 +646,7 @@ class Settings extends AdminPageBase {
 			'buddynext_blocked_domains',
 			'buddynext_blocked_ips',
 			'buddynext_post_rate_limit',
+			'buddynext_comment_rate_limit',
 			'buddynext_duplicate_post_window',
 			'buddynext_new_member_post_threshold',
 			'buddynext_auto_hide_threshold',
@@ -1775,6 +1777,14 @@ class Settings extends AdminPageBase {
 			__( 'Post rate limit (per minute)', 'buddynext' ),
 			(int) get_option( 'buddynext_post_rate_limit', 10 ),
 			__( 'Maximum number of posts a member can create per minute. Set to 0 to disable rate limiting.', 'buddynext' ),
+			0
+		);
+
+		$this->render_number_row(
+			'buddynext_comment_rate_limit',
+			__( 'Comment rate limit (per minute)', 'buddynext' ),
+			(int) get_option( 'buddynext_comment_rate_limit', 30 ),
+			__( 'Maximum number of comments a member can post per minute. Set to 0 to disable rate limiting.', 'buddynext' ),
 			0
 		);
 
