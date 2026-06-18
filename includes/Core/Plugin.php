@@ -279,6 +279,11 @@ class Plugin {
 		// Wire hashtag extraction to post_created and bridge index actions.
 		( new HashtagListener( $container->get( 'hashtags' ) ) )->register();
 
+		// Wire the on-demand scheduled-post publisher (Free-owned; works without
+		// Pro). Posts created with a future scheduled_at publish via a single
+		// cron event armed at their due time — no perpetual poll.
+		\BuddyNext\Feed\ScheduledPostsPublisher::register();
+
 		// Wire moderation notification/email handlers and daily cron alert.
 		( new ModerationListener() )->register();
 

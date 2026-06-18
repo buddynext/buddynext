@@ -271,6 +271,10 @@ class PostService {
 		// scheduled publish, so the live edge is the right one.
 		if ( 'published' === $status && $post_id > 0 ) {
 			$this->run_post_published_effects( $post_id, $user_id, $type, $data, $flag_reason );
+		} elseif ( 'scheduled' === $status && $post_id > 0 ) {
+			// Arm the on-demand publisher for this post's due time. Free owns
+			// scheduled-post publishing so this works with Pro absent.
+			ScheduledPostsPublisher::arm();
 		}
 
 		return $post_id;
@@ -889,6 +893,9 @@ class PostService {
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
 
+		// Re-point the on-demand publisher at the (possibly new) earliest due post.
+		ScheduledPostsPublisher::arm();
+
 		return false !== $updated;
 	}
 
@@ -919,11 +926,18 @@ class PostService {
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
 
+		// One fewer scheduled post — re-arm (or disarm when none remain).
+		ScheduledPostsPublisher::arm();
+
 		return false !== $updated;
 	}
 
 	/**
 	 * Publish a (scheduled) post: set status='published'.
+	 *
+	 * Bumps created_at + last_activity_at to the publish time (UTC) so a post
+	 * that was scheduled days ago surfaces fresh in the feed when it goes live
+	 * rather than at its original, now-buried position.
 	 *
 	 * @param int $post_id Post id.
 	 * @return bool
@@ -933,13 +947,19 @@ class PostService {
 			return false;
 		}
 
+		$now = current_time( 'mysql', true );
+
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_posts',
-			array( 'status' => 'published' ),
+			array(
+				'status'           => 'published',
+				'created_at'       => $now,
+				'last_activity_at' => $now,
+			),
 			array( 'id' => $post_id ),
-			array( '%s' ),
+			array( '%s', '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

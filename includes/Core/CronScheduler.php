@@ -18,8 +18,9 @@
  * Removed recurring jobs (converted to lazy/reactive):
  *   buddynext_trending_hashtags    — dropped; HashtagService::get_trending() computes
  *                                    lazily on first read and caches via transient (~30 min).
- *   buddynext_publish_scheduled    — dropped; Pro owns scheduled-post publishing via
- *                                    buddynextpro_publish_scheduled (ScheduledPostsService).
+ *   buddynext_publish_scheduled    — no longer a recurring 1-min poll; now a single
+ *                                    on-demand event armed at the next due post's time by
+ *                                    Feed\ScheduledPostsPublisher (Free-owned, runs without Pro).
  *   buddynext_webhook_retry        — dropped; OutboundWebhookService schedules a single
  *                                    wp_schedule_single_event per failed delivery with backoff.
  *
@@ -163,8 +164,12 @@ class CronScheduler {
 	 * @return void
 	 */
 	public static function run_cron_migration(): void {
-		// 1. Remove the 1-min scheduled-post publisher (Pro owns this now).
+		// 1. Drop the legacy recurring 1-min scheduled-post publisher, then hand
+		// off to the on-demand publisher: it re-arms a single event at the next
+		// due post's time (or stays disarmed when none are pending). Free owns
+		// this so existing scheduled posts keep publishing with Pro absent.
 		wp_clear_scheduled_hook( 'buddynext_publish_scheduled' );
+		\BuddyNext\Feed\ScheduledPostsPublisher::arm();
 
 		// 2. Remove the 30-min trending hashtags recount (lazy on read now).
 		wp_clear_scheduled_hook( 'buddynext_trending_hashtags' );
