@@ -108,27 +108,9 @@ If a section below conflicts with one of the boundary skills, the skill wins —
 - Capabilities checked on every admin and REST endpoint.
 - Sanitize input at entry. Escape output at exit. Always.
 
-### 2. WPCS MCP — Mandatory Workflow
+### 2. WPCS + PHPStan — how to run
 
-Run after writing **any** PHP file:
-
-```
-mcp__wpcs__wpcs_check_file({ file_path: "...", standard: "WordPress" })
-```
-
-Run after writing a batch of files:
-
-```
-mcp__wpcs__wpcs_check_directory({ directory: "includes/...", standard: "WordPress" })
-```
-
-Run before any commit:
-
-```
-mcp__wpcs__wpcs_pre_commit({ standard: "WordPress" })
-```
-
-Fix all errors and warnings before proceeding. WPCS is not optional — it is part of Done.
+Commands live in the **Quality gates** table above (`mcp__wpcs__wpcs_check_file` / `vendor/bin/phpcs`, `vendor/bin/phpstan analyse`, `bin/check.sh --staged`). Run them on every PHP file you touch and before every commit; fix all errors and warnings before proceeding — it is part of Done. Full sniff config + REST/security patterns: `/wp-plugin-development` Part 8.
 
 ### 3. Test-Driven Development — Mandatory
 
@@ -144,12 +126,9 @@ Never mark a task as complete unless tests pass.
 
 **v2 is the only design source.** Every template renders against the v2 prototypes in `docs/v2 Plans/v2/` and the canonical tokens + primitives in `docs/v2 Plans/tokens.css`. The previous brainstorm mockups have been deleted from the repo — do not reference them, do not extrapolate from them. See `docs/v2 Plans/PLAN.md` for the surface-to-prototype map + composition rules for surfaces v2 doesn't prototype.
 
-- Color tokens come from `--bn-*` (canonical in `assets/css/bn-base.css`, mirrors `docs/v2 Plans/tokens.css`).
-- Typography uses `--bn-font-ui` / `--bn-font-display` / `--bn-font-mono`.
-- Spacing on the 4px grid via `--bn-s1` through `--bn-s16`.
-- Dark mode supported via `[data-bn-theme="dark"]` (legacy `[data-theme="dark"]` also accepted).
-- Mobile (every layout ≤640px must be tested — full-width, no horizontal scroll)
-- Interactions (hover states, focus rings, loading states — all from mockups)
+- Tokens (colour / type / spacing / dark mode): see the **Design System Tokens** section — author with `--bn-*` only, never raw hex/px.
+- Mobile: every member-facing layout ≤640px must be tested full-width, no horizontal scroll (the global CLAUDE.md 390px verify rule applies — verify in the same commit, not later).
+- Interactions: hover / focus rings / loading states all per the v2 prototype.
 
 ### 5. No Emoji — Ever
 
@@ -263,83 +242,34 @@ includes/SocialGraph/FollowController.php  →  tests/SocialGraph/FollowControll
 
 ## Design System Tokens
 
-These tokens are the **single source of truth** — injected by `TokenService` via `wp_add_inline_style('bn-base', ...)`. Never hardcode px, hex, or font values in CSS files. Always reference these tokens.
+CSS variables are the single source of truth — never hardcode px, hex, or font
+values. The system is **`--bn-*` prefixed and OKLCH-based**: a single `--bn-hue`
+cascades into the full accent ramp, so re-theming is one hue change. `TokenService`
+(`includes/Theme/TokenService.php`) injects the values inline on the `bn-base`
+handle. **Canonical definitions live in `assets/css/bn-base.css` and
+`docs/v2 Plans/tokens.css` — read those for exact values. Do NOT paste a token
+table here; it drifts out of sync (that drift is exactly why this section was
+rewritten).**
 
-**Premium social scale** — matches LinkedIn/Twitter/Facebook defaults:
+Token families (all `--bn-` prefixed):
+- Surfaces: `--bn-bg`, `--bn-canvas`, `--bn-surface`, `--bn-sunken`, `--bn-raised`
+- Ink (text): `--bn-ink`, `--bn-ink-2`, `--bn-ink-3`, `--bn-ink-4`
+- Lines/focus: `--bn-line`, `--bn-line-faint`, `--bn-line-strong`, `--bn-ring`
+- Accent ramp (OKLCH from `--bn-hue`): `--bn-accent`, `--bn-accent-50…900`, `--bn-accent-fg`
+- Semantic: `--bn-success(-bg)`, `--bn-danger(-bg)`, `--bn-info(-bg)`
+- Integration accents: `--bn-jetonomy(-bg)`, `--bn-media(-bg)`, `--bn-paid(-bg)`, `--bn-events(-bg)`
+- Type: `--bn-font-{body,display,ui,mono}`, `--bn-text-{2xs…4xl,base,md}`, `--bn-fw-{normal…extrabold}`, `--bn-leading-{tight,snug,normal,body}`
+- Spacing (4px grid): `--bn-s1 … --bn-s16` · Radius: `--bn-r-{sm,md,lg,xl,full}` · Shadow: `--bn-shadow-{xs,sm,md,lg}`
 
-```css
-:root {
-  /* Typography */
-  --font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
-  --text-2xs: 9px;   --text-xs: 12px;  --text-sm: 14px;  --text-md: 15px;
-  --text-base: 16px; --text-lg: 18px;  --text-xl: 20px;  --text-2xl: 24px;
-  --text-3xl: 30px;  --text-4xl: 38px; --text-5xl: 48px;
-  --fw-normal: 400; --fw-medium: 500; --fw-semibold: 600;
-  --fw-bold: 700;   --fw-extrabold: 800; --fw-black: 900;
-  --leading-tight: 1.2; --leading-snug: 1.35; --leading-normal: 1.5; --leading-body: 1.7;
-  --ls-display: -0.04em; --ls-tight: -0.02em; --ls-normal: 0em;
-  --ls-wide: 0.04em; --ls-wider: 0.08em;
+**Dark mode** flips tokens under `[data-bn-theme="dark"]`, `[data-theme="dark"]`,
+or `[data-bx-mode="dark"]` (the last bridges BuddyX/Reign's `.bx-color-mode`
+toggle so BN follows the host theme). Verify dark via the real theme toggle, not
+a hand-set attribute.
 
-  /* Colours — light mode (Notion warm-grey) */
-  --bg:          #ffffff;
-  --bg-subtle:   #f8f8f7;
-  --bg-hover:    #f1f1f0;
-  --surface:     #ffffff;
-  --border:      #e8e8e5;
-  --border-soft: #f1f1ee;
-  --text-1:      #37352f;
-  --text-2:      #787774;
-  --text-3:      #aeaca8;
-
-  /* Brand */
-  --brand:       #0073aa;
-  --brand-light: #e8f4fb;
-  --brand-hover: #005f8e;
-
-  /* Integration accents */
-  --jetonomy:        #5b21b6;
-  --jetonomy-bg:     #f5f3ff;
-  --jetonomy-border: #ddd6fe;
-  --mvs:             #0f766e;
-  --mvs-bg:          #f0fdf9;
-  --mvs-border:      #99f6e4;
-
-  /* Semantic */
-  --green:    #059669;  --green-bg:  #ecfdf5;
-  --amber:    #d97706;  --amber-bg:  #fffbeb;
-  --red:      #dc2626;  --red-bg:    #fef2f2;
-
-  /* Spacing — 4px grid */
-  --s1: 4px;  --s2: 8px;   --s3: 12px;  --s4: 16px;
-  --s5: 20px; --s6: 24px;  --s8: 32px;  --s10: 40px;  --s12: 48px;
-
-  /* Radius */
-  --r-sm: 4px;  --r-md: 8px;  --r-lg: 12px;  --r-xl: 16px;  --r-full: 9999px;
-}
-
-[data-theme="dark"] {
-  --bg:          #191919;
-  --bg-subtle:   #202020;
-  --bg-hover:    #2a2a2a;
-  --surface:     #252525;
-  --border:      #333330;
-  --border-soft: #2c2c2a;
-  --text-1:      #e8e8e6;
-  --text-2:      #9b9b97;
-  --text-3:      #6b6b67;
-  --brand:       #4dabdb;
-  --brand-light: #1a2e3a;
-  --brand-hover: #5fbfe8;
-  --jetonomy:    #a78bfa;  --jetonomy-bg: #1e1830;
-  --mvs:         #34d399;  --mvs-bg:      #0d2420;
-  --green:       #34d399;  --green-bg:    #0d2420;
-  --amber:       #fbbf24;  --amber-bg:    #2a2000;
-  --red:         #f87171;  --red-bg:      #2d0f0f;
-}
-```
-
-Full component library in: `docs/v2 Plans/style-guide.html` (canonical) + `docs/v2 Plans/tokens.css` (token + primitive source).
+Bare-named aliases (`--bg`, `--text-1`, `--s4`…) exist only for back-compat —
+always author with the `--bn-*` names. `bin/ux-audit.sh` (gate F3) rejects raw
+hex/px and non-`--bn-` token use. Full component library:
+`docs/v2 Plans/style-guide.html` (canonical).
 
 ---
 
@@ -400,8 +330,8 @@ Every `assets/css/bn-{feature}.css` file must follow this order:
       and --bn-* aliases to global tokens. No hardcoded values. */
 :root { ... }
 
-/* 3. [data-theme="dark"] block — dark mode overrides only */
-[data-theme="dark"] { ... }
+/* 3. dark-mode overrides only — match the canonical triggers */
+[data-bn-theme="dark"], [data-theme="dark"], [data-bx-mode="dark"] { ... }
 
 /* 4. Component rules — desktop-first */
 .bn-component { ... }
@@ -516,9 +446,9 @@ The EDD Software Licensing SDK is vendored at `libs/edd-sl-sdk/` (committed, shi
 
 ## Database Tables
 
-28 `bn_*` tables. All created in `Installer::run()` via `dbDelta()`.
+`bn_*` tables, all created in `Installer::run()` (Free) / Pro's installer via `dbDelta()`. **`audit/manifest.json` is the authoritative live inventory** — trust it over any count here. The lists below are the schema by phase.
 
-### Free Tables (24)
+### Free Tables
 | Table | Phase |
 |-------|-------|
 | `bn_follows` | 2 — Social Graph |
@@ -587,8 +517,8 @@ DM tables live in WPMediaVerse (`mvs_conversations`, `mvs_messages`, etc.) — B
 ## WP-CLI Commands
 
 ```bash
-# Always use --path
-wp --path="/Users/varundubey/Local Sites/forums/app/public" <command>
+# Always use --path (this machine's local site)
+wp --path="/Users/vapvarun/Local Sites/buddynext-dev/app/public" <command>
 
 # Activate for dev
 wp --path="..." plugin activate buddynext
@@ -762,264 +692,5 @@ A phase is Done when ALL of:
 | 2026-06-13 | moderation-flow | fix | GET /spaces/{id}/bans ordered by a non-existent id column (returned empty); order by created_at. ban_from_space() stored null into NOT NULL banned_by; store 0 |
 | 2026-06-13 | moderation-flow | refactor | Consolidated log_warning() into warn(); Pro BulkModAdmin reads the queue via ModerationService::get_queue() instead of raw SQL |
 | 2026-06-12 | — | feature | Licensing: vendored EDD SL SDK at libs/edd-sl-sdk (family-wide single source); registered item 1664401 with preset auto-activated key in buddynext.php; Settings > License tab (Pro-only, fires buddynext_admin_license_tab_content); updates only — no feature gating |
-| 2026-03-21 | — | docs | Created CLAUDE.md — project instructions |
-| 2026-03-21 | 6 | feature | Created EmailSender — template fetch, placeholder render, HMAC unsub, send log |
-| 2026-03-21 | 6 | feature | Created EmailDispatchListener — hooks notification_created, handles ?bn_unsub= requests |
-| 2026-03-21 | 6 | feature | NotificationService now fires buddynext_notification_created after insert |
-| 2026-03-21 | 6 | fix | Aligned bn_email_templates schema: preheader→preview_text, body→body_html, is_active→enabled |
-| 2026-03-21 | 6 | fix | EmailSender + VerificationListener updated to use new column names |
-| 2026-03-21 | 6 | feature | Created VerificationService — token create/verify/resend, 24h expiry, usermeta flag |
-| 2026-03-21 | 6 | feature | Created VerificationListener — on_user_register, handle_verify_request, send_verification_email |
-| 2026-03-21 | 6 | feature | Created AuthController — POST /auth/verify/resend, GET /auth/verify/status |
-| 2026-03-21 | 3 | feature | FeedService: active_announcement() + home_feed prepend on first page only |
-| 2026-03-21 | 3 | feature | FeedController: POST /feed/announcements/{id}/dismiss |
-| 2026-03-21 | 8 | fix | ModerationService.report() + Installer: added space_id column to bn_reports + bn_mod_log |
-| 2026-03-21 | 1 | feature | Installer: added bn_announcement_dismissals table |
-| 2026-03-21 | 6 | feature | Installer: seeded 16 email templates via INSERT IGNORE |
-| 2026-03-21 | 4 | feature | ProfileController: async-pluggable indexing via do_action(buddynext_index_user) |
-| 2026-03-21 | 10 | feature | EventListener: added strike, badge, level-up, Jetonomy reply notification handlers |
-| 2026-03-21 | 5 | fix | templates/spaces/settings.php: renamed $current_user → $acting_user_id (WPCS fix) |
-| 2026-03-21 | — | fix | Tests: FeedServiceTest constructor arg count, EmailEditorTest table slug→type column |
-| 2026-03-21 | 3 | fix | templates/feed/explore.php: p.post_type→p.type, p.visibility→p.privacy, spaces WHERE type='open' |
-| 2026-03-21 | 6 | fix | templates/notifications/index.php: removed n.message (non-existent), added type-based message map |
-| 2026-03-21 | 4 | fix | templates/profile/view.php: f.field_type→f.type, removed s.emoji (non-existent column) |
-| 2026-03-21 | 2 | fix | FollowController + ConnectionController: block check before follow/connect via BlockService |
-| 2026-03-21 | 4 | fix | SearchService::search() + SearchController: pass viewer_id for block exclusion in results |
-| 2026-03-21 | 3 | fix | PostService::delete(): cascade delete bn_poll_votes before bn_poll_options |
-| 2026-03-21 | 7 | feature | HashtagService: follow/unfollow/is_following/autocomplete + post_count maintenance + banned filter |
-| 2026-03-21 | 7 | feature | HashtagController: POST/DELETE /hashtags/{slug}/follow + GET /hashtags/autocomplete |
-| 2026-03-21 | 9 | fix | templates/messages/*.php: mvs/v1/messaging/... → mvs/v1/... (correct WPMediaVerse route paths) |
-| 2026-03-21 | 8 | feature | EventListener::on_strike_issued: enforce warn/suspend thresholds from Settings options |
-| 2026-03-21 | 2 | feature | BlockService: added muted_users() + invalidate muted_users cache on block/mute changes |
-| 2026-03-21 | 3 | feature | ShareService: added user_shares_paginated() — paginated share history with total count |
-| 2026-03-21 | 6 | feature | NotificationPrefService: added get_all_prefs() + set_all_prefs() for bulk pref reads/writes |
-| 2026-03-21 | 8 | feature | ModerationService: added get_strikes() — all active strike rows for a user |
-| 2026-03-21 | 8 | fix | ModerationService.get_queue: filter now includes escalated reports (pending+escalated) |
-| 2026-03-21 | 2 | feature | BlockController: GET /me/muted — list muted users |
-| 2026-03-21 | 3 | feature | ShareController: GET /me/shares — paginated share history (per_page, page) |
-| 2026-03-21 | 4 | feature | ProfileController: GET /profile-fields (public) + POST /profile-fields (admin only) |
-| 2026-03-21 | 5 | feature | SpaceController: GET /spaces/{id}/pending-requests — owner/mod only |
-| 2026-03-21 | 8 | feature | ModerationController: GET /reports/queue — paginated pending+escalated queue |
-| 2026-03-21 | 8 | feature | ModerationController: GET /users/{id}/strikes — active strikes with count |
-| 2026-03-21 | 6 | feature | NotificationController: GET+PUT /me/notification-prefs — read/write all prefs |
-| 2026-03-21 | 3 | feature | PollController: GET /posts/{id}/my-vote — returns current user's vote option_id |
-| 2026-03-21 | 1 | fix | Installer: bn_reactions UNIQUE KEY → PRIMARY KEY (dbDelta requires PK to create table) |
-| 2026-03-21 | 7 | fix | CommentService: fire buddynext_post_commented hook + increment/decrement comment_count on bn_posts |
-| 2026-03-21 | 7 | fix | ReactionService: fire buddynext_post_reacted hook + increment/decrement reaction_count on bn_posts |
-| 2026-03-21 | 3 | fix | PostService::create(): write is_announcement=1 for announcement type |
-| 2026-03-21 | 3 | fix | PostService::delete(): cascade delete bn_reactions + bn_comments before removing post |
-| 2026-03-21 | 8 | fix | ModerationController::submit_report(): fix arg order — pass 0 as space_id, notes as 6th arg |
-| 2026-03-21 | 2 | feature | ConnectionService: added remove_connection() — delete accepted connection, fire hook, bust cache |
-| 2026-03-21 | 2 | fix | ConnectionController DELETE /users/{id}/connect: falls back to remove_connection() for accepted pairs |
-| 2026-03-21 | 7 | fix | templates/hashtags/feed.php: removed contributor_count (non-existent), p.post_type→type, visibility→privacy |
-| 2026-03-21 | 1 | fix | templates/auth/login.php: registration field name="bn_password" → name="user_pass" |
-| 2026-03-21 | 8 | fix | templates/spaces/moderation.php: status='open'→'pending', reported_user_id→object_id, moderator_id→actor_id, description→note, visibility→type |
-| 2026-03-21 | 8 | fix | templates/moderation/queue.php: author_id→user_id on bn_posts |
-| 2026-03-21 | 10 | fix | templates/onboarding/index.php: removed SELECT emoji + WHERE is_active=1 (non-existent columns) |
-| 2026-03-21 | 8 | fix | templates/community-admin.php: status='open'→'pending', reporter_count subquery, visibility→type |
-| 2026-03-21 | 5 | fix | templates/spaces/home.php: r.post_id→object_type+object_id, cm.post_id→object_type+object_id, role 'admin'→'owner' |
-| 2026-03-21 | 5 | fix | SpaceService::hydrate(): added avatar_url + cover_image_url to returned array |
-| 2026-03-21 | 5 | fix | SpaceMemberService::adjust_member_count(): bust SpaceService cache after member_count update |
-| 2026-03-21 | 6 | fix | NotificationService::create(): grouped-update branch now fires buddynext_notification_created |
-| 2026-03-21 | 1 | fix | AccessWebhookController: reject requests when webhook secret is unconfigured (empty string guard) |
-| 2026-03-21 | 5 | fix | SpaceController::get_space(): 404 for secret spaces when viewer is not an active member |
-| 2026-03-21 | 16 | fix | Admin\Members: admin_post_ hookups for suspend/unsuspend/export + nonce checks |
-| 2026-03-21 | 16 | fix | Admin\Spaces: creator_id→owner_id, remove status column refs, admin_post_bn_delete_space hookup |
-| 2026-03-21 | 16 | fix | Admin\EmailEditor: catalogue slugs aligned with seeded bn. prefix types; added 6 missing templates |
-| 2026-03-21 | 3 | fix | templates/feed/explore.php: SELECT icon→avatar_url from bn_spaces |
-| 2026-03-21 | 4 | fix | templates/directory/members.php: bio meta key description→bn_field_bio (with fallback) |
-| 2026-03-21 | 9 | fix | templates/messages/list.php + thread.php: added is_user_logged_in() redirect guard for guests |
-| 2026-03-21 | 1 | fix | Plugin.php: OnboardingService + InviteService + SetupWizard bound in container |
-| 2026-03-21 | 10 | fix | All 4 bridges: added class_exists guard in init() — bridges bail if external plugin absent |
-| 2026-03-21 | 13 | fix | Jetonomy bridge: removed duplicate jetonomy_after_create_reply handler (EventListener is authoritative) |
-| 2026-03-21 | 15 | fix | CareerBoard bridge: wcb_application_submitted accepted_args 4→3; employer_id resolved via get_post_field |
-| 2026-03-21 | 16 | fix | Admin\Settings: per-tab section registration — each tab's sections now use correct page slug |
-| 2026-03-21 | 12 | fix | templates/gamification/leaderboard.php: b.icon→b.image_url (correct wbg_badges column name) |
-| 2026-03-21 | 5 | feature | SpaceCategoryController: GET /space-categories (public) + POST + DELETE /{id} (admin only) |
-| 2026-03-21 | 1 | fix | Plugin.php: bridges now fire at plugins_loaded:25 — after Pro plugins boot at :20 |
-| 2026-03-21 | 5 | fix | templates/spaces/directory.php: added [data-theme="dark"] block for hardcoded light-mode values |
-| 2026-03-22 | 12 | feature | PageRouter: full hub+endpoint routing — 5 hubs, 8 rewrite tags, all endpoint rules, slug resolver, URL builders |
-| 2026-03-22 | 12 | feature | ShortcodeService: replaced 5 legacy shortcodes with 5 hub shortcodes routing via query vars |
-| 2026-03-22 | 12 | feature | templates/feed/home.php: personalized feed with composer, sidebar, shadow-ban exclusion, dark mode, mobile CSS |
-| 2026-03-22 | 12 | feature | templates/profile/connections.php: accepted connections list with member cards, paginated 12/page |
-| 2026-03-22 | 12 | feature | templates/spaces/members.php: space member list ordered by role (owner→mod→member), paginated 24/page |
-| 2026-03-22 | 8 | feature | EventListener: added buddynext_user_suspended hook + on_user_suspended handler (in-app + bn.suspension email); added bn.strike_warning email to on_strike_issued elseif branch; added bn.appeal_resolved email to on_appeal_resolved |
-| 2026-03-22 | 3 | fix | FeedService: apply excluded_users_where() to profile_feed() and space_feed() — all 4 feed methods now exclude suspended/shadow-banned users |
-| 2026-03-22 | 4 | fix | SearchService: fixed pre-existing WPCS alignment warnings; added UnfinishedPrepare to phpcs:disable for MATCH/$search_condition false-positive |
-| 2026-03-22 | — | fix | AvatarService: allow data: protocol for SVG initials avatars (kses_allowed_protocols filter) |
-| 2026-03-22 | 16 | feature | NavManager: full three-panel rewrite matching admin-nav-manager.html — scope sidebar, sortable tab list, per-item config panel (page assignment via wp_dropdown_pages, visibility, capability, login-required, guest label), page conflict validation, jQuery UI drag-reorder, developer filter bar |
-| 2026-03-22 | 12g | fix | MemberTypeService + MemberTypeController: converted all phpcs:ignore to phpcs:disable/enable blocks — both files now pass WPCS with zero violations |
-| 2026-03-22 | 8 | feature | ModerationService::get_queue(): added space_ids arg — builds WHERE space_id IN (...) for space-scoped moderators |
-| 2026-03-22 | 8 | feature | ModerationService::get_moderated_space_ids(): queries bn_space_members for spaces where user is owner/moderator |
-| 2026-03-22 | 8 | feature | ModerationController: GET /reports/queue now uses require_queue_access() — site admins see all, space mods see their spaces only |
-| 2026-03-22 | 6 | feature | ModerationController: PUT /posts/{id}/content-warning — admin sets content_warning + content_warning_type (nsfw/spoilers/violence/language) on bn_posts |
-| 2026-03-22 | 8 | fix | SearchService: $excluded_where already applied to both FULLTEXT and LIKE branches — confirmed complete (author_id=user_id for object_type=user) |
-| 2026-03-22 | 8 | fix | templates/directory/members.php: fetch suspended + shadow-banned user IDs via $wpdb, pass as WP_User_Query `exclude` array |
-| 2026-03-22 | 8 | fix | templates/spaces/members.php: added NOT EXISTS subqueries to SQL WHERE to exclude suspended + shadow-banned users from space roster |
-| 2026-03-22 | 9 | feature | EventListener: added on_user_warned (in-app + bn.strike_warning email), on_user_unsuspended (in-app + conditional bn.unsuspension_confirmation email), on_appeal_submitted (in-app to all admins, no email), on_user_shadow_banned (delete from bn_search_index), on_daily_queue_check (WP-Cron daily count + wp_mail alert); cron scheduled in init() |
-| 2026-03-22 | 8 | feature | ModerationController: added 13 REST endpoints — POST /users/{id}/warn, POST/DELETE /users/{id}/shadow-ban, DELETE /users/{id}/suspend, GET /users/{id}/suspension, POST /me/appeals, GET /appeals, PUT /appeals/{id}/approve, PUT /appeals/{id}/deny, GET/POST /spaces/{id}/bans, DELETE /spaces/{id}/bans/{user_id}; added require_space_owner_or_admin permission callback; added SpaceMemberService use import |
-| 2026-03-22 | — | fix | templates/partials/nav.php: use recipient_id (not user_id) for unread notification count query |
-| 2026-03-22 | 2 | feature | BlockService/BlockController: mute/unmute + GET /me/muted; profile view.php More Options dropdown (Mute/Block/Report) with Interactivity API store actions |
-| 2026-03-22 | 6 | fix | EventListener: on_user_shadow_ban_removed fires buddynext_index_user to re-index user on ban lift |
-| 2026-03-22 | 1 | feature | OutboundWebhookService: full rewrite — HMAC-SHA256 signing, 5-min cron retry, auto-deactivate after 3 failures, delivery log; OutboundWebhookController: 5 REST routes (list/create/delete/log/test); EventListener: 11 webhook dispatch handlers for all major events |
-| 2026-03-22 | 1 | feature | PageSetup: hub page integrity guard — version-gated admin_init routine that creates/adopts all 6 hub pages and sets buddynext_page_* options; wired into Plugin::init() inside is_admin() block |
-| 2026-03-22 | 12g | fix | MemberTypesManager: removed duplicate button tag, fixed unclosed delete button, escaped count() output, removed unused use import |
-| 2026-03-22 | 12g | feature | PageRouter: added bn_member_type rewrite tag, bottom-priority /members/{type-slug}/ rule, set_hub_vars storage, member_type_url() static builder |
-| 2026-03-22 | 12g | fix | templates/directory/members.php: read bn_member_type from get_query_var() (pretty URL) with ?type= fallback; pill links now use PageRouter::member_type_url() |
-| 2026-03-22 | 8 | fix | ModerationService::suspend(): buddynext_user_suspended hook now fires with correct signature ($user_id, $actor_id, $reason, $expires_at) matching EventListener::on_user_suspended |
-| 2026-03-22 | 8 | fix | ModerationService::decide_appeal(): fetch appellant user_id from bn_appeals before update; buddynext_appeal_resolved now fires with 3 args ($appeal_id, $user_id, $decision) matching on_appeal_resolved |
-| 2026-03-22 | 8 | fix | ModerationService::unsuspend_user(): now fires buddynext_user_unsuspended in addition to buddynext_member_unsuspended so notification listener triggers |
-| 2026-03-23 | 2 | fix | FollowService: add get_followers()/get_following() spec-named paginated aliases; unfollow() return type void→bool |
-| 2026-03-23 | 2 | fix | BlockService: is_blocked() made bidirectional per spec; has_blocked() added for single-direction check |
-| 2026-03-23 | 2 | fix | follow-button.php: add data-wp-interactive, data-wp-context, wp-on--click, nonce key aligned to bn-follow |
-| 2026-03-23 | 2 | fix | connection-button.php: add data-wp-interactive; handle all 5 states (null/pending-sent/pending-received/accepted/blocked) |
-| 2026-03-23 | 2 | feature | assets/css/bn-members.css: full 340-line implementation — member card, follow/connect buttons, directory grid/list, search, filter sidebar, pagination, dark mode, mobile ≤640px |
-| 2026-03-23 | 3 | feature | templates/partials/post-card.php: new reusable partial — all 10 post types, content warning overlay, 6-emoji reaction picker, privacy badge, member type badge, bookmark/report/edit/delete/pin menu, full WP Interactivity API, zero WPCS violations |
-| 2026-03-23 | 3 | feature | assets/css/bn-feed.css: full 560-line implementation — post card, composer, skeleton loader, reaction bar, poll fill bars, link preview, bridge cards, sidebar widgets, dark mode, responsive ≤640px |
-| 2026-03-23 | 3 | fix | templates/feed/home.php: inline post card loop replaced with buddynext_get_template(partials/post-card); shadow-ban subquery fixed (usermeta bn_shadow_banned not bn_user_strikes.shadow_banned) |
-| 2026-03-23 | 3 | fix | templates/feed/explore.php: inline grid card loop replaced with buddynext_get_template(partials/post-card) with context=explore |
-| 2026-03-23 | 3 | fix | Explore page created (ID 69); buddynext_page_explore option set |
-| 2026-03-22 | 8 | fix | ModerationController: removed POST /users/{id}/unsuspend route; DELETE /users/{id}/suspend (delete_suspension) is now the sole unsuspend path, calling unsuspend_user() for audit trail and hook; unsuspend_user() method made private |
-| 2026-03-23 | 6 | fix | CronService::handle_recount_stats(): fixed reaction_count + comment_count recount queries — bn_reactions and bn_comments use object_type+object_id not post_id; queries now filter WHERE object_type='post' and join on object_id=p.id |
-| 2026-03-23 | 6 | fix | EventListener::on_user_unsuspended(): notification type corrected from bare 'user_unsuspended' to 'bn.user_unsuspended' per BLOCK 15 prefix convention |
-| 2026-03-23 | 9 | feature | assets/css/bn-messages.css: full 1,556-line implementation — conversation list, two-pane thread shell, message bubbles (own=brand/other=surface), composer input bar, reply preview, typing indicator, read receipt, message requests card + accept/delete/block buttons, dependency notice (WPMediaVerse not installed), dark mode, mobile ≤640px single-pane |
-| 2026-03-23 | 7 | fix | ReactionService: added REACTION_TYPES constant (6 types), toggle_reaction() spec alias returning counts array, get_user_reaction() spec alias |
-| 2026-03-23 | 7 | fix | CommentService: added edit() spec alias, pin()/unpin() for space mod pinning, list() tree method — fetches top-level + replies in one extra query, attaches replies array per comment, prepends pinned comment |
-| 2026-03-23 | 7 | fix | HashtagService: added extract_from_text() spec alias, register() upsert-and-return-ID method, trending() alias, get_feed() — paginated public posts for a hashtag |
-| 2026-03-23 | 7 | feature | HashtagListener: new class — hooks buddynext_post_created + buddynext_index_hashtags → dispatches async buddynext_async_index_hashtags; worker fetches post content from DB, calls extract+sync; Action Scheduler when present, inline fallback otherwise |
-| 2026-03-23 | 7 | fix | Plugin.php: wire HashtagListener in init() alongside SearchIndexListener |
-| 2026-03-23 | 7 | feature | assets/css/bn-hashtags.css: full 205-line implementation — hashtag chip, inline #tag link, trending list (rank/name/count/trend arrow), pills variant, hashtag feed hero header, follow/unfollow button, sidebar widget, dark mode, mobile ≤640px |
-| 2026-03-23 | 11 | feature | assets/css/bn-onboarding.css: full 1,169-line implementation — admin setup wizard (8-step progress bar, all step forms), member onboarding flow (4-step progress, interests grid, space cards, people list), invite email rows, CSV drop zone, dark mode, mobile ≤640px |
-| 2026-03-23 | 8 | fix | VerificationService::verify(): fire buddynext_user_verified after usermeta set — webhook handler was wired but action was never dispatched (BLOCK 15 Fix 5) |
-| 2026-03-23 | 8 | fix | ModerationService: added strike() + shadow_unban() spec-named aliases delegating to issue_strike() / remove_shadow_ban() |
-| 2026-03-23 | 11 | fix | follow-button.php: data-wp-interactive store name corrected buddynext/follow → buddynext/follow-button |
-| 2026-03-23 | 11 | fix | connection-button.php: data-wp-interactive store name corrected buddynext/connection → buddynext/connection-button |
-| 2026-03-23 | 11 | fix | blocks/bn-profile-header/block.json: added showStats + showActions boolean attributes (default true) |
-| 2026-03-23 | 11 | fix | BlockRegistrar::render_profile_header(): pass show_stats + show_actions to template |
-| 2026-03-23 | 11 | fix | templates/blocks/profile-header.php: guard stats + actions sections with $show_stats / $show_actions flags |
-| 2026-03-23 | 11 | feature | assets/js/blocks.js: added buddynext/post-card store (reactions, bookmark, content-warning) + buddynext/post-composer store (submit, privacy, onInput) |
-| 2026-03-23 | 11 | fix | buddynext.php: buddynext_get_template() guards did_action('buddynext_loaded') — returns placeholder instead of throwing if container not yet booted |
-| 2026-03-23 | 11 | fix | BlockRegistrar.php: pre-registers buddynext-blocks-editor handle with wp-server-side-render dep before register_block_type() calls; adds phpcs:disable filename comment |
-| 2026-03-23 | 11 | fix | blocks.js: ssrEdit() resolves ServerSideRender defensively at call time, falls back to static placeholder if undefined — prevents React Error #130 |
-| 2026-03-23 | 11 | fix | All 17 block.json: editorScript changed from file path to named handle buddynext-blocks-editor to pick up declared dependencies |
-| 2026-03-23 | — | fix | HashtagService.php: removed duplicate $wpdb-> call lines (607→571 lines); ProfileService.php same fix (1303→1251 lines) |
-| 2026-03-23 | 3 | fix | templates/feed/home.php: recreated from scratch after file was missing (PHP fatal on feed page) |
-| 2026-03-23 | — | fix | templates/partials/nav.php: Yoda conditions on active-item detection + phpcs:disable block for NoCaching |
-| 2026-03-23 | — | fix | templates/partials/profile-actions.php: expanded inline wp_kses array to multi-line (WPCS AssociativeArrayFound) |
-| 2026-03-23 | — | fix | templates/spaces/directory.php, feed/explore.php, notifications/index.php: auto-fixed UseRequire warnings |
-| 2026-03-23 | 18 | feature | templates/auth/verify.php: created — email verification page with success/error/pending states, resend button via REST, dark mode, mobile |
-| 2026-03-23 | — | docs | MASTER_DEVELOPMENT_PLAN.md: all phases marked verified 2026-03-23; Pass 1 Integration Test results section added |
-| 2026-03-23 | 12 | fix | PageRouter::resolve_hub_template(): all return values now include .php extension — TemplateLoader::locate() does not auto-append |
-| 2026-03-23 | 3 | fix | templates/feed/home.php: SELECT query + $home_post array corrected — replaced non-existent link_title/link_description/link_image with link_meta (JSON column per bn_posts schema) |
-| 2026-03-23 | — | verified | Browser test: /activity/ /members/ /spaces/ /notifications/ /wp-admin/ all render correctly — no PHP errors, no DB errors |
-| 2026-03-23 | — | fix | PageRouter: dispatch_hub_template() outputs full HTML document (DOCTYPE+html+head+wp_head+body+wp_footer) — WP scripts/styles now load on BN pages |
-| 2026-03-23 | — | fix | AssetService: removed wp_register_script() with wp-interactivity dep; added register_script_modules() using wp_register_script_module() + @wordpress/interactivity |
-| 2026-03-23 | — | fix | All 12 assets/js/{feature}/store.js: converted from IIFE (window.wp.interactivity) to ES module (import { store, getContext } from '@wordpress/interactivity') |
-| 2026-03-23 | 2 | fix | templates/profile/view.php: follow/unfollow buttons use data-wp-bind--hidden for reactive toggle; added connectionPending PHP check + showConnect context key; added Pending + Connected buttons |
-| 2026-03-23 | — | fix | assets/css/bn-base.css: added [hidden] { display: none !important; } to prevent flex/grid component rules overriding browser hidden attribute |
-| 2026-03-23 | 2 | fix | assets/js/profile/store.js: connect action guards on !ctx.showConnect; sets ctx.showConnect=false on success |
-| 2026-03-23 | 2 | verified | Phase 2 Social Graph browser-verified: follow/unfollow (count reactive), connection request→Pending, acceptance→1st degree+count=1, block→DB record, mute→INSERT IGNORE preserves block |
-| 2026-03-23 | 3 | fix | assets/js/feed/store.js: WP Interactivity API does not evaluate inline ternary expressions in data-wp-bind — moved all class ternaries to computed state getters (reactBtnClass, bodyClass, bookmarkBtnClass) |
-| 2026-03-23 | 3 | fix | templates/partials/post-card.php: replaced inline ternary data-wp-bind--class with state.reactBtnClass, state.bodyClass, state.bookmarkBtnClass; data-wp-text simplified to state.reactionEmoji |
-| 2026-03-23 | 3 | verified | Phase 3 Activity Feed browser-verified: home feed renders at 1280px + 390px, WP Interactivity API directives processing (reactBtnClass/bookmarkBtnClass set correctly, emoji via WP img), zero JS errors |
-| 2026-03-23 | 1 | fix | PageRouter: auth hub redirect — hub_url() called with both slug_option + page_option args (was passing single arg causing fatal) |
-| 2026-03-23 | 11 | feature | PageRouter: onboarding hub registered — register_onboarding_rules(), case in resolve_hub_template + enqueue_hub_assets, buddynext_slug_onboarding default slug, added to hub flush loop and hub_page_map |
-| 2026-03-23 | 11 | feature | WP page ID 35 created (slug: onboarding); buddynext_page_onboarding option set; rewrite rules flushed |
-| 2026-03-23 | 11 | fix | templates/onboarding/index.php: bio placeholder escape sequence \xe2\x80\xa6 → literal ... (was rendering raw hex bytes in placeholder attribute) |
-| 2026-03-23 | 11 | verified | Phase 11 browser-verified: onboarding page renders at 1280px + 390px — 4-step progress bar, avatar initials, all form fields, Skip/Continue buttons. Zero JS errors. WPCS clean. |
-| 2026-03-23 | 12 | fix | Admin\Spaces: type-filter + pagination href attributes — inline esc_url() call, eliminated leading/trailing whitespace in rendered href values |
-| 2026-03-23 | 12 | verified | Phase 12 browser-verified: all 6 admin pages render with real data — Settings (10 tabs), Members (stats + table), Spaces (stats + filter + table), NavManager (3-panel drag UI), IntegrationHub (1/4 active), EmailEditor (16+ templates). Zero JS errors. WPCS clean. |
-| 2026-03-23 | 13 | feature | mu-plugins/buddynext-early-router.php: plugin isolation — strips non-BN plugins on front-end BN routes via option_active_plugins filter; is_admin() + WP_CLI guards; buddynext_isolation_whitelist filter; WPCS clean |
-| 2026-03-23 | 13 | verified | Phase 13 browser-verified: activity feed renders with isolation active; admin panel loads full plugin set (is_admin guard confirmed); zero JS errors |
-| 2026-03-24 | — | feature | IconService: new static class — reads SVG from assets/icons/, sanitizes via wp_kses(), injects CSS class; buddynext_icon() + buddynext_get_icon() global helpers |
-| 2026-03-24 | — | feature | assets/icons/: 55 Lucide-style SVG icons created (all required + community extras: bell, bookmark, share, crown, star, flag, ban, trending, etc.) |
-| 2026-03-24 | — | fix | Emoji audit: replaced all Unicode emoji + HTML entity icons across 5 files with buddynext_icon() SVG calls |
-| 2026-03-24 | — | fix | NavManager: removed emoji from JS slug-check hint textContent; status conveyed by CSS class only |
-| 2026-03-24 | — | fix | SetupWizard: preset icon values link/briefcase/graduation-cap/zap/heart; render via IconService::render() |
-| 2026-03-24 | — | fix | templates/spaces/settings.php: nav icon slugs info/lock/users/shield/link/mail; danger zone uses alert-triangle SVG |
-| 2026-03-24 | — | fix | templates/feed/home.php: composer action icons (image/bar-chart/link) via buddynext_icon() |
-| 2026-03-24 | — | fix | templates/onboarding/index.php: $all_interests restructured to icon/label pairs; step headers &#128100; etc. replaced with buddynext_icon() calls; .bn-ob-step-icon CSS updated for SVG sizing |
-| 2026-03-24 | — | docs | CLAUDE.md: added rule §5 "No Emoji — Ever" with icon system usage guide |
-| 2026-03-24 | — | refactor | Contracts/ListenerInterface.php: new interface with register(): void — implemented by all new domain listeners |
-| 2026-03-24 | — | refactor | Feed controllers: PostController, FeedController, PollController, BookmarkController, ShareController moved from REST/Controllers/ → Feed/ (namespace BuddyNext\Feed) |
-| 2026-03-24 | — | refactor | SocialGraph controllers: FollowController, ConnectionController, BlockController moved → SocialGraph/ (namespace BuddyNext\SocialGraph) |
-| 2026-03-24 | — | refactor | Spaces controllers: SpaceController, SpaceCategoryController moved → Spaces/ (namespace BuddyNext\Spaces) |
-| 2026-03-24 | — | refactor | Remaining 11 controllers moved to domain namespaces: Notifications, Profile, Reactions, Comments, Hashtags, Search, Moderation, Auth, Outbound (×2), Admin |
-| 2026-03-24 | — | refactor | REST/Router.php updated — all use imports now point to domain namespaces; REST/Controllers/ folder deleted |
-| 2026-03-24 | 6 | refactor | NotificationListener: extracted 11 notification hooks from Notifications/EventListener into dedicated Notifications/NotificationListener (implements ListenerInterface); wired in Plugin::init() |
-| 2026-03-24 | 8 | refactor | ModerationListener: extracted 10 moderation hooks from Notifications/EventListener into dedicated Moderation/ModerationListener (implements ListenerInterface) — strikes, suspensions, appeals, shadow bans, daily queue cron; wired in Plugin::init() |
-| 2026-03-24 | 1 | refactor | OutboundWebhookListener: extracted 14 on_webhook_* handlers from Notifications/EventListener into dedicated Outbound/OutboundWebhookListener (implements ListenerInterface); wired in Plugin::init() alongside OutboundWebhookService::init() |
-| 2026-03-24 | 11 | refactor | OnboardingListener: extracted 4 onboarding hooks + 3 handler methods from Notifications/EventListener into dedicated Onboarding/OnboardingListener (implements ListenerInterface); wired in Plugin::init() |
-| 2026-03-24 | 10 | refactor | JetonomyBridgeListener + GamificationBridgeListener: extracted bridge hooks into Bridges/ — class_exists() guards, implements ListenerInterface |
-| 2026-03-24 | 1 | refactor | Plugin.php: removed EventListener use import + ->init() call — all 42 hooks now in 6 domain listeners; deleted includes/Notifications/EventListener.php and includes/REST/Controllers/ |
-| 2026-03-24 | — | verified | Code organization refactor browser-verified: /activity/ + /members/ + /spaces/ load with zero PHP errors, zero JS errors, all routes resolve — WPCS clean on all 7 new domain listener files |
-| 2026-03-24 | 2 | fix | BlockService: is_blocked() corrected to bidirectional (delegates to is_blocking_either()); has_blocked() remains for single-direction checks |
-| 2026-03-24 | 2 | feature | templates/partials/follow-button.php: created missing partial — block guard, WP Interactivity API store buddynext/follow-button, esc_attr JSON context, PHPStan level 5 clean |
-| 2026-03-24 | 2 | feature | templates/partials/connection-button.php: created missing partial — all 5 states (null/pending-sent/pending-received/accepted/blocked), PHPStan level 5 clean |
-| 2026-03-24 | 1 | fix | PageRouter: space_url() + resolve_space() queried non-existent `post_name` column on bn_spaces — corrected to `slug` (Gate 1 audit bug) |
-| 2026-03-24 | 1 | fix | Container/Plugin/Installer: static:: → self:: on private members; new static() → new self() (PHPStan staticClassAccess) |
-| 2026-03-24 | 1 | fix | Installer/PageSetup: removed redundant is_wp_error() on wp_insert_post() return (PHPStan function.impossibleType) |
-| 2026-03-24 | 1 | fix | AssetService: wp_register_script_module deps changed to array{id: string} form (PHPStan argument.type) |
-| 2026-03-24 | 1 | fix | PermissionService: removed unreachable ?? on ROLE_HIERARCHY lookup; dropped unused is_space_mod() private method |
-| 2026-03-24 | 1 | fix | phpstan.neon: switched to phpstan-bootstrap.php; added treatPhpDocTypesAsCertain: false — Core now passes PHPStan level 5 with zero errors |
-| 2026-03-24 | 10 | fix | audit(phases-9-12) Gate 1: GamificationBridge: removed spurious function_exists('wb_gamification_badge_awarded') guard — it is a hook name not a function |
-| 2026-03-24 | 9 | fix | audit(phases-9-12) Gate 1: templates/messages/thread.php: replaced 5 HTML entity icons (&#8592; &#8943; &#10003;&#10003; &#10005; &#8593;) with buddynext_icon() SVG calls; added send.svg + check-double.svg icons |
-| 2026-03-24 | 9 | fix | audit(phases-9-12) Gate 1: templates/messages/requests.php: replaced 5 HTML entity icons (&#8592; &#9993;×2 &#10003;×2) with buddynext_icon() SVG calls |
-| 2026-03-24 | 11 | fix | audit(phases-9-12) Gate 1: templates/onboarding/index.php: replaced 3 HTML entity icons (&#10003;×2 &#9998;) with buddynext_icon() SVG calls |
-| 2026-03-24 | 12 | fix | audit(phases-9-12) Gate 1: templates/community-admin.php: replaced 3 HTML entity icons (&#x2190; &#x2191;×2 &#x2193;) with buddynext_icon() SVG calls; added arrow-up.svg + arrow-down.svg icons |
-| 2026-03-24 | 12 | fix | audit(phases-9-12) Gate 1: Admin/Members/MemberTypesManager.php: replaced &#8943; with IconService::render('more-horizontal') |
-| 2026-03-24 | 12 | fix | audit(phases-9-12) Gate 1: Admin/Members/MemberEditForm.php: replaced &#8592; with IconService::render('chevron-left') |
-| 2026-03-24 | 3 | fix | audit(feed) Gate 1: templates/feed/home.php: replaced 2 Unicode emoji (📢 👋) with buddynext_icon() SVG calls |
-| 2026-03-24 | 3 | fix | audit(feed) Gate 1: templates/partials/post-card.php: $emojis array → $reaction_icons array with icon slugs; reaction buttons render SVG via buddynext_icon(); trigger span uses data-wp-bind--class=state.reactionIconClass |
-| 2026-03-24 | 3 | fix | audit(feed) Gate 1: assets/js/feed/store.js: removed reactionEmoji getter (returned Unicode escape sequences); added reactionIconClass getter (returns CSS class string) |
-| 2026-03-24 | 3 | feature | audit(feed) Gate 1: assets/icons/reaction-haha.svg, reaction-wow.svg, reaction-sad.svg, reaction-angry.svg: 4 new Lucide-style SVG reaction icons |
-| 2026-03-24 | 3 | fix | audit(feed) Gate 1+CSS: assets/css/bn-feed.css: added .bn-reaction-icon and .bn-post-card__react-icon CSS rules with per-type color accents via --bn-* tokens |
-| 2026-03-24 | 3 | fix | audit(feed) Gate 2: includes/Feed/PostService.php, FeedService.php, PollService.php, ShareService.php, BookmarkService.php, FeedController.php: converted all phpcs:ignore WordPress.DB.* to phpcs:disable/enable blocks |
-| 2026-03-24 | 11 | fix | templates/onboarding/index.php: meta key bn_onboarding_completed → bn_onboarding_complete (canonical key matches OnboardingService::META_COMPLETE) |
-| 2026-03-24 | 11 | feature | InviteService: added import_from_csv(int $inviter_id, string $csv_path): array — fopen/fgetcsv loop, header skip, is_email() validation, finally-block fclose, imported/skipped/errors summary |
-| 2026-03-24 | 11 | feature | InviteController: new REST controller — POST /buddynext/v1/invites/import-csv; finfo MIME check (text/csv + text/plain + application/csv + vnd.ms-excel); require_admin (logged in + manage_options); wired in REST/Router.php |
-| 2026-03-24 | 6 | fix | templates/notifications/index.php: SELECT now includes group_count + group_key; render_row shows "X and N others" for grouped types (follower/reaction/comment/space_new_post) when group_count > 1 |
-| 2026-03-24 | 6 | fix | NotificationListener: added buddynext_post_created hook → on_post_created_in_space(); notifies active space members (exc. author) via Action Scheduler (sync fallback); respects space pref + block list |
-| 2026-03-24 | 6 | fix | NotificationListener: added async_space_new_post_notification() AS worker + buddynext_async_space_new_post_notification hook registration |
-| 2026-03-24 | 6 | fix | NotificationPrefService: added set_space_pref(user_id, space_id, pref) — validates against 'all'/'mentions_only'/'none', UPDATE bn_space_members.notification_pref; added VALID_SPACE_PREFS const |
-| 2026-03-24 | 6 | fix | EmailSender::render(): added {{actor_name}} (display name of sender_id) and {{notification_message}} (data['message'] key) to token replacement map |
-| 2026-03-24 | 6 | fix | templates/notifications/index.php: bn.space_new_post added to space filter_types, type_meta map, and space_unread badge SUM |
-| 2026-03-24 | 5 | fix | SpaceMemberService: add remove() method — permission check (owner/mod/admin), delete row, adjust member_count, invalidate cache, fire buddynext_member_removed_from_space |
-| 2026-03-24 | 5 | fix | SpaceMemberService: fix hook arg order — buddynext_space_member_joined, buddynext_space_join_approved, buddynext_space_member_removed, buddynext_space_member_left all now fire ($user_id, $space_id) per spec |
-| 2026-03-24 | 5 | fix | templates/spaces/directory.php: 'public' → 'open' in visibility filter IN array, privacy_label match, privacy_icon match, and join button elseif |
-| 2026-03-24 | 5 | fix | templates/spaces/home.php: 'public' → 'open' in join button elseif |
-| 2026-03-24 | 5 | fix | templates/spaces/members.php: 'mod' → 'moderator' in bn_space_role_label() labels array and role_class elseif |
-| 2026-03-24 | 5 | fix | templates/spaces/settings.php: invite() arg order — was invite($space_id, $invite_user->ID, $acting_user_id), now invite($space_id, $acting_user_id, $invite_user->ID) |
-| 2026-03-24 | 10 | fix | JetonomyBridge: added @mention parsing in on_post_created — preg_match_all + sanitize_user() + buddynext_user_mentioned action per matched username |
-| 2026-03-24 | 10 | fix | JetonomyBridge: added opt-in feed sync — direct bn_posts INSERT (type: forum_post) when buddynext_jetonomy_feed_sync option is truthy |
-| 2026-03-24 | 10 | fix | CareerBoardBridge: wcb_job_created accepted_args 4→3; callback now on_job_created($job_id, $job_data, $user_id) — title/description extracted from $job_data array |
-| 2026-03-24 | 10 | fix | CareerBoardBridge: added wcb_job_expired handler — deletes bn_posts entry (type: job_post) matched by link_url |
-| 2026-03-24 | 10 | fix | WPMediaVerseBridge: mvs_favorite_toggled action value 'added'→'add' per hook spec ($action is 'add' or 'remove') |
-| 2026-03-24 | 2 | fix | ConnectionService: buddynext_connection_rejected → buddynext_connection_declined; buddynext_connection_withdrawn fires 3rd arg; connections()/pending_sent()/pending_received() accept limit/offset |
-| 2026-03-24 | 4 | fix | SearchIndexListener: buddynext_reindex_all → handle_reindex_all() (was schedule_reindex_all — infinite cron loop); iterates bn_posts + users + bn_spaces in batches of 100; fires buddynext_reindex_complete |
-| 2026-03-24 | 5 | fix | SpaceMemberService: remove() method added; all 5 membership hooks now fire ($user_id, $space_id) per spec; phpcs:ignore → phpcs:disable/enable for multi-line DB calls |
-| 2026-03-24 | 6 | fix | NotificationListener: buddynext_post_created → on_post_created_in_space(); async Action Scheduler dispatch; respects space notification pref + block list |
-| 2026-03-24 | 6 | fix | NotificationPrefService: set_space_pref() method added; EmailSender: {{actor_name}} + {{notification_message}} tokens added |
-| 2026-03-24 | 6 | fix | templates/notifications/index.php: group_count/group_key grouping ("X and N others") + short ternary on line 102 fixed |
-| 2026-03-24 | 7 | fix | ReactionService: buddynext_reaction_added fires ($reaction_id, $post_id, $user_id, $emoji) via pre-delete SELECT |
-| 2026-03-24 | 7 | fix | CommentService: buddynext_comment_created/updated/deleted fire ($comment_id, $post_id, $user_id); CommentController: list_for_object() → list() |
-| 2026-03-24 | 7 | fix | HashtagService: get_trending() uses 24h rolling window (DATE_SUB NOW INTERVAL 24 HOUR) |
-| 2026-03-24 | 8 | fix | ModerationService: buddynext_member_warned → buddynext_user_warned; buddynext_user_unshadow_banned → buddynext_user_shadow_ban_removed; appeal arg order fixed |
-| 2026-03-24 | 8 | fix | ModerationController: escalate/resolve routes POST→PUT; GET /posts/{id}/content-warning endpoint added |
-| 2026-03-24 | 9 | fix | Installer: removed bn_conversations, bn_conversation_participants, bn_messages, bn_message_reactions — DM tables belong to WPMediaVerse, not BuddyNext |
-| 2026-03-24 | 10 | fix | JetonomyBridge: hook names corrected (jetonomy_after_create_post); @mention parsing added; opt-in feed sync to bn_posts; short ternary on get_permalink() fixed |
-| 2026-03-24 | 10 | fix | CareerBoardBridge: wcb_job_created accepted_args 4→3; title/description from $job_data array; wcb_job_expired handler added |
-| 2026-03-24 | 11 | fix | templates/onboarding/index.php: bn_onboarding_completed → bn_onboarding_complete (canonical meta key) |
-| 2026-03-24 | 11 | fix | InviteService: import_from_csv() method added; InviteController: POST /invites/import-csv with MIME check; REST/Router.php: InviteController registered |
-| 2026-03-24 | 12 | fix | theme.json: preset slugs normalized (bn-primary → primary, bn-bg → base, etc.) |
-| 2026-03-24 | 12 | fix | TokenService: init() docblock capitalization fixed; uses wp_add_inline_style() |
-| 2026-03-24 | 3 | fix | FeedService: home feed includes posts from joined spaces (bn_space_members subquery) + followed hashtags (bn_hashtag_follows + bn_post_hashtags); profile feed privacy enforced |
-| 2026-03-24 | QA | fix | assets/js/spaces/store.js: openComposer submit/cancel buttons use addEventListener (WP Interactivity API does not bind events on dynamically injected DOM) |
-| 2026-03-24 | QA | fix | templates/spaces/home.php: added restNonce + restUrl to data-wp-context on root interactive div (missing context caused 403 on all space composer REST calls) |
-| 2026-03-24 | QA | fix | templates/search/results.php: added bidirectional bn_blocks exclusion to $excluded_sql — blocked users now correctly hidden from search results |
-| 2026-03-24 | QA | fix | assets/js/hashtags/store.js: implemented full store under buddynext/feed namespace — toggleFollowHashtag, setSort, openComposerWithTag, voteJt |
-| 2026-03-24 | QA | fix | templates/hashtags/feed.php: added restNonce/restUrl/userId to root data-wp-context; removed redundant inline script block |
-| 2026-03-24 | QA | fix | includes/Core/PageRouter.php: enqueue hashtags asset bundle when bn_activity_action=hashtag (was missing — Follow button had no JS) |
-| 2026-03-24 | 12 | feature | IntegrationHub: full production rewrite — stat pills (active/not-installed counts) in page header, two-section layout (Active Integrations + Not Installed), logo icon cards with SVG icons, enables/unlocks feature lists with check/lock SVG markers, Configure/Get Plugin CTAs; removed developer code snippet; WPCS zero violations |
-| 2026-03-24 | 12 | feature | assets/css/bn-admin.css: added integration hub classes — .bn-ih-header, .bn-ih-stats, .bn-ih-stat-pill--active/available, .bn-section-divider--green/amber, .bn-addon-logo, .bn-addon-logo-icon, .bn-logo-bg--purple/teal/amber/blue/muted, .bn-enables-label, .bn-feature-check, .bn-feature-locked; dark mode + mobile ≤782px breakpoints |
-| 2026-03-24 | 12 | verified | IntegrationHub browser-verified: 1 Active pill (green) + 3 Not Installed pill (amber) in header; Jetonomy active card with purple left-border accent, SVG logo, green checkmarks; 3 not-installed cards with muted logos + lock icons; zero JS errors |
+
+> Older entries (2026-03-21 → 2026-06-12: initial build through the REST controller-refactor wave) are recoverable via `git log` and `audit/manifest.json`. This table is capped to the current architectural state forward — do not re-expand it with commit-level rows that git already records.
