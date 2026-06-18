@@ -232,42 +232,15 @@ class CronService {
 	/**
 	 * Correct reaction_count and comment_count on bn_posts from actual data.
 	 *
-	 * Uses UPDATE … INNER JOIN aggregates to fix any counter drift caused by
-	 * failed decrements (e.g. from force-deleted comments or reactions).
-	 * Counters are maintained incrementally on every write, so drift is rare;
-	 * this daily pass is a cheap reconcile only.
+	 * Delegates to the canonical PostService::recount_counters() reconcile so
+	 * the LEFT JOIN drift-correction lives in one place (also used by GDPR
+	 * erasure). Counters are maintained incrementally on every write, so this
+	 * daily pass is a cheap safety-net reconcile only.
 	 *
 	 * @return void
 	 */
 	public function handle_recount_stats(): void {
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		// bn_reactions uses object_type + object_id (not post_id).
-		$wpdb->query(
-			"UPDATE {$wpdb->prefix}bn_posts p
-			 INNER JOIN (
-			     SELECT object_id, COUNT(*) AS cnt
-			       FROM {$wpdb->prefix}bn_reactions
-			      WHERE object_type = 'post'
-			      GROUP BY object_id
-			 ) r ON r.object_id = p.id
-			 SET p.reaction_count = r.cnt"
-		);
-
-		// bn_comments uses object_type + object_id (not post_id).
-		$wpdb->query(
-			"UPDATE {$wpdb->prefix}bn_posts p
-			 INNER JOIN (
-			     SELECT object_id, COUNT(*) AS cnt
-			       FROM {$wpdb->prefix}bn_comments
-			      WHERE is_deleted = 0
-			        AND object_type = 'post'
-			      GROUP BY object_id
-			 ) c ON c.object_id = p.id
-			 SET p.comment_count = c.cnt"
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		buddynext_service( 'post_service' )->recount_counters();
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────

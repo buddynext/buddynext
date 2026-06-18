@@ -846,6 +846,69 @@ class PostService {
 	}
 
 	/**
+	 * Reconcile reaction_count and comment_count on bn_posts from actual rows.
+	 *
+	 * Authoritative drift-correction shared by the daily cron (all posts) and by
+	 * GDPR erasure (scoped to affected posts). Counters are maintained
+	 * incrementally on every write, so this is a safety-net reconcile only.
+	 *
+	 * Uses LEFT JOIN + COALESCE so a post whose counter has drifted above zero
+	 * but has zero actual reactions/comments is reset to 0 — an INNER JOIN can
+	 * never reach those rows. The WHERE guard limits writes to genuinely drifted
+	 * rows, keeping the pass cheap on large tables; when $post_ids is given the
+	 * inner aggregates are scoped too so erasure never scans the whole table.
+	 *
+	 * @param int[] $post_ids Optional. Limit reconcile to these posts; empty = all.
+	 * @return void
+	 */
+	public function recount_counters( array $post_ids = array() ): void {
+		global $wpdb;
+
+		$post_ids = array_values( array_unique( array_filter( array_map( 'intval', $post_ids ) ) ) );
+
+		$scope_outer = '';
+		$scope_inner = '';
+		if ( array() !== $post_ids ) {
+			$ids_in      = implode( ',', $post_ids );
+			$scope_outer = " AND p.id IN ({$ids_in})";
+			$scope_inner = " AND object_id IN ({$ids_in})";
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// bn_reactions uses object_type + object_id (not post_id).
+		$wpdb->query(
+			"UPDATE {$wpdb->prefix}bn_posts p
+			 LEFT JOIN (
+			     SELECT object_id, COUNT(*) AS cnt
+			       FROM {$wpdb->prefix}bn_reactions
+			      WHERE object_type = 'post'{$scope_inner}
+			      GROUP BY object_id
+			 ) r ON r.object_id = p.id
+			 SET p.reaction_count = COALESCE(r.cnt, 0)
+			 WHERE p.reaction_count <> COALESCE(r.cnt, 0){$scope_outer}"
+		);
+
+		// bn_comments uses object_type + object_id (not post_id).
+		$wpdb->query(
+			"UPDATE {$wpdb->prefix}bn_posts p
+			 LEFT JOIN (
+			     SELECT object_id, COUNT(*) AS cnt
+			       FROM {$wpdb->prefix}bn_comments
+			      WHERE is_deleted = 0
+			        AND object_type = 'post'{$scope_inner}
+			      GROUP BY object_id
+			 ) c ON c.object_id = p.id
+			 SET p.comment_count = COALESCE(c.cnt, 0)
+			 WHERE p.comment_count <> COALESCE(c.cnt, 0){$scope_outer}"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		foreach ( $post_ids as $pid ) {
+			wp_cache_delete( "post_{$pid}", self::CACHE_GROUP );
+		}
+	}
+
+	/**
 	 * Return a post's author id, or 0 if the post does not exist.
 	 *
 	 * @param int $post_id Post id.

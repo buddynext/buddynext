@@ -866,6 +866,16 @@ class PrivacyTools implements ListenerInterface {
 			wp_cache_delete( 'space_' . (int) $space_id, 'bn_spaces' );
 		}
 
+		// Capture the posts this user reacted to BEFORE the reactions are deleted
+		// below, so their denormalised reaction_count can be reconciled after
+		// (deleting the rows alone would leave the counters drifted high).
+		$reaction_post_ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT object_id FROM {$p}bn_reactions WHERE user_id = %d AND object_type = 'post'",
+				$user_id
+			)
+		);
+
 		$queries = array(
 			$wpdb->prepare( "DELETE FROM {$p}bn_follows WHERE follower_id = %d OR following_id = %d", $user_id, $user_id ),
 			$wpdb->prepare( "DELETE FROM {$p}bn_connections WHERE requester_id = %d OR recipient_id = %d", $user_id, $user_id ),
@@ -896,6 +906,11 @@ class PrivacyTools implements ListenerInterface {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		if ( $deleted_meta > 0 ) {
 			$removed = true;
+		}
+
+		// Reconcile reaction_count on the posts the user had reacted to.
+		if ( ! empty( $reaction_post_ids ) ) {
+			buddynext_service( 'post_service' )->recount_counters( array_map( 'intval', $reaction_post_ids ) );
 		}
 
 		clean_user_cache( $user_id );
@@ -963,23 +978,39 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
+		// Fetch id + parent object so we can both soft-delete and reconcile the
+		// affected posts' comment_count below, without a second interpolated
+		// query (the recount counts only is_deleted = 0 rows).
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$comment_ids = $wpdb->get_col(
+		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id FROM {$p}bn_comments WHERE user_id = %d AND is_deleted = 0 ORDER BY id ASC LIMIT %d",
+				"SELECT id, object_type, object_id FROM {$p}bn_comments WHERE user_id = %d AND is_deleted = 0 ORDER BY id ASC LIMIT %d",
 				$user_id,
 				self::PER_PAGE
 			)
 		);
 
-		if ( empty( $comment_ids ) ) {
+		if ( empty( $rows ) ) {
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			return false;
 		}
 
-		$ids_in = implode( ',', array_map( 'intval', $comment_ids ) );
+		$comment_ids      = array();
+		$comment_post_ids = array();
+		foreach ( $rows as $row ) {
+			$comment_ids[] = (int) $row->id;
+			if ( 'post' === $row->object_type ) {
+				$comment_post_ids[] = (int) $row->object_id;
+			}
+		}
+
+		$ids_in = implode( ',', $comment_ids );
 		$wpdb->query( "UPDATE {$p}bn_comments SET is_deleted = 1, content = '' WHERE id IN ({$ids_in})" );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		if ( ! empty( $comment_post_ids ) ) {
+			buddynext_service( 'post_service' )->recount_counters( $comment_post_ids );
+		}
 
 		return true;
 	}
