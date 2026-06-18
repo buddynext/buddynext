@@ -46,6 +46,10 @@
 ## Locked decisions (owner, 2026-06-18)
 - **Timing:** QUEUED — build after the membership polish + the cron/AS audit are done. Do not start before then.
 - **v1 search scope:** tabs/sections only (P1). Per-field deep search is P3.
+- **Lives in FREE and works standalone without Pro (owner, 2026-06-18).** The entire feature — `AdminNavIndex` service, the global Cmd/K palette (`assets/js/admin/command-palette.js`), the Guide/Start-here tab, and the contextual help — ships in the **Free** plugin (`BuddyNext\Admin\*`), not Pro. This is natural because every dependency it builds on is already Free: `AdminHub`, the per-page search scaffold in `assets/js/admin/settings.js`, `bn-admin-hub.css`, `SetupWizard`, and `register_tab()`. Requirements:
+  - **Graceful degradation when Pro is inactive:** `AdminNavIndex` indexes whatever `AdminHub::get_all_tabs()` returns at build time. With Pro off, only Free tabs/sections are present, so the palette + Guide simply show the Free surface — no broken links, no "Pro" placeholder rows, no hard references to Pro classes/tabs.
+  - **Pro tabs appear only when Pro is active:** Pro registers its tabs through the same Free `AdminHub::register_tab()`, so when Pro is on its tabs show up in the index automatically. The index cache key is the registry hash, so activating/deactivating Pro rebuilds the index correctly (no stale Pro rows lingering after Pro is disabled).
+  - **No Free→Pro code dependency:** no `class_exists( 'BuddyNextPro\\...' )` gating of core nav behavior, no Pro-only assets enqueued from Free. Pro may *contribute* entries (and later, field metadata via the `buddynext_settings_index` filter) but the feature is fully functional with Pro absent.
 - (Remaining choices below default to the recommendations.)
 
 ## Open decisions (for owner)
