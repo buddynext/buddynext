@@ -36,6 +36,15 @@ Only what genuinely falls short of mass end-user / site-owner expectation become
 
 **When triaging Possible Bug → Bugs:** verify every code-claim card against the current code (don't trust the report); reject by-design / already-fixed / duplicate cards with concrete evidence (file:line or commit); label each valid bug with a `[Type]` prefix in the title (`[Functional]` / `[UI]` / `[Security]` / `[Data]` / `[Nav]` / `[Perf]` / `[A11y]` …); never over-build beyond what the model platforms do. See also the QA role + "cards are suggestive" guidance in the session memory.
 
+### Cards are entry points — verify the whole screen + flow, not the one line
+
+A QA/Basecamp card is a **random entry point**, not the scope. The real job is to open the screen the card points at and verify the **entire surface + its code flow end-to-end** — every state, the wiring behind each control, the language, the presentation, the empty/error/loading states — to **premium, Facebook/Instagram-grade quality**. We are building what a member expects a modern social community to be (own your community, but at the polish of FB/IG/X/LinkedIn): clean copy, proper spacing/alignment, real-time-feeling UX, and **fully-wired functionality that holds up at large-community scale**.
+
+Practical consequences:
+- **Build the complete flow, never a half page.** If a card names one field on a multi-step flow (e.g. an appeal form, onboarding step, checkout), wire the whole flow so it actually works — don't ship a fragment that looks done but dead-ends.
+- **While on a screen for one card, fix what's obviously substandard on it** (copy, alignment, missing wiring, dead links, broken states) even if the card didn't list it — that's the point of the entry-point model. (Stay within the mainstream-social scope above; don't invent niche features.)
+- **Verify behaviour, not just render:** click every control, confirm the server side fires, check 390px + dark + empty/error states on member-facing surfaces.
+
 ---
 
 ## Developer-Friendly from Day 1 — Boundary Skills + Local Tooling
