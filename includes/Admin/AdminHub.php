@@ -872,29 +872,66 @@ class AdminHub {
 
 		$is_wide = ( 'wide' === ( $active['layout'] ?? 'sidebar' ) );
 
-		echo '<div class="wrap bn-admin-hub' . ( $is_wide ? ' is-wide' : '' ) . '" data-section="' . esc_attr( $section_key ) . '">';
-		$this->render_header( $section['label'] );
-
-		// Every multi-tab section — wide editors included — uses the same
-		// horizontal tab strip above a full-width body, so the chrome is
-		// identical everywhere. Wide editors only differ in body width.
+		// Unified left navigation panel + content column. One in-page rail lists
+		// every section and its tabs (the design prototype's model); the content
+		// column shows the active tab's body. The H1 is the active tab's label
+		// since the panel already conveys the section context.
+		echo '<div class="wrap bn-admin-hub bn-admin-hub--paneled' . ( $is_wide ? ' is-wide' : '' ) . '" data-section="' . esc_attr( $section_key ) . '">';
+		echo '<div class="bn-admin-hub__shell">';
+		$this->render_nav_panel( (string) $section_key, $active_slug );
+		echo '<div class="bn-admin-hub__content">';
+		$this->render_header( (string) $active['label'] );
+		$this->render_subhead( $active );
 		$main_classes = 'bn-admin-hub__main ' . ( $is_wide ? 'bn-admin-hub__main--wide' : 'bn-admin-hub__main--full' );
-		if ( count( $tabs ) > 1 ) {
-			$this->render_tabstrip( $section['slug'], $tabs, $active_slug );
-			$this->render_subhead( $active );
-			printf(
-				'<main class="%s" id="bn-admin-hub-panel" role="tabpanel" aria-labelledby="%s" tabindex="0">',
-				esc_attr( $main_classes ),
-				esc_attr( 'bn-hubtab-' . $active_slug )
-			);
-		} else {
-			// Single-tab section — body only, no strip.
-			$this->render_subhead( $active );
-			printf( '<main class="%s">', esc_attr( $main_classes ) );
-		}
+		printf( '<main class="%s" id="bn-admin-hub-panel" role="region" tabindex="0">', esc_attr( $main_classes ) );
 		call_user_func( $active['render'] );
 		echo '</main>';
-		echo '</div>';
+		echo '</div><!-- .bn-admin-hub__content -->';
+		echo '</div><!-- .bn-admin-hub__shell -->';
+		echo '</div><!-- .wrap -->';
+	}
+
+	/**
+	 * Render the unified left navigation panel.
+	 *
+	 * One in-page rail listing every capability-visible section as a group, each
+	 * with its tabs as links; the active tab is highlighted. This is the primary
+	 * admin navigation (matches the design prototype). Empty sections are hidden,
+	 * mirroring the WordPress sub-menu behaviour.
+	 *
+	 * @param string $active_section Active section key.
+	 * @param string $active_slug    Active tab slug.
+	 * @return void
+	 */
+	private function render_nav_panel( string $active_section, string $active_slug ): void {
+		echo '<aside class="bn-admin-hub__panel" aria-label="' . esc_attr__( 'BuddyNext navigation', 'buddynext' ) . '">';
+		foreach ( self::sections() as $skey => $section ) {
+			$visible = array();
+			foreach ( self::get_tabs( (string) $skey ) as $tslug => $tab ) {
+				if ( current_user_can( (string) ( $tab['cap'] ?? 'manage_options' ) ) ) {
+					$visible[ $tslug ] = $tab;
+				}
+			}
+			if ( empty( $visible ) ) {
+				continue;
+			}
+			echo '<div class="bn-hub-nav-group">';
+			echo '<div class="bn-hub-nav-group__label">' . esc_html( (string) $section['label'] ) . '</div>';
+			foreach ( $visible as $tslug => $tab ) {
+				$is_active = ( (string) $skey === $active_section && (string) $tslug === $active_slug );
+				$icon_html = ! empty( $tab['icon'] ) ? \BuddyNext\Core\IconService::render( (string) $tab['icon'] ) : '';
+				printf(
+					'<a class="bn-hub-nav-link%1$s" href="%2$s"%3$s>%4$s<span class="bn-hub-nav-link__label">%5$s</span></a>',
+					$is_active ? ' is-active' : '',
+					esc_url( self::tab_url( (string) $skey, (string) $tslug ) ),
+					$is_active ? ' aria-current="page"' : '',
+					$icon_html, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses'd SVG markup.
+					esc_html( (string) $tab['label'] )
+				);
+			}
+			echo '</div>';
+		}
+		echo '</aside>';
 	}
 
 	/**
@@ -946,74 +983,6 @@ class AdminHub {
 		echo '</div>';
 	}
 
-	/**
-	 * Render the section tab strip — a horizontal nav listing every tab.
-	 *
-	 * Sections are capped at a few tabs, so a horizontal strip reads cleanly and
-	 * uses the full content width (a vertical rail would waste the left column).
-	 * Flat by design — no group eyebrows — since the cap keeps each list short.
-	 *
-	 * @param string                    $page_slug Section page slug.
-	 * @param array<string, BnAdminTab> $tabs      Sorted tabs.
-	 * @param string                    $active    Active tab slug.
-	 * @return void
-	 */
-	private function render_tabstrip( string $page_slug, array $tabs, string $active ): void {
-		?>
-		<nav class="bn-admin-hub__tabs" role="tablist" aria-label="<?php esc_attr_e( 'Section tabs', 'buddynext' ); ?>">
-			<?php
-			foreach ( $tabs as $slug => $tab ) {
-				if ( ! current_user_can( $tab['cap'] ) ) {
-					continue;
-				}
-
-				$is_active = ( $slug === $active );
-				$url       = add_query_arg(
-					array(
-						'page' => $page_slug,
-						'tab'  => $slug,
-					),
-					admin_url( 'admin.php' )
-				);
-
-				$badge_html = '';
-				if ( ! empty( $tab['badge'] ) && is_callable( $tab['badge'] ) ) {
-					$count = (int) call_user_func( $tab['badge'] );
-					if ( $count > 0 ) {
-						$display    = $count > 99 ? '99+' : (string) $count;
-						$badge_html = ' <span class="bn-admin-hub__tab-badge" aria-label="' . esc_attr(
-							sprintf(
-							/* translators: %d: pending item count */
-								_n( '%d pending', '%d pending', $count, 'buddynext' ),
-								$count
-							)
-						) . '">' . esc_html( $display ) . '</span>';
-					}
-				}
-
-				$icon_html = '';
-				if ( ! empty( $tab['icon'] ) ) {
-					$svg = \BuddyNext\Core\IconService::render( (string) $tab['icon'] );
-					if ( '' !== $svg ) {
-						$icon_html = '<span class="bn-admin-hub__tab-icon" aria-hidden="true">' . $svg . '</span>';
-					}
-				}
-
-				printf(
-					'<a class="bn-admin-hub__tab%s" href="%s" id="bn-hubtab-%s" role="tab" aria-selected="%s" aria-controls="bn-admin-hub-panel">%s<span class="bn-admin-hub__tab-label">%s</span>%s</a>',
-					$is_active ? ' is-active' : '',
-					esc_url( $url ),
-					esc_attr( $slug ),
-					$is_active ? 'true' : 'false',
-					$icon_html, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService wp_kses'd.
-					esc_html( $tab['label'] ),
-					$badge_html // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above; only digits/"99+" inside.
-				);
-			}
-			?>
-		</nav>
-		<?php
-	}
 
 	// ── Internal helpers ─────────────────────────────────────────────────────
 
