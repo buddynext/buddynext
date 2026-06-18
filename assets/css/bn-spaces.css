@@ -67,6 +67,10 @@
 	flex-wrap: wrap;
 	gap: var(--bn-s2);
 	border-block-end: none;
+	/* This chip strip wraps (flex-wrap), so it never scrolls horizontally —
+	   override the base .bn-tabs "overflow-x: auto", which forced overflow-y to
+	   clip and shaved ~1px off the 36px pills (rounded top/bottom cut off). */
+	overflow: visible;
 }
 
 .bn-tab.bn-sd-chip {
