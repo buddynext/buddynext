@@ -48,7 +48,7 @@ $spaces  = buddynext_service( 'spaces' )->list_spaces(
 						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::space_url( (int) ( $space['id'] ?? 0 ) ) ); ?>"
 						class="bn-my-spaces-link"
 					>
-						<span class="bn-avatar bn-my-spaces-avatar" data-size="sm" aria-hidden="true">
+						<span class="bn-avatar bn-my-spaces-avatar" data-size="sm" data-shape="rounded" aria-hidden="true">
 							<?php if ( ! empty( $space['avatar_url'] ) ) : ?>
 								<img
 									src="<?php echo esc_url( $space['avatar_url'] ); ?>"

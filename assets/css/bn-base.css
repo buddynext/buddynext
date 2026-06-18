@@ -1119,6 +1119,15 @@
 	object-fit: cover;
 }
 
+/* Shape modifier — people avatars stay circular (default --r-full); space /
+   group avatars opt into a rounded-square via data-shape="rounded" so the shape
+   itself signals person vs space at a glance. Single reusable rule: every
+   space avatar rendered through .bn-avatar uses this, rather than each widget
+   redefining its own radius. The image inherits the container radius so it
+   never reverts to a circle under another sheet's `.bn-avatar img` rule. */
+.bn-avatar[data-shape="rounded"] { border-radius: var(--r-md); }
+.bn-avatar[data-shape="rounded"] img { border-radius: inherit; }
+
 .bn-avatar-xs { width: 24px; height: 24px; font-size: var(--text-xs); }
 .bn-avatar-sm { width: 32px; height: 32px; font-size: var(--text-xs); }
 .bn-avatar-md { width: 40px; height: 40px; font-size: var(--text-sm); }

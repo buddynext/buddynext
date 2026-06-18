@@ -50,7 +50,7 @@ $has_more = false;
 						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::space_url( (int) ( $space['id'] ?? 0 ) ) ); ?>"
 						class="bn-space-link"
 					>
-						<span class="bn-avatar bn-space-list__avatar" data-size="md" aria-hidden="true">
+						<span class="bn-avatar bn-space-list__avatar" data-size="md" data-shape="rounded" aria-hidden="true">
 							<?php if ( ! empty( $space['avatar_url'] ) ) : ?>
 								<img
 									src="<?php echo esc_url( $space['avatar_url'] ); ?>"
