@@ -455,15 +455,12 @@ class ToolsTab {
 	 * @return void
 	 */
 	private function redirect_back( string $result ): void {
+		// Use the canonical Hub URL builder (origin section 'settings', slug
+		// 'tools') so the redirect honours the IA placement map. Hardcoding
+		// page=buddynext sent the user to General Settings whenever the Tools tab
+		// was relocated to another section's page.
 		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'     => 'buddynext',
-					'tab'      => 'tools',
-					'bn_tools' => $result,
-				),
-				admin_url( 'admin.php' )
-			)
+			AdminHub::tab_url( 'settings', 'tools', array( 'bn_tools' => $result ) )
 		);
 		exit;
 	}
