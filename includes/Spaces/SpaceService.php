@@ -671,6 +671,108 @@ class SpaceService {
 	public function list_spaces( array $args = array() ): array {
 		global $wpdb;
 
+		$scope     = $this->list_query_scope( $args );
+		$member_id = $scope['member_id'];
+		$where_sql = $scope['where_sql'];
+		$orderby   = $scope['orderby'];
+		$order     = $scope['order'];
+		$per_page  = $scope['per_page'];
+		$offset    = $scope['offset'];
+
+		$params   = $scope['params'];
+		$params[] = $per_page;
+		$params[] = $offset;
+
+		// $where_sql contains only hardcoded strings or validated enum values.
+		// $orderby is validated against an allowlist; $order is either 'ASC' or 'DESC'.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		if ( $member_id > 0 ) {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT s.* FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active' {$where_sql} ORDER BY s.{$orderby} {$order} LIMIT %d OFFSET %d",
+					$member_id,
+					...$params
+				),
+				ARRAY_A
+			);
+		} else {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT * FROM {$wpdb->prefix}bn_spaces {$where_sql} ORDER BY {$orderby} {$order} LIMIT %d OFFSET %d",
+					...$params
+				),
+				ARRAY_A
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		return array_map( array( $this, 'hydrate' ), (array) $rows );
+	}
+
+	/**
+	 * Return a paginated list of spaces together with the total row count.
+	 *
+	 * Same args and visibility/WHERE semantics as {@see list_spaces()} (it reuses
+	 * the identical scope builder), but also runs a matching COUNT(*) so callers
+	 * can paginate. This lets the spaces directory drop its inline grid + count
+	 * queries and read items + total from the service the REST controller uses.
+	 *
+	 * @param array<string, mixed> $args Query arguments (see list_spaces()).
+	 * @return array{items: array[], total: int}
+	 */
+	public function list_spaces_with_total( array $args = array() ): array {
+		global $wpdb;
+
+		$scope     = $this->list_query_scope( $args );
+		$member_id = $scope['member_id'];
+		$where_sql = $scope['where_sql'];
+
+		// $where_sql contains only hardcoded strings or validated enum values; the
+		// embedded placeholders are bound through prepare() with $scope['params'].
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		if ( $member_id > 0 ) {
+			$total = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active' {$where_sql}",
+					$member_id,
+					...$scope['params']
+				)
+			);
+		} elseif ( $scope['params'] ) {
+			$total = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces {$where_sql}",
+					...$scope['params']
+				)
+			);
+		} else {
+			$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces" );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		return array(
+			'items' => $this->list_spaces( $args ),
+			'total' => $total,
+		);
+	}
+
+	/**
+	 * Build the shared WHERE / visibility scope for list_spaces() and
+	 * list_spaces_with_total() so the directory and its count never drift.
+	 *
+	 * Returns the prepared WHERE fragment (placeholders only — never user input),
+	 * its bound params, the validated orderby/order, and the resolved pagination.
+	 *
+	 * @param array<string, mixed> $args Query arguments (see list_spaces()).
+	 * @return array{where_sql: string, params: array<int, mixed>, orderby: string, order: string, per_page: int, offset: int, member_id: int}
+	 */
+	private function list_query_scope( array $args ): array {
+		global $wpdb;
+
 		$per_page    = max( 1, min( 100, absint( $args['per_page'] ?? 12 ) ) );
 		$page        = max( 1, absint( $args['page'] ?? 1 ) );
 		$offset      = ( $page - 1 ) * $per_page;
@@ -735,36 +837,15 @@ class SpaceService {
 			$params[] = $category_id;
 		}
 
-		$where_sql = $where ? ( 'WHERE ' . implode( ' AND ', $where ) ) : '';
-		$params[]  = $per_page;
-		$params[]  = $offset;
-
-		// $where_sql contains only hardcoded strings or validated enum values.
-		// $orderby is validated against an allowlist; $order is either 'ASC' or 'DESC'.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-		if ( $member_id > 0 ) {
-			$rows = $wpdb->get_results(
-				$wpdb->prepare(
-					"SELECT s.* FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active' {$where_sql} ORDER BY s.{$orderby} {$order} LIMIT %d OFFSET %d",
-					$member_id,
-					...$params
-				),
-				ARRAY_A
-			);
-		} else {
-			$rows = $wpdb->get_results(
-				$wpdb->prepare(
-					"SELECT * FROM {$wpdb->prefix}bn_spaces {$where_sql} ORDER BY {$orderby} {$order} LIMIT %d OFFSET %d",
-					...$params
-				),
-				ARRAY_A
-			);
-		}
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-
-		return array_map( array( $this, 'hydrate' ), (array) $rows );
+		return array(
+			'where_sql' => $where ? ( 'WHERE ' . implode( ' AND ', $where ) ) : '',
+			'params'    => $params,
+			'orderby'   => $orderby,
+			'order'     => $order,
+			'per_page'  => $per_page,
+			'offset'    => $offset,
+			'member_id' => $member_id,
+		);
 	}
 
 	/**
@@ -843,6 +924,174 @@ class SpaceService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return array_map( array( $this, 'hydrate' ), (array) $rows );
+	}
+
+	/**
+	 * Return the top post contributors in a space.
+	 *
+	 * Counts published posts per author in the space (scheduled posts whose time
+	 * has not arrived are excluded), highest first. Joined to wp_users so callers
+	 * render a name without a second lookup. Mirrors the inline query the space
+	 * home sidebar used.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $limit    Max contributors to return. Default 3. Capped at 50.
+	 * @return array[] Each item: user_id, display_name, post_count.
+	 */
+	public function top_contributors( int $space_id, int $limit = 3 ): array {
+		global $wpdb;
+
+		$limit = max( 1, min( 50, $limit ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT p.user_id, u.display_name, COUNT(*) AS post_count
+				 FROM {$wpdb->prefix}bn_posts p
+				 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
+				 WHERE p.space_id = %d AND p.status = 'published'
+				   AND ( p.scheduled_at IS NULL OR p.scheduled_at <= UTC_TIMESTAMP() )
+				 GROUP BY p.user_id, u.display_name
+				 ORDER BY post_count DESC
+				 LIMIT %d",
+				$space_id,
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map(
+			static fn( $r ) => array(
+				'user_id'      => (int) $r['user_id'],
+				'display_name' => (string) $r['display_name'],
+				'post_count'   => (int) $r['post_count'],
+			),
+			(array) $rows
+		);
+	}
+
+	/**
+	 * Return the root (non-sub) spaces a user owns, hydrated.
+	 *
+	 * Root spaces are those with no parent_id, so a settings screen can offer
+	 * them as parents for a new sub-space without nesting beyond two levels.
+	 * Ordered by name for a stable picker.
+	 *
+	 * @param int $user_id Owner user ID.
+	 * @return array[] Hydrated space rows.
+	 */
+	public function owned_root_spaces( int $user_id ): array {
+		global $wpdb;
+
+		$user_id = absint( $user_id );
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_spaces
+				 WHERE owner_id = %d AND parent_id IS NULL
+				 ORDER BY name ASC",
+				$user_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( array( $this, 'hydrate' ), (array) $rows );
+	}
+
+	/**
+	 * Return space categories, each carrying a live space count.
+	 *
+	 * Delegates to the category service (single owner of bn_space_categories),
+	 * which joins a per-row COUNT of spaces in each category. Pass $limit > 0 to
+	 * cap the directory chip row.
+	 *
+	 * @param int $limit Max categories to return; 0 = no limit.
+	 * @return array<int, array<string, mixed>> Hydrated category rows + space_count.
+	 */
+	public function categories_with_counts( int $limit = 0 ): array {
+		$rows = ( new SpaceCategoryService() )->get_all_with_counts();
+
+		if ( $limit > 0 && count( $rows ) > $limit ) {
+			$rows = array_slice( $rows, 0, $limit );
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Return pending join requests for a space, enriched with member identity.
+	 *
+	 * Joins wp_users so the moderation "pending members" tab renders a name and
+	 * email without a per-row lookup. Pagination is mandatory here (the request
+	 * queue is shown in bounded batches). Use count_pending_joins() for the
+	 * matching total. The unbounded user_id-only variant lives on
+	 * {@see SpaceMemberService::get_pending_requests()}.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $limit    Max rows to return. Capped at 100.
+	 * @param int $offset   Row offset.
+	 * @return array[] Each item: user_id, display_name, user_email, requested_at.
+	 */
+	public function get_pending_join_requests( int $space_id, int $limit, int $offset ): array {
+		global $wpdb;
+
+		$limit  = max( 1, min( 100, $limit ) );
+		$offset = max( 0, $offset );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT sm.user_id, sm.joined_at, u.display_name, u.user_email
+				 FROM {$wpdb->prefix}bn_space_members sm
+				 INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id
+				 WHERE sm.space_id = %d AND sm.status = 'pending'
+				 ORDER BY sm.joined_at ASC
+				 LIMIT %d OFFSET %d",
+				$space_id,
+				$limit,
+				$offset
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map(
+			static fn( $r ) => array(
+				'user_id'      => (int) $r['user_id'],
+				'display_name' => (string) $r['display_name'],
+				'user_email'   => (string) $r['user_email'],
+				'requested_at' => (string) $r['joined_at'],
+			),
+			(array) $rows
+		);
+	}
+
+	/**
+	 * Count pending join requests for a space, without loading the rows.
+	 *
+	 * Matches get_pending_join_requests()'s filter so the count and the page
+	 * never disagree.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return int
+	 */
+	public function count_pending_joins( int $space_id ): int {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND status = 'pending'",
+				$space_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**

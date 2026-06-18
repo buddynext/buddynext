@@ -336,18 +336,33 @@ class NotificationService {
 	}
 
 	/**
-	 * Return a cursor-paginated list of notifications for a user.
+	 * Return a paginated list of notifications for a user.
+	 *
+	 * Supports two paging modes that are mutually exclusive:
+	 *   - Cursor (default, backward-compatible): pass $cursor to keyset-paginate
+	 *     on created_at|id. next_cursor in the return points to the next page.
+	 *   - Offset: pass a non-null $offset (and leave $cursor null) to page by
+	 *     LIMIT/OFFSET, which the notifications index uses for numbered/“load
+	 *     more” paging alongside a separate count query. next_cursor is null in
+	 *     offset mode.
+	 *
+	 * The optional $filter narrows by read-state: 'all' (default), 'unread', or
+	 * 'read'. Unknown values fall back to 'all'.
 	 *
 	 * @param int         $user_id  Recipient user ID.
-	 * @param string|null $cursor   Opaque pagination cursor.
+	 * @param string|null $cursor   Opaque pagination cursor (cursor mode).
 	 * @param int         $per_page Notifications per page (max 50).
+	 * @param string      $filter   Read-state filter: 'all', 'unread', 'read'.
+	 * @param int|null    $offset   Offset for LIMIT/OFFSET paging (offset mode).
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
-	public function list_for_user( int $user_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
+	public function list_for_user( int $user_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT, string $filter = 'all', ?int $offset = null ): array {
 		global $wpdb;
 
 		$per_page      = min( $per_page, 50 );
-		$cursor_data   = $this->decode_cursor( $cursor );
+		$filter_where  = $this->filter_where( $filter );
+		$use_offset    = null !== $offset;
+		$cursor_data   = $use_offset ? null : $this->decode_cursor( $cursor );
 		$cursor_where  = '';
 		$cursor_params = array();
 
@@ -356,21 +371,39 @@ class NotificationService {
 			$cursor_params = array( $cursor_data['created_at'], $cursor_data['created_at'], $cursor_data['id'] );
 		}
 
+		// Offset mode pages by LIMIT/OFFSET; cursor mode fetches per_page+1 to
+		// derive has_more. The trailing tail params differ between the two.
+		$tail_params = $use_offset
+			? array( $per_page, max( 0, $offset ) )
+			: array( $per_page + 1 );
+		$limit_sql   = $use_offset ? 'LIMIT %d OFFSET %d' : 'LIMIT %d';
+
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}bn_notifications
 				 WHERE recipient_id = %d
+				   {$filter_where}
 				   {$cursor_where}
 				 ORDER BY created_at DESC, id DESC
-				 LIMIT %d",
-				...array_merge( array( $user_id ), $cursor_params, array( $per_page + 1 ) )
+				 {$limit_sql}",
+				...array_merge( array( $user_id ), $cursor_params, $tail_params )
 			),
 			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		$rows     = (array) $rows;
+		$rows = (array) $rows;
+
+		// In offset mode the SQL already applied the page size, so there is no
+		// trailing sentinel row to trim and no cursor to emit.
+		if ( $use_offset ) {
+			return array(
+				'items'       => array_map( array( $this, 'hydrate' ), $rows ),
+				'next_cursor' => null,
+			);
+		}
+
 		$has_more = count( $rows ) > $per_page;
 
 		if ( $has_more ) {
@@ -434,6 +467,117 @@ class NotificationService {
 			'is_read'     => (bool) $r['is_read'],
 			'created_at'  => $r['created_at'],
 		);
+	}
+
+	/**
+	 * Count a user's notifications, optionally narrowed by read-state.
+	 *
+	 * The 'unread' filter reuses the cached unread_count() path; 'all' and
+	 * 'read' run an indexed COUNT. Powers the notifications index tab totals.
+	 *
+	 * @param int    $user_id Recipient user ID.
+	 * @param string $filter  Read-state filter: 'all', 'unread', 'read'.
+	 * @return int
+	 */
+	public function count_for_user( int $user_id, string $filter = 'all' ): int {
+		if ( 'unread' === $filter ) {
+			return $this->unread_count( $user_id );
+		}
+
+		global $wpdb;
+		$filter_where = $this->filter_where( $filter );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications
+				 WHERE recipient_id = %d {$filter_where}",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Return a map of notification type slug to unread count for a user.
+	 *
+	 * Drives the per-type badges on the notifications index. Types with zero
+	 * unread notifications are omitted from the map.
+	 *
+	 * @param int $user_id Recipient user ID.
+	 * @return array<string,int> type => unread count.
+	 */
+	public function unread_counts_by_type( int $user_id ): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT type, COUNT(*) AS cnt FROM {$wpdb->prefix}bn_notifications
+				 WHERE recipient_id = %d AND is_read = 0
+				 GROUP BY type",
+				$user_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$counts = array();
+		foreach ( (array) $rows as $row ) {
+			$counts[ (string) $row['type'] ] = (int) $row['cnt'];
+		}
+
+		return $counts;
+	}
+
+	/**
+	 * Return the most recent distinct sender (actor) IDs for a user's
+	 * notifications, newest first. Powers the "recent actors" avatar stack on
+	 * the notifications index without the template querying senders directly.
+	 *
+	 * @param int $user_id Recipient user ID.
+	 * @param int $limit   Max actor IDs (1-50). Default 5.
+	 * @return array<int,int>
+	 */
+	public function recent_actor_ids( int $user_id, int $limit = 5 ): array {
+		$limit = max( 1, min( 50, $limit ) );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT sender_id FROM {$wpdb->prefix}bn_notifications
+				 WHERE recipient_id = %d AND sender_id IS NOT NULL AND sender_id > 0
+				 GROUP BY sender_id
+				 ORDER BY MAX(created_at) DESC
+				 LIMIT %d",
+				$user_id,
+				$limit
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( 'intval', (array) $rows );
+	}
+
+	/**
+	 * Build the read-state WHERE fragment for a filter slug.
+	 *
+	 * Returns a fragment prefixed with AND (or empty for 'all') containing only
+	 * a literal is_read condition — no user data, safe to interpolate.
+	 *
+	 * @param string $filter Read-state filter: 'all', 'unread', 'read'.
+	 * @return string
+	 */
+	private function filter_where( string $filter ): string {
+		switch ( $filter ) {
+			case 'unread':
+				return 'AND is_read = 0';
+			case 'read':
+				return 'AND is_read = 1';
+			default:
+				return '';
+		}
 	}
 
 	/**

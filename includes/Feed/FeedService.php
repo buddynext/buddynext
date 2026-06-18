@@ -1182,4 +1182,137 @@ class FeedService {
 			'next_cursor' => $next_cursor,
 		);
 	}
+
+	/**
+	 * Return the pinned post for a space, hydrated, or null when none is pinned.
+	 *
+	 * Most recently pinned wins when more than one is flagged. Honours the
+	 * published-status + scheduled-window guards the space feed uses, and maps
+	 * the row through PostService::hydrate() so callers get the canonical shape
+	 * rather than a hand-built row.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return array<string,mixed>|null
+	 */
+	public function space_pinned_post( int $space_id ): ?array {
+		if ( $space_id <= 0 ) {
+			return null;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_posts
+				 WHERE space_id = %d AND is_pinned = 1 AND status = 'published'
+				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+				 ORDER BY created_at DESC
+				 LIMIT 1",
+				$space_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $row ) ? $this->post_service->hydrate( $row ) : null;
+	}
+
+	/**
+	 * Count published, live (non-future) posts in a space.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return int
+	 */
+	public function space_post_count( int $space_id ): int {
+		if ( $space_id <= 0 ) {
+			return 0;
+		}
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
+				 WHERE space_id = %d AND status = 'published'
+				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())",
+				$space_id
+			)
+		);
+	}
+
+	/**
+	 * Count published, live posts in a space that carry at least one media
+	 * attachment — the figure the space "Media" tab badge shows.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return int
+	 */
+	public function space_media_post_count( int $space_id ): int {
+		if ( $space_id <= 0 ) {
+			return 0;
+		}
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
+				 WHERE space_id = %d AND status = 'published'
+				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+				   AND media_ids IS NOT NULL AND media_ids != '[]' AND media_ids != ''",
+				$space_id
+			)
+		);
+	}
+
+	/**
+	 * Return a flat, de-duplicated list of media IDs from a space's recent
+	 * published posts, newest post first, capped at $limit. Powers the space
+	 * "Media" gallery without the template touching bn_posts directly.
+	 *
+	 * Scans up to 60 recent media-bearing posts (the source rows can each carry
+	 * several attachments) and flattens their media_ids JSON arrays before
+	 * trimming to $limit unique IDs.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $limit    Max media IDs to return (1-100). Default 24.
+	 * @return array<int,int>
+	 */
+	public function space_media_ids( int $space_id, int $limit = 24 ): array {
+		if ( $space_id <= 0 ) {
+			return array();
+		}
+		$limit = max( 1, min( 100, $limit ) );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT media_ids FROM {$wpdb->prefix}bn_posts
+				 WHERE space_id = %d AND status = 'published'
+				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+				   AND media_ids IS NOT NULL AND media_ids != '[]' AND media_ids != ''
+				 ORDER BY created_at DESC
+				 LIMIT 60",
+				$space_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$media_ids = array();
+		foreach ( (array) $rows as $json ) {
+			$decoded = json_decode( (string) $json, true );
+			if ( ! is_array( $decoded ) ) {
+				continue;
+			}
+			foreach ( $decoded as $mid ) {
+				$mid = absint( $mid );
+				if ( $mid > 0 ) {
+					$media_ids[] = $mid;
+				}
+			}
+		}
+
+		return array_slice( array_values( array_unique( $media_ids ) ), 0, $limit );
+	}
 }

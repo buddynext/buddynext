@@ -520,6 +520,42 @@ class ReactionService {
 	}
 
 	/**
+	 * Return the top-N emoji slugs on an object, most-used first.
+	 *
+	 * Derived from get_counts() (so it shares its cache), trimmed to the busiest
+	 * $limit reaction types. Powers the inline "top reactions" cluster on the
+	 * post card without the template summing counts itself. Ties break by the
+	 * canonical reaction order.
+	 *
+	 * @param string $object_type Object type ('post', 'comment', etc.).
+	 * @param int    $object_id   Object ID.
+	 * @param int    $limit       Max emoji slugs to return (1-6). Default 3.
+	 * @return array<int,string> Ordered emoji slugs.
+	 */
+	public function top_reactions( string $object_type, int $object_id, int $limit = 3 ): array {
+		$limit  = max( 1, min( count( self::REACTION_TYPES ), $limit ) );
+		$counts = $this->get_counts( $object_type, $object_id );
+		if ( empty( $counts ) ) {
+			return array();
+		}
+
+		// Stable sort: count DESC, then canonical reaction order ASC so equal
+		// counts render in the same order everywhere.
+		$order = array_flip( self::REACTION_TYPES );
+		uksort(
+			$counts,
+			static function ( string $a, string $b ) use ( $counts, $order ): int {
+				if ( $counts[ $a ] !== $counts[ $b ] ) {
+					return $counts[ $b ] <=> $counts[ $a ];
+				}
+				return ( $order[ $a ] ?? PHP_INT_MAX ) <=> ( $order[ $b ] ?? PHP_INT_MAX );
+			}
+		);
+
+		return array_slice( array_keys( $counts ), 0, $limit );
+	}
+
+	/**
 	 * Invalidate cache entries for an object and optionally a specific user.
 	 *
 	 * @param string $object_type Object type.

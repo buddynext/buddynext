@@ -735,6 +735,11 @@ class ModerationService {
 	 *                       this list. Used by space-scoped moderators who must only see reports
 	 *                       originating from spaces they manage. An empty array means no filter
 	 *                       (site admins see everything).
+	 *   enrich      bool    When true, each queue item gains offender enrichment for
+	 *                       'user' reports: 'strikes_count' (active strikes against the
+	 *                       reported user), 'offender_name', and 'offender_joined'
+	 *                       (registration date). Non-user items get null offender
+	 *                       fields and a 0 strike count. Default false (unenriched).
 	 *
 	 * @internal Performs NO capability check. Callers MUST gate first; the REST
 	 *           caller is behind ModerationController::require_queue_access, which
@@ -835,10 +840,89 @@ class ModerationService {
 		}
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
+		$items = array_map( array( $this, 'hydrate_report' ), (array) $rows );
+
+		if ( ! empty( $args['enrich'] ) ) {
+			$items = $this->enrich_queue_offenders( $items );
+		}
+
 		return array(
-			'items' => array_map( array( $this, 'hydrate_report' ), (array) $rows ),
+			'items' => $items,
 			'total' => $total,
 		);
+	}
+
+	/**
+	 * Attach offender enrichment to a list of hydrated queue items.
+	 *
+	 * For each 'user' report, resolves the reported user's active strike count
+	 * (bulk, one query for all user-type object IDs), display name, and
+	 * registration date. Non-user items get a 0 strike count and null name/joined
+	 * so every item carries a stable shape. Used by the moderation queue to show
+	 * "repeat offender" signals without the template assembling its own SQL.
+	 *
+	 * @param array<int,array<string,mixed>> $items Hydrated queue items.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function enrich_queue_offenders( array $items ): array {
+		$user_ids = array();
+		foreach ( $items as $item ) {
+			if ( 'user' === ( $item['object_type'] ?? '' ) ) {
+				$uid = (int) $item['object_id'];
+				if ( $uid > 0 ) {
+					$user_ids[ $uid ] = true;
+				}
+			}
+		}
+		$user_ids = array_keys( $user_ids );
+
+		$strike_counts = array();
+		$user_meta     = array();
+		if ( ! empty( $user_ids ) ) {
+			global $wpdb;
+			$placeholders = implode( ',', array_fill( 0, count( $user_ids ), '%d' ) );
+
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$strike_rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT user_id, COUNT(*) AS cnt FROM {$wpdb->prefix}bn_user_strikes
+					 WHERE is_reversed = 0 AND user_id IN ({$placeholders})
+					 GROUP BY user_id",
+					...$user_ids
+				),
+				ARRAY_A
+			);
+			$meta_rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT ID, display_name, user_registered FROM {$wpdb->users}
+					 WHERE ID IN ({$placeholders})",
+					...$user_ids
+				),
+				ARRAY_A
+			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			foreach ( (array) $strike_rows as $sr ) {
+				$strike_counts[ (int) $sr['user_id'] ] = (int) $sr['cnt'];
+			}
+			foreach ( (array) $meta_rows as $mr ) {
+				$user_meta[ (int) $mr['ID'] ] = array(
+					'name'   => (string) $mr['display_name'],
+					'joined' => (string) $mr['user_registered'],
+				);
+			}
+		}
+
+		foreach ( $items as &$item ) {
+			$is_user                  = 'user' === ( $item['object_type'] ?? '' );
+			$uid                      = $is_user ? (int) $item['object_id'] : 0;
+			$item['strikes_count']    = $is_user ? ( $strike_counts[ $uid ] ?? 0 ) : 0;
+			$item['offender_name']    = $is_user && isset( $user_meta[ $uid ] ) ? $user_meta[ $uid ]['name'] : null;
+			$item['offender_joined']  = $is_user && isset( $user_meta[ $uid ] ) ? $user_meta[ $uid ]['joined'] : null;
+		}
+		unset( $item );
+
+		return $items;
 	}
 
 	/**
@@ -2135,5 +2219,125 @@ class ModerationService {
 		}
 
 		return ! is_wp_error( $this->unshadow_ban( $user_id, $actor_id ) );
+	}
+
+	/**
+	 * Return the moderation-queue summary counters in one pass.
+	 *
+	 * Replaces the in-template stats SQL: pending reports (raw rows), reports
+	 * resolved/dismissed today, all-time report total, at-risk accounts (users
+	 * with 3+ active strikes), and the urgent count (distinct content groups
+	 * with 3+ reports). The figures back the queue's stat strip.
+	 *
+	 * @return array{pending:int, resolved_today:int, total_all_time:int, at_risk:int, urgent:int}
+	 */
+	public function queue_stats(): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$stats = $wpdb->get_row(
+			"SELECT
+				SUM( CASE WHEN status = 'pending' THEN 1 ELSE 0 END ) AS pending,
+				SUM( CASE WHEN status IN ('dismissed','resolved') AND DATE(created_at) = CURDATE() THEN 1 ELSE 0 END ) AS resolved_today,
+				COUNT(*) AS total_all_time
+			 FROM {$wpdb->prefix}bn_reports",
+			ARRAY_A
+		);
+
+		$at_risk = (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM (
+				SELECT user_id FROM {$wpdb->prefix}bn_user_strikes
+				WHERE is_reversed = 0
+				GROUP BY user_id HAVING COUNT(*) >= 3
+			 ) AS at_risk"
+		);
+
+		$urgent = (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM (
+				SELECT 1 FROM {$wpdb->prefix}bn_reports
+				WHERE status IN ('pending','escalated')
+				GROUP BY object_type, object_id
+				HAVING COUNT(*) >= 3
+			 ) AS urgent_groups"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return array(
+			'pending'        => (int) ( $stats['pending'] ?? 0 ),
+			'resolved_today' => (int) ( $stats['resolved_today'] ?? 0 ),
+			'total_all_time' => (int) ( $stats['total_all_time'] ?? 0 ),
+			'at_risk'        => $at_risk,
+			'urgent'         => $urgent,
+		);
+	}
+
+	/**
+	 * Count open (pending + escalated) reports scoped to a single space.
+	 *
+	 * Counts distinct reported-content groups, matching how the queue lists
+	 * them, so the badge agrees with the list length. Powers the per-space
+	 * moderation badge on the space home/moderation surfaces.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return int
+	 */
+	public function count_open_reports_for_space( int $space_id ): int {
+		if ( $space_id <= 0 ) {
+			return 0;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM (
+					SELECT 1 FROM {$wpdb->prefix}bn_reports
+					WHERE status IN ('pending','escalated') AND space_id = %d
+					GROUP BY object_type, object_id
+				 ) AS open_groups",
+				$space_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Count all open (pending + escalated) reports across the site, counted as
+	 * distinct reported-content groups (the queue's unit).
+	 *
+	 * @return int
+	 */
+	public function count_open_reports(): int {
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM (
+				SELECT 1 FROM {$wpdb->prefix}bn_reports
+				WHERE status IN ('pending','escalated')
+				GROUP BY object_type, object_id
+			 ) AS open_groups"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Count urgent open reports — distinct reported-content groups carrying 3 or
+	 * more open (pending + escalated) reports. The same threshold the queue's
+	 * urgency filter uses.
+	 *
+	 * @return int
+	 */
+	public function count_urgent_reports(): int {
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM (
+				SELECT 1 FROM {$wpdb->prefix}bn_reports
+				WHERE status IN ('pending','escalated')
+				GROUP BY object_type, object_id
+				HAVING COUNT(*) >= 3
+			 ) AS urgent_groups"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 }

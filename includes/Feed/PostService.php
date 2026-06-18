@@ -457,6 +457,215 @@ class PostService {
 	}
 
 	/**
+	 * List a user's recent replies (post comments), newest first, joined to the
+	 * post they replied on. Powers the profile "Replies" tab.
+	 *
+	 * Deliberately uncached: the profile view runs this once per page and the
+	 * query is an indexed join capped at $limit rows.
+	 *
+	 * @param int $user_id Comment author user ID.
+	 * @param int $limit   Max rows (1-50). Default 20.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function user_replies( int $user_id, int $limit = 20 ): array {
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+		$limit = max( 1, min( 50, $limit ) );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT c.id, c.content, c.created_at, c.object_id,
+				        p.content AS post_content, p.type AS post_type,
+				        u.display_name AS post_author_name
+				 FROM {$wpdb->prefix}bn_comments c
+				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id AND c.object_type = 'post'
+				 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
+				 WHERE c.user_id = %d
+				 ORDER BY c.created_at DESC
+				 LIMIT %d",
+				$user_id,
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * List the published posts a user has reacted to, newest reaction first,
+	 * hydrated through the canonical mapper. Powers the profile "Likes" tab.
+	 *
+	 * @param int $user_id Reacting user ID.
+	 * @param int $limit   Max rows (1-50). Default 20.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function user_liked_posts( int $user_id, int $limit = 20 ): array {
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+		$limit = max( 1, min( 50, $limit ) );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT p.*
+				 FROM {$wpdb->prefix}bn_reactions r
+				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id AND r.object_type = 'post'
+				 WHERE r.user_id = %d AND p.status = 'published'
+				 ORDER BY r.created_at DESC
+				 LIMIT %d",
+				$user_id,
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( array( $this, 'hydrate' ), (array) $rows );
+	}
+
+	/**
+	 * Count a user's total post replies (comments on posts) — the figure the
+	 * profile "Replies" tab badge shows.
+	 *
+	 * Uncached for the same reason as user_post_count(): the value moves across
+	 * several write paths and the query is a single indexed COUNT.
+	 *
+	 * @param int $user_id Comment author user ID.
+	 * @return int
+	 */
+	public function reply_count( int $user_id ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE user_id = %d AND object_type = 'post'",
+				$user_id
+			)
+		);
+	}
+
+	/**
+	 * Count the posts a user has reacted to — the figure the profile "Likes"
+	 * tab badge shows.
+	 *
+	 * @param int $user_id Reacting user ID.
+	 * @return int
+	 */
+	public function reaction_count( int $user_id ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions WHERE user_id = %d AND object_type = 'post'",
+				$user_id
+			)
+		);
+	}
+
+	/**
+	 * Filter a list of post IDs down to those the viewer is permitted to see.
+	 *
+	 * Single source of truth for the post-privacy gate that was previously
+	 * duplicated in templates/feed/bookmarks.php and PostController::get_post().
+	 * Applies, per post, in order: published-status, block list (bidirectional),
+	 * secret/hidden-space membership, followers-only privacy, private privacy,
+	 * and author suspension/shadow-ban. The author always sees their own posts;
+	 * admins (manage_options) bypass the space-membership and author-status
+	 * gates. Input order is preserved in the returned list.
+	 *
+	 * @param array<int,int> $post_ids Candidate post IDs.
+	 * @param int            $viewer   Viewing user ID (0 = guest).
+	 * @return array<int,int> The subset of $post_ids visible to the viewer.
+	 */
+	public function filter_visible( array $post_ids, int $viewer ): array {
+		$post_ids = array_values( array_filter( array_map( 'absint', $post_ids ) ) );
+		if ( empty( $post_ids ) ) {
+			return array();
+		}
+
+		$blocks  = function_exists( 'buddynext_service' )
+			? buddynext_service( 'blocks' )
+			: new \BuddyNext\SocialGraph\BlockService();
+		$follows = function_exists( 'buddynext_service' )
+			? buddynext_service( 'follows' )
+			: new \BuddyNext\SocialGraph\FollowService();
+		$spaces        = new \BuddyNext\Spaces\SpaceService();
+		$space_members = new \BuddyNext\Spaces\SpaceMemberService();
+		$is_admin      = $viewer > 0 && user_can( $viewer, 'manage_options' );
+
+		$visible = array();
+		foreach ( $post_ids as $post_id ) {
+			$post = $this->get( $post_id );
+			if ( null === $post ) {
+				continue;
+			}
+			if ( isset( $post['status'] ) && 'published' !== $post['status'] ) {
+				continue;
+			}
+
+			$author_id = (int) ( $post['user_id'] ?? 0 );
+			if ( $author_id <= 0 ) {
+				continue;
+			}
+			$is_author = $author_id === $viewer;
+
+			// Gate 1 — block list (bidirectional).
+			if ( ! $is_author && $blocks->is_blocking_either( $viewer, $author_id ) ) {
+				continue;
+			}
+
+			// Gate 2 — secret/hidden-space membership.
+			$space_id = (int) ( $post['space_id'] ?? 0 );
+			if ( $space_id > 0 ) {
+				$space = $spaces->get( $space_id );
+				if (
+					null !== $space
+					&& \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) ( $space['type'] ?? '' ) )
+				) {
+					$is_member = $viewer > 0 && $space_members->is_member( $space_id, $viewer );
+					if ( ! $is_member && ! $is_admin ) {
+						continue;
+					}
+				}
+			}
+
+			// Gate 3 — followers-only privacy.
+			if ( 'followers' === ( $post['privacy'] ?? '' ) && ! $is_author ) {
+				if ( ! ( $viewer > 0 && $follows->is_following( $viewer, $author_id ) ) ) {
+					continue;
+				}
+			}
+
+			// Gate 4 — private posts (author-only).
+			if ( 'private' === ( $post['privacy'] ?? '' ) && ! $is_author ) {
+				continue;
+			}
+
+			// Gate 5 — author suspended / shadow-banned (admins and the author bypass).
+			if ( ! $is_admin && ! $is_author ) {
+				$suspended = (bool) get_user_meta( $author_id, 'bn_suspended', true );
+				$shadow    = (bool) get_user_meta( $author_id, 'bn_shadow_banned', true );
+				if ( $suspended || $shadow ) {
+					continue;
+				}
+			}
+
+			$visible[] = $post_id;
+		}
+
+		return $visible;
+	}
+
+	/**
 	 * Update an existing post's content or privacy.
 	 *
 	 * Sets edited_at to the current UTC time. Only the post owner may update.

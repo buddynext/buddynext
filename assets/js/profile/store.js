@@ -804,74 +804,21 @@ function syncDirtyAttr( dirty ) {
 
 /* -- Tab URL sync ------------------------------------------------------- */
 
-// Valid tabs are whatever the server actually rendered — so integration tabs
-// (portfolio, …) and core tabs all work without a hardcoded list to maintain.
-function bnValidTabs() {
-	// Derive valid tabs from the panels actually present, not just the content
-	// tab-bar (.bn-pf-tabs) — the header-chip tabs (followers / following /
-	// connections) are real [data-tab-panel] targets too. Reading the bar alone
-	// excluded them, so deep-linking /members/{slug}/connections/ fell back to
-	// 'posts' here even though the SSR rendered the connections panel.
-	var slugs = [];
-	document.querySelectorAll( '[data-tab-panel]' ).forEach( function ( p ) {
-		if ( p.dataset.tabPanel && slugs.indexOf( p.dataset.tabPanel ) === -1 ) {
-			slugs.push( p.dataset.tabPanel );
-		}
-	} );
-	return slugs.length ? slugs : [ 'posts' ];
-}
-
 function bnProfileBase() {
 	var base = '';
 	try { base = getContext().profileBaseUrl || ''; } catch ( _e ) {}
 	return base.replace( /\/+$/, '' );
 }
 
-function applyTabId( tabId ) {
-	if ( ! tabId || bnValidTabs().indexOf( tabId ) === -1 ) {
-		tabId = 'posts';
-	}
-	document.querySelectorAll( '.bn-pf-tabs .bn-tab' ).forEach( function ( t ) {
-		var isActive = t.dataset.tab === tabId;
-		t.classList.toggle( 'active', isActive );
-		t.setAttribute( 'aria-selected', isActive ? 'true' : 'false' );
-	} );
-	document.querySelectorAll( '[data-tab-panel]' ).forEach( function ( p ) {
-		p.hidden = p.dataset.tabPanel !== tabId;
-	} );
-	var postsContent = document.querySelector( '.bn-profile-posts-panel' );
-	if ( postsContent ) {
-		postsContent.hidden = tabId !== 'posts';
-	}
-}
-
 // Pretty URLs only: push /members/{slug}/{tab}/ (base for 'posts'), never ?tab=.
+// The active tab is reactive state (context.activeTab) — this only mirrors it
+// into the address bar so deep links + Back/Forward work; it never paints DOM.
 function pushTabToUrl( tabId ) {
 	if ( ! window.history || typeof window.history.pushState !== 'function' ) { return; }
 	var base = bnProfileBase();
 	if ( ! base ) { return; }
 	var url = ( tabId && tabId !== 'posts' ) ? base + '/' + tabId + '/' : base + '/';
 	window.history.pushState( { bnTab: tabId }, '', url );
-}
-
-function applyTabFromUrl() {
-	var tab = '';
-	// Read the active tab from the path segment after the profile base
-	// (/members/{slug}/{tab}/) so deep links + Back/Forward work.
-	var base = bnProfileBase();
-	if ( base ) {
-		try {
-			var basePath = new URL( base, window.location.origin ).pathname.replace( /\/+$/, '' );
-			var path     = window.location.pathname.replace( /\/+$/, '' );
-			if ( path.indexOf( basePath ) === 0 ) {
-				tab = path.slice( basePath.length ).replace( /^\/+/, '' ).split( '/' )[ 0 ] || '';
-			}
-		} catch ( _e ) {}
-	}
-	if ( ! tab ) {
-		try { tab = getContext().activeTab; } catch ( _e2 ) {}
-	}
-	applyTabId( tab || 'posts' );
 }
 
 /* -- Store ------------------------------------------------------------- */
@@ -898,6 +845,12 @@ store( 'buddynext/profile', {
 		get slugIsOk()         { return getContext().slugAvailable === true; },
 		get slugIsTaken()      { return getContext().slugAvailable === false; },
 		get slugSaveDisabled() { const c = getContext(); return ! c.slugAvailable || c.slugSaving; },
+		/* Single source of truth for the active profile tab. Each [data-tab-panel]
+		 * carries its own per-panel context (tabSlug) and inherits the region's
+		 * activeTab, so this getter is true only for the panel whose slug matches
+		 * the active tab. Drives data-wp-bind--hidden="!state.isActiveTab" on the
+		 * panels and data-wp-class--active / aria-selected on the tabs and chips. */
+		get isActiveTab() { const c = getContext(); return c.activeTab === c.tabSlug; },
 	},
 	callbacks: {
 		/* Init for the edit page: register the beforeunload guard once. */
@@ -905,11 +858,32 @@ store( 'buddynext/profile', {
 			ensureUnloadGuard();
 			wireCurrentToggles();
 		},
-		/* Init for the view page: read ?tab=... and wire popstate. */
+		/* Init for the view page: keep context.activeTab (seeded server-side from
+		 * the route action for deep links) in sync with Back/Forward. The popstate
+		 * handler only writes the reactive state — the panels' data-wp-bind--hidden
+		 * and the tabs' data-wp-class--active repaint themselves from it. No manual
+		 * DOM toggling. */
 		initView() {
-			applyTabFromUrl();
+			const ctx = getContext();
 			if ( ! window.__bnProfilePopstateBound ) {
-				window.addEventListener( 'popstate', applyTabFromUrl );
+				window.addEventListener( 'popstate', function ( event ) {
+					var tab = ( event.state && event.state.bnTab ) || '';
+					if ( ! tab ) {
+						// Direct hit on the base URL (no history state): fall back to
+						// the path segment after the profile base.
+						var base = bnProfileBase();
+						if ( base ) {
+							try {
+								var basePath = new URL( base, window.location.origin ).pathname.replace( /\/+$/, '' );
+								var path     = window.location.pathname.replace( /\/+$/, '' );
+								if ( path.indexOf( basePath ) === 0 ) {
+									tab = path.slice( basePath.length ).replace( /^\/+/, '' ).split( '/' )[ 0 ] || '';
+								}
+							} catch ( _e ) {}
+						}
+					}
+					ctx.activeTab = tab || 'posts';
+				} );
 				window.__bnProfilePopstateBound = true;
 			}
 		},
@@ -978,22 +952,30 @@ store( 'buddynext/profile', {
 			}
 		},
 
-		/* Profile tab switching - Posts / Replies / Media / Likes
+		/* Profile tab switching - Posts / Replies / Media / Likes …
 		 *
-		 * Updates aria/active state on tab buttons, toggles panels, and
-		 * pushes the active tab into the URL (?tab=replies) so reload +
-		 * back-button work. The popstate handler in initView() reverses
-		 * the transition when the user hits Back.
+		 * Single source of truth: sets context.activeTab. Every [data-tab-panel]
+		 * reveals/hides itself reactively via data-wp-bind--hidden="!state.isActiveTab"
+		 * and every tab/chip lights up via data-wp-class--active="state.isActiveTab" +
+		 * aria-selected — no DOM is toggled here. The clicked slug is read from the
+		 * element's own context (tabSlug), falling back to its data-tab attribute for
+		 * the hero stat-strip chips (which carry data-tab but no per-element context).
+		 * The pretty URL is pushed so reload + Back/Forward work; popstate (initView)
+		 * mirrors the URL back into context.activeTab.
 		 */
 		setTab( event ) {
-			const tab    = event.target.closest( '[data-tab]' );
-			if ( ! tab ) { return; }
 			// Preserve "open in new tab" for modified/middle clicks on stat-chip
 			// links; a plain left-click switches the panel in place (no reload).
 			if ( event && ( event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1 ) ) { return; }
+			const ctx = getContext();
+			let tabId = ctx.tabSlug || '';
+			if ( ! tabId && event && event.target ) {
+				const el = event.target.closest( '[data-tab]' );
+				tabId = el ? el.dataset.tab : '';
+			}
+			if ( ! tabId ) { return; }
 			if ( event && typeof event.preventDefault === 'function' ) { event.preventDefault(); }
-			const tabId  = tab.dataset.tab;
-			applyTabId( tabId );
+			ctx.activeTab = tabId;
 			pushTabToUrl( tabId );
 		},
 

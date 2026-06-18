@@ -99,12 +99,23 @@ do_action( 'buddynext_part_profile_tab_bar_before', $args );
 					? sprintf( '%s (%s)', $bn_tab_label, $bn_tab_count )
 					: $bn_tab_label;
 
+				// Per-tab context carries only this tab's slug; activeTab is
+				// inherited from the profile region (single source of truth). The
+				// reactive isActiveTab getter (c.activeTab === c.tabSlug) then drives
+				// the active class + aria-selected, and setTab reads tabSlug on click.
+				$bn_tab_ctx = wp_json_encode( array( 'tabSlug' => $bn_tab_slug ) );
+
 				if ( '' !== $bn_tab_href ) :
 					?>
 					<a class="bn-tab"
 						role="tab"
+						data-wp-context='<?php echo esc_attr( (string) $bn_tab_ctx ); ?>'
+						data-wp-class--active="state.isActiveTab"
+						data-wp-bind--aria-selected="state.isActiveTab"
 						aria-selected="<?php echo $bn_is_active ? 'true' : 'false'; ?>"
 						aria-label="<?php echo esc_attr( $bn_tab_aria ); ?>"
+						data-wp-on--click="actions.setTab"
+						data-tab="<?php echo esc_attr( $bn_tab_slug ); ?>"
 						href="<?php echo esc_url( $bn_tab_href ); ?>"
 					>
 					<?php
@@ -125,6 +136,9 @@ do_action( 'buddynext_part_profile_tab_bar_before', $args );
 					<button class="bn-tab"
 						role="tab"
 						type="button"
+						data-wp-context='<?php echo esc_attr( (string) $bn_tab_ctx ); ?>'
+						data-wp-class--active="state.isActiveTab"
+						data-wp-bind--aria-selected="state.isActiveTab"
 						aria-selected="<?php echo $bn_is_active ? 'true' : 'false'; ?>"
 						aria-label="<?php echo esc_attr( $bn_tab_aria ); ?>"
 						data-wp-on--click="actions.setTab"

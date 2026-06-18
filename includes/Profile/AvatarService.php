@@ -188,6 +188,26 @@ class AvatarService {
 		return self::COLOURS[ $user_id % count( self::COLOURS ) ];
 	}
 
+	/**
+	 * Derive up to two uppercase initials from a display name. The shared,
+	 * canonical implementation — supersedes the `bn_initials()` /
+	 * `bn_connections_initials()` template copies and inline initials logic.
+	 *
+	 * @param string $name Display name.
+	 * @return string One or two uppercase characters.
+	 */
+	public static function initials_for( string $name ): string {
+		$parts = array_values( array_filter( explode( ' ', trim( $name ) ) ) );
+
+		if ( count( $parts ) >= 2 ) {
+			return mb_strtoupper(
+				mb_substr( $parts[0], 0, 1 ) . mb_substr( $parts[ count( $parts ) - 1 ], 0, 1 )
+			);
+		}
+
+		return '' !== $name ? mb_strtoupper( mb_substr( trim( $name ), 0, 2 ) ) : '?';
+	}
+
 	// ── Public helpers ────────────────────────────────────────────────────────
 
 	/**
@@ -316,15 +336,7 @@ class AvatarService {
 	 * @return string One or two uppercase characters.
 	 */
 	private function get_initials( string $name ): string {
-		$parts = array_values( array_filter( explode( ' ', trim( $name ) ) ) );
-
-		if ( count( $parts ) >= 2 ) {
-			return mb_strtoupper(
-				mb_substr( $parts[0], 0, 1 ) . mb_substr( $parts[ count( $parts ) - 1 ], 0, 1 )
-			);
-		}
-
-		return '' !== $name ? mb_strtoupper( mb_substr( trim( $name ), 0, 2 ) ) : '?';
+		return self::initials_for( $name );
 	}
 
 	/**

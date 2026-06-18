@@ -147,4 +147,119 @@ class BookmarkService {
 
 		return $result;
 	}
+
+	/**
+	 * Return a cursor-paginated list of the user's bookmarked posts, hydrated
+	 * and visibility-filtered for the viewer.
+	 *
+	 * BookmarkService stores raw post_id rows (not denormalised visibility), so
+	 * the post-privacy gates are re-applied at read time through
+	 * PostService::filter_visible() — unfollowing an author or losing space
+	 * membership immediately hides the bookmarked post here. Deleted and
+	 * non-published posts drop out at hydrate time.
+	 *
+	 * The cursor follows the same created_at|id keyset pattern as
+	 * NotificationService::list_for_user(), keyed on the bookmark row's
+	 * created_at and the post_id tiebreaker (bn_bookmarks has a composite
+	 * (user_id, post_id) primary key and no surrogate id column).
+	 *
+	 * @param int         $user_id  Viewing user whose bookmarks to list.
+	 * @param string|null $cursor   Opaque pagination cursor.
+	 * @param int         $per_page Bookmarks per page (max 50).
+	 * @return array{items: array[], next_cursor: string|null}
+	 */
+	public function user_bookmarks_paged( int $user_id, ?string $cursor = null, int $per_page = 15 ): array {
+		global $wpdb;
+
+		$per_page      = max( 1, min( $per_page, 50 ) );
+		$cursor_data   = $this->decode_cursor( $cursor );
+		$cursor_where  = '';
+		$cursor_params = array();
+
+		if ( null !== $cursor_data ) {
+			$cursor_where  = 'AND (b.created_at < %s OR (b.created_at = %s AND b.post_id < %d))';
+			$cursor_params = array( $cursor_data['created_at'], $cursor_data['created_at'], $cursor_data['post_id'] );
+		}
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT b.created_at AS bookmark_created_at, b.post_id
+				   FROM {$wpdb->prefix}bn_bookmarks b
+				  WHERE b.user_id = %d
+				  {$cursor_where}
+				  ORDER BY b.created_at DESC, b.post_id DESC
+				  LIMIT %d",
+				...array_merge( array( $user_id ), $cursor_params, array( $per_page + 1 ) )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$rows     = (array) $rows;
+		$has_more = count( $rows ) > $per_page;
+
+		if ( $has_more ) {
+			$rows = array_slice( $rows, 0, $per_page );
+		}
+
+		$next_cursor = null;
+		if ( $has_more && ! empty( $rows ) ) {
+			$last        = end( $rows );
+			$next_cursor = base64_encode( $last['bookmark_created_at'] . '|' . $last['post_id'] ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+		}
+
+		// Re-apply the canonical post-visibility gate, then hydrate the survivors
+		// in the bookmark order. filter_visible() keeps only published posts the
+		// viewer may see (blocks, secret-space, followers-only, private, author
+		// suspension/shadow-ban).
+		$post_ids = array_map( static fn ( array $r ): int => (int) $r['post_id'], $rows );
+		$post_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'post_service' ) : new PostService();
+		$visible_ids  = $post_service->filter_visible( $post_ids, $user_id );
+
+		$items = array();
+		foreach ( $post_ids as $pid ) {
+			if ( ! in_array( $pid, $visible_ids, true ) ) {
+				continue;
+			}
+			$post = $post_service->get( $pid );
+			if ( null !== $post ) {
+				$items[] = $post;
+			}
+		}
+
+		return array(
+			'items'       => $items,
+			'next_cursor' => $next_cursor,
+		);
+	}
+
+	/**
+	 * Decode a bookmark cursor string into its created_at + post_id parts.
+	 *
+	 * @param string|null $cursor Opaque cursor or null.
+	 * @return array{created_at: string, post_id: int}|null
+	 */
+	private function decode_cursor( ?string $cursor ): ?array {
+		if ( null === $cursor || '' === $cursor ) {
+			return null;
+		}
+
+		$raw = base64_decode( $cursor, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+
+		if ( false === $raw ) {
+			return null;
+		}
+
+		$parts = explode( '|', $raw, 2 );
+
+		if ( 2 !== count( $parts ) || '' === $parts[0] || ! ctype_digit( $parts[1] ) ) {
+			return null;
+		}
+
+		return array(
+			'created_at' => $parts[0],
+			'post_id'    => (int) $parts[1],
+		);
+	}
 }

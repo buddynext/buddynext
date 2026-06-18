@@ -59,12 +59,8 @@
 	gap: var(--s3);
 }
 
-.bn-post-card {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--r-lg);
-	padding: var(--s4);
-}
+/* .bn-post-card (base container) is defined ONCE in bn-feed.css (canonical,
+ * on --bn-* tokens). No base copy here — only block-local layout children. */
 
 .bn-post-card__header {
 	display: flex;
@@ -187,29 +183,8 @@
 	margin-top: var(--s3);
 }
 
-.bn-composer__tools {
-	display: flex;
-	gap: var(--s1);
-}
-
-.bn-composer__tool {
-	width: 32px;
-	height: 32px;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	border: none;
-	background: none;
-	color: var(--text-3);
-	border-radius: var(--r-md);
-	cursor: pointer;
-	transition: background 0.1s, color 0.1s;
-}
-
-.bn-composer__tool:hover {
-	background: var(--bg-hover);
-	color: var(--brand);
-}
+/* .bn-composer__tools / .bn-composer__tool are defined ONCE in bn-feed.css
+ * (canonical, with focus-visible ring + 18px icon sizing). No copy here. */
 
 /* ── Trending hashtags block ────────────────────────────────────────── */
 
@@ -277,37 +252,8 @@
 	gap: var(--s4);
 }
 
-/* ── Member card block ──────────────────────────────────────────────── */
-
-.bn-member-card {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--r-lg);
-	padding: var(--s4);
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	text-align: center;
-	gap: var(--s2);
-	text-decoration: none;
-	transition: box-shadow 0.12s;
-}
-
-.bn-member-card:hover {
-	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-}
-
-.bn-member-card__name {
-	font-size: var(--text-sm);
-	font-weight: var(--fw-semibold);
-	color: var(--text-1);
-	margin: 0;
-}
-
-.bn-member-card__role {
-	font-size: var(--text-xs);
-	color: var(--text-3);
-}
+/* Member card block — .bn-member-card is defined ONCE in bn-members.css
+ * (on --bn-* tokens). No block-local copy here. */
 
 /* ── Follow button block ────────────────────────────────────────────── */
 
@@ -595,25 +541,8 @@
 	color: var(--brand);
 }
 
-.bn-completion-bar {
-	background: var(--border);
-	border-radius: var(--r-full);
-	height: 8px;
-	overflow: hidden;
-	margin-bottom: var(--s3);
-}
-
-.bn-completion-bar__fill {
-	height: 100%;
-	background: linear-gradient(90deg, var(--brand), var(--brand-hover));
-	border-radius: var(--r-full);
-	transition: width 0.8s cubic-bezier(0.25, 0.8, 0.25, 1);
-	width: 0;
-}
-
-.bn-completion-bar__fill--animated {
-	/* JS sets width via inline style after mount */
-}
+/* .bn-completion-bar / .bn-completion-bar__fill are defined ONCE in
+ * bn-profile.css (on --bn-p-* tokens). No copy here. */
 
 .bn-completion-steps {
 	display: flex;
@@ -825,10 +754,6 @@
 [data-theme="dark"] .wp-block-buddynext-profile-completion-bar {
 	background: var(--surface);
 	border-color: var(--border);
-}
-
-[data-theme="dark"] .bn-member-card:hover {
-	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 [data-theme="dark"] .bn-post-card:hover {

@@ -1797,4 +1797,86 @@ class ProfileService {
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		}
 	}
+
+	/**
+	 * Count posts a user has published in the trailing 7 days — the "+N this
+	 * week" growth chip beside the profile post-count stat tile.
+	 *
+	 * @param int $user_id Profile user ID.
+	 * @return int
+	 */
+	public function post_delta_7d( int $user_id ): int {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
+				 WHERE user_id = %d AND status = 'published'
+				   AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )",
+				$user_id
+			)
+		);
+	}
+
+	/**
+	 * Count followers gained in the trailing 7 days.
+	 *
+	 * Filters status = 'approved' so pending follow-requests (the private-account
+	 * gate) don't inflate the delta, keeping it consistent with
+	 * FollowService::follower_count().
+	 *
+	 * @param int $user_id Profile user ID.
+	 * @return int
+	 */
+	public function follower_delta_7d( int $user_id ): int {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows
+				 WHERE following_id = %d AND status = 'approved'
+				   AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )",
+				$user_id
+			)
+		);
+	}
+
+	/**
+	 * Count accounts the user started following in the trailing 7 days.
+	 *
+	 * @param int $user_id Profile user ID.
+	 * @return int
+	 */
+	public function following_delta_7d( int $user_id ): int {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows
+				 WHERE follower_id = %d AND status = 'approved'
+				   AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )",
+				$user_id
+			)
+		);
+	}
+
+	/**
+	 * Count connections accepted in the trailing 7 days (either direction).
+	 *
+	 * @param int $user_id Profile user ID.
+	 * @return int
+	 */
+	public function connection_delta_7d( int $user_id ): int {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_connections
+				 WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted'
+				   AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )",
+				$user_id,
+				$user_id
+			)
+		);
+	}
 }

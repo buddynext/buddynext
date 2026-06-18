@@ -981,16 +981,59 @@ class SpaceMemberService {
 	 * default $limit = 0 preserves the original unbounded behaviour for existing
 	 * callers. Use count_members() for the matching total.
 	 *
-	 * @param int $space_id  Space ID.
-	 * @param int $viewer_id Viewing user ID; when non-zero, blocked users are excluded.
-	 * @param int $limit     Max rows to return; 0 = no limit.
-	 * @param int $offset    Row offset (applied only when $limit > 0).
-	 * @return array[] Each item: user_id, role, joined_at.
+	 * The projection now also carries display_name and user_nicename (joined from
+	 * wp_users) so the members template can render and link a member without a
+	 * per-row lookup. Existing callers that only read user_id/role/joined_at are
+	 * unaffected.
+	 *
+	 * Optional $args refine the roster (all default to the original behaviour):
+	 *   search (string)  — match display_name / user_login / user_nicename (LIKE).
+	 *   role   (string)  — restrict to one role: 'owner' | 'moderator' | 'member'.
+	 *   exclude_suspended (bool) — compose ModerationService::moderation_exclude_sql()
+	 *                       to drop suspended + shadow-banned users (default false,
+	 *                       so existing callers keep the full active roster).
+	 *
+	 * @param int                  $space_id  Space ID.
+	 * @param int                  $viewer_id Viewing user ID; when non-zero, blocked users are excluded.
+	 * @param int                  $limit     Max rows to return; 0 = no limit.
+	 * @param int                  $offset    Row offset (applied only when $limit > 0).
+	 * @param array<string, mixed> $args      Optional search / role / exclude_suspended refinements.
+	 * @return array[] Each item: user_id, role, joined_at, display_name, user_nicename.
 	 */
-	public function get_members( int $space_id, int $viewer_id = 0, int $limit = 0, int $offset = 0 ): array {
+	public function get_members( int $space_id, int $viewer_id = 0, int $limit = 0, int $offset = 0, array $args = array() ): array {
 		global $wpdb;
 
 		$block_where = $this->member_block_where( $viewer_id );
+
+		// Optional role filter (validated against the allow-list).
+		$role_where = '';
+		$role       = isset( $args['role'] ) ? (string) $args['role'] : '';
+		if ( in_array( $role, self::ALLOWED_ROLES, true ) ) {
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$role_where = $wpdb->prepare( ' AND sm.role = %s', $role );
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+
+		// Optional name search across the three identity columns.
+		$search_where = '';
+		$search       = isset( $args['search'] ) ? trim( (string) $args['search'] ) : '';
+		if ( '' !== $search ) {
+			$like = '%' . $wpdb->esc_like( $search ) . '%';
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$search_where = $wpdb->prepare(
+				' AND ( u.display_name LIKE %s OR u.user_login LIKE %s OR u.user_nicename LIKE %s )',
+				$like,
+				$like,
+				$like
+			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+
+		// Optional suspension / shadow-ban exclusion via the canonical builder.
+		$moderation_where = '';
+		if ( ! empty( $args['exclude_suspended'] ) ) {
+			$moderation_where = ' ' . buddynext_service( 'moderation' )->moderation_exclude_sql( 'sm.user_id' );
+		}
 
 		$limit_sql = '';
 		if ( $limit > 0 ) {
@@ -1002,10 +1045,11 @@ class SpaceMemberService {
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT sm.user_id, sm.role, sm.joined_at
+				"SELECT sm.user_id, sm.role, sm.joined_at, u.display_name, u.user_nicename
 				 FROM {$wpdb->prefix}bn_space_members sm
+				 INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id
 				 WHERE sm.space_id = %d AND sm.status = 'active'
-				   {$block_where}
+				   {$block_where}{$role_where}{$search_where}{$moderation_where}
 				 ORDER BY sm.joined_at ASC{$limit_sql}",
 				$space_id
 			),
@@ -1015,12 +1059,132 @@ class SpaceMemberService {
 
 		return array_map(
 			fn( $r ) => array(
-				'user_id'   => (int) $r['user_id'],
-				'role'      => $r['role'],
-				'joined_at' => $r['joined_at'],
+				'user_id'       => (int) $r['user_id'],
+				'role'          => $r['role'],
+				'joined_at'     => $r['joined_at'],
+				'display_name'  => (string) ( $r['display_name'] ?? '' ),
+				'user_nicename' => (string) ( $r['user_nicename'] ?? '' ),
 			),
 			(array) $rows
 		);
+	}
+
+	/**
+	 * Map a user's membership across a set of spaces in one query.
+	 *
+	 * Powers the directory grid, which previously ran an inline IN(...) query to
+	 * decorate each card with the viewer's role/status. Returns only the spaces
+	 * the user has a row in; absent space IDs mean "not a member".
+	 *
+	 * @param int   $user_id   Member to look up.
+	 * @param int[] $space_ids Space IDs to check.
+	 * @return array<int, array{role: string, status: string}> Keyed by space_id.
+	 */
+	public function membership_map( int $user_id, array $space_ids ): array {
+		$user_id   = absint( $user_id );
+		$space_ids = array_values( array_unique( array_filter( array_map( 'absint', $space_ids ) ) ) );
+
+		if ( $user_id <= 0 || empty( $space_ids ) ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ', ', array_fill( 0, count( $space_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT space_id, role, status
+				 FROM {$wpdb->prefix}bn_space_members
+				 WHERE user_id = %d AND space_id IN ( {$placeholders} )",
+				$user_id,
+				...$space_ids
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$map = array();
+		foreach ( (array) $rows as $row ) {
+			$map[ (int) $row['space_id'] ] = array(
+				'role'   => (string) $row['role'],
+				'status' => (string) $row['status'],
+			);
+		}
+
+		return $map;
+	}
+
+	/**
+	 * Return active members eligible to receive ownership of a space.
+	 *
+	 * Everyone except the current owner — the candidate list a settings screen
+	 * offers when transferring ownership. Joined to wp_users so the picker can
+	 * render a name without a per-row lookup.
+	 *
+	 * @param int $space_id        Space ID.
+	 * @param int $exclude_owner_id Current owner to leave out of the list.
+	 * @return array[] Each item: user_id, role, display_name.
+	 */
+	public function transfer_candidates( int $space_id, int $exclude_owner_id ): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT sm.user_id, sm.role, u.display_name
+				 FROM {$wpdb->prefix}bn_space_members sm
+				 INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id
+				 WHERE sm.space_id = %d AND sm.status = 'active' AND sm.user_id <> %d
+				 ORDER BY u.display_name ASC",
+				$space_id,
+				$exclude_owner_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map(
+			static fn( $r ) => array(
+				'user_id'      => (int) $r['user_id'],
+				'role'         => (string) $r['role'],
+				'display_name' => (string) $r['display_name'],
+			),
+			(array) $rows
+		);
+	}
+
+	/**
+	 * Return the space IDs a user is an active member of.
+	 *
+	 * A bulk accessor for "is the viewer in any of these spaces" decorations
+	 * (e.g. onboarding's joined-set) so a template never loops get_status().
+	 * Ordered newest-joined first.
+	 *
+	 * @param int $user_id Member to look up.
+	 * @return int[] Active space IDs.
+	 */
+	public function spaces_for_user( int $user_id ): array {
+		$user_id = absint( $user_id );
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT space_id FROM {$wpdb->prefix}bn_space_members
+				 WHERE user_id = %d AND status = 'active'
+				 ORDER BY joined_at DESC",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( 'intval', (array) $ids );
 	}
 
 	/**

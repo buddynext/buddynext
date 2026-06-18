@@ -151,7 +151,13 @@ class HashtagService {
 	 * states that followers-only/private posts must not appear in hashtag feeds.
 	 *
 	 * @param string $tag  Hashtag slug (without #).
-	 * @param array  $args Optional args: per_page (int, max 50), cursor (string).
+	 * @param array  $args Optional args:
+	 *                     per_page (int, max 50),
+	 *                     cursor (string),
+	 *                     sort ('latest' default | 'top' | 'following'),
+	 *                     viewer_id (int) — required for the 'following' sort,
+	 *                       which restricts results to posts whose author the
+	 *                       viewer follows.
 	 * @return array{items: array[], next_cursor: string|null, hashtag: array|null}
 	 */
 	public function get_feed( string $tag, array $args = array() ): array {
@@ -166,13 +172,17 @@ class HashtagService {
 			);
 		}
 
-		$per_page = min( (int) ( $args['per_page'] ?? 20 ), 50 );
-		$cursor   = ( isset( $args['cursor'] ) && is_string( $args['cursor'] ) ) ? $args['cursor'] : null;
+		$per_page  = min( (int) ( $args['per_page'] ?? 20 ), 50 );
+		$cursor    = ( isset( $args['cursor'] ) && is_string( $args['cursor'] ) ) ? $args['cursor'] : null;
+		$sort      = in_array( $args['sort'] ?? 'latest', array( 'latest', 'top', 'following' ), true ) ? (string) $args['sort'] : 'latest';
+		$viewer_id = isset( $args['viewer_id'] ) ? (int) $args['viewer_id'] : 0;
 
 		// SCALE-CONTRACT §2: keyset cursor, never OFFSET. Key on the pivot's
 		// (hashtag_id, created_at) index so every page is O(per_page) regardless
 		// of depth. has_more is derived from a per_page+1 fetch, so no COUNT(*)
-		// runs on the read path (SCALE-CONTRACT §3).
+		// runs on the read path (SCALE-CONTRACT §3). The cursor is always the
+		// recency keyset; 'top' re-orders within that window rather than paging
+		// on a score, keeping the keyset stable across sorts.
 		$cursor_where  = '';
 		$cursor_params = array();
 		$decoded       = ( null !== $cursor ) ? $this->decode_feed_cursor( $cursor ) : null;
@@ -181,10 +191,26 @@ class HashtagService {
 			$cursor_params = array( $decoded['created_at'], $decoded['created_at'], $decoded['id'] );
 		}
 
+		// ORDER BY: 'top' ranks by engagement first (still tie-broken on the
+		// recency keyset so pagination is deterministic); 'latest'/'following'
+		// page purely by recency.
+		$order_sql = ( 'top' === $sort )
+			? '( p.reaction_count + p.comment_count + p.share_count ) DESC, ph.created_at DESC, ph.post_id DESC'
+			: 'ph.created_at DESC, ph.post_id DESC';
+
 		global $wpdb;
 
 		$posts_tbl = $wpdb->prefix . 'bn_posts';
 		$pivot_tbl = $wpdb->prefix . 'bn_post_hashtags';
+
+		// 'following' restricts to posts whose author the viewer follows; with no
+		// viewer (guest) it degrades to the latest feed rather than an empty list.
+		$follow_join  = '';
+		$follow_param = array();
+		if ( 'following' === $sort && $viewer_id > 0 ) {
+			$follow_join  = " INNER JOIN {$wpdb->prefix}bn_follows f ON f.following_id = p.user_id AND f.follower_id = %d AND f.status = 'approved'";
+			$follow_param = array( $viewer_id );
+		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
@@ -194,14 +220,15 @@ class HashtagService {
 				        ph.created_at AS bn_cursor_ts
 				 FROM {$pivot_tbl} ph
 				 INNER JOIN {$posts_tbl} p ON p.id = ph.post_id
+				 {$follow_join}
 				 WHERE ph.hashtag_id  = %d
 				   AND ph.object_type = 'post'
 				   AND p.status       = 'published'
 				   AND p.privacy      = 'public'
 				   {$cursor_where}
-				 ORDER BY ph.created_at DESC, ph.post_id DESC
+				 ORDER BY {$order_sql}
 				 LIMIT %d",
-				...array_merge( array( $hashtag['id'] ), $cursor_params, array( $per_page + 1 ) )
+				...array_merge( $follow_param, array( $hashtag['id'] ), $cursor_params, array( $per_page + 1 ) )
 			),
 			ARRAY_A
 		);
@@ -210,8 +237,8 @@ class HashtagService {
 		$rows        = (array) $rows;
 		$next_cursor = null;
 		if ( count( $rows ) > $per_page ) {
-			$rows = array_slice( $rows, 0, $per_page );
-			$last = $rows[ count( $rows ) - 1 ];
+			$rows        = array_slice( $rows, 0, $per_page );
+			$last        = $rows[ count( $rows ) - 1 ];
 			$next_cursor = $this->encode_feed_cursor( (string) $last['bn_cursor_ts'], (int) $last['id'] );
 		}
 
@@ -668,6 +695,177 @@ class HashtagService {
 		wp_cache_set( $cache_key, $results, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $results;
+	}
+
+	/**
+	 * Return hashtags frequently used alongside a given hashtag — the "related
+	 * tags" rail on the hashtag feed — ordered by co-occurrence count.
+	 *
+	 * Finds posts carrying $slug, then the other hashtags on those same posts,
+	 * ranked by how often they co-occur. The seed tag itself is excluded.
+	 *
+	 * @param string $slug  Hashtag slug (without #).
+	 * @param int    $limit Max related tags (1-20). Default 6.
+	 * @return array[] Hydrated hashtag rows (with a co_occurrence count).
+	 */
+	public function related( string $slug, int $limit = 6 ): array {
+		$hashtag = $this->get_by_slug( $slug );
+		if ( null === $hashtag ) {
+			return array();
+		}
+		$limit = max( 1, min( 20, $limit ) );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT h.id, h.name, h.slug, h.post_count, h.follower_count, h.created_at,
+				        COUNT(*) AS co_occurrence
+				 FROM {$wpdb->prefix}bn_post_hashtags seed
+				 INNER JOIN {$wpdb->prefix}bn_post_hashtags other
+				         ON other.post_id = seed.post_id
+				        AND other.object_type = seed.object_type
+				        AND other.hashtag_id <> seed.hashtag_id
+				 INNER JOIN {$wpdb->prefix}bn_hashtags h ON h.id = other.hashtag_id
+				 WHERE seed.hashtag_id = %d AND seed.object_type = 'post'
+				 GROUP BY h.id
+				 ORDER BY co_occurrence DESC, h.post_count DESC
+				 LIMIT %d",
+				$hashtag['id'],
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return array_map(
+			function ( array $row ): array {
+				$out                  = $this->hydrate( $row );
+				$out['co_occurrence'] = isset( $row['co_occurrence'] ) ? (int) $row['co_occurrence'] : 0;
+				return $out;
+			},
+			(array) $rows
+		);
+	}
+
+	/**
+	 * Return the top contributors to a hashtag — the members who have posted the
+	 * most public, published posts carrying it, most prolific first.
+	 *
+	 * @param int $hashtag_id Hashtag ID.
+	 * @param int $limit      Max contributors (1-20). Default 5.
+	 * @return array<int,array{user_id:int, display_name:string, post_count:int}>
+	 */
+	public function top_contributors( int $hashtag_id, int $limit = 5 ): array {
+		if ( $hashtag_id <= 0 ) {
+			return array();
+		}
+		$limit = max( 1, min( 20, $limit ) );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT p.user_id, u.display_name, COUNT(*) AS post_count
+				 FROM {$wpdb->prefix}bn_post_hashtags ph
+				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = ph.post_id
+				 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
+				 WHERE ph.hashtag_id = %d AND ph.object_type = 'post'
+				   AND p.status = 'published' AND p.privacy = 'public'
+				 GROUP BY p.user_id
+				 ORDER BY post_count DESC
+				 LIMIT %d",
+				$hashtag_id,
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return array_map(
+			static function ( array $row ): array {
+				return array(
+					'user_id'      => (int) $row['user_id'],
+					'display_name' => (string) $row['display_name'],
+					'post_count'   => (int) $row['post_count'],
+				);
+			},
+			(array) $rows
+		);
+	}
+
+	/**
+	 * Count the distinct members who have posted public, published posts under a
+	 * hashtag. Backs the "N contributors" figure on the hashtag feed.
+	 *
+	 * @param int $hashtag_id Hashtag ID.
+	 * @return int
+	 */
+	public function contributor_count( int $hashtag_id ): int {
+		if ( $hashtag_id <= 0 ) {
+			return 0;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(DISTINCT p.user_id)
+				 FROM {$wpdb->prefix}bn_post_hashtags ph
+				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = ph.post_id
+				 WHERE ph.hashtag_id = %d AND ph.object_type = 'post'
+				   AND p.status = 'published' AND p.privacy = 'public'",
+				$hashtag_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Return a slug => bool map of which of the given hashtag slugs a user
+	 * follows, resolved in a single query. Kills the per-row is_following() N+1
+	 * in the hashtag sidebar's "related/trending" list.
+	 *
+	 * Slugs the user does not follow are present in the map with a false value,
+	 * so callers can index by slug without an isset() guard.
+	 *
+	 * @param int               $user_id User to check.
+	 * @param array<int,string> $slugs Hashtag slugs (without #).
+	 * @return array<string,bool>
+	 */
+	public function following_map( int $user_id, array $slugs ): array {
+		$normalized = array();
+		foreach ( $slugs as $slug ) {
+			$norm = sanitize_key( ltrim( (string) $slug, '#' ) );
+			if ( '' !== $norm ) {
+				$normalized[ $norm ] = false;
+			}
+		}
+		if ( $user_id <= 0 || empty( $normalized ) ) {
+			return $normalized;
+		}
+
+		$slug_list    = array_keys( $normalized );
+		$placeholders = implode( ',', array_fill( 0, count( $slug_list ), '%s' ) );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$followed = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT h.slug
+				 FROM {$wpdb->prefix}bn_hashtag_follows hf
+				 INNER JOIN {$wpdb->prefix}bn_hashtags h ON h.id = hf.hashtag_id
+				 WHERE hf.user_id = %d AND h.slug IN ({$placeholders})",
+				...array_merge( array( $user_id ), $slug_list )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		foreach ( (array) $followed as $slug ) {
+			$normalized[ (string) $slug ] = true;
+		}
+
+		return $normalized;
 	}
 
 	/**

@@ -679,6 +679,135 @@
 	line-height: var(--leading-normal);
 }
 
+/* ── Shared member card + pagination (cross-screen component) ─────────────────
+   Used by the member directory, profile followers/following/connections panels,
+   the connections/followers/following shortcodes, and search member results.
+   Lives in bn-base (loaded on every BN page as the feature-style dependency) so
+   it is styled everywhere it renders, regardless of which feature stylesheet a
+   screen enqueues — consolidated here from bn-members/bn-spaces/bn-profile/blocks. */
+.bn-member-card {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	padding-block: var(--bn-s5) var(--bn-s4);
+	padding-inline: var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-surface);
+	transition: border-color var(--bn-dur) var(--bn-ease);
+}
+
+.bn-member-card:hover {
+	border-color: var(--bn-line-strong);
+}
+
+.bn-member-name {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-base);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	margin: 0 0 var(--bn-s1);
+	line-height: var(--bn-leading-tight);
+}
+
+.bn-member-name a {
+	color: inherit;
+	text-decoration: none;
+}
+
+.bn-member-name a:hover {
+	color: var(--bn-accent);
+}
+
+.bn-member-handle {
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	margin: 0 0 var(--bn-s2);
+}
+
+.bn-card-actions {
+	display: flex;
+	gap: var(--bn-s2);
+	margin-block-start: auto;
+	inline-size: 100%;
+	justify-content: center;
+	flex-wrap: wrap;
+}
+
+.bn-btn-message {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-inline-size: 36px;
+	min-block-size: 36px;
+	padding-inline: var(--bn-s3);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink-2);
+	text-decoration: none;
+	transition: border-color var(--bn-dur) var(--bn-ease), color var(--bn-dur) var(--bn-ease);
+}
+
+.bn-btn-message:hover,
+.bn-btn-message:focus-visible {
+	border-color: var(--bn-accent);
+	color: var(--bn-accent);
+}
+
+.bn-btn-message:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+}
+
+.bn-pagination {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin-block-start: var(--bn-s6);
+	padding-block: var(--bn-s4);
+	flex-wrap: wrap;
+}
+
+.bn-page-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-inline-size: 36px;
+	min-block-size: 36px;
+	padding-inline: var(--bn-s2);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink-2);
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-sm);
+	text-decoration: none;
+	transition: border-color var(--bn-dur) var(--bn-ease), color var(--bn-dur) var(--bn-ease);
+}
+
+.bn-page-btn:hover,
+.bn-page-btn:focus-visible {
+	border-color: var(--bn-accent);
+	color: var(--bn-accent);
+}
+
+.bn-page-btn:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+}
+
+.bn-page-btn.current,
+.bn-page-btn[aria-current="page"] {
+	background: var(--bn-accent);
+	border-color: var(--bn-accent);
+	color: var(--bn-accent-fg);
+}
+
 /* ── Mobile bottom tab bar ────────────────────────────────────────────── */
 .bn-mobile-nav {
 	display: none; /* Hidden on desktop */

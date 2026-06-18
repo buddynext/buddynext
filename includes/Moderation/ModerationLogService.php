@@ -110,6 +110,10 @@ class ModerationLogService {
 	 *     Optional query args.
 	 *     @type int    $user_id  Filter to entries targeting this user (0 = all).
 	 *     @type string $action   Filter to a single action slug ('' = all).
+	 *     @type int    $space_id Filter to entries scoped to this space (0 = all).
+	 *     @type string $since    Only entries at/after this datetime ('' = all).
+	 *                            Accepts any strtotime-parsable value; normalised
+	 *                            to MySQL 'Y-m-d H:i:s'.
 	 *     @type int    $per_page Rows per page (1-100, default 20).
 	 *     @type int    $page     1-based page number (default 1).
 	 * }
@@ -120,6 +124,14 @@ class ModerationLogService {
 
 		$user_id  = isset( $args['user_id'] ) ? (int) $args['user_id'] : 0;
 		$action   = isset( $args['action'] ) ? sanitize_key( (string) $args['action'] ) : '';
+		$space_id = isset( $args['space_id'] ) ? (int) $args['space_id'] : 0;
+		$since     = '';
+		if ( ! empty( $args['since'] ) ) {
+			$ts = strtotime( (string) $args['since'] );
+			if ( false !== $ts ) {
+				$since = gmdate( 'Y-m-d H:i:s', $ts );
+			}
+		}
 		$per_page = isset( $args['per_page'] ) ? max( 1, min( 100, (int) $args['per_page'] ) ) : 20;
 		$page     = isset( $args['page'] ) ? max( 1, (int) $args['page'] ) : 1;
 		$offset   = ( $page - 1 ) * $per_page;
@@ -133,6 +145,14 @@ class ModerationLogService {
 		if ( '' !== $action ) {
 			$where[]  = 'action = %s';
 			$params[] = $action;
+		}
+		if ( $space_id > 0 ) {
+			$where[]  = 'space_id = %d';
+			$params[] = $space_id;
+		}
+		if ( '' !== $since ) {
+			$where[]  = 'created_at >= %s';
+			$params[] = $since;
 		}
 		$where_sql = implode( ' AND ', $where );
 

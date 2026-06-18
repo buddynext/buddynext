@@ -372,7 +372,7 @@ class NotificationPrefService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT s.id AS space_id, s.name, s.slug, COALESCE( NULLIF( sm.notification_pref, '' ), 'all' ) AS pref
+				"SELECT s.id AS space_id, s.name, s.slug, s.avatar_url, COALESCE( NULLIF( sm.notification_pref, '' ), 'all' ) AS pref
 				 FROM {$wpdb->prefix}bn_spaces s
 				 INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active'
 				 ORDER BY s.name ASC",
@@ -385,10 +385,11 @@ class NotificationPrefService {
 		return array_map(
 			static function ( array $row ): array {
 				return array(
-					'space_id' => (int) $row['space_id'],
-					'name'     => (string) $row['name'],
-					'slug'     => (string) $row['slug'],
-					'pref'     => (string) $row['pref'],
+					'space_id'   => (int) $row['space_id'],
+					'name'       => (string) $row['name'],
+					'slug'       => (string) $row['slug'],
+					'avatar_url' => (string) ( $row['avatar_url'] ?? '' ),
+					'pref'       => (string) $row['pref'],
 				);
 			},
 			(array) $rows
