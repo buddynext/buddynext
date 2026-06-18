@@ -173,9 +173,19 @@ class PostService {
 		}
 		$data = (array) $filtered;
 
+		// Authorize attached media before persisting. media_ids are WPMediaVerse
+		// media-index ids supplied by the client; without an ownership check a
+		// member could attach another member's (possibly private) media to their
+		// own post. Reject the post if any id is not theirs.
+		$owned_media = $this->authorize_media_ids( (array) ( $data['media_ids'] ?? array() ), $user_id );
+		if ( is_wp_error( $owned_media ) ) {
+			return $owned_media;
+		}
+		$data['media_ids'] = $owned_media;
+
 		global $wpdb;
 
-		$media_ids = isset( $data['media_ids'] ) ? wp_json_encode( $data['media_ids'] ) : null;
+		$media_ids = ! empty( $owned_media ) ? wp_json_encode( $owned_media ) : null;
 
 		// Auto-fetch OG metadata when link_url is set but link_meta is empty.
 		if ( ! empty( $data['link_url'] ) && empty( $data['link_meta'] ) ) {
@@ -351,6 +361,51 @@ class PostService {
 			return $privacy->can_mention( $actor_id, $target_id );
 		}
 		return true;
+	}
+
+	/**
+	 * Authorize the media a user is attaching to a post.
+	 *
+	 * The media_ids are WPMediaVerse media-index ids passed in by the client. A
+	 * member must only attach media they uploaded — otherwise they could attach
+	 * (and surface signed URLs for) another member's possibly-private media: an
+	 * IDOR. Site admins may attach any media (curation / moderation reposts).
+	 * When the engine is unavailable the ids can neither be verified nor
+	 * rendered, so attachments are dropped rather than blocking the post.
+	 *
+	 * @param array $media_ids Raw media ids from the request.
+	 * @param int   $user_id   Posting user.
+	 * @return int[]|WP_Error Sanitised owned ids, or WP_Error if one is not owned.
+	 */
+	private function authorize_media_ids( array $media_ids, int $user_id ): array|WP_Error {
+		$ids = array_values( array_unique( array_filter( array_map( 'absint', $media_ids ) ) ) );
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		// Site admins may attach any media (curation / moderation reposts).
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return $ids;
+		}
+
+		$repo = \BuddyNext\Media\MediaClient::repo();
+		if ( ! $repo || ! method_exists( $repo, 'get_author' ) ) {
+			// Engine absent: media cannot be resolved or rendered and ownership
+			// cannot be verified. Drop attachments instead of blocking the post.
+			return array();
+		}
+
+		foreach ( $ids as $mid ) {
+			if ( (int) $repo->get_author( $mid ) !== $user_id ) {
+				return new WP_Error(
+					'media_forbidden',
+					__( 'You can only attach media you uploaded.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
+		}
+
+		return $ids;
 	}
 
 	/**
