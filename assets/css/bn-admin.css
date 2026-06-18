@@ -488,7 +488,7 @@ input.bn-text-input {
 
 input.bn-text-input:focus {
 	border-color: var(--bn-a-brand) !important;
-	box-shadow: 0 0 0 1px var(--bn-a-brand) !important;
+	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 20%, transparent) !important;
 	outline: none !important;
 }
 
@@ -505,7 +505,7 @@ textarea.bn-text-input {
 
 textarea.bn-text-input:focus {
 	border-color: var(--bn-a-brand) !important;
-	box-shadow: 0 0 0 1px var(--bn-a-brand) !important;
+	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 20%, transparent) !important;
 	outline: none !important;
 }
 
@@ -523,7 +523,7 @@ select.bn-select-input {
 
 select.bn-select-input:focus {
 	border-color: var(--bn-a-brand) !important;
-	box-shadow: 0 0 0 1px var(--bn-a-brand) !important;
+	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 20%, transparent) !important;
 	outline: none !important;
 }
 
@@ -543,7 +543,7 @@ select.bn-text-input {
 
 select.bn-text-input:focus {
 	border-color: var(--bn-a-brand) !important;
-	box-shadow: 0 0 0 1px var(--bn-a-brand) !important;
+	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 20%, transparent) !important;
 	outline: none !important;
 }
 
@@ -765,7 +765,7 @@ input.bn-table-search {
 
 input.bn-table-search:focus {
 	border-color: var(--bn-a-brand) !important;
-	box-shadow: 0 0 0 1px var(--bn-a-brand) !important;
+	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 20%, transparent) !important;
 	outline: none !important;
 }
 
@@ -1238,7 +1238,7 @@ button.bn-btn-danger:hover {
 
 .bn-search-input:focus {
 	border-color: var(--bn-a-brand) !important;
-	box-shadow: 0 0 0 1px var(--bn-a-brand) !important;
+	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 20%, transparent) !important;
 	outline: none !important;
 }
 
