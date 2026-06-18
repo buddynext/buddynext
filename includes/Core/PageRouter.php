@@ -877,10 +877,20 @@ class PageRouter {
 				'messages'      => self::messages_url(),
 			),
 		);
+		// Base config for the shared REST client module (@buddynext/rest-client).
+		// Emitted on bn-shell-extras (always enqueued on every hub) so the
+		// inline classic script runs before the deferred store modules read
+		// window.buddynextRestData. restNonce is the fallback; it self-refreshes
+		// via GET /auth/nonce when a 403 rest_cookie_invalid_nonce is hit.
+		$bn_rest_data = array(
+			'restBase'  => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+			'restNonce' => wp_create_nonce( 'wp_rest' ),
+		);
 		add_action(
 			'wp_enqueue_scripts',
-			static function () use ( $bn_shell_data ): void {
+			static function () use ( $bn_shell_data, $bn_rest_data ): void {
 				wp_localize_script( 'bn-shell-extras', 'bnShellData', $bn_shell_data );
+				wp_localize_script( 'bn-shell-extras', 'buddynextRestData', $bn_rest_data );
 			},
 			20
 		);

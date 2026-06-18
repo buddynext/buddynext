@@ -395,6 +395,42 @@ class AssetService {
 			$this->module_version( 'js/shell/dialog.js' )
 		);
 
+		// `@buddynext/rest-client` is the single front-end REST client
+		// (restFetch + automatic stale-nonce refresh). Every feature store
+		// imports it; it depends on shell-dialog for the error toast.
+		wp_register_script_module(
+			'@buddynext/rest-client',
+			$this->assets_url . 'js/shell/rest-client.js',
+			array( array( 'id' => '@buddynext/shell-dialog' ) ),
+			$this->module_version( 'js/shell/rest-client.js' )
+		);
+
+		// `@buddynext/nav-init` exposes onNavReady() — the uniform init binder
+		// every store uses so imperative setup re-runs after a client-side
+		// navigation (buddynext:navigated), not only on DOMContentLoaded.
+		wp_register_script_module(
+			'@buddynext/nav-init',
+			$this->assets_url . 'js/shell/nav-init.js',
+			array(),
+			$this->module_version( 'js/shell/nav-init.js' )
+		);
+
+		// `@buddynext/navigate` owns the bare-`buddynext` store's navigate
+		// action. The Interactivity router loads as a dynamic dependency, so it
+		// is fetched once on the first client-side navigation and reused.
+		wp_register_script_module(
+			'@buddynext/navigate',
+			$this->assets_url . 'js/shell/navigate.js',
+			array(
+				array( 'id' => '@wordpress/interactivity' ),
+				array(
+					'id'     => '@wordpress/interactivity-router',
+					'import' => 'dynamic',
+				),
+			),
+			$this->module_version( 'js/shell/navigate.js' )
+		);
+
 		$feature_modules = array(
 			'@buddynext/feed'               => 'feed/store',
 			'@buddynext/profile'            => 'profile/store',
@@ -431,7 +467,14 @@ class AssetService {
 		);
 
 		foreach ( $feature_modules as $id => $path ) {
-			$deps = array( array( 'id' => '@wordpress/interactivity' ) );
+			// Every store imports the shared REST client and the nav-init
+			// helper, so both are declared as dependencies uniformly (the
+			// browser still only fetches what a module actually imports).
+			$deps = array(
+				array( 'id' => '@wordpress/interactivity' ),
+				array( 'id' => '@buddynext/rest-client' ),
+				array( 'id' => '@buddynext/nav-init' ),
+			);
 			if ( in_array( $id, $shell_dialog_consumers, true ) ) {
 				$deps[] = array( 'id' => '@buddynext/shell-dialog' );
 			}

@@ -238,6 +238,46 @@ class AuthController {
 				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/auth/nonce',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_nonce' ),
+				'permission_callback' => '__return_true',
+			)
+		);
+	}
+
+	/**
+	 * GET /auth/nonce — mint a fresh wp_rest nonce for this session.
+	 *
+	 * Used by the shared front-end REST client to recover from a stale-nonce
+	 * 403 without forcing a full page reload. Chicken-and-egg subtlety: the
+	 * refresh request itself carries the stale nonce, so core's
+	 * rest_cookie_check_errors() has already downgraded it to user 0 — minting
+	 * here would produce an anonymous nonce that can never verify against the
+	 * caller's logged-in cookie. Re-validate the auth cookie directly (the same
+	 * trust basis core's own admin-ajax `rest-nonce` refresh uses: cookie alone,
+	 * no nonce) and mint for that user. Safe: the response is a nonce usable only
+	 * by the same session, and cross-origin callers cannot read it.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function get_nonce(): WP_REST_Response {
+		if ( ! is_user_logged_in() ) {
+			$cookie_user = wp_validate_auth_cookie( '', 'logged_in' );
+			if ( $cookie_user ) {
+				wp_set_current_user( $cookie_user );
+			}
+		}
+
+		$response = new WP_REST_Response( array( 'nonce' => wp_create_nonce( 'wp_rest' ) ) );
+		// A nonce response must never come from a page/CDN cache.
+		$response->header( 'Cache-Control', 'no-cache, no-store, must-revalidate' );
+
+		return $response;
 	}
 
 	/**
