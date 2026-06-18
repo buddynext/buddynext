@@ -555,18 +555,24 @@ $bn_search_ctx = array(
 					$bn_total_active = (int) $total_counts[ $active_tab ];
 					$bn_total_pages  = (int) ceil( $bn_total_active / $bn_per_page );
 					if ( $bn_total_pages > 1 ) :
-						$bn_page_url = static function ( int $page ) use ( $raw_query, $active_tab, $date_filter, $sort_by ): string {
-							return esc_url(
-								add_query_arg(
-									array(
-										'q'     => $raw_query,
-										'type'  => $active_tab,
-										'date'  => $date_filter,
-										'sort'  => $sort_by,
-										'spage' => $page,
-									)
-								)
+						$bn_page_url = static function ( int $page ) use ( $raw_query, $active_tab, $date_filter, $sort_by, $adv_tier_slug, $adv_space_id, $adv_member_label, $adv_joined_after, $adv_active_days ): string {
+							// Carry the advanced member filters onto page 2+ — without these
+							// in the use()/args the filters silently dropped on paging, so
+							// later pages showed an unfiltered result set. Empty values are
+							// stripped so unfiltered URLs stay clean.
+							$args = array(
+								'q'                  => $raw_query,
+								'type'               => $active_tab,
+								'date'               => $date_filter,
+								'sort'               => $sort_by,
+								'spage'              => $page,
+								'tier_slug'          => '' !== $adv_tier_slug ? $adv_tier_slug : false,
+								'space_id'           => $adv_space_id > 0 ? $adv_space_id : false,
+								'member_label'       => '' !== $adv_member_label ? $adv_member_label : false,
+								'joined_after'       => '' !== $adv_joined_after ? $adv_joined_after : false,
+								'active_within_days' => $adv_active_days > 0 ? $adv_active_days : false,
 							);
+							return esc_url( add_query_arg( array_filter( $args, static fn( $v ): bool => false !== $v ) ) );
 						};
 						?>
 						<nav class="bn-search__pagination" aria-label="<?php esc_attr_e( 'Search results pages', 'buddynext' ); ?>">
