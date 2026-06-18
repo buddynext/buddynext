@@ -54,6 +54,18 @@ class FollowController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_followers' ),
 				'permission_callback' => '__return_true',
+				'args'                => array(
+					'per_page' => array(
+						'type'              => 'integer',
+						'default'           => 20,
+						'sanitize_callback' => 'absint',
+					),
+					'page'     => array(
+						'type'              => 'integer',
+						'default'           => 1,
+						'sanitize_callback' => 'absint',
+					),
+				),
 			)
 		);
 
@@ -64,6 +76,18 @@ class FollowController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_following' ),
 				'permission_callback' => '__return_true',
+				'args'                => array(
+					'per_page' => array(
+						'type'              => 'integer',
+						'default'           => 20,
+						'sanitize_callback' => 'absint',
+					),
+					'page'     => array(
+						'type'              => 'integer',
+						'default'           => 1,
+						'sanitize_callback' => 'absint',
+					),
+				),
 			)
 		);
 
@@ -286,10 +310,19 @@ class FollowController extends BaseRestController {
 	public function get_followers( WP_REST_Request $request ): WP_REST_Response {
 		$user_id   = (int) $request->get_param( 'id' );
 		$viewer_id = get_current_user_id();
-		$followers = buddynext_service( 'follows' )->followers( $user_id );
+		$per_page  = max( 1, min( 50, (int) $request->get_param( 'per_page' ) ) );
+		$page      = max( 1, (int) $request->get_param( 'page' ) );
+
+		$service   = buddynext_service( 'follows' );
+		$followers = $service->get_followers( $user_id, array( 'per_page' => $per_page, 'page' => $page ) );
 
 		return new WP_REST_Response(
-			array( 'ids' => $this->filter_blocked( $followers, $viewer_id ) ),
+			array(
+				'ids'      => $this->filter_blocked( $followers, $viewer_id ),
+				'total'    => $service->follower_count( $user_id ),
+				'page'     => $page,
+				'per_page' => $per_page,
+			),
 			200
 		);
 	}
@@ -305,10 +338,19 @@ class FollowController extends BaseRestController {
 	public function get_following( WP_REST_Request $request ): WP_REST_Response {
 		$user_id   = (int) $request->get_param( 'id' );
 		$viewer_id = get_current_user_id();
-		$following = buddynext_service( 'follows' )->following( $user_id );
+		$per_page  = max( 1, min( 50, (int) $request->get_param( 'per_page' ) ) );
+		$page      = max( 1, (int) $request->get_param( 'page' ) );
+
+		$service   = buddynext_service( 'follows' );
+		$following = $service->get_following( $user_id, array( 'per_page' => $per_page, 'page' => $page ) );
 
 		return new WP_REST_Response(
-			array( 'ids' => $this->filter_blocked( $following, $viewer_id ) ),
+			array(
+				'ids'      => $this->filter_blocked( $following, $viewer_id ),
+				'total'    => $service->following_count( $user_id ),
+				'page'     => $page,
+				'per_page' => $per_page,
+			),
 			200
 		);
 	}

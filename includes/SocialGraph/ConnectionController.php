@@ -83,6 +83,18 @@ class ConnectionController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_connections' ),
 				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'per_page' => array(
+						'type'              => 'integer',
+						'default'           => 20,
+						'sanitize_callback' => 'absint',
+					),
+					'page'     => array(
+						'type'              => 'integer',
+						'default'           => 1,
+						'sanitize_callback' => 'absint',
+					),
+				),
 			)
 		);
 
@@ -93,6 +105,18 @@ class ConnectionController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_connection_requests' ),
 				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'per_page' => array(
+						'type'              => 'integer',
+						'default'           => 20,
+						'sanitize_callback' => 'absint',
+					),
+					'page'     => array(
+						'type'              => 'integer',
+						'default'           => 1,
+						'sanitize_callback' => 'absint',
+					),
+				),
 			)
 		);
 
@@ -271,11 +295,23 @@ class ConnectionController extends BaseRestController {
 	 *
 	 * @return WP_REST_Response
 	 */
-	public function get_connections(): WP_REST_Response {
-		$current_id  = get_current_user_id();
-		$connections = buddynext_service( 'connections' )->connections( $current_id );
+	public function get_connections( WP_REST_Request $request ): WP_REST_Response {
+		$current_id = get_current_user_id();
+		$per_page   = max( 1, min( 50, (int) $request->get_param( 'per_page' ) ) );
+		$page       = max( 1, (int) $request->get_param( 'page' ) );
 
-		return new WP_REST_Response( array( 'ids' => $connections ), 200 );
+		$service     = buddynext_service( 'connections' );
+		$connections = $service->connections( $current_id, $per_page, ( $page - 1 ) * $per_page );
+
+		return new WP_REST_Response(
+			array(
+				'ids'      => $connections,
+				'total'    => $service->connection_count( $current_id ),
+				'page'     => $page,
+				'per_page' => $per_page,
+			),
+			200
+		);
 	}
 
 	/**
@@ -283,10 +319,21 @@ class ConnectionController extends BaseRestController {
 	 *
 	 * @return WP_REST_Response
 	 */
-	public function get_connection_requests(): WP_REST_Response {
+	public function get_connection_requests( WP_REST_Request $request ): WP_REST_Response {
 		$current_id = get_current_user_id();
-		$pending    = buddynext_service( 'connections' )->pending_received( $current_id );
+		$per_page   = max( 1, min( 50, (int) $request->get_param( 'per_page' ) ) );
+		$page       = max( 1, (int) $request->get_param( 'page' ) );
 
-		return new WP_REST_Response( array( 'ids' => $pending ), 200 );
+		$pending = buddynext_service( 'connections' )->pending_received( $current_id, $per_page, ( $page - 1 ) * $per_page );
+
+		return new WP_REST_Response(
+			array(
+				'ids'      => $pending,
+				'page'     => $page,
+				'per_page' => $per_page,
+				'has_more' => count( $pending ) === $per_page,
+			),
+			200
+		);
 	}
 }
