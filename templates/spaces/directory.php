@@ -669,7 +669,7 @@ $bn_subtitle = sprintf(
 						<div class="bn-sd-card__foot">
 							<?php if ( 0 === (int) $current_user_id ) : ?>
 								<a
-									href="<?php echo esc_url( wp_login_url( \BuddyNext\Core\PageRouter::space_url( (int) $space_id ) ) ); ?>"
+									href="<?php echo esc_url( \BuddyNext\Core\PageRouter::auth_url() . '?redirect_to=' . rawurlencode( buddynext_space_url( $space->slug ) ) ); ?>"
 									class="bn-btn"
 									data-variant="primary"
 									data-size="sm"
