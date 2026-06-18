@@ -143,6 +143,18 @@ if ( 'feed' === $hub && 'explore' === (string) get_query_var( 'bn_activity_actio
 }
 ?>
 <nav class="bn-app__rail" aria-label="<?php esc_attr_e( 'Community navigation', 'buddynext' ); ?>">
+	<?php
+	// Community logo (Settings → Appearance → buddynext_logo_url). Rendered at
+	// the top of the rail, linking home, so an uploaded logo actually appears in
+	// the site navigation — previously the option was only consumed by the auth
+	// page and emails.
+	$bn_rail_logo = (string) get_option( 'buddynext_logo_url', '' );
+	if ( '' !== $bn_rail_logo ) :
+		?>
+		<a class="bn-rail__logo" href="<?php echo esc_url( PageRouter::activity_url() ); ?>" aria-label="<?php echo esc_attr( get_bloginfo( 'name' ) ); ?>">
+			<img src="<?php echo esc_url( $bn_rail_logo ); ?>" alt="<?php echo esc_attr( get_bloginfo( 'name' ) ); ?>">
+		</a>
+	<?php endif; ?>
 	<?php // Collapse toggle — shrinks the rail to an icon-only panel. State is
 		// persisted in localStorage and stamped on <html data-bn-rail> before
 		// paint by assets/js/shell/font-scale.js. ?>

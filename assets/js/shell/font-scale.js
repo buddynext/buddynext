@@ -105,7 +105,12 @@
 	// colour-mode system is present.
 	function themeColorMode() {
 		var m = document.documentElement.getAttribute( 'data-bx-mode' );
-		return THEMES.indexOf( m ) !== -1 ? m : null;
+		// Only an EXPLICIT host light/dark mode overrides BN's own preference and
+		// the admin Default Theme. The host's 'auto' means "no explicit choice"
+		// (follow the system), so it must not win over the Default Theme setting —
+		// otherwise that setting never applies on a host theme that ships
+		// data-bx-mode="auto" (e.g. Reign/BuddyX defaults).
+		return ( 'light' === m || 'dark' === m ) ? m : null;
 	}
 	function currentPref() {
 		return themeColorMode() || readThemePref();
@@ -171,7 +176,11 @@
 	// the BN surface flips with it — one control, both layers.
 	document.addEventListener( 'bx:color-mode-change', function ( e ) {
 		var mode = e && e.detail ? e.detail.mode : null;
-		applyTheme( effectiveFromPref( THEMES.indexOf( mode ) !== -1 ? mode : currentPref() ) );
+		// Mirror themeColorMode(): only an explicit host light/dark drives the BN
+		// surface. The host's 'auto' falls through to currentPref(), so the admin
+		// Default Theme (or the visitor's own choice) still wins.
+		var resolved = ( 'light' === mode || 'dark' === mode ) ? mode : currentPref();
+		applyTheme( effectiveFromPref( resolved ) );
 		syncPressed();
 	} );
 
