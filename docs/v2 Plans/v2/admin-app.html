@@ -482,8 +482,9 @@ function tableCardRaw(cols,rows){return `<table><thead><tr>${cols.map(c=>`<th>${
 function renderEditor(){
   return phead('Edit plan','Create or edit a membership plan and what it unlocks.','plans')
    +`<div class="edit"><div>`
-   +card({t:'Plan details',i:'coin',d:'',f:[F.text('Plan name','','Pro'),F.area('Description','','Full access to premium spaces and DMs.'),F.num('Price','','9'),F.sel('Billing','',['Monthly','Yearly','One-time'])]})
-   +card({t:'Entitlements',i:'shield',d:'What this plan unlocks.',f:[F.toggle('Premium spaces','',true),F.toggle('Unlimited DMs','',true),F.toggle('Profile badge','',true)]})
+   +card({t:'Plan details',i:'coin',d:'',f:[F.text('Plan name','Shown on the pricing page.','Pro'),F.text('Slug','URL-safe, unique. Auto-filled from the name.','pro'),F.area('Description','Sold on the checkout page.','Full access to premium spaces and DMs.')]})
+   +card({t:'Pricing',i:'coin',d:'',f:[F.num('Price','','9'),F.sel('Currency','',['USD','EUR','GBP','INR']),F.sel('Billing cycle','',['Monthly','Yearly','One-time']),F.num('Trial days','0 = no trial.','0'),F.num('Max members','0 = unlimited seats.','0')]})
+   +card({t:'Entitlements',i:'shield',d:'What this plan unlocks for subscribers.',f:[F.toggle('Premium spaces','',true),F.toggle('Unlimited direct messages','',true),F.toggle('Profile badge','',true),F.toggle('Priority support','',false),F.toggle('Advanced analytics','',false),F.toggle('Custom branding','',false)]})
    +`</div><div class="meta-card"><h4>Publish</h4><div class="fr"><div class="m"><label>Status</label></div><div class="c"><select><option>Active</option><option>Inactive</option></select></div></div><button class="btn pri" style="width:100%;justify-content:center;margin-top:8px">Save plan</button><button class="btn gho" style="width:100%;justify-content:center;margin-top:8px">Preview checkout</button></div></div>`;
 }
 function renderWizard(){
