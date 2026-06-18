@@ -435,10 +435,10 @@ class SpaceMemberServiceTest extends \WP_UnitTestCase {
 		// Warm the role cache.
 		$this->service->get_role( $this->space_id, $user_id );
 
-		$result = $this->service->set_notification_pref( $this->space_id, $user_id, 'mentions' );
+		$result = $this->service->set_notification_pref( $this->space_id, $user_id, 'mentions_only' );
 		$this->assertTrue( $result );
 
-		$this->assertSame( 'mentions', $this->service->get_notification_pref( $this->space_id, $user_id ) );
+		$this->assertSame( 'mentions_only', $this->service->get_notification_pref( $this->space_id, $user_id ) );
 
 		$cache_key = "role_{$this->space_id}_{$user_id}";
 		$this->assertFalse( wp_cache_get( $cache_key, 'buddynext_space_members' ) );
