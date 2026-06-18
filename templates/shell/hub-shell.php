@@ -71,8 +71,17 @@ $bn_community_nav = buddynext_community_nav_enabled();
 if ( ! $bn_community_nav ) {
 	$bn_shell_classes .= ' bn-app__shell--no-nav';
 }
+
+// Client-side navigation wiring (data-wp-interactive + router region + navigate
+// click handler) is emitted ONLY when client-nav is enabled. While it is off
+// (the rollout default), the shell renders exactly as before — the whole .bn-app
+// is NOT promoted to a single Interactivity hydration region, which otherwise
+// repaints the feed on every load.
+$bn_client_nav   = (bool) apply_filters( 'buddynext_client_nav_enabled', false );
+$bn_app_attrs    = $bn_client_nav ? ' data-wp-interactive="buddynext" data-wp-on--click="actions.navigate"' : '';
+$bn_region_attrs = $bn_client_nav ? ' data-wp-interactive="buddynext" data-wp-router-region="buddynext/main"' : '';
 ?>
-<div class="bn-app" id="bn-app" data-bn-hub="<?php echo esc_attr( $hub ); ?>" data-wp-interactive="buddynext" data-wp-on--click="actions.navigate">
+<div class="bn-app" id="bn-app" data-bn-hub="<?php echo esc_attr( $hub ); ?>"<?php echo $bn_app_attrs; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal static attribute string, no user data ?>>
 
 	<div class="<?php echo esc_attr( $bn_shell_classes ); ?>">
 
@@ -80,7 +89,7 @@ if ( ! $bn_community_nav ) {
 			<?php buddynext_get_template( 'shell/rail.php', array( 'hub' => $hub ) ); ?>
 		<?php endif; ?>
 
-		<main class="bn-app__main" id="bn-main-content" tabindex="-1" data-wp-interactive="buddynext" data-wp-router-region="buddynext/main">
+		<main class="bn-app__main" id="bn-main-content" tabindex="-1"<?php echo $bn_region_attrs; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal static attribute string, no user data ?>>
 			<?php
 			// Trusted: buffered output from buddynext_get_template() — already escaped at point of emit.
 			echo $bn_main_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
