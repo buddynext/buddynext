@@ -589,6 +589,42 @@ const { actions } = store( 'buddynext/messages', {
 				ctx.attachmentName    = snapshot.attachmentName;
 				ctx.attachmentPreview = snapshot.attachmentPreview;
 				ctx.attachmentVisible = !! ( parseInt( snapshot.attachmentId, 10 ) || 0 );
+
+				// Surface a reason-aware notice so a denied send is never silent —
+				// the recipient may have blocked the sender or hit a limit after the
+				// thread opened. Reasons mirror the mvs/v1 send endpoint error codes.
+				const reason = ( res.data && res.data.error ) || '';
+				let denyMsg;
+				switch ( reason ) {
+					case 'blocked':
+						denyMsg = 'You can no longer message this person.';
+						break;
+					case 'dms_disabled':
+						denyMsg = 'This person isn’t accepting messages right now.';
+						break;
+					case 'connections_only':
+					case 'mutual_follow_required':
+						denyMsg = 'This person only accepts messages from their connections.';
+						break;
+					case 'rate_limited':
+						denyMsg = 'You’re sending messages too quickly — please wait a moment.';
+						break;
+					case 'content_too_long':
+						denyMsg = 'That message is too long to send.';
+						break;
+					case 'not_participant':
+						denyMsg = 'You can no longer post to this conversation.';
+						break;
+					case 'duplicate_message':
+						denyMsg = '';
+						break; // dedupe guard — the message already went through.
+					default:
+						denyMsg = 'Your message couldn’t be sent. Please try again.';
+						break;
+				}
+				if ( denyMsg ) {
+					bnToast( denyMsg, { tone: 'danger' } );
+				}
 			}
 		},
 

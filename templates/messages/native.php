@@ -62,15 +62,18 @@ if ( $active_conv_id <= 0 ) {
 // hero) are all in use across the site; accept every alias so every "Message"
 // entry point lands correctly.
 $bn_blocked_recipient = 0;
+$bn_block_reason      = '';
 if ( $active_conv_id <= 0 ) {
 	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	$bn_to = absint( $_GET['to'] ?? ( $_GET['recipient'] ?? ( $_GET['with'] ?? 0 ) ) );
 	if ( $bn_to > 0 ) {
-		$active_conv_id = MessagesData::open_with( $viewer, $bn_to );
+		$bn_open        = MessagesData::open_with_result( $viewer, $bn_to );
+		$active_conv_id = (int) $bn_open['conversation_id'];
 		if ( $active_conv_id <= 0 ) {
 			// Messaging this member is not allowed (DM access level, block, or
-			// self) — surface a clear reason instead of a blank thread pane.
+			// self) — surface a reason-aware notice instead of a blank thread pane.
 			$bn_blocked_recipient = $bn_to;
+			$bn_block_reason      = (string) $bn_open['reason'];
 		}
 	}
 }
@@ -220,23 +223,49 @@ $bn_ctx = wp_json_encode(
 				?>
 			</div>
 		<?php elseif ( $bn_blocked_recipient > 0 ) : ?>
-			<?php $bn_blocked_user = get_userdata( $bn_blocked_recipient ); ?>
+			<?php
+			$bn_blocked_user = get_userdata( $bn_blocked_recipient );
+			$bn_blocked_name = $bn_blocked_user ? $bn_blocked_user->display_name : __( 'This member', 'buddynext' );
+			// Map the engine's denial reason to a clear, member-facing sentence so
+			// the sender understands WHY (blocked / restricted inbox / too new /
+			// rate limited) rather than a single catch-all line. Reasons mirror
+			// MessagingService::can_message(); the default covers dms_disabled and
+			// any unknown/future code.
+			switch ( $bn_block_reason ) {
+				case 'blocked':
+					$bn_block_message = sprintf(
+						/* translators: %s: member display name. */
+						__( 'You can no longer message %s.', 'buddynext' ),
+						$bn_blocked_name
+					);
+					break;
+				case 'mutual_follow_required':
+				case 'connections_only':
+					$bn_block_message = sprintf(
+						/* translators: %s: member display name. */
+						__( '%s only accepts messages from people they are connected with.', 'buddynext' ),
+						$bn_blocked_name
+					);
+					break;
+				case 'account_too_new':
+					$bn_block_message = __( 'Your account is too new to message this member yet. Please try again later.', 'buddynext' );
+					break;
+				case 'rate_limited':
+					$bn_block_message = __( 'You are starting conversations too quickly. Please wait a moment and try again.', 'buddynext' );
+					break;
+				default:
+					$bn_block_message = sprintf(
+						/* translators: %s: member display name. */
+						__( '%s isn’t accepting messages from you right now.', 'buddynext' ),
+						$bn_blocked_name
+					);
+					break;
+			}
+			?>
 			<div class="bn-dm-empty" role="status">
 				<span class="bn-dm-empty__icon" aria-hidden="true"><?php buddynext_icon( 'ban' ); ?></span>
 				<h2 class="bn-dm-empty__title"><?php esc_html_e( 'You can’t message this member', 'buddynext' ); ?></h2>
-				<p class="bn-dm-empty__body">
-					<?php
-					echo esc_html(
-						$bn_blocked_user
-							? sprintf(
-								/* translators: %s: member display name. */
-								__( '%s isn’t accepting messages from you right now.', 'buddynext' ),
-								$bn_blocked_user->display_name
-							)
-							: __( 'This member isn’t accepting messages from you right now.', 'buddynext' )
-					);
-					?>
-				</p>
+				<p class="bn-dm-empty__body"><?php echo esc_html( $bn_block_message ); ?></p>
 				<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( $messages_url ); ?>">
 					<?php esc_html_e( 'Back to messages', 'buddynext' ); ?>
 				</a>

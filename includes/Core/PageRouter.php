@@ -171,7 +171,7 @@ class PageRouter {
 			'buddynext_page_notifications' => 'notifications',
 		);
 		foreach ( $map as $option => $slug ) {
-			if ( $front_id === (int) get_option( $option ) ) {
+			if ( (int) get_option( $option ) === $front_id ) {
 				return $slug;
 			}
 		}
@@ -179,6 +179,16 @@ class PageRouter {
 		return '';
 	}
 
+	/**
+	 * Render the resolved hub template as a standalone document.
+	 *
+	 * The terminal step of the routing chain: handles the legacy /search/ →
+	 * /activity/search/ redirect, sets up a virtual post so theme template tags
+	 * resolve, resolves the hub template, and emits the full HTML document
+	 * (wp_head + content + wp_footer). Hooked on template_redirect.
+	 *
+	 * @return void
+	 */
 	public function dispatch_hub_template(): void {
 		// Legacy /search/ → canonical /activity/search/ (301), preserving ?q=.
 		if ( '' !== (string) get_query_var( 'bn_legacy_search', '' ) ) {
@@ -364,7 +374,7 @@ class PageRouter {
 		// (and point the query's queried object at it) so every singular-path
 		// consumer has a valid object to read. Mirrors how BuddyPress stubs a
 		// dummy post for its component pages.
-		$virtual_post                = new \WP_Post(
+		$virtual_post = new \WP_Post(
 			(object) array(
 				'ID'             => 0,
 				'post_author'    => 0,
@@ -378,7 +388,11 @@ class PageRouter {
 				'filter'         => 'raw',
 			)
 		);
-		$GLOBALS['post']             = $virtual_post;
+		// A BuddyNext hub page has no real WP post, but theme template tags and
+		// the_post()-style helpers read $GLOBALS['post']. Assigning the virtual
+		// post here is the documented way to make a synthetic page render; it is
+		// intentional, not an accidental global mutation.
+		$GLOBALS['post']             = $virtual_post; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- intentional virtual post for synthetic hub page rendering.
 		$wp_query->post              = $virtual_post;
 		$wp_query->posts             = array( $virtual_post );
 		$wp_query->queried_object    = $virtual_post;
@@ -578,7 +592,7 @@ class PageRouter {
 
 		// Enqueue hub-specific asset bundles before wp_head() fires (which
 		// happens inside get_header() → theme's header.php).
-		$this->enqueue_hub_assets( $hub, $context );
+		$this->enqueue_hub_assets( $hub );
 
 		// Inject BuddyNext body classes via the standard body_class filter so
 		// the active theme's <body> tag carries them alongside its own classes.
@@ -826,14 +840,13 @@ class PageRouter {
 	/**
 	 * Enqueue the CSS/JS bundle(s) for the current hub before wp_head() fires.
 	 *
-	 * Called from dispatch_hub_template() after the hub and context are known,
-	 * so per-hub and per-action asset decisions can be made accurately.
+	 * Called from dispatch_hub_template() once the active hub is known, so
+	 * per-hub asset decisions can be made accurately.
 	 *
-	 * @param string               $hub     Active bn_hub value.
-	 * @param array<string, mixed> $context Template context built by build_hub_context().
+	 * @param string $hub Active bn_hub value.
 	 * @return void
 	 */
-	private function enqueue_hub_assets( string $hub, array $context ): void {
+	private function enqueue_hub_assets( string $hub ): void {
 		$assets = buddynext_service( 'assets' );
 
 		// Shell CSS + font-scale script — required on every BN hub so the
@@ -1714,7 +1727,7 @@ class PageRouter {
 	 * @param string $page_option The option name for the hub's page ID.
 	 * @return string Trailing-slashed absolute URL.
 	 */
-	public static function hub_url( string $slug_option, string $page_option ): string {
+	public static function hub_url( string $slug_option, string $page_option ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $page_option is retained for public-API stability; the slug is now the canonical URL source (see below).
 		// Always use the configurable slug — the WP page is a backing object
 		// for WP_Query resolution, not the canonical URL source.
 		$slug = self::hub_slug( $slug_option, self::default_slug( $slug_option ) );
