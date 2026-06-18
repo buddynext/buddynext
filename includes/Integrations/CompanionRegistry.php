@@ -117,6 +117,22 @@ final class CompanionRegistry {
 					'store_url' => 'https://wbcomdesigns.com/downloads/learnomy/',
 					'unlocks'   => __( 'Completed courses + certificates on member profiles.', 'buddynext' ),
 				),
+				'wb-listora'      => array(
+					'label'     => 'Listora',
+					'why'       => __( 'Directory listings — members publish and manage listings.', 'buddynext' ),
+					'detect'    => static fn(): bool => defined( 'WB_LISTORA_VERSION' ),
+					// Free download credentials mirror WB Listora's own EDD-SL SDK
+					// registration (wb-listora.php: item_id 1662779 + the shared free
+					// license key). CompanionInstaller activates in place when the
+					// plugin is already on disk.
+					'free'      => array(
+						'item_id'  => 1662779,
+						'key'      => 'wbcomfree8a5d1c7e3f2b9a4c6e0d1b7f9c2a6e55',
+						'basename' => 'wb-listora/wb-listora.php',
+					),
+					'store_url' => 'https://wbcomdesigns.com/downloads/wb-listora/',
+					'unlocks'   => __( 'Member listings surfaced in the feed + on profiles.', 'buddynext' ),
+				),
 			)
 		);
 	}

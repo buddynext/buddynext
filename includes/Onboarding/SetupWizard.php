@@ -1045,49 +1045,77 @@ class SetupWizard {
 	 * @return void
 	 */
 	private function render_step_addons(): void {
-		$addons = array(
-			array(
-				'name' => 'WPMediaVerse',
-				'slug' => 'wpmediaverse/wpmediaverse.php',
-				'desc' => __( 'Media sharing, direct messaging, and media reactions.', 'buddynext' ),
-			),
-			array(
-				'name' => 'Jetonomy',
-				'slug' => 'jetonomy/jetonomy.php',
-				'desc' => __( 'Forum-style discussions with threaded replies.', 'buddynext' ),
-			),
-			array(
-				'name' => 'WBGamification',
-				'slug' => 'wb-gamification/wb-gamification.php',
-				'desc' => __( 'Points, badges, and leaderboards for community engagement.', 'buddynext' ),
-			),
-			array(
-				'name' => 'Career Board',
-				'slug' => 'wp-job-manager/wp-job-manager.php',
-				'desc' => __( 'Job listings and member career profiles.', 'buddynext' ),
-			),
-		);
+		// One declarative catalog (CompanionRegistry) shared with the Integrations
+		// admin tab, so onboarding and Settings never drift. Each installable row is
+		// pre-checked: a site owner who clicks straight through gets the full
+		// community stack installed + activated on Continue. Already-active plugins
+		// are shown as connected (no action). Unchecking opts a plugin out.
+		$companions   = \BuddyNext\Integrations\CompanionRegistry::all();
+		$can_install  = current_user_can( 'install_plugins' ) && current_user_can( 'activate_plugins' );
+		$pending      = 0;
+		foreach ( $companions as $bn_slug => $bn_c ) {
+			if ( 'active' !== \BuddyNext\Integrations\CompanionRegistry::status( (string) $bn_slug ) ) {
+				++$pending;
+			}
+		}
 
 		$this->render_step_head(
 			__( 'What’s powering your community?', 'buddynext' ),
-			__( 'These companion plugins extend BuddyNext. Anything already active will integrate automatically — nothing to wire up here.', 'buddynext' ),
-			__( 'Activate or install addons later from Plugins.', 'buddynext' )
+			$can_install && $pending > 0
+				? __( 'These companion plugins extend BuddyNext. They’re all selected — Continue installs and activates them. Uncheck any you don’t want.', 'buddynext' )
+				: __( 'These companion plugins extend BuddyNext. Anything already active integrates automatically.', 'buddynext' ),
+			$can_install
+				? __( 'Installs the free editions from wbcomdesigns.com. You can manage them later under Plugins.', 'buddynext' )
+				: __( 'Ask an administrator to install these, or add them later from Plugins.', 'buddynext' )
 		);
 		?>
 
-		<ul class="bn-wizard__addons" role="list">
+		<ul class="bn-wizard__addons"
+			role="list"
+			data-bn-companions-setup
+			data-rest="<?php echo esc_url( rest_url( 'buddynext/v1/companions/install' ) ); ?>"
+			data-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
+			data-i18n-installing="<?php esc_attr_e( 'Installing…', 'buddynext' ); ?>"
+			data-i18n-activating="<?php esc_attr_e( 'Activating…', 'buddynext' ); ?>"
+			data-i18n-done="<?php esc_attr_e( 'Active', 'buddynext' ); ?>"
+			data-i18n-failed="<?php esc_attr_e( 'Failed', 'buddynext' ); ?>">
 			<?php
-			foreach ( $addons as $addon ) :
-				$active = is_plugin_active( $addon['slug'] );
+			foreach ( $companions as $bn_slug => $bn_c ) :
+				$bn_status = \BuddyNext\Integrations\CompanionRegistry::status( (string) $bn_slug );
+				$bn_active = ( 'active' === $bn_status );
+				$bn_label  = (string) ( $bn_c['label'] ?? $bn_slug );
+				$bn_why    = (string) ( $bn_c['why'] ?? '' );
+				// Pre-check every not-yet-active companion when the owner can install.
+				$bn_check  = ( ! $bn_active && $can_install );
+				$bn_field  = 'bn-companion-' . sanitize_html_class( (string) $bn_slug );
 				?>
-				<li class="bn-wizard__addon" data-state="<?php echo $active ? 'active' : 'inactive'; ?>">
-					<span class="bn-wizard__addon-dot" aria-hidden="true"></span>
-					<div class="bn-wizard__addon-info">
-						<span class="bn-wizard__addon-name"><?php echo esc_html( $addon['name'] ); ?></span>
-						<span class="bn-wizard__addon-desc"><?php echo esc_html( $addon['desc'] ); ?></span>
-					</div>
+				<li class="bn-wizard__addon" data-state="<?php echo $bn_active ? 'active' : esc_attr( $bn_status ); ?>" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
+					<?php if ( $bn_active ) : ?>
+						<span class="bn-wizard__addon-dot" aria-hidden="true"></span>
+					<?php elseif ( $can_install ) : ?>
+						<input type="checkbox"
+							class="bn-wizard__addon-check"
+							id="<?php echo esc_attr( $bn_field ); ?>"
+							value="<?php echo esc_attr( $bn_slug ); ?>"
+							<?php checked( $bn_check ); ?>>
+					<?php else : ?>
+						<span class="bn-wizard__addon-dot" aria-hidden="true"></span>
+					<?php endif; ?>
+					<label class="bn-wizard__addon-info" <?php echo ( ! $bn_active && $can_install ) ? 'for="' . esc_attr( $bn_field ) . '"' : ''; ?>>
+						<span class="bn-wizard__addon-name"><?php echo esc_html( $bn_label ); ?></span>
+						<span class="bn-wizard__addon-desc"><?php echo esc_html( $bn_why ); ?></span>
+						<span class="bn-wizard__addon-msg" role="status" aria-live="polite"></span>
+					</label>
 					<span class="bn-wizard__addon-status">
-						<?php echo $active ? esc_html__( 'Active', 'buddynext' ) : esc_html__( 'Not installed', 'buddynext' ); ?>
+						<?php
+						if ( $bn_active ) {
+							esc_html_e( 'Active', 'buddynext' );
+						} elseif ( 'inactive' === $bn_status ) {
+							esc_html_e( 'Installed — will activate', 'buddynext' );
+						} else {
+							esc_html_e( 'Not installed', 'buddynext' );
+						}
+						?>
 					</span>
 				</li>
 			<?php endforeach; ?>

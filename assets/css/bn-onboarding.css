@@ -1336,7 +1336,7 @@
 }
 .bn-wizard__addon {
 	display: grid;
-	grid-template-columns: 10px 1fr auto;
+	grid-template-columns: auto 1fr auto;
 	align-items: center;
 	gap: var(--bn-s3);
 	padding: var(--bn-s3) var(--bn-s4);
@@ -1344,6 +1344,23 @@
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-md);
 	list-style: none;
+}
+/* Companion install step: pre-checked rows that install + activate on Continue. */
+.bn-wizard__addon-check {
+	width: 16px;
+	height: 16px;
+	margin: 0;
+	flex-shrink: 0;
+	accent-color: var(--bn-accent, var(--brand));
+	cursor: pointer;
+}
+.bn-wizard__addon-info { cursor: default; }
+label.bn-wizard__addon-info[for] { cursor: pointer; }
+.bn-wizard__addon-msg { font-size: var(--bn-text-xs); color: oklch(50% 0.2 28); margin-top: 2px; }
+.bn-wizard__addon-msg:empty { display: none; }
+.bn-wizard__addon[data-state="failed"] .bn-wizard__addon-status {
+	background: color-mix(in oklch, oklch(58% 0.2 28) 16%, var(--bn-surface));
+	color: oklch(45% 0.2 28);
 }
 .bn-wizard__addon-dot {
 	width: 8px;
