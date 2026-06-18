@@ -388,10 +388,18 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 				scoring meter on a profile they're visiting. -->
 			<?php if ( $bn_pf_is_owner ) : ?>
 				<?php
-				$bn_pf_completion_pct = 0;
-				if ( function_exists( 'buddynext_service' ) ) {
-					$bn_pf_completion     = (array) buddynext_service( 'profiles' )->get_completion_score( $bn_pf_uid );
-					$bn_pf_completion_pct = (int) ( $bn_pf_completion['percent'] ?? 0 );
+				// Prefer the caller-supplied 6-task strength percentage (the same set
+				// the strength widget/checklist shows) so the chip matches the
+				// sidebar ring. Fall back to the field-wide completion score only
+				// when a caller renders the hero without it.
+				if ( isset( $strength_pct ) ) {
+					$bn_pf_completion_pct = (int) $strength_pct;
+				} else {
+					$bn_pf_completion_pct = 0;
+					if ( function_exists( 'buddynext_service' ) ) {
+						$bn_pf_completion     = (array) buddynext_service( 'profiles' )->get_completion_score( $bn_pf_uid );
+						$bn_pf_completion_pct = (int) ( $bn_pf_completion['percent'] ?? 0 );
+					}
 				}
 				?>
 				<div class="bn-pf-actions">

@@ -228,6 +228,24 @@ $member_spaces = $wpdb->get_results( $wpdb->prepare( "SELECT s.id, s.name, s.slu
 
 $interests    = array_filter( array_map( 'trim', explode( ',', $get_fv( 'skills', 'interests' ) ) ) );
 $completion   = $is_own_profile ? $profile_svc->get_completion_score( $user_id ) : null;
+
+// Profile-strength percentage from the SAME 6 curated tasks the strength
+// widget shows (bio, tagline, location, skills, work, linked account) — so the
+// mobile hero chip and the desktop sidebar ring agree. Driving the chip off
+// get_completion_score() (which scores every flat field) left mobile stuck at
+// e.g. 83% with all 6 visible tasks done. Sidebar computes the identical set.
+$bn_pf_strength_tasks = array(
+	'' !== $bio,
+	'' !== $headline,
+	'' !== $location,
+	! empty( $interests ),
+	! empty( $work_entries ),
+	! empty( $social_links ),
+);
+$bn_pf_strength_total = count( $bn_pf_strength_tasks );
+$bn_pf_strength_pct   = $bn_pf_strength_total > 0
+	? (int) round( ( count( array_filter( $bn_pf_strength_tasks ) ) / $bn_pf_strength_total ) * 100 )
+	: 0;
 $is_online    = buddynext_service( 'blocks' )->is_user_online( $current_user_id, $user_id );
 $format_count = static fn( int $n ): string => $n >= 1000 ? round( $n / 1000, 1 ) . 'k' : (string) $n;
 
@@ -462,6 +480,7 @@ $bn_pf_ctx = array(
 			'degree_badge'        => (string) $degree_badge,
 			'member_type'         => is_array( $member_type ) ? $member_type : array(),
 			'social_links'        => is_array( $social_links ) ? $social_links : array(),
+			'strength_pct'        => (int) $bn_pf_strength_pct,
 			'is_owner'            => (bool) $is_own_profile,
 			'can_edit_any'        => (bool) $bn_can_edit_any,
 			'is_online'           => (bool) $is_online,
