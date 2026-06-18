@@ -55,6 +55,13 @@
 	pointer-events: none;
 }
 .bn-explore-hero > * { position: relative; }
+.bn-explore-hero__brand {
+	font-family: var(--font-display, var(--font-body));
+	font-size: var(--text-lg);
+	font-weight: var(--fw-bold);
+	color: var(--text-1, inherit);
+	margin-bottom: var(--s1);
+}
 .bn-explore-hero__eyebrow {
 	font-family: var(--font-mono, var(--font-body));
 	font-size: var(--text-xs);

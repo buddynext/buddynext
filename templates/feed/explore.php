@@ -84,6 +84,17 @@ $bn_explore_filters = array(
 
 		<!-- Hero: community pulse + search -->
 		<section class="bn-explore-hero">
+			<?php
+			// Community name (Settings → General → Community Name) as the landing
+			// brand line. The description already renders as the hero title below;
+			// the name was configured but never shown on the landing page.
+			$bn_community_name = trim( (string) get_option( 'buddynext_site_name', (string) get_bloginfo( 'name' ) ) );
+			if ( '' !== $bn_community_name ) :
+				?>
+				<div class="bn-explore-hero__brand"><?php echo esc_html( $bn_community_name ); ?></div>
+				<?php
+			endif;
+			?>
 			<div class="bn-explore-hero__eyebrow">
 				<?php
 				printf(
