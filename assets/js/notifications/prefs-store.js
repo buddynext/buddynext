@@ -121,6 +121,20 @@ store( 'buddynext/notification-prefs', {
 			if ( ctx.savedAt )  { return 'Saved ' + formatSavedLabel( ctx.savedAt ); }
 			return '';
 		},
+		// Per-row reactive state — the row provides prefType, the chip provides
+		// chipFreq. Bound via data-wp-bind so toggling, and especially Reset to
+		// defaults (which rebuilds ctx.prefs), re-renders the controls instead of
+		// leaving the server-rendered checked/aria-pressed state stale.
+		get rowOnSite() {
+			var ctx = getContext();
+			var entry = ctx && ctx.prefs ? ctx.prefs[ ctx.prefType ] : null;
+			return !! ( entry && entry.on_site );
+		},
+		get rowFreqActive() {
+			var ctx = getContext();
+			var entry = ctx && ctx.prefs ? ctx.prefs[ ctx.prefType ] : null;
+			return !! ( entry && entry.email_freq === ctx.chipFreq );
+		},
 	},
 	callbacks: {
 		init() {

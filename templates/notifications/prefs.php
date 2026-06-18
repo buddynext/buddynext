@@ -254,7 +254,7 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 							);
 							$can_email    = (bool) ( $entry['can_email'] ?? true );
 							?>
-							<div class="bn-prefs-row" role="listitem">
+							<div class="bn-prefs-row" role="listitem" data-wp-context="<?php echo esc_attr( (string) wp_json_encode( array( 'prefType' => $type_slug ) ) ); ?>">
 								<div class="bn-prefs-row__copy">
 									<label class="bn-prefs-row__label" for="bn-pref-on-site-<?php echo esc_attr( $type_slug ); ?>">
 										<?php echo esc_html( (string) ( $entry['label'] ?? $type_slug ) ); ?>
@@ -267,6 +267,7 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 											id="bn-pref-on-site-<?php echo esc_attr( $type_slug ); ?>"
 											data-type="<?php echo esc_attr( $type_slug ); ?>"
 											<?php checked( (bool) $resolved_row['on_site'] ); ?>
+											data-wp-bind--checked="state.rowOnSite"
 											data-wp-on--change="actions.setOnSite">
 										<span class="bn-prefs-toggle__label"><?php esc_html_e( 'In-app', 'buddynext' ); ?></span>
 									</label>
@@ -281,7 +282,9 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 													class="bn-prefs-chip"
 													data-type="<?php echo esc_attr( $type_slug ); ?>"
 													data-freq="<?php echo esc_attr( $freq_value ); ?>"
+													data-wp-context="<?php echo esc_attr( (string) wp_json_encode( array( 'chipFreq' => $freq_value ) ) ); ?>"
 													aria-pressed="<?php echo $is_active ? 'true' : 'false'; ?>"
+													data-wp-bind--aria-pressed="state.rowFreqActive"
 													data-wp-on--click="actions.setEmailFreq">
 													<?php echo esc_html( $freq_label ); ?>
 												</button>
