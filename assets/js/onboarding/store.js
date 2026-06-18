@@ -315,35 +315,68 @@ store( 'buddynext/onboarding', {
 			const c = ctx();
 			const file = event && event.target && event.target.files ? event.target.files[ 0 ] : null;
 			if ( ! file ) { return; }
+			// Size cap matches the server (ProfileController: 4MB).
 			if ( file.size > 4 * 1024 * 1024 ) {
 				toast( 'Image too large. Max 4MB.', 'danger' );
 				return;
 			}
-			const form = new FormData();
-			form.append( 'avatar', file );
-			restFetch( '/me/avatar', {
-				base:  c.restUrl || '/wp-json/buddynext/v1/',
-				nonce: c.restNonce || '',
-				method: 'POST',
-				body:  form,
-				toastOnError: false,
-			} )
-				.then( ( r ) => {
-					if ( ! r.ok ) { throw new Error( 'Upload failed' ); }
-					return r.data;
+
+			// Send the file once dimensions are known — runs only after the pixel
+			// pre-check below passes.
+			const doUpload = () => {
+				const form = new FormData();
+				form.append( 'avatar', file );
+				restFetch( '/me/avatar', {
+					base:  c.restUrl || '/wp-json/buddynext/v1/',
+					nonce: c.restNonce || '',
+					method: 'POST',
+					body:  form,
+					toastOnError: false,
 				} )
-				.then( ( data ) => {
-					if ( data && data.avatar_url ) {
-						const img = document.querySelector( '.bn-ob-avatar img' );
-						if ( img ) { img.setAttribute( 'src', data.avatar_url ); }
-						// Drive the live preview card avatar reactively (state.previewAvatar).
-						c.avatarUrl = data.avatar_url;
-					}
-					toast( 'Profile photo updated.', 'success' );
-				} )
-				.catch( () => {
-					toast( 'Could not upload photo. Please try again.', 'danger' );
-				} );
+					.then( ( r ) => {
+						if ( ! r.ok ) {
+							// Surface the server's specific reason (avatar_too_large /
+							// avatar_dimensions / avatar_invalid_type) instead of a
+							// generic failure, so the user knows what to change.
+							const msg = r.data && r.data.message ? r.data.message : 'Could not upload photo. Please try again.';
+							throw new Error( msg );
+						}
+						return r.data;
+					} )
+					.then( ( data ) => {
+						if ( data && data.avatar_url ) {
+							const img = document.querySelector( '.bn-ob-avatar img' );
+							if ( img ) { img.setAttribute( 'src', data.avatar_url ); }
+							// Drive the live preview card avatar reactively (state.previewAvatar).
+							c.avatarUrl = data.avatar_url;
+						}
+						toast( 'Profile photo updated.', 'success' );
+					} )
+					.catch( ( err ) => {
+						toast( err && err.message ? err.message : 'Could not upload photo. Please try again.', 'danger' );
+					} );
+			};
+
+			// Pre-check pixel dimensions against the server cap (1024×1024) so the
+			// user gets an immediate, specific message rather than a 422 after a
+			// wasted upload.
+			const objectUrl = URL.createObjectURL( file );
+			const probe = new Image();
+			probe.onload = () => {
+				const tooBig = probe.naturalWidth > 1024 || probe.naturalHeight > 1024;
+				URL.revokeObjectURL( objectUrl );
+				if ( tooBig ) {
+					toast( 'Image must be at most 1024×1024 pixels. Please choose a smaller photo.', 'danger' );
+					return;
+				}
+				doUpload();
+			};
+			probe.onerror = () => {
+				URL.revokeObjectURL( objectUrl );
+				// Dimensions unreadable client-side; let the server decide.
+				doUpload();
+			};
+			probe.src = objectUrl;
 		},
 		finish() {
 			const c = ctx();

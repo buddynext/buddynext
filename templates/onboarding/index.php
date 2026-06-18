@@ -250,7 +250,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 						data-wp-on--change="actions.handleAvatarUpload" />
 					<div class="bn-ob-avatar-row__hint">
 						<strong><?php esc_html_e( 'Add a profile photo', 'buddynext' ); ?></strong>
-						<span><?php esc_html_e( 'JPG or PNG, max 4MB.', 'buddynext' ); ?></span>
+						<span><?php esc_html_e( 'JPG or PNG, max 4MB, up to 1024×1024px.', 'buddynext' ); ?></span>
 					</div>
 				</div>
 

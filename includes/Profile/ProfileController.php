@@ -1636,10 +1636,10 @@ class ProfileController extends BaseRestController {
 			);
 		}
 
-		if ( (int) ( $avatar_file['size'] ?? 0 ) > 2 * 1024 * 1024 ) {
+		if ( (int) ( $avatar_file['size'] ?? 0 ) > 4 * 1024 * 1024 ) {
 			return new WP_Error(
 				'avatar_too_large',
-				__( 'File must be under 2MB.', 'buddynext' ),
+				__( 'File must be under 4MB.', 'buddynext' ),
 				array( 'status' => 422 )
 			);
 		}
