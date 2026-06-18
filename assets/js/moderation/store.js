@@ -157,6 +157,62 @@ store( 'buddynext/moderation', {
 			}
 		},
 
+		/* ── Appeal review (community-admin Appeals tab) ───────────── */
+
+		* approveAppeal() {
+			const ctx = getContext();
+			if ( ! ctx.appealId || ! ctx.restNonce ) { return; }
+			const ok = yield bnConfirm( {
+				title: 'Approve this appeal?',
+				body: 'The member’s suspension will be lifted and they will be notified.',
+				confirmLabel: 'Approve',
+			} );
+			if ( ! ok ) { return; }
+			// Real route: POST /appeals/{id}/resolve { decision }.
+			const res = yield restFetch( 'appeals/' + ctx.appealId + '/resolve', {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'POST',
+				body: { decision: 'approved' },
+				toastOnError: false,
+			} );
+			if ( res.ok ) {
+				bnToast( 'Appeal approved — suspension lifted.', { tone: 'success' } );
+				const row = document.querySelector( '[data-appeal-id="' + ctx.appealId + '"]' );
+				if ( row ) { row.remove(); }
+			} else {
+				const emsg = ( res.data && res.data.message ) ? res.data.message : 'Could not approve the appeal. Try again.';
+				bnToast( emsg, { tone: 'danger' } );
+			}
+		},
+
+		* denyAppeal() {
+			const ctx = getContext();
+			if ( ! ctx.appealId || ! ctx.restNonce ) { return; }
+			const ok = yield bnConfirm( {
+				title: 'Deny this appeal?',
+				body: 'The suspension stays in place. The member will be notified of the decision.',
+				confirmLabel: 'Deny',
+				tone: 'danger',
+			} );
+			if ( ! ok ) { return; }
+			const res = yield restFetch( 'appeals/' + ctx.appealId + '/resolve', {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'POST',
+				body: { decision: 'denied' },
+				toastOnError: false,
+			} );
+			if ( res.ok ) {
+				bnToast( 'Appeal denied.', { tone: 'success' } );
+				const row = document.querySelector( '[data-appeal-id="' + ctx.appealId + '"]' );
+				if ( row ) { row.remove(); }
+			} else {
+				const emsg = ( res.data && res.data.message ) ? res.data.message : 'Could not deny the appeal. Try again.';
+				bnToast( emsg, { tone: 'danger' } );
+			}
+		},
+
 		/* ── Space moderation actions ──────────────────────────────── */
 
 		viewReportedPost() {

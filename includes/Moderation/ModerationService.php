@@ -1256,6 +1256,52 @@ class ModerationService {
 	}
 
 	/**
+	 * Fetch suspension rows by id, keyed by id.
+	 *
+	 * Lets the appeal-review surface show what each appeal is contesting (reason,
+	 * dates) in ONE query instead of a per-appeal lookup. Returns only the ids
+	 * that exist.
+	 *
+	 * @param int[] $ids Suspension ids.
+	 * @return array<int,array<string,mixed>> id => suspension row.
+	 */
+	public function get_suspensions_by_ids( array $ids ): array {
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $ids ) ) ) );
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		global $wpdb;
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, user_id, reason, duration_days, hide_posts, expires_at, created_at, lifted_at
+				 FROM {$wpdb->prefix}bn_user_suspensions
+				 WHERE id IN ( {$placeholders} )",
+				...$ids
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+
+		$out = array();
+		foreach ( (array) $rows as $row ) {
+			$out[ (int) $row['id'] ] = array(
+				'id'         => (int) $row['id'],
+				'user_id'    => (int) $row['user_id'],
+				'reason'     => (string) ( $row['reason'] ?? '' ),
+				'hide_posts' => (bool) $row['hide_posts'],
+				'expires_at' => $row['expires_at'],
+				'created_at' => $row['created_at'],
+				'lifted_at'  => $row['lifted_at'],
+			);
+		}
+		return $out;
+	}
+
+	/**
 	 * Count pending appeals awaiting an admin decision.
 	 *
 	 * @return int
@@ -1476,6 +1522,16 @@ class ModerationService {
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// An approved appeal must actually restore the member — lifting their
+		// active suspension is the whole point of granting the appeal. A
+		// "not suspended" result is ignored on purpose: the suspension may have
+		// already expired between filing and review, but the appeal decision
+		// still stands. unsuspend_user() fires buddynext_user_unsuspended, which
+		// notifies the member their account is back.
+		if ( 'approved' === $decision ) {
+			$this->unsuspend_user( $user_id, $actor_id );
+		}
 
 		/**
 		 * Fires after an appeal is resolved.

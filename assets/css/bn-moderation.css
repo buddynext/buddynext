@@ -734,6 +734,71 @@
 	flex-shrink: 0;
 }
 
+/* Appeal review card (community-admin Appeals tab). */
+.bn-ca-appeal {
+	padding: var(--bn-s4);
+	border-bottom: 1px solid var(--bn-line);
+}
+
+.bn-ca-appeal:last-child { border-bottom: none; }
+
+.bn-ca-appeal__head {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin-bottom: var(--bn-s3);
+}
+
+.bn-ca-appeal__who {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.bn-ca-appeal__name {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink-1);
+	text-decoration: none;
+}
+
+.bn-ca-appeal__name:hover { text-decoration: underline; }
+
+.bn-ca-appeal__meta {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+
+.bn-ca-appeal__contesting {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	margin: 0 0 var(--bn-s2);
+}
+
+.bn-ca-appeal__label {
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-semibold);
+	text-transform: uppercase;
+	letter-spacing: var(--bn-ls-wide, 0.04em);
+	color: var(--bn-ink-3);
+	margin-inline-end: var(--bn-s1);
+}
+
+.bn-ca-appeal__msg {
+	margin: 0 0 var(--bn-s3);
+	padding: var(--bn-s2) var(--bn-s3);
+	border-inline-start: 2px solid var(--bn-line-strong);
+	background: var(--bn-sunken);
+	border-radius: var(--bn-r-sm);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-1);
+}
+
+.bn-ca-appeal__actions {
+	display: flex;
+	gap: var(--bn-s2);
+}
+
 /* Report row — left bar shows severity. */
 .bn-ca-report-row {
 	display: flex;

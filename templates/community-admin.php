@@ -126,6 +126,33 @@ $pending_joins = $wpdb->get_results(
 	)
 );
 
+// ── Pending moderation appeals (suspension appeals awaiting review) ───────────
+
+$bn_ca_mod             = buddynext_service( 'moderation' );
+$pending_appeals       = $bn_ca_mod->get_pending_appeals( 25 );
+$total_pending_appeals = $bn_ca_mod->count_pending_appeals();
+
+// Batch-resolve appellant display names + the suspensions being contested so the
+// review surface shows full context in two queries, never one query per row.
+$bn_appeal_user_ids = array();
+$bn_appeal_susp_ids = array();
+foreach ( $pending_appeals as $bn_ca_ap ) {
+	$bn_appeal_user_ids[] = (int) $bn_ca_ap['user_id'];
+	$bn_appeal_susp_ids[] = (int) $bn_ca_ap['suspension_id'];
+}
+$bn_appeal_names = array();
+if ( ! empty( $bn_appeal_user_ids ) ) {
+	foreach ( get_users(
+		array(
+			'include' => array_values( array_unique( $bn_appeal_user_ids ) ),
+			'fields'  => array( 'ID', 'display_name' ),
+		)
+	) as $bn_ca_u ) {
+		$bn_appeal_names[ (int) $bn_ca_u->ID ] = (string) $bn_ca_u->display_name;
+	}
+}
+$bn_appeal_susps = $bn_ca_mod->get_suspensions_by_ids( $bn_appeal_susp_ids );
+
 // ── Open reports (cross-space) ────────────────────────────────────────────────
 
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -252,7 +279,7 @@ do_action( 'buddynext_community_admin_before' );
 
 <?php
 // Active section tab. Default 'reports' as the most action-oriented stream.
-$allowed_sections = array( 'reports', 'appeals', 'strikes', 'actions' );
+$allowed_sections = array( 'reports', 'mod_appeals', 'appeals', 'strikes', 'actions' );
 $active_section   = isset( $_GET['bn_section'] ) ? sanitize_key( wp_unslash( $_GET['bn_section'] ) ) : 'reports'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 if ( ! in_array( $active_section, $allowed_sections, true ) ) {
 	$active_section = 'reports';
@@ -456,19 +483,23 @@ $posts_pct_abs = abs( $posts_pct );
 			<nav class="bn-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Admin sections', 'buddynext' ); ?>">
 				<?php
 				$sections = array(
-					'reports' => array(
+					'reports'     => array(
 						'label' => __( 'Reports', 'buddynext' ),
 						'count' => (int) $open_reports,
 					),
-					'appeals' => array(
+					'mod_appeals' => array(
+						'label' => __( 'Appeals', 'buddynext' ),
+						'count' => (int) $total_pending_appeals,
+					),
+					'appeals'     => array(
 						'label' => __( 'Pending joins', 'buddynext' ),
 						'count' => (int) $total_pending_joins,
 					),
-					'strikes' => array(
+					'strikes'     => array(
 						'label' => __( 'Recent signups', 'buddynext' ),
 						'count' => is_countable( $recent_signups ) ? count( $recent_signups ) : 0,
 					),
-					'actions' => array(
+					'actions'     => array(
 						'label' => __( 'Recent actions', 'buddynext' ),
 						'count' => is_countable( $activity_rows ) ? count( $activity_rows ) : 0,
 					),
@@ -577,6 +608,76 @@ $posts_pct_abs = abs( $posts_pct );
 								?>
 							</a>
 						<?php endif; ?>
+					<?php endif; ?>
+				</section>
+
+			<?php elseif ( 'mod_appeals' === $active_section ) : ?>
+
+				<!-- Suspension appeals awaiting review -->
+				<section class="bn-ca-card" aria-labelledby="bn-ca-appeals-title" data-wp-interactive="buddynext/moderation">
+					<header class="bn-ca-card__head">
+						<span id="bn-ca-appeals-title" class="bn-ca-card__title">
+							<?php buddynext_icon( 'message-circle' ); ?>
+							<?php esc_html_e( 'Suspension appeals', 'buddynext' ); ?>
+							<span class="bn-ca-card__count"><?php echo esc_html( number_format_i18n( (int) $total_pending_appeals ) ); ?></span>
+						</span>
+					</header>
+
+					<?php if ( empty( $pending_appeals ) ) : ?>
+						<p class="bn-ca-card__empty"><?php esc_html_e( 'No appeals are waiting for review.', 'buddynext' ); ?></p>
+					<?php else : ?>
+						<?php foreach ( $pending_appeals as $bn_ca_ap ) : ?>
+							<?php
+							$ap_id     = (int) $bn_ca_ap['id'];
+							$ap_uid    = (int) $bn_ca_ap['user_id'];
+							$ap_name   = $bn_appeal_names[ $ap_uid ] ?? __( 'Member', 'buddynext' );
+							$ap_msg    = trim( (string) $bn_ca_ap['message'] );
+							$ap_when   = bn_time_diff( (string) $bn_ca_ap['created_at'] );
+							$ap_susp   = $bn_appeal_susps[ (int) $bn_ca_ap['suspension_id'] ] ?? null;
+							$ap_reason = $ap_susp ? trim( (string) $ap_susp['reason'] ) : '';
+							$ap_ctx    = wp_json_encode(
+								array(
+									'appealId'  => $ap_id,
+									'restUrl'   => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+									'restNonce' => wp_create_nonce( 'wp_rest' ),
+								)
+							);
+							?>
+							<div class="bn-ca-appeal" data-appeal-id="<?php echo esc_attr( (string) $ap_id ); ?>" data-wp-context="<?php echo esc_attr( (string) $ap_ctx ); ?>">
+								<div class="bn-ca-appeal__head">
+									<span class="bn-avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( bn_initials( $ap_name ) ); ?></span>
+									<div class="bn-ca-appeal__who">
+										<a class="bn-ca-appeal__name" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::profile_url( $ap_uid ) ); ?>"><?php echo esc_html( $ap_name ); ?></a>
+										<span class="bn-ca-appeal__meta"><?php echo esc_html( $ap_when ); ?></span>
+									</div>
+								</div>
+								<?php if ( '' !== $ap_reason ) : ?>
+									<p class="bn-ca-appeal__contesting">
+										<span class="bn-ca-appeal__label"><?php esc_html_e( 'Suspended for', 'buddynext' ); ?></span>
+										<?php echo esc_html( $ap_reason ); ?>
+									</p>
+								<?php endif; ?>
+								<?php if ( '' !== $ap_msg ) : ?>
+									<blockquote class="bn-ca-appeal__msg"><?php echo esc_html( $ap_msg ); ?></blockquote>
+								<?php endif; ?>
+								<div class="bn-ca-appeal__actions">
+									<button
+										type="button"
+										class="bn-btn"
+										data-variant="primary"
+										data-size="sm"
+										data-wp-on--click="actions.approveAppeal"
+									><?php esc_html_e( 'Approve & lift suspension', 'buddynext' ); ?></button>
+									<button
+										type="button"
+										class="bn-btn"
+										data-variant="ghost"
+										data-size="sm"
+										data-wp-on--click="actions.denyAppeal"
+									><?php esc_html_e( 'Deny', 'buddynext' ); ?></button>
+								</div>
+							</div>
+						<?php endforeach; ?>
 					<?php endif; ?>
 				</section>
 

@@ -262,6 +262,15 @@ class ShortcodeService {
 			return $this->login_required_html();
 		}
 
+		// The Appeals section's approve/deny controls run on the buddynext/moderation
+		// Interactivity store; enqueue it here (the panel is a shortcode page, not a
+		// routed hub, so the hub union-enqueue never runs for it). Script modules
+		// enqueued during the_content still print in the footer. The bn-moderation
+		// stylesheet is already loaded for the panel's .bn-ca-* chrome.
+		if ( function_exists( 'buddynext_service' ) ) {
+			buddynext_service( 'assets' )->enqueue( 'moderation' );
+		}
+
 		return $this->capture( 'community-admin.php', array() );
 	}
 
