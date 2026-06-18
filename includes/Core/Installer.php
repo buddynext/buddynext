@@ -35,8 +35,14 @@ class Installer {
 	 * 4 — added bn_space_categories.color / text_color / icon_svg / show_in_dir
 	 *     for parity with bn_member_types (unified taxonomy editor). Applied to
 	 *     existing installs via the idempotent column ALTER in maybe_alter_tables().
+	 * 6 — cron-minimisation pass: unschedule buddynext_publish_scheduled (1 min,
+	 *     now owned by Pro ScheduledPostsService), buddynext_trending_hashtags
+	 *     (30 min, now lazy transient in HashtagService::get_trending), recurring
+	 *     buddynext_webhook_retry (5 min, now reactive single-event in
+	 *     OutboundWebhookService); migrate buddynext_recount_stats from
+	 *     buddynext_5min to 'daily'. No schema change — migration is cron only.
 	 */
-	private const SCHEMA_VERSION = 5;
+	private const SCHEMA_VERSION = 6;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -52,6 +58,11 @@ class Installer {
 		}
 
 		self::run();
+
+		// v6: remove stale cron events from existing installs.
+		// Safe to call repeatedly — each step checks the current schedule state.
+		CronScheduler::run_cron_migration();
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
 	}
 

@@ -6,14 +6,22 @@
  * scheduled at boot.  All job handles are defined here so that other code
  * can reference them by constant rather than bare string.
  *
- * Jobs defined (matches spec 19 Action Scheduler table):
+ * Jobs defined:
  *   buddynext_daily_digest         — daily (first run at activation time, then every 24h)
  *   buddynext_weekly_digest        — weekly (first run at activation time, then every 7 days)
  *   buddynext_cleanup_tokens       — daily
  *   buddynext_cleanup_notifications— weekly (prune 90-day-old read rows)
- *   buddynext_trending_hashtags    — every 30 min
- *   buddynext_recount_stats        — every 5 min
- *   buddynext_publish_scheduled    — every 1 min
+ *   buddynext_cleanup_activity_log — weekly (honours data-retention window)
+ *   buddynext_recount_stats        — daily (counters maintained incrementally on write;
+ *                                    daily run is a reconcile pass only)
+ *
+ * Removed recurring jobs (converted to lazy/reactive):
+ *   buddynext_trending_hashtags    — dropped; HashtagService::get_trending() computes
+ *                                    lazily on first read and caches via transient (~30 min).
+ *   buddynext_publish_scheduled    — dropped; Pro owns scheduled-post publishing via
+ *                                    buddynextpro_publish_scheduled (ScheduledPostsService).
+ *   buddynext_webhook_retry        — dropped; OutboundWebhookService schedules a single
+ *                                    wp_schedule_single_event per failed delivery with backoff.
  *
  * @package BuddyNext\Core
  */
@@ -55,19 +63,10 @@ class CronScheduler {
 	public const JOB_CLEANUP_ACTIVITY_LOG = 'buddynext_cleanup_activity_log';
 
 	/**
-	 * Trending hashtags refresh job hook.
-	 */
-	public const JOB_TRENDING_HASHTAGS = 'buddynext_trending_hashtags';
-
-	/**
-	 * Counter recount job hook.
+	 * Counter recount job hook. Runs daily — counters are maintained
+	 * incrementally on every write; this is a reconcile pass only.
 	 */
 	public const JOB_RECOUNT_STATS = 'buddynext_recount_stats';
-
-	/**
-	 * Scheduled post publisher job hook.
-	 */
-	public const JOB_PUBLISH_SCHEDULED = 'buddynext_publish_scheduled';
 
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -87,39 +86,26 @@ class CronScheduler {
 		add_action( self::JOB_CLEANUP_TOKENS, array( $handlers, 'handle_cleanup_tokens' ) );
 		add_action( self::JOB_CLEANUP_NOTIFICATIONS, array( $handlers, 'handle_cleanup_notifications' ) );
 		add_action( self::JOB_CLEANUP_ACTIVITY_LOG, array( $handlers, 'handle_cleanup_activity_log' ) );
-		add_action( self::JOB_TRENDING_HASHTAGS, array( $handlers, 'handle_trending_hashtags' ) );
 		add_action( self::JOB_RECOUNT_STATS, array( $handlers, 'handle_recount_stats' ) );
-		add_action( self::JOB_PUBLISH_SCHEDULED, array( $handlers, 'handle_publish_scheduled' ) );
 	}
 
 	/**
 	 * Add custom recurrence intervals required by BuddyNext jobs.
 	 *
+	 * All three sub-minute / sub-hour intervals (buddynext_1min, buddynext_5min,
+	 * buddynext_30min) have been removed because no Free job uses them after the
+	 * cron-minimisation pass:
+	 *   - publish_scheduled moved to Pro (ScheduledPostsService, buddynextpro_5min).
+	 *   - recount_stats moved to built-in 'daily'.
+	 *   - trending_hashtags dropped (lazy transient on HashtagService::get_trending).
+	 *   - webhook_retry dropped (single-event backoff in OutboundWebhookService::deliver).
+	 *
 	 * @param array<string, array<string, mixed>> $schedules Existing schedules.
 	 * @return array<string, array<string, mixed>>
 	 */
 	public function add_custom_schedules( array $schedules ): array {
-		if ( ! isset( $schedules['buddynext_1min'] ) ) {
-			$schedules['buddynext_1min'] = array( // phpcs:ignore WordPress.WP.CronInterval.CronSchedulesInterval
-				'interval' => MINUTE_IN_SECONDS,
-				'display'  => __( 'Every minute', 'buddynext' ),
-			);
-		}
-
-		if ( ! isset( $schedules['buddynext_5min'] ) ) {
-			$schedules['buddynext_5min'] = array(
-				'interval' => 5 * MINUTE_IN_SECONDS,
-				'display'  => __( 'Every 5 minutes', 'buddynext' ),
-			);
-		}
-
-		if ( ! isset( $schedules['buddynext_30min'] ) ) {
-			$schedules['buddynext_30min'] = array(
-				'interval' => 30 * MINUTE_IN_SECONDS,
-				'display'  => __( 'Every 30 minutes', 'buddynext' ),
-			);
-		}
-
+		// No additional intervals needed — all remaining Free jobs use built-in
+		// WordPress recurrences ('daily', 'weekly').
 		return $schedules;
 	}
 
@@ -137,9 +123,7 @@ class CronScheduler {
 		$this->maybe_schedule( self::JOB_CLEANUP_TOKENS, 'daily' );
 		$this->maybe_schedule( self::JOB_CLEANUP_NOTIFICATIONS, 'weekly' );
 		$this->maybe_schedule( self::JOB_CLEANUP_ACTIVITY_LOG, 'weekly' );
-		$this->maybe_schedule( self::JOB_TRENDING_HASHTAGS, 'buddynext_30min' );
-		$this->maybe_schedule( self::JOB_RECOUNT_STATS, 'buddynext_5min' );
-		$this->maybe_schedule( self::JOB_PUBLISH_SCHEDULED, 'buddynext_1min' );
+		$this->maybe_schedule( self::JOB_RECOUNT_STATS, 'daily' );
 	}
 
 	/**
@@ -154,17 +138,45 @@ class CronScheduler {
 			self::JOB_CLEANUP_TOKENS,
 			self::JOB_CLEANUP_NOTIFICATIONS,
 			self::JOB_CLEANUP_ACTIVITY_LOG,
-			self::JOB_TRENDING_HASHTAGS,
 			self::JOB_RECOUNT_STATS,
-			self::JOB_PUBLISH_SCHEDULED,
+			// Legacy hooks — may still be scheduled on older installs; clear them too.
+			'buddynext_trending_hashtags',
+			'buddynext_publish_scheduled',
 			'buddynext_webhook_retry',
 		);
 
 		foreach ( $jobs as $hook ) {
-			$timestamp = wp_next_scheduled( $hook );
-			if ( $timestamp ) {
-				wp_unschedule_event( $timestamp, $hook );
-			}
+			wp_clear_scheduled_hook( $hook );
+		}
+	}
+
+	/**
+	 * One-time idempotent migration for existing installs.
+	 *
+	 * Removes events that were replaced or dropped in the cron-minimisation pass
+	 * and reschedules recount_stats to 'daily' when it is still running on the
+	 * old buddynext_5min recurrence. Safe to call repeatedly — each step is
+	 * guarded by a condition that is false once the migration has been applied.
+	 *
+	 * Called from Installer::maybe_upgrade() when SCHEMA_VERSION advances.
+	 *
+	 * @return void
+	 */
+	public static function run_cron_migration(): void {
+		// 1. Remove the 1-min scheduled-post publisher (Pro owns this now).
+		wp_clear_scheduled_hook( 'buddynext_publish_scheduled' );
+
+		// 2. Remove the 30-min trending hashtags recount (lazy on read now).
+		wp_clear_scheduled_hook( 'buddynext_trending_hashtags' );
+
+		// 3. Remove the recurring 5-min webhook retry poll (single-event now).
+		wp_clear_scheduled_hook( 'buddynext_webhook_retry' );
+
+		// 4. If recount_stats is still on buddynext_5min, migrate it to 'daily'.
+		$recur = wp_get_schedule( 'buddynext_recount_stats' );
+		if ( false !== $recur && 'daily' !== $recur ) {
+			wp_clear_scheduled_hook( 'buddynext_recount_stats' );
+			// Let schedule_events() re-add it at 'daily' on the next wp_loaded.
 		}
 	}
 
@@ -173,8 +185,8 @@ class CronScheduler {
 	/**
 	 * Schedule an event if it is not already scheduled.
 	 *
-	 * @param string $hook     WP-Cron event hook.
-	 * @param string $recur    Recurrence slug (e.g. 'daily', 'buddynext_5min').
+	 * @param string $hook  WP-Cron event hook.
+	 * @param string $recur Recurrence slug (e.g. 'daily', 'weekly').
 	 * @return void
 	 */
 	private function maybe_schedule( string $hook, string $recur ): void {

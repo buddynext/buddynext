@@ -4,9 +4,10 @@
  *
  * Manages registered external endpoints in bn_outbound_webhooks, dispatches
  * HMAC-SHA256-signed HTTP POST payloads on BuddyNext lifecycle events, logs
- * every attempt in bn_outbound_webhook_log, and retries recent failures via a
- * five-minute WP-Cron job. Endpoints that accumulate three consecutive delivery
- * failures are automatically deactivated.
+ * every attempt in bn_outbound_webhook_log, and retries failures reactively via
+ * a single wp_schedule_single_event per failed delivery (with exponential backoff)
+ * instead of a perpetual polling cron. Endpoints that accumulate three consecutive
+ * delivery failures are automatically deactivated.
  *
  * @package BuddyNext\Outbound
  */
@@ -50,30 +51,39 @@ class OutboundWebhookService {
 	private const DELIVER_HOOK = 'buddynext_webhook_deliver';
 
 	/**
-	 * Register the five-minute WP-Cron schedule, schedule the retry event, and
-	 * bind the retry handler. Called once during Plugin::init().
+	 * Single-event cron hook for a per-delivery retry with backoff.
+	 *
+	 * Fires once per failed delivery. Arguments: (int $webhook_id, string $event_slug,
+	 * array $payload, int $attempt). The handler reschedules itself (up to
+	 * MAX_RETRY_ATTEMPTS times) with exponential backoff so failed deliveries
+	 * are retried without a perpetual polling cron.
+	 */
+	private const RETRY_HOOK = 'buddynext_webhook_retry_single';
+
+	/**
+	 * Maximum number of single-event retry attempts before giving up.
+	 */
+	private const MAX_RETRY_ATTEMPTS = 3;
+
+	/**
+	 * Base backoff delay in seconds for the first retry attempt.
+	 * Subsequent attempts multiply this by 2^(attempt-1): 300s, 600s, 1200s.
+	 */
+	private const RETRY_BASE_DELAY = 300;
+
+	/**
+	 * Bind handler hooks. Called once during Plugin::init().
+	 *
+	 * No recurring cron is registered here. Failed deliveries schedule individual
+	 * single-events via maybe_schedule_retry() inside deliver().
 	 */
 	public function init(): void {
-		// Defer wp_schedule_event() to the init hook so it runs after after_setup_theme.
-		// Calling it during plugins_loaded triggers cron_schedules → __() calls before
-		// textdomains are loaded, causing _load_textdomain_just_in_time notices in WP 6.7+.
-		add_action( 'init', array( $this, 'schedule_cron' ) );
-
-		add_action( 'buddynext_webhook_retry', array( $this, 'retry_failed' ) );
-
 		// Off-request delivery worker: dispatch() queues this single event so the
 		// originating request never blocks on outbound HTTP.
 		add_action( self::DELIVER_HOOK, array( $this, 'run_delivery' ), 10, 2 );
-	}
 
-	/**
-	 * Schedule the webhook retry cron event. Deferred to the init hook.
-	 */
-	public function schedule_cron(): void {
-		// buddynext_5min schedule is registered by CronScheduler — no duplicate needed here.
-		if ( ! wp_next_scheduled( 'buddynext_webhook_retry' ) ) {
-			wp_schedule_event( time(), 'buddynext_5min', 'buddynext_webhook_retry' );
-		}
+		// Single-event retry worker: fired with backoff after each failed delivery.
+		add_action( self::RETRY_HOOK, array( $this, 'run_retry' ), 10, 4 );
 	}
 
 	// ── Registration ──────────────────────────────────────────────────────────
@@ -350,13 +360,20 @@ class OutboundWebhookService {
 				continue;
 			}
 
-			$this->deliver(
-				(int) $webhook['id'],
+			$webhook_id = (int) $webhook['id'];
+			$code       = $this->deliver(
+				$webhook_id,
 				(string) $webhook['url'],
 				(string) $webhook['secret'],
 				$event_slug,
 				$payload
 			);
+
+			// On failure, schedule the first single-event retry (attempt 1).
+			// Subsequent retries are chained inside run_retry().
+			if ( ! ( $code >= 200 && $code < 300 ) ) {
+				$this->schedule_single_retry( $webhook_id, $event_slug, $payload, 1 );
+			}
 		}
 	}
 
@@ -429,49 +446,74 @@ class OutboundWebhookService {
 	}
 
 	/**
-	 * Retry all failed deliveries from the past 24 hours.
+	 * Single-event retry worker for one failed delivery.
 	 *
-	 * Selects error log rows joined to still-active webhooks, extracts the
-	 * original event slug and data from the stored payload envelope, and
-	 * re-delivers each one. Called by the buddynext_webhook_retry cron action.
+	 * Re-attempts delivery for a specific webhook + event combination. On success
+	 * or on permanent failure (endpoint deactivated), the sequence ends. On failure
+	 * with remaining attempts, a new single-event is scheduled with doubled backoff.
+	 *
+	 * @param int                 $webhook_id Webhook row ID.
+	 * @param string              $event_slug Event type slug.
+	 * @param array<string,mixed> $payload    Original event payload data.
+	 * @param int                 $attempt    1-based attempt number (1 = first retry).
+	 * @return void
 	 */
-	public function retry_failed(): void {
+	public function run_retry( int $webhook_id, string $event_slug, array $payload, int $attempt ): void {
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-		$failed = $wpdb->get_results(
-			"SELECT l.webhook_id, l.event, l.payload, w.url, w.secret
-			   FROM {$wpdb->prefix}bn_outbound_webhook_log l
-			   JOIN {$wpdb->prefix}bn_outbound_webhooks w ON w.id = l.webhook_id
-			  WHERE l.status = 'error'
-			    AND l.created_at > DATE_SUB( NOW(), INTERVAL 24 HOUR )
-			    AND w.is_active = 1
-			  ORDER BY l.id ASC",
+		// Bail if the endpoint was deactivated between scheduling and now.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$webhook = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, url, secret FROM {$wpdb->prefix}bn_outbound_webhooks
+				 WHERE id = %d AND is_active = 1 LIMIT 1",
+				$webhook_id
+			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		if ( empty( $failed ) ) {
+		if ( empty( $webhook ) ) {
 			return;
 		}
 
-		foreach ( $failed as $row ) {
-			$envelope = json_decode( (string) ( $row['payload'] ?? '{}' ), true );
-			if ( ! is_array( $envelope ) ) {
-				continue;
-			}
+		$code    = $this->deliver(
+			(int) $webhook['id'],
+			(string) $webhook['url'],
+			(string) $webhook['secret'],
+			$event_slug,
+			$payload
+		);
+		$success = $code >= 200 && $code < 300;
 
-			$event_slug = isset( $envelope['event'] ) ? (string) $envelope['event'] : (string) $row['event'];
-			$data       = isset( $envelope['data'] ) && is_array( $envelope['data'] ) ? $envelope['data'] : array();
-
-			$this->deliver(
-				(int) $row['webhook_id'],
-				(string) $row['url'],
-				(string) $row['secret'],
-				$event_slug,
-				$data
-			);
+		// On success or once we have exhausted retry attempts, stop.
+		if ( $success || $attempt >= self::MAX_RETRY_ATTEMPTS ) {
+			return;
 		}
+
+		// Schedule next retry with exponential backoff.
+		$this->schedule_single_retry( $webhook_id, $event_slug, $payload, $attempt + 1 );
+	}
+
+	/**
+	 * Schedule a single-event retry for a failed delivery.
+	 *
+	 * Delay follows exponential backoff: attempt 1 = RETRY_BASE_DELAY,
+	 * attempt 2 = 2× base, attempt 3 = 4× base, etc.
+	 *
+	 * @param int                 $webhook_id Webhook row ID.
+	 * @param string              $event_slug Event slug.
+	 * @param array<string,mixed> $payload    Original event payload data.
+	 * @param int                 $attempt    1-based attempt number for this retry.
+	 * @return void
+	 */
+	private function schedule_single_retry( int $webhook_id, string $event_slug, array $payload, int $attempt ): void {
+		$delay = self::RETRY_BASE_DELAY * ( 2 ** ( $attempt - 1 ) );
+		wp_schedule_single_event(
+			time() + $delay,
+			self::RETRY_HOOK,
+			array( $webhook_id, $event_slug, $payload, $attempt )
+		);
 	}
 
 	// ── Internal ──────────────────────────────────────────────────────────────
@@ -482,7 +524,9 @@ class OutboundWebhookService {
 	 * The request body is a JSON envelope: { event, timestamp, data }. An
 	 * HMAC-SHA256 signature over the raw body string is sent via the
 	 * X-BuddyNext-Signature header. On failed delivery the consecutive failure
-	 * count is checked; three failures trigger automatic deactivation.
+	 * count is checked; three failures trigger automatic deactivation. The caller
+	 * (dispatch path via run_delivery) also schedules a single-event retry via
+	 * maybe_schedule_retry() when the initial attempt fails.
 	 *
 	 * @param int                 $webhook_id Webhook row ID.
 	 * @param string              $url        Destination URL.

@@ -11,9 +11,8 @@
  *   handle_weekly_digest         — email digest for email_freq = 'weekly' users
  *   handle_cleanup_tokens        — prune expired bn_verify_tokens rows
  *   handle_cleanup_notifications — prune 90-day-old read bn_notifications rows
- *   handle_trending_hashtags     — refresh bn_hashtags.post_count from bn_post_hashtags
- *   handle_recount_stats         — correct reaction_count + comment_count on bn_posts
- *   handle_publish_scheduled     — publish due scheduled posts
+ *   handle_cleanup_activity_log  — prune old bn_activity_log rows
+ *   handle_recount_stats         — correct reaction_count + comment_count on bn_posts (daily)
  *
  * @package BuddyNext\Core
  */
@@ -33,11 +32,6 @@ class CronService {
 	 * Maximum users processed per digest run to avoid PHP timeout.
 	 */
 	private const DIGEST_USER_CAP = 200;
-
-	/**
-	 * Maximum scheduled posts published per run.
-	 */
-	private const PUBLISH_BATCH = 100;
 
 	// ── Daily digest ──────────────────────────────────────────────────────────
 
@@ -233,47 +227,6 @@ class CronService {
 		} while ( $deleted > 0 && $max_batches > 0 );
 	}
 
-	// ── Trending hashtags ─────────────────────────────────────────────────────
-
-	/**
-	 * Refresh post_count on every bn_hashtags row from actual bn_post_hashtags data.
-	 *
-	 * Uses an UPDATE … INNER JOIN aggregate to recount in a single statement.
-	 * Hashtags with zero posts are set to 0 via a separate UPDATE for rows
-	 * that have no matching bn_post_hashtags entry.
-	 *
-	 * Runs every 30 minutes.
-	 *
-	 * @return void
-	 */
-	public function handle_trending_hashtags(): void {
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$wpdb->query(
-			"UPDATE {$wpdb->prefix}bn_hashtags h
-			 INNER JOIN (
-			     SELECT hashtag_id, COUNT(*) AS cnt
-			       FROM {$wpdb->prefix}bn_post_hashtags
-			      GROUP BY hashtag_id
-			 ) c ON c.hashtag_id = h.id
-			 SET h.post_count = c.cnt"
-		);
-
-		// Zero out tags that have no posts (left-join approach).
-		$wpdb->query(
-			"UPDATE {$wpdb->prefix}bn_hashtags h
-			  LEFT JOIN (
-			      SELECT hashtag_id
-			        FROM {$wpdb->prefix}bn_post_hashtags
-			       GROUP BY hashtag_id
-			  ) c ON c.hashtag_id = h.id
-			   SET h.post_count = 0
-			 WHERE c.hashtag_id IS NULL"
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	}
-
 	// ── Stats recount ─────────────────────────────────────────────────────────
 
 	/**
@@ -281,7 +234,8 @@ class CronService {
 	 *
 	 * Uses UPDATE … INNER JOIN aggregates to fix any counter drift caused by
 	 * failed decrements (e.g. from force-deleted comments or reactions).
-	 * Runs every 5 minutes.
+	 * Counters are maintained incrementally on every write, so drift is rare;
+	 * this daily pass is a cheap reconcile only.
 	 *
 	 * @return void
 	 */
@@ -314,74 +268,6 @@ class CronService {
 			 SET p.comment_count = c.cnt"
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	}
-
-	// ── Scheduled post publisher ──────────────────────────────────────────────
-
-	/**
-	 * Publish all bn_posts rows with status = 'scheduled' whose scheduled_at
-	 * is in the past.
-	 *
-	 * Processes up to PUBLISH_BATCH posts per run. For each published post,
-	 * fires the buddynext_post_created action so downstream listeners
-	 * (search indexing, notifications, webhooks) are triggered.
-	 *
-	 * Runs every minute via the buddynext_1min WP-Cron schedule.
-	 *
-	 * @return void
-	 */
-	public function handle_publish_scheduled(): void {
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$due_posts = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT id, user_id, type
-				   FROM {$wpdb->prefix}bn_posts
-				  WHERE status = 'scheduled'
-				    AND scheduled_at <= UTC_TIMESTAMP()
-				  LIMIT %d",
-				self::PUBLISH_BATCH
-			),
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		if ( empty( $due_posts ) ) {
-			return;
-		}
-
-		foreach ( $due_posts as $post ) {
-			$post_id = (int) $post['id'];
-			$user_id = (int) $post['user_id'];
-			$type    = (string) $post['type'];
-
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$updated = $wpdb->update(
-				$wpdb->prefix . 'bn_posts',
-				array(
-					'status'     => 'published',
-					'created_at' => current_time( 'mysql', true ),
-				),
-				array( 'id' => $post_id ),
-				array( '%s', '%s' ),
-				array( '%d' )
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-			if ( false !== $updated && $updated > 0 ) {
-				/**
-				 * Fires after a scheduled post is published by the cron handler.
-				 *
-				 * @since 1.0.0
-				 *
-				 * @param int    $post_id Post ID.
-				 * @param int    $user_id Author user ID.
-				 * @param string $type    Post type slug.
-				 */
-				do_action( 'buddynext_post_created', $post_id, $user_id, $type );
-			}
-		}
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────

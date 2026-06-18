@@ -24,9 +24,19 @@ class HashtagService {
 	private const CACHE_GROUP = 'buddynext_hashtags';
 
 	/**
-	 * Cache TTL in seconds.
+	 * Object-cache TTL in seconds (within-request + persistent object cache).
 	 */
 	private const CACHE_TTL = 300;
+
+	/**
+	 * Transient TTL for trending data.
+	 *
+	 * On sites without a persistent object cache (Memcached / Redis), the
+	 * in-memory wp_cache hits only last for the duration of one PHP request.
+	 * A transient ensures the expensive trending JOIN is skipped for ~30 min
+	 * across requests on any installation, replacing the old 30-min cron.
+	 */
+	private const TRENDING_TRANSIENT_TTL = 30 * MINUTE_IN_SECONDS;
 
 	/**
 	 * Extract unique hashtag slugs from a string (spec-named alias for extract()).
@@ -122,8 +132,10 @@ class HashtagService {
 	/**
 	 * Return the top trending hashtags (spec-named alias for get_trending()).
 	 *
-	 * In production the post_count is maintained async by a cron job (see
-	 * CronService) — this method reads the cached counter column directly.
+	 * Trending data is computed lazily on the first read within each cache window
+	 * (transient ~30 min) rather than by a recurring cron job. The computation
+	 * uses a live JOIN on bn_post_hashtags with a 24-hour rolling window, so the
+	 * result reflects actual recent activity regardless of the post_count column.
 	 *
 	 * @param int $limit Maximum number to return (1–50). Default 10.
 	 * @return array[]
@@ -595,11 +607,20 @@ class HashtagService {
 	}
 
 	/**
-	 * Return the top trending hashtags by usage in the last 24 hours.
+	 * Return the top trending hashtags, ordered by activity in the last 24 hours.
 	 *
-	 * Counts only bn_post_hashtags rows whose created_at falls within the
-	 * rolling 24-hour window so trending reflects recent activity, not
-	 * all-time post_count totals.
+	 * Computed lazily on the first call within each cache window — no background
+	 * cron required. The query joins bn_post_hashtags directly with a 24-hour
+	 * rolling window so the ranking reflects actual recent activity rather than
+	 * the stale post_count column. Results are stored in two layers:
+	 *
+	 *   1. wp_cache (in-memory, within-request) — avoids repeated DB hits when
+	 *      the trending widget and the REST endpoint both call this in one page load.
+	 *   2. Transient (~30 min) — ensures the expensive JOIN is skipped across
+	 *      requests on sites without a persistent object cache (Memcached / Redis).
+	 *
+	 * The transient is busted by bust_trending_cache() whenever post_count values
+	 * change (post published, hashtag synced), keeping data fresh within the window.
 	 *
 	 * @param int $limit Maximum number of hashtags to return (1–50). Default 10.
 	 * @return array[]
@@ -607,10 +628,19 @@ class HashtagService {
 	public function get_trending( int $limit = 10 ): array {
 		$limit     = max( 1, min( 50, $limit ) );
 		$cache_key = "trending_{$limit}";
-		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
+		// Layer 1: in-memory object cache (within-request dedup).
+		$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
 			return (array) $cached;
+		}
+
+		// Layer 2: transient (cross-request persistence on all installations).
+		$transient_key  = 'bn_trending_' . $limit;
+		$from_transient = get_transient( $transient_key ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_get_transient -- transient is the cache layer; not a DB query.
+		if ( false !== $from_transient && is_array( $from_transient ) ) {
+			wp_cache_set( $cache_key, $from_transient, self::CACHE_GROUP, self::CACHE_TTL );
+			return $from_transient;
 		}
 
 		global $wpdb;
@@ -634,6 +664,7 @@ class HashtagService {
 
 		$results = array_map( array( $this, 'hydrate' ), (array) $rows );
 
+		set_transient( $transient_key, $results, self::TRENDING_TRANSIENT_TTL );
 		wp_cache_set( $cache_key, $results, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $results;
@@ -659,11 +690,14 @@ class HashtagService {
 	/**
 	 * Delete trending cache entries for the common limit values.
 	 *
-	 * Called whenever post_count values change so callers always get fresh data.
+	 * Clears both the in-memory object cache (wp_cache) and the persistent
+	 * transient so the next get_trending() call recomputes from the DB.
+	 * Called whenever post_count values change (hashtag sync, post delete).
 	 */
 	private function bust_trending_cache(): void {
 		foreach ( array( 10, 20, 50 ) as $limit ) {
 			wp_cache_delete( "trending_{$limit}", self::CACHE_GROUP );
+			delete_transient( 'bn_trending_' . $limit );
 		}
 	}
 }
