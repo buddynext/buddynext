@@ -290,7 +290,11 @@
 				} ).then( function ( res ) {
 					if ( res.ok ) {
 						btn.textContent = i18n.installed;
-						window.location.reload();
+						if ( res.d && res.d.redirect_url ) {
+							window.location.assign( res.d.redirect_url );
+						} else {
+							window.location.reload();
+						}
 					} else {
 						btn.disabled    = false;
 						btn.textContent = orig;
