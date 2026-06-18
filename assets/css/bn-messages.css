@@ -326,6 +326,13 @@
 }
 
 .bn-dm-pane__head {
+	/* Self-sufficient flex row: the identity group (avatar + name + status)
+	   pins left and the actions toolbar pins right, independent of whether the
+	   shared .bn-split__pane-head base rule has loaded/applied. Without this the
+	   header collapsed to a block and the avatar appeared floating in the centre. */
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
 	gap: var(--bn-s3);
 	height: 64px;
 	padding-inline: var(--bn-s5);
@@ -471,6 +478,14 @@
 .bn-dm-msg.is-mine {
 	align-self: flex-end;
 	flex-direction: row-reverse;
+}
+
+/* Received messages must firmly left-pin. The body is a flex column whose
+   default align-items: stretch left a max-width row's horizontal position
+   under-specified, so incoming bubbles drifted toward centre. Sent rows pin
+   right via .is-mine above; received rows pin left here. */
+.bn-dm-msg:not(.is-mine) {
+	align-self: flex-start;
 }
 
 .bn-dm-msg__content {
