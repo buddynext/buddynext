@@ -213,6 +213,10 @@ class CommentController extends BaseRestController {
 				(int) $created['id']
 			)
 		);
+		// Display-ready HTML (linkified @mentions / #hashtags), same as
+		// list_comments(); without it the JS renders the raw text and a fresh
+		// comment's mentions stay plain until the page is reloaded.
+		$created['content_html']      = buddynext_format_content( (string) $created['content'] );
 
 		return new WP_REST_Response( $created, 201 );
 	}
@@ -374,6 +378,9 @@ class CommentController extends BaseRestController {
 				$comment_id
 			)
 		);
+		// Display-ready HTML so an edited mention linkifies immediately (same as
+		// create()/list_comments()), not only after a reload.
+		$updated['content_html']      = buddynext_format_content( (string) $updated['content'] );
 
 		return new WP_REST_Response( $updated, 200 );
 	}
