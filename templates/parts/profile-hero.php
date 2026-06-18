@@ -531,7 +531,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 						</button>
 						<a class="bn-more-menu-item"
 							role="menuitem"
-							href="<?php echo esc_url( add_query_arg( 'mention', $bn_pf_uid, \BuddyNext\Core\PageRouter::activity_url() ) ); ?>">
+							href="<?php echo esc_url( add_query_arg( 'mention', rawurlencode( $bn_pf_slug ), \BuddyNext\Core\PageRouter::activity_url() ) ); ?>">
 							<?php buddynext_icon( 'message-circle' ); ?>
 							<span><?php esc_html_e( 'Share to feed', 'buddynext' ); ?></span>
 						</a>

@@ -1697,6 +1697,17 @@ function scheduleDraftSave( ctx ) {
 	_draftTimers.set( key, t );
 }
 
+// "Share to feed" from a member profile lands on the feed with ?mention=<handle>.
+// Captured once at module load (before any draft/hydration callback) so the
+// prefill is order-independent and survives stripping the param from the URL.
+let pendingMentionHandle = '';
+try {
+	const bnMentionParam = new URLSearchParams( window.location.search ).get( 'mention' );
+	if ( bnMentionParam ) {
+		pendingMentionHandle = bnMentionParam.replace( /^@+/, '' ).trim();
+	}
+} catch ( _e ) {}
+
 // Restore drafts into composers on initial DOM load. Composers stamp the
 // user_id into their data-wp-context so we don't have to query a separate
 // global. Each composer is keyed by the user_id of the current viewer so
@@ -1711,13 +1722,38 @@ function restoreDraftsOnLoad() {
 		if ( userId <= 0 ) {
 			return;
 		}
+
+		const textarea = el.querySelector( '.bn-composer__prompt' );
+
+		// Share-to-feed: open the main feed composer pre-filled with the
+		// @mention and focused, so the member just adds their words and posts.
+		// Takes precedence over any stored draft (the click is an explicit
+		// fresh-post intent) and only targets the general feed composer, never
+		// a space composer.
+		if ( pendingMentionHandle && ( ctxData.spaceId === null || ctxData.spaceId === undefined ) ) {
+			const prefill = '@' + pendingMentionHandle + ' ';
+			if ( textarea ) {
+				textarea.value = prefill;
+			}
+			ctxData.content = prefill;
+			try { el.setAttribute( 'data-wp-context', JSON.stringify( ctxData ) ); }
+			catch ( _e ) {}
+			if ( textarea ) {
+				window.requestAnimationFrame( () => {
+					textarea.focus();
+					try { textarea.setSelectionRange( prefill.length, prefill.length ); } catch ( _e ) {}
+					textarea.scrollIntoView( { block: 'center' } );
+				} );
+			}
+			return;
+		}
+
 		const draft = readDraft( userId );
 		if ( ! draft || ! draft.content ) {
 			return;
 		}
 		// Pre-fill the textarea so the user sees their draft immediately,
 		// even before WP Interactivity hydrates the store.
-		const textarea = el.querySelector( '.bn-composer__prompt' );
 		if ( textarea ) {
 			textarea.value = draft.content;
 		}
@@ -1730,6 +1766,16 @@ function restoreDraftsOnLoad() {
 		try { el.setAttribute( 'data-wp-context', JSON.stringify( ctxData ) ); }
 		catch ( _e ) {}
 	} );
+
+	// Drop ?mention= from the URL so a refresh / shared link doesn't re-trigger
+	// the prefill. The handle is already captured in pendingMentionHandle.
+	if ( pendingMentionHandle ) {
+		try {
+			const url = new URL( window.location.href );
+			url.searchParams.delete( 'mention' );
+			window.history.replaceState( {}, '', url.toString() );
+		} catch ( _e ) {}
+	}
 }
 
 if ( document.readyState === 'loading' ) {
@@ -2312,6 +2358,11 @@ store( 'buddynext/post-composer', {
 			const ctx = getContext();
 			const userId = parseInt( ctx.userId, 10 );
 			if ( ! ( userId > 0 ) ) {
+				return;
+			}
+			// A share-to-feed mention prefill wins over a stored draft — don't
+			// clobber the @mention the member just chose to share.
+			if ( pendingMentionHandle && ( ctx.spaceId === null || ctx.spaceId === undefined ) ) {
 				return;
 			}
 			const draft = readDraft( userId );
