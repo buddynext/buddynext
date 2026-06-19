@@ -409,6 +409,13 @@ class CommentService {
 			return new WP_Error( 'forbidden', __( 'You cannot delete this comment.', 'buddynext' ) );
 		}
 
+		// Idempotent: a second DELETE on an already-soft-deleted comment must not
+		// decrement the count again or re-fire the hook (the decrement underflow
+		// is floored, but the count would still drift below the true total).
+		if ( ! empty( $comment['is_deleted'] ) ) {
+			return true;
+		}
+
 		global $wpdb;
 
 		// Soft-delete: blank the content and mark deleted so threads remain intact.
@@ -425,6 +432,15 @@ class CommentService {
 		);
 
 		$this->bust_cache( $comment['object_type'], (int) $comment['object_id'] );
+
+		// If this was the pinned comment, drop the pin — a soft-deleted comment
+		// must not survive as a "[deleted]" tombstone promoted to the top of the
+		// thread. A normal (in-flow) deleted comment keeps its tombstone; only
+		// the pinned highlight is cleared.
+		$pin_key = 'bn_pinned_comment_' . sanitize_key( (string) $comment['object_type'] ) . '_' . (int) $comment['object_id'];
+		if ( (int) get_option( $pin_key, 0 ) === $comment_id ) {
+			delete_option( $pin_key );
+		}
 
 		if ( 'post' === $comment['object_type'] ) {
 			buddynext_service( 'post_service' )->decrement_counter( (int) $comment['object_id'], 'comment_count' );

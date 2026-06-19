@@ -184,7 +184,14 @@ class CommentController extends BaseRestController {
 		$result = $service->create( $user_id, $object_type, $object_id, $content, $parent_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
+			// Preserve a status the service already set (suspension / blocked IP /
+			// archived space = 403, rate-limit = 429); only default to 400 when
+			// none was given. WP_Error::add_data() REPLACES the data array, so an
+			// unconditional re-stamp would flatten those to a wrong HTTP 400.
+			$data = $result->get_error_data();
+			if ( ! is_array( $data ) || empty( $data['status'] ) ) {
+				$result->add_data( array( 'status' => 400 ) );
+			}
 			return $result;
 		}
 
@@ -216,7 +223,7 @@ class CommentController extends BaseRestController {
 		// Display-ready HTML (linkified @mentions / #hashtags), same as
 		// list_comments(); without it the JS renders the raw text and a fresh
 		// comment's mentions stay plain until the page is reloaded.
-		$created['content_html']      = buddynext_format_content( (string) $created['content'] );
+		$created['content_html'] = buddynext_format_content( (string) $created['content'] );
 
 		return new WP_REST_Response( $created, 201 );
 	}
@@ -277,14 +284,14 @@ class CommentController extends BaseRestController {
 				: false;
 			// Carry the specific emoji the viewer reacted with so the client can
 			// render the right icon instead of always falling back to 'like'.
-			$comment['viewer_reaction']   = $viewer_id > 0
+			$comment['viewer_reaction'] = $viewer_id > 0
 				? $reactions->get_user_emoji( $viewer_id, 'comment', (int) $comment['id'] )
 				: null;
-			$comment['can_edit']          = $viewer_id > 0
+			$comment['can_edit']        = $viewer_id > 0
 				&& ( (int) $comment['user_id'] === $viewer_id || user_can( $viewer_id, 'manage_options' ) );
-			$comment['can_delete']        = $comment['can_edit'];
-			$comment['can_pin']           = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
-			$comment['is_pinned']         = ( $pinned_id > 0 && (int) $comment['id'] === $pinned_id );
+			$comment['can_delete']      = $comment['can_edit'];
+			$comment['can_pin']         = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
+			$comment['is_pinned']       = ( $pinned_id > 0 && (int) $comment['id'] === $pinned_id );
 
 			$comment['author_meta_html'] = wp_kses_post(
 				(string) apply_filters(
@@ -298,9 +305,9 @@ class CommentController extends BaseRestController {
 			if ( ! empty( $comment['is_deleted'] ) ) {
 				$anonymize( $comment );
 				// A deleted comment can never be edited, pinned, or react'd to.
-				$comment['can_edit']     = false;
-				$comment['can_delete']   = false;
-				$comment['can_pin']      = false;
+				$comment['can_edit']        = false;
+				$comment['can_delete']      = false;
+				$comment['can_pin']         = false;
 				$comment['like_count']      = 0;
 				$comment['viewer_liked']    = false;
 				$comment['viewer_reaction'] = null;
@@ -363,6 +370,7 @@ class CommentController extends BaseRestController {
 		$updated['author_avatar_url'] = (string) get_avatar_url( $updated['user_id'], array( 'size' => 40 ) );
 		$updated['like_count']        = $reactions->count( 'comment', $comment_id );
 		$updated['viewer_liked']      = $user_id > 0 && $reactions->has_reacted( $user_id, 'comment', $comment_id );
+		$updated['viewer_reaction']   = $user_id > 0 ? $reactions->get_user_emoji( $user_id, 'comment', $comment_id ) : null;
 		$updated['can_edit']          = true;
 		$updated['can_delete']        = true;
 		$updated['can_pin']           = user_can( $user_id, 'manage_options' );
@@ -380,7 +388,7 @@ class CommentController extends BaseRestController {
 		);
 		// Display-ready HTML so an edited mention linkifies immediately (same as
 		// create()/list_comments()), not only after a reload.
-		$updated['content_html']      = buddynext_format_content( (string) $updated['content'] );
+		$updated['content_html'] = buddynext_format_content( (string) $updated['content'] );
 
 		return new WP_REST_Response( $updated, 200 );
 	}
@@ -416,9 +424,13 @@ class CommentController extends BaseRestController {
 		$comment_id = (int) $request->get_param( 'id' );
 		$user_id    = get_current_user_id();
 
-		$result = $service->pin( $comment_id, $user_id );
+		// Resolve first so a missing comment is a 404, not a 403 — the service
+		// returns a bare false for both not-found and no-permission. Mirrors unpin().
+		if ( null === $service->get( $comment_id ) ) {
+			return new WP_Error( 'not_found', __( 'Comment not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
 
-		if ( ! $result ) {
+		if ( ! $service->pin( $comment_id, $user_id ) ) {
 			return new WP_Error( 'rest_forbidden', __( 'You cannot pin this comment.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 

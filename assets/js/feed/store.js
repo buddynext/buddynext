@@ -1603,7 +1603,13 @@ store( 'buddynext/post-card', {
 					adjustCommentCount( ctx.postId, 1 );
 					if ( window.bnToast ) { window.bnToast( 'Comment added' ); }
 				} else {
-					showInlineError( 'Could not post your comment. Try again.' );
+					// Surface the server's actual reason — create() now preserves
+					// the real status/message (e.g. suspended 403, rate-limited 429)
+					// instead of flattening to a generic 400. Fall back only when
+					// the response carries no message.
+					showInlineError(
+						( res.data && res.data.message ) ? String( res.data.message ) : 'Could not post your comment. Try again.'
+					);
 				}
 			} catch ( _e ) {
 				showInlineError( 'Network error. Try again.' );
