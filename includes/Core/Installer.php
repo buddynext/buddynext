@@ -41,8 +41,13 @@ class Installer {
 	 *     buddynext_webhook_retry (5 min, now reactive single-event in
 	 *     OutboundWebhookService); migrate buddynext_recount_stats from
 	 *     buddynext_5min to 'daily'. No schema change — migration is cron only.
+	 * 7 — regenerate the isolation mu-plugin so it hard-codes the full in-house
+	 *     integration family (Career Board / Listora / Learnomy / Gamification)
+	 *     in its allow-list floor. Existing testers had a stale mu-plugin that
+	 *     stripped those partners on BN routes, so their Portfolio tabs/nav never
+	 *     appeared. No schema change — refresh is the mu-plugin file only.
 	 */
-	private const SCHEMA_VERSION = 6;
+	private const SCHEMA_VERSION = 7;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -79,29 +84,10 @@ class Installer {
 		// never on an upgrade or reactivation.
 		$is_fresh_install = false === get_option( 'buddynext_db_version', false );
 
-		$charset = $wpdb->get_charset_collate();
-
-		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-
-		// Suppress echo of DB errors during schema creation so that WP-CLI
-		// and browser activation do not see unexpected HTML output from dbDelta.
-		$wpdb->suppress_errors( true );
-		foreach ( self::schema( $wpdb->prefix, $charset ) as $sql ) {
-			dbDelta( $sql );
-		}
-		$wpdb->suppress_errors( false );
-
-		// Idempotent column back-fills for existing installs. dbDelta handles
-		// most additive changes, but enum/charset edge cases on older MySQL can
-		// silently skip new columns — so we guard each add with an
-		// INFORMATION_SCHEMA existence check. Safe to run on every activation.
-		self::maybe_alter_tables( $wpdb->prefix );
-
-		// FULLTEXT cannot be created via dbDelta on temporary tables (test suite).
-		// Add it separately and suppress errors so tests pass without FULLTEXT.
-		$wpdb->suppress_errors( true );
-		$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index ADD FULLTEXT KEY ft_search (title, content)" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
-		$wpdb->suppress_errors( false );
+		// Create/upgrade every bn_* table. Split out so the PHPUnit bootstrap can
+		// create the schema without the first-run seeds / hub pages / mu-plugin
+		// that follow (which would otherwise collide with test fixtures).
+		self::install_schema();
 
 		self::seed_email_templates( $wpdb->prefix );
 		self::seed_default_profile_groups_and_fields( $wpdb->prefix );
@@ -132,6 +118,44 @@ class Installer {
 		self::install_mu_plugin();
 
 		\BuddyNext\Search\SearchService::schedule_reindex_all();
+	}
+
+	/**
+	 * Create/upgrade all bn_* tables (schema only — no seeds, hub pages, or
+	 * mu-plugin). Idempotent: dbDelta skips tables already at the correct schema.
+	 *
+	 * Split out from run() so the PHPUnit bootstrap can create the tables in the
+	 * test DB without the first-run seed data (default space, member types, …)
+	 * that would otherwise collide with per-test fixtures.
+	 *
+	 * @return void
+	 */
+	public static function install_schema(): void {
+		global $wpdb;
+
+		$charset = $wpdb->get_charset_collate();
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		// Suppress echo of DB errors during schema creation so that WP-CLI
+		// and browser activation do not see unexpected HTML output from dbDelta.
+		$wpdb->suppress_errors( true );
+		foreach ( self::schema( $wpdb->prefix, $charset ) as $sql ) {
+			dbDelta( $sql );
+		}
+		$wpdb->suppress_errors( false );
+
+		// Idempotent column back-fills for existing installs. dbDelta handles
+		// most additive changes, but enum/charset edge cases on older MySQL can
+		// silently skip new columns — so we guard each add with an
+		// INFORMATION_SCHEMA existence check. Safe to run on every activation.
+		self::maybe_alter_tables( $wpdb->prefix );
+
+		// FULLTEXT cannot be created via dbDelta on temporary tables (test suite).
+		// Add it separately and suppress errors so tests pass without FULLTEXT.
+		$wpdb->suppress_errors( true );
+		$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index ADD FULLTEXT KEY ft_search (title, content)" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+		$wpdb->suppress_errors( false );
 	}
 
 	/**
@@ -1412,20 +1436,36 @@ if ( buddynext_mu_is_bn_request() ) {
 				return $plugins;
 			}
 
-			// Essentials that must survive even when the integration option is
-			// empty or missing — BuddyNext itself, Pro, and operational plugins.
+			// Essentials that must ALWAYS survive — BuddyNext + Pro, operational
+			// plugins, AND the full in-house integration family. The family is
+			// hard-coded here (not left to the option below) so Portfolio tabs / nav
+			// appear even on the very first request, or when a tester's mu-plugin
+			// file is stale, or before PluginIsolation has populated the option.
+			// Keep in sync with PluginIsolation::CORE_INTEGRATIONS + the Pro
+			// buddynext_isolation_plugins filter.
 			$essentials = array(
 				'buddynext/buddynext.php',
 				'buddynext-pro/buddynext-pro.php',
+				// Core integrations (Free first-class).
+				'wpmediaverse/wpmediaverse.php',
+				'wpmediaverse-pro/wpmediaverse-pro.php',
+				'jetonomy/jetonomy.php',
+				'jetonomy-pro/jetonomy-pro.php',
+				'wb-gamification/wb-gamification.php',
+				// Pro application-layer integrations (Portfolio panels).
+				'wp-career-board/wp-career-board.php',
+				'wb-listora/wb-listora.php',
+				'learnomy/learnomy.php',
+				'learnomy-pro/learnomy-pro.php',
+				// Operational.
 				'redis-cache/redis-cache.php',
 				'query-monitor/query-monitor.php',
 			);
 
-			// In-house integration family — read the canonical list BuddyNext keeps
-			// current in the `buddynext_isolation_plugins` option (raw SQL: the WP
-			// option API is not available this early). Data-driven so this allow-list
-			// never drifts out of sync with the integrations BuddyNext ships, and the
-			// family is permitted whether or not each partner is currently active.
+			// Plus any dynamic / 3rd-party additions BuddyNext mirrors into the
+			// `buddynext_isolation_plugins` option (raw SQL: the WP option API is not
+			// available this early). The hard-coded family above is the floor; this
+			// merge only adds extras a filter contributed at runtime.
 			global $wpdb;
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 			$json         = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = 'buddynext_isolation_plugins' LIMIT 1" );
