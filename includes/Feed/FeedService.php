@@ -22,6 +22,7 @@ namespace BuddyNext\Feed;
 
 use BuddyNext\Feed\PostService;
 use BuddyNext\SocialGraph\FollowService;
+use BuddyNext\Core\CursorCodec;
 
 /**
  * Aggregates posts into paginated feed responses.
@@ -1083,30 +1084,7 @@ class FeedService {
 	 * @return string Opaque cursor string.
 	 */
 	public function encode_cursor( array $row ): string {
-		return base64_encode( $row['created_at'] . '|' . $row['id'] ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
-	}
-
-	/**
-	 * Decode a cursor into its component parts.
-	 *
-	 * @param string $cursor Opaque cursor.
-	 * @return array{created_at: string, id: int}|null Null if cursor is invalid.
-	 */
-	private function decode_cursor( string $cursor ): ?array {
-		$raw = base64_decode( $cursor, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
-		if ( false === $raw ) {
-			return null;
-		}
-
-		$parts = explode( '|', $raw, 2 );
-		if ( 2 !== count( $parts ) ) {
-			return null;
-		}
-
-		return array(
-			'created_at' => $parts[0],
-			'id'         => (int) $parts[1],
-		);
+		return CursorCodec::encode( (string) $row['created_at'], (int) $row['id'] );
 	}
 
 	/**
@@ -1122,7 +1100,7 @@ class FeedService {
 			return '';
 		}
 
-		$decoded = $this->decode_cursor( $cursor );
+		$decoded = CursorCodec::decode( $cursor );
 		if ( null === $decoded ) {
 			return '';
 		}
@@ -1141,7 +1119,7 @@ class FeedService {
 			return array();
 		}
 
-		$decoded = $this->decode_cursor( $cursor );
+		$decoded = CursorCodec::decode( $cursor );
 		if ( null === $decoded ) {
 			return array();
 		}
