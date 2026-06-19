@@ -426,4 +426,237 @@ class NavRegistryTest extends \WP_UnitTestCase {
 		$this->assertSame( array( 'c', 'a' ), $this->ids( $out, 'primary' ) );
 		remove_all_filters( 'buddynext_nav_items' );
 	}
+
+	/**
+	 * A capability gate hides the item from a viewer who lacks the cap, AND the
+	 * item's count callable is never invoked for a gated-out item (no wasted query
+	 * behind a hidden tab). An admin (manage_options) passes and the count resolves.
+	 */
+	public function test_capability_gate_hides_item_and_skips_count(): void {
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$sub   = self::factory()->user->create( array( 'role' => 'subscriber' ) );
+		$ran   = 0;
+		$this->reg->register(
+			array(
+				'id'         => 'admin_metric',
+				'surface'    => 'profile',
+				'layer'      => 'metric',
+				'label'      => 'Admin',
+				'capability' => 'manage_options',
+				'count'      => static function ( NavContext $c ) use ( &$ran ) {
+					$ran++;
+					return 7;
+				},
+			)
+		);
+
+		$denied = $this->reg->resolve( new NavContext( 'profile', 5, $sub ) );
+		$this->assertSame( array(), $this->ids( $denied, 'metric' ) );
+		$this->assertSame( 0, $ran, 'count callable must not run for a gated-out item' );
+
+		$granted = $this->reg->resolve( new NavContext( 'profile', 5, $admin ) );
+		$this->assertSame( array( 'admin_metric' ), $this->ids( $granted, 'metric' ) );
+		$this->assertSame( 1, $ran );
+	}
+
+	/**
+	 * The `buddynext_register_nav` action fires exactly once, even across many
+	 * resolve() calls and multiple surfaces (correctness + no double-registration).
+	 */
+	public function test_providers_fired_once_across_surfaces(): void {
+		$fired = 0;
+		add_action(
+			'buddynext_register_nav',
+			static function () use ( &$fired ): void {
+				$fired++;
+			}
+		);
+		$this->reg->resolve( new NavContext( 'profile', 5, 5 ) );
+		$this->reg->resolve( new NavContext( 'space', 3, 5, 'member' ) );
+		$this->reg->resolve( new NavContext( 'profile', 9, 5 ) );
+		$this->assertSame( 1, $fired );
+		remove_all_actions( 'buddynext_register_nav' );
+	}
+
+	/**
+	 * A url callable resolves to its exact string in url_value; a callable that
+	 * returns '' resolves to null (and the item still survives via its tab).
+	 */
+	public function test_lazy_url_callable_resolved(): void {
+		$this->reg->register(
+			array(
+				'id'      => 'profilelink',
+				'surface' => 'profile',
+				'layer'   => 'primary',
+				'label'   => 'Link',
+				'url'     => static fn( NavContext $c ) => 'https://example.test/u/' . $c->subject_id . '/',
+			)
+		);
+		$this->reg->register(
+			array(
+				'id'      => 'emptyurl',
+				'surface' => 'profile',
+				'layer'   => 'primary',
+				'label'   => 'EmptyUrl',
+				'tab'     => 'emptyurl',
+				'url'     => static fn( NavContext $c ) => '',
+			)
+		);
+		$out  = $this->reg->resolve( new NavContext( 'profile', 7, 7 ) );
+		$byid = array();
+		foreach ( $out->layer( 'primary' ) as $n ) {
+			$byid[ $n->id ] = $n;
+		}
+		$this->assertSame( 'https://example.test/u/7/', $byid['profilelink']->url_value );
+		$this->assertNull( $byid['emptyurl']->url_value );
+	}
+
+	/**
+	 * A `before` anchor places the item immediately before its target.
+	 */
+	public function test_before_anchor_orders_before_target(): void {
+		$this->reg->register(
+			array(
+				'id'       => 'a',
+				'surface'  => 'profile',
+				'layer'    => 'primary',
+				'label'    => 'A',
+				'tab'      => 'a',
+				'priority' => 10,
+			)
+		);
+		$this->reg->register(
+			array(
+				'id'       => 'b',
+				'surface'  => 'profile',
+				'layer'    => 'primary',
+				'label'    => 'B',
+				'tab'      => 'b',
+				'priority' => 20,
+			)
+		);
+		$this->reg->register(
+			array(
+				'id'       => 'c',
+				'surface'  => 'profile',
+				'layer'    => 'primary',
+				'label'    => 'C',
+				'tab'      => 'c',
+				'priority' => 30,
+			)
+		);
+		$this->reg->register(
+			array(
+				'id'       => 'z',
+				'surface'  => 'profile',
+				'layer'    => 'primary',
+				'label'    => 'Z',
+				'tab'      => 'z',
+				'priority' => 99,
+				'before'   => 'b',
+			)
+		);
+		$out = $this->reg->resolve( new NavContext( 'profile', 5, 5 ) );
+		$this->assertSame( array( 'a', 'z', 'b', 'c' ), $this->ids( $out, 'primary' ) );
+	}
+
+	/**
+	 * When an item sets BOTH `after` and `before`, `after` wins (the disambiguation
+	 * in NavItem::from_array) — so the result is the after-placement, never the
+	 * before one. Here w(after:a, before:c) lands after a, not before c.
+	 */
+	public function test_after_wins_when_both_anchors_set(): void {
+		$this->reg->register(
+			array(
+				'id'       => 'a',
+				'surface'  => 'profile',
+				'layer'    => 'primary',
+				'label'    => 'A',
+				'tab'      => 'a',
+				'priority' => 10,
+			)
+		);
+		$this->reg->register(
+			array(
+				'id'       => 'b',
+				'surface'  => 'profile',
+				'layer'    => 'primary',
+				'label'    => 'B',
+				'tab'      => 'b',
+				'priority' => 20,
+			)
+		);
+		$this->reg->register(
+			array(
+				'id'       => 'c',
+				'surface'  => 'profile',
+				'layer'    => 'primary',
+				'label'    => 'C',
+				'tab'      => 'c',
+				'priority' => 30,
+			)
+		);
+		$this->reg->register(
+			array(
+				'id'       => 'w',
+				'surface'  => 'profile',
+				'layer'    => 'primary',
+				'label'    => 'W',
+				'tab'      => 'w',
+				'priority' => 99,
+				'after'    => 'a',
+				'before'   => 'c',
+			)
+		);
+		$out = $this->reg->resolve( new NavContext( 'profile', 5, 5 ) );
+		$this->assertSame( array( 'a', 'w', 'b', 'c' ), $this->ids( $out, 'primary' ) );
+	}
+
+	/**
+	 * A duplicate (layer, id) registration keeps the FIRST and warns (no silent
+	 * clobber of a core tab by a careless integration).
+	 */
+	public function test_duplicate_id_keeps_first_registration(): void {
+		$this->setExpectedIncorrectUsage( 'buddynext_register_nav' );
+		$this->reg->register(
+			array(
+				'id'      => 'dup',
+				'surface' => 'profile',
+				'layer'   => 'primary',
+				'label'   => 'First',
+				'tab'     => 'first',
+			)
+		);
+		$this->reg->register(
+			array(
+				'id'      => 'dup',
+				'surface' => 'profile',
+				'layer'   => 'primary',
+				'label'   => 'Second',
+				'tab'     => 'second',
+			)
+		);
+		$out     = $this->reg->resolve( new NavContext( 'profile', 5, 5 ) );
+		$primary = $out->layer( 'primary' );
+		$this->assertSame( array( 'dup' ), array_map( static fn( $n ) => $n->id, $primary ) );
+		$this->assertSame( 'first', $primary[0]->tab );
+	}
+
+	/**
+	 * NavContext::is_self() and role_at_least() — the gating primitives.
+	 */
+	public function test_navcontext_is_self_and_role_at_least(): void {
+		$this->assertTrue( ( new NavContext( 'profile', 5, 5 ) )->is_self() );
+		$this->assertFalse( ( new NavContext( 'profile', 5, 9 ) )->is_self() );
+		$this->assertFalse( ( new NavContext( 'profile', 5, 0 ) )->is_self(), 'logged-out viewer is never self' );
+
+		$owner  = new NavContext( 'space', 3, 7, 'owner' );
+		$member = new NavContext( 'space', 3, 8, 'member' );
+		$none   = new NavContext( 'space', 3, 9, '' );
+		$this->assertTrue( $owner->role_at_least( 'moderator' ) );
+		$this->assertTrue( $owner->role_at_least( 'owner' ) );
+		$this->assertTrue( $member->role_at_least( 'member' ) );
+		$this->assertFalse( $member->role_at_least( 'moderator' ) );
+		$this->assertFalse( $none->role_at_least( 'member' ), 'empty role satisfies nothing' );
+	}
 }

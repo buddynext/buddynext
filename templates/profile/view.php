@@ -424,16 +424,32 @@ $bn_pf_primary  = $bn_nav->layer( 'primary' );
 // Deep-link the active tab from the route action. Valid targets are the resolved
 // primary tabs plus the metric panels (followers/following/connections), which
 // are reached via the metric pills, not the bar. Falls back to Posts.
-$bn_pf_action    = (string) get_query_var( 'bn_profile_action', '' );
-$bn_pf_tab_slugs = array_merge(
-	array_map( static fn( $n ) => $n->id, $bn_pf_primary ),
-	array_map( static fn( $n ) => $n->id, $bn_pf_metrics )
-);
+$bn_pf_action = (string) get_query_var( 'bn_profile_action', '' );
+
+// Valid deep-link targets: every primary tab, its sub-tabs (Network's
+// Connections/…, Portfolio's Jobs/Listings/…), and the metric panels reached via
+// the hero pills. Sub-tab slugs MUST be here or a clean /members/x/jobs/ URL
+// would silently fall back to Posts.
+$bn_pf_tab_slugs = array();
+foreach ( $bn_pf_primary as $bn_pf_item ) {
+	$bn_pf_tab_slugs[] = $bn_pf_item->id;
+	foreach ( $bn_pf_item->children as $bn_pf_child ) {
+		$bn_pf_tab_slugs[] = $bn_pf_child->id;
+	}
+}
+foreach ( $bn_pf_metrics as $bn_pf_metric ) {
+	$bn_pf_tab_slugs[] = $bn_pf_metric->id;
+}
+
 $bn_pf_active_tab = in_array( $bn_pf_action, $bn_pf_tab_slugs, true ) ? $bn_pf_action : 'posts';
-// The "Network" parent tab has no panel of its own — it defaults to its first
-// sub-tab (Connections), so a /network/ deep link lands on a real panel.
-if ( 'network' === $bn_pf_active_tab ) {
-	$bn_pf_active_tab = 'connections';
+
+// A parent tab (Network, Portfolio) owns no panel of its own — landing on it
+// (deep link or default) resolves to its first sub-tab so a real panel shows.
+foreach ( $bn_pf_primary as $bn_pf_item ) {
+	if ( $bn_pf_item->id === $bn_pf_active_tab && ! empty( $bn_pf_item->children ) ) {
+		$bn_pf_active_tab = (string) $bn_pf_item->children[0]->id;
+		break;
+	}
 }
 
 $bn_pf_ctx = array(

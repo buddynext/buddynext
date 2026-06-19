@@ -122,10 +122,8 @@ do_action( 'buddynext_part_space_members_panel_before', $args );
 				<?php
 				echo esc_url(
 					add_query_arg(
-						array(
-							'bn_tab'  => 'members',
-							'bn_role' => $bn_role_val,
-						)
+						array( 'bn_role' => $bn_role_val ),
+						trailingslashit( \BuddyNext\Core\PageRouter::space_url( (int) $space->id ) ) . 'members/'
 					)
 				);
 				?>

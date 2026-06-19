@@ -100,16 +100,39 @@ final class NavRegistry {
 		 */
 		$raw = (array) apply_filters( 'buddynext_nav_items', $raw, $ctx );
 
-		// Build + validate.
+		// Build + validate. Items injected via the filter carry no `__seq`, so give
+		// them a monotonic seq ABOVE the registered ones — otherwise they'd all tie
+		// at 0 and the priority tiebreak (order()) would be undefined between them.
+		// Duplicate (layer, id) registrations keep the FIRST and warn in debug, so a
+		// careless integration reusing a core id can't silently clobber the tab.
 		$items = array();
+		$seen  = array();
+		$next  = $this->seq;
 		foreach ( $raw as $a ) {
 			if ( ! is_array( $a ) ) {
 				continue;
 			}
-			$item = NavItem::from_array( $a, (int) ( $a['__seq'] ?? 0 ) );
-			if ( null !== $item ) {
-				$items[] = $item;
+			$seq  = isset( $a['__seq'] ) ? (int) $a['__seq'] : $next++;
+			$item = NavItem::from_array( $a, $seq );
+			if ( null === $item ) {
+				continue;
 			}
+			$dupe_key = $item->layer . ':' . $item->id;
+			if ( isset( $seen[ $dupe_key ] ) ) {
+				_doing_it_wrong(
+					'buddynext_register_nav',
+					sprintf(
+						/* translators: 1: nav item id, 2: layer. */
+						esc_html__( 'Duplicate nav item "%1$s" on layer "%2$s" ignored — ids must be unique within a (surface, layer).', 'buddynext' ),
+						esc_html( $item->id ),
+						esc_html( $item->layer )
+					),
+					'0.4.0'
+				);
+				continue;
+			}
+			$seen[ $dupe_key ] = true;
+			$items[]           = $item;
 		}
 
 		// Capability + condition gate.

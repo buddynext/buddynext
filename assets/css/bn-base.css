@@ -2738,6 +2738,17 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	margin: 0;
 	border: 0;
 }
+.bn-app .bn-tab,
+.bn-app .bn-tab:hover,
+.bn-app .bn-tab:focus,
+.bn-app .bn-tab:active,
+.bn-app .bn-tab:focus-visible {
+	/* Own the padding on every interactive state so a host theme's bare-button
+	   :hover (e.g. Reign's `button:hover { padding: 10px 20px }`, 0,2,1) cannot
+	   out-specify it (0,3,0 here) and reflow the tab row on hover/press — the same
+	   geometry lock the composer/post-card action buttons use. */
+	padding: var(--bn-s2) var(--bn-s3);
+}
 .bn-app .bn-tab {
 	border-top: 0;
 	border-right: 0;

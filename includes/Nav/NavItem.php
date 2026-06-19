@@ -162,6 +162,14 @@ final class NavItem {
 			? (string) $a['trend']
 			: null;
 
+		// Anchors: `after` wins when both are supplied, so the stored state is never
+		// ambiguous — order() honours only one anchor per item, and a hand-built
+		// array that sets both no longer silently drops one at sort time.
+		$after  = isset( $a['after'] ) && '' !== (string) $a['after'] ? sanitize_key( (string) $a['after'] ) : null;
+		$before = ( null === $after && isset( $a['before'] ) && '' !== (string) $a['before'] )
+			? sanitize_key( (string) $a['before'] )
+			: null;
+
 		return new self(
 			id: $id,
 			surface: $surface,
@@ -175,8 +183,8 @@ final class NavItem {
 			condition: $condition,
 			hide_empty: ! empty( $a['hide_empty'] ),
 			priority: isset( $a['priority'] ) ? (int) $a['priority'] : 50,
-			before: isset( $a['before'] ) && '' !== (string) $a['before'] ? sanitize_key( (string) $a['before'] ) : null,
-			after: isset( $a['after'] ) && '' !== (string) $a['after'] ? sanitize_key( (string) $a['after'] ) : null,
+			before: $before,
+			after: $after,
 			delta: isset( $a['delta'] ) && '' !== (string) $a['delta'] ? (string) $a['delta'] : null,
 			trend: $trend,
 			count: $count,

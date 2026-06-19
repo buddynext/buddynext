@@ -98,9 +98,10 @@ the mobile bottom bar (one declaration, both targets).
 
 ## Build status
 
-- **Profile** — on the Nav API (stats + primary + Network sub-nav). ✅
-- **Space (Wave 3)** — `SpaceNav` provider + repoint `spaces/home.php` at the same
-  parts. Pending.
+- **Profile** — on the Nav API (stats + primary + Network sub-nav + Pro Portfolio
+  sub-tabs). ✅
+- **Space (Wave 3)** — `SpaceNav` provider booted in `Core\Plugin`; `spaces/home.php`,
+  `members.php`, `moderation.php` all render through the shared `parts/nav-bar.php`. ✅
 - **Rail + Context (Wave 4)** — `RailNav` provider; convert `buddynext_rail_items` +
   `buddynext_context_nav`; this is where Jobs/Courses/Listings rail entries land.
   Pending.
