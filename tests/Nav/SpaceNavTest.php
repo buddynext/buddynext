@@ -61,7 +61,11 @@ class SpaceNavTest extends \WP_UnitTestCase {
 	 */
 	private function expected_primary( bool $can_moderate ): array {
 		$ids = array( 'feed', 'members' );
-		if ( MediaClient::available() ) {
+		// Mirror SpaceNav's media gate EXACTLY: the engine is available AND the
+		// per-space media-tab option is on. Tests never set the option (space 7),
+		// so media stays off — checking available() alone would over-include it
+		// now that the WPMediaVerse stub exposes a container() method.
+		if ( MediaClient::available() && (bool) get_option( 'bn_space_7_mvs_media_tab', 0 ) ) {
 			$ids[] = 'media';
 		}
 		$ids[] = 'about';

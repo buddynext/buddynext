@@ -49,29 +49,44 @@ class GamificationAchievementsTest extends \WP_UnitTestCase {
 		return (string) ob_get_clean();
 	}
 
-	private function tabs(): array {
-		$args = $this->tab->add_tab( array( 'profile_user_id' => $this->member_id, 'tabs' => array() ) );
-		return $args['tabs'];
+	/**
+	 * Resolve the Achievements primary tab for this member via the unified Nav API
+	 * (the tab is now registered through buddynext_register_nav, not the old
+	 * add_tab() filter), or null when its condition gate hides it.
+	 *
+	 * @return \BuddyNext\Nav\NavItem|null
+	 */
+	private function achievements_item(): ?\BuddyNext\Nav\NavItem {
+		$registry = \BuddyNext\Nav\NavRegistry::instance();
+		$registry->reset();
+		remove_all_actions( 'buddynext_register_nav' );
+		$this->tab->register_nav( $registry );
+		$out = $registry->resolve( new \BuddyNext\Nav\NavContext( 'profile', $this->member_id, $this->member_id ) );
+		foreach ( $out->layer( 'primary' ) as $item ) {
+			if ( 'achievements' === $item->id ) {
+				return $item;
+			}
+		}
+		return null;
 	}
 
 	public function test_tab_added_when_member_has_badges(): void {
 		$this->set_badges( array( array( 'id' => 'champ', 'name' => 'Champion', 'is_credential' => 1, 'earned_at' => '2026-01-01' ) ) );
 
-		$tabs = $this->tabs();
-		$this->assertCount( 1, $tabs );
-		$this->assertSame( 'achievements', $tabs[0]['slug'] );
-		$this->assertSame( 1, (int) $tabs[0]['count'] );
+		$item = $this->achievements_item();
+		$this->assertNotNull( $item );
+		$this->assertSame( 'achievements', $item->id );
+		$this->assertSame( 1, (int) $item->count_value );
 	}
 
 	public function test_tab_added_when_member_has_points_but_no_badges(): void {
 		$GLOBALS['wb_gam_test']['points'][ $this->member_id ] = 120;
 
-		$tabs = $this->tabs();
-		$this->assertCount( 1, $tabs, 'standing alone earns the tab' );
+		$this->assertNotNull( $this->achievements_item(), 'standing alone earns the tab' );
 	}
 
 	public function test_no_tab_for_member_with_no_standing(): void {
-		$this->assertSame( array(), $this->tabs(), 'brand-new member gets no empty Achievements tab' );
+		$this->assertNull( $this->achievements_item(), 'brand-new member gets no empty Achievements tab' );
 	}
 
 	public function test_panel_lists_badges_credential_first(): void {

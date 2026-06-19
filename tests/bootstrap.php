@@ -50,8 +50,27 @@ require_once $wp_tests_dir . '/includes/functions.php';
 // a single base stub and alias it to every needed namespaced class.
 
 // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound
-/** Base stub used as source for class_alias() calls below. */
-class BuddyNext_Test_Addon_Stub {}
+/**
+ * Base stub used as source for class_alias() calls below. It doubles as a no-op
+ * service container: bridges that probe an aliased partner Plugin (e.g.
+ * WPMediaVerse\Core\Plugin::container()->has('follows')) get a container that
+ * reports nothing registered, so the bridge cleanly defers to BuddyNext's own
+ * service instead of fataling on a missing method.
+ */
+class BuddyNext_Test_Addon_Stub {
+	/** Stand in for a partner plugin's static container() accessor. */
+	public static function container(): self {
+		return new self();
+	}
+	/** No service is registered in the stub container. */
+	public function has( string $id ): bool {
+		return false;
+	}
+	/** Nothing to resolve from the stub container. */
+	public function get( string $id ) {
+		return null;
+	}
+}
 // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound
 
 // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
@@ -183,3 +202,9 @@ tests_add_filter(
 );
 
 require_once $wp_tests_dir . '/includes/bootstrap.php';
+
+// Create the bn_* custom tables in the test DB. The WP test bootstrap does not
+// run plugin activation, so without this every test that touches a custom table
+// (member types, moderation, onboarding, social graph, spaces, …) errors on a
+// missing table. Schema only — no seeds — so per-test fixtures start clean.
+\BuddyNext\Core\Installer::install_schema();
