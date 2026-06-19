@@ -161,7 +161,6 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		$bn_subtab = isset( $_POST['bn_settings_subtab'] ) ? sanitize_key( wp_unslash( $_POST['bn_settings_subtab'] ) ) : 'general';
 
 		if ( 'privacy' === $bn_subtab ) {
-			update_option( 'bn_space_' . $space_id . '_allow_member_posts', isset( $_POST['allow_member_posts'] ) ? 1 : 0 );
 		}
 
 		if ( 'integrations' === $bn_subtab ) {
@@ -191,7 +190,6 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_permissions_nonce'] )
 	if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_space_permissions_nonce'] ) ), 'bn_space_permissions_' . $space_id ) ) {
 		$save_notice = 'error';
 	} else {
-		update_option( 'bn_space_' . $space_id . '_allow_member_posts', isset( $_POST['allow_member_posts'] ) ? 1 : 0 );
 		update_option( 'bn_space_' . $space_id . '_require_join_approval', isset( $_POST['require_join_approval'] ) ? 1 : 0 );
 		$bn_who_post = isset( $_POST['who_can_post'] ) ? sanitize_key( wp_unslash( $_POST['who_can_post'] ) ) : 'members';
 		if ( ! in_array( $bn_who_post, array( 'members', 'mods', 'owner' ), true ) ) {
@@ -323,7 +321,6 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_members_nonce'] ) ) {
 	}
 }
 
-$allow_member_posts    = (bool) get_option( 'bn_space_' . $space_id . '_allow_member_posts', 1 );
 $require_join_approval = (bool) get_option( 'bn_space_' . $space_id . '_require_join_approval', 0 );
 $push_to_feed          = (bool) get_option( 'bn_space_' . $space_id . '_push_to_feed', 1 );
 $mvs_media_tab         = (bool) get_option( 'bn_space_' . $space_id . '_mvs_media_tab', 0 );
@@ -583,7 +580,6 @@ foreach ( $builtin_tabs as $bn_t ) {
 				array(
 					'space'            => $space,
 					'privacy_settings' => array(
-						'allow_member_posts' => $allow_member_posts,
 					),
 				),
 			),
@@ -607,7 +603,6 @@ foreach ( $builtin_tabs as $bn_t ) {
 						'space_url'             => $space_url,
 						'who_can_post'          => $who_can_post,
 						'who_can_invite'        => $who_can_invite,
-						'allow_member_posts'    => $allow_member_posts,
 						'require_join_approval' => $require_join_approval,
 					),
 				),

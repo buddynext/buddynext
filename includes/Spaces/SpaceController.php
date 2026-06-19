@@ -357,7 +357,6 @@ class SpaceController extends BaseRestController {
 	 * Update space permissions (delegates to update_space with whitelisted fields).
 	 *
 	 * Permissions stored as wp_options under bn_space_<id>_<key>:
-	 *   - allow_member_posts
 	 *   - require_join_approval
 	 *
 	 * @param WP_REST_Request $request Incoming request.
@@ -377,7 +376,6 @@ class SpaceController extends BaseRestController {
 		}
 
 		$bools = array(
-			'allow_member_posts'    => 'allow_member_posts',
 			'require_join_approval' => 'require_join_approval',
 		);
 		foreach ( $bools as $key => $opt ) {
@@ -389,7 +387,6 @@ class SpaceController extends BaseRestController {
 
 		return new WP_REST_Response(
 			array(
-				'allow_member_posts'    => (int) get_option( 'bn_space_' . $space_id . '_allow_member_posts', 1 ),
 				'require_join_approval' => (int) get_option( 'bn_space_' . $space_id . '_require_join_approval', 0 ),
 			),
 			200

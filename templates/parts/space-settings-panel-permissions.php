@@ -12,7 +12,6 @@
  * @var array  $permissions_settings Required. Bundle:
  *   - `who_can_post`          (string) 'members'|'mods'|'owner'
  *   - `who_can_invite`        (string) 'members'|'mods'|'owner'
- *   - `allow_member_posts`    (bool)
  *   - `require_join_approval` (bool)
  *   - `space_id`              (int)
  *   - `space_url`             (string) Cancel-link URL.
@@ -50,7 +49,6 @@ $bn_space_id              = isset( $bn_settings['space_id'] ) ? (int) $bn_settin
 $bn_space_url             = isset( $bn_settings['space_url'] ) ? (string) $bn_settings['space_url'] : '';
 $bn_who_can_post          = isset( $bn_settings['who_can_post'] ) ? (string) $bn_settings['who_can_post'] : 'members';
 $bn_who_can_invite        = isset( $bn_settings['who_can_invite'] ) ? (string) $bn_settings['who_can_invite'] : 'mods';
-$bn_allow_member_posts    = ! empty( $bn_settings['allow_member_posts'] );
 $bn_require_join_approval = ! empty( $bn_settings['require_join_approval'] );
 
 $bn_classes = array_merge( array( 'bn-card', 'bn-space-settings__panel' ), array_filter( (array) $args['classes'], 'is_string' ) );
@@ -115,17 +113,6 @@ do_action( 'buddynext_part_space_settings_panel_permissions_before', $args );
 					<?php esc_html_e( 'Owner only', 'buddynext' ); ?>
 				</option>
 			</select>
-		</div>
-
-		<div class="bn-toggle-row">
-			<div class="bn-toggle-row__copy">
-				<div class="bn-toggle-row__label"><?php esc_html_e( 'Allow member posts', 'buddynext' ); ?></div>
-				<div class="bn-toggle-row__desc"><?php esc_html_e( 'Members can post in the space feed.', 'buddynext' ); ?></div>
-			</div>
-			<label class="bn-space-settings__toggle-shell">
-				<input type="checkbox" class="bn-space-settings__toggle-input" name="allow_member_posts" value="1" <?php checked( $bn_allow_member_posts ); ?>>
-				<span class="bn-toggle" aria-hidden="true"></span>
-			</label>
 		</div>
 
 		<div class="bn-toggle-row">

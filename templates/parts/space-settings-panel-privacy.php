@@ -9,7 +9,6 @@
  *
  * @var object $space            Required. Space row (from `bn_spaces`).
  * @var array  $privacy_settings Required. Bundle:
- *   - `allow_member_posts`    (bool)
  * @var array  $classes          Optional. Extra CSS classes appended to `.bn-card`.
  *
  * Fires:
@@ -39,7 +38,6 @@ if ( ! $bn_space ) {
 	return;
 }
 
-$bn_allow_member_posts    = ! empty( $args['privacy_settings']['allow_member_posts'] );
 
 $bn_classes = array_merge( array( 'bn-card', 'bn-space-settings__panel' ), array_filter( (array) $args['classes'], 'is_string' ) );
 /** Computed root-class list. @var array<int,string> $bn_classes */
@@ -81,16 +79,6 @@ do_action( 'buddynext_part_space_settings_panel_privacy_before', $args );
 		</select>
 	</div>
 
-	<div class="bn-toggle-row">
-		<div class="bn-toggle-row__copy">
-			<div class="bn-toggle-row__label"><?php esc_html_e( 'Allow member posts', 'buddynext' ); ?></div>
-			<div class="bn-toggle-row__desc"><?php esc_html_e( 'Members can post in the space feed. Disable for announcement-only spaces.', 'buddynext' ); ?></div>
-		</div>
-		<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Allow member posts', 'buddynext' ); ?>">
-			<input type="checkbox" class="bn-space-settings__toggle-input" name="allow_member_posts" value="1" <?php checked( $bn_allow_member_posts ); ?>>
-			<span class="bn-toggle" aria-hidden="true"></span>
-		</label>
-	</div>
 
 </div>
 <?php

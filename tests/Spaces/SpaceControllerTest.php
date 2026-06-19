@@ -472,7 +472,7 @@ class SpaceControllerTest extends \WP_Test_REST_TestCase {
 		);
 
 		$request = new WP_REST_Request( 'PUT', '/buddynext/v1/spaces/' . $space_id . '/permissions' );
-		$request->set_body_params( array( 'allow_member_posts' => 0 ) );
+		$request->set_body_params( array( 'require_join_approval' => 1 ) );
 		$response = rest_do_request( $request );
 
 		$this->assertSame( 403, $response->get_status() );
