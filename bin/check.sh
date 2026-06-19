@@ -12,6 +12,8 @@
 #   3. bin/check-rest-boundary.sh — fails on any admin-ajax surface
 #   4. PHPStan level 5 against includes/
 #   5. bin/ux-audit.sh — block-severity violations fail
+#   6. flow-audit CLI (free+pro) — fails on new/unbaselined flow-audit errors
+#   7. wp buddynext cert — behavioural gate (only when BN_WP_PATH is set)
 #
 # This script is the single entry point a contributor runs before pushing.
 # CI runs the same script. Anchor docs: docs/v2 Plans/PLAN.md Part 4 gates,
@@ -132,6 +134,27 @@ if [ "$SKIP_AUDIT" = 0 ]; then
 	else
 		note "bin/ux-audit.sh missing"
 	fi
+fi
+
+# 5. Flow audit (cross-layer dup / orphan / rest-flow / canonical / template /
+# logic). Static — runs the free + pro pair through the flow-audit CLI, which
+# loads audit/.flow-audit-baseline.json and exits non-zero ONLY on new /
+# unbaselined errors (the same baseline-suppression pattern as the contract
+# audit). The CLI ships in the wp-plugin-qa MCP server OUTSIDE this repo; override
+# its path with FLOW_AUDIT_CLI and the Pro root with BN_PRO_PATH. Skipped (not
+# failed) when node or the CLI is unavailable so a fresh clone without the MCP
+# server still passes the other gates.
+section "Flow audit (free + pro pair)"
+FLOW_AUDIT_CLI="${FLOW_AUDIT_CLI:-$HOME/.mcp-servers/wp-plugin-qa-mcp-server/build/flow-audit-cli.js}"
+BN_PRO_PATH="${BN_PRO_PATH:-$HOME/dev/repos/buddynext-pro}"
+if command -v node >/dev/null 2>&1 && [ -f "$FLOW_AUDIT_CLI" ]; then
+	if node "$FLOW_AUDIT_CLI" "$PLUGIN_DIR" "$BN_PRO_PATH" >/dev/null 2>&1; then
+		ok "0 unbaselined flow-audit errors"
+	else
+		fail "flow-audit: new/unbaselined errors — run: node \"$FLOW_AUDIT_CLI\" \"$PLUGIN_DIR\" \"$BN_PRO_PATH\" (see audit/flow-audit-report.md)"
+	fi
+else
+	note "skipped — flow-audit CLI not found (set FLOW_AUDIT_CLI to .../build/flow-audit-cli.js)"
 fi
 
 # 6. Functional certification (behaviour, not shape) — needs a live WP site.
