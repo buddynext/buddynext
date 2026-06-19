@@ -66,8 +66,10 @@ class JetonomyBridge {
 		// Inject a Discussions tab into BuddyNext spaces that have a linked Jetonomy forum.
 		add_filter( 'buddynext_space_tabs', array( $this, 'inject_space_forum_tab' ), 10, 2 );
 
-		// Inject a Discussions stat block into BuddyNext user profiles.
-		add_filter( 'buddynext_profile_extra_data', array( $this, 'inject_profile_discussion_count' ), 10, 2 );
+		// Register the Discussions tab on the member-profile nav via the unified
+		// Nav API (one registry, one renderer) — the count badge lives on the tab,
+		// so it can never become a duplicate stat pill.
+		add_action( 'buddynext_register_nav', array( $this, 'register_profile_nav' ) );
 
 		// On-demand space forum: provision + redirect when a member first opens a
 		// forumless space's Discussions tab (web).
@@ -532,43 +534,54 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Inject a Discussions stat block into BuddyNext user profiles.
+	 * Register the Discussions tab on the member-profile nav surface.
 	 *
-	 * Counts published Jetonomy discussions authored by the profile user and
-	 * appends a stat entry so the number shows in the profile header stat row.
+	 * Hooked on `buddynext_register_nav`. The tab carries a lazy count badge of
+	 * the member's published Jetonomy discussions; gated on Jetonomy being active.
 	 *
-	 * Hooked on: buddynext_profile_extra_data( array $extra, int $user_id )
-	 *
-	 * @param array<int, array{label: string, value: string|int}> $extra           Existing extra stat entries.
-	 * @param int                                                 $profile_user_id ID of the user whose profile is being viewed.
-	 * @return array<int, array{label: string, value: string|int}>
+	 * @param \BuddyNext\Nav\NavRegistry $registry The shared nav registry.
+	 * @return void
 	 */
-	public function inject_profile_discussion_count( array $extra, int $profile_user_id ): array {
+	public function register_profile_nav( \BuddyNext\Nav\NavRegistry $registry ): void {
+		// A primary tab (it owns a panel of the member's discussions). Gated on
+		// Jetonomy being active; the count badge is resolved lazily per profile.
+		$registry->register(
+			array(
+				'id'        => 'discussions',
+				'surface'   => 'profile',
+				'layer'     => 'primary',
+				'label'     => __( 'Discussions', 'buddynext' ),
+				'tab'       => 'discussions',
+				'icon'      => 'message-square',
+				'priority'  => 60,
+				'condition' => static fn(): bool => class_exists( 'Jetonomy\Jetonomy' ),
+				'count'     => fn( \BuddyNext\Nav\NavContext $c ): int => $this->discussion_count( $c->subject_id ),
+			)
+		);
+	}
+
+	/**
+	 * Count a member's published Jetonomy discussions (the bridge owns jt_* access).
+	 *
+	 * @param int $user_id Discussion author ID.
+	 * @return int
+	 */
+	public function discussion_count( int $user_id ): int {
+		$user_id = absint( $user_id );
+		if ( $user_id <= 0 || ! class_exists( 'Jetonomy\Models\Post' ) ) {
+			return 0;
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$count = (int) $wpdb->get_var(
+		return (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}jt_posts WHERE author_id = %d AND status = 'publish'",
-				$profile_user_id
+				$user_id
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		// Count-only stat. The stats strip is a display row; navigation lives in
-		// the tab bar, where Discussions already has its own tab — so this pill
-		// must NOT also navigate (that would be a redundant second nav for the
-		// same destination). Omitting wp_on_click / data_tab renders it as a
-		// static count, consistent with the rest of the row.
-		$extra[] = array(
-			'label'   => __( 'Discussions', 'buddynext' ),
-			'value'   => $count,
-			// First-class content count — render emphasized like Posts, not as a
-			// muted secondary metric.
-			'primary' => true,
-		);
-
-		return $extra;
 	}
 
 	/**

@@ -2588,9 +2588,43 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	color: var(--bn-ink-3);
 }
 
+/* Profile-hero variant: the metric row reads as the hero's bottom stat band —
+   middot-separated counts on a subtle band, NOT a second nav. (Replaces the old
+   .bn-pf-pills strip; same look, one canonical component.) */
+.bn-nav-metrics.bn-pf-metricrow {
+	gap: 0;
+	align-items: baseline;
+	padding: var(--bn-s3) var(--bn-s4);
+	border-block-start: 1px solid var(--bn-line);
+	background: var(--bn-canvas);
+}
+.bn-pf-metricrow .bn-nav-metric + .bn-nav-metric::before {
+	content: "\00B7";
+	margin-inline: var(--bn-s2);
+	color: var(--bn-ink-4);
+	font-weight: 400;
+}
+.bn-pf-metricrow .bn-nav-metric {
+	font-size: var(--bn-text-sm);
+}
+.bn-pf-metricrow a.bn-nav-metric:hover,
+.bn-pf-metricrow button.bn-nav-metric:hover {
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
 @media (max-width: 640px) {
 	.bn-nav-metrics {
 		gap: var(--bn-s2) var(--bn-s3);
+	}
+	/* On a narrow band the metric row wraps; drop the middot separators (a wrap
+	   would otherwise leave a dangling leading "·") and lean on the row/column
+	   gap for clean separation across lines. */
+	.bn-nav-metrics.bn-pf-metricrow {
+		gap: var(--bn-s1) var(--bn-s4);
+	}
+	.bn-pf-metricrow .bn-nav-metric + .bn-nav-metric::before {
+		content: none;
 	}
 }
 

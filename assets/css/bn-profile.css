@@ -1305,86 +1305,10 @@
 .bn-pf-stat:hover {
 	background: var(--bn-surface);
 }
-/* Profile stats — one uniform pill row. Core social pills lead (emphasized);
-   optional feature pills (gamification, forum, any plugin via the
-   buddynext_profile_extra_data hook) follow, muted. Wraps gracefully; no
-   wasted full-width columns. */
-.bn-pf-pills {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: baseline;
-	gap: 0;
-	padding: var(--bn-s3) var(--bn-s4);
-	border-block-start: 1px solid var(--bn-line);
-	background: var(--bn-canvas);
-}
-/* Flat inline metadata, not buttons — counts read as info with middot
- * separators. The genuinely-linked counts still navigate (to the matching
- * profile tab) and get a text-link underline on hover, but never button chrome.
- * Consistent with the space header stats. */
-.bn-pf-pill {
-	display: inline-flex;
-	align-items: baseline;
-	gap: 5px;
-	padding: 0;
-	background: none;
-	border: 0;
-	border-radius: 0;
-	color: var(--bn-ink-2);
-	font: inherit;
-	font-size: var(--bn-text-sm);
-	text-decoration: none;
-	white-space: nowrap;
-	line-height: 1.5;
-}
-.bn-pf-pill + .bn-pf-pill::before {
-	content: "\00B7";
-	margin-inline: var(--bn-s2);
-	color: var(--bn-ink-4);
-	font-weight: 400;
-}
-a.bn-pf-pill,
-button.bn-pf-pill {
-	cursor: pointer;
-}
-a.bn-pf-pill:hover,
-button.bn-pf-pill:hover,
-.bn-pf-pill--primary:focus-visible {
-	outline: none;
-	text-decoration: underline;
-	text-underline-offset: 2px;
-}
-.bn-pf-pill__value {
-	font-weight: var(--bn-fw-semibold, 600);
-	color: var(--bn-ink);
-}
-.bn-pf-pill--primary .bn-pf-pill__value {
-	font-size: var(--bn-text-sm);
-}
-.bn-pf-pill__label {
-	color: var(--bn-ink-3);
-}
-.bn-pf-pill__delta {
-	font-size: var(--bn-text-xs, 11px);
-	font-weight: 600;
-	color: var(--bn-success, #16a34a);
-}
-.bn-pf-pill__delta[data-trend="down"] {
-	color: var(--bn-danger, #dc2626);
-}
-.bn-pf-pill__delta[data-trend="flat"] {
-	color: var(--bn-ink-4);
-}
-.bn-pf-pill--muted {
-	background: transparent;
-}
-.bn-pf-pill--muted .bn-pf-pill__value {
-	font-weight: 600;
-	color: var(--bn-ink-2);
-}
-.bn-pf-pill--muted .bn-pf-pill__label {
-	color: var(--bn-ink-4);
-}
+/* (Removed) .bn-pf-pills / .bn-pf-pill — the profile stat strip is now the
+   shared Nav metric row (.bn-nav-metrics.bn-pf-metricrow in bn-base.css),
+   rendered from the unified registry. The old strip template + its styling are
+   gone; one canonical metric component serves profile + space. */
 .bn-pf-stat--link {
 	cursor: pointer;
 	color: inherit;
