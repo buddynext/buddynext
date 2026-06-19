@@ -147,7 +147,7 @@ $mem_privacy = array(
 );
 ?>
 <div
-	class="bn-space-members"
+	class="bn-sh-stack bn-space-members"
 	data-wp-interactive="buddynext/space-members"
 	data-wp-context='
 	<?php

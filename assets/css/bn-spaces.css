@@ -1095,10 +1095,12 @@ a.bn-sh-statpill:focus-visible {
 	font-size: var(--bn-text-base);
 	color: var(--bn-ink);
 	line-height: var(--bn-leading-body);
-	background: var(--bn-canvas);
+	/* Box model (flex column + gap + outer padding) comes from the shared
+	   .bn-sh-stack the space home tab uses, so the hero + content sit at the
+	   SAME width and rhythm on every space tab. The old per-tab padding-inline
+	   here inset the hero ~s5 narrower than Feed, which read as the layout
+	   "jumping" between tabs. */
 	min-block-size: 60vh;
-	padding-block: var(--bn-s4) var(--bn-s8);
-	padding-inline: var(--bn-s5);
 }
 
 .bn-space-members__filter {
@@ -1955,10 +1957,6 @@ a.bn-sh-statpill:focus-visible {
 	}
 
 	.bn-tabs.bn-sh-hero__tabs {
-		padding-inline: var(--bn-s3);
-	}
-
-	.bn-space-members {
 		padding-inline: var(--bn-s3);
 	}
 
