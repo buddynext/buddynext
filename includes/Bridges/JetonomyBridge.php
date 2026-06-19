@@ -313,12 +313,12 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Inject a Discussions link into the BuddyNext left navigation rail.
+	 * Inject a person-specific Discussions link into the BuddyNext left rail.
 	 *
-	 * Appends a public "Discussions" rail item pointing to the Jetonomy community
-	 * home. The `active` flag is computed from the current REQUEST_URI and honoured
-	 * wherever the rail renders (BuddyNext's own hubs); on the forum's own pages the
-	 * rail is replaced by the Level-2 context sub-nav, so the flag is set defensively.
+	 * Appends a "Discussions" rail item pointing at the logged-in member's OWN
+	 * profile Discussions tab (their authored discussions), not the global forum
+	 * home — a "my discussions" shortcut. Hidden for guests. The `active` flag is
+	 * computed from the current REQUEST_URI against that profile-tab path.
 	 *
 	 * Hooked on: buddynext_rail_items( array $items, string $hub )
 	 *
@@ -326,24 +326,33 @@ class JetonomyBridge {
 	 * @return array<int, array{key: string, label: string, url: string, icon: string, show: bool, active?: bool}>
 	 */
 	public function inject_discussions_nav_item( array $items ): array {
-		$settings  = get_option( 'jetonomy_settings', array() );
-		$base_slug = isset( $settings['base_slug'] ) ? (string) $settings['base_slug'] : 'community';
+		// Person-specific: the rail "Discussions" link points the viewer at their
+		// OWN profile Discussions tab (the in-hub panel listing the discussions they
+		// authored), not the global forum landing page. Only shown when logged in —
+		// there is no "my discussions" for a guest.
+		$uid = get_current_user_id();
+		if ( $uid <= 0 ) {
+			return $items;
+		}
 
-		// Derive the forum base path from home_url() so subdirectory installs work.
-		$forum_url  = home_url( '/' . $base_slug . '/' );
-		$forum_path = (string) ( wp_parse_url( $forum_url, PHP_URL_PATH ) ?? '/' . $base_slug . '/' );
+		$disc_url  = trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $uid ) ) . 'discussions/';
+		$disc_path = rtrim( (string) ( wp_parse_url( $disc_url, PHP_URL_PATH ) ?? '' ), '/' );
 
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
 		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
-		$is_active   = str_starts_with( $request_uri, $forum_path );
+		$is_active   = '' !== $disc_path && str_starts_with( rtrim( $request_uri, '/' ), $disc_path );
 
 		$items[] = array(
 			'key'    => 'discussions',
 			'label'  => __( 'Discussions', 'buddynext' ),
-			'url'    => $forum_url,
+			'url'    => $disc_url,
 			'icon'   => 'list',
 			'show'   => true,
 			'active' => $is_active,
+			// Personal "You" group — it is the viewer's own discussions, so it sits
+			// with Profile / Media / Bookmarks, not in the community group up top.
+			'group'  => 'you',
+			'order'  => 206,
 		);
 
 		return $items;
@@ -356,7 +365,7 @@ class JetonomyBridge {
 	 * @return string Forum URL, or '' when no forum is linked yet.
 	 */
 	private function space_forum_url( int $space_id ): string {
-		$forum_id = (int) get_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', 0 );
+		$forum_id = $this->forum_id_for_space( $space_id );
 		if ( $forum_id <= 0 ) {
 			return '';
 		}
@@ -562,9 +571,14 @@ class JetonomyBridge {
 			)
 		);
 
-		// Space: a primary tab linking to the space forum. URL is lazy — the linked
-		// forum if one exists, else the on-demand provision trigger (forum created
-		// the first time a member opens Discussions; no empty forums).
+		// Space: a primary tab owning the space's discussions panel in-hub — the
+		// counterpart to the profile Discussions tab. URL-only like every other
+		// space tab (clean /spaces/{slug}/discussions/ link rendered as a real <a>,
+		// NOT a reactive in-page tab): the space surface server-renders one panel
+		// per clean URL rather than pre-rendering all of them. The panel lists the
+		// linked forum's threads and links out to Jetonomy (full-load, deny-listed)
+		// for reading/posting; the no-forum empty state offers the on-demand
+		// provision trigger. Count badges the linked forum's published thread total.
 		$registry->register(
 			array(
 				'id'        => 'discussions',
@@ -575,19 +589,9 @@ class JetonomyBridge {
 				'priority'  => 35,
 				'condition' => $jetonomy_active,
 				'url'       => function ( \BuddyNext\Nav\NavContext $c ): string {
-					$forum_url = $this->space_forum_url( $c->subject_id );
-					return '' !== $forum_url
-						? $forum_url
-						: add_query_arg(
-							array(
-								'bn_provision_forum' => $c->subject_id,
-								// Per-space nonce so the provision-on-GET handler can reject a
-								// forged/cross-site request (capability alone does not stop CSRF).
-								'_bnpf'              => wp_create_nonce( 'bn_provision_forum_' . $c->subject_id ),
-							),
-							home_url( '/spaces/' )
-						);
+					return trailingslashit( \BuddyNext\Core\PageRouter::space_url( $c->subject_id ) ) . 'discussions/';
 				},
+				'count'     => fn( \BuddyNext\Nav\NavContext $c ): int => $this->space_discussion_count( $c->subject_id ),
 			)
 		);
 	}
@@ -651,6 +655,130 @@ class JetonomyBridge {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Resolve the Jetonomy forum (jt_spaces) id linked to a BuddyNext space.
+	 *
+	 * The link option stores the Jetonomy forum id — jt_posts.space_id is that
+	 * forum id, NOT the BN space id, so every jt_posts query keyed by space must
+	 * map through here first. Returns 0 when no forum has been provisioned yet.
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return int Jetonomy forum id, or 0 when unlinked.
+	 */
+	private function forum_id_for_space( int $space_id ): int {
+		$space_id = absint( $space_id );
+		if ( $space_id <= 0 ) {
+			return 0;
+		}
+		return (int) get_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', 0 );
+	}
+
+	/**
+	 * List a space's published Jetonomy discussions, newest first, joined to the
+	 * author for the display name/login. Powers the in-hub space "Discussions" tab
+	 * so the template never reaches into jt_* tables itself (the bridge owns that
+	 * access) — the space counterpart to user_discussions(). Takes a BuddyNext
+	 * space id and maps to the linked Jetonomy forum internally.
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @param int $limit    Max rows (1-50). Default 20.
+	 * @return object[] Each row: id, title, slug, reply_count, vote_score, created_at, author_id, author_name, author_login.
+	 */
+	public function space_discussions( int $space_id, int $limit = 20 ): array {
+		if ( ! class_exists( 'Jetonomy\Models\Post' ) ) {
+			return array();
+		}
+		$forum_id = $this->forum_id_for_space( $space_id );
+		if ( $forum_id <= 0 ) {
+			return array();
+		}
+		$limit = max( 1, min( 50, $limit ) );
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT p.id, p.title, p.slug, p.reply_count, p.vote_score, p.created_at,
+				        p.author_id, u.display_name AS author_name, u.user_login AS author_login
+				 FROM {$wpdb->prefix}jt_posts p
+				 LEFT JOIN {$wpdb->users} u ON u.ID = p.author_id
+				 WHERE p.space_id = %d AND p.status = 'publish'
+				 ORDER BY p.created_at DESC
+				 LIMIT %d",
+				$forum_id,
+				$limit
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Count a space's published Jetonomy discussions (the bridge owns jt_* access).
+	 * Takes a BuddyNext space id and maps to the linked Jetonomy forum internally.
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return int
+	 */
+	public function space_discussion_count( int $space_id ): int {
+		if ( ! class_exists( 'Jetonomy\Models\Post' ) ) {
+			return 0;
+		}
+		$forum_id = $this->forum_id_for_space( $space_id );
+		if ( $forum_id <= 0 ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}jt_posts WHERE space_id = %d AND status = 'publish'",
+				$forum_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Build the on-demand provision-trigger URL for a space's forum. Visiting it
+	 * (handled on template_redirect) creates the forum the first time and redirects
+	 * to it — so no empty forums exist until a member actually opens Discussions.
+	 * Carries a per-space nonce because the GET handler mutates state (CSRF guard).
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return string
+	 */
+	private function provision_forum_url( int $space_id ): string {
+		return add_query_arg(
+			array(
+				'bn_provision_forum' => absint( $space_id ),
+				'_bnpf'              => wp_create_nonce( 'bn_provision_forum_' . absint( $space_id ) ),
+			),
+			home_url( '/spaces/' )
+		);
+	}
+
+	/**
+	 * Display bundle for the in-hub space Discussions panel: the linked forum URL
+	 * (full-load, deny-listed) for "open in community", whether a forum is linked
+	 * yet, and the provision-trigger URL for the no-forum empty state. Keeps the
+	 * template free of jt_* tables, link options, and nonce plumbing.
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return array{forum_url:string,linked:bool,provision_url:string}
+	 */
+	public function space_forum_context( int $space_id ): array {
+		return array(
+			'forum_url'     => $this->space_forum_url( $space_id ),
+			'linked'        => $this->forum_id_for_space( $space_id ) > 0,
+			'provision_url' => $this->provision_forum_url( $space_id ),
+		);
 	}
 
 	/**

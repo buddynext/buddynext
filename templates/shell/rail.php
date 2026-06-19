@@ -175,12 +175,26 @@ if ( 'feed' === $hub && 'explore' === (string) get_query_var( 'bn_activity_actio
 	$bn_rail_active = 'explore';
 }
 
+// When any item declares an explicit `active` flag (a person-specific bridged
+// surface like "my media" / "my discussions", or a bookmarks/settings sub-route),
+// it wins outright: the generic hub-match fallback is suppressed so we never light
+// up two rows at once. E.g. on /members/{me}/discussions/ the explicit Discussions
+// item is active and the people-hub "Members" row is not.
+$bn_has_explicit_active = false;
+foreach ( $bn_rail_items as $bn_item ) {
+	if ( ! empty( $bn_item['active'] ) ) {
+		$bn_has_explicit_active = true;
+		break;
+	}
+}
+
 // Single renderer for one rail link, shared by the community group and the "You"
 // group below so both stay byte-identical. An item is active when it carries an
 // explicit `active` flag (bridged surfaces, bookmarks/settings sub-routes) or its
-// key matches the resolved active hub.
-$bn_render_rail_item = static function ( array $bn_item ) use ( $bn_rail_active ): void {
-	$bn_is_active = ! empty( $bn_item['active'] ) || ( ! empty( $bn_item['key'] ) && $bn_item['key'] === $bn_rail_active );
+// key matches the resolved active hub (only when no explicit-active item claims it).
+$bn_render_rail_item = static function ( array $bn_item ) use ( $bn_rail_active, $bn_has_explicit_active ): void {
+	$bn_is_active = ! empty( $bn_item['active'] )
+		|| ( ! $bn_has_explicit_active && ! empty( $bn_item['key'] ) && $bn_item['key'] === $bn_rail_active );
 	$bn_icon_slug = ! empty( $bn_item['icon'] ) ? (string) $bn_item['icon'] : 'home';
 	$bn_badge     = isset( $bn_item['badge'] ) ? (int) $bn_item['badge'] : 0;
 	?>

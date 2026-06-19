@@ -763,6 +763,16 @@
 }
 
 /*
+ * Sent (outgoing) bubbles are right-aligned, so a picker opening rightward from
+ * its left edge overflows the thread log and triggers a horizontal scrollbar.
+ * Flip it to open leftward (anchor to the right edge) for .is-mine messages.
+ */
+.bn-dm-msg.is-mine .bn-dm-msg__react-pop {
+	inset-inline-start: auto;
+	inset-inline-end: 0;
+}
+
+/*
  * Flip the picker below the trigger when there is not enough room above (the
  * topmost messages in the log, or a short thread). The .is-down class is set by
  * the store after measuring available space; default remains upward-opening.

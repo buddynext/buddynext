@@ -666,7 +666,10 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	padding: var(--s12) var(--s6);
 	color: var(--text-3);
 }
-.bn-empty-state svg {
+/* Only the empty-state's own illustrative icon (a direct child) is the big,
+   faded 56px glyph. A nested icon — e.g. inside the CTA button — must NOT inherit
+   this; it keeps the button's normal icon sizing. */
+.bn-empty-state > svg {
 	width: 56px;
 	height: 56px;
 	margin: 0 auto var(--s4);
@@ -816,6 +819,74 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	background: var(--bn-accent);
 	border-color: var(--bn-accent);
 	color: var(--bn-accent-fg);
+}
+
+/* ── Shared activity cards (cross-screen component) ───────────────────────────
+	Reply / like / discussion rows. Used by the profile Posts/Replies/Likes/
+	Discussions panels AND the in-hub space Discussions panel. Lives in bn-base
+	(loaded on every BN page as the feature-style dependency) so it renders styled
+	regardless of which feature stylesheet a screen enqueues — consolidated here
+	from bn-profile. */
+.bn-reply-card,
+.bn-like-card {
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	padding: var(--bn-s4) var(--bn-s5);
+	margin-block-end: var(--bn-s3);
+}
+.bn-reply-card--link {
+	display: block;
+	text-decoration: none;
+	color: inherit;
+	transition: border-color var(--bn-dur-fast) var(--bn-ease);
+}
+.bn-reply-card--link:hover,
+.bn-reply-card--link:focus-visible {
+	border-color: var(--bn-line-strong);
+	color: inherit;
+}
+.bn-reply-card__meta,
+.bn-like-card__meta {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	margin-block-end: var(--bn-s1);
+}
+.bn-reply-card__meta svg,
+.bn-like-card__meta svg {
+	width: 13px;
+	height: 13px;
+	stroke: currentColor;
+	fill: none;
+}
+.bn-reply-card__time,
+.bn-like-card__time {
+	margin-inline-start: auto;
+	font-family: var(--bn-font-mono);
+}
+.bn-reply-card__content,
+.bn-like-card__content {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink);
+	line-height: var(--bn-leading-body);
+}
+.bn-reply-card__content--strong {
+	font-weight: 600;
+}
+.bn-reply-card__context {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	margin-block-start: var(--bn-s1);
+}
+
+/* In-hub space Discussions panel — header action sits above the thread list. */
+.bn-space-discussions__head {
+	display: flex;
+	justify-content: flex-end;
+	margin-block-end: var(--bn-s3);
 }
 
 /* ── Mobile bottom tab bar ────────────────────────────────────────────── */
@@ -2071,6 +2142,16 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	cursor: not-allowed;
 }
 
+/* Native date/time picker icon (::-webkit-calendar-picker-indicator) keeps its
+   default dark glyph regardless of the input's background, so on a dark surface
+   (poll "ends" datetime-local, advanced-search date) it is invisible. Invert it
+   under every BuddyNext dark trigger so the icon stays legible. */
+[data-bn-theme="dark"] .bn-input::-webkit-calendar-picker-indicator,
+[data-theme="dark"] .bn-input::-webkit-calendar-picker-indicator,
+[data-bx-mode="dark"] .bn-input::-webkit-calendar-picker-indicator {
+	filter: invert(1);
+}
+
 /* ── Badge / Chip — v2 attribute tone API ───────────────────────────── */
 .bn-badge {
 	display: inline-flex;
@@ -2733,8 +2814,9 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 .bn-pf-metricrow a.bn-nav-metric:hover,
 .bn-pf-metricrow button.bn-nav-metric:hover {
-	text-decoration: underline;
-	text-underline-offset: 2px;
+	/* Color-shift hover, not an underline — the stat band is a plain middot row,
+	   and a text-link underline read as a broken affordance here. */
+	color: var(--bn-ink);
 }
 
 @media (max-width: 640px) {

@@ -146,7 +146,19 @@ body.admin-bar .bn-app {
 	}
 }
 
-.bn-app__shell--with-sidebar {
+/* The client-nav router region (.bn-app__region) wraps main + the optional right
+   sidebar. display:contents removes it from layout so main and the sidebar remain
+   direct grid tracks of .bn-app__shell — the wrapper exists only so a client
+   navigation swaps both together. */
+.bn-app__region {
+	display: contents;
+}
+
+/* Sidebar track is presence-driven via :has(.bn-app__right) rather than a
+   --with-sidebar class: the sidebar lives inside the swapped region, so the grid
+   must react to it appearing/disappearing on a client navigation (a class on
+   .bn-app__shell would be outside the region and go stale). */
+.bn-app__shell:has( .bn-app__right ) {
 	grid-template-columns: var(--bn-railw) minmax(0, 1fr) var(--bn-shell-sidebar-w);
 }
 
@@ -157,7 +169,7 @@ body.admin-bar .bn-app {
 	grid-template-columns: minmax(0, 1fr);
 }
 
-.bn-app__shell--with-sidebar.bn-app__shell--no-nav {
+.bn-app__shell--no-nav:has( .bn-app__right ) {
 	grid-template-columns: minmax(0, 1fr) var(--bn-shell-sidebar-w);
 }
 
@@ -413,11 +425,14 @@ body.admin-bar .bn-app__rail {
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
-	.bn-app__shell--with-sidebar {
+	/* Right sidebar is hidden at this width; collapse its grid track. Uses :has()
+	   at matching specificity so it overrides the presence-driven rule above (the
+	   sidebar element still exists in the DOM, just display:none). */
+	.bn-app__shell:has( .bn-app__right ) {
 		grid-template-columns: var(--bn-railw) minmax(0, 1fr);
 	}
 	/* No rail + right sidebar hidden at this width → single content column. */
-	.bn-app__shell--with-sidebar.bn-app__shell--no-nav {
+	.bn-app__shell--no-nav:has( .bn-app__right ) {
 		grid-template-columns: minmax(0, 1fr);
 	}
 	.bn-app__right {
@@ -429,8 +444,7 @@ body.admin-bar .bn-app__rail {
  * force the rail to its icon-only panel so it never crowds the content. The
  * manual toggle is hidden here since the width is driving the state. */
 @media (min-width: 769px) and (max-width: 1024px) {
-	.bn-app__shell,
-	.bn-app__shell--with-sidebar {
+	.bn-app__shell {
 		--bn-railw: 72px;
 	}
 	.bn-rail__label,
@@ -459,9 +473,11 @@ body.admin-bar .bn-app__rail {
 }
 
 @media (max-width: 768px) {
+	/* Single content column; include the :has() variants at matching specificity
+	   so they override the presence-driven sidebar grid above. */
 	.bn-app__shell,
-	.bn-app__shell--with-sidebar,
-	.bn-app__shell--with-sidebar.bn-app__shell--no-nav {
+	.bn-app__shell:has( .bn-app__right ),
+	.bn-app__shell--no-nav:has( .bn-app__right ) {
 		grid-template-columns: minmax(0, 1fr);
 	}
 	.bn-app__rail {

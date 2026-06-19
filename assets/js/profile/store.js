@@ -752,33 +752,24 @@ function buildEntryNode( group, index ) {
 	header.appendChild( removeBtn );
 	entry.appendChild( header );
 
-	var row = null;
-	cfg.fields.forEach( function ( fieldDef, fi ) {
-		if ( fieldDef.fullWidth ) {
-			var grp = document.createElement( 'div' );
-			grp.className = 'bn-ep-group';
-			var lbl = document.createElement( 'label' );
-			lbl.className   = 'bn-ep-label';
-			lbl.textContent = fieldDef.label;
-			var ta = document.createElement( 'textarea' );
-			ta.className   = 'bn-ep-input';
-			ta.name        = group + '[' + index + '][' + fieldDef.key + ']';
-			ta.rows        = 3;
-			ta.placeholder = fieldDef.placeholder;
-			markRequired( lbl, fieldDef.key, ta );
-			grp.appendChild( lbl );
-			grp.appendChild( ta );
-			entry.appendChild( grp );
-			row = null;
-			return;
-		}
+	// Mirror the SERVER repeater markup (templates/profile/edit.php) exactly so a
+	// dynamically-added entry is styled identically: a single `.bn-ep-grid`
+	// holding `.bn-ep-field` cells, each with a `.bn-ep-label` and a control classed
+	// `bn-input bn-field-{type}` (matching FieldType::render_input). Boolean is
+	// self-labelling and spans a full-width cell; a textarea field also spans full
+	// width. The old bn-ep-group / bn-ep-input / bn-ep-repeater-row classes had NO
+	// CSS, so cloned entries fell back to unstyled browser defaults.
+	var grid = document.createElement( 'div' );
+	grid.className = 'bn-ep-grid';
+	entry.appendChild( grid );
 
-		// Boolean ("currently working / attending") renders as a checkbox inline
-		// with its label — matching FieldType::render_input's `boolean` output —
-		// not a bare text box. It takes a full row of its own.
-		if ( 'boolean' === fieldDef.type || 'checkbox' === fieldDef.type ) {
-			var bgrp = document.createElement( 'div' );
-			bgrp.className = 'bn-ep-group bn-ep-group--full';
+	cfg.fields.forEach( function ( fieldDef ) {
+		var isBoolean  = ( 'boolean' === fieldDef.type || 'checkbox' === fieldDef.type );
+		var isTextarea = ( !! fieldDef.fullWidth || 'textarea' === fieldDef.type );
+		var field      = document.createElement( 'div' );
+		field.className = 'bn-ep-field' + ( ( isBoolean || isTextarea ) ? ' bn-ep-field--full' : '' );
+
+		if ( isBoolean ) {
 			var blabel = document.createElement( 'label' );
 			blabel.className = 'bn-field-checkbox';
 			var cb = document.createElement( 'input' );
@@ -789,31 +780,32 @@ function buildEntryNode( group, index ) {
 			span.textContent = fieldDef.label;
 			blabel.appendChild( cb );
 			blabel.appendChild( span );
-			bgrp.appendChild( blabel );
-			entry.appendChild( bgrp );
-			row = null;
+			field.appendChild( blabel );
+			grid.appendChild( field );
 			return;
 		}
 
-		if ( fi % 2 === 0 ) {
-			row = document.createElement( 'div' );
-			row.className = 'bn-ep-repeater-row';
-			entry.appendChild( row );
-		}
-		var grp = document.createElement( 'div' );
-		grp.className = 'bn-ep-group';
 		var lbl = document.createElement( 'label' );
 		lbl.className   = 'bn-ep-label';
 		lbl.textContent = fieldDef.label;
-		var inp = document.createElement( 'input' );
-		inp.className   = 'bn-ep-input';
-		inp.type        = fieldDef.type;
-		inp.name        = group + '[' + index + '][' + fieldDef.key + ']';
-		inp.placeholder = fieldDef.placeholder;
-		markRequired( lbl, fieldDef.key, inp );
-		grp.appendChild( lbl );
-		grp.appendChild( inp );
-		if ( row ) { row.appendChild( grp ); }
+
+		var control;
+		if ( isTextarea ) {
+			control = document.createElement( 'textarea' );
+			control.rows = 3;
+			control.className = 'bn-input bn-field-textarea';
+		} else {
+			control = document.createElement( 'input' );
+			control.type = fieldDef.type || 'text';
+			control.className = 'bn-input bn-field-' + ( fieldDef.type || 'text' );
+		}
+		control.name        = group + '[' + index + '][' + fieldDef.key + ']';
+		control.placeholder = fieldDef.placeholder || '';
+		markRequired( lbl, fieldDef.key, control );
+
+		field.appendChild( lbl );
+		field.appendChild( control );
+		grid.appendChild( field );
 	} );
 
 	return entry;
@@ -900,6 +892,28 @@ function bnProfileBase() {
 	return base.replace( /\/+$/, '' );
 }
 
+// Derive the active tab from the current URL and write it into reactive state.
+// Used by both Back/Forward (popstate) and BuddyNext client navigation
+// (buddynext:navigated) so arriving at /members/{slug}/{tab}/ via ANY navigation
+// — including a rail/You-section link into a different tab of the same profile —
+// repaints the correct panel. Without this, the persisted profile island keeps
+// its previous context.activeTab and the old panel sticks after a region swap.
+// No-ops when the new URL is outside this profile (a different member / hub):
+// that swap re-hydrates a fresh island which seeds activeTab server-side.
+function syncActiveTabFromUrl( ctx ) {
+	// Read the base from the captured context, NOT bnProfileBase()/getContext():
+	// this runs from a plain event listener where getContext() has no active scope.
+	var base = ( ctx && ctx.profileBaseUrl ) ? String( ctx.profileBaseUrl ).replace( /\/+$/, '' ) : '';
+	if ( ! base ) { return; }
+	try {
+		var basePath = new URL( base, window.location.origin ).pathname.replace( /\/+$/, '' );
+		var path     = window.location.pathname.replace( /\/+$/, '' );
+		if ( path.indexOf( basePath ) !== 0 ) { return; }
+		var tab = path.slice( basePath.length ).replace( /^\/+/, '' ).split( '/' )[ 0 ] || '';
+		ctx.activeTab = tab || 'posts';
+	} catch ( _e ) {}
+}
+
 // Pretty URLs only: push /members/{slug}/{tab}/ (base for 'posts'), never ?tab=.
 // The active tab is reactive state (context.activeTab) — this only mirrors it
 // into the address bar so deep links + Back/Forward work; it never paints DOM.
@@ -965,26 +979,24 @@ store( 'buddynext/profile', {
 		 * DOM toggling. */
 		initView() {
 			const ctx = getContext();
-			if ( ! window.__bnProfilePopstateBound ) {
+			if ( ! window.__bnProfileNavBound ) {
+				// Back/Forward: trust the pushed history state, else read the URL.
 				window.addEventListener( 'popstate', function ( event ) {
 					var tab = ( event.state && event.state.bnTab ) || '';
-					if ( ! tab ) {
-						// Direct hit on the base URL (no history state): fall back to
-						// the path segment after the profile base.
-						var base = bnProfileBase();
-						if ( base ) {
-							try {
-								var basePath = new URL( base, window.location.origin ).pathname.replace( /\/+$/, '' );
-								var path     = window.location.pathname.replace( /\/+$/, '' );
-								if ( path.indexOf( basePath ) === 0 ) {
-									tab = path.slice( basePath.length ).replace( /^\/+/, '' ).split( '/' )[ 0 ] || '';
-								}
-							} catch ( _e ) {}
-						}
+					if ( tab ) {
+						ctx.activeTab = tab;
+					} else {
+						syncActiveTabFromUrl( ctx );
 					}
-					ctx.activeTab = tab || 'posts';
 				} );
-				window.__bnProfilePopstateBound = true;
+				// BuddyNext client navigation (forward link clicks) swaps the router
+				// region without a popstate, so re-sync the tab from the new URL too —
+				// otherwise a You-section link into another tab of THIS profile leaves
+				// the previous panel showing. Same handling as any other navigation.
+				document.addEventListener( 'buddynext:navigated', function () {
+					syncActiveTabFromUrl( ctx );
+				} );
+				window.__bnProfileNavBound = true;
 			}
 		},
 	},

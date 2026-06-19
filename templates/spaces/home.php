@@ -447,7 +447,7 @@ add_action(
 					'title'         => __( 'Members', 'buddynext' ),
 					'title_icon'    => 'users',
 					'body_html'     => $bn_members_html,
-					'see_all_url'   => trailingslashit( \BuddyNext\Core\PageRouter::space_url( $space_id ) ) . 'members/',
+					'see_all_url'   => trailingslashit( \BuddyNext\Core\PageRouter::space_url( $bn_s['space_id'] ) ) . 'members/',
 					'see_all_label' => __( 'See all members', 'buddynext' ),
 				)
 			);
@@ -516,6 +516,26 @@ do_action( 'buddynext_space_home_before', $space_id, $current_user_id );
 $bn_media_tab_on = \BuddyNext\Media\MediaClient::available() && (bool) get_option( 'bn_space_' . $space->id . '_mvs_media_tab', 0 );
 if ( 'media' === $active_tab && ! $bn_media_tab_on ) {
 	$active_tab = 'feed';
+}
+
+// Discussions tab (Jetonomy) — mirrors the profile's in-hub Discussions panel.
+// The bridge owns all jt_* access and maps the BN space to its linked forum.
+// Hitting /discussions/ while Jetonomy is inactive falls back to Feed so the
+// panel branch never renders for a hidden tab.
+$bn_discussions_on = class_exists( 'Jetonomy\\Models\\Post' );
+if ( 'discussions' === $active_tab && ! $bn_discussions_on ) {
+	$active_tab = 'feed';
+}
+$bn_space_discussions = array();
+$bn_forum_ctx         = array(
+	'forum_url'     => '',
+	'linked'        => false,
+	'provision_url' => '',
+);
+if ( 'discussions' === $active_tab && ! $gate_feed ) {
+	$bn_jt_bridge         = new \BuddyNext\Bridges\JetonomyBridge();
+	$bn_space_discussions = $bn_jt_bridge->space_discussions( $space_id, 20 );
+	$bn_forum_ctx         = $bn_jt_bridge->space_forum_context( $space_id );
 }
 
 // Space navigation comes from the unified registry (SpaceNav + bridges), gated,
@@ -726,6 +746,22 @@ $bn_nav_items  = $bn_space_nav->layer( 'primary' );
 					</a>
 				</div>
 			</div>
+
+		<?php elseif ( 'discussions' === $active_tab && $bn_discussions_on ) : ?>
+
+			<?php
+			buddynext_get_template(
+				'parts/space-discussions-panel.php',
+				array(
+					'space'         => $space,
+					'discussions'   => $bn_space_discussions,
+					'forum_url'     => (string) $bn_forum_ctx['forum_url'],
+					'forum_linked'  => (bool) $bn_forum_ctx['linked'],
+					'provision_url' => (string) $bn_forum_ctx['provision_url'],
+					'can_post'      => $bn_can_post,
+				)
+			);
+			?>
 
 		<?php elseif ( 'about' === $active_tab ) : ?>
 

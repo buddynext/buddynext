@@ -168,12 +168,12 @@ store( 'buddynext', {
 					} )
 				);
 
-				// Post-swap a11y + chrome sync.
-				const region = document.querySelector(
-					'[data-wp-router-region="buddynext/main"]'
-				);
-				if ( region ) {
-					region.focus();
+				// Post-swap a11y + chrome sync. Focus the main column, not the router
+				// region: the region wrapper is now display:contents (it wraps main +
+				// the right sidebar so both swap together) and is not focusable.
+				const mainCol = document.getElementById( 'bn-main-content' );
+				if ( mainCol ) {
+					mainCol.focus();
 				}
 				window.scrollTo( 0, 0 );
 				syncActiveNav();

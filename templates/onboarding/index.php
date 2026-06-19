@@ -350,7 +350,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 						$space_id  = (int) $space['id'];
 						$is_joined = in_array( $space_id, $joined_space_ids, true );
 						?>
-						<div class="bn-card bn-ob-space-card" data-interactive="true">
+						<div class="bn-ob-space-card">
 							<div class="bn-ob-space-card__head">
 								<span class="bn-avatar bn-ob-space-avatar"
 									data-size="md"

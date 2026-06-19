@@ -1686,6 +1686,43 @@ store( 'buddynext/post-card', {
 // WP Interactivity API getContext() doesn't work in native addEventListener callbacks.
 const _mediaState = { ids: [], previews: [] };
 
+/**
+ * Best-effort delete of an already-uploaded (staged-but-unposted) media file so
+ * removing a preview or abandoning the composer doesn't orphan it on the server.
+ * Uploads go to WPMediaVerse (mvs/v1), so the delete must target that base too.
+ * Failures are logged, not surfaced — orphan cleanup must never block the UI.
+ *
+ * @param {number} mediaId Media ID to delete.
+ * @param {string} base    WPMediaVerse REST base (mvs/v1).
+ * @param {string} nonce   REST nonce.
+ */
+function deleteStagedMedia( mediaId, base, nonce ) {
+	if ( ! mediaId || ! base ) {
+		return;
+	}
+	restFetch( '/media/' + mediaId, { method: 'DELETE', base, nonce, toastOnError: false } ).catch(
+		( err ) => {
+			// eslint-disable-next-line no-console
+			console.error( '[BuddyNext] Orphan media cleanup failed:', mediaId, err );
+		}
+	);
+}
+
+/**
+ * Resolve the WPMediaVerse REST base + nonce from the composer's data-wp-context,
+ * for delete calls made outside the upload closure (removeMedia / cancel actions).
+ *
+ * @return {{base:string, nonce:string}}
+ */
+function resolveMvsRest() {
+	const composerEl = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
+	const ctxData    = composerEl ? JSON.parse( composerEl.getAttribute( 'data-wp-context' ) || '{}' ) : {};
+	return {
+		base:  ctxData.mvsRestBase || ( ctxData.restUrl || '' ).replace( '/buddynext/v1', '/mvs/v1' ),
+		nonce: ctxData.restNonce || '',
+	};
+}
+
 /* ── Link preview detection ──────────────────────────────────────────────
  * As the user types, the first http(s) URL in the composer is detected and
  * its Open Graph card fetched (debounced) from buddynext/v1/link-preview.
@@ -2192,6 +2229,9 @@ store( 'buddynext/post-composer', {
 										if ( ! _mediaState.ids.length && previewArea ) {
 											previewArea.hidden = true;
 										}
+										// Delete the already-uploaded file from the server so removing
+										// the preview doesn't leave an orphaned upload (best-effort).
+										deleteStagedMedia( mediaId, mvsBase, nonce );
 									} );
 									previewArea.appendChild( thumb );
 								}
@@ -2231,6 +2271,11 @@ store( 'buddynext/post-composer', {
 			}
 			ctx.mediaIds     = ( ctx.mediaIds || [] ).filter( ( id ) => id !== mediaId );
 			ctx.mediaPreviews = ( ctx.mediaPreviews || [] ).filter( ( p ) => p.id !== mediaId );
+			_mediaState.ids      = _mediaState.ids.filter( ( id ) => id !== mediaId );
+			_mediaState.previews = _mediaState.previews.filter( ( p ) => p.id !== mediaId );
+			// Delete the orphaned upload from the server (best-effort).
+			const mvs = resolveMvsRest();
+			deleteStagedMedia( mediaId, mvs.base, mvs.nonce );
 		},
 		togglePoll() {
 			const ctx        = getContext();
@@ -2312,7 +2357,10 @@ store( 'buddynext/post-composer', {
 		* submit() {
 			const ctx     = getContext();
 			const content = ( ctx.content || '' ).trim();
-			if ( ! content || ctx.submitting ) {
+			// Allow media-only posts: bail only when there is NO text AND no attached
+			// media (and not already submitting). Previously `! content` bailed before
+			// the media-attach block ran, so an image with empty text silently no-op'd.
+			if ( ( ! content && ! _mediaState.ids.length ) || ctx.submitting ) {
 				return;
 			}
 			ctx.errorMessage = '';
@@ -2425,6 +2473,17 @@ store( 'buddynext/post-composer', {
 					setDraftStatus( ctx, '', false );
 					document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"] .bn-composer__prompt' ).forEach( function ( ta ) { ta.value = ''; } );
 
+					// The media was consumed into the post — clear the staged set and its
+					// previews WITHOUT deleting from the server (the post now owns them).
+					// This also stops a later cancel()/removeMedia from orphan-deleting a
+					// posted file, and clears lingering preview thumbs after a post.
+					_mediaState.ids      = [];
+					_mediaState.previews = [];
+					document.querySelectorAll( '.bn-composer__media-preview' ).forEach( function ( area ) {
+						area.hidden = true;
+						area.querySelectorAll( '.bn-composer__media-thumb' ).forEach( function ( el ) { el.remove(); } );
+					} );
+
 					const created     = res.data || {};
 					const isScheduled = !! body.scheduled_at || 'scheduled' === created.status;
 					// Pre-moderation can hold the post (status=pending): it is NOT
@@ -2535,6 +2594,13 @@ store( 'buddynext/post-composer', {
 			ctx.composerType   = 'text';
 			ctx.content        = '';
 			ctx.submitting     = false;
+			// Abandoning the composer: delete any staged-but-unposted uploads so they
+			// don't orphan on the server (best-effort). submit() consumes the ids into
+			// the post and resets _mediaState itself, so nothing is deleted post-post.
+			if ( _mediaState.ids.length ) {
+				const mvs = resolveMvsRest();
+				_mediaState.ids.forEach( ( id ) => deleteStagedMedia( id, mvs.base, mvs.nonce ) );
+			}
 			// Clear module-level media state + remove DOM previews.
 			_mediaState.ids      = [];
 			_mediaState.previews = [];

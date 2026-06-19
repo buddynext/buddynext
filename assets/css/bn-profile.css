@@ -1294,61 +1294,9 @@
    (.bn-nav-metrics + .bn-tabs / .bn-subnav in bn-base.css), rendered from the
    unified registry. One nav system; no profile-specific tab/stat CSS. */
 
-/* ── Activity cards ───────────────────────────────────────────────────── */
-.bn-reply-card,
-.bn-like-card {
-	background: var(--bn-surface);
-	border: 1px solid var(--bn-line);
-	border-radius: var(--bn-r-lg);
-	padding: var(--bn-s4) var(--bn-s5);
-	margin-block-end: var(--bn-s3);
-}
-.bn-reply-card--link {
-	display: block;
-	text-decoration: none;
-	color: inherit;
-	transition: border-color var(--bn-dur-fast) var(--bn-ease);
-}
-.bn-reply-card--link:hover,
-.bn-reply-card--link:focus-visible {
-	border-color: var(--bn-line-strong);
-	color: inherit;
-}
-.bn-reply-card__meta,
-.bn-like-card__meta {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-s2);
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-3);
-	margin-block-end: var(--bn-s1);
-}
-.bn-reply-card__meta svg,
-.bn-like-card__meta svg {
-	width: 13px;
-	height: 13px;
-	stroke: currentColor;
-	fill: none;
-}
-.bn-reply-card__time,
-.bn-like-card__time {
-	margin-inline-start: auto;
-	font-family: var(--bn-font-mono);
-}
-.bn-reply-card__content,
-.bn-like-card__content {
-	font-size: var(--bn-text-sm);
-	color: var(--bn-ink);
-	line-height: var(--bn-leading-body);
-}
-.bn-reply-card__content--strong {
-	font-weight: 600;
-}
-.bn-reply-card__context {
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-3);
-	margin-block-start: var(--bn-s1);
-}
+/* Activity cards (.bn-reply-card / .bn-like-card) are a shared cross-screen
+   primitive — consolidated into bn-base.css so the in-hub space Discussions
+   panel renders them styled too. */
 
 /* Profile media grid */
 .bn-profile-media-grid {

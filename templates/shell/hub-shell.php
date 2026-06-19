@@ -59,10 +59,11 @@ $show_right_sidebar = buddynext_feature_enabled( 'sidebar' )
 		|| has_action( 'buddynext_right_sidebar' )
 	);
 
+// NOTE: no --with-sidebar modifier here. The sidebar grid track is driven by
+// .bn-app__shell:has(.bn-app__right) so it reacts to the sidebar's presence
+// INSIDE the swapped router region — a class on .bn-app__shell (outside the
+// region) would go stale on a client navigation that adds/removes the sidebar.
 $bn_shell_classes = 'bn-app__shell';
-if ( $show_right_sidebar ) {
-	$bn_shell_classes .= ' bn-app__shell--with-sidebar';
-}
 
 // "Show community navigation" toggle (Settings → default on). When off, the
 // owner has opted to drive navigation entirely from the host theme menus, so
@@ -89,7 +90,18 @@ $bn_region_attrs = $bn_client_nav ? ' data-wp-interactive="buddynext" data-wp-ro
 			<?php buddynext_get_template( 'shell/rail.php', array( 'hub' => $hub ) ); ?>
 		<?php endif; ?>
 
-		<main class="bn-app__main" id="bn-main-content" tabindex="-1"<?php echo $bn_region_attrs; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal static attribute string, no user data ?>>
+		<?php
+		// Client-nav router region wraps BOTH the main column AND the right sidebar
+		// (display:contents, so the shell grid still lays out main | sidebar as
+		// direct tracks). Wrapping both means a client navigation swaps the sidebar
+		// together with the content — otherwise the sidebar lives outside the region,
+		// and navigating from a no-sidebar page (e.g. Edit Profile) to a with-sidebar
+		// page leaves no sidebar (and vice-versa leaves a stale one). The grid's
+		// sidebar track is driven by :has(.bn-app__right), reacting to the sidebar's
+		// presence inside the swapped region — no class lives outside the region.
+		?>
+		<div class="bn-app__region"<?php echo $bn_region_attrs; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal static attribute string, no user data ?>>
+		<main class="bn-app__main" id="bn-main-content" tabindex="-1">
 			<?php
 			// Render a menu assigned to the "BuddyNext Community Nav" location. The
 			// location was registered (Plugin::register_nav_menus) but no template
@@ -121,6 +133,7 @@ $bn_region_attrs = $bn_client_nav ? ' data-wp-interactive="buddynext" data-wp-ro
 		<?php if ( $show_right_sidebar ) : ?>
 			<?php buddynext_get_template( 'shell/right-sidebar.php', array( 'hub' => $hub ) ); ?>
 		<?php endif; ?>
+		</div>
 
 	</div>
 

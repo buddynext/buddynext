@@ -175,11 +175,12 @@ class WPMediaVerseBridge {
 	}
 
 	/**
-	 * Inject a "Media" link into the BuddyNext left navigation rail.
+	 * Inject a person-specific "Media" link into the BuddyNext left rail.
 	 *
-	 * Uses the engine's mapped Explore page URL. The `active` flag is computed from
-	 * the current REQUEST_URI and honoured wherever the rail renders (BuddyNext's own
-	 * hubs); the media pages wrap their own shell, so the flag is set defensively.
+	 * Points the viewer at their OWN profile Media tab (the media they have shared),
+	 * not the global media Explore page — a "my media" shortcut. Hidden for guests.
+	 * The `active` flag is computed from the current REQUEST_URI against that
+	 * profile-tab path.
 	 *
 	 * Hooked on: buddynext_rail_items( array $items, string $hub )
 	 *
@@ -187,24 +188,29 @@ class WPMediaVerseBridge {
 	 * @return array<int, array{key: string, label: string, url: string, icon: string, show: bool, active?: bool}>
 	 */
 	public function inject_media_nav_item( array $items ): array {
-		// Resolve the engine's media landing page (its mapped Explore page) —
-		// the mvs_media CPT/archive was dropped, so never depend on it. Falls
-		// back to /media/ when no Explore page is mapped.
-		$explore_id = (int) get_option( 'mvs_page_explore', 0 );
-		$media_url  = $explore_id > 0 ? get_permalink( $explore_id ) : home_url( '/media/' );
-		$media_path = (string) ( wp_parse_url( (string) $media_url, PHP_URL_PATH ) ?? '/media/' );
+		$uid = get_current_user_id();
+		if ( $uid <= 0 ) {
+			return $items;
+		}
+
+		$media_url  = trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $uid ) ) . 'media/';
+		$media_path = rtrim( (string) ( wp_parse_url( $media_url, PHP_URL_PATH ) ?? '' ), '/' );
 
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
 		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
-		$is_active   = str_starts_with( $request_uri, $media_path );
+		$is_active   = '' !== $media_path && str_starts_with( rtrim( $request_uri, '/' ), $media_path );
 
 		$items[] = array(
 			'key'    => 'media',
 			'label'  => __( 'Media', 'buddynext' ),
-			'url'    => (string) $media_url,
+			'url'    => $media_url,
 			'icon'   => 'image',
 			'show'   => true,
 			'active' => $is_active,
+			// Personal "You" group — it is the viewer's own media, so it sits with
+			// Profile / Discussions / Bookmarks, not in the community group up top.
+			'group'  => 'you',
+			'order'  => 205,
 		);
 
 		return $items;
