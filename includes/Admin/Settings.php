@@ -486,7 +486,7 @@ class Settings extends AdminPageBase {
 			'notifications' => __( 'In-app + email notification rules and the events that trigger them.', 'buddynext' ),
 			'email'         => __( 'Sender identity and delivery configuration for outgoing community email.', 'buddynext' ),
 			'moderation'    => __( 'Site-wide moderation toggles: reporting, auto-hide thresholds, mod roles.', 'buddynext' ),
-			'integrations'  => __( 'Outbound integrations — Slack, Discord, webhooks, third-party identity.', 'buddynext' ),
+			'integrations'  => __( 'Outbound integrations: Slack, Discord, webhooks, third-party identity.', 'buddynext' ),
 			'privacy'       => __( 'Data retention, export, and member privacy controls.', 'buddynext' ),
 			'webhooks'      => __( 'Push community events to external services in real time.', 'buddynext' ),
 		);
@@ -2067,57 +2067,102 @@ class Settings extends AdminPageBase {
 	/**
 	 * Render the Integrations settings tab.
 	 *
-	 * Shows the status of each addon and the cross-plugin feature toggles that
-	 * are configured here (per spec 16-admin-settings.md — Integrations section).
+	 * Shows the Wbcom family header + a card grid of companion plugins.
+	 * Each card resolves to a real, state-aware action: Active companions show
+	 * "Connected"; installed-but-inactive get a one-click Activate; not-installed
+	 * get a one-click "Install free" via the EDD store (CompanionInstaller,
+	 * install_plugins-gated). A "Learn more" link to the store page sits alongside
+	 * every action.
 	 *
 	 * @return void
 	 */
 	private function render_tab_integrations(): void {
-		// Companion catalog — one declarative source of truth (CompanionRegistry).
-		// Each row resolves to a real, state-aware action: Active features show
-		// "Installed"; installed-but-inactive get a one-click Activate; not-installed
-		// get a one-click "Install free" that pulls the plugin straight from the EDD
-		// store (CompanionInstaller, install_plugins-gated). No more dead upload links.
 		$companions   = \BuddyNext\Integrations\CompanionRegistry::all();
 		$can_install  = current_user_can( 'install_plugins' );
 		$can_activate = current_user_can( 'activate_plugins' );
-
-		$this->open_section( __( 'Companion plugins', 'buddynext' ) );
+		$logo_base    = defined( 'BUDDYNEXT_URL' ) ? (string) constant( 'BUDDYNEXT_URL' ) : '';
+		$logo_base   .= 'assets/img/companions/';
 		?>
-		<div class="bn-addon-list"
+
+		<div class="bn-fam-header">
+			<img
+				class="bn-fam-header__mark"
+				src="<?php echo esc_url( $logo_base . 'wbcom.svg' ); ?>"
+				alt="<?php esc_attr_e( 'Wbcom', 'buddynext' ); ?>"
+				width="52"
+				height="52"
+			/>
+			<div class="bn-fam-header__body">
+				<h2 class="bn-fam-header__title"><?php esc_html_e( 'Part of the Wbcom family', 'buddynext' ); ?></h2>
+				<p class="bn-fam-header__desc">
+					<?php esc_html_e( 'BuddyNext is the community engine of the Wbcom stack: gamification, discussions, courses, messaging, listings, jobs, and more. Every plugin works on its own, and you can add any of them below in one click. The family keeps growing, so check back for new releases.', 'buddynext' ); ?>
+				</p>
+				<a class="bn-fam-header__link" href="https://wbcomdesigns.com/downloads/" target="_blank" rel="noopener noreferrer">
+					<?php esc_html_e( 'Explore the full Wbcom family', 'buddynext' ); ?>
+					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+				</a>
+			</div>
+		</div>
+
+		<div class="bn-companion-grid"
 			data-bn-companions
 			data-rest="<?php echo esc_url( rest_url( 'buddynext/v1/companions/install' ) ); ?>"
 			data-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
-			data-i18n-installing="<?php esc_attr_e( 'Installing…', 'buddynext' ); ?>"
-			data-i18n-installed="<?php esc_attr_e( 'Installed — reloading…', 'buddynext' ); ?>"
+			data-i18n-installing="<?php esc_attr_e( 'Installing...', 'buddynext' ); ?>"
+			data-i18n-installed="<?php esc_attr_e( 'Installed - reloading...', 'buddynext' ); ?>"
 			data-i18n-failed="<?php esc_attr_e( 'Install failed.', 'buddynext' ); ?>"
-			data-i18n-network="<?php esc_attr_e( 'Install failed — network error.', 'buddynext' ); ?>">
+			data-i18n-network="<?php esc_attr_e( 'Install failed - network error.', 'buddynext' ); ?>">
 			<?php
 			foreach ( $companions as $bn_slug => $bn_c ) :
 				$bn_status   = \BuddyNext\Integrations\CompanionRegistry::status( (string) $bn_slug );
-				$bn_label    = (string) ( $bn_c['label'] ?? '' );
+				$bn_label    = (string) ( $bn_c['label'] ?? $bn_slug );
 				$bn_why      = (string) ( $bn_c['why'] ?? '' );
+				$bn_unlocks  = (string) ( $bn_c['unlocks'] ?? '' );
 				$bn_store    = (string) ( $bn_c['store_url'] ?? '' );
 				$bn_basename = (string) ( $bn_c['free']['basename'] ?? '' );
+				$bn_logo     = $logo_base . sanitize_file_name( (string) $bn_slug ) . '.svg';
+
+				if ( 'active' === $bn_status ) {
+					$bn_badge_class = 'bn-companion-badge bn-companion-badge--success';
+					$bn_badge_label = __( 'Connected', 'buddynext' );
+				} elseif ( 'inactive' === $bn_status ) {
+					$bn_badge_class = 'bn-companion-badge bn-companion-badge--warning';
+					$bn_badge_label = __( 'Installed, activate', 'buddynext' );
+				} else {
+					$bn_badge_class = 'bn-companion-badge bn-companion-badge--muted';
+					$bn_badge_label = __( 'Not installed', 'buddynext' );
+				}
 				?>
-			<div class="bn-addon-row" data-status="<?php echo esc_attr( $bn_status ); ?>" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
-				<span class="bn-addon-row__status">
-					<?php if ( 'active' === $bn_status ) : ?>
-						<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
-					<?php elseif ( 'inactive' === $bn_status ) : ?>
-						<span class="bn-badge"><?php esc_html_e( 'Inactive', 'buddynext' ); ?></span>
-					<?php else : ?>
-						<span class="bn-badge"><?php esc_html_e( 'Not installed', 'buddynext' ); ?></span>
-					<?php endif; ?>
-				</span>
-				<div class="bn-addon-row__meta">
-					<strong class="bn-addon-row__label"><?php echo esc_html( $bn_label ); ?></strong>
-					<p class="bn-addon-row__desc"><?php echo esc_html( $bn_why ); ?></p>
-					<span class="bn-companion-msg" role="status" aria-live="polite"></span>
+			<div class="bn-companion-card" data-status="<?php echo esc_attr( $bn_status ); ?>" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
+				<div class="bn-companion-card__head">
+					<img
+						class="bn-companion-card__logo"
+						src="<?php echo esc_url( $bn_logo ); ?>"
+						alt="<?php echo esc_attr( $bn_label ); ?>"
+						width="40"
+						height="40"
+						loading="lazy"
+					/>
+					<h3 class="bn-companion-card__title"><?php echo esc_html( $bn_label ); ?></h3>
+					<span class="<?php echo esc_attr( $bn_badge_class ); ?>"><?php echo esc_html( $bn_badge_label ); ?></span>
 				</div>
-				<span class="bn-addon-row__actions">
+
+				<?php if ( '' !== $bn_why ) : ?>
+					<p class="bn-companion-card__why"><?php echo esc_html( $bn_why ); ?></p>
+				<?php endif; ?>
+
+				<?php if ( 'active' === $bn_status && '' !== $bn_unlocks ) : ?>
+					<p class="bn-companion-card__unlocks">
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+						<?php echo esc_html( $bn_unlocks ); ?>
+					</p>
+				<?php endif; ?>
+
+				<div class="bn-companion-card__actions">
 					<?php if ( 'active' === $bn_status ) : ?>
-						<span class="bn-badge" data-tone="muted"><?php esc_html_e( 'Installed', 'buddynext' ); ?></span>
+						<span class="bn-addon-row__action" aria-disabled="true" style="cursor:default;opacity:.7;">
+							<?php esc_html_e( 'Connected', 'buddynext' ); ?>
+						</span>
 					<?php elseif ( 'inactive' === $bn_status && $can_activate && '' !== $bn_basename ) : ?>
 						<a href="<?php echo esc_url( wp_nonce_url( self_admin_url( 'plugins.php?action=activate&plugin=' . rawurlencode( $bn_basename ) . '&plugin_status=all' ), 'activate-plugin_' . $bn_basename ) ); ?>"
 							class="bn-addon-row__action"><?php esc_html_e( 'Activate', 'buddynext' ); ?></a>
@@ -2126,19 +2171,28 @@ class Settings extends AdminPageBase {
 							<?php esc_html_e( 'Install free', 'buddynext' ); ?>
 						</button>
 					<?php endif; ?>
+
 					<?php if ( '' !== $bn_store ) : ?>
-						<a href="<?php echo esc_url( $bn_store ); ?>" class="bn-addon-row__action bn-addon-row__action--ghost"
-							target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Get Pro', 'buddynext' ); ?></a>
+						<a href="<?php echo esc_url( $bn_store ); ?>"
+							class="bn-addon-row__action bn-addon-row__action--ghost"
+							target="_blank"
+							rel="noopener noreferrer"><?php esc_html_e( 'Learn more', 'buddynext' ); ?></a>
 					<?php endif; ?>
-				</span>
+
+					<span class="bn-companion-msg" role="status" aria-live="polite"></span>
+				</div>
 			</div>
 			<?php endforeach; ?>
 		</div>
+
+		<p class="bn-companion-foot description">
+			<?php esc_html_e( 'Every product above is a standalone Wbcom plugin. BuddyNext detects each one and lights up the matching features automatically when it is active.', 'buddynext' ); ?>
+		</p>
+
 		<?php
 		// The companion installer behaviour lives in assets/js/admin/settings.js
 		// (initCompanions), wired to the data-* attributes on [data-bn-companions]
-		// above. No inline script — see the UX-audit F2 rule.
-		$this->close_section();
+		// above. No inline script - see the UX-audit F2 rule.
 
 		$this->open_section( __( 'Jetonomy Settings', 'buddynext' ) );
 

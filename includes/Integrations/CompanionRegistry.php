@@ -4,7 +4,7 @@
  *
  * A single declarative, filterable catalog of the Wbcom plugins BuddyNext
  * integrates with (MediaVerse, Jetonomy, Gamification, Career Board). Each
- * entry is DATA, not code — Pro and third parties extend the list via the
+ * entry is DATA, not code - Pro and third parties extend the list via the
  * `buddynext_companions` filter. Every UI + integration decision keys off
  * `is_active()` (a runtime capability probe), never a hardcoded plugin path, so
  * "works standalone" and "no duplication" both hold: capability present →
@@ -107,7 +107,7 @@ final class CompanionRegistry {
 				),
 				'learnomy'        => array(
 					'label'     => 'Learnomy',
-					'why'       => __( 'Courses, lessons, and quizzes — a full LMS for your community.', 'buddynext' ),
+					'why'       => __( 'Courses, lessons, and quizzes - a full LMS for your community.', 'buddynext' ),
 					'detect'    => static fn(): bool => defined( 'LEARNOMY_VERSION' ) || function_exists( 'learnomy' ),
 					'free'      => array(
 						'item_id'  => 1662698,
@@ -119,7 +119,7 @@ final class CompanionRegistry {
 				),
 				'wb-listora'      => array(
 					'label'     => 'Listora',
-					'why'       => __( 'Directory listings — members publish and manage listings.', 'buddynext' ),
+					'why'       => __( 'Directory listings - members publish and manage listings.', 'buddynext' ),
 					'detect'    => static fn(): bool => defined( 'WB_LISTORA_VERSION' ),
 					// Free download credentials mirror WB Listora's own EDD-SL SDK
 					// registration (wb-listora.php: item_id 1662779 + the shared free

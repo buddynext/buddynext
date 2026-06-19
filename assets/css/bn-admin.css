@@ -924,6 +924,167 @@ table.bn-table tr:hover td {
 }
 
 /* --------------------------------------------------------------------------
+   Integrations tab - Wbcom family header + companion card grid
+   Rendered by Settings::render_tab_integrations().
+   Tokens: --bn-a-* aliases map directly to the --bn-* design-token layer.
+   -------------------------------------------------------------------------- */
+
+.bn-fam-header {
+	display: flex;
+	align-items: center;
+	gap: 18px;
+	padding: 20px 22px;
+	margin: 0 0 20px;
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-lg);
+	background: var(--bn-a-bg);
+}
+
+.bn-fam-header__mark {
+	flex: 0 0 auto;
+	width: 52px;
+	height: 52px;
+	object-fit: contain;
+}
+
+.bn-fam-header__body { flex: 1; min-width: 0; }
+
+.bn-fam-header__title {
+	margin: 0 0 2px;
+	font-size: 17px;
+	font-weight: var(--bn-a-fw-bold);
+	color: var(--bn-a-text-1);
+}
+
+.bn-fam-header__desc {
+	margin: 0 0 8px;
+	color: var(--bn-a-text-2);
+	max-width: 70ch;
+	line-height: 1.5;
+}
+
+.bn-fam-header__link {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	font-weight: var(--bn-a-fw-semibold);
+	text-decoration: none;
+	color: var(--bn-a-brand);
+}
+
+.bn-fam-header__link:hover { text-decoration: underline; }
+.bn-fam-header__link svg { flex-shrink: 0; }
+
+/* Card grid */
+.bn-companion-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+	gap: 16px;
+	margin: 0 0 16px;
+}
+
+.bn-companion-card {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 18px;
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-lg);
+	background: var(--bn-a-bg);
+}
+
+.bn-companion-card__head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.bn-companion-card__logo {
+	flex: 0 0 auto;
+	width: 40px;
+	height: 40px;
+	object-fit: contain;
+	border-radius: var(--bn-a-r-sm);
+}
+
+.bn-companion-card__title {
+	flex: 1;
+	margin: 0;
+	font-size: 15px;
+	font-weight: var(--bn-a-fw-semibold);
+	color: var(--bn-a-text-1);
+}
+
+.bn-companion-card__why {
+	margin: 0;
+	color: var(--bn-a-text-2);
+	font-size: var(--bn-a-text-sm);
+	line-height: 1.5;
+}
+
+.bn-companion-card__unlocks {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin: 0;
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-green);
+}
+
+.bn-companion-card__unlocks svg { flex-shrink: 0; }
+
+.bn-companion-card__actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin-top: auto;
+	padding-top: 4px;
+}
+
+/* Status badge - companion variant */
+.bn-companion-badge {
+	flex: 0 0 auto;
+	padding: 3px 10px;
+	border-radius: 999px;
+	font-size: var(--bn-a-text-xs);
+	font-weight: var(--bn-a-fw-bold);
+	line-height: 1.6;
+	white-space: nowrap;
+}
+
+.bn-companion-badge--success {
+	background: var(--bn-a-green-bg);
+	color: var(--bn-a-green);
+}
+
+.bn-companion-badge--warning {
+	background: var(--bn-a-amber-bg);
+	color: var(--bn-a-amber);
+}
+
+.bn-companion-badge--muted {
+	background: var(--bn-a-bg-subtle);
+	color: var(--bn-a-text-3);
+}
+
+.bn-companion-foot {
+	margin-top: 4px;
+	color: var(--bn-a-text-3);
+}
+
+/* Live-status message slot inside each card */
+.bn-companion-msg {
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-2);
+}
+
+@media (max-width: 782px) {
+	.bn-fam-header { flex-wrap: wrap; }
+	.bn-companion-grid { grid-template-columns: 1fr; }
+}
+
+/* --------------------------------------------------------------------------
    Nav manager rows
    -------------------------------------------------------------------------- */
 
