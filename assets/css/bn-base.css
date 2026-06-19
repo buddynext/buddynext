@@ -2517,6 +2517,83 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	color: var(--bn-accent-700);
 }
 
+/* ── Sub-nav: one level under an active primary tab (parts/nav-bar.php) ─────
+   A lighter, slightly smaller second-level .bn-tabs bar rendered inside the
+   active tab's panel. Same .bn-tab component + aria-selected convention. */
+.bn-tabs--sub {
+	margin-top: var(--bn-s2);
+}
+.bn-tabs--sub .bn-tab {
+	font-size: var(--bn-text-sm);
+}
+
+/* ── Shared metric / stat row (parts/nav-metrics.php) ──────────────────────
+   The count-pill row used by BOTH the profile and space surfaces: value (bold
+   ink) + muted label, optional week-over-week delta chip. Display-only by
+   default; the <a>/<button> variants deep-link (list / tab jump) but read as
+   counts, never a second navigation. Token-driven + dark-safe. */
+.bn-nav-metrics {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-s2) var(--bn-s4);
+}
+.bn-app .bn-nav-metric {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+	font: inherit;
+	color: var(--bn-ink);
+	text-decoration: none;
+	cursor: default;
+}
+.bn-app a.bn-nav-metric,
+.bn-app button.bn-nav-metric {
+	cursor: pointer;
+}
+.bn-app a.bn-nav-metric:hover .bn-nav-metric__label,
+.bn-app button.bn-nav-metric:hover .bn-nav-metric__label {
+	color: var(--bn-ink);
+}
+.bn-app a.bn-nav-metric:focus-visible,
+.bn-app button.bn-nav-metric:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+	border-radius: var(--bn-r-sm);
+}
+.bn-nav-metric__value {
+	font-weight: var(--bn-fw-bold);
+	font-size: var(--bn-text-md);
+	color: var(--bn-ink);
+}
+.bn-nav-metric__label {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+.bn-nav-metric__delta {
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-semibold);
+}
+.bn-nav-metric__delta[data-trend="up"] {
+	color: var(--bn-success);
+}
+.bn-nav-metric__delta[data-trend="down"] {
+	color: var(--bn-danger);
+}
+.bn-nav-metric__delta[data-trend="flat"] {
+	color: var(--bn-ink-3);
+}
+
+@media (max-width: 640px) {
+	.bn-nav-metrics {
+		gap: var(--bn-s2) var(--bn-s3);
+	}
+}
+
 /* ── Theme-proof interactive controls ───────────────────────────────────────
    Host themes (Reign, etc.) style bare <button>/<a> with their own padding +
    borders at the BASE level (Reign gives every button 10px 20px). That bleeds
