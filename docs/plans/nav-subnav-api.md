@@ -55,7 +55,11 @@ renders and how it behaves — identical rules for Member and Space:
   second navigation. It may carry a single canonical `url` (e.g. a Followers list
   that has no tab), but the whole row behaves uniformly — no "some link, some
   don't". A metric that *duplicates* a `primary` tab is rejected at registration
-  (the badge on the tab is the count's home).
+  (the badge on the tab is the count's home). **Fully extensible:** any bridge or
+  plugin contributes a stat with `register_nav([ layer => 'metric' … ])` — same
+  add / reposition / remove / ordering as tabs — with optional `delta`/`trend` for
+  the week-over-week chip (e.g. Gamification → Points/Level, a new plugin → its
+  own stat). Stats are first-class, not a special case.
 - **`rail`** — the global left nav (Feed, Members, Spaces, Discussions, Media…).
 - **`context`** — contextual / utility nav (the kebab "more" actions, breadcrumb
   context). Same contract, rendered by the context renderer.
@@ -84,6 +88,8 @@ differ only by the `surface` value and the context object passed in.
   'priority'   => 50,                 // default order (lower = earlier); core uses 10..90
   'before'     => null,               // optional anchor: place before this item id …
   'after'      => null,               // … or after this item id (wins over priority)
+  'delta'      => null,               // metric-only: week-over-week chip text, e.g. '+120'
+  'trend'      => null,               // metric-only: 'up' | 'down' | 'flat' (chip tone)
   'active'     => null,               // optional callable() : bool override
 ]
 ```
@@ -230,6 +236,50 @@ Two shared parts, used by BOTH surfaces (this is "same for Member and Space"):
 The renderer is the single enforcement point for card 2's consistency: one
 component, one active convention, one nav model — for free, everywhere.
 
+### 3.3 Public extension API (any developer, not just our bridges)
+
+`buddynext_register_nav()` and the `buddynext_nav_items` filter are a **public,
+documented, stable contract** — a third-party plugin uses the exact same seam our
+own bridges do. Four operations, all programmatic, no template access:
+
+```php
+// 1. ADD a top-level tab on a surface
+buddynext_register_nav([ 'surface'=>'profile','layer'=>'primary',
+  'id'=>'badges','label'=>__('Badges','acme'),'tab'=>'badges','after'=>'likes' ]);
+
+// 2. ADD a sub-nav under any existing tab (theirs or core's)
+buddynext_register_nav([ 'surface'=>'profile','layer'=>'primary','parent'=>'about',
+  'id'=>'about-skills','label'=>__('Skills','acme'),'tab'=>'about-skills' ]);
+
+// 3. REPOSITION or EDIT an existing item (incl. core items) — the filter receives
+//    the fully-resolved list and may mutate it (move / relabel / re-gate)
+add_filter( 'buddynext_nav_items', function ( array $items, $ctx ) {
+    return buddynext_nav_move( $items, 'discussions', [ 'before' => 'media' ] );
+}, 20, 2 );
+
+// 4. REMOVE an item you don't want surfaced
+add_filter( 'buddynext_nav_items', fn( $i, $c ) => buddynext_nav_remove( $i, 'likes' ), 20, 2 );
+
+// 5. ADD a STAT (metric layer) — same API, e.g. our Gamification bridge or any
+//    plugin contributing a profile/space stat. Optional delta/trend for the
+//    week-over-week chip. Reposition/remove a stat with the same helpers.
+buddynext_register_nav([ 'surface'=>'profile','layer'=>'metric','id'=>'points',
+  'label'=>__('Points','wb-gamification'),'count'=>$pts,'delta'=>'+120','trend'=>'up',
+  'after'=>'connections' ]);
+```
+
+Helpers (`buddynext_nav_move`, `buddynext_nav_remove`, `buddynext_nav_set`) keep
+third-party code declarative and ordering-safe (they re-resolve §2.4 after the
+mutation). Because everything funnels through the registry, an external dev can
+never produce an inconsistent render — a `metric` they add still can't navigate,
+their sub-nav still renders with the one canonical component, etc.
+
+**Evolvability:** the item schema is additive — unknown keys are ignored, so new
+optional fields (e.g. a future `badge_tone`, a new `layer`) ship without breaking
+existing registrations. The registry + the single filter are the only seam, so we
+keep improving the Nav API (new layers, richer sub-nav, per-role variants) behind
+a stable surface. Versioned in `docs/standards/nav-api.md` once Wave 0 lands.
+
 ---
 
 ## 4. How Member and Space converge (worked example)
@@ -286,6 +336,32 @@ wave. One nav system, no parallel legacy path.
 
 After Wave 4 there is exactly one nav system; no legacy filter remains.
 
+### 5.1 Migration completeness — nothing left behind (mandatory parity gate)
+
+No old filter is deleted until the registry **provably** reproduces everything it
+fed. Each surface migration follows: **inventory → register → assert parity →
+then delete**.
+
+1. **Inventory first.** Snapshot every item the current path emits for that
+   surface, per viewer role (the data, not the markup): id/label, layer, order,
+   count, visibility. For **Member** that is — primary tabs: Posts, Replies,
+   Media, Likes, Scheduled (own-only), Discussions (Jetonomy), Achievements
+   (Gamification); metrics: Followers, Following, Connections; owner-only inboxes:
+   pending follow requests, pending connection requests; and the relationship
+   list panels behind the counts. For **Space**: Feed, Members, About, Moderation
+   (mod/owner-only), Discussions (Jetonomy), plus the role-gated controls. The
+   inventory is captured as a fixture.
+2. **Register** the built-ins into the surface provider + migrate the integration
+   injections to `register_nav()`.
+3. **Assert parity** with a test: for each role (self/viewer; owner/mod/member/
+   non-member) the registry's resolved item set === the captured fixture
+   (same ids, order, counts, visibility). Card 2's own active-state + nav-model
+   checks ride along.
+4. **Only then delete** that surface's legacy filter.
+
+This is the "nothing left behind for members" guarantee, encoded as a gate rather
+than a hope — and it doubles as the regression suite as we keep improving the API.
+
 ---
 
 ## 6. Acceptance criteria
@@ -306,3 +382,12 @@ After Wave 4 there is exactly one nav system; no legacy filter remains.
 9. **Sub-nav** works by registering `parent` items (no template change), capped at
    one sub-level, rendered by the same component at both levels — proven with a
    throwaway "About ▸ Overview/Work" example on a profile.
+10. **Any developer** can add / reposition / edit / remove any item — **tabs,
+    stats (metrics), sub-nav, and core items** — purely through
+    `buddynext_register_nav()` + `buddynext_nav_items` (no template access) and
+    cannot produce an inconsistent render. A bridge adding a profile/space stat is
+    a first-class, supported case. Public contract documented in
+    `docs/standards/nav-api.md`.
+11. **Parity gate (nothing left behind):** for every surface + role, the registry's
+    resolved item set equals the pre-migration fixture before the legacy filter is
+    deleted (§5.1). Encoded as a test, kept as the regression suite.
