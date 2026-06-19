@@ -55,6 +55,17 @@ Treat as candidates, not certainties.
 
 ---
 
+## Wave 3 — Tooling improvements this audit surfaced (code lands in the MCP repo `wp-plugin-qa-mcp-server`)
+
+These make the BuddyNext audit trustworthy enough to finish Wave 1/2. The change happens in the MCP server code, but they are tracked here because the BuddyNext run surfaced them and they gate BuddyNext go-live. (They also benefit every other plugin — generalize when picked up.)
+
+- **B3.1 Improve orphan dynamic-dispatch resolution** — cuts the 1331 (B2.1) before triage. Capture `call_user_func`/`call_user_func_array` array-callables; resolve `$obj->m()` where `$obj` is a typed property/param (light `@var`/constructor-promotion inference). Files: `php-ast/extract-graph.php`, `src/flow/php-graph.ts`.
+- **B3.2 Improve `extractJsReads` precision** — the source of the rest-flow broken-read candidates (B1.4) and dead-output noise (B2.3). Scope JS reads to the actual response binding (`const data = await res.json()`) instead of any `obj.prop` near the route URL. File: `src/flow/rest-shapes.ts`.
+- **B3.3 Resolve calls into `libs/`/`vendor/`** — `buildGraph` ignores `resolveScanScope().thirdParty`, so our calls into bundled libs drop their edge (minor orphan/flow precision). Ingest third-party symbols as call-target-only nodes. Files: `src/flow/build.ts`, `php-graph.ts`.
+- **B3.4 Cap/summarize warning-level findings in the report** — keeps `flow-audit-report.md` reviewable (was ~1.5 MB before the orphan fix). File: `src/flow/report.ts`.
+- **B3.5 Close the logged Minor gaps** — `writeGraph`/`readGraph` direct tests; rest-flow `shapeUnresolved` branch test; canonical `passed` accounting + `tplFiles` Set lookup; `extractShapeKeys` nested-array handling. All small.
+- **B3.6 Register `wppqa_flow_audit` as an MCP tool + wire the BuddyNext release gate** — expose the runner in `server.ts`, then add the audit to BuddyNext's `bin/build-release.sh` / pre-tag checklist (fail the tag on unbaselined errors, mirroring contract-audit).
+
 ## Notes
-- These are BuddyNext-specific. Generic suite improvements (libs/vendor call resolution, orphan dynamic-dispatch, report capping, MCP tool registration, rollout) are tracked in the MCP repo handoff and benefit every plugin.
-- The 1331 orphan count already reflects the method-call-graph refinement (was 2777). Doing the MCP-side dynamic-dispatch resolution first will cut B2.1 further before triage.
+- The 1331 orphan count already reflects the method-call-graph refinement (2777 → 1331). Do B3.1 before B2.1 triage to shrink it further.
+- Suite usage/methodology (how to run, triage, baseline, refine a checker) lives in the MCP repo as generic instructions — not a task backlog.
