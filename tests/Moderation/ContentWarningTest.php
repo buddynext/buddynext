@@ -26,6 +26,10 @@ class ContentWarningTest extends \WP_UnitTestCase {
 		Installer::run();
 		$this->service = new ModerationService();
 
+		// set_post_content_warning() is gated behind manage_options; direct-call
+		// tests must act as an admin (the REST round-trip test sets its own admin).
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
 		global $wpdb;
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_posts',

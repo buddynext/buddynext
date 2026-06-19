@@ -154,11 +154,13 @@ class MemberTypeServiceTest extends \WP_UnitTestCase {
 	// ── get_by_id / get_by_slug ───────────────────────────────────────────────
 
 	public function test_get_by_id_returns_array_when_found(): void {
-		$id   = $this->make_type( 'staff' );
+		// 'team-lead' avoids colliding with the seeded starter member types
+		// ('staff'/'contributor') that Installer::run() inserts on a fresh install.
+		$id   = $this->make_type( 'team-lead' );
 		$type = $this->service->get_by_id( $id );
 
 		$this->assertIsArray( $type );
-		$this->assertSame( 'staff', $type['slug'] );
+		$this->assertSame( 'team-lead', $type['slug'] );
 	}
 
 	public function test_get_by_id_returns_null_when_not_found(): void {
@@ -198,7 +200,8 @@ class MemberTypeServiceTest extends \WP_UnitTestCase {
 	public function test_assign_type_to_user(): void {
 		global $wpdb;
 
-		$type_id = $this->make_type( 'contributor' );
+		// 'collaborator' avoids colliding with the seeded starter member types.
+		$type_id = $this->make_type( 'collaborator' );
 		$user_id = self::factory()->user->create();
 
 		$result = $this->service->assign_type( $user_id, $type_id );
@@ -207,7 +210,7 @@ class MemberTypeServiceTest extends \WP_UnitTestCase {
 
 		// Verify via usermeta write-through (fastest assertion path, avoids cache quirk).
 		$meta = get_user_meta( $user_id, 'bn_member_type', true );
-		$this->assertSame( 'contributor', $meta );
+		$this->assertSame( 'collaborator', $meta );
 
 		// Verify the assignment row exists in the join table.
 		$row = $wpdb->get_row(

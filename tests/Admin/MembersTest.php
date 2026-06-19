@@ -40,9 +40,9 @@ class MembersTest extends \WP_UnitTestCase {
 	 */
 	public function test_register_adds_admin_menu_hook(): void {
 		$this->members->register();
-		$this->assertNotFalse(
-			has_action( 'admin_menu', array( $this->members, 'add_submenu' ) )
-		);
+		// The admin screen is now contributed as an AdminHub tab (members:directory),
+		// not a direct admin_menu/add_submenu hook.
+		$this->assertArrayHasKey( 'directory', \BuddyNext\Admin\AdminHub::get_tabs( 'members' ) );
 	}
 
 	/**

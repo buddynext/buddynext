@@ -191,10 +191,18 @@ class CronScheduler {
 		// 3. Remove the recurring 5-min webhook retry poll (single-event now).
 		wp_clear_scheduled_hook( 'buddynext_webhook_retry' );
 
-		// 4. The six surviving recurring jobs migrate from native WP-Cron to
-		// Action Scheduler automatically: schedule_events() -> maybe_schedule()
-		// clears each legacy WP-Cron event and registers the AS action on the
-		// next wp_loaded. Nothing to do here beyond the legacy drops above.
+		// 4. Drop any legacy native WP-Cron recount_stats event (older installs ran
+		// it on a sub-hour custom recurrence). schedule_events() -> maybe_schedule()
+		// re-registers it on Action Scheduler ('daily') on the next wp_loaded;
+		// clearing it here makes the migration self-contained rather than relying on
+		// a later request to undo the stale recurrence.
+		if ( false !== wp_next_scheduled( self::JOB_RECOUNT_STATS ) ) {
+			wp_clear_scheduled_hook( self::JOB_RECOUNT_STATS );
+		}
+
+		// 5. The remaining recurring jobs migrate from native WP-Cron to Action
+		// Scheduler automatically: schedule_events() -> maybe_schedule() clears each
+		// legacy WP-Cron event and registers the AS action on the next wp_loaded.
 	}
 
 	/**

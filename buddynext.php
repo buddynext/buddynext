@@ -92,6 +92,11 @@ if ( file_exists( BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php' ) ) {
 // reactivate needed). Cheap no-op once the stored schema revision matches.
 add_action( 'admin_init', array( \BuddyNext\Core\Installer::class, 'maybe_upgrade' ) );
 
+// Keep the front-end isolation mu-plugin in sync with the plugin's generated
+// source on every update — signature-compared, so it rewrites the mu-plugin
+// (e.g. when an integration is added to the allow-list) without a version bump.
+add_action( 'admin_init', array( \BuddyNext\Core\Installer::class, 'maybe_refresh_mu_plugin' ) );
+
 // Activate the preset key against the store once per site so update
 // downloads are authorised. Admin-only; retries on the next admin load
 // until the store confirms the activation.

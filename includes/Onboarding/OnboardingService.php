@@ -78,9 +78,45 @@ class OnboardingService {
 		// data and advances the saved-step pointer.
 		if ( 1 === $step ) {
 			$this->save_profile( $user_id, $data );
+		} elseif ( 2 === $step && isset( $data['interest_ids'] ) ) {
+			$this->save_interest_ids( $user_id, (array) $data['interest_ids'] );
 		}
 		$next = min( self::TOTAL_STEPS, $step + 1 );
 		update_user_meta( $user_id, self::META_STEP, $next );
+	}
+
+	/**
+	 * Persist the Step 2 interest category IDs.
+	 *
+	 * @param int                $user_id      WordPress user ID.
+	 * @param array<int,mixed>   $interest_ids Interest category IDs.
+	 * @return void
+	 */
+	public function save_interest_ids( int $user_id, array $interest_ids ): void {
+		$ids = array_values( array_filter( array_map( 'absint', $interest_ids ) ) );
+		update_user_meta( $user_id, 'bn_onboarding_interests', $ids );
+	}
+
+	/**
+	 * Persist free-text interest labels (the member's chosen interests).
+	 *
+	 * @param int           $user_id WordPress user ID.
+	 * @param array<int,mixed> $labels Interest label strings.
+	 * @return string The stored comma-joined label string.
+	 */
+	public function save_interests( int $user_id, array $labels ): string {
+		$clean = array_values(
+			array_filter(
+				array_map(
+					static fn( $l ): string => sanitize_text_field( (string) $l ),
+					$labels
+				),
+				static fn( string $l ): bool => '' !== $l
+			)
+		);
+		$value = implode( ',', $clean );
+		update_user_meta( $user_id, 'bn_interests', $value );
+		return $value;
 	}
 
 	/**

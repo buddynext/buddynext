@@ -92,7 +92,9 @@ class PrivacyServiceTest extends \WP_UnitTestCase {
 
 	public function test_can_connect_when_privacy_is_followers_and_actor_follows(): void {
 		$this->service->set_preference( $this->alice, 'who_can_connect', 'followers' );
-		$this->follows->follow( $this->alice, $this->bob );
+		// "followers" = only people who follow alice may connect with her, so bob
+		// (the actor) must follow alice (the target), not the reverse.
+		$this->follows->follow( $this->bob, $this->alice );
 
 		$this->assertTrue( $this->service->can_connect( $this->bob, $this->alice ) );
 	}

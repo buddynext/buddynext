@@ -38,9 +38,9 @@ class NavManagerTest extends \WP_UnitTestCase {
 	 */
 	public function test_register_adds_admin_menu_hook(): void {
 		$this->nav->register();
-		$this->assertNotFalse(
-			has_action( 'admin_menu', array( $this->nav, 'add_submenu' ) )
-		);
+		// The nav editor is now an AdminHub tab (settings:navigation), not a direct
+		// admin_menu/add_submenu hook.
+		$this->assertArrayHasKey( 'navigation', \BuddyNext\Admin\AdminHub::get_tabs( 'settings' ) );
 	}
 
 	/**

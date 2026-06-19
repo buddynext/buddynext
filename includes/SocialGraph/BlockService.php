@@ -89,6 +89,13 @@ class BlockService {
 			return new WP_Error( 'block_failed', __( 'Could not block this user. Please try again.', 'buddynext' ) );
 		}
 
+		// Capture the insert's affected-row count NOW: the unfollow / connection
+		// cleanup below each runs its own $wpdb query that overwrites
+		// $wpdb->rows_affected, so reading it after that point would gate the hook
+		// on a stale value (0 when the pair had no follow/connection rows) and
+		// silently skip buddynext_block.
+		$row_was_written = $wpdb->rows_affected > 0;
+
 		// Twitter/X/Instagram behaviour: a block severs any existing follow and
 		// connection between the two users (both directions), and an unblock does
 		// NOT restore them. Route through the canonical services so follower /
@@ -108,7 +115,7 @@ class BlockService {
 
 		$this->invalidate_block_cache( $blocker_id, $blocked_id );
 
-		if ( $wpdb->rows_affected > 0 ) {
+		if ( $row_was_written ) {
 			/**
 			 * Fires after a user is blocked.
 			 *

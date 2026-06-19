@@ -56,9 +56,9 @@ class SettingsTest extends \WP_UnitTestCase {
 	 */
 	public function test_register_adds_admin_menu_hook(): void {
 		$this->settings->register();
-		$this->assertNotFalse(
-			has_action( 'admin_menu', array( $this->settings, 'add_menu' ) )
-		);
+		// Settings screens are now AdminHub tabs (settings:general the first), not a
+		// direct admin_menu/add_menu hook.
+		$this->assertArrayHasKey( 'general', \BuddyNext\Admin\AdminHub::get_tabs( 'settings' ) );
 	}
 
 	/**

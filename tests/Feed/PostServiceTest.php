@@ -20,6 +20,7 @@ class PostServiceTest extends \WP_UnitTestCase {
 	private PostService $service;
 	private int $alice;
 	private int $bob;
+	private int $admin;
 
 	public function set_up(): void {
 		parent::set_up();
@@ -27,6 +28,7 @@ class PostServiceTest extends \WP_UnitTestCase {
 		$this->service = new PostService();
 		$this->alice   = self::factory()->user->create();
 		$this->bob     = self::factory()->user->create();
+		$this->admin   = self::factory()->user->create( array( 'role' => 'administrator' ) );
 	}
 
 	public function test_create_returns_id(): void {
@@ -98,8 +100,11 @@ class PostServiceTest extends \WP_UnitTestCase {
 	}
 
 	public function test_get_decodes_media_ids_json(): void {
+		// Create as an admin: PostService::authorize_media_ids() drops attachments a
+		// non-admin doesn't own (IDOR guard), and the test only exercises JSON
+		// round-tripping of the stored ids.
 		$id   = $this->service->create(
-			$this->alice,
+			$this->admin,
 			array(
 				'type'      => 'photo',
 				'content'   => '',

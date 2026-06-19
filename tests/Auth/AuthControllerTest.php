@@ -45,6 +45,7 @@ class AuthControllerTest extends \WP_Test_REST_TestCase {
 	 */
 	public function tear_down(): void {
 		delete_option( 'buddynext_email_verify' );
+		delete_option( 'buddynext_reg_spam_protection' );
 		parent::tear_down();
 	}
 
@@ -318,6 +319,11 @@ class AuthControllerTest extends \WP_Test_REST_TestCase {
 	public function test_register_creates_user_with_valid_payload(): void {
 		wp_set_current_user( 0 );
 		update_option( 'users_can_register', 1 );
+
+		// The in-house RegistrationGuard (rate-limit, human-challenge, time-trap) is
+		// default-on and has its own coverage; this test exercises account creation,
+		// so disable spam protection rather than mint guard tokens here.
+		update_option( 'buddynext_reg_spam_protection', '' );
 
 		$user_login = 'newgood_' . wp_generate_password( 6, false );
 		$email      = $user_login . '@example.com';

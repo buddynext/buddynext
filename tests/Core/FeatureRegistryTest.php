@@ -43,8 +43,8 @@ class FeatureRegistryTest extends \WP_UnitTestCase {
 		$this->assertArrayHasKey( 'sidebar', $catalog );
 		$this->assertSame( FeatureRegistry::TIER_DEFAULT_ON, $catalog['sidebar']['tier'] );
 
-		$this->assertArrayHasKey( 'gamification', $catalog );
-		$this->assertSame( FeatureRegistry::TIER_OPT_IN, $catalog['gamification']['tier'] );
+		$this->assertArrayHasKey( 'webhooks', $catalog );
+		$this->assertSame( FeatureRegistry::TIER_OPT_IN, $catalog['webhooks']['tier'] );
 	}
 
 	public function test_mandatory_features_are_always_enabled_regardless_of_option(): void {
@@ -59,7 +59,6 @@ class FeatureRegistryTest extends \WP_UnitTestCase {
 	}
 
 	public function test_opt_in_features_resolve_false_when_option_absent(): void {
-		$this->assertFalse( $this->registry->is_enabled( 'gamification' ) );
 		$this->assertFalse( $this->registry->is_enabled( 'webhooks' ) );
 	}
 
