@@ -137,6 +137,38 @@ buddynext_register_nav([ 'id' => 'about-work', 'surface' => 'profile',
 - Depth is capped at one sub-level by design (tab → sub-tab); deeper nesting is a
   smell and is rejected at registration. Metric/rail/context layers stay flat.
 
+#### Reference pattern — relationships (Network) vs content
+
+The relationship lists (mutual Connections / Followers / Following) are ONE
+category, so they group under a single `network` primary tab with three children,
+**not** three top-level tabs cluttering the bar next to the content tabs. The
+counts live in the `metric` row and jump into the right sub-tab — mirroring X's
+followers page (Followers/Following sub-tabs) and LinkedIn's grouped Network.
+
+```php
+// metric pills (row 1) — counts whose `tab` points at the child target; the
+// renderer activates the parent (network) + that sub-tab. No extra field needed.
+register_nav([ 'surface'=>'profile','layer'=>'metric','id'=>'followers',
+  'label'=>__('Followers','buddynext'),'count'=>$f,'tab'=>'net-followers' ]);
+// … 'following' → 'net-following', 'connections' → 'net-connections'
+
+// one primary tab + three sub-tabs
+register_nav([ 'surface'=>'profile','layer'=>'primary','id'=>'network',
+  'label'=>__('Network','buddynext'),'tab'=>'network' ]);
+register_nav([ 'surface'=>'profile','layer'=>'primary','parent'=>'network',
+  'id'=>'connections','label'=>__('Connections','buddynext'),'tab'=>'net-connections' ]);
+register_nav([ 'surface'=>'profile','layer'=>'primary','parent'=>'network',
+  'id'=>'followers','label'=>__('Followers','buddynext'),'tab'=>'net-followers' ]);
+register_nav([ 'surface'=>'profile','layer'=>'primary','parent'=>'network',
+  'id'=>'following','label'=>__('Following','buddynext'),'tab'=>'net-following' ]);
+```
+
+Result: primary bar = `Posts · Replies · Media · Likes · Network · Discussions`,
+Network owns `Connections / Followers / Following` as sub-tabs, and the metric
+counts deep-link in. Adding a 4th relationship type later is one more
+`register_nav(parent:network)` — no template change. The same pattern serves a
+Space "Members" tab sub-navving into Owners / Mods / Members.
+
 ---
 
 ## 3. Architecture
