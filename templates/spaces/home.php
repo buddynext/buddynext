@@ -258,8 +258,7 @@ if ( $is_member ) {
 // Members tab requires the full roster when active. Exposed as objects so the
 // members panel keeps its existing property access.
 $bn_full_members = array();
-$bn_tab_lookup   = isset( $_GET['bn_tab'] ) ? sanitize_key( wp_unslash( $_GET['bn_tab'] ) ) : 'feed'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-if ( 'members' === $bn_tab_lookup && ! $gate_feed ) {
+if ( 'members' === $active_tab && ! $gate_feed ) {
 	$bn_full_members = $bn_to_objects(
 		$bn_member_service->get_members( $space_id, $current_user_id, 100, 0 )
 	);
@@ -443,7 +442,7 @@ add_action(
 					'title'         => __( 'Members', 'buddynext' ),
 					'title_icon'    => 'users',
 					'body_html'     => $bn_members_html,
-					'see_all_url'   => add_query_arg( 'bn_tab', 'members' ),
+					'see_all_url'   => trailingslashit( \BuddyNext\Core\PageRouter::space_url( $space_id ) ) . 'members/',
 					'see_all_label' => __( 'See all members', 'buddynext' ),
 				)
 			);
