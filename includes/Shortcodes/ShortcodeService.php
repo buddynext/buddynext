@@ -245,6 +245,18 @@ class ShortcodeService {
 			exit;
 		}
 
+		// Enqueue the auth stylesheet + Interactivity modules. On the hub route
+		// PageRouter does this; off-hub (inside [buddynext_auth] on an arbitrary
+		// page) nothing did, so the login/register forms rendered unstyled and
+		// inert. Both auth-login and auth-signup load because the template carries
+		// the sign-in and create-account forms.
+		$assets = buddynext_service( 'assets' );
+		if ( is_object( $assets ) && method_exists( $assets, 'enqueue' ) ) {
+			$assets->enqueue( 'auth' );
+		}
+		wp_enqueue_script_module( '@buddynext/auth-login' );
+		wp_enqueue_script_module( '@buddynext/auth-signup' );
+
 		return $this->capture( 'auth/login.php', array() );
 	}
 

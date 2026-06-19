@@ -110,6 +110,29 @@ class SettingsTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Saving buddynext_reg_mode mirrors WP core's users_can_register so the
+	 * /auth/register gate agrees — open/invite/approval all enable registration.
+	 */
+	public function test_reg_mode_save_syncs_users_can_register(): void {
+		$this->settings->register();
+		delete_option( 'users_can_register' );
+
+		update_option( 'buddynext_reg_mode', 'open' );
+		$this->assertEquals( 1, get_option( 'users_can_register' ) );
+
+		update_option( 'buddynext_reg_mode', 'approval' );
+		$this->assertEquals( 1, get_option( 'users_can_register' ) );
+	}
+
+	/**
+	 * A future explicit 'closed' mode disables core registration.
+	 */
+	public function test_reg_mode_closed_disables_core_registration(): void {
+		$this->settings->sync_core_registration( '', 'closed' );
+		$this->assertEquals( 0, get_option( 'users_can_register' ) );
+	}
+
+	/**
 	 * The allow_polls option defaults to true.
 	 */
 	public function test_allow_polls_defaults_to_true(): void {
