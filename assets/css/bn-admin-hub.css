@@ -641,3 +641,19 @@
 	color: var(--bn-ink-3);
 }
 .bn-admin-hub__brand-logo { height: 28px; width: auto; display: block; flex: none; }
+
+/* ── Bulk-select for admin list tables (Members, Spaces) ─────────────── */
+.bn-bulk-bar {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2, 8px);
+	margin: 0 0 var(--bn-s3, 12px);
+	flex-wrap: wrap;
+}
+.bn-table__cb {
+	width: 2.5rem;
+}
+.bn-table__cb input[type="checkbox"] {
+	margin: 0;
+	vertical-align: middle;
+}

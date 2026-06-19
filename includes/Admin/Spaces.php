@@ -31,6 +31,7 @@ class Spaces extends AdminPageBase {
 	 */
 	public function register(): void {
 		add_action( 'admin_post_bn_delete_space', array( $this, 'handle_delete' ) );
+		add_action( 'admin_post_bn_bulk_spaces', array( $this, 'handle_bulk' ) );
 		add_action( 'admin_post_bn_save_space_category', array( $this, 'handle_save_category' ) );
 		add_action( 'admin_post_bn_delete_space_category', array( $this, 'handle_delete_category' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
@@ -65,6 +66,14 @@ class Spaces extends AdminPageBase {
 			: plugins_url( '/', __DIR__ . '/../../buddynext.php' );
 
 		$version = defined( 'BUDDYNEXT_VERSION' ) ? (string) constant( 'BUDDYNEXT_VERSION' ) : '1.0.0';
+
+		wp_enqueue_script(
+			'bn-admin-bulk-select',
+			$plugin_url . 'assets/js/admin/bulk-select.js',
+			array(),
+			$version,
+			true
+		);
 
 		wp_enqueue_script(
 			'bn-admin-spaces',
@@ -253,9 +262,26 @@ class Spaces extends AdminPageBase {
 				</div>
 
 			<div class="bn-table-wrap__scroll">
-				<table class="bn-table">
+				<?php
+				// Bulk-action form. Row checkboxes associate via form="bn-spaces-bulk"
+				// so they are not nested inside the per-row Delete forms.
+				?>
+				<form id="bn-spaces-bulk" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-bulk-bar">
+					<input type="hidden" name="action" value="bn_bulk_spaces">
+					<?php wp_nonce_field( 'bn_bulk_spaces' ); ?>
+					<label for="bn-spaces-bulk-action" class="screen-reader-text"><?php esc_html_e( 'Bulk action', 'buddynext' ); ?></label>
+					<select id="bn-spaces-bulk-action" name="bulk_action" class="bn-select" data-size="sm">
+						<option value=""><?php esc_html_e( 'Bulk actions', 'buddynext' ); ?></option>
+						<option value="delete"><?php esc_html_e( 'Delete', 'buddynext' ); ?></option>
+					</select>
+					<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Apply', 'buddynext' ); ?></button>
+				</form>
+				<table class="bn-table" data-bn-bulk="bn-spaces-bulk">
 					<thead>
 						<tr>
+							<th scope="col" class="bn-table__cb" data-align="center">
+								<input type="checkbox" id="bn-spaces-cb-all" aria-label="<?php esc_attr_e( 'Select all spaces', 'buddynext' ); ?>">
+							</th>
 							<th scope="col"><?php esc_html_e( 'Space', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Type', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Members', 'buddynext' ); ?></th>
@@ -266,7 +292,7 @@ class Spaces extends AdminPageBase {
 					<tbody>
 						<?php if ( empty( $spaces ) ) : ?>
 							<tr>
-								<td colspan="5">
+								<td colspan="6">
 									<p class="description"><?php esc_html_e( 'No spaces found.', 'buddynext' ); ?></p>
 								</td>
 							</tr>
@@ -281,6 +307,14 @@ class Spaces extends AdminPageBase {
 								$tone     = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->tone( $type_key );
 								?>
 								<tr>
+									<td class="bn-table__cb" data-align="center">
+										<input type="checkbox" name="ids[]" form="bn-spaces-bulk" value="<?php echo absint( $space['id'] ); ?>" class="bn-bulk-cb" aria-label="
+										<?php
+											/* translators: %s: space name */
+											echo esc_attr( sprintf( __( 'Select %s', 'buddynext' ), (string) $space['name'] ) );
+										?>
+										">
+									</td>
 									<td>
 										<div class="bn-space-row-info">
 											<strong><?php echo esc_html( (string) $space['name'] ); ?></strong>
@@ -776,6 +810,46 @@ class Spaces extends AdminPageBase {
 	}
 
 	// ── Admin-post handlers ────────────────────────────────────────────────────
+
+	/**
+	 * Handle admin_post_bn_bulk_spaces — apply a bulk action to the selected
+	 * space IDs (checkbox column). Reuses the same delete_space() service call
+	 * the single-row Delete uses.
+	 *
+	 * @return void
+	 */
+	public function handle_bulk(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ), 403 );
+		}
+
+		check_admin_referer( 'bn_bulk_spaces' );
+
+		$bulk_action = isset( $_POST['bulk_action'] ) ? sanitize_key( wp_unslash( $_POST['bulk_action'] ) ) : '';
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- each element is cast via array_map( 'absint' ) on the next line.
+		$raw_ids = isset( $_POST['ids'] ) ? (array) wp_unslash( $_POST['ids'] ) : array();
+		$ids     = array_values( array_unique( array_filter( array_map( 'absint', $raw_ids ) ) ) );
+
+		$done = 0;
+		if ( 'delete' === $bulk_action && ! empty( $ids ) ) {
+			foreach ( $ids as $sid ) {
+				$this->delete_space( $sid );
+				++$done;
+			}
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'        => 'buddynext-spaces',
+					'bulk_action' => $bulk_action,
+					'bulk_done'   => $done,
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
 
 	/**
 	 * Handle admin_post_bn_delete_space form submission.

@@ -36,6 +36,7 @@ class Members extends AdminPageBase {
 	public function register(): void {
 		add_action( 'admin_post_bn_suspend_member', array( $this, 'handle_suspend' ) );
 		add_action( 'admin_post_bn_unsuspend_member', array( $this, 'handle_unsuspend' ) );
+		add_action( 'admin_post_bn_bulk_members', array( $this, 'handle_bulk' ) );
 		add_action( 'admin_post_bn_save_member_profile', array( $this, 'handle_save_member_profile' ) );
 		// NB: the wp_login -> handle_last_login listener is wired unconditionally
 		// in Plugin::boot(), not here — register() only runs in admin, but logins
@@ -74,6 +75,14 @@ class Members extends AdminPageBase {
 
 		$plugin_url = defined( 'BUDDYNEXT_URL' ) ? BUDDYNEXT_URL : plugin_dir_url( dirname( __DIR__, 2 ) . '/buddynext.php' );
 		$version    = defined( 'BUDDYNEXT_VERSION' ) ? BUDDYNEXT_VERSION : '1.0.0';
+
+		wp_enqueue_script(
+			'bn-admin-bulk-select',
+			$plugin_url . 'assets/js/admin/bulk-select.js',
+			array(),
+			$version,
+			true
+		);
 
 		wp_enqueue_script(
 			'bn-admin-members',
@@ -456,6 +465,56 @@ class Members extends AdminPageBase {
 					'page'    => 'buddynext-members',
 					'action'  => 'unsuspended',
 					'user_id' => $user_id,
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Handle admin_post_bn_bulk_members — apply a bulk action to the selected
+	 * member IDs (checkbox column). Reuses the same suspend/unsuspend service
+	 * calls the single-row actions use; self and other admins are skipped.
+	 *
+	 * @return void
+	 */
+	public function handle_bulk(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ), 403 );
+		}
+
+		check_admin_referer( 'bn_bulk_members' );
+
+		$bulk_action = isset( $_POST['bulk_action'] ) ? sanitize_key( wp_unslash( $_POST['bulk_action'] ) ) : '';
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- each element is cast via array_map( 'absint' ) on the next line.
+		$raw_ids = isset( $_POST['ids'] ) ? (array) wp_unslash( $_POST['ids'] ) : array();
+		$ids     = array_values( array_unique( array_filter( array_map( 'absint', $raw_ids ) ) ) );
+
+		$current = get_current_user_id();
+		$done    = 0;
+		if ( '' !== $bulk_action && ! empty( $ids ) ) {
+			foreach ( $ids as $uid ) {
+				// Never let a bulk action hit yourself or another administrator.
+				if ( $uid === $current || user_can( $uid, 'manage_options' ) ) {
+					continue;
+				}
+				if ( 'suspend' === $bulk_action ) {
+					$this->suspend_member( $uid, '' );
+					++$done;
+				} elseif ( 'unsuspend' === $bulk_action ) {
+					$this->unsuspend_member( $uid );
+					++$done;
+				}
+			}
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'         => 'buddynext-members',
+					'bulk_action'  => $bulk_action,
+					'bulk_done'    => $done,
 				),
 				admin_url( 'admin.php' )
 			)
@@ -948,9 +1007,28 @@ class Members extends AdminPageBase {
 				<?php if ( empty( $members ) ) : ?>
 					<p class="bn-members-empty"><?php esc_html_e( 'No members found.', 'buddynext' ); ?></p>
 				<?php else : ?>
-					<table class="bn-table">
+					<?php
+					// Bulk-action form. The per-row checkboxes associate with it via
+					// the form="bn-members-bulk" attribute, so they are NOT nested
+					// inside the existing per-row action forms (invalid HTML).
+					?>
+					<form id="bn-members-bulk" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-bulk-bar">
+						<input type="hidden" name="action" value="bn_bulk_members">
+						<?php wp_nonce_field( 'bn_bulk_members' ); ?>
+						<label for="bn-members-bulk-action" class="screen-reader-text"><?php esc_html_e( 'Bulk action', 'buddynext' ); ?></label>
+						<select id="bn-members-bulk-action" name="bulk_action" class="bn-select" data-size="sm">
+							<option value=""><?php esc_html_e( 'Bulk actions', 'buddynext' ); ?></option>
+							<option value="suspend"><?php esc_html_e( 'Suspend', 'buddynext' ); ?></option>
+							<option value="unsuspend"><?php esc_html_e( 'Unsuspend', 'buddynext' ); ?></option>
+						</select>
+						<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Apply', 'buddynext' ); ?></button>
+					</form>
+					<table class="bn-table" data-bn-bulk="bn-members-bulk">
 						<thead>
 							<tr>
+								<th scope="col" class="bn-table__cb" data-align="center">
+									<input type="checkbox" id="bn-members-cb-all" aria-label="<?php esc_attr_e( 'Select all members', 'buddynext' ); ?>">
+								</th>
 								<th scope="col"><?php esc_html_e( 'Member', 'buddynext' ); ?></th>
 								<th scope="col"><?php esc_html_e( 'Email', 'buddynext' ); ?></th>
 								<th scope="col"><?php esc_html_e( 'Role', 'buddynext' ); ?></th>
@@ -964,6 +1042,14 @@ class Members extends AdminPageBase {
 						<tbody>
 						<?php foreach ( $members as $member ) : ?>
 							<tr>
+								<td class="bn-table__cb" data-align="center">
+									<input type="checkbox" name="ids[]" form="bn-members-bulk" value="<?php echo absint( $member['id'] ); ?>" class="bn-bulk-cb" aria-label="
+									<?php
+										/* translators: %s: member display name */
+										echo esc_attr( sprintf( __( 'Select %s', 'buddynext' ), $member['display'] ) );
+									?>
+									">
+								</td>
 								<td>
 									<div class="bn-member-cell">
 										<div class="bn-avatar bn-avatar-initials <?php echo esc_attr( MemberDisplay::get_avatar_color( $member['id'] ) ); ?>" data-size="md" aria-hidden="true">
