@@ -37,49 +37,39 @@ function isDenied( path ) {
 		return list.some( ( p ) => p && path.indexOf( p.replace( /\/+$/, '' ) ) === 0 );
 	};
 
-	// Auth + onboarding: full forms, redirect-after-login, own slim shell.
-	if (
-		startsWith( deny.auth ) ||
-		startsWith( deny.signup ) ||
-		startsWith( deny.verify ) ||
-		startsWith( deny.reset ) ||
-		startsWith( deny.onboarding )
-	) {
-		return true;
-	}
-
-	// Partner-plugin surfaces (Media = WPMediaVerse, Discussions = Jetonomy) render
-	// in their OWN Interactivity router region, not buddynext/main. The BN router
-	// can't swap them, so full-load — the partner plugin's own scripts/styles/router
-	// then initialise. (A client-side swap would inject region-less HTML and break.)
-	if ( startsWith( deny.media ) || startsWith( deny.discussions ) ) {
-		return true;
-	}
-
-	// Profile edit — rich editor (avatar/cover upload, repeater fields).
+	// Conditional sub-route denies FIRST: the hub ROOT itself stays client-navigable
+	// (it's a buddynext/main surface), so only these rich sub-routes full-load.
+	// Handled before the generic prefix pass so /members/ and /spaces/ are never
+	// blanket-denied.
 	if ( startsWith( deny.people ) && /\/edit\/?$/.test( path ) ) {
-		return true;
+		return true; // Profile edit — rich uploader + repeater fields.
 	}
-
-	// Space settings/admin — cover/icon upload + settings forms.
-	if (
-		startsWith( deny.spaces ) &&
-		/\/(settings|admin)\/?$/.test( path )
-	) {
-		return true;
+	if ( startsWith( deny.spaces ) && /\/(settings|admin)\/?$/.test( path ) ) {
+		return true; // Space settings/admin — cover/icon upload + forms.
 	}
-
 	// Single-post permalink (/p/{id}/) — rich reply composer.
 	if ( /\/p\/\d+\/?$/.test( path ) ) {
 		return true;
 	}
-
 	// Membership checkout (Stripe Embedded Checkout mounts here).
 	if ( /\/(checkout|membership\/checkout)\/?$/.test( path ) ) {
 		return true;
 	}
 
-	return false;
+	// Generic full-prefix pass: every other deny entry is a plain path prefix that
+	// must full-load — auth/signup/verify/reset/onboarding, the partner router-region
+	// surfaces (media = WPMediaVerse, discussions = Jetonomy), AND any integration
+	// surface registered through the `buddynext_client_nav_deny` filter (Career Board
+	// jobs/companies/resumes, Listora listings, Learnomy courses, Gamification). This
+	// is generic so a newly-registered integration key is respected without editing
+	// this file. 'people'/'spaces' are excluded — their hub root must client-nav
+	// (their rich sub-routes are handled conditionally above).
+	return Object.keys( deny ).some( ( key ) => {
+		if ( 'people' === key || 'spaces' === key ) {
+			return false;
+		}
+		return startsWith( deny[ key ] );
+	} );
 }
 
 /**

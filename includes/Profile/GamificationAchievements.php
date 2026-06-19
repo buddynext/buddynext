@@ -40,6 +40,48 @@ class GamificationAchievements {
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav' ) );
 		add_action( 'buddynext_part_profile_tab_panel_after', array( $this, 'render_panel' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ), 20 );
+		add_filter( 'buddynext_client_nav_deny', array( $this, 'add_nav_deny' ) );
+	}
+
+	/**
+	 * WB Gamification surfaces (the leaderboard hub page + the public badge-share
+	 * pages) render OUTSIDE BuddyNext's buddynext/main router region, so client-nav
+	 * must FULL-LOAD them — otherwise an Achievements link (a shared badge, or the
+	 * "View leaderboard" CTA) gets swapped into the BN region and breaks. Bases are
+	 * resolved from the hub page permalink + the plugin's canonical share-URL
+	 * builder, never hardcoded.
+	 *
+	 * @param array<string,string|string[]> $deny Accumulated deny-list.
+	 * @return array<string,string|string[]>
+	 */
+	public function add_nav_deny( $deny ): array {
+		$deny  = (array) $deny;
+		$paths = array();
+
+		$hub = $this->hub_url();
+		if ( '' !== $hub ) {
+			$path = (string) wp_parse_url( $hub, PHP_URL_PATH );
+			if ( '' !== $path ) {
+				$paths[] = $path;
+			}
+		}
+
+		// Badge share/verify pages live under WB Gamification's own rewrite base
+		// (independent of the hub page slug). Derive it from the canonical builder
+		// so it tracks the plugin, then trim to the leading segment as a prefix.
+		if ( is_callable( array( '\WBGam\Engine\BadgeSharePage', 'get_share_url' ) ) ) {
+			$share = (string) \WBGam\Engine\BadgeSharePage::get_share_url( '_', 0 );
+			$spath = (string) wp_parse_url( $share, PHP_URL_PATH );
+			$seg   = explode( '/', trim( $spath, '/' ) );
+			if ( ! empty( $seg[0] ) ) {
+				$paths[] = '/' . $seg[0] . '/';
+			}
+		}
+
+		if ( ! empty( $paths ) ) {
+			$deny['gamification'] = array_values( array_unique( $paths ) );
+		}
+		return $deny;
 	}
 
 	/**

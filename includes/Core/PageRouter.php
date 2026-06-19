@@ -941,26 +941,38 @@ class PageRouter {
 			// because hub slugs are admin-configurable — the action cannot
 			// assume fixed path segments. Default = client-nav (deny-list, not
 			// allow-list), so new routes are fast by default.
-			'navDeny'            => array(
-				'auth'        => wp_parse_url( self::auth_url(), PHP_URL_PATH ),
-				'signup'      => wp_parse_url( self::signup_url(), PHP_URL_PATH ),
-				'verify'      => wp_parse_url( self::verify_url(), PHP_URL_PATH ),
-				'reset'       => wp_parse_url( self::reset_url(), PHP_URL_PATH ),
-				'onboarding'  => wp_parse_url( self::onboarding_url(), PHP_URL_PATH ),
-				'spaces'      => wp_parse_url( self::spaces_url(), PHP_URL_PATH ),
-				'people'      => wp_parse_url( self::people_url(), PHP_URL_PATH ),
-				// Partner-plugin surfaces render in their OWN Interactivity router
-				// region (WPMediaVerse, Jetonomy), not buddynext/main, so the BN
-				// router cannot swap them in — they must FULL-LOAD so the partner
-				// plugin's own scripts/styles/router initialise (a client-side swap
-				// would inject region-less HTML and break the page). Both bases are
-				// ADMIN-CONFIGURABLE (WPMediaVerse maps Explore/Dashboard/Upload
-				// pages; Jetonomy has a Community Base URL setting), so resolve them
-				// from each plugin's own config — never hardcode /media/ or
-				// /community/. Arrays: the navigate action full-loads any matching
-				// prefix.
-				'media'       => self::wpmediaverse_deny_paths(),
-				'discussions' => self::jetonomy_deny_paths(),
+			/**
+			 * Client-nav deny-list: path prefixes that must FULL-LOAD instead of
+			 * client-navigating. Routes here render in their own Interactivity
+			 * router region (or are rich/secure flows), so the buddynext/main
+			 * router cannot swap them in — a client-side swap would inject
+			 * region-less HTML and break the page.
+			 *
+			 * Filterable so integrations whose surfaces live OUTSIDE buddynext/main
+			 * (Career Board jobs/companies/resumes, Listora listings, Learnomy
+			 * courses, Gamification) register their own bases — otherwise links to
+			 * those pages break under client-nav. Each value is a path prefix or an
+			 * array of prefixes; the navigate action full-loads any matching prefix.
+			 *
+			 * @param array<string,string|string[]> $deny Deny-list keyed by surface.
+			 */
+			'navDeny'            => apply_filters(
+				'buddynext_client_nav_deny',
+				array(
+					'auth'        => wp_parse_url( self::auth_url(), PHP_URL_PATH ),
+					'signup'      => wp_parse_url( self::signup_url(), PHP_URL_PATH ),
+					'verify'      => wp_parse_url( self::verify_url(), PHP_URL_PATH ),
+					'reset'       => wp_parse_url( self::reset_url(), PHP_URL_PATH ),
+					'onboarding'  => wp_parse_url( self::onboarding_url(), PHP_URL_PATH ),
+					'spaces'      => wp_parse_url( self::spaces_url(), PHP_URL_PATH ),
+					'people'      => wp_parse_url( self::people_url(), PHP_URL_PATH ),
+					// Partner-plugin surfaces (WPMediaVerse, Jetonomy) render in their
+					// OWN router region, not buddynext/main, so they must FULL-LOAD.
+					// Both bases are ADMIN-CONFIGURABLE, so resolve them from each
+					// plugin's own config — never hardcode /media/ or /community/.
+					'media'       => self::wpmediaverse_deny_paths(),
+					'discussions' => self::jetonomy_deny_paths(),
+				)
 			),
 			// Connect-request style. Default false = 1-click connect (Facebook).
 			// When the owner turns on buddynext_connection_require_note, the
