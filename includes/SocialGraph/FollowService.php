@@ -80,31 +80,20 @@ class FollowService {
 			);
 		}
 
-		global $wpdb;
-
-		// Enforce block guard: refuse the follow if either party has blocked the other.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$block = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT blocker_id
-				 FROM {$wpdb->prefix}bn_blocks
-				 WHERE ( ( blocker_id = %d AND blocked_id = %d )
-				      OR ( blocker_id = %d AND blocked_id = %d ) )
-				   AND type = 'block'
-				 LIMIT 1",
-				$follower_id,
-				$following_id,
-				$following_id,
-				$follower_id
-			)
-		);
-
-		if ( null !== $block ) {
+		// Service-layer block guard for direct callers (the controller checks
+		// earlier with a friendlier 403). Use the shared, per-request-memoised
+		// BlockService check rather than a standalone raw query, so the earlier
+		// controller call makes this effectively free.
+		$blocks = function_exists( 'buddynext_service' ) ? buddynext_service( 'blocks' ) : null;
+		if ( $blocks && method_exists( $blocks, 'is_blocking_either' )
+			&& $blocks->is_blocking_either( $follower_id, $following_id ) ) {
 			return new WP_Error(
 				'blocked',
 				__( 'Cannot follow a blocked user.', 'buddynext' )
 			);
 		}
+
+		global $wpdb;
 
 		$status = $this->is_private_account( $following_id ) ? 'pending' : 'approved';
 
@@ -205,9 +194,13 @@ class FollowService {
 
 		$deleted = $wpdb->rows_affected > 0;
 
-		$this->invalidate_follow_cache( $follower_id, $following_id );
-
 		if ( $deleted ) {
+			// Only invalidate caches + fire the hook when a row actually went
+			// away. A no-op unfollow (e.g. the double unfollow BlockService runs
+			// during block cleanup) must not evict still-valid follower/following
+			// counts. Mirrors the approve/reject_follow_request pattern below.
+			$this->invalidate_follow_cache( $follower_id, $following_id );
+
 			/**
 			 * Fires after a follow relationship is removed.
 			 *
@@ -566,7 +559,26 @@ class FollowService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-		return array_map( 'intval', (array) $rows );
+		$ids = array_map( 'intval', (array) $rows );
+
+		// Never suggest a user in a block relationship with the viewer (either
+		// direction). Filtered here in the service — not only at the controller —
+		// so every caller of suggestions() is protected. Resolved in one batch
+		// query (no N+1) with no bn_blocks JOIN, preserving the single-table
+		// constraint the SELECT above relies on.
+		if ( $ids ) {
+			$blocks = function_exists( 'buddynext_service' ) ? buddynext_service( 'blocks' ) : null;
+			if ( $blocks && method_exists( $blocks, 'blocking_either_map' ) ) {
+				$blocked = $blocks->blocking_either_map( $user_id, $ids );
+				if ( $blocked ) {
+					$ids = array_values(
+						array_filter( $ids, static fn( int $id ): bool => ! isset( $blocked[ $id ] ) )
+					);
+				}
+			}
+		}
+
+		return $ids;
 	}
 
 	/**

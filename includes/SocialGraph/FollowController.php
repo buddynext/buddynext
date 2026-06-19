@@ -314,7 +314,13 @@ class FollowController extends BaseRestController {
 		$page      = max( 1, (int) $request->get_param( 'page' ) );
 
 		$service   = buddynext_service( 'follows' );
-		$followers = $service->get_followers( $user_id, array( 'per_page' => $per_page, 'page' => $page ) );
+		$followers = $service->get_followers(
+			$user_id,
+			array(
+				'per_page' => $per_page,
+				'page'     => $page,
+			)
+		);
 
 		return new WP_REST_Response(
 			array(
@@ -342,7 +348,13 @@ class FollowController extends BaseRestController {
 		$page      = max( 1, (int) $request->get_param( 'page' ) );
 
 		$service   = buddynext_service( 'follows' );
-		$following = $service->get_following( $user_id, array( 'per_page' => $per_page, 'page' => $page ) );
+		$following = $service->get_following(
+			$user_id,
+			array(
+				'per_page' => $per_page,
+				'page'     => $page,
+			)
+		);
 
 		return new WP_REST_Response(
 			array(
@@ -453,7 +465,10 @@ class FollowController extends BaseRestController {
 	 * @return WP_REST_Response
 	 */
 	public function get_suggestions(): WP_REST_Response {
-		$current_id  = get_current_user_id();
+		$current_id = get_current_user_id();
+		// FollowService::suggestions() already excludes blocked users (either
+		// direction), moderation-hidden users, self, and already-followed, so the
+		// discovery surface is filtered at the source for every caller.
 		$suggestions = buddynext_service( 'follows' )->suggestions( $current_id );
 
 		return new WP_REST_Response( array( 'ids' => $suggestions ), 200 );
