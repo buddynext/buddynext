@@ -297,14 +297,19 @@ class GamificationAchievements {
 	/**
 	 * Public share URL for a badge.
 	 *
-	 * Mirrors WB Gamification's `\WBGam\Engine\BadgeSharePage::get_share_url()` —
-	 * the canonical share-page rewrite (`gamification/badge/{id}/{uid}/share/`).
+	 * Defers to WB Gamification's canonical `\WBGam\Engine\BadgeSharePage::get_share_url()`
+	 * so the link can never drift from the plugin's own share-page rewrite. The
+	 * hand-built fallback (`gamification/badge/{id}/{uid}/share/`) only runs on an
+	 * older WB Gamification that predates the helper.
 	 *
 	 * @param string $badge_id Badge slug.
 	 * @param int    $user_id  Member.
 	 * @return string
 	 */
 	private function badge_share_url( string $badge_id, int $user_id ): string {
+		if ( is_callable( array( '\WBGam\Engine\BadgeSharePage', 'get_share_url' ) ) ) {
+			return (string) \WBGam\Engine\BadgeSharePage::get_share_url( $badge_id, $user_id );
+		}
 		return home_url( 'gamification/badge/' . $badge_id . '/' . $user_id . '/share/' );
 	}
 }
