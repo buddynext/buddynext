@@ -63,6 +63,13 @@ class BlockService {
 			);
 		}
 
+		// Capture prior state BEFORE the write: invalidate_block_cache() below
+		// clears this key, and the follow/connection severing must run only on a
+		// genuinely new block. A repeat block of an already-blocked user already
+		// had its relationships severed by the first block, so re-running the
+		// cleanup is wasted SELECT/DELETE/cache-flush work.
+		$already_blocked = $this->has_blocked( $blocker_id, $blocked_id );
+
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -86,15 +93,18 @@ class BlockService {
 		// connection between the two users (both directions), and an unblock does
 		// NOT restore them. Route through the canonical services so follower /
 		// following / connection counts, caches and hooks all stay correct
-		// instead of duplicating that relationship logic here.
-		$follows = buddynext_service( 'follows' );
-		$follows->unfollow( $blocker_id, $blocked_id );
-		$follows->unfollow( $blocked_id, $blocker_id );
+		// instead of duplicating that relationship logic here. Only on a NEW
+		// block — a duplicate block already severed these on the first call.
+		if ( ! $already_blocked ) {
+			$follows = buddynext_service( 'follows' );
+			$follows->unfollow( $blocker_id, $blocked_id );
+			$follows->unfollow( $blocked_id, $blocker_id );
 
-		$connections = buddynext_service( 'connections' );
-		$connections->remove_connection( $blocker_id, $blocked_id ); // accepted, either direction
-		$connections->withdraw_request( $blocker_id, $blocked_id );  // pending blocker -> blocked
-		$connections->withdraw_request( $blocked_id, $blocker_id );  // pending blocked -> blocker
+			$connections = buddynext_service( 'connections' );
+			$connections->remove_connection( $blocker_id, $blocked_id ); // Accepted, either direction.
+			$connections->withdraw_request( $blocker_id, $blocked_id );  // Pending blocker -> blocked.
+			$connections->withdraw_request( $blocked_id, $blocker_id );  // Pending blocked -> blocker.
+		}
 
 		$this->invalidate_block_cache( $blocker_id, $blocked_id );
 
