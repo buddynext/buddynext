@@ -83,41 +83,11 @@ class NotificationService {
 			}
 		}
 
-		// Attempt to merge into an existing unread group row within the 24-hour window.
-		if ( null !== $group_key && '' !== $group_key ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$existing_id = $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT id FROM {$wpdb->prefix}bn_notifications
-					 WHERE recipient_id = %d AND group_key = %s AND is_read = 0
-					   AND created_at >= UTC_TIMESTAMP() - INTERVAL 24 HOUR
-					 LIMIT 1",
-					$recipient_id,
-					$group_key
-				)
-			);
-
-			if ( null !== $existing_id ) {
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$wpdb->query(
-					$wpdb->prepare(
-						"UPDATE {$wpdb->prefix}bn_notifications
-						 SET sender_id = %d, group_count = group_count + 1, created_at = UTC_TIMESTAMP()
-						 WHERE id = %d",
-						(int) ( $data['sender_id'] ?? 0 ),
-						(int) $existing_id
-					)
-				);
-
-				wp_cache_delete( "unread_{$recipient_id}", self::CACHE_GROUP );
-
-				/** This action is documented in includes/Notifications/NotificationService.php */
-				do_action( 'buddynext_notification_created', (int) $existing_id, $recipient_id, $data );
-
-				return (int) $existing_id;
-			}
-		}
-
+		// Gate + scheduling MUST resolve before any write — including the group-merge
+		// path below. Previously the merge path returned early (firing the hook) before
+		// these ran, so grouped notifications bypassed buddynext_notification_should_send
+		// (Pro fatigue suppression) and fired buddynext_notification_created with a
+		// payload missing send_at. Resolving here makes both paths consistent.
 		/**
 		 * Filter whether a new notification should be persisted at all.
 		 *
@@ -140,12 +110,8 @@ class NotificationService {
 		 *
 		 * Return a non-null ISO 8601 / MySQL datetime string to schedule the
 		 * notification for deferred delivery. Pro uses this for batched digest
-		 * and quiet-hours features.
-		 *
-		 * Note: BuddyNext Free stores the value in the data JSON column but does
-		 * not actively delay the DB insert — deferred scheduling requires Pro's
-		 * Action Scheduler integration. The value is documented here so Pro can
-		 * read it from the data payload and reschedule accordingly.
+		 * and quiet-hours features. BuddyNext Free stores the value in the data
+		 * JSON column but does not actively delay the insert.
 		 *
 		 * @since 1.0.0
 		 *
@@ -154,14 +120,53 @@ class NotificationService {
 		 */
 		$send_at = apply_filters( 'buddynext_notification_send_at', null, $data );
 		if ( null !== $send_at ) {
-			// Attach the scheduled time to the data payload so Pro can read and
-			// act on it after the row is inserted.
 			$data['send_at'] = (string) $send_at;
+		}
+
+		// Attempt to merge into an existing unread group row within the 24-hour window.
+		if ( null !== $group_key && '' !== $group_key ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$existing_id = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT id FROM {$wpdb->prefix}bn_notifications
+					 WHERE recipient_id = %d AND group_key = %s AND is_read = 0
+					   AND created_at >= UTC_TIMESTAMP() - INTERVAL 24 HOUR
+					 LIMIT 1",
+					$recipient_id,
+					$group_key
+				)
+			);
+
+			if ( null !== $existing_id ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$updated = $wpdb->query(
+					$wpdb->prepare(
+						"UPDATE {$wpdb->prefix}bn_notifications
+						 SET sender_id = %d, group_count = group_count + 1, created_at = UTC_TIMESTAMP()
+						 WHERE id = %d",
+						(int) ( $data['sender_id'] ?? 0 ),
+						(int) $existing_id
+					)
+				);
+
+				// A failed merge UPDATE must not bust the cache or fire the hook for
+				// a row we did not actually touch.
+				if ( false === $updated ) {
+					return 0;
+				}
+
+				wp_cache_delete( "unread_{$recipient_id}", self::CACHE_GROUP );
+
+				/** This action is documented in includes/Notifications/NotificationService.php */
+				do_action( 'buddynext_notification_created', (int) $existing_id, $recipient_id, $data );
+
+				return (int) $existing_id;
+			}
 		}
 
 		// Insert a new notification row.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->insert(
+		$inserted = $wpdb->insert(
 			$wpdb->prefix . 'bn_notifications',
 			array(
 				'recipient_id' => $recipient_id,
@@ -179,6 +184,12 @@ class NotificationService {
 			),
 			array( '%d', '%d', '%s', '%s', '%d', '%s', '%d', '%s', '%d', '%s' )
 		);
+
+		// A failed insert must not bust the cache, fire the listener, or return a
+		// fake id — that would dispatch an email for a notification that doesn't exist.
+		if ( false === $inserted ) {
+			return 0;
+		}
 
 		wp_cache_delete( "unread_{$recipient_id}", self::CACHE_GROUP );
 

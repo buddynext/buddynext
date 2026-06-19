@@ -1105,13 +1105,31 @@ class ProfileService {
 	 *
 	 * All fields belonging to the group are deleted first via delete_field(),
 	 * which cascades to bn_profile_values. The group row is removed last.
-	 * Busts 'all_groups' and 'all_fields' cache keys.
+	 * Busts 'all_groups' and 'all_fields' cache keys. System groups cannot be
+	 * deleted (returns WP_Error).
 	 *
 	 * @param int $id Profile group ID.
-	 * @return void
+	 * @return true|\WP_Error True on success; WP_Error('system_group') for a built-in group.
 	 */
-	public function delete_group( int $id ): void {
+	public function delete_group( int $id ) {
 		global $wpdb;
+
+		// Guard: system groups (Basic Info, etc.) must never be destroyed — deleting
+		// one cascades away its fields and every member's stored values. The admin UI
+		// only hides the button, so without this guard a direct DELETE request wipes a
+		// core group and all its data.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$is_system = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT is_system FROM {$wpdb->prefix}bn_profile_groups WHERE id = %d", $id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( 1 === $is_system ) {
+			return new \WP_Error(
+				'system_group',
+				__( 'This is a built-in profile group and cannot be deleted.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
 
 		// Cascade: delete each field (and its stored values) first.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1137,6 +1155,8 @@ class ProfileService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		wp_cache_delete( 'all_groups', self::CACHE_GROUP );
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
+
+		return true;
 	}
 
 	/**

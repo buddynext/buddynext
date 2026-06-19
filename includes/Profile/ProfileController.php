@@ -1209,7 +1209,11 @@ class ProfileController extends BaseRestController {
 	public function delete_group( WP_REST_Request $request ): WP_REST_Response {
 		$id = (int) $request->get_param( 'id' );
 
-		buddynext_service( 'profiles' )->delete_group( $id );
+		$result = buddynext_service( 'profiles' )->delete_group( $id );
+		if ( is_wp_error( $result ) ) {
+			$status = (int) ( $result->get_error_data()['status'] ?? 400 );
+			return new WP_REST_Response( array( 'error' => $result->get_error_message() ), $status );
+		}
 
 		return new WP_REST_Response( array( 'deleted' => true ), 200 );
 	}

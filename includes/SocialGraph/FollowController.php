@@ -281,6 +281,12 @@ class FollowController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function unfollow( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		// Gate symmetrically with follow(): a role denied the follow capability must
+		// not be able to mutate follow state via unfollow either.
+		$gate = $this->require_cap( 'buddynext-connections/follow' );
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
 		$target_id  = (int) $request->get_param( 'id' );
 		$current_id = get_current_user_id();
 
