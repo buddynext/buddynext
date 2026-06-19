@@ -37,7 +37,7 @@ class GamificationAchievements {
 		if ( ! function_exists( 'wb_gam_get_user_badges' ) ) {
 			return;
 		}
-		add_filter( 'buddynext_part_profile_tab_bar_args', array( $this, 'add_tab' ) );
+		add_action( 'buddynext_register_nav', array( $this, 'register_nav' ) );
 		add_action( 'buddynext_part_profile_tab_panel_after', array( $this, 'render_panel' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ), 20 );
 	}
@@ -61,27 +61,28 @@ class GamificationAchievements {
 	}
 
 	/**
-	 * Append the Achievements tab when the member has standing.
+	 * Register the Achievements tab on the member-profile nav surface.
 	 *
-	 * @param array<string,mixed> $args Profile tab-bar args.
-	 * @return array<string,mixed>
+	 * Hooked on `buddynext_register_nav`. Gated to members with standing (any
+	 * badge or points) via a lazy condition, with a lazy badge-count badge.
+	 *
+	 * @param \BuddyNext\Nav\NavRegistry $registry The shared nav registry.
+	 * @return void
 	 */
-	public function add_tab( array $args ): array {
-		$member_id = (int) ( $args['profile_user_id'] ?? 0 );
-		if ( $member_id <= 0 || ! $this->has_standing( $member_id ) ) {
-			return $args;
-		}
-
-		$tabs         = isset( $args['tabs'] ) && is_array( $args['tabs'] ) ? $args['tabs'] : array();
-		$tabs[]       = array(
-			'slug'  => self::TAB_SLUG,
-			'label' => __( 'Achievements', 'buddynext' ),
-			'count' => count( $this->badges( $member_id ) ),
-			'icon'  => 'award',
+	public function register_nav( \BuddyNext\Nav\NavRegistry $registry ): void {
+		$registry->register(
+			array(
+				'id'        => self::TAB_SLUG,
+				'surface'   => 'profile',
+				'layer'     => 'primary',
+				'label'     => __( 'Achievements', 'buddynext' ),
+				'tab'       => self::TAB_SLUG,
+				'icon'      => 'award',
+				'priority'  => 70,
+				'condition' => fn( \BuddyNext\Nav\NavContext $c ): bool => $this->has_standing( $c->subject_id ),
+				'count'     => fn( \BuddyNext\Nav\NavContext $c ): int => count( $this->badges( $c->subject_id ) ),
+			)
 		);
-		$args['tabs'] = $tabs;
-
-		return $args;
 	}
 
 	/**

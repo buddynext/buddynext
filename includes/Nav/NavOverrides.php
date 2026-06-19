@@ -47,7 +47,9 @@ final class NavOverrides {
 	public function register(): void {
 		// Run late (20) so admin overrides win over bridge-injected items.
 		add_filter( 'buddynext_rail_items', array( $this, 'apply_rail' ), 20, 2 );
-		add_filter( 'buddynext_part_profile_tab_bar_args', array( $this, 'apply_profile_tabs' ), 20 );
+		// Profile tabs now flow through the unified Nav API; overrides apply to the
+		// resolved registry items (id-keyed), not the legacy tab-bar args.
+		add_filter( 'buddynext_nav_items', array( $this, 'apply_profile_nav_items' ), 20, 2 );
 		add_filter( 'buddynext_space_tabs', array( $this, 'apply_space_tabs' ), 20, 2 );
 		add_filter( 'buddynext_mobile_nav_items', array( $this, 'apply_mobile_items' ), 20, 2 );
 	}
@@ -241,72 +243,64 @@ final class NavOverrides {
 	}
 
 	/**
-	 * Apply profile-scope overrides to the profile tab bar.
+	 * Apply profile-scope overrides to the unified Nav registry items.
 	 *
-	 * The profile tab bar (templates/parts/profile-tab-bar.php) receives an
-	 * $args array whose `tabs` list is `[ slug, label, count?, href?, icon? ]`.
-	 * There is no `show` flag, so a hidden tab is removed from the list; labels
-	 * and order are applied the same way as the rail.
+	 * Hooked on `buddynext_nav_items` (which passes the raw registration arrays +
+	 * the NavContext). Acts only on the `profile` surface: hidden items are
+	 * dropped, labels renamed, order applied (mapped to `priority` so the
+	 * registry's own sort honours it), and admin-created custom tabs appended as
+	 * registration arrays. Overrides are keyed by item id (== the legacy slug).
 	 *
-	 * @param mixed $args Profile tab-bar args.
-	 * @return array<string,mixed>
+	 * @param mixed                     $items Raw registration arrays for the surface.
+	 * @param \BuddyNext\Nav\NavContext $ctx   Resolution context.
+	 * @return array<int,array<string,mixed>>
 	 */
-	public function apply_profile_tabs( $args ): array {
-		$args      = (array) $args;
+	public function apply_profile_nav_items( $items, $ctx = null ): array {
+		$items = is_array( $items ) ? $items : array();
+		if ( ! ( $ctx instanceof \BuddyNext\Nav\NavContext ) || 'profile' !== $ctx->surface ) {
+			return $items;
+		}
 		$overrides = $this->overrides( 'profile' );
-		if ( empty( $overrides ) || empty( $args['tabs'] ) || ! is_array( $args['tabs'] ) ) {
-			return $args;
+		if ( empty( $overrides ) ) {
+			return $items;
 		}
 
-		$tabs  = array();
-		$index = 0;
-		foreach ( (array) $args['tabs'] as $tab ) {
-			if ( ! is_array( $tab ) ) {
+		$kept = array();
+		foreach ( $items as $item ) {
+			if ( ! is_array( $item ) ) {
 				continue;
 			}
-			if ( isset( $tab['order'] ) ) {
-				$tab['order'] = (int) $tab['order'];
-			} else {
-				++$index;
-				$tab['order'] = $index * 10;
-			}
+			$id = sanitize_key( (string) ( $item['id'] ?? '' ) );
+			if ( '' !== $id && isset( $overrides[ $id ] ) ) {
+				$ov = (array) $overrides[ $id ];
 
-			$slug = sanitize_key( (string) ( $tab['slug'] ?? '' ) );
-			if ( '' !== $slug && isset( $overrides[ $slug ] ) ) {
-				$ov = (array) $overrides[ $slug ];
-
-				if ( ! empty( $ov['hidden'] ) ) {
-					continue; // Drop hidden tabs — the tab bar has no show flag.
-				}
-				// Honour the visibility / login_required / capability gate the same
-				// way the rail + mobile appliers do — profile tabs previously skipped
-				// this, so a login_required (or role-gated) tab still showed to guests.
-				if ( $this->tab_denied( $ov ) ) {
-					continue;
+				if ( ! empty( $ov['hidden'] ) || $this->tab_denied( $ov ) ) {
+					continue; // Drop hidden / gated items.
 				}
 				if ( isset( $ov['label'] ) && '' !== (string) $ov['label'] ) {
-					$tab['label'] = sanitize_text_field( (string) $ov['label'] );
+					$item['label'] = sanitize_text_field( (string) $ov['label'] );
 				}
+				// Map admin order onto the registry's priority (lower = earlier),
+				// and clear before/after so the explicit order wins cleanly.
 				if ( isset( $ov['order'] ) ) {
-					$tab['order'] = max( 1, (int) $ov['order'] );
+					$item['priority'] = max( 1, (int) $ov['order'] );
+					$item['before']   = null;
+					$item['after']    = null;
 				}
 			}
-			$tabs[] = $tab;
+			$kept[] = $item;
 		}
 
 		// Append admin-created custom tabs (mirrors apply_rail). NavManager stores
-		// these in the same overrides option flagged custom => true; the profile tab
-		// bar renders a tab carrying `href` as a plain link, so the custom tab now
-		// reaches the front end instead of only showing in the admin list.
-		$existing_slugs = array();
-		foreach ( $tabs as $existing_tab ) {
-			$existing_slugs[ sanitize_key( (string) ( $existing_tab['slug'] ?? '' ) ) ] = true;
+		// these flagged custom => true; rendered as a real link tab (url only).
+		$existing = array();
+		foreach ( $kept as $existing_item ) {
+			$existing[ sanitize_key( (string) ( $existing_item['id'] ?? '' ) ) ] = true;
 		}
-		$fallback_order = ( count( $tabs ) + 1 ) * 10;
 		foreach ( $overrides as $slug => $ov ) {
 			$ov   = (array) $ov;
 			$slug = sanitize_key( (string) $slug );
-			if ( '' === $slug || empty( $ov['custom'] ) || ! empty( $ov['hidden'] ) || isset( $existing_slugs[ $slug ] ) ) {
+			if ( '' === $slug || empty( $ov['custom'] ) || ! empty( $ov['hidden'] ) || isset( $existing[ $slug ] ) ) {
 				continue;
 			}
 			$url = esc_url_raw( (string) ( $ov['url'] ?? '' ) );
@@ -317,23 +311,18 @@ final class NavOverrides {
 			if ( '' !== $cap && ! current_user_can( $cap ) ) {
 				continue;
 			}
-			$tabs[]          = array(
-				'slug'  => $slug,
-				'label' => sanitize_text_field( (string) ( $ov['label'] ?? $slug ) ),
-				'href'  => $url,
-				'icon'  => 'link',
-				'order' => isset( $ov['order'] ) ? max( 1, (int) $ov['order'] ) : $fallback_order,
+			$kept[] = array(
+				'id'       => $slug,
+				'surface'  => 'profile',
+				'layer'    => 'primary',
+				'label'    => sanitize_text_field( (string) ( $ov['label'] ?? $slug ) ),
+				'url'      => $url,
+				'icon'     => 'link',
+				'priority' => isset( $ov['order'] ) ? max( 1, (int) $ov['order'] ) : 900,
 			);
-			$fallback_order += 10;
 		}
 
-		usort(
-			$tabs,
-			static fn( array $a, array $b ): int => ( (int) ( $a['order'] ?? 10 ) ) <=> ( (int) ( $b['order'] ?? 10 ) )
-		);
-
-		$args['tabs'] = $tabs;
-		return $args;
+		return $kept;
 	}
 
 	/**

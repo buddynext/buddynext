@@ -43,10 +43,10 @@
  * @var bool   $is_connected        Optional. Viewer is connected to this profile.
  * @var bool   $connection_pending  Optional. Viewer has a pending outbound request.
  * @var bool   $connection_received Optional. Viewer has a pending inbound request.
- * @var array  $stats               Optional. Stat-tile descriptors passed through to
- *                                  the profile-stats-strip part rendered inside the
- *                                  hero `<section>` (preserves the original hero
- *                                  layout where stats are the bottom band of the card).
+ * @var array  $metric_items        Optional. Resolved Nav metric items (NavItem[])
+ *                                  rendered as the count-pill row (parts/nav-metrics.php)
+ *                                  inside the hero `<section>` — preserves the original
+ *                                  hero layout where the metrics are the bottom band.
  * @var array  $classes             Optional. Extra CSS classes appended to `.bn-pf-hero`.
  *
  * Fires:
@@ -86,7 +86,7 @@ $args = array(
 	'is_connected'        => isset( $is_connected ) ? (bool) $is_connected : false,
 	'connection_pending'  => isset( $connection_pending ) ? (bool) $connection_pending : false,
 	'connection_received' => isset( $connection_received ) ? (bool) $connection_received : false,
-	'stats'               => isset( $stats ) && is_array( $stats ) ? $stats : array(),
+	'metric_items'        => isset( $metric_items ) && is_array( $metric_items ) ? $metric_items : array(),
 	'classes'             => isset( $classes ) ? (array) $classes : array(),
 );
 
@@ -601,15 +601,14 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 		</div><!-- /.bn-pf-head -->
 
 		<?php
-		// Stats strip lives inside the hero `<section>` to preserve the
-		// original card-with-bottom-band layout. The strip is its own
-		// reusable part with its own 4-hook contract.
+		// Metric row lives inside the hero `<section>` to preserve the original
+		// card-with-bottom-band layout. Rendered from the unified Nav registry's
+		// metric layer via the shared part (same row the space surface uses).
 		buddynext_get_template(
-			'parts/profile-stats-strip.php',
+			'parts/nav-metrics.php',
 			array(
-				'stats'           => (array) $args['stats'],
-				'is_owner'        => (bool) $args['is_owner'],
-				'profile_user_id' => (int) $args['profile_user_id'],
+				'items'       => (array) $args['metric_items'],
+				'extra_class' => 'bn-pf-metricrow',
 			)
 		);
 		?>

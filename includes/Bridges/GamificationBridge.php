@@ -129,10 +129,11 @@ class GamificationBridge {
 		// participating, mirroring bn_post_created. Fired by CommentService.php:103.
 		add_action( 'buddynext_comment_created', array( $this, 'on_comment_created' ), 10, 4 );
 
-		// Surface gamification standing on the profile via the shared extra-data
-		// seam (same path JetonomyBridge uses). Read-only — wb-gamification owns
-		// the values; BuddyNext only exposes them as profile stat tiles.
-		add_filter( 'buddynext_profile_extra_data', array( $this, 'inject_profile_gamification' ), 10, 2 );
+		// Gamification standing is surfaced through the dedicated Achievements
+		// profile tab (badge grid + standing strip), registered by
+		// \BuddyNext\Profile\GamificationAchievements via the Nav API — NOT as
+		// header stat pills (those were progression churn; the credential tab is
+		// the LinkedIn-minimum home for standing).
 
 		// Broadcast credential badges to the feed (social proof). The user-facing
 		// notification is handled separately by GamificationBridgeListener; this is
@@ -184,49 +185,6 @@ class GamificationBridge {
 	 */
 	private function badge_share_url( string $badge_id, int $user_id ): string {
 		return home_url( 'gamification/badge/' . $badge_id . '/' . $user_id . '/share/' );
-	}
-
-	/**
-	 * Inject the member's gamification standing into the profile stat strip.
-	 *
-	 * Hooked on `buddynext_profile_extra_data`. Adds Points, Level, and Badge
-	 * count tiles when wb-gamification is active and exposes a value. No-op
-	 * (returns $extra unchanged) when the read API is absent, so the profile
-	 * degrades cleanly without the gamification plugin.
-	 *
-	 * @param array<int, array{label:string, value:int|string}> $extra   Existing tiles.
-	 * @param int                                               $user_id Profile being viewed.
-	 * @return array<int, array{label:string, value:int|string}>
-	 */
-	public function inject_profile_gamification( array $extra, int $user_id ): array {
-		if ( function_exists( 'wb_gam_get_user_points' ) ) {
-			$extra[] = array(
-				'label' => __( 'Points', 'buddynext' ),
-				'value' => (int) wb_gam_get_user_points( $user_id ),
-			);
-		}
-
-		if ( function_exists( 'wb_gam_get_user_level' ) ) {
-			$level = wb_gam_get_user_level( $user_id );
-			if ( is_array( $level ) && ! empty( $level['name'] ) ) {
-				$extra[] = array(
-					'label' => __( 'Level', 'buddynext' ),
-					'value' => (string) $level['name'],
-				);
-			}
-		}
-
-		if ( function_exists( 'wb_gam_get_user_badges' ) ) {
-			$badges = wb_gam_get_user_badges( $user_id );
-			if ( ! empty( $badges ) ) {
-				$extra[] = array(
-					'label' => __( 'Badges', 'buddynext' ),
-					'value' => count( $badges ),
-				);
-			}
-		}
-
-		return $extra;
 	}
 
 	/**

@@ -3,9 +3,10 @@
  * BuddyNext — User Profile View template.
  *
  * Thin composer: resolves the data, gates on permissions, hooks the
- * right-sidebar widgets, then delegates the on-page markup to four
- * template parts (`parts/profile-hero.php`, `parts/profile-stats-strip.php`,
- * `parts/profile-tab-bar.php`, `parts/profile-tab-panel.php`).
+ * right-sidebar widgets, then delegates the on-page markup to the hero
+ * (`parts/profile-hero.php`, which renders the metric row via the shared
+ * `parts/nav-metrics.php`), the shared primary tab bar (`parts/nav-bar.php`,
+ * fed by the unified Nav registry), and `parts/profile-tab-panel.php`.
  *
  * Context variables expected (set by PageRouter before include):
  *   $user_id  int  The ID of the profile being viewed.
@@ -61,19 +62,13 @@ $joined       = gmdate( 'M Y', strtotime( $profile_user->user_registered ) );
 $bn_follow_svc = buddynext_service( 'follows' );
 $bn_conn_svc   = buddynext_service( 'connections' );
 
-// Counts come from the cache-backed service methods (one wp_cache lookup each,
-// shared with every other surface) rather than per-view uncached COUNT()s. The
-// service counts also filter status correctly — follower/following count only
-// 'approved' edges, where the old raw query also counted pending requests.
-$follower_count   = $bn_follow_svc->follower_count( $user_id );
-$following_count  = $bn_follow_svc->following_count( $user_id );
-$connection_count = $bn_conn_svc->connection_count( $user_id );
+// Follower count is the one relationship scalar still read on this surface (the
+// reactive Interactivity context, below). The nav metric/tab badges resolve
+// their own counts lazily inside the registry providers, so the old per-view
+// stat/tab count scalars are gone.
+$follower_count = $bn_follow_svc->follower_count( $user_id );
 
-// Published-post count via the service (a single index-covered COUNT on the
-// bn_posts user_feed key), shared with the profile/edit surfaces and the REST
-// controller so every surface agrees.
 $bn_post_svc = buddynext_service( 'post_service' );
-$post_count  = $bn_post_svc->user_post_count( $user_id );
 
 // --- Social-graph member lists for the in-page Followers / Following /
 // Connections tabs (rendered inside the same profile shell, not as separate
@@ -201,37 +196,26 @@ $user_replies = array_map(
 // Likes: already hydrated arrays (post-card consumes arrays).
 $user_likes = $bn_post_svc->user_liked_posts( $user_id, 20 );
 
-// Scheduled posts are private to the author, so the tab + its data are owner-only.
+// Scheduled posts are private to the author, so the panel + its data are owner-only.
 $scheduled_posts = array();
-$scheduled_count = 0;
 if ( $is_own_profile ) {
 	$scheduled_posts = $bn_post_svc->user_scheduled_posts( $user_id, 20 );
-	$scheduled_count = $bn_post_svc->user_scheduled_count( $user_id );
 }
-
-// True totals for the tab-bar count chips (the limited result sets above only
-// surface the most-recent N rows for rendering — the badges show the full
-// counts so the UI matches what a deep-scroll would reveal).
-$reply_count = $bn_post_svc->reply_count( $user_id );
-$like_count  = $bn_post_svc->reaction_count( $user_id );
 
 // Profile media gallery — resolved from WPMediaVerse at the API level (its
 // media live in mvs_media_index, not wp_posts). $user_media holds ordered
 // media ids; the panel renders them BN-native via MediaRenderer::gallery().
 // Privacy (hide private from non-owners) is enforced inside the engine query.
-$user_media  = array();
-$media_count = 0;
+$user_media = array();
 if ( \BuddyNext\Media\MediaClient::available() ) {
 	$bn_media_viewer = get_current_user_id();
 	$user_media      = \BuddyNext\Media\Galleries::user_media_ids( $user_id, $bn_media_viewer, 24, 0 );
-	$media_count     = \BuddyNext\Media\Galleries::user_media_count( $user_id, $bn_media_viewer );
 }
 
 // Jetonomy discussions — the bridge owns all jt_* table access, so the template
 // never queries the partner's tables directly.
 $jt_discussions   = array();
 $show_discussions = class_exists( 'Jetonomy\Models\Post' );
-$has_jt_tab       = class_exists( 'Jetonomy\Jetonomy' );
 if ( $show_discussions ) {
 	$jt_discussions = ( new \BuddyNext\Bridges\JetonomyBridge() )->user_discussions( $user_id, 20 );
 }
@@ -262,7 +246,6 @@ $bn_pf_strength_pct   = $bn_pf_strength_total > 0
 	? (int) round( ( count( array_filter( $bn_pf_strength_tasks ) ) / $bn_pf_strength_total ) * 100 )
 	: 0;
 $is_online            = buddynext_service( 'blocks' )->is_user_online( $current_user_id, $user_id );
-$format_count         = static fn( int $n ): string => $n >= 1000 ? round( $n / 1000, 1 ) . 'k' : (string) $n;
 
 // --- Sidebar widget hook (partial holds the markup) -----------------------
 $bn_pf_sidebar_args = compact( 'is_own_profile', 'completion', 'social_links', 'work_entries', 'edu_entries', 'interests', 'member_spaces', 'get_fv', 'entry_fv' );
@@ -285,164 +268,11 @@ do_action( 'buddynext_profile_before', (int) $user_id );
 // avatar) — so the previous standalone Edit Profile / Avatar / Cover toolbar
 // was a redundant duplicate and has been removed.
 
-// --- 7-day deltas for the stat-tile delta chips (v2 prototype pattern) ----
-// Each delta is a count of new rows in the trailing 7 days, rendered as `+N`
-// next to the stat value when > 0. Served by ProfileService growth helpers
-// (index-only scans), which the follower/following deltas keep status='approved'
-// so the private-account pending-request gate doesn't inflate them.
-$post_delta_7d       = $profile_svc->post_delta_7d( $user_id );
-$follower_delta_7d   = $profile_svc->follower_delta_7d( $user_id );
-$following_delta_7d  = $profile_svc->following_delta_7d( $user_id );
-$connection_delta_7d = $profile_svc->connection_delta_7d( $user_id );
-
-// Format a 7-day "+N this week" growth chip. Rendered only for a genuine
-// PARTIAL gain (0 < n < total): when every item is new this week (n === total,
-// e.g. a brand-new account or freshly-seeded data) the chip would just repeat
-// the count — "2 Followers +2" — so it is suppressed. Negative deltas (un-
-// follows) carry no created_at semantic, so only positive deltas are shown.
-$bn_delta_chip = static fn( int $n, int $total ): array => ( $n > 0 && $n < $total )
-	? array(
-		'delta' => '+' . $n,
-		'trend' => 'up',
-	)
-	: array();
-
-// --- Stat-strip descriptors (passed through hero → stats-strip part) ------
-$bn_pf_stats = array(
-	array_merge(
-		array(
-			'slug'        => 'posts',
-			'label'       => __( 'Posts', 'buddynext' ),
-			'value'       => $format_count( $post_count ),
-			'wp_on_click' => 'actions.setTab',
-			'data_tab'    => 'posts',
-			'aria_label'  => __( 'Show posts', 'buddynext' ),
-		),
-		$bn_delta_chip( $post_delta_7d, $post_count )
-	),
-	array_merge(
-		array(
-			'slug'        => 'followers',
-			'label'       => __( 'Followers', 'buddynext' ),
-			'value'       => $format_count( $follower_count ),
-			'href'        => \BuddyNext\Core\PageRouter::followers_url( (int) $user_id ),
-			'wp_on_click' => 'actions.setTab',
-			'data_tab'    => 'followers',
-			'wp_text'     => 'context.followerCount',
-		),
-		$bn_delta_chip( $follower_delta_7d, $follower_count )
-	),
-	array_merge(
-		array(
-			'slug'        => 'following',
-			'label'       => __( 'Following', 'buddynext' ),
-			'value'       => $format_count( $following_count ),
-			'href'        => \BuddyNext\Core\PageRouter::following_url( (int) $user_id ),
-			'wp_on_click' => 'actions.setTab',
-			'data_tab'    => 'following',
-		),
-		$bn_delta_chip( $following_delta_7d, $following_count )
-	),
-	array_merge(
-		array(
-			'slug'        => 'connections',
-			'label'       => __( 'Connections', 'buddynext' ),
-			'value'       => $format_count( $connection_count ),
-			'href'        => \BuddyNext\Core\PageRouter::connections_url( (int) $user_id ),
-			'wp_on_click' => 'actions.setTab',
-			'data_tab'    => 'connections',
-		),
-		$bn_delta_chip( $connection_delta_7d, $connection_count )
-	),
-);
-
-// --- Tab descriptors (filterable via buddynext_part_profile_tab_bar_args) -
-// Build tab descriptors. Count chips only render when > 0 — empty tabs
-// don't surface a `0` badge (matches the v2 prototype tab-counter pattern).
-$bn_tab_count_for = static fn( int $n ): string => $n > 0 ? $format_count( $n ) : '';
-$bn_pf_tabs       = array(
-	array(
-		'slug'  => 'posts',
-		'label' => __( 'Posts', 'buddynext' ),
-		'count' => $bn_tab_count_for( $post_count ),
-	),
-	array(
-		'slug'  => 'replies',
-		'label' => __( 'Replies', 'buddynext' ),
-		'count' => $bn_tab_count_for( $reply_count ),
-	),
-	array(
-		'slug'  => 'media',
-		'label' => __( 'Media', 'buddynext' ),
-		'count' => $bn_tab_count_for( $media_count ),
-	),
-	array(
-		'slug'  => 'likes',
-		'label' => __( 'Likes', 'buddynext' ),
-		'count' => $bn_tab_count_for( $like_count ),
-	),
-	array(
-		'slug'   => 'followers',
-		'label'  => __( 'Followers', 'buddynext' ),
-		'count'  => $bn_tab_count_for( $follower_count ),
-		'in_bar' => false,
-	),
-	array(
-		'slug'   => 'following',
-		'label'  => __( 'Following', 'buddynext' ),
-		'count'  => $bn_tab_count_for( $following_count ),
-		'in_bar' => false,
-	),
-	array(
-		'slug'   => 'connections',
-		'label'  => __( 'Connections', 'buddynext' ),
-		'count'  => $bn_tab_count_for( $connection_count ),
-		'in_bar' => false,
-	),
-);
-// Owner-only Scheduled tab, placed right after Posts for prominence.
-if ( $is_own_profile ) {
-	array_splice(
-		$bn_pf_tabs,
-		1,
-		0,
-		array(
-			array(
-				'slug'  => 'scheduled',
-				'label' => __( 'Scheduled', 'buddynext' ),
-				'count' => $bn_tab_count_for( $scheduled_count ),
-			),
-		)
-	);
-}
-if ( $has_jt_tab ) {
-	// Count chip mirrors every other tab (show when > 0). The Discussions panel
-	// renders the same fetched set (capped at 20), so the badge matches its body.
-	$bn_pf_tabs[] = array(
-		'slug'  => 'discussions',
-		'label' => __( 'Discussions', 'buddynext' ),
-		'count' => $bn_tab_count_for( count( $jt_discussions ) ),
-	);
-}
-// Drop the Media tab when the media engine (WPMediaVerse) is inactive. The media
-// data above is already gated on MediaClient::available(), so an ungated tab would
-// only ever show "No media uploaded yet." Removing it here also drops 'media' from
-// the deep-link slug list below, so /members/{slug}/media/ falls back to Posts.
-if ( ! \BuddyNext\Media\MediaClient::available() ) {
-	$bn_pf_tabs = array_values(
-		array_filter(
-			$bn_pf_tabs,
-			static fn( $bn_tab ) => 'media' !== ( $bn_tab['slug'] ?? '' )
-		)
-	);
-}
-
-// Buffer the about-cards + generic detail sections so the dedicated "About" tab
-// can be assembled BEFORE the active tab is resolved and the region context is
-// emitted below. Rendering it here — rather than after the hero — keeps 'about'
-// in $bn_pf_tabs in time for the deep-link resolution, so a hard load of
-// /members/{slug}/about/ activates the About tab. The output is captured (never
-// echoed inline), so relocating it changes no visible layout.
+// --- About content (buffered up-front) ------------------------------------
+// The "About" section (curated about-cards + every other admin-defined field via
+// the generic field-type engine) is buffered here, BEFORE the nav resolves, so
+// an "About" tab can be registered only when there is content to show. The
+// captured HTML is handed to the tab panel below — its echo order is unchanged.
 ob_start();
 
 buddynext_get_template(
@@ -461,13 +291,11 @@ buddynext_get_template(
  * Every admin-defined field — including custom field types the curated
  * hero/about-cards above don't know about — is rendered here through the
  * single field-type engine (contracts.field_type_engine), so any type
- * displays correctly (chips for multi, <a> for url/email/tel, formatted
- * date, swatch for color, …). ProfileService::get_profile has ALREADY
- * applied per-field visibility for the viewer, so anything present here is
- * something this viewer is allowed to see — no extra gating needed.
+ * displays correctly. ProfileService::get_profile has ALREADY applied
+ * per-field visibility for the viewer, so anything present here is allowed.
  *
- * Keys/groups the hero + about-cards already surface prominently are
- * skipped to avoid visible duplication; everything else renders below.
+ * Keys/groups the hero + about-cards already surface prominently are skipped
+ * to avoid visible duplication; everything else renders below.
  */
 $bn_pf_hero_keys   = array( 'headline', 'bio', 'pronouns', 'location', 'website' );
 $bn_pf_skip_groups = array( 'work_experience', 'education', 'social_links' );
@@ -549,55 +377,59 @@ foreach ( $bn_pf_detail_sections as $bn_pf_section ) :
 			<h2 class="bn-pf-about-card__title"><?php echo esc_html( (string) $bn_pf_section['label'] ); ?></h2>
 		</header>
 		<?php
-		// Detail rows are assembled from FieldType::render_display output,
-		// which is escaped per the field_type_engine contract, plus
-		// esc_html() labels.
+		// Detail rows are assembled from FieldType::render_display output, which is
+		// escaped per the field_type_engine contract, plus esc_html() labels.
 		echo $bn_pf_section['html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		?>
 	</section>
 	<?php
 endforeach;
 
-// Pull the buffered about content; when it has anything, surface a dedicated
-// "About" tab right after Posts (the Facebook/LinkedIn placement) so the
-// metadata is one click away instead of permanently above every tab.
 $bn_pf_about_html = trim( (string) ob_get_clean() );
+
+// --- Resolve the unified profile navigation -------------------------------
+// One registry → metric row + primary tabs (+ sub-nav), gated/ordered/deduped
+// for THIS viewer. Core items come from ProfileNav; Discussions/Achievements
+// from their bridges; admin reorder/hide from NavOverrides — all via the
+// registry, so the rendered nav is consistent everywhere.
+//
+// The content-dependent "About" tab is registered here (only when there is
+// about content), demonstrating the public extension seam.
 if ( '' !== $bn_pf_about_html ) {
-	array_splice(
-		$bn_pf_tabs,
-		1,
-		0,
-		array(
-			array(
-				'slug'  => 'about',
-				'label' => __( 'About', 'buddynext' ),
-			),
-		)
+	add_filter(
+		'buddynext_nav_items',
+		static function ( array $items, \BuddyNext\Nav\NavContext $ctx ): array {
+			if ( 'profile' === $ctx->surface ) {
+				$items[] = array(
+					'id'       => 'about',
+					'surface'  => 'profile',
+					'layer'    => 'primary',
+					'label'    => __( 'About', 'buddynext' ),
+					'tab'      => 'about',
+					'priority' => 12,
+					'after'    => 'posts',
+				);
+			}
+			return $items;
+		},
+		10,
+		2
 	);
 }
 
-// Deep-link the active tab from the route action so /members/{slug}/media/ opens
-// the Media tab and /members/{slug}/connections/ opens the Connections panel.
-// Resolve against the COMPLETE tab set — the Free tabs, the About tab assembled
-// just above, the header-chip relationship tabs (followers/following/connections,
-// which are not entries in $bn_pf_tabs so they're allowed explicitly), and any
-// tab injected by integrations through buddynext_part_profile_tab_bar_args (Pro
-// Portfolio, Achievements, …). Applying that filter here is read-only — the
-// tab-bar partial still renders the original $bn_pf_tabs and re-applies the
-// filter itself — so it adds no duplicate tabs; it only widens the set of valid
-// deep-link targets. Without this a hard load of /members/{slug}/portfolio/ fell
-// back to Posts. Falls back to Posts for route actions that map to no tab.
-$bn_pf_action        = (string) get_query_var( 'bn_profile_action', '' );
-$bn_pf_filtered_args = (array) apply_filters(
-	'buddynext_part_profile_tab_bar_args',
-	array(
-		'profile_user_id' => (int) $user_id,
-		'tabs'            => $bn_pf_tabs,
-	)
+$bn_nav         = buddynext_nav( new \BuddyNext\Nav\NavContext( 'profile', (int) $user_id, (int) $current_user_id ) );
+$bn_pf_metrics  = $bn_nav->layer( 'metric' );
+$bn_pf_primary  = $bn_nav->layer( 'primary' );
+
+// Deep-link the active tab from the route action. Valid targets are the resolved
+// primary tabs plus the metric panels (followers/following/connections), which
+// are reached via the metric pills, not the bar. Falls back to Posts.
+$bn_pf_action    = (string) get_query_var( 'bn_profile_action', '' );
+$bn_pf_tab_slugs = array_merge(
+	array_map( static fn( $n ) => $n->id, $bn_pf_primary ),
+	array_map( static fn( $n ) => $n->id, $bn_pf_metrics )
 );
-$bn_pf_all_tabs      = isset( $bn_pf_filtered_args['tabs'] ) && is_array( $bn_pf_filtered_args['tabs'] ) ? $bn_pf_filtered_args['tabs'] : $bn_pf_tabs;
-$bn_pf_tab_slugs     = array_merge( array_column( $bn_pf_all_tabs, 'slug' ), array( 'followers', 'following', 'connections' ) );
-$bn_pf_active_tab    = in_array( $bn_pf_action, $bn_pf_tab_slugs, true ) ? $bn_pf_action : 'posts';
+$bn_pf_active_tab = in_array( $bn_pf_action, $bn_pf_tab_slugs, true ) ? $bn_pf_action : 'posts';
 
 $bn_pf_ctx = array(
 	'userId'             => $user_id,
@@ -658,17 +490,19 @@ $bn_pf_ctx = array(
 			'is_connected'        => (bool) $is_connected,
 			'connection_pending'  => (bool) $connection_pending,
 			'connection_received' => (bool) $connection_received,
-			'stats'               => $bn_pf_stats,
+			'metric_items'        => $bn_pf_metrics,
 		)
 	);
 
+	// Primary tab bar (+ one-level sub-nav) via the shared Nav renderer — the
+	// same component the space surface uses, fed by the resolved registry.
 	buddynext_get_template(
-		'parts/profile-tab-bar.php',
+		'parts/nav-bar.php',
 		array(
-			'profile_user_id' => (int) $user_id,
-			'viewer_id'       => (int) $current_user_id,
-			'active_tab'      => $bn_pf_active_tab,
-			'tabs'            => $bn_pf_tabs,
+			'items'         => $bn_pf_primary,
+			'active'        => $bn_pf_active_tab,
+			'tablist_label' => __( 'Profile sections', 'buddynext' ),
+			'extra_class'   => 'bn-pf-tabs',
 		)
 	);
 

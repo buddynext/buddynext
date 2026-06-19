@@ -484,11 +484,11 @@ class NavManager extends AdminPageBase {
 	 * reorder tabs in that editor; admin overrides stored via this page are
 	 * applied last and take precedence over filter output.
 	 *
-	 * Front-end rendering is separate: the rail, profile tab bar, space tab bar
-	 * and mobile bar each apply their own per-surface filter
-	 * (`buddynext_rail_items`, `buddynext_part_profile_tab_bar_args`,
-	 * `buddynext_space_tabs`, `buddynext_mobile_nav_items`), and the admin
-	 * overrides saved here are mirrored onto them by Nav\NavOverrides. A
+	 * Front-end rendering is separate: the rail, space tab bar and mobile bar
+	 * each apply their own per-surface filter (`buddynext_rail_items`,
+	 * `buddynext_space_tabs`, `buddynext_mobile_nav_items`), while the profile
+	 * tab bar flows through the unified Nav registry (`buddynext_nav_items`).
+	 * The admin overrides saved here are mirrored onto them by Nav\NavOverrides. A
 	 * main-nav tab registered programmatically through `buddynext_nav_tabs`
 	 * (with a `url`) is additionally surfaced on the left rail by
 	 * Nav\NavOverrides::apply_rail so the documented filter reaches the front
@@ -670,10 +670,10 @@ class NavManager extends AdminPageBase {
 	 * @return array<int, array<string, mixed>>
 	 */
 	private function default_profile_tabs(): array {
-		// Slugs MUST match the tabs the profile template actually renders
-		// (templates/profile/view.php → buddynext_part_profile_tab_bar_args), so
-		// the front-end applier (Nav\NavOverrides::apply_profile) can map saved
-		// overrides onto real tabs. The Discussions tab is bridge-injected
+		// Slugs MUST match the nav item ids the profile surface registers
+		// (ProfileNav + bridges, resolved via buddynext_nav()), so the front-end
+		// applier (Nav\NavOverrides::apply_profile_nav_items) can map saved
+		// overrides onto real items. The Discussions tab is bridge-injected
 		// (Jetonomy) and is left to that bridge.
 		return array(
 			array(
@@ -999,7 +999,7 @@ class NavManager extends AdminPageBase {
 			<div class="bn-scope-tip">
 				<?php
 				echo wp_kses(
-					__( 'Any plugin can inject links into any scope using filters — <code>buddynext_rail_items</code> (left rail), <code>buddynext_part_profile_tab_bar_args</code> (profile tabs), <code>buddynext_space_tabs</code> (space tabs), <code>buddynext_context_nav</code> (sub-nav).', 'buddynext' ),
+					__( 'Any plugin can inject links into any scope — <code>buddynext_register_nav()</code> / <code>buddynext_nav_items</code> (profile + space tabs and metrics), <code>buddynext_rail_items</code> (left rail), <code>buddynext_context_nav</code> (sub-nav).', 'buddynext' ),
 					array( 'code' => array() )
 				);
 				?>
