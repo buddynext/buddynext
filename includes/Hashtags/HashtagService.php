@@ -387,11 +387,12 @@ class HashtagService {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				$wpdb->prepare(
-					"INSERT INTO {$wpdb->prefix}bn_hashtags (name, slug)
-					 VALUES (%s, %s)
+					"INSERT INTO {$wpdb->prefix}bn_hashtags (name, slug, created_at)
+					 VALUES (%s, %s, %s)
 					 ON DUPLICATE KEY UPDATE name = VALUES(name)",
 					$slug,
-					$slug
+					$slug,
+					current_time( 'mysql', true )
 				)
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			);
@@ -414,11 +415,12 @@ class HashtagService {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				$wpdb->prepare(
-					"INSERT IGNORE INTO {$wpdb->prefix}bn_post_hashtags (post_id, object_type, hashtag_id)
-					 VALUES (%d, %s, %d)",
+					"INSERT IGNORE INTO {$wpdb->prefix}bn_post_hashtags (post_id, object_type, hashtag_id, created_at)
+					 VALUES (%d, %s, %d, %s)",
 					$object_id,
 					$object_type,
-					$hashtag_id
+					$hashtag_id,
+					current_time( 'mysql', true )
 				)
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			);
@@ -668,7 +670,7 @@ class HashtagService {
 				        COUNT(ph.hashtag_id) AS recent_count
 				 FROM {$wpdb->prefix}bn_hashtags h
 				 INNER JOIN {$wpdb->prefix}bn_post_hashtags ph ON ph.hashtag_id = h.id
-				 WHERE ph.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+				 WHERE ph.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
 				 GROUP BY h.id
 				 ORDER BY recent_count DESC, h.post_count DESC
 				 LIMIT %d",
