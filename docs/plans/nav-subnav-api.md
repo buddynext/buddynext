@@ -80,19 +80,29 @@ differ only by the `surface` value and the context object passed in.
   'layer'      => 'primary',          // primary | metric | rail | context
   'parent'     => null,               // null = top-level; or a primary item id → sub-nav
   'label'      => __( 'Discussions', 'buddynext' ),
-  'count'      => 10,                 // optional: badge (primary/sub) / value (metric)
+  'count'      => 10,                 // int OR callable(NavContext):int — lazy, only run if shown
   'icon'       => 'message-circle',   // Lucide slug (rail/context; optional on tabs)
   'tab'        => 'discussions',      // in-page reactive target (primary/sub), OR…
   'url'        => null,               // …a real route (rail/context/metric-with-list)
-  'capability' => null,               // visibility gate via buddynext_can(); null = public
+  'capability' => null,               // cap gate via buddynext_can(); null = public
+  'condition'  => null,               // callable(NavContext):bool — own-profile-only, is-member,
+                                      // is-mod, viewer!=self … expresses what a cap string can't
+  'hide_empty' => false,             // true → omit the item when its count resolves to 0
   'priority'   => 50,                 // default order (lower = earlier); core uses 10..90
   'before'     => null,               // optional anchor: place before this item id …
   'after'      => null,               // … or after this item id (wins over priority)
   'delta'      => null,               // metric-only: week-over-week chip text, e.g. '+120'
   'trend'      => null,               // metric-only: 'up' | 'down' | 'flat' (chip tone)
-  'active'     => null,               // optional callable() : bool override
+  'active'     => null,               // optional callable(NavContext):bool active override
 ]
 ```
+
+Why both `capability` AND `condition`: a cap string ("manage-space") can't say
+"only on my own profile", "only if the viewer is a member", or "hide from the
+subject themselves". `condition` receives the full `NavContext` (surface,
+subject_id, viewer_id, role) and returns bool — that's how own-only tabs
+(Scheduled), role-gated tabs (space Moderation), and viewer-only controls are
+expressed without leaking logic into templates. Both must pass.
 
 Rules enforced by the registry (so items can't render wrong):
 - `primary` items must supply `tab` (reactive) — `url` is auto-derived as the
@@ -279,6 +289,38 @@ optional fields (e.g. a future `badge_tone`, a new `layer`) ship without breakin
 existing registrations. The registry + the single filter are the only seam, so we
 keep improving the Nav API (new layers, richer sub-nav, per-role variants) behind
 a stable surface. Versioned in `docs/standards/nav-api.md` once Wave 0 lands.
+
+### 3.4 Registration timing, render targets, a11y
+
+- **When to register:** core providers + bridges register on a dedicated
+  `buddynext_register_nav` action fired once after `plugins_loaded` and before any
+  nav renders. Items are resolved lazily per request (so `count`/`condition`
+  callables see the live `NavContext`), then memoised per context.
+- **Render targets (one registry, several projections):** desktop rail, **mobile
+  bottom-bar**, profile/space primary tabs + sub-nav, metric row, context nav.
+  Mobile is the rail layer projected to the bottom bar (it already exists as
+  `NavOverrides::apply_mobile_items`) — same items, fewer shown, no separate
+  declaration. Adding a rail item surfaces it on desktop AND mobile.
+- **Accessibility (baked into the shared renderer, not per caller):** primary +
+  sub bars are `role="tablist"`/`role="tab"` with `aria-selected`,
+  `aria-controls` to the panel, and roving-tabindex arrow-key movement; rail =
+  `nav` landmark; metric row = `role="list"`. i18n: labels are `__()`; RTL +
+  dark inherit from tokens. A caller gets correct a11y for free.
+
+### 3.5 Site-owner control (no code)
+
+The site owner manages the SAME registry output from wp-admin — and it covers
+**every** item including bridge-added ones, because overrides apply to the
+resolved list, not to source filters:
+
+- **Reorder** (drag) any layer incl. sub-nav; **hide/show** any item;
+  **rename** a label (white-label); these persist via `NavOverrides` and win last
+  in §2.4 ordering.
+- A bridge's tab/stat appears in the admin reorder UI automatically (it's just a
+  registry item) — the owner can hide Discussions, move Media, rename "Network",
+  etc., without touching code.
+- "Reset to default" restores the code-declared order/visibility. Per-surface
+  (global rail, profile, space) scopes already exist in `NavOverrides`.
 
 ---
 
