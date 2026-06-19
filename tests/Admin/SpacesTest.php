@@ -72,10 +72,17 @@ class SpacesTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * get_space_count() reflects rows in bn_spaces.
+	 * get_space_count() reflects rows added to bn_spaces.
+	 *
+	 * Asserted as a DELTA, not an absolute count: Installer::run() (called by
+	 * sibling tests' setUp) seeds a starter "Open Discussion" space, and the DDL
+	 * inside run() implicitly commits it past WP's per-test transaction rollback,
+	 * so the table is not guaranteed empty at the start of this test. Counting
+	 * the increment is correct regardless of any pre-seeded baseline.
 	 */
 	public function test_get_space_count_reflects_rows(): void {
 		global $wpdb;
+		$before = $this->spaces->get_space_count();
 		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			$wpdb->prefix . 'bn_spaces',
 			array(
@@ -83,7 +90,7 @@ class SpacesTest extends \WP_UnitTestCase {
 				'owner_id' => 1,
 			)
 		);
-		$this->assertEquals( 1, $this->spaces->get_space_count() );
+		$this->assertEquals( $before + 1, $this->spaces->get_space_count() );
 	}
 
 	/**

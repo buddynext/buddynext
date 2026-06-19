@@ -146,12 +146,29 @@ class JetonomyBridge {
 		// Always-on: index for BuddyNext unified search.
 		( new SearchService() )->index( 'discussion', $post_id, $title, $content, $author_id, 'public', $space_id );
 
-		// Always-on: parse @username mentions from the discussion body.
+		// Always-on: parse @username mentions from the discussion body. Collect the
+		// unique logins first, then resolve them all in ONE query — the previous
+		// get_user_by('login') per match was an N+1 (and fired a duplicate
+		// notification when the same user was mentioned twice). number caps a
+		// pathological mention flood.
 		preg_match_all( '/@([a-zA-Z0-9_-]+)/', $content, $matches );
+		$mention_logins = array();
 		foreach ( $matches[1] as $raw_username ) {
-			$username       = sanitize_user( (string) $raw_username, true );
-			$mentioned_user = get_user_by( 'login', $username );
-			if ( $mentioned_user instanceof \WP_User ) {
+			$username = sanitize_user( (string) $raw_username, true );
+			if ( '' !== $username ) {
+				$mention_logins[ $username ] = true;
+			}
+		}
+
+		if ( ! empty( $mention_logins ) ) {
+			$mentioned_ids = get_users(
+				array(
+					'login__in' => array_keys( $mention_logins ),
+					'fields'    => 'ID',
+					'number'    => 100,
+				)
+			);
+			foreach ( $mentioned_ids as $mentioned_id ) {
 				/**
 				 * Fires when a user is @mentioned in a Jetonomy forum post.
 				 *
@@ -164,7 +181,7 @@ class JetonomyBridge {
 				 * @param int $mentioner_id      ID of the user who wrote the post.
 				 * @param int $context_id        Jetonomy post ID containing the mention.
 				 */
-				do_action( 'buddynext_user_mentioned', $mentioned_user->ID, $author_id, $post_id );
+				do_action( 'buddynext_user_mentioned', (int) $mentioned_id, $author_id, $post_id );
 			}
 		}
 

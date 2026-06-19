@@ -211,54 +211,6 @@ class WPMediaVerseBridge {
 	}
 
 	/**
-	 * Enqueue MVS lightbox JS + CSS on BuddyNext pages.
-	 *
-	 * This enables the Instagram-style lightbox (reactions, comments, favorites,
-	 * gallery nav) for photo posts in the BuddyNext feed. The lightbox listens
-	 * for clicks on .mvs-activity-media[data-mvs-media-id] elements.
-	 */
-	public function enqueue_lightbox(): void {
-		// Only on front-end BuddyNext hub pages.
-		if ( is_admin() || ! did_action( 'buddynext_loaded' ) ) {
-			return;
-		}
-
-		// Enqueue the lightbox script (already registered by MVS on non-MVS pages).
-		if ( wp_script_is( 'mvs-lightbox', 'registered' ) ) {
-			wp_enqueue_script( 'mvs-lightbox' );
-		} elseif ( defined( 'MVS_PLUGIN_URL' ) && defined( 'MVS_VERSION' ) ) {
-			wp_enqueue_script(
-				'mvs-lightbox',
-				MVS_PLUGIN_URL . 'assets/js/mvs-lightbox.js',
-				array(),
-				MVS_VERSION,
-				true
-			);
-			wp_localize_script(
-				'mvs-lightbox',
-				'mvsLightboxData',
-				array(
-					'restUrl'    => esc_url_raw( rest_url( 'mvs/v1/' ) ),
-					'nonce'      => wp_create_nonce( 'wp_rest' ),
-					'isLoggedIn' => is_user_logged_in(),
-				)
-			);
-		}
-
-		// Also enqueue MVS frontend CSS for lightbox styling.
-		if ( wp_style_is( 'mvs-frontend', 'registered' ) ) {
-			wp_enqueue_style( 'mvs-frontend' );
-		} elseif ( defined( 'MVS_PLUGIN_URL' ) && defined( 'MVS_VERSION' ) ) {
-			wp_enqueue_style(
-				'mvs-frontend',
-				MVS_PLUGIN_URL . 'assets/css/frontend.css',
-				array(),
-				MVS_VERSION
-			);
-		}
-	}
-
-	/**
 	 * Gate a DM send against the recipient's block list AND DM-access preference.
 	 *
 	 * BuddyNext layers this on top of MediaVerse's own DM controls via the same
@@ -320,7 +272,7 @@ class WPMediaVerseBridge {
 	/**
 	 * Translate a check_block() denial into a specific reason code.
 	 *
-	 * check_block() is a boolean gate, so a denial otherwise surfaces as the
+	 * The check_block() gate is boolean, so a denial otherwise surfaces as the
 	 * generic 'blocked'. This mirrors its logic to report the real cause — an
 	 * actual block stays 'blocked', a "nobody" preference becomes 'dms_disabled',
 	 * and a "connections-only" preference becomes 'connections_only' — so the
@@ -430,9 +382,15 @@ class WPMediaVerseBridge {
 		if ( $bn->is_following( $follower_id, $following_id ) ) {
 			return;
 		}
+		// try/finally so a throw in follow() (or a downstream listener) can't leave
+		// the re-entrancy guard stuck true, which would silently disable all
+		// follow mirroring for the rest of the request.
 		$this->mirroring_follow = true;
-		$bn->follow( $follower_id, $following_id );
-		$this->mirroring_follow = false;
+		try {
+			$bn->follow( $follower_id, $following_id );
+		} finally {
+			$this->mirroring_follow = false;
+		}
 	}
 
 	/**
@@ -453,9 +411,13 @@ class WPMediaVerseBridge {
 		if ( ! $bn->is_following( $follower_id, $following_id ) ) {
 			return;
 		}
+		// try/finally so a throw can't leave the re-entrancy guard stuck true.
 		$this->mirroring_follow = true;
-		$bn->unfollow( $follower_id, $following_id );
-		$this->mirroring_follow = false;
+		try {
+			$bn->unfollow( $follower_id, $following_id );
+		} finally {
+			$this->mirroring_follow = false;
+		}
 	}
 
 	/**
@@ -476,9 +438,13 @@ class WPMediaVerseBridge {
 		if ( $mvs->is_following( $follower_id, $following_id ) ) {
 			return;
 		}
+		// try/finally so a throw can't leave the re-entrancy guard stuck true.
 		$this->mirroring_follow = true;
-		$mvs->follow( $follower_id, $following_id );
-		$this->mirroring_follow = false;
+		try {
+			$mvs->follow( $follower_id, $following_id );
+		} finally {
+			$this->mirroring_follow = false;
+		}
 	}
 
 	/**
@@ -499,9 +465,13 @@ class WPMediaVerseBridge {
 		if ( ! $mvs->is_following( $follower_id, $following_id ) ) {
 			return;
 		}
+		// try/finally so a throw can't leave the re-entrancy guard stuck true.
 		$this->mirroring_follow = true;
-		$mvs->unfollow( $follower_id, $following_id );
-		$this->mirroring_follow = false;
+		try {
+			$mvs->unfollow( $follower_id, $following_id );
+		} finally {
+			$this->mirroring_follow = false;
+		}
 	}
 
 	/**
