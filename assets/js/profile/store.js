@@ -704,6 +704,30 @@ function buildEntryNode( group, index ) {
 	var cfg = groupConfig[ group ];
 	if ( ! cfg ) { return null; }
 
+	// Required sub-field keys, read data-driven from the server-emitted
+	// data-bn-required-fields on the entries container, so a JS-added row shows
+	// the same asterisk the server renders (never hardcoded — admins can change
+	// is_required and this stays in sync).
+	var requiredSet = {};
+	var reqContainer = document.getElementById( cfg.containerId );
+	var reqAttr = reqContainer ? reqContainer.getAttribute( 'data-bn-required-fields' ) : '';
+	if ( reqAttr ) {
+		reqAttr.split( ',' ).forEach( function ( k ) {
+			k = k.trim();
+			if ( k ) { requiredSet[ k ] = true; }
+		} );
+	}
+	function markRequired( labelEl, key, controlEl ) {
+		if ( ! requiredSet[ key ] ) { return; }
+		var req = document.createElement( 'span' );
+		req.className = 'bn-ep-required';
+		req.setAttribute( 'aria-hidden', 'true' );
+		req.textContent = '*';
+		labelEl.appendChild( document.createTextNode( ' ' ) );
+		labelEl.appendChild( req );
+		if ( controlEl ) { controlEl.required = true; }
+	}
+
 	var entry = document.createElement( 'div' );
 	entry.className          = 'bn-ep-repeater-entry';
 	entry.dataset.entryIndex = String( index );
@@ -741,6 +765,7 @@ function buildEntryNode( group, index ) {
 			ta.name        = group + '[' + index + '][' + fieldDef.key + ']';
 			ta.rows        = 3;
 			ta.placeholder = fieldDef.placeholder;
+			markRequired( lbl, fieldDef.key, ta );
 			grp.appendChild( lbl );
 			grp.appendChild( ta );
 			entry.appendChild( grp );
@@ -785,6 +810,7 @@ function buildEntryNode( group, index ) {
 		inp.type        = fieldDef.type;
 		inp.name        = group + '[' + index + '][' + fieldDef.key + ']';
 		inp.placeholder = fieldDef.placeholder;
+		markRequired( lbl, fieldDef.key, inp );
 		grp.appendChild( lbl );
 		grp.appendChild( inp );
 		if ( row ) { row.appendChild( grp ); }

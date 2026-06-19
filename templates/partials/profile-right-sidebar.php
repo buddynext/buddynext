@@ -199,19 +199,19 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 		?>
 		<div class="bn-repeater-entry">
 			<?php if ( $we_title ) : ?>
-				<div class="bn-entry-title"><?php echo esc_html( $we_title ); ?></div>
+				<div class="bn-repeater-entry__title"><?php echo esc_html( $we_title ); ?></div>
 			<?php endif; ?>
 			<?php if ( $we_company ) : ?>
-				<div class="bn-entry-sub"><?php echo esc_html( $we_company ); ?></div>
+				<div class="bn-repeater-entry__sub"><?php echo esc_html( $we_company ); ?></div>
 			<?php endif; ?>
 			<?php if ( '' !== $we_location ) : ?>
-				<div class="bn-entry-sub"><?php echo esc_html( $we_location ); ?></div>
+				<div class="bn-repeater-entry__sub"><?php echo esc_html( $we_location ); ?></div>
 			<?php endif; ?>
 			<?php if ( '' !== $we_date_display ) : ?>
-				<div class="bn-entry-meta"><?php echo wp_kses( $we_date_display, array() ); ?></div>
+				<div class="bn-repeater-entry__dates"><?php echo wp_kses( $we_date_display, array() ); ?></div>
 			<?php endif; ?>
 			<?php if ( $we_description ) : ?>
-				<div class="bn-entry-desc"><?php echo wp_kses_post( $we_description ); ?></div>
+				<div class="bn-repeater-entry__desc"><?php echo wp_kses_post( $we_description ); ?></div>
 			<?php endif; ?>
 		</div>
 	<?php endforeach; ?>
@@ -239,12 +239,12 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 			: ( '1' === $edu_current ? esc_html__( 'Current', 'buddynext' ) : '' );
 		?>
 		<div class="bn-repeater-entry">
-			<div class="bn-entry-title"><?php echo esc_html( $edu_institution ); ?></div>
+			<div class="bn-repeater-entry__title"><?php echo esc_html( $edu_institution ); ?></div>
 			<?php if ( $edu_degree_line ) : ?>
-				<div class="bn-entry-sub"><?php echo esc_html( $edu_degree_line ); ?></div>
+				<div class="bn-repeater-entry__sub"><?php echo esc_html( $edu_degree_line ); ?></div>
 			<?php endif; ?>
 			<?php if ( '' !== $edu_date_display ) : ?>
-				<div class="bn-entry-meta"><?php echo wp_kses( $edu_date_display, array() ); ?></div>
+				<div class="bn-repeater-entry__dates"><?php echo wp_kses( $edu_date_display, array() ); ?></div>
 			<?php endif; ?>
 		</div>
 	<?php endforeach; ?>

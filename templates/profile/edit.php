@@ -322,7 +322,22 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					$bn_entries  = isset( $bn_group['entries'] ) && is_array( $bn_group['entries'] ) ? $bn_group['entries'] : array();
 					$bn_gdefault = $bn_vis_norm( $bn_group['visibility'] ?? 'public', 'public' );
 
-					$bn_rep_html = '<div class="bn-ep-card-body" id="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_gkey ) . '-entries' ) . '">';
+					// Required sub-field keys for this group, so a JS-added row
+					// (buildEntryNode) can mirror the same asterisk the server
+					// renders — data-driven from is_required, never hardcoded.
+					$bn_req_keys = array();
+					foreach ( $bn_entries as $bn_schema_entry ) {
+						if ( ! is_array( $bn_schema_entry ) ) {
+							continue;
+						}
+						foreach ( $bn_schema_entry as $bn_schema_field ) {
+							if ( is_array( $bn_schema_field ) && ! empty( $bn_schema_field['is_required'] ) && ! empty( $bn_schema_field['field_key'] ) ) {
+								$bn_req_keys[ (string) $bn_schema_field['field_key'] ] = true;
+							}
+						}
+					}
+
+					$bn_rep_html = '<div class="bn-ep-card-body" id="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_gkey ) . '-entries' ) . '" data-bn-required-fields="' . esc_attr( implode( ',', array_keys( $bn_req_keys ) ) ) . '">';
 
 					foreach ( $bn_entries as $bn_idx => $bn_entry ) {
 						$bn_idx_int = (int) $bn_idx;
@@ -344,13 +359,20 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 							$bn_label = isset( $bn_field['label'] ) ? (string) $bn_field['label'] : ucwords( str_replace( '_', ' ', $bn_fkey ) );
 							$bn_ctrl  = \BuddyNext\Profile\FieldType::render_input( $bn_field, $bn_field['value'] ?? '', $bn_name );
 
+							// Visible required marker, mirroring the flat-field branch so
+							// repeater sub-fields show the same asterisk (the control already
+							// carries the HTML `required` attribute via FieldType).
+							$bn_sf_required = ! empty( $bn_field['is_required'] )
+								? ' <span class="bn-ep-required" aria-hidden="true">*</span>'
+								: '';
+
 							// A boolean's control is already self-labelling (the checkbox
 							// carries its own label), so it gets a full-width row with no
 							// redundant outer label.
 							if ( 'boolean' === $bn_ftype ) {
 								$bn_rep_html .= '<div class="bn-ep-field bn-ep-field--full">' . $bn_ctrl . '</div>';
 							} else {
-								$bn_rep_html .= '<div class="bn-ep-field"><label class="bn-ep-label" for="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_fkey ) . '-' . $bn_idx_int ) . '">' . esc_html( $bn_label ) . '</label>' . $bn_ctrl . '</div>';
+								$bn_rep_html .= '<div class="bn-ep-field"><label class="bn-ep-label" for="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_fkey ) . '-' . $bn_idx_int ) . '">' . esc_html( $bn_label ) . $bn_sf_required . '</label>' . $bn_ctrl . '</div>';
 							}
 						}
 						$bn_rep_html .= '</div>';
