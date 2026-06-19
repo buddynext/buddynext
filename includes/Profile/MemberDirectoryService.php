@@ -93,10 +93,13 @@ class MemberDirectoryService {
 		$per_page   = min( (int) ( $query_args['per_page'] ?? $per_page ), 50 );
 		$sort       = (string) ( $query_args['sort'] ?? $sort );
 
-		// 'online' sort implies online_only filtering as well.
-		if ( 'online' === $sort ) {
-			$online_only = true;
-		}
+		// 'online' is a SORT (most-recently-active first), NOT a filter — it must
+		// show every member, just ordered by presence. Restricting to online-only
+		// here made the option silently duplicate the separate "Online only"
+		// checkbox AND, because the directory excludes the viewer, produced a
+		// confusing empty list when the viewer was the only one online. Online-only
+		// filtering now happens solely via the explicit checkbox ($online_only).
+		// The activity-meta JOIN + ORDER BY for 'online' sort are unaffected.
 
 		// Result-set cache — keyed on all normalised inputs that shape the output.
 		// 60-second TTL balances directory freshness against DB load at scale.

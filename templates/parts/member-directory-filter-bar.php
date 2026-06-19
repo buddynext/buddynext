@@ -211,7 +211,8 @@ do_action( 'buddynext_part_member_directory_filter_bar_before', $args );
 			<option value="newest" <?php selected( $bn_sort, 'newest' ); ?>><?php esc_html_e( 'Newest first', 'buddynext' ); ?></option>
 			<option value="alphabetical" <?php selected( $bn_sort, 'alphabetical' ); ?>><?php esc_html_e( 'Alphabetical', 'buddynext' ); ?></option>
 			<option value="most_active" <?php selected( $bn_sort, 'most_active' ); ?>><?php esc_html_e( 'Most active', 'buddynext' ); ?></option>
-			<option value="online" <?php selected( $bn_sort, 'online' ); ?>><?php esc_html_e( 'Online now', 'buddynext' ); ?></option>
+			<?php // Label reads as a SORT (presence-recency order), distinct from the separate "Online only" FILTER checkbox — two "online" labels confused which one filtered. ?>
+			<option value="online" <?php selected( $bn_sort, 'online' ); ?>><?php esc_html_e( 'Recently active', 'buddynext' ); ?></option>
 		</select>
 
 		<div class="bn-md-filters__view" role="group" aria-label="<?php esc_attr_e( 'View mode', 'buddynext' ); ?>">

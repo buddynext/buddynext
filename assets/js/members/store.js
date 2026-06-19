@@ -287,6 +287,15 @@ function buildCard( item ) {
 		identity.appendChild( handle );
 	}
 
+	// Profession/headline tagline — mirrors member-card.php so a filter/sort
+	// re-render doesn't drop the line that says who each member is.
+	if ( item.headline ) {
+		const headline = document.createElement( 'p' );
+		headline.className = 'bn-md-card__headline';
+		headline.textContent = item.headline;
+		identity.appendChild( headline );
+	}
+
 	body.appendChild( identity );
 
 	// Member type badge — mirrors the server member-card.php: optional SVG icon

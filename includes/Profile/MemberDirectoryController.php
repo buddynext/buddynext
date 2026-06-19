@@ -274,6 +274,10 @@ class MemberDirectoryController extends BaseRestController {
 			'user_id'        => $uid,
 			'display_name'   => $display_name,
 			'handle'         => $login,
+			// Profession tagline for the card (matches member-card.php). The member
+			// IDs' usermeta is cache-warmed earlier in the request, so this is a
+			// cache hit, not an N+1.
+			'headline'       => (string) get_user_meta( $uid, 'bn_headline', true ),
 			'avatar_url'     => (string) ( $row['avatar_url'] ?? '' ),
 			'profile_url'    => PageRouter::profile_url( $uid ),
 			'messages_url'   => $messages_url,
