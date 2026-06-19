@@ -221,6 +221,72 @@ class NavRegistryTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * An integration registers sub-nav the SAME way core does — through the public
+	 * `buddynext_register_nav` action — both as its OWN parent + sub-nav child and
+	 * by adding a sub-nav child under an EXISTING (core) parent. This is the seam
+	 * every own + 3rd-party integration uses; no template access needed.
+	 */
+	public function test_integration_registers_subnav_via_public_action(): void {
+		// Core registers a parent tab (e.g. Network).
+		$this->reg->register(
+			array(
+				'id'      => 'network',
+				'surface' => 'profile',
+				'layer'   => 'primary',
+				'label'   => 'Network',
+				'tab'     => 'network',
+			)
+		);
+
+		// An integration hooks the public action exactly like our bridges do.
+		add_action(
+			'buddynext_register_nav',
+			static function ( $reg ): void {
+				// (a) its OWN primary tab carrying its OWN sub-nav child.
+				$reg->register(
+					array(
+						'id'       => 'courses',
+						'surface'  => 'profile',
+						'layer'    => 'primary',
+						'label'    => 'Courses',
+						'tab'      => 'courses',
+						'priority' => 80,
+					)
+				);
+				$reg->register(
+					array(
+						'id'      => 'certs',
+						'surface' => 'profile',
+						'layer'   => 'primary',
+						'parent'  => 'courses',
+						'label'   => 'Certificates',
+						'tab'     => 'certs',
+					)
+				);
+				// (b) a sub-nav child added under the EXISTING core parent.
+				$reg->register(
+					array(
+						'id'      => 'mutual',
+						'surface' => 'profile',
+						'layer'   => 'primary',
+						'parent'  => 'network',
+						'label'   => 'Mutual',
+						'tab'     => 'mutual',
+					)
+				);
+			}
+		);
+
+		$out = $this->reg->resolve( new NavContext( 'profile', 5, 5 ) );
+		$top = $out->layer( 'primary' );
+		$this->assertSame( array( 'network', 'courses' ), array_map( static fn( $n ) => $n->id, $top ) );
+		$this->assertSame( array( 'mutual' ), array_map( static fn( $n ) => $n->id, $top[0]->children ) );
+		$this->assertSame( array( 'certs' ), array_map( static fn( $n ) => $n->id, $top[1]->children ) );
+
+		remove_all_actions( 'buddynext_register_nav' );
+	}
+
+	/**
 	 * A child whose parent does not exist is dropped.
 	 */
 	public function test_orphan_child_is_dropped(): void {

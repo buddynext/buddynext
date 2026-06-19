@@ -45,6 +45,28 @@ buddynext_register_nav([
 - A `metric` whose id duplicates a top-level `primary` is dropped (the badge on the
   tab is the count's home) — kills double-nav structurally.
 
+### Integrations register sub-nav the same way
+
+Any integration (ours or 3rd-party) uses the **identical** `register_nav()` to add
+sub-nav — either its own parent + children, or a child under an existing parent:
+
+```php
+add_action( 'buddynext_register_nav', function ( $reg ) {
+    // (a) its OWN primary tab carrying its OWN sub-nav
+    $reg->register([ 'id'=>'courses','surface'=>'profile','layer'=>'primary',
+        'label'=>__('Courses','learnomy'),'tab'=>'courses','icon'=>'graduation-cap','priority'=>80 ]);
+    $reg->register([ 'id'=>'certs','surface'=>'profile','layer'=>'primary','parent'=>'courses',
+        'label'=>__('Certificates','learnomy'),'tab'=>'certs' ]);
+
+    // (b) OR drop a sub-nav child under an EXISTING parent (e.g. Network)
+    $reg->register([ 'id'=>'mutual','surface'=>'profile','layer'=>'primary','parent'=>'network',
+        'label'=>__('Mutual','acme'),'tab'=>'mutual' ]);
+} );
+```
+
+The renderer nests children under the parent and reveals the sub-nav reactively —
+no template work. (Covered by `NavRegistryTest::test_integration_registers_subnav_via_public_action`.)
+
 ## Integration placement (Member surface — LinkedIn-minimum)
 
 Integrations are a **community layer on top** of the standalone plugin (never a
