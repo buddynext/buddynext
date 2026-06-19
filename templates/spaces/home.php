@@ -366,7 +366,7 @@ add_action(
 							<a class="bn-sh-side-mod__id" href="<?php echo esc_url( $bn_mod_url ); ?>">
 								<span class="bn-avatar bn-sh-side-member__avatar"
 									data-size="sm"
-									style="background:<?php echo esc_attr( bn_sh_avatar_color( $bn_mod_uid ) ); ?>;color:#fff;"
+									style="background:<?php echo esc_attr( bn_sh_avatar_color( $bn_mod_uid ) ); ?>;color:var(--bn-accent-fg);"
 									aria-hidden="true"
 								><?php echo esc_html( $bn_mod_init ); ?></span>
 								<span class="bn-sh-side-member__name">
@@ -421,7 +421,7 @@ add_action(
 						<a class="bn-sh-side-member__id" href="<?php echo esc_url( $bn_murl ); ?>">
 							<span class="bn-avatar bn-sh-side-member__avatar"
 								data-size="sm"
-								style="background:<?php echo esc_attr( bn_sh_avatar_color( $bn_uid ) ); ?>;color:#fff;"
+								style="background:<?php echo esc_attr( bn_sh_avatar_color( $bn_uid ) ); ?>;color:var(--bn-accent-fg);"
 								aria-hidden="true"
 							><?php echo esc_html( $bn_init ); ?></span>
 							<span class="bn-sh-side-member__name">
@@ -464,7 +464,7 @@ add_action(
 						<a class="bn-sh-side-member__id" href="<?php echo esc_url( $bn_curl ); ?>">
 							<span class="bn-avatar bn-sh-side-member__avatar"
 								data-size="sm"
-								style="background:<?php echo esc_attr( bn_sh_avatar_color( $bn_cuid ) ); ?>;color:#fff;"
+								style="background:<?php echo esc_attr( bn_sh_avatar_color( $bn_cuid ) ); ?>;color:var(--bn-accent-fg);"
 								aria-hidden="true"
 							><?php echo esc_html( $bn_cinit ); ?></span>
 							<span class="bn-sh-side-member__name"><?php echo esc_html( $bn_cname ); ?></span>

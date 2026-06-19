@@ -266,7 +266,7 @@
 	align-items: center;
 	gap: var(--s1);
 	padding: var(--s2) var(--s4);
-	border-radius: var(--r-full);
+	border-radius: var(--r-md);
 	font-family: var(--font-body);
 	font-size: var(--text-sm);
 	font-weight: var(--fw-semibold);

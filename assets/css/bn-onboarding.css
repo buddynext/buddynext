@@ -285,9 +285,12 @@
 	display: inline-flex;
 	align-items: center;
 }
-.bn-ob-input-prefix .bn-ob-username {
+.bn-ob-field .bn-ob-input-prefix input.bn-ob-username {
 	flex: 1;
 	min-width: 0;
+	/* Higher specificity than `.bn-ob-field input[type="text"]` so the inner
+	   border reset wins — the wrapper (.bn-ob-input-prefix) owns the single
+	   border; without this the input kept its own border too (double border). */
 	border: 0;
 	border-radius: 0;
 	background: transparent;
