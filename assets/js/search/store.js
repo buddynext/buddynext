@@ -40,8 +40,11 @@ const { state, actions } = store( 'buddynext/search', {
 			const wasJoined = !! ctx.joined;
 			ctx.joined = ! wasJoined;
 			try {
-				yield restFetch( '/spaces/' + ctx.spaceId + '/members', {
-					method: wasJoined ? 'DELETE' : 'POST',
+				// Join/leave have dedicated POST endpoints; /spaces/{id}/members is
+				// GET-only (listing), so the previous POST/DELETE there 404'd and the
+				// search-result join button never worked.
+				yield restFetch( '/spaces/' + ctx.spaceId + ( wasJoined ? '/leave' : '/join' ), {
+					method: 'POST',
 					nonce: ctx.restNonce,
 					toastOnError: false,
 				} );

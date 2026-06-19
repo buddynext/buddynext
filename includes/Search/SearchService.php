@@ -807,22 +807,18 @@ class SearchService {
 	}
 
 	/**
-	 * Synchronously re-index all users.
+	 * Synchronously re-index everything when Action Scheduler is absent.
 	 *
-	 * Only used as fallback when Action Scheduler is absent. Capped at 500
-	 * users to stay within acceptable execution time on small sites.
+	 * Delegates to the SAME comprehensive handler the async path uses
+	 * (SearchIndexListener::handle_reindex_all via the buddynext_reindex_all
+	 * action) so posts, users, AND spaces are indexed in batches. The previous
+	 * implementation indexed only users (and capped at 500), leaving posts and
+	 * spaces unsearchable on sites without Action Scheduler. The handler never
+	 * re-enqueues, so firing it here runs the work inline without looping.
 	 *
 	 * @return void
 	 */
 	private static function reindex_all_sync(): void {
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$user_ids = $wpdb->get_col( "SELECT ID FROM {$wpdb->users} LIMIT 500" );
-
-		$profiles = buddynext_service( 'profiles' );
-		foreach ( $user_ids as $uid ) {
-			$profiles->index_user( (int) $uid );
-		}
+		do_action( 'buddynext_reindex_all' );
 	}
 }
