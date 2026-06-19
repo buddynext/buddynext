@@ -43,7 +43,7 @@
 
    - Expected: 201 or 200. Note the returned group `id` (referred to as `GROUP_ID`).
 
-   **Note**: If the REST endpoint for group creation is not yet available (check manifest — `POST /buddynext/v1/profile-groups` is not listed), create the group directly via WP-CLI:
+   **Note**: `POST /buddynext/v1/profile-groups` (and `POST /buddynext/v1/profile-fields`) are implemented (admin only — `ProfileController::create_group()` / `create_field()`). The WP-CLI insert below is only a fallback for scripting outside an authenticated REST session:
 
    ```bash
    wp db query "INSERT INTO wp_bn_profile_groups (group_key, label, type, visibility, is_system, sort_order) VALUES ('professional_info', 'Professional Info', 'flat', 'public', 0, 10);"
@@ -243,7 +243,7 @@ WHERE user_id = MEMBER1_ID
 
 ## Known limitations
 
-- REST endpoints for creating new profile groups and fields (POST) are not in the current manifest; creation requires direct DB insert via WP-CLI. Track this as a TODO: add `POST /buddynext/v1/profile-groups` and `POST /buddynext/v1/profile-fields` endpoints.
+- `POST /buddynext/v1/profile-groups` and `POST /buddynext/v1/profile-fields` are implemented (admin-only, via `ProfileController::create_group()` / `create_field()`); the WP-CLI DB insert is only a scripting fallback, not a requirement.
 - Advanced Pro field types (`date_extended`, `location`, `file`, `multi_select_advanced`, `number_advanced`, `conditional`) are registered by Pro via `buddynext_profile_field_types` filter but render as no-op until Free fires the `buddynext_profile_field_render` seam.
 
 ## Automation notes

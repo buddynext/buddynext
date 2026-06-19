@@ -224,9 +224,8 @@ WHERE blocker_id = MEMBER1_ID AND blocked_id = MEMBER2_ID;
 ```
 GET    /buddynext/v1/member-types                    -- 200, all member types (public)
 POST   /buddynext/v1/member-types                    -- 201, new type (admin)
-GET    /buddynext/v1/member-types/{id}               -- 200, single type (public)
-PUT    /buddynext/v1/member-types/{id}               -- 200, updated type (admin)
-DELETE /buddynext/v1/member-types/{id}               -- 200, { "deleted": true } (admin)
+PUT    /buddynext/v1/member-types/{slug}             -- 200, updated type (admin)
+DELETE /buddynext/v1/member-types/{slug}             -- 200, { "deleted": true } (admin)
 PUT    /buddynext/v1/users/{id}/member-type          -- 200, type assigned (admin)
 DELETE /buddynext/v1/users/{id}/member-type          -- 200, type removed (admin)
 GET    /buddynext/v1/search?type=users               -- 200, user search with viewer-aware exclusions

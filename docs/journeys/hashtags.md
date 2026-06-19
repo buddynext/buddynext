@@ -114,14 +114,14 @@
 
    - Expected: `follower_count = 1`.
 
-9. Unfollow the hashtag (toggle):
+9. Unfollow the hashtag:
 
    ```bash
-   curl -s -X POST http://buddynext-dev.local/wp-json/buddynext/v1/hashtags/buddynext/follow \
+   curl -s -X DELETE http://buddynext-dev.local/wp-json/buddynext/v1/hashtags/buddynext/follow \
      -u member2:password -H "Content-Type: application/json"
    ```
 
-   - Expected: 200 with `{"following": false}`. Row removed from `wp_bn_hashtag_follows`.
+   - Expected: 200 with `{"following": false}`. Row removed from `wp_bn_hashtag_follows`. Follow/unfollow are distinct verbs (POST follows, DELETE unfollows) — not a single POST toggle.
 
 10. Re-follow for subsequent steps:
 
@@ -209,7 +209,8 @@ LIMIT 5;
 GET  /buddynext/v1/hashtags                          -- 200, hashtag list with optional ?q= search
 GET  /buddynext/v1/hashtags/trending                 -- 200, ordered trending list
 GET  /buddynext/v1/hashtags/{slug}                   -- 200, hashtag detail + post feed
-POST /buddynext/v1/hashtags/{slug}/follow            -- 200, { "following": bool }
+POST   /buddynext/v1/hashtags/{slug}/follow          -- 200, { "following": true }  (follow)
+DELETE /buddynext/v1/hashtags/{slug}/follow          -- 200, { "following": false } (unfollow)
 ```
 
 ## Cleanup

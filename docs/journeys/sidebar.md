@@ -147,7 +147,6 @@ All `wp` commands run in the LocalWP site shell (right-click site → "Open Site
       'parts/sidebar-card.php',
       'parts/sidebar-greeting-streak.php',
       'parts/sidebar-this-week-stats.php',
-      'parts/sidebar-upcoming-events.php',
       'parts/sidebar-by-role.php',
     ) as \$t ) {
       echo \$t . ': ' . ( file_exists( \$base . \$t ) ? 'OK' : 'MISSING' ) . PHP_EOL;

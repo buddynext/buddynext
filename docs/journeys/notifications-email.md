@@ -58,7 +58,7 @@
 4. As `member1`, list notifications:
 
    ```bash
-   curl -s http://buddynext-dev.local/wp-json/buddynext/v1/notifications \
+   curl -s http://buddynext-dev.local/wp-json/buddynext/v1/me/notifications \
      -u member1:password
    ```
 
@@ -67,7 +67,7 @@
 5. Check the unread count:
 
    ```bash
-   curl -s http://buddynext-dev.local/wp-json/buddynext/v1/notifications/unread-count \
+   curl -s http://buddynext-dev.local/wp-json/buddynext/v1/me/notifications/unread-count \
      -u member1:password
    ```
 
@@ -78,13 +78,12 @@
 6. As `member1`, mark all notifications read:
 
    ```bash
-   curl -s -X POST http://buddynext-dev.local/wp-json/buddynext/v1/notifications/mark-read \
+   curl -s -X POST http://buddynext-dev.local/wp-json/buddynext/v1/me/notifications/read-all \
      -u member1:password \
-     -H "Content-Type: application/json" \
-     -d '{"all": true}'
+     -H "Content-Type: application/json"
    ```
 
-   - Expected: 200. All notification rows for member1 updated to `is_read = 1`.
+   - Expected: 200. All notification rows for member1 updated to `is_read = 1`. (To mark a single notification read instead, `POST /me/notifications/{id}/read`.)
 
 7. Verify:
 
@@ -99,7 +98,7 @@
 8. Confirm via REST:
 
    ```bash
-   curl -s http://buddynext-dev.local/wp-json/buddynext/v1/notifications/unread-count \
+   curl -s http://buddynext-dev.local/wp-json/buddynext/v1/me/notifications/unread-count \
      -u member1:password
    ```
 
@@ -190,10 +189,10 @@
 
     ```bash
     # Get the notification ID:
-    curl -s http://buddynext-dev.local/wp-json/buddynext/v1/notifications \
+    curl -s http://buddynext-dev.local/wp-json/buddynext/v1/me/notifications \
       -u member1:password
 
-    curl -s -X DELETE http://buddynext-dev.local/wp-json/buddynext/v1/notifications/NOTIFICATION_ID \
+    curl -s -X DELETE http://buddynext-dev.local/wp-json/buddynext/v1/me/notifications/NOTIFICATION_ID \
       -u member1:password
     ```
 
@@ -204,7 +203,7 @@
 - **Suppressed notification via filter**: Hook `buddynext_notification_should_send` to return `false` for the `follow` type. Trigger a follow. Expected: no row inserted in `bn_notifications` and no email queued.
 - **Daily digest preference**: Set `email_freq = daily` for `follow`. Trigger a follow. Expected: `bn.daily_digest` email type queued (or `buddynext_queue_email_digest` action fired) rather than `bn.new_follower` immediate.
 - **Group notifications**: Trigger 3 follow actions in rapid succession from different users. Confirm `group_key` and `group_count` columns on `bn_notifications` aggregate correctly rather than creating 3 separate rows.
-- **Unauthorized access**: Attempt `GET /buddynext/v1/notifications` without credentials. Expected: 401.
+- **Unauthorized access**: Attempt `GET /buddynext/v1/me/notifications` without credentials. Expected: 401.
 
 ## What this validates
 
@@ -245,12 +244,13 @@ ORDER BY type;
 ## REST surface walked
 
 ```
-GET    /buddynext/v1/notifications                   -- 200, paginated list (logged-in)
-GET    /buddynext/v1/notifications/unread-count      -- 200, { "count": int }
-POST   /buddynext/v1/notifications/mark-read         -- 200, marks read
-DELETE /buddynext/v1/notifications/{id}              -- 200, { "deleted": true }
-GET    /buddynext/v1/notification-prefs              -- 200, pref map
-PUT    /buddynext/v1/notification-prefs              -- 200, updated prefs
+GET        /buddynext/v1/me/notifications              -- 200, paginated list (logged-in)
+GET        /buddynext/v1/me/notifications/unread-count  -- 200, { "count": int }
+PUT|POST   /buddynext/v1/me/notifications/{id}/read     -- 200, marks one read
+PUT|POST   /buddynext/v1/me/notifications/read-all      -- 200, marks all read
+DELETE     /buddynext/v1/me/notifications/{id}          -- 200, { "deleted": true }
+GET        /buddynext/v1/me/notification-prefs          -- 200, pref map
+PUT        /buddynext/v1/me/notification-prefs          -- 200, updated prefs
 ```
 
 ## Cleanup

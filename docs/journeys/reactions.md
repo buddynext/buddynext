@@ -147,7 +147,7 @@ wp user get member2 --field=ID   # -> MEMBER2_ID
       -d '{"object_type": "post", "object_id": POST_ID, "emoji": "haha"}'
     ```
 
-    - Expected: 200, body `{ "has_reacted": false, "emoji": null, "count": 1 }`. Fires `buddynext_reaction_removed('post', POST_ID, MEMBER2_ID)`. The `bn_posts.reaction_count` decrements (floored at 0 via `GREATEST(0, reaction_count - 1)`).
+    - Expected: 200, body `{ "has_reacted": false, "emoji": null, "count": 1 }`. Fires `buddynext_reaction_removed('post', POST_ID, MEMBER2_ID)`. The `bn_posts.reaction_count` decrements (floored at 0 via `GREATEST(1, reaction_count) - 1`, which avoids an UNSIGNED underflow when the counter is already 0).
 
 11. Verify the row is gone and the counter decremented:
 
@@ -257,7 +257,7 @@ wp cache flush
 - **No per-emoji map over REST.** The only way to read the per-emoji breakdown (`{like: n, love: n, ...}`) is the service method `get_counts()`. The public `GET /reactions` endpoint returns only the scalar total. The reaction picker UI must compute its breakdown from `/reactions/list` items or call the service directly.
 - **No admin settings / feature gate in Free.** There is no enable/disable toggle for reactions and no per-space or per-object-type policy. Any authenticated user can react to any `object_type`/`object_id` pair the route accepts; the service does not validate that the object exists (only `post` objects get a counter update and the author-side hooks).
 - **Emoji validation is by sanitisation, not allow-list, at the write path.** `react()`/`toggle()` `sanitize_key()` the emoji but do not reject slugs outside the canonical six — `reaction_types()` / the `buddynext_reaction_types` filter is advisory for the UI, not enforced server-side. An arbitrary sanitised slug will be stored.
-- **`get_reactors()` is capped at 100** and the `buddynext_reactors_limit` filter referenced in the docblock is not actually applied in `get_reactors()` — the cap is hardcoded via `max(1, min(100, $limit))`. Flagged for follow-up.
+- **`get_reactors()` defaults to a cap of 100**, adjustable via the `buddynext_reactors_limit` filter (`ReactionService.php` applies it: `$max = apply_filters( 'buddynext_reactors_limit', 100, $object_type, $object_id )`). Note the REST route still clamps the `limit` arg at `'maximum' => 100`, so raising the cap above 100 takes effect for internal callers, not via the public API.
 - **Counter drift risk on non-post swaps.** `bn_posts.reaction_count` is only touched for `object_type = 'post'`. Reactions on `comment`/`message` objects have no denormalised counter and rely on live `COUNT(*)`.
 
 ## Automation notes
