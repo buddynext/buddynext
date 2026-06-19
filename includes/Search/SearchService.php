@@ -57,7 +57,7 @@ class SearchService {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
+		$result = $wpdb->query(
 			$wpdb->prepare(
 				"INSERT INTO {$wpdb->prefix}bn_search_index
 				    (object_type, object_id, title, content, author_id, space_id, visibility)
@@ -78,6 +78,14 @@ class SearchService {
 				$visibility
 			)
 		);
+
+		// Surface a failed index write rather than silently dropping the object
+		// from search (it would never appear in results with no signal).
+		if ( false === $result ) {
+			error_log( // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				sprintf( 'BuddyNext: search index write failed for %s#%d: %s', $object_type, $object_id, $wpdb->last_error )
+			);
+		}
 	}
 
 	/**
@@ -146,7 +154,7 @@ class SearchService {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
+		$deleted = $wpdb->delete(
 			$wpdb->prefix . 'bn_search_index',
 			array(
 				'object_type' => $object_type,
@@ -154,6 +162,13 @@ class SearchService {
 			),
 			array( '%s', '%d' )
 		);
+
+		// A failed delete means removed content keeps surfacing in search — log it.
+		if ( false === $deleted ) {
+			error_log( // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				sprintf( 'BuddyNext: search deindex failed for %s#%d: %s', $object_type, $object_id, $wpdb->last_error )
+			);
+		}
 	}
 
 	/**

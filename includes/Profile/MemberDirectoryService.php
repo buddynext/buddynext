@@ -608,6 +608,19 @@ class MemberDirectoryService {
 				   JOIN {$wpdb->usermeta} um ON um.user_id = u.ID
 				  WHERE um.meta_key = %s
 				    AND CAST( um.meta_value AS UNSIGNED ) >= %d
+				    AND NOT EXISTS (
+				        SELECT 1 FROM {$wpdb->prefix}bn_user_suspensions s_ex
+				        WHERE s_ex.user_id = u.ID AND s_ex.lifted_at IS NULL
+				          AND ( s_ex.expires_at IS NULL OR s_ex.expires_at > UTC_TIMESTAMP() )
+				      )
+				    AND NOT EXISTS (
+				        SELECT 1 FROM {$wpdb->usermeta} um_ban
+				        WHERE um_ban.user_id = u.ID AND um_ban.meta_key = 'bn_shadow_banned' AND um_ban.meta_value = '1'
+				      )
+				    AND NOT EXISTS (
+				        SELECT 1 FROM {$wpdb->usermeta} um_dir
+				        WHERE um_dir.user_id = u.ID AND um_dir.meta_key = 'bn_privacy_show_in_directory' AND um_dir.meta_value = '0'
+				      )
 				  ORDER BY CAST( um.meta_value AS UNSIGNED ) DESC
 				  LIMIT %d",
 				PresenceService::META_KEY,
@@ -681,10 +694,15 @@ class MemberDirectoryService {
 		// only an explicit '0' excludes; an absent meta leaves the member found.
 		$dir_optout = "NOT EXISTS ( SELECT 1 FROM {$wpdb->usermeta} um_dir WHERE um_dir.user_id = u.ID AND um_dir.meta_key = 'bn_privacy_show_in_directory' AND um_dir.meta_value = '0' )";
 
+		// Mirror list_members(): directory search must never surface suspended or
+		// shadow-banned members (this feeds the server-rendered results page).
+		$suspended_ex = "NOT EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_user_suspensions s_ex WHERE s_ex.user_id = u.ID AND s_ex.lifted_at IS NULL AND ( s_ex.expires_at IS NULL OR s_ex.expires_at > UTC_TIMESTAMP() ) )";
+		$shadow_ex    = "NOT EXISTS ( SELECT 1 FROM {$wpdb->usermeta} um_ban WHERE um_ban.user_id = u.ID AND um_ban.meta_key = 'bn_shadow_banned' AND um_ban.meta_value = '1' )";
+
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$ids = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT u.ID FROM {$wpdb->users} u WHERE ( " . implode( ' OR ', $ors ) . " ) AND {$dir_optout}", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT u.ID FROM {$wpdb->users} u WHERE ( " . implode( ' OR ', $ors ) . " ) AND {$dir_optout} AND {$suspended_ex} AND {$shadow_ex}", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 				...$params
 			)
 		);
