@@ -449,6 +449,33 @@
 
 /* ── Responsive ──────────────────────────────────────────────────────── */
 
+/* Desktop / tablet-landscape: lay the row out HORIZONTALLY so it uses the full
+   width instead of stacking text -> meta -> actions into a tall block with an
+   empty right half. The message text grows and takes the slack; the meta
+   (badge + relative time + dismiss) and the Open / Mark-as-read actions sit
+   compactly on the right, vertically centred — one tidy line per notification. */
+@media (min-width: 769px) {
+	.bn-notif-row { align-items: center; }
+	.bn-notif-row__body {
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-items: center;
+		column-gap: var(--bn-s4);
+		row-gap: var(--bn-s1);
+	}
+	.bn-notif-row__text {
+		flex: 1 1 220px;
+		min-width: 0;
+	}
+	.bn-notif-row__meta {
+		flex: 0 0 auto;
+		margin-inline-start: auto;
+	}
+	.bn-notif-row__actions {
+		flex: 0 0 auto;
+	}
+}
+
 /* iPad / tablet - shell already hides .bn-app__right ≤ 1024px, so we
    only tune list padding here. */
 @media (max-width: 1024px) {
