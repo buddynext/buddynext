@@ -405,8 +405,8 @@ class ProfileService {
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT IGNORE INTO {$wpdb->prefix}bn_profile_fields
-					(group_id, field_key, label, type, options, is_required, is_searchable, visibility, sort_order)
-				 VALUES (%d, %s, %s, %s, %s, %d, %d, %s, %d)",
+					(group_id, field_key, label, type, options, is_required, is_searchable, show_on_register, visibility, sort_order)
+				 VALUES (%d, %s, %s, %s, %s, %d, %d, %d, %s, %d)",
 				$group_id,
 				$field_key,
 				sanitize_text_field( (string) ( $data['label'] ?? '' ) ),
@@ -414,6 +414,7 @@ class ProfileService {
 				wp_json_encode( $data['options'] ?? null ),
 				(int) ( $data['is_required'] ?? 0 ),
 				(int) ( $data['is_searchable'] ?? 0 ),
+				(int) ( $data['show_on_register'] ?? 0 ),
 				$data['visibility'] ?? 'public',
 				(int) ( $data['sort_order'] ?? 0 )
 			)
@@ -451,15 +452,38 @@ class ProfileService {
 	 * Flat + searchable fields are additionally denormalised to usermeta
 	 * as bn_field_{key} for fast WP_User_Query filtering.
 	 *
+	 * Field values that fail sanitisation or the
+	 * `buddynext_profile_field_validate` filter are skipped (valid fields still
+	 * persist) and recorded; if any field was rejected the method returns a
+	 * WP_Error('profile_fields_invalid') carrying a `fields` => message map so
+	 * callers (e.g. the admin editor) can surface inline errors instead of
+	 * silently reporting success. The user-facing PUT /me/profile endpoint
+	 * validates upfront and returns a 422 before reaching this path.
+	 *
 	 * @param int   $user_id User whose profile to update.
 	 * @param array $data    Flat and/or repeater field data.
-	 * @return true
+	 * @return true|\WP_Error True when every submitted field saved; WP_Error
+	 *                        (data['fields'] = field => message) when one or more
+	 *                        values were rejected.
 	 */
-	public function save_profile( int $user_id, array $data ): true {
+	public function save_profile( int $user_id, array $data ): true|\WP_Error {
 		global $wpdb;
 
 		$flat_fields  = $this->get_flat_fields();
 		$field_by_key = array_column( $flat_fields, null, 'field_key' );
+
+		// Accumulate per-field rejection messages so the method can report an
+		// honest result instead of always claiming success.
+		$field_errors = array();
+
+		// Repeater searchable sub-fields can't use the single-valued bn_field_{key}
+		// mirror per-entry (each entry would clobber the last). Collect the public,
+		// searchable values across ALL entries of a repeater sub-field here and
+		// write one space-joined mirror after the loop — the same "join into one
+		// mirror" contract flat multi-value fields already use, so directory LIKE
+		// search can match a member by a value in any entry. Keyed by field_key;
+		// presence of the key (even with an empty list) means "submitted → flush".
+		$repeater_mirror = array();
 
 		// Build a group_key => group metadata map for repeater detection.
 		$group_by_key = array();
@@ -501,6 +525,7 @@ class ProfileService {
 						$sanitized_val = \BuddyNext\Profile\FieldType::sanitize( $field_def, $field_value );
 
 						if ( is_wp_error( $sanitized_val ) ) {
+							$field_errors[ "{$key}[{$entry_index}][{$field_key}]" ] = $sanitized_val->get_error_message();
 							continue;
 						}
 
@@ -531,6 +556,7 @@ class ProfileService {
 						);
 
 						if ( is_wp_error( $validation ) ) {
+							$field_errors[ "{$key}[{$entry_index}][{$field_key}]" ] = $validation->get_error_message();
 							continue;
 						}
 
@@ -545,6 +571,26 @@ class ProfileService {
 						);
 
 						$this->upsert_value( $user_id, $field_id, $entry_index, $sanitized_val, $entry_visibility );
+
+						// Collect the value for the aggregated repeater mirror. Mark
+						// the field as submitted (empty list) so a now-cleared field
+						// gets its stale mirror deleted after the loop, then append
+						// only public + searchable + text-type values.
+						if ( ! isset( $repeater_mirror[ $field_key ] ) ) {
+							$repeater_mirror[ $field_key ] = array(
+								'field'  => $field_def,
+								'values' => array(),
+							);
+						}
+						$mirror_type = isset( $field_def['type'] ) ? (string) $field_def['type'] : 'text';
+						if (
+							! empty( $field_def['is_searchable'] )
+							&& \BuddyNext\Profile\FieldType::is_text_searchable( $mirror_type )
+							&& 'public' === $this->effective_visibility( $field_def, $entry_visibility )
+							&& '' !== $sanitized_val
+						) {
+							$repeater_mirror[ $field_key ]['values'][] = $this->mirror_value( $field_def, $sanitized_val );
+						}
 					}
 				}
 
@@ -570,6 +616,7 @@ class ProfileService {
 			$sanitized_val = \BuddyNext\Profile\FieldType::sanitize( $field, $value );
 
 			if ( is_wp_error( $sanitized_val ) ) {
+				$field_errors[ (string) $key ] = $sanitized_val->get_error_message();
 				continue;
 			}
 
@@ -586,6 +633,7 @@ class ProfileService {
 			);
 
 			if ( is_wp_error( $validation ) ) {
+				$field_errors[ (string) $key ] = $validation->get_error_message();
 				continue;
 			}
 
@@ -618,6 +666,22 @@ class ProfileService {
 			}
 		}
 
+		// Flush the aggregated repeater search mirrors. A submitted repeater
+		// sub-field with one or more public searchable values writes a single
+		// space-joined bn_field_{key} mirror; a submitted-but-now-empty one
+		// deletes any stale mirror so search results don't lag the data.
+		foreach ( $repeater_mirror as $field_key => $mirror ) {
+			$meta_key = 'bn_field_' . $field_key;
+			$values   = array_values( array_unique( array_filter( $mirror['values'], 'strlen' ) ) );
+			if ( empty( $values ) ) {
+				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				delete_user_meta( $user_id, $meta_key );
+				continue;
+			}
+			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+			update_user_meta( $user_id, $meta_key, implode( ' ', $values ) );
+		}
+
 		// Handle profile URL slug separately — stored in usermeta, not bn_profile_values.
 		if ( array_key_exists( 'profile_slug', $data ) ) {
 			$requested_slug = sanitize_title( (string) $data['profile_slug'] );
@@ -628,6 +692,20 @@ class ProfileService {
 
 		$this->bust_profile_cache( $user_id );
 		wp_cache_delete( "completion_{$user_id}", self::CACHE_GROUP );
+
+		// Honest result: any rejected field returns a WP_Error carrying the
+		// field => message map (HTTP 422) so the admin editor can show inline
+		// errors. Valid fields above were still persisted.
+		if ( ! empty( $field_errors ) ) {
+			return new \WP_Error(
+				'profile_fields_invalid',
+				__( 'Some fields could not be saved.', 'buddynext' ),
+				array(
+					'fields' => $field_errors,
+					'status' => 422,
+				)
+			);
+		}
 
 		return true;
 	}
@@ -1163,7 +1241,8 @@ class ProfileService {
 	 * Update a profile field definition.
 	 *
 	 * Allowed $data keys: label, type, options (null, array, or JSON string),
-	 * is_required, visibility, sort_order. Unknown keys are ignored.
+	 * is_required, is_searchable, show_on_register, visibility, sort_order.
+	 * Unknown keys are ignored.
 	 * When 'options' is an array it is json_encoded before saving.
 	 * Busts 'all_fields' cache key.
 	 *
@@ -1205,6 +1284,16 @@ class ProfileService {
 			$format[]              = '%d';
 		}
 
+		if ( isset( $data['is_searchable'] ) ) {
+			$update['is_searchable'] = (int) $data['is_searchable'];
+			$format[]                = '%d';
+		}
+
+		if ( isset( $data['show_on_register'] ) ) {
+			$update['show_on_register'] = (int) $data['show_on_register'];
+			$format[]                   = '%d';
+		}
+
 		if ( isset( $data['visibility'] ) ) {
 			$update['visibility'] = sanitize_key( (string) $data['visibility'] );
 			$format[]             = '%s';
@@ -1230,6 +1319,12 @@ class ProfileService {
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
+
+		// Mirror the admin editor: announce the definition change so existing
+		// members' search mirrors are backfilled when is_searchable/visibility
+		// flips (rebuild_field_mirror is wired to this in Plugin.php). Without
+		// this the REST path would persist the toggle but leave stale mirrors.
+		do_action( 'buddynext_profile_field_updated', $id );
 	}
 
 	/**

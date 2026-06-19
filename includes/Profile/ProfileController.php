@@ -1037,7 +1037,18 @@ class ProfileController extends BaseRestController {
 			unset( $data['display_name'] );
 		}
 
-		$service->save_profile( $user_id, $data );
+		$result = $service->save_profile( $user_id, $data );
+		if ( is_wp_error( $result ) ) {
+			$error_data = (array) $result->get_error_data();
+			return new WP_REST_Response(
+				array(
+					'saved'  => false,
+					'errors' => (array) ( $error_data['fields'] ?? array() ),
+				),
+				422
+			);
+		}
+
 		do_action( 'buddynext_index_user', $user_id );
 		$profile = $service->get_profile( $user_id, $user_id );
 
