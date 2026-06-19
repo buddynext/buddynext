@@ -2544,6 +2544,9 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	align-items: center;
 	gap: var(--bn-s4);
 	margin-top: var(--bn-s2);
+	/* Indent so the first sub item's text lines up vertically under the first
+	   primary tab's text (primary .bn-tab carries var(--bn-s3) inline padding). */
+	padding-inline-start: var(--bn-s3);
 }
 /* Base + ALL interaction states scoped under .bn-app so the host theme's bare
    <button> chrome (border / padding / hover + active + focus background) can
@@ -2559,6 +2562,10 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	border-radius: 0;
 	background: none;
 	box-shadow: none;
+	/* appearance:none stops the host theme (and the UA) from painting any native
+	   <button> chrome in any state — the sub-nav is text, period. */
+	appearance: none;
+	-webkit-appearance: none;
 	font: inherit;
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-medium);
@@ -2567,25 +2574,31 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	text-decoration: none;
 	cursor: pointer;
 }
+/* Hover / focus / press (:active) all covered together — no theme bg, no ring,
+   no box; only the text colour lifts to ink. */
 .bn-app .bn-subnav__item:hover,
 .bn-app .bn-subnav__item:focus,
 .bn-app .bn-subnav__item:active {
 	color: var(--bn-ink);
 	background: none;
 	box-shadow: none;
+	border: 0;
 }
 .bn-app .bn-subnav__item:focus-visible {
 	outline: none;
 	box-shadow: var(--bn-ring);
 	border-radius: var(--bn-r-sm);
 }
-/* Active (selected) wins over hover so an active item hovered stays accent. */
+/* Selected wins over hover AND press, so an active item under the cursor stays
+   accent (covers the theme's :hover/:active that would otherwise repaint it). */
 .bn-app .bn-subnav__item[aria-selected="true"],
 .bn-app .bn-subnav__item[aria-selected="true"]:hover,
 .bn-app .bn-subnav__item[aria-selected="true"]:focus,
+.bn-app .bn-subnav__item[aria-selected="true"]:active,
 .bn-app .bn-subnav__item.active {
 	color: var(--bn-accent);
 	background: none;
+	box-shadow: none;
 	font-weight: var(--bn-fw-semibold);
 }
 .bn-subnav__count {
