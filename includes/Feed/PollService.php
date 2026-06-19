@@ -110,8 +110,10 @@ class PollService {
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		if ( null !== $existing_option_id ) {
-			// Remove previous vote and decrement its count.
-			$wpdb->delete(
+			// Remove previous vote and decrement its count — only when THIS request
+			// actually removed the row, so concurrent toggles can't each subtract
+			// from the same vote.
+			$removed = $wpdb->delete(
 				$wpdb->prefix . 'bn_poll_votes',
 				array(
 					'post_id' => $post_id,
@@ -119,14 +121,16 @@ class PollService {
 				),
 				array( '%d', '%d' )
 			);
-			$wpdb->query(
-				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_poll_options
-					 SET vote_count = GREATEST(1, vote_count) - 1
-					 WHERE id = %d",
-					(int) $existing_option_id
-				)
-			);
+			if ( $removed > 0 ) {
+				$wpdb->query(
+					$wpdb->prepare(
+						"UPDATE {$wpdb->prefix}bn_poll_options
+						 SET vote_count = GREATEST(1, vote_count) - 1
+						 WHERE id = %d",
+						(int) $existing_option_id
+					)
+				);
+			}
 
 			// Same option clicked again → toggle off, we're done.
 			if ( (int) $existing_option_id === $option_id ) {
@@ -136,24 +140,29 @@ class PollService {
 			}
 		}
 
-		// Insert new vote and increment its count.
-		$wpdb->insert(
-			$wpdb->prefix . 'bn_poll_votes',
-			array(
-				'post_id'   => $post_id,
-				'option_id' => $option_id,
-				'user_id'   => $user_id,
-			),
-			array( '%d', '%d', '%d' )
-		);
-		$wpdb->query(
+		// Insert the new vote with INSERT IGNORE (the one_vote_per_user UNIQUE key
+		// rejects a concurrent duplicate) and increment the option only when THIS
+		// request actually created the row — preventing inflated vote counts under
+		// concurrent requests.
+		$inserted = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_poll_options
-				 SET vote_count = vote_count + 1
-				 WHERE id = %d",
-				$option_id
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_poll_votes (post_id, option_id, user_id)
+				 VALUES (%d, %d, %d)",
+				$post_id,
+				$option_id,
+				$user_id
 			)
 		);
+		if ( $inserted > 0 ) {
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_poll_options
+					 SET vote_count = vote_count + 1
+					 WHERE id = %d",
+					$option_id
+				)
+			);
+		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		/**

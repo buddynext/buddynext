@@ -94,18 +94,30 @@ class ShareService {
 		}
 		$content = (string) ( $filtered['content'] ?? $content );
 
+		// INSERT IGNORE so a concurrent request that slipped past the existence
+		// check above is rejected by the user_post UNIQUE key instead of creating a
+		// duplicate. UTC write so share-history relative times are timezone-correct.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->insert(
-			$wpdb->prefix . 'bn_shares',
-			array(
-				'user_id'    => $user_id,
-				'post_id'    => $post_id,
-				'content'    => $content,
-				// UTC write so share history relative times are timezone-correct.
-				'created_at' => current_time( 'mysql', true ),
-			),
-			array( '%d', '%d', '%s', '%s' )
+		$wpdb->query(
+			$wpdb->prepare(
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_shares (user_id, post_id, content, created_at)
+				 VALUES (%d, %d, %s, %s)",
+				$user_id,
+				$post_id,
+				$content,
+				current_time( 'mysql', true )
+			)
 		);
+
+		// rows_affected 0 = the duplicate was ignored (a racing request already
+		// shared). Bail WITHOUT publishing a second feed card or double-incrementing
+		// share_count.
+		if ( $wpdb->rows_affected < 1 ) {
+			return new WP_Error(
+				'already_shared',
+				__( 'You have already shared this post.', 'buddynext' )
+			);
+		}
 
 		$share_id = (int) $wpdb->insert_id;
 
