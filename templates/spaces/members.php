@@ -284,103 +284,93 @@ $mem_privacy = array(
 						: '';
 				}
 				?>
-				<article class="bn-card bn-space-members__card" data-interactive role="listitem">
-					<a
-						href="<?php echo esc_url( $member_url ); ?>"
-						class="bn-space-members__card-avatar-link"
-						aria-label="<?php echo esc_attr( $member_name ); ?>"
-					>
-						<span class="bn-avatar" data-size="xl" aria-hidden="true">
+				<?php
+				// Can the viewer manage this member (set role / remove)? These
+				// secondary actions live behind the overflow kebab pinned top-right
+				// (the shared .bn-md-card menu), so the card body shows at most two
+				// primary actions (View + Message).
+				$bn_can_manage = ( $current_user_id !== $member_id && 'owner' !== $member_role && ( $bn_can_remove || $bn_can_set_role ) );
+				?>
+				<article class="bn-card bn-md-card" data-interactive role="listitem">
+					<?php if ( $bn_can_manage ) : ?>
+						<div
+							class="bn-md-card__menu-wrap"
+							data-wp-context='{"menuOpen":false}'
+							data-wp-on-document--click="actions.closeMenuOnOutside"
+						>
+							<button
+								type="button"
+								class="bn-md-card__menu"
+								aria-haspopup="true"
+								aria-expanded="false"
+								aria-label="
+								<?php
+									/* translators: %s: member name */
+									printf( esc_attr__( 'More actions for %s', 'buddynext' ), esc_attr( $member_name ) );
+								?>
+								"
+								data-wp-on--click="actions.toggleMenu"
+								data-wp-bind--aria-expanded="state.menuExpanded"
+							><?php buddynext_icon( 'more-horizontal' ); ?></button>
+							<div
+								class="bn-md-card__menu-pop"
+								role="menu"
+								data-wp-bind--hidden="!state.menuOpen"
+								hidden
+							>
+								<?php if ( $bn_can_set_role && 'moderator' === $member_role ) : ?>
+									<button type="button" class="bn-md-card__menu-item" role="menuitem" data-user-id="<?php echo esc_attr( (string) $member_id ); ?>" data-role="member" data-wp-on--click="actions.changeRole"><?php esc_html_e( 'Make member', 'buddynext' ); ?></button>
+								<?php elseif ( $bn_can_set_role ) : ?>
+									<button type="button" class="bn-md-card__menu-item" role="menuitem" data-user-id="<?php echo esc_attr( (string) $member_id ); ?>" data-role="moderator" data-wp-on--click="actions.changeRole"><?php esc_html_e( 'Make moderator', 'buddynext' ); ?></button>
+								<?php endif; ?>
+								<?php if ( $bn_can_remove ) : ?>
+									<button type="button" class="bn-md-card__menu-item bn-md-card__menu-item--danger" role="menuitem" data-user-id="<?php echo esc_attr( (string) $member_id ); ?>" data-wp-on--click="actions.removeMember"><?php esc_html_e( 'Remove from space', 'buddynext' ); ?></button>
+								<?php endif; ?>
+							</div>
+						</div>
+					<?php endif; ?>
+
+					<div class="bn-md-card__cover" data-tone="<?php echo esc_attr( $role_meta['tone'] ); ?>" aria-hidden="true"></div>
+
+					<a href="<?php echo esc_url( $member_url ); ?>" class="bn-md-card__avatar-link" tabindex="-1" aria-hidden="true">
+						<span class="bn-avatar bn-md-card__avatar" data-size="xl">
 							<?php if ( $member_avatar ) : ?>
-								<img
-									src="<?php echo esc_url( $member_avatar ); ?>"
-									alt=""
-									loading="lazy"
-								>
+								<img src="<?php echo esc_url( $member_avatar ); ?>" alt="" width="72" height="72" loading="lazy" decoding="async">
 							<?php else : ?>
 								<?php echo esc_html( $member_inits ); ?>
 							<?php endif; ?>
 						</span>
 					</a>
 
-					<div class="bn-space-members__card-name">
-						<a href="<?php echo esc_url( $member_url ); ?>"><?php echo esc_html( $member_name ); ?></a>
-					</div>
-					<div class="bn-space-members__card-handle"><?php echo esc_html( $member_handle ); ?></div>
+					<div class="bn-md-card__body">
+						<div class="bn-md-card__identity">
+							<h3 class="bn-md-card__name"><a href="<?php echo esc_url( $member_url ); ?>"><?php echo esc_html( $member_name ); ?></a></h3>
+							<p class="bn-md-card__handle"><?php echo esc_html( $member_handle ); ?></p>
+						</div>
 
-					<span class="bn-badge" data-tone="<?php echo esc_attr( $role_meta['tone'] ); ?>">
-						<?php echo esc_html( $role_meta['label'] ); ?>
-					</span>
+						<span class="bn-badge bn-md-card__type" data-tone="<?php echo esc_attr( $role_meta['tone'] ); ?>"><?php echo esc_html( $role_meta['label'] ); ?></span>
 
-					<?php if ( '' !== $joined_formatted ) : ?>
-						<div class="bn-space-members__card-joined"><?php echo esc_html( $joined_formatted ); ?></div>
-					<?php endif; ?>
-
-					<?php
-					// Can the viewer manage this member (set role / remove)? These
-					// secondary actions live behind the overflow kebab so the card
-					// shows at most two primary actions (View + Message).
-					$bn_can_manage = ( $current_user_id !== $member_id && 'owner' !== $member_role && ( $bn_can_remove || $bn_can_set_role ) );
-					?>
-					<div class="bn-space-members__card-actions">
-						<a
-							href="<?php echo esc_url( $member_url ); ?>"
-							class="bn-btn"
-							data-variant="ghost"
-							data-size="sm"
-						><?php esc_html_e( 'View', 'buddynext' ); ?></a>
-						<?php if ( is_user_logged_in() && $current_user_id !== $member_id ) : ?>
-							<a
-								href="<?php echo esc_url( PageRouter::messages_url() ); ?>"
-								class="bn-btn"
-								data-variant="ghost"
-								data-size="sm"
-								aria-label="
-								<?php
-									/* translators: %s: member name */
-									printf( esc_attr__( 'Message %s', 'buddynext' ), esc_attr( $member_name ) );
-								?>
-								"
-							><?php buddynext_icon( 'message-circle' ); ?> <?php esc_html_e( 'Message', 'buddynext' ); ?></a>
+						<?php if ( '' !== $joined_formatted ) : ?>
+							<p class="bn-md-card__meta"><?php echo esc_html( $joined_formatted ); ?></p>
 						<?php endif; ?>
 
-						<?php if ( $bn_can_manage ) : ?>
-							<div
-								class="bn-space-members__menu-wrap"
-								data-wp-context='{"menuOpen":false}'
-								data-wp-on-document--click="actions.closeMenuOnOutside"
-							>
-								<button
-									type="button"
-									class="bn-space-members__menu"
-									aria-haspopup="true"
-									aria-expanded="false"
+						<div class="bn-md-card__actions">
+							<a href="<?php echo esc_url( $member_url ); ?>" class="bn-btn" data-variant="ghost" data-size="sm"><?php esc_html_e( 'View', 'buddynext' ); ?></a>
+							<?php if ( is_user_logged_in() && $current_user_id !== $member_id ) : ?>
+								<a
+									href="<?php echo esc_url( PageRouter::messages_url() ); ?>"
+									class="bn-btn"
+									data-variant="ghost"
+									data-size="sm"
 									aria-label="
 									<?php
 										/* translators: %s: member name */
-										printf( esc_attr__( 'More actions for %s', 'buddynext' ), esc_attr( $member_name ) );
+										printf( esc_attr__( 'Message %s', 'buddynext' ), esc_attr( $member_name ) );
 									?>
 									"
-									data-wp-on--click="actions.toggleMenu"
-									data-wp-bind--aria-expanded="state.menuExpanded"
-								><?php buddynext_icon( 'more-horizontal' ); ?></button>
-								<div
-									class="bn-space-members__menu-pop"
-									role="menu"
-									data-wp-bind--hidden="!state.menuOpen"
-									hidden
-								>
-									<?php if ( $bn_can_set_role && 'moderator' === $member_role ) : ?>
-										<button type="button" class="bn-space-members__menu-item" role="menuitem" data-user-id="<?php echo esc_attr( (string) $member_id ); ?>" data-role="member" data-wp-on--click="actions.changeRole"><?php esc_html_e( 'Make member', 'buddynext' ); ?></button>
-									<?php elseif ( $bn_can_set_role ) : ?>
-										<button type="button" class="bn-space-members__menu-item" role="menuitem" data-user-id="<?php echo esc_attr( (string) $member_id ); ?>" data-role="moderator" data-wp-on--click="actions.changeRole"><?php esc_html_e( 'Make moderator', 'buddynext' ); ?></button>
-									<?php endif; ?>
-									<?php if ( $bn_can_remove ) : ?>
-										<button type="button" class="bn-space-members__menu-item bn-space-members__menu-item--danger" role="menuitem" data-user-id="<?php echo esc_attr( (string) $member_id ); ?>" data-wp-on--click="actions.removeMember"><?php esc_html_e( 'Remove from space', 'buddynext' ); ?></button>
-									<?php endif; ?>
-								</div>
-							</div>
-						<?php endif; ?>
+								><?php buddynext_icon( 'message-circle' ); ?> <?php esc_html_e( 'Message', 'buddynext' ); ?></a>
+							<?php endif; ?>
+						</div>
 					</div>
 				</article>
 			<?php endforeach; ?>

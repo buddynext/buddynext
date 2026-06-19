@@ -364,12 +364,21 @@ class AssetService {
 			'bn-settings',
 		);
 
+		// A few feature stylesheets reuse another feature's shared component and
+		// therefore depend on it (not just bn-base). bn-spaces renders space
+		// member cards through the shared .bn-md-card component, which lives in
+		// bn-members.css — so it must load alongside bn-spaces.
+		$extra_style_deps = array(
+			'bn-spaces' => array( 'bn-members' ),
+		);
+
 		foreach ( $feature_styles as $handle ) {
 			$slug = str_replace( 'bn-', '', $handle );
+			$deps = array_merge( array( 'bn-base' ), $extra_style_deps[ $handle ] ?? array() );
 			wp_register_style(
 				$handle,
 				$this->assets_url . 'css/' . $handle . '.css',
-				array( 'bn-base' ),
+				$deps,
 				$v
 			);
 		}
