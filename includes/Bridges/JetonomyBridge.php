@@ -427,11 +427,24 @@ class JetonomyBridge {
 	 * @return void
 	 */
 	public function maybe_provision_and_redirect(): void {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only provision trigger from a tab link.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- nonce verified immediately below before any state change.
 		$space_id = isset( $_GET['bn_provision_forum'] ) ? absint( wp_unslash( $_GET['bn_provision_forum'] ) ) : 0;
-		// Provisioning mutates the space (creates its forum), so it must be gated
-		// to the space's owner/moderator (or a site admin) — not any logged-in
-		// user, who could otherwise provision a forum on any space by id.
+		if ( $space_id <= 0 ) {
+			return;
+		}
+
+		// CSRF guard: this GET handler MUTATES the space (creates its forum), so it
+		// must carry the per-space nonce the Discussions tab link embeds. Capability
+		// alone does not stop CSRF — a moderator could be tricked into loading a
+		// forged URL. Verify the nonce before anything else.
+		$bn_nonce = isset( $_GET['_bnpf'] ) ? sanitize_text_field( wp_unslash( $_GET['_bnpf'] ) ) : '';
+		if ( ! wp_verify_nonce( $bn_nonce, 'bn_provision_forum_' . $space_id ) ) {
+			return;
+		}
+
+		// Provisioning is also gated to the space's owner/moderator (or a site
+		// admin) — not any logged-in user, who could otherwise provision a forum on
+		// any space by id.
 		if ( ! $this->can_provision_forum( $space_id, get_current_user_id() ) ) {
 			return;
 		}
@@ -565,7 +578,15 @@ class JetonomyBridge {
 					$forum_url = $this->space_forum_url( $c->subject_id );
 					return '' !== $forum_url
 						? $forum_url
-						: add_query_arg( 'bn_provision_forum', $c->subject_id, home_url( '/spaces/' ) );
+						: add_query_arg(
+							array(
+								'bn_provision_forum' => $c->subject_id,
+								// Per-space nonce so the provision-on-GET handler can reject a
+								// forged/cross-site request (capability alone does not stop CSRF).
+								'_bnpf'              => wp_create_nonce( 'bn_provision_forum_' . $c->subject_id ),
+							),
+							home_url( '/spaces/' )
+						);
 				},
 			)
 		);

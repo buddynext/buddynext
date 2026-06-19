@@ -635,6 +635,19 @@ class SpaceService {
 			array( '%d' )
 		);
 
+		// Remove the per-space option rows (bn_space_{id}_*) so deleting a space
+		// doesn't leave orphaned autoloaded options behind. delete_option() keeps
+		// the options cache coherent (a raw LIKE delete would leave a stale
+		// alloptions entry for the request). Integrations that store their own
+		// per-space option register the suffix via the filter.
+		$bn_space_option_suffixes = apply_filters(
+			'buddynext_space_option_suffixes',
+			array( 'who_can_post', 'require_join_approval', 'jetonomy_forum_id', 'mvs_media_tab', 'banned_words' )
+		);
+		foreach ( (array) $bn_space_option_suffixes as $bn_suffix ) {
+			delete_option( 'bn_space_' . $space_id . '_' . sanitize_key( (string) $bn_suffix ) );
+		}
+
 		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
 		if ( isset( $space['slug'] ) && '' !== $space['slug'] ) {
 			wp_cache_delete( "space_slug_{$space['slug']}", self::CACHE_GROUP );

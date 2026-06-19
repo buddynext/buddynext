@@ -588,8 +588,8 @@ class WPMediaVerseBridge {
 			// inbox but no bell notification interrupts them — same suppression as
 			// restrict, opposite relationship direction.
 			if ( $blocks
-				&& ( $blocks->is_restricted( $recipient_id, $sender_id )
-					|| $blocks->is_muted( $recipient_id, $sender_id ) )
+				&& ( ( method_exists( $blocks, 'is_restricted' ) && $blocks->is_restricted( $recipient_id, $sender_id ) )
+					|| ( method_exists( $blocks, 'is_muted' ) && $blocks->is_muted( $recipient_id, $sender_id ) ) )
 			) {
 				continue;
 			}

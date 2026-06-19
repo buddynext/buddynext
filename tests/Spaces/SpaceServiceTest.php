@@ -151,6 +151,26 @@ class SpaceServiceTest extends \WP_UnitTestCase {
 		$this->assertNull( $this->service->get( $space_id ) );
 	}
 
+	public function test_delete_cleans_up_per_space_options(): void {
+		$space_id = $this->service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Optionful',
+				'slug' => 'optionful',
+				'type' => 'open',
+			)
+		);
+
+		// Per-space options that delete() previously left orphaned.
+		update_option( "bn_space_{$space_id}_who_can_post", 'members' );
+		update_option( "bn_space_{$space_id}_require_join_approval", '1' );
+
+		$this->service->delete( $space_id, $this->owner_id );
+
+		$this->assertFalse( get_option( "bn_space_{$space_id}_who_can_post" ) );
+		$this->assertFalse( get_option( "bn_space_{$space_id}_require_join_approval" ) );
+	}
+
 	public function test_delete_by_non_owner_returns_error(): void {
 		$space_id  = $this->service->create(
 			$this->owner_id,

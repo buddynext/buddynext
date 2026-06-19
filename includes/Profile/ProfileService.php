@@ -395,6 +395,11 @@ class ProfileService {
 				);
 				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$group_id = (int) $wpdb->insert_id;
+
+				// A group was auto-created — bust the groups cache too, otherwise
+				// get_groups() serves the pre-create list until the TTL expires and
+				// the new group/field appears to be missing.
+				wp_cache_delete( 'all_groups', self::CACHE_GROUP );
 			}
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		}

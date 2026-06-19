@@ -63,6 +63,33 @@ class ProfileServiceTest extends \WP_UnitTestCase {
 		$this->assertContains( 'bio', $all_keys );
 	}
 
+	/**
+	 * create_field() that auto-creates its group must bust the all_groups cache,
+	 * so the new group shows up immediately in get_groups() rather than after the
+	 * cache TTL expires.
+	 */
+	public function test_create_field_auto_group_busts_groups_cache(): void {
+		// Prime the all_groups cache so a stale entry would survive without a bust.
+		$this->service->get_groups();
+
+		$this->service->create_field(
+			array(
+				'field_key'  => 'auto_field',
+				'label'      => 'Auto Field',
+				'type'       => 'text',
+				'visibility' => 'public',
+				'group_name' => 'brand_new_group',
+				'sort_order' => 0,
+			)
+		);
+
+		$keys = array_map(
+			static fn( array $g ): string => (string) ( $g['group_key'] ?? '' ),
+			$this->service->get_groups()
+		);
+		$this->assertContains( 'brand_new_group', $keys );
+	}
+
 	public function test_save_and_get_profile_value(): void {
 		$field_id = $this->service->create_field(
 			array(
