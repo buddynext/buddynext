@@ -1284,123 +1284,10 @@
 	height: 16px;
 }
 
-/* Stats strip (5-cell band inside the hero) */
-.bn-pf-stats {
-	border-block-start: 1px solid var(--bn-line);
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-	background: var(--bn-canvas);
-}
-.bn-pf-stat {
-	padding: var(--bn-s4);
-	text-align: start;
-	border-inline-end: 1px solid var(--bn-line);
-	cursor: default;
-	transition: background var(--bn-dur-fast) var(--bn-ease);
-	min-width: 0;
-}
-.bn-pf-stat:last-child {
-	border-inline-end: none;
-}
-.bn-pf-stat:hover {
-	background: var(--bn-surface);
-}
-/* (Removed) .bn-pf-pills / .bn-pf-pill — the profile stat strip is now the
-   shared Nav metric row (.bn-nav-metrics.bn-pf-metricrow in bn-base.css),
-   rendered from the unified registry. The old strip template + its styling are
-   gone; one canonical metric component serves profile + space. */
-.bn-pf-stat--link {
-	cursor: pointer;
-	color: inherit;
-	text-decoration: none;
-	background: transparent;
-	border: 0;
-	border-inline-end: 1px solid var(--bn-line);
-	border-radius: 0;
-	font: inherit;
-	display: block;
-	width: 100%;
-}
-.bn-pf-stat--link:last-child {
-	border-inline-end: none;
-}
-.bn-pf-stat--link:hover {
-	background: var(--bn-surface);
-}
-.bn-pf-stat--link:focus-visible {
-	outline: 2px solid var(--bn-accent);
-	outline-offset: -2px;
-}
-.bn-pf-stat--link:hover .bn-pf-stat__value {
-	color: var(--bn-accent);
-}
-.bn-pf-stat__value {
-	font-family: var(--bn-font-display);
-	font-size: var(--bn-text-xl);
-	font-weight: 700;
-	letter-spacing: var(--bn-ls-tight);
-	color: var(--bn-ink);
-	line-height: var(--bn-leading-tight);
-}
-.bn-pf-stat__label {
-	font-family: var(--bn-font-mono);
-	font-size: 10px;
-	font-weight: 600;
-	letter-spacing: var(--bn-ls-wider);
-	text-transform: uppercase;
-	color: var(--bn-ink-4);
-	margin-block-start: 2px;
-}
-
-/* 7-day trend chip — sits on the value's baseline ("8  +1"), with the
-   label spanning the row beneath, so the delta never dangles unstyled
-   below the label. Tile bodies are laid out as a 2-col grid for this. */
-.bn-pf-stat,
-.bn-pf-stat--link {
-	display: grid;
-	grid-template-columns: auto 1fr;
-	grid-template-areas:
-		"value delta"
-		"label label";
-	align-items: baseline;
-	column-gap: var(--bn-s2);
-}
-.bn-pf-stat__value {
-	grid-area: value;
-}
-.bn-pf-stat__label {
-	grid-area: label;
-}
-.bn-pf-stat__delta {
-	grid-area: delta;
-	justify-self: start;
-	align-self: center;
-	font-family: var(--bn-font-mono);
-	font-size: 10px;
-	font-weight: 700;
-	line-height: 1;
-	padding: 2px 6px;
-	border-radius: var(--bn-r-sm);
-	white-space: nowrap;
-}
-.bn-pf-stat__delta[data-trend="up"] {
-	color: var(--bn-success);
-	background: var(--bn-success-bg);
-}
-.bn-pf-stat__delta[data-trend="down"] {
-	color: var(--bn-danger);
-	background: var(--bn-danger-bg);
-}
-.bn-pf-stat__delta[data-trend="flat"] {
-	color: var(--bn-ink-4);
-	background: var(--bn-sunken);
-}
-
-/* ── Tabs (v2 .bn-tabs primitive override for profile spacing) ───────── */
-.bn-pf-tabs {
-	padding-inline: var(--bn-s1);
-	margin-block-end: var(--bn-s4);
-}
+/* (Removed) .bn-pf-stats / .bn-pf-stat / .bn-pf-stat--link / .bn-pf-tabs —
+   the profile stat band + tab bar are now the canonical Nav components
+   (.bn-nav-metrics + .bn-tabs / .bn-subnav in bn-base.css), rendered from the
+   unified registry. One nav system; no profile-specific tab/stat CSS. */
 
 /* ── Activity cards ───────────────────────────────────────────────────── */
 .bn-reply-card,
@@ -1775,9 +1662,6 @@ a.bn-space-row:hover .bn-space-name {
 		padding-block-start: 0;
 	}
 	.bn-pf-cover { height: 160px; }
-	.bn-pf-stats { grid-template-columns: repeat(2, 1fr); }
-	.bn-pf-stat { border-block-end: 1px solid var(--bn-line); }
-	.bn-pf-stat:nth-child(2n) { border-inline-end: none; }
 }
 
 @media (max-width: 640px) {
@@ -1795,11 +1679,6 @@ a.bn-space-row:hover .bn-space-name {
 	}
 	.bn-pf-actions .bn-btn { flex: 1 1 auto; justify-content: center; }
 	.bn-profile-media-grid { grid-template-columns: repeat(2, 1fr); }
-	.bn-pf-tabs {
-		overflow-x: auto;
-		scrollbar-width: none;
-	}
-	.bn-pf-tabs::-webkit-scrollbar { display: none; }
 }
 
 /* iPhone 14 / Pixel widths and below: stack action row, single-column timeline. */
@@ -1809,7 +1688,6 @@ a.bn-space-row:hover .bn-space-name {
 		align-items: stretch;
 	}
 	.bn-pf-actions .bn-btn { width: 100%; }
-	.bn-pf-stats { grid-template-columns: repeat(2, 1fr); }
 	.bn-pf-timeline { gap: var(--bn-s3); }
 }
 
@@ -2815,13 +2693,7 @@ a.bn-space-row:hover .bn-space-name {
 	line-height: var(--bn-leading-snug);
 }
 
-/* Stats grid: 2x2 on mobile per spec. */
 @media (max-width: 640px) {
-	.bn-pf-stats {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: var(--bn-s3);
-	}
 	.bn-pf-about-card { padding: var(--bn-s4); }
 }
 
