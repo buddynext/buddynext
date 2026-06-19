@@ -68,6 +68,17 @@ class EmailSender {
 			return;
 		}
 
+		// Honor the master email channel toggle (Settings -> Notifications), mirroring
+		// the in_app master check in NotificationService::create(). Previously only the
+		// per-type email_freq was consulted, so disabling the master email channel had
+		// no effect. Suppress only when explicitly disabled (an absent key = on).
+		if ( method_exists( $this->pref_service, 'get_channel_prefs' ) ) {
+			$channels = (array) $this->pref_service->get_channel_prefs( $user_id );
+			if ( array_key_exists( 'email', $channels ) && empty( $channels['email'] ) ) {
+				return;
+			}
+		}
+
 		$pref       = $this->pref_service->get_pref( $user_id, $notification_type );
 		$email_freq = $pref['email_freq'] ?? 'immediate';
 

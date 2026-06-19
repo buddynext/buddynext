@@ -321,7 +321,13 @@ class NotificationPrefService {
 			array( '%d', '%d' )
 		);
 
-		return ( false !== $updated && $updated > 0 );
+		// $wpdb->update() returns the affected-row count, or false on a DB error.
+		// 0 rows means the value already equals the user's choice (e.g. re-picking
+		// the default 'all') — a successful no-op, not a failure. Treating it as
+		// failure surfaced a false "Could not save" on the first click of a
+		// default-valued option. Only an actual DB error (false) is a failure;
+		// the controller already verified membership before calling this.
+		return false !== $updated;
 	}
 
 	/**
