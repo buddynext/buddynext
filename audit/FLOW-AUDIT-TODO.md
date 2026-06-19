@@ -1,0 +1,60 @@
+# BuddyNext Flow-Audit — Remaining Work (plugin-specific)
+
+**Date:** 2026-06-19
+**Source:** `audit/flow-audit-report.md` (committed) — produced by the wppqa flow-audit suite over the BuddyNext **free + Pro** pair.
+**Scope:** BuddyNext/BuddyNext-Pro code findings only. Tool-level improvements live in the MCP repo's handoff, not here.
+
+## Re-run the audit (after any fix)
+
+```
+cd ~/.mcp-servers/wp-plugin-qa-mcp-server && npm run build && \
+  node build/flow-audit-cli.js /Users/vapvarun/dev/repos/buddynext /Users/vapvarun/dev/repos/buddynext-pro
+```
+
+Current: **6 gate-failing errors** + warning backlog. `template-contract`, `rest-js-contract`, `canonical-usage` are clean (templates carry no raw SQL). Suppressions live in `audit/.flow-audit-baseline.json` (only confirmed false-positives + one intentional stub).
+
+## Wave 0 — Publish · ~2 min
+- **B0.1 Push the BuddyNext repo.** `master` has `0064ab2` (report + baseline + `.gitignore` for `audit/flow.json`). `git push`. Keep Pro in lockstep.
+
+---
+
+## Wave 1 — Fix the real defects (go-live blockers) · 6 errors
+
+Verify root cause before changing. The guard dups span the free↔Pro boundary — consolidate to a shared helper and keep free+Pro in lockstep.
+
+- **B1.1 Consolidate `require_logged_in` (4 identical copies).**
+  - `BuddyNext\Auth\TwoFactorController::require_auth` — includes/Auth/TwoFactorController.php:117 (free)
+  - `BuddyNextPro\Search\Controllers\SavedSearchController::require_logged_in` — includes/Search/Controllers/SavedSearchController.php:302
+  - `BuddyNextPro\Realtime\AuthController::require_logged_in` — includes/Realtime/AuthController.php:105
+  - `BuddyNextPro\Analytics\Controllers\AnalyticsController::require_logged_in` — includes/Analytics/Controllers/AnalyticsController.php:388
+  - → One canonical guard (shared trait / Pro base controller); route the rest through it. Acceptance: `dup:610151f2…` gone on re-run.
+- **B1.2 Consolidate `require_admin`/permission-check (3 identical copies).**
+  - `BuddyNext\Admin\SlugCheckController::permission_check` — includes/Admin/SlugCheckController.php:82 (free)
+  - `BuddyNextPro\Realtime\AuthController::require_admin` — includes/Realtime/AuthController.php:114
+  - `BuddyNextPro\Analytics\Controllers\AnalyticsController::require_admin` — includes/Analytics/Controllers/AnalyticsController.php:352
+  - Acceptance: `dup:f51c9b83…` gone.
+- **B1.3 Consolidate the cursor decoder (2 identical copies).**
+  - `BuddyNext\Feed\FeedService::decode_cursor` — includes/Feed/FeedService.php:1095
+  - `BuddyNext\Hashtags\HashtagService::decode_feed_cursor` — includes/Hashtags/HashtagService.php:275
+  - → One shared cursor helper. Acceptance: `dup:fdbefde7…` gone.
+- **B1.4 Verify the 3 `/buddynext/v1/spaces` reads** (`category_id`, `parent_id`, `slug`).
+  - JS reads these near the route URL but `includes/Spaces/SpaceController.php`'s response shape doesn't list them. Per key: real envelope gap → add to the response; OR a form-field/other-object read → confirm false positive and add to `audit/.flow-audit-baseline.json` with a reason. Check the spaces JS under `assets/`.
+
+**Wave acceptance:** re-run exits 0 (every error fixed or baselined-with-reason).
+
+---
+
+## Wave 2 — Triage the warning backlog · BuddyNext finding lists (don't gate)
+
+Treat as candidates, not certainties.
+
+- **B2.1 Orphan candidates (1331).** Symbols with no resolved inbound call/registration/load/read. Over-reports because dynamic dispatch (`$obj->m()` of unknown type, `call_user_func`, variable callbacks) isn't resolved (the MCP-side W2.2 will shrink this further). Walk the list: delete genuinely dead methods/functions/templates; baseline the rest by dispatch pattern. Start with the highest-signal subset — top-level procedural functions and templates flagged never-consumed.
+- **B2.2 Template-usage never-loaded (16).** Template files on disk with no `buddynext_get_template()` loader. Short, high-signal — delete dead templates or wire the missing loader.
+- **B2.3 rest-flow dead-output (362).** Response keys returned that no JS/SSR consumer reads. Spot-check for fields safe to drop or consumers never wired.
+- **B2.4 logic-flow coverage (216).** Routes absent from `audit/journeys.json` + journeys with no resolving route. Decide which user-facing routes deserve a journey + cert oracle for go-live coverage.
+
+---
+
+## Notes
+- These are BuddyNext-specific. Generic suite improvements (libs/vendor call resolution, orphan dynamic-dispatch, report capping, MCP tool registration, rollout) are tracked in the MCP repo handoff and benefit every plugin.
+- The 1331 orphan count already reflects the method-call-graph refinement (was 2777). Doing the MCP-side dynamic-dispatch resolution first will cut B2.1 further before triage.
