@@ -37,20 +37,47 @@ if ( empty( $bn_nav_items ) ) {
 
 $bn_nav_active = isset( $active ) ? (string) $active : '';
 $bn_nav_label  = isset( $tablist_label ) && '' !== (string) $tablist_label ? (string) $tablist_label : __( 'Sections', 'buddynext' );
-$bn_nav_is_sub     = ! empty( $is_sub );
-$bn_nav_extra      = isset( $extra_class ) ? trim( (string) $extra_class ) : '';
+$bn_nav_is_sub = ! empty( $is_sub );
+$bn_nav_extra  = isset( $extra_class ) ? trim( (string) $extra_class ) : '';
+
+// Sub-bar reactive wiring: a sub-bar is ALWAYS in the DOM (so a reactive parent
+// click can reveal it without a reload) and toggles its own visibility from the
+// branch state. These args are set only by the recursive sub-bar render below.
+$bn_subnav_branch = isset( $subnav_branch ) && is_array( $subnav_branch ) ? $subnav_branch : array();
+$bn_subnav_target = isset( $subnav_parent_target ) ? (string) $subnav_parent_target : '';
+$bn_subnav_hidden = ! empty( $subnav_hidden );
+$bn_is_subnav_box = $bn_nav_is_sub && ! empty( $bn_subnav_branch );
+
+// Pre-escaped sub-bar context attribute (the branch slugs that keep this sub-bar
+// shown while one of them is the active tab). Built here to keep the markup flat.
+$bn_subnav_ctx_attr = $bn_is_subnav_box
+	? esc_attr(
+		(string) wp_json_encode(
+			array(
+				'tabSlug' => $bn_subnav_target,
+				'branch'  => $bn_subnav_branch,
+			)
+		)
+	)
+	: '';
 
 $bn_nav_class = 'bn-tabs' . ( $bn_nav_is_sub ? ' bn-tabs--sub' : '' ) . ( '' !== $bn_nav_extra ? ' ' . $bn_nav_extra : '' );
 ?>
-<div class="<?php echo esc_attr( $bn_nav_class ); ?>" role="tablist" aria-label="<?php echo esc_attr( $bn_nav_label ); ?>">
+<div class="<?php echo esc_attr( $bn_nav_class ); ?>" role="tablist" aria-label="<?php echo esc_attr( $bn_nav_label ); ?>"
+	<?php if ( $bn_is_subnav_box ) : ?>
+		data-wp-context='<?php echo $bn_subnav_ctx_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above. ?>'
+		data-wp-bind--hidden="!state.isActiveBranch"
+		<?php echo $bn_subnav_hidden ? 'hidden' : ''; ?>
+	<?php endif; ?>
+>
 	<?php
 	foreach ( $bn_nav_items as $bn_item ) :
 		if ( ! ( $bn_item instanceof NavItem ) ) {
 			continue;
 		}
-		$bn_target = null !== $bn_item->tab ? $bn_item->tab : $bn_item->id;
-		$bn_count  = ( null !== $bn_item->count_value && $bn_item->count_value > 0 ) ? (string) $bn_item->count_value : '';
-		$bn_aria   = '' !== $bn_count ? sprintf( '%s (%s)', $bn_item->label, $bn_count ) : $bn_item->label;
+		$bn_target   = null !== $bn_item->tab ? $bn_item->tab : $bn_item->id;
+		$bn_count    = ( null !== $bn_item->count_value && $bn_item->count_value > 0 ) ? (string) $bn_item->count_value : '';
+		$bn_aria     = '' !== $bn_count ? sprintf( '%s (%s)', $bn_item->label, $bn_count ) : $bn_item->label;
 		$bn_reactive = null !== $bn_item->tab;
 
 		// Branch: a parent with sub-nav stays active when ANY child is the active
@@ -109,10 +136,11 @@ $bn_nav_class = 'bn-tabs' . ( $bn_nav_is_sub ? ' bn-tabs--sub' : '' ) . ( '' !==
 	<?php endforeach; ?>
 </div>
 <?php
-// One-level sub-nav: render the children below the bar when the active tab is
-// the parent OR one of its children (single activeTab dimension — a child being
-// active keeps the parent's branch open). The sub-bar's active child is driven
-// by the same activeTab, so the child whose tab === activeTab lights up.
+// One-level sub-nav: render EVERY parent's children below the bar (always in the
+// DOM) and let each sub-bar reveal itself reactively when its branch is active.
+// Conditional PHP rendering would break the reactive case — a parent clicked
+// client-side never reloads, so a sub-bar that wasn't server-rendered could
+// never appear. The sub-bar's active child is driven by the same activeTab.
 if ( ! $bn_nav_is_sub ) :
 	foreach ( $bn_nav_items as $bn_item ) :
 		if ( ! ( $bn_item instanceof NavItem ) || empty( $bn_item->children ) ) {
@@ -125,17 +153,19 @@ if ( ! $bn_nav_is_sub ) :
 				$bn_child_targets[] = null !== $bn_kid->tab ? $bn_kid->tab : $bn_kid->id;
 			}
 		}
-		$bn_branch = array_merge( array( $bn_target, $bn_item->id ), $bn_child_targets );
-		if ( in_array( $bn_nav_active, $bn_branch, true ) ) :
-			buddynext_get_template(
-				'parts/nav-bar.php',
-				array(
-					'items'         => $bn_item->children,
-					'active'        => $bn_nav_active,
-					'tablist_label' => $bn_item->label,
-					'is_sub'        => true,
-				)
-			);
-		endif;
+		$bn_branch        = array_merge( array( $bn_target, $bn_item->id ), $bn_child_targets );
+		$bn_branch_active = in_array( $bn_nav_active, $bn_branch, true );
+		buddynext_get_template(
+			'parts/nav-bar.php',
+			array(
+				'items'                => $bn_item->children,
+				'active'               => $bn_nav_active,
+				'tablist_label'        => $bn_item->label,
+				'is_sub'               => true,
+				'subnav_branch'        => $bn_child_targets,
+				'subnav_parent_target' => $bn_target,
+				'subnav_hidden'        => ! $bn_branch_active,
+			)
+		);
 	endforeach;
 endif;
