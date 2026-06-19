@@ -97,7 +97,18 @@ class GamificationAchievements {
 			return;
 		}
 
-		echo '<div class="bn-profile-tab-panel bn-achievements" data-tab-panel="' . esc_attr( self::TAB_SLUG ) . '" hidden>';
+		// Reactive reveal: always in the DOM, shown when activeTab === slug
+		// (Interactivity), matching every other profile panel — so the reactive
+		// Achievements tab reveals it without a reload.
+		$active   = (string) ( $args['active_tab'] ?? '' );
+		$ctx_attr = esc_attr( (string) wp_json_encode( array( 'tabSlug' => self::TAB_SLUG ) ) );
+
+		printf(
+			'<div class="bn-profile-tab-panel bn-achievements" data-tab-panel="%1$s" data-wp-context=\'%2$s\' data-wp-bind--hidden="!state.isActiveTab"%3$s>',
+			esc_attr( self::TAB_SLUG ),
+			$ctx_attr, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above.
+			self::TAB_SLUG === $active ? '' : ' hidden'
+		);
 		$this->render_standing( $member_id );
 		$this->render_badges( $member_id );
 		echo '</div>';
