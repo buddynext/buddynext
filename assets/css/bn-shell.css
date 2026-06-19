@@ -86,6 +86,22 @@
 	box-sizing: border-box;
 }
 
+/* Host-theme top-gap reset — the burst-out above only fixes HORIZONTAL
+ * containment. Many themes also add top padding/margin on their content
+ * wrapper (e.g. Reign's #content carries padding: 40px 0), which leaves a dead
+ * band between the site header and the full-bleed shell on hub pages. .bn-app
+ * owns its own top rhythm (.bn-app__main), so zero the host wrapper's top
+ * spacing — scoped to body.bn-page so non-hub pages keep the theme's spacing.
+ * The #content id selector matches Reign's id-specificity rule; the class
+ * selectors cover other host themes. */
+body.bn-page #content,
+body.bn-page .site-content,
+body.bn-page .content-area,
+body.bn-page .site-main {
+	padding-top: 0;
+	margin-top: 0;
+}
+
 /* Honour the WP admin bar when present (logged-in user). */
 body.admin-bar .bn-app {
 	min-height: calc(100vh - 32px);
