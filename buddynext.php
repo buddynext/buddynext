@@ -330,6 +330,28 @@ function buddynext_nav_set( array $items, string $id, array $changes ): array {
 	return $items;
 }
 
+/**
+ * The DOM id of the reactive tab-panel for a tab slug.
+ *
+ * Single source of truth so a tab's `aria-controls` and its panel's `id` always
+ * match across every renderer (nav-bar, nav-subnav, profile/portfolio/achievement
+ * panels). Reactive (in-page) panels only — page-nav tabs have no in-DOM panel.
+ *
+ * @param string $slug Tab slug (NavItem->tab / data-tab-panel value).
+ * @return string
+ */
+function buddynext_nav_panel_id( string $slug ): string {
+	return 'bn-tabpanel-' . sanitize_html_class( $slug );
+}
+
+/**
+ * Register an extended profile field from code (e.g. an integration adding a
+ * field to a member's profile). Accumulates registrations and attaches them to
+ * the `buddynext_profile_fields` groups on first call.
+ *
+ * @param array<string,mixed> $args Field definition (group_key, key, label, type, …).
+ * @return void
+ */
 function buddynext_register_profile_field( array $args ): void {
 	static $registry = array();
 	static $hooked   = false;

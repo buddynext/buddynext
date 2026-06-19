@@ -460,6 +460,43 @@ class NavRegistryTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The hide_empty flag WITHOUT a count is a no-op (not a silent always-hide) —
+	 * there is nothing to be "empty", so the item stays visible.
+	 */
+	public function test_hide_empty_ignored_when_no_count(): void {
+		$this->reg->register(
+			array(
+				'id'         => 'rail',
+				'surface'    => 'profile',
+				'layer'      => 'metric',
+				'label'      => 'Rail',
+				'hide_empty' => true,
+			)
+		);
+		$out = $this->reg->resolve( new NavContext( 'profile', 5, 5 ) );
+		$this->assertSame( array( 'rail' ), $this->ids( $out, 'metric' ) );
+	}
+
+	/**
+	 * A count callable returning a negative value is clamped to 0 (never a "-1"
+	 * badge), so hide_empty treats it as empty too.
+	 */
+	public function test_negative_count_clamped_to_zero(): void {
+		$this->reg->register(
+			array(
+				'id'      => 'neg',
+				'surface' => 'profile',
+				'layer'   => 'metric',
+				'label'   => 'Neg',
+				'count'   => static fn( NavContext $c ) => -5,
+			)
+		);
+		$out  = $this->reg->resolve( new NavContext( 'profile', 5, 5 ) );
+		$item = $out->layer( 'metric' )[0];
+		$this->assertSame( 0, $item->count_value );
+	}
+
+	/**
 	 * The `buddynext_register_nav` action fires exactly once, even across many
 	 * resolve() calls and multiple surfaces (correctness + no double-registration).
 	 */

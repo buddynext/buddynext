@@ -86,6 +86,11 @@ $bn_nav_child_targets = static function ( NavItem $item ): array {
 				)
 				: array( 'tabSlug' => $bn_target );
 			$bn_ctx_attr      = esc_attr( (string) wp_json_encode( $bn_ctx ) );
+
+			// A leaf reactive tab controls its in-page panel (tablist a11y). A parent
+			// tab owns no panel of its own (it switches to a child), so it carries no
+			// aria-controls; a page-nav link tab has no in-DOM panel either.
+			$bn_controls = ( $bn_reactive && ! $bn_has_children ) ? buddynext_nav_panel_id( $bn_target ) : '';
 			?>
 			<?php if ( $bn_reactive && null !== $bn_item->url_value ) : ?>
 				<a class="bn-tab" role="tab"
@@ -93,6 +98,7 @@ $bn_nav_child_targets = static function ( NavItem $item ): array {
 					data-wp-class--active="<?php echo esc_attr( $bn_state_active ); ?>"
 					data-wp-bind--aria-selected="<?php echo esc_attr( $bn_state_active ); ?>"
 					aria-selected="<?php echo $bn_is_active ? 'true' : 'false'; ?>"
+					<?php echo '' !== $bn_controls ? 'aria-controls="' . esc_attr( $bn_controls ) . '"' : ''; ?>
 					aria-label="<?php echo esc_attr( $bn_aria ); ?>"
 					data-wp-on--click="actions.setTab"
 					data-tab="<?php echo esc_attr( $bn_target ); ?>"
@@ -105,6 +111,7 @@ $bn_nav_child_targets = static function ( NavItem $item ): array {
 					data-wp-class--active="<?php echo esc_attr( $bn_state_active ); ?>"
 					data-wp-bind--aria-selected="<?php echo esc_attr( $bn_state_active ); ?>"
 					aria-selected="<?php echo $bn_is_active ? 'true' : 'false'; ?>"
+					<?php echo '' !== $bn_controls ? 'aria-controls="' . esc_attr( $bn_controls ) . '"' : ''; ?>
 					aria-label="<?php echo esc_attr( $bn_aria ); ?>"
 					data-wp-on--click="actions.setTab"
 					data-tab="<?php echo esc_attr( $bn_target ); ?>">

@@ -61,7 +61,8 @@ final class NavItem {
 	 * @param string|null       $url        Real route (rail/context/metric list).
 	 * @param string|null       $capability Capability gate (buddynext_can), null = public.
 	 * @param callable|null     $condition  callable(NavContext):bool extra visibility gate.
-	 * @param bool              $hide_empty Omit when the resolved count is 0/null.
+	 * @param bool              $hide_empty Omit when the resolved count is 0 (only
+	 *                                      honoured when a `count` is supplied).
 	 * @param int               $priority   Default order (lower = earlier).
 	 * @param string|null       $before     Order anchor: place before this item id.
 	 * @param string|null       $after      Order anchor: place after this item id.
@@ -181,7 +182,10 @@ final class NavItem {
 			url: $url,
 			capability: isset( $a['capability'] ) && '' !== (string) $a['capability'] ? (string) $a['capability'] : null,
 			condition: $condition,
-			hide_empty: ! empty( $a['hide_empty'] ),
+			// Only honour hide_empty when a count is actually supplied — otherwise a
+			// count-less item with hide_empty would resolve to a null count and be
+			// hidden forever (a silent foot-gun), which is never the intent.
+			hide_empty: ! empty( $a['hide_empty'] ) && null !== $count,
 			priority: isset( $a['priority'] ) ? (int) $a['priority'] : 50,
 			before: $before,
 			after: $after,
@@ -225,7 +229,10 @@ final class NavItem {
 		if ( null === $this->count ) {
 			return null;
 		}
-		return is_callable( $this->count ) ? (int) call_user_func( $this->count, $ctx ) : (int) $this->count;
+		$value = is_callable( $this->count ) ? (int) call_user_func( $this->count, $ctx ) : (int) $this->count;
+		// A count is a badge — never negative. Clamp so a callable returning a
+		// stray -1 can't render as a "-1" pill or dodge the hide_empty zero check.
+		return max( 0, $value );
 	}
 
 	/**
@@ -249,8 +256,15 @@ final class NavItem {
 
 	/**
 	 * Whether this item is the active one in this context. Uses the `active`
-	 * override when supplied; otherwise the renderer decides from the live tab /
-	 * route (so this only fires for explicit overrides).
+	 * override when supplied; otherwise false — active state is a render/consumer
+	 * concern, not a contract value.
+	 *
+	 * Active state is intentionally NOT resolved here because it depends on the
+	 * live tab/route, which the registry has no business knowing. Every consumer
+	 * (the web renderer AND any REST/app client) computes it the same way from the
+	 * resolved tree + the current tab: a leaf is active when its `tab` matches the
+	 * current tab; a PARENT is "active" (branch-active) when ANY of its `children`
+	 * is the active tab. Compute it from `tab` + `children`, not from this method.
 	 *
 	 * @param NavContext $ctx Resolution context.
 	 */

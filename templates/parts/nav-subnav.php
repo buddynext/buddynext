@@ -71,6 +71,7 @@ $bn_sub_ctx = esc_attr(
 				data-wp-class--active="state.isActiveTab"
 				data-wp-bind--aria-selected="state.isActiveTab"
 				aria-selected="<?php echo $bn_s_active ? 'true' : 'false'; ?>"
+				aria-controls="<?php echo esc_attr( buddynext_nav_panel_id( $bn_s_target ) ); ?>"
 				aria-label="<?php echo esc_attr( $bn_s_aria ); ?>"
 				data-wp-on--click="actions.setTab"
 				data-tab="<?php echo esc_attr( $bn_s_target ); ?>">
