@@ -82,6 +82,22 @@ class BookmarkController extends BaseRestController {
 	}
 
 	/**
+	 * Resolve the shared BookmarkService.
+	 *
+	 * Uses the container singleton (the same instance the post-card template
+	 * reads through) so a write here busts the exact cache a subsequent read
+	 * sees — avoiding any stale-bookmark window. Falls back to a new instance
+	 * when the container is unavailable.
+	 *
+	 * @return BookmarkService
+	 */
+	private function bookmarks(): BookmarkService {
+		return function_exists( 'buddynext_service' )
+			? buddynext_service( 'bookmarks' )
+			: new BookmarkService();
+	}
+
+	/**
 	 * Bookmark a post.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
@@ -95,7 +111,7 @@ class BookmarkController extends BaseRestController {
 			return new WP_REST_Response( array( 'code' => 'bookmarks_disabled' ), 403 );
 		}
 
-		( new BookmarkService() )->bookmark( $user_id, $post_id );
+		$this->bookmarks()->bookmark( $user_id, $post_id );
 
 		return new WP_REST_Response( array( 'bookmarked' => true ), 200 );
 	}
@@ -110,7 +126,7 @@ class BookmarkController extends BaseRestController {
 		$post_id = (int) $request->get_param( 'id' );
 		$user_id = get_current_user_id();
 
-		( new BookmarkService() )->unbookmark( $user_id, $post_id );
+		$this->bookmarks()->unbookmark( $user_id, $post_id );
 
 		return new WP_REST_Response( array( 'bookmarked' => false ), 200 );
 	}
@@ -132,7 +148,7 @@ class BookmarkController extends BaseRestController {
 	public function get_bookmarks( WP_REST_Request $request ): WP_REST_Response {
 		$user_id = get_current_user_id();
 		$expand  = (string) ( $request->get_param( 'expand' ) ?? '' );
-		$all_ids = ( new BookmarkService() )->user_bookmarks( $user_id );
+		$all_ids = $this->bookmarks()->user_bookmarks( $user_id );
 
 		if ( 'posts' !== $expand ) {
 			return new WP_REST_Response( array( 'ids' => $all_ids ), 200 );
