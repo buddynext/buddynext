@@ -1377,6 +1377,14 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	margin-block-start: var(--bn-s2);
 }
 
+/* Per-selector [hidden] guard so a collapsed reply form is actually hidden,
+   rather than relying solely on the global [hidden]{display:none!important}
+   reset (which a theme/specificity override could defeat). The display:flex
+   above only applies to the visible state. */
+.bn-comment__reply-form[hidden] {
+	display: none;
+}
+
 .bn-comment__replies {
 	display: flex;
 	flex-direction: column;
@@ -1392,7 +1400,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 
 .bn-comment-form__avatar { flex-shrink: 0; }
 
-.bn-comment-form__input {
+.bn-comment-form__input,
+.bn-comment__reply-input {
 	flex: 1;
 	min-width: 0;
 	border: 1px solid var(--bn-line);
@@ -1407,7 +1416,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	transition: border-color var(--bn-dur-fast, 120ms) var(--bn-ease, ease), background var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
 }
 
-.bn-comment-form__input:focus {
+.bn-comment-form__input:focus,
+.bn-comment__reply-input:focus {
 	outline: 0;
 	border-color: var(--bn-accent);
 	background: var(--bn-surface);

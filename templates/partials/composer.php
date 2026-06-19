@@ -43,6 +43,20 @@ if ( ! $composer_user ) {
 	return;
 }
 
+// Capability gate — mirror the server create-post gate (PostController) so the
+// composer never renders for a user who cannot post here (e.g. a subscriber in
+// an admin-only community). Without this, submitting 403s and the error block
+// offers a pointless Retry. The space feed panel already gates this way; this
+// covers the home feed include, which previously rendered the composer to all.
+if ( function_exists( 'buddynext_can' ) ) {
+	$composer_can_post = $composer_space
+		? buddynext_can( $composer_user_id, 'buddynext-spaces/post', array( 'space_id' => $composer_space ) )
+		: buddynext_can( $composer_user_id, 'buddynext-feed/create-post' );
+	if ( ! $composer_can_post ) {
+		return;
+	}
+}
+
 $composer_display = $composer_user->display_name;
 $composer_avatar  = get_avatar_url( $composer_user_id, array( 'size' => 76 ) );
 $composer_initial = mb_substr( $composer_display, 0, 1 );
@@ -155,6 +169,8 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			<span class="bn-composer__error-text" data-wp-text="state.errorMessage"></span>
 			<button class="bn-composer__error-retry"
 				type="button"
+				hidden
+				data-wp-bind--hidden="state.retryHidden"
 				data-wp-on--click="actions.submit"><?php esc_html_e( 'Retry', 'buddynext' ); ?></button>
 		</div>
 

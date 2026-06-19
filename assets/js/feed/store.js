@@ -643,7 +643,10 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		replyForm.hidden = true;
 
 		const replyTextarea = document.createElement( 'textarea' );
-		replyTextarea.className = 'bn-comment-form__input';
+		// Dedicated reply class (shares the input rule via a comma selector in
+		// bn-feed.css) so it no longer collides with the post-level comment
+		// input's class.
+		replyTextarea.className = 'bn-comment__reply-input';
 		replyTextarea.placeholder = 'Write a reply...';
 		replyTextarea.rows = 1;
 		replyForm.appendChild( replyTextarea );
@@ -2017,6 +2020,14 @@ store( 'buddynext/post-composer', {
 		get errorMessage() {
 			try { return getContext().errorMessage || ''; } catch ( _e ) { return ''; }
 		},
+		get retryHidden() {
+			// Hide the Retry button when there's no error, OR when the error is
+			// non-retryable (e.g. a 403 — retrying can never succeed).
+			try {
+				const ctx = getContext();
+				return ! ( ctx.errorMessage || '' ) || false === ctx.errorRetryable;
+			} catch ( _e ) { return true; }
+		},
 		get hasNoError() {
 			try { return ! ( getContext().errorMessage || '' ); } catch ( _e ) { return true; }
 		},
@@ -2299,6 +2310,7 @@ store( 'buddynext/post-composer', {
 				return;
 			}
 			ctx.errorMessage = '';
+			ctx.errorRetryable = true;
 			ctx.submitting   = true;
 
 			// Collect poll options and media attachments.
@@ -2435,14 +2447,22 @@ store( 'buddynext/post-composer', {
 					}
 					return;
 				}
-				let msg = 'Could not publish your post. Try again.';
 				const data = res.data;
+				// A 401/403 (or rest_forbidden) means the user cannot post here —
+				// retrying will always fail, so show a permission message and hide
+				// the Retry affordance. Other errors stay retryable.
+				const nonRetryable = res.status === 401 || res.status === 403 || ( data && data.code === 'rest_forbidden' );
+				let msg = nonRetryable
+					? 'You don’t have permission to post here.'
+					: 'Could not publish your post. Try again.';
 				if ( data && data.message ) { msg = data.message; }
-				ctx.errorMessage = msg;
-				ctx.submitting   = false;
+				ctx.errorMessage   = msg;
+				ctx.errorRetryable = ! nonRetryable;
+				ctx.submitting     = false;
 			} catch ( _e ) {
-				ctx.errorMessage = 'Network error. Try again.';
-				ctx.submitting   = false;
+				ctx.errorMessage   = 'Network error. Try again.';
+				ctx.errorRetryable = true;
+				ctx.submitting     = false;
 			}
 		},
 		togglePrivacy() {

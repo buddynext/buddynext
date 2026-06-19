@@ -271,15 +271,18 @@ do_action( 'buddynext_part_post_actions_before', $args );
 	?>
 
 	<?php if ( ! empty( $args['can_bookmark'] ) ) : ?>
+		<?php $bn_bookmark_pressed = ! empty( $is_bookmarked ); ?>
 		<button
 			type="button"
-			class="bn-post-card__action-btn"
+			class="bn-post-card__action-btn<?php echo $bn_bookmark_pressed ? ' is-bookmarked' : ''; ?>"
 			aria-label="<?php esc_attr_e( 'Bookmark post', 'buddynext' ); ?>"
+			aria-pressed="<?php echo $bn_bookmark_pressed ? 'true' : 'false'; ?>"
 			data-wp-on--click="actions.toggleBookmark"
 			data-post-id="<?php echo absint( $bn_actions_post_id ); ?>"
 			data-wp-bind--class="state.bookmarkBtnClass"
+			data-wp-bind--aria-pressed="state.bookmarked"
 		>
-			<span data-wp-bind--aria-pressed="state.bookmarked"><?php buddynext_icon( 'bookmark' ); ?></span>
+			<span aria-hidden="true"><?php buddynext_icon( 'bookmark' ); ?></span>
 			<span class="bn-post-card__action-label"><?php esc_html_e( 'Save', 'buddynext' ); ?></span>
 		</button>
 	<?php endif; ?>
