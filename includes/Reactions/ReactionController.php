@@ -203,6 +203,15 @@ class ReactionController extends BaseRestController {
 
 		$raw = $service->get_reactors( $object_type, $object_id, $limit );
 
+		// Prime the user cache in ONE query so the per-row display_name + avatar
+		// lookups below hit the cache instead of issuing a get_userdata() query
+		// each (N+1 on a popular post's reactor list). cache_users() bulk-loads
+		// the users and their meta.
+		$reactor_ids = array_map( static fn( $r ): int => (int) $r['user_id'], $raw );
+		if ( ! empty( $reactor_ids ) ) {
+			cache_users( array_values( array_unique( $reactor_ids ) ) );
+		}
+
 		$items = array();
 		foreach ( $raw as $row ) {
 			$items[] = array(
@@ -222,5 +231,4 @@ class ReactionController extends BaseRestController {
 			200
 		);
 	}
-
 }

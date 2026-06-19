@@ -148,11 +148,11 @@ else :
 
 	// ── First-use date label ─────────────────────────────────────────────────
 	$first_used_label = '';
-	if ( null !== $hashtag && $hashtag->created_at ) {
-		$first_used_label = buddynext_date_local( (string) $hashtag->created_at );
+	if ( null !== $hashtag && ! empty( $hashtag['created_at'] ) ) {
+		$first_used_label = buddynext_date_local( (string) $hashtag['created_at'] );
 	}
 
-	$post_count_total = absint( $hashtag->post_count );
+	$post_count_total = absint( $hashtag['post_count'] ?? 0 );
 	?>
 <div
 	class="bn-hashtag-feed"

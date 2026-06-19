@@ -747,11 +747,22 @@ class CommentService {
 		// param), so OFFSET depth stays shallow. Revisit if threaded "load more"
 		// pagination ships in the UI.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// Keep a soft-deleted top-level comment ONLY when it still has a
+		// non-deleted reply, so its surviving thread renders under a "[deleted]"
+		// tombstone (delete() soft-deletes precisely so "threads remain intact").
+		// Without this, a deleted parent was dropped here while list() fetched its
+		// replies separately — and those replies, keyed by the now-absent parent
+		// id, were never attached and silently vanished. Empty deleted comments
+		// (no surviving reply) are still excluded.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_comments
-				 WHERE object_type = %s AND object_id = %d AND parent_id IS NULL AND is_deleted = 0
-				 ORDER BY created_at ASC
+				"SELECT c.* FROM {$wpdb->prefix}bn_comments c
+				 WHERE c.object_type = %s AND c.object_id = %d AND c.parent_id IS NULL
+				   AND ( c.is_deleted = 0 OR EXISTS (
+				       SELECT 1 FROM {$wpdb->prefix}bn_comments r
+				       WHERE r.parent_id = c.id AND r.is_deleted = 0
+				   ) )
+				 ORDER BY c.created_at ASC
 				 LIMIT %d OFFSET %d",
 				sanitize_key( $object_type ),
 				$object_id,
@@ -763,8 +774,12 @@ class CommentService {
 
 		$total = (int) $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments
-				 WHERE object_type = %s AND object_id = %d AND parent_id IS NULL AND is_deleted = 0",
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments c
+				 WHERE c.object_type = %s AND c.object_id = %d AND c.parent_id IS NULL
+				   AND ( c.is_deleted = 0 OR EXISTS (
+				       SELECT 1 FROM {$wpdb->prefix}bn_comments r
+				       WHERE r.parent_id = c.id AND r.is_deleted = 0
+				   ) )",
 				sanitize_key( $object_type ),
 				$object_id
 			)

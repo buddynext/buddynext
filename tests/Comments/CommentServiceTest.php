@@ -119,6 +119,31 @@ class CommentServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( 1, $result['total'] );
 	}
 
+	public function test_deleted_parent_with_reply_keeps_thread(): void {
+		$parent_id = $this->service->create( $this->user_id, 'post', $this->post_id, 'Parent' );
+		$reply_id  = $this->service->create( $this->user_id, 'post', $this->post_id, 'Surviving reply', $parent_id );
+
+		// Soft-delete the parent — its surviving reply must NOT be orphaned.
+		$this->service->delete( $parent_id, $this->user_id );
+
+		$result = $this->service->list( 'post', $this->post_id, array( 'viewer_id' => $this->user_id ) );
+
+		// The deleted parent remains as a top-level tombstone so the reply renders.
+		$top_ids = array_map( static fn( $c ): int => (int) $c['id'], $result['items'] );
+		$this->assertContains( $parent_id, $top_ids );
+
+		$parent_row = null;
+		foreach ( $result['items'] as $item ) {
+			if ( (int) $item['id'] === $parent_id ) {
+				$parent_row = $item;
+				break;
+			}
+		}
+		$this->assertNotNull( $parent_row );
+		$reply_ids = array_map( static fn( $c ): int => (int) $c['id'], (array) ( $parent_row['replies'] ?? array() ) );
+		$this->assertContains( $reply_id, $reply_ids );
+	}
+
 	public function test_delete_by_non_owner_returns_error(): void {
 		$id         = $this->service->create( $this->user_id, 'post', $this->post_id, 'Protected' );
 		$other_user = self::factory()->user->create();
