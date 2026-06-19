@@ -164,47 +164,16 @@ $mem_privacy = array(
 	'
 >
 
-	<!-- Header (space-home hero shape) -->
-	<div class="bn-sh-header">
-		<div class="bn-sh-cover"></div>
-		<div class="bn-sh-inner">
-			<div class="bn-sh-avatar" aria-hidden="true">
-				<?php if ( ! empty( $space['avatar_url'] ) ) : ?>
-					<img
-						src="<?php echo esc_url( $space['avatar_url'] ); ?>"
-						alt=""
-						loading="lazy"
-					>
-				<?php else : ?>
-					<?php buddynext_icon( 'home' ); ?>
-				<?php endif; ?>
-			</div>
-
-			<div class="bn-sh-info">
-				<h1 class="bn-sh-name">
-					<?php echo esc_html( (string) $space['name'] ); ?>
-					<span class="bn-badge" data-tone="<?php echo esc_attr( $mem_privacy['tone'] ); ?>"><?php echo esc_html( $mem_privacy['label'] ); ?></span>
-				</h1>
-				<div class="bn-sh-meta">
-					<span><?php buddynext_icon( 'users' ); ?>
-						<?php
-						/* translators: %s: formatted member count */
-						printf( esc_html__( '%s members', 'buddynext' ), esc_html( number_format_i18n( $total_members ) ) );
-						?>
-					</span>
-				</div>
-			</div>
-
-			<div class="bn-sh-actions">
-				<a
-					href="<?php echo esc_url( PageRouter::space_url( $space_id ) ); ?>"
-					class="bn-btn"
-					data-variant="secondary"
-					data-size="sm"
-				><?php buddynext_icon( 'chevron-left' ); ?> <?php esc_html_e( 'Back to space', 'buddynext' ); ?></a>
-			</div>
-		</div>
-	</div>
+	<!-- Unified space header + nav bar (same as every other space tab). -->
+	<?php
+	buddynext_get_template(
+		'parts/space-header.php',
+		array(
+			'space_id'   => $space_id,
+			'active_tab' => 'members',
+		)
+	);
+	?>
 
 	<!-- Filter bar -->
 	<div class="bn-card bn-space-members__filter">
