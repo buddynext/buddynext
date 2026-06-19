@@ -4,10 +4,11 @@
  *
  * Routes (all under buddynext/v1):
  *   GET    /users/{id}/profile              — get a user's profile (public)
- *   PUT    /users/{id}/profile              — update any user's profile (admin only)
- *   POST   /users/{id}/avatar               — set avatar for any user (admin only)
- *   POST   /users/{id}/cover                — upload cover for any user (admin only)
- *   DELETE /users/{id}/cover                — remove cover for any user (admin only)
+ *   PUT    /users/{id}/profile              — update any user's profile (edit-any capability)
+ *   POST   /users/{id}/avatar               — set avatar for any user (edit-any capability)
+ *   DELETE /users/{id}/avatar               — remove avatar for any user (edit-any capability)
+ *   POST   /users/{id}/cover                — upload cover for any user (edit-any capability)
+ *   DELETE /users/{id}/cover                — remove cover for any user (edit-any capability)
  *   PUT    /me/profile                      — update own profile (auth required)
  *   POST   /me/avatar                       — upload own avatar (auth required)
  *   DELETE /me/avatar                       — remove own avatar (auth required)
@@ -81,7 +82,7 @@ class ProfileController extends BaseRestController {
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'admin_upload_avatar' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_edit_any_profile' ),
 				'args'                => array(
 					'id' => array(
 						'type'              => 'integer',
@@ -98,7 +99,7 @@ class ProfileController extends BaseRestController {
 			array(
 				'methods'             => 'DELETE',
 				'callback'            => array( $this, 'admin_delete_avatar' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_edit_any_profile' ),
 				'args'                => array(
 					'id' => array(
 						'type'              => 'integer',
@@ -115,7 +116,7 @@ class ProfileController extends BaseRestController {
 				array(
 					'methods'             => 'POST',
 					'callback'            => array( $this, 'admin_upload_cover' ),
-					'permission_callback' => array( $this, 'require_admin' ),
+					'permission_callback' => array( $this, 'require_edit_any_profile' ),
 					'args'                => array(
 						'id' => array(
 							'required'          => true,
@@ -127,7 +128,7 @@ class ProfileController extends BaseRestController {
 				array(
 					'methods'             => 'DELETE',
 					'callback'            => array( $this, 'admin_delete_cover' ),
-					'permission_callback' => array( $this, 'require_admin' ),
+					'permission_callback' => array( $this, 'require_edit_any_profile' ),
 					'args'                => array(
 						'id' => array(
 							'required'          => true,
