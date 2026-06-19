@@ -195,90 +195,31 @@ $mod_privacy = array(
 	data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
 >
 
-	<!-- Space header (mirrors space-home hero shape) -->
-	<div class="bn-sh-header">
-		<div class="bn-sh-cover">
-			<?php if ( ! empty( $space->cover_image_url ) ) : ?>
-				<img
-					src="<?php echo esc_url( $space->cover_image_url ); ?>"
-					alt="<?php echo esc_attr( $space->name ?? '' ); ?>"
-					loading="lazy"
-				>
-			<?php endif; ?>
-		</div>
+	<!-- Unified space header + nav bar (same as every other space tab). -->
+	<?php
+	buddynext_get_template(
+		'parts/space-header.php',
+		array(
+			'space_id'   => $space_id,
+			'active_tab' => 'moderation',
+		)
+	);
+	?>
 
-		<div class="bn-sh-inner">
-			<div class="bn-sh-avatar" aria-hidden="true">
-				<?php buddynext_icon( 'shield' ); ?>
-			</div>
-
-			<div class="bn-sh-info">
-				<h1 class="bn-sh-name">
-					<?php echo esc_html( $space->name ?? '' ); ?>
-					<span class="bn-badge" data-tone="<?php echo esc_attr( $mod_privacy['tone'] ); ?>"><?php echo esc_html( $mod_privacy['label'] ); ?></span>
-					<span class="bn-badge" data-tone="accent"><?php esc_html_e( 'Space admin', 'buddynext' ); ?></span>
-				</h1>
-				<div class="bn-sh-meta">
-					<span><?php buddynext_icon( 'users' ); ?> <?php echo esc_html( $member_fmt ); ?> <?php esc_html_e( 'members', 'buddynext' ); ?></span>
-					<span><?php buddynext_icon( 'shield' ); ?> <?php esc_html_e( 'Reports scoped to this space only', 'buddynext' ); ?></span>
-				</div>
-			</div>
-
-			<div class="bn-sh-actions">
-				<a
-					href="<?php echo esc_url( $space_url ); ?>"
-					class="bn-btn"
-					data-variant="secondary"
-					data-size="sm"
-				><?php buddynext_icon( 'chevron-left' ); ?> <?php esc_html_e( 'Back to space', 'buddynext' ); ?></a>
-				<a
-					href="<?php echo esc_url( buddynext_space_settings_url( $space->slug ?? '' ) ); ?>"
-					class="bn-btn"
-					data-variant="ghost"
-					data-size="sm"
-				><?php buddynext_icon( 'settings' ); ?> <?php esc_html_e( 'Settings', 'buddynext' ); ?></a>
-				<a
-					href="<?php echo esc_url( buddynext_community_admin_url() ); ?>"
-					class="bn-btn"
-					data-variant="ghost"
-					data-size="sm"
-				><?php buddynext_icon( 'external-link' ); ?> <?php esc_html_e( 'Community admin', 'buddynext' ); ?></a>
-			</div>
-		</div>
-
-		<nav class="bn-tabs bn-sh-tabs" aria-label="<?php esc_attr_e( 'Moderation filter', 'buddynext' ); ?>">
-			<a
-				href="<?php echo esc_url( add_query_arg( 'bn_mtab', 'reports', $mod_base_url ) ); ?>"
-				class="bn-tab bn-sh-tab"
-				aria-selected="<?php echo ( 'reports' === $mod_tab ) ? 'true' : 'false'; ?>"
-			>
-				<?php buddynext_icon( 'flag' ); ?>
-				<?php esc_html_e( 'Reports', 'buddynext' ); ?>
-				<?php if ( $open_reports_count > 0 ) : ?>
-					<span class="bn-tab__count"><?php echo esc_html( (string) $open_reports_count ); ?></span>
-				<?php endif; ?>
-			</a>
-			<a
-				href="<?php echo esc_url( add_query_arg( 'bn_mtab', 'pending', $mod_base_url ) ); ?>"
-				class="bn-tab bn-sh-tab"
-				aria-selected="<?php echo ( 'pending' === $mod_tab ) ? 'true' : 'false'; ?>"
-			>
-				<?php buddynext_icon( 'user-plus' ); ?>
-				<?php esc_html_e( 'Pending members', 'buddynext' ); ?>
-				<?php if ( $pending_count > 0 ) : ?>
-					<span class="bn-tab__count"><?php echo esc_html( (string) $pending_count ); ?></span>
-				<?php endif; ?>
-			</a>
-			<a
-				href="<?php echo esc_url( add_query_arg( 'bn_mtab', 'log', $mod_base_url ) ); ?>"
-				class="bn-tab bn-sh-tab"
-				aria-selected="<?php echo ( 'log' === $mod_tab ) ? 'true' : 'false'; ?>"
-			>
-				<?php buddynext_icon( 'copy' ); ?>
-				<?php esc_html_e( 'Activity log', 'buddynext' ); ?>
-			</a>
-		</nav>
-	</div>
+	<!-- Moderation sub-filter (Reports / Pending / Activity log) as a sub-nav. -->
+	<nav class="bn-subnav bn-space-mod__filter" aria-label="<?php esc_attr_e( 'Moderation filter', 'buddynext' ); ?>">
+		<a class="bn-subnav__item" href="<?php echo esc_url( add_query_arg( 'bn_mtab', 'reports', $mod_base_url ) ); ?>" aria-selected="<?php echo ( 'reports' === $mod_tab ) ? 'true' : 'false'; ?>">
+			<span class="bn-subnav__label"><?php esc_html_e( 'Reports', 'buddynext' ); ?></span>
+			<?php if ( $open_reports_count > 0 ) : ?><span class="bn-subnav__count"><?php echo esc_html( (string) $open_reports_count ); ?></span><?php endif; ?>
+		</a>
+		<a class="bn-subnav__item" href="<?php echo esc_url( add_query_arg( 'bn_mtab', 'pending', $mod_base_url ) ); ?>" aria-selected="<?php echo ( 'pending' === $mod_tab ) ? 'true' : 'false'; ?>">
+			<span class="bn-subnav__label"><?php esc_html_e( 'Pending members', 'buddynext' ); ?></span>
+			<?php if ( $pending_count > 0 ) : ?><span class="bn-subnav__count"><?php echo esc_html( (string) $pending_count ); ?></span><?php endif; ?>
+		</a>
+		<a class="bn-subnav__item" href="<?php echo esc_url( add_query_arg( 'bn_mtab', 'log', $mod_base_url ) ); ?>" aria-selected="<?php echo ( 'log' === $mod_tab ) ? 'true' : 'false'; ?>">
+			<span class="bn-subnav__label"><?php esc_html_e( 'Activity log', 'buddynext' ); ?></span>
+		</a>
+	</nav>
 
 	<div class="bn-space-mod__shell">
 
