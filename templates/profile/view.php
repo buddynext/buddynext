@@ -437,14 +437,167 @@ if ( ! \BuddyNext\Media\MediaClient::available() ) {
 	);
 }
 
+// Buffer the about-cards + generic detail sections so the dedicated "About" tab
+// can be assembled BEFORE the active tab is resolved and the region context is
+// emitted below. Rendering it here — rather than after the hero — keeps 'about'
+// in $bn_pf_tabs in time for the deep-link resolution, so a hard load of
+// /members/{slug}/about/ activates the About tab. The output is captured (never
+// echoed inline), so relocating it changes no visible layout.
+ob_start();
+
+buddynext_get_template(
+	'partials/profile-about-cards.php',
+	array(
+		'work_entries' => $work_entries,
+		'edu_entries'  => $edu_entries,
+		'interests'    => $interests,
+		'entry_fv'     => $entry_fv,
+	)
+);
+
+/*
+ * ── Generic profile-field renderer ─────────────────────────────────────
+ *
+ * Every admin-defined field — including custom field types the curated
+ * hero/about-cards above don't know about — is rendered here through the
+ * single field-type engine (contracts.field_type_engine), so any type
+ * displays correctly (chips for multi, <a> for url/email/tel, formatted
+ * date, swatch for color, …). ProfileService::get_profile has ALREADY
+ * applied per-field visibility for the viewer, so anything present here is
+ * something this viewer is allowed to see — no extra gating needed.
+ *
+ * Keys/groups the hero + about-cards already surface prominently are
+ * skipped to avoid visible duplication; everything else renders below.
+ */
+$bn_pf_hero_keys   = array( 'headline', 'bio', 'pronouns', 'location', 'website' );
+$bn_pf_skip_groups = array( 'work_experience', 'education', 'social_links' );
+
+$bn_pf_detail_sections = array();
+foreach ( (array) ( $profile_data['groups'] ?? array() ) as $bn_pf_group ) {
+	$bn_pf_gkey  = isset( $bn_pf_group['group_key'] ) ? (string) $bn_pf_group['group_key'] : '';
+	$bn_pf_gtype = isset( $bn_pf_group['type'] ) ? (string) $bn_pf_group['type'] : 'flat';
+
+	if ( '' === $bn_pf_gkey || in_array( $bn_pf_gkey, $bn_pf_skip_groups, true ) ) {
+		continue;
+	}
+
+	// Repeater groups: render each entry's fields via the engine.
+	if ( 'repeater' === $bn_pf_gtype ) {
+		$bn_pf_entries = isset( $bn_pf_group['entries'] ) && is_array( $bn_pf_group['entries'] ) ? $bn_pf_group['entries'] : array();
+		$bn_pf_rows    = '';
+		foreach ( $bn_pf_entries as $bn_pf_entry ) {
+			if ( ! is_array( $bn_pf_entry ) ) {
+				continue;
+			}
+			$bn_pf_entry_rows = '';
+			foreach ( $bn_pf_entry as $bn_pf_field ) {
+				if ( ! is_array( $bn_pf_field ) || empty( $bn_pf_field['field_key'] ) ) {
+					continue;
+				}
+				$bn_pf_val = (string) ( $bn_pf_field['value'] ?? '' );
+				if ( '' === $bn_pf_val ) {
+					continue;
+				}
+				$bn_pf_label       = isset( $bn_pf_field['label'] ) ? (string) $bn_pf_field['label'] : '';
+				$bn_pf_display     = \BuddyNext\Profile\FieldType::render_display( $bn_pf_field, $bn_pf_field['value'] ?? '' );
+				$bn_pf_entry_rows .= '<div class="bn-pf-detail"><dt class="bn-pf-detail__label">' . esc_html( $bn_pf_label ) . '</dt><dd class="bn-pf-detail__value">' . $bn_pf_display . '</dd></div>';
+			}
+			if ( '' !== $bn_pf_entry_rows ) {
+				$bn_pf_rows .= '<dl class="bn-pf-detail-list bn-pf-detail-entry">' . $bn_pf_entry_rows . '</dl>';
+			}
+		}
+		if ( '' !== $bn_pf_rows ) {
+			$bn_pf_detail_sections[] = array(
+				'label' => isset( $bn_pf_group['label'] ) ? (string) $bn_pf_group['label'] : ucwords( str_replace( '_', ' ', $bn_pf_gkey ) ),
+				'html'  => $bn_pf_rows,
+			);
+		}
+		continue;
+	}
+
+	// Flat group: render every field value via the engine.
+	$bn_pf_fields = isset( $bn_pf_group['fields'] ) && is_array( $bn_pf_group['fields'] ) ? $bn_pf_group['fields'] : array();
+	$bn_pf_rows   = '';
+	foreach ( $bn_pf_fields as $bn_pf_field ) {
+		if ( ! is_array( $bn_pf_field ) || empty( $bn_pf_field['field_key'] ) ) {
+			continue;
+		}
+		$bn_pf_fkey = (string) $bn_pf_field['field_key'];
+		if ( 'basic_info' === $bn_pf_gkey && in_array( $bn_pf_fkey, $bn_pf_hero_keys, true ) ) {
+			continue;
+		}
+		$bn_pf_val = (string) ( $bn_pf_field['value'] ?? '' );
+		if ( '' === $bn_pf_val ) {
+			continue;
+		}
+		$bn_pf_label   = isset( $bn_pf_field['label'] ) ? (string) $bn_pf_field['label'] : ucwords( str_replace( '_', ' ', $bn_pf_fkey ) );
+		$bn_pf_display = \BuddyNext\Profile\FieldType::render_display( $bn_pf_field, $bn_pf_field['value'] ?? '' );
+		$bn_pf_rows   .= '<div class="bn-pf-detail"><dt class="bn-pf-detail__label">' . esc_html( $bn_pf_label ) . '</dt><dd class="bn-pf-detail__value">' . $bn_pf_display . '</dd></div>';
+	}
+	if ( '' !== $bn_pf_rows ) {
+		$bn_pf_detail_sections[] = array(
+			'label' => isset( $bn_pf_group['label'] ) ? (string) $bn_pf_group['label'] : ucwords( str_replace( '_', ' ', $bn_pf_gkey ) ),
+			'html'  => '<dl class="bn-pf-detail-list">' . $bn_pf_rows . '</dl>',
+		);
+	}
+}
+
+foreach ( $bn_pf_detail_sections as $bn_pf_section ) :
+	?>
+	<section class="bn-card bn-pf-about-card bn-pf-detail-card">
+		<header class="bn-pf-about-card__header">
+			<h2 class="bn-pf-about-card__title"><?php echo esc_html( (string) $bn_pf_section['label'] ); ?></h2>
+		</header>
+		<?php
+		// Detail rows are assembled from FieldType::render_display output,
+		// which is escaped per the field_type_engine contract, plus
+		// esc_html() labels.
+		echo $bn_pf_section['html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		?>
+	</section>
+	<?php
+endforeach;
+
+// Pull the buffered about content; when it has anything, surface a dedicated
+// "About" tab right after Posts (the Facebook/LinkedIn placement) so the
+// metadata is one click away instead of permanently above every tab.
+$bn_pf_about_html = trim( (string) ob_get_clean() );
+if ( '' !== $bn_pf_about_html ) {
+	array_splice(
+		$bn_pf_tabs,
+		1,
+		0,
+		array(
+			array(
+				'slug'  => 'about',
+				'label' => __( 'About', 'buddynext' ),
+			),
+		)
+	);
+}
+
 // Deep-link the active tab from the route action so /members/{slug}/media/ opens
 // the Media tab and /members/{slug}/connections/ opens the Connections panel.
-// The connection panels (followers/following/connections) are header-chip tabs,
-// not entries in $bn_pf_tabs, so they're allowed explicitly. Falls back to Posts
-// for actions without a tab.
-$bn_pf_action     = (string) get_query_var( 'bn_profile_action', '' );
-$bn_pf_tab_slugs  = array_merge( array_column( $bn_pf_tabs, 'slug' ), array( 'followers', 'following', 'connections' ) );
-$bn_pf_active_tab = in_array( $bn_pf_action, $bn_pf_tab_slugs, true ) ? $bn_pf_action : 'posts';
+// Resolve against the COMPLETE tab set — the Free tabs, the About tab assembled
+// just above, the header-chip relationship tabs (followers/following/connections,
+// which are not entries in $bn_pf_tabs so they're allowed explicitly), and any
+// tab injected by integrations through buddynext_part_profile_tab_bar_args (Pro
+// Portfolio, Achievements, …). Applying that filter here is read-only — the
+// tab-bar partial still renders the original $bn_pf_tabs and re-applies the
+// filter itself — so it adds no duplicate tabs; it only widens the set of valid
+// deep-link targets. Without this a hard load of /members/{slug}/portfolio/ fell
+// back to Posts. Falls back to Posts for route actions that map to no tab.
+$bn_pf_action        = (string) get_query_var( 'bn_profile_action', '' );
+$bn_pf_filtered_args = (array) apply_filters(
+	'buddynext_part_profile_tab_bar_args',
+	array(
+		'profile_user_id' => (int) $user_id,
+		'tabs'            => $bn_pf_tabs,
+	)
+);
+$bn_pf_all_tabs      = isset( $bn_pf_filtered_args['tabs'] ) && is_array( $bn_pf_filtered_args['tabs'] ) ? $bn_pf_filtered_args['tabs'] : $bn_pf_tabs;
+$bn_pf_tab_slugs     = array_merge( array_column( $bn_pf_all_tabs, 'slug' ), array( 'followers', 'following', 'connections' ) );
+$bn_pf_active_tab    = in_array( $bn_pf_action, $bn_pf_tab_slugs, true ) ? $bn_pf_action : 'posts';
 
 $bn_pf_ctx = array(
 	'userId'             => $user_id,
@@ -508,142 +661,6 @@ $bn_pf_ctx = array(
 			'stats'               => $bn_pf_stats,
 		)
 	);
-
-	// Buffer the about-cards + generic detail sections and move them into a
-	// dedicated "About" tab below, instead of stacking this metadata above the
-	// tab bar where it sat on top of EVERY tab (Posts, Replies, Media, …).
-	ob_start();
-
-	buddynext_get_template(
-		'partials/profile-about-cards.php',
-		array(
-			'work_entries' => $work_entries,
-			'edu_entries'  => $edu_entries,
-			'interests'    => $interests,
-			'entry_fv'     => $entry_fv,
-		)
-	);
-
-	/*
-	 * ── Generic profile-field renderer ─────────────────────────────────────
-	 *
-	 * Every admin-defined field — including custom field types the curated
-	 * hero/about-cards above don't know about — is rendered here through the
-	 * single field-type engine (contracts.field_type_engine), so any type
-	 * displays correctly (chips for multi, <a> for url/email/tel, formatted
-	 * date, swatch for color, …). ProfileService::get_profile has ALREADY
-	 * applied per-field visibility for the viewer, so anything present here is
-	 * something this viewer is allowed to see — no extra gating needed.
-	 *
-	 * Keys/groups the hero + about-cards already surface prominently are
-	 * skipped to avoid visible duplication; everything else renders below.
-	 */
-	$bn_pf_hero_keys   = array( 'headline', 'bio', 'pronouns', 'location', 'website' );
-	$bn_pf_skip_groups = array( 'work_experience', 'education', 'social_links' );
-
-	$bn_pf_detail_sections = array();
-	foreach ( (array) ( $profile_data['groups'] ?? array() ) as $bn_pf_group ) {
-		$bn_pf_gkey  = isset( $bn_pf_group['group_key'] ) ? (string) $bn_pf_group['group_key'] : '';
-		$bn_pf_gtype = isset( $bn_pf_group['type'] ) ? (string) $bn_pf_group['type'] : 'flat';
-
-		if ( '' === $bn_pf_gkey || in_array( $bn_pf_gkey, $bn_pf_skip_groups, true ) ) {
-			continue;
-		}
-
-		// Repeater groups: render each entry's fields via the engine.
-		if ( 'repeater' === $bn_pf_gtype ) {
-			$bn_pf_entries = isset( $bn_pf_group['entries'] ) && is_array( $bn_pf_group['entries'] ) ? $bn_pf_group['entries'] : array();
-			$bn_pf_rows    = '';
-			foreach ( $bn_pf_entries as $bn_pf_entry ) {
-				if ( ! is_array( $bn_pf_entry ) ) {
-					continue;
-				}
-				$bn_pf_entry_rows = '';
-				foreach ( $bn_pf_entry as $bn_pf_field ) {
-					if ( ! is_array( $bn_pf_field ) || empty( $bn_pf_field['field_key'] ) ) {
-						continue;
-					}
-					$bn_pf_val = (string) ( $bn_pf_field['value'] ?? '' );
-					if ( '' === $bn_pf_val ) {
-						continue;
-					}
-					$bn_pf_label       = isset( $bn_pf_field['label'] ) ? (string) $bn_pf_field['label'] : '';
-					$bn_pf_display     = \BuddyNext\Profile\FieldType::render_display( $bn_pf_field, $bn_pf_field['value'] ?? '' );
-					$bn_pf_entry_rows .= '<div class="bn-pf-detail"><dt class="bn-pf-detail__label">' . esc_html( $bn_pf_label ) . '</dt><dd class="bn-pf-detail__value">' . $bn_pf_display . '</dd></div>';
-				}
-				if ( '' !== $bn_pf_entry_rows ) {
-					$bn_pf_rows .= '<dl class="bn-pf-detail-list bn-pf-detail-entry">' . $bn_pf_entry_rows . '</dl>';
-				}
-			}
-			if ( '' !== $bn_pf_rows ) {
-				$bn_pf_detail_sections[] = array(
-					'label' => isset( $bn_pf_group['label'] ) ? (string) $bn_pf_group['label'] : ucwords( str_replace( '_', ' ', $bn_pf_gkey ) ),
-					'html'  => $bn_pf_rows,
-				);
-			}
-			continue;
-		}
-
-		// Flat group: render every field value via the engine.
-		$bn_pf_fields = isset( $bn_pf_group['fields'] ) && is_array( $bn_pf_group['fields'] ) ? $bn_pf_group['fields'] : array();
-		$bn_pf_rows   = '';
-		foreach ( $bn_pf_fields as $bn_pf_field ) {
-			if ( ! is_array( $bn_pf_field ) || empty( $bn_pf_field['field_key'] ) ) {
-				continue;
-			}
-			$bn_pf_fkey = (string) $bn_pf_field['field_key'];
-			if ( 'basic_info' === $bn_pf_gkey && in_array( $bn_pf_fkey, $bn_pf_hero_keys, true ) ) {
-				continue;
-			}
-			$bn_pf_val = (string) ( $bn_pf_field['value'] ?? '' );
-			if ( '' === $bn_pf_val ) {
-				continue;
-			}
-			$bn_pf_label   = isset( $bn_pf_field['label'] ) ? (string) $bn_pf_field['label'] : ucwords( str_replace( '_', ' ', $bn_pf_fkey ) );
-			$bn_pf_display = \BuddyNext\Profile\FieldType::render_display( $bn_pf_field, $bn_pf_field['value'] ?? '' );
-			$bn_pf_rows   .= '<div class="bn-pf-detail"><dt class="bn-pf-detail__label">' . esc_html( $bn_pf_label ) . '</dt><dd class="bn-pf-detail__value">' . $bn_pf_display . '</dd></div>';
-		}
-		if ( '' !== $bn_pf_rows ) {
-			$bn_pf_detail_sections[] = array(
-				'label' => isset( $bn_pf_group['label'] ) ? (string) $bn_pf_group['label'] : ucwords( str_replace( '_', ' ', $bn_pf_gkey ) ),
-				'html'  => '<dl class="bn-pf-detail-list">' . $bn_pf_rows . '</dl>',
-			);
-		}
-	}
-
-	foreach ( $bn_pf_detail_sections as $bn_pf_section ) :
-		?>
-		<section class="bn-card bn-pf-about-card bn-pf-detail-card">
-			<header class="bn-pf-about-card__header">
-				<h2 class="bn-pf-about-card__title"><?php echo esc_html( (string) $bn_pf_section['label'] ); ?></h2>
-			</header>
-			<?php
-			// Detail rows are assembled from FieldType::render_display output,
-			// which is escaped per the field_type_engine contract, plus
-			// esc_html() labels.
-			echo $bn_pf_section['html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-			?>
-		</section>
-		<?php
-	endforeach;
-
-	// Pull the buffered about content; when it has anything, surface a dedicated
-	// "About" tab right after Posts (the Facebook/LinkedIn placement) so the
-	// metadata is one click away instead of permanently above every tab.
-	$bn_pf_about_html = trim( (string) ob_get_clean() );
-	if ( '' !== $bn_pf_about_html ) {
-		array_splice(
-			$bn_pf_tabs,
-			1,
-			0,
-			array(
-				array(
-					'slug'  => 'about',
-					'label' => __( 'About', 'buddynext' ),
-				),
-			)
-		);
-	}
 
 	buddynext_get_template(
 		'parts/profile-tab-bar.php',

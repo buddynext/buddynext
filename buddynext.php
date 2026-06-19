@@ -368,6 +368,51 @@ function buddynext_get_template( string $relative, array $vars = array() ): void
 }
 
 /**
+ * Open a profile tab panel with the correct Interactivity contract.
+ *
+ * The profile tab switcher reveals exactly one panel by binding each panel's
+ * visibility to a single reactive value: a panel is shown when its own
+ * `tabSlug` context matches the region's `state.activeTab`. Every panel must
+ * therefore carry BOTH its per-panel context (`data-wp-context` with `tabSlug`)
+ * AND the reactive `data-wp-bind--hidden="!state.isActiveTab"` binding, plus a
+ * static `hidden` attribute on initial render unless it is the active tab (so
+ * deep links paint the right panel server-side, before hydration).
+ *
+ * Free's own panels emit this inline in parts/profile-tab-panel.php; this helper
+ * is the shared seam for panels injected by integrations through the
+ * `buddynext_part_profile_tab_panel_after` action (Pro Portfolio, Achievements,
+ * …) so every injector produces the identical contract instead of hand-rolling
+ * it (and getting the bindings wrong, which leaves the panel permanently hidden).
+ *
+ * Pair every call with buddynext_profile_tab_panel_close().
+ *
+ * @param string $slug          Tab slug this panel belongs to (matches the tab's slug).
+ * @param string $active_tab    The initially-active tab slug (from the panel-after $args).
+ * @param string $extra_classes Optional space-separated classes appended to `.bn-profile-tab-panel`.
+ * @return void
+ */
+function buddynext_profile_tab_panel_open( string $slug, string $active_tab = '', string $extra_classes = '' ): void {
+	$class_list = trim( 'bn-profile-tab-panel ' . $extra_classes );
+	$context    = (string) wp_json_encode( array( 'tabSlug' => $slug ) );
+	printf(
+		'<div class="%1$s" data-tab-panel="%2$s" data-wp-context=\'%3$s\' data-wp-bind--hidden="!state.isActiveTab"%4$s>',
+		esc_attr( $class_list ),
+		esc_attr( $slug ),
+		esc_attr( $context ),
+		( $slug === $active_tab ) ? '' : ' hidden'
+	);
+}
+
+/**
+ * Close a profile tab panel opened with buddynext_profile_tab_panel_open().
+ *
+ * @return void
+ */
+function buddynext_profile_tab_panel_close(): void {
+	echo '</div>';
+}
+
+/**
  * Resolve the cover image URL to show for a user.
  *
  * Priority:

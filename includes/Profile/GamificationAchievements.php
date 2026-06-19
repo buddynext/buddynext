@@ -96,10 +96,10 @@ class GamificationAchievements {
 			return;
 		}
 
-		echo '<div class="bn-profile-tab-panel bn-achievements" data-tab-panel="' . esc_attr( self::TAB_SLUG ) . '" hidden>';
+		buddynext_profile_tab_panel_open( self::TAB_SLUG, (string) ( $args['active_tab'] ?? '' ), 'bn-achievements' );
 		$this->render_standing( $member_id );
 		$this->render_badges( $member_id );
-		echo '</div>';
+		buddynext_profile_tab_panel_close();
 	}
 
 	/**
