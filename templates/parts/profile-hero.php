@@ -293,12 +293,18 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 						<span class="bn-pf-pronouns">(<?php echo esc_html( $bn_pf_pronouns ); ?>)</span>
 					<?php endif; ?>
 				</div>
+
 				<?php
-				// Headline is intentionally not shown in the hero — the bio below
-				// is the tagline, and a separate headline next to the handle just
-				// wasted space. The field is kept in profile edit so it can return
-				// later as a dedicated tagline (X/LinkedIn style) without data loss.
+				// Headline = the member's professional tagline (LinkedIn/X style),
+				// shown directly under the handle. It is editable in profile edit
+				// AND counts toward the profile-strength "Add a tagline" task, so it
+				// MUST render here — otherwise a member fills it in and it appears
+				// nowhere, which reads as a bug. Skipped in the generic About-field
+				// renderer (bn_pf_hero_keys) so it is not duplicated lower down.
 				?>
+				<?php if ( '' !== $bn_pf_headline ) : ?>
+					<div class="bn-pf-headline"><?php echo esc_html( $bn_pf_headline ); ?></div>
+				<?php endif; ?>
 
 				<?php if ( $bn_pf_bio ) : ?>
 					<div class="bn-pf-bio"><?php echo wp_kses_post( $bn_pf_bio ); ?></div>

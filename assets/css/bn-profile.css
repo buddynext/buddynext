@@ -916,7 +916,12 @@
 }
 .bn-pf-headline {
 	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-base);
+	font-weight: 500;
 	color: var(--bn-ink-2);
+	line-height: var(--bn-leading-snug, 1.35);
+	max-width: 540px;
+	margin-block-end: var(--bn-s2);
 }
 .bn-pf-bio {
 	font-size: var(--bn-text-sm);
