@@ -372,6 +372,10 @@ class Plugin {
 		// menu (and hide items that do not match the visitor's login state).
 		( new \BuddyNext\Nav\MenuRenderer() )->register();
 
+		// Core navigation providers — register the built-in items for each surface
+		// into the NavRegistry (resolved lazily per request via buddynext_nav()).
+		( new \BuddyNext\Nav\Providers\ProfileNav() )->register();
+
 		// Register URL rewrite rules for pretty profile URLs.
 		( new PageRouter() )->init();
 
