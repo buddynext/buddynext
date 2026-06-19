@@ -254,6 +254,10 @@ class Plugin {
 		// Strip foreign CSS/JS from BN routes for a uniform, conflict-free UX.
 		$container->get( 'asset_isolation' )->init();
 
+		// Keep the isolation mu-plugin's integration allow-list current so it never
+		// strips an in-house partner (Career Board, Listora, Gamification, …).
+		$container->get( 'plugin_isolation' )->init();
+
 		$container->get( 'rest_router' )->register();
 
 		// Wire avatar filter — replaces Gravatar site-wide with BuddyNext initials SVG.
@@ -688,6 +692,7 @@ class Plugin {
 		$container->bind( 'template_loader', fn() => new TemplateLoader() );
 		$container->bind( 'assets', fn() => new AssetService() );
 		$container->bind( 'asset_isolation', fn() => new AssetIsolation() );
+		$container->bind( 'plugin_isolation', fn() => new PluginIsolation() );
 		$container->bind( 'admin_settings', fn() => new Settings() );
 		$container->bind( 'admin_members', fn() => new Members() );
 		$container->bind( 'admin_spaces', fn() => new Spaces() );
