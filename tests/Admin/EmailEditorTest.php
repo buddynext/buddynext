@@ -66,11 +66,11 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	// ── Catalogue ─────────────────────────────────────────────────────────────
 
 	/**
-	 * get_catalogue() returns an array with seven categories.
+	 * get_catalogue() returns an array with eight categories.
 	 */
 	public function test_catalogue_has_four_categories(): void {
 		$catalogue = $this->editor->get_catalogue();
-		$this->assertCount( 7, $catalogue );
+		$this->assertCount( 8, $catalogue );
 	}
 
 	/**
@@ -89,7 +89,7 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * get_catalogue() includes all 18 templates.
+	 * get_catalogue() includes all 29 templates.
 	 */
 	public function test_catalogue_has_twelve_templates(): void {
 		$catalogue = $this->editor->get_catalogue();
@@ -97,7 +97,7 @@ class EmailEditorTest extends \WP_UnitTestCase {
 		foreach ( $catalogue as $templates ) {
 			$total += count( $templates );
 		}
-		$this->assertSame( 18, $total );
+		$this->assertSame( 29, $total );
 	}
 
 	/**
@@ -160,7 +160,9 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	 */
 	public function test_register_adds_admin_menu_hook(): void {
 		$this->editor->register();
-		$this->assertNotFalse( has_action( 'admin_menu', array( $this->editor, 'add_submenu' ) ) );
+		// The email template editor is now an AdminHub tab (settings:templates,
+		// placed in the notifications section), not a direct admin_menu hook.
+		$this->assertArrayHasKey( 'templates', \BuddyNext\Admin\AdminHub::get_tabs( 'notifications' ) );
 	}
 
 	/**

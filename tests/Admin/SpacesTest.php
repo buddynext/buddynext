@@ -30,29 +30,16 @@ class SpacesTest extends \WP_UnitTestCase {
 	 */
 	public function set_up(): void {
 		parent::set_up();
-		global $wpdb;
 		$this->spaces = new Spaces();
 
-		// Ensure bn_spaces table exists for tests (matches production schema columns).
-		$wpdb->query(
-			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}bn_spaces (
-				id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-				name VARCHAR(255) NOT NULL,
-				owner_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
-				member_count INT UNSIGNED NOT NULL DEFAULT 0,
-				type ENUM('open','private','secret') NOT NULL DEFAULT 'open',
-				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-			) ENGINE=InnoDB"
-		);
-	}
+		// bn_spaces (full production schema) is created once by the test bootstrap
+		// (Installer::install_schema); per-test row inserts roll back with the
+		// transaction, so this test no longer creates/drops its own minimal table
+		// (which was missing slug/is_archived and clobbered the shared table).
 
-	/**
-	 * Drop test table after each test.
-	 */
-	public function tear_down(): void {
-		global $wpdb;
-		$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}bn_spaces" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange
-		parent::tear_down();
+		// delete_space() delegates to the spaces service, which gates on the
+		// manage-space capability — act as an admin so the delete path runs.
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 	}
 
 	/**
@@ -60,9 +47,9 @@ class SpacesTest extends \WP_UnitTestCase {
 	 */
 	public function test_register_adds_admin_menu_hook(): void {
 		$this->spaces->register();
-		$this->assertNotFalse(
-			has_action( 'admin_menu', array( $this->spaces, 'add_submenu' ) )
-		);
+		// The spaces admin screen is now an AdminHub tab (spaces:directory), not a
+		// direct admin_menu/add_submenu hook.
+		$this->assertArrayHasKey( 'directory', \BuddyNext\Admin\AdminHub::get_tabs( 'spaces' ) );
 	}
 
 	/**

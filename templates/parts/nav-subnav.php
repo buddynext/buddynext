@@ -60,25 +60,40 @@ $bn_sub_ctx = esc_attr(
 		if ( ! ( $bn_sub instanceof NavItem ) ) {
 			continue;
 		}
-		$bn_s_target = null !== $bn_sub->tab ? $bn_sub->tab : $bn_sub->id;
-		$bn_s_count  = ( null !== $bn_sub->count_value && $bn_sub->count_value > 0 ) ? (string) $bn_sub->count_value : '';
-		$bn_s_active = '' !== $bn_sub_active && ( $bn_sub_active === $bn_s_target || $bn_sub_active === $bn_sub->id );
-		$bn_s_aria   = '' !== $bn_s_count ? sprintf( '%s (%s)', $bn_sub->label, $bn_s_count ) : $bn_sub->label;
+		$bn_s_target   = null !== $bn_sub->tab ? $bn_sub->tab : $bn_sub->id;
+		$bn_s_count    = ( null !== $bn_sub->count_value && $bn_sub->count_value > 0 ) ? (string) $bn_sub->count_value : '';
+		$bn_s_active   = '' !== $bn_sub_active && ( $bn_sub_active === $bn_s_target || $bn_sub_active === $bn_sub->id );
+		$bn_s_aria     = '' !== $bn_s_count ? sprintf( '%s (%s)', $bn_sub->label, $bn_s_count ) : $bn_sub->label;
+		$bn_s_reactive = null !== $bn_sub->tab;
+		$bn_s_panel    = $bn_s_reactive ? buddynext_nav_panel_id( $bn_s_target ) : '';
 		?>
-		<?php if ( null !== $bn_sub->tab ) : ?>
+		<?php if ( $bn_s_reactive && null !== $bn_sub->url_value ) : ?>
+			<?php // Reactive tab WITH a real deep-link: JS intercepts the click (no reload); ?>
+			<?php // with JS off the href navigates to the clean URL, which server-renders ?>
+			<?php // the matching panel. Never a dead control — no broken-UX-on-no-hydration. ?>
+			<a class="bn-subnav__item" role="tab"
+				data-wp-context='<?php echo esc_attr( (string) wp_json_encode( array( 'tabSlug' => $bn_s_target ) ) ); ?>'
+				data-wp-class--active="state.isActiveTab"
+				data-wp-bind--aria-selected="state.isActiveTab"
+				aria-selected="<?php echo $bn_s_active ? 'true' : 'false'; ?>"
+				aria-controls="<?php echo esc_attr( $bn_s_panel ); ?>"
+				aria-label="<?php echo esc_attr( $bn_s_aria ); ?>"
+				data-wp-on--click="actions.setTab"
+				data-tab="<?php echo esc_attr( $bn_s_target ); ?>"
+				href="<?php echo esc_url( (string) $bn_sub->url_value ); ?>">
+				<?php require __DIR__ . '/nav-subnav-item-inner.php'; ?>
+			</a>
+		<?php elseif ( $bn_s_reactive ) : ?>
 			<button class="bn-subnav__item" role="tab" type="button"
 				data-wp-context='<?php echo esc_attr( (string) wp_json_encode( array( 'tabSlug' => $bn_s_target ) ) ); ?>'
 				data-wp-class--active="state.isActiveTab"
 				data-wp-bind--aria-selected="state.isActiveTab"
 				aria-selected="<?php echo $bn_s_active ? 'true' : 'false'; ?>"
-				aria-controls="<?php echo esc_attr( buddynext_nav_panel_id( $bn_s_target ) ); ?>"
+				aria-controls="<?php echo esc_attr( $bn_s_panel ); ?>"
 				aria-label="<?php echo esc_attr( $bn_s_aria ); ?>"
 				data-wp-on--click="actions.setTab"
 				data-tab="<?php echo esc_attr( $bn_s_target ); ?>">
-				<span class="bn-subnav__label"><?php echo esc_html( $bn_sub->label ); ?></span>
-				<?php if ( '' !== $bn_s_count ) : ?>
-					<span class="bn-subnav__count"><?php echo esc_html( $bn_s_count ); ?></span>
-				<?php endif; ?>
+				<?php require __DIR__ . '/nav-subnav-item-inner.php'; ?>
 			</button>
 		<?php else : ?>
 			<a class="bn-subnav__item" role="tab"
@@ -86,10 +101,7 @@ $bn_sub_ctx = esc_attr(
 				<?php echo $bn_s_active ? 'aria-current="page"' : ''; ?>
 				aria-label="<?php echo esc_attr( $bn_s_aria ); ?>"
 				href="<?php echo esc_url( (string) $bn_sub->url_value ); ?>">
-				<span class="bn-subnav__label"><?php echo esc_html( $bn_sub->label ); ?></span>
-				<?php if ( '' !== $bn_s_count ) : ?>
-					<span class="bn-subnav__count"><?php echo esc_html( $bn_s_count ); ?></span>
-				<?php endif; ?>
+				<?php require __DIR__ . '/nav-subnav-item-inner.php'; ?>
 			</a>
 		<?php endif; ?>
 	<?php endforeach; ?>

@@ -50,7 +50,10 @@ class NotificationPrefCatalogueTest extends \WP_UnitTestCase {
 		$compose_types = $this->collect_compose_single_types();
 
 		// `bn.test` is dev-only and exempt from coverage (see spec).
-		$compose_types = array_diff( $compose_types, array( 'bn.test' ) );
+		// `bn.new_message` has a catalogue row but is intentionally removed from
+		// all() when the DM engine is unavailable (WPMediaVerse inactive in tests),
+		// so exempt it the same way.
+		$compose_types = array_diff( $compose_types, array( 'bn.test', 'bn.new_message' ) );
 
 		// Aliases that share semantics — only one needs catalogue presence:
 		// bn.space_request_approved <=> bn.space_join_approved (alias case).

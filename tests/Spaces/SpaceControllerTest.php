@@ -345,11 +345,11 @@ class SpaceControllerTest extends \WP_Test_REST_TestCase {
 		( new \BuddyNext\Spaces\SpaceMemberService() )->join( $space_id, $user_id );
 
 		$request = new WP_REST_Request( 'POST', '/buddynext/v1/spaces/' . $space_id . '/notification-pref' );
-		$request->set_body_params( array( 'pref' => 'mentions' ) );
+		$request->set_body_params( array( 'pref' => 'mentions_only' ) );
 		$response = rest_do_request( $request );
 
 		$this->assertSame( 200, $response->get_status() );
-		$this->assertSame( 'mentions', $response->get_data()['pref'] );
+		$this->assertSame( 'mentions_only', $response->get_data()['pref'] );
 	}
 
 	public function test_set_notification_pref_invalid_returns_422(): void {

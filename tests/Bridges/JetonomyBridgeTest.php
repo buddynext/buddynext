@@ -37,6 +37,8 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 				slug VARCHAR(200) NOT NULL DEFAULT '',
 				title TEXT NULL,
 				content_plain LONGTEXT NULL,
+				is_private TINYINT(1) NOT NULL DEFAULT 0,
+				status VARCHAR(20) NOT NULL DEFAULT 'publish',
 				PRIMARY KEY (id)
 			) DEFAULT CHARSET=utf8mb4"
 		);
@@ -44,6 +46,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}jt_spaces (
 				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 				slug VARCHAR(200) NOT NULL DEFAULT '',
+				visibility VARCHAR(20) NOT NULL DEFAULT 'public',
 				PRIMARY KEY (id)
 			) DEFAULT CHARSET=utf8mb4"
 		);
@@ -149,7 +152,9 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$expected_url = home_url( '/community' ) . '/s/general/t/welcome-thread/';
 		$activity     = (int) $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'link' AND link_url = %s",
+				// The bridge stores the discussion activity as type 'discussion' (so
+				// remove() matches it on soft-delete), not the generic 'link'.
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'discussion' AND link_url = %s",
 				$this->author_id,
 				$expected_url
 			)
@@ -197,13 +202,35 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->assertSame( $before, $after );
 	}
 
+	/**
+	 * Resolve the bridge's space-surface Discussions tab via the unified Nav
+	 * registry and return its resolved URL (or null when the tab is absent).
+	 *
+	 * @param int $space_id Space subject id.
+	 * @return string|null
+	 */
+	private function resolve_space_discussions_url( int $space_id ): ?string {
+		$registry = \BuddyNext\Nav\NavRegistry::instance();
+		$registry->reset();
+		remove_all_actions( 'buddynext_register_nav' );
+		$this->bridge->register_nav_items( $registry );
+
+		$resolved = $registry->resolve( new \BuddyNext\Nav\NavContext( 'space', $space_id, 0, '' ) );
+		foreach ( $resolved->layer( 'primary' ) as $item ) {
+			if ( 'discussions' === $item->id ) {
+				return $item->url_value;
+			}
+		}
+		return null;
+	}
+
 	public function test_space_tab_always_shows_with_provision_url_until_linked(): void {
 		$space_id = 4242;
 
 		// No forum yet → tab present, points at the on-demand provision trigger.
-		$tabs = $this->bridge->inject_space_forum_tab( array(), $space_id );
-		$this->assertArrayHasKey( 'discussions', $tabs );
-		$this->assertStringContainsString( 'bn_provision_forum=' . $space_id, $tabs['discussions']['url'] );
+		$url = $this->resolve_space_discussions_url( $space_id );
+		$this->assertNotNull( $url, 'Space Discussions tab should be registered.' );
+		$this->assertStringContainsString( 'bn_provision_forum=' . $space_id, (string) $url );
 
 		// Linked → tab points straight at the forum.
 		$this->seed_jt_space( 0, 'design-forum' ); // auto id
@@ -211,9 +238,9 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$forum_id = (int) $wpdb->insert_id;
 		update_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', $forum_id );
 
-		$tabs = $this->bridge->inject_space_forum_tab( array(), $space_id );
-		$this->assertStringContainsString( '/s/design-forum/', $tabs['discussions']['url'] );
-		$this->assertStringNotContainsString( 'bn_provision_forum', $tabs['discussions']['url'] );
+		$url = $this->resolve_space_discussions_url( $space_id );
+		$this->assertStringContainsString( '/s/design-forum/', (string) $url );
+		$this->assertStringNotContainsString( 'bn_provision_forum', (string) $url );
 	}
 
 	public function test_register_hook_is_idempotent(): void {

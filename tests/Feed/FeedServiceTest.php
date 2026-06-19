@@ -83,7 +83,9 @@ class FeedServiceTest extends \WP_UnitTestCase {
 			)
 		);
 
-		$result = $this->feed->home_feed( $this->alice );
+		// Excluding unfollowed authors is the contract of the "following" filter;
+		// the default For-You feed deliberately blends in public discovery posts.
+		$result = $this->feed->home_feed( $this->alice, null, 20, 'following' );
 
 		$this->assertNotContains( $post_id, array_column( $result['items'], 'id' ) );
 	}
@@ -262,9 +264,13 @@ class FeedServiceTest extends \WP_UnitTestCase {
 			)
 		);
 
+		// hide_posts => 1 makes the suspension hide existing content (a plain
+		// suspension is an action-restriction that leaves posts visible). Then view
+		// as a non-admin: moderators bypass the exclusion so they can review.
 		wp_set_current_user( $this->admin_id );
-		$this->moderation->suspend_user( $this->bob, $this->admin_id, 'test', array() );
+		$this->moderation->suspend_user( $this->bob, $this->admin_id, 'test', array( 'hide_posts' => 1 ) );
 
+		wp_set_current_user( $this->alice );
 		$result = $this->feed->home_feed( $this->alice );
 
 		$this->assertNotContains( $post_id, array_column( $result['items'], 'id' ) );
@@ -280,9 +286,12 @@ class FeedServiceTest extends \WP_UnitTestCase {
 			)
 		);
 
+		// hide_posts => 1 hides the suspended author's existing content; view as a
+		// non-admin (carol) so the moderator-visibility bypass doesn't apply.
 		wp_set_current_user( $this->admin_id );
-		$this->moderation->suspend_user( $this->bob, $this->admin_id, 'test', array() );
+		$this->moderation->suspend_user( $this->bob, $this->admin_id, 'test', array( 'hide_posts' => 1 ) );
 
+		wp_set_current_user( $this->carol );
 		$result = $this->feed->explore_feed();
 
 		$this->assertNotContains( $post_id, array_column( $result['items'], 'id' ) );
@@ -390,6 +399,19 @@ class FeedServiceTest extends \WP_UnitTestCase {
 				'space_id'  => $space_id,
 				'user_id'   => $this->alice,
 				'role'      => 'member',
+				'status'    => 'active',
+				'joined_at' => current_time( 'mysql', 1 ),
+			)
+		);
+		// Bob is the space owner — add the active owner membership row too, so
+		// SpacePostGuard (who-can-post) lets him post in his own space instead of
+		// returning a 'forbidden' WP_Error.
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_space_members',
+			array(
+				'space_id'  => $space_id,
+				'user_id'   => $this->bob,
+				'role'      => 'owner',
 				'status'    => 'active',
 				'joined_at' => current_time( 'mysql', 1 ),
 			)

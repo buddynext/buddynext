@@ -101,8 +101,48 @@ class OnboardingController {
 						'required' => false,
 						'type'     => 'array',
 					),
+					'interests'    => array(
+						'required' => false,
+						'type'     => 'array',
+					),
 				),
 			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/me/interests',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'save_interests' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'interests' => array(
+						'required' => false,
+						'type'     => 'array',
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * POST /me/interests — persist the member's chosen interest labels.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public function save_interests( WP_REST_Request $request ): WP_REST_Response {
+		$user_id   = get_current_user_id();
+		$interests = (array) $request->get_param( 'interests' );
+		$stored    = $this->service->save_interests( $user_id, $interests );
+
+		return new WP_REST_Response(
+			array(
+				'saved'     => true,
+				'interests' => $stored,
+			),
+			200
 		);
 	}
 
@@ -224,6 +264,12 @@ class OnboardingController {
 					}
 				}
 			}
+		}
+
+		// Interests — persist the chosen labels (idempotent) when supplied.
+		$interests = $request->get_param( 'interests' );
+		if ( is_array( $interests ) && ! empty( $interests ) ) {
+			$this->service->save_interests( $user_id, $interests );
 		}
 
 		// Mark complete + fire buddynext_onboarding_completed (first call only).

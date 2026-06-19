@@ -28,6 +28,11 @@ class InfiniteScrollPageTest extends \WP_UnitTestCase {
 		parent::set_up();
 		Installer::run();
 
+		// The seeding loops below create >10 posts/user; lift the per-minute post
+		// rate limit (SafeguardService) so the fixtures aren't throttled — the
+		// limiter has its own dedicated coverage.
+		update_option( 'buddynext_post_rate_limit', 0 );
+
 		global $wp_rest_server;
 		$wp_rest_server = new WP_REST_Server();
 		self::$server   = $wp_rest_server;

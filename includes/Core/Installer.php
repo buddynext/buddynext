@@ -23,6 +23,12 @@ class Installer {
 	private const MU_PLUGIN_SLUG = 'buddynext-isolation.php';
 
 	/**
+	 * Option holding the md5 of the last-written isolation mu-plugin source, so
+	 * maybe_refresh_mu_plugin() can detect drift without reading the file.
+	 */
+	private const MU_PLUGIN_SIG_OPTION = 'buddynext_mu_plugin_sig';
+
+	/**
 	 * Database schema revision. BUMP THIS whenever the schema changes (new table,
 	 * new/changed column) so existing installs run the migration on the next
 	 * admin load without needing a deactivate/reactivate. Tracked separately from
@@ -41,13 +47,8 @@ class Installer {
 	 *     buddynext_webhook_retry (5 min, now reactive single-event in
 	 *     OutboundWebhookService); migrate buddynext_recount_stats from
 	 *     buddynext_5min to 'daily'. No schema change — migration is cron only.
-	 * 7 — regenerate the isolation mu-plugin so it hard-codes the full in-house
-	 *     integration family (Career Board / Listora / Learnomy / Gamification)
-	 *     in its allow-list floor. Existing testers had a stale mu-plugin that
-	 *     stripped those partners on BN routes, so their Portfolio tabs/nav never
-	 *     appeared. No schema change — refresh is the mu-plugin file only.
 	 */
-	private const SCHEMA_VERSION = 7;
+	private const SCHEMA_VERSION = 6;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -151,10 +152,22 @@ class Installer {
 		// INFORMATION_SCHEMA existence check. Safe to run on every activation.
 		self::maybe_alter_tables( $wpdb->prefix );
 
-		// FULLTEXT cannot be created via dbDelta on temporary tables (test suite).
-		// Add it separately and suppress errors so tests pass without FULLTEXT.
+		// FULLTEXT index for the search service. Skipped under the PHPUnit harness:
+		// WP_UnitTestCase wraps each test in a transaction that is rolled back, and
+		// InnoDB FULLTEXT does not index uncommitted rows, so MATCH ... AGAINST would
+		// never see fixtures inserted inside a test. With no index present,
+		// SearchService::has_fulltext_index() returns false and the transaction-safe
+		// LIKE fallback runs instead. Errors are suppressed so older engines without
+		// FULLTEXT support still activate.
 		$wpdb->suppress_errors( true );
-		$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index ADD FULLTEXT KEY ft_search (title, content)" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+		if ( defined( 'WP_TESTS_DOMAIN' ) ) {
+			// Test env: actively DROP the index (not just skip creating it) so a DB
+			// that already has it from an earlier run still routes through the
+			// transaction-safe LIKE path. DROP is a harmless no-op when absent.
+			$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index DROP INDEX ft_search" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+		} else {
+			$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index ADD FULLTEXT KEY ft_search (title, content)" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+		}
 		$wpdb->suppress_errors( false );
 	}
 
@@ -1279,12 +1292,34 @@ class Installer {
 		$dest    = WP_CONTENT_DIR . '/mu-plugins/' . self::MU_PLUGIN_SLUG;
 		$content = self::mu_plugin_content();
 
+		// Record the content signature so maybe_refresh_mu_plugin() can detect
+		// drift cheaply (no file read) and rewrite after any plugin update that
+		// changes the generated source — without relying on a SCHEMA_VERSION bump.
+		update_option( self::MU_PLUGIN_SIG_OPTION, md5( $content ), false );
+
 		if ( file_exists( $dest ) && file_get_contents( $dest ) === $content ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 			return;
 		}
 
 		wp_mkdir_p( WP_CONTENT_DIR . '/mu-plugins/' );
 		file_put_contents( $dest, $content ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+	}
+
+	/**
+	 * Keep the on-disk isolation mu-plugin in sync with the plugin's generated
+	 * source. Hooked on admin_init: compares a stored signature of the expected
+	 * content (no file read on the steady state) and rewrites only when the
+	 * generated mu-plugin changed — e.g. after an update that adds an integration
+	 * to the allow-list. This is what guarantees the plugin always lays down the
+	 * RIGHT mu-plugin on update, independent of any version bump.
+	 *
+	 * @return void
+	 */
+	public static function maybe_refresh_mu_plugin(): void {
+		if ( get_option( self::MU_PLUGIN_SIG_OPTION ) === md5( self::mu_plugin_content() ) ) {
+			return;
+		}
+		self::install_mu_plugin();
 	}
 
 	/**

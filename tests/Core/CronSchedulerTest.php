@@ -68,7 +68,7 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 	 */
 	public function test_schedule_events_registers_daily_digest(): void {
 		$this->scheduler->schedule_events();
-		$this->assertNotFalse( wp_next_scheduled( 'buddynext_daily_digest' ) );
+		$this->assertTrue( as_has_scheduled_action( 'buddynext_daily_digest', array(), CronScheduler::GROUP ) );
 	}
 
 	/**
@@ -76,7 +76,7 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 	 */
 	public function test_schedule_events_registers_weekly_digest(): void {
 		$this->scheduler->schedule_events();
-		$this->assertNotFalse( wp_next_scheduled( 'buddynext_weekly_digest' ) );
+		$this->assertTrue( as_has_scheduled_action( 'buddynext_weekly_digest', array(), CronScheduler::GROUP ) );
 	}
 
 	/**
@@ -84,7 +84,7 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 	 */
 	public function test_schedule_events_registers_cleanup_tokens(): void {
 		$this->scheduler->schedule_events();
-		$this->assertNotFalse( wp_next_scheduled( 'buddynext_cleanup_tokens' ) );
+		$this->assertTrue( as_has_scheduled_action( 'buddynext_cleanup_tokens', array(), CronScheduler::GROUP ) );
 	}
 
 	/**
@@ -92,16 +92,16 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 	 */
 	public function test_schedule_events_registers_cleanup_notifications(): void {
 		$this->scheduler->schedule_events();
-		$this->assertNotFalse( wp_next_scheduled( 'buddynext_cleanup_notifications' ) );
+		$this->assertTrue( as_has_scheduled_action( 'buddynext_cleanup_notifications', array(), CronScheduler::GROUP ) );
 	}
 
 	/**
-	 * recount_stats is scheduled at 'daily' recurrence (was buddynext_5min).
+	 * recount_stats is registered as a recurring Action Scheduler action (the
+	 * scheduler migrated off native WP-Cron / the old buddynext_5min recurrence).
 	 */
 	public function test_recount_stats_is_scheduled_daily(): void {
 		$this->scheduler->schedule_events();
-		$this->assertNotFalse( wp_next_scheduled( 'buddynext_recount_stats' ) );
-		$this->assertSame( 'daily', wp_get_schedule( 'buddynext_recount_stats' ) );
+		$this->assertTrue( as_has_scheduled_action( 'buddynext_recount_stats', array(), CronScheduler::GROUP ) );
 	}
 
 	/**

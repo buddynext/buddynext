@@ -62,6 +62,14 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
+			'bn.follow_requested'       => array(
+				'label'              => __( 'Follow request', 'buddynext' ),
+				'description'        => __( 'Someone requested to follow you.', 'buddynext' ),
+				'group'              => self::GROUP_SOCIAL,
+				'default_on_site'    => true,
+				'default_email_freq' => 'immediate',
+				'can_email'          => true,
+			),
 			'bn.connection_requested'   => array(
 				'label'              => __( 'Connection request', 'buddynext' ),
 				'description'        => __( 'Someone sent you a connection request.', 'buddynext' ),
@@ -285,6 +293,30 @@ class NotificationPrefCatalogue {
 				'default_on_site'    => true,
 				'default_email_freq' => 'off',
 				'can_email'          => false,
+			),
+			'bn.new_report'             => array(
+				'label'              => __( 'New reports to review', 'buddynext' ),
+				'description'        => __( 'New content was reported and is awaiting moderator review.', 'buddynext' ),
+				'group'              => self::GROUP_MODERATION,
+				'default_on_site'    => true,
+				'default_email_freq' => 'immediate',
+				'can_email'          => true,
+			),
+			'bn.post_approved'          => array(
+				'label'              => __( 'Post approved', 'buddynext' ),
+				'description'        => __( 'Your post was approved and is now live.', 'buddynext' ),
+				'group'              => self::GROUP_MODERATION,
+				'default_on_site'    => true,
+				'default_email_freq' => 'immediate',
+				'can_email'          => true,
+			),
+			'bn.post_rejected'          => array(
+				'label'              => __( 'Post not approved', 'buddynext' ),
+				'description'        => __( 'A post you submitted was not approved by the moderators.', 'buddynext' ),
+				'group'              => self::GROUP_MODERATION,
+				'default_on_site'    => true,
+				'default_email_freq' => 'immediate',
+				'can_email'          => true,
 			),
 
 			// Growth + system.
