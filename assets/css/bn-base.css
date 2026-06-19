@@ -2518,13 +2518,36 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 
 /* ── Sub-nav: one level under an active primary tab (parts/nav-bar.php) ─────
-   A lighter, slightly smaller second-level .bn-tabs bar rendered inside the
-   active tab's panel. Same .bn-tab component + aria-selected convention. */
+   Visually SECONDARY — a compact PILL row, not a second underline tab bar. The
+   primary bar owns the underline + full-width rail; the sub-nav reads as a
+   segmented control beneath it (filled active pill, no rail), so the hierarchy
+   is obvious. Same .bn-tab component + aria-selected convention. */
 .bn-tabs--sub {
 	margin-top: var(--bn-s2);
+	margin-bottom: var(--bn-s2);
+	gap: var(--bn-s1);
+	border-bottom: 0;
+	padding: 0;
 }
 .bn-tabs--sub .bn-tab {
 	font-size: var(--bn-text-sm);
+	padding: 4px var(--bn-s3);
+	border-bottom: 0;
+	border-radius: var(--bn-r-full);
+	color: var(--bn-ink-3);
+}
+.bn-tabs--sub .bn-tab:hover,
+.bn-tabs--sub .bn-tab:focus {
+	background: var(--bn-sunken);
+}
+.bn-tabs--sub .bn-tab[aria-selected="true"],
+.bn-tabs--sub .bn-tab.active {
+	color: var(--bn-ink);
+	border-bottom-color: transparent;
+	background: color-mix(in oklab, var(--bn-accent) 14%, transparent);
+}
+.bn-tabs--sub .bn-tab__count {
+	font-size: var(--bn-text-2xs);
 }
 
 /* ── Shared metric / stat row (parts/nav-metrics.php) ──────────────────────
