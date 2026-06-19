@@ -271,6 +271,18 @@ do_action( 'buddynext_part_member_card_before', $args );
 		</h3>
 
 		<p class="bn-md-card__handle">@<?php echo esc_html( $bn_member_login ); ?></p>
+
+		<?php
+		// Profession/headline tagline — the single most identifying line on a
+		// member card (who this person is), mirroring the profile hero. Read from
+		// the bn_headline usermeta that ProfileService::save_profile() keeps in
+		// lockstep with the canonical value, so directory browsing isn't a wall of
+		// names with no context.
+		$bn_md_headline = (string) get_user_meta( $bn_member_id, 'bn_headline', true );
+		if ( '' !== $bn_md_headline ) :
+			?>
+			<p class="bn-md-card__headline"><?php echo esc_html( $bn_md_headline ); ?></p>
+		<?php endif; ?>
 	</div>
 
 	<?php

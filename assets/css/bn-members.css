@@ -54,8 +54,8 @@
 }
 
 /* Owner-set fixed desktop column count (Settings > General > Member directory).
-   Applies only on desktop (≥1025px) so the responsive breakpoints below still
-   step the directory down to 2 then 1 on tablet/mobile; never overrides list view. */
+	Applies only on desktop (≥1025px) so the responsive breakpoints below still
+	step the directory down to 2 then 1 on tablet/mobile; never overrides list view. */
 @media (min-width: 1025px) {
 	.bn-md-grid[data-cols="2"]:not(.is-list) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 	.bn-md-grid[data-cols="3"]:not(.is-list) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -93,20 +93,20 @@
 }
 
 /* The compact horizontal row is a desktop/tablet affordance. Below 481px the
-   directory grid is already single-column, so list view keeps the full member
-   card there (the row would clip avatar + identity + two actions + kebab). */
+	directory grid is already single-column, so list view keeps the full member
+	card there (the row would clip avatar + identity + two actions + kebab). */
 @media (min-width: 481px) {
 	/* Compact horizontal rows: avatar left, identity (grows), actions right — a
-	   scannable people list (LinkedIn pattern). The grid card's cover banner and
-	   absolutely-positioned overlapping avatar are reset to a plain inline row so
-	   the row reads as one line per member, not a stack of full-bleed cards. */
+		scannable people list (LinkedIn pattern). The grid card's cover banner and
+		absolutely-positioned overlapping avatar are reset to a plain inline row so
+		the row reads as one line per member, not a stack of full-bleed cards. */
 	.bn-md-grid.is-list .bn-md-card {
 		flex-direction: row;
 		align-items: center;
 		column-gap: var(--bn-s3);
 		padding: var(--bn-s3) var(--bn-s4);
 		/* Reserve room on the right so the action buttons never sit under the
-		   absolute kebab (kebab is 30px wide at inset-inline-end: --bn-s2). */
+			absolute kebab (kebab is 30px wide at inset-inline-end: --bn-s2). */
 		padding-inline-end: calc(var(--bn-s2) + 30px + var(--bn-s3));
 	}
 
@@ -149,7 +149,7 @@
 		flex-wrap: nowrap;
 	}
 	/* Compact, auto-width action buttons in a row — they must not stretch to fill
-	   the row the way the grid card's equal-width pair does. */
+		the row the way the grid card's equal-width pair does. */
 	.bn-md-grid.is-list .bn-md-card__actions .bn-btn,
 	.bn-md-grid.is-list .bn-md-card__actions .bn-md-card__follow,
 	.bn-md-grid.is-list .bn-md-card__actions .bn-md-card__connect-primary {
@@ -185,7 +185,7 @@
 }
 
 /* Cover banner — the member's cover image, or a brand-safe tone gradient
-   matching the space cards (mirrors .bn-sd-card__cover). */
+	matching the space cards (mirrors .bn-sd-card__cover). */
 .bn-md-card__cover {
 	height: 76px;
 	width: 100%;
@@ -194,9 +194,9 @@
 	background-size: cover;
 	background-position: center;
 	/* The tone gradient is built from shared lightness + chroma stops and a
-	   per-tone hue, so light / dark only retune two pairs of vars below — no
-	   per-tone overrides to keep in sync. An uploaded cover image (inline
-	   background-image) overrides this gradient. */
+		per-tone hue, so light / dark only retune two pairs of vars below — no
+		per-tone overrides to keep in sync. An uploaded cover image (inline
+		background-image) overrides this gradient. */
 	--bn-tone-l-start: 80%;
 	--bn-tone-l-end: 55%;
 	--bn-tone-c-start: 0.13;
@@ -208,7 +208,7 @@
 [data-theme="dark"] .bn-md-card__cover,
 [data-bn-theme="dark"] .bn-md-card__cover {
 	/* Recede in dark: drop lightness AND chroma so covers read as quiet
-	   tinted bands behind the avatar, not glowing colour blocks. */
+		tinted bands behind the avatar, not glowing colour blocks. */
 	--bn-tone-l-start: 42%;
 	--bn-tone-l-end: 28%;
 	--bn-tone-c-start: 0.06;
@@ -276,7 +276,7 @@
 }
 
 /* Connection degree badge — appears next to the member name on the
-   directory card. 1st = direct connection, 2nd = mutual connection. */
+	directory card. 1st = direct connection, 2nd = mutual connection. */
 .bn-md-card__degree {
 	font-family: var(--bn-font-mono, var(--bn-font-ui));
 	font-size: 10px;
@@ -317,6 +317,18 @@
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
 	margin: 0;
+}
+
+.bn-md-card__headline {
+	font-size: var(--bn-text-sm);
+	font-weight: 500;
+	color: var(--bn-ink-2);
+	margin: var(--bn-s1) 0 0;
+	line-height: var(--bn-leading-snug);
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	overflow: hidden;
 }
 
 .bn-md-card__bio,
@@ -363,7 +375,7 @@
 }
 
 /* Two equal-width action buttons share ONE row on desktop (no wasted space);
-   they stack to two rows only on small screens. */
+	they stack to two rows only on small screens. */
 .bn-md-card__actions {
 	display: flex;
 	gap: var(--bn-s2);
@@ -528,9 +540,9 @@
 	}
 
 	/* No card-level padding on mobile: the cover banner is meant to sit flush
-	   to the card edges and the body already supplies its own padding
-	   (40px var(--bn-s4) var(--bn-s4)). Adding padding here pushed the cover
-	   inward and double-padded the body, causing the excessive spacing. */
+		to the card edges and the body already supplies its own padding
+		(40px var(--bn-s4) var(--bn-s4)). Adding padding here pushed the cover
+		inward and double-padded the body, causing the excessive spacing. */
 
 	.bn-md-card__bio {
 		display: none;
@@ -550,10 +562,10 @@
  * ════════════════════════════════════════════════════════════════════════════ */
 
 /* .bn-member-card / .bn-member-name / .bn-member-handle / .bn-card-actions /
-   .bn-btn-message / .bn-pagination / .bn-page-btn are the SHARED member-card +
-   pagination component — now defined once in bn-base.css (loaded on every BN
-   page) so they render styled wherever member cards appear (directory, profile
-   panels + shortcodes, search results), not only where bn-members.css loads. */
+	.bn-btn-message / .bn-pagination / .bn-page-btn are the SHARED member-card +
+	pagination component — now defined once in bn-base.css (loaded on every BN
+	page) so they render styled wherever member cards appear (directory, profile
+	panels + shortcodes, search results), not only where bn-members.css loads. */
 
 /* Block-template wrappers (.bn-block-member-card composes .bn-md-card) */
 .bn-block-member-card {
@@ -568,8 +580,8 @@
 	flex-direction: column;
 	gap: var(--bn-s3);
 	/* Stretch (not the inherited align-items:center from .bn-filter-strip) so
-	   the relation tabs sit left-aligned and the filter toolbar spans full
-	   width, matching the grid below. */
+		the relation tabs sit left-aligned and the filter toolbar spans full
+		width, matching the grid below. */
 	align-items: stretch;
 }
 
@@ -579,13 +591,13 @@
 	gap: var(--bn-s2);
 	align-items: center;
 	/* Full-width, left-aligned toolbar — was rendering as a narrow centred
-	   column with each control stacked on its own row. */
+		column with each control stacked on its own row. */
 	inline-size: 100%;
 	max-inline-size: none;
 	margin-inline: 0;
 }
 /* Controls size by flex, not the 100%-wide .bn-input/.bn-select default, so
-   they sit inline instead of each taking a full row. */
+	they sit inline instead of each taking a full row. */
 .bn-md-strip__form .bn-select { inline-size: auto; }
 
 .bn-md-strip__search {
@@ -657,8 +669,8 @@
 }
 
 /* "Online only" toggle — a checkbox styled as a pill-height control so the
-   whole label is a 40px tap target. Tokens only; presence dot reuses the
-   directory success token. */
+	whole label is a 40px tap target. Tokens only; presence dot reuses the
+	directory success token. */
 .bn-md-strip__online {
 	flex: 0 0 auto;
 	display: inline-flex;
@@ -850,10 +862,10 @@
 }
 
 /* Scoped under the popover so the text color wins over host-theme button/link
-   rules (e.g. Reign/Astra ".entry-content a, button { color:#fff }"), which at
-   single-class specificity would override --bn-ink and leave white-on-white,
-   unreadable menu items. Two-class specificity beats those without !important;
-   color is pinned on base + hover + focus so no theme state can wash it out. */
+	rules (e.g. Reign/Astra ".entry-content a, button { color:#fff }"), which at
+	single-class specificity would override --bn-ink and leave white-on-white,
+	unreadable menu items. Two-class specificity beats those without !important;
+	color is pinned on base + hover + focus so no theme state can wash it out. */
 .bn-md-card__menu-pop .bn-md-card__menu-item {
 	display: block;
 	width: 100%;
@@ -890,8 +902,8 @@
 }
 
 /* List view: the translucent chip (tuned for legibility over a cover gradient)
-   washes out on a plain row, so the trigger looks invisible. Make it a solid,
-   clearly-bordered icon button in list view. */
+	washes out on a plain row, so the trigger looks invisible. Make it a solid,
+	clearly-bordered icon button in list view. */
 .bn-md-grid.is-list .bn-md-card__menu {
 	background: var(--bn-surface);
 	backdrop-filter: none;
@@ -900,8 +912,8 @@
 }
 
 /* When a card's menu is open, raise that card above its siblings. Each
-   .bn-md-card is position:relative (its own stacking context), so without this
-   the dropdown is painted under the following row instead of overlaying it. */
+	.bn-md-card is position:relative (its own stacking context), so without this
+	the dropdown is painted under the following row instead of overlaying it. */
 .bn-md-card:has( .bn-md-card__menu[aria-expanded="true"] ) {
 	z-index: 5;
 }
@@ -928,10 +940,10 @@
 }
 
 /* Connected (accepted) — a settled, low-emphasis outline: transparent fill,
-   muted border + text, leading check. It reads as a confirmed state, not a
-   call-to-action, so it is visually distinct from "Connect" (which keeps the
-   stronger secondary fill). Hover hints at the disconnect affordance.
-   Scoped under .bn-md-card__actions so it wins over .bn-btn[data-variant]. */
+	muted border + text, leading check. It reads as a confirmed state, not a
+	call-to-action, so it is visually distinct from "Connect" (which keeps the
+	stronger secondary fill). Hover hints at the disconnect affordance.
+	Scoped under .bn-md-card__actions so it wins over .bn-btn[data-variant]. */
 .bn-md-card__actions .bn-md-card__connect-primary[data-state="accepted"] {
 	background: transparent;
 	color: var(--bn-ink-3);
@@ -952,5 +964,3 @@
 	border-color: color-mix(in oklab, var(--bn-danger) 35%, var(--bn-line));
 	background: var(--bn-danger-bg);
 }
-
-
