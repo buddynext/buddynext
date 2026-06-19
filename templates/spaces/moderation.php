@@ -189,7 +189,7 @@ $mod_privacy = array(
 );
 ?>
 <div
-	class="bn-space-mod"
+	class="bn-sh-stack bn-space-mod"
 	data-wp-interactive="buddynext/spaces"
 	data-wp-context='{"restNonce":"<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>","restUrl":"<?php echo esc_attr( rest_url( 'buddynext/v1/' ) ); ?>"}'
 	data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
