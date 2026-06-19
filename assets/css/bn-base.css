@@ -130,8 +130,8 @@
 	--bn-ring:      0 0 0 3px oklch(58% var(--bn-chroma) var(--bn-hue) / 0.18);
 
 	/* Scrim/backdrop behind modals and overlays. Mode-aware: a plain dark
-	   rgba scrim is nearly invisible over an already-dark page, so the dark
-	   block below raises the opacity. */
+		rgba scrim is nearly invisible over an already-dark page, so the dark
+		block below raises the opacity. */
 	--bn-overlay: oklch(0% 0 0 / 0.45);
 
 	/* Motion */
@@ -586,9 +586,9 @@
 	flex-shrink: 0;
 	overflow: visible;
 	/* Icons are decorative children of buttons/links; never the click target.
-	   Letting the SVG receive pointer events makes event.target the inner
-	   <path>, which can defeat click delegation (e.g. the WP Interactivity
-	   API) on icon-only controls. Pass clicks through to the parent. */
+		Letting the SVG receive pointer events makes event.target the inner
+		<path>, which can defeat click delegation (e.g. the WP Interactivity
+		API) on icon-only controls. Pass clicks through to the parent. */
 	pointer-events: none;
 }
 
@@ -680,11 +680,11 @@
 }
 
 /* ── Shared member card + pagination (cross-screen component) ─────────────────
-   Used by the member directory, profile followers/following/connections panels,
-   the connections/followers/following shortcodes, and search member results.
-   Lives in bn-base (loaded on every BN page as the feature-style dependency) so
-   it is styled everywhere it renders, regardless of which feature stylesheet a
-   screen enqueues — consolidated here from bn-members/bn-spaces/bn-profile/blocks. */
+	Used by the member directory, profile followers/following/connections panels,
+	the connections/followers/following shortcodes, and search member results.
+	Lives in bn-base (loaded on every BN page as the feature-style dependency) so
+	it is styled everywhere it renders, regardless of which feature stylesheet a
+	screen enqueues — consolidated here from bn-members/bn-spaces/bn-profile/blocks. */
 .bn-member-card {
 	position: relative;
 	display: flex;
@@ -875,8 +875,8 @@
 		line-height: 1;
 	}
 	/* "More" overflow sheet — opened from the 5th bar slot when admin-created
-	   custom tabs exist. Folds the Profile shortcut + custom tabs into a
-	   bottom sheet so the fixed 5-slot bar (centre Create) stays intact. */
+		custom tabs exist. Folds the Profile shortcut + custom tabs into a
+		bottom sheet so the fixed 5-slot bar (centre Create) stays intact. */
 	.bn-mobile-more-backdrop {
 		position: fixed;
 		inset: 0;
@@ -1105,7 +1105,7 @@
 }
 .bn-hover-card__follow:hover { background: var(--brand); color: var(--text-on-brand); }
 /* Already-following state mirrors the post-card "Following" affordance: filled,
-   neutral, and reverting to an "Unfollow" cue on hover. */
+	neutral, and reverting to an "Unfollow" cue on hover. */
 .bn-hover-card__follow.is-following { background: var(--brand); color: var(--text-on-brand); }
 .bn-hover-card__follow.is-following:hover { background: var(--red); border-color: var(--red); }
 
@@ -1186,11 +1186,11 @@
 }
 
 /* Follow button — label cycles "Follow" (~50px) → "Following" (~80px),
-   and both the partial (partials/follow-button.php) and the block
-   (templates/blocks/follow-button.php) render this class. Pinning the
-   worst-case width here keeps the surrounding inline context (sidebar
-   widgets, profile-hero, post bylines, suggestions row) stable across
-   state toggles regardless of which CSS bundle a page loads. */
+	and both the partial (partials/follow-button.php) and the block
+	(templates/blocks/follow-button.php) render this class. Pinning the
+	worst-case width here keeps the surrounding inline context (sidebar
+	widgets, profile-hero, post bylines, suggestions row) stable across
+	state toggles regardless of which CSS bundle a page loads. */
 .bn-follow-btn,
 .bn-block-follow-button__cta {
 	min-inline-size: 100px;
@@ -1249,11 +1249,11 @@
 }
 
 /* Shape modifier — people avatars stay circular (default --r-full); space /
-   group avatars opt into a rounded-square via data-shape="rounded" so the shape
-   itself signals person vs space at a glance. Single reusable rule: every
-   space avatar rendered through .bn-avatar uses this, rather than each widget
-   redefining its own radius. The image inherits the container radius so it
-   never reverts to a circle under another sheet's `.bn-avatar img` rule. */
+	group avatars opt into a rounded-square via data-shape="rounded" so the shape
+	itself signals person vs space at a glance. Single reusable rule: every
+	space avatar rendered through .bn-avatar uses this, rather than each widget
+	redefining its own radius. The image inherits the container radius so it
+	never reverts to a circle under another sheet's `.bn-avatar img` rule. */
 .bn-avatar[data-shape="rounded"] { border-radius: var(--r-md); }
 .bn-avatar[data-shape="rounded"] img { border-radius: inherit; }
 
@@ -1331,17 +1331,17 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   COMMUNITY CONTAINER WIDTH — single source of truth
-   Every community page — BuddyNext, Jetonomy, WPMediaVerse — uses this width.
-   ════════════════════════════════════════════════════════════════════════════ */
+	COMMUNITY CONTAINER WIDTH — single source of truth
+	Every community page — BuddyNext, Jetonomy, WPMediaVerse — uses this width.
+	════════════════════════════════════════════════════════════════════════════ */
 :root {
 	--bn-container: 1100px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   LEVEL 2 CONTEXT NAV — per-section sub-navigation
-   Only renders when buddynext_context_nav filter returns items.
-   ════════════════════════════════════════════════════════════════════════════ */
+	LEVEL 2 CONTEXT NAV — per-section sub-navigation
+	Only renders when buddynext_context_nav filter returns items.
+	════════════════════════════════════════════════════════════════════════════ */
 .bn-context-nav {
 	border-bottom: 1px solid var(--border);
 	background: var(--bg);
@@ -1375,9 +1375,9 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   UNIVERSAL HUB SHELL + COMMUNITY SIDEBAR
-   All hub pages use .bn-hub-shell for consistent layout.
-   ════════════════════════════════════════════════════════════════════════════ */
+	UNIVERSAL HUB SHELL + COMMUNITY SIDEBAR
+	All hub pages use .bn-hub-shell for consistent layout.
+	════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Hub page outer container (Activity / Notifications / Messages) ── */
 .bn-hub-shell {
@@ -1406,13 +1406,13 @@
 }
 
 /* ── Templates inside hub shell — uniform container rules ─────────────
-   Hub shell owns the layout: 1fr content + 300px sidebar.
-   Every direct child (template wrapper) must:
-     1. Fill the 1fr column fully (no internal max-width)
-     2. Have no internal padding that changes the visual alignment
-     3. Flatten any internal two-column grids (community sidebar replaces them)
-   This ensures all pages — feed, members, notifications, spaces, profile,
-   search, hashtags, leaderboard — have identical content width. */
+	Hub shell owns the layout: 1fr content + 300px sidebar.
+	Every direct child (template wrapper) must:
+	1. Fill the 1fr column fully (no internal max-width)
+	2. Have no internal padding that changes the visual alignment
+	3. Flatten any internal two-column grids (community sidebar replaces them)
+	This ensures all pages — feed, members, notifications, spaces, profile,
+	search, hashtags, leaderboard — have identical content width. */
 
 /* Reset: strip max-width and padding from ALL template wrappers inside hub shell */
 .bn-hub-shell > .bn-notifs-shell,
@@ -1441,7 +1441,7 @@
 }
 
 /* Profile uses full-width container (Facebook-style, no community sidebar).
-   Profile has its own contextual widgets — community sidebar is redundant. */
+	Profile has its own contextual widgets — community sidebar is redundant. */
 .bn-profile-container {
 	max-width: var(--bn-container);
 	margin: 0 auto;
@@ -1458,8 +1458,8 @@
 
 /* ── Jetonomy inside BuddyNext ────────────────────────────────────────── */
 /* No hub-shell grid — Jetonomy keeps its own .jt-two-col layout + sidebar.
-   BuddyNext only injects the nav bar above. Add top spacing so content
-   doesn't sit flush against the nav. */
+	BuddyNext only injects the nav bar above. Add top spacing so content
+	doesn't sit flush against the nav. */
 .bn-jt-content {
 	padding-top: var(--s6, 24px);
 }
@@ -1515,8 +1515,8 @@
 }
 
 /* ── Reusable sidebar row base ──────────────────────────────────────────
-   Apply .bn-sbar-row to any list item inside bn-sidebar-card__body.
-   Each widget adds its own flex layout on top of this base. */
+	Apply .bn-sbar-row to any list item inside bn-sidebar-card__body.
+	Each widget adds its own flex layout on top of this base. */
 .bn-sbar-row {
 	display: flex;
 	align-items: center;
@@ -1598,13 +1598,13 @@
 [data-theme="dark"] .bn-sbar-row__icon { background: var(--brand-light); }
 
 /* ── Personalized sidebar widgets (greeting · events · roles · stats) ─────
-   Cross-surface: greeting + events render in the feed sidebar, this-week-
-   stats in the notifications sidebar, by-role in the member-directory
-   sidebar. Each part renders its own internal markup inside the shared
-   .bn-card / .bn-sidebar-card chrome (which supplies the box + padding);
-   only the inner elements need styling. Lives in bn-base.css (loaded on
-   every BN surface) rather than a per-surface sheet so all four are styled
-   wherever they appear. Mirrors docs/v2 Plans/v2/home-feed.html. */
+	Cross-surface: greeting + events render in the feed sidebar, this-week-
+	stats in the notifications sidebar, by-role in the member-directory
+	sidebar. Each part renders its own internal markup inside the shared
+	.bn-card / .bn-sidebar-card chrome (which supplies the box + padding);
+	only the inner elements need styling. Lives in bn-base.css (loaded on
+	every BN surface) rather than a per-surface sheet so all four are styled
+	wherever they appear. Mirrors docs/v2 Plans/v2/home-feed.html. */
 
 /* Greeting + activity streak (Pattern D-1) */
 .bn-greeting-streak__heading {
@@ -1765,7 +1765,7 @@
 	text-decoration: none;
 }
 /* Unlinked rows: the <li> itself carries the padding (label + count are its
-   direct flex children). */
+	direct flex children). */
 .bn-by-role__row:not(:has(.bn-by-role__link)) {
 	padding: var(--bn-s2) 0;
 }
@@ -1814,18 +1814,18 @@
 }
 
 /* ==========================================================================
-   Shared Animation System
-   ──────────────────────────────────────────────────────────────────────────
-   BuddyNext-level keyframes used uniformly across BuddyNext, Jetonomy, and
-   WPMediaVerse.  All three plugins share the same motion language:
-     - bn-slide-up    : list/card entrance (stagger via animation-delay)
-     - bn-fade-in     : generic fade + subtle translate
-     - bn-fade-title  : heading entrance (scale + fade)
-     - bn-bounce-in   : attention elements (badges, CTAs)
-     - bn-pulse       : loading/skeleton placeholders
-     - bn-count-pop   : stat number pop-in
-   Easing: cubic-bezier(0.22, 1, 0.36, 1) — smooth deceleration.
-   ========================================================================== */
+	Shared Animation System
+	──────────────────────────────────────────────────────────────────────────
+	BuddyNext-level keyframes used uniformly across BuddyNext, Jetonomy, and
+	WPMediaVerse.  All three plugins share the same motion language:
+	- bn-slide-up    : list/card entrance (stagger via animation-delay)
+	- bn-fade-in     : generic fade + subtle translate
+	- bn-fade-title  : heading entrance (scale + fade)
+	- bn-bounce-in   : attention elements (badges, CTAs)
+	- bn-pulse       : loading/skeleton placeholders
+	- bn-count-pop   : stat number pop-in
+	Easing: cubic-bezier(0.22, 1, 0.36, 1) — smooth deceleration.
+	========================================================================== */
 
 @keyframes bn-slide-up {
 	from { opacity: 0; transform: translateY(12px); }
@@ -1891,20 +1891,20 @@
 }
 
 /* ==========================================================================
-   Font Size Scaling — A / A+ / A++ Accessibility Control
-   ──────────────────────────────────────────────────────────────────────────
-   The data-bn-font-scale attribute on <html> scales ALL BuddyNext content
-   uniformly. Because all --text-* tokens use rem, adjusting font-size on
-   the hub shell containers makes everything scale proportionally — text,
-   spacing, icons.
+	Font Size Scaling — A / A+ / A++ Accessibility Control
+	──────────────────────────────────────────────────────────────────────────
+	The data-bn-font-scale attribute on <html> scales ALL BuddyNext content
+	uniformly. Because all --text-* tokens use rem, adjusting font-size on
+	the hub shell containers makes everything scale proportionally — text,
+	spacing, icons.
 
-   This applies to BuddyNext pages, Jetonomy pages (inside .bn-jt-content),
-   and WPMediaVerse pages (inside .bn-mvs-content).
-   ========================================================================== */
+	This applies to BuddyNext pages, Jetonomy pages (inside .bn-jt-content),
+	and WPMediaVerse pages (inside .bn-mvs-content).
+	========================================================================== */
 
 /* Works like browser zoom — sets the root font-size so every rem value
-   in BuddyNext, Jetonomy, and WPMediaVerse scales uniformly. Affects
-   text, spacing, padding, icons — everything measured in rem. */
+	in BuddyNext, Jetonomy, and WPMediaVerse scales uniformly. Affects
+	text, spacing, padding, icons — everything measured in rem. */
 
 /* A+ (110%) */
 html[data-bn-font-scale="110"] { font-size: 110%; }
@@ -2067,7 +2067,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	align-items: center;
 	gap: var(--bn-s1);
 	/* Fixed height + align-items:center handle vertical centring, so the old
-	   off-grid 2px vertical padding was inert — drop it and keep the 8px sides. */
+		off-grid 2px vertical padding was inert — drop it and keep the 8px sides. */
 	padding: 0 var(--bn-s2);
 	height: var(--bn-s5);
 	font-size: var(--bn-text-2xs);
@@ -2089,7 +2089,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: var(--bn-paid); border-color: transparent; }
 
 /* Member-type badge icon (admin-supplied SVG) — inherits the badge's currentColor
-   and sits inline before the label via the badge's own flex gap. */
+	and sits inline before the label via the badge's own flex gap. */
 .bn-type-badge__icon { display: inline-flex; align-items: center; }
 .bn-type-badge__icon svg { width: 12px; height: 12px; display: block; }
 
@@ -2133,13 +2133,45 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-avatar[data-presence="offline"]::after { background: var(--bn-ink-4); }
 
 /* The presence dot sits on the avatar's bottom-right edge, so the avatar's
-   circular overflow clip (base .bn-avatar, [data-size], and .bn-md-card__avatar
-   all set overflow:hidden) cut off the dot's inner half. Opt presence avatars
-   out of the clip and round the image itself so it stays circular. This
-   [data-presence] rule outranks .bn-md-card__avatar and, by source order,
-   .bn-avatar[data-size]. */
+	circular overflow clip (base .bn-avatar, [data-size], and .bn-md-card__avatar
+	all set overflow:hidden) cut off the dot's inner half. Opt presence avatars
+	out of the clip and round the image itself so it stays circular. This
+	[data-presence] rule outranks .bn-md-card__avatar and, by source order,
+	.bn-avatar[data-size]. */
 .bn-avatar[data-presence] { overflow: visible; }
 .bn-avatar[data-presence] img { border-radius: var(--r-full); }
+
+/* ── Avatar — deterministic monogram tones ──────────────────────────────
+	Initials-only avatars (no image) get a stable colour keyed off the
+	member id so a roster reads as distinct people, not a wall of one hue.
+	Shares the canonical cover-tone palette + hues used by
+	.bn-md-card__cover / .bn-sd-card__cover (sky 240, cyan 200, emerald 160,
+	lime 130, amber 70, coral 35) so the platform speaks one colour language.
+	Solid mid-tone fill + near-white monogram in light; receded (lower L,
+	lower chroma) in dark so the avatar reads as a quiet tinted disc, not a
+	glowing block. Only applies when an actual image is not present. */
+.bn-avatar[data-tone] {
+	--bn-avatar-tone-l: 58%;
+	--bn-avatar-tone-c: 0.14;
+	background: oklch(var(--bn-avatar-tone-l) var(--bn-avatar-tone-c) var(--bn-avatar-tone-h, 240));
+	color: oklch(99% 0 0);
+}
+.bn-avatar[data-tone] img { /* a real photo always wins over the tone fill */
+	background: var(--bn-surface);
+}
+.bn-avatar[data-tone="sky"]     { --bn-avatar-tone-h: 240; }
+.bn-avatar[data-tone="cyan"]    { --bn-avatar-tone-h: 200; --bn-avatar-tone-c: 0.12; }
+.bn-avatar[data-tone="emerald"] { --bn-avatar-tone-h: 160; }
+.bn-avatar[data-tone="lime"]    { --bn-avatar-tone-h: 130; --bn-avatar-tone-c: 0.13; }
+.bn-avatar[data-tone="amber"]   { --bn-avatar-tone-h: 70;  }
+.bn-avatar[data-tone="coral"]   { --bn-avatar-tone-h: 35;  }
+[data-theme="dark"] .bn-avatar[data-tone],
+[data-bn-theme="dark"] .bn-avatar[data-tone],
+[data-bx-mode="dark"] .bn-avatar[data-tone] {
+	--bn-avatar-tone-l: 42%;
+	--bn-avatar-tone-c: 0.08;
+	color: oklch(96% 0.01 var(--bn-avatar-tone-h, 240));
+}
 
 /* ── Card — v2 attribute API ────────────────────────────────────────── */
 .bn-card[data-v2],
@@ -2343,7 +2375,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	width: 28px;
 	height: 28px;
 	/* Explicit 0 so the close stays a clean 28x28 icon button even where a theme
-	   or composer button rule would otherwise leak padding onto the <button>. */
+		or composer button rule would otherwise leak padding onto the <button>. */
 	padding: 0;
 	border-radius: var(--bn-r-sm);
 	color: var(--bn-ink-3);
@@ -2366,17 +2398,17 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 
 /* Stacked body — even row spacing for modals that lay out a help line + form
-   fields. Use on bodies whose children would otherwise have no row gap (e.g. the
-   report modal, which reuses the profile-edit .bn-ep-field--full grid cell where
-   the grid modifier is inert). Lives in the primitive layer so it applies on any
-   surface, since bn-profile.css is not enqueued on the members directory. */
+	fields. Use on bodies whose children would otherwise have no row gap (e.g. the
+	report modal, which reuses the profile-edit .bn-ep-field--full grid cell where
+	the grid modifier is inert). Lives in the primitive layer so it applies on any
+	surface, since bn-profile.css is not enqueued on the members directory. */
 .bn-modal__body--stack {
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s4);
 }
 /* Let the flex gap be the single source of row spacing so the help line and
-   fields are evenly separated (the help <p> otherwise adds its own margin). */
+	fields are evenly separated (the help <p> otherwise adds its own margin). */
 .bn-modal__body--stack > * {
 	margin-block: 0;
 }
@@ -2403,9 +2435,9 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	gap: var(--bn-s1);
 	margin: 0;
 	/* Single source of truth: a tab strip scrolls horizontally when it
-	   overflows, with the scrollbar hidden on every platform. Feature tab
-	   variants that carry .bn-tabs inherit this; standalone tab classes that
-	   do not use .bn-tabs (e.g. .bn-mod-filterbar__tabs) keep their own. */
+		overflows, with the scrollbar hidden on every platform. Feature tab
+		variants that carry .bn-tabs inherit this; standalone tab classes that
+		do not use .bn-tabs (e.g. .bn-mod-filterbar__tabs) keep their own. */
 	overflow-x: auto;
 	scrollbar-width: none;
 }
@@ -2413,10 +2445,10 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-tabs[data-density="compact"] { gap: 2px; }
 
 /* Overflow affordance: when the strip scrolls, fade ONLY the edge that has
-   hidden tabs beyond it, so it is discoverable there are more tabs (esp. on
-   mobile) without faded edges appearing when nothing is hidden. Scroll-driven,
-   no JS; progressive enhancement - browsers without scroll() timelines just
-   keep the plain hidden-scrollbar strip. */
+	hidden tabs beyond it, so it is discoverable there are more tabs (esp. on
+	mobile) without faded edges appearing when nothing is hidden. Scroll-driven,
+	no JS; progressive enhancement - browsers without scroll() timelines just
+	keep the plain hidden-scrollbar strip. */
 @supports (animation-timeline: scroll()) {
 	.bn-tabs {
 		animation: bn-tabs-edge-fade linear both;
@@ -2443,12 +2475,12 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 
 .bn-tab {
 	/* Inline padding gives the same-tone hover/active highlight room to read as
-	   a soft pill; the rounded TOP + flat bottom keeps the active underline. */
+		a soft pill; the rounded TOP + flat bottom keeps the active underline. */
 	padding: var(--bn-s2) var(--bn-s3);
 	/* Normalise font + metrics so an <a> tab and a <button> tab render
-	   IDENTICALLY. Without this, a <button class="bn-tab"> falls back to the
-	   UA button font + line-height and sits at a different height/baseline than
-	   its <a> siblings - the "jumpy / misaligned" tab bar. */
+		IDENTICALLY. Without this, a <button class="bn-tab"> falls back to the
+		UA button font + line-height and sits at a different height/baseline than
+		its <a> siblings - the "jumpy / misaligned" tab bar. */
 	font-family: var(--bn-font-ui);
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-medium-semibold);
@@ -2470,14 +2502,14 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	gap: 6px;
 	text-decoration: none;
 	/* Keep a multi-word label ("For you") + its count chip on one line; under
-	   width pressure the .bn-tabs row scrolls horizontally rather than wrapping
-	   a tab's text into two rows. */
+		width pressure the .bn-tabs row scrolls horizontally rather than wrapping
+		a tab's text into two rows. */
 	white-space: nowrap;
 	flex: 0 0 auto;
 }
 /* Hover / focus / active read as a soft SAME-TONE highlight (accent at low
-   opacity) — never a heavy fill and never a box. Keyboard focus adds a clean
-   accent underline (inset shadow, no layout shift). */
+	opacity) — never a heavy fill and never a box. Keyboard focus adds a clean
+	accent underline (inset shadow, no layout shift). */
 .bn-tabs .bn-tab:hover,
 .bn-tabs .bn-tab:focus,
 .bn-tabs .bn-tab:active {
@@ -2485,9 +2517,9 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	background: color-mix(in oklab, var(--bn-accent) 8%, transparent);
 }
 /* Tabs live in an overflow-x:auto strip, which clips an outset ring, so the
-   focus ring is INSET here — same accent, same intent as --bn-ring, just drawn
-   inside the tab so it can never be clipped. Transparent outline = forced-colors
-   fallback. */
+	focus ring is INSET here — same accent, same intent as --bn-ring, just drawn
+	inside the tab so it can never be clipped. Transparent outline = forced-colors
+	fallback. */
 .bn-tabs .bn-tab:focus-visible {
 	color: var(--bn-ink);
 	background: color-mix(in oklab, var(--bn-accent) 8%, transparent);
@@ -2518,26 +2550,26 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   THE NAV SYSTEM — three independent components, three class namespaces, ZERO
-   shared inheritance. Every surface + every integration (own + 3rd party) uses
-   these via the Nav API (buddynext_register_nav) → the shared render parts. Keep
-   them separate so a change to one can never bleed into another:
+	THE NAV SYSTEM — three independent components, three class namespaces, ZERO
+	shared inheritance. Every surface + every integration (own + 3rd party) uses
+	these via the Nav API (buddynext_register_nav) → the shared render parts. Keep
+	them separate so a change to one can never bleed into another:
 
-     1. STATS      .bn-nav-metrics / .bn-nav-metric        (parts/nav-metrics.php)
-     2. PRIMARY    .bn-tabs / .bn-tab                       (parts/nav-bar.php)
-     3. SUB-NAV    .bn-subnav / .bn-subnav__item           (parts/nav-subnav.php)
+	1. STATS      .bn-nav-metrics / .bn-nav-metric        (parts/nav-metrics.php)
+	2. PRIMARY    .bn-tabs / .bn-tab                       (parts/nav-bar.php)
+	3. SUB-NAV    .bn-subnav / .bn-subnav__item           (parts/nav-subnav.php)
 
-   .bn-navgroup wraps PRIMARY + its SUB-NAV as one unit so a page stack gap can't
-   space the sub-nav off as its own section.
-   ════════════════════════════════════════════════════════════════════════════ */
+	.bn-navgroup wraps PRIMARY + its SUB-NAV as one unit so a page stack gap can't
+	space the sub-nav off as its own section.
+	════════════════════════════════════════════════════════════════════════════ */
 .bn-navgroup {
 	display: block;
 }
 
 /* ── (3) SUB-NAV — the canonical secondary nav. A premium TEXT toggle, NOT a
-   second tab bar: its OWN namespace (never .bn-tab), so no rail, no box, no
-   underline, and nothing to override. Active = accent + semibold; inactive =
-   muted. Sits tight under the primary bar inside .bn-navgroup. */
+	second tab bar: its OWN namespace (never .bn-tab), so no rail, no box, no
+	underline, and nothing to override. Active = accent + semibold; inactive =
+	muted. Sits tight under the primary bar inside .bn-navgroup. */
 .bn-subnav {
 	display: flex;
 	flex-wrap: wrap;
@@ -2545,13 +2577,13 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	gap: var(--bn-s4);
 	margin-top: var(--bn-s2);
 	/* Indent so the first sub item's text lines up vertically under the first
-	   primary tab's text (primary .bn-tab carries var(--bn-s3) inline padding). */
+		primary tab's text (primary .bn-tab carries var(--bn-s3) inline padding). */
 	padding-inline-start: var(--bn-s3);
 }
 /* Base + ALL interaction states scoped under .bn-app so the host theme's bare
-   <button> chrome (border / padding / hover + active + focus background) can
-   never bleed in — the sub-nav is text only, in every state. Hover, active
-   (selected) and :active (press) are covered together. */
+	<button> chrome (border / padding / hover + active + focus background) can
+	never bleed in — the sub-nav is text only, in every state. Hover, active
+	(selected) and :active (press) are covered together. */
 .bn-app .bn-subnav__item {
 	display: inline-flex;
 	align-items: baseline;
@@ -2563,7 +2595,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	background: none;
 	box-shadow: none;
 	/* appearance:none stops the host theme (and the UA) from painting any native
-	   <button> chrome in any state — the sub-nav is text, period. */
+		<button> chrome in any state — the sub-nav is text, period. */
 	appearance: none;
 	-webkit-appearance: none;
 	font: inherit;
@@ -2575,7 +2607,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	cursor: pointer;
 }
 /* Hover / focus / press (:active) all covered together — no theme bg, no ring,
-   no box; only the text colour lifts to ink. */
+	no box; only the text colour lifts to ink. */
 .bn-app .bn-subnav__item:hover,
 .bn-app .bn-subnav__item:focus,
 .bn-app .bn-subnav__item:active {
@@ -2590,7 +2622,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	border-radius: var(--bn-r-sm);
 }
 /* Selected wins over hover AND press, so an active item under the cursor stays
-   accent (covers the theme's :hover/:active that would otherwise repaint it). */
+	accent (covers the theme's :hover/:active that would otherwise repaint it). */
 .bn-app .bn-subnav__item[aria-selected="true"],
 .bn-app .bn-subnav__item[aria-selected="true"]:hover,
 .bn-app .bn-subnav__item[aria-selected="true"]:focus,
@@ -2610,10 +2642,10 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 
 /* ── Shared metric / stat row (parts/nav-metrics.php) ──────────────────────
-   The count-pill row used by BOTH the profile and space surfaces: value (bold
-   ink) + muted label, optional week-over-week delta chip. Display-only by
-   default; the <a>/<button> variants deep-link (list / tab jump) but read as
-   counts, never a second navigation. Token-driven + dark-safe. */
+	The count-pill row used by BOTH the profile and space surfaces: value (bold
+	ink) + muted label, optional week-over-week delta chip. Display-only by
+	default; the <a>/<button> variants deep-link (list / tab jump) but read as
+	counts, never a second navigation. Token-driven + dark-safe. */
 .bn-nav-metrics {
 	display: flex;
 	flex-wrap: wrap;
@@ -2671,8 +2703,8 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 
 /* Profile-hero variant: the metric row reads as the hero's bottom stat band —
-   middot-separated counts on a subtle band, NOT a second nav. (Replaces the old
-   .bn-pf-pills strip; same look, one canonical component.) */
+	middot-separated counts on a subtle band, NOT a second nav. (Replaces the old
+	.bn-pf-pills strip; same look, one canonical component.) */
 .bn-nav-metrics.bn-pf-metricrow {
 	gap: 0;
 	align-items: baseline;
@@ -2700,8 +2732,8 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 		gap: var(--bn-s2) var(--bn-s3);
 	}
 	/* On a narrow band the metric row wraps; drop the middot separators (a wrap
-	   would otherwise leave a dangling leading "·") and lean on the row/column
-	   gap for clean separation across lines. */
+		would otherwise leave a dangling leading "·") and lean on the row/column
+		gap for clean separation across lines. */
 	.bn-nav-metrics.bn-pf-metricrow {
 		gap: var(--bn-s1) var(--bn-s4);
 	}
@@ -2711,18 +2743,18 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 
 /* ── Theme-proof interactive controls ───────────────────────────────────────
-   Host themes (Reign, etc.) style bare <button>/<a> with their own padding +
-   borders at the BASE level (Reign gives every button 10px 20px). That bleeds
-   into BuddyNext's icon buttons / card actions because a bare `.bn-composer__tool`
-   loses specificity to `.theme-wrap button`. The earlier per-component fix only
-   reset padding on :hover, so the base kept the theme's 10px 20px and the icon
-   *shrank* on hover — the "jumpy controls" glitch. The real fix is to own the
-   geometry at the BASE under .bn-app (class+context out-specifies the theme),
-   so base == hover and nothing moves. This is the single place that locks
-   control geometry; add new bare-button controls here rather than re-patching
-   each component's :hover. Colour/background and focus rings stay with the
-   components. (The host theme defines no button:hover transform, so no
-   per-state override is needed — base alone is sufficient and dup-free.) */
+	Host themes (Reign, etc.) style bare <button>/<a> with their own padding +
+	borders at the BASE level (Reign gives every button 10px 20px). That bleeds
+	into BuddyNext's icon buttons / card actions because a bare `.bn-composer__tool`
+	loses specificity to `.theme-wrap button`. The earlier per-component fix only
+	reset padding on :hover, so the base kept the theme's 10px 20px and the icon
+	*shrank* on hover — the "jumpy controls" glitch. The real fix is to own the
+	geometry at the BASE under .bn-app (class+context out-specifies the theme),
+	so base == hover and nothing moves. This is the single place that locks
+	control geometry; add new bare-button controls here rather than re-patching
+	each component's :hover. Colour/background and focus rings stay with the
+	components. (The host theme defines no button:hover transform, so no
+	per-state override is needed — base alone is sufficient and dup-free.) */
 .bn-app .bn-composer__tool {
 	box-sizing: border-box;
 	width: 32px;
@@ -2744,9 +2776,9 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-app .bn-tab:active,
 .bn-app .bn-tab:focus-visible {
 	/* Own the padding on every interactive state so a host theme's bare-button
-	   :hover (e.g. Reign's `button:hover { padding: 10px 20px }`, 0,2,1) cannot
-	   out-specify it (0,3,0 here) and reflow the tab row on hover/press — the same
-	   geometry lock the composer/post-card action buttons use. */
+		:hover (e.g. Reign's `button:hover { padding: 10px 20px }`, 0,2,1) cannot
+		out-specify it (0,3,0 here) and reflow the tab row on hover/press — the same
+		geometry lock the composer/post-card action buttons use. */
 	padding: var(--bn-s2) var(--bn-s3);
 }
 .bn-app .bn-tab {
@@ -2754,7 +2786,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	border-right: 0;
 	border-left: 0;
 	/* Pin the underline edge's width + style (not colour — the active tab sets
-	   border-bottom-color) so a themed border can't reflow the tab row. */
+		border-bottom-color) so a themed border can't reflow the tab row. */
 	border-bottom-width: 2px;
 	border-bottom-style: solid;
 }
@@ -3072,8 +3104,8 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	cursor: pointer;
 	transition: background var(--bn-dur-fast) var(--bn-ease);
 	/* Rail items are whole-row links; the row's hover + active states convey
-	   interactivity, so drop the inherited underline (WP-admin defaults links
-	   to underline) that cluttered the title/meta text. */
+		interactivity, so drop the inherited underline (WP-admin defaults links
+		to underline) that cluttered the title/meta text. */
 	text-decoration: none;
 }
 .bn-split__rail-item,

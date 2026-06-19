@@ -51,16 +51,21 @@ if ( ! function_exists( 'bn_space_category_icon' ) ) {
 	}
 }
 
-if ( ! function_exists( 'bn_sh_avatar_color' ) ) {
+if ( ! function_exists( 'bn_sh_avatar_tone' ) ) {
 	/**
-	 * Return a deterministic avatar background colour based on a user id.
+	 * Return a deterministic avatar tone slug based on a user id.
+	 *
+	 * Maps to the shared `.bn-avatar[data-tone]` palette in bn-base.css
+	 * (same six tones the member/space cover cards use). The slug is applied
+	 * as `data-tone` so the colour is theme- and dark-mode-aware via tokens
+	 * rather than a hardcoded hex inline style.
 	 *
 	 * @param int $user_id WordPress user ID.
-	 * @return string CSS hex colour.
+	 * @return string Tone slug (sky|cyan|emerald|lime|amber|coral).
 	 */
-	function bn_sh_avatar_color( int $user_id ): string {
-		$colors = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#d97706' );
-		return $colors[ $user_id % count( $colors ) ];
+	function bn_sh_avatar_tone( int $user_id ): string {
+		$tones = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
+		return $tones[ $user_id % count( $tones ) ];
 	}
 }
 
@@ -367,7 +372,7 @@ add_action(
 							<a class="bn-sh-side-mod__id" href="<?php echo esc_url( $bn_mod_url ); ?>">
 								<span class="bn-avatar bn-sh-side-member__avatar"
 									data-size="sm"
-									style="background:<?php echo esc_attr( bn_sh_avatar_color( $bn_mod_uid ) ); ?>;color:var(--bn-accent-fg);"
+									data-tone="<?php echo esc_attr( bn_sh_avatar_tone( $bn_mod_uid ) ); ?>"
 									aria-hidden="true"
 								><?php echo esc_html( $bn_mod_init ); ?></span>
 								<span class="bn-sh-side-member__name">
@@ -422,7 +427,7 @@ add_action(
 						<a class="bn-sh-side-member__id" href="<?php echo esc_url( $bn_murl ); ?>">
 							<span class="bn-avatar bn-sh-side-member__avatar"
 								data-size="sm"
-								style="background:<?php echo esc_attr( bn_sh_avatar_color( $bn_uid ) ); ?>;color:var(--bn-accent-fg);"
+								data-tone="<?php echo esc_attr( bn_sh_avatar_tone( $bn_uid ) ); ?>"
 								aria-hidden="true"
 							><?php echo esc_html( $bn_init ); ?></span>
 							<span class="bn-sh-side-member__name">
@@ -465,7 +470,7 @@ add_action(
 						<a class="bn-sh-side-member__id" href="<?php echo esc_url( $bn_curl ); ?>">
 							<span class="bn-avatar bn-sh-side-member__avatar"
 								data-size="sm"
-								style="background:<?php echo esc_attr( bn_sh_avatar_color( $bn_cuid ) ); ?>;color:var(--bn-accent-fg);"
+								data-tone="<?php echo esc_attr( bn_sh_avatar_tone( $bn_cuid ) ); ?>"
 								aria-hidden="true"
 							><?php echo esc_html( $bn_cinit ); ?></span>
 							<span class="bn-sh-side-member__name"><?php echo esc_html( $bn_cname ); ?></span>
