@@ -1,0 +1,202 @@
+{
+  "parent_category": "buddynext",
+  "short_id": "bnext",
+  "subcategories": [
+    {
+      "slug": "getting-started-bnext",
+      "name": "Getting Started",
+      "docs": [
+        "getting-started/01-introduction.md",
+        "getting-started/02-installation.md",
+        "getting-started/03-admin-setup-wizard.md",
+        "getting-started/04-admin-overview.md"
+      ]
+    },
+    {
+      "slug": "accounts-access-bnext",
+      "name": "Accounts & Access",
+      "docs": [
+        "accounts-access/01-registration.md",
+        "accounts-access/02-login.md",
+        "accounts-access/03-social-login.md",
+        "accounts-access/04-email-verification.md",
+        "accounts-access/05-two-factor-authentication.md",
+        "accounts-access/06-member-onboarding.md",
+        "accounts-access/07-account-settings.md",
+        "accounts-access/08-privacy-and-data.md"
+      ]
+    },
+    {
+      "slug": "community-bnext",
+      "name": "Community & Activity",
+      "docs": [
+        "community/01-activity-feed.md",
+        "community/02-post-composer.md",
+        "community/03-post-privacy-and-visibility.md",
+        "community/04-reactions.md",
+        "community/05-comments.md",
+        "community/06-polls.md",
+        "community/07-shares-reposts.md",
+        "community/08-bookmarks.md",
+        "community/09-hashtags.md",
+        "community/10-mentions.md",
+        "community/11-announcements.md",
+        "community/12-search.md",
+        "community/13-explore.md",
+        "community/14-sidebar-widgets.md"
+      ]
+    },
+    {
+      "slug": "members-bnext",
+      "name": "Members & Social Graph",
+      "docs": [
+        "members/01-member-profiles.md",
+        "members/02-profile-fields.md",
+        "members/03-profile-completion.md",
+        "members/04-member-directory.md",
+        "members/05-member-types.md",
+        "members/06-following.md",
+        "members/07-connections.md",
+        "members/08-blocking-and-muting.md",
+        "members/09-presence-online.md"
+      ]
+    },
+    {
+      "slug": "spaces-bnext",
+      "name": "Spaces",
+      "docs": [
+        "spaces/01-spaces-overview.md",
+        "spaces/02-creating-a-space.md",
+        "spaces/03-space-types-and-privacy.md",
+        "spaces/04-managing-members.md",
+        "spaces/05-roles-and-moderators.md",
+        "spaces/06-space-bans.md",
+        "spaces/07-space-notifications.md",
+        "spaces/08-space-categories.md",
+        "spaces/09-space-forum.md"
+      ]
+    },
+    {
+      "slug": "messaging-notifications-bnext",
+      "name": "Messaging & Notifications",
+      "docs": [
+        "messaging-notifications/01-direct-messaging.md",
+        "messaging-notifications/02-notifications.md",
+        "messaging-notifications/03-notification-preferences.md",
+        "messaging-notifications/04-email-system.md",
+        "messaging-notifications/05-email-digests.md"
+      ]
+    },
+    {
+      "slug": "moderation-bnext",
+      "name": "Moderation & Trust",
+      "docs": [
+        "moderation/01-reporting-content.md",
+        "moderation/02-moderation-queue.md",
+        "moderation/03-user-moderation.md",
+        "moderation/04-appeals.md",
+        "moderation/05-content-safeguards.md"
+      ]
+    },
+    {
+      "slug": "engagement-bnext",
+      "name": "Engagement",
+      "docs": [
+        "engagement/01-gamification.md",
+        "engagement/02-leaderboard.md",
+        "engagement/03-realtime-updates.md",
+        "engagement/04-pwa.md"
+      ]
+    },
+    {
+      "slug": "pro-bnext",
+      "name": "Pro Features",
+      "docs": [
+        "pro/01-membership-tiers.md",
+        "pro/02-gated-spaces.md",
+        "pro/03-stripe-payments.md",
+        "pro/04-content-protection.md",
+        "pro/05-scheduled-posts.md",
+        "pro/06-multi-pin-posts.md",
+        "pro/07-custom-reactions.md",
+        "pro/08-member-labels.md",
+        "pro/09-advanced-profile-fields.md",
+        "pro/10-advanced-search.md",
+        "pro/11-analytics.md",
+        "pro/12-broadcast-email.md",
+        "pro/13-drip-sequences.md",
+        "pro/14-auto-moderation.md",
+        "pro/15-ai-feed-and-moderation.md",
+        "pro/16-bulk-moderation.md",
+        "pro/17-push-notifications.md",
+        "pro/18-realtime-websocket.md",
+        "pro/19-unlimited-webhooks.md",
+        "pro/20-white-label.md"
+      ]
+    },
+    {
+      "slug": "integrations-bnext",
+      "name": "Integrations",
+      "docs": [
+        "integrations/01-overview.md",
+        "integrations/02-wpmediaverse.md",
+        "integrations/03-jetonomy.md",
+        "integrations/04-gamification-addon.md",
+        "integrations/05-career-board.md",
+        "integrations/06-outbound-webhooks.md"
+      ]
+    },
+    {
+      "slug": "developer-guide-bnext",
+      "name": "Developer Guide",
+      "docs": [
+        "developer-guide/01-overview.md",
+        "developer-guide/02-getting-started-dev.md",
+        "developer-guide/03-architecture-overview.md",
+        "developer-guide/04-namespaces-and-layout.md",
+        "developer-guide/05-feature-groups-and-tiers.md",
+        "developer-guide/06-data-model-overview.md",
+        "developer-guide/07-schema-content-feed.md",
+        "developer-guide/08-schema-members-profiles.md",
+        "developer-guide/09-schema-spaces.md",
+        "developer-guide/10-schema-notifications-email.md",
+        "developer-guide/11-schema-moderation-trust.md",
+        "developer-guide/12-schema-auth-search-webhooks.md",
+        "developer-guide/13-schema-pro-tables.md",
+        "developer-guide/14-rest-contract.md",
+        "developer-guide/15-rest-feed-posts.md",
+        "developer-guide/16-rest-spaces.md",
+        "developer-guide/17-rest-members-profiles.md",
+        "developer-guide/18-rest-social-graph.md",
+        "developer-guide/19-rest-notifications.md",
+        "developer-guide/20-rest-moderation-trust.md",
+        "developer-guide/21-rest-auth-account.md",
+        "developer-guide/22-rest-search-hashtags-misc.md",
+        "developer-guide/23-rest-webhooks.md",
+        "developer-guide/24-rest-pro.md",
+        "developer-guide/25-hooks-overview.md",
+        "developer-guide/26-hooks-template-parts.md",
+        "developer-guide/27-hooks-feed-content.md",
+        "developer-guide/28-hooks-members-profiles-social.md",
+        "developer-guide/29-hooks-spaces.md",
+        "developer-guide/30-hooks-notifications-email.md",
+        "developer-guide/31-hooks-moderation-auth-trust.md",
+        "developer-guide/32-hooks-search-hashtags-sidebar-admin.md",
+        "developer-guide/33-hooks-pro-and-integration.md",
+        "developer-guide/34-blocks-reference.md",
+        "developer-guide/35-block-patterns.md",
+        "developer-guide/36-frontend-interactivity.md",
+        "developer-guide/37-cron-and-async.md",
+        "developer-guide/38-wp-cli.md",
+        "developer-guide/39-roles-and-capabilities.md",
+        "developer-guide/40-admin-pages-and-settings.md",
+        "developer-guide/41-extending-cookbook.md",
+        "developer-guide/42-free-pro-contract.md",
+        "developer-guide/43-companion-install-model.md",
+        "developer-guide/44-integration-bridges.md",
+        "developer-guide/45-gamification-seam.md",
+        "developer-guide/46-design-system-tokens.md"
+      ]
+    }
+  ]
+}
