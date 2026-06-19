@@ -104,10 +104,11 @@ class GamificationAchievements {
 		$ctx_attr = esc_attr( (string) wp_json_encode( array( 'tabSlug' => self::TAB_SLUG ) ) );
 
 		printf(
-			'<div class="bn-profile-tab-panel bn-achievements" data-tab-panel="%1$s" data-wp-context=\'%2$s\' data-wp-bind--hidden="!state.isActiveTab"%3$s>',
+			'<div class="bn-profile-tab-panel bn-achievements" id="%4$s" data-tab-panel="%1$s" data-wp-context=\'%2$s\' data-wp-bind--hidden="!state.isActiveTab"%3$s>',
 			esc_attr( self::TAB_SLUG ),
 			$ctx_attr, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above.
-			self::TAB_SLUG === $active ? '' : ' hidden'
+			self::TAB_SLUG === $active ? '' : ' hidden',
+			esc_attr( buddynext_nav_panel_id( self::TAB_SLUG ) )
 		);
 		$this->render_standing( $member_id );
 		$this->render_badges( $member_id );
