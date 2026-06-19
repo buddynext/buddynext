@@ -1,28 +1,41 @@
-# BuddyNext Flow-Audit — Action List (pinpoint)
+# BuddyNext Flow-Audit & Go-Live — Action List (current, pinpoint)
 
-**Date:** 2026-06-19 · **Source:** `audit/flow-audit-report.md` (wppqa flow-audit, free+Pro pair).
-**Result:** ✅ **GATE GREEN — 0 errors.** The one confirmed code issue (T1, below) is FIXED. Everything else is either clean or a runtime-confirm advisory (not a task). Re-run:
-```
-cd ~/.mcp-servers/wp-plugin-qa-mcp-server && npm run build && \
-  node build/flow-audit-cli.js /Users/vapvarun/dev/repos/buddynext /Users/vapvarun/dev/repos/buddynext-pro
-```
+**Date:** 2026-06-19 · **Source:** `audit/flow-audit-report.md` (wppqa flow-audit) + functional cert + browser walk.
+**Status:** ✅ **Static gate GREEN (0 errors)** · ✅ **Functional cert PASSED (0 failed)** · ✅ **Core journeys walked, 0 console errors.** One real defect found and fixed. Remaining items below are pinpoint and labeled by where the work lands.
 
-## Fix (the only confirmed issue) — ✅ DONE
+Re-run the static audit: `cd ~/.mcp-servers/wp-plugin-qa-mcp-server && npm run build && node build/flow-audit-cli.js /Users/vapvarun/dev/repos/buddynext /Users/vapvarun/dev/repos/buddynext-pro`
+Re-run the functional cert: `wp buddynext cert` (or the `wppqa_certify` MCP tool, wp_root = the site public dir).
 
-- **T1 — Consolidate the duplicated cursor decoder.** ✅ Fixed 2026-06-19. Created `BuddyNext\Core\CursorCodec` (`includes/Core/CursorCodec.php`) with `encode()`/`decode()`; `FeedService` (decode_cursor removed, call sites + encode_cursor route through it) and `HashtagService` (encode/decode bodies delegate) now share the one implementation. Re-run confirms `dup-function: 0`. php -l + phpcs clean on the new file (pre-existing `$wpdb->prepare` warnings in those services are unrelated to this change).
+---
 
-That's it. The deterministic checks are all clean:
-- **canonical-usage: 0** — no raw SQL/`$wpdb`/`WP_Query` in templates (service-layer discipline holds).
-- **template-contract: 0** — every template's vars are supplied by its loader.
-- **rest-js-contract: 0** and **rest-flow broken-read: 0** — JS reads match REST response shapes (no envelope mismatches).
+## ✅ Done (do not redo)
 
-## Advisories — confirm via runtime, NOT tasks
+- **T1 — Duplicate cursor decoder consolidated.** `FeedService::decode_cursor` ↔ `HashtagService::decode_feed_cursor` → one `BuddyNext\Core\CursorCodec` (`includes/Core/CursorCodec.php`). `dup-function: 0`. (commit `1c5238f`)
+- **Cert oracles +3** (hashtags, verification, announcements), each proven to flip; remaining 8 surfaces documented in `cert-oracles.json` as not-toggle-cert-able by design. Cert: 0 failed, holes 11→8. (commit `1595903`)
+- **Functional cert green** — 57 passed / 0 failed (no route fatals; every gated toggle with an oracle enforces).
+- **Browser walk green (0 console errors)** — activity feed, members (49), spaces (7), messages, dark-mode toggle all render + populated on the seeded site.
+- **Static checks all clean** — canonical-usage 0 (no raw SQL in templates), template-contract 0, rest-js-contract 0, rest-flow broken-read 0.
 
-These are signals static analysis cannot confirm (PHP dynamic dispatch `$this->{$var}()`, computed template names `"panel-{$tab}.php"`, hook callbacks, and external consumers — themes/app/other plugins — are invisible to a static graph). Each is ONE advisory line in the report, deliberately not a per-item task pile. Do not bulk-act on them; confirm against a seeded runtime/coverage run before removing anything.
+---
 
-- **Dead code (orphan advisory):** N symbols are unreferenced internally — mix of real dead code (e.g. the reverted `/jobs/` bridge left `inject_jobs_nav_item` etc.) and live code reached dynamically. Confirm with coverage which never execute.
-- **Unloaded templates (advisory):** N template parts have no statically-detectable loader — many are loaded by computed name (`space-settings-panel-{$tab}.php`) or `load_part()`. Confirm which never render.
-- **Unresolved REST shapes (advisory):** N routes return a hydrated/dynamic shape the static check can't read — not a defect, just uncheckable statically.
-- **Undocumented routes (logic-flow advisory):** routes not in `audit/journeys.json` — decide which user-facing ones deserve a journey + cert oracle for go-live coverage.
+## 🔲 Open tasks (pinpoint)
 
-**To actually clear the advisories:** run the functional cert + a browser/coverage walk of the core journeys on a seeded site — that's the runtime signal these need. Static analysis has done its job; the rest is runtime.
+- **[verify] Walk the signup → onboarding front door.** The one core journey not yet walked — registration is off (`users_can_register=0`). Temporarily enable registration (or BN `buddynext_reg_mode`), walk register → email verify → onboarding → first feed, light + dark, confirm 0 console errors and verification email lands (Mailpit at http://localhost:10010), then restore the toggle. Highest-value remaining check (first impression).
+- **[BN] Wire the audit + cert into the release gate.** Add to `bin/build-release.sh` / pre-tag checklist: run `flow-audit-cli` and `wp buddynext cert`, fail the tag on unbaselined errors (mirrors the contract-audit gate). Keeps regressions out.
+- **[MCP] Register `wppqa_flow_audit` as an MCP tool** in `wp-plugin-qa-mcp-server/src/server.ts` (currently CLI-only) so it's one call alongside the other `wppqa_*` checks.
+- **[MCP] Resolve calls into `libs/`/`vendor/` as call-targets** (`src/flow/build.ts`) — minor orphan/flow precision gap (design §"Our-code vs third-party"); does not affect correctness of current findings.
+- **[MCP] Close minor test gaps** — direct `writeGraph`/`readGraph` tests; rest-flow `shapeUnresolved` branch test; canonical `passed` accounting → files-with-issues; `tplFiles` Set lookup.
+- **[push] Push both repos** — BuddyNext `master` and `wp-plugin-qa-mcp-server` `master` (kept local per request).
+
+---
+
+## Advisories — runtime-confirm, NOT code tasks
+
+Static analysis cannot confirm these (dynamic dispatch `$this->{$var}()`, computed template names, hook callbacks, external theme/app consumers). Each is ONE advisory line in the report. The browser walk already confirmed the feed/members/spaces/messages surfaces are live; what remains is coverage to pin the exact dead items before removing anything.
+
+- **Dead code (orphan):** unreferenced symbols incl. real leftovers (e.g. reverted `/jobs/` bridge `inject_jobs_nav_item`). Confirm via coverage which never execute, then delete.
+- **Unloaded templates:** parts with no statically-detectable loader (many loaded by computed name / `load_part()`). Confirm which never render.
+- **Unresolved REST shapes / undocumented routes:** informational; add journeys + cert oracles for the user-facing routes you want gated for go-live.
+
+## Not a code question (product)
+- **Feature parity vs BuddyPress + migration path** — untested by this audit; a product/scope decision, not a defect.
