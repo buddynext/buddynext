@@ -69,6 +69,7 @@ class ProfileNavTest extends \WP_UnitTestCase {
 			$ids[] = 'media';
 		}
 		$ids[] = 'likes';
+		$ids[] = 'network';
 		return $ids;
 	}
 
@@ -116,12 +117,17 @@ class ProfileNavTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Every resolved item carries a non-negative integer count (lazy callable ran).
+	 * Resolved counts are a non-negative int when the item declares a count, and
+	 * null otherwise (e.g. the Network parent, which only groups its sub-nav). The
+	 * lazy count callable must have run for the items that declare one.
 	 */
 	public function test_counts_resolve_to_ints(): void {
 		$uid = self::factory()->user->create();
 		$out = $this->reg->resolve( new NavContext( 'profile', $uid, $uid ) );
 		foreach ( array_merge( $out->layer( 'metric' ), $out->layer( 'primary' ) ) as $item ) {
+			if ( null === $item->count_value ) {
+				continue;
+			}
 			$this->assertIsInt( $item->count_value, "Count for {$item->id} should be an int" );
 			$this->assertGreaterThanOrEqual( 0, $item->count_value, "Count for {$item->id} should be >= 0" );
 		}
@@ -134,5 +140,33 @@ class ProfileNavTest extends \WP_UnitTestCase {
 		$owner = self::factory()->user->create();
 		$out   = $this->reg->resolve( new NavContext( 'profile', $owner, 0 ) );
 		$this->assertSame( $this->expected_primary( false ), $this->ids( $out, 'primary' ) );
+	}
+
+	/**
+	 * The Network tab carries its Connections / Followers / Following sub-nav as
+	 * nested children, in order — and they are NOT top-level primary tabs.
+	 */
+	public function test_network_subnav_nesting(): void {
+		$uid     = self::factory()->user->create();
+		$out     = $this->reg->resolve( new NavContext( 'profile', $uid, $uid ) );
+		$primary = $out->layer( 'primary' );
+
+		$network = null;
+		foreach ( $primary as $item ) {
+			if ( 'network' === $item->id ) {
+				$network = $item;
+				break;
+			}
+		}
+		$this->assertNotNull( $network, 'Network tab should be a top-level primary item' );
+		$this->assertSame(
+			array( 'connections', 'followers', 'following' ),
+			array_map( static fn( $n ) => $n->id, $network->children )
+		);
+		// The sub-nav children must not also appear as top-level tabs.
+		$top_ids = $this->ids( $out, 'primary' );
+		$this->assertNotContains( 'connections', $top_ids );
+		$this->assertNotContains( 'followers', $top_ids );
+		$this->assertNotContains( 'following', $top_ids );
 	}
 }

@@ -430,6 +430,11 @@ $bn_pf_tab_slugs = array_merge(
 	array_map( static fn( $n ) => $n->id, $bn_pf_metrics )
 );
 $bn_pf_active_tab = in_array( $bn_pf_action, $bn_pf_tab_slugs, true ) ? $bn_pf_action : 'posts';
+// The "Network" parent tab has no panel of its own — it defaults to its first
+// sub-tab (Connections), so a /network/ deep link lands on a real panel.
+if ( 'network' === $bn_pf_active_tab ) {
+	$bn_pf_active_tab = 'connections';
+}
 
 $bn_pf_ctx = array(
 	'userId'             => $user_id,
