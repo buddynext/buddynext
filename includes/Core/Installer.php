@@ -123,6 +123,12 @@ class Installer {
 		}
 
 		self::create_hub_pages();
+
+		// Seed the integration allow-list option BEFORE writing the mu-plugin, so the
+		// data-driven mu-plugin already finds the in-house family on its first run.
+		// PluginIsolation::sync_option() keeps it current (incl. Pro) at runtime.
+		update_option( PluginIsolation::OPTION, (string) wp_json_encode( PluginIsolation::integration_plugins() ), false );
+
 		self::install_mu_plugin();
 
 		\BuddyNext\Search\SearchService::schedule_reindex_all();
@@ -1393,20 +1399,6 @@ if ( buddynext_mu_is_bn_request() ) {
 	add_filter(
 		'option_active_plugins',
 		static function ( $plugins ) {
-			$whitelist = apply_filters(
-				'buddynext_isolation_whitelist',
-				array(
-					'buddynext/buddynext.php',
-					'buddynext-pro/buddynext-pro.php',
-					'wpmediaverse/wpmediaverse.php',
-					'wpmediaverse-pro/wpmediaverse-pro.php',
-					'jetonomy/jetonomy.php',
-					'jetonomy-pro/jetonomy-pro.php',
-					'redis-cache/redis-cache.php',
-					'query-monitor/query-monitor.php',
-				)
-			);
-
 			if ( ! is_array( $plugins ) ) {
 				return $plugins;
 			}
@@ -1419,6 +1411,33 @@ if ( buddynext_mu_is_bn_request() ) {
 			if ( ! in_array( 'buddynext/buddynext.php', $plugins, true ) ) {
 				return $plugins;
 			}
+
+			// Essentials that must survive even when the integration option is
+			// empty or missing — BuddyNext itself, Pro, and operational plugins.
+			$essentials = array(
+				'buddynext/buddynext.php',
+				'buddynext-pro/buddynext-pro.php',
+				'redis-cache/redis-cache.php',
+				'query-monitor/query-monitor.php',
+			);
+
+			// In-house integration family — read the canonical list BuddyNext keeps
+			// current in the `buddynext_isolation_plugins` option (raw SQL: the WP
+			// option API is not available this early). Data-driven so this allow-list
+			// never drifts out of sync with the integrations BuddyNext ships, and the
+			// family is permitted whether or not each partner is currently active.
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+			$json         = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = 'buddynext_isolation_plugins' LIMIT 1" );
+			$integrations = is_string( $json ) ? json_decode( $json, true ) : null;
+			if ( ! is_array( $integrations ) ) {
+				$integrations = array();
+			}
+
+			$whitelist = apply_filters(
+				'buddynext_isolation_whitelist',
+				array_values( array_unique( array_merge( $essentials, $integrations ) ) )
+			);
 
 			return array_values( array_intersect( $plugins, $whitelist ) );
 		}
