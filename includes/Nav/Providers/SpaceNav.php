@@ -63,6 +63,13 @@ final class SpaceNav {
 	/**
 	 * The core space tabs: Feed, Members, Media (gated), About, Moderation (gated).
 	 *
+	 * Space tabs are URL-only (clean /spaces/{slug}/{tab}/ links, rendered by
+	 * nav-bar.php as real `<a>` tabs with aria-current), NOT reactive in-page tabs:
+	 * the space panels (feed stream, member grid, media gallery, mod queue) are
+	 * heavy, so each tab server-renders only its own panel per clean URL rather
+	 * than pre-rendering all of them. Same shared components as profile; the URL
+	 * is a lazy callable so it resolves against the live space.
+	 *
 	 * @return array<int,array<string,mixed>>
 	 */
 	private function primary_tabs(): array {
@@ -72,7 +79,6 @@ final class SpaceNav {
 				'surface'  => 'space',
 				'layer'    => 'primary',
 				'label'    => __( 'Feed', 'buddynext' ),
-				'tab'      => 'feed',
 				'priority' => 10,
 				'url'      => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'feed' ),
 				'count'    => static fn( NavContext $c ): int => (int) buddynext_service( 'feed' )->space_post_count( $c->subject_id ),
@@ -82,7 +88,6 @@ final class SpaceNav {
 				'surface'  => 'space',
 				'layer'    => 'primary',
 				'label'    => __( 'Members', 'buddynext' ),
-				'tab'      => 'members',
 				'priority' => 20,
 				'url'      => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'members' ),
 				'count'    => static fn( NavContext $c ): int => (int) ( ( new SpaceService() )->get( $c->subject_id )['member_count'] ?? 0 ),
@@ -92,7 +97,6 @@ final class SpaceNav {
 				'surface'   => 'space',
 				'layer'     => 'primary',
 				'label'     => __( 'Media', 'buddynext' ),
-				'tab'       => 'media',
 				'priority'  => 30,
 				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'media' ),
 				'condition' => static fn( NavContext $c ): bool => MediaClient::available()
@@ -103,7 +107,6 @@ final class SpaceNav {
 				'surface'  => 'space',
 				'layer'    => 'primary',
 				'label'    => __( 'About', 'buddynext' ),
-				'tab'      => 'about',
 				'priority' => 40,
 				'url'      => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'about' ),
 			),
@@ -112,7 +115,6 @@ final class SpaceNav {
 				'surface'   => 'space',
 				'layer'     => 'primary',
 				'label'     => __( 'Moderation', 'buddynext' ),
-				'tab'       => 'moderation',
 				'priority'  => 50,
 				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'moderation' ),
 				'condition' => static fn( NavContext $c ): bool => $c->role_at_least( 'moderator' ),

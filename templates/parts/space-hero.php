@@ -6,7 +6,8 @@
  * (name, privacy badge, category handle), the viewer action cluster
  * (notification popover, invite/settings/join/leave/request CTAs), the
  * four-tile stats band (delegated to `parts/space-stats-strip.php`), and
- * the tab navigation strip (delegated to `parts/space-tab-bar.php`).
+ * the tab navigation strip (the shared `parts/nav-bar.php`, fed by the unified
+ * Nav registry — same component the member profile uses).
  *
  * Used by: templates/spaces/home.php.
  *
@@ -28,7 +29,8 @@
  * @var array  $stats            Required. List of stat-tile descriptors for the
  *                               stats band. Passed straight to space-stats-strip.
  * @var string $active_tab       Optional. Slug of the active tab. Default 'feed'.
- * @var array  $tabs             Required. Tab map for space-tab-bar.
+ * @var array  $nav_items        Required. Resolved Nav primary items (NavItem[])
+ *                               for the shared parts/nav-bar.php tab bar.
  * @var array  $classes          Optional. Extra CSS classes appended to `.bn-sh-hero`.
  *
  * Fires:
@@ -60,7 +62,7 @@ $args = array(
 	'notif_pref'      => isset( $notif_pref ) ? (string) $notif_pref : 'all',
 	'stats'           => isset( $stats ) && is_array( $stats ) ? $stats : array(),
 	'active_tab'      => isset( $active_tab ) ? (string) $active_tab : 'feed',
-	'tabs'            => isset( $tabs ) && is_array( $tabs ) ? $tabs : array(),
+	'nav_items'       => isset( $nav_items ) && is_array( $nav_items ) ? $nav_items : array(),
 	'classes'         => isset( $classes ) ? (array) $classes : array(),
 );
 
@@ -262,11 +264,11 @@ do_action( 'buddynext_part_space_hero_before', $args );
 	);
 
 	buddynext_get_template(
-		'parts/space-tab-bar.php',
+		'parts/nav-bar.php',
 		array(
-			'space_id'   => $bn_space_id,
-			'active_tab' => (string) $args['active_tab'],
-			'tabs'       => (array) $args['tabs'],
+			'items'         => (array) $args['nav_items'],
+			'active'        => (string) $args['active_tab'],
+			'tablist_label' => __( 'Space sections', 'buddynext' ),
 		)
 	);
 	?>

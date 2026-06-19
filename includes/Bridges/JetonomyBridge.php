@@ -63,13 +63,11 @@ class JetonomyBridge {
 		// Cross-plugin notifications: JT reply → BN notification for post author.
 		add_action( 'jetonomy_after_create_reply', array( $this, 'notify_discussion_reply' ), 10, 2 );
 
-		// Inject a Discussions tab into BuddyNext spaces that have a linked Jetonomy forum.
-		add_filter( 'buddynext_space_tabs', array( $this, 'inject_space_forum_tab' ), 10, 2 );
-
-		// Register the Discussions tab on the member-profile nav via the unified
-		// Nav API (one registry, one renderer) — the count badge lives on the tab,
-		// so it can never become a duplicate stat pill.
-		add_action( 'buddynext_register_nav', array( $this, 'register_profile_nav' ) );
+		// Register Discussions on BOTH the member-profile and space nav surfaces via
+		// the unified Nav API (one registry, one renderer) — profile tab carries a
+		// count badge; the space tab links to the forum (or the on-demand provision
+		// trigger). Replaces the old buddynext_profile_extra_data + buddynext_space_tabs.
+		add_action( 'buddynext_register_nav', array( $this, 'register_nav_items' ) );
 
 		// On-demand space forum: provision + redirect when a member first opens a
 		// forumless space's Discussions tab (web).
@@ -335,33 +333,6 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Inject a Discussions tab into BuddyNext space navigation (always shown).
-	 *
-	 * If the space already has a linked Jetonomy forum, the tab links straight to
-	 * it. Otherwise the tab points at the on-demand provision trigger, so the
-	 * forum is created + linked the first time a member opens Discussions (no
-	 * empty forums, no admin friction).
-	 *
-	 * Hooked on: buddynext_space_tabs( array $tabs, int $space_id )
-	 *
-	 * @param array<string, string|array<string,string>> $tabs     Existing tab map (key → label or ['label','url']).
-	 * @param int                                        $space_id BuddyNext space ID.
-	 * @return array<string, string|array<string,string>>
-	 */
-	public function inject_space_forum_tab( array $tabs, int $space_id ): array {
-		$forum_url = $this->space_forum_url( $space_id );
-
-		$tabs['discussions'] = array(
-			'label' => __( 'Discussions', 'buddynext' ),
-			'url'   => '' !== $forum_url
-				? $forum_url
-				: add_query_arg( 'bn_provision_forum', $space_id, home_url( '/spaces/' ) ),
-		);
-
-		return $tabs;
-	}
-
-	/**
 	 * Resolve the public URL of a BuddyNext space's linked Jetonomy forum.
 	 *
 	 * @param int $space_id BuddyNext space ID.
@@ -534,17 +505,19 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Register the Discussions tab on the member-profile nav surface.
+	 * Register the Discussions tab on the profile AND space nav surfaces.
 	 *
-	 * Hooked on `buddynext_register_nav`. The tab carries a lazy count badge of
-	 * the member's published Jetonomy discussions; gated on Jetonomy being active.
+	 * Hooked on `buddynext_register_nav`. Profile tab carries a lazy count badge of
+	 * the member's published discussions; the space tab is a clean link to the
+	 * space's forum (or the on-demand provision trigger). Both gated on Jetonomy.
 	 *
 	 * @param \BuddyNext\Nav\NavRegistry $registry The shared nav registry.
 	 * @return void
 	 */
-	public function register_profile_nav( \BuddyNext\Nav\NavRegistry $registry ): void {
-		// A primary tab (it owns a panel of the member's discussions). Gated on
-		// Jetonomy being active; the count badge is resolved lazily per profile.
+	public function register_nav_items( \BuddyNext\Nav\NavRegistry $registry ): void {
+		$jetonomy_active = static fn(): bool => class_exists( 'Jetonomy\Jetonomy' );
+
+		// Profile: a primary tab owning the member's discussions panel.
 		$registry->register(
 			array(
 				'id'        => 'discussions',
@@ -554,8 +527,29 @@ class JetonomyBridge {
 				'tab'       => 'discussions',
 				'icon'      => 'message-square',
 				'priority'  => 60,
-				'condition' => static fn(): bool => class_exists( 'Jetonomy\Jetonomy' ),
+				'condition' => $jetonomy_active,
 				'count'     => fn( \BuddyNext\Nav\NavContext $c ): int => $this->discussion_count( $c->subject_id ),
+			)
+		);
+
+		// Space: a primary tab linking to the space forum. URL is lazy — the linked
+		// forum if one exists, else the on-demand provision trigger (forum created
+		// the first time a member opens Discussions; no empty forums).
+		$registry->register(
+			array(
+				'id'        => 'discussions',
+				'surface'   => 'space',
+				'layer'     => 'primary',
+				'label'     => __( 'Discussions', 'buddynext' ),
+				'icon'      => 'message-square',
+				'priority'  => 35,
+				'condition' => $jetonomy_active,
+				'url'       => function ( \BuddyNext\Nav\NavContext $c ): string {
+					$forum_url = $this->space_forum_url( $c->subject_id );
+					return '' !== $forum_url
+						? $forum_url
+						: add_query_arg( 'bn_provision_forum', $c->subject_id, home_url( '/spaces/' ) );
+				},
 			)
 		);
 	}

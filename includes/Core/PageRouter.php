@@ -471,22 +471,28 @@ class PageRouter {
 			$space_record = ( new \BuddyNext\Spaces\SpaceService() )->get_by_slug( (string) $context['space_slug'] );
 			if ( null !== $space_record ) {
 				$space_name   = (string) ( $space_record['name'] ?? '' );
-				$space_action = (string) ( $context['space_action'] ?? '' );
-				$bn_tab       = isset( $_GET['bn_tab'] ) ? sanitize_key( wp_unslash( $_GET['bn_tab'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-
+				// Clean URLs: the tab is always bn_space_action now (no ?bn_tab=).
+				$space_action  = (string) ( $context['space_action'] ?? '' );
 				$section_label = '';
-				if ( 'settings' === $space_action ) {
-					$section_label = __( 'Settings', 'buddynext' );
-				} elseif ( 'moderation' === $space_action ) {
-					$section_label = __( 'Moderation', 'buddynext' );
-				} elseif ( 'admin' === $space_action ) {
-					$section_label = __( 'Admin', 'buddynext' );
-				} elseif ( 'members' === $space_action || 'members' === $bn_tab ) {
-					$section_label = __( 'Members', 'buddynext' );
-				} elseif ( 'about' === $bn_tab ) {
-					$section_label = __( 'About', 'buddynext' );
-				} elseif ( 'media' === $bn_tab ) {
-					$section_label = __( 'Media', 'buddynext' );
+				switch ( $space_action ) {
+					case 'settings':
+						$section_label = __( 'Settings', 'buddynext' );
+						break;
+					case 'moderation':
+						$section_label = __( 'Moderation', 'buddynext' );
+						break;
+					case 'admin':
+						$section_label = __( 'Admin', 'buddynext' );
+						break;
+					case 'members':
+						$section_label = __( 'Members', 'buddynext' );
+						break;
+					case 'about':
+						$section_label = __( 'About', 'buddynext' );
+						break;
+					case 'media':
+						$section_label = __( 'Media', 'buddynext' );
+						break;
 				}
 
 				if ( '' !== $section_label && '' !== $space_name ) {
@@ -1328,13 +1334,17 @@ class PageRouter {
 					switch ( $space_action ) {
 						case 'members':
 							return 'spaces/members.php';
-						case 'settings':
-							return 'spaces/settings.php';
 						case 'moderation':
 							return 'spaces/moderation.php';
+						case 'settings':
+							return 'spaces/settings.php';
 						case 'admin':
 							return 'spaces/admin.php';
 						default:
+							// feed / about / media (+ any in-page integration tab)
+							// render the space home, which reads bn_space_action for
+							// the active tab. Members + Moderation keep their richer
+							// standalone pages (full member management / report queue).
 							return 'spaces/home.php';
 					}
 				}
@@ -1568,24 +1578,14 @@ class PageRouter {
 	private function register_spaces_rules(): void {
 		$s = self::hub_slug( 'buddynext_slug_spaces', 'spaces' );
 
+		// One generic rule for every space sub-route: /spaces/{slug}/{action}/.
+		// The dispatcher (get_template_for) routes by action — content tabs
+		// (feed/members/about/media/moderation) all render spaces/home.php so the
+		// space nav is one consistent clean-URL surface; settings/admin keep their
+		// own config screens. Any action slug (incl. integration tabs) is captured.
 		add_rewrite_rule(
-			'^' . preg_quote( $s, '/' ) . '/([^/]+)/members/?$',
-			'index.php?bn_hub=spaces&bn_space_slug=$matches[1]&bn_space_action=members',
-			'top'
-		);
-		add_rewrite_rule(
-			'^' . preg_quote( $s, '/' ) . '/([^/]+)/settings/?$',
-			'index.php?bn_hub=spaces&bn_space_slug=$matches[1]&bn_space_action=settings',
-			'top'
-		);
-		add_rewrite_rule(
-			'^' . preg_quote( $s, '/' ) . '/([^/]+)/moderation/?$',
-			'index.php?bn_hub=spaces&bn_space_slug=$matches[1]&bn_space_action=moderation',
-			'top'
-		);
-		add_rewrite_rule(
-			'^' . preg_quote( $s, '/' ) . '/([^/]+)/admin/?$',
-			'index.php?bn_hub=spaces&bn_space_slug=$matches[1]&bn_space_action=admin',
+			'^' . preg_quote( $s, '/' ) . '/([^/]+)/([^/]+)/?$',
+			'index.php?bn_hub=spaces&bn_space_slug=$matches[1]&bn_space_action=$matches[2]',
 			'top'
 		);
 		add_rewrite_rule(
