@@ -49,6 +49,9 @@ final class ProfileNav {
 		foreach ( $this->primary_tabs() as $item ) {
 			$registry->register( $item );
 		}
+		foreach ( $this->network() as $item ) {
+			$registry->register( $item );
+		}
 	}
 
 	/**
@@ -145,6 +148,59 @@ final class ProfileNav {
 				'tab'      => 'likes',
 				'priority' => 50,
 				'count'    => static fn( NavContext $c ): int => (int) buddynext_service( 'post_service' )->reaction_count( $c->subject_id ),
+			),
+		);
+	}
+
+	/**
+	 * The "Network" primary tab and its one-level sub-nav (Connections /
+	 * Followers / Following). The parent defaults to the Connections sub-tab; the
+	 * relationship metric pills in the hero deep-link to the same sub-tab targets,
+	 * so the hero counts and this section stay in lockstep. The list panels these
+	 * sub-tabs reveal already exist (rendered by profile-tab-panel.php).
+	 *
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function network(): array {
+		return array(
+			array(
+				'id'       => 'network',
+				'surface'  => 'profile',
+				'layer'    => 'primary',
+				'label'    => __( 'Network', 'buddynext' ),
+				'tab'      => 'connections',
+				'icon'     => 'users',
+				'priority' => 55,
+			),
+			array(
+				'id'       => 'connections',
+				'surface'  => 'profile',
+				'layer'    => 'primary',
+				'parent'   => 'network',
+				'label'    => __( 'Connections', 'buddynext' ),
+				'tab'      => 'connections',
+				'priority' => 10,
+				'count'    => static fn( NavContext $c ): int => (int) buddynext_service( 'connections' )->connection_count( $c->subject_id ),
+			),
+			array(
+				'id'       => 'followers',
+				'surface'  => 'profile',
+				'layer'    => 'primary',
+				'parent'   => 'network',
+				'label'    => __( 'Followers', 'buddynext' ),
+				'tab'      => 'followers',
+				'priority' => 20,
+				'count'    => static fn( NavContext $c ): int => (int) buddynext_service( 'follows' )->follower_count( $c->subject_id ),
+			),
+			array(
+				'id'       => 'following',
+				'surface'  => 'profile',
+				'layer'    => 'primary',
+				'parent'   => 'network',
+				'label'    => __( 'Following', 'buddynext' ),
+				'tab'      => 'following',
+				'priority' => 30,
+				'count'    => static fn( NavContext $c ): int => (int) buddynext_service( 'follows' )->following_count( $c->subject_id ),
 			),
 		);
 	}

@@ -941,6 +941,16 @@ store( 'buddynext/profile', {
 		 * the active tab. Drives data-wp-bind--hidden="!state.isActiveTab" on the
 		 * panels and data-wp-class--active / aria-selected on the tabs and chips. */
 		get isActiveTab() { const c = getContext(); return c.activeTab === c.tabSlug; },
+		/* Branch-active: a parent tab that owns a one-level sub-nav stays lit while
+		 * any of its children is the active tab. The child slug list rides in the
+		 * tab's own context (branch); falls back to the plain tabSlug match so a
+		 * parent with an empty branch behaves like a leaf. Drives the parent tab's
+		 * data-wp-class--active / aria-selected in parts/nav-bar.php. */
+		get isActiveBranch() {
+			const c = getContext();
+			if ( c.activeTab === c.tabSlug ) { return true; }
+			return Array.isArray( c.branch ) && c.branch.indexOf( c.activeTab ) !== -1;
+		},
 	},
 	callbacks: {
 		/* Init for the edit page: register the beforeunload guard once. */
