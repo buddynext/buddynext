@@ -39,6 +39,16 @@ final class NavItem {
 	public ?int $count_value = null;
 
 	/**
+	 * Resolved URL for the current context (null = no URL). Mirrors count_value:
+	 * `url` may be a string OR a callable(NavContext):string, resolved lazily so a
+	 * per-subject route (e.g. a space's ?bn_tab= link) is computed against the
+	 * live context. Renderers read THIS, never the raw `url`.
+	 *
+	 * @var string|null
+	 */
+	public ?string $url_value = null;
+
+	/**
 	 * Construct an item. Use NavItem::from_array() for validated creation.
 	 *
 	 * @param string            $id         Unique within (surface, layer).
@@ -69,7 +79,7 @@ final class NavItem {
 		public readonly ?string $parent = null,
 		public readonly ?string $icon = null,
 		public readonly ?string $tab = null,
-		public readonly ?string $url = null,
+		public readonly mixed $url = null,
 		public readonly ?string $capability = null,
 		public readonly mixed $condition = null,
 		public readonly bool $hide_empty = false,
@@ -105,8 +115,19 @@ final class NavItem {
 			return null;
 		}
 
-		$tab    = isset( $a['tab'] ) && '' !== (string) $a['tab'] ? sanitize_key( (string) $a['tab'] ) : null;
-		$url    = isset( $a['url'] ) && '' !== (string) $a['url'] ? esc_url_raw( (string) $a['url'] ) : null;
+		$tab = isset( $a['tab'] ) && '' !== (string) $a['tab'] ? sanitize_key( (string) $a['tab'] ) : null;
+
+		// URL may be a string (escaped now) OR a callable(NavContext):string
+		// (resolved lazily at resolve time, then escaped) — see resolve_url().
+		$url = null;
+		if ( isset( $a['url'] ) ) {
+			if ( is_callable( $a['url'] ) ) {
+				$url = $a['url'];
+			} elseif ( '' !== (string) $a['url'] ) {
+				$url = esc_url_raw( (string) $a['url'] );
+			}
+		}
+
 		$parent = isset( $a['parent'] ) && '' !== (string) $a['parent'] ? sanitize_key( (string) $a['parent'] ) : null;
 		$icon   = isset( $a['icon'] ) && '' !== (string) $a['icon'] ? sanitize_key( (string) $a['icon'] ) : null;
 
@@ -197,6 +218,25 @@ final class NavItem {
 			return null;
 		}
 		return is_callable( $this->count ) ? (int) call_user_func( $this->count, $ctx ) : (int) $this->count;
+	}
+
+	/**
+	 * Resolve the URL for this context (runs the callable lazily, then escapes).
+	 * Null when the item has no URL. A static string was already escaped in
+	 * from_array(); a callable result is escaped here.
+	 *
+	 * @param NavContext $ctx Resolution context.
+	 * @return string|null
+	 */
+	public function resolve_url( NavContext $ctx ): ?string {
+		if ( null === $this->url ) {
+			return null;
+		}
+		if ( is_callable( $this->url ) ) {
+			$resolved = (string) call_user_func( $this->url, $ctx );
+			return '' !== $resolved ? esc_url_raw( $resolved ) : null;
+		}
+		return (string) $this->url;
 	}
 
 	/**

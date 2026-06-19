@@ -130,10 +130,11 @@ final class NavRegistry {
 			)
 		);
 
-		// Resolve counts + hide_empty.
+		// Resolve counts + URLs (lazy callables see the live context) + hide_empty.
 		$kept = array();
 		foreach ( $items as $n ) {
 			$n->count_value = $n->resolve_count( $ctx );
+			$n->url_value   = $n->resolve_url( $ctx );
 			if ( $n->hide_empty && ( null === $n->count_value || 0 === $n->count_value ) ) {
 				continue;
 			}

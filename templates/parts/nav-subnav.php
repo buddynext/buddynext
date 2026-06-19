@@ -84,7 +84,7 @@ $bn_sub_ctx = esc_attr(
 				aria-selected="<?php echo $bn_s_active ? 'true' : 'false'; ?>"
 				<?php echo $bn_s_active ? 'aria-current="page"' : ''; ?>
 				aria-label="<?php echo esc_attr( $bn_s_aria ); ?>"
-				href="<?php echo esc_url( (string) $bn_sub->url ); ?>">
+				href="<?php echo esc_url( (string) $bn_sub->url_value ); ?>">
 				<span class="bn-subnav__label"><?php echo esc_html( $bn_sub->label ); ?></span>
 				<?php if ( '' !== $bn_s_count ) : ?>
 					<span class="bn-subnav__count"><?php echo esc_html( $bn_s_count ); ?></span>

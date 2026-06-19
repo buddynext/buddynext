@@ -87,7 +87,7 @@ $bn_nav_child_targets = static function ( NavItem $item ): array {
 				: array( 'tabSlug' => $bn_target );
 			$bn_ctx_attr      = esc_attr( (string) wp_json_encode( $bn_ctx ) );
 			?>
-			<?php if ( $bn_reactive && null !== $bn_item->url ) : ?>
+			<?php if ( $bn_reactive && null !== $bn_item->url_value ) : ?>
 				<a class="bn-tab" role="tab"
 					data-wp-context='<?php echo $bn_ctx_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped. ?>'
 					data-wp-class--active="<?php echo esc_attr( $bn_state_active ); ?>"
@@ -96,7 +96,7 @@ $bn_nav_child_targets = static function ( NavItem $item ): array {
 					aria-label="<?php echo esc_attr( $bn_aria ); ?>"
 					data-wp-on--click="actions.setTab"
 					data-tab="<?php echo esc_attr( $bn_target ); ?>"
-					href="<?php echo esc_url( $bn_item->url ); ?>">
+					href="<?php echo esc_url( (string) $bn_item->url_value ); ?>">
 					<?php require __DIR__ . '/nav-bar-tab-inner.php'; ?>
 				</a>
 			<?php elseif ( $bn_reactive ) : ?>
@@ -115,7 +115,7 @@ $bn_nav_child_targets = static function ( NavItem $item ): array {
 					aria-selected="<?php echo $bn_is_active ? 'true' : 'false'; ?>"
 					<?php echo $bn_is_active ? 'aria-current="page"' : ''; ?>
 					aria-label="<?php echo esc_attr( $bn_aria ); ?>"
-					href="<?php echo esc_url( (string) $bn_item->url ); ?>">
+					href="<?php echo esc_url( (string) $bn_item->url_value ); ?>">
 					<?php require __DIR__ . '/nav-bar-tab-inner.php'; ?>
 				</a>
 			<?php endif; ?>
