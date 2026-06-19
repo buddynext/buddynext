@@ -1,16 +1,12 @@
 # Flow Audit Report
 
-- Generated: 2026-06-19T09:38:31.577Z
+- Generated: 2026-06-19T09:48:23.998Z
 - Repos: /Users/vapvarun/dev/repos/buddynext, /Users/vapvarun/dev/repos/buddynext-pro
 
-**1 errors, 0 warnings** across 8 checks.
+**0 errors, 0 warnings** across 8 checks.
 
-## dup-function — 1 error(s), 1 finding(s)
+## dup-function — 0 error(s), 0 finding(s)
 
-- [error] **Duplicate implementation across 2 symbols** `includes/Feed/FeedService.php:1095`
-  - Identical body in: BuddyNext\Feed\FeedService::decode_cursor (includes/Feed/FeedService.php:1095), BuddyNext\Hashtags\HashtagService::decode_feed_cursor (includes/Hashtags/HashtagService.php:275). Consolidate to one canonical helper.
-  - _Fix:_ Keep one (recommend the one in the most general location) and route the others through it.
-  - _id:_ `dup:fdbefde71d49883b6517a2f3e15d245b1c024480`
 
 ## orphan — 0 error(s), 1 finding(s)
 

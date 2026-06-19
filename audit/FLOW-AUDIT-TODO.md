@@ -1,18 +1,15 @@
 # BuddyNext Flow-Audit — Action List (pinpoint)
 
 **Date:** 2026-06-19 · **Source:** `audit/flow-audit-report.md` (wppqa flow-audit, free+Pro pair).
-**Result:** the audit is clean — **1 confirmed code issue.** Everything else is either clean or a runtime-confirm advisory (not a task). Re-run after fixing:
+**Result:** ✅ **GATE GREEN — 0 errors.** The one confirmed code issue (T1, below) is FIXED. Everything else is either clean or a runtime-confirm advisory (not a task). Re-run:
 ```
 cd ~/.mcp-servers/wp-plugin-qa-mcp-server && npm run build && \
   node build/flow-audit-cli.js /Users/vapvarun/dev/repos/buddynext /Users/vapvarun/dev/repos/buddynext-pro
 ```
 
-## Fix (the only confirmed issue)
+## Fix (the only confirmed issue) — ✅ DONE
 
-- **T1 — Consolidate the duplicated cursor decoder.** Identical implementation in two places:
-  - `BuddyNext\Feed\FeedService::decode_cursor` — `includes/Feed/FeedService.php:1095`
-  - `BuddyNext\Hashtags\HashtagService::decode_feed_cursor` — `includes/Hashtags/HashtagService.php:275`
-  **How:** extract one canonical cursor codec (e.g. a small `CursorCodec` helper or a shared trait/Core service) and have both call it; delete the duplicate body. **Done when:** the audit's `dup-function` finding is gone (re-run → 0 errors).
+- **T1 — Consolidate the duplicated cursor decoder.** ✅ Fixed 2026-06-19. Created `BuddyNext\Core\CursorCodec` (`includes/Core/CursorCodec.php`) with `encode()`/`decode()`; `FeedService` (decode_cursor removed, call sites + encode_cursor route through it) and `HashtagService` (encode/decode bodies delegate) now share the one implementation. Re-run confirms `dup-function: 0`. php -l + phpcs clean on the new file (pre-existing `$wpdb->prepare` warnings in those services are unrelated to this change).
 
 That's it. The deterministic checks are all clean:
 - **canonical-usage: 0** — no raw SQL/`$wpdb`/`WP_Query` in templates (service-layer discipline holds).

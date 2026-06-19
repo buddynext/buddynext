@@ -13,6 +13,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Hashtags;
 
+use BuddyNext\Core\CursorCodec;
+
 /**
  * Handles hashtag extraction, sync, and lookup.
  */
@@ -263,7 +265,7 @@ class HashtagService {
 	 * @return string Opaque base64 cursor.
 	 */
 	private function encode_feed_cursor( string $created_at, int $post_id ): string {
-		return base64_encode( $created_at . '|' . $post_id ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+		return CursorCodec::encode( $created_at, $post_id );
 	}
 
 	/**
@@ -273,20 +275,7 @@ class HashtagService {
 	 * @return array{created_at: string, id: int}|null Null when malformed.
 	 */
 	private function decode_feed_cursor( string $cursor ): ?array {
-		$raw = base64_decode( $cursor, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
-		if ( false === $raw ) {
-			return null;
-		}
-
-		$parts = explode( '|', $raw, 2 );
-		if ( 2 !== count( $parts ) ) {
-			return null;
-		}
-
-		return array(
-			'created_at' => $parts[0],
-			'id'         => (int) $parts[1],
-		);
+		return CursorCodec::decode( $cursor );
 	}
 
 	/**
