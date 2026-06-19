@@ -2446,6 +2446,9 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 .bn-comment__emoji-trigger {
 	background: transparent;
 	border: 0;
+	/* Explicit color so the currentColor SVG icon stays visible on themes (Reign)
+	   whose global button color resolves to the button background. */
+	color: var(--bn-ink-3);
 	cursor: pointer;
 	padding: 2px 4px;
 	line-height: 0;
