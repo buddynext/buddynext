@@ -6,6 +6,16 @@
  * Tokens match CLAUDE.md `:root` block verbatim.
  */
 
+/* ── Stable scrollbar gutter (BuddyNext hub pages) ───────────────────────────
+ * Hub pages scroll on the document. With no reserved gutter, switching between
+ * tabs whose content differs in height (e.g. a long Feed vs a short About) makes
+ * the viewport scrollbar appear/disappear on classic-scrollbar systems, shifting
+ * the centred header + left rail by the scrollbar width on every tab change.
+ * Reserving the gutter keeps the layout fixed across tab navigations. Scoped via
+ * :has() to pages that render a BuddyNext hub so pure host-theme pages are left
+ * untouched. */
+html:has( .bn-app__main ) { scrollbar-gutter: stable; }
+
 /* ── Design tokens ──────────────────────────────────────────────────────── */
 
 /* ────────────────────────────────────────────────────────────────────────
