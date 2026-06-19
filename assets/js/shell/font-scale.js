@@ -110,6 +110,39 @@
 		}
 	}
 
+	// Capture ONLY the host theme's font-family (body + heading) into BN custom
+	// properties so BuddyNext's typography adopts the active theme's font while
+	// keeping all of BN's own sizing/weights/spacing. The theme (e.g. Reign) sets
+	// font-family directly on body/headings with no exposed CSS var, so we read the
+	// resolved value and publish it as --bn-theme-font / --bn-theme-heading-font on
+	// <html>; bn-base.css chains --bn-font-ui / --bn-font-display through these
+	// (below the dyslexia override, above BN's Inter fallback). Needs <body>, so it
+	// runs on DOM-ready rather than at the head bootstrap below.
+	function captureThemeFonts() {
+		try {
+			var root = document.documentElement;
+			var body = document.body;
+			if ( ! body ) {
+				return;
+			}
+			var bodyFont = getComputedStyle( body ).fontFamily;
+			if ( bodyFont ) {
+				root.style.setProperty( '--bn-theme-font', bodyFont );
+			}
+			// Themes style headings with their own family — probe a hidden h2.
+			var probe = document.createElement( 'h2' );
+			probe.style.cssText = 'position:absolute;left:-9999px;top:auto;height:0;width:0;overflow:hidden;visibility:hidden;';
+			body.appendChild( probe );
+			var headingFont = getComputedStyle( probe ).fontFamily;
+			body.removeChild( probe );
+			if ( headingFont ) {
+				root.style.setProperty( '--bn-theme-heading-font', headingFont );
+			}
+		} catch ( e ) {
+			/* getComputedStyle unavailable — BN keeps its own font fallback */
+		}
+	}
+
 	// When the active theme drives colour mode (WBcom themes such as Reign set
 	// <html data-bx-mode="light|dark|auto"> and fire `bx:color-mode-change`),
 	// BuddyNext follows it so a single theme toggle switches both the theme and
@@ -179,6 +212,7 @@
 		}
 	}
 	onNavReadyOnce( syncPressed );
+	onNavReadyOnce( captureThemeFonts );
 
 	// Follow the theme's colour-mode toggle (Reign + sibling WBcom themes) so
 	// the BN surface flips with it — one control, both layers.

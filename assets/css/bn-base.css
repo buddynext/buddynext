@@ -90,12 +90,15 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-paid:        oklch(55% var(--bn-chroma) var(--bn-hue-paid));
 	--bn-paid-bg:     oklch(96% 0.03 var(--bn-hue-paid));
 
-	/* Type families — whitelabel-overridable.
-	 * v2 design uses Geist; we currently self-host Inter + Plus Jakarta only.
-	 * Inter is named first so the loaded font wins; Geist will join the list
-	 * (and become primary) when its woff2 files land under assets/fonts/. */
-	--bn-font-ui:      'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-	--bn-font-display: 'Plus Jakarta Sans', 'Inter', var(--bn-font-ui);
+	/* Type families — adopt the host theme's font-family, fall back to BN's stack.
+	 * font-scale.js publishes the active theme's resolved body/heading font as
+	 * --bn-theme-font / --bn-theme-heading-font (the theme sets font-family with no
+	 * CSS var, so we capture it in JS). BN keeps all its OWN sizing/weights/spacing
+	 * — only the family is borrowed. When no theme/JS value exists, the Inter stack
+	 * applies. The dyslexia block below re-sets --bn-font-ui/display directly, so
+	 * Atkinson still overrides the theme font for accessibility. */
+	--bn-font-ui:      var(--bn-theme-font, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
+	--bn-font-display: var(--bn-theme-heading-font, var(--bn-theme-font, 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif));
 	--bn-font-mono:    ui-monospace, SFMono-Regular, Menlo, 'Geist Mono', monospace;
 
 	/* Type scale */
