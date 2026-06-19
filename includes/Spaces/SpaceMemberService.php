@@ -538,13 +538,28 @@ class SpaceMemberService {
 		$this->invalidate_cache( $space_id, $user_id );
 
 		/**
-		 * Fires after a user is banned from a space by a moderator.
+		 * Fires after a member is removed from a space (the ban also removes the
+		 * membership). Kept so removal listeners — e.g. sidebar cache busting —
+		 * react regardless of WHY the member left.
 		 *
-		 * @param int $space_id     Space ID.
-		 * @param int $user_id      Removed user.
-		 * @param int $by_user_id   User who performed the removal.
+		 * @param int $space_id   Space ID.
+		 * @param int $user_id    Removed user.
+		 * @param int $actor_id   User who performed the removal.
 		 */
 		do_action( 'buddynext_space_member_removed', $space_id, $user_id, $actor_id );
+
+		/**
+		 * Fires after a user is banned from a space. Distinct from the removal
+		 * event above: this is ban-specific so listeners (notifications, the
+		 * banned-users list) fire on the settings-UI ban path too, matching the
+		 * REST moderation path (ban_from_space()). Previously only _removed fired
+		 * here, so ban-specific listeners missed bans issued from space settings.
+		 *
+		 * @param int $space_id Space ID.
+		 * @param int $user_id  Banned user.
+		 * @param int $actor_id User who issued the ban.
+		 */
+		do_action( 'buddynext_space_user_banned', $space_id, $user_id, $actor_id );
 
 		return true;
 	}
@@ -1402,84 +1417,6 @@ class SpaceMemberService {
 		wp_cache_delete( "role_{$space_id}_{$user_id}", self::CACHE_GROUP );
 		wp_cache_delete( "status_{$space_id}_{$user_id}", self::CACHE_GROUP );
 		wp_cache_delete( "members_{$space_id}", self::CACHE_GROUP );
-	}
-
-	/**
-	 * Check whether a user has a hard ban row in bn_space_bans for a space.
-	 *
-	 * Hard bans block join attempts even when no bn_space_members row exists,
-	 * preventing re-registration after a ban-and-remove sequence.
-	 *
-	 * @param int $space_id Space ID.
-	 * @param int $user_id  User ID.
-	 * @return bool
-	 */
-	/**
-	 * Lift a space ban and allow the user to rejoin freely.
-	 *
-	 * Removes the permanent record from bn_space_bans and deletes the
-	 * banned membership row from bn_space_members. The user must
-	 * re-request to join if the space is private.
-	 *
-	 * @param int $space_id Space ID.
-	 * @param int $actor_id Owner, moderator, or site admin lifting the ban.
-	 * @param int $user_id  User to unban.
-	 * @return true|WP_Error
-	 */
-	public function unban( int $space_id, int $actor_id, int $user_id ): true|WP_Error {
-		$actor_role = $this->get_role( $space_id, $actor_id );
-
-		if (
-			! in_array( $actor_role, array( 'owner', 'moderator' ), true )
-			&& ! user_can( $actor_id, 'manage_options' )
-		) {
-			return new WP_Error(
-				'forbidden',
-				__( 'Only the space owner or a moderator can lift bans.', 'buddynext' )
-			);
-		}
-
-		if ( ! $this->is_hard_banned( $space_id, $user_id ) ) {
-			return new WP_Error( 'not_banned', __( 'This user is not banned from the space.', 'buddynext' ) );
-		}
-
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		// Remove the permanent ban record.
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_space_bans',
-			array(
-				'space_id' => $space_id,
-				'user_id'  => $user_id,
-			),
-			array( '%d', '%d' )
-		);
-
-		// Remove the banned membership row so the user may rejoin.
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_space_members',
-			array(
-				'space_id' => $space_id,
-				'user_id'  => $user_id,
-				'status'   => 'banned',
-			),
-			array( '%d', '%d', '%s' )
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		$this->invalidate_cache( $space_id, $user_id );
-
-		/**
-		 * Fires after a space ban is lifted.
-		 *
-		 * @param int $space_id Space ID.
-		 * @param int $user_id  Unbanned user.
-		 * @param int $actor_id User who lifted the ban.
-		 */
-		do_action( 'buddynext_space_member_unbanned', $space_id, $user_id, $actor_id );
-
-		return true;
 	}
 
 	/**

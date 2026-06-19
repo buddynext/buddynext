@@ -38,6 +38,11 @@ class CommentService {
 	private const DEFAULT_LIMIT = 20;
 
 	/**
+	 * Object-cache group for the atomic per-minute comment rate-limit counter.
+	 */
+	private const RATE_CACHE_GROUP = 'buddynext_rate';
+
+	/**
 	 * Create a comment on an object.
 	 *
 	 * @param int      $user_id     Commenting user.
@@ -81,15 +86,36 @@ class CommentService {
 		$bn_comment_rate_limit = (int) get_option( 'buddynext_comment_rate_limit', 30 );
 		if ( $bn_comment_rate_limit > 0 && $user_id > 0 ) {
 			$bn_rate_bucket = 'bn_comment_rate_' . $user_id . '_' . (int) floor( time() / MINUTE_IN_SECONDS );
-			$bn_rate_count  = (int) get_transient( $bn_rate_bucket );
-			if ( $bn_rate_count >= $bn_comment_rate_limit ) {
-				return new WP_Error(
-					'rate_limited',
-					__( 'You are commenting too quickly. Please wait a moment.', 'buddynext' ),
-					array( 'status' => 429 )
-				);
+
+			if ( wp_using_ext_object_cache() ) {
+				// Atomic path: wp_cache_incr() is atomic under a persistent object
+				// cache (Redis/Memcached), closing the get-then-set race where a
+				// burst of concurrent comments each read the same count and all
+				// slipped past the cap. wp_cache_add() seeds the key only when
+				// absent (also atomic) so a racing incr is never clobbered.
+				wp_cache_add( $bn_rate_bucket, 0, self::RATE_CACHE_GROUP, 2 * MINUTE_IN_SECONDS );
+				$bn_rate_count = (int) wp_cache_incr( $bn_rate_bucket, 1, self::RATE_CACHE_GROUP );
+				if ( $bn_rate_count > $bn_comment_rate_limit ) {
+					return new WP_Error(
+						'rate_limited',
+						__( 'You are commenting too quickly. Please wait a moment.', 'buddynext' ),
+						array( 'status' => 429 )
+					);
+				}
+			} else {
+				// No persistent object cache — the DB transient is the only
+				// cross-request store. Best-effort (a rare concurrent burst can
+				// slightly exceed the cap for one window); still throttles floods.
+				$bn_rate_count = (int) get_transient( $bn_rate_bucket );
+				if ( $bn_rate_count >= $bn_comment_rate_limit ) {
+					return new WP_Error(
+						'rate_limited',
+						__( 'You are commenting too quickly. Please wait a moment.', 'buddynext' ),
+						array( 'status' => 429 )
+					);
+				}
+				set_transient( $bn_rate_bucket, $bn_rate_count + 1, 2 * MINUTE_IN_SECONDS );
 			}
-			set_transient( $bn_rate_bucket, $bn_rate_count + 1, 2 * MINUTE_IN_SECONDS );
 		}
 
 		// Scan the comment body for banned words (and Pro keyword/ML blocklists via

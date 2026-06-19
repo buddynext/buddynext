@@ -174,4 +174,36 @@ class RoleServiceTest extends \WP_UnitTestCase {
 		$this->service->spend_credits( $this->user_id, 10, 'test' );
 		$this->assertTrue( $fired );
 	}
+
+	/**
+	 * Spending the exact balance succeeds and leaves zero.
+	 */
+	public function test_spend_credits_exact_balance_succeeds(): void {
+		$this->service->add_credits( $this->user_id, 75 );
+		$result = $this->service->spend_credits( $this->user_id, 75, 'exact' );
+		$this->assertTrue( $result );
+		$this->assertSame( 0, $this->service->get_credits( $this->user_id ) );
+	}
+
+	/**
+	 * A second spend reads the DB-updated balance (not a stale value), so it is
+	 * rejected once the first spend has drawn the balance down — the behaviour
+	 * the atomic conditional UPDATE guarantees under concurrency.
+	 */
+	public function test_sequential_spends_cannot_overdraw(): void {
+		$this->service->add_credits( $this->user_id, 100 );
+
+		$this->assertTrue( $this->service->spend_credits( $this->user_id, 60, 'first' ) );
+		$this->assertFalse( $this->service->spend_credits( $this->user_id, 60, 'second' ) );
+		$this->assertSame( 40, $this->service->get_credits( $this->user_id ) );
+	}
+
+	/**
+	 * Deducting more than the balance floors at zero and never goes negative.
+	 */
+	public function test_deduct_credits_floors_at_zero(): void {
+		$this->service->add_credits( $this->user_id, 30 );
+		$this->service->deduct_credits( $this->user_id, 50 );
+		$this->assertSame( 0, $this->service->get_credits( $this->user_id ) );
+	}
 }

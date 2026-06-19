@@ -119,6 +119,19 @@ class CommentServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( 1, $result['total'] );
 	}
 
+	public function test_comment_rate_limit_blocks_excess(): void {
+		update_option( 'buddynext_comment_rate_limit', 2 );
+
+		$this->assertIsInt( $this->service->create( $this->user_id, 'post', $this->post_id, 'one' ) );
+		$this->assertIsInt( $this->service->create( $this->user_id, 'post', $this->post_id, 'two' ) );
+
+		$result = $this->service->create( $this->user_id, 'post', $this->post_id, 'three' );
+		$this->assertWPError( $result );
+		$this->assertSame( 'rate_limited', $result->get_error_code() );
+
+		delete_option( 'buddynext_comment_rate_limit' );
+	}
+
 	public function test_deleted_parent_with_reply_keeps_thread(): void {
 		$parent_id = $this->service->create( $this->user_id, 'post', $this->post_id, 'Parent' );
 		$reply_id  = $this->service->create( $this->user_id, 'post', $this->post_id, 'Surviving reply', $parent_id );

@@ -36,7 +36,7 @@ class RoleService {
 	);
 
 	/**
-	 * user_meta key for the credit balance.
+	 * The user_meta key holding the credit balance.
 	 */
 	public const CREDITS_META = 'bn_credits';
 
@@ -122,11 +122,35 @@ class RoleService {
 	 * @return void
 	 */
 	public function add_credits( int $user_id, int $amount ): void {
+		global $wpdb;
+
 		$amount = max( 0, $amount );
 		if ( 0 === $amount ) {
 			return;
 		}
-		update_user_meta( $user_id, self::CREDITS_META, $this->get_credits( $user_id ) + $amount );
+
+		// Atomic increment in SQL so concurrent credit grants don't clobber each
+		// other (read-modify-write via get_credits() + update_user_meta() lost
+		// updates under concurrency — a correctness bug for a monetary balance).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->usermeta} SET meta_value = CAST(meta_value AS SIGNED) + %d
+				 WHERE user_id = %d AND meta_key = %s",
+				$amount,
+				$user_id,
+				self::CREDITS_META
+			)
+		);
+
+		// No balance row yet — create it. The only residual race is two truly
+		// simultaneous first-grants for a brand-new user (benign + vanishingly
+		// rare); every subsequent grant takes the atomic UPDATE path above.
+		if ( empty( $updated ) ) {
+			add_user_meta( $user_id, self::CREDITS_META, $amount, true );
+		}
+
+		wp_cache_delete( $user_id, 'user_meta' );
 	}
 
 	/**
@@ -152,14 +176,36 @@ class RoleService {
 	 * @return bool True on success, false when balance is too low.
 	 */
 	public function spend_credits( int $user_id, int $amount, string $reason ): bool {
-		$amount  = max( 0, $amount );
-		$balance = $this->get_credits( $user_id );
+		global $wpdb;
 
-		if ( $balance < $amount ) {
+		$amount = max( 0, $amount );
+		if ( 0 === $amount ) {
+			return true;
+		}
+
+		// Atomic conditional deduction: the row is decremented ONLY when the
+		// stored balance still covers the amount, in a single statement. This
+		// closes the check-then-write race where two concurrent spends both read
+		// the same balance and each deduct, overdrawing the account. rows_affected
+		// is 1 only when the guard matched (sufficient balance + row exists).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->usermeta} SET meta_value = CAST(meta_value AS SIGNED) - %d
+				 WHERE user_id = %d AND meta_key = %s AND CAST(meta_value AS SIGNED) >= %d",
+				$amount,
+				$user_id,
+				self::CREDITS_META,
+				$amount
+			)
+		);
+
+		if ( (int) $wpdb->rows_affected < 1 ) {
+			// Insufficient balance (or no balance row) — no write happened.
 			return false;
 		}
 
-		update_user_meta( $user_id, self::CREDITS_META, max( 0, $balance - $amount ) );
+		wp_cache_delete( $user_id, 'user_meta' );
 
 		/**
 		 * Fires when credits are successfully spent.
@@ -182,7 +228,27 @@ class RoleService {
 	 * @return void
 	 */
 	public function deduct_credits( int $user_id, int $amount ): void {
+		global $wpdb;
+
 		$amount = max( 0, $amount );
-		update_user_meta( $user_id, self::CREDITS_META, max( 0, $this->get_credits( $user_id ) - $amount ) );
+		if ( 0 === $amount ) {
+			return;
+		}
+
+		// Atomic floored decrement so concurrent webhook deductions don't lose
+		// updates. GREATEST(0, ...) keeps the balance non-negative without a
+		// separate read. No-op when the row doesn't exist (nothing to deduct).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->usermeta} SET meta_value = GREATEST(0, CAST(meta_value AS SIGNED) - %d)
+				 WHERE user_id = %d AND meta_key = %s",
+				$amount,
+				$user_id,
+				self::CREDITS_META
+			)
+		);
+
+		wp_cache_delete( $user_id, 'user_meta' );
 	}
 }
