@@ -74,13 +74,16 @@ differ only by the `surface` value and the context object passed in.
   'id'         => 'discussions',      // unique within (surface, layer)
   'surface'    => 'profile',          // global | profile | space
   'layer'      => 'primary',          // primary | metric | rail | context
+  'parent'     => null,               // null = top-level; or a primary item id → sub-nav
   'label'      => __( 'Discussions', 'buddynext' ),
-  'count'      => 10,                 // optional: badge (primary) / value (metric)
+  'count'      => 10,                 // optional: badge (primary/sub) / value (metric)
   'icon'       => 'message-circle',   // Lucide slug (rail/context; optional on tabs)
-  'tab'        => 'discussions',      // in-page reactive target (primary), OR…
+  'tab'        => 'discussions',      // in-page reactive target (primary/sub), OR…
   'url'        => null,               // …a real route (rail/context/metric-with-list)
   'capability' => null,               // visibility gate via buddynext_can(); null = public
-  'priority'   => 50,                 // sort order (lower = earlier); core uses 10..90
+  'priority'   => 50,                 // default order (lower = earlier); core uses 10..90
+  'before'     => null,               // optional anchor: place before this item id …
+  'after'      => null,               // … or after this item id (wins over priority)
   'active'     => null,               // optional callable() : bool override
 ]
 ```
@@ -92,7 +95,47 @@ Rules enforced by the registry (so items can't render wrong):
   item on the same surface, the metric is dropped (dedupe by contract — this is
   what kills the Posts/Discussions double-row).
 - `rail`/`context` items require `url` + `icon`.
+- A `parent` must reference an existing `primary` item on the same surface; the
+  child inherits the parent's surface and renders in the sub-nav layer (§2.5).
 - Items failing `capability` are removed before render.
+
+### 2.4 Ordering (deterministic, three levers, no priority wars)
+
+Order is resolved once, per layer, in this precedence:
+1. **`before` / `after` anchors** — `[ 'after' => 'media' ]` pins an item right
+   after `media` regardless of priority. The single explicit way to say "put my
+   tab next to that one"; integrations use this instead of guessing numbers.
+2. **`priority`** — the default fallback. Core built-ins occupy a reserved band
+   (10, 20, … 90) so an integration can drop in at 25 and land between two core
+   items without colliding. Lower = earlier.
+3. **Registration order** — stable tiebreak for equal priority + no anchor.
+
+Then **admin overrides win last**: `NavOverrides` (the existing hide/reorder
+layer) is applied on the resolved list, so a site owner's drag-reorder always
+beats code defaults. One predictable order; core, integrations, and owners each
+have a lever that doesn't fight the others.
+
+### 2.5 Sub-nav (nesting under a primary tab)
+
+A primary tab may own a **second-level nav** — e.g. Member ▸ **About** ▸
+Overview / Work / Education / Contact, or a Space tab with its own sub-sections.
+This is just items with `parent` set:
+
+```php
+buddynext_register_nav([ 'id' => 'about-work', 'surface' => 'profile',
+  'layer' => 'primary', 'parent' => 'about', 'label' => __( 'Work', 'buddynext' ),
+  'tab' => 'about-work', 'after' => 'about-overview' ]);
+```
+
+- The registry nests children under their `parent`, ordered by the same §2.4
+  rules among siblings.
+- **Render:** `parts/nav-bar.php` draws the top-level primary tabs; when the
+  active tab has children, a `--sub` variant of the same `.bn-tab` component (or
+  `.bn-segment` for filter-style sub-nav) renders inside that tab's panel — one
+  component, one active convention, at both levels. No new template is needed to
+  add a sub-nav in future; you register child items.
+- Depth is capped at one sub-level by design (tab → sub-tab); deeper nesting is a
+  smell and is rejected at registration. Metric/rail/context layers stay flat.
 
 ---
 
@@ -188,7 +231,10 @@ wave. One nav system, no parallel legacy path.
   `aria-selected` active convention (card 2 Wave 0). Nothing renders from it yet.
 - **Wave 1 — shared renderer parts.** Build `parts/nav-bar.php` +
   `parts/nav-metrics.php` from the canonical `.bn-tabs` component (one component,
-  one active convention, one nav model).
+  one active convention, one nav model). `nav-bar.php` renders top-level primary
+  tabs AND the one-level sub-nav (§2.5) for an active tab that has children — the
+  same component with a `--sub` variant, so adding a future sub-nav needs no new
+  template.
 - **Wave 2 — Profile (Member).** Add a `ProfileNav` provider (built-in tabs +
   relationship metrics). Convert the Jetonomy Discussions + Gamification profile
   injections to `buddynext_register_nav()`. **Delete** `buddynext_profile_extra_data`,
@@ -222,3 +268,9 @@ After Wave 4 there is exactly one nav system; no legacy filter remains.
 6. The 6 legacy nav filters are **deleted**; one registry + one filter
    (`buddynext_nav_items`) is the only extension point.
 7. card 2's ~14 tab/sub-nav surfaces render through the shared renderer.
+8. **Order** is deterministic: `before`/`after` anchors > `priority` bands >
+   registration order, with admin `NavOverrides` winning last — verified for a
+   core + integration item mix on both surfaces.
+9. **Sub-nav** works by registering `parent` items (no template change), capped at
+   one sub-level, rendered by the same component at both levels — proven with a
+   throwaway "About ▸ Overview/Work" example on a profile.
