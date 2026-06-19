@@ -45,8 +45,8 @@ $bn_metrics_extra = isset( $extra_class ) ? trim( (string) $extra_class ) : '';
 				<span class="bn-nav-metric__label"><?php echo esc_html( $bn_m->label ); ?></span>
 				<?php echo $bn_m_delta; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above. ?>
 			</button>
-		<?php elseif ( null !== $bn_m->url ) : ?>
-			<a class="bn-nav-metric" href="<?php echo esc_url( $bn_m->url ); ?>" aria-label="<?php echo esc_attr( $bn_m_aria ); ?>">
+		<?php elseif ( null !== $bn_m->url_value ) : ?>
+			<a class="bn-nav-metric" href="<?php echo esc_url( (string) $bn_m->url_value ); ?>" aria-label="<?php echo esc_attr( $bn_m_aria ); ?>">
 				<span class="bn-nav-metric__value"><?php echo esc_html( $bn_m_value ); ?></span>
 				<span class="bn-nav-metric__label"><?php echo esc_html( $bn_m->label ); ?></span>
 				<?php echo $bn_m_delta; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above. ?>
