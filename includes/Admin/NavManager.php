@@ -484,11 +484,11 @@ class NavManager extends AdminPageBase {
 	 * reorder tabs in that editor; admin overrides stored via this page are
 	 * applied last and take precedence over filter output.
 	 *
-	 * Front-end rendering is separate: the rail, space tab bar and mobile bar
-	 * each apply their own per-surface filter (`buddynext_rail_items`,
-	 * `buddynext_space_tabs`, `buddynext_mobile_nav_items`), while the profile
-	 * tab bar flows through the unified Nav registry (`buddynext_nav_items`).
-	 * The admin overrides saved here are mirrored onto them by Nav\NavOverrides. A
+	 * Front-end rendering is separate: the rail + mobile bar each apply their own
+	 * per-surface filter (`buddynext_rail_items`, `buddynext_mobile_nav_items`),
+	 * while the profile AND space tab bars flow through the unified Nav registry
+	 * (`buddynext_nav_items`, per surface). The admin overrides saved here are
+	 * mirrored onto them by Nav\NavOverrides. A
 	 * main-nav tab registered programmatically through `buddynext_nav_tabs`
 	 * (with a `url`) is additionally surfaced on the left rail by
 	 * Nav\NavOverrides::apply_rail so the documented filter reaches the front
@@ -672,7 +672,7 @@ class NavManager extends AdminPageBase {
 	private function default_profile_tabs(): array {
 		// Slugs MUST match the nav item ids the profile surface registers
 		// (ProfileNav + bridges, resolved via buddynext_nav()), so the front-end
-		// applier (Nav\NavOverrides::apply_profile_nav_items) can map saved
+		// applier (Nav\NavOverrides::apply_nav_items) can map saved
 		// overrides onto real items. The Discussions tab is bridge-injected
 		// (Jetonomy) and is left to that bridge.
 		return array(

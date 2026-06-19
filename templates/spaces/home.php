@@ -238,7 +238,9 @@ if ( $can_moderate ) {
 	$bn_pending_count = $bn_member_service->count_pending_requests( $space_id );
 }
 
-$active_tab       = isset( $_GET['bn_tab'] ) ? sanitize_key( wp_unslash( $_GET['bn_tab'] ) ) : 'feed'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+// Clean-URL active tab: /spaces/{slug}/{tab}/ → bn_space_action. Defaults to feed.
+$active_tab = (string) get_query_var( 'bn_space_action', '' );
+$active_tab = '' !== $active_tab ? sanitize_key( $active_tab ) : 'feed';
 $member_count_fmt = number_format_i18n( (int) $space->member_count );
 
 $privacy_label = \BuddyNext\Spaces\SpaceService::type_label( (string) $space->type );
@@ -504,54 +506,20 @@ do_action( 'buddynext_space_home_before', $space_id, $current_user_id );
 
 // ── Render ───────────────────────────────────────────────────────────────────
 
-// Tab entries use the array shape so the count chip (v2 prototype pattern)
-// surfaces under each label. `count` is the integer rendered inside
-// `<span class="bn-tab__count">` by `parts/space-tab-bar.php`.
-// Media tab only when WPMediaVerse is active AND the space owner enabled it
-// (Settings > Integrations > "WPMediaVerse Media"). Mirrors the option the
-// settings page writes/reads, bn_space_{id}_mvs_media_tab (default off).
+// Media tab availability mirrors SpaceNav's media gate; here it only guards the
+// active-tab fallback (hitting /media/ while the space's media tab is off → Feed,
+// so the gallery body branch never renders for a hidden tab).
 $bn_media_tab_on = \BuddyNext\Media\MediaClient::available() && (bool) get_option( 'bn_space_' . $space->id . '_mvs_media_tab', 0 );
-
-$bn_nav_tabs = array(
-	'feed'    => array(
-		'label' => __( 'Feed', 'buddynext' ),
-		'count' => (int) $bn_post_count,
-	),
-	'members' => array(
-		'label' => __( 'Members', 'buddynext' ),
-		'count' => (int) $space->member_count,
-	),
-);
-
-if ( $bn_media_tab_on ) {
-	$bn_nav_tabs['media'] = array(
-		'label' => __( 'Media', 'buddynext' ),
-		'count' => (int) $bn_media_count,
-	);
-} elseif ( 'media' === $active_tab ) {
-	// Direct ?bn_tab=media URL while the media tab is disabled — fall back to Feed
-	// so the gallery body branch never renders for a hidden tab.
+if ( 'media' === $active_tab && ! $bn_media_tab_on ) {
 	$active_tab = 'feed';
 }
 
-$bn_nav_tabs['about'] = array(
-	'label' => __( 'About', 'buddynext' ),
-);
-
-if ( $can_moderate ) {
-	$bn_nav_tabs['moderation'] = array(
-		'label' => __( 'Moderation', 'buddynext' ),
-		'count' => (int) $bn_mod_count + (int) $bn_pending_count,
-	);
-}
-
-/**
- * Filters the tab list shown in the space navigation bar.
- *
- * @param array $tabs     Associative array: tab_key => label|config.
- * @param int   $space_id BuddyNext space ID.
- */
-$bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id );
+// Space navigation comes from the unified registry (SpaceNav + bridges), gated,
+// counted and ordered for THIS viewer's role — the same nav system + renderer the
+// member profile uses. Rendered as clean-URL tabs by parts/nav-bar.php.
+$bn_space_role = $is_member && isset( $membership->role ) ? (string) $membership->role : '';
+$bn_space_nav  = buddynext_nav( new \BuddyNext\Nav\NavContext( 'space', (int) $space_id, (int) $current_user_id, $bn_space_role ) );
+$bn_nav_items  = $bn_space_nav->layer( 'primary' );
 ?>
 <div class="bn-sh-stack"
 	data-wp-interactive="buddynext/spaces"
@@ -616,7 +584,7 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 			'notif_pref'      => $bn_notif_pref,
 			'stats'           => $bn_hero_stats,
 			'active_tab'      => $active_tab,
-			'tabs'            => $bn_nav_tabs,
+			'nav_items'       => $bn_nav_items,
 		)
 	);
 	?>

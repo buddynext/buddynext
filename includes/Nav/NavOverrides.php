@@ -47,10 +47,9 @@ final class NavOverrides {
 	public function register(): void {
 		// Run late (20) so admin overrides win over bridge-injected items.
 		add_filter( 'buddynext_rail_items', array( $this, 'apply_rail' ), 20, 2 );
-		// Profile tabs now flow through the unified Nav API; overrides apply to the
-		// resolved registry items (id-keyed), not the legacy tab-bar args.
-		add_filter( 'buddynext_nav_items', array( $this, 'apply_profile_nav_items' ), 20, 2 );
-		add_filter( 'buddynext_space_tabs', array( $this, 'apply_space_tabs' ), 20, 2 );
+		// Profile AND space tabs now flow through the unified Nav API; overrides
+		// apply to the resolved registry items (id-keyed), per surface.
+		add_filter( 'buddynext_nav_items', array( $this, 'apply_nav_items' ), 20, 2 );
 		add_filter( 'buddynext_mobile_nav_items', array( $this, 'apply_mobile_items' ), 20, 2 );
 	}
 
@@ -243,24 +242,28 @@ final class NavOverrides {
 	}
 
 	/**
-	 * Apply profile-scope overrides to the unified Nav registry items.
+	 * Apply per-surface overrides to the unified Nav registry items.
 	 *
 	 * Hooked on `buddynext_nav_items` (which passes the raw registration arrays +
-	 * the NavContext). Acts only on the `profile` surface: hidden items are
+	 * the NavContext). Acts on the `profile` and `space` surfaces: hidden items are
 	 * dropped, labels renamed, order applied (mapped to `priority` so the
 	 * registry's own sort honours it), and admin-created custom tabs appended as
-	 * registration arrays. Overrides are keyed by item id (== the legacy slug).
+	 * registration arrays. Overrides are keyed by item id (== the legacy slug),
+	 * read from the matching scope option (profile / space).
 	 *
 	 * @param mixed                     $items Raw registration arrays for the surface.
 	 * @param \BuddyNext\Nav\NavContext $ctx   Resolution context.
 	 * @return array<int,array<string,mixed>>
 	 */
-	public function apply_profile_nav_items( $items, $ctx = null ): array {
+	public function apply_nav_items( $items, $ctx = null ): array {
 		$items = is_array( $items ) ? $items : array();
-		if ( ! ( $ctx instanceof \BuddyNext\Nav\NavContext ) || 'profile' !== $ctx->surface ) {
+		if ( ! ( $ctx instanceof \BuddyNext\Nav\NavContext )
+			|| ! in_array( $ctx->surface, array( 'profile', 'space' ), true )
+		) {
 			return $items;
 		}
-		$overrides = $this->overrides( 'profile' );
+		$scope     = $ctx->surface;
+		$overrides = $this->overrides( $scope );
 		if ( empty( $overrides ) ) {
 			return $items;
 		}
@@ -313,7 +316,7 @@ final class NavOverrides {
 			}
 			$kept[] = array(
 				'id'       => $slug,
-				'surface'  => 'profile',
+				'surface'  => $scope,
 				'layer'    => 'primary',
 				'label'    => sanitize_text_field( (string) ( $ov['label'] ?? $slug ) ),
 				'url'      => $url,
@@ -325,93 +328,9 @@ final class NavOverrides {
 		return $kept;
 	}
 
-	/**
-	 * Apply space-scope overrides to the space detail tab bar.
-	 *
-	 * The buddynext_space_tabs filter passes an associative map keyed by slug
-	 * (slug => { label, count, … }). Hidden tabs are unset, labels replaced, and
-	 * order applied via a key-preserving sort.
-	 *
-	 * @param mixed $tabs     Associative tab map.
-	 * @param int   $space_id Space ID (unused).
-	 * @return array<string,mixed>
-	 */
-	public function apply_space_tabs( $tabs, $space_id = 0 ): array {
-		$tabs      = (array) $tabs;
-		$overrides = $this->overrides( 'space' );
-		if ( empty( $overrides ) || empty( $tabs ) ) {
-			return $tabs;
-		}
-
-		$ordered = array();
-		$index   = 0;
-		foreach ( $tabs as $slug => $cfg ) {
-			$cfg = (array) $cfg;
-			$key = sanitize_key( (string) $slug );
-			++$index;
-			$cfg['_bn_order'] = $index * 10;
-
-			if ( '' !== $key && isset( $overrides[ $key ] ) ) {
-				$ov = (array) $overrides[ $key ];
-				if ( ! empty( $ov['hidden'] ) ) {
-					continue; // Drop hidden tabs.
-				}
-				// Enforce the visibility / capability / login-required gate the
-				// same way the rail + profile + mobile appliers do. Without this a
-				// space tab set to login-required (or role-gated) still rendered to
-				// everyone — the tab bar has no show flag, so a denied tab is dropped.
-				if ( $this->tab_denied( $ov ) ) {
-					continue;
-				}
-				if ( isset( $ov['label'] ) && '' !== (string) $ov['label'] ) {
-					$cfg['label'] = sanitize_text_field( (string) $ov['label'] );
-				}
-				if ( isset( $ov['order'] ) ) {
-					$cfg['_bn_order'] = max( 1, (int) $ov['order'] );
-				}
-			}
-			$ordered[ $slug ] = $cfg;
-		}
-
-		// Append admin-created custom tabs (mirrors apply_rail). The space tab bar
-		// renders a map entry carrying `url` as a plain link, so the custom tab now
-		// reaches the front end instead of only showing in the admin list.
-		$fallback_order = ( count( $ordered ) + 1 ) * 10;
-		foreach ( $overrides as $slug => $ov ) {
-			$ov  = (array) $ov;
-			$key = sanitize_key( (string) $slug );
-			if ( '' === $key || empty( $ov['custom'] ) || ! empty( $ov['hidden'] ) || isset( $ordered[ $key ] ) ) {
-				continue;
-			}
-			$url = esc_url_raw( (string) ( $ov['url'] ?? '' ) );
-			if ( '' === $url ) {
-				continue;
-			}
-			$cap = sanitize_key( (string) ( $ov['capability'] ?? 'read' ) );
-			if ( '' !== $cap && ! current_user_can( $cap ) ) {
-				continue;
-			}
-			$ordered[ $key ] = array(
-				'label'     => sanitize_text_field( (string) ( $ov['label'] ?? $key ) ),
-				'url'       => $url,
-				'_bn_order' => isset( $ov['order'] ) ? max( 1, (int) $ov['order'] ) : $fallback_order,
-			);
-			$fallback_order += 10;
-		}
-
-		uasort(
-			$ordered,
-			static fn( array $a, array $b ): int => ( (int) ( $a['_bn_order'] ?? 10 ) ) <=> ( (int) ( $b['_bn_order'] ?? 10 ) )
-		);
-
-		// Strip the internal sort key so it never leaks into the renderer.
-		foreach ( $ordered as &$cfg ) {
-			unset( $cfg['_bn_order'] );
-		}
-		unset( $cfg );
-
-		return $ordered;
-	}
+	// (Removed) apply_space_tabs — the space tab bar now flows through the unified
+	// Nav registry, so space-scope overrides are applied by apply_nav_items()
+	// above (the same id-keyed path as profile), not the legacy buddynext_space_tabs.
 
 	/**
 	 * Apply mobile-scope overrides to the curated bottom-bar items.
