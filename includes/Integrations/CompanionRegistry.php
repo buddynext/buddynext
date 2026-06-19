@@ -111,7 +111,7 @@ final class CompanionRegistry {
 					'detect'    => static fn(): bool => defined( 'LEARNOMY_VERSION' ) || function_exists( 'learnomy' ),
 					'free'      => array(
 						'item_id'  => 1662698,
-						'key'      => 'wbcomfree5d8a1f3c7b2e9a4c6f0d1e8b3c9a7f25',
+						'key'      => '7bd8ab074c1c90ef9a02e95b48c553e7',
 						'basename' => 'learnomy/learnomy.php',
 					),
 					'store_url' => 'https://wbcomdesigns.com/downloads/learnomy/',
