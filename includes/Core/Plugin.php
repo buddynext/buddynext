@@ -375,6 +375,7 @@ class Plugin {
 		// Core navigation providers — register the built-in items for each surface
 		// into the NavRegistry (resolved lazily per request via buddynext_nav()).
 		( new \BuddyNext\Nav\Providers\ProfileNav() )->register();
+		( new \BuddyNext\Nav\Providers\SpaceNav() )->register();
 
 		// Register URL rewrite rules for pretty profile URLs.
 		( new PageRouter() )->init();
