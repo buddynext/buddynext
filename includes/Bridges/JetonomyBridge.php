@@ -555,15 +555,17 @@ class JetonomyBridge {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		// Carry the tab hint so the stat pill jumps to the in-page Discussions
-		// tab on click (same affordance as the core Posts/Followers stats),
-		// instead of sitting as dead static text next to a clickable tab. The
-		// Discussions tab is present whenever this bridge is booted.
+		// Count-only stat. The stats strip is a display row; navigation lives in
+		// the tab bar, where Discussions already has its own tab — so this pill
+		// must NOT also navigate (that would be a redundant second nav for the
+		// same destination). Omitting wp_on_click / data_tab renders it as a
+		// static count, consistent with the rest of the row.
 		$extra[] = array(
-			'label'       => __( 'Discussions', 'buddynext' ),
-			'value'       => $count,
-			'wp_on_click' => 'actions.setTab',
-			'data_tab'    => 'discussions',
+			'label'   => __( 'Discussions', 'buddynext' ),
+			'value'   => $count,
+			// First-class content count — render emphasized like Posts, not as a
+			// muted secondary metric.
+			'primary' => true,
 		);
 
 		return $extra;

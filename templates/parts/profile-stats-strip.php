@@ -152,20 +152,24 @@ do_action( 'buddynext_part_profile_stats_strip_before', $args );
 			foreach ( $bn_extra_stats as $bn_extra_stat ) :
 				$bn_xs_value = (string) $bn_extra_stat['value'];
 				$bn_xs_label = (string) $bn_extra_stat['label'];
-				// A feature stat that maps to a profile tab (e.g. Discussions) carries
-				// `wp_on_click` + `data_tab` so it jumps to that tab on click — same
-				// affordance as the core Posts/Followers stats. Feature stats with no
-				// matching tab (gamification Points / Level) stay static text.
-				$bn_xs_on  = isset( $bn_extra_stat['wp_on_click'] ) ? (string) $bn_extra_stat['wp_on_click'] : '';
-				$bn_xs_tab = isset( $bn_extra_stat['data_tab'] ) ? (string) $bn_extra_stat['data_tab'] : '';
+				// A feature stat that maps to a profile tab carries `wp_on_click` +
+				// `data_tab` to jump to that tab on click. Feature stats with no
+				// matching tab stay static count text. A stat that is a first-class
+				// content count (e.g. Discussions, which already owns a tab in the
+				// bar) can opt into the emphasized `--primary` treatment so it reads
+				// as a count alongside Posts/Followers rather than a muted control;
+				// genuinely-secondary metrics (gamification Points / Level) stay muted.
+				$bn_xs_on   = isset( $bn_extra_stat['wp_on_click'] ) ? (string) $bn_extra_stat['wp_on_click'] : '';
+				$bn_xs_tab  = isset( $bn_extra_stat['data_tab'] ) ? (string) $bn_extra_stat['data_tab'] : '';
+				$bn_xs_tone = ! empty( $bn_extra_stat['primary'] ) ? 'bn-pf-pill--primary' : 'bn-pf-pill--muted';
 				if ( '' !== $bn_xs_on ) :
 					?>
-					<button type="button" class="bn-pf-pill bn-pf-pill--muted" data-wp-on--click="<?php echo esc_attr( $bn_xs_on ); ?>"<?php echo '' !== $bn_xs_tab ? ' data-tab="' . esc_attr( $bn_xs_tab ) . '"' : ''; ?>>
+					<button type="button" class="bn-pf-pill <?php echo esc_attr( $bn_xs_tone ); ?>" data-wp-on--click="<?php echo esc_attr( $bn_xs_on ); ?>"<?php echo '' !== $bn_xs_tab ? ' data-tab="' . esc_attr( $bn_xs_tab ) . '"' : ''; ?>>
 						<span class="bn-pf-pill__value"><?php echo esc_html( $bn_xs_value ); ?></span>
 						<span class="bn-pf-pill__label"><?php echo esc_html( $bn_xs_label ); ?></span>
 					</button>
 				<?php else : ?>
-					<span class="bn-pf-pill bn-pf-pill--muted" role="listitem">
+					<span class="bn-pf-pill <?php echo esc_attr( $bn_xs_tone ); ?>" role="listitem">
 						<span class="bn-pf-pill__value"><?php echo esc_html( $bn_xs_value ); ?></span>
 						<span class="bn-pf-pill__label"><?php echo esc_html( $bn_xs_label ); ?></span>
 					</span>
