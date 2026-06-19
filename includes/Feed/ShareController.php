@@ -90,13 +90,20 @@ class ShareController extends BaseRestController {
 			return $result;
 		}
 
-		return new WP_REST_Response(
-			array(
-				'shared'   => true,
-				'share_id' => $result,
-			),
-			200
+		// Return the hydrated repost + its server-rendered card so the client can
+		// prepend it in place (no reload), mirroring the composer create flow.
+		$service  = function_exists( 'buddynext_service' ) ? buddynext_service( 'post_service' ) : new PostService();
+		$post     = $service->get( $result );
+		$response = array(
+			'shared'   => true,
+			'share_id' => $result,
 		);
+		if ( is_array( $post ) ) {
+			$response['post'] = $post;
+			$response['html'] = FeedController::render_card_html( $post, $user_id, 'home' );
+		}
+
+		return new WP_REST_Response( $response, 200 );
 	}
 
 	/**

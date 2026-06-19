@@ -73,6 +73,32 @@ let bnReactionScrollBound = false;
  * @param {...*}   args  Extra context arguments.
  * @return {*} Filtered value (or the original when hooks are unavailable).
  */
+// Insert a server-rendered feed card at the TOP of the feed list (no reload),
+// hydrating it the same way infinite-scroll-appended cards hydrate. Defined at
+// module scope so BOTH the post-composer store (submit) and the share-modal
+// store (repost) can reach it — keeping these inside the infinite-scroll IIFE
+// put them out of those stores' scope and threw a ReferenceError on submit.
+// Returns false when there is no feed list on the page or no html, so the
+// caller can fall back to a full reload.
+function prependFeedCard( html ) {
+	if ( ! html || typeof html !== 'string' ) {
+		return false;
+	}
+	var listEl = document.querySelector( '.bn-feed-list' );
+	if ( ! listEl ) {
+		return false;
+	}
+	// DOMParser yields an inert document (scripts never execute); move each
+	// parsed node to the top of the live list before the current first child.
+	var doc   = new DOMParser().parseFromString( html, 'text/html' );
+	var nodes = Array.prototype.slice.call( doc.body.childNodes );
+	var first = listEl.firstChild;
+	for ( var i = 0; i < nodes.length; i++ ) {
+		listEl.insertBefore( nodes[ i ], first );
+	}
+	return true;
+}
+
 function bnApplyFilters( hook, value, ...args ) {
 	if ( window.wp && window.wp.hooks && typeof window.wp.hooks.applyFilters === 'function' ) {
 		return window.wp.hooks.applyFilters( hook, value, ...args );
@@ -2380,10 +2406,33 @@ store( 'buddynext/post-composer', {
 					ctx.hasDraft    = false;
 					setDraftStatus( ctx, '', false );
 					document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"] .bn-composer__prompt' ).forEach( function ( ta ) { ta.value = ''; } );
+
+					const created     = res.data || {};
+					const isScheduled = !! body.scheduled_at || 'scheduled' === created.status;
+					// Pre-moderation can hold the post (status=pending): it is NOT
+					// published, so say so instead of claiming "Post published".
+					const isPending   = 'pending' === created.status;
 					if ( window.bnToast ) {
-						window.bnToast( body.scheduled_at ? 'Post scheduled' : 'Post published', 'success' );
+						let msg = 'Post published';
+						if ( isPending ) {
+							msg = 'Your post was submitted for review.';
+						} else if ( isScheduled ) {
+							msg = 'Post scheduled';
+						}
+						window.bnToast( msg, 'success' );
 					}
-					setTimeout( function () { window.location.reload(); }, 500 );
+
+					// Live post → prepend the server-rendered card in place (no
+					// reload). Held/scheduled posts aren't in the live feed, so just
+					// reset. If the card html is missing (or there's no feed list on
+					// this page), fall back to a reload so the new state still shows.
+					if ( isPending || isScheduled ) {
+						ctx.submitting = false;
+					} else if ( prependFeedCard( created.html ) ) {
+						ctx.submitting = false;
+					} else {
+						setTimeout( function () { window.location.reload(); }, 500 );
+					}
 					return;
 				}
 				let msg = 'Could not publish your post. Try again.';
@@ -2439,7 +2488,12 @@ store( 'buddynext/post-composer', {
 				} );
 				if ( res.ok ) {
 					if ( window.bnToast ) { window.bnToast( 'Voice room scheduled', 'success' ); }
-					setTimeout( () => window.location.reload(), 500 );
+					// A scheduled voice room is not in the live feed (it surfaces at
+					// its start time), so there is nothing to prepend — just reset the
+					// form instead of a jarring full-page reload.
+					ctx.voiceError = '';
+					ctx.submitting = false;
+					document.querySelectorAll( '[data-bn-voice-field]' ).forEach( ( el ) => { el.value = ''; } );
 					return;
 				}
 				ctx.voiceError = 'Could not schedule the voice room. Try again.';
@@ -2836,10 +2890,12 @@ store( 'buddynext/share-modal', {
 					ctx.open = false;
 					ctx.busy = false;
 					ctx.note = '';
-					// Reload so the new repost card appears in the feed — the same
-					// server-rendered-source-of-truth pattern the composer uses after
-					// publishing (see docs/specs/UI-CONTRACT.md).
-					setTimeout( function () { window.location.reload(); }, 500 );
+					// Prepend the server-rendered repost card in place (no reload),
+					// mirroring the composer. Fall back to a reload only when no card
+					// html came back or there's no feed list on this page.
+					if ( ! prependFeedCard( res.data && res.data.html ) ) {
+						setTimeout( function () { window.location.reload(); }, 500 );
+					}
 					return;
 				}
 				ctx.error = 'Could not repost. Try again.';

@@ -263,6 +263,14 @@ class PostController extends BaseRestController {
 
 		$post = $service->get( $result );
 
+		// Attach the server-rendered card so the composer can prepend the new
+		// post in place (no reload). Only for live (published) posts — held
+		// (pending) and scheduled posts are not in the live feed, so the client
+		// shows a status toast instead of inserting a card.
+		if ( is_array( $post ) && 'published' === ( $post['status'] ?? 'published' ) ) {
+			$post['html'] = FeedController::render_card_html( $post, $user_id, 'home' );
+		}
+
 		return new WP_REST_Response( $post, 201 );
 	}
 

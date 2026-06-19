@@ -1972,6 +1972,10 @@ class PostService {
 			'is_announcement'      => (int) ( $row['is_announcement'] ?? 0 ),
 			'content_warning'      => (bool) ( $row['content_warning'] ?? false ),
 			'content_warning_type' => $row['content_warning_type'] ?? null,
+			// Lifecycle status (published | pending | scheduled | draft). Feeds only
+			// ever return published rows, but the create response exposes it so the
+			// composer can tell when pre-moderation held a post instead of publishing.
+			'status'               => $row['status'] ?? 'published',
 			// Optional columns — defaulted so hydrate() tolerates partial rows
 			// (feed/hashtag SELECTs that omit them) without an undefined-key notice.
 			'site_pin_expires_at'  => $row['site_pin_expires_at'] ?? null,

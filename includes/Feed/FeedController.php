@@ -514,6 +514,36 @@ class FeedController extends BaseRestController {
 	 * @param string                         $context Feed context ('home' or 'explore').
 	 * @return string HTML markup ready to inject into the feed list container.
 	 */
+	/**
+	 * Render a single feed post card to its canonical server-side HTML.
+	 *
+	 * Reuses the exact `partials/post-card.php` pipeline the feed and
+	 * infinite-scroll use, so a freshly-created post can be prepended into the
+	 * feed in place (no reload) and hydrate identically. Returns '' when the
+	 * template helper is unavailable.
+	 *
+	 * @param array  $post    Hydrated post array (PostService::hydrate shape).
+	 * @param int    $viewer  Current user ID.
+	 * @param string $context Render context (default 'home').
+	 * @return string Escape-on-output card markup, or '' if unavailable.
+	 */
+	public static function render_card_html( array $post, int $viewer, string $context = 'home' ): string {
+		if ( empty( $post ) || ! function_exists( 'buddynext_get_template' ) ) {
+			return '';
+		}
+
+		ob_start();
+		buddynext_get_template(
+			'partials/post-card.php',
+			array(
+				'post'            => PostService::attach_poll_options( $post ),
+				'current_user_id' => $viewer,
+				'context'         => $context,
+			)
+		);
+		return (string) ob_get_clean();
+	}
+
 	private function render_items_html( array $items, int $viewer, string $context ): string {
 		if ( empty( $items ) || ! function_exists( 'buddynext_get_template' ) ) {
 			return '';
