@@ -245,6 +245,91 @@ function buddynext_feature_enabled( string $slug, bool $fallback = true ): bool 
  * }
  * @return void
  */
+/**
+ * Register a navigation item (tab / stat / rail link / sub-nav) with the unified
+ * Nav registry. The single public API any developer or bridge uses; see
+ * docs/plans/nav-subnav-api.md for the item contract.
+ *
+ * @param array<string,mixed> $item Nav item registration array.
+ * @return void
+ */
+function buddynext_register_nav( array $item ): void {
+	\BuddyNext\Nav\NavRegistry::instance()->register( $item );
+}
+
+/**
+ * Resolve the navigation for a context (gated, ordered, deduped, nested).
+ *
+ * @param \BuddyNext\Nav\NavContext $context Resolution context.
+ * @return \BuddyNext\Nav\ResolvedNav
+ */
+function buddynext_nav( \BuddyNext\Nav\NavContext $context ): \BuddyNext\Nav\ResolvedNav {
+	return \BuddyNext\Nav\NavRegistry::instance()->resolve( $context );
+}
+
+/**
+ * Reposition a nav item inside a `buddynext_nav_items` filter callback. Sets the
+ * item's before/after/priority anchor; the registry re-resolves order after.
+ *
+ * @param array<int,array<string,mixed>> $items  Raw items passed to the filter.
+ * @param string                         $id     Target item id.
+ * @param array<string,mixed>            $anchor One of: ['before'=>id] | ['after'=>id] | ['priority'=>int].
+ * @return array<int,array<string,mixed>>
+ */
+function buddynext_nav_move( array $items, string $id, array $anchor ): array {
+	foreach ( $items as &$it ) {
+		if ( ( $it['id'] ?? '' ) !== $id ) {
+			continue;
+		}
+		unset( $it['before'], $it['after'] );
+		if ( isset( $anchor['before'] ) ) {
+			$it['before'] = (string) $anchor['before'];
+		}
+		if ( isset( $anchor['after'] ) ) {
+			$it['after'] = (string) $anchor['after'];
+		}
+		if ( isset( $anchor['priority'] ) ) {
+			$it['priority'] = (int) $anchor['priority'];
+		}
+	}
+	return $items;
+}
+
+/**
+ * Remove nav item(s) by id inside a `buddynext_nav_items` filter callback.
+ *
+ * @param array<int,array<string,mixed>> $items Raw items passed to the filter.
+ * @param string|string[]                $ids   Item id(s) to drop.
+ * @return array<int,array<string,mixed>>
+ */
+function buddynext_nav_remove( array $items, string|array $ids ): array {
+	$ids = array_map( 'strval', (array) $ids );
+	return array_values(
+		array_filter(
+			$items,
+			static fn( $it ): bool => is_array( $it ) && ! in_array( (string) ( $it['id'] ?? '' ), $ids, true )
+		)
+	);
+}
+
+/**
+ * Edit an existing nav item's fields inside a `buddynext_nav_items` filter
+ * callback (relabel, re-gate, retarget…).
+ *
+ * @param array<int,array<string,mixed>> $items   Raw items passed to the filter.
+ * @param string                         $id      Target item id.
+ * @param array<string,mixed>            $changes Fields to merge onto the item.
+ * @return array<int,array<string,mixed>>
+ */
+function buddynext_nav_set( array $items, string $id, array $changes ): array {
+	foreach ( $items as &$it ) {
+		if ( is_array( $it ) && ( $it['id'] ?? '' ) === $id ) {
+			$it = array_merge( $it, $changes );
+		}
+	}
+	return $items;
+}
+
 function buddynext_register_profile_field( array $args ): void {
 	static $registry = array();
 	static $hooked   = false;
