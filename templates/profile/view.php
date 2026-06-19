@@ -507,7 +507,6 @@ $bn_pf_ctx = array(
 			'items'         => $bn_pf_primary,
 			'active'        => $bn_pf_active_tab,
 			'tablist_label' => __( 'Profile sections', 'buddynext' ),
-			'extra_class'   => 'bn-pf-tabs',
 		)
 	);
 

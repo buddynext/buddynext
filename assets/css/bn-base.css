@@ -2517,37 +2517,83 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	color: var(--bn-accent-700);
 }
 
-/* ── Sub-nav: one level under an active primary tab (parts/nav-bar.php) ─────
-   Visually SECONDARY — a compact PILL row, not a second underline tab bar. The
-   primary bar owns the underline + full-width rail; the sub-nav reads as a
-   segmented control beneath it (filled active pill, no rail), so the hierarchy
-   is obvious. Same .bn-tab component + aria-selected convention. */
-.bn-tabs--sub {
+/* ════════════════════════════════════════════════════════════════════════════
+   THE NAV SYSTEM — three independent components, three class namespaces, ZERO
+   shared inheritance. Every surface + every integration (own + 3rd party) uses
+   these via the Nav API (buddynext_register_nav) → the shared render parts. Keep
+   them separate so a change to one can never bleed into another:
+
+     1. STATS      .bn-nav-metrics / .bn-nav-metric        (parts/nav-metrics.php)
+     2. PRIMARY    .bn-tabs / .bn-tab                       (parts/nav-bar.php)
+     3. SUB-NAV    .bn-subnav / .bn-subnav__item           (parts/nav-subnav.php)
+
+   .bn-navgroup wraps PRIMARY + its SUB-NAV as one unit so a page stack gap can't
+   space the sub-nav off as its own section.
+   ════════════════════════════════════════════════════════════════════════════ */
+.bn-navgroup {
+	display: block;
+}
+
+/* ── (3) SUB-NAV — the canonical secondary nav. A premium TEXT toggle, NOT a
+   second tab bar: its OWN namespace (never .bn-tab), so no rail, no box, no
+   underline, and nothing to override. Active = accent + semibold; inactive =
+   muted. Sits tight under the primary bar inside .bn-navgroup. */
+.bn-subnav {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-s4);
 	margin-top: var(--bn-s2);
-	margin-bottom: var(--bn-s2);
-	gap: var(--bn-s1);
-	border-bottom: 0;
-	padding: 0;
 }
-.bn-tabs--sub .bn-tab {
+/* Base + ALL interaction states scoped under .bn-app so the host theme's bare
+   <button> chrome (border / padding / hover + active + focus background) can
+   never bleed in — the sub-nav is text only, in every state. Hover, active
+   (selected) and :active (press) are covered together. */
+.bn-app .bn-subnav__item {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 6px;
+	margin: 0;
+	padding: var(--bn-s1) 0;
+	border: 0;
+	border-radius: 0;
+	background: none;
+	box-shadow: none;
+	font: inherit;
 	font-size: var(--bn-text-sm);
-	padding: 4px var(--bn-s3);
-	border-bottom: 0;
-	border-radius: var(--bn-r-full);
+	font-weight: var(--bn-fw-medium);
+	line-height: 1.4;
 	color: var(--bn-ink-3);
+	text-decoration: none;
+	cursor: pointer;
 }
-.bn-tabs--sub .bn-tab:hover,
-.bn-tabs--sub .bn-tab:focus {
-	background: var(--bn-sunken);
-}
-.bn-tabs--sub .bn-tab[aria-selected="true"],
-.bn-tabs--sub .bn-tab.active {
+.bn-app .bn-subnav__item:hover,
+.bn-app .bn-subnav__item:focus,
+.bn-app .bn-subnav__item:active {
 	color: var(--bn-ink);
-	border-bottom-color: transparent;
-	background: color-mix(in oklab, var(--bn-accent) 14%, transparent);
+	background: none;
+	box-shadow: none;
 }
-.bn-tabs--sub .bn-tab__count {
+.bn-app .bn-subnav__item:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+	border-radius: var(--bn-r-sm);
+}
+/* Active (selected) wins over hover so an active item hovered stays accent. */
+.bn-app .bn-subnav__item[aria-selected="true"],
+.bn-app .bn-subnav__item[aria-selected="true"]:hover,
+.bn-app .bn-subnav__item[aria-selected="true"]:focus,
+.bn-app .bn-subnav__item.active {
+	color: var(--bn-accent);
+	background: none;
+	font-weight: var(--bn-fw-semibold);
+}
+.bn-subnav__count {
 	font-size: var(--bn-text-2xs);
+	color: var(--bn-ink-3);
+	background: var(--bn-sunken);
+	padding: 1px 6px;
+	border-radius: var(--bn-r-full);
 }
 
 /* ── Shared metric / stat row (parts/nav-metrics.php) ──────────────────────
