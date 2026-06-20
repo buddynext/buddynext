@@ -234,11 +234,12 @@ WHERE type = 'job_post';
 The bridge exposes **no REST routes of its own** — it is a server-side listener. Observability is through the surfaces its writes feed into:
 
 ```
-GET  /buddynext/v1/search?q=<term>      -- indexed job rows appear in the 'job' group (community search)
+GET  /buddynext/v1/search?q=<term>      -- REST returns indexed jobs in the 'job' group (verified: /search?q=manager -> job:2)
 GET  /buddynext/v1/me/notifications     -- cb.application_* rows appear in the recipient's notification list
 ```
 
-- The `job` object type is discovered dynamically by `SearchService::grouped_search()` from the index table, so jobs surface in search results without any search-side registration.
+- The `job` object type is discovered dynamically by `SearchService::grouped_search()` from the index table, so jobs are returned by the **REST** `/search` endpoint without search-side registration.
+- **KNOWN GAP (found 2026-06-20, browser-verified):** the member-facing **search results PAGE does NOT render job (or listing) results.** `templates/search/results.php:49` hard-codes `$allowed_tabs = ['all','members','posts','spaces','hashtags','media']` — `job`/`listing` are absent, so a member searching "manager" sees 0 results and no Jobs tab even though `bn_search_index` has the rows and `GET /search?q=manager` returns `job:2`. Jobs DO surface in the activity feed (as a job-posted activity) and via the partner's own pages; they are just invisible in the BuddyNext search UI. Fix requires adding `job`/`listing` to the search template's tab list + result-card rendering (product decision — affects Career Board jobs AND wb-listora listings).
 - Partner-owned surfaces (the actual job listing pages, application UI) live in the **Career Board** plugin, not BuddyNext.
 
 ## Bridge contract & partner gate
