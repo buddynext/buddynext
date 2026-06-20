@@ -2,6 +2,10 @@
 
 The leaderboard ranks your community's members by the points they have earned, so the most active people rise to the top. It shows a ranked list of top members with their points and badges, plus the viewer's own rank, level, streak, and next milestone.
 
+![The BuddyNext community activity feed where the leaderboard spotlights top members](../images/community-activity-feed.png)
+
+![The BuddyNext admin overview showing community engagement and rankings](../images/admin-overview.png)
+
 The leaderboard is part of BuddyNext's gamification, which is provided by the WB Gamification companion plugin. The board reads its rankings from that plugin, so it appears once WB Gamification is installed and members have started earning points. For how points are earned, see Gamification: points, badges, and levels.
 
 ## Why use it
@@ -27,7 +31,6 @@ Members do not set anything up. They open the leaderboard and read it.
 3. See your own standing at the top of the page: your rank, points, level, current streak, and your next milestone.
 4. Switch the scoring window with the period tabs to rank members by this week, this month, or all time.
 
-> _Screenshot: the leaderboard showing the ranked member list, the viewer's own rank and level summary, and the period tabs - captured in the image pass._
 
 ### The scoring window
 

@@ -2,6 +2,8 @@
 
 Reference for the notification routes under the `buddynext/v1` namespace: the in-app inbox, unread badge, read-state changes, deletion, and the three preference surfaces (per-type, master channels, and per-space). These are the routes an app or custom bell widget uses.
 
+![The notifications inbox and bell driven by the notification REST routes documented here](../images/notifications.png)
+
 ## Contract
 
 All routes in this page live under the `buddynext/v1` namespace and follow the conventions described in the BuddyNext REST Contract page (envelope, authentication, nonce, and cursor pagination). Read that page first; this page documents only the routes and their request/response shapes.

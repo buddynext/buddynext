@@ -2,6 +2,8 @@
 
 Short, runnable recipes for the most common ways to extend BuddyNext from an addon plugin or a theme. Each recipe states the goal, names the seam, and gives a working snippet you can drop into a `plugins_loaded`-or-later hook. These are the same seams BuddyNext Pro uses - Pro never re-implements Free code, it attaches to these filters and actions, and so should you.
 
+![The feed surface most cookbook recipes extend through the documented filter and action seams](../images/community-activity-feed.png)
+
 ## Overview
 
 BuddyNext exposes three families of extension point:

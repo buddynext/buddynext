@@ -2,6 +2,10 @@
 
 An announcement is an admin post that pins to the top of every member's home feed until each member dismisses it. It is the one message you can be confident reaches everyone, regardless of who they follow.
 
+![A BuddyNext home feed with an admin announcement pinned above the regular activity](../images/community-activity-feed.png)
+
+![The BuddyNext admin settings screen where the site owner manages announcements](../images/backend-settings.png)
+
 ## Why use it
 
 Normal feed posts only reach people who follow you or share a space with you. An announcement ignores the follow graph: it surfaces above all other activity on the first page of every member's home feed, so a notice lands in front of the whole community at once.
@@ -34,7 +38,6 @@ An administrator can end an announcement at any time. Ending it removes the pin 
 
 > **Tip:** Ending an announcement is the clean way to retire a notice once it is no longer relevant. You do not have to delete the post to stop it pinning - end it and it becomes an ordinary feed post.
 
-> _Screenshot: an announcement pinned at the top of the home feed, with the dismiss control and (for admins) the end control - captured in the image pass._
 
 ## Good to know
 

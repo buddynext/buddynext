@@ -2,6 +2,10 @@
 
 BuddyNext Pro adds three AI-assisted features that share one connection: AI feed ranking re-orders the home feed by how relevant each post is likely to be for the person viewing it, AI moderation scores new content for risk before it goes live, and smart replies offer a member ready-to-edit responses to a conversation. All three are off by default and need to be turned on and configured before they do anything.
 
+![Content scored by AI moderation arriving in the moderation queue](../images/moderation-queue.png)
+
+![AI moderation and feed-ranking signals on the BuddyNext Pro admin dashboard](../images/admin-overview.png)
+
 ## Why use it
 
 A community feed in strict newest-first order buries good posts under whatever was published most recently. AI feed ranking looks at what a member has actually engaged with - the people they follow, the posts they react to, comment on, and bookmark - and lifts the posts they are most likely to care about toward the top, while still showing recent activity. Members see a feed that feels tuned to them instead of a firehose.
@@ -87,9 +91,7 @@ Both the AI Feed and AI Moderation screens are self-checking. The AI Moderation 
 - Smart-reply suggestions are cached briefly. Repeated clicks on the same thread within a few minutes reuse the same suggestions rather than calling the provider again, which keeps usage down.
 - Signals stay warm even when ranking is off. BuddyNext keeps recording engagement signals whether or not ranking is enabled, so when you do turn it on there is already history to rank with.
 
-> _Screenshot: the BuddyNext AI Feed admin page showing the ranking toggle, decay window, and smart-replies section - captured in the image pass._
 
-> _Screenshot: the BuddyNext AI Moderation admin page with the block threshold slider and the inline classifier test bench - captured in the image pass._
 
 ## Free vs Pro
 

@@ -2,6 +2,10 @@
 
 The action and filter seams for user lifecycle, member profiles, profile fields, roles, and the social graph (follow, connection, block). This page is for developers building gamification plugins, integrations, or theme extensions that react to social activity or augment how members are rendered. Every hook below is fired or applied by BuddyNext Free, so it is available without Pro.
 
+![A member profile whose user-lifecycle, profile-field, and social-graph hooks are documented here](../images/member-profile.png)
+
+![The member directory shaped by the same member and social-graph hook seams](../images/member-directory.png)
+
 ## Overview / Contract
 
 - **Actions are notifications, not callbacks.** BuddyNext never calls addon code directly. It fires actions after a state change has committed, and you hook them. Listeners that need more than the passed IDs should re-fetch by ID (for example `buddynext_service( 'post_service' )->get( $post_id )`).

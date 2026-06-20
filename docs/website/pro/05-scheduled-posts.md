@@ -2,6 +2,10 @@
 
 Scheduled posts let a member write something now and have it publish automatically at a future date and time. The post stays out of every feed until its moment arrives, then goes live on its own. Pro turns the post composer's schedule clock into a real managed queue: the post is parked, tracked, and published on time, with a place to review, publish early, or cancel anything that is waiting.
 
+![A scheduled post going live on time in the community activity feed](../images/community-activity-feed.png)
+
+![Reviewing the queue of scheduled posts in the BuddyNext Pro settings](../images/backend-settings.png)
+
 ## Why use it
 
 People rarely have time to write at the exact moment something should go out. A community manager prepares the week's announcements on Monday morning. A creator drafts three posts in one sitting but wants them spaced across the week so the feed does not get a burst followed by silence. Someone wants a welcome message to land first thing in the morning, not at midnight when they finished writing it. Scheduling solves all of these: write when you have the time, publish when it has impact.
@@ -18,7 +22,6 @@ In the post composer, open the schedule tool (the clock marked "Schedule for lat
 
 The time you pick is the moment it publishes. Until then, nobody sees the post in the home feed, a space feed, or anywhere else, and the usual "new post" notifications do not fire. Those only go out when the post actually publishes, so followers and space members are notified at the right time, not when you queued it.
 
-> _Screenshot: the post composer with the "Schedule for later" clock open and a future date and time selected - captured in the image pass._
 
 ### When the post publishes
 
@@ -34,7 +37,6 @@ A member can see their own queued posts and cancel any that are still waiting. C
 
 Pro adds a **Scheduled Posts** admin page (under the BuddyNext menu, in the Growth section) that lists every post waiting to publish across the community, ordered by the soonest scheduled time first. For each post you see its ID, author, type, an excerpt, and the scheduled time in UTC.
 
-> _Screenshot: the Scheduled Posts admin queue listing posts with author, excerpt, scheduled time, and per-row actions - captured in the image pass._
 
 The queue gives owners three actions.
 

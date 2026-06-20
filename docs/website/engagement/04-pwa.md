@@ -2,6 +2,8 @@
 
 BuddyNext ships your community as an installable Progressive Web App (PWA). Members can add it to a phone or desktop home screen and launch it in a standalone, app-like window, complete with an offline shell so the app opens even with no connection.
 
+![BuddyNext running as an installable mobile Progressive Web App](../images/mobile.png)
+
 ## Why use it
 
 Most communities lose people in the gap between visits. A bookmark is easy to forget; an app icon on the home screen is not. A PWA puts your community one tap away on the home screen, so members come back more often, without you building, submitting, or maintaining a native app in any store.

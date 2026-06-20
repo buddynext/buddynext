@@ -2,6 +2,8 @@
 
 The analytics dashboard is a Pro admin area that turns your community's activity into numbers you can read at a glance: how many people show up, what content lands, who your most active members are, and how your spaces are doing. It also gives each member a private "who viewed your profile" count, with an opt-out for people who would rather not be tracked.
 
+![The BuddyNext Pro analytics dashboard with community activity stats](../images/admin-overview.png)
+
 ## Why use it
 
 Running a community without analytics means guessing. You can't tell whether last month's changes brought people back, which posts pulled comments and reactions, or which spaces are quietly dying. The dashboard answers those questions with real data from your own site, so your decisions about content, spaces, and outreach are grounded in what actually happened.
@@ -39,7 +41,6 @@ Any member can turn off profile-view tracking for themselves. When a member opts
 
 The dashboard lives under the BuddyNext admin menu as the Analytics page. It requires BuddyNext Free to be active, because the Analytics page is a sub-page of the Free admin menu and reads activity that Free records. Only users who can manage options (administrators) can open it.
 
-> _Screenshot: the Analytics admin page with the Overview view selected, showing the DAU/WAU/MAU stat cards and the member-growth table - captured in the image pass._
 
 ### The views
 

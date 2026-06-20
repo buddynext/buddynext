@@ -47,7 +47,6 @@ A member never gets notified about their own actions, and notifications are supp
 
 The bell icon sits in the site header. When you have unread notifications, a small badge shows the count (it caps at "99+"). Click the bell to open the full Notifications page, which lists everything addressed to you, newest first, grouped into Today, Yesterday, and Older. Each row shows who acted, what they did, and a relative time, and links to the post, profile, or space it refers to.
 
-> _Screenshot: the Notifications page showing grouped Today / Yesterday / Older rows with the unread bell badge - captured in the image pass._
 
 ### Marking as read and mark-all-read
 

@@ -2,6 +2,8 @@
 
 Reference for the `bn_*` tables that store posts, comments, reactions, shares, bookmarks, polls, the per-recipient feed cache, and the hashtag registry. All tables are created in `BuddyNext\Core\Installer` via `dbDelta()` and are prefixed with the site table prefix (shown here as `bn_`, e.g. `wp_bn_posts`).
 
+![The activity feed rendered from the bn_posts, comments, reactions, and feed-cache tables documented here](../images/community-activity-feed.png)
+
 ## Overview / Contract
 
 These tables follow the rules in the BuddyNext Scale Contract, which targets 100,000 sites of 100,000 members each. The shape of every table below is driven by three of those rules:

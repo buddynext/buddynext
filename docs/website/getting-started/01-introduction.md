@@ -2,6 +2,8 @@
 
 BuddyNext is the social layer for WordPress. It turns a standard WordPress site into a real social network your members will recognise: an activity feed, communities (called spaces), member profiles and directories, private messaging, and moderation tools. The whole thing lives on your own site - your members, your content, your rules - with no third-party platform in the middle.
 
+![BuddyNext community activity feed with composer, posts, and sidebar](../images/community-activity-feed.png)
+
 If you have ever wanted a home for your audience that feels like Facebook, X, or LinkedIn but is entirely yours, this is it. The free plugin is a complete community platform on its own, ready to launch the day you activate it. When your community grows, BuddyNext Pro adds the things you reach for after the first few months: scheduled posts, broadcast and drip emails, group messaging, instant real-time updates, deeper moderation, analytics, and ways to charge for access.
 
 ## What it is
@@ -27,7 +29,6 @@ BuddyNext is built for community owners who want to run a social network on thei
 - **Works with the tools you build on.** BuddyNext fits standard WordPress themes, ships ready-made blocks and shortcodes for the page editor, and lets your designer restyle any part of it. The same community can power your website today and a mobile app tomorrow.
 - **Built to stay fast.** Feeds, directories, and member lists load in pages and stay quick whether your community has fifty members or fifty thousand.
 
-> _Screenshot: the BuddyNext home feed with the post composer, an activity post, and the sidebar navigation - captured in the image pass._
 
 ## How it works
 

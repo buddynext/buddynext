@@ -2,6 +2,10 @@
 
 White-label branding lets you replace BuddyNext's identity with your own across the community. Set a brand name, a logo, a brand color, the fonts, and your own custom CSS, and the whole interface - front-end and wp-admin - takes on your look instead of the default. You can also override the branding for individual spaces, so a single community can carry more than one identity.
 
+![The re-branded BuddyNext admin interface under white-label branding](../images/admin-settings.png)
+
+![Setting the brand name, logo, color, and custom CSS in the BuddyNext Pro settings](../images/backend-settings.png)
+
 > **Note:** White-label branding is part of the Agency and Unlimited license tiers. On other Pro tiers the feature is not offered.
 
 ## Why use it
@@ -22,7 +26,6 @@ White-labeling has no controls for ordinary members. They simply see the communi
 
 The site-wide White-label settings live under the BuddyNext menu in wp-admin. Set your values, save, and the brand is applied immediately to both the front-end and the admin chrome.
 
-> _Screenshot: the White-label settings screen with the brand name, logo URL, hue swatch picker, font field, and custom CSS box - captured in the image pass._
 
 ### Site-wide brand settings
 
@@ -40,7 +43,6 @@ When at least one of these differs from the default, BuddyNext injects a small s
 
 The settings screen includes a live preview so you can see your brand color, font, and custom CSS rendered together before you save, rather than saving blind and reloading to check the result.
 
-> _Screenshot: the White-label settings live preview reflecting a custom hue and logo - captured in the image pass._
 
 ### Per-space branding overrides
 
@@ -48,7 +50,6 @@ Pro can brand an individual space differently from the rest of the site. A space
 
 A per-space brand can be managed by a site administrator or by that space's owner - no one else. This is what lets a single install present several distinctly branded communities while sharing one set of members and one admin.
 
-> _Screenshot: a space's Brand settings showing a per-space hue and logo override - captured in the image pass._
 
 ## Good to know
 

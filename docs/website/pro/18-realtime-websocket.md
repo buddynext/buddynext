@@ -2,6 +2,8 @@
 
 Real-time WebSocket (Pro) connects your community to a WebSocket server so notifications, feed activity, and messaging update the instant they happen, instead of waiting for the next poll. It uses the Pusher protocol, so it works with Soketi (free, self-hosted) or any Pusher-compatible server.
 
+![New posts and reactions appearing live in the community activity feed](../images/community-activity-feed.png)
+
 ## Why it matters
 
 The free plugin keeps the community live by polling: the notification bell checks for new items every few seconds, the feed checks for new posts roughly once a minute. That works and nothing is broken without Pro - it is just slower. A member can wait up to a minute to see a new post appear, and the bell only catches up on its next check.

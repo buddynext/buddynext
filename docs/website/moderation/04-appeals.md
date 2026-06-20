@@ -2,6 +2,8 @@
 
 An appeal is the path a suspended member uses to dispute their suspension and ask a moderator to look again. The member submits a written explanation, and a moderator reviews it and either approves it - which lifts the suspension - or denies it.
 
+![The BuddyNext moderation queue where moderators review member appeals](../images/moderation-queue.png)
+
 Appeals close the loop on user moderation. Every sanction in BuddyNext is a human judgment call, and human judgment is sometimes wrong. The appeal gives the member a fair, structured way to say so, and gives you a clean way to reverse a mistake or confirm the original decision.
 
 ## Why use it

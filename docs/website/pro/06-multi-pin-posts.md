@@ -2,6 +2,8 @@
 
 Pinning keeps a post at the top of a feed so it is the first thing people see. Free BuddyNext lets you pin one post per profile and one per space. Pro raises that limit to up to 10 pinned posts per profile and per space, so you can keep several important posts at the top at once.
 
+![Several pinned posts held at the top of the community activity feed](../images/community-activity-feed.png)
+
 ## Why use it
 
 One pinned post is rarely enough. A space that runs well usually has more than a single thing worth keeping in front of everyone: the rules, a welcome post, the current event, a featured discussion, an important announcement. With a limit of one, you are forced to choose which single message matters most and let the rest scroll away. Raising the cap to 10 lets you keep a small, curated set of highlights at the top instead.
@@ -14,7 +16,6 @@ For an owner, multiple pins are how a space communicates what matters without re
 
 Open the options menu on any post (the menu on the post card) and choose **Pin**. The post moves to the top of the feed for that scope - the profile or the space it belongs to - and stays there above the regular, time-ordered posts. The menu label then switches to **Unpin** so you can reverse it.
 
-> _Screenshot: the post options menu open on a post card showing the Pin action - captured in the image pass._
 
 ### Unpin a post
 
@@ -24,7 +25,6 @@ Open the same menu on a pinned post and choose **Unpin**. The post drops back in
 
 Pinned posts sit at the top of the feed for their scope. A post pinned on a profile is highlighted at the top of that profile's feed; a post pinned in a space is highlighted at the top of that space's feed. Each pinned post is marked as pinned on its card so members can see it is being held there on purpose rather than just being recent.
 
-> _Screenshot: a space feed with pinned posts highlighted at the top above the regular chronological posts - captured in the image pass._
 
 ## Setting it up (for owners)
 

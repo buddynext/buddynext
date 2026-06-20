@@ -2,6 +2,8 @@
 
 Career Board is the companion plugin that turns your community into a place where careers move. Members post jobs, others apply, and candidates can publish a resume. Run it alongside BuddyNext and that activity comes to life inside the community - new jobs and resumes appear in the feed and in community search, and everyone involved stays in the loop through the BuddyNext notification center.
 
+![BuddyNext community search surfacing Career Board jobs and resumes](../images/search.png)
+
 Bringing Career Board into your community needs BuddyNext Pro. The Career Board plugin works on its own without Pro - you simply will not get the community surfacing described below until Pro is active.
 
 ## Why use it

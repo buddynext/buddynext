@@ -2,6 +2,10 @@
 
 Content Protection locks individual posts, pages, and even sections inside a page behind membership. Non-members see a short teaser and a friendly locked card inviting them to join; members with the right plan see the full content.
 
+![Members reading protected posts in the community feed once their plan unlocks them](../images/community-activity-feed.png)
+
+![Choosing which membership tier unlocks protected content in the BuddyNext Pro settings](../images/backend-settings.png)
+
 > **Before you start:** Content Protection comes with BuddyNext Pro and uses the same memberships as your spaces, so set up at least one membership tier first (see Membership Tiers).
 
 ## Why use it
@@ -71,7 +75,6 @@ The locked card non-members see has a heading, a short note, and a call-to-actio
 - **One membership, many surfaces.** The same plan that opens a gated space also unlocks protected posts and inline sections, so members do not buy access twice.
 - **The card matches your paywall.** The locked card reuses the same styling as the space paywall, so locked posts and gated spaces look consistent.
 
-> _Screenshot: a protected post showing the teaser followed by the locked card and its call-to-action button - captured in the image pass._
 
 ## Free vs Pro
 

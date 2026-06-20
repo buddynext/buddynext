@@ -2,6 +2,8 @@
 
 The action and filter seams for the activity feed and everything members post into it: posts, comments, reactions, polls, shares, bookmarks, and the composer template. This page is for developers building gamification plugins, moderation integrations, notification bridges, or theme extensions that react to feed activity or modify content before it is written. Every hook below is fired or applied by BuddyNext Free, so it is available without Pro. Several of them are the documented Free-to-Pro extension seams (`buddynext_post_pin_limit`, `buddynext_reaction_types`, `buddynext_reaction_meta`).
 
+![The activity feed whose post, comment, reaction, and composer hooks are documented on this page](../images/community-activity-feed.png)
+
 ## Overview / Contract
 
 - **Actions are notifications, not callbacks.** BuddyNext fires actions after the database write has committed. Listeners that need the full record should re-fetch by ID (for example `buddynext_service( 'post_service' )->get( $post_id )`); the actions pass IDs, not hydrated rows.

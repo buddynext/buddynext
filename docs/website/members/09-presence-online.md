@@ -2,6 +2,8 @@
 
 BuddyNext shows who is around right now. When a member is active, an online indicator appears next to them across the community - in the member directory, on member cards, in profiles, and in the messaging rail. Members who were here a little earlier show as recently active. Presence updates on its own as people browse, so the community always looks current.
 
+![Member directory with online indicators and the Online now filter showing currently active members](../images/member-directory.png)
+
 ## Why it matters
 
 An empty-looking community feels dead even when people are there. Online presence is what makes a space feel alive: a new member who lands on the directory and sees several people online right now knows this is a place where conversations happen, not an abandoned forum. For members, presence answers a simple, useful question before they reach out - is this person around to reply, or should I expect a slower response? An owner who wants their community to feel active and responsive gets that signal for free, with no configuration and no extra load on the site.
@@ -19,7 +21,6 @@ Where presence shows up:
 
 A member counts as online when they have been active within the last five minutes. Past that window they are no longer shown as online; they simply drop back to a regular listing rather than being flagged as active right now.
 
-> _Screenshot: the member directory with the "Online now" filter active and online indicators on the member cards - captured in the image pass._
 
 ### How presence stays current (the heartbeat)
 

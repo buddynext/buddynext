@@ -2,6 +2,10 @@
 
 Every space has one of three privacy types - Open, Private, or Secret. The type decides who can see the space, how a member joins, and whether non-members can read its content. Owners pick a type when they create a space and can change it later.
 
+![Single space home showing the join control that reflects the space privacy type](../images/space-home.png)
+
+![BuddyNext admin Spaces settings with the default visibility for new spaces](../images/backend-settings.png)
+
 ## Why it matters
 
 Not every group should work the same way. A welcome lounge wants everyone to walk in and start talking. A members-only working group wants to vet who joins before they see the discussion. A leadership channel should not show up anywhere at all unless you are invited. One privacy model cannot serve all three.

@@ -2,6 +2,10 @@
 
 BuddyNext greets every new member with a short, four-step welcome wizard the moment they finish signing up. In a few clicks the member fills out their profile, joins a space, follows a few people, and picks how they want to be notified. By the time they reach the feed they already have something to read and people to talk to.
 
+![The four-step BuddyNext new-member onboarding wizard with live profile preview](../images/onboarding.png)
+
+![Onboarding wizard settings in the wp-admin Settings panel](../images/backend-settings.png)
+
 ## What it is
 
 The onboarding wizard is a guided first-session flow that opens right after a new member registers (or right after they verify their email, if email verification is turned on). It has four steps:
@@ -19,7 +23,6 @@ A new member who lands on an empty feed with no connections usually leaves and d
 
 The whole flow works out of the box with no setup on your side. You do not configure anything for each new person - the wizard runs on its own, and members who do not finish get a gentle reminder later (see Reminder emails below).
 
-> _Screenshot: the four-step onboarding wizard with the live profile preview - captured in the image pass._
 
 ## For members: how to complete onboarding
 
@@ -96,7 +99,6 @@ Both emails are scheduled the moment a member registers. As soon as the member c
 
 > **Note:** The reminder email is titled "Finish setting up your {site name} profile" and links the member straight back into the wizard. You can edit its subject, preview text, and body from your email template settings, where it is listed as the onboarding reminder template.
 
-> _Screenshot: the onboarding reminder email template in the email settings editor - captured in the image pass._
 
 ## Good to know
 

@@ -2,6 +2,8 @@
 
 The moderation queue is the page where moderators review reported content and pending items, then act on them: dismiss a report, escalate it, resolve it, or take action on the content or the member. It is the single place a moderator works through everything members have flagged.
 
+![The BuddyNext moderation queue listing reported items grouped by content](../images/moderation-queue.png)
+
 ## Why use it
 
 A community's reports are only useful if someone can act on them quickly and fairly. The queue turns a stream of individual reports into one organized worklist: grouped by item, sorted by urgency, with the context a moderator needs to decide without leaving the page.
@@ -12,7 +14,6 @@ For the owner, a clear queue is what keeps moderation fast at scale. Reports on 
 
 The queue lives on its own Moderation page in your community. Only members with moderator permission can open it. Everyone else sees an Access Restricted panel.
 
-> _Screenshot: the moderation queue page with the stat row, filter tabs, and a reported post row showing the reason and reporter count - captured in the image pass._
 
 ### Reading the queue
 
@@ -67,7 +68,6 @@ The queue's default view is the pending list: items that have been reported and 
 
 When nothing matches the current filter, the queue shows a Nothing to review state confirming there are no pending reports for that filter. This is the normal, healthy state of a well-tended queue, not an error. New reports appear here as members flag content.
 
-> _Screenshot: the empty Nothing to review state of the moderation queue - captured in the image pass._
 
 ## Good to know
 

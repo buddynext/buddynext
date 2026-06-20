@@ -2,6 +2,8 @@
 
 BuddyNext renders its frontend from small, reusable template parts under `templates/parts/`. Every part exposes the same three-hook convention so you can inject markup around it and reshape the data it renders without overriding the template. This page covers that convention and is for anyone theming or extending BuddyNext's frontend.
 
+![A feed view built from the template parts whose three-hook convention this page documents](../images/community-activity-feed.png)
+
 This is the dominant hook family in BuddyNext. Of the 1055 hooks the Free plugin fires, 705 are `buddynext_part_*` hooks - it is the primary theming seam, and the one you will reach for most when adjusting presentation.
 
 ## Overview / Contract

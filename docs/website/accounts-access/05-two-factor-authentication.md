@@ -2,6 +2,10 @@
 
 Two-factor authentication (2FA) adds a second step to signing in. After a member enters their password, they also enter a short one-time code. Even if someone learns the password, they still cannot get in without that code - which gives members real peace of mind that their account is theirs alone.
 
+![Member managing two-factor authentication from their BuddyNext profile settings](../images/member-profile.png)
+
+![Two-factor authentication controls in the wp-admin Settings panel](../images/backend-settings.png)
+
 ## Why use it
 
 - **Stronger account security.** A password alone can be guessed, reused, or leaked. A second factor means a stolen password is not enough on its own.
@@ -18,7 +22,6 @@ BuddyNext uses a standard authenticator app as the primary method, with two reco
 - **Backup codes (recovery).** A set of one-time codes generated when 2FA is switched on. Each works once if the authenticator is unavailable.
 - **Email code (sign-in fallback).** At the sign-in challenge, a member can ask BuddyNext to email a one-time code to their address instead of using the app.
 
-> _Screenshot: the Set up two-factor authentication card under Settings > Account, before setup begins - captured in the image pass._
 
 ## How it works for members
 
@@ -38,7 +41,6 @@ Members set up and manage 2FA from **Settings > Account**.
 
 Right after setup, BuddyNext shows a set of one-time backup codes. **Save these immediately** - they are shown only once and will not be displayed again. Keep them somewhere safe and separate from your phone, such as a password manager. Each code works a single time, as a way in if you ever lose access to your authenticator app.
 
-> _Screenshot: the one-time backup codes shown immediately after confirming 2FA setup - captured in the image pass._
 
 ### Signing in with 2FA on
 

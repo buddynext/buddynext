@@ -2,6 +2,10 @@
 
 A gated space is a space only members on a particular tier can join. When someone without the right membership tries to enter, BuddyNext shows a paywall - a friendly upgrade prompt with your call to action - instead of letting them in.
 
+![A members-only space home shown only after the visitor meets the required tier](../images/space-home.png)
+
+![Choosing the membership tier that gates a space in the BuddyNext Pro settings](../images/backend-settings.png)
+
 > **Before you start:** Gated spaces come with BuddyNext Pro and build on Membership Tiers. You need BuddyNext Pro active and at least one membership tier set up before you can gate a space. To sell access through checkout you also need a payment gateway connected (see Membership Tiers).
 
 ## Why use it
@@ -33,7 +37,6 @@ The Gated Space Access perk is the all-access pass. A plan that grants it lets i
 
 When a logged-in member who lacks access opens a gated space, BuddyNext shows the paywall in place of the space content: a heading ("This space is available to members only."), your description, and an upgrade button. The button either starts checkout (when a gateway price is linked to the required tier) or points to the call-to-action link you set. The same paywall content is also sent to connected apps when a join is declined, so a mobile or headless front end can show its own version.
 
-> _Screenshot: a gated space showing the paywall with heading, description, and upgrade button in place of the space feed - captured in the image pass._
 
 ## Setting it up (for owners)
 
@@ -70,7 +73,6 @@ These apply to every gated space unless a space overrides them.
 
 Below the global defaults, the Paywall tab lists every gated space with the tier it requires and its own CTA URL, Button Label, and Description fields. Fill any of these to override the global default for that one space; leave them blank to inherit the global values. This lets you point each premium space at a different upgrade page or word its prompt differently while keeping one shared default for the rest.
 
-> _Screenshot: the Paywall tab with the global defaults form and the per-space overrides table listing each gated space and the tier it requires - captured in the image pass._
 
 > **Tip:** Set a sensible CTA URL and description in the global defaults first - usually a link to your pricing page. Then add a per-space override only where a particular space needs its own wording or destination.
 

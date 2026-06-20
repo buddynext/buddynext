@@ -2,6 +2,10 @@
 
 Social login lets people sign in or sign up using an account they already have - their Google, Facebook, GitHub, or Discord account - instead of creating and remembering another password. When you turn on a provider, a sign-in button for it appears on your login and sign-up screens. It is the quickest way for a newcomer to get from "interested" to "inside your community."
 
+![BuddyNext login form showing social sign-in buttons](../images/login.png)
+
+![Configuring social login providers in the wp-admin Settings panel](../images/backend-settings.png)
+
 ## Why use it
 
 - **Faster sign-up.** New members join in a couple of clicks, without filling in the full form. Fewer steps means fewer people give up halfway.
@@ -9,7 +13,6 @@ Social login lets people sign in or sign up using an account they already have -
 - **Trusted email out of the box.** When a provider confirms a member's email is already verified, BuddyNext treats that account as verified too, so those members skip the verification step.
 - **On-brand and on-site.** The provider buttons sit right on your branded login and sign-up forms. The only off-site moment is the provider's own quick consent screen.
 
-> _Screenshot: the login form with social sign-in buttons beneath the password field - captured in the image pass._
 
 ## Supported providers
 

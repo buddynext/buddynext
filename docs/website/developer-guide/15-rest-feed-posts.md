@@ -2,6 +2,8 @@
 
 Reference for the feed, post-lifecycle, poll, share, bookmark, content-warning, reaction, and comment routes under the `buddynext/v1` namespace. These are the surfaces an app or custom client uses to read timelines and create or act on content.
 
+![The activity feed and composer driven by the feed, post, reaction, and comment REST routes documented here](../images/community-activity-feed.png)
+
 ## Contract
 
 All routes in this page live under the `buddynext/v1` namespace and follow the conventions described in the BuddyNext REST Contract page (envelope, authentication, nonce, and cursor pagination). Read that page first; this page documents only the routes and their request/response shapes.

@@ -2,6 +2,8 @@
 
 The profile completion bar is a block that shows a member how finished their profile is, as a percentage, with prompt cards pointing them at the sections they still need to fill in.
 
+![Member profile with the completion bar nudging the member to finish empty profile sections](../images/member-profile.png)
+
 ## Why use it
 
 A new member who fills in their profile is far more likely to stay, post, and connect than one who leaves it blank. The hard part is getting them to do it - most people sign up, look around once, and never come back to finish setting up. The completion bar closes that gap. It turns an open-ended chore ("set up your profile") into a clear, finishable goal ("you are 60 percent done - add a bio to reach 80"), which is one of the most reliable ways to lift activation and early retention.
@@ -16,7 +18,6 @@ Place the bar somewhere a member sees often - their own profile, a dashboard, or
 
 The bar reflects only the member's own progress. It is a private nudge, not something other members see on each other's profiles.
 
-> _Screenshot: the profile completion bar at a partial percentage with a prompt card suggesting the next field to fill - captured in the image pass._
 
 ## Setting it up (for owners)
 

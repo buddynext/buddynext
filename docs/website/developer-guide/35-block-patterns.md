@@ -2,6 +2,8 @@
 
 BuddyNext Free registers 4 pre-built block patterns under the `buddynext/*` namespace and the `buddynext` pattern category. Each pattern is a ready-made page layout composed entirely from the BuddyNext blocks documented in Blocks Reference. This page covers what each pattern contains, how it composes blocks, and what BuddyNext does and does not register at the WordPress integration layer so addon authors know where to look.
 
+![A community page layout composed from the BuddyNext block patterns documented on this page](../images/community-activity-feed.png)
+
 ## Overview / Contract
 
 - **Registration.** All 4 patterns are registered from `includes/Blocks/BlockRegistrar.php::register_patterns()` via `register_block_pattern()`. Each pattern's `content` is a static block-markup string returned by a private helper on the registrar.

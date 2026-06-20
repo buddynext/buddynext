@@ -2,6 +2,10 @@
 
 Every post carries a privacy level that decides who can see it. Members choose the level when they post, and the community enforces it everywhere the post could appear: the feed, the Explore view, search, and the post's own permalink. This page explains each level and how it is enforced.
 
+![A BuddyNext activity feed where each post shows the audience the author chose when sharing it](../images/community-activity-feed.png)
+
+![The BuddyNext admin settings screen where the site owner sets the default post audience](../images/backend-settings.png)
+
 ## Why use it
 
 People only share honestly when they trust who is on the other side. A member who has to assume every post is broadcast to the entire internet will post less, and less openly. Per-post privacy lets the same member share a public update, a followers-only note, and a private draft from the same box, choosing the audience each time.
@@ -20,7 +24,6 @@ A member picks one of these audiences when posting. The first four are the choic
 | Only me | The author alone. Useful for drafts and private notes. |
 | Space members | For posts made inside a space, the members of that space. Hidden and secret spaces restrict this further to active members only. |
 
-> _Screenshot: the audience menu showing Public, Followers, Connections, and Only me - captured in the image pass._
 
 When a member does not pick a level, the post takes the community's default audience, which the owner sets (see Setting it up). Inside a space, the default audience is the space's members.
 
@@ -37,7 +40,6 @@ The checks that apply at read time:
 - **Secret and hidden spaces.** A post inside a hidden or secret space is visible only to active members of that space (and to moderators for review). Non-members get "not found", including on the permalink.
 - **Suspended or shadow-banned authors.** Posts by an author who is suspended or shadow-banned are hidden from everyone except the author and moderators, across the feed, Explore, search, and permalinks. This lets moderators review the content while it is invisible to the community.
 
-> _Screenshot: the "This post is private or unavailable" state shown when a viewer opens a restricted permalink - captured in the image pass._
 
 ## Setting it up (for owners)
 

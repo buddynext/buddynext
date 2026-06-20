@@ -2,6 +2,8 @@
 
 A digest is a single email that batches up a member's unread notifications and sends them on a schedule - once a day or once a week - instead of one email per event. Members who would otherwise get a steady stream of individual emails can switch any notification type to a daily or weekly digest and get a single roundup instead.
 
+![BuddyNext admin settings for configuring site-wide daily and weekly email digests](../images/backend-settings.png)
+
 ## Why use it
 
 A busy community generates a lot of activity: follows, comments, reactions, mentions, space invites. If every one of those sends an immediate email, an active member's inbox fills up fast, and the usual reaction is to mute everything or unsubscribe. Once a member turns email off entirely, you have lost the channel that brings them back.
@@ -23,7 +25,6 @@ When a member sets a type to Daily or Weekly, BuddyNext does not send that event
 
 A member who reads everything as it happens in-app may receive an empty period and get no digest at all, which is intended - BuddyNext does not send a digest with nothing in it.
 
-> _Screenshot: the notification preferences screen showing the per-type Immediate / Daily / Weekly / Off email frequency choices - captured in the image pass._
 
 ## Setting it up (for owners)
 

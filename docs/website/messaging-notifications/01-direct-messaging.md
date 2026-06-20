@@ -2,6 +2,10 @@
 
 Direct messaging lets two members hold a private 1:1 conversation away from the public feed. BuddyNext provides the inbox, the conversation view, and the privacy controls; the messages themselves run on the WPMediaVerse companion plugin, which is the messaging engine.
 
+![BuddyNext direct messaging inbox listing private conversations](../images/direct-messaging.png)
+
+![A BuddyNext direct message conversation thread between two members](../images/dm-thread.png)
+
 ## Why use it
 
 Public feeds and comments are for the whole community. Some conversations are not. A member who wants to ask a private question, follow up on a shared interest, or talk to someone one-on-one needs a private channel, and a community without one pushes that traffic off to email or another app.
@@ -34,7 +38,6 @@ Opening a conversation marks its messages as read for that member, which clears 
 
 The composer accepts more than text. A member can attach media to a message so the conversation can carry a photo or file alongside the written reply, not just plain text.
 
-> _Screenshot: the two-pane Messages inbox with a conversation list on the left and an open thread with the composer on the right - captured in the image pass._
 
 ## Setting it up (for owners)
 

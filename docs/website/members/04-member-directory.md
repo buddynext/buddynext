@@ -24,7 +24,6 @@ Members can:
 - **Act on a member directly from their card** - Follow, send a Connect request, or accept/decline a pending request, all inline without leaving the page. See Following and Connections for how those relationships work.
 - **Open the card menu** (the kebab) to Mute, Block, or Report a member. See Blocking and Muting and Reporting and Moderation.
 
-> _Screenshot: the member directory grid with the search box and member-type filter tabs - captured in the image pass._
 
 ## Setting it up (for owners)
 

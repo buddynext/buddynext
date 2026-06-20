@@ -2,6 +2,8 @@
 
 A reshare (or repost) takes a post that someone else published and puts it back into the feed under your name, so your own followers see it. You can reshare a post as-is, or quote it by adding your own note before it goes out.
 
+![A BuddyNext activity feed where post cards carry a share action for reposting and quoting](../images/community-activity-feed.png)
+
 ## Why use it
 
 Resharing is how good content travels. A member finds a post worth seeing, reshares it, and now everyone who follows that member sees it too, without the original author having to do anything. That single tap is how a strong post reaches well beyond the people who happened to be scrolling when it was first published.
@@ -24,7 +26,6 @@ Choose **Quote** to add your own note. This opens the post composer with a link 
 
 Choose **Copy link** to copy the post's web address to your clipboard. Use this to paste the post anywhere outside the feed - a message, an email, another site.
 
-> _Screenshot: the share menu on a post card showing Repost, Quote, and Copy link - captured in the image pass._
 
 ### View your own shares
 
@@ -34,7 +35,6 @@ The posts you reshare appear in your own feed as reshare cards, alongside everyt
 
 If you change your mind about a bare repost, remove it the same way you remove any of your own posts. Taking down the reshare drops the original post's share count back by one.
 
-> _Screenshot: a reshare card in the feed crediting the original author above the original post - captured in the image pass._
 
 ## Setting it up (for owners)
 

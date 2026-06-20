@@ -2,6 +2,10 @@
 
 Space categories organize the Spaces directory by topic. Each space can belong to a category, and members browsing the directory can filter to one category to narrow what they see. Categories are managed by site admins.
 
+![Spaces directory with category filters and category badges on the space cards](../images/spaces-directory.png)
+
+![BuddyNext admin Spaces settings where categories are created, ordered, and colored](../images/backend-settings.png)
+
 ## Why use it
 
 A directory with ten spaces is easy to scan. A directory with two hundred is not. Categories turn a flat, growing list into something a member can navigate - "show me only the Sports spaces," "show me only the Local groups." That single filter is often the difference between a member finding the right space and giving up.
@@ -31,7 +35,6 @@ Categories are managed in the admin under Community > Spaces, in the Categories 
 | Sort order | A number that sets where the category appears in the list; lower numbers come first. | 0 |
 | Show in directory | Whether the category appears as a filter option for members in the directory. | On |
 
-> _Screenshot: the Categories section of the admin Spaces page showing the category list with color badges and the add/edit category form - captured in the image pass._
 
 ### Setting a default category
 

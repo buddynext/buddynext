@@ -2,6 +2,10 @@
 
 BuddyNext is plug-and-play: every Layer 2 feature is a self-contained module that the site owner can turn on or off, and a developer can override by filter. This page documents the tier system that governs which features are active, the ~20 feature groups and their tiers, and how toggling a feature removes its routes, templates, options, and admin pages together.
 
+![The admin dashboard where feature groups and their tiers are toggled on or off](../images/admin-overview.png)
+
+![The activity feed, one of the ~20 self-contained feature modules governed by the tier system](../images/community-activity-feed.png)
+
 The source of truth is `BuddyNext\Core\FeatureRegistry` (`includes/Core/FeatureRegistry.php`), resolved through the `features` container key.
 
 ## The three tiers

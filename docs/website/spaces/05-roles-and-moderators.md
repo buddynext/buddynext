@@ -2,6 +2,10 @@
 
 Every space has three roles - owner, moderator, and member - that decide who can manage the space, who can moderate it, and who can simply take part. Space permissions then layer on top to decide who is allowed to post. Together they let one owner run a large space without doing everything alone.
 
+![Single space home where owners promote members to moderators and set posting permissions](../images/space-home.png)
+
+![BuddyNext admin settings for space roles and posting permissions](../images/backend-settings.png)
+
 ## Why use it
 
 A space with one owner and a hundred members does not scale. The owner cannot read every post, answer every join request, and keep every thread on-topic by themselves. Moderators solve that.
@@ -31,7 +35,6 @@ A few rules sit behind that table:
 
 Only the owner can change a member's role. From the member roster, the owner promotes a member to moderator to give them the moderation tools above, or demotes a moderator back to member to take them away. The change takes effect immediately.
 
-> _Screenshot: The member roster with a role control to promote a member to moderator - captured in the image pass._
 
 ### Transferring ownership
 
@@ -39,7 +42,6 @@ The owner can hand the space to another member. Transferring ownership does two 
 
 > **Warning:** Transferring ownership is not shared ownership - it moves the role. Once you transfer, you are a member of your own space and cannot undo it yourself. The new owner would have to transfer it back.
 
-> _Screenshot: The transfer-ownership control on a space settings panel - captured in the image pass._
 
 ## Setting it up (for owners)
 

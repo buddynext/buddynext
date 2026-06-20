@@ -2,6 +2,8 @@
 
 Reference for the `bn_*` tables behind Spaces - the sub-communities that members create and join. Covers the space record, its membership rows, the space-category taxonomy, and the per-space ban list. All tables are created in `BuddyNext\Core\Installer` via `dbDelta()` and are prefixed with the site table prefix (shown here as `bn_`, e.g. `wp_bn_spaces`).
 
+![A Space home rendered from the bn_spaces, membership, category, and ban tables documented here](../images/space-home.png)
+
 ## Overview / Contract
 
 These tables obey the BuddyNext Scale Contract:

@@ -2,6 +2,10 @@
 
 Explore is the community's discovery deck - a stream of public activity from across the whole site, not just the people you follow. It is the "what's new" view that helps newcomers and visitors see what the community is about.
 
+![The BuddyNext Explore feed showing public activity from across the whole community](../images/explore.png)
+
+![The BuddyNext admin settings screen where the site owner enables and tunes public Explore](../images/backend-settings.png)
+
 ## Why use it
 
 A new member who has not followed anyone yet has an empty personal feed. That is the worst possible first impression. Explore solves it: instead of showing only the people you already know, it shows public activity from everyone, so there is always something to read on day one. It is the difference between a community that looks alive and one that looks empty.
@@ -53,7 +57,6 @@ Logged-in members can always see Explore regardless of this setting.
 
 > **Tip:** Leave the public explore feed on if you want your community to act as its own landing page - a visitor can see real activity before signing up. Turn it off only if your community is meant to be fully private.
 
-> _Screenshot: the Explore deck showing the masonry layout of mixed public activity with the type filters - captured in the image pass._
 
 ## Good to know
 

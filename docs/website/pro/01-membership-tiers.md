@@ -2,6 +2,10 @@
 
 Membership tiers are the plans, free or paid, that you offer your community. Each tier carries a price, a billing schedule, and a set of perks (the features and limits it unlocks), and members subscribe to a tier to get what it includes.
 
+![Defining membership tiers, pricing, and perks in the BuddyNext Pro settings](../images/backend-settings.png)
+
+![A space home members unlock by subscribing to a paid membership tier](../images/space-home.png)
+
 > **Before you start:** Membership tiers come with BuddyNext Pro. You need BuddyNext Pro active, and to take real payments you also need a payment gateway connected (see Requirements below). Even without a gateway you can still create tiers and grant access by hand, which is handy while you set things up.
 
 ## Why use it
@@ -49,7 +53,6 @@ The page shows one of three states:
 - No active membership - a note that they have no plan yet.
 - Active membership - the plan name, price and interval, status (Active, Trialing, and so on), and the renewal date when the subscription has an expiry.
 
-> _Screenshot: the pricing table and the my-membership card rendered on front-end pages - captured in the image pass._
 
 ## Setting it up (for owners)
 
@@ -127,7 +130,6 @@ Each plan card on the Tiers tab carries the controls you need:
 - Edit - opens the full form to change name, description, pricing, status, sort order, and perks. The plan's identifier is fixed and shown read-only.
 - Delete - removes the plan permanently. Any active subscriptions on that plan are cancelled at the same time, so members lose access cleanly; cancelled and expired records are kept for your billing history.
 
-> _Screenshot: the Tiers tab showing plan cards with price, perk summary, status badge, and the Edit / Activate / Delete actions - captured in the image pass._
 
 ### Review and manage subscriptions
 

@@ -2,6 +2,8 @@
 
 The contract every BuddyNext REST route obeys: one versioned namespace, nonce-header authentication, a uniform success/error envelope, a mandatory permission callback, and cursor-based pagination with hard ceilings. Read this page before reading any other REST page - they all assume these rules.
 
+![The admin dashboard whose surfaces are driven by the REST contract every route on this page obeys](../images/admin-overview.png)
+
 ## Overview / Contract
 
 The BuddyNext frontend is 100% REST. Every data interaction from templates, frontend JavaScript, admin JavaScript, and block view-scripts goes through the WP REST API under `wp-json/buddynext/v1/*`. There is no `admin-ajax.php` surface: `wp_ajax_*`, `admin_url( 'admin-ajax.php' )`, the global `ajaxurl`, `check_ajax_referer()`, and `wp_send_json_*()` are not used by the frontend. A CI gate (`bin/check-rest-boundary.sh`) enforces this.

@@ -2,6 +2,8 @@
 
 A connection is a two-way relationship that both members agree to: one member sends a request, the other accepts it, and from then on they are connected to each other. It is the closer, mutual counterpart to one-directional Following.
 
+![Member directory cards showing the Connect button members use to send connection requests](../images/member-directory.png)
+
 ## Why use it
 
 Connections model a real relationship rather than a one-sided interest. Because both members opt in, a connection signals "we know each other" the way a connection does on LinkedIn or a friendship does on Facebook. That mutual agreement is what makes connections useful for privacy.

@@ -2,6 +2,10 @@
 
 This page documents the largest REST surface in BuddyNext: the self-service `/me/*` routes, the per-user `/users/{id}/*` routes, profile-field and profile-group administration, member types, profile-slug checks, and the member directory. The `/me/*` and `/users/{id}/*` groups together account for roughly 63 routes under `buddynext/v1`. This page covers everything except the social-graph relationship routes (follow, connect, block, mute) that happen to live on the same `/me/*` and `/users/{id}/*` paths - those are documented on the REST: Social Graph page. Read the REST Contract page first; everything here assumes its namespace, nonce auth, envelope, and pagination rules.
 
+![A member profile driven by the /me/* and /users/{id}/* profile REST routes documented here](../images/member-profile.png)
+
+![The member directory served by the directory REST route on this page](../images/member-directory.png)
+
 ## Overview / Contract
 
 All routes register under `buddynext/v1`. Authentication, the success/error envelope, and cursor pagination follow the REST Contract page without exception:

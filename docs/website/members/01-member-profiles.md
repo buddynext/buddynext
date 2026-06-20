@@ -33,7 +33,6 @@ Fill in or change any field, then save. A confirmation appears and your profile 
 
 Each field also has a privacy control next to it. You can only tighten a field's privacy, never loosen it past what the owner allows. For example, you can change a field from "everyone" to "connections only," and that choice is enforced everywhere the field is read.
 
-> _Screenshot: the Edit Profile form showing the display name, bio, and a per-field privacy selector - captured in the image pass._
 
 ### Uploading your avatar and cover photo
 
@@ -44,7 +43,6 @@ From your profile or the edit screen you can upload two images:
 
 Pick an image and it uploads and replaces the current one immediately. If you have not uploaded an avatar, the community shows a fallback based on the site owner's avatar style setting (see Setting it up). If you have not uploaded a cover photo, the site's default cover is shown.
 
-> _Screenshot: a profile header with avatar and cover photo, and the upload controls - captured in the image pass._
 
 ### Setting a username (your profile handle)
 
@@ -58,7 +56,6 @@ When you type a handle, BuddyNext checks availability live as you type and tells
 
 Handles are converted to a clean, URL-safe form automatically (lowercase, spaces and punctuation turned into hyphens), so what you save is always a valid link.
 
-> _Screenshot: the handle field showing a live "available" check as the member types - captured in the image pass._
 
 ### The Profile Header block
 
@@ -85,7 +82,6 @@ Profiles work out of the box. The settings below control how members appear when
 
 To remove a default avatar or cover image you previously set, use the remove control in the same tab and save.
 
-> _Screenshot: the Avatar and Cover admin tab with the three style cards and the default image pickers - captured in the image pass._
 
 ## Good to know
 

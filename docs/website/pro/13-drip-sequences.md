@@ -2,6 +2,8 @@
 
 A drip sequence is an automated series of emails that goes out to a member over time, on a schedule you set. You build the sequence once, choose what starts it, and BuddyNext sends each step at the right moment without any further work from you. Drip Sequences is a Pro feature.
 
+![Building an automated drip email sequence in the BuddyNext Pro settings](../images/backend-settings.png)
+
 ## Why use it
 
 The first days after someone joins decide whether they stick around. A new member who hears nothing usually drifts away; a new member who gets a warm welcome, a nudge toward their first post, and a check-in a week later is far more likely to become active. Doing that by hand for every signup does not scale.

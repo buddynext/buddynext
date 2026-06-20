@@ -2,6 +2,8 @@
 
 The authentication and account-management routes under `buddynext/v1`. They cover front-end login, registration, two-factor verification, email verification, member approval, and the self-service account flows (change password, change email, sign out everywhere, manage 2FA). This page is for developers building a custom login UI, a mobile client, or any client that drives these flows over REST.
 
+![The front-end login UI driven by the auth and account REST routes documented on this page](../images/login.png)
+
 ## Contract
 
 These routes follow the same envelope, error shape, and nonce rules as the rest of the API - see the REST contract page (14-rest-contract) for the cross-surface conventions. Two things are specific to this surface:

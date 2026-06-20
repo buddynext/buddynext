@@ -2,6 +2,8 @@
 
 Outbound webhooks are how BuddyNext tells the rest of your tools when something happens in your community. You give BuddyNext a web address to notify, pick the events you care about, and from then on BuddyNext sends a secure message to that address within seconds of each event - no plugin to build, no code to write.
 
+![BuddyNext admin settings for configuring outbound webhook endpoints and events](../images/backend-settings.png)
+
 ## Why use it
 
 Your community is busy all day: a member registers, someone follows another member, a post goes up, a member joins a space. On their own, those moments stay inside BuddyNext. Webhooks let you carry them out to the other tools you already run, the instant they happen, so those tools can do something useful with them.
@@ -74,7 +76,6 @@ A destination that keeps failing is switched off on its own. After three failed 
 
 Every attempt - success or failure, test or real event - is recorded. For each destination you can open its delivery log to see what was sent, when, which event it was, and how the destination responded. Use it to confirm events are landing and to work out why a destination stopped responding.
 
-> _Screenshot: the delivery log for one destination, listing recent deliveries with event, status, and response code - captured in the image pass._
 
 ### Test a destination
 

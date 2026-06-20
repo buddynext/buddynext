@@ -2,13 +2,16 @@
 
 Your account settings are where you control how you sign in and who you have shut out of your experience. This is the security and access side of your profile: your password, your email address, your active sign-in sessions, two-factor authentication, and the people you have blocked, muted, or restricted.
 
+![Member account settings on a BuddyNext profile with password, email, and security controls](../images/member-profile.png)
+
+![Account-related controls in the wp-admin Settings panel](../images/backend-settings.png)
+
 Profile details (name, bio, avatar) and audience controls (who can see your profile, who can message you) live in your profile editor and the Privacy section. This page covers the login and access controls that keep your account yours.
 
 ## Why it matters
 
 A community account holds your conversations, connections, and identity. Strong access controls mean that even if a password leaks, you can lock things back down in seconds: rotate the password, end every other session, and turn on two-factor. The block and mute tools let you curate who can reach you without leaving the community.
 
-> _Screenshot: The account settings area with the password, email, sessions, and two-factor controls - captured in the image pass._
 
 ## Change your password
 
@@ -64,7 +67,6 @@ To unblock, unmute, or unrestrict someone, open the relevant list and remove the
 
 For exactly what each action does and how to apply it from someone's profile, see the Blocking and Muting page.
 
-> _Screenshot: The blocked, muted, and restricted lists with remove controls - captured in the image pass._
 
 ## Good to know
 

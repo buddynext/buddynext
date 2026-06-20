@@ -2,6 +2,8 @@
 
 The action and filter seams for spaces (groups) and their membership: creation, update, deletion, ownership, joins, requests, invitations, bans, role changes, and per-member notification preferences. This page is for developers building moderation tools, notification bridges, gated-access or paywall integrations, and theme extensions for space pages. Every hook below is fired or applied by BuddyNext Free. The two seams that matter most for extension are `buddynext_can_join_space` (the Free-to-Pro access gate) and `buddynext_space_types` (registering new space kinds).
 
+![A Space home whose creation, membership, role, and access hooks are documented on this page](../images/space-home.png)
+
 ## Overview / Contract
 
 - **Actions fire after the write commits.** Membership and lifecycle actions pass IDs, not hydrated rows. Re-fetch via `buddynext_service( 'space_service' )->get( $space_id )` when you need more than the IDs.

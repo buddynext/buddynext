@@ -2,6 +2,10 @@
 
 A space is a community area inside your site - a place with its own feed, members, and rules. Members create and run spaces from the front end; owners and moderators manage them in place. This page covers creating a space, editing it, archiving and restoring it, deleting it, transferring ownership, and building sub-spaces.
 
+![Spaces directory where members browse spaces and use the Create button to start a new one](../images/spaces-directory.png)
+
+![BuddyNext admin Spaces settings controlling who can create spaces and the new-space defaults](../images/backend-settings.png)
+
 ## Why use it
 
 A single shared feed works when everyone is interested in everything. As a community grows, that stops being true. Spaces let people gather around a topic, a team, a course cohort, a region, or any other shared interest, so conversation stays focused and members only see what they signed up for.
@@ -92,7 +96,6 @@ These settings live under the plugin's Spaces settings. They set the platform-wi
 | Default category for new spaces | The category a new space is filed under when the creator does not pick one. | None |
 | Space directory columns (desktop) | How many space cards appear per row in the directory on desktop. A fixed value (2, 3, or 4) caps the row and still steps down on tablet and mobile; Auto fits as many as the width allows. | 3 columns |
 
-> _Screenshot: the Spaces settings panel showing the creation role, per-member cap, sub-space controls, new-space defaults, and directory columns - captured in the image pass._
 
 ### Managing spaces in the admin
 

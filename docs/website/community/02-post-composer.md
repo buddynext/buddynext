@@ -2,6 +2,8 @@
 
 The post composer is the box at the top of the feed where members write and publish posts. It handles plain text, photos and media, links with a preview card, polls, and scheduling, and it lets members edit, delete, pin, and save drafts of their own posts.
 
+![The BuddyNext post composer at the top of the home activity feed, ready for a member to write and share a post](../images/community-activity-feed.png)
+
 ## Why use it
 
 Posting has to be effortless or members will not do it. The composer is always visible at the top of the feed so writing a post is one click away, and it grows to fit whatever the member is sharing, a quick thought, a photo, a poll, or a link, without sending them to a separate page.
@@ -22,13 +24,11 @@ A member types into the composer and clicks Share. The post is created and appea
 - **Poll** - turn the post into a poll with 2 to 5 options. Other members vote, with one vote per member per poll.
 - **Schedule** - pick a future date and time. The post is held and published automatically when that time arrives; it stays out of the feed until then.
 
-> _Screenshot: the composer expanded with its text area and the photo, poll, and schedule tools - captured in the image pass._
 
 ### Choosing who sees a post
 
 Before sharing, a member picks an audience from the privacy menu in the composer: Public, Followers, Connections, or Only me. When posting inside a space, the audience is the space's members. The full meaning of each level and how it is enforced is covered in Post Privacy and Visibility.
 
-> _Screenshot: the composer audience menu showing Public, Followers, Connections, and Only me - captured in the image pass._
 
 ### Editing and deleting your own posts
 

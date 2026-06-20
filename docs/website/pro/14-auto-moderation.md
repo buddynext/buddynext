@@ -2,6 +2,10 @@
 
 Auto-moderation rules let you set conditions that act on content automatically - blocking a banned word, flagging a spammy link, capping how fast someone can post, or removing content that gets reported too many times. Rules run on their own, the moment content is submitted or reported, so you are not the only line of defense. Auto-Moderation Rules is a Pro feature.
 
+![Content auto-flagged by rules waiting in the moderation queue](../images/moderation-queue.png)
+
+![Defining auto-moderation rules and thresholds in the BuddyNext Pro settings](../images/backend-settings.png)
+
 ## Why use it
 
 A growing community produces more content than any human team can read in real time. Spam, abuse, and link-dumping arrive at all hours, and waiting for a moderator to notice means harmful content sits in the feed in the meantime. Manual moderation does not scale, and pre-screening every post by hand would make posting feel slow and hostile.

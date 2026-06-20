@@ -2,6 +2,10 @@
 
 Each member chooses how much a space notifies them: every bit of activity, only the posts that mention them, or nothing at all. The choice is made per space, so a busy space and a quiet one can be tuned independently.
 
+![Single space home with the bell control members use to set their per-space notification level](../images/space-home.png)
+
+![Notifications screen reflecting the activity members receive from their spaces](../images/notifications.png)
+
 ## Why use it
 
 When someone belongs to several spaces, a single notification setting for all of them is always wrong for some. The space they live in deserves every update; the high-volume space they joined for one thread becomes noise within a day. With one shared setting, the member's only options are to drown in alerts or to mute everything and miss what matters.

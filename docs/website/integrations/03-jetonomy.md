@@ -2,6 +2,8 @@
 
 Jetonomy is the companion plugin that gives your community proper discussion boards. Turn it on, and members get a Discussions area plus a forum tab inside each space, where they can start topics, reply in threads, and vote on the best answers - the slower, more considered conversation a fast-moving feed cannot hold.
 
+![A BuddyNext space home where Jetonomy adds a forum tab for discussions](../images/space-home.png)
+
 Your feed and spaces stay exactly as they are; Jetonomy simply adds discussion boards alongside them. BuddyNext ties the two together so forums feel like a natural part of the community rather than a bolt-on.
 
 ## Why use it
@@ -46,7 +48,6 @@ If Jetonomy is already installed but switched off, the same row shows an **Activ
 
 > **Note:** The 1-click install needs a site administrator with permission to install and activate plugins.
 
-> _Screenshot: BuddyNext Settings > Integrations showing the Jetonomy companion row with the Install free button - captured in the image pass._
 
 ### Feed-sync setting
 

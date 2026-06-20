@@ -2,6 +2,10 @@
 
 BuddyNext is a social-community plugin for WordPress that ships its features as REST-backed, theme-overridable modules. This page is the entry point to the developer guide: it explains the Free/Pro split, the frontend and templating model, the contract-first design philosophy, and a current stat snapshot of the codebase.
 
+![BuddyNext admin dashboard - the control surface for the modules this developer overview describes](../images/admin-overview.png)
+
+![The activity feed front end that BuddyNext's REST-backed feature modules render for members](../images/community-activity-feed.png)
+
 ## What you are building on
 
 BuddyNext is "the social layer for WordPress" - follows, connections, an activity feed, spaces, profiles, member directory, search, notifications, email, reactions, comments, hashtags, moderation, and a direct-messaging UI. Each of these is a self-contained feature module, and every module exposes its contracts through three stable surfaces: a REST namespace (`buddynext/v1`), a large set of action and filter hooks, and theme-overridable PHP templates.

@@ -2,6 +2,10 @@
 
 Member types are the categories you define for the people in your community - Student, Mentor, Staff, Alumni, and so on. Each type can carry a colored badge, appear as a filter tab in the member directory, and optionally be picked by members themselves.
 
+![Member directory with member-type filter tabs and colored type badges on member cards](../images/member-directory.png)
+
+![BuddyNext admin settings for creating and assigning member types](../images/backend-settings.png)
+
 ## Why use it
 
 People in a community are not interchangeable. A coaching site has coaches and clients; a school has students, teachers, and staff; an alumni network has graduates by year. Member types let you label those groups once, then use that label everywhere it matters: as a badge on profiles and member cards so people can tell at a glance who they are talking to, and as a filter in the directory so anyone can show only the group they are looking for.
@@ -19,7 +23,6 @@ The badge uses the color you chose for the type, so groups are visually distinct
 
 If you mark a type as self-selectable, members can choose it themselves. The type then appears as a selector on their own profile edit page, and they can pick from the available self-select types. Types you have not marked self-selectable never appear as a choice - only an owner can assign those.
 
-> _Screenshot: a member card showing a colored member-type badge - captured in the image pass._
 
 ## Setting it up (for owners)
 

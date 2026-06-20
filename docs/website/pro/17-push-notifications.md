@@ -2,6 +2,10 @@
 
 Push Notifications (Pro) delivers your community's notifications to a member's browser or mobile device through Firebase Cloud Messaging, so a member sees a banner even when they are not on the site. It covers web push (desktop and mobile browsers) and native iOS and Android push from a single Firebase project.
 
+![Community notifications that can be delivered as push banners](../images/notifications.png)
+
+![Push notifications reaching a member on a mobile device](../images/mobile.png)
+
 ## Why use it
 
 Most members do not keep a community tab open. Without push, a new follow, a reply, or a space invite waits silently until the member happens to come back, which can be hours or days. By then the moment to respond has passed and engagement drops.

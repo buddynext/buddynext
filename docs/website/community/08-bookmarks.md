@@ -2,6 +2,8 @@
 
 A bookmark is a private save. When a member taps Save on a post, that post is added to their own bookmarks list, where they can find it again later. Bookmarks are completely private: only the member who saved a post can see that they saved it.
 
+![A BuddyNext activity feed where each post card includes a Save action to bookmark it privately](../images/community-activity-feed.png)
+
 ## Why use it
 
 Feeds move fast. A member spots something they want to come back to - a useful link, a long thread, an announcement they have not finished reading - but they are not ready to act on it right now. Bookmarks let them keep it without cluttering the feed, replying publicly, or losing it to the scroll.
@@ -18,13 +20,11 @@ Every post card shows a Save action for signed-in members. Tap it to save the po
 
 Tap Save again on a saved post to remove it. The icon returns to its normal state and the post drops out of your bookmarks list.
 
-> _Screenshot: a post card with the Save action in its active, saved state - captured in the image pass._
 
 ### The bookmarks hub
 
 Open your bookmarks hub to see everything you have saved in one place, newest first. The list is paginated so it stays fast even after you have saved hundreds of posts. From the hub you can read a saved post, jump to it, or unsave it.
 
-> _Screenshot: the bookmarks hub listing saved posts newest first - captured in the image pass._
 
 ## Setting it up (for owners)
 

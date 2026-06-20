@@ -2,13 +2,16 @@
 
 BuddyNext gives members real control over their personal information and gives site owners the tools to run a community that respects that control. Members can download a copy of their data or delete their account at any time. Owners decide whether a cookie consent banner appears, how long inactive data is kept, whether search engines may index the community, and whether the self-service export and deletion tools are available.
 
+![Member privacy and data controls on a BuddyNext profile](../images/member-profile.png)
+
+![BuddyNext Privacy settings for consent, retention, export, and deletion in wp-admin](../images/backend-settings.png)
+
 These tools exist so your community can be trustworthy by default and so you can meet privacy obligations such as the GDPR without bolting on a separate plugin.
 
 ## Why it matters
 
 People share more freely when they trust that they can get their data back and walk away cleanly. Privacy regulations such as the GDPR treat that as a right, not a courtesy: the right to access your data and the right to be forgotten. By wiring export and deletion into the member experience - and giving owners a single place to set retention and consent - BuddyNext keeps your community compliant and your members confident.
 
-> _Screenshot: The Settings, Privacy admin section with consent, retention, export, deletion, anonymize, and indexing controls - captured in the image pass._
 
 ## Owner settings
 
@@ -37,7 +40,6 @@ Members can download their own information at any time when the owner has left e
 
 The file is a portable copy you can keep or move elsewhere. Exporting does not change or remove anything in the community - it is read-only.
 
-> _Screenshot: The "Export my data" control in the member Your data section - captured in the image pass._
 
 ## Delete my account
 

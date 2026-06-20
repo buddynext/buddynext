@@ -2,6 +2,10 @@
 
 Registration is how people create an account and join your community. BuddyNext gives you a branded sign-up form that lives on your own site, so newcomers never land on the plain WordPress sign-up screen. The form matches your community's look, collects the profile details you care about, and drops each new member straight into the experience you set up. It is the welcome mat for your community, and a good first impression keeps more people around.
 
+![New member completing the BuddyNext sign-up and onboarding flow](../images/onboarding.png)
+
+![BuddyNext registration settings in the wp-admin Settings panel](../images/backend-settings.png)
+
 ## Why use it
 
 - **On-brand, on-site.** The sign-up form picks up your site's colors, fonts, and spacing automatically, and on BuddyNext Pro it carries your white-label branding. Newcomers see your community, not generic WordPress chrome.
@@ -10,7 +14,6 @@ Registration is how people create an account and join your community. BuddyNext 
 - **Keeps spam out without a captcha service.** Built-in protections quietly screen out bots and fake sign-ups, with no third-party captcha to set up or pay for.
 - **Fits how you run the community.** Open sign-up, invite-only, and admin-approval modes are all supported, plus optional email verification - so you can be as open or as selective as you like.
 
-> _Screenshot: the branded sign-up form with the side branding panel - captured in the image pass._
 
 ## How it works for members
 
@@ -79,7 +82,6 @@ BuddyNext does not add its own role picker for sign-up. New members are created 
 
 You decide which profile fields show on the sign-up form. Go to **BuddyNext > Members > Profile Fields**, edit a field, and turn on **Show on registration**. Mark a field **Required** if a member must fill it in to sign up. Required registration fields are validated inline alongside the core fields, and their answers are saved to the new member's profile automatically.
 
-> _Screenshot: the Profile Fields editor with the "Show on registration" toggle - captured in the image pass._
 
 ### Manage invitations and approvals
 

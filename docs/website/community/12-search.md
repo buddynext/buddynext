@@ -69,7 +69,6 @@ Search results only ever contain public content, so the search page is safe to e
 
 You do not normally need to reindex. The index is updated as content changes. A full rebuild runs automatically when needed (for example after activation), handled in the background so it never blocks a page load. On large communities the rebuild is queued and processed in batches rather than all at once.
 
-> _Screenshot: the search results page with grouped Members / Posts / Spaces / Hashtags sections and the type tabs - captured in the image pass._
 
 ## Good to know
 

@@ -2,6 +2,8 @@
 
 User moderation is the set of actions a moderator or admin takes against a member who breaks the rules: a warning, a strike, a temporary suspension, a silent shadow-ban, or - through accumulated strikes - an automatic suspension or permanent ban. It is the human-judgment layer that sits on top of automatic Content Safeguards and the report queue.
 
+![The BuddyNext moderation queue where moderators take action against a member](../images/moderation-queue.png)
+
 Where reporting deals with a single piece of content, user moderation deals with the person behind it. The actions escalate in severity, so a first-time slip and a repeat offender are handled differently.
 
 ## Why use it
@@ -50,7 +52,6 @@ Strike thresholds and the report auto-hide limit live in the Moderation settings
 | Auto-hide after N reports | Content is hidden automatically once it reaches this many reports, then waits in the moderation queue for review. | 5 |
 | Queue alert threshold | Sends a daily email to admins when the moderation queue exceeds this many unreviewed items. Set to 0 to disable. | 20 |
 
-> _Screenshot: the Moderation settings page showing the Strike System thresholds - captured in the image pass._
 
 ## Good to know
 

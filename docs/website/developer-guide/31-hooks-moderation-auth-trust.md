@@ -2,6 +2,8 @@
 
 The action and filter seams for content moderation (reports, removals, strikes, suspensions, shadow bans, appeals), the automated content-safeguard pipeline, and the authentication surface (two-factor, registration spam control, email verification, social login). This page is for developers building moderation tooling, anti-spam integrations, trust-and-safety dashboards, or custom sign-in providers. Every hook below is fired or applied by BuddyNext Free, so it is available without Pro - the same seams are where BuddyNext Pro's Moderation Rules engine plugs in.
 
+![The moderation queue whose report, strike, suspension, and content-safeguard hooks are documented on this page](../images/moderation-queue.png)
+
 ## Overview / Contract
 
 - **Actions fire after the state change commits.** A removal, strike, or suspension action runs after the database write succeeds. Listeners that need the full row should re-fetch by ID through the relevant service (for example `buddynext_service( 'moderation' )`), not reconstruct it from the passed scalars.

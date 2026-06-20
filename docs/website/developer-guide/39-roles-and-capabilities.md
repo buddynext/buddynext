@@ -2,6 +2,8 @@
 
 How BuddyNext decides who can do what. This page covers the permission model developers extend: the single `buddynext_can()` entry point, the four resolution layers in `PermissionService`, the capability catalog registered through the WordPress Abilities API, and the filter seams (`buddynext_user_can`, `buddynext_role_map`, `buddynext_abilities`) an extension uses to add, gate, or override a capability.
 
+![The wp-admin settings surface gated by the capability model and buddynext_can() entry point documented here](../images/backend-settings.png)
+
 ## Overview / Contract
 
 BuddyNext does **not** register any custom WordPress roles. The free plugin's manifest lists `customRoles: []`, and Pro adds none either (`customRoles: null`). There is no `add_role()` call and no new `WP_Role` capabilities to map. Member authority is modeled in two BuddyNext-owned layers instead:

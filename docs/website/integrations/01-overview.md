@@ -2,6 +2,8 @@
 
 Integrations let your community grow into messaging, forums, gamification, jobs, courses, and listings whenever you are ready - no setup work, no code, nothing to wire together by hand. Each one is optional and stays off until you turn it on, so you add features only as your members need them.
 
+![BuddyNext admin settings where owners enable optional companion integrations](../images/backend-settings.png)
+
 ## Why use it
 
 A community rarely needs everything on day one. Most owners start with the social core - profiles, a feed, spaces, follows - and add capabilities as the community grows. Integrations let you do exactly that: keep BuddyNext lean, then switch on direct messaging when members ask for it, or forums when discussions get long, or points and badges when you want to reward activity.
@@ -42,7 +44,6 @@ Open BuddyNext settings and go to the Integrations tab. Each companion shows as 
 - Inactive - the companion is installed but not activated. Activate it to turn the integration on.
 - Not installed - the companion is not on your site yet. You can install it in one click.
 
-> _Screenshot: the Integrations tab showing companion cards with Active, Inactive, and Not installed states - captured in the image pass._
 
 ### Install a companion in one click
 

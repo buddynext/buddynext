@@ -2,6 +2,8 @@
 
 This page walks you through installing the free BuddyNext plugin, adding BuddyNext Pro with the one-click installer, and choosing the optional companion plugins that extend specific features. The whole process takes a few minutes and ends at the setup wizard.
 
+![The BuddyNext Settings page in wp-admin after installation](../images/backend-settings.png)
+
 ## Why this matters
 
 A clean install is what makes BuddyNext work the moment you switch it on. Activating the plugin creates your community pages with readable links, so members can reach the feed, spaces, directory, and messages straight away. Getting the order right - free plugin first, then Pro, then any companions you need - means every feature lights up correctly the first time, and you avoid broken links or missing tabs.
@@ -65,4 +67,3 @@ These companion plugins extend specific BuddyNext features. They are all optiona
 
 After activation, the **Setup Wizard** runs on first visit and walks you through naming your community, choosing default pages, and configuring member registration and onboarding. Open it any time from **BuddyNext > Setup Wizard** in wp-admin to revisit those choices.
 
-> _Screenshot: the BuddyNext Setup Wizard first step, showing the community name and default pages - captured in the image pass._

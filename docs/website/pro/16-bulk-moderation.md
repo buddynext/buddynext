@@ -2,6 +2,8 @@
 
 Bulk Moderation is a Pro admin page that lets you act on many moderation items at once: select multiple reports and dismiss or remove them together, or enter a list of user IDs and warn or suspend all of them in a single submit. Every action reports back how many succeeded and how many failed.
 
+![Selecting and acting on many reports at once in the moderation queue](../images/moderation-queue.png)
+
 ## Why use it
 
 Moderating a busy community one report at a time does not scale. A spam wave can drop fifty near-identical reports into your queue in minutes, and clicking through each one individually is slow and demoralizing. Bulk Moderation lets a moderator clear the obvious cases in a couple of clicks - select the spam reports, remove them all, done - and spend their attention on the cases that actually need judgment.
@@ -50,9 +52,7 @@ There is nothing to configure to use Bulk Moderation. The page is available to a
 - It delegates to the same moderation actions. Bulk dismiss, remove, warn, and suspend all route through the same underlying actions that power single-item moderation. There is no separate "bulk" code path that could behave differently - a bulk remove is just many individual removes, each fully wired, with one combined result.
 - It is concurrency-safe. Because each item is processed independently and reported on its own, a report another moderator already resolved, or a member already actioned, simply lands in the failed list with a reason while the rest of your selection completes.
 
-> _Screenshot: the Bulk Moderation page showing the pending report queue with checkboxes and the select-all header, plus the Bulk User Actions panel below - captured in the image pass._
 
-> _Screenshot: the post-action summary notice reading "succeeded / failed" after a bulk dismiss - captured in the image pass._
 
 ## Free vs Pro
 

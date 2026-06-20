@@ -2,6 +2,8 @@
 
 A mention is the way one member pulls another into a conversation by name. Type `@` followed by a member's username in a post or comment, and BuddyNext links it to that member's profile and notifies them that they were mentioned.
 
+![A BuddyNext activity feed where a post mentions another member by name as a clickable link](../images/community-activity-feed.png)
+
 ## Why use it
 
 Conversations move faster when you can address someone directly. A mention is how a member says "this is for you" - asking a question, crediting a contributor, or looping a colleague into a thread they would otherwise miss. The mentioned member gets a notification, so they do not have to be watching the feed to know they were called on. That single signal is what turns a one-way post into a back-and-forth, and it is the same `@name` habit members already know from every mainstream social platform.
@@ -41,4 +43,3 @@ The one related owner-facing control is the default for mention notifications: w
 |---|---|---|
 | Default mention notification | Whether mention notifications are on by default for members. Each member can override it in their own notification settings. | On |
 
-> _Screenshot: BuddyNext notification defaults showing the mention notification default - captured in the image pass._

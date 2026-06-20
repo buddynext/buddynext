@@ -2,6 +2,10 @@
 
 Gamification rewards members with points, badges, and levels for taking part in your community. Members earn points for everyday actions like posting, reacting, connecting, and joining spaces, and that score builds into badges, levels, and a place on the leaderboard.
 
+![A BuddyNext member profile showing earned points, badges, and level](../images/member-profile.png)
+
+![The BuddyNext admin overview where owners track community engagement](../images/admin-overview.png)
+
 Gamification in BuddyNext is provided by the WB Gamification companion plugin. BuddyNext awards the points by sending each member action to that plugin, which owns the scoring, badges, and levels. When WB Gamification is not installed, the gamification surfaces stay quiet and nothing breaks.
 
 ## Why use it
@@ -43,7 +47,6 @@ A few rules keep scoring fair:
 - **Leaderboard.** The ranked board lists top members with their points and badges, and shows the viewer their own rank, level, streak, and next milestone. See The community leaderboard for the full walkthrough.
 - **Notifications.** When WB Gamification awards a badge or moves a member up a level, BuddyNext drops a notification in the member's bell so the win does not pass unnoticed.
 
-> _Screenshot: a member profile showing the points/level/streak tiles and the earned-badges grid with the "View leaderboard" link - captured in the image pass._
 
 ## Setting it up (for owners)
 

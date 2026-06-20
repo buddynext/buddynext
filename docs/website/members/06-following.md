@@ -2,6 +2,8 @@
 
 Following is a one-directional relationship: you follow a member to see more of their activity, and they do not have to follow you back. It is the lightweight way to keep up with someone without asking for anything in return.
 
+![Member directory cards each showing a Follow button members use to follow one another](../images/member-directory.png)
+
 ## Why use it
 
 Following is how members shape what they see. When you follow someone, their posts get more weight in your feed, so your home feed fills up with the people and topics you actually care about instead of a flat stream of everything on the site.

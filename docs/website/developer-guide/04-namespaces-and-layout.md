@@ -2,6 +2,10 @@
 
 This page maps BuddyNext's directory tree to its PHP namespaces and lists the container service keys you resolve at runtime. Use it to decide where a new file belongs and which `buddynext_service()` key returns the service you need.
 
+![The admin dashboard whose screens resolve services from the container keys mapped on this page](../images/admin-overview.png)
+
+![The front-end feed surface produced by the namespaced feature modules described here](../images/community-activity-feed.png)
+
 ## Overview
 
 BuddyNext autoloads PSR-4: the `BuddyNext\` namespace prefix maps to the `includes/` directory. A class at `includes/Feed/PostService.php` is `BuddyNext\Feed\PostService`. The Pro plugin mirrors this with `BuddyNextPro\` mapped to its own `includes/`.

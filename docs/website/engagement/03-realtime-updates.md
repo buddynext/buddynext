@@ -2,6 +2,8 @@
 
 BuddyNext keeps key parts of your community current without a page refresh: the notification bell counts new alerts, a "new posts" pill appears at the top of the feed when fresh activity arrives, and online members show a presence dot. The free plugin does this with lightweight background polling on a short interval.
 
+![The BuddyNext community activity feed updating in near real time with new posts](../images/community-activity-feed.png)
+
 ## Why use it
 
 A community feels alive when it reacts to people. If a member has to reload the page to find out someone replied, mentioned them, or posted something new, the conversation stalls and they leave. Timely updates close that gap: the bell nudges them back to a reply, the "new posts" pill tells them the feed has moved on, and the presence dot shows who is around to talk to right now.

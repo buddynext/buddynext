@@ -27,7 +27,6 @@ When a signed-in member opens the activity page, they land on the Home feed with
 
 Each tab carries a live count so members can see where new activity is. Switching tabs reloads that slice without leaving the page.
 
-> _Screenshot: the Home feed with the For you / Following / Spaces / Network tabs and their counts - captured in the image pass._
 
 ### The "N new posts" pill
 
@@ -41,7 +40,6 @@ The feed loads a page of posts at a time. As a member scrolls toward the bottom,
 
 An administrator can pin one announcement to the top of the feed. It shows as a banner above the stream. A member can dismiss it, and once dismissed it stays gone for that member. Announcements can also carry an expiry, after which they stop pinning on their own. See Post Composer for how announcements are created.
 
-> _Screenshot: an announcement banner pinned above the feed with its dismiss control - captured in the image pass._
 
 ### The Explore feed
 

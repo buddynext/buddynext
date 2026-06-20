@@ -2,6 +2,8 @@
 
 BuddyNext exposes two webhook surfaces: an outbound CRUD surface that registers external endpoints the site POSTs lifecycle events to, and a single signed inbound endpoint that lets a trusted external service manage a user's role, abilities, and credits. This page covers both. The namespace, auth header, envelope, and error shape are defined on the REST Contract page - read it first.
 
+![The wp-admin settings surface where the outbound and inbound webhook endpoints on this page are configured](../images/backend-settings.png)
+
 ## Overview / Contract
 
 The outbound webhook feature is an opt-in feature (`webhooks`, tier `opt_in`, group `integrations`). It is off by default. The owner enables Webhooks in Settings before the CRUD routes register: `REST/Router.php` only registers the outbound CRUD controller when `features->is_enabled( 'webhooks' )` is true. Until then, `/webhooks*` is not on the wire and the admin screen shows a "Webhooks are turned off" notice.

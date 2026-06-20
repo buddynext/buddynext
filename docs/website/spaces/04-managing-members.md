@@ -2,6 +2,8 @@
 
 Every space has a member roster you control: who is in, who is waiting to join, and who you have invited. Managing that roster is how owners and moderators keep a space on-topic, active, and safe.
 
+![Single space home with the Members tab where owners manage the space roster](../images/space-home.png)
+
 ## Why use it
 
 A space is only as good as the people in it. Left alone, a busy space fills with stale members who never return, join requests that pile up unanswered, and the occasional person who does not belong. Active member management fixes all three.
@@ -21,7 +23,6 @@ For members, good roster management means the space stays relevant: the people p
 
 Open a space and go to its Members tab to see the roster. Each member shows their avatar, name, and space role (owner, moderator, or member). The list is paginated, so it stays fast even on a space with thousands of members.
 
-> _Screenshot: A space Members tab showing the roster with roles - captured in the image pass._
 
 ### Joining a space
 
@@ -48,7 +49,6 @@ In a private space, every Join click becomes a request that needs a decision. Ow
 
 Review the queue regularly. A request left pending is a member you have neither let in nor turned away.
 
-> _Screenshot: The pending-requests queue with Approve and Decline actions - captured in the image pass._
 
 ### Removing a member
 

@@ -2,6 +2,10 @@
 
 Notification Preferences let each member decide which events notify them and how those notifications are delivered: on-site, by email, and (with Pro) by web push. The site owner sets the starting defaults for the most common types; the member fine-tunes the rest.
 
+![Member-facing BuddyNext notifications panel showing on-site alerts](../images/notifications.png)
+
+![BuddyNext admin settings where owners set notification defaults](../images/backend-settings.png)
+
 ## Why use it
 
 The fastest way to lose a member is to send them notifications they did not want. Too many emails, too many pings, and they either tune everything out or turn it all off - and a member who has globally muted you is hard to win back. Giving people granular control is what prevents that. A member who can keep the one notification they care about and silence the five they do not is a member who stays opted in.
@@ -12,7 +16,6 @@ For the owner, this is the difference between healthy engagement and a stream of
 
 A member manages their preferences from their notification settings, where every notification type BuddyNext supports is listed and grouped into sections: Social graph, Feed activity, Spaces, Messages, Moderation, and Growth and digests.
 
-> _Screenshot: the notification preferences page with grouped types, each showing an on-site toggle and an email-frequency selector - captured in the image pass._
 
 ### Per-type on or off
 

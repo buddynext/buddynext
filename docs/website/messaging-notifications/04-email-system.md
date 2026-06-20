@@ -2,6 +2,8 @@
 
 BuddyNext sends the emails your community depends on - new follower, connection request, mention, comment, space invite, moderation notices, and more - and lets you edit every one of them. All of these emails share one branded wrapper and one sender identity, so whatever leaves your site looks like it came from your community, not from a generic WordPress install.
 
+![BuddyNext admin settings for editing transactional email templates and sender identity](../images/backend-settings.png)
+
 ## Why use it
 
 Email is how members hear about activity when they are not on the site. If those emails look unbranded or arrive from a mismatched address, members ignore them or mark them as spam, and your community loses the re-engagement loop that brings people back.
@@ -47,7 +49,6 @@ For each template you can edit three fields and one switch:
 
 Templates use merge tokens like `{{site_name}}`, `{{user_name}}`, `{{first_name}}`, `{{action_url}}`, and `{{unsubscribe_url}}`, which resolve to real values when the email is sent. Each template lists the tokens it supports. You can restore any template to its shipped default at any time.
 
-> _Screenshot: the Email Templates editor with the template list, the subject/preview/body fields, and the enable switch - captured in the image pass._
 
 ### Sending a test
 

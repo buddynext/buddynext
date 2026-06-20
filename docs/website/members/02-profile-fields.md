@@ -2,6 +2,10 @@
 
 Profile fields let you decide what members can tell each other about themselves. You build the fields (name, bio, role, location, links, and more), and members fill them in on their profile. BuddyNext ships with a starter set of groups and fields, and you can add your own.
 
+![Member profile showing custom fields, bio, and avatar populated from profile field groups](../images/member-profile.png)
+
+![BuddyNext admin settings where profile field groups and fields are configured](../images/backend-settings.png)
+
 ## Why use it
 
 A profile is the first thing one member sees about another. Out of the box you get a name and an avatar, which is rarely enough for a real community. Custom fields turn a thin profile into a useful one: a member can show their role, their skills, where they work, the links they want to share, and anything else your community cares about.
@@ -23,7 +27,6 @@ A member manages their own fields from Edit Profile.
 
 When another member views the profile, they see only the fields their relationship allows. A logged-out visitor, a follower, a connection, and the profile owner can each see a different set of values from the same profile.
 
-> _Screenshot: A member's Edit Profile form showing grouped fields with a per-field visibility selector - captured in the image pass._
 
 ## Setting it up (for owners)
 

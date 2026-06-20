@@ -2,6 +2,10 @@
 
 The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with 48 routes. This page is the route reference for developers building on the Pro surfaces: membership and billing, analytics, drip and broadcast campaigns, member labels and tiers, moderation rules, AI assistance, scheduled posts, push, saved searches, white-label/brand, and the realtime + Stripe integration endpoints.
 
+![The Pro admin settings backed by the buddynext-pro/v1 REST routes documented here](../images/admin-settings.png)
+
+![The wp-admin settings surface that the Pro REST namespace populates and reads](../images/backend-settings.png)
+
 ## Contract
 
 `buddynext-pro/v1` follows the same envelope, error shape, pagination, and `wp_rest` nonce rules as Free - see the REST contract page (14-rest-contract) for the cross-surface conventions, and REST: Auth and Account (21-rest-auth-account) for the auth flows. Pro-specific points:

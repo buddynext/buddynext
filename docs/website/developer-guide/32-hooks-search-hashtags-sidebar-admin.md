@@ -2,6 +2,8 @@
 
 The action and filter seams for unified search, the hashtag system, the search index, the right-sidebar widgets (greeting, streak, this-week stats, leaderboard, gamification overlays), and the admin information architecture. This page is for developers building search drivers, hashtag analytics, gamification sidebars, or admin extensions that add or relocate settings tabs. Every hook below is fired or applied by BuddyNext Free, so it is available without Pro - and the Pro search seams (`buddynext_search_query_args` / `buddynext_search_filter_options`) are listed here because they are the points Pro plugs its advanced member filters into.
 
+![The unified search UI whose search, hashtag, and index hooks are documented on this page](../images/search.png)
+
 ## Overview / Contract
 
 - **Search has a layered extension model.** You can replace the entire result set with an external driver (`buddynext_search_results`), shape the query args before the built-in SQL runs (`buddynext_search_query_args`), enrich each row after it returns (`buddynext_search_item`), or react to a completed search (`buddynext_search_performed`). Pick the lowest-impact seam that does the job.

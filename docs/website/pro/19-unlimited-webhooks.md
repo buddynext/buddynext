@@ -2,6 +2,8 @@
 
 Outbound webhooks let your community send a signed message to an outside service every time something happens - a member registers, a post is created, someone follows another member, a report is filed. Free BuddyNext includes the full webhook engine but limits you to one registered destination. Pro removes that limit so you can connect as many outbound destinations as you need.
 
+![Registering multiple outbound webhook destinations in the BuddyNext Pro settings](../images/backend-settings.png)
+
 ## Why use it
 
 Webhooks are how a community talks to the rest of your stack without anyone writing custom code. One endpoint can fire a Zapier, Make, or n8n automation. Another can add every new member to your CRM or email tool. A third can drop a message into Slack or Discord when a post goes up. A fourth can feed your own internal dashboard or data warehouse. Each of those is a separate destination, and each needs its own endpoint URL and signing secret.
@@ -36,7 +38,6 @@ Everything about how a single webhook behaves is unchanged:
 
 There is nothing extra to switch on. Once Pro is active, the "Register endpoint" form on the Webhooks settings tab simply stops blocking you after the first endpoint - add a second, a third, and beyond, each with its own URL, events, and secret.
 
-> _Screenshot: the Webhooks settings tab with several registered endpoints, each subscribed to different events - captured in the image pass._
 
 ## Good to know
 

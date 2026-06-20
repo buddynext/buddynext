@@ -2,6 +2,8 @@
 
 The Space Forum is an optional Discussions tab inside a space that holds threaded, structured discussions and Q&A. It sits alongside the space activity feed and is powered by the Jetonomy companion plugin. When Jetonomy is not installed, the forum is inert and nothing changes for members.
 
+![Single space home with the Discussions tab listing threaded forum discussions](../images/space-home.png)
+
 ## Why use it
 
 A space activity feed is built for the moment. Posts scroll by, replies fan out under each one, and a question asked on Tuesday is hard to find by Friday. That is the right shape for chatter and updates, but it is the wrong shape for a question that deserves a clear answer or a topic the community will return to for months.
@@ -27,7 +29,6 @@ When a space has the forum available, members see a **Discussions** tab in the s
 
 A member's own discussions also surface on their profile: a **Discussions** tab on the profile lists the discussions they have started, with a count.
 
-> _Screenshot: a space with the Discussions tab selected, showing a list of threaded discussions - captured in the image pass._
 
 ## Setting it up (for owners)
 
@@ -53,7 +54,6 @@ Privacy is enforced regardless of the setting: only public spaces, public (non-p
 
 > **Tip:** Leave feed sync on for a small or new community where you want every discussion to get attention. Turn it off for a large, busy community if forum threads are crowding the feed - members can still reach discussions through the Discussions tab and search.
 
-> _Screenshot: the Integrations > Jetonomy Settings section with the feed-sync toggle - captured in the image pass._
 
 ## Good to know
 

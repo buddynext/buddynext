@@ -2,6 +2,8 @@
 
 The action and filter seams for the notification lifecycle and the email system. This page is for developers adding a notification channel (push, SMS), suppressing or deferring notifications, capturing outbound email, or registering a new notification type that emails its recipient. Everything here is fired by BuddyNext Free; Pro push is the reference consumer.
 
+![The notifications inbox whose notification-lifecycle and email hooks are documented here](../images/notifications.png)
+
 ## Overview / Contract
 
 Every notification fans in through one method: `NotificationService::create( array $data )`. That method enforces a single, ordered pipeline so each notification passes the same gates regardless of which feature raised it.

@@ -2,6 +2,10 @@
 
 Email verification asks every new member to confirm their email address before they get full access to your community. They click a link in a message sent to that address, which proves the inbox is real and belongs to them. It is a simple step that keeps your member list genuine and your community emails landing in real inboxes.
 
+![New member on the BuddyNext email verification step after sign-up](../images/onboarding.png)
+
+![Turning email verification on or off in the wp-admin Settings panel](../images/backend-settings.png)
+
 ## Why use it
 
 - **Confirm real addresses.** A member who verifies has a working inbox, so your welcome emails, notifications, and digests actually reach them.
@@ -10,7 +14,6 @@ Email verification asks every new member to confirm their email address before t
 
 Verification is optional. When it is turned off, every account is treated as verified the moment it is created.
 
-> _Screenshot: the verify screen a new member sees right after sign-up, with the "Resend" button - captured in the image pass._
 
 ## How it works for members
 
@@ -44,7 +47,6 @@ Go to **BuddyNext > Settings > Registration**. With the feature enabled, you wil
 | Registration Mode | Chooses who can create an account: **Open** (anyone), **Invite Only** (needs an invitation), or **Admin Approval** (an admin reviews each request). | Open |
 | Require email verification | New registrations must verify their email before accessing the community. Only shown when the Email Verification feature is enabled. | Off |
 
-> _Screenshot: BuddyNext > Settings > Registration showing Registration Mode and the "Require email verification" toggle - captured in the image pass._
 
 ### Admin Approval mode
 

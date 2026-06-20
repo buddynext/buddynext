@@ -2,6 +2,8 @@
 
 WPMediaVerse is the companion plugin that brings private messaging and richer media to your community. Turn it on, and members can message each other one to one and attach photos and other media to their posts and conversations - all without leaving BuddyNext.
 
+![BuddyNext private messaging powered by the WPMediaVerse companion plugin](../images/direct-messaging.png)
+
 BuddyNext is the social layer your members already know; WPMediaVerse is the messaging and media engine working quietly underneath it. Because BuddyNext presents that engine through its own screens, sending a message or sharing a photo feels like a native part of the community, not a second plugin.
 
 ## Why use it
@@ -42,7 +44,6 @@ If the plugin is already installed but switched off, the same row shows an **Act
 
 > **Note:** The 1-click install needs a site administrator with permission to install and activate plugins. If you do not see the **Install free** button, your account does not have that capability.
 
-> _Screenshot: BuddyNext Settings > Integrations showing the MediaVerse companion row with the Install free button - captured in the image pass._
 
 ### What becomes available once active
 

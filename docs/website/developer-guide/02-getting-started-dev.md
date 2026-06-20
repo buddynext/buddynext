@@ -2,6 +2,10 @@
 
 This page orients you to a local BuddyNext checkout: the runtime requirements, where the code lives, the two WP-CLI commands you will use during development, and how to run the quality gates before you commit.
 
+![The BuddyNext admin dashboard a fresh local checkout boots into after install and seed](../images/admin-overview.png)
+
+![The seeded activity feed you verify against once the WP-CLI demo data is in place](../images/community-activity-feed.png)
+
 ## Requirements
 
 | Requirement | Minimum |

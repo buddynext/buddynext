@@ -2,6 +2,8 @@
 
 Reactions let members respond to a post or comment with an emoji instead of typing a reply. BuddyNext ships six reactions out of the box - like, love, haha, wow, sad, and angry.
 
+![A BuddyNext post detail view showing reaction counts on the post and its comments](../images/post-detail.png)
+
 ## Why use it
 
 A reaction is the lowest-effort way for a member to show they have seen and valued something. Most people will not write a comment, but they will tap a reaction, so reactions are where the bulk of your community's engagement actually happens. They give the author quick, visible feedback, and they give everyone else a fast read on what the room thinks.
@@ -28,7 +30,6 @@ To take your reaction back, choose the same emoji you picked before. That remove
 
 Each post and comment shows a running count of reactions. Open the "who reacted" list to see the members who reacted and which emoji each of them chose, newest first.
 
-> _Screenshot: a post card showing the reaction picker open with the six emoji, plus the reaction count and the who-reacted list - captured in the image pass._
 
 ## Setting it up (for owners)
 

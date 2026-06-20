@@ -2,6 +2,8 @@
 
 A poll is a post that asks members a question and lets them choose from a short list of answers, then shows live results as votes come in. Members create a poll right inside the post composer, vote with one tap, and watch the percentages update in place.
 
+![A BuddyNext activity feed with a poll post showing its question, options, and live vote results](../images/community-activity-feed.png)
+
 ## Why use it
 
 A poll is the lowest-effort way for a member to take part in your community. Writing a comment takes thought; tapping an option takes a second. That low bar is exactly why polls drive engagement: people who would never write a reply will happily vote, and every vote is a small signal that pulls them back to see the result.
@@ -20,7 +22,6 @@ For an owner, polls turn the feed into a two-way channel. Use one to settle a de
 
 > **Note:** A poll needs at least two options and allows at most five. The composer will not let you post a poll with fewer than two filled-in options.
 
-> _Screenshot: the post composer in poll mode with a question field and option inputs - captured in the image pass._
 
 ### Vote
 
@@ -30,7 +31,6 @@ Tap any option on the poll card to cast your vote. The card immediately switches
 
 You are not locked into your first choice. Tap a different option to move your vote to it, or tap the option you already chose to remove your vote entirely. The percentages and totals re-calculate each time. There is always exactly one vote per person, so switching never inflates the count.
 
-> _Screenshot: a poll card showing live results with percentage fill bars and a total vote count - captured in the image pass._
 
 ## Setting it up (for owners)
 

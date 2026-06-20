@@ -2,6 +2,8 @@
 
 BuddyNext is built to be extended through WordPress actions and filters. This page covers how hooks are named, the split between actions and filters, the difference between hooks BuddyNext provides and hooks it consumes, priority conventions, and which hook domain is documented on which reference page. Read this before any of the per-domain hook pages (27-33).
 
+![The admin dashboard assembled across the hook domains this overview routes you to](../images/admin-overview.png)
+
 The canonical, locked contract for the cross-plugin integration actions is `docs/specs/HOOKS.md` in the Free plugin (status: Locked). Treat that file as the source of truth for the integration event signatures (the events addons like WBGamification, Jetonomy, and WPMediaVerse hook). The pages in this guide document the full surface and stay grounded in the live `audit/manifest.json` inventory.
 
 ## Overview / Contract

@@ -2,6 +2,10 @@
 
 This page documents the `bn_*` tables that store member profiles, the extensible profile-field system, member types/labels, and the directional/bilateral social-graph relationships (follows, connections, blocks). All tables are created in `BuddyNext\Core\Installer::schema()` via `dbDelta()`. Column types, defaults, and indexes below are read directly from that method.
 
+![A member profile rendered from the bn_* profile, profile-field, and member-type tables on this page](../images/member-profile.png)
+
+![The member directory built from the same profile and social-graph schema](../images/member-directory.png)
+
 ## Overview / Contract
 
 The rules that shaped these tables (from the Scale-Contract):

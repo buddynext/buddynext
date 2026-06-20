@@ -2,6 +2,8 @@
 
 How BuddyNext renders interactive frontend views: the WordPress Interactivity API store model, in-place client-side navigation, the shared REST client, and the rules that keep a surface working after a navigation. This page is for developers building blocks, hub surfaces, or bridge plugins that add interactive markup.
 
+![The feed hub whose Interactivity API store and client-side navigation model this page describes](../images/community-activity-feed.png)
+
 ## Overview / Contract
 
 BuddyNext uses the official WordPress Interactivity API (`@wordpress/interactivity`) for all frontend reactivity. There is no React, no JSX, and no build step you have to run as a consumer: stores are plain ES modules registered against the runtime WordPress already ships, and templates wire behavior with `data-wp-*` attributes.

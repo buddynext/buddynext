@@ -23,7 +23,6 @@ For the site owner, spaces turn one busy feed into a set of self-running rooms. 
 
 The Spaces directory is the front door. It lists every space a member is allowed to see (secret spaces stay hidden), with search, category, and type filters plus sorting so a member can find the right group fast even when there are hundreds.
 
-> _Screenshot: the Spaces directory with search, category and type filters, and a grid of space cards - captured in the image pass._
 
 ### Filter by category
 
@@ -33,7 +32,6 @@ Spaces can be grouped into categories (for example "Teams", "Regions", "Hobbies"
 
 Selecting a space opens its home page: the space header, an about panel, a member list, and the space feed. For an open space, anyone can read the feed. For a private space, non-members see the space exists and who runs it, but the feed is gated until they are approved.
 
-> _Screenshot: a space home page showing the header, about panel, member list, and feed - captured in the image pass._
 
 ### My Spaces
 

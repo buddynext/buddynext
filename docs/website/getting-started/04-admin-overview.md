@@ -12,7 +12,6 @@ Every BuddyNext screen lives under one top-level **BuddyNext** menu in wp-admin,
 
 A community platform has a lot of settings. Listing them flat would be unusable. Grouping them by purpose means you spend less time hunting: branding and pages sit under Settings, anything about people sits under Members, anything about communities sits under Spaces, and so on. Pro features slot into the same sections rather than into a separate menu, so the structure stays the same as your community grows.
 
-> _Screenshot: the BuddyNext admin hub showing the sectioned navigation and a settings screen open in the main panel - captured in the image pass._
 
 ## Navigation map
 

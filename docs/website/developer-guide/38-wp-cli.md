@@ -2,6 +2,10 @@
 
 BuddyNext registers two WP-CLI command namespaces in Free: `wp buddynext demo` (the demo-data seeder) and `wp buddynext cert` (the functional-certification harness). Both are registered in `Plugin::init()` and load only when WP-CLI is running. This page documents their subcommands, what they seed or verify, and example invocations.
 
+![The wp-admin surface that shares the demo-seeder engine the wp buddynext demo CLI command drives](../images/backend-settings.png)
+
+![The admin dashboard you inspect after running the demo seeder documented on this page](../images/admin-overview.png)
+
 ## Overview
 
 ```php

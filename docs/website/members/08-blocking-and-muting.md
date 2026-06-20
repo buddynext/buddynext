@@ -2,6 +2,8 @@
 
 BuddyNext gives every member three self-protection tools for dealing with another person: block, mute, and restrict. Block cuts off interaction and messaging both ways, mute quietly hides someone's content from you, and restrict limits how much another person can interact with you. You manage all three from a member's profile and from your own profile settings.
 
+![Member profile with the more-menu where block, mute, and restrict actions are triggered](../images/member-profile.png)
+
 ## Why use it
 
 A community is only as welcoming as the control its members have over who reaches them. Without these tools, the only options are to put up with unwanted attention or to leave. Block, mute, and restrict cover the full range of situations a real member runs into:
@@ -40,7 +42,6 @@ Restrict is the in-between option, modeled on the "limit this person" pattern fr
 
 Everything you have blocked, muted, or restricted is listed in one place in your profile settings, so you never have to revisit the other person's profile to undo an action. Open your own profile settings to find the list, then remove anyone from it to unblock, unmute, or unrestrict them. This is also where the block confirmation dialog points you when it says you can reverse a block later.
 
-> _Screenshot: the blocked / muted / restricted management list in profile settings, with a remove control on each row - captured in the image pass._
 
 ## Setting it up (for owners)
 

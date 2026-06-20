@@ -2,6 +2,8 @@
 
 BuddyNext Free ships 18 server-rendered Gutenberg blocks under the `buddynext/*` namespace and the `buddynext` editor category. This page is the contract for each block: its name, purpose, attributes, and the REST data source that backs its rendered output. Developers embedding, theming, or extending these blocks should treat this table as authoritative.
 
+![A feed page assembled from the server-rendered BuddyNext Gutenberg blocks documented here](../images/community-activity-feed.png)
+
 ## Overview / Contract
 
 All 18 blocks share the same registration and rendering model. Read this before the per-block tables.

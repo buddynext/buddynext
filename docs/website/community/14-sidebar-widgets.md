@@ -2,6 +2,8 @@
 
 The sidebar is the right-hand column on community hub pages. It shows a set of discovery cards - trending topics, people to follow, and spaces - populated automatically from your community's own activity. There is nothing to fill in; the cards keep themselves current.
 
+![A BuddyNext community hub page showing the sidebar with trending topics, people-to-follow, and spaces cards](../images/community-activity-feed.png)
+
 ## Why use it
 
 A community grows when members find new people to follow, new spaces to join, and new conversations to read. The sidebar puts those next steps in front of members on the pages they already visit, without anyone having to curate them. The trending card shows what the community is talking about right now, the people card suggests members worth following, and the spaces card surfaces places to join or discover.
@@ -26,7 +28,6 @@ A signed-in member sees, from the top:
 
 Guests see a reduced sidebar. The trending topics card and an upcoming-events card still show, and instead of personal suggestions the spaces card shows **Discover spaces** - the most popular open spaces. Guests do not see the greeting, the people-to-follow card, or a personal "your spaces" list, because those need a signed-in member.
 
-> _Screenshot: the community sidebar on a hub page showing the trending topics, people-to-follow, and spaces cards - captured in the image pass._
 
 ## Setting it up (for owners)
 

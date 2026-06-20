@@ -2,6 +2,10 @@
 
 Reporting lets any member flag a post, comment, or member profile for a moderator to review. A report records what was flagged, the reason, and any optional details, then sends it to the moderation queue without notifying the person who was reported.
 
+![A BuddyNext post where a member can report the content for review](../images/post-detail.png)
+
+![The BuddyNext admin moderation queue receiving reported content](../images/moderation-queue.png)
+
 ## Why use it
 
 Your moderators cannot watch every post in real time, and as a community grows that becomes impossible. Member reporting is the first line of defense: the people actually reading a thread are the first to notice spam, harassment, or a fake account, and a report turns that attention into a queued task a moderator can act on.
@@ -38,7 +42,6 @@ Every report needs one reason. BuddyNext ships a fixed set so moderators see con
 
 > **Note:** When you report a member's profile, the reason list reflects member-level problems (fake account, impersonation) as well as the shared reasons. Use the notes field whenever the reason alone does not tell the full story.
 
-> _Screenshot: the report dialog on a post card, showing the reason dropdown and the optional details field - captured in the image pass._
 
 ### What happens after a report
 

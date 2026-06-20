@@ -2,6 +2,8 @@
 
 Pro adds five member-search filters on top of the free search - filter members by membership tier, by space, by member label, by when they joined, and by how recently they were active - plus saved searches so members can store a search and run it again later. The filters fill themselves from your community's own data, so the options always match what your site actually has.
 
+![Narrowing the member list with the advanced search filters](../images/search.png)
+
 > **Before you start:** These filters and saved searches come with BuddyNext Pro. With Pro active, they appear automatically on the search results page - there is nothing to switch on. This page covers the Pro filters and saved searches. For the base search experience, see Search.
 
 ## Why use it
@@ -51,7 +53,6 @@ There are no admin settings to switch the advanced filters on. They activate wit
 
 If a data source is empty - no tiers, no labels - that filter's dropdown simply does not appear, and the remaining filters still work. The join-date and active-within filters always work because every member has a registration date.
 
-> _Screenshot: the search results page with the advanced member filters card expanded, showing the tier, space, label, joined-after, and active-within controls - captured in the image pass._
 
 ## Good to know
 

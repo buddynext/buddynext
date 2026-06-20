@@ -2,6 +2,8 @@
 
 This is the contract a gamification engine implements to plug into BuddyNext. BuddyNext fires clean write-side events, exposes recipient-perspective engagement signals and session/streak pulses, offers sidebar/profile data seams, and renders a leaderboard from the engine's public read API. BuddyNext ships **zero** gamification logic - no points, badge, level, or streak computation, and no own `wbg_*` tables. The reference engine is wb-gamification (`wb_gam_*` public API); any plugin that implements the same shape works. This page is for developers building or replacing that engine.
 
+![The admin dashboard whose sidebar and leaderboard data the gamification-engine seam documented here feeds](../images/admin-overview.png)
+
 ## Overview / Contract
 
 The seam has four parts:

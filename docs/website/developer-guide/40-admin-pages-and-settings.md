@@ -2,6 +2,10 @@
 
 The BuddyNext admin surface and the contracts that shape it: the registered wp-admin pages (5 in free, 20 in Pro), the `AdminHub` section + tab-placement system that arranges every screen into a capped information architecture, the `bn_admin_hub_sections` and `bn_admin_hub_tab_placement` filters for adding or relocating tabs from a mu-plugin, and the options-wiring model (about 86 option keys, registered into per-tab settings groups). This page is for developers adding an admin screen, moving an existing tab, or wiring a new setting.
 
+![A live wp-admin BuddyNext settings screen arranged by the AdminHub section and tab-placement system](../images/backend-settings.png)
+
+![The admin dashboard - one of the registered wp-admin pages whose option wiring this page documents](../images/admin-overview.png)
+
 ## Overview / Contract
 
 All BuddyNext admin pages gate on the native `manage_options` capability. There is no BuddyNext-specific admin role; site administrators reach the screens, and every other user is denied. `AdminHub::render_section()` re-checks `current_user_can( 'manage_options' )` on render and `wp_die()`s otherwise, and each tab can additionally declare its own `cap` (default `manage_options`).

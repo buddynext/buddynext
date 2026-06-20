@@ -2,6 +2,8 @@
 
 Hashtags turn any word a member types with a leading `#` into a clickable, shareable topic. Every tag gets its own feed page that collects the public posts using it, a follow button, and a place in the trending list so members can discover what the community is talking about right now.
 
+![BuddyNext search results grouped by type, including posts that share a hashtag topic](../images/search.png)
+
 ## Why use it
 
 A growing community produces more posts than any one person can read. Hashtags give members a lightweight way to file a post under a topic without choosing a category from a dropdown - they type `#welcome` or `#release` mid-sentence and the tag does the rest. For the people reading, a hashtag is a one-tap path from a single post into every public post on that subject, and the trending list surfaces the topics gaining momentum in the last day.
@@ -49,7 +51,6 @@ Hashtags are on by default. The feature and its banned-tag list are controlled f
 | Hashtags feature | Turns the whole hashtag system on or off. When off, `#tags` stay as plain text everywhere (posts and comments) - no clickable links, no feed pages, no trending list. | On |
 | Banned hashtags | A list of tags to block. A banned tag is stripped when a post is processed, so it never becomes a clickable link or a feed page. | Empty (nothing blocked) |
 
-> _Screenshot: BuddyNext settings showing the Hashtags feature toggle and the banned hashtags field - captured in the image pass._
 
 ### The Trending Hashtags block
 
@@ -60,7 +61,6 @@ Add the Trending Hashtags block to any page, post, or block-themed template to s
 | Count | How many trending hashtags to show. | Block default |
 | Display | How the list is presented (for example a compact list or a fuller layout). | Block default |
 
-> _Screenshot: the Trending Hashtags block in the editor with its Count and Display controls - captured in the image pass._
 
 ## Good to know
 

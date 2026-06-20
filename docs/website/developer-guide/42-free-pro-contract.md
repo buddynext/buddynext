@@ -2,6 +2,10 @@
 
 This page documents how BuddyNext Free and BuddyNext Pro couple: the service-container keys Pro consumes and rebinds, the Free filter and action seams Pro hooks, the `consumed_by` field that records the cross-plugin hook contract, and the shared-table ownership rule. If you are building a Pro module, a vertical pack, or a third-party addon that sits on top of the free/pro pair, this is the contract you must respect so an update to either plugin does not break your code.
 
+![The Pro admin settings that sit on the Free/Pro container and hook contract documented here](../images/admin-settings.png)
+
+![The wp-admin settings surface shared across the Free/Pro coupling this contract page defines](../images/backend-settings.png)
+
 For the full per-hook reference (every Pro-emitted action/filter with its parameters) see Pro and Integration Hooks. This page is the structural contract above that table.
 
 ## Overview / Contract

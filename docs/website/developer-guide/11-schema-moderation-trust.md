@@ -2,6 +2,8 @@
 
 Reference for the tables that back BuddyNext's moderation, trust, and audit subsystem: `bn_reports`, `bn_mod_log`, `bn_user_strikes`, `bn_user_suspensions`, `bn_appeals`, `bn_invites`, and `bn_activity_log`. All seven are created by `BuddyNext\Core\Installer` via `dbDelta()` and live in the site table prefix (shown below as `wp_`). This page is for developers reading, extending, or writing against these tables directly.
 
+![The moderation queue backed by the bn_reports, strikes, suspensions, and audit-log tables documented here](../images/moderation-queue.png)
+
 > **Note:** Every table in this page was verified against `includes/Core/Installer.php`. All seven exist. `bn_invites` is documented here because it carries a per-row trust token and shares the audit/lifecycle shape of the moderation tables, even though it lives under the installer's "Onboarding + Invites" section.
 
 ## Overview / Contract

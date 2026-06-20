@@ -2,9 +2,12 @@
 
 Custom Reactions let you add your own emoji to the six reactions that ship with BuddyNext Free. You pick an emoji, give it a label, and it appears in the reaction picker right alongside the built-in set.
 
+![Members reacting to a post with the custom emoji from the reaction picker](../images/post-detail.png)
+
+![Adding and managing custom reactions in the BuddyNext Pro settings](../images/backend-settings.png)
+
 > **Before you start:** Custom Reactions come with BuddyNext Pro. With Pro active, you add and manage them from the Reactions settings screen described below.
 
-> _Screenshot: the Custom Reactions admin screen showing the default reaction palette, the current custom reactions table, and the emoji picker grid - captured in the image pass._
 
 ## Why use it
 

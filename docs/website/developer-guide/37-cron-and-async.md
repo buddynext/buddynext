@@ -2,6 +2,8 @@
 
 This page covers BuddyNext's scheduled jobs and background-work model: the recurring and single-shot cron hooks in Free and Pro, the Action Scheduler fan-out pattern used for heavy per-member work, and the cron policy every host must respect. Read it before adding a new scheduled job or wiring a new write fan-out.
 
+![The admin dashboard whose counters and digests are kept fresh by the cron and async jobs documented here](../images/admin-overview.png)
+
 ## Overview / Contract
 
 BuddyNext is built to be fast on a vanilla install with zero server changes. Three rules govern every scheduled job:

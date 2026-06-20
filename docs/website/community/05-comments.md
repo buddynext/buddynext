@@ -2,6 +2,8 @@
 
 Comments let members reply to a post in a threaded conversation - posting their own comment, replying to other comments, and reacting to comments they like. Threads nest up to five levels deep.
 
+![A BuddyNext post detail view with a threaded comment conversation underneath the post](../images/post-detail.png)
+
 ## Why use it
 
 Reactions tell an author that people saw a post; comments are where the actual conversation happens. They turn a one-way broadcast into a discussion, and they are what keeps members coming back to a post over hours and days rather than scrolling past it once.
@@ -32,7 +34,6 @@ You can delete a comment you wrote. The comment text is removed and shown as del
 
 Comments support the same reactions as posts. Open the reaction picker on a comment to react, swap, or remove your reaction. See Reactions for how reactions behave.
 
-> _Screenshot: a post thread showing a top-level comment with nested replies, the reply and react controls, and an "edited" mark - captured in the image pass._
 
 ## How it works (for moderators)
 

@@ -2,6 +2,10 @@
 
 BuddyNext stores its social data in dedicated custom tables rather than WordPress posts and postmeta. This page covers the table-naming convention, the Scale-Contract rules that shape every schema, and a master index of every Free and Pro table with the page that documents it. Read this before adding or querying any custom table.
 
+![The admin dashboard backed by the custom bn_* tables catalogued in this data-model index](../images/admin-overview.png)
+
+![The feed UI populated from the custom social tables this page documents](../images/community-activity-feed.png)
+
 ## Table-naming convention
 
 All BuddyNext-owned tables use the `bn_` prefix on top of the site's `$wpdb->prefix` (so a default install gets `wp_bn_posts`, `wp_bn_follows`, and so on). Free tables are created by `BuddyNext\Core\Installer::run()` and Pro tables by `BuddyNextPro\Core\Installer::run()`, both via `dbDelta()`. The prefix is consistent across Free and Pro - there is no separate Pro prefix.

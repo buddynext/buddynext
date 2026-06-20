@@ -2,6 +2,10 @@
 
 Content safeguards are the automatic, always-on rules that check every post before it is saved. They run silently in the background: a banned word, a blocked link, a suspicious IP, or a burst of repeat posts is caught and stopped (or held for review) without a moderator lifting a finger.
 
+![BuddyNext admin settings for configuring automatic content safeguard rules](../images/backend-settings.png)
+
+![The BuddyNext moderation queue holding posts flagged by content safeguards](../images/moderation-queue.png)
+
 Unlike the report queue, where a human reacts after something is posted, safeguards act at the moment of posting. You configure them once in the admin settings, and they apply to every member, every post, every day.
 
 ## Why use it
@@ -54,7 +58,6 @@ All safeguards live under the Moderation settings tab. Each one is a single opti
 | Strike suspend threshold | Number of strikes that triggers an automatic suspension. Set to 0 to disable. | 5 |
 | Strike permanent-ban threshold | Number of strikes that triggers an automatic permanent ban. Set to 0 to disable. | 0 (off) |
 
-> _Screenshot: the Moderation settings tab showing the safeguard fields - banned words, blocked domains, rate limits, and the strike thresholds - captured in the image pass._
 
 > **Tip:** Set the strike thresholds so they escalate in order: warn at the lowest count, suspend higher, permanent ban highest (or left at 0 if you never want an automatic permanent ban). A member who keeps accumulating strikes is warned first, suspended next, and only banned if the behavior continues.
 
