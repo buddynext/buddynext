@@ -428,10 +428,15 @@ class MessagesData {
 			$attach = self::val( $m, 'attachment', null );
 			$media  = null;
 			if ( $share ) {
-				$media = array(
+				// MediaVerse signs `url`/`download_url` through its access-controlled
+				// serve endpoint for the conversation viewer; `permalink` is a legacy
+				// fallback only (no longer shipped for conversation-scoped 'dm' media).
+				$share_url = (string) self::val( $share, 'url', self::val( $share, 'permalink', '' ) );
+				$media     = array(
 					'type'      => (string) self::val( $share, 'type', 'image' ),
 					'thumbnail' => (string) self::val( $share, 'thumbnail', '' ),
-					'url'       => (string) self::val( $share, 'permalink', '' ),
+					'url'       => $share_url,
+					'download'  => (string) self::val( $share, 'download_url', $share_url ),
 					'title'     => (string) self::val( $share, 'title', '' ),
 				);
 			} elseif ( $attach ) {

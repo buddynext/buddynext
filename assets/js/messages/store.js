@@ -278,7 +278,16 @@ function normalizeMedia( msg ) {
 	}
 	if ( msg.media_share && typeof msg.media_share === 'object' ) {
 		const s = msg.media_share;
-		return { type: s.type || 'image', thumbnail: s.thumbnail || '', url: s.permalink || '', title: s.title || '' };
+		// MediaVerse signs `url`/`download_url` through its access-controlled
+		// serve endpoint for the conversation viewer; `permalink` is legacy
+		// fallback only (no longer shipped for 'dm' media).
+		return {
+			type: s.type || 'image',
+			thumbnail: s.thumbnail || '',
+			url: s.url || s.permalink || '',
+			downloadUrl: s.download_url || s.url || s.permalink || '',
+			title: s.title || '',
+		};
 	}
 	if ( msg.attachment && typeof msg.attachment === 'object' ) {
 		const a = msg.attachment;
@@ -1036,7 +1045,7 @@ const { actions } = store( 'buddynext/messages', {
 
 			const fd = new FormData();
 			fd.append( 'file', file );
-			fd.append( 'privacy', 'private' ); // DM attachments are private MediaVerse media.
+			fd.append( 'privacy', 'dm' ); // Conversation-scoped MediaVerse media: visible only to the DM's participants, never on any public surface, activity feed, or wall.
 
 			try {
 				// FormData sets its own multipart Content-Type boundary — pass it through untouched.
