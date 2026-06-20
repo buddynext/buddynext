@@ -66,7 +66,7 @@
    curl -s http://buddynext-dev.local/wp-json/buddynext/v1/profile-groups
    ```
 
-   - Expected: 200, array including the new `professional_info` group.
+   - Expected: 200, `{"groups":[...]}` including the new `professional_info` group (response is `{groups:[...]}`, NOT a bare array; runtime-confirmed). Note a 6th seeded group `interests` also exists alongside the 5 system groups.
 
 5. Create a custom profile field in the new group. Use `PUT /buddynext/v1/profile-groups/{id}` is the update route; to create a field, insert directly via WP-CLI since a field-create REST endpoint is not in the manifest:
 
@@ -107,14 +107,13 @@
      -u member1:password \
      -H "Content-Type: application/json" \
      -d '{
-       "fields": {
-         "bio": "I am a developer and community builder.",
-         "years_of_experience": "7"
-       }
+       "bio": "I am a developer and community builder.",
+       "years_of_experience": "7"
      }'
    ```
 
    - Expected: 200. Profile values saved.
+   - **CRITICAL (runtime-confirmed 2026-06-20):** field values are read from **top-level JSON keys**, NOT a nested `{"fields":{...}}` object. A nested payload returns `{"saved":true}` (HTTP 200) but writes **nothing** to `bn_profile_values` — a silent no-op. (The real Edit Profile form sends top-level keys correctly; verified in-browser the headline persisted.)
 
 9. Verify the profile values in the DB:
 
