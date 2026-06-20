@@ -113,3 +113,35 @@ Each admin tab = an owner action surface; every settings/feature doc should show
 12. Hashtag feed page (hashtags)
 
 **Backend tabs to capture (owner actions):** the ~18 ✗ tabs in section B, then remap the docs currently on a closest-match image (white-label→Appearance, gated-spaces/content-protection→Paywall, wp-cli→Tools, moderation docs→their specific tab, bulk-moderation→Bulk, ai-feed-and-moderation→AI, etc.).
+
+---
+
+## Update 2026-06-20 — frontend action close-ups captured
+
+Section C's frontend gaps are now filled with live, presentable close-ups (dark mode to
+match the library; admin bar hidden; test data scrubbed; secrets blurred). Each is embedded
+in its doc:
+
+| Action close-up | Image | Doc |
+|---|---|---|
+| Reaction picker open | `reaction-picker.png` | community/04-reactions |
+| Poll card with results | `poll-card.png` | community/06-polls |
+| Share dialog | `share-dialog.png` | community/07-shares-reposts |
+| Bookmarks list (Save) | `bookmarks-list.png` | community/08-bookmarks |
+| Hashtag feed page | `hashtag-feed.png` | community/09-hashtags |
+| @-mention typeahead | `mention-typeahead.png` | community/10-mentions |
+| Create-space form | `space-create-form.png` | spaces/02-creating-a-space |
+| Two-factor setup | `twofa-setup.png` | accounts-access/05-two-factor-authentication |
+| Account security panel | `account-security.png` | accounts-access/07-account-settings |
+| Report dialog | `report-modal.png` | moderation/01-reporting-content |
+| Block confirmation | `block-modal.png` | members/08-blocking-and-muting |
+
+Plus `profile-edit.png` (edit profile / avatar / cover) shipped earlier the same day.
+
+**Still open (one item):** the **reactor "see who reacted" popover** could not be captured —
+under headless it returns the reactor list (200) but renders an empty list and auto-closes
+(a hydration timing quirk, same class as the earlier hashtag false-positive). Logged in
+`FLOW-VERIFICATION-2026-06-20.md` for real-browser confirmation; no empty-popover image was
+shipped (it would read as broken). The reactions doc uses `reaction-picker.png` meanwhile.
+
+Library now 66 images; 130/130 docs covered; every image referenced; no broken refs.

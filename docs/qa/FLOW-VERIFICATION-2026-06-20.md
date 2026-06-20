@@ -57,3 +57,35 @@ quickly confirmed or denied. They are the real work, prioritized by blast radius
 3. **Large-dataset pagination** — list endpoints (`/members`, `/feed/home`, `/me/notifications`) never seeded to 2000+ rows and asserted for `LIMIT`/`OFFSET`/`X-WP-Total`. Add a scale step per list journey.
 4. **Admin-config → member-effect** — only `onboarding.md` flips an admin option. Every gating setting needs the item-12 step (feature toggle OFF → route 403 + nav item gone is the highest-value one).
 5. **Frontend action wiring** — no journey maps controls to routes/nonces (item 11). `social-graph.md` is the first upgraded to the new contract; use it as the template.
+
+---
+
+## Reactor "see who reacted" popover — VERIFY IN A REAL BROWSER (not a confirmed bug)
+
+While capturing doc images, the **reactors popover** (`.bn-reactors-popover`, opened by
+`.bn-post-card__reactors-trigger`) behaved oddly under **headless** Chromium on a
+single-post permalink (`/p/28/`, 5 seeded reactions):
+
+- The popover header renders the real count ("5 reactions") server-side. Correct.
+- Its list fetch `GET /buddynext/v1/reactions/list?object_type=post&object_id=28&limit=100`
+  returns **200** with real items (Bob Martinez, etc. — confirmed by a manual `fetch` with
+  the page's `reactNonce`). So the endpoint + nonce + data are all fine.
+- BUT the popover `<ul class="bn-reactors-popover__list">` stays **empty** after the 200,
+  and the popover re-acquires `hidden` (auto-closes) on its own.
+
+This is the **same class** as the earlier hashtag "dead buttons" false-positive: an
+Interactivity-API hydration/async-append timing quirk that only shows under headless and
+**works in a real browser**. Per "verify root cause / no guess fixes", this is therefore
+logged as **needs real-browser confirmation**, NOT filed as a bug and NOT fixed.
+
+A stale-session 403 was also seen first (empty `X-WP-Nonce` → `rest_cookie_invalid_nonce`);
+a fresh `?autologin=alice` load cleared it (200). That was a long-session artifact, not a defect.
+
+**To confirm/deny (human, real browser):** open any post permalink with >1 reaction, click the
+reaction-count summary, and check the popover lists the reactors with avatars. If it does, no
+action. If the list is genuinely empty after a 200, trace the post-`yield` append in
+`assets/js/feed/store.js:toggleReactors()` (the `items.forEach(... buildReactorRow ...)` at
+~line 1185) against the reactive re-render that toggles `state.reactorsHidden`.
+
+Doc impact: the reactions doc uses `reaction-picker.png` (the picker action) as its close-up;
+no empty-popover image was shipped (would read as broken). Revisit once confirmed in a real browser.

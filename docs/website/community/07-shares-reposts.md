@@ -4,6 +4,8 @@ A reshare (or repost) takes a post that someone else published and puts it back 
 
 ![A BuddyNext activity feed where post cards carry a share action for reposting and quoting](../images/community-activity-feed.png)
 
+![The Share dialog — a preview of the post being reposted with an optional comment, plus Repost and Copy link](../images/share-dialog.png)
+
 ## Why use it
 
 Resharing is how good content travels. A member finds a post worth seeing, reshares it, and now everyone who follows that member sees it too, without the original author having to do anything. That single tap is how a strong post reaches well beyond the people who happened to be scrolling when it was first published.

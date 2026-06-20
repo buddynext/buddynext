@@ -4,6 +4,8 @@ Reactions let members respond to a post or comment with an emoji instead of typi
 
 ![A BuddyNext post detail view showing reaction counts on the post and its comments](../images/post-detail.png)
 
+![The reaction picker open on a post — Like, Love, Haha, Wow, Sad and Angry](../images/reaction-picker.png)
+
 ![Engagement - Reactions admin tab where the site owner configures the available reaction set](../images/admin-reactions.png)
 
 ## Why use it

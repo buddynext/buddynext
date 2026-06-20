@@ -4,6 +4,8 @@ A mention is the way one member pulls another into a conversation by name. Type 
 
 ![A BuddyNext activity feed where a post mentions another member by name as a clickable link](../images/community-activity-feed.png)
 
+![Typing @ in the composer opens a member typeahead that suggests people to mention](../images/mention-typeahead.png)
+
 ## Why use it
 
 Conversations move faster when you can address someone directly. A mention is how a member says "this is for you" - asking a question, crediting a contributor, or looping a colleague into a thread they would otherwise miss. The mentioned member gets a notification, so they do not have to be watching the feed to know they were called on. That single signal is what turns a one-way post into a back-and-forth, and it is the same `@name` habit members already know from every mainstream social platform.
