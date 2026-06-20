@@ -210,6 +210,32 @@
 			document.getElementById( 'bn-search-results' ).textContent = '';
 		},
 		close: function () { if ( this.el ) this.el.hidden = true; },
+		// Normalise the search REST response into a flat, capped list of
+		// { type, title, url } items. The default (no-type) request returns the
+		// grouped shape { grouped:true, results:{ types:[ { type, results[] } ] } };
+		// a typed request returns { items:[] }. Both collapse to one list here.
+		flatten: function ( payload ) {
+			var out = [];
+			if ( ! payload ) { return out; }
+
+			var groups = payload.results && payload.results.types;
+			if ( Array.isArray( groups ) ) {
+				groups.forEach( function ( group ) {
+					( group.results || [] ).forEach( function ( item ) {
+						out.push( {
+							type: group.type,
+							title: item.title || item.content || '',
+							url: item.url || item.permalink || '#'
+						} );
+					} );
+				} );
+				return out.slice( 0, 8 );
+			}
+
+			// Typed-search fallback shape: a flat items[] array.
+			var items = payload.items || payload.results || payload;
+			return Array.isArray( items ) ? items.slice( 0, 8 ) : out;
+		},
 		search: function ( q, resultsEl ) {
 			if ( ! data.restSearchUrl ) return;
 			resultsEl.textContent = '';
@@ -223,8 +249,8 @@
 				.then( function ( res ) { if ( ! res.ok ) { throw new Error( 'http' ); } return res.data; } )
 				.then( function ( payload ) {
 					resultsEl.textContent = '';
-					var items = payload.items || payload.results || payload;
-					if ( ! items || ! items.length ) {
+					var items = self.flatten( payload );
+					if ( ! items.length ) {
 						var empty = document.createElement( 'div' );
 						empty.className = 'bn-search-overlay__empty';
 						empty.textContent = 'No results for "' + q + '"';

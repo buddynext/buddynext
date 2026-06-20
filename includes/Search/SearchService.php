@@ -102,7 +102,9 @@ class SearchService {
 	 * @return array {
 	 *     @type array[] $types {
 	 *         @type string  $type    Object type slug (e.g. 'user', 'space', 'post').
-	 *         @type array[] $results Flat result rows (same shape as search() items).
+	 *         @type array[] $results Flat result rows (search() items decorated with
+	 *                                a uniform `title`, canonical `url`, and `subtitle`
+	 *                                so REST consumers can render + link directly).
 	 *         @type int     $total   Total matching records for this type in the index.
 	 *     }
 	 * }
@@ -136,7 +138,10 @@ class SearchService {
 
 			$type_groups[] = array(
 				'type'    => $type,
-				'results' => $result['items'],
+				'results' => array_map(
+					fn( array $item ): array => $this->decorate_grouped_item( $item, $type ),
+					$result['items']
+				),
 				'total'   => $result['total'],
 			);
 		}
@@ -173,6 +178,62 @@ class SearchService {
 				)
 			)
 		);
+	}
+
+	/**
+	 * Add a uniform `title` + `url` to a raw search() row for grouped output.
+	 *
+	 * The raw search index row only carries object_type / object_id / title /
+	 * content / author_id, so REST consumers (the cmd+K typeahead overlay and the
+	 * native app) cannot link anywhere without re-querying. This adds the two
+	 * fields every consumer needs — a display title and a canonical link — while
+	 * staying intentionally lightweight: it does NOT run the heavy per-type
+	 * enrich_results() pipeline used by the on-page /search sections.
+	 *
+	 * @param array  $item Raw search() row (object_type, object_id, title, …).
+	 * @param string $type Object-type slug for this group.
+	 * @return array The item with `title`, `url`, and `subtitle` guaranteed.
+	 */
+	private function decorate_grouped_item( array $item, string $type ): array {
+		$object_id = (int) ( $item['object_id'] ?? 0 );
+
+		// Members store no human title in the index — resolve the display name.
+		if ( in_array( $type, array( 'user', 'member' ), true ) ) {
+			$user          = get_userdata( $object_id );
+			$item['title'] = $user ? $user->display_name : __( 'Unknown', 'buddynext' );
+		} elseif ( '' === (string) ( $item['title'] ?? '' ) ) {
+			$item['title'] = __( 'Untitled', 'buddynext' );
+		}
+
+		$item['url']      = $this->resolve_item_url( $type, $object_id );
+		$item['subtitle'] = (string) ( $item['subtitle'] ?? '' );
+
+		return $item;
+	}
+
+	/**
+	 * Resolve the canonical front-end URL for an indexed object.
+	 *
+	 * Delegates entirely to PageRouter — the same helpers enrich_results() uses —
+	 * so grouped REST output links to exactly where the on-page sections do.
+	 *
+	 * @param string $type      Object-type slug (user/member, space, post, media).
+	 * @param int    $object_id Object ID within its type.
+	 * @return string Absolute URL, or '' when the type has no known route.
+	 */
+	private function resolve_item_url( string $type, int $object_id ): string {
+		switch ( $type ) {
+			case 'user':
+			case 'member':
+				return (string) \BuddyNext\Core\PageRouter::profile_url( $object_id );
+			case 'space':
+				return (string) \BuddyNext\Core\PageRouter::space_url( $object_id );
+			case 'post':
+			case 'media':
+				return (string) \BuddyNext\Core\PageRouter::post_url( $object_id );
+			default:
+				return '';
+		}
 	}
 
 	/**
