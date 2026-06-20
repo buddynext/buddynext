@@ -20,7 +20,13 @@
 /* In a collage, tiles fill their cell (the grid defines the shape), not 1:1. */
 .bn-post-card__media-grid .bn-media-tile { aspect-ratio: auto; height: 100%; width: 100%; min-height: 0; border-radius: 0; }
 
-.bn-post-card__media-grid--1 { aspect-ratio: 16 / 10; }
+/* Single image keeps its own shape (no forced crop); the grid's 60vh cap and
+   the image max-height keep a tall shot from taking over the feed. Letterbox
+   bars (object-fit: contain) only appear on very tall portraits that hit the
+   cap - landscape shots fill the width edge-to-edge with no crop. */
+.bn-post-card__media-grid--1 { aspect-ratio: auto; }
+.bn-post-card__media-grid--1 .bn-media-tile { aspect-ratio: auto; height: auto; }
+.bn-post-card__media-grid--1 .bn-media-tile__img { height: auto; max-height: 32rem; object-fit: contain; }
 .bn-post-card__media-grid--2 { grid-template-columns: 1fr 1fr; aspect-ratio: 2 / 1; }
 .bn-post-card__media-grid--3 { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; aspect-ratio: 3 / 2; }
 .bn-post-card__media-grid--3 .bn-media-tile:first-child { grid-row: 1 / span 2; }
@@ -76,7 +82,7 @@
 	transition: transform 0.18s ease;
 }
 .bn-media-tile:hover .bn-media-tile__img,
-.bn-media-tile:focus-visible .bn-media-tile__img { transform: scale( 1.03 ); }
+.bn-media-tile:focus-visible .bn-media-tile__img { transform: scale( 1.015 ); }
 .bn-media-tile:focus-visible { outline: 2px solid transparent; outline-offset: 2px; box-shadow: var( --bn-ring ); }
 
 /* Video tile with no generated poster — intentionally dark in BOTH themes so
