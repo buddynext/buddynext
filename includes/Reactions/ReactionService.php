@@ -52,6 +52,14 @@ class ReactionService {
 			return $guard;
 		}
 
+		// Validate the emoji against the allow-list (the owner-enabled, Pro-filterable
+		// reaction types). An unknown slug falls back to the default 'like' so a stray
+		// or disabled type never lands in the table.
+		$emoji = sanitize_key( $emoji );
+		if ( ! in_array( $emoji, self::reaction_types(), true ) ) {
+			$emoji = 'like';
+		}
+
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -62,7 +70,7 @@ class ReactionService {
 				$user_id,
 				sanitize_key( $object_type ),
 				$object_id,
-				sanitize_key( $emoji ),
+				$emoji,
 				current_time( 'mysql', true )
 			)
 		);
@@ -314,13 +322,19 @@ class ReactionService {
 			return $this->react( $user_id, $object_type, $object_id, $emoji );
 		}
 
-		// Replace the existing emoji with the new one.
+		// Replace the existing emoji with the new one. Validate against the
+		// allow-list (mirrors react()) so a switch never writes an unknown slug.
+		$emoji = sanitize_key( $emoji );
+		if ( ! in_array( $emoji, self::reaction_types(), true ) ) {
+			$emoji = 'like';
+		}
+
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_reactions',
-			array( 'emoji' => sanitize_key( $emoji ) ),
+			array( 'emoji' => $emoji ),
 			array(
 				'user_id'     => $user_id,
 				'object_type' => sanitize_key( $object_type ),

@@ -123,8 +123,14 @@ $next_milestone_pts  = $current_user_pts > 0 ? (int) ( ceil( ( $current_user_pts
 $milestone_progress  = $next_milestone_pts > 0 ? min( 100, (int) ( $current_user_pts % 100 ) ) : 0;
 $milestone_remaining = max( 0, $next_milestone_pts - $current_user_pts );
 
-// Approximate current level — 1 level per 500 pts.
-$current_level = max( 1, (int) floor( $current_user_pts / 500 ) + 1 );
+// Current level — use the engine's level so this surface agrees with the
+// Achievements tab. Falls back to a 1-per-500-pts approximation only when the
+// engine helper is unavailable.
+if ( function_exists( 'wb_gam_get_user_level' ) ) {
+	$current_level = max( 1, (int) wb_gam_get_user_level( $current_user_id ) );
+} else {
+	$current_level = max( 1, (int) floor( $current_user_pts / 500 ) + 1 );
+}
 
 // Rank pill tone for a given rank position.
 $rank_tone = static function ( int $rank ): string {

@@ -101,18 +101,18 @@ unset( $all_types_raw, $t );
 
 // ── Fetch users ───────────────────────────────────────────────────────────
 // Resolve user IDs to exclude via the directory service so the server-rendered
-// first page hides exactly the same members (active suspensions + shadow-banned)
-// the REST/live pipeline (MemberDirectoryService::list_members) does — no inline
-// SQL, single source of truth. The viewer is appended here because the REST path
-// also excludes them; matching keeps a hard reload from listing you while the
-// live/filtered view does not.
+// first page hides exactly the same members (active suspensions + shadow-banned
+// + both-direction blocks) the REST/live pipeline (MemberDirectoryService::
+// list_members) does — no inline SQL, single source of truth. Passing the viewer
+// folds in their block relationships; the viewer is appended here too because the
+// REST path also excludes them, so a hard reload never lists you or blocked users.
 $bn_directory_service = buddynext_service( 'member_directory' );
 
 $bn_dir_excluded_ids = array_unique(
 	array_map(
 		'intval',
 		array_merge(
-			$bn_directory_service->excluded_user_ids(),
+			$bn_directory_service->excluded_user_ids( $current_user_id ),
 			$current_user_id > 0 ? array( $current_user_id ) : array()
 		)
 	)

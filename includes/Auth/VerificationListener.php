@@ -207,7 +207,7 @@ class VerificationListener implements ListenerInterface {
 		$body = sprintf(
 			/* translators: 1: display name, 2: site name, 3: verification URL */
 			__(
-				"Hi %1\$s,\n\nPlease verify your email address on %2\$s by clicking the link below:\n\n%3\$s\n\nThis link expires in 24 hours.\n\nIf you did not register, please ignore this email.",
+				"Hi %1\$s,\n\nPlease verify your email address on %2\$s by clicking the link below:\n\n%3\$s\n\nThis link expires in 48 hours.\n\nIf you did not register, please ignore this email.",
 				'buddynext'
 			),
 			$display_name,

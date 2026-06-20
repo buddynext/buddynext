@@ -775,6 +775,48 @@ class BlockService {
 	}
 
 	/**
+	 * Return every user ID in a block relationship with the given user, in
+	 * either direction (users they blocked + users who blocked them).
+	 *
+	 * Mirrors the bidirectional rule is_blocking_either() applies, but for a
+	 * whole-account exclusion list rather than a single pair. Used by the
+	 * member directory's server-rendered first page so the no-JS / initial
+	 * paint hides exactly the members the REST/live pipeline excludes.
+	 *
+	 * @param int $user_id The viewing user.
+	 * @return int[] Distinct user IDs blocked either way (empty for guests).
+	 */
+	public function block_related_ids( int $user_id ): array {
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+
+		$cache_key = "block_related_{$user_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return (array) $cached;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT blocked_id FROM {$wpdb->prefix}bn_blocks WHERE blocker_id = %d AND type = 'block'
+				 UNION
+				 SELECT blocker_id FROM {$wpdb->prefix}bn_blocks WHERE blocked_id = %d AND type = 'block'",
+				$user_id,
+				$user_id
+			)
+		);
+
+		$result = array_values( array_unique( array_map( 'intval', (array) $rows ) ) );
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $result;
+	}
+
+	/**
 	 * Invalidate all cache keys affected by a block or mute state change.
 	 *
 	 * Clears both directions: acting user (user_a) and target user (user_b).
@@ -793,6 +835,7 @@ class BlockService {
 		wp_cache_delete( "blocked_users_{$user_a}", self::CACHE_GROUP );
 		wp_cache_delete( "muted_users_{$user_a}", self::CACHE_GROUP );
 		wp_cache_delete( "restricted_users_{$user_a}", self::CACHE_GROUP );
+		wp_cache_delete( "block_related_{$user_a}", self::CACHE_GROUP );
 
 		// Reverse direction: user_b's perspective of the relationship.
 		wp_cache_delete( "is_blocked_{$user_b}_{$user_a}", self::CACHE_GROUP );
@@ -802,6 +845,7 @@ class BlockService {
 		wp_cache_delete( "blocked_users_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "muted_users_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "restricted_users_{$user_b}", self::CACHE_GROUP );
+		wp_cache_delete( "block_related_{$user_b}", self::CACHE_GROUP );
 
 		// Drop the per-request is_blocking_either() memo for this pair so a
 		// block/unblock (or mute/restrict change) within one request never

@@ -531,23 +531,41 @@ function bootstrapNotifPolling() {
 		return wrap || null;
 	}
 
+	// Resolve the REST base + nonce for the unread-count poll. On the
+	// /notifications/ page this reads the Interactivity wrapper's context
+	// (so paintBadge can also mutate ctx.unreadCount and re-render the list's
+	// reactive badges). Everywhere else that wrapper is absent, so fall back to
+	// window.bnShellData — present on every hub — which lets the desktop header
+	// bell badge stay fresh site-wide, not just on the notifications page.
 	function readRestData() {
 		var wrap = findContext();
-		if ( ! wrap ) { return null; }
-		var raw = wrap.getAttribute( 'data-wp-context' );
-		if ( ! raw ) { return null; }
-		try {
-			return JSON.parse( raw );
-		} catch ( _e ) {
-			return null;
+		if ( wrap ) {
+			var raw = wrap.getAttribute( 'data-wp-context' );
+			if ( raw ) {
+				try {
+					return JSON.parse( raw );
+				} catch ( _e ) {
+					// Fall through to the shell-data fallback below.
+				}
+			}
 		}
+
+		var shell = ( typeof window !== 'undefined' && window.bnShellData ) || null;
+		if ( ! shell ) { return null; }
+		// restNotifsUrl is the notifications collection with a query string
+		// (…/me/notifications?per_page=5); strip the query to get the base the
+		// restFetch '/unread-count' path is appended to.
+		var base = ( shell.restNotifsUrl || '' ).split( '?' )[ 0 ];
+		if ( ! base ) { return null; }
+		return { restUrl: base, nonce: shell.restNonce || '' };
 	}
 
 	function paintBadge( count ) {
+		var label = count > 99 ? '99+' : String( count );
+
 		// Mobile nav badge.
 		var badge = document.querySelector( '.bn-mobile-nav__badge' );
 		if ( badge ) {
-			var label = count > 99 ? '99+' : String( count );
 			badge.textContent = label;
 			badge.hidden = ! count || count <= 0;
 		}
@@ -561,9 +579,31 @@ function bootstrapNotifPolling() {
 				pill.hidden = true;
 			}
 		}
+		// Desktop header bell badge (templates/blocks/notification-bell.php).
+		// The badge element is only server-rendered when the count is > 0, so it
+		// is updated in place when present, hidden when the count drops to 0, and
+		// created inside the bell link when a count first arrives — keeping it
+		// live site-wide rather than only on the /notifications/ page.
+		var bellLink = document.querySelector( '.bn-notification-bell-link' );
+		if ( bellLink ) {
+			var bellBadge = bellLink.querySelector( '.bn-notification-badge' );
+			if ( count > 0 ) {
+				if ( ! bellBadge ) {
+					bellBadge = document.createElement( 'span' );
+					bellBadge.className = 'bn-badge bn-notification-badge';
+					bellBadge.setAttribute( 'data-tone', 'danger' );
+					bellBadge.setAttribute( 'aria-hidden', 'true' );
+					bellLink.appendChild( bellBadge );
+				}
+				bellBadge.textContent = label;
+				bellBadge.hidden = false;
+			} else if ( bellBadge ) {
+				bellBadge.hidden = true;
+			}
+		}
 		// Any data-wp-text="state.unreadLabel" elements will re-render
 		// when ctx.unreadCount is mutated by the store; this paint pass
-		// covers no-Interactivity DOM (the header pill).
+		// covers no-Interactivity DOM (the header pill + bell badge).
 	}
 
 	async function poll() {

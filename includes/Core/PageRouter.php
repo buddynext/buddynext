@@ -892,6 +892,15 @@ class PageRouter {
 		// (sidebar widgets, block-rendered buttons, etc.) on every BN hub.
 		wp_enqueue_script_module( '@buddynext/social-buttons' );
 
+		// Notifications store runs the background unread-count poll on every hub
+		// so the header bell badge (.bn-notification-badge, rendered site-wide)
+		// and the mobile nav badge stay live everywhere — not just on the
+		// /notifications/ page. The poll reads its REST base/nonce from
+		// window.bnShellData when the on-page Interactivity wrapper is absent.
+		if ( is_user_logged_in() ) {
+			wp_enqueue_script_module( '@buddynext/notifications' );
+		}
+
 		// Client-side navigation action — owns the .bn-app navigate handler and
 		// lazy-loads the Interactivity router. Enqueued on every hub so the
 		// action exists site-wide; inert until the buddynext_client_nav_enabled

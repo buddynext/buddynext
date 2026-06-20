@@ -532,9 +532,16 @@ class MemberDirectoryService {
 	 * diverge. The viewer is NOT added here — callers append it themselves
 	 * because some surfaces include the viewer.
 	 *
+	 * When a $viewer_id is supplied, both-direction block relationships are
+	 * also excluded (users the viewer blocked + users who blocked the viewer),
+	 * matching the REST pipeline's block_exclude_sql() so the first server-
+	 * rendered page does not leak blocked members on a no-JS / hard reload.
+	 *
+	 * @param int $viewer_id Optional. Viewing user, used to fold in their block
+	 *                       relationships. Default 0 (no block exclusion).
 	 * @return int[] Distinct user IDs to exclude.
 	 */
-	public function excluded_user_ids(): array {
+	public function excluded_user_ids( int $viewer_id = 0 ): array {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -552,7 +559,9 @@ class MemberDirectoryService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-		return array_values( array_unique( array_map( 'intval', array_merge( (array) $suspended, (array) $shadow_banned ) ) ) );
+		$blocked = $viewer_id > 0 ? buddynext_service( 'blocks' )->block_related_ids( $viewer_id ) : array();
+
+		return array_values( array_unique( array_map( 'intval', array_merge( (array) $suspended, (array) $shadow_banned, $blocked ) ) ) );
 	}
 
 	/**

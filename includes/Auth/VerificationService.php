@@ -23,7 +23,7 @@ class VerificationService {
 	 * Create a verification token for a user and fire the send action.
 	 *
 	 * Generates a 32-byte hex token, persists it to bn_verify_tokens with a
-	 * 24-hour expiry, then fires the buddynext_send_verification_email action
+	 * 48-hour expiry, then fires the buddynext_send_verification_email action
 	 * so that the listener can dispatch the email.
 	 *
 	 * @param int $user_id WordPress user ID.
