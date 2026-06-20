@@ -147,6 +147,14 @@ do_action( 'buddynext_part_dm_thread_header_before', $args );
 				<span class="bn-tooltip" data-pos="bottom"><?php esc_html_e( 'Profile', 'buddynext' ); ?></span>
 			</span>
 		<?php endif; ?>
+		<?php if ( ! $is_group ) : ?>
+			<span class="bn-tooltip-trigger">
+				<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" aria-label="<?php esc_attr_e( 'Conversation info', 'buddynext' ); ?>" data-wp-on--click="actions.openInfoPanel">
+					<?php buddynext_icon( 'info' ); ?>
+				</button>
+				<span class="bn-tooltip" data-pos="bottom"><?php esc_html_e( 'Info', 'buddynext' ); ?></span>
+			</span>
+		<?php endif; ?>
 		<span class="bn-tooltip-trigger">
 			<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" aria-label="<?php esc_attr_e( 'Delete conversation', 'buddynext' ); ?>" data-wp-on--click="actions.openDeleteConfirm">
 				<?php buddynext_icon( 'trash' ); ?>

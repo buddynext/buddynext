@@ -118,6 +118,12 @@ $bn_ctx = wp_json_encode(
 		'memberCount'       => $thread ? (int) ( $thread['member_count'] ?? 0 ) : 0,
 		'groupPanelOpen'    => false,
 		'groupAddOpen'      => false,
+		// Conversation info panel (1:1) — recipient identity + safety actions.
+		'infoPanelOpen'     => false,
+		'recipientId'       => ( $thread && empty( $thread['is_group'] ) ) ? (int) $thread['other_user_id'] : 0,
+		'recipientName'     => $thread ? (string) $thread['display_name'] : '',
+		'recipientUrl'      => ( $thread && ! empty( $thread['other_user_id'] ) ) ? esc_url_raw( PageRouter::profile_url( (int) $thread['other_user_id'] ) ) : '',
+		'infoBusy'          => false,
 		'replyToId'         => 0,
 		'replyToText'       => '',
 		'confirmOpen'       => false,
@@ -290,6 +296,23 @@ $bn_ctx = wp_json_encode(
 	?>
 
 	<?php buddynext_get_template( 'parts/dm-media-modal.php' ); ?>
+
+	<?php
+	// Conversation info panel — 1:1 threads only (groups use the group panel).
+	if ( $thread && empty( $thread['is_group'] ) ) {
+		buddynext_get_template(
+			'parts/dm-info-panel.php',
+			array(
+				'display_name'  => (string) $thread['display_name'],
+				'other_user_id' => (int) $thread['other_user_id'],
+				'profile_url'   => $thread['other_user_id'] ? PageRouter::profile_url( (int) $thread['other_user_id'] ) : '',
+				'avatar_html'   => (string) $thread['avatar_html'],
+				'initials'      => $helpers['initials_fn']( $thread['display_name'] ),
+				'tone'          => $helpers['tone_fn']( $thread['other_user_id'] ),
+			)
+		);
+	}
+	?>
 
 	<?php // Cloned by the store onto client-rendered (sent/polled) message bubbles. ?>
 	<template id="bn-dm-msg-actions-tpl"><?php buddynext_get_template( 'parts/dm-msg-actions.php' ); ?></template>

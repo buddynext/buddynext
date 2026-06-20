@@ -116,6 +116,48 @@ function buildMediaTile( media ) {
 }
 
 /**
+ * Fill the conversation info panel's "Shared photos" grid from the image media
+ * already rendered in the thread — no extra request, just reads the loaded
+ * `.bn-dm-bubble__media` thumbnails. Covers media in messages loaded so far.
+ *
+ * @return {void}
+ */
+function collectSharedMedia() {
+	const grid = document.querySelector( '.bn-dm-info__media' );
+	if ( ! grid ) {
+		return;
+	}
+
+	const imgs = document.querySelectorAll( '.bn-dm-bubble__media[data-type="image"] img' );
+	grid.textContent = '';
+
+	if ( ! imgs.length ) {
+		const empty = document.createElement( 'li' );
+		empty.className = 'bn-dm-info__media-empty';
+		empty.textContent = 'No photos shared yet.';
+		grid.appendChild( empty );
+		return;
+	}
+
+	imgs.forEach( ( img ) => {
+		const li   = document.createElement( 'li' );
+		li.className = 'bn-dm-info__media-tile';
+		const a    = document.createElement( 'a' );
+		const link = img.closest( 'a' );
+		a.href   = ( link && link.href ) || img.src;
+		a.target = '_blank';
+		a.rel    = 'noopener';
+		const thumb = document.createElement( 'img' );
+		thumb.src     = img.src;
+		thumb.alt     = img.alt || '';
+		thumb.loading = 'lazy';
+		a.appendChild( thumb );
+		li.appendChild( a );
+		grid.appendChild( li );
+	} );
+}
+
+/**
  * Build a hint/empty line for the media grid.
  *
  * @param {string} text Message.
@@ -754,6 +796,86 @@ const { actions } = store( 'buddynext/messages', {
 		},
 		closeDeleteConfirm() {
 			getContext().confirmOpen = false;
+		},
+
+		// ── Conversation info panel (1:1) ─────────────────────────────────────────
+		openInfoPanel() {
+			const ctx = getContext();
+			ctx.infoPanelOpen = true;
+			// Fill the shared-photos grid from the images already loaded in the thread.
+			collectSharedMedia();
+		},
+		closeInfoPanel() {
+			getContext().infoPanelOpen = false;
+		},
+		async blockRecipient() {
+			const ctx = getContext();
+			const uid = parseInt( ctx.recipientId, 10 ) || 0;
+			if ( ctx.infoBusy || ! uid ) {
+				return;
+			}
+			const name = ctx.recipientName || 'this member';
+			const ok = await bnConfirm( {
+				title:        'Block ' + name + '?',
+				body:         'They will not be able to message you, and you will not see each other across the community. You can unblock them later from their profile.',
+				confirmLabel: 'Block',
+				tone:         'danger',
+			} );
+			if ( ! ok ) {
+				return;
+			}
+			ctx.infoBusy = true;
+			try {
+				const res = await restFetch( '/users/' + uid + '/block', { method: 'POST', toastOnError: false } );
+				if ( res.ok || res.status === 201 ) {
+					bnToast( name + ' blocked.', { tone: 'success' } );
+					ctx.infoPanelOpen = false;
+					// You can no longer message a blocked member — leave the thread.
+					if ( ctx.messagesUrl ) {
+						window.location.href = ctx.messagesUrl;
+					}
+				} else {
+					bnToast( 'Could not block ' + name + '. Try again.', { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( 'Could not block ' + name + '. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.infoBusy = false;
+			}
+		},
+		async reportRecipient() {
+			const ctx = getContext();
+			const uid = parseInt( ctx.recipientId, 10 ) || 0;
+			if ( ctx.infoBusy || ! uid ) {
+				return;
+			}
+			const result = await bnReportDialog( { title: 'Report this conversation' } );
+			if ( result === null ) {
+				return;
+			}
+			ctx.infoBusy = true;
+			try {
+				const res = await restFetch( '/reports', {
+					method:       'POST',
+					toastOnError: false,
+					body:         {
+						object_type: 'user',
+						object_id:   uid,
+						reason:      result.reason,
+						notes:       result.notes,
+					},
+				} );
+				if ( res.ok || res.status === 201 ) {
+					bnToast( 'Reported. Our moderators will review it.', { tone: 'success' } );
+					ctx.infoPanelOpen = false;
+				} else {
+					bnToast( 'Could not submit the report. Try again.', { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( 'Could not submit the report. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.infoBusy = false;
+			}
 		},
 		stopPropagation( event ) {
 			event.stopPropagation();

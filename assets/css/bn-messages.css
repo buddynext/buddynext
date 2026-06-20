@@ -1785,3 +1785,80 @@
 .bn-dm-msg.is-mine .bn-dm-msg__action--report {
 	display: none;
 }
+
+/* ── Conversation info panel (1:1) ──────────────────────────────────────────
+   Reuses the shared .bn-modal chrome; this styles only the body content. */
+.bn-dm-info__person {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding-block: var(--bn-s3) var(--bn-s5);
+	text-align: center;
+}
+.bn-dm-info__avatar img,
+.bn-dm-info__avatar .bn-monogram {
+	width: 64px;
+	height: 64px;
+	border-radius: 50%;
+	object-fit: cover;
+	font-size: var(--bn-fs-lg, 1.125rem);
+}
+.bn-dm-info__name {
+	font-weight: 600;
+	color: var(--bn-ink, inherit);
+}
+.bn-dm-info__section {
+	border-top: 1px solid var(--bn-line, #e5e7eb);
+	padding-block: var(--bn-s4);
+}
+.bn-dm-info__section-title {
+	margin: 0 0 var(--bn-s3);
+	font-size: var(--bn-fs-sm, 0.875rem);
+	font-weight: 600;
+	color: var(--bn-ink-2, inherit);
+}
+.bn-dm-info__media {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: var(--bn-s2);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.bn-dm-info__media-tile {
+	aspect-ratio: 1 / 1;
+	overflow: hidden;
+	border-radius: var(--bn-r-sm, 8px);
+}
+.bn-dm-info__media-tile a,
+.bn-dm-info__media-tile img {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+.bn-dm-info__media-tile img {
+	object-fit: cover;
+}
+.bn-dm-info__media-empty {
+	grid-column: 1 / -1;
+	color: var(--bn-ink-2, inherit);
+	font-size: var(--bn-fs-sm, 0.875rem);
+}
+.bn-dm-info__actions {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	border-top: 1px solid var(--bn-line, #e5e7eb);
+	padding-top: var(--bn-s4);
+}
+.bn-dm-info__actions .bn-dm-info__danger {
+	justify-content: flex-start;
+	gap: var(--bn-s2);
+	color: var(--bn-danger, #dc2626);
+}
+@media (max-width: 480px) {
+	.bn-dm-info__media {
+		grid-template-columns: repeat(4, 1fr);
+	}
+}
