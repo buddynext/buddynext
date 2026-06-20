@@ -4,6 +4,8 @@ Membership tiers are the plans, free or paid, that you offer your community. Eac
 
 ![The Monetization Tiers admin tab where you define membership tiers, pricing, and perks](../images/admin-tiers.webp)
 
+![The member-facing pricing page — each tier with its price, perks and a subscribe button](../images/membership-pricing.webp)
+
 ![The Monetization → Subscriptions admin tab listing active member subscriptions](../images/admin-subscriptions.webp)
 
 ![A space home members unlock by subscribing to a paid membership tier](../images/space-home.webp)
