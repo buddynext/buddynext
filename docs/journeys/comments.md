@@ -246,7 +246,7 @@ Query/body params:
 
 | Control | Template (file) | JS store / handler | Live route + method | Nonce key |
 |---|---|---|---|---|
-| Add comment / reply | `templates/parts/post-comment-form.php` | `feed/store.js:683` | `POST /comments` | `nonce` |
+| Add comment / reply | `templates/parts/post-comment-form.php` | `feed/store.js:683` | `POST /comments` | `ctx.reactNonce` (passed as the local `nonce` param) |
 | Load comment tree | `templates/parts/post-comments-list.php` | `feed/store.js:817` | `GET /comments?object_type=post&object_id=` | `ctx.reactNonce` |
 | Edit comment | `templates/parts/post-comments-list.php` | `feed/store.js:496` | `PUT /comments/{id}` | `nonce` |
 | Delete comment | `templates/parts/post-comments-list.php` | `feed/store.js:541` | `DELETE /comments/{id}` | `nonce` |

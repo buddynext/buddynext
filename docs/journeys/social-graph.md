@@ -183,13 +183,13 @@ WHERE blocker_id = MEMBER1_ID;
 
 ```
 POST /buddynext/v1/users/{id}/follow                 -- toggle follow; 200 { "following": bool }
-GET  /buddynext/v1/users/{id}/followers              -- 200, array of user objects
-GET  /buddynext/v1/users/{id}/following              -- 200, array of user objects
+GET  /buddynext/v1/users/{id}/followers              -- 200, { ids:[...], total, page, per_page } (ID array, NOT hydrated user objects)
+GET  /buddynext/v1/users/{id}/following              -- 200, { ids:[...], total, page, per_page }
 GET  /buddynext/v1/follow-suggestions                -- 200, array of user objects (logged-in)
 POST /buddynext/v1/users/{id}/connect                -- send / withdraw request; 200-201
 POST /buddynext/v1/users/{id}/connect/accept         -- 200 { "status": "accepted" }
 POST /buddynext/v1/users/{id}/connect/decline        -- 200 { "status": "declined" }
-GET  /buddynext/v1/me/connections                    -- 200, array of accepted connections
+GET  /buddynext/v1/me/connections                    -- 200, { ids:[...], total, ... } (ID array, not hydrated objects)
 GET  /buddynext/v1/me/connection-requests            -- 200, array of pending requests
 POST   /buddynext/v1/users/{id}/block                -- block; 200 { "blocked": bool }
 DELETE /buddynext/v1/users/{id}/block                -- unblock; 200 { "blocked": false }
@@ -201,6 +201,8 @@ GET    /buddynext/v1/me/blocked                       -- 200, array of blocked u
 GET    /buddynext/v1/me/muted                         -- 200, array of muted users
 GET    /buddynext/v1/me/restricted                    -- 200, array of restricted users
 ```
+
+> **Data-model caveat (runtime-confirmed 2026-06-20):** `bn_blocks` has `PRIMARY KEY (blocker_id, blocked_id)` — exactly ONE row per pair, so `block`/`mute`/`restrict` are **mutually exclusive**, not independent rows. `block` upgrades an existing row (`ON DUPLICATE KEY UPDATE type='block'`); `mute`/`restrict` use `INSERT IGNORE`, so if any row already exists they **no-op but still return a success body** (`{"restricted":true}`) — a success response does NOT prove a state change. Verify the actual `type` column, not the HTTP body. This is intentional; don't "fix" the code.
 
 > Confirm this list against the **live** index every run — do not trust the source grep:
 > `curl -s http://buddynext.local/wp-json/buddynext/v1 | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes']) if any(k in r for k in ('block','mute','restrict','follow','connect'))]"`

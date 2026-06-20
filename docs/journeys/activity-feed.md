@@ -50,8 +50,9 @@
        "type": "poll",
        "space_id": SPACE_ID,
        "privacy": "public",
-       "poll_options": ["Spring", "Summer", "Autumn", "Winter"]
+       "options": ["Spring", "Summer", "Autumn", "Winter"]
      }'
+     # NOTE: the param is "options", NOT "poll_options" (runtime-confirmed 2026-06-20: poll_options -> 400 poll_requires_options).
    ```
 
    - Expected: 201 response. Note the returned post `id` (referred to as `POLL_POST_ID`).
@@ -279,7 +280,7 @@ GET  /buddynext/v1/reactions                         -- 200, array of allowed re
 POST /buddynext/v1/reactions/toggle                  -- 200, { "active": bool }
 POST /buddynext/v1/comments                          -- 201, created comment object
 DELETE /buddynext/v1/comments/{id}                   -- 200, { "deleted": true }
-POST /buddynext/v1/posts/{id}/share                  -- 201, share object
+POST /buddynext/v1/posts/{id}/share                  -- 200, { shared:true, share_id, post:{...} }; 2nd share by same user -> 400 (one-share-per-user guard)
 GET  /buddynext/v1/me/shares                         -- 200, array of shares
 POST /buddynext/v1/posts/{id}/bookmark               -- 200, { "bookmarked": bool }
 DELETE /buddynext/v1/posts/{id}/bookmark             -- 200, { "bookmarked": false }
@@ -350,5 +351,5 @@ DELETE FROM wp_bn_posts WHERE user_id = MEMBER1_ID AND space_id = SPACE_ID;
 ## Automation notes
 
 - All REST calls are curl-automatable with basic auth.
-- Poll creation requires `"type": "poll"` in the request body alongside a `poll_options` array.
+- Poll creation requires `"type": "poll"` in the request body alongside an `options` array (NOT `poll_options`).
 - The bookmark toggle pattern returns `{"bookmarked": bool}` — assert the value, not just the HTTP status.
