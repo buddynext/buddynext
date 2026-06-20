@@ -75,7 +75,7 @@ BuddyNext links each Stripe customer to the matching member on your site. The fi
 
 ### Hosted checkout
 
-When a member buys a tier, BuddyNext creates a Stripe Checkout session and sends them to Stripe's hosted payment page. The session carries the tier and member identity so the webhook can grant the right access on completion. Promotion codes are allowed at checkout, so any coupons you set up in Stripe work out of the box. After paying, the member is returned to your site.
+When a member buys a tier, BuddyNext creates a Stripe Checkout session and sends them to Stripe's hosted payment page. The session carries the tier and member identity so the webhook can grant the right access on completion. Promotion codes are allowed at checkout, so any coupons you set up in Stripe work out of the box. After paying, the member is returned to the My Membership page with a confirmation; if they cancel at Stripe, they land back on the pricing page. Both pages are provisioned automatically when Monetization is enabled (see Membership Tiers).
 
 ### Customer billing portal
 
