@@ -419,8 +419,10 @@ class NotificationPrefCatalogue {
 	 *
 	 * Authoritative gate so BuddyNext never emails on behalf of an integration:
 	 * mirrored/aggregated partner types register `can_email = false` (the partner
-	 * owns its own emails). Unknown types keep the legacy default (true) so core
-	 * behaviour is unchanged.
+	 * owns its own emails). UNREGISTERED types — and registered entries that omit
+	 * the key — default to FALSE, so a partner mirror type that forgot can_email
+	 * can never be emailed (collect-only). All 40 core types set can_email = true
+	 * explicitly, so core behaviour is unchanged.
 	 *
 	 * @param string $type Notification type slug.
 	 * @return bool
@@ -428,9 +430,9 @@ class NotificationPrefCatalogue {
 	public function can_email( string $type ): bool {
 		$catalogue = $this->all();
 		if ( ! isset( $catalogue[ $type ] ) ) {
-			return true;
+			return false;
 		}
-		return (bool) ( $catalogue[ $type ]['can_email'] ?? true );
+		return (bool) ( $catalogue[ $type ]['can_email'] ?? false );
 	}
 
 	/**
