@@ -78,7 +78,7 @@ if ( ! $bn_community_nav ) {
 // (the rollout default), the shell renders exactly as before — the whole .bn-app
 // is NOT promoted to a single Interactivity hydration region, which otherwise
 // repaints the feed on every load.
-$bn_client_nav   = (bool) apply_filters( 'buddynext_client_nav_enabled', true );
+$bn_client_nav   = (bool) apply_filters( 'buddynext_client_nav_enabled', false );
 $bn_app_attrs    = $bn_client_nav ? ' data-wp-interactive="buddynext" data-wp-on--click="actions.navigate"' : '';
 $bn_region_attrs = $bn_client_nav ? ' data-wp-interactive="buddynext" data-wp-router-region="buddynext/main"' : '';
 ?>

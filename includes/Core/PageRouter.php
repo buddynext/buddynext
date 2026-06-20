@@ -943,7 +943,7 @@ class PageRouter {
 			// exact bug class the standard prevents). The navigate action is
 			// wired and inert until this flips true. Filterable for staged
 			// activation once surfaces are verified.
-			'clientNav'          => (bool) apply_filters( 'buddynext_client_nav_enabled', true ),
+			'clientNav'          => (bool) apply_filters( 'buddynext_client_nav_enabled', false ),
 			// Deny-list path prefixes for the client-side navigate action.
 			// Routes matching these full-load instead of client-navigating
 			// (rich editors + security-sensitive flows). Resolved server-side
@@ -1014,7 +1014,7 @@ class PageRouter {
 		// page the user navigates FROM. When client-nav is active, load the
 		// region-content union on every hub. Gated on the rollout flag so that
 		// while client-nav is off the lighter per-hub enqueue below is unchanged.
-		if ( (bool) apply_filters( 'buddynext_client_nav_enabled', true ) ) {
+		if ( (bool) apply_filters( 'buddynext_client_nav_enabled', false ) ) {
 			foreach ( array( 'feed', 'profile', 'spaces', 'members', 'messages', 'notifications', 'search', 'hashtags', 'gamification', 'moderation', 'space-members' ) as $bn_union_feature ) {
 				$assets->enqueue( $bn_union_feature );
 			}
