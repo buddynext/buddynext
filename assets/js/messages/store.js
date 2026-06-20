@@ -282,6 +282,7 @@ function normalizeMedia( msg ) {
 		// serve endpoint for the conversation viewer; `permalink` is legacy
 		// fallback only (no longer shipped for 'dm' media).
 		return {
+			id: parseInt( s.id, 10 ) || 0,
 			type: s.type || 'image',
 			thumbnail: s.thumbnail || '',
 			url: s.url || s.permalink || '',
@@ -325,19 +326,24 @@ function buildMessageNode( msg, viewer ) {
 		const wrapM = document.createElement( 'div' );
 		wrapM.className = 'bn-dm-bubble__media';
 		wrapM.dataset.type = media.type;
-		if ( 'image' === media.type && media.thumbnail ) {
-			const a = document.createElement( 'a' );
-			a.href = media.url || media.thumbnail;
-			if ( media.url ) {
-				a.target = '_blank';
-				a.rel = 'noopener';
-			}
+		if ( ( 'image' === media.type || 'video' === media.type ) && media.id && ( media.thumbnail || media.url ) ) {
+			// Render the canonical BN media tile so the shared lightbox
+			// (assets/js/media/lightbox.js, already present on every BN front
+			// page) opens it IN-PAGE — the same uniform lightbox as feed/media
+			// tab — instead of opening the raw signed URL in a new browser tab.
+			const tile = document.createElement( 'button' );
+			tile.type = 'button';
+			tile.className = 'bn-media-tile bn-media-tile--' + media.type;
+			tile.setAttribute( 'data-bn-media-id', String( media.id ) );
+			tile.setAttribute( 'data-media-type', media.type );
+			tile.setAttribute( 'data-media-src', media.url || media.thumbnail );
 			const img = document.createElement( 'img' );
-			img.src = media.thumbnail;
+			img.className = 'bn-media-tile__img';
+			img.src = media.thumbnail || media.url;
 			img.alt = media.title || '';
 			img.loading = 'lazy';
-			a.appendChild( img );
-			wrapM.appendChild( a );
+			tile.appendChild( img );
+			wrapM.appendChild( tile );
 		} else if ( media.url ) {
 			const a = document.createElement( 'a' );
 			a.className = 'bn-dm-bubble__file';
@@ -350,6 +356,7 @@ function buildMessageNode( msg, viewer ) {
 			wrapM.appendChild( a );
 		}
 		if ( wrapM.firstChild ) {
+			bubble.classList.add( 'bn-dm-bubble--has-media' );
 			bubble.appendChild( wrapM );
 		}
 	}

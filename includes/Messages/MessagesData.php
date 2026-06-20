@@ -433,6 +433,7 @@ class MessagesData {
 				// fallback only (no longer shipped for conversation-scoped 'dm' media).
 				$share_url = (string) self::val( $share, 'url', self::val( $share, 'permalink', '' ) );
 				$media     = array(
+					'id'        => (int) self::val( $share, 'id', 0 ),
 					'type'      => (string) self::val( $share, 'type', 'image' ),
 					'thumbnail' => (string) self::val( $share, 'thumbnail', '' ),
 					'url'       => $share_url,

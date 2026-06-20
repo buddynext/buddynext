@@ -126,7 +126,7 @@ do_action( 'buddynext_part_dm_message_before', $args );
 	<?php endif; ?>
 
 	<div class="bn-dm-msg__content">
-		<div class="bn-dm-bubble<?php echo $is_mine ? ' is-mine' : ''; ?>">
+		<div class="bn-dm-bubble<?php echo $is_mine ? ' is-mine' : ''; ?><?php echo $media ? ' bn-dm-bubble--has-media' : ''; ?>">
 			<?php if ( is_array( $reply_to ) && ! empty( $reply_to['body'] ) ) : ?>
 				<div class="bn-dm-bubble__quoted">
 					<?php echo esc_html( wp_trim_words( sanitize_text_field( $reply_to['body'] ), 15 ) ); ?>
@@ -134,18 +134,20 @@ do_action( 'buddynext_part_dm_message_before', $args );
 			<?php endif; ?>
 			<?php if ( $media ) : ?>
 				<?php
+				$bn_m_id    = (int) ( $media['id'] ?? 0 );
 				$bn_m_type  = (string) ( $media['type'] ?? 'file' );
 				$bn_m_thumb = (string) ( $media['thumbnail'] ?? '' );
 				$bn_m_url   = (string) ( $media['url'] ?? '' );
 				$bn_m_title = (string) ( $media['title'] ?? '' );
 				?>
 				<div class="bn-dm-bubble__media" data-type="<?php echo esc_attr( $bn_m_type ); ?>">
-					<?php if ( 'image' === $bn_m_type && '' !== $bn_m_thumb ) : ?>
-						<a href="<?php echo esc_url( '' !== $bn_m_url ? $bn_m_url : $bn_m_thumb ); ?>"<?php echo '' !== $bn_m_url ? ' target="_blank" rel="noopener"' : ''; ?>>
-							<img src="<?php echo esc_url( $bn_m_thumb ); ?>" alt="<?php echo esc_attr( $bn_m_title ); ?>" loading="lazy">
-						</a>
+					<?php if ( ( 'image' === $bn_m_type || 'video' === $bn_m_type ) && $bn_m_id > 0 && ( '' !== $bn_m_thumb || '' !== $bn_m_url ) ) : ?>
+						<?php // Canonical BN media tile: the shared lightbox (assets/js/media/lightbox.js) binds to .bn-media-tile[data-bn-media-id] and opens it in-page — the same uniform lightbox as feed/media tab, not a new browser tab. ?>
+						<button type="button" class="bn-media-tile bn-media-tile--<?php echo esc_attr( $bn_m_type ); ?>" data-bn-media-id="<?php echo esc_attr( (string) $bn_m_id ); ?>" data-media-type="<?php echo esc_attr( $bn_m_type ); ?>" data-media-src="<?php echo esc_url( '' !== $bn_m_url ? $bn_m_url : $bn_m_thumb ); ?>">
+							<img class="bn-media-tile__img" src="<?php echo esc_url( '' !== $bn_m_thumb ? $bn_m_thumb : $bn_m_url ); ?>" alt="<?php echo esc_attr( $bn_m_title ); ?>" loading="lazy" decoding="async">
+						</button>
 					<?php else : ?>
-						<a class="bn-dm-bubble__file" href="<?php echo esc_url( $bn_m_url ); ?>" target="_blank" rel="noopener">
+						<a class="bn-dm-bubble__file" href="<?php echo esc_url( '' !== ( (string) ( $media['download'] ?? '' ) ) ? (string) $media['download'] : $bn_m_url ); ?>" target="_blank" rel="noopener">
 							<?php buddynext_icon( 'paperclip' ); ?>
 							<span><?php echo esc_html( '' !== $bn_m_title ? $bn_m_title : __( 'Attachment', 'buddynext' ) ); ?></span>
 						</a>
