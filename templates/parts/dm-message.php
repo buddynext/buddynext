@@ -126,36 +126,49 @@ do_action( 'buddynext_part_dm_message_before', $args );
 	<?php endif; ?>
 
 	<div class="bn-dm-msg__content">
-		<div class="bn-dm-bubble<?php echo $is_mine ? ' is-mine' : ''; ?><?php echo $media ? ' bn-dm-bubble--has-media' : ''; ?>">
-			<?php if ( is_array( $reply_to ) && ! empty( $reply_to['body'] ) ) : ?>
-				<div class="bn-dm-bubble__quoted">
-					<?php echo esc_html( wp_trim_words( sanitize_text_field( $reply_to['body'] ), 15 ) ); ?>
-				</div>
-			<?php endif; ?>
-			<?php if ( $media ) : ?>
-				<?php
-				$bn_m_id    = (int) ( $media['id'] ?? 0 );
-				$bn_m_type  = (string) ( $media['type'] ?? 'file' );
-				$bn_m_thumb = (string) ( $media['thumbnail'] ?? '' );
-				$bn_m_url   = (string) ( $media['url'] ?? '' );
-				$bn_m_title = (string) ( $media['title'] ?? '' );
-				?>
-				<div class="bn-dm-bubble__media" data-type="<?php echo esc_attr( $bn_m_type ); ?>">
-					<?php if ( ( 'image' === $bn_m_type || 'video' === $bn_m_type ) && $bn_m_id > 0 && ( '' !== $bn_m_thumb || '' !== $bn_m_url ) ) : ?>
-						<?php // Canonical BN media tile: the shared lightbox (assets/js/media/lightbox.js) binds to .bn-media-tile[data-bn-media-id] and opens it in-page — the same uniform lightbox as feed/media tab, not a new browser tab. ?>
-						<button type="button" class="bn-media-tile bn-media-tile--<?php echo esc_attr( $bn_m_type ); ?>" data-bn-media-id="<?php echo esc_attr( (string) $bn_m_id ); ?>" data-media-type="<?php echo esc_attr( $bn_m_type ); ?>" data-media-src="<?php echo esc_url( '' !== $bn_m_url ? $bn_m_url : $bn_m_thumb ); ?>">
-							<img class="bn-media-tile__img" src="<?php echo esc_url( '' !== $bn_m_thumb ? $bn_m_thumb : $bn_m_url ); ?>" alt="<?php echo esc_attr( $bn_m_title ); ?>" loading="lazy" decoding="async">
-						</button>
-					<?php else : ?>
-						<a class="bn-dm-bubble__file" href="<?php echo esc_url( '' !== ( (string) ( $media['download'] ?? '' ) ) ? (string) $media['download'] : $bn_m_url ); ?>" target="_blank" rel="noopener">
-							<?php buddynext_icon( 'paperclip' ); ?>
-							<span><?php echo esc_html( '' !== $bn_m_title ? $bn_m_title : __( 'Attachment', 'buddynext' ) ); ?></span>
-						</a>
-					<?php endif; ?>
-				</div>
-			<?php endif; ?>
-			<?php echo $msg_body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already filtered via wp_kses above. ?>
-		</div>
+		<?php
+		// Media renders BARE (outside the text bubble): an image/video/audio/file
+		// gets its own presentation — never the blue chat-bubble wrap — matching
+		// how mainstream messengers show shared media. The text bubble below is
+		// emitted only when there is actual text or a quoted reply.
+		if ( $media ) :
+			$bn_m_id    = (int) ( $media['id'] ?? 0 );
+			$bn_m_type  = (string) ( $media['type'] ?? 'file' );
+			$bn_m_thumb = (string) ( $media['thumbnail'] ?? '' );
+			$bn_m_url   = (string) ( $media['url'] ?? '' );
+			$bn_m_dl    = (string) ( $media['download'] ?? '' );
+			$bn_m_title = (string) ( $media['title'] ?? '' );
+			?>
+			<div class="bn-dm-msg__media" data-type="<?php echo esc_attr( $bn_m_type ); ?>">
+				<?php if ( ( 'image' === $bn_m_type || 'video' === $bn_m_type ) && $bn_m_id > 0 && ( '' !== $bn_m_thumb || '' !== $bn_m_url ) ) : ?>
+					<?php // Canonical BN media tile so the shared lightbox (assets/js/media/lightbox.js) opens it in-page. data-bn-dm flags it as private DM media so the lightbox hides the social chrome (reactions/comments/favorite/share). ?>
+					<button type="button" class="bn-media-tile bn-media-tile--<?php echo esc_attr( $bn_m_type ); ?>" data-bn-media-id="<?php echo esc_attr( (string) $bn_m_id ); ?>" data-media-type="<?php echo esc_attr( $bn_m_type ); ?>" data-media-src="<?php echo esc_url( '' !== $bn_m_url ? $bn_m_url : $bn_m_thumb ); ?>" data-bn-dm="1">
+						<img class="bn-media-tile__img" src="<?php echo esc_url( '' !== $bn_m_thumb ? $bn_m_thumb : $bn_m_url ); ?>" alt="<?php echo esc_attr( $bn_m_title ); ?>" loading="lazy" decoding="async">
+					</button>
+				<?php elseif ( 'audio' === $bn_m_type && '' !== $bn_m_url ) : ?>
+					<audio class="bn-dm-msg__audio" controls preload="none" src="<?php echo esc_url( $bn_m_url ); ?>"></audio>
+				<?php else : ?>
+					<a class="bn-dm-msg__file" href="<?php echo esc_url( '' !== $bn_m_dl ? $bn_m_dl : $bn_m_url ); ?>" target="_blank" rel="noopener">
+						<?php buddynext_icon( 'paperclip' ); ?>
+						<span><?php echo esc_html( '' !== $bn_m_title ? $bn_m_title : __( 'Attachment', 'buddynext' ) ); ?></span>
+					</a>
+				<?php endif; ?>
+			</div>
+		<?php endif; ?>
+		<?php
+		$bn_has_quote = is_array( $reply_to ) && ! empty( $reply_to['body'] );
+		$bn_has_text  = '' !== trim( (string) $msg_body );
+		if ( $bn_has_quote || $bn_has_text ) :
+			?>
+			<div class="bn-dm-bubble<?php echo $is_mine ? ' is-mine' : ''; ?>">
+				<?php if ( $bn_has_quote ) : ?>
+					<div class="bn-dm-bubble__quoted">
+						<?php echo esc_html( wp_trim_words( sanitize_text_field( $reply_to['body'] ), 15 ) ); ?>
+					</div>
+				<?php endif; ?>
+				<?php echo $msg_body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already filtered via wp_kses above. ?>
+			</div>
+		<?php endif; ?>
 
 		<?php buddynext_get_template( 'parts/dm-msg-actions.php' ); ?>
 

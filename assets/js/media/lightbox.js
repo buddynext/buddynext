@@ -90,6 +90,9 @@
 			src:    tile.getAttribute( 'data-media-src' ) || ( img ? img.src : '' ),
 			poster: img ? img.src : '',
 			alt:    tile.getAttribute( 'aria-label' ) || '',
+			// Private DM media: the lightbox hides social chrome (reactions,
+			// comments, favorite, share) and skips those REST calls.
+			dm:     '1' === tile.getAttribute( 'data-bn-dm' ),
 		};
 	}
 
@@ -111,6 +114,9 @@
 		el.className = 'bn-lightbox__media';
 		stage.appendChild( el );
 		overlay.classList.toggle( 'bn-lightbox--has-nav', gallery.length > 1 );
+		// Private DM media: switch the lightbox into its slimmed (no social
+		// chrome) mode for this item.
+		overlay.classList.toggle( 'bn-lightbox--dm', !! item.dm );
 	}
 
 	// ── Panel ───────────────────────────────────────────────────────────────
@@ -118,6 +124,9 @@
 
 	function loadPanel( id ) {
 		current = id;
+		// Private DM media has no social layer — skip reactions/comments/favorite/
+		// views entirely (the chrome is also hidden via .bn-lightbox--dm).
+		var isDM = !! ( gallery[ index ] && gallery[ index ].dm );
 		// reset transient state
 		resetReactions();
 		clear( panel.author );
@@ -141,6 +150,10 @@
 				if ( panel.open ) { panel.open.setAttribute( 'href', m.file_url ); }
 			}
 		} ).catch( function () {} );
+
+		// DM media: no favorite / reactions / comments / view tracking. The image
+		// and author (from the meta fetch above) are all that show.
+		if ( isDM ) { return; }
 
 		// Favorite status — reflect the real state on open (the reset above is
 		// just the optimistic default until this resolves).

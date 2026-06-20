@@ -1130,44 +1130,71 @@
 }
 
 /* ── Bubble media attachment ─────────────────────────────────────────────── */
-.bn-dm-bubble__media {
+/* Bare DM media — rendered OUTSIDE the text bubble (no blue chat-bubble wrap).
+   image/video open the shared lightbox; audio plays inline; files are a chip. */
+.bn-dm-msg__media {
 	margin: 0;
+	max-width: 260px;
 }
 
-/* When text follows the media in the same bubble, restore a small gap. */
-.bn-dm-bubble__media:not(:last-child) {
-	margin-bottom: var(--bn-s2);
+/* When a text bubble follows the media, add a small gap. */
+.bn-dm-msg__media:not(:last-child) {
+	margin-bottom: var(--bn-s1);
 }
 
-/* The image IS the tile: the shared lightbox (assets/js/media/lightbox.js)
-   binds to .bn-media-tile[data-bn-media-id] and opens it in-page. Strip the
-   default <button> chrome so it never frames the media with padding, border,
-   or a background band. */
-.bn-dm-bubble__media .bn-media-tile {
+/* Right-align media on the sender's own messages, same side as the bubble. */
+.bn-dm-msg.is-mine .bn-dm-msg__media {
+	margin-inline-start: auto;
+}
+
+/* The image/video IS the lightbox tile (assets/js/media/lightbox.js binds to
+   .bn-media-tile[data-bn-media-id]) — but shown at its NATURAL size, not the
+   feed grid's forced 1:1 square (.bn-media-tile in bn-media.css). Strip the
+   default <button> chrome and let the image size itself. */
+.bn-dm-msg__media .bn-media-tile {
 	display: block;
+	width: auto;
 	margin: 0;
 	padding: 0;
 	border: 0;
 	background: none;
-	line-height: 0;
+	aspect-ratio: auto;
+	overflow: hidden;
 	cursor: pointer;
+	line-height: 0;
 	border-radius: var(--bn-r-md);
 }
 
-.bn-dm-bubble__media img,
-.bn-dm-bubble__media .bn-media-tile__img {
+.bn-dm-msg__media .bn-media-tile__img {
 	display: block;
-	max-width: 240px;
-	max-height: 240px;
 	width: auto;
 	height: auto;
+	max-width: 260px;
+	max-height: 320px;
+	object-fit: contain;
 	border-radius: var(--bn-r-md);
 }
 
-/* A media-bearing bubble shouldn't wrap the image in a thick band of bubble
-   colour top and bottom — tighten the padding so the media sits snug. */
-.bn-dm-bubble--has-media {
-	padding: var(--bn-s1);
+/* Inline audio player + file chip, bare (no bubble). */
+.bn-dm-msg__audio {
+	width: 260px;
+	max-width: 100%;
+}
+
+.bn-dm-msg__file {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-sunken);
+	color: inherit;
+	text-decoration: none;
+}
+
+.bn-dm-msg__file:hover {
+	border-color: var(--bn-accent);
 }
 
 .bn-dm-bubble__file {

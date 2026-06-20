@@ -357,6 +357,18 @@ body.bn-lightbox-open { overflow: hidden; }
 }
 .bn-lightbox__comment-input:focus-visible { outline: none; border-color: var( --bn-accent, oklch( 58% 0.13 264 ) ); }
 
+/* Private DM media: the shared lightbox drops its social layer — no reactions,
+   favorite, share, or comments (these don't apply to a one-to-one DM image).
+   The media stage, author and download/open actions stay. Driven by
+   .bn-lightbox--dm, set from the tile's data-bn-dm flag in lightbox.js. */
+.bn-lightbox--dm .bn-lightbox__reactions,
+.bn-lightbox--dm .bn-lightbox__comments,
+.bn-lightbox--dm .bn-lightbox__comment-form,
+.bn-lightbox--dm [data-bn-lb-favorite],
+.bn-lightbox--dm [data-bn-lb-share] {
+	display: none !important;
+}
+
 [data-theme="dark"] .bn-lightbox__media,
 [data-theme="dark"] .bn-lightbox__media-wrap video { color-scheme: dark; }
 

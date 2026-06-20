@@ -316,27 +316,25 @@ function buildMessageNode( msg, viewer ) {
 	const content = document.createElement( 'div' );
 	content.className = 'bn-dm-msg__content';
 
-	const bubble = document.createElement( 'div' );
-	bubble.className = 'bn-dm-bubble' + ( isMine ? ' is-mine' : '' );
-
-	// Private media attachment (mvs media_share), rendered above the text to
-	// match templates/parts/dm-message.php.
+	// Media renders BARE (outside the text bubble) — image/video/audio/file get
+	// their own presentation, never the blue chat-bubble wrap. Matches
+	// templates/parts/dm-message.php.
 	const media = normalizeMedia( msg );
 	if ( media ) {
 		const wrapM = document.createElement( 'div' );
-		wrapM.className = 'bn-dm-bubble__media';
+		wrapM.className = 'bn-dm-msg__media';
 		wrapM.dataset.type = media.type;
 		if ( ( 'image' === media.type || 'video' === media.type ) && media.id && ( media.thumbnail || media.url ) ) {
-			// Render the canonical BN media tile so the shared lightbox
-			// (assets/js/media/lightbox.js, already present on every BN front
-			// page) opens it IN-PAGE — the same uniform lightbox as feed/media
-			// tab — instead of opening the raw signed URL in a new browser tab.
+			// Canonical BN media tile so the shared lightbox
+			// (assets/js/media/lightbox.js) opens it IN-PAGE. data-bn-dm flags it
+			// as private DM media so the lightbox hides the social chrome.
 			const tile = document.createElement( 'button' );
 			tile.type = 'button';
 			tile.className = 'bn-media-tile bn-media-tile--' + media.type;
 			tile.setAttribute( 'data-bn-media-id', String( media.id ) );
 			tile.setAttribute( 'data-media-type', media.type );
 			tile.setAttribute( 'data-media-src', media.url || media.thumbnail );
+			tile.setAttribute( 'data-bn-dm', '1' );
 			const img = document.createElement( 'img' );
 			img.className = 'bn-media-tile__img';
 			img.src = media.thumbnail || media.url;
@@ -344,10 +342,17 @@ function buildMessageNode( msg, viewer ) {
 			img.loading = 'lazy';
 			tile.appendChild( img );
 			wrapM.appendChild( tile );
+		} else if ( 'audio' === media.type && media.url ) {
+			const audio = document.createElement( 'audio' );
+			audio.className = 'bn-dm-msg__audio';
+			audio.controls = true;
+			audio.preload = 'none';
+			audio.src = media.url;
+			wrapM.appendChild( audio );
 		} else if ( media.url ) {
 			const a = document.createElement( 'a' );
-			a.className = 'bn-dm-bubble__file';
-			a.href = media.url;
+			a.className = 'bn-dm-msg__file';
+			a.href = media.downloadUrl || media.url;
 			a.target = '_blank';
 			a.rel = 'noopener';
 			const span = document.createElement( 'span' );
@@ -356,15 +361,20 @@ function buildMessageNode( msg, viewer ) {
 			wrapM.appendChild( a );
 		}
 		if ( wrapM.firstChild ) {
-			bubble.classList.add( 'bn-dm-bubble--has-media' );
-			bubble.appendChild( wrapM );
+			content.appendChild( wrapM );
 		}
 	}
 
-	// Plain text + <br> via DOM nodes (no innerHTML) — a sent bubble can never
-	// inject markup. The server bubble allows br/em/strong via wp_kses.
-	appendText( bubble, body );
-	content.appendChild( bubble );
+	// Text bubble — emitted only when there is actual text (a media-only message
+	// is just the bare media, no empty blue bubble).
+	if ( body && '' !== body.trim() ) {
+		const bubble = document.createElement( 'div' );
+		bubble.className = 'bn-dm-bubble' + ( isMine ? ' is-mine' : '' );
+		// Plain text + <br> via DOM nodes (no innerHTML) — a sent bubble can
+		// never inject markup.
+		appendText( bubble, body );
+		content.appendChild( bubble );
+	}
 
 	// Hover action bar — cloned from the server-rendered <template> so the icon,
 	// label, and markup have a single source of truth and reply works on
