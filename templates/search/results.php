@@ -45,8 +45,35 @@ $raw_query = isset( $_GET['q'] ) ? sanitize_text_field( wp_unslash( $_GET['q'] )
 // runs no hashtag query, and a bookmarked ?type=hashtags URL falls back to All.
 $bn_hashtags_on = buddynext_feature_enabled( 'hashtags' );
 
-// Allowed tabs.
-$allowed_tabs = array( 'all', 'members', 'posts', 'spaces', 'hashtags', 'media' );
+// Resolve the search service early so we can discover which extra object types
+// are indexed (jobs via Career Board, listings via Listora, …) and give each a
+// tab + section automatically — mirroring SearchService::grouped_search()'s
+// dynamic type discovery so addon content is never silently unsearchable.
+$bn_search_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'search' ) : new \BuddyNext\Search\SearchService();
+
+// Core index types already rendered by bespoke sections (members/posts/spaces
+// resolve to user/post/space; media is a post pseudo-type; hashtags live outside
+// the index). Everything else indexed is an "extra" type surfaced generically.
+$bn_core_index_types = array( 'user', 'post', 'space', 'media' );
+$bn_extra_types      = array_values( array_diff( $bn_search_service->available_types(), $bn_core_index_types ) );
+
+// Human, pluralised labels for extra-type tabs/sections. Addons can name their
+// own type via the filter; the fallback title-cases the slug.
+$bn_type_labels = (array) apply_filters(
+	'buddynext_search_type_labels',
+	array(
+		'job'     => __( 'Jobs', 'buddynext' ),
+		'listing' => __( 'Listings', 'buddynext' ),
+	)
+);
+$bn_label_for   = static function ( string $slug ) use ( $bn_type_labels ): string {
+	return isset( $bn_type_labels[ $slug ] )
+		? (string) $bn_type_labels[ $slug ]
+		: ucwords( str_replace( array( '-', '_' ), ' ', $slug ) );
+};
+
+// Allowed tabs = core + any extra indexed types.
+$allowed_tabs = array_merge( array( 'all', 'members', 'posts', 'spaces', 'hashtags', 'media' ), $bn_extra_types );
 if ( ! $bn_hashtags_on ) {
 	$allowed_tabs = array_values( array_diff( $allowed_tabs, array( 'hashtags' ) ) );
 }
@@ -146,6 +173,7 @@ $bn_res_posts     = array( 'items' => array() );
 $bn_res_spaces    = array( 'items' => array() );
 $results_hashtags = array();
 $results_media    = array();
+$bn_res_extra     = array(); // slug => SearchService result set, for extra indexed types.
 $total_counts     = array(
 	'all'      => 0,
 	'members'  => 0,
@@ -154,6 +182,9 @@ $total_counts     = array(
 	'hashtags' => 0,
 	'media'    => 0,
 );
+foreach ( $bn_extra_types as $bn_xt ) {
+	$total_counts[ $bn_xt ] = 0;
+}
 
 if ( '' !== $raw_query ) {
 	$viewer_id = get_current_user_id();
@@ -176,7 +207,8 @@ if ( '' !== $raw_query ) {
 	// into the service). The advanced member filters only target the `user` type,
 	// so this split loses nothing.
 	// ------------------------------------------------------------------ //
-	$bn_search_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'search' ) : new \BuddyNext\Search\SearchService();
+	// $bn_search_service was resolved at the top of the template (needed there for
+	// available_types() discovery) and is reused here.
 
 	/**
 	 * Adapt a SearchService item array into the stdClass shape the
@@ -245,8 +277,17 @@ if ( '' !== $raw_query ) {
 		$total_counts['media'] = (int) ( $bn_media_res['total'] ?? count( $results_media ) );
 	}
 
-	// phpcs:ignore Squiz.PHP.DisallowMultipleAssignments.Found -- single assignment; sniff mis-fires on the multi-key array_sum.
-	$total_counts['all'] = array_sum( array( $total_counts['members'], $total_counts['posts'], $total_counts['spaces'], $total_counts['hashtags'], $total_counts['media'] ) );
+	// Extra indexed types (jobs, listings, …): generic fetch + count. The active
+	// tab paginates ($bn_per_page); inactive types fetch 5 only to feed the badge.
+	foreach ( $bn_extra_types as $bn_xt ) {
+		$bn_pp_x                = ( $bn_xt === $active_tab ) ? $bn_per_page : 5;
+		$bn_pg_x                = ( $bn_xt === $active_tab ) ? $bn_spage : 1;
+		$bn_res_extra[ $bn_xt ] = $bn_search_service->search( $raw_query, $bn_xt, $bn_pp_x, $bn_pg_x, $viewer_id );
+		$total_counts[ $bn_xt ] = (int) ( $bn_res_extra[ $bn_xt ]['total'] ?? count( (array) ( $bn_res_extra[ $bn_xt ]['items'] ?? array() ) ) );
+	}
+
+	// Sum every per-type count (core + extras) for the "All" badge.
+	$total_counts['all'] = array_sum( array_diff_key( $total_counts, array( 'all' => 0 ) ) );
 }
 
 /**
@@ -333,6 +374,13 @@ $type_tabs = array(
 );
 if ( ! $bn_hashtags_on ) {
 	unset( $type_tabs['hashtags'] );
+}
+// Append a tab for each extra indexed type (jobs, listings, …).
+foreach ( $bn_extra_types as $bn_xt ) {
+	$type_tabs[ $bn_xt ] = array(
+		'label' => $bn_label_for( $bn_xt ),
+		'count' => (int) ( $total_counts[ $bn_xt ] ?? 0 ),
+	);
 }
 ?>
 
@@ -506,9 +554,29 @@ $bn_search_ctx = array(
 				}
 				?>
 
+				<!-- Extra indexed types (jobs, listings, …) rendered generically -->
+				<?php
+				foreach ( $bn_extra_types as $bn_xt ) :
+					if ( 'all' === $active_tab || $bn_xt === $active_tab ) {
+						buddynext_get_template(
+							'parts/search-result-section-generic.php',
+							array(
+								'items'        => (array) ( $bn_res_extra[ $bn_xt ]['items'] ?? array() ),
+								'type'         => $bn_xt,
+								'label'        => $bn_label_for( $bn_xt ),
+								'query'        => $raw_query,
+								'active_type'  => $active_tab,
+								'total_count'  => (int) ( $total_counts[ $bn_xt ] ?? 0 ),
+								'highlight_fn' => $highlight,
+							)
+						);
+					}
+				endforeach;
+				?>
+
 				<!-- Pagination (single-type tabs only; "All" shows fixed previews) -->
 				<?php
-				if ( in_array( $active_tab, array( 'members', 'posts', 'spaces' ), true ) ) :
+				if ( in_array( $active_tab, array_merge( array( 'members', 'posts', 'spaces' ), $bn_extra_types ), true ) ) :
 					$bn_total_active = (int) $total_counts[ $active_tab ];
 					$bn_total_pages  = (int) ceil( $bn_total_active / $bn_per_page );
 					if ( $bn_total_pages > 1 ) :

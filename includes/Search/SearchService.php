@@ -145,6 +145,37 @@ class SearchService {
 	}
 
 	/**
+	 * List the distinct object types currently present in the search index.
+	 *
+	 * Mirrors the discovery grouped_search() uses so callers (e.g. the web
+	 * /search results template) can surface a tab + section for every indexed
+	 * type — including addon types like `job` (Career Board) or `listing`
+	 * (Listora) — without hard-coding a type list. Cached 5 minutes under the
+	 * same key grouped_search() warms.
+	 *
+	 * @return string[] Sanitized object_type slugs (may be empty).
+	 */
+	public function available_types(): array {
+		global $wpdb;
+
+		$types = wp_cache_get( 'search_object_types', 'buddynext' );
+		if ( false === $types ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$types = $wpdb->get_col( "SELECT DISTINCT object_type FROM {$wpdb->prefix}bn_search_index" );
+			wp_cache_set( 'search_object_types', $types, 'buddynext', 300 );
+		}
+
+		return array_values(
+			array_filter(
+				array_map(
+					static fn( $t ): string => sanitize_key( (string) $t ),
+					(array) $types
+				)
+			)
+		);
+	}
+
+	/**
 	 * Remove an object from the search index.
 	 *
 	 * @param string $object_type Type identifier.
