@@ -38,6 +38,62 @@ function escapeHtml( str ) {
 }
 
 /**
+ * Rebuild a post card's reaction-summary chip strip after a toggle.
+ *
+ * The chip strip (templates/parts/post-reaction-summary.php) is SSR-only with no
+ * Interactivity bindings, so a client-side react/un-react left its per-type
+ * counts stale until reload. The /reactions/toggle response now returns the
+ * authoritative `count` plus a per-type `summary` ({ slug, count, emoji }), so
+ * rebuild the chips in place: replace the trigger's chip spans, refresh the
+ * total, and hide the strip when the last reaction is removed.
+ *
+ * A post that had zero reactions has no SSR strip to update — its first chip
+ * appears on the next render. Every post that already shows reactions (the
+ * toggle path the bug reports) has the strip and is handled here.
+ *
+ * @param {Element|null} cardEl The .bn-post-card being reacted on.
+ * @param {Object}       body   The /reactions/toggle response body ({ count, summary }).
+ * @return {void}
+ */
+function updateReactionSummary( cardEl, body ) {
+	if ( ! cardEl ) return;
+
+	const strip = cardEl.querySelector( '.bn-post-card__reaction-summary' );
+	const total = Number( body && body.count ) || 0;
+
+	if ( total <= 0 ) {
+		if ( strip ) strip.hidden = true; // Last reaction removed.
+		return;
+	}
+	if ( ! strip ) return; // 0 → 1 with no SSR strip: appears on next render.
+
+	strip.hidden = false;
+	const trigger = strip.querySelector( '.bn-post-card__reactors-trigger' );
+	if ( ! trigger ) return;
+
+	const rows = Array.isArray( body.summary ) ? body.summary : [];
+	let chips = '';
+	rows.forEach( ( row ) => {
+		const count = Number( row && row.count ) || 0;
+		if ( count < 1 ) return;
+		// row.emoji is server-rendered, sanitized emoji markup (IconService).
+		const emoji = row.emoji
+			? String( row.emoji )
+			: '<span class="bn-post-card__reaction-fallback">' + escapeHtml( row.slug ) + '</span>';
+		chips +=
+			'<span class="bn-post-card__summary-chip bn-post-card__summary-chip--reaction">' +
+			emoji + ' ' + count + '</span>';
+	} );
+	if ( ! chips ) {
+		// No per-type rows (fallback): show the aggregate total only.
+		chips = '<span class="bn-post-card__summary-chip">' + total + '</span>';
+	}
+
+	trigger.innerHTML = chips;
+	trigger.setAttribute( 'data-bn-count', String( total ) );
+}
+
+/**
  * Maximum visual nesting depth. Replies deeper than this are flattened
  * to depth = MAX_DEPTH with an "@parent" mention prefix injected by the
  * server so the conversation stays readable on narrow screens.
@@ -1079,6 +1135,9 @@ store( 'buddynext/post-card', {
 		* setReaction( event ) {
 			const ctx    = getContext();
 			const optEl  = event.target.closest( '[data-reaction-type]' );
+			// Capture the card now — after the async yield, the picker option may
+			// be gone; the summary chip strip lives on this card element.
+			const cardEl = event.target.closest( '.bn-post-card' );
 			const type   = optEl?.dataset.reactionType || 'like';
 			// The picker option carries the translated reaction label (title /
 			// aria-label), so the React button label can mirror the icon without
@@ -1106,6 +1165,11 @@ store( 'buddynext/post-card', {
 				if ( ! res.ok ) {
 					ctx.reactionType  = prev; // Revert on failure.
 					ctx.reactionLabel = prevLbl;
+				} else {
+					// Rebuild the SSR-only reaction-summary chips from the
+					// authoritative count + per-type breakdown so they reflect
+					// the toggle without a page reload.
+					updateReactionSummary( cardEl, res.data );
 				}
 			} catch ( _e ) {
 				ctx.reactionType  = prev; // Revert on error.

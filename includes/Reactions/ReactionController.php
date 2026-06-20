@@ -141,15 +141,61 @@ class ReactionController extends BaseRestController {
 		}
 
 		$has_reacted = $service->has_reacted( $user_id, $object_type, $object_id );
+		$count       = $service->count( $object_type, $object_id );
 
 		return new WP_REST_Response(
 			array(
 				'has_reacted' => $has_reacted,
 				'emoji'       => $has_reacted ? $service->get_user_emoji( $user_id, $object_type, $object_id ) : null,
-				'count'       => $service->count( $object_type, $object_id ),
+				'count'       => $count,
+				// Per-type breakdown so the client can rebuild the reaction-summary
+				// chip strip after a toggle without a reload. Mirrors the SSR build
+				// in templates/partials/post-card.php and carries the rendered emoji
+				// markup so the client renders identical chips.
+				'summary'     => $this->reaction_summary( $service, $object_type, $object_id, $count ),
 			),
 			200
 		);
+	}
+
+	/**
+	 * Build the per-type reaction summary for the chip strip.
+	 *
+	 * Mirrors the SSR build in templates/partials/post-card.php (top_reactions()
+	 * order + get_counts() totals) and attaches the rendered emoji markup so the
+	 * client can rebuild the .bn-post-card__reaction-summary chips after a toggle
+	 * without re-rendering the whole card. Returns [] when the target has none.
+	 *
+	 * @param ReactionService $service     Reaction service.
+	 * @param string          $object_type Engagement object type.
+	 * @param int             $object_id   Object ID.
+	 * @param int             $count       Current total reaction count.
+	 * @return array<int,array{slug:string,count:int,emoji:string}>
+	 */
+	private function reaction_summary( ReactionService $service, string $object_type, int $object_id, int $count ): array {
+		if ( $count < 1 ) {
+			return array();
+		}
+
+		$order   = $service->top_reactions( $object_type, $object_id, 3 );
+		$counts  = $service->get_counts( $object_type, $object_id );
+		$summary = array();
+
+		foreach ( $order as $slug ) {
+			$slug = sanitize_key( (string) $slug );
+			if ( '' === $slug ) {
+				continue;
+			}
+			$summary[] = array(
+				'slug'  => $slug,
+				'count' => (int) ( $counts[ $slug ] ?? 0 ),
+				'emoji' => function_exists( 'buddynext_get_emoji' )
+					? buddynext_get_emoji( $slug, 'bn-post-card__reaction-emoji', '' )
+					: '',
+			);
+		}
+
+		return $summary;
 	}
 
 	/**
