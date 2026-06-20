@@ -89,3 +89,25 @@ action. If the list is genuinely empty after a 200, trace the post-`yield` appen
 
 Doc impact: the reactions doc uses `reaction-picker.png` (the picker action) as its close-up;
 no empty-popover image was shipped (would read as broken). Revisit once confirmed in a real browser.
+
+### RESOLVED — reactor popover was a real bug (wrong list-container scope)
+
+Update: the owner confirmed in a real browser that the popover showed only the
+count ("N reactions") with no people — so this was a **real defect**, not the
+headless quirk first suspected. Root cause, verified live:
+
+- Clicking the reactor trigger opened the popover but fired **zero**
+  `GET /reactions/list` requests.
+- In `assets/js/feed/store.js::toggleReactors()`, the list container was resolved
+  as `const card = getElement()?.ref; const listEl = card.querySelector('.bn-reactors-popover__list')`.
+  `getElement().ref` is the **trigger button**, but the popover (and its `<ul>`)
+  is a **sibling** of the button inside `.bn-post-card__reactors-wrap` — so
+  `listEl` was always `null`, hitting `if (!listEl) return;` **before the fetch**.
+  The list therefore never loaded on any post, anywhere.
+
+Fix: scope the lookup to the enclosing wrap —
+`const wrap = (getElement()?.ref || trigger)?.closest('.bn-post-card__reactors-wrap'); const listEl = wrap?.querySelector('.bn-reactors-popover__list');`
+
+Verified live after the fix: one `/reactions/list` request fires, the popover
+lists all reactors (avatar + name + their emoji). Doc image `reactors-popover.webp`
+added to `community/04-reactions`.

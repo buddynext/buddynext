@@ -138,10 +138,6 @@ in its doc:
 
 Plus `profile-edit.png` (edit profile / avatar / cover) shipped earlier the same day.
 
-**Still open (one item):** the **reactor "see who reacted" popover** could not be captured —
-under headless it returns the reactor list (200) but renders an empty list and auto-closes
-(a hydration timing quirk, same class as the earlier hashtag false-positive). Logged in
-`FLOW-VERIFICATION-2026-06-20.md` for real-browser confirmation; no empty-popover image was
-shipped (it would read as broken). The reactions doc uses `reaction-picker.png` meanwhile.
+**Resolved:** the reactor "see who reacted" popover was a real bug (list container scoped to the trigger button instead of its `.bn-post-card__reactors-wrap`, so the list never fetched). Fixed in `assets/js/feed/store.js::toggleReactors()` and captured as `reactors-popover.webp` in community/04-reactions. See FLOW-VERIFICATION-2026-06-20.md.
 
 Library now 66 images; 130/130 docs covered; every image referenced; no broken refs.

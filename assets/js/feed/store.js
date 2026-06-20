@@ -1155,11 +1155,16 @@ store( 'buddynext/post-card', {
 			if ( ! willOpen || ctx.reactorsLoaded ) {
 				return;
 			}
-			// Resolve the SSR list container scoped to THIS card so a feed of
-			// many cards never cross-fills. The trigger carries the object id.
+			// Resolve the SSR list container scoped to THIS reactor wrap so a
+			// feed of many cards never cross-fills. The trigger carries the
+			// object id. The popover (and its list) is a SIBLING of the trigger
+			// button inside .bn-post-card__reactors-wrap — getElement().ref is
+			// the button itself, whose subtree does NOT contain the list, so
+			// scope the lookup to the enclosing wrap instead.
 			const trigger = event && event.target ? event.target.closest( '[data-bn-object-id]' ) : null;
-			const card    = getElement()?.ref || null;
-			const listEl  = card ? card.querySelector( '.bn-reactors-popover__list' ) : null;
+			const ref     = getElement()?.ref || trigger || null;
+			const wrap    = ref ? ref.closest( '.bn-post-card__reactors-wrap' ) : null;
+			const listEl  = wrap ? wrap.querySelector( '.bn-reactors-popover__list' ) : null;
 			if ( ! listEl ) {
 				return;
 			}

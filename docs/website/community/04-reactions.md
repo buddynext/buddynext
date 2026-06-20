@@ -6,6 +6,8 @@ Reactions let members respond to a post or comment with an emoji instead of typi
 
 ![The reaction picker open on a post — Like, Love, Haha, Wow, Sad and Angry](../images/reaction-picker.webp)
 
+![The "see who reacted" popover — each member who reacted, with their avatar, name and the emoji they chose](../images/reactors-popover.webp)
+
 ![Engagement - Reactions admin tab where the site owner configures the available reaction set](../images/admin-reactions.webp)
 
 ## Why use it
