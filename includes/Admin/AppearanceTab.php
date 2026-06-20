@@ -50,6 +50,14 @@ class AppearanceTab {
 		if ( ! empty( $_GET['bn_appearance'] ) ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Appearance saved.', 'buddynext' ) . '</p></div>';
 		}
+		$bn_logo_err = isset( $_GET['bn_error'] ) ? sanitize_key( wp_unslash( $_GET['bn_error'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( 'logo_size' === $bn_logo_err ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Logo not saved: file exceeds the 2MB limit.', 'buddynext' ) . '</p></div>';
+		} elseif ( 'logo_type' === $bn_logo_err ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Logo not saved: only PNG, JPEG, WebP, or SVG files are allowed.', 'buddynext' ) . '</p></div>';
+		} elseif ( 'logo_upload' === $bn_logo_err ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Logo not saved: the upload failed. Please try again.', 'buddynext' ) . '</p></div>';
+		}
 
 		$logo   = (string) get_option( 'buddynext_logo_url', '' );
 		$theme  = (string) get_option( 'buddynext_default_theme', 'auto' );
@@ -125,26 +133,31 @@ class AppearanceTab {
 		$css = isset( $_POST['bn_custom_css'] ) ? (string) wp_unslash( $_POST['bn_custom_css'] ) : '';
 		update_option( 'buddynext_custom_css', $css );
 
-		// Logo: remove takes precedence, then a new upload.
+		// Logo: remove takes precedence, then a new upload. A failed upload must NOT
+		// report success — carry its error code so the page shows why it was rejected
+		// (the other settings above already saved, so keep bn_appearance too).
+		$logo_error = '';
 		if ( ! empty( $_POST['bn_remove_logo'] ) ) {
 			delete_option( 'buddynext_logo_url' );
 		} elseif ( ! empty( $_FILES['bn_logo_file']['name'] ) ) {
 			$url = $this->handle_logo_upload();
-			if ( null !== $url ) {
+			if ( is_wp_error( $url ) ) {
+				$logo_error = $url->get_error_code();
+			} else {
 				update_option( 'buddynext_logo_url', $url );
 			}
 		}
 
-		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'          => 'buddynext',
-					'tab'           => 'appearance',
-					'bn_appearance' => '1',
-				),
-				admin_url( 'admin.php' )
-			)
+		$redirect_args = array(
+			'page'          => 'buddynext',
+			'tab'           => 'appearance',
+			'bn_appearance' => '1',
 		);
+		if ( '' !== $logo_error ) {
+			$redirect_args['bn_error'] = $logo_error;
+		}
+
+		wp_safe_redirect( add_query_arg( $redirect_args, admin_url( 'admin.php' ) ) );
 		exit;
 	}
 
@@ -154,25 +167,25 @@ class AppearanceTab {
 	 * A single site asset (not per-member), so a plain wp_handle_upload is the
 	 * right tool — no attachment row, no ImageStorageService variations.
 	 *
-	 * @return string|null URL on success, null on failure.
+	 * @return string|\WP_Error URL on success, WP_Error (code logo_size|logo_type|logo_upload) on failure.
 	 */
-	private function handle_logo_upload(): ?string {
+	private function handle_logo_upload() {
 		// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.NonceVerification.Missing -- nonce verified by check_admin_referer() in handle_save() before this runs.
 		$file = isset( $_FILES['bn_logo_file'] ) && is_array( $_FILES['bn_logo_file'] ) ? $_FILES['bn_logo_file'] : array();
 		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.NonceVerification.Missing
 
 		if ( UPLOAD_ERR_OK !== (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) ) {
-			return null;
+			return new \WP_Error( 'logo_upload', __( 'Logo upload failed.', 'buddynext' ) );
 		}
 		if ( (int) ( $file['size'] ?? 0 ) > 2 * 1024 * 1024 ) {
-			return null;
+			return new \WP_Error( 'logo_size', __( 'Logo exceeds the 2MB limit.', 'buddynext' ) );
 		}
 
 		$check   = wp_check_filetype_and_ext( (string) ( $file['tmp_name'] ?? '' ), (string) ( $file['name'] ?? '' ) );
 		$allowed = array( 'image/png', 'image/jpeg', 'image/webp', 'image/svg+xml' );
 		$type    = (string) ( $check['type'] ?: ( $file['type'] ?? '' ) ); // phpcs:ignore Universal.Operators.DisallowShortTernary.Found -- SVG often returns empty from fileinfo.
 		if ( ! in_array( $type, $allowed, true ) ) {
-			return null;
+			return new \WP_Error( 'logo_type', __( 'Logo file type not allowed.', 'buddynext' ) );
 		}
 
 		if ( ! function_exists( 'wp_handle_upload' ) ) {
@@ -188,6 +201,9 @@ class AppearanceTab {
 		);
 
 		$result = wp_handle_upload( $data, array( 'test_form' => false ) );
-		return isset( $result['url'] ) && ! isset( $result['error'] ) ? esc_url_raw( (string) $result['url'] ) : null;
+		if ( isset( $result['url'] ) && ! isset( $result['error'] ) ) {
+			return esc_url_raw( (string) $result['url'] );
+		}
+		return new \WP_Error( 'logo_upload', __( 'Logo upload failed.', 'buddynext' ) );
 	}
 }

@@ -57,6 +57,12 @@ class MemberEditForm {
 			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Cover photo not saved: file exceeds the 5MB limit.', 'buddynext' ) . '</p></div>';
 		} elseif ( 'cover_type' === $bn_error ) {
 			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Cover photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ) . '</p></div>';
+		} elseif ( 'email_taken' === $bn_error ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Not saved: that email address is already in use by another account.', 'buddynext' ) . '</p></div>';
+		} elseif ( 'email_invalid' === $bn_error ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Not saved: please enter a valid email address.', 'buddynext' ) . '</p></div>';
+		} elseif ( 'role_invalid' === $bn_error ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Not saved: the selected role is not valid.', 'buddynext' ) . '</p></div>';
 		}
 		?>
 

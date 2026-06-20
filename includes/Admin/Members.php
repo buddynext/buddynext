@@ -644,30 +644,41 @@ class Members extends AdminPageBase {
 			);
 		}
 
-		// Handle email update.
+		// Handle email update. A bad or already-taken email must surface an error
+		// rather than silently skipping and reporting "saved" (same early-exit
+		// pattern the slug-taken check below uses).
 		if ( isset( $_POST['bn_user_email'] ) && '' !== $_POST['bn_user_email'] ) {
 			$new_email = sanitize_email( wp_unslash( $_POST['bn_user_email'] ) );
-			if ( is_email( $new_email ) && $new_email !== $wp_user->user_email ) {
-				$existing_owner = email_exists( $new_email );
-				if ( false === $existing_owner || (int) $existing_owner === $user_id ) {
-					wp_update_user(
-						array(
-							'ID'         => $user_id,
-							'user_email' => $new_email,
-						)
-					);
+			if ( '' !== $new_email && $new_email !== $wp_user->user_email ) {
+				if ( ! is_email( $new_email ) ) {
+					wp_safe_redirect( add_query_arg( 'bn_error', 'email_invalid', $redirect_url ) );
+					exit;
 				}
+				$existing_owner = email_exists( $new_email );
+				if ( false !== $existing_owner && (int) $existing_owner !== $user_id ) {
+					wp_safe_redirect( add_query_arg( 'bn_error', 'email_taken', $redirect_url ) );
+					exit;
+				}
+				wp_update_user(
+					array(
+						'ID'         => $user_id,
+						'user_email' => $new_email,
+					)
+				);
 			}
 		}
 
-		// Handle role update.
+		// Handle role update. An invalid role must surface an error rather than
+		// silently skipping and reporting success.
 		if ( isset( $_POST['bn_user_role'] ) && '' !== $_POST['bn_user_role'] ) {
 			$new_role    = sanitize_key( wp_unslash( $_POST['bn_user_role'] ) );
 			$valid_roles = array_keys( wp_roles()->get_names() );
-			if ( in_array( $new_role, $valid_roles, true ) ) {
-				$user_obj = new \WP_User( $user_id );
-				$user_obj->set_role( $new_role );
+			if ( ! in_array( $new_role, $valid_roles, true ) ) {
+				wp_safe_redirect( add_query_arg( 'bn_error', 'role_invalid', $redirect_url ) );
+				exit;
 			}
+			$user_obj = new \WP_User( $user_id );
+			$user_obj->set_role( $new_role );
 		}
 
 		// Handle profile slug update.
@@ -917,6 +928,25 @@ class Members extends AdminPageBase {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Member suspended.', 'buddynext' ) . '</p></div>';
 		} elseif ( 'unsuspended' === $action ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Member unsuspended.', 'buddynext' ) . '</p></div>';
+		}
+
+		// Bulk-action result. handle_bulk() redirects with bulk_action + bulk_done;
+		// previously neither was read, so a bulk op (including one that updated
+		// nothing because every target was an admin/self) gave no feedback at all.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$bulk_action_done = sanitize_key( wp_unslash( $_GET['bulk_action'] ?? '' ) );
+		if ( '' !== $bulk_action_done && isset( $_GET['bulk_done'] ) ) {
+			$bulk_done = absint( wp_unslash( $_GET['bulk_done'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			if ( $bulk_done > 0 ) {
+				$bulk_msg = 'suspend' === $bulk_action_done
+					/* translators: %d: number of members. */
+					? sprintf( _n( '%d member suspended.', '%d members suspended.', $bulk_done, 'buddynext' ), $bulk_done )
+					/* translators: %d: number of members. */
+					: sprintf( _n( '%d member unsuspended.', '%d members unsuspended.', $bulk_done, 'buddynext' ), $bulk_done );
+				echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $bulk_msg ) . '</p></div>';
+			} else {
+				echo '<div class="notice notice-warning is-dismissible"><p>' . esc_html__( 'No members were updated. Administrators and your own account are skipped from bulk actions.', 'buddynext' ) . '</p></div>';
+			}
 		}
 
 		// Build status-filter chip URLs. Counts live in the KPI cards above, so
