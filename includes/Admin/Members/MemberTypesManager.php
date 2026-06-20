@@ -137,13 +137,17 @@ class MemberTypesManager {
 			}
 		}
 
+		// Land back on the member-edit screen with its success notice. That view is
+		// keyed on `view=edit-member` and reads `saved=1` (MemberEditForm), so the
+		// previous `action=edit&msg=type_saved` fell through to the members list and
+		// showed nothing — use the keys the edit screen actually consumes.
 		wp_safe_redirect(
 			add_query_arg(
 				array(
 					'page'    => 'buddynext-members',
-					'action'  => 'edit',
+					'view'    => 'edit-member',
 					'user_id' => $user_id,
-					'msg'     => 'type_saved',
+					'saved'   => '1',
 				),
 				admin_url( 'admin.php' )
 			)
