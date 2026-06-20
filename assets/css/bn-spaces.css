@@ -2313,7 +2313,7 @@ a.bn-sh-statpill:focus-visible {
 	align-items: flex-start;
 	padding: var(--bn-s4);
 	border-radius: var(--bn-radius-md, 12px);
-	background: linear-gradient(135deg, rgba(91, 141, 239, 0.06), rgba(167, 139, 250, 0.06));
+	background: color-mix(in oklab, var(--bn-accent) 6%, transparent);
 	border: 1px solid var(--bn-border, #e5e7eb);
 }
 

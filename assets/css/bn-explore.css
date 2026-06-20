@@ -393,7 +393,7 @@ a.ec-title:hover { color: var(--brand); }
 }
 
 /* ── Dark mode ───────────────────────────────────────────────────────────── */
-[data-theme="dark"] .ec-card.is-forum { background: rgba(167, 139, 250, 0.08); border-color: rgba(167, 139, 250, 0.2); }
+[data-theme="dark"] .ec-card.is-forum { background: color-mix(in oklab, var(--bn-accent) 8%, transparent); border-color: color-mix(in oklab, var(--bn-accent) 20%, transparent); }
 [data-theme="dark"] .bn-explore-filter.is-active { background: var(--text-1); color: var(--bg); }
 
 /* ── Mobile ──────────────────────────────────────────────────────────────── */
