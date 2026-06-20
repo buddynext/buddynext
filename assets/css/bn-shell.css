@@ -114,6 +114,31 @@ body.admin-bar .bn-app {
 	}
 }
 
+/* Embedded shortcode context — a [buddynext_*] shortcode dropped onto an
+ * arbitrary page (ShortcodeService::wrap_embedded). The `.bn-app` canvas above
+ * bursts out to 100vw / 100vh for the routed hub; embedded, that would overflow
+ * the host page and force a fragment to fill the viewport. Neutralize the
+ * full-bleed geometry so the widget flows inside the host content column, while
+ * keeping the token scope + `.bn-app *` reset intact. */
+.bn-app.bn-app--embedded {
+	left: auto;
+	right: auto;
+	margin-left: 0;
+	margin-right: 0;
+	width: auto;
+	max-width: 100%;
+	min-height: 0;
+	background: transparent;
+}
+body.admin-bar .bn-app.bn-app--embedded {
+	min-height: 0;
+}
+/* The host page already supplies the horizontal gutter; drop the column's own
+ * inline padding so embedded content stays flush with surrounding page content. */
+.bn-app--embedded .bn-app__main {
+	padding-inline: 0;
+}
+
 /* Register the rail width as an animatable <length> so the grid track that
    consumes it can transition smoothly instead of snapping — plain CSS custom
    properties are not interpolable, but an @property-registered one is. */

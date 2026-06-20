@@ -61,6 +61,8 @@ class ShortcodeService {
 	 * @return string HTML output.
 	 */
 	public function render_activity( $_atts ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		$this->enqueue_shell( 'feed', 'explore', 'hashtags', 'search', 'gamification' );
+
 		$action = (string) get_query_var( 'bn_activity_action', '' );
 
 		switch ( $action ) {
@@ -100,6 +102,8 @@ class ShortcodeService {
 	 * @return string HTML output.
 	 */
 	public function render_people( $atts ): string {
+		$this->enqueue_shell( 'members', 'profile', 'connections' );
+
 		$atts      = shortcode_atts( array( 'view' => '' ), $atts, 'buddynext_people' );
 		$view      = (string) $atts['view'];
 		$user_slug = (string) get_query_var( 'bn_user_slug', '' );
@@ -157,6 +161,8 @@ class ShortcodeService {
 	 * @return string HTML output.
 	 */
 	public function render_spaces( $_atts ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		$this->enqueue_shell( 'spaces' );
+
 		$space_slug = (string) get_query_var( 'bn_space_slug', '' );
 
 		if ( '' === $space_slug ) {
@@ -196,6 +202,8 @@ class ShortcodeService {
 	 * @return string HTML output.
 	 */
 	public function render_messages( $_atts ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		$this->enqueue_shell( 'messages' );
+
 		if ( ! is_user_logged_in() ) {
 			return $this->login_required_html();
 		}
@@ -223,6 +231,8 @@ class ShortcodeService {
 	 * @return string HTML output.
 	 */
 	public function render_notifications( $_atts ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		$this->enqueue_shell( 'notifications' );
+
 		if ( ! is_user_logged_in() ) {
 			return $this->login_required_html();
 		}
@@ -250,14 +260,11 @@ class ShortcodeService {
 		// page) nothing did, so the login/register forms rendered unstyled and
 		// inert. Both auth-login and auth-signup load because the template carries
 		// the sign-in and create-account forms.
-		$assets = buddynext_service( 'assets' );
-		if ( is_object( $assets ) && method_exists( $assets, 'enqueue' ) ) {
-			$assets->enqueue( 'auth' );
-		}
+		$this->enqueue_shell( 'auth' );
 		wp_enqueue_script_module( '@buddynext/auth-login' );
 		wp_enqueue_script_module( '@buddynext/auth-signup' );
 
-		return $this->capture( 'auth/login.php', array() );
+		return $this->capture( 'auth/login.php', array(), false );
 	}
 
 	/**
@@ -279,11 +286,9 @@ class ShortcodeService {
 		// routed hub, so the hub union-enqueue never runs for it). Script modules
 		// enqueued during the_content still print in the footer. The bn-moderation
 		// stylesheet is already loaded for the panel's .bn-ca-* chrome.
-		if ( function_exists( 'buddynext_service' ) ) {
-			buddynext_service( 'assets' )->enqueue( 'moderation' );
-		}
+		$this->enqueue_shell( 'moderation' );
 
-		return $this->capture( 'community-admin.php', array() );
+		return $this->capture( 'community-admin.php', array(), false );
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
@@ -294,12 +299,73 @@ class ShortcodeService {
 	 * @return string Escaped HTML.
 	 */
 	private function login_required_html(): string {
-		return sprintf(
-			'<p class="bn-login-required">%s <a href="%s">%s</a></p>',
-			esc_html__( 'You must be logged in to view this page.', 'buddynext' ),
-			esc_url( wp_login_url( get_permalink() ) ),
-			esc_html__( 'Log in', 'buddynext' )
+		return $this->wrap_embedded(
+			sprintf(
+				'<p class="bn-login-required">%s <a href="%s">%s</a></p>',
+				esc_html__( 'You must be logged in to view this page.', 'buddynext' ),
+				esc_url( wp_login_url( get_permalink() ) ),
+				esc_html__( 'Log in', 'buddynext' )
+			),
+			false
 		);
+	}
+
+	/**
+	 * Ensure the shell + feature stylesheets load for an embedded shortcode.
+	 *
+	 * On the routed hub, PageRouter::enqueue_hub_assets() loads bn-shell and the
+	 * per-hub feature bundles before wp_head(). A [buddynext_*] shortcode on an
+	 * arbitrary page never hits that path, so without this the wrap_embedded()
+	 * `.bn-app` scope would have no stylesheet behind it and the content renders
+	 * unstyled. Styles/modules enqueued during the_content print in the footer
+	 * (WP late-styles), so this is effective even though shortcodes run after
+	 * wp_head(). Idempotent: re-enqueuing an already-loaded handle is a no-op, so
+	 * it is safe to call even when the shortcode sits on a routed hub page.
+	 *
+	 * @param string ...$features Feature slugs to enqueue (e.g. 'feed', 'profile').
+	 * @return void
+	 */
+	private function enqueue_shell( string ...$features ): void {
+		wp_enqueue_style( 'bn-shell' );
+
+		$assets = buddynext_service( 'assets' );
+		if ( ! is_object( $assets ) || ! method_exists( $assets, 'enqueue' ) ) {
+			return;
+		}
+		foreach ( $features as $feature ) {
+			$assets->enqueue( $feature );
+		}
+	}
+
+	/**
+	 * Wrap shortcode output in the BuddyNext scoping canvas.
+	 *
+	 * The hub-shell wrapper (templates/shell/hub-shell.php) is emitted only on the
+	 * routed hub path. A [buddynext_*] shortcode placed on an arbitrary page renders
+	 * the bare inner template with no `.bn-app` ancestor, so every `--bn-*` token,
+	 * the `.bn-app *` box-sizing reset, and the `.bn-app__main` content column scoped
+	 * in bn-shell.css fail to apply and the content looks unstyled. Re-create the
+	 * minimal scope here: a class-only `.bn-app.bn-app--embedded` (no `id="bn-app"`,
+	 * so two shortcodes on one page never collide on the id and client-nav never
+	 * targets it). The `.bn-app--embedded` modifier neutralizes the full-bleed
+	 * 100vw / 100vh canvas so the widget flows inside the host page's content column.
+	 *
+	 * @param string $html      Inner template HTML.
+	 * @param bool   $with_main Wrap in the `.bn-app__main` content column (hub content
+	 *                          templates). False for templates that carry their own
+	 *                          full-bleed chrome (auth, community admin).
+	 * @return string Wrapped HTML, or '' when $html is empty.
+	 */
+	private function wrap_embedded( string $html, bool $with_main = true ): string {
+		if ( '' === $html ) {
+			return '';
+		}
+
+		$open  = '<div class="bn-app bn-app--embedded" data-bn-embedded="1">';
+		$open .= $with_main ? '<div class="bn-app__main">' : '';
+		$close = ( $with_main ? '</div>' : '' ) . '</div>';
+
+		return $open . $html . $close;
 	}
 
 	/**
@@ -308,12 +374,18 @@ class ShortcodeService {
 	 * Returns the rendered HTML, or an empty string when the template is
 	 * missing (caller handles fallback presentation if needed).
 	 *
+	 * The output is wrapped in the `.bn-app` scoping canvas via wrap_embedded() so
+	 * the shell-scoped CSS applies even when the shortcode sits on an arbitrary page
+	 * (off the routed hub path).
+	 *
 	 * @param string               $relative  Template path relative to the templates/ directory.
 	 * @param array<string, mixed> $variables Variables to extract into template scope.
+	 * @param bool                 $with_main Wrap in the `.bn-app__main` content column.
+	 *                                        False for self-chroming templates (auth, community admin).
 	 * @return string Rendered HTML.
 	 */
-	private function capture( string $relative, array $variables ): string {
+	private function capture( string $relative, array $variables, bool $with_main = true ): string {
 		$loader = Container::instance()->get( 'template_loader' );
-		return $loader->capture( $relative, $variables );
+		return $this->wrap_embedded( $loader->capture( $relative, $variables ), $with_main );
 	}
 }
