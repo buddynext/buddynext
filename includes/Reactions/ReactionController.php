@@ -178,6 +178,36 @@ class ReactionController extends BaseRestController {
 	}
 
 	/**
+	 * Whether the post behind an engagement target is hidden from the current viewer.
+	 *
+	 * Resolves the (object_type, object_id) target to its owning post via
+	 * PostService::resolve_post_id() and applies the single shared visibility gate
+	 * (PostService::visibility_error()). Targets with no gateable post are treated
+	 * as visible. Degrades to "visible" when the service container is unavailable.
+	 *
+	 * @param string $object_type Engagement object type ('post', 'comment', …).
+	 * @param int    $object_id   Engagement object ID.
+	 * @return bool True when the owning post is not viewable by the current user.
+	 */
+	private function is_post_hidden_from_viewer( string $object_type, int $object_id ): bool {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return false;
+		}
+
+		$posts = buddynext_service( 'post_service' );
+		if ( ! $posts instanceof \BuddyNext\Feed\PostService ) {
+			return false;
+		}
+
+		$post_id = $posts->resolve_post_id( $object_type, $object_id );
+		if ( $post_id <= 0 ) {
+			return false;
+		}
+
+		return $posts->visibility_error( $post_id, get_current_user_id() ) instanceof WP_Error;
+	}
+
+	/**
 	 * Return reaction count (and current user state if authenticated).
 	 *
 	 * @param WP_REST_Request $request Request object.
@@ -187,6 +217,12 @@ class ReactionController extends BaseRestController {
 		$service     = new ReactionService();
 		$object_type = (string) $request->get_param( 'object_type' );
 		$object_id   = (int) $request->get_param( 'object_id' );
+
+		// Privacy gate: a reaction count discloses engagement on a post. Return a
+		// zero count (no viewer state) when the owning post is not viewable.
+		if ( $this->is_post_hidden_from_viewer( $object_type, $object_id ) ) {
+			return new WP_REST_Response( array( 'count' => 0 ), 200 );
+		}
 
 		$data = array( 'count' => $service->count( $object_type, $object_id ) );
 
@@ -211,6 +247,18 @@ class ReactionController extends BaseRestController {
 		$object_type = (string) $request->get_param( 'object_type' );
 		$object_id   = (int) $request->get_param( 'object_id' );
 		$limit       = (int) $request->get_param( 'limit' );
+
+		// Privacy gate: the reactor list names members who engaged with the post.
+		// Return an empty list when the owning post is not viewable.
+		if ( $this->is_post_hidden_from_viewer( $object_type, $object_id ) ) {
+			return new WP_REST_Response(
+				array(
+					'items' => array(),
+					'total' => 0,
+				),
+				200
+			);
+		}
 
 		$raw = $service->get_reactors( $object_type, $object_id, $limit );
 

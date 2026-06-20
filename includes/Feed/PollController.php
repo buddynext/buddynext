@@ -15,6 +15,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Feed;
 
 use BuddyNext\Feed\PollService;
+use BuddyNext\Feed\PostService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -105,9 +106,41 @@ class PollController extends BaseRestController {
 	 */
 	public function get_results( WP_REST_Request $request ): WP_REST_Response {
 		$post_id = (int) $request->get_param( 'id' );
+
+		// Privacy gate: poll counts disclose engagement on the post. When the post
+		// is not viewable by the current user, return empty results rather than the
+		// tallies. Gated directly by the route's post id (a poll always belongs to
+		// its post). Shares the single PostService visibility gate.
+		if ( $this->is_post_hidden_from_viewer( $post_id ) ) {
+			return new WP_REST_Response( array( 'results' => array() ), 200 );
+		}
+
 		$results = ( new PollService() )->results( $post_id );
 
 		return new WP_REST_Response( array( 'results' => $results ), 200 );
+	}
+
+	/**
+	 * Whether a poll's post is hidden from the current viewer.
+	 *
+	 * Applies the single shared visibility gate (PostService::visibility_error())
+	 * directly to the route's post id. Degrades to "visible" when the service
+	 * container is unavailable.
+	 *
+	 * @param int $post_id Poll post ID from the route.
+	 * @return bool True when the post is not viewable by the current user.
+	 */
+	private function is_post_hidden_from_viewer( int $post_id ): bool {
+		if ( $post_id <= 0 || ! function_exists( 'buddynext_service' ) ) {
+			return false;
+		}
+
+		$posts = buddynext_service( 'post_service' );
+		if ( ! $posts instanceof PostService ) {
+			return false;
+		}
+
+		return $posts->visibility_error( $post_id, get_current_user_id() ) instanceof WP_Error;
 	}
 
 	/**

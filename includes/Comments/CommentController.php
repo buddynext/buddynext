@@ -241,6 +241,20 @@ class CommentController extends BaseRestController {
 		$per_page    = (int) ( $request->get_param( 'per_page' ) ?? 20 );
 		$page        = (int) ( $request->get_param( 'page' ) ?? 1 );
 
+		// Privacy gate: never leak a private/secret/followers-only post's comment
+		// thread to a viewer who could not read the post itself. Resolve the target
+		// to its owning post and, when that post is not viewable, return an empty
+		// thread instead of the comments.
+		if ( $this->is_post_hidden_from_viewer( $object_type, $object_id ) ) {
+			return new WP_REST_Response(
+				array(
+					'items' => array(),
+					'total' => 0,
+				),
+				200
+			);
+		}
+
 		$result = $service->list(
 			$object_type,
 			$object_id,
@@ -460,6 +474,37 @@ class CommentController extends BaseRestController {
 		}
 
 		return new WP_REST_Response( array( 'pinned' => false ), 200 );
+	}
+
+	/**
+	 * Whether the post behind an engagement target is hidden from the current viewer.
+	 *
+	 * Resolves the (object_type, object_id) target to its owning post via
+	 * PostService::resolve_post_id() and applies the single shared visibility gate
+	 * (PostService::visibility_error()). Targets with no gateable post (e.g. a
+	 * comment on a non-post object) are treated as visible — there is no post-privacy
+	 * gate to apply. Degrades to "visible" when the service container is unavailable.
+	 *
+	 * @param string $object_type Engagement object type ('post', 'comment', …).
+	 * @param int    $object_id   Engagement object ID.
+	 * @return bool True when the owning post is not viewable by the current user.
+	 */
+	private function is_post_hidden_from_viewer( string $object_type, int $object_id ): bool {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return false;
+		}
+
+		$posts = buddynext_service( 'post_service' );
+		if ( ! $posts instanceof \BuddyNext\Feed\PostService ) {
+			return false;
+		}
+
+		$post_id = $posts->resolve_post_id( $object_type, $object_id );
+		if ( $post_id <= 0 ) {
+			return false;
+		}
+
+		return $posts->visibility_error( $post_id, get_current_user_id() ) instanceof WP_Error;
 	}
 
 	/**

@@ -679,6 +679,134 @@ class PostService {
 	}
 
 	/**
+	 * Resolve the visibility WP_Error a viewer should receive for a single post.
+	 *
+	 * Single source of truth for the per-post privacy gate that PostController::get_post()
+	 * applies and that the engagement-read endpoints (comments list, reaction count /
+	 * reactor list, poll results) reuse so they never leak engagement data on a post
+	 * the viewer may not see. Applies, in order:
+	 *   1. Block list (bidirectional) — returns a 404 WP_Error so the post's existence
+	 *      is not disclosed.
+	 *   2. Secret/hidden-space membership — non-members (and non-admins) get a 404.
+	 *   3. Followers-only privacy — a non-follower (and non-author) gets a 403.
+	 *   4. Private privacy — anyone but the author gets a 403.
+	 * The author always passes; admins (manage_options) bypass the space gate. A
+	 * missing post yields a 404. Returns null when the viewer may see the post.
+	 *
+	 * Shares its services with filter_visible()/get_post (blocks, follows, spaces,
+	 * space members, SpaceTypeRegistry) so the gate logic lives in exactly one place.
+	 *
+	 * @param int $post_id   Post to gate.
+	 * @param int $viewer_id Viewing user ID (0 = guest).
+	 * @return WP_Error|null A 404/403 WP_Error when the post is not viewable; null otherwise.
+	 */
+	public function visibility_error( int $post_id, int $viewer_id ): ?WP_Error {
+		$post = $this->get( $post_id );
+		if ( null === $post ) {
+			return new WP_Error(
+				'post_not_found',
+				__( 'Post not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$author_id = (int) ( $post['user_id'] ?? 0 );
+		$is_author = $author_id > 0 && $author_id === $viewer_id;
+
+		// Gate 1 — block list (bidirectional). Return 404 to avoid existence leak.
+		if ( $viewer_id > 0 && $author_id > 0 && ! $is_author ) {
+			$blocks = function_exists( 'buddynext_service' )
+				? buddynext_service( 'blocks' )
+				: new \BuddyNext\SocialGraph\BlockService();
+			if ( $blocks->is_blocking_either( $viewer_id, $author_id ) ) {
+				return new WP_Error(
+					'post_not_found',
+					__( 'Post not found.', 'buddynext' ),
+					array( 'status' => 404 )
+				);
+			}
+		}
+
+		// Gate 2 — secret/hidden-space membership.
+		$space_id = (int) ( $post['space_id'] ?? 0 );
+		if ( $space_id > 0 ) {
+			$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+			if ( null !== $space && \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) ( $space['type'] ?? '' ) ) ) {
+				$is_member = $viewer_id > 0 && ( new \BuddyNext\Spaces\SpaceMemberService() )->is_member( $space_id, $viewer_id );
+				if ( ! $is_member && ! user_can( $viewer_id, 'manage_options' ) ) {
+					return new WP_Error(
+						'post_not_found',
+						__( 'Post not found.', 'buddynext' ),
+						array( 'status' => 404 )
+					);
+				}
+			}
+		}
+
+		// Gate 3 — followers-only privacy.
+		if ( 'followers' === ( $post['privacy'] ?? '' ) && ! $is_author ) {
+			$follows     = function_exists( 'buddynext_service' )
+				? buddynext_service( 'follows' )
+				: new \BuddyNext\SocialGraph\FollowService();
+			$is_follower = $viewer_id > 0 && $follows->is_following( $viewer_id, $author_id );
+			if ( ! $is_follower ) {
+				return new WP_Error(
+					'post_forbidden',
+					__( 'You do not have permission to view this post.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
+		}
+
+		// Gate 4 — private posts (author-only).
+		if ( 'private' === ( $post['privacy'] ?? '' ) && ! $is_author ) {
+			return new WP_Error(
+				'post_forbidden',
+				__( 'You do not have permission to view this post.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Resolve an engagement target (object_type/object_id) to the post it belongs to.
+	 *
+	 * The engagement-read endpoints address content by an (object_type, object_id)
+	 * pair: a 'post' target is the post itself; a 'comment' target resolves to the
+	 * post the comment hangs on (when that comment's own parent is a post). This is
+	 * the single place that mapping lives so the comment/reaction/poll readers all
+	 * gate against the same resolved post id.
+	 *
+	 * @param string $object_type Engagement object type ('post', 'comment', …).
+	 * @param int    $object_id   Engagement object ID.
+	 * @return int Owning post ID, or 0 when the target has no gateable post
+	 *             (unknown type, missing row, or a comment on a non-post object).
+	 */
+	public function resolve_post_id( string $object_type, int $object_id ): int {
+		if ( $object_id <= 0 ) {
+			return 0;
+		}
+
+		if ( 'post' === $object_type ) {
+			return $object_id;
+		}
+
+		if ( 'comment' === $object_type && function_exists( 'buddynext_service' ) ) {
+			$comments = buddynext_service( 'comments' );
+			if ( $comments instanceof \BuddyNext\Comments\CommentService ) {
+				$comment = $comments->get( $object_id );
+				if ( null !== $comment && 'post' === (string) ( $comment['object_type'] ?? '' ) ) {
+					return (int) $comment['object_id'];
+				}
+			}
+		}
+
+		return 0;
+	}
+
+	/**
 	 * Filter a list of post IDs down to those the viewer is permitted to see.
 	 *
 	 * Single source of truth for the post-privacy gate that was previously
