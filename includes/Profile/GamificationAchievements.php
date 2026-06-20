@@ -201,6 +201,7 @@ class GamificationAchievements {
 
 		if ( function_exists( 'wb_gam_get_user_points' ) ) {
 			$tiles[] = array(
+				'icon'  => 'star',
 				'label' => __( 'Points', 'buddynext' ),
 				'value' => number_format_i18n( (int) wb_gam_get_user_points( $member_id ) ),
 			);
@@ -208,6 +209,7 @@ class GamificationAchievements {
 		$rank = $this->leaderboard_rank( $member_id );
 		if ( $rank > 0 ) {
 			$tiles[] = array(
+				'icon'  => 'crown',
 				'label' => __( 'Rank', 'buddynext' ),
 				'value' => '#' . number_format_i18n( $rank ),
 			);
@@ -217,6 +219,7 @@ class GamificationAchievements {
 			$level = wb_gam_get_user_level( $member_id );
 			if ( is_array( $level ) && ! empty( $level['name'] ) ) {
 				$tiles[] = array(
+					'icon'  => 'trending',
 					'label' => __( 'Level', 'buddynext' ),
 					'value' => (string) $level['name'],
 				);
@@ -227,6 +230,7 @@ class GamificationAchievements {
 			$current = (int) ( $streak['current_streak'] ?? 0 );
 			if ( $current > 0 ) {
 				$tiles[] = array(
+					'icon'  => 'zap',
 					'label' => __( 'Day streak', 'buddynext' ),
 					'value' => number_format_i18n( $current ),
 				);
@@ -240,6 +244,12 @@ class GamificationAchievements {
 		echo '<div class="bn-achievements__standing">';
 		foreach ( $tiles as $tile ) {
 			echo '<div class="bn-achievements__stat">';
+			$icon = (string) ( $tile['icon'] ?? '' );
+			if ( '' !== $icon && function_exists( 'buddynext_icon' ) && \BuddyNext\Core\IconService::has( $icon ) ) {
+				echo '<span class="bn-achievements__stat-icon" aria-hidden="true">';
+				buddynext_icon( $icon );
+				echo '</span>';
+			}
 			echo '<span class="bn-achievements__stat-value">' . esc_html( (string) $tile['value'] ) . '</span>';
 			echo '<span class="bn-achievements__stat-label">' . esc_html( (string) $tile['label'] ) . '</span>';
 			echo '</div>';

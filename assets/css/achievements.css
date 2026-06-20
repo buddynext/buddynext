@@ -23,11 +23,33 @@
 	min-width: 96px;
 	display: flex;
 	flex-direction: column;
-	gap: 0.15rem;
-	padding: 0.85rem 1rem;
+	align-items: center;
+	text-align: center;
+	gap: 0.3rem;
+	padding: 1rem;
 	border: 1px solid var(--bn-border);
 	border-radius: var(--bn-radius-md);
 	background: var(--bn-surface);
+}
+
+/* A soft theme-accent icon chip per stat — gives each metric a glanceable
+   symbol (points/level/streak), using OKLCH accent tokens, never an AI-marker
+   purple. */
+.bn-achievements__stat-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	margin-bottom: 0.15rem;
+	border-radius: 50%;
+	background: var(--bn-accent-soft);
+}
+
+.bn-achievements__stat-icon svg {
+	width: 1.1rem;
+	height: 1.1rem;
+	color: var(--bn-accent);
 }
 
 .bn-achievements__stat-value {
@@ -117,6 +139,10 @@
 	color: inherit;
 	text-align: center;
 	transition: border-color 0.15s ease, transform 0.15s ease;
+	/* Fill the grid cell so every badge box is the same height regardless of how
+	   many lines the badge name wraps to (the <li> stretches; the box must too). */
+	height: 100%;
+	box-sizing: border-box;
 }
 
 a.bn-achievements__badge-link:hover,
@@ -178,6 +204,9 @@ a.bn-achievements__badge-link:focus-visible {
 .bn-achievements__badge-date {
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-4);
+	/* Anchor the date to the bottom so it lines up across cards whose names wrap
+	   to a different number of lines. */
+	margin-top: auto;
 }
 
 @media (max-width: 640px) {
