@@ -2,6 +2,8 @@
 
 The member directory is the page where everyone in your community can be browsed, searched, and filtered in one place. It is the "find people" surface of your site, and lives at your members URL (for example, `/members`).
 
+![BuddyNext member directory — searchable, filterable member cards showing avatar, role, skills and mutual connections with Follow buttons, an A–Z index, and Online-now and By-role sidebars.](../images/member-directory.png)
+
 ## Why use it
 
 A community is only as useful as the connections people make in it. Without a directory, members have no way to discover each other - they can only meet people who happen to post in the same place at the same time. The directory turns your whole membership into something people can actually browse: a new member can look up the colleague who invited them, a mentor can find mentees, and anyone can scan the room to see who else is here.

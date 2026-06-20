@@ -2,6 +2,8 @@
 
 Search lets anyone find members, posts, spaces, and hashtags from one query. Type a word and BuddyNext returns grouped, viewer-aware results across the whole community.
 
+![BuddyNext search results — one query grouped into members, posts, spaces and hashtags with result counts per type, plus date and sort refinements.](../images/search.png)
+
 ## Why use it
 
 A growing community quickly holds thousands of posts, hundreds of members, and dozens of spaces. Without search, people give up looking and the community feels smaller than it is. Good search is how a new member finds the people they came for, how a long-time member re-finds a discussion from last month, and how anyone discovers a space they did not know existed.

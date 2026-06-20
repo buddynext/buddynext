@@ -2,6 +2,8 @@
 
 Notifications are the in-app activity feed that tells a member when someone interacts with them or with content they care about: new followers, connection requests, reactions, comments, mentions, space activity, and more. They appear behind the bell icon in the header and on the full Notifications page, with a live unread count.
 
+![BuddyNext notifications page — grouped, filterable list of follows, connections, reactions, comments, mentions and space activity, each row with the actor and a dismiss control.](../images/notifications.png)
+
 ## Why use it
 
 A community only grows when people come back, and people come back when something is waiting for them. A follow, a comment, a mention, an approved space request - each of these is a reason to return, but only if the member finds out about it. Notifications close that loop. The moment someone acts, the recipient sees a count on the bell and can jump straight to what happened.

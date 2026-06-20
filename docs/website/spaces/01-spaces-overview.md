@@ -2,6 +2,8 @@
 
 Spaces are the sub-communities inside your BuddyNext site - focused groups where members gather around a shared topic, team, course, or interest. Each space has its own member list and its own activity feed, so conversation stays on-topic instead of getting lost in the site-wide stream.
 
+![BuddyNext spaces directory — browse spaces by category with search and sort, an invite banner, space cards showing member and post counts, and Your Spaces and Trending Tags sidebars.](../images/spaces-directory.png)
+
 ## Why use it
 
 A single community feed works when everyone cares about the same thing. It stops working the moment your members care about different things. A product team, a city chapter, a fan club, and a paid mastermind all want their own corner - not one shared wall where every post competes for attention.

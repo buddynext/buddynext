@@ -2,6 +2,8 @@
 
 A member profile is the public page that represents a person in your community. It carries their avatar, cover photo, display name, bio, custom field details, and the buttons other people use to follow or connect with them.
 
+![BuddyNext member profile — cover photo and avatar, display name and bio, profile field details, follow/connect actions, and the member's activity, spaces and connections.](../images/member-profile.png)
+
 ## Why use it
 
 The profile is where trust starts. Before anyone follows a member, joins a conversation they started, or accepts a connection request, they look at that member's profile to decide who they are dealing with. A filled-out profile - a real photo, a clear name, a short bio - reads as a real person and gets more follows, more replies, and more connection accepts. A blank profile reads as a drive-by account and gets ignored.
