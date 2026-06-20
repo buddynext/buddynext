@@ -232,7 +232,11 @@ class SearchService {
 			case 'media':
 				return (string) \BuddyNext\Core\PageRouter::post_url( $object_id );
 			default:
-				return '';
+				// Addon/Pro content types (jobs, listings, courses, …) are WP
+				// posts with their own permalinks; fall back to the post permalink
+				// so indexed addon types still link somewhere real, not '#'.
+				$permalink = get_permalink( $object_id );
+				return false !== $permalink ? (string) $permalink : '';
 		}
 	}
 
