@@ -34,12 +34,12 @@
    ```sql
    SELECT id, recipient_id, sender_id, type, object_type, object_id, is_read, created_at
    FROM wp_bn_notifications
-   WHERE recipient_id = MEMBER1_ID AND type = 'follow'
+   WHERE recipient_id = MEMBER1_ID AND type = 'bn.new_follower'
    ORDER BY created_at DESC
    LIMIT 1;
    ```
 
-   - Expected: 1 row, `is_read = 0`, `type = follow`, `sender_id = MEMBER2_ID`.
+   - Expected: 1 row, `is_read = 0`, `type = bn.new_follower`, `sender_id = MEMBER2_ID`.
 
 3. Verify an email log entry was inserted (if `email_freq` is `immediate` for the `follow` type):
 
@@ -62,7 +62,7 @@
      -u member1:password
    ```
 
-   - Expected: 200, array with at least 1 notification of `type = follow`.
+   - Expected: 200, array with at least 1 notification of `type = bn.new_follower`.
 
 5. Check the unread count:
 
@@ -109,7 +109,7 @@
 9. As `member1`, get current notification preferences:
 
    ```bash
-   curl -s http://buddynext-dev.local/wp-json/buddynext/v1/notification-prefs \
+   curl -s http://buddynext-dev.local/wp-json/buddynext/v1/me/notification-prefs \
      -u member1:password
    ```
 
@@ -118,10 +118,10 @@
 10. Update the `follow` notification preference to `email_freq = off`:
 
     ```bash
-    curl -s -X PUT http://buddynext-dev.local/wp-json/buddynext/v1/notification-prefs \
+    curl -s -X PUT http://buddynext-dev.local/wp-json/buddynext/v1/me/notification-prefs \
       -u member1:password \
       -H "Content-Type: application/json" \
-      -d '{"follow": {"on_site": true, "email_freq": "off"}}'
+      -d '{"bn.new_follower": {"on_site": true, "email_freq": "off"}}'
     ```
 
     - Expected: 200. Pref row upserted in `wp_bn_notification_prefs`.
@@ -131,7 +131,7 @@
     ```sql
     SELECT user_id, type, on_site, email_freq
     FROM wp_bn_notification_prefs
-    WHERE user_id = MEMBER1_ID AND type = 'follow';
+    WHERE user_id = MEMBER1_ID AND type = 'bn.new_follower';
     ```
 
     - Expected: `email_freq = off`.
@@ -155,10 +155,10 @@
 13. Reset member1's follow pref to `immediate`:
 
     ```bash
-    curl -s -X PUT http://buddynext-dev.local/wp-json/buddynext/v1/notification-prefs \
+    curl -s -X PUT http://buddynext-dev.local/wp-json/buddynext/v1/me/notification-prefs \
       -u member1:password \
       -H "Content-Type: application/json" \
-      -d '{"follow": {"on_site": true, "email_freq": "immediate"}}'
+      -d '{"bn.new_follower": {"on_site": true, "email_freq": "immediate"}}'
     ```
 
 14. Trigger another follow notification. Confirm the email template `bn.new_follower` is queued:
@@ -290,7 +290,7 @@ Restore options after.
 ```sql
 -- Remove test notifications for member1:
 DELETE FROM wp_bn_notifications
-WHERE recipient_id = MEMBER1_ID AND type = 'follow';
+WHERE recipient_id = MEMBER1_ID AND type = 'bn.new_follower';
 
 -- Remove email log entries from this journey:
 DELETE FROM wp_bn_email_log
@@ -298,7 +298,7 @@ WHERE user_id = MEMBER1_ID AND type = 'bn.new_follower';
 
 -- Remove notification pref overrides:
 DELETE FROM wp_bn_notification_prefs
-WHERE user_id = MEMBER1_ID AND type = 'follow';
+WHERE user_id = MEMBER1_ID AND type = 'bn.new_follower';
 ```
 
 ## Known limitations

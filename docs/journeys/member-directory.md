@@ -243,12 +243,12 @@ GET    /buddynext/v1/search/members                   -- 200, viewer-aware membe
 |---|---|---|---|---|
 | Live search (debounced) | `templates/directory/members.php` | `buddynext/members` (`members/store.js:608`) | `GET /members?search=` | `ctx.restNonce` |
 | Filter by member-type / sort | `templates/directory/members.php` filter bar | `members/store.js` setFilter | `GET /members?type=&orderby=` | `ctx.restNonce` |
-| Load more / pagination | `templates/directory/members.php` | `members/store.js` | `GET /members?page=` | `ctx.restNonce` |
+| Load more / pagination | `templates/directory/members.php` | `members/store.js` | `GET /members?cursor=<next_cursor>` (CURSOR-based, NOT `?page=`) | `ctx.restNonce` |
 | Follow / unfollow from card | `templates/blocks/member-card.php` | `members/store.js:444` | `POST/DELETE /users/{id}/follow` | `cfg.restNonce` |
 | Connect / accept / decline from card | `templates/blocks/member-card.php` | `members/store.js:471,507` | `POST /users/{id}/connect[/accept|/decline]` | `cfg.restNonce` |
 
 **Verify this run (incl. SCALE — the 2000-row baseline gap):**
-1. `GET /members?per_page=20&page=1` returns 20 + `X-WP-Total` header; page 2 differs. (Seed 500+ users first if the site is small — `wp user generate --count=500`.)
+1. `GET /members?per_page=20` returns 20 + a `next_cursor` in the body + body `total` (runtime-confirmed 2026-06-20: pagination is **cursor-based**, `?page=2` is ignored and returns page 1; there is **no `X-WP-Total` header** — the count is in the JSON `total`). Advance with `?cursor=<next_cursor>`. (Seed 500+ users first if the site is small — `wp user generate --count=500`.)
 2. Type in the search box → confirm `GET /members?search=` fires and narrows results.
 3. Filter by a member-type → confirm only that type returns.
 
