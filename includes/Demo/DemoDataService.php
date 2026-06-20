@@ -34,7 +34,9 @@ declare( strict_types=1 );
 namespace BuddyNext\Demo;
 
 use BuddyNext\Comments\CommentService;
+use BuddyNext\Feed\BookmarkService;
 use BuddyNext\Feed\PostService;
+use BuddyNext\Media\MediaClient;
 use BuddyNext\Media\ImageStorageService;
 use BuddyNext\Profile\ProfileService;
 use BuddyNext\Reactions\ReactionService;
@@ -134,6 +136,74 @@ class DemoDataService {
 	 * @var string[]
 	 */
 	private const REACTIONS = array( 'like', 'love', 'haha', 'wow', 'sad', 'angry' );
+
+	/**
+	 * A single demo poll: question plus 2-5 options. Seeded as one feed post of
+	 * type 'poll' so the Polls feature has live data to screenshot/test.
+	 *
+	 * @var array{question:string, options:string[]}
+	 */
+	private const POLL = array(
+		'question' => 'What should we focus on at the next community call?',
+		'options'  => array( 'Design critique session', 'Live coding hour', 'Career AMA', 'Show and tell' ),
+	);
+
+	/**
+	 * Direct-message threads between demo members (by roster index, 0-based).
+	 * Each thread alternates sender starting with member A. Seeded through the
+	 * WPMediaVerse messaging engine so the Messages UI has real conversations.
+	 *
+	 * @var array<int, array{a:int, b:int, messages:string[]}>
+	 */
+	private const DM_THREADS = array(
+		array(
+			'a'        => 0,
+			'b'        => 1,
+			'messages' => array(
+				'Hey Priya, loved your accessibility thread today.',
+				'Thanks Alex! Want to pair on the contrast tokens this week?',
+				'Yes please. Thursday afternoon work for you?',
+				'Perfect, I will send an invite.',
+			),
+		),
+		array(
+			'a'        => 0,
+			'b'        => 4,
+			'messages' => array(
+				'Sara, your data viz post was so clean. What did you use?',
+				'Thank you! Mostly D3 with a custom colour scale.',
+				'Would love to see the scale code sometime.',
+			),
+		),
+		array(
+			'a'        => 0,
+			'b'        => 7,
+			'messages' => array(
+				'Tom, welcome aboard. Shout if you need anything.',
+				'Appreciate it Alex, settling in well already.',
+			),
+		),
+		array(
+			'a'        => 2,
+			'b'        => 4,
+			'messages' => array(
+				'Sara, are you joining the trail run on Saturday?',
+				'Planning to! Which route are we taking?',
+				'The river loop, easy pace, coffee after.',
+			),
+		),
+		array(
+			'a'        => 5,
+			'b'        => 9,
+			'messages' => array(
+				'Noah, your photo walk shots came out incredible.',
+				'Appreciate it Diego! Bringing the wide lens next time.',
+			),
+		),
+	);
+
+	/** How many recent posts each demo member bookmarks. */
+	private const BOOKMARKS_PER_MEMBER = 3;
 
 	/**
 	 * Whether a demo dataset is currently installed.
@@ -376,10 +446,92 @@ class DemoDataService {
 			}
 		}
 
+		// ── Engagement extras: a poll, bookmarks, and DM threads ────────────
+		// These populate the Polls feature, the member Bookmarks screen, and the
+		// Messages UI so every demo surface has live content (no empty states).
+		$this->seed_extras( $user_ids, $post_ids, $manifest, $say );
+
 		update_option( self::MANIFEST_OPTION, $manifest, false );
 		$say( 'Demo data installed.' );
 
 		return $this->summary();
+	}
+
+	/**
+	 * Seed engagement extras that the core loop does not cover: one poll post,
+	 * a few bookmarks per member, and direct-message threads between members.
+	 *
+	 * Records created IDs into $manifest so cleanup() can remove them. The DM
+	 * engine (WPMediaVerse) is optional; if it is not active the DM step is
+	 * skipped silently rather than failing the whole seed.
+	 *
+	 * @param int[]               $user_ids Demo member IDs (roster order).
+	 * @param int[]               $post_ids Demo post IDs.
+	 * @param array<string,mixed> $manifest Seed manifest, passed by reference.
+	 * @param callable            $say      Progress logger.
+	 * @return void
+	 */
+	private function seed_extras( array $user_ids, array $post_ids, array &$manifest, callable $say ): void {
+		if ( empty( $user_ids ) ) {
+			return;
+		}
+		$n = count( $user_ids );
+
+		// Poll — authored by the third member so it sits among the other posts.
+		$say( 'Creating a poll…' );
+		$poll_author = $user_ids[ 2 % $n ];
+		$poll_id     = ( new PostService() )->create(
+			$poll_author,
+			array(
+				'type'    => 'poll',
+				'content' => self::POLL['question'],
+				'options' => self::POLL['options'],
+			)
+		);
+		if ( ! is_wp_error( $poll_id ) ) {
+			$manifest['posts'][] = array(
+				'id'     => $poll_id,
+				'author' => $poll_author,
+			);
+			$post_ids[] = $poll_id;
+		}
+
+		// Bookmarks — each member saves a few of the most recent posts.
+		if ( ! empty( $post_ids ) ) {
+			$say( 'Adding bookmarks…' );
+			$bookmarks = new BookmarkService();
+			foreach ( $user_ids as $idx => $uid ) {
+				for ( $b = 0; $b < self::BOOKMARKS_PER_MEMBER; $b++ ) {
+					$post_id = $post_ids[ ( $idx + $b ) % count( $post_ids ) ];
+					$bookmarks->bookmark( $uid, $post_id );
+				}
+			}
+		}
+
+		// Direct messages — seeded through the WPMediaVerse engine when present.
+		$messaging = class_exists( MediaClient::class ) ? MediaClient::messaging() : null;
+		if ( is_object( $messaging )
+			&& method_exists( $messaging, 'find_or_create_conversation' )
+			&& method_exists( $messaging, 'send_message' )
+		) {
+			$say( 'Creating direct-message threads…' );
+			foreach ( self::DM_THREADS as $thread ) {
+				$a = $user_ids[ $thread['a'] % $n ] ?? 0;
+				$b = $user_ids[ $thread['b'] % $n ] ?? 0;
+				if ( $a <= 0 || $b <= 0 || $a === $b ) {
+					continue;
+				}
+				$conv    = $messaging->find_or_create_conversation( $a, $b );
+				$conv_id = is_array( $conv ) ? (int) ( $conv['conversation_id'] ?? 0 ) : 0;
+				if ( $conv_id <= 0 ) {
+					continue;
+				}
+				foreach ( $thread['messages'] as $i => $body ) {
+					$sender = ( 0 === $i % 2 ) ? $a : $b;
+					$messaging->send_message( $conv_id, $sender, array( 'content' => $body ) );
+				}
+			}
+		}
 	}
 
 	/**
@@ -465,6 +617,19 @@ class DemoDataService {
 			++$removed['groups'];
 		}
 
+		// Bookmarks live in their own table; deleting the user or post does not
+		// remove them, so clear any rows owned by the demo members for a clean
+		// re-seed. DM threads orphan harmlessly; a re-seed makes new ones and
+		// the WPMediaVerse engine owns those rows.
+		$demo_user_ids = array_map( 'intval', (array) ( $manifest['users'] ?? array() ) );
+		if ( ! empty( $demo_user_ids ) ) {
+			global $wpdb;
+			$say( 'Removing bookmarks…' );
+			$placeholders = implode( ',', array_fill( 0, count( $demo_user_ids ), '%d' ) );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+			$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->prefix}bn_bookmarks WHERE user_id IN ($placeholders)", $demo_user_ids ) );
+		}
+
 		delete_option( self::MANIFEST_OPTION );
 		$say( 'Demo data removed.' );
 
@@ -500,6 +665,9 @@ class DemoDataService {
 		}
 		update_user_meta( $user_id, self::USER_FLAG, 1 );
 		update_user_meta( $user_id, 'bn_headline', $member['headline'] );
+		// Demo members are established community members, not first-time visitors:
+		// mark onboarding complete so they land on the feed (not the wizard).
+		update_user_meta( $user_id, 'bn_onboarding_complete', '1' );
 		return (int) $user_id;
 	}
 
