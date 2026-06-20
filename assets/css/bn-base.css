@@ -885,6 +885,39 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	margin-block-start: var(--bn-s1);
 }
 
+/* Avatar-anchored variant: a leading author/owner avatar turns the stacked card
+   into a media row, so a list of discussions reads with the same left-anchored
+   rhythm as the Portfolio rows. The avatar column spans all three text rows; the
+   existing meta/content/context map into the second column unchanged. Opt-in, so
+   every other .bn-reply-card usage is untouched. */
+.bn-reply-card--avatar {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	grid-template-areas:
+		"avatar meta"
+		"avatar content"
+		"avatar context";
+	column-gap: var(--bn-s3);
+}
+.bn-reply-card--avatar .bn-reply-card__meta { grid-area: meta; }
+.bn-reply-card--avatar .bn-reply-card__content { grid-area: content; }
+.bn-reply-card--avatar .bn-reply-card__context { grid-area: context; }
+.bn-reply-card__avatar {
+	grid-area: avatar;
+	align-self: start;
+	width: 40px;
+	height: 40px;
+	border-radius: var(--bn-r-full, 9999px);
+	overflow: hidden;
+	background: var(--bn-sunken, oklch(97% 0.004 0));
+}
+.bn-reply-card__avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
 /* In-hub space Discussions panel — header action sits above the thread list. */
 .bn-space-discussions__head {
 	display: flex;
@@ -2658,6 +2691,62 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	════════════════════════════════════════════════════════════════════════════ */
 .bn-navgroup {
 	display: block;
+	position: relative;
+}
+
+/* Overflow scroll buttons: clickable chevrons that FLANK the PRIMARY tab bar
+	when it has hidden tabs, so a scrollable strip is usable with a mouse (no
+	scrollbar) and still swipeable on touch. shell/extras.js wraps the strip in a
+	.bn-navgroup__scroller flex row and injects a button on each side, toggling
+	[hidden] per edge as the strip scrolls - cross-browser ( iOS Safari + Firefox
+	included ), unlike the Chrome-only scroll-timeline edge-fade. The buttons sit
+	BESIDE the strip (never over it), so no tab is ever covered or blocked; the
+	strip just narrows by a button's width when one appears. They are aria-hidden
+	+ tabindex -1: keyboard users already scroll tabs into view by tabbing through
+	them, so these are pointer affordances only and add no duplicate tab stops. */
+.bn-navgroup__scroller {
+	display: flex;
+	align-items: stretch;
+	min-width: 0;
+}
+.bn-navgroup__scroller > .bn-tabs {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+.bn-navgroup__nav {
+	flex: 0 0 auto;
+	align-self: stretch;
+	width: 2rem;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-bottom: 1px solid var(--bn-line);
+	cursor: pointer;
+	-webkit-appearance: none;
+	appearance: none;
+	/* Token-coloured glyph via mask, so it adapts to dark mode automatically. */
+	background: var(--bn-ink-3);
+	-webkit-mask: center / 1.1rem 1.1rem no-repeat;
+	mask: center / 1.1rem 1.1rem no-repeat;
+	transition: background-color var(--bn-dur-fast) var(--bn-ease);
+}
+.bn-navgroup__nav[hidden] { display: none; }
+.bn-navgroup__nav:hover,
+.bn-navgroup__nav:active { background: var(--bn-ink); }
+.bn-navgroup__nav:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+}
+.bn-navgroup__nav--start {
+	-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 18l-6-6 6-6'/%3E%3C/svg%3E");
+	mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 18l-6-6 6-6'/%3E%3C/svg%3E");
+}
+.bn-navgroup__nav--end {
+	-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18l6-6-6-6'/%3E%3C/svg%3E");
+	mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18l6-6-6-6'/%3E%3C/svg%3E");
+}
+@media (prefers-reduced-motion: reduce) {
+	.bn-navgroup__nav { transition: none; }
 }
 
 /* ── (3) SUB-NAV — the canonical secondary nav. A premium TEXT toggle, NOT a

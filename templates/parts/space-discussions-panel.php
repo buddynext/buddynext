@@ -61,9 +61,11 @@ $bn_thread_base = '' !== $bn_forum_url ? trailingslashit( $bn_forum_url ) . 't/'
 					: (string) ( $bn_disc->author_login ?? __( 'Member', 'buddynext' ) );
 				$bn_href   = '' !== $bn_thread_base ? $bn_thread_base . rawurlencode( (string) $bn_disc->slug ) . '/' : $bn_forum_url;
 				?>
-				<a href="<?php echo esc_url( $bn_href ); ?>" class="bn-reply-card bn-reply-card--link">
+				<a href="<?php echo esc_url( $bn_href ); ?>" class="bn-reply-card bn-reply-card--link bn-reply-card--avatar">
+					<span class="bn-reply-card__avatar" aria-hidden="true">
+						<img src="<?php echo esc_url( get_avatar_url( (int) ( $bn_disc->author_id ?? 0 ), array( 'size' => 80 ) ) ); ?>" alt="" loading="lazy" width="40" height="40" />
+					</span>
 					<div class="bn-reply-card__meta">
-						<?php buddynext_icon( 'message-circle' ); ?>
 						<span><?php echo esc_html( $bn_author ); ?></span>
 						<span class="bn-reply-card__time"><?php echo esc_html( sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( strtotime( (string) $bn_disc->created_at ) ) ) ); ?></span>
 					</div>

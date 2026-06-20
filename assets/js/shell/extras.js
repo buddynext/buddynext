@@ -513,4 +513,139 @@
 			if ( card && ! card.hidden ) hideCard();
 		}, true );
 	}() );
+
+	// ── Primary nav-bar scroll controls ────────────────────────────────────
+	// The primary tab bar ( .bn-navgroup > .bn-tabs ) hides its scrollbar, so a
+	// strip with more tabs than fit has no scrollbar to drag and (on desktop) no
+	// obvious way to reach the hidden tabs. Wrap the strip in a flex scroller and
+	// flank it with chevron buttons that:
+	//   - tap / click  -> scroll one "page" ( ~75% of the visible width )
+	//   - press + hold -> scroll continuously until release
+	//   - touch        -> the strip still swipes natively; buttons also tap/hold
+	// Unified across mouse / touch / pen via Pointer Events. The buttons sit
+	// BESIDE the strip (never over a tab) so no tab is ever covered. Works on iOS
+	// Safari + Firefox, where the CSS scroll-timeline edge-fade does not.
+	( function () {
+		var EDGE = 2;        // px tolerance so sub-pixel widths do not flicker.
+		var HOLD_MS = 350;   // press longer than this -> continuous scroll.
+		var STEP_PX = 14;    // continuous-scroll speed, px per animation frame.
+
+		// dir: -1 = toward start (inline-start), +1 = toward end. Returns the
+		// signed scrollLeft delta, accounting for RTL ( negative scrollLeft ).
+		function delta( strip, dir, px ) {
+			var rtl = 'rtl' === getComputedStyle( strip ).direction;
+			return px * dir * ( rtl ? -1 : 1 );
+		}
+
+		function update( strip ) {
+			if ( ! strip._bnStart ) return;
+			var max = strip.scrollWidth - strip.clientWidth;
+			var rtl = 'rtl' === getComputedStyle( strip ).direction;
+			var pos = rtl ? -strip.scrollLeft : strip.scrollLeft;
+			strip._bnStart.hidden = ! ( max > EDGE && pos > EDGE );
+			strip._bnEnd.hidden   = ! ( max > EDGE && pos < max - EDGE );
+		}
+
+		// True while there is still room to move in `dir` ( so a hold stops at
+		// the edge instead of spinning forever ).
+		function canMove( strip, dir ) {
+			var max = strip.scrollWidth - strip.clientWidth;
+			var rtl = 'rtl' === getComputedStyle( strip ).direction;
+			var pos = rtl ? -strip.scrollLeft : strip.scrollLeft;
+			return dir < 0 ? pos > EDGE : pos < max - EDGE;
+		}
+
+		function page( strip, dir ) {
+			var px = Math.max( 120, Math.round( strip.clientWidth * 0.75 ) );
+			strip.scrollBy( { left: delta( strip, dir, px ), behavior: 'smooth' } );
+		}
+
+		function makeBtn( edge ) {
+			var b = document.createElement( 'button' );
+			b.type = 'button';
+			b.className = 'bn-navgroup__nav bn-navgroup__nav--' + edge;
+			// Pointer affordance only; keyboard users scroll tabs into view by
+			// tabbing through the tabs themselves, so keep these out of tab order
+			// and out of the a11y tree to avoid duplicate, label-less stops.
+			b.setAttribute( 'aria-hidden', 'true' );
+			b.tabIndex = -1;
+			b.hidden = true;
+			return b;
+		}
+
+		function bindHold( strip, btn, dir ) {
+			var holdTimer = null;
+			var raf = null;
+
+			function stop() {
+				if ( holdTimer ) { clearTimeout( holdTimer ); holdTimer = null; }
+				if ( raf ) { cancelAnimationFrame( raf ); raf = null; }
+			}
+			function loop() {
+				if ( ! canMove( strip, dir ) ) { stop(); return; }
+				strip.scrollLeft += delta( strip, dir, STEP_PX );
+				update( strip );
+				raf = requestAnimationFrame( loop );
+			}
+			btn.addEventListener( 'pointerdown', function ( e ) {
+				// Primary button / touch / pen only; ignore right-click.
+				if ( e.button && 0 !== e.button ) return;
+				e.preventDefault();
+				page( strip, dir );                       // immediate one-page nudge
+				holdTimer = setTimeout( function () {     // ...then continuous if held
+					holdTimer = null;
+					loop();
+				}, HOLD_MS );
+			} );
+			// Release in every way a press can end.
+			[ 'pointerup', 'pointercancel', 'pointerleave' ].forEach( function ( ev ) {
+				btn.addEventListener( ev, stop );
+			} );
+			window.addEventListener( 'blur', stop );
+		}
+
+		function wire( strip ) {
+			if ( strip.dataset.bnOverflowWired ) { update( strip ); return; }
+			var group = strip.parentElement;
+			if ( ! group || ! group.classList.contains( 'bn-navgroup' ) ) return;
+			strip.dataset.bnOverflowWired = '1';
+
+			// Wrap the strip in a flex scroller and flank it with the buttons so
+			// they sit beside the tabs, never on top of them.
+			var scroller = document.createElement( 'div' );
+			scroller.className = 'bn-navgroup__scroller';
+			group.insertBefore( scroller, strip );
+			var startBtn = makeBtn( 'start' );
+			var endBtn   = makeBtn( 'end' );
+			scroller.appendChild( startBtn );
+			scroller.appendChild( strip );
+			scroller.appendChild( endBtn );
+			strip._bnStart = startBtn;
+			strip._bnEnd   = endBtn;
+
+			bindHold( strip, startBtn, -1 );
+			bindHold( strip, endBtn, 1 );
+
+			strip.addEventListener( 'scroll', function () { update( strip ); }, { passive: true } );
+			if ( window.ResizeObserver ) {
+				new ResizeObserver( function () { update( strip ); } ).observe( strip );
+			}
+			update( strip );
+		}
+
+		function init() {
+			var strips = document.querySelectorAll( '.bn-navgroup > .bn-tabs' );
+			for ( var i = 0; i < strips.length; i++ ) { wire( strips[ i ] ); }
+		}
+
+		if ( 'loading' === document.readyState ) {
+			document.addEventListener( 'DOMContentLoaded', init );
+		} else {
+			init();
+		}
+		// Re-measure on viewport changes and re-wire after a client-side
+		// navigation swaps the nav bar ( navigate.js -> buddynext:navigated ).
+		window.addEventListener( 'resize', init, { passive: true } );
+		document.addEventListener( 'buddynext:navigated', init );
+	}() );
 }() );

@@ -290,9 +290,11 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 						$disc_space_slug = '' !== (string) $disc->space_slug ? (string) $disc->space_slug : 'general';
 						$disc_space_name = '' !== (string) $disc->space_name ? (string) $disc->space_name : __( 'General', 'buddynext' );
 						?>
-					<a href="<?php echo esc_url( home_url( '/community/s/' . $disc_space_slug . '/t/' . $disc->slug . '/' ) ); ?>" class="bn-reply-card bn-reply-card--link">
+					<a href="<?php echo esc_url( home_url( '/community/s/' . $disc_space_slug . '/t/' . $disc->slug . '/' ) ); ?>" class="bn-reply-card bn-reply-card--link bn-reply-card--avatar">
+						<span class="bn-reply-card__avatar" aria-hidden="true">
+							<img src="<?php echo esc_url( get_avatar_url( $bn_pf_uid, array( 'size' => 80 ) ) ); ?>" alt="" loading="lazy" width="40" height="40" />
+						</span>
 						<div class="bn-reply-card__meta">
-							<?php buddynext_icon( 'message-circle' ); ?>
 							<span><?php echo esc_html( $disc_space_name ); ?></span>
 							<span class="bn-reply-card__time"><?php echo esc_html( sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( strtotime( $disc->created_at ) ) ) ); ?></span>
 						</div>
