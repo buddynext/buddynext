@@ -2975,6 +2975,26 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	border-bottom-style: solid;
 }
 
+/* Background-bleed defense. Host themes (BuddyX's `.bx-tokens-applied button`,
+	0,1,1; similar broad bare-`button` rules in others) paint an accent fill onto
+	BuddyNext's ghost/icon controls, which set no background of their own. Pin
+	their DEFAULT background transparent under .bn-app (0,2,0 — out-specifies the
+	theme's selector) so the controls stay flat. Stateful fills still win at higher
+	specificity and are untouched: the checked toggle (.bn-toggle:has(:checked),
+	0,3,1) and the lightbox :hover rules in the feature stylesheets (loaded after
+	bn-base). Button-scoped for the lightbox wildcard so the backdrop div keeps its
+	overlay. Visually a no-op under themes that don't bleed (these are already
+	transparent). */
+.bn-app .bn-pf-pill,
+.bn-app .bn-tab,
+.bn-app .bn-composer__tool,
+.bn-app .bn-toggle,
+.bn-app .bn-more-menu-item,
+.bn-app .bn-modal__close,
+.bn-app button[class*="bn-lightbox__"] {
+	background-color: transparent;
+}
+
 /* ── Tooltip ────────────────────────────────────────────────────────── */
 .bn-tooltip {
 	position: absolute;
