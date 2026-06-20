@@ -1809,6 +1809,18 @@
 	box-shadow: -8px 0 24px -12px rgba(0, 0, 0, 0.25);
 	animation: bn-dm-info-in 0.2s ease;
 }
+/* Sit below the WP admin bar (fixed, z-index above the backdrop) so the panel
+   header is not clipped under it. 32px desktop, 46px on the mobile admin bar. */
+body.admin-bar .bn-dm-info .bn-modal__panel {
+	height: calc(100% - 32px);
+	margin-top: 32px;
+}
+@media screen and (max-width: 782px) {
+	body.admin-bar .bn-dm-info .bn-modal__panel {
+		height: calc(100% - 46px);
+		margin-top: 46px;
+	}
+}
 @keyframes bn-dm-info-in {
 	from { transform: translateX(100%); }
 	to   { transform: translateX(0); }
