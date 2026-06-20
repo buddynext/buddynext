@@ -7,7 +7,14 @@ import { onNavReady } from '../shell/nav-init.js';
 /* ── Comment helpers (vanilla DOM — outside WP Interactivity API scope) ── */
 
 function timeAgo( dateStr ) {
-	const secs = Math.floor( ( Date.now() - new Date( dateStr ).getTime() ) / 1000 );
+	// The API returns a naive MySQL UTC datetime ("YYYY-MM-DD HH:MM:SS", no zone).
+	// `new Date()` parses a space-separated, zoneless string as LOCAL time, which
+	// shifts the result by the viewer's UTC offset (a fresh comment shows "5h ago"
+	// for a UTC+5 browser). Normalise to ISO-8601 UTC so the instant is correct in
+	// every timezone. Server stores UTC via current_time('mysql', true).
+	const raw = String( dateStr );
+	const iso = /[zZ]|[+-]\d\d:?\d\d$/.test( raw ) ? raw : raw.replace( ' ', 'T' ) + 'Z';
+	const secs = Math.floor( ( Date.now() - new Date( iso ).getTime() ) / 1000 );
 	if ( secs < 60 )    return 'just now';
 	if ( secs < 3600 )  return Math.floor( secs / 60 ) + 'm ago';
 	if ( secs < 86400 ) return Math.floor( secs / 3600 ) + 'h ago';
