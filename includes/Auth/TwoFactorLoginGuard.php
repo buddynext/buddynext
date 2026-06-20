@@ -141,9 +141,14 @@ class TwoFactorLoginGuard implements ListenerInterface {
 			exit;
 		}
 
-		// Email-code fallback: mail a one-time code, then re-show the form.
+		// Email-code fallback: mail a one-time code, then re-show the form. The
+		// per-ticket resend cooldown (shared with the REST flow) absorbs repeat
+		// clicks so this can't be turned into an email-bomb; the notice stays the
+		// same either way so it never reveals the cooldown state.
 		if ( $send_email ) {
-			TwoFactorService::send_email_code( $ticket['user'] );
+			if ( TwoFactorService::can_resend_email_code( $token ) ) {
+				TwoFactorService::send_email_code( $ticket['user'] );
+			}
 			$this->render_form(
 				$token,
 				$redirect_to,
@@ -166,7 +171,11 @@ class TwoFactorLoginGuard implements ListenerInterface {
 				: '';
 			// phpcs:enable WordPress.Security.NonceVerification.Missing
 
-			if ( TwoFactorService::verify_login_code( $ticket['user'], $code ) ) {
+			// Verify under the shared per-ticket brute-force throttle: after
+			// TwoFactorService::TRY_MAX wrong codes the ticket locks out until the
+			// member re-enters their password and a fresh ticket is issued.
+			$verified = TwoFactorService::verify_login_challenge( $token, (int) $ticket['user'], $code );
+			if ( true === $verified ) {
 				TwoFactorService::consume_login_challenge( $token );
 				$this->complete( (int) $ticket['user'], ! empty( $ticket['remember'] ), $redirect_to );
 			}
@@ -174,7 +183,9 @@ class TwoFactorLoginGuard implements ListenerInterface {
 			$this->render_form(
 				$token,
 				$redirect_to,
-				__( 'That code was not correct. Try again, or use a backup code.', 'buddynext' )
+				$verified instanceof WP_Error
+					? $verified->get_error_message()
+					: __( 'That code was not correct. Try again, or use a backup code.', 'buddynext' )
 			);
 			exit;
 		}

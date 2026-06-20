@@ -520,12 +520,17 @@ class AuthController {
 			);
 		}
 
-		if ( ! TwoFactorService::verify_login_code( $ticket['user'], $code ) ) {
+		$verified = TwoFactorService::verify_login_challenge( $token, $ticket['user'], $code );
+		if ( is_wp_error( $verified ) ) {
+			// 'bn_2fa_locked' once the per-ticket attempt cap is hit (429), otherwise
+			// a wrong-code rejection (422). The throttle is shared with the wp-login
+			// bn_2fa path so brute-force enforcement is identical on both surfaces.
+			$locked = 'bn_2fa_locked' === $verified->get_error_code();
 			return new WP_Error(
-				'rest_2fa_failed',
-				__( 'That code was not correct. Try again, or use a backup code.', 'buddynext' ),
+				$locked ? 'rest_2fa_locked' : 'rest_2fa_failed',
+				$verified->get_error_message(),
 				array(
-					'status' => 422,
+					'status' => $locked ? 429 : 422,
 					'fields' => array( 'code' => __( 'Incorrect or expired code.', 'buddynext' ) ),
 				)
 			);
@@ -566,7 +571,10 @@ class AuthController {
 	public function send_two_factor_email( WP_REST_Request $request ): WP_REST_Response {
 		$token  = (string) $request->get_param( 'twofa_token' );
 		$ticket = TwoFactorService::peek_login_challenge( $token );
-		if ( null !== $ticket ) {
+		// Only send when the ticket is valid AND past the per-ticket resend
+		// cooldown, so the endpoint can't be used to mail-bomb a member. The
+		// response stays generic either way so it never reveals ticket validity.
+		if ( null !== $ticket && TwoFactorService::can_resend_email_code( $token ) ) {
 			TwoFactorService::send_email_code( $ticket['user'] );
 		}
 		return new WP_REST_Response(

@@ -23,6 +23,8 @@
  * Transients:
  *   bn_2fa_login_{id}      One-time login-challenge ticket → [user, remember].
  *   bn_2fa_email_{user}    Hashed email one-time code.
+ *   bn_2fa_try_{hash}      Failed-verification counter for one challenge ticket.
+ *   bn_2fa_rsnd_{hash}     Email-code resend cooldown marker for one ticket.
  *
  * Filters:
  *   buddynext_2fa_issuer            (string) label shown in the authenticator app.
@@ -57,6 +59,11 @@ class TwoFactorService {
 	private const EMAIL_TTL    = 600;  // Email one-time code lifetime, seconds.
 	private const BACKUP_COUNT = 10;
 	private const BASE32       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+	private const TRY_PREFIX      = 'bn_2fa_try_';  // Failed-attempt counter, per ticket.
+	private const TRY_MAX         = 5;              // Failures before the ticket locks out.
+	private const RESEND_PREFIX   = 'bn_2fa_rsnd_'; // Email-code resend cooldown, per ticket.
+	private const RESEND_COOLDOWN = 60;             // Seconds between email-code resends.
 
 	/* ───────────────────────────── Status ──────────────────────────────── */
 
@@ -361,6 +368,92 @@ class TwoFactorService {
 			delete_transient( 'bn_2fa_login_' . $token );
 		}
 		return $data;
+	}
+
+	/* ──────────────────── Brute-force throttle (per ticket) ─────────────── */
+
+	/**
+	 * Verify a login code under a per-ticket brute-force throttle.
+	 *
+	 * The challenge ticket is a 32-char, single-use, short-TTL secret minted only
+	 * after the password verified, so it identifies one sign-in attempt. We count
+	 * failed code guesses against that ticket and stop accepting any more once
+	 * TRY_MAX is reached, until the counter's window (the ticket TTL) elapses or
+	 * the member re-enters their password and a fresh ticket is issued. This
+	 * closes the unlimited-guess window on the 6-digit code without ever
+	 * weakening the constant-time checks in verify_login_code().
+	 *
+	 * Both the REST /auth/2fa flow and the wp-login bn_2fa flow call this, so the
+	 * lockout is enforced identically on every native sign-in path.
+	 *
+	 * @param string $token   Challenge ticket token (the throttle key).
+	 * @param int    $user_id Password-verified user ID from the ticket.
+	 * @param string $code    Code as entered.
+	 * @return true|WP_Error True when the code verified, WP_Error otherwise
+	 *                       (code 'bn_2fa_locked' once the attempt cap is hit).
+	 */
+	public static function verify_login_challenge( string $token, int $user_id, string $code ): bool|WP_Error {
+		$key = self::throttle_key( $token );
+
+		if ( (int) get_transient( $key ) >= self::TRY_MAX ) {
+			return new WP_Error(
+				'bn_2fa_locked',
+				__( 'Too many incorrect codes. Please enter your password again to restart sign-in.', 'buddynext' )
+			);
+		}
+
+		if ( self::verify_login_code( $user_id, $code ) ) {
+			delete_transient( $key );
+			return true;
+		}
+
+		// Count this failure against the ticket; the window matches the ticket TTL
+		// so a stalled attempt clears itself without leaving the account locked.
+		set_transient( $key, (int) get_transient( $key ) + 1, self::LOGIN_TTL );
+
+		return new WP_Error(
+			'bn_2fa_failed',
+			__( 'That code was not correct. Try again, or use a backup code.', 'buddynext' )
+		);
+	}
+
+	/**
+	 * Whether an email-code resend is allowed for this ticket, recording the send.
+	 *
+	 * Adds a short per-ticket cooldown to the email-code fallback so the endpoint
+	 * cannot be used to mail-bomb a member or churn the stored code transient.
+	 * Returns false while a previous send is still inside the cooldown window.
+	 *
+	 * @param string $token Challenge ticket token (the cooldown key).
+	 * @return bool True when a send is allowed (and the cooldown was armed).
+	 */
+	public static function can_resend_email_code( string $token ): bool {
+		$key = self::RESEND_PREFIX . self::throttle_hash( $token );
+		if ( false !== get_transient( $key ) ) {
+			return false; // Still cooling down from the last send.
+		}
+		set_transient( $key, 1, self::RESEND_COOLDOWN );
+		return true;
+	}
+
+	/**
+	 * Transient key for a ticket's failed-attempt counter.
+	 *
+	 * @param string $token Challenge ticket token.
+	 * @return string
+	 */
+	private static function throttle_key( string $token ): string {
+		return self::TRY_PREFIX . self::throttle_hash( $token );
+	}
+
+	/**
+	 * Hash a ticket token into a safe, fixed-length transient-key fragment.
+	 *
+	 * @param string $token Challenge ticket token.
+	 * @return string
+	 */
+	private static function throttle_hash( string $token ): string {
+		return hash_hmac( 'sha256', $token, wp_salt( 'auth' ) );
 	}
 
 	/* ─────────────────────────── TOTP / RFC 6238 ───────────────────────── */
