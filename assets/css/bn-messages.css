@@ -973,7 +973,8 @@
 /* ── Delete-confirm + compose + group modals ─────────────────────────────── */
 .bn-dm-confirm.is-hidden,
 .bn-dm-compose.is-hidden,
-.bn-dm-group.is-hidden {
+.bn-dm-group.is-hidden,
+.bn-dm-info.is-hidden {
 	display: none;
 }
 
@@ -1787,7 +1788,36 @@
 }
 
 /* ── Conversation info panel (1:1) ──────────────────────────────────────────
-   Reuses the shared .bn-modal chrome; this styles only the body content. */
+   A right-anchored slide-in sidebar (per the v2 DM design), not a centered
+   popup. The shared .bn-modal-backdrop provides the dimmed click-to-close
+   layer; here we re-anchor its panel to the right edge as a full-height drawer
+   and slide it in. (Hidden via .bn-dm-info.is-hidden { display:none } above.) */
+.bn-modal-backdrop.bn-dm-info {
+	justify-content: flex-end;
+	align-items: stretch;
+	padding: 0;
+}
+.bn-dm-info .bn-modal__panel {
+	width: min(360px, 100%);
+	max-width: 100%;
+	height: 100%;
+	max-height: 100%;
+	margin: 0;
+	border-radius: 0;
+	display: flex;
+	flex-direction: column;
+	box-shadow: -8px 0 24px -12px rgba(0, 0, 0, 0.25);
+	animation: bn-dm-info-in 0.2s ease;
+}
+@keyframes bn-dm-info-in {
+	from { transform: translateX(100%); }
+	to   { transform: translateX(0); }
+}
+.bn-dm-info .bn-modal__body {
+	flex: 1 1 auto;
+	overflow-y: auto;
+}
+
 .bn-dm-info__person {
 	display: flex;
 	flex-direction: column;
