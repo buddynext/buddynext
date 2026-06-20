@@ -108,7 +108,10 @@ class RolesTab {
 	 */
 	public function render_page(): void {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		if ( ! empty( $_GET['bn_roles'] ) ) {
+		$bn_roles_flag = isset( $_GET['bn_roles'] ) ? sanitize_key( wp_unslash( $_GET['bn_roles'] ) ) : '';
+		if ( 'error' === $bn_roles_flag ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Could not save role permissions. Please try again.', 'buddynext' ) . '</p></div>';
+		} elseif ( '' !== $bn_roles_flag ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Role permissions saved.', 'buddynext' ) . '</p></div>';
 		}
 
@@ -207,8 +210,13 @@ class RolesTab {
 			$overrides[ $cap ] = in_array( $role, $valid_roles, true ) ? $role : null;
 		}
 
-		update_option( self::OPTION, $overrides, false );
-		$this->redirect_back();
+		// Only report success when the write actually persisted. update_option()
+		// returns false both on a genuine DB failure AND on a harmless no-op
+		// (resubmitting unchanged values), so treat "already equal" as success and
+		// flag only a real write failure.
+		$current = get_option( self::OPTION, array() );
+		$ok      = ( $current === $overrides ) || update_option( self::OPTION, $overrides, false );
+		$this->redirect_back( $ok );
 	}
 
 	/**
@@ -216,12 +224,12 @@ class RolesTab {
 	 *
 	 * @return void
 	 */
-	private function redirect_back(): void {
+	private function redirect_back( bool $ok = true ): void {
 		// Resolve through the canonical placement map: the roles tab is registered
 		// under the 'settings' section but relocated to the Members page
 		// (page=buddynext-members), so a hardcoded page=buddynext landed on the
 		// General tab. tab_url() follows the remap to the page the tab renders on.
-		wp_safe_redirect( AdminHub::tab_url( 'settings', 'roles', array( 'bn_roles' => '1' ) ) );
+		wp_safe_redirect( AdminHub::tab_url( 'settings', 'roles', array( 'bn_roles' => $ok ? '1' : 'error' ) ) );
 		exit;
 	}
 }

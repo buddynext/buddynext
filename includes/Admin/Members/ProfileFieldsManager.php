@@ -346,6 +346,7 @@ class ProfileFieldsManager {
 				array(
 					'page' => 'buddynext-members',
 					'tab'  => 'profile-fields',
+					'bn_pf_notice' => 'saved',
 				),
 				admin_url( 'admin.php' )
 			)
@@ -439,6 +440,7 @@ class ProfileFieldsManager {
 				array(
 					'page' => 'buddynext-members',
 					'tab'  => 'profile-fields',
+					'bn_pf_notice' => 'saved',
 				),
 				admin_url( 'admin.php' )
 			)
@@ -623,6 +625,7 @@ class ProfileFieldsManager {
 				array(
 					'page' => 'buddynext-members',
 					'tab'  => 'profile-fields',
+					'bn_pf_notice' => 'deleted',
 				),
 				admin_url( 'admin.php' )
 			)
@@ -656,6 +659,7 @@ class ProfileFieldsManager {
 				array(
 					'page' => 'buddynext-members',
 					'tab'  => 'profile-fields',
+					'bn_pf_notice' => 'deleted',
 				),
 				admin_url( 'admin.php' )
 			)
@@ -703,6 +707,7 @@ class ProfileFieldsManager {
 				array(
 					'page' => 'buddynext-members',
 					'tab'  => 'profile-fields',
+					'bn_pf_notice' => 'saved',
 				),
 				admin_url( 'admin.php' )
 			)
@@ -730,6 +735,7 @@ class ProfileFieldsManager {
 					array(
 						'page' => 'buddynext-members',
 						'tab'  => 'profile-fields',
+						'bn_pf_notice' => 'error',
 					),
 					admin_url( 'admin.php' )
 				)
@@ -768,6 +774,7 @@ class ProfileFieldsManager {
 				array(
 					'page' => 'buddynext-members',
 					'tab'  => 'profile-fields',
+					'bn_pf_notice' => 'saved',
 				),
 				admin_url( 'admin.php' )
 			)
@@ -795,6 +802,7 @@ class ProfileFieldsManager {
 					array(
 						'page' => 'buddynext-members',
 						'tab'  => 'profile-fields',
+						'bn_pf_notice' => 'error',
 					),
 					admin_url( 'admin.php' )
 				)
@@ -847,6 +855,7 @@ class ProfileFieldsManager {
 					array(
 						'page' => 'buddynext-members',
 						'tab'  => 'profile-fields',
+						'bn_pf_notice' => 'error',
 					),
 					admin_url( 'admin.php' )
 				)
@@ -883,6 +892,7 @@ class ProfileFieldsManager {
 				array(
 					'page' => 'buddynext-members',
 					'tab'  => 'profile-fields',
+					'bn_pf_notice' => 'saved',
 				),
 				admin_url( 'admin.php' )
 			)
@@ -957,6 +967,7 @@ class ProfileFieldsManager {
 				array(
 					'page' => 'buddynext-members',
 					'tab'  => 'profile-fields',
+					'bn_pf_notice' => 'saved',
 				),
 				admin_url( 'admin.php' )
 			)
@@ -1042,6 +1053,7 @@ class ProfileFieldsManager {
 				array(
 					'page' => 'buddynext-members',
 					'tab'  => 'profile-fields',
+					'bn_pf_notice' => 'saved',
 				),
 				admin_url( 'admin.php' )
 			)
@@ -1056,6 +1068,19 @@ class ProfileFieldsManager {
 	 * @return void
 	 */
 	public function render_profile_fields_tab(): void {
+		// CRUD result feedback. Every create/update/delete/reorder handler redirects
+		// here with bn_pf_notice (the screen used to render nothing, so saves and
+		// failures alike were silent).
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$bn_pf_notice = isset( $_GET['bn_pf_notice'] ) ? sanitize_key( wp_unslash( $_GET['bn_pf_notice'] ) ) : '';
+		if ( 'saved' === $bn_pf_notice ) {
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Profile fields saved.', 'buddynext' ) . '</p></div>';
+		} elseif ( 'deleted' === $bn_pf_notice ) {
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Deleted.', 'buddynext' ) . '</p></div>';
+		} elseif ( 'error' === $bn_pf_notice ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Not saved — please check the field name and try again.', 'buddynext' ) . '</p></div>';
+		}
+
 		$groups      = buddynext_service( 'profiles' )->get_fields();
 		$post_url    = admin_url( 'admin-post.php' );
 		$base_url    = admin_url( 'admin.php?page=buddynext-members&tab=profile-fields' );

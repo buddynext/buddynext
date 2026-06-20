@@ -348,6 +348,8 @@ class NavManager extends AdminPageBase {
 		foreach ( $catalogue as $hub => $cfg ) {
 			if ( '' === $cfg['slug_opt'] ) {
 				continue;
+			} elseif ( 'pages_error' === $notice ) {
+				echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'A backing page could not be created. Your slug changes were saved, but please try creating the page again.', 'buddynext' ) . '</p></div>';
 			}
 			$slug = sanitize_title( (string) ( ( (array) ( $raw[ $hub ] ?? array() ) )['slug'] ?? '' ) );
 			if ( '' === $slug ) {
@@ -374,6 +376,7 @@ class NavManager extends AdminPageBase {
 			$seen[ $slug ] = $hub;
 		}
 
+		$create_failed = false;
 		foreach ( $catalogue as $hub => $cfg ) {
 			$hub_data = (array) ( $raw[ $hub ] ?? array() );
 			if ( '' !== $cfg['slug_opt'] ) {
@@ -386,11 +389,19 @@ class NavManager extends AdminPageBase {
 			// is never silently replaced by a new blank one.
 			if ( 0 === $page_id && ! empty( $hub_data['create'] ) ) {
 				$page_id = $this->create_hub_backing_page( (string) $cfg['label'] );
+				if ( 0 === $page_id ) {
+					// Creation failed — do NOT store 0 (that orphans the hub's
+					// existing assignment) and do NOT report success.
+					$create_failed = true;
+					continue;
+				}
 			}
 			update_option( $cfg['page_opt'], $page_id );
 		}
 
-		wp_safe_redirect( add_query_arg( 'bn_notice', 'pages_saved', $pages_url ) );
+		wp_safe_redirect(
+			add_query_arg( 'bn_notice', $create_failed ? 'pages_error' : 'pages_saved', $pages_url )
+		);
 		exit;
 	}
 
