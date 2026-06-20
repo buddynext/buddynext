@@ -3347,7 +3347,6 @@ function attachMentionHashtagTypeahead( textarea ) {
 	let fetchAbort = null;
 	let suggestTimer = null;
 	const SUGGEST_DEBOUNCE_MS = 200;
-	const REST_BASE = ( window.wpApiSettings?.root || '/wp-json/' ) + 'buddynext/v1';
 
 	const closeDropdown = () => {
 		if ( dropdown ) {
@@ -3420,8 +3419,8 @@ function attachMentionHashtagTypeahead( textarea ) {
 		if ( fetchAbort ) { fetchAbort.abort(); }
 		fetchAbort = new AbortController();
 		const url = kind === '@'
-			? `${ REST_BASE }/members?search=${ encodeURIComponent( query ) }&per_page=5`
-			: `${ REST_BASE }/hashtags/autocomplete?q=${ encodeURIComponent( query ) }&limit=5`;
+			? `/members?search=${ encodeURIComponent( query ) }&per_page=5`
+			: `/hashtags/autocomplete?q=${ encodeURIComponent( query ) }&limit=5`;
 		try {
 			const r = await restFetch( url, { signal: fetchAbort.signal, toastOnError: false } );
 			const data = r.data;
