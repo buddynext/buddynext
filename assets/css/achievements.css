@@ -133,30 +133,38 @@ a.bn-achievements__badge-link:focus-visible {
 }
 
 .bn-achievements__badge-medal {
-	width: 56px;
-	height: 56px;
+	width: 64px;
+	height: 64px;
 	border-radius: 50%;
 	overflow: hidden;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--bn-surface-soft);
+	/* A soft theme-accent medallion (OKLCH tokens, not an AI-marker gradient) so
+	   even a simple badge SVG reads as a designed medal, not a bare icon in a
+	   plain circle. */
+	background: radial-gradient(circle at 50% 32%, var(--bn-accent-soft), var(--bn-surface-soft));
+	box-shadow: inset 0 0 0 1px var(--bn-border);
 }
 
 .bn-achievements__badge.is-credential .bn-achievements__badge-medal {
-	background: var(--bn-surface);
+	background: radial-gradient(circle at 50% 32%, var(--bn-accent-200, var(--bn-accent-soft)), var(--bn-accent-soft));
+	box-shadow: inset 0 0 0 1px var(--bn-accent-300);
 }
 
 .bn-achievements__badge-medal img {
 	width: 100%;
 	height: 100%;
-	object-fit: cover;
+	/* contain (not cover) + padding shows the whole badge artwork centered,
+	   instead of cropping a thin outline to fill the circle. */
+	object-fit: contain;
+	padding: 11px;
 	display: block;
 }
 
 .bn-achievements__badge-medal svg {
-	width: 1.6rem;
-	height: 1.6rem;
+	width: 1.7rem;
+	height: 1.7rem;
 	color: var(--bn-accent);
 }
 
@@ -179,7 +187,10 @@ a.bn-achievements__badge-link:focus-visible {
 	}
 
 	.bn-achievements__badge-medal {
-		width: 48px;
-		height: 48px;
+		width: 56px;
+		height: 56px;
+	}
+	.bn-achievements__badge-medal img {
+		padding: 9px;
 	}
 }
