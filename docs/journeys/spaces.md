@@ -255,24 +255,63 @@ WHERE space_id = PRIVATE_SPACE_ID AND status = 'pending';
 
 ## REST surface walked
 
+**Corrected against the LIVE route index 2026-06-20.** The previous list was stale: `/ban/{user_id}`, `/unban/{user_id}`, `/decline-request`, `/me/spaces`, `/spaces/slug/{slug}` are **NOT** registered; bans are `GET,POST /spaces/{id}/bans` + `DELETE /spaces/{id}/bans/{user_id}`, and member moderation is under `/members/{uid}/*`.
+
 ```
-POST   /buddynext/v1/spaces                               -- 201, created space object
-GET    /buddynext/v1/spaces                               -- 200, paginated space list (public)
-GET    /buddynext/v1/spaces/{id}                          -- 200, single space
-PUT    /buddynext/v1/spaces/{id}                          -- 200, updated space (owner)
-DELETE /buddynext/v1/spaces/{id}                          -- 200, { "deleted": true } (owner/admin)
-GET    /buddynext/v1/spaces/{id}/members                  -- 200, member list
-GET    /buddynext/v1/spaces/{id}/pending-requests         -- 200, pending join requests (moderator)
-POST   /buddynext/v1/spaces/{id}/join                     -- 200/202, join or request
-POST   /buddynext/v1/spaces/{id}/leave                    -- 200, leave
-POST   /buddynext/v1/spaces/{id}/invite                   -- 200, invite sent
-POST   /buddynext/v1/spaces/{id}/approve-request          -- 200, request approved
-POST   /buddynext/v1/spaces/{id}/decline-request          -- 200, request declined
-POST   /buddynext/v1/spaces/{id}/ban/{user_id}            -- 200, user banned
-POST   /buddynext/v1/spaces/{id}/unban/{user_id}          -- 200, user unbanned
-GET    /buddynext/v1/me/spaces                            -- 200, spaces current user belongs to
-GET    /buddynext/v1/spaces/slug/{slug}                   -- 200, space by slug
+GET,POST     /buddynext/v1/spaces                                -- list (public) / create (201)
+GET,PUT,DELETE /buddynext/v1/spaces/{id}                         -- read / update (owner) / delete
+GET          /buddynext/v1/spaces/{id}/members                   -- member list (paginate at scale)
+GET          /buddynext/v1/spaces/{id}/pending-requests          -- moderator
+POST,DELETE  /buddynext/v1/spaces/{id}/join                      -- join/request / cancel-via-DELETE
+POST         /buddynext/v1/spaces/{id}/join/cancel               -- withdraw pending request
+POST         /buddynext/v1/spaces/{id}/leave                     -- leave
+POST         /buddynext/v1/spaces/{id}/invite                    -- invite
+POST         /buddynext/v1/spaces/{id}/approve-request           -- approve join
+POST         /buddynext/v1/spaces/{id}/members/{uid}/approve     -- approve member
+POST         /buddynext/v1/spaces/{id}/members/{uid}/decline     -- decline member
+PUT          /buddynext/v1/spaces/{id}/members/{uid}/role        -- change role
+DELETE       /buddynext/v1/spaces/{id}/members/{uid}             -- remove member
+GET,POST     /buddynext/v1/spaces/{id}/bans                      -- list / ban
+DELETE       /buddynext/v1/spaces/{id}/bans/{user_id}            -- unban
+PUT          /buddynext/v1/spaces/{id}/permissions               -- space permissions
+POST         /buddynext/v1/spaces/{id}/transfer(-ownership)      -- transfer owner
+POST,DELETE  /buddynext/v1/spaces/{id}/archive                   -- archive / unarchive
+POST,DELETE  /buddynext/v1/spaces/{id}/avatar, /cover            -- media
+GET,POST     /buddynext/v1/spaces/{id}/notification-pref         -- per-space notifications
+GET,POST     /buddynext/v1/space-categories  · {id} (PUT/DELETE) -- category CRUD
 ```
+
+> Re-confirm: `curl -s http://buddynext.local/wp-json/buddynext/v1 | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes']) if 'space' in r]"`
+
+## Frontend action wiring
+
+*(Item 11. Spaces is the most complex surface — join/leave + the settings save-bar + member-management menus. All controls use `ctx.restNonce` / `resolveNonce()`.)*
+
+| Control | Template (file) | JS store / action | Live route + method | Nonce |
+|---|---|---|---|---|
+| Create space | `templates/spaces/directory.php` | `buddynext/spaces` | `POST /spaces` | `ctx.restNonce` |
+| Join / request to join | `templates/spaces/home.php`, `directory.php` | `spaces/store.js:444,561` | `POST /spaces/{id}/join` | `resolveNonce()` |
+| Cancel pending request | `templates/spaces/home.php` | `spaces/store.js` | `POST /spaces/{id}/join/cancel` | `resolveNonce()` |
+| Leave / decline invite | `templates/spaces/home.php` | `spaces/store.js:529` | `POST /spaces/{id}/leave` | `resolveNonce()` |
+| Settings sticky save-bar (submit/cancel) | `templates/spaces/settings.php` | `buddynext/spaces` savebar (`store.js:419`) | `PUT /spaces/{id}` | `ctx.restNonce` |
+| Approve / decline join request | `templates/spaces/moderation.php`, `members.php` | `spaces/store.js:286` | `POST /spaces/{id}/members/{uid}/approve` · `/decline` | `resolveNonce()` |
+| Change member role | `templates/spaces/members.php` | `space-members/store.js:71` | `PUT /spaces/{id}/members/{uid}/role` | `ctx.restNonce` |
+| Remove member | `templates/spaces/members.php` | `space-members/store.js:49` | `DELETE /spaces/{id}/members/{uid}` | `ctx.restNonce` |
+
+**Verify this run (incl. concurrency — the gap in this journey):**
+1. As `alice` create a space, as `bob` join it; confirm rows + member count.
+2. **Multi-actor:** have the owner remove `bob` while `bob` clicks "leave" — confirm the second action degrades gracefully ("already removed"), not a 500. Same for approve-then-approve a request twice.
+3. Save-bar: edit a setting, confirm dirty→saving→saved, reload, confirm persisted; cancel rolls back.
+
+## Admin-config → member-effect
+
+*(Item 12.)*
+
+- **Spaces feature toggle** (Settings → BuddyNext → Features → "Spaces"): OFF → the Spaces hub redirects/404s and `POST /spaces` 403; member nav item gone. ON → restored.
+- **Space privacy (per-space, owner-set):** set a space to **private**, then as a non-member confirm content is hidden and join becomes a *request* (202/pending), not instant join. Set **secret** → space absent from the public directory entirely.
+
+Restore options / delete test spaces in Cleanup.
+
 
 ## Cleanup
 

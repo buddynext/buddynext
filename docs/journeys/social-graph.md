@@ -191,11 +191,51 @@ POST /buddynext/v1/users/{id}/connect/accept         -- 200 { "status": "accepte
 POST /buddynext/v1/users/{id}/connect/decline        -- 200 { "status": "declined" }
 GET  /buddynext/v1/me/connections                    -- 200, array of accepted connections
 GET  /buddynext/v1/me/connection-requests            -- 200, array of pending requests
-POST /buddynext/v1/users/{id}/block                  -- toggle block; 200 { "blocked": bool }
-POST /buddynext/v1/users/{id}/mute                   -- toggle mute; 200 { "muted": bool }
-GET  /buddynext/v1/me/blocked                        -- 200, array of blocked users
-GET  /buddynext/v1/me/muted                          -- 200, array of muted users
+POST   /buddynext/v1/users/{id}/block                -- block; 200 { "blocked": bool }
+DELETE /buddynext/v1/users/{id}/block                -- unblock; 200 { "blocked": false }
+POST   /buddynext/v1/users/{id}/mute                  -- mute; 200 { "muted": bool }
+DELETE /buddynext/v1/users/{id}/mute                  -- unmute; 200 { "muted": false }
+POST   /buddynext/v1/users/{id}/restrict              -- restrict; 200 { "restricted": bool }
+DELETE /buddynext/v1/users/{id}/restrict              -- un-restrict; 200 { "restricted": false }
+GET    /buddynext/v1/me/blocked                       -- 200, array of blocked users
+GET    /buddynext/v1/me/muted                         -- 200, array of muted users
+GET    /buddynext/v1/me/restricted                    -- 200, array of restricted users
 ```
+
+> Confirm this list against the **live** index every run — do not trust the source grep:
+> `curl -s http://buddynext.local/wp-json/buddynext/v1 | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes']) if any(k in r for k in ('block','mute','restrict','follow','connect'))]"`
+> (The `restrict` routes were once mis-reported as missing by a grep-only audit; the live index proves they exist with both POST and DELETE.)
+
+## Frontend action wiring
+
+*(Runbook contract item 11 — the layer REST-only journeys miss. Map each member-facing control to its JS action, the LIVE route+method, and the nonce source. Verify the JS path/method matches the live route index, and that the template emits the nonce the store reads.)*
+
+| Control | Template (file) | JS store / handler | Live route + method | Nonce source |
+|---|---|---|---|---|
+| Follow / Unfollow | `templates/blocks/follow-button.php`, `blocks/member-card.php`, `blocks/profile-header.php` | `buddynext/follow-button` (`assets/js/social/follow-store.js:78`) | `POST`/`DELETE /users/{id}/follow` | `ctx.nonce` |
+| Connection request accept / decline | `templates/profile/followers.php` | `buddynext/connection-requests` (`follow-store.js:196`) | `POST /users/{id}/connect/accept` · `/decline` | `ctx.nonce` |
+| Follow-request approve / reject | `templates/profile/followers.php` | `buddynext/follow-requests` (`follow-store.js:141`) | `POST /me/follow-requests/{id}/approve` · `/reject` | `ctx.nonce` |
+| Block (confirm) | `templates/parts/member-block-modal.php` | modal handler | `POST /users/{id}/block` | modal-emitted nonce |
+| Report (submit) | `templates/parts/member-report-modal.php` | modal handler | `POST /reports` | modal-emitted nonce |
+| Un-block / un-mute / un-restrict row | `templates/parts/settings-relations.php` | `assets/js/social/relation-remove.js:65` | `DELETE /users/{id}/{block\|mute\|restrict}` | `data-bn-nonce` → `wpApiSettings.nonce` → `ctx.restNonce` |
+
+**How to verify each row this run:**
+1. Live route exists with the right method — `curl -s http://buddynext.local/wp-json/buddynext/v1` and grep the path (see snippet in REST surface above).
+2. Template emits the control + nonce — `curl -s -b /tmp/bn.txt -L http://buddynext.local/members/ | grep -n 'data-relation="restrict"\|data-bn-nonce'` (logged in).
+3. The JS method matches the route's allowed methods (e.g. relation-remove uses `DELETE`; the route allows `POST,DELETE` — match).
+
+A control passes the REST-layer steps above but fails here when the template points JS at the wrong path/method or omits the nonce key the store reads — that is the "button does nothing" class customers report. **Confirm against the running site, never grep alone** (see `docs/qa/FLOW-VERIFICATION-2026-06-20.md`).
+
+## Admin-config → member-effect
+
+*(Runbook contract item 12 — flip the setting in the REAL admin form, then re-check the member-facing effect. Restore after.)*
+
+- **`buddynext_connection_require_note`** (Settings → BuddyNext → Members): turn ON, then as `member1` open `member2`'s profile and start a connection request.
+  - Expected member effect: the connect dialog requires a note before submit (`assets/js/shell/dialog.js`, value passed as `connectRequireNote` in `PageRouter.php:983`).
+  - **Documented caveat (verify, don't "fix" blindly):** enforcement is client-side only — `POST /users/{id}/connect` declares `note` as `required => false` (`ConnectionController.php`), so a direct API caller can omit it. This is current intended behaviour for Free; note it, don't weaken the REST contract to chase a UI hint.
+- **Block visibility gate** (no setting — relationship-driven): after `member1` blocks `member2`, confirm the member effect end-to-end — `member2` is excluded from `member1`'s directory/search results and feeds. Restore by un-blocking (`DELETE /users/{id}/block`).
+
+Restore any option you changed (`wp option delete <key>` returns it to default).
 
 ## Cleanup
 

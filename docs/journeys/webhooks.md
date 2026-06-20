@@ -246,6 +246,31 @@ Event slugs emitted by the listener: `member.registered`, `member.verified`, `po
 `space.joined`, `space.left`, `connection.accepted`, `user.followed`, `reaction.added`, `comment.created`,
 `user.suspended`, `user.unsuspended`, `member.ability_granted`, `member.ability_revoked`, plus `ping` (test only).
 
+> **CRITICAL — these routes are OPT-IN and absent by default.** Webhooks is a `TIER_OPT_IN` feature (`FeatureRegistry.php:96`); the `/webhooks` CRUD routes only register when the owner enables it (`Plugin.php:351` — `is_enabled('webhooks')` gates the whole service `init()`). On a fresh site the live index shows ONLY `/webhook/access`. **This is correct, not a missing route.** Enable the feature first, then re-check:
+> ```bash
+> curl -s http://buddynext.local/wp-json/buddynext/v1 | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes']) if 'webhook' in r]"
+> # default -> only /webhook/access ; after enabling Webhooks in Settings -> Features -> /webhooks, /webhooks/{id}, /log, /test appear
+> ```
+
+## Frontend action wiring
+
+*(Item 11. Webhooks have no member-facing UI — the "controls" are the admin endpoint manager and the always-on access opt-in. The real contract is the event-fire → delivery chain.)*
+
+| Control | Surface (file) | Wiring | Live route + method |
+|---|---|---|---|
+| Register / delete / test endpoint | Settings → Integrations (`includes/Admin/Settings.php`, `assets/js/admin/settings.js`) | admin REST | `POST/GET/DELETE /webhooks`, `POST /webhooks/{id}/test` *(only when feature enabled)* |
+| Per-event delivery | `includes/Outbound/OutboundWebhookListener.php:31-43` | 13 `add_action()` hooks → signed POST to subscriber | outbound transport (not a BN route) |
+| External access opt-in | `includes/Outbound/AccessWebhookController.php` | always registered | `POST /webhook/access` |
+
+**Verify this run:** enable Webhooks → register an endpoint (use `https://webhook.site`) → `POST /webhooks/{id}/test` returns `{success:true}` and the test `ping` lands → then do a real action (create a post) and confirm a `post.created` delivery arrives with the `X-BuddyNext-Signature` header.
+
+## Admin-config → member-effect
+
+*(Item 12. This is the cleanest opt-in example in the suite — the feature toggle literally adds/removes REST routes.)*
+
+- **Webhooks feature toggle** (Settings → Features → "Outbound webhooks"): OFF (default) → `/webhooks` routes absent, no deliveries fire, only `/webhook/access` exists. ON → routes appear and the listener delivers. Verify the route index in **both** states (this is the opt-in runtime enforcement added 2026-06-09).
+- **Endpoint event filter:** register an endpoint subscribed to `post.created` only → confirm a `reaction.added` does NOT deliver to it.
+
 ## Cleanup
 
 ```sql

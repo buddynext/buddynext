@@ -178,9 +178,31 @@ POST   /buddynext/v1/posts                                  -- 201, created post
 GET    /buddynext/v1/posts/{id}                             -- 200, single post (is_announcement=1 in payload)
 GET    /buddynext/v1/feed/home                              -- 200, announcement prepended to items[] on first page
 POST   /buddynext/v1/feed/announcements/{id}/dismiss        -- 204, per-user dismissal; 404 if not an announcement
+POST   /buddynext/v1/feed/announcements/{id}/end            -- author/admin ends the announcement early (expire pin now)
 ```
 
 There is no dedicated "create announcement" endpoint — announcements are created through the standard `POST /posts` route by passing `type: "announcement"`. There is no list-announcements endpoint; announcements are discovered only via the home-feed prepend.
+
+> Re-confirm live: `curl -s http://buddynext.local/wp-json/buddynext/v1 | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes']) if 'announce' in r]"`
+
+## Frontend action wiring
+
+*(Item 11.)*
+
+| Control | Template (file) | JS store / action | Live route + method | Nonce |
+|---|---|---|---|---|
+| Post as announcement | `templates/blocks/post-composer.php` (announcement type) | `buddynext/post-composer` | `POST /posts` `{type:"announcement"}` | `ctx.restNonce` |
+| Dismiss announcement (member) | `templates/parts/post-actions.php` | `feed/store.js:1648` dismissAnnouncement | `POST /feed/announcements/{id}/dismiss` | `ctx.dismissNonce` |
+| End announcement early (author/admin) | `templates/parts/post-options-menu.php` | `feed/store.js:1660` endAnnouncement | `POST /feed/announcements/{id}/end` | `ctx.dismissNonce` |
+
+**Verify this run:** admin posts an announcement → it prepends to every member's home feed; member dismisses → gone for them only (per-user); author "end" → gone for everyone. Confirm the `dismissNonce` is emitted on the card (`grep -c dismissNonce` on the rendered feed).
+
+## Admin-config → member-effect
+
+*(Item 12.)*
+
+- **Announcement expiry** (owner sets an expiry when posting): set a short expiry, confirm it auto-disappears from the feed after expiry (the 2026-06-09 expiry fix — verify it still holds).
+- **Who can post announcements:** non-admin `POST /posts {type:announcement}` → 403; admin → 201.
 
 ## Cleanup
 

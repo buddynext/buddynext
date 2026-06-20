@@ -286,6 +286,36 @@ GET  /wp-admin/admin.php?page=buddynext&tab=features   -- Settings → Features 
                                                            persists buddynext_features['sidebar']
 ```
 
+## Frontend action wiring
+
+*(Item 11. The sidebar has no JS actions — but the shell that hosts it has two admin-gated render decisions that MUST be verified against rendered HTML, not grep. A grep-only audit wrongly called both "dead" on 2026-06-20; they work.)*
+
+| Render decision | Template (file) | Read via | Verify (HTML) |
+|---|---|---|---|
+| Desktop rail shown? | `templates/shell/hub-shell.php:89` | `buddynext_community_rail_enabled()` | option off → `grep -c 'bn-app__rail'` is 0; on → 1 |
+| Mobile bottom nav shown? | `templates/shell/hub-shell.php:140` | `buddynext_community_mobile_nav_enabled()` | option off → `grep -c 'bn-mobile-nav'` is 0; on → >0 |
+| Right sidebar slot shown? | `templates/shell/right-sidebar.php:35` | `has_action('buddynext_right_sidebar')` | renders only when a widget is hooked |
+
+## Admin-config → member-effect
+
+*(Item 12. The canonical verified example — do NOT trust grep for these; flip the option and fetch the HTML.)*
+
+```bash
+BASE=http://buddynext.local
+curl -s -c /tmp/bn.txt -o /dev/null -L "$BASE/?autologin=1"
+# Desktop rail toggle
+wp option update buddynext_enable_community_rail 0
+curl -s -b /tmp/bn.txt -L "$BASE/activity/" | grep -c 'bn-app__rail'      # expect 0
+wp option delete buddynext_enable_community_rail                          # restore (default on)
+# Mobile bottom nav toggle
+wp option update buddynext_enable_community_mobile_nav 0
+curl -s -b /tmp/bn.txt -L "$BASE/activity/" | grep -c 'bn-mobile-nav'     # expect 0
+wp option delete buddynext_enable_community_mobile_nav                    # restore
+# Sidebar widgets feature toggle: off -> the three discovery cards render nothing
+```
+
+- **Sidebar widgets feature** (`buddynext_features['sidebar']`): OFF → `WidgetService` stops binding, the three cards fall back to empty and render nothing; the rail container may still show (it is gated separately by `buddynext_enable_community_rail`). Confirm both independently.
+
 ## Cleanup
 
 The journey writes only to the `buddynext_features` option (and transient object-cache entries). Reset to clean default:

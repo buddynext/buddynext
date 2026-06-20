@@ -190,11 +190,39 @@ POST   /wp-json/mvs/v1/conversations/{id}/read             -- mark read (drives 
 GET    /wp-json/mvs/v1/me/messages/unread-count            -- engine unread count
 
 # BuddyNext (buddynext/v1) — used only to set up / tear down the block gate:
-POST   /wp-json/buddynext/v1/blocks                        -- block a user (writes wp_bn_blocks)
-DELETE /wp-json/buddynext/v1/blocks/{user_id}              -- remove the block
+POST   /wp-json/buddynext/v1/users/{id}/block             -- block a user (writes wp_bn_blocks)
+DELETE /wp-json/buddynext/v1/users/{id}/block             -- remove the block
 ```
 
-> The `mvs/v1` request/response shapes above are owned by WPMediaVerse and may change; treat them as partner internals. The bridge depends only on the **hooks** they fire, not their wire format.
+> **Block route corrected to the live index 2026-06-20** — it is `/users/{id}/block` (POST/DELETE), NOT `/blocks`. The `mvs/v1` shapes are partner-owned; the bridge depends on the **hooks** they fire, not the wire format.
+
+## Bridge contract & partner gate
+
+*(Item 11, bridge form. The DM UI is BN's, but every call targets the engine's `mvs/v1`. The journey's job is to confirm the BN-side filters/hooks fire — especially the block gate.)*
+
+| Direction | Hook / filter | Effect | Guard |
+|---|---|---|---|
+| BN announces itself | `mvs_buddynext_active → __return_true` | engine uses BN profile/identity | `WPMediaVerseBridge::register()` bails if `! class_exists('WPMediaVerse\Core\Plugin')` (`:46`) |
+| **Block gate** | `mvs_can_send_message` → `check_block` (3 args, `:55`) | blocked sender cannot DM (bn_blocks + recipient DM-privacy) | same |
+| Denial reason | `mvs_dm_denial_reason` → `dm_denial_reason` (`:59`) | friendly reason string | same |
+| Engine → BN notify | `mvs_message_sent` → `on_message_sent` (4 args, `:68`) | BN notification row for the recipient | same |
+| Follow-graph mirror | `mvs_user_followed`/`buddynext_user_followed` ↔ mirrored (`:77-80`) | `mvs_follows` and `bn_follows` stay in sync | same |
+| Connection note → DM | `buddynext_connection_requested` → `deliver_note_as_message_request` (`:117`) | a connection note arrives as a DM request | same |
+
+**Frontend:** the messages screen (`assets/js/messages/store.js`) sends every action to `base: ctx.mvsRest` (`mvs/v1`) / `ctx.mvsProRest`. **It is never reached dead** — `PageRouter.php:268` bounces `/messages/` when `buddynext_enable_dm` is off OR the engine is absent. (A grep-only audit once called the messages screen "dead without WPMediaVerse"; the bounce guard makes that a false alarm.)
+
+**Verify this run (`wpmediaverse` IS active here):**
+1. As `alice` DM `bob` (engine `POST /mvs/v1/conversations/{id}/messages`) → confirm `bob` gets a BN notification row (the `mvs_message_sent` → `on_message_sent` bridge effect).
+2. **Block gate:** `bob` blocks `alice` (`POST /users/{id}/block`) → `alice`'s next send is denied with the bridge's reason. Unblock.
+3. **Graceful absence:** deactivate WPMediaVerse → loading `/messages/` bounces (no dead screen, no fatal). Reactivate.
+
+## Admin-config → member-effect
+
+*(Item 12. Two distinct gates — easy to confuse.)*
+
+- **DM master switch** (`buddynext_enable_dm`): OFF → `/messages/` bounces for everyone, the rail Messages item hides. ON → restored.
+- **WPMediaVerse feature toggle** (Platform → Features → "wpmediaverse"): OFF → **`WPMediaVerseBridge` never inits**, so BN's `bn_blocks` / DM-privacy / note→DM are **NOT** applied to DMs (the engine's own `_mvs_dm_access` still is). This is subtle: DMs can still work via the engine while BN's block gate silently does nothing. Verify the block gate is enforced ONLY when the feature is ON.
+- **Default DM access** (`buddynext_default_dm_access`): set to "connections only" → confirm a non-connected sender is denied.
 
 ## Cleanup
 

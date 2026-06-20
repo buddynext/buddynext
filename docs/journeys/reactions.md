@@ -229,6 +229,26 @@ GET  /buddynext/v1/reactions/list     -- 200, { items:[{user_id,display_name,ava
 
 All three are registered under the `buddynext/v1` namespace by `ReactionController::register_routes()`, which is invoked from `includes/REST/Router.php`.
 
+## Frontend action wiring
+
+*(Item 11. Reactions are one-tap and ubiquitous — verify the picker + reactor popover wiring on the card.)*
+
+| Control | Template (file) | JS store / action | Live route + method | Nonce key |
+|---|---|---|---|---|
+| React / swap / un-react (emoji picker) | `templates/parts/post-reaction-summary.php`, `post-actions.php` | `buddynext/post-card` setReaction (`assets/js/feed/store.js:385`) | `POST /reactions/toggle` | `ctx.reactNonce` |
+| "Who reacted" popover | `templates/parts/post-reaction-summary.php` | reactor-list store (`feed/store.js:747`) | `GET /reactions/list` | `ctx.reactNonce` |
+| Count read (public/anon) | rendered server-side + refresh | post-card | `GET /reactions` | none (public) |
+
+**Verify this run:** card renders `reactNonce` (`curl -s -b /tmp/bn.txt -L http://buddynext.local/activity/ | grep -c reactNonce`); `POST /reactions/toggle` exists with POST (live index); anon `GET /reactions?object_type=post&object_id=N` returns `{count}` only.
+
+## Admin-config → member-effect
+
+*(Item 12. Reactions have no per-feature settings page, but they ARE gated by the FeatureRegistry toggle.)*
+
+- **Reactions feature toggle** (Settings → BuddyNext → Features → "Reactions"): turn **OFF**, then as a member `POST /reactions/toggle` → expect **403** (the write gate is `ReactionService`/`ReactionController::reactions_enabled_gate()` at `ReactionController.php:119,155`) and the emoji bar should not render on the card. Turn back **ON** → 200. Reads stay public either way. This proves the toggle actually disables the control — the contract no prior journey checked.
+
+Restore (`wp option delete` the features option / re-enable in the form).
+
 ## Cleanup
 
 ```sql

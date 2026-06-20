@@ -299,9 +299,44 @@ GET  /buddynext/v1/appeals                           -- 200, appeal list (modera
 PUT  /buddynext/v1/appeals/{id}/approve              -- 200, appeal approved (moderator)
 PUT  /buddynext/v1/appeals/{id}/deny                 -- 200, appeal denied (moderator)
 POST /buddynext/v1/users/{id}/warn                   -- 200, warning issued (moderator)
-POST /buddynext/v1/users/{id}/shadow-ban             -- 200, shadow ban applied (moderator)
+DELETE/GET/POST /buddynext/v1/users/{id}/shadow-ban  -- apply / status / remove shadow ban
 GET  /buddynext/v1/posts/{id}/content-warning        -- 200, content warning details
+POST /buddynext/v1/reports/{id}/remove               -- soft-remove reported content (moderator)
+POST /buddynext/v1/appeals/{id}/resolve              -- resolve appeal: decision=approved|denied
+GET  /buddynext/v1/me/appeals                        -- member's own appeals
+GET  /buddynext/v1/moderation/pending, /moderation/log -- admin queue + immutable log
 ```
+
+> **Verified live 2026-06-20.** Note: `/users/{id}/warn` and `GET /users/{id}/suspension` did NOT appear in the live index (warnings flow through `/strikes`; suspension via `POST/DELETE /users/{id}/suspend`). Re-confirm before walking those two: `curl -s http://buddynext.local/wp-json/buddynext/v1 | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes']) if any(k in r for k in ('report','appeal','strike','suspend','shadow','moderation'))]"`
+
+## Frontend action wiring
+
+*(Item 11. Report = member entry; queue actions = admin. The admin appeal action uses `/resolve` — a grep-only audit once mis-flagged this as a 404 because it matched only `/approve`,`/deny`; the live route IS `/resolve`.)*
+
+| Control | Template (file) | JS store / action | Live route + method | Nonce |
+|---|---|---|---|---|
+| Report content (modal) | `templates/parts/member-report-modal.php` | modal handler | `POST /reports` | modal nonce |
+| Report post (from card) | `templates/parts/post-options-menu.php` | `feed/store.js:612` | `POST /reports` | `ctx.reportNonce` |
+| Queue: dismiss | `templates/moderation/queue.php` | `moderation/store.js:38` | `POST /reports/{id}/dismiss` | `ctx.restNonce` |
+| Queue: remove content | `templates/moderation/queue.php` | `moderation/store.js:64` | `POST /reports/{id}/remove` | `ctx.restNonce` |
+| Queue: escalate / resolve | `templates/moderation/queue.php` | `moderation/store.js` | `POST /reports/{id}/escalate` · `/resolve` | `ctx.restNonce` |
+| Appeal approve / deny | `templates/moderation/account-status.php` | `moderation/store.js:172` | `POST /appeals/{id}/resolve` `{decision}` | `ctx.restNonce` |
+
+**Verify this run (incl. multi-actor — the gap in this journey):**
+1. `alice` reports `bob`'s post (`POST /reports` 201); as admin the report appears in `GET /reports/queue`.
+2. Resolve it; assert the report `status` field changed (not just HTTP 200).
+3. **Multi-actor:** two moderators resolve the same report — the second must degrade gracefully ("already resolved"), not 500.
+
+## Admin-config → member-effect
+
+*(Item 12. The threshold ladder is owner-configurable and must actually change behaviour.)*
+
+- **Auto-hide threshold** (`buddynext_auto_hide_threshold`, default 5; `ModerationService.php:159`): set to **2**, file 2 reports on one post → confirm it auto-hides. Set high → confirm it doesn't.
+- **Strike → warn/suspend/ban thresholds** (`buddynext_strike_warn_threshold` default 2, `ModerationListener.php:110`): set warn=1 → confirm one strike triggers a warning notification to the member.
+- **Suspended member effect:** suspend `bob` → confirm `bob` can't post (`POST /posts` 403) and sees the account-status screen; lift → restored.
+
+Restore options after.
+
 
 ## Cleanup
 

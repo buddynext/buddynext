@@ -192,8 +192,34 @@ GET  /buddynext/v1/search?type=users                 -- 200, user results only
 GET  /buddynext/v1/search?type=posts                 -- 200, post results only
 GET  /buddynext/v1/search?type=spaces                -- 200, space results only
 GET  /buddynext/v1/search?type=hashtags              -- 200, hashtag results only
-POST /buddynext/v1/search/index/{type}               -- 200/202, reindex trigger (admin)
+GET  /buddynext/v1/search/members                    -- 200, dedicated member search
 ```
+
+> **Verified live 2026-06-20:** only `GET /search` and `GET /search/members` are registered. The previously-listed `POST /search/index/{type}` reindex route did **not** appear in the live index — re-confirm before walking it (it may run via WP-CLI / cron, not REST): `curl -s http://buddynext.local/wp-json/buddynext/v1 | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes']) if 'search' in r]"`
+
+## Frontend action wiring
+
+*(Item 11.)*
+
+| Control | Template (file) | JS store / action | Live route + method | Source |
+|---|---|---|---|---|
+| Search box (type/submit) | `templates/search/results.php` | `buddynext/search` (`store.js`) | `GET /search?q=&type=` | `ctx.restNonce` |
+| Follow from result | `templates/search/results.php` | `store.js:25` | `POST/DELETE /users/{id}/follow` | `ctx.restNonce` |
+| Join/leave space from result | `templates/search/results.php` | `store.js:46` | `POST /spaces/{id}/join` · `/leave` | `ctx.restNonce` |
+| Save current search | `templates/search/results.php` | `store.js:84` saveCurrent | injected `ctx.savedSearchUrl` (POST) | `ctx.restNonce` |
+
+> **Injected-URL note:** saved-search posts to `ctx.savedSearchUrl` (not a fixed `buddynext/v1` path). Confirm the template emits it (`curl ... | grep savedSearchUrl`) or Save no-ops silently.
+
+**Verify this run:** type a query → `GET /search?q=` fires and results render per tab (users/posts/spaces/hashtags); assert each result item's shape (id + permission fields), not just count.
+
+## Admin-config → member-effect
+
+*(Item 12.)*
+
+- **Public explore / search** (`buddynext_public_explore`, `PageRouter.php:261`): OFF → an anonymous `GET /search` (and the explore/search page) becomes members-only / redirects to login; ON → public. Verify logged-out in both states.
+- **Search feature toggle** (if gated in Features): OFF → search route 403 + nav item gone.
+
+Restore options after.
 
 ## Cleanup
 

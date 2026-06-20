@@ -238,6 +238,30 @@ Query/body params:
 - `GET /comments` query: `object_type`, `object_id` (required); `per_page` (1–50, default 20), `page` (≥1, default 1).
 - `PUT /comments/{id}` body: `content` (string, required).
 
+> Re-confirm live: `curl -s http://buddynext.local/wp-json/buddynext/v1 | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes']) if '/comments' in r]"`
+
+## Frontend action wiring
+
+*(Item 11. Comment controls are vanilla-DOM handlers inside the post-card store — the journey verifies the routes, but only this layer catches a broken DOM binding.)*
+
+| Control | Template (file) | JS store / handler | Live route + method | Nonce key |
+|---|---|---|---|---|
+| Add comment / reply | `templates/parts/post-comment-form.php` | `feed/store.js:683` | `POST /comments` | `nonce` |
+| Load comment tree | `templates/parts/post-comments-list.php` | `feed/store.js:817` | `GET /comments?object_type=post&object_id=` | `ctx.reactNonce` |
+| Edit comment | `templates/parts/post-comments-list.php` | `feed/store.js:496` | `PUT /comments/{id}` | `nonce` |
+| Delete comment | `templates/parts/post-comments-list.php` | `feed/store.js:541` | `DELETE /comments/{id}` | `nonce` |
+| Pin / unpin comment | `templates/parts/post-comments-list.php` | `feed/store.js:569` | `POST/DELETE /comments/{id}/pin` | `nonce` |
+
+**Verify this run:** post a comment as `alice` on a post (`POST /comments` 201), confirm it appears; edit and delete it; as admin pin it. Because these are DOM handlers (not Interactivity directives), a JS-binding regression passes every REST step but breaks the button — click them in the browser.
+
+## Admin-config → member-effect
+
+*(Item 12.)*
+
+- **Comments feature toggle** (Settings → BuddyNext → Features → "Comments"): turn **OFF**, then as a member `POST /comments` → expect **403** (gate `CommentController::comments_enabled_gate()` at `CommentController.php:466,477`) and the comment form should not render. Turn **ON** → 201.
+
+Restore the features option after.
+
 ## Cleanup
 
 ```sql

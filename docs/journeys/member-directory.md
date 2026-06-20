@@ -228,8 +228,38 @@ PUT    /buddynext/v1/member-types/{slug}             -- 200, updated type (admin
 DELETE /buddynext/v1/member-types/{slug}             -- 200, { "deleted": true } (admin)
 PUT    /buddynext/v1/users/{id}/member-type          -- 200, type assigned (admin)
 DELETE /buddynext/v1/users/{id}/member-type          -- 200, type removed (admin)
-GET    /buddynext/v1/search?type=users               -- 200, user search with viewer-aware exclusions
+GET    /buddynext/v1/members                          -- 200, THE directory list/search/filter (the route the UI actually calls)
+GET    /buddynext/v1/search/members                   -- 200, viewer-aware member search (secondary)
 ```
+
+> **Correction (verified live 2026-06-20):** the directory UI calls **`GET /members?...`** (`assets/js/members/store.js:608`), NOT `/search?type=users`. The old journey walked the wrong (shadow) endpoint, so the dedicated `MemberDirectoryController` was never actually tested. Walk `/members` this run.
+> `curl -s "http://buddynext.local/wp-json/buddynext/v1/members?per_page=2" -b /tmp/bn.txt | python3 -m json.tool | head`
+
+## Frontend action wiring
+
+*(Item 11. The directory is a high-traffic browse surface — live search, filter, follow-from-card.)*
+
+| Control | Template (file) | JS store / action | Live route + method | Nonce |
+|---|---|---|---|---|
+| Live search (debounced) | `templates/directory/members.php` | `buddynext/members` (`members/store.js:608`) | `GET /members?search=` | `ctx.restNonce` |
+| Filter by member-type / sort | `templates/directory/members.php` filter bar | `members/store.js` setFilter | `GET /members?type=&orderby=` | `ctx.restNonce` |
+| Load more / pagination | `templates/directory/members.php` | `members/store.js` | `GET /members?page=` | `ctx.restNonce` |
+| Follow / unfollow from card | `templates/blocks/member-card.php` | `members/store.js:444` | `POST/DELETE /users/{id}/follow` | `cfg.restNonce` |
+| Connect / accept / decline from card | `templates/blocks/member-card.php` | `members/store.js:471,507` | `POST /users/{id}/connect[/accept|/decline]` | `cfg.restNonce` |
+
+**Verify this run (incl. SCALE — the 2000-row baseline gap):**
+1. `GET /members?per_page=20&page=1` returns 20 + `X-WP-Total` header; page 2 differs. (Seed 500+ users first if the site is small — `wp user generate --count=500`.)
+2. Type in the search box → confirm `GET /members?search=` fires and narrows results.
+3. Filter by a member-type → confirm only that type returns.
+
+## Admin-config → member-effect
+
+*(Item 12.)*
+
+- **Member types:** admin creates a type and assigns it to `bob` (`PUT /users/{id}/member-type`); confirm the directory filter-by-type surfaces `bob` and the type badge renders on his card.
+- **Block exclusion (relationship-driven):** `alice` blocks `bob`; confirm `bob` is excluded from `alice`'s `GET /members` results (viewer-aware). Unblock to restore.
+- **Directory columns** (`buddynext_directory_columns`, owner setting): change 2↔3↔4 in admin, confirm the grid column count changes for members.
+
 
 ## Cleanup
 

@@ -2,7 +2,9 @@
 
 ## What is a journey?
 
-A journey is a step-by-step manual test of one Free feature. Each runbook is self-contained and executable by a human tester or an AI agent against a live WordPress site. Journeys are not unit tests — they walk the full feature end-to-end: REST API, DB state, and service layer. No frontend assertions are made (design is not complete); all verification happens at the REST + DB + service layers.
+A journey is a step-by-step manual test of one Free feature. Each runbook is self-contained and executable by a human tester or an AI agent against a live WordPress site. Journeys are not unit tests — they walk the full feature end-to-end: REST API, DB state, service layer, **the frontend control that triggers it, and the admin setting that gates it**.
+
+Earlier journeys verified only the REST + DB + service layers ("no frontend assertions, design not complete"). That left two blind spots where customers — not journeys — find the bugs: (1) the **button/wiring layer** (a template control that points at the wrong route/method/nonce passes every REST-layer journey while being dead in the browser), and (2) the **admin-config → member-effect** layer (a setting saved but never applied). Both are now mandatory — see the Runbook contract (items 11–12) and **Verification discipline** below.
 
 ## How to run a journey
 
@@ -22,13 +24,20 @@ A journey is a step-by-step manual test of one Free feature. Each runbook is sel
 
 | Role  | Username | Password |
 |-------|----------|----------|
-| Admin | `admin`  | `password` |
-| Member (seed user 1) | `member1` | `password` |
-| Member (seed user 2) | `member2` | `password` |
+| Admin | `varundubey` | (site admin pw) |
+| Member (subscriber) | `alice` | see note |
+| Member (subscriber) | `bob` | see note |
+| Member (subscriber) | `carol` | see note |
 
-Base URL: `http://buddynext-dev.local/`
+> **Verified against the running site 2026-06-20.** The real accounts are `alice`/`bob`/`carol`/`david`/`eve` (subscribers), `author1`, `contributor1`, admin `varundubey`. Older runbooks say `member1`/`member2` — **those do not exist here**; substitute `alice`/`bob`. Where a runbook hardcodes `member1`/`member2`, read them as `alice`/`bob`.
+>
+> **Passwords for REST basic-auth:** the curl examples assume the member's password is `password`. If a login returns 401, set a known password first (dev site only): `wp user update alice --user_pass=password`. For browser steps, prefer autologin — no password needed: `?autologin=alice`, `?autologin=bob`, `?autologin=1` (admin).
+>
+> **Login REST field is `user`** (not `username`/`user_login`): `POST /auth/login {"user":"alice","password":"password"}`. Missing it returns `rest_missing_callback_param`.
 
-Admin dashboard: `http://buddynext-dev.local/wp-admin/`
+Base URL: `http://buddynext.local/`  *(not `buddynext-dev.local` — that host does not resolve on this machine)*
+
+Admin dashboard: `http://buddynext.local/wp-admin/`
 
 Admin autologin shortcut: append `?autologin=1` to any admin URL. The mu-plugin at `mu-plugins/00-autologin.php` handles this.
 
@@ -132,6 +141,45 @@ Every runbook in this directory follows the same structure:
 8. **Cleanup** — SQL (and WP-CLI where needed) to remove test artifacts.
 9. **Known limitations** — documented gaps, pending hooks, or TODO items.
 10. **Automation notes** — guidance for converting the journey to a scripted or Playwright test.
+11. **Frontend action wiring** — for every member-facing control the feature exposes (button, form, toggle, menu item), a row mapping: `template file:line` → JS store action (`assets/js/<feature>/store.js`) → REST `METHOD /path` → nonce/context key. The journey must confirm the JS path+method matches a **live** registered route and that the template emits the correct context. This is the layer that catches "button looks fine, does nothing."
+12. **Admin-config → member-effect** — for every site-owner setting that gates or changes this feature, a step that flips the setting in the **real admin form**, then re-checks the member-facing effect (route now 403s, nav item disappears, rail hides, email shows the new sender, etc.). Verifies the *set → stored → read → applied* contract end-to-end, not just that the option saves.
+
+### Verification discipline — static analysis is NOT proof
+
+A journey step is only "verified" when it was exercised against the **running site** — the live REST route index, a real rendered HTML response, or a real DB row. Grepping the source for a `get_option()` call or a `register_rest_route()` string is a *hint*, not a verdict. Indirection (helper functions, route-registration loops, bridge guards) routinely defeats grep.
+
+On 2026-06-20 a static (grep-only) audit produced **five** "customer-facing broken" findings. Every one was a **false positive** when checked against the running site:
+
+| Static claim | Why grep was wrong | How to verify correctly |
+|---|---|---|
+| Appeals approve/deny button 404s | route is `POST /appeals/{id}/resolve` (`ModerationController.php:401`); grep matched only the legacy `/approve`,`/deny` | `curl /wp-json/buddynext/v1` and search the live route index |
+| Messages tab dead without WPMediaVerse | `/messages/` is guarded and bounces (`PageRouter.php:267`) | load the page logged-in; observe the redirect |
+| "Show desktop rail" toggle does nothing | read via helper `buddynext_community_rail_enabled()` (`hub-shell.php:89`), not a literal `get_option` | `wp option update` it off, then `curl` the page and grep the markup |
+| "Show mobile nav" toggle does nothing | read via helper `buddynext_community_mobile_nav_enabled()` (`hub-shell.php:140`) | same: flip option, fetch HTML, count `.bn-mobile-nav` nodes |
+| Un-restrict button 404s | `DELETE /users/{id}/restrict` is registered and live; grep of one controller missed it | live route index shows `block`/`mute`/`restrict` all present |
+
+The lesson encoded into items 11–12: **verify the live route index and the rendered HTML, every run.** A worked record of this pass is in [`../qa/FLOW-VERIFICATION-2026-06-20.md`](../qa/FLOW-VERIFICATION-2026-06-20.md).
+
+### Reusable verification snippets (run these every pass)
+
+```bash
+# Site (this machine): http://buddynext.local/  — NOT buddynext-dev.local (stale in some older runbooks)
+BASE=http://buddynext.local
+
+# 1) Live REST route index — ground truth for "does this endpoint exist?"
+curl -s "$BASE/wp-json/buddynext/v1" | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes'])]"
+
+# 2) Methods on one route (confirm JS METHOD matches)
+curl -s "$BASE/wp-json/buddynext/v1" | python3 -c "import sys,json;d=json.load(sys.stdin);[print(r,sorted({m for ep in i.get('endpoints',[]) for m in ep['methods']})) for r,i in d['routes'].items() if 'restrict' in r]"
+
+# 3) Logged-in HTML fetch (admin-config -> member-effect)
+curl -s -c /tmp/bn.txt -o /dev/null -L "$BASE/?autologin=1"          # member1: ?autologin=member1
+curl -s -b /tmp/bn.txt -L "$BASE/activity/" | grep -c 'bn-app__rail'  # 1 = rendered, 0 = hidden
+
+# 4) Flip a gating option, re-fetch, then RESTORE (delete = back to default)
+wp option update buddynext_enable_community_rail 0 && curl -s -b /tmp/bn.txt -L "$BASE/activity/" | grep -c 'bn-app__rail'
+wp option delete buddynext_enable_community_rail   # restore pristine default
+```
 
 ## WP-CLI usage in these runbooks
 

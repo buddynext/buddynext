@@ -239,6 +239,33 @@ GET  /wp-json/buddynext/v1/search/members?q={term}    -- 200, member results (un
 
 Forum content itself is served by **Jetonomy's own route** at `/community/` (partner-owned, not a BN REST endpoint). The Discussions rail link and space Forum tab point at `/community/` and `/community/s/{slug}/` respectively.
 
+> Re-confirm BN search reflects discussions live (partner active): `curl -s "http://buddynext.local/wp-json/buddynext/v1/search?q=test" | python3 -m json.tool | grep -i discussion`
+
+## Bridge contract & partner gate
+
+*(Item 11, bridge form. The arg-counts below are load-bearing — a past bug came from registering with the wrong count; verify them against the partner's `do_action` signatures.)*
+
+| Direction | Hook (exact arg count) | Handler | Guard |
+|---|---|---|---|
+| Jetonomy → BN | `jetonomy_after_create_post(post_id, space_id)` **2 args** | `JetonomyBridge::on_post_created` (`:43`) | bails if `! class_exists('Jetonomy\Jetonomy')` (`JetonomyBridge:38`) |
+| Jetonomy → BN | `jetonomy_post_deleted(post_id, space_id, user_id)` **3 args** | `on_post_deleted` (`:45`) | same |
+| Jetonomy → BN | `jetonomy_after_create_reply(...)` | reply → BN notification (`JetonomyBridgeListener`) | bails if class missing (`Listener:49`) |
+| Jetonomy → BN | `jetonomy_notification_created(...)` **7 args** | `on_notification` (`Listener:53`) | same |
+| BN → Jetonomy | `jetonomy_before_content` (inject BN subnav), `jetonomy_show_community_nav → false` (suppress partner nav) | `JetonomyBridge` | same |
+
+**Frontend cross-namespace call:** the hashtag/feed Jetonomy upvote button posts to a **partner** route, not BN: `assets/js/hashtags/store.js:139` → `POST jetonomy/v1/posts/{id}/vote` (nonce `ctx.restNonce`). Verify that route exists in the **jetonomy** namespace (`curl -s http://buddynext.local/wp-json/jetonomy/v1 | grep vote`), not buddynext/v1.
+
+**Verify this run (`jetonomy` IS active here):**
+1. Create a discussion in Jetonomy `/community/` → confirm it surfaces in BN `GET /search?q=` under a `discussion` group and (if wired) as feed activity.
+2. **Graceful no-op:** deactivate Jetonomy → BN loads with no fatal, the Discussions rail link/Forum tab hide, search returns no discussion group. Reactivate.
+
+## Admin-config → member-effect
+
+*(Item 12.)*
+
+- **Jetonomy feature toggle** (Settings → Features → "Jetonomy"): OFF → the bridge does not inject the unified nav / discussion activity even with the partner active; ON → restored.
+- **Unified nav:** with the bridge active, loading a Jetonomy `/community/` page must show the BN subnav and NOT Jetonomy's own community nav (the `jetonomy_show_community_nav → false` suppression).
+
 ## Cleanup
 
 ```sql

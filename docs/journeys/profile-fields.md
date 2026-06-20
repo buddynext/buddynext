@@ -220,7 +220,37 @@ POST /buddynext/v1/profile-fields/{id}/reorder       -- 200, field reordered (ad
 GET  /buddynext/v1/users/{id}/profile                -- 200, user profile with visibility-filtered fields
 PUT  /buddynext/v1/users/{id}/profile                -- 200, profile updated (self)
 GET  /buddynext/v1/me/profile                        -- 200, own profile (all fields visible)
+PUT  /buddynext/v1/me/profile                        -- 200, save own field values
+POST /buddynext/v1/profile-fields                    -- 201, create field (admin)
+DELETE /buddynext/v1/profile-fields/{id}             -- 200, delete field (admin)
+GET/PUT /buddynext/v1/me/profile-slug · GET /profile-slug/check  -- vanity slug
+POST/DELETE /buddynext/v1/me/avatar, /me/cover       -- profile media
 ```
+
+> Re-confirm live (the create/delete/slug/media routes above are easy to miss in the manifest): `curl -s http://buddynext.local/wp-json/buddynext/v1 | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes']) if 'profile' in r or '/me/avatar' in r or '/me/cover' in r]"`
+
+## Frontend action wiring
+
+*(Item 11. Two actors: the admin who defines fields, the member who fills them.)*
+
+| Control | Template (file) | JS store / action | Live route + method | Nonce |
+|---|---|---|---|---|
+| Admin: create / edit / delete field | `templates/blocks/profile-fields.php`, `assets/js/admin/profile-fields.js` | admin field manager | `POST /profile-fields`, `PUT/DELETE /profile-fields/{id}` | admin REST nonce |
+| Admin: drag-reorder fields | field rows | admin field manager | `POST /profile-fields/{id}/reorder` | admin REST nonce |
+| Member: save profile values | `templates/profile/edit.php` | `profile/store.js:602` saveProfile | `PUT /me/profile` | `ctx.restNonce` |
+| Member: avatar / cover upload | `templates/profile/edit.php` | `profile/store.js:548/575` | `POST/DELETE /me/avatar`, `/me/cover` | `ctx.restNonce` |
+| Member: vanity slug (+ availability) | `templates/profile/edit.php` | `profile/store.js` | `PUT /me/profile-slug`, `GET /profile-slug/check` | `ctx.restNonce` |
+
+**Verify this run:** admin creates a field → load `/members/alice/profile/edit/` (autologin) → confirm the field renders, save a value (`PUT /me/profile` 200), reload, confirm it persisted (response shape, not just 200).
+
+## Admin-config → member-effect
+
+*(Item 12. This whole feature IS admin-config → member-effect — make the visibility assertion explicit.)*
+
+- **Field visibility:** admin creates a field with visibility = **members-only**, member fills it. Then: (a) a logged-out viewer hitting `GET /users/{id}/profile` must NOT see the value; (b) a logged-in member must. This is the load-bearing contract — verify both directions, not just that the field saves.
+- **Required field:** mark a field required → confirm onboarding/profile-save enforces it.
+
+Restore: delete the test field in Cleanup.
 
 ## Cleanup
 

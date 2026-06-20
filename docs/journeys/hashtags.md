@@ -211,7 +211,32 @@ GET  /buddynext/v1/hashtags/trending                 -- 200, ordered trending li
 GET  /buddynext/v1/hashtags/{slug}                   -- 200, hashtag detail + post feed
 POST   /buddynext/v1/hashtags/{slug}/follow          -- 200, { "following": true }  (follow)
 DELETE /buddynext/v1/hashtags/{slug}/follow          -- 200, { "following": false } (unfollow)
+GET    /buddynext/v1/hashtags/{slug}/feed            -- 200, posts for a hashtag
+GET    /buddynext/v1/hashtags/autocomplete           -- 200, type-ahead suggestions (composer)
 ```
+
+> Re-confirm live: `curl -s http://buddynext.local/wp-json/buddynext/v1 | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes']) if 'hashtag' in r]"`
+
+## Frontend action wiring
+
+*(Item 11.)*
+
+| Control | Template (file) | JS store / action | Live route + method | Nonce |
+|---|---|---|---|---|
+| `#tag` link → hashtag feed | rendered in post body | client-nav | `GET /hashtags/{slug}/feed` | public |
+| Follow / unfollow hashtag | `templates/hashtags/feed.php` | `buddynext/feed` hashtags (`hashtags/store.js:47`) | `POST/DELETE /hashtags/{slug}/follow` | `ctx.restNonce` |
+| Composer autocomplete (`#`) | `templates/blocks/post-composer.php` | composer | `GET /hashtags/autocomplete` | public |
+| Trending widget | `templates/parts/sidebar-*` | sidebar | `GET /hashtags/trending` | public |
+
+**Verify this run:** post with `#qa` → confirm the tag renders as a link and `GET /hashtags/qa/feed` returns the post; follow the tag, assert `{following:true}` response body (not just 200), reload, confirm persisted.
+
+## Admin-config → member-effect
+
+*(Item 12.)*
+
+- **Hashtags feature toggle** (Settings → Features → "Hashtags"): OFF → `POST /hashtags/{slug}/follow` 403, tags render as plain text (no link), nav/trending widget gone (gate at `HashtagController.php:173`). ON → restored.
+
+Restore the features option after.
 
 ## Cleanup
 

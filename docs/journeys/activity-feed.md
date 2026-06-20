@@ -282,8 +282,52 @@ DELETE /buddynext/v1/comments/{id}                   -- 200, { "deleted": true }
 POST /buddynext/v1/posts/{id}/share                  -- 201, share object
 GET  /buddynext/v1/me/shares                         -- 200, array of shares
 POST /buddynext/v1/posts/{id}/bookmark               -- 200, { "bookmarked": bool }
+DELETE /buddynext/v1/posts/{id}/bookmark             -- 200, { "bookmarked": false }
+DELETE /buddynext/v1/posts/{id}/share                -- 200, un-share
 GET  /buddynext/v1/me/bookmarks                      -- 200, array of bookmarked posts
+PUT/DELETE /buddynext/v1/posts/{id}                  -- 200, edit / delete own post
+DELETE/POST /buddynext/v1/posts/{id}/pin             -- 200, pin / unpin (author/admin)
+GET/POST/DELETE /buddynext/v1/me/drafts              -- composer autosave round-trip
+GET  /buddynext/v1/feed/home/page, /feed/explore/page-- cursor pages (scroll)
+GET  /buddynext/v1/feed/counts, /feed/new-count      -- unread/new counters (polling)
+POST /buddynext/v1/feed/announcements/{id}/dismiss   -- per-user dismiss
+POST /buddynext/v1/feed/announcements/{id}/end       -- author ends early
 ```
+
+> Re-confirm live: `curl -s http://buddynext.local/wp-json/buddynext/v1 | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes']) if any(k in r for k in ('/posts','/feed','/reactions','/comments'))]"`
+
+## Frontend action wiring
+
+*(Item 11. This is the most-used screen in the product — composer + post card — so it is the highest-value wiring to keep green. Every control lives in `assets/js/feed/store.js`. **Critical fragility:** the post card reads a DIFFERENT context nonce per action; if a template refactor drops one key, that one button silently 403s while every REST-layer step still passes.)*
+
+| Control | Template (file) | JS store / action | Live route + method | Nonce key |
+|---|---|---|---|---|
+| Composer: Post | `templates/blocks/post-composer.php` | `buddynext/post-composer` (`store.js:2447`) | `POST /posts` | `ctx.restNonce` |
+| Composer: draft autosave | `templates/blocks/post-composer.php` | `store.js:1916` | `GET/POST/DELETE /me/drafts` | `ctx.restNonce` |
+| Composer: poll vote | `templates/parts/post-*` | `store.js:1625` | `POST /posts/{id}/vote` | `ctx.pollNonce` |
+| Card: react (emoji) | `templates/parts/post-reaction-summary.php`, `post-actions.php` | `buddynext/post-card` (`store.js:385`) | `POST /reactions/toggle` | `ctx.reactNonce` |
+| Card: bookmark | `templates/parts/post-actions.php` | `store.js:1114` | `POST/DELETE /posts/{id}/bookmark` | `ctx.bookmarkNonce` |
+| Card: share / repost | `templates/parts/post-actions.php` | `store.js:1319` | `POST/DELETE /posts/{id}/share` | `ctx.shareNonce` |
+| Card: delete / edit post | `templates/parts/post-options-menu.php` | `store.js:1264/1403` | `DELETE/PUT /posts/{id}` | `ctx.reactNonce` |
+| Card: pin / unpin | `templates/parts/post-options-menu.php` | `store.js:1499` | `POST/DELETE /posts/{id}/pin` | `ctx.reactNonce` |
+| Card: report post | `templates/parts/post-options-menu.php` | `store.js:612` | `POST /reports` | `ctx.reportNonce` |
+| Comment: create / reply | `templates/parts/post-comment-form.php` | `store.js:683` | `POST /comments` | `nonce` |
+| Comment: edit / delete / pin | `templates/parts/post-comments-list.php` | `store.js:496/541/569` | `PUT/DELETE /comments/{id}`, `POST/DELETE /comments/{id}/pin` | `nonce` |
+| Announcement: dismiss / end | `templates/parts/post-actions.php` | post-card store | `POST /feed/announcements/{id}/dismiss` · `/end` | `ctx.dismissNonce` |
+
+**How to verify this run:**
+1. Composer works end-to-end — log in (`?autologin=alice`), open `/activity/`, post text; confirm `POST /posts` 201 and the card appears.
+2. **Nonce coverage** — `curl -s -b /tmp/bn.txt -L http://buddynext.local/activity/ | grep -oE 'react[Nn]once|bookmarkNonce|shareNonce|pollNonce|reportNonce|dismissNonce' | sort -u` → all six context keys must be present in the rendered card, or the matching button 403s.
+3. Each card route exists with the right method (see live snippet above) and the JS method matches.
+
+## Admin-config → member-effect
+
+*(Item 12.)*
+
+- **Feature toggles** (Settings → BuddyNext → Features): the feed is core, but `reactions`, `comments`, `polls`, `bookmarks` are gated. Turn one OFF, then as a member confirm the matching route returns 403 and the control disappears from the card (e.g. reactions off → `POST /reactions/toggle` 403, no emoji bar). Turn back ON. (No journey currently proves a feature-toggle OFF actually disables the control — this is the highest-value member-effect check.)
+- **Public explore** (`buddynext_public_explore`): OFF → anonymous `GET /feed/explore` is gated; ON → public. Verify logged-out.
+
+Restore every option (`wp option delete <key>`).
 
 ## Cleanup
 

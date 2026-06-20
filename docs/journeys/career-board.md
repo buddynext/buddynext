@@ -235,11 +235,37 @@ The bridge exposes **no REST routes of its own** — it is a server-side listene
 
 ```
 GET  /buddynext/v1/search?q=<term>      -- indexed job rows appear in the 'job' group (community search)
-GET  /buddynext/v1/notifications        -- cb.application_* rows appear in the recipient's notification list
+GET  /buddynext/v1/me/notifications     -- cb.application_* rows appear in the recipient's notification list
 ```
 
 - The `job` object type is discovered dynamically by `SearchService::grouped_search()` from the index table, so jobs surface in search results without any search-side registration.
 - Partner-owned surfaces (the actual job listing pages, application UI) live in the **Career Board** plugin, not BuddyNext.
+
+## Bridge contract & partner gate
+
+*(Item 11, bridge form.)*
+
+> **IMPORTANT — this bridge is PRO now.** As of 2026-06-14 `CareerBoardBridge` moved Free → Pro (jobs are an application layer). There is **no career bridge in BuddyNext Free** (`includes/Bridges/` confirmed). This journey therefore requires **BuddyNext Pro AND wp-career-board both active**; on a free-only site, jobs do NOT index into search and none of the steps below fire. (Both Pro and `wp-career-board` are active on this machine.)
+
+| Direction | Hook (arg count) | Handler | Guard |
+|---|---|---|---|
+| CB → BN | `wcb_job_created(req)` **1 arg** — fires only on CB's REST create path | `CareerBoardBridge::on_job_created` (Pro `:50`) | registered on `buddynext_load_bridges` (plugins_loaded:25); guards `class_exists` |
+| CB → BN | `wcb_job_expired(job_id)` **1 arg** | `on_job_expired` (Pro `:51`) | same |
+| CB → BN | `wcbp_resume_published(resume_id)` **1 arg** | `on_resume_published` (Pro `:52`) | same |
+| CB → BN | `wcb_notification_created` (CB Pro 1.4.3+) | mirrored into BN notifications | same |
+| BN profile panels | filter `buddynext_member_suite_panels` | `CareerBoardSocial::add_panels` surfaces `wcb_job`/`company`/`resume` on the member profile (Pro `Integrations/CareerBoard`) | guards `class_exists('\WCB\Admin\Settings')` |
+
+**Verify this run (Pro + `wp-career-board` active):**
+1. Publish a job via Career Board's REST create path → confirm a `job` row enters `bn_search_index` and `GET /search?q=` returns it in the `job` group.
+2. Submit/withdraw/expire → confirm the employer/candidate BN notification rows (`cb.application_*`).
+3. **Graceful absence:** deactivate `wp-career-board` (or run free-only) → no fatal, no job group in search, profile job panels absent.
+
+## Admin-config → member-effect
+
+*(Item 12.)*
+
+- **Career Board integration** (Pro): with Pro + partner active, a member's profile shows the job/company/resume panels (`buddynext_member_suite_panels`); deactivate the partner → panels vanish (degrade), no error.
+- **Resume visibility:** only `_wcb_resume_public` resumes surface (`CareerBoardSocial:239`) — confirm a private resume does NOT appear in the member suite.
 
 ## Cleanup
 

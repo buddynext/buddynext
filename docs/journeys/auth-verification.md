@@ -220,12 +220,65 @@ WHERE user_id = TESTVERIFY_ID AND meta_key = 'bn_email_verified';
 
 ## REST surface walked
 
+Email verification itself completes server-side (the email link hits a WP page that calls `VerificationService::verify($token)`), but the rest of the auth surface IS REST and must be walked — these are the highest-consequence routes in the whole product (a regression here locks members out). All confirmed present in the **live** index on 2026-06-20:
+
 ```
--- No dedicated REST endpoint for verification in the manifest.
--- Verification is triggered server-side via VerificationService::verify($token).
--- The verify link in the email points to a WordPress page that calls verify() server-side.
--- TODO: confirm the exact URL pattern (e.g. ?bn_verify=TOKEN or a shortcode page).
+POST /buddynext/v1/auth/register             -- create account; 200/201
+POST /buddynext/v1/auth/login                -- credential login; 200 (+2FA challenge) / 401
+GET  /buddynext/v1/auth/nonce                -- fresh REST nonce; every authed JS call depends on this
+POST /buddynext/v1/auth/verify/resend        -- resend verification email; 200
+GET  /buddynext/v1/auth/verify/status        -- pending|verified; 200
+POST /buddynext/v1/auth/lost-password        -- request reset email; 200
+POST /buddynext/v1/auth/reset-password       -- commit new password (key+login); 200
+POST /buddynext/v1/auth/2fa                   -- submit 2FA challenge at login; 200/401
+POST /buddynext/v1/auth/2fa/email-code        -- send email OTP for login 2FA; 200
+POST /buddynext/v1/auth/change-email          -- account email change (auth); 200
+POST /buddynext/v1/auth/change-password       -- account password change (auth); 200
+POST /buddynext/v1/auth/sign-out-everywhere   -- invalidate other sessions; 200
+POST /buddynext/v1/auth/approve/{id}          -- admin approves a pending member; 200
+GET    /buddynext/v1/account/2fa              -- 2FA enrollment status; 200
+POST   /buddynext/v1/account/2fa/setup        -- begin TOTP enrollment; 200 (secret/QR)
+POST   /buddynext/v1/account/2fa/confirm       -- confirm enrollment with a code; 200
+POST   /buddynext/v1/account/2fa/disable        -- disable 2FA; 200
+POST   /buddynext/v1/account/2fa/backup          -- regenerate backup codes; 200
+GET    /buddynext/v1/me/data-export             -- GDPR self-export (gated by Privacy setting); 200/403
+DELETE /buddynext/v1/me/account                 -- self-delete account (gated by Privacy setting); 200/403
 ```
+
+> Re-confirm this list against the live index every run (do NOT trust the manifest or grep — this journey previously claimed "no REST endpoint" while all of the above were live):
+> `curl -s http://buddynext.local/wp-json/buddynext/v1 | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes']) if any(k in r for k in ('auth','2fa','account','data-export'))]"`
+
+## Frontend action wiring
+
+*(Item 11. Auth is the surface most users hit first — login, signup, "forgot password" — so these are the highest-traffic controls in the product. Every store sends the captured nonce as `restNonce`/`ctx.restNonce`.)*
+
+| Control | Template (file) | JS store / action | Live route + method | Nonce source |
+|---|---|---|---|---|
+| Login submit | `templates/auth/login.php`, `blocks/login-form.php` | `assets/js/auth/login-store.js` | `POST /auth/login` | `c.restNonce` |
+| Signup submit | `templates/auth/signup.php` | `assets/js/auth/signup-store.js:204` | `POST /auth/register` | `c.restNonce` |
+| Forgot-password (request) | `templates/auth/reset.php` (no `?key`) | `assets/js/auth/reset-store.js:82` | `POST /auth/lost-password` | `c.restNonce` |
+| Set new password (commit) | `templates/auth/reset.php` (`?key=&login=`) | `reset-store.js:112` | `POST /auth/reset-password` | `c.restNonce` |
+| Resend verification | `templates/auth/verify.php` | `auth/verify-store.js:46` | `POST /auth/verify/resend` | `c.restNonce` |
+| 2FA setup / confirm / disable / backup | `templates/parts/settings-account-fields.php` (profile edit) | `profile/store.js:2046/2072` etc. | `POST /account/2fa/setup` · `/confirm` · `/disable` · `/backup` | `ctx.restNonce` |
+| Change email / password | `templates/parts/settings-account-fields.php` | `profile/store.js:1901/1959` | `POST /auth/change-email` · `/auth/change-password` | `ctx.restNonce` |
+| Sign out everywhere | `templates/parts/settings-account-fields.php` | `profile/store.js:2019` | `POST /auth/sign-out-everywhere` | `ctx.restNonce` |
+| Export my data / delete account | `templates/parts/settings-account-fields.php` | `profile/store.js:1011/1049` | `GET /me/data-export` · `DELETE /me/account` | `ctx.restNonce` |
+
+**How to verify this run (the lockout-risk paths first):**
+1. Live login — `curl -s -X POST http://buddynext.local/wp-json/buddynext/v1/auth/login -H 'Content-Type: application/json' -d '{"user":"alice","password":"password"}'` → expect 200 (or a 2FA challenge). **The field is `user`** — `username`/`user_login` returns `rest_missing_callback_param` (400). A 401 means the route works but the password is wrong (set one: `wp user update alice --user_pass=password`). Only 404/500 is a real failure.
+2. Nonce endpoint alive — `curl -s http://buddynext.local/wp-json/buddynext/v1/auth/nonce` → returns a nonce string (every authed button depends on it).
+3. Lost-password reachable anonymously — `curl -s -o /dev/null -w '%{http_code}' -X POST .../auth/lost-password -d '{"user_login":"member1"}'` → 200.
+4. Template emits the form + nonce — `curl -s http://buddynext.local/login/ | grep -c 'auth-login\|restNonce'`.
+
+## Admin-config → member-effect
+
+*(Item 12. Flip the real setting, re-check the member effect, restore.)*
+
+- **Registration mode** (`buddynext_reg_mode` → mirrors core `users_can_register` via `Settings::sync_core_registration`): set to **invite-only** in admin, then as a logged-out visitor load `/signup/` and confirm open registration is blocked (signup gated / invite required). Set back to **open** and confirm signup works. This is the single most common owner config and a frequent support theme.
+- **GDPR Privacy gates** (`buddynext_allow_data_export`, `buddynext_allow_account_deletion`): turn **OFF** in admin, then as `member1` call `GET /me/data-export` and `DELETE /me/account` → expect **403**; turn ON → expect 200. Legal exposure if the gate is wrong, so verify both directions.
+- **Manual approval** (if reg mode requires approval): register a member, confirm they cannot log in until `POST /auth/approve/{id}` runs, then confirm login succeeds.
+
+Restore every option you changed (`wp option delete <key>` → default).
 
 ## Cleanup
 
@@ -244,7 +297,7 @@ wp user delete TESTVERIFY_ID --yes
 
 ## Known limitations
 
-- The email verification REST endpoint is not exposed in the manifest (`audit/manifest.json`). Verification may be handled via a WordPress page URL with a query string token, a shortcode, or a direct action in the Onboarding flow. Confirm with `VerificationListener` and `SetupWizard` implementation before automating the click-through step.
+- The **token-consuming** verify step is server-side (the email link hits a WP page that calls `VerificationService::verify($token)`), not a REST route — but `GET /auth/verify/status` and `POST /auth/verify/resend` ARE live REST routes (see REST surface). The earlier "no REST endpoint for verification" note was misleading: it conflated the click-through with the whole auth surface, which is fully REST. Confirm the click-through URL with `VerificationListener` before automating it.
 - `buddynext_send_verification_email` fires with `(int $user_id, string $token)` — confirmed in manifest. The token passed may or may not be the raw token (could be URL-encoded or HMAC-wrapped). Inspect `VerificationListener` for the exact value before asserting it in Mailpit.
 
 ## Automation notes

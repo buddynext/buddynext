@@ -251,7 +251,39 @@ PUT|POST   /buddynext/v1/me/notifications/read-all      -- 200, marks all read
 DELETE     /buddynext/v1/me/notifications/{id}          -- 200, { "deleted": true }
 GET        /buddynext/v1/me/notification-prefs          -- 200, pref map
 PUT        /buddynext/v1/me/notification-prefs          -- 200, updated prefs
+GET|PUT    /buddynext/v1/me/notification-channels        -- per-channel (email/in-app) prefs
+GET|POST   /buddynext/v1/me/space-notification-prefs     -- per-space prefs
+GET|POST   /buddynext/v1/spaces/{id}/notification-pref   -- a single space's pref
 ```
+
+> Re-confirm live: `curl -s http://buddynext.local/wp-json/buddynext/v1 | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes']) if 'notif' in r]"`
+
+## Frontend action wiring
+
+*(Item 11. Note the **injected-base-URL fragility**: the prefs store does NOT build paths from a fixed namespace — it uses `base: ctx.restPrefsUrl` / `restChannelsUrl` / `restSpacesUrl` passed from the template. The REST-layer journey hits the canonical path directly, so a wrong/missing injected URL is invisible there but breaks Save. Verify the template emits all three.)*
+
+| Control | Template (file) | JS store / action | Live route + method | Source |
+|---|---|---|---|---|
+| Notification list / bell | `templates/notifications/index.php` | `buddynext/notifications` (`store.js`) | `GET /me/notifications`, `/unread-count` | `ctx.restNonce` |
+| Mark one read | `templates/notifications/index.php` | `store.js:216` | `POST /me/notifications/{id}/read` | `ctx.restNonce` |
+| Mark all read | `templates/notifications/index.php` | `store.js:163` | `POST /me/notifications/read-all` | `ctx.restNonce` |
+| Delete notification | `templates/notifications/index.php` | `store.js:315` | `DELETE /me/notifications/{id}` | `ctx.restNonce` |
+| Save prefs (channels) | `templates/notifications/prefs.php` | `buddynext/notification-prefs` (`prefs-store.js`) | `PUT /me/notification-prefs` · `/me/notification-channels` | `base: ctx.restPrefsUrl` / `restChannelsUrl` |
+| Save per-space prefs | `templates/notifications/prefs.php` | `prefs-store.js:217` | `POST /me/space-notification-prefs` | `base: ctx.restSpacesUrl` |
+
+**Verify this run:**
+1. Trigger an action (alice follows bob) → bob's `/me/notifications/unread-count` increments; mark read → decrements (assert the count delta, not just 200).
+2. **Injected URLs present:** `curl -s -b /tmp/bn.txt -L http://buddynext.local/settings/notifications/ | grep -oE 'restPrefsUrl|restChannelsUrl|restSpacesUrl'` → all three must appear, or Save silently no-ops.
+
+## Admin-config → member-effect
+
+*(Item 12. The CLAUDE.md "preview matches the real send" contract lives here.)*
+
+- **Email sender identity** (Settings → BuddyNext → Email: from-name, from-address, reply-to, footer): set custom values, trigger a real notification email, then open **Mailpit (http://localhost:10030/)** and confirm the From/Reply-To/footer on the *actual sent message* match the admin settings (not just the in-admin preview).
+- **Digest frequency** (`buddynext_digest_frequency`): set to **never** → the digest cron produces no email; daily → exactly one digest.
+- **Per-event channel:** disable email for "new follower" in prefs → a follow creates the in-app row but NO email (channel honored end-to-end).
+
+Restore options after.
 
 ## Cleanup
 

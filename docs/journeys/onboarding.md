@@ -325,6 +325,32 @@ Admin (non-REST) surfaces:
 /wp-admin/admin.php?page=buddynext settings → Registration      -- buddynext_reg_mode / buddynext_email_verify
 ```
 
+Also live in the finish chain: `POST /me/interests`, `POST/DELETE /me/avatar`, `PUT /me/profile-slug` (see below).
+
+## Frontend action wiring
+
+*(Item 11. The wizard "finish" fires a MULTI-CALL chain — if any one route is wrong, the member completes onboarding with partial data and no error. This is the layer that catches it.)*
+
+| Control | Template (file) | JS store / action | Live route + method | Source |
+|---|---|---|---|---|
+| Wizard step Next | `templates/onboarding/index.php` | `buddynext/onboarding` step (`store.js:120`) | `POST /me/onboarding/step` | `c.restNonce` |
+| Skip onboarding | `templates/onboarding/index.php` | `store.js:143` | `POST /me/onboarding/skip` | `c.restNonce` |
+| Avatar upload (step) | `templates/onboarding/index.php` | `store.js:329` | `POST /me/avatar` | `c.restNonce` |
+| Pick interests (step) | `templates/onboarding/index.php` | onboarding store | `POST /me/interests` | `c.restNonce` |
+| Finish (chain) | `templates/onboarding/index.php` | onboarding finish | `PUT /me/profile` → `PUT /me/profile-slug` → `PUT /me/notification-channels` → `POST /me/onboarding/complete` | `c.restNonce` |
+
+**Verify this run:** walk the wizard as a brand-new user; at Finish, confirm **each** of the 4 chained calls returns 200 and the data actually landed (profile saved, slug set, channels set, `onboarding_completed` true). A single broken link leaves a half-onboarded member.
+
+## Admin-config → member-effect
+
+*(Item 12. The single most common owner config — registration mode.)*
+
+- **Registration mode** (`buddynext_reg_mode`, mirrors core `users_can_register` via `Settings::sync_core_registration`): set **invite-only** → a logged-out visitor at `/signup/` is blocked / needs an invite; set **open** → signup works; set **approval** → new member can't log in until approved. Verify all three as a logged-out visitor.
+- **Email verification** (`buddynext_email_verify`): ON → new member must verify before full access; OFF → immediate access.
+- **CSV invites** (admin): Members → Invites → import a CSV (`POST /invites/import-csv`), confirm invite tokens created and redeemable.
+
+Restore options after.
+
 ## Cleanup
 
 ```sql

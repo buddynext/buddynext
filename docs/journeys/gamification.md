@@ -269,17 +269,36 @@ wp eval 'add_action("all", function($h){ if (in_array($h, ["buddynext_user_follo
 The bridge exposes **no REST endpoints of its own** — it is event-driven middleware. It is exercised indirectly through the BuddyNext Free endpoints that fire the producer actions:
 
 ```
-POST /buddynext/v1/members/{id}/follow        -- fires buddynext_user_followed       → bn_followed
-POST /buddynext/v1/connections/{id}/accept    -- fires buddynext_connection_accepted  → bn_connected ×2
-POST /buddynext/v1/posts                      -- fires buddynext_post_created         → bn_post_created
-POST /buddynext/v1/posts/{id}/reactions       -- fires buddynext_post_reaction_received → bn_reaction_received
-POST /buddynext/v1/posts/{id}/comments        -- fires buddynext_comment_created      → bn_comment_created
-POST /buddynext/v1/spaces/{id}/join           -- fires buddynext_space_member_joined  → bn_space_joined
+POST /buddynext/v1/users/{id}/follow          -- fires buddynext_user_followed        → bn_followed
+POST /buddynext/v1/users/{id}/connect/accept  -- fires buddynext_connection_accepted   → bn_connected ×2
+POST /buddynext/v1/posts                      -- fires buddynext_post_created          → bn_post_created
+POST /buddynext/v1/reactions/toggle           -- fires buddynext_post_reaction_received → bn_reaction_received
+POST /buddynext/v1/comments                   -- fires buddynext_comment_created       → bn_comment_created
+POST /buddynext/v1/spaces/{id}/join           -- fires buddynext_space_member_joined   → bn_space_joined
 ```
 
-(Confirm exact follow / connection / reaction / comment route shapes against the corresponding Free journeys — `social-graph.md`, `activity-feed.md` — if a path 404s in your build.)
+> **Route shapes corrected against the live index 2026-06-20** (the prior list had `/members/{id}/follow`, `/posts/{id}/reactions`, `/posts/{id}/comments` — those don't exist; the real producers are `/users/{id}/follow`, `/reactions/toggle`, `/comments`). Observability is not REST-facing: standing is surfaced on the rendered profile (`buddynext_profile_extra_data`); award state lives in the partner's `wp_wb_gam_*` tables.
 
-Observability is **not** REST-facing: gamification standing is surfaced only on the rendered profile template (`buddynext_profile_extra_data`), and event/award state is observed in the partner's `wp_wb_gam_*` tables.
+## Bridge contract & partner gate
+
+*(Item 11, bridge form. A bridge has no buttons — its "wiring" is the cross-plugin hook contract. The load-bearing checks are the partner guard and exact hook arg-counts.)*
+
+| Direction | Hook (arg count) | Handler | Guard |
+|---|---|---|---|
+| BN → gamification | BN domain events (`buddynext_user_followed`, `_post_created`, `_post_reaction_received`, `_comment_created`, `_space_member_joined`) | submit via `wb_gam_submit_event()` | `GamificationBridgeListener::register()` bails if `! function_exists('wb_gam_submit_event')` (`:28`) |
+| gamification → BN | `wb_gam_badge_awarded(user_id, def, badge_id)` (3), `wb_gam_level_changed(user_id, new, old)` (3) | `on_badge_awarded` / `on_level_changed` create a BN activity + notification | same guard (`:42-43`) |
+
+**Verify this run (partner active — `wb-gamification` IS active here):**
+1. As `alice` react to a post → confirm a row appears in the partner's `wp_wb_gam_*` event table (points awarded to the author, not the reactor — the self-reaction guard).
+2. Award a badge in the partner → confirm a BN activity + notification is created for that user.
+3. **Graceful no-op:** deactivate `wb-gamification`, repeat step 1 → no fatal, no event (the `function_exists` guard means the listener never registered). Reactivate.
+
+## Admin-config → member-effect
+
+*(Item 12.)*
+
+- **Gamification feature toggle** (Settings → Features → "Gamification"): OFF → BN stops submitting events even with the partner active; ON → resumes. Confirm via the partner event table.
+- **Partner presence:** with `wb-gamification` deactivated, the BN profile gamification card must render nothing (not error) — the degrade path.
 
 ## Cleanup
 
