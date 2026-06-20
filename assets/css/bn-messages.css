@@ -1779,3 +1779,9 @@
 	border-color: var(--bn-line-strong);
 }
 
+
+/* You cannot report your own message — hide the report action on own messages.
+   (The action bar template is shared by both sides; visibility is by side.) */
+.bn-dm-msg.is-mine .bn-dm-msg__action--report {
+	display: none;
+}

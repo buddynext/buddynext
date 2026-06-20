@@ -16,7 +16,7 @@
  */
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnConfirm, bnToast } from '../shell/dialog.js';
+import { bnConfirm, bnReportDialog, bnToast } from '../shell/dialog.js';
 import { restFetch } from '../shell/rest-client.js';
 
 /**
@@ -683,6 +683,44 @@ const { actions } = store( 'buddynext/messages', {
 				closeReactPops();
 			} else if ( 'react-toggle' === action ) {
 				applyReaction( getContext(), msgEl, trigger.dataset.slug || '' );
+			} else if ( 'report' === action ) {
+				closeReactPops();
+				actions.reportMessage( msgEl );
+			}
+		},
+
+		// ── Report a message ──────────────────────────────────────────────────
+		// The moderation queue already handles object_type=message server-side
+		// (ModerationController → bn_reports); this is the missing member-facing
+		// surface to CREATE such a report. Posts to the BuddyNext /reports
+		// endpoint (default base + global nonce — not the mvs messaging base).
+		async reportMessage( msgEl ) {
+			const msgId = msgEl ? ( parseInt( msgEl.dataset.msgId, 10 ) || 0 ) : 0;
+			if ( ! msgId ) {
+				return;
+			}
+			const result = await bnReportDialog( { title: 'Report this message' } );
+			if ( result === null ) {
+				return; // Cancelled.
+			}
+			try {
+				const res = await restFetch( '/reports', {
+					method:       'POST',
+					toastOnError: false,
+					body:         {
+						object_type: 'message',
+						object_id:   msgId,
+						reason:      result.reason,
+						notes:       result.notes,
+					},
+				} );
+				if ( res.ok || res.status === 201 ) {
+					bnToast( 'Message reported. Our moderators will review it.', { tone: 'success' } );
+				} else {
+					bnToast( 'Could not report this message. Try again.', { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( 'Could not report this message. Try again.', { tone: 'danger' } );
 			}
 		},
 

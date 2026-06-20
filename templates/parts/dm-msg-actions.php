@@ -47,4 +47,8 @@ $bn_react_types = class_exists( '\BuddyNext\Reactions\ReactionService' )
 	<button type="button" class="bn-dm-msg__action" data-bn-action="reply" aria-label="<?php esc_attr_e( 'Reply', 'buddynext' ); ?>">
 		<?php buddynext_icon( 'reply' ); ?>
 	</button>
+	<?php // Report — hidden on your own messages via CSS (.bn-dm-msg.is-mine). Files an object_type=message report into the moderation queue. ?>
+	<button type="button" class="bn-dm-msg__action bn-dm-msg__action--report" data-bn-action="report" aria-label="<?php esc_attr_e( 'Report message', 'buddynext' ); ?>">
+		<?php buddynext_icon( 'flag' ); ?>
+	</button>
 </div>
