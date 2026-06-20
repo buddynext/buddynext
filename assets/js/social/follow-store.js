@@ -87,11 +87,17 @@ store( 'buddynext/follow-button', {
 	actions: {
 		async toggleFollow() {
 			const ctx = getContext();
+			// Ignore re-entrant clicks while a request is in flight (the button binds
+			// context.busy to aria-busy + disabled). Prevents a rapid double-click
+			// from firing two toggles that race.
+			if ( ctx.busy ) { return; }
 			const wasFollowing = !! ctx.isFollowing;
 			const wasPending   = !! ctx.isPending;
 			const userId       = ctx.userId;
 			const target       = ctx.targetName || ( '#' + userId );
 			const usePending   = !! ctx.privateFollow && ! wasFollowing && ! wasPending;
+
+			ctx.busy = true;
 
 			// Optimistic toggle.
 			if ( usePending ) {
@@ -127,6 +133,8 @@ store( 'buddynext/follow-button', {
 						: 'Could not follow @' + target + '. Try again.',
 					{ tone: 'danger' }
 				);
+			} finally {
+				ctx.busy = false;
 			}
 		},
 	},
@@ -267,6 +275,7 @@ store( 'buddynext/connection-button', {
 	actions: {
 		async sendRequest() {
 			const ctx  = getContext();
+			if ( ctx.busy ) { return; }
 			const name = ctx.targetName || ( '#' + ctx.userId );
 
 			// LinkedIn-style "Add a note" step. The note is optional — confirming
@@ -280,6 +289,7 @@ store( 'buddynext/connection-button', {
 			}
 
 			const prev = ctx.status;
+			ctx.busy   = true;
 			ctx.status = 'pending-sent';
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/connect', {
@@ -294,13 +304,17 @@ store( 'buddynext/connection-button', {
 			} catch ( _e ) {
 				ctx.status = prev || '';
 				bnToast( 'Could not send connection request. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.busy = false;
 			}
 		},
 
 		async withdrawRequest() {
 			const ctx  = getContext();
+			if ( ctx.busy ) { return; }
 			const name = ctx.targetName || ( '#' + ctx.userId );
 			const prev = ctx.status;
+			ctx.busy   = true;
 			ctx.status = '';
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/connect', {
@@ -314,13 +328,17 @@ store( 'buddynext/connection-button', {
 			} catch ( _e ) {
 				ctx.status = prev;
 				bnToast( 'Could not withdraw request. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.busy = false;
 			}
 		},
 
 		async acceptRequest() {
 			const ctx  = getContext();
+			if ( ctx.busy ) { return; }
 			const name = ctx.targetName || ( '#' + ctx.userId );
 			const prev = ctx.status;
+			ctx.busy   = true;
 			ctx.status = 'accepted';
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/connect/accept', {
@@ -334,13 +352,17 @@ store( 'buddynext/connection-button', {
 			} catch ( _e ) {
 				ctx.status = prev;
 				bnToast( 'Could not accept request. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.busy = false;
 			}
 		},
 
 		async declineRequest() {
 			const ctx  = getContext();
+			if ( ctx.busy ) { return; }
 			const name = ctx.targetName || ( '#' + ctx.userId );
 			const prev = ctx.status;
+			ctx.busy   = true;
 			ctx.status = '';
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/connect/decline', {
@@ -354,13 +376,17 @@ store( 'buddynext/connection-button', {
 			} catch ( _e ) {
 				ctx.status = prev;
 				bnToast( 'Could not decline request. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.busy = false;
 			}
 		},
 
 		async disconnect() {
 			const ctx  = getContext();
+			if ( ctx.busy ) { return; }
 			const name = ctx.targetName || ( '#' + ctx.userId );
 			const prev = ctx.status;
+			ctx.busy   = true;
 			ctx.status = '';
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/connect', {
@@ -374,6 +400,8 @@ store( 'buddynext/connection-button', {
 			} catch ( _e ) {
 				ctx.status = prev;
 				bnToast( 'Could not disconnect. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.busy = false;
 			}
 		},
 	},

@@ -867,8 +867,10 @@ const memberStore = store( 'buddynext/members', {
 
 		async toggleFollow() {
 			const ctx     = getContext();
+			if ( ctx.busy ) { return; }
 			const wasFollow = !! ctx.isFollowing;
 			const name    = ctx.displayName || 'member';
+			ctx.busy = true;
 			ctx.isFollowing = ! wasFollow;
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/follow', {
@@ -890,11 +892,14 @@ const memberStore = store( 'buddynext/members', {
 						: 'Could not follow @' + name + '. Try again.',
 					{ tone: 'danger' }
 				);
+			} finally {
+				ctx.busy = false;
 			}
 		},
 
 		async toggleConnection() {
 			const ctx  = getContext();
+			if ( ctx.busy ) { return; }
 			const cur  = ctx.connection || 'none';
 			const name = ctx.displayName || 'member';
 			if ( cur === 'pending-received' ) { return; }
@@ -904,6 +909,7 @@ const memberStore = store( 'buddynext/members', {
 					body: 'Add a personal message to your request to @' + name + ', or send it without one.',
 				} );
 				if ( note === null ) { return; }
+				ctx.busy = true;
 				ctx.connection = 'pending-sent';
 				try {
 					const res = await restFetch( '/users/' + ctx.userId + '/connect', {
@@ -918,10 +924,13 @@ const memberStore = store( 'buddynext/members', {
 				} catch ( _e ) {
 					ctx.connection = 'none';
 					bnToast( 'Could not send request to @' + name + '. Try again.', { tone: 'danger' } );
+				} finally {
+					ctx.busy = false;
 				}
 				return;
 			}
 			if ( cur === 'pending-sent' ) {
+				ctx.busy = true;
 				ctx.connection = 'none';
 				try {
 					const res = await restFetch( '/users/' + ctx.userId + '/connect', {
@@ -935,10 +944,13 @@ const memberStore = store( 'buddynext/members', {
 				} catch ( _e ) {
 					ctx.connection = 'pending-sent';
 					bnToast( 'Could not withdraw request. Try again.', { tone: 'danger' } );
+				} finally {
+					ctx.busy = false;
 				}
 				return;
 			}
 			if ( cur === 'accepted' ) {
+				ctx.busy = true;
 				ctx.connection = 'none';
 				try {
 					const res = await restFetch( '/users/' + ctx.userId + '/connect', {
@@ -952,14 +964,18 @@ const memberStore = store( 'buddynext/members', {
 				} catch ( _e ) {
 					ctx.connection = 'accepted';
 					bnToast( 'Could not disconnect. Try again.', { tone: 'danger' } );
+				} finally {
+					ctx.busy = false;
 				}
 			}
 		},
 
 		async acceptConnection() {
 			const ctx  = getContext();
+			if ( ctx.busy ) { return; }
 			const name = ctx.displayName || 'member';
 			const prev = ctx.connection;
+			ctx.busy = true;
 			ctx.connection = 'accepted';
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/connect/accept', {
@@ -973,13 +989,17 @@ const memberStore = store( 'buddynext/members', {
 			} catch ( _e ) {
 				ctx.connection = prev;
 				bnToast( 'Could not accept request. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.busy = false;
 			}
 		},
 
 		async declineConnection() {
 			const ctx  = getContext();
+			if ( ctx.busy ) { return; }
 			const name = ctx.displayName || 'member';
 			const prev = ctx.connection;
+			ctx.busy = true;
 			ctx.connection = 'none';
 			try {
 				const res = await restFetch( '/users/' + ctx.userId + '/connect/decline', {
@@ -993,6 +1013,8 @@ const memberStore = store( 'buddynext/members', {
 			} catch ( _e ) {
 				ctx.connection = prev;
 				bnToast( 'Could not decline request. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.busy = false;
 			}
 		},
 

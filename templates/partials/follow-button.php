@@ -100,6 +100,8 @@ $context_attr = esc_attr(
 		data-wp-bind--data-state="state.btnState"
 		data-wp-bind--aria-pressed="state.ariaPressed"
 		data-wp-bind--aria-label="state.ariaLabel"
+		data-wp-bind--aria-busy="context.busy"
+		data-wp-bind--disabled="context.busy"
 		data-wp-text="state.label"
 	>
 	<?php

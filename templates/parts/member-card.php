@@ -381,6 +381,8 @@ do_action( 'buddynext_part_member_card_before', $args );
 				data-wp-bind--data-state="state.cardFollowState"
 				data-wp-text="state.cardFollowLabel"
 				data-wp-on--click="actions.toggleFollow"
+				data-wp-bind--aria-busy="context.busy"
+				data-wp-bind--disabled="context.busy"
 			><?php echo $bn_is_following ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?></button>
 			<?php endif; ?>
 
@@ -395,6 +397,8 @@ do_action( 'buddynext_part_member_card_before', $args );
 				data-wp-bind--data-state="state.cardConnectState"
 				data-wp-text="state.cardConnectLabel"
 				data-wp-on--click="actions.toggleConnection"
+				data-wp-bind--aria-busy="context.busy"
+				data-wp-bind--disabled="context.busy"
 				<?php echo in_array( $bn_conn_state, array( 'none', 'pending-sent', 'accepted' ), true ) ? '' : 'hidden'; ?>
 			>
 				<?php
@@ -420,6 +424,8 @@ do_action( 'buddynext_part_member_card_before', $args );
 					data-variant="primary"
 					data-size="sm"
 					data-wp-on--click="actions.acceptConnection"
+					data-wp-bind--aria-busy="context.busy"
+					data-wp-bind--disabled="context.busy"
 				><?php esc_html_e( 'Accept', 'buddynext' ); ?></button>
 				<button
 					type="button"
@@ -427,6 +433,8 @@ do_action( 'buddynext_part_member_card_before', $args );
 					data-variant="ghost"
 					data-size="sm"
 					data-wp-on--click="actions.declineConnection"
+					data-wp-bind--aria-busy="context.busy"
+					data-wp-bind--disabled="context.busy"
 				><?php esc_html_e( 'Decline', 'buddynext' ); ?></button>
 			</span>
 
