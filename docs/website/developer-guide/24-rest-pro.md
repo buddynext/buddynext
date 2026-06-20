@@ -2,9 +2,9 @@
 
 The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with 48 routes. This page is the route reference for developers building on the Pro surfaces: membership and billing, analytics, drip and broadcast campaigns, member labels and tiers, moderation rules, AI assistance, scheduled posts, push, saved searches, white-label/brand, and the realtime + Stripe integration endpoints.
 
-![The Pro admin settings backed by the buddynext-pro/v1 REST routes documented here](../images/admin-settings.png)
+![The Pro admin settings backed by the buddynext-pro/v1 REST routes documented here](../images/admin-settings.webp)
 
-![The BuddyNext admin dashboard the Pro REST namespace populates and reads](../images/admin-overview.png)
+![The BuddyNext admin dashboard the Pro REST namespace populates and reads](../images/admin-overview.webp)
 
 ## Contract
 

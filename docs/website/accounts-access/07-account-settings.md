@@ -2,11 +2,11 @@
 
 Your account settings are where you control how you sign in and who you have shut out of your experience. This is the security and access side of your profile: your password, your email address, your active sign-in sessions, two-factor authentication, and the people you have blocked, muted, or restricted.
 
-![The Edit Profile screen — change cover photo and avatar, display name, headline, bio and profile fields, with a live preview](../images/profile-edit.png)
+![The Edit Profile screen — change cover photo and avatar, display name, headline, bio and profile fields, with a live preview](../images/profile-edit.webp)
 
-![The account security panel — vanity profile URL, change email, change password, two-factor authentication, and sign out everywhere](../images/account-security.png)
+![The account security panel — vanity profile URL, change email, change password, two-factor authentication, and sign out everywhere](../images/account-security.webp)
 
-![Members - Privacy & Data admin tab with the account-related privacy and data controls](../images/admin-privacy.png)
+![Members - Privacy & Data admin tab with the account-related privacy and data controls](../images/admin-privacy.webp)
 
 Profile details (name, bio, avatar) and audience controls (who can see your profile, who can message you) live in your profile editor and the Privacy section. This page covers the login and access controls that keep your account yours.
 

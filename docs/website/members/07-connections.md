@@ -2,7 +2,7 @@
 
 A connection is a two-way relationship that both members agree to: one member sends a request, the other accepts it, and from then on they are connected to each other. It is the closer, mutual counterpart to one-directional Following.
 
-![Member directory cards showing the Connect button members use to send connection requests](../images/member-directory.png)
+![Member directory cards showing the Connect button members use to send connection requests](../images/member-directory.webp)
 
 ## Why use it
 

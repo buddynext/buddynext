@@ -2,11 +2,11 @@
 
 Direct messaging lets two members hold a private 1:1 conversation away from the public feed. BuddyNext provides the inbox, the conversation view, and the privacy controls; the messages themselves run on the WPMediaVerse companion plugin, which is the messaging engine.
 
-![BuddyNext direct messaging inbox listing private conversations](../images/direct-messaging.png)
+![BuddyNext direct messaging inbox listing private conversations](../images/direct-messaging.webp)
 
-![A BuddyNext direct message conversation thread between two members](../images/dm-thread.png)
+![A BuddyNext direct message conversation thread between two members](../images/dm-thread.webp)
 
-![BuddyNext admin Platform Features tab where direct messaging is toggled on](../images/admin-features.png)
+![BuddyNext admin Platform Features tab where direct messaging is toggled on](../images/admin-features.webp)
 
 ## Why use it
 

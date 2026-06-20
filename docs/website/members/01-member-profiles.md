@@ -2,9 +2,9 @@
 
 A member profile is the public page that represents a person in your community. It carries their avatar, cover photo, display name, bio, custom field details, and the buttons other people use to follow or connect with them.
 
-![BuddyNext member profile — cover photo and avatar, display name and bio, profile field details, follow/connect actions, and the member's activity, spaces and connections.](../images/member-profile.png)
+![BuddyNext member profile — cover photo and avatar, display name and bio, profile field details, follow/connect actions, and the member's activity, spaces and connections.](../images/member-profile.webp)
 
-![Editing your profile — Change cover and Change photo controls, plus name, headline and bio fields](../images/profile-edit.png)
+![Editing your profile — Change cover and Change photo controls, plus name, headline and bio fields](../images/profile-edit.webp)
 
 ## Why use it
 

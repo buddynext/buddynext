@@ -2,9 +2,9 @@
 
 The bridge layer is how BuddyNext connects to optional companion plugins (Jetonomy forums, WPMediaVerse media + DM, wb-gamification, Career Board) and the host theme. Each bridge is an adapter class under `includes/Bridges/` that translates a companion's hooks and data into BuddyNext surfaces - and stays completely inert when the companion is not installed. This page is for developers writing a new bridge, theming a bridged surface, or extending one of the existing integrations.
 
-![A Space home enriched by a companion bridge - the Layer 1 adapter pattern documented on this page](../images/space-home.png)
+![A Space home enriched by a companion bridge - the Layer 1 adapter pattern documented on this page](../images/space-home.webp)
 
-![Direct messaging, a bridged WPMediaVerse surface the integration-bridge layer connects](../images/direct-messaging.png)
+![Direct messaging, a bridged WPMediaVerse surface the integration-bridge layer connects](../images/direct-messaging.webp)
 
 ## Overview / Contract
 

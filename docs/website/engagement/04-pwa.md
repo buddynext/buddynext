@@ -2,9 +2,9 @@
 
 BuddyNext ships your community as an installable Progressive Web App (PWA). Members can add it to a phone or desktop home screen and launch it in a standalone, app-like window, complete with an offline shell so the app opens even with no connection.
 
-![BuddyNext running as an installable mobile Progressive Web App](../images/mobile.png)
+![BuddyNext running as an installable mobile Progressive Web App](../images/mobile.webp)
 
-![BuddyNext admin Realtime Push tab for configuring push notifications](../images/admin-push.png)
+![BuddyNext admin Realtime Push tab for configuring push notifications](../images/admin-push.webp)
 
 ## Why use it
 

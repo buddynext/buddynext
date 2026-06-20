@@ -2,7 +2,7 @@
 
 This page documents the social-graph REST surface in BuddyNext free: following, connections (mutual/two-way relationships), and the block/mute/restrict privacy controls. All routes live under the `buddynext/v1` namespace and are registered by `FollowController`, `ConnectionController`, and `BlockController` in `includes/SocialGraph/`.
 
-![A member profile with the follow, connect, and block controls served by the social-graph REST routes on this page](../images/member-profile.png)
+![A member profile with the follow, connect, and block controls served by the social-graph REST routes on this page](../images/member-profile.webp)
 
 ## Overview / Contract
 

@@ -2,7 +2,7 @@
 
 The action and filter seams for the notification lifecycle and the email system. This page is for developers adding a notification channel (push, SMS), suppressing or deferring notifications, capturing outbound email, or registering a new notification type that emails its recipient. Everything here is fired by BuddyNext Free; Pro push is the reference consumer.
 
-![The notifications inbox whose notification-lifecycle and email hooks are documented here](../images/notifications.png)
+![The notifications inbox whose notification-lifecycle and email hooks are documented here](../images/notifications.webp)
 
 ## Overview / Contract
 

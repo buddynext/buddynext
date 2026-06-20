@@ -2,9 +2,9 @@
 
 This page covers the hooks that cross plugin boundaries: the actions and filters BuddyNext Pro emits, the integration seams BuddyNext exposes to companion plugins (WPMediaVerse, Jetonomy, the real-time transport), and the PWA seams. It is for developers extending Pro, building a companion plugin, or wiring a gamification/CRM layer onto the free/pro contract.
 
-![The Pro admin settings whose cross-plugin Pro and integration hooks are documented here](../images/admin-settings.png)
+![The Pro admin settings whose cross-plugin Pro and integration hooks are documented here](../images/admin-settings.webp)
 
-![The Platform Integrations admin tab companion plugins extend through the integration seams on this page](../images/admin-integrations.png)
+![The Platform Integrations admin tab companion plugins extend through the integration seams on this page](../images/admin-integrations.webp)
 
 For the core free hook surface (post, reaction, comment, space, moderation events) see the Core Hooks reference. This page is the layer above it.
 

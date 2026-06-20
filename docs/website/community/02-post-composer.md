@@ -2,7 +2,7 @@
 
 The post composer is the box at the top of the feed where members write and publish posts. It handles plain text, photos and media, links with a preview card, polls, and scheduling, and it lets members edit, delete, pin, and save drafts of their own posts.
 
-![The BuddyNext post composer at the top of the home activity feed, ready for a member to write and share a post](../images/community-activity-feed.png)
+![The BuddyNext post composer at the top of the home activity feed, ready for a member to write and share a post](../images/community-activity-feed.webp)
 
 ## Why use it
 

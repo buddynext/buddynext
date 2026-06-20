@@ -2,9 +2,9 @@
 
 This page documents every table created by `BuddyNextPro\Core\Installer`, grouped by domain, with a column reference for each. It is for developers querying or extending Pro data. The same Scale-Contract rules that shape Free tables apply here - denormalized aggregates, an index for every WHERE column, and a `(created_at, id)` cursor key for paginated lists. See Data Model Overview for the naming convention and the master table index, and Schema: Core Tables for the Free tables.
 
-![The Pro admin settings powered by the BuddyNextPro Installer tables documented on this page](../images/admin-settings.png)
+![The Pro admin settings powered by the BuddyNextPro Installer tables documented on this page](../images/admin-settings.webp)
 
-![The Monetization Tiers admin tab, one of the Pro screens that reads and writes the Pro schema described here](../images/admin-tiers.png)
+![The Monetization Tiers admin tab, one of the Pro screens that reads and writes the Pro schema described here](../images/admin-tiers.webp)
 
 ## Contract: ownership and the Free/Pro boundary
 

@@ -2,7 +2,7 @@
 
 The moderation queue is the page where moderators review reported content and pending items, then act on them: dismiss a report, escalate it, resolve it, or take action on the content or the member. It is the single place a moderator works through everything members have flagged.
 
-![The BuddyNext moderation queue listing reported items grouped by content](../images/moderation-queue.png)
+![The BuddyNext moderation queue listing reported items grouped by content](../images/moderation-queue.webp)
 
 ## Why use it
 

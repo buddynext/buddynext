@@ -2,9 +2,9 @@
 
 Scheduled posts let a member write something now and have it publish automatically at a future date and time. The post stays out of every feed until its moment arrives, then goes live on its own. Pro turns the post composer's schedule clock into a real managed queue: the post is parked, tracked, and published on time, with a place to review, publish early, or cancel anything that is waiting.
 
-![A scheduled post going live on time in the community activity feed](../images/community-activity-feed.png)
+![A scheduled post going live on time in the community activity feed](../images/community-activity-feed.webp)
 
-![The Campaigns Scheduled Posts admin tab where you review the queue of scheduled posts](../images/admin-scheduled.png)
+![The Campaigns Scheduled Posts admin tab where you review the queue of scheduled posts](../images/admin-scheduled.webp)
 
 ## Why use it
 

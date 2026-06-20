@@ -2,7 +2,7 @@
 
 Bulk Moderation is a Pro admin page that lets you act on many moderation items at once: select multiple reports and dismiss or remove them together, or enter a list of user IDs and warn or suspend all of them in a single submit. Every action reports back how many succeeded and how many failed.
 
-![The Bulk Moderation tab with multi-select report actions](../images/admin-bulk-mod.png)
+![The Bulk Moderation tab with multi-select report actions](../images/admin-bulk-mod.webp)
 
 ## Why use it
 

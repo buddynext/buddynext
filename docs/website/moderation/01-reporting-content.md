@@ -2,13 +2,13 @@
 
 Reporting lets any member flag a post, comment, or member profile for a moderator to review. A report records what was flagged, the reason, and any optional details, then sends it to the moderation queue without notifying the person who was reported.
 
-![A BuddyNext post where a member can report the content for review](../images/post-detail.png)
+![A BuddyNext post where a member can report the content for review](../images/post-detail.webp)
 
-![The report dialog — choose a reason and add optional details; reports go to moderators and the person is not notified](../images/report-modal.png)
+![The report dialog — choose a reason and add optional details; reports go to moderators and the person is not notified](../images/report-modal.webp)
 
-![The BuddyNext admin moderation queue receiving reported content](../images/moderation-queue.png)
+![The BuddyNext admin moderation queue receiving reported content](../images/moderation-queue.webp)
 
-![The Moderation → Reports admin tab where submitted reports land for review](../images/admin-mod-reports.png)
+![The Moderation → Reports admin tab where submitted reports land for review](../images/admin-mod-reports.webp)
 
 ## Why use it
 

@@ -2,9 +2,9 @@
 
 BuddyNext keeps key parts of your community current without a page refresh: the notification bell counts new alerts, a "new posts" pill appears at the top of the feed when fresh activity arrives, and online members show a presence dot. The free plugin does this with lightweight background polling on a short interval.
 
-![The BuddyNext community activity feed updating in near real time with new posts](../images/community-activity-feed.png)
+![The BuddyNext community activity feed updating in near real time with new posts](../images/community-activity-feed.webp)
 
-![BuddyNext admin Realtime Push tab where owners configure live updates](../images/admin-push.png)
+![BuddyNext admin Realtime Push tab where owners configure live updates](../images/admin-push.webp)
 
 ## Why use it
 

@@ -2,7 +2,7 @@
 
 The Activity Feed is the stream of posts members see when they open your community. It comes in two views: the personalized Home feed (signed-in members) and the public Explore feed (open to anyone, including logged-out visitors). Each post can be opened on its own permalink page.
 
-![BuddyNext Activity Feed — the post composer above a stream of posts with React, Comment, Share and Save actions, plus a discovery sidebar (daily streak, trending topics, people to follow, your spaces).](../images/community-activity-feed.png)
+![BuddyNext Activity Feed — the post composer above a stream of posts with React, Comment, Share and Save actions, plus a discovery sidebar (daily streak, trending topics, people to follow, your spaces).](../images/community-activity-feed.webp)
 
 ## Why use it
 

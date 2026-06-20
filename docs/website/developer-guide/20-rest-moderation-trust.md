@@ -2,7 +2,7 @@
 
 This page documents the moderation REST surface in BuddyNext free: member reports, the moderation queue, appeals, and the per-user trust actions (warnings, strikes, shadow-bans, suspensions, account type). All routes live under the `buddynext/v1` namespace and are registered by `ModerationController` in `includes/Moderation/`.
 
-![The moderation queue driven by the report, queue, appeal, and trust-action REST routes on this page](../images/moderation-queue.png)
+![The moderation queue driven by the report, queue, appeal, and trust-action REST routes on this page](../images/moderation-queue.webp)
 
 ## Overview / Contract
 

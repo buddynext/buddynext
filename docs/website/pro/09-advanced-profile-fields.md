@@ -2,9 +2,9 @@
 
 Pro adds six richer profile field types on top of the free profile builder: an enhanced date, a map-based location, a file upload, an advanced multi-select, an advanced number with units, and a conditional field that appears only when another field has a specific value. You build these the same way you build any profile field, and members fill them in with the matching input control.
 
-![A member profile populated with the richer Pro field types](../images/member-profile.png)
+![A member profile populated with the richer Pro field types](../images/member-profile.webp)
 
-![The Platform Features admin tab where advanced profile field types are enabled](../images/admin-features.png)
+![The Platform Features admin tab where advanced profile field types are enabled](../images/admin-features.webp)
 
 > **Before you start:** These field types come with BuddyNext Pro. With Pro active, they appear in the same profile field builder you already use, so there is nothing extra to switch on. This page covers the Pro field types only. For the base field builder, member-facing profile editing, and the field types that ship free, see Profile Fields.
 

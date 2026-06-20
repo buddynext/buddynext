@@ -2,7 +2,7 @@
 
 The contract every BuddyNext REST route obeys: one versioned namespace, nonce-header authentication, a uniform success/error envelope, a mandatory permission callback, and cursor-based pagination with hard ceilings. Read this page before reading any other REST page - they all assume these rules.
 
-![The admin dashboard whose surfaces are driven by the REST contract every route on this page obeys](../images/admin-overview.png)
+![The admin dashboard whose surfaces are driven by the REST contract every route on this page obeys](../images/admin-overview.webp)
 
 ## Overview / Contract
 

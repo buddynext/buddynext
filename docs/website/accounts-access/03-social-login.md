@@ -2,9 +2,9 @@
 
 Social login lets people sign in or sign up using an account they already have - their Google, Facebook, GitHub, or Discord account - instead of creating and remembering another password. When you turn on a provider, a sign-in button for it appears on your login and sign-up screens. It is the quickest way for a newcomer to get from "interested" to "inside your community."
 
-![BuddyNext login form showing social sign-in buttons](../images/login.png)
+![BuddyNext login form showing social sign-in buttons](../images/login.webp)
 
-![Engagement - Social admin tab where social login providers and social sharing are configured](../images/admin-social.png)
+![Engagement - Social admin tab where social login providers and social sharing are configured](../images/admin-social.webp)
 
 ## Why use it
 

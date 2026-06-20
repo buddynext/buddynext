@@ -2,9 +2,9 @@
 
 User moderation is the set of actions a moderator or admin takes against a member who breaks the rules: a warning, a strike, a temporary suspension, a silent shadow-ban, or - through accumulated strikes - an automatic suspension or permanent ban. It is the human-judgment layer that sits on top of automatic Content Safeguards and the report queue.
 
-![The BuddyNext moderation queue where moderators take action against a member](../images/moderation-queue.png)
+![The BuddyNext moderation queue where moderators take action against a member](../images/moderation-queue.webp)
 
-![The Moderation > Suspensions tab listing suspended members and controls](../images/admin-suspensions.png)
+![The Moderation > Suspensions tab listing suspended members and controls](../images/admin-suspensions.webp)
 
 Where reporting deals with a single piece of content, user moderation deals with the person behind it. The actions escalate in severity, so a first-time slip and a repeat offender are handled differently.
 

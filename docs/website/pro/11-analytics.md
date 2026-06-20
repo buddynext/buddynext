@@ -2,7 +2,7 @@
 
 The analytics dashboard is a Pro admin area that turns your community's activity into numbers you can read at a glance: how many people show up, what content lands, who your most active members are, and how your spaces are doing. It also gives each member a private "who viewed your profile" count, with an opt-out for people who would rather not be tracked.
 
-![The Engagement Insights admin tab with community activity analytics and stats](../images/admin-insights.png)
+![The Engagement Insights admin tab with community activity analytics and stats](../images/admin-insights.webp)
 
 ## Why use it
 

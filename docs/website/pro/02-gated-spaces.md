@@ -2,9 +2,9 @@
 
 A gated space is a space only members on a particular tier can join. When someone without the right membership tries to enter, BuddyNext shows a paywall - a friendly upgrade prompt with your call to action - instead of letting them in.
 
-![A members-only space home shown only after the visitor meets the required tier](../images/space-home.png)
+![A members-only space home shown only after the visitor meets the required tier](../images/space-home.webp)
 
-![The Monetization > Paywall tab where the upgrade prompt for gated spaces is configured](../images/admin-paywall.png)
+![The Monetization > Paywall tab where the upgrade prompt for gated spaces is configured](../images/admin-paywall.webp)
 
 > **Before you start:** Gated spaces come with BuddyNext Pro and build on Membership Tiers. You need BuddyNext Pro active and at least one membership tier set up before you can gate a space. To sell access through checkout you also need a payment gateway connected (see Membership Tiers).
 

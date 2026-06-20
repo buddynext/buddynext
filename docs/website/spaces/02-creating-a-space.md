@@ -2,11 +2,11 @@
 
 A space is a community area inside your site - a place with its own feed, members, and rules. Members create and run spaces from the front end; owners and moderators manage them in place. This page covers creating a space, editing it, archiving and restoring it, deleting it, transferring ownership, and building sub-spaces.
 
-![Spaces directory where members browse spaces and use the Create button to start a new one](../images/spaces-directory.png)
+![Spaces directory where members browse spaces and use the Create button to start a new one](../images/spaces-directory.webp)
 
-![The Create a space form — name with an auto-derived slug, type, category and description fields](../images/space-create-form.png)
+![The Create a space form — name with an auto-derived slug, type, category and description fields](../images/space-create-form.webp)
 
-![Spaces - Settings admin tab controlling who can create spaces and the new-space defaults](../images/admin-spaces-settings.png)
+![Spaces - Settings admin tab controlling who can create spaces and the new-space defaults](../images/admin-spaces-settings.webp)
 
 ## Why use it
 

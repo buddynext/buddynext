@@ -2,9 +2,9 @@
 
 Every space has a member roster you control: who is in, who is waiting to join, and who you have invited. Managing that roster is how owners and moderators keep a space on-topic, active, and safe.
 
-![Single space home with the Members tab where owners manage the space roster](../images/space-home.png)
+![Single space home with the Members tab where owners manage the space roster](../images/space-home.webp)
 
-![Spaces - Settings admin tab where membership rules and join controls for spaces are configured](../images/admin-spaces-settings.png)
+![Spaces - Settings admin tab where membership rules and join controls for spaces are configured](../images/admin-spaces-settings.webp)
 
 ## Why use it
 

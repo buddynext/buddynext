@@ -2,9 +2,9 @@
 
 Profile fields let you decide what members can tell each other about themselves. You build the fields (name, bio, role, location, links, and more), and members fill them in on their profile. BuddyNext ships with a starter set of groups and fields, and you can add your own.
 
-![The Edit Profile form where members fill in profile fields like headline, bio, location and social links](../images/profile-edit.png)
+![The Edit Profile form where members fill in profile fields like headline, bio, location and social links](../images/profile-edit.webp)
 
-![Platform - Features admin tab where profile field groups and the profile fields feature are configured](../images/admin-features.png)
+![Platform - Features admin tab where profile field groups and the profile fields feature are configured](../images/admin-features.webp)
 
 ## Why use it
 

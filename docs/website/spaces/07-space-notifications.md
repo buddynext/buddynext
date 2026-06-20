@@ -2,11 +2,11 @@
 
 Each member chooses how much a space notifies them: every bit of activity, only the posts that mention them, or nothing at all. The choice is made per space, so a busy space and a quiet one can be tuned independently.
 
-![Single space home with the bell control members use to set their per-space notification level](../images/space-home.png)
+![Single space home with the bell control members use to set their per-space notification level](../images/space-home.webp)
 
-![Notifications screen reflecting the activity members receive from their spaces](../images/notifications.png)
+![Notifications screen reflecting the activity members receive from their spaces](../images/notifications.webp)
 
-![Notifications - Notifications admin tab with the default notification settings members inherit for spaces](../images/admin-notifications.png)
+![Notifications - Notifications admin tab with the default notification settings members inherit for spaces](../images/admin-notifications.webp)
 
 ## Why use it
 

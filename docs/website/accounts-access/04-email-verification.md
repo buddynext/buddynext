@@ -2,9 +2,9 @@
 
 Email verification asks every new member to confirm their email address before they get full access to your community. They click a link in a message sent to that address, which proves the inbox is real and belongs to them. It is a simple step that keeps your member list genuine and your community emails landing in real inboxes.
 
-![New member on the BuddyNext email verification step after sign-up](../images/onboarding.png)
+![New member on the BuddyNext email verification step after sign-up](../images/onboarding.webp)
 
-![Members - Registration & Login admin tab where email verification is turned on or off](../images/admin-registration.png)
+![Members - Registration & Login admin tab where email verification is turned on or off](../images/admin-registration.webp)
 
 ## Why use it
 

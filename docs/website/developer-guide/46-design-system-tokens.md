@@ -2,7 +2,7 @@
 
 The contract a theme author needs to restyle, override, or extend BuddyNext's frontend: the three-layer `--bn-*` token cascade, the component primitives, the shell model (who owns what markup), the mobile bottom nav, RTL and dark-mode rules, and the `buddynext_part_*` hooks for overriding markup. This page is for theme developers and bridge authors.
 
-![An admin settings surface styled through the --bn-* token cascade and shell contract documented here](../images/admin-settings.png)
+![An admin settings surface styled through the --bn-* token cascade and shell contract documented here](../images/admin-settings.webp)
 
 ## Overview / Contract
 

@@ -2,7 +2,7 @@
 
 Reference for the cross-cutting `buddynext/v1` routes that do not belong to a single content domain: unified search and the member-search shortcut, the hashtag routes (trending, autocomplete, detail, feed, follow/unfollow), and four standalone singleton routes (link preview, CSV invite import, companion install, and admin slug-check). For developers calling or extending these surfaces.
 
-![The unified search results UI driven by the search and hashtag REST routes documented here](../images/search.png)
+![The unified search results UI driven by the search and hashtag REST routes documented here](../images/search.webp)
 
 ## Overview / Contract
 

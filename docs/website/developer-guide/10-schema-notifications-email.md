@@ -2,7 +2,7 @@
 
 Reference for the four tables that back BuddyNext's notification and email subsystem: `bn_notifications`, `bn_notification_prefs`, `bn_email_templates`, and `bn_email_log`. All four are created by `BuddyNext\Core\Installer` via `dbDelta()` and live in the site table prefix (shown below as `wp_`). This page is for developers reading, extending, or writing against these tables directly.
 
-![The notifications inbox backed by the bn_notifications and preference tables this schema page covers](../images/notifications.png)
+![The notifications inbox backed by the bn_notifications and preference tables this schema page covers](../images/notifications.webp)
 
 ## Overview / Contract
 

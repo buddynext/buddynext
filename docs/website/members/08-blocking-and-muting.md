@@ -2,9 +2,9 @@
 
 BuddyNext gives every member three self-protection tools for dealing with another person: block, mute, and restrict. Block cuts off interaction and messaging both ways, mute quietly hides someone's content from you, and restrict limits how much another person can interact with you. You manage all three from a member's profile and from your own profile settings.
 
-![Member profile with the more-menu where block, mute, and restrict actions are triggered](../images/member-profile.png)
+![Member profile with the more-menu where block, mute, and restrict actions are triggered](../images/member-profile.webp)
 
-![The block confirmation dialog explaining what blocking does, with Cancel and Block actions](../images/block-modal.png)
+![The block confirmation dialog explaining what blocking does, with Cancel and Block actions](../images/block-modal.webp)
 
 ## Why use it
 

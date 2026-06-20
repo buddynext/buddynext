@@ -2,9 +2,9 @@
 
 The member directory is the page where everyone in your community can be browsed, searched, and filtered in one place. It is the "find people" surface of your site, and lives at your members URL (for example, `/members`).
 
-![BuddyNext member directory — searchable, filterable member cards showing avatar, role, skills and mutual connections with Follow buttons, an A–Z index, and Online-now and By-role sidebars.](../images/member-directory.png)
+![BuddyNext member directory — searchable, filterable member cards showing avatar, role, skills and mutual connections with Follow buttons, an A–Z index, and Online-now and By-role sidebars.](../images/member-directory.webp)
 
-![The Members → Directory admin tab where owners configure the directory: columns, filters, default sort](../images/admin-members-directory.png)
+![The Members → Directory admin tab where owners configure the directory: columns, filters, default sort](../images/admin-members-directory.webp)
 
 ## Why use it
 

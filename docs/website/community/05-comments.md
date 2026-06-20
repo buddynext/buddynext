@@ -2,9 +2,9 @@
 
 Comments let members reply to a post in a threaded conversation - posting their own comment, replying to other comments, and reacting to comments they like. Threads nest up to five levels deep.
 
-![A BuddyNext post detail view with a threaded comment conversation underneath the post](../images/post-detail.png)
+![A BuddyNext post detail view with a threaded comment conversation underneath the post](../images/post-detail.webp)
 
-![Platform - Features admin tab where the comments feature is enabled and configured](../images/admin-features.png)
+![Platform - Features admin tab where the comments feature is enabled and configured](../images/admin-features.webp)
 
 ## Why use it
 

@@ -2,7 +2,7 @@
 
 Pinning keeps a post at the top of a feed so it is the first thing people see. Free BuddyNext lets you pin one post per profile and one per space. Pro raises that limit to up to 10 pinned posts per profile and per space, so you can keep several important posts at the top at once.
 
-![Several pinned posts held at the top of the community activity feed](../images/community-activity-feed.png)
+![Several pinned posts held at the top of the community activity feed](../images/community-activity-feed.webp)
 
 ## Why use it
 

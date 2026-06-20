@@ -2,9 +2,9 @@
 
 BuddyNext greets every new member with a short, four-step welcome wizard the moment they finish signing up. In a few clicks the member fills out their profile, joins a space, follows a few people, and picks how they want to be notified. By the time they reach the feed they already have something to read and people to talk to.
 
-![The four-step BuddyNext new-member onboarding wizard with live profile preview](../images/onboarding.png)
+![The four-step BuddyNext new-member onboarding wizard with live profile preview](../images/onboarding.webp)
 
-![Members - Registration & Login admin tab where the new-member onboarding wizard is configured](../images/admin-registration.png)
+![Members - Registration & Login admin tab where the new-member onboarding wizard is configured](../images/admin-registration.webp)
 
 ## What it is
 
