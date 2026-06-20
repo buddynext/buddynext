@@ -124,7 +124,9 @@
 }
 
 .bn-dm-rail__search {
-	padding: 0 var(--bn-s4) var(--bn-s3);
+	/* Top padding gives the field breathing room from the header separator above
+	   it (was 0, so the input touched the divider). */
+	padding: var(--bn-s4) var(--bn-s4) var(--bn-s3);
 }
 
 .bn-dm-rail__tabs {
