@@ -949,7 +949,7 @@ class AdminHub {
 		// column shows the active tab's body. The H1 is the active tab's label
 		// since the panel already conveys the section context.
 		echo '<div class="wrap bn-admin-hub bn-admin-hub--paneled' . ( $is_wide ? ' is-wide' : '' ) . '" data-section="' . esc_attr( $section_key ) . '">';
-		$this->render_brand_bar();
+		$this->render_brand_bar( (string) $section_key, $active_slug );
 		echo '<div class="bn-admin-hub__shell">';
 		$this->render_nav_panel( (string) $section_key, $active_slug );
 		echo '<div class="bn-admin-hub__content">';
@@ -973,9 +973,11 @@ class AdminHub {
 	 * a URL is provided). Brand name is a span, not an <h1> — the page H1 stays
 	 * the active tab label.
 	 *
+	 * @param string $section_key Active admin section key (for the docs link).
+	 * @param string $active_slug Active tab slug (for the docs link).
 	 * @return void
 	 */
-	private function render_brand_bar(): void {
+	private function render_brand_bar( string $section_key = '', string $active_slug = '' ): void {
 		$version  = defined( 'BUDDYNEXT_VERSION' ) ? (string) constant( 'BUDDYNEXT_VERSION' ) : '';
 		$logo_url = ( defined( 'BUDDYNEXT_URL' ) ? (string) constant( 'BUDDYNEXT_URL' ) : '' ) . 'assets/images/buddynext-logo.svg';
 		echo '<div class="bn-admin-hub__brand">';
@@ -991,17 +993,89 @@ class AdminHub {
 		}
 
 		/**
-		 * Filter the admin Docs link URL. Empty (default) hides the link so there
-		 * is never a dead link; set it to surface a "Docs" button in the brand bar.
+		 * Filter the admin Docs link URL. Defaults to the documentation page for
+		 * the current section/tab (setting-specific contextual help) so the "Docs"
+		 * button always lands the site owner on the relevant guide.
 		 *
-		 * @param string $url Docs URL.
+		 * @param string $url     Resolved docs URL for this section/tab.
+		 * @param string $section Active admin section key.
+		 * @param string $tab     Active tab slug.
 		 */
-		$docs = (string) apply_filters( 'buddynext_admin_docs_url', '' );
+		$docs = (string) apply_filters( 'buddynext_admin_docs_url', $this->docs_url_for( $section_key, $active_slug ), $section_key, $active_slug );
 		if ( '' !== $docs ) {
 			echo '<a class="bn-admin-hub__brand-link" href="' . esc_url( $docs ) . '" target="_blank" rel="noopener">'
 				. esc_html__( 'Docs', 'buddynext' ) . '</a>';
 		}
 		echo '</div>';
+	}
+
+	/**
+	 * Base URL of the public documentation site.
+	 */
+	private const DOCS_BASE = 'https://buddynext.com/docs/';
+
+	/**
+	 * Map an admin section + tab to its most relevant documentation page.
+	 *
+	 * Tab-level overrides win; otherwise the section default applies; otherwise
+	 * the docs home. Paths are relative to DOCS_BASE (no leading slash).
+	 *
+	 * @param string $section Active section key (e.g. 'buddynext-members').
+	 * @param string $tab     Active tab slug (e.g. 'registration').
+	 * @return string Absolute docs URL.
+	 */
+	private function docs_url_for( string $section, string $tab ): string {
+		$section_defaults = array(
+			'settings'      => 'getting-started/04-admin-overview/',
+			'platform'      => 'getting-started/04-admin-overview/',
+			'members'       => 'members/',
+			'spaces'        => 'spaces/',
+			'engagement'    => 'engagement/',
+			'notifications' => 'messaging-notifications/',
+			'realtime'      => 'engagement/03-realtime-updates/',
+			'campaigns'     => 'pro/',
+			'moderation'    => 'moderation/',
+			'automod'       => 'pro/14-auto-moderation/',
+			'monetization'  => 'pro/01-membership-tiers/',
+		);
+		$tab_overrides = array(
+			'members'      => array(
+				'registration' => 'accounts-access/01-registration/',
+				'roles'        => 'members/05-roles-and-capabilities/',
+				'privacy'      => 'accounts-access/08-privacy-and-data/',
+				'labels'       => 'pro/08-member-labels/',
+				'directory'    => 'members/03-member-directory/',
+			),
+			'notifications' => array(
+				'email'     => 'messaging-notifications/03-email-system/',
+				'templates' => 'messaging-notifications/03-email-system/',
+			),
+			'campaigns'    => array(
+				'broadcasts' => 'pro/12-broadcast-email/',
+				'drip'       => 'pro/13-drip-sequences/',
+				'scheduled'  => 'pro/05-scheduled-posts/',
+				'ai-feed'    => 'pro/15-ai-feed-and-moderation/',
+			),
+			'moderation'   => array(
+				'appeals' => 'moderation/04-appeals/',
+				'bulk'    => 'pro/16-bulk-moderation/',
+				'reports' => 'moderation/01-reporting-content/',
+			),
+			'realtime'     => array(
+				'push'       => 'pro/17-push-notifications/',
+				'push-prefs' => 'pro/17-push-notifications/',
+			),
+			'engagement'   => array(
+				'reactions' => 'community/04-reactions/',
+				'insights'  => 'pro/19-analytics/',
+			),
+			'monetization' => array(
+				'stripe'  => 'pro/03-stripe-payments/',
+				'license' => 'getting-started/02-installation/',
+			),
+		);
+		$path = $tab_overrides[ $section ][ $tab ] ?? ( $section_defaults[ $section ] ?? '' );
+		return self::DOCS_BASE . $path;
 	}
 
 	/**
