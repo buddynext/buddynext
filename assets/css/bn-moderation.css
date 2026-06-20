@@ -1289,3 +1289,17 @@
 		padding: var(--bn-s4);
 	}
 }
+
+/* Moderation queue pagination — lets mods page past the first 50 reports. */
+.bn-mq-pagination {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bn-s3);
+	margin-block: var(--bn-s5);
+	flex-wrap: wrap;
+}
+.bn-mq-pagination__status {
+	font-size: var(--bn-fs-sm, 0.875rem);
+	color: var(--bn-ink-2, inherit);
+}

@@ -82,14 +82,23 @@ $suspended_count = (int) $queue_stats['at_risk'];
 
 // Fetch the consolidated queue (one row per reported object, reasons merged,
 // offender strikes + identity enriched) via the service the REST controller uses.
-$queue   = $bn_mod->get_queue(
+// Paginated: the service caps each page at 50 and returns the full match total,
+// so a busy site can review past the first 50 reports (the template previously
+// hard-capped at 50 with no way forward).
+$bn_mq_per_page = 50;
+// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_mq_page = isset( $_GET['mq_page'] ) ? max( 1, absint( wp_unslash( $_GET['mq_page'] ) ) ) : 1;
+$queue      = $bn_mod->get_queue(
 	array(
-		'per_page'    => 50,
+		'per_page'    => $bn_mq_per_page,
+		'page'        => $bn_mq_page,
 		'object_type' => 'all' !== $filter_type ? $filter_type : '',
 		'enrich'      => true,
 	)
 );
-$reports = (array) ( $queue['items'] ?? array() );
+$reports     = (array) ( $queue['items'] ?? array() );
+$bn_mq_total = (int) ( $queue['total'] ?? count( $reports ) );
+$bn_mq_pages = (int) max( 1, (int) ceil( $bn_mq_total / $bn_mq_per_page ) );
 
 // Urgency filter + most-reported sort run in PHP on report_count — the service
 // returns the count, so no SQL fragment assembly lives in this template.
@@ -639,6 +648,27 @@ do_action( 'buddynext_moderation_queue_before' );
 				</article>
 			<?php endforeach; ?>
 		</div>
+
+		<?php if ( $bn_mq_pages > 1 ) : ?>
+			<nav class="bn-mq-pagination" aria-label="<?php esc_attr_e( 'Moderation queue pages', 'buddynext' ); ?>">
+				<?php if ( $bn_mq_page > 1 ) : ?>
+					<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( add_query_arg( 'mq_page', $bn_mq_page - 1 ) ); ?>" rel="prev">
+						<?php esc_html_e( 'Previous', 'buddynext' ); ?>
+					</a>
+				<?php endif; ?>
+				<span class="bn-mq-pagination__status">
+					<?php
+					/* translators: 1: current page number, 2: total page count. */
+					printf( esc_html__( 'Page %1$d of %2$d', 'buddynext' ), (int) $bn_mq_page, (int) $bn_mq_pages );
+					?>
+				</span>
+				<?php if ( $bn_mq_page < $bn_mq_pages ) : ?>
+					<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( add_query_arg( 'mq_page', $bn_mq_page + 1 ) ); ?>" rel="next">
+						<?php esc_html_e( 'Next', 'buddynext' ); ?>
+					</a>
+				<?php endif; ?>
+			</nav>
+		<?php endif; ?>
 	<?php endif; ?>
 
 	<?php
