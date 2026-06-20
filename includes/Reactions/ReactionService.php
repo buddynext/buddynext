@@ -14,6 +14,9 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Reactions;
 
+use WP_Error;
+use BuddyNext\Moderation\InteractionGuard;
+
 /**
  * Handles reaction add, remove, toggle, and count reads.
  */
@@ -38,9 +41,17 @@ class ReactionService {
 	 * @param string $object_type Object type (e.g. 'post', 'comment').
 	 * @param int    $object_id   Object ID.
 	 * @param string $emoji       Emoji identifier (e.g. 'like', 'heart').
-	 * @return true
+	 * @return true|WP_Error True on success; WP_Error(403) when the actor is
+	 *                       suspended or blocked from the object's author.
 	 */
-	public function react( int $user_id, string $object_type, int $object_id, string $emoji = 'like' ): true {
+	public function react( int $user_id, string $object_type, int $object_id, string $emoji = 'like' ): true|WP_Error {
+		// Trust-&-Safety gate before any DB write: a suspended actor cannot
+		// react, and neither party of a block may react on the other's content.
+		$guard = InteractionGuard::check( $user_id, $object_type, $object_id );
+		if ( is_wp_error( $guard ) ) {
+			return $guard;
+		}
+
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -213,8 +224,8 @@ class ReactionService {
 			'sad'   => __( 'Sad', 'buddynext' ),
 			'angry' => __( 'Angry', 'buddynext' ),
 		);
-		$label = $builtin[ $slug ] ?? ucfirst( str_replace( array( '-', '_' ), ' ', $slug ) );
-		$meta  = (array) apply_filters(
+		$label   = $builtin[ $slug ] ?? ucfirst( str_replace( array( '-', '_' ), ' ', $slug ) );
+		$meta    = (array) apply_filters(
 			'buddynext_reaction_meta',
 			array(
 				'label' => $label,
@@ -271,24 +282,36 @@ class ReactionService {
 	 * @param string $object_type Object type.
 	 * @param int    $object_id   Object ID.
 	 * @param string $emoji       Emoji identifier.
+	 * @return true|WP_Error True on success (including a pure removal); WP_Error(403)
+	 *                       when the actor is suspended or blocked and is adding /
+	 *                       changing a reaction.
 	 */
-	public function toggle( int $user_id, string $object_type, int $object_id, string $emoji = 'like' ): void {
+	public function toggle( int $user_id, string $object_type, int $object_id, string $emoji = 'like' ): true|WP_Error {
 		// Empty emoji means the client wants to remove the reaction entirely.
+		// Removing one's own existing reaction is always permitted (cleanup), so
+		// it is not gated by the interaction guard.
 		if ( '' === $emoji ) {
 			$this->unreact( $user_id, $object_type, $object_id );
-			return;
+			return true;
 		}
 
 		$current = $this->get_user_emoji( $user_id, $object_type, $object_id );
 
-		if ( null === $current ) {
-			$this->react( $user_id, $object_type, $object_id, $emoji );
-			return;
-		}
-
+		// Toggling off the current emoji is a removal — also always permitted.
 		if ( $current === $emoji ) {
 			$this->unreact( $user_id, $object_type, $object_id );
-			return;
+			return true;
+		}
+
+		// Adding a new reaction or switching to a different emoji is a write of
+		// fresh engagement: enforce the Trust-&-Safety gate before it lands.
+		$guard = InteractionGuard::check( $user_id, $object_type, $object_id );
+		if ( is_wp_error( $guard ) ) {
+			return $guard;
+		}
+
+		if ( null === $current ) {
+			return $this->react( $user_id, $object_type, $object_id, $emoji );
 		}
 
 		// Replace the existing emoji with the new one.
@@ -308,6 +331,8 @@ class ReactionService {
 		);
 
 		$this->invalidate_cache( $object_type, $object_id, $user_id );
+
+		return true;
 	}
 
 	/**

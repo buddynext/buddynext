@@ -113,7 +113,8 @@ class ReactionController extends BaseRestController {
 	 * Toggle a reaction for the current user.
 	 *
 	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response
+	 * @return WP_REST_Response|WP_Error 403 when the feature is off, or when the
+	 *                                   actor is suspended or blocked.
 	 */
 	public function toggle( WP_REST_Request $request ) {
 		$gate = $this->reactions_enabled_gate();
@@ -127,7 +128,17 @@ class ReactionController extends BaseRestController {
 		$object_id   = (int) $request->get_param( 'object_id' );
 		$emoji       = (string) $request->get_param( 'emoji' );
 
-		$service->toggle( $user_id, $object_type, $object_id, $emoji );
+		$toggle = $service->toggle( $user_id, $object_type, $object_id, $emoji );
+		if ( is_wp_error( $toggle ) ) {
+			// Surface the Trust-&-Safety refusal (suspended actor / block between
+			// the actor and the post author) as a proper 403 instead of a silent
+			// success. The service stamps the status; default to 403 if absent.
+			$data = $toggle->get_error_data();
+			if ( ! is_array( $data ) || empty( $data['status'] ) ) {
+				$toggle->add_data( array( 'status' => 403 ) );
+			}
+			return $toggle;
+		}
 
 		$has_reacted = $service->has_reacted( $user_id, $object_type, $object_id );
 

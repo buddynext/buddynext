@@ -14,7 +14,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Comments;
 
 use WP_Error;
-use BuddyNext\Moderation\ModerationService;
+use BuddyNext\Moderation\InteractionGuard;
 use BuddyNext\Moderation\SafeguardService;
 
 /**
@@ -59,14 +59,21 @@ class CommentService {
 			return new WP_Error( 'empty_content', __( 'Comment content cannot be empty.', 'buddynext' ) );
 		}
 
-		// Suspended users are locked out of all content creation (spec 09-moderation:
-		// "Suspend — locked out… cannot post/comment/react"). Gate before any DB write.
-		if ( $this->is_author_suspended( $user_id ) ) {
-			return new WP_Error(
-				'forbidden',
-				__( 'Your account is suspended and cannot post comments.', 'buddynext' ),
-				array( 'status' => 403 )
-			);
+		// Trust-&-Safety gate before any DB write. Refuses when the actor is
+		// suspended (spec 09-moderation: "Suspend — locked out… cannot
+		// post/comment/react"), and — for a post or comment target — when a block
+		// exists between the actor and that object's author. Shared with the
+		// reaction write path via InteractionGuard so the rule is enforced in one
+		// place. For a reply, the comment being engaged with is the parent.
+		$bn_guard_object_type = $object_type;
+		$bn_guard_object_id   = $object_id;
+		if ( null !== $parent_id && $parent_id > 0 ) {
+			$bn_guard_object_type = 'comment';
+			$bn_guard_object_id   = $parent_id;
+		}
+		$bn_interaction = InteractionGuard::check( $user_id, $bn_guard_object_type, $bn_guard_object_id );
+		if ( is_wp_error( $bn_interaction ) ) {
+			return $bn_interaction;
 		}
 
 		// Block-listed IPs cannot comment (same admin blocklist that gates posting).
@@ -297,33 +304,6 @@ class CommentService {
 			return $privacy->can_mention( $actor_id, $target_id );
 		}
 		return true;
-	}
-
-	/**
-	 * Whether the comment author currently has an active suspension.
-	 *
-	 * Resolves the moderation service from the container when available and
-	 * falls back to a fresh instance otherwise (e.g. unit-test contexts). Any
-	 * failure to resolve the service degrades to "not suspended" so the comment
-	 * path never fatals when moderation is unavailable.
-	 *
-	 * @param int $user_id Commenting user ID.
-	 * @return bool True when the user has an active, unexpired suspension.
-	 */
-	private function is_author_suspended( int $user_id ): bool {
-		if ( $user_id <= 0 ) {
-			return false;
-		}
-
-		$moderation = function_exists( 'buddynext_service' )
-			? buddynext_service( 'moderation' )
-			: new ModerationService();
-
-		if ( ! $moderation instanceof ModerationService ) {
-			return false;
-		}
-
-		return $moderation->is_suspended( $user_id );
 	}
 
 	/**
