@@ -349,25 +349,31 @@ class FollowService {
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
-			return (array) $cached;
+			$result = (array) $cached;
+		} else {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$rows = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT follower_id
+					 FROM {$wpdb->prefix}bn_follows
+					 WHERE following_id = %d AND status = 'approved'
+					 ORDER BY created_at DESC",
+					$user_id
+				)
+			);
+
+			$result = array_map( 'intval', (array) $rows );
+
+			wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT follower_id
-				 FROM {$wpdb->prefix}bn_follows
-				 WHERE following_id = %d AND status = 'approved'
-				 ORDER BY created_at DESC",
-				$user_id
-			)
-		);
-
-		$result = array_map( 'intval', (array) $rows );
-
-		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
-
-		return $result;
+		/**
+		 * Filter the follower id list for a user.
+		 *
+		 * @param int[] $result  Follower user IDs (approved follows), newest first.
+		 * @param int   $user_id The user whose followers these are.
+		 */
+		return (array) apply_filters( 'buddynext_followers', $result, $user_id );
 	}
 
 	/**
@@ -383,25 +389,31 @@ class FollowService {
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
-			return (array) $cached;
+			$result = (array) $cached;
+		} else {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$rows = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT following_id
+					 FROM {$wpdb->prefix}bn_follows
+					 WHERE follower_id = %d AND status = 'approved'
+					 ORDER BY created_at DESC",
+					$user_id
+				)
+			);
+
+			$result = array_map( 'intval', (array) $rows );
+
+			wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT following_id
-				 FROM {$wpdb->prefix}bn_follows
-				 WHERE follower_id = %d AND status = 'approved'
-				 ORDER BY created_at DESC",
-				$user_id
-			)
-		);
-
-		$result = array_map( 'intval', (array) $rows );
-
-		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
-
-		return $result;
+		/**
+		 * Filter the following id list for a user.
+		 *
+		 * @param int[] $result  User IDs the user follows (approved), newest first.
+		 * @param int   $user_id The follower.
+		 */
+		return (array) apply_filters( 'buddynext_following', $result, $user_id );
 	}
 
 	/**
@@ -578,7 +590,13 @@ class FollowService {
 			}
 		}
 
-		return $ids;
+		/**
+		 * Filter the "who to follow" suggestion id list.
+		 *
+		 * @param int[] $ids     Suggested user IDs (block-filtered), in rank order.
+		 * @param int   $user_id The user the suggestions are for.
+		 */
+		return (array) apply_filters( 'buddynext_follow_suggestions', $ids, $user_id );
 	}
 
 	/**

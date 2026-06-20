@@ -134,7 +134,17 @@ class PrivacyService {
 
 		$preference = $this->get_preference( $target_id, 'who_can_follow' );
 
-		return 'everyone' === $preference;
+		/**
+		 * Filter whether an actor may follow a target.
+		 *
+		 * Default is the target's who_can_follow preference ('everyone'). Use this
+		 * to add eligibility rules (members-only, mutuals-only, …) without forking.
+		 *
+		 * @param bool $can       Whether the follow is allowed by default.
+		 * @param int  $target_id The user being followed.
+		 * @param int  $actor_id  The user attempting to follow.
+		 */
+		return (bool) apply_filters( 'buddynext_can_follow', 'everyone' === $preference, $target_id, $actor_id );
 	}
 
 	/**

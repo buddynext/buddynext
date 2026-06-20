@@ -63,14 +63,24 @@ class ConnectionService {
 			);
 		}
 
-		// Hard-cap the note so a stray client can't overflow the 280-char
-		// column. Strip tags + sanitize to plain text — the note renders
-		// inside notification text and the connection details panel.
+		// Hard-cap the note so a stray client can't overflow the column. Strip
+		// tags + sanitize to plain text — the note renders inside notification
+		// text and the connection details panel. The cap is filterable but stays
+		// bounded to the column width (max 280) so a filter can shorten but never
+		// overflow the schema.
+		/**
+		 * Filter the maximum connection-note length (characters).
+		 *
+		 * @param int $max Default 280. Clamped to [0, 280] to respect the column.
+		 */
+		$note_max = (int) apply_filters( 'buddynext_connect_note_max_length', 280 );
+		$note_max = max( 0, min( 280, $note_max ) );
+
 		$note = wp_strip_all_tags( $note );
-		if ( strlen( $note ) > 280 ) {
+		if ( strlen( $note ) > $note_max ) {
 			$note = function_exists( 'mb_substr' )
-				? mb_substr( $note, 0, 280 )
-				: substr( $note, 0, 280 );
+				? mb_substr( $note, 0, $note_max )
+				: substr( $note, 0, $note_max );
 		}
 
 		global $wpdb;
