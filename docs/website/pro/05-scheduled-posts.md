@@ -4,7 +4,7 @@ Scheduled posts let a member write something now and have it publish automatical
 
 ![A scheduled post going live on time in the community activity feed](../images/community-activity-feed.png)
 
-![Reviewing the queue of scheduled posts in the BuddyNext Pro settings](../images/backend-settings.png)
+![The Campaigns Scheduled Posts admin tab where you review the queue of scheduled posts](../images/admin-scheduled.png)
 
 ## Why use it
 

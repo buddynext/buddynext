@@ -6,6 +6,8 @@ Push Notifications (Pro) delivers your community's notifications to a member's b
 
 ![Push notifications reaching a member on a mobile device](../images/mobile.png)
 
+![The Realtime Push admin tab where you connect Firebase and configure web and mobile push](../images/admin-push.png)
+
 ## Why use it
 
 Most members do not keep a community tab open. Without push, a new follow, a reply, or a space invite waits silently until the member happens to come back, which can be hours or days. By then the moment to respond has passed and engagement drops.

@@ -4,7 +4,7 @@ White-label branding lets you replace BuddyNext's identity with your own across 
 
 ![The re-branded BuddyNext admin interface under white-label branding](../images/admin-settings.png)
 
-![Setting the brand name, logo, color, and custom CSS in the BuddyNext Pro settings](../images/backend-settings.png)
+![The BuddyNext tabbed settings admin screen where you set the brand name, logo, color, and custom CSS](../images/admin-settings.png)
 
 > **Note:** White-label branding is part of the Agency and Unlimited license tiers. On other Pro tiers the feature is not offered.
 

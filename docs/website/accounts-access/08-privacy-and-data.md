@@ -4,7 +4,7 @@ BuddyNext gives members real control over their personal information and gives s
 
 ![Member privacy and data controls on a BuddyNext profile](../images/member-profile.png)
 
-![BuddyNext Privacy settings for consent, retention, export, and deletion in wp-admin](../images/backend-settings.png)
+![Members - Privacy & Data admin tab for consent, retention, export, and deletion settings](../images/admin-privacy.png)
 
 These tools exist so your community can be trustworthy by default and so you can meet privacy obligations such as the GDPR without bolting on a separate plugin.
 

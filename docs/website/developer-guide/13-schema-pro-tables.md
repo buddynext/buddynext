@@ -4,7 +4,7 @@ This page documents every table created by `BuddyNextPro\Core\Installer`, groupe
 
 ![The Pro admin settings powered by the BuddyNextPro Installer tables documented on this page](../images/admin-settings.png)
 
-![The wp-admin settings surface that reads and writes the Pro schema described here](../images/backend-settings.png)
+![The Monetization Tiers admin tab, one of the Pro screens that reads and writes the Pro schema described here](../images/admin-tiers.png)
 
 ## Contract: ownership and the Free/Pro boundary
 

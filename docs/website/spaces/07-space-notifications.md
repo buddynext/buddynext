@@ -6,6 +6,8 @@ Each member chooses how much a space notifies them: every bit of activity, only 
 
 ![Notifications screen reflecting the activity members receive from their spaces](../images/notifications.png)
 
+![Notifications - Notifications admin tab with the default notification settings members inherit for spaces](../images/admin-notifications.png)
+
 ## Why use it
 
 When someone belongs to several spaces, a single notification setting for all of them is always wrong for some. The space they live in deserves every update; the high-volume space they joined for one thread becomes noise within a day. With one shared setting, the member's only options are to drown in alerts or to mute everything and miss what matters.

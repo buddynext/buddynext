@@ -2,7 +2,7 @@
 
 Content safeguards are the automatic, always-on rules that check every post before it is saved. They run silently in the background: a banned word, a blocked link, a suspicious IP, or a burst of repeat posts is caught and stopped (or held for review) without a moderator lifting a finger.
 
-![BuddyNext admin settings for configuring automatic content safeguard rules](../images/backend-settings.png)
+![BuddyNext admin Moderation Controls tab for configuring automatic content safeguard rules](../images/admin-mod-controls.png)
 
 ![The BuddyNext moderation queue holding posts flagged by content safeguards](../images/moderation-queue.png)
 

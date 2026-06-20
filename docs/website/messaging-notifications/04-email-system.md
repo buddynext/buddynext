@@ -2,7 +2,7 @@
 
 BuddyNext sends the emails your community depends on - new follower, connection request, mention, comment, space invite, moderation notices, and more - and lets you edit every one of them. All of these emails share one branded wrapper and one sender identity, so whatever leaves your site looks like it came from your community, not from a generic WordPress install.
 
-![BuddyNext admin settings for editing transactional email templates and sender identity](../images/backend-settings.png)
+![BuddyNext admin Notifications Email tab for editing sender identity and email templates](../images/admin-email.png)
 
 ## Why use it
 

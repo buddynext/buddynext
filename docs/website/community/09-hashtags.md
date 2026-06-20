@@ -4,6 +4,8 @@ Hashtags turn any word a member types with a leading `#` into a clickable, share
 
 ![BuddyNext search results grouped by type, including posts that share a hashtag topic](../images/search.png)
 
+![Platform - Features admin tab where the hashtags feature is enabled](../images/admin-features.png)
+
 ## Why use it
 
 A growing community produces more posts than any one person can read. Hashtags give members a lightweight way to file a post under a topic without choosing a category from a dropdown - they type `#welcome` or `#release` mid-sentence and the tag does the rest. For the people reading, a hashtag is a one-tap path from a single post into every public post on that subject, and the trending list surfaces the topics gaining momentum in the last day.

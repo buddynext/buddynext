@@ -2,7 +2,7 @@
 
 Outbound webhooks are how BuddyNext tells the rest of your tools when something happens in your community. You give BuddyNext a web address to notify, pick the events you care about, and from then on BuddyNext sends a secure message to that address within seconds of each event - no plugin to build, no code to write.
 
-![BuddyNext admin settings for configuring outbound webhook endpoints and events](../images/backend-settings.png)
+![BuddyNext admin Platform Webhooks tab for configuring outbound webhook endpoints and events](../images/admin-webhooks.png)
 
 ## Why use it
 

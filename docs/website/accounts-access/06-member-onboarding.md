@@ -4,7 +4,7 @@ BuddyNext greets every new member with a short, four-step welcome wizard the mom
 
 ![The four-step BuddyNext new-member onboarding wizard with live profile preview](../images/onboarding.png)
 
-![Onboarding wizard settings in the wp-admin Settings panel](../images/backend-settings.png)
+![Members - Registration & Login admin tab where the new-member onboarding wizard is configured](../images/admin-registration.png)
 
 ## What it is
 

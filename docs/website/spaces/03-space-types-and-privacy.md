@@ -4,7 +4,7 @@ Every space has one of three privacy types - Open, Private, or Secret. The type 
 
 ![Single space home showing the join control that reflects the space privacy type](../images/space-home.png)
 
-![BuddyNext admin Spaces settings with the default visibility for new spaces](../images/backend-settings.png)
+![Spaces - Settings admin tab with the default visibility and privacy type for new spaces](../images/admin-spaces-settings.png)
 
 ## Why it matters
 

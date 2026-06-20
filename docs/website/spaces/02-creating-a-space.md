@@ -4,7 +4,7 @@ A space is a community area inside your site - a place with its own feed, member
 
 ![Spaces directory where members browse spaces and use the Create button to start a new one](../images/spaces-directory.png)
 
-![BuddyNext admin Spaces settings controlling who can create spaces and the new-space defaults](../images/backend-settings.png)
+![Spaces - Settings admin tab controlling who can create spaces and the new-space defaults](../images/admin-spaces-settings.png)
 
 ## Why use it
 

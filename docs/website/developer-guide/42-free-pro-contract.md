@@ -4,7 +4,7 @@ This page documents how BuddyNext Free and BuddyNext Pro couple: the service-con
 
 ![The Pro admin settings that sit on the Free/Pro container and hook contract documented here](../images/admin-settings.png)
 
-![The wp-admin settings surface shared across the Free/Pro coupling this contract page defines](../images/backend-settings.png)
+![The Platform Features admin tab shared across the Free/Pro coupling this contract page defines](../images/admin-features.png)
 
 For the full per-hook reference (every Pro-emitted action/filter with its parameters) see Pro and Integration Hooks. This page is the structural contract above that table.
 

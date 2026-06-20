@@ -4,7 +4,7 @@ Your account settings are where you control how you sign in and who you have shu
 
 ![Member account settings on a BuddyNext profile with password, email, and security controls](../images/member-profile.png)
 
-![Account-related controls in the wp-admin Settings panel](../images/backend-settings.png)
+![Members - Privacy & Data admin tab with the account-related privacy and data controls](../images/admin-privacy.png)
 
 Profile details (name, bio, avatar) and audience controls (who can see your profile, who can message you) live in your profile editor and the Privacy section. This page covers the login and access controls that keep your account yours.
 

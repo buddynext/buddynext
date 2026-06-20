@@ -4,6 +4,8 @@ Reactions let members respond to a post or comment with an emoji instead of typi
 
 ![A BuddyNext post detail view showing reaction counts on the post and its comments](../images/post-detail.png)
 
+![Engagement - Reactions admin tab where the site owner configures the available reaction set](../images/admin-reactions.png)
+
 ## Why use it
 
 A reaction is the lowest-effort way for a member to show they have seen and valued something. Most people will not write a comment, but they will tap a reaction, so reactions are where the bulk of your community's engagement actually happens. They give the author quick, visible feedback, and they give everyone else a fast read on what the room thinks.

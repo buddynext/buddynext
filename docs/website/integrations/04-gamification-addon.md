@@ -4,7 +4,7 @@ WB Gamification is the companion plugin that rewards your members for taking par
 
 ![The BuddyNext admin overview showing community engagement driven by WB Gamification](../images/admin-overview.png)
 
-![BuddyNext admin settings for connecting the WB Gamification companion plugin](../images/backend-settings.png)
+![BuddyNext admin Platform Integrations tab for connecting the WB Gamification companion plugin](../images/admin-integrations.png)
 
 This page covers connecting the two plugins and where the rewards show up. For the member-facing detail (how the Achievements tab, badges, points, levels, and leaderboard look and behave), see the Gamification page under Engagement.
 

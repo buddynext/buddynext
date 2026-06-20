@@ -4,7 +4,7 @@ The leaderboard ranks your community's members by the points they have earned, s
 
 ![The BuddyNext community activity feed where the leaderboard spotlights top members](../images/community-activity-feed.png)
 
-![The BuddyNext admin overview showing community engagement and rankings](../images/admin-overview.png)
+![The BuddyNext admin Engagement Insights tab showing community engagement and rankings](../images/admin-insights.png)
 
 The leaderboard is part of BuddyNext's gamification, which is provided by the WB Gamification companion plugin. The board reads its rankings from that plugin, so it appears once WB Gamification is installed and members have started earning points. For how points are earned, see Gamification: points, badges, and levels.
 

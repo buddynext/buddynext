@@ -4,7 +4,7 @@ BuddyNext Pro adds three AI-assisted features that share one connection: AI feed
 
 ![Content scored by AI moderation arriving in the moderation queue](../images/moderation-queue.png)
 
-![AI moderation and feed-ranking signals on the BuddyNext Pro admin dashboard](../images/admin-overview.png)
+![The Auto-Moderation Rules admin tab where AI moderation and feed-ranking signals are configured](../images/admin-automod.png)
 
 ## Why use it
 

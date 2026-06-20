@@ -2,7 +2,7 @@
 
 BuddyNext exposes two webhook surfaces: an outbound CRUD surface that registers external endpoints the site POSTs lifecycle events to, and a single signed inbound endpoint that lets a trusted external service manage a user's role, abilities, and credits. This page covers both. The namespace, auth header, envelope, and error shape are defined on the REST Contract page - read it first.
 
-![The wp-admin settings surface where the outbound and inbound webhook endpoints on this page are configured](../images/backend-settings.png)
+![The Platform Webhooks admin tab where the outbound and inbound webhook endpoints on this page are configured](../images/admin-webhooks.png)
 
 ## Overview / Contract
 

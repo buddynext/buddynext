@@ -2,7 +2,7 @@
 
 Integrations let your community grow into messaging, forums, gamification, jobs, courses, and listings whenever you are ready - no setup work, no code, nothing to wire together by hand. Each one is optional and stays off until you turn it on, so you add features only as your members need them.
 
-![BuddyNext admin settings where owners enable optional companion integrations](../images/backend-settings.png)
+![BuddyNext admin Platform Integrations tab where owners enable optional companion integrations](../images/admin-integrations.png)
 
 ## Why use it
 

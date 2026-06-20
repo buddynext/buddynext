@@ -4,7 +4,7 @@ Member types are the categories you define for the people in your community - St
 
 ![Member directory with member-type filter tabs and colored type badges on member cards](../images/member-directory.png)
 
-![BuddyNext admin settings for creating and assigning member types](../images/backend-settings.png)
+![Members - Labels admin tab where member types are created, labeled, and assigned](../images/admin-labels.png)
 
 ## Why use it
 

@@ -4,7 +4,7 @@ Email verification asks every new member to confirm their email address before t
 
 ![New member on the BuddyNext email verification step after sign-up](../images/onboarding.png)
 
-![Turning email verification on or off in the wp-admin Settings panel](../images/backend-settings.png)
+![Members - Registration & Login admin tab where email verification is turned on or off](../images/admin-registration.png)
 
 ## Why use it
 

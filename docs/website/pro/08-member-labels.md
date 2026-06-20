@@ -4,7 +4,7 @@ Member Labels are badges you define and hand out to members - things like Verifi
 
 ![Member labels showing next to names across the member directory](../images/member-directory.png)
 
-![Creating and assigning member labels in the BuddyNext Pro settings](../images/backend-settings.png)
+![The Members Labels admin tab where you create and assign member labels](../images/admin-labels.png)
 
 > **Before you start:** Member Labels come with BuddyNext Pro. With Pro active, you create and manage labels from the Member Labels admin screen described below.
 

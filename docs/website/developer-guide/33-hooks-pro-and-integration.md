@@ -4,7 +4,7 @@ This page covers the hooks that cross plugin boundaries: the actions and filters
 
 ![The Pro admin settings whose cross-plugin Pro and integration hooks are documented here](../images/admin-settings.png)
 
-![The wp-admin settings surface companion plugins extend through the integration seams on this page](../images/backend-settings.png)
+![The Platform Integrations admin tab companion plugins extend through the integration seams on this page](../images/admin-integrations.png)
 
 For the core free hook surface (post, reaction, comment, space, moderation events) see the Core Hooks reference. This page is the layer above it.
 

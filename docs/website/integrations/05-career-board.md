@@ -4,6 +4,8 @@ Career Board is the companion plugin that turns your community into a place wher
 
 ![BuddyNext community search surfacing Career Board jobs and resumes](../images/search.png)
 
+![BuddyNext admin Platform Integrations tab showing the Career Board companion](../images/admin-integrations.png)
+
 Bringing Career Board into your community needs BuddyNext Pro. The Career Board plugin works on its own without Pro - you simply will not get the community surfacing described below until Pro is active.
 
 ## Why use it

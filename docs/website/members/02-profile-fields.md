@@ -4,7 +4,7 @@ Profile fields let you decide what members can tell each other about themselves.
 
 ![Member profile showing custom fields, bio, and avatar populated from profile field groups](../images/member-profile.png)
 
-![BuddyNext admin settings where profile field groups and fields are configured](../images/backend-settings.png)
+![Platform - Features admin tab where profile field groups and the profile fields feature are configured](../images/admin-features.png)
 
 ## Why use it
 

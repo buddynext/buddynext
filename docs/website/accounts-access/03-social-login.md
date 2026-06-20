@@ -4,7 +4,7 @@ Social login lets people sign in or sign up using an account they already have -
 
 ![BuddyNext login form showing social sign-in buttons](../images/login.png)
 
-![Configuring social login providers in the wp-admin Settings panel](../images/backend-settings.png)
+![Engagement - Social admin tab where social login providers and social sharing are configured](../images/admin-social.png)
 
 ## Why use it
 

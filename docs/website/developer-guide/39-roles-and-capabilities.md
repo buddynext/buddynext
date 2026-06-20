@@ -2,7 +2,7 @@
 
 How BuddyNext decides who can do what. This page covers the permission model developers extend: the single `buddynext_can()` entry point, the four resolution layers in `PermissionService`, the capability catalog registered through the WordPress Abilities API, and the filter seams (`buddynext_user_can`, `buddynext_role_map`, `buddynext_abilities`) an extension uses to add, gate, or override a capability.
 
-![The wp-admin settings surface gated by the capability model and buddynext_can() entry point documented here](../images/backend-settings.png)
+![The Members Roles admin tab gated by the capability model and buddynext_can() entry point documented here](../images/admin-roles.png)
 
 ## Overview / Contract
 

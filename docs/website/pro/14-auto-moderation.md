@@ -4,7 +4,7 @@ Auto-moderation rules let you set conditions that act on content automatically -
 
 ![Content auto-flagged by rules waiting in the moderation queue](../images/moderation-queue.png)
 
-![Defining auto-moderation rules and thresholds in the BuddyNext Pro settings](../images/backend-settings.png)
+![The Auto-Moderation Rules admin tab where you define auto-moderation rules and thresholds](../images/admin-automod.png)
 
 ## Why use it
 

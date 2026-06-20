@@ -2,7 +2,7 @@
 
 Membership tiers are the plans, free or paid, that you offer your community. Each tier carries a price, a billing schedule, and a set of perks (the features and limits it unlocks), and members subscribe to a tier to get what it includes.
 
-![Defining membership tiers, pricing, and perks in the BuddyNext Pro settings](../images/backend-settings.png)
+![The Monetization Tiers admin tab where you define membership tiers, pricing, and perks](../images/admin-tiers.png)
 
 ![A space home members unlock by subscribing to a paid membership tier](../images/space-home.png)
 

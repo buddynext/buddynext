@@ -2,7 +2,7 @@
 
 A digest is a single email that batches up a member's unread notifications and sends them on a schedule - once a day or once a week - instead of one email per event. Members who would otherwise get a steady stream of individual emails can switch any notification type to a daily or weekly digest and get a single roundup instead.
 
-![BuddyNext admin settings for configuring site-wide daily and weekly email digests](../images/backend-settings.png)
+![BuddyNext admin Notifications Email tab for configuring site-wide daily and weekly email digests](../images/admin-email.png)
 
 ## Why use it
 

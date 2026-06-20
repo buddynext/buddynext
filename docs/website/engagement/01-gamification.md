@@ -4,7 +4,7 @@ Gamification rewards members with points, badges, and levels for taking part in 
 
 ![A BuddyNext member profile showing earned points, badges, and level](../images/member-profile.png)
 
-![The BuddyNext admin overview where owners track community engagement](../images/admin-overview.png)
+![The BuddyNext admin Engagement Insights tab where owners track community engagement](../images/admin-insights.png)
 
 Gamification in BuddyNext is provided by the WB Gamification companion plugin. BuddyNext awards the points by sending each member action to that plugin, which owns the scoring, badges, and levels. When WB Gamification is not installed, the gamification surfaces stay quiet and nothing breaks.
 

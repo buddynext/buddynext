@@ -4,6 +4,8 @@ A poll is a post that asks members a question and lets them choose from a short 
 
 ![A BuddyNext activity feed with a poll post showing its question, options, and live vote results](../images/community-activity-feed.png)
 
+![Platform - Features admin tab where the polls feature is enabled](../images/admin-features.png)
+
 ## Why use it
 
 A poll is the lowest-effort way for a member to take part in your community. Writing a comment takes thought; tapping an option takes a second. That low bar is exactly why polls drive engagement: people who would never write a reply will happily vote, and every vote is a small signal that pulls them back to see the result.

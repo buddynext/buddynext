@@ -4,7 +4,7 @@ Pro adds six richer profile field types on top of the free profile builder: an e
 
 ![A member profile populated with the richer Pro field types](../images/member-profile.png)
 
-![Building advanced profile field types in the BuddyNext Pro settings](../images/backend-settings.png)
+![The Platform Features admin tab where advanced profile field types are enabled](../images/admin-features.png)
 
 > **Before you start:** These field types come with BuddyNext Pro. With Pro active, they appear in the same profile field builder you already use, so there is nothing extra to switch on. This page covers the Pro field types only. For the base field builder, member-facing profile editing, and the field types that ship free, see Profile Fields.
 

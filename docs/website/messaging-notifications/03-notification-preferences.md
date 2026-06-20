@@ -4,7 +4,7 @@ Notification Preferences let each member decide which events notify them and how
 
 ![Member-facing BuddyNext notifications panel showing on-site alerts](../images/notifications.png)
 
-![BuddyNext admin settings where owners set notification defaults](../images/backend-settings.png)
+![BuddyNext admin Notifications tab where owners set notification defaults](../images/admin-notifications.png)
 
 ## Why use it
 

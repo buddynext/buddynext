@@ -4,7 +4,7 @@ Every space has three roles - owner, moderator, and member - that decide who can
 
 ![Single space home where owners promote members to moderators and set posting permissions](../images/space-home.png)
 
-![BuddyNext admin settings for space roles and posting permissions](../images/backend-settings.png)
+![Spaces - Settings admin tab for space roles and posting permissions](../images/admin-spaces-settings.png)
 
 ## Why use it
 

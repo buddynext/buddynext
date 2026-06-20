@@ -6,6 +6,8 @@ Direct messaging lets two members hold a private 1:1 conversation away from the 
 
 ![A BuddyNext direct message conversation thread between two members](../images/dm-thread.png)
 
+![BuddyNext admin Platform Features tab where direct messaging is toggled on](../images/admin-features.png)
+
 ## Why use it
 
 Public feeds and comments are for the whole community. Some conversations are not. A member who wants to ask a private question, follow up on a shared interest, or talk to someone one-on-one needs a private channel, and a community without one pushes that traffic off to email or another app.

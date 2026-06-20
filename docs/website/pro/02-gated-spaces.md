@@ -4,7 +4,7 @@ A gated space is a space only members on a particular tier can join. When someon
 
 ![A members-only space home shown only after the visitor meets the required tier](../images/space-home.png)
 
-![Choosing the membership tier that gates a space in the BuddyNext Pro settings](../images/backend-settings.png)
+![The Monetization Tiers admin tab where you choose the membership tier that gates a space](../images/admin-tiers.png)
 
 > **Before you start:** Gated spaces come with BuddyNext Pro and build on Membership Tiers. You need BuddyNext Pro active and at least one membership tier set up before you can gate a space. To sell access through checkout you also need a payment gateway connected (see Membership Tiers).
 

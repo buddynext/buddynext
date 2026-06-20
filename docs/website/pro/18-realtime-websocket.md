@@ -4,6 +4,8 @@ Real-time WebSocket (Pro) connects your community to a WebSocket server so notif
 
 ![New posts and reactions appearing live in the community activity feed](../images/community-activity-feed.png)
 
+![The Realtime Push admin tab where you configure the WebSocket transport and Pusher-compatible server](../images/admin-push.png)
+
 ## Why it matters
 
 The free plugin keeps the community live by polling: the notification bell checks for new items every few seconds, the feed checks for new posts roughly once a minute. That works and nothing is broken without Pro - it is just slower. A member can wait up to a minute to see a new post appear, and the bell only catches up on its next check.

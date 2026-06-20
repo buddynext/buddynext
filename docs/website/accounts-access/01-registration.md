@@ -4,7 +4,7 @@ Registration is how people create an account and join your community. BuddyNext 
 
 ![New member completing the BuddyNext sign-up and onboarding flow](../images/onboarding.png)
 
-![BuddyNext registration settings in the wp-admin Settings panel](../images/backend-settings.png)
+![Members - Registration & Login admin tab showing registration mode, the login panel, spam protection, and social-login fields](../images/admin-registration.png)
 
 ## Why use it
 

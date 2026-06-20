@@ -4,6 +4,8 @@ Every space has a member roster you control: who is in, who is waiting to join, 
 
 ![Single space home with the Members tab where owners manage the space roster](../images/space-home.png)
 
+![Spaces - Settings admin tab where membership rules and join controls for spaces are configured](../images/admin-spaces-settings.png)
+
 ## Why use it
 
 A space is only as good as the people in it. Left alone, a busy space fills with stale members who never return, join requests that pile up unanswered, and the occasional person who does not belong. Active member management fixes all three.

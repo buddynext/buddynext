@@ -4,7 +4,7 @@ The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with 48 rou
 
 ![The Pro admin settings backed by the buddynext-pro/v1 REST routes documented here](../images/admin-settings.png)
 
-![The wp-admin settings surface that the Pro REST namespace populates and reads](../images/backend-settings.png)
+![The BuddyNext admin dashboard the Pro REST namespace populates and reads](../images/admin-overview.png)
 
 ## Contract
 

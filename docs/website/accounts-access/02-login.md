@@ -4,6 +4,8 @@ Login is how returning members sign back in to your community. Like the sign-up 
 
 ![BuddyNext branded member login form with Remember me and Forgot password](../images/login.png)
 
+![Members - Registration & Login admin tab where the site owner configures the login panel and registration mode](../images/admin-registration.png)
+
 ## Why use it
 
 - **On-brand sign-in.** The login form picks up your community's colors, fonts, and spacing automatically, and on BuddyNext Pro it carries your white-label branding. It can sit beside the same welcome panel as the sign-up form.

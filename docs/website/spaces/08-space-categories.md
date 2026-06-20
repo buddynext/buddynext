@@ -4,7 +4,7 @@ Space categories organize the Spaces directory by topic. Each space can belong t
 
 ![Spaces directory with category filters and category badges on the space cards](../images/spaces-directory.png)
 
-![BuddyNext admin Spaces settings where categories are created, ordered, and colored](../images/backend-settings.png)
+![Spaces - Settings admin tab where space categories are created, ordered, and colored](../images/admin-spaces-settings.png)
 
 ## Why use it
 

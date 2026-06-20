@@ -4,7 +4,7 @@ Two-factor authentication (2FA) adds a second step to signing in. After a member
 
 ![Member managing two-factor authentication from their BuddyNext profile settings](../images/member-profile.png)
 
-![Two-factor authentication controls in the wp-admin Settings panel](../images/backend-settings.png)
+![Members - Registration & Login admin tab with the two-factor authentication controls](../images/admin-registration.png)
 
 ## Why use it
 

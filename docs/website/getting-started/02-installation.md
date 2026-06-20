@@ -2,7 +2,7 @@
 
 This page walks you through installing the free BuddyNext plugin, adding BuddyNext Pro with the one-click installer, and choosing the optional companion plugins that extend specific features. The whole process takes a few minutes and ends at the setup wizard.
 
-![The BuddyNext Settings page in wp-admin after installation](../images/backend-settings.png)
+![Platform - Features admin tab showing the feature on/off toggles and integration bridges available after installation](../images/admin-features.png)
 
 ## Why this matters
 

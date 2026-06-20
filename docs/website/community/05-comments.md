@@ -4,6 +4,8 @@ Comments let members reply to a post in a threaded conversation - posting their 
 
 ![A BuddyNext post detail view with a threaded comment conversation underneath the post](../images/post-detail.png)
 
+![Platform - Features admin tab where the comments feature is enabled and configured](../images/admin-features.png)
+
 ## Why use it
 
 Reactions tell an author that people saw a post; comments are where the actual conversation happens. They turn a one-way broadcast into a discussion, and they are what keeps members coming back to a post over hours and days rather than scrolling past it once.

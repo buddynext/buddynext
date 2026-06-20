@@ -4,7 +4,7 @@ Content Protection locks individual posts, pages, and even sections inside a pag
 
 ![Members reading protected posts in the community feed once their plan unlocks them](../images/community-activity-feed.png)
 
-![Choosing which membership tier unlocks protected content in the BuddyNext Pro settings](../images/backend-settings.png)
+![The Monetization Tiers admin tab where you choose which membership tier unlocks protected content](../images/admin-tiers.png)
 
 > **Before you start:** Content Protection comes with BuddyNext Pro and uses the same memberships as your spaces, so set up at least one membership tier first (see Membership Tiers).
 
