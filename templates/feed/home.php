@@ -216,32 +216,13 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 		<?php endforeach; ?>
 	</div>
 
-	<div class="bn-feed-skeleton"
-		hidden
-		aria-hidden="true"
-		data-bn-feed-skeleton>
-		<?php for ( $sk = 0; $sk < 3; $sk++ ) : ?>
-			<div class="bn-skeleton-card">
-				<span class="bn-skeleton bn-skeleton-avatar"></span>
-				<span class="bn-skeleton bn-skeleton-line bn-skeleton-line--title"></span>
-				<span class="bn-skeleton bn-skeleton-line bn-skeleton-line--subtitle"></span>
-				<span class="bn-skeleton bn-skeleton-line bn-skeleton-line--body"></span>
-				<span class="bn-skeleton bn-skeleton-line bn-skeleton-line--body-short"></span>
-			</div>
-		<?php endfor; ?>
-	</div>
-
-	<div class="bn-feed-error"
-		role="alert"
-		hidden
-		data-bn-feed-error>
-		<span class="bn-feed-error__icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
-		<span class="bn-feed-error__text"><?php esc_html_e( 'Could not load this view. Try again.', 'buddynext' ); ?></span>
-		<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-feed-retry>
-			<?php esc_html_e( 'Retry', 'buddynext' ); ?>
-		</button>
-	</div>
-
+	<?php
+	// NOTE: the home feed renders server-side and changes views via a full reload
+	// (feed-tabs setFilter → window.location), so there is no client-side async
+	// load phase. The skeleton / error / retry markup that used to live here was
+	// never toggled by any JS (dead markup) and was removed. If client-side filter
+	// fetching is added later, reintroduce the loading states wired to it.
+	?>
 	<?php if ( ! empty( $feed_posts ) ) : ?>
 		<div class="bn-feed-list" role="feed" aria-label="<?php esc_attr_e( 'Home feed', 'buddynext' ); ?>">
 			<?php foreach ( $feed_posts as $home_post ) : ?>
