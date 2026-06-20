@@ -4,6 +4,8 @@ BuddyNext sends the emails your community depends on - new follower, connection 
 
 ![BuddyNext admin Notifications Email tab for editing sender identity and email templates](../images/admin-email.png)
 
+![The Email Templates editor where transactional email bodies are customized](../images/admin-email-templates.png)
+
 ## Why use it
 
 Email is how members hear about activity when they are not on the site. If those emails look unbranded or arrive from a mismatched address, members ignore them or mark them as spam, and your community loses the re-engagement loop that brings people back.

@@ -4,6 +4,8 @@ Membership tiers are the plans, free or paid, that you offer your community. Eac
 
 ![The Monetization Tiers admin tab where you define membership tiers, pricing, and perks](../images/admin-tiers.png)
 
+![The Monetization → Subscriptions admin tab listing active member subscriptions](../images/admin-subscriptions.png)
+
 ![A space home members unlock by subscribing to a paid membership tier](../images/space-home.png)
 
 > **Before you start:** Membership tiers come with BuddyNext Pro. You need BuddyNext Pro active, and to take real payments you also need a payment gateway connected (see Requirements below). Even without a gateway you can still create tiers and grant access by hand, which is handy while you set things up.

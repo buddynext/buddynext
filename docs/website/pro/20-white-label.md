@@ -2,9 +2,9 @@
 
 White-label branding lets you replace BuddyNext's identity with your own across the community. Set a brand name, a logo, a brand color, the fonts, and your own custom CSS, and the whole interface - front-end and wp-admin - takes on your look instead of the default. You can also override the branding for individual spaces, so a single community can carry more than one identity.
 
-![The re-branded BuddyNext admin interface under white-label branding](../images/admin-settings.png)
+![The Appearance branding admin tab where you set the brand name, logo, accent hue, fonts, and custom CSS](../images/admin-appearance.png)
 
-![The BuddyNext tabbed settings admin screen where you set the brand name, logo, color, and custom CSS](../images/admin-settings.png)
+![The community front-end showing your applied branding and logo](../images/community-activity-feed.png)
 
 > **Note:** White-label branding is part of the Agency and Unlimited license tiers. On other Pro tiers the feature is not offered.
 

@@ -4,7 +4,7 @@ Real-time WebSocket (Pro) connects your community to a WebSocket server so notif
 
 ![New posts and reactions appearing live in the community activity feed](../images/community-activity-feed.png)
 
-![The Realtime Push admin tab where you configure the WebSocket transport and Pusher-compatible server](../images/admin-push.png)
+![The Realtime admin tab for WebSocket and live updates](../images/admin-realtime.png)
 
 ## Why it matters
 

@@ -6,6 +6,8 @@ Reporting lets any member flag a post, comment, or member profile for a moderato
 
 ![The BuddyNext admin moderation queue receiving reported content](../images/moderation-queue.png)
 
+![The Moderation → Reports admin tab where submitted reports land for review](../images/admin-mod-reports.png)
+
 ## Why use it
 
 Your moderators cannot watch every post in real time, and as a community grows that becomes impossible. Member reporting is the first line of defense: the people actually reading a thread are the first to notice spam, harassment, or a fake account, and a report turns that attention into a queued task a moderator can act on.

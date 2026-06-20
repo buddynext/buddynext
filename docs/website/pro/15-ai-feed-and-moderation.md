@@ -2,9 +2,9 @@
 
 BuddyNext Pro adds three AI-assisted features that share one connection: AI feed ranking re-orders the home feed by how relevant each post is likely to be for the person viewing it, AI moderation scores new content for risk before it goes live, and smart replies offer a member ready-to-edit responses to a conversation. All three are off by default and need to be turned on and configured before they do anything.
 
-![Content scored by AI moderation arriving in the moderation queue](../images/moderation-queue.png)
+![The AI Feed admin tab](../images/admin-ai-feed.png)
 
-![The Auto-Moderation Rules admin tab where AI moderation and feed-ranking signals are configured](../images/admin-automod.png)
+![The AI Moderation admin tab](../images/admin-ai-moderation.png)
 
 ## Why use it
 

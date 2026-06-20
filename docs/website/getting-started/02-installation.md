@@ -4,6 +4,8 @@ This page walks you through installing the free BuddyNext plugin, adding BuddyNe
 
 ![Platform - Features admin tab showing the feature on/off toggles and integration bridges available after installation](../images/admin-features.png)
 
+![The Settings → Pages & URLs tab mapping BuddyNext screens to pages](../images/admin-pages.png)
+
 ## Why this matters
 
 A clean install is what makes BuddyNext work the moment you switch it on. Activating the plugin creates your community pages with readable links, so members can reach the feed, spaces, directory, and messages straight away. Getting the order right - free plugin first, then Pro, then any companions you need - means every feature lights up correctly the first time, and you avoid broken links or missing tabs.

@@ -4,7 +4,7 @@ User moderation is the set of actions a moderator or admin takes against a membe
 
 ![The BuddyNext moderation queue where moderators take action against a member](../images/moderation-queue.png)
 
-![BuddyNext admin Moderation Controls tab setting strike thresholds and safeguards](../images/admin-mod-controls.png)
+![The Moderation > Suspensions tab listing suspended members and controls](../images/admin-suspensions.png)
 
 Where reporting deals with a single piece of content, user moderation deals with the person behind it. The actions escalate in severity, so a first-time slip and a repeat offender are handled differently.
 

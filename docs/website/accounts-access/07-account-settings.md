@@ -2,7 +2,7 @@
 
 Your account settings are where you control how you sign in and who you have shut out of your experience. This is the security and access side of your profile: your password, your email address, your active sign-in sessions, two-factor authentication, and the people you have blocked, muted, or restricted.
 
-![Member account settings on a BuddyNext profile with password, email, and security controls](../images/member-profile.png)
+![The Edit Profile screen — change cover photo and avatar, display name, headline, bio and profile fields, with a live preview](../images/profile-edit.png)
 
 ![Members - Privacy & Data admin tab with the account-related privacy and data controls](../images/admin-privacy.png)
 
