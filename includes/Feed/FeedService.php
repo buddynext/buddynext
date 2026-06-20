@@ -811,9 +811,16 @@ class FeedService {
 		$cursor_where   = $this->cursor_where( $cursor );
 		$excluded_where = $this->excluded_users_where();
 
+		// Apply the canonical viewer block/mute exclusion — the same gate home_feed
+		// and explore_feed use — so a profile owner the viewer has blocked or muted
+		// does not leak posts onto their own profile feed (self-block is impossible,
+		// so the owner viewing their own profile is unaffected).
+		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $viewer_id );
+
 		// $privacy_clause is a hardcoded SQL constant — safe.
 		// $cursor_where is either '' or the single hardcoded SQL constant — safe.
 		// $excluded_where contains only table/column names — no user data, safe.
+		// $block_mute_where is the canonical block-exclusion fragment; its params are bound below.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
@@ -821,10 +828,11 @@ class FeedService {
 			   {$privacy_clause}
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   {$excluded_where}
+			   {$block_mute_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
-			...array_merge( array( $profile_user_id ), $privacy_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( array( $profile_user_id ), $privacy_params, $block_mute_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
@@ -884,9 +892,10 @@ class FeedService {
 	/**
 	 * Return the feed for a given space (published, non-scheduled posts only).
 	 *
-	 * Access control is the caller's responsibility — this method returns all
-	 * published posts in the space without additional viewer-side filtering.
-	 * Posts authored by suspended or shadow-banned users are always excluded.
+	 * Access control (space membership) is the caller's responsibility. Posts
+	 * authored by suspended or shadow-banned users are always excluded, and the
+	 * canonical viewer block/mute exclusion is applied so a blocked or muted
+	 * co-member's posts never render in the space feed.
 	 *
 	 * @param int         $space_id  Space whose posts to show.
 	 * @param int         $viewer_id Viewing user ID (reserved for future access checks).
@@ -900,6 +909,11 @@ class FeedService {
 		$per_page       = min( $per_page, 50 );
 		$cursor_where   = $this->cursor_where( $cursor );
 		$excluded_where = $this->excluded_users_where();
+
+		// Apply the canonical viewer block/mute exclusion — the same gate home_feed
+		// and explore_feed use — so a co-member the viewer has blocked or muted does
+		// not leak posts into a shared space feed.
+		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $viewer_id );
 
 		/**
 		 * Filter the query args before SQL is built for the space feed.
@@ -927,6 +941,7 @@ class FeedService {
 		$per_page = min( (int) ( $query_args['per_page'] ?? $per_page ), 50 );
 
 		// $cursor_where and $excluded_where contain only table/column names — no user data, safe.
+		// $block_mute_where is the canonical block-exclusion fragment; its params are bound below.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
@@ -934,10 +949,11 @@ class FeedService {
 			   AND status = 'published'
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   {$excluded_where}
+			   {$block_mute_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
-			...array_merge( array( $space_id ), $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( array( $space_id ), $block_mute_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
