@@ -2,6 +2,7 @@
   "name": "wbcom-designs/buddynext",
   "description": "BuddyNext — Social layer for WordPress",
   "type": "wordpress-plugin",
+  "license": "GPL-2.0-or-later",
   "require": {
     "php": ">=8.2"
   },

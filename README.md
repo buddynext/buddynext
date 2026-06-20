@@ -7,7 +7,7 @@ Enterprise-grade social community platform for WordPress (free + pro). Owned by 
 ## Requirements
 
 - WordPress 6.9+
-- PHP 8.1+
+- PHP 8.2+
 
 ## Development
 
