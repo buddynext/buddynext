@@ -2,7 +2,7 @@
 
 Two-factor authentication (2FA) adds a second step to signing in. After a member enters their password, they also enter a short one-time code. Even if someone learns the password, they still cannot get in without that code - which gives members real peace of mind that their account is theirs alone.
 
-![Member managing two-factor authentication from their BuddyNext profile settings](../images/member-profile.png)
+![Two-factor setup — add the setup key to an authenticator app, then confirm with a 6-digit code](../images/twofa-setup.png)
 
 ![Members - Registration & Login admin tab with the two-factor authentication controls](../images/admin-registration.png)
 

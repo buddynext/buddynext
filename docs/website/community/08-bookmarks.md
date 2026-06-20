@@ -4,6 +4,8 @@ A bookmark is a private save. When a member taps Save on a post, that post is ad
 
 ![A BuddyNext activity feed where each post card includes a Save action to bookmark it privately](../images/community-activity-feed.png)
 
+![A member's Bookmarks page listing saved posts, each with the Save action highlighted](../images/bookmarks-list.png)
+
 ## Why use it
 
 Feeds move fast. A member spots something they want to come back to - a useful link, a long thread, an announcement they have not finished reading - but they are not ready to act on it right now. Bookmarks let them keep it without cluttering the feed, replying publicly, or losing it to the scroll.

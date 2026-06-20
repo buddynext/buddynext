@@ -4,6 +4,8 @@ BuddyNext gives every member three self-protection tools for dealing with anothe
 
 ![Member profile with the more-menu where block, mute, and restrict actions are triggered](../images/member-profile.png)
 
+![The block confirmation dialog explaining what blocking does, with Cancel and Block actions](../images/block-modal.png)
+
 ## Why use it
 
 A community is only as welcoming as the control its members have over who reaches them. Without these tools, the only options are to put up with unwanted attention or to leave. Block, mute, and restrict cover the full range of situations a real member runs into:

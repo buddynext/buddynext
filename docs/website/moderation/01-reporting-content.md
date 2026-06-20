@@ -4,6 +4,8 @@ Reporting lets any member flag a post, comment, or member profile for a moderato
 
 ![A BuddyNext post where a member can report the content for review](../images/post-detail.png)
 
+![The report dialog — choose a reason and add optional details; reports go to moderators and the person is not notified](../images/report-modal.png)
+
 ![The BuddyNext admin moderation queue receiving reported content](../images/moderation-queue.png)
 
 ![The Moderation → Reports admin tab where submitted reports land for review](../images/admin-mod-reports.png)
