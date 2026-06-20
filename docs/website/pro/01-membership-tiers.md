@@ -27,25 +27,28 @@ For the member, a tier is a clear promise. For you, it is a single place to defi
 
 ## How it works (for members)
 
-Members never touch the admin. They see two surfaces, both of which you place on ordinary WordPress pages using shortcodes.
+Members never touch the admin. They see two surfaces, and BuddyNext creates both for you automatically - you do not have to build them by hand.
+
+When the Monetization feature is on (Platform → Features, on by default with Pro), BuddyNext publishes two pages:
+
+- **Membership** - the pricing page, at `/membership-plans/` by default.
+- **My Membership** - the member's own plan and billing status, at `/my-membership/` by default.
+
+You can rename either slug, or point the surface at a different page, from Settings → Pages & URLs (the same place you set the Members and Spaces URLs). The default pricing slug avoids the bare `/membership/` path, which other plugins sometimes claim. If a page is ever deleted, BuddyNext recreates it on the next admin screen load while Monetization is on.
 
 ### View the plans and subscribe
 
-The pricing page lists every active plan with its name, description, price, and billing interval. Each paid plan has its own button that starts checkout; the free plan is marked as the member's current plan.
+The pricing page lists every active plan with its name, description, price, and billing interval. Each paid plan has its own button that starts checkout; the free plan is marked as the member's current plan. The button submits a standard form, so the buy flow works even with JavaScript disabled. After a member completes checkout, they are returned to the My Membership page with a confirmation, and their subscription becomes active.
 
-Add the pricing table to any page with this shortcode:
+To show the pricing table somewhere else as well - a marketing landing page, for example - drop this shortcode on any page:
 
 ```text
 [buddynext_membership_pricing]
 ```
 
-The button submits a standard form, so the buy flow works even with JavaScript disabled. After a member completes checkout, they are returned to a thank-you page and their subscription becomes active.
-
 ### Check their own membership
 
-Members can see their current plan, its price, status, and renewal date on a "my membership" page.
-
-Add it with this shortcode:
+The My Membership page shows a member their current plan, its price, status, and renewal date, plus the confirmation banner when they return from a successful payment. To place it on another page too, use this shortcode:
 
 ```text
 [buddynext_my_membership]
@@ -59,6 +62,8 @@ The page shows one of three states:
 
 
 ## Setting it up (for owners)
+
+Monetization is on by default with Pro. You can turn the whole layer on or off under Platform → Features ("Memberships & monetization"): when it is off, the pricing and My Membership pages, checkout, and gated content are all disabled; when you turn it back on, the pages are recreated automatically.
 
 All tier and subscription management lives in wp-admin under BuddyNext, in the Monetization section. You manage tiers, review subscriptions, and configure the upgrade prompt across three tabs: Tiers, Subscriptions, and Paywall. (The Paywall tab is covered in Gating Spaces.)
 
