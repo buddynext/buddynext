@@ -67,7 +67,7 @@
    curl -s "http://buddynext-dev.local/wp-json/buddynext/v1/search?q=BuddyNext"
    ```
 
-   - Expected: 200. Results include posts, possibly users and spaces. Confirm response shape has at minimum a `posts` key.
+   - Expected: 200. **Response shape (runtime-confirmed 2026-06-20):** `{ "grouped": true, "results": { "types": [ {"type":"post","results":[...],"total":N}, {"type":"user",...} ] } }` — assert `results.types[].type`, NOT a top-level `posts`/`items` key (those don't exist on the grouped endpoint). The type-scoped form `?type=users` returns a different shape: `{ "items":[...], "total":N }`.
 
 6. Search for users by name:
 
