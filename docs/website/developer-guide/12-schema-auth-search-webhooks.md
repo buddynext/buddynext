@@ -2,7 +2,7 @@
 
 This page documents the `bn_*` tables for verification/security tokens, the unified full-text search index, and the inbound/outbound webhook surface. All tables are created in `BuddyNext\Core\Installer::schema()` via `dbDelta()`. The exact tables that exist in these domains are listed below - none are invented.
 
-![The front-end login flow backed by the bn_* verification and security-token tables on this page](../images/login.png)
+![The front-end login flow backed by the bn_* verification and security-token tables on this page](../images/login.webp)
 
 ## Overview / Contract
 

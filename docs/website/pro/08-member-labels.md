@@ -2,9 +2,9 @@
 
 Member Labels are badges you define and hand out to members - things like Verified, Expert, or Staff. Each label has a name, a color, and an optional icon, and it appears next to the member's name on their profile and on their post bylines.
 
-![Member labels showing next to names across the member directory](../images/member-directory.png)
+![Member labels showing next to names across the member directory](../images/member-directory.webp)
 
-![The Members Labels admin tab where you create and assign member labels](../images/admin-labels.png)
+![The Members Labels admin tab where you create and assign member labels](../images/admin-labels.webp)
 
 > **Before you start:** Member Labels come with BuddyNext Pro. With Pro active, you create and manage labels from the Member Labels admin screen described below.
 

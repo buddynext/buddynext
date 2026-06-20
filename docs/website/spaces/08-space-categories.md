@@ -2,9 +2,9 @@
 
 Space categories organize the Spaces directory by topic. Each space can belong to a category, and members browsing the directory can filter to one category to narrow what they see. Categories are managed by site admins.
 
-![Spaces directory with category filters and category badges on the space cards](../images/spaces-directory.png)
+![Spaces directory with category filters and category badges on the space cards](../images/spaces-directory.webp)
 
-![Spaces - Settings admin tab where space categories are created, ordered, and colored](../images/admin-spaces-settings.png)
+![Spaces - Settings admin tab where space categories are created, ordered, and colored](../images/admin-spaces-settings.webp)
 
 ## Why use it
 

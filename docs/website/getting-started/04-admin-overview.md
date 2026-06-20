@@ -2,11 +2,11 @@
 
 The BuddyNext admin hub is the single place you manage your whole community from. Instead of scattering settings across dozens of unrelated screens, BuddyNext groups every control into eleven labeled sections that follow how you actually run a community: set it up, manage your platform, look after members and spaces, drive engagement, handle notifications, and moderate. This page is your map - find any setting by the job it does.
 
-![BuddyNext admin Community Overview dashboard — member, post and engagement stat cards, an activity timeline, a community-health score, top spaces by activity, recent moderation activity, and quick actions.](../images/admin-overview.png)
+![BuddyNext admin Community Overview dashboard — member, post and engagement stat cards, an activity timeline, a community-health score, top spaces by activity, recent moderation activity, and quick actions.](../images/admin-overview.webp)
 
-![The Settings → General tab — community name, identity and baseline options](../images/admin-general.png)
+![The Settings → General tab — community name, identity and baseline options](../images/admin-general.webp)
 
-![The Settings → Navigation tab for the front-end community menu](../images/admin-navigation.png)
+![The Settings → Navigation tab for the front-end community menu](../images/admin-navigation.webp)
 
 ## What it is
 

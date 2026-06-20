@@ -2,9 +2,9 @@
 
 This page is the map of how BuddyNext is put together: the five layers, the order they boot in, the canonical shape of a feature module, the DI container, and the PageRouter hub lifecycle. Read it before adding a feature, a bridge, or an admin page - every later chapter assumes this model.
 
-![The admin dashboard that the five-layer architecture and PageRouter hub lifecycle assemble](../images/admin-overview.png)
+![The admin dashboard that the five-layer architecture and PageRouter hub lifecycle assemble](../images/admin-overview.webp)
 
-![A rendered feed hub - the canonical output of a feature module booted through the container and router](../images/community-activity-feed.png)
+![A rendered feed hub - the canonical output of a feature module booted through the container and router](../images/community-activity-feed.webp)
 
 BuddyNext is namespaced `BuddyNext\*` (free) / `BuddyNextPro\*` (pro), autoloaded PSR-4 from `includes/`. It boots at `plugins_loaded:15` via `BuddyNext\Core\Plugin::init()`.
 

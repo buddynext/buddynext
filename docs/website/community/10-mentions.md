@@ -2,9 +2,9 @@
 
 A mention is the way one member pulls another into a conversation by name. Type `@` followed by a member's username in a post or comment, and BuddyNext links it to that member's profile and notifies them that they were mentioned.
 
-![A BuddyNext activity feed where a post mentions another member by name as a clickable link](../images/community-activity-feed.png)
+![A BuddyNext activity feed where a post mentions another member by name as a clickable link](../images/community-activity-feed.webp)
 
-![Typing @ in the composer opens a member typeahead that suggests people to mention](../images/mention-typeahead.png)
+![Typing @ in the composer opens a member typeahead that suggests people to mention](../images/mention-typeahead.webp)
 
 ## Why use it
 

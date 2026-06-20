@@ -2,9 +2,9 @@
 
 Member types are the categories you define for the people in your community - Student, Mentor, Staff, Alumni, and so on. Each type can carry a colored badge, appear as a filter tab in the member directory, and optionally be picked by members themselves.
 
-![Member directory with member-type filter tabs and colored type badges on member cards](../images/member-directory.png)
+![Member directory with member-type filter tabs and colored type badges on member cards](../images/member-directory.webp)
 
-![Members - Labels admin tab where member types are created, labeled, and assigned](../images/admin-labels.png)
+![Members - Labels admin tab where member types are created, labeled, and assigned](../images/admin-labels.webp)
 
 ## Why use it
 

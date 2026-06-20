@@ -2,9 +2,9 @@
 
 The sidebar is the right-hand column on community hub pages. It shows a set of discovery cards - trending topics, people to follow, and spaces - populated automatically from your community's own activity. There is nothing to fill in; the cards keep themselves current.
 
-![A BuddyNext community hub page showing the sidebar with trending topics, people-to-follow, and spaces cards](../images/community-activity-feed.png)
+![A BuddyNext community hub page showing the sidebar with trending topics, people-to-follow, and spaces cards](../images/community-activity-feed.webp)
 
-![Platform - Features admin tab where sidebar widget features are enabled](../images/admin-features.png)
+![Platform - Features admin tab where sidebar widget features are enabled](../images/admin-features.webp)
 
 ## Why use it
 

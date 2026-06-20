@@ -2,7 +2,7 @@
 
 Broadcast email is a Pro feature that lets you send a one-off email campaign to your members. You write a campaign once - name, subject, and body - pick which members should receive it, send yourself a test, then dispatch it to everyone in the segment. Members can unsubscribe from your broadcasts at any time and manage their email preferences.
 
-![The Campaigns Broadcasts admin tab where you compose a broadcast email campaign and segment](../images/admin-broadcasts.png)
+![The Campaigns Broadcasts admin tab where you compose a broadcast email campaign and segment](../images/admin-broadcasts.webp)
 
 ## Why use it
 

@@ -2,11 +2,11 @@
 
 Hashtags turn any word a member types with a leading `#` into a clickable, shareable topic. Every tag gets its own feed page that collects the public posts using it, a follow button, and a place in the trending list so members can discover what the community is talking about right now.
 
-![BuddyNext search results grouped by type, including posts that share a hashtag topic](../images/search.png)
+![BuddyNext search results grouped by type, including posts that share a hashtag topic](../images/search.webp)
 
-![A hashtag feed page — the tag header with a Follow button, post/contributor counts, the tagged posts, and an About panel](../images/hashtag-feed.png)
+![A hashtag feed page — the tag header with a Follow button, post/contributor counts, the tagged posts, and an About panel](../images/hashtag-feed.webp)
 
-![Platform - Features admin tab where the hashtags feature is enabled](../images/admin-features.png)
+![Platform - Features admin tab where the hashtags feature is enabled](../images/admin-features.webp)
 
 ## Why use it
 

@@ -2,11 +2,11 @@
 
 Reactions let members respond to a post or comment with an emoji instead of typing a reply. BuddyNext ships six reactions out of the box - like, love, haha, wow, sad, and angry.
 
-![A BuddyNext post detail view showing reaction counts on the post and its comments](../images/post-detail.png)
+![A BuddyNext post detail view showing reaction counts on the post and its comments](../images/post-detail.webp)
 
-![The reaction picker open on a post — Like, Love, Haha, Wow, Sad and Angry](../images/reaction-picker.png)
+![The reaction picker open on a post — Like, Love, Haha, Wow, Sad and Angry](../images/reaction-picker.webp)
 
-![Engagement - Reactions admin tab where the site owner configures the available reaction set](../images/admin-reactions.png)
+![Engagement - Reactions admin tab where the site owner configures the available reaction set](../images/admin-reactions.webp)
 
 ## Why use it
 

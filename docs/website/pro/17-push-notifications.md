@@ -2,11 +2,11 @@
 
 Push Notifications (Pro) delivers your community's notifications to a member's browser or mobile device through Firebase Cloud Messaging, so a member sees a banner even when they are not on the site. It covers web push (desktop and mobile browsers) and native iOS and Android push from a single Firebase project.
 
-![Community notifications that can be delivered as push banners](../images/notifications.png)
+![Community notifications that can be delivered as push banners](../images/notifications.webp)
 
-![Push notifications reaching a member on a mobile device](../images/mobile.png)
+![Push notifications reaching a member on a mobile device](../images/mobile.webp)
 
-![The Realtime Push admin tab where you connect Firebase and configure web and mobile push](../images/admin-push.png)
+![The Realtime Push admin tab where you connect Firebase and configure web and mobile push](../images/admin-push.webp)
 
 ## Why use it
 

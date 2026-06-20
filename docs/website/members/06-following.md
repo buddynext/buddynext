@@ -2,7 +2,7 @@
 
 Following is a one-directional relationship: you follow a member to see more of their activity, and they do not have to follow you back. It is the lightweight way to keep up with someone without asking for anything in return.
 
-![Member directory cards each showing a Follow button members use to follow one another](../images/member-directory.png)
+![Member directory cards each showing a Follow button members use to follow one another](../images/member-directory.webp)
 
 ## Why use it
 

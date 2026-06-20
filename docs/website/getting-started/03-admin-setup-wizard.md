@@ -2,9 +2,9 @@
 
 The Setup Wizard is the first thing BuddyNext shows you after the plugin is active, and it is the fastest way to a working community. In a few minutes it walks you through the handful of decisions that turn a fresh install into a real place to invite people: what to call it, how people join, what profiles look like, which notifications are on, how spaces are organized, and which pages members visit. Every choice comes with a sensible default, so you can click straight through and still end up with a complete, usable community - then fine-tune later if you want to.
 
-![BuddyNext admin dashboard overview shown after completing the Setup Wizard](../images/admin-overview.png)
+![BuddyNext admin dashboard overview shown after completing the Setup Wizard](../images/admin-overview.webp)
 
-![The member-facing onboarding experience the Setup Wizard configures](../images/onboarding.png)
+![The member-facing onboarding experience the Setup Wizard configures](../images/onboarding.webp)
 
 ## What it is
 

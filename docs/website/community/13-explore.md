@@ -2,9 +2,9 @@
 
 Explore is the community's discovery deck - a stream of public activity from across the whole site, not just the people you follow. It is the "what's new" view that helps newcomers and visitors see what the community is about.
 
-![The BuddyNext Explore feed showing public activity from across the whole community](../images/explore.png)
+![The BuddyNext Explore feed showing public activity from across the whole community](../images/explore.webp)
 
-![Platform - Features admin tab where the public Explore feed feature is enabled and tuned](../images/admin-features.png)
+![Platform - Features admin tab where the public Explore feed feature is enabled and tuned](../images/admin-features.webp)
 
 ## Why use it
 

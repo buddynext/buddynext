@@ -2,7 +2,7 @@
 
 The profile completion bar is a block that shows a member how finished their profile is, as a percentage, with prompt cards pointing them at the sections they still need to fill in.
 
-![The Edit Profile form members complete to raise their profile completion](../images/profile-edit.png)
+![The Edit Profile form members complete to raise their profile completion](../images/profile-edit.webp)
 
 ## Why use it
 

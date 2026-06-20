@@ -2,7 +2,7 @@
 
 Stripe is the payment gateway BuddyNext Pro uses to take real payments for memberships. You connect your Stripe account once, and from then on members can buy a tier with a card, manage their own billing, and have their access kept in sync automatically as payments succeed or fail.
 
-![The Monetization Stripe admin tab where you connect Stripe API keys and the payment gateway](../images/admin-stripe.png)
+![The Monetization Stripe admin tab where you connect Stripe API keys and the payment gateway](../images/admin-stripe.webp)
 
 > **Before you start:** BuddyNext is built to work with whichever gateway you connect. Stripe is the live gateway available today, and a built-in Test gateway ships so you can try the checkout flow without real money. More gateways are planned. This page covers Stripe; it does not enable WooCommerce or PayPal.
 

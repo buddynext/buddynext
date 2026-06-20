@@ -2,7 +2,7 @@
 
 Outbound webhooks let your community send a signed message to an outside service every time something happens - a member registers, a post is created, someone follows another member, a report is filed. Free BuddyNext includes the full webhook engine but limits you to one registered destination. Pro removes that limit so you can connect as many outbound destinations as you need.
 
-![The Platform Webhooks admin tab where you register multiple outbound webhook destinations](../images/admin-webhooks.png)
+![The Platform Webhooks admin tab where you register multiple outbound webhook destinations](../images/admin-webhooks.webp)
 
 ## Why use it
 

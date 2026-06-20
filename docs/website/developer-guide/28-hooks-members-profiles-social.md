@@ -2,9 +2,9 @@
 
 The action and filter seams for user lifecycle, member profiles, profile fields, roles, and the social graph (follow, connection, block). This page is for developers building gamification plugins, integrations, or theme extensions that react to social activity or augment how members are rendered. Every hook below is fired or applied by BuddyNext Free, so it is available without Pro.
 
-![A member profile whose user-lifecycle, profile-field, and social-graph hooks are documented here](../images/member-profile.png)
+![A member profile whose user-lifecycle, profile-field, and social-graph hooks are documented here](../images/member-profile.webp)
 
-![The member directory shaped by the same member and social-graph hook seams](../images/member-directory.png)
+![The member directory shaped by the same member and social-graph hook seams](../images/member-directory.webp)
 
 ## Overview / Contract
 

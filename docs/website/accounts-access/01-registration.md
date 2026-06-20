@@ -2,9 +2,9 @@
 
 Registration is how people create an account and join your community. BuddyNext gives you a branded sign-up form that lives on your own site, so newcomers never land on the plain WordPress sign-up screen. The form matches your community's look, collects the profile details you care about, and drops each new member straight into the experience you set up. It is the welcome mat for your community, and a good first impression keeps more people around.
 
-![New member completing the BuddyNext sign-up and onboarding flow](../images/onboarding.png)
+![New member completing the BuddyNext sign-up and onboarding flow](../images/onboarding.webp)
 
-![Members - Registration & Login admin tab showing registration mode, the login panel, spam protection, and social-login fields](../images/admin-registration.png)
+![Members - Registration & Login admin tab showing registration mode, the login panel, spam protection, and social-login fields](../images/admin-registration.webp)
 
 ## Why use it
 

@@ -2,9 +2,9 @@
 
 This page walks you through installing the free BuddyNext plugin, adding BuddyNext Pro with the one-click installer, and choosing the optional companion plugins that extend specific features. The whole process takes a few minutes and ends at the setup wizard.
 
-![Platform - Features admin tab showing the feature on/off toggles and integration bridges available after installation](../images/admin-features.png)
+![Platform - Features admin tab showing the feature on/off toggles and integration bridges available after installation](../images/admin-features.webp)
 
-![The Settings → Pages & URLs tab mapping BuddyNext screens to pages](../images/admin-pages.png)
+![The Settings → Pages & URLs tab mapping BuddyNext screens to pages](../images/admin-pages.webp)
 
 ## Why this matters
 

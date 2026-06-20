@@ -2,9 +2,9 @@
 
 Notification Preferences let each member decide which events notify them and how those notifications are delivered: on-site, by email, and (with Pro) by web push. The site owner sets the starting defaults for the most common types; the member fine-tunes the rest.
 
-![Member-facing BuddyNext notifications panel showing on-site alerts](../images/notifications.png)
+![Member-facing BuddyNext notifications panel showing on-site alerts](../images/notifications.webp)
 
-![BuddyNext admin Notifications tab where owners set notification defaults](../images/admin-notifications.png)
+![BuddyNext admin Notifications tab where owners set notification defaults](../images/admin-notifications.webp)
 
 ## Why use it
 

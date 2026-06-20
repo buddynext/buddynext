@@ -2,9 +2,9 @@
 
 Real-time WebSocket (Pro) connects your community to a WebSocket server so notifications, feed activity, and messaging update the instant they happen, instead of waiting for the next poll. It uses the Pusher protocol, so it works with Soketi (free, self-hosted) or any Pusher-compatible server.
 
-![New posts and reactions appearing live in the community activity feed](../images/community-activity-feed.png)
+![New posts and reactions appearing live in the community activity feed](../images/community-activity-feed.webp)
 
-![The Realtime admin tab for WebSocket and live updates](../images/admin-realtime.png)
+![The Realtime admin tab for WebSocket and live updates](../images/admin-realtime.webp)
 
 ## Why it matters
 

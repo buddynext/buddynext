@@ -2,9 +2,9 @@
 
 Auto-moderation rules let you set conditions that act on content automatically - blocking a banned word, flagging a spammy link, capping how fast someone can post, or removing content that gets reported too many times. Rules run on their own, the moment content is submitted or reported, so you are not the only line of defense. Auto-Moderation Rules is a Pro feature.
 
-![Content auto-flagged by rules waiting in the moderation queue](../images/moderation-queue.png)
+![Content auto-flagged by rules waiting in the moderation queue](../images/moderation-queue.webp)
 
-![The Auto-Moderation Rules admin tab where you define auto-moderation rules and thresholds](../images/admin-automod.png)
+![The Auto-Moderation Rules admin tab where you define auto-moderation rules and thresholds](../images/admin-automod.webp)
 
 ## Why use it
 

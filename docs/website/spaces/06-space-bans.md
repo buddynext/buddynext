@@ -2,9 +2,9 @@
 
 A space ban removes a member from a single space and blocks them from rejoining it, without touching their account anywhere else on the site. Space owners and moderators control their own ban list per space.
 
-![Single space home with member management where owners ban members from the space](../images/space-home.png)
+![Single space home with member management where owners ban members from the space](../images/space-home.webp)
 
-![Moderation queue where banned members and space moderation actions are reviewed](../images/moderation-queue.png)
+![Moderation queue where banned members and space moderation actions are reviewed](../images/moderation-queue.webp)
 
 ## Why use it
 

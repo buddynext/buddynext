@@ -2,9 +2,9 @@
 
 A bookmark is a private save. When a member taps Save on a post, that post is added to their own bookmarks list, where they can find it again later. Bookmarks are completely private: only the member who saved a post can see that they saved it.
 
-![A BuddyNext activity feed where each post card includes a Save action to bookmark it privately](../images/community-activity-feed.png)
+![A BuddyNext activity feed where each post card includes a Save action to bookmark it privately](../images/community-activity-feed.webp)
 
-![A member's Bookmarks page listing saved posts, each with the Save action highlighted](../images/bookmarks-list.png)
+![A member's Bookmarks page listing saved posts, each with the Save action highlighted](../images/bookmarks-list.webp)
 
 ## Why use it
 

@@ -2,9 +2,9 @@
 
 BuddyNext stores its social data in dedicated custom tables rather than WordPress posts and postmeta. This page covers the table-naming convention, the Scale-Contract rules that shape every schema, and a master index of every Free and Pro table with the page that documents it. Read this before adding or querying any custom table.
 
-![The admin dashboard backed by the custom bn_* tables catalogued in this data-model index](../images/admin-overview.png)
+![The admin dashboard backed by the custom bn_* tables catalogued in this data-model index](../images/admin-overview.webp)
 
-![The feed UI populated from the custom social tables this page documents](../images/community-activity-feed.png)
+![The feed UI populated from the custom social tables this page documents](../images/community-activity-feed.webp)
 
 ## Table-naming convention
 

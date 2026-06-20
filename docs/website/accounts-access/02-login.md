@@ -2,9 +2,9 @@
 
 Login is how returning members sign back in to your community. Like the sign-up form, BuddyNext gives you a branded login form that lives on your own site instead of the plain WordPress login screen. Members sign in with the same look and feel as the rest of your community and land straight back where they belong, not in a WordPress dashboard.
 
-![BuddyNext branded member login form with Remember me and Forgot password](../images/login.png)
+![BuddyNext branded member login form with Remember me and Forgot password](../images/login.webp)
 
-![Members - Registration & Login admin tab where the site owner configures the login panel and registration mode](../images/admin-registration.png)
+![Members - Registration & Login admin tab where the site owner configures the login panel and registration mode](../images/admin-registration.webp)
 
 ## Why use it
 
