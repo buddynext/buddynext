@@ -533,6 +533,16 @@
 			leaveTimer = setTimeout( function () { if ( card ) card.hidden = true; }, 200 );
 		}, true );
 
+		// Dismiss on click — the trigger byline and every link inside the card
+		// navigate to the profile, so a still-pending or open card would otherwise
+		// flash over the loading page. Cancel the timer and hide it immediately.
+		document.addEventListener( 'click', function ( e ) {
+			if ( ! e.target || ! e.target.closest ) return;
+			if ( e.target.closest( '.bn-hover-user' ) || e.target.closest( '.bn-hover-card' ) ) {
+				hideCard();
+			}
+		}, true );
+
 		// Dismiss on scroll — once the page moves the card is anchored to a stale
 		// position and the trigger may be off-screen, so close it immediately.
 		window.addEventListener( 'scroll', function () {
