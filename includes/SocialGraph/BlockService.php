@@ -55,7 +55,7 @@ class BlockService {
 	 * @param int $blocked_id ID of the user being blocked.
 	 * @return true|WP_Error True on success; WP_Error on self-block.
 	 */
-	public function block( int $blocker_id, int $blocked_id ): true|WP_Error {
+	public function block( int $blocker_id, int $blocked_id ): bool|WP_Error {
 		if ( $blocker_id === $blocked_id ) {
 			return new WP_Error(
 				'cannot_block_self',
@@ -175,7 +175,7 @@ class BlockService {
 	 * @param int $muted_id ID of the user being muted.
 	 * @return true|WP_Error True on success; WP_Error on self-mute.
 	 */
-	public function mute( int $muter_id, int $muted_id ): true|WP_Error {
+	public function mute( int $muter_id, int $muted_id ): bool|WP_Error {
 		if ( $muter_id === $muted_id ) {
 			return new WP_Error(
 				'cannot_mute_self',
@@ -268,7 +268,7 @@ class BlockService {
 	 * @param int $target_id ID of the user being restricted.
 	 * @return true|WP_Error True on success; WP_Error on self-restrict.
 	 */
-	public function restrict( int $actor_id, int $target_id ): true|WP_Error {
+	public function restrict( int $actor_id, int $target_id ): bool|WP_Error {
 		if ( $actor_id === $target_id ) {
 			return new WP_Error(
 				'cannot_restrict_self',

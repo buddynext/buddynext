@@ -3,16 +3,16 @@ Contributors: wbcomdesigns
 Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
-Requires PHP: 8.2
+Requires PHP: 8.0
 Stable tag: 1.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-The social layer for WordPress — activity feeds, spaces, member profiles, messaging, and moderation in one community platform.
+The social layer for WordPress - activity feeds, spaces, member profiles, messaging, and moderation in one community platform.
 
 == Description ==
 
-BuddyNext turns WordPress into a modern social community. It gives members a real-time activity feed, profiles, spaces (groups), direct messaging, and the moderation tools a site owner needs to keep the community healthy — without bolting together a dozen plugins.
+BuddyNext turns WordPress into a modern social community. It gives members a real-time activity feed, profiles, spaces (groups), direct messaging, and the moderation tools a site owner needs to keep the community healthy - without bolting together a dozen plugins.
 
 Everything is REST-first, so the same data powers the web experience and the native app.
 
@@ -30,7 +30,7 @@ Everything is REST-first, so the same data powers the web experience and the nat
 
 = Built to extend =
 
-BuddyNext is the free community OS. Three core integrations ship as companion plugins — WPMediaVerse (media and messaging), Jetonomy (discussions), and WB Gamification (badges, points, leaderboards) — and the application layer (memberships, monetization, AI, and business integrations) lives in BuddyNext Pro.
+BuddyNext is the free community OS. Three core integrations ship as companion plugins - WPMediaVerse (media and messaging), Jetonomy (discussions), and WB Gamification (badges, points, leaderboards) - and the application layer (memberships, monetization, AI, and business integrations) lives in BuddyNext Pro.
 
 == Installation ==
 
@@ -38,7 +38,7 @@ BuddyNext is the free community OS. Three core integrations ship as companion pl
 2. Activate BuddyNext through the Plugins screen.
 3. Open the BuddyNext admin to run setup and create the community pages.
 
-No Composer or build step is required — runtime dependencies are bundled.
+No Composer or build step is required - runtime dependencies are bundled.
 
 == Frequently Asked Questions ==
 
@@ -48,7 +48,7 @@ No. BuddyNext is a standalone community platform and does not depend on BuddyPre
 
 = Is there a Pro version? =
 
-Yes. BuddyNext Pro adds the application layer — memberships and on-site checkout, advanced moderation, email automation, analytics, AI, and more. Free and Pro are released in lockstep.
+Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout, advanced moderation, email automation, analytics, AI, and more. Free and Pro are released in lockstep.
 
 = Does messaging require another plugin? =
 

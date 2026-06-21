@@ -291,7 +291,7 @@ class OnboardingController {
 	 *
 	 * @return true|WP_Error
 	 */
-	public function require_auth(): true|WP_Error {
+	public function require_auth(): bool|WP_Error {
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(
 				'rest_not_logged_in',

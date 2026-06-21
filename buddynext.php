@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: BuddyNext
- * Plugin URI:  https://wbcomdesigns.com/buddynext
+ * Plugin URI:  https://buddynext.com/
  * Description: The social layer for WordPress.
  * Version:     1.0.0
  * Author:      Wbcom Designs
@@ -11,7 +11,7 @@
  * Text Domain: buddynext
  * Domain Path: /languages
  * Requires at least: 6.9
- * Requires PHP: 8.2
+ * Requires PHP: 8.0
  *
  * @package BuddyNext
  */

@@ -55,7 +55,7 @@ class SpaceMemberService {
 	 * @param int $user_id  User joining.
 	 * @return true|WP_Error
 	 */
-	public function join( int $space_id, int $user_id ): true|WP_Error {
+	public function join( int $space_id, int $user_id ): bool|WP_Error {
 		// Pre-load space row so listeners on buddynext_can_join_space (including
 		// Pro's gated-space gate) receive the actual required_ability + type.
 		$space = $this->load_space_row( $space_id );
@@ -167,7 +167,7 @@ class SpaceMemberService {
 	 * @param int $user_id  User requesting membership.
 	 * @return true|WP_Error
 	 */
-	public function request_join( int $space_id, int $user_id ): true|WP_Error {
+	public function request_join( int $space_id, int $user_id ): bool|WP_Error {
 		// Pre-load space row so listeners receive the actual required_ability + type.
 		$space = $this->load_space_row( $space_id );
 
@@ -267,7 +267,7 @@ class SpaceMemberService {
 	 * @param int $invited_user_id User being invited.
 	 * @return true|WP_Error
 	 */
-	public function invite( int $space_id, int $inviter_id, int $invited_user_id ): true|WP_Error {
+	public function invite( int $space_id, int $inviter_id, int $invited_user_id ): bool|WP_Error {
 		if ( ! $this->can_invite( $space_id, $inviter_id ) ) {
 			return new WP_Error(
 				'forbidden',
@@ -332,7 +332,7 @@ class SpaceMemberService {
 	 * @param int $user_id  User whose request is being approved.
 	 * @return true|WP_Error
 	 */
-	public function approve_request( int $space_id, int $actor_id, int $user_id ): true|WP_Error {
+	public function approve_request( int $space_id, int $actor_id, int $user_id ): bool|WP_Error {
 		$actor_role = $this->get_role( $space_id, $actor_id );
 
 		if (
@@ -403,7 +403,7 @@ class SpaceMemberService {
 	 * @param int $user_id  User whose request is being declined.
 	 * @return true|WP_Error
 	 */
-	public function decline_request( int $space_id, int $actor_id, int $user_id ): true|WP_Error {
+	public function decline_request( int $space_id, int $actor_id, int $user_id ): bool|WP_Error {
 		$actor_role = $this->get_role( $space_id, $actor_id );
 
 		if (
@@ -465,7 +465,7 @@ class SpaceMemberService {
 	 * @param string $reason   Optional reason for the ban.
 	 * @return true|WP_Error
 	 */
-	public function ban( int $space_id, int $actor_id, int $user_id, string $reason = '' ): true|WP_Error {
+	public function ban( int $space_id, int $actor_id, int $user_id, string $reason = '' ): bool|WP_Error {
 		$actor_role = $this->get_role( $space_id, $actor_id );
 
 		if (
@@ -573,7 +573,7 @@ class SpaceMemberService {
 	 * @param int $user_id  User leaving.
 	 * @return true|WP_Error
 	 */
-	public function leave( int $space_id, int $user_id ): true|WP_Error {
+	public function leave( int $space_id, int $user_id ): bool|WP_Error {
 		if ( 'owner' === $this->get_role( $space_id, $user_id ) ) {
 			return new WP_Error(
 				'owner_cannot_leave',
@@ -644,7 +644,7 @@ class SpaceMemberService {
 	 * @param string $pref     One of 'all', 'mentions_only', 'none'.
 	 * @return true|WP_Error
 	 */
-	public function set_notification_pref( int $space_id, int $user_id, string $pref ): true|WP_Error {
+	public function set_notification_pref( int $space_id, int $user_id, string $pref ): bool|WP_Error {
 		if ( ! in_array( $pref, self::NOTIFICATION_PREFS, true ) ) {
 			return new WP_Error(
 				'invalid_pref',
@@ -718,7 +718,7 @@ class SpaceMemberService {
 	 * @param int $user_id  User requesting access.
 	 * @return true|WP_Error
 	 */
-	public function cancel_request( int $space_id, int $user_id ): true|WP_Error {
+	public function cancel_request( int $space_id, int $user_id ): bool|WP_Error {
 		$status = $this->get_status( $space_id, $user_id );
 		if ( 'pending' !== $status ) {
 			return new WP_Error(
@@ -895,7 +895,7 @@ class SpaceMemberService {
 	 * @param int    $actor_id  User performing the change.
 	 * @return true|WP_Error
 	 */
-	public function change_role( int $space_id, int $target_id, string $new_role, int $actor_id ): true|WP_Error {
+	public function change_role( int $space_id, int $target_id, string $new_role, int $actor_id ): bool|WP_Error {
 		if ( ! in_array( $new_role, self::ALLOWED_ROLES, true ) ) {
 			return new WP_Error( 'invalid_role', __( 'Invalid role.', 'buddynext' ) );
 		}

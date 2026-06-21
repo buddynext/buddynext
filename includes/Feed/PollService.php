@@ -34,7 +34,7 @@ class PollService {
 	 * @param int $option_id Option to vote for.
 	 * @return true|WP_Error
 	 */
-	public function vote( int $user_id, int $post_id, int $option_id ): true|WP_Error {
+	public function vote( int $user_id, int $post_id, int $option_id ): bool|WP_Error {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

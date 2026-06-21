@@ -731,7 +731,7 @@ class ProfileController extends BaseRestController {
 	 *
 	 * @return true|WP_Error
 	 */
-	public function require_edit_any_profile(): true|WP_Error {
+	public function require_edit_any_profile(): bool|WP_Error {
 		$auth = $this->require_auth();
 		if ( is_wp_error( $auth ) ) {
 			return $auth;

@@ -44,7 +44,7 @@ class ConnectionService {
 	 * @param string $note         Optional note to attach to the request (max 280 chars).
 	 * @return true|WP_Error
 	 */
-	public function send_request( int $requester_id, int $recipient_id, string $note = '' ): true|WP_Error {
+	public function send_request( int $requester_id, int $recipient_id, string $note = '' ): bool|WP_Error {
 		if ( $requester_id === $recipient_id ) {
 			return new WP_Error(
 				'cannot_connect_self',
@@ -152,7 +152,7 @@ class ConnectionService {
 	 * @param int $requester_id  ID of the original requester.
 	 * @return true|WP_Error
 	 */
-	public function accept_request( int $recipient_id, int $requester_id ): true|WP_Error {
+	public function accept_request( int $recipient_id, int $requester_id ): bool|WP_Error {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -207,7 +207,7 @@ class ConnectionService {
 	 * @param int $requester_id ID of the original requester.
 	 * @return true|WP_Error
 	 */
-	public function decline_request( int $recipient_id, int $requester_id ): true|WP_Error {
+	public function decline_request( int $recipient_id, int $requester_id ): bool|WP_Error {
 		global $wpdb;
 
 		// Fetch the connection ID before updating so we can pass it to the hook.
@@ -271,7 +271,7 @@ class ConnectionService {
 	 * @param int $recipient_id ID of the original recipient.
 	 * @return true|WP_Error
 	 */
-	public function withdraw_request( int $requester_id, int $recipient_id ): true|WP_Error {
+	public function withdraw_request( int $requester_id, int $recipient_id ): bool|WP_Error {
 		global $wpdb;
 
 		// Fetch the connection ID before deleting so we can pass it to the hook.
@@ -336,7 +336,7 @@ class ConnectionService {
 	 * @param int $user_b Second user.
 	 * @return true|WP_Error
 	 */
-	public function remove_connection( int $user_a, int $user_b ): true|WP_Error {
+	public function remove_connection( int $user_a, int $user_b ): bool|WP_Error {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

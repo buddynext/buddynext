@@ -114,7 +114,7 @@ class AccessWebhookController {
 	 * @param array  $body    Decoded request body.
 	 * @return true|WP_Error
 	 */
-	private function dispatch( string $action, int $user_id, array $body ): true|WP_Error {
+	private function dispatch( string $action, int $user_id, array $body ): bool|WP_Error {
 		return match ( $action ) {
 			'set_role'       => $this->action_set_role( $user_id, $body ),
 			'grant_ability'  => $this->action_grant_ability( $user_id, $body ),
@@ -138,7 +138,7 @@ class AccessWebhookController {
 	 * @param array $body    Request body.
 	 * @return true|WP_Error
 	 */
-	private function action_set_role( int $user_id, array $body ): true|WP_Error {
+	private function action_set_role( int $user_id, array $body ): bool|WP_Error {
 		$role = sanitize_key( $body['role'] ?? '' );
 
 		if ( ! in_array( $role, array( 'admin', 'moderator', 'member' ), true ) ) {
@@ -169,7 +169,7 @@ class AccessWebhookController {
 	 * @param array $body    Request body.
 	 * @return true|WP_Error
 	 */
-	private function action_grant_ability( int $user_id, array $body ): true|WP_Error {
+	private function action_grant_ability( int $user_id, array $body ): bool|WP_Error {
 		$ability    = sanitize_text_field( $body['ability'] ?? '' );
 		$expires_at = ! empty( $body['expires_at'] ) ? sanitize_text_field( $body['expires_at'] ) : null;
 		$source     = sanitize_key( $body['source'] ?? '' );
@@ -206,7 +206,7 @@ class AccessWebhookController {
 	 * @param array $body    Request body.
 	 * @return true|WP_Error
 	 */
-	private function action_revoke_ability( int $user_id, array $body ): true|WP_Error {
+	private function action_revoke_ability( int $user_id, array $body ): bool|WP_Error {
 		$ability = sanitize_text_field( $body['ability'] ?? '' );
 
 		if ( ! $ability ) {
@@ -237,7 +237,7 @@ class AccessWebhookController {
 	 * @param array $body    Request body.
 	 * @return true
 	 */
-	private function action_add_credits( int $user_id, array $body ): true {
+	private function action_add_credits( int $user_id, array $body ): bool {
 		( new RoleService() )->add_credits( $user_id, abs( (int) ( $body['amount'] ?? 0 ) ) );
 		return true;
 	}
@@ -249,7 +249,7 @@ class AccessWebhookController {
 	 * @param array $body    Request body.
 	 * @return true
 	 */
-	private function action_set_credits( int $user_id, array $body ): true {
+	private function action_set_credits( int $user_id, array $body ): bool {
 		( new RoleService() )->set_credits( $user_id, max( 0, (int) ( $body['amount'] ?? 0 ) ) );
 		return true;
 	}
@@ -261,7 +261,7 @@ class AccessWebhookController {
 	 * @param array $body    Request body.
 	 * @return true
 	 */
-	private function action_deduct_credits( int $user_id, array $body ): true {
+	private function action_deduct_credits( int $user_id, array $body ): bool {
 		( new RoleService() )->deduct_credits( $user_id, abs( (int) ( $body['amount'] ?? 0 ) ) );
 		return true;
 	}

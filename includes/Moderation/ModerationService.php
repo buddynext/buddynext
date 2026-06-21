@@ -302,7 +302,7 @@ class ModerationService {
 	 * @param int $actor_id  Admin acting on the report.
 	 * @return true|WP_Error
 	 */
-	public function dismiss( int $report_id, int $actor_id ): true|WP_Error {
+	public function dismiss( int $report_id, int $actor_id ): bool|WP_Error {
 		return $this->set_status( $report_id, $actor_id, 'dismissed' );
 	}
 
@@ -313,7 +313,7 @@ class ModerationService {
 	 * @param int $actor_id  Admin acting on the report.
 	 * @return true|WP_Error
 	 */
-	public function escalate( int $report_id, int $actor_id ): true|WP_Error {
+	public function escalate( int $report_id, int $actor_id ): bool|WP_Error {
 		return $this->set_status( $report_id, $actor_id, 'escalated' );
 	}
 
@@ -324,7 +324,7 @@ class ModerationService {
 	 * @param int $actor_id  Admin acting on the report.
 	 * @return true|WP_Error
 	 */
-	public function resolve( int $report_id, int $actor_id ): true|WP_Error {
+	public function resolve( int $report_id, int $actor_id ): bool|WP_Error {
 		return $this->set_status( $report_id, $actor_id, 'resolved' );
 	}
 
@@ -341,7 +341,7 @@ class ModerationService {
 	 * @param int $actor_id  Admin acting on the report.
 	 * @return true|WP_Error
 	 */
-	public function remove_content( int $report_id, int $actor_id ): true|WP_Error {
+	public function remove_content( int $report_id, int $actor_id ): bool|WP_Error {
 		if ( ! user_can( $actor_id, 'manage_options' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to remove content.', 'buddynext' ) );
 		}
@@ -550,7 +550,7 @@ class ModerationService {
 	 * @param string $reason   Human-readable warning reason.
 	 * @return true|WP_Error
 	 */
-	public function warn( int $user_id, int $actor_id, string $reason = '' ): true|WP_Error {
+	public function warn( int $user_id, int $actor_id, string $reason = '' ): bool|WP_Error {
 		if ( ! user_can( $actor_id, 'manage_options' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to issue warnings.', 'buddynext' ) );
 		}
@@ -594,7 +594,7 @@ class ModerationService {
 	 * @param int $actor_id  Admin reversing it.
 	 * @return true|WP_Error
 	 */
-	public function reverse_strike( int $strike_id, int $actor_id ): true|WP_Error {
+	public function reverse_strike( int $strike_id, int $actor_id ): bool|WP_Error {
 		if ( ! user_can( $actor_id, 'manage_options' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to reverse strikes.', 'buddynext' ) );
 		}
@@ -1036,7 +1036,7 @@ class ModerationService {
 	 * @param int $actor_id Admin performing the action.
 	 * @return true|WP_Error
 	 */
-	public function unsuspend_user( int $user_id, int $actor_id ): true|WP_Error {
+	public function unsuspend_user( int $user_id, int $actor_id ): bool|WP_Error {
 		if ( ! user_can( $actor_id, 'manage_options' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to lift suspensions.', 'buddynext' ) );
 		}
@@ -1085,7 +1085,7 @@ class ModerationService {
 	 * @param string $reason   Reason for shadow-ban.
 	 * @return true|WP_Error
 	 */
-	public function shadow_ban( int $user_id, int $actor_id, string $reason = '' ): true|WP_Error {
+	public function shadow_ban( int $user_id, int $actor_id, string $reason = '' ): bool|WP_Error {
 		// Authorise the declared actor, not whoever happens to be the current
 		// user — the method takes an explicit $actor_id and must check that.
 		if ( ! user_can( $actor_id, 'manage_options' ) ) {
@@ -1113,7 +1113,7 @@ class ModerationService {
 	 * @param int $actor_id Moderator performing the action.
 	 * @return true|WP_Error
 	 */
-	public function unshadow_ban( int $user_id, int $actor_id ): true|WP_Error {
+	public function unshadow_ban( int $user_id, int $actor_id ): bool|WP_Error {
 		// Authorise the declared actor, not the current user (see shadow_ban).
 		if ( ! user_can( $actor_id, 'manage_options' ) ) {
 			return new WP_Error( 'buddynext_forbidden', __( 'Insufficient permissions.', 'buddynext' ), array( 'status' => 403 ) );
@@ -1568,7 +1568,7 @@ class ModerationService {
 	 * @param string $reviewer_note  Optional note for the user.
 	 * @return true|WP_Error
 	 */
-	public function resolve_appeal( int $appeal_id, int $actor_id, string $decision, string $reviewer_note = '' ): true|WP_Error {
+	public function resolve_appeal( int $appeal_id, int $actor_id, string $decision, string $reviewer_note = '' ): bool|WP_Error {
 		if ( ! user_can( $actor_id, 'manage_options' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to resolve appeals.', 'buddynext' ) );
 		}
@@ -1641,7 +1641,7 @@ class ModerationService {
 	 * @param string $status    New status.
 	 * @return true|WP_Error
 	 */
-	private function set_status( int $report_id, int $actor_id, string $status ): true|WP_Error {
+	private function set_status( int $report_id, int $actor_id, string $status ): bool|WP_Error {
 		if ( ! user_can( $actor_id, 'manage_options' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to action reports.', 'buddynext' ) );
 		}

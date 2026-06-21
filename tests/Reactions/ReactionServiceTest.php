@@ -90,11 +90,11 @@ class ReactionServiceTest extends \WP_UnitTestCase {
 	}
 
 	public function test_get_user_emoji_returns_emoji(): void {
-		$this->service->react( $this->user_id, 'post', $this->post_id, 'fire' );
+		$this->service->react( $this->user_id, 'post', $this->post_id, 'love' );
 
 		$emoji = $this->service->get_user_emoji( $this->user_id, 'post', $this->post_id );
 
-		$this->assertSame( 'fire', $emoji );
+		$this->assertSame( 'love', $emoji );
 	}
 
 	public function test_get_user_emoji_returns_null_when_no_reaction(): void {
@@ -105,9 +105,9 @@ class ReactionServiceTest extends \WP_UnitTestCase {
 
 	public function test_toggle_replaces_emoji_when_different(): void {
 		$this->service->react( $this->user_id, 'post', $this->post_id, 'like' );
-		$this->service->toggle( $this->user_id, 'post', $this->post_id, 'heart' );
+		$this->service->toggle( $this->user_id, 'post', $this->post_id, 'love' );
 
-		$this->assertSame( 'heart', $this->service->get_user_emoji( $this->user_id, 'post', $this->post_id ) );
+		$this->assertSame( 'love', $this->service->get_user_emoji( $this->user_id, 'post', $this->post_id ) );
 		$this->assertSame( 1, $this->service->count( 'post', $this->post_id ) );
 	}
 
@@ -117,12 +117,12 @@ class ReactionServiceTest extends \WP_UnitTestCase {
 
 		$this->service->react( $user_a, 'post', $this->post_id, 'like' );
 		$this->service->react( $user_b, 'post', $this->post_id, 'like' );
-		$this->service->react( $this->user_id, 'post', $this->post_id, 'heart' );
+		$this->service->react( $this->user_id, 'post', $this->post_id, 'love' );
 
 		$counts = $this->service->get_counts( 'post', $this->post_id );
 
 		$this->assertSame( 2, $counts['like'] );
-		$this->assertSame( 1, $counts['heart'] );
+		$this->assertSame( 1, $counts['love'] );
 	}
 
 	public function test_react_fires_buddynext_reaction_added(): void {

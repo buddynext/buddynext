@@ -344,7 +344,7 @@ class SpaceService {
 	 * @param array $data      Fields to update: name, description, type, category_id.
 	 * @return true|WP_Error
 	 */
-	public function update( int $space_id, int $user_id, array $data ): true|WP_Error {
+	public function update( int $space_id, int $user_id, array $data ): bool|WP_Error {
 		$space = $this->get( $space_id );
 
 		if ( null === $space ) {
@@ -445,7 +445,7 @@ class SpaceService {
 	 * @param int $actor_id Acting user (owner or admin).
 	 * @return true|WP_Error
 	 */
-	public function archive( int $space_id, int $actor_id ): true|WP_Error {
+	public function archive( int $space_id, int $actor_id ): bool|WP_Error {
 		return $this->set_archived( $space_id, $actor_id, true );
 	}
 
@@ -456,7 +456,7 @@ class SpaceService {
 	 * @param int $actor_id Acting user (owner or admin).
 	 * @return true|WP_Error
 	 */
-	public function unarchive( int $space_id, int $actor_id ): true|WP_Error {
+	public function unarchive( int $space_id, int $actor_id ): bool|WP_Error {
 		return $this->set_archived( $space_id, $actor_id, false );
 	}
 
@@ -468,7 +468,7 @@ class SpaceService {
 	 * @param bool $archived Target state.
 	 * @return true|WP_Error
 	 */
-	private function set_archived( int $space_id, int $actor_id, bool $archived ): true|WP_Error {
+	private function set_archived( int $space_id, int $actor_id, bool $archived ): bool|WP_Error {
 		$space = $this->get( $space_id );
 		if ( null === $space ) {
 			return new WP_Error( 'not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
@@ -583,7 +583,7 @@ class SpaceService {
 	 * @param int $user_id  User requesting the deletion.
 	 * @return true|WP_Error
 	 */
-	public function delete( int $space_id, int $user_id ): true|WP_Error {
+	public function delete( int $space_id, int $user_id ): bool|WP_Error {
 		$space = $this->get( $space_id );
 
 		if ( null === $space ) {

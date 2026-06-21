@@ -335,7 +335,7 @@ class CommentService {
 	 * @param string $content    New content.
 	 * @return true|WP_Error
 	 */
-	public function update( int $comment_id, int $user_id, string $content ): true|WP_Error {
+	public function update( int $comment_id, int $user_id, string $content ): bool|WP_Error {
 		$comment = $this->get( $comment_id );
 
 		if ( null === $comment ) {
@@ -404,7 +404,7 @@ class CommentService {
 	 * @param int $user_id    User requesting the deletion.
 	 * @return true|WP_Error
 	 */
-	public function delete( int $comment_id, int $user_id ): true|WP_Error {
+	public function delete( int $comment_id, int $user_id ): bool|WP_Error {
 		$comment = $this->get( $comment_id );
 
 		if ( null === $comment ) {

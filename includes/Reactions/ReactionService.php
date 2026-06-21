@@ -44,7 +44,7 @@ class ReactionService {
 	 * @return true|WP_Error True on success; WP_Error(403) when the actor is
 	 *                       suspended or blocked from the object's author.
 	 */
-	public function react( int $user_id, string $object_type, int $object_id, string $emoji = 'like' ): true|WP_Error {
+	public function react( int $user_id, string $object_type, int $object_id, string $emoji = 'like' ): bool|WP_Error {
 		// Trust-&-Safety gate before any DB write: a suspended actor cannot
 		// react, and neither party of a block may react on the other's content.
 		$guard = InteractionGuard::check( $user_id, $object_type, $object_id );
@@ -294,7 +294,7 @@ class ReactionService {
 	 *                       when the actor is suspended or blocked and is adding /
 	 *                       changing a reaction.
 	 */
-	public function toggle( int $user_id, string $object_type, int $object_id, string $emoji = 'like' ): true|WP_Error {
+	public function toggle( int $user_id, string $object_type, int $object_id, string $emoji = 'like' ): bool|WP_Error {
 		// Empty emoji means the client wants to remove the reaction entirely.
 		// Removing one's own existing reaction is always permitted (cleanup), so
 		// it is not gated by the interaction guard.

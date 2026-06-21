@@ -219,7 +219,7 @@ class NotificationService {
 	 * @param int $user_id     User requesting the read-mark.
 	 * @return true|WP_Error
 	 */
-	public function mark_read( int $notif_id, int $user_id ): true|WP_Error {
+	public function mark_read( int $notif_id, int $user_id ): bool|WP_Error {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -262,7 +262,7 @@ class NotificationService {
 	 * @param int $user_id  Requesting user ID.
 	 * @return true|WP_Error
 	 */
-	public function delete( int $notif_id, int $user_id ): true|WP_Error {
+	public function delete( int $notif_id, int $user_id ): bool|WP_Error {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

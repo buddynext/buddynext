@@ -177,7 +177,7 @@ class FeedController extends BaseRestController {
 	 *
 	 * @return true|WP_Error
 	 */
-	public function require_public_explore(): true|WP_Error {
+	public function require_public_explore(): bool|WP_Error {
 		if ( is_user_logged_in() ) {
 			return true;
 		}

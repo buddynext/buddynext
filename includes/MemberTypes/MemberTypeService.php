@@ -227,7 +227,7 @@ class MemberTypeService {
 	 * @param array<string, mixed> $data Fields to update (same keys as create()).
 	 * @return true|WP_Error
 	 */
-	public function update( int $id, array $data ): true|WP_Error {
+	public function update( int $id, array $data ): bool|WP_Error {
 		$existing = $this->get_by_id( $id );
 		if ( ! $existing ) {
 			return new WP_Error( 'not_found', __( 'Member type not found.', 'buddynext' ) );
@@ -295,7 +295,7 @@ class MemberTypeService {
 	 * @param int $id Type ID.
 	 * @return true|WP_Error
 	 */
-	public function delete( int $id ): true|WP_Error {
+	public function delete( int $id ): bool|WP_Error {
 		$type = $this->get_by_id( $id );
 		if ( ! $type ) {
 			return new WP_Error( 'not_found', __( 'Member type not found.', 'buddynext' ) );
@@ -422,7 +422,7 @@ class MemberTypeService {
 	 * @param int $assigned_by User ID performing the assignment (0 = self).
 	 * @return true|WP_Error
 	 */
-	public function assign_type( int $user_id, int $type_id, int $assigned_by = 0 ): true|WP_Error {
+	public function assign_type( int $user_id, int $type_id, int $assigned_by = 0 ): bool|WP_Error {
 		$type = $this->get_by_id( $type_id );
 		if ( ! $type ) {
 			return new WP_Error( 'not_found', __( 'Member type not found.', 'buddynext' ) );

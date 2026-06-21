@@ -40,7 +40,7 @@ class SafeguardService {
 	 * @param int    $space_id Target space ID (0 = site feed) for the per-space banned-word list.
 	 * @return true|WP_Error True when all checks pass; WP_Error on first failure.
 	 */
-	public function check( int $user_id, string $content, string $url = '', int $space_id = 0 ): true|WP_Error {
+	public function check( int $user_id, string $content, string $url = '', int $space_id = 0 ): bool|WP_Error {
 		// Cheapest, hardest stop first: a blocklisted IP never reaches content checks.
 		$ip = $this->check_blocked_ip();
 		if ( is_wp_error( $ip ) ) {
@@ -104,7 +104,7 @@ class SafeguardService {
 	 * @param int    $space_id Target space ID (0 = site feed) for the per-space banned-word list.
 	 * @return true|WP_Error
 	 */
-	public function check_content( string $content, string $url = '', int $user_id = 0, int $space_id = 0 ): true|WP_Error {
+	public function check_content( string $content, string $url = '', int $user_id = 0, int $space_id = 0 ): bool|WP_Error {
 		$banned = $this->check_banned_words( $content, $space_id );
 		if ( is_wp_error( $banned ) ) {
 			return $banned;
@@ -131,7 +131,7 @@ class SafeguardService {
 	 * @param int    $space_id Target space ID (0 = site feed; skips per-space list).
 	 * @return true|WP_Error
 	 */
-	private function check_banned_words( string $content, int $space_id = 0 ): true|WP_Error {
+	private function check_banned_words( string $content, int $space_id = 0 ): bool|WP_Error {
 		$raw = (string) get_option( 'buddynext_banned_words', '' );
 
 		if ( $space_id > 0 ) {
@@ -171,7 +171,7 @@ class SafeguardService {
 	 * @param string $url URL attached to the post (may be empty).
 	 * @return true|WP_Error
 	 */
-	private function check_blocked_domain( string $url ): true|WP_Error {
+	private function check_blocked_domain( string $url ): bool|WP_Error {
 		if ( '' === $url ) {
 			return true;
 		}
@@ -212,7 +212,7 @@ class SafeguardService {
 	 * @param int $user_id Author user ID.
 	 * @return true|WP_Error
 	 */
-	private function check_rate_limit( int $user_id ): true|WP_Error {
+	private function check_rate_limit( int $user_id ): bool|WP_Error {
 		$limit = (int) get_option( 'buddynext_post_rate_limit', 10 );
 
 		if ( $limit <= 0 ) {
@@ -269,7 +269,7 @@ class SafeguardService {
 	 * @param int $user_id Author user ID.
 	 * @return true|WP_Error
 	 */
-	private function check_new_member_gate( int $user_id ): true|WP_Error {
+	private function check_new_member_gate( int $user_id ): bool|WP_Error {
 		$threshold = (int) get_option( 'buddynext_new_member_post_threshold', 0 );
 
 		if ( $threshold <= 0 ) {
@@ -360,7 +360,7 @@ class SafeguardService {
 	 *
 	 * @return true|WP_Error
 	 */
-	private function check_blocked_ip(): true|WP_Error {
+	private function check_blocked_ip(): bool|WP_Error {
 		if ( $this->ip_is_blocked( self::client_ip() ) ) {
 			return new WP_Error(
 				'blocked_ip',
@@ -385,7 +385,7 @@ class SafeguardService {
 	 * @param string $content Post content to inspect.
 	 * @return true|WP_Error
 	 */
-	private function check_duplicate_content( int $user_id, string $content ): true|WP_Error {
+	private function check_duplicate_content( int $user_id, string $content ): bool|WP_Error {
 		$window  = (int) get_option( 'buddynext_duplicate_post_window', 0 );
 		$trimmed = trim( $content );
 

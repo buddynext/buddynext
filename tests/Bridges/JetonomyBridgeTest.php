@@ -224,22 +224,17 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		return null;
 	}
 
-	public function test_space_tab_always_shows_with_provision_url_until_linked(): void {
+	public function test_space_discussions_tab_links_to_in_hub_route(): void {
 		$space_id = 4242;
 
-		// No forum yet → tab present, points at the on-demand provision trigger.
+		// The space Discussions tab is always registered and points at the clean
+		// in-hub discussions route (a real <a>), whether or not a forum is linked.
+		// The forum is provisioned on demand when a member first opens the panel;
+		// the nonce-protected provision URL lives in the panel data
+		// (JetonomyBridge::provision_forum_url), never in the tab link itself.
 		$url = $this->resolve_space_discussions_url( $space_id );
 		$this->assertNotNull( $url, 'Space Discussions tab should be registered.' );
-		$this->assertStringContainsString( 'bn_provision_forum=' . $space_id, (string) $url );
-
-		// Linked → tab points straight at the forum.
-		$this->seed_jt_space( 0, 'design-forum' ); // auto id
-		global $wpdb;
-		$forum_id = (int) $wpdb->insert_id;
-		update_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', $forum_id );
-
-		$url = $this->resolve_space_discussions_url( $space_id );
-		$this->assertStringContainsString( '/s/design-forum/', (string) $url );
+		$this->assertStringContainsString( '/discussions/', (string) $url );
 		$this->assertStringNotContainsString( 'bn_provision_forum', (string) $url );
 	}
 

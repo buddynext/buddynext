@@ -61,7 +61,7 @@ class FollowService {
 	 * @param int $following_id ID of the user being followed.
 	 * @return true|WP_Error True on success; WP_Error on self-follow attempt.
 	 */
-	public function follow( int $follower_id, int $following_id ): true|WP_Error {
+	public function follow( int $follower_id, int $following_id ): bool|WP_Error {
 		if ( $follower_id === $following_id ) {
 			return new WP_Error(
 				'cannot_follow_self',

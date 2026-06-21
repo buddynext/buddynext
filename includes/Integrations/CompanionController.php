@@ -94,7 +94,7 @@ class CompanionController extends BaseRestController {
 	 *
 	 * @return true|WP_Error
 	 */
-	public function require_install_plugins(): true|WP_Error {
+	public function require_install_plugins(): bool|WP_Error {
 		if ( ! current_user_can( 'install_plugins' ) ) {
 			return new WP_Error( 'buddynext_cap', __( 'You do not have permission to install plugins.', 'buddynext' ), array( 'status' => 403 ) );
 		}

@@ -1183,7 +1183,7 @@ class AuthController {
 	 *
 	 * @return true|WP_Error
 	 */
-	public function require_auth(): true|WP_Error {
+	public function require_auth(): bool|WP_Error {
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(
 				'rest_not_logged_in',
@@ -1200,7 +1200,7 @@ class AuthController {
 	 *
 	 * @return true|WP_Error
 	 */
-	public function require_admin(): true|WP_Error {
+	public function require_admin(): bool|WP_Error {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return new WP_Error(
 				'rest_forbidden',

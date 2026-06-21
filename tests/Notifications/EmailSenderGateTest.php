@@ -66,7 +66,8 @@ class EmailSenderGateTest extends \WP_UnitTestCase {
 	public function test_catalogue_can_email_resolves(): void {
 		$catalogue = new NotificationPrefCatalogue();
 		$this->assertFalse( $catalogue->can_email( 'x.collect_only' ) );
-		// Unknown types keep the legacy default (true).
-		$this->assertTrue( $catalogue->can_email( 'totally.unknown.type' ) );
+		// Unknown types are NOT emailable: BuddyNext never emails for a type it
+		// does not own, so an unregistered type resolves to can_email = false.
+		$this->assertFalse( $catalogue->can_email( 'totally.unknown.type' ) );
 	}
 }

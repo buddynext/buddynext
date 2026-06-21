@@ -153,7 +153,7 @@ class SpaceCategoryService {
 	 * @param array<string, mixed> $data Fields to update (same keys as create()).
 	 * @return true|WP_Error
 	 */
-	public function update( int $id, array $data ): true|WP_Error {
+	public function update( int $id, array $data ): bool|WP_Error {
 		$existing = $this->get_by_id( $id );
 		if ( null === $existing ) {
 			return new WP_Error( 'not_found', __( 'Category not found.', 'buddynext' ), array( 'status' => 404 ) );
@@ -206,7 +206,7 @@ class SpaceCategoryService {
 	 * @param int $id Category ID.
 	 * @return true|WP_Error
 	 */
-	public function delete( int $id ): true|WP_Error {
+	public function delete( int $id ): bool|WP_Error {
 		$existing = $this->get_by_id( $id );
 		if ( null === $existing ) {
 			return new WP_Error( 'not_found', __( 'Category not found.', 'buddynext' ), array( 'status' => 404 ) );

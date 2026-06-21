@@ -471,7 +471,7 @@ class ProfileService {
 	 *                        (data['fields'] = field => message) when one or more
 	 *                        values were rejected.
 	 */
-	public function save_profile( int $user_id, array $data ): true|\WP_Error {
+	public function save_profile( int $user_id, array $data ): bool|\WP_Error {
 		global $wpdb;
 
 		$flat_fields  = $this->get_flat_fields();

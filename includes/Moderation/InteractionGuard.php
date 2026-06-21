@@ -47,7 +47,7 @@ class InteractionGuard {
 	 * @param int    $object_id   Object ID being engaged with.
 	 * @return true|WP_Error True when allowed; WP_Error('forbidden', …, 403) when refused.
 	 */
-	public static function check( int $actor_id, string $object_type, int $object_id ): true|WP_Error {
+	public static function check( int $actor_id, string $object_type, int $object_id ): bool|WP_Error {
 		// (1) Suspension is object-type-agnostic: a suspended member cannot
 		// react or comment on anything.
 		if ( self::is_suspended( $actor_id ) ) {

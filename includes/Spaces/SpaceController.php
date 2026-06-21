@@ -582,7 +582,7 @@ class SpaceController extends BaseRestController {
 	 *
 	 * @return true|WP_Error
 	 */
-	public function require_space_creation_role(): true|WP_Error {
+	public function require_space_creation_role(): bool|WP_Error {
 		$auth = $this->require_auth();
 		if ( is_wp_error( $auth ) ) {
 			return $auth;
@@ -1549,7 +1549,7 @@ class SpaceController extends BaseRestController {
 	 * @param int $user_id  Acting user.
 	 * @return true|WP_Error
 	 */
-	private function require_space_manager( int $space_id, int $user_id ): true|WP_Error {
+	private function require_space_manager( int $space_id, int $user_id ): bool|WP_Error {
 		$space = ( new SpaceService() )->get( $space_id );
 		if ( null === $space ) {
 			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );

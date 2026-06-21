@@ -92,7 +92,7 @@ class InviteController {
 	 *
 	 * @return true|WP_Error
 	 */
-	public function require_admin(): true|WP_Error {
+	public function require_admin(): bool|WP_Error {
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(
 				'rest_not_logged_in',

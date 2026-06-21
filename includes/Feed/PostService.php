@@ -910,7 +910,7 @@ class PostService {
 	 * @param array $data     Fields to change: content, privacy.
 	 * @return true|WP_Error
 	 */
-	public function update( int $post_id, int $user_id, array $data ): true|WP_Error {
+	public function update( int $post_id, int $user_id, array $data ): bool|WP_Error {
 		$ownership = $this->assert_owner( $post_id, $user_id );
 		if ( is_wp_error( $ownership ) ) {
 			return $ownership;
@@ -1026,7 +1026,7 @@ class PostService {
 	 * @param int $user_id Requesting user (must be owner).
 	 * @return true|WP_Error
 	 */
-	public function delete( int $post_id, int $user_id ): true|WP_Error {
+	public function delete( int $post_id, int $user_id ): bool|WP_Error {
 		$ownership = $this->assert_owner( $post_id, $user_id );
 		if ( is_wp_error( $ownership ) ) {
 			// Owners delete their own posts; site admins and space moderators
@@ -1182,7 +1182,7 @@ class PostService {
 	 * @param int|null $space_id Optional space context for space-pinning (null = profile pin).
 	 * @return true|WP_Error
 	 */
-	public function pin( int $post_id, int $user_id, ?int $space_id = null ): true|WP_Error {
+	public function pin( int $post_id, int $user_id, ?int $space_id = null ): bool|WP_Error {
 		$ownership = $this->assert_owner( $post_id, $user_id );
 		if ( is_wp_error( $ownership ) ) {
 			return $ownership;
@@ -1260,7 +1260,7 @@ class PostService {
 	 * @param int $user_id Requesting user (must be owner).
 	 * @return true|WP_Error
 	 */
-	public function unpin( int $post_id, int $user_id ): true|WP_Error {
+	public function unpin( int $post_id, int $user_id ): bool|WP_Error {
 		$ownership = $this->assert_owner( $post_id, $user_id );
 		if ( is_wp_error( $ownership ) ) {
 			return $ownership;
@@ -1973,7 +1973,7 @@ class PostService {
 	 * @param int $user_id User ID to check.
 	 * @return true|WP_Error True if owner; WP_Error('not_post_owner') otherwise.
 	 */
-	private function assert_owner( int $post_id, int $user_id ): true|WP_Error {
+	private function assert_owner( int $post_id, int $user_id ): bool|WP_Error {
 		$post = $this->get( $post_id );
 
 		if ( null === $post ) {
