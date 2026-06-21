@@ -146,25 +146,31 @@ class PwaService {
 			'categories'       => array( 'social', 'community' ),
 		);
 
-		// Build the icon list from a self-contained SVG served over REST. A
-		// single scalable, opaque SVG marked `any maskable` satisfies the
-		// Chromium installability bar (it accepts SVG icons), so no binary
-		// PNG asset needs to ship with the plugin. The `sizes` list advertises
-		// the 192 and 512 break points the install criteria look for.
-		$icon_url = rest_url( self::REST_NAMESPACE . '/pwa/icon' );
+		// Icon set: branded PNG marks at the 192/512 break points the install
+		// criteria look for. PNGs are the only universally-accepted manifest icon
+		// format — Chromium rejects REST-served SVG manifest icons ("isn't a
+		// valid image"), so we ship real PNGs. The 512 is also advertised
+		// `maskable`; the brand mark carries enough padding for the safe zone.
+		$png_base = ( defined( 'BUDDYNEXT_URL' ) ? constant( 'BUDDYNEXT_URL' ) : plugins_url( '/', dirname( __DIR__, 2 ) ) ) . 'assets/images/pwa/';
 
 		$manifest['icons'] = array(
 			array(
-				'src'     => $icon_url,
-				'sizes'   => 'any',
-				'type'    => 'image/svg+xml',
-				'purpose' => 'any maskable',
+				'src'     => $png_base . 'icon-192.png',
+				'sizes'   => '192x192',
+				'type'    => 'image/png',
+				'purpose' => 'any',
 			),
 			array(
-				'src'     => $icon_url,
-				'sizes'   => '192x192 512x512',
-				'type'    => 'image/svg+xml',
-				'purpose' => 'any maskable',
+				'src'     => $png_base . 'icon-512.png',
+				'sizes'   => '512x512',
+				'type'    => 'image/png',
+				'purpose' => 'any',
+			),
+			array(
+				'src'     => $png_base . 'icon-512.png',
+				'sizes'   => '512x512',
+				'type'    => 'image/png',
+				'purpose' => 'maskable',
 			),
 		);
 
