@@ -11,6 +11,17 @@
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '../shell/rest-client.js';
 
+/* -- i18n -------------------------------------------------------------- */
+/* Translated strings are injected server-side into the Interactivity state
+ * (AssetService::i18n_auth_reset) because Script Modules cannot use
+ * wp_set_script_translations(). The dictionary is read once from the
+ * buddynext/auth-reset namespace below; each lookup keeps the English literal
+ * as a fallback so the UI never breaks if the state is absent. fmt() fills
+ * sprintf-style '%s'/'%d' placeholders. */
+let I18N = {};
+function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
+
 function ctx() {
 	try {
 		return getContext();
@@ -39,7 +50,7 @@ function toast( message, tone ) {
 	}
 }
 
-store( 'buddynext/auth-reset', {
+const resetStore = store( 'buddynext/auth-reset', {
 	state: {
 		get error() { return ctx().error || ''; },
 		get notice() { return ctx().notice || ''; },
@@ -72,7 +83,7 @@ store( 'buddynext/auth-reset', {
 			const c = ctx();
 			if ( c.submitting ) { return; }
 			if ( ! ( c.login || '' ).trim() ) {
-				c.error = 'Please enter your email or username.';
+				c.error = t( 'enterEmailOrUsername', 'Please enter your email or username.' );
 				return;
 			}
 			c.submitting = true;
@@ -86,10 +97,10 @@ store( 'buddynext/auth-reset', {
 				c.submitting = false;
 				// Always a generic success (no account enumeration).
 				c.done = true;
-				c.notice = ( data && data.message ) || 'If an account matches, a reset link is on its way.';
+				c.notice = ( data && data.message ) || t( 'resetLinkSent', 'If an account matches, a reset link is on its way.' );
 			} catch ( _e ) {
 				c.submitting = false;
-				c.error = 'Something went wrong. Please try again.';
+				c.error = t( 'somethingWentWrong', 'Something went wrong. Please try again.' );
 			}
 		},
 
@@ -101,7 +112,7 @@ store( 'buddynext/auth-reset', {
 			const c = ctx();
 			if ( c.submitting ) { return; }
 			if ( ! ( c.password || '' ) ) {
-				c.error = 'Please choose a new password.';
+				c.error = t( 'chooseNewPassword', 'Please choose a new password.' );
 				return;
 			}
 			c.submitting = true;
@@ -121,16 +132,18 @@ store( 'buddynext/auth-reset', {
 					if ( data && data.data && data.data.fields ) {
 						c.fieldErrors = data.data.fields;
 					}
-					c.error = ( data && data.message ) || 'Could not reset your password.';
+					c.error = ( data && data.message ) || t( 'couldNotResetPassword', 'Could not reset your password.' );
 					c.submitting = false;
 					return;
 				}
-				toast( 'Password updated. Please sign in.', 'success' );
+				toast( t( 'passwordUpdated', 'Password updated. Please sign in.' ), 'success' );
 				window.location.href = ( data && data.redirect_to ) || '/login/';
 			} catch ( _e ) {
 				c.submitting = false;
-				c.error = 'Something went wrong. Please try again.';
+				c.error = t( 'somethingWentWrong', 'Something went wrong. Please try again.' );
 			}
 		},
 	},
 } );
+
+I18N = ( resetStore.state && resetStore.state.i18n ) || {};

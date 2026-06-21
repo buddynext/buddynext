@@ -559,6 +559,11 @@ class AssetService {
 		$this->i18n_search();
 		$this->i18n_hashtags();
 		$this->i18n_space_members();
+		$this->i18n_auth();
+		$this->i18n_auth_login();
+		$this->i18n_auth_signup();
+		$this->i18n_auth_verify();
+		$this->i18n_auth_reset();
 	}
 
 	/**
@@ -1348,6 +1353,118 @@ class AssetService {
 					'remove'             => __( 'Remove', 'buddynext' ),
 					'removeMemberFailed' => __( 'Could not remove member. Try again.', 'buddynext' ),
 					'updateRoleFailed'   => __( 'Could not update role. Try again.', 'buddynext' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * auth/store: login/register tab labels + password-strength meter + the
+	 * password show/hide toggle.
+	 *
+	 * @return void
+	 */
+	private function i18n_auth(): void {
+		wp_interactivity_state(
+			'buddynext/auth',
+			array(
+				'i18n' => array(
+					'strengthWeak'   => __( 'Weak', 'buddynext' ),
+					'strengthFair'   => __( 'Fair', 'buddynext' ),
+					'strengthGood'   => __( 'Good', 'buddynext' ),
+					'strengthStrong' => __( 'Strong', 'buddynext' ),
+					'hide'           => __( 'Hide', 'buddynext' ),
+					'show'           => __( 'Show', 'buddynext' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * auth/login-store: login form — validation, sign-in path, 2FA code step,
+	 * and email-code fallback toasts.
+	 *
+	 * @return void
+	 */
+	private function i18n_auth_login(): void {
+		wp_interactivity_state(
+			'buddynext/auth-login',
+			array(
+				'i18n' => array(
+					/* translators: %s: masked email address the code was sent to */
+					'codeSentTo'         => __( 'Code sent to %s', 'buddynext' ),
+					'codeSentCheckEmail' => __( 'Code sent — check your email', 'buddynext' ),
+					'enterEmailPassword' => __( 'Enter your email and password to sign in.', 'buddynext' ),
+					'invalidCredentials' => __( 'Invalid email or password.', 'buddynext' ),
+					'signedIn'           => __( 'Signed in.', 'buddynext' ),
+					'genericError'       => __( 'Something went wrong. Please try again.', 'buddynext' ),
+					'twofaIncorrect'     => __( 'That code was not correct.', 'buddynext' ),
+					'emailCodeSent'      => __( 'If your session is still valid, a code is on its way.', 'buddynext' ),
+					'emailCodeFailed'    => __( 'Could not send the code. Try your authenticator app.', 'buddynext' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * auth/signup-store: registration form — inline field validation, the
+	 * password-strength labels, and create-account toasts.
+	 *
+	 * @return void
+	 */
+	private function i18n_auth_signup(): void {
+		wp_interactivity_state(
+			'buddynext/auth-signup',
+			array(
+				'i18n' => array(
+					'strengthWeak'    => __( 'Weak', 'buddynext' ),
+					'strengthFair'    => __( 'Fair', 'buddynext' ),
+					'strengthGood'    => __( 'Good', 'buddynext' ),
+					'strengthStrong'  => __( 'Strong', 'buddynext' ),
+					'fillRequired'    => __( 'Please fill in your email, username, and password.', 'buddynext' ),
+					'agreeTerms'      => __( 'Please agree to the Terms of Service and Privacy Policy to continue.', 'buddynext' ),
+					'answerChallenge' => __( 'Please answer the verification question.', 'buddynext' ),
+					'createFailed'    => __( 'Could not create your account.', 'buddynext' ),
+					'accountCreated'  => __( 'Account created. Welcome aboard!', 'buddynext' ),
+					'genericError'    => __( 'Something went wrong. Please try again.', 'buddynext' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * auth/verify-store: email-verification resend toasts.
+	 *
+	 * @return void
+	 */
+	private function i18n_auth_verify(): void {
+		wp_interactivity_state(
+			'buddynext/auth-verify',
+			array(
+				'i18n' => array(
+					'verificationSent' => __( 'Verification email sent. Check your inbox.', 'buddynext' ),
+					'genericError'     => __( 'Something went wrong. Please try again.', 'buddynext' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * auth/reset-store: password-reset request + set-new-password screens.
+	 *
+	 * @return void
+	 */
+	private function i18n_auth_reset(): void {
+		wp_interactivity_state(
+			'buddynext/auth-reset',
+			array(
+				'i18n' => array(
+					'enterEmailOrUsername'  => __( 'Please enter your email or username.', 'buddynext' ),
+					'resetLinkSent'         => __( 'If an account matches, a reset link is on its way.', 'buddynext' ),
+					'somethingWentWrong'    => __( 'Something went wrong. Please try again.', 'buddynext' ),
+					'chooseNewPassword'     => __( 'Please choose a new password.', 'buddynext' ),
+					'couldNotResetPassword' => __( 'Could not reset your password.', 'buddynext' ),
+					'passwordUpdated'       => __( 'Password updated. Please sign in.', 'buddynext' ),
 				),
 			)
 		);

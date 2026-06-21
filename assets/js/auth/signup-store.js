@@ -8,7 +8,26 @@
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '../shell/rest-client.js';
 
-const STRENGTH_LABELS = [ '', 'Weak', 'Fair', 'Good', 'Strong' ];
+/* -- i18n -------------------------------------------------------------- */
+/* Translated strings are injected server-side into the Interactivity state
+ * (AssetService::i18n_auth_signup) because Script Modules cannot use
+ * wp_set_script_translations(). The dictionary is read once from the
+ * buddynext/auth-signup namespace below; each lookup keeps the English literal
+ * as a fallback so the UI never breaks if the state is absent. fmt() fills
+ * sprintf-style '%s'/'%d' placeholders. */
+let I18N = {};
+function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
+
+function strengthLabel( s ) {
+	switch ( Number( s ) || 0 ) {
+		case 1: return t( 'strengthWeak', 'Weak' );
+		case 2: return t( 'strengthFair', 'Fair' );
+		case 3: return t( 'strengthGood', 'Good' );
+		case 4: return t( 'strengthStrong', 'Strong' );
+		default: return '';
+	}
+}
 
 function ctx() {
 	try {
@@ -38,7 +57,7 @@ function toast( message, tone ) {
 	}
 }
 
-store( 'buddynext/auth-signup', {
+const signupStore = store( 'buddynext/auth-signup', {
 	state: {
 		get error() { return ctx().error || ''; },
 		get submitting() { return !! ctx().submitting; },
@@ -49,8 +68,7 @@ store( 'buddynext/auth-signup', {
 		get strengthLabelText() {
 			const c = ctx();
 			if ( ! c.password ) { return ''; }
-			const s = Number( c.passwordStrength ) || 0;
-			return STRENGTH_LABELS[ s ] || '';
+			return strengthLabel( c.passwordStrength );
 		},
 		get emailError() {
 			const c = ctx();
@@ -112,7 +130,7 @@ store( 'buddynext/auth-signup', {
 			if ( /\d/.test( v ) ) { s++; }
 			if ( /[^A-Za-z0-9]/.test( v ) ) { s++; }
 			c.passwordStrength = s;
-			c.strengthLabel = v.length === 0 ? '' : ( STRENGTH_LABELS[ s ] || '' );
+			c.strengthLabel = v.length === 0 ? '' : strengthLabel( s );
 			if ( c.fieldErrors && c.fieldErrors.password ) {
 				const next = Object.assign( {}, c.fieldErrors );
 				delete next.password;
@@ -152,15 +170,15 @@ store( 'buddynext/auth-signup', {
 			if ( c.submitting ) { return; }
 			// Validate on click rather than disabling the button up front.
 			if ( ! ( c.email || '' ).trim() || ! ( c.userLogin || '' ).trim() || ! ( c.password || '' ) ) {
-				c.error = 'Please fill in your email, username, and password.';
+				c.error = t( 'fillRequired', 'Please fill in your email, username, and password.' );
 				return;
 			}
 			if ( ! c.termsAgreed ) {
-				c.error = 'Please agree to the Terms of Service and Privacy Policy to continue.';
+				c.error = t( 'agreeTerms', 'Please agree to the Terms of Service and Privacy Policy to continue.' );
 				return;
 			}
 			if ( c.challengeEnabled && ! ( c.challengeAnswer || '' ).trim() ) {
-				c.error = 'Please answer the verification question.';
+				c.error = t( 'answerChallenge', 'Please answer the verification question.' );
 				return;
 			}
 			c.submitting = true;
@@ -209,16 +227,18 @@ store( 'buddynext/auth-signup', {
 					if ( data && data.data && data.data.fields ) {
 						c.fieldErrors = data.data.fields;
 					}
-					c.error = ( data && data.message ) || 'Could not create your account.';
+					c.error = ( data && data.message ) || t( 'createFailed', 'Could not create your account.' );
 					c.submitting = false;
 					return;
 				}
-				toast( 'Account created. Welcome aboard!', 'success' );
+				toast( t( 'accountCreated', 'Account created. Welcome aboard!' ), 'success' );
 				window.location.href = ( data && data.redirect_to ) || '/onboarding/';
 			} catch ( _e ) {
-				c.error = 'Something went wrong. Please try again.';
+				c.error = t( 'genericError', 'Something went wrong. Please try again.' );
 				c.submitting = false;
 			}
 		},
 	},
 } );
+
+I18N = ( signupStore.state && signupStore.state.i18n ) || {};

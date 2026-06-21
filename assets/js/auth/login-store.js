@@ -7,6 +7,17 @@
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '../shell/rest-client.js';
 
+/* -- i18n -------------------------------------------------------------- */
+/* Translated strings are injected server-side into the Interactivity state
+ * (AssetService::i18n_auth_login) because Script Modules cannot use
+ * wp_set_script_translations(). The dictionary is read once from the
+ * buddynext/auth-login namespace below; each lookup keeps the English literal
+ * as a fallback so the UI never breaks if the state is absent. fmt() fills
+ * sprintf-style '%s'/'%d' placeholders. */
+let I18N = {};
+function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
+
 function ctx() {
 	try {
 		return getContext();
@@ -35,7 +46,7 @@ function toast( message, tone ) {
 	}
 }
 
-store( 'buddynext/auth-login', {
+const loginStore = store( 'buddynext/auth-login', {
 	state: {
 		get error() { return ctx().error || ''; },
 		get submitting() { return !! ctx().submitting; },
@@ -51,8 +62,8 @@ store( 'buddynext/auth-login', {
 		get emailHintText() {
 			const c = ctx();
 			return c.emailHint
-				? 'Code sent to ' + c.emailHint
-				: 'Code sent — check your email';
+				? fmt( t( 'codeSentTo', 'Code sent to %s' ), c.emailHint )
+				: t( 'codeSentCheckEmail', 'Code sent — check your email' );
 		},
 		get twofaDisabled() {
 			const c = ctx();
@@ -80,7 +91,7 @@ store( 'buddynext/auth-login', {
 			if ( c.submitting ) { return; }
 			// Validate on click instead of disabling the button up front.
 			if ( String( c.user || '' ).trim().length === 0 || String( c.password || '' ).length === 0 ) {
-				c.error = 'Enter your email and password to sign in.';
+				c.error = t( 'enterEmailPassword', 'Enter your email and password to sign in.' );
 				return;
 			}
 			c.submitting = true;
@@ -97,7 +108,7 @@ store( 'buddynext/auth-login', {
 				} );
 				const data = r.data;
 				if ( ! r.ok || ! ( data && data.success ) ) {
-					const msg = ( data && data.message ) || 'Invalid email or password.';
+					const msg = ( data && data.message ) || t( 'invalidCredentials', 'Invalid email or password.' );
 					c.error = msg;
 					c.submitting = false;
 					return;
@@ -111,10 +122,10 @@ store( 'buddynext/auth-login', {
 					c.submitting = false;
 					return;
 				}
-				toast( 'Signed in.', 'success' );
+				toast( t( 'signedIn', 'Signed in.' ), 'success' );
 				window.location.href = ( data && data.redirect_to ) || c.redirectTo || '/activity/';
 			} catch ( _e ) {
-				c.error = 'Something went wrong. Please try again.';
+				c.error = t( 'genericError', 'Something went wrong. Please try again.' );
 				c.submitting = false;
 			}
 		},
@@ -142,14 +153,14 @@ store( 'buddynext/auth-login', {
 				} );
 				const data = r.data;
 				if ( ! r.ok || ! ( data && data.success ) ) {
-					c.twofaError = ( data && data.message ) || 'That code was not correct.';
+					c.twofaError = ( data && data.message ) || t( 'twofaIncorrect', 'That code was not correct.' );
 					c.submitting = false;
 					return;
 				}
-				toast( 'Signed in.', 'success' );
+				toast( t( 'signedIn', 'Signed in.' ), 'success' );
 				window.location.href = ( data && data.redirect_to ) || c.redirectTo || '/activity/';
 			} catch ( _e ) {
-				c.twofaError = 'Something went wrong. Please try again.';
+				c.twofaError = t( 'genericError', 'Something went wrong. Please try again.' );
 				c.submitting = false;
 			}
 		},
@@ -162,10 +173,12 @@ store( 'buddynext/auth-login', {
 					body:   { twofa_token: c.twofaToken || '' },
 				} );
 				c.emailSent = true;
-				toast( 'If your session is still valid, a code is on its way.', 'info' );
+				toast( t( 'emailCodeSent', 'If your session is still valid, a code is on its way.' ), 'info' );
 			} catch ( _e ) {
-				toast( 'Could not send the code. Try your authenticator app.', 'error' );
+				toast( t( 'emailCodeFailed', 'Could not send the code. Try your authenticator app.' ), 'error' );
 			}
 		},
 	},
 } );
+
+I18N = ( loginStore.state && loginStore.state.i18n ) || {};

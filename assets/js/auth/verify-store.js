@@ -9,6 +9,17 @@
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '../shell/rest-client.js';
 
+/* -- i18n -------------------------------------------------------------- */
+/* Translated strings are injected server-side into the Interactivity state
+ * (AssetService::i18n_auth_verify) because Script Modules cannot use
+ * wp_set_script_translations(). The dictionary is read once from the
+ * buddynext/auth-verify namespace below; each lookup keeps the English literal
+ * as a fallback so the UI never breaks if the state is absent. fmt() fills
+ * sprintf-style '%s'/'%d' placeholders. */
+let I18N = {};
+function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
+
 function ctx() {
 	try {
 		return getContext();
@@ -46,23 +57,23 @@ function* sendResend( c ) {
 		const r = yield rest( c, 'auth/verify/resend', { method: 'POST' } );
 		const data = r.data;
 		if ( r.ok ) {
-			c.feedback = ( data && data.message ) || 'Verification email sent. Check your inbox.';
+			c.feedback = ( data && data.message ) || t( 'verificationSent', 'Verification email sent. Check your inbox.' );
 			c.tone = 'success';
 			toast( c.feedback, 'success' );
 		} else {
-			c.feedback = ( data && data.message ) || 'Something went wrong. Please try again.';
+			c.feedback = ( data && data.message ) || t( 'genericError', 'Something went wrong. Please try again.' );
 			c.tone = 'danger';
 			toast( c.feedback, 'danger' );
 		}
 	} catch ( _e ) {
-		c.feedback = 'Something went wrong. Please try again.';
+		c.feedback = t( 'genericError', 'Something went wrong. Please try again.' );
 		c.tone = 'danger';
 		toast( c.feedback, 'danger' );
 	}
 	c.sending = false;
 }
 
-store( 'buddynext/auth-verify', {
+const verifyStore = store( 'buddynext/auth-verify', {
 	state: {
 		get sending() { return !! ctx().sending; },
 		get feedback() { return ctx().feedback || ''; },
@@ -77,3 +88,5 @@ store( 'buddynext/auth-verify', {
 		},
 	},
 } );
+
+I18N = ( verifyStore.state && verifyStore.state.i18n ) || {};

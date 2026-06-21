@@ -1,15 +1,31 @@
 /* BuddyNext — Auth Interactivity API store (login/register tabs + password strength). */
 import { store, getContext, getElement } from '@wordpress/interactivity';
 
-const STRENGTH_LABELS = [
-	'',
-	'Weak',
-	'Fair',
-	'Good',
-	'Strong',
-];
+/* -- i18n -------------------------------------------------------------- */
+/* Translated strings are injected server-side into the Interactivity state
+ * (AssetService::i18n_auth) because Script Modules cannot use
+ * wp_set_script_translations(). The dictionary is read once from the
+ * buddynext/auth namespace below; each lookup keeps the English literal as a
+ * fallback so the UI never breaks if the state is absent. fmt() fills
+ * sprintf-style '%s'/'%d' placeholders. */
+let I18N = {};
+function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
 
-store( 'buddynext/auth', {
+/* Resolved lazily so the i18n dictionary (populated after the store() call
+ * below) is in place before any label lookup. Index 0 is intentionally empty
+ * (no strength). */
+function strengthLabel( s ) {
+	switch ( s ) {
+		case 1: return t( 'strengthWeak', 'Weak' );
+		case 2: return t( 'strengthFair', 'Fair' );
+		case 3: return t( 'strengthGood', 'Good' );
+		case 4: return t( 'strengthStrong', 'Strong' );
+		default: return '';
+	}
+}
+
+const authStore = store( 'buddynext/auth', {
 	state: {
 		get isLogin() {
 			try { return getContext().tab !== 'register'; } catch ( _e ) { return true; }
@@ -67,10 +83,12 @@ store( 'buddynext/auth', {
 			if ( /\d/.test( pass ) ) { s++; }
 			if ( /[^A-Za-z0-9]/.test( pass ) ) { s++; }
 			ctx.passwordStrength = s;
-			ctx.strengthLabel    = pass.length === 0 ? '' : STRENGTH_LABELS[ s ] || '';
+			ctx.strengthLabel    = pass.length === 0 ? '' : strengthLabel( s );
 		},
 	},
 } );
+
+I18N = ( authStore.state && authStore.state.i18n ) || {};
 
 /*
  * Password show/hide toggle.
@@ -98,8 +116,8 @@ if ( typeof document !== 'undefined' && ! document.__bnPwToggleBound ) {
 		input.type = show ? 'text' : 'password';
 		btn.setAttribute( 'aria-pressed', show ? 'true' : 'false' );
 		btn.textContent = show
-			? ( btn.getAttribute( 'data-hide-label' ) || 'Hide' )
-			: ( btn.getAttribute( 'data-show-label' ) || 'Show' );
+			? ( btn.getAttribute( 'data-hide-label' ) || t( 'hide', 'Hide' ) )
+			: ( btn.getAttribute( 'data-show-label' ) || t( 'show', 'Show' ) );
 		var aria = show ? btn.getAttribute( 'data-hide-aria' ) : btn.getAttribute( 'data-show-aria' );
 		if ( aria ) { btn.setAttribute( 'aria-label', aria ); }
 	} );

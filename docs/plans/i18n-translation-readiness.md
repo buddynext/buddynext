@@ -36,7 +36,7 @@ KEY LESSON: `const` arrays can't hold `__()` and `__($var)` doesn't extract to P
 
 ---
 
-## 2. JS Script Modules — recipe LOCKED, 13 of 23 done (Waves A+B)
+## 2. JS Script Modules — DONE ✅ (all 18 feature stores localized; gamification/shell modules have no user-facing strings)
 
 Script Modules cannot use `wp_set_script_translations()` (no per-module JED loading in WP 6.8). Each feature's strings are injected server-side into the Interactivity state and read in the store. **No build step** — assets/js is native ESM.
 
@@ -79,12 +79,12 @@ Order by traffic/value. Each module = one wave (PHP dict block + JS refactor + b
 - [x] **search** (`buddynext/search`) — ~8 — search/store.js (partly wrapped; standardize)
 - [x] **hashtags** (`buddynext/hashtags`) — ~6 — hashtags/store.js
 - [x] **space-members** (`buddynext/space-members`) — ~7–11 — space-members/store.js
-- [ ] **auth** (`buddynext/auth`) — ~7 — auth/store.js (strength labels, show/hide)
-- [ ] **auth-login** (`buddynext/auth-login`) — ~11 — auth/login-store.js
-- [ ] **auth-signup** (`buddynext/auth-signup`) — ~12 — auth/signup-store.js
-- [ ] **auth-verify** (`buddynext/auth-verify`) — ~3 — auth/verify-store.js
-- [ ] **auth-reset** (`buddynext/auth-reset`) — ~7 — auth/reset-store.js
-- [ ] **gamification** (`buddynext/gamification`) — 0 strings — verify only, likely no change
+- [x] **auth** (`buddynext/auth`) — ~7 — auth/store.js (strength labels, show/hide)
+- [x] **auth-login** (`buddynext/auth-login`) — ~11 — auth/login-store.js
+- [x] **auth-signup** (`buddynext/auth-signup`) — ~12 — auth/signup-store.js
+- [x] **auth-verify** (`buddynext/auth-verify`) — ~3 — auth/verify-store.js
+- [x] **auth-reset** (`buddynext/auth-reset`) — ~7 — auth/reset-store.js
+- [x] **gamification** (`buddynext/gamification`) — 0 strings — verify only, likely no change
 - [ ] **blocks editor labels** (`assets/js/blocks.js`, classic but editor-side) — ~18 block labels + ~8 frontend — see classic section
 - [ ] shell modules (`shell/navigate`, `shell/nav-init`) — 0 user-facing — verify only
 
