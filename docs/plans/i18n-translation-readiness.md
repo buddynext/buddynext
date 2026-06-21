@@ -123,12 +123,12 @@ Also standardize the few stores already using `window.wp.i18n.__` / local `__i18
 
 ---
 
-## 4. POT generation + load
+## 4. POT generation + load — DONE ✅ (languages/buddynext.pot, 3651 strings)
 
-- [ ] Create `languages/` and generate `languages/buddynext.pot` via `wp i18n make-pot . languages/buddynext.pot --domain=buddynext --exclude=vendor,node_modules,assets/js/*.min.js`.
-- [ ] Confirm `load_plugin_textdomain( 'buddynext', ... )` (or relying on WP.org auto-load) is wired; add if missing.
-- [ ] Verify the JS-injected strings are captured: `make-pot` scans PHP `__()` in `inject_interactivity_i18n()` (they are real PHP gettext calls, so they land in the POT automatically — this is a benefit of the dictionary approach).
-- [ ] Re-run `make-pot` as the final step after all waves.
+- [x] Create `languages/` and generate `languages/buddynext.pot` via `wp i18n make-pot . languages/buddynext.pot --domain=buddynext --exclude=vendor,node_modules,assets/js/*.min.js`.
+- [x] Confirm `load_plugin_textdomain( 'buddynext', ... )` (or relying on WP.org auto-load) is wired; add if missing.
+- [x] Verify the JS-injected strings are captured: `make-pot` scans PHP `__()` in `inject_interactivity_i18n()` (they are real PHP gettext calls, so they land in the POT automatically — this is a benefit of the dictionary approach).
+- [x] Re-run `make-pot` as the final step after all waves.
 
 ---
 
