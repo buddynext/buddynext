@@ -36,6 +36,8 @@ namespace BuddyNext\Demo;
 use BuddyNext\Comments\CommentService;
 use BuddyNext\Feed\BookmarkService;
 use BuddyNext\Feed\PostService;
+use BuddyNext\Hashtags\HashtagListener;
+use BuddyNext\Hashtags\HashtagService;
 use BuddyNext\Media\MediaClient;
 use BuddyNext\Media\ImageStorageService;
 use BuddyNext\Profile\ProfileService;
@@ -426,6 +428,24 @@ class DemoDataService {
 		}
 		$say( sprintf( 'Created %d posts.', count( $post_ids ) ) );
 
+		// ── Hashtag indexing (synchronous) ──────────────────────────────────
+		// Posts created above fire buddynext_post_created, which normally defers
+		// hashtag extraction to Action Scheduler (buddynext_async_index_hashtags).
+		// Those async jobs do NOT run during a CLI/admin seed — they sit in the
+		// queue until wp-cron fires — so the bn_hashtags registry stays empty and
+		// every freshly-seeded tag reads as "does not exist yet" when the owner
+		// clicks it right after seeding. Drain the queue synchronously here so the
+		// demo community is fully indexed the moment the seeder returns. The worker
+		// is idempotent (delete+reinsert links, upsert the registry row), so a
+		// later Action Scheduler pass over the same posts is harmless.
+		if ( buddynext_feature_enabled( 'hashtags' ) ) {
+			$hashtag_indexer = new HashtagListener( new HashtagService() );
+			foreach ( $post_ids as $bn_pid ) {
+				$hashtag_indexer->async_index_hashtags( 'post', (int) $bn_pid, '' );
+			}
+			$say( 'Indexed hashtags.' );
+		}
+
 		// ── Social graph: follows + connections ─────────────────────────────
 		$say( 'Wiring follows and connections…' );
 		$follows     = new FollowService();
@@ -573,6 +593,22 @@ class DemoDataService {
 				++$removed['posts'];
 			}
 		}
+
+		// Prune hashtag registry rows orphaned by the post removals above.
+		// Deleting the demo posts fires buddynext_post_deleted, which drops the
+		// junction links and recomputes post_count to 0, but the bn_hashtags
+		// registry row persists (tags are a durable vocabulary). After a demo
+		// cleanup that leaves the trending/explore surfaces cluttered with
+		// zero-post tags, so remove only registry rows that now have NO links and
+		// NO followers — a tag a real member follows or that still has posts is
+		// never touched.
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			"DELETE h FROM {$wpdb->prefix}bn_hashtags h
+			 LEFT JOIN {$wpdb->prefix}bn_post_hashtags ph ON ph.hashtag_id = h.id
+			 WHERE ph.hashtag_id IS NULL AND h.follower_count = 0" // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		);
 
 		// Spaces (and their per-owner image folders).
 		$say( 'Removing spaces…' );
