@@ -92,7 +92,7 @@ Approx remaining module strings: ~480.
 
 ---
 
-## 3. Classic scripts — 18 handles (standard path)
+## 3. Classic scripts — DONE ✅ (18 handles: wp-i18n dep + wp_set_script_translations + wrapped JS / server-localized)
 
 These are classic enqueues (mostly admin) and CAN use the normal path:
 1. Add `'wp-i18n'` to the handle's deps array at its enqueue site.
@@ -100,24 +100,24 @@ These are classic enqueues (mostly admin) and CAN use the normal path:
 3. Wrap strings in JS with `const { __, _n, sprintf } = wp.i18n;` (global, no import) — or `import` is N/A for classic, use the `wp.i18n` global.
 
 Handles (file → enqueuer):
-- [ ] `bn-shell-extras` (shell/extras.js — ~13: search/notif empty states) — AssetService
-- [ ] `bn-media-lightbox` (media/lightbox.js — ~7) — MediaAssets
-- [ ] `bn-shell-font-scale` (shell/font-scale.js — 2 aria) — AssetService
-- [ ] `bn-admin-dialogs` (admin/bn-admin-dialogs.js — ~6) — AdminHub
-- [ ] `buddynext-admin-settings` (admin/settings.js — ~23) — Settings
-- [ ] `bn-admin-members` (admin/members.js — 8) — Members
-- [ ] `bn-nav-manager` (admin/nav-manager.js — 10) — NavManager
-- [ ] `bn-profile-fields` (admin/profile-fields.js — ~13) — ProfileFieldsManager
-- [ ] `bn-avatar-settings` (admin/avatar-settings.js — 6) — AvatarSettings
-- [ ] `bn-setup-wizard` (admin/setup-wizard.js — 9) — SetupWizard
-- [ ] `bn-email-editor` (admin/email-editor.js — 9) — EmailEditor
-- [ ] `bn-admin-spaces` (admin/spaces.js — 7) — Admin/Spaces
-- [ ] `bn-admin-palette` (admin/command-palette.js — 7) — AdminHub
-- [ ] `bn-admin-bulk-select` (admin/bulk-select.js — 4) — AdminHub
-- [ ] `bn-admin-taxonomy` (admin/taxonomy-editor.js — ~8) — taxonomy enqueuer
-- [ ] `buddynext-blocks-editor` (blocks.js — ~26 incl. block labels) — BlockRegistrar (also needs `wp-i18n` dep)
-- [ ] `bn-cookie-consent` (privacy/consent-banner.js — 0, server-rendered copy) — verify only
-- [ ] `bn-pwa-sw` (pwa/sw-register.js — 0) — verify only
+- [x] `bn-shell-extras` (shell/extras.js — ~13: search/notif empty states) — AssetService
+- [x] `bn-media-lightbox` (media/lightbox.js — ~7) — MediaAssets
+- [x] `bn-shell-font-scale` (shell/font-scale.js — 2 aria) — AssetService
+- [x] `bn-admin-dialogs` (admin/bn-admin-dialogs.js — ~6) — AdminHub
+- [x] `buddynext-admin-settings` (admin/settings.js — ~23) — Settings
+- [x] `bn-admin-members` (admin/members.js — 8) — Members
+- [x] `bn-nav-manager` (admin/nav-manager.js — 10) — NavManager
+- [x] `bn-profile-fields` (admin/profile-fields.js — ~13) — ProfileFieldsManager
+- [x] `bn-avatar-settings` (admin/avatar-settings.js — 6) — AvatarSettings
+- [x] `bn-setup-wizard` (admin/setup-wizard.js — 9) — SetupWizard
+- [x] `bn-email-editor` (admin/email-editor.js — 9) — EmailEditor
+- [x] `bn-admin-spaces` (admin/spaces.js — 7) — Admin/Spaces
+- [x] `bn-admin-palette` (admin/command-palette.js — 7) — AdminHub
+- [x] `bn-admin-bulk-select` (admin/bulk-select.js — 4) — AdminHub
+- [x] `bn-admin-taxonomy` (admin/taxonomy-editor.js — ~8) — taxonomy enqueuer
+- [x] `buddynext-blocks-editor` (blocks.js — ~26 incl. block labels) — BlockRegistrar (also needs `wp-i18n` dep)
+- [x] `bn-cookie-consent` (privacy/consent-banner.js — 0, server-rendered copy) — verify only
+- [x] `bn-pwa-sw` (pwa/sw-register.js — 0) — verify only
 
 Also standardize the few stores already using `window.wp.i18n.__` / local `__i18n()` (spaces, messages, search) onto the module-dict recipe for consistency.
 

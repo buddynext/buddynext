@@ -16,6 +16,11 @@
 ( function () {
 	'use strict';
 
+	var i18n = ( window.wp && window.wp.i18n ) || {};
+	var __ = i18n.__ || function ( s ) { return s; };
+	var _n = i18n._n || function ( single, plural, n ) { return 1 === n ? single : plural; };
+	var sprintf = i18n.sprintf || function ( s ) { return s; };
+
 	// ─── Settings search ──────────────────────────────────────────────────
 	function initSettingsSearch() {
 		var input = document.querySelector( '[data-bn-admin-search]' );
@@ -53,9 +58,13 @@
 				return;
 			}
 			if ( matched === 0 ) {
-				status.textContent = 'No matches on this tab. Try another tab from the bar above.';
+				status.textContent = __( 'No matches on this tab. Try another tab from the bar above.', 'buddynext' );
 			} else {
-				status.textContent = matched === 1 ? '1 match on this tab.' : matched + ' matches on this tab.';
+				status.textContent = sprintf(
+					/* translators: %d: number of matching settings fields on the current tab. */
+					_n( '%d match on this tab.', '%d matches on this tab.', matched, 'buddynext' ),
+					matched
+				);
 			}
 		};
 		input.addEventListener( 'input', apply );
@@ -93,15 +102,15 @@
 				var url    = ( urlInput.value || '' ).trim();
 				var events = selectedEvents();
 				if ( ! url ) {
-					setStatus( 'Enter a URL first.', true );
+					setStatus( __( 'Enter a URL first.', 'buddynext' ), true );
 					return;
 				}
 				if ( events.length === 0 ) {
-					setStatus( 'Pick at least one event.', true );
+					setStatus( __( 'Pick at least one event.', 'buddynext' ), true );
 					return;
 				}
 				addBtn.disabled = true;
-				setStatus( 'Registering…' );
+				setStatus( __( 'Registering…', 'buddynext' ) );
 				fetch( restUrl, {
 					method:  'POST',
 					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': restNonce },
@@ -111,10 +120,10 @@
 				.then( function ( res ) {
 					addBtn.disabled = false;
 					if ( ! res.ok ) {
-						setStatus( ( res.body && res.body.message ) || 'Registration failed.', true );
+						setStatus( ( res.body && res.body.message ) || __( 'Registration failed.', 'buddynext' ), true );
 						return;
 					}
-					setStatus( 'Endpoint registered. Reload to see it in the table.' );
+					setStatus( __( 'Endpoint registered. Reload to see it in the table.', 'buddynext' ) );
 					urlInput.value = '';
 					card.querySelectorAll( '[data-bn-webhook-event]:checked' ).forEach( function ( cb ) { cb.checked = false; } );
 					// Reload to re-fetch the server-rendered table — simpler than
@@ -123,7 +132,7 @@
 				} )
 				.catch( function () {
 					addBtn.disabled = false;
-					setStatus( 'Network error. Try again.', true );
+					setStatus( __( 'Network error. Try again.', 'buddynext' ), true );
 				} );
 			} );
 		}
@@ -152,26 +161,27 @@
 					}
 					logBtn.setAttribute( 'aria-expanded', 'true' );
 					logRow.hidden = false;
-					cell.textContent = 'Loading…';
+					cell.textContent = __( 'Loading…', 'buddynext' );
 					fetch( restUrl + '/' + logId + '/log', { headers: { 'X-WP-Nonce': restNonce } } )
 					.then( function ( r ) { return r.json(); } )
 					.then( function ( data ) {
 						var items = ( data && data.items ) || [];
-						if ( ! items.length ) { cell.textContent = 'No deliveries logged yet.'; return; }
+						if ( ! items.length ) { cell.textContent = __( 'No deliveries logged yet.', 'buddynext' ); return; }
 						var rows = items.map( function ( it ) {
 							return '<tr><td>' + escHtml( it.event ) + '</td><td>' + escHtml( it.status ) +
 								'</td><td>' + escHtml( it.response_code ) + '</td><td>' + escHtml( it.created_at ) + '</td></tr>';
 						} ).join( '' );
-						cell.innerHTML = '<table class="bn-webhook-log-table"><thead><tr><th>Event</th>' +
-							'<th>Status</th><th>Code</th><th>Time</th></tr></thead><tbody>' + rows + '</tbody></table>';
+						cell.innerHTML = '<table class="bn-webhook-log-table"><thead><tr><th>' + escHtml( __( 'Event', 'buddynext' ) ) +
+							'</th><th>' + escHtml( __( 'Status', 'buddynext' ) ) + '</th><th>' + escHtml( __( 'Code', 'buddynext' ) ) +
+							'</th><th>' + escHtml( __( 'Time', 'buddynext' ) ) + '</th></tr></thead><tbody>' + rows + '</tbody></table>';
 					} )
-					.catch( function () { cell.textContent = 'Could not load delivery log.'; } );
+					.catch( function () { cell.textContent = __( 'Could not load delivery log.', 'buddynext' ); } );
 					return;
 				}
 				if ( testBtn ) {
 					var testId = testBtn.dataset.bnWebhookTest;
 					testBtn.disabled = true;
-					setStatus( 'Sending test payload…' );
+					setStatus( __( 'Sending test payload…', 'buddynext' ) );
 					fetch( restUrl + '/' + testId + '/test', {
 						method: 'POST',
 						headers: { 'X-WP-Nonce': restNonce },
@@ -179,21 +189,25 @@
 					.then( function ( r ) {
 						testBtn.disabled = false;
 						if ( r.ok ) {
-							setStatus( 'Test sent. Check the receiving endpoint.' );
+							setStatus( __( 'Test sent. Check the receiving endpoint.', 'buddynext' ) );
 						} else {
-							setStatus( 'Test failed (HTTP ' + r.status + ').', true );
+							setStatus( sprintf(
+								/* translators: %d: HTTP status code returned by the failed test request. */
+								__( 'Test failed (HTTP %d).', 'buddynext' ),
+								r.status
+							), true );
 						}
 					} )
 					.catch( function () {
 						testBtn.disabled = false;
-						setStatus( 'Network error.', true );
+						setStatus( __( 'Network error.', 'buddynext' ), true );
 					} );
 				} else if ( rmBtn ) {
 					window.bnConfirm( {
-						title: 'Remove webhook',
-						message: 'Remove this webhook endpoint? This cannot be undone.',
+						title: __( 'Remove webhook', 'buddynext' ),
+						message: __( 'Remove this webhook endpoint? This cannot be undone.', 'buddynext' ),
 						tone: 'danger',
-						okLabel: 'Remove',
+						okLabel: __( 'Remove', 'buddynext' ),
 					} ).then( function ( ok ) {
 						if ( ! ok ) {
 							return;
@@ -201,7 +215,7 @@
 						var rmId = rmBtn.dataset.bnWebhookRemove;
 						var row  = rmBtn.closest( '[data-bn-webhook-row]' );
 						rmBtn.disabled = true;
-						setStatus( 'Removing…' );
+						setStatus( __( 'Removing…', 'buddynext' ) );
 						fetch( restUrl + '/' + rmId, {
 							method: 'DELETE',
 							headers: { 'X-WP-Nonce': restNonce },
@@ -210,14 +224,14 @@
 							rmBtn.disabled = false;
 							if ( r.ok ) {
 								if ( row ) { row.remove(); }
-								setStatus( 'Removed.' );
+								setStatus( __( 'Removed.', 'buddynext' ) );
 							} else {
-								setStatus( 'Remove failed.', true );
+								setStatus( __( 'Remove failed.', 'buddynext' ), true );
 							}
 						} )
 						.catch( function () {
 							rmBtn.disabled = false;
-							setStatus( 'Network error.', true );
+							setStatus( __( 'Network error.', 'buddynext' ), true );
 						} );
 					} );
 				}
@@ -239,7 +253,7 @@
 			if ( ! input ) { return; }
 			var done = function () {
 				if ( ! btn.getAttribute( 'data-label' ) ) { btn.setAttribute( 'data-label', btn.textContent ); }
-				btn.textContent = 'Copied';
+				btn.textContent = __( 'Copied', 'buddynext' );
 				setTimeout( function () { btn.textContent = btn.getAttribute( 'data-label' ); }, 1600 );
 			};
 			input.focus();
@@ -266,11 +280,11 @@
 		}
 		var endpoint = list.getAttribute( 'data-rest' );
 		var nonce    = list.getAttribute( 'data-nonce' );
-		var i18n     = {
-			installing: list.getAttribute( 'data-i18n-installing' ) || 'Installing…',
-			installed:  list.getAttribute( 'data-i18n-installed' ) || 'Installed — reloading…',
-			failed:     list.getAttribute( 'data-i18n-failed' ) || 'Install failed.',
-			network:    list.getAttribute( 'data-i18n-network' ) || 'Install failed — network error.'
+		var i18nData = {
+			installing: list.getAttribute( 'data-i18n-installing' ) || __( 'Installing…', 'buddynext' ),
+			installed:  list.getAttribute( 'data-i18n-installed' ) || __( 'Installed — reloading…', 'buddynext' ),
+			failed:     list.getAttribute( 'data-i18n-failed' ) || __( 'Install failed.', 'buddynext' ),
+			network:    list.getAttribute( 'data-i18n-network' ) || __( 'Install failed — network error.', 'buddynext' )
 		};
 
 		list.querySelectorAll( '.bn-companion-install' ).forEach( function ( btn ) {
@@ -279,7 +293,7 @@
 				var msg  = row ? row.querySelector( '.bn-companion-msg' ) : null;
 				var orig = btn.textContent;
 				btn.disabled    = true;
-				btn.textContent = i18n.installing;
+				btn.textContent = i18nData.installing;
 				if ( msg ) { msg.textContent = ''; }
 				fetch( endpoint, {
 					method: 'POST',
@@ -289,7 +303,7 @@
 					return r.json().then( function ( d ) { return { ok: r.ok, d: d }; } );
 				} ).then( function ( res ) {
 					if ( res.ok ) {
-						btn.textContent = i18n.installed;
+						btn.textContent = i18nData.installed;
 						if ( res.d && res.d.redirect_url ) {
 							window.location.assign( res.d.redirect_url );
 						} else {
@@ -298,12 +312,12 @@
 					} else {
 						btn.disabled    = false;
 						btn.textContent = orig;
-						if ( msg ) { msg.textContent = ( res.d && res.d.message ) ? res.d.message : i18n.failed; }
+						if ( msg ) { msg.textContent = ( res.d && res.d.message ) ? res.d.message : i18nData.failed; }
 					}
 				} ).catch( function () {
 					btn.disabled    = false;
 					btn.textContent = orig;
-					if ( msg ) { msg.textContent = i18n.network; }
+					if ( msg ) { msg.textContent = i18nData.network; }
 				} );
 			} );
 		} );
@@ -362,8 +376,8 @@
 				var group = gen.closest( '[data-bn-secret-group]' );
 				var msg   = group ? group.querySelector( '[data-bn-secret-msg]' ) : null;
 				var reveal = group ? group.querySelector( '[data-bn-secret-reveal]' ) : null;
-				if ( reveal ) { reveal.textContent = reveal.getAttribute( 'data-hide-label' ) || 'Hide'; reveal.setAttribute( 'aria-pressed', 'true' ); }
-				if ( msg ) { msg.textContent = msg.getAttribute( 'data-generated-label' ) || 'New secret generated. Click Save Settings to apply, then copy it into your receiving service.'; }
+				if ( reveal ) { reveal.textContent = reveal.getAttribute( 'data-hide-label' ) || __( 'Hide', 'buddynext' ); reveal.setAttribute( 'aria-pressed', 'true' ); }
+				if ( msg ) { msg.textContent = msg.getAttribute( 'data-generated-label' ) || __( 'New secret generated. Click Save Settings to apply, then copy it into your receiving service.', 'buddynext' ); }
 				return;
 			}
 
@@ -375,8 +389,8 @@
 				var show = 'password' === revTarget.type;
 				revTarget.type = show ? 'text' : 'password';
 				rev.textContent = show
-					? ( rev.getAttribute( 'data-hide-label' ) || 'Hide' )
-					: ( rev.getAttribute( 'data-show-label' ) || 'Show' );
+					? ( rev.getAttribute( 'data-hide-label' ) || __( 'Hide', 'buddynext' ) )
+					: ( rev.getAttribute( 'data-show-label' ) || __( 'Show', 'buddynext' ) );
 				rev.setAttribute( 'aria-pressed', show ? 'true' : 'false' );
 			}
 		} );

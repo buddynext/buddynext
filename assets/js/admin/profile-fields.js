@@ -17,6 +17,12 @@
 ( function () {
 	'use strict';
 
+	// Translation runtime — available for any user-facing string added later.
+	// All current labels/confirm text are server-rendered (PHP-translated), so
+	// nothing here is wrapped today; the import keeps the script i18n-ready.
+	// eslint-disable-next-line no-unused-vars
+	var __ = ( window.wp && window.wp.i18n && window.wp.i18n.__ ) ? window.wp.i18n.__ : function ( s ) { return s; };
+
 	var CHOICE_TYPES = [ 'select', 'multiselect', 'radio', 'checkbox' ];
 	var DATE_TYPES   = [ 'date', 'daterange' ];
 

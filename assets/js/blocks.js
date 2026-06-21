@@ -15,6 +15,8 @@
 		return;
 	}
 
+	var __ = ( wp.i18n && wp.i18n.__ ) || function ( text ) { return text; };
+
 	var el            = element.createElement;
 	var useBlockProps = blockEditor.useBlockProps;
 	var Placeholder   = wp.components && wp.components.Placeholder;
@@ -51,7 +53,7 @@
 							fontSize:     '13px',
 						},
 					} ),
-					el( 'p', { className: 'buddynext-editor-loading', style: { margin: 0 } }, 'BuddyNext loading\u2026' )
+					el( 'p', { className: 'buddynext-editor-loading', style: { margin: 0 } }, __( 'BuddyNext loading\u2026', 'buddynext' ) )
 				);
 			}
 
@@ -85,7 +87,7 @@
 				? el( Placeholder, {
 					icon:        'buddynext' === icon ? 'admin-site' : ( icon || 'admin-site' ),
 					label:       'BuddyNext — ' + label,
-					instructions: 'This block is rendered on the frontend.',
+					instructions: __( 'This block is rendered on the frontend.', 'buddynext' ),
 				  } )
 				: el(
 					'div',
@@ -101,7 +103,7 @@
 						},
 					},
 					el( 'strong', null, 'BuddyNext — ' + label ),
-					el( 'p', { style: { margin: '4px 0 0', color: '#aeaca8' } }, 'Rendered on the frontend' )
+					el( 'p', { style: { margin: '4px 0 0', color: '#aeaca8' } }, __( 'Rendered on the frontend', 'buddynext' ) )
 				);
 			return el( 'div', blockProps, iconEl );
 		};
@@ -114,24 +116,24 @@
 	 * ssr:false → show static placeholder (block has no PHP REST callback)
 	 */
 	var blockDefs = [
-		{ name: 'buddynext/activity-feed',         label: 'Activity Feed',          ssr: true  },
-		{ name: 'buddynext/post-composer',          label: 'Post Composer',          ssr: false },
-		{ name: 'buddynext/trending-hashtags',      label: 'Trending Hashtags',      ssr: true  },
-		{ name: 'buddynext/member-directory',       label: 'Member Directory',       ssr: true  },
-		{ name: 'buddynext/member-card',            label: 'Member Card',            ssr: true  },
-		{ name: 'buddynext/follow-button',          label: 'Follow Button',          ssr: false },
-		{ name: 'buddynext/connection-button',      label: 'Connection Button',      ssr: false },
-		{ name: 'buddynext/space-directory',        label: 'Space Directory',        ssr: true  },
-		{ name: 'buddynext/space-card',             label: 'Space Card',             ssr: true  },
-		{ name: 'buddynext/my-spaces',              label: 'My Spaces',              ssr: true  },
-		{ name: 'buddynext/profile-header',         label: 'Profile Header',         ssr: true  },
-		{ name: 'buddynext/profile-fields',         label: 'Profile Fields',         ssr: true  },
-		{ name: 'buddynext/profile-completion-bar', label: 'Profile Completion Bar', ssr: false },
-		{ name: 'buddynext/registration-form',      label: 'Registration Form',      ssr: false },
-		{ name: 'buddynext/login-form',             label: 'Login Form',             ssr: false },
-		{ name: 'buddynext/notification-bell',      label: 'Notification Bell',      ssr: false },
-		{ name: 'buddynext/search-bar',             label: 'Search Bar',             ssr: false },
-		{ name: 'buddynext/header-user-menu',       label: 'Header User Menu',       ssr: true  },
+		{ name: 'buddynext/activity-feed',         label: __( 'Activity Feed', 'buddynext' ),          ssr: true  },
+		{ name: 'buddynext/post-composer',          label: __( 'Post Composer', 'buddynext' ),          ssr: false },
+		{ name: 'buddynext/trending-hashtags',      label: __( 'Trending Hashtags', 'buddynext' ),      ssr: true  },
+		{ name: 'buddynext/member-directory',       label: __( 'Member Directory', 'buddynext' ),       ssr: true  },
+		{ name: 'buddynext/member-card',            label: __( 'Member Card', 'buddynext' ),            ssr: true  },
+		{ name: 'buddynext/follow-button',          label: __( 'Follow Button', 'buddynext' ),          ssr: false },
+		{ name: 'buddynext/connection-button',      label: __( 'Connection Button', 'buddynext' ),      ssr: false },
+		{ name: 'buddynext/space-directory',        label: __( 'Space Directory', 'buddynext' ),        ssr: true  },
+		{ name: 'buddynext/space-card',             label: __( 'Space Card', 'buddynext' ),             ssr: true  },
+		{ name: 'buddynext/my-spaces',              label: __( 'My Spaces', 'buddynext' ),              ssr: true  },
+		{ name: 'buddynext/profile-header',         label: __( 'Profile Header', 'buddynext' ),         ssr: true  },
+		{ name: 'buddynext/profile-fields',         label: __( 'Profile Fields', 'buddynext' ),         ssr: true  },
+		{ name: 'buddynext/profile-completion-bar', label: __( 'Profile Completion Bar', 'buddynext' ), ssr: false },
+		{ name: 'buddynext/registration-form',      label: __( 'Registration Form', 'buddynext' ),      ssr: false },
+		{ name: 'buddynext/login-form',             label: __( 'Login Form', 'buddynext' ),             ssr: false },
+		{ name: 'buddynext/notification-bell',      label: __( 'Notification Bell', 'buddynext' ),      ssr: false },
+		{ name: 'buddynext/search-bar',             label: __( 'Search Bar', 'buddynext' ),             ssr: false },
+		{ name: 'buddynext/header-user-menu',       label: __( 'Header User Menu', 'buddynext' ),       ssr: true  },
 	];
 
 	blockDefs.forEach( function ( def ) {
@@ -163,6 +165,8 @@
 	if ( ! window.wp || ! window.wp.interactivity ) {
 		return;
 	}
+
+	var __ = ( window.wp.i18n && window.wp.i18n.__ ) || function ( text ) { return text; };
 
 	var store      = window.wp.interactivity.store;
 	var getContext = window.wp.interactivity.getContext;
@@ -206,7 +210,7 @@
 					: 'bn-btn bn-btn--sm bn-btn--primary';
 			},
 			get label() {
-				return getContext().isFollowing ? 'Following' : 'Follow';
+				return getContext().isFollowing ? __( 'Following', 'buddynext' ) : __( 'Follow', 'buddynext' );
 			},
 		},
 		actions: {
@@ -519,7 +523,7 @@
 				// instead of reloading into a feed that does not show their post.
 				if ( res && res.ok && data && 'pending' === data.status ) {
 					if ( typeof window.bnToast === 'function' ) {
-						window.bnToast( 'Your post was submitted and is awaiting approval by a moderator.', { tone: 'info' } );
+						window.bnToast( __( 'Your post was submitted and is awaiting approval by a moderator.', 'buddynext' ), { tone: 'info' } );
 					}
 					return;
 				}

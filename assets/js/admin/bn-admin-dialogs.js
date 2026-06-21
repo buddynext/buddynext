@@ -24,6 +24,8 @@
 ( function () {
 	'use strict';
 
+	var { __ } = wp.i18n;
+
 	function el( tag, attrs, text ) {
 		var node = document.createElement( tag );
 		if ( attrs ) {
@@ -62,14 +64,14 @@
 		var dialog   = el( 'div', { 'class': 'bn-dialog bn-dialog--' + tone } );
 
 		var head  = el( 'header', { 'class': 'bn-dialog__head' } );
-		var title = el( 'h2', { 'class': 'bn-dialog__title', id: 'bn-dialog-title' }, opts.title || 'Confirm' );
+		var title = el( 'h2', { 'class': 'bn-dialog__title', id: 'bn-dialog-title' }, opts.title || __( 'Confirm', 'buddynext' ) );
 		head.appendChild( title );
 
 		var body = el( 'div', { 'class': 'bn-dialog__body' }, opts.message || '' );
 
 		var foot      = el( 'footer', { 'class': 'bn-dialog__foot' } );
-		var cancelBtn = el( 'button', { type: 'button', 'class': 'bn-dialog__cancel' }, opts.cancelLabel || 'Cancel' );
-		var okBtn     = el( 'button', { type: 'button', 'class': 'bn-dialog__ok',     'data-tone': tone }, opts.okLabel || 'Confirm' );
+		var cancelBtn = el( 'button', { type: 'button', 'class': 'bn-dialog__cancel' }, opts.cancelLabel || __( 'Cancel', 'buddynext' ) );
+		var okBtn     = el( 'button', { type: 'button', 'class': 'bn-dialog__ok',     'data-tone': tone }, opts.okLabel || __( 'Confirm', 'buddynext' ) );
 		foot.appendChild( cancelBtn );
 		foot.appendChild( okBtn );
 
@@ -167,11 +169,11 @@
 		e.stopImmediatePropagation();
 
 		bnConfirm( {
-			title:       target.dataset.bnConfirmTitle  || 'Confirm action',
+			title:       target.dataset.bnConfirmTitle  || __( 'Confirm action', 'buddynext' ),
 			message:     target.dataset.bnConfirm,
 			tone:        target.dataset.bnConfirmTone   || 'neutral',
-			okLabel:     target.dataset.bnConfirmOk     || 'Confirm',
-			cancelLabel: target.dataset.bnConfirmCancel || 'Cancel',
+			okLabel:     target.dataset.bnConfirmOk     || __( 'Confirm', 'buddynext' ),
+			cancelLabel: target.dataset.bnConfirmCancel || __( 'Cancel', 'buddynext' ),
 		} ).then( function ( ok ) {
 			if ( ! ok ) {
 				return;

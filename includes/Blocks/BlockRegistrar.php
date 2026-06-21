@@ -101,10 +101,13 @@ class BlockRegistrar {
 					'wp-block-editor',
 					'wp-components',
 					'wp-server-side-render',
+					'wp-i18n',
 				),
 				BUDDYNEXT_VERSION,
 				true
 			);
+
+			wp_set_script_translations( 'buddynext-blocks-editor', 'buddynext' );
 
 			// blocks.js reads window.bnBlocks (restUrl / nonce / searchUrl) for the
 			// editor previews' REST calls; without it those calls had no nonce and

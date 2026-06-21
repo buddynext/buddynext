@@ -116,10 +116,11 @@ class SetupWizard {
 		wp_enqueue_script(
 			'bn-setup-wizard',
 			$assets_url . 'js/admin/setup-wizard.js',
-			array(),
+			array( 'wp-i18n' ),
 			$version,
 			true
 		);
+		wp_set_script_translations( 'bn-setup-wizard', 'buddynext' );
 	}
 
 	// ── State machine ─────────────────────────────────────────────────────────

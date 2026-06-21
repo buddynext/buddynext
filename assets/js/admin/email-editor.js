@@ -16,6 +16,8 @@
 ( function () {
 	'use strict';
 
+	const { __ } = wp.i18n;
+
 	var root = document.querySelector( '.bn-email-editor' );
 	if ( ! root ) {
 		return;
@@ -44,7 +46,7 @@
 				return '#';
 			}
 			if ( /_name$/.test( lower ) ) {
-				return 'Jordan Lee';
+				return __( 'Jordan Lee', 'buddynext' );
 			}
 			return lower.replace( /_/g, ' ' );
 		} );

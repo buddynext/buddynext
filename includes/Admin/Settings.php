@@ -527,10 +527,11 @@ class Settings extends AdminPageBase {
 		wp_enqueue_script(
 			'buddynext-admin-settings',
 			$plugin_url . $rel,
-			array(),
+			array( 'wp-i18n' ),
 			(string) filemtime( $abs ),
 			true
 		);
+		wp_set_script_translations( 'buddynext-admin-settings', 'buddynext' );
 	}
 
 	/**

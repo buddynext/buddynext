@@ -491,10 +491,11 @@ class AdminHub {
 			wp_enqueue_script(
 				'bn-admin-palette',
 				$assets_url . 'js/admin/command-palette.js',
-				array( 'wp-data', 'wp-commands' ),
+				array( 'wp-data', 'wp-commands', 'wp-i18n' ),
 				$version,
 				true
 			);
+			wp_set_script_translations( 'bn-admin-palette', 'buddynext' );
 			wp_localize_script( 'bn-admin-palette', 'bnNavIndex', AdminNavIndex::build() );
 		}
 	}

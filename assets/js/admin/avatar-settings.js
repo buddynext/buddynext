@@ -15,6 +15,8 @@
 ( function ( $, wp ) {
 	'use strict';
 
+	var __ = ( wp && wp.i18n && wp.i18n.__ ) ? wp.i18n.__ : function ( s ) { return s; };
+
 	if ( ! $ || ! wp || ! wp.media ) {
 		return;
 	}
@@ -23,8 +25,8 @@
 
 	function openMediaPicker( inputId, previewId ) {
 		var frame = wp.media( {
-			title: L10n.pickerTitle || 'Select Image',
-			button: { text: L10n.pickerButton || 'Use this image' },
+			title: L10n.pickerTitle || __( 'Select Image', 'buddynext' ),
+			button: { text: L10n.pickerButton || __( 'Use this image', 'buddynext' ) },
 			multiple: false,
 			library: { type: 'image' },
 		} );
@@ -78,7 +80,7 @@
 		var title = document.createElement( 'h2' );
 		title.id = 'bn-av-confirm-title';
 		title.className = 'bn-modal__title';
-		title.textContent = L10n.confirmTitle || 'Confirm';
+		title.textContent = L10n.confirmTitle || __( 'Confirm', 'buddynext' );
 
 		var msg = document.createElement( 'p' );
 		msg.className = 'bn-modal__msg';
@@ -90,14 +92,14 @@
 		cancel.type = 'button';
 		cancel.className = 'bn-btn';
 		cancel.setAttribute( 'data-variant', 'ghost' );
-		cancel.textContent = L10n.cancel || 'Cancel';
+		cancel.textContent = L10n.cancel || __( 'Cancel', 'buddynext' );
 
 		var confirm = document.createElement( 'button' );
 		confirm.type = 'button';
 		confirm.className = 'bn-btn';
 		confirm.setAttribute( 'data-variant', 'danger' );
 		confirm.id = 'bn-av-confirm-yes';
-		confirm.textContent = L10n.confirm || 'Remove';
+		confirm.textContent = L10n.confirm || __( 'Remove', 'buddynext' );
 
 		actions.appendChild( cancel );
 		actions.appendChild( confirm );

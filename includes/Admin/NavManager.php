@@ -457,10 +457,12 @@ class NavManager extends AdminPageBase {
 		wp_enqueue_script(
 			'bn-nav-manager',
 			$plugin_url . 'assets/js/admin/nav-manager.js',
-			array( 'jquery', 'jquery-ui-sortable' ),
+			array( 'jquery', 'jquery-ui-sortable', 'wp-i18n' ),
 			$version,
 			true
 		);
+
+		wp_set_script_translations( 'bn-nav-manager', 'buddynext' );
 
 		$first_slug = '';
 		$main_tabs  = $this->get_tabs_for_scope( 'main' );

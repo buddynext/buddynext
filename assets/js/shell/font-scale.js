@@ -30,6 +30,11 @@
 ( function () {
 	'use strict';
 
+	// Translation: classic script, so read from the global wp.i18n with a safe
+	// identity fallback (the bn-shell-font-scale handle declares wp-i18n + uses
+	// wp_set_script_translations).
+	var __ = ( window.wp && window.wp.i18n && window.wp.i18n.__ ) || function ( s ) { return s; };
+
 	// Inlined nav-init (once) — this file is a classic IIFE, not an ES module,
 	// so it cannot import shell/nav-init.js. Chrome/global setup persists across
 	// client-side navigations, so it binds on initial load only (no
@@ -182,7 +187,7 @@
 		var toggles = document.querySelectorAll( '[data-bn-action="toggle-rail"]' );
 		for ( var i = 0; i < toggles.length; i++ ) {
 			toggles[ i ].setAttribute( 'aria-pressed', collapsed ? 'true' : 'false' );
-			var label = collapsed ? 'Expand navigation' : 'Collapse navigation';
+			var label = collapsed ? __( 'Expand navigation', 'buddynext' ) : __( 'Collapse navigation', 'buddynext' );
 			toggles[ i ].setAttribute( 'aria-label', label );
 			toggles[ i ].setAttribute( 'title', label );
 		}

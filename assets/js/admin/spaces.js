@@ -14,6 +14,8 @@
 ( function () {
 	'use strict';
 
+	const { __ } = wp.i18n;
+
 	// ── Category subtab — confirm-before-delete via lightweight modal. ───
 	// Built with document.createElement so no inline <script> sits in PHP
 	// and no innerHTML carries user-supplied strings. The dataset attributes
@@ -50,7 +52,7 @@
 		var closeBtn = document.createElement( 'button' );
 		closeBtn.type = 'button';
 		closeBtn.className = 'bn-modal__close';
-		closeBtn.setAttribute( 'aria-label', 'Close' );
+		closeBtn.setAttribute( 'aria-label', __( 'Close', 'buddynext' ) );
 		closeBtn.setAttribute( 'data-bn-cat-confirm-cancel', '' );
 		closeBtn.textContent = '×';
 		head.appendChild( title );
@@ -64,8 +66,8 @@
 
 		var foot  = document.createElement( 'div' );
 		foot.className = 'bn-modal__foot';
-		foot.appendChild( makeBtn( 'ghost',  'md', { 'data-bn-cat-confirm-cancel': '' }, 'Cancel' ) );
-		foot.appendChild( makeBtn( 'danger', 'md', { 'data-bn-cat-confirm-ok':     '' }, 'Delete' ) );
+		foot.appendChild( makeBtn( 'ghost',  'md', { 'data-bn-cat-confirm-cancel': '' }, __( 'Cancel', 'buddynext' ) ) );
+		foot.appendChild( makeBtn( 'danger', 'md', { 'data-bn-cat-confirm-ok':     '' }, __( 'Delete', 'buddynext' ) ) );
 
 		panel.appendChild( head );
 		panel.appendChild( body );
@@ -83,12 +85,12 @@
 			e.preventDefault();
 			pendingCatForm = trigger.form;
 			var bd  = ensureCatConfirm();
-			bd.querySelector( '[data-bn-cat-confirm-title]' ).textContent   = trigger.dataset.bnConfirmTitle || 'Confirm';
+			bd.querySelector( '[data-bn-cat-confirm-title]' ).textContent   = trigger.dataset.bnConfirmTitle || __( 'Confirm', 'buddynext' );
 			bd.querySelector( '[data-bn-cat-confirm-message]' ).textContent = trigger.dataset.bnConfirm || '';
-			bd.querySelector( '[data-bn-cat-confirm-ok]' ).textContent      = trigger.dataset.bnConfirmOk || 'Delete';
+			bd.querySelector( '[data-bn-cat-confirm-ok]' ).textContent      = trigger.dataset.bnConfirmOk || __( 'Delete', 'buddynext' );
 			bd.querySelectorAll( '[data-bn-cat-confirm-cancel]' ).forEach( function ( btn ) {
 				if ( 'BUTTON' === btn.tagName && btn.className === 'bn-btn' ) {
-					btn.textContent = trigger.dataset.bnConfirmCancel || 'Cancel';
+					btn.textContent = trigger.dataset.bnConfirmCancel || __( 'Cancel', 'buddynext' );
 				}
 			} );
 			bd.hidden = false;

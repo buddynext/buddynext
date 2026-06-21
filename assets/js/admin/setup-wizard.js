@@ -11,6 +11,8 @@
 ( function () {
 	'use strict';
 
+	const { __ } = wp.i18n;
+
 	function syncOption( input ) {
 		var option = input.closest( '.bn-wizard__option' );
 		if ( ! option ) {
@@ -96,9 +98,9 @@
 		var endpoint = list.getAttribute( 'data-rest' );
 		var nonce    = list.getAttribute( 'data-nonce' );
 		var i18n     = {
-			installing: list.getAttribute( 'data-i18n-installing' ) || 'Installing…',
-			done:       list.getAttribute( 'data-i18n-done' ) || 'Active',
-			failed:     list.getAttribute( 'data-i18n-failed' ) || 'Failed'
+			installing: list.getAttribute( 'data-i18n-installing' ) || __( 'Installing…', 'buddynext' ),
+			done:       list.getAttribute( 'data-i18n-done' ) || __( 'Active', 'buddynext' ),
+			failed:     list.getAttribute( 'data-i18n-failed' ) || __( 'Failed', 'buddynext' )
 		};
 		var ran = false;
 

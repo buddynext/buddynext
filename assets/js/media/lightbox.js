@@ -11,6 +11,10 @@
 ( function () {
 	'use strict';
 
+	// Translation: classic script reading from the global wp.i18n with a safe
+	// identity fallback (bn-media-lightbox declares wp-i18n + wp_set_script_translations).
+	var __ = ( window.wp && window.wp.i18n && window.wp.i18n.__ ) || function ( s ) { return s; };
+
 	var cfg = window.bnMedia || {};
 	var REST = ( cfg.mvsRest || '' ).replace( /\/$/, '' );
 	var I18N = cfg.i18n || {};
@@ -283,7 +287,7 @@
 
 	function copyToClipboard( text ) {
 		var done = function () {
-			if ( window.bnToast ) { window.bnToast( 'Link copied', 'success' ); }
+			if ( window.bnToast ) { window.bnToast( __( 'Link copied', 'buddynext' ), 'success' ); }
 		};
 		if ( navigator.clipboard && window.isSecureContext ) {
 			navigator.clipboard.writeText( text ).then( done ).catch( function () { legacyCopy( text, done ); } );

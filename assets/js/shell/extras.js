@@ -20,6 +20,13 @@
 ( function () {
 	'use strict';
 
+	// Translation: classic script reading from the global wp.i18n with safe
+	// identity fallbacks (the bn-shell-extras handle declares wp-i18n + uses
+	// wp_set_script_translations).
+	var bnI18n   = ( window.wp && window.wp.i18n ) || {};
+	var __       = bnI18n.__ || function ( s ) { return s; };
+	var sprintf  = bnI18n.sprintf || function ( s ) { return s; };
+
 	var data = window.bnShellData || {};
 	var nonce = data.restNonce || '';
 
@@ -75,7 +82,7 @@
 					list.textContent = '';
 					var empty = document.createElement( 'div' );
 					empty.className = 'bn-notif-dropdown__loading';
-					empty.textContent = 'No notifications yet';
+					empty.textContent = __( 'No notifications yet', 'buddynext' );
 					list.appendChild( empty );
 					return;
 				}
@@ -109,7 +116,7 @@
 					list.textContent = '';
 					var err = document.createElement( 'div' );
 					err.className = 'bn-notif-dropdown__loading';
-					err.textContent = 'Could not load';
+					err.textContent = __( 'Could not load', 'buddynext' );
 					list.appendChild( err );
 				}
 			} );
@@ -133,7 +140,7 @@
 				document.querySelectorAll( '.bn-notif-dropdown__item--unread' ).forEach( function ( el ) {
 					el.classList.remove( 'bn-notif-dropdown__item--unread' );
 				} );
-				if ( window.bnToast ) window.bnToast( 'All notifications marked read' );
+				if ( window.bnToast ) window.bnToast( __( 'All notifications marked read', 'buddynext' ) );
 			} );
 			return;
 		}
@@ -169,7 +176,7 @@
 			var input = document.createElement( 'input' );
 			input.type = 'search';
 			input.className = 'bn-search-overlay__input';
-			input.placeholder = 'Search posts, people, spaces, discussions...';
+			input.placeholder = __( 'Search posts, people, spaces, discussions...', 'buddynext' );
 			input.setAttribute( 'autocomplete', 'off' );
 
 			var kbd = document.createElement( 'kbd' );
@@ -241,7 +248,7 @@
 			resultsEl.textContent = '';
 			var loading = document.createElement( 'div' );
 			loading.className = 'bn-search-overlay__loading';
-			loading.textContent = 'Searching...';
+			loading.textContent = __( 'Searching...', 'buddynext' );
 			resultsEl.appendChild( loading );
 
 			var url = data.restSearchUrl + '?q=' + encodeURIComponent( q ) + '&per_page=8';
@@ -253,7 +260,7 @@
 					if ( ! items.length ) {
 						var empty = document.createElement( 'div' );
 						empty.className = 'bn-search-overlay__empty';
-						empty.textContent = 'No results for "' + q + '"';
+						empty.textContent = sprintf( __( 'No results for "%s"', 'buddynext' ), q );
 						resultsEl.appendChild( empty );
 						return;
 					}
@@ -276,7 +283,7 @@
 					resultsEl.textContent = '';
 					var err = document.createElement( 'div' );
 					err.className = 'bn-search-overlay__empty';
-					err.textContent = 'Search failed';
+					err.textContent = __( 'Search failed', 'buddynext' );
 					resultsEl.appendChild( err );
 				} );
 		}

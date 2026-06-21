@@ -14,6 +14,9 @@
 ( function () {
 	'use strict';
 
+	var i18n = ( window.wp && window.wp.i18n ) || {};
+	var __ = i18n.__ || function ( s ) { return s; };
+
 	// ── List page: row dropdown menu ─────────────────────────────────────
 	function initRowMenus() {
 		var triggers = document.querySelectorAll( '.bn-more-btn' );
@@ -208,7 +211,7 @@
 
 	// ── Repeater groups on the edit form ─────────────────────────────────
 	function initRepeaters() {
-		var entryWord = ( window.bnMembersI18n && window.bnMembersI18n.entry ) || 'Entry';
+		var entryWord = ( window.bnMembersI18n && window.bnMembersI18n.entry ) || __( 'Entry', 'buddynext' );
 		var containers = document.querySelectorAll( '[data-bn-repeater]' );
 		if ( ! containers.length ) {
 			return;

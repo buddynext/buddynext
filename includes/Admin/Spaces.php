@@ -70,18 +70,20 @@ class Spaces extends AdminPageBase {
 		wp_enqueue_script(
 			'bn-admin-bulk-select',
 			$plugin_url . 'assets/js/admin/bulk-select.js',
-			array(),
+			array( 'wp-i18n' ),
 			$version,
 			true
 		);
+		wp_set_script_translations( 'bn-admin-bulk-select', 'buddynext' );
 
 		wp_enqueue_script(
 			'bn-admin-spaces',
 			$plugin_url . 'assets/js/admin/spaces.js',
-			array(),
+			array( 'wp-i18n' ),
 			$version,
 			true
 		);
+		wp_set_script_translations( 'bn-admin-spaces', 'buddynext' );
 	}
 
 	/**

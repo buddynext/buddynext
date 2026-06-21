@@ -69,10 +69,12 @@ class AvatarSettings {
 		wp_enqueue_script(
 			'bn-avatar-settings',
 			BUDDYNEXT_URL . 'assets/js/admin/avatar-settings.js',
-			array( 'jquery' ),
+			array( 'jquery', 'wp-i18n' ),
 			BUDDYNEXT_VERSION,
 			true
 		);
+
+		wp_set_script_translations( 'bn-avatar-settings', 'buddynext' );
 
 		wp_localize_script(
 			'bn-avatar-settings',

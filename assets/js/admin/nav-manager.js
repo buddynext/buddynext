@@ -26,6 +26,9 @@
 ( function () {
 	'use strict';
 
+	var wpI18n = ( window.wp && window.wp.i18n ) || {};
+	var __ = wpI18n.__ || function ( s ) { return s; };
+
 	var cfg = window.bnNavManager || {};
 	var i18n = cfg.i18n || {};
 	var restUrl = cfg.restUrl || '';
@@ -204,11 +207,11 @@
 	function bnSetSlugHint( hintEl, status ) {
 		hintEl.className = 'bn-cf-hint bn-cf-hint--' + status;
 		if ( 'free' === status ) {
-			hintEl.textContent = i18n.slugFree || 'Slug is available';
+			hintEl.textContent = i18n.slugFree || __( 'Slug is available', 'buddynext' );
 		} else if ( 'warn' === status ) {
-			hintEl.textContent = i18n.slugWarn || 'An existing page uses this slug, it will become unreachable';
+			hintEl.textContent = i18n.slugWarn || __( 'An existing page uses this slug, it will become unreachable', 'buddynext' );
 		} else {
-			hintEl.textContent = i18n.slugBlock || 'This slug is reserved or used by another hub';
+			hintEl.textContent = i18n.slugBlock || __( 'This slug is reserved or used by another hub', 'buddynext' );
 		}
 	}
 
