@@ -58,19 +58,16 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 = 1.0.0 - June 2026 =
 
-First stable release of BuddyNext 1.0 - the community operating system for WordPress. See CHANGELOG.md in the repository for the full per-release history.
+The first stable release of BuddyNext - the community operating system for WordPress. A complete social layer in one plugin.
 
-* New      - Full translation readiness: every front-end template, admin label, and JavaScript module is internationalized and shipped with a complete buddynext.pot.
-* New      - Direct-message conversation info panel with shared media and safety actions; DM media opens in a full-bleed lightbox.
-* New      - Progressive Web App ships branded BuddyNext icons (192/512, maskable) for install-to-home-screen.
-* Improve  - Demo seeder indexes hashtags synchronously and seeds polls, bookmarks, and DM threads so every surface has content immediately.
-* Improve  - Achievements profile tab: per-standing stat icons and equal-height badge medallions.
-* Fix      - Profile and space feeds now honor viewer block/mute, closing a privacy leak.
-* Fix      - Hashtag pages no longer report "does not exist yet" for a freshly seeded tag.
-* Fix      - Profile headline saves instead of reverting, and member cards no longer duplicate the headline as the bio.
-* Fix      - Admin handlers no longer report success on a failed save or upload.
-* Security - Hardened all Plugin Check findings; zero security errors in first-party code.
-* Compat   - Pairs with BuddyNext Pro 1.0.0. Install both together.
+* New      - Activity feed with posts, polls, reactions, threaded comments, bookmarks, hashtags, and site-wide announcements.
+* New      - Spaces: public, private, and hidden communities with membership, roles, and per-space feeds.
+* New      - Member profiles with customizable field groups, a social graph (follows and connections), and a member directory.
+* New      - Direct messaging with media, a conversation info panel with shared media and safety actions, and a full-bleed media lightbox.
+* New      - Moderation suite: reporting, a review queue, strikes, suspensions, and appeals backed by an immutable audit log.
+* New      - Onboarding wizard, gamification achievements, notifications, and a Progressive Web App with branded install icons.
+* New      - Full translation readiness: every template, admin label, and JavaScript module is internationalized with a complete buddynext.pot.
+* Compat   - Pairs with BuddyNext Pro 1.0.0. Direct messaging and media are powered by the WPMediaVerse companion plugin.
 
 = 0.6.0-beta1 =
 
