@@ -22,6 +22,8 @@ namespace BuddyNext\Bridges;
 
 use BuddyNext\Notifications\NotificationService;
 use BuddyNext\Media\MediaClient;
+use BuddyNext\Feed\PostService;
+use BuddyNext\Feed\IntegrationActivity;
 
 /**
  * WPMediaVerse ↔ BuddyNext integration layer.
@@ -115,6 +117,124 @@ class WPMediaVerseBridge {
 		// note is delivered to the recipient as a direct-message request so they
 		// can read the context and decide whether to engage before accepting.
 		add_action( 'buddynext_connection_requested', array( $this, 'deliver_note_as_message_request' ), 10, 4 );
+
+		// Surface standalone WPMediaVerse uploads in the activity feed. The
+		// upload itself fired no feed entry before, so media shared from the
+		// "Upload Media" surface never appeared in the community feed. Deferred +
+		// guarded so a photo posted through the BuddyNext composer — which uploads
+		// via the same WPMediaVerse path and then creates its OWN feed post — is
+		// never duplicated.
+		add_action( 'mvs_media_uploaded', array( $this, 'on_media_uploaded' ), 10, 4 );
+		add_action( 'buddynext_mvs_media_activity', array( $this, 'publish_media_activity' ), 10, 3 );
+	}
+
+	/**
+	 * Defer a feed entry for a fresh WPMediaVerse upload.
+	 *
+	 * Runs on `mvs_media_uploaded`. A BuddyNext composer photo uploads the media
+	 * first and creates its post a moment later (a separate request), so posting
+	 * immediately would duplicate it. We re-check after a short delay and only
+	 * publish if the media was NOT attached to a BuddyNext post in the meantime.
+	 *
+	 * @param int    $media_id   WPMediaVerse media-index id.
+	 * @param array  $file_data  Upload metadata (privacy, user_id, …).
+	 * @param int    $user_id    Uploader user id.
+	 * @param string $media_type Resolved type: photo|video|audio|document.
+	 * @return void
+	 */
+	public function on_media_uploaded( $media_id, $file_data, $user_id, $media_type ): void {
+		$media_id = (int) $media_id;
+		$user_id  = (int) $user_id;
+		if ( $media_id <= 0 || $user_id <= 0 ) {
+			return;
+		}
+
+		// Only public uploads belong in the public feed.
+		$privacy = is_array( $file_data ) ? (string) ( $file_data['privacy'] ?? 'public' ) : 'public';
+		if ( 'public' !== $privacy ) {
+			return;
+		}
+
+		$args = array( $media_id, $user_id, (string) $media_type );
+
+		if ( function_exists( 'as_schedule_single_action' ) ) {
+			if ( ! as_next_scheduled_action( 'buddynext_mvs_media_activity', $args, 'buddynext' ) ) {
+				as_schedule_single_action( time() + 120, 'buddynext_mvs_media_activity', $args, 'buddynext' );
+			}
+			return;
+		}
+
+		// No Action Scheduler (rare): publish inline, accepting the small
+		// composer-duplicate risk over losing the activity entirely.
+		$this->publish_media_activity( $media_id, $user_id, (string) $media_type );
+	}
+
+	/**
+	 * Publish the deferred feed entry for an upload, unless it was already
+	 * surfaced by a BuddyNext post (composer photo/media post or a prior run).
+	 *
+	 * Photos become a native inline photo post; other media types become a
+	 * media card linking to the WPMediaVerse media page.
+	 *
+	 * @param int    $media_id   WPMediaVerse media-index id.
+	 * @param int    $user_id    Uploader user id.
+	 * @param string $media_type Resolved media type.
+	 * @return void
+	 */
+	public function publish_media_activity( $media_id, $user_id, $media_type ): void {
+		$media_id = (int) $media_id;
+		$user_id  = (int) $user_id;
+		if ( $media_id <= 0 || $user_id <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$attached = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE media_ids IS NOT NULL AND JSON_CONTAINS(media_ids, %s)", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				(string) wp_json_encode( $media_id )
+			)
+		);
+		if ( $attached > 0 ) {
+			return;
+		}
+
+		if ( in_array( (string) $media_type, array( 'photo', 'image' ), true ) ) {
+			( new PostService() )->create(
+				$user_id,
+				array( 'type' => 'photo', 'content' => '', 'media_ids' => array( $media_id ) )
+			);
+			return;
+		}
+
+		$url  = '';
+		$repo = MediaClient::repo();
+		if ( is_object( $repo ) && method_exists( $repo, 'get_permalink' ) ) {
+			$url = (string) $repo->get_permalink( $media_id );
+		}
+		if ( '' === $url ) {
+			return;
+		}
+
+		IntegrationActivity::publish( $user_id, self::media_activity_verb( (string) $media_type ), $url, '', 'media', '' );
+	}
+
+	/**
+	 * Human verb for a non-photo media activity card.
+	 *
+	 * @param string $media_type Resolved media type.
+	 * @return string
+	 */
+	private static function media_activity_verb( string $media_type ): string {
+		switch ( $media_type ) {
+			case 'video':
+				return __( 'shared a video', 'buddynext' );
+			case 'audio':
+				return __( 'shared an audio clip', 'buddynext' );
+			default:
+				return __( 'shared a photo', 'buddynext' );
+		}
 	}
 
 	/**

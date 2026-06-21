@@ -2179,6 +2179,37 @@ class PostService {
 	}
 
 	/**
+	 * Cached oEmbed player HTML for a link URL, or '' when not embeddable.
+	 *
+	 * Lets the feed render YouTube/Vimeo/etc. as a player instead of a plain
+	 * link card. Uses `discover => false` so only WordPress's registered oEmbed
+	 * providers are honoured — no arbitrary URL fetch (SSRF-safe). Result is
+	 * cached in a 12h transient keyed by URL because bn_posts are not WP posts,
+	 * so WP's per-post oEmbed cache never applies here.
+	 *
+	 * @param string $url Link URL.
+	 * @return string oEmbed HTML, or '' if the URL has no registered provider.
+	 */
+	public static function oembed_html( string $url ): string {
+		$url = trim( $url );
+		if ( '' === $url || ! function_exists( 'wp_oembed_get' ) ) {
+			return '';
+		}
+
+		$key    = 'bn_oembed_' . md5( $url );
+		$cached = get_transient( $key );
+		if ( false !== $cached ) {
+			return (string) $cached;
+		}
+
+		$result = wp_oembed_get( $url, array( 'discover' => false ) );
+		$html   = is_string( $result ) ? $result : '';
+		set_transient( $key, $html, 12 * HOUR_IN_SECONDS );
+
+		return $html;
+	}
+
+	/**
 	 * Fetch Open Graph metadata from a URL.
 	 *
 	 * Uses wp_remote_get with a 5s timeout. Extracts og:title, og:description,

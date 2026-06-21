@@ -159,7 +159,14 @@ do_action( 'buddynext_part_post_body_before', $args );
 		<?php if ( '' !== $bn_body_content ) : ?>
 			<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $bn_body_content ) ) ); ?></div>
 		<?php endif; ?>
-		<?php if ( '' !== $bn_link_url ) : ?>
+		<?php
+		$bn_oembed = ( '' !== $bn_link_url ) ? \BuddyNext\Feed\PostService::oembed_html( $bn_link_url ) : '';
+		if ( '' !== $bn_oembed ) :
+		?>
+			<div class="bn-post-card__embed bn-post-card__oembed">
+				<?php echo $bn_oembed; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WordPress oEmbed HTML from the registered-provider allowlist. ?>
+			</div>
+		<?php elseif ( '' !== $bn_link_url ) : ?>
 			<a
 				href="<?php echo esc_url( $bn_link_url ); ?>"
 				class="bn-post-card__embed bn-post-card__link-preview"

@@ -3,7 +3,7 @@
  * Plugin Name: BuddyNext
  * Plugin URI:  https://buddynext.com/
  * Description: The social layer for WordPress.
- * Version:     1.0.0
+ * Version:     1.0.1
  * Author:      Wbcom Designs
  * Author URI:  https://wbcomdesigns.com
  * License:     GPLv2 or later
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BUDDYNEXT_VERSION', '1.0.0' );
+define( 'BUDDYNEXT_VERSION', '1.0.1' );
 define( 'BUDDYNEXT_FILE', __FILE__ );
 define( 'BUDDYNEXT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BUDDYNEXT_URL', plugin_dir_url( __FILE__ ) );
