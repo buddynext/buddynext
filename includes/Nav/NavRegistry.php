@@ -158,6 +158,7 @@ final class NavRegistry {
 		foreach ( $items as $n ) {
 			$n->count_value = $n->resolve_count( $ctx );
 			$n->url_value   = $n->resolve_url( $ctx );
+			$n->label_value = $n->resolve_count_label( $n->count_value );
 			if ( $n->hide_empty && ( null === $n->count_value || 0 === $n->count_value ) ) {
 				continue;
 			}

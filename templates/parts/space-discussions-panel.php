@@ -71,9 +71,9 @@ $bn_thread_base = '' !== $bn_forum_url ? trailingslashit( $bn_forum_url ) . 't/'
 					</div>
 					<div class="bn-reply-card__content bn-reply-card__content--strong"><?php echo esc_html( (string) $bn_disc->title ); ?></div>
 					<div class="bn-reply-card__context">
-						<?php echo esc_html( (string) ( $bn_disc->reply_count ?? 0 ) ); ?> <?php esc_html_e( 'replies', 'buddynext' ); ?>
+						<?php $bn_sdp_rc = (int) ( $bn_disc->reply_count ?? 0 ); /* translators: %d: number of replies */ printf( esc_html( _n( '%d reply', '%d replies', $bn_sdp_rc, 'buddynext' ) ), (int) $bn_sdp_rc ); ?>
 						<span aria-hidden="true">&middot;</span>
-						<?php echo esc_html( (string) ( $bn_disc->vote_score ?? 0 ) ); ?> <?php esc_html_e( 'votes', 'buddynext' ); ?>
+						<?php $bn_sdp_vc = (int) ( $bn_disc->vote_score ?? 0 ); /* translators: %d: number of votes */ printf( esc_html( _n( '%d vote', '%d votes', $bn_sdp_vc, 'buddynext' ) ), (int) $bn_sdp_vc ); ?>
 					</div>
 				</a>
 			<?php endforeach; ?>

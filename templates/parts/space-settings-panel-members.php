@@ -70,10 +70,11 @@ do_action( 'buddynext_part_space_settings_panel_members_before', $args );
 		<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Members', 'buddynext' ); ?></h2>
 		<p class="bn-space-settings__panel-desc">
 			<?php
+			$bn_sspm_count = count( $bn_space_members );
 			printf(
 				/* translators: %d: number of active members */
-				esc_html__( '%d active members', 'buddynext' ),
-				count( $bn_space_members )
+				esc_html( _n( '%d active member', '%d active members', $bn_sspm_count, 'buddynext' ) ),
+				(int) $bn_sspm_count
 			);
 			?>
 		</p>

@@ -52,6 +52,7 @@ class AssetService {
 	public function init(): void {
 		add_action( 'wp_enqueue_scripts', array( $this, 'register_assets' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'register_script_modules' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'inject_interactivity_i18n' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 
 		// BuddyNext is the style-guide boss: always load bn-base (fonts + tokens)
@@ -530,6 +531,78 @@ class AssetService {
 	 * @param string $feature Feature slug without prefix (e.g. 'feed', 'profile').
 	 * @return void
 	 */
+	/**
+	 * Inject translated string dictionaries into the Interactivity API state so
+	 * Script Modules can render localized copy. Script Modules cannot use
+	 * wp_set_script_translations() (no per-module JED loading in core), so each
+	 * feature's user-facing strings are translated server-side here and read in
+	 * the store via state.i18n.<key> with the English literal as a JS fallback.
+	 * Interpolated strings use sprintf-style placeholders (e.g. '@%s') so the
+	 * full phrase stays translatable and word order is locale-controlled.
+	 *
+	 * @return void
+	 */
+	public function inject_interactivity_i18n(): void {
+		if ( is_admin() || ! function_exists( 'wp_interactivity_state' ) ) {
+			return;
+		}
+
+		// Follow + Connect buttons and their request inboxes (social/follow-store).
+		// One shared dictionary is read by all four social namespaces in the store.
+		wp_interactivity_state(
+			'buddynext/follow-button',
+			array(
+				'i18n' => array(
+					// Follow button labels.
+					'follow'                 => __( 'Follow', 'buddynext' ),
+					'following'              => __( 'Following', 'buddynext' ),
+					'requested'              => __( 'Requested', 'buddynext' ),
+					'ariaFollow'             => __( 'Follow this user', 'buddynext' ),
+					'ariaUnfollow'           => __( 'Unfollow this user', 'buddynext' ),
+					'ariaCancelRequest'      => __( 'Cancel follow request', 'buddynext' ),
+					/* translators: %s: member name */
+					'toastUnfollowed'        => __( 'Unfollowed @%s', 'buddynext' ),
+					/* translators: %s: member name */
+					'toastRequestCancelled'  => __( 'Follow request to @%s cancelled', 'buddynext' ),
+					/* translators: %s: member name */
+					'toastRequestSent'       => __( 'Follow request sent to @%s', 'buddynext' ),
+					/* translators: %s: member name */
+					'toastNowFollowing'      => __( 'Now following @%s', 'buddynext' ),
+					/* translators: %s: member name */
+					'toastCouldNotUnfollow'  => __( 'Could not unfollow @%s. Try again.', 'buddynext' ),
+					/* translators: %s: member name */
+					'toastCouldNotFollow'    => __( 'Could not follow @%s. Try again.', 'buddynext' ),
+					// Follow-request inbox.
+					/* translators: %s: member name */
+					'toastCanFollowYou'      => __( '@%s can now follow you', 'buddynext' ),
+					'toastApproveFailed'     => __( 'Could not approve request. Try again.', 'buddynext' ),
+					/* translators: %s: member name */
+					'toastRequestDeclined'   => __( 'Request from @%s declined', 'buddynext' ),
+					'toastDeclineFailed'     => __( 'Could not decline request. Try again.', 'buddynext' ),
+					// Connection button labels.
+					'connect'                => __( 'Connect', 'buddynext' ),
+					'connected'              => __( 'Connected', 'buddynext' ),
+					'respond'                => __( 'Respond', 'buddynext' ),
+					/* translators: %s: member name */
+					'noteBody'               => __( 'Add a personal message to your request to @%s, or send it without one.', 'buddynext' ),
+					/* translators: %s: member name */
+					'toastConnectionSent'    => __( 'Connection request sent to @%s', 'buddynext' ),
+					'toastCouldNotConnect'   => __( 'Could not send connection request. Try again.', 'buddynext' ),
+					/* translators: %s: member name */
+					'toastRequestWithdrawn'  => __( 'Request to @%s withdrawn', 'buddynext' ),
+					'toastCouldNotWithdraw'  => __( 'Could not withdraw request. Try again.', 'buddynext' ),
+					/* translators: %s: member name */
+					'toastConnectedWith'     => __( 'Connected with @%s', 'buddynext' ),
+					'toastCouldNotAccept'    => __( 'Could not accept request. Try again.', 'buddynext' ),
+					'toastCouldNotDecline'   => __( 'Could not decline request. Try again.', 'buddynext' ),
+					/* translators: %s: member name */
+					'toastDisconnected'      => __( 'Disconnected from @%s', 'buddynext' ),
+					'toastCouldNotDisconnect' => __( 'Could not disconnect. Try again.', 'buddynext' ),
+				),
+			)
+		);
+	}
+
 	public function enqueue( string $feature ): void {
 		$slug   = sanitize_key( $feature );
 		$handle = 'bn-' . $slug;

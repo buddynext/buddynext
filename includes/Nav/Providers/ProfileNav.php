@@ -63,13 +63,14 @@ final class ProfileNav {
 	private function metrics(): array {
 		return array(
 			array(
-				'id'       => 'followers',
-				'surface'  => 'profile',
-				'layer'    => 'metric',
-				'label'    => __( 'Followers', 'buddynext' ),
-				'tab'      => 'followers',
-				'priority' => 10,
-				'count'    => static fn( NavContext $c ): int => (int) buddynext_service( 'follows' )->follower_count( $c->subject_id ),
+				'id'          => 'followers',
+				'surface'     => 'profile',
+				'layer'       => 'metric',
+				'label'       => __( 'Followers', 'buddynext' ),
+				'count_label' => static fn( int $n ): string => _n( 'Follower', 'Followers', $n, 'buddynext' ),
+				'tab'         => 'followers',
+				'priority'    => 10,
+				'count'       => static fn( NavContext $c ): int => (int) buddynext_service( 'follows' )->follower_count( $c->subject_id ),
 			),
 			array(
 				'id'       => 'following',
@@ -81,13 +82,14 @@ final class ProfileNav {
 				'count'    => static fn( NavContext $c ): int => (int) buddynext_service( 'follows' )->following_count( $c->subject_id ),
 			),
 			array(
-				'id'       => 'connections',
-				'surface'  => 'profile',
-				'layer'    => 'metric',
-				'label'    => __( 'Connections', 'buddynext' ),
-				'tab'      => 'connections',
-				'priority' => 30,
-				'count'    => static fn( NavContext $c ): int => (int) buddynext_service( 'connections' )->connection_count( $c->subject_id ),
+				'id'          => 'connections',
+				'surface'     => 'profile',
+				'layer'       => 'metric',
+				'label'       => __( 'Connections', 'buddynext' ),
+				'count_label' => static fn( int $n ): string => _n( 'Connection', 'Connections', $n, 'buddynext' ),
+				'tab'         => 'connections',
+				'priority'    => 30,
+				'count'       => static fn( NavContext $c ): int => (int) buddynext_service( 'connections' )->connection_count( $c->subject_id ),
 			),
 		);
 	}

@@ -27,6 +27,21 @@ import { store, getContext } from '@wordpress/interactivity';
 import { bnToast, bnResolveConnectNote } from '../shell/dialog.js';
 import { restFetch } from '../shell/rest-client.js';
 
+/* -- i18n -------------------------------------------------------------- */
+/* Translated strings are injected server-side into the Interactivity state
+ * (AssetService::inject_interactivity_i18n) because Script Modules cannot use
+ * wp_set_script_translations(). The dictionary is read once from the
+ * follow-button namespace below and shared by all four social stores; each
+ * lookup keeps the English literal as a fallback so the UI never breaks if the
+ * state is absent. fmt() fills sprintf-style '%s' placeholders. */
+let I18N = {};
+function t( key, fallback ) {
+	return ( I18N && I18N[ key ] ) || fallback;
+}
+function fmt( tpl, value ) {
+	return String( null == tpl ? '' : tpl ).replace( '%s', String( value ) );
+}
+
 /* -- Helpers ----------------------------------------------------------- */
 
 function ctxNonce( ctx ) {
@@ -34,9 +49,9 @@ function ctxNonce( ctx ) {
 }
 
 function followLabel( ctx ) {
-	if ( ctx.isPending )   { return 'Requested'; }
-	if ( ctx.isFollowing ) { return 'Following'; }
-	return 'Follow';
+	if ( ctx.isPending )   { return t( 'requested', 'Requested' ); }
+	if ( ctx.isFollowing ) { return t( 'following', 'Following' ); }
+	return t( 'follow', 'Follow' );
 }
 
 function followState( ctx ) {
@@ -50,9 +65,9 @@ function followAriaPressed( ctx ) {
 }
 
 function followAriaLabel( ctx ) {
-	if ( ctx.isPending )   { return 'Cancel follow request'; }
-	if ( ctx.isFollowing ) { return 'Unfollow this user'; }
-	return 'Follow this user';
+	if ( ctx.isPending )   { return t( 'ariaCancelRequest', 'Cancel follow request' ); }
+	if ( ctx.isFollowing ) { return t( 'ariaUnfollow', 'Unfollow this user' ); }
+	return t( 'ariaFollow', 'Follow this user' );
 }
 
 // v2 buttons are styled via the .bn-btn base class + data-variant / data-size
@@ -75,7 +90,7 @@ function followVariant( ctx ) {
 
 /* -- Follow button store ----------------------------------------------- */
 
-store( 'buddynext/follow-button', {
+const followButtonStore = store( 'buddynext/follow-button', {
 	state: {
 		get label()        { return followLabel( getContext() ); },
 		get btnState()     { return followState( getContext() ); },
@@ -118,10 +133,10 @@ store( 'buddynext/follow-button', {
 				} );
 				if ( ! res.ok ) { throw new Error( 'follow_failed_' + res.status ); }
 				let msg;
-				if ( wasFollowing )      { msg = 'Unfollowed @' + target; }
-				else if ( wasPending )   { msg = 'Follow request to @' + target + ' cancelled'; }
-				else if ( usePending )   { msg = 'Follow request sent to @' + target; }
-				else                     { msg = 'Now following @' + target; }
+				if ( wasFollowing )      { msg = fmt( t( 'toastUnfollowed', 'Unfollowed @%s' ), target ); }
+				else if ( wasPending )   { msg = fmt( t( 'toastRequestCancelled', 'Follow request to @%s cancelled' ), target ); }
+				else if ( usePending )   { msg = fmt( t( 'toastRequestSent', 'Follow request sent to @%s' ), target ); }
+				else                     { msg = fmt( t( 'toastNowFollowing', 'Now following @%s' ), target ); }
 				bnToast( msg, { tone: wasFollowing || wasPending ? 'info' : 'success' } );
 			} catch ( _e ) {
 				// Roll back.
@@ -129,8 +144,8 @@ store( 'buddynext/follow-button', {
 				ctx.isPending   = wasPending;
 				bnToast(
 					wasFollowing
-						? 'Could not unfollow @' + target + '. Try again.'
-						: 'Could not follow @' + target + '. Try again.',
+						? fmt( t( 'toastCouldNotUnfollow', 'Could not unfollow @%s. Try again.' ), target )
+						: fmt( t( 'toastCouldNotFollow', 'Could not follow @%s. Try again.' ), target ),
 					{ tone: 'danger' }
 				);
 			} finally {
@@ -139,6 +154,10 @@ store( 'buddynext/follow-button', {
 		},
 	},
 } );
+
+// The server merges the injected dictionary into this namespace's state; read
+// it once here so all four social stores below share one translated table.
+I18N = ( followButtonStore && followButtonStore.state && followButtonStore.state.i18n ) || {};
 
 /* -- Follow-request inbox store ---------------------------------------- */
 /* Drives the per-row Approve / Reject buttons on the followers page
@@ -164,9 +183,9 @@ store( 'buddynext/follow-requests', {
 				} );
 				if ( ! res.ok ) { throw new Error( 'approve_failed_' + res.status ); }
 				ctx.hidden = true;
-				bnToast( '@' + ( ctx.targetName || ctx.followerId ) + ' can now follow you', { tone: 'success' } );
+				bnToast( fmt( t( 'toastCanFollowYou', '@%s can now follow you' ), ( ctx.targetName || ctx.followerId ) ), { tone: 'success' } );
 			} catch ( _e ) {
-				bnToast( 'Could not approve request. Try again.', { tone: 'danger' } );
+				bnToast( t( 'toastApproveFailed', 'Could not approve request. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.busy = false;
 			}
@@ -184,9 +203,9 @@ store( 'buddynext/follow-requests', {
 				} );
 				if ( ! res.ok ) { throw new Error( 'reject_failed_' + res.status ); }
 				ctx.hidden = true;
-				bnToast( 'Request from @' + ( ctx.targetName || ctx.followerId ) + ' declined', { tone: 'info' } );
+				bnToast( fmt( t( 'toastRequestDeclined', 'Request from @%s declined' ), ( ctx.targetName || ctx.followerId ) ), { tone: 'info' } );
 			} catch ( _e ) {
-				bnToast( 'Could not decline request. Try again.', { tone: 'danger' } );
+				bnToast( t( 'toastDeclineFailed', 'Could not decline request. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.busy = false;
 			}
@@ -219,9 +238,9 @@ store( 'buddynext/connection-requests', {
 				} );
 				if ( ! res.ok ) { throw new Error( 'accept_failed_' + res.status ); }
 				ctx.hidden = true;
-				bnToast( 'Connected with @' + ( ctx.targetName || ctx.requesterId ), { tone: 'success' } );
+				bnToast( fmt( t( 'toastConnectedWith', 'Connected with @%s' ), ( ctx.targetName || ctx.requesterId ) ), { tone: 'success' } );
 			} catch ( _e ) {
-				bnToast( 'Could not accept request. Try again.', { tone: 'danger' } );
+				bnToast( t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.busy = false;
 			}
@@ -239,9 +258,9 @@ store( 'buddynext/connection-requests', {
 				} );
 				if ( ! res.ok ) { throw new Error( 'decline_failed_' + res.status ); }
 				ctx.hidden = true;
-				bnToast( 'Request from @' + ( ctx.targetName || ctx.requesterId ) + ' declined', { tone: 'info' } );
+				bnToast( fmt( t( 'toastRequestDeclined', 'Request from @%s declined' ), ( ctx.targetName || ctx.requesterId ) ), { tone: 'info' } );
 			} catch ( _e ) {
-				bnToast( 'Could not decline request. Try again.', { tone: 'danger' } );
+				bnToast( t( 'toastDeclineFailed', 'Could not decline request. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.busy = false;
 			}
@@ -253,10 +272,10 @@ store( 'buddynext/connection-requests', {
 
 function connectionLabel( ctx ) {
 	const s = ctx.status || '';
-	if ( s === 'accepted' )         { return 'Connected'; }
-	if ( s === 'pending-sent' )     { return 'Requested'; }
-	if ( s === 'pending-received' ) { return 'Respond'; }
-	return 'Connect';
+	if ( s === 'accepted' )         { return t( 'connected', 'Connected' ); }
+	if ( s === 'pending-sent' )     { return t( 'requested', 'Requested' ); }
+	if ( s === 'pending-received' ) { return t( 'respond', 'Respond' ); }
+	return t( 'connect', 'Connect' );
 }
 
 function connectionState( ctx ) {
@@ -282,7 +301,7 @@ store( 'buddynext/connection-button', {
 			// with an empty textarea sends a note-less request; cancelling aborts
 			// without touching state. The server caps the note at 280 chars.
 			const note = await bnResolveConnectNote( {
-				body: 'Add a personal message to your request to @' + name + ', or send it without one.',
+				body: fmt( t( 'noteBody', 'Add a personal message to your request to @%s, or send it without one.' ), name ),
 			} );
 			if ( note === null ) {
 				return; // User cancelled — leave the Connect button untouched.
@@ -300,10 +319,10 @@ store( 'buddynext/connection-button', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'connect_failed_' + res.status ); }
-				bnToast( 'Connection request sent to @' + name, { tone: 'success' } );
+				bnToast( fmt( t( 'toastConnectionSent', 'Connection request sent to @%s' ), name ), { tone: 'success' } );
 			} catch ( _e ) {
 				ctx.status = prev || '';
-				bnToast( 'Could not send connection request. Try again.', { tone: 'danger' } );
+				bnToast( t( 'toastCouldNotConnect', 'Could not send connection request. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.busy = false;
 			}
@@ -324,10 +343,10 @@ store( 'buddynext/connection-button', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'withdraw_failed_' + res.status ); }
-				bnToast( 'Request to @' + name + ' withdrawn', { tone: 'info' } );
+				bnToast( fmt( t( 'toastRequestWithdrawn', 'Request to @%s withdrawn' ), name ), { tone: 'info' } );
 			} catch ( _e ) {
 				ctx.status = prev;
-				bnToast( 'Could not withdraw request. Try again.', { tone: 'danger' } );
+				bnToast( t( 'toastCouldNotWithdraw', 'Could not withdraw request. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.busy = false;
 			}
@@ -348,10 +367,10 @@ store( 'buddynext/connection-button', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'accept_failed_' + res.status ); }
-				bnToast( 'Connected with @' + name, { tone: 'success' } );
+				bnToast( fmt( t( 'toastConnectedWith', 'Connected with @%s' ), name ), { tone: 'success' } );
 			} catch ( _e ) {
 				ctx.status = prev;
-				bnToast( 'Could not accept request. Try again.', { tone: 'danger' } );
+				bnToast( t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.busy = false;
 			}
@@ -372,10 +391,10 @@ store( 'buddynext/connection-button', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'decline_failed_' + res.status ); }
-				bnToast( 'Request from @' + name + ' declined', { tone: 'info' } );
+				bnToast( fmt( t( 'toastRequestDeclined', 'Request from @%s declined' ), name ), { tone: 'info' } );
 			} catch ( _e ) {
 				ctx.status = prev;
-				bnToast( 'Could not decline request. Try again.', { tone: 'danger' } );
+				bnToast( t( 'toastCouldNotDecline', 'Could not decline request. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.busy = false;
 			}
@@ -396,10 +415,10 @@ store( 'buddynext/connection-button', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'disconnect_failed_' + res.status ); }
-				bnToast( 'Disconnected from @' + name, { tone: 'info' } );
+				bnToast( fmt( t( 'toastDisconnected', 'Disconnected from @%s' ), name ), { tone: 'info' } );
 			} catch ( _e ) {
 				ctx.status = prev;
-				bnToast( 'Could not disconnect. Try again.', { tone: 'danger' } );
+				bnToast( t( 'toastCouldNotDisconnect', 'Could not disconnect. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.busy = false;
 			}

@@ -157,11 +157,11 @@ do_action( 'buddynext_part_hashtag_hero_before', $args );
 
 	<div class="bn-stat-grid bn-hashtag-header__stats">
 		<div class="bn-stat">
-			<div class="bn-stat__label"><?php esc_html_e( 'Posts', 'buddynext' ); ?></div>
+			<div class="bn-stat__label"><?php echo esc_html( _n( 'Post', 'Posts', (int) $bn_post_count, 'buddynext' ) ); ?></div>
 			<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $bn_post_count ) ); ?></div>
 		</div>
 		<div class="bn-stat">
-			<div class="bn-stat__label"><?php esc_html_e( 'Contributors', 'buddynext' ); ?></div>
+			<div class="bn-stat__label"><?php echo esc_html( _n( 'Contributor', 'Contributors', (int) $bn_contribs, 'buddynext' ) ); ?></div>
 			<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $bn_contribs ) ); ?></div>
 		</div>
 		<?php if ( '' !== $bn_first_used ) : ?>

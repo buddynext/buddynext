@@ -49,6 +49,16 @@ final class NavItem {
 	public ?string $url_value = null;
 
 	/**
+	 * Count-aware display label resolved for the current context (null = use the
+	 * static `label`). When `count_label` is supplied, this holds the grammatically
+	 * correct form for the resolved count — e.g. "Follower" vs "Followers" — so a
+	 * "1 Followers" never renders. Renderers read THIS with `label` as the fallback.
+	 *
+	 * @var string|null
+	 */
+	public ?string $label_value = null;
+
+	/**
 	 * Construct an item. Use NavItem::from_array() for validated creation.
 	 *
 	 * @param string            $id         Unique within (surface, layer).
@@ -71,6 +81,9 @@ final class NavItem {
 	 * @param int|callable|null $count   Badge/metric value, int or callable(NavContext):int.
 	 * @param callable|null     $active     callable(NavContext):bool active-state override.
 	 * @param int               $seq        Registration order (stable tiebreak).
+	 * @param callable|null     $count_label callable(int $count):string returning the
+	 *                                      pluralized label for the resolved count
+	 *                                      (use _n() inside). Overrides `label` when set.
 	 */
 	public function __construct(
 		public readonly string $id,
@@ -91,7 +104,8 @@ final class NavItem {
 		public readonly ?string $trend = null,
 		public readonly mixed $count = null,
 		public readonly mixed $active = null,
-		public readonly int $seq = 0
+		public readonly int $seq = 0,
+		public readonly mixed $count_label = null
 	) {}
 
 	/**
@@ -152,9 +166,10 @@ final class NavItem {
 				break;
 		}
 
-		$condition = ( isset( $a['condition'] ) && is_callable( $a['condition'] ) ) ? $a['condition'] : null;
-		$active    = ( isset( $a['active'] ) && is_callable( $a['active'] ) ) ? $a['active'] : null;
-		$count     = $a['count'] ?? null;
+		$condition   = ( isset( $a['condition'] ) && is_callable( $a['condition'] ) ) ? $a['condition'] : null;
+		$active      = ( isset( $a['active'] ) && is_callable( $a['active'] ) ) ? $a['active'] : null;
+		$count_label = ( isset( $a['count_label'] ) && is_callable( $a['count_label'] ) ) ? $a['count_label'] : null;
+		$count       = $a['count'] ?? null;
 		if ( null !== $count && ! is_int( $count ) && ! is_callable( $count ) ) {
 			$count = (int) $count;
 		}
@@ -194,6 +209,7 @@ final class NavItem {
 			count: $count,
 			active: $active,
 			seq: $seq,
+			count_label: $count_label,
 		);
 	}
 
@@ -233,6 +249,21 @@ final class NavItem {
 		// A count is a badge — never negative. Clamp so a callable returning a
 		// stray -1 can't render as a "-1" pill or dodge the hide_empty zero check.
 		return max( 0, $value );
+	}
+
+	/**
+	 * Resolve the count-aware display label for a resolved count. Returns null when
+	 * the item has no `count_label` (renderers then fall back to the static `label`),
+	 * so "1 Followers" becomes "1 Follower" without each surface duplicating _n().
+	 *
+	 * @param int|null $count Already-resolved count for this context.
+	 * @return string|null
+	 */
+	public function resolve_count_label( ?int $count ): ?string {
+		if ( null === $this->count_label || null === $count ) {
+			return null;
+		}
+		return (string) call_user_func( $this->count_label, $count );
 	}
 
 	/**

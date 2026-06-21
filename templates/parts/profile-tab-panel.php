@@ -300,9 +300,9 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 						</div>
 						<div class="bn-reply-card__content bn-reply-card__content--strong"><?php echo esc_html( $disc->title ); ?></div>
 						<div class="bn-reply-card__context">
-							<?php echo esc_html( (string) $disc->reply_count ); ?> <?php esc_html_e( 'replies', 'buddynext' ); ?>
+							<?php $bn_ptp_rc = (int) $disc->reply_count; /* translators: %d: number of replies */ printf( esc_html( _n( '%d reply', '%d replies', $bn_ptp_rc, 'buddynext' ) ), (int) $bn_ptp_rc ); ?>
 							<span aria-hidden="true">&middot;</span>
-							<?php echo esc_html( (string) $disc->vote_score ); ?> <?php esc_html_e( 'votes', 'buddynext' ); ?>
+							<?php $bn_ptp_vc = (int) $disc->vote_score; /* translators: %d: number of votes */ printf( esc_html( _n( '%d vote', '%d votes', $bn_ptp_vc, 'buddynext' ) ), (int) $bn_ptp_vc ); ?>
 						</div>
 					</a>
 					<?php endforeach; ?>

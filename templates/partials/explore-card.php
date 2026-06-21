@@ -148,7 +148,11 @@ if ( 'space' === $bn_kind ) {
 	$bn_scover = (string) ( $bn_space['avatar_url'] ?? '' );
 	$bn_surl   = PageRouter::space_url( $bn_sid );
 	$bn_stone  = bn_explore_tone( $bn_sid, $bn_palette );
-	$bn_slabel = 'open' === $bn_stype ? __( 'Public', 'buddynext' ) : ucfirst( $bn_stype );
+	// Route non-public types through the registry's translated label map so the
+	// badge never renders a raw, untranslated slug ("private"/"secret").
+	$bn_slabel = 'open' === $bn_stype
+		? __( 'Public', 'buddynext' )
+		: \BuddyNext\Spaces\SpaceTypeRegistry::instance()->label( $bn_stype );
 	?>
 	<article class="ec-card ec-card--space" data-kind="space">
 		<a class="ec-img" href="<?php echo esc_url( $bn_surl ); ?>" data-tone="<?php echo esc_attr( $bn_stone ); ?>" aria-hidden="true" tabindex="-1">
@@ -275,7 +279,12 @@ if ( 'post-poll' === $bn_kind ) :
 		<a class="ec-body" href="<?php echo esc_url( $bn_purl ); ?>">
 			<div class="ec-kicker ec-kicker--poll">
 				<span class="ec-poll-glyph" aria-hidden="true"><?php buddynext_icon( 'bar-chart-2' ); ?></span>
-				<?php echo '' !== $bn_kicker ? esc_html( __( 'Poll · ', 'buddynext' ) . $bn_kicker ) : esc_html__( 'Poll', 'buddynext' ); ?>
+				<?php
+				echo '' !== $bn_kicker
+					/* translators: %s: poll category/context label */
+					? esc_html( sprintf( __( 'Poll · %s', 'buddynext' ), $bn_kicker ) )
+					: esc_html__( 'Poll', 'buddynext' );
+				?>
 			</div>
 			<div class="ec-title"><?php echo esc_html( wp_trim_words( $bn_poll_q, 18, '…' ) ); ?></div>
 			<?php if ( $bn_poll_count > 0 ) : ?>
@@ -312,7 +321,12 @@ if ( 'post-forum' === $bn_kind ) :
 	<article class="ec-card is-forum span-tall" data-kind="post-forum">
 		<a class="ec-body" href="<?php echo esc_url( $bn_purl ); ?>">
 			<div class="ec-kicker">
-				<?php echo '' !== $bn_kicker ? esc_html( __( 'Discussion · ', 'buddynext' ) . $bn_kicker ) : esc_html__( 'Discussion', 'buddynext' ); ?>
+				<?php
+				echo '' !== $bn_kicker
+					/* translators: %s: discussion category/context label */
+					? esc_html( sprintf( __( 'Discussion · %s', 'buddynext' ), $bn_kicker ) )
+					: esc_html__( 'Discussion', 'buddynext' );
+				?>
 			</div>
 			<div class="ec-title"><?php echo esc_html( wp_trim_words( $bn_headline, 16, '…' ) ); ?></div>
 			<?php if ( '' !== $bn_excerpt ) : ?>

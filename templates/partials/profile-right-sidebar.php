@@ -278,7 +278,19 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 			</div>
 			<div>
 				<div class="bn-space-name"><?php echo esc_html( $space->name ); ?></div>
-				<div class="bn-space-role"><?php echo esc_html( ucfirst( (string) $space->role ) ); ?></div>
+				<?php
+					// Translated label for known space roles; unknown custom slugs
+					// fall back to a title-cased display (no registered translation).
+					$bn_prs_role_labels = array(
+						'admin'     => __( 'Admin', 'buddynext' ),
+						'moderator' => __( 'Moderator', 'buddynext' ),
+						'member'    => __( 'Member', 'buddynext' ),
+						'banned'    => __( 'Banned', 'buddynext' ),
+					);
+					$bn_prs_role       = (string) $space->role;
+					$bn_prs_role_label = $bn_prs_role_labels[ $bn_prs_role ] ?? ucfirst( $bn_prs_role );
+					?>
+					<div class="bn-space-role"><?php echo esc_html( $bn_prs_role_label ); ?></div>
 			</div>
 		</a>
 	<?php endforeach; ?>

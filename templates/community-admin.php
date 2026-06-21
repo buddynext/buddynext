@@ -437,7 +437,7 @@ $posts_pct_abs = abs( $posts_pct );
 										<?php
 										printf(
 											/* translators: 1: number of reporters, 2: time-ago string. */
-											esc_html__( '%1$s reporter(s) - %2$s', 'buddynext' ),
+											esc_html( _n( '%1$s reporter - %2$s', '%1$s reporters - %2$s', (int) $rpt_count, 'buddynext' ) ),
 											esc_html( number_format_i18n( $rpt_count ) ),
 											esc_html( $rpt_time )
 										);

@@ -106,11 +106,11 @@ do_action( 'buddynext_part_profile_edit_sidebar_before', $args );
 			<div class="bn-ep-preview-stats">
 				<div class="bn-ep-preview-stat">
 					<div class="bn-ep-preview-stat-num"><?php echo esc_html( $bn_posts ); ?></div>
-					<div class="bn-ep-preview-stat-lbl"><?php esc_html_e( 'Posts', 'buddynext' ); ?></div>
+					<div class="bn-ep-preview-stat-lbl"><?php echo esc_html( _n( 'Post', 'Posts', (int) $bn_posts, 'buddynext' ) ); ?></div>
 				</div>
 				<div class="bn-ep-preview-stat">
 					<div class="bn-ep-preview-stat-num"><?php echo esc_html( $bn_followers ); ?></div>
-					<div class="bn-ep-preview-stat-lbl"><?php esc_html_e( 'Followers', 'buddynext' ); ?></div>
+					<div class="bn-ep-preview-stat-lbl"><?php echo esc_html( _n( 'Follower', 'Followers', (int) $bn_followers, 'buddynext' ) ); ?></div>
 				</div>
 				<div class="bn-ep-preview-stat">
 					<div class="bn-ep-preview-stat-num"><?php echo esc_html( $bn_following ); ?></div>

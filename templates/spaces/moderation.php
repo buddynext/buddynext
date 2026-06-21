@@ -316,7 +316,21 @@ $mod_privacy = array(
 									</div>
 
 									<?php if ( ! empty( $r_reason ) ) : ?>
-										<span class="bn-badge" data-tone="<?php echo esc_attr( $r_tone ); ?>"><?php echo esc_html( ucfirst( $r_reason ) ); ?></span>
+										<?php
+										// Translated label for the fixed report-reason vocabulary;
+										// unknown slugs fall back to a title-cased display.
+										$bn_mod_reason_labels = array(
+											'spam'           => __( 'Spam', 'buddynext' ),
+											'harassment'     => __( 'Harassment', 'buddynext' ),
+											'misinformation' => __( 'Misinformation', 'buddynext' ),
+											'inappropriate'  => __( 'Inappropriate', 'buddynext' ),
+											'fake'           => __( 'Fake / scam', 'buddynext' ),
+											'impersonation'  => __( 'Impersonation', 'buddynext' ),
+											'other'          => __( 'Other', 'buddynext' ),
+										);
+										$bn_mod_reason_label = $bn_mod_reason_labels[ $r_reason ] ?? ucfirst( (string) $r_reason );
+										?>
+										<span class="bn-badge" data-tone="<?php echo esc_attr( $r_tone ); ?>"><?php echo esc_html( $bn_mod_reason_label ); ?></span>
 									<?php endif; ?>
 									<span class="bn-badge" data-tone="default">
 										<?php

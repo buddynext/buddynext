@@ -37,24 +37,27 @@ $bn_metrics_extra = isset( $extra_class ) ? trim( (string) $extra_class ) : '';
 		$bn_m_delta = null !== $bn_m->delta && '' !== $bn_m->delta
 			? sprintf( '<span class="bn-nav-metric__delta" data-trend="%1$s">%2$s</span>', esc_attr( $bn_m_trend ), esc_html( $bn_m->delta ) )
 			: '';
-		$bn_m_aria  = '' !== $bn_m_value ? sprintf( '%s %s', $bn_m_value, $bn_m->label ) : $bn_m->label;
+		// Prefer the count-aware label (e.g. "Follower" when the count is 1) so a
+		// metric never reads "1 Followers"; fall back to the static label otherwise.
+		$bn_m_label = null !== $bn_m->label_value ? $bn_m->label_value : $bn_m->label;
+		$bn_m_aria  = '' !== $bn_m_value ? sprintf( '%s %s', $bn_m_value, $bn_m_label ) : $bn_m_label;
 		?>
 		<?php if ( null !== $bn_m->tab ) : ?>
 			<button class="bn-nav-metric" type="button" data-wp-on--click="actions.setTab" data-tab="<?php echo esc_attr( $bn_m->tab ); ?>" aria-label="<?php echo esc_attr( $bn_m_aria ); ?>">
 				<span class="bn-nav-metric__value"><?php echo esc_html( $bn_m_value ); ?></span>
-				<span class="bn-nav-metric__label"><?php echo esc_html( $bn_m->label ); ?></span>
+				<span class="bn-nav-metric__label"><?php echo esc_html( $bn_m_label ); ?></span>
 				<?php echo $bn_m_delta; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above. ?>
 			</button>
 		<?php elseif ( null !== $bn_m->url_value ) : ?>
 			<a class="bn-nav-metric" href="<?php echo esc_url( (string) $bn_m->url_value ); ?>" aria-label="<?php echo esc_attr( $bn_m_aria ); ?>">
 				<span class="bn-nav-metric__value"><?php echo esc_html( $bn_m_value ); ?></span>
-				<span class="bn-nav-metric__label"><?php echo esc_html( $bn_m->label ); ?></span>
+				<span class="bn-nav-metric__label"><?php echo esc_html( $bn_m_label ); ?></span>
 				<?php echo $bn_m_delta; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above. ?>
 			</a>
 		<?php else : ?>
 			<span class="bn-nav-metric">
 				<span class="bn-nav-metric__value"><?php echo esc_html( $bn_m_value ); ?></span>
-				<span class="bn-nav-metric__label"><?php echo esc_html( $bn_m->label ); ?></span>
+				<span class="bn-nav-metric__label"><?php echo esc_html( $bn_m_label ); ?></span>
 				<?php echo $bn_m_delta; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above. ?>
 			</span>
 		<?php endif; ?>

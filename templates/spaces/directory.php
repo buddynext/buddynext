@@ -269,7 +269,7 @@ add_action(
 							<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo bn_space_side_emblem( $bn_f ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
 							<span class="bn-sd-side-row__main">
 								<span><?php echo esc_html( $bn_f['name'] ); ?></span>
-								<span class="bn-sd-side-row__meta"><?php echo esc_html( number_format_i18n( (int) $bn_f['member_count'] ) ); ?> <?php esc_html_e( 'members', 'buddynext' ); ?></span>
+								<span class="bn-sd-side-row__meta"><?php $bn_sd_mc = (int) $bn_f['member_count']; /* translators: %s: formatted member count */ printf( esc_html( _n( '%s member', '%s members', $bn_sd_mc, 'buddynext' ) ), esc_html( number_format_i18n( $bn_sd_mc ) ) ); ?></span>
 							</span>
 						</a>
 					</li>
@@ -618,7 +618,7 @@ $bn_subtitle = sprintf(
 							<span class="bn-sd-card__stat">
 								<?php
 								// translators: %s: member count.
-								printf( esc_html__( '%s members', 'buddynext' ), esc_html( $member_count ) );
+								printf( esc_html( _n( '%s member', '%s members', (int) ( $space['member_count'] ?? 0 ), 'buddynext' ) ), esc_html( $member_count ) );
 								?>
 							</span>
 						</div>
