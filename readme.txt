@@ -4,7 +4,7 @@ Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.2
-Stable tag: 1.0.0-beta1
+Stable tag: 1.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -56,8 +56,21 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 == Changelog ==
 
-= 1.0.0-beta1 =
-First public beta of BuddyNext 1.0. See CHANGELOG.md in the repository for the full per-release history.
+= 1.0.0 - June 2026 =
+
+First stable release of BuddyNext 1.0 - the community operating system for WordPress. See CHANGELOG.md in the repository for the full per-release history.
+
+* New      - Full translation readiness: every front-end template, admin label, and JavaScript module is internationalized and shipped with a complete buddynext.pot.
+* New      - Direct-message conversation info panel with shared media and safety actions; DM media opens in a full-bleed lightbox.
+* New      - Progressive Web App ships branded BuddyNext icons (192/512, maskable) for install-to-home-screen.
+* Improve  - Demo seeder indexes hashtags synchronously and seeds polls, bookmarks, and DM threads so every surface has content immediately.
+* Improve  - Achievements profile tab: per-standing stat icons and equal-height badge medallions.
+* Fix      - Profile and space feeds now honor viewer block/mute, closing a privacy leak.
+* Fix      - Hashtag pages no longer report "does not exist yet" for a freshly seeded tag.
+* Fix      - Profile headline saves instead of reverting, and member cards no longer duplicate the headline as the bio.
+* Fix      - Admin handlers no longer report success on a failed save or upload.
+* Security - Hardened all Plugin Check findings; zero security errors in first-party code.
+* Compat   - Pairs with BuddyNext Pro 1.0.0. Install both together.
 
 = 0.6.0-beta1 =
 
