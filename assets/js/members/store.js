@@ -18,6 +18,17 @@ import { bnToast, bnResolveConnectNote } from '../shell/dialog.js';
 import { restFetch } from '../shell/rest-client.js';
 import { onNavReady } from '../shell/nav-init.js';
 
+/* -- i18n -------------------------------------------------------------- */
+/* Translated strings are injected server-side into the Interactivity state
+ * (AssetService::i18n_members) because Script Modules cannot use
+ * wp_set_script_translations(). The dictionary is read once from the
+ * buddynext/members namespace below; each lookup keeps the English literal as a
+ * fallback so the UI never breaks if the state is absent. fmt() fills
+ * sprintf-style '%s' / '%d' placeholders in order. */
+let I18N = {};
+function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%[sd]/g, () => String( vals[ i++ ] ?? '' ) ); }
+
 const SEARCH_DEBOUNCE_MS = 250;
 const VIEW_STORAGE_KEY   = 'bn_members_view';
 
@@ -150,7 +161,7 @@ function syncPager( total ) {
 	for ( let n = 2; n <= near; n++ ) { nav.appendChild( linkBtn( n ) ); }
 	if ( pages > near + 1 ) { nav.appendChild( span( 'dots', '…', false ) ); }
 	if ( pages > near )     { nav.appendChild( linkBtn( pages ) ); }
-	nav.appendChild( linkBtn( 2, 'Next »' ) );
+	nav.appendChild( linkBtn( 2, t( 'pagerNext', 'Next »' ) ) );
 }
 
 /* Build a kebab-icon SVG using DOM nodes (no innerHTML). */
@@ -274,7 +285,7 @@ function buildCard( item ) {
 		const deg = document.createElement( 'span' );
 		deg.className = 'bn-md-card__degree';
 		deg.setAttribute( 'data-degree', String( degree ) );
-		deg.textContent = degree === 1 ? '1st' : '2nd';
+		deg.textContent = degree === 1 ? t( 'degreeFirst', '1st' ) : t( 'degreeSecond', '2nd' );
 		h3.appendChild( deg );
 	}
 	identity.appendChild( h3 );
@@ -330,8 +341,8 @@ function buildCard( item ) {
 		const mu = document.createElement( 'p' );
 		mu.className = 'bn-md-card__mutual';
 		mu.textContent = item.mutual_count === 1
-			? '1 mutual connection'
-			: item.mutual_count + ' mutual connections';
+			? t( 'mutualConnectionSingular', '1 mutual connection' )
+			: fmt( t( 'mutualConnectionPlural', '%d mutual connections' ), item.mutual_count );
 		body.appendChild( mu );
 	}
 
@@ -345,7 +356,7 @@ function buildCard( item ) {
 		view.setAttribute( 'data-variant', item.is_self ? 'secondary' : 'primary' );
 		view.setAttribute( 'data-size', 'sm' );
 		view.href = item.profile_url;
-		view.textContent = item.is_self ? 'Edit profile' : 'View profile';
+		view.textContent = item.is_self ? t( 'editProfile', 'Edit profile' ) : t( 'viewProfile', 'View profile' );
 		actions.appendChild( view );
 	} else {
 		// Follow — gated on the target's who_can_follow privacy (mirrors the
@@ -381,8 +392,8 @@ function buildCard( item ) {
 		decide.className = 'bn-md-card__connect-decide';
 		decide.hidden = cs !== 'pending-received';
 		[
-			{ label: 'Accept',  variant: 'primary', verb: 'accept' },
-			{ label: 'Decline', variant: 'ghost',   verb: 'decline' },
+			{ label: t( 'accept', 'Accept' ),  variant: 'primary', verb: 'accept' },
+			{ label: t( 'decline', 'Decline' ), variant: 'ghost',   verb: 'decline' },
 		].forEach( ( cfg ) => {
 			const b = document.createElement( 'button' );
 			b.type = 'button';
@@ -407,7 +418,7 @@ function buildCard( item ) {
  * one painter, so server-equivalent styling stays consistent. */
 function paintFollowBtn( btn, isFollowing ) {
 	if ( ! btn ) { return; }
-	btn.textContent = isFollowing ? 'Following' : 'Follow';
+	btn.textContent = isFollowing ? t( 'following', 'Following' ) : t( 'follow', 'Follow' );
 	btn.setAttribute( 'data-variant', isFollowing ? 'secondary' : 'primary' );
 	btn.setAttribute( 'data-state',   isFollowing ? 'following' : 'unfollowed' );
 }
@@ -419,7 +430,7 @@ function paintConnectBtn( btn, state ) {
 	const s = state || 'none';
 	const showPrimary = s === 'none' || s === 'pending-sent' || s === 'accepted';
 	btn.hidden = ! showPrimary;
-	btn.textContent = s === 'accepted' ? 'Connected' : ( s === 'pending-sent' ? 'Requested' : 'Connect' );
+	btn.textContent = s === 'accepted' ? t( 'connected', 'Connected' ) : ( s === 'pending-sent' ? t( 'requested', 'Requested' ) : t( 'connect', 'Connect' ) );
 	btn.setAttribute( 'data-variant', 'secondary' );
 	btn.setAttribute( 'data-state', s );
 }
@@ -431,7 +442,7 @@ function paintConnectBtn( btn, state ) {
  * actions (toggleFollow/toggleConnection/…) one-for-one. */
 
 function cardName( card ) {
-	return card.dataset.displayName || 'member';
+	return card.dataset.displayName || t( 'memberFallback', 'member' );
 }
 
 async function delegatedFollow( card, btn, cfg ) {
@@ -445,11 +456,11 @@ async function delegatedFollow( card, btn, cfg ) {
 			method: was ? 'DELETE' : 'POST', base: cfg.restUrl || undefined, nonce: cfg.restNonce, toastOnError: false,
 		} );
 		if ( ! res.ok ) { throw new Error( 'follow_failed_' + res.status ); }
-		bnToast( was ? 'Unfollowed @' + name : 'Now following @' + name, { tone: 'success' } );
+		bnToast( was ? fmt( t( 'toastUnfollowed', 'Unfollowed @%s' ), name ) : fmt( t( 'toastNowFollowing', 'Now following @%s' ), name ), { tone: 'success' } );
 	} catch ( _e ) {
 		card.dataset.following = was ? '1' : '0';
 		paintFollowBtn( btn, was );
-		bnToast( was ? 'Could not unfollow @' + name + '. Try again.' : 'Could not follow @' + name + '. Try again.', { tone: 'danger' } );
+		bnToast( was ? fmt( t( 'toastCouldNotUnfollow', 'Could not unfollow @%s. Try again.' ), name ) : fmt( t( 'toastCouldNotFollow', 'Could not follow @%s. Try again.' ), name ), { tone: 'danger' } );
 	}
 }
 
@@ -462,7 +473,7 @@ async function delegatedConnect( card, btn, cfg ) {
 
 	if ( cur === 'none' ) {
 		const note = await bnResolveConnectNote( {
-			body: 'Add a personal message to your request to @' + name + ', or send it without one.',
+			body: fmt( t( 'noteBody', 'Add a personal message to your request to @%s, or send it without one.' ), name ),
 		} );
 		if ( note === null ) { return; }
 		card.dataset.connection = 'pending-sent';
@@ -470,11 +481,11 @@ async function delegatedConnect( card, btn, cfg ) {
 		try {
 			const res = await restFetch( endpoint, { method: 'POST', base: cfg.restUrl || undefined, nonce: cfg.restNonce, body: { note }, toastOnError: false } );
 			if ( ! res.ok ) { throw new Error( 'connect_failed_' + res.status ); }
-			bnToast( 'Connection request sent to @' + name, { tone: 'success' } );
+			bnToast( fmt( t( 'toastConnectionSent', 'Connection request sent to @%s' ), name ), { tone: 'success' } );
 		} catch ( _e ) {
 			card.dataset.connection = 'none';
 			paintConnectBtn( btn, 'none' );
-			bnToast( 'Could not send request to @' + name + '. Try again.', { tone: 'danger' } );
+			bnToast( fmt( t( 'toastCouldNotSendRequest', 'Could not send request to @%s. Try again.' ), name ), { tone: 'danger' } );
 		}
 		return;
 	}
@@ -485,11 +496,11 @@ async function delegatedConnect( card, btn, cfg ) {
 		try {
 			const res = await restFetch( endpoint, { method: 'DELETE', base: cfg.restUrl || undefined, nonce: cfg.restNonce, toastOnError: false } );
 			if ( ! res.ok ) { throw new Error( 'connect_remove_failed_' + res.status ); }
-			bnToast( cur === 'accepted' ? 'Disconnected from @' + name : 'Request to @' + name + ' withdrawn', { tone: 'info' } );
+			bnToast( cur === 'accepted' ? fmt( t( 'toastDisconnected', 'Disconnected from @%s' ), name ) : fmt( t( 'toastRequestWithdrawn', 'Request to @%s withdrawn' ), name ), { tone: 'info' } );
 		} catch ( _e ) {
 			card.dataset.connection = cur;
 			paintConnectBtn( btn, cur );
-			bnToast( 'Could not update connection. Try again.', { tone: 'danger' } );
+			bnToast( t( 'toastCouldNotUpdateConnection', 'Could not update connection. Try again.' ), { tone: 'danger' } );
 		}
 	}
 }
@@ -507,12 +518,12 @@ async function delegatedDecide( card, accept, cfg ) {
 		const res = await restFetch( '/users/' + uid + '/connect/' + ( accept ? 'accept' : 'decline' ),
 			{ method: 'POST', base: cfg.restUrl || undefined, nonce: cfg.restNonce, toastOnError: false } );
 		if ( ! res.ok ) { throw new Error( 'decide_failed_' + res.status ); }
-		bnToast( accept ? 'Connected with @' + name : 'Request from @' + name + ' declined', { tone: accept ? 'success' : 'info' } );
+		bnToast( accept ? fmt( t( 'toastConnectedWith', 'Connected with @%s' ), name ) : fmt( t( 'toastRequestDeclined', 'Request from @%s declined' ), name ), { tone: accept ? 'success' : 'info' } );
 	} catch ( _e ) {
 		card.dataset.connection = prev;
 		if ( decideWrap ) { decideWrap.hidden = prev !== 'pending-received'; }
 		if ( primaryBtn ) { paintConnectBtn( primaryBtn, prev ); }
-		bnToast( accept ? 'Could not accept request. Try again.' : 'Could not decline request. Try again.', { tone: 'danger' } );
+		bnToast( accept ? t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ) : t( 'toastCouldNotDecline', 'Could not decline request. Try again.' ), { tone: 'danger' } );
 	}
 }
 
@@ -537,17 +548,17 @@ async function delegatedMute( card, btn, cfg ) {
 	const was  = card.dataset.muted === '1';
 	delegatedCloseKebab( card );
 	card.dataset.muted = was ? '0' : '1';
-	btn.textContent = was ? 'Mute' : 'Unmute';
+	btn.textContent = was ? t( 'mute', 'Mute' ) : t( 'unmute', 'Unmute' );
 	try {
 		const res = await restFetch( '/users/' + uid + '/mute', {
 			method: was ? 'DELETE' : 'POST', base: cfg.restUrl || undefined, nonce: cfg.restNonce, toastOnError: false,
 		} );
 		if ( ! res.ok ) { throw new Error( 'mute_failed' ); }
-		bnToast( was ? 'Unmuted @' + name : 'Muted @' + name, { tone: 'success' } );
+		bnToast( was ? fmt( t( 'toastUnmuted', 'Unmuted @%s' ), name ) : fmt( t( 'toastMuted', 'Muted @%s' ), name ), { tone: 'success' } );
 	} catch ( _e ) {
 		card.dataset.muted = was ? '1' : '0';
-		btn.textContent = was ? 'Unmute' : 'Mute';
-		bnToast( 'Could not update mute state. Try again.', { tone: 'danger' } );
+		btn.textContent = was ? t( 'unmute', 'Unmute' ) : t( 'mute', 'Mute' );
+		bnToast( t( 'toastCouldNotUpdateMute', 'Could not update mute state. Try again.' ), { tone: 'danger' } );
 	}
 }
 
@@ -562,7 +573,7 @@ function buildKebab( item ) {
 	const menuBtn = document.createElement( 'button' );
 	menuBtn.type = 'button';
 	menuBtn.className = 'bn-md-card__menu';
-	menuBtn.setAttribute( 'aria-label', 'More actions' );
+	menuBtn.setAttribute( 'aria-label', t( 'ariaMoreActions', 'More actions' ) );
 	menuBtn.setAttribute( 'aria-haspopup', 'true' );
 	menuBtn.setAttribute( 'aria-expanded', 'false' );
 	menuBtn.setAttribute( 'data-bn-action', 'kebab' );
@@ -576,12 +587,12 @@ function buildKebab( item ) {
 
 	const itemsCfg = [];
 	if ( ( ( item.connection && item.connection.state ) || 'none' ) === 'accepted' && item.messages_url ) {
-		itemsCfg.push( { label: 'Message', verb: '', href: item.messages_url } );
+		itemsCfg.push( { label: t( 'message', 'Message' ), verb: '', href: item.messages_url } );
 	}
 	itemsCfg.push(
-		{ label: item.is_muted ? 'Unmute' : 'Mute', verb: 'mute', danger: false, mute: true },
-		{ label: 'Block',  verb: 'block',  danger: true },
-		{ label: 'Report', verb: 'report', danger: true }
+		{ label: item.is_muted ? t( 'unmute', 'Unmute' ) : t( 'mute', 'Mute' ), verb: 'mute', danger: false, mute: true },
+		{ label: t( 'block', 'Block' ),  verb: 'block',  danger: true },
+		{ label: t( 'report', 'Report' ), verb: 'report', danger: true }
 	);
 	itemsCfg.forEach( ( cfg ) => {
 		const b = document.createElement( cfg.href ? 'a' : 'button' );
@@ -622,7 +633,7 @@ async function refresh( ctx ) {
 		syncPager( json.total );
 	} catch ( _e ) {
 		ctx.hasError = true;
-		ctx.error    = 'Could not load members. Check your connection and try again.';
+		ctx.error    = t( 'errorLoadMembers', 'Could not load members. Check your connection and try again.' );
 	} finally {
 		ctx.loading   = false;
 		ctx.searching = false;
@@ -631,7 +642,7 @@ async function refresh( ctx ) {
 
 /* -- Store ------------------------------------------------------------- */
 
-const memberStore = store( 'buddynext/members', {
+const membersStore = store( 'buddynext/members', {
 	state: {
 		get hasSearch()     { return ( getContext().search || '' ).length > 0; },
 		get isListView()    { return readView() === 'list'; },
@@ -656,7 +667,7 @@ const memberStore = store( 'buddynext/members', {
 
 		get cardFollowVariant() { return getContext().isFollowing ? 'secondary' : 'primary'; },
 		get cardFollowState()   { return getContext().isFollowing ? 'following' : 'unfollowed'; },
-		get cardFollowLabel()   { return getContext().isFollowing ? 'Following' : 'Follow'; },
+		get cardFollowLabel()   { return getContext().isFollowing ? t( 'following', 'Following' ) : t( 'follow', 'Follow' ); },
 
 		get cardConnectVariant() {
 			const s = getContext().connection;
@@ -666,9 +677,9 @@ const memberStore = store( 'buddynext/members', {
 		get cardConnectState() { return getContext().connection || 'none'; },
 		get cardConnectLabel() {
 			const s = getContext().connection;
-			if ( s === 'accepted' )     { return 'Connected'; }
-			if ( s === 'pending-sent' ) { return 'Requested'; }
-			return 'Connect';
+			if ( s === 'accepted' )     { return t( 'connected', 'Connected' ); }
+			if ( s === 'pending-sent' ) { return t( 'requested', 'Requested' ); }
+			return t( 'connect', 'Connect' );
 		},
 		get cardShowConnect() {
 			const s = getContext().connection;
@@ -677,7 +688,7 @@ const memberStore = store( 'buddynext/members', {
 		get cardShowReceived() { return getContext().connection === 'pending-received'; },
 		get cardMenuOpen()     { return !! getContext().menuOpen; },
 		get cardMenuExpanded() { return getContext().menuOpen ? 'true' : 'false'; },
-		get cardMuteLabel()    { return getContext().isMuted ? 'Unmute' : 'Mute'; },
+		get cardMuteLabel()    { return getContext().isMuted ? t( 'unmute', 'Unmute' ) : t( 'mute', 'Mute' ); },
 	},
 	callbacks: {
 		init() {
@@ -869,7 +880,7 @@ const memberStore = store( 'buddynext/members', {
 			const ctx     = getContext();
 			if ( ctx.busy ) { return; }
 			const wasFollow = !! ctx.isFollowing;
-			const name    = ctx.displayName || 'member';
+			const name    = ctx.displayName || t( 'memberFallback', 'member' );
 			ctx.busy = true;
 			ctx.isFollowing = ! wasFollow;
 			try {
@@ -881,15 +892,15 @@ const memberStore = store( 'buddynext/members', {
 				} );
 				if ( ! res.ok ) { throw new Error( 'follow_failed_' + res.status ); }
 				bnToast(
-					wasFollow ? 'Unfollowed @' + name : 'Now following @' + name,
+					wasFollow ? fmt( t( 'toastUnfollowed', 'Unfollowed @%s' ), name ) : fmt( t( 'toastNowFollowing', 'Now following @%s' ), name ),
 					{ tone: 'success' }
 				);
 			} catch ( _e ) {
 				ctx.isFollowing = wasFollow;
 				bnToast(
 					wasFollow
-						? 'Could not unfollow @' + name + '. Try again.'
-						: 'Could not follow @' + name + '. Try again.',
+						? fmt( t( 'toastCouldNotUnfollow', 'Could not unfollow @%s. Try again.' ), name )
+						: fmt( t( 'toastCouldNotFollow', 'Could not follow @%s. Try again.' ), name ),
 					{ tone: 'danger' }
 				);
 			} finally {
@@ -901,12 +912,12 @@ const memberStore = store( 'buddynext/members', {
 			const ctx  = getContext();
 			if ( ctx.busy ) { return; }
 			const cur  = ctx.connection || 'none';
-			const name = ctx.displayName || 'member';
+			const name = ctx.displayName || t( 'memberFallback', 'member' );
 			if ( cur === 'pending-received' ) { return; }
 			if ( cur === 'none' ) {
 				// LinkedIn-style optional note. Cancelling leaves the button as-is.
 				const note = await bnResolveConnectNote( {
-					body: 'Add a personal message to your request to @' + name + ', or send it without one.',
+					body: fmt( t( 'noteBody', 'Add a personal message to your request to @%s, or send it without one.' ), name ),
 				} );
 				if ( note === null ) { return; }
 				ctx.busy = true;
@@ -920,10 +931,10 @@ const memberStore = store( 'buddynext/members', {
 						toastOnError: false,
 					} );
 					if ( ! res.ok ) { throw new Error( 'connect_failed_' + res.status ); }
-					bnToast( 'Connection request sent to @' + name, { tone: 'success' } );
+					bnToast( fmt( t( 'toastConnectionSent', 'Connection request sent to @%s' ), name ), { tone: 'success' } );
 				} catch ( _e ) {
 					ctx.connection = 'none';
-					bnToast( 'Could not send request to @' + name + '. Try again.', { tone: 'danger' } );
+					bnToast( fmt( t( 'toastCouldNotSendRequest', 'Could not send request to @%s. Try again.' ), name ), { tone: 'danger' } );
 				} finally {
 					ctx.busy = false;
 				}
@@ -940,10 +951,10 @@ const memberStore = store( 'buddynext/members', {
 						toastOnError: false,
 					} );
 					if ( ! res.ok ) { throw new Error( 'withdraw_failed_' + res.status ); }
-					bnToast( 'Request to @' + name + ' withdrawn', { tone: 'info' } );
+					bnToast( fmt( t( 'toastRequestWithdrawn', 'Request to @%s withdrawn' ), name ), { tone: 'info' } );
 				} catch ( _e ) {
 					ctx.connection = 'pending-sent';
-					bnToast( 'Could not withdraw request. Try again.', { tone: 'danger' } );
+					bnToast( t( 'toastCouldNotWithdraw', 'Could not withdraw request. Try again.' ), { tone: 'danger' } );
 				} finally {
 					ctx.busy = false;
 				}
@@ -960,10 +971,10 @@ const memberStore = store( 'buddynext/members', {
 						toastOnError: false,
 					} );
 					if ( ! res.ok ) { throw new Error( 'disconnect_failed_' + res.status ); }
-					bnToast( 'Disconnected from @' + name, { tone: 'info' } );
+					bnToast( fmt( t( 'toastDisconnected', 'Disconnected from @%s' ), name ), { tone: 'info' } );
 				} catch ( _e ) {
 					ctx.connection = 'accepted';
-					bnToast( 'Could not disconnect. Try again.', { tone: 'danger' } );
+					bnToast( t( 'toastCouldNotDisconnect', 'Could not disconnect. Try again.' ), { tone: 'danger' } );
 				} finally {
 					ctx.busy = false;
 				}
@@ -973,7 +984,7 @@ const memberStore = store( 'buddynext/members', {
 		async acceptConnection() {
 			const ctx  = getContext();
 			if ( ctx.busy ) { return; }
-			const name = ctx.displayName || 'member';
+			const name = ctx.displayName || t( 'memberFallback', 'member' );
 			const prev = ctx.connection;
 			ctx.busy = true;
 			ctx.connection = 'accepted';
@@ -985,10 +996,10 @@ const memberStore = store( 'buddynext/members', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'accept_failed_' + res.status ); }
-				bnToast( 'Connected with @' + name, { tone: 'success' } );
+				bnToast( fmt( t( 'toastConnectedWith', 'Connected with @%s' ), name ), { tone: 'success' } );
 			} catch ( _e ) {
 				ctx.connection = prev;
-				bnToast( 'Could not accept request. Try again.', { tone: 'danger' } );
+				bnToast( t( 'toastCouldNotAccept', 'Could not accept request. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.busy = false;
 			}
@@ -997,7 +1008,7 @@ const memberStore = store( 'buddynext/members', {
 		async declineConnection() {
 			const ctx  = getContext();
 			if ( ctx.busy ) { return; }
-			const name = ctx.displayName || 'member';
+			const name = ctx.displayName || t( 'memberFallback', 'member' );
 			const prev = ctx.connection;
 			ctx.busy = true;
 			ctx.connection = 'none';
@@ -1009,10 +1020,10 @@ const memberStore = store( 'buddynext/members', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'decline_failed_' + res.status ); }
-				bnToast( 'Request from @' + name + ' declined', { tone: 'info' } );
+				bnToast( fmt( t( 'toastRequestDeclined', 'Request from @%s declined' ), name ), { tone: 'info' } );
 			} catch ( _e ) {
 				ctx.connection = prev;
-				bnToast( 'Could not decline request. Try again.', { tone: 'danger' } );
+				bnToast( t( 'toastCouldNotDecline', 'Could not decline request. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.busy = false;
 			}
@@ -1048,7 +1059,7 @@ const memberStore = store( 'buddynext/members', {
 
 		async toggleMute() {
 			const ctx  = getContext();
-			const name = ctx.displayName || 'member';
+			const name = ctx.displayName || t( 'memberFallback', 'member' );
 			const was  = !! ctx.isMuted;
 			ctx.isMuted  = ! was;
 			ctx.menuOpen = false;
@@ -1060,10 +1071,10 @@ const memberStore = store( 'buddynext/members', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'mute_failed' ); }
-				bnToast( was ? 'Unmuted @' + name : 'Muted @' + name, { tone: 'success' } );
+				bnToast( was ? fmt( t( 'toastUnmuted', 'Unmuted @%s' ), name ) : fmt( t( 'toastMuted', 'Muted @%s' ), name ), { tone: 'success' } );
 			} catch ( _e ) {
 				ctx.isMuted = was;
-				bnToast( 'Could not update mute state. Try again.', { tone: 'danger' } );
+				bnToast( t( 'toastCouldNotUpdateMute', 'Could not update mute state. Try again.' ), { tone: 'danger' } );
 			}
 		},
 
@@ -1090,6 +1101,10 @@ const memberStore = store( 'buddynext/members', {
 		},
 	},
 } );
+
+// The server merges the injected dictionary into this namespace's state; read it
+// once here so every helper + action above resolves translated copy at runtime.
+I18N = ( membersStore.state && membersStore.state.i18n ) || {};
 
 /* -- Vanilla modal openers for the cross-surface block + report flows -- */
 
@@ -1136,7 +1151,7 @@ function openBlockModal( userId, displayName, originEl ) {
 	modal.dataset.targetName = String( displayName || '' );
 	const title = modal.querySelector( '.bn-modal__title' );
 	if ( title ) {
-		title.textContent = displayName ? 'Block ' + displayName + '?' : 'Block this member?';
+		title.textContent = displayName ? fmt( t( 'blockTitleNamed', 'Block %s?' ), displayName ) : t( 'blockTitleGeneric', 'Block this member?' );
 	}
 	modal.hidden = false;
 
@@ -1153,7 +1168,7 @@ function openBlockModal( userId, displayName, originEl ) {
 				cta.setAttribute( 'aria-disabled', 'true' );
 				const { restUrl, restNonce: nonce } = getModalSettings();
 				const targetId = parseInt( modal.dataset.targetId || '0', 10 );
-				const name     = modal.dataset.targetName || 'member';
+				const name     = modal.dataset.targetName || t( 'memberFallback', 'member' );
 				try {
 					const res = await restFetch(
 						'/users/' + targetId + '/block',
@@ -1161,11 +1176,11 @@ function openBlockModal( userId, displayName, originEl ) {
 					);
 					if ( ! res.ok ) { throw new Error( 'block_failed' ); }
 					modal.hidden = true;
-					bnToast( '@' + name + ' blocked', { tone: 'success' } );
+					bnToast( fmt( t( 'toastBlocked', '@%s blocked' ), name ), { tone: 'success' } );
 					const card = document.querySelector( '.bn-md-card[data-user-id="' + targetId + '"]' );
 					if ( card ) { card.remove(); }
 				} catch ( _e ) {
-					bnToast( 'Could not block. Try again.', { tone: 'danger' } );
+					bnToast( t( 'toastCouldNotBlock', 'Could not block. Try again.' ), { tone: 'danger' } );
 				} finally {
 					cta.dataset.submitting = '';
 					cta.removeAttribute( 'aria-disabled' );
@@ -1223,13 +1238,13 @@ function openReportModal( targetType, targetId, displayName, originEl ) {
 						// already reported this member." — instead of a generic
 						// failure the user misreads as "the submit failed, retry".
 						const data = res.data || {};
-						bnToast( data.message || 'Could not submit report. Try again.', { tone: 'danger' } );
+						bnToast( data.message || t( 'toastCouldNotReport', 'Could not submit report. Try again.' ), { tone: 'danger' } );
 						return;
 					}
 					modal.hidden = true;
-					bnToast( 'Report submitted. Thanks for keeping the community safe.', { tone: 'success' } );
+					bnToast( t( 'toastReportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
 				} catch ( _e ) {
-					bnToast( 'Could not submit report. Try again.', { tone: 'danger' } );
+					bnToast( t( 'toastCouldNotReport', 'Could not submit report. Try again.' ), { tone: 'danger' } );
 				} finally {
 					cta.dataset.submitting = '';
 					cta.removeAttribute( 'aria-disabled' );
@@ -1251,4 +1266,4 @@ function bindOnce( el, flag, fn ) {
 
 onNavReady( () => { applyViewClass( readView() ); } );
 
-export default memberStore;
+export default membersStore;

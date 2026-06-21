@@ -4,6 +4,17 @@ import { bnConfirm, bnPrompt, bnReportDialog, bnToast } from '../shell/dialog.js
 import { restFetch } from '../shell/rest-client.js';
 import { onNavReady } from '../shell/nav-init.js';
 
+/* -- i18n -------------------------------------------------------------- */
+/* Translated strings are injected server-side into the Interactivity state
+ * (AssetService::i18n_feed) because Script Modules cannot use
+ * wp_set_script_translations(). The dictionary is read once from the
+ * buddynext/feed namespace below and shared by every store in this file; each
+ * lookup keeps the English literal as a fallback so the UI never breaks if the
+ * state is absent. fmt() fills sprintf-style '%s'/'%d' placeholders. */
+let I18N = {};
+function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
+
 /* ── Comment helpers (vanilla DOM — outside WP Interactivity API scope) ── */
 
 function timeAgo( dateStr ) {
@@ -15,10 +26,10 @@ function timeAgo( dateStr ) {
 	const raw = String( dateStr );
 	const iso = /[zZ]|[+-]\d\d:?\d\d$/.test( raw ) ? raw : raw.replace( ' ', 'T' ) + 'Z';
 	const secs = Math.floor( ( Date.now() - new Date( iso ).getTime() ) / 1000 );
-	if ( secs < 60 )    return 'just now';
-	if ( secs < 3600 )  return Math.floor( secs / 60 ) + 'm ago';
-	if ( secs < 86400 ) return Math.floor( secs / 3600 ) + 'h ago';
-	return Math.floor( secs / 86400 ) + 'd ago';
+	if ( secs < 60 )    return t( 'timeJustNow', 'just now' );
+	if ( secs < 3600 )  return fmt( t( 'timeMinutesAgo', '%dm ago' ), Math.floor( secs / 60 ) );
+	if ( secs < 86400 ) return fmt( t( 'timeHoursAgo', '%dh ago' ), Math.floor( secs / 3600 ) );
+	return fmt( t( 'timeDaysAgo', '%dd ago' ), Math.floor( secs / 86400 ) );
 }
 
 /**
@@ -207,7 +218,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 	header.className = 'bn-comment__header';
 	const authorSpan = document.createElement( 'span' );
 	authorSpan.className = 'bn-comment__author';
-	authorSpan.textContent = comment.author_name || 'User';
+	authorSpan.textContent = comment.author_name || t( 'user', 'User' );
 	header.appendChild( authorSpan );
 
 	// Server-provided author badges/roles (built via the buddynext_comment_author_meta_html
@@ -222,7 +233,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 	if ( comment.pinned ) {
 		const pinBadge = document.createElement( 'span' );
 		pinBadge.className = 'bn-comment__pinned-badge';
-		pinBadge.textContent = 'Pinned';
+		pinBadge.textContent = t( 'pinned', 'Pinned' );
 		header.appendChild( pinBadge );
 	}
 	const timeEl = document.createElement( 'time' );
@@ -232,7 +243,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 	if ( comment.is_edited && ! comment.is_deleted ) {
 		const editedMark = document.createElement( 'span' );
 		editedMark.className = 'bn-comment__edited';
-		editedMark.textContent = '(edited)';
+		editedMark.textContent = t( 'edited', '(edited)' );
 		header.appendChild( editedMark );
 	}
 	body.appendChild( header );
@@ -241,7 +252,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 	const para = document.createElement( 'p' );
 	para.className = 'bn-comment__content';
 	if ( comment.is_deleted ) {
-		para.textContent  = 'This comment was deleted.';
+		para.textContent  = t( 'commentDeleted', 'This comment was deleted.' );
 		para.dataset.placeholder = '1';
 	} else if ( comment.content_html ) {
 		// Server-formatted + sanitized markup (escaped user text with @mention
@@ -288,7 +299,12 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		const emojiBase = list ? list.dataset.emojiBase : '';
 		const REACTIONS = [ 'like', 'love', 'haha', 'wow', 'sad', 'angry' ];
 		const REACTION_LABELS = {
-			like: 'Like', love: 'Love', haha: 'Haha', wow: 'Wow', sad: 'Sad', angry: 'Angry',
+			like:  t( 'reactionLike', 'Like' ),
+			love:  t( 'reactionLove', 'Love' ),
+			haha:  t( 'reactionHaha', 'Haha' ),
+			wow:   t( 'reactionWow', 'Wow' ),
+			sad:   t( 'reactionSad', 'Sad' ),
+			angry: t( 'reactionAngry', 'Angry' ),
 		};
 
 		const setReactionIcon = ( parent, type ) => {
@@ -324,8 +340,8 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		const reactLabel = document.createElement( 'span' );
 		reactLabel.className = 'bn-comment__like-label';
 		reactLabel.textContent = reactBtn.dataset.reaction
-			? ( REACTION_LABELS[ reactBtn.dataset.reaction ] || 'React' )
-			: 'React';
+			? ( REACTION_LABELS[ reactBtn.dataset.reaction ] || t( 'react', 'React' ) )
+			: t( 'react', 'React' );
 
 		const reactCount = document.createElement( 'span' );
 		reactCount.className = 'bn-comment__like-count';
@@ -342,7 +358,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		picker.className = 'bn-comment__react-picker';
 		picker.hidden = true;
 		picker.setAttribute( 'role', 'toolbar' );
-		picker.setAttribute( 'aria-label', 'Choose reaction' );
+		picker.setAttribute( 'aria-label', t( 'chooseReaction', 'Choose reaction' ) );
 		REACTIONS.forEach( ( type ) => {
 			const opt = document.createElement( 'button' );
 			opt.type = 'button';
@@ -426,7 +442,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 
 		async function sendReaction( type ) {
 			if ( currentUserId <= 0 ) {
-				bnToast( 'Sign in to react to comments.', { tone: 'info' } );
+				bnToast( t( 'signInToReact', 'Sign in to react to comments.' ), { tone: 'info' } );
 				return;
 			}
 			picker.hidden = true;
@@ -437,7 +453,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			reactBtn.dataset.liked = next ? '1' : '0';
 			reactBtn.setAttribute( 'aria-pressed', next ? 'true' : 'false' );
 			setReactionIcon( reactIcon, next );
-			reactLabel.textContent = next ? ( REACTION_LABELS[ next ] || 'React' ) : 'React';
+			reactLabel.textContent = next ? ( REACTION_LABELS[ next ] || t( 'react', 'React' ) ) : t( 'react', 'React' );
 			const cur = parseInt( reactCount.textContent || '0', 10 );
 			let delta = 0;
 			if ( ! prev && next ) { delta = 1; }
@@ -462,9 +478,9 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 				reactBtn.dataset.liked = prev ? '1' : '0';
 				reactBtn.setAttribute( 'aria-pressed', prev ? 'true' : 'false' );
 				setReactionIcon( reactIcon, prev );
-				reactLabel.textContent = prev ? ( REACTION_LABELS[ prev ] || 'React' ) : 'React';
+				reactLabel.textContent = prev ? ( REACTION_LABELS[ prev ] || t( 'react', 'React' ) ) : t( 'react', 'React' );
 				reactCount.textContent = String( cur );
-				bnToast( 'Could not update your reaction. Try again.', { tone: 'danger' } );
+				bnToast( t( 'reactionUpdateFailed', 'Could not update your reaction. Try again.' ), { tone: 'danger' } );
 			}
 		}
 
@@ -476,7 +492,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		const replyBtn = document.createElement( 'button' );
 		replyBtn.type = 'button';
 		replyBtn.className = 'bn-comment__reply-btn';
-		replyBtn.textContent = 'Reply';
+		replyBtn.textContent = t( 'reply', 'Reply' );
 		actions.appendChild( replyBtn );
 	}
 
@@ -485,7 +501,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		const editBtn = document.createElement( 'button' );
 		editBtn.type = 'button';
 		editBtn.className = 'bn-comment__edit-btn';
-		editBtn.textContent = 'Edit';
+		editBtn.textContent = t( 'edit', 'Edit' );
 		editBtn.addEventListener( 'click', () => {
 			if ( body.querySelector( '.bn-comment__edit-form' ) ) {
 				return;
@@ -499,11 +515,11 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			const saveBtn = document.createElement( 'button' );
 			saveBtn.type = 'button';
 			saveBtn.className = 'bn-comment-form__submit';
-			saveBtn.textContent = 'Save';
+			saveBtn.textContent = t( 'save', 'Save' );
 			const cancelBtn = document.createElement( 'button' );
 			cancelBtn.type = 'button';
 			cancelBtn.className = 'bn-comment__reply-cancel';
-			cancelBtn.textContent = 'Cancel';
+			cancelBtn.textContent = t( 'cancel', 'Cancel' );
 			editForm.appendChild( ta );
 			// Footer action row so the emoji trigger + Save + Cancel sit on one
 			// line instead of each stretching full-width down the column (the
@@ -521,10 +537,10 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 				emojiBtn.type = 'button';
 				emojiBtn.className = 'bn-emoji-trigger bn-comment__emoji-trigger';
 				emojiBtn.dataset.bnEmojiTarget = '[data-bn-emoji-field="' + taField + '"]';
-				emojiBtn.setAttribute( 'aria-label', 'Insert emoji' );
+				emojiBtn.setAttribute( 'aria-label', t( 'insertEmoji', 'Insert emoji' ) );
 				emojiBtn.setAttribute( 'aria-haspopup', 'true' );
 				emojiBtn.setAttribute( 'aria-expanded', 'false' );
-				emojiBtn.title = 'Insert emoji';
+				emojiBtn.title = t( 'insertEmoji', 'Insert emoji' );
 				// Reuse the bundled "grin" SVG glyph as the trigger face so no
 				// emoji character is hardcoded; falls back to a text label.
 				const emojiBase = bnEmojiAssetBase();
@@ -536,7 +552,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 					gi.height = 18;
 					emojiBtn.appendChild( gi );
 				} else {
-					emojiBtn.textContent = 'Emoji';
+					emojiBtn.textContent = t( 'emoji', 'Emoji' );
 				}
 				editActions.appendChild( emojiBtn );
 			}
@@ -568,17 +584,17 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 						if ( ! body.querySelector( '.bn-comment__edited' ) ) {
 							const editedMark = document.createElement( 'span' );
 							editedMark.className = 'bn-comment__edited';
-							editedMark.textContent = '(edited)';
+							editedMark.textContent = t( 'edited', '(edited)' );
 							header.appendChild( editedMark );
 						}
 						editForm.remove();
 						para.hidden = false;
-						bnToast( 'Comment updated', { tone: 'success' } );
+						bnToast( t( 'commentUpdated', 'Comment updated' ), { tone: 'success' } );
 					} else {
-						bnToast( 'Could not update comment. Try again.', { tone: 'danger' } );
+						bnToast( t( 'commentUpdateFailed', 'Could not update comment. Try again.' ), { tone: 'danger' } );
 					}
 				} catch ( _e ) {
-					bnToast( 'Could not update comment. Try again.', { tone: 'danger' } );
+					bnToast( t( 'commentUpdateFailed', 'Could not update comment. Try again.' ), { tone: 'danger' } );
 				}
 			} );
 		} );
@@ -590,12 +606,12 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		const delBtn = document.createElement( 'button' );
 		delBtn.type = 'button';
 		delBtn.className = 'bn-comment__delete-btn';
-		delBtn.textContent = 'Delete';
+		delBtn.textContent = t( 'delete', 'Delete' );
 		delBtn.addEventListener( 'click', async () => {
 			const ok = await bnConfirm( {
-				title: 'Delete this comment?',
-				body: 'This cannot be undone.',
-				confirmLabel: 'Delete',
+				title: t( 'deleteCommentTitle', 'Delete this comment?' ),
+				body: t( 'cannotBeUndone', 'This cannot be undone.' ),
+				confirmLabel: t( 'delete', 'Delete' ),
 				tone: 'danger',
 			} );
 			if ( ! ok ) {
@@ -607,14 +623,14 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			if ( res.ok ) {
 				// Soft-delete: replace text + grey out, preserve thread.
 				wrap.classList.add( 'bn-comment-card--deleted' );
-				para.textContent = 'This comment was deleted.';
+				para.textContent = t( 'commentDeleted', 'This comment was deleted.' );
 				para.dataset.placeholder = '1';
 				para.hidden = false;
 				actions.remove();
 				adjustCommentCount( postId, -1 );
-				bnToast( 'Comment deleted', { tone: 'success' } );
+				bnToast( t( 'commentDeletedToast', 'Comment deleted' ), { tone: 'success' } );
 			} else {
-				bnToast( 'Could not delete comment. Try again.', { tone: 'danger' } );
+				bnToast( t( 'commentDeleteFailed', 'Could not delete comment. Try again.' ), { tone: 'danger' } );
 			}
 		} );
 		actions.appendChild( delBtn );
@@ -625,7 +641,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		const pinBtn = document.createElement( 'button' );
 		pinBtn.type = 'button';
 		pinBtn.className = 'bn-comment__pin-btn';
-		pinBtn.textContent = comment.pinned ? 'Unpin' : 'Pin';
+		pinBtn.textContent = comment.pinned ? t( 'unpin', 'Unpin' ) : t( 'pin', 'Pin' );
 		pinBtn.addEventListener( 'click', async () => {
 			const wasPinned = wrap.classList.contains( 'bn-comment-card--pinned' );
 			try {
@@ -636,22 +652,22 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 				} );
 				if ( res.ok ) {
 					wrap.classList.toggle( 'bn-comment-card--pinned', ! wasPinned );
-					pinBtn.textContent = wasPinned ? 'Pin' : 'Unpin';
+					pinBtn.textContent = wasPinned ? t( 'pin', 'Pin' ) : t( 'unpin', 'Unpin' );
 					const existing = header.querySelector( '.bn-comment__pinned-badge' );
 					if ( wasPinned && existing ) {
 						existing.remove();
 					} else if ( ! wasPinned && ! existing ) {
 						const pinBadge = document.createElement( 'span' );
 						pinBadge.className = 'bn-comment__pinned-badge';
-						pinBadge.textContent = 'Pinned';
+						pinBadge.textContent = t( 'pinned', 'Pinned' );
 						header.insertBefore( pinBadge, timeEl );
 					}
-					bnToast( wasPinned ? 'Comment unpinned' : 'Comment pinned', { tone: 'success' } );
+					bnToast( wasPinned ? t( 'commentUnpinned', 'Comment unpinned' ) : t( 'commentPinned', 'Comment pinned' ), { tone: 'success' } );
 				} else {
-					bnToast( 'Could not change pin status. Try again.', { tone: 'danger' } );
+					bnToast( t( 'pinStatusFailed', 'Could not change pin status. Try again.' ), { tone: 'danger' } );
 				}
 			} catch ( _e ) {
-				bnToast( 'Could not change pin status. Try again.', { tone: 'danger' } );
+				bnToast( t( 'pinStatusFailed', 'Could not change pin status. Try again.' ), { tone: 'danger' } );
 			}
 		} );
 		actions.appendChild( pinBtn );
@@ -662,11 +678,11 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		const reportBtn = document.createElement( 'button' );
 		reportBtn.type = 'button';
 		reportBtn.className = 'bn-comment__report-btn';
-		reportBtn.setAttribute( 'aria-label', 'Report this comment' );
-		reportBtn.textContent = 'Report';
+		reportBtn.setAttribute( 'aria-label', t( 'reportComment', 'Report this comment' ) );
+		reportBtn.textContent = t( 'report', 'Report' );
 		reportBtn.addEventListener( 'click', async () => {
 			const result = await bnReportDialog( {
-				title: 'Report this comment',
+				title: t( 'reportComment', 'Report this comment' ),
 			} );
 			if ( result === null ) {
 				return;
@@ -684,15 +700,15 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 					},
 				} );
 				if ( res.ok || res.status === 201 ) {
-					bnToast( 'Report submitted. Thanks for keeping the community safe.', { tone: 'success' } );
+					bnToast( t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
 				} else {
 					// Surface the server's reason (e.g. the 409 "already reported"
 					// message) instead of a generic failure the user reads as "retry".
 					const data = res.data || {};
-					bnToast( data.message || 'Could not submit report. Try again.', { tone: 'danger' } );
+					bnToast( data.message || t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
 				}
 			} catch ( _e ) {
-				bnToast( 'Could not submit report. Try again.', { tone: 'danger' } );
+				bnToast( t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
 			}
 		} );
 		actions.appendChild( reportBtn );
@@ -710,21 +726,21 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		// bn-feed.css) so it no longer collides with the post-level comment
 		// input's class.
 		replyTextarea.className = 'bn-comment__reply-input';
-		replyTextarea.placeholder = 'Write a reply...';
+		replyTextarea.placeholder = t( 'writeReply', 'Write a reply...' );
 		replyTextarea.rows = 1;
 		replyForm.appendChild( replyTextarea );
 
 		const replySubmit = document.createElement( 'button' );
 		replySubmit.type = 'button';
 		replySubmit.className = 'bn-comment-form__submit';
-		replySubmit.setAttribute( 'aria-label', 'Post reply' );
-		replySubmit.textContent = 'Reply';
+		replySubmit.setAttribute( 'aria-label', t( 'postReply', 'Post reply' ) );
+		replySubmit.textContent = t( 'reply', 'Reply' );
 		replyForm.appendChild( replySubmit );
 
 		const replyCancel = document.createElement( 'button' );
 		replyCancel.type = 'button';
 		replyCancel.className = 'bn-comment__reply-cancel';
-		replyCancel.textContent = 'Cancel';
+		replyCancel.textContent = t( 'cancel', 'Cancel' );
 		replyForm.appendChild( replyCancel );
 
 		body.appendChild( replyForm );
@@ -761,10 +777,10 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 					replyForm.hidden    = true;
 					adjustCommentCount( postId, 1 );
 				} else {
-					bnToast( 'Could not post reply. Try again.', { tone: 'danger' } );
+					bnToast( t( 'replyFailed', 'Could not post reply. Try again.' ), { tone: 'danger' } );
 				}
 			} catch ( _e ) {
-				bnToast( 'Could not post reply. Try again.', { tone: 'danger' } );
+				bnToast( t( 'replyFailed', 'Could not post reply. Try again.' ), { tone: 'danger' } );
 			}
 		} );
 	}
@@ -801,7 +817,7 @@ function adjustCommentCount( postId, delta ) {
 	const n = Math.max( 0, parseInt( span.textContent || '0', 10 ) + delta );
 	span.textContent = String( n );
 	span.hidden = ( 0 === n );
-	btn.setAttribute( 'aria-label', 1 === n ? '1 comment' : n + ' comments' );
+	btn.setAttribute( 'aria-label', 1 === n ? t( 'oneComment', '1 comment' ) : fmt( t( 'manyComments', '%d comments' ), n ) );
 }
 
 /* ── Reactors popover row builder ─────────────────────────────────────────
@@ -825,7 +841,7 @@ function buildReactorRow( r, emojiBase ) {
 	}
 	const name = document.createElement( 'span' );
 	name.className = 'bn-reactors-popover__name';
-	name.textContent = r.display_name || ( 'User #' + r.user_id );
+	name.textContent = r.display_name || fmt( t( 'userNumber', 'User #%s' ), r.user_id );
 	li.appendChild( name );
 	if ( r.emoji && emojiBase ) {
 		const img = document.createElement( 'img' );
@@ -896,11 +912,11 @@ function* bnLoadComments( ctx ) {
 			const err = document.createElement( 'div' );
 			err.className = 'bn-comment-error';
 			err.setAttribute( 'role', 'alert' );
-			err.textContent = 'Could not load comments. ';
+			err.textContent = t( 'commentsLoadFailed', 'Could not load comments. ' );
 			const retry = document.createElement( 'button' );
 			retry.type = 'button';
 			retry.className = 'bn-comment-error__retry';
-			retry.textContent = 'Retry';
+			retry.textContent = t( 'retry', 'Retry' );
 			retry.addEventListener( 'click', () => {
 				delete listEl.dataset.loaded;
 				ctx.commentsOpen = false;
@@ -916,7 +932,7 @@ function* bnLoadComments( ctx ) {
 		const err = document.createElement( 'div' );
 		err.className = 'bn-comment-error';
 		err.setAttribute( 'role', 'alert' );
-		err.textContent = 'Network error. Comments could not be loaded.';
+		err.textContent = t( 'commentsNetworkError', 'Network error. Comments could not be loaded.' );
 		listEl.appendChild( err );
 	}
 }
@@ -964,8 +980,8 @@ store( 'buddynext/post-card', {
 		get reactionLabel() {
 			try {
 				const ctx = getContext();
-				return ctx.reactionLabel || ctx.reactDefaultLabel || 'React';
-			} catch ( _e ) { return 'React'; }
+				return ctx.reactionLabel || ctx.reactDefaultLabel || t( 'react', 'React' );
+			} catch ( _e ) { return t( 'react', 'React' ); }
 		},
 		get pollOptionPctText() {
 			try {
@@ -991,8 +1007,8 @@ store( 'buddynext/post-card', {
 		get pollTotalVotesText() {
 			try {
 				const n = getContext().pollTotalVotes || 0;
-				return n === 1 ? '1 vote' : n + ' votes';
-			} catch ( _e ) { return '0 votes'; }
+				return n === 1 ? t( 'oneVote', '1 vote' ) : fmt( t( 'manyVotes', '%d votes' ), n );
+			} catch ( _e ) { return fmt( t( 'manyVotes', '%d votes' ), 0 ); }
 		},
 		get reactBtnClass() {
 			try {
@@ -1034,7 +1050,7 @@ store( 'buddynext/post-card', {
 		get reactorsHeading() {
 			try {
 				const n = getContext().reactionCount || 0;
-				return n === 1 ? "1 reaction" : n + " reactions";
+				return n === 1 ? t( 'oneReaction', '1 reaction' ) : fmt( t( 'manyReactions', '%d reactions' ), n );
 			} catch ( _e ) { return ""; }
 		},
 		get shareBtnClass() {
@@ -1051,11 +1067,11 @@ store( 'buddynext/post-card', {
 				const ctx   = getContext();
 				const count = ctx.shareCount || 0;
 				if ( ctx.shareShared ) {
-					return count > 0 ? 'Shared \u00b7 ' + count : 'Shared';
+					return count > 0 ? fmt( t( 'sharedWithCount', 'Shared \u00b7 %d' ), count ) : t( 'shared', 'Shared' );
 				}
-				return count > 0 ? 'Share \u00b7 ' + count : 'Share';
+				return count > 0 ? fmt( t( 'shareWithCount', 'Share \u00b7 %d' ), count ) : t( 'share', 'Share' );
 			} catch ( _e ) {
-				return 'Share';
+				return t( 'share', 'Share' );
 			}
 		},
 	},
@@ -1188,7 +1204,7 @@ store( 'buddynext/post-card', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( ctx.bookmarked ? 'Saved' : 'Removed from saved' ); }
+					if ( window.bnToast ) { window.bnToast( ctx.bookmarked ? t( 'saved', 'Saved' ) : t( 'removedFromSaved', 'Removed from saved' ) ); }
 				} else {
 					ctx.bookmarked = prev;
 				}
@@ -1238,7 +1254,7 @@ store( 'buddynext/post-card', {
 			while ( listEl.firstChild ) { listEl.removeChild( listEl.firstChild ); }
 			const loading = document.createElement( 'li' );
 			loading.className = 'bn-reactors-popover__loading';
-			loading.textContent = 'Loading…';
+			loading.textContent = t( 'loading', 'Loading…' );
 			listEl.appendChild( loading );
 			try {
 				const res = yield restFetch(
@@ -1255,7 +1271,7 @@ store( 'buddynext/post-card', {
 				} else {
 					const err = document.createElement( 'li' );
 					err.className = 'bn-reactors-popover__error';
-					err.textContent = 'Could not load reactions. Try again.';
+					err.textContent = t( 'reactionsLoadFailed', 'Could not load reactions. Try again.' );
 					listEl.appendChild( err );
 					ctx.reactorsLoaded = false;
 				}
@@ -1263,7 +1279,7 @@ store( 'buddynext/post-card', {
 				while ( listEl.firstChild ) { listEl.removeChild( listEl.firstChild ); }
 				const err = document.createElement( 'li' );
 				err.className = 'bn-reactors-popover__error';
-				err.textContent = 'Could not load reactions. Try again.';
+				err.textContent = t( 'reactionsLoadFailed', 'Could not load reactions. Try again.' );
 				listEl.appendChild( err );
 				ctx.reactorsLoaded = false;
 			}
@@ -1328,9 +1344,9 @@ store( 'buddynext/post-card', {
 		* deletePost() {
 			const ctx = getContext();
 			const ok = yield bnConfirm( {
-				title: 'Delete this post?',
-				body: 'This cannot be undone.',
-				confirmLabel: 'Delete',
+				title: t( 'deletePostTitle', 'Delete this post?' ),
+				body: t( 'cannotBeUndone', 'This cannot be undone.' ),
+				confirmLabel: t( 'delete', 'Delete' ),
 				tone: 'danger',
 			} );
 			if ( ! ok ) {
@@ -1409,7 +1425,7 @@ store( 'buddynext/post-card', {
 		* reportPost() {
 			const ctx    = getContext();
 			const result = yield bnReportDialog( {
-				title: 'Report this post',
+				title: t( 'reportPost', 'Report this post' ),
 			} );
 			if ( result === null ) {
 				return;
@@ -1434,7 +1450,7 @@ store( 'buddynext/post-card', {
 					// swaps Report for a disabled "Reported" item without a reload.
 					ctx.hasReported = true;
 					ctx.optionsOpen = false;
-					bnToast( 'Report submitted. Thanks for keeping the community safe.', { tone: 'success' } );
+					bnToast( t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
 				} else {
 					// Surface the server's reason (e.g. the 409 "already reported"
 					// message) instead of a generic failure. A 409 means the server
@@ -1444,10 +1460,10 @@ store( 'buddynext/post-card', {
 						ctx.optionsOpen = false;
 					}
 					const data = res.data || {};
-					bnToast( data.message || 'Could not submit report. Try again.', { tone: 'danger' } );
+					bnToast( data.message || t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
 				}
 			} catch ( _e ) {
-				bnToast( 'Could not submit report. Try again.', { tone: 'danger' } );
+				bnToast( t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
 			}
 		},
 		* editPost() {
@@ -1468,7 +1484,7 @@ store( 'buddynext/post-card', {
 
 			const contentEl = card.querySelector( '.bn-post-card__content' );
 			if ( ! contentEl ) {
-				bnToast( 'This post cannot be edited.', { tone: 'info' } );
+				bnToast( t( 'postNotEditable', 'This post cannot be edited.' ), { tone: 'info' } );
 				return;
 			}
 
@@ -1498,7 +1514,7 @@ store( 'buddynext/post-card', {
 			ta.className = 'bn-post-card__edit-input';
 			ta.rows = 3;
 			ta.value = rawContent;
-			ta.setAttribute( 'aria-label', 'Edit post content' );
+			ta.setAttribute( 'aria-label', t( 'editPostContent', 'Edit post content' ) );
 
 			const bar = document.createElement( 'div' );
 			bar.className = 'bn-post-card__edit-actions';
@@ -1508,14 +1524,14 @@ store( 'buddynext/post-card', {
 			saveBtn.className = 'bn-btn';
 			saveBtn.dataset.variant = 'primary';
 			saveBtn.dataset.size = 'sm';
-			saveBtn.textContent = 'Save';
+			saveBtn.textContent = t( 'save', 'Save' );
 
 			const cancelBtn = document.createElement( 'button' );
 			cancelBtn.type = 'button';
 			cancelBtn.className = 'bn-btn';
 			cancelBtn.dataset.variant = 'ghost';
 			cancelBtn.dataset.size = 'sm';
-			cancelBtn.textContent = 'Cancel';
+			cancelBtn.textContent = t( 'cancel', 'Cancel' );
 
 			bar.appendChild( saveBtn );
 			bar.appendChild( cancelBtn );
@@ -1535,7 +1551,7 @@ store( 'buddynext/post-card', {
 			saveBtn.addEventListener( 'click', async () => {
 				const next = ta.value.trim();
 				if ( '' === next ) {
-					bnToast( 'Post content cannot be empty.', { tone: 'info' } );
+					bnToast( t( 'postContentEmpty', 'Post content cannot be empty.' ), { tone: 'info' } );
 					return;
 				}
 				saveBtn.disabled = true;
@@ -1555,14 +1571,14 @@ store( 'buddynext/post-card', {
 					if ( ! card.querySelector( '.bn-post-card__edited' ) ) {
 						const mark = document.createElement( 'span' );
 						mark.className = 'bn-post-card__edited';
-						mark.textContent = ' (edited)';
+						mark.textContent = t( 'editedSpaced', ' (edited)' );
 						contentEl.appendChild( mark );
 					}
 					teardown();
-					bnToast( 'Post updated', { tone: 'success' } );
+					bnToast( t( 'postUpdated', 'Post updated' ), { tone: 'success' } );
 				} catch ( _e ) {
 					saveBtn.disabled = false;
-					bnToast( 'Could not update the post. Try again.', { tone: 'danger' } );
+					bnToast( t( 'postUpdateFailed', 'Could not update the post. Try again.' ), { tone: 'danger' } );
 				}
 			} );
 		},
@@ -1578,10 +1594,10 @@ store( 'buddynext/post-card', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					bnToast( ctx.isPinned ? 'Post pinned' : 'Post unpinned', { tone: 'success' } );
+					bnToast( ctx.isPinned ? t( 'postPinned', 'Post pinned' ) : t( 'postUnpinned', 'Post unpinned' ), { tone: 'success' } );
 				} else {
 					ctx.isPinned = prev;
-					let message = prev ? 'Could not unpin this post. Try again.' : 'Could not pin this post. Try again.';
+					let message = prev ? t( 'postUnpinFailed', 'Could not unpin this post. Try again.' ) : t( 'postPinFailed', 'Could not pin this post. Try again.' );
 					try {
 						const data = res.data;
 						if ( data && data.message ) {
@@ -1594,7 +1610,7 @@ store( 'buddynext/post-card', {
 				}
 			} catch ( _e ) {
 				ctx.isPinned = prev;
-				bnToast( 'Could not change pin status. Try again.', { tone: 'danger' } );
+				bnToast( t( 'pinStatusFailed', 'Could not change pin status. Try again.' ), { tone: 'danger' } );
 			}
 		},
 		* loadComments() {
@@ -1645,7 +1661,7 @@ store( 'buddynext/post-card', {
 				const retry = document.createElement( 'button' );
 				retry.type = 'button';
 				retry.className = 'bn-comment-submit-error__retry';
-				retry.textContent = 'Retry';
+				retry.textContent = t( 'retry', 'Retry' );
 				retry.addEventListener( 'click', () => {
 					alertEl.remove();
 					// Re-fire submitComment by clicking the submit button.
@@ -1667,7 +1683,7 @@ store( 'buddynext/post-card', {
 					// Clear any stale error alert from a previous failed attempt.
 					inputEl?.closest( '.bn-post-card__comments' )?.querySelector( '.bn-comment-submit-error' )?.remove();
 					const comment       = res.data;
-					comment.author_name = comment.author_name || 'You';
+					comment.author_name = comment.author_name || t( 'you', 'You' );
 					const listEl        = document.querySelector( '[data-comment-list="' + ctx.postId + '"]' );
 					if ( listEl ) {
 						listEl.dataset.loaded = '1';
@@ -1677,18 +1693,18 @@ store( 'buddynext/post-card', {
 						inputEl.value = '';
 					}
 					adjustCommentCount( ctx.postId, 1 );
-					if ( window.bnToast ) { window.bnToast( 'Comment added' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'commentAdded', 'Comment added' ) ); }
 				} else {
 					// Surface the server's actual reason — create() now preserves
 					// the real status/message (e.g. suspended 403, rate-limited 429)
 					// instead of flattening to a generic 400. Fall back only when
 					// the response carries no message.
 					showInlineError(
-						( res.data && res.data.message ) ? String( res.data.message ) : 'Could not post your comment. Try again.'
+						( res.data && res.data.message ) ? String( res.data.message ) : t( 'commentPostFailed', 'Could not post your comment. Try again.' )
 					);
 				}
 			} catch ( _e ) {
-				showInlineError( 'Network error. Try again.' );
+				showInlineError( t( 'networkError', 'Network error. Try again.' ) );
 			}
 		},
 		* votePoll( event ) {
@@ -1706,7 +1722,7 @@ store( 'buddynext/post-card', {
 				} );
 				if ( res.ok ) {
 					const data = res.data;
-					if ( window.bnToast ) { window.bnToast( 'Vote recorded' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'voteRecorded', 'Vote recorded' ) ); }
 					if ( data.results ) {
 						const total = data.results.reduce( ( s, r ) => s + r.vote_count, 0 );
 						ctx.pollTotalVotes    = total;
@@ -1745,12 +1761,12 @@ store( 'buddynext/post-card', {
 				// removing it on a 403/404/500 gave a false sense of success.
 				if ( res.ok ) {
 					document.querySelector( '.bn-post-card--announcement' )?.remove();
-					bnToast( 'Announcement ended', { tone: 'success' } );
+					bnToast( t( 'announcementEnded', 'Announcement ended' ), { tone: 'success' } );
 				} else {
-					bnToast( 'Could not end the announcement. Try again.', { tone: 'danger' } );
+					bnToast( t( 'announcementEndFailed', 'Could not end the announcement. Try again.' ), { tone: 'danger' } );
 				}
 			} catch ( _e ) {
-				bnToast( 'Could not end the announcement. Try again.', { tone: 'danger' } );
+				bnToast( t( 'announcementEndFailed', 'Could not end the announcement. Try again.' ), { tone: 'danger' } );
 			}
 		},
 	},
@@ -1866,13 +1882,17 @@ function maybeDetectLink( ctx ) {
 	}, LINK_PREVIEW_DEBOUNCE_MS );
 }
 
-const PRIVACY_LABELS = {
-	public:      'Public',
-	followers:   'Followers',
-	connections: 'Connections',
-	private:     'Only me',
-	space_members: 'Space members',
-};
+// Resolved at call time (not module-eval time) so the injected i18n dictionary —
+// read from the buddynext/feed store further down — is already populated.
+function privacyLabels() {
+	return {
+		public:        t( 'privacyPublic', 'Public' ),
+		followers:     t( 'privacyFollowers', 'Followers' ),
+		connections:   t( 'privacyConnections', 'Connections' ),
+		private:       t( 'privacyPrivate', 'Only me' ),
+		space_members: t( 'privacySpaceMembers', 'Space members' ),
+	};
+}
 
 /**
  * Convert a <input type="datetime-local"> value (local wall-clock, no zone —
@@ -1961,7 +1981,7 @@ function scheduleDraftSave( ctx ) {
 	if ( _draftTimers.has( key ) ) {
 		clearTimeout( _draftTimers.get( key ) );
 	}
-	setDraftStatus( ctx, 'Saving draft…', false );
+	setDraftStatus( ctx, t( 'savingDraft', 'Saving draft…' ), false );
 	const t = setTimeout( () => {
 		const payload = {
 			content:      ctx.content || '',
@@ -1978,7 +1998,7 @@ function scheduleDraftSave( ctx ) {
 		} else {
 			writeDraft( userId, payload );
 			ctx.hasDraft = true;
-			setDraftStatus( ctx, 'Draft saved', true );
+			setDraftStatus( ctx, t( 'draftSaved', 'Draft saved' ), true );
 		}
 		_draftTimers.delete( key );
 
@@ -2067,7 +2087,7 @@ function restoreDraftsOnLoad() {
 		ctxData.composerType = draft.composerType || ctxData.composerType;
 		ctxData.privacy      = draft.privacy || ctxData.privacy;
 		ctxData.hasDraft     = true;
-		ctxData.draftStatus  = 'Draft restored';
+		ctxData.draftStatus  = t( 'draftRestored', 'Draft restored' );
 		try { el.setAttribute( 'data-wp-context', JSON.stringify( ctxData ) ); }
 		catch ( _e ) {}
 	} );
@@ -2159,8 +2179,8 @@ store( 'buddynext/post-composer', {
 		get privacyLabel() {
 			try {
 				const ctx = getContext();
-				return PRIVACY_LABELS[ ctx.privacy ] || 'Public';
-			} catch ( _e ) { return 'Public'; }
+				return privacyLabels()[ ctx.privacy ] || t( 'privacyPublic', 'Public' );
+			} catch ( _e ) { return t( 'privacyPublic', 'Public' ); }
 		},
 		get isPrivacyPublic() {
 			try { return getContext().privacy === 'public'; } catch ( _e ) { return false; }
@@ -2175,7 +2195,7 @@ store( 'buddynext/post-composer', {
 			try { return getContext().privacy === 'private'; } catch ( _e ) { return false; }
 		},
 		get submitLabel() {
-			try { return getContext().submitting ? 'Posting…' : 'Post'; } catch ( _e ) { return 'Post'; }
+			try { return getContext().submitting ? t( 'posting', 'Posting…' ) : t( 'post', 'Post' ); } catch ( _e ) { return t( 'post', 'Post' ); }
 		},
 		get draftStatusHidden() {
 			try { return ! ( getContext().draftStatus || '' ); } catch ( _e ) { return true; }
@@ -2184,7 +2204,7 @@ store( 'buddynext/post-composer', {
 			try { return ! getContext().hasDraft; } catch ( _e ) { return true; }
 		},
 		get voiceSubmitLabel() {
-			try { return getContext().submitting ? 'Scheduling…' : 'Schedule room'; } catch ( _e ) { return 'Schedule room'; }
+			try { return getContext().submitting ? t( 'scheduling', 'Scheduling…' ) : t( 'scheduleRoom', 'Schedule room' ); } catch ( _e ) { return t( 'scheduleRoom', 'Schedule room' ); }
 		},
 	},
 	actions: {
@@ -2223,7 +2243,7 @@ store( 'buddynext/post-composer', {
 			// composer.php), but if pickMedia is reached while disabled, degrade
 			// gracefully instead of POSTing to a non-existent mvs/v1 route.
 			if ( false === ctxData.mediaEnabled ) {
-				bnToast( 'Image uploads are not available on this site.', { tone: 'info' } );
+				bnToast( t( 'imageUploadsUnavailable', 'Image uploads are not available on this site.' ), { tone: 'info' } );
 				return;
 			}
 
@@ -2241,11 +2261,16 @@ store( 'buddynext/post-composer', {
 
 					const remaining = MAX_MEDIA - _mediaState.ids.length;
 					if ( remaining <= 0 ) {
-						bnToast( 'You can attach at most ' + MAX_MEDIA + ' images per post.', { tone: 'info' } );
+						bnToast( fmt( t( 'maxImagesPerPost', 'You can attach at most %d images per post.' ), MAX_MEDIA ), { tone: 'info' } );
 						return;
 					}
 					if ( files.length > remaining ) {
-						bnToast( 'Only ' + remaining + ' more image' + ( remaining === 1 ? '' : 's' ) + ' can be added.', { tone: 'info' } );
+						bnToast(
+							remaining === 1
+								? t( 'oneMoreImage', 'Only 1 more image can be added.' )
+								: fmt( t( 'moreImages', 'Only %d more images can be added.' ), remaining ),
+							{ tone: 'info' }
+						);
 					}
 
 					// Show preview area.
@@ -2319,15 +2344,15 @@ store( 'buddynext/post-composer', {
 								console.error( '[BuddyNext] Media upload failed:', res.status, mvsBase + '/media' );
 								bnToast(
 									404 === res.status
-										? 'Image uploads are unavailable (media engine not active).'
-										: 'Could not upload ' + ( file.name || 'image' ) + ' (error ' + res.status + ').',
+										? t( 'mediaEngineInactive', 'Image uploads are unavailable (media engine not active).' )
+										: fmt( t( 'uploadFailedError', 'Could not upload %s (error %d).' ), ( file.name || t( 'image', 'image' ) ), res.status ),
 									{ tone: 'danger' }
 								);
 							}
 						} catch ( err ) {
 							// eslint-disable-next-line no-console
 							console.error( '[BuddyNext] Media upload error:', err );
-							bnToast( 'Could not upload ' + ( file.name || 'image' ) + '. Try a smaller file.', { tone: 'danger' } );
+							bnToast( fmt( t( 'uploadFailedSmaller', 'Could not upload %s. Try a smaller file.' ), ( file.name || t( 'image', 'image' ) ) ), { tone: 'danger' } );
 						}
 					}
 
@@ -2482,7 +2507,7 @@ store( 'buddynext/post-composer', {
 				} );
 				if ( options.length < 2 ) {
 					ctx.submitting   = false;
-					ctx.errorMessage = 'Add at least two poll options.';
+					ctx.errorMessage = t( 'pollMinOptions', 'Add at least two poll options.' );
 					return;
 				}
 				body.options = options.map( ( o ) => o.label );
@@ -2566,11 +2591,11 @@ store( 'buddynext/post-composer', {
 					// published, so say so instead of claiming "Post published".
 					const isPending   = 'pending' === created.status;
 					if ( window.bnToast ) {
-						let msg = 'Post published';
+						let msg = t( 'postPublished', 'Post published' );
 						if ( isPending ) {
-							msg = 'Your post was submitted for review.';
+							msg = t( 'postSubmittedForReview', 'Your post was submitted for review.' );
 						} else if ( isScheduled ) {
-							msg = 'Post scheduled';
+							msg = t( 'postScheduled', 'Post scheduled' );
 						}
 						window.bnToast( msg, 'success' );
 					}
@@ -2594,14 +2619,14 @@ store( 'buddynext/post-composer', {
 				// the Retry affordance. Other errors stay retryable.
 				const nonRetryable = res.status === 401 || res.status === 403 || ( data && data.code === 'rest_forbidden' );
 				let msg = nonRetryable
-					? 'You don’t have permission to post here.'
-					: 'Could not publish your post. Try again.';
+					? t( 'noPermissionToPost', 'You don’t have permission to post here.' )
+					: t( 'postPublishFailed', 'Could not publish your post. Try again.' );
 				if ( data && data.message ) { msg = data.message; }
 				ctx.errorMessage   = msg;
 				ctx.errorRetryable = ! nonRetryable;
 				ctx.submitting     = false;
 			} catch ( _e ) {
-				ctx.errorMessage   = 'Network error. Try again.';
+				ctx.errorMessage   = t( 'networkError', 'Network error. Try again.' );
 				ctx.errorRetryable = true;
 				ctx.submitting     = false;
 			}
@@ -2618,7 +2643,7 @@ store( 'buddynext/post-composer', {
 				fields[ el.dataset.bnVoiceField ] = el.value.trim();
 			} );
 			if ( ! fields.title || ! fields.scheduled_at ) {
-				ctx.voiceError = 'Title and start time are required.';
+				ctx.voiceError = t( 'voiceTitleTimeRequired', 'Title and start time are required.' );
 				return;
 			}
 			ctx.voiceError = '';
@@ -2648,7 +2673,7 @@ store( 'buddynext/post-composer', {
 					body,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( 'Voice room scheduled', 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'voiceRoomScheduled', 'Voice room scheduled' ), 'success' ); }
 					// A scheduled voice room is not in the live feed (it surfaces at
 					// its start time), so there is nothing to prepend — just reset the
 					// form instead of a jarring full-page reload.
@@ -2657,10 +2682,10 @@ store( 'buddynext/post-composer', {
 					document.querySelectorAll( '[data-bn-voice-field]' ).forEach( ( el ) => { el.value = ''; } );
 					return;
 				}
-				ctx.voiceError = 'Could not schedule the voice room. Try again.';
+				ctx.voiceError = t( 'voiceScheduleFailed', 'Could not schedule the voice room. Try again.' );
 				ctx.submitting = false;
 			} catch ( _e ) {
-				ctx.voiceError = 'Network error. Try again.';
+				ctx.voiceError = t( 'networkError', 'Network error. Try again.' );
 				ctx.submitting = false;
 			}
 		},
@@ -2747,7 +2772,7 @@ store( 'buddynext/post-composer', {
 			ctx.composerType = draft.composerType || ctx.composerType;
 			ctx.privacy      = draft.privacy || ctx.privacy;
 			ctx.hasDraft     = true;
-			ctx.draftStatus  = 'Draft restored';
+			ctx.draftStatus  = t( 'draftRestored', 'Draft restored' );
 		},
 	},
 } );
@@ -2787,7 +2812,7 @@ store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					event.target.textContent = 'Joined';
+					event.target.textContent = t( 'joined', 'Joined' );
 					event.target.disabled    = true;
 				}
 			} catch ( _e ) {}
@@ -2854,7 +2879,7 @@ store( 'buddynext/spaces', {
 		endMarker.setAttribute( 'role', 'status' );
 		var text = document.createElement( 'span' );
 		text.className   = 'bn-feed-end__text';
-		text.textContent = ( window.bnI18n && window.bnI18n.feedEnd ) || "You've reached the end.";
+		text.textContent = ( window.bnI18n && window.bnI18n.feedEnd ) || t( 'feedEnd', "You've reached the end." );
 		endMarker.appendChild( text );
 		if ( trigger.parentNode ) {
 			trigger.parentNode.replaceChild( endMarker, trigger );
@@ -2870,7 +2895,7 @@ store( 'buddynext/spaces', {
 		btn.type            = 'button';
 		btn.className       = 'bn-btn bn-load-more__btn';
 		btn.dataset.variant = 'secondary';
-		btn.textContent     = ( window.bnI18n && window.bnI18n.feedRetry ) || 'Retry';
+		btn.textContent     = ( window.bnI18n && window.bnI18n.feedRetry ) || t( 'retry', 'Retry' );
 		btn.addEventListener( 'click', function () {
 			trigger.removeChild( btn );
 			restartFn();
@@ -3003,7 +3028,7 @@ store( 'buddynext/share-modal', {
 			} catch ( _e ) { return true; }
 		},
 		get repostLabel() {
-			try { return getContext().busy ? 'Reposting…' : 'Repost'; } catch ( _e ) { return 'Repost'; }
+			try { return getContext().busy ? t( 'reposting', 'Reposting…' ) : t( 'repost', 'Repost' ); } catch ( _e ) { return t( 'repost', 'Repost' ); }
 		},
 	},
 	actions: {
@@ -3054,7 +3079,7 @@ store( 'buddynext/share-modal', {
 					body:    { content: ( ctx.note || '' ).trim() },
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( 'Reposted', 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'reposted', 'Reposted' ), 'success' ); }
 					ctx.open = false;
 					ctx.busy = false;
 					ctx.note = '';
@@ -3066,10 +3091,10 @@ store( 'buddynext/share-modal', {
 					}
 					return;
 				}
-				ctx.error = 'Could not repost. Try again.';
+				ctx.error = t( 'repostFailed', 'Could not repost. Try again.' );
 				ctx.busy  = false;
 			} catch ( _e ) {
-				ctx.error = 'Network error. Try again.';
+				ctx.error = t( 'networkError', 'Network error. Try again.' );
 				ctx.busy  = false;
 			}
 		},
@@ -3088,11 +3113,11 @@ store( 'buddynext/share-modal', {
 					document.execCommand( 'copy' );
 					document.body.removeChild( tmp );
 				}
-				if ( window.bnToast ) { window.bnToast( 'Link copied', 'success' ); }
+				if ( window.bnToast ) { window.bnToast( t( 'linkCopied', 'Link copied' ), 'success' ); }
 				ctx.open  = false;
 				ctx.busy  = false;
 			} catch ( _e ) {
-				ctx.error = 'Could not copy link.';
+				ctx.error = t( 'linkCopyFailed', 'Could not copy link.' );
 				ctx.busy  = false;
 			}
 		},
@@ -3135,7 +3160,7 @@ store( 'buddynext/feed-tabs', {
  */
 const BN_SEARCH_PATH = '/activity/search/';
 
-store( 'buddynext/feed', {
+const feedStore = store( 'buddynext/feed', {
 	state: {
 		get guestBannerDismissed() {
 			try { return !! getContext().guestBannerDismissed; } catch ( _e ) { return false; }
@@ -3241,6 +3266,11 @@ store( 'buddynext/feed', {
 		},
 	},
 } );
+
+// The server merges the injected dictionary into this namespace's state; read
+// it once here so every store + vanilla-DOM builder in this file shares one
+// translated table.
+I18N = ( feedStore && feedStore.state && feedStore.state.i18n ) || {};
 
 /* ── Wire Enter-to-search on the explore search input ─────────────────── */
 
@@ -3622,8 +3652,8 @@ function bnPillRender() {
 	}
 	const n = bnPill.pendingIds.size;
 	bnPill.pill.textContent = n === 1
-		? '1 new post — refresh to view'
-		: `${ n } new posts — refresh to view`;
+		? t( 'oneNewPost', '1 new post — refresh to view' )
+		: fmt( t( 'manyNewPosts', '%d new posts — refresh to view' ), n );
 }
 
 async function bnPillPoll() {
@@ -3817,7 +3847,7 @@ function initRealtimeCommentIndicator() {
 		}
 		const n = parseInt( pill.dataset.count, 10 ) + 1;
 		pill.dataset.count = String( n );
-		pill.textContent = n === 1 ? '1 new comment — show' : `${ n } new comments — show`;
+		pill.textContent = n === 1 ? t( 'oneNewComment', '1 new comment — show' ) : fmt( t( 'manyNewComments', '%d new comments — show' ), n );
 	} );
 }
 
@@ -3889,7 +3919,7 @@ function initEmojiPicker() {
 		const p = document.createElement( 'div' );
 		p.className = 'bn-emoji-popover';
 		p.setAttribute( 'role', 'menu' );
-		p.setAttribute( 'aria-label', 'Insert emoji' );
+		p.setAttribute( 'aria-label', t( 'insertEmoji', 'Insert emoji' ) );
 		p.hidden = true;
 		Object.keys( BN_EMOJI_MAP ).forEach( ( slug ) => {
 			const btn = document.createElement( 'button' );

@@ -36,7 +36,7 @@ KEY LESSON: `const` arrays can't hold `__()` and `__($var)` doesn't extract to P
 
 ---
 
-## 2. JS Script Modules — recipe LOCKED, 1 of 23 done
+## 2. JS Script Modules — recipe LOCKED, 6 of 23 done (Wave A)
 
 Script Modules cannot use `wp_set_script_translations()` (no per-module JED loading in WP 6.8). Each feature's strings are injected server-side into the Interactivity state and read in the store. **No build step** — assets/js is native ESM.
 
@@ -67,11 +67,11 @@ Script Modules cannot use `wp_set_script_translations()` (no per-module JED load
 Order by traffic/value. Each module = one wave (PHP dict block + JS refactor + browser verify).
 
 - [x] **social/follow** (`buddynext/follow-button` +3 ns) — ~30 — DONE/verified
-- [ ] **feed** (`buddynext/feed`) — ~70 — feed/store.js (reaction labels, comment/report toasts)
-- [ ] **profile** (`buddynext/profile`) — ~60 — profile/store.js (save/delete/avatar dialogs)
-- [ ] **members** (`buddynext/members`) — ~40 — members/store.js (follow/connect/block toasts; note this is the directory's follow path)
-- [ ] **spaces** (`buddynext/spaces`) — ~55 — spaces/store.js (already partly wrapped via local `__i18n()`; standardize on the dict)
-- [ ] **messages** (`buddynext/messages`) — ~40 — messages/store.js (send/leave/rename/report)
+- [x] **feed** (`buddynext/feed`) — ~70 — feed/store.js (reaction labels, comment/report toasts)
+- [x] **profile** (`buddynext/profile`) — ~60 — profile/store.js (save/delete/avatar dialogs)
+- [x] **members** (`buddynext/members`) — ~40 — members/store.js (follow/connect/block toasts; note this is the directory's follow path)
+- [x] **spaces** (`buddynext/spaces`) — ~55 — spaces/store.js (already partly wrapped via local `__i18n()`; standardize on the dict)
+- [x] **messages** (`buddynext/messages`) — ~40 — messages/store.js (send/leave/rename/report)
 - [ ] **moderation** (`buddynext/moderation`) — ~30 — moderation/store.js (remove/suspend/appeal)
 - [ ] **onboarding** (`buddynext/onboarding`) — ~24 — onboarding/store.js (validation, upload, welcome)
 - [ ] **notifications** (`buddynext/notifications`) — ~12 — notifications/store.js

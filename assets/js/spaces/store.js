@@ -3,6 +3,17 @@ import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '../shell/rest-client.js';
 import { onNavReady } from '../shell/nav-init.js';
 
+/* -- i18n -------------------------------------------------------------- */
+/* Translated strings are injected server-side into the Interactivity state
+ * (AssetService::i18n_spaces) because Script Modules cannot use
+ * wp_set_script_translations(). The dictionary is read once from the
+ * buddynext/spaces namespace below; each lookup keeps the English literal as a
+ * fallback so the UI never breaks if the state is absent. fmt() fills
+ * sprintf-style '%s'/'%d' placeholders. */
+let I18N = {};
+function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%[sd]/g, () => String( vals[ i++ ] ?? '' ) ); }
+
 /* ── Shared helpers ────────────────────────────────────────────────── */
 
 /**
@@ -111,10 +122,10 @@ function swapButtonState( btn, newState ) {
 		request: 'secondary',
 	};
 	var labelMap = {
-		joined:  'Joined',
-		pending: 'Requested',
-		join:    'Join',
-		request: 'Request to join',
+		joined:  t( 'labelJoined', 'Joined' ),
+		pending: t( 'labelRequested', 'Requested' ),
+		join:    t( 'labelJoin', 'Join' ),
+		request: t( 'labelRequestToJoin', 'Request to join' ),
 	};
 	var actionMap = {
 		joined:  'leaveSpace',
@@ -224,7 +235,7 @@ function surfacePaywall( btn, spaceId, data ) {
 
 	var h = document.createElement( 'h2' );
 	h.className = 'bn-paywall__heading';
-	h.textContent = ( paywall && paywall.heading ) ? paywall.heading : __i18n( 'This space is available to members only.' );
+	h.textContent = ( paywall && paywall.heading ) ? paywall.heading : t( 'paywallMembersOnly', 'This space is available to members only.' );
 	body.appendChild( h );
 
 	if ( paywall && paywall.description ) {
@@ -234,7 +245,7 @@ function surfacePaywall( btn, spaceId, data ) {
 		body.appendChild( p );
 	}
 
-	var label = ( paywall && paywall.cta_label ) ? paywall.cta_label : __i18n( 'Become a Member' );
+	var label = ( paywall && paywall.cta_label ) ? paywall.cta_label : t( 'paywallBecomeMember', 'Become a Member' );
 
 	if ( paywall && paywall.checkout && paywall.tier_slug ) {
 		var cBtn = document.createElement( 'button' );
@@ -257,7 +268,7 @@ function surfacePaywall( btn, spaceId, data ) {
 	} else {
 		var note = document.createElement( 'p' );
 		note.className = 'bn-paywall__unconfigured';
-		note.textContent = __i18n( 'Membership purchase is not configured yet. Please check back soon.' );
+		note.textContent = t( 'paywallNotConfigured', 'Membership purchase is not configured yet. Please check back soon.' );
 		body.appendChild( note );
 	}
 
@@ -320,8 +331,8 @@ async function moderateJoinRequest( event, action ) {
 			if ( window.bnToast ) {
 				window.bnToast(
 					( 'approve' === action )
-						? __i18n( 'Request approved.' )
-						: __i18n( 'Request declined.' ),
+						? t( 'requestApproved', 'Request approved.' )
+						: t( 'requestDeclined', 'Request declined.' ),
 					'success'
 				);
 			}
@@ -335,14 +346,14 @@ async function moderateJoinRequest( event, action ) {
 			var msg = ( data && data.message )
 				? data.message
 				: ( ( 'approve' === action )
-					? __i18n( 'Could not approve the request.' )
-					: __i18n( 'Could not decline the request.' ) );
+					? t( 'couldNotApproveRequest', 'Could not approve the request.' )
+					: t( 'couldNotDeclineRequest', 'Could not decline the request.' ) );
 			window.bnToast( msg, 'danger' );
 		}
 	} catch ( _e ) {
 		if ( row ) { row.style.opacity = '1'; }
 		for ( var k = 0; k < rowBtns.length; k++ ) { rowBtns[ k ].disabled = false; }
-		if ( window.bnToast ) { window.bnToast( __i18n( 'Network error.' ), 'danger' ); }
+		if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
 	}
 }
 
@@ -477,12 +488,12 @@ var storeInstance = store( 'buddynext/spaces', {
 					btn.textContent = origText;
 					btn.disabled    = false;
 					if ( window.bnToast ) {
-						window.bnToast( ( data && data.message ) || __i18n( 'Could not join this space.' ), 'danger' );
+						window.bnToast( ( data && data.message ) || t( 'couldNotJoin', 'Could not join this space.' ), 'danger' );
 					}
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
-				if ( window.bnToast ) { window.bnToast( __i18n( 'Network error.' ), 'danger' ); }
+				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
 			}
 		},
 
@@ -508,13 +519,13 @@ var storeInstance = store( 'buddynext/spaces', {
 				var data = res.data || {};
 
 				if ( res.ok && data.joined ) {
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Invitation accepted.' ), 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'invitationAccepted', 'Invitation accepted.' ), 'success' ); }
 					window.location.reload();
 				} else if ( btn ) {
 					btn.textContent = origText;
 					btn.disabled    = false;
 					if ( window.bnToast ) {
-						window.bnToast( ( data && data.message ) || __i18n( 'Could not accept the invitation.' ), 'danger' );
+						window.bnToast( ( data && data.message ) || t( 'couldNotAcceptInvite', 'Could not accept the invitation.' ), 'danger' );
 					}
 				}
 			} catch ( _e ) {
@@ -542,12 +553,12 @@ var storeInstance = store( 'buddynext/spaces', {
 				} );
 
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Invitation declined.' ), 'info' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'invitationDeclined', 'Invitation declined.' ), 'info' ); }
 					window.location.reload();
 				} else if ( btn ) {
 					btn.textContent = origText;
 					btn.disabled    = false;
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not decline the invitation.' ), 'danger' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'couldNotDeclineInvite', 'Could not decline the invitation.' ), 'danger' ); }
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
@@ -606,13 +617,13 @@ var storeInstance = store( 'buddynext/spaces', {
 			var endpoint = ( cfg && cfg.endpoint ) || 'buddynext-pro/v1/me/checkout';
 
 			if ( ! tierSlug ) {
-				if ( window.bnToast ) { window.bnToast( __i18n( 'Membership purchase is not configured yet.' ), 'warn' ); }
+				if ( window.bnToast ) { window.bnToast( t( 'purchaseNotConfigured', 'Membership purchase is not configured yet.' ), 'warn' ); }
 				return;
 			}
 
 			var origText = btn.textContent;
 			btn.disabled = true;
-			btn.textContent = __i18n( 'Redirecting…' );
+			btn.textContent = t( 'redirecting', 'Redirecting…' );
 
 			var body = { tier_slug: tierSlug };
 			if ( cfg && cfg.successUrl ) { body.success_url = cfg.successUrl; }
@@ -634,12 +645,12 @@ var storeInstance = store( 'buddynext/spaces', {
 				}
 
 				// Surface a clear reason (e.g. Stripe not configured / no price linked).
-				var msg = ( data && data.message ) ? data.message : __i18n( 'Could not start checkout. Please try again later.' );
+				var msg = ( data && data.message ) ? data.message : t( 'couldNotStartCheckout', 'Could not start checkout. Please try again later.' );
 				if ( window.bnToast ) { window.bnToast( msg, 'danger' ); }
 				btn.textContent = origText;
 				btn.disabled    = false;
 			} catch ( _e ) {
-				if ( window.bnToast ) { window.bnToast( __i18n( 'Network error. Please try again.' ), 'danger' ); }
+				if ( window.bnToast ) { window.bnToast( t( 'networkErrorRetry', 'Network error. Please try again.' ), 'danger' ); }
 				btn.textContent = origText;
 				btn.disabled    = false;
 			}
@@ -797,7 +808,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				var submitBtn = document.createElement( 'button' );
 				submitBtn.type      = 'button';
 				submitBtn.className = 'bn-btn-primary bn-composer__submit';
-				submitBtn.textContent = 'Post';
+				submitBtn.textContent = t( 'post', 'Post' );
 				submitBtn.addEventListener( 'click', function ( ev ) {
 					storeInstance.actions.submitPost( ev );
 				} );
@@ -805,7 +816,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				var cancelBtn = document.createElement( 'button' );
 				cancelBtn.type      = 'button';
 				cancelBtn.className = 'bn-btn-secondary bn-composer__cancel';
-				cancelBtn.textContent = 'Cancel';
+				cancelBtn.textContent = t( 'cancel', 'Cancel' );
 				cancelBtn.addEventListener( 'click', function () {
 					storeInstance.actions.closeComposer();
 				} );
@@ -849,7 +860,7 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( ! spaceId ) { return; }
 
 			var submitBtn = composer.querySelector( '.bn-composer__submit' );
-			if ( submitBtn ) { submitBtn.disabled = true; submitBtn.textContent = 'Posting\u2026'; }
+			if ( submitBtn ) { submitBtn.disabled = true; submitBtn.textContent = t( 'posting', 'Posting\u2026' ); }
 
 			try {
 				var res  = await restFetch( '/posts', {
@@ -873,10 +884,10 @@ var storeInstance = store( 'buddynext/spaces', {
 					// a page reload is the reliable fallback here.
 					window.location.reload();
 				} else {
-					if ( submitBtn ) { submitBtn.disabled = false; submitBtn.textContent = 'Post'; }
+					if ( submitBtn ) { submitBtn.disabled = false; submitBtn.textContent = t( 'post', 'Post' ); }
 				}
 			} catch ( _e ) {
-				if ( submitBtn ) { submitBtn.disabled = false; submitBtn.textContent = 'Post'; }
+				if ( submitBtn ) { submitBtn.disabled = false; submitBtn.textContent = t( 'post', 'Post' ); }
 			}
 		},
 
@@ -982,7 +993,7 @@ var storeInstance = store( 'buddynext/spaces', {
 
 				var reportItem = document.createElement( 'button' );
 				reportItem.type        = 'button';
-				reportItem.textContent = 'Report post';
+				reportItem.textContent = t( 'reportPost', 'Report post' );
 				reportItem.className   = 'bn-post-card__menu-item';
 				reportItem.addEventListener( 'click', function () {
 					dropdown.classList.remove( 'bn-post-card__menu-dropdown--open' );
@@ -993,14 +1004,14 @@ var storeInstance = store( 'buddynext/spaces', {
 						toastOnError: false,
 					} ).then( function ( res ) {
 						if ( res.ok || res.status === 201 ) {
-							if ( window.bnToast ) { window.bnToast( 'Report submitted. Thanks for keeping the community safe.', { tone: 'success' } ); }
+							if ( window.bnToast ) { window.bnToast( t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } ); }
 							return;
 						}
 						// Surface the server's reason (e.g. 409 already reported).
 						var data = res.data;
-						if ( window.bnToast ) { window.bnToast( ( data && data.message ) || 'Could not submit report. Try again.', { tone: 'danger' } ); }
+						if ( window.bnToast ) { window.bnToast( ( data && data.message ) || t( 'couldNotSubmitReport', 'Could not submit report. Try again.' ), { tone: 'danger' } ); }
 					} ).catch( function () {
-						if ( window.bnToast ) { window.bnToast( 'Could not submit report. Try again.', { tone: 'danger' } ); }
+						if ( window.bnToast ) { window.bnToast( t( 'couldNotSubmitReport', 'Could not submit report. Try again.' ), { tone: 'danger' } ); }
 					} );
 				} );
 
@@ -1045,7 +1056,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				} );
 
 				if ( res.ok ) {
-					btn.textContent = 'Shared!';
+					btn.textContent = t( 'shared', 'Shared!' );
 					setTimeout( function () {
 						btn.textContent = origText;
 						btn.disabled    = false;
@@ -1094,23 +1105,23 @@ var storeInstance = store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Role updated.' ), 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'roleUpdated', 'Role updated.' ), 'success' ); }
 					// Refresh the row label.
 					var row = btn.closest( '[data-bn-member-row]' );
 					if ( row ) {
 						var badge = row.querySelector( '[data-bn-role-badge]' );
 						if ( badge ) {
 							badge.textContent = ( 'moderator' === role )
-								? __i18n( 'Moderator' )
-								: __i18n( 'Member' );
+								? t( 'roleModerator', 'Moderator' )
+								: t( 'roleMember', 'Member' );
 							badge.dataset.tone = ( 'moderator' === role ) ? 'info' : 'default';
 						}
 					}
 				} else {
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not update role.' ), 'danger' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'couldNotUpdateRole', 'Could not update role.' ), 'danger' ); }
 				}
 			} catch ( _e ) {
-				if ( window.bnToast ) { window.bnToast( __i18n( 'Network error.' ), 'danger' ); }
+				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
 			} finally {
 				btn.disabled = false;
 			}
@@ -1138,16 +1149,16 @@ var storeInstance = store( 'buddynext/spaces', {
 				} );
 				if ( res.ok ) {
 					if ( row ) { row.parentNode && row.parentNode.removeChild( row ); }
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Member removed.' ), 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'memberRemoved', 'Member removed.' ), 'success' ); }
 				} else {
 					if ( row ) { row.style.opacity = '1'; }
 					btn.disabled = false;
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not remove member.' ), 'danger' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'couldNotRemoveMember', 'Could not remove member.' ), 'danger' ); }
 				}
 			} catch ( _e ) {
 				if ( row ) { row.style.opacity = '1'; }
 				btn.disabled = false;
-				if ( window.bnToast ) { window.bnToast( __i18n( 'Network error.' ), 'danger' ); }
+				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
 			}
 		},
 
@@ -1175,11 +1186,11 @@ var storeInstance = store( 'buddynext/spaces', {
 				} );
 				if ( res.ok ) {
 					if ( row ) { row.parentNode && row.parentNode.removeChild( row ); }
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Member banned.' ), 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'memberBanned', 'Member banned.' ), 'success' ); }
 				} else {
 					if ( row ) { row.style.opacity = '1'; }
 					btn.disabled = false;
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not ban member.' ), 'danger' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'couldNotBanMember', 'Could not ban member.' ), 'danger' ); }
 				}
 			} catch ( _e ) {
 				if ( row ) { row.style.opacity = '1'; }
@@ -1214,7 +1225,7 @@ var storeInstance = store( 'buddynext/spaces', {
 			var newOwnerId = targetSel ? targetSel.value : '';
 			if ( ! spaceId || ! newOwnerId ) {
 				var err = modal.querySelector( '[data-bn-transfer-error]' );
-				if ( err ) { err.textContent = __i18n( 'Choose a new owner.' ); err.removeAttribute( 'hidden' ); }
+				if ( err ) { err.textContent = t( 'chooseNewOwner', 'Choose a new owner.' ); err.removeAttribute( 'hidden' ); }
 				return;
 			}
 
@@ -1227,14 +1238,14 @@ var storeInstance = store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Ownership transferred.' ), 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'ownershipTransferred', 'Ownership transferred.' ), 'success' ); }
 					closeAllSpaceModals();
 					setTimeout( function () { window.location.reload(); }, 600 );
 				} else {
 					var data = res.data || {};
 					var errEl = modal.querySelector( '[data-bn-transfer-error]' );
 					if ( errEl ) {
-						errEl.textContent = ( data && data.message ) || __i18n( 'Could not transfer ownership.' );
+						errEl.textContent = ( data && data.message ) || t( 'couldNotTransfer', 'Could not transfer ownership.' );
 						errEl.removeAttribute( 'hidden' );
 					}
 					btn.disabled = false;
@@ -1278,7 +1289,7 @@ var storeInstance = store( 'buddynext/spaces', {
 
 			if ( ! spaceId || typed !== expected ) {
 				if ( errEl ) {
-					errEl.textContent = __i18n( 'The name does not match.' );
+					errEl.textContent = t( 'nameDoesNotMatch', 'The name does not match.' );
 					errEl.removeAttribute( 'hidden' );
 				}
 				return;
@@ -1293,14 +1304,14 @@ var storeInstance = store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Space deleted.' ), 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'spaceDeleted', 'Space deleted.' ), 'success' ); }
 					var dest = ( window.bnSpaces && window.bnSpaces.directoryUrl )
 						? window.bnSpaces.directoryUrl
 						: '/spaces/';
 					setTimeout( function () { window.location.href = dest; }, 500 );
 				} else {
 					if ( errEl ) {
-						errEl.textContent = __i18n( 'Could not delete the space.' );
+						errEl.textContent = t( 'couldNotDelete', 'Could not delete the space.' );
 						errEl.removeAttribute( 'hidden' );
 					}
 					btn.disabled = false;
@@ -1335,7 +1346,7 @@ var storeInstance = store( 'buddynext/spaces', {
 
 			btn.disabled = true;
 			var origLabel = btn.textContent;
-			btn.textContent = __i18n( 'Saving…' );
+			btn.textContent = t( 'saving', 'Saving…' );
 			try {
 				var res = await restFetch( '/spaces/' + spaceId, {
 					method:  'PUT',
@@ -1344,12 +1355,12 @@ var storeInstance = store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Changes saved.' ), 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'changesSaved', 'Changes saved.' ), 'success' ); }
 				} else {
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not save changes.' ), 'danger' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'couldNotSaveChanges', 'Could not save changes.' ), 'danger' ); }
 				}
 			} catch ( _e ) {
-				if ( window.bnToast ) { window.bnToast( __i18n( 'Network error.' ), 'danger' ); }
+				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
 			} finally {
 				btn.disabled = false;
 				btn.textContent = origLabel;
@@ -1383,12 +1394,12 @@ var storeInstance = store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok && window.bnToast ) {
-					window.bnToast( __i18n( 'Permissions saved.' ), 'success' );
+					window.bnToast( t( 'permissionsSaved', 'Permissions saved.' ), 'success' );
 				} else if ( ! res.ok && window.bnToast ) {
-					window.bnToast( __i18n( 'Could not save permissions.' ), 'danger' );
+					window.bnToast( t( 'couldNotSavePermissions', 'Could not save permissions.' ), 'danger' );
 				}
 			} catch ( _e ) {
-				if ( window.bnToast ) { window.bnToast( __i18n( 'Network error.' ), 'danger' ); }
+				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
 			} finally {
 				btn.disabled = false;
 			}
@@ -1422,15 +1433,15 @@ var storeInstance = store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Space archived.' ), 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'spaceArchived', 'Space archived.' ), 'success' ); }
 					setTimeout( function () { window.location.reload(); }, 500 );
 				} else {
 					btn.disabled = false;
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not archive the space. Try again.' ), 'danger' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'couldNotArchive', 'Could not archive the space. Try again.' ), 'danger' ); }
 				}
 			} catch ( _e ) {
 				btn.disabled = false;
-				if ( window.bnToast ) { window.bnToast( __i18n( 'Could not archive the space. Try again.' ), 'danger' ); }
+				if ( window.bnToast ) { window.bnToast( t( 'couldNotArchive', 'Could not archive the space. Try again.' ), 'danger' ); }
 			}
 		},
 
@@ -1550,10 +1561,10 @@ var storeInstance = store( 'buddynext/spaces', {
 						}
 					}
 					if ( window.bnToast ) {
-						window.bnToast( __i18n( 'Could not update notification preference.' ), 'danger' );
+						window.bnToast( t( 'couldNotUpdateNotifPref', 'Could not update notification preference.' ), 'danger' );
 					}
 				} else if ( window.bnToast ) {
-					window.bnToast( __i18n( 'Notification preference saved.' ), 'success' );
+					window.bnToast( t( 'notifPrefSaved', 'Notification preference saved.' ), 'success' );
 				}
 			} catch ( _e ) {
 				if ( previousSelected ) {
@@ -1615,7 +1626,7 @@ var storeInstance = store( 'buddynext/spaces', {
 
 			if ( ! spaceId || '' === identifier ) {
 				if ( errEl ) {
-					errEl.textContent = __i18n( 'Enter a username or email address.' );
+					errEl.textContent = t( 'enterUsernameOrEmail', 'Enter a username or email address.' );
 					errEl.removeAttribute( 'hidden' );
 				}
 				return;
@@ -1635,19 +1646,19 @@ var storeInstance = store( 'buddynext/spaces', {
 					toastOnError: false,
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Invitation sent.' ), 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'invitationSent', 'Invitation sent.' ), 'success' ); }
 					closeAllSpaceModals();
 				} else {
 					var data = res.data || {};
 					if ( errEl ) {
-						errEl.textContent = ( data && data.message ) || __i18n( 'Could not send the invitation.' );
+						errEl.textContent = ( data && data.message ) || t( 'couldNotSendInvite', 'Could not send the invitation.' );
 						errEl.removeAttribute( 'hidden' );
 					}
 					btn.disabled = false;
 				}
 			} catch ( _e ) {
 				if ( errEl ) {
-					errEl.textContent = __i18n( 'Could not send the invitation.' );
+					errEl.textContent = t( 'couldNotSendInvite', 'Could not send the invitation.' );
 					errEl.removeAttribute( 'hidden' );
 				}
 				btn.disabled = false;
@@ -1800,11 +1811,11 @@ var storeInstance = store( 'buddynext/spaces', {
 			var categoryId  = categoryEl ? categoryEl.value : '';
 
 			if ( ! name.trim() ) {
-				showCreateSpaceError( form, 'name', __i18n( 'Please enter a name.' ) );
+				showCreateSpaceError( form, 'name', t( 'enterName', 'Please enter a name.' ) );
 				return;
 			}
 
-			if ( btn ) { btn.disabled = true; btn.dataset.bnOrigText = btn.textContent; btn.textContent = __i18n( 'Creating…' ); }
+			if ( btn ) { btn.disabled = true; btn.dataset.bnOrigText = btn.textContent; btn.textContent = t( 'creating', 'Creating…' ); }
 
 			var payload = {
 				name:        name.trim(),
@@ -1826,7 +1837,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				var data = res.data || {};
 
 				if ( res.ok && data && data.id ) {
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Space created.' ), 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'spaceCreated', 'Space created.' ), 'success' ); }
 					var slugOut = data.slug || slug;
 					if ( slugOut ) {
 						window.location.href = ( window.bnSpaces && window.bnSpaces.spaceUrlBase )
@@ -1845,20 +1856,24 @@ var storeInstance = store( 'buddynext/spaces', {
 				} else if ( data && data.message ) {
 					showCreateSpaceError( form, '_global', data.message );
 				} else {
-					showCreateSpaceError( form, '_global', __i18n( 'Could not create the space.' ) );
+					showCreateSpaceError( form, '_global', t( 'couldNotCreateSpace', 'Could not create the space.' ) );
 				}
 			} catch ( _e ) {
-				showCreateSpaceError( form, '_global', __i18n( 'Network error. Please try again.' ) );
+				showCreateSpaceError( form, '_global', t( 'networkErrorRetry', 'Network error. Please try again.' ) );
 			} finally {
 				if ( btn ) {
 					btn.disabled    = false;
-					btn.textContent = btn.dataset.bnOrigText || __i18n( 'Create space' );
+					btn.textContent = btn.dataset.bnOrigText || t( 'createSpace', 'Create space' );
 				}
 			}
 		},
 
 	},
 } );
+
+// The server merges the injected dictionary into this namespace's state; read
+// it once here so every helper above (via t()/fmt()) shares one translated table.
+I18N = ( storeInstance.state && storeInstance.state.i18n ) || {};
 
 /* ── Spaces directory filter helpers ─────────────────────────────── */
 
@@ -1913,7 +1928,7 @@ function buildSpaceCard( row ) {
 
 	// Privacy label/tone come from the server (type_label/type_tone) so the
 	// reactive card matches the SSR card exactly, including custom space types.
-	var privacyLabel = row.type_label || __i18n( 'Public' );
+	var privacyLabel = row.type_label || t( 'labelPublic', 'Public' );
 	var privacyTone  = row.type_tone || ( 'open' === type ? 'info' : ( 'private' === type ? 'warn' : 'danger' ) );
 
 	var coverTone = row.cover_tone || 'sky';
@@ -2008,8 +2023,7 @@ function buildSpaceCard( row ) {
 	stats.className = 'bn-sd-card__stats';
 	var stat = document.createElement( 'span' );
 	stat.className   = 'bn-sd-card__stat';
-	/* translators: %s: member count. */
-	stat.textContent = memberCount + ' ' + __i18n( 'members' );
+	stat.textContent = fmt( t( 'membersCount', '%d members' ), memberCount );
 	stats.appendChild( stat );
 	body.appendChild( stats );
 
@@ -2031,7 +2045,7 @@ function buildSpaceCard( row ) {
 		ctaEl.className = 'bn-btn';
 		ctaEl.dataset.variant = 'secondary';
 		ctaEl.dataset.size    = 'sm';
-		ctaEl.textContent     = __i18n( 'Manage' );
+		ctaEl.textContent     = t( 'labelManage', 'Manage' );
 	} else if ( isMember ) {
 		ctaEl = document.createElement( 'button' );
 		ctaEl.className = 'bn-btn';
@@ -2040,8 +2054,8 @@ function buildSpaceCard( row ) {
 		ctaEl.dataset.currentState = 'joined';
 		ctaEl.setAttribute( 'data-wp-on--click', 'actions.leaveSpace' );
 		ctaEl.dataset.spaceId      = String( spaceId );
-		ctaEl.setAttribute( 'aria-label', __i18n( 'Joined - click to leave' ) );
-		ctaEl.textContent = __i18n( 'Joined' );
+		ctaEl.setAttribute( 'aria-label', t( 'ariaJoinedClickToLeave', 'Joined - click to leave' ) );
+		ctaEl.textContent = t( 'labelJoined', 'Joined' );
 	} else if ( isPending ) {
 		ctaEl = document.createElement( 'button' );
 		ctaEl.className = 'bn-btn';
@@ -2050,8 +2064,8 @@ function buildSpaceCard( row ) {
 		ctaEl.dataset.currentState = 'pending';
 		ctaEl.setAttribute( 'data-wp-on--click', 'actions.cancelJoinRequest' );
 		ctaEl.dataset.spaceId      = String( spaceId );
-		ctaEl.setAttribute( 'aria-label', __i18n( 'Request pending - click to cancel' ) );
-		ctaEl.textContent = __i18n( 'Requested' );
+		ctaEl.setAttribute( 'aria-label', t( 'ariaRequestPendingClickToCancel', 'Request pending - click to cancel' ) );
+		ctaEl.textContent = t( 'labelRequested', 'Requested' );
 	} else if ( 'direct' === joinMethod ) {
 		ctaEl = document.createElement( 'button' );
 		ctaEl.className = 'bn-btn';
@@ -2060,7 +2074,7 @@ function buildSpaceCard( row ) {
 		ctaEl.dataset.currentState = 'join';
 		ctaEl.setAttribute( 'data-wp-on--click', 'actions.joinSpace' );
 		ctaEl.dataset.spaceId      = String( spaceId );
-		ctaEl.textContent = __i18n( 'Join' );
+		ctaEl.textContent = t( 'labelJoin', 'Join' );
 	} else {
 		ctaEl = document.createElement( 'button' );
 		ctaEl.className = 'bn-btn';
@@ -2069,7 +2083,7 @@ function buildSpaceCard( row ) {
 		ctaEl.dataset.currentState = 'request';
 		ctaEl.setAttribute( 'data-wp-on--click', 'actions.requestJoin' );
 		ctaEl.dataset.spaceId      = String( spaceId );
-		ctaEl.textContent = __i18n( 'Request to join' );
+		ctaEl.textContent = t( 'labelRequestToJoin', 'Request to join' );
 	}
 	// This card is created after initial hydration, so its
 	// data-wp-on--click directive is inert (the Interactivity API only binds
@@ -2081,13 +2095,6 @@ function buildSpaceCard( row ) {
 
 	article.appendChild( body );
 	return article;
-}
-
-function __i18n( s ) {
-	if ( window.wp && window.wp.i18n && typeof window.wp.i18n.__ === 'function' ) {
-		return window.wp.i18n.__( s, 'buddynext' );
-	}
-	return s;
 }
 
 function setDirectoryUiState( state ) {
@@ -2611,7 +2618,7 @@ function buildConfirmModal() {
 	closeBtn.type = 'button';
 	closeBtn.className = 'bn-modal__close';
 	closeBtn.setAttribute( 'data-bn-confirm-cancel', '' );
-	closeBtn.setAttribute( 'aria-label', 'Close' );
+	closeBtn.setAttribute( 'aria-label', t( 'confirmClose', 'Close' ) );
 	closeBtn.textContent = '×';
 	head.appendChild( title );
 	head.appendChild( closeBtn );
@@ -2663,10 +2670,10 @@ function ensureConfirmModal() {
 
 function openConfirmModal( triggerEl ) {
 	var refs = ensureConfirmModal();
-	refs.title.textContent   = triggerEl.dataset.bnConfirmTitle || 'Please confirm';
+	refs.title.textContent   = triggerEl.dataset.bnConfirmTitle || t( 'pleaseConfirm', 'Please confirm' );
 	refs.message.textContent = triggerEl.dataset.bnConfirm || '';
-	refs.ok.textContent      = triggerEl.dataset.bnConfirmOk || 'Confirm';
-	refs.cancel.textContent  = triggerEl.dataset.bnConfirmCancel || 'Cancel';
+	refs.ok.textContent      = triggerEl.dataset.bnConfirmOk || t( 'confirm', 'Confirm' );
+	refs.cancel.textContent  = triggerEl.dataset.bnConfirmCancel || t( 'cancel', 'Cancel' );
 
 	if ( ! triggerEl.id ) {
 		triggerEl.dataset.bnConfirmAutoId = 'bn-confirm-' + Math.random().toString( 36 ).slice( 2 );
@@ -2924,15 +2931,15 @@ document.addEventListener( 'keydown', function ( event ) {
 					if ( ! res.ok ) {
 						// Surface the server's specific reason (image_too_large /
 						// image_invalid_type / image_missing) rather than a generic failure.
-						var msg = ( res.data && res.data.message ) ? res.data.message : __i18n( 'Could not upload cover.' );
+						var msg = ( res.data && res.data.message ) ? res.data.message : t( 'couldNotUploadCover', 'Could not upload cover.' );
 						return Promise.reject( new Error( msg ) );
 					}
 					return res.data;
 				} ).then( function ( data ) {
 					paint( data.cover_image_url || '' );
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Cover updated.' ), 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'coverUpdated', 'Cover updated.' ), 'success' ); }
 				} ).catch( function ( err ) {
-					if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : __i18n( 'Could not upload cover.' ), 'danger' ); }
+					if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : t( 'couldNotUploadCover', 'Could not upload cover.' ), 'danger' ); }
 				} ).finally( function () {
 					preview.removeAttribute( 'aria-busy' );
 				} );
@@ -2950,13 +2957,13 @@ document.addEventListener( 'keydown', function ( event ) {
 				removeBtn.disabled = true;
 				deleteImage( 'cover' ).then( function ( res ) {
 					if ( ! res.ok ) {
-						var msg = ( res.data && res.data.message ) ? res.data.message : __i18n( 'Could not remove cover.' );
+						var msg = ( res.data && res.data.message ) ? res.data.message : t( 'couldNotRemoveCover', 'Could not remove cover.' );
 						return Promise.reject( new Error( msg ) );
 					}
 					paint( '' );
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Cover removed.' ), 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'coverRemoved', 'Cover removed.' ), 'success' ); }
 				} ).catch( function ( err ) {
-					if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : __i18n( 'Could not remove cover.' ), 'danger' ); }
+					if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : t( 'couldNotRemoveCover', 'Could not remove cover.' ), 'danger' ); }
 				} ).finally( function () {
 					removeBtn.disabled = false;
 				} );
@@ -2977,10 +2984,10 @@ document.addEventListener( 'keydown', function ( event ) {
 			pickFile( function ( file ) {
 				btn.disabled = true;
 				var orig = btn.textContent;
-				btn.textContent = __i18n( 'Uploading…' );
+				btn.textContent = t( 'uploading', 'Uploading…' );
 				uploadImage( 'avatar', file ).then( function ( res ) {
 					if ( ! res.ok ) {
-						var msg = ( res.data && res.data.message ) ? res.data.message : __i18n( 'Could not upload icon.' );
+						var msg = ( res.data && res.data.message ) ? res.data.message : t( 'couldNotUploadIcon', 'Could not upload icon.' );
 						return Promise.reject( new Error( msg ) );
 					}
 					return res.data;
@@ -2993,9 +3000,9 @@ document.addEventListener( 'keydown', function ( event ) {
 						current.appendChild( img );
 					}
 					if ( removeBtn ) { removeBtn.hidden = false; }
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Icon updated.' ), 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'iconUpdated', 'Icon updated.' ), 'success' ); }
 				} ).catch( function ( err ) {
-					if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : __i18n( 'Could not upload icon.' ), 'danger' ); }
+					if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : t( 'couldNotUploadIcon', 'Could not upload icon.' ), 'danger' ); }
 				} ).finally( function () {
 					btn.disabled = false;
 					btn.textContent = orig;
@@ -3010,7 +3017,7 @@ document.addEventListener( 'keydown', function ( event ) {
 				removeBtn.disabled = true;
 				deleteImage( 'avatar' ).then( function ( res ) {
 					if ( ! res.ok ) {
-						var msg = ( res.data && res.data.message ) ? res.data.message : __i18n( 'Could not remove icon.' );
+						var msg = ( res.data && res.data.message ) ? res.data.message : t( 'couldNotRemoveIcon', 'Could not remove icon.' );
 						return Promise.reject( new Error( msg ) );
 					}
 					if ( current ) {
@@ -3020,9 +3027,9 @@ document.addEventListener( 'keydown', function ( event ) {
 						}
 					}
 					removeBtn.hidden = true;
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Icon removed.' ), 'success' ); }
+					if ( window.bnToast ) { window.bnToast( t( 'iconRemoved', 'Icon removed.' ), 'success' ); }
 				} ).catch( function ( err ) {
-					if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : __i18n( 'Could not remove icon.' ), 'danger' ); }
+					if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : t( 'couldNotRemoveIcon', 'Could not remove icon.' ), 'danger' ); }
 				} ).finally( function () {
 					removeBtn.disabled = false;
 				} );

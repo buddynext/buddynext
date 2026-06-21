@@ -3,6 +3,17 @@ import { store, getContext } from '@wordpress/interactivity';
 import { bnToast, bnConfirm, bnResolveConnectNote } from '../shell/dialog.js';
 import { restFetch } from '../shell/rest-client.js';
 
+/* -- i18n -------------------------------------------------------------- */
+/* Translated strings are injected server-side into the Interactivity state
+ * (AssetService::i18n_profile) because Script Modules cannot use
+ * wp_set_script_translations(). The dictionary is read once from the
+ * buddynext/profile namespace below; each lookup keeps the English literal as a
+ * fallback so the UI never breaks if the state is absent. fmt() fills
+ * sprintf-style '%s' / '%d' placeholders in order. */
+let I18N = {};
+function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%[sd]/g, () => String( vals[ i++ ] ?? '' ) ); }
+
 /* -- Shared helpers ----------------------------------------------------- */
 
 var slugTimer = null;
@@ -74,14 +85,14 @@ function renderCropModal( img, resolve ) {
 	overlay.className = 'bn-avatar-crop-overlay';
 	overlay.setAttribute( 'role', 'dialog' );
 	overlay.setAttribute( 'aria-modal', 'true' );
-	overlay.setAttribute( 'aria-label', 'Crop avatar' );
+	overlay.setAttribute( 'aria-label', t( 'cropAvatar', 'Crop avatar' ) );
 
 	const panel = document.createElement( 'div' );
 	panel.className = 'bn-avatar-crop-panel';
 
 	const title = document.createElement( 'h2' );
 	title.className = 'bn-avatar-crop-title';
-	title.textContent = 'Position your avatar';
+	title.textContent = t( 'positionAvatar', 'Position your avatar' );
 	panel.appendChild( title );
 
 	const stage = document.createElement( 'div' );
@@ -174,7 +185,7 @@ function renderCropModal( img, resolve ) {
 	slider.max  = '300';
 	slider.value = '100';
 	slider.className = 'bn-avatar-crop-zoom';
-	slider.setAttribute( 'aria-label', 'Zoom' );
+	slider.setAttribute( 'aria-label', t( 'zoom', 'Zoom' ) );
 	slider.addEventListener( 'input', () => {
 		const newScale = minScale * ( parseInt( slider.value, 10 ) / 100 );
 		const cx = SIZE / 2;
@@ -193,12 +204,12 @@ function renderCropModal( img, resolve ) {
 	cancel.type = 'button';
 	cancel.className = 'bn-btn';
 	cancel.dataset.variant = 'ghost';
-	cancel.textContent = 'Cancel';
+	cancel.textContent = t( 'cancel', 'Cancel' );
 	const apply = document.createElement( 'button' );
 	apply.type = 'button';
 	apply.className = 'bn-btn';
 	apply.dataset.variant = 'primary';
-	apply.textContent = 'Apply';
+	apply.textContent = t( 'apply', 'Apply' );
 	actions.appendChild( cancel );
 	actions.appendChild( apply );
 	panel.appendChild( actions );
@@ -234,7 +245,7 @@ function renderCropModal( img, resolve ) {
 		out.toBlob( ( blob ) => {
 			if ( ! blob ) {
 				if ( typeof window !== 'undefined' && typeof window.bnToast === 'function' ) {
-					window.bnToast( 'Could not process the image. Try a different file.', { tone: 'danger' } );
+					window.bnToast( t( 'couldNotProcessImage', 'Could not process the image. Try a different file.' ), { tone: 'danger' } );
 				}
 				cleanup( null );
 				return;
@@ -292,14 +303,14 @@ function renderCoverReposModal( url, resolve ) {
 	overlay.className = 'bn-avatar-crop-overlay';
 	overlay.setAttribute( 'role', 'dialog' );
 	overlay.setAttribute( 'aria-modal', 'true' );
-	overlay.setAttribute( 'aria-label', 'Reposition cover photo' );
+	overlay.setAttribute( 'aria-label', t( 'repositionCover', 'Reposition cover photo' ) );
 
 	const panel = document.createElement( 'div' );
 	panel.className = 'bn-avatar-crop-panel';
 
 	const title = document.createElement( 'h2' );
 	title.className = 'bn-avatar-crop-title';
-	title.textContent = 'Drag to reposition · scroll or use the slider to zoom';
+	title.textContent = t( 'coverDragHint', 'Drag to reposition · scroll or use the slider to zoom' );
 	panel.appendChild( title );
 
 	const stage = document.createElement( 'div' );
@@ -363,7 +374,7 @@ function renderCoverReposModal( url, resolve ) {
 	slider.max   = '300';
 	slider.value = '100';
 	slider.className = 'bn-avatar-crop-zoom';
-	slider.setAttribute( 'aria-label', 'Zoom' );
+	slider.setAttribute( 'aria-label', t( 'zoom', 'Zoom' ) );
 	slider.addEventListener( 'input', () => setZoom( parseInt( slider.value, 10 ) / 100 ) );
 	panel.appendChild( slider );
 
@@ -373,12 +384,12 @@ function renderCoverReposModal( url, resolve ) {
 	cancel.type = 'button';
 	cancel.className = 'bn-btn';
 	cancel.dataset.variant = 'ghost';
-	cancel.textContent = 'Cancel';
+	cancel.textContent = t( 'cancel', 'Cancel' );
 	const apply = document.createElement( 'button' );
 	apply.type = 'button';
 	apply.className = 'bn-btn';
 	apply.dataset.variant = 'primary';
-	apply.textContent = 'Apply';
+	apply.textContent = t( 'apply', 'Apply' );
 	actions.appendChild( cancel );
 	actions.appendChild( apply );
 	panel.appendChild( actions );
@@ -485,7 +496,7 @@ function requiredLabelFor( el ) {
 	}
 	label = label.replace( /\*/g, '' ).trim();
 	if ( ! label ) {
-		label = ( el.getAttribute( 'name' ) || 'This field' ).replace( /_/g, ' ' );
+		label = ( el.getAttribute( 'name' ) || t( 'thisField', 'This field' ) ).replace( /_/g, ' ' );
 	}
 	return label;
 }
@@ -557,10 +568,10 @@ async function flushStagedMedia( ctx ) {
 				setAvatarPreview( avData.avatar_url );
 				toggleAvatarRemove( true );
 			} else {
-				bnToast( ( avData && avData.message ) || 'Avatar could not be saved', { tone: 'danger' } );
+				bnToast( ( avData && avData.message ) || t( 'avatarSaveFailed', 'Avatar could not be saved' ), { tone: 'danger' } );
 			}
 		} catch ( _e ) {
-			bnToast( 'Avatar could not be saved', { tone: 'danger' } );
+			bnToast( t( 'avatarSaveFailed', 'Avatar could not be saved' ), { tone: 'danger' } );
 		}
 		_pendingAvatar = null;
 	}
@@ -582,10 +593,10 @@ async function flushStagedMedia( ctx ) {
 			if ( cvRes.ok && cvData.cover_url ) {
 				ctx.coverUrl = cvData.cover_url;
 			} else {
-				bnToast( ( cvData && cvData.message ) || 'Cover could not be saved', { tone: 'danger' } );
+				bnToast( ( cvData && cvData.message ) || t( 'coverSaveFailed', 'Cover could not be saved' ), { tone: 'danger' } );
 			}
 		} catch ( _e ) {
-			bnToast( 'Cover could not be saved', { tone: 'danger' } );
+			bnToast( t( 'coverSaveFailed', 'Cover could not be saved' ), { tone: 'danger' } );
 		}
 		_pendingCover = null;
 	}
@@ -614,16 +625,16 @@ async function doSave( ctx ) {
 			await flushStagedMedia( ctx );
 			ctx.saved   = true;
 			ctx.isDirty = false;
-			bnToast( ( window.bnI18n && window.bnI18n.profileSaved ) || 'Profile saved', { tone: 'success' } );
+			bnToast( ( window.bnI18n && window.bnI18n.profileSaved ) || t( 'profileSaved', 'Profile saved' ), { tone: 'success' } );
 			setTimeout( function () { ctx.saved = false; }, 3000 );
 		} else if ( res.status === 422 && json && json.errors ) {
 			ctx.errors = json.errors;
-			bnToast( ( window.bnI18n && window.bnI18n.fieldsNeedAttention ) || 'Some fields need attention', { tone: 'danger' } );
+			bnToast( ( window.bnI18n && window.bnI18n.fieldsNeedAttention ) || t( 'fieldsNeedAttention', 'Some fields need attention' ), { tone: 'danger' } );
 		} else {
-			bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || 'Could not save. Please try again.', { tone: 'danger' } );
+			bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || t( 'saveFailed', 'Could not save. Please try again.' ), { tone: 'danger' } );
 		}
 	} catch ( _e ) {
-		bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || 'Could not save. Please try again.', { tone: 'danger' } );
+		bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || t( 'saveFailed', 'Could not save. Please try again.' ), { tone: 'danger' } );
 	} finally {
 		ctx.saving = false;
 	}
@@ -674,30 +685,30 @@ function buildEntryNode( group, index ) {
 	var groupConfig = {
 		work_experience: {
 			containerId: repeaterContainerId( 'work_experience' ),
-			removeLabel: 'Remove this position',
+			removeLabel: t( 'removeThisPosition', 'Remove this position' ),
 			/* Field keys MUST match the bn_profile_fields definitions for this
 			   group, or the server (ProfileService) silently ignores values for
 			   unknown keys — the same class of bug that dropped whole sections. */
 			fields: [
-				{ key: 'work_company',     label: 'Company',          type: 'text',     placeholder: 'Company name' },
-				{ key: 'work_title',       label: 'Job Title',        type: 'text',     placeholder: 'Your role' },
-				{ key: 'work_location',    label: 'Location',          type: 'text',     placeholder: 'City or Remote' },
-				{ key: 'work_start_date',  label: 'Start Date',        type: 'date' },
-				{ key: 'work_end_date',    label: 'End Date',          type: 'date',     endControl: true },
-				{ key: 'work_current',     label: 'Currently Working', type: 'boolean',  currentToggle: 'work_end_date' },
-				{ key: 'work_description', label: 'Description',        type: 'textarea', placeholder: 'Brief description of your role', fullWidth: true },
+				{ key: 'work_company',     label: t( 'workCompany', 'Company' ),              type: 'text',     placeholder: t( 'workCompanyPlaceholder', 'Company name' ) },
+				{ key: 'work_title',       label: t( 'workTitle', 'Job Title' ),              type: 'text',     placeholder: t( 'workTitlePlaceholder', 'Your role' ) },
+				{ key: 'work_location',    label: t( 'workLocation', 'Location' ),            type: 'text',     placeholder: t( 'workLocationPlaceholder', 'City or Remote' ) },
+				{ key: 'work_start_date',  label: t( 'workStartDate', 'Start Date' ),         type: 'date' },
+				{ key: 'work_end_date',    label: t( 'workEndDate', 'End Date' ),             type: 'date',     endControl: true },
+				{ key: 'work_current',     label: t( 'workCurrent', 'Currently Working' ),    type: 'boolean',  currentToggle: 'work_end_date' },
+				{ key: 'work_description', label: t( 'workDescription', 'Description' ),       type: 'textarea', placeholder: t( 'workDescriptionPlaceholder', 'Brief description of your role' ), fullWidth: true },
 			],
 		},
 		education: {
 			containerId: repeaterContainerId( 'education' ),
-			removeLabel: 'Remove this entry',
+			removeLabel: t( 'removeThisEntry', 'Remove this entry' ),
 			fields: [
-				{ key: 'edu_institution', label: 'Institution',         type: 'text',    placeholder: 'School or University' },
-				{ key: 'edu_degree',      label: 'Degree',              type: 'text',    placeholder: 'e.g. Bachelor of Science' },
-				{ key: 'edu_field',       label: 'Field of Study',      type: 'text',    placeholder: 'e.g. Computer Science' },
-				{ key: 'edu_start_year',  label: 'Start Year',          type: 'number',  placeholder: 'e.g. 2016' },
-				{ key: 'edu_end_year',    label: 'End Year',            type: 'number',  placeholder: 'e.g. 2020', endControl: true },
-				{ key: 'edu_current',     label: 'Currently Attending', type: 'boolean', currentToggle: 'edu_end_year' },
+				{ key: 'edu_institution', label: t( 'eduInstitution', 'Institution' ),          type: 'text',    placeholder: t( 'eduInstitutionPlaceholder', 'School or University' ) },
+				{ key: 'edu_degree',      label: t( 'eduDegree', 'Degree' ),                    type: 'text',    placeholder: t( 'eduDegreePlaceholder', 'e.g. Bachelor of Science' ) },
+				{ key: 'edu_field',       label: t( 'eduField', 'Field of Study' ),             type: 'text',    placeholder: t( 'eduFieldPlaceholder', 'e.g. Computer Science' ) },
+				{ key: 'edu_start_year',  label: t( 'eduStartYear', 'Start Year' ),             type: 'number',  placeholder: t( 'eduStartYearPlaceholder', 'e.g. 2016' ) },
+				{ key: 'edu_end_year',    label: t( 'eduEndYear', 'End Year' ),                 type: 'number',  placeholder: t( 'eduEndYearPlaceholder', 'e.g. 2020' ), endControl: true },
+				{ key: 'edu_current',     label: t( 'eduCurrent', 'Currently Attending' ),      type: 'boolean', currentToggle: 'edu_end_year' },
 			],
 		},
 	};
@@ -834,7 +845,7 @@ function applyCurrentToggle( checkbox ) {
 	if ( checkbox.checked ) {
 		endEl.value    = '';
 		endEl.disabled = true;
-		endEl.setAttribute( 'placeholder', 'Present' );
+		endEl.setAttribute( 'placeholder', t( 'present', 'Present' ) );
 	} else {
 		endEl.disabled = false;
 		endEl.removeAttribute( 'placeholder' );
@@ -927,11 +938,11 @@ function pushTabToUrl( tabId ) {
 
 /* -- Store ------------------------------------------------------------- */
 
-store( 'buddynext/profile', {
+const profileStore = store( 'buddynext/profile', {
 	state: {
-		get muteLabel()     { return getContext().isMuted      ? 'Unmute'     : 'Mute'; },
-		get restrictLabel() { return getContext().isRestricted ? 'Unrestrict' : 'Restrict'; },
-		get blockLabel()    { return getContext().isBlocked    ? 'Unblock'    : 'Block'; },
+		get muteLabel()     { return getContext().isMuted      ? t( 'unmute', 'Unmute' )         : t( 'mute', 'Mute' ); },
+		get restrictLabel() { return getContext().isRestricted ? t( 'unrestrict', 'Unrestrict' ) : t( 'restrict', 'Restrict' ); },
+		get blockLabel()    { return getContext().isBlocked    ? t( 'unblock', 'Unblock' )       : t( 'block', 'Block' ); },
 		/* Two-factor stage visibility (mutually exclusive). */
 		get twofaShowStart()  { const c = getContext(); return ! c.twofaEnabled && c.twofaStage === 'idle'; },
 		get twofaShowSetup()  { return getContext().twofaStage === 'setup'; },
@@ -939,7 +950,9 @@ store( 'buddynext/profile', {
 		get twofaShowManage() { const c = getContext(); return !! c.twofaEnabled && c.twofaStage === 'idle'; },
 		get twofaBackupText() {
 			const n = Number( getContext().twofaBackupRemaining ) || 0;
-			return n === 1 ? '1 backup code left.' : n + ' backup codes left.';
+			return n === 1
+				? fmt( t( 'backupCodeLeftSingular', '%d backup code left.' ), n )
+				: fmt( t( 'backupCodesLeftPlural', '%d backup codes left.' ), n );
 		},
 		/* Profile-URL slug availability. WP Interactivity only resolves a single
 		 * property path (optionally prefixed with !), not compound expressions
@@ -1023,9 +1036,9 @@ store( 'buddynext/profile', {
 				a.click();
 				document.body.removeChild( a );
 				URL.revokeObjectURL( url );
-				bnToast( 'Your data export has downloaded.', 'success' );
+				bnToast( t( 'dataExportDownloaded', 'Your data export has downloaded.' ), 'success' );
 			} catch ( _e ) {
-				bnToast( 'Could not export your data. Please try again.', 'danger' );
+				bnToast( t( 'dataExportFailed', 'Could not export your data. Please try again.' ), 'danger' );
 			} finally {
 				if ( btn ) { btn.disabled = false; }
 			}
@@ -1037,9 +1050,9 @@ store( 'buddynext/profile', {
 			var btn = event && event.target && event.target.closest( 'button' );
 
 			var ok = await bnConfirm( {
-				title:        'Delete your account?',
-				message:      'This permanently deletes your account and removes your data. This cannot be undone.',
-				confirmLabel: 'Delete my account',
+				title:        t( 'deleteAccountTitle', 'Delete your account?' ),
+				message:      t( 'deleteAccountMessage', 'This permanently deletes your account and removes your data. This cannot be undone.' ),
+				confirmLabel: t( 'deleteAccountConfirm', 'Delete my account' ),
 				tone:         'danger',
 			} );
 			if ( ! ok ) { return; }
@@ -1056,11 +1069,11 @@ store( 'buddynext/profile', {
 					window.location.href = data.redirect_to || '/';
 				} else {
 					if ( btn ) { btn.disabled = false; }
-					bnToast( ( data && data.message ) || 'Could not delete your account.', 'danger' );
+					bnToast( ( data && data.message ) || t( 'deleteAccountFailed', 'Could not delete your account.' ), 'danger' );
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.disabled = false; }
-				bnToast( 'Could not delete your account. Please try again.', 'danger' );
+				bnToast( t( 'deleteAccountFailedRetry', 'Could not delete your account. Please try again.' ), 'danger' );
 			}
 		},
 
@@ -1101,7 +1114,7 @@ store( 'buddynext/profile', {
 			const trigger = event.target.closest( '[data-share-url]' );
 			if ( ! trigger ) { return; }
 			const url   = trigger.dataset.shareUrl || window.location.href;
-			const title = document.querySelector( '.bn-pf-name' )?.textContent?.trim() || 'Profile';
+			const title = document.querySelector( '.bn-pf-name' )?.textContent?.trim() || t( 'profile', 'Profile' );
 			const toast = ( typeof window !== 'undefined' && typeof window.bnToast === 'function' ) ? window.bnToast : null;
 			if ( navigator.share ) {
 				navigator.share( { title, url } ).catch( () => {} );
@@ -1109,8 +1122,8 @@ store( 'buddynext/profile', {
 			}
 			if ( navigator.clipboard ) {
 				navigator.clipboard.writeText( url ).then(
-					() => { if ( toast ) { toast( 'Profile link copied', { tone: 'info' } ); } },
-					() => { if ( toast ) { toast( 'Could not copy. Long-press the URL.', { tone: 'danger' } ); } }
+					() => { if ( toast ) { toast( t( 'profileLinkCopied', 'Profile link copied' ), { tone: 'info' } ); } },
+					() => { if ( toast ) { toast( t( 'couldNotCopyLongPress', 'Could not copy. Long-press the URL.' ), { tone: 'danger' } ); } }
 				);
 				return;
 			}
@@ -1127,10 +1140,10 @@ store( 'buddynext/profile', {
 				const ok = document.execCommand( 'copy' );
 				document.body.removeChild( ta );
 				if ( toast ) {
-					toast( ok ? 'Profile link copied' : ( 'Copy this link: ' + url ), { tone: ok ? 'info' : 'danger' } );
+					toast( ok ? t( 'profileLinkCopied', 'Profile link copied' ) : fmt( t( 'copyThisLink', 'Copy this link: %s' ), url ), { tone: ok ? 'info' : 'danger' } );
 				}
 			} catch ( _e ) {
-				if ( toast ) { toast( 'Copy this link: ' + url, { tone: 'danger' } ); }
+				if ( toast ) { toast( fmt( t( 'copyThisLink', 'Copy this link: %s' ), url ), { tone: 'danger' } ); }
 			}
 		},
 
@@ -1156,7 +1169,7 @@ store( 'buddynext/profile', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
-				bnToast( ( window.bnI18n && window.bnI18n.socialUnlinked ) || 'Account unlinked', { tone: 'success' } );
+				bnToast( ( window.bnI18n && window.bnI18n.socialUnlinked ) || t( 'socialUnlinked', 'Account unlinked' ), { tone: 'success' } );
 				var row = btn.closest( '.bn-social-link' );
 				if ( row ) {
 					var a = document.createElement( 'a' );
@@ -1164,11 +1177,11 @@ store( 'buddynext/profile', {
 					a.setAttribute( 'data-variant', 'ghost' );
 					a.setAttribute( 'data-size', 'sm' );
 					a.href = '/oauth/' + provider + '/';
-					a.textContent = 'Connect';
+					a.textContent = t( 'connect', 'Connect' );
 					btn.replaceWith( a );
 				}
 			} catch ( _e ) {
-				bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || 'Could not unlink. Try again.', { tone: 'danger' } );
+				bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || t( 'socialUnlinkFailed', 'Could not unlink. Try again.' ), { tone: 'danger' } );
 			}
 		},
 
@@ -1192,9 +1205,9 @@ store( 'buddynext/profile', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
-				bnToast( ( window.bnI18n && window.bnI18n.memberTypeSaved ) || 'Member type updated', { tone: 'success' } );
+				bnToast( ( window.bnI18n && window.bnI18n.memberTypeSaved ) || t( 'memberTypeSaved', 'Member type updated' ), { tone: 'success' } );
 			} catch ( _e ) {
-				bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || 'Could not update member type', { tone: 'danger' } );
+				bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || t( 'memberTypeFailed', 'Could not update member type' ), { tone: 'danger' } );
 			}
 		},
 
@@ -1226,13 +1239,13 @@ store( 'buddynext/profile', {
 					throw new Error( 'http_' + res.status );
 				}
 				bnToast(
-					( window.bnI18n && window.bnI18n.prefSaved ) || 'Preference saved',
+					( window.bnI18n && window.bnI18n.prefSaved ) || t( 'prefSaved', 'Preference saved' ),
 					{ tone: 'success' }
 				);
 			} catch ( _e ) {
 				btn.setAttribute( 'aria-checked', prev ? 'true' : 'false' );
 				bnToast(
-					( window.bnI18n && window.bnI18n.saveFailed ) || 'Could not save. Please try again.',
+					( window.bnI18n && window.bnI18n.saveFailed ) || t( 'saveFailed', 'Could not save. Please try again.' ),
 					{ tone: 'danger' }
 				);
 			}
@@ -1251,13 +1264,13 @@ store( 'buddynext/profile', {
 
 			if ( name === 'display_name' ) {
 				if ( val === '' ) {
-					errors.display_name = 'Display name is required.';
+					errors.display_name = t( 'displayNameRequired', 'Display name is required.' );
 				} else {
 					delete errors.display_name;
 				}
 			} else if ( name === 'website' || name.indexOf( 'social_' ) === 0 ) {
 				if ( val !== '' && ! isValidUrlClient( val ) ) {
-					errors[ name ] = 'Enter a valid URL (https://example.com).';
+					errors[ name ] = t( 'invalidUrl', 'Enter a valid URL (https://example.com).' );
 				} else {
 					delete errors[ name ];
 				}
@@ -1293,7 +1306,7 @@ store( 'buddynext/profile', {
 					? ! el.checked
 					: ( el.value || '' ).trim() === '';
 				if ( empty ) {
-					errors[ key ] = requiredLabelFor( el ) + ' is required.';
+					errors[ key ] = fmt( t( 'fieldRequired', '%s is required.' ), requiredLabelFor( el ) );
 					if ( ! firstInvalid ) { firstInvalid = el; }
 				}
 			} );
@@ -1303,7 +1316,7 @@ store( 'buddynext/profile', {
 				if ( ! el ) { return; }
 				var v = ( el.value || '' ).trim();
 				if ( v !== '' && ! isValidUrlClient( v ) ) {
-					errors[ fname ] = 'Enter a valid URL (https://example.com).';
+					errors[ fname ] = t( 'invalidUrl', 'Enter a valid URL (https://example.com).' );
 					if ( ! firstInvalid ) { firstInvalid = el; }
 				}
 			} );
@@ -1313,7 +1326,7 @@ store( 'buddynext/profile', {
 				if ( firstInvalid && typeof firstInvalid.focus === 'function' ) {
 					firstInvalid.focus();
 				}
-				bnToast( 'Some fields need attention', { tone: 'danger' } );
+				bnToast( t( 'fieldsNeedAttention', 'Some fields need attention' ), { tone: 'danger' } );
 				return;
 			}
 
@@ -1481,9 +1494,9 @@ store( 'buddynext/profile', {
 				// Mark dirty so Save enables and the beforeunload guard arms.
 				ctx.isDirty = true;
 				syncDirtyAttr( true );
-				bnToast( 'Avatar ready — click Save changes to keep it', { tone: 'info' } );
+				bnToast( t( 'avatarReady', 'Avatar ready — click Save changes to keep it' ), { tone: 'info' } );
 			} catch ( err ) {
-				bnToast( 'Could not prepare image. Try again.', { tone: 'danger' } );
+				bnToast( t( 'couldNotPrepareImage', 'Could not prepare image. Try again.' ), { tone: 'danger' } );
 			} finally {
 				event.target.value = '';
 			}
@@ -1493,9 +1506,9 @@ store( 'buddynext/profile', {
 			var ctx = getContext();
 
 			var ok = await bnConfirm( {
-				title: 'Remove profile photo?',
-				body: 'Your photo will be replaced with your initials. You can upload a new one any time.',
-				confirmLabel: 'Remove',
+				title: t( 'removePhotoTitle', 'Remove profile photo?' ),
+				body: t( 'removePhotoBody', 'Your photo will be replaced with your initials. You can upload a new one any time.' ),
+				confirmLabel: t( 'remove', 'Remove' ),
 				tone: 'danger',
 			} );
 			if ( ! ok ) { return; }
@@ -1513,12 +1526,12 @@ store( 'buddynext/profile', {
 					ctx.avatarUrl = '';
 					setAvatarPreview( '' ); // revert to initials
 					toggleAvatarRemove( false );
-					bnToast( 'Profile photo removed', { tone: 'success' } );
+					bnToast( t( 'photoRemoved', 'Profile photo removed' ), { tone: 'success' } );
 				} else {
-					bnToast( 'Could not remove your photo. Try again.', { tone: 'danger' } );
+					bnToast( t( 'photoRemoveFailed', 'Could not remove your photo. Try again.' ), { tone: 'danger' } );
 				}
 			} catch ( err ) {
-				bnToast( 'Could not remove your photo. Try again.', { tone: 'danger' } );
+				bnToast( t( 'photoRemoveFailed', 'Could not remove your photo. Try again.' ), { tone: 'danger' } );
 			}
 		},
 
@@ -1559,9 +1572,9 @@ store( 'buddynext/profile', {
 				// Mark dirty so Save enables and the beforeunload guard arms.
 				ctx.isDirty = true;
 				syncDirtyAttr( true );
-				bnToast( 'Cover ready — click Save changes to keep it', { tone: 'info' } );
+				bnToast( t( 'coverReady', 'Cover ready — click Save changes to keep it' ), { tone: 'info' } );
 			} catch ( err ) {
-				bnToast( 'Could not prepare image. Try again.', { tone: 'danger' } );
+				bnToast( t( 'couldNotPrepareImage', 'Could not prepare image. Try again.' ), { tone: 'danger' } );
 			} finally {
 				event.target.value = '';
 			}
@@ -1582,11 +1595,11 @@ store( 'buddynext/profile', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'follow_failed' ); }
-				bnToast( 'Followed', { tone: 'success' } );
+				bnToast( t( 'followed', 'Followed' ), { tone: 'success' } );
 			} catch ( _e ) {
 				ctx.isFollowing   = false;
 				ctx.followerCount = Math.max( 0, ( ctx.followerCount || 1 ) - 1 );
-				bnToast( 'Could not follow. Try again.', { tone: 'danger' } );
+				bnToast( t( 'couldNotFollow', 'Could not follow. Try again.' ), { tone: 'danger' } );
 			}
 		},
 
@@ -1602,11 +1615,11 @@ store( 'buddynext/profile', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'unfollow_failed' ); }
-				bnToast( 'Unfollowed', { tone: 'info' } );
+				bnToast( t( 'unfollowed', 'Unfollowed' ), { tone: 'info' } );
 			} catch ( _e ) {
 				ctx.isFollowing   = true;
 				ctx.followerCount = ( ctx.followerCount || 0 ) + 1;
-				bnToast( 'Could not unfollow. Try again.', { tone: 'danger' } );
+				bnToast( t( 'couldNotUnfollow', 'Could not unfollow. Try again.' ), { tone: 'danger' } );
 			}
 		},
 
@@ -1615,7 +1628,7 @@ store( 'buddynext/profile', {
 			if ( ! ctx.showConnect ) { return; }
 			// LinkedIn-style optional note. Cancelling leaves the CTA untouched.
 			var note = await bnResolveConnectNote( {
-				body: 'Add a personal message to your connection request, or send it without one.',
+				body: t( 'connectNoteBody', 'Add a personal message to your connection request, or send it without one.' ),
 			} );
 			if ( note === null ) { return; }
 			ctx.connectionPending = true;
@@ -1628,11 +1641,11 @@ store( 'buddynext/profile', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'connect_failed' ); }
-				bnToast( 'Connection request sent', { tone: 'success' } );
+				bnToast( t( 'connectionSent', 'Connection request sent' ), { tone: 'success' } );
 			} catch ( _e ) {
 				ctx.connectionPending = false;
 				ctx.showConnect       = true;
-				bnToast( 'Could not send request', { tone: 'danger' } );
+				bnToast( t( 'couldNotSendRequest', 'Could not send request' ), { tone: 'danger' } );
 			}
 		},
 
@@ -1647,7 +1660,7 @@ store( 'buddynext/profile', {
 				if ( res.ok ) {
 					ctx.connectionPending = false;
 					ctx.showConnect       = true;
-					bnToast( 'Request withdrawn', { tone: 'info' } );
+					bnToast( t( 'requestWithdrawn', 'Request withdrawn' ), { tone: 'info' } );
 				}
 			} catch ( _e ) {}
 		},
@@ -1664,7 +1677,7 @@ store( 'buddynext/profile', {
 					ctx.connectionReceived = false;
 					ctx.isConnected        = true;
 					ctx.showConnect        = false;
-					bnToast( 'Connected', { tone: 'success' } );
+					bnToast( t( 'connected', 'Connected' ), { tone: 'success' } );
 				}
 			} catch ( _e ) {}
 		},
@@ -1680,7 +1693,7 @@ store( 'buddynext/profile', {
 				if ( res.ok ) {
 					ctx.connectionReceived = false;
 					ctx.showConnect        = true;
-					bnToast( 'Request declined', { tone: 'info' } );
+					bnToast( t( 'requestDeclined', 'Request declined' ), { tone: 'info' } );
 				}
 			} catch ( _e ) {}
 		},
@@ -1697,7 +1710,7 @@ store( 'buddynext/profile', {
 					ctx.isConnected       = false;
 					ctx.showConnect       = true;
 					ctx.connectionPending = false;
-					bnToast( 'Disconnected', { tone: 'info' } );
+					bnToast( t( 'disconnected', 'Disconnected' ), { tone: 'info' } );
 				}
 			} catch ( _e ) {}
 		},
@@ -1738,9 +1751,9 @@ store( 'buddynext/profile', {
 					document.execCommand( 'copy' );
 					document.body.removeChild( ta );
 				}
-				bnToast( ( window.bnI18n && window.bnI18n.linkCopied ) || 'Profile link copied', { tone: 'success' } );
+				bnToast( ( window.bnI18n && window.bnI18n.linkCopied ) || t( 'profileLinkCopied', 'Profile link copied' ), { tone: 'success' } );
 			} catch ( _e ) {
-				bnToast( ( window.bnI18n && window.bnI18n.copyFailed ) || 'Could not copy link.', { tone: 'danger' } );
+				bnToast( ( window.bnI18n && window.bnI18n.copyFailed ) || t( 'copyFailed', 'Could not copy link.' ), { tone: 'danger' } );
 			}
 			ctx.shareMenuOpen = false;
 		},
@@ -1759,10 +1772,10 @@ store( 'buddynext/profile', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'mute_failed' ); }
-				bnToast( wasMuted ? 'Unmuted' : 'Muted', { tone: 'success' } );
+				bnToast( wasMuted ? t( 'unmuted', 'Unmuted' ) : t( 'muted', 'Muted' ), { tone: 'success' } );
 			} catch ( _e ) {
 				ctx.isMuted = wasMuted;
-				bnToast( 'Could not update mute state', { tone: 'danger' } );
+				bnToast( t( 'muteFailed', 'Could not update mute state' ), { tone: 'danger' } );
 			}
 		},
 
@@ -1781,13 +1794,13 @@ store( 'buddynext/profile', {
 				if ( ! res.ok ) { throw new Error( 'restrict_failed' ); }
 				bnToast(
 					wasRestricted
-						? 'No longer restricted'
-						: 'Restricted. They can still see your profile, but their comments are hidden from others.',
+						? t( 'noLongerRestricted', 'No longer restricted' )
+						: t( 'restricted', 'Restricted. They can still see your profile, but their comments are hidden from others.' ),
 					{ tone: wasRestricted ? 'info' : 'success' }
 				);
 			} catch ( _e ) {
 				ctx.isRestricted = wasRestricted;
-				bnToast( 'Could not update restrict state', { tone: 'danger' } );
+				bnToast( t( 'restrictFailed', 'Could not update restrict state' ), { tone: 'danger' } );
 			}
 		},
 
@@ -1820,13 +1833,13 @@ store( 'buddynext/profile', {
 				if ( ! res.ok ) { throw new Error( 'block_failed' ); }
 				ctx.isBlocked        = true;
 				ctx.blockConfirmOpen = false;
-				bnToast( ( ctx.displayName ? ctx.displayName + ' blocked' : 'Member blocked' ), { tone: 'success' } );
+				bnToast( ( ctx.displayName ? fmt( t( 'memberBlockedNamed', '%s blocked' ), ctx.displayName ) : t( 'memberBlocked', 'Member blocked' ) ), { tone: 'success' } );
 				// After block we redirect to the members directory since the profile is no longer accessible.
 				setTimeout( function () {
 					window.location.href = ( ctx.peopleUrl || '/members/' );
 				}, 800 );
 			} catch ( _e ) {
-				bnToast( 'Could not block. Try again.', { tone: 'danger' } );
+				bnToast( t( 'blockFailed', 'Could not block. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.blockSubmitting = false;
 			}
@@ -1874,13 +1887,13 @@ store( 'buddynext/profile', {
 					// Surface the server's reason — e.g. the 409 "You have already
 					// reported this member." — rather than a generic retry message.
 					var data = res.data || {};
-					bnToast( data.message || 'Could not submit report. Try again.', { tone: 'danger' } );
+					bnToast( data.message || t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
 					return;
 				}
 				ctx.reportOpen = false;
-				bnToast( 'Report submitted. Thanks for keeping the community safe.', { tone: 'success' } );
+				bnToast( t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
 			} catch ( _e ) {
-				bnToast( 'Could not submit report. Try again.', { tone: 'danger' } );
+				bnToast( t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.reportSubmitting = false;
 			}
@@ -1915,11 +1928,11 @@ store( 'buddynext/profile', {
 				if ( res.ok && json && json.saved ) {
 					ctx.emailChangeOpen = false;
 					if ( input ) { input.value = ''; }
-					bnToast( json.message || 'Check your inbox to confirm.', { tone: 'success' } );
+					bnToast( json.message || t( 'checkInboxConfirm', 'Check your inbox to confirm.' ), { tone: 'success' } );
 				} else if ( res.status === 422 && json && json.errors ) {
 					ctx.errors = Object.assign( {}, ctx.errors || {}, json.errors );
 				} else {
-					bnToast( 'Could not send verification email. Try again.', { tone: 'danger' } );
+					bnToast( t( 'verifyEmailFailed', 'Could not send verification email. Try again.' ), { tone: 'danger' } );
 				}
 			} catch ( _e ) {
 				bnToast( 'Could not send verification email. Try again.', { tone: 'danger' } );
@@ -1954,7 +1967,14 @@ store( 'buddynext/profile', {
 			if ( /\d/.test( val ) )            { score += 1; }
 			if ( /[^A-Za-z0-9]/.test( val ) )  { score += 1; }
 			ctx.passwordStrength = score;
-			ctx.passwordStrengthLabel = [ 'Too short', 'Weak', 'Fair', 'Good', 'Strong', 'Excellent' ][ Math.min( score, 5 ) ] || '';
+			ctx.passwordStrengthLabel = [
+				t( 'pwTooShort', 'Too short' ),
+				t( 'pwWeak', 'Weak' ),
+				t( 'pwFair', 'Fair' ),
+				t( 'pwGood', 'Good' ),
+				t( 'pwStrong', 'Strong' ),
+				t( 'pwExcellent', 'Excellent' ),
+			][ Math.min( score, 5 ) ] || '';
 		},
 		async changePassword() {
 			var ctx = getContext();
@@ -1967,14 +1987,14 @@ store( 'buddynext/profile', {
 			var conf = conInput ? conInput.value : '';
 
 			var localErrors = {};
-			if ( ! curr ) { localErrors.current_password = 'Enter your current password.'; }
+			if ( ! curr ) { localErrors.current_password = t( 'enterCurrentPassword', 'Enter your current password.' ); }
 			if ( ! next ) {
-				localErrors.new_password = 'Enter a new password.';
+				localErrors.new_password = t( 'enterNewPassword', 'Enter a new password.' );
 			} else if ( next.length < 8 ) {
-				localErrors.new_password = 'Use at least 8 characters.';
+				localErrors.new_password = t( 'passwordMinChars', 'Use at least 8 characters.' );
 			}
 			if ( next && next !== conf ) {
-				localErrors.confirm_password = 'Passwords do not match.';
+				localErrors.confirm_password = t( 'passwordsNoMatch', 'Passwords do not match.' );
 			}
 			if ( Object.keys( localErrors ).length ) {
 				ctx.errors = Object.assign( {}, ctx.errors || {}, localErrors );
@@ -1997,11 +2017,11 @@ store( 'buddynext/profile', {
 					if ( conInput ) { conInput.value = ''; }
 					ctx.passwordStrength = 0;
 					ctx.passwordStrengthLabel = '';
-					bnToast( 'Password updated.', { tone: 'success' } );
+					bnToast( t( 'passwordUpdated', 'Password updated.' ), { tone: 'success' } );
 				} else if ( res.status === 422 && json && json.errors ) {
 					ctx.errors = Object.assign( {}, ctx.errors || {}, json.errors );
 				} else {
-					bnToast( 'Could not change password. Try again.', { tone: 'danger' } );
+					bnToast( t( 'passwordChangeFailed', 'Could not change password. Try again.' ), { tone: 'danger' } );
 				}
 			} catch ( _e ) {
 				bnToast( 'Could not change password. Try again.', { tone: 'danger' } );
@@ -2022,9 +2042,9 @@ store( 'buddynext/profile', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
-				bnToast( 'Signed out of every other session.', { tone: 'success' } );
+				bnToast( t( 'signedOutEverywhere', 'Signed out of every other session.' ), { tone: 'success' } );
 			} catch ( _e ) {
-				bnToast( 'Could not sign out everywhere. Try again.', { tone: 'danger' } );
+				bnToast( t( 'signOutFailed', 'Could not sign out everywhere. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.signOutSubmitting = false;
 			}
@@ -2061,10 +2081,10 @@ store( 'buddynext/profile', {
 					ctx.twofaCode = '';
 					ctx.twofaStage = 'setup';
 				} else {
-					bnToast( ( json && json.message ) || 'Could not start setup. Try again.', { tone: 'danger' } );
+					bnToast( ( json && json.message ) || t( 'twofaSetupFailed', 'Could not start setup. Try again.' ), { tone: 'danger' } );
 				}
 			} catch ( _e ) {
-				bnToast( 'Could not start setup. Try again.', { tone: 'danger' } );
+				bnToast( t( 'twofaSetupFailed', 'Could not start setup. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.twofaBusy = false;
 			}
@@ -2091,10 +2111,10 @@ store( 'buddynext/profile', {
 					ctx.twofaCode = '';
 					ctx.twofaStage = 'backup';
 				} else {
-					ctx.twofaError = ( json && json.message ) || 'That code did not match.';
+					ctx.twofaError = ( json && json.message ) || t( 'twofaCodeMismatch', 'That code did not match.' );
 				}
 			} catch ( _e ) {
-				ctx.twofaError = 'Something went wrong. Try again.';
+				ctx.twofaError = t( 'somethingWentWrong', 'Something went wrong. Try again.' );
 			} finally {
 				ctx.twofaBusy = false;
 			}
@@ -2103,7 +2123,7 @@ store( 'buddynext/profile', {
 			const ctx = getContext();
 			ctx.twofaBackupCodes = [];
 			ctx.twofaStage = 'idle';
-			bnToast( 'Two-factor authentication is on.', { tone: 'success' } );
+			bnToast( t( 'twofaOn', 'Two-factor authentication is on.' ), { tone: 'success' } );
 		},
 		cancelTwofa() {
 			const ctx = getContext();
@@ -2116,7 +2136,7 @@ store( 'buddynext/profile', {
 		async regenerateBackup() {
 			const ctx = getContext();
 			if ( ctx.twofaBusy ) { return; }
-			if ( ! ( ctx.twofaPassword || '' ) ) { ctx.twofaError = 'Enter your password.'; return; }
+			if ( ! ( ctx.twofaPassword || '' ) ) { ctx.twofaError = t( 'enterPassword', 'Enter your password.' ); return; }
 			ctx.twofaBusy = true;
 			ctx.twofaError = '';
 			try {
@@ -2133,10 +2153,10 @@ store( 'buddynext/profile', {
 					ctx.twofaPassword = '';
 					ctx.twofaStage = 'backup';
 				} else {
-					ctx.twofaError = ( json && json.message ) || 'Could not regenerate codes.';
+					ctx.twofaError = ( json && json.message ) || t( 'twofaRegenFailed', 'Could not regenerate codes.' );
 				}
 			} catch ( _e ) {
-				ctx.twofaError = 'Something went wrong. Try again.';
+				ctx.twofaError = t( 'somethingWentWrong', 'Something went wrong. Try again.' );
 			} finally {
 				ctx.twofaBusy = false;
 			}
@@ -2144,7 +2164,7 @@ store( 'buddynext/profile', {
 		async disableTwofa() {
 			const ctx = getContext();
 			if ( ctx.twofaBusy ) { return; }
-			if ( ! ( ctx.twofaPassword || '' ) ) { ctx.twofaError = 'Enter your password.'; return; }
+			if ( ! ( ctx.twofaPassword || '' ) ) { ctx.twofaError = t( 'enterPassword', 'Enter your password.' ); return; }
 			ctx.twofaBusy = true;
 			ctx.twofaError = '';
 			try {
@@ -2160,18 +2180,22 @@ store( 'buddynext/profile', {
 					ctx.twofaBackupRemaining = 0;
 					ctx.twofaPassword = '';
 					ctx.twofaStage = 'idle';
-					bnToast( 'Two-factor authentication is off.', { tone: 'success' } );
+					bnToast( t( 'twofaOff', 'Two-factor authentication is off.' ), { tone: 'success' } );
 				} else {
-					ctx.twofaError = ( json && json.message ) || 'Could not turn off two-factor.';
+					ctx.twofaError = ( json && json.message ) || t( 'twofaDisableFailed', 'Could not turn off two-factor.' );
 				}
 			} catch ( _e ) {
-				ctx.twofaError = 'Something went wrong. Try again.';
+				ctx.twofaError = t( 'somethingWentWrong', 'Something went wrong. Try again.' );
 			} finally {
 				ctx.twofaBusy = false;
 			}
 		},
 	},
 } );
+
+// The server merges the injected dictionary into this namespace's state; read
+// it once so every lookup above (and the helpers below) shares one table.
+I18N = ( profileStore && profileStore.state && profileStore.state.i18n ) || {};
 
 /* -- Helpers that need access to the store -------------------------- */
 
@@ -2186,10 +2210,10 @@ async function doUnblock( ctx ) {
 			toastOnError: false,
 		} );
 		if ( ! res.ok ) { throw new Error( 'unblock_failed' ); }
-		bnToast( 'Unblocked', { tone: 'info' } );
+		bnToast( t( 'unblocked', 'Unblocked' ), { tone: 'info' } );
 	} catch ( _e ) {
 		ctx.isBlocked = wasBlocked;
-		bnToast( 'Could not unblock', { tone: 'danger' } );
+		bnToast( t( 'unblockFailed', 'Could not unblock' ), { tone: 'danger' } );
 	}
 }
 

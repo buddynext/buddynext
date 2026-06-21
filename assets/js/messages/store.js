@@ -19,6 +19,17 @@ import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnReportDialog, bnToast } from '../shell/dialog.js';
 import { restFetch } from '../shell/rest-client.js';
 
+/* -- i18n -------------------------------------------------------------- */
+/* Translated strings are injected server-side into the Interactivity state
+ * (AssetService::i18n_messages) because Script Modules cannot use
+ * wp_set_script_translations(). The dictionary is read once from the
+ * buddynext/messages namespace below; each lookup keeps the English literal as
+ * a fallback so the UI never breaks if the state is absent. fmt() fills
+ * sprintf-style '%s'/'%d' placeholders. */
+let I18N = {};
+function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%[sd]/g, () => String( vals[ i++ ] ?? '' ) ); }
+
 /**
  * Append plain text to an element, converting newlines to <br> via real DOM
  * nodes (no innerHTML — the body can never inject markup).
@@ -134,7 +145,7 @@ function collectSharedMedia() {
 	if ( ! imgs.length ) {
 		const empty = document.createElement( 'li' );
 		empty.className = 'bn-dm-info__media-empty';
-		empty.textContent = 'No photos shared yet.';
+		empty.textContent = t( 'noPhotosShared', 'No photos shared yet.' );
 		grid.appendChild( empty );
 		return;
 	}
@@ -219,10 +230,9 @@ function buildComposeResult( member ) {
  *
  * @param {Array}  participants Engine participants ({ id|user_id, role, display_name }).
  * @param {number} userId       Viewing user id.
- * @param {Object} i18n         Localised labels.
  * @return {{ viewerIsAdmin: boolean, members: Array }}
  */
-function mapGroupMembers( participants, userId, i18n ) {
+function mapGroupMembers( participants, userId ) {
 	const list = Array.isArray( participants ) ? participants : [];
 	const uid  = parseInt( userId, 10 );
 	const me   = list.find( ( p ) => parseInt( p.id != null ? p.id : p.user_id, 10 ) === uid );
@@ -235,8 +245,8 @@ function mapGroupMembers( participants, userId, i18n ) {
 			id,
 			name: p.display_name || p.name || '',
 			role: p.role || 'member',
-			role_label: isAdmin ? ( i18n.roleAdmin || 'Admin' ) : ( i18n.roleMember || 'Member' ),
-			role_action_label: isAdmin ? ( i18n.makeMember || 'Make member' ) : ( i18n.makeAdmin || 'Make admin' ),
+			role_label: isAdmin ? t( 'roleAdmin', 'Admin' ) : t( 'roleMember', 'Member' ),
+			role_action_label: isAdmin ? t( 'makeMember', 'Make member' ) : t( 'makeAdmin', 'Make admin' ),
 			is_admin: isAdmin,
 			is_self: isSelf,
 			can_manage: viewerIsAdmin && ! isSelf,
@@ -257,7 +267,7 @@ function applyGroupShape( ctx, data ) {
 	if ( ! data || ! Array.isArray( data.participants ) ) {
 		return false;
 	}
-	const mapped = mapGroupMembers( data.participants, ctx.userId, ctx.i18n || {} );
+	const mapped = mapGroupMembers( data.participants, ctx.userId );
 	ctx.activeMembers = mapped.members;
 	ctx.activeIsAdmin = mapped.viewerIsAdmin;
 	ctx.memberCount = data.member_count || mapped.members.length;
@@ -356,7 +366,7 @@ function buildMessageNode( msg, viewer ) {
 			a.target = '_blank';
 			a.rel = 'noopener';
 			const span = document.createElement( 'span' );
-			span.textContent = media.title || 'Attachment';
+			span.textContent = media.title || t( 'attachment', 'Attachment' );
 			a.appendChild( span );
 			wrapM.appendChild( a );
 		}
@@ -562,17 +572,15 @@ function buildReactionChip( msgEl, slug ) {
 	return btn;
 }
 
-const { actions } = store( 'buddynext/messages', {
+const messagesStore = store( 'buddynext/messages', {
 	state: {
 		// ── Compose modal (DM ↔ group) ────────────────────────────────────────
 		get composeIsGroup() { return getContext().composeMode === 'group'; },
 		get composeIsDm() { return getContext().composeMode !== 'group'; },
 		get composeTitle() {
-			const ctx = getContext();
-			const i18n = ctx.i18n || {};
-			return ctx.composeMode === 'group'
-				? ( i18n.composeNewGroup || 'New group' )
-				: ( i18n.composeNewMessage || 'New message' );
+			return getContext().composeMode === 'group'
+				? t( 'composeNewGroup', 'New group' )
+				: t( 'composeNewMessage', 'New message' );
 		},
 		get groupHasNoMembers() { return ( getContext().groupMembers || [] ).length === 0; },
 		get createGroupDisabled() {
@@ -583,7 +591,9 @@ const { actions } = store( 'buddynext/messages', {
 		get headerGroupName() { return getContext().activeGroupName || ''; },
 		get headerGroupStatus() {
 			const n = parseInt( getContext().memberCount, 10 ) || 0;
-			return n === 1 ? '1 member' : n + ' members';
+			return n === 1
+				? t( 'memberCountSingular', '1 member' )
+				: fmt( t( 'memberCountPlural', '%d members' ), n );
 		},
 	},
 	actions: {
@@ -683,29 +693,29 @@ const { actions } = store( 'buddynext/messages', {
 				let denyMsg;
 				switch ( reason ) {
 					case 'blocked':
-						denyMsg = 'You can no longer message this person.';
+						denyMsg = t( 'sendDeniedBlocked', 'You can no longer message this person.' );
 						break;
 					case 'dms_disabled':
-						denyMsg = 'This person isn’t accepting messages right now.';
+						denyMsg = t( 'sendDeniedDmsDisabled', 'This person isn’t accepting messages right now.' );
 						break;
 					case 'connections_only':
 					case 'mutual_follow_required':
-						denyMsg = 'This person only accepts messages from their connections.';
+						denyMsg = t( 'sendDeniedConnectionsOnly', 'This person only accepts messages from their connections.' );
 						break;
 					case 'rate_limited':
-						denyMsg = 'You’re sending messages too quickly — please wait a moment.';
+						denyMsg = t( 'sendDeniedRateLimited', 'You’re sending messages too quickly — please wait a moment.' );
 						break;
 					case 'content_too_long':
-						denyMsg = 'That message is too long to send.';
+						denyMsg = t( 'sendDeniedTooLong', 'That message is too long to send.' );
 						break;
 					case 'not_participant':
-						denyMsg = 'You can no longer post to this conversation.';
+						denyMsg = t( 'sendDeniedNotParticipant', 'You can no longer post to this conversation.' );
 						break;
 					case 'duplicate_message':
 						denyMsg = '';
 						break; // dedupe guard — the message already went through.
 					default:
-						denyMsg = 'Your message couldn’t be sent. Please try again.';
+						denyMsg = t( 'sendDeniedGeneric', 'Your message couldn’t be sent. Please try again.' );
 						break;
 				}
 				if ( denyMsg ) {
@@ -767,7 +777,7 @@ const { actions } = store( 'buddynext/messages', {
 			if ( ! msgId ) {
 				return;
 			}
-			const result = await bnReportDialog( { title: 'Report this message' } );
+			const result = await bnReportDialog( { title: t( 'reportMessageTitle', 'Report this message' ) } );
 			if ( result === null ) {
 				return; // Cancelled.
 			}
@@ -783,12 +793,12 @@ const { actions } = store( 'buddynext/messages', {
 					},
 				} );
 				if ( res.ok || res.status === 201 ) {
-					bnToast( 'Message reported. Our moderators will review it.', { tone: 'success' } );
+					bnToast( t( 'reportMessageSuccess', 'Message reported. Our moderators will review it.' ), { tone: 'success' } );
 				} else {
-					bnToast( 'Could not report this message. Try again.', { tone: 'danger' } );
+					bnToast( t( 'reportMessageFailed', 'Could not report this message. Try again.' ), { tone: 'danger' } );
 				}
 			} catch ( _e ) {
-				bnToast( 'Could not report this message. Try again.', { tone: 'danger' } );
+				bnToast( t( 'reportMessageFailed', 'Could not report this message. Try again.' ), { tone: 'danger' } );
 			}
 		},
 
@@ -840,11 +850,11 @@ const { actions } = store( 'buddynext/messages', {
 			if ( ctx.infoBusy || ! uid ) {
 				return;
 			}
-			const name = ctx.recipientName || 'this member';
+			const name = ctx.recipientName || t( 'thisMember', 'this member' );
 			const ok = await bnConfirm( {
-				title:        'Block ' + name + '?',
-				body:         'They will not be able to message you, and you will not see each other across the community. You can unblock them later from their profile.',
-				confirmLabel: 'Block',
+				title:        fmt( t( 'blockTitle', 'Block %s?' ), name ),
+				body:         t( 'blockBody', 'They will not be able to message you, and you will not see each other across the community. You can unblock them later from their profile.' ),
+				confirmLabel: t( 'blockConfirm', 'Block' ),
 				tone:         'danger',
 			} );
 			if ( ! ok ) {
@@ -854,17 +864,17 @@ const { actions } = store( 'buddynext/messages', {
 			try {
 				const res = await restFetch( '/users/' + uid + '/block', { method: 'POST', toastOnError: false } );
 				if ( res.ok || res.status === 201 ) {
-					bnToast( name + ' blocked.', { tone: 'success' } );
+					bnToast( fmt( t( 'blockSuccess', '%s blocked.' ), name ), { tone: 'success' } );
 					ctx.infoPanelOpen = false;
 					// You can no longer message a blocked member — leave the thread.
 					if ( ctx.messagesUrl ) {
 						window.location.href = ctx.messagesUrl;
 					}
 				} else {
-					bnToast( 'Could not block ' + name + '. Try again.', { tone: 'danger' } );
+					bnToast( fmt( t( 'blockFailed', 'Could not block %s. Try again.' ), name ), { tone: 'danger' } );
 				}
 			} catch ( _e ) {
-				bnToast( 'Could not block ' + name + '. Try again.', { tone: 'danger' } );
+				bnToast( fmt( t( 'blockFailed', 'Could not block %s. Try again.' ), name ), { tone: 'danger' } );
 			} finally {
 				ctx.infoBusy = false;
 			}
@@ -875,7 +885,7 @@ const { actions } = store( 'buddynext/messages', {
 			if ( ctx.infoBusy || ! uid ) {
 				return;
 			}
-			const result = await bnReportDialog( { title: 'Report this conversation' } );
+			const result = await bnReportDialog( { title: t( 'reportConversationTitle', 'Report this conversation' ) } );
 			if ( result === null ) {
 				return;
 			}
@@ -892,13 +902,13 @@ const { actions } = store( 'buddynext/messages', {
 					},
 				} );
 				if ( res.ok || res.status === 201 ) {
-					bnToast( 'Reported. Our moderators will review it.', { tone: 'success' } );
+					bnToast( t( 'reportConversationSuccess', 'Reported. Our moderators will review it.' ), { tone: 'success' } );
 					ctx.infoPanelOpen = false;
 				} else {
-					bnToast( 'Could not submit the report. Try again.', { tone: 'danger' } );
+					bnToast( t( 'reportConversationFailed', 'Could not submit the report. Try again.' ), { tone: 'danger' } );
 				}
 			} catch ( _e ) {
-				bnToast( 'Could not submit the report. Try again.', { tone: 'danger' } );
+				bnToast( t( 'reportConversationFailed', 'Could not submit the report. Try again.' ), { tone: 'danger' } );
 			} finally {
 				ctx.infoBusy = false;
 			}
@@ -945,7 +955,7 @@ const { actions } = store( 'buddynext/messages', {
 				const close = document.createElement( 'button' );
 				close.type = 'button';
 				close.className = 'bn-dm-emoji-pop__close';
-				close.setAttribute( 'aria-label', ( window.wp && window.wp.i18n ) ? window.wp.i18n.__( 'Close emoji picker', 'buddynext' ) : 'Close emoji picker' );
+				close.setAttribute( 'aria-label', t( 'emojiPickerClose', 'Close emoji picker' ) );
 				close.textContent = '×';
 				pop.appendChild( close );
 
@@ -1022,7 +1032,7 @@ const { actions } = store( 'buddynext/messages', {
 				const items = list.filter( ( m ) => ( m.media_type || 'image' ) === 'image' && ( m.thumbnail_url || m.file_url ) );
 				grid.dataset.loaded = '1';
 				grid.replaceChildren(
-					...( items.length ? items.map( buildMediaTile ) : [ mediaHint( ( ctx.i18n && ctx.i18n.mediaEmpty ) || '' ) ] )
+					...( items.length ? items.map( buildMediaTile ) : [ mediaHint( t( 'mediaEmpty', 'No photos to share yet.' ) ) ] )
 				);
 			} catch ( _e ) {}
 		},
@@ -1189,10 +1199,10 @@ const { actions } = store( 'buddynext/messages', {
 					return;
 				}
 				ctx.groupBusy = false;
-				bnToast( ( ctx.i18n && ctx.i18n.groupCreateFailed ) || 'Could not create the group.', { tone: 'danger' } );
+				bnToast( t( 'groupCreateFailed', 'Could not create the group.' ), { tone: 'danger' } );
 			} catch ( _e ) {
 				ctx.groupBusy = false;
-				bnToast( ( ctx.i18n && ctx.i18n.groupCreateFailed ) || 'Could not create the group.', { tone: 'danger' } );
+				bnToast( t( 'groupCreateFailed', 'Could not create the group.' ), { tone: 'danger' } );
 			}
 		},
 
@@ -1220,11 +1230,11 @@ const { actions } = store( 'buddynext/messages', {
 			try {
 				const r = yield actions.groupApi( 'PUT', '', { title: String( ctx.activeGroupName || '' ).trim() } );
 				ctx.groupBusy = false;
-				if ( r.ok ) { applyGroupShape( ctx, r.data ); bnToast( 'Group renamed.', { tone: 'success' } ); }
-				else { bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } ); }
+				if ( r.ok ) { applyGroupShape( ctx, r.data ); bnToast( t( 'groupRenamed', 'Group renamed.' ), { tone: 'success' } ); }
+				else { bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } ); }
 			} catch ( _e ) {
 				ctx.groupBusy = false;
-				bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } );
+				bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } );
 			}
 		},
 		*toggleMemberRole( event ) {
@@ -1239,10 +1249,10 @@ const { actions } = store( 'buddynext/messages', {
 				const r = yield actions.groupApi( 'PUT', '/participants/' + id + '/role', { role: next } );
 				ctx.groupBusy = false;
 				if ( r.ok ) { applyGroupShape( ctx, r.data ); }
-				else { bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } ); }
+				else { bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } ); }
 			} catch ( _e ) {
 				ctx.groupBusy = false;
-				bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } );
+				bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } );
 			}
 		},
 		*removeMember( event ) {
@@ -1256,10 +1266,10 @@ const { actions } = store( 'buddynext/messages', {
 				const r = yield actions.groupApi( 'DELETE', '/participants/' + id, null );
 				ctx.groupBusy = false;
 				if ( r.ok ) { applyGroupShape( ctx, r.data ); }
-				else { bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } ); }
+				else { bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } ); }
 			} catch ( _e ) {
 				ctx.groupBusy = false;
-				bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } );
+				bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } );
 			}
 		},
 		onGroupAddSearch( event ) {
@@ -1304,20 +1314,20 @@ const { actions } = store( 'buddynext/messages', {
 					const list = document.querySelector( '.bn-dm-group__add-results' );
 					if ( list ) { list.replaceChildren(); }
 				} else {
-					bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } );
+					bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } );
 				}
 			} catch ( _e ) {
 				ctx.groupBusy = false;
-				bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } );
+				bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } );
 			}
 		},
 		*leaveGroup() {
 			const ctx = getContext();
 			if ( ctx.groupBusy ) { return; }
 			const ok = yield bnConfirm( {
-				title: ( ctx.i18n && ctx.i18n.groupLeaveConfirm ) || 'Leave this group?',
-				body: ( ctx.i18n && ctx.i18n.groupLeaveBody ) || 'You will stop receiving messages from this conversation.',
-				confirmLabel: ( ctx.i18n && ctx.i18n.groupLeaveOk ) || 'Leave',
+				title: t( 'groupLeaveConfirm', 'Leave this group?' ),
+				body: t( 'groupLeaveBody', 'You will stop receiving messages from this conversation.' ),
+				confirmLabel: t( 'groupLeaveOk', 'Leave' ),
 				tone: 'danger',
 			} );
 			if ( ! ok ) { return; }
@@ -1332,7 +1342,7 @@ const { actions } = store( 'buddynext/messages', {
 				window.location.href = ctx.messagesUrl || '/messages/';
 			} catch ( _e ) {
 				ctx.groupBusy = false;
-				bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } );
+				bnToast( t( 'groupActionFailed', 'Something went wrong.' ), { tone: 'danger' } );
 			}
 		},
 		onComposeSearch( event ) {
@@ -1345,9 +1355,8 @@ const { actions } = store( 'buddynext/messages', {
 
 			clearTimeout( composeSearchTimer );
 
-			const i18n = ctx.i18n || {};
 			if ( '' === term ) {
-				list.replaceChildren( composeMessage( i18n.composeHint || '' ) );
+				list.replaceChildren( composeMessage( t( 'composeHint', 'Search for a person to message.' ) ) );
 				return;
 			}
 
@@ -1366,7 +1375,7 @@ const { actions } = store( 'buddynext/messages', {
 						( m ) => parseInt( m.user_id, 10 ) !== parseInt( ctx.userId, 10 )
 					);
 					if ( ! members.length ) {
-						list.replaceChildren( composeMessage( i18n.composeNone || '' ) );
+						list.replaceChildren( composeMessage( t( 'composeNone', 'No people found.' ) ) );
 						return;
 					}
 					list.replaceChildren( ...members.map( buildComposeResult ) );
@@ -1397,7 +1406,7 @@ const { actions } = store( 'buddynext/messages', {
 				}
 				const list = document.querySelector( '.bn-dm-compose__results' );
 				if ( list ) {
-					list.replaceChildren( composeMessage( ( ctx.i18n && ctx.i18n.composeHint ) || '' ) );
+					list.replaceChildren( composeMessage( t( 'composeHint', 'Search for a person to message.' ) ) );
 				}
 				return;
 			}
@@ -1483,3 +1492,10 @@ const { actions } = store( 'buddynext/messages', {
 		},
 	},
 } );
+
+// The server merges the injected dictionary into this namespace's state; read
+// it once here so every t()/fmt() lookup above resolves against translated copy.
+I18N = ( messagesStore.state && messagesStore.state.i18n ) || {};
+
+// Local alias so action methods can call sibling actions (sendMessage, etc.).
+const { actions } = messagesStore;
