@@ -2225,6 +2225,17 @@ class PostService {
 			'thumbnail'   => '',
 		);
 
+		// Authoritative metadata for embeddable URLs (YouTube, Vimeo, …) comes from
+		// the provider's oEmbed endpoint, not the page scrape. Many providers serve
+		// a degraded document to server-side fetchers — YouTube, for instance,
+		// returns a static <title> of "- YouTube" with no og:title — which would
+		// otherwise be stored as the post's link title. Seed title/thumbnail from
+		// oEmbed (registered providers only, so SSRF-safe); the OG scrape below
+		// only fills what the provider did not supply.
+		$oembed            = self::oembed_meta( $url );
+		$meta['title']     = $oembed['title'];
+		$meta['thumbnail'] = $oembed['thumbnail'];
+
 		// SSRF guard. The URL is user-supplied (post content / link meta), so we
 		// must not let it point the server at internal hosts. url_is_safe_for_fetch()
 		// rejects non-http(s) schemes and any host that resolves into a private or
@@ -2262,12 +2273,16 @@ class PostService {
 			return $meta;
 		}
 
-		$title = self::xpath_first( $xpath, '//meta[@property="og:title"]/@content' );
-		if ( '' === $title ) {
-			$node  = $xpath->query( '//title' )->item( 0 );
-			$title = $node ? $node->textContent : '';
+		// Only fall back to the scraped title when oEmbed gave us nothing — a good
+		// provider title must not be clobbered by a degraded page <title>.
+		if ( '' === $meta['title'] ) {
+			$title = self::xpath_first( $xpath, '//meta[@property="og:title"]/@content' );
+			if ( '' === $title ) {
+				$node  = $xpath->query( '//title' )->item( 0 );
+				$title = $node ? $node->textContent : '';
+			}
+			$meta['title'] = html_entity_decode( trim( $title ), ENT_QUOTES, 'UTF-8' );
 		}
-		$meta['title'] = html_entity_decode( trim( $title ), ENT_QUOTES, 'UTF-8' );
 
 		$description = self::xpath_first( $xpath, '//meta[@property="og:description"]/@content' );
 		if ( '' === $description ) {
@@ -2275,10 +2290,56 @@ class PostService {
 		}
 		$meta['description'] = html_entity_decode( trim( $description ), ENT_QUOTES, 'UTF-8' );
 
-		$image             = self::xpath_first( $xpath, '//meta[@property="og:image"]/@content' );
-		$meta['thumbnail'] = esc_url_raw( trim( $image ) );
+		if ( '' === $meta['thumbnail'] ) {
+			$image             = self::xpath_first( $xpath, '//meta[@property="og:image"]/@content' );
+			$meta['thumbnail'] = esc_url_raw( trim( $image ) );
+		}
 
 		return $meta;
+	}
+
+	/**
+	 * Resolve title + thumbnail from a URL's registered oEmbed provider.
+	 *
+	 * Used by fetch_og_meta() to prefer authoritative provider metadata over a
+	 * page scrape for embeddable links (YouTube, Vimeo, etc.). Honours only
+	 * WordPress's registered providers (no discovery), so it never fetches an
+	 * arbitrary user-supplied endpoint — SSRF-safe by construction.
+	 *
+	 * @param string $url Link URL.
+	 * @return array{title: string, thumbnail: string} Empty strings when the URL
+	 *               has no registered provider or the fetch fails.
+	 */
+	private static function oembed_meta( string $url ): array {
+		$out = array(
+			'title'     => '',
+			'thumbnail' => '',
+		);
+
+		$url = trim( $url );
+		if ( '' === $url || ! function_exists( '_wp_oembed_get_object' ) ) {
+			return $out;
+		}
+
+		$oembed   = _wp_oembed_get_object();
+		$provider = $oembed->get_provider( $url, array( 'discover' => false ) );
+		if ( empty( $provider ) ) {
+			return $out;
+		}
+
+		$data = $oembed->fetch( $provider, $url );
+		if ( false === $data ) {
+			return $out;
+		}
+
+		if ( ! empty( $data->title ) ) {
+			$out['title'] = html_entity_decode( trim( (string) $data->title ), ENT_QUOTES, 'UTF-8' );
+		}
+		if ( ! empty( $data->thumbnail_url ) ) {
+			$out['thumbnail'] = esc_url_raw( (string) $data->thumbnail_url );
+		}
+
+		return $out;
 	}
 
 	/**

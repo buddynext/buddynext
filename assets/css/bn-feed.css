@@ -1848,6 +1848,52 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	text-decoration: underline;
 }
 
+/* Media / link-video preview inside a reshare embed. Without this a reshared
+   photo or YouTube post showed only "[No text content]" — a blank quote. */
+.bn-post-card__shared-thumb {
+	position: relative;
+	display: block;
+	margin-top: var(--bn-s2);
+	border-radius: var(--bn-r-md);
+	overflow: hidden;
+	background: var(--bn-surface-2, var(--bn-elev-1));
+	aspect-ratio: 16 / 9;
+}
+.bn-post-card__shared-thumb img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+.bn-post-card__shared-play {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #fff;
+	background: rgba(0, 0, 0, 0.28);
+	pointer-events: none;
+}
+.bn-post-card__shared-play .bn-icon {
+	width: 44px;
+	height: 44px;
+	padding: 10px;
+	border-radius: 50%;
+	background: rgba(0, 0, 0, 0.55);
+}
+.bn-post-card__shared-linktitle {
+	display: block;
+	margin-top: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--fw-semibold);
+	color: var(--bn-ink);
+	line-height: 1.4;
+}
+.bn-post-card__shared-content-link:hover .bn-post-card__shared-linktitle {
+	color: var(--brand);
+}
+
 .bn-post-card__shared-empty,
 .bn-post-card__shared-missing {
 	font-size: var(--bn-text-sm);
