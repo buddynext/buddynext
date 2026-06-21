@@ -105,10 +105,10 @@
 
    - Expected: `$result` is `true` (or a WP_User object, depending on implementation). No `WP_Error` returned.
 
-7. Verify the usermeta `bn_email_verified` is set to `1`:
+7. Verify the usermeta `buddynext_email_verified` is set to `1`:
 
    ```bash
-   wp user meta get TESTVERIFY_ID bn_email_verified
+   wp user meta get TESTVERIFY_ID buddynext_email_verified
    ```
 
    - Expected: `1`.
@@ -174,10 +174,10 @@
 
     - Expected: `false` or `WP_Error` — the token no longer exists / is expired.
 
-13. Confirm `bn_email_verified` usermeta remains `1` (verification state is preserved):
+13. Confirm `buddynext_email_verified` usermeta remains `1` (verification state is preserved):
 
     ```bash
-    wp user meta get TESTVERIFY_ID bn_email_verified
+    wp user meta get TESTVERIFY_ID buddynext_email_verified
     ```
 
     - Expected: still `1`.
@@ -188,13 +188,13 @@
 - **Token not found**: Attempt to verify a token string that does not exist in `bn_verify_tokens`. Expected: `WP_Error`.
 - **UNIQUE token constraint**: Confirm `bn_verify_tokens.token` has a UNIQUE KEY — two tokens with the same value cannot exist.
 - **Email template placeholders**: Check the `email_verify` template body contains `{{verify_url}}` and `{{user_name}}` placeholders and that `EmailSender` correctly substitutes them.
-- **Unverified user attempt to post**: Confirm whether BuddyNext gates posting behind email verification. If `buddynext_can('post')` checks `bn_email_verified`, attempt to create a post as `testverify` before verifying. Expected: 403 if gate is active.
+- **Unverified user attempt to post**: Confirm whether BuddyNext gates posting behind email verification. If `buddynext_can('post')` checks `buddynext_email_verified`, attempt to create a post as `testverify` before verifying. Expected: 403 if gate is active.
 
 ## What this validates
 
 - `VerificationService::create_token()` inserts into `bn_verify_tokens` with a 64-char token, `type = email_verify`, and `expires_at = +24h`.
 - `VerificationListener` hooks an appropriate WordPress action (likely `user_register`) and fires `buddynext_send_verification_email(int $user_id, string $token)`.
-- `VerificationService::verify()` looks up the token in `bn_verify_tokens`, validates it is not expired, sets usermeta `bn_email_verified = 1`, deletes the token row, and fires `buddynext_user_verified(int $user_id)` and `buddynext_email_verified(int $user_id)`.
+- `VerificationService::verify()` looks up the token in `bn_verify_tokens`, validates it is not expired, sets usermeta `buddynext_email_verified = 1`, deletes the token row, and fires `buddynext_user_verified(int $user_id)` and `buddynext_email_verified(int $user_id)`.
 - `bn_verify_tokens` UNIQUE KEY on `token` prevents collisions.
 - `bn_email_log` records the dispatch of the `email_verify` template.
 
@@ -215,7 +215,7 @@ ORDER BY sent_at DESC;
 -- Usermeta verification flag:
 SELECT meta_key, meta_value
 FROM wp_usermeta
-WHERE user_id = TESTVERIFY_ID AND meta_key = 'bn_email_verified';
+WHERE user_id = TESTVERIFY_ID AND meta_key = 'buddynext_email_verified';
 ```
 
 ## REST surface walked
