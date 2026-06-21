@@ -73,8 +73,12 @@ for item in "${OPTIONAL[@]}"; do
 	[ -e "$SRC/$item" ] && cp -R "$SRC/$item" "$STAGE/$item"
 done
 
-# 4. Belt-and-braces: no markdown anywhere (bundled libs carry their own READMEs).
+# 4. Belt-and-braces: strip docs + dev cruft that bundled libs carry (their own
+#    READMEs, VCS dotfiles, and composer manifests). None are needed at runtime,
+#    and they otherwise trip packaging / hidden-file checks.
 find "$STAGE" -type f -name '*.md' -delete
+find "$STAGE" -type f \( -name '.gitignore' -o -name '.gitattributes' -o -name 'composer.json' -o -name 'composer.lock' -o -name '.editorconfig' \) -delete
+find "$STAGE" -depth -type d \( -name '.github' -o -name '.git' -o -name '.circleci' \) -exec rm -rf {} +
 
 # 5. Zip.
 mkdir -p "$DIST"
