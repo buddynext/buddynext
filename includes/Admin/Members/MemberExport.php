@@ -73,7 +73,17 @@ class MemberExport {
 		}
 
 		// Header row.
-		fputcsv( $output, array( 'ID', 'Login', 'Email', 'Display Name', 'Registered', 'Suspended' ) );
+		fputcsv(
+			$output,
+			array(
+				__( 'ID', 'buddynext' ),
+				__( 'Login', 'buddynext' ),
+				__( 'Email', 'buddynext' ),
+				__( 'Display Name', 'buddynext' ),
+				__( 'Registered', 'buddynext' ),
+				__( 'Suspended', 'buddynext' ),
+			)
+		);
 
 		// Pre-fetch ALL currently suspended user IDs in one query so the per-batch
 		// lookup below is an O(1) array_key_exists check with no extra queries.

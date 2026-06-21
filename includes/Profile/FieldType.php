@@ -54,86 +54,88 @@ class FieldType {
 	 *
 	 * @var array<string,array{label:string,value_kind:string,is_choice:bool,is_searchable_capable:bool}>
 	 */
-	private const BUILTIN_TYPES = array(
-		'text'        => array(
-			'label'                 => 'Text',
-			'value_kind'            => 'scalar',
-			'is_choice'             => false,
-			'is_searchable_capable' => true,
-		),
-		'textarea'    => array(
-			'label'                 => 'Paragraph',
-			'value_kind'            => 'scalar',
-			'is_choice'             => false,
-			'is_searchable_capable' => true,
-		),
-		'url'         => array(
-			'label'                 => 'URL',
-			'value_kind'            => 'scalar',
-			'is_choice'             => false,
-			'is_searchable_capable' => true,
-		),
-		'email'       => array(
-			'label'                 => 'Email',
-			'value_kind'            => 'scalar',
-			'is_choice'             => false,
-			'is_searchable_capable' => true,
-		),
-		'phone'       => array(
-			'label'                 => 'Phone',
-			'value_kind'            => 'scalar',
-			'is_choice'             => false,
-			'is_searchable_capable' => true,
-		),
-		'number'      => array(
-			'label'                 => 'Number',
-			'value_kind'            => 'scalar',
-			'is_choice'             => false,
-			'is_searchable_capable' => false,
-		),
-		'date'        => array(
-			'label'                 => 'Date',
-			'value_kind'            => 'scalar',
-			'is_choice'             => false,
-			'is_searchable_capable' => false,
-		),
-		'boolean'     => array(
-			'label'                 => 'Yes / No',
-			'value_kind'            => 'bool',
-			'is_choice'             => false,
-			'is_searchable_capable' => false,
-		),
-		'select'      => array(
-			'label'                 => 'Dropdown',
-			'value_kind'            => 'scalar',
-			'is_choice'             => true,
-			'is_searchable_capable' => true,
-		),
-		'radio'       => array(
-			'label'                 => 'Radio',
-			'value_kind'            => 'scalar',
-			'is_choice'             => true,
-			'is_searchable_capable' => true,
-		),
-		'multiselect' => array(
-			'label'                 => 'Multi-select',
-			'value_kind'            => 'multi',
-			'is_choice'             => true,
-			'is_searchable_capable' => true,
-		),
-		'color'       => array(
-			'label'                 => 'Colour',
-			'value_kind'            => 'scalar',
-			'is_choice'             => false,
-			'is_searchable_capable' => false,
-		),
-		'file'        => array(
-			'label'                 => 'File',
-			'value_kind'            => 'scalar',
-			'is_choice'             => false,
-			'is_searchable_capable' => false,
-		),
-	);
+	private static function builtin_types(): array {
+		return array(
+			'text'        => array(
+				'label'                 => __( 'Text', 'buddynext' ),
+				'value_kind'            => 'scalar',
+				'is_choice'             => false,
+				'is_searchable_capable' => true,
+			),
+			'textarea'    => array(
+				'label'                 => __( 'Paragraph', 'buddynext' ),
+				'value_kind'            => 'scalar',
+				'is_choice'             => false,
+				'is_searchable_capable' => true,
+			),
+			'url'         => array(
+				'label'                 => __( 'URL', 'buddynext' ),
+				'value_kind'            => 'scalar',
+				'is_choice'             => false,
+				'is_searchable_capable' => true,
+			),
+			'email'       => array(
+				'label'                 => __( 'Email', 'buddynext' ),
+				'value_kind'            => 'scalar',
+				'is_choice'             => false,
+				'is_searchable_capable' => true,
+			),
+			'phone'       => array(
+				'label'                 => __( 'Phone', 'buddynext' ),
+				'value_kind'            => 'scalar',
+				'is_choice'             => false,
+				'is_searchable_capable' => true,
+			),
+			'number'      => array(
+				'label'                 => __( 'Number', 'buddynext' ),
+				'value_kind'            => 'scalar',
+				'is_choice'             => false,
+				'is_searchable_capable' => false,
+			),
+			'date'        => array(
+				'label'                 => __( 'Date', 'buddynext' ),
+				'value_kind'            => 'scalar',
+				'is_choice'             => false,
+				'is_searchable_capable' => false,
+			),
+			'boolean'     => array(
+				'label'                 => __( 'Yes / No', 'buddynext' ),
+				'value_kind'            => 'bool',
+				'is_choice'             => false,
+				'is_searchable_capable' => false,
+			),
+			'select'      => array(
+				'label'                 => __( 'Dropdown', 'buddynext' ),
+				'value_kind'            => 'scalar',
+				'is_choice'             => true,
+				'is_searchable_capable' => true,
+			),
+			'radio'       => array(
+				'label'                 => __( 'Radio', 'buddynext' ),
+				'value_kind'            => 'scalar',
+				'is_choice'             => true,
+				'is_searchable_capable' => true,
+			),
+			'multiselect' => array(
+				'label'                 => __( 'Multi-select', 'buddynext' ),
+				'value_kind'            => 'multi',
+				'is_choice'             => true,
+				'is_searchable_capable' => true,
+			),
+			'color'       => array(
+				'label'                 => __( 'Colour', 'buddynext' ),
+				'value_kind'            => 'scalar',
+				'is_choice'             => false,
+				'is_searchable_capable' => false,
+			),
+			'file'        => array(
+				'label'                 => __( 'File', 'buddynext' ),
+				'value_kind'            => 'scalar',
+				'is_choice'             => false,
+				'is_searchable_capable' => false,
+			),
+		);
+	}
 
 	/**
 	 * Return the full type registry, filterable by add-ons.
@@ -153,7 +155,7 @@ class FieldType {
 		 *
 		 * @param array<string,array> $types slug => descriptor map.
 		 */
-		$types = (array) apply_filters( 'buddynext_field_types', self::BUILTIN_TYPES );
+		$types = (array) apply_filters( 'buddynext_field_types', self::builtin_types() );
 
 		$normalised = array();
 		foreach ( $types as $slug => $descriptor ) {

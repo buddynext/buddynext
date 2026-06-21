@@ -712,12 +712,12 @@ class SetupWizard {
 				'description' => __( 'Company, job title, date range — repeatable entries', 'buddynext' ),
 				'type'        => 'repeater',
 				'fields'      => array(
-					array( 'work_company', 'Company', 'text' ),
-					array( 'work_title', 'Job Title', 'text' ),
-					array( 'work_location', 'Location', 'text' ),
-					array( 'work_daterange', 'Date Range', 'daterange' ),
-					array( 'work_current', 'Currently working here', 'toggle' ),
-					array( 'work_description', 'Description', 'textarea' ),
+					array( 'work_company', __( 'Company', 'buddynext' ), 'text' ),
+					array( 'work_title', __( 'Job Title', 'buddynext' ), 'text' ),
+					array( 'work_location', __( 'Location', 'buddynext' ), 'text' ),
+					array( 'work_daterange', __( 'Date Range', 'buddynext' ), 'daterange' ),
+					array( 'work_current', __( 'Currently working here', 'buddynext' ), 'toggle' ),
+					array( 'work_description', __( 'Description', 'buddynext' ), 'textarea' ),
 				),
 			),
 			'education'       => array(
@@ -726,11 +726,11 @@ class SetupWizard {
 				'description' => __( 'Institution, degree, field of study — repeatable entries', 'buddynext' ),
 				'type'        => 'repeater',
 				'fields'      => array(
-					array( 'edu_institution', 'Institution', 'text' ),
-					array( 'edu_degree', 'Degree', 'text' ),
-					array( 'edu_field', 'Field of Study', 'text' ),
-					array( 'edu_daterange', 'Date Range', 'daterange' ),
-					array( 'edu_current', 'Currently attending', 'toggle' ),
+					array( 'edu_institution', __( 'Institution', 'buddynext' ), 'text' ),
+					array( 'edu_degree', __( 'Degree', 'buddynext' ), 'text' ),
+					array( 'edu_field', __( 'Field of Study', 'buddynext' ), 'text' ),
+					array( 'edu_daterange', __( 'Date Range', 'buddynext' ), 'daterange' ),
+					array( 'edu_current', __( 'Currently attending', 'buddynext' ), 'toggle' ),
 				),
 			),
 			'skills'          => array(
@@ -739,7 +739,7 @@ class SetupWizard {
 				'description' => __( 'A multi-select skills field', 'buddynext' ),
 				'type'        => 'flat',
 				'fields'      => array(
-					array( 'skills', 'Skills', 'multiselect' ),
+					array( 'skills', __( 'Skills', 'buddynext' ), 'multiselect' ),
 				),
 			),
 			'interests'       => array(
@@ -748,7 +748,7 @@ class SetupWizard {
 				'description' => __( 'Hobbies, passions, topics — what members care about', 'buddynext' ),
 				'type'        => 'flat',
 				'fields'      => array(
-					array( 'interests', 'Interests', 'multiselect' ),
+					array( 'interests', __( 'Interests', 'buddynext' ), 'multiselect' ),
 				),
 			),
 		);

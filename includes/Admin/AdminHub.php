@@ -43,57 +43,59 @@ class AdminHub {
 	 *
 	 * @var array<string, array{slug:string, label:string, top?:bool}>
 	 */
-	private const DEFAULT_SECTIONS = array(
-		'settings'      => array(
-			'slug'  => 'buddynext',
-			'label' => 'Settings',
-			'top'   => true,
-		),
-		'platform'      => array(
-			'slug'  => 'buddynext-platform',
-			'label' => 'Platform',
-		),
-		'members'       => array(
-			'slug'  => 'buddynext-members',
-			'label' => 'Members',
-		),
-		'spaces'        => array(
-			'slug'  => 'buddynext-spaces',
-			'label' => 'Spaces',
-		),
-		'engagement'    => array(
-			'slug'  => 'buddynext-engagement',
-			'label' => 'Engagement',
-		),
-		'notifications' => array(
-			'slug'  => 'buddynext-notifications',
-			'label' => 'Notifications',
-		),
-		'realtime'      => array(
-			'slug'  => 'buddynext-realtime',
-			'label' => 'Realtime & Push',
-		),
-		'campaigns'     => array(
-			'slug'  => 'buddynext-campaigns',
-			'label' => 'Campaigns',
-		),
-		'moderation'    => array(
-			'slug'  => 'buddynext-moderation',
-			'label' => 'Moderation',
-		),
-		'automod'       => array(
-			'slug'  => 'buddynext-automod',
-			'label' => 'Auto-Moderation',
-		),
-		'monetization'  => array(
-			'slug'  => 'buddynext-monetization',
-			'label' => 'Monetization',
-		),
-		'upgrade'       => array(
-			'slug'  => 'buddynext-upgrade',
-			'label' => 'Upgrade',
-		),
-	);
+	private static function default_sections(): array {
+		return array(
+			'settings'      => array(
+				'slug'  => 'buddynext',
+				'label' => __( 'Settings', 'buddynext' ),
+				'top'   => true,
+			),
+			'platform'      => array(
+				'slug'  => 'buddynext-platform',
+				'label' => __( 'Platform', 'buddynext' ),
+			),
+			'members'       => array(
+				'slug'  => 'buddynext-members',
+				'label' => __( 'Members', 'buddynext' ),
+			),
+			'spaces'        => array(
+				'slug'  => 'buddynext-spaces',
+				'label' => __( 'Spaces', 'buddynext' ),
+			),
+			'engagement'    => array(
+				'slug'  => 'buddynext-engagement',
+				'label' => __( 'Engagement', 'buddynext' ),
+			),
+			'notifications' => array(
+				'slug'  => 'buddynext-notifications',
+				'label' => __( 'Notifications', 'buddynext' ),
+			),
+			'realtime'      => array(
+				'slug'  => 'buddynext-realtime',
+				'label' => __( 'Realtime & Push', 'buddynext' ),
+			),
+			'campaigns'     => array(
+				'slug'  => 'buddynext-campaigns',
+				'label' => __( 'Campaigns', 'buddynext' ),
+			),
+			'moderation'    => array(
+				'slug'  => 'buddynext-moderation',
+				'label' => __( 'Moderation', 'buddynext' ),
+			),
+			'automod'       => array(
+				'slug'  => 'buddynext-automod',
+				'label' => __( 'Auto-Moderation', 'buddynext' ),
+			),
+			'monetization'  => array(
+				'slug'  => 'buddynext-monetization',
+				'label' => __( 'Monetization', 'buddynext' ),
+			),
+			'upgrade'       => array(
+				'slug'  => 'buddynext-upgrade',
+				'label' => __( 'Upgrade', 'buddynext' ),
+			),
+		);
+	}
 
 	/**
 	 * Canonical tab placement — the single source of truth for the admin
@@ -578,8 +580,8 @@ class AdminHub {
 		 *
 		 * @param array $sections Section key → { slug, label, top? } map.
 		 */
-		$filtered             = apply_filters( 'bn_admin_hub_sections', self::DEFAULT_SECTIONS );
-		self::$sections_cache = is_array( $filtered ) ? $filtered : self::DEFAULT_SECTIONS;
+		$filtered             = apply_filters( 'bn_admin_hub_sections', self::default_sections() );
+		self::$sections_cache = is_array( $filtered ) ? $filtered : self::default_sections();
 		return self::$sections_cache;
 	}
 
@@ -892,10 +894,13 @@ class AdminHub {
 			if ( empty( self::$tabs[ $key ] ) ) {
 				continue;
 			}
+			// Section labels are already translated at their definition
+			// (self::default_sections()); filter-added sections supply their own
+			// translated label in their own textdomain.
 			add_submenu_page(
 				self::TOP_SLUG,
-				__( $section['label'], 'buddynext' ), // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText -- section labels are first-party literals defined in DEFAULT_SECTIONS.
-				__( $section['label'], 'buddynext' ), // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText -- section labels are first-party literals defined in DEFAULT_SECTIONS.
+				$section['label'],
+				$section['label'],
 				'manage_options',
 				$section['slug'],
 				array( $this, 'render_section' )

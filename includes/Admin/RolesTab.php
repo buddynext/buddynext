@@ -40,49 +40,53 @@ class RolesTab {
 	 *
 	 * @var array<string,array<string,string>>
 	 */
-	private const CATALOG = array(
-		'Posts & activity' => array(
-			'buddynext-feed/create-post'     => 'Create posts',
-			'buddynext-feed/schedule-post'   => 'Schedule posts',
-			'buddynext-feed/pin-post'        => 'Pin posts',
-			'buddynext-feed/delete-any-post' => "Delete anyone's post",
-		),
-		// 'buddynext-spaces/manage-settings' and '…/delete' are intentionally
-		// omitted: they are inherently owner-scoped (SpaceService::update()/
-		// delete() gate on the space owner_id and never consult the role map),
-		// so exposing them here produced dead toggles that saved but did nothing.
-		'Spaces'           => array(
-			'buddynext-spaces/create'   => 'Create spaces',
-			'buddynext-spaces/join'     => 'Join spaces',
-			'buddynext-spaces/post'     => 'Post in spaces',
-			'buddynext-spaces/moderate' => 'Moderate spaces',
-		),
-		'Connections'      => array(
-			'buddynext-connections/follow'  => 'Follow members',
-			'buddynext-connections/connect' => 'Send connection requests',
-		),
-		'Profiles'         => array(
-			'buddynext-profile/edit-any' => "Edit anyone's profile",
-		),
-		'Moderation'       => array(
-			'buddynext-moderation/report'       => 'Report content',
-			'buddynext-moderation/review-queue' => 'Review the report queue',
-			'buddynext-moderation/issue-strike' => 'Issue strikes',
-			'buddynext-moderation/suspend-user' => 'Suspend members',
-		),
-	);
+	private static function catalog(): array {
+		return array(
+			__( 'Posts & activity', 'buddynext' ) => array(
+				'buddynext-feed/create-post'     => __( 'Create posts', 'buddynext' ),
+				'buddynext-feed/schedule-post'   => __( 'Schedule posts', 'buddynext' ),
+				'buddynext-feed/pin-post'        => __( 'Pin posts', 'buddynext' ),
+				'buddynext-feed/delete-any-post' => __( "Delete anyone's post", 'buddynext' ),
+			),
+			// 'buddynext-spaces/manage-settings' and '…/delete' are intentionally
+			// omitted: they are inherently owner-scoped (SpaceService::update()/
+			// delete() gate on the space owner_id and never consult the role map),
+			// so exposing them here produced dead toggles that saved but did nothing.
+			__( 'Spaces', 'buddynext' )           => array(
+				'buddynext-spaces/create'   => __( 'Create spaces', 'buddynext' ),
+				'buddynext-spaces/join'     => __( 'Join spaces', 'buddynext' ),
+				'buddynext-spaces/post'     => __( 'Post in spaces', 'buddynext' ),
+				'buddynext-spaces/moderate' => __( 'Moderate spaces', 'buddynext' ),
+			),
+			__( 'Connections', 'buddynext' )      => array(
+				'buddynext-connections/follow'  => __( 'Follow members', 'buddynext' ),
+				'buddynext-connections/connect' => __( 'Send connection requests', 'buddynext' ),
+			),
+			__( 'Profiles', 'buddynext' )         => array(
+				'buddynext-profile/edit-any' => __( "Edit anyone's profile", 'buddynext' ),
+			),
+			__( 'Moderation', 'buddynext' )       => array(
+				'buddynext-moderation/report'       => __( 'Report content', 'buddynext' ),
+				'buddynext-moderation/review-queue' => __( 'Review the report queue', 'buddynext' ),
+				'buddynext-moderation/issue-strike' => __( 'Issue strikes', 'buddynext' ),
+				'buddynext-moderation/suspend-user' => __( 'Suspend members', 'buddynext' ),
+			),
+		);
+	}
 
 	/**
 	 * Selectable minimum-role options (value => label). '' = off (admins only).
 	 *
-	 * @var array<string,string>
+	 * @return array<string,string>
 	 */
-	private const ROLE_CHOICES = array(
-		'member'    => 'All members',
-		'moderator' => 'Moderators & up',
-		'admin'     => 'Admins only',
-		''          => 'Off (site admins only)',
-	);
+	private static function role_choices(): array {
+		return array(
+			'member'    => __( 'All members', 'buddynext' ),
+			'moderator' => __( 'Moderators & up', 'buddynext' ),
+			'admin'     => __( 'Admins only', 'buddynext' ),
+			''          => __( 'Off (site admins only)', 'buddynext' ),
+		);
+	}
 
 	/**
 	 * Register hooks + the tab.
@@ -130,7 +134,7 @@ class RolesTab {
 						<?php esc_html_e( 'Choose the minimum community role required for each action. Roles are ranked Member → Moderator → Admin; a higher role inherits everything below it. Site administrators always have full access.', 'buddynext' ); ?>
 					</p>
 
-					<?php foreach ( self::CATALOG as $group => $caps ) : ?>
+					<?php foreach ( self::catalog() as $group => $caps ) : ?>
 						<h3 class="bn-roles-group"><?php echo esc_html( $group ); ?></h3>
 						<table class="widefat striped bn-roles-table">
 							<thead>
@@ -146,7 +150,7 @@ class RolesTab {
 										<td><?php echo esc_html( $label ); ?></td>
 										<td>
 											<select name="cap[<?php echo esc_attr( $cap ); ?>]" class="bn-select">
-												<?php foreach ( self::ROLE_CHOICES as $rv => $rl ) : ?>
+												<?php foreach ( self::role_choices() as $rv => $rl ) : ?>
 													<option value="<?php echo esc_attr( $rv ); ?>" <?php selected( $value, $rv ); ?>>
 														<?php echo esc_html( $rl ); ?>
 													</option>
@@ -191,7 +195,7 @@ class RolesTab {
 		}
 
 		$valid_caps = array();
-		foreach ( self::CATALOG as $caps ) {
+		foreach ( self::catalog() as $caps ) {
 			$valid_caps = array_merge( $valid_caps, array_keys( $caps ) );
 		}
 		$valid_roles = array( 'member', 'moderator', 'admin' );

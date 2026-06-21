@@ -20,6 +20,22 @@ PHP template layer is now translation-clean (zero unwrapped strings / wrong-doma
 
 ---
 
+## 1b. Backend PHP (`includes/`) — DONE ✅
+
+Verified two ways: (1) `vendor/bin/phpcs --standard=WordPress --sniffs=WordPress.WP.I18n` across all 186 `includes/` + 179 `templates/` files → **0 violations** (gettext-call correctness). (2) Four parallel agents swept all 186 files for *fully unwrapped* strings (the sniff can't see those).
+
+Found + fixed (the only real gaps; everything else clean):
+- [x] `Admin/AdminHub.php` — 12 admin menu labels were a raw `const` translated via `__($var)` (translates at runtime but does NOT extract to POT). Converted `DEFAULT_SECTIONS` const → `default_sections()` method with `__()` labels; render no longer double-translates. Browser-verified.
+- [x] `Admin/RolesTab.php` — 25 strings (group headings + capability labels + role choices) in raw consts. Converted `CATALOG`/`ROLE_CHOICES` consts → methods with `__()` (incl. `__()` as array-key for headings). Browser-verified.
+- [x] `Profile/FieldType.php` — 13 field-type picker labels in `BUILTIN_TYPES` const → `builtin_types()` method.
+- [x] `Onboarding/SetupWizard.php` — 13 profile-field preset labels (method, wrapped inline; 5 social brand-name labels left raw).
+- [x] `Admin/Members/MemberExport.php` — 6 CSV export column headers wrapped.
+- [x] `Admin/Members/AvatarSettings.php` — "No cover set" inline-SVG placeholder wrapped.
+
+KEY LESSON: `const` arrays can't hold `__()` and `__($var)` doesn't extract to POT — translatable strings must live in a method/function as literals. Brand/proper nouns (Google, Facebook, MediaVerse, Jetonomy, Learnomy, Listora…) correctly left raw. Demo-seed (`DemoDataService`) and WP-CLI cert strings are dev-only, left raw. block.json strings auto-translate via `register_block_type`.
+
+---
+
 ## 2. JS Script Modules — recipe LOCKED, 1 of 23 done
 
 Script Modules cannot use `wp_set_script_translations()` (no per-module JED loading in WP 6.8). Each feature's strings are injected server-side into the Interactivity state and read in the store. **No build step** — assets/js is native ESM.

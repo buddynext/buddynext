@@ -328,7 +328,9 @@ class AvatarSettings {
 			'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 72">'
 			. '<rect width="140" height="72" rx="6" fill="#e9ecef"/>'
 			. '<text x="70" y="36" text-anchor="middle" dominant-baseline="central" '
-			. 'font-family="Inter,sans-serif" font-size="11" font-weight="600" fill="#9ca3af">No cover set</text>'
+			. 'font-family="Inter,sans-serif" font-size="11" font-weight="600" fill="#9ca3af">'
+			. esc_html__( 'No cover set', 'buddynext' )
+			. '</text>'
 			. '</svg>'
 		);
 		$preview_src     = '' !== $current_url ? esc_attr( $current_url ) : esc_attr( $placeholder_src );
