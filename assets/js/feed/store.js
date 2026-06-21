@@ -1982,7 +1982,7 @@ function scheduleDraftSave( ctx ) {
 		clearTimeout( _draftTimers.get( key ) );
 	}
 	setDraftStatus( ctx, t( 'savingDraft', 'Saving draft…' ), false );
-	const t = setTimeout( () => {
+	const draftTimer = setTimeout( () => {
 		const payload = {
 			content:      ctx.content || '',
 			composerType: ctx.composerType || 'text',
@@ -2018,7 +2018,7 @@ function scheduleDraftSave( ctx ) {
 			}
 		} catch ( _e ) {}
 	}, DRAFT_DEBOUNCE_MS );
-	_draftTimers.set( key, t );
+	_draftTimers.set( key, draftTimer );
 }
 
 // "Share to feed" from a member profile lands on the feed with ?mention=<handle>.

@@ -421,6 +421,14 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						continue;
 					}
 					$bn_fkey   = (string) $bn_field['field_key'];
+					// `headline` is edited inline in the hero card (parts/profile-edit-hero.php),
+					// which already renders an <input name="headline">. Rendering it again here
+					// puts a second same-named input on the page; the save collector
+					// (querySelectorAll('input[name]') in profile/store.js) then reads the empty
+					// duplicate and blanks the headline on save. Skip it — the hero owns headline.
+					if ( 'headline' === $bn_fkey ) {
+						continue;
+					}
 					$bn_ftype  = isset( $bn_field['type'] ) ? (string) $bn_field['type'] : 'text';
 					$bn_label  = isset( $bn_field['label'] ) ? (string) $bn_field['label'] : ucwords( str_replace( '_', ' ', $bn_fkey ) );
 					$bn_inp_id = 'bn-ep-' . str_replace( '_', '-', $bn_fkey );
