@@ -1,14 +1,33 @@
-# BuddyNext
+<p align="center">
+  <img src="assets/images/pwa/icon-192.png" width="96" alt="BuddyNext">
+</p>
 
-[![CI](https://github.com/buddynext/buddynext/actions/workflows/ci.yml/badge.svg)](https://github.com/buddynext/buddynext/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/buddynext/buddynext/releases/latest)
-[![License: GPL v2+](https://img.shields.io/badge/license-GPLv2%2B-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
+<h1 align="center">BuddyNext</h1>
 
-**The community operating system for WordPress.** BuddyNext turns any WordPress site into a modern social network — activity feeds, spaces, member profiles, direct messaging, and moderation — in one plugin, with a native REST API and a Progressive Web App so the same community runs on the web and in an app.
+<p align="center"><strong>The community operating system for WordPress.</strong></p>
 
-Built and maintained by [Wbcom Designs](https://wbcomdesigns.com/buddynext). Free and open source (GPLv2+).
+<p align="center">
+  <img src="https://img.shields.io/badge/version-1.0.0-2563eb" alt="Version 1.0.0">
+  <img src="https://img.shields.io/badge/WordPress-6.9%2B-21759b" alt="WordPress 6.9+">
+  <img src="https://img.shields.io/badge/PHP-8.2%2B-777bb4" alt="PHP 8.2+">
+  <img src="https://img.shields.io/badge/license-GPLv2%2B-4c9a2a" alt="License GPLv2+">
+  <a href="https://wbcomdesigns.com"><img src="https://img.shields.io/badge/by-Wbcom%20Designs-1a1a1a" alt="By Wbcom Designs"></a>
+  <a href="https://wbcomdesigns.com"><img src="https://img.shields.io/badge/part%20of-the%20Wbcom%20family-0b5cff" alt="Part of the Wbcom family"></a>
+</p>
 
 ---
+
+BuddyNext turns any WordPress site into a modern social network — **activity feeds, spaces, member profiles, direct messaging, and moderation** — in a single plugin. It is REST-first and ships a Progressive Web App, so the same community runs on the web and in an app from day one.
+
+Built and maintained by [Wbcom Designs](https://wbcomdesigns.com/buddynext). Free and open source under GPLv2+.
+
+## Why BuddyNext
+
+- **Everything in one plugin.** Feed, spaces, profiles, messaging, notifications, onboarding, and moderation — no stitching together a dozen add-ons to get a working community.
+- **Built for people.** Every screen is designed around what a real member expects, with a clean responsive UI, dark mode that follows your theme, and full keyboard and screen-reader support.
+- **Yours to own.** Self-hosted on your WordPress site. No per-seat fees, no data leaving your server, no lock-in.
+- **Ready for the world.** Fully translation-ready out of the box, with a complete language template.
+- **Extensible by design.** A documented hook layer and a native REST API let you — or the Wbcom family of add-ons — extend any surface without forking.
 
 ## Features
 
@@ -33,82 +52,68 @@ Built and maintained by [Wbcom Designs](https://wbcomdesigns.com/buddynext). Fre
 - **Member directory** with search and by-role browsing.
 
 ### Direct messaging
-- **One-to-one and group messaging** with media attachments, a conversation info panel, shared-media gallery, safety actions, and a full-bleed media lightbox. *(Powered by the free WPMediaVerse companion plugin.)*
+- **One-to-one and group messaging** with media attachments, a conversation info panel, shared-media gallery, safety actions, and a full-bleed media lightbox. *(Powered by the free WPMediaVerse companion.)*
 
 ### Moderation
 - **Reporting** from any post, a **review queue**, **strikes**, **suspensions**, and an **appeals** flow.
 - **Shadow-ban**, content warnings, and an auto-hide threshold.
 - Every action is written to an **immutable audit log**.
 
-### Auth & account security (in-house, no third-party services)
+### Accounts & security (in-house, no third-party services)
 - **Login & signup** with built-in spam protection — honeypot, human-check, rate limiting, and time-trap.
-- **Email verification**, opt-in **TOTP two-factor** (RFC 6238), password reset, change email/password, and sign-out-everywhere.
+- **Email verification**, opt-in **two-factor authentication** (TOTP), password reset, change email/password, and sign-out-everywhere.
 - **Social login** with verified-email account linking.
 - **GDPR** self-service data export and account deletion.
 
 ### Engagement & discovery
 - **Onboarding wizard** — Profile → Spaces → People → Notifications.
 - **Gamification** — streaks, badges, and standings on member profiles.
-- **Notifications** — in-app and email, with per-channel preferences and partner-notification aggregation.
+- **Notifications** — in-app and email, with per-channel preferences.
 - **Search** across members, spaces, hashtags, and posts.
-- **Sidebar widgets** — trending topics, suggested people, your spaces, and a greeting/streak card.
+- **Sidebar widgets** — trending topics, suggested people, and your spaces.
 
 ### Platform
 - **Native REST API** — every surface is REST-first, so the web and the app render from the same endpoints.
-- **Progressive Web App** — installable to the home screen with branded BuddyNext icons.
-- **Dark mode** that follows your theme's tokens; tuned for BuddyX and Reign, works with any theme.
-- **Fully translation-ready** — every template, admin label, and JavaScript module is internationalized, with a complete `.pot`.
-- **Integrations layer** for companion plugins (messaging, forums, gamification, jobs, courses, listings) via a one-click install flow.
-- **White-label** the admin menu label, and a built-in outbound webhook.
+- **Progressive Web App** — installable to the home screen with branded icons.
+- **Dark mode** that follows your theme; tuned for BuddyX and Reign, works with any theme.
+- **Translation-ready** — every template, label, and script is internationalized, with a complete language template.
+- **White-label** the admin menu, plus a built-in outbound webhook for external integrations.
 
 ## BuddyNext Pro
 
-[**BuddyNext Pro**](https://github.com/buddynext/buddynext-pro) adds the application and monetization layer on top of Free: membership plans with on-site checkout and Stripe, content protection and gated spaces, email automation (campaigns + drip), AI-assisted moderation, member labels, advanced profile field types, a Portfolio profile panel, analytics, and more. Free runs first; Pro extends it through a published contract without modifying any Free code.
+[**BuddyNext Pro**](https://github.com/buddynext/buddynext-pro) adds the application and monetization layer on top of Free: membership plans with on-site checkout and Stripe, content protection and gated spaces, email automation (campaigns + drip), advanced moderation, member labels, advanced profile field types, a Portfolio profile panel, analytics, and more. Free runs first; Pro extends it through a published contract without modifying any Free code.
+
+## Part of the Wbcom Designs family
+
+BuddyNext is the social layer. Each companion plugin owns its own domain and surfaces inside BuddyNext through a native bridge — install only what your community needs.
+
+| Companion | Adds to your community |
+|-----------|------------------------|
+| **WPMediaVerse** | Direct messaging and rich media galleries |
+| **Jetonomy** | Forum-style threaded discussions and Q&A |
+| **WB Gamification** | Points, badges, levels, and leaderboards |
+| **Career Board** | Job listings and applicant management |
+| **Learnomy** | Courses, lessons, and certificates |
+
+Explore the full catalog at [wbcomdesigns.com](https://wbcomdesigns.com).
 
 ## Requirements
 
-- WordPress 6.9+
-- PHP 8.2+
+- WordPress 6.9 or newer
+- PHP 8.2 or newer
 
 ## Installation
 
-Download the latest `buddynext-<version>.zip` from the [Releases](https://github.com/buddynext/buddynext/releases/latest) page and install it from **Plugins → Add New → Upload Plugin**. No build step, no Composer, no npm — install the zip and activate.
+1. Download the latest `buddynext-<version>.zip` from the [Releases](https://github.com/buddynext/buddynext/releases/latest) page.
+2. In wp-admin, go to **Plugins → Add New → Upload Plugin** and upload the zip.
+3. Activate. No build step, no Composer, no npm — install and go.
 
----
+For monetization and the application layer, install [BuddyNext Pro](https://github.com/buddynext/buddynext-pro) alongside it.
 
-## Development
+## Support
 
-See [CLAUDE.md](CLAUDE.md) for development standards and workflow.
-
-### Building a distribution zip
-
-QA and customers install a single zip — **no composer, no npm, no commands**. Build it with:
-
-```bash
-bin/build-release.sh
-# → ~/Documents/work-artifacts/scratch/buddynext-<version>.zip
-```
-
-Pass a target directory to override the default destination:
-
-```bash
-bin/build-release.sh ./dist        # → ./dist/buddynext-<version>.zip
-```
-
-What the builder does:
-
-- Stages **committed state only** (`git archive HEAD`) — so commit your changes first, or the
-  zip ships the old code even though its filename shows the new version.
-- Regenerates a lean runtime `vendor/` with `composer install --no-dev --optimize-autoloader`
-  (just the autoloader + bundled `libs/`; no dev tooling).
-- Copies **only an allowlist** of runtime paths (`buddynext.php includes templates assets blocks
-  libs theme.json` + optional `languages uninstall.php readme.txt`). QA dirs, screenshots, docs,
-  `.md` files, and dev configs can never leak in.
-- Reads the version from the plugin header. Free and Pro ship in lockstep on the same version
-  string, so bump both headers together when the version changes.
-
-The mu-plugin (BuddyNext Isolation) is **not** shipped in the zip — it is auto-created on plugin
-activation by the installer, so a fresh install needs nothing extra.
+- Documentation and product pages: [wbcomdesigns.com/buddynext](https://wbcomdesigns.com/buddynext)
+- Questions and help: [wbcomdesigns.com/support](https://wbcomdesigns.com/support)
 
 ## License
 
