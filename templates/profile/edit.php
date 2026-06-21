@@ -21,6 +21,8 @@
 
 declare(strict_types=1);
 
+defined( 'ABSPATH' ) || exit;
+
 // Must be logged in and editing own profile (or admin).
 $current_user_id = get_current_user_id();
 if ( ! $current_user_id ) {

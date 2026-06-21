@@ -23,6 +23,8 @@
 
 declare( strict_types=1 );
 
+defined( 'ABSPATH' ) || exit;
+
 $bn_verify_current_user = get_current_user_id();
 
 // phpcs:ignore WordPress.Security.NonceVerification.Recommended

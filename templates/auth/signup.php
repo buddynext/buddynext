@@ -13,6 +13,8 @@
 
 declare( strict_types=1 );
 
+defined( 'ABSPATH' ) || exit;
+
 // Closed-registration redirect is enforced upstream in
 // PageRouter::dispatch_hub_template() so it fires before wp_head().
 

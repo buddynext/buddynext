@@ -21,6 +21,8 @@
 
 declare(strict_types=1);
 
+defined( 'ABSPATH' ) || exit;
+
 // Only advertise "Create an account" when registration is actually reachable.
 // Two independent gates, both enforced by PageRouter/AuthController on /signup/.
 // users_can_register (WP core) is the master on/off; when off, /signup/

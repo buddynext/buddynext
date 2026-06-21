@@ -59,7 +59,7 @@ $bn_lb_reactions = array(
 				<div class="bn-lightbox__reactions" role="group" aria-label="<?php esc_attr_e( 'React to this media', 'buddynext' ); ?>">
 					<?php foreach ( $bn_lb_reactions as $bn_lb_slug => $bn_lb_label ) : ?>
 						<button type="button" class="bn-lightbox__reaction" data-reaction="<?php echo esc_attr( $bn_lb_slug ); ?>" aria-label="<?php echo esc_attr( $bn_lb_label ); ?>" aria-pressed="false">
-							<?php echo buddynext_get_emoji( $bn_lb_slug, 'bn-lightbox__reaction-emoji' ); // phpcs:ignore WordPress.Security.EscapingOutput.OutputNotEscaped ?>
+							<?php echo buddynext_get_emoji( $bn_lb_slug, 'bn-lightbox__reaction-emoji' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 							<span class="bn-lightbox__reaction-count" data-bn-lb-reaction-count hidden>0</span>
 						</button>
 					<?php endforeach; ?>

@@ -17,6 +17,8 @@
 
 declare( strict_types=1 );
 
+defined( 'ABSPATH' ) || exit;
+
 if ( ! isset( $hub ) ) {
 	$hub = (string) get_query_var( 'bn_hub', '' );
 }

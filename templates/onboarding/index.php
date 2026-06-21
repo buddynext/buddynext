@@ -19,6 +19,8 @@
 
 declare(strict_types=1);
 
+defined( 'ABSPATH' ) || exit;
+
 use BuddyNext\Feed\ExploreService;
 use BuddyNext\Profile\AvatarService;
 

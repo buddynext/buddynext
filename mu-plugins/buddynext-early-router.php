@@ -9,6 +9,8 @@
  * @package BuddyNext
  */
 
+defined( 'ABSPATH' ) || exit;
+
 // Guard: only run on front-end HTTP requests. Admin, WP-CLI, and REST
 // requests all need the full plugin set.
 if ( is_admin() || ( defined( 'WP_CLI' ) && WP_CLI ) ) {

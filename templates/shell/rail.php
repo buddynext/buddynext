@@ -17,6 +17,8 @@
 
 declare( strict_types=1 );
 
+defined( 'ABSPATH' ) || exit;
+
 use BuddyNext\Core\PageRouter;
 
 if ( ! isset( $hub ) ) {

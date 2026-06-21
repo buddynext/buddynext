@@ -30,6 +30,8 @@
 
 declare( strict_types=1 );
 
+defined( 'ABSPATH' ) || exit;
+
 use BuddyNext\Core\PageRouter;
 
 // ── URL resolution (delegates to PageRouter static builders) ─────────────────

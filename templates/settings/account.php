@@ -30,6 +30,7 @@ $profile_url   = \BuddyNext\Core\PageRouter::profile_url( $user_id );
 	<?php buddynext_get_template( 'parts/settings-nav.php', array( 'bn_settings_active' => 'account' ) ); ?>
 	<div data-wp-interactive="buddynext/profile"
 		<?php
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_interactivity_data_wp_context() returns an escaped data-wp-context attribute string built by WP core.
 		echo wp_interactivity_data_wp_context(
 			array(
 				'userId'                 => $user_id,

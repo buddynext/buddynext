@@ -380,7 +380,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			 * @param string $html    Concatenated tool-button HTML (empty by default).
 			 * @param array  $context array{ user_id:int, space_id:?int, has_pro:bool }.
 			 */
-			echo (string) apply_filters(
+			$bn_composer_tools = (string) apply_filters(
 				'buddynext_composer_tools',
 				'',
 				array(
@@ -389,6 +389,8 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 					'has_pro'  => $args['has_pro'],
 				)
 			);
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Extension point: first-party integrations return their own pre-rendered, self-escaped tool-button HTML (default empty).
+			echo $bn_composer_tools;
 			?>
 
 			<span class="bn-composer__char-counter-slot" aria-live="polite"></span>
