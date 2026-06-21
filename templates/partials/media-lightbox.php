@@ -37,6 +37,14 @@ $bn_lb_reactions = array(
 			<button type="button" class="bn-lightbox__nav bn-lightbox__nav--prev" data-bn-lb-prev aria-label="<?php esc_attr_e( 'Previous', 'buddynext' ); ?>"><?php buddynext_icon( 'chevron-left' ); ?></button>
 			<div class="bn-lightbox__media-wrap" data-bn-lb-stage></div>
 			<button type="button" class="bn-lightbox__nav bn-lightbox__nav--next" data-bn-lb-next aria-label="<?php esc_attr_e( 'Next', 'buddynext' ); ?>"><?php buddynext_icon( 'chevron-right' ); ?></button>
+
+			<?php // Private DM media has no social layer, so the side panel is dropped (.bn-lightbox--dm) and the media goes full-bleed. These floating controls over the stage carry the only chrome a 1:1 image needs: sender, download, close. Populated by assets/js/media/lightbox.js. ?>
+			<div class="bn-lightbox__dm-chrome">
+				<div class="bn-lightbox__dm-author" data-bn-lb-dm-author></div>
+				<span class="bn-lightbox__dm-spacer"></span>
+				<a class="bn-lightbox__dm-btn" data-bn-lb-dm-download download target="_blank" rel="noopener" aria-label="<?php esc_attr_e( 'Download', 'buddynext' ); ?>"><?php buddynext_icon( 'download' ); ?></a>
+				<button type="button" class="bn-lightbox__dm-btn" data-bn-lb-close aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
+			</div>
 		</div>
 
 		<aside class="bn-lightbox__panel">

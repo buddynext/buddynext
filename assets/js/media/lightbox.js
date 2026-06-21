@@ -38,6 +38,10 @@
 			open:     overlay.querySelector( '[data-bn-lb-open]' ),
 			form:     overlay.querySelector( '[data-bn-lb-comment-form]' ),
 			input:    overlay.querySelector( '[data-bn-lb-comment-input]' ),
+			// DM full-bleed chrome (sender + download float over the stage; the
+			// side panel is hidden for private 1:1 media).
+			dmAuthor:   overlay.querySelector( '[data-bn-lb-dm-author]' ),
+			dmDownload: overlay.querySelector( '[data-bn-lb-dm-download]' ),
 		};
 
 		// Delegated controls (close / prev / next).
@@ -130,24 +134,29 @@
 		// reset transient state
 		resetReactions();
 		clear( panel.author );
+		clear( panel.dmAuthor );
 		clear( panel.comments );
 		if ( panel.views ) { panel.views.textContent = ''; }
 		if ( panel.favorite ) { panel.favorite.setAttribute( 'aria-pressed', 'false' ); }
 
-		// Media meta (author, views, urls).
+		// Media meta (author, views, urls). DM media renders into the floating
+		// stage chrome (sender + download); social media into the side panel.
 		api( '/media/' + id ).then( function ( m ) {
 			if ( current !== id ) { return; }
-			renderAuthor( m );
-			var views = ( m.stats && m.stats.views ) || 0;
-			if ( panel.views ) {
-				panel.views.textContent = views + ' ' + ( 1 === views ? ( I18N.view || 'view' ) : ( I18N.views || 'views' ) );
+			renderAuthor( m, isDM ? panel.dmAuthor : panel.author );
+			if ( ! isDM ) {
+				var views = ( m.stats && m.stats.views ) || 0;
+				if ( panel.views ) {
+					panel.views.textContent = views + ' ' + ( 1 === views ? ( I18N.view || 'view' ) : ( I18N.views || 'views' ) );
+				}
 			}
 			// Open + Download both target the media file (signed URL) — never the
 			// MediaVerse /media/ single page. That page is MediaVerse's own UX;
 			// BuddyNext owns the UX and must not send users into the engine UI.
 			if ( m.file_url ) {
-				if ( panel.download ) { panel.download.setAttribute( 'href', m.file_url ); }
-				if ( panel.open ) { panel.open.setAttribute( 'href', m.file_url ); }
+				var dl = isDM ? panel.dmDownload : panel.download;
+				if ( dl ) { dl.setAttribute( 'href', m.file_url ); }
+				if ( ! isDM && panel.open ) { panel.open.setAttribute( 'href', m.file_url ); }
 			}
 		} ).catch( function () {} );
 
@@ -179,9 +188,9 @@
 		api( '/media/' + id + '/view', { method: 'POST' } ).catch( function () {} );
 	}
 
-	function renderAuthor( m ) {
-		if ( ! panel.author ) { return; }
-		clear( panel.author );
+	function renderAuthor( m, target ) {
+		if ( ! target ) { return; }
+		clear( target );
 		var av = m.author_avatar || ( m.author_data && m.author_data.avatar ) || '';
 		var name = m.author_name || ( m.author_data && m.author_data.name ) || '';
 		// The REST API resolves this to the member profile (via BuddyNext's
@@ -205,7 +214,7 @@
 		sp.textContent = name;
 		holder.appendChild( sp );
 
-		panel.author.appendChild( holder );
+		target.appendChild( holder );
 	}
 
 	function resetReactions() {

@@ -357,17 +357,65 @@ body.bn-lightbox-open { overflow: hidden; }
 }
 .bn-lightbox__comment-input:focus-visible { outline: none; border-color: var( --bn-accent, oklch( 58% 0.13 264 ) ); }
 
-/* Private DM media: the shared lightbox drops its social layer — no reactions,
-   favorite, share, or comments (these don't apply to a one-to-one DM image).
-   The media stage, author and download/open actions stay. Driven by
-   .bn-lightbox--dm, set from the tile's data-bn-dm flag in lightbox.js. */
-.bn-lightbox--dm .bn-lightbox__reactions,
-.bn-lightbox--dm .bn-lightbox__comments,
-.bn-lightbox--dm .bn-lightbox__comment-form,
-.bn-lightbox--dm [data-bn-lb-favorite],
-.bn-lightbox--dm [data-bn-lb-share] {
-	display: none !important;
+/* Private DM media: a one-to-one image has no social layer, so the whole side
+   panel is dropped and the media goes full-bleed (WhatsApp/Telegram pattern).
+   The only chrome a DM image needs — sender, download, close — floats over the
+   stage via .bn-lightbox__dm-chrome. Driven by .bn-lightbox--dm, set from the
+   tile's data-bn-dm flag in lightbox.js. */
+.bn-lightbox--dm .bn-lightbox__panel { display: none; }
+
+/* Floating stage chrome — hidden unless the lightbox is in DM mode. */
+.bn-lightbox__dm-chrome { display: none; }
+.bn-lightbox--dm .bn-lightbox__dm-chrome {
+	position: absolute;
+	inset: 0 0 auto 0;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	gap: var( --bn-s2, 8px );
+	padding: var( --bn-s3, 12px ) var( --bn-s4, 16px );
+	/* Gradient scrim so the white sender/icons stay legible over any image. */
+	background: linear-gradient( to bottom, oklch( 0% 0 0 / 0.55 ), transparent );
+	pointer-events: none; /* let clicks fall through to the image; re-enable on controls */
 }
+.bn-lightbox__dm-spacer { flex: 1 1 auto; }
+.bn-lightbox__dm-author {
+	display: flex;
+	align-items: center;
+	gap: var( --bn-s2, 8px );
+	min-width: 0;
+	pointer-events: auto;
+}
+/* Author markup is shared with the panel (renderAuthor); recolor it for the
+   dark scrim instead of the light panel. */
+.bn-lightbox__dm-author .bn-lightbox__author-link { text-decoration: none; }
+.bn-lightbox__dm-author .bn-lightbox__author-avatar { width: 32px; height: 32px; border-radius: 999px; object-fit: cover; }
+.bn-lightbox__dm-author .bn-lightbox__author-name {
+	color: oklch( 100% 0 0 );
+	font-weight: 600;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.bn-lightbox__dm-btn {
+	flex-shrink: 0;
+	pointer-events: auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.25rem;
+	height: 2.25rem;
+	border: 0;
+	border-radius: 999px;
+	color: oklch( 100% 0 0 );
+	background: oklch( 0% 0 0 / 0.5 );
+	cursor: pointer;
+	text-decoration: none;
+	transition: background 0.15s ease;
+}
+.bn-lightbox__dm-btn:hover { background: oklch( 0% 0 0 / 0.78 ); }
+.bn-lightbox__dm-btn:focus-visible { outline: 2px solid oklch( 100% 0 0 ); outline-offset: 2px; }
+.bn-lightbox__dm-btn svg { width: 20px; height: 20px; }
 
 [data-theme="dark"] .bn-lightbox__media,
 [data-theme="dark"] .bn-lightbox__media-wrap video { color-scheme: dark; }
@@ -378,5 +426,9 @@ body.bn-lightbox-open { overflow: hidden; }
 	.bn-lightbox__stage { flex: 1 1 50%; min-height: 0; }
 	.bn-lightbox__media { max-height: 50vh; }
 	.bn-lightbox__panel { flex: 1 1 auto; width: 100%; max-width: none; border-inline-start: 0; border-block-start: 1px solid var( --bn-line, oklch( 92% 0.005 0 ) ); }
+
+	/* DM mode has no panel — let the image use the whole viewport. */
+	.bn-lightbox--dm .bn-lightbox__stage { flex: 1 1 100%; }
+	.bn-lightbox--dm .bn-lightbox__media { max-height: 100vh; }
 }
 
