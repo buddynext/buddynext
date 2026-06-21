@@ -17,6 +17,17 @@ import { onNavReady } from '../shell/nav-init.js';
 // click listener that any data-bn-relation-remove button can use.
 import '../social/relation-remove.js';
 
+/* -- i18n -------------------------------------------------------------- */
+/* Translated strings are injected server-side into the Interactivity state
+ * (AssetService::i18n_notifications) because Script Modules cannot use
+ * wp_set_script_translations(). The dictionary is read once from the
+ * buddynext/notifications namespace below; each lookup keeps the English
+ * literal as a fallback so the UI never breaks if the state is absent. fmt()
+ * fills sprintf-style '%s'/'%d' placeholders. */
+let I18N = {};
+function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
+
 /**
  * Format an unread count for display: empty when zero, "99+" when over 99.
  *
@@ -105,7 +116,7 @@ function toast( message, tone ) {
 	}
 }
 
-store( 'buddynext/notifications', {
+const notificationsStore = store( 'buddynext/notifications', {
 	state: {
 		get unreadLabel() {
 			var ctx = getContext();
@@ -184,7 +195,7 @@ store( 'buddynext/notifications', {
 				if ( prevCounts ) {
 					ctx.tabCounts = prevCounts;
 				}
-				toast( 'Could not mark all as read.', 'error' );
+				toast( t( 'markAllReadFailed', 'Could not mark all as read.' ), 'error' );
 			}
 		},
 
@@ -232,7 +243,7 @@ store( 'buddynext/notifications', {
 					}
 					adjustUnreadTabBadges( ctx, 1, row ? row.dataset.notifType : '' );
 				}
-				toast( 'Could not mark this notification as read.', 'error' );
+				toast( t( 'markReadFailed', 'Could not mark this notification as read.' ), 'error' );
 				return;
 			}
 
@@ -286,7 +297,7 @@ store( 'buddynext/notifications', {
 				if ( wasUnread ) {
 					adjustUnreadTabBadges( ctx, 1, row ? row.dataset.notifType : '' );
 				}
-				toast( 'Could not mark this notification as read.', 'error' );
+				toast( t( 'markReadFailed', 'Could not mark this notification as read.' ), 'error' );
 			}
 		},
 
@@ -326,7 +337,7 @@ store( 'buddynext/notifications', {
 					parent.insertBefore( row, nextSibling );
 				}
 				ctx.unreadCount = previousUnread;
-				toast( 'Could not dismiss. Try again.', 'error' );
+				toast( t( 'dismissFailed', 'Could not dismiss. Try again.' ), 'error' );
 				return;
 			}
 		},
@@ -370,7 +381,7 @@ store( 'buddynext/notifications', {
 							adjustUnreadTabBadges( ctx, -1, row.dataset.notifType );
 						}
 					}
-					toast( 'Invitation accepted — you have joined the space.', 'success' );
+					toast( t( 'inviteAccepted', 'Invitation accepted — you have joined the space.' ), 'success' );
 					if ( row.dataset.notifLink ) {
 						window.location.href = row.dataset.notifLink;
 					} else {
@@ -378,11 +389,11 @@ store( 'buddynext/notifications', {
 					}
 				} else {
 					for ( var j = 0; j < buttons.length; j++ ) { buttons[ j ].disabled = false; }
-					toast( ( data && data.message ) || 'Could not accept the invitation.', 'error' );
+					toast( ( data && data.message ) || t( 'inviteAcceptFailed', 'Could not accept the invitation.' ), 'error' );
 				}
 			} catch ( _e ) {
 				for ( var k = 0; k < buttons.length; k++ ) { buttons[ k ].disabled = false; }
-				toast( 'Network error. Try again.', 'error' );
+				toast( t( 'networkError', 'Network error. Try again.' ), 'error' );
 			}
 		},
 
@@ -421,15 +432,15 @@ store( 'buddynext/notifications', {
 							adjustUnreadTabBadges( ctx, -1, row.dataset.notifType );
 						}
 					}
-					toast( 'Invitation declined.', 'info' );
+					toast( t( 'inviteDeclined', 'Invitation declined.' ), 'info' );
 					row.remove();
 				} else {
 					for ( var j = 0; j < buttons.length; j++ ) { buttons[ j ].disabled = false; }
-					toast( 'Could not decline the invitation.', 'error' );
+					toast( t( 'inviteDeclineFailed', 'Could not decline the invitation.' ), 'error' );
 				}
 			} catch ( _e ) {
 				for ( var k = 0; k < buttons.length; k++ ) { buttons[ k ].disabled = false; }
-				toast( 'Network error. Try again.', 'error' );
+				toast( t( 'networkError', 'Network error. Try again.' ), 'error' );
 			}
 		},
 
@@ -493,6 +504,8 @@ store( 'buddynext/notifications', {
 		},
 	},
 } );
+
+I18N = ( notificationsStore.state && notificationsStore.state.i18n ) || {};
 
 /**
  * Background unread-count polling.

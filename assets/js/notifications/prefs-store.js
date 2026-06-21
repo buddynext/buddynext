@@ -26,6 +26,17 @@
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '../shell/rest-client.js';
 
+/* -- i18n -------------------------------------------------------------- */
+/* Translated strings are injected server-side into the Interactivity state
+ * (AssetService::i18n_notification_prefs) because Script Modules cannot use
+ * wp_set_script_translations(). The dictionary is read once from the
+ * buddynext/notification-prefs namespace below; each lookup keeps the English
+ * literal as a fallback so the UI never breaks if the state is absent. fmt()
+ * fills sprintf-style '%s'/'%d' placeholders. */
+let I18N = {};
+function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
+
 const VALID_FREQ = [ 'immediate', 'daily', 'weekly', 'off' ];
 
 /**
@@ -53,10 +64,10 @@ function toast( message, tone ) {
 function formatSavedLabel( ts ) {
 	if ( ! ts ) { return ''; }
 	var diff = Math.floor( Date.now() / 1000 ) - ts;
-	if ( diff < 5 )     { return 'Just now'; }
-	if ( diff < 60 )    { return diff + 's ago'; }
-	if ( diff < 3600 )  { return Math.floor( diff / 60 ) + ' min ago'; }
-	return Math.floor( diff / 3600 ) + 'h ago';
+	if ( diff < 5 )     { return t( 'justNow', 'Just now' ); }
+	if ( diff < 60 )    { return fmt( t( 'secondsAgo', '%ds ago' ), diff ); }
+	if ( diff < 3600 )  { return fmt( t( 'minutesAgo', '%d min ago' ), Math.floor( diff / 60 ) ); }
+	return fmt( t( 'hoursAgo', '%dh ago' ), Math.floor( diff / 3600 ) );
 }
 
 /* Beforeunload guard - mirror the Profile edit pattern. */
@@ -103,7 +114,7 @@ function buildPrefsDiff( current, initial ) {
 	return diff;
 }
 
-store( 'buddynext/notification-prefs', {
+const prefsStore = store( 'buddynext/notification-prefs', {
 	state: {
 		get savedLabel() {
 			var ctx = getContext();
@@ -116,9 +127,9 @@ store( 'buddynext/notification-prefs', {
 		get statusLabel() {
 			var ctx = getContext();
 			if ( ! ctx ) { return ''; }
-			if ( ctx.isSaving ) { return 'Saving...'; }
-			if ( ctx.isDirty )  { return 'Unsaved changes'; }
-			if ( ctx.savedAt )  { return 'Saved ' + formatSavedLabel( ctx.savedAt ); }
+			if ( ctx.isSaving ) { return t( 'statusSaving', 'Saving...' ); }
+			if ( ctx.isDirty )  { return t( 'statusUnsavedChanges', 'Unsaved changes' ); }
+			if ( ctx.savedAt )  { return fmt( t( 'statusSaved', 'Saved %s' ), formatSavedLabel( ctx.savedAt ) ); }
 			return '';
 		},
 		// Per-row reactive state — the row provides prefType, the chip provides
@@ -224,10 +235,10 @@ store( 'buddynext/notification-prefs', {
 				if ( ! res.ok ) {
 					throw new Error( 'http_' + res.status );
 				}
-				toast( 'Space preference saved.', 'success' );
+				toast( t( 'spacePrefSaved', 'Space preference saved.' ), 'success' );
 			} catch ( _e ) {
 				ctx.spacePrefs = previous;
-				toast( 'Could not save space preference.', 'error' );
+				toast( t( 'spacePrefSaveFailed', 'Could not save space preference.' ), 'error' );
 			}
 		},
 
@@ -293,7 +304,7 @@ store( 'buddynext/notification-prefs', {
 				// Rollback to the last known good snapshot.
 				ctx.prefs    = Object.assign( {}, ctx.initialPrefs || {} );
 				ctx.channels = Object.assign( {}, ctx.initialChannels || {} );
-				toast( 'Could not save preferences.', 'error' );
+				toast( t( 'prefsSaveFailed', 'Could not save preferences.' ), 'error' );
 				return;
 			}
 
@@ -302,7 +313,7 @@ store( 'buddynext/notification-prefs', {
 			ctx.isDirty         = false;
 			ctx.savedAt         = Math.floor( Date.now() / 1000 );
 			syncDirtyAttr( false );
-			toast( 'Preferences saved.', 'success' );
+			toast( t( 'prefsSaved', 'Preferences saved.' ), 'success' );
 		},
 
 		openResetConfirm() {
@@ -340,3 +351,5 @@ store( 'buddynext/notification-prefs', {
 		},
 	},
 } );
+
+I18N = ( prefsStore.state && prefsStore.state.i18n ) || {};

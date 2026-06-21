@@ -3,7 +3,18 @@ import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '../shell/rest-client.js';
 import { onNavReady } from '../shell/nav-init.js';
 
-const { state, actions } = store( 'buddynext/search', {
+/* -- i18n -------------------------------------------------------------- */
+/* Translated strings are injected server-side into the Interactivity state
+ * (AssetService::i18n_search) because Script Modules cannot use
+ * wp_set_script_translations(). The dictionary is read once from the
+ * buddynext/search namespace below; each lookup keeps the English literal as a
+ * fallback so the UI never breaks if the state is absent. fmt() fills
+ * sprintf-style '%s'/'%d' placeholders. */
+let I18N = {};
+function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
+
+const searchStore = store( 'buddynext/search', {
 	state: {
 		/* Saved searches fetched from the Pro REST collection. */
 		savedSearches: [],
@@ -88,9 +99,7 @@ const { state, actions } = store( 'buddynext/search', {
 			}
 			const name = ( ctx.savedName || '' ).trim();
 			if ( ! name ) {
-				ctx.savedMsg = ( window.wp && window.wp.i18n )
-					? window.wp.i18n.__( 'Please name this search first.', 'buddynext' )
-					: 'Please name this search first.';
+				ctx.savedMsg = t( 'nameSearchFirst', 'Please name this search first.' );
 				return;
 			}
 			try {
@@ -107,14 +116,10 @@ const { state, actions } = store( 'buddynext/search', {
 					throw new Error( 'save_failed' );
 				}
 				ctx.savedName = '';
-				ctx.savedMsg  = ( window.wp && window.wp.i18n )
-					? window.wp.i18n.__( 'Search saved.', 'buddynext' )
-					: 'Search saved.';
+				ctx.savedMsg  = t( 'searchSaved', 'Search saved.' );
 				yield actions.loadSavedList();
 			} catch ( _e ) {
-				ctx.savedMsg = ( window.wp && window.wp.i18n )
-					? window.wp.i18n.__( 'Could not save. Saved searches require BuddyNext Pro.', 'buddynext' )
-					: 'Could not save. Saved searches require BuddyNext Pro.';
+				ctx.savedMsg = t( 'searchSaveProRequired', 'Could not save. Saved searches require BuddyNext Pro.' );
 			}
 		},
 
@@ -176,6 +181,9 @@ const { state, actions } = store( 'buddynext/search', {
 		},
 	},
 } );
+
+const { state, actions } = searchStore;
+I18N = ( searchStore.state && searchStore.state.i18n ) || {};
 
 /*
    Build a /search URL that reproduces a saved search's query_args. Running a

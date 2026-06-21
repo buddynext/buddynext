@@ -36,7 +36,7 @@ KEY LESSON: `const` arrays can't hold `__()` and `__($var)` doesn't extract to P
 
 ---
 
-## 2. JS Script Modules — recipe LOCKED, 6 of 23 done (Wave A)
+## 2. JS Script Modules — recipe LOCKED, 13 of 23 done (Waves A+B)
 
 Script Modules cannot use `wp_set_script_translations()` (no per-module JED loading in WP 6.8). Each feature's strings are injected server-side into the Interactivity state and read in the store. **No build step** — assets/js is native ESM.
 
@@ -72,13 +72,13 @@ Order by traffic/value. Each module = one wave (PHP dict block + JS refactor + b
 - [x] **members** (`buddynext/members`) — ~40 — members/store.js (follow/connect/block toasts; note this is the directory's follow path)
 - [x] **spaces** (`buddynext/spaces`) — ~55 — spaces/store.js (already partly wrapped via local `__i18n()`; standardize on the dict)
 - [x] **messages** (`buddynext/messages`) — ~40 — messages/store.js (send/leave/rename/report)
-- [ ] **moderation** (`buddynext/moderation`) — ~30 — moderation/store.js (remove/suspend/appeal)
-- [ ] **onboarding** (`buddynext/onboarding`) — ~24 — onboarding/store.js (validation, upload, welcome)
-- [ ] **notifications** (`buddynext/notifications`) — ~12 — notifications/store.js
-- [ ] **notification-prefs** (`buddynext/notification-prefs`) — ~13 — notifications/prefs-store.js
-- [ ] **search** (`buddynext/search`) — ~8 — search/store.js (partly wrapped; standardize)
-- [ ] **hashtags** (`buddynext/hashtags`) — ~6 — hashtags/store.js
-- [ ] **space-members** (`buddynext/space-members`) — ~7–11 — space-members/store.js
+- [x] **moderation** (`buddynext/moderation`) — ~30 — moderation/store.js (remove/suspend/appeal)
+- [x] **onboarding** (`buddynext/onboarding`) — ~24 — onboarding/store.js (validation, upload, welcome)
+- [x] **notifications** (`buddynext/notifications`) — ~12 — notifications/store.js
+- [x] **notification-prefs** (`buddynext/notification-prefs`) — ~13 — notifications/prefs-store.js
+- [x] **search** (`buddynext/search`) — ~8 — search/store.js (partly wrapped; standardize)
+- [x] **hashtags** (`buddynext/hashtags`) — ~6 — hashtags/store.js
+- [x] **space-members** (`buddynext/space-members`) — ~7–11 — space-members/store.js
 - [ ] **auth** (`buddynext/auth`) — ~7 — auth/store.js (strength labels, show/hide)
 - [ ] **auth-login** (`buddynext/auth-login`) — ~11 — auth/login-store.js
 - [ ] **auth-signup** (`buddynext/auth-signup`) — ~12 — auth/signup-store.js

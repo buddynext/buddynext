@@ -7,7 +7,18 @@ import { store, getContext } from '@wordpress/interactivity';
 import { bnConfirm, bnToast } from '../shell/dialog.js';
 import { restFetch } from '../shell/rest-client.js';
 
-store( 'buddynext/moderation', {
+/* -- i18n -------------------------------------------------------------- */
+/* Translated strings are injected server-side into the Interactivity state
+ * (AssetService::i18n_moderation) because Script Modules cannot use
+ * wp_set_script_translations(). The dictionary is read once from the
+ * buddynext/moderation namespace below and shared by every store in this file;
+ * each lookup keeps the English literal as a fallback so the UI never breaks if
+ * the state is absent. fmt() fills sprintf-style '%s'/'%d' placeholders. */
+let I18N = {};
+function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
+
+const moderationStore = store( 'buddynext/moderation', {
 	actions: {
 		/* ── Site-wide queue actions ────────────────────────────────── */
 
@@ -45,7 +56,7 @@ store( 'buddynext/moderation', {
 				const row = document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
 				if ( row ) { row.remove(); }
 			} else {
-				bnToast( 'Could not dismiss the report. Try again.', { tone: 'danger' } );
+				bnToast( t( 'dismissFailed', 'Could not dismiss the report. Try again.' ), { tone: 'danger' } );
 			}
 		},
 
@@ -53,9 +64,9 @@ store( 'buddynext/moderation', {
 			const ctx = getContext();
 			if ( ! ctx.reportId || ! ctx.restNonce ) { return; }
 			const ok = yield bnConfirm( {
-				title: 'Remove this content?',
-				body: 'The reported item will be taken down from public view and the report marked resolved.',
-				confirmLabel: 'Remove',
+				title: t( 'removeContentTitle', 'Remove this content?' ),
+				body: t( 'removeContentBody', 'The reported item will be taken down from public view and the report marked resolved.' ),
+				confirmLabel: t( 'removeLabel', 'Remove' ),
 				tone: 'danger',
 			} );
 			if ( ! ok ) { return; }
@@ -70,9 +81,9 @@ store( 'buddynext/moderation', {
 			if ( res.ok ) {
 				const row = document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
 				if ( row ) { row.remove(); }
-				bnToast( 'Content removed.', { tone: 'success' } );
+				bnToast( t( 'contentRemoved', 'Content removed.' ), { tone: 'success' } );
 			} else {
-				bnToast( 'Could not remove the content. Try again.', { tone: 'danger' } );
+				bnToast( t( 'removeContentFailed', 'Could not remove the content. Try again.' ), { tone: 'danger' } );
 			}
 		},
 
@@ -88,7 +99,7 @@ store( 'buddynext/moderation', {
 				body: { message: 'Content policy reminder' },
 				toastOnError: false,
 			} );
-			bnToast( res.ok ? 'Warning sent.' : 'Could not warn the user.', { tone: res.ok ? 'success' : 'danger' } );
+			bnToast( res.ok ? t( 'warningSent', 'Warning sent.' ) : t( 'warnUserFailed', 'Could not warn the user.' ), { tone: res.ok ? 'success' : 'danger' } );
 		},
 
 		* strikeUser() {
@@ -102,16 +113,16 @@ store( 'buddynext/moderation', {
 				body: { reason: 'Strike issued for reported content' },
 				toastOnError: false,
 			} );
-			bnToast( res.ok ? 'Strike issued.' : 'Could not issue a strike.', { tone: res.ok ? 'success' : 'danger' } );
+			bnToast( res.ok ? t( 'strikeIssued', 'Strike issued.' ) : t( 'strikeUserFailed', 'Could not issue a strike.' ), { tone: res.ok ? 'success' : 'danger' } );
 		},
 
 		* suspendUser() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.restNonce ) { return; }
 			const ok = yield bnConfirm( {
-				title: 'Suspend this user?',
-				body: 'They will be unable to post or interact for 7 days, and their posts will be hidden.',
-				confirmLabel: 'Suspend',
+				title: t( 'suspendUserTitle', 'Suspend this user?' ),
+				body: t( 'suspendUserBody', 'They will be unable to post or interact for 7 days, and their posts will be hidden.' ),
+				confirmLabel: t( 'suspendLabel', 'Suspend' ),
 				tone: 'danger',
 			} );
 			if ( ! ok ) { return; }
@@ -123,7 +134,7 @@ store( 'buddynext/moderation', {
 				body: { reason: 'Moderation action', duration_days: 7, hide_posts: true },
 				toastOnError: false,
 			} );
-			bnToast( res.ok ? 'User suspended for 7 days.' : 'Could not suspend the user.', { tone: res.ok ? 'success' : 'danger' } );
+			bnToast( res.ok ? t( 'userSuspended', 'User suspended for 7 days.' ) : t( 'suspendUserFailed', 'Could not suspend the user.' ), { tone: res.ok ? 'success' : 'danger' } );
 		},
 
 		/* ── Account-status (member-facing) ────────────────────────── */
@@ -135,7 +146,7 @@ store( 'buddynext/moderation', {
 			const message = field ? field.value.trim() : '';
 			if ( ! ctx.suspensionId || ! ctx.restNonce ) { return; }
 			if ( message.length < 10 ) {
-				bnToast( 'Please describe why you are appealing (at least 10 characters).', { tone: 'danger' } );
+				bnToast( t( 'appealTooShort', 'Please describe why you are appealing (at least 10 characters).' ), { tone: 'danger' } );
 				if ( field ) { field.focus(); }
 				return;
 			}
@@ -148,11 +159,11 @@ store( 'buddynext/moderation', {
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
-				bnToast( 'Your appeal has been submitted.', { tone: 'success' } );
+				bnToast( t( 'appealSubmitted', 'Your appeal has been submitted.' ), { tone: 'success' } );
 				// Reload so the banner re-renders in its "under review" state.
 				window.location.reload();
 			} else {
-				const emsg = ( res.data && res.data.message ) ? res.data.message : 'Could not submit your appeal. Try again.';
+				const emsg = ( res.data && res.data.message ) ? res.data.message : t( 'appealSubmitFailed', 'Could not submit your appeal. Try again.' );
 				bnToast( emsg, { tone: 'danger' } );
 			}
 		},
@@ -163,9 +174,9 @@ store( 'buddynext/moderation', {
 			const ctx = getContext();
 			if ( ! ctx.appealId || ! ctx.restNonce ) { return; }
 			const ok = yield bnConfirm( {
-				title: 'Approve this appeal?',
-				body: 'The member’s suspension will be lifted and they will be notified.',
-				confirmLabel: 'Approve',
+				title: t( 'approveAppealTitle', 'Approve this appeal?' ),
+				body: t( 'approveAppealBody', 'The member’s suspension will be lifted and they will be notified.' ),
+				confirmLabel: t( 'approveLabel', 'Approve' ),
 			} );
 			if ( ! ok ) { return; }
 			// Real route: POST /appeals/{id}/resolve { decision }.
@@ -177,11 +188,11 @@ store( 'buddynext/moderation', {
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
-				bnToast( 'Appeal approved — suspension lifted.', { tone: 'success' } );
+				bnToast( t( 'appealApproved', 'Appeal approved — suspension lifted.' ), { tone: 'success' } );
 				const row = document.querySelector( '[data-appeal-id="' + ctx.appealId + '"]' );
 				if ( row ) { row.remove(); }
 			} else {
-				const emsg = ( res.data && res.data.message ) ? res.data.message : 'Could not approve the appeal. Try again.';
+				const emsg = ( res.data && res.data.message ) ? res.data.message : t( 'approveAppealFailed', 'Could not approve the appeal. Try again.' );
 				bnToast( emsg, { tone: 'danger' } );
 			}
 		},
@@ -190,9 +201,9 @@ store( 'buddynext/moderation', {
 			const ctx = getContext();
 			if ( ! ctx.appealId || ! ctx.restNonce ) { return; }
 			const ok = yield bnConfirm( {
-				title: 'Deny this appeal?',
-				body: 'The suspension stays in place. The member will be notified of the decision.',
-				confirmLabel: 'Deny',
+				title: t( 'denyAppealTitle', 'Deny this appeal?' ),
+				body: t( 'denyAppealBody', 'The suspension stays in place. The member will be notified of the decision.' ),
+				confirmLabel: t( 'denyLabel', 'Deny' ),
 				tone: 'danger',
 			} );
 			if ( ! ok ) { return; }
@@ -204,11 +215,11 @@ store( 'buddynext/moderation', {
 				toastOnError: false,
 			} );
 			if ( res.ok ) {
-				bnToast( 'Appeal denied.', { tone: 'success' } );
+				bnToast( t( 'appealDenied', 'Appeal denied.' ), { tone: 'success' } );
 				const row = document.querySelector( '[data-appeal-id="' + ctx.appealId + '"]' );
 				if ( row ) { row.remove(); }
 			} else {
-				const emsg = ( res.data && res.data.message ) ? res.data.message : 'Could not deny the appeal. Try again.';
+				const emsg = ( res.data && res.data.message ) ? res.data.message : t( 'denyAppealFailed', 'Could not deny the appeal. Try again.' );
 				bnToast( emsg, { tone: 'danger' } );
 			}
 		},
@@ -252,9 +263,9 @@ store( 'buddynext/moderation', {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.spaceId || ! ctx.restNonce ) { return; }
 			const ok = yield bnConfirm( {
-				title: 'Remove this member from the space?',
-				body: 'They will lose access to this space immediately.',
-				confirmLabel: 'Remove',
+				title: t( 'removeFromSpaceTitle', 'Remove this member from the space?' ),
+				body: t( 'removeFromSpaceBody', 'They will lose access to this space immediately.' ),
+				confirmLabel: t( 'removeLabel', 'Remove' ),
 				tone: 'danger',
 			} );
 			if ( ! ok ) { return; }
@@ -292,3 +303,5 @@ store( 'buddynext/moderation', {
 		},
 	},
 } );
+
+I18N = ( moderationStore.state && moderationStore.state.i18n ) || {};

@@ -8,7 +8,18 @@
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '../shell/rest-client.js';
 
-store( 'buddynext/feed', {
+/* -- i18n -------------------------------------------------------------- */
+/* Translated strings are injected server-side into the Interactivity state
+ * (AssetService::i18n_hashtags) because Script Modules cannot use
+ * wp_set_script_translations(). The dictionary is read once from the
+ * buddynext/hashtags namespace below; each lookup keeps the English literal as
+ * a fallback so the UI never breaks if the state is absent. fmt() fills
+ * sprintf-style '%s'/'%d' placeholders. */
+let I18N = {};
+function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
+
+const hashtagsStore = store( 'buddynext/feed', {
 	state: {
 		/**
 		 * aria-pressed string for the hashtag follow control, derived from the
@@ -60,20 +71,20 @@ store( 'buddynext/feed', {
 				if ( ! res.ok ) {
 					ctx.following = following; // Roll back.
 					if ( window.bnToast ) {
-						window.bnToast( 'Could not update follow state. Try again.', { type: 'error' } );
+						window.bnToast( t( 'followUpdateFailed', 'Could not update follow state. Try again.' ), { type: 'error' } );
 					}
 				} else if ( window.bnToast ) {
 					window.bnToast(
 						following
-							? 'Unfollowed #' + slug
-							: 'Following #' + slug,
+							? fmt( t( 'unfollowedHashtag', 'Unfollowed #%s' ), slug )
+							: fmt( t( 'followingHashtag', 'Following #%s' ), slug ),
 						{ type: 'success' }
 					);
 				}
 			} catch ( _e ) {
 				ctx.following = following; // Roll back silently.
 				if ( window.bnToast ) {
-					window.bnToast( 'Network error. Try again.', { type: 'error' } );
+					window.bnToast( t( 'networkError', 'Network error. Try again.' ), { type: 'error' } );
 				}
 			}
 		},
@@ -223,3 +234,11 @@ store( 'buddynext/feed', {
 		},
 	},
 } );
+
+// The hashtag dictionary is injected server-side under its own namespace
+// (AssetService::i18n_hashtags → buddynext/hashtags). Read it once; fall back
+// to the feed store's state so a shared key still resolves.
+I18N =
+	( store( 'buddynext/hashtags' ).state && store( 'buddynext/hashtags' ).state.i18n ) ||
+	( hashtagsStore.state && hashtagsStore.state.i18n ) ||
+	{};

@@ -8,6 +8,17 @@
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '../shell/rest-client.js';
 
+/* -- i18n -------------------------------------------------------------- */
+/* Translated strings are injected server-side into the Interactivity state
+ * (AssetService::i18n_onboarding) because Script Modules cannot use
+ * wp_set_script_translations(). The dictionary is read once from the
+ * buddynext/onboarding namespace below; each lookup keeps the English literal
+ * as a fallback so the UI never breaks if the state is absent. fmt() fills
+ * sprintf-style '%s'/'%d' placeholders. */
+let I18N = {};
+function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
+function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
+
 // Holds the pending username-availability check timer so a fresh
 // keystroke can cancel the in-flight check before it fires.
 let usernameCheckTimer = null;
@@ -44,7 +55,7 @@ function rest( c, path, opts ) {
 	return restFetch( '/' + String( path ).replace( /^\//, '' ), init );
 }
 
-store( 'buddynext/onboarding', {
+const onboardingStore = store( 'buddynext/onboarding', {
 	state: {
 		get currentStep() {
 			return ctx().step || 1;
@@ -62,7 +73,7 @@ store( 'buddynext/onboarding', {
 			const c = ctx();
 			const total = c.totalSteps || 4;
 			const step  = c.step || 1;
-			return 'Step ' + step + ' of ' + total;
+			return fmt( t( 'stepLabel', 'Step %1$s of %2$s' ), step, total );
 		},
 		get isStep1() { return ( ctx().step || 1 ) === 1; },
 		get isStep2() { return ( ctx().step || 1 ) === 2; },
@@ -80,7 +91,7 @@ store( 'buddynext/onboarding', {
 			const c = ctx();
 			if ( ! c.displayNameDirty ) { return ''; }
 			const dn = String( c.displayName || '' ).trim();
-			return dn.length < 2 ? 'Display name must be at least 2 characters.' : '';
+			return dn.length < 2 ? t( 'displayNameError', 'Display name must be at least 2 characters.' ) : '';
 		},
 		get continueDisabledStep1() {
 			const c = ctx();
@@ -93,14 +104,14 @@ store( 'buddynext/onboarding', {
 		// (right column). They reflect whatever the user has typed on the
 		// left so the preview card updates as they fill the form.
 		get previewName() {
-			return String( ctx().displayName || '' ).trim() || 'Your name';
+			return String( ctx().displayName || '' ).trim() || t( 'previewName', 'Your name' );
 		},
 		get previewHandle() {
 			const u = String( ctx().userLogin || '' ).trim();
-			return u ? '@' + u : '@username';
+			return u ? '@' + u : t( 'previewHandle', '@username' );
 		},
 		get previewBio() {
-			return String( ctx().bio || '' ).trim() || "Add a short bio so people know what you're into.";
+			return String( ctx().bio || '' ).trim() || t( 'previewBio', "Add a short bio so people know what you're into." );
 		},
 		get previewInitial() {
 			const dn = String( ctx().displayName || '' ).trim();
@@ -142,7 +153,7 @@ store( 'buddynext/onboarding', {
 			// Last-step skip — finalize skip.
 			rest( c, 'me/onboarding/skip', { method: 'POST' } )
 				.then( () => {
-					toast( 'You can complete onboarding any time from settings.', 'info' );
+					toast( t( 'toastCompleteLater', 'You can complete onboarding any time from settings.' ), 'info' );
 					window.location.href = c.redirectUrl || '/activity/';
 				} )
 				.catch( () => {
@@ -173,7 +184,7 @@ store( 'buddynext/onboarding', {
 			// Show "Checking…" immediately while we wait for the debounce
 			// window to close and the REST call to return.
 			c.usernameChecking = true;
-			c.usernameStatusLabel = 'Checking…';
+			c.usernameStatusLabel = t( 'usernameChecking', 'Checking…' );
 
 			if ( usernameCheckTimer ) { clearTimeout( usernameCheckTimer ); }
 			usernameCheckTimer = setTimeout( () => {
@@ -187,7 +198,7 @@ store( 'buddynext/onboarding', {
 						const ok = !! ( data && data.available );
 						c.usernameAvailable  = ok;
 						c.usernameChecking   = false;
-						c.usernameStatusLabel = ok ? 'Available' : 'Taken';
+						c.usernameStatusLabel = ok ? t( 'usernameAvailable', 'Available' ) : t( 'usernameTaken', 'Taken' );
 					} )
 					.catch( () => {
 						c.usernameChecking    = false;
@@ -218,12 +229,12 @@ store( 'buddynext/onboarding', {
 			// Optimistic UI.
 			if ( isJoining ) {
 				joined.push( spaceId );
-				btn.textContent = 'Joined';
+				btn.textContent = t( 'btnJoined', 'Joined' );
 				btn.setAttribute( 'data-variant', 'secondary' );
 				btn.setAttribute( 'aria-pressed', 'true' );
 			} else {
 				joined.splice( idx, 1 );
-				btn.textContent = 'Join';
+				btn.textContent = t( 'btnJoin', 'Join' );
 				btn.setAttribute( 'data-variant', 'primary' );
 				btn.setAttribute( 'aria-pressed', 'false' );
 			}
@@ -236,7 +247,7 @@ store( 'buddynext/onboarding', {
 			} )
 				.then( ( r ) => {
 					if ( ! r.ok ) { throw new Error( 'Failed' ); }
-					toast( isJoining ? 'Joined the space.' : 'Left the space.', 'success' );
+					toast( isJoining ? t( 'toastJoinedSpace', 'Joined the space.' ) : t( 'toastLeftSpace', 'Left the space.' ), 'success' );
 				} )
 				.catch( () => {
 					// Rollback.
@@ -244,17 +255,17 @@ store( 'buddynext/onboarding', {
 					const ridx = rollback.indexOf( spaceId );
 					if ( isJoining && ridx !== -1 ) {
 						rollback.splice( ridx, 1 );
-						btn.textContent = 'Join';
+						btn.textContent = t( 'btnJoin', 'Join' );
 						btn.setAttribute( 'data-variant', 'primary' );
 						btn.setAttribute( 'aria-pressed', 'false' );
 					} else if ( ! isJoining ) {
 						rollback.push( spaceId );
-						btn.textContent = 'Joined';
+						btn.textContent = t( 'btnJoined', 'Joined' );
 						btn.setAttribute( 'data-variant', 'secondary' );
 						btn.setAttribute( 'aria-pressed', 'true' );
 					}
 					c.joinedSpaces = rollback;
-					toast( 'Could not update space. Please try again.', 'danger' );
+					toast( t( 'toastSpaceUpdateFailed', 'Could not update space. Please try again.' ), 'danger' );
 				} );
 		},
 		followSuggestedUser( event ) {
@@ -268,13 +279,13 @@ store( 'buddynext/onboarding', {
 			const isFollowing = idx === -1;
 			if ( isFollowing ) {
 				list.push( userId );
-				btn.textContent = 'Following';
+				btn.textContent = t( 'btnFollowing', 'Following' );
 				btn.setAttribute( 'data-variant', 'secondary' );
 				btn.setAttribute( 'aria-pressed', 'true' );
 				btn.classList.add( 'is-following' );
 			} else {
 				list.splice( idx, 1 );
-				btn.textContent = 'Follow';
+				btn.textContent = t( 'btnFollow', 'Follow' );
 				btn.setAttribute( 'data-variant', 'primary' );
 				btn.setAttribute( 'aria-pressed', 'false' );
 				btn.classList.remove( 'is-following' );
@@ -285,26 +296,26 @@ store( 'buddynext/onboarding', {
 			} )
 				.then( ( r ) => {
 					if ( ! r.ok ) { throw new Error( 'Failed' ); }
-					toast( isFollowing ? 'Following.' : 'Unfollowed.', 'success' );
+					toast( isFollowing ? t( 'toastFollowing', 'Following.' ) : t( 'toastUnfollowed', 'Unfollowed.' ), 'success' );
 				} )
 				.catch( () => {
 					const rollback = Array.isArray( c.followingUsers ) ? c.followingUsers.slice() : [];
 					const ridx = rollback.indexOf( userId );
 					if ( isFollowing && ridx !== -1 ) {
 						rollback.splice( ridx, 1 );
-						btn.textContent = 'Follow';
+						btn.textContent = t( 'btnFollow', 'Follow' );
 						btn.setAttribute( 'data-variant', 'primary' );
 						btn.setAttribute( 'aria-pressed', 'false' );
 						btn.classList.remove( 'is-following' );
 					} else if ( ! isFollowing ) {
 						rollback.push( userId );
-						btn.textContent = 'Following';
+						btn.textContent = t( 'btnFollowing', 'Following' );
 						btn.setAttribute( 'data-variant', 'secondary' );
 						btn.setAttribute( 'aria-pressed', 'true' );
 						btn.classList.add( 'is-following' );
 					}
 					c.followingUsers = rollback;
-					toast( 'Could not update follow. Please try again.', 'danger' );
+					toast( t( 'toastFollowUpdateFailed', 'Could not update follow. Please try again.' ), 'danger' );
 				} );
 		},
 		triggerAvatarUpload() {
@@ -317,7 +328,7 @@ store( 'buddynext/onboarding', {
 			if ( ! file ) { return; }
 			// Size cap matches the server (ProfileController: 4MB).
 			if ( file.size > 4 * 1024 * 1024 ) {
-				toast( 'Image too large. Max 4MB.', 'danger' );
+				toast( t( 'toastImageTooLarge', 'Image too large. Max 4MB.' ), 'danger' );
 				return;
 			}
 
@@ -338,7 +349,7 @@ store( 'buddynext/onboarding', {
 							// Surface the server's specific reason (avatar_too_large /
 							// avatar_dimensions / avatar_invalid_type) instead of a
 							// generic failure, so the user knows what to change.
-							const msg = r.data && r.data.message ? r.data.message : 'Could not upload photo. Please try again.';
+							const msg = r.data && r.data.message ? r.data.message : t( 'toastPhotoUploadFailed', 'Could not upload photo. Please try again.' );
 							throw new Error( msg );
 						}
 						return r.data;
@@ -350,10 +361,10 @@ store( 'buddynext/onboarding', {
 							// Drive the live preview card avatar reactively (state.previewAvatar).
 							c.avatarUrl = data.avatar_url;
 						}
-						toast( 'Profile photo updated.', 'success' );
+						toast( t( 'toastPhotoUpdated', 'Profile photo updated.' ), 'success' );
 					} )
 					.catch( ( err ) => {
-						toast( err && err.message ? err.message : 'Could not upload photo. Please try again.', 'danger' );
+						toast( err && err.message ? err.message : t( 'toastPhotoUploadFailed', 'Could not upload photo. Please try again.' ), 'danger' );
 					} );
 			};
 
@@ -366,7 +377,7 @@ store( 'buddynext/onboarding', {
 				const tooBig = probe.naturalWidth > 1024 || probe.naturalHeight > 1024;
 				URL.revokeObjectURL( objectUrl );
 				if ( tooBig ) {
-					toast( 'Image must be at most 1024×1024 pixels. Please choose a smaller photo.', 'danger' );
+					toast( t( 'toastImageDimensions', 'Image must be at most 1024×1024 pixels. Please choose a smaller photo.' ), 'danger' );
 					return;
 				}
 				doUpload();
@@ -431,14 +442,16 @@ store( 'buddynext/onboarding', {
 				} )
 				.then( ( data ) => {
 					c.saving = false;
-					toast( 'You are all set. Welcome aboard!', 'success' );
+					toast( t( 'toastAllSet', 'You are all set. Welcome aboard!' ), 'success' );
 					window.location.href = ( data && data.redirect_to ) || c.redirectUrl || '/activity/';
 				} )
 				.catch( () => {
 					c.saving = false;
-					c.error  = 'Something went wrong. Please try again.';
-					toast( 'Could not finish onboarding. Please try again.', 'danger' );
+					c.error  = t( 'errorGeneric', 'Something went wrong. Please try again.' );
+					toast( t( 'toastFinishFailed', 'Could not finish onboarding. Please try again.' ), 'danger' );
 				} );
 		},
 	},
 } );
+
+I18N = ( onboardingStore.state && onboardingStore.state.i18n ) || {};

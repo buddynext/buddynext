@@ -552,6 +552,13 @@ class AssetService {
 		$this->i18n_members();
 		$this->i18n_spaces();
 		$this->i18n_messages();
+		$this->i18n_moderation();
+		$this->i18n_onboarding();
+		$this->i18n_notifications();
+		$this->i18n_notification_prefs();
+		$this->i18n_search();
+		$this->i18n_hashtags();
+		$this->i18n_space_members();
 	}
 
 	/**
@@ -1135,6 +1142,212 @@ class AssetService {
 					'twofaDisableFailed'         => __( 'Could not turn off two-factor.', 'buddynext' ),
 					'unblocked'                  => __( 'Unblocked', 'buddynext' ),
 					'unblockFailed'              => __( 'Could not unblock', 'buddynext' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * moderation/store: report queue, user sanctions, appeals, and space
+	 * moderation dialogs/toasts.
+	 *
+	 * @return void
+	 */
+	private function i18n_moderation(): void {
+		wp_interactivity_state(
+			'buddynext/moderation',
+			array(
+				'i18n' => array(
+					'dismissFailed'        => __( 'Could not dismiss the report. Try again.', 'buddynext' ),
+					'removeContentTitle'   => __( 'Remove this content?', 'buddynext' ),
+					'removeContentBody'    => __( 'The reported item will be taken down from public view and the report marked resolved.', 'buddynext' ),
+					'removeLabel'          => __( 'Remove', 'buddynext' ),
+					'contentRemoved'       => __( 'Content removed.', 'buddynext' ),
+					'removeContentFailed'  => __( 'Could not remove the content. Try again.', 'buddynext' ),
+					'warningSent'          => __( 'Warning sent.', 'buddynext' ),
+					'warnUserFailed'       => __( 'Could not warn the user.', 'buddynext' ),
+					'strikeIssued'         => __( 'Strike issued.', 'buddynext' ),
+					'strikeUserFailed'     => __( 'Could not issue a strike.', 'buddynext' ),
+					'suspendUserTitle'     => __( 'Suspend this user?', 'buddynext' ),
+					'suspendUserBody'      => __( 'They will be unable to post or interact for 7 days, and their posts will be hidden.', 'buddynext' ),
+					'suspendLabel'         => __( 'Suspend', 'buddynext' ),
+					'userSuspended'        => __( 'User suspended for 7 days.', 'buddynext' ),
+					'suspendUserFailed'    => __( 'Could not suspend the user.', 'buddynext' ),
+					'appealTooShort'       => __( 'Please describe why you are appealing (at least 10 characters).', 'buddynext' ),
+					'appealSubmitted'      => __( 'Your appeal has been submitted.', 'buddynext' ),
+					'appealSubmitFailed'   => __( 'Could not submit your appeal. Try again.', 'buddynext' ),
+					'approveAppealTitle'   => __( 'Approve this appeal?', 'buddynext' ),
+					'approveAppealBody'    => __( 'The member’s suspension will be lifted and they will be notified.', 'buddynext' ),
+					'approveLabel'         => __( 'Approve', 'buddynext' ),
+					'appealApproved'       => __( 'Appeal approved — suspension lifted.', 'buddynext' ),
+					'approveAppealFailed'  => __( 'Could not approve the appeal. Try again.', 'buddynext' ),
+					'denyAppealTitle'      => __( 'Deny this appeal?', 'buddynext' ),
+					'denyAppealBody'       => __( 'The suspension stays in place. The member will be notified of the decision.', 'buddynext' ),
+					'denyLabel'            => __( 'Deny', 'buddynext' ),
+					'appealDenied'         => __( 'Appeal denied.', 'buddynext' ),
+					'denyAppealFailed'     => __( 'Could not deny the appeal. Try again.', 'buddynext' ),
+					'removeFromSpaceTitle' => __( 'Remove this member from the space?', 'buddynext' ),
+					'removeFromSpaceBody'  => __( 'They will lose access to this space immediately.', 'buddynext' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * onboarding/store: 4-step wizard — step labels, profile preview, username
+	 * availability, join/follow buttons, avatar upload, and completion.
+	 *
+	 * @return void
+	 */
+	private function i18n_onboarding(): void {
+		wp_interactivity_state(
+			'buddynext/onboarding',
+			array(
+				'i18n' => array(
+					/* translators: 1: current step number, 2: total step count */
+					'stepLabel'               => __( 'Step %1$s of %2$s', 'buddynext' ),
+					'displayNameError'        => __( 'Display name must be at least 2 characters.', 'buddynext' ),
+					'previewName'             => __( 'Your name', 'buddynext' ),
+					'previewHandle'           => __( '@username', 'buddynext' ),
+					'previewBio'              => __( "Add a short bio so people know what you're into.", 'buddynext' ),
+					'usernameChecking'        => __( 'Checking…', 'buddynext' ),
+					'usernameAvailable'       => __( 'Available', 'buddynext' ),
+					'usernameTaken'           => __( 'Taken', 'buddynext' ),
+					'btnJoin'                 => __( 'Join', 'buddynext' ),
+					'btnJoined'               => __( 'Joined', 'buddynext' ),
+					'btnFollow'               => __( 'Follow', 'buddynext' ),
+					'btnFollowing'            => __( 'Following', 'buddynext' ),
+					'toastCompleteLater'      => __( 'You can complete onboarding any time from settings.', 'buddynext' ),
+					'toastJoinedSpace'        => __( 'Joined the space.', 'buddynext' ),
+					'toastLeftSpace'          => __( 'Left the space.', 'buddynext' ),
+					'toastSpaceUpdateFailed'  => __( 'Could not update space. Please try again.', 'buddynext' ),
+					'toastFollowing'          => __( 'Following.', 'buddynext' ),
+					'toastUnfollowed'         => __( 'Unfollowed.', 'buddynext' ),
+					'toastFollowUpdateFailed' => __( 'Could not update follow. Please try again.', 'buddynext' ),
+					'toastImageTooLarge'      => __( 'Image too large. Max 4MB.', 'buddynext' ),
+					'toastImageDimensions'    => __( 'Image must be at most 1024×1024 pixels. Please choose a smaller photo.', 'buddynext' ),
+					'toastPhotoUploadFailed'  => __( 'Could not upload photo. Please try again.', 'buddynext' ),
+					'toastPhotoUpdated'       => __( 'Profile photo updated.', 'buddynext' ),
+					'toastAllSet'             => __( 'You are all set. Welcome aboard!', 'buddynext' ),
+					'toastFinishFailed'       => __( 'Could not finish onboarding. Please try again.', 'buddynext' ),
+					'errorGeneric'            => __( 'Something went wrong. Please try again.', 'buddynext' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * notifications/store: read/dismiss toasts, space-invite accept/decline, and
+	 * the mark-all-read failure path.
+	 *
+	 * @return void
+	 */
+	private function i18n_notifications(): void {
+		wp_interactivity_state(
+			'buddynext/notifications',
+			array(
+				'i18n' => array(
+					'markAllReadFailed'   => __( 'Could not mark all as read.', 'buddynext' ),
+					'markReadFailed'      => __( 'Could not mark this notification as read.', 'buddynext' ),
+					'dismissFailed'       => __( 'Could not dismiss. Try again.', 'buddynext' ),
+					'inviteAccepted'      => __( 'Invitation accepted — you have joined the space.', 'buddynext' ),
+					'inviteAcceptFailed'  => __( 'Could not accept the invitation.', 'buddynext' ),
+					'inviteDeclined'      => __( 'Invitation declined.', 'buddynext' ),
+					'inviteDeclineFailed' => __( 'Could not decline the invitation.', 'buddynext' ),
+					'networkError'        => __( 'Network error. Try again.', 'buddynext' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * notifications/prefs-store: notification preferences save bar + toasts.
+	 *
+	 * @return void
+	 */
+	private function i18n_notification_prefs(): void {
+		wp_interactivity_state(
+			'buddynext/notification-prefs',
+			array(
+				'i18n' => array(
+					'justNow'              => __( 'Just now', 'buddynext' ),
+					/* translators: %d: number of seconds */
+					'secondsAgo'           => __( '%ds ago', 'buddynext' ),
+					/* translators: %d: number of minutes */
+					'minutesAgo'           => __( '%d min ago', 'buddynext' ),
+					/* translators: %d: number of hours */
+					'hoursAgo'             => __( '%dh ago', 'buddynext' ),
+					'statusSaving'         => __( 'Saving...', 'buddynext' ),
+					'statusUnsavedChanges' => __( 'Unsaved changes', 'buddynext' ),
+					/* translators: %s: relative time the prefs were last saved (e.g. "2 min ago") */
+					'statusSaved'          => __( 'Saved %s', 'buddynext' ),
+					'spacePrefSaved'       => __( 'Space preference saved.', 'buddynext' ),
+					'spacePrefSaveFailed'  => __( 'Could not save space preference.', 'buddynext' ),
+					'prefsSaveFailed'      => __( 'Could not save preferences.', 'buddynext' ),
+					'prefsSaved'           => __( 'Preferences saved.', 'buddynext' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * search/store: saved-search composer messages (name-required, saved
+	 * confirmation, Pro-required failure notice).
+	 *
+	 * @return void
+	 */
+	private function i18n_search(): void {
+		wp_interactivity_state(
+			'buddynext/search',
+			array(
+				'i18n' => array(
+					'nameSearchFirst'       => __( 'Please name this search first.', 'buddynext' ),
+					'searchSaved'           => __( 'Search saved.', 'buddynext' ),
+					'searchSaveProRequired' => __( 'Could not save. Saved searches require BuddyNext Pro.', 'buddynext' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * hashtags/store: hashtag follow toggle feedback. The store registers under
+	 * buddynext/feed for directives but reads its strings from this dedicated
+	 * buddynext/hashtags namespace so its small dictionary stays separate.
+	 *
+	 * @return void
+	 */
+	private function i18n_hashtags(): void {
+		wp_interactivity_state(
+			'buddynext/hashtags',
+			array(
+				'i18n' => array(
+					'followUpdateFailed' => __( 'Could not update follow state. Try again.', 'buddynext' ),
+					/* translators: %s: hashtag slug (without the leading #) */
+					'unfollowedHashtag'  => __( 'Unfollowed #%s', 'buddynext' ),
+					/* translators: %s: hashtag slug (without the leading #) */
+					'followingHashtag'   => __( 'Following #%s', 'buddynext' ),
+					'networkError'       => __( 'Network error. Try again.', 'buddynext' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * space-members/store: per-card kebab menu plus the Remove-member and
+	 * Change-role management actions.
+	 *
+	 * @return void
+	 */
+	private function i18n_space_members(): void {
+		wp_interactivity_state(
+			'buddynext/space-members',
+			array(
+				'i18n' => array(
+					'removeMemberTitle'  => __( 'Remove this member?', 'buddynext' ),
+					'removeMemberBody'   => __( 'They will lose access to this space immediately.', 'buddynext' ),
+					'remove'             => __( 'Remove', 'buddynext' ),
+					'removeMemberFailed' => __( 'Could not remove member. Try again.', 'buddynext' ),
+					'updateRoleFailed'   => __( 'Could not update role. Try again.', 'buddynext' ),
 				),
 			)
 		);
