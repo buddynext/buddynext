@@ -26,7 +26,7 @@ final class ResolvedNav {
 	 *                                          Primary holds top-level items only;
 	 *                                          sub-nav is on each item's ->children.
 	 */
-	public function __construct( private readonly array $by_layer ) {}
+	public function __construct( private array $by_layer ) {}
 
 	/**
 	 * Items for a layer (empty array when none).

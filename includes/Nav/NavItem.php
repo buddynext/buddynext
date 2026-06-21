@@ -86,26 +86,26 @@ final class NavItem {
 	 *                                      (use _n() inside). Overrides `label` when set.
 	 */
 	public function __construct(
-		public readonly string $id,
-		public readonly string $surface,
-		public readonly string $layer,
-		public readonly string $label,
-		public readonly ?string $parent = null,
-		public readonly ?string $icon = null,
-		public readonly ?string $tab = null,
-		public readonly mixed $url = null,
-		public readonly ?string $capability = null,
-		public readonly mixed $condition = null,
-		public readonly bool $hide_empty = false,
-		public readonly int $priority = 50,
-		public readonly ?string $before = null,
-		public readonly ?string $after = null,
-		public readonly ?string $delta = null,
-		public readonly ?string $trend = null,
-		public readonly mixed $count = null,
-		public readonly mixed $active = null,
-		public readonly int $seq = 0,
-		public readonly mixed $count_label = null
+		public string $id,
+		public string $surface,
+		public string $layer,
+		public string $label,
+		public ?string $parent = null,
+		public ?string $icon = null,
+		public ?string $tab = null,
+		public mixed $url = null,
+		public ?string $capability = null,
+		public mixed $condition = null,
+		public bool $hide_empty = false,
+		public int $priority = 50,
+		public ?string $before = null,
+		public ?string $after = null,
+		public ?string $delta = null,
+		public ?string $trend = null,
+		public mixed $count = null,
+		public mixed $active = null,
+		public int $seq = 0,
+		public mixed $count_label = null
 	) {}
 
 	/**

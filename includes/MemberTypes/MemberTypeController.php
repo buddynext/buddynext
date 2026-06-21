@@ -34,7 +34,7 @@ class MemberTypeController extends BaseRestController {
 	 *
 	 * @param MemberTypeService $service Member type service.
 	 */
-	public function __construct( private readonly MemberTypeService $service ) {}
+	public function __construct( private MemberTypeService $service ) {}
 
 	// ── Route registration ────────────────────────────────────────────────────
 

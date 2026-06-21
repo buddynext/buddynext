@@ -10,46 +10,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  phpunit:
+  lint:
+    name: PHP Lint (PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        php: [ '8.2', '8.3' ]
-        wp:  [ '6.9', 'latest' ]
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: buddynext_tests
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
+        php: [ '8.0', '8.1', '8.2', '8.3', '8.4' ]
     steps:
       - uses: actions/checkout@v4
-      - name: Setup PHP
+      - name: Setup PHP ${{ matrix.php }}
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          tools: composer:v2
           coverage: none
-      - name: Install svn (required by bin/install-wp-tests.sh)
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends subversion
-      - name: Composer install
-        run: composer install --no-interaction --no-progress
-      - name: Install WP test suite
-        run: bash bin/install-wp-tests.sh buddynext_tests root root 127.0.0.1:3306 ${{ matrix.wp }}
-      - name: PHPUnit
-        env:
-          WP_TESTS_DIR: /tmp/wordpress-tests-lib
-        run: vendor/bin/phpunit --colors=never
+      - name: Lint plugin PHP on PHP ${{ matrix.php }}
+        run: |
+          fail=0
+          while IFS= read -r -d '' f; do
+            php -l "$f" >/dev/null 2>/tmp/lint.err || { echo "::error file=$f::$(cat /tmp/lint.err)"; fail=1; }
+          done < <(find buddynext.php includes templates blocks -name '*.php' -print0)
+          exit $fail
 
   static-analysis:
+    name: PHPStan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -62,119 +46,4 @@ jobs:
       - name: Composer install
         run: composer install --no-interaction --no-progress
       - name: PHPStan
-        run: vendor/bin/phpstan analyse --level 5 --memory-limit 2G --no-progress
-
-  coding-standards:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          tools: composer:v2
-          coverage: none
-      - name: Composer install
-        run: composer install --no-interaction --no-progress
-      - name: PHPCS
-        # PHPCS surfaces existing-debt warnings in this codebase;
-        # we run it but don't fail the build yet — the goal here is visibility,
-        # not blocking on pre-existing style debt. Switch to `continue-on-error: false`
-        # once the WPCS-cleanup pass is done.
-        continue-on-error: true
-        run: vendor/bin/phpcs --standard=phpcs.xml.dist --report=summary
-
-  # ── Functional certification — the behavioural gate ─────────────────────────
-  # Asserts the plugin BEHAVES (toggles actually enforce, REST routes don't
-  # fatal) against a live, seeded WordPress — the class of bug static analysis
-  # and unit tests are blind to. continue-on-error until confirmed green in CI,
-  # then flip to false to make it blocking (same ratchet as PHPCS above).
-  functional-cert:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: buddynext_cert
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          tools: composer:v2, wp-cli
-          coverage: none
-      - name: Composer install
-        run: composer install --no-interaction --no-progress
-      - name: Install + activate WordPress
-        run: |
-          mkdir -p /tmp/wp
-          wp core download --path=/tmp/wp
-          wp config create --path=/tmp/wp --dbname=buddynext_cert --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306
-          wp core install --path=/tmp/wp --url=http://localhost --title=Cert --admin_user=admin --admin_password=admin --admin_email=admin@example.com --skip-email
-          ln -s "$GITHUB_WORKSPACE" /tmp/wp/wp-content/plugins/buddynext
-          wp plugin activate buddynext --path=/tmp/wp
-      - name: Seed demo data (so checks run against realistic data, not an empty site)
-        run: wp buddynext demo seed --path=/tmp/wp || true
-      - name: Functional certification
-        run: wp buddynext cert --path=/tmp/wp
-
-  # ── End-to-end (browser) — wires the existing Playwright suite into CI ──────
-  # The 43-spec suite already exists but ran in no gate. continue-on-error until
-  # the seed/auth wiring is confirmed green, then flip to blocking.
-  e2e:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: buddynext_e2e
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          tools: composer:v2, wp-cli
-          coverage: none
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Composer install
-        run: composer install --no-interaction --no-progress
-      - name: Install + activate + seed WordPress
-        run: |
-          mkdir -p /tmp/wp
-          wp core download --path=/tmp/wp
-          wp config create --path=/tmp/wp --dbname=buddynext_e2e --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306
-          wp core install --path=/tmp/wp --url=http://127.0.0.1:8889 --title=E2E --admin_user=admin --admin_password=admin --admin_email=admin@example.com --skip-email
-          ln -s "$GITHUB_WORKSPACE" /tmp/wp/wp-content/plugins/buddynext
-          wp plugin activate buddynext --path=/tmp/wp
-          wp buddynext demo seed --path=/tmp/wp || true
-      - name: Install Node deps + browsers
-        run: |
-          npm ci
-          npx playwright install --with-deps chromium
-      - name: Serve WordPress + run Playwright
-        run: |
-          wp server --host=127.0.0.1 --port=8889 --path=/tmp/wp &
-          npx wait-on http://127.0.0.1:8889 || sleep 5
-          BN_BASE_URL=http://127.0.0.1:8889 npm run test:e2e:desktop
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit 2G

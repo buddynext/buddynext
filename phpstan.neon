@@ -6,6 +6,8 @@ parameters:
     level: 5
     paths:
         - includes
+    scanFiles:
+        - buddynext.php
     bootstrapFiles:
         - vendor/szepeviktor/phpstan-wordpress/bootstrap.php
         - phpstan-bootstrap.php

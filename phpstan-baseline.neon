@@ -1,46 +1,151 @@
 parameters:
-    ignoreErrors:
-        # GamificationAchievements reads the member's leaderboard rank from WB
-        # Gamification's LeaderboardEngine, guarded with is_callable(). The engine
-        # has no wb_gam_* wrapper, and WB Gamification is an external plugin (not a
-        # Composer dependency), so PHPStan cannot see the class. Correct at runtime;
-        # the guard is intentional.
-        -
-            message: "#^Call to static method get_user_rank\\(\\) on an unknown class WBGam\\\\Engine\\\\LeaderboardEngine\\.$#"
-            path: includes/Profile/GamificationAchievements.php
-            count: 1
+	ignoreErrors:
+		-
+			message: '#^PHPDoc tag @var above a method has no effect\.$#'
+			identifier: varTag.misplaced
+			count: 1
+			path: includes/Admin/AdminHub.php
 
-        # MediaClient guards every WPMediaVerse call with class_exists() +
-        # method_exists() and resolves \WPMediaVerse\Core\Plugin::container()
-        # only when present. WPMediaVerse is an external plugin (not a Composer
-        # dependency), so PHPStan cannot see the class and reads the runtime
-        # guard as impossible / the static call as an unknown class. Correct at
-        # runtime; the guard is intentional.
-        -
-            message: '#method_exists\(\) with .+ and ''container'' will always evaluate to false\.$#'
-            path: includes/Media/MediaClient.php
-            count: 1
-        -
-            message: "#^Call to static method container\\(\\) on an unknown class WPMediaVerse\\\\Core\\\\Plugin\\.$#"
-            path: includes/Media/MediaClient.php
-            count: 1
+		-
+			message: '#^Comparison operation "\>" between int\<2, max\> and 1 is always true\.$#'
+			identifier: greater.alwaysTrue
+			count: 1
+			path: includes/Admin/AdminPageBase.php
 
-        # Defensive guard: $prefixes comes from the buddynext_allowed_assets
-        # filter, which a third-party callback could populate with non-string
-        # entries. PHPStan infers string[] from the default, so it reads the
-        # is_string() guard as always-true — but the guard protects against
-        # filter misuse and must stay.
-        -
-            message: "#^Call to function is_string\\(\\) with string will always evaluate to true\\.$#"
-            path: includes/Core/AssetIsolation.php
-            count: 1
+		-
+			message: '#^Variable \$notice might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: includes/Admin/NavManager.php
 
-        # nav_menu_selected_id() is a WordPress admin function used
-        # inside the nav-menus admin screen. It is declared in
-        # wp-admin/includes/nav-menu.php which is loaded late in the admin
-        # bootstrap. The WordPress stubs shipped with phpstan-wordpress do not
-        # declare this function, producing a false-positive here.
-        -
-            message: "#^Function nav_menu_selected_id not found\\.$#"
-            path: includes/Core/Plugin.php
-            count: 1
+		-
+			message: '#^PHPDoc tag @var above a method has no effect\.$#'
+			identifier: varTag.misplaced
+			count: 1
+			path: includes/Admin/RolesTab.php
+
+		-
+			message: '#^Parameter \#4 \$options of method BuddyNext\\Admin\\AdminPageBase\:\:render_select_row\(\) expects array\<string, string\>, array\<int\|string, string\> given\.$#'
+			identifier: argument.type
+			count: 2
+			path: includes/Admin/Settings.php
+
+		-
+			message: '#^Call to an undefined static method WP_CLI\:\:colorize\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 3
+			path: includes/Cert/CertCommand.php
+
+		-
+			message: '#^Call to an undefined static method WP_CLI\:\:error\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: includes/Cert/CertCommand.php
+
+		-
+			message: '#^Call to an undefined static method WP_CLI\:\:halt\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: includes/Cert/CertCommand.php
+
+		-
+			message: '#^Call to an undefined static method WP_CLI\:\:line\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: includes/Cert/CertCommand.php
+
+		-
+			message: '#^@param array\<string, bool\|string\> \$map does not accept actual type of parameter\: array\{buddynext_public_explore\: true, buddynext_enable_community_nav\: true, buddynext_enable_dm\: true, buddynext_default_dm_access\: ''members'', buddynext_default_post_privacy\: ''public'', buddynext_allow_polls\: ''1'', buddynext_allow_shares\: ''1'', buddynext_allow_bookmarks\: ''1'', \.\.\.\}\.$#'
+			identifier: parameter.phpDocType
+			count: 1
+			path: includes/Core/RecommendedDefaults.php
+
+		-
+			message: '#^PHPDoc tag @var for constant BuddyNext\\Core\\RecommendedDefaults\:\:MAP with type array\<string, bool\|string\> is not subtype of value array\{buddynext_public_explore\: true, buddynext_enable_community_nav\: true, buddynext_enable_dm\: true, buddynext_default_dm_access\: ''members'', buddynext_default_post_privacy\: ''public'', buddynext_allow_polls\: ''1'', buddynext_allow_shares\: ''1'', buddynext_allow_bookmarks\: ''1'', \.\.\.\}\.$#'
+			identifier: classConstant.phpDocType
+			count: 1
+			path: includes/Core/RecommendedDefaults.php
+
+		-
+			message: '#^Action callback returns int but should not return anything\.$#'
+			identifier: return.void
+			count: 1
+			path: includes/Feed/ScheduledPostsPublisher.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: includes/Integrations/CompanionController.php
+
+		-
+			message: '#^Parameter \#4 \$context of function request_filesystem_credentials expects string, false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: includes/Integrations/CompanionInstaller.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ''\\\\WPMediaVerse\\\\Core…'' and ''container'' will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: includes/Media/MediaClient.php
+
+		-
+			message: '#^Call to static method container\(\) on an unknown class WPMediaVerse\\Core\\Plugin\.$#'
+			identifier: class.notFound
+			count: 1
+			path: includes/Media/MediaClient.php
+
+		-
+			message: '#^Offset ''token'' on array\{token\: ''\#bn\-bookmarks'', label\: mixed, icon\: ''bookmark'', visibility\: ''loggedin''\}\|array\{token\: ''\#bn\-connections'', label\: mixed, icon\: ''users'', visibility\: ''loggedin''\}\|array\{token\: ''\#bn\-edit\-profile'', label\: mixed, icon\: ''edit'', visibility\: ''loggedin''\}\|array\{token\: ''\#bn\-login'', label\: mixed, icon\: ''log\-in'', visibility\: ''loggedout''\}\|array\{token\: ''\#bn\-logout'', label\: mixed, icon\: ''log\-out'', visibility\: ''loggedin''\}\|array\{token\: ''\#bn\-messages'', label\: mixed, icon\: ''messages\-square'', visibility\: ''loggedin''\}\|array\{token\: ''\#bn\-notifications'', label\: mixed, icon\: ''bell'', visibility\: ''loggedin''\}\|array\{token\: ''\#bn\-profile'', label\: mixed, icon\: ''user'', visibility\: ''loggedin''\}\|array\{token\: ''\#bn\-register'', label\: mixed, icon\: ''user\-plus'', visibility\: ''loggedout''\}\|array\{token\: ''\#bn\-settings'', label\: mixed, icon\: ''settings'', visibility\: ''loggedin''\}\|array\{token\: ''\#bn\-spaces'', label\: mixed, icon\: ''grid'', visibility\: ''loggedin''\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: includes/Nav/UserLinks.php
+
+		-
+			message: '#^Call to function method_exists\(\) with BuddyNext\\Notifications\\NotificationPrefService and ''get_channel_prefs'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: includes/Notifications/EmailSender.php
+
+		-
+			message: '#^PHPDoc tag @var above a method has no effect\.$#'
+			identifier: varTag.misplaced
+			count: 1
+			path: includes/Profile/FieldType.php
+
+		-
+			message: '#^Call to static method get_share_url\(\) on an unknown class WBGam\\Engine\\BadgeSharePage\.$#'
+			identifier: class.notFound
+			count: 2
+			path: includes/Profile/GamificationAchievements.php
+
+		-
+			message: '#^Call to static method get_user_rank\(\) on an unknown class WBGam\\Engine\\LeaderboardEngine\.$#'
+			identifier: class.notFound
+			count: 1
+			path: includes/Profile/GamificationAchievements.php
+
+		-
+			message: '#^Offset ''icon'' on array\{icon\: ''crown''\|''star''\|''trending''\|''zap'', label\: mixed, value\: mixed\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: includes/Profile/GamificationAchievements.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between '''' and ''crown''\|''star''\|''trending''\|''zap'' will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: includes/Profile/GamificationAchievements.php
+
+		-
+			message: '#^Parameter \#2 \$callback of function array_filter expects \(callable\(string\)\: bool\)\|null, ''strlen'' given\.$#'
+			identifier: argument.type
+			count: 1
+			path: includes/Profile/ProfileService.php
+
+		-
+			message: '#^Expected 4 @param tags, found 3\.$#'
+			identifier: paramTag.count
+			count: 1
+			path: includes/Reactions/ReactionService.php

@@ -31,11 +31,11 @@ final class NavContext {
 	 * @param array<string,mixed> $extra      Free-form per-surface context for providers.
 	 */
 	public function __construct(
-		public readonly string $surface,
-		public readonly int $subject_id = 0,
-		public readonly int $viewer_id = 0,
-		public readonly string $role = '',
-		public readonly array $extra = array()
+		public string $surface,
+		public int $subject_id = 0,
+		public int $viewer_id = 0,
+		public string $role = '',
+		public array $extra = array()
 	) {}
 
 	/**

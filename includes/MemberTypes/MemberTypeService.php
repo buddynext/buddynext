@@ -48,7 +48,7 @@ class MemberTypeService {
 	 *
 	 * @param CacheService $cache Cache service.
 	 */
-	public function __construct( private readonly CacheService $cache ) {}
+	public function __construct( private CacheService $cache ) {}
 
 	// ── Type definitions ──────────────────────────────────────────────────────
 
