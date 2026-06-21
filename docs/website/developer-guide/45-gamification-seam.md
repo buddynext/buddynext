@@ -1,6 +1,8 @@
 # Gamification Engine Seam
 
-This is the contract a gamification engine implements to plug into BuddyNext. BuddyNext fires clean write-side events, exposes recipient-perspective engagement signals and session/streak pulses, offers sidebar/profile data seams, and renders a leaderboard from the engine's public read API. BuddyNext ships **zero** gamification logic - no points, badge, level, or streak computation, and no own `wbg_*` tables. The reference engine is wb-gamification (`wb_gam_*` public API); any plugin that implements the same shape works. This page is for developers building or replacing that engine.
+This is the contract a gamification engine implements to plug into BuddyNext. BuddyNext fires raw write-side actions, exposes recipient-perspective engagement signals and session/streak pulses, offers sidebar/profile data seams, and renders a leaderboard from the engine's public read API. BuddyNext ships **zero** gamification logic - no points, badge, level, or streak computation, and no own `wbg_*` tables. The reference engine is wb-gamification (`wb_gam_*` public API); any plugin that implements the same shape works. This page is for developers building or replacing that engine.
+
+> **Status (1.0.1).** The write-side submission described below is now owned by the engine's own BuddyNext manifest (in wb-gamification, that is `integrations/buddynext.php`), which hooks BuddyNext's raw `buddynext_*` actions and calls `wb_gam_submit_event()`. The BuddyNext-side `GamificationBridge` no longer submits events; its only producer role is posting a credential-badge feed activity on `wb_gam_badge_awarded`. The action catalogue and `fire()` signatures below remain the contract shape, now implemented on the engine side.
 
 ![The admin dashboard whose sidebar and leaderboard data the gamification-engine seam documented here feeds](../images/admin-overview.webp)
 
@@ -8,12 +10,12 @@ This is the contract a gamification engine implements to plug into BuddyNext. Bu
 
 The seam has four parts:
 
-1. **Write-side events** - BuddyNext translates its social actions into engine submissions (the bridge), and also fires raw `buddynext_*` actions any engine can hook directly.
+1. **Write-side events** - BuddyNext fires raw `buddynext_*` actions for every social action; the engine's own BuddyNext manifest hooks them and submits award events. A pre-1.0.0 BuddyNext-side bridge did this submitting; that producer wiring has been retired.
 2. **Session / streak / daily-login pulses** - idempotent per-window signals that drive streak counters.
 3. **Recipient-perspective engagement events** - mirrors that fire for the *recipient* of engagement (the person whose work was liked/commented/followed), which is who gamification usually awards.
 4. **Read-side rendering** - the leaderboard template and the sidebar/profile data filters consume the engine's public read API only; BuddyNext never reads engine tables.
 
-The bridge that owns the write side is `GamificationBridge` (`includes/Bridges/GamificationBridge.php`); the inbound listener is `GamificationBridgeListener`; the profile surface is `BuddyNext\Profile\GamificationAchievements`. All three self-guard on `function_exists( 'wb_gam_submit_event' )` / `wb_gam_get_user_badges` and are wired on `buddynext_load_bridges` behind the `gamification` feature toggle.
+As of 1.0.1 the BuddyNext-side `GamificationBridge` (`includes/Bridges/GamificationBridge.php`) is consume-only: it posts a credential-badge feed activity on `wb_gam_badge_awarded`. The write-side submissions are owned by the engine's own BuddyNext manifest. The inbound listener is `GamificationBridgeListener`; the profile surface is `BuddyNext\Profile\GamificationAchievements`. These self-guard on the `wb_gam_*` API and are wired on `buddynext_load_bridges` behind the `gamification` feature toggle.
 
 ### Engine API BuddyNext calls
 
