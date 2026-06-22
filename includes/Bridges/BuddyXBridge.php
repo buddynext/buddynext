@@ -26,6 +26,10 @@ namespace BuddyNext\Bridges;
 
 /**
  * BuddyX ↔ BuddyNext integration layer.
+ *
+ * Covers BuddyX (free) and BuddyX Pro — Pro is a fork that shares BuddyX's
+ * header nav and `#page.site` / `.container` / `#colophon` page wrappers, so the
+ * same CSS glue applies to both.
  */
 class BuddyXBridge {
 
@@ -33,20 +37,53 @@ class BuddyXBridge {
 	 * Attach hooks.
 	 *
 	 * Called from Plugin::init() via buddynext_load_bridges action (priority 25).
-	 * Bails immediately when BuddyX is not the active theme.
+	 * Bails immediately unless BuddyX or BuddyX Pro is the active theme.
 	 */
 	public function init(): void {
-		if ( 'buddyx' !== get_template() ) {
+		if ( ! in_array( get_template(), array( 'buddyx', 'buddyx-pro' ), true ) ) {
 			return;
 		}
 
-		// Signal BuddyX to skip the .container wrapper on WPMediaVerse pages.
+		// Signal BuddyX to skip the .container wrapper on WPMediaVerse pages
+		// (the filter BuddyX free exposes; a harmless no-op where it is absent).
 		add_filter( 'buddyx_is_full_width_page', array( $this, 'is_full_width_on_mediaverse' ) );
 
 		// Repair the BuddyNext header user section (bell + messages + avatar) when
 		// BuddyX's auto-place shim drops it into the theme header. Runs after
 		// bn-header is enqueued (priority 15) so the inline style attaches.
 		add_action( 'wp_enqueue_scripts', array( $this, 'header_section_overrides' ), 20 );
+
+		// Remove the blank gap below the footer on BuddyNext's full-canvas auth
+		// pages (login / register / verify). Attaches to bn-base, which loads for
+		// logged-out visitors too. Runs after bn-base is enqueued (priority 15).
+		add_action( 'wp_enqueue_scripts', array( $this, 'auth_fullbleed_css' ), 20 );
+	}
+
+	/**
+	 * Make BuddyNext's full-canvas auth pages fill the area between BuddyX's
+	 * header and footer, removing the blank space that otherwise shows below the
+	 * footer on short forms.
+	 *
+	 * BuddyX's `#page.site` is a plain block, so on a short auth form it stops
+	 * above the viewport bottom and the footer floats with empty space beneath
+	 * it. A flex-column sticky footer on `#page.site` lets the content
+	 * `.container` (and the `.bn-app--auth` shell inside) grow to the exact
+	 * remaining height — no magic numbers — so the footer sits flush at the
+	 * bottom. Scoped to the `bn-hub-auth` body class so no other page is touched.
+	 *
+	 * Hooked on: wp_enqueue_scripts (priority 20).
+	 */
+	public function auth_fullbleed_css(): void {
+		if ( ! wp_style_is( 'bn-base', 'enqueued' ) ) {
+			return;
+		}
+
+		$css = 'body.bn-hub-auth #page.site{display:flex;flex-direction:column;min-height:100vh;}'
+			. 'body.bn-hub-auth #page.site > .container{flex:1 0 auto;display:flex;flex-direction:column;padding-top:0;padding-bottom:0;}'
+			. 'body.bn-hub-auth #page.site > .container > .bn-app--auth{flex:1 0 auto;display:flex;flex-direction:column;}'
+			. 'body.bn-hub-auth #colophon{flex:0 0 auto;}';
+
+		wp_add_inline_style( 'bn-base', $css );
 	}
 
 	/**
