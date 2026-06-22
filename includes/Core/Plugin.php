@@ -807,7 +807,7 @@ class Plugin {
 	 * nonce + capability before calling this.
 	 *
 	 * @param string $file_key The $_FILES key holding the uploaded logo.
-	 * @return string|WP_Error URL on success; WP_Error (code logo_size|logo_type|logo_upload) on failure.
+	 * @return string|\WP_Error URL on success; \WP_Error (code logo_size|logo_type|logo_upload) on failure.
 	 */
 	public static function handle_logo_upload( string $file_key ) {
 		// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.NonceVerification.Missing -- caller verifies nonce + cap; raw $_FILES is handled by wp_handle_upload.
