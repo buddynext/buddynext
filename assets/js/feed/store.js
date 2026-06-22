@@ -2534,6 +2534,20 @@ store( 'buddynext/post-composer', {
 				if ( body.type === 'text' ) {
 					body.type = 'link';
 				}
+			} else if ( ctx.linkPreviewEnabled ) {
+				// The preview metadata request can take several seconds on a cold
+				// cache (it fetches the provider's oEmbed/OG data). Don't lose the
+				// embed just because the member hit Post before the card resolved:
+				// attach the first detected URL so the server resolves the oEmbed on
+				// render. PostService auto-fetches link_meta when it is empty. A
+				// manually dismissed URL is respected and still posts as plain text.
+				const pendingUrl = detectFirstUrl( ctx.content );
+				if ( pendingUrl && pendingUrl !== _linkPreviewState.dismissed ) {
+					body.link_url = pendingUrl;
+					if ( body.type === 'text' ) {
+						body.type = 'link';
+					}
+				}
 			}
 
 			// Scheduled posts: when a future publish datetime is set, send it as a
