@@ -111,6 +111,27 @@
 
    - Expected: 201. `type = link`, `link_url` stored in the post row.
 
+7a. Post an oEmbed-provider link (YouTube) and confirm it embeds as a player (1.0.1):
+
+   ```bash
+   curl -s -X POST http://buddynext-dev.local/wp-json/buddynext/v1/posts \
+     -u member1:password \
+     -H "Content-Type: application/json" \
+     -d '{
+       "content": "Worth a watch",
+       "type": "link",
+       "link_url": "https://www.youtube.com/watch?v=Fx8d6RFD9b8",
+       "privacy": "public"
+     }'
+   ```
+
+   - Expected: 201. `link_meta.title` is the **real video title** (not the
+     placeholder "- YouTube"), and `link_meta.thumbnail` is populated from the
+     provider oEmbed.
+   - On the feed, the card renders an embedded `<iframe>` player
+     (`.bn-post-card__oembed`), not a plain link card. A non-oEmbed URL
+     (e.g. `https://example.com/article`) still renders the link card.
+
 ### Part 4: React with emoji
 
 8. As `member2`, react to the text post with a "love" emoji:
@@ -190,6 +211,16 @@
     ```
 
     - Expected: 1 row.
+
+14a. Reshare a **photo** post and a **video/link** post, and confirm the embed
+     previews the original instead of an empty quote (1.0.1):
+
+    - Share a photo post (one with `media_ids`) and a YouTube link post.
+    - On the feed, each share card's embedded original (`.bn-post-card__shared-embed`)
+      shows the original's media thumbnail (photo) or the link/video oEmbed
+      thumbnail + title with a play overlay (`.bn-post-card__shared-thumb`).
+    - Regression guard: the old "[No text content]" placeholder must NOT appear
+      for a media/link reshare.
 
 ### Part 7: Bookmark a post
 

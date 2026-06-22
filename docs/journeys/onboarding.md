@@ -206,6 +206,28 @@ wp user get member2 --field=ID   # → MEMBER2_ID
 
 ## Edge cases to also verify
 
+- **Setup-wizard companion install survives a transient store blip (1.0.1)**:
+  the wizard installs companions back-to-back, so a single slow/throttled EDD
+  store response must not fail the whole install. `CompanionInstaller::install()`
+  routes both store calls through `store_post()`, which retries once after a 1s
+  backoff on a `WP_Error`, a 429, or a 5xx; a genuine outage still returns a
+  clean `WP_Error`.
+
+  ```bash
+  # Simulate a transient first-call timeout, then a real retry, on a fresh install:
+  wp eval '
+    add_filter("pre_http_request", function($p,$a,$u){
+      if (strpos($u,"wbcomdesigns.com")===false) return $p;
+      static $n=0; $n++;
+      return $n===1 ? new WP_Error("http_request_failed","timeout (simulated)") : $p;
+    },10,3);
+    var_dump( \BuddyNext\Integrations\CompanionInstaller::install("wb-listora") );'
+  ```
+
+  - Expected: `bool(true)` — the retry recovers and the companion installs.
+    Without the retry the first `WP_Error` would fail the install (the symptom:
+    "couldn't reach the store", usually on the last companion in the run).
+
 - **Expired invite returns null**: create an already-expired invite and confirm `get_by_token()` rejects it.
 
   ```bash

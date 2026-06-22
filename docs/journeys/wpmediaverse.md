@@ -97,6 +97,13 @@ This journey drives the **engine's** `mvs/v1` REST surface to send a DM, then ve
 
    > **Seam note**: this link is injected via **`buddynext_rail_items`** (the current, correct left-rail filter in `templates/shell/rail.php:128`). It was previously wired to a dead `buddynext_nav_items` hook; that seam no longer exists — `buddynext_rail_items` is the canonical one and is the same filter JetonomyBridge uses.
 
+### Part 3b: Uploading public media creates a feed activity post (1.0.1)
+
+5a. As `member1`, upload a public image through the WPMediaVerse upload surface (or fire `do_action( 'mvs_media_uploaded', $media_id, $file_data, $user_id, 'image' )`).
+
+   - Expected: the bridge (`WPMediaVerseBridge::on_media_uploaded`) schedules `buddynext_mvs_media_activity`; on run, `publish_media_activity()` creates a `wp_bn_posts` row (`type = photo` for images, `media_ids = [media_id]`), so the upload appears in the activity feed.
+   - Guard: media already attached to a composer post (its id present in some `wp_bn_posts.media_ids`) is **skipped** — no duplicate activity. Audio/video post an `IntegrationActivity` link, not an inline photo.
+
 ### Part 4: BN block prevents messaging a blocked user
 
 6. As `member2`, block `member1` through BuddyNext's social-graph block API (writes `wp_bn_blocks` with `type = 'block'`):
