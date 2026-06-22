@@ -780,6 +780,9 @@
 	display: inline-flex;
 	align-items: center;
 	gap: var(--bn-s1);
+	/* Keep a 40px+ tap target — the small icon + xs label would otherwise render
+	   ~26px tall, below the minimum touch size on the Edit Profile cover. */
+	min-height: 40px;
 	border: none;
 	z-index: 2;
 	transition: background var(--bn-dur-fast) var(--bn-ease);
