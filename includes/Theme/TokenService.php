@@ -293,6 +293,52 @@ class TokenService {
 				'--bn-ink-2'       => 'var(--reign-site-body-text-color, oklch(40% 0.01 var(--bn-hue)))',
 				'--bn-ink-3'       => 'var(--reign-site-alternate-text-color, oklch(58% 0.008 var(--bn-hue)))',
 			),
+			// BuddyX 5.x + BuddyX Pro. Colour source of truth is the theme's own
+			// customizer CSS variables (--color-theme-* / --global-*), emitted at
+			// runtime as :root vars (Kirki was removed in 5.1.x). Both themes share
+			// the same variable names, so one map serves both get_template() slugs.
+			'buddyx'      => $this->buddyx_map(),
+			'buddyx-pro'  => $this->buddyx_map(),
+		);
+	}
+
+	/**
+	 * BuddyX / BuddyX Pro token map — BuddyNext base token => BuddyX CSS var, with
+	 * a literal fallback so an unconfigured value never breaks the cascade.
+	 *
+	 * @return array<string,string>
+	 */
+	private function buddyx_map(): array {
+		return array(
+			// Brand / accent — the theme's customizer CSS tokens.
+			// --color-theme-primary is the brand colour; the primary-button hover
+			// is its hover. The scale derives from --bn-accent-500 mixed with the
+			// theme-following surface/ink, so it tracks whatever the site owner
+			// sets in the Customizer.
+			'--bn-accent'      => 'var(--color-theme-primary, var(--bn-accent-500))',
+			'--bn-accent-700'  => 'var(--button-background-hover-color, oklch(42% calc(var(--bn-chroma) * 0.9) var(--bn-hue)))',
+			'--bn-accent-500'  => 'var(--color-theme-primary, oklch(58% var(--bn-chroma) var(--bn-hue)))',
+			'--bn-accent-50'   => 'color-mix(in oklch, var(--bn-accent-500) 6%, var(--bn-surface))',
+			'--bn-accent-100'  => 'color-mix(in oklch, var(--bn-accent-500) 12%, var(--bn-surface))',
+			'--bn-accent-200'  => 'color-mix(in oklch, var(--bn-accent-500) 24%, var(--bn-surface))',
+			'--bn-accent-300'  => 'color-mix(in oklch, var(--bn-accent-500) 40%, var(--bn-surface))',
+			'--bn-accent-400'  => 'color-mix(in oklch, var(--bn-accent-500) 65%, var(--bn-surface))',
+			'--bn-accent-600'  => 'color-mix(in oklch, var(--bn-accent-500) 85%, var(--bn-ink))',
+			'--bn-accent-800'  => 'color-mix(in oklch, var(--bn-accent-500) 68%, var(--bn-ink))',
+			'--bn-accent-900'  => 'color-mix(in oklch, var(--bn-accent-500) 52%, var(--bn-ink))',
+			// Surfaces — white-box is the card/section, theme-body the page wash,
+			// body-lightcolor the sunken tint.
+			'--bn-canvas'      => 'var(--color-theme-body, oklch(99% 0.002 var(--bn-hue)))',
+			'--bn-surface'     => 'var(--color-theme-white-box, oklch(100% 0 0))',
+			'--bn-sunken'      => 'var(--global-body-lightcolor, oklch(97% 0.004 var(--bn-hue)))',
+			'--bn-raised'      => 'color-mix(in oklch, var(--bn-surface) 94%, var(--bn-ink))',
+			// Borders.
+			'--bn-line'        => 'var(--global-border-color, oklch(92% 0.005 var(--bn-hue)))',
+			'--bn-line-faint'  => 'color-mix(in oklch, var(--bn-line) 55%, var(--bn-surface))',
+			// Text — site-title for headings/strong ink, font-color for body.
+			'--bn-ink'         => 'var(--color-site-title, oklch(20% 0.01 var(--bn-hue)))',
+			'--bn-ink-2'       => 'var(--global-font-color, oklch(40% 0.01 var(--bn-hue)))',
+			'--bn-ink-3'       => 'color-mix(in oklch, var(--bn-ink-2) 70%, var(--bn-surface))',
 		);
 	}
 
