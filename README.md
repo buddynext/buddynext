@@ -87,13 +87,20 @@ Learn more at [buddynext.com](https://buddynext.com/). Built and maintained by [
 
 BuddyNext is the social layer. Each companion plugin owns its own domain and surfaces inside BuddyNext through a native bridge - install only what your community needs.
 
-| Companion | Adds to your community |
-|-----------|------------------------|
-| **WPMediaVerse** | Direct messaging and rich media galleries |
-| **Jetonomy** | Forum-style threaded discussions and Q&A |
-| **WB Gamification** | Points, badges, levels, and leaderboards |
-| **Career Board** | Job listings and applicant management |
-| **Learnomy** | Courses, lessons, and certificates |
+| Companion | Adds to your community | Bridge |
+|-----------|------------------------|--------|
+| [WPMediaVerse](https://wbcomdesigns.com/downloads/mediaverse/) | Direct messaging and rich media galleries | Free |
+| [Jetonomy](https://wbcomdesigns.com/downloads/jetonomy/) | Forum-style threaded discussions and Q&A | Free |
+| [WB Gamification](https://wbcomdesigns.com/downloads/wordpress-gamification-plugin/) | Points, badges, levels, and leaderboards | Free |
+| [WP Career Board](https://wbcomdesigns.com/downloads/wp-career-board/) | Job listings and applicant management | Pro |
+| [Learnomy](https://wbcomdesigns.com/downloads/learnomy/) | Courses, lessons, and certificates | Pro |
+| [Listora](https://wbcomdesigns.com/downloads/listora/) | Business directory and listings | Pro |
+
+**More from Wbcom Designs** (standalone, no bridge required):
+
+- [MediaShield](https://wbcomdesigns.com/downloads/mediashield/) - media protection and moderation
+- [WP Sell Services](https://wbcomdesigns.com/downloads/wp-sell-services/) - sell services and accept bookings
+- [WB Ad Manager](https://wbcomdesigns.com/downloads/wb-ad-manager/) - manage and serve ads across your site
 
 Explore the full catalog at [wbcomdesigns.com](https://wbcomdesigns.com).
 
