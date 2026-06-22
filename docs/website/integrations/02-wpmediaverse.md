@@ -28,6 +28,8 @@ Members can open a private conversation with another member and exchange message
 
 With the companion active, members can attach photos and other media to their activity posts, and media can be shared inside conversations. Media opens in a built-in viewer for reactions and comments, all rendered as part of the BuddyNext feed rather than a separate media interface.
 
+As of BuddyNext 1.0.1, a standalone upload made directly in WPMediaVerse also posts a shared-media card to the activity feed. It is deferred by a couple of minutes and de-duplicated, so a photo added through the BuddyNext composer never posts twice.
+
 ### Media link in the sidebar
 
 A **Media** link appears in the BuddyNext left navigation rail, pointing to the community's media landing page so members can browse shared media in one place.

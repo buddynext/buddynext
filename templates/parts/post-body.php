@@ -159,7 +159,14 @@ do_action( 'buddynext_part_post_body_before', $args );
 		<?php if ( '' !== $bn_body_content ) : ?>
 			<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $bn_body_content ) ) ); ?></div>
 		<?php endif; ?>
-		<?php if ( '' !== $bn_link_url ) : ?>
+		<?php
+		$bn_oembed = ( '' !== $bn_link_url ) ? \BuddyNext\Feed\PostService::oembed_html( $bn_link_url ) : '';
+		if ( '' !== $bn_oembed ) :
+		?>
+			<div class="bn-post-card__embed bn-post-card__oembed">
+				<?php echo $bn_oembed; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WordPress oEmbed HTML from the registered-provider allowlist. ?>
+			</div>
+		<?php elseif ( '' !== $bn_link_url ) : ?>
 			<a
 				href="<?php echo esc_url( $bn_link_url ); ?>"
 				class="bn-post-card__embed bn-post-card__link-preview"
@@ -329,11 +336,51 @@ do_action( 'buddynext_part_post_body_before', $args );
 						</span>
 					</div>
 				</div>
+				<?php
+				// A reshare must preview the ORIGINAL beyond its text, or resharing a
+				// photo or a YouTube/link post renders as an empty quote. Resolve a
+				// thumbnail (first attachment, else the link/video oEmbed thumbnail)
+				// and a link headline from the shared post's hydrated fields.
+				$orig_type      = (string) ( $bn_shared_post['type'] ?? '' );
+				$orig_media_ids = $bn_shared_post['media_ids'] ?? array();
+				if ( is_string( $orig_media_ids ) ) {
+					$orig_media_ids = json_decode( $orig_media_ids, true );
+				}
+				$orig_link_meta = $bn_shared_post['link_meta'] ?? array();
+				if ( is_string( $orig_link_meta ) ) {
+					$orig_link_meta = json_decode( $orig_link_meta, true );
+				}
+				$orig_thumb      = '';
+				$orig_link_title = is_array( $orig_link_meta ) ? trim( (string) ( $orig_link_meta['title'] ?? '' ) ) : '';
+
+				if ( is_array( $orig_media_ids ) && ! empty( $orig_media_ids ) && class_exists( '\BuddyNext\Media\MediaUrlResolver' ) ) {
+					$orig_desc = \BuddyNext\Media\MediaUrlResolver::descriptor( (int) $orig_media_ids[0] );
+					if ( $orig_desc ) {
+						$orig_thumb = (string) ( '' !== $orig_desc['thumb'] ? $orig_desc['thumb'] : $orig_desc['url'] );
+					}
+				}
+				if ( '' === $orig_thumb && is_array( $orig_link_meta ) && ! empty( $orig_link_meta['thumbnail'] ) ) {
+					$orig_thumb = (string) $orig_link_meta['thumbnail'];
+				}
+				$orig_has_text = '' !== trim( (string) $orig_content );
+				?>
 				<a class="bn-post-card__shared-content-link" href="<?php echo esc_url( $orig_single_url ); ?>">
-					<?php if ( ! empty( $orig_content ) ) : ?>
+					<?php if ( $orig_has_text ) : ?>
 						<span class="bn-post-card__shared-content"><?php echo wp_kses_post( nl2br( wp_trim_words( $orig_content, 60 ) ) ); ?></span>
-					<?php else : ?>
-						<span class="bn-post-card__shared-empty"><?php esc_html_e( '[No text content]', 'buddynext' ); ?></span>
+					<?php endif; ?>
+					<?php if ( '' !== $orig_thumb ) : ?>
+						<span class="bn-post-card__shared-thumb">
+							<img src="<?php echo esc_url( $orig_thumb ); ?>" alt="" loading="lazy" decoding="async">
+							<?php if ( 'link' === $orig_type ) : ?>
+								<span class="bn-post-card__shared-play" aria-hidden="true"><?php buddynext_icon( 'play' ); ?></span>
+							<?php endif; ?>
+						</span>
+					<?php endif; ?>
+					<?php if ( '' !== $orig_link_title ) : ?>
+						<span class="bn-post-card__shared-linktitle"><?php echo esc_html( wp_trim_words( $orig_link_title, 18, '…' ) ); ?></span>
+					<?php endif; ?>
+					<?php if ( ! $orig_has_text && '' === $orig_thumb && '' === $orig_link_title ) : ?>
+						<span class="bn-post-card__shared-empty"><?php esc_html_e( 'View original post', 'buddynext' ); ?></span>
 					<?php endif; ?>
 					<span class="bn-post-card__shared-viewlink"><?php esc_html_e( 'View activity', 'buddynext' ); ?></span>
 				</a>

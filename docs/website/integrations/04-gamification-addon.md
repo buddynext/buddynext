@@ -19,13 +19,13 @@ You enable it when you want to:
 - Give quiet members a visible nudge toward their first post, first connection, or a completed profile.
 - Surface credibility, so members can tell at a glance who the experienced, trusted people are.
 
-BuddyNext does not contain any gamification logic of its own. It reports community actions to WB Gamification, and WB Gamification decides what each action is worth. That keeps the points and rules in one place that you fully control.
+BuddyNext does not contain any gamification logic of its own. WB Gamification watches community activity and decides what each action is worth, so the points and rules live in one place that you fully control.
 
 ## How it works (for members)
 
 Members do not have to opt in or learn anything new. They use the community as usual, and rewards accumulate in the background.
 
-BuddyNext reports these actions to WB Gamification so you can attach points to each one:
+WB Gamification can award points for community activity like these, and you set what each one is worth:
 
 | Action | Suggested points |
 |---|---|
