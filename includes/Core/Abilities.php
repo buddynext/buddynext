@@ -56,7 +56,32 @@ class Abilities {
 			return;
 		}
 
+		// WordPress 6.9+ requires every ability to belong to a registered
+		// category, so register the BuddyNext category before the abilities.
+		add_action( 'wp_abilities_api_categories_init', array( $this, 'do_register_category' ) );
 		add_action( 'wp_abilities_api_init', array( $this, 'do_register' ) );
+	}
+
+	/**
+	 * Register the BuddyNext ability category.
+	 *
+	 * Runs on wp_abilities_api_categories_init. Each ability references this
+	 * category by slug; without it WordPress 6.9+ rejects the registration with
+	 * an "ability properties must contain a `category` string" notice (which,
+	 * printed before a redirect, also breaks header-sending pages like login).
+	 */
+	public function do_register_category(): void {
+		if ( ! function_exists( 'wp_register_ability_category' ) ) {
+			return;
+		}
+
+		wp_register_ability_category(
+			'buddynext',
+			array(
+				'label'       => __( 'BuddyNext', 'buddynext' ),
+				'description' => __( 'Community feed, profiles, spaces, connections, and moderation abilities.', 'buddynext' ),
+			)
+		);
 	}
 
 	/**
@@ -71,6 +96,7 @@ class Abilities {
 				array(
 					'label'       => $this->label_for( $ability ),
 					'description' => $this->description_for( $ability ),
+					'category'    => 'buddynext',
 					'plugin'      => 'buddynext',
 				)
 			);
