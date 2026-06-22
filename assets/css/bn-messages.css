@@ -732,9 +732,20 @@
 	transition: color var(--bn-dur-fast) var(--bn-ease), border-color var(--bn-dur-fast) var(--bn-ease);
 }
 
-.bn-dm-msg__action:hover {
+.bn-dm-msg__action:hover,
+.bn-dm-msg__action:focus,
+.bn-dm-msg__action:focus-visible,
+.bn-dm-msg__action:active {
+	/* Re-assert our own surface + accent on every interactive state. Some host
+	   themes (e.g. Reign) paint a primary-blue fill on button:focus/:active,
+	   which would otherwise leak into these icon buttons. */
+	background: var(--bn-surface);
 	color: var(--bn-accent);
 	border-color: var(--bn-accent);
+}
+.bn-dm-msg__action:focus-visible {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: 2px;
 }
 
 .bn-dm-msg__action svg {
