@@ -764,6 +764,12 @@ const messagesStore = store( 'buddynext/messages', {
 			} else if ( 'report' === action ) {
 				closeReactPops();
 				actions.reportMessage( msgEl );
+			} else if ( 'delete' === action ) {
+				closeReactPops();
+				actions.deleteMessage( msgEl );
+			} else if ( 'unsend' === action ) {
+				closeReactPops();
+				actions.unsendMessage( msgEl );
 			}
 		},
 
@@ -799,6 +805,90 @@ const messagesStore = store( 'buddynext/messages', {
 				}
 			} catch ( _e ) {
 				bnToast( t( 'reportMessageFailed', 'Could not report this message. Try again.' ), { tone: 'danger' } );
+			}
+		},
+
+		// ── Delete / Unsend a message ─────────────────────────────────────────
+		// Both hit the WPMediaVerse messaging engine (mvsRest base) and are
+		// sender-only there. Delete leaves a "message deleted" tombstone for
+		// everyone (any time); Unsend recalls a recent message entirely (within
+		// the engine's time window → 410 when it has passed).
+		async deleteMessage( msgEl ) {
+			const ctx   = getContext();
+			const msgId = msgEl ? ( parseInt( msgEl.dataset.msgId, 10 ) || 0 ) : 0;
+			if ( ! msgId ) {
+				return;
+			}
+			const ok = await bnConfirm( {
+				title:        t( 'deleteMsgTitle', 'Delete this message?' ),
+				body:         t( 'deleteMsgBody', 'This removes the message for everyone and leaves a "message deleted" note. This cannot be undone.' ),
+				confirmLabel: t( 'deleteMsgConfirm', 'Delete' ),
+				tone:         'danger',
+			} );
+			if ( ! ok ) {
+				return;
+			}
+			try {
+				const res = await restFetch( '/messages/' + msgId, {
+					base:         ctx.mvsRest,
+					nonce:        ctx.nonce,
+					method:       'DELETE',
+					toastOnError: false,
+				} );
+				if ( res.ok ) {
+					// Tombstone the bubble in place; a later poll/load shows the
+					// server-rendered deleted state consistently for both sides.
+					msgEl.classList.add( 'is-deleted' );
+					const media = msgEl.querySelector( '.bn-dm-msg__media' );
+					if ( media ) {
+						media.remove();
+					}
+					const bubble = msgEl.querySelector( '.bn-dm-bubble' );
+					if ( bubble ) {
+						bubble.textContent = t( 'msgDeleted', 'This message was deleted' );
+					}
+				} else if ( res.status === 403 ) {
+					bnToast( t( 'deleteMsgNotSender', 'You can only delete your own messages.' ), { tone: 'danger' } );
+				} else {
+					bnToast( t( 'deleteMsgFailed', 'Could not delete the message. Try again.' ), { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( t( 'deleteMsgFailed', 'Could not delete the message. Try again.' ), { tone: 'danger' } );
+			}
+		},
+		async unsendMessage( msgEl ) {
+			const ctx   = getContext();
+			const msgId = msgEl ? ( parseInt( msgEl.dataset.msgId, 10 ) || 0 ) : 0;
+			if ( ! msgId ) {
+				return;
+			}
+			const ok = await bnConfirm( {
+				title:        t( 'unsendMsgTitle', 'Unsend this message?' ),
+				body:         t( 'unsendMsgBody', 'This removes the message for everyone, with no trace. Unsend only works for a short time after sending.' ),
+				confirmLabel: t( 'unsendMsgConfirm', 'Unsend' ),
+				tone:         'danger',
+			} );
+			if ( ! ok ) {
+				return;
+			}
+			try {
+				const res = await restFetch( '/messages/' + msgId + '/unsend', {
+					base:         ctx.mvsRest,
+					nonce:        ctx.nonce,
+					method:       'DELETE',
+					toastOnError: false,
+				} );
+				if ( res.ok ) {
+					msgEl.remove();
+				} else if ( res.status === 410 ) {
+					bnToast( t( 'unsendMsgExpired', 'The time to unsend this message has passed. You can still delete it.' ), { tone: 'danger' } );
+				} else if ( res.status === 403 ) {
+					bnToast( t( 'unsendMsgNotSender', 'You can only unsend your own messages.' ), { tone: 'danger' } );
+				} else {
+					bnToast( t( 'unsendMsgFailed', 'Could not unsend the message. Try again.' ), { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( t( 'unsendMsgFailed', 'Could not unsend the message. Try again.' ), { tone: 'danger' } );
 			}
 		},
 

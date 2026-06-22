@@ -1843,6 +1843,26 @@
 	display: none;
 }
 
+/* Unsend / Delete are sender-only — hidden by default, shown only on your own
+   messages (the engine rejects a non-sender, so the UI mirrors that). */
+.bn-dm-msg__action--own {
+	display: none;
+}
+.bn-dm-msg.is-mine .bn-dm-msg__action--own {
+	display: inline-flex;
+}
+.bn-dm-msg__action--danger:hover,
+.bn-dm-msg__action--danger:focus-visible {
+	color: var(--bn-danger);
+	border-color: var(--bn-danger);
+}
+
+/* A deleted message renders a muted, italic tombstone in place of its content. */
+.bn-dm-msg.is-deleted .bn-dm-bubble {
+	font-style: italic;
+	opacity: 0.6;
+}
+
 /* ── Conversation info panel (1:1) ──────────────────────────────────────────
    A right-anchored slide-in sidebar (per the v2 DM design), not a centered
    popup. The shared .bn-modal-backdrop provides the dimmed click-to-close
