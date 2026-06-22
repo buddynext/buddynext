@@ -90,17 +90,46 @@ class Abilities {
 	 * Called on the wp_abilities_api_init action.
 	 */
 	public function do_register(): void {
+		$permissions = function_exists( 'buddynext_service' ) ? buddynext_service( 'permissions' ) : null;
+
 		foreach ( $this->get_catalog() as $ability ) {
 			wp_register_ability(
 				$ability,
 				array(
-					'label'       => $this->label_for( $ability ),
-					'description' => $this->description_for( $ability ),
-					'category'    => 'buddynext',
-					'plugin'      => 'buddynext',
+					'label'               => $this->label_for( $ability ),
+					'description'         => $this->description_for( $ability ),
+					'category'            => 'buddynext',
+					// WordPress 6.9+ requires both callbacks to be valid callables.
+					// These abilities are declarative permission advertisements — the
+					// real action runs through the matching REST route (which carries
+					// its own check) — so execute is a no-op and permission delegates
+					// to PermissionService::can() for the ability's own slug.
+					'execute_callback'    => array( $this, 'noop' ),
+					'permission_callback' => static function () use ( $ability, $permissions ): bool {
+						$svc = $permissions instanceof PermissionService ? $permissions : new PermissionService();
+						return $svc->can( get_current_user_id(), $ability );
+					},
+					'meta'                => array(
+						'show_in_rest' => true,
+					),
+					'plugin'              => 'buddynext',
 				)
 			);
 		}
+	}
+
+	/**
+	 * Execute callback for BuddyNext's declarative permission abilities.
+	 *
+	 * The abilities advertise a BuddyNext permission to the Abilities API and AI
+	 * agents; there is nothing to run here (the matching REST route performs the
+	 * real work and its own permission check), so this returns a simple
+	 * acknowledgement, mirroring the engine's declarative abilities.
+	 *
+	 * @return bool
+	 */
+	public function noop(): bool {
+		return true;
 	}
 
 	/**
