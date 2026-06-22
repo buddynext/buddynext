@@ -38,96 +38,100 @@ class Settings extends AdminPageBase {
 	 */
 	private const SETTINGS_MAP = array(
 		// General.
-		'buddynext_site_name'                  => array( 'string', 'sanitize_text_field' ),
-		'buddynext_brand_color'                => array( 'string', array( self::class, 'sanitize_brand_color' ) ),
-		'buddynext_description'                => array( 'string', 'sanitize_textarea_field' ),
-		'buddynext_public_explore'             => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_enable_dm'                  => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_default_dm_access'          => array( 'string', 'sanitize_key' ),
-		'buddynext_enable_community_nav'       => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_enable_community_rail'      => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_site_name'                   => array( 'string', 'sanitize_text_field' ),
+		'buddynext_brand_color'                 => array( 'string', array( self::class, 'sanitize_brand_color' ) ),
+		'buddynext_description'                 => array( 'string', 'sanitize_textarea_field' ),
+		'buddynext_public_explore'              => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_enable_dm'                   => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_default_dm_access'           => array( 'string', 'sanitize_key' ),
+		'buddynext_enable_community_nav'        => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_enable_community_rail'       => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_enable_community_mobile_nav' => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_member_dir_columns'         => array( 'string', array( self::class, 'sanitize_dir_columns' ) ),
+		'buddynext_member_dir_columns'          => array( 'string', array( self::class, 'sanitize_dir_columns' ) ),
 
 		// Registration.
-		'buddynext_reg_mode'                   => array( 'string', 'sanitize_key' ),
-		'buddynext_email_verify'               => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_reg_spam_protection'        => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_reg_challenge'              => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_reg_rate_limit'             => array( 'integer', 'absint' ),
+		'buddynext_reg_mode'                    => array( 'string', 'sanitize_key' ),
+		'buddynext_email_verify'                => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_reg_spam_protection'         => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_reg_challenge'               => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_reg_rate_limit'              => array( 'integer', 'absint' ),
 		// Login & sign-up split-panel branding (plug-and-play: blank falls back to site identity).
-		'buddynext_auth_panel_show'            => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_auth_panel_heading'         => array( 'string', 'sanitize_text_field' ),
-		'buddynext_auth_panel_tagline'         => array( 'string', 'sanitize_textarea_field' ),
-		'buddynext_auth_panel_quote'           => array( 'string', 'sanitize_textarea_field' ),
-		'buddynext_auth_panel_image'           => array( 'string', 'esc_url_raw' ),
-		'buddynext_allowed_domains'            => array( 'string', 'sanitize_textarea_field' ),
+		'buddynext_auth_panel_show'             => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_auth_panel_heading'          => array( 'string', 'sanitize_text_field' ),
+		'buddynext_auth_panel_tagline'          => array( 'string', 'sanitize_textarea_field' ),
+		'buddynext_auth_panel_quote'            => array( 'string', 'sanitize_textarea_field' ),
+		'buddynext_auth_panel_image'            => array( 'string', 'esc_url_raw' ),
+		// Terms of Service page linked from the sign-up consent line — an
+		// admin-chosen page, never a guessed slug. Privacy reuses WordPress
+		// core's own Privacy Policy page from Settings → Privacy.
+		'buddynext_terms_page_id'               => array( 'integer', 'absint' ),
+		'buddynext_allowed_domains'             => array( 'string', 'sanitize_textarea_field' ),
 
 		// Social.
-		'buddynext_default_post_privacy'       => array( 'string', 'sanitize_key' ),
-		'buddynext_allow_polls'                => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
-		'buddynext_allow_shares'               => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
-		'buddynext_allow_bookmarks'            => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
-		'buddynext_enable_link_preview'        => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_enable_emoji_picker'        => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_post_edit_window'           => array( 'integer', 'absint' ),
-		'buddynext_connection_require_note'    => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
+		'buddynext_default_post_privacy'        => array( 'string', 'sanitize_key' ),
+		'buddynext_allow_polls'                 => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
+		'buddynext_allow_shares'                => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
+		'buddynext_allow_bookmarks'             => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
+		'buddynext_enable_link_preview'         => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_enable_emoji_picker'         => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_post_edit_window'            => array( 'integer', 'absint' ),
+		'buddynext_connection_require_note'     => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
 
 		// Spaces.
-		'buddynext_space_creation_role'        => array( 'string', 'sanitize_key' ),
-		'buddynext_space_max_sub_spaces'       => array( 'integer', 'absint' ),
-		'buddynext_space_max_per_member'       => array( 'integer', 'absint' ),
-		'buddynext_space_allow_sub'            => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
-		'buddynext_space_default_type'         => array( 'string', 'sanitize_key' ),
-		'buddynext_space_default_category'     => array( 'integer', 'absint' ),
-		'buddynext_spaces_dir_columns'         => array( 'string', array( self::class, 'sanitize_dir_columns' ) ),
+		'buddynext_space_creation_role'         => array( 'string', 'sanitize_key' ),
+		'buddynext_space_max_sub_spaces'        => array( 'integer', 'absint' ),
+		'buddynext_space_max_per_member'        => array( 'integer', 'absint' ),
+		'buddynext_space_allow_sub'             => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
+		'buddynext_space_default_type'          => array( 'string', 'sanitize_key' ),
+		'buddynext_space_default_category'      => array( 'integer', 'absint' ),
+		'buddynext_spaces_dir_columns'          => array( 'string', array( self::class, 'sanitize_dir_columns' ) ),
 
 		// Moderation.
-		'buddynext_auto_hide_threshold'        => array( 'integer', 'absint' ),
-		'buddynext_strike_warn_threshold'      => array( 'integer', 'absint' ),
-		'buddynext_strike_suspend_threshold'   => array( 'integer', 'absint' ),
-		'buddynext_strike_perma_ban_threshold' => array( 'integer', 'absint' ),
-		'buddynext_mod_queue_alert_threshold'  => array( 'integer', 'absint' ),
-		'buddynext_banned_words'               => array( 'string', 'sanitize_textarea_field' ),
-		'buddynext_blocked_domains'            => array( 'string', 'sanitize_textarea_field' ),
-		'buddynext_blocked_ips'                => array( 'string', array( self::class, 'sanitize_ip_list' ) ),
-		'buddynext_banned_hashtags'            => array( 'string', 'sanitize_textarea_field' ),
-		'buddynext_post_rate_limit'            => array( 'integer', 'absint' ),
-		'buddynext_comment_rate_limit'         => array( 'integer', 'absint' ),
-		'buddynext_new_member_post_threshold'  => array( 'integer', 'absint' ),
-		'buddynext_duplicate_post_window'      => array( 'integer', 'absint' ),
-		'buddynext_premod_mode'                => array( 'string', 'sanitize_key' ),
-		'buddynext_premod_new_member_count'    => array( 'integer', 'absint' ),
+		'buddynext_auto_hide_threshold'         => array( 'integer', 'absint' ),
+		'buddynext_strike_warn_threshold'       => array( 'integer', 'absint' ),
+		'buddynext_strike_suspend_threshold'    => array( 'integer', 'absint' ),
+		'buddynext_strike_perma_ban_threshold'  => array( 'integer', 'absint' ),
+		'buddynext_mod_queue_alert_threshold'   => array( 'integer', 'absint' ),
+		'buddynext_banned_words'                => array( 'string', 'sanitize_textarea_field' ),
+		'buddynext_blocked_domains'             => array( 'string', 'sanitize_textarea_field' ),
+		'buddynext_blocked_ips'                 => array( 'string', array( self::class, 'sanitize_ip_list' ) ),
+		'buddynext_banned_hashtags'             => array( 'string', 'sanitize_textarea_field' ),
+		'buddynext_post_rate_limit'             => array( 'integer', 'absint' ),
+		'buddynext_comment_rate_limit'          => array( 'integer', 'absint' ),
+		'buddynext_new_member_post_threshold'   => array( 'integer', 'absint' ),
+		'buddynext_duplicate_post_window'       => array( 'integer', 'absint' ),
+		'buddynext_premod_mode'                 => array( 'string', 'sanitize_key' ),
+		'buddynext_premod_new_member_count'     => array( 'integer', 'absint' ),
 
 		// Notifications.
-		'buddynext_notif_default_follow'       => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_notif_default_connection'   => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_notif_default_reaction'     => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_notif_default_comment'      => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_notif_default_mention'      => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_notif_default_space_join'   => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_digest_frequency'           => array( 'string', 'sanitize_key' ),
-		'buddynext_admin_alert_email'          => array( 'string', 'sanitize_email' ),
+		'buddynext_notif_default_follow'        => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_notif_default_connection'    => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_notif_default_reaction'      => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_notif_default_comment'       => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_notif_default_mention'       => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_notif_default_space_join'    => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_digest_frequency'            => array( 'string', 'sanitize_key' ),
+		'buddynext_admin_alert_email'           => array( 'string', 'sanitize_email' ),
 
 		// Email.
-		'buddynext_email_from_name'            => array( 'string', 'sanitize_text_field' ),
-		'buddynext_email_from_address'         => array( 'string', 'sanitize_email' ),
-		'buddynext_email_reply_to'             => array( 'string', 'sanitize_email' ),
-		'buddynext_email_footer_text'          => array( 'string', 'sanitize_textarea_field' ),
+		'buddynext_email_from_name'             => array( 'string', 'sanitize_text_field' ),
+		'buddynext_email_from_address'          => array( 'string', 'sanitize_email' ),
+		'buddynext_email_reply_to'              => array( 'string', 'sanitize_email' ),
+		'buddynext_email_footer_text'           => array( 'string', 'sanitize_textarea_field' ),
 
 		// Integrations.
-		'buddynext_jetonomy_feed_sync'         => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
+		'buddynext_jetonomy_feed_sync'          => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
 
 		// Privacy & Data.
-		'buddynext_google_indexing'            => array( 'string', 'sanitize_key' ),
-		'buddynext_cookie_consent'             => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_data_retention_days'        => array( 'integer', 'absint' ),
-		'buddynext_allow_data_export'          => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_allow_account_deletion'     => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_anonymize_on_delete'        => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_google_indexing'             => array( 'string', 'sanitize_key' ),
+		'buddynext_cookie_consent'              => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_data_retention_days'         => array( 'integer', 'absint' ),
+		'buddynext_allow_data_export'           => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_allow_account_deletion'      => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_anonymize_on_delete'         => array( 'boolean', 'rest_sanitize_boolean' ),
 
 		// Webhooks.
-		'buddynext_webhook_secret'             => array( 'string', 'sanitize_text_field' ),
+		'buddynext_webhook_secret'              => array( 'string', 'sanitize_text_field' ),
 	);
 
 	// ── Boot ──────────────────────────────────────────────────────────────────
@@ -649,6 +653,7 @@ class Settings extends AdminPageBase {
 			'buddynext_auth_panel_tagline',
 			'buddynext_auth_panel_quote',
 			'buddynext_auth_panel_image',
+			'buddynext_terms_page_id',
 			'buddynext_allowed_domains',
 			'buddynext_social_login',
 		),
@@ -1326,6 +1331,53 @@ class Settings extends AdminPageBase {
 			buddynext_auth_panel_value( 'buddynext_auth_panel_image' ),
 			__( 'A full-bleed banner image behind the panel. Defaults to the built-in network-textured gradient.', 'buddynext' )
 		);
+
+		$this->close_section();
+
+		$this->open_section( __( 'Legal Pages', 'buddynext' ) );
+
+		// Terms picker so the owner links the sign-up consent to a real page on
+		// their site — no slug guessing, no code. Build the option list from the
+		// site's published pages; "None" leaves the wording unlinked.
+		$bn_legal_page_options = array( '0' => __( '— None —', 'buddynext' ) );
+		foreach ( get_pages( array( 'sort_column' => 'post_title' ) ) as $bn_legal_page ) {
+			$bn_legal_page_options[ (string) $bn_legal_page->ID ] = $bn_legal_page->post_title;
+		}
+
+		$this->render_select_row(
+			'buddynext_terms_page_id',
+			__( 'Terms of Service page', 'buddynext' ),
+			(string) (int) get_option( 'buddynext_terms_page_id', 0 ),
+			$bn_legal_page_options,
+			__( 'Linked from the "I agree to the Terms of Service" line on the sign-up form. First create a page (Pages → Add New) with your terms, then choose it here — no code, no URL to paste. Leave as None to show the wording without a link.', 'buddynext' )
+		);
+
+		// Privacy reuses WordPress core's own Privacy Policy page setting rather
+		// than duplicating it — point the owner there and show the current page.
+		$bn_privacy_page_id = (int) get_option( 'wp_page_for_privacy_policy', 0 );
+		$bn_privacy_admin   = admin_url( 'options-privacy.php' );
+		$bn_privacy_status  = __( 'No Privacy Policy page is set yet.', 'buddynext' );
+		if ( $bn_privacy_page_id > 0 ) {
+			$bn_privacy_status = sprintf(
+				/* translators: %s: the current Privacy Policy page title */
+				__( 'Currently using "%s".', 'buddynext' ),
+				get_the_title( $bn_privacy_page_id )
+			);
+			// WordPress creates the Privacy Policy page as a draft; warn the owner
+			// so they know to publish it (the sign-up link points to it either way).
+			if ( 'publish' !== get_post_status( $bn_privacy_page_id ) ) {
+				$bn_privacy_status .= ' ' . __( 'That page is not published yet — publish it so members can open the link.', 'buddynext' );
+			}
+		}
+		echo '<div class="bn-field"><label>' . esc_html__( 'Privacy Policy page', 'buddynext' ) . '</label>';
+		echo '<p class="bn-field-hint">' . wp_kses_post(
+			sprintf(
+				/* translators: 1: current privacy page status sentence, 2: link to the WordPress Privacy settings screen */
+				__( 'The "Privacy Policy" link uses your site\'s Privacy Policy page. %1$s Set or change it under %2$s.', 'buddynext' ),
+				esc_html( $bn_privacy_status ),
+				'<a href="' . esc_url( $bn_privacy_admin ) . '">' . esc_html__( 'Settings → Privacy', 'buddynext' ) . '</a>'
+			)
+		) . '</p></div>';
 
 		$this->close_section();
 
