@@ -127,9 +127,12 @@ class AdminHub {
 			'section'  => 'settings',
 			'position' => 30,
 		),
-		// White-label is retired from the IA. Hidden here so the Pro tab never
-		// surfaces; the underlying subsystem is slated for full removal.
-		'settings:white-label'       => array( 'hidden' => true ),
+		// White-label (Pro) — brand name, logo, hue, font, custom CSS, and
+		// per-space branding. Placed in Settings after Navigation.
+		'settings:white-label'       => array(
+			'section'  => 'settings',
+			'position' => 40,
+		),
 
 		// Platform — capabilities, extensibility, maintenance.
 		'settings:features'          => array(
@@ -985,9 +988,15 @@ class AdminHub {
 	 */
 	private function render_brand_bar( string $section_key = '', string $active_slug = '' ): void {
 		$version  = defined( 'BUDDYNEXT_VERSION' ) ? (string) constant( 'BUDDYNEXT_VERSION' ) : '';
-		$logo_url = ( defined( 'BUDDYNEXT_URL' ) ? (string) constant( 'BUDDYNEXT_URL' ) : '' ) . 'assets/images/buddynext-logo.svg';
+		// Prefer a white-label brand logo (Pro) when configured; fall back to the
+		// bundled BuddyNext mark. brand_logo_url() resolves the buddynext_brand_logo_url filter.
+		$brand_logo = \BuddyNext\Core\Plugin::brand_logo_url();
+		$brand_name = (string) apply_filters( 'buddynext_brand_name', 'BuddyNext' );
+		$logo_url   = ( null !== $brand_logo )
+			? $brand_logo
+			: ( defined( 'BUDDYNEXT_URL' ) ? (string) constant( 'BUDDYNEXT_URL' ) : '' ) . 'assets/images/buddynext-logo.svg';
 		echo '<div class="bn-admin-hub__brand">';
-		echo '<img class="bn-admin-hub__brand-logo" src="' . esc_url( $logo_url ) . '" alt="BuddyNext" />';
+		echo '<img class="bn-admin-hub__brand-logo" src="' . esc_url( $logo_url ) . '" alt="' . esc_attr( $brand_name ) . '" />';
 		if ( '' !== $version ) {
 			echo '<span class="bn-admin-hub__brand-ver">v' . esc_html( $version ) . '</span>';
 		}

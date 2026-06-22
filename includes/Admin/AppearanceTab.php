@@ -170,40 +170,8 @@ class AppearanceTab {
 	 * @return string|\WP_Error URL on success, WP_Error (code logo_size|logo_type|logo_upload) on failure.
 	 */
 	private function handle_logo_upload() {
-		// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.NonceVerification.Missing -- nonce verified by check_admin_referer() in handle_save() before this runs.
-		$file = isset( $_FILES['bn_logo_file'] ) && is_array( $_FILES['bn_logo_file'] ) ? $_FILES['bn_logo_file'] : array();
-		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.NonceVerification.Missing
-
-		if ( UPLOAD_ERR_OK !== (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) ) {
-			return new \WP_Error( 'logo_upload', __( 'Logo upload failed.', 'buddynext' ) );
-		}
-		if ( (int) ( $file['size'] ?? 0 ) > 2 * 1024 * 1024 ) {
-			return new \WP_Error( 'logo_size', __( 'Logo exceeds the 2MB limit.', 'buddynext' ) );
-		}
-
-		$check   = wp_check_filetype_and_ext( (string) ( $file['tmp_name'] ?? '' ), (string) ( $file['name'] ?? '' ) );
-		$allowed = array( 'image/png', 'image/jpeg', 'image/webp', 'image/svg+xml' );
-		$type    = (string) ( $check['type'] ?: ( $file['type'] ?? '' ) ); // phpcs:ignore Universal.Operators.DisallowShortTernary.Found -- SVG often returns empty from fileinfo.
-		if ( ! in_array( $type, $allowed, true ) ) {
-			return new \WP_Error( 'logo_type', __( 'Logo file type not allowed.', 'buddynext' ) );
-		}
-
-		if ( ! function_exists( 'wp_handle_upload' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/file.php';
-		}
-
-		$data = array(
-			'name'     => sanitize_file_name( (string) ( $file['name'] ?? '' ) ),
-			'type'     => $type,
-			'tmp_name' => (string) ( $file['tmp_name'] ?? '' ),
-			'error'    => (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ),
-			'size'     => (int) ( $file['size'] ?? 0 ),
-		);
-
-		$result = wp_handle_upload( $data, array( 'test_form' => false ) );
-		if ( isset( $result['url'] ) && ! isset( $result['error'] ) ) {
-			return esc_url_raw( (string) $result['url'] );
-		}
-		return new \WP_Error( 'logo_upload', __( 'Logo upload failed.', 'buddynext' ) );
+		// Delegates to the shared uploader so Appearance and Pro White-label use
+		// one identical flow, limits, and error codes.
+		return \BuddyNext\Core\Plugin::handle_logo_upload( 'bn_logo_file' );
 	}
 }
