@@ -64,7 +64,7 @@ class PostService {
 	 *
 	 * @param int   $user_id Author user ID.
 	 * @param array $data    Post fields: type, content, privacy, space_id, media_ids,
-	 *                       link_url, link_meta, options (for polls), scheduled_at.
+	 *                       link_url, link_meta, options (for polls), scheduled_at, created_at.
 	 * @return int|WP_Error New post ID on success; WP_Error on validation failure.
 	 */
 	public function create( int $user_id, array $data ): int|WP_Error {
@@ -224,6 +224,25 @@ class PostService {
 			$pin_expires = $ts ? gmdate( 'Y-m-d H:i:s', $ts ) : null;
 		}
 
+		// Optional backdated timestamps (UTC "Y-m-d H:i:s") so importers and the
+		// demo seeder can set a post's time through the API instead of a raw UPDATE.
+		// Both are clamped to "now" (no future-dating here — scheduling uses
+		// scheduled_at) and last_activity_at is never earlier than created_at.
+		$bn_created_at = current_time( 'mysql', true );
+		if ( ! empty( $data['created_at'] ) ) {
+			$bn_cts = strtotime( (string) $data['created_at'] . ' UTC' );
+			if ( $bn_cts && $bn_cts <= time() ) {
+				$bn_created_at = gmdate( 'Y-m-d H:i:s', $bn_cts );
+			}
+		}
+		$bn_last_activity = $bn_created_at;
+		if ( ! empty( $data['last_activity_at'] ) ) {
+			$bn_lts = strtotime( (string) $data['last_activity_at'] . ' UTC' );
+			if ( $bn_lts && $bn_lts <= time() && gmdate( 'Y-m-d H:i:s', $bn_lts ) >= $bn_created_at ) {
+				$bn_last_activity = gmdate( 'Y-m-d H:i:s', $bn_lts );
+			}
+		}
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_posts',
@@ -247,11 +266,11 @@ class PostService {
 				// renderers read it with strtotime(), which treats a bare datetime
 				// as UTC — a local-time default produced a negative diff that the
 				// "< 60s" branch caught, so every same-day post showed "just now".
-				'created_at'           => current_time( 'mysql', true ),
+				'created_at'           => $bn_created_at,
 				// Seed last_activity_at to the post's own time so a brand-new post
 				// sorts correctly in the "Active" feed before it receives any
 				// engagement. Bumped to NOW() on each reaction/comment/share.
-				'last_activity_at'     => current_time( 'mysql', true ),
+				'last_activity_at'     => $bn_last_activity,
 			),
 			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%d', '%s', '%s', '%s' )
 		);
