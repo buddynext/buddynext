@@ -112,7 +112,6 @@ class Abilities {
 					'meta'                => array(
 						'show_in_rest' => true,
 					),
-					'plugin'              => 'buddynext',
 				)
 			);
 		}
