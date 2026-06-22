@@ -95,8 +95,8 @@ class ShareController extends BaseRestController {
 		$service  = function_exists( 'buddynext_service' ) ? buddynext_service( 'post_service' ) : new PostService();
 		$post     = $service->get( $result );
 		$response = array(
-			'shared'   => true,
-			'share_id' => $result,
+			'shared'  => true,
+			'post_id' => $result,
 		);
 		if ( is_array( $post ) ) {
 			$response['post'] = $post;
