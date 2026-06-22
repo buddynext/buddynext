@@ -1836,6 +1836,26 @@ class ProfileService {
 	}
 
 	/**
+	 * Delete every stored profile-field value for a user (the canonical
+	 * bn_profile_values rows). Used when removing an account — e.g. the demo
+	 * seeder's cleanup — so values do not orphan after the user is gone. The
+	 * searchable usermeta mirror is removed by wp_delete_user with the rest of
+	 * the user's meta; shared field DEFINITIONS are never touched.
+	 *
+	 * @param int $user_id User whose stored values to clear.
+	 * @return void
+	 */
+	public function delete_user_values( int $user_id ): void {
+		if ( $user_id <= 0 ) {
+			return;
+		}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete( $wpdb->prefix . 'bn_profile_values', array( 'user_id' => $user_id ), array( '%d' ) );
+		$this->bust_profile_cache( $user_id );
+	}
+
+	/**
 	 * Remove the custom avatar for the given user and bust all related caches.
 	 *
 	 * @param int $user_id Target user ID.

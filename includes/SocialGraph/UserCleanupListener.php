@@ -4,13 +4,14 @@
  *
  * WHY THIS EXISTS
  * ───────────────
- * BuddyNext keeps its social graph and per-user settings in custom tables
- * keyed by user id (follows, connections, blocks, space memberships, hashtag
- * follows, notification prefs/rows, moderation strikes/suspensions). WordPress
- * core knows nothing about these, so `wp_delete_user()` used to leave them
- * behind as orphans — dangling follower counts, ghost connections, stale
- * memberships. This listener hooks `deleted_user` and removes every row that
- * references the gone user, in both directions, and corrects the affected
+ * BuddyNext keeps its social graph and per-user data in custom tables keyed by
+ * user id (follows, connections, blocks, space memberships, hashtag follows,
+ * notification prefs/rows, moderation strikes/suspensions, bookmarks, and
+ * profile-field values). WordPress core knows nothing about these, so
+ * `wp_delete_user()` used to leave them behind as orphans — dangling follower
+ * counts, ghost connections, stale memberships, saved-post rows, and a full set
+ * of profile values. This listener hooks `deleted_user` and removes every row
+ * that references the gone user, in both directions, and corrects the affected
  * spaces' member counts.
  *
  * Scope is deliberately relational only — authored content (posts, comments,
@@ -83,7 +84,16 @@ class UserCleanupListener {
 		$wpdb->query( $wpdb->prepare( "DELETE FROM {$p}bn_notifications WHERE recipient_id = %d OR sender_id = %d", $user_id, $user_id ) );
 		$wpdb->query( $wpdb->prepare( "DELETE FROM {$p}bn_user_strikes WHERE user_id = %d", $user_id ) );
 		$wpdb->query( $wpdb->prepare( "DELETE FROM {$p}bn_user_suspensions WHERE user_id = %d", $user_id ) );
+		// Per-user data (not authored content): the member's saved posts. Without
+		// this, deleting a user left orphaned bookmark rows behind.
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$p}bn_bookmarks WHERE user_id = %d", $user_id ) );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		// Profile-field values are owned by the Profile service (its table + its
+		// searchable mirror/cache), so delegate rather than reach into
+		// bn_profile_values here. wp_delete_user removes the usermeta mirror; this
+		// clears the canonical rows that core knows nothing about.
+		( new \BuddyNext\Profile\ProfileService() )->delete_user_values( $user_id );
 
 		/**
 		 * Fires after BuddyNext has purged a deleted user's relational rows, so
