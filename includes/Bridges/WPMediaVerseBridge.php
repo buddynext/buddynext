@@ -157,7 +157,7 @@ class WPMediaVerseBridge {
 
 		$args = array( $media_id, $user_id, (string) $media_type );
 
-		if ( function_exists( 'as_schedule_single_action' ) ) {
+		if ( function_exists( 'as_schedule_single_action' ) && function_exists( 'as_next_scheduled_action' ) ) {
 			if ( ! as_next_scheduled_action( 'buddynext_mvs_media_activity', $args, 'buddynext' ) ) {
 				as_schedule_single_action( time() + 120, 'buddynext_mvs_media_activity', $args, 'buddynext' );
 			}
