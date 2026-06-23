@@ -115,13 +115,17 @@ class BuddyXBridge {
 	width: 40px;
 	height: 40px;
 	padding: 0;
-	color: var(--bn-ink-2, #475569);
+	/* Follow BuddyX's header menu colour so the icon adapts to the header
+	   background (light or dark). Using BuddyNext's own --bn-ink-2 here made the
+	   dark bell SVG disappear on a dark/navy header; --color-menu is the same
+	   colour the theme's nav links use, with --bn-ink-2 as the fallback. */
+	color: var(--color-menu, var(--bn-ink-2, #475569));
 }
 .bn-header-user-section .bn-notification-bell-link:hover,
 .bn-header-user-section .bn-notification-bell-link:focus-visible,
 .bn-header-user-section .bn-header-msg:hover,
 .bn-header-user-section .bn-header-msg:focus-visible {
-	color: var(--bn-ink, #0f172a);
+	color: var(--color-menu-active, var(--bn-ink, #0f172a));
 }
 .bn-header-user-section .bn-header-user__avatar {
 	display: inline-flex;
