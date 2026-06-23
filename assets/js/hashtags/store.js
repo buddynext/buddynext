@@ -134,41 +134,45 @@ const hashtagsStore = store( 'buddynext/feed', {
 		},
 
 		/**
-		 * Vote on a Jetonomy post (up or down).
-		 * No-op if Jetonomy REST routes are unavailable.
+		 * Upvote a Jetonomy discussion from the hashtag bridge card, or remove
+		 * the vote when already cast (the card shows a single up-vote control).
+		 *
+		 * Jetonomy's contract is POST { value: 1 } to cast and DELETE to clear,
+		 * returning the new vote_score as `score`. The previous payload sent
+		 * { direction } which the endpoint rejects with 400 — so the vote never
+		 * registered and the tally never moved. No-op if Jetonomy is inactive.
 		 */
 		voteJt: async function ( event ) {
 			var ctx  = getContext();
 			if ( ! ctx || ! ctx.restNonce ) { return; }
 
-			var btn       = event.target.closest( '[data-jt-id]' );
-			var jtId      = btn ? btn.dataset.jtId : null;
-			var direction = btn ? btn.dataset.direction : 'up';
+			var btn  = event.target.closest( '[data-jt-id]' );
+			var jtId = btn ? btn.dataset.jtId : null;
 			if ( ! jtId ) { return; }
 
+			var voted = btn.classList.contains( 'is-voted' );
 			try {
 				var res = await restFetch( '/posts/' + jtId + '/vote', {
 					base:    '/wp-json/jetonomy/v1',
-					method:  'POST',
+					method:  voted ? 'DELETE' : 'POST',
 					nonce:   ctx.restNonce,
-					body:    { direction: direction },
+					body:    voted ? undefined : { value: 1 },
 					toastOnError: false,
 				} );
-				// Reflect the vote on the button (previously a silent no-op: the
-				// tally never moved, so the click looked dead).
+				// Reflect the result (previously a silent no-op — the request
+				// 400'd on a bad payload and the tally never moved).
 				if ( res && res.ok ) {
-					var voted   = btn.classList.toggle( 'is-voted' );
-					btn.setAttribute( 'aria-pressed', voted ? 'true' : 'false' );
+					var nowVoted = ! voted;
+					btn.classList.toggle( 'is-voted', nowVoted );
+					btn.setAttribute( 'aria-pressed', nowVoted ? 'true' : 'false' );
 					var countEl = btn.querySelector( 'span' );
 					if ( countEl ) {
-						// Trust a server-authoritative tally when the endpoint
-						// returns one; otherwise adjust by the toggle direction.
-						var serverCount = res.data && ( null != res.data.votes ? res.data.votes : res.data.score );
-						if ( null != serverCount ) {
-							countEl.textContent = String( Math.max( 0, parseInt( serverCount, 10 ) || 0 ) );
+						// Prefer the server's authoritative vote_score; fall back to
+						// adjusting the displayed tally by the toggle direction.
+						if ( res.data && null != res.data.score ) {
+							countEl.textContent = String( parseInt( res.data.score, 10 ) || 0 );
 						} else {
-							var n = ( parseInt( countEl.textContent, 10 ) || 0 ) + ( voted ? 1 : -1 );
-							countEl.textContent = String( Math.max( 0, n ) );
+							countEl.textContent = String( ( parseInt( countEl.textContent, 10 ) || 0 ) + ( nowVoted ? 1 : -1 ) );
 						}
 					}
 				}
