@@ -260,8 +260,8 @@ class TokenService {
 			// the --reign-* vars (they flip under [data-bx-mode="dark"]).
 			'reign-theme' => array(
 				// Brand / accent.
-				'--bn-accent'      => 'var(--reign-accent-color, var(--bn-accent-500))',
-				'--bn-accent-700'  => 'var(--reign-accent-hover-color, oklch(42% calc(var(--bn-chroma) * 0.9) var(--bn-hue)))',
+				'--bn-accent'     => 'var(--reign-accent-color, var(--bn-accent-500))',
+				'--bn-accent-700' => 'var(--reign-accent-hover-color, oklch(42% calc(var(--bn-chroma) * 0.9) var(--bn-hue)))',
 				// Brand accent SCALE — derive every step from the theme accent
 				// (--bn-accent-500 → --reign-accent-color) mixed with the
 				// theme-following surface (lighter steps) / ink (darker steps).
@@ -269,29 +269,29 @@ class TokenService {
 				// the scale stayed blue when the Reign accent was changed and did
 				// not follow the host palette. --bn-accent-500 references Reign with
 				// a literal fallback so there is no var() cycle with --bn-accent.
-				'--bn-accent-500'  => 'var(--reign-accent-color, oklch(58% var(--bn-chroma) var(--bn-hue)))',
-				'--bn-accent-50'   => 'color-mix(in oklch, var(--bn-accent-500) 6%, var(--bn-surface))',
-				'--bn-accent-100'  => 'color-mix(in oklch, var(--bn-accent-500) 12%, var(--bn-surface))',
-				'--bn-accent-200'  => 'color-mix(in oklch, var(--bn-accent-500) 24%, var(--bn-surface))',
-				'--bn-accent-300'  => 'color-mix(in oklch, var(--bn-accent-500) 40%, var(--bn-surface))',
-				'--bn-accent-400'  => 'color-mix(in oklch, var(--bn-accent-500) 65%, var(--bn-surface))',
-				'--bn-accent-600'  => 'color-mix(in oklch, var(--bn-accent-500) 85%, var(--bn-ink))',
-				'--bn-accent-800'  => 'color-mix(in oklch, var(--bn-accent-500) 68%, var(--bn-ink))',
-				'--bn-accent-900'  => 'color-mix(in oklch, var(--bn-accent-500) 52%, var(--bn-ink))',
+				'--bn-accent-500' => 'var(--reign-accent-color, oklch(58% var(--bn-chroma) var(--bn-hue)))',
+				'--bn-accent-50'  => 'color-mix(in oklch, var(--bn-accent-500) 6%, var(--bn-surface))',
+				'--bn-accent-100' => 'color-mix(in oklch, var(--bn-accent-500) 12%, var(--bn-surface))',
+				'--bn-accent-200' => 'color-mix(in oklch, var(--bn-accent-500) 24%, var(--bn-surface))',
+				'--bn-accent-300' => 'color-mix(in oklch, var(--bn-accent-500) 40%, var(--bn-surface))',
+				'--bn-accent-400' => 'color-mix(in oklch, var(--bn-accent-500) 65%, var(--bn-surface))',
+				'--bn-accent-600' => 'color-mix(in oklch, var(--bn-accent-500) 85%, var(--bn-ink))',
+				'--bn-accent-800' => 'color-mix(in oklch, var(--bn-accent-500) 68%, var(--bn-ink))',
+				'--bn-accent-900' => 'color-mix(in oklch, var(--bn-accent-500) 52%, var(--bn-ink))',
 				// Surfaces.
-				'--bn-canvas'      => 'var(--reign-site-body-bg-color, oklch(99% 0.002 var(--bn-hue)))',
-				'--bn-surface'     => 'var(--reign-site-sections-bg-color, oklch(100% 0 0))',
-				'--bn-sunken'      => 'var(--reign-site-secondary-bg-color, oklch(97% 0.004 var(--bn-hue)))',
+				'--bn-canvas'     => 'var(--reign-site-body-bg-color, oklch(99% 0.002 var(--bn-hue)))',
+				'--bn-surface'    => 'var(--reign-site-sections-bg-color, oklch(100% 0 0))',
+				'--bn-sunken'     => 'var(--reign-site-secondary-bg-color, oklch(97% 0.004 var(--bn-hue)))',
 				// Elevated surface — derive from the theme surface so it tracks the
 				// host palette and mode instead of BuddyNext's internal tint.
-				'--bn-raised'      => 'color-mix(in oklch, var(--bn-surface) 94%, var(--bn-ink))',
+				'--bn-raised'     => 'color-mix(in oklch, var(--bn-surface) 94%, var(--bn-ink))',
 				// Borders.
-				'--bn-line'        => 'var(--reign-site-border-color, oklch(92% 0.005 var(--bn-hue)))',
-				'--bn-line-faint'  => 'var(--reign-site-hr-color, oklch(95% 0.003 var(--bn-hue)))',
+				'--bn-line'       => 'var(--reign-site-border-color, oklch(92% 0.005 var(--bn-hue)))',
+				'--bn-line-faint' => 'var(--reign-site-hr-color, oklch(95% 0.003 var(--bn-hue)))',
 				// Text.
-				'--bn-ink'         => 'var(--reign-site-headings-color, oklch(20% 0.01 var(--bn-hue)))',
-				'--bn-ink-2'       => 'var(--reign-site-body-text-color, oklch(40% 0.01 var(--bn-hue)))',
-				'--bn-ink-3'       => 'var(--reign-site-alternate-text-color, oklch(58% 0.008 var(--bn-hue)))',
+				'--bn-ink'        => 'var(--reign-site-headings-color, oklch(20% 0.01 var(--bn-hue)))',
+				'--bn-ink-2'      => 'var(--reign-site-body-text-color, oklch(40% 0.01 var(--bn-hue)))',
+				'--bn-ink-3'      => 'var(--reign-site-alternate-text-color, oklch(58% 0.008 var(--bn-hue)))',
 			),
 			// BuddyX 5.x + BuddyX Pro. Colour source of truth is the theme's own
 			// customizer CSS variables (--color-theme-* / --global-*), emitted at
@@ -309,37 +309,80 @@ class TokenService {
 	 * @return array<string,string>
 	 */
 	private function buddyx_map(): array {
-		return array(
+		$map = array(
 			// Brand / accent — the theme's customizer CSS tokens.
 			// --color-theme-primary is the brand colour; the primary-button hover
 			// is its hover. The scale derives from --bn-accent-500 mixed with the
 			// theme-following surface/ink, so it tracks whatever the site owner
 			// sets in the Customizer.
-			'--bn-accent'      => 'var(--color-theme-primary, var(--bn-accent-500))',
-			'--bn-accent-700'  => 'var(--button-background-hover-color, oklch(42% calc(var(--bn-chroma) * 0.9) var(--bn-hue)))',
-			'--bn-accent-500'  => 'var(--color-theme-primary, oklch(58% var(--bn-chroma) var(--bn-hue)))',
-			'--bn-accent-50'   => 'color-mix(in oklch, var(--bn-accent-500) 6%, var(--bn-surface))',
-			'--bn-accent-100'  => 'color-mix(in oklch, var(--bn-accent-500) 12%, var(--bn-surface))',
-			'--bn-accent-200'  => 'color-mix(in oklch, var(--bn-accent-500) 24%, var(--bn-surface))',
-			'--bn-accent-300'  => 'color-mix(in oklch, var(--bn-accent-500) 40%, var(--bn-surface))',
-			'--bn-accent-400'  => 'color-mix(in oklch, var(--bn-accent-500) 65%, var(--bn-surface))',
-			'--bn-accent-600'  => 'color-mix(in oklch, var(--bn-accent-500) 85%, var(--bn-ink))',
-			'--bn-accent-800'  => 'color-mix(in oklch, var(--bn-accent-500) 68%, var(--bn-ink))',
-			'--bn-accent-900'  => 'color-mix(in oklch, var(--bn-accent-500) 52%, var(--bn-ink))',
+			'--bn-accent'     => 'var(--color-theme-primary, var(--bn-accent-500))',
+			'--bn-accent-700' => 'var(--button-background-hover-color, oklch(42% calc(var(--bn-chroma) * 0.9) var(--bn-hue)))',
+			'--bn-accent-500' => 'var(--color-theme-primary, oklch(58% var(--bn-chroma) var(--bn-hue)))',
+			'--bn-accent-50'  => 'color-mix(in oklch, var(--bn-accent-500) 6%, var(--bn-surface))',
+			'--bn-accent-100' => 'color-mix(in oklch, var(--bn-accent-500) 12%, var(--bn-surface))',
+			'--bn-accent-200' => 'color-mix(in oklch, var(--bn-accent-500) 24%, var(--bn-surface))',
+			'--bn-accent-300' => 'color-mix(in oklch, var(--bn-accent-500) 40%, var(--bn-surface))',
+			'--bn-accent-400' => 'color-mix(in oklch, var(--bn-accent-500) 65%, var(--bn-surface))',
+			'--bn-accent-600' => 'color-mix(in oklch, var(--bn-accent-500) 85%, var(--bn-ink))',
+			'--bn-accent-800' => 'color-mix(in oklch, var(--bn-accent-500) 68%, var(--bn-ink))',
+			'--bn-accent-900' => 'color-mix(in oklch, var(--bn-accent-500) 52%, var(--bn-ink))',
 			// Surfaces — white-box is the card/section, theme-body the page wash,
 			// body-lightcolor the sunken tint.
-			'--bn-canvas'      => 'var(--color-theme-body, oklch(99% 0.002 var(--bn-hue)))',
-			'--bn-surface'     => 'var(--color-theme-white-box, oklch(100% 0 0))',
-			'--bn-sunken'      => 'var(--global-body-lightcolor, oklch(97% 0.004 var(--bn-hue)))',
-			'--bn-raised'      => 'color-mix(in oklch, var(--bn-surface) 94%, var(--bn-ink))',
+			'--bn-canvas'     => 'var(--color-theme-body, oklch(99% 0.002 var(--bn-hue)))',
+			'--bn-surface'    => 'var(--color-theme-white-box, oklch(100% 0 0))',
+			'--bn-sunken'     => 'var(--global-body-lightcolor, oklch(97% 0.004 var(--bn-hue)))',
+			'--bn-raised'     => 'color-mix(in oklch, var(--bn-surface) 94%, var(--bn-ink))',
 			// Borders.
-			'--bn-line'        => 'var(--global-border-color, oklch(92% 0.005 var(--bn-hue)))',
-			'--bn-line-faint'  => 'color-mix(in oklch, var(--bn-line) 55%, var(--bn-surface))',
+			'--bn-line'       => 'var(--global-border-color, oklch(92% 0.005 var(--bn-hue)))',
+			'--bn-line-faint' => 'color-mix(in oklch, var(--bn-line) 55%, var(--bn-surface))',
 			// Text — site-title for headings/strong ink, font-color for body.
-			'--bn-ink'         => 'var(--color-site-title, oklch(20% 0.01 var(--bn-hue)))',
-			'--bn-ink-2'       => 'var(--global-font-color, oklch(40% 0.01 var(--bn-hue)))',
-			'--bn-ink-3'       => 'color-mix(in oklch, var(--bn-ink-2) 70%, var(--bn-surface))',
+			'--bn-ink'        => 'var(--color-site-title, oklch(20% 0.01 var(--bn-hue)))',
+			'--bn-ink-2'      => 'var(--global-font-color, oklch(40% 0.01 var(--bn-hue)))',
+			'--bn-ink-3'      => 'color-mix(in oklch, var(--bn-ink-2) 70%, var(--bn-surface))',
 		);
+
+		// Font family — adopt the theme's chosen font so BuddyNext reads as part of
+		// the same site. Theme compatibility here is scoped on purpose to the
+		// colour scheme (above) and the font FAMILY only: BuddyNext keeps its own
+		// type scale, weights, and spacing so its design stays intact. BuddyX
+		// stores typography (family + size) per element in the customizer; we take
+		// ONLY the family. --bn-theme-font / --bn-theme-heading-font are the hooks
+		// bn-base.css chains --bn-font-ui / --bn-font-display through, so emitting
+		// them here adopts the font at the CSS level — no first-paint font flash.
+		$bn_body_font    = $this->theme_font_family( 'typography_option' );
+		$bn_heading_font = $this->theme_font_family( 'h2_typography_option' );
+		if ( '' !== $bn_body_font ) {
+			$map['--bn-theme-font'] = $bn_body_font;
+		}
+		if ( '' !== $bn_heading_font ) {
+			$map['--bn-theme-heading-font'] = $bn_heading_font;
+		}
+
+		return $map;
+	}
+
+	/**
+	 * Read a BuddyX / BuddyX Pro typography customizer setting and return ONLY its
+	 * font-family — never the size or weight — so BuddyNext adopts the theme's font
+	 * while keeping its own type scale. BuddyX stores each typography control as an
+	 * array like `array( 'font-family' => '"DM Sans", system-ui, sans-serif',
+	 * 'font-size' => '16px', … )`.
+	 *
+	 * @param string $mod_key Theme-mod key, e.g. 'typography_option' (body) or
+	 *                        'h2_typography_option' (headings).
+	 * @return string Sanitised font-family stack, or '' when not configured.
+	 */
+	private function theme_font_family( string $mod_key ): string {
+		$option = get_theme_mod( $mod_key );
+		if ( ! is_array( $option ) || empty( $option['font-family'] ) ) {
+			return '';
+		}
+
+		// A font-family list only: strip anything that could break out of the CSS
+		// declaration (semicolons, braces). Quotes and commas are valid here.
+		$family = trim( (string) preg_replace( '/[;{}]+/', '', (string) $option['font-family'] ) );
+
+		return $family;
 	}
 
 	/**
@@ -492,7 +535,7 @@ class TokenService {
 
 		// Jetonomy stagger delays for topic rows.
 		for ( $i = 1; $i <= 5; $i++ ) {
-			$delay    = ( $i - 1 ) * 0.03;
+			$delay     = ( $i - 1 ) * 0.03;
 			$takeover .= ".jt-app .jt-topics > a:nth-child({$i}) { animation-delay: {$delay}s; }\n";
 		}
 		$takeover .= ".jt-app .jt-topics > a:nth-child(n+6) { animation-delay: 0.12s; }\n";
