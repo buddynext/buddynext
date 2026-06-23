@@ -147,13 +147,31 @@ const hashtagsStore = store( 'buddynext/feed', {
 			if ( ! jtId ) { return; }
 
 			try {
-				await restFetch( '/posts/' + jtId + '/vote', {
+				var res = await restFetch( '/posts/' + jtId + '/vote', {
 					base:    '/wp-json/jetonomy/v1',
 					method:  'POST',
 					nonce:   ctx.restNonce,
 					body:    { direction: direction },
 					toastOnError: false,
 				} );
+				// Reflect the vote on the button (previously a silent no-op: the
+				// tally never moved, so the click looked dead).
+				if ( res && res.ok ) {
+					var voted   = btn.classList.toggle( 'is-voted' );
+					btn.setAttribute( 'aria-pressed', voted ? 'true' : 'false' );
+					var countEl = btn.querySelector( 'span' );
+					if ( countEl ) {
+						// Trust a server-authoritative tally when the endpoint
+						// returns one; otherwise adjust by the toggle direction.
+						var serverCount = res.data && ( null != res.data.votes ? res.data.votes : res.data.score );
+						if ( null != serverCount ) {
+							countEl.textContent = String( Math.max( 0, parseInt( serverCount, 10 ) || 0 ) );
+						} else {
+							var n = ( parseInt( countEl.textContent, 10 ) || 0 ) + ( voted ? 1 : -1 );
+							countEl.textContent = String( Math.max( 0, n ) );
+						}
+					}
+				}
 			} catch ( _e ) {}
 		},
 	},
