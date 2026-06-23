@@ -871,6 +871,10 @@ class AssetService {
 			'buddynext/spaces',
 			array(
 				'i18n' => array(
+					// Inline check-icon SVG so the JS membership-button swap can
+					// rebuild the "Joined" state with its leading icon (matching the
+					// SSR markup) instead of clobbering it with a text-only label.
+					'iconCheck'                       => IconService::render( 'check' ),
 					'labelJoin'                       => __( 'Join', 'buddynext' ),
 					'labelJoined'                     => __( 'Joined', 'buddynext' ),
 					'labelRequested'                  => __( 'Requested', 'buddynext' ),

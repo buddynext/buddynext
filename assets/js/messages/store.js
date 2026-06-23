@@ -1228,12 +1228,17 @@ const messagesStore = store( 'buddynext/messages', {
 			if ( ! convId ) {
 				return;
 			}
-			yield restFetch( '/conversations/' + convId + '/decline', {
+			const res = yield restFetch( '/conversations/' + convId + '/decline', {
 				base: ctx.mvsRest,
 				nonce: ctx.nonce,
 				method: 'POST',
 			} );
-			window.location.href = ctx.messagesUrl || '?';
+			// Only leave the thread once the decline actually succeeded — navigating
+			// unconditionally made a failed decline look done (restFetch surfaces the
+			// error toast, which a redirect would otherwise discard).
+			if ( res.ok ) {
+				window.location.href = ctx.messagesUrl || '?';
+			}
 		},
 
 		// ── New message (recipient picker) ──────────────────────────────────────

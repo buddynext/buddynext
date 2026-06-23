@@ -149,9 +149,25 @@ function swapButtonState( btn, newState ) {
 		btn.classList.add( legacyClassMap[ newState ] );
 	}
 
-	// Update visible label. Wipes any child icon — by design, post-swap
-	// the button shows a clean label (Joined / Requested / Join / Request to join).
-	btn.textContent = labelMap[ newState ];
+	// Update visible label. The SSR "Joined" button leads with a check icon;
+	// the other states are text-only. Rebuild that icon on swap (instead of
+	// clobbering it with a text-only textContent) so a client-side join doesn't
+	// leave the button visually half-rendered until the next reload.
+	var newLabel = labelMap[ newState ];
+	var iconCheck = 'joined' === newState ? t( 'iconCheck', '' ) : '';
+	if ( iconCheck ) {
+		btn.textContent = '';
+		var iconTpl = document.createElement( 'template' );
+		iconTpl.innerHTML = iconCheck.trim();
+		if ( iconTpl.content.firstChild ) {
+			btn.appendChild( iconTpl.content.firstChild );
+			btn.appendChild( document.createTextNode( ' ' + newLabel ) );
+		} else {
+			btn.textContent = newLabel;
+		}
+	} else {
+		btn.textContent = newLabel;
+	}
 
 	btn.setAttribute( 'data-wp-on--click', 'actions.' + actionMap[ newState ] );
 	btn.dataset.currentState = newState;
