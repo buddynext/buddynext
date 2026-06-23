@@ -90,7 +90,7 @@ final class NavItem {
 		public string $surface,
 		public string $layer,
 		public string $label,
-		public ?string $parent = null,
+		public ?string $parent = null, // phpcs:ignore Universal.NamingConventions.NoReservedKeywordParameterNames.parentFound -- Established public promoted property of this value object; read as $item->parent and passed as the named arg parent: across Nav/. Renaming is a breaking API change.
 		public ?string $icon = null,
 		public ?string $tab = null,
 		public mixed $url = null,

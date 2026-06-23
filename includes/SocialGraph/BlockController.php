@@ -200,7 +200,7 @@ class BlockController extends BaseRestController {
 	/**
 	 * Resolve [limit, offset] from a request's per_page/page params.
 	 *
-	 * per_page defaults to 50 and is capped at 100; page is 1-based. Keeps the
+	 * Per_page defaults to 50 and is capped at 100; page is 1-based. Keeps the
 	 * three relationship-list endpoints from returning an unbounded set on a
 	 * member with thousands of blocks/mutes.
 	 *
@@ -221,9 +221,9 @@ class BlockController extends BaseRestController {
 	 * @return WP_REST_Response
 	 */
 	public function get_blocked( WP_REST_Request $request ): WP_REST_Response {
-		$current_id        = get_current_user_id();
+		$current_id         = get_current_user_id();
 		[ $limit, $offset ] = $this->list_window( $request );
-		$blocked           = buddynext_service( 'blocks' )->blocked_users( $current_id, $limit, $offset );
+		$blocked            = buddynext_service( 'blocks' )->blocked_users( $current_id, $limit, $offset );
 
 		return new WP_REST_Response( array( 'ids' => $blocked ), 200 );
 	}
@@ -235,9 +235,9 @@ class BlockController extends BaseRestController {
 	 * @return WP_REST_Response
 	 */
 	public function get_muted( WP_REST_Request $request ): WP_REST_Response {
-		$current_id        = get_current_user_id();
+		$current_id         = get_current_user_id();
 		[ $limit, $offset ] = $this->list_window( $request );
-		$muted             = buddynext_service( 'blocks' )->muted_users( $current_id, $limit, $offset );
+		$muted              = buddynext_service( 'blocks' )->muted_users( $current_id, $limit, $offset );
 
 		return new WP_REST_Response( array( 'ids' => $muted ), 200 );
 	}
@@ -293,9 +293,9 @@ class BlockController extends BaseRestController {
 	 * @return WP_REST_Response
 	 */
 	public function get_restricted( WP_REST_Request $request ): WP_REST_Response {
-		$current_id        = get_current_user_id();
+		$current_id         = get_current_user_id();
 		[ $limit, $offset ] = $this->list_window( $request );
-		$restricted        = buddynext_service( 'blocks' )->restricted_users( $current_id, $limit, $offset );
+		$restricted         = buddynext_service( 'blocks' )->restricted_users( $current_id, $limit, $offset );
 
 		return new WP_REST_Response( array( 'ids' => $restricted ), 200 );
 	}

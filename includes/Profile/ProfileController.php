@@ -1582,16 +1582,26 @@ class ProfileController extends BaseRestController {
 
 		update_user_meta( $user_id, 'buddynext_cover_url', esc_url_raw( $cover_stored ) );
 
-		// Reposition data — `focal_x`/`focal_y` (object-position percent 0–100)
-		// and `focal_zoom` (scale factor 1–3). Stored as `buddynext_cover_focal`
-		// user meta and applied by templates/parts/profile-hero.php to the cover
-		// <img> via object-position + transform:scale (non-destructive).
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing
-		$focal_x_raw = isset( $_POST['focal_x'] ) ? (float) wp_unslash( (string) $_POST['focal_x'] ) : -1;
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing
-		$focal_y_raw = isset( $_POST['focal_y'] ) ? (float) wp_unslash( (string) $_POST['focal_y'] ) : -1;
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		/*
+		 * Reposition data — `focal_x`/`focal_y` (object-position percent 0–100)
+		 * and `focal_zoom` (scale factor 1–3). Stored as `buddynext_cover_focal`
+		 * user meta and applied by templates/parts/profile-hero.php to the cover
+		 * <img> via object-position + transform:scale (non-destructive).
+		 *
+		 * This is a REST callback gated by a real permission_callback
+		 * (require_auth / require_edit_any_profile); WP core validates the
+		 * X-WP-Nonce cookie nonce before the callback runs. Each raw value is
+		 * cast to float and range-clamped below, so no further sanitization
+		 * helper applies.
+		 *
+		 * phpcs:disable WordPress.Security.NonceVerification.Missing
+		 * phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		 */
+		$focal_x_raw    = isset( $_POST['focal_x'] ) ? (float) wp_unslash( (string) $_POST['focal_x'] ) : -1;
+		$focal_y_raw    = isset( $_POST['focal_y'] ) ? (float) wp_unslash( (string) $_POST['focal_y'] ) : -1;
 		$focal_zoom_raw = isset( $_POST['focal_zoom'] ) ? (float) wp_unslash( (string) $_POST['focal_zoom'] ) : 1.0;
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		if ( $focal_x_raw >= 0 && $focal_x_raw <= 100 && $focal_y_raw >= 0 && $focal_y_raw <= 100 ) {
 			update_user_meta(
 				$user_id,

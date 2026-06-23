@@ -50,7 +50,9 @@ final class PreModerationService {
 		}
 
 		// Never hold staff: admins and anyone with the moderation capability.
-		if ( user_can( $user_id, 'manage_options' ) || user_can( $user_id, 'buddynext_moderate' ) ) {
+		// buddynext_moderate is the plugin's own optional moderator capability, exposed
+		// so site owners can grant moderation to a non-admin role; it has no core meta map.
+		if ( user_can( $user_id, 'manage_options' ) || user_can( $user_id, 'buddynext_moderate' ) ) { // phpcs:ignore WordPress.WP.Capabilities.Unknown -- plugin-own custom moderator capability.
 			return false;
 		}
 

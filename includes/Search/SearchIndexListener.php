@@ -181,7 +181,7 @@ class SearchIndexListener implements ListenerInterface {
 			return;
 		}
 
-		$author_id  = (int) $row['user_id'];
+		$author_id = (int) $row['user_id'];
 		// A private (followers-only) account's posts must never surface in global
 		// search, even when the post's own privacy is 'public' — only followers
 		// see their content, via the feed, not the public index.

@@ -469,7 +469,7 @@ class ConnectionService {
 
 		// $placeholders is a generated list of %d for an int array; every value is
 		// bound through $wpdb->prepare() below, so the interpolation is safe.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $placeholders is a generated %d list; $params binds viewer_id + all peer IDs twice, matching the two IN() clauses.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT requester_id, recipient_id, status
@@ -479,7 +479,7 @@ class ConnectionService {
 				$params
 			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
 		$map = array();
 		foreach ( (array) $rows as $row ) {

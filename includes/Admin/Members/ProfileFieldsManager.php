@@ -346,8 +346,8 @@ class ProfileFieldsManager {
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'page' => 'buddynext-members',
-					'tab'  => 'profile-fields',
+					'page'         => 'buddynext-members',
+					'tab'          => 'profile-fields',
 					'bn_pf_notice' => 'saved',
 				),
 				admin_url( 'admin.php' )
@@ -440,8 +440,8 @@ class ProfileFieldsManager {
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'page' => 'buddynext-members',
-					'tab'  => 'profile-fields',
+					'page'         => 'buddynext-members',
+					'tab'          => 'profile-fields',
 					'bn_pf_notice' => 'saved',
 				),
 				admin_url( 'admin.php' )
@@ -625,8 +625,8 @@ class ProfileFieldsManager {
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'page' => 'buddynext-members',
-					'tab'  => 'profile-fields',
+					'page'         => 'buddynext-members',
+					'tab'          => 'profile-fields',
 					'bn_pf_notice' => 'deleted',
 				),
 				admin_url( 'admin.php' )
@@ -659,8 +659,8 @@ class ProfileFieldsManager {
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'page' => 'buddynext-members',
-					'tab'  => 'profile-fields',
+					'page'         => 'buddynext-members',
+					'tab'          => 'profile-fields',
 					'bn_pf_notice' => 'deleted',
 				),
 				admin_url( 'admin.php' )
@@ -707,8 +707,8 @@ class ProfileFieldsManager {
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'page' => 'buddynext-members',
-					'tab'  => 'profile-fields',
+					'page'         => 'buddynext-members',
+					'tab'          => 'profile-fields',
 					'bn_pf_notice' => 'saved',
 				),
 				admin_url( 'admin.php' )
@@ -735,8 +735,8 @@ class ProfileFieldsManager {
 			wp_safe_redirect(
 				add_query_arg(
 					array(
-						'page' => 'buddynext-members',
-						'tab'  => 'profile-fields',
+						'page'         => 'buddynext-members',
+						'tab'          => 'profile-fields',
 						'bn_pf_notice' => 'error',
 					),
 					admin_url( 'admin.php' )
@@ -774,8 +774,8 @@ class ProfileFieldsManager {
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'page' => 'buddynext-members',
-					'tab'  => 'profile-fields',
+					'page'         => 'buddynext-members',
+					'tab'          => 'profile-fields',
 					'bn_pf_notice' => 'saved',
 				),
 				admin_url( 'admin.php' )
@@ -802,8 +802,8 @@ class ProfileFieldsManager {
 			wp_safe_redirect(
 				add_query_arg(
 					array(
-						'page' => 'buddynext-members',
-						'tab'  => 'profile-fields',
+						'page'         => 'buddynext-members',
+						'tab'          => 'profile-fields',
 						'bn_pf_notice' => 'error',
 					),
 					admin_url( 'admin.php' )
@@ -855,8 +855,8 @@ class ProfileFieldsManager {
 			wp_safe_redirect(
 				add_query_arg(
 					array(
-						'page' => 'buddynext-members',
-						'tab'  => 'profile-fields',
+						'page'         => 'buddynext-members',
+						'tab'          => 'profile-fields',
 						'bn_pf_notice' => 'error',
 					),
 					admin_url( 'admin.php' )
@@ -892,8 +892,8 @@ class ProfileFieldsManager {
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'page' => 'buddynext-members',
-					'tab'  => 'profile-fields',
+					'page'         => 'buddynext-members',
+					'tab'          => 'profile-fields',
 					'bn_pf_notice' => 'saved',
 				),
 				admin_url( 'admin.php' )
@@ -967,8 +967,8 @@ class ProfileFieldsManager {
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'page' => 'buddynext-members',
-					'tab'  => 'profile-fields',
+					'page'         => 'buddynext-members',
+					'tab'          => 'profile-fields',
 					'bn_pf_notice' => 'saved',
 				),
 				admin_url( 'admin.php' )
@@ -1053,8 +1053,8 @@ class ProfileFieldsManager {
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'page' => 'buddynext-members',
-					'tab'  => 'profile-fields',
+					'page'         => 'buddynext-members',
+					'tab'          => 'profile-fields',
 					'bn_pf_notice' => 'saved',
 				),
 				admin_url( 'admin.php' )

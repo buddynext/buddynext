@@ -125,7 +125,7 @@ class ModerationLogService {
 		$user_id  = isset( $args['user_id'] ) ? (int) $args['user_id'] : 0;
 		$action   = isset( $args['action'] ) ? sanitize_key( (string) $args['action'] ) : '';
 		$space_id = isset( $args['space_id'] ) ? (int) $args['space_id'] : 0;
-		$since     = '';
+		$since    = '';
 		if ( ! empty( $args['since'] ) ) {
 			$ts = strtotime( (string) $args['since'] );
 			if ( false !== $ts ) {

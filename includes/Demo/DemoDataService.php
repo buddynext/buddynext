@@ -70,18 +70,102 @@ class DemoDataService {
 	 * @var array<int,array<string,string>>
 	 */
 	private const MEMBERS = array(
-		array( 'login' => 'alex_rivera',     'name' => 'Alex Rivera',     'headline' => 'Product designer · prototyping in the open',         'location' => 'Lisbon, PT',      'job' => 'Product Designer',   'site' => 'https://alexrivera.example' ),
-		array( 'login' => 'priya_nair',      'name' => 'Priya Nair',      'headline' => 'Frontend engineer · accessibility nerd',             'location' => 'Bengaluru, IN',   'job' => 'Frontend Engineer',  'site' => 'https://priyanair.example' ),
-		array( 'login' => 'marcus_obrien',   'name' => "Marcus O'Brien",  'headline' => 'Community lead · runs three book clubs',             'location' => 'Dublin, IE',      'job' => 'Community Lead',     'site' => '' ),
-		array( 'login' => 'yuki_tanaka',     'name' => 'Yuki Tanaka',     'headline' => 'Illustrator & type designer',                        'location' => 'Kyoto, JP',       'job' => 'Illustrator',        'site' => 'https://yuki.example' ),
-		array( 'login' => 'sara_lindqvist',  'name' => 'Sara Lindqvist',  'headline' => 'Trail runner, data scientist, plant collector',      'location' => 'Gothenburg, SE',  'job' => 'Data Scientist',     'site' => '' ),
-		array( 'login' => 'diego_morales',   'name' => 'Diego Morales',   'headline' => 'Indie game dev · pixel art on weekends',             'location' => 'Mexico City, MX', 'job' => 'Game Developer',     'site' => 'https://diego.example' ),
-		array( 'login' => 'amina_diallo',    'name' => 'Amina Diallo',    'headline' => 'Climate researcher · ocean systems',                 'location' => 'Dakar, SN',       'job' => 'Researcher',         'site' => '' ),
-		array( 'login' => 'tom_becker',      'name' => 'Tom Becker',      'headline' => 'Coffee roaster turned backend engineer',             'location' => 'Berlin, DE',      'job' => 'Backend Engineer',   'site' => 'https://becker.example' ),
-		array( 'login' => 'lucia_ferrari',   'name' => 'Lucia Ferrari',   'headline' => 'UX writer · turning jargon into plain words',        'location' => 'Milan, IT',       'job' => 'UX Writer',          'site' => '' ),
-		array( 'login' => 'noah_kim',        'name' => 'Noah Kim',        'headline' => 'Photographer & DevRel',                              'location' => 'Seoul, KR',       'job' => 'Developer Advocate', 'site' => 'https://noahkim.example' ),
-		array( 'login' => 'fatima_zahra',    'name' => 'Fatima Zahra',    'headline' => 'Open-source maintainer · docs first',                'location' => 'Casablanca, MA',  'job' => 'OSS Maintainer',     'site' => '' ),
-		array( 'login' => 'liam_walsh',      'name' => 'Liam Walsh',      'headline' => 'Synth builder, weekend cyclist',                     'location' => 'Melbourne, AU',   'job' => 'Hardware Engineer',  'site' => '' ),
+		array(
+			'login'    => 'alex_rivera',
+			'name'     => 'Alex Rivera',
+			'headline' => 'Product designer · prototyping in the open',
+			'location' => 'Lisbon, PT',
+			'job'      => 'Product Designer',
+			'site'     => 'https://alexrivera.example',
+		),
+		array(
+			'login'    => 'priya_nair',
+			'name'     => 'Priya Nair',
+			'headline' => 'Frontend engineer · accessibility nerd',
+			'location' => 'Bengaluru, IN',
+			'job'      => 'Frontend Engineer',
+			'site'     => 'https://priyanair.example',
+		),
+		array(
+			'login'    => 'marcus_obrien',
+			'name'     => "Marcus O'Brien",
+			'headline' => 'Community lead · runs three book clubs',
+			'location' => 'Dublin, IE',
+			'job'      => 'Community Lead',
+			'site'     => '',
+		),
+		array(
+			'login'    => 'yuki_tanaka',
+			'name'     => 'Yuki Tanaka',
+			'headline' => 'Illustrator & type designer',
+			'location' => 'Kyoto, JP',
+			'job'      => 'Illustrator',
+			'site'     => 'https://yuki.example',
+		),
+		array(
+			'login'    => 'sara_lindqvist',
+			'name'     => 'Sara Lindqvist',
+			'headline' => 'Trail runner, data scientist, plant collector',
+			'location' => 'Gothenburg, SE',
+			'job'      => 'Data Scientist',
+			'site'     => '',
+		),
+		array(
+			'login'    => 'diego_morales',
+			'name'     => 'Diego Morales',
+			'headline' => 'Indie game dev · pixel art on weekends',
+			'location' => 'Mexico City, MX',
+			'job'      => 'Game Developer',
+			'site'     => 'https://diego.example',
+		),
+		array(
+			'login'    => 'amina_diallo',
+			'name'     => 'Amina Diallo',
+			'headline' => 'Climate researcher · ocean systems',
+			'location' => 'Dakar, SN',
+			'job'      => 'Researcher',
+			'site'     => '',
+		),
+		array(
+			'login'    => 'tom_becker',
+			'name'     => 'Tom Becker',
+			'headline' => 'Coffee roaster turned backend engineer',
+			'location' => 'Berlin, DE',
+			'job'      => 'Backend Engineer',
+			'site'     => 'https://becker.example',
+		),
+		array(
+			'login'    => 'lucia_ferrari',
+			'name'     => 'Lucia Ferrari',
+			'headline' => 'UX writer · turning jargon into plain words',
+			'location' => 'Milan, IT',
+			'job'      => 'UX Writer',
+			'site'     => '',
+		),
+		array(
+			'login'    => 'noah_kim',
+			'name'     => 'Noah Kim',
+			'headline' => 'Photographer & DevRel',
+			'location' => 'Seoul, KR',
+			'job'      => 'Developer Advocate',
+			'site'     => 'https://noahkim.example',
+		),
+		array(
+			'login'    => 'fatima_zahra',
+			'name'     => 'Fatima Zahra',
+			'headline' => 'Open-source maintainer · docs first',
+			'location' => 'Casablanca, MA',
+			'job'      => 'OSS Maintainer',
+			'site'     => '',
+		),
+		array(
+			'login'    => 'liam_walsh',
+			'name'     => 'Liam Walsh',
+			'headline' => 'Synth builder, weekend cyclist',
+			'location' => 'Melbourne, AU',
+			'job'      => 'Hardware Engineer',
+			'site'     => '',
+		),
 	);
 
 	/**
@@ -91,8 +175,18 @@ class DemoDataService {
 	 * @var string[]
 	 */
 	private const PRONOUNS = array(
-		'she/her', 'she/her', 'he/him', 'they/them', 'she/her', 'he/him',
-		'she/her', 'he/him', 'she/her', 'he/him', 'she/her', 'he/him',
+		'she/her',
+		'she/her',
+		'he/him',
+		'they/them',
+		'she/her',
+		'he/him',
+		'she/her',
+		'he/him',
+		'she/her',
+		'he/him',
+		'she/her',
+		'he/him',
 	);
 
 	/**
@@ -121,12 +215,42 @@ class DemoDataService {
 	 * @var array<int,array<string,string>>
 	 */
 	private const SPACES = array(
-		array( 'name' => 'Design Critique',     'slug' => 'design-critique',     'type' => 'open',    'desc' => 'Share work in progress and get honest, kind feedback.' ),
-		array( 'name' => 'Frontend Guild',      'slug' => 'frontend-guild',      'type' => 'open',    'desc' => 'Everything CSS, a11y, and the modern web platform.' ),
-		array( 'name' => 'Book Club',           'slug' => 'book-club',           'type' => 'private', 'desc' => 'One book a month. Request to join and pick up the current read.' ),
-		array( 'name' => 'Trail Runners',       'slug' => 'trail-runners',       'type' => 'open',    'desc' => 'Routes, gear talk, and weekend meetups.' ),
-		array( 'name' => 'Founders Lounge',     'slug' => 'founders-lounge',     'type' => 'secret',  'desc' => 'Invite-only room for the core team to talk shop.' ),
-		array( 'name' => 'Photo Walks',         'slug' => 'photo-walks',         'type' => 'private', 'desc' => 'Monthly city photo walks. Members share their best frame.' ),
+		array(
+			'name' => 'Design Critique',
+			'slug' => 'design-critique',
+			'type' => 'open',
+			'desc' => 'Share work in progress and get honest, kind feedback.',
+		),
+		array(
+			'name' => 'Frontend Guild',
+			'slug' => 'frontend-guild',
+			'type' => 'open',
+			'desc' => 'Everything CSS, a11y, and the modern web platform.',
+		),
+		array(
+			'name' => 'Book Club',
+			'slug' => 'book-club',
+			'type' => 'private',
+			'desc' => 'One book a month. Request to join and pick up the current read.',
+		),
+		array(
+			'name' => 'Trail Runners',
+			'slug' => 'trail-runners',
+			'type' => 'open',
+			'desc' => 'Routes, gear talk, and weekend meetups.',
+		),
+		array(
+			'name' => 'Founders Lounge',
+			'slug' => 'founders-lounge',
+			'type' => 'secret',
+			'desc' => 'Invite-only room for the core team to talk shop.',
+		),
+		array(
+			'name' => 'Photo Walks',
+			'slug' => 'photo-walks',
+			'type' => 'private',
+			'desc' => 'Monthly city photo walks. Members share their best frame.',
+		),
 	);
 
 	/**
@@ -193,9 +317,24 @@ class DemoDataService {
 	 * @var array<int,array{author:int,space:int,content:string,url:string}>
 	 */
 	private const LINK_POSTS = array(
-		array( 'author' => 0, 'space' => -1, 'content' => 'This walkthrough nails what we are building. Worth ten minutes. #community', 'url' => 'https://www.youtube.com/watch?v=kSoXOIcnO_E' ),
-		array( 'author' => 1, 'space' => 1,  'content' => 'Great primer on modern CSS layout — sharing it in the guild. #css #frontend', 'url' => 'https://web.dev/learn/css/' ),
-		array( 'author' => 3, 'space' => 3,  'content' => 'Solid overview of trail running for anyone just starting out. #running #outdoors', 'url' => 'https://en.wikipedia.org/wiki/Trail_running' ),
+		array(
+			'author'  => 0,
+			'space'   => -1,
+			'content' => 'This walkthrough nails what we are building. Worth ten minutes. #community',
+			'url'     => 'https://www.youtube.com/watch?v=kSoXOIcnO_E',
+		),
+		array(
+			'author'  => 1,
+			'space'   => 1,
+			'content' => 'Great primer on modern CSS layout — sharing it in the guild. #css #frontend',
+			'url'     => 'https://web.dev/learn/css/',
+		),
+		array(
+			'author'  => 3,
+			'space'   => 3,
+			'content' => 'Solid overview of trail running for anyone just starting out. #running #outdoors',
+			'url'     => 'https://en.wikipedia.org/wiki/Trail_running',
+		),
 	);
 
 	/**
@@ -207,9 +346,21 @@ class DemoDataService {
 	 * @var array<int,array{author:int,content:string,img:string}>
 	 */
 	private const MEDIA_POSTS = array(
-		array( 'author' => 9, 'content' => 'Golden hour from last night\'s walk. The light did all the work. #photography', 'img' => 'covers/cover-02.png' ),
-		array( 'author' => 3, 'content' => 'New gradient study — soft, rounded, calm. #illustration #design', 'img' => 'covers/cover-05.png' ),
-		array( 'author' => 5, 'content' => 'Trail snapshot from the river loop this morning. #running #outdoors', 'img' => 'covers/cover-07.png' ),
+		array(
+			'author'  => 9,
+			'content' => 'Golden hour from last night\'s walk. The light did all the work. #photography',
+			'img'     => 'covers/cover-02.png',
+		),
+		array(
+			'author'  => 3,
+			'content' => 'New gradient study — soft, rounded, calm. #illustration #design',
+			'img'     => 'covers/cover-05.png',
+		),
+		array(
+			'author'  => 5,
+			'content' => 'Trail snapshot from the river loop this morning. #running #outdoors',
+			'img'     => 'covers/cover-07.png',
+		),
 	);
 
 	/**
@@ -336,8 +487,8 @@ class DemoDataService {
 			if ( $user_id <= 0 ) {
 				continue;
 			}
-			$user_ids[]            = $user_id;
-			$manifest['users'][]   = $user_id;
+			$user_ids[]          = $user_id;
+			$manifest['users'][] = $user_id;
 
 			// Avatar + cover from bundled offline art.
 			$this->store_bundled( $storage, 'avatar', 'user', $user_id, 'avatars/avatar-' . sprintf( '%02d', ( $i % 12 ) + 1 ) . '.png' );
@@ -426,14 +577,14 @@ class DemoDataService {
 		foreach ( self::POSTS as $i => $body ) {
 			$author_id = $user_ids[ $i % count( $user_ids ) ];
 			// Put every third post inside a space the author can post to.
-			$space_id  = ( 0 === $i % 3 && ! empty( $space_ids ) ) ? $space_ids[ $i % count( $space_ids ) ] : 0;
+			$space_id = ( 0 === $i % 3 && ! empty( $space_ids ) ) ? $space_ids[ $i % count( $space_ids ) ] : 0;
 
 			// Backdate across the last ~30 days for a realistic time spread, through
 			// the API (no raw UPDATE). last_activity_at defaults to created_at and is
 			// bumped to NOW() by any engagement below, so busy posts surface in the
 			// "Active" feed while quiet ones stay at their post time.
 			$bn_created_at = gmdate( 'Y-m-d H:i:s', time() - ( ( $i * 211 ) % 43200 ) * 60 );
-			$post_id = $posts->create(
+			$post_id       = $posts->create(
 				$author_id,
 				array(
 					'type'       => 'text',
@@ -511,10 +662,12 @@ class DemoDataService {
 					// Copy to a real temp file: handle() may move/unlink tmp_name, and the
 					// bundled repo asset must survive for the next seed.
 					$tmp = wp_tempnam( basename( $mp['img'] ) );
-					if ( ! $tmp || ! @copy( $src, $tmp ) ) {
+					// copy() can emit a warning on a transient temp-write failure; the
+					// return value is the real signal and is checked here to skip the item.
+					if ( ! $tmp || ! @copy( $src, $tmp ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- failure handled via the checked return value.
 						continue;
 					}
-					$file = array(
+					$file     = array(
 						'tmp_name' => $tmp,
 						'name'     => basename( $mp['img'] ),
 						'type'     => 'image/png',
@@ -529,7 +682,7 @@ class DemoDataService {
 						continue;
 					}
 					$manifest['media'][] = (int) $media_id;
-					$post_id = $posts->create(
+					$post_id             = $posts->create(
 						$author_id,
 						array(
 							'type'      => 'text',
@@ -541,7 +694,10 @@ class DemoDataService {
 						continue;
 					}
 					$post_ids[]          = $post_id;
-					$manifest['posts'][] = array( 'id' => $post_id, 'author' => $author_id );
+					$manifest['posts'][] = array(
+						'id'     => $post_id,
+						'author' => $author_id,
+					);
 					$this->engage_post( $post_id, 200 + $mi, $user_ids, $comments, $reactions );
 				}
 			}
@@ -632,7 +788,7 @@ class DemoDataService {
 				'id'     => $poll_id,
 				'author' => $poll_author,
 			);
-			$post_ids[] = $poll_id;
+			$post_ids[]          = $poll_id;
 			$this->engage_post( (int) $poll_id, 7, $user_ids, new CommentService(), new ReactionService() );
 		}
 
@@ -658,18 +814,33 @@ class DemoDataService {
 			$share_comments  = new CommentService();
 			$share_reactions = new ReactionService();
 			$share_specs     = array(
-				array( 'by' => 3, 'post' => 0, 'note' => 'Worth a look — sharing with the group.' ),
-				array( 'by' => 6, 'post' => 2, 'note' => 'Resharing this, great thread.' ),
-				array( 'by' => 9, 'post' => 5, 'note' => '' ),
+				array(
+					'by'   => 3,
+					'post' => 0,
+					'note' => 'Worth a look — sharing with the group.',
+				),
+				array(
+					'by'   => 6,
+					'post' => 2,
+					'note' => 'Resharing this, great thread.',
+				),
+				array(
+					'by'   => 9,
+					'post' => 5,
+					'note' => '',
+				),
 			);
 			foreach ( $share_specs as $sk => $spec ) {
-				$sharer = $user_ids[ $spec['by'] % $n ];
-				$target = $post_ids[ $spec['post'] % count( $post_ids ) ];
+				$sharer   = $user_ids[ $spec['by'] % $n ];
+				$target   = $post_ids[ $spec['post'] % count( $post_ids ) ];
 				$share_id = $share_service->share( $sharer, $target, $spec['note'] );
 				if ( is_wp_error( $share_id ) ) {
 					continue;
 				}
-				$manifest['posts'][] = array( 'id' => (int) $share_id, 'author' => $sharer );
+				$manifest['posts'][] = array(
+					'id'     => (int) $share_id,
+					'author' => $sharer,
+				);
 				$this->engage_post( (int) $share_id, 100 + $sk, $user_ids, $share_comments, $share_reactions );
 			}
 		}
@@ -720,9 +891,9 @@ class DemoDataService {
 			'groups' => 0,
 		);
 
-		$posts    = new PostService();
-		$storage  = new ImageStorageService();
-		$profiles = new ProfileService();
+		$posts         = new PostService();
+		$storage       = new ImageStorageService();
+		$profiles      = new ProfileService();
 		$space_service = new SpaceService();
 
 		// Posts (cascade removes their comments/reactions in PostService::delete).

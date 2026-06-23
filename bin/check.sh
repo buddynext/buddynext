@@ -109,7 +109,7 @@ fi
 # 4. PHPStan
 section "PHPStan (level 5)"
 if [ -x vendor/bin/phpstan ]; then
-	if vendor/bin/phpstan analyse --no-progress --memory-limit=1G; then
+	if vendor/bin/phpstan analyse --no-progress --memory-limit=2G; then
 		ok "no errors"
 	else
 		fail "PHPStan reported errors"

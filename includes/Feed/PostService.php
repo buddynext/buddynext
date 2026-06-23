@@ -1702,7 +1702,8 @@ class PostService {
 	public function count_pending( array $space_ids = array() ): int {
 		global $wpdb;
 		$space_ids = array_values( array_filter( array_map( 'absint', $space_ids ) ) );
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// The IN (...) placeholder string is built internally from a fixed count of %d tokens (one per absint'd id); phpcs cannot see the interpolated placeholders.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		if ( empty( $space_ids ) ) {
 			return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE status = 'pending'" );
 		}
@@ -1713,7 +1714,7 @@ class PostService {
 				$space_ids
 			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 	}
 
 	/**
@@ -1731,7 +1732,8 @@ class PostService {
 		$space_ids = array_values( array_filter( array_map( 'absint', $space_ids ) ) );
 
 		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// The IN (...) placeholder string is built internally from a fixed count of %d tokens; phpcs miscounts the interpolated placeholders vs the $params array (LIMIT/OFFSET + ids).
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$space_sql = '';
 		$params    = array();
 		if ( ! empty( $space_ids ) ) {
@@ -1755,7 +1757,7 @@ class PostService {
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
 		return is_array( $rows ) ? $rows : array();
 	}
@@ -1849,7 +1851,7 @@ class PostService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return $row ?: null;
+		return ! empty( $row ) ? $row : null;
 	}
 
 	/**
@@ -1939,8 +1941,8 @@ class PostService {
 	 * moderation is unavailable.
 	 *
 	 * @param int    $post_id  The post that was flagged.
-	 * @param int    $space_id Space context (0 = none).
 	 * @param string $reason   Human-readable flag message (stored as report notes).
+	 * @param int    $space_id Space context (0 = none).
 	 * @return void
 	 */
 	private function report_flagged_post( int $post_id, string $reason, int $space_id = 0 ): void {
@@ -2297,8 +2299,9 @@ class PostService {
 		if ( '' === $meta['title'] ) {
 			$title = self::xpath_first( $xpath, '//meta[@property="og:title"]/@content' );
 			if ( '' === $title ) {
-				$node  = $xpath->query( '//title' )->item( 0 );
-				$title = $node ? $node->textContent : '';
+				$node = $xpath->query( '//title' )->item( 0 );
+				// textContent is a native PHP DOMNode property, not a plugin-owned variable.
+				$title = $node ? $node->textContent : ''; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase
 			}
 			$meta['title'] = html_entity_decode( trim( $title ), ENT_QUOTES, 'UTF-8' );
 		}
@@ -2390,7 +2393,8 @@ class PostService {
 		if ( filter_var( $host, FILTER_VALIDATE_IP ) ) {
 			$ips[] = $host;
 		} else {
-			foreach ( (array) @dns_get_record( $host, DNS_A | DNS_AAAA ) as $record ) {
+			// Suppress the native PHP warning dns_get_record() emits on unresolvable hosts; a failed lookup is an expected branch of this SSRF guard and is handled by the empty-array cast.
+			foreach ( (array) @dns_get_record( $host, DNS_A | DNS_AAAA ) as $record ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 				if ( ! empty( $record['ip'] ) ) {
 					$ips[] = $record['ip'];
 				}

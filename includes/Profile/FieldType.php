@@ -45,12 +45,11 @@ class FieldType {
 	/**
 	 * Built-in type registry.
 	 *
-	 * slug => [
+	 * Keyed by type slug; each entry is:
 	 *   'label'                 => string  Human label for the admin type picker.
 	 *   'value_kind'            => string  scalar | multi | bool.
 	 *   'is_choice'             => bool    Reads choices from $field['options'].
 	 *   'is_searchable_capable' => bool    May expose a free-text search mirror.
-	 * ]
 	 *
 	 * @var array<string,array{label:string,value_kind:string,is_choice:bool,is_searchable_capable:bool}>
 	 */
@@ -163,7 +162,7 @@ class FieldType {
 			if ( '' === $slug ) {
 				continue;
 			}
-			$descriptor                = is_array( $descriptor ) ? $descriptor : array();
+			$descriptor          = is_array( $descriptor ) ? $descriptor : array();
 			$normalised[ $slug ] = array(
 				'label'                 => isset( $descriptor['label'] ) ? (string) $descriptor['label'] : ucfirst( $slug ),
 				'value_kind'            => in_array( $descriptor['value_kind'] ?? '', array( 'scalar', 'multi', 'bool' ), true ) ? (string) $descriptor['value_kind'] : 'scalar',
@@ -193,7 +192,7 @@ class FieldType {
 	/**
 	 * Whether a type exposes a free-text search mirror.
 	 *
-	 * text / textarea / url / email / phone / select / radio / multiselect are
+	 * Text / textarea / url / email / phone / select / radio / multiselect are
 	 * searchable; number / date / boolean / color / file are not free-text.
 	 *
 	 * @param string $type Field type slug.

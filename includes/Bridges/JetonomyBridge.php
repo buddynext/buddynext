@@ -61,7 +61,7 @@ class JetonomyBridge {
 		// INTO discussions lives on BuddyNext's own rail (inject_discussions_nav_item).
 
 		// Cross-plugin notifications: JT reply → BN notification for post author.
-		add_action( 'jetonomy_after_create_reply', array( $this, 'notify_discussion_reply' ), 10, 2 );
+		add_action( 'jetonomy_after_create_reply', array( $this, 'notify_discussion_reply' ), 10, 1 );
 
 		// Register Discussions on BOTH the member-profile and space nav surfaces via
 		// the unified Nav API (one registry, one renderer) — profile tab carries a
@@ -784,10 +784,12 @@ class JetonomyBridge {
 	/**
 	 * Create a BuddyNext notification when someone replies to a Jetonomy discussion.
 	 *
+	 * The space context is resolved from the reply's parent post, so the hook's
+	 * second argument is not needed and is not requested (accepted_args = 1).
+	 *
 	 * @param int $reply_id Jetonomy reply ID.
-	 * @param int $space_id Jetonomy space ID.
 	 */
-	public function notify_discussion_reply( int $reply_id, int $space_id ): void {
+	public function notify_discussion_reply( int $reply_id ): void {
 		if ( ! class_exists( 'Jetonomy\Models\Reply' ) || ! class_exists( 'Jetonomy\Models\Post' ) ) {
 			return;
 		}

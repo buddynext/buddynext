@@ -198,8 +198,8 @@ class CertRunner {
 		$endpoints = array();
 		if ( isset( $this->manifest['features']['restRoutes'] ) && is_array( $this->manifest['features']['restRoutes'] ) ) {
 			foreach ( $this->manifest['features']['restRoutes'] as $r ) {
-				$ns    = isset( $r['namespace'] ) ? trim( (string) $r['namespace'], '/' ) : '';
-				$route = isset( $r['route'] ) ? '/' . ltrim( (string) $r['route'], '/' ) : '';
+				$ns          = isset( $r['namespace'] ) ? trim( (string) $r['namespace'], '/' ) : '';
+				$route       = isset( $r['route'] ) ? '/' . ltrim( (string) $r['route'], '/' ) : '';
 				$endpoints[] = array(
 					'methods' => isset( $r['methods'] ) ? $r['methods'] : array(),
 					'route'   => '/' . $ns . $route,

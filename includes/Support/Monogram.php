@@ -35,7 +35,8 @@ final class Monogram {
 	 * @return string One or two characters, or '•'.
 	 */
 	public static function initials( string $text ): string {
-		$parts = array_values( array_filter( preg_split( '/\s+/', trim( $text ) ) ?: array() ) );
+		$split = preg_split( '/\s+/', trim( $text ) );
+		$parts = array_values( array_filter( false === $split ? array() : $split ) );
 		if ( empty( $parts ) ) {
 			return '•';
 		}

@@ -387,7 +387,7 @@ class ModerationQueue {
 							<?php $u = get_userdata( (int) $s['user_id'] ); ?>
 							<tr>
 								<td><?php echo esc_html( $u ? $u->display_name : '#' . (int) $s['user_id'] ); ?></td>
-								<td><?php echo esc_html( (string) ( $s['reason'] ?: __( '(no reason given)', 'buddynext' ) ) ); ?></td>
+								<td><?php echo esc_html( (string) ( ! empty( $s['reason'] ) ? $s['reason'] : __( '(no reason given)', 'buddynext' ) ) ); ?></td>
 								<td><?php echo esc_html( $s['expires_at'] ? $this->ago( (string) $s['expires_at'] ) : __( 'Permanent', 'buddynext' ) ); ?></td>
 								<td><?php $this->user_button( (int) $s['user_id'], 'unsuspend', __( 'Lift suspension', 'buddynext' ), 'secondary' ); ?></td>
 							</tr>

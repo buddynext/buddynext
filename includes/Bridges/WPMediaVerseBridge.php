@@ -203,7 +203,11 @@ class WPMediaVerseBridge {
 		if ( in_array( (string) $media_type, array( 'photo', 'image' ), true ) ) {
 			( new PostService() )->create(
 				$user_id,
-				array( 'type' => 'photo', 'content' => '', 'media_ids' => array( $media_id ) )
+				array(
+					'type'      => 'photo',
+					'content'   => '',
+					'media_ids' => array( $media_id ),
+				)
 			);
 			return;
 		}

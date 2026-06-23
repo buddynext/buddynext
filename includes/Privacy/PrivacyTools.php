@@ -115,9 +115,11 @@ class PrivacyTools implements ListenerInterface {
 		return $erasers;
 	}
 
-	/* ─────────────────────────────────────────────────────────────────────
+	/*
+	─────────────────────────────────────────────────────────────────────
 	 * Exporter
-	 * ──────────────────────────────────────────────────────────────────── */
+	 * ────────────────────────────────────────────────────────────────────
+	 */
 
 	/**
 	 * Export a user's BuddyNext data, paginated by the core contract.
@@ -233,7 +235,7 @@ class PrivacyTools implements ListenerInterface {
 			// instantiates an object gadget.
 			$value = $row['meta_value'];
 			if ( is_serialized( $value ) ) {
-				$value = @unserialize( $value, array( 'allowed_classes' => false ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+				$value = @unserialize( $value, array( 'allowed_classes' => false ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize -- allowed_classes => false blocks object injection; deliberately not maybe_unserialize() on attacker-influenced usermeta.
 			}
 			if ( is_array( $value ) || is_object( $value ) ) {
 				$value = wp_json_encode( $value );
@@ -269,7 +271,7 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT v.field_id, v.value, f.label
@@ -281,6 +283,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		if ( empty( $rows ) ) {
 			return array();
@@ -379,7 +382,7 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT requester_id, recipient_id, status, note, created_at FROM {$p}bn_connections WHERE requester_id = %d OR recipient_id = %d",
@@ -388,6 +391,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$items = array();
 		foreach ( $rows as $i => $row ) {
@@ -436,7 +440,7 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT blocked_id, type, created_at FROM {$p}bn_blocks WHERE blocker_id = %d",
@@ -444,6 +448,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$items = array();
 		foreach ( $rows as $i => $row ) {
@@ -481,7 +486,7 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT m.space_id, m.role, m.status, m.joined_at, s.name
@@ -492,6 +497,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$items = array();
 		foreach ( $rows as $i => $row ) {
@@ -534,7 +540,7 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT h.name, hf.created_at
@@ -545,6 +551,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		if ( empty( $rows ) ) {
 			return array();
@@ -578,7 +585,7 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT type, on_site, email_freq FROM {$p}bn_notification_prefs WHERE user_id = %d ORDER BY type",
@@ -586,6 +593,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		if ( empty( $rows ) ) {
 			return array();
@@ -628,7 +636,7 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT type, object_type, object_id, is_read, created_at FROM {$p}bn_notifications WHERE recipient_id = %d ORDER BY created_at DESC LIMIT %d",
@@ -637,6 +645,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$items = array();
 		foreach ( $rows as $i => $row ) {
@@ -680,7 +689,7 @@ class PrivacyTools implements ListenerInterface {
 		$p      = $wpdb->prefix;
 		$offset = ( max( 1, $page ) - 1 ) * self::PER_PAGE;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT id, type, content, link_url, privacy, status, created_at FROM {$p}bn_posts WHERE user_id = %d ORDER BY id ASC LIMIT %d OFFSET %d",
@@ -690,6 +699,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$items = array();
 		foreach ( $rows as $row ) {
@@ -741,7 +751,7 @@ class PrivacyTools implements ListenerInterface {
 		$p      = $wpdb->prefix;
 		$offset = ( max( 1, $page ) - 1 ) * self::PER_PAGE;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT id, object_type, object_id, content, is_deleted, created_at FROM {$p}bn_comments WHERE user_id = %d ORDER BY id ASC LIMIT %d OFFSET %d",
@@ -751,6 +761,7 @@ class PrivacyTools implements ListenerInterface {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$items = array();
 		foreach ( $rows as $row ) {
@@ -782,9 +793,11 @@ class PrivacyTools implements ListenerInterface {
 		return $items;
 	}
 
-	/* ─────────────────────────────────────────────────────────────────────
+	/*
+	─────────────────────────────────────────────────────────────────────
 	 * Eraser
-	 * ──────────────────────────────────────────────────────────────────── */
+	 * ────────────────────────────────────────────────────────────────────
+	 */
 
 	/**
 	 * Erase a user's BuddyNext data, paginated by the core contract.
@@ -849,7 +862,7 @@ class PrivacyTools implements ListenerInterface {
 		$removed = false;
 
 		// Decrement member counts for spaces the user actively belonged to.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $p is $wpdb->prefix; every query is built via $wpdb->prepare() (the $queries array holds pre-prepared strings).
 		$active_space_ids = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT space_id FROM {$p}bn_space_members WHERE user_id = %d AND status = 'active'",
@@ -903,7 +916,7 @@ class PrivacyTools implements ListenerInterface {
 				$wpdb->esc_like( 'bn_' ) . '%'
 			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 		if ( $deleted_meta > 0 ) {
 			$removed = true;
 		}
@@ -941,10 +954,11 @@ class PrivacyTools implements ListenerInterface {
 		);
 
 		if ( empty( $post_ids ) ) {
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			return false;
 		}
 
+		// $ids_in is a comma-joined list of intval()-cast post IDs and $p is
+		// $wpdb->prefix, so these interpolations carry no untrusted input.
 		$ids_in = implode( ',', array_map( 'intval', $post_ids ) );
 
 		$wpdb->query( "DELETE FROM {$p}bn_poll_votes WHERE post_id IN ({$ids_in})" );
@@ -991,7 +1005,6 @@ class PrivacyTools implements ListenerInterface {
 		);
 
 		if ( empty( $rows ) ) {
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			return false;
 		}
 
@@ -1015,9 +1028,11 @@ class PrivacyTools implements ListenerInterface {
 		return true;
 	}
 
-	/* ─────────────────────────────────────────────────────────────────────
+	/*
+	─────────────────────────────────────────────────────────────────────
 	 * Counting / pagination helpers
-	 * ──────────────────────────────────────────────────────────────────── */
+	 * ────────────────────────────────────────────────────────────────────
+	 */
 
 	/**
 	 * Count the user's authored posts.
@@ -1096,9 +1111,11 @@ class PrivacyTools implements ListenerInterface {
 		return (int) max( 1, (int) ceil( $total / self::PER_PAGE ) );
 	}
 
-	/* ─────────────────────────────────────────────────────────────────────
+	/*
+	─────────────────────────────────────────────────────────────────────
 	 * Misc helpers
-	 * ──────────────────────────────────────────────────────────────────── */
+	 * ────────────────────────────────────────────────────────────────────
+	 */
 
 	/**
 	 * Human-readable label for a related member (display name + id fallback).
