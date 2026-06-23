@@ -572,7 +572,7 @@ class AssetService {
 	}
 
 	/**
-	 * social/follow-store: Follow + Connect buttons and their request inboxes.
+	 * Social/follow-store: Follow + Connect buttons and their request inboxes.
 	 * One shared dictionary is read by all four social namespaces in the store.
 	 *
 	 * @return void
@@ -583,49 +583,49 @@ class AssetService {
 			array(
 				'i18n' => array(
 					// Follow button labels.
-					'follow'                 => __( 'Follow', 'buddynext' ),
-					'following'              => __( 'Following', 'buddynext' ),
-					'requested'              => __( 'Requested', 'buddynext' ),
-					'ariaFollow'             => __( 'Follow this user', 'buddynext' ),
-					'ariaUnfollow'           => __( 'Unfollow this user', 'buddynext' ),
-					'ariaCancelRequest'      => __( 'Cancel follow request', 'buddynext' ),
+					'follow'                  => __( 'Follow', 'buddynext' ),
+					'following'               => __( 'Following', 'buddynext' ),
+					'requested'               => __( 'Requested', 'buddynext' ),
+					'ariaFollow'              => __( 'Follow this user', 'buddynext' ),
+					'ariaUnfollow'            => __( 'Unfollow this user', 'buddynext' ),
+					'ariaCancelRequest'       => __( 'Cancel follow request', 'buddynext' ),
 					/* translators: %s: member name */
-					'toastUnfollowed'        => __( 'Unfollowed @%s', 'buddynext' ),
+					'toastUnfollowed'         => __( 'Unfollowed @%s', 'buddynext' ),
 					/* translators: %s: member name */
-					'toastRequestCancelled'  => __( 'Follow request to @%s cancelled', 'buddynext' ),
+					'toastRequestCancelled'   => __( 'Follow request to @%s cancelled', 'buddynext' ),
 					/* translators: %s: member name */
-					'toastRequestSent'       => __( 'Follow request sent to @%s', 'buddynext' ),
+					'toastRequestSent'        => __( 'Follow request sent to @%s', 'buddynext' ),
 					/* translators: %s: member name */
-					'toastNowFollowing'      => __( 'Now following @%s', 'buddynext' ),
+					'toastNowFollowing'       => __( 'Now following @%s', 'buddynext' ),
 					/* translators: %s: member name */
-					'toastCouldNotUnfollow'  => __( 'Could not unfollow @%s. Try again.', 'buddynext' ),
+					'toastCouldNotUnfollow'   => __( 'Could not unfollow @%s. Try again.', 'buddynext' ),
 					/* translators: %s: member name */
-					'toastCouldNotFollow'    => __( 'Could not follow @%s. Try again.', 'buddynext' ),
+					'toastCouldNotFollow'     => __( 'Could not follow @%s. Try again.', 'buddynext' ),
 					// Follow-request inbox.
 					/* translators: %s: member name */
-					'toastCanFollowYou'      => __( '@%s can now follow you', 'buddynext' ),
-					'toastApproveFailed'     => __( 'Could not approve request. Try again.', 'buddynext' ),
+					'toastCanFollowYou'       => __( '@%s can now follow you', 'buddynext' ),
+					'toastApproveFailed'      => __( 'Could not approve request. Try again.', 'buddynext' ),
 					/* translators: %s: member name */
-					'toastRequestDeclined'   => __( 'Request from @%s declined', 'buddynext' ),
-					'toastDeclineFailed'     => __( 'Could not decline request. Try again.', 'buddynext' ),
+					'toastRequestDeclined'    => __( 'Request from @%s declined', 'buddynext' ),
+					'toastDeclineFailed'      => __( 'Could not decline request. Try again.', 'buddynext' ),
 					// Connection button labels.
-					'connect'                => __( 'Connect', 'buddynext' ),
-					'connected'              => __( 'Connected', 'buddynext' ),
-					'respond'                => __( 'Respond', 'buddynext' ),
+					'connect'                 => __( 'Connect', 'buddynext' ),
+					'connected'               => __( 'Connected', 'buddynext' ),
+					'respond'                 => __( 'Respond', 'buddynext' ),
 					/* translators: %s: member name */
-					'noteBody'               => __( 'Add a personal message to your request to @%s, or send it without one.', 'buddynext' ),
+					'noteBody'                => __( 'Add a personal message to your request to @%s, or send it without one.', 'buddynext' ),
 					/* translators: %s: member name */
-					'toastConnectionSent'    => __( 'Connection request sent to @%s', 'buddynext' ),
-					'toastCouldNotConnect'   => __( 'Could not send connection request. Try again.', 'buddynext' ),
+					'toastConnectionSent'     => __( 'Connection request sent to @%s', 'buddynext' ),
+					'toastCouldNotConnect'    => __( 'Could not send connection request. Try again.', 'buddynext' ),
 					/* translators: %s: member name */
-					'toastRequestWithdrawn'  => __( 'Request to @%s withdrawn', 'buddynext' ),
-					'toastCouldNotWithdraw'  => __( 'Could not withdraw request. Try again.', 'buddynext' ),
+					'toastRequestWithdrawn'   => __( 'Request to @%s withdrawn', 'buddynext' ),
+					'toastCouldNotWithdraw'   => __( 'Could not withdraw request. Try again.', 'buddynext' ),
 					/* translators: %s: member name */
-					'toastConnectedWith'     => __( 'Connected with @%s', 'buddynext' ),
-					'toastCouldNotAccept'    => __( 'Could not accept request. Try again.', 'buddynext' ),
-					'toastCouldNotDecline'   => __( 'Could not decline request. Try again.', 'buddynext' ),
+					'toastConnectedWith'      => __( 'Connected with @%s', 'buddynext' ),
+					'toastCouldNotAccept'     => __( 'Could not accept request. Try again.', 'buddynext' ),
+					'toastCouldNotDecline'    => __( 'Could not decline request. Try again.', 'buddynext' ),
 					/* translators: %s: member name */
-					'toastDisconnected'      => __( 'Disconnected from @%s', 'buddynext' ),
+					'toastDisconnected'       => __( 'Disconnected from @%s', 'buddynext' ),
 					'toastCouldNotDisconnect' => __( 'Could not disconnect. Try again.', 'buddynext' ),
 				),
 			)
@@ -633,7 +633,7 @@ class AssetService {
 	}
 
 	/**
-	 * feed/store: post cards, composer, comments, share modal, and realtime pills.
+	 * Feed/store: post cards, composer, comments, share modal, and realtime pills.
 	 * One shared dictionary is read by every namespace + DOM builder in feed/store.js.
 	 *
 	 * @return void
@@ -782,7 +782,7 @@ class AssetService {
 	}
 
 	/**
-	 * members/store: directory filter bar, JS-built cards, Follow/Connect/kebab
+	 * Members/store: directory filter bar, JS-built cards, Follow/Connect/kebab
 	 * actions, and the cross-surface Block + Report modals.
 	 *
 	 * @return void
@@ -861,7 +861,7 @@ class AssetService {
 	}
 
 	/**
-	 * spaces/store: directory, home, membership CTAs, settings, moderation,
+	 * Spaces/store: directory, home, membership CTAs, settings, moderation,
 	 * composer, invites, image uploaders and the shared confirm modal.
 	 *
 	 * @return void
@@ -954,7 +954,7 @@ class AssetService {
 	}
 
 	/**
-	 * messages/store: native /messages/ UI — composer, thread actions, reactions,
+	 * Messages/store: native /messages/ UI — composer, thread actions, reactions,
 	 * reports, block, group create / manage.
 	 *
 	 * @return void
@@ -1013,7 +1013,7 @@ class AssetService {
 	}
 
 	/**
-	 * profile/store: profile view + edit — crop/cover modals, repeater builder,
+	 * Profile/store: profile view + edit — crop/cover modals, repeater builder,
 	 * validation, relationship actions, password + 2FA flows.
 	 *
 	 * @return void
@@ -1158,7 +1158,7 @@ class AssetService {
 	}
 
 	/**
-	 * moderation/store: report queue, user sanctions, appeals, and space
+	 * Moderation/store: report queue, user sanctions, appeals, and space
 	 * moderation dialogs/toasts.
 	 *
 	 * @return void
@@ -1204,7 +1204,7 @@ class AssetService {
 	}
 
 	/**
-	 * onboarding/store: 4-step wizard — step labels, profile preview, username
+	 * Onboarding/store: 4-step wizard — step labels, profile preview, username
 	 * availability, join/follow buttons, avatar upload, and completion.
 	 *
 	 * @return void
@@ -1247,7 +1247,7 @@ class AssetService {
 	}
 
 	/**
-	 * notifications/store: read/dismiss toasts, space-invite accept/decline, and
+	 * Notifications/store: read/dismiss toasts, space-invite accept/decline, and
 	 * the mark-all-read failure path.
 	 *
 	 * @return void
@@ -1271,7 +1271,7 @@ class AssetService {
 	}
 
 	/**
-	 * notifications/prefs-store: notification preferences save bar + toasts.
+	 * Notifications/prefs-store: notification preferences save bar + toasts.
 	 *
 	 * @return void
 	 */
@@ -1301,7 +1301,7 @@ class AssetService {
 	}
 
 	/**
-	 * search/store: saved-search composer messages (name-required, saved
+	 * Search/store: saved-search composer messages (name-required, saved
 	 * confirmation, Pro-required failure notice).
 	 *
 	 * @return void
@@ -1320,7 +1320,7 @@ class AssetService {
 	}
 
 	/**
-	 * hashtags/store: hashtag follow toggle feedback. The store registers under
+	 * Hashtags/store: hashtag follow toggle feedback. The store registers under
 	 * buddynext/feed for directives but reads its strings from this dedicated
 	 * buddynext/hashtags namespace so its small dictionary stays separate.
 	 *
@@ -1343,7 +1343,7 @@ class AssetService {
 	}
 
 	/**
-	 * space-members/store: per-card kebab menu plus the Remove-member and
+	 * Space-members/store: per-card kebab menu plus the Remove-member and
 	 * Change-role management actions.
 	 *
 	 * @return void
@@ -1364,7 +1364,7 @@ class AssetService {
 	}
 
 	/**
-	 * auth/store: login/register tab labels + password-strength meter + the
+	 * Auth/store: login/register tab labels + password-strength meter + the
 	 * password show/hide toggle.
 	 *
 	 * @return void
@@ -1386,7 +1386,7 @@ class AssetService {
 	}
 
 	/**
-	 * auth/login-store: login form — validation, sign-in path, 2FA code step,
+	 * Auth/login-store: login form — validation, sign-in path, 2FA code step,
 	 * and email-code fallback toasts.
 	 *
 	 * @return void
@@ -1412,7 +1412,7 @@ class AssetService {
 	}
 
 	/**
-	 * auth/signup-store: registration form — inline field validation, the
+	 * Auth/signup-store: registration form — inline field validation, the
 	 * password-strength labels, and create-account toasts.
 	 *
 	 * @return void
@@ -1438,7 +1438,7 @@ class AssetService {
 	}
 
 	/**
-	 * auth/verify-store: email-verification resend toasts.
+	 * Auth/verify-store: email-verification resend toasts.
 	 *
 	 * @return void
 	 */
@@ -1455,7 +1455,7 @@ class AssetService {
 	}
 
 	/**
-	 * auth/reset-store: password-reset request + set-new-password screens.
+	 * Auth/reset-store: password-reset request + set-new-password screens.
 	 *
 	 * @return void
 	 */
@@ -1475,6 +1475,18 @@ class AssetService {
 		);
 	}
 
+	/**
+	 * Enqueue a feature's registered style and Interactivity script module.
+	 *
+	 * Resolves the feature slug to the `bn-<slug>` style handle and the
+	 * `@buddynext/<slug>` script module, enqueuing both by handle so WordPress
+	 * resolves them at print time. Features that ship only a script module (and
+	 * reuse another feature's stylesheet) have no registered style handle, so
+	 * the style enqueue is a harmless no-op.
+	 *
+	 * @param string $feature Feature slug to enqueue assets for.
+	 * @return void
+	 */
 	public function enqueue( string $feature ): void {
 		$slug   = sanitize_key( $feature );
 		$handle = 'bn-' . $slug;

@@ -196,7 +196,11 @@ class ImageStorageService {
 
 		$this->purge_dir( $dir );
 		if ( is_dir( $dir ) ) {
-			@rmdir( $dir ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- best-effort cleanup.
+			// Files are removed via wp_delete_file() in purge_dir(); only the now-empty,
+			// plugin-owned uploads subfolder remains. Core has no wp_* wrapper for
+			// removing a directory and bootstrapping WP_Filesystem for a best-effort
+			// cleanup is disproportionate, so rmdir() is used directly and silenced.
+			@rmdir( $dir ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- best-effort cleanup of plugin-owned uploads folder.
 		}
 	}
 

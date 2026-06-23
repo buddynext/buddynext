@@ -289,7 +289,8 @@ class Members extends AdminPageBase {
 	 * here for email/notification dispatch) and the legacy buddynext_member_suspended
 	 * hook for any third-party listeners.
 	 *
-	 * @param int $user_id WordPress user ID.
+	 * @param int    $user_id WordPress user ID.
+	 * @param string $reason  Optional reason recorded with the suspension.
 	 * @return void
 	 */
 	public function suspend_member( int $user_id, string $reason = '' ): void {
@@ -515,9 +516,9 @@ class Members extends AdminPageBase {
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'page'         => 'buddynext-members',
-					'bulk_action'  => $bulk_action,
-					'bulk_done'    => $done,
+					'page'        => 'buddynext-members',
+					'bulk_action' => $bulk_action,
+					'bulk_done'   => $done,
 				),
 				admin_url( 'admin.php' )
 			)
@@ -938,7 +939,7 @@ class Members extends AdminPageBase {
 		// nothing because every target was an admin/self) gave no feedback at all.
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$bulk_action_done = sanitize_key( wp_unslash( $_GET['bulk_action'] ?? '' ) );
-		if ( '' !== $bulk_action_done && isset( $_GET['bulk_done'] ) ) {
+		if ( '' !== $bulk_action_done && isset( $_GET['bulk_done'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display of a post-redirect notice flag; the state-changing bulk action in handle_bulk() verifies its own nonce.
 			$bulk_done = absint( wp_unslash( $_GET['bulk_done'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			if ( $bulk_done > 0 ) {
 				$bulk_msg = 'suspend' === $bulk_action_done

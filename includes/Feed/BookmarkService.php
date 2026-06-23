@@ -213,7 +213,7 @@ class BookmarkService {
 		// in the bookmark order. filter_visible() keeps only published posts the
 		// viewer may see (blocks, secret-space, followers-only, private, author
 		// suspension/shadow-ban).
-		$post_ids = array_map( static fn ( array $r ): int => (int) $r['post_id'], $rows );
+		$post_ids     = array_map( static fn ( array $r ): int => (int) $r['post_id'], $rows );
 		$post_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'post_service' ) : new PostService();
 		$visible_ids  = $post_service->filter_visible( $post_ids, $user_id );
 

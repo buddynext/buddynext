@@ -226,6 +226,7 @@ class RolesTab {
 	/**
 	 * Redirect back to the Roles tab with a saved flag.
 	 *
+	 * @param bool $ok Whether the save succeeded; controls the bn_roles flag.
 	 * @return void
 	 */
 	private function redirect_back( bool $ok = true ): void {

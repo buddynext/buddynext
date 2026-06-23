@@ -109,7 +109,7 @@ final class NavOverrides {
 	 * @param string                         $hub   Current hub slug (unused).
 	 * @return array<int,array<string,mixed>>
 	 */
-	public function apply_rail( $items, $hub = '' ): array {
+	public function apply_rail( $items, $hub = '' ): array { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $hub is part of the buddynext_rail_items filter signature (accepted_args=2).
 		$items     = (array) $items;
 		$overrides = $this->overrides( 'main' );
 
@@ -345,7 +345,7 @@ final class NavOverrides {
 	 * @param string $active Active section key (unused).
 	 * @return array<int,array<string,mixed>>
 	 */
-	public function apply_mobile_items( $items, $active = '' ): array {
+	public function apply_mobile_items( $items, $active = '' ): array { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $active is part of the buddynext_mobile_nav_items filter signature (accepted_args=2).
 		$items     = (array) $items;
 		$overrides = $this->overrides( 'mobile' );
 		if ( empty( $overrides ) ) {

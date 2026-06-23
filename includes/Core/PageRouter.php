@@ -470,7 +470,7 @@ class PageRouter {
 		if ( 'spaces' === $hub && ! empty( $context['space_slug'] ) ) {
 			$space_record = ( new \BuddyNext\Spaces\SpaceService() )->get_by_slug( (string) $context['space_slug'] );
 			if ( null !== $space_record ) {
-				$space_name   = (string) ( $space_record['name'] ?? '' );
+				$space_name = (string) ( $space_record['name'] ?? '' );
 				// Clean URLs: the tab is always bn_space_action now (no ?bn_tab=).
 				$space_action  = (string) ( $context['space_action'] ?? '' );
 				$section_label = '';

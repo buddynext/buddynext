@@ -204,7 +204,7 @@ class EmailEditor {
 				),
 			),
 			__( 'Moderation', 'buddynext' )   => array(
-				'bn.strike_issued' => array(
+				'bn.strike_issued'             => array(
 					'name'    => __( 'Strike Issued', 'buddynext' ),
 					'trigger' => __( 'When a moderation strike is issued to a member', 'buddynext' ),
 					'tokens'  => array( '{{recipient_name}}', '{{site_name}}' ),
@@ -212,7 +212,7 @@ class EmailEditor {
 					'preview' => 'Important account notice.',
 					'body'    => "Hi {{recipient_name}},\n\nA moderation strike has been issued on your account at <strong>{{site_name}}</strong>. Please review the community guidelines to avoid further action.",
 				),
-				'bn.strike_warning'           => array(
+				'bn.strike_warning'            => array(
 					'name'    => __( 'Strike Warning', 'buddynext' ),
 					'trigger' => __( 'When a member is warned (approaching the strike threshold)', 'buddynext' ),
 					'tokens'  => array( '{{recipient_name}}', '{{site_name}}' ),
@@ -220,7 +220,7 @@ class EmailEditor {
 					'preview' => 'Please review the community guidelines.',
 					'body'    => "Hi {{recipient_name}},\n\nThis is a warning regarding activity on your account at <strong>{{site_name}}</strong>. Please review the community guidelines to keep your account in good standing.",
 				),
-				'bn.member_suspended'         => array(
+				'bn.member_suspended'          => array(
 					'name'    => __( 'Member Suspended', 'buddynext' ),
 					'trigger' => __( 'When a member is suspended', 'buddynext' ),
 					'tokens'  => array( '{{recipient_name}}', '{{site_name}}' ),
@@ -228,7 +228,7 @@ class EmailEditor {
 					'preview' => 'Your account has been suspended.',
 					'body'    => "Hi {{recipient_name}},\n\nYour account at <strong>{{site_name}}</strong> has been suspended following a review of community guideline violations. If you believe this was a mistake, you can submit an appeal.",
 				),
-				'bn.appeal_resolved'          => array(
+				'bn.appeal_resolved'           => array(
 					'name'    => __( 'Appeal Resolved', 'buddynext' ),
 					'trigger' => __( 'When a member\'s appeal is decided', 'buddynext' ),
 					'tokens'  => array( '{{recipient_name}}', '{{site_name}}' ),
@@ -244,7 +244,7 @@ class EmailEditor {
 					'preview' => 'Welcome back — your account is active again.',
 					'body'    => "Hi {{recipient_name}},\n\nGood news — your account at <strong>{{site_name}}</strong> has been restored and you can participate again.\n\n<a href=\"{{site_url}}\">Return to the community →</a>",
 				),
-				'bn.new_report'               => array(
+				'bn.new_report'                => array(
 					'name'    => __( 'New Report (admin)', 'buddynext' ),
 					'trigger' => __( 'When content is reported (sent to moderators)', 'buddynext' ),
 					'tokens'  => array( '{{recipient_name}}', '{{site_name}}', '{{action_url}}' ),
@@ -282,7 +282,7 @@ class EmailEditor {
 				),
 			),
 			__( 'Auth', 'buddynext' )         => array(
-				'welcome'      => array(
+				'welcome'              => array(
 					'name'    => __( 'Welcome Email', 'buddynext' ),
 					'trigger' => __( 'Sent on registration', 'buddynext' ),
 					'tokens'  => array( '{{recipient_name}}', '{{login_url}}', '{{site_name}}' ),
@@ -290,7 +290,7 @@ class EmailEditor {
 					'preview' => "Get started with {{site_name}} — here's everything you need.",
 					'body'    => "Hi {{recipient_name}},\n\nWelcome to <strong>{{site_name}}</strong>! We're excited to have you.\n\n<a href=\"{{login_url}}\">Get started →</a>",
 				),
-				'email_verify' => array(
+				'email_verify'         => array(
 					'name'    => __( 'Email Verification', 'buddynext' ),
 					'trigger' => __( 'Verify email address (OTP)', 'buddynext' ),
 					'tokens'  => array( '{{recipient_name}}', '{{otp_code}}', '{{site_name}}' ),

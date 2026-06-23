@@ -203,7 +203,11 @@ class RegistrationGuard {
 		}
 
 		$allowed = array();
-		foreach ( preg_split( '/[\r\n,]+/', $raw ) ?: array() as $line ) {
+		$lines   = preg_split( '/[\r\n,]+/', $raw );
+		if ( false === $lines ) {
+			$lines = array();
+		}
+		foreach ( $lines as $line ) {
 			$line = strtolower( trim( (string) $line ) );
 			$line = ltrim( $line, '@' ); // Tolerate "@example.com" entries.
 			if ( '' !== $line ) {

@@ -544,6 +544,19 @@ class FeedController extends BaseRestController {
 		return (string) ob_get_clean();
 	}
 
+	/**
+	 * Render a list of feed post cards to their canonical server-side HTML.
+	 *
+	 * Loops the hydrated items through the same `partials/post-card.php`
+	 * pipeline as a single card, so infinite-scroll pages hydrate identically
+	 * to the initial render. Returns '' when there is nothing to render or the
+	 * template helper is unavailable.
+	 *
+	 * @param array<int,array<string,mixed>> $items   Hydrated post arrays (PostService::hydrate shape).
+	 * @param int                            $viewer  Current user ID.
+	 * @param string                         $context Render context (e.g. 'home').
+	 * @return string Escape-on-output card markup, or '' if unavailable.
+	 */
 	private function render_items_html( array $items, int $viewer, string $context ): string {
 		if ( empty( $items ) || ! function_exists( 'buddynext_get_template' ) ) {
 			return '';

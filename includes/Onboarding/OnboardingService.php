@@ -88,8 +88,8 @@ class OnboardingService {
 	/**
 	 * Persist the Step 2 interest category IDs.
 	 *
-	 * @param int                $user_id      WordPress user ID.
-	 * @param array<int,mixed>   $interest_ids Interest category IDs.
+	 * @param int              $user_id      WordPress user ID.
+	 * @param array<int,mixed> $interest_ids Interest category IDs.
 	 * @return void
 	 */
 	public function save_interest_ids( int $user_id, array $interest_ids ): void {
@@ -100,7 +100,7 @@ class OnboardingService {
 	/**
 	 * Persist free-text interest labels (the member's chosen interests).
 	 *
-	 * @param int           $user_id WordPress user ID.
+	 * @param int              $user_id WordPress user ID.
 	 * @param array<int,mixed> $labels Interest label strings.
 	 * @return string The stored comma-joined label string.
 	 */
@@ -213,7 +213,7 @@ class OnboardingService {
 	 * elsewhere are preserved. Only known channel keys present in the input
 	 * are written.
 	 *
-	 * @param int                 $user_id  WordPress user ID.
+	 * @param int                  $user_id  WordPress user ID.
 	 * @param array<string, mixed> $channels Channel flags keyed email/in_app/push.
 	 * @return void
 	 */
@@ -268,9 +268,9 @@ class OnboardingService {
 	}
 
 	// Step 2 (Spaces)        → join handled in OnboardingController::complete()
-	//                          and the inline joinSuggestedSpace REST call.
+	// and the inline joinSuggestedSpace REST call.
 	// Step 3 (People)        → follow handled in OnboardingController::complete()
-	//                          and the inline followSuggestedUser REST call.
+	// and the inline followSuggestedUser REST call.
 	// Step 4 (Notifications) → save_channels() above, invoked on complete.
 
 	// -------------------------------------------------------------------------

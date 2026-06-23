@@ -880,9 +880,12 @@ class ModerationService {
 		$user_meta     = array();
 		if ( ! empty( $user_ids ) ) {
 			global $wpdb;
+			// $placeholders is a "%d,..." string from array_fill( count( $user_ids ) ),
+			// bound through ...$user_ids; the literal placeholders live inside it, so the
+			// analyser reports UnfinishedPrepare even though the binding is correct.
 			$placeholders = implode( ',', array_fill( 0, count( $user_ids ), '%d' ) );
 
-			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$strike_rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT user_id, COUNT(*) AS cnt FROM {$wpdb->prefix}bn_user_strikes
@@ -900,7 +903,7 @@ class ModerationService {
 				),
 				ARRAY_A
 			);
-			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 			foreach ( (array) $strike_rows as $sr ) {
 				$strike_counts[ (int) $sr['user_id'] ] = (int) $sr['cnt'];
@@ -1360,9 +1363,12 @@ class ModerationService {
 		}
 
 		global $wpdb;
+		// $placeholders is a "%d,..." string from array_fill( count( $ids ) ), bound
+		// through ...$ids; the literal placeholders live inside it, so the analyser
+		// reports UnfinishedPrepare even though every value is bound.
 		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT id, user_id, reason, duration_days, hide_posts, expires_at, created_at, lifted_at
@@ -1372,7 +1378,7 @@ class ModerationService {
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		$out = array();
 		foreach ( (array) $rows as $row ) {

@@ -110,10 +110,14 @@ class WidgetService {
 				}
 
 				if ( count( $candidate_ids ) < $limit ) {
-					$need       = $limit - count( $candidate_ids );
-					$exclude    = array_merge( array( $user_id ), $candidate_ids );
+					$need    = $limit - count( $candidate_ids );
+					$exclude = array_merge( array( $user_id ), $candidate_ids );
+					// $exclude_ph is a "%d,..." string from array_fill( count( $exclude ) );
+					// every value (the exclude list plus the four trailing %d) is bound via
+					// the merged array, so the dynamic placeholder count trips
+					// ReplacementsWrongNumber even though the binding is correct.
 					$exclude_ph = implode( ',', array_fill( 0, count( $exclude ), '%d' ) );
-					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 					$fill_ids = $wpdb->get_col(
 						$wpdb->prepare(
 							'SELECT u.ID
@@ -133,7 +137,7 @@ class WidgetService {
 							array_merge( $exclude, array( $user_id, $user_id, $user_id, $need ) )
 						)
 					);
-					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 					$candidate_ids = array_merge( $candidate_ids, array_map( 'intval', (array) $fill_ids ) );
 				}
 
@@ -142,15 +146,18 @@ class WidgetService {
 				}
 
 				// Hydrate display fields, preserving candidate order (FoF first).
+				// $ids_ph is a "%d,..." string from array_fill( count( $candidate_ids ) ),
+				// bound through the $candidate_ids array; the literal placeholders live
+				// inside it, so the analyser reports UnfinishedPrepare.
 				$ids_ph = implode( ',', array_fill( 0, count( $candidate_ids ), '%d' ) );
-				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 				$hydrated = $wpdb->get_results(
 					$wpdb->prepare(
 						'SELECT u.ID, u.display_name, u.user_login FROM ' . $wpdb->users . ' u WHERE u.ID IN (' . $ids_ph . ')',
 						$candidate_ids
 					)
 				);
-				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 				$by_id = array();
 				foreach ( (array) $hydrated as $h ) {

@@ -1623,11 +1623,11 @@ class ProfileService {
 	 * Clamp a member-chosen visibility to be equal-or-more restrictive than the
 	 * field admin default. A member may only TIGHTEN, never loosen.
 	 *
-	 * @param string|null $chosen  Member-submitted visibility, or null (no choice).
-	 * @param string      $default Field admin-default visibility.
+	 * @param string|null $chosen        Member-submitted visibility, or null (no choice).
+	 * @param string      $admin_default Field admin-default visibility.
 	 * @return string|null Clamped visibility, or null when no member choice was made.
 	 */
-	private function clamp_visibility( ?string $chosen, string $default ): ?string {
+	private function clamp_visibility( ?string $chosen, string $admin_default ): ?string {
 		if ( null === $chosen || '' === $chosen ) {
 			return null;
 		}
@@ -1638,8 +1638,8 @@ class ProfileService {
 		}
 
 		// A looser-than-default choice is clamped up to the admin default.
-		if ( self::visibility_rank( $chosen ) < self::visibility_rank( $default ) ) {
-			return $default;
+		if ( self::visibility_rank( $chosen ) < self::visibility_rank( $admin_default ) ) {
+			return $admin_default;
 		}
 
 		return $chosen;

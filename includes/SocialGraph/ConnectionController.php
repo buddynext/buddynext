@@ -293,6 +293,7 @@ class ConnectionController extends BaseRestController {
 	/**
 	 * Return the accepted connections list for the current user.
 	 *
+	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response
 	 */
 	public function get_connections( WP_REST_Request $request ): WP_REST_Response {
@@ -317,6 +318,7 @@ class ConnectionController extends BaseRestController {
 	/**
 	 * Return the pending received requests for the current user.
 	 *
+	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response
 	 */
 	public function get_connection_requests( WP_REST_Request $request ): WP_REST_Response {

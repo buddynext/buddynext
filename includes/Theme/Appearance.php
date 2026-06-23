@@ -98,7 +98,7 @@ class Appearance {
 		}
 
 		list( $hue, $chroma ) = $this->hex_to_oklch_hc( $hex );
-		$chroma = max( 0.05, min( 0.19, $chroma ) );
+		$chroma               = max( 0.05, min( 0.19, $chroma ) );
 
 		// `:root, [data-bn-theme]` matches <html> with the same (0,1,0) specificity
 		// as the theme block; appended later, so it wins. Drive the hue/chroma for
@@ -157,9 +157,9 @@ class Appearance {
 			$c /= 255;
 			return $c <= 0.04045 ? $c / 12.92 : pow( ( $c + 0.055 ) / 1.055, 2.4 );
 		};
-		$r = $to_linear( (float) hexdec( substr( $hex, 0, 2 ) ) );
-		$g = $to_linear( (float) hexdec( substr( $hex, 2, 2 ) ) );
-		$b = $to_linear( (float) hexdec( substr( $hex, 4, 2 ) ) );
+		$r         = $to_linear( (float) hexdec( substr( $hex, 0, 2 ) ) );
+		$g         = $to_linear( (float) hexdec( substr( $hex, 2, 2 ) ) );
+		$b         = $to_linear( (float) hexdec( substr( $hex, 4, 2 ) ) );
 
 		$l = 0.4122214708 * $r + 0.5363325363 * $g + 0.0514459929 * $b;
 		$m = 0.2119034982 * $r + 0.6806995451 * $g + 0.1073969566 * $b;

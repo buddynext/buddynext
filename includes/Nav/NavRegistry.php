@@ -197,7 +197,8 @@ final class NavRegistry {
 		usort(
 			$items,
 			static function ( NavItem $a, NavItem $b ): int {
-				return ( $a->priority <=> $b->priority ) ?: ( $a->seq <=> $b->seq );
+				$by_priority = $a->priority <=> $b->priority;
+				return 0 !== $by_priority ? $by_priority : ( $a->seq <=> $b->seq );
 			}
 		);
 

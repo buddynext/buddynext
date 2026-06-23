@@ -987,7 +987,7 @@ class AdminHub {
 	 * @return void
 	 */
 	private function render_brand_bar( string $section_key = '', string $active_slug = '' ): void {
-		$version  = defined( 'BUDDYNEXT_VERSION' ) ? (string) constant( 'BUDDYNEXT_VERSION' ) : '';
+		$version = defined( 'BUDDYNEXT_VERSION' ) ? (string) constant( 'BUDDYNEXT_VERSION' ) : '';
 		// Prefer a white-label brand logo (Pro) when configured; fall back to the
 		// bundled BuddyNext mark. brand_logo_url() resolves the buddynext_brand_logo_url filter.
 		$brand_logo = \BuddyNext\Core\Plugin::brand_logo_url();
@@ -1053,8 +1053,8 @@ class AdminHub {
 			'automod'       => 'pro/14-auto-moderation/',
 			'monetization'  => 'pro/01-membership-tiers/',
 		);
-		$tab_overrides = array(
-			'members'      => array(
+		$tab_overrides    = array(
+			'members'       => array(
 				'registration' => 'accounts-access/01-registration/',
 				'roles'        => 'members/05-roles-and-capabilities/',
 				'privacy'      => 'accounts-access/08-privacy-and-data/',
@@ -1065,31 +1065,31 @@ class AdminHub {
 				'email'     => 'messaging-notifications/03-email-system/',
 				'templates' => 'messaging-notifications/03-email-system/',
 			),
-			'campaigns'    => array(
+			'campaigns'     => array(
 				'broadcasts' => 'pro/12-broadcast-email/',
 				'drip'       => 'pro/13-drip-sequences/',
 				'scheduled'  => 'pro/05-scheduled-posts/',
 				'ai-feed'    => 'pro/15-ai-feed-and-moderation/',
 			),
-			'moderation'   => array(
+			'moderation'    => array(
 				'appeals' => 'moderation/04-appeals/',
 				'bulk'    => 'pro/16-bulk-moderation/',
 				'reports' => 'moderation/01-reporting-content/',
 			),
-			'realtime'     => array(
+			'realtime'      => array(
 				'push'       => 'pro/17-push-notifications/',
 				'push-prefs' => 'pro/17-push-notifications/',
 			),
-			'engagement'   => array(
+			'engagement'    => array(
 				'reactions' => 'community/04-reactions/',
 				'insights'  => 'pro/19-analytics/',
 			),
-			'monetization' => array(
+			'monetization'  => array(
 				'stripe'  => 'pro/03-stripe-payments/',
 				'license' => 'getting-started/02-installation/',
 			),
 		);
-		$path = $tab_overrides[ $section ][ $tab ] ?? ( $section_defaults[ $section ] ?? '' );
+		$path             = $tab_overrides[ $section ][ $tab ] ?? ( $section_defaults[ $section ] ?? '' );
 		return self::DOCS_BASE . $path;
 	}
 
