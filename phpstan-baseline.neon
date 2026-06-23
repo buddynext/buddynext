@@ -25,12 +25,6 @@ parameters:
 			path: includes/Admin/RolesTab.php
 
 		-
-			message: '#^Parameter \#4 \$options of method BuddyNext\\Admin\\AdminPageBase\:\:render_select_row\(\) expects array\<string, string\>, array\<int\|string, string\> given\.$#'
-			identifier: argument.type
-			count: 2
-			path: includes/Admin/Settings.php
-
-		-
 			message: '#^Call to an undefined static method WP_CLI\:\:colorize\(\)\.$#'
 			identifier: staticMethod.notFound
 			count: 3
@@ -65,6 +59,42 @@ parameters:
 			identifier: classConstant.phpDocType
 			count: 1
 			path: includes/Core/RecommendedDefaults.php
+
+		-
+			message: '#^Offset ''media'' on array\{created_at\: int\<1, max\>, groups\: array\{\}, fields\: array\{\}, users\: array\{\}\|list\{0\: int\<1, max\>, 1\?\: int\<1, max\>, 2\?\: int\<1, max\>, 3\?\: int\<1, max\>, 4\?\: int\<1, max\>, 5\?\: int\<1, max\>, 6\?\: int\<1, max\>, 7\?\: int\<1, max\>, \.\.\.\}, spaces\: array\{\}\|list\{0\: int, 1\?\: int, 2\?\: int, 3\?\: int, 4\?\: int, 5\?\: int\}, posts\: array\{\}\|list\{0\: array\{id\: int, author\: int\<1, max\>\}, 1\?\: array\{id\: int, author\: int\<1, max\>\}, 2\?\: array\{id\: int, author\: int\<1, max\>\}, 3\?\: array\{id\: int, author\: int\<1, max\>\}, 4\?\: array\{id\: int, author\: int\<1, max\>\}, 5\?\: array\{id\: int, author\: int\<1, max\>\}, 6\?\: array\{id\: int, author\: int\<1, max\>\}, 7\?\: array\{id\: int, author\: int\<1, max\>\}, \.\.\.\}, media\: array\{\}\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: includes/Demo/DemoDataService.php
+
+		-
+			message: '#^Offset 0\|1\|2\|3\|4\|5\|6\|7\|8\|9\|10\|11 on array\{''Design systems,…'', ''CSS, accessibility,…'', ''Books, community…'', ''Type design,…'', ''Trail running, data…'', ''Pixel art, game…'', ''Ocean systems,…'', ''Coffee roasting, Go…'', \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: includes/Demo/DemoDataService.php
+
+		-
+			message: '#^Offset 0\|1\|2\|3\|4\|5\|6\|7\|8\|9\|10\|11 on array\{''she/her'', ''she/her'', ''he/him'', ''they/them'', ''she/her'', ''he/him'', ''she/her'', ''he/him'', \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: includes/Demo/DemoDataService.php
+
+		-
+			message: '#^Result of && is always true\.$#'
+			identifier: booleanAnd.alwaysTrue
+			count: 1
+			path: includes/Demo/DemoDataService.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between '''' and ''Backend Engineer''\|''Community Lead''\|''Data Scientist''\|''Developer Advocate''\|''Frontend Engineer''\|''Game Developer''\|''Hardware Engineer''\|''Illustrator''\|''OSS Maintainer''\|''Product Designer''\|''Researcher''\|''UX Writer'' will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: includes/Demo/DemoDataService.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between '''' and ''Bengaluru, IN''\|''Berlin, DE''\|''Casablanca, MA''\|''Dakar, SN''\|''Dublin, IE''\|''Gothenburg, SE''\|''Kyoto, JP''\|''Lisbon, PT''\|''Melbourne, AU''\|''Mexico City, MX''\|''Milan, IT''\|''Seoul, KR'' will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: includes/Demo/DemoDataService.php
 
 		-
 			message: '#^Action callback returns int but should not return anything\.$#'
