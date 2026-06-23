@@ -125,6 +125,22 @@
 	border-radius: inherit;
 }
 
+/* System notification (no actor): the avatar holds the type icon instead of a
+   "?" placeholder. Centre the glyph in an accent-tinted disc so it reads as a
+   deliberate system badge (e.g. an earned award), not a broken avatar. */
+.bn-notif-row__avatar--system {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: color-mix(in oklch, var(--bn-accent) 14%, var(--bn-surface));
+	color: var(--bn-accent);
+}
+
+.bn-notif-row__avatar--system svg {
+	width: 15px;
+	height: 15px;
+}
+
 .bn-notif-row__type {
 	position: absolute;
 	inset-block-end: -4px;

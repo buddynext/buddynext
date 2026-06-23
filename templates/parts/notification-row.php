@@ -119,10 +119,13 @@ do_action( 'buddynext_part_notification_row_before', $args );
 	<?php endif; ?>
 
 	<div class="bn-notif-row__avatar-wrap">
-		<?php $bn_render_avatar( $actor_id ); ?>
-		<span class="bn-notif-row__type" data-tone="<?php echo esc_attr( $tone ); ?>" aria-label="<?php echo esc_attr( $pill_label ); ?>">
-			<?php buddynext_icon( $icon ); ?>
-		</span>
+		<?php $bn_render_avatar( $actor_id, $icon ); ?>
+		<?php if ( $actor_id > 0 ) : ?>
+			<?php // For a person notification the avatar is their photo, so the small corner pill carries the type icon. A system notification (no actor) already shows the type icon as its avatar, so the pill would just duplicate it. ?>
+			<span class="bn-notif-row__type" data-tone="<?php echo esc_attr( $tone ); ?>" aria-label="<?php echo esc_attr( $pill_label ); ?>">
+				<?php buddynext_icon( $icon ); ?>
+			</span>
+		<?php endif; ?>
 	</div>
 
 	<div class="bn-notif-row__body">
