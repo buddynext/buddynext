@@ -1,4 +1,7 @@
-# Composer
+# Composer vendor/ is dev/build tooling only (phpcs, phpstan, phpunit) and is
+# never shipped. Runtime never touches it: the plugin uses a hand-written PSR-4
+# autoloader and bundles its runtime deps (Action Scheduler, EDD SL SDK) under libs/.
+/vendor/
 
 # PHPUnit
 .phpunit.result.cache

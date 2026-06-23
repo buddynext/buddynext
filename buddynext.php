@@ -24,7 +24,23 @@ define( 'BUDDYNEXT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BUDDYNEXT_URL', plugin_dir_url( __FILE__ ) );
 define( 'BUDDYNEXT_BASENAME', plugin_basename( __FILE__ ) );
 
-require_once BUDDYNEXT_DIR . 'vendor/autoload.php';
+// Autoloader — PSR-4 for the BuddyNext\ namespace (includes/). Hand-written so
+// runtime never depends on Composer: vendor/ is dev tooling only and is
+// gitignored. Bundled runtime libraries (Action Scheduler, EDD SL SDK) ship
+// committed under libs/ and are loaded by direct require_once below.
+spl_autoload_register(
+	static function ( string $class_name ): void {
+		$prefix = 'BuddyNext\\';
+		$len    = strlen( $prefix );
+		if ( strncmp( $prefix, $class_name, $len ) !== 0 ) {
+			return;
+		}
+		$file = BUDDYNEXT_DIR . 'includes/' . str_replace( '\\', '/', substr( $class_name, $len ) ) . '.php';
+		if ( is_readable( $file ) ) {
+			require $file;
+		}
+	}
+);
 
 register_activation_hook( __FILE__, array( \BuddyNext\Core\Installer::class, 'run' ) );
 register_activation_hook(

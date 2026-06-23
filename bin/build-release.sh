@@ -4,9 +4,10 @@
 #   bin/build-release.sh [dist-dir]
 #
 # Produces <dist>/buddynext-<version>.zip that QA installs and tests with NO
-# commands (no composer, no npm). It ships a LEAN runtime vendor (the composer
-# autoloader only) + libs/, and — by ALLOWLIST — only the paths the plugin needs
-# to RUN. Anything not on the allowlist (QA dirs, screenshots, docs, .md, dev
+# commands (no composer, no npm). Runtime deps ship committed under libs/ and the
+# plugin uses a hand-written PSR-4 autoloader, so the zip is deps-complete from
+# the committed tree — no vendor/, no build step. By ALLOWLIST, only the paths the
+# plugin needs to RUN ship; anything else (QA dirs, screenshots, docs, .md, dev
 # configs, the dev mu-plugins/) can never leak in, regardless of what's committed.
 # Version is read from the plugin header (never bumped here — BuddyNext is pre-release).
 set -euo pipefail
@@ -16,7 +17,7 @@ SLUG="buddynext"
 VERSION="$(grep -m1 'Version:' buddynext.php | sed -E 's/.*Version:[[:space:]]*//' | tr -d ' \r')"
 DIST="${1:-$HOME/Documents/work-artifacts/scratch}"
 
-# The ONLY paths that ship. vendor/ is added after a lean --no-dev rebuild.
+# The ONLY paths that ship (libs/ carries the committed runtime deps).
 # Optional ones (languages, uninstall.php, readme.txt) are copied only if present.
 RUNTIME=( buddynext.php includes templates assets blocks libs theme.json )
 OPTIONAL=( languages uninstall.php readme.txt )
@@ -59,14 +60,10 @@ mkdir -p "$SRC" "$STAGE"
 # 1. Clean committed state only.
 git archive HEAD | tar -x -C "$SRC"
 
-# 2. Lean runtime vendor: regenerate the autoloader WITHOUT dev deps (composer.json
-#    require is php-only, so this yields just the autoloader + a correct
-#    autoload_files.php, which a manual prune would break).
-rm -rf "$SRC/vendor"
-( cd "$SRC" && composer install --no-dev --optimize-autoloader --no-scripts --no-interaction --quiet 2>/dev/null )
-
-# 3. Copy ONLY the allowlist into the staged plugin dir.
-for item in "${RUNTIME[@]}" vendor; do
+# 2. Copy ONLY the allowlist into the staged plugin dir. No composer step:
+#    runtime deps are committed under libs/ and loaded via a hand-written
+#    autoloader, so the git-archived tree is already deps-complete.
+for item in "${RUNTIME[@]}"; do
 	[ -e "$SRC/$item" ] && cp -R "$SRC/$item" "$STAGE/$item"
 done
 for item in "${OPTIONAL[@]}"; do
