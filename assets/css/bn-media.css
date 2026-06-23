@@ -327,9 +327,12 @@ body.bn-lightbox-open { overflow: hidden; }
 }
 .bn-lightbox__action svg { width: 20px; height: 20px; }
 /* Pressed (favorited) state — declared after :hover so the accent colour holds
-   even while hovered. */
+   even while hovered. The heart fills (not just an outline colour shift) so the
+   favorited state is unmistakable, matching the universal filled-heart pattern
+   and the reaction row's active treatment. */
 .bn-lightbox__action[aria-pressed="true"],
 .bn-lightbox__action[aria-pressed="true"]:hover { color: var( --bn-accent, oklch( 58% 0.13 264 ) ); }
+.bn-lightbox__action[aria-pressed="true"] svg { fill: currentColor; }
 
 /* Comments. */
 .bn-lightbox__comments { display: flex; flex-direction: column; gap: var( --bn-s3, 12px ); }
