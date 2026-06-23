@@ -487,6 +487,15 @@ class AdminHub {
 			$version
 		);
 
+		// Left-nav accordion: remembers which sidebar sections the owner expands.
+		wp_enqueue_script(
+			'bn-admin-hub-nav',
+			$assets_url . 'js/admin/nav-accordion.js',
+			array(),
+			$version,
+			true
+		);
+
 		// Register every BuddyNext admin screen into WordPress core's native
 		// command palette (Cmd/Ctrl+K) — no competing overlay. Indexed from the
 		// AdminHub registry (Free + standalone), capability-filtered.
@@ -1117,10 +1126,25 @@ class AdminHub {
 			if ( empty( $visible ) ) {
 				continue;
 			}
-			echo '<div class="bn-hub-nav-group">';
-			echo '<div class="bn-hub-nav-group__label">' . esc_html( (string) $section['label'] ) . '</div>';
+			// Each section is a native <details> accordion: only the section that
+			// owns the current page is open by default, so the panel stays short and
+			// you don't scroll past every other section. The accordion JS persists
+			// which sections the owner expands (and always keeps the active one open).
+			$is_current_section = ( (string) $skey === $active_section );
+			printf(
+				'<details class="bn-hub-nav-group%1$s" data-bn-nav-group="%2$s"%3$s>',
+				$is_current_section ? ' is-current' : '',
+				esc_attr( (string) $skey ),
+				$is_current_section ? ' open' : ''
+			);
+			printf(
+				'<summary class="bn-hub-nav-group__label"><span class="bn-hub-nav-group__name">%1$s</span>%2$s</summary>',
+				esc_html( (string) $section['label'] ),
+				\BuddyNext\Core\IconService::render( 'chevron-down', 'bn-hub-nav-group__chevron' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses'd SVG markup.
+			);
+			echo '<div class="bn-hub-nav-group__items">';
 			foreach ( $visible as $tslug => $tab ) {
-				$is_active = ( (string) $skey === $active_section && (string) $tslug === $active_slug );
+				$is_active = ( $is_current_section && (string) $tslug === $active_slug );
 				$icon_html = ! empty( $tab['icon'] ) ? \BuddyNext\Core\IconService::render( (string) $tab['icon'] ) : '';
 				printf(
 					'<a class="bn-hub-nav-link%1$s" href="%2$s"%3$s>%4$s<span class="bn-hub-nav-link__label">%5$s</span></a>',
@@ -1132,6 +1156,7 @@ class AdminHub {
 				);
 			}
 			echo '</div>';
+			echo '</details>';
 		}
 		echo '</aside>';
 	}
