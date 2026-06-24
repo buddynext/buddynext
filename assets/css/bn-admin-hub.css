@@ -560,11 +560,13 @@
 .bn-hub-nav-group.is-current > .bn-hub-nav-group__label { color: var(--bn-ink); }
 .bn-hub-nav-group__name {
 	min-width: 0;
+	margin-inline-end: auto; /* icon + name sit left; chevron pushed to the right */
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 .bn-hub-nav-group__label svg,
+.bn-hub-nav-group__icon,
 .bn-hub-nav-group__chevron {
 	width: 15px;
 	height: 15px;
@@ -572,7 +574,12 @@
 	color: var(--bn-ink-3);
 	transition: transform 0.15s ease;
 }
-.bn-hub-nav-group[open] > .bn-hub-nav-group__label svg { transform: rotate( 180deg ); }
+/* Section icon matches the section state; the chevron stays neutral. */
+.bn-hub-nav-group.is-current > .bn-hub-nav-group__label > .bn-hub-nav-group__icon {
+	color: var(--bn-accent-600, var(--bn-accent));
+}
+/* Only the chevron rotates when the group is open — not the section icon. */
+.bn-hub-nav-group[open] > .bn-hub-nav-group__label > .bn-hub-nav-group__chevron { transform: rotate( 180deg ); }
 .bn-hub-nav-group__items { padding-top: var(--bn-s1, 4px); }
 /* Explicitly collapse closed groups. Giving <summary> display:flex can defeat the
    UA's native closed-content hiding, so drive it from the [open] state directly. */
