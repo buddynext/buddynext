@@ -51,8 +51,12 @@ class Installer {
 	 *     non-sargable CAST(meta_value) usermeta scans. Existing bn_last_active
 	 *     meta is back-filled once via maybe_backfill_presence(); the writer keeps
 	 *     dual-writing meta during the transition so readers can switch safely.
+	 * 8 — autoload hygiene: flip the historically-autoloaded per-space settings
+	 *     (bn_space_*) and the custom-CSS blob to autoload=off via
+	 *     maybe_fix_autoload() so they stop loading on every request as the
+	 *     community grows. No schema change.
 	 */
-	private const SCHEMA_VERSION = 7;
+	private const SCHEMA_VERSION = 8;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -78,7 +82,42 @@ class Installer {
 		global $wpdb;
 		self::maybe_backfill_presence( $wpdb->prefix );
 
+		// v8: stop the per-space settings + custom-CSS blob from autoloading.
+		self::maybe_fix_autoload();
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * One-time autoload hygiene: flip historically-autoloaded options off.
+	 *
+	 * Per-space settings (bn_space_*) and the custom-CSS blob were created with the
+	 * default autoload=on, so every one loaded into alloptions on every request —
+	 * a real cost once a community has thousands of spaces. They are read on demand,
+	 * never every request, so this flips them off. Idempotent and uses the WP API
+	 * (correct cross-version autoload values) rather than a raw UPDATE. No-op on
+	 * WP < 6.4 where the bulk helper is absent (readers are autoload-agnostic).
+	 *
+	 * @return void
+	 */
+	private static function maybe_fix_autoload(): void {
+		global $wpdb;
+
+		if ( ! function_exists( 'wp_set_options_autoload' ) ) {
+			return;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$names = $wpdb->get_col(
+			"SELECT option_name FROM {$wpdb->options}
+			 WHERE option_name LIKE 'bn\\_space\\_%'
+			    OR option_name = 'buddynext_custom_css'"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( ! empty( $names ) ) {
+			wp_set_options_autoload( $names, false );
+		}
 	}
 
 	/**

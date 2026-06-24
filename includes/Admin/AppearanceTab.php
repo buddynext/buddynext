@@ -131,7 +131,8 @@ class AppearanceTab {
 		// Custom CSS — stored verbatim (manage_options); neutralised on output.
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		$css = isset( $_POST['bn_custom_css'] ) ? (string) wp_unslash( $_POST['bn_custom_css'] ) : '';
-		update_option( 'buddynext_custom_css', $css );
+		// autoload=false: the CSS blob is only read on wp_head, not every request.
+		update_option( 'buddynext_custom_css', $css, false );
 
 		// Logo: remove takes precedence, then a new upload. A failed upload must NOT
 		// report success — carry its error code so the page shows why it was rejected

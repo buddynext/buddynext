@@ -381,7 +381,9 @@ class SpaceController extends BaseRestController {
 		foreach ( $bools as $key => $opt ) {
 			$param = $request->get_param( $key );
 			if ( null !== $param ) {
-				update_option( 'bn_space_' . $space_id . '_' . $opt, $param ? 1 : 0 );
+				// autoload=false: per-space settings are read on demand, never every
+				// request — keeping them out of alloptions matters at thousands of spaces.
+				update_option( 'bn_space_' . $space_id . '_' . $opt, $param ? 1 : 0, false );
 			}
 		}
 
