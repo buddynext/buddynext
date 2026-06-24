@@ -879,17 +879,6 @@ class Installer {
 				KEY         last_active (last_active)
 			) {$cs};",
 
-			"CREATE TABLE {$p}bn_feed_items (
-				id           BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				recipient_id BIGINT(20) UNSIGNED NOT NULL,
-				post_id      BIGINT(20) UNSIGNED NOT NULL,
-				score        FLOAT NOT NULL DEFAULT 0,
-				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				PRIMARY KEY  (id),
-				UNIQUE KEY   recipient_post (recipient_id, post_id),
-				KEY          recipient_score (recipient_id, score, created_at)
-			) {$cs};",
-
 			"CREATE TABLE {$p}bn_poll_options (
 				id            BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 				post_id       BIGINT(20) UNSIGNED NOT NULL,
