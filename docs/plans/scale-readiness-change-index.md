@@ -20,7 +20,7 @@ behaviour must be proven, and the contract audit + cert gates are mandatory.
 
 | Tier | Count | Meaning |
 |---|---|---|
-| **DO NOW** | 33 (15 done) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
+| **DO NOW** | 33 (26 done) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
 | **DEFER** | 8 | Real, but bigger design or lower urgency — scheduled, not now |
 | **SKIP** | 11 | Cut — caching/changing them is overhead at 100k (reasons below) |
 | **catalogued total** | 52 work-items | (was 69; +5 from the senior sweep, −22 collapsed/cut by frequency+value filter) |
@@ -36,8 +36,8 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 - [x] **E1–E6 DONE** (pro `31e6e05`) — Impression write storm fixed. Free producers left **unchanged** (the `buddynext_post_impression` hook keeps firing — zero free-side risk); batching done in the **listener**: `AnalyticsCollector::on_post_impression()` buffers per request (deduped by `post:surface`) and flushes once via a **single bulk INSERT on shutdown**. *Design deviation (senior call): chose shutdown bulk-insert over a per-request AS job — an AS job per feed render would flood the queue with millions of actions/day; the bulk insert collapses ~20 writes → 1 with no new moving part. Sampling left as a documented future lever; retention already exists (AiModerationSweep). QA: AnalyticsCollectorImpressionTest 5/5 + regression-checked (group back to baseline) + php-l/PHPStan L5/WPCS green.*
 - [x] **F1–F8 DONE** (free `9280d37b` stage 1 + `e77e28c0` stage 2) — Presence `CAST(meta_value)` scans → indexed `bn_presence(user_id PK, last_active INT, KEY)`. Stage 1: table + `SCHEMA_VERSION 6→7` + idempotent backfill + `PresenceService` dual-write + read API. Stage 2: all **8 readers** switched (MemberDirectoryService online filter/cursor/order/online_user_ids/online_now, Insights:152, Admin/Members:238 batched, BlockService:448). *EXPLAIN @100k: online filter OLD = ref scan 50,000 usermeta rows + CAST; NEW = range scan **152 rows** on `last_active` index (covering). QA: PresenceServiceTest 5/5 + Profile/SocialGraph/Realtime 57/57 + Core 169/169; static gates clean. **P4 (drop `bn_last_active` meta) deferred** — dual-write still on.*
 - [x] **G1–G7 DONE** (free `4c27998b`, pro `82846d3`) — Autoloaded per-entity/large options → `autoload=false` + one-time migration. Free: `SpaceController.php:384`, `AppearanceTab.php:134` + `SCHEMA_VERSION 7→8` `maybe_fix_autoload()`. Pro: `MembershipAdmin.php:399/402/405`, `BrandService.php:150` + `SCHEMA_ALTERS_VERSION 2→3` `maybe_fix_autoload()`. Migrations use `wp_set_options_autoload()` (WP API, correct cross-version values), idempotent. *QA: AutoloadHygieneTest free 3/3 + pro 2/2 (scoped flip, reads autoload-agnostic, idempotent); Core/Spaces/WhiteLabel regression green.*
-- [ ] **S3a** `bn_email_log` grows forever → add weekly `handle_cleanup_email_log` prune (mirror `handle_cleanup_activity_log`, gated on `buddynext_data_retention_days`). *Fastest-growing table at 100k.*
-- [ ] **S3b** Action Scheduler tables untuned → set `action_scheduler_retention_period` filter (7–14d) so fan-out's completed actions don't accumulate.
+- [x] **S3a DONE** (free `78513926`) - weekly bn_email_log retention prune. EmailLogCleanupTest 2/2.
+- [x] **S3b DONE** (free `535987c0`) - AS retention capped 14d. CronRetentionTest 1/3.
 - [x] **S4a DONE** (free `86034209`) - PresenceService throttle now wp_cache when persistent (transient fallback); PresenceServiceTest 5/5. ~~ PresenceService 60s throttle uses `set_transient` on **`template_redirect`** = `wp_options` write storm at 100k → move the guard to `wp_cache_*` (presence is ephemeral; losing it on flush is harmless). `PresenceService.php:114`. *Highest-volume offender.*
 - [ ] **S4b** Other limiters (Comment/Registration/SocialLogin/Profile/2FA) → use `wp_cache_*` when `wp_using_ext_object_cache()`, transient fallback otherwise.
 - [ ] **S5** Pro Push + Soketi dispatch fire **synchronously per notification** (blocking FCM/Soketi HTTP in-request; serializes fan-out workers) → enqueue via AS. `PushDispatcher.php:56`, `RealtimeDispatcher.php:61`. *Guards are fine; this is latency, not safety.*
@@ -50,9 +50,9 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 - [ ] **C11** `AnalyticsService` 7 aggregates — heavy COUNT/GROUP-BY, all fired per dashboard load. Medium TTL, no bust (read-only).
 - [ ] **C12** `ProfileViewService` aggregates — per-(profile,window), re-hit across viewers of a popular profile. Medium TTL.
 - [x] **C2 DONE** (free `adf8c6e0`) — `PollService::results()` cached per post_id (group `buddynext_polls`, TTL 600s); bust on vote (both toggle-off + cast paths). PollServiceCacheTest 2/2.
-- [ ] **C16** `DripService` sequence defs — global, low-traffic (marginal; cheap-correct).
+- [x] **C16 DONE** (pro `3ae3973`) - DripService::get_sequence cached, bust at 3 choke points. DripServiceCacheTest 3/3.
 - [ ] **C1(memo)** `PermissionService::can()` → **within-request memoize** (static var), NOT cross-request object cache. Collapses the many same-(user,ability,space) checks per page (nav build + REST gate + template gates). *Avoids the security risk of stale role/ban + the frozen `buddynext_user_can` filter.*
-- [ ] **C14(memo)** `LabelAssignmentService::get_user_labels()` → within-request memoize. Dedups repeated authors in the feed byline loop.
+- [x] **C14 DONE** (pro `499e06d`) - get_user_labels request-scoped memo, cleared on writes. LabelAssignment 12/12.
 - [ ] **C6(memo)** `SpaceCategoryService::get_all()` → memoize or fold into C7's key (marginal).
 - [x] **C4 RESOLVED — kept, not deleted** (lead-dev call). 0 *production* callers, but it's the read-back used by the `share()`/`unshare()` tests + its own list test. Deleting forces rewriting 2 unrelated tests for no real benefit, and it's a sensible public read API. The actual scale decision (don't cache it) stands. No code change.
 
@@ -60,9 +60,9 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 
 - [x] **A1–A15 DONE** (free `19851e80`) — deleted 15 dead `CacheService` typed methods + tests; 0 callers confirmed. Kept generic helpers.
 - [x] **B1+B2 DONE** (pro `d850807`) — EmbeddingProvider group → `buddynextpro_embeddings`; 23 wp_cache sites → `buddynextpro_membership` (AS `GROUP` left as-is). Membership+Stripe 43/43.
-- [ ] **I1** `SearchService::enrich_members()` N+1 → `cache_users()` + `update_meta_cache('user', …)` before loop.
-- [ ] **I2 / J1** `RecentActivityWidget` — prime `cache_users()` + route through `WidgetCache`.
-- [ ] **J2** `TrendingHashtagsWidget` direct query → use cached `WidgetService::trending_hashtags()`.
+- [x] **I1 DONE** (free `b03cf68b`) - enrich_members primes cache_users+update_meta_cache. Search 16/16.
+- [x] **I2/J1 DONE** (free `fa739a26`) - RecentActivityWidget short-TTL cache + cache_users prime.
+- [x] **J2 DONE** (free `fa739a26`) - TrendingHashtagsWidget uses canonical cached get_trending.
 
 ### Small / hygiene
 
