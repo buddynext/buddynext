@@ -38,7 +38,7 @@ run free with `WP_TESTS_DIR=/tmp/wordpress-tests-lib`. PHPStan needs
 
 | Tier | Count | Meaning |
 |---|---|---|
-| **DO NOW** | 33 (33 done · 0 pending) | ✅ COMPLETE | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
+| **DO NOW** | 33 (33 done · 0 pending) | ✅ COMPLETE — high value, low risk; every item implemented + tested + gate-clean |
 | **DEFER** | 8 | Real, but bigger design or lower urgency — scheduled, not now |
 | **SKIP** | 11 | Cut — caching/changing them is overhead at 100k (reasons below) |
 | **catalogued total** | 52 work-items | (was 69; +5 from the senior sweep, −22 collapsed/cut by frequency+value filter) |
