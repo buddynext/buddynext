@@ -206,7 +206,19 @@ class CertRunner {
 				);
 			}
 		} elseif ( isset( $this->manifest['rest']['endpoints'] ) && is_array( $this->manifest['rest']['endpoints'] ) ) {
-			$endpoints = $this->manifest['rest']['endpoints'];
+			// rest.endpoints may store routes either fully-qualified (Free:
+			// /buddynext/v1/...) or relative to rest.namespace (Pro: /membership/...).
+			// Prepend the namespace when the route does not already include it, so
+			// both shapes dispatch to a real registered route instead of 404-ing.
+			$ns = isset( $this->manifest['rest']['namespace'] ) ? trim( (string) $this->manifest['rest']['namespace'], '/' ) : '';
+			foreach ( $this->manifest['rest']['endpoints'] as $e ) {
+				$route = isset( $e['route'] ) ? '/' . ltrim( (string) $e['route'], '/' ) : '';
+				if ( '' !== $ns && '' !== $route && 0 !== strpos( ltrim( $route, '/' ), $ns ) ) {
+					$route = '/' . $ns . $route;
+				}
+				$e['route']  = $route;
+				$endpoints[] = $e;
+			}
 		}
 
 		foreach ( $endpoints as $e ) {
