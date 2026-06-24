@@ -16,11 +16,15 @@ each carries the reason it was cut. Nothing is deleted from the catalogue; it's 
 (caching, invalidation, schema, scheduling, access control); code-green is not sufficient,
 behaviour must be proven, and the contract audit + cert gates are mandatory.
 
-## ▶ RESUME HERE — pending DO-NOW (7 items)
+## ▶ RESUME HERE — pending DO-NOW (6 items)
 
-As of 2026-06-24 (free `@aee89c99`, pro `@499e06d`, both pushed). 26 DO-NOW items done
-and committed; the 7 below remain. Each carries its file:line + safe-execution rule in
-its checklist entry; the working test-env recipe + per-item gotchas are in session memory.
+As of 2026-06-25 (free `@06a845ed`, pro `@499e06d`). 27 DO-NOW items done
+and committed; the 6 below remain. Each carries its file:line + safe-execution rule in
+its checklist entry. **Test-env recipe:** Docker `buddynext-test-mysql` is the DB only
+(127.0.0.1:13306); the WP PHPUnit framework lives on the host at
+`/tmp/wordpress-tests-lib` (macOS `sys_get_temp_dir()` returns `/var/folders/...` which
+is an incomplete checkout — always run with `WP_TESTS_DIR=/tmp/wordpress-tests-lib`).
+PHPStan needs `--memory-limit=1G`.
 
 | # | Item | Note |
 |---|---|---|
@@ -29,7 +33,6 @@ its checklist entry; the working test-env recipe + per-item gotchas are in sessi
 | 3 | **C1** `PermissionService` | **SECURITY-SENSITIVE** — route role/ban lookups through the existing `SpaceMemberService` cache; do NOT memoize `can()`'s result (freezes `buddynext_user_can`). Do this one carefully + tested. |
 | 4 | **K1** Drip tick → AS | in `maybe_upgrade` clear old `wp_schedule_event` + arm `as_schedule_recurring_action` (group `buddynextpro_email`); KEEP hook name `buddynextpro_drip_tick` |
 | 5 | **S5** Push/Soketi sync dispatch | `PushDispatcher.php:56` + `RealtimeDispatcher.php:61` → enqueue via AS (latency, not safety) |
-| 6 | **S4b** Other rate-limiters → object cache | Comment/Registration/SocialLogin/Profile/2FA: `wp_cache_*` when `wp_using_ext_object_cache()`, transient fallback (mirror S4a) |
 | 7 | **L1** DM poll hidden-tab pause | `messages/store.js:1586` — gate on `!document.hidden` + `clearInterval` on conversation close |
 
 Also still open: **DEFER** tier (8) and the **PE-4 / PE-6** pre-existing items (see `pre-existing-issues.md`).
@@ -38,7 +41,7 @@ Also still open: **DEFER** tier (8) and the **PE-4 / PE-6** pre-existing items (
 
 | Tier | Count | Meaning |
 |---|---|---|
-| **DO NOW** | 33 (26 done · 7 pending) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
+| **DO NOW** | 33 (27 done · 6 pending) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
 | **DEFER** | 8 | Real, but bigger design or lower urgency — scheduled, not now |
 | **SKIP** | 11 | Cut — caching/changing them is overhead at 100k (reasons below) |
 | **catalogued total** | 52 work-items | (was 69; +5 from the senior sweep, −22 collapsed/cut by frequency+value filter) |
@@ -57,7 +60,7 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 - [x] **S3a DONE** (free `78513926`) - weekly bn_email_log retention prune. EmailLogCleanupTest 2/2.
 - [x] **S3b DONE** (free `535987c0`) - AS retention capped 14d. CronRetentionTest 1/3.
 - [x] **S4a DONE** (free `86034209`) - PresenceService throttle now wp_cache when persistent (transient fallback); PresenceServiceTest 5/5. ~~ PresenceService 60s throttle uses `set_transient` on **`template_redirect`** = `wp_options` write storm at 100k → move the guard to `wp_cache_*` (presence is ephemeral; losing it on flush is harmless). `PresenceService.php:114`. *Highest-volume offender.*
-- [ ] **S4b** Other limiters (Comment/Registration/SocialLogin/Profile/2FA) → use `wp_cache_*` when `wp_using_ext_object_cache()`, transient fallback otherwise.
+- [x] **S4b DONE** (free `06a845ed`) — shared `Core\RateLimiter` (group `buddynext_rate`, atomic `wp_cache_incr` + transient fallback). Routed: Comment cap (refactored off its inline dual-path, dead const removed), Registration per-IP, SocialLogin per-IP, Profile export cooldown. **2FA brute-force counter deliberately KEPT on the DB transient** — it's a security lockout, so a cache-flush reset would hand an attacker fresh guesses; "fail open" is only acceptable for the ephemeral anti-spam throttles. *(Senior course-correction on the original "move all 5" note; documented inline + here.)* QA: RateLimiterTest 8/8 (both backends) + Comment 16/16 + Auth/Profile 41/41; WPCS + PHPStan L5 clean.
 - [ ] **S5** Pro Push + Soketi dispatch fire **synchronously per notification** (blocking FCM/Soketi HTTP in-request; serializes fan-out workers) → enqueue via AS. `PushDispatcher.php:56`, `RealtimeDispatcher.php:61`. *Guards are fine; this is latency, not safety.*
 - [x] **S1a DONE** (free `85b20825`) — removed dead `bn_feed_items` (CREATE + post-delete cascade); never INSERT/SELECT. Existing installs keep the harmless empty table. PostServiceTest green.
 
