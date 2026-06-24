@@ -20,7 +20,7 @@ behaviour must be proven, and the contract audit + cert gates are mandatory.
 
 | Tier | Count | Meaning |
 |---|---|---|
-| **DO NOW** | 33 (1 done) | High value, low risk, ready-for-scale — **E done** (pro `31e6e05`) |
+| **DO NOW** | 33 (2 done) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
 | **DEFER** | 8 | Real, but bigger design or lower urgency — scheduled, not now |
 | **SKIP** | 11 | Cut — caching/changing them is overhead at 100k (reasons below) |
 | **catalogued total** | 52 work-items | (was 69; +5 from the senior sweep, −22 collapsed/cut by frequency+value filter) |
@@ -34,7 +34,7 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 ### Structural scale wins (the ones that actually bite at 100k)
 
 - [x] **E1–E6 DONE** (pro `31e6e05`) — Impression write storm fixed. Free producers left **unchanged** (the `buddynext_post_impression` hook keeps firing — zero free-side risk); batching done in the **listener**: `AnalyticsCollector::on_post_impression()` buffers per request (deduped by `post:surface`) and flushes once via a **single bulk INSERT on shutdown**. *Design deviation (senior call): chose shutdown bulk-insert over a per-request AS job — an AS job per feed render would flood the queue with millions of actions/day; the bulk insert collapses ~20 writes → 1 with no new moving part. Sampling left as a documented future lever; retention already exists (AiModerationSweep). QA: AnalyticsCollectorImpressionTest 5/5 + regression-checked (group back to baseline) + php-l/PHPStan L5/WPCS green.*
-- [ ] **F1–F8** Presence `CAST(meta_value)` scans → indexed `bn_presence(user_id PK, last_active INT, INDEX)`. `MemberDirectoryService.php:274/299/331/584/622/636`, `Insights.php:152`, new `Installer` table, `PresenceService.php:121` dual-write. *Safe: 4-phase rollout (add → dual-write → switch **all 8 readers** → drop meta later). **8 readers, not 6** — also `Admin/Members.php:238`. Do NOT drop `bn_last_active` until all 8 move.*
+- [x] **F1–F8 DONE** (free `9280d37b` stage 1 + `e77e28c0` stage 2) — Presence `CAST(meta_value)` scans → indexed `bn_presence(user_id PK, last_active INT, KEY)`. Stage 1: table + `SCHEMA_VERSION 6→7` + idempotent backfill + `PresenceService` dual-write + read API. Stage 2: all **8 readers** switched (MemberDirectoryService online filter/cursor/order/online_user_ids/online_now, Insights:152, Admin/Members:238 batched, BlockService:448). *EXPLAIN @100k: online filter OLD = ref scan 50,000 usermeta rows + CAST; NEW = range scan **152 rows** on `last_active` index (covering). QA: PresenceServiceTest 5/5 + Profile/SocialGraph/Realtime 57/57 + Core 169/169; static gates clean. **P4 (drop `bn_last_active` meta) deferred** — dual-write still on.*
 - [ ] **G1–G7** Autoloaded per-entity/large options → `autoload=false` + one-time migration. `SpaceController.php:384`, `MembershipAdmin.php:399/402/405`, `AppearanceTab.php:134`, `BrandService.php:150`, migration via `maybe_upgrade()` (WP API, not raw SQL). *Safe: `get_option` is autoload-agnostic — reads can't break.*
 - [ ] **S3a** `bn_email_log` grows forever → add weekly `handle_cleanup_email_log` prune (mirror `handle_cleanup_activity_log`, gated on `buddynext_data_retention_days`). *Fastest-growing table at 100k.*
 - [ ] **S3b** Action Scheduler tables untuned → set `action_scheduler_retention_period` filter (7–14d) so fan-out's completed actions don't accumulate.
