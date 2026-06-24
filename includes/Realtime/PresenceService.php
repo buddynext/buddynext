@@ -118,7 +118,9 @@ class PresenceService {
 			return false;
 		}
 
-		update_user_meta( $user_id, self::META_KEY, time() );
+		$now = time();
+		update_user_meta( $user_id, self::META_KEY, $now ); // Legacy reader path (dual-write during the bn_presence transition).
+		self::write( $user_id, $now );                       // Indexed presence table — the path readers move to.
 		set_transient( $guard_key, 1, self::THROTTLE_SECONDS );
 
 		/**
@@ -134,5 +136,121 @@ class PresenceService {
 		do_action( 'buddynext_presence_stamped', $user_id );
 
 		return true;
+	}
+
+	/**
+	 * Default "online" window in seconds (matches the legacy reader's 300s).
+	 *
+	 * @since 1.0.0
+	 * @var int
+	 */
+	public const ONLINE_WINDOW = 300;
+
+	/**
+	 * UPSERT a user's presence timestamp into the indexed bn_presence table.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $user_id   User id.
+	 * @param int $timestamp UNIX timestamp.
+	 * @return void
+	 */
+	public static function write( int $user_id, int $timestamp ): void {
+		if ( $user_id <= 0 ) {
+			return;
+		}
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"INSERT INTO {$wpdb->prefix}bn_presence (user_id, last_active) VALUES (%d, %d)
+				 ON DUPLICATE KEY UPDATE last_active = GREATEST(last_active, VALUES(last_active))",
+				$user_id,
+				$timestamp
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * IDs of users active within the given window — an indexed range scan.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $within Seconds. Defaults to ONLINE_WINDOW.
+	 * @return array<int, int> User IDs.
+	 */
+	public static function online_ids( int $within = self::ONLINE_WINDOW ): array {
+		global $wpdb;
+		$cutoff = time() - max( 1, $within );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$wpdb->prefix}bn_presence WHERE last_active > %d",
+				$cutoff
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
+	 * Count of users active within the given window.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $within Seconds. Defaults to ONLINE_WINDOW.
+	 * @return int
+	 */
+	public static function online_count( int $within = self::ONLINE_WINDOW ): int {
+		global $wpdb;
+		$cutoff = time() - max( 1, $within );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_presence WHERE last_active > %d",
+				$cutoff
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Whether a user has been active within the window.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $user_id User id.
+	 * @param int $within  Seconds. Defaults to ONLINE_WINDOW.
+	 * @return bool
+	 */
+	public static function is_online( int $user_id, int $within = self::ONLINE_WINDOW ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+		return self::last_active_at( $user_id ) > ( time() - max( 1, $within ) );
+	}
+
+	/**
+	 * A user's last-active UNIX timestamp, or 0 if never seen.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $user_id User id.
+	 * @return int
+	 */
+	public static function last_active_at( int $user_id ): int {
+		if ( $user_id <= 0 ) {
+			return 0;
+		}
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT last_active FROM {$wpdb->prefix}bn_presence WHERE user_id = %d",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 }
