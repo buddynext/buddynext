@@ -149,7 +149,7 @@ class Insights {
 		$members_new_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->users} WHERE user_registered >= %s", $d7 ) );
 		$active_30d     = (int) $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key = 'bn_last_active' AND CAST(meta_value AS UNSIGNED) >= %d",
+				"SELECT COUNT(*) FROM {$p}bn_presence WHERE last_active >= %d",
 				$d30ts
 			)
 		);

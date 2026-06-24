@@ -173,8 +173,9 @@ class MemberDirectoryServiceTest extends \WP_UnitTestCase {
 		$now    = time();
 		$recent = self::factory()->user->create();
 		$stale  = self::factory()->user->create();
-		update_user_meta( $recent, 'bn_last_active', (string) ( $now - 60 ) );
-		update_user_meta( $stale, 'bn_last_active', (string) ( $now - 86400 ) );
+		// Presence is read from the indexed bn_presence table (stage-2 reader switch).
+		\BuddyNext\Realtime\PresenceService::write( $recent, $now - 60 );
+		\BuddyNext\Realtime\PresenceService::write( $stale, $now - 86400 );
 
 		$result = $this->service->list_members(
 			$this->viewer_id,

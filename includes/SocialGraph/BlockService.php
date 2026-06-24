@@ -445,7 +445,7 @@ class BlockService {
 			return false;
 		}
 
-		$last_active = (int) get_user_meta( $target_id, 'bn_last_active', true );
+		$last_active = \BuddyNext\Realtime\PresenceService::last_active_at( $target_id );
 		if ( $last_active <= 0 ) {
 			return false;
 		}
