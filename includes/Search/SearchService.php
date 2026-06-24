@@ -752,6 +752,13 @@ class SearchService {
 			? buddynext_service( 'follows' )->following_map( $viewer_id, $user_ids )
 			: array();
 
+		// Prime the user + usermeta caches in two batched queries so the loop's
+		// per-row get_userdata() / get_user_meta() reads hit cache (was an N+1).
+		if ( ! empty( $user_ids ) ) {
+			cache_users( $user_ids );
+			update_meta_cache( 'user', $user_ids );
+		}
+
 		$rows = array();
 		foreach ( $user_ids as $uid ) {
 			$user = get_userdata( $uid );
