@@ -57,8 +57,8 @@ $follows        = buddynext_service( 'follows' );
 $private_follow = isset( $private_follow ) ? (bool) $private_follow : $follows->is_private_account( $user_id );
 // Callers that already know the follow state (e.g. a feed loop that resolved
 // it per-author) can pass $known_following to skip the per-render query.
-$is_following   = isset( $known_following ) ? (bool) $known_following : $follows->is_following( $viewer_id, $user_id );
-$is_pending     = ! $is_following && $follows->has_pending_request( $viewer_id, $user_id );
+$is_following = isset( $known_following ) ? (bool) $known_following : $follows->is_following( $viewer_id, $user_id );
+$is_pending   = ! $is_following && $follows->has_pending_request( $viewer_id, $user_id );
 
 // The follow store builds its toasts as "@" . targetName, so pass the @handle
 // (user_nicename). Without it the store falls back to "#<id>" and toasts read

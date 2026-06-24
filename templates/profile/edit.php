@@ -65,7 +65,7 @@ $avatar_url = get_avatar_url( $user_id, array( 'size' => 192 ) );
 // edit screen matches what the profile view + directory show; reading the raw
 // usermeta here left a user with no upload looking at the bare gradient even when
 // a site-wide default cover is configured.
-$cover_url  = (string) buddynext_user_cover_url( $user_id );
+$cover_url = (string) buddynext_user_cover_url( $user_id );
 
 // Whether the user has a *custom* uploaded avatar (vs the generated initials /
 // Gravatar fallback). Drives the "Remove photo" control — there is nothing to
@@ -105,9 +105,9 @@ foreach ( $bn_groups as $grp ) {
 }
 
 // Convenience vars used by the hero + sidebar preview.
-$headline      = $fv['headline'] ?? '';
-$bio           = $fv['bio'] ?? '';
-$location      = $fv['location'] ?? '';
+$headline = $fv['headline'] ?? '';
+$bio      = $fv['bio'] ?? '';
+$location = $fv['location'] ?? '';
 
 /*
  * ── Field-level privacy helpers ────────────────────────────────────────────
@@ -197,7 +197,7 @@ $bn_privacy_select = static function ( string $name, string $admin_default, stri
 	);
 };
 
-$profile_url  = \BuddyNext\Core\PageRouter::profile_url( $user_id );
+$profile_url = \BuddyNext\Core\PageRouter::profile_url( $user_id );
 
 // Stats for preview widget — read through the services (no SQL here). The
 // follow counts come from FollowService, which filters status = 'approved';
@@ -214,7 +214,7 @@ $format_count = static function ( int $n ): string {
 	return (string) $n;
 };
 
-$rest_nonce      = wp_create_nonce( 'wp_rest' );
+$rest_nonce = wp_create_nonce( 'wp_rest' );
 
 /**
  * Fires before the profile edit inner content.
@@ -289,10 +289,10 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 			buddynext_get_template(
 				'parts/profile-edit-hero.php',
 				array(
-					'profile_user_id' => $user_id,
-					'display_name'    => $display_name,
-					'headline'        => $headline,
-					'username'        => $user_login_str,
+					'profile_user_id'   => $user_id,
+					'display_name'      => $display_name,
+					'headline'          => $headline,
+					'username'          => $user_login_str,
 					'avatar_url'        => $avatar_url,
 					'cover_url'         => $cover_url,
 					'initials'          => $initials,
@@ -420,7 +420,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					if ( ! is_array( $bn_field ) || empty( $bn_field['field_key'] ) ) {
 						continue;
 					}
-					$bn_fkey   = (string) $bn_field['field_key'];
+					$bn_fkey = (string) $bn_field['field_key'];
 					// `headline` is edited inline in the hero card (parts/profile-edit-hero.php),
 					// which already renders an <input name="headline">. Rendering it again here
 					// puts a second same-named input on the page; the save collector

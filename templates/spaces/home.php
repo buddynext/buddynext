@@ -181,9 +181,9 @@ if ( ! $gate_feed ) {
 	// enrich a single display_name onto the object before handing it over.
 	$bn_pinned_arr = $bn_feed_service->space_pinned_post( $space_id );
 	if ( is_array( $bn_pinned_arr ) ) {
-		$bn_pinned_author       = get_userdata( (int) ( $bn_pinned_arr['user_id'] ?? 0 ) );
+		$bn_pinned_author             = get_userdata( (int) ( $bn_pinned_arr['user_id'] ?? 0 ) );
 		$bn_pinned_arr['author_name'] = $bn_pinned_author ? $bn_pinned_author->display_name : __( 'Admin', 'buddynext' );
-		$pinned_post            = (object) $bn_pinned_arr;
+		$pinned_post                  = (object) $bn_pinned_arr;
 	}
 
 	// Regular feed posts (hydrated arrays; pinned post excluded by FeedService).
@@ -216,7 +216,7 @@ $bn_to_objects = static function ( array $rows ): array {
 	);
 };
 
-$bn_mods = array_merge(
+$bn_mods         = array_merge(
 	$bn_member_service->get_members( $space_id, $current_user_id, 0, 0, array( 'role' => 'owner' ) ),
 	$bn_member_service->get_members( $space_id, $current_user_id, 0, 0, array( 'role' => 'moderator' ) )
 );
@@ -229,7 +229,7 @@ $top_contributors = $bn_to_objects( $bn_space_service->top_contributors( $space_
 
 // ── Counts for stat strip + tabs ──────────────────────────────────────────────
 
-$bn_post_count  = $bn_feed_service->space_post_count( $space_id );
+$bn_post_count = $bn_feed_service->space_post_count( $space_id );
 // Media tab count — posts in this space carrying at least one media attachment.
 $bn_media_count = $bn_feed_service->space_media_post_count( $space_id );
 
@@ -244,8 +244,8 @@ if ( $can_moderate ) {
 }
 
 // Clean-URL active tab: /spaces/{slug}/{tab}/ → bn_space_action. Defaults to feed.
-$active_tab = (string) get_query_var( 'bn_space_action', '' );
-$active_tab = '' !== $active_tab ? sanitize_key( $active_tab ) : 'feed';
+$active_tab       = (string) get_query_var( 'bn_space_action', '' );
+$active_tab       = '' !== $active_tab ? sanitize_key( $active_tab ) : 'feed';
 $member_count_fmt = number_format_i18n( (int) $space->member_count );
 
 $privacy_label = \BuddyNext\Spaces\SpaceService::type_label( (string) $space->type );

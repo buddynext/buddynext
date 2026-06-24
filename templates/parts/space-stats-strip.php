@@ -66,16 +66,16 @@ do_action( 'buddynext_part_space_stats_strip_before', $args );
 		if ( ! is_array( $bn_stat ) || '' === (string) ( $bn_stat['label'] ?? '' ) ) {
 			continue;
 		}
-		$bn_label = (string) $bn_stat['label'];
-		$bn_value = isset( $bn_stat['value'] ) ? (string) $bn_stat['value'] : '';
-		$bn_href  = isset( $bn_stat['href'] ) ? (string) $bn_stat['href'] : '';
-		$bn_delta = isset( $bn_stat['delta'] ) ? trim( (string) $bn_stat['delta'] ) : '';
-		$bn_trend = isset( $bn_stat['trend'] ) && in_array( (string) $bn_stat['trend'], array( 'up', 'down', 'flat' ), true ) ? (string) $bn_stat['trend'] : 'flat';
+		$bn_label      = (string) $bn_stat['label'];
+		$bn_value      = isset( $bn_stat['value'] ) ? (string) $bn_stat['value'] : '';
+		$bn_href       = isset( $bn_stat['href'] ) ? (string) $bn_stat['href'] : '';
+		$bn_delta      = isset( $bn_stat['delta'] ) ? trim( (string) $bn_stat['delta'] ) : '';
+		$bn_trend      = isset( $bn_stat['trend'] ) && in_array( (string) $bn_stat['trend'], array( 'up', 'down', 'flat' ), true ) ? (string) $bn_stat['trend'] : 'flat';
 		$bn_delta_html = '' !== $bn_delta
 			? sprintf( '<span class="bn-sh-statpill__delta" data-trend="%1$s">%2$s</span>', esc_attr( $bn_trend ), esc_html( $bn_delta ) )
 			: '';
-		$bn_tag  = '' !== $bn_href ? 'a' : 'span';
-		$bn_attr = '' !== $bn_href ? ' href="' . esc_url( $bn_href ) . '"' : ' role="listitem"';
+		$bn_tag        = '' !== $bn_href ? 'a' : 'span';
+		$bn_attr       = '' !== $bn_href ? ' href="' . esc_url( $bn_href ) . '"' : ' role="listitem"';
 		?>
 		<<?php echo $bn_tag; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- literal tag name. ?> class="bn-sh-statpill"<?php echo $bn_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- attr pre-escaped. ?>>
 			<span class="bn-sh-statpill__value"><?php echo esc_html( $bn_value ); ?></span>

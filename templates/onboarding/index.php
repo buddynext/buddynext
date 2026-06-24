@@ -640,11 +640,11 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 								data-wp-bind--hidden="!state.previewAvatar"
 								<?php echo '' !== $custom_avatar ? 'src="' . esc_url( $custom_avatar ) . '"' : 'hidden'; ?>
 								alt="" />
-							<span data-wp-bind--hidden="state.previewAvatar" data-wp-text="state.previewInitial"><?php echo esc_html( strtoupper( substr( (string) $display_name, 0, 1 ) ) ?: '?' ); ?></span>
+							<span data-wp-bind--hidden="state.previewAvatar" data-wp-text="state.previewInitial"><?php echo esc_html( '' !== (string) $display_name ? strtoupper( substr( (string) $display_name, 0, 1 ) ) : '?' ); ?></span>
 						</div>
 						<div class="bn-ob-preview-card__id">
 							<div class="bn-ob-preview-card__name" data-wp-text="state.previewName">
-								<?php echo esc_html( $display_name ?: __( 'Your name', 'buddynext' ) ); ?>
+								<?php echo esc_html( '' !== (string) $display_name ? $display_name : __( 'Your name', 'buddynext' ) ); ?>
 							</div>
 							<div class="bn-ob-preview-card__handle" data-wp-text="state.previewHandle">
 								<?php echo esc_html( '@' . $current_slug ); ?>
@@ -652,7 +652,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 						</div>
 					</div>
 					<p class="bn-ob-preview-card__bio" data-wp-text="state.previewBio">
-						<?php echo esc_html( $bio ?: __( "Add a short bio so people know what you're into.", 'buddynext' ) ); ?>
+						<?php echo esc_html( '' !== (string) $bio ? $bio : __( "Add a short bio so people know what you're into.", 'buddynext' ) ); ?>
 					</p>
 				</div>
 

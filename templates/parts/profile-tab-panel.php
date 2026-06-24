@@ -103,8 +103,8 @@ $bn_pending_connections = (array) $args['pending_connection_users'];
 // panel via data-wp-bind--hidden="!state.isActiveTab" — deep links work on the
 // initial server render (activeTab is seeded), and tab clicks repaint reactively
 // without any DOM toggling. $bn_pf_panel_ctx builds the per-panel context JSON.
-$bn_pf_active     = (string) $args['active_tab'];
-$bn_pf_panel_ctx  = static fn( string $bn_slug ): string => (string) wp_json_encode( array( 'tabSlug' => $bn_slug ) );
+$bn_pf_active    = (string) $args['active_tab'];
+$bn_pf_panel_ctx = static fn( string $bn_slug ): string => (string) wp_json_encode( array( 'tabSlug' => $bn_slug ) );
 
 do_action( 'buddynext_part_profile_tab_panel_before', $args );
 ?>
@@ -300,9 +300,15 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 						</div>
 						<div class="bn-reply-card__content bn-reply-card__content--strong"><?php echo esc_html( $disc->title ); ?></div>
 						<div class="bn-reply-card__context">
-							<?php $bn_ptp_rc = (int) $disc->reply_count; /* translators: %d: number of replies */ printf( esc_html( _n( '%d reply', '%d replies', $bn_ptp_rc, 'buddynext' ) ), (int) $bn_ptp_rc ); ?>
+							<?php
+							$bn_ptp_rc = (int) $disc->reply_count;
+							/* translators: %d: number of replies */ printf( esc_html( _n( '%d reply', '%d replies', $bn_ptp_rc, 'buddynext' ) ), (int) $bn_ptp_rc );
+							?>
 							<span aria-hidden="true">&middot;</span>
-							<?php $bn_ptp_vc = (int) $disc->vote_score; /* translators: %d: number of votes */ printf( esc_html( _n( '%d vote', '%d votes', $bn_ptp_vc, 'buddynext' ) ), (int) $bn_ptp_vc ); ?>
+							<?php
+							$bn_ptp_vc = (int) $disc->vote_score;
+							/* translators: %d: number of votes */ printf( esc_html( _n( '%d vote', '%d votes', $bn_ptp_vc, 'buddynext' ) ), (int) $bn_ptp_vc );
+							?>
 						</div>
 					</a>
 					<?php endforeach; ?>

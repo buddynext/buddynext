@@ -287,8 +287,8 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 						'member'    => __( 'Member', 'buddynext' ),
 						'banned'    => __( 'Banned', 'buddynext' ),
 					);
-					$bn_prs_role       = (string) $space->role;
-					$bn_prs_role_label = $bn_prs_role_labels[ $bn_prs_role ] ?? ucfirst( $bn_prs_role );
+					$bn_prs_role        = (string) $space->role;
+					$bn_prs_role_label  = $bn_prs_role_labels[ $bn_prs_role ] ?? ucfirst( $bn_prs_role );
 					?>
 					<div class="bn-space-role"><?php echo esc_html( $bn_prs_role_label ); ?></div>
 			</div>

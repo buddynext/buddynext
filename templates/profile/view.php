@@ -417,9 +417,9 @@ if ( '' !== $bn_pf_about_html ) {
 	);
 }
 
-$bn_nav         = buddynext_nav( new \BuddyNext\Nav\NavContext( 'profile', (int) $user_id, (int) $current_user_id ) );
-$bn_pf_metrics  = $bn_nav->layer( 'metric' );
-$bn_pf_primary  = $bn_nav->layer( 'primary' );
+$bn_nav        = buddynext_nav( new \BuddyNext\Nav\NavContext( 'profile', (int) $user_id, (int) $current_user_id ) );
+$bn_pf_metrics = $bn_nav->layer( 'metric' );
+$bn_pf_primary = $bn_nav->layer( 'primary' );
 
 // Deep-link the active tab from the route action. Valid targets are the resolved
 // primary tabs plus the metric panels (followers/following/connections), which

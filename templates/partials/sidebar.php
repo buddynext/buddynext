@@ -197,7 +197,10 @@ if ( $sidebar_user_id > 0 ) {
 					<span class="bn-sbar-row__info">
 						<span class="bn-sbar-row__name"><?php echo esc_html( $sbar_sp->name ); ?></span>
 						<span class="bn-sbar-row__meta">
-							<?php $bn_sbar_mc = (int) $sbar_sp->member_count; /* translators: %s: formatted member count */ printf( esc_html( _n( '%s member', '%s members', $bn_sbar_mc, 'buddynext' ) ), esc_html( number_format_i18n( $bn_sbar_mc ) ) ); ?>
+							<?php
+							$bn_sbar_mc = (int) $sbar_sp->member_count;
+							/* translators: %s: formatted member count */ printf( esc_html( _n( '%s member', '%s members', $bn_sbar_mc, 'buddynext' ) ), esc_html( number_format_i18n( $bn_sbar_mc ) ) );
+							?>
 							<?php // Count + "members" rendered together above via _n(). ?>
 						</span>
 					</span>

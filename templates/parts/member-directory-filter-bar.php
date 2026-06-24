@@ -97,7 +97,7 @@ foreach ( $bn_member_types_raw as $bn_mt ) {
 	if ( ! is_array( $bn_mt ) ) {
 		continue;
 	}
-	$bn_mt_slug = isset( $bn_mt['slug'] ) ? (string) $bn_mt['slug'] : '';
+	$bn_mt_slug  = isset( $bn_mt['slug'] ) ? (string) $bn_mt['slug'] : '';
 	$bn_mt_label = '';
 	if ( isset( $bn_mt['label'] ) && '' !== (string) $bn_mt['label'] ) {
 		$bn_mt_label = (string) $bn_mt['label'];

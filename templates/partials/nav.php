@@ -162,7 +162,7 @@ if ( $bn_nav_current_user ) :
 		'spaces'        => 'spaces',
 		'notifications' => 'notifications',
 	);
-	$bn_mobile_active = isset( $bn_mobile_active_map[ $bn_nav_active ] ) ? $bn_mobile_active_map[ $bn_nav_active ] : '';
+	$bn_mobile_active     = isset( $bn_mobile_active_map[ $bn_nav_active ] ) ? $bn_mobile_active_map[ $bn_nav_active ] : '';
 
 	/**
 	 * Filter the mobile bottom-bar items.
