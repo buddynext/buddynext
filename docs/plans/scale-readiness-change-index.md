@@ -11,6 +11,11 @@ item is code-verified (grep + file read), then filtered through three lenses so 
 Result: **Do-now / Defer / Skip**. The **Skip** list is the proof we're not over-cooking —
 each carries the reason it was cut. Nothing is deleted from the catalogue; it's triaged.
 
+**Every item must pass its QA before it's done** — primary test + independent double-check per
+[`scale-readiness-qa-runbook.md`](./scale-readiness-qa-runbook.md). These are critical edits
+(caching, invalidation, schema, scheduling, access control); code-green is not sufficient,
+behaviour must be proven, and the contract audit + cert gates are mandatory.
+
 ## Tally
 
 | Tier | Count | Meaning |
