@@ -88,6 +88,19 @@ class CronScheduler {
 		add_filter( 'cron_schedules', array( $this, 'add_custom_schedules' ) ); // phpcs:ignore WordPress.WP.CronInterval.CronSchedulesInterval
 		add_action( 'wp_loaded', array( $this, 'schedule_events' ) );
 
+		// Cap Action Scheduler's completed/failed-action retention. The default
+		// purger keeps rows for 30 days; the per-space-post fan-out and reactive
+		// async jobs generate a high volume of completed actions, so 14 days keeps
+		// the actionscheduler_* tables lean at scale. Only lowers the window — never
+		// raises a site's own larger setting.
+		add_filter(
+			'action_scheduler_retention_period',
+			static function ( $period ) {
+				$cap = 14 * DAY_IN_SECONDS;
+				return ( is_int( $period ) && $period > 0 ) ? min( (int) $period, $cap ) : $cap;
+			}
+		);
+
 		// Wire cron job handlers — one action per job defined above.
 		$handlers = new CronService();
 		add_action( self::JOB_DAILY_DIGEST, array( $handlers, 'handle_daily_digest' ) );
