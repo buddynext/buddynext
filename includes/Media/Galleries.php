@@ -103,6 +103,8 @@ class Galleries {
 		if ( $viewer_id > 0 && $viewer_id === $owner_id ) {
 			return true;
 		}
-		return $viewer_id > 0 && user_can( $viewer_id, 'moderate_mvs_media' );
+		// moderate_mvs_media is registered by WPMediaVerse (MediaCapabilities); this
+		// media bridge reuses that plugin's capability rather than minting its own.
+		return $viewer_id > 0 && user_can( $viewer_id, 'moderate_mvs_media' ); // phpcs:ignore WordPress.WP.Capabilities.Unknown -- capability owned by the WPMediaVerse companion plugin.
 	}
 }

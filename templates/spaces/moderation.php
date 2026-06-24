@@ -210,11 +210,17 @@ $mod_privacy = array(
 	<nav class="bn-subnav bn-space-mod__filter" aria-label="<?php esc_attr_e( 'Moderation filter', 'buddynext' ); ?>">
 		<a class="bn-subnav__item" href="<?php echo esc_url( add_query_arg( 'bn_mtab', 'reports', $mod_base_url ) ); ?>" aria-selected="<?php echo ( 'reports' === $mod_tab ) ? 'true' : 'false'; ?>">
 			<span class="bn-subnav__label"><?php esc_html_e( 'Reports', 'buddynext' ); ?></span>
-			<?php if ( $open_reports_count > 0 ) : ?><span class="bn-subnav__count"><?php echo esc_html( (string) $open_reports_count ); ?></span><?php endif; ?>
+			<?php
+			if ( $open_reports_count > 0 ) :
+				?>
+				<span class="bn-subnav__count"><?php echo esc_html( (string) $open_reports_count ); ?></span><?php endif; ?>
 		</a>
 		<a class="bn-subnav__item" href="<?php echo esc_url( add_query_arg( 'bn_mtab', 'pending', $mod_base_url ) ); ?>" aria-selected="<?php echo ( 'pending' === $mod_tab ) ? 'true' : 'false'; ?>">
 			<span class="bn-subnav__label"><?php esc_html_e( 'Pending members', 'buddynext' ); ?></span>
-			<?php if ( $pending_count > 0 ) : ?><span class="bn-subnav__count"><?php echo esc_html( (string) $pending_count ); ?></span><?php endif; ?>
+			<?php
+			if ( $pending_count > 0 ) :
+				?>
+				<span class="bn-subnav__count"><?php echo esc_html( (string) $pending_count ); ?></span><?php endif; ?>
 		</a>
 		<a class="bn-subnav__item" href="<?php echo esc_url( add_query_arg( 'bn_mtab', 'log', $mod_base_url ) ); ?>" aria-selected="<?php echo ( 'log' === $mod_tab ) ? 'true' : 'false'; ?>">
 			<span class="bn-subnav__label"><?php esc_html_e( 'Activity log', 'buddynext' ); ?></span>
@@ -320,15 +326,15 @@ $mod_privacy = array(
 										// Translated label for the fixed report-reason vocabulary;
 										// unknown slugs fall back to a title-cased display.
 										$bn_mod_reason_labels = array(
-											'spam'           => __( 'Spam', 'buddynext' ),
-											'harassment'     => __( 'Harassment', 'buddynext' ),
+											'spam'       => __( 'Spam', 'buddynext' ),
+											'harassment' => __( 'Harassment', 'buddynext' ),
 											'misinformation' => __( 'Misinformation', 'buddynext' ),
-											'inappropriate'  => __( 'Inappropriate', 'buddynext' ),
-											'fake'           => __( 'Fake / scam', 'buddynext' ),
-											'impersonation'  => __( 'Impersonation', 'buddynext' ),
-											'other'          => __( 'Other', 'buddynext' ),
+											'inappropriate' => __( 'Inappropriate', 'buddynext' ),
+											'fake'       => __( 'Fake / scam', 'buddynext' ),
+											'impersonation' => __( 'Impersonation', 'buddynext' ),
+											'other'      => __( 'Other', 'buddynext' ),
 										);
-										$bn_mod_reason_label = $bn_mod_reason_labels[ $r_reason ] ?? ucfirst( (string) $r_reason );
+										$bn_mod_reason_label  = $bn_mod_reason_labels[ $r_reason ] ?? ucfirst( (string) $r_reason );
 										?>
 										<span class="bn-badge" data-tone="<?php echo esc_attr( $r_tone ); ?>"><?php echo esc_html( $bn_mod_reason_label ); ?></span>
 									<?php endif; ?>

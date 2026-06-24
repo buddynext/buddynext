@@ -1623,11 +1623,11 @@ class ProfileService {
 	 * Clamp a member-chosen visibility to be equal-or-more restrictive than the
 	 * field admin default. A member may only TIGHTEN, never loosen.
 	 *
-	 * @param string|null $chosen  Member-submitted visibility, or null (no choice).
-	 * @param string      $default Field admin-default visibility.
+	 * @param string|null $chosen        Member-submitted visibility, or null (no choice).
+	 * @param string      $admin_default Field admin-default visibility.
 	 * @return string|null Clamped visibility, or null when no member choice was made.
 	 */
-	private function clamp_visibility( ?string $chosen, string $default ): ?string {
+	private function clamp_visibility( ?string $chosen, string $admin_default ): ?string {
 		if ( null === $chosen || '' === $chosen ) {
 			return null;
 		}
@@ -1638,8 +1638,8 @@ class ProfileService {
 		}
 
 		// A looser-than-default choice is clamped up to the admin default.
-		if ( self::visibility_rank( $chosen ) < self::visibility_rank( $default ) ) {
-			return $default;
+		if ( self::visibility_rank( $chosen ) < self::visibility_rank( $admin_default ) ) {
+			return $admin_default;
 		}
 
 		return $chosen;
@@ -1832,6 +1832,26 @@ class ProfileService {
 	public function update_avatar( int $user_id, string $url ): void {
 		update_user_meta( $user_id, 'bn_avatar', $url );
 		// Bust profile cache — avatar URL is embedded in cached profile payload.
+		$this->bust_profile_cache( $user_id );
+	}
+
+	/**
+	 * Delete every stored profile-field value for a user (the canonical
+	 * bn_profile_values rows). Used when removing an account — e.g. the demo
+	 * seeder's cleanup — so values do not orphan after the user is gone. The
+	 * searchable usermeta mirror is removed by wp_delete_user with the rest of
+	 * the user's meta; shared field DEFINITIONS are never touched.
+	 *
+	 * @param int $user_id User whose stored values to clear.
+	 * @return void
+	 */
+	public function delete_user_values( int $user_id ): void {
+		if ( $user_id <= 0 ) {
+			return;
+		}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete( $wpdb->prefix . 'bn_profile_values', array( 'user_id' => $user_id ), array( '%d' ) );
 		$this->bust_profile_cache( $user_id );
 	}
 

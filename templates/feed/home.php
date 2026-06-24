@@ -77,9 +77,9 @@ $service_result = $bn_feed_service_obj->home_feed(
 	$bn_per_page,
 	$bn_filter
 );
-$feed_posts  = array_values( (array) ( $service_result['items'] ?? array() ) );
-$next_cursor = (string) ( $service_result['next_cursor'] ?? '' );
-$has_more    = '' !== $next_cursor;
+$feed_posts     = array_values( (array) ( $service_result['items'] ?? array() ) );
+$next_cursor    = (string) ( $service_result['next_cursor'] ?? '' );
+$has_more       = '' !== $next_cursor;
 
 // ── Tab counts ──────────────────────────────────────────────────────────────
 $bn_tab_counts = array(
@@ -96,7 +96,7 @@ if ( function_exists( 'buddynext_service' ) ) {
 }
 
 // ── REST nonce + URLs ───────────────────────────────────────────────────────
-$rest_nonce  = wp_create_nonce( 'wp_rest' );
+$rest_nonce = wp_create_nonce( 'wp_rest' );
 
 // ── Right sidebar widgets ────────────────────────────────────────────────
 // Register sidebar widget callbacks on the shared hub-shell action. The shell

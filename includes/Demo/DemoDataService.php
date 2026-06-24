@@ -36,6 +36,7 @@ namespace BuddyNext\Demo;
 use BuddyNext\Comments\CommentService;
 use BuddyNext\Feed\BookmarkService;
 use BuddyNext\Feed\PostService;
+use BuddyNext\Feed\ShareService;
 use BuddyNext\Hashtags\HashtagListener;
 use BuddyNext\Hashtags\HashtagService;
 use BuddyNext\Media\MediaClient;
@@ -69,18 +70,143 @@ class DemoDataService {
 	 * @var array<int,array<string,string>>
 	 */
 	private const MEMBERS = array(
-		array( 'login' => 'alex_rivera',     'name' => 'Alex Rivera',     'headline' => 'Product designer · prototyping in the open',         'location' => 'Lisbon, PT',      'job' => 'Product Designer',   'site' => 'https://alexrivera.example' ),
-		array( 'login' => 'priya_nair',      'name' => 'Priya Nair',      'headline' => 'Frontend engineer · accessibility nerd',             'location' => 'Bengaluru, IN',   'job' => 'Frontend Engineer',  'site' => 'https://priyanair.example' ),
-		array( 'login' => 'marcus_obrien',   'name' => "Marcus O'Brien",  'headline' => 'Community lead · runs three book clubs',             'location' => 'Dublin, IE',      'job' => 'Community Lead',     'site' => '' ),
-		array( 'login' => 'yuki_tanaka',     'name' => 'Yuki Tanaka',     'headline' => 'Illustrator & type designer',                        'location' => 'Kyoto, JP',       'job' => 'Illustrator',        'site' => 'https://yuki.example' ),
-		array( 'login' => 'sara_lindqvist',  'name' => 'Sara Lindqvist',  'headline' => 'Trail runner, data scientist, plant collector',      'location' => 'Gothenburg, SE',  'job' => 'Data Scientist',     'site' => '' ),
-		array( 'login' => 'diego_morales',   'name' => 'Diego Morales',   'headline' => 'Indie game dev · pixel art on weekends',             'location' => 'Mexico City, MX', 'job' => 'Game Developer',     'site' => 'https://diego.example' ),
-		array( 'login' => 'amina_diallo',    'name' => 'Amina Diallo',    'headline' => 'Climate researcher · ocean systems',                 'location' => 'Dakar, SN',       'job' => 'Researcher',         'site' => '' ),
-		array( 'login' => 'tom_becker',      'name' => 'Tom Becker',      'headline' => 'Coffee roaster turned backend engineer',             'location' => 'Berlin, DE',      'job' => 'Backend Engineer',   'site' => 'https://becker.example' ),
-		array( 'login' => 'lucia_ferrari',   'name' => 'Lucia Ferrari',   'headline' => 'UX writer · turning jargon into plain words',        'location' => 'Milan, IT',       'job' => 'UX Writer',          'site' => '' ),
-		array( 'login' => 'noah_kim',        'name' => 'Noah Kim',        'headline' => 'Photographer & DevRel',                              'location' => 'Seoul, KR',       'job' => 'Developer Advocate', 'site' => 'https://noahkim.example' ),
-		array( 'login' => 'fatima_zahra',    'name' => 'Fatima Zahra',    'headline' => 'Open-source maintainer · docs first',                'location' => 'Casablanca, MA',  'job' => 'OSS Maintainer',     'site' => '' ),
-		array( 'login' => 'liam_walsh',      'name' => 'Liam Walsh',      'headline' => 'Synth builder, weekend cyclist',                     'location' => 'Melbourne, AU',   'job' => 'Hardware Engineer',  'site' => '' ),
+		array(
+			'login'    => 'alex_rivera',
+			'name'     => 'Alex Rivera',
+			'headline' => 'Product designer · prototyping in the open',
+			'location' => 'Lisbon, PT',
+			'job'      => 'Product Designer',
+			'site'     => 'https://alexrivera.example',
+		),
+		array(
+			'login'    => 'priya_nair',
+			'name'     => 'Priya Nair',
+			'headline' => 'Frontend engineer · accessibility nerd',
+			'location' => 'Bengaluru, IN',
+			'job'      => 'Frontend Engineer',
+			'site'     => 'https://priyanair.example',
+		),
+		array(
+			'login'    => 'marcus_obrien',
+			'name'     => "Marcus O'Brien",
+			'headline' => 'Community lead · runs three book clubs',
+			'location' => 'Dublin, IE',
+			'job'      => 'Community Lead',
+			'site'     => '',
+		),
+		array(
+			'login'    => 'yuki_tanaka',
+			'name'     => 'Yuki Tanaka',
+			'headline' => 'Illustrator & type designer',
+			'location' => 'Kyoto, JP',
+			'job'      => 'Illustrator',
+			'site'     => 'https://yuki.example',
+		),
+		array(
+			'login'    => 'sara_lindqvist',
+			'name'     => 'Sara Lindqvist',
+			'headline' => 'Trail runner, data scientist, plant collector',
+			'location' => 'Gothenburg, SE',
+			'job'      => 'Data Scientist',
+			'site'     => '',
+		),
+		array(
+			'login'    => 'diego_morales',
+			'name'     => 'Diego Morales',
+			'headline' => 'Indie game dev · pixel art on weekends',
+			'location' => 'Mexico City, MX',
+			'job'      => 'Game Developer',
+			'site'     => 'https://diego.example',
+		),
+		array(
+			'login'    => 'amina_diallo',
+			'name'     => 'Amina Diallo',
+			'headline' => 'Climate researcher · ocean systems',
+			'location' => 'Dakar, SN',
+			'job'      => 'Researcher',
+			'site'     => '',
+		),
+		array(
+			'login'    => 'tom_becker',
+			'name'     => 'Tom Becker',
+			'headline' => 'Coffee roaster turned backend engineer',
+			'location' => 'Berlin, DE',
+			'job'      => 'Backend Engineer',
+			'site'     => 'https://becker.example',
+		),
+		array(
+			'login'    => 'lucia_ferrari',
+			'name'     => 'Lucia Ferrari',
+			'headline' => 'UX writer · turning jargon into plain words',
+			'location' => 'Milan, IT',
+			'job'      => 'UX Writer',
+			'site'     => '',
+		),
+		array(
+			'login'    => 'noah_kim',
+			'name'     => 'Noah Kim',
+			'headline' => 'Photographer & DevRel',
+			'location' => 'Seoul, KR',
+			'job'      => 'Developer Advocate',
+			'site'     => 'https://noahkim.example',
+		),
+		array(
+			'login'    => 'fatima_zahra',
+			'name'     => 'Fatima Zahra',
+			'headline' => 'Open-source maintainer · docs first',
+			'location' => 'Casablanca, MA',
+			'job'      => 'OSS Maintainer',
+			'site'     => '',
+		),
+		array(
+			'login'    => 'liam_walsh',
+			'name'     => 'Liam Walsh',
+			'headline' => 'Synth builder, weekend cyclist',
+			'location' => 'Melbourne, AU',
+			'job'      => 'Hardware Engineer',
+			'site'     => '',
+		),
+	);
+
+	/**
+	 * Pronouns per member (roster order), surfaced as a profile-field value so
+	 * the About section reads as a complete profile rather than a stub.
+	 *
+	 * @var string[]
+	 */
+	private const PRONOUNS = array(
+		'she/her',
+		'she/her',
+		'he/him',
+		'they/them',
+		'she/her',
+		'he/him',
+		'she/her',
+		'he/him',
+		'she/her',
+		'he/him',
+		'she/her',
+		'he/him',
+	);
+
+	/**
+	 * Interests per member (roster order), shown as a profile-field value.
+	 *
+	 * @var string[]
+	 */
+	private const INTERESTS = array(
+		'Design systems, empty states, good coffee',
+		'CSS, accessibility, the web platform',
+		'Books, community building, board games',
+		'Type design, printmaking, slow mornings',
+		'Trail running, data viz, houseplants',
+		'Pixel art, game jams, synthwave',
+		'Ocean systems, climate models, sailing',
+		'Coffee roasting, Go, mechanical keyboards',
+		'Plain language, UX writing, espresso',
+		'Photography, DevRel, street food',
+		'Open source, docs, mentoring',
+		'Synth DIY, cycling, vinyl',
 	);
 
 	/**
@@ -89,12 +215,42 @@ class DemoDataService {
 	 * @var array<int,array<string,string>>
 	 */
 	private const SPACES = array(
-		array( 'name' => 'Design Critique',     'slug' => 'design-critique',     'type' => 'open',    'desc' => 'Share work in progress and get honest, kind feedback.' ),
-		array( 'name' => 'Frontend Guild',      'slug' => 'frontend-guild',      'type' => 'open',    'desc' => 'Everything CSS, a11y, and the modern web platform.' ),
-		array( 'name' => 'Book Club',           'slug' => 'book-club',           'type' => 'private', 'desc' => 'One book a month. Request to join and pick up the current read.' ),
-		array( 'name' => 'Trail Runners',       'slug' => 'trail-runners',       'type' => 'open',    'desc' => 'Routes, gear talk, and weekend meetups.' ),
-		array( 'name' => 'Founders Lounge',     'slug' => 'founders-lounge',     'type' => 'secret',  'desc' => 'Invite-only room for the core team to talk shop.' ),
-		array( 'name' => 'Photo Walks',         'slug' => 'photo-walks',         'type' => 'private', 'desc' => 'Monthly city photo walks. Members share their best frame.' ),
+		array(
+			'name' => 'Design Critique',
+			'slug' => 'design-critique',
+			'type' => 'open',
+			'desc' => 'Share work in progress and get honest, kind feedback.',
+		),
+		array(
+			'name' => 'Frontend Guild',
+			'slug' => 'frontend-guild',
+			'type' => 'open',
+			'desc' => 'Everything CSS, a11y, and the modern web platform.',
+		),
+		array(
+			'name' => 'Book Club',
+			'slug' => 'book-club',
+			'type' => 'private',
+			'desc' => 'One book a month. Request to join and pick up the current read.',
+		),
+		array(
+			'name' => 'Trail Runners',
+			'slug' => 'trail-runners',
+			'type' => 'open',
+			'desc' => 'Routes, gear talk, and weekend meetups.',
+		),
+		array(
+			'name' => 'Founders Lounge',
+			'slug' => 'founders-lounge',
+			'type' => 'secret',
+			'desc' => 'Invite-only room for the core team to talk shop.',
+		),
+		array(
+			'name' => 'Photo Walks',
+			'slug' => 'photo-walks',
+			'type' => 'private',
+			'desc' => 'Monthly city photo walks. Members share their best frame.',
+		),
 	);
 
 	/**
@@ -148,6 +304,63 @@ class DemoDataService {
 	private const POLL = array(
 		'question' => 'What should we focus on at the next community call?',
 		'options'  => array( 'Design critique session', 'Live coding hour', 'Career AMA', 'Show and tell' ),
+	);
+
+	/**
+	 * Link / oEmbed posts (rich media). Seeded as 'link' posts so the feed
+	 * exercises the oEmbed + link-preview render path — including a YouTube video
+	 * that renders as a capped 16/9 player. `author`/`space` are roster / SPACES
+	 * indices; space -1 means the global feed. In-space authors are the space
+	 * owner so the post is authorised. These are plain bn_posts rows (no
+	 * WPMediaVerse media), so the one-click cleanup removes them completely.
+	 *
+	 * @var array<int,array{author:int,space:int,content:string,url:string}>
+	 */
+	private const LINK_POSTS = array(
+		array(
+			'author'  => 0,
+			'space'   => -1,
+			'content' => 'This walkthrough nails what we are building. Worth ten minutes. #community',
+			'url'     => 'https://www.youtube.com/watch?v=kSoXOIcnO_E',
+		),
+		array(
+			'author'  => 1,
+			'space'   => 1,
+			'content' => 'Great primer on modern CSS layout — sharing it in the guild. #css #frontend',
+			'url'     => 'https://web.dev/learn/css/',
+		),
+		array(
+			'author'  => 3,
+			'space'   => 3,
+			'content' => 'Solid overview of trail running for anyone just starting out. #running #outdoors',
+			'url'     => 'https://en.wikipedia.org/wiki/Trail_running',
+		),
+	);
+
+	/**
+	 * Uploaded-photo posts. Seeded ONLY when the media engine is active: each
+	 * bundled image is ingested through the same WPMediaVerse upload path the
+	 * composer uses (UploadService::handle), then attached as media_ids. The
+	 * media_id is recorded so cleanup delete_cascades the row - no orphan.
+	 *
+	 * @var array<int,array{author:int,content:string,img:string}>
+	 */
+	private const MEDIA_POSTS = array(
+		array(
+			'author'  => 9,
+			'content' => 'Golden hour from last night\'s walk. The light did all the work. #photography',
+			'img'     => 'covers/cover-02.png',
+		),
+		array(
+			'author'  => 3,
+			'content' => 'New gradient study — soft, rounded, calm. #illustration #design',
+			'img'     => 'covers/cover-05.png',
+		),
+		array(
+			'author'  => 5,
+			'content' => 'Trail snapshot from the river loop this morning. #running #outdoors',
+			'img'     => 'covers/cover-07.png',
+		),
 	);
 
 	/**
@@ -253,30 +466,17 @@ class DemoDataService {
 			'users'      => array(),
 			'spaces'     => array(),
 			'posts'      => array(),
+			'media'      => array(),
 		);
 
-		// ── Profile field definitions ──────────────────────────────────────
+		// ── Profiles ───────────────────────────────────────────────────────
+		// Members populate BN's REAL starter profile fields (shipped by the
+		// installer: basic_info / social_links / skills). The demo creates NO
+		// fields of its own — doing so left the real fields empty and made every
+		// demo profile look incomplete. Values are written per member below and
+		// cleared on cleanup by the platform `deleted_user` listener (which now
+		// purges bn_profile_values for any removed account).
 		$profiles = new ProfileService();
-		$say( 'Creating profile fields…' );
-		$group_id = $profiles->create_group(
-			array(
-				'group_key'  => 'bn_demo_details',
-				'label'      => __( 'Details', 'buddynext' ),
-				'sort_order' => 20,
-			)
-		);
-		$manifest['groups'][] = $group_id;
-
-		$field_defs = array(
-			array( 'field_key' => 'bn_demo_location', 'label' => __( 'Location', 'buddynext' ), 'type' => 'text', 'is_searchable' => 1 ),
-			array( 'field_key' => 'bn_demo_job',      'label' => __( 'Job title', 'buddynext' ), 'type' => 'text', 'is_searchable' => 1 ),
-			array( 'field_key' => 'bn_demo_website',  'label' => __( 'Website', 'buddynext' ),   'type' => 'url' ),
-		);
-		foreach ( $field_defs as $i => $def ) {
-			$def['group_id']   = $group_id;
-			$def['sort_order'] = $i;
-			$manifest['fields'][] = $profiles->create_field( $def );
-		}
 
 		// ── Members ─────────────────────────────────────────────────────────
 		$storage = new ImageStorageService();
@@ -287,20 +487,29 @@ class DemoDataService {
 			if ( $user_id <= 0 ) {
 				continue;
 			}
-			$user_ids[]            = $user_id;
-			$manifest['users'][]   = $user_id;
+			$user_ids[]          = $user_id;
+			$manifest['users'][] = $user_id;
 
 			// Avatar + cover from bundled offline art.
 			$this->store_bundled( $storage, 'avatar', 'user', $user_id, 'avatars/avatar-' . sprintf( '%02d', ( $i % 12 ) + 1 ) . '.png' );
 			$this->store_bundled( $storage, 'cover', 'user', $user_id, 'covers/cover-' . sprintf( '%02d', ( $i % 8 ) + 1 ) . '.png' );
 
-			// Profile field values.
+			// Fill BN's real starter fields so the About section reads complete.
+			$bn_handle = str_replace( '_', '', $member['login'] );
+			$bn_bio    = rtrim( $member['headline'], '.' ) . '.';
+			if ( '' !== $member['job'] && '' !== $member['location'] ) {
+				$bn_bio .= ' ' . $member['job'] . ' based in ' . $member['location'] . '.';
+			}
 			$profiles->save_profile(
 				$user_id,
 				array(
-					'bn_demo_location' => $member['location'],
-					'bn_demo_job'      => $member['job'],
-					'bn_demo_website'  => $member['site'],
+					'headline'       => $member['headline'],
+					'bio'            => $bn_bio,
+					'location'       => $member['location'],
+					'website'        => $member['site'],
+					'pronouns'       => self::PRONOUNS[ $i ] ?? '',
+					'interests'      => self::INTERESTS[ $i ] ?? '',
+					'social_twitter' => 'https://twitter.com/' . $bn_handle,
 				)
 			);
 		}
@@ -368,13 +577,19 @@ class DemoDataService {
 		foreach ( self::POSTS as $i => $body ) {
 			$author_id = $user_ids[ $i % count( $user_ids ) ];
 			// Put every third post inside a space the author can post to.
-			$space_id  = ( 0 === $i % 3 && ! empty( $space_ids ) ) ? $space_ids[ $i % count( $space_ids ) ] : 0;
+			$space_id = ( 0 === $i % 3 && ! empty( $space_ids ) ) ? $space_ids[ $i % count( $space_ids ) ] : 0;
 
-			$post_id = $posts->create(
+			// Backdate across the last ~30 days for a realistic time spread, through
+			// the API (no raw UPDATE). last_activity_at defaults to created_at and is
+			// bumped to NOW() by any engagement below, so busy posts surface in the
+			// "Active" feed while quiet ones stay at their post time.
+			$bn_created_at = gmdate( 'Y-m-d H:i:s', time() - ( ( $i * 211 ) % 43200 ) * 60 );
+			$post_id       = $posts->create(
 				$author_id,
 				array(
-					'type'    => 'text',
-					'content' => $body,
+					'type'       => 'text',
+					'content'    => $body,
+					'created_at' => $bn_created_at,
 				) + ( $space_id > 0 ? array( 'space_id' => $space_id ) : array() )
 			);
 			if ( is_wp_error( $post_id ) ) {
@@ -390,43 +605,103 @@ class DemoDataService {
 			);
 
 			// Engagement varies per post so Top/Active sorts have something to
-			// rank: most posts get a few, some are busy, a couple are quiet —
-			// reactions are capped at the member count (one reaction per member).
-			$bn_nu        = count( $user_ids );
-			$bn_busy      = ( 0 === $i % 4 );
-			$bn_quiet     = ( 0 === $i % 5 );
-			$bn_comment_n = $bn_quiet ? 0 : ( $bn_busy ? 4 : 1 + ( $i % 2 ) );
-			$bn_react_n   = $bn_quiet ? 0 : min( $bn_nu, $bn_busy ? 6 : 2 + ( $i % 3 ) );
-
-			for ( $c = 0; $c < $bn_comment_n; $c++ ) {
-				$commenter = $user_ids[ ( $i + $c + 1 ) % $bn_nu ];
-				$comments->create( $commenter, 'post', $post_id, self::COMMENTS[ ( $i + $c ) % count( self::COMMENTS ) ] );
-			}
-			for ( $r = 0; $r < $bn_react_n; $r++ ) {
-				$reactor = $user_ids[ ( $i + $r + 2 ) % $bn_nu ];
-				$reactions->react( $reactor, 'post', $post_id, self::REACTIONS[ ( $i + $r ) % count( self::REACTIONS ) ] );
-			}
-
-			// Spread posts across the last ~30 days, and set last_activity_at so
-			// "Latest" and "Active" orderings differ: busy posts read as recently
-			// active; quiet ones stay at their post time. Active offset is never
-			// larger than the post age, so last_activity_at >= created_at.
-			global $wpdb;
-			$bn_age_min      = ( $i * 211 ) % 43200;
-			$bn_active_min   = $bn_busy ? min( $bn_age_min, ( $i * 37 ) % 720 ) : $bn_age_min;
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->update(
-				$wpdb->prefix . 'bn_posts',
-				array(
-					'created_at'       => gmdate( 'Y-m-d H:i:s', time() - $bn_age_min * 60 ),
-					'last_activity_at' => gmdate( 'Y-m-d H:i:s', time() - $bn_active_min * 60 ),
-				),
-				array( 'id' => $post_id ),
-				array( '%s', '%s' ),
-				array( '%d' )
-			);
+			// rank - applied uniformly to every activity type via engage_post().
+			$this->engage_post( $post_id, $i, $user_ids, $comments, $reactions );
 		}
 		$say( sprintf( 'Created %d posts.', count( $post_ids ) ) );
+
+		// ── Link / oEmbed posts (video embeds + article cards) ──────────────
+		// Seeded as 'link' posts so the feed exercises the oEmbed render path
+		// (a YouTube video among them). In-space authors are the space owner so
+		// the post is authorised. PostService auto-fetches link_meta when empty;
+		// the YouTube post renders as a capped 16/9 player on the feed.
+		$say( 'Creating link / video posts…' );
+		foreach ( self::LINK_POSTS as $li => $lp ) {
+			$author_id = $user_ids[ $lp['author'] % count( $user_ids ) ];
+			$space_id  = ( $lp['space'] >= 0 && isset( $space_ids[ $lp['space'] ] ) ) ? $space_ids[ $lp['space'] ] : 0;
+
+			$post_id = $posts->create(
+				$author_id,
+				array(
+					'type'     => 'link',
+					'content'  => $lp['content'],
+					'link_url' => $lp['url'],
+				) + ( $space_id > 0 ? array( 'space_id' => $space_id ) : array() )
+			);
+			if ( is_wp_error( $post_id ) ) {
+				continue;
+			}
+			$post_ids[]          = $post_id;
+			$manifest['posts'][] = array(
+				'id'     => $post_id,
+				'author' => $author_id,
+			);
+			$this->engage_post( $post_id, count( self::POSTS ) + $li, $user_ids, $comments, $reactions );
+		}
+		$say( sprintf( 'Total posts now %d.', count( $post_ids ) ) );
+
+		// ── Media posts (uploaded photos) — only when the media engine is active ──
+		// Ingest bundled demo images through the SAME WPMediaVerse upload path the
+		// composer uses (UploadService::handle), attach the media_id, and record it
+		// so cleanup delete_cascades the engine row. Skipped silently when the media
+		// engine is absent, so the seed never hard-depends on it.
+		if ( MediaClient::available() ) {
+			$uploader = MediaClient::upload();
+			if ( is_object( $uploader ) && method_exists( $uploader, 'handle' ) ) {
+				if ( ! function_exists( 'wp_tempnam' ) ) {
+					require_once ABSPATH . 'wp-admin/includes/file.php';
+				}
+				$say( 'Creating media posts…' );
+				$manifest['media'] = $manifest['media'] ?? array();
+				foreach ( self::MEDIA_POSTS as $mi => $mp ) {
+					$src = BUDDYNEXT_DIR . 'assets/demo/' . $mp['img'];
+					if ( ! is_readable( $src ) ) {
+						continue;
+					}
+					$author_id = $user_ids[ $mp['author'] % count( $user_ids ) ];
+					// Copy to a real temp file: handle() may move/unlink tmp_name, and the
+					// bundled repo asset must survive for the next seed.
+					$tmp = wp_tempnam( basename( $mp['img'] ) );
+					// copy() can emit a warning on a transient temp-write failure; the
+					// return value is the real signal and is checked here to skip the item.
+					if ( ! $tmp || ! @copy( $src, $tmp ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- failure handled via the checked return value.
+						continue;
+					}
+					$file     = array(
+						'tmp_name' => $tmp,
+						'name'     => basename( $mp['img'] ),
+						'type'     => 'image/png',
+						'size'     => (int) filesize( $tmp ),
+						'error'    => 0,
+					);
+					$media_id = $uploader->handle( $file, $author_id, array() );
+					if ( file_exists( $tmp ) ) {
+						wp_delete_file( $tmp );
+					}
+					if ( is_wp_error( $media_id ) || (int) $media_id <= 0 ) {
+						continue;
+					}
+					$manifest['media'][] = (int) $media_id;
+					$post_id             = $posts->create(
+						$author_id,
+						array(
+							'type'      => 'text',
+							'content'   => $mp['content'],
+							'media_ids' => array( (int) $media_id ),
+						)
+					);
+					if ( is_wp_error( $post_id ) ) {
+						continue;
+					}
+					$post_ids[]          = $post_id;
+					$manifest['posts'][] = array(
+						'id'     => $post_id,
+						'author' => $author_id,
+					);
+					$this->engage_post( $post_id, 200 + $mi, $user_ids, $comments, $reactions );
+				}
+			}
+		}
 
 		// ── Hashtag indexing (synchronous) ──────────────────────────────────
 		// Posts created above fire buddynext_post_created, which normally defers
@@ -513,7 +788,8 @@ class DemoDataService {
 				'id'     => $poll_id,
 				'author' => $poll_author,
 			);
-			$post_ids[] = $poll_id;
+			$post_ids[]          = $poll_id;
+			$this->engage_post( (int) $poll_id, 7, $user_ids, new CommentService(), new ReactionService() );
 		}
 
 		// Bookmarks — each member saves a few of the most recent posts.
@@ -525,6 +801,47 @@ class DemoDataService {
 					$post_id = $post_ids[ ( $idx + $b ) % count( $post_ids ) ];
 					$bookmarks->bookmark( $uid, $post_id );
 				}
+			}
+		}
+
+		// Reshares — members amplify a few popular posts (with a note) so the
+		// feed carries share activity too. Each reshare is a 'share' post recorded
+		// in the manifest, and demo bn_shares rows are cleared on cleanup, so the
+		// go-live reset leaves nothing behind.
+		if ( count( $post_ids ) > 2 && class_exists( ShareService::class ) ) {
+			$say( 'Creating reshares…' );
+			$share_service   = new ShareService();
+			$share_comments  = new CommentService();
+			$share_reactions = new ReactionService();
+			$share_specs     = array(
+				array(
+					'by'   => 3,
+					'post' => 0,
+					'note' => 'Worth a look — sharing with the group.',
+				),
+				array(
+					'by'   => 6,
+					'post' => 2,
+					'note' => 'Resharing this, great thread.',
+				),
+				array(
+					'by'   => 9,
+					'post' => 5,
+					'note' => '',
+				),
+			);
+			foreach ( $share_specs as $sk => $spec ) {
+				$sharer   = $user_ids[ $spec['by'] % $n ];
+				$target   = $post_ids[ $spec['post'] % count( $post_ids ) ];
+				$share_id = $share_service->share( $sharer, $target, $spec['note'] );
+				if ( is_wp_error( $share_id ) ) {
+					continue;
+				}
+				$manifest['posts'][] = array(
+					'id'     => (int) $share_id,
+					'author' => $sharer,
+				);
+				$this->engage_post( (int) $share_id, 100 + $sk, $user_ids, $share_comments, $share_reactions );
 			}
 		}
 
@@ -574,9 +891,9 @@ class DemoDataService {
 			'groups' => 0,
 		);
 
-		$posts    = new PostService();
-		$storage  = new ImageStorageService();
-		$profiles = new ProfileService();
+		$posts         = new PostService();
+		$storage       = new ImageStorageService();
+		$profiles      = new ProfileService();
 		$space_service = new SpaceService();
 
 		// Posts (cascade removes their comments/reactions in PostService::delete).
@@ -610,6 +927,20 @@ class DemoDataService {
 			 WHERE ph.hashtag_id IS NULL AND h.follower_count = 0" // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		);
 
+		// Media rows (uploaded photos): delete_cascade through the WPMediaVerse
+		// repo — the engine owns the wp_mvs_* tables + files, so this is the
+		// API-correct teardown that leaves no orphaned media on the go-live reset.
+		$demo_media = array_map( 'intval', (array) ( $manifest['media'] ?? array() ) );
+		if ( ! empty( $demo_media ) && MediaClient::available() ) {
+			$repo = MediaClient::repo();
+			if ( is_object( $repo ) && method_exists( $repo, 'delete_cascade' ) ) {
+				$say( 'Removing media…' );
+				foreach ( $demo_media as $mid ) {
+					$repo->delete_cascade( $mid );
+				}
+			}
+		}
+
 		// Spaces (and their per-owner image folders).
 		$say( 'Removing spaces…' );
 		foreach ( (array) ( $manifest['spaces'] ?? array() ) as $space_id ) {
@@ -635,6 +966,10 @@ class DemoDataService {
 			if ( ! get_user_meta( $user_id, self::USER_FLAG, true ) ) {
 				continue;
 			}
+			// wp_delete_user() below fires `deleted_user` → UserCleanupListener,
+			// which now purges this member's profile values, bookmarks, follows,
+			// connections, space memberships and notifications platform-wide — so
+			// the demo cleanup no longer needs per-table passes for those.
 			$storage->delete( 'avatar', 'user', $user_id );
 			$storage->delete( 'cover', 'user', $user_id );
 			if ( wp_delete_user( $user_id ) ) {
@@ -653,18 +988,15 @@ class DemoDataService {
 			++$removed['groups'];
 		}
 
-		// Bookmarks live in their own table; deleting the user or post does not
-		// remove them, so clear any rows owned by the demo members for a clean
-		// re-seed. DM threads orphan harmlessly; a re-seed makes new ones and
-		// the WPMediaVerse engine owns those rows.
-		$demo_user_ids = array_map( 'intval', (array) ( $manifest['users'] ?? array() ) );
-		if ( ! empty( $demo_user_ids ) ) {
-			global $wpdb;
-			$say( 'Removing bookmarks…' );
-			$placeholders = implode( ',', array_fill( 0, count( $demo_user_ids ), '%d' ) );
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-			$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->prefix}bn_bookmarks WHERE user_id IN ($placeholders)", $demo_user_ids ) );
-		}
+		// Bookmarks + DM threads need no explicit pass here, all via platform
+		// hooks: deleting demo posts cascades their bookmark rows
+		// (PostService::delete); wp_delete_user fires BN's UserCleanupListener
+		// (remaining per-user bookmarks) AND WPMediaVerse's UserDeletionService,
+		// which clears the members' conversation participation + messages and
+		// sweeps any now-empty conversation thread. Nothing is left orphaned.
+		// Reshares (bn_shares) need no explicit pass: PostService::delete() above
+		// cascades the share rows when the demo posts are removed (it deletes
+		// bn_shares by post_id), so the go-live reset clears them through the API.
 
 		delete_option( self::MANIFEST_OPTION );
 		$say( 'Demo data removed.' );
@@ -673,6 +1005,38 @@ class DemoDataService {
 	}
 
 	// ── Private helpers ────────────────────────────────────────────────────
+
+	/**
+	 * Apply varied engagement (comments + reactions) to one post so every
+	 * activity type - text, link/oEmbed, poll, reshare - carries the same kind
+	 * of social proof. $seq drives the busy/quiet spread so Top/Active sorts
+	 * have something to rank.
+	 *
+	 * @param int             $post_id   Target post.
+	 * @param int             $seq       Sequence index (drives variation).
+	 * @param int[]           $user_ids  Demo member IDs.
+	 * @param CommentService  $comments  Comment service.
+	 * @param ReactionService $reactions Reaction service.
+	 * @return void
+	 */
+	private function engage_post( int $post_id, int $seq, array $user_ids, CommentService $comments, ReactionService $reactions ): void {
+		$n = count( $user_ids );
+		if ( 0 === $n ) {
+			return;
+		}
+		$busy      = ( 0 === $seq % 4 );
+		$quiet     = ( 0 === $seq % 5 );
+		$comment_n = $quiet ? 0 : ( $busy ? 4 : 1 + ( $seq % 2 ) );
+		$react_n   = $quiet ? 0 : min( $n, $busy ? 6 : 2 + ( $seq % 3 ) );
+		for ( $c = 0; $c < $comment_n; $c++ ) {
+			$commenter = $user_ids[ ( $seq + $c + 1 ) % $n ];
+			$comments->create( $commenter, 'post', $post_id, self::COMMENTS[ ( $seq + $c ) % count( self::COMMENTS ) ] );
+		}
+		for ( $r = 0; $r < $react_n; $r++ ) {
+			$reactor = $user_ids[ ( $seq + $r + 2 ) % $n ];
+			$reactions->react( $reactor, 'post', $post_id, self::REACTIONS[ ( $seq + $r ) % count( self::REACTIONS ) ] );
+		}
+	}
 
 	/**
 	 * Create a single demo member, flagged for safe cleanup.
@@ -685,14 +1049,22 @@ class DemoDataService {
 		if ( username_exists( $login ) ) {
 			return 0;
 		}
-		$email   = $member['login'] . '@buddynext-demo.invalid';
+		$email = $member['login'] . '@buddynext-demo.invalid';
+
+		// A fuller bio than the one-line headline so the profile header does not
+		// read as empty. Composed from the roster fields (no new data needed).
+		$bio = rtrim( $member['headline'], '.' ) . '.';
+		if ( '' !== $member['job'] && '' !== $member['location'] ) {
+			$bio .= ' ' . $member['job'] . ' based in ' . $member['location'] . '.';
+		}
+
 		$user_id = wp_insert_user(
 			array(
 				'user_login'   => $login,
 				'user_email'   => $email,
 				'user_pass'    => wp_generate_password( 24, true ),
 				'display_name' => $member['name'],
-				'description'  => $member['headline'],
+				'description'  => $bio,
 				'role'         => 'subscriber',
 			)
 		);

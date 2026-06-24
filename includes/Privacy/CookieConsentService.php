@@ -70,12 +70,12 @@ class CookieConsentService {
 			return;
 		}
 
-		$privacy_url   = (int) get_option( 'wp_page_for_privacy_policy' ) > 0
+		$privacy_url  = (int) get_option( 'wp_page_for_privacy_policy' ) > 0
 			? get_privacy_policy_url()
 			: '';
-		$message       = __( 'We use cookies to keep you signed in and to improve your experience. By continuing to browse, you agree to our use of cookies.', 'buddynext' );
-		$accept_label  = __( 'Got it', 'buddynext' );
-		$policy_label  = __( 'Privacy policy', 'buddynext' );
+		$message      = __( 'We use cookies to keep you signed in and to improve your experience. By continuing to browse, you agree to our use of cookies.', 'buddynext' );
+		$accept_label = __( 'Got it', 'buddynext' );
+		$policy_label = __( 'Privacy policy', 'buddynext' );
 		?>
 		<div class="bn-cookie-consent" role="region" aria-label="<?php esc_attr_e( 'Cookie notice', 'buddynext' ); ?>" data-bn-cookie-consent data-cookie-name="<?php echo esc_attr( self::COOKIE ); ?>" hidden>
 			<p class="bn-cookie-consent__text">

@@ -67,7 +67,7 @@ $bn_sh_stats[] = array(
 );
 
 // Unified nav tabs from the registry (SpaceNav + bridges), gated for this role.
-$bn_sh_nav      = buddynext_nav( new \BuddyNext\Nav\NavContext( 'space', $bn_sh_space_id, (int) $bn_sh_viewer, $bn_sh_is_member ? $bn_sh_role : '' ) );
+$bn_sh_nav       = buddynext_nav( new \BuddyNext\Nav\NavContext( 'space', $bn_sh_space_id, (int) $bn_sh_viewer, $bn_sh_is_member ? $bn_sh_role : '' ) );
 $bn_sh_nav_items = $bn_sh_nav->layer( 'primary' );
 
 buddynext_get_template(

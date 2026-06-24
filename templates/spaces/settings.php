@@ -576,8 +576,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 				'parts/space-settings-panel-privacy.php',
 				array(
 					'space'            => $space,
-					'privacy_settings' => array(
-					),
+					'privacy_settings' => array(),
 				),
 			),
 			'integrations'  => array(

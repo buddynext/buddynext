@@ -65,8 +65,8 @@ $bn_class   = trim(
 	)
 );
 
-$bn_related      = (array) $args['related_tags'];
-$bn_logged_in    = (bool) $args['is_logged_in'];
+$bn_related       = (array) $args['related_tags'];
+$bn_logged_in     = (bool) $args['is_logged_in'];
 $bn_following_map = (array) $args['following_map'];
 
 do_action( 'buddynext_part_hashtag_sidebar_related_before', $args );
@@ -77,9 +77,9 @@ do_action( 'buddynext_part_hashtag_sidebar_related_before', $args );
 		<?php
 		foreach ( $bn_related as $rel_tag ) :
 			// Service rows are arrays; tolerate object rows defensively.
-			$rel_tag    = (array) $rel_tag;
-			$rel_slug   = (string) ( $rel_tag['slug'] ?? '' );
-			$rel_count  = absint( $rel_tag['post_count'] ?? 0 );
+			$rel_tag   = (array) $rel_tag;
+			$rel_slug  = (string) ( $rel_tag['slug'] ?? '' );
+			$rel_count = absint( $rel_tag['post_count'] ?? 0 );
 			if ( '' === $rel_slug ) {
 				continue;
 			}

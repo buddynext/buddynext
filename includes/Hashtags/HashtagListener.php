@@ -72,7 +72,7 @@ class HashtagListener implements ListenerInterface {
 	 *
 	 * @param int    $post_id Post ID.
 	 * @param int    $user_id Author user ID (unused here, kept for hook arity).
-	 * @param string $type    Post type slug.
+	 * @param string $type    Post type slug (unused; all post types are now indexed).
 	 * @return void
 	 */
 	public function on_post_created( int $post_id, int $user_id, string $type ): void {
@@ -83,11 +83,12 @@ class HashtagListener implements ListenerInterface {
 			return;
 		}
 
-		// Only text-based post types carry hashtaggable content.
-		if ( ! in_array( $type, array( 'text', 'link', 'announcement', 'activity' ), true ) ) {
-			return;
-		}
-
+		// Index hashtags for ANY post type. The saved content is fetched in the
+		// async worker (async_index_hashtags), which no-ops when there is no text,
+		// so a type with no caption costs nothing. The old 4-type allowlist meant
+		// poll questions, media captions, reshare notes, event/job/discussion
+		// bodies etc. with #hashtags were silently never indexed (never appeared
+		// in hashtag feeds or trending, and following the tag missed them).
 		$this->dispatch( 'buddynext_async_index_hashtags', array( 'post', $post_id, '' ) );
 	}
 

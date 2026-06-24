@@ -108,12 +108,12 @@ do_action( 'buddynext_part_search_result_section_hashtags_before', $args );
 	<div class="bn-search-results__list">
 		<?php foreach ( $bn_hashtags as $ht_row ) : ?>
 			<?php
-			$ht_slug = (string) $ht_row->slug;
+			$ht_slug = (string) $ht_row['slug'];
 			$ht_url  = '';
 			if ( class_exists( '\\BuddyNext\\Core\\PageRouter' ) ) {
 				$ht_url = (string) \BuddyNext\Core\PageRouter::hashtag_feed_url( $ht_slug );
 			}
-			$ht_count = (int) $ht_row->post_count;
+			$ht_count = (int) $ht_row['post_count'];
 			?>
 			<article class="bn-card bn-search-row bn-search-row--hashtag" data-interactive>
 				<a class="bn-search-row__link" href="<?php echo esc_url( $ht_url ); ?>">

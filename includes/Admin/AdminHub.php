@@ -487,6 +487,15 @@ class AdminHub {
 			$version
 		);
 
+		// Left-nav accordion: remembers which sidebar sections the owner expands.
+		wp_enqueue_script(
+			'bn-admin-hub-nav',
+			$assets_url . 'js/admin/nav-accordion.js',
+			array(),
+			$version,
+			true
+		);
+
 		// Register every BuddyNext admin screen into WordPress core's native
 		// command palette (Cmd/Ctrl+K) — no competing overlay. Indexed from the
 		// AdminHub registry (Free + standalone), capability-filtered.
@@ -987,7 +996,7 @@ class AdminHub {
 	 * @return void
 	 */
 	private function render_brand_bar( string $section_key = '', string $active_slug = '' ): void {
-		$version  = defined( 'BUDDYNEXT_VERSION' ) ? (string) constant( 'BUDDYNEXT_VERSION' ) : '';
+		$version = defined( 'BUDDYNEXT_VERSION' ) ? (string) constant( 'BUDDYNEXT_VERSION' ) : '';
 		// Prefer a white-label brand logo (Pro) when configured; fall back to the
 		// bundled BuddyNext mark. brand_logo_url() resolves the buddynext_brand_logo_url filter.
 		$brand_logo = \BuddyNext\Core\Plugin::brand_logo_url();
@@ -1053,8 +1062,8 @@ class AdminHub {
 			'automod'       => 'pro/14-auto-moderation/',
 			'monetization'  => 'pro/01-membership-tiers/',
 		);
-		$tab_overrides = array(
-			'members'      => array(
+		$tab_overrides    = array(
+			'members'       => array(
 				'registration' => 'accounts-access/01-registration/',
 				'roles'        => 'members/05-roles-and-capabilities/',
 				'privacy'      => 'accounts-access/08-privacy-and-data/',
@@ -1065,31 +1074,31 @@ class AdminHub {
 				'email'     => 'messaging-notifications/03-email-system/',
 				'templates' => 'messaging-notifications/03-email-system/',
 			),
-			'campaigns'    => array(
+			'campaigns'     => array(
 				'broadcasts' => 'pro/12-broadcast-email/',
 				'drip'       => 'pro/13-drip-sequences/',
 				'scheduled'  => 'pro/05-scheduled-posts/',
 				'ai-feed'    => 'pro/15-ai-feed-and-moderation/',
 			),
-			'moderation'   => array(
+			'moderation'    => array(
 				'appeals' => 'moderation/04-appeals/',
 				'bulk'    => 'pro/16-bulk-moderation/',
 				'reports' => 'moderation/01-reporting-content/',
 			),
-			'realtime'     => array(
+			'realtime'      => array(
 				'push'       => 'pro/17-push-notifications/',
 				'push-prefs' => 'pro/17-push-notifications/',
 			),
-			'engagement'   => array(
+			'engagement'    => array(
 				'reactions' => 'community/04-reactions/',
 				'insights'  => 'pro/19-analytics/',
 			),
-			'monetization' => array(
+			'monetization'  => array(
 				'stripe'  => 'pro/03-stripe-payments/',
 				'license' => 'getting-started/02-installation/',
 			),
 		);
-		$path = $tab_overrides[ $section ][ $tab ] ?? ( $section_defaults[ $section ] ?? '' );
+		$path             = $tab_overrides[ $section ][ $tab ] ?? ( $section_defaults[ $section ] ?? '' );
 		return self::DOCS_BASE . $path;
 	}
 
@@ -1117,10 +1126,25 @@ class AdminHub {
 			if ( empty( $visible ) ) {
 				continue;
 			}
-			echo '<div class="bn-hub-nav-group">';
-			echo '<div class="bn-hub-nav-group__label">' . esc_html( (string) $section['label'] ) . '</div>';
+			// Each section is a native <details> accordion: only the section that
+			// owns the current page is open by default, so the panel stays short and
+			// you don't scroll past every other section. The accordion JS persists
+			// which sections the owner expands (and always keeps the active one open).
+			$is_current_section = ( (string) $skey === $active_section );
+			printf(
+				'<details class="bn-hub-nav-group%1$s" data-bn-nav-group="%2$s"%3$s>',
+				$is_current_section ? ' is-current' : '',
+				esc_attr( (string) $skey ),
+				$is_current_section ? ' open' : ''
+			);
+			printf(
+				'<summary class="bn-hub-nav-group__label"><span class="bn-hub-nav-group__name">%1$s</span>%2$s</summary>',
+				esc_html( (string) $section['label'] ),
+				\BuddyNext\Core\IconService::render( 'chevron-down', 'bn-hub-nav-group__chevron' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses'd SVG markup.
+			);
+			echo '<div class="bn-hub-nav-group__items">';
 			foreach ( $visible as $tslug => $tab ) {
-				$is_active = ( (string) $skey === $active_section && (string) $tslug === $active_slug );
+				$is_active = ( $is_current_section && (string) $tslug === $active_slug );
 				$icon_html = ! empty( $tab['icon'] ) ? \BuddyNext\Core\IconService::render( (string) $tab['icon'] ) : '';
 				printf(
 					'<a class="bn-hub-nav-link%1$s" href="%2$s"%3$s>%4$s<span class="bn-hub-nav-link__label">%5$s</span></a>',
@@ -1132,6 +1156,7 @@ class AdminHub {
 				);
 			}
 			echo '</div>';
+			echo '</details>';
 		}
 		echo '</aside>';
 	}

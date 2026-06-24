@@ -26,7 +26,8 @@ class ShareService {
 	 * @param int    $user_id User sharing the post.
 	 * @param int    $post_id Original post to share.
 	 * @param string $content Optional note/comment to accompany the share.
-	 * @return int|WP_Error Share row ID on success; WP_Error('already_shared') on duplicate.
+	 * @return int|WP_Error The new share ACTIVITY post id (bn_posts) on success;
+	 *                      WP_Error('already_shared') on duplicate.
 	 */
 	public function share( int $user_id, int $post_id, string $content = '' ): int|WP_Error {
 		if ( '0' === (string) get_option( 'buddynext_allow_shares', '1' ) ) {
@@ -175,7 +176,12 @@ class ShareService {
 		 */
 		do_action( 'buddynext_post_shared', $share_id, $post_id, $user_id );
 
-		return $share_id;
+		// Return the new share ACTIVITY post id (bn_posts), NOT the bn_shares
+		// relationship row id: callers need the post id to render the repost card
+		// (ShareController hydration), and to track/engage it (the demo seeder).
+		// The bn_shares row id is still passed to buddynext_post_shared above for
+		// listeners that key off the relationship.
+		return $feed_post_id;
 	}
 
 	/**

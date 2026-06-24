@@ -55,7 +55,7 @@ class MediaUrlResolver {
 		$thumb = method_exists( $repo, 'get_broadcast_thumbnail_url' )
 			? (string) $repo->get_broadcast_thumbnail_url( $media_id, 'thumb_large' )
 			: '';
-		$url = method_exists( $repo, 'get_broadcast_url' )
+		$url   = method_exists( $repo, 'get_broadcast_url' )
 			? (string) $repo->get_broadcast_url( $media_id )
 			: (string) $repo->get( $media_id, 'file_url' );
 

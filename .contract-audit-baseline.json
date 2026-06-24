@@ -375,6 +375,41 @@
             "id": "option-read-never-written:buddynext_reg_rate_limit",
             "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
             "severity": "warning"
+        },
+        {
+            "id": "hook-consumed-never-fired:buddynext_cleanup_activity_log",
+            "reason": "Cron-fired hook, not a do_action() target. Registered as a CronScheduler recurring job (CronScheduler::JOB_CLEANUP_ACTIVITY_LOG): handler bound at includes/Core/CronScheduler.php:97, armed weekly via maybe_schedule() at :134. WP-Cron / Action Scheduler invokes the action, so the scanner finds no literal firing site. False positive.",
+            "severity": "error"
+        },
+        {
+            "id": "hook-consumed-never-fired:buddynext_webhook_deliver",
+            "reason": "Cron-fired hook, not a do_action() target. OutboundWebhookService::DELIVER_HOOK: handler bound at includes/Outbound/OutboundWebhookService.php:88, armed per delivery via wp_schedule_single_event() at :331 and :337. WP-Cron invokes the action; no literal firing site exists for the scanner to match. False positive.",
+            "severity": "error"
+        },
+        {
+            "id": "hook-consumed-never-fired:buddynext_webhook_retry_single",
+            "reason": "Cron-fired hook, not a do_action() target. OutboundWebhookService::RETRY_HOOK: handler bound at includes/Outbound/OutboundWebhookService.php:91, armed via wp_schedule_single_event() at :536 (exponential-backoff retry). WP-Cron invokes the action; no literal firing site exists. False positive.",
+            "severity": "error"
+        },
+        {
+            "id": "option-read-never-written:buddynext_pro_page_membership",
+            "reason": "Written by MembershipPages provisioning via update_option( $hub['opt_page'], ... ) / update_option( $hub['opt_slug'], ... ) at MembershipPages.php:231-232 \u2014 a dynamic ($hub-keyed) write the static scanner cannot match against the constant-keyed read (self::OPT_PAGE_MEMBERSHIP, etc.). Verified: the membership pages provision and pricing_url()/my_membership_url() resolve correctly. False positive (the membership epic this was waiting on is complete in 1.0.2).",
+            "severity": "error"
+        },
+        {
+            "id": "option-read-never-written:buddynext_pro_page_my_membership",
+            "reason": "Written by MembershipPages provisioning via update_option( $hub['opt_page'], ... ) / update_option( $hub['opt_slug'], ... ) at MembershipPages.php:231-232 \u2014 a dynamic ($hub-keyed) write the static scanner cannot match against the constant-keyed read (self::OPT_PAGE_MEMBERSHIP, etc.). Verified: the membership pages provision and pricing_url()/my_membership_url() resolve correctly. False positive (the membership epic this was waiting on is complete in 1.0.2).",
+            "severity": "error"
+        },
+        {
+            "id": "option-read-never-written:buddynext_pro_slug_membership",
+            "reason": "Written by MembershipPages provisioning via update_option( $hub['opt_page'], ... ) / update_option( $hub['opt_slug'], ... ) at MembershipPages.php:231-232 \u2014 a dynamic ($hub-keyed) write the static scanner cannot match against the constant-keyed read (self::OPT_PAGE_MEMBERSHIP, etc.). Verified: the membership pages provision and pricing_url()/my_membership_url() resolve correctly. False positive (the membership epic this was waiting on is complete in 1.0.2).",
+            "severity": "error"
+        },
+        {
+            "id": "option-read-never-written:buddynext_pro_slug_my_membership",
+            "reason": "Written by MembershipPages provisioning via update_option( $hub['opt_page'], ... ) / update_option( $hub['opt_slug'], ... ) at MembershipPages.php:231-232 \u2014 a dynamic ($hub-keyed) write the static scanner cannot match against the constant-keyed read (self::OPT_PAGE_MEMBERSHIP, etc.). Verified: the membership pages provision and pricing_url()/my_membership_url() resolve correctly. False positive (the membership epic this was waiting on is complete in 1.0.2).",
+            "severity": "error"
         }
     ]
 }

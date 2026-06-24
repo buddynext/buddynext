@@ -141,7 +141,7 @@
 		clear( panel.dmAuthor );
 		clear( panel.comments );
 		if ( panel.views ) { panel.views.textContent = ''; }
-		if ( panel.favorite ) { panel.favorite.setAttribute( 'aria-pressed', 'false' ); }
+		setFavorite( false );
 
 		// Media meta (author, views, urls). DM media renders into the floating
 		// stage chrome (sender + download); social media into the side panel.
@@ -173,7 +173,7 @@
 		if ( panel.favorite ) {
 			api( '/media/' + id + '/favorite' ).then( function ( r ) {
 				if ( current === id && r && typeof r.favorited !== 'undefined' ) {
-					panel.favorite.setAttribute( 'aria-pressed', r.favorited ? 'true' : 'false' );
+					setFavorite( !! r.favorited );
 				}
 			} ).catch( function () {} );
 		}
@@ -259,16 +259,30 @@
 		} ).catch( function () {} );
 	}
 
+	// Single source of truth for the favorite affordance: the pressed state
+	// drives both the filled-heart styling (CSS [aria-pressed="true"]) and the
+	// label, which swaps Favorite ↔ Favorited so the toggle is unmistakable.
+	function setFavorite( on ) {
+		var btn = panel.favorite;
+		if ( ! btn ) { return; }
+		btn.setAttribute( 'aria-pressed', on ? 'true' : 'false' );
+		var label = btn.querySelector( 'span' );
+		if ( label ) {
+			label.textContent = on
+				? ( I18N.favorited || 'Favorited' )
+				: ( I18N.favorite || 'Favorite' );
+		}
+	}
+
 	function favorite() {
 		if ( ! requireLogin() || ! current ) { return; }
-		var btn = panel.favorite;
-		var on = btn.getAttribute( 'aria-pressed' ) === 'true';
-		btn.setAttribute( 'aria-pressed', on ? 'false' : 'true' ); // optimistic
+		var on = panel.favorite.getAttribute( 'aria-pressed' ) === 'true';
+		setFavorite( ! on ); // optimistic
 		api( '/media/' + current + '/favorite', { method: 'POST' } ).then( function ( r ) {
 			if ( r && typeof r.favorited !== 'undefined' ) {
-				btn.setAttribute( 'aria-pressed', r.favorited ? 'true' : 'false' );
+				setFavorite( !! r.favorited );
 			}
-		} ).catch( function () { btn.setAttribute( 'aria-pressed', on ? 'true' : 'false' ); } );
+		} ).catch( function () { setFavorite( on ); } );
 	}
 
 	function share() {

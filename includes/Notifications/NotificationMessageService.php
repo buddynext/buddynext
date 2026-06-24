@@ -397,11 +397,17 @@ class NotificationMessageService {
 				if ( ! empty( $data['message'] ) ) {
 					return (string) $data['message'];
 				}
-				return sprintf(
-					/* translators: %s: notification type slug — only seen in development. */
-					__( 'Notification (%s)', 'buddynext' ),
-					$type
-				);
+				// Unknown type with no stored message: show a clean, human line
+				// rather than leaking the raw slug to members. The slug is useful
+				// only to developers, so surface it solely under WP_DEBUG.
+				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+					return sprintf(
+						/* translators: %s: notification type slug — shown only when WP_DEBUG is on. */
+						__( 'Notification (%s)', 'buddynext' ),
+						$type
+					);
+				}
+				return __( 'You have a new notification.', 'buddynext' );
 		}
 	}
 

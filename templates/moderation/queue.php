@@ -87,8 +87,8 @@ $suspended_count = (int) $queue_stats['at_risk'];
 // hard-capped at 50 with no way forward).
 $bn_mq_per_page = 50;
 // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$bn_mq_page = isset( $_GET['mq_page'] ) ? max( 1, absint( wp_unslash( $_GET['mq_page'] ) ) ) : 1;
-$queue      = $bn_mod->get_queue(
+$bn_mq_page  = isset( $_GET['mq_page'] ) ? max( 1, absint( wp_unslash( $_GET['mq_page'] ) ) ) : 1;
+$queue       = $bn_mod->get_queue(
 	array(
 		'per_page'    => $bn_mq_per_page,
 		'page'        => $bn_mq_page,
@@ -108,8 +108,12 @@ if ( 'urgent' === $filter_urgency ) {
 if ( 'most_reported' === $sort_by ) {
 	usort(
 		$reports,
-		static fn( $a, $b ) => (int) ( $b['report_count'] ?? 0 ) <=> (int) ( $a['report_count'] ?? 0 )
-			?: strcmp( (string) ( $b['created_at'] ?? '' ), (string) ( $a['created_at'] ?? '' ) )
+		static function ( $a, $b ) {
+			$by_count = (int) ( $b['report_count'] ?? 0 ) <=> (int) ( $a['report_count'] ?? 0 );
+			return 0 !== $by_count
+				? $by_count
+				: strcmp( (string) ( $b['created_at'] ?? '' ), (string) ( $a['created_at'] ?? '' ) );
+		}
 	);
 }
 

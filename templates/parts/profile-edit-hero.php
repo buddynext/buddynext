@@ -36,12 +36,12 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 $args = array(
-	'profile_user_id' => isset( $profile_user_id ) ? (int) $profile_user_id : 0,
-	'display_name'    => isset( $display_name ) ? (string) $display_name : '',
-	'headline'        => isset( $headline ) ? (string) $headline : '',
-	'username'        => isset( $username ) ? (string) $username : '',
-	'avatar_url'      => isset( $avatar_url ) ? (string) $avatar_url : '',
-	'cover_url'       => isset( $cover_url ) ? (string) $cover_url : '',
+	'profile_user_id'   => isset( $profile_user_id ) ? (int) $profile_user_id : 0,
+	'display_name'      => isset( $display_name ) ? (string) $display_name : '',
+	'headline'          => isset( $headline ) ? (string) $headline : '',
+	'username'          => isset( $username ) ? (string) $username : '',
+	'avatar_url'        => isset( $avatar_url ) ? (string) $avatar_url : '',
+	'cover_url'         => isset( $cover_url ) ? (string) $cover_url : '',
 	'initials'          => isset( $initials ) ? (string) $initials : '',
 	'has_custom_avatar' => isset( $has_custom_avatar ) ? (bool) $has_custom_avatar : false,
 	'classes'           => isset( $classes ) ? (array) $classes : array(),
@@ -71,12 +71,12 @@ $bn_class   = trim(
 	)
 );
 
-$bn_ep_name     = (string) $args['display_name'];
-$bn_ep_headline = (string) $args['headline'];
-$bn_ep_login    = (string) $args['username'];
-$bn_ep_avatar   = (string) $args['avatar_url'];
-$bn_ep_cover    = (string) $args['cover_url'];
-$bn_ep_init     = (string) $args['initials'];
+$bn_ep_name       = (string) $args['display_name'];
+$bn_ep_headline   = (string) $args['headline'];
+$bn_ep_login      = (string) $args['username'];
+$bn_ep_avatar     = (string) $args['avatar_url'];
+$bn_ep_cover      = (string) $args['cover_url'];
+$bn_ep_init       = (string) $args['initials'];
 $bn_ep_has_avatar = (bool) $args['has_custom_avatar'];
 
 do_action( 'buddynext_part_profile_edit_hero_before', $args );

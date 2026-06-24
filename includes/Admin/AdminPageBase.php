@@ -447,11 +447,13 @@ abstract class AdminPageBase {
 	/**
 	 * Render a labelled select input field.
 	 *
-	 * @param string               $option_name WP option name.
-	 * @param string               $label       Field label.
-	 * @param string               $value       Currently selected value.
-	 * @param array<string,string> $options     Value → label map.
-	 * @param string               $hint        Optional hint text beneath the select.
+	 * @param string                   $option_name WP option name.
+	 * @param string                   $label       Field label.
+	 * @param string                   $value       Currently selected value.
+	 * @param array<int|string,string> $options     Value → label map. Integer keys
+	 *                                              are valid (e.g. page-ID pickers);
+	 *                                              PHP casts numeric string keys to int.
+	 * @param string                   $hint        Optional hint text beneath the select.
 	 * @return void
 	 */
 	protected function render_select_row(

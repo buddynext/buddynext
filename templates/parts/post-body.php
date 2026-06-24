@@ -162,7 +162,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 		<?php
 		$bn_oembed = ( '' !== $bn_link_url ) ? \BuddyNext\Feed\PostService::oembed_html( $bn_link_url ) : '';
 		if ( '' !== $bn_oembed ) :
-		?>
+			?>
 			<div class="bn-post-card__embed bn-post-card__oembed">
 				<?php echo $bn_oembed; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WordPress oEmbed HTML from the registered-provider allowlist. ?>
 			</div>

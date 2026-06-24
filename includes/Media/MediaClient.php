@@ -60,6 +60,17 @@ class MediaClient {
 	}
 
 	/**
+	 * The upload service (write API: ingest a file → media_id). This is the same
+	 * engine path the media REST endpoint uses, so server-side callers (e.g. the
+	 * demo seeder) attach media exactly like a real upload. Null when absent.
+	 *
+	 * @return object|null
+	 */
+	public static function upload() {
+		return self::service( 'upload' );
+	}
+
+	/**
 	 * The provider-neutral object↔media linkage service (engine 1.6.0).
 	 *
 	 * @return object|null

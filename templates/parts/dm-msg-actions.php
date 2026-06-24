@@ -51,4 +51,16 @@ $bn_react_types = class_exists( '\BuddyNext\Reactions\ReactionService' )
 	<button type="button" class="bn-dm-msg__action bn-dm-msg__action--report" data-bn-action="report" aria-label="<?php esc_attr_e( 'Report message', 'buddynext' ); ?>">
 		<?php buddynext_icon( 'flag' ); ?>
 	</button>
+	<?php
+	// Unsend / Delete — your OWN messages only (shown via CSS on .bn-dm-msg.is-mine;
+	// the engine enforces sender-only, so a recipient never sees these). Unsend
+	// recalls a recent message (removed for everyone within a time window); Delete
+	// leaves a "message deleted" tombstone for everyone, any time.
+	?>
+	<button type="button" class="bn-dm-msg__action bn-dm-msg__action--own" data-bn-action="unsend" aria-label="<?php esc_attr_e( 'Unsend message', 'buddynext' ); ?>">
+		<?php buddynext_icon( 'x-circle' ); ?>
+	</button>
+	<button type="button" class="bn-dm-msg__action bn-dm-msg__action--own bn-dm-msg__action--danger" data-bn-action="delete" aria-label="<?php esc_attr_e( 'Delete message', 'buddynext' ); ?>">
+		<?php buddynext_icon( 'trash' ); ?>
+	</button>
 </div>

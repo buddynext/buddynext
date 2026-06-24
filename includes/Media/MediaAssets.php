@@ -83,18 +83,18 @@ class MediaAssets {
 			'bn-media-lightbox',
 			'bnMedia',
 			array(
-				'mvsRest'      => esc_url_raw( rest_url( 'mvs/v1' ) ),
-				'nonce'        => wp_create_nonce( 'wp_rest' ),
-				'userId'       => get_current_user_id(),
+				'mvsRest'       => esc_url_raw( rest_url( 'mvs/v1' ) ),
+				'nonce'         => wp_create_nonce( 'wp_rest' ),
+				'userId'        => get_current_user_id(),
 				'reactionTypes' => array( 'like', 'love', 'haha', 'wow', 'sad', 'angry' ),
-				'i18n'         => array(
-					'view'      => __( 'view', 'buddynext' ),
-					'views'     => __( 'views', 'buddynext' ),
-					'favorite'  => __( 'Favorite', 'buddynext' ),
-					'favorited' => __( 'Favorited', 'buddynext' ),
-					'noComments' => __( 'No comments yet. Be the first to say something!', 'buddynext' ),
+				'i18n'          => array(
+					'view'        => __( 'view', 'buddynext' ),
+					'views'       => __( 'views', 'buddynext' ),
+					'favorite'    => __( 'Favorite', 'buddynext' ),
+					'favorited'   => __( 'Favorited', 'buddynext' ),
+					'noComments'  => __( 'No comments yet. Be the first to say something!', 'buddynext' ),
 					'loginPrompt' => __( 'Log in to react and comment.', 'buddynext' ),
-					'posting'   => __( 'Posting…', 'buddynext' ),
+					'posting'     => __( 'Posting…', 'buddynext' ),
 				),
 			)
 		);

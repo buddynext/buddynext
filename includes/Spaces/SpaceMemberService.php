@@ -1105,9 +1105,12 @@ class SpaceMemberService {
 
 		global $wpdb;
 
+		// $placeholders is a "%d,%d,..." string from array_fill( count( $space_ids ) ),
+		// bound through ...$space_ids; the analyser only counts the one literal %d, so
+		// it reports ReplacementsWrongNumber even though every value is bound.
 		$placeholders = implode( ', ', array_fill( 0, count( $space_ids ), '%d' ) );
 
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT space_id, role, status
@@ -1118,7 +1121,7 @@ class SpaceMemberService {
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
 		$map = array();
 		foreach ( (array) $rows as $row ) {

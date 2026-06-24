@@ -114,10 +114,12 @@ do_action( 'buddynext_part_notifications_sidecard_muted_before', $args );
 					class="bn-btn bn-btn--sm bn-notif-sidecard__muted-cta"
 					data-variant="ghost"
 					data-bn-relation-remove
-					aria-label="<?php
+					aria-label="
+					<?php
 					/* translators: %s: muted user's display name */
 					echo esc_attr( sprintf( __( 'Unmute %s', 'buddynext' ), $bn_muted_user->display_name ) );
-					?>">
+					?>
+					">
 					<?php esc_html_e( 'Unmute', 'buddynext' ); ?>
 				</button>
 			</li>

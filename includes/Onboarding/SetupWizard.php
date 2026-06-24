@@ -1051,9 +1051,9 @@ class SetupWizard {
 		// pre-checked: a site owner who clicks straight through gets the full
 		// community stack installed + activated on Continue. Already-active plugins
 		// are shown as connected (no action). Unchecking opts a plugin out.
-		$companions   = \BuddyNext\Integrations\CompanionRegistry::all();
-		$can_install  = current_user_can( 'install_plugins' ) && current_user_can( 'activate_plugins' );
-		$pending      = 0;
+		$companions  = \BuddyNext\Integrations\CompanionRegistry::all();
+		$can_install = current_user_can( 'install_plugins' ) && current_user_can( 'activate_plugins' );
+		$pending     = 0;
 		foreach ( $companions as $bn_slug => $bn_c ) {
 			if ( 'active' !== \BuddyNext\Integrations\CompanionRegistry::status( (string) $bn_slug ) ) {
 				++$pending;
@@ -1087,8 +1087,8 @@ class SetupWizard {
 				$bn_label  = (string) ( $bn_c['label'] ?? $bn_slug );
 				$bn_why    = (string) ( $bn_c['why'] ?? '' );
 				// Pre-check every not-yet-active companion when the owner can install.
-				$bn_check  = ( ! $bn_active && $can_install );
-				$bn_field  = 'bn-companion-' . sanitize_html_class( (string) $bn_slug );
+				$bn_check = ( ! $bn_active && $can_install );
+				$bn_field = 'bn-companion-' . sanitize_html_class( (string) $bn_slug );
 				?>
 				<li class="bn-wizard__addon" data-state="<?php echo $bn_active ? 'active' : esc_attr( $bn_status ); ?>" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
 					<?php if ( $bn_active ) : ?>

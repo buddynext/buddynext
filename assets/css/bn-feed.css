@@ -504,6 +504,41 @@
 	border-color: var(--bn-accent);
 }
 
+/* oEmbed video/player (YouTube/Vimeo/etc.): a media container, not a link card -
+   drop the inherited flex/padding/border and cap the height like feed images so a
+   tall or odd-ratio embed can't take over the feed. The width cap keeps the 16/9
+   box no taller than the feed image cap (32rem) without distorting the iframe
+   (iframes can't letterbox via object-fit the way images do).
+   Scoped with :has() to REAL provider players only - WordPress' own internal-post
+   embeds (.wp-embedded-content) keep their default card chrome and auto-size
+   themselves via wp-embed.js, so they are deliberately left untouched. */
+.bn-post-card__oembed:has( iframe:not( .wp-embedded-content ) ),
+.bn-post-card__oembed:has( video ) {
+	display: block;
+	gap: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	width: 100%;
+	/* 32rem tall at 16/9 => this max width; beyond it the height would exceed the cap. */
+	max-width: calc( 32rem * 16 / 9 );
+	margin: var(--bn-s3) 0 0;
+	border-radius: var(--bn-r-md);
+	overflow: hidden;
+}
+
+.bn-post-card__oembed iframe:not( .wp-embedded-content ),
+.bn-post-card__oembed video,
+.bn-post-card__oembed embed,
+.bn-post-card__oembed object {
+	display: block;
+	width: 100%;
+	height: auto;
+	aspect-ratio: 16 / 9;
+	border: 0;
+	border-radius: var( --bn-r-md );
+}
+
 .bn-post-card__link-thumb {
 	width: 64px;
 	height: 64px;

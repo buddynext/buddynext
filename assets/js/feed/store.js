@@ -699,11 +699,25 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 						notes:       result.notes,
 					},
 				} );
+				// Reflect the resolved state on the control (mirrors the post-level
+				// report, which flips to "Reported"): disable + relabel so the user
+				// sees it landed instead of a button that re-opens the dialog.
+				const markReported = () => {
+					reportBtn.disabled = true;
+					reportBtn.classList.add( 'is-reported' );
+					reportBtn.textContent = t( 'reported', 'Reported' );
+				};
 				if ( res.ok || res.status === 201 ) {
+					markReported();
 					bnToast( t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
+				} else if ( res.status === 409 ) {
+					// Already reported — show it as resolved, not a failure to retry.
+					markReported();
+					const data = res.data || {};
+					bnToast( data.message || t( 'reportAlready', 'You already reported this.' ), { tone: 'info' } );
 				} else {
-					// Surface the server's reason (e.g. the 409 "already reported"
-					// message) instead of a generic failure the user reads as "retry".
+					// Surface the server's reason instead of a generic failure the
+					// user reads as "retry".
 					const data = res.data || {};
 					bnToast( data.message || t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
 				}
@@ -2533,6 +2547,20 @@ store( 'buddynext/post-composer', {
 				}
 				if ( body.type === 'text' ) {
 					body.type = 'link';
+				}
+			} else if ( ctx.linkPreviewEnabled ) {
+				// The preview metadata request can take several seconds on a cold
+				// cache (it fetches the provider's oEmbed/OG data). Don't lose the
+				// embed just because the member hit Post before the card resolved:
+				// attach the first detected URL so the server resolves the oEmbed on
+				// render. PostService auto-fetches link_meta when it is empty. A
+				// manually dismissed URL is respected and still posts as plain text.
+				const pendingUrl = detectFirstUrl( ctx.content );
+				if ( pendingUrl && pendingUrl !== _linkPreviewState.dismissed ) {
+					body.link_url = pendingUrl;
+					if ( body.type === 'text' ) {
+						body.type = 'link';
+					}
 				}
 			}
 

@@ -67,33 +67,133 @@ class FeatureRegistry {
 		$catalog = array(
 
 			// ── MANDATORY — always on, cannot be disabled ────────────────
-			'feed'          => array( 'slug' => 'feed', 'tier' => self::TIER_MANDATORY, 'group' => 'core', 'depends_on' => array() ),
-			'profile'       => array( 'slug' => 'profile', 'tier' => self::TIER_MANDATORY, 'group' => 'core', 'depends_on' => array() ),
-			'spaces'        => array( 'slug' => 'spaces', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'community', 'depends_on' => array() ),
-			'social_graph'  => array( 'slug' => 'social_graph', 'tier' => self::TIER_MANDATORY, 'group' => 'core', 'depends_on' => array() ),
-			'notifications' => array( 'slug' => 'notifications', 'tier' => self::TIER_MANDATORY, 'group' => 'core', 'depends_on' => array() ),
-			'auth'          => array( 'slug' => 'auth', 'tier' => self::TIER_MANDATORY, 'group' => 'core', 'depends_on' => array() ),
-			'search'        => array( 'slug' => 'search', 'tier' => self::TIER_MANDATORY, 'group' => 'core', 'depends_on' => array() ),
-			'moderation'    => array( 'slug' => 'moderation', 'tier' => self::TIER_MANDATORY, 'group' => 'core', 'depends_on' => array() ),
+			'feed'          => array(
+				'slug'       => 'feed',
+				'tier'       => self::TIER_MANDATORY,
+				'group'      => 'core',
+				'depends_on' => array(),
+			),
+			'profile'       => array(
+				'slug'       => 'profile',
+				'tier'       => self::TIER_MANDATORY,
+				'group'      => 'core',
+				'depends_on' => array(),
+			),
+			'spaces'        => array(
+				'slug'       => 'spaces',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array(),
+			),
+			'social_graph'  => array(
+				'slug'       => 'social_graph',
+				'tier'       => self::TIER_MANDATORY,
+				'group'      => 'core',
+				'depends_on' => array(),
+			),
+			'notifications' => array(
+				'slug'       => 'notifications',
+				'tier'       => self::TIER_MANDATORY,
+				'group'      => 'core',
+				'depends_on' => array(),
+			),
+			'auth'          => array(
+				'slug'       => 'auth',
+				'tier'       => self::TIER_MANDATORY,
+				'group'      => 'core',
+				'depends_on' => array(),
+			),
+			'search'        => array(
+				'slug'       => 'search',
+				'tier'       => self::TIER_MANDATORY,
+				'group'      => 'core',
+				'depends_on' => array(),
+			),
+			'moderation'    => array(
+				'slug'       => 'moderation',
+				'tier'       => self::TIER_MANDATORY,
+				'group'      => 'core',
+				'depends_on' => array(),
+			),
 
 			// ── DEFAULT-ON — owner can disable ───────────────────────────
-			'hashtags'      => array( 'slug' => 'hashtags', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'community', 'depends_on' => array( 'feed' ) ),
-			'reactions'     => array( 'slug' => 'reactions', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'community', 'depends_on' => array( 'feed' ) ),
-			'comments'      => array( 'slug' => 'comments', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'community', 'depends_on' => array( 'feed' ) ),
-			'sidebar'       => array( 'slug' => 'sidebar', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'community', 'depends_on' => array() ),
-			'onboarding'    => array( 'slug' => 'onboarding', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'community', 'depends_on' => array() ),
-			'verification'  => array( 'slug' => 'verification', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'community', 'depends_on' => array( 'auth' ) ),
-			'announcements' => array( 'slug' => 'announcements', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'community', 'depends_on' => array( 'feed' ) ),
+			'hashtags'      => array(
+				'slug'       => 'hashtags',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array( 'feed' ),
+			),
+			'reactions'     => array(
+				'slug'       => 'reactions',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array( 'feed' ),
+			),
+			'comments'      => array(
+				'slug'       => 'comments',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array( 'feed' ),
+			),
+			'sidebar'       => array(
+				'slug'       => 'sidebar',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array(),
+			),
+			'onboarding'    => array(
+				'slug'       => 'onboarding',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array(),
+			),
+			'verification'  => array(
+				'slug'       => 'verification',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array( 'auth' ),
+			),
+			'announcements' => array(
+				'slug'       => 'announcements',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'community',
+				'depends_on' => array( 'feed' ),
+			),
 
 			// ── Bridges — default-on so an installed integration works out of the
 			// box (each bridge still self-guards via class_exists when its partner
 			// plugin is absent); toggling the feature off now actually disables it.
-			'gamification'  => array( 'slug' => 'gamification', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'bridges', 'depends_on' => array() ),
-			'jetonomy'      => array( 'slug' => 'jetonomy', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'bridges', 'depends_on' => array( 'feed' ) ),
-			'wpmediaverse'  => array( 'slug' => 'wpmediaverse', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'bridges', 'depends_on' => array() ),
-			'career_board'  => array( 'slug' => 'career_board', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'bridges', 'depends_on' => array( 'feed' ) ),
+			'gamification'  => array(
+				'slug'       => 'gamification',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'bridges',
+				'depends_on' => array(),
+			),
+			'jetonomy'      => array(
+				'slug'       => 'jetonomy',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'bridges',
+				'depends_on' => array( 'feed' ),
+			),
+			'wpmediaverse'  => array(
+				'slug'       => 'wpmediaverse',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'bridges',
+				'depends_on' => array(),
+			),
+			'career_board'  => array(
+				'slug'       => 'career_board',
+				'tier'       => self::TIER_DEFAULT_ON,
+				'group'      => 'bridges',
+				'depends_on' => array( 'feed' ),
+			),
 			// ── OPT-IN — off by default ───────────────────────────────────
-			'webhooks'      => array( 'slug' => 'webhooks', 'tier' => self::TIER_OPT_IN, 'group' => 'integrations', 'depends_on' => array() ),
+			'webhooks'      => array(
+				'slug'       => 'webhooks',
+				'tier'       => self::TIER_OPT_IN,
+				'group'      => 'integrations',
+				'depends_on' => array(),
+			),
 		);
 
 		/**
@@ -273,8 +373,8 @@ class FeatureRegistry {
 			// Surface external-plugin availability so the Features UI can render a
 			// bridge toggle disabled (with a "Requires X" notice) when its partner
 			// plugin is absent.
-			$feature['presence_met']     = $this->presence_met( $slug );
-			$feature['required_plugin']  = $this->required_plugin_name( $slug );
+			$feature['presence_met']    = $this->presence_met( $slug );
+			$feature['required_plugin'] = $this->required_plugin_name( $slug );
 			$out[ $feature['group'] ][] = $feature;
 		}
 		return $out;
@@ -292,26 +392,86 @@ class FeatureRegistry {
 	 */
 	private static function labels(): array {
 		return array(
-			'feed'          => array( 'label' => __( 'Activity feed', 'buddynext' ), 'description' => __( 'Posts, comments, reactions, polls, shares — the heart of the community.', 'buddynext' ) ),
-			'profile'       => array( 'label' => __( 'Member profiles', 'buddynext' ), 'description' => __( 'Per-member profile pages with cover, avatar, bio, custom fields.', 'buddynext' ) ),
-			'spaces'        => array( 'label' => __( 'Spaces', 'buddynext' ), 'description' => __( 'Topic-scoped sub-communities with their own posts, members, settings.', 'buddynext' ) ),
-			'social_graph'  => array( 'label' => __( 'Follows, connections, blocks', 'buddynext' ), 'description' => __( 'The relationships layer the feed and member directory depend on.', 'buddynext' ) ),
-			'notifications' => array( 'label' => __( 'Notifications', 'buddynext' ), 'description' => __( 'In-app notifications for follows, reactions, comments, mentions, moderation events.', 'buddynext' ) ),
-			'auth'          => array( 'label' => __( 'Login + registration', 'buddynext' ), 'description' => __( 'Custom auth pages and the email verification handshake.', 'buddynext' ) ),
-			'search'        => array( 'label' => __( 'Search index', 'buddynext' ), 'description' => __( 'Unified FULLTEXT index across posts, users, spaces, hashtags.', 'buddynext' ) ),
-			'moderation'    => array( 'label' => __( 'Moderation', 'buddynext' ), 'description' => __( 'Reports, strikes, suspensions, appeals — the integrity layer.', 'buddynext' ) ),
-			'hashtags'      => array( 'label' => __( 'Hashtags', 'buddynext' ), 'description' => __( 'Extract #tags from posts, build trending lists, link to per-tag feeds.', 'buddynext' ) ),
-			'reactions'     => array( 'label' => __( 'Reactions', 'buddynext' ), 'description' => __( 'Six default emoji reactions on every post + comment.', 'buddynext' ) ),
-			'comments'      => array( 'label' => __( 'Comments', 'buddynext' ), 'description' => __( 'Threaded comments on posts.', 'buddynext' ) ),
-			'sidebar'       => array( 'label' => __( 'Sidebar widgets', 'buddynext' ), 'description' => __( 'Right-column widgets on hub pages — trending topics, suggested people, your spaces.', 'buddynext' ) ),
-			'onboarding'    => array( 'label' => __( 'Member onboarding flow', 'buddynext' ), 'description' => __( 'Multi-step welcome flow for new members (interests, suggested follows, first post).', 'buddynext' ) ),
-			'verification'  => array( 'label' => __( 'Email verification', 'buddynext' ), 'description' => __( 'Send a verification link on registration; gate certain actions on verified status.', 'buddynext' ) ),
-			'announcements' => array( 'label' => __( 'Site announcements', 'buddynext' ), 'description' => __( 'Pin an announcement to the top of every member\'s feed.', 'buddynext' ) ),
-			'gamification'  => array( 'label' => __( 'Gamification (badges, points, leaderboard)', 'buddynext' ), 'description' => __( 'Bridges WBGamification: earn points, unlock badges, climb the leaderboard. Requires the WBGamification plugin.', 'buddynext' ) ),
-			'jetonomy'      => array( 'label' => __( 'Jetonomy forums bridge', 'buddynext' ), 'description' => __( 'Show Jetonomy forum activity in BuddyNext feeds. Requires the Jetonomy plugin.', 'buddynext' ) ),
-			'wpmediaverse'  => array( 'label' => __( 'WPMediaVerse direct messages', 'buddynext' ), 'description' => __( 'Bridge WPMediaVerse for member-to-member DMs inside BuddyNext. Requires the WPMediaVerse plugin.', 'buddynext' ) ),
-			'career_board'  => array( 'label' => __( 'Career Board jobs bridge', 'buddynext' ), 'description' => __( 'Surface Career Board job posts as activity. Requires Career Board.', 'buddynext' ) ),
-			'webhooks'      => array( 'label' => __( 'Outbound webhooks', 'buddynext' ), 'description' => __( 'Send signed HTTPS POSTs to external endpoints on community events. Power-user feature.', 'buddynext' ) ),
+			'feed'          => array(
+				'label'       => __( 'Activity feed', 'buddynext' ),
+				'description' => __( 'Posts, comments, reactions, polls, shares — the heart of the community.', 'buddynext' ),
+			),
+			'profile'       => array(
+				'label'       => __( 'Member profiles', 'buddynext' ),
+				'description' => __( 'Per-member profile pages with cover, avatar, bio, custom fields.', 'buddynext' ),
+			),
+			'spaces'        => array(
+				'label'       => __( 'Spaces', 'buddynext' ),
+				'description' => __( 'Topic-scoped sub-communities with their own posts, members, settings.', 'buddynext' ),
+			),
+			'social_graph'  => array(
+				'label'       => __( 'Follows, connections, blocks', 'buddynext' ),
+				'description' => __( 'The relationships layer the feed and member directory depend on.', 'buddynext' ),
+			),
+			'notifications' => array(
+				'label'       => __( 'Notifications', 'buddynext' ),
+				'description' => __( 'In-app notifications for follows, reactions, comments, mentions, moderation events.', 'buddynext' ),
+			),
+			'auth'          => array(
+				'label'       => __( 'Login + registration', 'buddynext' ),
+				'description' => __( 'Custom auth pages and the email verification handshake.', 'buddynext' ),
+			),
+			'search'        => array(
+				'label'       => __( 'Search index', 'buddynext' ),
+				'description' => __( 'Unified FULLTEXT index across posts, users, spaces, hashtags.', 'buddynext' ),
+			),
+			'moderation'    => array(
+				'label'       => __( 'Moderation', 'buddynext' ),
+				'description' => __( 'Reports, strikes, suspensions, appeals — the integrity layer.', 'buddynext' ),
+			),
+			'hashtags'      => array(
+				'label'       => __( 'Hashtags', 'buddynext' ),
+				'description' => __( 'Extract #tags from posts, build trending lists, link to per-tag feeds.', 'buddynext' ),
+			),
+			'reactions'     => array(
+				'label'       => __( 'Reactions', 'buddynext' ),
+				'description' => __( 'Six default emoji reactions on every post + comment.', 'buddynext' ),
+			),
+			'comments'      => array(
+				'label'       => __( 'Comments', 'buddynext' ),
+				'description' => __( 'Threaded comments on posts.', 'buddynext' ),
+			),
+			'sidebar'       => array(
+				'label'       => __( 'Sidebar widgets', 'buddynext' ),
+				'description' => __( 'Right-column widgets on hub pages — trending topics, suggested people, your spaces.', 'buddynext' ),
+			),
+			'onboarding'    => array(
+				'label'       => __( 'Member onboarding flow', 'buddynext' ),
+				'description' => __( 'Multi-step welcome flow for new members (interests, suggested follows, first post).', 'buddynext' ),
+			),
+			'verification'  => array(
+				'label'       => __( 'Email verification', 'buddynext' ),
+				'description' => __( 'Send a verification link on registration; gate certain actions on verified status.', 'buddynext' ),
+			),
+			'announcements' => array(
+				'label'       => __( 'Site announcements', 'buddynext' ),
+				'description' => __( 'Pin an announcement to the top of every member\'s feed.', 'buddynext' ),
+			),
+			'gamification'  => array(
+				'label'       => __( 'Gamification (badges, points, leaderboard)', 'buddynext' ),
+				'description' => __( 'Bridges WBGamification: earn points, unlock badges, climb the leaderboard. Requires the WBGamification plugin.', 'buddynext' ),
+			),
+			'jetonomy'      => array(
+				'label'       => __( 'Jetonomy forums bridge', 'buddynext' ),
+				'description' => __( 'Show Jetonomy forum activity in BuddyNext feeds. Requires the Jetonomy plugin.', 'buddynext' ),
+			),
+			'wpmediaverse'  => array(
+				'label'       => __( 'WPMediaVerse direct messages', 'buddynext' ),
+				'description' => __( 'Bridge WPMediaVerse for member-to-member DMs inside BuddyNext. Requires the WPMediaVerse plugin.', 'buddynext' ),
+			),
+			'career_board'  => array(
+				'label'       => __( 'Career Board jobs bridge', 'buddynext' ),
+				'description' => __( 'Surface Career Board job posts as activity. Requires Career Board.', 'buddynext' ),
+			),
+			'webhooks'      => array(
+				'label'       => __( 'Outbound webhooks', 'buddynext' ),
+				'description' => __( 'Send signed HTTPS POSTs to external endpoints on community events. Power-user feature.', 'buddynext' ),
+			),
 		);
 	}
 }

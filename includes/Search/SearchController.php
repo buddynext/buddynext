@@ -40,24 +40,24 @@ class SearchController {
 				'callback'            => array( $this, 'search' ),
 				'permission_callback' => '__return_true',
 				'args'                => array(
-					'q'        => array(
+					'q'                  => array(
 						'required'          => true,
 						'type'              => 'string',
 						'sanitize_callback' => 'sanitize_text_field',
 					),
-					'type'     => array(
+					'type'               => array(
 						'required'          => false,
 						'type'              => 'string',
 						'sanitize_callback' => 'sanitize_key',
 						'default'           => '',
 					),
-					'per_page' => array(
+					'per_page'           => array(
 						'required'          => false,
 						'type'              => 'integer',
 						'sanitize_callback' => 'absint',
 						'default'           => 20,
 					),
-					'page'     => array(
+					'page'               => array(
 						'required'          => false,
 						'type'              => 'integer',
 						'sanitize_callback' => 'absint',
@@ -233,8 +233,8 @@ class SearchController {
 		$page     = max( 1, (int) ( $request->get_param( 'page' ) ?? 1 ) );
 		// SCALE-CONTRACT §1: hard 1000-row ceiling across pagination. Reject
 		// deep pages at the edge so the OFFSET scan is bounded server-side.
-		$page     = min( $page, (int) ceil( 1000 / max( 1, $per_page ) ) );
-		$results  = $service->search( $query, $type, $per_page, $page, $viewer_id );
+		$page    = min( $page, (int) ceil( 1000 / max( 1, $per_page ) ) );
+		$results = $service->search( $query, $type, $per_page, $page, $viewer_id );
 
 		if ( null !== $injector ) {
 			remove_filter( 'buddynext_search_query_args', $injector, 5 );

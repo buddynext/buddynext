@@ -31,12 +31,12 @@ $user_id = get_current_user_id();
 		// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 		echo wp_interactivity_data_wp_context(
 			array(
-				'userId'    => $user_id,
-				'restNonce' => wp_create_nonce( 'wp_rest' ),
-				'saved'     => false,
-				'saving'    => false,
-				'isDirty'   => false,
-				'errors'    => (object) array(),
+				'userId'     => $user_id,
+				'restNonce'  => wp_create_nonce( 'wp_rest' ),
+				'saved'      => false,
+				'saving'     => false,
+				'isDirty'    => false,
+				'errors'     => (object) array(),
 				'profileUrl' => '',
 			)
 		);

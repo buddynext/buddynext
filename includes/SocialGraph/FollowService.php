@@ -32,7 +32,7 @@ class FollowService {
 	private const CACHE_TTL = 600;
 
 	/**
-	 * user_meta key holding the per-user "private account" toggle. When set
+	 * User_meta key holding the per-user "private account" toggle. When set
 	 * to a truthy value, follow attempts land as `pending` and must be
 	 * approved by the owner before the follower sees protected content.
 	 */
@@ -278,7 +278,7 @@ class FollowService {
 
 		$placeholders = implode( ', ', array_fill( 0, count( $target_ids ), '%d' ) );
 
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $placeholders is a generated %d list; $follower_id plus the spread $target_ids bind each placeholder.
 		$rows = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT following_id
@@ -290,7 +290,7 @@ class FollowService {
 				...$target_ids
 			)
 		);
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
 		foreach ( (array) $rows as $tid ) {
 			$map[ (int) $tid ] = true;
@@ -557,7 +557,7 @@ class FollowService {
 		// gates activity visibility, not discoverability.
 		$moderation_where = buddynext_service( 'moderation' )->moderation_exclude_sql( 'following_id' );
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $friends_ph/$exclude_ph are generated %d lists bound via array_merge(); $moderation_where is a self-built, word-char-sanitised fragment with no placeholders.
 		$rows = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT DISTINCT following_id
@@ -569,7 +569,7 @@ class FollowService {
 				array_merge( $following, $exclude )
 			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		$ids = array_map( 'intval', (array) $rows );
 

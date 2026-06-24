@@ -224,7 +224,7 @@ includes/SocialGraph/FollowController.php  →  tests/SocialGraph/FollowControll
 |-------|-----------|
 | PHP | 8.1+ strict types everywhere |
 | WordPress | 6.9+ |
-| Autoloader | Composer PSR-4 (`BuddyNext\` → `includes/`) |
+| Autoloader | Hand-written PSR-4 (`BuddyNext\` → `includes/`) in `buddynext.php`; runtime never touches Composer. `vendor/` is dev-only and gitignored. |
 | Architecture | DI Service Container (same pattern as WPMediaVerse) |
 | Permissions | WordPress Abilities API — `buddynext_can( $user_id, 'ability-slug' )` |
 | Frontend reactivity | WordPress Interactivity API — no React, no build step |
@@ -440,7 +440,7 @@ The EDD Software Licensing SDK is vendored at `libs/edd-sl-sdk/` (committed, shi
 2. Wiring lives at the bottom of `buddynext.php`: registry registration + SDK require + preset auto-activation. Pro's side lives in `buddynext-pro.php` + `includes/License/` in the Pro repo.
 3. The Settings > License tab (`includes/Admin/Settings.php::render_license_tab()`) registers only while Pro is active and fires `buddynext_admin_license_tab_content` for Pro's activate/deactivate form. It renders OUTSIDE the options.php form wrapper — the license form posts directly and is handled on `admin_init` by Pro.
 4. Option names follow the SDK convention `{registry id}_license_key` / `{registry id}_license` (`buddynext_*` for free, `buddynext-pro_*` for Pro).
-5. Composer production deps stay bundled in `vendor/` (committed); vendored SDKs live in `libs/` — both ship in the repo so customers never run a build command.
+5. All runtime third-party code (Action Scheduler, EDD SL SDK) is committed under `libs/` and loaded by direct `require_once`; the plugin's own classes load via a hand-written PSR-4 autoloader in `buddynext.php`. `vendor/` holds dev tooling only and is gitignored. The repo is deps-complete on checkout, so customers never run a build command and the release build needs no `composer install`.
 
 ---
 

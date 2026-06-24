@@ -46,8 +46,7 @@ $bn_classes = array_filter( (array) $args['classes'], 'is_string' );
 /** Computed root-class list. @var array<int,string> $bn_classes */
 $bn_classes = (array) apply_filters( 'buddynext_part_member_directory_hero_classes', $bn_classes, $args );
 
-$bn_total     = (int) $args['total_members'];
-$bn_viewer_id = (int) $args['viewer_id'];
+$bn_total = (int) $args['total_members'];
 
 $bn_subtitle = sprintf(
 	/* translators: %s: formatted member count */
@@ -55,15 +54,10 @@ $bn_subtitle = sprintf(
 	number_format_i18n( $bn_total )
 );
 
-$bn_actions = '';
-if ( $bn_viewer_id > 0 ) {
-	$bn_actions = sprintf(
-		'<a class="bn-btn" data-variant="secondary" data-size="md" href="%1$s"><span>%2$s</span></a>',
-		esc_url( \BuddyNext\Core\PageRouter::edit_profile_url( $bn_viewer_id ) ),
-		esc_html__( 'Edit profile', 'buddynext' )
-	);
-}
-
+// No header CTA: this is a directory of ALL members, so an "Edit profile" action
+// (which targets the VIEWER's own profile) reads as misplaced here. Editing your
+// own profile already lives on your own member card, the left nav, and the header
+// avatar menu — so the directory hero stays a clean title + count.
 do_action( 'buddynext_part_member_directory_hero_before', $args );
 
 buddynext_get_template(
@@ -73,7 +67,6 @@ buddynext_get_template(
 		'subtitle'      => $bn_subtitle,
 		'title_icon'    => 'users',
 		'heading_level' => 'h1',
-		'actions_html'  => $bn_actions,
 		'classes'       => $bn_classes,
 	)
 );

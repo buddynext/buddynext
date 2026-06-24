@@ -3276,6 +3276,26 @@
         "enforcedAt": []
       },
       {
+        "optionName": "buddynext_terms_page_id",
+        "defaultValue": "0",
+        "writtenAt": [],
+        "readAt": [
+          {
+            "file": "includes/Admin/Settings.php",
+            "line": 1350,
+            "kind": "read",
+            "enforces": false
+          },
+          {
+            "file": "templates/auth/signup.php",
+            "line": 29,
+            "kind": "read",
+            "enforces": false
+          }
+        ],
+        "enforcedAt": []
+      },
+      {
         "optionName": "buddynext_",
         "defaultValue": "",
         "writtenAt": [

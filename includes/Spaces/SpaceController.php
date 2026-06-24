@@ -511,8 +511,10 @@ class SpaceController extends BaseRestController {
 
 		$id_in = implode( ',', array_fill( 0, count( $space_ids ), '%d' ) );
 
-		// Category name/slug per space.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// Category name/slug per space. $id_in is a "%d,%d,..." string built from
+		// array_fill( count( $space_ids ) ), bound through ...$space_ids; the literal
+		// placeholders live inside it, so the analyser reports UnfinishedPrepare.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		$cat_rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT s.id AS space_id, c.name AS category_name, c.slug AS category_slug
@@ -522,7 +524,7 @@ class SpaceController extends BaseRestController {
 				...$space_ids
 			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		$cat_map = array();
 		foreach ( (array) $cat_rows as $cr ) {

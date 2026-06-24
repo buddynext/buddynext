@@ -63,7 +63,18 @@ $bn_count      = absint( $space['member_count'] ?? 0 );
 	data-interactive
 	data-space-id="<?php echo absint( $space_id ); ?>"
 	data-wp-interactive="buddynext/spaces"
-	data-wp-context='<?php echo esc_attr( (string) wp_json_encode( array( 'restNonce' => wp_create_nonce( 'wp_rest' ), 'restUrl' => rest_url( 'buddynext/v1' ) ) ) ); ?>'>
+	data-wp-context='
+	<?php
+	echo esc_attr(
+		(string) wp_json_encode(
+			array(
+				'restNonce' => wp_create_nonce( 'wp_rest' ),
+				'restUrl'   => rest_url( 'buddynext/v1' ),
+			)
+		)
+	);
+	?>
+	'>
 	<a href="<?php echo esc_url( $bn_space_url ); ?>" tabindex="-1" aria-hidden="true" class="bn-sd-card__cover-link">
 		<div class="bn-sd-card__cover" data-tone="<?php echo esc_attr( $bn_cover_tone ); ?>">
 			<?php if ( ! empty( $space['cover_image_url'] ) ) : ?>

@@ -149,9 +149,25 @@ function swapButtonState( btn, newState ) {
 		btn.classList.add( legacyClassMap[ newState ] );
 	}
 
-	// Update visible label. Wipes any child icon — by design, post-swap
-	// the button shows a clean label (Joined / Requested / Join / Request to join).
-	btn.textContent = labelMap[ newState ];
+	// Update visible label. The SSR "Joined" button leads with a check icon;
+	// the other states are text-only. Rebuild that icon on swap (instead of
+	// clobbering it with a text-only textContent) so a client-side join doesn't
+	// leave the button visually half-rendered until the next reload.
+	var newLabel = labelMap[ newState ];
+	var iconCheck = 'joined' === newState ? t( 'iconCheck', '' ) : '';
+	if ( iconCheck ) {
+		btn.textContent = '';
+		var iconTpl = document.createElement( 'template' );
+		iconTpl.innerHTML = iconCheck.trim();
+		if ( iconTpl.content.firstChild ) {
+			btn.appendChild( iconTpl.content.firstChild );
+			btn.appendChild( document.createTextNode( ' ' + newLabel ) );
+		} else {
+			btn.textContent = newLabel;
+		}
+	} else {
+		btn.textContent = newLabel;
+	}
 
 	btn.setAttribute( 'data-wp-on--click', 'actions.' + actionMap[ newState ] );
 	btn.dataset.currentState = newState;
@@ -429,7 +445,6 @@ var storeInstance = store( 'buddynext/spaces', {
 	state: {
 		savebarPhase:  'idle',
 		modalTransferOpen: false,
-		modalDeleteOpen:   false,
 		modalArchiveOpen:  false,
 
 		// Savebar: the bar is hidden only in the idle phase; each status pill is
@@ -441,7 +456,6 @@ var storeInstance = store( 'buddynext/spaces', {
 
 		// Danger-zone modals: hidden is the negation of the open flag.
 		get modalTransferHidden() { return ! storeInstance.state.modalTransferOpen; },
-		get modalDeleteHidden() { return ! storeInstance.state.modalDeleteOpen; },
 		get modalArchiveHidden() { return ! storeInstance.state.modalArchiveOpen; },
 	},
 
@@ -1071,133 +1085,6 @@ var storeInstance = store( 'buddynext/spaces', {
 			}
 		},
 
-		/* ── Space-settings modal openers ──────────────────────────────── */
-
-		/**
-		 * Open the simple delete-space confirm modal (reactive flag).
-		 */
-		openDeleteSpaceModal: function () {
-			storeInstance.state.modalDeleteOpen = true;
-			focusFirstInModal( 'delete-space' );
-		},
-
-		/* ── Settings: members tab inline actions ──────────────────────── */
-
-		/**
-		 * Change a member's role optimistically via PUT /spaces/{id}/members/{user}/role.
-		 *
-		 * @param {Event} event Click on a `[data-bn-member-role]` button.
-		 */
-		setMemberRole: async function ( event ) {
-			var btn = event && event.target && event.target.closest( '[data-bn-member-role]' );
-			if ( ! btn ) { return; }
-			var spaceId = btn.getAttribute( 'data-space-id' );
-			var userId  = btn.getAttribute( 'data-user-id' );
-			var role    = btn.getAttribute( 'data-bn-member-role' );
-			if ( ! spaceId || ! userId || ! role ) { return; }
-
-			btn.disabled = true;
-			try {
-				var res = await restFetch( '/spaces/' + spaceId + '/members/' + userId + '/role', {
-					method:  'PUT',
-					nonce:   resolveNonce(),
-					body:    { role: role },
-					toastOnError: false,
-				} );
-				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( t( 'roleUpdated', 'Role updated.' ), 'success' ); }
-					// Refresh the row label.
-					var row = btn.closest( '[data-bn-member-row]' );
-					if ( row ) {
-						var badge = row.querySelector( '[data-bn-role-badge]' );
-						if ( badge ) {
-							badge.textContent = ( 'moderator' === role )
-								? t( 'roleModerator', 'Moderator' )
-								: t( 'roleMember', 'Member' );
-							badge.dataset.tone = ( 'moderator' === role ) ? 'info' : 'default';
-						}
-					}
-				} else {
-					if ( window.bnToast ) { window.bnToast( t( 'couldNotUpdateRole', 'Could not update role.' ), 'danger' ); }
-				}
-			} catch ( _e ) {
-				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
-			} finally {
-				btn.disabled = false;
-			}
-		},
-
-		/**
-		 * Kick a member optimistically via DELETE /spaces/{id}/members/{user}.
-		 *
-		 * @param {Event} event Click on a `[data-bn-member-kick]` button.
-		 */
-		kickMember: async function ( event ) {
-			var btn = event && event.target && event.target.closest( '[data-bn-member-kick]' );
-			if ( ! btn ) { return; }
-			var spaceId = btn.getAttribute( 'data-space-id' );
-			var userId  = btn.getAttribute( 'data-user-id' );
-			if ( ! spaceId || ! userId ) { return; }
-			var row = btn.closest( '[data-bn-member-row]' );
-			if ( row ) { row.style.opacity = '0.4'; }
-			btn.disabled = true;
-			try {
-				var res = await restFetch( '/spaces/' + spaceId + '/members/' + userId, {
-					method:  'DELETE',
-					nonce:   resolveNonce(),
-					toastOnError: false,
-				} );
-				if ( res.ok ) {
-					if ( row ) { row.parentNode && row.parentNode.removeChild( row ); }
-					if ( window.bnToast ) { window.bnToast( t( 'memberRemoved', 'Member removed.' ), 'success' ); }
-				} else {
-					if ( row ) { row.style.opacity = '1'; }
-					btn.disabled = false;
-					if ( window.bnToast ) { window.bnToast( t( 'couldNotRemoveMember', 'Could not remove member.' ), 'danger' ); }
-				}
-			} catch ( _e ) {
-				if ( row ) { row.style.opacity = '1'; }
-				btn.disabled = false;
-				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
-			}
-		},
-
-		/**
-		 * Ban a member via POST /spaces/{id}/bans (canonical plural route;
-		 * user_id travels in the JSON body).
-		 *
-		 * @param {Event} event Click on a `[data-bn-member-ban]` button.
-		 */
-		banMember: async function ( event ) {
-			var btn = event && event.target && event.target.closest( '[data-bn-member-ban]' );
-			if ( ! btn ) { return; }
-			var spaceId = btn.getAttribute( 'data-space-id' );
-			var userId  = btn.getAttribute( 'data-user-id' );
-			if ( ! spaceId || ! userId ) { return; }
-			var row = btn.closest( '[data-bn-member-row]' );
-			if ( row ) { row.style.opacity = '0.4'; }
-			btn.disabled = true;
-			try {
-				var res = await restFetch( '/spaces/' + spaceId + '/bans', {
-					method:  'POST',
-					nonce:   resolveNonce(),
-					body:    { user_id: parseInt( userId, 10 ) },
-					toastOnError: false,
-				} );
-				if ( res.ok ) {
-					if ( row ) { row.parentNode && row.parentNode.removeChild( row ); }
-					if ( window.bnToast ) { window.bnToast( t( 'memberBanned', 'Member banned.' ), 'success' ); }
-				} else {
-					if ( row ) { row.style.opacity = '1'; }
-					btn.disabled = false;
-					if ( window.bnToast ) { window.bnToast( t( 'couldNotBanMember', 'Could not ban member.' ), 'danger' ); }
-				}
-			} catch ( _e ) {
-				if ( row ) { row.style.opacity = '1'; }
-				btn.disabled = false;
-			}
-		},
-
 		/* ── Settings: transfer ownership ─────────────────────────────── */
 
 		/**
@@ -1317,90 +1204,6 @@ var storeInstance = store( 'buddynext/spaces', {
 					btn.disabled = false;
 				}
 			} catch ( _e ) {
-				btn.disabled = false;
-			}
-		},
-
-		/* ── Settings: general / permissions inline save ──────────────── */
-
-		/**
-		 * Save the General tab fields via PUT /spaces/{id} optimistically.
-		 *
-		 * @param {Event} event Click on the Save button.
-		 */
-		saveGeneral: async function ( event ) {
-			var btn = event && event.target && event.target.closest( 'button' );
-			if ( ! btn ) { return; }
-			var form = document.querySelector( '[data-bn-settings-general-form]' );
-			if ( ! form ) { return; }
-			var spaceId = form.getAttribute( 'data-space-id' );
-			if ( ! spaceId ) { return; }
-
-			var payload = {
-				name:        ( form.querySelector( '[name="space_name"]' ) || {} ).value,
-				slug:        ( form.querySelector( '[name="space_slug"]' ) || {} ).value,
-				description: ( form.querySelector( '[name="space_description"]' ) || {} ).value,
-				category_id: parseInt( ( form.querySelector( '[name="space_category_id"]' ) || {} ).value || '0', 10 ),
-				type:        ( form.querySelector( '[name="space_type"]' ) || {} ).value,
-			};
-
-			btn.disabled = true;
-			var origLabel = btn.textContent;
-			btn.textContent = t( 'saving', 'Saving…' );
-			try {
-				var res = await restFetch( '/spaces/' + spaceId, {
-					method:  'PUT',
-					nonce:   resolveNonce(),
-					body:    payload,
-					toastOnError: false,
-				} );
-				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( t( 'changesSaved', 'Changes saved.' ), 'success' ); }
-				} else {
-					if ( window.bnToast ) { window.bnToast( t( 'couldNotSaveChanges', 'Could not save changes.' ), 'danger' ); }
-				}
-			} catch ( _e ) {
-				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
-			} finally {
-				btn.disabled = false;
-				btn.textContent = origLabel;
-			}
-		},
-
-		/**
-		 * Save the Permissions tab fields via PUT /spaces/{id}/permissions.
-		 *
-		 * @param {Event} event Click on the Save button.
-		 */
-		savePermissions: async function ( event ) {
-			var btn = event && event.target && event.target.closest( 'button' );
-			if ( ! btn ) { return; }
-			var form = document.querySelector( '[data-bn-settings-permissions-form]' );
-			if ( ! form ) { return; }
-			var spaceId = form.getAttribute( 'data-space-id' );
-			if ( ! spaceId ) { return; }
-
-			var payload = {
-				allow_member_posts:    ( form.querySelector( '[name="allow_member_posts"]' ) || {} ).checked ? 1 : 0,
-				require_join_approval: ( form.querySelector( '[name="require_join_approval"]' ) || {} ).checked ? 1 : 0,
-			};
-
-			btn.disabled = true;
-			try {
-				var res = await restFetch( '/spaces/' + spaceId + '/permissions', {
-					method:  'PUT',
-					nonce:   resolveNonce(),
-					body:    payload,
-					toastOnError: false,
-				} );
-				if ( res.ok && window.bnToast ) {
-					window.bnToast( t( 'permissionsSaved', 'Permissions saved.' ), 'success' );
-				} else if ( ! res.ok && window.bnToast ) {
-					window.bnToast( t( 'couldNotSavePermissions', 'Could not save permissions.' ), 'danger' );
-				}
-			} catch ( _e ) {
-				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
-			} finally {
 				btn.disabled = false;
 			}
 		},
@@ -2570,14 +2373,13 @@ function focusFirstInModal( name ) {
 function closeAllSpaceModals() {
 	if ( storeInstance && storeInstance.state ) {
 		storeInstance.state.modalTransferOpen = false;
-		storeInstance.state.modalDeleteOpen   = false;
 		storeInstance.state.modalArchiveOpen  = false;
 	}
 	var modals = document.querySelectorAll( '[data-bn-modal]' );
 	for ( var i = 0; i < modals.length; i++ ) {
 		// Skip the reactive danger modals — their binding owns `hidden`.
 		var name = modals[ i ].getAttribute( 'data-bn-modal' );
-		if ( 'transfer-ownership' === name || 'delete-space' === name || 'archive-space' === name ) {
+		if ( 'transfer-ownership' === name || 'archive-space' === name ) {
 			continue;
 		}
 		modals[ i ].hidden = true;

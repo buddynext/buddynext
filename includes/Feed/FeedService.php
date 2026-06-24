@@ -35,7 +35,7 @@ class FeedService {
 	private const DEFAULT_LIMIT = 20;
 
 	/**
-	 * user_meta key storing the list of announcement post IDs the user has
+	 * User_meta key storing the list of announcement post IDs the user has
 	 * dismissed. Value is a flat array of integer post IDs.
 	 */
 	public const DISMISSED_ANNOUNCEMENTS_META = 'bn_dismissed_announcements';
@@ -672,7 +672,8 @@ class FeedService {
 			$params       = $dismissed;
 		}
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// The branch with no dismissed IDs is a fully static query (only $wpdb->prefix interpolated); the other branch uses $wpdb->prepare() with an internally-built %d placeholder string. phpcs cannot follow the ternary inside get_row().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		$row = $wpdb->get_row(
 			empty( $params )
 				? "SELECT p.* FROM {$wpdb->prefix}bn_posts p
@@ -694,7 +695,7 @@ class FeedService {
 				),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		if ( null === $row ) {
 			return null;

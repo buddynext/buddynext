@@ -732,9 +732,20 @@
 	transition: color var(--bn-dur-fast) var(--bn-ease), border-color var(--bn-dur-fast) var(--bn-ease);
 }
 
-.bn-dm-msg__action:hover {
+.bn-dm-msg__action:hover,
+.bn-dm-msg__action:focus,
+.bn-dm-msg__action:focus-visible,
+.bn-dm-msg__action:active {
+	/* Re-assert our own surface + accent on every interactive state. Some host
+	   themes (e.g. Reign) paint a primary-blue fill on button:focus/:active,
+	   which would otherwise leak into these icon buttons. */
+	background: var(--bn-surface);
 	color: var(--bn-accent);
 	border-color: var(--bn-accent);
+}
+.bn-dm-msg__action:focus-visible {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: 2px;
 }
 
 .bn-dm-msg__action svg {
@@ -1841,6 +1852,26 @@
    (The action bar template is shared by both sides; visibility is by side.) */
 .bn-dm-msg.is-mine .bn-dm-msg__action--report {
 	display: none;
+}
+
+/* Unsend / Delete are sender-only — hidden by default, shown only on your own
+   messages (the engine rejects a non-sender, so the UI mirrors that). */
+.bn-dm-msg__action--own {
+	display: none;
+}
+.bn-dm-msg.is-mine .bn-dm-msg__action--own {
+	display: inline-flex;
+}
+.bn-dm-msg__action--danger:hover,
+.bn-dm-msg__action--danger:focus-visible {
+	color: var(--bn-danger);
+	border-color: var(--bn-danger);
+}
+
+/* A deleted message renders a muted, italic tombstone in place of its content. */
+.bn-dm-msg.is-deleted .bn-dm-bubble {
+	font-style: italic;
+	opacity: 0.6;
 }
 
 /* ── Conversation info panel (1:1) ──────────────────────────────────────────

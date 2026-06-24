@@ -192,7 +192,7 @@ $groups       = array(
 	'yesterday' => array(),
 	'older'     => array(),
 );
-foreach ( $rows ?? array() as $row ) {
+foreach ( $rows as $row ) {
 	// created_at is stored in UTC; anchor the parse to UTC so the day grouping
 	// matches the UTC midnight boundaries computed above.
 	$row_ts = (int) strtotime( $row->created_at . ' UTC' );
@@ -208,9 +208,14 @@ foreach ( $rows ?? array() as $row ) {
 /**
  * Render an actor avatar - image when available, initials fallback.
  *
- * @param int $actor_id Actor user ID.
+ * For a system notification (no actor, e.g. an earned badge) there is no person
+ * to show, so render the notification's own type icon instead of a "?" initials
+ * placeholder, which reads as an unknown member.
+ *
+ * @param int    $actor_id Actor user ID (0 for system notifications).
+ * @param string $icon     Notification type icon slug (used only when actor_id <= 0).
  */
-$render_avatar = static function ( int $actor_id ) use ( $actor_data ): void {
+$render_avatar = static function ( int $actor_id, string $icon = '' ) use ( $actor_data ): void {
 	$entry      = $actor_data[ $actor_id ] ?? array(
 		'avatar_url' => '',
 		'initials'   => '?',
@@ -225,6 +230,12 @@ $render_avatar = static function ( int $actor_id ) use ( $actor_data ): void {
 		<span class="bn-avatar bn-notif-row__avatar" data-size="sm">
 			<img src="<?php echo esc_url( $avatar_url ); ?>" alt="" width="28" height="28" loading="lazy">
 		</span>
+		<?php
+		return;
+	}
+	if ( $actor_id <= 0 && '' !== $icon && function_exists( 'buddynext_icon' ) ) {
+		?>
+		<span class="bn-avatar bn-notif-row__avatar bn-notif-row__avatar--system" data-size="sm" aria-hidden="true"><?php buddynext_icon( $icon ); ?></span>
 		<?php
 		return;
 	}

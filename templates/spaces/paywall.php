@@ -35,18 +35,18 @@ declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
-$bn_pw_space_id   = isset( $space_id ) ? (int) $space_id : 0;
-$bn_pw_heading    = isset( $heading ) && '' !== (string) $heading
+$bn_pw_space_id  = isset( $space_id ) ? (int) $space_id : 0;
+$bn_pw_heading   = isset( $heading ) && '' !== (string) $heading
 	? (string) $heading
 	: __( 'This space is available to members only.', 'buddynext' );
-$bn_pw_desc       = isset( $description ) ? (string) $description : '';
-$bn_pw_cta_url    = isset( $cta_url ) ? (string) $cta_url : '';
-$bn_pw_cta_label  = isset( $cta_label ) && '' !== (string) $cta_label
+$bn_pw_desc      = isset( $description ) ? (string) $description : '';
+$bn_pw_cta_url   = isset( $cta_url ) ? (string) $cta_url : '';
+$bn_pw_cta_label = isset( $cta_label ) && '' !== (string) $cta_label
 	? (string) $cta_label
 	: __( 'Become a Member', 'buddynext' );
-$bn_pw_tier_slug  = isset( $tier_slug ) ? (string) $tier_slug : '';
-$bn_pw_tier_name  = isset( $tier_name ) ? (string) $tier_name : '';
-$bn_pw_checkout   = isset( $checkout ) ? (bool) $checkout : false;
+$bn_pw_tier_slug = isset( $tier_slug ) ? (string) $tier_slug : '';
+$bn_pw_tier_name = isset( $tier_name ) ? (string) $tier_name : '';
+$bn_pw_checkout  = isset( $checkout ) ? (bool) $checkout : false;
 ?>
 <div class="bn-paywall" data-space-id="<?php echo esc_attr( (string) $bn_pw_space_id ); ?>" role="region" aria-label="<?php esc_attr_e( 'Members-only space', 'buddynext' ); ?>">
 	<div class="bn-paywall__preview" aria-hidden="true">

@@ -115,7 +115,7 @@ class AssetIsolation {
 	/**
 	 * Dequeue non-allowlisted handles from a classic dependency registry.
 	 *
-	 * @param \WP_Dependencies $registry  wp_styles() or wp_scripts().
+	 * @param \WP_Dependencies  $registry  wp_styles() or wp_scripts().
 	 * @param array<int,string> $prefixes Allowed URL prefixes.
 	 * @param callable          $dequeue  wp_dequeue_style / wp_dequeue_script.
 	 * @return void

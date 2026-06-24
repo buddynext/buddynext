@@ -69,7 +69,11 @@ class HashtagService {
 		}
 
 		$slugs = array();
-		foreach ( preg_split( '/[\r\n]+/', $raw ) ?: array() as $line ) {
+		$lines = preg_split( '/[\r\n]+/', $raw );
+		if ( false === $lines ) {
+			$lines = array();
+		}
+		foreach ( $lines as $line ) {
 			$slug = sanitize_key( ltrim( trim( (string) $line ), '#' ) );
 			if ( '' !== $slug ) {
 				$slugs[] = $slug;
@@ -216,7 +220,7 @@ class HashtagService {
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
-			$wpdb->prepare(
+			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- Placeholder count is dynamic: the optional follow JOIN's %d and the variable $cursor_params are spread via array_merge() and match at runtime; the sniff cannot resolve the conditional/array args statically.
 				"SELECT p.id, p.user_id, p.content, p.type, p.privacy,
 				        p.reaction_count, p.comment_count, p.share_count, p.created_at,
 				        ph.created_at AS bn_cursor_ts

@@ -225,19 +225,19 @@ class PostController extends BaseRestController {
 		}
 
 		$data = array(
-			'type'                 => sanitize_key( $request->get_param( 'type' ) ?? 'text' ),
-			'content'              => wp_kses_post( (string) ( $request->get_param( 'content' ) ?? '' ) ),
-			'privacy'              => null !== $request->get_param( 'privacy' ) ? sanitize_key( (string) $request->get_param( 'privacy' ) ) : null,
-			'space_id'             => $space_id,
-			'media_ids'            => $request->get_param( 'media_ids' ),
-			'link_url'             => $this->parse_link_url( $request ),
-			'link_meta'            => $request->get_param( 'link_meta' ),
-			'options'              => $request->get_param( 'options' ),
+			'type'                    => sanitize_key( $request->get_param( 'type' ) ?? 'text' ),
+			'content'                 => wp_kses_post( (string) ( $request->get_param( 'content' ) ?? '' ) ),
+			'privacy'                 => null !== $request->get_param( 'privacy' ) ? sanitize_key( (string) $request->get_param( 'privacy' ) ) : null,
+			'space_id'                => $space_id,
+			'media_ids'               => $request->get_param( 'media_ids' ),
+			'link_url'                => $this->parse_link_url( $request ),
+			'link_meta'               => $request->get_param( 'link_meta' ),
+			'options'                 => $request->get_param( 'options' ),
 			// Optional poll deadline (UTC datetime); only honoured for type=poll.
-			'poll_end_date'        => $request->get_param( 'poll_end_date' ),
-			'content_warning'      => (bool) $request->get_param( 'content_warning' ),
-			'content_warning_type' => $this->sanitize_warning_type( $request->get_param( 'content_warning_type' ) ),
-			'scheduled_at'         => $request->get_param( 'scheduled_at' ),
+			'poll_end_date'           => $request->get_param( 'poll_end_date' ),
+			'content_warning'         => (bool) $request->get_param( 'content_warning' ),
+			'content_warning_type'    => $this->sanitize_warning_type( $request->get_param( 'content_warning_type' ) ),
+			'scheduled_at'            => $request->get_param( 'scheduled_at' ),
 			// Optional announcement expiry (UTC datetime); only honoured for type=announcement.
 			'announcement_expires_at' => $request->get_param( 'announcement_expires_at' ),
 		);

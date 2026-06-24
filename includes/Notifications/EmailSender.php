@@ -496,7 +496,7 @@ class EmailSender {
 
 		// Hidden preheader — the inbox preview snippet, taken from the template's
 		// "Preview text" setting. Hidden in the body but surfaced by mail clients.
-		$preheader = trim( $preheader );
+		$preheader      = trim( $preheader );
 		$preheader_html = '' !== $preheader
 			? '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f3f4f6;opacity:0;">'
 				. esc_html( $preheader ) . '</div>'
@@ -572,9 +572,9 @@ class EmailSender {
 		// account; login_url/current_year are site-wide. These join the existing
 		// set so the email composer can offer a consistent CMS-like token list
 		// that actually resolves at send time.
-		$recipient   = get_userdata( $user_id );
+		$recipient    = get_userdata( $user_id );
 		$display_name = $this->get_display_name( $user_id );
-		$first_name  = '';
+		$first_name   = '';
 		if ( $recipient ) {
 			$first_name = (string) get_user_meta( $user_id, 'first_name', true );
 			if ( '' === $first_name ) {

@@ -192,49 +192,6 @@ buddynext_get_template(
 );
 ?>
 
-<!-- Delete-space confirm modal — REACTIVE: hidden bound to context.modalDelete. -->
-<div
-	class="bn-modal-backdrop"
-	role="dialog"
-	aria-modal="true"
-	aria-labelledby="bn-delete-space-title"
-	hidden
-	data-wp-bind--hidden="state.modalDeleteHidden"
-	data-bn-modal="delete-space"
->
-	<div class="bn-modal__panel" data-tone="danger" data-size="sm">
-		<header class="bn-modal__head">
-			<h2 class="bn-modal__title" id="bn-delete-space-title"><?php esc_html_e( 'Delete this space?', 'buddynext' ); ?></h2>
-			<button
-				type="button"
-				class="bn-modal__close"
-				aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"
-				data-bn-modal-close
-			><?php buddynext_icon( 'x' ); ?></button>
-		</header>
-		<div class="bn-modal__body">
-			<p><?php esc_html_e( 'This will permanently delete the space, all of its posts, and all member relationships. This cannot be undone.', 'buddynext' ); ?></p>
-		</div>
-		<div class="bn-modal__foot">
-			<button
-				type="button"
-				class="bn-btn"
-				data-variant="ghost"
-				data-size="md"
-				data-bn-modal-close
-			><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
-			<button
-				type="button"
-				class="bn-btn"
-				data-variant="danger"
-				data-size="md"
-				data-wp-on--click="actions.deleteSpace"
-				data-space-id="<?php echo esc_attr( (string) $bn_space_id ); ?>"
-			><?php esc_html_e( 'Delete permanently', 'buddynext' ); ?></button>
-		</div>
-	</div>
-</div>
-
 <!-- Archive-space confirm modal — REACTIVE: hidden bound to context.modalArchive. -->
 <div
 	class="bn-modal-backdrop"

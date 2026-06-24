@@ -48,7 +48,8 @@ $bn_as_date = static function ( $utc ): string {
 		return '';
 	}
 	$fmt = get_option( 'date_format', 'M j, Y' ) . ' ' . get_option( 'time_format', 'g:i a' );
-	return (string) wp_date( $fmt, (int) ( strtotime( $utc . ' UTC' ) ?: 0 ) );
+	$ts  = strtotime( $utc . ' UTC' );
+	return (string) wp_date( $fmt, false !== $ts ? (int) $ts : 0 );
 };
 
 /**

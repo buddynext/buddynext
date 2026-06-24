@@ -18,11 +18,26 @@ defined( 'ABSPATH' ) || exit;
 // Closed-registration redirect is enforced upstream in
 // PageRouter::dispatch_hub_template() so it fires before wp_head().
 
-$rest_root   = esc_url_raw( rest_url( 'buddynext/v1/' ) );
-$rest_nonce  = wp_create_nonce( 'wp_rest' );
-$login_url   = \BuddyNext\Core\PageRouter::auth_url();
-$terms_url   = get_privacy_policy_url() ? get_privacy_policy_url() : home_url( '/terms/' );
-$privacy_url = get_privacy_policy_url() ? get_privacy_policy_url() : home_url( '/privacy/' );
+$rest_root  = esc_url_raw( rest_url( 'buddynext/v1/' ) );
+$rest_nonce = wp_create_nonce( 'wp_rest' );
+$login_url  = \BuddyNext\Core\PageRouter::auth_url();
+// Terms links to an admin-chosen page (Settings → Registration → Legal Pages) —
+// never a guessed slug. Privacy reuses WordPress core's Privacy Policy page
+// (Settings → Privacy), so it works out of the box. Either link, when its page
+// is not configured, renders as plain text in the consent line, not a broken
+// link.
+$bn_terms_page = (int) get_option( 'buddynext_terms_page_id', 0 );
+$terms_url     = $bn_terms_page > 0 ? (string) get_permalink( $bn_terms_page ) : '';
+
+// get_privacy_policy_url() only returns a URL for a PUBLISHED page. WordPress
+// creates the Privacy Policy page as a draft, so fall back to the mapped page's
+// permalink — a page the owner has mapped should link even before it is
+// published (they will publish it) rather than silently dropping to plain text.
+$privacy_url = (string) get_privacy_policy_url();
+if ( '' === $privacy_url ) {
+	$bn_privacy_page = (int) get_option( 'wp_page_for_privacy_policy', 0 );
+	$privacy_url     = $bn_privacy_page > 0 ? (string) get_permalink( $bn_privacy_page ) : '';
+}
 
 // In-house spam guard fields (no third-party captcha): a signed time-trap
 // token, a rotating honeypot field name, and an optional human-check question.
@@ -269,12 +284,23 @@ if ( 'invite' === $bn_reg_mode ) {
 								data-wp-on--change="actions.toggleTerms" />
 							<span>
 								<?php
+								// Link each legal page only when configured; otherwise show its
+								// label as plain text so the consent reads correctly with no
+								// broken links.
+								$bn_terms_label   = esc_html__( 'Terms of Service', 'buddynext' );
+								$bn_privacy_label = esc_html__( 'Privacy Policy', 'buddynext' );
+								$bn_terms_html    = '' !== $terms_url
+									? '<a href="' . esc_url( $terms_url ) . '" target="_blank" rel="noopener">' . $bn_terms_label . '</a>'
+									: $bn_terms_label;
+								$bn_privacy_html  = '' !== $privacy_url
+									? '<a href="' . esc_url( $privacy_url ) . '" target="_blank" rel="noopener">' . $bn_privacy_label . '</a>'
+									: $bn_privacy_label;
 								echo wp_kses(
 									sprintf(
-										/* translators: 1: Terms URL, 2: Privacy URL */
-										__( 'I agree to the <a href="%1$s" target="_blank" rel="noopener">Terms of Service</a> and <a href="%2$s" target="_blank" rel="noopener">Privacy Policy</a>.', 'buddynext' ),
-										esc_url( $terms_url ),
-										esc_url( $privacy_url )
+										/* translators: 1: Terms of Service (link or text), 2: Privacy Policy (link or text) */
+										__( 'I agree to the %1$s and %2$s.', 'buddynext' ),
+										$bn_terms_html,
+										$bn_privacy_html
 									),
 									array(
 										'a' => array(

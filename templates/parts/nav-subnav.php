@@ -68,9 +68,9 @@ $bn_sub_ctx = esc_attr(
 		$bn_s_panel    = $bn_s_reactive ? buddynext_nav_panel_id( $bn_s_target ) : '';
 		?>
 		<?php if ( $bn_s_reactive && null !== $bn_sub->url_value ) : ?>
-			<?php // Reactive tab WITH a real deep-link: JS intercepts the click (no reload); ?>
-			<?php // with JS off the href navigates to the clean URL, which server-renders ?>
-			<?php // the matching panel. Never a dead control — no broken-UX-on-no-hydration. ?>
+			<?php // Reactive tab with a real deep-link: JS intercepts the click for a no-reload swap. ?>
+			<?php // With JS off, the href navigates to the clean URL, which server-renders the panel. ?>
+			<?php // Never a dead control, so there is no broken UX when hydration is unavailable. ?>
 			<a class="bn-subnav__item" role="tab"
 				data-wp-context='<?php echo esc_attr( (string) wp_json_encode( array( 'tabSlug' => $bn_s_target ) ) ); ?>'
 				data-wp-class--active="state.isActiveTab"

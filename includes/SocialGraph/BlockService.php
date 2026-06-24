@@ -386,6 +386,8 @@ class BlockService {
 	 * Return the list of user IDs the given user has restricted.
 	 *
 	 * @param int $user_id The restricting user.
+	 * @param int $limit   Optional. Max IDs to return; 0 returns the full list. Default 0.
+	 * @param int $offset  Optional. Offset into the list when limited. Default 0.
 	 * @return int[]
 	 */
 	public function restricted_users( int $user_id, int $limit = 0, int $offset = 0 ): array {
@@ -621,7 +623,7 @@ class BlockService {
 
 		// $placeholders is a generated list of %d for an int array; every value is
 		// bound through $wpdb->prepare() below, so the interpolation is safe.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $placeholders is a generated %d list; $params binds viewer_id + all peer IDs twice, matching the two IN() clauses.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT blocker_id, blocked_id
@@ -632,7 +634,7 @@ class BlockService {
 				$params
 			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
 		$map = array();
 		foreach ( (array) $rows as $row ) {
@@ -708,6 +710,8 @@ class BlockService {
 	 * Return the list of user IDs muted by the given user.
 	 *
 	 * @param int $user_id The muting user.
+	 * @param int $limit   Optional. Max IDs to return; 0 returns the full list. Default 0.
+	 * @param int $offset  Optional. Offset into the list when limited. Default 0.
 	 * @return int[]
 	 */
 	public function muted_users( int $user_id, int $limit = 0, int $offset = 0 ): array {
@@ -744,6 +748,8 @@ class BlockService {
 	 * Return the list of user IDs blocked by the given user.
 	 *
 	 * @param int $user_id The blocking user.
+	 * @param int $limit   Optional. Max IDs to return; 0 returns the full list. Default 0.
+	 * @param int $offset  Optional. Offset into the list when limited. Default 0.
 	 * @return int[]
 	 */
 	public function blocked_users( int $user_id, int $limit = 0, int $offset = 0 ): array {
