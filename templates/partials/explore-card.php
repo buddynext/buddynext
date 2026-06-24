@@ -385,9 +385,14 @@ if ( 'post-media' === $bn_kind ) :
 			<?php endif; ?>
 		</a>
 		<div class="ec-body">
-			<?php if ( '' !== $bn_kicker ) : ?>
-				<div class="ec-kicker"><?php echo esc_html( $bn_kicker ); ?></div>
-			<?php endif; ?>
+			<div class="ec-kicker">
+				<?php
+				echo '' !== $bn_kicker
+					/* translators: %s: hashtag. */
+					? esc_html( sprintf( __( 'Photo · %s', 'buddynext' ), $bn_kicker ) )
+					: esc_html__( 'Photo', 'buddynext' );
+				?>
+			</div>
 			<?php if ( '' !== $bn_headline ) : ?>
 				<a class="ec-title" href="<?php echo esc_url( $bn_purl ); ?>"><?php echo esc_html( wp_trim_words( $bn_headline, 16, '…' ) ); ?></a>
 			<?php endif; ?>
@@ -402,9 +407,14 @@ endif;
 ?>
 <article class="ec-card is-text" data-kind="post-text">
 	<a class="ec-body" href="<?php echo esc_url( $bn_purl ); ?>">
-		<?php if ( '' !== $bn_kicker ) : ?>
-			<div class="ec-kicker"><?php echo esc_html( $bn_kicker ); ?></div>
-		<?php endif; ?>
+		<div class="ec-kicker">
+			<?php
+			echo '' !== $bn_kicker
+				/* translators: %s: hashtag. */
+				? esc_html( sprintf( __( 'Post · %s', 'buddynext' ), $bn_kicker ) )
+				: esc_html__( 'Post', 'buddynext' );
+			?>
+		</div>
 		<div class="ec-title"><?php echo esc_html( wp_trim_words( $bn_headline, 24, '…' ) ); ?></div>
 	</a>
 	<?php $bn_render_foot( $bn_av, $bn_atone, $bn_aname, $bn_aurl, $bn_reactions, $bn_comments ); ?>

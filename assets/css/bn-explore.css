@@ -168,6 +168,7 @@
 .ec-card {
 	display: flex;
 	flex-direction: column;
+	min-height: 180px; /* floor so short text/member cards don't collapse next to tall media cards */
 	background: var(--surface);
 	border: 1px solid var(--border);
 	border-radius: var(--r-lg);
@@ -224,7 +225,10 @@ a.ec-body:hover .ec-title { color: var(--brand); }
 	color: var(--text-3);
 }
 .ec-title {
-	display: block;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
 	font-size: var(--text-base);
 	font-weight: var(--fw-semibold);
 	color: var(--text-1);
@@ -233,6 +237,10 @@ a.ec-body:hover .ec-title { color: var(--brand); }
 }
 a.ec-title:hover { color: var(--brand); }
 .ec-text {
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
 	font-size: var(--text-sm);
 	color: var(--text-2);
 	line-height: var(--leading-normal);
