@@ -20,7 +20,7 @@ behaviour must be proven, and the contract audit + cert gates are mandatory.
 
 | Tier | Count | Meaning |
 |---|---|---|
-| **DO NOW** | 33 (11 done) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
+| **DO NOW** | 33 (14 done) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
 | **DEFER** | 8 | Real, but bigger design or lower urgency — scheduled, not now |
 | **SKIP** | 11 | Cut — caching/changing them is overhead at 100k (reasons below) |
 | **catalogued total** | 52 work-items | (was 69; +5 from the senior sweep, −22 collapsed/cut by frequency+value filter) |
@@ -38,7 +38,7 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 - [x] **G1–G7 DONE** (free `4c27998b`, pro `82846d3`) — Autoloaded per-entity/large options → `autoload=false` + one-time migration. Free: `SpaceController.php:384`, `AppearanceTab.php:134` + `SCHEMA_VERSION 7→8` `maybe_fix_autoload()`. Pro: `MembershipAdmin.php:399/402/405`, `BrandService.php:150` + `SCHEMA_ALTERS_VERSION 2→3` `maybe_fix_autoload()`. Migrations use `wp_set_options_autoload()` (WP API, correct cross-version values), idempotent. *QA: AutoloadHygieneTest free 3/3 + pro 2/2 (scoped flip, reads autoload-agnostic, idempotent); Core/Spaces/WhiteLabel regression green.*
 - [ ] **S3a** `bn_email_log` grows forever → add weekly `handle_cleanup_email_log` prune (mirror `handle_cleanup_activity_log`, gated on `buddynext_data_retention_days`). *Fastest-growing table at 100k.*
 - [ ] **S3b** Action Scheduler tables untuned → set `action_scheduler_retention_period` filter (7–14d) so fan-out's completed actions don't accumulate.
-- [ ] **S4a** PresenceService 60s throttle uses `set_transient` on **`template_redirect`** = `wp_options` write storm at 100k → move the guard to `wp_cache_*` (presence is ephemeral; losing it on flush is harmless). `PresenceService.php:114`. *Highest-volume offender.*
+- [x] **S4a DONE** (free `86034209`) - PresenceService throttle now wp_cache when persistent (transient fallback); PresenceServiceTest 5/5. ~~ PresenceService 60s throttle uses `set_transient` on **`template_redirect`** = `wp_options` write storm at 100k → move the guard to `wp_cache_*` (presence is ephemeral; losing it on flush is harmless). `PresenceService.php:114`. *Highest-volume offender.*
 - [ ] **S4b** Other limiters (Comment/Registration/SocialLogin/Profile/2FA) → use `wp_cache_*` when `wp_using_ext_object_cache()`, transient fallback otherwise.
 - [ ] **S5** Pro Push + Soketi dispatch fire **synchronously per notification** (blocking FCM/Soketi HTTP in-request; serializes fan-out workers) → enqueue via AS. `PushDispatcher.php:56`, `RealtimeDispatcher.php:61`. *Guards are fine; this is latency, not safety.*
 - [x] **S1a DONE** (free `85b20825`) — removed dead `bn_feed_items` (CREATE + post-delete cascade); never INSERT/SELECT. Existing installs keep the harmless empty table. PostServiceTest green.
@@ -66,11 +66,11 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 
 ### Small / hygiene
 
-- [ ] **BUG-1** `SpaceService.php:617` deletes `bn_space_bans` on space-delete **without firing a ban hook/bust** — real invalidation gap today (independent of caching). Add the bust/hook.
+- [x] **BUG-1 DONE** (free `e92fc8b5`) - SpaceService::delete flushes member/ban cache for affected users via SpaceMemberService::flush_user_caches; SpaceMemberFlushTest 2/2 + Spaces 101/101. ~~ `SpaceService.php:617` deletes `bn_space_bans` on space-delete **without firing a ban hook/bust** — real invalidation gap today (independent of caching). Add the bust/hook.
 - [ ] **K1** Drip tick native hourly cron → AS `buddynextpro_email`. *Safe: in `maybe_upgrade()` clear old `wp_schedule_event` + arm AS, **keep hook name `buddynextpro_drip_tick`** (handler unchanged).*
 - [ ] **K2 + K2b** Correct stale Pro docs (phantom 5-min `publish_scheduled` cron + drip "5-min" mislabel; code says hourly). 4 files.
 - [ ] **L1** DM poll `setInterval(poll,5000)` never paused/cleared → gate on `!document.hidden` + `clearInterval` on conversation close. `messages/store.js:1586`.
-- [ ] **N1** Add `wp_using_ext_object_cache()` health indicator to Tools (caching is load-bearing at scale).
+- [x] **N1 DONE** (free `d496727d`) - object-cache health indicator in Tools. ~~ Add `wp_using_ext_object_cache()` health indicator to Tools (caching is load-bearing at scale).
 - [ ] **U1** Pro has **no `check-rest-boundary.sh`** gate (app code is already 100% REST, but ungated) → add one mirroring free's so the boundary is CI-enforced uniformly across both repos.
 
 ---
