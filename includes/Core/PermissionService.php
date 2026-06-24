@@ -239,19 +239,15 @@ class PermissionService {
 	 * @return string Role name or '' if not an active member.
 	 */
 	private function get_space_role( int $user_id, int $space_id ): string {
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$role = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT role FROM {$wpdb->prefix}bn_space_members
-				 WHERE space_id = %d AND user_id = %d AND status = 'active'",
-				$space_id,
-				$user_id
-			)
-		);
-
-		return (string) ( $role ?? '' );
+		// Delegate to SpaceMemberService::get_role() — the identical
+		// status='active' role query, but object-cached with proper
+		// invalidation on every membership write (join/leave/role-change/ban via
+		// invalidate_cache()). A page that gates many capabilities for the same
+		// (user, space) — nav build + REST gate + template gates — collapses onto
+		// one cached read instead of one query per check. Not memoized in
+		// can(), so the buddynext_user_can filter still runs on every call; and a
+		// mid-request membership write busts the cache, so no stale role survives.
+		return (string) ( buddynext_service( 'space_members' )->get_role( $space_id, $user_id ) ?? '' );
 	}
 
 	/**
@@ -267,6 +263,10 @@ class PermissionService {
 	public function is_space_banned( int $user_id, int $space_id ): bool {
 		global $wpdb;
 
+		// Hard ban (bn_space_bans) is left as a direct query on purpose: it is a
+		// security gate with no existing cache + invalidation, so correctness wins
+		// over shaving one query — there must be no window where a stale cache
+		// reports a banned user as allowed.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$ban_count = (int) $wpdb->get_var(
 			$wpdb->prepare(
@@ -281,18 +281,10 @@ class PermissionService {
 			return true;
 		}
 
-		// Also catch the member-status='banned' path used by SpaceMemberService.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$member_banned = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members
-				 WHERE space_id = %d AND user_id = %d AND status = 'banned'",
-				$space_id,
-				$user_id
-			)
-		);
-
-		return $member_banned > 0;
+		// Soft ban (member status='banned') reads through SpaceMemberService's
+		// cached get_status() — same value, but served from cache across the many
+		// permission checks on a page and busted on every membership write.
+		return 'banned' === buddynext_service( 'space_members' )->get_status( $space_id, $user_id );
 	}
 
 	/**
