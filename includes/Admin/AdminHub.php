@@ -41,7 +41,7 @@ class AdminHub {
 	 * slug is shared with the top-level menu (so its first tab is what
 	 * shows when an admin clicks "BuddyNext" itself).
 	 *
-	 * @var array<string, array{slug:string, label:string, top?:bool}>
+	 * @var array<string, array{slug:string, label:string, icon?:string, top?:bool}>
 	 */
 	private static function default_sections(): array {
 		return array(
@@ -318,7 +318,7 @@ class AdminHub {
 	 * Resolved lazily on first access so the filter sees the full plugin
 	 * load order.
 	 *
-	 * @var array<string, array{slug:string, label:string, top?:bool}>|null
+	 * @var array<string, array{slug:string, label:string, icon?:string, top?:bool}>|null
 	 */
 	private static ?array $sections_cache = null;
 
@@ -594,7 +594,7 @@ class AdminHub {
 	 * The section appears in the sidebar only when at least one tab is
 	 * registered into it.
 	 *
-	 * @return array<string, array{slug:string, label:string, top?:bool}>
+	 * @return array<string, array{slug:string, label:string, icon?:string, top?:bool}>
 	 */
 	public static function sections(): array {
 		if ( null !== self::$sections_cache ) {
