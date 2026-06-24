@@ -4,7 +4,7 @@ Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 1.0.1
+Stable tag: 1.0.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,6 +55,24 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.0.2 - June 2026 =
+
+Theme-adaptive styling, an accordion admin nav, and a round of community fixes.
+
+* New      - The admin left navigation collapses into an accordion that opens the active section and remembers your last open section.
+* New      - Delete and Unsend actions in the direct-message menu.
+* Improve  - BuddyNext adopts the host theme's colour scheme and font family (BuddyX, BuddyX Pro, Reign), so community pages match your theme; header icons follow the theme's header menu colour.
+* Improve  - Sign-up Terms and Privacy links are admin-configurable instead of guessed from slugs.
+* Improve  - Notification rows polished with a system-icon avatar and a clean fallback for unknown types.
+* Fix      - Hashtag search returns results again, hashtags are indexed for every post type, and hashtag voting registers correctly.
+* Fix      - The favourite toggle in the media lightbox now responds.
+* Fix      - Removed the blank gap below the footer on BuddyX and BuddyX Pro auth pages, and fixed the header chrome layout inside the BuddyX header.
+* Fix      - Host-theme button fill no longer leaks into message action buttons.
+* Fix      - A deleted user's profile values and bookmarks are now purged.
+* Dev      - Composer is no longer required at runtime (hand-written autoloader, vendor is dev-only).
+* Compat   - Aligned with the WordPress 6.9+ and 7.0 Abilities API (ability category plus execute and permission callbacks).
+* Compat   - Pairs with BuddyNext Pro 1.0.2. Install both updates together.
 
 = 1.0.1 - June 2026 =
 
