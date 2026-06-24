@@ -16,27 +16,29 @@ each carries the reason it was cut. Nothing is deleted from the catalogue; it's 
 (caching, invalidation, schema, scheduling, access control); code-green is not sufficient,
 behaviour must be proven, and the contract audit + cert gates are mandatory.
 
-## ▶ RESUME HERE — pending DO-NOW (1 item)
+## ▶ ALL DO-NOW COMPLETE (33/33)
 
-As of 2026-06-25 (free `@390357d3`, pro `@dd6c357`). 32 DO-NOW items done
-and committed; the 1 below remains. Each carries its file:line + safe-execution rule in
-its checklist entry. **Test-env recipe:** Docker `buddynext-test-mysql` is the DB only
-(127.0.0.1:13306); the WP PHPUnit framework lives on the host at
-`/tmp/wordpress-tests-lib` (macOS `sys_get_temp_dir()` returns `/var/folders/...` which
-is an incomplete checkout — always run with `WP_TESTS_DIR=/tmp/wordpress-tests-lib`).
-PHPStan needs `--memory-limit=1G`.
+As of 2026-06-25 (free `@fe73f678`, pro `@dd6c357`, both pushed). Every DO-NOW item
+is implemented, unit-tested, gate-clean (WPCS + PHPStan L5 + REST boundary), and
+committed. Nothing pending in this tier.
 
-| # | Item | Note |
-|---|---|---|
-| 1 | **C1** `PermissionService` | **SECURITY-SENSITIVE** — within-request memoize of role/ban lookups; do NOT memoize `can()`'s result (freezes `buddynext_user_can`). Do this one carefully + tested. (free) |
+**Still open (lower tiers, by design):** the **DEFER** tier (8 items — bigger design
+or lower urgency) and the **PE-4 / PE-6** pre-existing items (see
+`pre-existing-issues.md`). These were never part of the DO-NOW scope.
 
-Also still open: **DEFER** tier (8) and the **PE-4 / PE-6** pre-existing items (see `pre-existing-issues.md`).
+**Test-env recipe (for the next session):** Docker `buddynext-test-mysql` is the DB
+only (127.0.0.1:13306); the WP PHPUnit framework lives on the host — free at
+`/tmp/wordpress-tests-lib`, pro at `/tmp/wordpress-tests-lib-pro`. macOS
+`sys_get_temp_dir()` returns `/var/folders/...` (an incomplete checkout), so always
+run free with `WP_TESTS_DIR=/tmp/wordpress-tests-lib`. PHPStan needs
+`--memory-limit=1G`. Pro tests skip cases that need Free tables (`bn_notifications`,
+`bn_email_log`) — run the combo suite to exercise those.
 
 ## Tally
 
 | Tier | Count | Meaning |
 |---|---|---|
-| **DO NOW** | 33 (32 done · 1 pending) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
+| **DO NOW** | 33 (33 done · 0 pending) | ✅ COMPLETE | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
 | **DEFER** | 8 | Real, but bigger design or lower urgency — scheduled, not now |
 | **SKIP** | 11 | Cut — caching/changing them is overhead at 100k (reasons below) |
 | **catalogued total** | 52 work-items | (was 69; +5 from the senior sweep, −22 collapsed/cut by frequency+value filter) |
@@ -67,7 +69,7 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 - [x] **C12 DONE** (pro `21bc849`) — `ProfileViewService` pure aggregates cached (view_count/top_viewed_profiles/top_viewers/privacy_adoption/daily_views_series; group `buddynextpro_analytics`, prefix `pv_`, TTL 300s, no bust). **get_viewers/get_recent_for_owner left UNCACHED on purpose** — they resolve the `bn_pro_hide_profile_views` opt-out at read time and caching would lag an opt-out by the TTL (privacy regression). Get/set plumbing extracted to a shared `CachesAggregates` trait (AnalyticsService refactored onto it). ProfileViewServiceCacheTest 2/2. WPCS + PHPStan L5 clean.
 - [x] **C2 DONE** (free `adf8c6e0`) — `PollService::results()` cached per post_id (group `buddynext_polls`, TTL 600s); bust on vote (both toggle-off + cast paths). PollServiceCacheTest 2/2.
 - [x] **C16 DONE** (pro `3ae3973`) - DripService::get_sequence cached, bust at 3 choke points. DripServiceCacheTest 3/3.
-- [ ] **C1(memo)** `PermissionService::can()` → **within-request memoize** (static var), NOT cross-request object cache. Collapses the many same-(user,ability,space) checks per page (nav build + REST gate + template gates). *Avoids the security risk of stale role/ban + the frozen `buddynext_user_can` filter.*
+- [x] **C1 DONE** (free `fe73f678`) — `PermissionService` routes its in-space **role** lookup → `SpaceMemberService::get_role()` and the **soft-ban** half → cached `get_status()==='banned'` (both object-cached with write-invalidation), so a page's many space-cap checks collapse from 3 queries each → 1. **Did NOT memoize `can()`'s result** (filter still runs every call) and **kept the hard-ban `bn_space_bans` query direct** (security gate with no cache+invalidation — no stale-ban window). *Senior refinement on the "static-var memoize" note: routing through SpaceMemberService's already-invalidated cache is safer than a static memo that can't see mid-request writes.* QA: PermissionServiceCacheTest 4/4 incl. the invalidation-safety case (cached role stays until flush, then fresh role honoured); Core+Spaces 172 green; WPCS + PHPStan L5 clean.
 - [x] **C14 DONE** (pro `499e06d`) - get_user_labels request-scoped memo, cleared on writes. LabelAssignment 12/12.
 - [x] **C6 DONE — folded into C7** (free `013a7719`). `SpaceCategoryService::get_all()` is fully object-cached (key `all`, TTL 600s, bust on category CRUD) by the C7 change — no separate memoize needed.
 - [x] **C4 RESOLVED — kept, not deleted** (lead-dev call). 0 *production* callers, but it's the read-back used by the `share()`/`unshare()` tests + its own list test. Deleting forces rewriting 2 unrelated tests for no real benefit, and it's a sensible public read API. The actual scale decision (don't cache it) stands. No code change.
