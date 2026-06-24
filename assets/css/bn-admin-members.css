@@ -1031,9 +1031,9 @@
 
 .bn-pf-opts-textarea {
 	width: 100%;
-	border: 1px solid var(--bn-a-border);
-	border-radius: var(--bn-a-r-sm);
-	padding: var(--bn-a-s2) var(--bn-a-s3);
+	border: 1px solid var(--bn-a-input-border);
+	border-radius: var(--bn-a-input-radius);
+	padding: var(--bn-a-input-pad-y) var(--bn-a-input-pad-x);
 	font-size: var(--bn-a-text-sm);
 	font-family: var(--bn-a-font-body);
 	resize: vertical;
@@ -1046,7 +1046,7 @@
 .bn-pf-opts-textarea:focus {
 	outline: none;
 	border-color: var(--bn-a-brand);
-	box-shadow: 0 0 0 2px var(--bn-a-career-bg);
+	box-shadow: var(--bn-a-focus-ring);
 }
 
 .bn-pf-opts-hint {
@@ -1115,9 +1115,9 @@
 .bn-pf-af-row .bn-pf-af-field select {
 	font-size: var(--bn-a-text-sm);
 	width: 100%;
-	border: 1px solid var(--bn-a-border);
-	border-radius: var(--bn-a-r-sm);
-	padding: var(--bn-a-s2) var(--bn-a-s3);
+	border: 1px solid var(--bn-a-input-border);
+	border-radius: var(--bn-a-input-radius);
+	padding: var(--bn-a-input-pad-y) var(--bn-a-input-pad-x);
 	background: var(--bn-a-bg);
 	color: var(--bn-a-text-1);
 	box-sizing: border-box;
@@ -1127,7 +1127,7 @@
 .bn-pf-af-row .bn-pf-af-field select:focus {
 	outline: none;
 	border-color: var(--bn-a-brand);
-	box-shadow: 0 0 0 2px var(--bn-a-career-bg);
+	box-shadow: var(--bn-a-focus-ring);
 }
 
 .bn-pf-af-req-row {

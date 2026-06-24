@@ -133,6 +133,13 @@
 	--bn-a-input-min-w:       200px;
 	--bn-a-field-max-w:       400px;
 
+	/* -- Input look (ONE uniform admin field — used by every option) ----- */
+	--bn-a-input-border:      var(--bn-line-strong);   /* crisp, reads as tappable */
+	--bn-a-input-radius:      var(--bn-a-r-sm);
+	--bn-a-input-pad-y:       var(--bn-a-s2);
+	--bn-a-input-pad-x:       var(--bn-a-s3);
+	--bn-a-focus-ring:        0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 22%, transparent);
+
 	/* -- Card / dropdown min-widths -------------------------------------- */
 	--bn-a-stat-card-min-w:   140px;
 	--bn-a-dropdown-min-w:    140px;
@@ -486,76 +493,103 @@
 	display: none;
 }
 
-input.bn-text-input {
-	border: 1px solid var(--bn-a-border) !important;
-	border-radius: var(--bn-a-r-sm) !important;
-	padding: var(--bn-a-s2) var(--bn-a-s3) !important;
+/* ONE uniform admin field. Every option control — the admin primitive
+ * (.bn-text-input / .bn-select-input) AND the frontend primitive
+ * (.bn-input / .bn-select / .bn-textarea) that admin screens reuse — resolves
+ * to the same look: same padding, radius, crisp border, and focus ring. This
+ * file is admin-only and loads after bn-base.css, so the frontend .bn-input is
+ * untouched; only its admin usage converges here. */
+input.bn-text-input,
+textarea.bn-text-input,
+select.bn-text-input,
+select.bn-select-input,
+.bn-input,
+.bn-textarea,
+.bn-select {
+	padding: var(--bn-a-input-pad-y) var(--bn-a-input-pad-x) !important;
 	font-size: var(--bn-a-text-sm) !important;
-	box-shadow: none !important;
 	line-height: 1.4 !important;
-	background: var(--bn-a-bg) !important;
 	color: var(--bn-a-text-1) !important;
-}
-
-input.bn-text-input:focus {
-	border-color: var(--bn-a-brand) !important;
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 20%, transparent) !important;
-	outline: none !important;
-}
-
-textarea.bn-text-input {
-	border: 1px solid var(--bn-a-border) !important;
-	border-radius: var(--bn-a-r-sm) !important;
-	padding: var(--bn-a-s2) var(--bn-a-s3) !important;
-	font-size: var(--bn-a-text-sm) !important;
+	background: var(--bn-a-bg) !important;
+	border: 1px solid var(--bn-a-input-border) !important;
+	border-radius: var(--bn-a-input-radius) !important;
 	box-shadow: none !important;
-	line-height: 1.4 !important;
-	background: var(--bn-a-bg) !important;
-	color: var(--bn-a-text-1) !important;
+	height: auto !important;
+	transition: border-color var(--bn-a-transition), box-shadow var(--bn-a-transition);
 }
 
-textarea.bn-text-input:focus {
+input.bn-text-input:focus,
+textarea.bn-text-input:focus,
+select.bn-text-input:focus,
+select.bn-select-input:focus,
+.bn-input:focus,
+.bn-textarea:focus,
+.bn-select:focus {
 	border-color: var(--bn-a-brand) !important;
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 20%, transparent) !important;
+	box-shadow: var(--bn-a-focus-ring) !important;
 	outline: none !important;
 }
 
 select.bn-select-input {
-	border: 1px solid var(--bn-a-border) !important;
-	border-radius: var(--bn-a-r-sm) !important;
-	padding: var(--bn-a-s2) var(--bn-a-s3) !important;
-	font-size: var(--bn-a-text-sm) !important;
-	background: var(--bn-a-bg) !important;
-	color: var(--bn-a-text-1) !important;
-	height: auto !important;
 	min-width: var(--bn-a-input-min-w);
-	line-height: 1.4 !important;
-}
-
-select.bn-select-input:focus {
-	border-color: var(--bn-a-brand) !important;
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 20%, transparent) !important;
-	outline: none !important;
 }
 
 select.bn-text-input {
-	border: 1px solid var(--bn-a-border) !important;
-	border-radius: var(--bn-a-r-sm) !important;
-	padding: var(--bn-a-s2) var(--bn-a-s3) !important;
-	font-size: var(--bn-a-text-sm) !important;
-	background: var(--bn-a-bg) !important;
-	color: var(--bn-a-text-1) !important;
-	height: auto !important;
-	line-height: 1.4 !important;
 	display: block;
 	width: 100%;
 	max-width: var(--bn-a-field-max-w);
 }
 
-select.bn-text-input:focus {
-	border-color: var(--bn-a-brand) !important;
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 20%, transparent) !important;
-	outline: none !important;
+/* Baseline: ANY native / no-class form control inside the BuddyNext admin
+ * shell converges to the uniform field look — e.g. the Pages & URLs
+ * "Backing Page" <select>s that carry no BN class and would otherwise show
+ * the browser default (square 2px radius, grey border). The class rules above
+ * (with !important) still win where a primitive class is present and set the
+ * identical values, so the two layers never visibly conflict. Excludes
+ * checkbox / radio / colour / file / range / submit / button via the type
+ * whitelist. */
+.bn-admin-hub select,
+.bn-admin-hub textarea,
+.bn-admin-hub input[type="text"],
+.bn-admin-hub input[type="url"],
+.bn-admin-hub input[type="email"],
+.bn-admin-hub input[type="search"],
+.bn-admin-hub input[type="password"],
+.bn-admin-hub input[type="number"],
+.bn-admin-hub input[type="tel"],
+.bn-admin-hub input[type="date"],
+.bn-admin-hub input[type="datetime-local"] {
+	padding: var(--bn-a-input-pad-y) var(--bn-a-input-pad-x);
+	font-size: var(--bn-a-text-sm);
+	line-height: 1.4;
+	color: var(--bn-a-text-1);
+	background: var(--bn-a-bg);
+	border: 1px solid var(--bn-a-input-border);
+	border-radius: var(--bn-a-input-radius);
+	box-shadow: none;
+	height: auto;
+	transition: border-color var(--bn-a-transition), box-shadow var(--bn-a-transition);
+}
+
+/* Native <select> keeps room for the UA dropdown arrow on the inline-end. */
+.bn-admin-hub select {
+	padding-inline-end: var(--bn-a-s6);
+}
+
+.bn-admin-hub select:focus,
+.bn-admin-hub textarea:focus,
+.bn-admin-hub input[type="text"]:focus,
+.bn-admin-hub input[type="url"]:focus,
+.bn-admin-hub input[type="email"]:focus,
+.bn-admin-hub input[type="search"]:focus,
+.bn-admin-hub input[type="password"]:focus,
+.bn-admin-hub input[type="number"]:focus,
+.bn-admin-hub input[type="tel"]:focus,
+.bn-admin-hub input[type="date"]:focus,
+.bn-admin-hub input[type="datetime-local"]:focus {
+	border-color: var(--bn-a-brand);
+	box-shadow: var(--bn-a-focus-ring);
+	outline: none;
 }
 
 /* Edit member form rows (used by MemberEditForm) */
@@ -760,7 +794,7 @@ input.bn-table-search {
 
 input.bn-table-search:focus {
 	border-color: var(--bn-a-brand) !important;
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 20%, transparent) !important;
+	box-shadow: var(--bn-a-focus-ring) !important;
 	outline: none !important;
 }
 
@@ -1378,7 +1412,7 @@ button.bn-btn-danger:hover {
 
 .bn-search-input:focus {
 	border-color: var(--bn-a-brand) !important;
-	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 20%, transparent) !important;
+	box-shadow: var(--bn-a-focus-ring) !important;
 	outline: none !important;
 }
 
