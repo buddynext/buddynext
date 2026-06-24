@@ -1,415 +1,420 @@
 {
-    "generated": "2026-06-11T06:53:37+00:00",
-    "suppressions": [
-        {
-            "id": "option-read-never-written:buddynext_reg_mode",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_site_name",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_brand_color",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_description",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_public_explore",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_enable_dm",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_default_dm_access",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_show_onboarding",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_email_verify",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_allowed_domains",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_default_post_privacy",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_allow_polls",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_allow_shares",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_allow_bookmarks",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_enable_link_preview",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_enable_emoji_picker",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_post_edit_window",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_enable_spaces",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_space_creation_role",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_space_max_sub_spaces",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_auto_hide_threshold",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_mod_queue_alert_threshold",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_strike_warn_threshold",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_strike_suspend_threshold",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_strike_perma_ban_threshold",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_banned_words",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_banned_hashtags",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_blocked_domains",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_post_rate_limit",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_new_member_post_threshold",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_notif_default_follow",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_notif_default_connection",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_notif_default_reaction",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_notif_default_comment",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_notif_default_mention",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_notif_default_space_join",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_digest_frequency",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_admin_alert_email",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_email_from_name",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_email_from_address",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_email_reply_to",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_email_footer_text",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_google_indexing",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_cookie_consent",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_data_retention_days",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_allow_data_export",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_allow_account_deletion",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_anonymize_on_delete",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_jetonomy_feed_sync",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_webhook_secret",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_slug_login",
-            "reason": "Auth-hub sub-route slug read with a fixed sensible default (login / signup / verify-email). Only the hub base slug (buddynext_slug_auth) is admin-configurable; sub-routes use defaults plus a code-level update_option() override seam by design \u2014 no admin field intended. False positive.",
-            "severity": "error"
-        },
-        {
-            "id": "option-read-never-written:buddynext_slug_verify",
-            "reason": "Auth-hub sub-route slug read with a fixed sensible default (login / signup / verify-email). Only the hub base slug (buddynext_slug_auth) is admin-configurable; sub-routes use defaults plus a code-level update_option() override seam by design \u2014 no admin field intended. False positive.",
-            "severity": "error"
-        },
-        {
-            "id": "option-read-never-written:buddynext_slug_signup",
-            "reason": "Auth-hub sub-route slug read with a fixed sensible default (login / signup / verify-email). Only the hub base slug (buddynext_slug_auth) is admin-configurable; sub-routes use defaults plus a code-level update_option() override seam by design \u2014 no admin field intended. False positive.",
-            "severity": "error"
-        },
-        {
-            "id": "option-written-never-read:buddynext_db_version",
-            "reason": "One-way schema/version stamp written by the installer and consumed by the upgrade-check routine (and external migration tooling), not read back in the same scope. Intentional.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-possible-dual-key:buddynext_enable_dm <> buddynext_enable_spaces",
-            "reason": "Distinct feature toggles (direct messaging vs spaces). The shared 'enable_' token is coincidental; they store different data. Not a dual key.",
-            "severity": "info"
-        },
-        {
-            "id": "option-possible-dual-key:buddynext_router_version <> buddynext_db_version",
-            "reason": "Distinct version stamps (rewrite/router version vs DB schema version) with separate lifecycles. Coincidental 'version' token. Not a dual key.",
-            "severity": "info"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_daily_digest",
-            "reason": "Recurring cron job scheduled via wp_schedule_event() in CronScheduler; the event is fired by WP-cron core (do_action inside wp-cron.php), not by plugin code, so the static scanner sees no firing. False positive.",
-            "severity": "error"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_weekly_digest",
-            "reason": "Recurring cron job scheduled via wp_schedule_event() in CronScheduler; the event is fired by WP-cron core (do_action inside wp-cron.php), not by plugin code, so the static scanner sees no firing. False positive.",
-            "severity": "error"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_cleanup_tokens",
-            "reason": "Recurring cron job scheduled via wp_schedule_event() in CronScheduler; the event is fired by WP-cron core (do_action inside wp-cron.php), not by plugin code, so the static scanner sees no firing. False positive.",
-            "severity": "error"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_cleanup_notifications",
-            "reason": "Recurring cron job scheduled via wp_schedule_event() in CronScheduler; the event is fired by WP-cron core (do_action inside wp-cron.php), not by plugin code, so the static scanner sees no firing. False positive.",
-            "severity": "error"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_trending_hashtags",
-            "reason": "Recurring cron job scheduled via wp_schedule_event() in CronScheduler; the event is fired by WP-cron core (do_action inside wp-cron.php), not by plugin code, so the static scanner sees no firing. False positive.",
-            "severity": "info"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_recount_stats",
-            "reason": "Recurring cron job scheduled via wp_schedule_event() in CronScheduler; the event is fired by WP-cron core (do_action inside wp-cron.php), not by plugin code, so the static scanner sees no firing. False positive.",
-            "severity": "error"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_publish_scheduled",
-            "reason": "Recurring cron job scheduled via wp_schedule_event() in CronScheduler; the event is fired by WP-cron core (do_action inside wp-cron.php), not by plugin code, so the static scanner sees no firing. False positive.",
-            "severity": "error"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_index_hashtags",
-            "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
-            "severity": "error"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_async_index_hashtags",
-            "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
-            "severity": "info"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_async_space_new_post_notification",
-            "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
-            "severity": "error"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_async_index_user",
-            "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
-            "severity": "info"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_async_index_post",
-            "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
-            "severity": "info"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_async_deindex_post",
-            "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
-            "severity": "info"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_async_index_space",
-            "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
-            "severity": "info"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_async_deindex_space",
-            "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
-            "severity": "info"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_index_embedding",
-            "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
-            "severity": "error"
-        },
-        {
-            "id": "option-read-never-written:buddynext_reg_spam_protection",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_reg_challenge",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "option-read-never-written:buddynext_reg_rate_limit",
-            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
-            "severity": "warning"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_cleanup_activity_log",
-            "reason": "Cron-fired hook, not a do_action() target. Registered as a CronScheduler recurring job (CronScheduler::JOB_CLEANUP_ACTIVITY_LOG): handler bound at includes/Core/CronScheduler.php:97, armed weekly via maybe_schedule() at :134. WP-Cron / Action Scheduler invokes the action, so the scanner finds no literal firing site. False positive.",
-            "severity": "error"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_webhook_deliver",
-            "reason": "Cron-fired hook, not a do_action() target. OutboundWebhookService::DELIVER_HOOK: handler bound at includes/Outbound/OutboundWebhookService.php:88, armed per delivery via wp_schedule_single_event() at :331 and :337. WP-Cron invokes the action; no literal firing site exists for the scanner to match. False positive.",
-            "severity": "error"
-        },
-        {
-            "id": "hook-consumed-never-fired:buddynext_webhook_retry_single",
-            "reason": "Cron-fired hook, not a do_action() target. OutboundWebhookService::RETRY_HOOK: handler bound at includes/Outbound/OutboundWebhookService.php:91, armed via wp_schedule_single_event() at :536 (exponential-backoff retry). WP-Cron invokes the action; no literal firing site exists. False positive.",
-            "severity": "error"
-        },
-        {
-            "id": "option-read-never-written:buddynext_pro_page_membership",
-            "reason": "Written by MembershipPages provisioning via update_option( $hub['opt_page'], ... ) / update_option( $hub['opt_slug'], ... ) at MembershipPages.php:231-232 \u2014 a dynamic ($hub-keyed) write the static scanner cannot match against the constant-keyed read (self::OPT_PAGE_MEMBERSHIP, etc.). Verified: the membership pages provision and pricing_url()/my_membership_url() resolve correctly. False positive (the membership epic this was waiting on is complete in 1.0.2).",
-            "severity": "error"
-        },
-        {
-            "id": "option-read-never-written:buddynext_pro_page_my_membership",
-            "reason": "Written by MembershipPages provisioning via update_option( $hub['opt_page'], ... ) / update_option( $hub['opt_slug'], ... ) at MembershipPages.php:231-232 \u2014 a dynamic ($hub-keyed) write the static scanner cannot match against the constant-keyed read (self::OPT_PAGE_MEMBERSHIP, etc.). Verified: the membership pages provision and pricing_url()/my_membership_url() resolve correctly. False positive (the membership epic this was waiting on is complete in 1.0.2).",
-            "severity": "error"
-        },
-        {
-            "id": "option-read-never-written:buddynext_pro_slug_membership",
-            "reason": "Written by MembershipPages provisioning via update_option( $hub['opt_page'], ... ) / update_option( $hub['opt_slug'], ... ) at MembershipPages.php:231-232 \u2014 a dynamic ($hub-keyed) write the static scanner cannot match against the constant-keyed read (self::OPT_PAGE_MEMBERSHIP, etc.). Verified: the membership pages provision and pricing_url()/my_membership_url() resolve correctly. False positive (the membership epic this was waiting on is complete in 1.0.2).",
-            "severity": "error"
-        },
-        {
-            "id": "option-read-never-written:buddynext_pro_slug_my_membership",
-            "reason": "Written by MembershipPages provisioning via update_option( $hub['opt_page'], ... ) / update_option( $hub['opt_slug'], ... ) at MembershipPages.php:231-232 \u2014 a dynamic ($hub-keyed) write the static scanner cannot match against the constant-keyed read (self::OPT_PAGE_MEMBERSHIP, etc.). Verified: the membership pages provision and pricing_url()/my_membership_url() resolve correctly. False positive (the membership epic this was waiting on is complete in 1.0.2).",
-            "severity": "error"
-        }
-    ]
+  "generated": "2026-06-11T06:53:37+00:00",
+  "suppressions": [
+    {
+      "id": "option-read-never-written:buddynext_reg_mode",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_site_name",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_brand_color",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_description",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_public_explore",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_enable_dm",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_default_dm_access",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_show_onboarding",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_email_verify",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_allowed_domains",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_default_post_privacy",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_allow_polls",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_allow_shares",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_allow_bookmarks",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_enable_link_preview",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_enable_emoji_picker",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_post_edit_window",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_enable_spaces",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_space_creation_role",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_space_max_sub_spaces",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_auto_hide_threshold",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_mod_queue_alert_threshold",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_strike_warn_threshold",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_strike_suspend_threshold",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_strike_perma_ban_threshold",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_banned_words",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_banned_hashtags",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_blocked_domains",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_post_rate_limit",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_new_member_post_threshold",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_notif_default_follow",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_notif_default_connection",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_notif_default_reaction",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_notif_default_comment",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_notif_default_mention",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_notif_default_space_join",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_digest_frequency",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_admin_alert_email",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_email_from_name",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_email_from_address",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_email_reply_to",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_email_footer_text",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_google_indexing",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_cookie_consent",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_data_retention_days",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_allow_data_export",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_allow_account_deletion",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_anonymize_on_delete",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_jetonomy_feed_sync",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_webhook_secret",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_slug_login",
+      "reason": "Auth-hub sub-route slug read with a fixed sensible default (login / signup / verify-email). Only the hub base slug (buddynext_slug_auth) is admin-configurable; sub-routes use defaults plus a code-level update_option() override seam by design \u2014 no admin field intended. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "option-read-never-written:buddynext_slug_verify",
+      "reason": "Auth-hub sub-route slug read with a fixed sensible default (login / signup / verify-email). Only the hub base slug (buddynext_slug_auth) is admin-configurable; sub-routes use defaults plus a code-level update_option() override seam by design \u2014 no admin field intended. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "option-read-never-written:buddynext_slug_signup",
+      "reason": "Auth-hub sub-route slug read with a fixed sensible default (login / signup / verify-email). Only the hub base slug (buddynext_slug_auth) is admin-configurable; sub-routes use defaults plus a code-level update_option() override seam by design \u2014 no admin field intended. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "option-written-never-read:buddynext_db_version",
+      "reason": "One-way schema/version stamp written by the installer and consumed by the upgrade-check routine (and external migration tooling), not read back in the same scope. Intentional.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-possible-dual-key:buddynext_enable_dm <> buddynext_enable_spaces",
+      "reason": "Distinct feature toggles (direct messaging vs spaces). The shared 'enable_' token is coincidental; they store different data. Not a dual key.",
+      "severity": "info"
+    },
+    {
+      "id": "option-possible-dual-key:buddynext_router_version <> buddynext_db_version",
+      "reason": "Distinct version stamps (rewrite/router version vs DB schema version) with separate lifecycles. Coincidental 'version' token. Not a dual key.",
+      "severity": "info"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_daily_digest",
+      "reason": "Recurring cron job scheduled via wp_schedule_event() in CronScheduler; the event is fired by WP-cron core (do_action inside wp-cron.php), not by plugin code, so the static scanner sees no firing. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_weekly_digest",
+      "reason": "Recurring cron job scheduled via wp_schedule_event() in CronScheduler; the event is fired by WP-cron core (do_action inside wp-cron.php), not by plugin code, so the static scanner sees no firing. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_cleanup_tokens",
+      "reason": "Recurring cron job scheduled via wp_schedule_event() in CronScheduler; the event is fired by WP-cron core (do_action inside wp-cron.php), not by plugin code, so the static scanner sees no firing. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_cleanup_notifications",
+      "reason": "Recurring cron job scheduled via wp_schedule_event() in CronScheduler; the event is fired by WP-cron core (do_action inside wp-cron.php), not by plugin code, so the static scanner sees no firing. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_trending_hashtags",
+      "reason": "Recurring cron job scheduled via wp_schedule_event() in CronScheduler; the event is fired by WP-cron core (do_action inside wp-cron.php), not by plugin code, so the static scanner sees no firing. False positive.",
+      "severity": "info"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_recount_stats",
+      "reason": "Recurring cron job scheduled via wp_schedule_event() in CronScheduler; the event is fired by WP-cron core (do_action inside wp-cron.php), not by plugin code, so the static scanner sees no firing. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_publish_scheduled",
+      "reason": "Recurring cron job scheduled via wp_schedule_event() in CronScheduler; the event is fired by WP-cron core (do_action inside wp-cron.php), not by plugin code, so the static scanner sees no firing. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_index_hashtags",
+      "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_async_index_hashtags",
+      "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
+      "severity": "info"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_async_space_new_post_notification",
+      "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_async_index_user",
+      "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
+      "severity": "info"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_async_index_post",
+      "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
+      "severity": "info"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_async_deindex_post",
+      "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
+      "severity": "info"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_async_index_space",
+      "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
+      "severity": "info"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_async_deindex_space",
+      "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
+      "severity": "info"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_index_embedding",
+      "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "option-read-never-written:buddynext_reg_spam_protection",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_reg_challenge",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "option-read-never-written:buddynext_reg_rate_limit",
+      "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+      "severity": "warning"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_cleanup_activity_log",
+      "reason": "Cron-fired hook, not a do_action() target. Registered as a CronScheduler recurring job (CronScheduler::JOB_CLEANUP_ACTIVITY_LOG): handler bound at includes/Core/CronScheduler.php:97, armed weekly via maybe_schedule() at :134. WP-Cron / Action Scheduler invokes the action, so the scanner finds no literal firing site. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_webhook_deliver",
+      "reason": "Cron-fired hook, not a do_action() target. OutboundWebhookService::DELIVER_HOOK: handler bound at includes/Outbound/OutboundWebhookService.php:88, armed per delivery via wp_schedule_single_event() at :331 and :337. WP-Cron invokes the action; no literal firing site exists for the scanner to match. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_webhook_retry_single",
+      "reason": "Cron-fired hook, not a do_action() target. OutboundWebhookService::RETRY_HOOK: handler bound at includes/Outbound/OutboundWebhookService.php:91, armed via wp_schedule_single_event() at :536 (exponential-backoff retry). WP-Cron invokes the action; no literal firing site exists. False positive.",
+      "severity": "error"
+    },
+    {
+      "id": "option-read-never-written:buddynext_pro_page_membership",
+      "reason": "Written by MembershipPages provisioning via update_option( $hub['opt_page'], ... ) / update_option( $hub['opt_slug'], ... ) at MembershipPages.php:231-232 \u2014 a dynamic ($hub-keyed) write the static scanner cannot match against the constant-keyed read (self::OPT_PAGE_MEMBERSHIP, etc.). Verified: the membership pages provision and pricing_url()/my_membership_url() resolve correctly. False positive (the membership epic this was waiting on is complete in 1.0.2).",
+      "severity": "error"
+    },
+    {
+      "id": "option-read-never-written:buddynext_pro_page_my_membership",
+      "reason": "Written by MembershipPages provisioning via update_option( $hub['opt_page'], ... ) / update_option( $hub['opt_slug'], ... ) at MembershipPages.php:231-232 \u2014 a dynamic ($hub-keyed) write the static scanner cannot match against the constant-keyed read (self::OPT_PAGE_MEMBERSHIP, etc.). Verified: the membership pages provision and pricing_url()/my_membership_url() resolve correctly. False positive (the membership epic this was waiting on is complete in 1.0.2).",
+      "severity": "error"
+    },
+    {
+      "id": "option-read-never-written:buddynext_pro_slug_membership",
+      "reason": "Written by MembershipPages provisioning via update_option( $hub['opt_page'], ... ) / update_option( $hub['opt_slug'], ... ) at MembershipPages.php:231-232 \u2014 a dynamic ($hub-keyed) write the static scanner cannot match against the constant-keyed read (self::OPT_PAGE_MEMBERSHIP, etc.). Verified: the membership pages provision and pricing_url()/my_membership_url() resolve correctly. False positive (the membership epic this was waiting on is complete in 1.0.2).",
+      "severity": "error"
+    },
+    {
+      "id": "option-read-never-written:buddynext_pro_slug_my_membership",
+      "reason": "Written by MembershipPages provisioning via update_option( $hub['opt_page'], ... ) / update_option( $hub['opt_slug'], ... ) at MembershipPages.php:231-232 \u2014 a dynamic ($hub-keyed) write the static scanner cannot match against the constant-keyed read (self::OPT_PAGE_MEMBERSHIP, etc.). Verified: the membership pages provision and pricing_url()/my_membership_url() resolve correctly. False positive (the membership epic this was waiting on is complete in 1.0.2).",
+      "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_cleanup_email_log",
+      "reason": "Cron-fired hook, not a do_action() target. Registered as a CronScheduler recurring job (CronScheduler::JOB_CLEANUP_EMAIL_LOG): handler bound at includes/Core/CronScheduler.php:118, armed weekly via maybe_schedule() at :156 (item S3a, bn_email_log retention prune). WP-Cron / Action Scheduler invokes the action, so the scanner finds no literal firing site. False positive.",
+      "severity": "error"
+    }
+  ]
 }
