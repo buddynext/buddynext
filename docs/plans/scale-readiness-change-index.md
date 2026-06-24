@@ -20,7 +20,7 @@ behaviour must be proven, and the contract audit + cert gates are mandatory.
 
 | Tier | Count | Meaning |
 |---|---|---|
-| **DO NOW** | 33 (3 done) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
+| **DO NOW** | 33 (8 done) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
 | **DEFER** | 8 | Real, but bigger design or lower urgency — scheduled, not now |
 | **SKIP** | 11 | Cut — caching/changing them is overhead at 100k (reasons below) |
 | **catalogued total** | 52 work-items | (was 69; +5 from the senior sweep, −22 collapsed/cut by frequency+value filter) |
@@ -45,8 +45,8 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 
 ### Cache — right-sized (6 caches + 3 memoizes + 1 delete)
 
-- [ ] **C7** `SpaceCategoryService::get_all_with_counts()` — **top cache**: global list on 2 hot render paths (spaces directory + explore aside). Bust on space/category change.
-- [ ] **C13** `LabelService::list_labels()` — global catalogue on every search render. Bust on label CRUD.
+- [x] **C7 DONE** (free `013a7719`) — `SpaceCategoryService` get_all/get_all_with_counts cached (list TTL 600s, counts TTL 60s to bound space-reassignment staleness); bust on category CRUD. SpaceCategoryServiceCacheTest 4/4.
+- [x] **C13 DONE** (pro `fa35968`) — `LabelService::list_labels()` cached (group `buddynextpro_labels`, TTL 600s); bust on create/update/delete. LabelServiceCacheTest 4/4. *(Note: pre-existing broken `ProfileLabelInjectorTest` — calls undefined `inject_labels()` — is unrelated, not a regression.)*
 - [ ] **C11** `AnalyticsService` 7 aggregates — heavy COUNT/GROUP-BY, all fired per dashboard load. Medium TTL, no bust (read-only).
 - [ ] **C12** `ProfileViewService` aggregates — per-(profile,window), re-hit across viewers of a popular profile. Medium TTL.
 - [ ] **C2** `PollService::results()` — one poll fetched by many viewers. Bust on `vote()`.
@@ -54,13 +54,12 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 - [ ] **C1(memo)** `PermissionService::can()` → **within-request memoize** (static var), NOT cross-request object cache. Collapses the many same-(user,ability,space) checks per page (nav build + REST gate + template gates). *Avoids the security risk of stale role/ban + the frozen `buddynext_user_can` filter.*
 - [ ] **C14(memo)** `LabelAssignmentService::get_user_labels()` → within-request memoize. Dedups repeated authors in the feed byline loop.
 - [ ] **C6(memo)** `SpaceCategoryService::get_all()` → memoize or fold into C7's key (marginal).
-- [ ] **C4(delete)** `ShareService::user_shares()` — **dead method, 0 callers** → delete, don't cache.
+- [x] **C4 RESOLVED — kept, not deleted** (lead-dev call). 0 *production* callers, but it's the read-back used by the `share()`/`unshare()` tests + its own list test. Deleting forces rewriting 2 unrelated tests for no real benefit, and it's a sensible public read API. The actual scale decision (don't cache it) stands. No code change.
 
 ### Cache uniformity + cleanup (low-risk)
 
-- [ ] **A1–A15** Delete 15 dead `CacheService` methods (0 callers) **+ their tests in the same commit**. Keep generic `get/set/delete/remember/forget_group`.
-- [ ] **B1** `EmbeddingProvider` group `buddynext_pro_embeddings` → `buddynextpro_embeddings` (self-contained const, 2 sites).
-- [ ] **B2** Bare `buddynextpro` cache literal → `buddynextpro_membership` const, **all 23 `wp_cache_*` sites atomically** across the 5 files. *Leave `SubscriptionService::GROUP` (it's the AS group).*
+- [x] **A1–A15 DONE** (free `19851e80`) — deleted 15 dead `CacheService` typed methods + tests; 0 callers confirmed. Kept generic helpers.
+- [x] **B1+B2 DONE** (pro `d850807`) — EmbeddingProvider group → `buddynextpro_embeddings`; 23 wp_cache sites → `buddynextpro_membership` (AS `GROUP` left as-is). Membership+Stripe 43/43.
 - [ ] **I1** `SearchService::enrich_members()` N+1 → `cache_users()` + `update_meta_cache('user', …)` before loop.
 - [ ] **I2 / J1** `RecentActivityWidget` — prime `cache_users()` + route through `WidgetCache`.
 - [ ] **J2** `TrendingHashtagsWidget` direct query → use cached `WidgetService::trending_hashtags()`.
