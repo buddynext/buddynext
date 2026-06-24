@@ -27,6 +27,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Auth;
 
+use BuddyNext\Core\RateLimiter;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -765,11 +767,10 @@ class SocialLogin {
 	private function rate_limit(): void {
 		$ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) ) : '';
 		$key = 'bn_oauth_rl_' . md5( $ip );
-		$n   = (int) get_transient( $key );
-		if ( $n >= self::RATE_MAX ) {
+		if ( RateLimiter::count( $key ) >= self::RATE_MAX ) {
 			$this->bail( __( 'Too many sign-in attempts. Please wait a minute and try again.', 'buddynext' ) );
 		}
-		set_transient( $key, $n + 1, MINUTE_IN_SECONDS );
+		RateLimiter::hit( $key, MINUTE_IN_SECONDS );
 	}
 
 	/**
