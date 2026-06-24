@@ -21,6 +21,30 @@ use WP_Error;
 class PollService {
 
 	/**
+	 * Object-cache group + TTL for poll results.
+	 *
+	 * @var string
+	 */
+	private const CACHE_GROUP = 'buddynext_polls';
+
+	/**
+	 * Poll-results TTL in seconds (bust on every vote keeps it fresh).
+	 *
+	 * @var int
+	 */
+	private const CACHE_TTL = 600;
+
+	/**
+	 * Evict the cached results for a poll. Called from every vote.
+	 *
+	 * @param int $post_id Poll post ID.
+	 * @return void
+	 */
+	private function invalidate_results( int $post_id ): void {
+		wp_cache_delete( "results_{$post_id}", self::CACHE_GROUP );
+	}
+
+	/**
 	 * Cast or switch a vote for an option in a poll.
 	 *
 	 * If the user has already voted for a different option, the old vote is
@@ -136,6 +160,7 @@ class PollService {
 			if ( (int) $existing_option_id === $option_id ) {
 				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				PostService::flush_cache( $post_id );
+				$this->invalidate_results( $post_id );
 				return true;
 			}
 		}
@@ -179,6 +204,7 @@ class PollService {
 		do_action( 'buddynext_poll_voted', $post_id, $option_id, $user_id );
 
 		PostService::flush_cache( $post_id );
+		$this->invalidate_results( $post_id );
 
 		return true;
 	}
@@ -190,6 +216,11 @@ class PollService {
 	 * @return array[] Array of option rows: id, option_text, display_order, vote_count.
 	 */
 	public function results( int $post_id ): array {
+		$hit = wp_cache_get( "results_{$post_id}", self::CACHE_GROUP );
+		if ( is_array( $hit ) ) {
+			return $hit;
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -205,7 +236,7 @@ class PollService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return array_map(
+		$out = array_map(
 			fn( $r ) => array(
 				'id'            => (int) $r['id'],
 				'option_text'   => $r['option_text'],
@@ -214,6 +245,8 @@ class PollService {
 			),
 			(array) $rows
 		);
+		wp_cache_set( "results_{$post_id}", $out, self::CACHE_GROUP, self::CACHE_TTL );
+		return $out;
 	}
 
 	/**
