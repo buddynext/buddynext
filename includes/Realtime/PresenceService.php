@@ -111,17 +111,15 @@ class PresenceService {
 			return false;
 		}
 
-		$guard_key = 'bn_presence_' . $user_id;
-
 		// Already stamped within the throttle window — nothing to do.
-		if ( false !== get_transient( $guard_key ) ) {
+		if ( $this->is_throttled( $user_id ) ) {
 			return false;
 		}
 
 		$now = time();
 		update_user_meta( $user_id, self::META_KEY, $now ); // Legacy reader path (dual-write during the bn_presence transition).
 		self::write( $user_id, $now );                       // Indexed presence table — the path readers move to.
-		set_transient( $guard_key, 1, self::THROTTLE_SECONDS );
+		$this->mark_throttled( $user_id );
 
 		/**
 		 * Fires after a user's presence timestamp is refreshed.
@@ -136,6 +134,52 @@ class PresenceService {
 		do_action( 'buddynext_presence_stamped', $user_id );
 
 		return true;
+	}
+
+	/**
+	 * Object-cache group for the per-user stamp throttle.
+	 *
+	 * @since 1.0.0
+	 * @var string
+	 */
+	private const THROTTLE_GROUP = 'buddynext_presence';
+
+	/**
+	 * Whether a user was stamped within the throttle window.
+	 *
+	 * Uses the persistent object cache when one is present (so the throttle does
+	 * NOT write to wp_options on every front-end page view — a real cost at 100k),
+	 * and falls back to a transient only when there is no persistent cache.
+	 * Presence is ephemeral, so a cache flush losing the guard is harmless.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $user_id User id.
+	 * @return bool
+	 */
+	private function is_throttled( int $user_id ): bool {
+		$key = 'throttle_' . $user_id;
+		if ( wp_using_ext_object_cache() ) {
+			return false !== wp_cache_get( $key, self::THROTTLE_GROUP );
+		}
+		return false !== get_transient( 'bn_presence_' . $user_id );
+	}
+
+	/**
+	 * Record that a user was just stamped (start the throttle window).
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $user_id User id.
+	 * @return void
+	 */
+	private function mark_throttled( int $user_id ): void {
+		$key = 'throttle_' . $user_id;
+		if ( wp_using_ext_object_cache() ) {
+			wp_cache_set( $key, 1, self::THROTTLE_GROUP, self::THROTTLE_SECONDS );
+			return;
+		}
+		set_transient( 'bn_presence_' . $user_id, 1, self::THROTTLE_SECONDS );
 	}
 
 	/**
