@@ -16,10 +16,10 @@ each carries the reason it was cut. Nothing is deleted from the catalogue; it's 
 (caching, invalidation, schema, scheduling, access control); code-green is not sufficient,
 behaviour must be proven, and the contract audit + cert gates are mandatory.
 
-## ▶ RESUME HERE — pending DO-NOW (5 items)
+## ▶ RESUME HERE — pending DO-NOW (3 items)
 
-As of 2026-06-25 (free `@390357d3`, pro `@499e06d`). 28 DO-NOW items done
-and committed; the 5 below remain. Each carries its file:line + safe-execution rule in
+As of 2026-06-25 (free `@390357d3`, pro `@21bc849`). 30 DO-NOW items done
+and committed; the 3 below remain. Each carries its file:line + safe-execution rule in
 its checklist entry. **Test-env recipe:** Docker `buddynext-test-mysql` is the DB only
 (127.0.0.1:13306); the WP PHPUnit framework lives on the host at
 `/tmp/wordpress-tests-lib` (macOS `sys_get_temp_dir()` returns `/var/folders/...` which
@@ -28,11 +28,9 @@ PHPStan needs `--memory-limit=1G`.
 
 | # | Item | Note |
 |---|---|---|
-| 1 | **C11** `AnalyticsService` 7 aggregates | read-only TTL cache, no bust — straightforward, repetitive (pro) |
-| 2 | **C12** `ProfileViewService` aggregates | read-only TTL cache, no bust (pro) |
-| 3 | **C1** `PermissionService` | **SECURITY-SENSITIVE** — route role/ban lookups through the existing `SpaceMemberService` cache; do NOT memoize `can()`'s result (freezes `buddynext_user_can`). Do this one carefully + tested. |
-| 4 | **K1** Drip tick → AS | in `maybe_upgrade` clear old `wp_schedule_event` + arm `as_schedule_recurring_action` (group `buddynextpro_email`); KEEP hook name `buddynextpro_drip_tick` |
-| 5 | **S5** Push/Soketi sync dispatch | `PushDispatcher.php:56` + `RealtimeDispatcher.php:61` → enqueue via AS (latency, not safety) |
+| 1 | **C1** `PermissionService` | **SECURITY-SENSITIVE** — within-request memoize of role/ban lookups; do NOT memoize `can()`'s result (freezes `buddynext_user_can`). Do this one carefully + tested. (free) |
+| 2 | **K1** Drip tick → AS | in `maybe_upgrade` clear old `wp_schedule_event` + arm `as_schedule_recurring_action` (group `buddynextpro_email`); KEEP hook name `buddynextpro_drip_tick` (pro) |
+| 3 | **S5** Push/Soketi sync dispatch | `PushDispatcher.php:56` + `RealtimeDispatcher.php:61` → enqueue via AS (latency, not safety) (pro) |
 
 Also still open: **DEFER** tier (8) and the **PE-4 / PE-6** pre-existing items (see `pre-existing-issues.md`).
 
@@ -40,7 +38,7 @@ Also still open: **DEFER** tier (8) and the **PE-4 / PE-6** pre-existing items (
 
 | Tier | Count | Meaning |
 |---|---|---|
-| **DO NOW** | 33 (28 done · 5 pending) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
+| **DO NOW** | 33 (30 done · 3 pending) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
 | **DEFER** | 8 | Real, but bigger design or lower urgency — scheduled, not now |
 | **SKIP** | 11 | Cut — caching/changing them is overhead at 100k (reasons below) |
 | **catalogued total** | 52 work-items | (was 69; +5 from the senior sweep, −22 collapsed/cut by frequency+value filter) |
@@ -67,8 +65,8 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 
 - [x] **C7 DONE** (free `013a7719`) — `SpaceCategoryService` get_all/get_all_with_counts cached (list TTL 600s, counts TTL 60s to bound space-reassignment staleness); bust on category CRUD. SpaceCategoryServiceCacheTest 4/4.
 - [x] **C13 DONE** (pro `fa35968`) — `LabelService::list_labels()` cached (group `buddynextpro_labels`, TTL 600s); bust on create/update/delete. LabelServiceCacheTest 4/4. *(Note: pre-existing broken `ProfileLabelInjectorTest` — calls undefined `inject_labels()` — is unrelated, not a regression.)*
-- [ ] **C11** `AnalyticsService` 7 aggregates — heavy COUNT/GROUP-BY, all fired per dashboard load. Medium TTL, no bust (read-only).
-- [ ] **C12** `ProfileViewService` aggregates — per-(profile,window), re-hit across viewers of a popular profile. Medium TTL.
+- [x] **C11 DONE** (pro `f00201f`) — all 10 `AnalyticsService` read aggregates cached read-only (group `buddynextpro_analytics`, TTL 300s, no bust — append-only table, dashboard tolerates short staleness). AnalyticsServiceCacheTest 2/2 + Analytics suite green (only the 3 pre-existing PE-3 failures). WPCS + PHPStan L5 clean.
+- [x] **C12 DONE** (pro `21bc849`) — `ProfileViewService` pure aggregates cached (view_count/top_viewed_profiles/top_viewers/privacy_adoption/daily_views_series; group `buddynextpro_analytics`, prefix `pv_`, TTL 300s, no bust). **get_viewers/get_recent_for_owner left UNCACHED on purpose** — they resolve the `bn_pro_hide_profile_views` opt-out at read time and caching would lag an opt-out by the TTL (privacy regression). Get/set plumbing extracted to a shared `CachesAggregates` trait (AnalyticsService refactored onto it). ProfileViewServiceCacheTest 2/2. WPCS + PHPStan L5 clean.
 - [x] **C2 DONE** (free `adf8c6e0`) — `PollService::results()` cached per post_id (group `buddynext_polls`, TTL 600s); bust on vote (both toggle-off + cast paths). PollServiceCacheTest 2/2.
 - [x] **C16 DONE** (pro `3ae3973`) - DripService::get_sequence cached, bust at 3 choke points. DripServiceCacheTest 3/3.
 - [ ] **C1(memo)** `PermissionService::can()` → **within-request memoize** (static var), NOT cross-request object cache. Collapses the many same-(user,ability,space) checks per page (nav build + REST gate + template gates). *Avoids the security risk of stale role/ban + the frozen `buddynext_user_can` filter.*
