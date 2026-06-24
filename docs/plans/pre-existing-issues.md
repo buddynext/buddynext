@@ -11,6 +11,7 @@ resolution (fix + test) or an explicit decision. Cross-repo (free + pro).
 | PE-3 | pro | Analytics tests "User followed action" / "Member growth math" / "Get viewers latest" fail in the **pro-only** test DB — they need FREE tables (`bn_posts`, `bn_email_log`) that the Pro bootstrap doesn't create. | none (env artifact) | WONT-FIX (env) — documented; run combo suite to exercise. |
 | PE-4 | both | Pre-commit hook inactive (`git config core.hooksPath` unset) → `bin/check.sh` does **not** run on commit. Commits rely on manual gate runs. | low (process) | OPEN — `git config core.hooksPath .githooks` to enable. |
 | PE-5 | both | phpcs quirk: a **specific-sniff** `phpcs:enable` list defeats downstream next-line `phpcs:ignore` for the same sniff. Use **bare** `// phpcs:disable` / `// phpcs:enable` around migration queries. | low (tooling) | DOCUMENTED — convention recorded; applied in all new migration code. |
+| PE-6 | free | Legacy `tests/Feed/PollServiceTest.php` carries 18 pre-existing WPCS errors (test methods lack docblocks). | low (test style) | OPEN — backfill docblocks; new C2 tests kept in a separate clean file meanwhile. |
 
 ## Notes per item
 

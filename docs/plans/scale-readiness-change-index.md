@@ -20,7 +20,7 @@ behaviour must be proven, and the contract audit + cert gates are mandatory.
 
 | Tier | Count | Meaning |
 |---|---|---|
-| **DO NOW** | 33 (8 done) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
+| **DO NOW** | 33 (11 done) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
 | **DEFER** | 8 | Real, but bigger design or lower urgency — scheduled, not now |
 | **SKIP** | 11 | Cut — caching/changing them is overhead at 100k (reasons below) |
 | **catalogued total** | 52 work-items | (was 69; +5 from the senior sweep, −22 collapsed/cut by frequency+value filter) |
@@ -41,7 +41,7 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 - [ ] **S4a** PresenceService 60s throttle uses `set_transient` on **`template_redirect`** = `wp_options` write storm at 100k → move the guard to `wp_cache_*` (presence is ephemeral; losing it on flush is harmless). `PresenceService.php:114`. *Highest-volume offender.*
 - [ ] **S4b** Other limiters (Comment/Registration/SocialLogin/Profile/2FA) → use `wp_cache_*` when `wp_using_ext_object_cache()`, transient fallback otherwise.
 - [ ] **S5** Pro Push + Soketi dispatch fire **synchronously per notification** (blocking FCM/Soketi HTTP in-request; serializes fan-out workers) → enqueue via AS. `PushDispatcher.php:56`, `RealtimeDispatcher.php:61`. *Guards are fine; this is latency, not safety.*
-- [ ] **S1a** `bn_feed_items` is a **dead table** (CREATE'd + delete-on-post-delete, never INSERT/SELECT) → remove from installer (stop shipping a confusing empty table). `Installer.php:797`.
+- [x] **S1a DONE** (free `85b20825`) — removed dead `bn_feed_items` (CREATE + post-delete cascade); never INSERT/SELECT. Existing installs keep the harmless empty table. PostServiceTest green.
 
 ### Cache — right-sized (6 caches + 3 memoizes + 1 delete)
 
@@ -49,7 +49,7 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 - [x] **C13 DONE** (pro `fa35968`) — `LabelService::list_labels()` cached (group `buddynextpro_labels`, TTL 600s); bust on create/update/delete. LabelServiceCacheTest 4/4. *(Note: pre-existing broken `ProfileLabelInjectorTest` — calls undefined `inject_labels()` — is unrelated, not a regression.)*
 - [ ] **C11** `AnalyticsService` 7 aggregates — heavy COUNT/GROUP-BY, all fired per dashboard load. Medium TTL, no bust (read-only).
 - [ ] **C12** `ProfileViewService` aggregates — per-(profile,window), re-hit across viewers of a popular profile. Medium TTL.
-- [ ] **C2** `PollService::results()` — one poll fetched by many viewers. Bust on `vote()`.
+- [x] **C2 DONE** (free `adf8c6e0`) — `PollService::results()` cached per post_id (group `buddynext_polls`, TTL 600s); bust on vote (both toggle-off + cast paths). PollServiceCacheTest 2/2.
 - [ ] **C16** `DripService` sequence defs — global, low-traffic (marginal; cheap-correct).
 - [ ] **C1(memo)** `PermissionService::can()` → **within-request memoize** (static var), NOT cross-request object cache. Collapses the many same-(user,ability,space) checks per page (nav build + REST gate + template gates). *Avoids the security risk of stale role/ban + the frozen `buddynext_user_can` filter.*
 - [ ] **C14(memo)** `LabelAssignmentService::get_user_labels()` → within-request memoize. Dedups repeated authors in the feed byline loop.
