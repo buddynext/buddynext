@@ -66,6 +66,13 @@ class CronScheduler {
 	public const JOB_CLEANUP_ACTIVITY_LOG = 'buddynext_cleanup_activity_log';
 
 	/**
+	 * Weekly prune of old bn_email_log rows (honours the data-retention window).
+	 *
+	 * @var string
+	 */
+	public const JOB_CLEANUP_EMAIL_LOG = 'buddynext_cleanup_email_log';
+
+	/**
 	 * Counter recount job hook. Runs daily — counters are maintained
 	 * incrementally on every write; this is a reconcile pass only.
 	 */
@@ -108,6 +115,7 @@ class CronScheduler {
 		add_action( self::JOB_CLEANUP_TOKENS, array( $handlers, 'handle_cleanup_tokens' ) );
 		add_action( self::JOB_CLEANUP_NOTIFICATIONS, array( $handlers, 'handle_cleanup_notifications' ) );
 		add_action( self::JOB_CLEANUP_ACTIVITY_LOG, array( $handlers, 'handle_cleanup_activity_log' ) );
+		add_action( self::JOB_CLEANUP_EMAIL_LOG, array( $handlers, 'handle_cleanup_email_log' ) );
 		add_action( self::JOB_RECOUNT_STATS, array( $handlers, 'handle_recount_stats' ) );
 	}
 
@@ -145,6 +153,7 @@ class CronScheduler {
 		$this->maybe_schedule( self::JOB_CLEANUP_TOKENS, 'daily' );
 		$this->maybe_schedule( self::JOB_CLEANUP_NOTIFICATIONS, 'weekly' );
 		$this->maybe_schedule( self::JOB_CLEANUP_ACTIVITY_LOG, 'weekly' );
+		$this->maybe_schedule( self::JOB_CLEANUP_EMAIL_LOG, 'weekly' );
 		$this->maybe_schedule( self::JOB_RECOUNT_STATS, 'daily' );
 	}
 

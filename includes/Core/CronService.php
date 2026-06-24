@@ -227,6 +227,40 @@ class CronService {
 		} while ( $deleted > 0 && $max_batches > 0 );
 	}
 
+	/**
+	 * Prune old bn_email_log rows (weekly).
+	 *
+	 * The bn_email_log table grows one row per email sent (digests + identity
+	 * sends) and had no retention — the fastest-growing table at scale. Mirrors
+	 * the activity-log
+	 * prune: honours buddynext_data_retention_days (default 365; 0 disables),
+	 * batched 1,000/iteration up to 50k/run, keyed on sent_at.
+	 *
+	 * @return void
+	 */
+	public function handle_cleanup_email_log(): void {
+		$retention_days = (int) get_option( 'buddynext_data_retention_days', 365 );
+		if ( $retention_days <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+
+		$cutoff      = gmdate( 'Y-m-d H:i:s', time() - ( $retention_days * DAY_IN_SECONDS ) );
+		$max_batches = 50; // up to 50k rows per weekly run.
+
+		do {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$deleted = $wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$wpdb->prefix}bn_email_log WHERE sent_at < %s LIMIT 1000",
+					$cutoff
+				)
+			);
+			--$max_batches;
+		} while ( $deleted > 0 && $max_batches > 0 );
+	}
+
 	// ── Stats recount ─────────────────────────────────────────────────────────
 
 	/**
