@@ -22,11 +22,41 @@ use WP_Error;
 class SpaceCategoryService {
 
 	/**
+	 * Object-cache group for the category lists.
+	 *
+	 * @var string
+	 */
+	private const CACHE_GROUP = 'buddynext_space_cats';
+
+	/**
+	 * TTL for the plain category list (changes only on category CRUD).
+	 *
+	 * @var int
+	 */
+	private const CACHE_TTL = 600;
+
+	/**
+	 * TTL for the list-with-counts. Short, because the count also moves when any
+	 * space changes its category_id (a write outside this service); the short TTL
+	 * bounds that staleness without coupling to SpaceService.
+	 *
+	 * @var int
+	 */
+	private const CACHE_TTL_COUNTS = 60;
+
+	/**
 	 * Return all categories ordered for admin/directory display.
+	 *
+	 * Cached: a global list rendered on the spaces directory + explore aside.
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
 	public function get_all(): array {
+		$hit = wp_cache_get( 'all', self::CACHE_GROUP );
+		if ( false !== $hit ) {
+			return (array) $hit;
+		}
+
 		global $wpdb;
 		$table = $wpdb->prefix . 'bn_space_categories';
 
@@ -37,15 +67,26 @@ class SpaceCategoryService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-		return array_map( array( $this, 'hydrate' ), (array) ( $rows ?? array() ) );
+		$out = array_map( array( $this, 'hydrate' ), (array) ( $rows ?? array() ) );
+		wp_cache_set( 'all', $out, self::CACHE_GROUP, self::CACHE_TTL );
+		return $out;
 	}
 
 	/**
 	 * Return all categories with a live space-count per row.
 	 *
+	 * Cached with a short TTL: the global category+count list is rendered on the
+	 * spaces directory and the explore aside on every visit, but the count moves on
+	 * space-category reassignment, so the TTL caps that staleness.
+	 *
 	 * @return array<int, array<string, mixed>>
 	 */
 	public function get_all_with_counts(): array {
+		$hit = wp_cache_get( 'all_counts', self::CACHE_GROUP );
+		if ( false !== $hit ) {
+			return (array) $hit;
+		}
+
 		global $wpdb;
 		$cats   = $wpdb->prefix . 'bn_space_categories';
 		$spaces = $wpdb->prefix . 'bn_spaces';
@@ -59,7 +100,7 @@ class SpaceCategoryService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-		return array_map(
+		$out = array_map(
 			function ( array $row ): array {
 				$cat                = $this->hydrate( $row );
 				$cat['space_count'] = (int) ( $row['space_count'] ?? 0 );
@@ -67,6 +108,18 @@ class SpaceCategoryService {
 			},
 			(array) ( $rows ?? array() )
 		);
+		wp_cache_set( 'all_counts', $out, self::CACHE_GROUP, self::CACHE_TTL_COUNTS );
+		return $out;
+	}
+
+	/**
+	 * Evict both category-list caches. Called from every category write.
+	 *
+	 * @return void
+	 */
+	private function invalidate(): void {
+		wp_cache_delete( 'all', self::CACHE_GROUP );
+		wp_cache_delete( 'all_counts', self::CACHE_GROUP );
 	}
 
 	/**
@@ -143,6 +196,7 @@ class SpaceCategoryService {
 			return new WP_Error( 'db_error', __( 'Failed to create category.', 'buddynext' ), array( 'status' => 500 ) );
 		}
 
+		$this->invalidate();
 		return (int) $wpdb->insert_id;
 	}
 
@@ -197,6 +251,7 @@ class SpaceCategoryService {
 			array( '%d' )
 		);
 
+		$this->invalidate();
 		return true;
 	}
 
@@ -227,6 +282,7 @@ class SpaceCategoryService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete( $wpdb->prefix . 'bn_space_categories', array( 'id' => $id ), array( '%d' ) );
 
+		$this->invalidate();
 		return true;
 	}
 
