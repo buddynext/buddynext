@@ -16,11 +16,29 @@ each carries the reason it was cut. Nothing is deleted from the catalogue; it's 
 (caching, invalidation, schema, scheduling, access control); code-green is not sufficient,
 behaviour must be proven, and the contract audit + cert gates are mandatory.
 
+## ▶ RESUME HERE — pending DO-NOW (7 items)
+
+As of 2026-06-24 (free `@aee89c99`, pro `@499e06d`, both pushed). 26 DO-NOW items done
+and committed; the 7 below remain. Each carries its file:line + safe-execution rule in
+its checklist entry; the working test-env recipe + per-item gotchas are in session memory.
+
+| # | Item | Note |
+|---|---|---|
+| 1 | **C11** `AnalyticsService` 7 aggregates | read-only TTL cache, no bust — straightforward, repetitive (pro) |
+| 2 | **C12** `ProfileViewService` aggregates | read-only TTL cache, no bust (pro) |
+| 3 | **C1** `PermissionService` | **SECURITY-SENSITIVE** — route role/ban lookups through the existing `SpaceMemberService` cache; do NOT memoize `can()`'s result (freezes `buddynext_user_can`). Do this one carefully + tested. |
+| 4 | **K1** Drip tick → AS | in `maybe_upgrade` clear old `wp_schedule_event` + arm `as_schedule_recurring_action` (group `buddynextpro_email`); KEEP hook name `buddynextpro_drip_tick` |
+| 5 | **S5** Push/Soketi sync dispatch | `PushDispatcher.php:56` + `RealtimeDispatcher.php:61` → enqueue via AS (latency, not safety) |
+| 6 | **S4b** Other rate-limiters → object cache | Comment/Registration/SocialLogin/Profile/2FA: `wp_cache_*` when `wp_using_ext_object_cache()`, transient fallback (mirror S4a) |
+| 7 | **L1** DM poll hidden-tab pause | `messages/store.js:1586` — gate on `!document.hidden` + `clearInterval` on conversation close |
+
+Also still open: **DEFER** tier (8) and the **PE-4 / PE-6** pre-existing items (see `pre-existing-issues.md`).
+
 ## Tally
 
 | Tier | Count | Meaning |
 |---|---|---|
-| **DO NOW** | 33 (26 done) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
+| **DO NOW** | 33 (26 done · 7 pending) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
 | **DEFER** | 8 | Real, but bigger design or lower urgency — scheduled, not now |
 | **SKIP** | 11 | Cut — caching/changing them is overhead at 100k (reasons below) |
 | **catalogued total** | 52 work-items | (was 69; +5 from the senior sweep, −22 collapsed/cut by frequency+value filter) |
@@ -53,7 +71,7 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 - [x] **C16 DONE** (pro `3ae3973`) - DripService::get_sequence cached, bust at 3 choke points. DripServiceCacheTest 3/3.
 - [ ] **C1(memo)** `PermissionService::can()` → **within-request memoize** (static var), NOT cross-request object cache. Collapses the many same-(user,ability,space) checks per page (nav build + REST gate + template gates). *Avoids the security risk of stale role/ban + the frozen `buddynext_user_can` filter.*
 - [x] **C14 DONE** (pro `499e06d`) - get_user_labels request-scoped memo, cleared on writes. LabelAssignment 12/12.
-- [ ] **C6(memo)** `SpaceCategoryService::get_all()` → memoize or fold into C7's key (marginal).
+- [x] **C6 DONE — folded into C7** (free `013a7719`). `SpaceCategoryService::get_all()` is fully object-cached (key `all`, TTL 600s, bust on category CRUD) by the C7 change — no separate memoize needed.
 - [x] **C4 RESOLVED — kept, not deleted** (lead-dev call). 0 *production* callers, but it's the read-back used by the `share()`/`unshare()` tests + its own list test. Deleting forces rewriting 2 unrelated tests for no real benefit, and it's a sensible public read API. The actual scale decision (don't cache it) stands. No code change.
 
 ### Cache uniformity + cleanup (low-risk)
@@ -68,10 +86,10 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 
 - [x] **BUG-1 DONE** (free `e92fc8b5`) - SpaceService::delete flushes member/ban cache for affected users via SpaceMemberService::flush_user_caches; SpaceMemberFlushTest 2/2 + Spaces 101/101. ~~ `SpaceService.php:617` deletes `bn_space_bans` on space-delete **without firing a ban hook/bust** — real invalidation gap today (independent of caching). Add the bust/hook.
 - [ ] **K1** Drip tick native hourly cron → AS `buddynextpro_email`. *Safe: in `maybe_upgrade()` clear old `wp_schedule_event` + arm AS, **keep hook name `buddynextpro_drip_tick`** (handler unchanged).*
-- [ ] **K2 + K2b** Correct stale Pro docs (phantom 5-min `publish_scheduled` cron + drip "5-min" mislabel; code says hourly). 4 files.
+- [x] **K2/K2b DONE** (pro `8dc42f2`) — corrected the stale `publish_scheduled` "5-min cron" claim in CLAUDE.md + PRO-ROADMAP.md (code re-uses Free's on-demand single event). drip_tick was already correctly documented as hourly.
 - [ ] **L1** DM poll `setInterval(poll,5000)` never paused/cleared → gate on `!document.hidden` + `clearInterval` on conversation close. `messages/store.js:1586`.
 - [x] **N1 DONE** (free `d496727d`) - object-cache health indicator in Tools. ~~ Add `wp_using_ext_object_cache()` health indicator to Tools (caching is load-bearing at scale).
-- [ ] **U1** Pro has **no `check-rest-boundary.sh`** gate (app code is already 100% REST, but ungated) → add one mirroring free's so the boundary is CI-enforced uniformly across both repos.
+- [x] **U1 DONE** (pro `af1faa2`) — added `bin/check-rest-boundary.sh` to Pro (mirrors free's, wired into `bin/check.sh`); passes clean, exits 1 on a planted `wp_ajax_`. Pro REST boundary now CI-enforced like free.
 
 ---
 
