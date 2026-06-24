@@ -16,10 +16,10 @@ each carries the reason it was cut. Nothing is deleted from the catalogue; it's 
 (caching, invalidation, schema, scheduling, access control); code-green is not sufficient,
 behaviour must be proven, and the contract audit + cert gates are mandatory.
 
-## ▶ RESUME HERE — pending DO-NOW (3 items)
+## ▶ RESUME HERE — pending DO-NOW (1 item)
 
-As of 2026-06-25 (free `@390357d3`, pro `@21bc849`). 30 DO-NOW items done
-and committed; the 3 below remain. Each carries its file:line + safe-execution rule in
+As of 2026-06-25 (free `@390357d3`, pro `@dd6c357`). 32 DO-NOW items done
+and committed; the 1 below remains. Each carries its file:line + safe-execution rule in
 its checklist entry. **Test-env recipe:** Docker `buddynext-test-mysql` is the DB only
 (127.0.0.1:13306); the WP PHPUnit framework lives on the host at
 `/tmp/wordpress-tests-lib` (macOS `sys_get_temp_dir()` returns `/var/folders/...` which
@@ -29,8 +29,6 @@ PHPStan needs `--memory-limit=1G`.
 | # | Item | Note |
 |---|---|---|
 | 1 | **C1** `PermissionService` | **SECURITY-SENSITIVE** — within-request memoize of role/ban lookups; do NOT memoize `can()`'s result (freezes `buddynext_user_can`). Do this one carefully + tested. (free) |
-| 2 | **K1** Drip tick → AS | in `maybe_upgrade` clear old `wp_schedule_event` + arm `as_schedule_recurring_action` (group `buddynextpro_email`); KEEP hook name `buddynextpro_drip_tick` (pro) |
-| 3 | **S5** Push/Soketi sync dispatch | `PushDispatcher.php:56` + `RealtimeDispatcher.php:61` → enqueue via AS (latency, not safety) (pro) |
 
 Also still open: **DEFER** tier (8) and the **PE-4 / PE-6** pre-existing items (see `pre-existing-issues.md`).
 
@@ -38,7 +36,7 @@ Also still open: **DEFER** tier (8) and the **PE-4 / PE-6** pre-existing items (
 
 | Tier | Count | Meaning |
 |---|---|---|
-| **DO NOW** | 33 (30 done · 3 pending) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
+| **DO NOW** | 33 (32 done · 1 pending) | High value, low risk — **E done** (pro `31e6e05`), **F done** (free `9280d37b`+`e77e28c0`) |
 | **DEFER** | 8 | Real, but bigger design or lower urgency — scheduled, not now |
 | **SKIP** | 11 | Cut — caching/changing them is overhead at 100k (reasons below) |
 | **catalogued total** | 52 work-items | (was 69; +5 from the senior sweep, −22 collapsed/cut by frequency+value filter) |
@@ -58,7 +56,7 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 - [x] **S3b DONE** (free `535987c0`) - AS retention capped 14d. CronRetentionTest 1/3.
 - [x] **S4a DONE** (free `86034209`) - PresenceService throttle now wp_cache when persistent (transient fallback); PresenceServiceTest 5/5. ~~ PresenceService 60s throttle uses `set_transient` on **`template_redirect`** = `wp_options` write storm at 100k → move the guard to `wp_cache_*` (presence is ephemeral; losing it on flush is harmless). `PresenceService.php:114`. *Highest-volume offender.*
 - [x] **S4b DONE** (free `06a845ed`) — shared `Core\RateLimiter` (group `buddynext_rate`, atomic `wp_cache_incr` + transient fallback). Routed: Comment cap (refactored off its inline dual-path, dead const removed), Registration per-IP, SocialLogin per-IP, Profile export cooldown. **2FA brute-force counter deliberately KEPT on the DB transient** — it's a security lockout, so a cache-flush reset would hand an attacker fresh guesses; "fail open" is only acceptable for the ephemeral anti-spam throttles. *(Senior course-correction on the original "move all 5" note; documented inline + here.)* QA: RateLimiterTest 8/8 (both backends) + Comment 16/16 + Auth/Profile 41/41; WPCS + PHPStan L5 clean.
-- [ ] **S5** Pro Push + Soketi dispatch fire **synchronously per notification** (blocking FCM/Soketi HTTP in-request; serializes fan-out workers) → enqueue via AS. `PushDispatcher.php:56`, `RealtimeDispatcher.php:61`. *Guards are fine; this is latency, not safety.*
+- [x] **S5 DONE** (pro `dd6c357`) — split by latency profile (senior call on the original "AS both" note): **Push (FCM)** deferred to Action Scheduler (`as_enqueue_async_action`, hook `buddynextpro_push_send`, group `buddynextpro_push`, `deliver()` worker, sync fallback + `buddynextpro_push_async` filter) — async-tolerant + gains retry. **Soketi realtime** NOT moved to AS (queue latency would defeat realtime); instead `SoketiClient::trigger()` is now non-blocking (`wp_remote_post 'blocking'=>false`), so the broadcast dispatches instantly and the request returns immediately. Test-connection (`signed_get`) stays blocking. QA: PushDispatcherTest `test_dispatch_is_deferred_when_async` proves deferral; Push+Realtime 50 tests, 0 failures; WPCS + PHPStan L5 clean.
 - [x] **S1a DONE** (free `85b20825`) — removed dead `bn_feed_items` (CREATE + post-delete cascade); never INSERT/SELECT. Existing installs keep the harmless empty table. PostServiceTest green.
 
 ### Cache — right-sized (6 caches + 3 memoizes + 1 delete)
@@ -85,7 +83,7 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 ### Small / hygiene
 
 - [x] **BUG-1 DONE** (free `e92fc8b5`) - SpaceService::delete flushes member/ban cache for affected users via SpaceMemberService::flush_user_caches; SpaceMemberFlushTest 2/2 + Spaces 101/101. ~~ `SpaceService.php:617` deletes `bn_space_bans` on space-delete **without firing a ban hook/bust** — real invalidation gap today (independent of caching). Add the bust/hook.
-- [ ] **K1** Drip tick native hourly cron → AS `buddynextpro_email`. *Safe: in `maybe_upgrade()` clear old `wp_schedule_event` + arm AS, **keep hook name `buddynextpro_drip_tick`** (handler unchanged).*
+- [x] **K1 DONE** (pro `23ff01a`) — drip tick migrated WP-Cron → Action Scheduler, mirroring BroadcastService exactly (`as_schedule_recurring_action` hourly, group `buddynextpro_email`, on-demand arm + `disarm()`). Hook name `buddynextpro_drip_tick` + handler unchanged; `converge_cron_schedule()` migrates existing installs (now `disarm()`-based for both email jobs). Removed dead `CRON_INTERVAL`. QA: DripEnrollmentServiceTest 9/9 (incl. 2 migration tests); Email suite at the 2 pre-existing failures only; WPCS + PHPStan L5 clean.
 - [x] **K2/K2b DONE** (pro `8dc42f2`) — corrected the stale `publish_scheduled` "5-min cron" claim in CLAUDE.md + PRO-ROADMAP.md (code re-uses Free's on-demand single event). drip_tick was already correctly documented as hourly.
 - [x] **L1 DONE** (free `390357d3`) — DM thread poll skips the request while `document.hidden` (single `visibilitychange` listener does an immediate refocus catch-up), a module-scoped `stopThreadPoll()` replaces any prior thread's interval at init (no stacking under client-nav), and the poll self-terminates when its thread element disconnects. *Browser-verified on buddynext.local: visible 2 polls/9s, hidden 0/9s, refocus 1 immediate; conv 31→32 switch = one interval polling only conv 32; 0 console errors.*
 - [x] **N1 DONE** (free `d496727d`) - object-cache health indicator in Tools. ~~ Add `wp_using_ext_object_cache()` health indicator to Tools (caching is load-bearing at scale).
