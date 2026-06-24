@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing, Squiz.Commenting.VariableComment.Missing, Generic.Commenting.DocComment.MissingShort -- concise, self-describing test methods and fixtures.
 /**
  * Tests for PollService.
  *
@@ -92,7 +92,10 @@ class PollServiceTest extends \WP_UnitTestCase {
 	public function test_vote_returns_error_for_wrong_post(): void {
 		$other_id = $this->posts->create(
 			$this->alice,
-			array( 'type' => 'text', 'content' => 'Not a poll' )
+			array(
+				'type'    => 'text',
+				'content' => 'Not a poll',
+			)
 		);
 
 		$result = $this->service->vote( $this->bob, $other_id, $this->option_a );
