@@ -45,13 +45,32 @@ class OnlineMembersWidget extends \WP_Widget {
 			echo $args['before_title'] . esc_html( $title ) . $args['after_title']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		}
 
-		$users = get_users(
-			array(
-				'number'  => $limit,
-				'orderby' => 'registered',
-				'order'   => 'DESC',
-			)
-		);
+		// Actually-online members (active within the presence window), newest
+		// first — read from the indexed bn_presence table, not "recently
+		// registered". The bounded id list is cached briefly so a busy sidebar
+		// hits the table at most once per TTL regardless of traffic; the online
+		// window is 300s, so 30s of staleness is invisible.
+		$cache_key = 'online_widget_' . $limit;
+		$ids       = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false === $ids ) {
+			$ids = \BuddyNext\Realtime\PresenceService::recent_online_ids( $limit );
+			wp_cache_set( $cache_key, $ids, self::CACHE_GROUP, self::CACHE_TTL );
+		}
+
+		$users = empty( $ids )
+			? array()
+			: get_users(
+				array(
+					'include' => $ids,
+					'orderby' => 'include', // Preserve the most-recently-active order.
+				)
+			);
+
+		if ( empty( $users ) ) {
+			printf( '<p class="buddynext-online-members-empty">%s</p>', esc_html__( 'No members are online right now.', 'buddynext' ) );
+			echo $args['after_widget']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			return;
+		}
 
 		echo '<ul class="buddynext-online-members-list">';
 		foreach ( $users as $user ) {
@@ -65,6 +84,21 @@ class OnlineMembersWidget extends \WP_Widget {
 
 		echo $args['after_widget']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
+
+	/**
+	 * Object-cache group for the bounded online-id list.
+	 *
+	 * @var string
+	 */
+	private const CACHE_GROUP = 'buddynext_presence';
+
+	/**
+	 * TTL for the cached online-id list, in seconds. Well under the 300s presence
+	 * window so the list is never meaningfully stale.
+	 *
+	 * @var int
+	 */
+	private const CACHE_TTL = 30;
 
 	/**
 	 * Sanitise and save widget settings.

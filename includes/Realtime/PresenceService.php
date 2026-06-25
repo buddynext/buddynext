@@ -240,6 +240,35 @@ class PresenceService {
 	}
 
 	/**
+	 * The most-recently-active user IDs within the window, newest first.
+	 *
+	 * Bounded by $limit at the SQL level (ORDER BY last_active DESC LIMIT) so a
+	 * widget never loads the full online set — an indexed range scan on the
+	 * last_active key. Use this instead of slicing online_ids() in PHP.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $limit  Max IDs to return (clamped to >= 1).
+	 * @param int $within Seconds. Defaults to ONLINE_WINDOW.
+	 * @return array<int, int> User IDs, most recently active first.
+	 */
+	public static function recent_online_ids( int $limit, int $within = self::ONLINE_WINDOW ): array {
+		global $wpdb;
+		$limit  = max( 1, $limit );
+		$cutoff = time() - max( 1, $within );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$wpdb->prefix}bn_presence WHERE last_active > %d ORDER BY last_active DESC LIMIT %d",
+				$cutoff,
+				$limit
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
 	 * Count of users active within the given window.
 	 *
 	 * @since 1.0.0
