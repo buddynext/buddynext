@@ -93,14 +93,18 @@ Already-verified-safe and **explicitly NOT touched**: notification fan-out, exte
 
 ---
 
-## DEFER (8) — real, but bigger design or lower urgency
+## DEFER (8) — scoped 2026-06-25; cheap/ready items shipped, heavy rewrites stay deferred
 
-- [ ] **S2** Hot-row counter contention (`UPDATE bn_posts SET col=col+1` synchronous per reaction/comment/share/join). High value on viral content, but a **real design task** (buffered deltas or sharded counters + cron fold-in) and the nightly `recount_counters()` is a safety net — so it's scheduled, not on fire. `PostService.php:1336`.
-- [ ] **F-phase4** Drop `bn_last_active` usermeta — only after all 8 readers migrate (a later release, by design).
-- [ ] **S1b** Power-follower feed: `user_id IN (SELECT following_id …)` → JOIN/derived-table rewrite for users following tens of thousands. `FeedService.php:388`.
-- [ ] **H1–H4** `SegmentService` `number=>-1` (4 sites) → chunk. *Admin/cron only (broadcast send), not user-facing — low urgency.*
-- [ ] **J3** `OnlineMembersWidget` cache — bounded `get_users(limit)`, low blast.
-- [ ] **C1-crossrequest** Do NOT pursue cross-request permission caching beyond the memoize above (kept here as an explicit "decided against").
+Full scoping (2 architect passes + inline review): [`scale-readiness-defer-scoping.md`](./scale-readiness-defer-scoping.md).
+
+- [~] **S2** Hot-row counter contention — **DEFERRED (counter-sharding); the real gap was fixed instead.** Architect pass: row-lock `col±1` is sub-ms; the actual risk was that share/member/hashtag counters had NO automated drift-correction. **S2(c) DONE** (free `bbf63594`): nightly recount now self-heals all of them + per-entity `recount_space_members` active-only fix + DATA-AT-SCALE.md activation plan. Buffered/sharded counters stay deferred behind a measured hot-post signal.
+- [x] **F-phase4 DONE** (free `4bba567f`) — dropped the `bn_last_active` usermeta dual-write (all readers verified migrated) + v9 delete migration. PresenceServiceTest 6/6.
+- [~] **S1b** Power-follower feed JOIN rewrite — **DEFERRED (confirmed).** Architect pass: `IN` is fine for realistic follow counts; the real cost is a missing `(status,created_at)` index, not IN-vs-JOIN; the full `for-you` rewrite is high-blast-radius with no profiling signal. **Cheap interim shipped instead: follow cap** (free `ae4aef50`, `buddynext_max_following` default 5,000) bounds the subquery permanently.
+- [x] **H1–H4 DONE** (pro `6c7fa35`) — 4 `number=>-1` segment resolvers → shared chunked pager (`count_total=false`, filterable batch). SegmentServiceTest 13, 0 fail (retired a stale test too).
+- [x] **J3 DONE** (free `8fc9996d`) — `OnlineMembersWidget` now shows actually-online members (`PresenceService::recent_online_ids` + 30s cache + empty state) instead of newest. Was misnamed.
+- [ ] **C1-crossrequest** Do NOT pursue cross-request permission caching beyond the within-request route (explicit "decided against").
+
+**Still genuinely deferred (need a profiling/telemetry signal before building):** S2 buffered/sharded counters; the S1b `for-you` JOIN/derived rewrite; a possible `bn_posts (status, created_at)` recency index. None have evidence justifying the blast radius yet.
 
 ---
 

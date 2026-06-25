@@ -1,5 +1,12 @@
 # Scale Readiness — DEFER Tier Scoping (2026-06-25)
 
+> **STATUS (2026-06-25): owner greenlit the cheap/ready items — all SHIPPED.**
+> F-phase4 (free `4bba567f`), J3 (free `8fc9996d`), follow cap (free `ae4aef50`),
+> S2(c) (free `bbf63594`), H1–H4 (pro `6c7fa35`). The two heavy rewrites
+> (S2 buffered/sharded counters, S1b `for-you` JOIN rewrite) stay deferred — no
+> profiling signal justifies their blast radius yet. Each shipped item: implemented
+> + unit-tested + WPCS/PHPStan green + committed.
+
 The 33 DO-NOW items are complete. This doc scopes the **DEFER tier (8 sub-items)** —
 the work deliberately held back as "bigger design or lower urgency." Each was
 re-investigated at code level (two architect passes on the heavy items, inline
