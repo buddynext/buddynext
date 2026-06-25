@@ -56,7 +56,7 @@ class Installer {
 	 *     maybe_fix_autoload() so they stop loading on every request as the
 	 *     community grows. No schema change.
 	 */
-	private const SCHEMA_VERSION = 8;
+	private const SCHEMA_VERSION = 9;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -85,7 +85,27 @@ class Installer {
 		// v8: stop the per-space settings + custom-CSS blob from autoloading.
 		self::maybe_fix_autoload();
 
+		// v9: drop the legacy bn_last_active user_meta now that every reader
+		// resolves presence from the indexed bn_presence table. Runs AFTER the v7
+		// backfill above, so a fresh v6 -> v9 upgrade seeds the table first, then
+		// clears the meta.
+		self::maybe_drop_last_active_meta();
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * One-time cleanup: delete the legacy bn_last_active presence user_meta.
+	 *
+	 * All presence readers migrated to the bn_presence table (F-stage-2) and the
+	 * dual-write was dropped, so the meta is now dead weight on wp_usermeta. Uses
+	 * the WP metadata API with delete_all so a single call clears every user's row
+	 * without a per-user loop. Idempotent — a re-run simply finds nothing to delete.
+	 *
+	 * @return void
+	 */
+	private static function maybe_drop_last_active_meta(): void {
+		delete_metadata( 'user', 0, \BuddyNext\Realtime\PresenceService::META_KEY, '', true );
 	}
 
 	/**

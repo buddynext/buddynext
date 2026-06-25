@@ -32,10 +32,12 @@ namespace BuddyNext\Realtime;
 class PresenceService {
 
 	/**
-	 * User_meta key the presence readers consume.
+	 * Legacy presence user_meta key.
 	 *
-	 * Matches BlockService::is_user_online() and
-	 * MemberDirectoryService's online/most_active JOIN.
+	 * No longer written or read on hot paths — every reader resolves presence
+	 * from the indexed bn_presence table now. Retained only as the source for the
+	 * one-time v7 backfill (Installer::maybe_backfill_presence) and the v9 cleanup
+	 * that deletes it (Installer::maybe_drop_last_active_meta).
 	 *
 	 * @since 1.0.0
 	 * @var string
@@ -117,8 +119,7 @@ class PresenceService {
 		}
 
 		$now = time();
-		update_user_meta( $user_id, self::META_KEY, $now ); // Legacy reader path (dual-write during the bn_presence transition).
-		self::write( $user_id, $now );                       // Indexed presence table — the path readers move to.
+		self::write( $user_id, $now ); // Indexed bn_presence table — the only presence store now (all readers migrated; the legacy bn_last_active user_meta dual-write was dropped in schema v9).
 		$this->mark_throttled( $user_id );
 
 		/**

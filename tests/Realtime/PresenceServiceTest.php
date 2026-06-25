@@ -40,7 +40,7 @@ class PresenceServiceTest extends WP_UnitTestCase {
 	 *
 	 * @return void
 	 */
-	public function test_stamp_dual_writes_table_and_meta(): void {
+	public function test_stamp_writes_table_only_not_legacy_meta(): void {
 		$uid = self::factory()->user->create();
 
 		$wrote = ( new PresenceService() )->stamp( $uid );
@@ -51,12 +51,36 @@ class PresenceServiceTest extends WP_UnitTestCase {
 		$this->assertGreaterThan( 0, $ts, 'bn_presence row must exist after stamp.' );
 		$this->assertEqualsWithDelta( time(), $ts, 5, 'Presence timestamp is ~now.' );
 
-		// Legacy meta still written so unmigrated readers keep working (stage 1).
-		$this->assertSame( (string) $ts, (string) get_user_meta( $uid, PresenceService::META_KEY, true ), 'Dual-write: meta must match.' );
+		// F-phase4: the legacy bn_last_active dual-write is gone — presence lives
+		// only in the indexed table now. The meta must NOT be written.
+		$this->assertSame( '', (string) get_user_meta( $uid, PresenceService::META_KEY, true ), 'Legacy meta must no longer be written.' );
 
 		$this->assertTrue( PresenceService::is_online( $uid ) );
 		$this->assertContains( $uid, PresenceService::online_ids() );
 		$this->assertGreaterThanOrEqual( 1, PresenceService::online_count() );
+	}
+
+	/**
+	 * The v9 migration deletes any legacy bn_last_active user_meta left from a
+	 * pre-migration install, while presence still resolves from the table.
+	 *
+	 * @return void
+	 */
+	public function test_migration_drops_legacy_meta(): void {
+		$uid = self::factory()->user->create();
+
+		// Simulate a pre-migration install: a stale meta row + a real presence row.
+		update_user_meta( $uid, PresenceService::META_KEY, time() );
+		PresenceService::write( $uid, time() );
+		$this->assertNotSame( '', (string) get_user_meta( $uid, PresenceService::META_KEY, true ), 'Seeded legacy meta exists.' );
+
+		// Force the upgrade path to re-run end to end.
+		update_option( 'buddynext_schema_version', 8 );
+		\BuddyNext\Core\Installer::maybe_upgrade();
+
+		$this->assertSame( '', (string) get_user_meta( $uid, PresenceService::META_KEY, true ), 'Legacy meta deleted by the v9 migration.' );
+		$this->assertTrue( PresenceService::is_online( $uid ), 'Presence still resolves from bn_presence after the cleanup.' );
+		$this->assertSame( 9, (int) get_option( 'buddynext_schema_version' ), 'Schema version advanced to 9.' );
 	}
 
 	/**
