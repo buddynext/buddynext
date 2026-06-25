@@ -125,9 +125,12 @@ class CounterService {
 	public function recount_space_members( int $space_id ): void {
 		global $wpdb;
 
+		// Only 'active' rows: the live member_count counter tracks active members
+		// (adjust_member_count +1 on join/approve, -1 on leave/remove/ban), so the
+		// reconcile must exclude pending/invited rows or it would overcount.
 		$count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d",
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND status = 'active'",
 				$space_id
 			)
 		);
@@ -137,6 +140,71 @@ class CounterService {
 			array( 'member_count' => $count ),
 			array( 'id' => $space_id )
 		);
+	}
+
+	/**
+	 * Reconcile member_count for EVERY space in one set-based pass (drift self-heal).
+	 *
+	 * Mirrors PostService::recount_counters: a single UPDATE...LEFT JOIN with a
+	 * `WHERE col <> COALESCE(...)` guard so only genuinely-drifted rows are
+	 * written. Run from the daily recount job so member_count — a hot per-event
+	 * counter — self-heals instead of drifting until an admin clicks the manual
+	 * recount button. Counts only 'active' members (live-counter semantics).
+	 *
+	 * @return void
+	 */
+	public function recount_all_space_members(): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"UPDATE {$wpdb->prefix}bn_spaces s
+			 LEFT JOIN (
+			     SELECT space_id, COUNT(*) AS cnt
+			       FROM {$wpdb->prefix}bn_space_members
+			      WHERE status = 'active'
+			      GROUP BY space_id
+			 ) m ON m.space_id = s.id
+			 SET s.member_count = COALESCE(m.cnt, 0)
+			 WHERE s.member_count <> COALESCE(m.cnt, 0)"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Reconcile post_count + follower_count for EVERY hashtag in one set-based pass.
+	 *
+	 * Same drift-guarded UPDATE...LEFT JOIN pattern as the space recount; run from
+	 * the daily recount job so hashtag counters self-heal too.
+	 *
+	 * @return void
+	 */
+	public function recount_all_hashtag_counts(): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"UPDATE {$wpdb->prefix}bn_hashtags h
+			 LEFT JOIN (
+			     SELECT hashtag_id, COUNT(*) AS cnt
+			       FROM {$wpdb->prefix}bn_post_hashtags
+			      GROUP BY hashtag_id
+			 ) p ON p.hashtag_id = h.id
+			 SET h.post_count = COALESCE(p.cnt, 0)
+			 WHERE h.post_count <> COALESCE(p.cnt, 0)"
+		);
+
+		$wpdb->query(
+			"UPDATE {$wpdb->prefix}bn_hashtags h
+			 LEFT JOIN (
+			     SELECT hashtag_id, COUNT(*) AS cnt
+			       FROM {$wpdb->prefix}bn_hashtag_follows
+			      GROUP BY hashtag_id
+			 ) f ON f.hashtag_id = h.id
+			 SET h.follower_count = COALESCE(f.cnt, 0)
+			 WHERE h.follower_count <> COALESCE(f.cnt, 0)"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	// ── Hashtag post count ────────────────────────────────────────────────────

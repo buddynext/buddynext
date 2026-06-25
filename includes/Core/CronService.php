@@ -264,17 +264,24 @@ class CronService {
 	// ── Stats recount ─────────────────────────────────────────────────────────
 
 	/**
-	 * Correct reaction_count and comment_count on bn_posts from actual data.
+	 * Reconcile the denormalized engagement counters from actual data.
 	 *
-	 * Delegates to the canonical PostService::recount_counters() reconcile so
-	 * the LEFT JOIN drift-correction lives in one place (also used by GDPR
-	 * erasure). Counters are maintained incrementally on every write, so this
-	 * daily pass is a cheap safety-net reconcile only.
+	 * Reconciles bn_posts (reaction/comment/share) via PostService::recount_counters
+	 * and — added in S2(c) — bn_spaces.member_count + bn_hashtags post/follower
+	 * counts via CounterService's set-based bulk recounts, so every hot per-event
+	 * counter has the same nightly drift self-heal (previously member_count and
+	 * the hashtag counters only reconciled via a manual admin button). Counters
+	 * are maintained incrementally on every write, so this daily pass is a cheap
+	 * drift-guarded safety net only.
 	 *
 	 * @return void
 	 */
 	public function handle_recount_stats(): void {
 		buddynext_service( 'post_service' )->recount_counters();
+
+		$counters = new CounterService();
+		$counters->recount_all_space_members();
+		$counters->recount_all_hashtag_counts();
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────

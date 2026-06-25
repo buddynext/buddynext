@@ -94,6 +94,37 @@ an unbounded table.
 - Prefer denormalized counter columns (`reaction_count`, `comment_count`,
   `member_count`) incremented on write over `COUNT(*)`-per-row at read.
 
+### Denormalized counters — drift self-heal + the hot-row ceiling
+
+Every denormalized counter is bumped synchronously per event
+(`UPDATE … SET col = col ± 1`, underflow-safe `GREATEST(1,col)-1`). Two
+non-negotiables:
+
+1. **Every counter has a nightly set-based reconcile.** The daily
+   `buddynext_recount_stats` job (Action Scheduler) drift-corrects
+   `bn_posts.reaction_count/comment_count/share_count`
+   (`PostService::recount_counters`), `bn_spaces.member_count`
+   (`CounterService::recount_all_space_members`, active-only), and
+   `bn_hashtags.post_count/follower_count`
+   (`CounterService::recount_all_hashtag_counts`). Each is one
+   `UPDATE … LEFT JOIN … WHERE col <> COALESCE(...)` so only drifted rows are
+   written — cheap even at scale. A new counter is not done until it is added
+   here; "reconciled only via a manual admin button" is not acceptable.
+2. **The synchronous write is fine up to a high ceiling.** InnoDB holds the
+   row lock only for the statement (sub-ms), so `col = col + 1` is not a
+   contention problem until sustained thousands of writes/sec land on one row
+   (a genuinely viral post). Do **not** pre-build buffered/sharded counters for
+   everyone — the nightly reconcile is the safety net.
+
+**Activation plan if telemetry ever shows a hot post** (do not build
+speculatively): switch only that post to a buffered-delta mode —
+`wp_cache_incr("delta_{post}_{counter}")` accumulates, a short-interval AS job
+folds deltas into `bn_posts` (`col = GREATEST(0, col + delta)`), reads add the
+buffered delta. Per-post hot-mode only, gated by a write-rate threshold;
+requires a persistent object cache (guard `wp_using_ext_object_cache()`, fall
+back to synchronous). The full append-only shard table is over-engineered for a
+mainstream-social product and is not planned.
+
 ## 3. Index discipline (keep the schema honest)
 
 Every column in a `WHERE`, `ORDER BY`, or `JOIN` has a matching `KEY` in the
