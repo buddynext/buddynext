@@ -3,8 +3,9 @@
 This is the reproducible runbook for the scale-readiness improvements — the
 data-layer (counters, presence, follows, segments, scheduling) and the
 cache-layer (object-cache groups, TTLs, invalidation) work. It is written so a
-developer on **any Mac** can stand the environment up from scratch and verify
-every item, without the tribal knowledge that bit us the first time.
+developer on **any Mac** can stand the environment up from scratch, **seed
+large data through the services** (§5), and verify every item — without the
+tribal knowledge that bit us the first time.
 
 > For the browser/Playwright E2E suite see [`HOW-TO-RUN.md`](./HOW-TO-RUN.md).
 > This doc is the PHPUnit + data/cache half.
@@ -201,7 +202,92 @@ Capture screenshots to `~/Documents/work-artifacts/screenshots/YYYY-MM/`.
 
 ---
 
-## 5. One-shot "is everything still green" pass
+## 5. Large-data seeding — through the services, NEVER direct `$wpdb`
+
+To exercise the scale behaviour (EXPLAIN plans, cache hit-rates, counter load)
+you need volume. **Seed it through the services, never with raw `INSERT`s.** A
+direct `$wpdb` insert skips every hook, so counters never increment, caches are
+never busted, and the search index + `bn_analytics_events` stay empty — you end
+up "testing" an inconsistent state that hides real bugs and invents fake ones.
+Seeding through the services reproduces exactly how data accumulates in
+production.
+
+> This is a **separate internal QA tool** — NOT the customer demo installer
+> (`wp buddynext demo`, which seeds a fixed curated community and is left
+> untouched).
+
+### The seeder
+
+`docs/qa/seed-scale.php` drives the real services (`follows->follow`,
+`post_service->create`, `reactions->react`, `comments->create`, `shares->share`,
+`spaces->create`, `space_members->join`, `PresenceService::write`) via
+`wp eval-file`. It lives under `docs/` so it never ships in the dist zip, and it
+runs **only on a throwaway / local dev site**.
+
+```bash
+# From the WordPress root. Defaults = a quick, meaningful load.
+wp eval-file wp-content/plugins/buddynext/docs/qa/seed-scale.php
+
+# Scale each dimension via env knobs:
+BN_SEED_USERS=20000 \           # members (0 = reuse already-seeded ones)
+BN_SEED_POWER_FOLLOWS=4000 \    # one member follows this many (service caps at 5,000)
+BN_SEED_POSTS=500 \             # posts + spread engagement
+BN_SEED_VIRAL_REACTIONS=10000 \ # one hot post, reactions at volume
+BN_SEED_SPACE_MEMBERS=8000 \    # one populous space
+  wp eval-file wp-content/plugins/buddynext/docs/qa/seed-scale.php
+
+# Very large user counts: pre-generate raw users (fast), then reuse them.
+wp user generate --count=50000 --role=subscriber
+BN_SEED_USERS=0 wp eval-file wp-content/plugins/buddynext/docs/qa/seed-scale.php
+
+# Remove exactly what the seeder created (tagged users + the seed space):
+BN_SEED_CLEANUP=1 wp eval-file wp-content/plugins/buddynext/docs/qa/seed-scale.php
+```
+
+The follow loop deliberately stops at the **5,000 follow cap** (the cap is doing
+its job — that is the bound for the feed subquery). Every seeded user is tagged
+`bn_seed_scale` usermeta so cleanup removes only its own data.
+
+### Prove the wiring fired (the seed is only valid if it did)
+
+Because every write went through a service, the denormalized counters must
+already be correct — so a recount finds **zero drift**:
+
+```bash
+# Should report no change — counters were maintained on each service write.
+wp eval 'buddynext_service("post_service")->recount_counters(); echo "recount ran\n";'
+
+# Spot-check a hot post: stored counter == actual rows.
+wp eval 'global $wpdb;$p=$wpdb->prefix;$id=(int)$wpdb->get_var("SELECT id FROM {$p}bn_posts ORDER BY reaction_count DESC LIMIT 1");
+printf("post %d: stored=%d actual=%d\n",$id,
+ (int)$wpdb->get_var("SELECT reaction_count FROM {$p}bn_posts WHERE id=$id"),
+ (int)$wpdb->get_var("SELECT COUNT(*) FROM {$p}bn_reactions WHERE object_type=\"post\" AND object_id=$id"));'
+```
+
+A mismatch means a write bypassed the service — investigate before trusting any
+scale measurement on that dataset.
+
+### What each knob exercises
+
+| Knob | Drives | Verify |
+|---|---|---|
+| `BN_SEED_USERS` | presence range scans, member directory, segment chunking | `EXPLAIN` the directory online filter → range scan on `bn_presence`, not a usermeta CAST |
+| `BN_SEED_POWER_FOLLOWS` | the home-feed "people I follow" subquery + the follow cap | follow loop stops at the cap; time `FeedService::home_feed` for the power user |
+| `BN_SEED_VIRAL_REACTIONS` | hot-row counter maintenance + `bn_analytics_events` volume | stored `reaction_count` == actual; recount drift = 0 |
+| `BN_SEED_SPACE_MEMBERS` | `member_count` + per-space role/ban permission checks (C1) | `member_count` == active rows; load the space page, watch query count |
+| `BN_SEED_POSTS` | feed render, post-card counters, search index | search index populated; counters consistent |
+
+### Cache + EXPLAIN checks at volume
+
+```bash
+# Object cache must be persistent for caching to be load-bearing — confirm:
+wp eval 'echo wp_using_ext_object_cache() ? "persistent cache: yes\n" : "NO persistent cache — install Redis\n";'
+
+# Presence directory query plan (item F): want a range scan on the last_active key.
+wp db query "EXPLAIN SELECT user_id FROM $(wp db prefix --allow-root 2>/dev/null)bn_presence WHERE last_active > UNIX_TIMESTAMP()-300 ORDER BY last_active DESC LIMIT 20"
+```
+
+## 6. One-shot "is everything still green" pass
 
 ```bash
 # 1. FREE — must be 0 failures
