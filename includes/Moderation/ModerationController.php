@@ -1412,7 +1412,9 @@ class ModerationController extends BaseRestController {
 			return $result;
 		}
 
-		( new ModerationLogService() )->log( $actor_id, 'warn_user', array( 'target_user_id' => $user_id ) );
+		// ModerationService::warn() already writes the canonical bn_mod_log row
+		// (action 'warn') transactionally; do NOT log a second 'warn_user' row here
+		// or every warning produces two audit entries for one action.
 
 		return new WP_REST_Response(
 			array(

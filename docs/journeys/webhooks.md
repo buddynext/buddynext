@@ -2,8 +2,8 @@
 
 **Opt-in feature**: `includes/Outbound/` (OutboundWebhookService, OutboundWebhookListener, OutboundWebhookController) — catalog slug `webhooks`, tier `opt_in`, group `integrations`
 **Actions / filters consumed (delivery triggers)**: `user_register`, `buddynext_post_created`, `buddynext_post_deleted`, `buddynext_space_member_joined`, `buddynext_space_member_left`, `buddynext_connection_accepted`, `buddynext_user_followed`, `buddynext_reaction_added`, `buddynext_comment_created`, `buddynext_user_suspended`, `buddynext_user_unsuspended`, `buddynext_ability_granted`, `buddynext_ability_revoked`, `buddynext_user_verified`
-**Filter fired**: `buddynext_outbound_webhook_limit` (max endpoints; Free default `1`)
-**Cron action fired**: `buddynext_webhook_retry` (every `buddynext_5min`)
+**Filter fired**: `buddynext_outbound_webhook_limit` (max endpoints; Free default `1`, lifted to unlimited by Pro's `UnlimitedWebhooksIntegration`)
+**Cron actions fired**: `buddynext_webhook_deliver` (async delivery of real events) and `buddynext_webhook_retry_single` (per-delivery single-event retry with an incrementing `attempt` counter)
 **DB tables touched**: `bn_outbound_webhooks`, `bn_outbound_webhook_log`
 **Estimated time**: 12 min manual
 
@@ -29,7 +29,7 @@ The receiving endpoint verifies each delivery by recomputing `sha256=HMAC_SHA256
   ```
 
   - Expected: prints `enabled`. (If `buddynext_feature_registry()` is unavailable in your build, set the option directly with `wp option patch` — the catalog entry lives in `FeatureRegistry::catalog()`.)
-  - NOTE: see Known limitations — webhook wiring (service init, listener, REST routes) is currently active regardless of this toggle. Set it anyway to model the intended owner flow.
+  - NOTE: the toggle IS runtime-enforced (1.0.3). The service, listener, and REST routes only register when the `webhooks` feature is enabled; with it off (default) only `/webhook/access` exists. You MUST enable it for the rest of this journey to work.
 - A reachable HTTPS sink to receive deliveries. Use a request-bin style service and capture its URL as `SINK_URL`, e.g.:
 
   ```bash
@@ -82,7 +82,7 @@ The receiving endpoint verifies each delivery by recomputing `sha256=HMAC_SHA256
      -u admin:password
    ```
 
-   - Expected: 200 `{ "success": true, "message": "Test ping delivered successfully." }` when the sink returns 2xx. (502 if it does not — see edge cases.)
+   - Expected: 200 `{ "success": true, "message": "Test ping delivered successfully." }` when the sink returns 2xx. (502 if it does not — see edge cases.) The test ping is delivered **synchronously** (the only synchronous path; real events are async via cron).
 
 5. Confirm the ping was logged:
 
@@ -104,7 +104,11 @@ The receiving endpoint verifies each delivery by recomputing `sha256=HMAC_SHA256
      -u member1:password
    ```
 
-   - Expected: 200. The follow succeeds; the listener dispatches `user.followed` to every active endpoint whose `events` is empty or contains `user.followed`.
+   - Expected: 200. The follow succeeds; the listener queues `user.followed` for ASYNC delivery (cron action `buddynext_webhook_deliver`) to every active endpoint whose `events` is empty or contains `user.followed`. Unlike the test ping (synchronous), real events deliver via cron — on a site without working cron, force the queue before checking the log:
+
+   ```bash
+   wp cron event run buddynext_webhook_deliver
+   ```
 
 7. Confirm the delivery row landed in the log:
 
@@ -150,13 +154,13 @@ The receiving endpoint verifies each delivery by recomputing `sha256=HMAC_SHA256
     -d "{\"url\": \"${FAIL_URL}\", \"events\": [\"user.followed\"]}"
   ```
 
-  Note the new `FAIL_WEBHOOK_ID`. As `member2`, follow `member1` to fire `user.followed`. Expected: a log row for `FAIL_WEBHOOK_ID` with `status = error` and `response_code = 500`. The `buddynext_webhook_retry` cron (every 5 min) re-delivers any `status = error` rows from the past 24h against still-active endpoints, appending **new** log rows (it does not mutate the original). Force a retry pass without waiting:
+  Note the new `FAIL_WEBHOOK_ID`. As `member2`, follow `member1` to fire `user.followed`. Expected (after the delivery queue runs): a log row for `FAIL_WEBHOOK_ID` with `status = error` and `response_code = 500`. On a failed delivery a **per-delivery, single-event** retry is scheduled (`buddynext_webhook_retry_single`) for just that delivery, with the `attempt` counter incremented on each pass — this is NOT a 5-min recurring batch that re-sweeps all errors. Force the scheduled retry without waiting:
 
   ```bash
-  wp cron event run buddynext_webhook_retry
+  wp cron event run buddynext_webhook_retry_single
   ```
 
-  - Expected: an additional `status = error` log row for the same `event = user.followed` after the retry runs.
+  - Expected: an additional `status = error` log row for the same `event = user.followed`, with `attempt` greater than the previous attempt (no longer always `1`).
 
 - **Auto-deactivation after 3 consecutive failures**: Continue triggering `user.followed` (or run the retry) until `FAIL_WEBHOOK_ID` accumulates 3 consecutive `error` rows. Expected: `is_active` flips to `0` on that endpoint (`maybe_deactivate_on_failure()` checks the last 3 log rows). Confirm:
 
@@ -176,7 +180,7 @@ The receiving endpoint verifies each delivery by recomputing `sha256=HMAC_SHA256
 
 - **Plain http:// URL rejected**: `POST /webhooks` with `{"url": "http://example.com/hook"}`. Expected: 422 `invalid_url` — the URL must begin with `https://`.
 
-- **Free webhook cap**: With one endpoint already registered, attempt a second (without a Pro filter lifting the cap). Expected: 422 `webhook_limit_reached` — `buddynext_outbound_webhook_limit` defaults to `1` in Free. (The failed-delivery edge case above assumes you registered the fail endpoint *before* hitting the cap, or raised the cap via the filter.)
+- **Free webhook cap**: With one endpoint already registered, attempt a second on a **Free-only** site. Expected: 422 `webhook_limit_reached` — `buddynext_outbound_webhook_limit` defaults to `1` in Free. Pro's `UnlimitedWebhooksIntegration` lifts this filter to unlimited, so this 422 applies only when Pro is not active. (The failed-delivery edge case above assumes you registered the fail endpoint *before* hitting the cap, or raised the cap via Pro / the filter.)
 
 - **Non-admin forbidden**: Call any `/webhooks` route as `member1`. Expected: 403 `rest_forbidden` — all routes require `manage_options`.
 
@@ -185,11 +189,11 @@ The receiving endpoint verifies each delivery by recomputing `sha256=HMAC_SHA256
 - `OutboundWebhookService::register()` validates the `https://` scheme, enforces the `buddynext_outbound_webhook_limit` cap, derives the label, and inserts into `bn_outbound_webhooks` with `is_active = 1`.
 - `OutboundWebhookController::create_webhook()` auto-generates a 40-char secret via `wp_generate_password()` when none is supplied and returns `{ id, secret }` with 201.
 - `OutboundWebhookListener::register()` binds 14 domain hooks and routes each to `buddynext_service('webhooks')->dispatch($slug, $data)`.
-- `OutboundWebhookService::dispatch()` fans out to every active endpoint where `events` is empty (all) or contains the slug.
+- `OutboundWebhookService::dispatch()` fans out to every active endpoint where `events` is empty (all) or contains the slug, queuing each delivery ASYNC via the `buddynext_webhook_deliver` cron action (the test ping is the only synchronous path).
 - `OutboundWebhookService::deliver()` builds the `{ event, timestamp, data }` envelope, signs it with `X-BuddyNext-Signature: sha256=HMAC_SHA256(body, secret)`, sends `X-BuddyNext-Event`, POSTs via `wp_remote_post` (5s timeout), and logs every attempt to `bn_outbound_webhook_log` with `status` `success`/`error`.
 - `OutboundWebhookService::send_test_ping()` delivers a `ping` event and returns true only on a 2xx response (controller returns 200/502 accordingly).
 - `OutboundWebhookService::maybe_deactivate_on_failure()` deactivates an endpoint after 3 consecutive failed log rows.
-- `OutboundWebhookService::retry_failed()` (cron `buddynext_webhook_retry`) re-delivers `status = error` rows from the past 24h against active endpoints, reconstructing the event slug + data from the stored envelope.
+- A failed delivery schedules a **per-delivery, single-event** retry (cron `buddynext_webhook_retry_single`) for just that delivery, incrementing the `attempt` counter each pass — not a recurring batch sweep of all errors.
 - `OutboundWebhookService::delete()` removes log rows then the endpoint row, and halts future deliveries.
 
 ## Verification queries
@@ -220,8 +224,8 @@ WHERE l.status = 'error'
   AND w.is_active = 1
 ORDER BY l.id ASC;
 
--- Confirm the retry cron is scheduled:
--- wp cron event list | grep buddynext_webhook_retry
+-- Confirm the delivery/retry cron actions are scheduled:
+-- wp cron event list | grep -E 'buddynext_webhook_(deliver|retry_single)'
 ```
 
 ## REST surface walked
@@ -290,14 +294,15 @@ WHERE (follower_id, following_id) IN ((MEMBER1_ID, MEMBER2_ID), (MEMBER2_ID, MEM
 # Disable the feature toggle again to restore the default opt-in (off) state:
 wp eval '$f = (array) get_option("buddynext_features", array()); $f["webhooks"] = false; update_option("buddynext_features", $f, false);'
 
-# (Optional) clear the scheduled retry event if tearing the site down:
-wp cron event delete buddynext_webhook_retry
+# (Optional) clear scheduled delivery/retry events if tearing the site down:
+wp cron event delete buddynext_webhook_deliver
+wp cron event delete buddynext_webhook_retry_single
 ```
 
 ## Known limitations
 
-- **Feature toggle is not enforced at runtime.** `webhooks` is registered as an `opt_in` feature in `FeatureRegistry::catalog()` and rendered in the Settings UI, but `Plugin.php` wires the service (`$container->get('webhooks')->init()`), the listener, and the REST controller **unconditionally** — there is no `is_enabled('webhooks')` guard around the dispatch path or routes. In practice deliveries fire and endpoints can be managed even with the toggle off. Documented here pending a gate.
-- **No per-delivery retry cap / backoff.** `retry_failed()` re-sends every `status = error` row from the past 24h on each 5-min run; a persistently failing endpoint is retried repeatedly until auto-deactivation (3 consecutive failures) trips, rather than via exponential backoff. The `attempt` column exists in `bn_outbound_webhook_log` but is always written as the default `1` — it is not incremented on retry.
+- **Feature toggle IS enforced at runtime (1.0.3 — no longer a limitation).** The service, listener, and REST routes only register when `is_enabled('webhooks')` is true; with the toggle off (default) only `/webhook/access` exists and no deliveries fire.
+- **Retry is per-delivery single-event with a capped attempt counter.** A failed delivery schedules `buddynext_webhook_retry_single` for that one delivery; the `attempt` column in `bn_outbound_webhook_log` is incremented on each retry (no longer always `1`). After 3 consecutive failures the endpoint auto-deactivates. This replaces the earlier 5-min recurring batch sweep.
 - **Auto-deactivation is silent.** When an endpoint flips to `is_active = 0` after 3 failures, no notification is sent to the owner and there is no REST route to re-activate it (only delete + re-register, or a manual DB `UPDATE`).
 - **Secret is shown once.** The auto-generated secret is returned only in the 201 create response; `GET /webhooks` does return the stored `secret` column, but there is no rotate-secret endpoint.
 - **No signature timestamp tolerance / replay guard** is enforced BN-side; the `timestamp` is in the body for the receiver to validate, but BN does not reject or de-duplicate replays.
@@ -308,5 +313,5 @@ wp cron event delete buddynext_webhook_retry
 - All management calls are curl-automatable with admin basic auth; capture `WEBHOOK_ID` and `secret` from the 201 create response — do not hardcode.
 - Use a scriptable HTTPS sink (webhook.site API, `ngrok` + a local listener, or `httpstat.us/<code>` for deterministic failure codes) so the harness can assert on received headers/body and on `status` in the log.
 - To assert signing end-to-end, recompute `sha256=HMAC_SHA256(raw_body, secret)` in the test and compare to the captured `X-BuddyNext-Signature` header.
-- The retry + auto-deactivation lifecycle is testable without waiting on cron by invoking `wp cron event run buddynext_webhook_retry` between delivery triggers and re-querying `bn_outbound_webhook_log` / `is_active`.
+- The delivery + retry + auto-deactivation lifecycle is testable without waiting on cron by invoking `wp cron event run buddynext_webhook_deliver` (real events) and `wp cron event run buddynext_webhook_retry_single` (per-delivery retry) between triggers, then re-querying `bn_outbound_webhook_log` (incl. `attempt`) / `is_active`.
 - Trigger events deterministically through their owning REST routes (follow → `user.followed`, create post → `post.created`, join space → `space.joined`) rather than relying on background activity, so each delivery maps to one known log row.

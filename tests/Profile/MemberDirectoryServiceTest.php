@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing, Squiz.Commenting.VariableComment.Missing, Generic.Commenting.DocComment.MissingShort -- concise, self-describing test methods and fixtures.
 /**
  * Tests for MemberDirectoryService.
  *
@@ -211,6 +211,28 @@ class MemberDirectoryServiceTest extends \WP_UnitTestCase {
 		$this->assertContains( $type_user, $ids );
 		$this->assertContains( $other_user, $ids );
 		$this->assertSame( 'creator', get_user_meta( $type_user, 'bn_member_type', true ) );
+	}
+
+	/**
+	 * Blocking a member invalidates the viewer's cached directory page immediately
+	 * (not after the 60s TTL) — the per-viewer cache version salt is bumped on the
+	 * buddynext_block hook via the registered listener.
+	 *
+	 * @return void
+	 */
+	public function test_block_invalidates_directory_cache_immediately(): void {
+		$target = self::factory()->user->create();
+		( new MemberDirectoryService() )->register(); // Wire the production hook.
+
+		// Warm the cache with the target present.
+		$before = array_column( $this->service->list_members( $this->viewer_id, null, 20 )['items'], 'user_id' );
+		$this->assertContains( $target, $before );
+
+		( new \BuddyNext\SocialGraph\BlockService() )->block( $this->viewer_id, $target );
+
+		// Without the cache bust this would still return the stale page incl. target.
+		$after = array_column( $this->service->list_members( $this->viewer_id, null, 20 )['items'], 'user_id' );
+		$this->assertNotContains( $target, $after, 'Blocked member must drop from the directory immediately' );
 	}
 
 	/**

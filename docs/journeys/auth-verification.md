@@ -65,7 +65,7 @@
    LIMIT 1;
    ```
 
-   - Expected: 1 row. `token` matches `TOKEN`. `expires_at` is approximately 24 hours from now.
+   - Expected: 1 row. `token` matches `TOKEN`. `expires_at` is approximately 2 days from now (create time + 2 days).
 
 5. Confirm an email was queued (check `bn_email_log` for `type = email_verify`):
 
@@ -192,7 +192,7 @@
 
 ## What this validates
 
-- `VerificationService::create_token()` inserts into `bn_verify_tokens` with a 64-char token, `type = email_verify`, and `expires_at = +24h`.
+- `VerificationService::create_token()` inserts into `bn_verify_tokens` with a 64-char token, `type = email_verify`, and `expires_at = create time + 2 days`.
 - `VerificationListener` hooks an appropriate WordPress action (likely `user_register`) and fires `buddynext_send_verification_email(int $user_id, string $token)`.
 - `VerificationService::verify()` looks up the token in `bn_verify_tokens`, validates it is not expired, sets usermeta `buddynext_email_verified = 1`, deletes the token row, and fires `buddynext_user_verified(int $user_id)` and `buddynext_email_verified(int $user_id)`.
 - `bn_verify_tokens` UNIQUE KEY on `token` prevents collisions.
@@ -274,7 +274,7 @@ DELETE /buddynext/v1/me/account                 -- self-delete account (gated by
 
 *(Item 12. Flip the real setting, re-check the member effect, restore.)*
 
-- **Registration mode** (`buddynext_reg_mode` → mirrors core `users_can_register` via `Settings::sync_core_registration`): set to **invite-only** in admin, then as a logged-out visitor load `/signup/` and confirm open registration is blocked (signup gated / invite required). Set back to **open** and confirm signup works. This is the single most common owner config and a frequent support theme.
+- **Registration mode** (`buddynext_reg_mode` → mirrors core `users_can_register` via `Settings::sync_core_registration`): set to **invite-only** in admin, then as a logged-out visitor load `/signup/` and confirm open registration is blocked (signup gated / invite required). This is also enforced at the REST layer (1.0.3): `POST /auth/register` without a valid `invite` returns **403 `rest_invite_required`**; a valid `invite` token is consumed via `mark_registered()` on success. Set back to **open** and confirm signup works. This is the single most common owner config and a frequent support theme.
 - **GDPR Privacy gates** (`buddynext_allow_data_export`, `buddynext_allow_account_deletion`): turn **OFF** in admin, then as `member1` call `GET /me/data-export` and `DELETE /me/account` → expect **403**; turn ON → expect 200. Legal exposure if the gate is wrong, so verify both directions.
 - **Manual approval** (if reg mode requires approval): register a member, confirm they cannot log in until `POST /auth/approve/{id}` runs, then confirm login succeeds.
 
@@ -299,6 +299,7 @@ wp user delete TESTVERIFY_ID --yes
 
 - The **token-consuming** verify step is server-side (the email link hits a WP page that calls `VerificationService::verify($token)`), not a REST route — but `GET /auth/verify/status` and `POST /auth/verify/resend` ARE live REST routes (see REST surface). The earlier "no REST endpoint for verification" note was misleading: it conflated the click-through with the whole auth surface, which is fully REST. Confirm the click-through URL with `VerificationListener` before automating it.
 - `buddynext_send_verification_email` fires with `(int $user_id, string $token)` — confirmed in manifest. The token passed may or may not be the raw token (could be URL-encoded or HMAC-wrapped). Inspect `VerificationListener` for the exact value before asserting it in Mailpit.
+- Registration mode IS now enforced on REST registration (1.0.3): with reg-mode set to invite-only, `POST /auth/register` without a valid invite returns **403 `rest_invite_required`**. A valid invite is passed via the `invite` param and is consumed (marked used via `mark_registered()`) on successful registration. The earlier note that reg-mode was UI-only no longer applies.
 
 ## Automation notes
 

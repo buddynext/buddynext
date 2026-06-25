@@ -76,9 +76,10 @@
    curl -s -X PUT http://buddynext-dev.local/wp-json/buddynext/v1/users/MEMBER1_ID/member-type \
      -u admin:password \
      -H "Content-Type: application/json" \
-     -d '{"type_id": DEV_TYPE_ID}'
+     -d '{"type_slug": "developer"}'
    ```
 
+   - The request body takes `type_slug` (the string slug, e.g. `"developer"`), NOT `type_id`.
    - Expected: 200. Row inserted into `wp_bn_member_type_assignments`.
 
 5. Verify the assignment:
@@ -98,7 +99,7 @@
    curl -s -X PUT http://buddynext-dev.local/wp-json/buddynext/v1/users/MEMBER2_ID/member-type \
      -u admin:password \
      -H "Content-Type: application/json" \
-     -d '{"type_id": DESIGNER_TYPE_ID}'
+     -d '{"type_slug": "designer"}'
    ```
 
 ### Part 3: Directory listing and filter by member_type

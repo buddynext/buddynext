@@ -314,17 +314,17 @@ class CommentService {
 		$comment = $this->get( $comment_id );
 
 		if ( null === $comment ) {
-			return new WP_Error( 'not_found', __( 'Comment not found.', 'buddynext' ) );
+			return new WP_Error( 'not_found', __( 'Comment not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		if ( $comment['user_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
-			return new WP_Error( 'forbidden', __( 'You cannot edit this comment.', 'buddynext' ) );
+			return new WP_Error( 'forbidden', __( 'You cannot edit this comment.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		$content = wp_kses_post( trim( $content ) );
 
 		if ( '' === $content ) {
-			return new WP_Error( 'empty_content', __( 'Comment content cannot be empty.', 'buddynext' ) );
+			return new WP_Error( 'empty_content', __( 'Comment content cannot be empty.', 'buddynext' ), array( 'status' => 400 ) );
 		}
 
 		/**
@@ -342,7 +342,7 @@ class CommentService {
 		}
 		$content = wp_kses_post( (string) ( $filtered['content'] ?? $content ) );
 		if ( '' === $content ) {
-			return new WP_Error( 'empty_content', __( 'Comment content cannot be empty.', 'buddynext' ) );
+			return new WP_Error( 'empty_content', __( 'Comment content cannot be empty.', 'buddynext' ), array( 'status' => 400 ) );
 		}
 
 		global $wpdb;
@@ -383,11 +383,11 @@ class CommentService {
 		$comment = $this->get( $comment_id );
 
 		if ( null === $comment ) {
-			return new WP_Error( 'not_found', __( 'Comment not found.', 'buddynext' ) );
+			return new WP_Error( 'not_found', __( 'Comment not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
 		if ( $comment['user_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
-			return new WP_Error( 'forbidden', __( 'You cannot delete this comment.', 'buddynext' ) );
+			return new WP_Error( 'forbidden', __( 'You cannot delete this comment.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		// Idempotent: a second DELETE on an already-soft-deleted comment must not

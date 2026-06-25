@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing, Squiz.Commenting.VariableComment.Missing, Generic.Commenting.DocComment.MissingShort -- concise, self-describing test methods and fixtures.
 /**
  * Tests for SearchService.
  *
@@ -48,6 +48,23 @@ class SearchServiceTest extends \WP_UnitTestCase {
 		$this->assertNotNull( $row );
 		$this->assertSame( 'Hello World', $row['title'] );
 		$this->assertSame( 'public', $row['visibility'] );
+	}
+
+	public function test_type_filter_accepts_plural_and_singular(): void {
+		$this->service->index( 'user', 501, 'Zephyrine Searchable', 'bio', $this->author_id );
+		$this->service->index( 'post', 601, 'Zephyrine Article', 'body', $this->author_id );
+
+		$singular = $this->service->search( 'Zephyrine', 'user' );
+		$plural   = $this->service->search( 'Zephyrine', 'users' );
+
+		$this->assertSame( 1, $singular['total'] );
+		$this->assertSame( $singular['total'], $plural['total'], 'Plural type must match singular' );
+		$this->assertSame( 501, $plural['items'][0]['object_id'] );
+
+		// Plural for posts resolves too, and does not bleed the user record.
+		$posts = $this->service->search( 'Zephyrine', 'posts' );
+		$this->assertSame( 1, $posts['total'] );
+		$this->assertSame( 601, $posts['items'][0]['object_id'] );
 	}
 
 	public function test_index_upserts_on_duplicate(): void {

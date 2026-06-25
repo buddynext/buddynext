@@ -508,7 +508,7 @@ class NotificationListener implements ListenerInterface {
 	 * @param int    $user_id Author of the post.
 	 * @param string $_type   Post type (unused — required by hook contract).
 	 */
-	public function on_post_created_in_space( int $post_id, int $user_id, string $_type ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_type required by hook contract.
+	public function on_post_created_in_space( int $post_id, int $user_id = 0, string $_type = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_type required by hook contract.
 		global $wpdb;
 
 		// Resolve the post's space, status, and scheduled time in one read so

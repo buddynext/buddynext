@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing, Squiz.Commenting.VariableComment.Missing, Generic.Commenting.DocComment.MissingShort -- concise, self-describing test methods and fixtures.
 /**
  * Tests for FeedService.
  *
@@ -40,6 +40,29 @@ class FeedServiceTest extends \WP_UnitTestCase {
 		$this->bob        = self::factory()->user->create();
 		$this->carol      = self::factory()->user->create();
 		$this->admin_id   = self::factory()->user->create( array( 'role' => 'administrator' ) );
+	}
+
+	public function test_flush_home_cache_invalidates_user_page1(): void {
+		$cache = new \BuddyNext\Feed\FeedCache();
+		$feed  = new FeedService( $this->follows, $this->posts, $cache );
+
+		$before = $cache->home_page_1_key( $this->alice, 20 );
+		$feed->flush_home_cache( $this->alice );
+		$after = $cache->home_page_1_key( $this->alice, 20 );
+
+		$this->assertNotSame( $before, $after, 'Dismiss must bump the user page-1 version so the stale cache is bypassed' );
+	}
+
+	public function test_flush_all_home_caches_invalidates_everyone(): void {
+		$cache = new \BuddyNext\Feed\FeedCache();
+		$feed  = new FeedService( $this->follows, $this->posts, $cache );
+
+		$alice_before = $cache->home_page_1_key( $this->alice, 20 );
+		$bob_before   = $cache->home_page_1_key( $this->bob, 20 );
+		$feed->flush_all_home_caches();
+
+		$this->assertNotSame( $alice_before, $cache->home_page_1_key( $this->alice, 20 ) );
+		$this->assertNotSame( $bob_before, $cache->home_page_1_key( $this->bob, 20 ) );
 	}
 
 	public function test_home_feed_shows_followed_user_posts(): void {

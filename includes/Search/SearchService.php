@@ -268,6 +268,28 @@ class SearchService {
 	}
 
 	/**
+	 * Normalise a caller-supplied type filter to the singular object_type the
+	 * index stores. The index uses singular values (user/post/space/hashtag) but
+	 * callers (and the documented API) often pass plurals (users/posts/…); without
+	 * this map a plural filter silently matched nothing. Unknown values pass
+	 * through sanitised so a future type is not swallowed.
+	 *
+	 * @param string $type Raw type filter (singular or plural).
+	 * @return string Singular object_type for the WHERE clause.
+	 */
+	private static function normalize_object_type( string $type ): string {
+		$type = sanitize_key( $type );
+		$map  = array(
+			'users'    => 'user',
+			'posts'    => 'post',
+			'spaces'   => 'space',
+			'hashtags' => 'hashtag',
+			'members'  => 'user',
+		);
+		return $map[ $type ] ?? $type;
+	}
+
+	/**
 	 * Search the index for the given query string.
 	 *
 	 * Uses FULLTEXT MATCH … AGAINST when the ft_search index exists on the
@@ -275,7 +297,8 @@ class SearchService {
 	 * index is absent (e.g. the WP test suite's TEMPORARY tables).
 	 *
 	 * @param string $query     Raw search string (sanitised internally).
-	 * @param string $type      Optional object_type filter. Empty = all types.
+	 * @param string $type      Optional object_type filter (singular or plural,
+	 *                          e.g. user/users). Empty = all types.
 	 * @param int    $per_page  Results per page (max 50).
 	 * @param int    $page      1-based page number.
 	 * @param int    $viewer_id ID of the requesting user. When non-zero, users
@@ -313,7 +336,7 @@ class SearchService {
 
 		if ( '' !== $type ) {
 			$type_where  = ' AND si.object_type = %s';
-			$type_params = array( sanitize_key( $type ) );
+			$type_params = array( self::normalize_object_type( $type ) );
 		}
 
 		$block_where  = '';

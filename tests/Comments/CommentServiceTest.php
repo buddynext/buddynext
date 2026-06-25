@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing, Squiz.Commenting.VariableComment.Missing, Generic.Commenting.DocComment.MissingShort -- concise, self-describing test methods and fixtures.
 /**
  * Tests for CommentService.
  *
@@ -51,6 +51,40 @@ class CommentServiceTest extends \WP_UnitTestCase {
 
 		$this->assertWPError( $result );
 		$this->assertSame( 'empty_content', $result->get_error_code() );
+	}
+
+	public function test_update_by_non_owner_returns_403(): void {
+		$id     = $this->service->create( $this->user_id, 'post', $this->post_id, 'Owned by user' );
+		$other  = self::factory()->user->create();
+		$result = $this->service->update( $id, $other, 'hijack' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'forbidden', $result->get_error_code() );
+		$this->assertSame( 403, $result->get_error_data()['status'] ?? null );
+	}
+
+	public function test_delete_by_non_owner_returns_403(): void {
+		$id     = $this->service->create( $this->user_id, 'post', $this->post_id, 'Owned by user' );
+		$other  = self::factory()->user->create();
+		$result = $this->service->delete( $id, $other );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'forbidden', $result->get_error_code() );
+		$this->assertSame( 403, $result->get_error_data()['status'] ?? null );
+	}
+
+	public function test_update_missing_returns_404(): void {
+		$result = $this->service->update( 999999, $this->user_id, 'x' );
+		$this->assertWPError( $result );
+		$this->assertSame( 404, $result->get_error_data()['status'] ?? null );
+	}
+
+	public function test_update_empty_content_returns_400(): void {
+		$id     = $this->service->create( $this->user_id, 'post', $this->post_id, 'Owned' );
+		$result = $this->service->update( $id, $this->user_id, '   ' );
+		$this->assertWPError( $result );
+		$this->assertSame( 'empty_content', $result->get_error_code() );
+		$this->assertSame( 400, $result->get_error_data()['status'] ?? null );
 	}
 
 	public function test_get_returns_comment(): void {

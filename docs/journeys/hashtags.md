@@ -29,7 +29,7 @@
      }'
    ```
 
-   - Expected: 201. Note the returned `id` (referred to as `POST_ID`). Hashtag extraction fires inline or via Action Scheduler.
+   - Expected: 201. Note the returned `id` (referred to as `POST_ID`). Hashtag extraction/indexing is queued ASYNC via Action Scheduler (hook `buddynext_async_index_hashtags`), NOT done inline on post creation. On a site without cron the `bn_hashtags` / `bn_post_hashtags` rows lag until the queue runs.
 
 2. Verify the hashtags were auto-created in `bn_hashtags`:
 
@@ -140,13 +140,13 @@
 
     - Expected: 200, ordered array. `#buddynext` should appear near the top given it has the highest `post_count` from this journey.
 
-12. List all hashtags (with optional search):
+12. Type-ahead search for a hashtag (there is NO `GET /hashtags` list endpoint with `?q=`; use autocomplete):
 
     ```bash
-    curl -s "http://buddynext-dev.local/wp-json/buddynext/v1/hashtags?q=buddy"
+    curl -s "http://buddynext-dev.local/wp-json/buddynext/v1/hashtags/autocomplete?q=buddy"
     ```
 
-    - Expected: 200, results filtered to hashtags matching `buddy`.
+    - Expected: 200, type-ahead suggestions matching `buddy`.
 
 ### Part 5: Hashtag feed
 
@@ -206,7 +206,6 @@ LIMIT 5;
 ## REST surface walked
 
 ```
-GET  /buddynext/v1/hashtags                          -- 200, hashtag list with optional ?q= search
 GET  /buddynext/v1/hashtags/trending                 -- 200, ordered trending list
 GET  /buddynext/v1/hashtags/{slug}                   -- 200, hashtag detail + post feed
 POST   /buddynext/v1/hashtags/{slug}/follow          -- 200, { "following": true }  (follow)
@@ -263,7 +262,7 @@ DELETE FROM wp_bn_hashtags WHERE slug IN ('wordpress', 'buddynext', 'opensource'
 
 ## Known limitations
 
-- Hashtag extraction happens inline on `buddynext_post_created` in the current implementation. In a future Action Scheduler phase, this will move to async. Verify which path is active by checking `SearchIndexListener` and `HashtagService` for AS job registration.
+- Hashtag extraction/indexing runs ASYNC via Action Scheduler (hook `buddynext_async_index_hashtags`), not inline on post creation. On a site without working cron the index lags until the queue runs — DB verification of `bn_hashtags`/`bn_post_hashtags` immediately after a POST may show no rows yet. Trigger the queue (`wp action-scheduler run`) before asserting.
 - `buddynext_hashtag_related_discussions` filter is registered but no consumers are wired in Free — it is an extension point for Jetonomy bridge.
 
 ## Automation notes

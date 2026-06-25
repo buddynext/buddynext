@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing, Squiz.Commenting.VariableComment.Missing, Generic.Commenting.DocComment.MissingShort -- concise, self-describing test methods and fixtures.
 /**
  * Tests for ModerationService.
  *
@@ -29,6 +29,46 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 		$this->admin_id = self::factory()->user->create( array( 'role' => 'administrator' ) );
 		$this->user_id  = self::factory()->user->create();
 		$this->post_id  = 42;
+	}
+
+	public function test_warn_writes_single_mod_log_row(): void {
+		global $wpdb;
+
+		$before = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_mod_log WHERE target_user_id = %d", $this->user_id )
+		);
+
+		$this->service->warn( $this->user_id, $this->admin_id, 'Be nice' );
+
+		$after = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_mod_log WHERE target_user_id = %d", $this->user_id )
+		);
+
+		$this->assertSame( $before + 1, $after, 'A single warning must write exactly one bn_mod_log row' );
+	}
+
+	public function test_decide_appeal_populates_both_audit_column_pairs(): void {
+		global $wpdb;
+
+		$suspension_id = $this->service->suspend_user( $this->user_id, $this->admin_id, 'breach', array() );
+		$this->assertIsInt( $suspension_id );
+		$appeal_id = $this->service->submit_appeal( $this->user_id, (int) $suspension_id, 'please reconsider' );
+		$this->assertIsInt( $appeal_id );
+
+		$this->service->decide_appeal( (int) $appeal_id, 'approved', 'ok', $this->admin_id );
+
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT reviewed_by, reviewed_at, resolved_by, resolved_at FROM {$wpdb->prefix}bn_appeals WHERE id = %d",
+				$appeal_id
+			),
+			ARRAY_A
+		);
+
+		$this->assertSame( $this->admin_id, (int) $row['reviewed_by'] );
+		$this->assertSame( $this->admin_id, (int) $row['resolved_by'] );
+		$this->assertNotEmpty( $row['reviewed_at'] );
+		$this->assertNotEmpty( $row['resolved_at'] );
 	}
 
 	public function test_report_creates_record(): void {
@@ -70,7 +110,7 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 	public function test_dismiss_by_non_admin_returns_error(): void {
 		$report_id = $this->service->report( $this->user_id, 'post', $this->post_id, 'spam' );
 
-		$other = self::factory()->user->create();
+		$other  = self::factory()->user->create();
 		$result = $this->service->dismiss( $report_id, $other );
 
 		$this->assertWPError( $result );
@@ -127,7 +167,7 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 	}
 
 	public function test_issue_strike_by_non_admin_returns_error(): void {
-		$other = self::factory()->user->create();
+		$other  = self::factory()->user->create();
 		$result = $this->service->issue_strike( $this->user_id, $other, 'test' );
 
 		$this->assertWPError( $result );
@@ -185,8 +225,8 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 	}
 
 	public function test_dismiss_clears_every_report_for_the_content(): void {
-		$other      = self::factory()->user->create();
-		$report_id  = $this->service->report( $this->user_id, 'post', $this->post_id, 'spam' );
+		$other     = self::factory()->user->create();
+		$report_id = $this->service->report( $this->user_id, 'post', $this->post_id, 'spam' );
 		$this->service->report( $other, 'post', $this->post_id, 'harassment' );
 
 		// Acting on the consolidated item cascades to every report for the
@@ -239,7 +279,12 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 			$this->service->report( $users[ $i ], 'post', $this->post_id + $i, 'spam' );
 		}
 
-		$result = $this->service->get_queue( array( 'per_page' => 2, 'page' => 1 ) );
+		$result = $this->service->get_queue(
+			array(
+				'per_page' => 2,
+				'page'     => 1,
+			)
+		);
 
 		$this->assertSame( 5, $result['total'] );
 		$this->assertCount( 2, $result['items'] );

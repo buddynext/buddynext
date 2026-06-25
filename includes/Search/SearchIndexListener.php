@@ -90,7 +90,7 @@ class SearchIndexListener implements ListenerInterface {
 	 * @param string $type    Post type slug (received from hook, unused here).
 	 * @return void
 	 */
-	public function on_post_created( int $post_id, int $user_id, string $type ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
+	public function on_post_created( int $post_id, int $user_id = 0, string $type = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
 		$this->dispatch( 'buddynext_async_index_post', array( $post_id, $user_id ) );
 	}
 

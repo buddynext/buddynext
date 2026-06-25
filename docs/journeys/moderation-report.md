@@ -133,7 +133,7 @@
       -d '{"reason": "Repeated spam content violating community guidelines"}'
     ```
 
-    - Expected: 201. Row inserted into `wp_bn_user_strikes`. `buddynext_strike_issued` fires.
+    - Expected: 201. Response returns `{"strike_id": N}` (a suffixed key, not a bare `id`). Row inserted into `wp_bn_user_strikes`. `buddynext_strike_issued` fires.
 
 11. Verify the strike:
 
@@ -156,7 +156,7 @@
       -d '{"reason": "Spam policy violation", "duration_days": 7}'
     ```
 
-    - Expected: 200. Row inserted into `wp_bn_user_suspensions`. `buddynext_user_suspended` fires.
+    - Expected: 200. Response returns `{"suspension_id": N}` (a suffixed key, not a bare `id`). Row inserted into `wp_bn_user_suspensions`. `buddynext_user_suspended` fires.
 
 13. Verify the suspension:
 
@@ -193,7 +193,7 @@
       -d '{"suspension_id": SUSPENSION_ID, "message": "I believe this suspension was applied in error."}'
     ```
 
-    - Expected: 201. Row inserted into `wp_bn_appeals`. `buddynext_appeal_submitted` fires.
+    - Expected: 201. Response returns `{"appeal_id": N}` (a suffixed key, not a bare `id`). Row inserted into `wp_bn_appeals`. `buddynext_appeal_submitted` fires.
 
 16. Verify the appeal:
 
@@ -219,7 +219,7 @@
 18. Verify:
 
     ```sql
-    SELECT id, status, reviewed_by, reviewer_note, reviewed_at
+    SELECT id, status, reviewed_by, reviewed_at, resolved_by, resolved_at, reviewer_note
     FROM wp_bn_appeals
     WHERE id = APPEAL_ID;
 
@@ -228,14 +228,14 @@
     WHERE id = SUSPENSION_ID;
     ```
 
-    - Expected: appeal `status = approved`; suspension `lifted_at` is set.
+    - Expected: appeal `status = approved`; the audit columns are all populated — both `reviewed_by`/`reviewed_at` AND `resolved_by`/`resolved_at` are set; suspension `lifted_at` is set.
 
 ## Edge cases to also verify
 
 - **Duplicate report**: As `member1`, attempt to report the same post a second time. Expected: 409 or 422 — UNIQUE KEY `one_per_reporter` on `bn_reports` prevents duplicates.
 - **Non-moderator queue access**: As `member1`, attempt `GET /buddynext/v1/reports/queue`. Expected: 403.
 - **Strike reversal**: As admin, reverse member2's strike. Call `POST /buddynext/v1/users/MEMBER2_ID/strikes/STRIKE_ID/reverse`. Expected: `is_reversed = 1` set in `bn_user_strikes`.
-- **Warn without suspend**: Call `POST /buddynext/v1/users/MEMBER2_ID/warn` with a reason. Expected: `buddynext_user_warned` fires; no suspension row created.
+- **Warn without suspend**: Call `POST /buddynext/v1/users/MEMBER2_ID/warn` with `{"message": "..."}` (the param is `message`, NOT `reason`). Expected: `buddynext_user_warned` fires; exactly ONE `bn_mod_log` row written; no suspension row created.
 - **Shadow ban**: Call `POST /buddynext/v1/users/MEMBER2_ID/shadow-ban`. Expected: `buddynext_user_shadow_banned` fires; member2's content hidden from non-admin search/feed results.
 
 ## What this validates
@@ -298,7 +298,8 @@ POST /buddynext/v1/me/appeals                        -- 201, own appeal submitte
 GET  /buddynext/v1/appeals                           -- 200, appeal list (moderator)
 PUT  /buddynext/v1/appeals/{id}/approve              -- 200, appeal approved (moderator)
 PUT  /buddynext/v1/appeals/{id}/deny                 -- 200, appeal denied (moderator)
-POST /buddynext/v1/users/{id}/warn                   -- 200, warning issued (moderator)
+POST /buddynext/v1/users/{id}/warn                   -- 200, warning issued; body {"message":"..."} (moderator)
+GET  /buddynext/v1/users/{id}/warnings               -- 200, warning list (moderator)
 DELETE/GET/POST /buddynext/v1/users/{id}/shadow-ban  -- apply / status / remove shadow ban
 GET  /buddynext/v1/posts/{id}/content-warning        -- 200, content warning details
 POST /buddynext/v1/reports/{id}/remove               -- soft-remove reported content (moderator)
@@ -307,7 +308,7 @@ GET  /buddynext/v1/me/appeals                        -- member's own appeals
 GET  /buddynext/v1/moderation/pending, /moderation/log -- admin queue + immutable log
 ```
 
-> **Verified live 2026-06-20.** Note: `/users/{id}/warn` and `GET /users/{id}/suspension` did NOT appear in the live index (warnings flow through `/strikes`; suspension via `POST/DELETE /users/{id}/suspend`). Re-confirm before walking those two: `curl -s http://buddynext.local/wp-json/buddynext/v1 | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes']) if any(k in r for k in ('report','appeal','strike','suspend','shadow','moderation'))]"`
+> **Verified live (1.0.3).** `POST /users/{id}/warn` and `GET /users/{id}/warnings` ARE registered and live (confirmed in the route index), as is `GET /users/{id}/suspension`. Re-confirm before walking: `curl -s http://buddynext.local/wp-json/buddynext/v1 | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes']) if any(k in r for k in ('report','appeal','strike','suspend','shadow','warn','moderation'))]"`
 
 ## Frontend action wiring
 
@@ -365,6 +366,7 @@ DELETE FROM wp_bn_posts WHERE user_id = MEMBER2_ID AND space_id = SPACE_ID;
 
 - `buddynext_user_warned`, `buddynext_user_shadow_banned`, `buddynext_appeal_submitted`, `buddynext_appeal_resolved` are marked as pending in HOOKS.md (BLOCK 2 tasks). Verify their implementation status before asserting fires.
 - Strike-list REST endpoint is `GET /buddynext/v1/users/{id}/strikes` — confirm this route in `ModerationController` matches the manifest before testing.
+- Confirmed in 1.0.3 (no longer limitations): approving an appeal populates the full audit trail (both `reviewed_by`/`reviewed_at` AND `resolved_by`/`resolved_at`), and a warn writes exactly ONE `bn_mod_log` row.
 
 ## Automation notes
 

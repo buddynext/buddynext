@@ -102,8 +102,12 @@ class MemberDirectoryService {
 		// The activity-meta JOIN + ORDER BY for 'online' sort are unaffected.
 
 		// Result-set cache — keyed on all normalised inputs that shape the output.
-		// 60-second TTL balances directory freshness against DB load at scale.
-		$cache_key     = 'bn_dir_' . md5( (string) wp_json_encode( array( $viewer_id, $cursor, $per_page, $filters ) ) );
+		// A per-viewer version salt (bumped by bust_viewer() on block/unblock)
+		// invalidates a blocker's cached pages the instant their block list changes
+		// — without enumerating every cursor/filter key, and works with or without a
+		// persistent object cache. 60-second TTL otherwise balances freshness vs load.
+		$cache_ver     = (int) wp_cache_get( self::cache_version_key( $viewer_id ), 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		$cache_key     = 'bn_dir_' . md5( (string) wp_json_encode( array( $viewer_id, $cursor, $per_page, $filters, $cache_ver ) ) );
 		$cached_result = wp_cache_get( $cache_key, 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 		if ( false !== $cached_result ) {
 			return (array) $cached_result;
@@ -875,5 +879,60 @@ class MemberDirectoryService {
 			'registered' => $parts[0],
 			'id'         => (int) $parts[1],
 		);
+	}
+
+	/**
+	 * Object-cache key holding a viewer's directory cache version salt.
+	 *
+	 * @param int $viewer_id Viewer whose directory pages are versioned.
+	 * @return string
+	 */
+	private static function cache_version_key( int $viewer_id ): string {
+		return 'bn_dir_ver_' . $viewer_id;
+	}
+
+	/**
+	 * Invalidate a viewer's cached directory pages by bumping their version salt.
+	 *
+	 * Block/unblock changes viewer-aware exclusion, so a blocker's (and the
+	 * blocked user's) cached pages must reflect it immediately rather than after
+	 * the 60s TTL. Bumping the salt makes every existing key for that viewer
+	 * unreachable without enumerating cursor/filter permutations.
+	 *
+	 * @param int $viewer_id Viewer whose directory cache to invalidate.
+	 * @return void
+	 */
+	public static function bust_viewer( int $viewer_id ): void {
+		if ( $viewer_id <= 0 ) {
+			return;
+		}
+		$key = self::cache_version_key( $viewer_id );
+		// wp_cache_incr seeds nothing when the key is absent, so set a baseline first.
+		if ( false === wp_cache_get( $key, 'buddynext' ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+			wp_cache_set( $key, 0, 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		}
+		wp_cache_incr( $key, 1, 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Bust both participants' directory caches on a block/unblock.
+	 *
+	 * @param int $blocker_id User performing the (un)block.
+	 * @param int $blocked_id User being (un)blocked.
+	 * @return void
+	 */
+	public static function on_block_change( int $blocker_id, int $blocked_id ): void {
+		self::bust_viewer( $blocker_id );
+		self::bust_viewer( $blocked_id );
+	}
+
+	/**
+	 * Register directory-cache invalidation on relationship changes.
+	 *
+	 * @return void
+	 */
+	public function register(): void {
+		add_action( 'buddynext_block', array( __CLASS__, 'on_block_change' ), 10, 2 );
+		add_action( 'buddynext_unblock', array( __CLASS__, 'on_block_change' ), 10, 2 );
 	}
 }
