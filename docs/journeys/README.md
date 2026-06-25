@@ -122,6 +122,7 @@ Every feature in the `FeatureRegistry` catalogue (20 features across core / comm
 | [gamification.md](gamification.md) | Points / badges / levels for community activity | wb-gamification | 14 min |
 | [jetonomy.md](jetonomy.md) | Forums / discussions unified into the community | jetonomy | 12 min |
 | [wpmediaverse.md](wpmediaverse.md) | Direct messages + media (BN blocks enforced) | wpmediaverse | 12 min |
+| [media-albums.md](media-albums.md) | Profile media uploads + albums (create / cover / reorder / privacy) | wpmediaverse | 14 min |
 | [career-board.md](career-board.md) | Job posts surface in community search | career board | 8 min |
 | [webhooks.md](webhooks.md) | Outbound webhooks fire on community events | (none) | 8 min |
 

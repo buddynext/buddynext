@@ -2950,7 +2950,7 @@
       },
       {
         "slug": "buddynext",
-        "title": "BuddyNext — Settings",
+        "title": "BuddyNext \u2014 Settings",
         "capability": "manage_options",
         "callback": "",
         "parentSlug": "buddynext",
@@ -25291,6 +25291,97 @@
         "permission": "closure",
         "gated_by": null,
         "file": "includes/Spaces/SpaceController.php:305"
+      },
+      {
+        "route": "/buddynext/v1/me/media",
+        "methods": [
+          "CREATABLE"
+        ],
+        "permission": "require_auth",
+        "gated_by": null,
+        "file": "includes/Media/MediaController.php:54"
+      },
+      {
+        "route": "/buddynext/v1/users/(?P<id>[\\d]+)/media",
+        "methods": [
+          "READABLE"
+        ],
+        "permission": "require_auth",
+        "gated_by": null,
+        "file": "includes/Media/MediaController.php:66"
+      },
+      {
+        "route": "/buddynext/v1/me/media/(?P<media_id>[\\d]+)",
+        "methods": [
+          "DELETABLE"
+        ],
+        "permission": "require_auth",
+        "gated_by": null,
+        "file": "includes/Media/MediaController.php:91"
+      },
+      {
+        "route": "/buddynext/v1/users/(?P<id>[\\d]+)/albums",
+        "methods": [
+          "READABLE"
+        ],
+        "permission": "require_auth",
+        "gated_by": null,
+        "file": "includes/Media/MediaController.php:109"
+      },
+      {
+        "route": "/buddynext/v1/me/albums",
+        "methods": [
+          "CREATABLE"
+        ],
+        "permission": "require_auth",
+        "gated_by": null,
+        "file": "includes/Media/MediaController.php:132"
+      },
+      {
+        "route": "/buddynext/v1/albums/(?P<id>[\\d]+)",
+        "methods": [
+          "READABLE"
+        ],
+        "permission": "require_auth",
+        "gated_by": null,
+        "file": "includes/Media/MediaController.php:144"
+      },
+      {
+        "route": "/buddynext/v1/me/albums/(?P<id>[\\d]+)/items",
+        "methods": [
+          "CREATABLE"
+        ],
+        "permission": "require_auth",
+        "gated_by": null,
+        "file": "includes/Media/MediaController.php:167"
+      },
+      {
+        "route": "/buddynext/v1/me/albums/(?P<id>[\\d]+)/items/(?P<media_id>[\\d]+)",
+        "methods": [
+          "DELETABLE"
+        ],
+        "permission": "require_auth",
+        "gated_by": null,
+        "file": "includes/Media/MediaController.php:182"
+      },
+      {
+        "route": "/buddynext/v1/me/albums/(?P<id>[\\d]+)",
+        "methods": [
+          "EDITABLE",
+          "DELETABLE"
+        ],
+        "permission": "require_auth",
+        "gated_by": null,
+        "file": "includes/Media/MediaController.php:198"
+      },
+      {
+        "route": "/buddynext/v1/me/albums/(?P<id>[\\d]+)/reorder",
+        "methods": [
+          "EDITABLE"
+        ],
+        "permission": "require_auth",
+        "gated_by": null,
+        "file": "includes/Media/MediaController.php:221"
       }
     ]
   },
@@ -25321,7 +25412,7 @@
       "page": "buddynext",
       "type": "submenu",
       "capability": "manage_options",
-      "title": "BuddyNext — Settings",
+      "title": "BuddyNext \u2014 Settings",
       "file": "includes/Admin/Settings.php:271"
     },
     {
