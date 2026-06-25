@@ -1251,6 +1251,15 @@ const profileStore = store( 'buddynext/profile', {
 			}
 		},
 
+		/* Keep the controlled display-name input in sync with reactive state so the
+		 * re-render triggered when validateField writes context.errors on blur paints
+		 * the value the member typed instead of resetting the uncontrolled input back
+		 * to the server-rendered login. The form-level data-wp-on--input still fires
+		 * for markDirty; this only mirrors the value into context.nameValue. */
+		syncNameField( event ) {
+			getContext().nameValue = ( event.target && event.target.value ) || '';
+		},
+
 		/* Inline field validation on blur. */
 		validateField( event ) {
 			var ctx   = getContext();
