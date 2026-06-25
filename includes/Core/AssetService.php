@@ -368,14 +368,17 @@ class AssetService {
 			'bn-connections',
 			'bn-header',
 			'bn-settings',
+			'bn-media-upload',
 		);
 
 		// A few feature stylesheets reuse another feature's shared component and
 		// therefore depend on it (not just bn-base). bn-spaces renders space
 		// member cards through the shared .bn-md-card component, which lives in
-		// bn-members.css — so it must load alongside bn-spaces.
+		// bn-members.css — so it must load alongside bn-spaces. The media upload
+		// composer styles the same tiles bn-media.css owns, so it loads after it.
 		$extra_style_deps = array(
-			'bn-spaces' => array( 'bn-members' ),
+			'bn-spaces'       => array( 'bn-members' ),
+			'bn-media-upload' => array( 'bn-media' ),
 		);
 
 		foreach ( $feature_styles as $handle ) {
@@ -466,6 +469,8 @@ class AssetService {
 			'@buddynext/moderation'         => 'moderation/store',
 			'@buddynext/space-members'      => 'space-members/store',
 			'@buddynext/social-buttons'     => 'social/follow-store',
+			'@buddynext/media-upload'       => 'media/upload-store',
+			'@buddynext/media-albums'       => 'media/albums-store',
 		);
 
 		// Feature stores that import from ../shell/dialog.js need the
@@ -479,6 +484,8 @@ class AssetService {
 			'@buddynext/members',
 			'@buddynext/social-buttons',
 			'@buddynext/messages',
+			'@buddynext/media-upload',
+			'@buddynext/media-albums',
 		);
 
 		foreach ( $feature_modules as $id => $path ) {
@@ -766,8 +773,6 @@ class AssetService {
 					'moreImages'              => __( 'Only %d more images can be added.', 'buddynext' ),
 					/* translators: 1: file name, 2: HTTP status code */
 					'uploadFailedError'       => __( 'Could not upload %1$s (error %2$d).', 'buddynext' ),
-					/* translators: %s: file name */
-					'uploadFailedSmaller'     => __( 'Could not upload %s. Try a smaller file.', 'buddynext' ),
 					'joined'                  => __( 'Joined', 'buddynext' ),
 					'feedEnd'                 => __( "You've reached the end.", 'buddynext' ),
 					'oneNewPost'              => __( '1 new post — refresh to view', 'buddynext' ),

@@ -229,25 +229,17 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 			<!-- Media tab content -->
 			<div class="bn-profile-tab-panel" id="<?php echo esc_attr( buddynext_nav_panel_id( 'media' ) ); ?>" data-tab-panel="media" data-wp-context='<?php echo esc_attr( $bn_pf_panel_ctx( 'media' ) ); ?>' data-wp-bind--hidden="!state.isActiveTab" <?php echo 'media' === $bn_pf_active ? '' : 'hidden'; ?>>
 				<?php
-				// BN-native gallery. $bn_user_media is an ordered list of
-				// WPMediaVerse media ids (privacy already applied upstream);
-				// MediaRenderer::gallery() emits lightbox-bound tiles, video,
-				// and audio. No WPMediaVerse markup/JS — BuddyNext owns the UX.
-				if ( ! empty( $bn_user_media ) ) {
-					// Frame the gallery in a card so the Media tab matches the other
-					// profile tabs (Posts/Likes render framed cards); the bare tile
-					// grid alone read as unstyled "naked" content.
-					echo '<div class="bn-card bn-profile-media-card">';
-					echo \BuddyNext\Media\MediaRenderer::gallery( array_map( 'absint', (array) $bn_user_media ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer emits pre-sanitized markup.
-					echo '</div>';
-				} else {
-					?>
-					<div class="bn-empty-state">
-						<div class="bn-empty-icon" aria-hidden="true"><?php buddynext_icon( 'image' ); ?></div>
-						<div class="bn-empty-title"><?php esc_html_e( 'No media uploaded yet.', 'buddynext' ); ?></div>
-					</div>
-					<?php
-				}
+				// Full media surface: Media | Albums sub-nav, the owner upload
+				// composer + gallery, and the albums UI (cards/create/detail/picker).
+				// BuddyNext owns the whole experience; no WPMediaVerse markup/JS.
+				buddynext_get_template(
+					'partials/media-tab.php',
+					array(
+						'bn_mt_owner_id'  => $bn_pf_uid,
+						'bn_mt_is_owner'  => $bn_pf_is_owner,
+						'bn_mt_media_ids' => (array) $bn_user_media,
+					)
+				);
 				?>
 			</div>
 

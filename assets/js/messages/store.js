@@ -18,6 +18,10 @@
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnReportDialog, bnToast } from '../shell/dialog.js';
 import { restFetch } from '../shell/rest-client.js';
+// Shared client-side thumbnail only — DM upload stays on MediaVerse's own
+// conversation-scoped (privacy:'dm') endpoint; this just unifies the fast
+// small preview so a large attachment doesn't decode full-res into the chip.
+import { makeThumb } from '../media/upload-core.js';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -1177,8 +1181,10 @@ const messagesStore = store( 'buddynext/messages', {
 			ctx.attachmentName    = file.name;
 			ctx.attachmentVisible = true;
 			ctx.attachmentId      = 0;
-			ctx.attachmentPreview = ( file.type.indexOf( 'image/' ) === 0 && window.URL )
-				? URL.createObjectURL( file )
+			// Fast small client preview (shared core) — replaces a full-res object
+			// URL so a large image doesn't decode megapixels into the tiny chip.
+			ctx.attachmentPreview = ( file.type.indexOf( 'image/' ) === 0 )
+				? await makeThumb( file )
 				: '';
 
 			const fd = new FormData();
