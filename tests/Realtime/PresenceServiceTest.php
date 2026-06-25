@@ -84,6 +84,29 @@ class PresenceServiceTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Recent-online IDs are the most-recently-active users, newest first,
+	 * bounded by the limit and excluding users outside the window.
+	 *
+	 * @return void
+	 */
+	public function test_recent_online_ids_is_bounded_and_ordered(): void {
+		$old    = self::factory()->user->create();
+		$mid    = self::factory()->user->create();
+		$newest = self::factory()->user->create();
+		$stale  = self::factory()->user->create();
+
+		$now = time();
+		PresenceService::write( $old, $now - 200 );
+		PresenceService::write( $mid, $now - 100 );
+		PresenceService::write( $newest, $now - 1 );
+		PresenceService::write( $stale, $now - 10000 ); // Outside the 300s window.
+
+		$top2 = PresenceService::recent_online_ids( 2 );
+		$this->assertSame( array( $newest, $mid ), $top2, 'Returns the 2 most-recently-active, newest first.' );
+		$this->assertNotContains( $stale, PresenceService::recent_online_ids( 10 ), 'Stale users are excluded.' );
+	}
+
+	/**
 	 * Upsert via write() only ever advances last_active (GREATEST).
 	 *
 	 * @return void
