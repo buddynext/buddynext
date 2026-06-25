@@ -1,5 +1,11 @@
 # How to run the BuddyNext Playwright suite
 
+> This doc covers the **browser/Playwright E2E** suite. For the **PHPUnit
+> data-flow + cache-flow tests** (counters, presence, follows, segments,
+> object-cache groups/TTL/invalidation) and the portable Docker-MySQL test-env
+> setup that works on any Mac, see
+> [`DATA-AND-CACHE-FLOW-TESTING.md`](./DATA-AND-CACHE-FLOW-TESTING.md).
+
 ## Prerequisites
 
 - Local by Flywheel running and `buddynext-dev.local` resolves on this machine.
