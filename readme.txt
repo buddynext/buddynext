@@ -4,7 +4,7 @@ Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 1.0.2
+Stable tag: 1.0.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,6 +55,23 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.0.3 - June 2026 =
+
+Member media uploads and albums on the profile, plus large-community scale and stability fixes.
+
+* New      - Members can upload photos and videos from their profile Media tab, choose who can see each upload, and the media appears in the activity feed right away.
+* New      - Albums on the profile Media tab: create albums, add and remove media, set a cover, drag to reorder, rename, change privacy, and delete.
+* Improve  - Photo and video previews now generate a fast downscaled thumbnail, so uploads on the Media tab, the feed composer, and direct messages feel instant.
+* Improve  - Member-directory results refresh immediately after a block or unblock instead of serving a stale cached list.
+* Fix      - The profile display-name field no longer reverts to the login name when you click away, so members can change their name.
+* Fix      - A video without a poster image now shows a generated thumbnail instead of a black tile.
+* Fix      - Editing or deleting a comment you do not own returns a clear permission message instead of a server error.
+* Fix      - Ending or dismissing an announcement updates the home feed straight away.
+* Fix      - Type-scoped search for members, spaces, and posts returns results whether the type is named in singular or plural form.
+* Fix      - Appeal decisions and member warnings are now recorded correctly in the moderation audit log.
+* Fix      - Hardened activity hooks so a third-party listener can no longer trigger a fatal error when a post is created.
+* Compat   - Pairs with BuddyNext Pro 1.0.3. Install both updates together.
 
 = 1.0.2 - June 2026 =
 
