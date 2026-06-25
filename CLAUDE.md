@@ -17,6 +17,14 @@ Enterprise-grade social community platform for WordPress (free + pro). Owned by 
 
 ---
 
+## Recent Changes
+
+| Date | Branch | Change |
+|---|---|---|
+| 2026-06-25 | 1.0.3 | Scale audit on a 100k-user Docker lab under the Reign host theme. Fixed 7 bugs (commit `bf7f6811`): comment edit/delete by non-owner 500→403 (+404/400); member-directory result cache now busts on block/unblock via a per-viewer version salt (`MemberDirectoryService`); announcement dismiss/end now bust the page-1 home-feed cache (`FeedService::flush_home_cache`/`flush_all_home_caches`); type-scoped search normalizes plural→singular `object_type` (`SearchService::normalize_object_type`); appeal decide writes both audit column pairs; member warning writes a single `bn_mod_log` row; all `buddynext_post_created` listeners default trailing params so a 2-arg `do_action` can't fatal. Added regression tests (full free suite 1194 passing) and refreshed 9 `docs/journeys/` runbooks to match 1.0.3. |
+
+---
+
 ## Product Scope & Validity Bar — Judge Every Request Against This
 
 **Model = mainstream social: Facebook, X (Twitter), LinkedIn.** We are NOT building a complex or niche community. If a request adds complexity those platforms don't have, it is out of scope by default. (The UX-parity bar is separately noted under *Premium UX* and *Design System Tokens* — this section is about deciding what is a real defect / in-scope ask in the first place.)
