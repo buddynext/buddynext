@@ -93,6 +93,28 @@ class FollowService {
 			);
 		}
 
+		// Follow cap. Bounds a member's following set so the home-feed
+		// "people I follow" subquery (FeedService) can never degrade for someone
+		// following tens of thousands of accounts. 5,000 matches the mainstream
+		// social norm (Facebook/X/LinkedIn sit in this range); filterable per
+		// site, and 0 disables the cap. The count is the cached approved-following
+		// total, so this guard is effectively free. Skipped when re-following an
+		// already-followed account (INSERT IGNORE is a no-op there anyway).
+		$cap = (int) apply_filters( 'buddynext_max_following', 5000, $follower_id );
+		if ( $cap > 0
+			&& ! $this->is_following( $follower_id, $following_id )
+			&& $this->following_count( $follower_id ) >= $cap ) {
+			return new WP_Error(
+				'follow_limit_reached',
+				sprintf(
+					/* translators: %s: maximum number of accounts a member may follow. */
+					__( 'You can follow up to %s accounts. Unfollow someone to follow more.', 'buddynext' ),
+					number_format_i18n( $cap )
+				),
+				array( 'status' => 422 )
+			);
+		}
+
 		global $wpdb;
 
 		$status = $this->is_private_account( $following_id ) ? 'pending' : 'approved';
