@@ -97,32 +97,27 @@ class TemplateLoaderTest extends \WP_UnitTestCase {
 	/**
 	 * render() outputs no actual template content when the template does not exist.
 	 *
-	 * In WP_DEBUG mode a HTML comment is emitted; production outputs nothing.
-	 * Either way, there should be no meaningful content beyond the debug comment.
+	 * In WP_DEBUG mode a HTML comment is emitted; production returns an empty
+	 * string. Either way, there should be no meaningful content beyond the
+	 * debug comment.
 	 */
 	public function test_render_silent_for_missing_template(): void {
-		ob_start();
-		$this->loader->render( 'nonexistent/missing.php' );
-		$output = ob_get_clean();
+		$output = $this->loader->render( 'nonexistent/missing.php' );
 		// Strip any debug HTML comment — the meaningful assertion is that no
 		// template content was produced.
-		$stripped = preg_replace( '/<!--.*?-->/s', '', (string) $output );
-		$this->assertSame( '', trim( (string) $stripped ) );
+		$stripped = preg_replace( '/<!--.*?-->/s', '', $output );
+		$this->assertSame( '', trim( $stripped ) );
 	}
 
 	/**
-	 * render() includes the template file and produces its output.
+	 * render() includes the template file and returns its output.
 	 */
 	public function test_render_includes_template_and_outputs_content(): void {
 		$file = $this->tmp_dir . '/test.php';
 		file_put_contents( $file, '<?php echo "hello from template"; ?>' );
 
-		// Temporarily override the templates_dir via a filter.
 		$loader = $this->make_loader_with_dir( $this->tmp_dir . '/' );
-
-		ob_start();
-		$loader->render( 'test.php' );
-		$output = ob_get_clean();
+		$output = $loader->render( 'test.php' );
 		$this->assertSame( 'hello from template', $output );
 	}
 
@@ -135,15 +130,13 @@ class TemplateLoaderTest extends \WP_UnitTestCase {
 
 		$loader = $this->make_loader_with_dir( $this->tmp_dir . '/' );
 
-		ob_start();
-		$loader->render(
+		$output = $loader->render(
 			'vars.php',
 			array(
 				'greeting' => 'Hello',
 				'name'     => 'World',
 			)
 		);
-		$output = ob_get_clean();
 		$this->assertSame( 'Hello World', $output );
 	}
 
@@ -187,31 +180,6 @@ class TemplateLoaderTest extends \WP_UnitTestCase {
 
 		$loader->render( 'hook-after.php' );
 		$this->assertTrue( $fired );
-	}
-
-	// ── capture() ─────────────────────────────────────────────────────────────
-
-	/**
-	 * capture() returns the template output as a string.
-	 */
-	public function test_capture_returns_template_output_as_string(): void {
-		$file = $this->tmp_dir . '/capture.php';
-		file_put_contents( $file, '<?php echo "captured"; ?>' );
-
-		$loader = $this->make_loader_with_dir( $this->tmp_dir . '/' );
-		$result = $loader->capture( 'capture.php' );
-		$this->assertSame( 'captured', $result );
-	}
-
-	/**
-	 * capture() returns no meaningful content when the template does not exist.
-	 *
-	 * WP_DEBUG may emit a HTML comment; strip it and verify no template output.
-	 */
-	public function test_capture_returns_empty_string_for_missing_template(): void {
-		$result   = $this->loader->capture( 'nonexistent/missing.php' );
-		$stripped = preg_replace( '/<!--.*?-->/s', '', $result );
-		$this->assertSame( '', trim( (string) $stripped ) );
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────

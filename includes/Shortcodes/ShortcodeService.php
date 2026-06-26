@@ -386,6 +386,6 @@ class ShortcodeService {
 	 */
 	private function capture( string $relative, array $variables, bool $with_main = true ): string {
 		$loader = Container::instance()->get( 'template_loader' );
-		return $this->wrap_embedded( $loader->capture( $relative, $variables ), $with_main );
+		return $this->wrap_embedded( $loader->render( $relative, $variables ), $with_main );
 	}
 }

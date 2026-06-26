@@ -14,7 +14,7 @@ Every BuddyNext template is loaded by `BuddyNext\Core\TemplateLoader` (`includes
 
 So to override `templates/parts/member-card.php`, you create `{your-theme}/buddynext/parts/member-card.php`. The subpath under `buddynext/` mirrors the subpath under the plugin's `templates/` directory exactly - keep `parts/`, `partials/`, `feed/`, `spaces/`, and so on.
 
-The loader is reached through `buddynext_get_template( $relative, $vars )` (templates and parts) and `buddynext_service( 'template_loader' )->capture()` (string capture, used by shortcodes). Both run the same `locate()` resolution, so an override applies on every surface that renders the template.
+The loader is reached through `buddynext_get_template( $relative, $vars )` (templates and parts) and `buddynext_service( 'template_loader' )->render()` (string capture, used by shortcodes). Both run the same `locate()` resolution, so an override applies on every surface that renders the template.
 
 ## Workflow
 
@@ -63,6 +63,37 @@ add_action( 'buddynext_after_template', static function ( string $path, string $
 ```
 
 This is update-safe (no copied file to drift) and is the right tool whenever wrapping is enough. For changing a card's body, prefer the part hooks (see Customizing cards and template parts) over a full override; reserve a copied override for genuine layout rewrites.
+
+### Transform rendered output with a filter
+
+A copied template is frozen at copy time — if the plugin ships a markup change in a future release, your override keeps the old HTML and silently drifts out of sync. The `buddynext_template_output` filter avoids that entirely: instead of replacing the template file, you transform its output on top of whatever the current version produces. Your transformation stays compatible across updates because it operates on the live rendered HTML, not a snapshot.
+
+`TemplateLoader::render()` applies this filter to the complete output string before returning it. Because the output is captured as a string, you can process it through the **WP HTML API** (6.7+) — the canonical way to read and modify HTML in WordPress. The HTML API is tag-aware, handles nesting correctly, and never relies on regex, so transformations that would be fragile or impossible with string patterns become straightforward and safe.
+
+| Filter | Parameters |
+| --- | --- |
+| `buddynext_template_output` | `string $output, string $relative, string $path, array $variables` |
+
+Example — add `loading="lazy"` to every image in the home feed:
+
+```php
+add_filter( 'buddynext_template_output', static function ( string $output, string $relative ): string {
+    if ( 'feed/home.php' !== $relative ) {
+        return $output;
+    }
+
+    $processor = new \WP_HTML_TagProcessor( $output );
+    while ( $processor->next_tag( 'img' ) ) {
+        $processor->set_attribute( 'loading', 'lazy' );
+    }
+
+    return $processor->get_updated_html();
+}, 10, 2 );
+```
+
+Unlike the before/after actions, the filter receives the full, assembled HTML — including anything that hooks injected via those actions — as a single string. This makes it the right choice for post-processing, content transformation, and fragment caching. The `$variables` parameter gives access to the original template context (user IDs, post data, etc.) for conditional logic.
+
+For simple wrapping, prefer the before/after actions above — they are lighter and more obvious. Reserve the filter for cases where you genuinely need to read or restructure the rendered HTML.
 
 ## The template tree
 

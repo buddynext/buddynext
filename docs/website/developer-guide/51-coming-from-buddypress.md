@@ -116,6 +116,8 @@ The resolution order is:
 
 So to override the home feed, copy `templates/feed/home.php` from the plugin to `{your-child-theme}/buddynext/feed/home.php` and edit the copy. Templates receive their data as pre-extracted variables (the loader imports only valid identifier keys) and must never run `$wpdb` queries - data comes from a service. For the full override workflow, the variable contract, and which templates are safe to override, see the Child Theme Template Overrides page.
 
+A copied template is frozen at copy time — if BuddyNext's template markup changes in a future release, your override keeps the old HTML and drifts out of sync. For safer, update-compatible customizations that operate on the rendered output rather than replacing the source file, use the `buddynext_template_output` filter — see the *Transform rendered output with a filter* section of the Child Theme Overrides page. This approach also enables use of the WP HTML API for structural changes that would be fragile or impossible with string regex.
+
 ## 4. REST API
 
 BuddyPress exposes routes under `buddypress/v1` and still leans on `admin-ajax.php` for much of its frontend. BuddyNext is REST-first and admin-ajax-free: every template, frontend script, admin script, and block view-script talks to `buddynext/v1` (free) or `buddynext-pro/v1` (pro). A CI gate (`bin/check-rest-boundary.sh`) enforces that no `wp_ajax_*` handler, `ajaxurl`, or `check_ajax_referer()` is used on the frontend.
