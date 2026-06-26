@@ -902,10 +902,16 @@ class PageRouter {
 		}
 
 		// Client-side navigation action — owns the .bn-app navigate handler and
-		// lazy-loads the Interactivity router. Enqueued on every hub so the
-		// action exists site-wide; inert until the buddynext_client_nav_enabled
-		// rollout switch is flipped (per-surface, after Phase 3 hardening).
-		wp_enqueue_script_module( '@buddynext/navigate' );
+		// lazy-loads the Interactivity router. Loaded ONLY when client-nav is
+		// enabled. While it is off (the rollout default), hub-shell.php does not
+		// render the navigate directive, so the module would have no consumer —
+		// shipping it would be a dead asset on every visitor's page. Gate on the
+		// same buddynext_client_nav_enabled filter the shell reads so the enqueue
+		// and the directive stay in lockstep.
+		$bn_client_nav = (bool) apply_filters( 'buddynext_client_nav_enabled', false );
+		if ( $bn_client_nav ) {
+			wp_enqueue_script_module( '@buddynext/navigate' );
+		}
 
 		// Localize REST endpoints + nav URLs for shell/extras.js.
 		//
@@ -943,7 +949,7 @@ class PageRouter {
 			// exact bug class the standard prevents). The navigate action is
 			// wired and inert until this flips true. Filterable for staged
 			// activation once surfaces are verified.
-			'clientNav'          => (bool) apply_filters( 'buddynext_client_nav_enabled', false ),
+			'clientNav'          => $bn_client_nav,
 			// Deny-list path prefixes for the client-side navigate action.
 			// Routes matching these full-load instead of client-navigating
 			// (rich editors + security-sensitive flows). Resolved server-side

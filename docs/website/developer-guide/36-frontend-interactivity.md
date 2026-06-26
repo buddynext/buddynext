@@ -102,6 +102,8 @@ Mutating `ctx.isFollowing` re-runs the `buttonClass` and `label` getters, so the
 
 ## Client-side navigation
 
+> **Status: off by default, and not a user setting.** Client-side navigation is an internal, staged-rollout feature controlled by the `buddynext_client_nav_enabled` PHP filter (default `false`). There is no admin or UI toggle for it. While it is off, `navigate.js` is not enqueued and the `.bn-app` shell renders as a normal server-rendered page, so every in-app click is a full-page load. Do not expect client-side navigation on a stock install. Flip the filter only for surfaces you have verified are navigation-safe (see "Keeping imperative code navigation-safe" below).
+
 When client-side navigation is enabled, the `.bn-app` shell carries `data-wp-interactive="buddynext"` and `data-wp-on--click="actions.navigate"`, and the main column is wrapped in a single router region: `<main data-wp-router-region="buddynext/main">`. Clicking an in-app link swaps only that region instead of reloading the document.
 
 How it works (`assets/js/shell/navigate.js`):
@@ -114,7 +116,7 @@ How it works (`assets/js/shell/navigate.js`):
 
 Navigation uses a **deny-list, not an allow-list**, so new routes are fast by default. Only rich-editor and security-sensitive routes full-load: profile edit, space settings/admin, single-post permalinks (`/p/{id}/`), membership checkout, and the auth/signup/verify/onboarding flows. Integration surfaces register their own deny entries through the `buddynext_client_nav_deny` filter, so a newly bridged plugin's editor routes are respected without editing the shell.
 
-Client-side navigation is gated behind the `buddynext_client_nav_enabled` filter and the `window.bnShellData.clientNav` switch (staged activation per surface). While off, every click falls through to a normal navigation and the shell renders exactly as a static page.
+Client-side navigation is gated behind the `buddynext_client_nav_enabled` filter and the `window.bnShellData.clientNav` switch (staged activation per surface). While off, `navigate.js` is not enqueued at all, every click falls through to a normal navigation, and the shell renders exactly as a static page.
 
 ### Keeping imperative code navigation-safe
 
