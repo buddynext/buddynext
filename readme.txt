@@ -71,6 +71,7 @@ Member media uploads and albums on the profile, plus large-community scale and s
 * Fix      - Posting a poll without a question now shows a prompt to add one, instead of the Post button doing nothing.
 * Fix      - The emoji button in the comment box now lines up with the send button.
 * Fix      - The profile editor no longer warns about unsaved changes after you have already saved.
+* Fix      - If the bundled licensing and update SDK is ever incomplete, the site stays up with a notice instead of a critical error.
 * Fix      - Editing or deleting a comment you do not own returns a clear permission message instead of a server error.
 * Fix      - Ending or dismissing an announcement updates the home feed straight away.
 * Fix      - Type-scoped search for members, spaces, and posts returns results whether the type is named in singular or plural form.

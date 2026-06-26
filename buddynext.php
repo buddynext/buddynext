@@ -102,8 +102,25 @@ if ( file_exists( BUDDYNEXT_DIR . 'libs/action-scheduler/action-scheduler.php' )
 	require_once BUDDYNEXT_DIR . 'libs/action-scheduler/action-scheduler.php';
 }
 
-if ( file_exists( BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php' ) ) {
+// Load the vendored EDD SL SDK only when the package is COMPLETE. A partial
+// build or extract that keeps the entry file but drops libs/edd-sl-sdk/src would
+// fatal inside the SDK the moment it instantiates a src class (the failure mode
+// that has bitten stripped bundled-SDK releases). Guard on the source being
+// present and degrade to "updates disabled" with a soft admin notice instead of
+// a white screen — licensing only gates updates, never features, so the
+// community keeps working.
+if ( file_exists( BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php' )
+	&& file_exists( BUDDYNEXT_DIR . 'libs/edd-sl-sdk/src/Versions.php' ) ) {
 	require_once BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php';
+} elseif ( is_admin() ) {
+	add_action(
+		'admin_notices',
+		static function () {
+			echo '<div class="notice notice-warning"><p>'
+				. esc_html__( 'BuddyNext: the bundled licensing and update SDK is incomplete, so automatic updates are turned off. Reinstall the plugin from a complete package to restore them. Every other feature works normally.', 'buddynext' )
+				. '</p></div>';
+		}
+	);
 }
 
 // Apply pending DB schema upgrades on a plain plugin update (no deactivate/
