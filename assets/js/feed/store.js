@@ -2015,6 +2015,14 @@ try {
 // global. Each composer is keyed by the user_id of the current viewer so
 // switching accounts on the same browser keeps drafts isolated.
 function restoreDraftsOnLoad() {
+	// ?compose= deep-link target. Written by the mobile "Create post" nav item,
+	// the hashtag "post with this tag" action, and the share/extras entry points,
+	// but previously had no consumer (silent no-op). "1" = just open the composer;
+	// any other value pre-fills that text (e.g. "#tag ").
+	let composeParam = null;
+	try { composeParam = new URLSearchParams( window.location.search ).get( 'compose' ); }
+	catch ( _e ) { composeParam = null; }
+
 	const composers = document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"]:not([data-bn-draft-wired])' );
 	composers.forEach( ( el ) => {
 		el.dataset.bnDraftWired = '1';
@@ -2051,6 +2059,34 @@ function restoreDraftsOnLoad() {
 			return;
 		}
 
+		// ?compose= deep-link: open the general feed composer ready to type.
+		// "?compose=1" focuses it; "?compose=<text>" pre-fills that text (the
+		// hashtag "post with this tag" flow). General feed composer only, never
+		// a space composer. Focus runs in rAF so it lands after the value is set.
+		if ( composeParam !== null && ( ctxData.spaceId === null || ctxData.spaceId === undefined ) ) {
+			const composePrefill = '1' === composeParam ? '' : composeParam;
+			if ( composePrefill && textarea ) {
+				textarea.value  = composePrefill;
+				ctxData.content = composePrefill;
+				try { el.setAttribute( 'data-wp-context', JSON.stringify( ctxData ) ); }
+				catch ( _e ) {}
+			}
+			if ( textarea ) {
+				window.requestAnimationFrame( () => {
+					textarea.focus();
+					const composeEnd = textarea.value.length;
+					try { textarea.setSelectionRange( composeEnd, composeEnd ); } catch ( _e ) {}
+					textarea.scrollIntoView( { block: 'center' } );
+				} );
+			}
+			// A text prefill is an explicit "start this post" intent — skip the
+			// draft restore so it isn't overwritten. A bare "?compose=1" falls
+			// through so any saved draft is still restored under the focus.
+			if ( composePrefill ) {
+				return;
+			}
+		}
+
 		const draft = readDraft( userId );
 		if ( ! draft || ! draft.content ) {
 			return;
@@ -2076,6 +2112,16 @@ function restoreDraftsOnLoad() {
 		try {
 			const url = new URL( window.location.href );
 			url.searchParams.delete( 'mention' );
+			window.history.replaceState( {}, '', url.toString() );
+		} catch ( _e ) {}
+	}
+
+	// Drop ?compose= for the same reason — a refresh or shared link shouldn't
+	// re-open/re-prefill the composer once it's been consumed.
+	if ( composeParam !== null ) {
+		try {
+			const url = new URL( window.location.href );
+			url.searchParams.delete( 'compose' );
 			window.history.replaceState( {}, '', url.toString() );
 		} catch ( _e ) {}
 	}
