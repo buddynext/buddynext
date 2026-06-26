@@ -62,10 +62,15 @@ Member media uploads and albums on the profile, plus large-community scale and s
 
 * New      - Members can upload photos and videos from their profile Media tab, choose who can see each upload, and the media appears in the activity feed right away.
 * New      - Albums on the profile Media tab: create albums, add and remove media, set a cover, drag to reorder, rename, change privacy, and delete.
+* New      - Links you paste into a post or comment now turn into clickable links.
 * Improve  - Photo and video previews now generate a fast downscaled thumbnail, so uploads on the Media tab, the feed composer, and direct messages feel instant.
 * Improve  - Member-directory results refresh immediately after a block or unblock instead of serving a stale cached list.
+* Improve  - The mobile bottom navigation bar is taller with larger tap targets, and the center Create button opens the composer ready to type.
 * Fix      - The profile display-name field no longer reverts to the login name when you click away, so members can change their name.
 * Fix      - A video without a poster image now shows a generated thumbnail instead of a black tile.
+* Fix      - Posting a poll without a question now shows a prompt to add one, instead of the Post button doing nothing.
+* Fix      - The emoji button in the comment box now lines up with the send button.
+* Fix      - The profile editor no longer warns about unsaved changes after you have already saved.
 * Fix      - Editing or deleting a comment you do not own returns a clear permission message instead of a server error.
 * Fix      - Ending or dismissing an announcement updates the home feed straight away.
 * Fix      - Type-scoped search for members, spaces, and posts returns results whether the type is named in singular or plural form.
