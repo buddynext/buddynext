@@ -492,7 +492,6 @@ The EDD Software Licensing SDK is vendored at `libs/edd-sl-sdk/` (committed, shi
 | `bn_mod_log` | 8 — Moderation |
 | `bn_user_strikes` | 8 — Moderation |
 | `bn_activity_log` | 1 — Core |
-| `bn_feed_items` | 3 — Feed cache (>1M members) |
 
 DM tables live in WPMediaVerse (`mvs_conversations`, `mvs_messages`, etc.) — BuddyNext is UI layer only for DM.
 

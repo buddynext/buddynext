@@ -58,7 +58,8 @@
         "members/06-following.md",
         "members/07-connections.md",
         "members/08-blocking-and-muting.md",
-        "members/09-presence-online.md"
+        "members/09-presence-online.md",
+        "members/10-profile-media-and-albums.md"
       ]
     },
     {
@@ -167,6 +168,7 @@
         "developer-guide/15-rest-feed-posts.md",
         "developer-guide/16-rest-spaces.md",
         "developer-guide/17-rest-members-profiles.md",
+        "developer-guide/17b-rest-media-albums.md",
         "developer-guide/18-rest-social-graph.md",
         "developer-guide/19-rest-notifications.md",
         "developer-guide/20-rest-moderation-trust.md",
