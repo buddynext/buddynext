@@ -2119,10 +2119,18 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	background: var(--bn-sunken, color-mix(in oklab, var(--bn-accent) 6%, transparent));
 	border-radius: var(--r-sm, 4px);
 }
-.bn-md-link {
+.bn-md-link,
+.bn-autolink {
 	color: var(--bn-accent);
 	text-decoration: underline;
 	text-underline-offset: 2px;
+}
+
+/* Long pasted URLs must wrap inside the post/comment body instead of
+   overflowing the card or clamping mid-glyph. */
+.bn-autolink {
+	word-break: break-word;
+	overflow-wrap: anywhere;
 }
 
 /* Reactor list popover — opens when a user clicks the per-emoji

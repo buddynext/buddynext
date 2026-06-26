@@ -834,6 +834,51 @@ function buddynext_format_content( string $content ): string {
 		$escaped
 	);
 
+	// Auto-linkify bare URLs (a pasted http(s):// link rendered as plain text).
+	// Members expect links to be clickable like every social platform. The
+	// resulting anchor is tokenized (like code above) so the hashtag/mention
+	// passes below cannot nest a link inside a URL that itself contains a
+	// "#fragment" or "@". The (?<!\]\() lookbehind skips a URL that is the
+	// target of a [label](url) markdown link, leaving that to the dedicated
+	// markdown pass that follows. The text was already htmlspecialchars-escaped,
+	// so the href is decoded then re-validated with esc_url().
+	$link_segments = array();
+	$escaped       = preg_replace_callback(
+		'#(?<!\]\()\bhttps?://[^\s<\x01]+#u',
+		static function ( array $m ) use ( &$link_segments ): string {
+			$url   = $m[0];
+			$trail = '';
+			// Trailing sentence punctuation is almost never part of the URL.
+			$last = '' !== $url ? substr( $url, -1 ) : '';
+			while ( '' !== $last && false !== strpbrk( $last, '.,!?' ) ) {
+				$trail = $last . $trail;
+				$url   = substr( $url, 0, -1 );
+				$last  = '' !== $url ? substr( $url, -1 ) : '';
+			}
+			// Drop a single unbalanced closing bracket (URL written in parens).
+			foreach ( array(
+				')' => '(',
+				']' => '[',
+				'}' => '{',
+			) as $close => $open ) {
+				$last = '' !== $url ? substr( $url, -1 ) : '';
+				while ( $close === $last && substr_count( $url, $close ) > substr_count( $url, $open ) ) {
+					$trail = $close . $trail;
+					$url   = substr( $url, 0, -1 );
+					$last  = '' !== $url ? substr( $url, -1 ) : '';
+				}
+			}
+			$href = '' !== $url ? esc_url( html_entity_decode( $url, ENT_NOQUOTES, 'UTF-8' ) ) : '';
+			if ( '' === $href ) {
+				return $m[0];
+			}
+			$idx                   = count( $link_segments );
+			$link_segments[ $idx ] = '<a href="' . $href . '" class="bn-autolink" rel="noopener nofollow ugc">' . $url . '</a>';
+			return "\x01LINK{$idx}\x01" . $trail;
+		},
+		$escaped
+	);
+
 	// Markdown link: [label](https://url) — only matches valid http(s) URLs
 	// to prevent javascript: vectors. The label allows arbitrary printable
 	// characters except `]`.
@@ -877,6 +922,19 @@ function buddynext_format_content( string $content ): string {
 		},
 		$escaped
 	);
+
+	// Restore tokenized bare-URL anchors. Done before code restore; neither
+	// placeholder set can appear inside the other.
+	if ( ! empty( $link_segments ) ) {
+		$escaped = preg_replace_callback(
+			'/\x01LINK(\d+)\x01/',
+			static function ( array $m ) use ( $link_segments ): string {
+				$idx = (int) $m[1];
+				return $link_segments[ $idx ] ?? '';
+			},
+			$escaped
+		);
+	}
 
 	// Restore code placeholders. Done last so the <code> markup is opaque to
 	// all other regexes above.
