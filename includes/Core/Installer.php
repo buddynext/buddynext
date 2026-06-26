@@ -1460,10 +1460,10 @@ if ( is_admin() || ( defined( 'WP_CLI' ) && WP_CLI ) ) {
 /**
  * Determine whether the current HTTP request targets a BuddyNext front-end route.
  *
- * Queries wp_options directly via $wpdb — WordPress option API is not yet
- * available this early in the bootstrap sequence.
- *
- * Uses a static guard so the DB query runs at most once per request.
+ * Reads the autoloaded buddynext_slug_* options via the options API, so the
+ * lookup is served from the single alloptions cache WordPress loads each request
+ * (no extra query) and from the object cache on Redis/Memcached sites. A static
+ * guard ensures the work runs at most once per request.
  *
  * @return bool
  */
@@ -1483,39 +1483,12 @@ function buddynext_mu_is_bn_request() {
 		return false;
 	}
 
-	global $wpdb;
-
-	// Fetch all six slug options in a single query.
-	$option_names = array(
-		'buddynext_slug_activity',
-		'buddynext_slug_people',
-		'buddynext_slug_spaces',
-		'buddynext_slug_messages',
-		'buddynext_slug_notifications',
-		'buddynext_slug_auth',
-	);
-
-	$placeholders = implode( ', ', array_fill( 0, count( $option_names ), "'%s'" ) );
-
-	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-	$rows = $wpdb->get_results(
-		$wpdb->prepare(
-			"SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name IN ( {$placeholders} )",
-			$option_names
-		),
-		ARRAY_A
-	);
-	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-
-	// Build a map of option_name => value, then merge with hard-coded defaults.
-	$fetched = array();
-	if ( is_array( $rows ) ) {
-		foreach ( $rows as $row ) {
-			$fetched[ $row['option_name'] ] = $row['option_value'];
-		}
-	}
-
-	$defaults = array(
+	// Read the six hub slugs via the options API. They are autoloaded, so this
+	// is served from the single alloptions cache WordPress already loads each
+	// request (no extra query) and from the object cache on Redis/Memcached
+	// sites. The option_active_plugins filter below is registered only AFTER
+	// this function returns, so reading options here cannot recurse into it.
+	$slug_defaults = array(
 		'buddynext_slug_activity'      => 'activity',
 		'buddynext_slug_people'        => 'members',
 		'buddynext_slug_spaces'        => 'spaces',
@@ -1524,12 +1497,15 @@ function buddynext_mu_is_bn_request() {
 		'buddynext_slug_auth'          => 'login',
 	);
 
-	$slugs = array_merge( $defaults, $fetched );
+	foreach ( $slug_defaults as $option_name => $default_slug ) {
+		$slug = trim( (string) get_option( $option_name, $default_slug ) );
+		if ( '' === $slug ) {
+			$slug = $default_slug;
+		}
 
-	foreach ( $slugs as $slug ) {
 		// Match the first path segment exactly — not a bare prefix — so a page
-		// like /membership/ does not get isolated by the 'members' slug.
-		if ( '' !== $slug && ( $path === $slug || 0 === strpos( $path, $slug . '/' ) ) ) {
+		// like /membership/ is not isolated by the 'members' slug.
+		if ( $path === $slug || 0 === strpos( $path, $slug . '/' ) ) {
 			$result = true;
 			return true;
 		}
@@ -1592,13 +1568,12 @@ if ( buddynext_mu_is_bn_request() ) {
 			);
 
 			// Plus any dynamic / 3rd-party additions BuddyNext mirrors into the
-			// `buddynext_isolation_plugins` option (raw SQL: the WP option API is not
-			// available this early). The hard-coded family above is the floor; this
-			// merge only adds extras a filter contributed at runtime.
-			global $wpdb;
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-			$json         = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = 'buddynext_isolation_plugins' LIMIT 1" );
-			$integrations = is_string( $json ) ? json_decode( $json, true ) : null;
+			// `buddynext_isolation_plugins` option. Read via the options API so it
+			// rides the object cache (Redis/Memcached) instead of a raw query. The
+			// hard-coded family above is the floor; this merge only adds extras a
+			// filter contributed at runtime.
+			$stored       = get_option( 'buddynext_isolation_plugins', '' );
+			$integrations = is_string( $stored ) ? json_decode( $stored, true ) : $stored;
 			if ( ! is_array( $integrations ) ) {
 				$integrations = array();
 			}
