@@ -511,7 +511,8 @@ function buddynext_get_template( string $relative, array $vars = array() ): void
 		echo '<p class="buddynext-editor-loading">' . esc_html__( 'BuddyNext loading…', 'buddynext' ) . '</p>';
 		return;
 	}
-	buddynext_service( 'template_loader' )->render( $relative, $vars );
+	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- template output is escaped within templates.
+	echo buddynext_service( 'template_loader' )->render( $relative, $vars );
 }
 
 /**

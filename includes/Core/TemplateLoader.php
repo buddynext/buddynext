@@ -67,22 +67,24 @@ class TemplateLoader {
 	}
 
 	/**
-	 * Render a template, passing variables into its scope.
+	 * Render a template, passing variables into its scope and returning the output as a string.
 	 *
 	 * @param string               $relative  Relative template path (e.g. 'feed/home.php').
 	 * @param array<string, mixed> $variables Variables to extract into the template scope.
-	 * @return void
+	 * @return string Rendered HTML. Empty string when the template is not found.
 	 */
-	public function render( string $relative, array $variables = array() ): void {
+	public function render( string $relative, array $variables = array() ): string {
 		$path = $this->locate( $relative );
 
 		if ( null === $path ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-				echo '<!-- BuddyNext: template not found: ' . esc_html( $relative ) . ' -->' . "\n";
+				return '<!-- BuddyNext: template not found: ' . esc_html( $relative ) . ' -->' . "\n";
 			}
-			return;
+			return '';
 		}
+
+		ob_start();
 
 		/**
 		 * Fires before a BuddyNext template is rendered.
@@ -117,18 +119,20 @@ class TemplateLoader {
 		 * @param string $relative Relative template identifier.
 		 */
 		do_action( 'buddynext_after_template', $path, $relative );
-	}
 
-	/**
-	 * Capture a template's output to a string.
-	 *
-	 * @param string               $relative  Relative template path.
-	 * @param array<string, mixed> $variables Variables to pass to the template.
-	 * @return string Rendered HTML.
-	 */
-	public function capture( string $relative, array $variables = array() ): string {
-		ob_start();
-		$this->render( $relative, $variables );
-		return (string) ob_get_clean();
+		$output = (string) ob_get_clean();
+
+		/**
+		 * Filters the rendered template output before it is returned.
+		 *
+		 * Enables structural HTML manipulation via the WP HTML API,
+		 * injection of analytics, and other content transformations.
+		 *
+		 * @param string               $output    Rendered HTML.
+		 * @param string               $relative  Template path relative to templates/.
+		 * @param string               $path      Absolute filesystem path.
+		 * @param array<string, mixed> $variables Variables passed to the template scope.
+		 */
+		return (string) apply_filters( 'buddynext_template_output', $output, $relative, $path, $variables );
 	}
 }

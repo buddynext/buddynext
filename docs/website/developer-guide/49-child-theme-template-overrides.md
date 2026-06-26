@@ -14,7 +14,7 @@ Every BuddyNext template is loaded by `BuddyNext\Core\TemplateLoader` (`includes
 
 So to override `templates/parts/member-card.php`, you create `{your-theme}/buddynext/parts/member-card.php`. The subpath under `buddynext/` mirrors the subpath under the plugin's `templates/` directory exactly - keep `parts/`, `partials/`, `feed/`, `spaces/`, and so on.
 
-The loader is reached through `buddynext_get_template( $relative, $vars )` (templates and parts) and `buddynext_service( 'template_loader' )->capture()` (string capture, used by shortcodes). Both run the same `locate()` resolution, so an override applies on every surface that renders the template.
+The loader is reached through `buddynext_get_template( $relative, $vars )` (templates and parts) and `buddynext_service( 'template_loader' )->render()` (string capture, used by shortcodes). Both run the same `locate()` resolution, so an override applies on every surface that renders the template.
 
 ## Workflow
 
