@@ -240,12 +240,12 @@
 
 ## What this validates
 
-- `ModerationService::create_report()` inserts into `bn_reports` and fires `buddynext_report_created(int $report_id, string $object_type, int $object_id, int $reporter_id)`.
-- `ModerationService::dismiss_report()` and `resolve_report()` update `bn_reports.status` and `resolved_by`/`resolved_at`.
+- `ModerationService::report()` inserts into `bn_reports` and fires `buddynext_report_created(int $report_id, string $object_type, int $object_id, int $reporter_id)`.
+- `ModerationService::dismiss()` and `resolve()` update `bn_reports.status` and `resolved_by`/`resolved_at`.
 - `ModerationService::issue_strike()` inserts into `bn_user_strikes` and fires `buddynext_strike_issued`.
 - `ModerationService::suspend_user()` inserts into `bn_user_suspensions` and fires `buddynext_user_suspended`.
 - `ModerationService::submit_appeal()` inserts into `bn_appeals` and fires `buddynext_appeal_submitted`.
-- `ModerationService::approve_appeal()` updates `bn_appeals.status` to `approved` and lifts the suspension.
+- `ModerationService::decide_appeal()` updates `bn_appeals.status` to `approved` and lifts the suspension (the `/appeals/{id}/approve` route calls `decide_appeal(..., 'approved', ...)`; the `/appeals/{id}/resolve` route calls `resolve_appeal()`).
 - `ModerationLogService` writes an immutable row to `bn_mod_log` for every moderation action.
 - All moderation REST endpoints require `is_user_logged_in`; queue/strike/suspend require `manage_options` or moderator capability.
 
@@ -364,7 +364,7 @@ DELETE FROM wp_bn_posts WHERE user_id = MEMBER2_ID AND space_id = SPACE_ID;
 
 ## Known limitations
 
-- `buddynext_user_warned`, `buddynext_user_shadow_banned`, `buddynext_appeal_submitted`, `buddynext_appeal_resolved` are marked as pending in HOOKS.md (BLOCK 2 tasks). Verify their implementation status before asserting fires.
+- `buddynext_user_warned`, `buddynext_user_shadow_banned`, `buddynext_appeal_submitted`, `buddynext_appeal_resolved` are all implemented and fire in 1.0.3 (`ModerationService.php` — warn at `:585`, shadow-ban at `:1107`, appeal submit at `:1563`/`:2057`, appeal resolved at `:1637`/`:2155`). The old "pending in HOOKS.md / BLOCK 2" caveat no longer applies.
 - Strike-list REST endpoint is `GET /buddynext/v1/users/{id}/strikes` — confirm this route in `ModerationController` matches the manifest before testing.
 - Confirmed in 1.0.3 (no longer limitations): approving an appeal populates the full audit trail (both `reviewed_by`/`reviewed_at` AND `resolved_by`/`resolved_at`), and a warn writes exactly ONE `bn_mod_log` row.
 

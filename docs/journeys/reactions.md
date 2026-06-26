@@ -147,7 +147,7 @@ wp user get member2 --field=ID   # -> MEMBER2_ID
       -d '{"object_type": "post", "object_id": POST_ID, "emoji": "haha"}'
     ```
 
-    - Expected: 200, body `{ "has_reacted": false, "emoji": null, "count": 1 }`. Fires `buddynext_reaction_removed('post', POST_ID, MEMBER2_ID)`. The `bn_posts.reaction_count` decrements (floored at 0 via `GREATEST(1, reaction_count) - 1`, which avoids an UNSIGNED underflow when the counter is already 0).
+    - Expected: 200, body `{ "has_reacted": false, "emoji": null, "count": 1 }`. Fires `buddynext_reaction_removed('post', POST_ID, MEMBER2_ID, 'haha')` (the removed emoji is passed as the 4th arg). The `bn_posts.reaction_count` decrements (floored at 0 via `GREATEST(1, reaction_count) - 1`, which avoids an UNSIGNED underflow when the counter is already 0).
 
 11. Verify the row is gone and the counter decremented:
 
@@ -190,7 +190,7 @@ wp user get member2 --field=ID   # -> MEMBER2_ID
 - `ReactionService::toggle()` adds a reaction when none exists, replaces in place when a different emoji is sent, and removes when the same emoji (or empty string) is sent — the single-reaction-per-object invariant enforced by the composite PRIMARY KEY `(user_id, object_type, object_id)`.
 - `ReactionService::react()` inserts via `INSERT IGNORE`, increments `bn_posts.reaction_count` for posts, and fires `buddynext_reaction_added(object_type, object_id, user_id, emoji)`.
 - `ReactionService::react()` fires the recipient-side mirror `buddynext_post_reaction_received(post_id, author_id, reactor_id, emoji)` only when the reactor is not the author.
-- `ReactionService::unreact()` deletes the row, decrements the counter (floored at 0), and fires `buddynext_reaction_removed(object_type, object_id, user_id)`.
+- `ReactionService::unreact()` deletes the row, decrements the counter (floored at 0), and fires `buddynext_reaction_removed(object_type, object_id, user_id, emoji)`.
 - `ReactionService::get_counts()` returns the per-emoji map; `count()` returns the total; both are cache-backed (`buddynext_reactions` group, 300s TTL) and invalidated on every write.
 - `ReactionService::get_reactors()` returns the newest-first reactor list (capped 100), applying the block/restrict gate on post objects (restricted reactors hidden from everyone except self, owner, admin) while leaving the raw count untouched.
 - `buddynext_reaction_added` is consumed by `NotificationListener::on_reaction_added` and `OutboundWebhookListener::on_webhook_reaction_added`; `buddynext_post_reaction_received` is consumed by `GamificationBridge::on_reaction_received` — confirming the plug-and-play downstream wiring.
@@ -259,11 +259,10 @@ DELETE FROM wp_bn_reactions WHERE object_type = 'post' AND object_id = POST_ID;
 UPDATE wp_bn_posts SET reaction_count = 0 WHERE id = POST_ID;
 ```
 
-If the seed post was created only for this journey, also remove it (and its feed-cache row) — see the Activity Feed journey cleanup, or:
+If the seed post was created only for this journey, also remove it — see the Activity Feed journey cleanup, or:
 
 ```sql
 DELETE FROM wp_bn_posts WHERE id = POST_ID;
-DELETE FROM wp_bn_feed_items WHERE object_type = 'post' AND object_id = POST_ID;
 ```
 
 Flush the reaction cache group if a persistent object cache is active:

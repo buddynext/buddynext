@@ -55,7 +55,7 @@ Admin autologin shortcut: append `?autologin=1` to any admin URL. The mu-plugin 
 | `wp_bn_comments` | Activity Feed — comments |
 | `wp_bn_shares` | Activity Feed — shares |
 | `wp_bn_bookmarks` | Activity Feed — bookmarks |
-| `wp_bn_feed_items` | Activity Feed — denormalised feed cache |
+| `wp_bn_presence` | Realtime — indexed online-presence timestamps |
 | `wp_bn_spaces` | Spaces — space definitions |
 | `wp_bn_space_members` | Spaces — membership rows |
 | `wp_bn_space_categories` | Spaces — taxonomy categories |

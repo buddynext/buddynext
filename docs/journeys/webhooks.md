@@ -263,7 +263,7 @@ Event slugs emitted by the listener: `member.registered`, `member.verified`, `po
 | Control | Surface (file) | Wiring | Live route + method |
 |---|---|---|---|
 | Register / delete / test endpoint | Settings → Integrations (`includes/Admin/Settings.php`, `assets/js/admin/settings.js`) | admin REST | `POST/GET/DELETE /webhooks`, `POST /webhooks/{id}/test` *(only when feature enabled)* |
-| Per-event delivery | `includes/Outbound/OutboundWebhookListener.php:31-43` | 13 `add_action()` hooks → signed POST to subscriber | outbound transport (not a BN route) |
+| Per-event delivery | `includes/Outbound/OutboundWebhookListener.php:31-44` | 14 `add_action()` hooks → signed POST to subscriber | outbound transport (not a BN route) |
 | External access opt-in | `includes/Outbound/AccessWebhookController.php` | always registered | `POST /webhook/access` |
 
 **Verify this run:** enable Webhooks → register an endpoint (use `https://webhook.site`) → `POST /webhooks/{id}/test` returns `{success:true}` and the test `ping` lands → then do a real action (create a post) and confirm a `post.created` delivery arrives with the `X-BuddyNext-Signature` header.

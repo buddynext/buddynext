@@ -1,7 +1,7 @@
 # Journey: Search
 
 **Free feature**: `includes/Search/` (SearchService, SearchIndexListener, SearchController)
-**Actions / filters fired**: `buddynext_post_created` (triggers indexing), `buddynext_index_object`, `buddynext_reindex_complete`, `buddynext_search_results` (filter), `buddynext_search_query_args` (filter), `buddynext_search_performed` (action, fired after results computed)
+**Actions / filters fired**: `buddynext_post_created` (triggers indexing), `buddynext_reindex_all`, `buddynext_reindex_complete`, `buddynext_search_results` (filter), `buddynext_search_query_args` (filter), `buddynext_search_performed` (action, fired after results computed)
 **DB tables touched**: `bn_search_index`, `bn_blocks`, `bn_user_suspensions`
 **Estimated time**: 10 min manual
 

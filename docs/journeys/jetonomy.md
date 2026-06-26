@@ -65,7 +65,7 @@ All of this is delivered **by the bridge**, with zero configuration beyond activ
 
    - Expected: 200. Response includes a `discussion` group containing `object_id = JT_POST_ID`.
 
-4. Confirm the `@mention` in the body fired `buddynext_user_mentioned`. The bridge regex-matches `@member2` and fires `do_action( 'buddynext_user_mentioned', member2_ID, member1_ID, 'jetonomy_post', JT_POST_ID )`. Mentions route through BuddyNext's notification pipeline, so check for a mention notification to `member2`:
+4. Confirm the `@mention` in the body fired `buddynext_user_mentioned`. The bridge regex-matches `@member2` and fires `do_action( 'buddynext_user_mentioned', member2_ID, member1_ID, JT_POST_ID )` (3 args: `$mentioned_id, $author_id, $post_id` — `JetonomyBridge.php:184`). Mentions route through BuddyNext's notification pipeline, so check for a mention notification to `member2`:
 
    ```sql
    SELECT recipient_id, sender_id, type, object_type, object_id
@@ -249,7 +249,7 @@ Forum content itself is served by **Jetonomy's own route** at `/community/` (par
 |---|---|---|---|
 | Jetonomy → BN | `jetonomy_after_create_post(post_id, space_id)` **2 args** | `JetonomyBridge::on_post_created` (`:43`) | bails if `! class_exists('Jetonomy\Jetonomy')` (`JetonomyBridge:38`) |
 | Jetonomy → BN | `jetonomy_post_deleted(post_id, space_id, user_id)` **3 args** | `on_post_deleted` (`:45`) | same |
-| Jetonomy → BN | `jetonomy_after_create_reply(...)` | reply → BN notification (`JetonomyBridgeListener`) | bails if class missing (`Listener:49`) |
+| Jetonomy → BN | `jetonomy_after_create_reply(reply_id, ...)` **bridge consumes 1 arg** | `JetonomyBridge::notify_discussion_reply` (`:64`) → BN notification | bails if `! class_exists('Jetonomy\Jetonomy')` (`JetonomyBridge:38`) |
 | Jetonomy → BN | `jetonomy_notification_created(...)` **7 args** | `on_notification` (`Listener:53`) | same |
 | BN → Jetonomy | `jetonomy_before_content` (inject BN subnav), `jetonomy_show_community_nav → false` (suppress partner nav) | `JetonomyBridge` | same |
 

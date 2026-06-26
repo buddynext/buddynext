@@ -1,7 +1,7 @@
 # Journey: Profile Fields
 
 **Free feature**: `includes/Profile/` (ProfileService, ProfileController)
-**Actions / filters fired**: `buddynext_member_updated`, `buddynext_profile_completion_changed`, `buddynext_profile_field_types` (filter), `buddynext_profile_extra_data` (filter)
+**Actions / filters fired**: `buddynext_profile_completion_changed`, `buddynext_profile_field_updated`, `buddynext_profile_field_types` (filter)
 **DB tables touched**: `bn_profile_groups`, `bn_profile_fields`, `bn_profile_values`
 **Estimated time**: 10 min manual
 

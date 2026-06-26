@@ -1,7 +1,7 @@
 # Journey: Auth Verification
 
 **Free feature**: `includes/Auth/` (VerificationService, VerificationListener), `includes/Onboarding/` (OnboardingService, InviteService)
-**Actions / filters fired**: `buddynext_send_verification_email`, `buddynext_email_verified`, `buddynext_user_verified`, `buddynext_member_registered`, `buddynext_onboarding_completed`
+**Actions / filters fired**: `buddynext_send_verification_email`, `buddynext_email_verified`, `buddynext_user_verified`, `buddynext_registration_pending` (approval/verify flows), `buddynext_onboarding_completed`. (There is no `buddynext_member_registered` action — registration is not written to `bn_activity_log`.)
 **DB tables touched**: `bn_verify_tokens`, `bn_email_log`
 **Estimated time**: 8 min manual
 
@@ -29,17 +29,13 @@
 
    Note the user ID (referred to as `TESTVERIFY_ID`).
 
-2. Confirm `buddynext_member_registered` fired by checking the activity log:
+2. Confirm the user row exists (registration itself is not logged to `bn_activity_log`, and there is no `buddynext_member_registered` action — the WordPress core `user_register` action is the signal BuddyNext listens to):
 
-   ```sql
-   SELECT id, user_id, action, created_at
-   FROM wp_bn_activity_log
-   WHERE user_id = TESTVERIFY_ID AND action = 'register'
-   ORDER BY created_at DESC
-   LIMIT 1;
+   ```bash
+   wp user get TESTVERIFY_ID --field=user_login
    ```
 
-   - Expected: 1 row. (If activity log is not used for registration events, skip this and proceed to Step 3.)
+   - Expected: `testverify`. (Approval/verify flows additionally fire `buddynext_registration_pending`; the open flow does not.)
 
 ### Part 2: `VerificationService::create_token` generates a token and emails it
 
@@ -48,7 +44,7 @@
    ```bash
    wp eval "
    \$svc = buddynext_service('verification');
-   \$token = \$svc->create_token(TESTVERIFY_ID, 'email_verify');
+   \$token = \$svc->create_token(TESTVERIFY_ID);
    echo 'Token: ' . \$token . PHP_EOL;
    "
    ```
@@ -123,17 +119,16 @@
 
    - Expected: 0 rows (token deleted after successful verification) OR `expires_at` set to a past date (if soft-expiry is used).
 
-9. Confirm `buddynext_user_verified` and `buddynext_email_verified` actions fired. Check the activity log:
+9. Confirm `buddynext_user_verified` fired (it is not written to `bn_activity_log`; attach a transient listener and call `verify()` in the same eval, or observe a downstream side-effect such as the welcome email via `RegistrationEmailListener` / the `buddynext_user_verified` webhook):
 
-   ```sql
-   SELECT id, user_id, action, created_at
-   FROM wp_bn_activity_log
-   WHERE user_id = TESTVERIFY_ID
-   ORDER BY created_at DESC
-   LIMIT 5;
+   ```bash
+   wp eval "
+   add_action('buddynext_user_verified', function(\$uid){ echo 'user_verified fired for ' . \$uid . PHP_EOL; });
+   buddynext_service('verification')->verify('FRESH_TOKEN_HERE');
+   "
    ```
 
-   - Expected: entry for `email_verified` or `user_verified` action.
+   - Expected: `user_verified fired for <id>`. (`buddynext_email_verified` is fired by `VerificationListener`'s `bn_verify` click handler, not by a direct `verify()` call.)
 
 ### Part 4: Resend verification flow
 
@@ -142,12 +137,12 @@
     ```bash
     wp eval "
     \$svc = buddynext_service('verification');
-    \$token = \$svc->create_token(TESTVERIFY_ID, 'email_verify');
+    \$token = \$svc->create_token(TESTVERIFY_ID);
     echo 'New token: ' . \$token . PHP_EOL;
     "
     ```
 
-    - Expected: a new token is generated. The old token (if still in the table) is replaced or a new row is added.
+    - Expected: a new token row is added. (The production "Resend" button calls `VerificationService::resend()`, which first guards on `is_verified()` — returning a `WP_Error` for an already-verified user or whenever the `buddynext_email_verify` feature is off — then deletes any pending token for the user and calls `create_token()`. This step calls `create_token()` directly so it works regardless of verified state; to exercise `resend()` itself, use an unverified user with the verify feature enabled.)
 
 11. Verify only the most recent token is valid (previous token should be invalidated or a new row exists):
 
@@ -192,9 +187,9 @@
 
 ## What this validates
 
-- `VerificationService::create_token()` inserts into `bn_verify_tokens` with a 64-char token, `type = email_verify`, and `expires_at = create time + 2 days`.
-- `VerificationListener` hooks an appropriate WordPress action (likely `user_register`) and fires `buddynext_send_verification_email(int $user_id, string $token)`.
-- `VerificationService::verify()` looks up the token in `bn_verify_tokens`, validates it is not expired, sets usermeta `buddynext_email_verified = 1`, deletes the token row, and fires `buddynext_user_verified(int $user_id)` and `buddynext_email_verified(int $user_id)`.
+- `VerificationService::create_token(int $user_id)` inserts into `bn_verify_tokens` with a 64-char token, `type = email_verify` (hard-coded, single-arg signature), and `expires_at = create time + 48 hours`, then fires `buddynext_send_verification_email(int $user_id, string $token_url)` — the second arg is the full verify URL (`home_url('/?bn_verify={token}')`), not the raw token.
+- `VerificationListener` *listens* to `buddynext_send_verification_email` to dispatch the email, and handles the click-through `bn_verify` query param (calls `verify()`, then fires `buddynext_email_verified(int $user_id)`).
+- `VerificationService::verify()` looks up the token in `bn_verify_tokens`, validates it is not expired, sets usermeta `buddynext_email_verified = 1`, deletes the token row, and fires `buddynext_user_verified(int $user_id)` (the `buddynext_email_verified` action is fired by the listener's click handler, not by `verify()` itself).
 - `bn_verify_tokens` UNIQUE KEY on `token` prevents collisions.
 - `bn_email_log` records the dispatch of the `email_verify` template.
 
@@ -298,7 +293,7 @@ wp user delete TESTVERIFY_ID --yes
 ## Known limitations
 
 - The **token-consuming** verify step is server-side (the email link hits a WP page that calls `VerificationService::verify($token)`), not a REST route — but `GET /auth/verify/status` and `POST /auth/verify/resend` ARE live REST routes (see REST surface). The earlier "no REST endpoint for verification" note was misleading: it conflated the click-through with the whole auth surface, which is fully REST. Confirm the click-through URL with `VerificationListener` before automating it.
-- `buddynext_send_verification_email` fires with `(int $user_id, string $token)` — confirmed in manifest. The token passed may or may not be the raw token (could be URL-encoded or HMAC-wrapped). Inspect `VerificationListener` for the exact value before asserting it in Mailpit.
+- `buddynext_send_verification_email` fires with `(int $user_id, string $token_url)` — the second arg is the already-built verify URL (`home_url('/?bn_verify={token}')`), not the bare token. `VerificationListener::send_verification_email()` consumes it directly to build the email link; assert on the `?bn_verify=` URL in Mailpit.
 - Registration mode IS now enforced on REST registration (1.0.3): with reg-mode set to invite-only, `POST /auth/register` without a valid invite returns **403 `rest_invite_required`**. A valid invite is passed via the `invite` param and is consumed (marked used via `mark_registered()`) on successful registration. The earlier note that reg-mode was UI-only no longer applies.
 
 ## Automation notes
