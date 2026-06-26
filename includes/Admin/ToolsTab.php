@@ -144,6 +144,26 @@ class ToolsTab {
 				<?php endif; ?>
 			</div>
 		</div>
+
+		<div class="bn-settings-section">
+			<div class="bn-ss-header">
+				<span class="bn-ss-title"><?php esc_html_e( 'Object cache', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-ss-body">
+				<?php if ( wp_using_ext_object_cache() ) : ?>
+					<p class="bn-av-section-desc">
+						<?php esc_html_e( 'Status: a persistent object cache is active. BuddyNext\'s cached values (member directory, counts, lists) survive between requests — this is the recommended setup at scale.', 'buddynext' ); ?>
+					</p>
+				<?php else : ?>
+					<div class="notice notice-warning inline">
+						<p>
+							<strong><?php esc_html_e( 'No persistent object cache detected.', 'buddynext' ); ?></strong>
+							<?php esc_html_e( 'BuddyNext caching still works within a single page load, but cached values are not shared between requests. For a large community (thousands of active members) install a persistent object cache — Redis or Memcached — so the member directory, online list, and counts stay fast.', 'buddynext' ); ?>
+						</p>
+					</div>
+				<?php endif; ?>
+			</div>
+		</div>
 		<?php
 	}
 

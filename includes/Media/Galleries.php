@@ -93,6 +93,113 @@ class Galleries {
 	}
 
 	/**
+	 * Albums owned by a user that the viewer may see (newest first).
+	 *
+	 * The mvs_album CPT is registered, so the owner list is a core WP_Query; each
+	 * album is then privacy-filtered per viewer through the engine privacy seam
+	 * (album privacy is stored against the album id in the media repo). Album
+	 * counts per user are small, so post-query filtering is acceptable.
+	 *
+	 * @param int $owner_id  Album owner user id.
+	 * @param int $viewer_id Viewer user id (0 = logged out).
+	 * @param int $limit     Max albums.
+	 * @param int $offset    Pagination offset.
+	 * @return array<int,array<string,mixed>> Ordered album summaries.
+	 */
+	public static function user_albums( int $owner_id, int $viewer_id, int $limit = 24, int $offset = 0 ): array {
+		if ( $owner_id <= 0 || ! post_type_exists( 'mvs_album' ) ) {
+			return array();
+		}
+
+		$query = new \WP_Query(
+			array(
+				'post_type'      => 'mvs_album',
+				'author'         => $owner_id,
+				'post_status'    => 'publish',
+				'orderby'        => 'date',
+				'order'          => 'DESC',
+				'posts_per_page' => max( 1, $limit ),
+				'offset'         => max( 0, $offset ),
+				'fields'         => 'ids',
+				'no_found_rows'  => true,
+			)
+		);
+
+		$out = array();
+		foreach ( (array) $query->posts as $album_id ) {
+			$album_id = (int) $album_id;
+			if ( self::can_view_album( $album_id, $viewer_id ) ) {
+				$out[] = self::album_summary( $album_id );
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Whether the viewer may see a given album (engine privacy seam).
+	 *
+	 * @param int $album_id  Album (mvs_album) id.
+	 * @param int $viewer_id Viewer user id.
+	 * @return bool
+	 */
+	public static function can_view_album( int $album_id, int $viewer_id ): bool {
+		$privacy = MediaClient::privacy();
+		if ( ! $privacy || ! method_exists( $privacy, 'can_view' ) ) {
+			// Fail closed for non-owners; owners always see their own.
+			return $viewer_id > 0 && (int) get_post_field( 'post_author', $album_id ) === $viewer_id;
+		}
+		return (bool) $privacy->can_view( $album_id, $viewer_id );
+	}
+
+	/**
+	 * Lightweight album summary for cards / list responses.
+	 *
+	 * @param int $album_id Album id.
+	 * @return array<string,mixed> { id, title, description, privacy, media_count, cover_url, owner }.
+	 */
+	public static function album_summary( int $album_id ): array {
+		$albums = MediaClient::albums();
+		$repo   = MediaClient::repo();
+
+		$privacy = ( $repo && method_exists( $repo, 'get' ) ) ? (string) $repo->get( $album_id, 'privacy' ) : '';
+
+		return array(
+			'id'          => $album_id,
+			'title'       => (string) get_the_title( $album_id ),
+			'description' => (string) get_post_field( 'post_excerpt', $album_id ),
+			'privacy'     => '' !== $privacy ? $privacy : 'public',
+			'owner'       => (int) get_post_field( 'post_author', $album_id ),
+			'media_count' => ( $albums && method_exists( $albums, 'get_item_count' ) ) ? (int) $albums->get_item_count( $album_id ) : 0,
+			'cover_url'   => ( $albums && method_exists( $albums, 'get_cover_url' ) ) ? (string) $albums->get_cover_url( $album_id, 'large' ) : '',
+		);
+	}
+
+	/**
+	 * Ordered media ids in an album (a page of them).
+	 *
+	 * @param int $album_id Album id.
+	 * @param int $limit    Max ids.
+	 * @param int $offset   Offset.
+	 * @return int[] Ordered media ids.
+	 */
+	public static function album_media_ids( int $album_id, int $limit = 24, int $offset = 0 ): array {
+		$albums = MediaClient::albums();
+		if ( ! $albums || ! method_exists( $albums, 'get_items' ) ) {
+			return array();
+		}
+		$items = (array) $albums->get_items( $album_id );
+		$ids   = array();
+		foreach ( $items as $item ) {
+			$id = isset( $item['media_id'] ) ? (int) $item['media_id'] : 0;
+			if ( $id > 0 ) {
+				$ids[] = $id;
+			}
+		}
+		return array_slice( $ids, max( 0, $offset ), max( 1, $limit ) );
+	}
+
+	/**
 	 * Whether the viewer may see the owner's private media.
 	 *
 	 * @param int $owner_id  Owner user id.

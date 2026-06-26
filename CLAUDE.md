@@ -17,6 +17,15 @@ Enterprise-grade social community platform for WordPress (free + pro). Owned by 
 
 ---
 
+## Recent Changes
+
+| Date | Branch | Change |
+|---|---|---|
+| 2026-06-25 | 1.0.3 | Profile media uploads + albums + fixes. New `includes/Media/MediaController.php` adds owner-gated `buddynext/v1` endpoints (`POST/GET/DELETE /me/media`, `GET /users/{id}/media`, album list/create/detail/add/remove/update/delete/reorder), consuming WPMediaVerse through the `MediaClient` service seam only (no engine REST, no MV css/js on BN screens). New `buddynext/media` (upload) + `buddynext/media-albums` islands, `templates/partials/media-tab.php` + `media-upload-composer.php`, `assets/css/bn-media-upload.css`, and a shared `assets/js/media/upload-core.js` (unified validation + 256px `makeThumb` reused by the Media tab, feed composer, and DM preview). `Galleries` gains album read helpers; `MediaClient` gains `albums()`/`privacy()` accessors + `default_video_poster()`. Owner-only writes; private albums hidden in list AND 404 on the detail endpoint for non-owners. Also fixed: display_name reverting to the login slug on blur (controlled input in `profile-edit-hero.php` + `syncNameField`), and posterless videos showing a black tile (`MediaUrlResolver` poster fallback). Two WP Interactivity lessons applied: seed EVERY context key in the initial `data-wp-context` (proxies don't track keys added after hydration) and `data-wp-bind--value` does not drive a `<select>` (set imperatively). |
+| 2026-06-25 | 1.0.3 | Scale audit on a 100k-user Docker lab under the Reign host theme. Fixed 7 bugs (commit `bf7f6811`): comment edit/delete by non-owner 500→403 (+404/400); member-directory result cache now busts on block/unblock via a per-viewer version salt (`MemberDirectoryService`); announcement dismiss/end now bust the page-1 home-feed cache (`FeedService::flush_home_cache`/`flush_all_home_caches`); type-scoped search normalizes plural→singular `object_type` (`SearchService::normalize_object_type`); appeal decide writes both audit column pairs; member warning writes a single `bn_mod_log` row; all `buddynext_post_created` listeners default trailing params so a 2-arg `do_action` can't fatal. Added regression tests (full free suite 1194 passing) and refreshed 9 `docs/journeys/` runbooks to match 1.0.3. |
+
+---
+
 ## Product Scope & Validity Bar — Judge Every Request Against This
 
 **Model = mainstream social: Facebook, X (Twitter), LinkedIn.** We are NOT building a complex or niche community. If a request adds complexity those platforms don't have, it is out of scope by default. (The UX-parity bar is separately noted under *Premium UX* and *Design System Tokens* — this section is about deciding what is a real defect / in-scope ask in the first place.)
@@ -58,7 +67,11 @@ BuddyNext leans on two canonical skills for engineering standards. They are the 
 
 **Invoke them when relevant.** When writing a REST controller, ask the `/wp-plugin-development` skill what it requires. When adding a new component or CSS token, ask `/ux-audit`. The v2 design source (`docs/v2 Plans/`) is BuddyNext's specialisation on top of the `/ux-audit` foundation.
 
-**Frontend interactivity & client-side navigation:** the normative standard lives at [`docs/standards/frontend-interactivity.md`](docs/standards/frontend-interactivity.md) (v1.0; reference impl Jetonomy 1.5.0). All frontend REST goes through the shared `restFetch` client (`assets/js/shell/rest-client.js`); imperative init is bound via `onNavReady()` (`assets/js/shell/nav-init.js`) so it survives a client-side swap; the router region + navigate action live in `assets/js/shell/navigate.js` and `templates/shell/hub-shell.php` behind the `buddynext_client_nav_enabled` filter (default off — staged activation per surface). See [`docs/plans/frontend-interactivity-adoption.md`](docs/plans/frontend-interactivity-adoption.md) for the full plan + status.
+**Admin UI uniformity (options, nav icons, cards):** the normative standard lives at [`docs/standards/admin-ui-uniformity.md`](docs/standards/admin-ui-uniformity.md) (v1.0). One input look for every option (add fields via `AdminPageBase::render_*_row()`; the `.bn-admin-hub` baseline + `--bn-a-input-*` / `--bn-a-focus-ring` tokens converge any control); every nav section/tab carries a vendored Lucide icon via `IconService`; content cards share the kicker + clamped-title/snippet + footer anatomy with a `min-height` floor. Follow it and new admin screens are uniform by construction.
+
+**Frontend interactivity & client-side navigation:** the normative standard lives at [`docs/standards/frontend-interactivity.md`](docs/standards/frontend-interactivity.md) (v1.0; reference impl Jetonomy 1.5.0). All frontend REST goes through the shared `restFetch` client (`assets/js/shell/rest-client.js`); imperative init is bound via `onNavReady()` (`assets/js/shell/nav-init.js`) so it survives a client-side swap; the router region + navigate action live in `assets/js/shell/navigate.js` and `templates/shell/hub-shell.php` behind the `buddynext_client_nav_enabled` filter (default off — staged activation per surface). See [`docs/plans/archive/frontend-interactivity-adoption.md`](docs/plans/archive/frontend-interactivity-adoption.md) for the full plan + status.
+
+**Scale, caching & REST boundary (free + pro):** three normative standards govern large-site readiness — [`docs/standards/CACHING.md`](docs/standards/CACHING.md) (per-service `CACHE_GROUP`/`CACHE_TTL` + key-based bust; **cache by access frequency, not by existence**; Pro converges on `buddynextpro_<domain>`), [`docs/standards/DATA-AT-SCALE.md`](docs/standards/DATA-AT-SCALE.md) (no autoload bloat, sargable filters, bounded reads, AS-batched high-volume writes, keyset pagination), and [`docs/standards/REST-API-BOUNDARY.md`](docs/standards/REST-API-BOUNDARY.md) (100% REST, CI-gated). The triaged, code-verified change list to bring both repos to standard is [`docs/plans/scale-readiness-change-index.md`](docs/plans/scale-readiness-change-index.md) (DO-NOW/DEFER/SKIP); rationale in [`docs/plans/scale-readiness-100k.md`](docs/plans/scale-readiness-100k.md). These are portable Wbcom standards — apply them uniformly across free and pro.
 
 ### Local tooling (vendored in this repo — run from the repo root)
 
@@ -479,7 +492,6 @@ The EDD Software Licensing SDK is vendored at `libs/edd-sl-sdk/` (committed, shi
 | `bn_mod_log` | 8 — Moderation |
 | `bn_user_strikes` | 8 — Moderation |
 | `bn_activity_log` | 1 — Core |
-| `bn_feed_items` | 3 — Feed cache (>1M members) |
 
 DM tables live in WPMediaVerse (`mvs_conversations`, `mvs_messages`, etc.) — BuddyNext is UI layer only for DM.
 

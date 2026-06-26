@@ -738,6 +738,32 @@ class FeedService {
 	}
 
 	/**
+	 * Invalidate one user's first-page home feed cache.
+	 *
+	 * Used when a per-user change (e.g. dismissing an announcement) must reflect
+	 * immediately rather than after the 30s page-1 TTL. No-op when the feed cache
+	 * is disabled.
+	 *
+	 * @param int $user_id User whose home feed cache to bust.
+	 * @return void
+	 */
+	public function flush_home_cache( int $user_id ): void {
+		$this->cache?->invalidate_writer( $user_id );
+	}
+
+	/**
+	 * Invalidate every user's first-page home feed cache at once.
+	 *
+	 * Used for site-wide changes (e.g. ending an announcement) so the change is
+	 * visible to everyone immediately instead of after the 30s TTL.
+	 *
+	 * @return void
+	 */
+	public function flush_all_home_caches(): void {
+		$this->cache?->invalidate_all_users();
+	}
+
+	/**
 	 * Return the profile feed for a given user as seen by a viewer.
 	 *
 	 * Suspended and shadow-banned users' posts are hidden from all viewers,

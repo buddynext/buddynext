@@ -73,7 +73,7 @@ class OutboundWebhookListener implements ListenerInterface {
 	 * @param int    $user_id Author user ID.
 	 * @param string $type    Post type slug.
 	 */
-	public function on_webhook_post_created( int $post_id, int $user_id, string $type ): void {
+	public function on_webhook_post_created( int $post_id, int $user_id = 0, string $type = '' ): void {
 		buddynext_service( 'webhooks' )->dispatch(
 			'post.created',
 			array(

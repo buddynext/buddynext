@@ -373,6 +373,10 @@ class FeedController extends BaseRestController {
 
 		FeedService::dismiss_announcement( $user_id, $post_id );
 
+		// Bust this user's page-1 home feed so the dismissed announcement is gone
+		// on the next load, not after the 30s TTL.
+		$this->feed_service()->flush_home_cache( $user_id );
+
 		return new WP_REST_Response( null, 204 );
 	}
 
@@ -401,6 +405,10 @@ class FeedController extends BaseRestController {
 				array( 'status' => 404 )
 			);
 		}
+
+		// Ending an announcement affects everyone — bust all page-1 home feeds so it
+		// disappears immediately rather than after the 30s TTL.
+		$this->feed_service()->flush_all_home_caches();
 
 		return new WP_REST_Response( array( 'ended' => true ), 200 );
 	}

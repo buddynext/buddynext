@@ -36,8 +36,6 @@ class TrendingHashtagsWidget extends \WP_Widget {
 	 * @return void
 	 */
 	public function widget( $args, $instance ): void {
-		global $wpdb;
-
 		$title = apply_filters( 'widget_title', $instance['title'] ?? __( 'Trending Hashtags', 'buddynext' ) );
 		$limit = absint( $instance['limit'] ?? 10 );
 
@@ -47,13 +45,10 @@ class TrendingHashtagsWidget extends \WP_Widget {
 			echo $args['before_title'] . esc_html( $title ) . $args['after_title']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		}
 
-		$table = $wpdb->prefix . 'bn_hashtags';
-		$rows  = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->prepare(
-				"SELECT name, post_count FROM {$table} ORDER BY post_count DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$limit
-			)
-		);
+		// Use the canonical, cached trending store (two-layer object + transient
+		// cache, recency-weighted) instead of a fresh uncached bn_hashtags query
+		// on every sidebar render.
+		$rows = buddynext_service( 'hashtags' )->get_trending( $limit );
 
 		if ( empty( $rows ) ) {
 			echo '<p>' . esc_html__( 'No trending hashtags yet.', 'buddynext' ) . '</p>';
@@ -62,9 +57,9 @@ class TrendingHashtagsWidget extends \WP_Widget {
 			foreach ( (array) $rows as $row ) {
 				printf(
 					'<a class="buddynext-hashtag" href="%s">#%s <span>(%d)</span></a> ',
-					esc_url( home_url( '/hashtag/' . rawurlencode( (string) $row->name ) ) ),
-					esc_html( (string) $row->name ),
-					(int) $row->post_count
+					esc_url( home_url( '/hashtag/' . rawurlencode( (string) $row['name'] ) ) ),
+					esc_html( (string) $row['name'] ),
+					(int) $row['post_count']
 				);
 			}
 			echo '</div>';

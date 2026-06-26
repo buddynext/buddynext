@@ -18,6 +18,10 @@
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnReportDialog, bnToast } from '../shell/dialog.js';
 import { restFetch } from '../shell/rest-client.js';
+// Shared client-side thumbnail only — DM upload stays on MediaVerse's own
+// conversation-scoped (privacy:'dm') endpoint; this just unifies the fast
+// small preview so a large attachment doesn't decode full-res into the chip.
+import { makeThumb } from '../media/upload-core.js';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -59,6 +63,27 @@ function logEl() {
 
 // Debounce timer for the New-message recipient search.
 let composeSearchTimer = 0;
+
+// Open-thread polling state. Only ONE conversation polls at a time: switching
+// threads (or closing one under client-side nav) must replace the previous
+// interval, never stack a second one that keeps hitting the old conversation
+// forever. Held at module scope because data-wp-init gives no teardown hook.
+let threadPollTimer          = null; // window.setInterval id for the open thread.
+let threadPollFn             = null; // The current thread's poll function (for refocus catch-up).
+let threadPollVisibilityBound = false; // visibilitychange listener bound once.
+
+/**
+ * Stop the open-thread poll, if any.
+ *
+ * @return {void}
+ */
+function stopThreadPoll() {
+	if ( threadPollTimer ) {
+		window.clearInterval( threadPollTimer );
+		threadPollTimer = null;
+	}
+	threadPollFn = null;
+}
 
 // Curated common emoji for the composer picker. Emoji are message content, so
 // the set lives here in JS rather than in PHP chrome.
@@ -1156,8 +1181,10 @@ const messagesStore = store( 'buddynext/messages', {
 			ctx.attachmentName    = file.name;
 			ctx.attachmentVisible = true;
 			ctx.attachmentId      = 0;
-			ctx.attachmentPreview = ( file.type.indexOf( 'image/' ) === 0 && window.URL )
-				? URL.createObjectURL( file )
+			// Fast small client preview (shared core) — replaces a full-res object
+			// URL so a large image doesn't decode megapixels into the tiny chip.
+			ctx.attachmentPreview = ( file.type.indexOf( 'image/' ) === 0 )
+				? await makeThumb( file )
 				: '';
 
 			const fd = new FormData();
@@ -1563,6 +1590,11 @@ const messagesStore = store( 'buddynext/messages', {
 			}
 			yield actions.markRead();
 
+			// The thread element this poll belongs to. When client-side nav swaps
+			// it out (back to the rail, or a different conversation) the ref goes
+			// disconnected, which is our cue to stop polling a closed thread.
+			const { ref: threadEl } = getElement();
+
 			let since = new Date().toISOString();
 			const poll = async () => {
 				try {
@@ -1583,7 +1615,36 @@ const messagesStore = store( 'buddynext/messages', {
 					}
 				} catch ( _e ) {}
 			};
-			window.setInterval( poll, 5000 );
+
+			// Replace any poll left running for a previously open conversation so
+			// switching threads never stacks intervals.
+			stopThreadPoll();
+			threadPollFn = poll;
+			threadPollTimer = window.setInterval( () => {
+				// Thread closed/swapped out — stop hitting the server for it.
+				if ( threadEl && ! threadEl.isConnected ) {
+					stopThreadPoll();
+					return;
+				}
+				// Backgrounded tab: skip the request. A hidden DM thread does not
+				// need 12 polls/min, and that idle traffic is real at scale. We
+				// catch up immediately on refocus via the listener below.
+				if ( document.hidden ) {
+					return;
+				}
+				poll();
+			}, 5000 );
+
+			// Bind once: on refocus, poll straight away so the thread is current
+			// without waiting for the next 5s tick.
+			if ( ! threadPollVisibilityBound ) {
+				document.addEventListener( 'visibilitychange', () => {
+					if ( ! document.hidden && threadPollFn ) {
+						threadPollFn();
+					}
+				} );
+				threadPollVisibilityBound = true;
+			}
 		},
 	},
 } );

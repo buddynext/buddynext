@@ -55,7 +55,16 @@ class MediaUrlResolver {
 		$thumb = method_exists( $repo, 'get_broadcast_thumbnail_url' )
 			? (string) $repo->get_broadcast_thumbnail_url( $media_id, 'thumb_large' )
 			: '';
-		$url   = method_exists( $repo, 'get_broadcast_url' )
+		// A video with no server-generated poster frame yields an empty thumb,
+		// which would render as a black poster-less tile. Fall back to the
+		// engine's bundled default video poster so the BuddyNext gallery matches
+		// the engine's own grids (Explore / My Media), which already do this in
+		// their REST contract. Applies only to video and only when the engine
+		// produced no real poster; images keep their full-file fallback below.
+		if ( '' === $thumb && 'video' === $type ) {
+			$thumb = MediaClient::default_video_poster();
+		}
+		$url = method_exists( $repo, 'get_broadcast_url' )
 			? (string) $repo->get_broadcast_url( $media_id )
 			: (string) $repo->get( $media_id, 'file_url' );
 

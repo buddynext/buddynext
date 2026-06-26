@@ -4,7 +4,7 @@
 > except the reference file paths in the last section. Drop this into any plugin repo
 > and follow it so the plugin is fast by default.
 >
-> Reference implementation + rationale: [`../plans/cron-as-audit.md`](../plans/cron-as-audit.md).
+> Reference implementation + rationale: [`../plans/archive/cron-as-audit.md`](../plans/archive/cron-as-audit.md).
 
 ## 1. The one principle
 
@@ -219,4 +219,4 @@ ready-to-paste system-cron command built from the site's own URL:
 | AS recurring in a listener (wp_loaded timing) | `includes/Moderation/ModerationListener.php` |
 | Subscription expiry (AS, Pro) | `buddynext-pro/includes/Membership/SubscriptionService.php` |
 | Cron health + Tools note | `includes/Core/CronScheduler.php::health()` + `includes/Admin/ToolsTab.php` |
-| Full audit, scoping + decisions | `docs/plans/cron-as-audit.md` |
+| Full audit, scoping + decisions | `docs/plans/archive/cron-as-audit.md` |

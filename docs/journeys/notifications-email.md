@@ -207,7 +207,7 @@
 
 ## What this validates
 
-- `NotificationService::create()` inserts into `bn_notifications` and fires `buddynext_notification_created(int $notification_id, int $recipient_id, string $type, array $data)`.
+- `NotificationService::create()` inserts into `bn_notifications` and fires `buddynext_notification_created(int $notification_id, int $recipient_id, array $data)` (3 args — the type lives inside `$data`, there is no separate `$type` param; `EmailDispatchListener` hooks it at `10, 3`).
 - `EmailDispatchListener` hooks `buddynext_notification_created`, checks `bn_notification_prefs`, and dispatches via `EmailSender` when `email_freq = immediate`.
 - `EmailSender` writes to `bn_email_log` after dispatch.
 - `NotificationController::mark_read()` sets `is_read = 1` for all or a single notification.

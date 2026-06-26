@@ -204,6 +204,7 @@ class Members extends AdminPageBase {
 		// Pre-fetch suspended status for every user in this page in one query
 		// so the foreach below never issues a per-row DB round-trip.
 		$suspended_set = array();
+		$presence_map  = array();
 		if ( ! empty( $result_ids ) ) {
 			global $wpdb;
 			$int_ids      = array_map( 'intval', $result_ids );
@@ -222,6 +223,21 @@ class Members extends AdminPageBase {
 			// Prime usermeta cache for this batch — prevents extra queries during
 			// avatar rendering and any meta reads that follow in template loops.
 			update_meta_cache( 'user', $result_ids );
+
+			// Batch presence in one indexed read (was a per-row bn_last_active meta
+			// lookup) so the loop below issues no per-row presence query.
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+			$presence_rows = (array) $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT user_id, last_active FROM {$wpdb->prefix}bn_presence WHERE user_id IN ({$placeholders})",
+					...$int_ids
+				),
+				ARRAY_A
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+			foreach ( $presence_rows as $pr ) {
+				$presence_map[ (int) $pr['user_id'] ] = (int) $pr['last_active'];
+			}
 		}
 
 		$members = array();
@@ -235,7 +251,7 @@ class Members extends AdminPageBase {
 				'suspended'        => isset( $suspended_set[ $user->ID ] ),
 				'pending_approval' => (bool) get_user_meta( $user->ID, 'bn_pending_approval', true ),
 				'role'             => ( (array) $user->roles )[0] ?? 'subscriber',
-				'last_active'      => (int) get_user_meta( $user->ID, 'bn_last_active', true ),
+				'last_active'      => $presence_map[ $user->ID ] ?? 0,
 				'last_login'       => (int) get_user_meta( $user->ID, 'bn_last_login', true ),
 				'post_count'       => 0,
 			);

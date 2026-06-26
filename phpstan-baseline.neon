@@ -127,6 +127,12 @@ parameters:
 			path: includes/Media/MediaClient.php
 
 		-
+			message: '#^Call to static method default_video_poster_url\(\) on an unknown class WPMediaVerse\\Core\\TemplateHelpers\.$#'
+			identifier: class.notFound
+			count: 1
+			path: includes/Media/MediaClient.php
+
+		-
 			message: '#^Offset ''token'' on array\{token\: ''\#bn\-bookmarks'', label\: mixed, icon\: ''bookmark'', visibility\: ''loggedin''\}\|array\{token\: ''\#bn\-connections'', label\: mixed, icon\: ''users'', visibility\: ''loggedin''\}\|array\{token\: ''\#bn\-edit\-profile'', label\: mixed, icon\: ''edit'', visibility\: ''loggedin''\}\|array\{token\: ''\#bn\-login'', label\: mixed, icon\: ''log\-in'', visibility\: ''loggedout''\}\|array\{token\: ''\#bn\-logout'', label\: mixed, icon\: ''log\-out'', visibility\: ''loggedin''\}\|array\{token\: ''\#bn\-messages'', label\: mixed, icon\: ''messages\-square'', visibility\: ''loggedin''\}\|array\{token\: ''\#bn\-notifications'', label\: mixed, icon\: ''bell'', visibility\: ''loggedin''\}\|array\{token\: ''\#bn\-profile'', label\: mixed, icon\: ''user'', visibility\: ''loggedin''\}\|array\{token\: ''\#bn\-register'', label\: mixed, icon\: ''user\-plus'', visibility\: ''loggedout''\}\|array\{token\: ''\#bn\-settings'', label\: mixed, icon\: ''settings'', visibility\: ''loggedin''\}\|array\{token\: ''\#bn\-spaces'', label\: mixed, icon\: ''grid'', visibility\: ''loggedin''\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
 			count: 1

@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing, Squiz.Commenting.VariableComment.Missing, Generic.Commenting.DocComment.MissingShort -- concise, self-describing test methods and fixtures.
 /**
  * Tests for FollowService.
  *
@@ -43,6 +43,40 @@ class FollowServiceTest extends \WP_UnitTestCase {
 
 		$this->assertTrue( $this->service->is_following( $this->alice, $this->bob ) );
 		$this->assertFalse( $this->service->is_following( $this->bob, $this->alice ) );
+	}
+
+	public function test_follow_blocked_at_cap(): void {
+		// Cap Alice at 1 follow via the filter.
+		add_filter( 'buddynext_max_following', fn() => 1 );
+
+		$this->assertTrue( $this->service->follow( $this->alice, $this->bob ), 'First follow is under the cap.' );
+
+		$result = $this->service->follow( $this->alice, $this->carol );
+		$this->assertWPError( $result, 'Second follow exceeds the cap.' );
+		$this->assertSame( 'follow_limit_reached', $result->get_error_code() );
+		$this->assertFalse( $this->service->is_following( $this->alice, $this->carol ), 'No row written when capped.' );
+
+		remove_all_filters( 'buddynext_max_following' );
+	}
+
+	public function test_refollow_at_cap_is_not_blocked(): void {
+		// At the cap, re-following someone already followed must not error
+		// (INSERT IGNORE is a no-op; the cap skips already-followed targets).
+		add_filter( 'buddynext_max_following', fn() => 1 );
+		$this->service->follow( $this->alice, $this->bob );
+
+		$this->assertTrue( $this->service->follow( $this->alice, $this->bob ), 'Re-follow at cap is allowed (no-op).' );
+
+		remove_all_filters( 'buddynext_max_following' );
+	}
+
+	public function test_cap_disabled_when_filter_returns_zero(): void {
+		add_filter( 'buddynext_max_following', fn() => 0 );
+
+		$this->assertTrue( $this->service->follow( $this->alice, $this->bob ) );
+		$this->assertTrue( $this->service->follow( $this->alice, $this->carol ), 'Cap of 0 disables the limit.' );
+
+		remove_all_filters( 'buddynext_max_following' );
 	}
 
 	public function test_cannot_follow_self(): void {

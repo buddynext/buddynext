@@ -9,7 +9,20 @@
         "getting-started/01-introduction.md",
         "getting-started/02-installation.md",
         "getting-started/03-admin-setup-wizard.md",
-        "getting-started/04-admin-overview.md"
+        "getting-started/04-admin-overview.md",
+        "getting-started/05-whats-new-in-1-0-3.md",
+        "getting-started/06-shortcodes-and-placement.md"
+      ]
+    },
+    {
+      "slug": "migrating-from-buddypress-bnext",
+      "name": "Migrating from BuddyPress",
+      "docs": [
+        "migrating-from-buddypress/01-buddynext-vs-buddypress.md",
+        "migrating-from-buddypress/02-concept-glossary.md",
+        "migrating-from-buddypress/03-buddyboss-feature-parity.md",
+        "migrating-from-buddypress/04-migrating-your-data.md",
+        "migrating-from-buddypress/05-what-changed-for-members.md"
       ]
     },
     {
@@ -58,7 +71,8 @@
         "members/06-following.md",
         "members/07-connections.md",
         "members/08-blocking-and-muting.md",
-        "members/09-presence-online.md"
+        "members/09-presence-online.md",
+        "members/10-profile-media-and-albums.md"
       ]
     },
     {
@@ -131,7 +145,8 @@
         "pro/17-push-notifications.md",
         "pro/18-realtime-websocket.md",
         "pro/19-unlimited-webhooks.md",
-        "pro/20-white-label.md"
+        "pro/20-white-label.md",
+        "pro/21-space-branding.md"
       ]
     },
     {
@@ -143,7 +158,9 @@
         "integrations/03-jetonomy.md",
         "integrations/04-gamification-addon.md",
         "integrations/05-career-board.md",
-        "integrations/06-outbound-webhooks.md"
+        "integrations/06-outbound-webhooks.md",
+        "integrations/07-listora.md",
+        "integrations/08-learnomy.md"
       ]
     },
     {
@@ -167,6 +184,7 @@
         "developer-guide/15-rest-feed-posts.md",
         "developer-guide/16-rest-spaces.md",
         "developer-guide/17-rest-members-profiles.md",
+        "developer-guide/17b-rest-media-albums.md",
         "developer-guide/18-rest-social-graph.md",
         "developer-guide/19-rest-notifications.md",
         "developer-guide/20-rest-moderation-trust.md",
@@ -195,7 +213,12 @@
         "developer-guide/43-companion-install-model.md",
         "developer-guide/44-integration-bridges.md",
         "developer-guide/45-gamification-seam.md",
-        "developer-guide/46-design-system-tokens.md"
+        "developer-guide/46-design-system-tokens.md",
+        "developer-guide/47-nav-api.md",
+        "developer-guide/48-customizing-cards.md",
+        "developer-guide/49-child-theme-template-overrides.md",
+        "developer-guide/50-shortcodes.md",
+        "developer-guide/51-coming-from-buddypress.md"
       ]
     }
   ]

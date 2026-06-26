@@ -81,6 +81,7 @@
    ```
 
    - Expected: 200. `vote_count` incremented to 1 on that option.
+   - Re-voting the SAME option **retracts** the vote (`vote_count` → 0); voting a DIFFERENT option **switches** the vote (old option decrements, new increments). This is intended toggle/switch UX, not a duplicate-vote error.
 
 6. Verify the vote row:
 
@@ -245,8 +246,8 @@
 
 ## Edge cases to also verify
 
-- **Invalid emoji**: React with an emoji slug not in `buddynext_reaction_types` (e.g. `"emoji": "custom"`). Expected: 422 — validation rejects unknown types. Call `GET /buddynext/v1/reactions` first to confirm the allowed list.
-- **Duplicate poll vote**: Vote twice on the same poll. Expected: second vote returns error — UNIQUE KEY `one_vote_per_user` on `bn_poll_votes` prevents duplicates.
+- **Invalid emoji**: React with an emoji slug not in the allowed enum (e.g. `"emoji": "custom"`). Expected: 200 — the REST enum default **coerces** an invalid value to `like` (it is NOT a 422). The stored row will have `emoji = like`, not the invalid slug.
+- **Re-vote on a poll (retract / switch)**: Vote again on the same option → the vote is **retracted** (`vote_count` → 0). Vote a different option → the vote is **switched** (old decremented, new incremented). This is intended UX, not a duplicate-vote error. The `one_vote_per_user` UNIQUE KEY on `bn_poll_votes` backs the single-vote-per-user model that makes retract/switch possible.
 - **Delete comment**: `DELETE /buddynext/v1/comments/COMMENT_ID` as comment author. Expected: 200. `is_deleted = 1` set in `bn_comments`, `comment_count` on post decremented. Row is soft-deleted, not physically removed.
 - **Anonymous feed**: `GET /buddynext/v1/feed/explore` without credentials. Expected: 200 with public posts; no private or space-members-only posts included.
 - **Home feed empty state**: Log in as a fresh user with no follows. `GET /buddynext/v1/feed/home`. Expected: 200 with empty or curated explore-style items — not a 404.
@@ -307,8 +308,8 @@ GET  /buddynext/v1/spaces/{id}/feed                  -- 200, paginated space fee
 POST /buddynext/v1/posts/{id}/vote                   -- 200, poll vote response
 GET  /buddynext/v1/posts/{id}/poll                   -- 200, poll data
 GET  /buddynext/v1/posts/{id}/my-vote                -- 200, current user's vote
-GET  /buddynext/v1/reactions                         -- 200, array of allowed reaction types
-POST /buddynext/v1/reactions/toggle                  -- 200, { "active": bool }
+GET  /buddynext/v1/reactions                         -- 200, reaction count for an object; REQUIRES ?object_type=&object_id= (NOT a list of allowed reaction types)
+POST /buddynext/v1/reactions/toggle                  -- 200, { "active": bool } (invalid emoji coerced to "like")
 POST /buddynext/v1/comments                          -- 201, created comment object
 DELETE /buddynext/v1/comments/{id}                   -- 200, { "deleted": true }
 POST /buddynext/v1/posts/{id}/share                  -- 200, { shared:true, share_id, post:{...} }; 2nd share by same user -> 400 (one-share-per-user guard)
@@ -377,7 +378,7 @@ DELETE FROM wp_bn_posts WHERE user_id = MEMBER1_ID AND space_id = SPACE_ID;
 ## Known limitations
 
 - `link_meta` (Open Graph data) is populated asynchronously; in this journey it may be `null` at creation time.
-- Poll vote toggling (changing a vote) is not exposed as a distinct endpoint; the current schema enforces one vote per user per poll.
+- Poll voting is single-vote-per-user with built-in retract/switch: re-`POST /posts/{id}/vote` on the same option retracts it, on a different option switches it. There is no separate "change vote" endpoint — the same `vote` route handles all three (cast / retract / switch).
 
 ## Automation notes
 

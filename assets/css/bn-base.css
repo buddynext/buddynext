@@ -947,6 +947,10 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 		display: flex;
 		flex-direction: column;
 		align-items: center;
+		justify-content: center;
+		/* Meet the 44px minimum tap target (icon + 10px label collapsed to ~37px
+		   before). This also lifts the bar to ~52px, the platform-standard height. */
+		min-height: 44px;
 		gap: 2px;
 		padding: var(--s1) 0;
 		font-size: 10px;

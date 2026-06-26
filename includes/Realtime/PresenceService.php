@@ -32,10 +32,12 @@ namespace BuddyNext\Realtime;
 class PresenceService {
 
 	/**
-	 * User_meta key the presence readers consume.
+	 * Legacy presence user_meta key.
 	 *
-	 * Matches BlockService::is_user_online() and
-	 * MemberDirectoryService's online/most_active JOIN.
+	 * No longer written or read on hot paths — every reader resolves presence
+	 * from the indexed bn_presence table now. Retained only as the source for the
+	 * one-time v7 backfill (Installer::maybe_backfill_presence) and the v9 cleanup
+	 * that deletes it (Installer::maybe_drop_last_active_meta).
 	 *
 	 * @since 1.0.0
 	 * @var string
@@ -111,15 +113,14 @@ class PresenceService {
 			return false;
 		}
 
-		$guard_key = 'bn_presence_' . $user_id;
-
 		// Already stamped within the throttle window — nothing to do.
-		if ( false !== get_transient( $guard_key ) ) {
+		if ( $this->is_throttled( $user_id ) ) {
 			return false;
 		}
 
-		update_user_meta( $user_id, self::META_KEY, time() );
-		set_transient( $guard_key, 1, self::THROTTLE_SECONDS );
+		$now = time();
+		self::write( $user_id, $now ); // Indexed bn_presence table — the only presence store now (all readers migrated; the legacy bn_last_active user_meta dual-write was dropped in schema v9).
+		$this->mark_throttled( $user_id );
 
 		/**
 		 * Fires after a user's presence timestamp is refreshed.
@@ -134,5 +135,196 @@ class PresenceService {
 		do_action( 'buddynext_presence_stamped', $user_id );
 
 		return true;
+	}
+
+	/**
+	 * Object-cache group for the per-user stamp throttle.
+	 *
+	 * @since 1.0.0
+	 * @var string
+	 */
+	private const THROTTLE_GROUP = 'buddynext_presence';
+
+	/**
+	 * Whether a user was stamped within the throttle window.
+	 *
+	 * Uses the persistent object cache when one is present (so the throttle does
+	 * NOT write to wp_options on every front-end page view — a real cost at 100k),
+	 * and falls back to a transient only when there is no persistent cache.
+	 * Presence is ephemeral, so a cache flush losing the guard is harmless.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $user_id User id.
+	 * @return bool
+	 */
+	private function is_throttled( int $user_id ): bool {
+		$key = 'throttle_' . $user_id;
+		if ( wp_using_ext_object_cache() ) {
+			return false !== wp_cache_get( $key, self::THROTTLE_GROUP );
+		}
+		return false !== get_transient( 'bn_presence_' . $user_id );
+	}
+
+	/**
+	 * Record that a user was just stamped (start the throttle window).
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $user_id User id.
+	 * @return void
+	 */
+	private function mark_throttled( int $user_id ): void {
+		$key = 'throttle_' . $user_id;
+		if ( wp_using_ext_object_cache() ) {
+			wp_cache_set( $key, 1, self::THROTTLE_GROUP, self::THROTTLE_SECONDS );
+			return;
+		}
+		set_transient( 'bn_presence_' . $user_id, 1, self::THROTTLE_SECONDS );
+	}
+
+	/**
+	 * Default "online" window in seconds (matches the legacy reader's 300s).
+	 *
+	 * @since 1.0.0
+	 * @var int
+	 */
+	public const ONLINE_WINDOW = 300;
+
+	/**
+	 * UPSERT a user's presence timestamp into the indexed bn_presence table.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $user_id   User id.
+	 * @param int $timestamp UNIX timestamp.
+	 * @return void
+	 */
+	public static function write( int $user_id, int $timestamp ): void {
+		if ( $user_id <= 0 ) {
+			return;
+		}
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"INSERT INTO {$wpdb->prefix}bn_presence (user_id, last_active) VALUES (%d, %d)
+				 ON DUPLICATE KEY UPDATE last_active = GREATEST(last_active, VALUES(last_active))",
+				$user_id,
+				$timestamp
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * IDs of users active within the given window — an indexed range scan.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $within Seconds. Defaults to ONLINE_WINDOW.
+	 * @return array<int, int> User IDs.
+	 */
+	public static function online_ids( int $within = self::ONLINE_WINDOW ): array {
+		global $wpdb;
+		$cutoff = time() - max( 1, $within );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$wpdb->prefix}bn_presence WHERE last_active > %d",
+				$cutoff
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
+	 * The most-recently-active user IDs within the window, newest first.
+	 *
+	 * Bounded by $limit at the SQL level (ORDER BY last_active DESC LIMIT) so a
+	 * widget never loads the full online set — an indexed range scan on the
+	 * last_active key. Use this instead of slicing online_ids() in PHP.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $limit  Max IDs to return (clamped to >= 1).
+	 * @param int $within Seconds. Defaults to ONLINE_WINDOW.
+	 * @return array<int, int> User IDs, most recently active first.
+	 */
+	public static function recent_online_ids( int $limit, int $within = self::ONLINE_WINDOW ): array {
+		global $wpdb;
+		$limit  = max( 1, $limit );
+		$cutoff = time() - max( 1, $within );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$wpdb->prefix}bn_presence WHERE last_active > %d ORDER BY last_active DESC LIMIT %d",
+				$cutoff,
+				$limit
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
+	 * Count of users active within the given window.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $within Seconds. Defaults to ONLINE_WINDOW.
+	 * @return int
+	 */
+	public static function online_count( int $within = self::ONLINE_WINDOW ): int {
+		global $wpdb;
+		$cutoff = time() - max( 1, $within );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_presence WHERE last_active > %d",
+				$cutoff
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Whether a user has been active within the window.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $user_id User id.
+	 * @param int $within  Seconds. Defaults to ONLINE_WINDOW.
+	 * @return bool
+	 */
+	public static function is_online( int $user_id, int $within = self::ONLINE_WINDOW ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+		return self::last_active_at( $user_id ) > ( time() - max( 1, $within ) );
+	}
+
+	/**
+	 * A user's last-active UNIX timestamp, or 0 if never seen.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $user_id User id.
+	 * @return int
+	 */
+	public static function last_active_at( int $user_id ): int {
+		if ( $user_id <= 0 ) {
+			return 0;
+		}
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT last_active FROM {$wpdb->prefix}bn_presence WHERE user_id = %d",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 }

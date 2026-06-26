@@ -227,20 +227,61 @@ class CronService {
 		} while ( $deleted > 0 && $max_batches > 0 );
 	}
 
+	/**
+	 * Prune old bn_email_log rows (weekly).
+	 *
+	 * The bn_email_log table grows one row per email sent (digests + identity
+	 * sends) and had no retention — the fastest-growing table at scale. Mirrors
+	 * the activity-log
+	 * prune: honours buddynext_data_retention_days (default 365; 0 disables),
+	 * batched 1,000/iteration up to 50k/run, keyed on sent_at.
+	 *
+	 * @return void
+	 */
+	public function handle_cleanup_email_log(): void {
+		$retention_days = (int) get_option( 'buddynext_data_retention_days', 365 );
+		if ( $retention_days <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+
+		$cutoff      = gmdate( 'Y-m-d H:i:s', time() - ( $retention_days * DAY_IN_SECONDS ) );
+		$max_batches = 50; // up to 50k rows per weekly run.
+
+		do {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$deleted = $wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$wpdb->prefix}bn_email_log WHERE sent_at < %s LIMIT 1000",
+					$cutoff
+				)
+			);
+			--$max_batches;
+		} while ( $deleted > 0 && $max_batches > 0 );
+	}
+
 	// ── Stats recount ─────────────────────────────────────────────────────────
 
 	/**
-	 * Correct reaction_count and comment_count on bn_posts from actual data.
+	 * Reconcile the denormalized engagement counters from actual data.
 	 *
-	 * Delegates to the canonical PostService::recount_counters() reconcile so
-	 * the LEFT JOIN drift-correction lives in one place (also used by GDPR
-	 * erasure). Counters are maintained incrementally on every write, so this
-	 * daily pass is a cheap safety-net reconcile only.
+	 * Reconciles bn_posts (reaction/comment/share) via PostService::recount_counters
+	 * and — added in S2(c) — bn_spaces.member_count + bn_hashtags post/follower
+	 * counts via CounterService's set-based bulk recounts, so every hot per-event
+	 * counter has the same nightly drift self-heal (previously member_count and
+	 * the hashtag counters only reconciled via a manual admin button). Counters
+	 * are maintained incrementally on every write, so this daily pass is a cheap
+	 * drift-guarded safety net only.
 	 *
 	 * @return void
 	 */
 	public function handle_recount_stats(): void {
 		buddynext_service( 'post_service' )->recount_counters();
+
+		$counters = new CounterService();
+		$counters->recount_all_space_members();
+		$counters->recount_all_hashtag_counts();
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────

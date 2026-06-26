@@ -395,6 +395,10 @@ class TwoFactorService {
 	public static function verify_login_challenge( string $token, int $user_id, string $code ): bool|WP_Error {
 		$key = self::throttle_key( $token );
 
+		// NB: this counter intentionally stays in the DB transient, NOT the
+		// object-cache RateLimiter. It is a security lockout on 2FA code guesses,
+		// so "fail open" is not acceptable — an object-cache flush mid-attack must
+		// not reset the attacker's attempt count and hand them a fresh window.
 		if ( (int) get_transient( $key ) >= self::TRY_MAX ) {
 			return new WP_Error(
 				'bn_2fa_locked',

@@ -1083,7 +1083,6 @@ class PostService {
 
 		// Cascade the remaining post references so no orphan rows survive a delete.
 		$wpdb->delete( $wpdb->prefix . 'bn_post_hashtags', array( 'post_id' => $post_id ), array( '%d' ) );
-		$wpdb->delete( $wpdb->prefix . 'bn_feed_items', array( 'post_id' => $post_id ), array( '%d' ) );
 		// Announcement dismissals live in user_meta (bn_dismissed_announcements),
 		// not a table, so there is nothing to cascade here. A stale post ID left
 		// in a user's dismissed-array is harmless — the post is gone and can
@@ -1399,12 +1398,14 @@ class PostService {
 
 		$post_ids = array_values( array_unique( array_filter( array_map( 'intval', $post_ids ) ) ) );
 
-		$scope_outer = '';
-		$scope_inner = '';
+		$scope_outer  = '';
+		$scope_inner  = '';
+		$scope_shares = '';
 		if ( array() !== $post_ids ) {
-			$ids_in      = implode( ',', $post_ids );
-			$scope_outer = " AND p.id IN ({$ids_in})";
-			$scope_inner = " AND object_id IN ({$ids_in})";
+			$ids_in       = implode( ',', $post_ids );
+			$scope_outer  = " AND p.id IN ({$ids_in})";
+			$scope_inner  = " AND object_id IN ({$ids_in})";
+			$scope_shares = " AND post_id IN ({$ids_in})";
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -1433,6 +1434,21 @@ class PostService {
 			 ) c ON c.object_id = p.id
 			 SET p.comment_count = COALESCE(c.cnt, 0)
 			 WHERE p.comment_count <> COALESCE(c.cnt, 0){$scope_outer}"
+		);
+
+		// bn_shares uses post_id. Reconciled here too (S2(c)) so share_count — a hot
+		// per-event counter — has the same nightly self-heal as reaction/comment,
+		// instead of drifting until an admin clicks the manual recount button.
+		$wpdb->query(
+			"UPDATE {$wpdb->prefix}bn_posts p
+			 LEFT JOIN (
+			     SELECT post_id, COUNT(*) AS cnt
+			       FROM {$wpdb->prefix}bn_shares
+			      WHERE 1 = 1{$scope_shares}
+			      GROUP BY post_id
+			 ) s ON s.post_id = p.id
+			 SET p.share_count = COALESCE(s.cnt, 0)
+			 WHERE p.share_count <> COALESCE(s.cnt, 0){$scope_outer}"
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 

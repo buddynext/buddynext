@@ -1073,6 +1073,8 @@ class PageRouter {
 				if ( '' !== (string) get_query_var( 'bn_user_slug', '' ) ) {
 					$assets->enqueue( 'profile' );
 					$assets->enqueue( 'feed' ); // Post cards on profile use bn-feed.css classes.
+					$assets->enqueue( 'media-upload' ); // Owner-only upload composer on the Media tab.
+					$assets->enqueue( 'media-albums' ); // Media | Albums sub-nav + albums UI.
 					// Followers / Following / Connections render as in-page tabs in
 					// the profile shell (parts/member-grid.php, server-rendered and
 					// toggled client-side), so the shared member cards are always in

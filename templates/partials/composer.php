@@ -109,7 +109,6 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 		wp_json_encode(
 			array(
 				'restUrl'               => rest_url( 'buddynext/v1' ),
-				'mvsRestBase'           => rest_url( 'mvs/v1' ),
 				'restNonce'             => $composer_nonce,
 				'spaceId'               => $composer_space,
 				'composerOpen'          => true,

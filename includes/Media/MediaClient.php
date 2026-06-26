@@ -87,4 +87,40 @@ class MediaClient {
 	public static function messaging() {
 		return self::service( 'messaging' );
 	}
+
+	/**
+	 * The album service (create/list/items/cover for mvs_album collections).
+	 *
+	 * @return object|null
+	 */
+	public static function albums() {
+		return self::service( 'albums' );
+	}
+
+	/**
+	 * The privacy service (per-viewer can_view checks on media/albums).
+	 *
+	 * @return object|null
+	 */
+	public static function privacy() {
+		return self::service( 'privacy' );
+	}
+
+	/**
+	 * The engine's bundled default video poster URL.
+	 *
+	 * Used as a fallback when a video has no server-generated poster frame so a
+	 * BuddyNext media tile shows the same placeholder the engine's own grids use
+	 * (Explore / My Media), instead of a black poster-less tile. Degrades to an
+	 * empty string when the engine (or the helper) is absent, like every other
+	 * accessor here.
+	 *
+	 * @return string Default poster URL, or '' when unavailable.
+	 */
+	public static function default_video_poster(): string {
+		if ( is_callable( array( '\WPMediaVerse\Core\TemplateHelpers', 'default_video_poster_url' ) ) ) {
+			return (string) \WPMediaVerse\Core\TemplateHelpers::default_video_poster_url();
+		}
+		return '';
+	}
 }

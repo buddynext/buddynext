@@ -2119,10 +2119,18 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	background: var(--bn-sunken, color-mix(in oklab, var(--bn-accent) 6%, transparent));
 	border-radius: var(--r-sm, 4px);
 }
-.bn-md-link {
+.bn-md-link,
+.bn-autolink {
 	color: var(--bn-accent);
 	text-decoration: underline;
 	text-underline-offset: 2px;
+}
+
+/* Long pasted URLs must wrap inside the post/comment body instead of
+   overflowing the card or clamping mid-glyph. */
+.bn-autolink {
+	word-break: break-word;
+	overflow-wrap: anywhere;
 }
 
 /* Reactor list popover — opens when a user clicks the per-emoji
@@ -2531,9 +2539,18 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	   whose global button color resolves to the button background. */
 	color: var(--bn-ink-3);
 	cursor: pointer;
-	padding: 2px 4px;
+	/* Match the 40px circular submit button box so the emoji trigger bottom-aligns
+	   with the send button and textarea baseline (the form is align-items:flex-end)
+	   and meets the 40px minimum tap target. The icon stays 18px via the rule below. */
+	width: 40px;
+	height: 40px;
+	min-height: 40px;
+	padding: 0;
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 	line-height: 0;
-	align-self: center;
 }
 .bn-comment__emoji-trigger img,
 .bn-comment__emoji-trigger svg { width: 18px; height: 18px; display: block; }

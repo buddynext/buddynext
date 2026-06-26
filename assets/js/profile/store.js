@@ -625,6 +625,11 @@ async function doSave( ctx ) {
 			await flushStagedMedia( ctx );
 			ctx.saved   = true;
 			ctx.isDirty = false;
+			// Mirror the cleared dirty state onto the DOM attribute at the source —
+			// the beforeunload guard reads data-bn-dirty, and relying only on
+			// saveProfile's .then() left a window where a re-render could surface
+			// the unsaved-changes prompt after a fully successful save.
+			syncDirtyAttr( false );
 			bnToast( ( window.bnI18n && window.bnI18n.profileSaved ) || t( 'profileSaved', 'Profile saved' ), { tone: 'success' } );
 			setTimeout( function () { ctx.saved = false; }, 3000 );
 		} else if ( res.status === 422 && json && json.errors ) {
@@ -654,6 +659,11 @@ async function doAutoSave( ctx ) {
 		if ( res.ok ) {
 			ctx.saved   = true;
 			ctx.isDirty = false;
+			// Per-field autosave (sliders/toggles) must also clear the DOM dirty
+			// marker the beforeunload guard reads — otherwise a silent autosave
+			// leaves data-bn-dirty="1" and the unsaved-changes prompt fires on
+			// navigation even though everything is saved.
+			syncDirtyAttr( false );
 			setTimeout( function () { ctx.saved = false; }, 3000 );
 		}
 	} catch ( _e ) {
@@ -1249,6 +1259,15 @@ const profileStore = store( 'buddynext/profile', {
 					{ tone: 'danger' }
 				);
 			}
+		},
+
+		/* Keep the controlled display-name input in sync with reactive state so the
+		 * re-render triggered when validateField writes context.errors on blur paints
+		 * the value the member typed instead of resetting the uncontrolled input back
+		 * to the server-rendered login. The form-level data-wp-on--input still fires
+		 * for markDirty; this only mirrors the value into context.nameValue. */
+		syncNameField( event ) {
+			getContext().nameValue = ( event.target && event.target.value ) || '';
 		},
 
 		/* Inline field validation on blur. */

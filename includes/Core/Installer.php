@@ -47,8 +47,16 @@ class Installer {
 	 *     buddynext_webhook_retry (5 min, now reactive single-event in
 	 *     OutboundWebhookService); migrate buddynext_recount_stats from
 	 *     buddynext_5min to 'daily'. No schema change — migration is cron only.
+	 * 7 — added bn_presence (indexed integer presence timestamp) to replace the
+	 *     non-sargable CAST(meta_value) usermeta scans. Existing bn_last_active
+	 *     meta is back-filled once via maybe_backfill_presence(); the writer keeps
+	 *     dual-writing meta during the transition so readers can switch safely.
+	 * 8 — autoload hygiene: flip the historically-autoloaded per-space settings
+	 *     (bn_space_*) and the custom-CSS blob to autoload=off via
+	 *     maybe_fix_autoload() so they stop loading on every request as the
+	 *     community grows. No schema change.
 	 */
-	private const SCHEMA_VERSION = 6;
+	private const SCHEMA_VERSION = 9;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -69,7 +77,93 @@ class Installer {
 		// Safe to call repeatedly — each step checks the current schedule state.
 		CronScheduler::run_cron_migration();
 
+		// v7: seed bn_presence from existing bn_last_active meta so the online
+		// filter/sort is populated the moment readers switch to the table.
+		global $wpdb;
+		self::maybe_backfill_presence( $wpdb->prefix );
+
+		// v8: stop the per-space settings + custom-CSS blob from autoloading.
+		self::maybe_fix_autoload();
+
+		// v9: drop the legacy bn_last_active user_meta now that every reader
+		// resolves presence from the indexed bn_presence table. Runs AFTER the v7
+		// backfill above, so a fresh v6 -> v9 upgrade seeds the table first, then
+		// clears the meta.
+		self::maybe_drop_last_active_meta();
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * One-time cleanup: delete the legacy bn_last_active presence user_meta.
+	 *
+	 * All presence readers migrated to the bn_presence table (F-stage-2) and the
+	 * dual-write was dropped, so the meta is now dead weight on wp_usermeta. Uses
+	 * the WP metadata API with delete_all so a single call clears every user's row
+	 * without a per-user loop. Idempotent — a re-run simply finds nothing to delete.
+	 *
+	 * @return void
+	 */
+	private static function maybe_drop_last_active_meta(): void {
+		delete_metadata( 'user', 0, \BuddyNext\Realtime\PresenceService::META_KEY, '', true );
+	}
+
+	/**
+	 * One-time autoload hygiene: flip historically-autoloaded options off.
+	 *
+	 * Per-space settings (bn_space_*) and the custom-CSS blob were created with the
+	 * default autoload=on, so every one loaded into alloptions on every request —
+	 * a real cost once a community has thousands of spaces. They are read on demand,
+	 * never every request, so this flips them off. Idempotent and uses the WP API
+	 * (correct cross-version autoload values) rather than a raw UPDATE. No-op on
+	 * WP < 6.4 where the bulk helper is absent (readers are autoload-agnostic).
+	 *
+	 * @return void
+	 */
+	private static function maybe_fix_autoload(): void {
+		global $wpdb;
+
+		if ( ! function_exists( 'wp_set_options_autoload' ) ) {
+			return;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$names = $wpdb->get_col(
+			"SELECT option_name FROM {$wpdb->options}
+			 WHERE option_name LIKE 'bn\\_space\\_%'
+			    OR option_name = 'buddynext_custom_css'"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( ! empty( $names ) ) {
+			wp_set_options_autoload( $names, false );
+		}
+	}
+
+	/**
+	 * One-time back-fill of bn_presence from the legacy bn_last_active user_meta.
+	 *
+	 * Idempotent: an UPSERT keyed on user_id that only ever advances last_active
+	 * (GREATEST), so re-running never regresses a fresher value the live dual-write
+	 * already wrote. Runs as a single INSERT..SELECT — one bounded query even on a
+	 * large site. Skips cleanly when the table or the meta key is absent.
+	 *
+	 * @param string $p Table prefix.
+	 * @return void
+	 */
+	private static function maybe_backfill_presence( string $p ): void {
+		global $wpdb;
+
+		// phpcs:disable -- one-time migration query: interpolated table names, no caching by design.
+		$wpdb->query(
+			"INSERT INTO {$p}bn_presence (user_id, last_active)
+			 SELECT user_id, CAST(meta_value AS UNSIGNED)
+			 FROM {$wpdb->usermeta}
+			 WHERE meta_key = '" . \BuddyNext\Realtime\PresenceService::META_KEY . "'
+			   AND meta_value REGEXP '^[0-9]+\$'
+			 ON DUPLICATE KEY UPDATE last_active = GREATEST(last_active, VALUES(last_active))"
+		);
+		// phpcs:enable
 	}
 
 	/**
@@ -794,15 +888,15 @@ class Installer {
 				KEY         post_shares (post_id)
 			) {$cs};",
 
-			"CREATE TABLE {$p}bn_feed_items (
-				id           BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				recipient_id BIGINT(20) UNSIGNED NOT NULL,
-				post_id      BIGINT(20) UNSIGNED NOT NULL,
-				score        FLOAT NOT NULL DEFAULT 0,
-				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				PRIMARY KEY  (id),
-				UNIQUE KEY   recipient_post (recipient_id, post_id),
-				KEY          recipient_score (recipient_id, score, created_at)
+			// Online presence. Replaces the non-sargable CAST(meta_value) scans over
+			// wp_usermeta 'bn_last_active' with an indexed integer column so the member
+			// directory online filter / sort and the online-count surfaces stay fast at
+			// scale. last_active is a UNIX timestamp; the KEY makes range scans sargable.
+			"CREATE TABLE {$p}bn_presence (
+				user_id     BIGINT(20) UNSIGNED NOT NULL,
+				last_active INT(10) UNSIGNED NOT NULL DEFAULT 0,
+				PRIMARY KEY (user_id),
+				KEY         last_active (last_active)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_poll_options (

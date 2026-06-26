@@ -433,9 +433,9 @@
 .bn-cf input[type="url"],
 .bn-cf select {
 	width: 100%;
-	border: 1px solid var(--bn-a-border);
-	border-radius: var(--bn-a-r-sm);
-	padding: var(--bn-a-s2) var(--bn-a-s2);
+	border: 1px solid var(--bn-a-input-border);
+	border-radius: var(--bn-a-input-radius);
+	padding: var(--bn-a-input-pad-y) var(--bn-a-input-pad-x);
 	font-size: var(--bn-a-text-sm);
 	color: var(--bn-a-text-1);
 	background: var(--bn-a-bg);
@@ -449,7 +449,7 @@
 .bn-cf select:focus {
 	outline: none;
 	border-color: var(--bn-a-brand);
-	box-shadow: 0 0 0 1px var(--bn-a-brand);
+	box-shadow: var(--bn-a-focus-ring);
 }
 
 .bn-cf-position-input {

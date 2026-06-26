@@ -131,7 +131,21 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 		</div>
 
 		<div class="bn-pf-id bn-ep-hero-id">
-			<div class="bn-ep-hero-field">
+			<div class="bn-ep-hero-field"
+				<?php
+				// Controlled value: this is the only field that carries BOTH a reactive
+				// directive (the error class bound to context.errors) AND a pre-filled
+				// value. Without a reactive value binding, the Interactivity re-render
+				// fired when validateField touches context.errors on blur would reset
+				// this uncontrolled input back to its server-rendered value (the login),
+				// so the name appeared un-editable. Seeding the value into context and
+				// binding data-wp-bind--value makes the re-render preserve what the
+				// member typed.
+				// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_interactivity_data_wp_context() returns an escaped data-wp-context attribute.
+				echo wp_interactivity_data_wp_context( array( 'nameValue' => (string) $bn_ep_name ) );
+				// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+				?>
+			>
 				<label class="bn-ep-hero-label" for="bn-ep-name">
 					<?php esc_html_e( 'Display name', 'buddynext' ); ?>
 					<span class="bn-ep-required" aria-hidden="true">*</span>
@@ -141,11 +155,13 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 					id="bn-ep-name"
 					name="display_name"
 					value="<?php echo esc_attr( $bn_ep_name ); ?>"
+					data-wp-bind--value="context.nameValue"
 					placeholder="<?php esc_attr_e( 'Your full name', 'buddynext' ); ?>"
 					required
 					aria-required="true"
 					aria-describedby="bn-ep-error-display_name"
 					data-wp-class--bn-input--error="context.errors.display_name"
+					data-wp-on--input="actions.syncNameField"
 					data-wp-on--blur="actions.validateField" />
 				<span class="bn-ep-field-error"
 					id="bn-ep-error-display_name"

@@ -37,6 +37,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Auth;
 
 use WP_Error;
+use BuddyNext\Core\RateLimiter;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -78,7 +79,7 @@ class RegistrationGuard {
 		$max = (int) apply_filters( 'buddynext_register_rate_limit', (int) get_option( 'buddynext_reg_rate_limit', self::RATE_MAX ) );
 		if ( $max > 0 && '' !== $ip ) {
 			$key = self::RATE_PREFIX . md5( $ip );
-			if ( (int) get_transient( $key ) >= $max ) {
+			if ( RateLimiter::count( $key ) >= $max ) {
 				return new WP_Error( 'bn_reg_rate', __( 'Too many sign-up attempts from your network. Please wait a few minutes and try again.', 'buddynext' ) );
 			}
 		}
@@ -133,10 +134,9 @@ class RegistrationGuard {
 			return new WP_Error( 'bn_reg_spam', __( 'Your sign-up looked automated and was blocked. If this is a mistake, please try again.', 'buddynext' ) );
 		}
 
-		// Passed — count this attempt toward the rate window.
+		// Passed — count this attempt toward the rate window (atomic incr).
 		if ( $max > 0 && '' !== $ip ) {
-			$key = self::RATE_PREFIX . md5( $ip );
-			set_transient( $key, (int) get_transient( $key ) + 1, HOUR_IN_SECONDS );
+			RateLimiter::hit( self::RATE_PREFIX . md5( $ip ), HOUR_IN_SECONDS );
 		}
 
 		return true;

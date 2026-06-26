@@ -106,6 +106,10 @@ class Plugin {
 		// deleted (any path: admin, CLI, REST) so no orphans are left behind.
 		( new \BuddyNext\SocialGraph\UserCleanupListener() )->register();
 
+		// Invalidate a viewer's directory result cache the moment their block list
+		// changes, so a just-blocked member disappears immediately (not after TTL).
+		$container->get( 'member_directory' )->register();
+
 		// Enforce per-space "who can post" + "require approval" at post-save time
 		// (the composer gate alone is bypassable via REST).
 		( new \BuddyNext\Spaces\SpacePostGuard() )->register();

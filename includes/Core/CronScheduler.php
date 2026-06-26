@@ -66,6 +66,13 @@ class CronScheduler {
 	public const JOB_CLEANUP_ACTIVITY_LOG = 'buddynext_cleanup_activity_log';
 
 	/**
+	 * Weekly prune of old bn_email_log rows (honours the data-retention window).
+	 *
+	 * @var string
+	 */
+	public const JOB_CLEANUP_EMAIL_LOG = 'buddynext_cleanup_email_log';
+
+	/**
 	 * Counter recount job hook. Runs daily — counters are maintained
 	 * incrementally on every write; this is a reconcile pass only.
 	 */
@@ -88,6 +95,19 @@ class CronScheduler {
 		add_filter( 'cron_schedules', array( $this, 'add_custom_schedules' ) ); // phpcs:ignore WordPress.WP.CronInterval.CronSchedulesInterval
 		add_action( 'wp_loaded', array( $this, 'schedule_events' ) );
 
+		// Cap Action Scheduler's completed/failed-action retention. The default
+		// purger keeps rows for 30 days; the per-space-post fan-out and reactive
+		// async jobs generate a high volume of completed actions, so 14 days keeps
+		// the actionscheduler_* tables lean at scale. Only lowers the window — never
+		// raises a site's own larger setting.
+		add_filter(
+			'action_scheduler_retention_period',
+			static function ( $period ) {
+				$cap = 14 * DAY_IN_SECONDS;
+				return ( is_int( $period ) && $period > 0 ) ? min( (int) $period, $cap ) : $cap;
+			}
+		);
+
 		// Wire cron job handlers — one action per job defined above.
 		$handlers = new CronService();
 		add_action( self::JOB_DAILY_DIGEST, array( $handlers, 'handle_daily_digest' ) );
@@ -95,6 +115,7 @@ class CronScheduler {
 		add_action( self::JOB_CLEANUP_TOKENS, array( $handlers, 'handle_cleanup_tokens' ) );
 		add_action( self::JOB_CLEANUP_NOTIFICATIONS, array( $handlers, 'handle_cleanup_notifications' ) );
 		add_action( self::JOB_CLEANUP_ACTIVITY_LOG, array( $handlers, 'handle_cleanup_activity_log' ) );
+		add_action( self::JOB_CLEANUP_EMAIL_LOG, array( $handlers, 'handle_cleanup_email_log' ) );
 		add_action( self::JOB_RECOUNT_STATS, array( $handlers, 'handle_recount_stats' ) );
 	}
 
@@ -132,6 +153,7 @@ class CronScheduler {
 		$this->maybe_schedule( self::JOB_CLEANUP_TOKENS, 'daily' );
 		$this->maybe_schedule( self::JOB_CLEANUP_NOTIFICATIONS, 'weekly' );
 		$this->maybe_schedule( self::JOB_CLEANUP_ACTIVITY_LOG, 'weekly' );
+		$this->maybe_schedule( self::JOB_CLEANUP_EMAIL_LOG, 'weekly' );
 		$this->maybe_schedule( self::JOB_RECOUNT_STATS, 'daily' );
 	}
 

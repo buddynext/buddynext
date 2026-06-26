@@ -192,6 +192,18 @@ do_action( 'buddynext_part_profile_field_before', $args );
 				required aria-required="true"<?php endif; ?>
 			<?php if ( $bn_validate ) : ?>
 				aria-describedby="<?php echo esc_attr( $bn_error_id ); ?>"
+				<?php
+				// CONTROLLED-INPUT REQUIREMENT: the error-class directive below is bound
+				// to context.errors, which validateField mutates on blur. That mutation
+				// re-renders this element, and an uncontrolled input with a non-empty
+				// server `value` gets reset by Preact back to that value (the exact
+				// "display name won't change" bug fixed on the hero field). Today no
+				// caller passes validate_on_blur with a pre-filled value, so this is
+				// safe. If you ever render a validated field WITH a value, also bind
+				// the value reactively (data-wp-bind--value + a sync action seeding
+				// context) the way profile-edit-hero.php does, or the typed value will
+				// be wiped on blur.
+				?>
 				data-wp-class--bn-input--error="context.errors.<?php echo esc_attr( $bn_error_key ); ?>"
 				data-wp-on--blur="actions.validateField"
 			<?php elseif ( '' !== $bn_hint ) : ?>

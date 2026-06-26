@@ -17,7 +17,7 @@ What a community owner expects onboarding + invites to do out of the box, and wh
 - **New-member onboarding wizard**: every new member is dropped into a 4-step wizard (Profile → Spaces → People → Notifications) right after registration/verification, then lands on the activity feed. The owner expects this to "just happen" — they don't configure it per-member.
 - **Out-of-box, no config**: the member wizard, the 24h/72h nudge emails for members who don't finish, and the default `open` reg mode all work with zero owner setup.
 
-> Reality check (see Known limitations): `buddynext_reg_mode` is a **stored preference that the REST registration path does not yet enforce**, and the invite **token is generated + emailed but never redeemed/validated on signup**. Treat the invite flow below as "token issued and tracked", not "token gates entry".
+> Status (1.0.3): `buddynext_reg_mode` IS now enforced on the REST registration path, and the invite **token is validated and redeemed on signup** (consumed via `mark_registered()`). In invite-only mode, `POST /auth/register` without a valid `invite` token returns **403 `rest_invite_required`**; a valid token gates entry and flips the invite to `registered`. Treat the invite flow below as "token gates entry", not just "token issued and tracked".
 
 ## Preconditions
 
@@ -114,19 +114,16 @@ wp user get member2 --field=ID   # → MEMBER2_ID
        "email": "invitee@example.test",
        "user_login": "invitee_pat",
        "password": "password123",
+       "invite": "INVITE_TOKEN",
        "terms_agreed": true
      }'
    ```
 
    - Expected: 200 with `{ "success": true, "user_id": N, "redirect_to": "…/onboarding…" }`. The new user is auto-signed-in, a verification token is issued (`VerificationService::create_token`), and `redirect_to` is the onboarding wizard URL (or the verify page if `buddynext_email_verify` is on).
-   - **NOTE (gap):** registration succeeds based on WP core `users_can_register`, **not** on `buddynext_reg_mode`, and the `bn_invite` token is **not consumed** here. The invite row stays `pending` (see Known limitations). To simulate the intended redemption, mark it manually:
-
-   ```bash
-   wp eval '(new \BuddyNext\Onboarding\InviteService())->mark_registered(INVITE_ID);'
-   ```
+   - In invite-only mode (1.0.3) the `invite` param is required: a valid token gates entry and is **consumed** on success (the invite row is flipped to `registered` via `mark_registered()`). Omitting it in invite-only mode returns **403 `rest_invite_required`**. No manual `mark_registered()` is needed.
 
    ```sql
-   SELECT status FROM wp_bn_invites WHERE id = INVITE_ID;  -- expect: registered
+   SELECT status FROM wp_bn_invites WHERE id = INVITE_ID;  -- expect: registered (consumed automatically)
    ```
 
 ### Part 4: Member completes the onboarding wizard
@@ -252,16 +249,15 @@ wp user get member2 --field=ID   # → MEMBER2_ID
 
   - Expected: `NULL` — a `registered` invite no longer matches the `status = 'pending'` clause, so the same link cannot be reused.
 
-- **Invite-only mode does NOT block open signup (current behaviour / gap)**: with `buddynext_reg_mode = invite` (Part 1) but WP `users_can_register = 1`, attempt a signup with **no** invite token:
+- **Invite-only mode blocks walk-in signup (1.0.3)**: with `buddynext_reg_mode = invite` (Part 1), attempt a signup with **no** invite token:
 
   ```bash
-  wp option update users_can_register 1
   curl -s -X POST http://buddynext-dev.local/wp-json/buddynext/v1/auth/register \
     -H "Content-Type: application/json" \
     -d '{"email":"walkin@example.test","user_login":"walkin_user","password":"password123","terms_agreed":true}'
   ```
 
-  - **Documented current behaviour:** 200 / account created. The REST register path checks only `users_can_register`, never `buddynext_reg_mode` or any invite token. The *intended* outcome (403 in invite mode without a valid token) is **not implemented** — flagged under Known limitations. To actually block walk-ins today, the owner must set `users_can_register = 0`.
+  - **Expected:** 403 `rest_invite_required`. The REST register path now reads `buddynext_reg_mode` and, in invite mode, requires a valid `invite` token. Re-run with a valid `invite` token and confirm 200 plus the invite flips to `registered`.
 
 - **Bulk CSV: malformed rows are skipped, not fatal**: import a CSV with a bad email row.
 
@@ -332,7 +328,7 @@ wp cron event list | grep bn_onboarding_nudge
 ## REST surface walked
 
 ```
-POST /buddynext/v1/auth/register            -- 200 { success, user_id, redirect_to }; gated by users_can_register (NOT reg_mode)
+POST /buddynext/v1/auth/register            -- 200 { success, user_id, redirect_to }; gated by reg_mode (invite mode requires valid `invite` token → 403 rest_invite_required otherwise)
 POST /buddynext/v1/me/onboarding/step        -- 200 { saved, next_step }; auth required
 POST /buddynext/v1/me/onboarding/complete    -- 200 { completed, redirect_to }; idempotent
 POST /buddynext/v1/me/onboarding/skip         -- 200 { skipped }; auth required
@@ -409,8 +405,8 @@ wp option delete buddynext_setup_step
 
 ## Known limitations
 
-- **`buddynext_reg_mode` is stored but not enforced on the REST signup path.** `AuthController::register()` gates only on WP core `users_can_register`; it never reads `buddynext_reg_mode`. So `invite` / `approval` modes do not block or branch REST registration. Only `SocialLogin` honours the option (rejects social signup unless mode is `open`). To actually close registration today, set `users_can_register = 0`.
-- **Invite token is generated + emailed but never redeemed.** `InviteService::get_by_token()` and `mark_registered()` exist and are unit-tested, but **no caller** in the registration flow consumes the `bn_invite` query arg, validates the token, pre-fills the email, or flips the invite to `registered`. The redemption loop is incomplete — invites remain `pending` after the invitee signs up. The steps above mark the invite manually to simulate the intended behaviour.
+- **`buddynext_reg_mode` enforcement on the REST signup path (CLOSED in 1.0.3).** `AuthController::register()` now reads `buddynext_reg_mode`: in invite mode a valid `invite` token is required (403 `rest_invite_required` otherwise). `SocialLogin` continues to honour the option (rejects social signup unless mode is `open`).
+- **Invite redemption (CLOSED in 1.0.3).** The registration flow now consumes the `invite` token: it validates via `get_by_token()` and flips the invite to `registered` via `mark_registered()` on successful signup. No manual `mark_registered()` step is needed — the redemption loop is complete.
 - **No single-invite create UI / REST route.** Invites can only be created in bulk (CSV upload via `InviteManager` admin form or `POST /invites/import-csv`). There is no "invite one email" form field or per-email REST endpoint; the journey uses `wp eval` to create a single invite.
 - **No revoke endpoint.** Settings copy mentions "create, resend, and revoke", but `InviteManager` implements only bulk-create and resend. Revoke is a manual `DELETE` on `bn_invites`.
 - **`skip()` does not cancel nudge cron.** Only `buddynext_onboarding_completed` (fired by `finish()`, not `skip()`) clears the 24h/72h nudge events. A member who skips the wizard can still receive nudge emails — though the nudge handler re-checks `is_complete()` and bails, so no email actually sends. The scheduled cron rows simply linger.

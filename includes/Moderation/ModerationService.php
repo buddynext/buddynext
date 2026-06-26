@@ -2109,16 +2109,26 @@ class ModerationService {
 		$user_id       = isset( $appeal['user_id'] ) ? (int) $appeal['user_id'] : 0;
 		$suspension_id = isset( $appeal['suspension_id'] ) ? (int) $appeal['suspension_id'] : 0;
 
+		// bn_appeals carries two legacy audit column pairs — resolved_*/admin_note
+		// (written here) and reviewed_*/reviewer_note (written by resolve_appeal()).
+		// Until the two resolution paths are consolidated, populate BOTH so the audit
+		// trail is complete regardless of which endpoint decided the appeal.
+		$now     = current_time( 'mysql' );
+		$actor   = $resolved_by > 0 ? $resolved_by : null;
+		$note    = sanitize_textarea_field( $admin_note );
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_appeals',
 			array(
-				'status'      => $decision,
-				'admin_note'  => sanitize_textarea_field( $admin_note ),
-				'resolved_by' => $resolved_by > 0 ? $resolved_by : null,
-				'resolved_at' => current_time( 'mysql' ),
+				'status'        => $decision,
+				'admin_note'    => $note,
+				'reviewer_note' => $note,
+				'resolved_by'   => $actor,
+				'reviewed_by'   => $actor,
+				'resolved_at'   => $now,
+				'reviewed_at'   => $now,
 			),
 			array( 'id' => $appeal_id ),
-			array( '%s', '%s', '%d', '%s' ),
+			array( '%s', '%s', '%s', '%d', '%d', '%s', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

@@ -216,7 +216,7 @@
 
 - **Slug uniqueness**: Attempt to create a second space with `slug = journey-open-space`. Expected: 400 or 422 — slug must be unique per UNIQUE KEY on `bn_spaces.slug`.
 - **Non-member join secret space**: As `member2` (not invited), attempt `POST /buddynext/v1/spaces/SECRET_SPACE_ID/join`. Expected: 403.
-- **Decline join request**: With member2 in `pending` status on the private space, as member1 call `POST /buddynext/v1/spaces/PRIVATE_SPACE_ID/decline-request` with `{"user_id": MEMBER2_ID}`. Expected: 200. Row removed from `wp_bn_space_members`.
+- **Decline join request**: With member2 in `pending` status on the private space, as member1 call `POST /buddynext/v1/spaces/PRIVATE_SPACE_ID/members/MEMBER2_ID/decline` (there is no `/decline-request` route — decline is under `/members/{uid}/decline`). Expected: 200. Row removed from `wp_bn_space_members`.
 - **Space listing excludes secret spaces**: `GET /buddynext/v1/spaces` (public, unauthenticated). Expected: secret space does not appear in the list.
 
 ## What this validates

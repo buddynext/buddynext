@@ -28,6 +28,7 @@
 
    Replace `MEMBER2_ID` with the actual ID.
    - Expected: 200 response with `{"following": true}`. Row inserted into `wp_bn_follows`.
+   - Follow is **not** a POST toggle: `POST /users/{id}/follow` always means *follow*. A second POST does NOT unfollow — use `DELETE` to unfollow (step 4).
 
 2. Verify the follow row in the DB:
 
@@ -47,10 +48,10 @@
 
    - Expected: 200, JSON array containing member1's user object.
 
-4. Unfollow member2:
+4. Unfollow member2 (note the `DELETE` method — a 2nd POST does not unfollow):
 
    ```bash
-   curl -s -X POST http://buddynext-dev.local/wp-json/buddynext/v1/users/MEMBER2_ID/follow \
+   curl -s -X DELETE http://buddynext-dev.local/wp-json/buddynext/v1/users/MEMBER2_ID/follow \
      -u member1:password -H "Content-Type: application/json"
    ```
 
@@ -99,8 +100,8 @@
 9. To test decline: first withdraw the accepted connection, then re-request, then decline as member2:
 
    ```bash
-   # Withdraw (member1):
-   curl -s -X POST http://buddynext-dev.local/wp-json/buddynext/v1/users/MEMBER2_ID/connect \
+   # Withdraw (member1) — DELETE, not a 2nd POST:
+   curl -s -X DELETE http://buddynext-dev.local/wp-json/buddynext/v1/users/MEMBER2_ID/connect \
      -u member1:password -H "Content-Type: application/json"
 
    # Re-request:
@@ -182,11 +183,13 @@ WHERE blocker_id = MEMBER1_ID;
 ## REST surface walked
 
 ```
-POST /buddynext/v1/users/{id}/follow                 -- toggle follow; 200 { "following": bool }
+POST   /buddynext/v1/users/{id}/follow                -- follow; 200 { "following": true }
+DELETE /buddynext/v1/users/{id}/follow                -- unfollow; 200 { "following": false }
 GET  /buddynext/v1/users/{id}/followers              -- 200, { ids:[...], total, page, per_page } (ID array, NOT hydrated user objects)
 GET  /buddynext/v1/users/{id}/following              -- 200, { ids:[...], total, page, per_page }
 GET  /buddynext/v1/follow-suggestions                -- 200, array of user objects (logged-in)
-POST /buddynext/v1/users/{id}/connect                -- send / withdraw request; 200-201
+POST   /buddynext/v1/users/{id}/connect              -- send request; 200-201
+DELETE /buddynext/v1/users/{id}/connect              -- withdraw request; 200
 POST /buddynext/v1/users/{id}/connect/accept         -- 200 { "status": "accepted" }
 POST /buddynext/v1/users/{id}/connect/decline        -- 200 { "status": "declined" }
 GET  /buddynext/v1/me/connections                    -- 200, { ids:[...], total, ... } (ID array, not hydrated objects)
@@ -264,5 +267,5 @@ WHERE blocker_id IN (MEMBER1_ID, MEMBER2_ID);
 ## Automation notes
 
 - All REST calls in this journey are curl-automatable with basic auth.
-- The toggle pattern (follow/block return a bool in the response) means automation scripts should assert the returned `following`/`blocked` value rather than checking HTTP status alone.
+- Follow/connect are method-driven (POST = add, DELETE = remove), not POST toggles; block returns a bool in the response. Automation scripts should send the correct method and assert the returned `following`/`blocked` value rather than checking HTTP status alone.
 - DB verification queries can be run via `wp db query "..."` inside LocalWP's site shell.

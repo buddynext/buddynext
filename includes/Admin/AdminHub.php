@@ -41,58 +41,70 @@ class AdminHub {
 	 * slug is shared with the top-level menu (so its first tab is what
 	 * shows when an admin clicks "BuddyNext" itself).
 	 *
-	 * @var array<string, array{slug:string, label:string, top?:bool}>
+	 * @var array<string, array{slug:string, label:string, icon?:string, top?:bool}>
 	 */
 	private static function default_sections(): array {
 		return array(
 			'settings'      => array(
 				'slug'  => 'buddynext',
 				'label' => __( 'Settings', 'buddynext' ),
+				'icon'  => 'settings',
 				'top'   => true,
 			),
 			'platform'      => array(
 				'slug'  => 'buddynext-platform',
 				'label' => __( 'Platform', 'buddynext' ),
+				'icon'  => 'layers',
 			),
 			'members'       => array(
 				'slug'  => 'buddynext-members',
 				'label' => __( 'Members', 'buddynext' ),
+				'icon'  => 'users',
 			),
 			'spaces'        => array(
 				'slug'  => 'buddynext-spaces',
 				'label' => __( 'Spaces', 'buddynext' ),
+				'icon'  => 'grid',
 			),
 			'engagement'    => array(
 				'slug'  => 'buddynext-engagement',
 				'label' => __( 'Engagement', 'buddynext' ),
+				'icon'  => 'heart',
 			),
 			'notifications' => array(
 				'slug'  => 'buddynext-notifications',
 				'label' => __( 'Notifications', 'buddynext' ),
+				'icon'  => 'bell',
 			),
 			'realtime'      => array(
 				'slug'  => 'buddynext-realtime',
 				'label' => __( 'Realtime & Push', 'buddynext' ),
+				'icon'  => 'zap',
 			),
 			'campaigns'     => array(
 				'slug'  => 'buddynext-campaigns',
 				'label' => __( 'Campaigns', 'buddynext' ),
+				'icon'  => 'megaphone',
 			),
 			'moderation'    => array(
 				'slug'  => 'buddynext-moderation',
 				'label' => __( 'Moderation', 'buddynext' ),
+				'icon'  => 'shield',
 			),
 			'automod'       => array(
 				'slug'  => 'buddynext-automod',
 				'label' => __( 'Auto-Moderation', 'buddynext' ),
+				'icon'  => 'filter',
 			),
 			'monetization'  => array(
 				'slug'  => 'buddynext-monetization',
 				'label' => __( 'Monetization', 'buddynext' ),
+				'icon'  => 'store',
 			),
 			'upgrade'       => array(
 				'slug'  => 'buddynext-upgrade',
 				'label' => __( 'Upgrade', 'buddynext' ),
+				'icon'  => 'rocket',
 			),
 		);
 	}
@@ -306,7 +318,7 @@ class AdminHub {
 	 * Resolved lazily on first access so the filter sees the full plugin
 	 * load order.
 	 *
-	 * @var array<string, array{slug:string, label:string, top?:bool}>|null
+	 * @var array<string, array{slug:string, label:string, icon?:string, top?:bool}>|null
 	 */
 	private static ?array $sections_cache = null;
 
@@ -582,7 +594,7 @@ class AdminHub {
 	 * The section appears in the sidebar only when at least one tab is
 	 * registered into it.
 	 *
-	 * @return array<string, array{slug:string, label:string, top?:bool}>
+	 * @return array<string, array{slug:string, label:string, icon?:string, top?:bool}>
 	 */
 	public static function sections(): array {
 		if ( null !== self::$sections_cache ) {
@@ -1137,8 +1149,10 @@ class AdminHub {
 				esc_attr( (string) $skey ),
 				$is_current_section ? ' open' : ''
 			);
+			$section_icon = ! empty( $section['icon'] ) ? \BuddyNext\Core\IconService::render( (string) $section['icon'], 'bn-hub-nav-group__icon' ) : '';
 			printf(
-				'<summary class="bn-hub-nav-group__label"><span class="bn-hub-nav-group__name">%1$s</span>%2$s</summary>',
+				'<summary class="bn-hub-nav-group__label">%1$s<span class="bn-hub-nav-group__name">%2$s</span>%3$s</summary>',
+				$section_icon, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses'd SVG markup.
 				esc_html( (string) $section['label'] ),
 				\BuddyNext\Core\IconService::render( 'chevron-down', 'bn-hub-nav-group__chevron' ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns wp_kses'd SVG markup.
 			);

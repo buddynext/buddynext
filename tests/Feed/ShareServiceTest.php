@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable Squiz.Commenting.FunctionComment.Missing, Squiz.Commenting.VariableComment.Missing, Generic.Commenting.DocComment.MissingShort -- concise, self-describing test methods and fixtures.
 /**
  * Tests for ShareService.
  *
@@ -33,7 +33,10 @@ class ShareServiceTest extends \WP_UnitTestCase {
 		$this->bob     = self::factory()->user->create();
 		$this->post_id = $this->posts->create(
 			$this->alice,
-			array( 'type' => 'text', 'content' => 'Original post' )
+			array(
+				'type'    => 'text',
+				'content' => 'Original post',
+			)
 		);
 	}
 
@@ -77,7 +80,10 @@ class ShareServiceTest extends \WP_UnitTestCase {
 	public function test_user_shares_returns_list(): void {
 		$post2 = $this->posts->create(
 			$this->alice,
-			array( 'type' => 'text', 'content' => 'Post 2' )
+			array(
+				'type'    => 'text',
+				'content' => 'Post 2',
+			)
 		);
 		$this->service->share( $this->bob, $this->post_id, '' );
 		$this->service->share( $this->bob, $post2, '' );
@@ -101,5 +107,23 @@ class ShareServiceTest extends \WP_UnitTestCase {
 
 		$post = $this->posts->get( $this->post_id );
 		$this->assertSame( 0, $post['share_count'] );
+	}
+
+	public function test_recount_counters_reconciles_drifted_share_count(): void {
+		global $wpdb;
+
+		$this->service->share( $this->bob, $this->post_id, '' ); // share_count -> 1.
+
+		// Corrupt the denormalized counter to simulate drift.
+		$wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array( 'share_count' => 42 ),
+			array( 'id' => $this->post_id )
+		);
+
+		$this->posts->recount_counters( array( $this->post_id ) );
+
+		$post = $this->posts->get( $this->post_id );
+		$this->assertSame( 1, $post['share_count'], 'share_count reconciled from bn_shares (S2(c)).' );
 	}
 }

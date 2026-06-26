@@ -76,9 +76,10 @@
    curl -s -X PUT http://buddynext-dev.local/wp-json/buddynext/v1/users/MEMBER1_ID/member-type \
      -u admin:password \
      -H "Content-Type: application/json" \
-     -d '{"type_id": DEV_TYPE_ID}'
+     -d '{"type_slug": "developer"}'
    ```
 
+   - The request body takes `type_slug` (the string slug, e.g. `"developer"`), NOT `type_id`.
    - Expected: 200. Row inserted into `wp_bn_member_type_assignments`.
 
 5. Verify the assignment:
@@ -98,7 +99,7 @@
    curl -s -X PUT http://buddynext-dev.local/wp-json/buddynext/v1/users/MEMBER2_ID/member-type \
      -u admin:password \
      -H "Content-Type: application/json" \
-     -d '{"type_id": DESIGNER_TYPE_ID}'
+     -d '{"type_slug": "designer"}'
    ```
 
 ### Part 3: Directory listing and filter by member_type
@@ -123,8 +124,8 @@
    ```bash
    wp eval "
    \$svc = buddynext_service('member_directory');
-   \$results = \$svc->list(['member_type' => 'developer', 'per_page' => 20, 'page' => 1]);
-   echo count(\$results['users']) . ' developer(s) found.\n';
+   \$results = \$svc->list_members(0, null, 20, ['member_type' => 'developer']);
+   echo count(\$results['items']) . ' developer(s) found.\n';
    "
    ```
 
@@ -194,8 +195,8 @@
 ## What this validates
 
 - `MemberTypeService::create()` inserts into `bn_member_types`.
-- `MemberTypeService::assign()` inserts into `bn_member_type_assignments` and fires `buddynext_member_type_assigned`.
-- `MemberDirectoryService::list()` applies member_type filter and enforces viewer-aware block/shadow-ban exclusions.
+- `MemberTypeService::assign_type()` inserts into `bn_member_type_assignments` and fires `buddynext_member_type_assigned`.
+- `MemberDirectoryService::list_members( int $viewer_id, ?string $cursor, int $per_page, array $filters )` applies the member_type filter and enforces viewer-aware block/shadow-ban exclusions; it returns `['items' => [...], 'next_cursor' => ..., 'total' => N]` (no `users` key).
 - Shadow-ban exclusions in search and directory depend on `bn_user_suspensions` / usermeta state set by `ModerationService`.
 - `MemberTypeController` endpoints require `manage_options` for create/update/delete and `is_user_logged_in` for assign.
 
@@ -284,10 +285,10 @@ WHERE user_id = MEMBER2_ID AND meta_key = 'bn_shadow_banned';
 ## Known limitations
 
 - Shadow-ban storage location (usermeta vs `bn_user_suspensions`) should be confirmed against `ModerationService::shadow_ban()` implementation before asserting exact DB state.
-- The directory listing endpoint is routed through `SearchController::search()` with `type=users`, not a dedicated `/members` endpoint; pagination follows the search contract.
+- The directory listing endpoint IS a dedicated route: `MemberDirectoryController` registers `GET /buddynext/v1/members` (the route the UI calls, `members/store.js`). It is cursor-paginated (`cursor` param, `next_cursor` + `total` in the body — no `?page=`, no `X-WP-Total` header). The `GET /search?type=users` / `GET /search/members` paths are a separate, secondary member-search surface, not the directory grid.
 
 ## Automation notes
 
 - Member type CRUD is fully automatable via admin REST endpoints with basic auth as admin.
 - The shadow-ban and block exclusion tests require setting up the state first; run them in order.
-- Use `wp eval` to call `MemberDirectoryService::list()` directly for unit-level verification without needing to parse REST paginated responses.
+- Use `wp eval` to call `MemberDirectoryService::list_members()` directly for unit-level verification without needing to parse REST paginated responses.

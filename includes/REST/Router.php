@@ -97,6 +97,7 @@ class Router {
 		}
 		( new SlugCheckController() )->register_routes();
 		( new RealtimeController() )->register_routes();
+		( new \BuddyNext\Media\MediaController() )->register_routes();
 		( new \BuddyNext\Integrations\CompanionController() )->register_routes();
 
 		/**

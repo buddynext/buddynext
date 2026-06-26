@@ -47,13 +47,27 @@ class RecentActivityWidget extends \WP_Widget {
 			echo $args['before_title'] . esc_html( $title ) . $args['after_title']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		}
 
-		$table = $wpdb->prefix . 'bn_posts';
-		$rows  = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->prepare(
-				"SELECT id, user_id, content, created_at FROM {$table} WHERE status = 'published' ORDER BY created_at DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$limit
-			)
-		);
+		// Short-TTL cache so a busy sidebar does not re-query bn_posts on every
+		// render; the recent-activity list tolerates ~60s staleness.
+		$cache_key = 'recent_activity_' . $limit;
+		$rows      = wp_cache_get( $cache_key, 'buddynext_widgets' );
+		if ( false === $rows ) {
+			$table = $wpdb->prefix . 'bn_posts';
+			$rows  = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->prepare(
+					"SELECT id, user_id, content, created_at FROM {$table} WHERE status = 'published' ORDER BY created_at DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					$limit
+				)
+			);
+			wp_cache_set( $cache_key, $rows, 'buddynext_widgets', 60 );
+		}
+
+		// Prime the author cache in one query so the loop's get_userdata() below
+		// is not an N+1.
+		$author_ids = array_map( static fn( $r ): int => (int) $r->user_id, (array) $rows );
+		if ( ! empty( $author_ids ) ) {
+			cache_users( array_values( array_unique( $author_ids ) ) );
+		}
 
 		if ( empty( $rows ) ) {
 			echo '<p>' . esc_html__( 'No recent activity yet.', 'buddynext' ) . '</p>';

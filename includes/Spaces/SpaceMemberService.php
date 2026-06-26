@@ -1423,6 +1423,24 @@ class SpaceMemberService {
 	}
 
 	/**
+	 * Flush the membership / ban cache for a set of users in a space.
+	 *
+	 * Used when a space is deleted: the bulk row deletes do not fire per-user
+	 * hooks, so the cached role / status entries (and anything keyed off the ban
+	 * rows) would otherwise survive the space. Public so SpaceService can call it
+	 * with the affected user set captured before the cascade.
+	 *
+	 * @param int        $space_id Space ID.
+	 * @param array<int> $user_ids Affected user IDs.
+	 * @return void
+	 */
+	public function flush_user_caches( int $space_id, array $user_ids ): void {
+		foreach ( $user_ids as $user_id ) {
+			$this->invalidate_cache( $space_id, (int) $user_id );
+		}
+	}
+
+	/**
 	 * Check whether a user is permanently banned from a space.
 	 *
 	 * @param int $space_id Space ID.

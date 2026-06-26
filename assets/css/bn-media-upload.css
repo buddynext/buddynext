@@ -1,0 +1,558 @@
+/* BuddyNext media upload composer — owner-only Media-tab upload UI + owner tile
+ * delete overlay. Tokens only; no raw hex/px/font. Pairs with bn-media.css. */
+
+:root {
+	--bn-mu-transition: 0.16s ease;
+	--bn-album-card-min: 180px;
+	--bn-album-loading-h: 120px;
+}
+
+/* ── Composer card ─────────────────────────────────────────────────────────── */
+.bn-mu {
+	margin-block-end: var(--bn-s4);
+	padding: var(--bn-s4);
+}
+
+.bn-mu__dropzone {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s6) var(--bn-s4);
+	border: var(--bn-s1) dashed var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-3);
+	cursor: pointer;
+	text-align: center;
+	transition: border-color var(--bn-mu-transition), background var(--bn-mu-transition);
+}
+
+.bn-mu__dropzone:hover,
+.bn-mu__dropzone:focus-visible {
+	border-color: var(--bn-accent);
+	color: var(--bn-ink-2);
+	outline: none;
+}
+
+.bn-mu__dropzone--drag {
+	border-color: var(--bn-accent);
+	background: var(--bn-accent-50);
+	color: var(--bn-ink);
+}
+
+.bn-mu__dropzone-icon {
+	display: inline-flex;
+	width: var(--bn-s8);
+	height: var(--bn-s8);
+	color: var(--bn-accent);
+}
+
+.bn-mu__dropzone-icon svg {
+	width: 100%;
+	height: 100%;
+}
+
+.bn-mu__dropzone-title {
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+}
+
+.bn-mu__dropzone-hint {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+
+.bn-mu__error {
+	margin-block: var(--bn-s2) 0;
+	color: var(--bn-danger);
+	font-size: var(--bn-text-sm);
+}
+
+/* ── Staged files ──────────────────────────────────────────────────────────── */
+.bn-mu__staged {
+	margin-block-start: var(--bn-s4);
+}
+
+.bn-mu__staged-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(var(--bn-s16), 1fr));
+	gap: var(--bn-s2);
+}
+
+.bn-mu-file {
+	position: relative;
+	aspect-ratio: 1;
+	border-radius: var(--bn-r-md);
+	overflow: hidden;
+	background: var(--bn-sunken);
+	border: var(--bn-s1) solid var(--bn-line-faint);
+}
+
+.bn-mu-file--error {
+	border-color: var(--bn-danger);
+}
+
+.bn-mu-file__thumb {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.bn-mu-file__placeholder {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	text-transform: uppercase;
+	font-size: var(--bn-text-2xs);
+	letter-spacing: var(--bn-ls-wide);
+	color: var(--bn-ink-3);
+}
+
+/* Loading shimmer shown while a small preview thumbnail is being generated. */
+.bn-mu-file__skeleton {
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(
+		90deg,
+		var(--bn-sunken) 25%,
+		var(--bn-raised) 37%,
+		var(--bn-sunken) 63%
+	);
+	background-size: 400% 100%;
+	animation: bn-mu-shimmer 1.4s ease infinite;
+}
+
+@keyframes bn-mu-shimmer {
+	0% { background-position: 100% 0; }
+	100% { background-position: 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bn-mu-file__skeleton { animation: none; }
+}
+
+.bn-mu-file__status {
+	position: absolute;
+	inset-block-start: var(--bn-s1);
+	inset-inline-start: var(--bn-s1);
+	width: var(--bn-s5);
+	height: var(--bn-s5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-surface);
+	box-shadow: var(--bn-shadow-xs);
+	font-size: var(--bn-text-xs);
+}
+
+.bn-mu-file__status--done {
+	color: var(--bn-success);
+}
+
+.bn-mu-file__status--uploading {
+	border: var(--bn-s1) solid var(--bn-line);
+	border-top-color: var(--bn-accent);
+	animation: bn-mu-spin 0.7s linear infinite;
+}
+
+@keyframes bn-mu-spin {
+	to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bn-mu-file__status--uploading { animation: none; }
+}
+
+.bn-mu-file__remove {
+	position: absolute;
+	inset-block-start: var(--bn-s1);
+	inset-inline-end: var(--bn-s1);
+	width: var(--bn-s5);
+	height: var(--bn-s5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: none;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-overlay);
+	color: var(--bn-accent-fg);
+	cursor: pointer;
+	line-height: 1;
+}
+
+.bn-mu-file__error {
+	position: absolute;
+	inset-block-end: 0;
+	inset-inline: 0;
+	padding: var(--bn-s1);
+	font-size: var(--bn-text-2xs);
+	background: var(--bn-danger-bg);
+	color: var(--bn-danger);
+	text-align: center;
+}
+
+/* ── Action bar ────────────────────────────────────────────────────────────── */
+.bn-mu__bar {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	margin-block-start: var(--bn-s4);
+	flex-wrap: wrap;
+}
+
+.bn-mu__privacy {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+}
+
+.bn-mu__privacy-label {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+
+.bn-mu__actions {
+	display: flex;
+	gap: var(--bn-s2);
+}
+
+/* ── Owner tile delete overlay (applied to the gallery region) ─────────────── */
+.bn-media-cell {
+	position: relative;
+	display: block;
+}
+
+.bn-media-cell__delete {
+	position: absolute;
+	inset-block-start: var(--bn-s2);
+	inset-inline-end: var(--bn-s2);
+	width: var(--bn-s6);
+	height: var(--bn-s6);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: none;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-overlay);
+	color: var(--bn-accent-fg);
+	font-size: var(--bn-text-md);
+	line-height: 1;
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity var(--bn-mu-transition);
+	z-index: 2;
+}
+
+.bn-media-cell:hover .bn-media-cell__delete,
+.bn-media-cell__delete:focus-visible {
+	opacity: 1;
+	outline: none;
+}
+
+.bn-media-cell__delete:hover {
+	background: var(--bn-danger);
+}
+
+/* ── Mobile ────────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+	.bn-mu {
+		padding: var(--bn-s3);
+	}
+
+	.bn-mu__dropzone {
+		padding: var(--bn-s4) var(--bn-s3);
+	}
+
+	.bn-mu__bar {
+		align-items: stretch;
+	}
+
+	.bn-mu__actions {
+		justify-content: flex-end;
+	}
+
+	/* Touch: keep the delete control always visible (no hover on touch). */
+	.bn-media-cell__delete {
+		opacity: 1;
+	}
+}
+
+/* ── Media | Albums sub-nav ────────────────────────────────────────────────── */
+.bn-media-subnav {
+	display: inline-flex;
+	gap: var(--bn-s1);
+	padding: var(--bn-s1);
+	margin-block-end: var(--bn-s4);
+	background: var(--bn-sunken);
+	border-radius: var(--bn-r-full);
+}
+
+.bn-media-subnav__tab {
+	border: none;
+	background: transparent;
+	color: var(--bn-ink-3);
+	font-weight: var(--bn-fw-semibold);
+	font-size: var(--bn-text-sm);
+	padding: var(--bn-s2) var(--bn-s4);
+	border-radius: var(--bn-r-full);
+	cursor: pointer;
+	transition: background var(--bn-mu-transition), color var(--bn-mu-transition);
+}
+
+.bn-media-subnav__tab:hover {
+	color: var(--bn-ink);
+}
+
+.bn-media-subnav__tab--active {
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	box-shadow: var(--bn-shadow-xs);
+}
+
+.bn-media-subnav__tab:focus-visible {
+	outline: var(--bn-s1) solid var(--bn-ring);
+	outline-offset: var(--bn-s1);
+}
+
+/* ── Album list ────────────────────────────────────────────────────────────── */
+.bn-album-list__head {
+	display: flex;
+	justify-content: flex-end;
+	margin-block-end: var(--bn-s4);
+}
+
+.bn-album-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(var(--bn-album-card-min), 1fr));
+	gap: var(--bn-s4);
+}
+
+.bn-album-card {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	padding: 0;
+	border: none;
+	background: transparent;
+	text-align: start;
+	cursor: pointer;
+}
+
+.bn-album-card__cover {
+	position: relative;
+	display: block;
+	aspect-ratio: 1;
+	border-radius: var(--bn-r-lg);
+	overflow: hidden;
+	background: var(--bn-sunken);
+	border: var(--bn-s1) solid var(--bn-line-faint);
+}
+
+.bn-album-card__img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	transition: transform var(--bn-mu-transition);
+}
+
+.bn-album-card:hover .bn-album-card__img {
+	transform: scale(1.03);
+}
+
+.bn-album-card__ph {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--bn-ink-4);
+}
+
+.bn-album-card__ph svg {
+	width: var(--bn-s10);
+	height: var(--bn-s10);
+}
+
+.bn-album-card__title {
+	margin-block-start: var(--bn-s1);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bn-album-card__count {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+
+/* ── Album detail ──────────────────────────────────────────────────────────── */
+.bn-album-detail__head {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	margin-block-end: var(--bn-s4);
+	flex-wrap: wrap;
+}
+
+.bn-album-detail__title {
+	font-weight: var(--bn-fw-bold);
+	font-size: var(--bn-text-lg);
+	color: var(--bn-ink);
+}
+
+.bn-album-detail__count {
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-album-detail__add {
+	margin-inline-start: auto;
+}
+
+.bn-album-detail__loading {
+	height: var(--bn-album-loading-h);
+	border-radius: var(--bn-r-lg);
+	background: linear-gradient(90deg, var(--bn-sunken) 25%, var(--bn-raised) 37%, var(--bn-sunken) 63%);
+	background-size: 400% 100%;
+	animation: bn-mu-shimmer 1.4s ease infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bn-album-detail__loading { animation: none; }
+}
+
+/* ── Album modal fields ────────────────────────────────────────────────────── */
+.bn-album-modal .bn-field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	margin-block-end: var(--bn-s3);
+}
+
+.bn-album-modal .bn-field__label {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink-2);
+}
+
+/* ── Add-media picker ──────────────────────────────────────────────────────── */
+.bn-album-picker__hint {
+	margin: 0 0 var(--bn-s3);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+
+.bn-album-picker__grid {
+	max-height: 60vh;
+	overflow-y: auto;
+}
+
+/* Selected tiles in the picker get an accent ring + check. */
+.bn-album-picker__grid .bn-media-tile.is-picked {
+	outline: var(--bn-s1) solid var(--bn-accent);
+	outline-offset: calc(var(--bn-s1) * -1);
+}
+
+.bn-album-picker__grid .bn-media-tile.is-picked::after {
+	content: "";
+	position: absolute;
+	inset-block-start: var(--bn-s1);
+	inset-inline-end: var(--bn-s1);
+	width: var(--bn-s5);
+	height: var(--bn-s5);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-accent);
+	box-shadow: var(--bn-shadow-sm);
+}
+
+/* Button leading icon used in album actions. */
+.bn-btn__icon {
+	display: inline-flex;
+	align-items: center;
+}
+
+.bn-btn__icon svg {
+	width: var(--bn-s4);
+	height: var(--bn-s4);
+}
+
+@media (max-width: 640px) {
+	.bn-album-grid {
+		grid-template-columns: repeat(2, 1fr);
+		gap: var(--bn-s3);
+	}
+
+	.bn-album-detail__add {
+		margin-inline-start: 0;
+	}
+}
+
+/* ── Album detail owner actions + tile cover/reorder ───────────────────────── */
+.bn-album-detail__actions {
+	display: flex;
+	gap: var(--bn-s2);
+	margin-inline-start: auto;
+	flex-wrap: wrap;
+}
+
+/* Set-as-cover control (top-left, mirrors the remove control top-right). */
+.bn-media-cell__cover {
+	position: absolute;
+	inset-block-start: var(--bn-s2);
+	inset-inline-start: var(--bn-s2);
+	width: var(--bn-s6);
+	height: var(--bn-s6);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: none;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-overlay);
+	color: var(--bn-accent-fg);
+	font-size: var(--bn-text-sm);
+	line-height: 1;
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity var(--bn-mu-transition), background var(--bn-mu-transition);
+	z-index: 2;
+}
+
+.bn-media-cell:hover .bn-media-cell__cover,
+.bn-media-cell__cover:focus-visible {
+	opacity: 1;
+	outline: none;
+}
+
+.bn-media-cell__cover:hover {
+	background: var(--bn-accent);
+}
+
+/* Drag-reorder feedback. */
+.bn-album-detail__grid .bn-media-cell {
+	cursor: grab;
+}
+
+.bn-album-detail__grid .bn-media-cell.is-dragging {
+	opacity: 0.4;
+	cursor: grabbing;
+}
+
+@media (max-width: 640px) {
+	.bn-album-detail__actions {
+		margin-inline-start: 0;
+		width: 100%;
+	}
+
+	/* Touch: cover/remove controls always visible. */
+	.bn-media-cell__cover {
+		opacity: 1;
+	}
+}

@@ -596,6 +596,24 @@ class SpaceService {
 
 		global $wpdb;
 
+		// Capture every user whose membership / ban cache must be flushed once the
+		// space and its rows are gone — the bulk deletes below fire no per-user
+		// hooks, so cached role / status / ban entries would otherwise survive the
+		// space (the BUG-1 invalidation gap on bn_space_bans + bn_space_members).
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$affected_user_ids = array_values(
+			array_unique(
+				array_map(
+					'intval',
+					array_merge(
+						(array) $wpdb->get_col( $wpdb->prepare( "SELECT user_id FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d", $space_id ) ),
+						(array) $wpdb->get_col( $wpdb->prepare( "SELECT user_id FROM {$wpdb->prefix}bn_space_bans WHERE space_id = %d", $space_id ) )
+					)
+				)
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
 		// Delete the space's posts first — while membership still exists, so the
 		// deleter's space-moderation authority resolves in PostService::delete().
 		// Routing each post through PostService::delete() cascades its child rows
@@ -651,6 +669,12 @@ class SpaceService {
 		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
 		if ( isset( $space['slug'] ) && '' !== $space['slug'] ) {
 			wp_cache_delete( "space_slug_{$space['slug']}", self::CACHE_GROUP );
+		}
+
+		// Flush the membership / ban cache for everyone who was in (or banned from)
+		// the now-deleted space, so no stale role / status / ban entry survives it.
+		if ( $affected_user_ids ) {
+			( new SpaceMemberService() )->flush_user_caches( $space_id, $affected_user_ids );
 		}
 
 		/**

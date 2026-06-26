@@ -102,8 +102,12 @@ class MemberDirectoryService {
 		// The activity-meta JOIN + ORDER BY for 'online' sort are unaffected.
 
 		// Result-set cache — keyed on all normalised inputs that shape the output.
-		// 60-second TTL balances directory freshness against DB load at scale.
-		$cache_key     = 'bn_dir_' . md5( (string) wp_json_encode( array( $viewer_id, $cursor, $per_page, $filters ) ) );
+		// A per-viewer version salt (bumped by bust_viewer() on block/unblock)
+		// invalidates a blocker's cached pages the instant their block list changes
+		// — without enumerating every cursor/filter key, and works with or without a
+		// persistent object cache. 60-second TTL otherwise balances freshness vs load.
+		$cache_ver     = (int) wp_cache_get( self::cache_version_key( $viewer_id ), 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		$cache_key     = 'bn_dir_' . md5( (string) wp_json_encode( array( $viewer_id, $cursor, $per_page, $filters, $cache_ver ) ) );
 		$cached_result = wp_cache_get( $cache_key, 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 		if ( false !== $cached_result ) {
 			return (array) $cached_result;
@@ -171,11 +175,15 @@ class MemberDirectoryService {
 			);
 		}
 
-		// Online-only / most_active JOIN — usermeta row for bn_last_active.
+		// Online-only / most_active JOIN — the indexed bn_presence table replaces the
+		// non-sargable CAST(meta_value) scan over wp_usermeta. last_active is an INT
+		// column with its own KEY, so the online filter / sort become index-friendly.
+		// When present, last_active is also selected so the cursor reads it from the
+		// row instead of a per-row meta lookup.
+		$presence_select = '';
 		if ( $online_only || 'online' === $sort || 'most_active' === $sort ) {
-			$joins[] = "LEFT JOIN {$wpdb->usermeta} AS um_active
-			            ON um_active.user_id = u.ID
-			            AND um_active.meta_key = 'bn_last_active'";
+			$joins[]         = "LEFT JOIN {$wpdb->prefix}bn_presence AS pres ON pres.user_id = u.ID";
+			$presence_select = ', COALESCE(pres.last_active, 0) AS last_active';
 		}
 
 		$join_sql = $joins ? ( "\n" . implode( "\n", $joins ) ) : '';
@@ -271,7 +279,7 @@ class MemberDirectoryService {
 		}
 
 		if ( $online_only ) {
-			$where_clauses[] = 'CAST(um_active.meta_value AS UNSIGNED) > UNIX_TIMESTAMP() - 300';
+			$where_clauses[] = 'pres.last_active > UNIX_TIMESTAMP() - 300';
 		}
 
 		// ------------------------------------------------------------------ //
@@ -292,11 +300,11 @@ class MemberDirectoryService {
 				case 'most_active':
 				case 'online':
 					if ( isset( $cursor_data['last_active'], $cursor_data['id'] ) ) {
-						// COALESCE must mirror the ORDER BY (CAST(COALESCE(...,0))) — a
-						// user with no bn_last_active meta is NULL from the LEFT JOIN, and
-						// CAST(NULL) comparisons yield NULL (never TRUE), so the row would
-						// slip past the cursor and repeat on every page (infinite loop).
-						$where_clauses[] = '(CAST(COALESCE(um_active.meta_value, 0) AS UNSIGNED) < %d OR (CAST(COALESCE(um_active.meta_value, 0) AS UNSIGNED) = %d AND u.ID < %d))';
+						// COALESCE must mirror the ORDER BY — a user with no bn_presence
+						// row is NULL from the LEFT JOIN, and a NULL comparison yields NULL
+						// (never TRUE), so the row would slip past the cursor and repeat on
+						// every page (infinite loop). COALESCE to 0 keeps the keyset total.
+						$where_clauses[] = '(COALESCE(pres.last_active, 0) < %d OR (COALESCE(pres.last_active, 0) = %d AND u.ID < %d))';
 						$params[]        = (int) $cursor_data['last_active'];
 						$params[]        = (int) $cursor_data['last_active'];
 						$params[]        = (int) $cursor_data['id'];
@@ -328,7 +336,7 @@ class MemberDirectoryService {
 
 			case 'most_active':
 			case 'online':
-				$order_sql = 'ORDER BY CAST(COALESCE(um_active.meta_value, 0) AS UNSIGNED) DESC, u.ID DESC';
+				$order_sql = 'ORDER BY COALESCE(pres.last_active, 0) DESC, u.ID DESC';
 				break;
 
 			case 'newest':
@@ -362,7 +370,7 @@ class MemberDirectoryService {
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT u.ID, u.display_name, u.user_login, u.user_registered,
+				"SELECT u.ID, u.display_name, u.user_login, u.user_registered{$presence_select},
 				        {$follower_count_subquery}
 				 FROM {$wpdb->users} u
 				 {$join_sql}
@@ -574,21 +582,9 @@ class MemberDirectoryService {
 	 * @return int[] Online user IDs.
 	 */
 	public function online_user_ids(): array {
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT user_id FROM {$wpdb->usermeta}
-				 WHERE meta_key = %s
-				   AND CAST( meta_value AS UNSIGNED ) > %d",
-				PresenceService::META_KEY,
-				time() - 300
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		return array_map( 'intval', (array) $ids );
+		// Indexed range scan over bn_presence (was a non-sargable CAST(meta_value)
+		// scan over wp_usermeta).
+		return PresenceService::online_ids();
 	}
 
 	/**
@@ -617,9 +613,8 @@ class MemberDirectoryService {
 			$wpdb->prepare(
 				"SELECT u.ID, u.display_name, u.user_login
 				   FROM {$wpdb->users} u
-				   JOIN {$wpdb->usermeta} um ON um.user_id = u.ID
-				  WHERE um.meta_key = %s
-				    AND CAST( um.meta_value AS UNSIGNED ) >= %d
+				   JOIN {$wpdb->prefix}bn_presence pres ON pres.user_id = u.ID
+				  WHERE pres.last_active >= %d
 				    AND NOT EXISTS (
 				        SELECT 1 FROM {$wpdb->prefix}bn_user_suspensions s_ex
 				        WHERE s_ex.user_id = u.ID AND s_ex.lifted_at IS NULL
@@ -633,9 +628,8 @@ class MemberDirectoryService {
 				        SELECT 1 FROM {$wpdb->usermeta} um_dir
 				        WHERE um_dir.user_id = u.ID AND um_dir.meta_key = 'bn_privacy_show_in_directory' AND um_dir.meta_value = '0'
 				      )
-				  ORDER BY CAST( um.meta_value AS UNSIGNED ) DESC
+				  ORDER BY pres.last_active DESC
 				  LIMIT %d",
-				PresenceService::META_KEY,
 				time() - 300,
 				$fetch
 			)
@@ -826,9 +820,9 @@ class MemberDirectoryService {
 
 			case 'most_active':
 			case 'online':
-				// Read bn_last_active from the meta cache populated by update_meta_cache()
-				// earlier in list_members() — no extra DB query issued.
-				$last_active = (string) ( (int) get_user_meta( (int) $row['ID'], 'bn_last_active', true ) );
+				// last_active comes from the SELECTed bn_presence column (COALESCE'd to
+				// 0 for members with no presence row) — no per-row lookup.
+				$last_active = (string) ( (int) ( $row['last_active'] ?? 0 ) );
 				$data        = array(
 					'last_active' => $last_active,
 					'id'          => (int) $row['ID'],
@@ -885,5 +879,60 @@ class MemberDirectoryService {
 			'registered' => $parts[0],
 			'id'         => (int) $parts[1],
 		);
+	}
+
+	/**
+	 * Object-cache key holding a viewer's directory cache version salt.
+	 *
+	 * @param int $viewer_id Viewer whose directory pages are versioned.
+	 * @return string
+	 */
+	private static function cache_version_key( int $viewer_id ): string {
+		return 'bn_dir_ver_' . $viewer_id;
+	}
+
+	/**
+	 * Invalidate a viewer's cached directory pages by bumping their version salt.
+	 *
+	 * Block/unblock changes viewer-aware exclusion, so a blocker's (and the
+	 * blocked user's) cached pages must reflect it immediately rather than after
+	 * the 60s TTL. Bumping the salt makes every existing key for that viewer
+	 * unreachable without enumerating cursor/filter permutations.
+	 *
+	 * @param int $viewer_id Viewer whose directory cache to invalidate.
+	 * @return void
+	 */
+	public static function bust_viewer( int $viewer_id ): void {
+		if ( $viewer_id <= 0 ) {
+			return;
+		}
+		$key = self::cache_version_key( $viewer_id );
+		// wp_cache_incr seeds nothing when the key is absent, so set a baseline first.
+		if ( false === wp_cache_get( $key, 'buddynext' ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+			wp_cache_set( $key, 0, 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		}
+		wp_cache_incr( $key, 1, 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Bust both participants' directory caches on a block/unblock.
+	 *
+	 * @param int $blocker_id User performing the (un)block.
+	 * @param int $blocked_id User being (un)blocked.
+	 * @return void
+	 */
+	public static function on_block_change( int $blocker_id, int $blocked_id ): void {
+		self::bust_viewer( $blocker_id );
+		self::bust_viewer( $blocked_id );
+	}
+
+	/**
+	 * Register directory-cache invalidation on relationship changes.
+	 *
+	 * @return void
+	 */
+	public function register(): void {
+		add_action( 'buddynext_block', array( __CLASS__, 'on_block_change' ), 10, 2 );
+		add_action( 'buddynext_unblock', array( __CLASS__, 'on_block_change' ), 10, 2 );
 	}
 }

@@ -3,6 +3,7 @@ import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnPrompt, bnReportDialog, bnToast } from '../shell/dialog.js';
 import { restFetch } from '../shell/rest-client.js';
 import { onNavReady } from '../shell/nav-init.js';
+import { makeThumb, uploadMedia, deleteMedia } from '../media/upload-core.js';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -1792,43 +1793,6 @@ store( 'buddynext/post-card', {
 // WP Interactivity API getContext() doesn't work in native addEventListener callbacks.
 const _mediaState = { ids: [], previews: [] };
 
-/**
- * Best-effort delete of an already-uploaded (staged-but-unposted) media file so
- * removing a preview or abandoning the composer doesn't orphan it on the server.
- * Uploads go to WPMediaVerse (mvs/v1), so the delete must target that base too.
- * Failures are logged, not surfaced — orphan cleanup must never block the UI.
- *
- * @param {number} mediaId Media ID to delete.
- * @param {string} base    WPMediaVerse REST base (mvs/v1).
- * @param {string} nonce   REST nonce.
- */
-function deleteStagedMedia( mediaId, base, nonce ) {
-	if ( ! mediaId || ! base ) {
-		return;
-	}
-	restFetch( '/media/' + mediaId, { method: 'DELETE', base, nonce, toastOnError: false } ).catch(
-		( err ) => {
-			// eslint-disable-next-line no-console
-			console.error( '[BuddyNext] Orphan media cleanup failed:', mediaId, err );
-		}
-	);
-}
-
-/**
- * Resolve the WPMediaVerse REST base + nonce from the composer's data-wp-context,
- * for delete calls made outside the upload closure (removeMedia / cancel actions).
- *
- * @return {{base:string, nonce:string}}
- */
-function resolveMvsRest() {
-	const composerEl = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
-	const ctxData    = composerEl ? JSON.parse( composerEl.getAttribute( 'data-wp-context' ) || '{}' ) : {};
-	return {
-		base:  ctxData.mvsRestBase || ( ctxData.restUrl || '' ).replace( '/buddynext/v1', '/mvs/v1' ),
-		nonce: ctxData.restNonce || '',
-	};
-}
-
 /* ── Link preview detection ──────────────────────────────────────────────
  * As the user types, the first http(s) URL in the composer is detected and
  * its Open Graph card fetched (debounced) from buddynext/v1/link-preview.
@@ -2051,6 +2015,14 @@ try {
 // global. Each composer is keyed by the user_id of the current viewer so
 // switching accounts on the same browser keeps drafts isolated.
 function restoreDraftsOnLoad() {
+	// ?compose= deep-link target. Written by the mobile "Create post" nav item,
+	// the hashtag "post with this tag" action, and the share/extras entry points,
+	// but previously had no consumer (silent no-op). "1" = just open the composer;
+	// any other value pre-fills that text (e.g. "#tag ").
+	let composeParam = null;
+	try { composeParam = new URLSearchParams( window.location.search ).get( 'compose' ); }
+	catch ( _e ) { composeParam = null; }
+
 	const composers = document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"]:not([data-bn-draft-wired])' );
 	composers.forEach( ( el ) => {
 		el.dataset.bnDraftWired = '1';
@@ -2087,6 +2059,34 @@ function restoreDraftsOnLoad() {
 			return;
 		}
 
+		// ?compose= deep-link: open the general feed composer ready to type.
+		// "?compose=1" focuses it; "?compose=<text>" pre-fills that text (the
+		// hashtag "post with this tag" flow). General feed composer only, never
+		// a space composer. Focus runs in rAF so it lands after the value is set.
+		if ( composeParam !== null && ( ctxData.spaceId === null || ctxData.spaceId === undefined ) ) {
+			const composePrefill = '1' === composeParam ? '' : composeParam;
+			if ( composePrefill && textarea ) {
+				textarea.value  = composePrefill;
+				ctxData.content = composePrefill;
+				try { el.setAttribute( 'data-wp-context', JSON.stringify( ctxData ) ); }
+				catch ( _e ) {}
+			}
+			if ( textarea ) {
+				window.requestAnimationFrame( () => {
+					textarea.focus();
+					const composeEnd = textarea.value.length;
+					try { textarea.setSelectionRange( composeEnd, composeEnd ); } catch ( _e ) {}
+					textarea.scrollIntoView( { block: 'center' } );
+				} );
+			}
+			// A text prefill is an explicit "start this post" intent — skip the
+			// draft restore so it isn't overwritten. A bare "?compose=1" falls
+			// through so any saved draft is still restored under the focus.
+			if ( composePrefill ) {
+				return;
+			}
+		}
+
 		const draft = readDraft( userId );
 		if ( ! draft || ! draft.content ) {
 			return;
@@ -2112,6 +2112,16 @@ function restoreDraftsOnLoad() {
 		try {
 			const url = new URL( window.location.href );
 			url.searchParams.delete( 'mention' );
+			window.history.replaceState( {}, '', url.toString() );
+		} catch ( _e ) {}
+	}
+
+	// Drop ?compose= for the same reason — a refresh or shared link shouldn't
+	// re-open/re-prefill the composer once it's been consumed.
+	if ( composeParam !== null ) {
+		try {
+			const url = new URL( window.location.href );
+			url.searchParams.delete( 'compose' );
 			window.history.replaceState( {}, '', url.toString() );
 		} catch ( _e ) {}
 	}
@@ -2249,7 +2259,6 @@ store( 'buddynext/post-composer', {
 
 			// Read REST config from the composer element's data-wp-context.
 			const ctxData = JSON.parse( composerEl.getAttribute( 'data-wp-context' ) || '{}' );
-			const mvsBase = ctxData.mvsRestBase || ( ctxData.restUrl || '' ).replace( '/buddynext/v1', '/mvs/v1' );
 			const nonce   = ctxData.restNonce || '';
 
 			// Defensive guard: uploads route through WPMediaVerse. The Image button
@@ -2295,78 +2304,66 @@ store( 'buddynext/post-composer', {
 
 					const uploadCount = Math.min( files.length, remaining );
 					for ( let i = 0; i < uploadCount; i++ ) {
-						const file     = files[ i ];
-						const formData = new FormData();
-						formData.append( 'file', file );
+						const file = files[ i ];
 
-						try {
-							const res = await restFetch( '/media', {
-								method:  'POST',
-								base:    mvsBase,
-								nonce,
-								toastOnError: false,
-								body:    formData,
-							} );
+						// Shared upload core: one BuddyNext-owned, owner-gated path
+						// (buddynext/v1/me/media) for every surface, plus a fast small
+						// client thumbnail so a large file never blanks the tile. The
+						// engine REST is never called directly from the client.
+						const thumbUrl = await makeThumb( file );
+						const out      = await uploadMedia( file, { nonce } );
 
-							if ( res.ok ) {
-								const data      = res.data || {};
-								const mediaId   = data.id || data.media_id;
-								// Engine-signed URLs only — never a WP-attachment source_url.
-								const thumbUrl  = data.thumbnail_url || data.file_url || '';
+						if ( out.ok ) {
+							const mediaId = out.mediaId;
+							const preview = thumbUrl || out.thumb || '';
 
-								_mediaState.ids.push( mediaId );
-								_mediaState.previews.push( { id: mediaId, url: thumbUrl, name: file.name } );
+							_mediaState.ids.push( mediaId );
+							_mediaState.previews.push( { id: mediaId, url: preview, name: file.name } );
 
-								// Append preview thumbnail to DOM.
-								if ( previewArea && thumbUrl ) {
-									const thumb = document.createElement( 'div' );
-									thumb.className = 'bn-composer__media-thumb';
-									thumb.dataset.mediaId = mediaId;
-									// Build the preview via DOM rather than string-concatenated
-									// innerHTML: setting .src assigns thumbUrl as data (never parsed
-									// as markup), so a URL/id can't break out of the attribute.
-									const thumbImg = document.createElement( 'img' );
-									thumbImg.src = thumbUrl;
-									thumbImg.alt = '';
-									thumbImg.width = 80;
-									thumbImg.height = 80;
-									thumbImg.loading = 'lazy';
-									const thumbRemove = document.createElement( 'button' );
-									thumbRemove.className = 'bn-composer__media-remove';
-									thumbRemove.type = 'button';
-									thumbRemove.dataset.mediaId = mediaId;
-									thumbRemove.textContent = '×';
-									thumb.append( thumbImg, thumbRemove );
-									thumbRemove.addEventListener( 'click', function () {
-										_mediaState.ids = _mediaState.ids.filter( ( id ) => id !== mediaId );
-										_mediaState.previews = _mediaState.previews.filter( ( p ) => p.id !== mediaId );
-										thumb.remove();
-										if ( ! _mediaState.ids.length && previewArea ) {
-											previewArea.hidden = true;
-										}
-										// Delete the already-uploaded file from the server so removing
-										// the preview doesn't leave an orphaned upload (best-effort).
-										deleteStagedMedia( mediaId, mvsBase, nonce );
-									} );
-									previewArea.appendChild( thumb );
-								}
-							} else {
-								// Non-2xx: surface the real status instead of silently
-								// swallowing it. 404 = WPMediaVerse route missing (engine
-								// inactive); other codes carry their own number.
-								// eslint-disable-next-line no-console
-								console.error( '[BuddyNext] Media upload failed:', res.status, mvsBase + '/media' );
-								bnToast(
-									404 === res.status
-										? t( 'mediaEngineInactive', 'Image uploads are unavailable (media engine not active).' )
-										: fmt( t( 'uploadFailedError', 'Could not upload %s (error %d).' ), ( file.name || t( 'image', 'image' ) ), res.status ),
-									{ tone: 'danger' }
-								);
+							// Append preview thumbnail to DOM.
+							if ( previewArea ) {
+								const thumb = document.createElement( 'div' );
+								thumb.className = 'bn-composer__media-thumb';
+								thumb.dataset.mediaId = mediaId;
+								// Build the preview via DOM rather than string-concatenated
+								// innerHTML: setting .src assigns the URL as data (never parsed
+								// as markup), so a URL/id can't break out of the attribute.
+								const thumbImg = document.createElement( 'img' );
+								thumbImg.src = preview;
+								thumbImg.alt = '';
+								thumbImg.width = 80;
+								thumbImg.height = 80;
+								thumbImg.loading = 'lazy';
+								thumbImg.decoding = 'async';
+								const thumbRemove = document.createElement( 'button' );
+								thumbRemove.className = 'bn-composer__media-remove';
+								thumbRemove.type = 'button';
+								thumbRemove.dataset.mediaId = mediaId;
+								thumbRemove.textContent = '×';
+								thumb.append( thumbImg, thumbRemove );
+								thumbRemove.addEventListener( 'click', function () {
+									_mediaState.ids = _mediaState.ids.filter( ( id ) => id !== mediaId );
+									_mediaState.previews = _mediaState.previews.filter( ( p ) => p.id !== mediaId );
+									thumb.remove();
+									if ( ! _mediaState.ids.length && previewArea ) {
+										previewArea.hidden = true;
+									}
+									// Delete the already-uploaded file so removing the preview
+									// doesn't orphan it on the server (best-effort).
+									deleteMedia( mediaId, nonce );
+								} );
+								previewArea.appendChild( thumb );
 							}
-						} catch ( err ) {
+						} else {
+							// Surface the real status. 404 = media engine inactive.
 							// eslint-disable-next-line no-console
-							console.error( '[BuddyNext] Media upload error:', err );
-							bnToast( fmt( t( 'uploadFailedSmaller', 'Could not upload %s. Try a smaller file.' ), ( file.name || t( 'image', 'image' ) ) ), { tone: 'danger' } );
+							console.error( '[BuddyNext] Media upload failed:', out.status );
+							bnToast(
+								404 === out.status
+									? t( 'mediaEngineInactive', 'Image uploads are unavailable (media engine not active).' )
+									: fmt( t( 'uploadFailedError', 'Could not upload %s (error %d).' ), ( file.name || t( 'image', 'image' ) ), out.status || 0 ),
+								{ tone: 'danger' }
+							);
 						}
 					}
 
@@ -2388,9 +2385,8 @@ store( 'buddynext/post-composer', {
 			ctx.mediaPreviews = ( ctx.mediaPreviews || [] ).filter( ( p ) => p.id !== mediaId );
 			_mediaState.ids      = _mediaState.ids.filter( ( id ) => id !== mediaId );
 			_mediaState.previews = _mediaState.previews.filter( ( p ) => p.id !== mediaId );
-			// Delete the orphaned upload from the server (best-effort).
-			const mvs = resolveMvsRest();
-			deleteStagedMedia( mediaId, mvs.base, mvs.nonce );
+			// Delete the orphaned upload from the server (best-effort, BN endpoint).
+			deleteMedia( mediaId, ctx.restNonce );
 		},
 		togglePoll() {
 			const ctx        = getContext();
@@ -2472,10 +2468,19 @@ store( 'buddynext/post-composer', {
 		* submit() {
 			const ctx     = getContext();
 			const content = ( ctx.content || '' ).trim();
-			// Allow media-only posts: bail only when there is NO text AND no attached
-			// media (and not already submitting). Previously `! content` bailed before
-			// the media-attach block ran, so an image with empty text silently no-op'd.
-			if ( ( ! content && ! _mediaState.ids.length ) || ctx.submitting ) {
+			// Already submitting: swallow the repeat click, no message.
+			if ( ctx.submitting ) {
+				return;
+			}
+			// Allow media-only posts, but an empty composer (no text AND no attached
+			// media) must not silently no-op — surface a validation message so the
+			// member gets feedback, mirroring the poll-options check below. For a
+			// poll the "title" the tester expects is the main question textarea.
+			if ( ! content && ! _mediaState.ids.length ) {
+				ctx.errorMessage   = 'poll' === ctx.composerType
+					? t( 'pollNeedsQuestion', 'Add a question for your poll.' )
+					: t( 'composerEmpty', 'Write something to share.' );
+				ctx.errorRetryable = false;
 				return;
 			}
 			ctx.errorMessage = '';
@@ -2727,8 +2732,7 @@ store( 'buddynext/post-composer', {
 			// don't orphan on the server (best-effort). submit() consumes the ids into
 			// the post and resets _mediaState itself, so nothing is deleted post-post.
 			if ( _mediaState.ids.length ) {
-				const mvs = resolveMvsRest();
-				_mediaState.ids.forEach( ( id ) => deleteStagedMedia( id, mvs.base, mvs.nonce ) );
+				_mediaState.ids.forEach( ( id ) => deleteMedia( id, ctx.restNonce ) );
 			}
 			// Clear module-level media state + remove DOM previews.
 			_mediaState.ids      = [];

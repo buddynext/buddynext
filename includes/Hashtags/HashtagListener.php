@@ -75,7 +75,7 @@ class HashtagListener implements ListenerInterface {
 	 * @param string $type    Post type slug (unused; all post types are now indexed).
 	 * @return void
 	 */
-	public function on_post_created( int $post_id, int $user_id, string $type ): void {
+	public function on_post_created( int $post_id, int $user_id = 0, string $type = '' ): void {
 		// Hashtags feature off: do not index. A #word in the post stays as plain
 		// text (PostService stores content verbatim), it is just never processed,
 		// linked, or counted while the feature is disabled.

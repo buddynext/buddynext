@@ -1,7 +1,7 @@
 # Journey: Search
 
 **Free feature**: `includes/Search/` (SearchService, SearchIndexListener, SearchController)
-**Actions / filters fired**: `buddynext_post_created` (triggers indexing), `buddynext_index_object`, `buddynext_reindex_complete`, `buddynext_search_results` (filter), `buddynext_search_query_args` (filter), `buddynext_search_performed` (action, fired after results computed)
+**Actions / filters fired**: `buddynext_post_created` (triggers indexing), `buddynext_reindex_all`, `buddynext_reindex_complete`, `buddynext_search_results` (filter), `buddynext_search_query_args` (filter), `buddynext_search_performed` (action, fired after results computed)
 **DB tables touched**: `bn_search_index`, `bn_blocks`, `bn_user_suspensions`
 **Estimated time**: 10 min manual
 
@@ -67,7 +67,8 @@
    curl -s "http://buddynext-dev.local/wp-json/buddynext/v1/search?q=BuddyNext"
    ```
 
-   - Expected: 200. **Response shape (runtime-confirmed 2026-06-20):** `{ "grouped": true, "results": { "types": [ {"type":"post","results":[...],"total":N}, {"type":"user",...} ] } }` — assert `results.types[].type`, NOT a top-level `posts`/`items` key (those don't exist on the grouped endpoint). The type-scoped form `?type=users` returns a different shape: `{ "items":[...], "total":N }`.
+   - Expected: 200. **Response shape (runtime-confirmed):** `{ "grouped": true, "results": { "types": [ {"type":"post","results":[...],"total":N}, {"type":"user",...} ] } }` — assert `results.types[].type`, NOT a top-level `posts`/`items` key (those don't exist on the grouped endpoint). The type-scoped form `?type=users` returns a different shape: `{ "items":[...], "total":N }`.
+   - Type-scoped search accepts BOTH singular and plural values (1.0.3 normalization fix): `?type=user` and `?type=users` both work, as do `post`/`posts`, `space`/`spaces`, `hashtag`/`hashtags`.
 
 6. Search for users by name:
 
@@ -126,16 +127,16 @@
 
     - Expected: `member2`'s post excluded from anonymous results. Shadow-banned users' content is hidden from non-admin viewers.
 
-### Part 5: Trigger a manual reindex via admin REST
+### Part 5: Trigger a manual reindex (CLI / cron — NOT REST)
 
-12. As admin, trigger a reindex of the `post` type:
+12. There is **no** `POST /search/index/{type}` REST route. Reindex runs via WP-CLI or cron only. As admin on the site shell, trigger it via WP-CLI:
 
     ```bash
-    curl -s -X POST http://buddynext-dev.local/wp-json/buddynext/v1/search/index/post \
-      -u admin:password -H "Content-Type: application/json"
+    wp buddynext reindex post
+    # (or the equivalent cron/Action Scheduler job — confirm the exact command in SearchService / the CLI registration)
     ```
 
-    - Expected: 200 or 202. Reindex job enqueued (or run synchronously for small datasets).
+    - Expected: the reindex job runs (synchronously for small datasets, or enqueued via Action Scheduler). There is no REST endpoint to call here.
 
 13. Re-run the search after reindex and confirm results are consistent with Step 4:
 
@@ -158,8 +159,8 @@
 - `SearchIndexListener` hooks `buddynext_post_created(int $post_id, int $user_id, string $type)` and upserts a row in `bn_search_index`.
 - `bn_search_index` FULLTEXT key on `(title, content)` enables MySQL FULLTEXT matching.
 - `SearchService::search()` applies viewer-aware exclusions: blocks from `bn_blocks`, shadow bans from usermeta / `bn_user_suspensions`.
-- `SearchController::search()` accepts `q`, `type`, `per_page`, `page` params.
-- `SearchController::reindex()` requires `manage_options` capability.
+- `SearchController::search()` accepts `q`, `type` (singular OR plural — normalized in 1.0.3), `per_page`, `page` params.
+- Reindex is CLI/cron-only (no REST route); only `GET /search` and `GET /search/members` are registered.
 - `buddynext_search_query_args` filter is applied before SQL is built.
 - `buddynext_search_results` filter is applied to the result set before returning.
 
@@ -195,7 +196,7 @@ GET  /buddynext/v1/search?type=hashtags              -- 200, hashtag results onl
 GET  /buddynext/v1/search/members                    -- 200, dedicated member search
 ```
 
-> **Verified live 2026-06-20:** only `GET /search` and `GET /search/members` are registered. The previously-listed `POST /search/index/{type}` reindex route did **not** appear in the live index — re-confirm before walking it (it may run via WP-CLI / cron, not REST): `curl -s http://buddynext.local/wp-json/buddynext/v1 | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes']) if 'search' in r]"`
+> **Verified live (1.0.3):** only `GET /search` and `GET /search/members` are registered. There is NO `POST /search/index/{type}` reindex REST route — reindex runs via WP-CLI / cron only. Re-confirm: `curl -s http://buddynext.local/wp-json/buddynext/v1 | python3 -c "import sys,json;[print(r) for r in sorted(json.load(sys.stdin)['routes']) if 'search' in r]"`
 
 ## Frontend action wiring
 
@@ -254,5 +255,5 @@ WHERE user_id = MEMBER2_ID AND meta_key = 'bn_shadow_banned';
 ## Automation notes
 
 - All REST search calls are curl-automatable.
-- The reindex endpoint may be asynchronous (Action Scheduler). Add a brief wait or poll the `bn_search_index` table for consistency before asserting search results after reindex.
+- Reindex is CLI/cron-only (no REST endpoint) and may be asynchronous (Action Scheduler). After triggering it via WP-CLI/cron, add a brief wait or poll the `bn_search_index` table for consistency before asserting search results.
 - Block and shadow-ban setup must complete before search assertions are made; run in strict sequential order.
