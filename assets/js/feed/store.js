@@ -2422,10 +2422,19 @@ store( 'buddynext/post-composer', {
 		* submit() {
 			const ctx     = getContext();
 			const content = ( ctx.content || '' ).trim();
-			// Allow media-only posts: bail only when there is NO text AND no attached
-			// media (and not already submitting). Previously `! content` bailed before
-			// the media-attach block ran, so an image with empty text silently no-op'd.
-			if ( ( ! content && ! _mediaState.ids.length ) || ctx.submitting ) {
+			// Already submitting: swallow the repeat click, no message.
+			if ( ctx.submitting ) {
+				return;
+			}
+			// Allow media-only posts, but an empty composer (no text AND no attached
+			// media) must not silently no-op — surface a validation message so the
+			// member gets feedback, mirroring the poll-options check below. For a
+			// poll the "title" the tester expects is the main question textarea.
+			if ( ! content && ! _mediaState.ids.length ) {
+				ctx.errorMessage   = 'poll' === ctx.composerType
+					? t( 'pollNeedsQuestion', 'Add a question for your poll.' )
+					: t( 'composerEmpty', 'Write something to share.' );
+				ctx.errorRetryable = false;
 				return;
 			}
 			ctx.errorMessage = '';
