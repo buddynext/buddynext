@@ -255,21 +255,32 @@ add_action( 'buddynext_part_sidebar_card_after', static function ( array $args )
 } );
 ```
 
-Add a tab to a space's nav bar:
+Add a tab to a space's nav bar through the unified Nav API. The old `buddynext_space_tabs` filter is **retired** - space tabs now flow through the Nav registry (the same system that owns profile tabs), so register on `buddynext_register_nav` with `surface => 'space'`. Space tabs are URL-only real links (`/spaces/{slug}/{tab}/`) and you server-render the panel for that route:
 
 ```php
-add_filter( 'buddynext_space_tabs', static function ( array $tabs, int $space_id ): array {
-    $tabs['leaderboard'] = array(
-        'label' => __( 'Leaderboard', 'my-addon' ),
-        'url'   => home_url( '/leaderboard/?space=' . $space_id ),
+add_action( 'buddynext_register_nav', static function ( \BuddyNext\Nav\NavRegistry $registry ): void {
+    $registry->register(
+        array(
+            'id'        => 'leaderboard',
+            'surface'   => 'space',
+            'layer'     => 'primary',
+            'label'     => __( 'Leaderboard', 'my-addon' ),
+            'icon'      => 'list',
+            'priority'  => 45,
+            'url'       => static function ( \BuddyNext\Nav\NavContext $c ): string {
+                return trailingslashit( \BuddyNext\Core\PageRouter::space_url( $c->subject_id ) ) . 'leaderboard/';
+            },
+            'condition' => static fn( \BuddyNext\Nav\NavContext $c ): bool => $c->role_at_least( 'member' ),
+        )
     );
-    return $tabs;
-}, 10, 2 );
+} );
 ```
+
+The same action registers profile tabs (`surface => 'profile'`) - see the Navigation API page for the full registration contract, the profile-vs-space tab difference, and how to reorder or remove existing items via the `buddynext_nav_items` filter.
 
 > **Warning:** Output rendered through `*_before` / `*_after` actions and through user-overlay HTML filters is echoed raw at the call site. Escape everything you emit. For the `rail_items` `icon` key, pass a BuddyNext icon *slug*; a raw `<svg>` string will not render.
 
-For the full per-part hook tables and the six user-overlay HTML filters (member-card meta, profile hero badges, avatar overlay, comment author meta, and more), see Template Part Hooks and Search, Hashtags, Sidebar and Admin Hooks.
+For the full Nav registry contract see the Navigation API page. For the per-part hook tables and the user-overlay HTML filters (member-card meta, profile hero badges, avatar overlay, comment author meta, and more), see Template Part Hooks and Search, Hashtags, Sidebar and Admin Hooks.
 
 ---
 
