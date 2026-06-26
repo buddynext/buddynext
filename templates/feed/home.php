@@ -81,20 +81,6 @@ $feed_posts     = array_values( (array) ( $service_result['items'] ?? array() ) 
 $next_cursor    = (string) ( $service_result['next_cursor'] ?? '' );
 $has_more       = '' !== $next_cursor;
 
-// ── Tab counts ──────────────────────────────────────────────────────────────
-$bn_tab_counts = array(
-	'for_you'   => 0,
-	'following' => 0,
-	'spaces'    => 0,
-	'network'   => 0,
-);
-if ( function_exists( 'buddynext_service' ) ) {
-	$bn_feed_service = buddynext_service( 'feed' );
-	if ( $bn_feed_service ) {
-		$bn_tab_counts = $bn_feed_service->home_feed_counts( $current_user_id );
-	}
-}
-
 // ── REST nonce + URLs ───────────────────────────────────────────────────────
 $rest_nonce = wp_create_nonce( 'wp_rest' );
 
@@ -153,16 +139,10 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 		echo esc_attr(
 			wp_json_encode(
 				array(
-					'filter'    => $bn_filter,
-					'tabCounts' => array(
-						'for-you'   => (int) $bn_tab_counts['for_you'],
-						'following' => (int) $bn_tab_counts['following'],
-						'spaces'    => (int) $bn_tab_counts['spaces'],
-						'network'   => (int) $bn_tab_counts['network'],
-					),
-					'restUrl'   => rest_url( 'buddynext/v1' ),
-					'nonce'     => $rest_nonce,
-					'busy'      => false,
+					'filter'  => $bn_filter,
+					'restUrl' => rest_url( 'buddynext/v1' ),
+					'nonce'   => $rest_nonce,
+					'busy'    => false,
 				)
 			)
 		);
@@ -172,19 +152,15 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 		$filter_tabs = array(
 			'for-you'   => array(
 				'label' => __( 'For you', 'buddynext' ),
-				'count' => (int) $bn_tab_counts['for_you'],
 			),
 			'following' => array(
 				'label' => __( 'Following', 'buddynext' ),
-				'count' => (int) $bn_tab_counts['following'],
 			),
 			'spaces'    => array(
 				'label' => __( 'Spaces', 'buddynext' ),
-				'count' => (int) $bn_tab_counts['spaces'],
 			),
 			'network'   => array(
 				'label' => __( 'Network', 'buddynext' ),
-				'count' => (int) $bn_tab_counts['network'],
 			),
 		);
 		// Hide the Spaces tab when the feature is disabled (mirrors $allowed_filters).
@@ -204,14 +180,6 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 				data-wp-on--click="actions.setFilter"
 			>
 				<span class="bn-tab__label"><?php echo esc_html( $tab_meta['label'] ); ?></span>
-				<?php
-				if ( $tab_meta['count'] > 0 ) :
-					// Cap the badge so a primary feed tab never shows a noisy 4-digit
-					// total (e.g. "3,014"); premium feeds cap count chips at 99+.
-					$bn_count_label = $tab_meta['count'] > 99 ? '99+' : number_format_i18n( $tab_meta['count'] );
-					?>
-					<span class="bn-tab__count"><?php echo esc_html( $bn_count_label ); ?></span>
-				<?php endif; ?>
 			</a>
 		<?php endforeach; ?>
 	</div>
