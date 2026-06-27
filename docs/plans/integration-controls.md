@@ -75,15 +75,29 @@ once per request; option reads are autoloaded O(1).
 | `buddynext-pro/includes/Suite/SuiteProfile.php` | drop a sub-tab in `add_subnav()` when its toggle is off |
 
 ## Migration order (each its own browser-verified commit; free + pro coordinated)
-1. Foundation: `buddynext_integration_enabled()` + `IntegrationRegistry` + the `buddynext_integrations` filter
-   contract + unit tests (helper default-on, sub-tab parent gating, filter override). Nothing wired yet.
-2. Free gating: Jetonomy + Gamification + MediaVerse register entries; gate their nav `condition` + activity.
-3. Pro gating: the 3 `*Social` panels tagged + gated; the 3 `*Bridge` activity pushes gated; SuiteProfile
-   sub-tab drop.
-4. Admin: `IntegrationsAdmin` page (registry-driven, sub-tab rows), placed in the admin IA via AdminHub.
-5. Verify: each toggle OFF actually hides the tab/sub-tab + stops the activity (browser + feed check), per
-   integration AND per sub-tab; defaults-on preserves today's behaviour; 1000-row-safe (options are O(1)
-   reads, no per-request integration scan beyond the registry). Free + pro `bin/check.sh` green.
+1. DONE (free `401ad41a`): Foundation — `buddynext_integration_enabled()` + `IntegrationRegistry` +
+   `buddynext_integrations()` + 5 unit tests (default-on, nav/feed independence, sub-tab parent gating,
+   filter override, registry normalization).
+2. DONE (free `32ae5dc8`): Free gating — JetonomyBridge + GamificationAchievements register entries; nav
+   `condition` + activity (`feed`) gated. (MediaVerse's Media tab is a CORE SpaceNav/ProfileNav tab, not a
+   bridge item — its gating is a separate follow-up, see below.)
+3. DONE (pro `5cd60a0`): Pro gating — the 3 `*Social` bridges register entries (with subtabs) and gate
+   `add_panels` (integration nav + per-sub-tab); the 3 `*Bridge` feed-activity publishes gated (remove +
+   notification-mirror paths intentionally NOT gated). `phpstan-bootstrap` stubs the Free helper. SuiteProfile
+   needed no change.
+4. DONE (free `2925d7a6`): Admin — `IntegrationControlsAdmin` (BuddyNext → Platform → Integration Display),
+   registry-driven toggle matrix, admin-post save (`write_flag` persists only opt-OUT). Placed via
+   `TAB_PLACEMENT` after Integrations.
+5. DONE (browser-verified on Docker, Pro active): all 5 integrations render their toggles; integration nav OFF
+   hides the whole integration (Learnomy → both sub-tabs gone), a single sub-tab OFF hides just that sub-tab
+   (Teaching gone, Certifications kept), the admin save round-trips and takes effect. Free + pro `bin/check.sh`
+   green; +5 foundation tests; full free suite re-run for regressions.
+
+### Follow-up (not blocking — noted for the next pass)
+- MediaVerse: gate the core Media tab (`SpaceNav`/`ProfileNav` condition) + media activity on a `mediaverse`
+  registry entry, the one integration whose nav is core tabs rather than a bridge-registered item.
+- Converge Jetonomy's legacy `buddynext_jetonomy_feed_sync` option into the unified `_jetonomy_feed` (today the
+  feed gate requires BOTH; harmless but two options for one concern).
 
 ## Defaults / safety
 - ABSENT option = ON. A brand-new integration is on by default; an owner opts OUT, never in.
