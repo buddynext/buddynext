@@ -368,13 +368,24 @@ GATE: `grep -rn buddynext_part_profile_tab_panel_after` across BOTH repos must b
 
 ### E. Delete `templates/parts/profile-tab-panel.php` (folded into the parts/renders).
 
-### F. store.js reveal removal
-- [ ] F1. Remove the tab-reveal: `isActiveTab`/`isActiveBranch` getters, `setTab` tab-switch + pushState,
-       `initView` tab seeding/popstate, the `data-tab-panel` reliance. The generalized transport drives tab
-       switching now (url tabs → shell region swap).
-- [ ] F2. KEEP all hero action logic (follow/connect/block/mute/report/share). Verify no orphan refs to the
-       removed getters in profile templates (hero, nav-bar metric pills).
-- [ ] F3. Grep sweep: zero `data-tab-panel` / `state.isActiveTab` / `actions.setTab` left on the profile surface.
+### F. store.js reveal removal — REMAINING (pure cleanup; cutover already verified working without it)
+Confirmed-dead targets (the cutover shipped + verified with these still present but UNREACHABLE — no item
+carries `tab` anymore, so nothing renders the reactive branches or binds the getters; 0 console errors):
+- [ ] F1. `assets/js/profile/store.js`: remove the tab-reveal ONLY — `isActiveTab`/`isActiveBranch` getters,
+       the `setTab` action's tab-switch + pushState, `initView`'s tab seeding/popstate, the `data-tab-panel`
+       handling. KEEP every hero action (follow/connect/block/mute/report/share) + their state — they are the
+       reason the `buddynext/profile` store still loads. Surgical: this is a 2242-line store, so excise only
+       the reveal members; re-verify hero actions click through after.
+- [ ] F2. Dead reactive branches in the shared nav templates (now unreachable — every item is url-only):
+       `nav-bar.php` (the `reactive && url` `<a>` + the `reactive` `<button>` branches → keep only the
+       url-link `else`), `nav-subnav.php` (same), `nav-metrics.php` (the `$bn_m->tab` button branch).
+       Removing them also lets the `data-wp-class--active="state.isActiveTab"` bindings go.
+- [ ] F3. Drop the now-unused `activeTab` seed from view.php's `$bn_pf_ctx` + any `bn-pf-tab-content` JS hook.
+- [ ] F4. Grep sweep (both repos): zero `data-tab-panel` / `state.isActiveTab` / `state.isActiveBranch` /
+       `actions.setTab` on the profile + space surfaces. Re-verify: profile tabs navigate, hero actions work,
+       client-nav on/off both correct, 0 console errors.
+NOTE: deferred deliberately — the cutover is committed + verified, and this is non-breaking dead-code removal
+that needs careful store surgery + a fresh verification pass rather than an end-of-budget rush.
 
 ### G. VERIFY (browser, Docker; client-nav OFF default + a pass with it ON)
 - [ ] G1. Each tab via its URL deep-link paints the right panel (posts/scheduled/replies/media/likes/about/
