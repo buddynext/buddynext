@@ -128,6 +128,29 @@ reactive reveal store is removed/superseded by the router.
 - Admin overrides still hide/relabel/reorder; rail + context-nav + mobile nav untouched.
 - Zero console errors; `bin/check.sh` green on free + pro.
 
+## Routing reality (discovered during Phase 2 - corrects the panel scope)
+Not every space tab renders through `home.php`. `PageRouter::get_template_for` routes the
+space sub-action to a template:
+- `members` -> `spaces/members.php` (dedicated full template)
+- `moderation` -> `spaces/moderation.php` (dedicated full template)
+- `settings` -> `spaces/settings.php`, `admin` -> `spaces/admin.php`
+- everything else (`feed`, `about`, `media`, integration tabs like `discussions`) -> `spaces/home.php`
+
+So the `home.php` panel seam only governs **feed / about / media / discussions**. The
+`home.php` `members` + `moderation` if/elseif branches are effectively DEAD for clean URLs
+(those URLs load the dedicated templates, never `home.php`). Consequences:
+- **Seam migrations (home.php):** about (done), media (done); **feed** and **discussions** remain.
+- **members / moderation:** a SEPARATE decision, NOT a home.php render. Either (a) leave them
+  as dedicated full-page templates (they are "pages", not in-hub panels) and just delete the
+  dead `home.php` branches, or (b) re-route them through `home.php` + the seam for true
+  uniformity. Pick before touching them. Do NOT add a SpaceNav render for members/moderation
+  while they route to dedicated templates - it would be dead code (never invoked via the bridge).
+
+## Progress log
+- Phase 0 (`601bf817`): render contract + PanelRenderer + NavContext->sub + 8 tests.
+- Phase 1 (`75db80ed`): space About via the seam; SpaceService::get_object()/display_meta().
+- Phase 2a (`c81f87a9`): space Media via the seam.
+
 ## Task list (implementation + test + integration-as-model, by phase)
 Each phase is its own commit(s), browser-verified before moving on. All land in 1.0.4.
 
