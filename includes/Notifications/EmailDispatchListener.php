@@ -76,6 +76,16 @@ class EmailDispatchListener implements ListenerInterface {
 			return;
 		}
 
+		// High-volume fan-outs (space new-post) stamp defer_email so email stays
+		// off the per-row hook entirely: the record stage bulk-inserts the in-app
+		// rows and hands email to a single batched AS stage instead. Without this
+		// guard the hook would also enqueue a per-recipient email here, double-
+		// sending. Single notifications (likes, follows, ...) never set the flag,
+		// so their email path is unchanged.
+		if ( ! empty( $data['defer_email'] ) ) {
+			return;
+		}
+
 		$this->sender->send( $recipient_id, $type, $data );
 	}
 

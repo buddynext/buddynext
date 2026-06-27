@@ -60,6 +60,11 @@ class NotificationListener implements ListenerInterface {
 		// Async worker — runs inline when Action Scheduler is absent.
 		add_action( 'buddynext_async_space_new_post_notification', array( $this, 'async_space_new_post_notification' ), 10, 1 );
 		add_action( 'buddynext_async_space_post_fanout', array( $this, 'async_space_post_fanout' ), 10, 1 );
+
+		// Deliver stage — batched, self-paginating email send for a space post.
+		// Decoupled from the record stage (the fan-out only creates in-app rows);
+		// email is not real-time, so it runs here off the fan-out task.
+		add_action( 'buddynext_async_space_post_emails', array( $this, 'async_space_post_emails' ), 10, 1 );
 	}
 
 	/**
@@ -648,10 +653,14 @@ class NotificationListener implements ListenerInterface {
 	private function fan_out_space_post_batch( int $post_id, int $space_id, int $author_id, int $after_user_id, int $limit ): array {
 		global $wpdb;
 
+		// ── Read stage (batched) ──────────────────────────────────────────────
+		// One keyset query fetches the next page of active members AND their
+		// per-space notification_pref, so the space-pref check costs no extra
+		// query. Backed by the bn_space_members PRIMARY KEY (space_id, user_id).
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$member_ids = $wpdb->get_col(
+		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT user_id FROM {$wpdb->prefix}bn_space_members
+				"SELECT user_id, notification_pref FROM {$wpdb->prefix}bn_space_members
 				 WHERE space_id = %d AND status = 'active' AND user_id != %d AND user_id > %d
 				 ORDER BY user_id ASC
 				 LIMIT %d",
@@ -659,49 +668,359 @@ class NotificationListener implements ListenerInterface {
 				$author_id,
 				$after_user_id,
 				$limit
-			)
+			),
+			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		if ( empty( $member_ids ) ) {
+		if ( empty( $rows ) ) {
 			return array(
 				'count'        => 0,
 				'last_user_id' => $after_user_id,
 			);
 		}
 
-		$pref_service  = buddynext_service( 'notification_prefs' );
-		$notifications = buddynext_service( 'notifications' );
+		// 'count' is the number of members FETCHED (not notified), so the keyset
+		// pager keeps advancing even when an entire page is filtered out.
+		$fetched_count = count( $rows );
+		$last_row      = end( $rows );
+		$last_user_id  = (int) $last_row['user_id'];
 
-		foreach ( $member_ids as $member_id ) {
-			$member_id = (int) $member_id;
-
-			// Respect per-space notification preference.
-			if ( 'none' === $pref_service->get_space_pref( $member_id, $space_id ) ) {
-				continue;
+		// Space-pref gate: only 'none' suppresses a space new-post (null/'' = 'all').
+		$candidates = array();
+		foreach ( $rows as $row ) {
+			$pref = ( null === $row['notification_pref'] || '' === $row['notification_pref'] )
+				? 'all'
+				: (string) $row['notification_pref'];
+			if ( 'none' !== $pref ) {
+				$candidates[] = (int) $row['user_id'];
 			}
+		}
 
-			// Skip users in a block relationship with the author.
-			if ( $this->is_blocked( $member_id, $author_id ) ) {
-				continue;
-			}
-
-			$notifications->create(
-				array(
-					'recipient_id' => $member_id,
-					'sender_id'    => $author_id,
-					'type'         => 'bn.space_new_post',
-					'object_type'  => 'post',
-					'object_id'    => $post_id,
-					'group_key'    => 'space_new_post_' . $space_id . '_' . $member_id,
-				)
+		if ( empty( $candidates ) ) {
+			return array(
+				'count'        => $fetched_count,
+				'last_user_id' => $last_user_id,
 			);
 		}
 
-		return array(
-			'count'        => count( $member_ids ),
-			'last_user_id' => (int) end( $member_ids ),
+		// Block/mute/restrict suppression — one batched, type-aware query.
+		$blocked = $this->blocked_member_ids( $candidates, $author_id );
+		if ( ! empty( $blocked ) ) {
+			$candidates = array_values( array_diff( $candidates, $blocked ) );
+		}
+
+		if ( empty( $candidates ) ) {
+			return array(
+				'count'        => $fetched_count,
+				'last_user_id' => $last_user_id,
+			);
+		}
+
+		$pref_service = buddynext_service( 'notification_prefs' );
+
+		// In-app gates mirroring NotificationService::create(): per-type on_site
+		// (batched, one query) + the in_app channel toggle (usermeta, primed once).
+		$on_site = ( is_object( $pref_service ) && method_exists( $pref_service, 'get_on_site_map' ) )
+			? $pref_service->get_on_site_map( $candidates, 'bn.space_new_post' )
+			: array();
+		update_meta_cache( 'user', $candidates );
+
+		// Build the recipient set, applying the SAME gate filters create() applies
+		// per recipient so the batched path notifies exactly who the per-row path
+		// would have. defer_email keeps email off the per-row hook below (the
+		// batched email stage owns it).
+		$recipients = array();
+		foreach ( $candidates as $member_id ) {
+			$data = array(
+				'recipient_id' => $member_id,
+				'sender_id'    => $author_id,
+				'type'         => 'bn.space_new_post',
+				'object_type'  => 'post',
+				'object_id'    => $post_id,
+				'group_key'    => 'space_new_post_' . $space_id . '_' . $member_id,
+				'defer_email'  => true,
+			);
+
+			$forced = (bool) apply_filters( 'buddynext_notification_force_on_site', false, $member_id, 'bn.space_new_post', $data );
+			if ( ! $forced ) {
+				if ( array_key_exists( $member_id, $on_site ) && ! $on_site[ $member_id ] ) {
+					continue;
+				}
+				$channels = (array) $pref_service->get_channel_prefs( $member_id );
+				if ( array_key_exists( 'in_app', $channels ) && empty( $channels['in_app'] ) ) {
+					continue;
+				}
+			}
+
+			/** This filter is documented in includes/Notifications/NotificationService.php */
+			if ( ! (bool) apply_filters( 'buddynext_notification_should_send', true, $data ) ) {
+				continue;
+			}
+
+			/** This filter is documented in includes/Notifications/NotificationService.php */
+			$send_at = apply_filters( 'buddynext_notification_send_at', null, $data );
+			if ( null !== $send_at ) {
+				$data['send_at'] = (string) $send_at;
+			}
+
+			$recipients[ $member_id ] = $data;
+		}
+
+		if ( empty( $recipients ) ) {
+			return array(
+				'count'        => $fetched_count,
+				'last_user_id' => $last_user_id,
+			);
+		}
+
+		// ── Write stage (bulk) ────────────────────────────────────────────────
+		$recipient_ids = array_keys( $recipients );
+		$group_keys    = array();
+		foreach ( $recipient_ids as $rid ) {
+			$group_keys[ $rid ] = 'space_new_post_' . $space_id . '_' . $rid;
+		}
+
+		// One query splits recipients into "merge" (an unread group row already
+		// exists in the 24h window) vs. "insert" (fresh row needed).
+		$existing = array();
+		$key_ph   = implode( ', ', array_fill( 0, count( $group_keys ), '%s' ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$existing_rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT recipient_id, id FROM {$wpdb->prefix}bn_notifications
+				 WHERE group_key IN ( {$key_ph} ) AND is_read = 0
+				   AND created_at >= UTC_TIMESTAMP() - INTERVAL 24 HOUR",
+				array_values( $group_keys )
+			),
+			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		foreach ( (array) $existing_rows as $row ) {
+			$existing[ (int) $row['recipient_id'] ] = (int) $row['id'];
+		}
+
+		$now     = current_time( 'mysql', true );
+		$new_ids = array();
+
+		// Merge: bump group_count on existing unread rows, in chunks.
+		if ( ! empty( $existing ) ) {
+			foreach ( array_chunk( array_values( $existing ), 100 ) as $chunk ) {
+				$id_ph = implode( ', ', array_fill( 0, count( $chunk ), '%d' ) );
+				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+				$wpdb->query(
+					$wpdb->prepare(
+						"UPDATE {$wpdb->prefix}bn_notifications
+						 SET sender_id = %d, group_count = group_count + 1, created_at = %s
+						 WHERE id IN ( {$id_ph} )",
+						array_merge( array( $author_id, $now ), $chunk )
+					)
+				);
+				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+			}
+		}
+
+		// Insert: bulk-create rows for new recipients, in chunks.
+		$new_recipient_ids = array_values( array_diff( $recipient_ids, array_keys( $existing ) ) );
+		if ( ! empty( $new_recipient_ids ) ) {
+			foreach ( array_chunk( $new_recipient_ids, 100 ) as $chunk ) {
+				$row_ph = array();
+				$values = array();
+				foreach ( $chunk as $rid ) {
+					// data column is a literal NULL (space posts carry no JSON payload).
+					$row_ph[] = '(%d, %d, %s, %s, %d, %s, %d, NULL, %d, %s)';
+					array_push( $values, $rid, $author_id, 'bn.space_new_post', 'post', $post_id, $group_keys[ $rid ], 1, 0, $now );
+				}
+				$rows_sql = implode( ', ', $row_ph );
+				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+				$wpdb->query(
+					$wpdb->prepare(
+						"INSERT INTO {$wpdb->prefix}bn_notifications
+						 (recipient_id, sender_id, type, object_type, object_id, group_key, group_count, data, is_read, created_at)
+						 VALUES {$rows_sql}",
+						$values
+					)
+				);
+				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+			}
+
+			// Resolve the new rows' ids by group_key. Each key is unique per
+			// recipient and these recipients had no prior unread group row, so the
+			// match is unambiguous. One query.
+			$nk_ph    = implode( ', ', array_fill( 0, count( $new_recipient_ids ), '%s' ) );
+			$new_keys = array();
+			foreach ( $new_recipient_ids as $rid ) {
+				$new_keys[] = $group_keys[ $rid ];
+			}
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+			$inserted_rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT recipient_id, id FROM {$wpdb->prefix}bn_notifications
+					 WHERE group_key IN ( {$nk_ph} ) AND is_read = 0",
+					$new_keys
+				),
+				ARRAY_A
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+			foreach ( (array) $inserted_rows as $row ) {
+				$new_ids[ (int) $row['recipient_id'] ] = (int) $row['id'];
+			}
+		}
+
+		// ── Deliver stage (in-app: cache + per-row hook) ──────────────────────
+		// Fire the per-row contract hook for every recipient so the real-time
+		// consumers (Pro realtime + push, analytics) run exactly as they do for a
+		// single create(). defer_email (set above) keeps email off this path.
+		// Cache key mirrors NotificationService::CACHE_GROUP.
+		foreach ( $recipients as $member_id => $data ) {
+			$notif_id = $existing[ $member_id ] ?? ( $new_ids[ $member_id ] ?? 0 );
+			if ( $notif_id <= 0 ) {
+				continue;
+			}
+			wp_cache_delete( "unread_{$member_id}", 'buddynext_notifications' );
+			/** This action is documented in includes/Notifications/NotificationService.php */
+			do_action( 'buddynext_notification_created', $notif_id, $member_id, $data );
+		}
+
+		// Hand email delivery to the batched AS stage (off the fan-out task).
+		$this->enqueue_space_post_emails( $post_id, $space_id, $author_id, array_keys( $recipients ) );
+
+		return array(
+			'count'        => $fetched_count,
+			'last_user_id' => $last_user_id,
+		);
+	}
+
+	/**
+	 * Batch-resolve which members are in a notification-suppressing relationship
+	 * with the post author, in one type-aware query.
+	 *
+	 * Mirrors {@see self::is_blocked()} for a whole batch: 'block' is
+	 * bidirectional (author<->member, either direction); 'mute'/'restrict' are
+	 * one-way (the member silenced the author: blocker = member, blocked = author).
+	 *
+	 * @param int[] $member_ids Candidate recipient IDs.
+	 * @param int   $author_id  Post author.
+	 * @return int[] Member IDs whose notification must be suppressed.
+	 */
+	private function blocked_member_ids( array $member_ids, int $author_id ): array {
+		$member_ids = array_values( array_unique( array_filter( array_map( 'intval', $member_ids ) ) ) );
+		if ( empty( $member_ids ) ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$ph = implode( ', ', array_fill( 0, count( $member_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT blocker_id, blocked_id, type FROM {$wpdb->prefix}bn_blocks
+				 WHERE ( type = 'block' AND (
+				            ( blocker_id = %d AND blocked_id IN ( {$ph} ) )
+				         OR ( blocked_id = %d AND blocker_id IN ( {$ph} ) )
+				        ) )
+				    OR ( type IN ( 'mute', 'restrict' ) AND blocked_id = %d AND blocker_id IN ( {$ph} ) )",
+				array_merge( array( $author_id ), $member_ids, array( $author_id ), $member_ids, array( $author_id ), $member_ids )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		$blocked = array();
+		foreach ( (array) $rows as $row ) {
+			$blocker    = (int) $row['blocker_id'];
+			$blocked_id = (int) $row['blocked_id'];
+			if ( 'block' === $row['type'] ) {
+				// The member is whichever side is not the author.
+				$blocked[ $blocker === $author_id ? $blocked_id : $blocker ] = true;
+			} else {
+				// mute/restrict: the muter (recipient/member) is the blocker.
+				$blocked[ $blocker ] = true;
+			}
+		}
+
+		return array_keys( $blocked );
+	}
+
+	/**
+	 * Enqueue (or run inline) the batched email-delivery stage for a space post.
+	 *
+	 * @param int   $post_id    Post ID.
+	 * @param int   $space_id   Space ID.
+	 * @param int   $author_id  Author ID.
+	 * @param int[] $recipients Recipients that received an in-app notification.
+	 * @return void
+	 */
+	private function enqueue_space_post_emails( int $post_id, int $space_id, int $author_id, array $recipients ): void {
+		if ( empty( $recipients ) ) {
+			return;
+		}
+
+		$args = array(
+			'post_id'    => $post_id,
+			'space_id'   => $space_id,
+			'author_id'  => $author_id,
+			'recipients' => array_values( $recipients ),
+		);
+
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( 'buddynext_async_space_post_emails', $args, 'buddynext' );
+			return;
+		}
+
+		// No Action Scheduler (small sites / CLI): deliver inline.
+		$this->async_space_post_emails( $args );
+	}
+
+	/**
+	 * Deliver stage: send space new-post emails for a recipient batch.
+	 *
+	 * Runs as its OWN Action Scheduler action so email never blocks the record
+	 * stage (the fan-out). Self-paginates a bounded chunk at a time and delivers
+	 * inline through EmailSender ($defer = false, since this is already an async
+	 * worker): immediate frequencies send now, daily/weekly queue a digest, 'off'
+	 * is dropped. The in-app rows already exist; this only handles email.
+	 *
+	 * @param array<string,mixed> $args post_id, space_id, author_id, recipients[].
+	 * @return void
+	 */
+	public function async_space_post_emails( array $args ): void {
+		$post_id    = (int) ( $args['post_id'] ?? 0 );
+		$author_id  = (int) ( $args['author_id'] ?? 0 );
+		$space_id   = (int) ( $args['space_id'] ?? 0 );
+		$recipients = array_values( array_filter( array_map( 'intval', (array) ( $args['recipients'] ?? array() ) ) ) );
+
+		if ( 0 === $post_id || empty( $recipients ) ) {
+			return;
+		}
+
+		$sender = buddynext_service( 'email_sender' );
+		if ( ! is_object( $sender ) || ! method_exists( $sender, 'send' ) ) {
+			return;
+		}
+
+		$chunk_size = 50;
+		$chunk      = array_slice( $recipients, 0, $chunk_size );
+		$remaining  = array_slice( $recipients, $chunk_size );
+
+		$data = array(
+			'type'        => 'bn.space_new_post',
+			'sender_id'   => $author_id,
+			'object_type' => 'post',
+			'object_id'   => $post_id,
+		);
+
+		foreach ( $chunk as $member_id ) {
+			// $defer = false: already an async AS worker, so immediate emails send
+			// inline here rather than spawning one sub-action per recipient.
+			$sender->send( $member_id, 'bn.space_new_post', $data, false );
+		}
+
+		if ( ! empty( $remaining ) ) {
+			$this->enqueue_space_post_emails( $post_id, $space_id, $author_id, $remaining );
+		}
 	}
 
 	/**

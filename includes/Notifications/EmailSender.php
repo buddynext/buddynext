@@ -54,9 +54,16 @@ class EmailSender {
 	 * @param int    $user_id           Recipient user ID.
 	 * @param string $notification_type Notification type key.
 	 * @param array  $data              Notification data payload.
+	 * @param bool   $defer             When true (default) an immediate email is
+	 *                                  enqueued via Action Scheduler so it never
+	 *                                  blocks the originating request. Pass false
+	 *                                  from a context that is ALREADY an async AS
+	 *                                  worker (e.g. the batched space-post email
+	 *                                  stage) so the send happens inline instead of
+	 *                                  spawning one sub-action per recipient.
 	 * @return void
 	 */
-	public function send( int $user_id, string $notification_type, array $data ): void {
+	public function send( int $user_id, string $notification_type, array $data, bool $defer = true ): void {
 		if ( $user_id <= 0 || '' === $notification_type ) {
 			return;
 		}
@@ -99,8 +106,10 @@ class EmailSender {
 		}
 
 		// Immediate send — dispatch asynchronously via Action Scheduler when
-		// available so it does not block the current request.
-		if ( function_exists( 'as_enqueue_async_action' ) ) {
+		// available so it does not block the current request. Skipped when the
+		// caller is already an AS worker ($defer = false): it sends inline below
+		// rather than spawning one sub-action per recipient.
+		if ( $defer && function_exists( 'as_enqueue_async_action' ) ) {
 			as_enqueue_async_action(
 				'buddynext_send_notification_email',
 				array(
