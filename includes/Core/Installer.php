@@ -55,8 +55,12 @@ class Installer {
 	 *     (bn_space_*) and the custom-CSS blob to autoload=off via
 	 *     maybe_fix_autoload() so they stop loading on every request as the
 	 *     community grows. No schema change.
+	 * 10 — converge the legacy buddynext_jetonomy_feed_sync option into the unified
+	 *      per-integration key buddynext_integration_jetonomy_feed: carry an explicit
+	 *      opt-out ('0') over, then delete the legacy option. The Integration Display
+	 *      admin tab now owns the toggle. No schema change.
 	 */
-	private const SCHEMA_VERSION = 9;
+	private const SCHEMA_VERSION = 10;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -91,6 +95,10 @@ class Installer {
 		// clears the meta.
 		self::maybe_drop_last_active_meta();
 
+		// v10: converge the legacy Jetonomy feed-sync option into the unified
+		// per-integration key so the admin has a single control, not two.
+		self::maybe_migrate_jetonomy_feed_sync();
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
 	}
 
@@ -106,6 +114,28 @@ class Installer {
 	 */
 	private static function maybe_drop_last_active_meta(): void {
 		delete_metadata( 'user', 0, \BuddyNext\Realtime\PresenceService::META_KEY, '', true );
+	}
+
+	/**
+	 * One-time convergence: fold the legacy buddynext_jetonomy_feed_sync option into
+	 * the unified per-integration key buddynext_integration_jetonomy_feed.
+	 *
+	 * Both default ON, so only an explicit opt-out ('0') needs carrying; an absent or
+	 * '1' legacy value maps to the unified default-on (no write). The legacy option is
+	 * then deleted so the admin sees a single control on the Integration Display tab,
+	 * never two. Idempotent — a re-run finds the option already gone and no-ops.
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_jetonomy_feed_sync(): void {
+		$legacy = get_option( 'buddynext_jetonomy_feed_sync', null );
+		if ( null === $legacy ) {
+			return;
+		}
+		if ( '0' === (string) $legacy ) {
+			update_option( 'buddynext_integration_jetonomy_feed', '0', false );
+		}
+		delete_option( 'buddynext_jetonomy_feed_sync' );
 	}
 
 	/**

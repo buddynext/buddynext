@@ -120,8 +120,9 @@ class Settings extends AdminPageBase {
 		'buddynext_email_reply_to'              => array( 'string', 'sanitize_email' ),
 		'buddynext_email_footer_text'           => array( 'string', 'sanitize_textarea_field' ),
 
-		// Integrations.
-		'buddynext_jetonomy_feed_sync'          => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
+		// Integrations: the Jetonomy feed toggle moved to the unified Integration
+		// Display tab (buddynext_integration_jetonomy_feed), so it is no longer a
+		// Settings-API option here.
 
 		// Privacy & Data.
 		'buddynext_google_indexing'             => array( 'string', 'sanitize_key' ),
@@ -719,9 +720,8 @@ class Settings extends AdminPageBase {
 			'buddynext_anonymize_on_delete',
 			'buddynext_data_retention_days',
 		),
-		'integrations'  => array(
-			'buddynext_jetonomy_feed_sync',
-		),
+		// Integrations tab options moved to the unified Integration Display tab.
+		'integrations'  => array(),
 		'webhooks'      => array(
 			'buddynext_webhook_secret',
 		),
@@ -2260,17 +2260,11 @@ class Settings extends AdminPageBase {
 		// The companion installer behaviour lives in assets/js/admin/settings.js
 		// (initCompanions), wired to the data-* attributes on [data-bn-companions]
 		// above. No inline script - see the UX-audit F2 rule.
-
-		$this->open_section( __( 'Jetonomy Settings', 'buddynext' ) );
-
-		$this->render_toggle_row(
-			'buddynext_jetonomy_feed_sync',
-			__( 'Surface new Jetonomy discussions in activity feed', 'buddynext' ),
-			__( 'When enabled, new Jetonomy forum posts appear as feed cards in the BuddyNext activity feed. On by default. Can be overridden per space.', 'buddynext' ),
-			'0' !== (string) get_option( 'buddynext_jetonomy_feed_sync', '1' )
-		);
-
-		$this->close_section();
+		//
+		// The Jetonomy discussion-activity toggle moved to the unified Integration
+		// Display tab (BuddyNext -> Platform -> Integration Display), which owns the
+		// nav + feed toggle for every integration. It is intentionally NOT duplicated
+		// here so the admin sees a single control, not two.
 	}
 
 	/**
