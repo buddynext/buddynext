@@ -109,6 +109,9 @@ final class SpaceNav {
 				'label'    => __( 'About', 'buddynext' ),
 				'priority' => 40,
 				'url'      => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'about' ),
+				'render'   => function ( NavContext $c ): void {
+					$this->render_about_panel( $c->subject_id );
+				},
 			),
 			array(
 				'id'        => 'moderation',
@@ -124,6 +127,30 @@ final class SpaceNav {
 					return $reports + $pending;
 				},
 			),
+		);
+	}
+
+	/**
+	 * Render the About panel for a space — the registry content seam for the
+	 * About tab. Self-contained: it loads the space object + its display meta
+	 * through SpaceService (the shared loaders the hub shell also uses) and
+	 * renders the existing about part, so the panel owns its data and the hub
+	 * template no longer special-cases About.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return void
+	 */
+	private function render_about_panel( int $space_id ): void {
+		$space = ( new SpaceService() )->get_object( $space_id );
+		if ( null === $space ) {
+			return;
+		}
+		buddynext_get_template(
+			'parts/space-about-panel.php',
+			array(
+				'space' => $space,
+				'meta'  => SpaceService::display_meta( $space ),
+			)
 		);
 	}
 }

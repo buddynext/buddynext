@@ -71,6 +71,51 @@ class SpaceService {
 	}
 
 	/**
+	 * The space row as an object with category name/slug resolved.
+	 *
+	 * The one loader for the shared parts: the bare `get()` row plus its category
+	 * lookup, cast to the object shape every part reads (hero, about, members,
+	 * feed, sidebar). Used by the space hub shell AND each space panel render, so
+	 * the hub and a panel never resolve the row two different ways.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return object|null Null when the space does not exist.
+	 */
+	public function get_object( int $space_id ): ?object {
+		$row = $this->get( $space_id );
+		if ( null === $row ) {
+			return null;
+		}
+		$row['category_name'] = '';
+		$row['category_slug'] = '';
+		if ( ! empty( $row['category_id'] ) ) {
+			$category = ( new SpaceCategoryService() )->get_by_id( (int) $row['category_id'] );
+			if ( is_array( $category ) ) {
+				$row['category_name'] = (string) ( $category['name'] ?? '' );
+				$row['category_slug'] = (string) ( $category['slug'] ?? '' );
+			}
+		}
+		return (object) $row;
+	}
+
+	/**
+	 * Presentation meta shared by the space hub header and the About panel: the
+	 * privacy type's label + tone and the formatted member count. One source so a
+	 * panel and the shell never format the same facts two different ways.
+	 *
+	 * @param object $space Space object from {@see get_object()}.
+	 * @return array{privacy_label:string,privacy_tone:string,member_count_fmt:string}
+	 */
+	public static function display_meta( object $space ): array {
+		$type = isset( $space->type ) ? (string) $space->type : '';
+		return array(
+			'privacy_label'    => self::type_label( $type ),
+			'privacy_tone'     => SpaceTypeRegistry::instance()->tone( $type ),
+			'member_count_fmt' => number_format_i18n( (int) ( $space->member_count ?? 0 ) ),
+		);
+	}
+
+	/**
 	 * Return a single space by URL slug.
 	 *
 	 * @param string $slug Sanitized space slug.

@@ -84,29 +84,15 @@ if ( ! $space_id ) {
 	wp_die( esc_html__( 'Space not found.', 'buddynext' ) );
 }
 
-$bn_space_arr = $bn_space_service->get( $space_id );
+// $space is the shared object shape (bare row + resolved category) every part
+// reads (hero, about, members, feed, sidebar). SpaceService::get_object() is the
+// single loader, also used by each space panel render, so the hub and a panel
+// never resolve the row two different ways.
+$space = $bn_space_service->get_object( $space_id );
 
-if ( null === $bn_space_arr ) {
+if ( null === $space ) {
 	wp_die( esc_html__( 'Space not found.', 'buddynext' ) );
 }
-
-// Parts (hero, about, members, feed, sidebar) read $space as an object and need
-// the category name/slug the bare space row does not carry. Resolve the category
-// through its owning service, then expose the space as an object so the shared
-// parts keep their existing property access untouched.
-$bn_category_name = '';
-$bn_category_slug = '';
-if ( ! empty( $bn_space_arr['category_id'] ) ) {
-	$bn_category = ( new \BuddyNext\Spaces\SpaceCategoryService() )->get_by_id( (int) $bn_space_arr['category_id'] );
-	if ( is_array( $bn_category ) ) {
-		$bn_category_name = (string) ( $bn_category['name'] ?? '' );
-		$bn_category_slug = (string) ( $bn_category['slug'] ?? '' );
-	}
-}
-$bn_space_arr['category_name'] = $bn_category_name;
-$bn_space_arr['category_slug'] = $bn_category_slug;
-
-$space = (object) $bn_space_arr;
 
 $current_user_id = get_current_user_id();
 
@@ -244,12 +230,14 @@ if ( $can_moderate ) {
 }
 
 // Clean-URL active tab: /spaces/{slug}/{tab}/ → bn_space_action. Defaults to feed.
-$active_tab       = (string) get_query_var( 'bn_space_action', '' );
-$active_tab       = '' !== $active_tab ? sanitize_key( $active_tab ) : 'feed';
-$member_count_fmt = number_format_i18n( (int) $space->member_count );
-
-$privacy_label = \BuddyNext\Spaces\SpaceService::type_label( (string) $space->type );
-$privacy_tone  = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->tone( (string) $space->type );
+$active_tab = (string) get_query_var( 'bn_space_action', '' );
+$active_tab = '' !== $active_tab ? sanitize_key( $active_tab ) : 'feed';
+// Shared presentation meta (privacy label/tone + formatted member count) — the
+// same source the About panel uses, so the header and the panel never drift.
+$bn_display_meta  = \BuddyNext\Spaces\SpaceService::display_meta( $space );
+$member_count_fmt = $bn_display_meta['member_count_fmt'];
+$privacy_label    = $bn_display_meta['privacy_label'];
+$privacy_tone     = $bn_display_meta['privacy_tone'];
 
 $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 $rest_nonce      = wp_create_nonce( 'wp_rest' );
@@ -542,8 +530,20 @@ if ( 'discussions' === $active_tab && ! $gate_feed ) {
 // counted and ordered for THIS viewer's role — the same nav system + renderer the
 // member profile uses. Rendered as clean-URL tabs by parts/nav-bar.php.
 $bn_space_role = $is_member && isset( $membership->role ) ? (string) $membership->role : '';
-$bn_space_nav  = buddynext_nav( new \BuddyNext\Nav\NavContext( 'space', (int) $space_id, (int) $current_user_id, $bn_space_role ) );
+$bn_space_ctx  = new \BuddyNext\Nav\NavContext( 'space', (int) $space_id, (int) $current_user_id, $bn_space_role );
+$bn_space_nav  = buddynext_nav( $bn_space_ctx );
 $bn_nav_items  = $bn_space_nav->layer( 'primary' );
+
+// Registry-driven panel for the active tab: when its nav item carries a render,
+// PanelRenderer paints it (the content seam). Tabs not yet migrated to a render
+// fall through to the legacy branches in the tab body below.
+$bn_panel_item = null;
+foreach ( $bn_nav_items as $bn_pi ) {
+	if ( $bn_pi->id === $active_tab ) {
+		$bn_panel_item = $bn_pi;
+		break;
+	}
+}
 ?>
 <div class="bn-sh-stack"
 	data-wp-interactive="buddynext/spaces"
@@ -679,6 +679,10 @@ $bn_nav_items  = $bn_space_nav->layer( 'primary' );
 				<?php endif; ?>
 			</div>
 
+		<?php elseif ( null !== $bn_panel_item && $bn_panel_item->has_render() ) : ?>
+
+			<?php ( new \BuddyNext\Nav\PanelRenderer() )->render_panels( $bn_space_nav, $bn_space_ctx, $active_tab ); ?>
+
 		<?php elseif ( 'media' === $active_tab ) : ?>
 
 			<?php
@@ -759,22 +763,6 @@ $bn_nav_items  = $bn_space_nav->layer( 'primary' );
 					'forum_linked'  => (bool) $bn_forum_ctx['linked'],
 					'provision_url' => (string) $bn_forum_ctx['provision_url'],
 					'can_post'      => $bn_can_post,
-				)
-			);
-			?>
-
-		<?php elseif ( 'about' === $active_tab ) : ?>
-
-			<?php
-			buddynext_get_template(
-				'parts/space-about-panel.php',
-				array(
-					'space' => $space,
-					'meta'  => array(
-						'privacy_label'    => $privacy_label,
-						'privacy_tone'     => $privacy_tone,
-						'member_count_fmt' => $member_count_fmt,
-					),
 				)
 			);
 			?>
