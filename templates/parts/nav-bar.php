@@ -91,6 +91,11 @@ $bn_nav_child_targets = static function ( NavItem $item ): array {
 			// tab owns no panel of its own (it switches to a child), so it carries no
 			// aria-controls; a page-nav link tab has no in-DOM panel either.
 			$bn_controls = ( $bn_reactive && ! $bn_has_children ) ? buddynext_nav_panel_id( $bn_target ) : '';
+
+			// A tab declared full_load (a drill-in page / its own router region) tells
+			// the client-nav transport to full-load it instead of swapping — emitted as
+			// data-bn-full-load so the transport reads the nav API, not a route regex.
+			$bn_full_load_attr = $bn_item->full_load ? ' data-bn-full-load' : '';
 			?>
 			<?php if ( $bn_reactive && null !== $bn_item->url_value ) : ?>
 				<a class="bn-tab" role="tab"
@@ -102,6 +107,7 @@ $bn_nav_child_targets = static function ( NavItem $item ): array {
 					aria-label="<?php echo esc_attr( $bn_aria ); ?>"
 					data-wp-on--click="actions.setTab"
 					data-tab="<?php echo esc_attr( $bn_target ); ?>"
+					<?php echo $bn_full_load_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static attribute literal. ?>
 					href="<?php echo esc_url( (string) $bn_item->url_value ); ?>">
 					<?php require __DIR__ . '/nav-bar-tab-inner.php'; ?>
 				</a>
@@ -122,6 +128,7 @@ $bn_nav_child_targets = static function ( NavItem $item ): array {
 					aria-selected="<?php echo $bn_is_active ? 'true' : 'false'; ?>"
 					<?php echo $bn_is_active ? 'aria-current="page"' : ''; ?>
 					aria-label="<?php echo esc_attr( $bn_aria ); ?>"
+					<?php echo $bn_full_load_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static attribute literal. ?>
 					href="<?php echo esc_url( (string) $bn_item->url_value ); ?>">
 					<?php require __DIR__ . '/nav-bar-tab-inner.php'; ?>
 				</a>

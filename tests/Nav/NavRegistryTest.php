@@ -698,6 +698,42 @@ class NavRegistryTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The `full_load` flag round-trips through the contract (default false), so the
+	 * shared nav renderer can emit `data-bn-full-load` for drill-in tabs and the
+	 * client-nav transport reads it instead of hardcoding a route regex.
+	 */
+	public function test_full_load_flag_round_trips(): void {
+		$this->reg->register(
+			array(
+				'id'        => 'settings',
+				'surface'   => 'space',
+				'layer'     => 'primary',
+				'label'     => 'Settings',
+				'url'       => 'https://example.test/spaces/x/settings/',
+				'full_load' => true,
+			)
+		);
+		$this->reg->register(
+			array(
+				'id'      => 'feed',
+				'surface' => 'space',
+				'layer'   => 'primary',
+				'label'   => 'Feed',
+				'url'     => 'https://example.test/spaces/x/',
+			)
+		);
+
+		$out   = $this->reg->resolve( new NavContext( 'space', 9, 5, 'member' ) );
+		$items = array();
+		foreach ( $out->layer( 'primary' ) as $n ) {
+			$items[ $n->id ] = $n;
+		}
+
+		$this->assertTrue( $items['settings']->full_load, 'full_load => true is preserved' );
+		$this->assertFalse( $items['feed']->full_load, 'full_load defaults to false' );
+	}
+
+	/**
 	 * Resolving the same context twice runs the count callable once (memoized),
 	 * but a different context resolves afresh. This is what lets the shared space
 	 * header and the space body both ask for the nav without a double count query.

@@ -19,16 +19,42 @@
 import { store } from '@wordpress/interactivity';
 
 /**
- * Decide whether a same-origin in-app path must full-load (deny-listed).
+ * Decide whether a same-origin in-app link must full-load. Driven entirely by
+ * server/nav-API data — the JS hardcodes NO route shapes:
+ *   1. The link's own `data-bn-full-load` (set from `NavItem.full_load` by the
+ *      shared nav renderer, or by any template that renders a drill-in link).
+ *   2. `bnShellData.navDenyPatterns` — JS-RegExp source strings PageRouter emits
+ *      for the rich sub-routes it owns (profile edit, space settings/admin, post
+ *      permalink, checkout), built from the live admin-configurable bases.
+ *   3. `bnShellData.navDeny` — whole-surface path prefixes (auth/onboarding +
+ *      partner router-region bases), filterable via `buddynext_client_nav_deny`.
  *
- * @param {string} path window.location-style pathname of the target link.
+ * @param {HTMLAnchorElement} link The candidate in-app link.
  * @return {boolean} True when the route must full-load.
  */
-function isDenied( path ) {
-	const deny = ( window.bnShellData && window.bnShellData.navDeny ) || {};
-	// A deny entry is a path prefix string, or an array of them (partner plugins
-	// expose several admin-configurable bases — mapped Media pages, Community
-	// base URL). Matches when the current path starts with any.
+function isDenied( link ) {
+	// 1. Per-link declaration (the nav API's full_load, or any renderer's opt-out).
+	if ( link.hasAttribute( 'data-bn-full-load' ) ) {
+		return true;
+	}
+
+	const data = window.bnShellData || {};
+	const path = link.pathname;
+
+	// 2. Server-provided rich-route patterns (PageRouter owns these route shapes).
+	const patterns = Array.isArray( data.navDenyPatterns ) ? data.navDenyPatterns : [];
+	for ( let i = 0; i < patterns.length; i++ ) {
+		try {
+			if ( new RegExp( patterns[ i ] ).test( path ) ) {
+				return true;
+			}
+		} catch ( e ) {
+			// A malformed server pattern must never strand navigation — skip it.
+		}
+	}
+
+	// 3. Whole-surface prefix bases (a string or an array of them per surface key).
+	const deny = data.navDeny || {};
 	const startsWith = ( prefix ) => {
 		if ( ! prefix ) {
 			return false;
@@ -36,35 +62,9 @@ function isDenied( path ) {
 		const list = Array.isArray( prefix ) ? prefix : [ prefix ];
 		return list.some( ( p ) => p && path.indexOf( p.replace( /\/+$/, '' ) ) === 0 );
 	};
-
-	// Conditional sub-route denies FIRST: the hub ROOT itself stays client-navigable
-	// (it's a buddynext/main surface), so only these rich sub-routes full-load.
-	// Handled before the generic prefix pass so /members/ and /spaces/ are never
-	// blanket-denied.
-	if ( startsWith( deny.people ) && /\/edit\/?$/.test( path ) ) {
-		return true; // Profile edit — rich uploader + repeater fields.
-	}
-	if ( startsWith( deny.spaces ) && /\/(settings|admin)\/?$/.test( path ) ) {
-		return true; // Space settings/admin — cover/icon upload + forms.
-	}
-	// Single-post permalink (/p/{id}/) — rich reply composer.
-	if ( /\/p\/\d+\/?$/.test( path ) ) {
-		return true;
-	}
-	// Membership checkout (Stripe Embedded Checkout mounts here).
-	if ( /\/(checkout|membership\/checkout)\/?$/.test( path ) ) {
-		return true;
-	}
-
-	// Generic full-prefix pass: every other deny entry is a plain path prefix that
-	// must full-load — auth/signup/verify/reset/onboarding, the partner router-region
-	// surfaces (media = WPMediaVerse, discussions = Jetonomy), AND any integration
-	// surface registered through the `buddynext_client_nav_deny` filter (Career Board
-	// jobs/companies/resumes, Listora listings, Learnomy courses, Gamification). This
-	// is generic so a newly-registered integration key is respected without editing
-	// this file. 'people'/'spaces' are excluded — their hub root must client-nav
-	// (their rich sub-routes are handled conditionally above).
 	return Object.keys( deny ).some( ( key ) => {
+		// The hub ROOTS (people/spaces) must client-nav — only their rich sub-routes
+		// (handled by the patterns above) full-load.
 		if ( 'people' === key || 'spaces' === key ) {
 			return false;
 		}
@@ -146,8 +146,8 @@ store( 'buddynext', {
 			) {
 				return;
 			}
-			// Deny-list → full-page load.
-			if ( isDenied( link.pathname ) ) {
+			// Deny-list → full-page load (per-link flag + server-provided patterns).
+			if ( isDenied( link ) ) {
 				return;
 			}
 

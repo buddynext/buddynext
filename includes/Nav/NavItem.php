@@ -90,6 +90,12 @@ final class NavItem {
 	 *                                      and the surface renders the active panel through it.
 	 *                                      The callable owns its own escaping (same contract as
 	 *                                      a template part). Null = no panel of its own.
+	 * @param bool              $full_load  This tab is a drill-in page (rich editor / its own
+	 *                                      router region), so the client-nav transport must
+	 *                                      FULL-LOAD it instead of swapping. The shared nav
+	 *                                      renderer emits it as `data-bn-full-load` and the
+	 *                                      transport reads that per-link — no hardcoded route
+	 *                                      regex in the JS. Default false = client-navigable.
 	 */
 	public function __construct(
 		public string $id,
@@ -112,7 +118,8 @@ final class NavItem {
 		public mixed $active = null,
 		public int $seq = 0,
 		public mixed $count_label = null,
-		public mixed $render = null
+		public mixed $render = null,
+		public bool $full_load = false
 	) {}
 
 	/**
@@ -224,6 +231,7 @@ final class NavItem {
 			seq: $seq,
 			count_label: $count_label,
 			render: $render,
+			full_load: ! empty( $a['full_load'] ),
 		);
 	}
 

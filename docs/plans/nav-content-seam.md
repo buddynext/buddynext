@@ -331,8 +331,19 @@ to iterate `[data-bn-nav]` generically and drive `aria-current="page"` only — 
 active state converged onto `aria-current` (CSS `.bn-mobile-nav__item[aria-current="page"]`; server emits it;
 no bespoke class). Browser-verified on Docker with `buddynext_client_nav_enabled` on: clicking the rail
 Members link client-swaps (no reload — sentinel survived) and the rail active re-syncs Spaces→Members via the
-generic marker; 0 console errors. Flag still ships OFF by default. NEXT: `NavItem.full_load` + per-link
-`data-bn-full-load` to replace `isDenied()`'s hardcoded route regexes (then profile cutover behind the transport).
+generic marker; 0 console errors. Flag still ships OFF by default.
+
+DONE (transport increment 2 — nav-API/server-driven deny, no hardcoded routes): `NavItem.full_load` (bool)
+added to the contract; the shared `nav-bar.php` emits `data-bn-full-load` on a full-load tab. PageRouter now
+emits `navDenyPatterns` (the rich-route shapes IT owns — profile edit / space settings+admin / post permalink
+/ checkout — built from the LIVE admin-configurable bases, filterable via `buddynext_client_nav_deny_patterns`).
+`navigate.js isDenied()` rewritten to (1) read the clicked link's `data-bn-full-load`, (2) apply the server
+`navDenyPatterns`, (3) fall back to the `navDeny` surface-prefix map — the four hardcoded route regexes are
+GONE. Browser-verified on Docker (client-nav on): `navDenyPatterns` present + built from live bases;
+profile-edit/post-permalink match (full-load), normal space URL does not; clicking the space hero Settings
+link FULL-loaded end-to-end (no-reload sentinel cleared); 0 console errors. +1 Nav test (full_load round-trips),
+suite 55/55. The transport now hardcodes NO routes or selectors — fully nav-API/route-API driven, flag still OFF.
+NEXT: profile cutover (Phase 4) behind the generalized transport — its registry tabs light it up, no JS edits.
 
 - [ ] Wire `@buddynext/navigate` to swap the active panel region (no-reload; graceful full-load fallback).
 - [ ] Remove `profile/store.js` reactive-reveal; drop the dead `global` surface + `rail`/`context` layers.

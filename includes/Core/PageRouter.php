@@ -989,6 +989,30 @@ class PageRouter {
 					'discussions' => self::jetonomy_deny_paths(),
 				)
 			),
+			// Rich-route deny PATTERNS — sub-routes that must FULL-LOAD because they
+			// host a rich editor / their own router region (NOT whole-surface bases,
+			// which live in navDeny above). Owned here because PageRouter defines these
+			// routes; emitted as JS-RegExp source strings tested against the path, so
+			// the transport carries ZERO hardcoded route literals. Built from the live,
+			// admin-configurable people/space bases so a renamed base stays accurate.
+			'navDenyPatterns'    => array_values(
+				array_filter(
+					(array) apply_filters(
+						'buddynext_client_nav_deny_patterns',
+						array(
+							// Profile edit — rich uploader + repeater fields.
+							preg_quote( rtrim( (string) wp_parse_url( self::people_url(), PHP_URL_PATH ), '/' ), '/' ) . '/[^/]+/edit/?$',
+							// Space settings / admin — cover-icon upload + forms.
+							preg_quote( rtrim( (string) wp_parse_url( self::spaces_url(), PHP_URL_PATH ), '/' ), '/' ) . '/[^/]+/(settings|admin)/?$',
+							// Single-post permalink — rich reply composer.
+							'/p/\\d+/?$',
+							// Membership checkout — Stripe Embedded Checkout mounts here.
+							'/(checkout|membership/checkout)/?$',
+						)
+					),
+					static fn( $p ): bool => is_string( $p ) && '' !== $p
+				)
+			),
 			// Connect-request style. Default false = 1-click connect (Facebook).
 			// When the owner turns on buddynext_connection_require_note, the
 			// Connect button opens a note dialog (LinkedIn) and the note is
