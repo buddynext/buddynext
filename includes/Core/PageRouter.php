@@ -89,7 +89,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-06-17-legacy-search-redirect';
+	private const ROUTER_VERSION = '2026-06-27-hashtag-rewrite-reflush';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
