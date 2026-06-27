@@ -12,10 +12,17 @@ global community rail (`buddynext_rail_items`), context-nav on integrations' own
 pages (`buddynext_context_nav`), mobile global nav, admin tabs (`AdminHub`).
 
 ## Goal
-For those two menus, ONE uniform, dogfooded mechanism for primary tabs AND one level of
-sub-tabs: register a tab with a `render` callable; the surface SSRs only the active panel
-and hydrates switches via the transport. Core panels, Pro's Portfolio/Suite panels, and a
-third-party panel all use the EXACT same path - our code is the model devs copy.
+ONE uniform nav API used by EVERY template — this is the whole reason for the work. No
+template hand-rolls its own nav/header: each space + profile template renders its tabs
+through the shared registry + the shared header part, and its body through the one panel
+seam. For the two per-entity menus this means one dogfooded mechanism for primary tabs AND
+one level of sub-tabs: register a tab with a `render` callable; the surface SSRs only the
+active panel and hydrates switches via the transport. Core panels, Pro's Portfolio/Suite
+panels, and a third-party panel all use the EXACT same path - our code is the model devs copy.
+
+Litmus test for every commit: could a NEW space/profile template be added that gets the full
+nav + tabs by calling the one shared API, writing ZERO nav/header markup of its own? If a
+template still hand-rolls nav (today `home.php` does), the goal is not met yet.
 
 ## Principles
 - **Dogfood:** core + Pro use the same seam third parties use. No privileged path.
@@ -168,49 +175,60 @@ and it settles members/moderation (they keep dedicated bodies but already share 
 - Phase 1 (`75db80ed`): space About via the seam; SpaceService::get_object()/display_meta().
 - Phase 2a (`c81f87a9`): space Media via the seam.
 
-## Task list (implementation + test + integration-as-model, by phase)
-Each phase is its own commit(s), browser-verified before moving on. All land in 1.0.4.
+## Task list (revised — UNIFORM NAV API across EVERY template is the goal)
+CORE PRINCIPLE (why we build this): every space + profile template renders its nav through
+ONE uniform nav API — the registry + the shared header part — NEVER a hand-rolled per-template
+copy. The body differs per template; the nav never does. A template that hand-rolls its own
+nav/header (today: `home.php`) is the defect this work removes.
+Each phase = its own browser-verified commit. All land in 1.0.4.
 
-### Phase 0 - Foundation (contract + renderer)
-- [ ] NavItem: add `render` + validation; drop `tab`; keep `url` (link-out only).
-- [ ] NavContext: add `->sub` (active sub-tab).
-- [ ] `PanelRenderer::render_panels()` (new): SSR the ACTIVE panel only; implement the two
-      rules - (a) parent-with-no-render → first child, (b) per-item `render` closures.
-- [ ] PHPUnit: NavItem `render` validation; render_panels picks active item + sub + parent fallback.
+### Phase 0 — Foundation ✅ DONE (`601bf817`)
+`NavItem.render` content seam + `PanelRenderer` (SSR the active panel only) + `NavContext->sub`
++ 8 tests. Additive, nothing wired.
 
-### Phase 1 - Space surface (proof, then full)
-- [ ] Wire `spaces/home.php` → `render_panels()`; migrate the `about` panel (proof-of-path).
-- [ ] TEST: `/spaces/{slug}/about/` renders; only active panel queries the DB; 390px + dark.
-- [ ] Migrate feed / members / media / moderation panels → `render`; delete the `if/elseif` chain.
-- [ ] INTEGRATION: Jetonomy space discussions → `render`; delete the `home.php` branch + `new JetonomyBridge()`.
-- [ ] TEST: every space tab renders; Jetonomy discussions + on-demand provision still work; 0 console errors.
+### Phase 1 — Space body seam, proof ✅ DONE (About `75db80ed`, Media `c81f87a9`)
+`home.php` bridge routes a tab's `render` via `PanelRenderer`; About + Media migrated; shared
+`SpaceService::get_object()`/`display_meta()`; legacy branches deleted; browser-verified.
 
-### Phase 2 - Profile surface
-- [ ] Wire `profile/view.php` → `render_panels()`; remove the pre-render-all include.
-- [ ] Migrate posts / replies / media / likes / scheduled / about → `render`.
-- [ ] INTEGRATION: Jetonomy profile discussions → `render`; delete the `profile-tab-panel.php` branch.
-- [ ] TEST: each profile tab renders via its URL; deep-link paints the right panel; only active renders.
+### Phase 2 — ONE UNIFORM HEADER/NAV FOR EVERY SPACE TEMPLATE (next)
+- [ ] Shared space-view-context resolver (membership + role + stats + nav items + gating),
+      computed ONCE, the single source for the header AND the bodies.
+- [ ] `home.php` adopts `parts/space-header.php` for the hero+nav — DELETE its inline duplicate
+      (membership 101-124, stats 572-594, nav context 533-534, hero call 595-613).
+- [ ] `space-header.php` reads the shared resolver (no second membership/stats/nav computation).
+- [ ] CONFIRM every space template renders nav via the ONE call: home, members, moderation,
+      settings, admin — none hand-rolls its own header/nav.
+- [ ] TEST: every space tab's header/nav identical to today (counts, active-state); zero dup.
 
-### Phase 3 - Existing integrations AS THE MODEL (Pro + Gamification), then delete the bolt-on
-- [ ] INTEGRATION: GamificationAchievements → `render` (drop the after-hook usage).
-- [ ] INTEGRATION: Pro SuiteProfile → `render`: Portfolio parent (no-panel → first child) +
-      dynamic per-member sub-tab `render` closures; drop `tab`; drop the after-hook.
-- [ ] DELETE `buddynext_part_profile_tab_panel_after` (now unreferenced, free + pro).
-- [ ] TEST: Pro Portfolio tab + its dynamic sub-tabs behave identically; Gamification tab works.
+### Phase 3 — Finish the `home.php` body seam
+- [ ] `feed` → `render` (its membership/feed state comes from the shared resolver).
+- [ ] `discussions` (Jetonomy) → `render`; delete the `home.php` discussions branch + `new JetonomyBridge()`.
+- [ ] Delete the now-dead `home.php` `members`/`moderation` branches (they route to dedicated templates).
+- [ ] TEST: feed + discussions render via the seam; Jetonomy provision still works; 0 console errors.
 
-### Phase 4 - Sub-tabs (close the space gap)
-- [ ] PageRouter: add `/{tab}/{sub}/` routing + `bn_*_sub_action`; wire `NavContext->sub`.
-- [ ] Migrate profile network sub-tabs (connections / followers / following) → child `render`.
-- [ ] Add a worked SPACE sub-tab end-to-end (the new capability).
+### Phase 4 — Profile surface (same uniform pattern)
+- [ ] ONE uniform header/nav call for the profile template(s); body via `render_panels()`.
+- [ ] Migrate core profile panels (posts/replies/media/likes/scheduled/about) → `render`.
+- [ ] Jetonomy profile discussions → `render`; remove the `profile-tab-panel.php` branch.
+- [ ] TEST: each profile tab renders via its URL; deep-link paints the right panel; active-only.
+
+### Phase 5 — Integrations AS THE MODEL, then delete the bolt-on
+- [ ] GamificationAchievements → `render` (drop the after-hook usage).
+- [ ] Pro `SuiteProfile` → `render` (Portfolio parent→first-child + dynamic sub-tab renders; drop `tab`).
+- [ ] DELETE `buddynext_part_profile_tab_panel_after` (free + pro, now unreferenced).
+- [ ] TEST: Pro Portfolio + dynamic sub-tabs identical; Gamification works.
+
+### Phase 6 — Sub-tabs
+- [ ] PageRouter: `/{tab}/{sub}/` routing + `bn_*_sub_action`; wire `NavContext->sub`.
+- [ ] Profile network sub-tabs → child `render`; a worked space sub-tab end-to-end.
 - [ ] TEST: space sub-tab URL renders the right child screen; profile sub-tabs unchanged.
 
-### Phase 5 - Transport + cleanup + docs
-- [ ] Wire `@buddynext/navigate` transport to swap the active panel region on tab/sub-tab clicks.
-- [ ] TEST: no-reload switch when transport on; graceful full-page load when off; both surfaces.
+### Phase 7 — Transport + cleanup + docs
+- [ ] Wire `@buddynext/navigate` to swap the active panel region (no-reload; graceful full-load fallback).
 - [ ] Remove `profile/store.js` reactive-reveal; drop the dead `global` surface + `rail`/`context` layers.
-- [ ] Rewrite `47-nav-api.md`: ONE `render` recipe (tab + sub-tab + content); show core/Pro using it.
+- [ ] Rewrite `47-nav-api.md`: ONE `render` recipe; document that EVERY template uses the uniform nav API.
 - [ ] Refresh `audit/manifest.json` + contract docs for added/removed hooks.
-- [ ] FINAL: `bin/check.sh` green free + pro; full browser smoke - both surfaces, a sample
+- [ ] FINAL: `bin/check.sh` green free + pro; full browser smoke — both surfaces, a sample
       third-party tab + sub-tab with ZERO core edits, Pro Portfolio, admin overrides, mobile, dark.
 
 ## Dead-code / no-dup GATE (enforced every commit, hard requirement)
