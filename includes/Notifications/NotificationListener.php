@@ -844,9 +844,12 @@ class NotificationListener implements ListenerInterface {
 				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 			}
 
-			// Resolve the new rows' ids by group_key. Each key is unique per
-			// recipient and these recipients had no prior unread group row, so the
-			// match is unambiguous. One query.
+			// Resolve the new rows' ids by group_key, pinned to this batch's exact
+			// created_at. group_key has NO unique constraint and is reused across
+			// posts in the space, so a recipient could still hold a STALE unread row
+			// (older than the 24h merge window, hence treated as "new" here). The
+			// created_at pin guarantees each recipient maps to the row we just
+			// inserted, never that stale row. One query.
 			$nk_ph    = implode( ', ', array_fill( 0, count( $new_recipient_ids ), '%s' ) );
 			$new_keys = array();
 			foreach ( $new_recipient_ids as $rid ) {
@@ -856,8 +859,8 @@ class NotificationListener implements ListenerInterface {
 			$inserted_rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT recipient_id, id FROM {$wpdb->prefix}bn_notifications
-					 WHERE group_key IN ( {$nk_ph} ) AND is_read = 0",
-					$new_keys
+					 WHERE group_key IN ( {$nk_ph} ) AND is_read = 0 AND created_at = %s",
+					array_merge( $new_keys, array( $now ) )
 				),
 				ARRAY_A
 			);
