@@ -314,7 +314,35 @@ commit. **Steps B–F** are the ATOMIC flip (view.php can't half-render) → one
 - [x] A3. Unit tests: `test_active_child_id_renders_that_child` + `test_active_metric_panel_renders`.
 - [x] A4. Lint + WPCS clean, Nav suite 57/57; committed.
 
-### B. ProfileNav → url + render (part of the atomic flip)
+### ⛔ BLOCKER FOUND (2026-06-27) — the flip is a COORDINATED Free+Pro change
+Steps B+C+D are written + green locally but are STASHED, not shipped, because deleting `profile-tab-panel.php`
+(Step E) / removing the reveal (Step F) breaks TWO after-hook consumers that still use the reveal model:
+- FREE `includes/Profile/GamificationAchievements.php` — injects the Achievements panel on
+  `buddynext_part_profile_tab_panel_after` with `data-tab-panel` + `data-wp-bind--hidden="!state.isActiveTab"`.
+- PRO `buddynext-pro/includes/Suite/SuiteProfile.php` — injects the Portfolio panel the SAME way (active in
+  the smoke container, so this breaks today, not hypothetically).
+The render-active model and the pre-render reveal model CANNOT coexist in one view: render_panels paints only
+the active core panel (unbound to activeTab), so it won't hide when an integration reveal-tab activates, and
+the integration panels won't render at all once view.php stops firing the after-hook. So Phase 5 (migrate
+Gamification + Pro SuiteProfile to `render`, then DELETE the after-hook) MUST land in the SAME coordinated
+change as Steps E+F. This is a Free+Pro lockstep release.
+
+STASH: `git stash list` → "nav-seam Phase4 B+C+D …" holds ProfileNav (url+render), JetonomyBridge (profile
+discussions render), view.php (→render_panels). Pop it to resume the flip. Step A + the parts are committed,
+so only this glue is stashed. Repo is back on the working reveal model (nothing broken).
+
+REVISED ORDER for the coordinated flip (all in one verified pass, free+pro):
+1. Pop the stash (B+C+D core render seam).
+2. Phase 5a — FREE GamificationAchievements: drop the after-hook usage; give its Achievements nav item a
+   `render` → an achievements panel part (mirror the discussions-panel pattern).
+3. Phase 5b — PRO SuiteProfile: Portfolio parent → first-child (PanelRenderer Step A already supports it) +
+   each dynamic sub-tab gets its own `render`; drop `tab`; drop the after-hook usage. (Pro repo.)
+4. Step E — delete `templates/parts/profile-tab-panel.php` (now no consumers).
+5. Step F — remove the reveal from `store.js`; nav-bar metric pills/hero → plain links.
+6. Step G — full matrix verify, free + pro, client-nav on/off.
+GATE: `grep -rn buddynext_part_profile_tab_panel_after` across BOTH repos must be ZERO before Step E.
+
+### B. ProfileNav → url + render (part of the atomic flip) — ✅ written, ⛔ STASHED (see blocker)
 - [ ] B1. Add a `tab_url($uid,$tab)` helper (clean `/members/{slug}/{tab}/`, posts = base).
 - [ ] B2. primary tabs: drop `tab`, add `url` + `render`. posts→posts-panel(kind=posts); scheduled→
        posts-panel(kind=scheduled, owner-only via existing condition); replies→replies-panel;
@@ -358,10 +386,18 @@ commit. **Steps B–F** are the ATOMIC flip (view.php can't half-render) → one
 - [ ] G6. client-nav ON: tab switch is no-reload (transport) and active syncs; OFF: full-load to the URL, same panel.
 
 PROGRESS NOTES (append as each lands):
-- Step A done: `PanelRenderer::render_panels()` now, when no top-level primary matches the active id, searches
-  each primary's `->children` then the `metric` layer for an id match that owns a render. Lets a profile metric
-  pill / network-child URL (`/members/x/followers/`) paint the people panel without Phase 6 routing. +2 tests;
-  Nav suite 57/57. Next: Step B (ProfileNav url+render).
+- Step A done (committed `964244a2`): `PanelRenderer::render_panels()` now, when no top-level primary matches
+  the active id, searches each primary's `->children` then the `metric` layer for an id match that owns a
+  render. Lets a profile metric pill / network-child URL (`/members/x/followers/`) paint the people panel
+  without Phase 6 routing. +2 tests; Nav suite 57/57.
+- Steps B+C+D WRITTEN + green locally (ProfileNav url+render with self-fetching panels; JetonomyBridge profile
+  discussions render; view.php → render_panels, bulk fetch + about-build + About-filter removed). Then
+  ⛔ STASHED on discovering the Free+Pro after-hook BLOCKER above — shipping them standalone breaks free
+  Gamification + Pro Portfolio. The flip must land coordinated with Phase 5 (Gamification + Pro SuiteProfile →
+  render, delete the after-hook). Stash holds the B+C+D glue; Step A + the 5 panel parts are committed.
+- Decision: did NOT ship breakage. Repo stays on the working reveal model; the coordinated flip is fully
+  scoped above (REVISED ORDER) for a focused free+pro pass. Transport (already generalized + committed) means
+  that pass lands with NO tab-switch regression once client-nav is enabled.
 
 ### Original execution checklist (superseded by the micro list above):
 - [ ] ONE uniform header/nav call for the profile template(s); body via `render_panels()`.
