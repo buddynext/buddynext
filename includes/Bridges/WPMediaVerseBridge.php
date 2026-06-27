@@ -92,6 +92,12 @@ class WPMediaVerseBridge {
 		// any WPMediaVerse page.
 		add_filter( 'buddynext_rail_items', array( $this, 'inject_media_nav_item' ) );
 
+		// Owner control: register the Media feature on the integration registry so
+		// the owner can hide its tab/rail item + media activity from BuddyNext ->
+		// Integrations. Scoped to MEDIA only - Direct Messaging shares this engine
+		// and is never gated here, so DMs keep working when Media is hidden.
+		add_filter( 'buddynext_integrations', array( $this, 'register_integration' ) );
+
 		// WPMediaVerse pages (e.g. /explore-media/) render as the plugin's own
 		// default — BuddyNext does not wrap them in its hub shell or inject its
 		// sidebar, per the owner rule that BN must not touch MediaVerse pages.
@@ -184,7 +190,7 @@ class WPMediaVerseBridge {
 	public function publish_media_activity( $media_id, $user_id, $media_type ): void {
 		$media_id = (int) $media_id;
 		$user_id  = (int) $user_id;
-		if ( $media_id <= 0 || $user_id <= 0 ) {
+		if ( $media_id <= 0 || $user_id <= 0 || ! buddynext_integration_enabled( 'media', 'feed' ) ) {
 			return;
 		}
 
@@ -313,7 +319,7 @@ class WPMediaVerseBridge {
 	 */
 	public function inject_media_nav_item( array $items ): array {
 		$uid = get_current_user_id();
-		if ( $uid <= 0 ) {
+		if ( $uid <= 0 || ! buddynext_integration_enabled( 'media', 'nav' ) ) {
 			return $items;
 		}
 
@@ -337,6 +343,30 @@ class WPMediaVerseBridge {
 			'order'  => 205,
 		);
 
+		return $items;
+	}
+
+	/**
+	 * Register the Media feature on the integration registry so the owner can hide
+	 * its tab/rail item + media activity from BuddyNext -> Integrations.
+	 *
+	 * Scoped to MEDIA: this engine also powers Direct Messaging, which is NOT gated
+	 * here (no message hook reads this toggle), so DMs keep working when Media is off.
+	 *
+	 * @param array<string,array<string,mixed>> $items Registered integrations.
+	 * @return array<string,array<string,mixed>>
+	 */
+	public function register_integration( array $items ): array {
+		if ( MediaClient::available() ) {
+			$items['media'] = array(
+				'label'    => __( 'Media', 'buddynext' ),
+				'has_nav'  => true,
+				'has_feed' => true,
+				'subtabs'  => array(
+					'albums' => __( 'Albums', 'buddynext' ),
+				),
+			);
+		}
 		return $items;
 	}
 

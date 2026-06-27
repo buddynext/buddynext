@@ -20,6 +20,9 @@ defined( 'ABSPATH' ) || exit;
 $bn_mt_owner_id  = isset( $bn_mt_owner_id ) ? (int) $bn_mt_owner_id : 0;
 $bn_mt_is_owner  = isset( $bn_mt_is_owner ) ? (bool) $bn_mt_is_owner : false;
 $bn_mt_media_ids = isset( $bn_mt_media_ids ) ? (array) $bn_mt_media_ids : array();
+// Owner control: the Albums sub-view can be hidden via BuddyNext -> Integrations
+// (Media -> Albums sub-tab). Default on. When off, only the flat Media gallery shows.
+$bn_mt_albums_enabled = ! isset( $bn_mt_albums_enabled ) || (bool) $bn_mt_albums_enabled;
 
 $bn_mt_ctx = array(
 	'restNonce'          => wp_create_nonce( 'wp_rest' ),
@@ -70,9 +73,14 @@ $bn_mt_ctx = array(
 	data-wp-interactive="buddynext/media-albums"
 	<?php
 	echo wp_interactivity_data_wp_context( $bn_mt_ctx ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- helper returns an escaped attribute.
+	// Skip the albums init (no REST load) when the owner has hidden the Albums sub-tab.
+	if ( $bn_mt_albums_enabled ) {
+		echo ' data-wp-init="callbacks.initAlbums"';
+	}
 	?>
-	data-wp-init="callbacks.initAlbums">
+	>
 
+	<?php if ( $bn_mt_albums_enabled ) : ?>
 	<div class="bn-media-subnav" role="tablist" aria-label="<?php esc_attr_e( 'Media views', 'buddynext' ); ?>">
 		<button type="button" class="bn-media-subnav__tab" role="tab"
 			data-wp-bind--aria-selected="state.viewIsMedia"
@@ -83,6 +91,7 @@ $bn_mt_ctx = array(
 			data-wp-class--bn-media-subnav__tab--active="state.viewIsAlbums"
 			data-wp-on--click="actions.showAlbums"><?php esc_html_e( 'Albums', 'buddynext' ); ?></button>
 	</div>
+	<?php endif; ?>
 
 	<?php // ── MEDIA VIEW ─────────────────────────────────────────────────────── ?>
 	<div class="bn-media-view" data-wp-bind--hidden="!state.viewIsMedia">

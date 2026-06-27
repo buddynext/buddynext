@@ -169,7 +169,7 @@ final class ProfileNav {
 				'layer'     => 'primary',
 				'label'     => __( 'Media', 'buddynext' ),
 				'priority'  => 40,
-				'condition' => static fn(): bool => MediaClient::available(),
+				'condition' => static fn(): bool => MediaClient::available() && buddynext_integration_enabled( 'media', 'nav' ),
 				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'media' ),
 				'count'     => static fn( NavContext $c ): int => (int) Galleries::user_media_count( $c->subject_id, $c->viewer_id ),
 				'render'    => fn( NavContext $c ) => $this->render_media( $c ),
@@ -335,9 +335,10 @@ final class ProfileNav {
 		buddynext_get_template(
 			'partials/media-tab.php',
 			array(
-				'bn_mt_owner_id'  => $c->subject_id,
-				'bn_mt_is_owner'  => $c->is_self(),
-				'bn_mt_media_ids' => $ids,
+				'bn_mt_owner_id'       => $c->subject_id,
+				'bn_mt_is_owner'       => $c->is_self(),
+				'bn_mt_media_ids'      => $ids,
+				'bn_mt_albums_enabled' => buddynext_integration_enabled( 'media', 'nav', 'albums' ),
 			)
 		);
 	}

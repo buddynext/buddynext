@@ -93,9 +93,21 @@ once per request; option reads are autoloaded O(1).
    (Teaching gone, Certifications kept), the admin save round-trips and takes effect. Free + pro `bin/check.sh`
    green; +5 foundation tests; full free suite re-run for regressions.
 
-### Follow-up (not blocking — noted for the next pass)
-- MediaVerse: gate the core Media tab (`SpaceNav`/`ProfileNav` condition) + media activity on a `mediaverse`
-  registry entry, the one integration whose nav is core tabs rather than a bridge-registered item.
+### MediaVerse — DONE (browser-verified, Pro + wpmediaverse active)
+`WPMediaVerseBridge` registers the **`media`** entry (label "Media", has_nav + has_feed, sub-tab `albums`) and
+the gating rides the three media nav surfaces + the activity:
+- `SpaceNav` + `ProfileNav` Media tab `condition` require `buddynext_integration_enabled('media','nav')`.
+- The rail Media item (`inject_media_nav_item`) and `publish_media_activity` gate on nav / feed.
+- The in-panel **Albums** sub-view (an Interactivity sub-nav in `media-tab.php`, NOT a registry sub-tab) is
+  gated by a `$bn_mt_albums_enabled` flag from `render_media` → `buddynext_integration_enabled('media','nav','albums')`;
+  when off the Media|Albums sub-nav is dropped AND `data-wp-init="callbacks.initAlbums"` is omitted (no albums REST load).
+
+CRITICAL scope guarantee: MediaVerse also powers **Direct Messaging**. The `media` toggle gates ONLY the media
+surfaces — NO message hook (`mvs_message_sent`, `mvs_can_send_message`, `mvs_user_profile_url`, the DM page)
+reads it — so DMs keep working with Media off. Browser-verified: Media nav OFF dropped the tab + rail item, the
+`/messages/` page still rendered with its UI and nav link.
+
+### Follow-up (not blocking)
 - Converge Jetonomy's legacy `buddynext_jetonomy_feed_sync` option into the unified `_jetonomy_feed` (today the
   feed gate requires BOTH; harmless but two options for one concern).
 
