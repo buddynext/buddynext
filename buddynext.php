@@ -308,6 +308,59 @@ function buddynext_nav( \BuddyNext\Nav\NavContext $context ): \BuddyNext\Nav\Res
 }
 
 /**
+ * The owner-controllable integrations registered for this site (keyed by key).
+ *
+ * The single open list — any plugin (in-house or third-party) registers an entry
+ * on the `buddynext_integrations` filter and appears here, on the Integrations
+ * admin page, and under `buddynext_integration_enabled()` gating, with no core
+ * edit. See \BuddyNext\Integrations\IntegrationRegistry.
+ *
+ * @return array<string,array<string,mixed>>
+ */
+function buddynext_integrations(): array {
+	return \BuddyNext\Integrations\IntegrationRegistry::instance()->all();
+}
+
+/**
+ * Whether an integration's nav and/or activity is enabled for this site.
+ *
+ * The ONLY read path for the per-integration owner toggles — bridges call this in
+ * their nav `condition` and their activity handler; never the raw option (so keys
+ * never drift). Default is ON: an ABSENT option means enabled, so a fresh install
+ * and a newly added integration are on until the owner opts OUT.
+ *
+ * @param string $key    Integration key (e.g. 'jetonomy', 'careerboard').
+ * @param string $aspect 'nav' (tab/sub-tab visibility) or 'feed' (activity posting).
+ * @param string $sub    Optional sub-tab key — for `nav`, also requires that sub-tab's
+ *                       toggle (and the parent integration's nav toggle) to be on.
+ * @return bool
+ */
+function buddynext_integration_enabled( string $key, string $aspect = 'nav', string $sub = '' ): bool {
+	$key = sanitize_key( $key );
+	$sub = '' !== $sub ? sanitize_key( $sub ) : '';
+
+	if ( 'feed' === $aspect ) {
+		$on = '0' !== (string) get_option( "buddynext_integration_{$key}_feed", '1' );
+	} else {
+		$on = '0' !== (string) get_option( "buddynext_integration_{$key}_nav", '1' );
+		if ( $on && '' !== $sub ) {
+			$on = '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$sub}", '1' );
+		}
+	}
+
+	/**
+	 * Override an integration's enabled state at read time (e.g. per space) without
+	 * persisting an option.
+	 *
+	 * @param bool   $on     Resolved enabled state.
+	 * @param string $key    Integration key.
+	 * @param string $aspect 'nav' | 'feed'.
+	 * @param string $sub    Sub-tab key ('' when none).
+	 */
+	return (bool) apply_filters( 'buddynext_integration_enabled', $on, $key, $aspect, $sub );
+}
+
+/**
  * Reposition a nav item inside a `buddynext_nav_items` filter callback. Sets the
  * item's before/after/priority anchor; the registry re-resolves order after.
  *
