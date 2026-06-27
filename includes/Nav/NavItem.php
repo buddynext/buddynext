@@ -84,6 +84,12 @@ final class NavItem {
 	 * @param callable|null     $count_label callable(int $count):string returning the
 	 *                                      pluralized label for the resolved count
 	 *                                      (use _n() inside). Overrides `label` when set.
+	 * @param callable|null     $render     callable(NavContext):void that ECHOES this item's
+	 *                                      panel HTML (the item's screen). The single content
+	 *                                      seam — core, Pro, and integrations all supply this
+	 *                                      and the surface renders the active panel through it.
+	 *                                      The callable owns its own escaping (same contract as
+	 *                                      a template part). Null = no panel of its own.
 	 */
 	public function __construct(
 		public string $id,
@@ -105,7 +111,8 @@ final class NavItem {
 		public mixed $count = null,
 		public mixed $active = null,
 		public int $seq = 0,
-		public mixed $count_label = null
+		public mixed $count_label = null,
+		public mixed $render = null
 	) {}
 
 	/**
@@ -146,11 +153,17 @@ final class NavItem {
 		$parent = isset( $a['parent'] ) && '' !== (string) $a['parent'] ? sanitize_key( (string) $a['parent'] ) : null;
 		$icon   = isset( $a['icon'] ) && '' !== (string) $a['icon'] ? sanitize_key( (string) $a['icon'] ) : null;
 
+		// A render callable echoes the item's panel HTML (its screen) — the content
+		// seam. An item may carry it alongside a tab/url, or a primary item can be
+		// reachable purely by carrying render (the surface derives the URL from the id).
+		$render = ( isset( $a['render'] ) && is_callable( $a['render'] ) ) ? $a['render'] : null;
+
 		// Layer-specific minimums.
 		switch ( $layer ) {
 			case 'primary':
-				// A tab must be navigable in-page (tab) or via a route (url).
-				if ( null === $tab && null === $url ) {
+				// A primary tab must be reachable: an in-page tab, a real route,
+				// or a render panel (registry-driven content).
+				if ( null === $tab && null === $url && null === $render ) {
 					return null;
 				}
 				break;
@@ -210,6 +223,7 @@ final class NavItem {
 			active: $active,
 			seq: $seq,
 			count_label: $count_label,
+			render: $render,
 		);
 	}
 
@@ -301,5 +315,26 @@ final class NavItem {
 	 */
 	public function is_active( NavContext $ctx ): bool {
 		return null !== $this->active && (bool) call_user_func( $this->active, $ctx );
+	}
+
+	/**
+	 * Whether this item carries its own panel (a render callable).
+	 */
+	public function has_render(): bool {
+		return is_callable( $this->render );
+	}
+
+	/**
+	 * Echo this item's panel for the given context. No-op when the item has no
+	 * render. The callable owns its own escaping (same contract as a template
+	 * part), so output is emitted as-is — never re-wrapped or double-escaped.
+	 *
+	 * @param NavContext $ctx Resolution context (carries the active sub-tab on ->sub).
+	 * @return void
+	 */
+	public function render_panel( NavContext $ctx ): void {
+		if ( is_callable( $this->render ) ) {
+			call_user_func( $this->render, $ctx );
+		}
 	}
 }

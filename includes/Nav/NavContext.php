@@ -29,13 +29,17 @@ final class NavContext {
 	 * @param string              $role       Space role of the viewer (owner|moderator|member|''),
 	 *                                         empty for non-space surfaces.
 	 * @param array<string,mixed> $extra      Free-form per-surface context for providers.
+	 * @param string              $sub        Active sub-tab slug for the current route
+	 *                                         ('' when none). A render callable reads this
+	 *                                         to paint the right sub-screen.
 	 */
 	public function __construct(
 		public string $surface,
 		public int $subject_id = 0,
 		public int $viewer_id = 0,
 		public string $role = '',
-		public array $extra = array()
+		public array $extra = array(),
+		public string $sub = ''
 	) {}
 
 	/**
