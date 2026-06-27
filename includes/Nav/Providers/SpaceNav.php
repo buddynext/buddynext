@@ -101,6 +101,9 @@ final class SpaceNav {
 				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'media' ),
 				'condition' => static fn( NavContext $c ): bool => MediaClient::available()
 					&& (bool) get_option( 'bn_space_' . $c->subject_id . '_mvs_media_tab', 0 ),
+				'render'    => function ( NavContext $c ): void {
+					$this->render_media_panel( $c->subject_id );
+				},
 			),
 			array(
 				'id'       => 'about',
@@ -150,6 +153,34 @@ final class SpaceNav {
 			array(
 				'space' => $space,
 				'meta'  => SpaceService::display_meta( $space ),
+			)
+		);
+	}
+
+	/**
+	 * Render the Media panel for a space — the space's own shared media, gathered
+	 * from its posts (FeedService::space_media_ids) and shown through MediaRenderer,
+	 * with an empty state when there is none. The content seam for the Media tab.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return void
+	 */
+	private function render_media_panel( int $space_id ): void {
+		$ids = MediaClient::available()
+			? (array) buddynext_service( 'feed' )->space_media_ids( $space_id, 24 )
+			: array();
+
+		if ( ! empty( $ids ) ) {
+			echo \BuddyNext\Media\MediaRenderer::gallery( $ids ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer::gallery() returns escaped markup.
+			return;
+		}
+
+		buddynext_get_template(
+			'parts/empty-state.php',
+			array(
+				'icon'  => 'camera',
+				'title' => __( 'No media in this space yet', 'buddynext' ),
+				'body'  => __( 'Share a photo to get started.', 'buddynext' ),
 			)
 		);
 	}

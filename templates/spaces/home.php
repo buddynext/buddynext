@@ -683,33 +683,6 @@ foreach ( $bn_nav_items as $bn_pi ) {
 
 			<?php ( new \BuddyNext\Nav\PanelRenderer() )->render_panels( $bn_space_nav, $bn_space_ctx, $active_tab ); ?>
 
-		<?php elseif ( 'media' === $active_tab ) : ?>
-
-			<?php
-			// Media tab — media shared in this space, gathered from the space's
-			// own posts (BuddyNext owns the post↔media linkage) and resolved
-			// BN-native. No WP attachments, no dropped mvs_media CPT — all media
-			// lives in mvs_media_index and renders through MediaRenderer. The
-			// flatten/de-dup/cap pipeline lives in FeedService::space_media_ids().
-			$space_media_ids = \BuddyNext\Media\MediaClient::available()
-				? $bn_feed_service->space_media_ids( $space_id, 24 )
-				: array();
-			?>
-			<?php if ( ! empty( $space_media_ids ) ) : ?>
-				<?php echo \BuddyNext\Media\MediaRenderer::gallery( $space_media_ids ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer::gallery() returns escaped markup. ?>
-			<?php else : ?>
-				<?php
-				buddynext_get_template(
-					'parts/empty-state.php',
-					array(
-						'icon'  => 'camera',
-						'title' => __( 'No media in this space yet', 'buddynext' ),
-						'body'  => __( 'Share a photo to get started.', 'buddynext' ),
-					)
-				);
-				?>
-			<?php endif; ?>
-
 		<?php elseif ( 'members' === $active_tab && ! $gate_feed ) : ?>
 
 			<?php
