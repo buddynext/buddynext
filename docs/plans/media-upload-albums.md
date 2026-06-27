@@ -1,6 +1,12 @@
 # Member Media Upload + Albums — Implementation Plan
 
-**Status:** Approved (plan) — not yet built.
+**Status:** **SHIPPED** (1.0.3, 2026-06-25). Built: `includes/Media/MediaController.php` (owner-gated
+`buddynext/v1` endpoints — `POST/GET/DELETE /me/media`, `GET /users/{id}/media`, album
+list/create/detail/add/remove/update/delete/reorder) consuming WPMediaVerse via the `MediaClient` seam;
+the `buddynext/media` (upload) + `buddynext/media-albums` islands; `templates/partials/media-tab.php` +
+`media-upload-composer.php`. Owner-only writes; private albums hidden in list + 404 on detail for
+non-owners. Re-verified 2026-06-27 (Media tab + Media|Albums sub-nav render; the Albums sub-tab is now
+owner-toggleable via the Integration Display controls).
 **Scope (this pass):** Profile Media tab ONLY, owner-only writes, full parity.
 **Reuse target:** The same architecture is intended to be applied to the **Space** Media tab later (see [§9 Spaces — later phase](#9-spaces--later-phase)). Build profile first; do NOT add upload/album-create to the Space tab now.
 **Date:** 2026-06-25.

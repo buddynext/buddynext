@@ -1,8 +1,15 @@
 # Plan: Uniform Nav Content Seam — single profile + single space tab menus (v3)
 
-Status: PLAN (no code yet). Lands in **1.0.4**, coordinated free + pro, real
-implementation flow. v3 reconciles the doc after the SSR-active + transport-hydration
-pivot (v1 pre-render-all → v2 lead-dev review → v3 transport + scope-tightened).
+Status: **SHIPPED** in **1.0.4** (coordinated free + pro, 2026-06-27). The full cutover landed —
+Phase 0 render contract + PanelRenderer + NavContext->sub, the space surface (uniform header/sidebar +
+render seam), the nav-API-driven transport, the profile cutover (every tab = url + SSR render; the
+after-hook + `profile-tab-panel.php` deleted), all in-house bridges migrated, and the dead reveal code
+(store members, reactive template branches, `NavItem::$tab`) removed. Browser-verified across profile +
+space + all bridges; Nav suite + full free suite green. Remaining: the Phase 7 docs leftovers only
+(`47-nav-api.md` rewrite + `audit/manifest.json` hook-delta refresh) — no code work outstanding.
+
+v3 reconciled the doc after the SSR-active + transport-hydration pivot
+(v1 pre-render-all → v2 lead-dev review → v3 transport + scope-tightened).
 
 ## Scope (exact)
 ONLY the two per-entity tab menus: the tab nav on a SINGLE member profile
