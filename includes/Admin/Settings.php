@@ -74,6 +74,7 @@ class Settings extends AdminPageBase {
 		'buddynext_allow_bookmarks'             => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
 		'buddynext_enable_link_preview'         => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_enable_emoji_picker'         => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_feed_new_posts_indicator'    => array( 'boolean', 'rest_sanitize_boolean', true ),
 		'buddynext_post_edit_window'            => array( 'integer', 'absint' ),
 		'buddynext_connection_require_note'     => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
 
@@ -664,6 +665,7 @@ class Settings extends AdminPageBase {
 			'buddynext_allow_bookmarks',
 			'buddynext_enable_link_preview',
 			'buddynext_enable_emoji_picker',
+			'buddynext_feed_new_posts_indicator',
 			'buddynext_post_edit_window',
 			'buddynext_enabled_reactions',
 			'buddynext_connection_require_note',
@@ -756,14 +758,19 @@ class Settings extends AdminPageBase {
 	public function register_settings(): void {
 		foreach ( self::SETTINGS_MAP as $option => $config ) {
 			list( $type, $sanitize ) = $config;
-			register_setting(
-				self::option_group( $option ),
-				$option,
-				array(
-					'type'              => $type,
-					'sanitize_callback' => $sanitize,
-				)
+			$args                    = array(
+				'type'              => $type,
+				'sanitize_callback' => $sanitize,
 			);
+			// Optional 3rd element = registered default. Required for default-ON
+			// booleans that are not seeded with a DB row: without a registered
+			// default, saving the option OFF equals WP's absent-default (false),
+			// so update_option() no-ops, the row is never written, and the toggle
+			// reverts to ON on the next load.
+			if ( array_key_exists( 2, $config ) ) {
+				$args['default'] = $config[2];
+			}
+			register_setting( self::option_group( $option ), $option, $args );
 		}
 
 		// FeatureRegistry catalog persisted as a single map of slug=>bool.
@@ -1604,6 +1611,13 @@ class Settings extends AdminPageBase {
 			__( 'Enable emoji picker', 'buddynext' ),
 			__( 'Show the emoji picker button in the post composer and comment editor.', 'buddynext' ),
 			(bool) get_option( 'buddynext_enable_emoji_picker', true )
+		);
+
+		$this->render_toggle_row(
+			'buddynext_feed_new_posts_indicator',
+			__( 'Show new-posts indicator', 'buddynext' ),
+			__( 'Show a "new posts" pill on the activity feed when fresh posts arrive. While the feed tab is open it checks for new posts about once a minute (paused when the tab is hidden); turn this off to stop those background checks entirely. Developers can tune the cadence with the buddynext_feed_new_count_interval filter.', 'buddynext' ),
+			(bool) get_option( 'buddynext_feed_new_posts_indicator', true )
 		);
 
 		$this->render_number_row(

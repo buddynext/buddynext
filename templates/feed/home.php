@@ -84,6 +84,13 @@ $has_more       = '' !== $next_cursor;
 // ── REST nonce + URLs ───────────────────────────────────────────────────────
 $rest_nonce = wp_create_nonce( 'wp_rest' );
 
+// New-posts indicator poll cadence (milliseconds) for the feed store. The owner
+// toggle gates it; the interval is filterable (seconds; 0 disables the background
+// poll while still showing realtime pills on Pro). -1 = indicator off entirely.
+$bn_new_pill_ms = (bool) get_option( 'buddynext_feed_new_posts_indicator', true )
+	? max( 0, (int) apply_filters( 'buddynext_feed_new_count_interval', 60 ) ) * 1000
+	: -1;
+
 // ── Right sidebar widgets ────────────────────────────────────────────────
 // Register sidebar widget callbacks on the shared hub-shell action. The shell
 // detects via has_action() (after this template's output buffer flushes) and
@@ -110,7 +117,8 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 ?>
 <div class="bn-feed-stack"
 	data-bn-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>"
-	data-bn-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1' ) ); ?>">
+	data-bn-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1' ) ); ?>"
+	data-bn-new-poll-ms="<?php echo esc_attr( (string) $bn_new_pill_ms ); ?>">
 
 	<!-- Post composer -->
 	<?php
