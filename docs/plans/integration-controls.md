@@ -107,9 +107,21 @@ surfaces — NO message hook (`mvs_message_sent`, `mvs_can_send_message`, `mvs_u
 reads it — so DMs keep working with Media off. Browser-verified: Media nav OFF dropped the tab + rail item, the
 `/messages/` page still rendered with its UI and nav link.
 
-### Follow-up (not blocking)
-- Converge Jetonomy's legacy `buddynext_jetonomy_feed_sync` option into the unified `_jetonomy_feed` (today the
-  feed gate requires BOTH; harmless but two options for one concern).
+### Legacy-option convergence — DONE (`ed81d91f`)
+The legacy `buddynext_jetonomy_feed_sync` option is fully retired so the admin has ONE control, not two:
+- `Installer` v10 `maybe_migrate_jetonomy_feed_sync()` carries an explicit opt-out into
+  `buddynext_integration_jetonomy_feed`, then deletes the legacy option (idempotent; default-on maps to absent).
+- `JetonomyBridge` feed gate drops the legacy `get_option` read (unified helper only).
+- `Settings` removed the duplicate `Jetonomy Settings` toggle + its field-list entry + sanitize registration
+  (pointer comment left). `RecommendedDefaults` dropped the legacy seed.
+- Verified on Docker: a legacy `0` migrated to the unified key + the legacy option was deleted; the old
+  Settings → Integrations tab shows no Jetonomy toggle.
+
+## Status: COMPLETE
+Foundation + free + pro + MediaVerse + admin + legacy convergence all landed and browser-verified. Every
+integration (Career Board, Listora, Learnomy, Gamification, Jetonomy, Media) is owner-controllable from the one
+Integration Display tab, default-on, with per-sub-tab granularity. The only open item is the optional
+MediaVerse follow-up already covered above (none remain).
 
 ## Defaults / safety
 - ABSENT option = ON. A brand-new integration is on by default; an owner opts OUT, never in.
