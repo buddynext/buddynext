@@ -258,7 +258,6 @@ $bn_pf_ctx = array(
 	'displayName'        => $display_name,
 	'peopleUrl'          => \BuddyNext\Core\PageRouter::people_url(),
 	'profileBaseUrl'     => \BuddyNext\Core\PageRouter::profile_url( (int) $user_id ),
-	'activeTab'          => $bn_pf_active_tab,
 	'isFollowing'        => $is_following,
 	'isConnected'        => $is_connected,
 	'connectionPending'  => $connection_pending,
@@ -279,7 +278,7 @@ $bn_pf_ctx = array(
 	'blockSubmitting'    => false,
 );
 ?>
-<div class="bn-pf-stack" data-wp-interactive="buddynext/profile" data-wp-init="callbacks.initView"
+<div class="bn-pf-stack" data-wp-interactive="buddynext/profile"
 	<?php echo wp_interactivity_data_wp_context( $bn_pf_ctx ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 >
 

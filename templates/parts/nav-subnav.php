@@ -8,18 +8,16 @@
  * class namespace, so it never inherits or fights `.bn-tab` rules (theme-proof
  * borders, the active underline, etc.). One clean contract, no overrides.
  *
- * Always rendered into the DOM and toggled reactively (so a parent tab clicked
- * client-side can reveal it without a reload): the wrapper hides unless the
- * branch is active (state.isActiveBranch), with a matching server-side `hidden`
- * attribute to avoid a flash. Each item drives off the same single activeTab —
- * the child whose tab === activeTab is the active one (state.isActiveTab).
+ * Rendered alongside its parent in nav-bar.php and shown by the server-side
+ * `hidden` attribute only when the parent's branch is the active tab (so exactly
+ * the active parent's sub-nav is visible). Each child is a clean-URL `<a href>`
+ * with server-rendered `aria-current` active state — the same url+render model as
+ * the primary bar; the client-nav transport handles no-reload switching.
  *
  * @package BuddyNext\Nav
  *
  * @var \BuddyNext\Nav\NavItem[] $items         Required. Child items.
  * @var string                   $active        Optional. Active tab slug.
- * @var string[]                 $branch        Optional. Child target slugs (reveal set).
- * @var string                   $parent_target Optional. Parent's default tab target.
  * @var bool                     $hidden        Optional. Initial (server) hidden state.
  * @var string                   $tablist_label Optional. aria-label for the sub tablist.
  */
@@ -36,23 +34,11 @@ if ( empty( $bn_sub_items ) ) {
 }
 
 $bn_sub_active = isset( $active ) ? (string) $active : '';
-$bn_sub_branch = isset( $branch ) && is_array( $branch ) ? $branch : array();
-$bn_sub_parent = isset( $parent_target ) ? (string) $parent_target : '';
 $bn_sub_hidden = ! empty( $hidden );
 $bn_sub_label  = isset( $tablist_label ) && '' !== (string) $tablist_label ? (string) $tablist_label : __( 'Sub sections', 'buddynext' );
 
-$bn_sub_ctx = esc_attr(
-	(string) wp_json_encode(
-		array(
-			'tabSlug' => $bn_sub_parent,
-			'branch'  => $bn_sub_branch,
-		)
-	)
-);
 ?>
 <div class="bn-subnav" role="tablist" aria-label="<?php echo esc_attr( $bn_sub_label ); ?>"
-	data-wp-context='<?php echo $bn_sub_ctx; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above. ?>'
-	data-wp-bind--hidden="!state.isActiveBranch"
 	<?php echo $bn_sub_hidden ? 'hidden' : ''; ?>
 >
 	<?php
@@ -60,49 +46,16 @@ $bn_sub_ctx = esc_attr(
 		if ( ! ( $bn_sub instanceof NavItem ) ) {
 			continue;
 		}
-		$bn_s_target   = null !== $bn_sub->tab ? $bn_sub->tab : $bn_sub->id;
-		$bn_s_count    = ( null !== $bn_sub->count_value && $bn_sub->count_value > 0 ) ? (string) $bn_sub->count_value : '';
-		$bn_s_active   = '' !== $bn_sub_active && ( $bn_sub_active === $bn_s_target || $bn_sub_active === $bn_sub->id );
-		$bn_s_aria     = '' !== $bn_s_count ? sprintf( '%s (%s)', $bn_sub->label, $bn_s_count ) : $bn_sub->label;
-		$bn_s_reactive = null !== $bn_sub->tab;
-		$bn_s_panel    = $bn_s_reactive ? buddynext_nav_panel_id( $bn_s_target ) : '';
+		$bn_s_count  = ( null !== $bn_sub->count_value && $bn_sub->count_value > 0 ) ? (string) $bn_sub->count_value : '';
+		$bn_s_active = '' !== $bn_sub_active && $bn_sub_active === $bn_sub->id;
+		$bn_s_aria   = '' !== $bn_s_count ? sprintf( '%s (%s)', $bn_sub->label, $bn_s_count ) : $bn_sub->label;
 		?>
-		<?php if ( $bn_s_reactive && null !== $bn_sub->url_value ) : ?>
-			<?php // Reactive tab with a real deep-link: JS intercepts the click for a no-reload swap. ?>
-			<?php // With JS off, the href navigates to the clean URL, which server-renders the panel. ?>
-			<?php // Never a dead control, so there is no broken UX when hydration is unavailable. ?>
-			<a class="bn-subnav__item" role="tab"
-				data-wp-context='<?php echo esc_attr( (string) wp_json_encode( array( 'tabSlug' => $bn_s_target ) ) ); ?>'
-				data-wp-class--active="state.isActiveTab"
-				data-wp-bind--aria-selected="state.isActiveTab"
-				aria-selected="<?php echo $bn_s_active ? 'true' : 'false'; ?>"
-				aria-controls="<?php echo esc_attr( $bn_s_panel ); ?>"
-				aria-label="<?php echo esc_attr( $bn_s_aria ); ?>"
-				data-wp-on--click="actions.setTab"
-				data-tab="<?php echo esc_attr( $bn_s_target ); ?>"
-				href="<?php echo esc_url( (string) $bn_sub->url_value ); ?>">
-				<?php require __DIR__ . '/nav-subnav-item-inner.php'; ?>
-			</a>
-		<?php elseif ( $bn_s_reactive ) : ?>
-			<button class="bn-subnav__item" role="tab" type="button"
-				data-wp-context='<?php echo esc_attr( (string) wp_json_encode( array( 'tabSlug' => $bn_s_target ) ) ); ?>'
-				data-wp-class--active="state.isActiveTab"
-				data-wp-bind--aria-selected="state.isActiveTab"
-				aria-selected="<?php echo $bn_s_active ? 'true' : 'false'; ?>"
-				aria-controls="<?php echo esc_attr( $bn_s_panel ); ?>"
-				aria-label="<?php echo esc_attr( $bn_s_aria ); ?>"
-				data-wp-on--click="actions.setTab"
-				data-tab="<?php echo esc_attr( $bn_s_target ); ?>">
-				<?php require __DIR__ . '/nav-subnav-item-inner.php'; ?>
-			</button>
-		<?php else : ?>
-			<a class="bn-subnav__item" role="tab"
-				aria-selected="<?php echo $bn_s_active ? 'true' : 'false'; ?>"
-				<?php echo $bn_s_active ? 'aria-current="page"' : ''; ?>
-				aria-label="<?php echo esc_attr( $bn_s_aria ); ?>"
-				href="<?php echo esc_url( (string) $bn_sub->url_value ); ?>">
-				<?php require __DIR__ . '/nav-subnav-item-inner.php'; ?>
-			</a>
-		<?php endif; ?>
+		<a class="bn-subnav__item" role="tab"
+			aria-selected="<?php echo $bn_s_active ? 'true' : 'false'; ?>"
+			<?php echo $bn_s_active ? 'aria-current="page"' : ''; ?>
+			aria-label="<?php echo esc_attr( $bn_s_aria ); ?>"
+			href="<?php echo esc_url( (string) $bn_sub->url_value ); ?>">
+			<?php require __DIR__ . '/nav-subnav-item-inner.php'; ?>
+		</a>
 	<?php endforeach; ?>
 </div>

@@ -384,8 +384,23 @@ carries `tab` anymore, so nothing renders the reactive branches or binds the get
 - [ ] F4. Grep sweep (both repos): zero `data-tab-panel` / `state.isActiveTab` / `state.isActiveBranch` /
        `actions.setTab` on the profile + space surfaces. Re-verify: profile tabs navigate, hero actions work,
        client-nav on/off both correct, 0 console errors.
-NOTE: deferred deliberately — the cutover is committed + verified, and this is non-breaking dead-code removal
-that needs careful store surgery + a fresh verification pass rather than an end-of-budget rush.
+DONE (Step F): removed the dead reveal code, both surfaces re-verified (profile + space render identically,
+0 console errors, Nav 57/57):
+- `assets/js/profile/store.js`: excised the tab-reveal — `isActiveTab`/`isActiveBranch` getters, `setTab`
+  action, `initView` callback, and the `syncActiveTabFromUrl`/`pushTabToUrl`/`bnProfileBase` helpers. Kept
+  every hero/edit action.
+- `nav-bar.php` / `nav-subnav.php` / `nav-metrics.php`: dropped the dead reactive branches (`actions.setTab`,
+  `data-wp-class--active="state.isActiveTab"`, `data-wp-bind--hidden`) — every tab/pill/sub-tab is now a plain
+  url `<a>` with server-rendered `aria-current`; simplified the `$bn_target`/`$bn_reactive` logic to `->id`.
+- `view.php`: removed `data-wp-init="callbacks.initView"` + the `activeTab` context seed.
+- Grep sweep (templates + JS): ZERO `actions.setTab` / `state.isActiveTab` / `state.isActiveBranch` /
+  `data-tab-panel` remain.
+REMAINING (small, isolated follow-up — the only loose thread): the `NavItem::$tab` field + its `from_array`
+parse are now set by NOBODY (no provider, no template reads it) — a contract field gone vestigial. Dropping it
+is mechanical: remove the property/param/parse from `NavItem`, then `'tab' => 'x'` → `'url' => '/x/'` across the
+~40 Nav test fixtures (a primary item needs url|render once `tab` is gone). Deferred only because it touches the
+test suite broadly; no production code path uses it. `buddynext_nav_panel_id()` is likewise now unused but is a
+documented public nav-API helper, so it stays.
 
 ### G. VERIFY (browser, Docker; client-nav OFF default + a pass with it ON)
 - [ ] G1. Each tab via its URL deep-link paints the right panel (posts/scheduled/replies/media/likes/about/

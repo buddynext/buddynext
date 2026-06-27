@@ -9,14 +9,13 @@
  *
  * Sub-navigation is a SEPARATE component (parts/nav-subnav.php, `.bn-subnav`) so
  * it never inherits or fights `.bn-tab` rules. For each primary item that has
- * children, its sub-nav is rendered (always in the DOM, revealed reactively when
- * the branch is active) wrapped together with the bar in a `.bn-navgroup` unit.
+ * children, its sub-nav is rendered alongside the bar in a `.bn-navgroup` unit.
  *
- * Reactive vs link, decided per item by the contract:
- *   - item->tab set  → reactive tab (Interactivity `actions.setTab`), with an
- *     `<a href>` no-JS fallback when item->url is also present.
- *   - item->url only → a real link tab (full navigation), `aria-current`.
- * A parent (has children) lights up while ANY child is active (isActiveBranch).
+ * Every tab is a clean-URL `<a href>` (item->url) that server-renders its panel
+ * (the registry `render` seam); active state is server-rendered `aria-current`.
+ * The client-nav transport (when enabled) intercepts the click and swaps the
+ * region without a reload, re-syncing active state generically. A parent (has
+ * children) lights up while it OR any of its children is the active tab.
  *
  * @package BuddyNext\Nav
  *
@@ -54,7 +53,7 @@ $bn_nav_child_targets = static function ( NavItem $item ): array {
 	$targets = array();
 	foreach ( $item->children as $kid ) {
 		if ( $kid instanceof NavItem ) {
-			$targets[] = null !== $kid->tab ? $kid->tab : $kid->id;
+			$targets[] = $kid->id;
 		}
 	}
 	return $targets;
@@ -67,72 +66,30 @@ $bn_nav_child_targets = static function ( NavItem $item ): array {
 			if ( ! ( $bn_item instanceof NavItem ) ) {
 				continue;
 			}
-			$bn_target   = null !== $bn_item->tab ? $bn_item->tab : $bn_item->id;
-			$bn_count    = ( null !== $bn_item->count_value && $bn_item->count_value > 0 ) ? (string) $bn_item->count_value : '';
-			$bn_aria     = '' !== $bn_count ? sprintf( '%s (%s)', $bn_item->label, $bn_count ) : $bn_item->label;
-			$bn_reactive = null !== $bn_item->tab;
+			$bn_count = ( null !== $bn_item->count_value && $bn_item->count_value > 0 ) ? (string) $bn_item->count_value : '';
+			$bn_aria  = '' !== $bn_count ? sprintf( '%s (%s)', $bn_item->label, $bn_count ) : $bn_item->label;
 
-			// A parent (has children) stays active while any child is the active
-			// tab; its branch slugs ride in the per-tab context for isActiveBranch.
+			// A parent (has children) stays active while ANY of its children is the
+			// active tab; a leaf is active when it matches. Active state is server-
+			// rendered as aria-current="page" — every tab is a clean-URL link, and the
+			// client-nav transport re-syncs active state generically after a swap.
 			$bn_child_targets = $bn_nav_child_targets( $bn_item );
-			$bn_has_children  = ! empty( $bn_child_targets );
-			$bn_branch        = array_merge( array( $bn_target, $bn_item->id ), $bn_child_targets );
+			$bn_branch        = array_merge( array( $bn_item->id ), $bn_child_targets );
 			$bn_is_active     = '' !== $bn_nav_active && in_array( $bn_nav_active, $bn_branch, true );
-			$bn_state_active  = $bn_has_children ? 'state.isActiveBranch' : 'state.isActiveTab';
-			$bn_ctx           = $bn_has_children
-				? array(
-					'tabSlug' => $bn_target,
-					'branch'  => $bn_child_targets,
-				)
-				: array( 'tabSlug' => $bn_target );
-			$bn_ctx_attr      = esc_attr( (string) wp_json_encode( $bn_ctx ) );
-
-			// A leaf reactive tab controls its in-page panel (tablist a11y). A parent
-			// tab owns no panel of its own (it switches to a child), so it carries no
-			// aria-controls; a page-nav link tab has no in-DOM panel either.
-			$bn_controls = ( $bn_reactive && ! $bn_has_children ) ? buddynext_nav_panel_id( $bn_target ) : '';
 
 			// A tab declared full_load (a drill-in page / its own router region) tells
 			// the client-nav transport to full-load it instead of swapping — emitted as
 			// data-bn-full-load so the transport reads the nav API, not a route regex.
 			$bn_full_load_attr = $bn_item->full_load ? ' data-bn-full-load' : '';
 			?>
-			<?php if ( $bn_reactive && null !== $bn_item->url_value ) : ?>
-				<a class="bn-tab" role="tab"
-					data-wp-context='<?php echo $bn_ctx_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped. ?>'
-					data-wp-class--active="<?php echo esc_attr( $bn_state_active ); ?>"
-					data-wp-bind--aria-selected="<?php echo esc_attr( $bn_state_active ); ?>"
-					aria-selected="<?php echo $bn_is_active ? 'true' : 'false'; ?>"
-					<?php echo '' !== $bn_controls ? 'aria-controls="' . esc_attr( $bn_controls ) . '"' : ''; ?>
-					aria-label="<?php echo esc_attr( $bn_aria ); ?>"
-					data-wp-on--click="actions.setTab"
-					data-tab="<?php echo esc_attr( $bn_target ); ?>"
-					<?php echo $bn_full_load_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static attribute literal. ?>
-					href="<?php echo esc_url( (string) $bn_item->url_value ); ?>">
-					<?php require __DIR__ . '/nav-bar-tab-inner.php'; ?>
-				</a>
-			<?php elseif ( $bn_reactive ) : ?>
-				<button class="bn-tab" role="tab" type="button"
-					data-wp-context='<?php echo $bn_ctx_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped. ?>'
-					data-wp-class--active="<?php echo esc_attr( $bn_state_active ); ?>"
-					data-wp-bind--aria-selected="<?php echo esc_attr( $bn_state_active ); ?>"
-					aria-selected="<?php echo $bn_is_active ? 'true' : 'false'; ?>"
-					<?php echo '' !== $bn_controls ? 'aria-controls="' . esc_attr( $bn_controls ) . '"' : ''; ?>
-					aria-label="<?php echo esc_attr( $bn_aria ); ?>"
-					data-wp-on--click="actions.setTab"
-					data-tab="<?php echo esc_attr( $bn_target ); ?>">
-					<?php require __DIR__ . '/nav-bar-tab-inner.php'; ?>
-				</button>
-			<?php else : ?>
-				<a class="bn-tab" role="tab"
-					aria-selected="<?php echo $bn_is_active ? 'true' : 'false'; ?>"
-					<?php echo $bn_is_active ? 'aria-current="page"' : ''; ?>
-					aria-label="<?php echo esc_attr( $bn_aria ); ?>"
-					<?php echo $bn_full_load_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static attribute literal. ?>
-					href="<?php echo esc_url( (string) $bn_item->url_value ); ?>">
-					<?php require __DIR__ . '/nav-bar-tab-inner.php'; ?>
-				</a>
-			<?php endif; ?>
+			<a class="bn-tab" role="tab"
+				aria-selected="<?php echo $bn_is_active ? 'true' : 'false'; ?>"
+				<?php echo $bn_is_active ? 'aria-current="page"' : ''; ?>
+				aria-label="<?php echo esc_attr( $bn_aria ); ?>"
+				<?php echo $bn_full_load_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static attribute literal. ?>
+				href="<?php echo esc_url( (string) $bn_item->url_value ); ?>">
+				<?php require __DIR__ . '/nav-bar-tab-inner.php'; ?>
+			</a>
 		<?php endforeach; ?>
 	</div>
 	<?php
@@ -143,16 +100,12 @@ $bn_nav_child_targets = static function ( NavItem $item ): array {
 		if ( ! ( $bn_item instanceof NavItem ) || empty( $bn_item->children ) ) {
 			continue;
 		}
-		$bn_target        = null !== $bn_item->tab ? $bn_item->tab : $bn_item->id;
-		$bn_child_targets = $bn_nav_child_targets( $bn_item );
-		$bn_branch        = array_merge( array( $bn_target, $bn_item->id ), $bn_child_targets );
+		$bn_branch = array_merge( array( $bn_item->id ), $bn_nav_child_targets( $bn_item ) );
 		buddynext_get_template(
 			'parts/nav-subnav.php',
 			array(
 				'items'         => $bn_item->children,
 				'active'        => $bn_nav_active,
-				'branch'        => $bn_child_targets,
-				'parent_target' => $bn_target,
 				'hidden'        => ! in_array( $bn_nav_active, $bn_branch, true ),
 				'tablist_label' => $bn_item->label,
 			)
