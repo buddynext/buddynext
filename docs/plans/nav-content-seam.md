@@ -228,9 +228,14 @@ Each phase = its own browser-verified commit. All land in 1.0.4.
 
 ### Phase 3 — Finish the `home.php` body seam
 - [x] Delete the now-dead `home.php` `members`/`moderation` branches (done early in the Phase 2 sidebar commit — they route to dedicated templates).
-- [ ] `feed` → `render` (its membership/feed state comes from the shared resolver).
-- [ ] `discussions` (Jetonomy) → `render`; delete the `home.php` discussions branch + `new JetonomyBridge()`.
-- [ ] TEST: feed + discussions render via the seam; Jetonomy provision still works; 0 console errors.
+- [x] `discussions` (Jetonomy) → `render`: `JetonomyBridge::render_space_discussions_panel()` is now the
+      space discussions item's `render` callable (self-contained: resolves forum threads + forum/provision
+      context + can_post from space_id + viewer). Deleted the `home.php` discussions data setup + body branch
+      + the `new JetonomyBridge()` coupling. The integration's PANEL is now on the SAME `render` contract as
+      core About/Media — tab + panel declared together in the bridge. Browser-verified (empty-state + provision
+      CTA render identically under the uniform header + sidebar; 0 console errors). Nav suite 54/54.
+- [ ] `feed` → `render` (its membership/feed/composer state recomputed from the context).
+- [ ] TEST: feed renders via the seam; 0 console errors.
 
 ### Phase 4 — Profile surface (same uniform pattern)
 - [ ] ONE uniform header/nav call for the profile template(s); body via `render_panels()`.

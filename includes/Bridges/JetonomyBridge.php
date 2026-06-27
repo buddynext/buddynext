@@ -592,6 +592,51 @@ class JetonomyBridge {
 					return trailingslashit( \BuddyNext\Core\PageRouter::space_url( $c->subject_id ) ) . 'discussions/';
 				},
 				'count'     => fn( \BuddyNext\Nav\NavContext $c ): int => $this->space_discussion_count( $c->subject_id ),
+				'render'    => function ( \BuddyNext\Nav\NavContext $c ): void {
+					$this->render_space_discussions_panel( $c->subject_id, $c->viewer_id );
+				},
+			)
+		);
+	}
+
+	/**
+	 * Render the space Discussions panel — the registry content seam for the space
+	 * Discussions tab. Self-contained: the bridge owns all jt_* access, so it
+	 * resolves the linked forum's threads + the forum/provision context + the
+	 * viewer's posting permission from just the space id + viewer, then renders the
+	 * shared discussions part. This replaces the old hardcoded spaces/home.php
+	 * branch that instantiated the bridge directly, so the space tab and its panel
+	 * are now declared together like every other registry tab.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $viewer_id Current viewer user ID (0 = logged out).
+	 * @return void
+	 */
+	public function render_space_discussions_panel( int $space_id, int $viewer_id ): void {
+		$space = ( new \BuddyNext\Spaces\SpaceService() )->get_object( $space_id );
+		if ( null === $space ) {
+			return;
+		}
+
+		// Posting permission mirrors the feed composer gate: an active member, on a
+		// non-archived space, whose role meets the space's "who can post" threshold.
+		$status    = $viewer_id > 0 ? (string) ( new \BuddyNext\Spaces\SpaceMemberService() )->get_status( $space_id, $viewer_id ) : '';
+		$is_member = 'active' === $status;
+		$can_post  = $is_member
+			&& empty( $space->is_archived )
+			&& \BuddyNext\Spaces\SpacePostGuard::can_post( $space_id, $viewer_id );
+
+		$forum_ctx = $this->space_forum_context( $space_id );
+
+		buddynext_get_template(
+			'parts/space-discussions-panel.php',
+			array(
+				'space'         => $space,
+				'discussions'   => $this->space_discussions( $space_id, 20 ),
+				'forum_url'     => (string) $forum_ctx['forum_url'],
+				'forum_linked'  => (bool) $forum_ctx['linked'],
+				'provision_url' => (string) $forum_ctx['provision_url'],
+				'can_post'      => $can_post,
 			)
 		);
 	}

@@ -196,26 +196,6 @@ if ( 'media' === $active_tab && ! $bn_media_tab_on ) {
 	$active_tab = 'feed';
 }
 
-// Discussions tab (Jetonomy) — mirrors the profile's in-hub Discussions panel.
-// The bridge owns all jt_* access and maps the BN space to its linked forum.
-// Hitting /discussions/ while Jetonomy is inactive falls back to Feed so the
-// panel branch never renders for a hidden tab.
-$bn_discussions_on = class_exists( 'Jetonomy\\Models\\Post' );
-if ( 'discussions' === $active_tab && ! $bn_discussions_on ) {
-	$active_tab = 'feed';
-}
-$bn_space_discussions = array();
-$bn_forum_ctx         = array(
-	'forum_url'     => '',
-	'linked'        => false,
-	'provision_url' => '',
-);
-if ( 'discussions' === $active_tab && ! $gate_feed ) {
-	$bn_jt_bridge         = new \BuddyNext\Bridges\JetonomyBridge();
-	$bn_space_discussions = $bn_jt_bridge->space_discussions( $space_id, 20 );
-	$bn_forum_ctx         = $bn_jt_bridge->space_forum_context( $space_id );
-}
-
 // Space navigation comes from the unified registry (SpaceNav + bridges), gated,
 // counted and ordered for THIS viewer's role — the same nav system + renderer the
 // member profile uses. Rendered as clean-URL tabs by parts/nav-bar.php.
@@ -338,22 +318,6 @@ foreach ( $bn_nav_items as $bn_pi ) {
 		<?php elseif ( null !== $bn_panel_item && $bn_panel_item->has_render() ) : ?>
 
 			<?php ( new \BuddyNext\Nav\PanelRenderer() )->render_panels( $bn_space_nav, $bn_space_ctx, $active_tab ); ?>
-
-		<?php elseif ( 'discussions' === $active_tab && $bn_discussions_on ) : ?>
-
-			<?php
-			buddynext_get_template(
-				'parts/space-discussions-panel.php',
-				array(
-					'space'         => $space,
-					'discussions'   => $bn_space_discussions,
-					'forum_url'     => (string) $bn_forum_ctx['forum_url'],
-					'forum_linked'  => (bool) $bn_forum_ctx['linked'],
-					'provision_url' => (string) $bn_forum_ctx['provision_url'],
-					'can_post'      => $bn_can_post,
-				)
-			);
-			?>
 
 		<?php else : ?>
 
