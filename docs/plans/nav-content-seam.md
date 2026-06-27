@@ -386,6 +386,19 @@ GATE: `grep -rn buddynext_part_profile_tab_panel_after` across BOTH repos must b
 - [ ] G6. client-nav ON: tab switch is no-reload (transport) and active syncs; OFF: full-load to the URL, same panel.
 
 PROGRESS NOTES (append as each lands):
+- COORDINATED FLIP LANDED (free+pro), browser-verified on Docker with Pro active, 0 console errors:
+  - B/C/D: ProfileNav every tab = clean url + self-fetching `render`; About self-registers only with content;
+    JetonomyBridge profile Discussions → render; view.php → `render_panels()` (bulk fetch + about-build +
+    About-filter removed). Posts/Network-followers(via Step A child resolution)/Discussions all verified.
+  - Phase 5a: free `GamificationAchievements` → `render` (dropped the after-hook + reveal wrapper).
+  - Phase 5b: pro `SuiteProfile` Portfolio → parent(url, no panel)+dynamic sub-tabs each with their OWN
+    `render` closure (drops `tab` + the after-hook + the reveal wrapper).
+  - Step E: DELETED `templates/parts/profile-tab-panel.php` + the orphaned `buddynext_profile_tab_panel_open/
+    close()` helpers; gate-grep `buddynext_part_profile_tab_panel_after` → ZERO live consumers across both repos.
+  - Result: NO registered nav item carries `tab` anymore (every surface is url+render), so nav-bar/nav-subnav/
+    nav-metrics all render plain links (server-side `aria-current`); the reactive `setTab`/`isActiveTab` paths
+    are now dead but harmless (0 console errors). Step F = remove that dead reveal code (store.js + the dead
+    reactive template branches) — pure cleanup, no behavior change.
 - Step A done (committed `964244a2`): `PanelRenderer::render_panels()` now, when no top-level primary matches
   the active id, searches each primary's `->children` then the `metric` layer for an id match that owns a
   render. Lets a profile metric pill / network-child URL (`/members/x/followers/`) paint the people panel

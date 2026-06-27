@@ -556,18 +556,22 @@ class JetonomyBridge {
 	public function register_nav_items( \BuddyNext\Nav\NavRegistry $registry ): void {
 		$jetonomy_active = static fn(): bool => class_exists( 'Jetonomy\Jetonomy' );
 
-		// Profile: a primary tab owning the member's discussions panel.
+		// Profile: a primary tab owning the member's discussions panel — clean URL +
+		// the content-seam render, same as every other profile tab.
 		$registry->register(
 			array(
 				'id'        => 'discussions',
 				'surface'   => 'profile',
 				'layer'     => 'primary',
 				'label'     => __( 'Discussions', 'buddynext' ),
-				'tab'       => 'discussions',
 				'icon'      => 'message-square',
 				'priority'  => 60,
 				'condition' => $jetonomy_active,
+				'url'       => static fn( \BuddyNext\Nav\NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . 'discussions/',
 				'count'     => fn( \BuddyNext\Nav\NavContext $c ): int => $this->discussion_count( $c->subject_id ),
+				'render'    => function ( \BuddyNext\Nav\NavContext $c ): void {
+					$this->render_profile_discussions_panel( $c->subject_id );
+				},
 			)
 		);
 
@@ -637,6 +641,25 @@ class JetonomyBridge {
 				'forum_linked'  => (bool) $forum_ctx['linked'],
 				'provision_url' => (string) $forum_ctx['provision_url'],
 				'can_post'      => $can_post,
+			)
+		);
+	}
+
+	/**
+	 * Render the profile Discussions panel — the registry content seam for the
+	 * profile Discussions tab. The bridge owns all jt_* access, so it self-fetches
+	 * the member's discussions and hands them to the shared part. Replaces the old
+	 * hardcoded profile-tab-panel.php branch.
+	 *
+	 * @param int $user_id Profile being viewed.
+	 * @return void
+	 */
+	public function render_profile_discussions_panel( int $user_id ): void {
+		buddynext_get_template(
+			'parts/profile/discussions-panel.php',
+			array(
+				'profile_user_id' => $user_id,
+				'discussions'     => $this->user_discussions( $user_id, 20 ),
 			)
 		);
 	}

@@ -38,7 +38,6 @@ class GamificationAchievements {
 			return;
 		}
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav' ) );
-		add_action( 'buddynext_part_profile_tab_panel_after', array( $this, 'render_panel' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ), 20 );
 		add_filter( 'buddynext_client_nav_deny', array( $this, 'add_nav_deny' ) );
 	}
@@ -118,43 +117,35 @@ class GamificationAchievements {
 				'surface'   => 'profile',
 				'layer'     => 'primary',
 				'label'     => __( 'Achievements', 'buddynext' ),
-				'tab'       => self::TAB_SLUG,
 				'icon'      => 'award',
 				'priority'  => 70,
 				'condition' => fn( \BuddyNext\Nav\NavContext $c ): bool => $this->has_standing( $c->subject_id ),
+				'url'       => static fn( \BuddyNext\Nav\NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . self::TAB_SLUG . '/',
 				'count'     => fn( \BuddyNext\Nav\NavContext $c ): int => count( $this->badges( $c->subject_id ) ),
+				'render'    => function ( \BuddyNext\Nav\NavContext $c ): void {
+					$this->render_panel( $c->subject_id );
+				},
 			)
 		);
 	}
 
 	/**
-	 * Render the Achievements panel (hidden until the tab is active).
+	 * Render the Achievements panel — the registry content seam for the tab. The
+	 * standing strip + the badge grid; the panel owns its own data (read-only from
+	 * wb-gamification). Replaces the old buddynext_part_profile_tab_panel_after +
+	 * reactive-reveal wrapper now that the surface SSRs only the active panel.
 	 *
-	 * @param array<string,mixed> $args Profile tab-panel args.
+	 * @param int $member_id Profile being viewed.
 	 * @return void
 	 */
-	public function render_panel( array $args ): void {
-		$member_id = (int) ( $args['profile_user_id'] ?? 0 );
+	public function render_panel( int $member_id ): void {
 		if ( $member_id <= 0 || ! $this->has_standing( $member_id ) ) {
 			return;
 		}
-
-		// Reactive reveal: always in the DOM, shown when activeTab === slug
-		// (Interactivity), matching every other profile panel — so the reactive
-		// Achievements tab reveals it without a reload.
-		$active   = (string) ( $args['active_tab'] ?? '' );
-		$ctx_attr = esc_attr( (string) wp_json_encode( array( 'tabSlug' => self::TAB_SLUG ) ) );
-
-		printf(
-			'<div class="bn-profile-tab-panel bn-achievements" id="%4$s" data-tab-panel="%1$s" data-wp-context=\'%2$s\' data-wp-bind--hidden="!state.isActiveTab"%3$s>',
-			esc_attr( self::TAB_SLUG ),
-			$ctx_attr, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above.
-			self::TAB_SLUG === $active ? '' : ' hidden',
-			esc_attr( buddynext_nav_panel_id( self::TAB_SLUG ) )
-		);
+		echo '<div class="bn-achievements">';
 		$this->render_standing( $member_id );
 		$this->render_badges( $member_id );
-		buddynext_profile_tab_panel_close();
+		echo '</div>';
 	}
 
 	/**

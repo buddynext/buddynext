@@ -68,22 +68,6 @@ $bn_conn_svc   = buddynext_service( 'connections' );
 // stat/tab count scalars are gone.
 $follower_count = $bn_follow_svc->follower_count( $user_id );
 
-$bn_post_svc = buddynext_service( 'post_service' );
-
-// --- Social-graph member lists for the in-page Followers / Following /
-// Connections tabs (rendered inside the same profile shell, not as separate
-// bare pages). Capped for the panel; the count chip shows the true total.
-$bn_pf_ids_to_users   = static function ( array $ids ): array {
-	return array_values( array_filter( array_map( static fn( $id ) => get_userdata( (int) $id ), $ids ) ) );
-};
-$follower_users       = $bn_pf_ids_to_users( array_slice( $bn_follow_svc->followers( $user_id ), 0, 60 ) );
-$following_users      = $bn_pf_ids_to_users( array_slice( $bn_follow_svc->following( $user_id ), 0, 60 ) );
-$connection_users     = $bn_pf_ids_to_users( $bn_conn_svc->connections( $user_id, 60, 0 ) );
-$pending_follow_users = $is_own_profile ? $bn_pf_ids_to_users( $bn_follow_svc->pending_followers( $user_id ) ) : array();
-// Incoming connection (friend) requests — owner-only; the requester accepts/declines
-// from the Connections tab. Mirrors the pending-follow-requests inbox.
-$pending_connection_users = $is_own_profile ? $bn_pf_ids_to_users( $bn_conn_svc->pending_received( $user_id, 60, 0 ) ) : array();
-
 // --- Social graph state (viewer vs. this profile) -------------------------
 $is_following        = false;
 $is_connected        = false;
@@ -173,52 +157,11 @@ if ( '' === $profile_slug ) {
 	$profile_slug = $profile_user instanceof WP_User ? $profile_user->user_nicename : 'user-' . $user_id;
 }
 
-// --- Tab-panel data sets --------------------------------------------------
-// All rows come from the service layer (same methods the REST controllers call)
-// — recent posts through the privacy-aware profile feed (canonically hydrated),
-// replies/likes through PostService, so the panels never touch the DB directly.
-//
-// Recent posts: the profile feed applies the private-account gate + per-post
-// privacy, then hydrates each row through PostService::hydrate(). For a
-// non-permitted viewer it returns an empty set, so the Posts panel shows its
-// existing empty-state copy.
-$bn_feed_svc  = buddynext_service( 'feed' );
-$recent_posts = $bn_feed_svc->profile_feed( $user_id, $current_user_id, null, 10 )['items'];
-
-// Replies: service rows are associative; the Replies panel reads them as objects
-// (->object_id / ->content / ->post_author_name), so re-cast to objects here
-// (the panel markup is shared and stays untouched).
-$user_replies = array_map(
-	static fn( array $r ): object => (object) $r,
-	$bn_post_svc->user_replies( $user_id, 20 )
-);
-
-// Likes: already hydrated arrays (post-card consumes arrays).
-$user_likes = $bn_post_svc->user_liked_posts( $user_id, 20 );
-
-// Scheduled posts are private to the author, so the panel + its data are owner-only.
-$scheduled_posts = array();
-if ( $is_own_profile ) {
-	$scheduled_posts = $bn_post_svc->user_scheduled_posts( $user_id, 20 );
-}
-
-// Profile media gallery — resolved from WPMediaVerse at the API level (its
-// media live in mvs_media_index, not wp_posts). $user_media holds ordered
-// media ids; the panel renders them BN-native via MediaRenderer::gallery().
-// Privacy (hide private from non-owners) is enforced inside the engine query.
-$user_media = array();
-if ( \BuddyNext\Media\MediaClient::available() ) {
-	$bn_media_viewer = get_current_user_id();
-	$user_media      = \BuddyNext\Media\Galleries::user_media_ids( $user_id, $bn_media_viewer, 24, 0 );
-}
-
-// Jetonomy discussions — the bridge owns all jt_* table access, so the template
-// never queries the partner's tables directly.
-$jt_discussions   = array();
-$show_discussions = class_exists( 'Jetonomy\Models\Post' );
-if ( $show_discussions ) {
-	$jt_discussions = ( new \BuddyNext\Bridges\JetonomyBridge() )->user_discussions( $user_id, 20 );
-}
+// Tab-panel data is no longer fetched here. Each tab's panel is rendered through
+// the Nav registry's content seam (PanelRenderer below) by its own `render`
+// callable, which self-fetches its rows — so only the ACTIVE tab queries (posts,
+// replies, likes, media, discussions, followers/following/connections), never all
+// of them on every profile load.
 
 // --- Spaces, interests, completion, presence ------------------------------
 // Member's active spaces (id/name/slug/role) via the membership service, shared
@@ -268,155 +211,12 @@ do_action( 'buddynext_profile_before', (int) $user_id );
 // avatar) — so the previous standalone Edit Profile / Avatar / Cover toolbar
 // was a redundant duplicate and has been removed.
 
-// --- About content (buffered up-front) ------------------------------------
-// The "About" section (curated about-cards + every other admin-defined field via
-// the generic field-type engine) is buffered here, BEFORE the nav resolves, so
-// an "About" tab can be registered only when there is content to show. The
-// captured HTML is handed to the tab panel below — its echo order is unchanged.
-ob_start();
-
-buddynext_get_template(
-	'partials/profile-about-cards.php',
-	array(
-		'work_entries' => $work_entries,
-		'edu_entries'  => $edu_entries,
-		'interests'    => $interests,
-		'entry_fv'     => $entry_fv,
-	)
-);
-
-/*
- * ── Generic profile-field renderer ─────────────────────────────────────
- *
- * Every admin-defined field — including custom field types the curated
- * hero/about-cards above don't know about — is rendered here through the
- * single field-type engine (contracts.field_type_engine), so any type
- * displays correctly. ProfileService::get_profile has ALREADY applied
- * per-field visibility for the viewer, so anything present here is allowed.
- *
- * Keys/groups the hero + about-cards already surface prominently are skipped
- * to avoid visible duplication; everything else renders below.
- */
-$bn_pf_hero_keys   = array( 'headline', 'bio', 'pronouns', 'location', 'website' );
-$bn_pf_skip_groups = array( 'work_experience', 'education', 'social_links' );
-
-$bn_pf_detail_sections = array();
-foreach ( (array) ( $profile_data['groups'] ?? array() ) as $bn_pf_group ) {
-	$bn_pf_gkey  = isset( $bn_pf_group['group_key'] ) ? (string) $bn_pf_group['group_key'] : '';
-	$bn_pf_gtype = isset( $bn_pf_group['type'] ) ? (string) $bn_pf_group['type'] : 'flat';
-
-	if ( '' === $bn_pf_gkey || in_array( $bn_pf_gkey, $bn_pf_skip_groups, true ) ) {
-		continue;
-	}
-
-	// Repeater groups: render each entry's fields via the engine.
-	if ( 'repeater' === $bn_pf_gtype ) {
-		$bn_pf_entries = isset( $bn_pf_group['entries'] ) && is_array( $bn_pf_group['entries'] ) ? $bn_pf_group['entries'] : array();
-		$bn_pf_rows    = '';
-		foreach ( $bn_pf_entries as $bn_pf_entry ) {
-			if ( ! is_array( $bn_pf_entry ) ) {
-				continue;
-			}
-			$bn_pf_entry_rows = '';
-			foreach ( $bn_pf_entry as $bn_pf_field ) {
-				if ( ! is_array( $bn_pf_field ) || empty( $bn_pf_field['field_key'] ) ) {
-					continue;
-				}
-				$bn_pf_val = (string) ( $bn_pf_field['value'] ?? '' );
-				if ( '' === $bn_pf_val ) {
-					continue;
-				}
-				$bn_pf_label       = isset( $bn_pf_field['label'] ) ? (string) $bn_pf_field['label'] : '';
-				$bn_pf_display     = \BuddyNext\Profile\FieldType::render_display( $bn_pf_field, $bn_pf_field['value'] ?? '' );
-				$bn_pf_entry_rows .= '<div class="bn-pf-detail"><dt class="bn-pf-detail__label">' . esc_html( $bn_pf_label ) . '</dt><dd class="bn-pf-detail__value">' . $bn_pf_display . '</dd></div>';
-			}
-			if ( '' !== $bn_pf_entry_rows ) {
-				$bn_pf_rows .= '<dl class="bn-pf-detail-list bn-pf-detail-entry">' . $bn_pf_entry_rows . '</dl>';
-			}
-		}
-		if ( '' !== $bn_pf_rows ) {
-			$bn_pf_detail_sections[] = array(
-				'label' => isset( $bn_pf_group['label'] ) ? (string) $bn_pf_group['label'] : ucwords( str_replace( '_', ' ', $bn_pf_gkey ) ),
-				'html'  => $bn_pf_rows,
-			);
-		}
-		continue;
-	}
-
-	// Flat group: render every field value via the engine.
-	$bn_pf_fields = isset( $bn_pf_group['fields'] ) && is_array( $bn_pf_group['fields'] ) ? $bn_pf_group['fields'] : array();
-	$bn_pf_rows   = '';
-	foreach ( $bn_pf_fields as $bn_pf_field ) {
-		if ( ! is_array( $bn_pf_field ) || empty( $bn_pf_field['field_key'] ) ) {
-			continue;
-		}
-		$bn_pf_fkey = (string) $bn_pf_field['field_key'];
-		if ( 'basic_info' === $bn_pf_gkey && in_array( $bn_pf_fkey, $bn_pf_hero_keys, true ) ) {
-			continue;
-		}
-		$bn_pf_val = (string) ( $bn_pf_field['value'] ?? '' );
-		if ( '' === $bn_pf_val ) {
-			continue;
-		}
-		$bn_pf_label   = isset( $bn_pf_field['label'] ) ? (string) $bn_pf_field['label'] : ucwords( str_replace( '_', ' ', $bn_pf_fkey ) );
-		$bn_pf_display = \BuddyNext\Profile\FieldType::render_display( $bn_pf_field, $bn_pf_field['value'] ?? '' );
-		$bn_pf_rows   .= '<div class="bn-pf-detail"><dt class="bn-pf-detail__label">' . esc_html( $bn_pf_label ) . '</dt><dd class="bn-pf-detail__value">' . $bn_pf_display . '</dd></div>';
-	}
-	if ( '' !== $bn_pf_rows ) {
-		$bn_pf_detail_sections[] = array(
-			'label' => isset( $bn_pf_group['label'] ) ? (string) $bn_pf_group['label'] : ucwords( str_replace( '_', ' ', $bn_pf_gkey ) ),
-			'html'  => '<dl class="bn-pf-detail-list">' . $bn_pf_rows . '</dl>',
-		);
-	}
-}
-
-foreach ( $bn_pf_detail_sections as $bn_pf_section ) :
-	?>
-	<section class="bn-card bn-pf-about-card bn-pf-detail-card">
-		<header class="bn-pf-about-card__header">
-			<h2 class="bn-pf-about-card__title"><?php echo esc_html( (string) $bn_pf_section['label'] ); ?></h2>
-		</header>
-		<?php
-		// Detail rows are assembled from FieldType::render_display output, which is
-		// escaped per the field_type_engine contract, plus esc_html() labels.
-		echo $bn_pf_section['html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-		?>
-	</section>
-	<?php
-endforeach;
-
-$bn_pf_about_html = trim( (string) ob_get_clean() );
-
 // --- Resolve the unified profile navigation -------------------------------
-// One registry → metric row + primary tabs (+ sub-nav), gated/ordered/deduped
-// for THIS viewer. Core items come from ProfileNav; Discussions/Achievements
-// from their bridges; admin reorder/hide from NavOverrides — all via the
-// registry, so the rendered nav is consistent everywhere.
-//
-// The content-dependent "About" tab is registered here (only when there is
-// about content), demonstrating the public extension seam.
-if ( '' !== $bn_pf_about_html ) {
-	add_filter(
-		'buddynext_nav_items',
-		static function ( array $items, \BuddyNext\Nav\NavContext $ctx ): array {
-			if ( 'profile' === $ctx->surface ) {
-				$items[] = array(
-					'id'       => 'about',
-					'surface'  => 'profile',
-					'layer'    => 'primary',
-					'label'    => __( 'About', 'buddynext' ),
-					'tab'      => 'about',
-					'priority' => 12,
-					'after'    => 'posts',
-				);
-			}
-			return $items;
-		},
-		10,
-		2
-	);
-}
-
+// One registry → metric row + primary tabs (+ Network sub-nav), gated/ordered/
+// deduped for THIS viewer. Core items come from ProfileNav (each tab a clean URL
+// + a self-fetching `render`); Discussions/Achievements from their bridges; admin
+// reorder/hide from NavOverrides. The About tab registers itself only when there
+// is about content (ProfileNav::has_about_content) — no per-view buffering here.
 $bn_nav        = buddynext_nav( new \BuddyNext\Nav\NavContext( 'profile', (int) $user_id, (int) $current_user_id ) );
 $bn_pf_metrics = $bn_nav->layer( 'metric' );
 $bn_pf_primary = $bn_nav->layer( 'primary' );
@@ -526,29 +326,21 @@ $bn_pf_ctx = array(
 		)
 	);
 
-	buddynext_get_template(
-		'parts/profile-tab-panel.php',
-		array(
-			'active_tab'               => $bn_pf_active_tab,
-			'about_html'               => $bn_pf_about_html,
-			'profile_user_id'          => (int) $user_id,
-			'viewer_id'                => (int) $current_user_id,
-			'is_owner'                 => (bool) $is_own_profile,
-			'display_name'             => (string) $display_name,
-			'recent_posts'             => is_array( $recent_posts ) ? $recent_posts : array(),
-			'scheduled_posts'          => is_array( $scheduled_posts ) ? $scheduled_posts : array(),
-			'user_replies'             => is_array( $user_replies ) ? $user_replies : array(),
-			'user_media'               => is_array( $user_media ) ? $user_media : array(),
-			'user_likes'               => is_array( $user_likes ) ? $user_likes : array(),
-			'jt_discussions'           => is_array( $jt_discussions ) ? $jt_discussions : array(),
-			'show_discussions'         => (bool) $show_discussions,
-			'follower_users'           => $follower_users,
-			'following_users'          => $following_users,
-			'connection_users'         => $connection_users,
-			'pending_follow_users'     => $pending_follow_users,
-			'pending_connection_users' => $pending_connection_users,
-		)
-	);
+	// Tab body — the registry content seam paints ONLY the active panel (the same
+	// PanelRenderer the space surface uses). Each tab's `render` self-fetches, so
+	// nothing here pre-renders the inactive panels. The active tab is resolved +
+	// normalized above (unknown → posts, a Network parent → its first child).
+	?>
+	<div class="bn-pf-tab-content">
+		<?php
+		( new \BuddyNext\Nav\PanelRenderer() )->render_panels(
+			$bn_nav,
+			new \BuddyNext\Nav\NavContext( 'profile', (int) $user_id, (int) $current_user_id ),
+			$bn_pf_active_tab
+		);
+		?>
+	</div>
+	<?php
 
 	// Report + block-confirm modals: only the non-owner viewer needs them.
 	if ( ! $is_own_profile && $current_user_id ) :
