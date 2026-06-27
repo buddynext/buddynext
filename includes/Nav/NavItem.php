@@ -67,8 +67,7 @@ final class NavItem {
 	 * @param string            $label      Display label (already translated).
 	 * @param string|null       $parent     Parent primary item id (sub-nav), else null.
 	 * @param string|null       $icon       Lucide icon slug.
-	 * @param string|null       $tab        In-page reactive tab target.
-	 * @param string|null       $url        Real route (rail/context/metric list).
+	 * @param string|null       $url        Clean route for the tab/list (every surface is url+render now).
 	 * @param string|null       $capability Capability gate (buddynext_can), null = public.
 	 * @param callable|null     $condition  callable(NavContext):bool extra visibility gate.
 	 * @param bool              $hide_empty Omit when the resolved count is 0 (only
@@ -104,7 +103,6 @@ final class NavItem {
 		public string $label,
 		public ?string $parent = null, // phpcs:ignore Universal.NamingConventions.NoReservedKeywordParameterNames.parentFound -- Established public promoted property of this value object; read as $item->parent and passed as the named arg parent: across Nav/. Renaming is a breaking API change.
 		public ?string $icon = null,
-		public ?string $tab = null,
 		public mixed $url = null,
 		public ?string $capability = null,
 		public mixed $condition = null,
@@ -144,8 +142,6 @@ final class NavItem {
 			return null;
 		}
 
-		$tab = isset( $a['tab'] ) && '' !== (string) $a['tab'] ? sanitize_key( (string) $a['tab'] ) : null;
-
 		// URL may be a string (escaped now) OR a callable(NavContext):string
 		// (resolved lazily at resolve time, then escaped) — see resolve_url().
 		$url = null;
@@ -168,9 +164,9 @@ final class NavItem {
 		// Layer-specific minimums.
 		switch ( $layer ) {
 			case 'primary':
-				// A primary tab must be reachable: an in-page tab, a real route,
-				// or a render panel (registry-driven content).
-				if ( null === $tab && null === $url && null === $render ) {
+				// A primary tab must be reachable: a clean route (url) and/or a
+				// render panel (registry-driven content).
+				if ( null === $url && null === $render ) {
 					return null;
 				}
 				break;
@@ -213,7 +209,6 @@ final class NavItem {
 			label: $label,
 			parent: $parent,
 			icon: $icon,
-			tab: $tab,
 			url: $url,
 			capability: isset( $a['capability'] ) && '' !== (string) $a['capability'] ? (string) $a['capability'] : null,
 			condition: $condition,

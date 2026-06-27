@@ -395,12 +395,16 @@ DONE (Step F): removed the dead reveal code, both surfaces re-verified (profile 
 - `view.php`: removed `data-wp-init="callbacks.initView"` + the `activeTab` context seed.
 - Grep sweep (templates + JS): ZERO `actions.setTab` / `state.isActiveTab` / `state.isActiveBranch` /
   `data-tab-panel` remain.
-REMAINING (small, isolated follow-up — the only loose thread): the `NavItem::$tab` field + its `from_array`
-parse are now set by NOBODY (no provider, no template reads it) — a contract field gone vestigial. Dropping it
-is mechanical: remove the property/param/parse from `NavItem`, then `'tab' => 'x'` → `'url' => '/x/'` across the
-~40 Nav test fixtures (a primary item needs url|render once `tab` is gone). Deferred only because it touches the
-test suite broadly; no production code path uses it. `buddynext_nav_panel_id()` is likewise now unused but is a
-documented public nav-API helper, so it stays.
+DONE (final vestige): the `NavItem::$tab` field is GONE — removed the constructor param/property, the
+`from_array` parse, the `tab:` arg, and simplified the primary-validity check to `url|render`. Converted the
+~37 `'tab' => 'x'` Nav test fixtures to `'url' => 'https://t/x/'` and the one dedup assertion off `->tab` onto
+`->label`. Sweep: zero `->tab` access and zero `'tab' =>` registrations remain in nav code (the `Admin/*`
+`'tab'` arrays are unrelated admin-page tabs). Nav suite 57/57, WPCS + PHPStan clean. `buddynext_nav_panel_id()`
+is now unused but kept — it's a documented public nav-API helper for the panel region id.
+
+ZERO DEAD CODE REMAINS on the nav surface: no reveal store members, no reactive template branches, no `tab`
+field. Every nav item across profile + space (core + all bridges) is `url` + `render`, riding one
+nav-API-driven transport. The whole nav-content-seam plan is complete.
 
 ### G. VERIFY (browser, Docker; client-nav OFF default + a pass with it ON)
 - [ ] G1. Each tab via its URL deep-link paints the right panel (posts/scheduled/replies/media/likes/about/

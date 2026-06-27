@@ -130,7 +130,7 @@ class PanelRendererTest extends \WP_UnitTestCase {
 				'surface' => 'profile',
 				'layer'   => 'primary',
 				'label'   => 'Portfolio',
-				'tab'     => 'jobs',
+				'url'     => 'https://t/jobs/',
 			)
 		);
 		$this->assertInstanceOf( NavItem::class, $parent );
@@ -153,7 +153,7 @@ class PanelRendererTest extends \WP_UnitTestCase {
 				'surface' => 'profile',
 				'layer'   => 'primary',
 				'label'   => 'Portfolio',
-				'tab'     => 'jobs',
+				'url'     => 'https://t/jobs/',
 			)
 		);
 		$parent->children = array( $this->panel( 'jobs', 'profile', 'portfolio' ), $this->panel( 'listings', 'profile', 'portfolio' ) );
@@ -177,7 +177,7 @@ class PanelRendererTest extends \WP_UnitTestCase {
 				'surface' => 'profile',
 				'layer'   => 'primary',
 				'label'   => 'Network',
-				'tab'     => 'connections',
+				'url'     => 'https://t/connections/',
 			)
 		);
 		$parent->children = array(
