@@ -55,7 +55,6 @@ if ( ! function_exists( 'bn_space_category_icon' ) ) {
 
 $bn_space_service  = new \BuddyNext\Spaces\SpaceService();
 $bn_member_service = new \BuddyNext\Spaces\SpaceMemberService();
-$bn_feed_service   = buddynext_service( 'feed' );
 
 // ── Resolve space ─────────────────────────────────────────────────────────────
 
@@ -94,20 +93,6 @@ $is_pending = $membership && 'pending' === $membership->status;
 $is_invited = $membership && 'invited' === $membership->status;
 $is_guest   = ( 0 === (int) $current_user_id );
 
-// Posting permission (Permissions panel → "Who can post"): members | mods | owner.
-// A site admin, or any member whose role meets the configured threshold, may post.
-// This drives whether the composer is rendered in the feed panel; the rank rule
-// lives in SpacePostGuard::can_post(), which the REST create path enforces too,
-// so the visible composer and the server gate stay in lockstep.
-$bn_can_post = $is_member && \BuddyNext\Spaces\SpacePostGuard::can_post( $space_id, $current_user_id );
-
-// An archived space is read-only: no composer for anyone (mirrors the
-// PostService/CommentService/join guards). A banner explains the state.
-$bn_space_archived = ! empty( $space->is_archived );
-if ( $bn_space_archived ) {
-	$bn_can_post = false;
-}
-
 // Secret spaces are leak-proof: a logged-out visitor (or any non-member who
 // isn't a site admin) reaches the canonical 404 surface so we never confirm
 // the slug exists. Mirrors the visibility gate enforced by
@@ -122,47 +107,16 @@ if ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_hidden_from_non_members
 }
 
 // Access gate: private + secret feeds. Open spaces never gate the feed, but
-// guests still see a "Join to participate" CTA instead of the composer.
+// guests still see a "Join to participate" CTA instead of the composer. The feed
+// data itself is fetched by the feed panel's render (SpaceNav::render_feed_panel),
+// so it runs only when the Feed tab is the active panel — never when viewing About.
 $gate_feed = ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->content_requires_membership( (string) $space->type ) && ! $is_member && ! current_user_can( 'manage_options' ) );
-
-// ── Fetch posts for the feed ──────────────────────────────────────────────────
-// All post data flows through FeedService, which hydrates each row via
-// PostService::hydrate() — the same path the space-feed REST controller uses.
-
-$feed_posts  = array();
-$pinned_post = null;
-
-if ( ! $gate_feed ) {
-	// Pinned announcement (hydrated post array). The feed panel renders it as an
-	// object and shows the author's name, which hydrate() does not carry, so we
-	// enrich a single display_name onto the object before handing it over.
-	$bn_pinned_arr = $bn_feed_service->space_pinned_post( $space_id );
-	if ( is_array( $bn_pinned_arr ) ) {
-		$bn_pinned_author             = get_userdata( (int) ( $bn_pinned_arr['user_id'] ?? 0 ) );
-		$bn_pinned_arr['author_name'] = $bn_pinned_author ? $bn_pinned_author->display_name : __( 'Admin', 'buddynext' );
-		$pinned_post                  = (object) $bn_pinned_arr;
-	}
-
-	// Regular feed posts (hydrated arrays; pinned post excluded by FeedService).
-	$bn_space_feed = $bn_feed_service->space_feed( $space_id, $current_user_id, null, 20 );
-	$feed_posts    = array_values(
-		array_filter(
-			(array) ( $bn_space_feed['items'] ?? array() ),
-			static function ( $bn_p ) {
-				// The pinned post leads as its own card above the feed, so drop it
-				// from the regular list to avoid showing it twice.
-				return empty( $bn_p['is_pinned'] );
-			}
-		)
-	);
-}
 
 // Clean-URL active tab: /spaces/{slug}/{tab}/ → bn_space_action. Defaults to feed.
 $active_tab = (string) get_query_var( 'bn_space_action', '' );
 $active_tab = '' !== $active_tab ? sanitize_key( $active_tab ) : 'feed';
 
-$bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
-$rest_nonce      = wp_create_nonce( 'wp_rest' );
+$rest_nonce = wp_create_nonce( 'wp_rest' );
 
 // ── Right sidebar (uniform across every space tab) ─────────────────────────────
 // The shared part registers the space rail cards on buddynext_right_sidebar; the
@@ -188,14 +142,6 @@ do_action( 'buddynext_space_home_before', $space_id, $current_user_id );
 
 // ── Render ───────────────────────────────────────────────────────────────────
 
-// Media tab availability mirrors SpaceNav's media gate; here it only guards the
-// active-tab fallback (hitting /media/ while the space's media tab is off → Feed,
-// so the gallery body branch never renders for a hidden tab).
-$bn_media_tab_on = \BuddyNext\Media\MediaClient::available() && (bool) get_option( 'bn_space_' . $space->id . '_mvs_media_tab', 0 );
-if ( 'media' === $active_tab && ! $bn_media_tab_on ) {
-	$active_tab = 'feed';
-}
-
 // Space navigation comes from the unified registry (SpaceNav + bridges), gated,
 // counted and ordered for THIS viewer's role — the same nav system + renderer the
 // member profile uses. Rendered as clean-URL tabs by parts/nav-bar.php.
@@ -204,15 +150,21 @@ $bn_space_ctx  = new \BuddyNext\Nav\NavContext( 'space', (int) $space_id, (int) 
 $bn_space_nav  = buddynext_nav( $bn_space_ctx );
 $bn_nav_items  = $bn_space_nav->layer( 'primary' );
 
-// Registry-driven panel for the active tab: when its nav item carries a render,
-// PanelRenderer paints it (the content seam). Tabs not yet migrated to a render
-// fall through to the legacy branches in the tab body below.
-$bn_panel_item = null;
+// Normalize the active tab to a panel the registry can actually render. Every
+// in-hub tab (feed/about/media/discussions) carries a render; a tab that is hidden
+// for this viewer/space (e.g. Media when the option is off, Discussions when
+// Jetonomy is inactive) is absent from the resolved nav, and an unknown/stale URL
+// matches nothing — both fall back to Feed, the space's home panel. This also sets
+// the header's active-tab highlight (rendered just below), so the two agree.
+$bn_active_renderable = false;
 foreach ( $bn_nav_items as $bn_pi ) {
-	if ( $bn_pi->id === $active_tab ) {
-		$bn_panel_item = $bn_pi;
+	if ( $bn_pi->id === $active_tab && $bn_pi->has_render() ) {
+		$bn_active_renderable = true;
 		break;
 	}
+}
+if ( ! $bn_active_renderable ) {
+	$active_tab = 'feed';
 }
 ?>
 <div class="bn-sh-stack"
@@ -315,34 +267,14 @@ foreach ( $bn_nav_items as $bn_pi ) {
 				<?php endif; ?>
 			</div>
 
-		<?php elseif ( null !== $bn_panel_item && $bn_panel_item->has_render() ) : ?>
-
-			<?php ( new \BuddyNext\Nav\PanelRenderer() )->render_panels( $bn_space_nav, $bn_space_ctx, $active_tab ); ?>
-
 		<?php else : ?>
 
-			<?php if ( $bn_space_archived ) : ?>
-				<div class="bn-notice" role="status">
-					<?php esc_html_e( 'This space is archived. You can still read past activity, but new posts, comments, and joins are disabled.', 'buddynext' ); ?>
-				</div>
-			<?php endif; ?>
-
 			<?php
-			buddynext_get_template(
-				'parts/space-feed-panel.php',
-				array(
-					'space'        => $space,
-					'space_id'     => $space_id,
-					'viewer_id'    => $current_user_id,
-					'is_member'    => $is_member,
-					'can_post'     => $bn_can_post,
-					'is_guest'     => $is_guest,
-					'is_pending'   => $is_pending,
-					'posts'        => $feed_posts,
-					'pinned_post'  => $pinned_post,
-					'current_user' => $bn_current_user,
-				)
-			);
+			// Every in-hub tab renders through the registry content seam now — the
+			// active panel (feed/about/media/discussions), and only that one, paints
+			// itself from the registry. The active tab is normalized above, so this
+			// always resolves to a panel (feed is the floor).
+			( new \BuddyNext\Nav\PanelRenderer() )->render_panels( $bn_space_nav, $bn_space_ctx, $active_tab );
 			?>
 
 		<?php endif; ?>

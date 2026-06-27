@@ -23,6 +23,7 @@ use BuddyNext\Media\MediaClient;
 use BuddyNext\Nav\NavContext;
 use BuddyNext\Nav\NavRegistry;
 use BuddyNext\Spaces\SpaceMemberService;
+use BuddyNext\Spaces\SpacePostGuard;
 use BuddyNext\Spaces\SpaceService;
 
 /**
@@ -82,6 +83,9 @@ final class SpaceNav {
 				'priority' => 10,
 				'url'      => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'feed' ),
 				'count'    => static fn( NavContext $c ): int => (int) buddynext_service( 'feed' )->space_post_count( $c->subject_id ),
+				'render'   => function ( NavContext $c ): void {
+					$this->render_feed_panel( $c->subject_id, $c->viewer_id );
+				},
 			),
 			array(
 				'id'       => 'members',
@@ -130,6 +134,74 @@ final class SpaceNav {
 					return $reports + $pending;
 				},
 			),
+		);
+	}
+
+	/**
+	 * Render the Feed panel for a space — the registry content seam for the Feed
+	 * tab (the space's home panel). Self-contained: it resolves the viewer's
+	 * membership, posting permission and archived state, then the pinned
+	 * announcement + the hydrated feed posts (the same FeedService path the space
+	 * feed REST controller uses), and renders the shared feed part. The caller
+	 * (spaces/home.php) still owns the private/secret access gate, so this only
+	 * runs for a viewer allowed to read the feed.
+	 *
+	 * @param int $space_id  Space ID.
+	 * @param int $viewer_id Current viewer user ID (0 = logged out).
+	 * @return void
+	 */
+	private function render_feed_panel( int $space_id, int $viewer_id ): void {
+		$space = ( new SpaceService() )->get_object( $space_id );
+		if ( null === $space ) {
+			return;
+		}
+
+		$status     = $viewer_id > 0 ? (string) ( new SpaceMemberService() )->get_status( $space_id, $viewer_id ) : '';
+		$is_member  = 'active' === $status;
+		$is_pending = 'pending' === $status;
+		$is_guest   = 0 === $viewer_id;
+		$archived   = ! empty( $space->is_archived );
+		// An archived space is read-only for everyone (mirrors the post/comment/join
+		// guards); otherwise the composer follows the space's "who can post" rule.
+		$can_post = $is_member && ! $archived && SpacePostGuard::can_post( $space_id, $viewer_id );
+
+		$feed = buddynext_service( 'feed' );
+
+		// Pinned announcement (hydrated array). The part renders it as an object and
+		// shows the author name, which hydrate() does not carry, so enrich it here.
+		$pinned     = null;
+		$pinned_arr = $feed->space_pinned_post( $space_id );
+		if ( is_array( $pinned_arr ) ) {
+			$author                    = get_userdata( (int) ( $pinned_arr['user_id'] ?? 0 ) );
+			$pinned_arr['author_name'] = $author ? $author->display_name : __( 'Admin', 'buddynext' );
+			$pinned                    = (object) $pinned_arr;
+		}
+
+		// Regular feed (hydrated arrays). The pinned post leads as its own card, so
+		// drop it from the list to avoid showing it twice.
+		$space_feed = $feed->space_feed( $space_id, $viewer_id, null, 20 );
+		$posts      = array_values(
+			array_filter(
+				(array) ( $space_feed['items'] ?? array() ),
+				static fn( $p ): bool => empty( $p['is_pinned'] )
+			)
+		);
+
+		buddynext_get_template(
+			'parts/space-feed-panel.php',
+			array(
+				'space'        => $space,
+				'space_id'     => $space_id,
+				'viewer_id'    => $viewer_id,
+				'is_member'    => $is_member,
+				'can_post'     => $can_post,
+				'is_guest'     => $is_guest,
+				'is_pending'   => $is_pending,
+				'is_archived'  => $archived,
+				'posts'        => $posts,
+				'pinned_post'  => $pinned,
+				'current_user' => $viewer_id > 0 ? get_userdata( $viewer_id ) : null,
+			)
 		);
 	}
 

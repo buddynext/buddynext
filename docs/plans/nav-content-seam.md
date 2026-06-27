@@ -234,8 +234,19 @@ Each phase = its own browser-verified commit. All land in 1.0.4.
       + the `new JetonomyBridge()` coupling. The integration's PANEL is now on the SAME `render` contract as
       core About/Media — tab + panel declared together in the bridge. Browser-verified (empty-state + provision
       CTA render identically under the uniform header + sidebar; 0 console errors). Nav suite 54/54.
-- [ ] `feed` → `render` (its membership/feed/composer state recomputed from the context).
-- [ ] TEST: feed renders via the seam; 0 console errors.
+- [x] `feed` → `render`: `SpaceNav::render_feed_panel()` is the Feed item's `render` (self-contained:
+      recomputes membership/can_post/archived + fetches pinned + hydrated feed from the context). The
+      archived banner folded into `space-feed-panel.php` (`is_archived` arg) so the callable stays echo-free.
+      `home.php` body is now JUST `gate CTA` OR `render_panels` — every in-hub tab (feed/about/media/
+      discussions) paints through the registry seam; the feed data fetch only runs when Feed is the active
+      panel (not when viewing About). Added an active-tab normalize (unknown/hidden tab → feed, the floor),
+      which also subsumes the old media-off reset. Removed from `home.php`: the feed fetch, `$bn_can_post`,
+      `$bn_space_archived`, `$bn_current_user`, `$bn_feed_service`, the `$bn_panel_item` lookup + media reset.
+- [x] TEST: feed renders via the seam (composer + empty state, pixel-identical); stale-tab URL falls back to
+      Feed (header + body agree); About regression OK; 0 console errors. Nav suite 54/54.
+
+**Phase 3 COMPLETE — `home.php` no longer hand-rolls ANY panel.** Every space panel (core Feed/About/Media +
+Jetonomy Discussions) flows through one `render` contract; the integration uses the EXACT same seam core does.
 
 ### Phase 4 — Profile surface (same uniform pattern)
 - [ ] ONE uniform header/nav call for the profile template(s); body via `render_panels()`.
