@@ -184,6 +184,7 @@ class Plugin {
 					( new \BuddyNext\Admin\AppearanceTab() )->register();
 					( new \BuddyNext\Admin\ToolsTab() )->register();
 					( new \BuddyNext\Admin\RolesTab() )->register();
+					( new \BuddyNext\Admin\IntegrationControlsAdmin() )->register();
 					( new \BuddyNext\Admin\Insights() )->register();
 					( new \BuddyNext\Admin\ModerationQueue() )->register();
 					// "BuddyNext" metabox on Appearance → Menus — add per-member

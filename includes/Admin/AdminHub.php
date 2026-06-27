@@ -127,71 +127,75 @@ class AdminHub {
 	 */
 	private const TAB_PLACEMENT = array(
 		// Settings — identity & look.
-		'settings:general'           => array(
+		'settings:general'              => array(
 			'section'  => 'settings',
 			'position' => 10,
 		),
-		'settings:appearance'        => array(
+		'settings:appearance'           => array(
 			'section'  => 'settings',
 			'position' => 20,
 		),
-		'settings:navigation'        => array(
+		'settings:navigation'           => array(
 			'section'  => 'settings',
 			'position' => 30,
 		),
 		// White-label (Pro) — brand name, logo, hue, font, custom CSS, and
 		// per-space branding. Placed in Settings after Navigation.
-		'settings:white-label'       => array(
+		'settings:white-label'          => array(
 			'section'  => 'settings',
 			'position' => 40,
 		),
 
 		// Platform — capabilities, extensibility, maintenance.
-		'settings:features'          => array(
+		'settings:features'             => array(
 			'section'  => 'platform',
 			'position' => 10,
 		),
-		'settings:integrations'      => array(
+		'settings:integrations'         => array(
 			'section'  => 'platform',
 			'position' => 20,
 		),
-		'settings:tools'             => array(
+		'settings:integration-controls' => array(
+			'section'  => 'platform',
+			'position' => 25,
+		),
+		'settings:tools'                => array(
 			'section'  => 'platform',
 			'position' => 40,
 		),
-		'settings:webhooks'          => array(
+		'settings:webhooks'             => array(
 			'section'  => 'platform',
 			'position' => 50,
 		),
 
 		// Members — roster, access, registration.
-		'members:directory'          => array(
+		'members:directory'             => array(
 			'section'  => 'members',
 			'position' => 10,
 		),
-		'members:labels'             => array(
+		'members:labels'                => array(
 			'section'  => 'members',
 			'position' => 15,
 		),
-		'settings:registration'      => array(
+		'settings:registration'         => array(
 			'section'  => 'members',
 			'position' => 20,
 		),
-		'settings:roles'             => array(
+		'settings:roles'                => array(
 			'section'  => 'members',
 			'position' => 30,
 		),
-		'settings:privacy'           => array(
+		'settings:privacy'              => array(
 			'section'  => 'members',
 			'position' => 40,
 		),
 
 		// Spaces.
-		'spaces:directory'           => array(
+		'spaces:directory'              => array(
 			'section'  => 'spaces',
 			'position' => 10,
 		),
-		'settings:spaces'            => array(
+		'settings:spaces'               => array(
 			'section'  => 'spaces',
 			'position' => 20,
 		),
@@ -199,115 +203,115 @@ class AdminHub {
 		// Engagement — interaction + measurement. Insights is the single
 		// measurement tab; Pro injects its analytics suite into it via the
 		// buddynext_insights_after action (no separate Analytics tab).
-		'growth:insights'            => array(
+		'growth:insights'               => array(
 			'section'  => 'engagement',
 			'position' => 10,
 		),
-		'settings:social'            => array(
+		'settings:social'               => array(
 			'section'  => 'engagement',
 			'position' => 20,
 		),
-		'settings:reactions'         => array(
+		'settings:reactions'            => array(
 			'section'  => 'engagement',
 			'position' => 30,
 		),
 
 		// Notifications — delivery + templates.
-		'settings:notifications'     => array(
+		'settings:notifications'        => array(
 			'section'  => 'notifications',
 			'position' => 10,
 		),
-		'settings:email'             => array(
+		'settings:email'                => array(
 			'section'  => 'notifications',
 			'position' => 20,
 		),
-		'settings:templates'         => array(
+		'settings:templates'            => array(
 			'section'  => 'notifications',
 			'position' => 30,
 		),
 
 		// Realtime & Push (Pro). Hidden in free (no tabs register).
-		'settings:realtime'          => array(
+		'settings:realtime'             => array(
 			'section'  => 'realtime',
 			'position' => 10,
 		),
-		'settings:push'              => array(
+		'settings:push'                 => array(
 			'section'  => 'realtime',
 			'position' => 20,
 		),
-		'settings:push-prefs'        => array(
+		'settings:push-prefs'           => array(
 			'section'  => 'realtime',
 			'position' => 30,
 		),
 
 		// Campaigns (Pro). Hidden in free.
-		'growth:broadcasts'          => array(
+		'growth:broadcasts'             => array(
 			'section'  => 'campaigns',
 			'position' => 10,
 		),
-		'growth:drip'                => array(
+		'growth:drip'                   => array(
 			'section'  => 'campaigns',
 			'position' => 20,
 		),
-		'growth:scheduled'           => array(
+		'growth:scheduled'              => array(
 			'section'  => 'campaigns',
 			'position' => 30,
 		),
-		'growth:ai-feed'             => array(
+		'growth:ai-feed'                => array(
 			'section'  => 'campaigns',
 			'position' => 40,
 		),
 
 		// Moderation — controls first (they drive everything), then the queues.
-		'settings:moderation'        => array(
+		'settings:moderation'           => array(
 			'section'  => 'moderation',
 			'position' => 10,
 		),
-		'moderation:pending'         => array(
+		'moderation:pending'            => array(
 			'section'  => 'moderation',
 			'position' => 20,
 		),
-		'moderation:reports'         => array(
+		'moderation:reports'            => array(
 			'section'  => 'moderation',
 			'position' => 30,
 		),
-		'moderation:suspensions'     => array(
+		'moderation:suspensions'        => array(
 			'section'  => 'moderation',
 			'position' => 40,
 		),
-		'moderation:appeals'         => array(
+		'moderation:appeals'            => array(
 			'section'  => 'moderation',
 			'position' => 50,
 		),
-		'moderation:bulk'            => array(
+		'moderation:bulk'               => array(
 			'section'  => 'moderation',
 			'position' => 60,
 		),
 
 		// Auto-Moderation (Pro). Hidden in free.
-		'moderation:rules'           => array(
+		'moderation:rules'              => array(
 			'section'  => 'automod',
 			'position' => 10,
 		),
-		'moderation:ai'              => array(
+		'moderation:ai'                 => array(
 			'section'  => 'automod',
 			'position' => 20,
 		),
 
 		// Monetization (Pro). Hidden in free.
-		'monetization:tiers'         => array(
+		'monetization:tiers'            => array(
 			'section'  => 'monetization',
 			'position' => 10,
 		),
-		'monetization:subscriptions' => array(
+		'monetization:subscriptions'    => array(
 			'section'  => 'monetization',
 			'position' => 20,
 		),
-		'monetization:stripe'        => array(
+		'monetization:stripe'           => array(
 			'section'  => 'monetization',
 			'position' => 30,
 		),
-		'settings:license'           => array(
+		'settings:license'              => array(
 			'section'  => 'monetization',
 			'position' => 40,
 		),
