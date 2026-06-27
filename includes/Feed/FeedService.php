@@ -1038,6 +1038,30 @@ class FeedService {
 	}
 
 	/**
+	 * Shared SQL guard for the public Explore surface — used by the deck query AND
+	 * the Explore pulse count so the stat always matches what the grid shows.
+	 *
+	 * Excludes reshares (amplification, not original discovery content; the Explore
+	 * card cannot dereference shared_post_id), authorless rows (a deleted account
+	 * otherwise renders as "Community member"), and rows with nothing to show (no
+	 * text, media, poll, or link). Static fragment — only table/column names, no
+	 * user input — safe to interpolate.
+	 *
+	 * @return string A leading-" AND " WHERE fragment.
+	 */
+	public function explore_renderable_where(): string {
+		global $wpdb;
+		return " AND type <> 'share'
+			   AND user_id IN ( SELECT ID FROM {$wpdb->users} )
+			   AND (
+			       TRIM( COALESCE( content, '' ) ) <> ''
+			       OR ( media_ids IS NOT NULL AND media_ids <> '' AND media_ids <> '[]' )
+			       OR type = 'poll'
+			       OR ( link_url IS NOT NULL AND link_url <> '' )
+			   )";
+	}
+
+	/**
 	 * Return the public explore feed (all public posts, newest first).
 	 *
 	 * @param string|null $cursor      Pagination cursor.
@@ -1074,21 +1098,10 @@ class FeedService {
 				break;
 		}
 
-		// Public-discovery guard: Explore is a public, unauthenticated surface, so it
-		// must never paint a blank or authorless card. (1) Reshares (type = 'share')
-		// are amplification, not original discovery content, and the Explore card
-		// cannot dereference shared_post_id — exclude them; the original post surfaces
-		// on its own. (2) The author must still exist (a deleted account otherwise
-		// renders as "Community member"). (3) The row must have something to show:
-		// text, media, a poll, or a link card. Static fragment — no user input.
-		$renderable_where = " AND type <> 'share'
-			   AND user_id IN ( SELECT ID FROM {$wpdb->users} )
-			   AND (
-			       TRIM( COALESCE( content, '' ) ) <> ''
-			       OR ( media_ids IS NOT NULL AND media_ids <> '' AND media_ids <> '[]' )
-			       OR type = 'poll'
-			       OR ( link_url IS NOT NULL AND link_url <> '' )
-			   )";
+		// Public-discovery guard (shared with the Explore pulse count so the stat
+		// matches the grid) — never surface a reshare, an authorless row, or a row
+		// with nothing to show. See explore_renderable_where().
+		$renderable_where = $this->explore_renderable_where();
 
 		// $cursor_where, $excluded_where, $filter_where and $renderable_where contain only table/column names — no user data, safe.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber

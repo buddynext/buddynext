@@ -132,14 +132,18 @@ class ExploreService {
 
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 		$spaces = (int) $wpdb->get_var(
 			"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces WHERE type IN ('open','private') AND is_archived = 0"
 		);
-		$posts  = (int) $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE privacy = 'public' AND status = 'published'"
+		// Count only the posts the deck would actually surface (same guard as
+		// FeedService::explore_feed) so the pulse stat matches the grid: no reshares,
+		// no authorless rows, nothing blank.
+		$posts = (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
+			  WHERE privacy = 'public' AND status = 'published'" . $this->feed->explore_renderable_where()
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 
 		$user_counts = count_users();
 		$pulse       = array(
