@@ -1074,7 +1074,23 @@ class FeedService {
 				break;
 		}
 
-		// $cursor_where, $excluded_where and $filter_where contain only table/column names — no user data, safe.
+		// Public-discovery guard: Explore is a public, unauthenticated surface, so it
+		// must never paint a blank or authorless card. (1) Reshares (type = 'share')
+		// are amplification, not original discovery content, and the Explore card
+		// cannot dereference shared_post_id — exclude them; the original post surfaces
+		// on its own. (2) The author must still exist (a deleted account otherwise
+		// renders as "Community member"). (3) The row must have something to show:
+		// text, media, a poll, or a link card. Static fragment — no user input.
+		$renderable_where = " AND type <> 'share'
+			   AND user_id IN ( SELECT ID FROM {$wpdb->users} )
+			   AND (
+			       TRIM( COALESCE( content, '' ) ) <> ''
+			       OR ( media_ids IS NOT NULL AND media_ids <> '' AND media_ids <> '[]' )
+			       OR type = 'poll'
+			       OR ( link_url IS NOT NULL AND link_url <> '' )
+			   )";
+
+		// $cursor_where, $excluded_where, $filter_where and $renderable_where contain only table/column names — no user data, safe.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
@@ -1083,6 +1099,7 @@ class FeedService {
 			   {$excluded_where}
 			   {$block_mute_where}
 			   {$filter_where}
+			   {$renderable_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
