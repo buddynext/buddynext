@@ -272,7 +272,38 @@ CONSEQUENCE — the migration is ATOMIC and has an interim-regression risk:
   generalize the `@buddynext/navigate` transport first, then cut profile over), so there is no interim
   regression. Do NOT ship Phase 4-only on profile.
 
-Execution checklist (when greenlit):
+DONE (cutover prep — render-ready parts extracted): the panel markup from the 500-line
+`profile-tab-panel.php` is now wrapper-free, self-contained parts under `templates/parts/profile/`:
+`posts-panel.php` (posts/scheduled/likes), `replies-panel.php`, `discussions-panel.php`, `about-panel.php`
+(self-fetches profile fields + renders about-cards + the generic field-engine detail sections), and
+`people-panel.php` (followers/following/connections + the owner pending-request inbox). These are the parts
+the `render` callables will include — same pattern spaces uses (space-feed-panel.php etc.). Harmless until
+wired (nothing includes them yet → profile unchanged). Lint + WPCS clean.
+
+WRINKLE found while wiring (do this in the flip): the profile's followers/following/connections are METRIC
+pills + `network` sub-nav CHILDREN (parent=network), not top-level primary tabs. `PanelRenderer::render_panels`
+only searches top-level primary items, so `active_tab='followers'` paints nothing. The flip must extend
+PanelRenderer to resolve a sub-nav child by the active id (this is the Phase 6 sub-tab resolution pulled
+forward), OR register followers/following/connections as render-bearing items the renderer can find. So the
+profile flip ENTANGLES Phase 6 — it is materially larger than the space cutover.
+
+Remaining flip steps (atomic — do together, fresh context, full matrix verify):
+- [ ] PanelRenderer: resolve a sub-nav child (or metric panel) by active id → its render (Phase 6 pulled in).
+- [ ] ProfileNav: tabs `tab`→`url` (clean /members/{slug}/{tab}/) + a `render` per item that self-fetches and
+      includes its part (posts/scheduled/replies/media[→media-tab.php]/likes/about + people for the network
+      children); About tab keeps its content `condition`.
+- [ ] JetonomyBridge: profile Discussions `render` → `parts/profile/discussions-panel.php`.
+- [ ] `view.php`: drop the ~150 lines of bulk panel fetch + the about_html build + the `profile-tab-panel.php`
+      call; render the active panel via `render_panels()`; keep hero + nav-bar + sidebar + modals.
+- [ ] DELETE `templates/parts/profile/`... no — DELETE `templates/parts/profile-tab-panel.php`.
+- [ ] `store.js`: remove the reveal logic (`isActiveTab`/`tabSlug`/`setTab` tab-switch/`data-tab-panel`); the
+      generalized transport now drives tab switching (profile tabs are url-links → shell transport swaps the
+      whole region). KEEP the hero action logic (follow/connect/block/report/mute).
+- [ ] TEST matrix (the reason this needs room): each tab via its URL; deep-link paints the right panel;
+      active-only DB; owner vs visitor; empty vs populated; pending follow/connection sub-sections; metric
+      pills; 390/dark; client-nav ON (no-reload tab switch) AND OFF (full-load) both correct.
+
+Original execution checklist:
 - [ ] ONE uniform header/nav call for the profile template(s); body via `render_panels()`.
 - [ ] Migrate ALL profile panels → `render` in ProfileNav (posts/scheduled/replies/media/likes/about +
       followers/following/connections) and JetonomyBridge (discussions); each self-fetches its own data so
