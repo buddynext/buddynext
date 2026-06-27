@@ -170,10 +170,27 @@ Target (cleaner than per-panel migration):
 This removes the home.php<->space-header.php duplication AND makes the nav exactly one call,
 and it settles members/moderation (they keep dedicated bodies but already share the header).
 
-## Progress log
-- Phase 0 (`601bf817`): render contract + PanelRenderer + NavContext->sub + 8 tests.
-- Phase 1 (`75db80ed`): space About via the seam; SpaceService::get_object()/display_meta().
-- Phase 2a (`c81f87a9`): space Media via the seam.
+## Progress log (DONE)
+- Phase 0 (`601bf817`): `NavItem.render` contract + `PanelRenderer` (SSR active panel) + `NavContext->sub` + 8 tests. Full Nav suite 52/52.
+- Phase 1 (`75db80ed`): space **About** via the seam; shared `SpaceService::get_object()` + `display_meta()`; legacy About branch deleted; browser-verified (desktop/390/dark, feed+members regress OK).
+- Phase 2a (`c81f87a9`): space **Media** via the seam; legacy Media branch deleted; browser-verified (media-on gallery, media-off → feed fallback).
+- Plan corrections (`9d8e72ac`, `81a89052`, `6f7512a1`): routing reality (members/moderation use dedicated templates) + the uniform-header finding + "one uniform nav API for every template" set as the governing goal.
+- Reverted: a members-panel seam attempt (members routes to `spaces/members.php`, not `home.php` — a SpaceNav members render would be dead code). Verify-per-item caught it via missing `.bn-sh-body`.
+
+## PENDING (resume here) — Phase 2: one uniform header/nav for every space template
+Findings from the Phase 2 scoping (use these on resume):
+- `SpaceMemberService::get_role()`/`get_status()` are `wp_cache`-backed, so membership resolved in BOTH `home.php` body and `space-header.php` is cache-cheap — the dup is LOGIC, not queries. So no heavy resolver is strictly required.
+- `home.php` body STILL needs the resolved nav for the panel seam (`$bn_space_ctx` / `$bn_space_nav` / `$bn_nav_items` / `$bn_panel_item`) — keep those.
+- `buddynext_nav()` → `NavRegistry::resolve()` (`includes/Nav/NavRegistry.php:79`) — CHECK whether it memoizes per context; if not, `home.php`-body + `space-header.php` resolve nav twice (cheap CPU, but memoizing `resolve()` per context id removes it cleanly).
+
+Resume recipe (the minimal uniform-header step):
+1. In `home.php`, DELETE the header rendering only: the stats build (~572-594) and the `space-hero.php` call (~565-613). KEEP the body's nav resolution + membership/gate/feed state.
+2. Replace that block with `buddynext_get_template( 'parts/space-header.php', array( 'space_id' => $space_id, 'active_tab' => $active_tab ) )`.
+3. (no-dup polish, optional) extract `SpaceMemberService::resolve_membership($space_id,$viewer_id): array` (memoized) and use it in BOTH `home.php` and `space-header.php`; consider memoizing `NavRegistry::resolve()`.
+4. CONFIRM every space template uses the one header/nav call: home (new), members ✅, moderation ✅, settings, admin.
+5. TEST per the litmus: home.php header/nav identical to today (counts, active tab, hero actions); members/moderation unchanged; About/Media bodies still render; 390/dark; 0 console errors; `bin/check.sh` green.
+
+Then Phase 3 (feed + discussions bodies via the seam; delete dead members/moderation `home.php` branches), Phases 4-7 per the task list.
 
 ## Task list (revised — UNIFORM NAV API across EVERY template is the goal)
 CORE PRINCIPLE (why we build this): every space + profile template renders its nav through
