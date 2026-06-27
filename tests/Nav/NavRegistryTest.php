@@ -443,7 +443,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'layer'      => 'metric',
 				'label'      => 'Admin',
 				'capability' => 'manage_options',
-				'count'      => static function ( NavContext $c ) use ( &$ran ) {
+				'count'      => static function () use ( &$ran ) {
 					$ran++;
 					return 7;
 				},
@@ -488,7 +488,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface' => 'profile',
 				'layer'   => 'metric',
 				'label'   => 'Neg',
-				'count'   => static fn( NavContext $c ) => -5,
+				'count'   => static fn() => -5,
 			)
 		);
 		$out  = $this->reg->resolve( new NavContext( 'profile', 5, 5 ) );
@@ -536,7 +536,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'layer'   => 'primary',
 				'label'   => 'EmptyUrl',
 				'tab'     => 'emptyurl',
-				'url'     => static fn( NavContext $c ) => '',
+				'url'     => static fn() => '',
 			)
 		);
 		$out  = $this->reg->resolve( new NavContext( 'profile', 7, 7 ) );
@@ -695,5 +695,70 @@ class NavRegistryTest extends \WP_UnitTestCase {
 		$this->assertTrue( $member->role_at_least( 'member' ) );
 		$this->assertFalse( $member->role_at_least( 'moderator' ) );
 		$this->assertFalse( $none->role_at_least( 'member' ), 'empty role satisfies nothing' );
+	}
+
+	/**
+	 * Resolving the same context twice runs the count callable once (memoized),
+	 * but a different context resolves afresh. This is what lets the shared space
+	 * header and the space body both ask for the nav without a double count query.
+	 */
+	public function test_resolve_memoizes_per_context(): void {
+		$count_calls = 0;
+		$this->reg->register(
+			array(
+				'id'      => 'feed',
+				'surface' => 'space',
+				'layer'   => 'primary',
+				'label'   => 'Feed',
+				'render'  => static function (): void {},
+				'count'   => static function () use ( &$count_calls ): int {
+					++$count_calls;
+					return 3;
+				},
+			)
+		);
+
+		$ctx = new NavContext( 'space', 9, 5, 'member' );
+		$a   = $this->reg->resolve( $ctx );
+		$b   = $this->reg->resolve( new NavContext( 'space', 9, 5, 'member' ) );
+
+		$this->assertSame( $a, $b, 'identical context returns the cached ResolvedNav' );
+		$this->assertSame( 1, $count_calls, 'count callable runs once across identical resolves' );
+
+		// A different viewer is a different context — resolves again.
+		$this->reg->resolve( new NavContext( 'space', 9, 8, 'member' ) );
+		$this->assertSame( 2, $count_calls, 'a different context re-resolves' );
+	}
+
+	/**
+	 * Resetting the registry drops the resolved cache, so a re-registered count
+	 * callable runs again (the cache never leaks across a registry reset).
+	 */
+	public function test_reset_clears_resolved_cache(): void {
+		$count_calls = 0;
+		$register    = function () use ( &$count_calls ): void {
+			$this->reg->register(
+				array(
+					'id'      => 'feed',
+					'surface' => 'space',
+					'layer'   => 'primary',
+					'label'   => 'Feed',
+					'render'  => static function (): void {},
+					'count'   => static function () use ( &$count_calls ): int {
+						++$count_calls;
+						return 1;
+					},
+				)
+			);
+		};
+
+		$register();
+		$this->reg->resolve( new NavContext( 'space', 9, 5, 'member' ) );
+		$this->assertSame( 1, $count_calls );
+
+		$this->reg->reset();
+		$register();
+		$this->reg->resolve( new NavContext( 'space', 9, 5, 'member' ) );
+		$this->assertSame( 2, $count_calls, 'reset() invalidated the memo' );
 	}
 }

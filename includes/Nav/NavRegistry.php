@@ -48,6 +48,21 @@ final class NavRegistry {
 	private bool $providers_fired = false;
 
 	/**
+	 * Per-request resolved-nav cache, keyed by context signature.
+	 *
+	 * A surface is routinely resolved more than once in a single request — e.g.
+	 * the shared `parts/space-header.php` and the space body both ask for the same
+	 * space nav. Each resolve re-runs every `count` callable, some of which hit the
+	 * DB, so memoizing the `ResolvedNav` for an identical context removes that
+	 * duplicate work. All registrations land on the first resolve (via the one-shot
+	 * `buddynext_register_nav` action), so the cache cannot go stale within a
+	 * request; `reset()` clears it for tests.
+	 *
+	 * @var array<string,ResolvedNav>
+	 */
+	private array $resolved_cache = array();
+
+	/**
 	 * Shared instance. The registry must accumulate registrations across the
 	 * request, so it is a singleton rather than a per-resolve factory.
 	 */
@@ -77,6 +92,13 @@ final class NavRegistry {
 	 * @return ResolvedNav
 	 */
 	public function resolve( NavContext $ctx ): ResolvedNav {
+		// Return the memoized result when this exact context was already resolved
+		// this request (the header part + the body resolve the same space nav).
+		$cache_key = $this->context_signature( $ctx );
+		if ( isset( $this->resolved_cache[ $cache_key ] ) ) {
+			return $this->resolved_cache[ $cache_key ];
+		}
+
 		// Let providers/bridges register on first use, then resolve lazily so
 		// count/condition callables see the live request.
 		if ( ! $this->providers_fired ) {
@@ -182,7 +204,31 @@ final class NavRegistry {
 		}
 		$by_layer['primary'] = $this->nest( $by_layer['primary'] );
 
-		return new ResolvedNav( $by_layer );
+		$resolved                           = new ResolvedNav( $by_layer );
+		$this->resolved_cache[ $cache_key ] = $resolved;
+		return $resolved;
+	}
+
+	/**
+	 * Build a stable per-request cache key for a resolution context. Two contexts
+	 * that share a signature resolve to the same nav (surface + subject + viewer +
+	 * role + active sub + any per-surface extra), so the result is interchangeable.
+	 *
+	 * @param NavContext $ctx Resolution context.
+	 * @return string
+	 */
+	private function context_signature( NavContext $ctx ): string {
+		return implode(
+			'|',
+			array(
+				$ctx->surface,
+				(string) $ctx->subject_id,
+				(string) $ctx->viewer_id,
+				$ctx->role,
+				$ctx->sub,
+				md5( (string) wp_json_encode( $ctx->extra ) ),
+			)
+		);
 	}
 
 	/**
@@ -280,5 +326,6 @@ final class NavRegistry {
 		$this->items           = array();
 		$this->seq             = 0;
 		$this->providers_fired = false;
+		$this->resolved_cache  = array();
 	}
 }

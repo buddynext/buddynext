@@ -108,8 +108,7 @@ $membership = ( null !== $bn_member_status_now )
 	)
 	: null;
 
-$is_member    = $membership && 'active' === $membership->status;
-$is_admin_mod = $membership && 'active' === $membership->status && in_array( $membership->role, array( 'owner', 'moderator' ), true );
+$is_member = $membership && 'active' === $membership->status;
 
 // Whether the viewer may moderate THIS space. Resolves through the role map
 // (buddynext-spaces/moderate) so the Roles & Capabilities toggle governs it:
@@ -241,12 +240,6 @@ $privacy_tone     = $bn_display_meta['privacy_tone'];
 
 $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 $rest_nonce      = wp_create_nonce( 'wp_rest' );
-
-// Per-space notification preference for the current user.
-$bn_notif_pref = 'all';
-if ( $is_member ) {
-	$bn_notif_pref = $bn_member_service->get_notification_pref( $space_id, $current_user_id );
-}
 
 // Members tab requires the full roster when active. Exposed as objects so the
 // members panel keeps its existing property access.
@@ -562,53 +555,19 @@ foreach ( $bn_nav_items as $bn_pi ) {
 	'
 >
 
-	<!-- Hero -->
+	<!-- Hero + tab nav -->
 	<?php
-	// Header stats. Counts at zero are not shown — an empty "0 Posts" promotes
-	// emptiness and adds no information. Visibility (Open/Private) is already
-	// rendered as a badge next to the space name, so it is not repeated here.
-	// "Active 7d" was dropped: it measured only members who posted in 7 days,
-	// which has no real-world precedent and reads 0 for healthy lurking spaces.
-	$bn_hero_stats = array();
-
-	if ( (int) $space->member_count > 0 ) {
-		$bn_hero_stats[] = array(
-			'label' => __( 'Members', 'buddynext' ),
-			'value' => $member_count_fmt,
-			'icon'  => 'users',
-		);
-	}
-
-	if ( $bn_post_count > 0 ) {
-		$bn_hero_stats[] = array(
-			'label' => __( 'Posts', 'buddynext' ),
-			'value' => number_format_i18n( $bn_post_count ),
-			'icon'  => 'message-circle',
-		);
-	}
-
-	$bn_hero_stats[] = array(
-		'label' => __( 'Created', 'buddynext' ),
-		'value' => ! empty( $space->created_at ) ? buddynext_date_local( (string) $space->created_at, 'M Y' ) : '—',
-		'icon'  => 'calendar',
-	);
+	// The one uniform header every space template renders. space-header.php
+	// resolves membership, stats and the registry tabs from just the space id +
+	// viewer, then delegates to space-hero.php — so home, members, moderation all
+	// share a single header/nav instead of each hand-rolling its own copy. The
+	// nav it resolves is the same NavContext the body resolves below, so
+	// NavRegistry memoizes it (no double count query).
 	buddynext_get_template(
-		'parts/space-hero.php',
+		'parts/space-header.php',
 		array(
-			'space'           => $space,
-			'space_id'        => $space_id,
-			'current_user_id' => $current_user_id,
-			'is_member'       => $is_member,
-			'is_owner'        => $is_admin_mod,
-			'is_pending'      => $is_pending,
-			'is_invited'      => $is_invited,
-			'is_guest'        => $is_guest,
-			'privacy_label'   => $privacy_label,
-			'privacy_tone'    => $privacy_tone,
-			'notif_pref'      => $bn_notif_pref,
-			'stats'           => $bn_hero_stats,
-			'active_tab'      => $active_tab,
-			'nav_items'       => $bn_nav_items,
+			'space_id'   => $space_id,
+			'active_tab' => $active_tab,
 		)
 	);
 	?>
