@@ -30,7 +30,9 @@ This is the single most common override mistake. `TemplateLoader::render()` does
 
 - Only **string** keys are imported. Numeric or non-string keys are skipped.
 - A key must match the PHP identifier regex `^[a-zA-Z_][a-zA-Z0-9_]*$`. Stray / collision-prone keys are dropped.
-- The loader's own locals are reserved and cannot be shadowed: `path`, `relative`, `variables`, plus the import internals `bn_reserved`, `bn_key`, `bn_value`. Passing a variable named `$path` or `$relative` into a template will not work - the loader's own value wins.
+- The loader's own locals are reserved and cannot be shadowed: `path`, `relative`, `variables`, plus the import internals `bn_reserved`, `bn_key`, `bn_value`, `bn_filtered`, `bn_html`. Passing a variable named `$path` or `$relative` into a template will not work - the loader's own value wins.
+
+**Why not just `extract( $vars, EXTR_SKIP )`?** Fair question - `EXTR_SKIP` would also skip numeric keys and never overwrite an existing local, so the skipping itself is not the reason. The reason is **static analysability and an explicit contract**: `extract()` is opaque to PHPStan and IDEs, so inside a template every variable looks undefined and tooling can verify nothing. The manual import keeps each template's inputs knowable, which is what makes the `@var` header in every part an enforceable contract rather than a hopeful comment. The trade-off the reviewer is right to flag: a bad key is dropped **silently** instead of raising the notice `extract()` would. If you are debugging a missing variable, that silence is the trap - so the rule of thumb stands: **read the `@var` header; it is the authoritative list, and a name not listed there is not in scope.**
 
 The practical effect: a copied template receives exactly the variables the caller passed, under their original names, and nothing more. **Read the `@var` block in the template's PHP header to learn the variables in scope** - that header is the authoritative list of what your override can use. Do not assume globals or extra variables are present; if the header does not list it, it is not in scope.
 

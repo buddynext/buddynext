@@ -154,8 +154,8 @@ class TemplateLoaderTest extends \WP_UnitTestCase {
 		$file = $this->tmp_dir . '/hook.php';
 		file_put_contents( $file, '<?php // empty ?>' );
 
-		$loader  = $this->make_loader_with_dir( $this->tmp_dir . '/' );
-		$fired   = false;
+		$loader = $this->make_loader_with_dir( $this->tmp_dir . '/' );
+		$fired  = false;
 
 		add_action(
 			'buddynext_before_template',
@@ -187,6 +187,51 @@ class TemplateLoaderTest extends \WP_UnitTestCase {
 
 		$loader->render( 'hook-after.php' );
 		$this->assertTrue( $fired );
+	}
+
+	/**
+	 * render() runs its output through the buddynext_template_html filter when a
+	 * callback is attached, so a plugin can transform a template's HTML without
+	 * copying it. The filter receives the relative identifier + absolute path.
+	 */
+	public function test_render_applies_output_filter_when_hooked(): void {
+		$file = $this->tmp_dir . '/filterable.php';
+		file_put_contents( $file, '<?php echo "raw"; ?>' );
+
+		$loader   = $this->make_loader_with_dir( $this->tmp_dir . '/' );
+		$seen_rel = '';
+		add_filter(
+			'buddynext_template_html',
+			function ( string $html, string $relative ) use ( &$seen_rel ): string {
+				$seen_rel = $relative;
+				return $html . ' + filtered';
+			},
+			10,
+			2
+		);
+
+		ob_start();
+		$loader->render( 'filterable.php' );
+		$output = ob_get_clean();
+
+		$this->assertSame( 'raw + filtered', $output );
+		$this->assertSame( 'filterable.php', $seen_rel, 'filter receives the relative identifier' );
+	}
+
+	/**
+	 * With no buddynext_template_html callback attached, the render path is
+	 * unbuffered and the output is exactly the template's own markup — no double
+	 * output, no buffer leak. Guards the has_filter() fast-path.
+	 */
+	public function test_render_output_unchanged_without_filter(): void {
+		$file = $this->tmp_dir . '/plain.php';
+		file_put_contents( $file, '<?php echo "plain output"; ?>' );
+
+		$loader = $this->make_loader_with_dir( $this->tmp_dir . '/' );
+
+		ob_start();
+		$loader->render( 'plain.php' );
+		$this->assertSame( 'plain output', ob_get_clean() );
 	}
 
 	// ── capture() ─────────────────────────────────────────────────────────────

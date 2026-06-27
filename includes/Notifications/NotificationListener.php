@@ -29,6 +29,26 @@ class NotificationListener implements ListenerInterface {
 	private const SPACE_FANOUT_BATCH = 200;
 
 	/**
+	 * Members processed per background fan-out batch, filterable so a site owner can
+	 * tune it to their hosting - a beefier host can raise it; a constrained one can
+	 * lower it. Clamped to at least 1 so a bad filter can never stall the keyset loop.
+	 *
+	 * Note: this is the per-batch MEMBER count, not the IN()-clause chunk used when
+	 * bumping existing rows (that is a separate SQL placeholder bound) - the two are
+	 * intentionally independent.
+	 *
+	 * @return int
+	 */
+	private function fanout_batch_size(): int {
+		/**
+		 * Filter the per-batch member count for space-post notification fan-out.
+		 *
+		 * @param int $size Default batch size (SPACE_FANOUT_BATCH).
+		 */
+		return max( 1, (int) apply_filters( 'buddynext_notification_fanout_batch', self::SPACE_FANOUT_BATCH ) );
+	}
+
+	/**
 	 * Register all notification event hook listeners.
 	 *
 	 * Called once during Plugin::register_listeners() at plugins_loaded:15,
@@ -564,9 +584,10 @@ class NotificationListener implements ListenerInterface {
 		// disabled or stalled, which previously meant members got no
 		// notification at all. The first batch is the same bounded keyset query
 		// the async worker uses, so the posting request cost is capped.
-		$batch         = $this->fan_out_space_post_batch( $post_id, $space_id, $user_id, 0, self::SPACE_FANOUT_BATCH );
+		$batch_size    = $this->fanout_batch_size();
+		$batch         = $this->fan_out_space_post_batch( $post_id, $space_id, $user_id, 0, $batch_size );
 		$after_user_id = (int) $batch['last_user_id'];
-		$has_more      = ( self::SPACE_FANOUT_BATCH === $batch['count'] && $after_user_id > 0 );
+		$has_more      = ( $batch_size === $batch['count'] && $after_user_id > 0 );
 
 		if ( ! $has_more ) {
 			return;
@@ -593,9 +614,9 @@ class NotificationListener implements ListenerInterface {
 		// AS-absent (local/test): drain the remaining batches inline so all
 		// members are notified, still bounded to SPACE_FANOUT_BATCH rows per query.
 		do {
-			$batch         = $this->fan_out_space_post_batch( $post_id, $space_id, $user_id, $after_user_id, self::SPACE_FANOUT_BATCH );
+			$batch         = $this->fan_out_space_post_batch( $post_id, $space_id, $user_id, $after_user_id, $batch_size );
 			$after_user_id = (int) $batch['last_user_id'];
-		} while ( self::SPACE_FANOUT_BATCH === $batch['count'] && $after_user_id > 0 );
+		} while ( $batch_size === $batch['count'] && $after_user_id > 0 );
 	}
 
 	/**
@@ -618,11 +639,12 @@ class NotificationListener implements ListenerInterface {
 			return;
 		}
 
-		$batch = $this->fan_out_space_post_batch( $post_id, $space_id, $author_id, $after_user_id, self::SPACE_FANOUT_BATCH );
+		$batch_size = $this->fanout_batch_size();
+		$batch      = $this->fan_out_space_post_batch( $post_id, $space_id, $author_id, $after_user_id, $batch_size );
 
 		// A full batch means more members may remain — schedule the next page,
 		// resuming from the last user_id (keyset, never OFFSET).
-		if ( self::SPACE_FANOUT_BATCH === $batch['count'] && $batch['last_user_id'] > 0 && function_exists( 'as_enqueue_async_action' ) ) {
+		if ( $batch_size === $batch['count'] && $batch['last_user_id'] > 0 && function_exists( 'as_enqueue_async_action' ) ) {
 			as_enqueue_async_action(
 				'buddynext_async_space_post_fanout',
 				array(

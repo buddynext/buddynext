@@ -98,7 +98,7 @@ class TemplateLoader {
 		// method's own locals ($path, $relative, $variables) cannot be shadowed.
 		// This keeps templates statically analysable and rejects any stray /
 		// numeric / collision-prone keys.
-		$bn_reserved = array( 'path', 'relative', 'variables', 'bn_reserved', 'bn_key', 'bn_value' );
+		$bn_reserved = array( 'path', 'relative', 'variables', 'bn_reserved', 'bn_key', 'bn_value', 'bn_filtered', 'bn_html' );
 		foreach ( $variables as $bn_key => $bn_value ) {
 			if ( ! is_string( $bn_key )
 				|| in_array( $bn_key, $bn_reserved, true )
@@ -108,7 +108,33 @@ class TemplateLoader {
 			$$bn_key = $bn_value;
 		}
 		unset( $bn_reserved, $bn_key, $bn_value );
+
+		// Output filter, gated on has_filter() so the default render path keeps ZERO
+		// overhead (no output buffering) - we only buffer when a plugin is actually
+		// listening. This lets a plugin transform a template's fully-rendered HTML
+		// without copying the file, complementing the before/after wrap actions.
+		$bn_filtered = has_filter( 'buddynext_template_html' );
+		if ( $bn_filtered ) {
+			ob_start();
+		}
+
 		include $path;
+
+		if ( $bn_filtered ) {
+			$bn_html = (string) ob_get_clean();
+			/**
+			 * Filter a BuddyNext template's fully-rendered HTML.
+			 *
+			 * Fires only when a callback is attached (the render path is unbuffered
+			 * otherwise). The template has already escaped its own output; a filter
+			 * owns the safety of whatever markup it returns.
+			 *
+			 * @param string $bn_html  The rendered template output.
+			 * @param string $relative Relative template identifier (e.g. 'feed/home.php').
+			 * @param string $path     Absolute template path.
+			 */
+			echo apply_filters( 'buddynext_template_html', $bn_html, $relative, $path ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- template self-escapes; the filter owns its returned markup.
+		}
 
 		/**
 		 * Fires after a BuddyNext template is rendered.
