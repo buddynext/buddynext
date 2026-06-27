@@ -103,7 +103,12 @@ All 34 notification types have a case in `compose_single()`. Key actor-resolutio
 
 ### Fan-out (space new-post notifications)
 
-`NotificationListener::on_post_created_in_space()` fans out `bn.space_new_post` to all space members. Uses Action Scheduler when available (`buddynext_async_space_new_post_notification` → `buddynext_async_space_post_fanout`). Batches of 200 members (`SPACE_FANOUT_BATCH`) via keyset pagination on `user_id`. Falls back to inline loop when AS absent. Block-suppression: bidirectional for `block` type; unidirectional (recipient only) for `mute` and `restrict`.
+`NotificationListener::on_post_created_in_space()` fans out `bn.space_new_post` to all space members. Uses Action Scheduler when available (`buddynext_async_space_new_post_notification` -> `buddynext_async_space_post_fanout`). Batches of 200 members (`SPACE_FANOUT_BATCH`) via keyset pagination on `user_id`. Falls back to inline loop when AS absent.
+
+Each batch (`fan_out_space_post_batch`) is processed in two stages, NOT one-recipient-at-a-time:
+
+- **RECORD (in-app, bulk):** one keyset query reads members + their per-space pref; one query each batches the block check (`blocked_member_ids`, type-aware), the per-type `on_site` pref (`NotificationPrefService::get_on_site_map`), and the existing-group dedup; `in_app` is primed via `update_meta_cache`. Eligible recipients are bulk-INSERTed (new) / bulk-UPDATEd (merge), then `buddynext_notification_created` fires per row so the realtime / push / analytics consumers behave exactly as for a single `create()`. Free-only fan-out is constant per batch (~11 queries / 200 members) instead of ~6 per member. Block-suppression: bidirectional for `block` type; unidirectional (recipient only) for `mute` and `restrict`.
+- **DELIVER (email, async):** email is not real-time. The record stage stamps `defer_email` on the payload (so `EmailDispatchListener` skips the per-row email) and hands delivery to `buddynext_async_space_post_emails`, a self-paginating AS action that sends inline via `EmailSender::send($defer = false)` in chunks of 50.
 
 ---
 

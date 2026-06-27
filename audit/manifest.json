@@ -25468,6 +25468,11 @@
   ],
   "hooks_fired": [
     {
+      "hook": "buddynext_feed_new_count_interval",
+      "type": "filter",
+      "file": "templates/feed/home.php:91"
+    },
+    {
       "hook": "bn_admin_hub_sections",
       "type": "filter",
       "file": "includes/Admin/AdminHub.php:229"

@@ -82,7 +82,8 @@ if ( function_exists( 'as_enqueue_async_action' ) ) {
 
 | Hook | Fired when | Args |
 |---|---|---|
-| `buddynext_async_space_post_fanout` | A space post needs background notification fan-out beyond the first batch | `array{ post_id, space_id, author_id, after_user_id }` |
+| `buddynext_async_space_post_fanout` | A space post needs background notification fan-out (RECORD stage) beyond the first batch | `array{ post_id, space_id, author_id, after_user_id }` |
+| `buddynext_async_space_post_emails` | DELIVER stage: send the space new-post emails for a recipient batch, off the fan-out task (self-paginating in chunks of 50) | `array{ post_id, space_id, author_id, recipients }` |
 | `buddynext_async_index_hashtags` | A post or other content needs hashtag extraction + sync | `object_type, object_id, content` |
 | `buddynext_reindex_all` | A full search-index rebuild is requested | none |
 
