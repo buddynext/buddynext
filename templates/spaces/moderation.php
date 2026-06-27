@@ -204,6 +204,15 @@ $mod_privacy = array(
 			'active_tab' => 'moderation',
 		)
 	);
+	// Uniform right rail (same cards as every other space tab).
+	buddynext_get_template(
+		'parts/space-sidebar.php',
+		array(
+			'space_id'   => $space_id,
+			'viewer_id'  => $current_uid,
+			'active_tab' => 'moderation',
+		)
+	);
 	?>
 
 	<!-- Moderation sub-filter (Reports / Pending / Activity log) as a sub-nav. -->

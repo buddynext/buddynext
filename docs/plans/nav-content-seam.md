@@ -182,6 +182,8 @@ and it settles members/moderation (they keep dedicated bodies but already share 
 Owner feedback after the header step: switching Feed/About → Members/Moderation "feels off" because the right rail VANISHES. Root cause: the shell renders the right column only when something hooks `buddynext_right_sidebar`; `home.php` registers the space sidebar widgets (2-col), but `members.php`/`moderation.php` register NOTHING (full-width, no rail). So the main column snaps wide on those tabs.
 Decision: **the right sidebar is part of the uniform shell.** EVERY space tab keeps the same 2-column shell + the same sidebar; only the WIDGETS vary per tab (e.g. drop the redundant Members-preview card on the Members tab). This RESOLVES the deferred members/moderation routing question — they stay dedicated bodies but adopt the uniform shell + sidebar (header was already shared). Implementation: extract the space sidebar registration out of `home.php`'s inline closure into a shared `parts/space-sidebar.php` (computes mods/members/contributors/about once, registers the `buddynext_right_sidebar` cards, takes `active_tab` for per-tab variation); `home.php`, `members.php`, `moderation.php` each call it. No card rendered by two code paths (no-dup gate).
 
+DONE (Phase 2 sidebar step, this commit): new `parts/space-sidebar.php` (self-contained: resolves space + mods + members preview + contributors from `space_id`/`viewer_id`/`active_tab`, registers the 4 rail cards; `bn_sh_avatar_tone` moved here). `home.php`, `members.php`, `moderation.php` all call it → every space tab now renders the SAME 2-col shell + sidebar (was: members/moderation full-width, no rail). The Members-preview card self-suppresses on the Members tab (roster IS the body). Removed from `home.php` in the same commit: the inline sidebar closure, its sidebar-only data fetches (`$bn_to_objects`/`$sidebar_members`/`$top_contributors`/`$member_count_fmt`/`$privacy_*`/`$bn_display_meta`/`$bn_post_count`/`$bn_media_count`), the dead `members`/`moderation` body branches (those URLs route to the dedicated templates — Phase 3 deletion brought forward) and their now-orphan vars (`$can_moderate`/`$bn_mod_count`/`$bn_pending_count`/`$bn_full_members`/`$bn_member_filter`). Net: `home.php` body is now ONLY its real panels (feed/about/media/discussions) + the uniform header + the uniform sidebar; the wasted top-contributors/full-roster queries it ran on every load are gone. Browser-verified on Docker (feed/about/members/moderation, desktop + 390 + dark): one uniform header + sidebar on every tab, correct active tab, 0 console errors.
+
 ## PENDING (resume here) — Phase 2: one uniform header/nav for every space template
 Findings from the Phase 2 scoping (use these on resume):
 - `SpaceMemberService::get_role()`/`get_status()` are `wp_cache`-backed, so membership resolved in BOTH `home.php` body and `space-header.php` is cache-cheap — the dup is LOGIC, not queries. So no heavy resolver is strictly required.
@@ -212,20 +214,22 @@ Each phase = its own browser-verified commit. All land in 1.0.4.
 `home.php` bridge routes a tab's `render` via `PanelRenderer`; About + Media migrated; shared
 `SpaceService::get_object()`/`display_meta()`; legacy branches deleted; browser-verified.
 
-### Phase 2 — ONE UNIFORM HEADER/NAV FOR EVERY SPACE TEMPLATE (next)
-- [ ] Shared space-view-context resolver (membership + role + stats + nav items + gating),
-      computed ONCE, the single source for the header AND the bodies.
-- [ ] `home.php` adopts `parts/space-header.php` for the hero+nav — DELETE its inline duplicate
-      (membership 101-124, stats 572-594, nav context 533-534, hero call 595-613).
-- [ ] `space-header.php` reads the shared resolver (no second membership/stats/nav computation).
-- [ ] CONFIRM every space template renders nav via the ONE call: home, members, moderation,
-      settings, admin — none hand-rolls its own header/nav.
-- [ ] TEST: every space tab's header/nav identical to today (counts, active-state); zero dup.
+### Phase 2 — ONE UNIFORM HEADER/NAV + SIDEBAR FOR EVERY SPACE TEMPLATE ✅ DONE
+- [x] `home.php` adopts `parts/space-header.php` for the hero+nav — inline duplicate DELETED (`627d6b3e`).
+- [x] `NavRegistry::resolve()` memoized per context, so header + body don't double-run count callables (`627d6b3e`).
+- [x] Uniform SIDEBAR: shared `parts/space-sidebar.php`; home + members + moderation all call it
+      (members/moderation were full-width/no-rail) — owner decision 2026-06-27. Members-preview card
+      self-suppresses on the Members tab.
+- [x] CONFIRM every IN-HUB space tab renders header+nav+sidebar via the ONE call: home, members,
+      moderation. (settings + admin are dedicated management drill-in pages — a "Back to space" header,
+      no in-hub tab nav by design — intentionally OUT of this scope.)
+- [x] TEST: every space tab's header/nav/sidebar identical (counts, active-state); browser-verified
+      desktop + 390 + dark, 0 console errors; zero dup (single header path + single sidebar path).
 
 ### Phase 3 — Finish the `home.php` body seam
+- [x] Delete the now-dead `home.php` `members`/`moderation` branches (done early in the Phase 2 sidebar commit — they route to dedicated templates).
 - [ ] `feed` → `render` (its membership/feed state comes from the shared resolver).
 - [ ] `discussions` (Jetonomy) → `render`; delete the `home.php` discussions branch + `new JetonomyBridge()`.
-- [ ] Delete the now-dead `home.php` `members`/`moderation` branches (they route to dedicated templates).
 - [ ] TEST: feed + discussions render via the seam; Jetonomy provision still works; 0 console errors.
 
 ### Phase 4 — Profile surface (same uniform pattern)

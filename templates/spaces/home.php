@@ -51,25 +51,6 @@ if ( ! function_exists( 'bn_space_category_icon' ) ) {
 	}
 }
 
-if ( ! function_exists( 'bn_sh_avatar_tone' ) ) {
-	/**
-	 * Return a deterministic avatar tone slug based on a user id.
-	 *
-	 * Maps to the shared `.bn-avatar[data-tone]` palette in bn-base.css
-	 * (same six tones the member/space cover cards use). The slug is applied
-	 * as `data-tone` so the colour is theme- and dark-mode-aware via tokens
-	 * rather than a hardcoded hex inline style.
-	 *
-	 * @param int $user_id WordPress user ID.
-	 * @return string Tone slug (sky|cyan|emerald|lime|amber|coral).
-	 */
-	function bn_sh_avatar_tone( int $user_id ): string {
-		$tones = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
-		return $tones[ $user_id % count( $tones ) ];
-	}
-}
-
-
 // ── Services ──────────────────────────────────────────────────────────────────
 
 $bn_space_service  = new \BuddyNext\Spaces\SpaceService();
@@ -108,19 +89,10 @@ $membership = ( null !== $bn_member_status_now )
 	)
 	: null;
 
-$is_member = $membership && 'active' === $membership->status;
-
-// Whether the viewer may moderate THIS space. Resolves through the role map
-// (buddynext-spaces/moderate) so the Roles & Capabilities toggle governs it:
-// space owners/moderators, role-granted members, and site admins all pass.
-// Drives the moderation tab/counts/panel below — the moderation page itself
-// (templates/spaces/moderation.php) already uses this same capability, so the
-// tab and the page now agree instead of the tab being hidden by a role check.
-$can_moderate = $current_user_id > 0
-	&& buddynext_can( $current_user_id, 'buddynext-spaces/moderate', array( 'space_id' => $space_id ) );
-$is_pending   = $membership && 'pending' === $membership->status;
-$is_invited   = $membership && 'invited' === $membership->status;
-$is_guest     = ( 0 === (int) $current_user_id );
+$is_member  = $membership && 'active' === $membership->status;
+$is_pending = $membership && 'pending' === $membership->status;
+$is_invited = $membership && 'invited' === $membership->status;
+$is_guest   = ( 0 === (int) $current_user_id );
 
 // Posting permission (Permissions panel → "Who can post"): members | mods | owner.
 // A site admin, or any member whose role meets the configured threshold, may post.
@@ -185,300 +157,25 @@ if ( ! $gate_feed ) {
 	);
 }
 
-// ── Fetch sidebar members ─────────────────────────────────────────────────────
-// Owners/moderators always lead the sidebar; fetch them in full (they are few)
-// and a capped preview of regular members. Each row is exposed as an object so
-// the sidebar markup keeps its existing property access.
-$bn_to_objects = static function ( array $rows ): array {
-	return array_map(
-		static function ( array $r ): object {
-			// space-members-panel falls back to user_login when display_name is
-			// empty; the service carries user_nicename, so mirror it across.
-			$r['user_login'] = $r['user_login'] ?? ( $r['user_nicename'] ?? '' );
-			return (object) $r;
-		},
-		$rows
-	);
-};
-
-$bn_mods         = array_merge(
-	$bn_member_service->get_members( $space_id, $current_user_id, 0, 0, array( 'role' => 'owner' ) ),
-	$bn_member_service->get_members( $space_id, $current_user_id, 0, 0, array( 'role' => 'moderator' ) )
-);
-$bn_regulars     = $bn_member_service->get_members( $space_id, $current_user_id, 10, 0, array( 'role' => 'member' ) );
-$sidebar_members = $bn_to_objects( array_merge( $bn_mods, $bn_regulars ) );
-
-// ── Top contributors ──────────────────────────────────────────────────────────
-
-$top_contributors = $bn_to_objects( $bn_space_service->top_contributors( $space_id, 3 ) );
-
-// ── Counts for stat strip + tabs ──────────────────────────────────────────────
-
-$bn_post_count = $bn_feed_service->space_post_count( $space_id );
-// Media tab count — posts in this space carrying at least one media attachment.
-$bn_media_count = $bn_feed_service->space_media_post_count( $space_id );
-
-// Moderation tab counts — open reports + pending join requests for this space.
-// Resolved only when the viewer may moderate; everyone else gets 0 so the count
-// chip never leaks the queue size to non-moderators.
-$bn_mod_count     = 0;
-$bn_pending_count = 0;
-if ( $can_moderate ) {
-	$bn_mod_count     = buddynext_service( 'moderation' )->count_open_reports_for_space( $space_id );
-	$bn_pending_count = $bn_member_service->count_pending_requests( $space_id );
-}
-
 // Clean-URL active tab: /spaces/{slug}/{tab}/ → bn_space_action. Defaults to feed.
 $active_tab = (string) get_query_var( 'bn_space_action', '' );
 $active_tab = '' !== $active_tab ? sanitize_key( $active_tab ) : 'feed';
-// Shared presentation meta (privacy label/tone + formatted member count) — the
-// same source the About panel uses, so the header and the panel never drift.
-$bn_display_meta  = \BuddyNext\Spaces\SpaceService::display_meta( $space );
-$member_count_fmt = $bn_display_meta['member_count_fmt'];
-$privacy_label    = $bn_display_meta['privacy_label'];
-$privacy_tone     = $bn_display_meta['privacy_tone'];
 
 $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 $rest_nonce      = wp_create_nonce( 'wp_rest' );
 
-// Members tab requires the full roster when active. Exposed as objects so the
-// members panel keeps its existing property access.
-$bn_full_members = array();
-if ( 'members' === $active_tab && ! $gate_feed ) {
-	$bn_full_members = $bn_to_objects(
-		$bn_member_service->get_members( $space_id, $current_user_id, 100, 0 )
-	);
-}
-
-// ── Right sidebar widgets ────────────────────────────────────────────────────
-// Registered on the shared hub-shell action. The shell detects via has_action()
-// after the inner buffer flushes and renders the right column.
-$bn_sidebar_args = array(
-	'space'            => $space,
-	'space_id'         => $space_id,
-	'sidebar_members'  => $sidebar_members,
-	'top_contributors' => $top_contributors,
-	'member_count_fmt' => $member_count_fmt,
-	'post_count'       => $bn_post_count,
-	'privacy_label'    => $privacy_label,
-	'privacy_tone'     => $privacy_tone,
-);
-
-add_action(
-	'buddynext_right_sidebar',
-	static function () use ( $bn_sidebar_args ) {
-		$bn_s = $bn_sidebar_args;
-
-		// Card 1: About. Qualitative context only (description + type +
-		// created + category). The Members / Posts counts live in the hero
-		// stat strip — repeating the numbers here is duplication, so this
-		// card carries what the strip does not.
-		ob_start();
-		if ( ! empty( $bn_s['space']->description ) ) :
-			?>
-			<p class="bn-sh-side-text"><?php echo esc_html( $bn_s['space']->description ); ?></p>
-			<?php
-		endif;
-		?>
-		<div class="bn-sh-side-meta">
-			<span class="bn-badge" data-tone="<?php echo esc_attr( $bn_s['privacy_tone'] ); ?>"><?php echo esc_html( $bn_s['privacy_label'] ); ?></span>
-			<?php if ( ! empty( $bn_s['space']->created_at ) ) : ?>
-				<span class="bn-sh-side-meta__row">
-					<?php buddynext_icon( 'calendar' ); ?>
-					<?php
-					// translators: %s is the formatted date.
-					printf( esc_html__( 'Created %s', 'buddynext' ), buddynext_date_local( (string) $bn_s['space']->created_at ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- buddynext_date_local() returns esc_html()'d output.
-					?>
-				</span>
-			<?php endif; ?>
-			<?php if ( ! empty( $bn_s['space']->category_name ) ) : ?>
-				<span class="bn-sh-side-meta__row">
-					<?php buddynext_icon( 'hash' ); ?>
-					<?php echo esc_html( $bn_s['space']->category_name ); ?>
-				</span>
-			<?php endif; ?>
-		</div>
-		<?php
-		$bn_about_html = (string) ob_get_clean();
-
-		buddynext_get_template(
-			'parts/sidebar-card.php',
-			array(
-				'id'         => 'space-about',
-				'title'      => __( 'About this space', 'buddynext' ),
-				'title_icon' => 'info',
-				'body_html'  => $bn_about_html,
-			)
-		);
-
-		// Split the role-ordered preview into moderators (owner + moderator)
-			// and regular members so the two cards complement each other
-			// instead of repeating mods. owner/moderator always lead the
-			// LIMIT-10 set, so this needs no extra query.
-			$bn_side_all = (array) $bn_s['sidebar_members'];
-			$bn_mods     = array_values(
-				array_filter(
-					$bn_side_all,
-					static function ( $m ) {
-						return in_array( $m->role ?? '', array( 'owner', 'moderator' ), true );
-					}
-				)
-			);
-			$bn_regulars = array_values(
-				array_filter(
-					$bn_side_all,
-					static function ( $m ) {
-						return 'member' === ( $m->role ?? '' );
-					}
-				)
-			);
-
-			// Card 2: Moderators. DMs are owned by WPMediaVerse, so only offer
-			// the Message action when that dependency is present (same signal
-			// the messages hub uses); otherwise the row links to the profile.
-		if ( ! empty( $bn_mods ) ) {
-			$bn_msgs_on = \BuddyNext\Messages\MessagesData::available();
-			ob_start();
-			?>
-				<ul class="bn-sh-side-members">
-				<?php foreach ( $bn_mods as $bn_mod ) : ?>
-						<?php
-						$bn_mod_uid   = (int) $bn_mod->user_id;
-						$bn_mod_name  = $bn_mod->display_name ?? __( 'Member', 'buddynext' );
-						$bn_mod_init  = \BuddyNext\Profile\AvatarService::initials_for( (string) $bn_mod_name );
-						$bn_mod_url   = \BuddyNext\Core\PageRouter::profile_url( $bn_mod_uid );
-						$bn_mod_owner = 'owner' === $bn_mod->role;
-						?>
-						<li class="bn-sh-side-member bn-sh-side-mod">
-							<a class="bn-sh-side-mod__id" href="<?php echo esc_url( $bn_mod_url ); ?>">
-								<span class="bn-avatar bn-sh-side-member__avatar"
-									data-size="sm"
-									data-tone="<?php echo esc_attr( bn_sh_avatar_tone( $bn_mod_uid ) ); ?>"
-									aria-hidden="true"
-								><?php echo esc_html( $bn_mod_init ); ?></span>
-								<span class="bn-sh-side-member__name">
-									<?php echo esc_html( $bn_mod_name ); ?>
-									<span class="bn-badge" data-tone="<?php echo $bn_mod_owner ? 'paid' : 'accent'; ?>">
-										<?php echo $bn_mod_owner ? esc_html__( 'Admin', 'buddynext' ) : esc_html__( 'Mod', 'buddynext' ); ?>
-									</span>
-								</span>
-							</a>
-							<?php if ( $bn_msgs_on ) : ?>
-								<a
-									class="bn-btn bn-btn--sm bn-btn--ghost bn-sh-side-mod__msg"
-									href="<?php echo esc_url( add_query_arg( 'recipient', $bn_mod_uid, home_url( '/messages/' ) ) ); ?>"
-									aria-label="
-									<?php
-									/* translators: %s: moderator display name */
-									echo esc_attr( sprintf( __( 'Message %s', 'buddynext' ), $bn_mod_name ) );
-									?>
-									"
-								><?php buddynext_icon( 'mail' ); ?></a>
-							<?php endif; ?>
-						</li>
-					<?php endforeach; ?>
-				</ul>
-				<?php
-				$bn_mods_html = (string) ob_get_clean();
-
-				buddynext_get_template(
-					'parts/sidebar-card.php',
-					array(
-						'id'         => 'space-moderators',
-						'title'      => _n( 'Moderator', 'Moderators', count( $bn_mods ), 'buddynext' ),
-						'title_icon' => 'shield',
-						'body_html'  => $bn_mods_html,
-					)
-				);
-		}
-
-			// Card 3: Members preview (regular members only — mods sit in the card above).
-		if ( ! empty( $bn_regulars ) ) {
-			ob_start();
-			?>
-			<ul class="bn-sh-side-members">
-				<?php foreach ( $bn_regulars as $bn_m ) : ?>
-					<?php
-					$bn_uid   = (int) $bn_m->user_id;
-					$bn_mname = $bn_m->display_name ?? __( 'Member', 'buddynext' );
-					$bn_init  = \BuddyNext\Profile\AvatarService::initials_for( (string) $bn_mname );
-					$bn_murl  = \BuddyNext\Core\PageRouter::profile_url( $bn_uid );
-					?>
-					<li class="bn-sh-side-member">
-						<a class="bn-sh-side-member__id" href="<?php echo esc_url( $bn_murl ); ?>">
-							<span class="bn-avatar bn-sh-side-member__avatar"
-								data-size="sm"
-								data-tone="<?php echo esc_attr( bn_sh_avatar_tone( $bn_uid ) ); ?>"
-								aria-hidden="true"
-							><?php echo esc_html( $bn_init ); ?></span>
-							<span class="bn-sh-side-member__name">
-								<?php echo esc_html( $bn_mname ); ?>
-							</span>
-						</a>
-					</li>
-				<?php endforeach; ?>
-			</ul>
-			<?php
-			$bn_members_html = (string) ob_get_clean();
-
-			buddynext_get_template(
-				'parts/sidebar-card.php',
-				array(
-					'id'            => 'space-members',
-					'title'         => __( 'Members', 'buddynext' ),
-					'title_icon'    => 'users',
-					'body_html'     => $bn_members_html,
-					'see_all_url'   => trailingslashit( \BuddyNext\Core\PageRouter::space_url( $bn_s['space_id'] ) ) . 'members/',
-					'see_all_label' => __( 'See all members', 'buddynext' ),
-				)
-			);
-		}
-
-		// Card 3: Top contributors.
-		if ( ! empty( $bn_s['top_contributors'] ) ) {
-			ob_start();
-			?>
-			<ul class="bn-sh-side-members">
-				<?php foreach ( $bn_s['top_contributors'] as $bn_rank => $bn_c ) : ?>
-					<?php
-					$bn_cuid  = (int) $bn_c->user_id;
-					$bn_cname = $bn_c->display_name ?? __( 'Member', 'buddynext' );
-					$bn_cinit = \BuddyNext\Profile\AvatarService::initials_for( (string) $bn_cname );
-					$bn_curl  = \BuddyNext\Core\PageRouter::profile_url( $bn_cuid );
-					?>
-					<li class="bn-sh-side-member">
-						<span class="bn-sh-side-member__rank"><?php echo esc_html( (string) ( $bn_rank + 1 ) ); ?></span>
-						<a class="bn-sh-side-member__id" href="<?php echo esc_url( $bn_curl ); ?>">
-							<span class="bn-avatar bn-sh-side-member__avatar"
-								data-size="sm"
-								data-tone="<?php echo esc_attr( bn_sh_avatar_tone( $bn_cuid ) ); ?>"
-								aria-hidden="true"
-							><?php echo esc_html( $bn_cinit ); ?></span>
-							<span class="bn-sh-side-member__name"><?php echo esc_html( $bn_cname ); ?></span>
-						</a>
-						<span class="bn-sh-side-member__count">
-							<?php
-							// translators: %d: post count.
-							printf( esc_html( _n( '%d post', '%d posts', (int) $bn_c->post_count, 'buddynext' ) ), (int) $bn_c->post_count );
-							?>
-						</span>
-					</li>
-				<?php endforeach; ?>
-			</ul>
-			<?php
-			$bn_contrib_html = (string) ob_get_clean();
-
-			buddynext_get_template(
-				'parts/sidebar-card.php',
-				array(
-					'id'         => 'space-contributors',
-					'title'      => __( 'Top contributors', 'buddynext' ),
-					'title_icon' => 'award',
-					'body_html'  => $bn_contrib_html,
-				)
-			);
-		}
-	}
+// ── Right sidebar (uniform across every space tab) ─────────────────────────────
+// The shared part registers the space rail cards on buddynext_right_sidebar; the
+// hub shell renders the right column when anything is hooked there. Every space
+// template (home + members + moderation) calls this same part, so switching tabs
+// keeps the same rail instead of dropping it on the dedicated pages.
+buddynext_get_template(
+	'parts/space-sidebar.php',
+	array(
+		'space_id'   => $space_id,
+		'viewer_id'  => $current_user_id,
+		'active_tab' => $active_tab,
+	)
 );
 
 /**
@@ -641,47 +338,6 @@ foreach ( $bn_nav_items as $bn_pi ) {
 		<?php elseif ( null !== $bn_panel_item && $bn_panel_item->has_render() ) : ?>
 
 			<?php ( new \BuddyNext\Nav\PanelRenderer() )->render_panels( $bn_space_nav, $bn_space_ctx, $active_tab ); ?>
-
-		<?php elseif ( 'members' === $active_tab && ! $gate_feed ) : ?>
-
-			<?php
-			$bn_member_filter = isset( $_GET['bn_role'] ) ? sanitize_key( wp_unslash( $_GET['bn_role'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			buddynext_get_template(
-				'parts/space-members-panel.php',
-				array(
-					'space'            => $space,
-					'members'          => $bn_full_members,
-					'top_contributors' => $top_contributors,
-					'viewer_id'        => $current_user_id,
-					'member_count_fmt' => $member_count_fmt,
-					'active_role'      => $bn_member_filter,
-				)
-			);
-			?>
-
-		<?php elseif ( 'moderation' === $active_tab && $can_moderate ) : ?>
-
-			<div class="bn-card bn-sh-moderation">
-				<header>
-					<h2 class="bn-sh-moderation__title"><?php esc_html_e( 'Moderation', 'buddynext' ); ?></h2>
-					<p>
-						<?php esc_html_e( 'Manage pending join requests and reported posts.', 'buddynext' ); ?>
-						<a href="<?php echo esc_url( buddynext_space_moderation_url( $space->slug ) ); ?>" class="bn-link">
-							<?php esc_html_e( 'Open full moderation queue', 'buddynext' ); ?>
-						</a>
-					</p>
-				</header>
-				<div class="bn-sh-moderation__stats">
-					<a class="bn-sh-moderation__stat" href="<?php echo esc_url( add_query_arg( 'bn_mtab', 'pending', buddynext_space_moderation_url( $space->slug ) ) ); ?>">
-						<span class="bn-sh-moderation__stat-num"><?php echo esc_html( number_format_i18n( (int) $bn_pending_count ) ); ?></span>
-						<span class="bn-sh-moderation__stat-label"><?php esc_html_e( 'Pending join requests', 'buddynext' ); ?></span>
-					</a>
-					<a class="bn-sh-moderation__stat" href="<?php echo esc_url( add_query_arg( 'bn_mtab', 'reports', buddynext_space_moderation_url( $space->slug ) ) ); ?>">
-						<span class="bn-sh-moderation__stat-num"><?php echo esc_html( number_format_i18n( (int) $bn_mod_count ) ); ?></span>
-						<span class="bn-sh-moderation__stat-label"><?php esc_html_e( 'Reported posts', 'buddynext' ); ?></span>
-					</a>
-				</div>
-			</div>
 
 		<?php elseif ( 'discussions' === $active_tab && $bn_discussions_on ) : ?>
 

@@ -173,6 +173,16 @@ $mem_privacy = array(
 			'active_tab' => 'members',
 		)
 	);
+	// Uniform right rail (same cards as every other space tab; the Members-preview
+	// card self-suppresses here since the roster below is the page body).
+	buddynext_get_template(
+		'parts/space-sidebar.php',
+		array(
+			'space_id'   => $space_id,
+			'viewer_id'  => $current_user_id,
+			'active_tab' => 'members',
+		)
+	);
 	?>
 
 	<!-- Filter bar -->
