@@ -249,10 +249,39 @@ Each phase = its own browser-verified commit. All land in 1.0.4.
 Jetonomy Discussions) flows through one `render` contract; the integration uses the EXACT same seam core does.
 
 ### Phase 4 — Profile surface (same uniform pattern)
+SCOPING FINDING (2026-06-27, before any code): the profile surface is BIGGER + RICHER than spaces was —
+plan this against the reality below before touching it.
+- `templates/profile/view.php` fetches ALL ~10 panels' data on EVERY load (posts/scheduled/about/replies/
+  media/likes/discussions/followers/following/connections + pending follow/connection requests), then
+  `templates/parts/profile-tab-panel.php` (500 lines) PRE-RENDERS every panel into the DOM.
+- `assets/js/profile/store.js` is **2242 lines** and already implements full CLIENT-SIDE tab navigation:
+  `setTab` pushState pretty URLs, `popstate`/`initView` Back/Forward, instant reveal via
+  `data-wp-bind--hidden="!state.isActiveTab"` (`activeTab===tabSlug`). So profile ALREADY has a
+  transport-like client-nav — it reveals pre-rendered DOM instead of fetching.
+- ProfileNav registers tabs with `tab` (reactive), metrics (followers/following/connections) as `metric`
+  pills, and a `network` parent + sub-nav (connections/followers/following carry `url`). No `render` on any.
+- Bridges on this surface: JetonomyBridge profile Discussions (`tab=>'discussions'`), Gamification
+  Achievements (after-hook) — both pre-render into the panel.
+
+CONSEQUENCE — the migration is ATOMIC and has an interim-regression risk:
+- Converting to the SSR-active `render` seam means deleting the 500-line pre-render panel + gutting the
+  2242-line store's reveal/tab-switching. WITHOUT the Phase 7 transport, profile tab switching regresses
+  from INSTANT client reveal (today) to FULL PAGE LOAD. Spaces had no such instant switching to lose;
+  profile does. So Phase 4 alone is a UX downgrade on the most-used member surface.
+- Recommendation: land Phase 4 (SSR-active renders) and Phase 7 transport TOGETHER for the profile (or
+  generalize the `@buddynext/navigate` transport first, then cut profile over), so there is no interim
+  regression. Do NOT ship Phase 4-only on profile.
+
+Execution checklist (when greenlit):
 - [ ] ONE uniform header/nav call for the profile template(s); body via `render_panels()`.
-- [ ] Migrate core profile panels (posts/replies/media/likes/scheduled/about) → `render`.
-- [ ] Jetonomy profile discussions → `render`; remove the `profile-tab-panel.php` branch.
-- [ ] TEST: each profile tab renders via its URL; deep-link paints the right panel; active-only.
+- [ ] Migrate ALL profile panels → `render` in ProfileNav (posts/scheduled/replies/media/likes/about +
+      followers/following/connections) and JetonomyBridge (discussions); each self-fetches its own data so
+      only the active panel queries (the perf win — today every load fetches all 10).
+- [ ] Jetonomy profile discussions → `render`; DELETE `profile-tab-panel.php` (folds into the renders).
+- [ ] Transport (Phase 7) wired for profile so tab switches stay no-reload; reveal logic removed from
+      `store.js` and replaced by the fetch-swap transport (no interim full-reload regression).
+- [ ] TEST: each profile tab renders via its URL; deep-link paints the right panel; active-only; owner vs
+      visitor; empty vs populated; pending follow/connection request sub-sections; metric pills; 390/dark.
 
 ### Phase 5 — Integrations AS THE MODEL, then delete the bolt-on
 - [ ] GamificationAchievements → `render` (drop the after-hook usage).
