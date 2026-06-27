@@ -95,6 +95,12 @@ final class NavItem {
 	 *                                      renderer emits it as `data-bn-full-load` and the
 	 *                                      transport reads that per-link — no hardcoded route
 	 *                                      regex in the JS. Default false = client-navigable.
+	 * @param bool              $lightweight_count This tab's count is inexpensive to compute (a denormalized
+	 *                                      column or a small, indexed people-count like members /
+	 *                                      followers) AND meaningful to show, so the resolver
+	 *                                      runs it even though per-tab badges are off by default.
+	 *                                      Use ONLY for counts that stay fast at large-community
+	 *                                      scale — never for per-user content COUNT(*) scans.
 	 */
 	public function __construct(
 		public string $id,
@@ -117,7 +123,8 @@ final class NavItem {
 		public int $seq = 0,
 		public mixed $count_label = null,
 		public mixed $render = null,
-		public bool $full_load = false
+		public bool $full_load = false,
+		public bool $lightweight_count = false
 	) {}
 
 	/**
@@ -227,6 +234,7 @@ final class NavItem {
 			count_label: $count_label,
 			render: $render,
 			full_load: ! empty( $a['full_load'] ),
+			lightweight_count: ! empty( $a['lightweight_count'] ),
 		);
 	}
 

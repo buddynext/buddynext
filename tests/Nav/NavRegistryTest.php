@@ -738,6 +738,10 @@ class NavRegistryTest extends \WP_UnitTestCase {
 	 * header and the space body both ask for the nav without a double count query.
 	 */
 	public function test_resolve_memoizes_per_context(): void {
+		// Tab count callables are skipped by default (scalability); this test uses the
+		// count callable as its "did resolve run?" probe, so opt the badges back on.
+		add_filter( 'buddynext_nav_show_tab_count', '__return_true' );
+
 		$count_calls = 0;
 		$this->reg->register(
 			array(
@@ -770,6 +774,10 @@ class NavRegistryTest extends \WP_UnitTestCase {
 	 * callable runs again (the cache never leaks across a registry reset).
 	 */
 	public function test_reset_clears_resolved_cache(): void {
+		// The count callable is this test's re-resolution probe; tab counts are off by
+		// default (scalability), so opt them back on for the probe to fire.
+		add_filter( 'buddynext_nav_show_tab_count', '__return_true' );
+
 		$count_calls = 0;
 		$register    = function () use ( &$count_calls ): void {
 			$this->reg->register(

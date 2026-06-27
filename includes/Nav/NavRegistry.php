@@ -176,9 +176,24 @@ final class NavRegistry {
 		);
 
 		// Resolve counts + URLs (lazy callables see the live context) + hide_empty.
+		//
+		// Scalability: the per-tab count callables run COUNT(*) queries (posts,
+		// comments, reactions per user/space) on every nav resolution, which is the
+		// kind of hot-path work we keep off large communities. Those badges are hidden
+		// by default, so we SKIP the query entirely for them rather than compute a
+		// number nothing renders. A count is still resolved when it is inexpensive AND worth
+		// showing: a lightweight_count tab (members / network — denormalized or small indexed
+		// people-counts), the metric pills (always display theirs), a hide_empty item
+		// (needs it to decide visibility), or a site that opts every badge back on via
+		// the buddynext_nav_show_tab_count filter.
 		$kept = array();
 		foreach ( $items as $n ) {
-			$n->count_value = $n->resolve_count( $ctx );
+			$needs_count = $n->lightweight_count
+				|| 'metric' === $n->layer
+				|| $n->hide_empty
+				|| (bool) apply_filters( 'buddynext_nav_show_tab_count', false, $n );
+
+			$n->count_value = $needs_count ? $n->resolve_count( $ctx ) : null;
 			$n->url_value   = $n->resolve_url( $ctx );
 			$n->label_value = $n->resolve_count_label( $n->count_value );
 			if ( $n->hide_empty && ( null === $n->count_value || 0 === $n->count_value ) ) {

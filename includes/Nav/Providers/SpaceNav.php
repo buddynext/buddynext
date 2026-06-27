@@ -88,13 +88,16 @@ final class SpaceNav {
 				},
 			),
 			array(
-				'id'       => 'members',
-				'surface'  => 'space',
-				'layer'    => 'primary',
-				'label'    => __( 'Members', 'buddynext' ),
-				'priority' => 20,
-				'url'      => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'members' ),
-				'count'    => static fn( NavContext $c ): int => (int) ( ( new SpaceService() )->get( $c->subject_id )['member_count'] ?? 0 ),
+				'id'                => 'members',
+				'surface'           => 'space',
+				'layer'             => 'primary',
+				'label'             => __( 'Members', 'buddynext' ),
+				'priority'          => 20,
+				'url'               => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'members' ),
+				// Denormalized member_count column — inexpensive to read, and a space's member
+				// count is worth surfacing, so keep this badge on at scale.
+				'lightweight_count' => true,
+				'count'             => static fn( NavContext $c ): int => (int) ( ( new SpaceService() )->get( $c->subject_id )['member_count'] ?? 0 ),
 			),
 			array(
 				'id'        => 'media',

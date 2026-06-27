@@ -11,12 +11,7 @@
 defined( 'ABSPATH' ) || exit;
 ?>
 <span class="bn-subnav__label"><?php echo esc_html( $bn_sub->label ); ?></span>
-<?php
-// Sub-tab count badges follow the same default-off rule as the primary tabs
-// (buddynext_nav_show_tab_count) so the whole nav reads consistently.
-$bn_s_show_count = '' !== $bn_s_count
-	&& (bool) apply_filters( 'buddynext_nav_show_tab_count', false, $bn_sub ?? null );
-?>
-<?php if ( $bn_s_show_count ) : ?>
+<?php // Show the badge only when the resolver ran this count (Network people-counts do). ?>
+<?php if ( '' !== $bn_s_count ) : ?>
 	<span class="bn-subnav__count"><?php echo esc_html( $bn_s_count ); ?></span>
 <?php endif; ?>
