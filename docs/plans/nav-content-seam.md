@@ -173,6 +173,21 @@ Each phase is its own commit(s), browser-verified before moving on. All land in 
 - [ ] FINAL: `bin/check.sh` green free + pro; full browser smoke - both surfaces, a sample
       third-party tab + sub-tab with ZERO core edits, Pro Portfolio, admin overrides, mobile, dark.
 
+## Dead-code / no-dup GATE (enforced every commit, hard requirement)
+A panel migration commit must REMOVE the old path in the SAME commit - never leave the new
+`render` AND the old hardcoded branch for the same panel co-existing. Concrete grep checks
+that must pass before each commit and as a final sweep (free + pro):
+- Each migrated panel: its old `if/elseif` branch / hardcoded `<div>` is gone (no panel
+  rendered by two code paths). `grep` the surface template for the slug → only the registry path.
+- After Phase 3: `grep -r buddynext_part_profile_tab_panel_after` → ZERO refs (free + pro).
+- After contract change: `grep -rn "'tab'\s*=>" + ->tab` in Nav/providers/bridges/pro → ZERO.
+- `templates/parts/profile-tab-panel.php` is DELETED, not left as an empty stub.
+- Dead `global` surface + `rail`/`context` layers removed from `NavItem` (no orphan constants).
+- ONE `render_panels()` - profile and space do NOT each carry their own loop/wrapper copy.
+- No leftover reactive-reveal code in `profile/store.js` once the transport lands.
+- `buddynext_nav_panel_id` and `nav-subnav.php` REUSED (not re-implemented per surface).
+Run a final repo-wide sweep at Phase 5 close: zero references to any deleted hook/field/branch.
+
 ## Risk
 Touches the two most-used templates, the Nav contract, the profile JS, AND Pro - and changes
 profile tab switching from in-page reveal to URL + transport. Mitigation: it lands in 1.0.4
