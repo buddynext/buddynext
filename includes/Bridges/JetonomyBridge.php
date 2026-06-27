@@ -69,6 +69,11 @@ class JetonomyBridge {
 		// trigger). Replaces the old buddynext_profile_extra_data + buddynext_space_tabs.
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav_items' ) );
 
+		// Owner controls: register on the integration registry so the site owner can
+		// toggle the Discussions tab + the discussion activity from BuddyNext →
+		// Integrations (default on). The nav/feed gating below reads those toggles.
+		add_filter( 'buddynext_integrations', array( $this, 'register_integration' ) );
+
 		// On-demand space forum: provision + redirect when a member first opens a
 		// forumless space's Discussions tab (web).
 		// Priority 5 so the on-demand forum provision/redirect runs before
@@ -198,6 +203,7 @@ class JetonomyBridge {
 
 		if ( $is_public_discussion
 			&& '0' !== (string) get_option( 'buddynext_jetonomy_feed_sync', '1' )
+			&& buddynext_integration_enabled( 'jetonomy', 'feed' )
 			&& (bool) apply_filters( 'buddynext_jetonomy_discussion_activity', true, $post_id ) ) {
 			$url = $this->discussion_url( $post_id, $space_id );
 			if ( '' !== $url ) {
@@ -554,7 +560,9 @@ class JetonomyBridge {
 	 * @return void
 	 */
 	public function register_nav_items( \BuddyNext\Nav\NavRegistry $registry ): void {
-		$jetonomy_active = static fn(): bool => class_exists( 'Jetonomy\Jetonomy' );
+		// Active AND the owner hasn't hidden the Discussions tab (Integrations control).
+		$jetonomy_active = static fn(): bool => class_exists( 'Jetonomy\Jetonomy' )
+			&& buddynext_integration_enabled( 'jetonomy', 'nav' );
 
 		// Profile: a primary tab owning the member's discussions panel — clean URL +
 		// the content-seam render, same as every other profile tab.
@@ -601,6 +609,24 @@ class JetonomyBridge {
 				},
 			)
 		);
+	}
+
+	/**
+	 * Register Jetonomy on the integration registry so the owner can toggle its
+	 * Discussions tab + discussion activity from BuddyNext → Integrations.
+	 *
+	 * @param array<string,array<string,mixed>> $items Registered integrations.
+	 * @return array<string,array<string,mixed>>
+	 */
+	public function register_integration( array $items ): array {
+		if ( class_exists( 'Jetonomy\Jetonomy' ) ) {
+			$items['jetonomy'] = array(
+				'label'    => __( 'Jetonomy', 'buddynext' ),
+				'has_nav'  => true,
+				'has_feed' => true,
+			);
+		}
+		return $items;
 	}
 
 	/**

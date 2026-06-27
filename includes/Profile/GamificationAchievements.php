@@ -39,6 +39,19 @@ class GamificationAchievements {
 		}
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ), 20 );
+		// Owner control: list on the integration registry so the owner can hide the
+		// Achievements tab from BuddyNext → Integrations (default on).
+		add_filter(
+			'buddynext_integrations',
+			static function ( array $items ): array {
+				$items['gamification'] = array(
+					'label'    => __( 'Gamification', 'buddynext' ),
+					'has_nav'  => true,
+					'has_feed' => true,
+				);
+				return $items;
+			}
+		);
 		add_filter( 'buddynext_client_nav_deny', array( $this, 'add_nav_deny' ) );
 	}
 
@@ -119,7 +132,7 @@ class GamificationAchievements {
 				'label'     => __( 'Achievements', 'buddynext' ),
 				'icon'      => 'award',
 				'priority'  => 70,
-				'condition' => fn( \BuddyNext\Nav\NavContext $c ): bool => $this->has_standing( $c->subject_id ),
+				'condition' => fn( \BuddyNext\Nav\NavContext $c ): bool => buddynext_integration_enabled( 'gamification', 'nav' ) && $this->has_standing( $c->subject_id ),
 				'url'       => static fn( \BuddyNext\Nav\NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . self::TAB_SLUG . '/',
 				'count'     => fn( \BuddyNext\Nav\NavContext $c ): int => count( $this->badges( $c->subject_id ) ),
 				'render'    => function ( \BuddyNext\Nav\NavContext $c ): void {
