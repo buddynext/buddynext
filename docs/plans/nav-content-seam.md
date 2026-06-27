@@ -146,6 +146,23 @@ So the `home.php` panel seam only governs **feed / about / media / discussions**
   uniformity. Pick before touching them. Do NOT add a SpaceNav render for members/moderation
   while they route to dedicated templates - it would be dead code (never invoked via the bridge).
 
+## Uniform header/nav call (discovered Phase 2 - the real unification)
+`parts/space-header.php` IS the uniform header+nav call: from just space_id + viewer it
+resolves membership + stats + the registry nav tabs, then delegates to space-hero.php ->
+nav-bar.php. `spaces/members.php` and `spaces/moderation.php` already use it. BUT
+`spaces/home.php` does NOT - it hand-rolls a SECOND copy of the whole header inline
+(membership 101-124, stats 572-594, nav context 533-534, hero call 595-613). So the nav is
+uniform for members/moderation and duplicated by home.php.
+
+Target (cleaner than per-panel migration):
+1. A shared space-view-context resolver (membership + stats + nav + gating, computed once).
+2. EVERY space template renders the header via `space-header.php` (home.php included - delete
+   its inline header copy).
+3. Body differs: the panel SEAM for home.php tabs (feed/about/media/discussions); the
+   dedicated page for members/moderation. Header = one uniform call; body = seam or page.
+This removes the home.php<->space-header.php duplication AND makes the nav exactly one call,
+and it settles members/moderation (they keep dedicated bodies but already share the header).
+
 ## Progress log
 - Phase 0 (`601bf817`): render contract + PanelRenderer + NavContext->sub + 8 tests.
 - Phase 1 (`75db80ed`): space About via the seam; SpaceService::get_object()/display_meta().
