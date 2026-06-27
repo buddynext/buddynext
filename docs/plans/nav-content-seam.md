@@ -295,6 +295,45 @@ Execution checklist (when greenlit):
 - [ ] TEST: space sub-tab URL renders the right child screen; profile sub-tabs unchanged.
 
 ### Phase 7 — Transport + cleanup + docs
+OWNER DIRECTIVE (2026-06-27): **the navigate transport must be wired THROUGH the Nav API itself, not via
+hardcoded element selectors / path regexes.** Today `assets/js/shell/navigate.js` hardcodes nav knowledge:
+`syncActiveNav()` targets `.bn-app__rail` / `.bn-mobile-nav` / `.bn-mobile-nav__item--active` by name, and
+`isDenied()` hardcodes route regexes (`/edit/`, `/settings|admin/`, `/p/\d+/`, `/checkout/`). The registry is
+the single source of truth for nav, so the transport must READ from it:
+- Every registry-rendered nav container (rail, mobile bar, the shared `nav-bar.php` tab bar) carries a
+  generic marker emitted by the ONE shared renderer (e.g. `data-bn-nav`), and active-state re-sync iterates
+  that marker generically + drives `aria-current="page"` (CSS keys off `[aria-current]`, not bespoke
+  `--active` classes). The transport never names a specific nav.
+- Client-nav eligibility (full-load vs swap) is declared on the NavItem contract / through the nav
+  registration (the `buddynext_client_nav_deny` surface filter generalized to a per-item `full_load` flag),
+  NOT a hardcoded regex list in the JS. A new nav item/surface opts out by declaration, no JS edit.
+- The swap region id comes from the nav/panel layer (`buddynext_nav_panel_id`), not a string literal.
+This is the "transport first" work the owner chose (sequence: generalize the nav-API-driven transport →
+then cut profile over behind it, so profile never ships a full-reload regression).
+
+KEY INSIGHT (owner, 2026-06-27): the Nav API ALREADY knows the exact nav set per surface (profile vs space)
+— every item's id, resolved URL, condition, parent/children. So the transport can be DYNAMIC: the resolved
+nav is the data source. The shared renderer emits each registry link with its id + a `full_load` flag from
+the item; the transport reads those per-link instead of hardcoding which paths swap vs reload. Result: a
+new surface or nav item drives the transport automatically (no JS edit), and when profile is cut over its
+registry items light up the transport for free. Concrete pieces:
+  1. `NavItem` gains `full_load` (bool, default false) — "this tab is a drill-in page, full-load it."
+  2. The ONE shared nav renderer (`nav-bar.php` + rail + mobile) marks the container `data-bn-nav` and each
+     link `data-bn-nav-id` + (when set) `data-bn-full-load`; active = `aria-current="page"` (CSS keys off it).
+  3. `navigate.js`: `isDenied()` → reads the clicked link's `data-bn-full-load` (falling back to the
+     filter-driven `navDeny` surface-base map for partner external bases); `syncActiveNav()` → iterates
+     `[data-bn-nav]` generically. No `.bn-app__rail` / `.bn-mobile-nav__item--active` / route-regex literals.
+
+DONE (transport increment 1 — nav-API-driven active sync): every registry-rendered nav container now carries
+`data-bn-nav` (rail.php, partials/nav.php mobile + context, parts/nav-bar.php). `syncActiveNav()` rewritten
+to iterate `[data-bn-nav]` generically and drive `aria-current="page"` only — the hardcoded `.bn-app__rail`
+/ `.bn-mobile-nav` selectors AND the `bn-mobile-nav__item--active` class toggle are GONE. The mobile nav
+active state converged onto `aria-current` (CSS `.bn-mobile-nav__item[aria-current="page"]`; server emits it;
+no bespoke class). Browser-verified on Docker with `buddynext_client_nav_enabled` on: clicking the rail
+Members link client-swaps (no reload — sentinel survived) and the rail active re-syncs Spaces→Members via the
+generic marker; 0 console errors. Flag still ships OFF by default. NEXT: `NavItem.full_load` + per-link
+`data-bn-full-load` to replace `isDenied()`'s hardcoded route regexes (then profile cutover behind the transport).
+
 - [ ] Wire `@buddynext/navigate` to swap the active panel region (no-reload; graceful full-load fallback).
 - [ ] Remove `profile/store.js` reactive-reveal; drop the dead `global` surface + `rail`/`context` layers.
 - [ ] Rewrite `47-nav-api.md`: ONE `render` recipe; document that EVERY template uses the uniform nav API.

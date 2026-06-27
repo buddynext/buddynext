@@ -61,7 +61,7 @@ $bn_nav_child_targets = static function ( NavItem $item ): array {
 };
 ?>
 <div class="bn-navgroup">
-	<div class="<?php echo esc_attr( $bn_nav_class ); ?>" role="tablist" aria-label="<?php echo esc_attr( $bn_nav_label ); ?>">
+	<div class="<?php echo esc_attr( $bn_nav_class ); ?>" data-bn-nav role="tablist" aria-label="<?php echo esc_attr( $bn_nav_label ); ?>">
 		<?php
 		foreach ( $bn_nav_items as $bn_item ) :
 			if ( ! ( $bn_item instanceof NavItem ) ) {

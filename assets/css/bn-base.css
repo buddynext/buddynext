@@ -962,8 +962,8 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 		position: relative;
 		transition: color 0.15s ease;
 	}
-	.bn-mobile-nav__item--active { color: var(--brand); }
-	.bn-mobile-nav__item--active svg { stroke: var(--brand); }
+	.bn-mobile-nav__item[aria-current="page"] { color: var(--brand); }
+	.bn-mobile-nav__item[aria-current="page"] svg { stroke: var(--brand); }
 	.bn-mobile-nav__item--create {
 		background: var(--brand);
 		color: var(--text-on-brand);

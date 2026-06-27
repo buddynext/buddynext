@@ -73,24 +73,24 @@ function isDenied( path ) {
 }
 
 /**
- * Re-sync the active state on persistent nav (rail + mobile bar) after a swap.
- * The server-rendered active state lives outside the router region, so it goes
- * stale on a client-side navigation.
+ * Re-sync the active state on persistent nav after a client swap. The nav that
+ * lives OUTSIDE the router region (rail, mobile bar, context bar) keeps its
+ * server-rendered active state, so it goes stale on a client navigation.
  *
- * Updates the REAL markers each nav styles + announces with: the rail's active
- * item is `aria-current="page"` (.bn-rail__item[aria-current="page"]) and the
- * mobile bar's is the `--active` modifier class; aria-current also drives the
- * screen-reader "current page" state. Exactly one link per nav is marked — the
- * longest path-prefix match — so a sub-route (e.g. /activity/explore/) doesn't
- * leave two items current. (The previous version toggled an `.is-active` class
- * no stylesheet reads, so neither the visual state nor aria-current updated.)
+ * Driven by the Nav API's own output, not hardcoded selectors: every
+ * registry-rendered nav container carries `data-bn-nav` (emitted by the shared
+ * renderers — rail.php, partials/nav.php, parts/nav-bar.php), so this re-marks
+ * active state across ALL of them generically. A new nav surface is picked up
+ * automatically — no edit here. Active is `aria-current="page"` (CSS keys every
+ * nav's active styling off `[aria-current]`); exactly one link per nav is marked
+ * — the longest path-prefix match — so a sub-route doesn't leave two current.
  *
  * @return {void}
  */
 function syncActiveNav() {
 	const here = window.location.pathname.replace( /\/+$/, '' );
-	[ '.bn-app__rail', '.bn-mobile-nav' ].forEach( ( scope ) => {
-		const links = document.querySelectorAll( scope + ' a' );
+	document.querySelectorAll( '[data-bn-nav]' ).forEach( ( nav ) => {
+		const links = nav.querySelectorAll( 'a[href]' );
 		// Pick the single best (longest-prefix) match within this nav.
 		let best = null;
 		let bestLen = -1;
@@ -102,14 +102,10 @@ function syncActiveNav() {
 			}
 		} );
 		links.forEach( ( a ) => {
-			const active = a === best;
-			if ( active ) {
+			if ( a === best ) {
 				a.setAttribute( 'aria-current', 'page' );
 			} else {
 				a.removeAttribute( 'aria-current' );
-			}
-			if ( a.classList.contains( 'bn-mobile-nav__item' ) ) {
-				a.classList.toggle( 'bn-mobile-nav__item--active', active );
 			}
 		} );
 	} );

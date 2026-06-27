@@ -231,7 +231,7 @@ foreach ( $bn_rail_items as $bn_item ) {
 	}
 }
 ?>
-<nav class="bn-app__rail" aria-label="<?php esc_attr_e( 'Community navigation', 'buddynext' ); ?>">
+<nav class="bn-app__rail" data-bn-nav aria-label="<?php esc_attr_e( 'Community navigation', 'buddynext' ); ?>">
 	<?php
 	// Community logo (Settings → Appearance → buddynext_logo_url). Rendered at
 	// the top of the rail, linking home, so an uploaded logo actually appears in
