@@ -166,6 +166,55 @@ class PanelRendererTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A sub-nav CHILD reached directly by the active id (no ctx->sub) renders that
+	 * child — e.g. a profile hero metric pill links straight to /members/x/followers/,
+	 * where `followers` is a child of the `network` parent, not a top-level tab.
+	 */
+	public function test_active_child_id_renders_that_child(): void {
+		$parent           = NavItem::from_array(
+			array(
+				'id'      => 'network',
+				'surface' => 'profile',
+				'layer'   => 'primary',
+				'label'   => 'Network',
+				'tab'     => 'connections',
+			)
+		);
+		$parent->children = array(
+			$this->panel( 'connections', 'profile', 'network' ),
+			$this->panel( 'followers', 'profile', 'network' ),
+		);
+
+		$nav = new ResolvedNav( array( 'primary' => array( $parent ) ) );
+		$out = $this->capture( $nav, new NavContext( 'profile', 5, 5 ), 'followers' );
+		$this->assertStringContainsString( 'PANEL:followers', $out );
+		$this->assertStringNotContainsString( 'PANEL:connections', $out );
+	}
+
+	/**
+	 * A metric-layer panel renders when the active id matches it and a top-level
+	 * primary does not — the fallback that lets a pure metric pill own a panel.
+	 */
+	public function test_active_metric_panel_renders(): void {
+		$metric = NavItem::from_array(
+			array(
+				'id'      => 'followers',
+				'surface' => 'profile',
+				'layer'   => 'metric',
+				'label'   => 'Followers',
+				'render'  => static function ( NavContext $c ) {
+					echo 'PANEL:metric:' . $c->sub; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- test marker.
+				},
+			)
+		);
+		$this->assertInstanceOf( NavItem::class, $metric );
+
+		$nav = new ResolvedNav( array( 'metric' => array( $metric ) ) );
+		$out = $this->capture( $nav, new NavContext( 'profile', 5, 5 ), 'followers' );
+		$this->assertStringContainsString( 'PANEL:metric', $out );
+	}
+
+	/**
 	 * NavContext->sub defaults to empty and round-trips through the constructor.
 	 */
 	public function test_context_sub_defaults_empty(): void {

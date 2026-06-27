@@ -51,31 +51,51 @@ final class PanelRenderer {
 			}
 		}
 
-		if ( null === $primary ) {
-			return; // Unknown tab — the surface template decides the fallback.
+		if ( null !== $primary ) {
+			// A live sub-tab wins when it matches a child of the active primary.
+			$sub = sanitize_key( $ctx->sub );
+			if ( '' !== $sub ) {
+				foreach ( $primary->children as $child ) {
+					if ( $child->id === $sub ) {
+						$child->render_panel( $ctx );
+						return;
+					}
+				}
+			}
+
+			// The primary renders its own panel when it has one.
+			if ( $primary->has_render() ) {
+				$primary->render_panel( $ctx );
+				return;
+			}
+
+			// A parent that owns no panel (e.g. Network/Portfolio) falls through to
+			// its first child, so a bare /network/ route deep-links to the first sub-tab.
+			if ( ! empty( $primary->children ) ) {
+				$primary->children[0]->render_panel( $ctx );
+			}
+			return;
 		}
 
-		// A live sub-tab wins when it matches a child of the active primary.
-		$sub = sanitize_key( $ctx->sub );
-		if ( '' !== $sub ) {
-			foreach ( $primary->children as $child ) {
-				if ( $child->id === $sub ) {
+		// No TOP-LEVEL primary matched the active id. The active tab may be a sub-nav
+		// CHILD reached directly — e.g. a profile hero metric pill links to
+		// /members/{slug}/followers/, where `followers` is a child of the `network`
+		// parent — or a metric-layer panel. Search children first, then metrics, for
+		// an id match that owns a render. An unknown id renders nothing, so the
+		// surface template still owns the fallback.
+		foreach ( $nav->layer( 'primary' ) as $item ) {
+			foreach ( $item->children as $child ) {
+				if ( $child->id === $active && $child->has_render() ) {
 					$child->render_panel( $ctx );
 					return;
 				}
 			}
 		}
-
-		// The primary renders its own panel when it has one.
-		if ( $primary->has_render() ) {
-			$primary->render_panel( $ctx );
-			return;
-		}
-
-		// A parent that owns no panel (e.g. Portfolio) falls through to its first
-		// child, so a bare /portfolio/ route deep-links to the first sub-tab.
-		if ( ! empty( $primary->children ) ) {
-			$primary->children[0]->render_panel( $ctx );
+		foreach ( $nav->layer( 'metric' ) as $metric ) {
+			if ( $metric->id === $active && $metric->has_render() ) {
+				$metric->render_panel( $ctx );
+				return;
+			}
 		}
 	}
 }

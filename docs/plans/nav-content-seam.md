@@ -303,7 +303,67 @@ Remaining flip steps (atomic — do together, fresh context, full matrix verify)
       active-only DB; owner vs visitor; empty vs populated; pending follow/connection sub-sections; metric
       pills; 390/dark; client-nav ON (no-reload tab switch) AND OFF (full-load) both correct.
 
-Original execution checklist:
+## Phase 4 FLIP — MICRO TASK LIST (execute top-down; check [x] + add a NOTE as each lands)
+Decomposition: **Step A** (PanelRenderer child/metric resolution) is additive + safely separable → its own
+commit. **Steps B–F** are the ATOMIC flip (view.php can't half-render) → one verified commit. Step G = verify.
+
+### A. PanelRenderer resolves sub-nav children + metric panels (additive — own commit) ✅ DONE
+- [x] A1. `render_panels()`: after the top-level primary match, if none matches `$active`, search each
+       primary's `->children` for an id match → call that child's `render_panel`.
+- [x] A2. Also accept a metric-layer panel: if still unmatched, search the `metric` layer for an id match.
+- [x] A3. Unit tests: `test_active_child_id_renders_that_child` + `test_active_metric_panel_renders`.
+- [x] A4. Lint + WPCS clean, Nav suite 57/57; committed.
+
+### B. ProfileNav → url + render (part of the atomic flip)
+- [ ] B1. Add a `tab_url($uid,$tab)` helper (clean `/members/{slug}/{tab}/`, posts = base).
+- [ ] B2. primary tabs: drop `tab`, add `url` + `render`. posts→posts-panel(kind=posts); scheduled→
+       posts-panel(kind=scheduled, owner-only via existing condition); replies→replies-panel;
+       media→`partials/media-tab.php`(condition MediaClient); likes→posts-panel(kind=likes).
+- [ ] B3. About: register here (not view.php) with `condition` = has-about-content + `render`→about-panel.
+- [ ] B4. network children (connections/followers/following): keep `url`, add `render`→people-panel(relation).
+- [ ] B5. metric pills (followers/following/connections): keep `url` so the hero pills deep-link (no render —
+       the panel comes from the network child / Step A2).
+
+### C. JetonomyBridge profile Discussions → url + render
+- [ ] C1. profile discussions item: drop `tab`, add `url` (/members/{slug}/discussions/) + `render`→
+       `parts/profile/discussions-panel.php` (bridge owns jt_* access, self-fetches user_discussions).
+
+### D. view.php rewrite (the cutover)
+- [ ] D1. Resolve nav + active_tab (normalize unknown→posts; parent network→first child as today).
+- [ ] D2. Body = `PanelRenderer::render_panels()` (active-only) instead of the bulk `profile-tab-panel.php`.
+- [ ] D3. DELETE the bulk panel fetches (recent_posts/replies/likes/scheduled/media/jt_discussions/
+       follower_users/following_users/connection_users/pending_*) — each render self-fetches now.
+- [ ] D4. DELETE the about_html build + the dynamic About-tab `buddynext_nav_items` filter (moved to B3).
+- [ ] D5. KEEP the hero (its relationship state + profile-field data), the right-sidebar registration, the
+       report/block modals, and the `buddynext/profile` interactive root (hero actions still need it).
+- [ ] D6. nav-bar now renders url tabs (ProfileNav change) — confirm active state + branch still light up.
+
+### E. Delete `templates/parts/profile-tab-panel.php` (folded into the parts/renders).
+
+### F. store.js reveal removal
+- [ ] F1. Remove the tab-reveal: `isActiveTab`/`isActiveBranch` getters, `setTab` tab-switch + pushState,
+       `initView` tab seeding/popstate, the `data-tab-panel` reliance. The generalized transport drives tab
+       switching now (url tabs → shell region swap).
+- [ ] F2. KEEP all hero action logic (follow/connect/block/mute/report/share). Verify no orphan refs to the
+       removed getters in profile templates (hero, nav-bar metric pills).
+- [ ] F3. Grep sweep: zero `data-tab-panel` / `state.isActiveTab` / `actions.setTab` left on the profile surface.
+
+### G. VERIFY (browser, Docker; client-nav OFF default + a pass with it ON)
+- [ ] G1. Each tab via its URL deep-link paints the right panel (posts/scheduled/replies/media/likes/about/
+       discussions/followers/following/connections); active-only DB (inactive panels don't query).
+- [ ] G2. Owner vs visitor (scheduled owner-only; pending follow/connection inboxes owner-only; composer owner).
+- [ ] G3. Empty vs populated states each panel.
+- [ ] G4. Hero metric pills deep-link to the people panels; network parent + sub-nav active states correct.
+- [ ] G5. 390px + dark; 0 console errors; `bin/check.sh` green free (+ pro if touched).
+- [ ] G6. client-nav ON: tab switch is no-reload (transport) and active syncs; OFF: full-load to the URL, same panel.
+
+PROGRESS NOTES (append as each lands):
+- Step A done: `PanelRenderer::render_panels()` now, when no top-level primary matches the active id, searches
+  each primary's `->children` then the `metric` layer for an id match that owns a render. Lets a profile metric
+  pill / network-child URL (`/members/x/followers/`) paint the people panel without Phase 6 routing. +2 tests;
+  Nav suite 57/57. Next: Step B (ProfileNav url+render).
+
+### Original execution checklist (superseded by the micro list above):
 - [ ] ONE uniform header/nav call for the profile template(s); body via `render_panels()`.
 - [ ] Migrate ALL profile panels → `render` in ProfileNav (posts/scheduled/replies/media/likes/about +
       followers/following/connections) and JetonomyBridge (discussions); each self-fetches its own data so
