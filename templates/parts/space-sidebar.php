@@ -80,14 +80,47 @@ $bn_ss_contributors    = $bn_ss_to_objects( ( new \BuddyNext\Spaces\SpaceService
 
 $bn_ss_meta = \BuddyNext\Spaces\SpaceService::display_meta( $bn_ss_space );
 
+// Sub-spaces — children of THIS space, visibility-scoped (secret children the
+// viewer cannot see are dropped by get_subspaces, so the rail never leaks them).
+// Only a root space can hold children (depth is capped at 2), so a sub-space
+// never gathers this list. The "Add sub-space" CTA is gated on manage rights +
+// the community-level allow-sub toggle, mirroring validate_parent_move().
+$bn_ss_is_root     = empty( $bn_ss_space->parent_id );
+$bn_ss_sub_allowed = '0' !== (string) get_option( 'buddynext_space_allow_sub', '1' );
+$bn_ss_can_manage  = $bn_ss_is_root && $bn_ss_sub_allowed && $bn_ss_viewer > 0
+	&& buddynext_service( 'permissions' )->can(
+		$bn_ss_viewer,
+		'buddynext-manage-space',
+		array( 'space_id' => $bn_ss_space_id )
+	);
+$bn_ss_subspaces   = $bn_ss_is_root
+	? ( new \BuddyNext\Spaces\SpaceService() )->get_subspaces( $bn_ss_space_id, 24, 0, $bn_ss_viewer, current_user_can( 'manage_options' ) )
+	: array();
+// Categories for the create-sub-space modal — only fetched for a manager who
+// can actually add one (the modal is not rendered otherwise).
+$bn_ss_sub_categories = $bn_ss_can_manage
+	? array_map(
+		static fn( $c ) => (object) array(
+			'id'   => (int) $c['id'],
+			'name' => (string) $c['name'],
+			'slug' => (string) $c['slug'],
+		),
+		( new \BuddyNext\Spaces\SpaceService() )->categories_with_counts()
+	)
+	: array();
+
 $bn_ss_args = array(
 	'space'            => $bn_ss_space,
 	'space_id'         => $bn_ss_space_id,
+	'viewer_id'        => $bn_ss_viewer,
 	'active_tab'       => $bn_ss_active_tab,
 	'sidebar_members'  => $bn_ss_sidebar_members,
 	'top_contributors' => $bn_ss_contributors,
 	'privacy_label'    => $bn_ss_meta['privacy_label'],
 	'privacy_tone'     => $bn_ss_meta['privacy_tone'],
+	'subspaces'        => $bn_ss_subspaces,
+	'can_manage_sub'   => $bn_ss_can_manage,
+	'sub_categories'   => $bn_ss_sub_categories,
 );
 
 add_action(
@@ -135,6 +168,97 @@ add_action(
 				'body_html'  => $bn_about_html,
 			)
 		);
+
+		// Card: Sub-spaces. The space's children as a persistent navigation rail
+		// (the Discord/Notion expectation), plus a manager-only "Add sub-space"
+		// CTA on a childless root so the first one is discoverable. Hidden for a
+		// viewer with neither children to see nor the right to add one.
+		$bn_subs = (array) $bn_s['subspaces'];
+		if ( ! empty( $bn_subs ) || ! empty( $bn_s['can_manage_sub'] ) ) {
+			ob_start();
+			if ( ! empty( $bn_subs ) ) :
+				?>
+				<ul class="bn-sh-side-spaces">
+					<?php
+					foreach ( $bn_subs as $bn_sub ) :
+						$bn_sub_id    = (int) ( $bn_sub['id'] ?? 0 );
+						$bn_sub_name  = (string) ( $bn_sub['name'] ?? __( 'Space', 'buddynext' ) );
+						$bn_sub_slug  = (string) ( $bn_sub['slug'] ?? '' );
+						$bn_sub_count = (int) ( $bn_sub['member_count'] ?? 0 );
+						?>
+						<li class="bn-sh-side-space">
+							<a class="bn-sh-side-space__id" href="<?php echo esc_url( $bn_sub_slug ? buddynext_space_url( $bn_sub_slug ) : '' ); ?>">
+								<span class="bn-avatar bn-sh-side-space__emblem" data-size="sm" data-tone="<?php echo esc_attr( bn_sh_avatar_tone( $bn_sub_id ) ); ?>" aria-hidden="true"><?php echo esc_html( mb_strtoupper( mb_substr( $bn_sub_name, 0, 1 ) ) ); ?></span>
+								<span class="bn-sh-side-space__body">
+									<span class="bn-sh-side-space__name"><?php echo esc_html( $bn_sub_name ); ?></span>
+									<span class="bn-sh-side-space__meta">
+										<?php
+										printf(
+											/* translators: %s: number of members in the sub-space. */
+											esc_html( _n( '%s member', '%s members', $bn_sub_count, 'buddynext' ) ),
+											esc_html( number_format_i18n( $bn_sub_count ) )
+										);
+										?>
+									</span>
+								</span>
+							</a>
+						</li>
+					<?php endforeach; ?>
+				</ul>
+				<?php
+			elseif ( ! empty( $bn_s['can_manage_sub'] ) ) :
+				?>
+				<p class="bn-sh-side-text"><?php esc_html_e( 'Organize this space into focused sub-spaces members can join on their own.', 'buddynext' ); ?></p>
+				<?php
+			endif;
+
+			if ( ! empty( $bn_s['can_manage_sub'] ) ) :
+				?>
+				<div class="bn-sh-side-spaces__cta" data-wp-interactive="buddynext/spaces">
+					<button
+						type="button"
+						class="bn-btn bn-btn--sm bn-btn--ghost bn-sh-side-spaces__add"
+						data-wp-on--click="actions.openCreate"
+						data-bn-create-space-trigger
+					>
+						<?php buddynext_icon( 'plus' ); ?>
+						<?php esc_html_e( 'Add sub-space', 'buddynext' ); ?>
+					</button>
+				</div>
+				<?php
+			endif;
+			$bn_subs_html = (string) ob_get_clean();
+
+			buddynext_get_template(
+				'parts/sidebar-card.php',
+				array(
+					'id'         => 'space-subspaces',
+					'title'      => __( 'Sub-spaces', 'buddynext' ),
+					'title_icon' => 'layers',
+					'body_html'  => $bn_subs_html,
+				)
+			);
+
+			// The create-sub-space modal, rendered once outside the card (it is a
+			// fixed-position backdrop, so DOM location is irrelevant) and locked to
+			// THIS space as the parent. The CTA above opens it via actions.openCreate.
+			// It must sit inside a buddynext/spaces interactive region so the modal's
+			// own actions (submitCreate) bind — the partial has no wrapper of its own.
+			if ( ! empty( $bn_s['can_manage_sub'] ) ) {
+				echo '<div data-wp-interactive="buddynext/spaces">';
+				buddynext_get_template(
+					'partials/create-space-modal.php',
+					array(
+						'categories'   => (array) $bn_s['sub_categories'],
+						'fixed_parent' => (object) array(
+							'id'   => (int) $bn_s['space_id'],
+							'name' => (string) $bn_s['space']->name,
+						),
+					)
+				);
+				echo '</div>';
+			}
+		}
 
 		// Split the role-ordered preview into moderators (owner + moderator) and
 		// regular members so the two cards complement each other instead of

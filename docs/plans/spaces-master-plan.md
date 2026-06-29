@@ -25,7 +25,7 @@ threshold) — no dup. Verify per item: data-flow (DB) + browser, all states.
 | **T10** move/detach | ✅ DONE + browser-verified | `PUT /spaces/{id}` `parent_id` via `validate_parent_move()`. Live REST run 2026-06-29: move 43→42 (200, breadcrumb `parent{42}` populates, `subspace_count`=1); self-parent/depth-3/has-children/parent-not-found all return 422 with correct codes; detach→root (200, parent null). DB restored. |
 | **T11** admin completeness | ✅ DONE + browser-verified | Live run 2026-06-29: PENDING column renders, "Sub-space of Design Critique" label shows on the child row, Archive→ "Archived" badge + Unarchive action, Unarchive round-trips. **Known cosmetic gap confirmed live: no admin success notice after the `?archived=1` redirect** (see follow-ups). |
 | **Gap-audit** enforcement fixes | 🟡 DONE — code-verified | `can_invite()` honors `who_can_invite`; `default_notification_pref` seeded on join/request/invite (shared helper) — **browser-verify** |
-| **R1** Nav UX | ⏳ PENDING | breadcrumb + Sub-spaces section + Add-CTA |
+| **R1** Nav UX | ✅ DONE + browser-verified | breadcrumb (sub-space hero) + Sub-spaces rail card + manager Add-CTA → fixed-parent create modal. See "R1 — as built" below. |
 | **R2** member panel → REST | ⏳ PENDING | convert legacy POST to Interactivity/REST |
 | **R3** web field panel | ⏳ PENDING | render registered fields on settings screen |
 | **R4** search-fold (optional) | ⏳ PENDING | public+searchable fields → `bn_search_index` |
@@ -40,18 +40,34 @@ All ✅/🟡 are phpcs (0 errors) + PHPStan L5 clean. Local DB already migrated 
 Not shipped blind: these are Interactivity rewrites of currently-working surfaces; the REST they consume
 is already built + proven, so they are pure UI.
 
-### R1 — Nav UX: breadcrumb + "Sub-spaces" section + Add-CTA
-- **Breadcrumb** on a sub-space home: `Parent ▸ This space` from `GET /spaces/{id}` `parent{id,name,slug}`.
-  Link parent → `buddynext_space_url($parent.slug)`. Place in the space header / SpaceNav render seam.
-- **"Sub-spaces" section** on a parent home: list children from `GET /spaces/{id}/subspaces` (reuse
-  `bn-space-card`/`my-spaces` markup); show only when `subspace_count > 0`. Build as a **SpaceNav provider
-  panel** (mirror `includes/Nav/Providers/SpaceNav.php` `render_*_panel`) — use the 1.0.4 render seam.
-- **"Add sub-space" CTA**: visible to anyone who manages the parent (owner OR moderator —
-  `permissions->can($uid,'buddynext-manage-space',['space_id'=>$parent])`). Opens the existing create
-  modal pre-seeded with `parent_id` (note the modal's parent picker is owner-only via `owned_root_spaces` —
-  allow managers).
-- Verify: breadcrumb on a child; parent section + correct count; CTA only for managers; create-from-CTA
-  sets `parent_id`; 390px + dark.
+### R1 — Nav UX — AS BUILT (2026-06-29, browser-verified)
+Shipped as server-render (SSR reads the same SpaceService data the REST exposes — no client fetch needed).
+- **Breadcrumb** — `templates/parts/space-hero.php`. Renders `Parent > This space` above the `<h1>` only
+  when the space has a parent, via `SpaceService::parent_summary($parent_id)` (visibility-scoped → a parent
+  the viewer can't see resolves null and the crumb is omitted, never leaked). Parent link =
+  `buddynext_space_url($slug)`. Tokens only (dark-safe), 16ch ellipsis truncation. CSS `.bn-sh-hero__breadcrumb`
+  in `bn-spaces.css`. Verified: present on a child (links to parent), **absent** on a root.
+- **Sub-spaces card** — `templates/parts/space-sidebar.php`, registered on `buddynext_right_sidebar` via
+  `parts/sidebar-card.php` (id `space-subspaces`, icon `layers`). **Deviation from the original "feed panel"
+  wording, intentional:** placed in the persistent right rail (uniform across every space tab) rather than the
+  Feed tab body — matches the Discord/Notion expectation that sub-spaces are persistent navigation, and is
+  more discoverable. Same render-seam philosophy (self-contained, resolves from `space_id`). Lists
+  `get_subspaces()` children (visibility-scoped; uses the **visible** list, sidestepping the secret-child
+  count discrepancy) as linked rows: square `.bn-avatar` emblem + name + `_n()` member count. Only a root
+  space gathers the list (depth-2 cap → a sub-space never shows it). Verified: parent rail shows the child
+  with correct count.
+- **Add-CTA + fixed-parent modal** — manager-only (`buddynext-manage-space` AND the
+  `buddynext_space_allow_sub` toggle), shown on a childless root too (so the first sub-space is discoverable,
+  with an empty hint). `create-space-modal.php` gained a `$fixed_parent` path: title becomes "Create a
+  sub-space", the parent picker is replaced by a locked `Sub-space of <name>` chip + a hidden `parent_id`,
+  and `submitCreate` (which already reads `[name="parent_id"]`) carries it. The modal is rendered once at the
+  rail and **wrapped in its own `data-wp-interactive="buddynext/spaces"` region** (the partial has no wrapper;
+  without this the modal's own `submitCreate` action never binds — caught in browser test). Verified end to
+  end: CTA opens locked modal → create → REST sets `parent_id` → redirect to child → breadcrumb + parent rail
+  both update. WPCS + UX-audit clean; 390px no-overflow; dark token-flip confirmed. (Note: the right rail is
+  desktop/tablet-only by existing template design — all rail cards, not just this one, are hidden < the rail
+  breakpoint; mobile parent context is carried by the always-visible hero breadcrumb. A mobile sub-space
+  surface is a template-wide concern, out of R1 scope.)
 
 ### R2 — member-management panel → REST/Interactivity
 - Convert `templates/parts/space-settings-panel-members.php` (legacy full-page POST in `settings.php`) to an

@@ -454,6 +454,50 @@
 	padding-block-end: var(--bn-s1);
 }
 
+/* Sub-space breadcrumb — parent context above the space name. */
+.bn-sh-hero__breadcrumb {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	margin-block-end: var(--bn-s1);
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-medium);
+	line-height: var(--bn-leading-tight);
+	min-width: 0;
+}
+
+.bn-sh-hero__crumb {
+	color: var(--bn-ink-3);
+	text-decoration: none;
+	max-width: 16ch;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+a.bn-sh-hero__crumb:hover,
+a.bn-sh-hero__crumb:focus-visible {
+	color: var(--bn-accent);
+	text-decoration: underline;
+}
+
+.bn-sh-hero__crumb--current {
+	color: var(--bn-ink-2);
+	font-weight: var(--bn-fw-semibold);
+}
+
+.bn-sh-hero__crumb-sep {
+	display: inline-flex;
+	align-items: center;
+	color: var(--bn-ink-4);
+	flex: 0 0 auto;
+}
+
+.bn-sh-hero__crumb-sep svg {
+	width: 14px;
+	height: 14px;
+}
+
 .bn-sh-hero__name {
 	font-family: var(--bn-font-display);
 	font-size: var(--bn-text-2xl);
@@ -943,6 +987,85 @@ a.bn-sh-statpill:focus-visible {
 	font-family: var(--bn-font-mono);
 	font-size: 11px;
 	color: var(--bn-ink-3);
+}
+
+/* Sub-spaces rail — children of a space as compact navigation rows, plus the
+   manager "Add sub-space" CTA. Reuses the side-member row rhythm; the emblem is
+   square-cornered (via .bn-avatar override) so a space reads distinct from a
+   person's round avatar. */
+.bn-sh-side-spaces {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+}
+
+.bn-sh-side-space__id {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	min-width: 0;
+	padding: var(--bn-s1);
+	margin-inline: calc(-1 * var(--bn-s1));
+	border-radius: var(--bn-r-md);
+	text-decoration: none;
+	color: inherit;
+	transition: background-color 0.14s ease;
+}
+
+.bn-sh-side-space__id:hover,
+.bn-sh-side-space__id:focus-visible {
+	background: var(--bn-sunken);
+}
+
+.bn-sh-side-space__emblem {
+	flex-shrink: 0;
+	border-radius: var(--bn-r-md);
+	color: var( --bn-accent-fg, #fff );
+	font-weight: var(--bn-fw-bold);
+}
+
+.bn-sh-side-space__body {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	gap: 1px;
+}
+
+.bn-sh-side-space__name {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bn-sh-side-space__id:hover .bn-sh-side-space__name,
+.bn-sh-side-space__id:focus-visible .bn-sh-side-space__name {
+	color: var(--bn-accent);
+}
+
+.bn-sh-side-space__meta {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+
+.bn-sh-side-spaces__cta {
+	margin-block-start: var(--bn-s2);
+}
+
+.bn-sh-side-spaces__add {
+	width: 100%;
+	justify-content: center;
+	gap: var(--bn-s1);
+}
+
+.bn-sh-side-spaces__add svg {
+	width: 15px;
+	height: 15px;
 }
 
 
@@ -2130,6 +2253,43 @@ a.bn-sh-statpill:focus-visible {
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s1);
+}
+
+/* Fixed-parent field (sub-space creation) — a read-only label + a chip showing
+   the locked parent, in place of the parent-picker select. */
+.bn-create-space-form__label-text {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink-2);
+}
+
+.bn-create-space-form__fixed-parent {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin: 0;
+	padding: var(--bn-s2) var(--bn-s3);
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink);
+	align-self: flex-start;
+	max-width: 100%;
+}
+
+.bn-create-space-form__fixed-parent svg {
+	width: 16px;
+	height: 16px;
+	color: var(--bn-ink-3);
+	flex-shrink: 0;
+}
+
+.bn-create-space-form__fixed-parent strong {
+	font-weight: var(--bn-fw-semibold);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .bn-create-space-form__hint {
