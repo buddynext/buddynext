@@ -126,6 +126,10 @@ final class SpaceSuggestionService {
 		$rows = ( new SpaceService() )->list_spaces(
 			array(
 				'include_space_ids' => $candidate_ids,
+				// Defense-in-depth: candidates are already built excluding $mine, but
+				// excluding again at the hydration guarantees a joined space can never
+				// surface as a suggestion even if a signal query changes.
+				'exclude_space_ids' => $mine,
 				'viewer'            => $user_id,
 				'roots_only'        => true,
 				'per_page'          => count( $candidate_ids ),
