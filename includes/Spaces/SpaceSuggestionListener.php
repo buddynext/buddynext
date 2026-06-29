@@ -29,8 +29,8 @@ final class SpaceSuggestionListener implements ListenerInterface {
 	public function register(): void {
 		// buddynext_space_member_joined fires ( space_id, user_id, role ).
 		add_action( 'buddynext_space_member_joined', array( $this, 'on_joined' ), 10, 2 );
-		// buddynext_space_member_left fires ( user_id, space_id ).
-		add_action( 'buddynext_space_member_left', array( $this, 'on_left' ), 10, 1 );
+		// buddynext_space_member_left fires ( space_id, user_id ).
+		add_action( 'buddynext_space_member_left', array( $this, 'on_left' ), 10, 2 );
 		// follow hooks fire ( follower_id, following_id ) — the follower's view changes.
 		add_action( 'buddynext_user_followed', array( $this, 'on_follow_change' ), 10, 1 );
 		add_action( 'buddynext_user_unfollowed', array( $this, 'on_follow_change' ), 10, 1 );
@@ -51,10 +51,12 @@ final class SpaceSuggestionListener implements ListenerInterface {
 	/**
 	 * Flush suggestions for a member who just left a space.
 	 *
-	 * @param int $user_id Member who left.
+	 * @param int $space_id Space left (unused).
+	 * @param int $user_id  Member who left.
 	 * @return void
 	 */
-	public function on_left( int $user_id ): void {
+	public function on_left( int $space_id, int $user_id ): void {
+		unset( $space_id );
 		$this->flush( $user_id );
 	}
 

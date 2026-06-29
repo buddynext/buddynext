@@ -585,10 +585,10 @@ do_action( 'buddynext_comment_created',        $comment_id, $post_id, $user_id )
 do_action( 'buddynext_comment_updated',        $comment_id, $post_id, $user_id );
 do_action( 'buddynext_comment_deleted',        $comment_id, $post_id, $user_id );
 do_action( 'buddynext_space_created',          $space_id, $user_id );
-do_action( 'buddynext_space_member_joined',    $user_id, $space_id, $role );
-do_action( 'buddynext_space_member_left',      $user_id, $space_id );
-do_action( 'buddynext_space_member_removed',   $user_id, $space_id, $removed_by );
-do_action( 'buddynext_space_join_approved',    $user_id, $space_id );
+do_action( 'buddynext_space_member_joined',    $space_id, $user_id, $role );      // space-first
+do_action( 'buddynext_space_member_left',      $space_id, $user_id );             // space-first
+do_action( 'buddynext_space_member_removed',   $space_id, $user_id, $removed_by ); // space-first
+do_action( 'buddynext_space_join_approved',    $space_id, $user_id, $approved_by ); // space-first
 do_action( 'buddynext_member_type_assigned',   $user_id, $new_slug, $old_slug );
 do_action( 'buddynext_member_type_removed',    $user_id, $removed_slug );
 do_action( 'buddynext_member_type_created',    $type_id, $type_data );
