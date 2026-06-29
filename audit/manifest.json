@@ -25113,6 +25113,15 @@
         "file": "includes/Spaces/SpaceController.php:47"
       },
       {
+        "route": "/buddynext/v1/spaces/suggestions",
+        "methods": [
+          "GET"
+        ],
+        "permission": "require_auth",
+        "gated_by": null,
+        "file": "includes/Spaces/SpaceController.php:72"
+      },
+      {
         "route": "/buddynext/v1/spaces/(?P<id>[\\d]+)",
         "methods": [
           "GET"
