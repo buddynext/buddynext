@@ -588,7 +588,7 @@ $bn_subtitle = sprintf(
 								'space'           => $bn_sug,
 								'membership'      => null,
 								'current_user_id' => $current_user_id,
-								'cat_by_id'       => isset( $bn_cat_by_id ) ? $bn_cat_by_id : array(),
+								'cat_by_id'       => $bn_cat_by_id,
 							)
 						);
 					}
