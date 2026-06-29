@@ -76,6 +76,8 @@ do_action( 'buddynext_part_space_settings_panel_permissions_before', $args );
 	class="bn-space-settings__form"
 	data-bn-settings-permissions-form
 	data-space-id="<?php echo esc_attr( (string) $bn_space_id ); ?>"
+	data-wp-on--input="actions.savebarMarkDirty"
+	data-wp-on--change="actions.savebarMarkDirty"
 >
 	<?php wp_nonce_field( 'bn_space_permissions_' . $bn_space_id, 'bn_space_permissions_nonce' ); ?>
 
