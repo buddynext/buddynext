@@ -459,7 +459,9 @@
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s1);
-	margin-block-end: var(--bn-s1);
+	/* Sits below the title: a comfortable gap above (collapses with the title's
+	   own margin-bottom) and a small gap before the category handle / content. */
+	margin-block: var(--bn-s2) var(--bn-s1);
 	font-size: var(--bn-text-xs);
 	font-weight: var(--bn-fw-medium);
 	line-height: var(--bn-leading-tight);

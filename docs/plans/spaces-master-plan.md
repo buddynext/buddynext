@@ -11,6 +11,21 @@ threshold) — no dup. Verify per item: data-flow (DB) + browser, all states.
 
 ---
 
+## NEW TASKS — 2026-06-29 usability pass (running tracker, keep updated for testing)
+
+Owner-driven usability items raised during review. Each must be tested 1-by-1. Status: ✅ done+verified ·
+🟡 in progress · ⏳ pending.
+
+| # | Task | State | Test |
+|---|---|---|---|
+| U1 | **Breadcrumb below the title** (was above). Keeps the title at the same vertical position as a root space; 8px gap. `space-hero.php` + `.bn-sh-hero__breadcrumb` margin. | ✅ done + browser-verified | On a sub-space: breadcrumb renders below the H1, comfortable gap, parent links; absent on a root. |
+| U2 | **My Spaces: separate "managed" from "joined"** — REST-first. Service `member_role` filter (`manage`=owner+moderator, `joined`=member) + `viewer_role` on member-scoped rows; REST `GET /spaces?membership=managed\|joined`. Web directory sections the My Spaces grid (managed first). | 🟡 REST done (untested) · web sectioning pending | `GET /spaces?mine=1&membership=managed` returns only owned/moderated; `=joined` only member; each row has `viewer_role`. Web: My Spaces shows two labelled groups. |
+| U3 | **Custom field → promote to a space tab** (owner-curated persistent content tab, parity with Feed/Members). Eligible types = textarea/richtext/url only; auto label + default icon (v1). Owner promotes per space (toggle in Custom fields panel); injected via `buddynext_nav_items`; renders field value as a content page; visibility-respected; empty tabs hide from members, show to managers. | ⏳ designed, not built | Promote an eligible field → tab appears at `/spaces/{slug}/field-{key}/`, renders value; non-eligible types never offered; members don't see an empty tab. |
+| U4 | **Display non-eligible custom fields on About** (boolean/select/number) as a details list, visibility-respected. (`resolve_for_space` now returns `core`.) | ⏳ pending | About tab lists custom field values the viewer may see; core settings fields never shown. |
+| R4 | Search-fold: public+searchable space fields → `bn_search_index`. | ⏳ optional/deferred | A `searchable:true,visibility:public` field's value is findable in search. |
+
+---
+
 ## STATUS
 
 | Item | State | Notes |

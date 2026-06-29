@@ -769,13 +769,14 @@ class SpaceService {
 	public function list_spaces( array $args = array() ): array {
 		global $wpdb;
 
-		$scope     = $this->list_query_scope( $args );
-		$member_id = $scope['member_id'];
-		$where_sql = $scope['where_sql'];
-		$orderby   = $scope['orderby'];
-		$order     = $scope['order'];
-		$per_page  = $scope['per_page'];
-		$offset    = $scope['offset'];
+		$scope           = $this->list_query_scope( $args );
+		$member_id       = $scope['member_id'];
+		$member_role_sql = $scope['member_role_sql'];
+		$where_sql       = $scope['where_sql'];
+		$orderby         = $scope['orderby'];
+		$order           = $scope['order'];
+		$per_page        = $scope['per_page'];
+		$offset          = $scope['offset'];
 
 		$params   = $scope['params'];
 		$params[] = $per_page;
@@ -788,7 +789,7 @@ class SpaceService {
 		if ( $member_id > 0 ) {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT s.* FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active' {$where_sql} ORDER BY s.{$orderby} {$order} LIMIT %d OFFSET %d",
+					"SELECT s.*, sm.role AS viewer_role FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active'{$member_role_sql} {$where_sql} ORDER BY s.{$orderby} {$order} LIMIT %d OFFSET %d",
 					$member_id,
 					...$params
 				),
@@ -823,9 +824,10 @@ class SpaceService {
 	public function list_spaces_with_total( array $args = array() ): array {
 		global $wpdb;
 
-		$scope     = $this->list_query_scope( $args );
-		$member_id = $scope['member_id'];
-		$where_sql = $scope['where_sql'];
+		$scope           = $this->list_query_scope( $args );
+		$member_id       = $scope['member_id'];
+		$member_role_sql = $scope['member_role_sql'];
+		$where_sql       = $scope['where_sql'];
 
 		// $where_sql contains only hardcoded strings or validated enum values; the
 		// embedded placeholders are bound through prepare() with $scope['params'].
@@ -834,7 +836,7 @@ class SpaceService {
 		if ( $member_id > 0 ) {
 			$total = (int) $wpdb->get_var(
 				$wpdb->prepare(
-					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active' {$where_sql}",
+					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active'{$member_role_sql} {$where_sql}",
 					$member_id,
 					...$scope['params']
 				)
@@ -866,7 +868,7 @@ class SpaceService {
 	 * its bound params, the validated orderby/order, and the resolved pagination.
 	 *
 	 * @param array<string, mixed> $args Query arguments (see list_spaces()).
-	 * @return array{where_sql: string, params: array<int, mixed>, orderby: string, order: string, per_page: int, offset: int, member_id: int}
+	 * @return array{where_sql: string, params: array<int, mixed>, orderby: string, order: string, per_page: int, offset: int, member_id: int, member_role_sql: string}
 	 */
 	private function list_query_scope( array $args ): array {
 		global $wpdb;
@@ -879,6 +881,18 @@ class SpaceService {
 		$member_id   = isset( $args['member'] ) ? absint( $args['member'] ) : 0;
 		$viewer_id   = isset( $args['viewer'] ) ? absint( $args['viewer'] ) : 0;
 		$is_admin    = ! empty( $args['is_admin'] );
+
+		// Member-scoped lists ("my spaces") can be narrowed to the viewer's
+		// relationship: 'manage' = spaces they own or moderate, 'joined' = plain
+		// membership. The fragment extends the membership JOIN in list_spaces*().
+		// Role values are hardcoded enums, so they are safe to interpolate.
+		$member_role     = $member_id > 0 && isset( $args['member_role'] ) ? (string) $args['member_role'] : '';
+		$member_role_sql = '';
+		if ( 'manage' === $member_role ) {
+			$member_role_sql = " AND sm.role IN ( 'owner', 'moderator' )";
+		} elseif ( 'joined' === $member_role ) {
+			$member_role_sql = " AND sm.role = 'member'";
+		}
 
 		$allowed_orderby = array( 'member_count', 'name', 'created_at' );
 		$raw_orderby     = isset( $args['orderby'] ) ? (string) $args['orderby'] : 'member_count';
@@ -943,13 +957,14 @@ class SpaceService {
 		}
 
 		return array(
-			'where_sql' => $where ? ( 'WHERE ' . implode( ' AND ', $where ) ) : '',
-			'params'    => $params,
-			'orderby'   => $orderby,
-			'order'     => $order,
-			'per_page'  => $per_page,
-			'offset'    => $offset,
-			'member_id' => $member_id,
+			'where_sql'       => $where ? ( 'WHERE ' . implode( ' AND ', $where ) ) : '',
+			'params'          => $params,
+			'orderby'         => $orderby,
+			'order'           => $order,
+			'per_page'        => $per_page,
+			'offset'          => $offset,
+			'member_id'       => $member_id,
+			'member_role_sql' => $member_role_sql,
 		);
 	}
 
@@ -1475,6 +1490,10 @@ class SpaceService {
 			'is_archived'     => ! empty( $row['is_archived'] ),
 			'archived_at'     => $row['archived_at'] ?? null,
 			'created_at'      => $row['created_at'] ?? '',
+			// Present only on member-scoped lists (the viewer's role in the space:
+			// owner | moderator | member). Null elsewhere. Lets clients group
+			// "spaces you manage" vs "spaces you've joined" without a second query.
+			'viewer_role'     => $row['viewer_role'] ?? null,
 		);
 	}
 }

@@ -502,6 +502,16 @@ class SpaceController extends BaseRestController {
 			$args['member'] = $viewer;
 		}
 
+		// Relationship filter on the member scope: 'managed' = spaces the viewer
+		// owns or moderates, 'joined' = plain membership. Implies the member scope,
+		// so a client can request just one bucket (each with its own pagination).
+		// The response also carries `viewer_role` per space for client-side grouping.
+		$membership_param = $request->get_param( 'membership' );
+		if ( $viewer > 0 && in_array( (string) $membership_param, array( 'managed', 'joined' ), true ) ) {
+			$args['member']      = $viewer;
+			$args['member_role'] = 'managed' === (string) $membership_param ? 'manage' : 'joined';
+		}
+
 		// Top-level browse shows root spaces only — sub-spaces are reached from
 		// their parent. Mirrors templates/spaces/directory.php so SSR + REST match.
 		// "My Spaces" and search still surface sub-spaces.
