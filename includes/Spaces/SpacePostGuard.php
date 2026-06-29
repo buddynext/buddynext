@@ -111,7 +111,7 @@ class SpacePostGuard {
 			return false;
 		}
 
-		$who       = (string) get_option( 'bn_space_' . $space_id . '_who_can_post', 'members' );
+		$who       = (string) buddynext_get_space_field( $space_id, 'who_can_post' );
 		$role_rank = array(
 			'member'    => 1,
 			'moderator' => 2,

@@ -484,11 +484,10 @@ class FeedService {
 	/**
 	 * Space IDs whose owner disabled "Push space posts to activity feed".
 	 *
-	 * Reads the per-space bn_space_{id}_push_to_feed options (default 1 = push)
-	 * and returns the IDs explicitly set to 0. Cached per request — the home feed
-	 * builds its source clause once, and the result set (opted-out spaces) is
-	 * small. The option_name LIKE is anchored on the bn_space_ prefix so the
-	 * options index is usable.
+	 * Reads the per-space push_to_feed field (default 1 = push) from bn_space_meta
+	 * and returns the space IDs explicitly set to 0. Cached per request — the home
+	 * feed builds its source clause once, and the opted-out set is small. The
+	 * meta_key index makes the lookup a direct indexed scan.
 	 *
 	 * @return int[] Space IDs to exclude from the home feed.
 	 */
@@ -500,20 +499,14 @@ class FeedService {
 
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$names = $wpdb->get_col(
-			"SELECT option_name FROM {$wpdb->options}
-			 WHERE option_name LIKE 'bn\\_space\\_%\\_push\\_to\\_feed'
-			   AND option_value = '0'"
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = array_map(
+			'intval',
+			(array) $wpdb->get_col(
+				"SELECT bn_space_id FROM {$wpdb->bn_spacemeta}
+				 WHERE meta_key = 'push_to_feed' AND meta_value = '0'"
+			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		$ids = array();
-		foreach ( (array) $names as $name ) {
-			if ( preg_match( '/^bn_space_(\d+)_push_to_feed$/', (string) $name, $m ) ) {
-				$ids[] = (int) $m[1];
-			}
-		}
 
 		return $ids;
 	}

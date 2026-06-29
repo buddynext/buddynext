@@ -114,6 +114,10 @@ class Plugin {
 		// (the composer gate alone is bypassable via REST).
 		( new \BuddyNext\Spaces\SpacePostGuard() )->register();
 
+		// Register the built-in per-space settings as core space fields (stored in
+		// bn_space_meta, rendered + saved + REST-exposed through the field engine).
+		( new \BuddyNext\Spaces\CoreSpaceFields() )->register();
+
 		// Apply the admin-editable capability → required-role overrides on top of
 		// PermissionService's defaults. Registered front + admin (the gate must
 		// change everywhere, not just in wp-admin) via the native role-map filter

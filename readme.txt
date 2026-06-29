@@ -4,7 +4,7 @@ Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 1.0.3
+Stable tag: 1.0.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,6 +55,13 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.0.4 - June 2026 =
+
+* New      - Developers can add their own per-space settings that appear on the space management screen, save automatically, and are available over the REST API - the same system the built-in space settings now use.
+* Improve  - Member lists inside a space and nested sub-spaces stay fast in very large communities.
+* Improve  - Per-space settings no longer load on every page request, keeping large sites fast as the number of spaces grows.
+* Compat   - Pairs with BuddyNext Pro 1.0.4. Install both updates together.
 
 = 1.0.3 - June 2026 =
 

@@ -403,7 +403,7 @@ class JetonomyBridge {
 	 * @return int Jetonomy forum (jt_spaces) id, or 0 on failure.
 	 */
 	public function provision_space_forum( int $space_id ): int {
-		$existing = (int) get_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', 0 );
+		$existing = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
 		if ( $existing > 0 ) {
 			return $existing;
 		}
@@ -428,7 +428,7 @@ class JetonomyBridge {
 		);
 
 		if ( $forum_id > 0 ) {
-			update_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', $forum_id, false );
+			update_space_meta( $space_id, 'jetonomy_forum_id', $forum_id );
 		}
 
 		return $forum_id;
@@ -765,7 +765,7 @@ class JetonomyBridge {
 		if ( $space_id <= 0 ) {
 			return 0;
 		}
-		return (int) get_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', 0 );
+		return (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
 	}
 
 	/**

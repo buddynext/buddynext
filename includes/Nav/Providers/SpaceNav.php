@@ -108,7 +108,7 @@ final class SpaceNav {
 				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'media' ),
 				'condition' => static fn( NavContext $c ): bool => MediaClient::available()
 					&& buddynext_integration_enabled( 'media', 'nav' )
-					&& (bool) get_option( 'bn_space_' . $c->subject_id . '_mvs_media_tab', 0 ),
+					&& (bool) buddynext_get_space_field( (int) $c->subject_id, 'mvs_media_tab' ),
 				'render'    => function ( NavContext $c ): void {
 					$this->render_media_panel( $c->subject_id );
 				},

@@ -64,6 +64,29 @@ class SpaceController extends BaseRestController {
 			)
 		);
 
+		// Space field definitions (the form schema the app + web render from). Public
+		// read — values are per-space and gated on GET /spaces/{id}. Registered
+		// before the {id} route, but '\d+' means 'fields' can never match it anyway.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/fields',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_space_field_definitions' ),
+				'permission_callback' => '__return_true',
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/fields',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'save_space_fields' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/spaces/(?P<id>[\d]+)',
@@ -94,6 +117,16 @@ class SpaceController extends BaseRestController {
 				'callback'            => array( $this, 'get_space_members' ),
 				'permission_callback' => '__return_true',
 				'args'                => $this->member_pagination_args(),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/subspaces',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_subspaces' ),
+				'permission_callback' => '__return_true',
 			)
 		);
 
@@ -381,15 +414,13 @@ class SpaceController extends BaseRestController {
 		foreach ( $bools as $key => $opt ) {
 			$param = $request->get_param( $key );
 			if ( null !== $param ) {
-				// autoload=false: per-space settings are read on demand, never every
-				// request — keeping them out of alloptions matters at thousands of spaces.
-				update_option( 'bn_space_' . $space_id . '_' . $opt, $param ? 1 : 0, false );
+				update_space_meta( $space_id, $opt, $param ? '1' : '0' );
 			}
 		}
 
 		return new WP_REST_Response(
 			array(
-				'require_join_approval' => (int) get_option( 'bn_space_' . $space_id . '_require_join_approval', 0 ),
+				'require_join_approval' => (int) buddynext_get_space_field( $space_id, 'require_join_approval' ),
 			),
 			200
 		);
@@ -469,6 +500,13 @@ class SpaceController extends BaseRestController {
 		$mine_param = $request->get_param( 'mine' );
 		if ( $viewer > 0 && null !== $mine_param && in_array( (string) $mine_param, array( '1', 'true', 'yes' ), true ) ) {
 			$args['member'] = $viewer;
+		}
+
+		// Top-level browse shows root spaces only — sub-spaces are reached from
+		// their parent. Mirrors templates/spaces/directory.php so SSR + REST match.
+		// "My Spaces" and search still surface sub-spaces.
+		if ( ! isset( $args['member'] ) ) {
+			$args['roots_only'] = true;
 		}
 
 		$search_param = null !== $request->get_param( 'search' )
@@ -725,7 +763,162 @@ class SpaceController extends BaseRestController {
 			}
 		}
 
+		// Attach registered space fields with their values. Members-only fields are
+		// included for members and anyone who can manage the space; a public viewer
+		// sees public fields only. App and web render from this same payload.
+		$viewer_id       = get_current_user_id();
+		$space['fields'] = SpaceFieldRegistry::instance()->resolve_for_space(
+			(int) $space['id'],
+			$this->viewer_can_see_member_fields( (int) $space['id'], $viewer_id )
+		);
+
+		// Breadcrumb: a sub-space carries a compact summary of its parent, plus a
+		// live count of its own children so a space-home can show "N sub-spaces".
+		$space['parent']         = ( new SpaceService() )->parent_summary( (int) ( $space['parent_id'] ?? 0 ) );
+		$space['subspace_count'] = ( new SpaceService() )->count_subspaces( (int) $space['id'] );
+
 		return new WP_REST_Response( $space, 200 );
+	}
+
+	/**
+	 * GET /spaces/{id}/subspaces — a parent's sub-spaces, paginated + visibility-scoped.
+	 *
+	 * Public read: a secret child is hidden from a non-member exactly like a
+	 * top-level secret space. Index-backed and bounded so a parent's children
+	 * list never scans at scale.
+	 *
+	 * @param WP_REST_Request $request REST request (id, page, per_page).
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_subspaces( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$parent_id = (int) $request->get_param( 'id' );
+		$service   = new SpaceService();
+		$parent    = $service->get( $parent_id );
+
+		if ( null === $parent ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		// A secret parent's children are only listable by its members / admins.
+		$viewer_id = get_current_user_id();
+		if ( SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) $parent['type'] )
+			&& ( 0 === $viewer_id || ! ( new SpaceMemberService() )->is_member( (int) $parent['id'], $viewer_id ) ) ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$per_page_param = $request->get_param( 'per_page' );
+		$page_param     = $request->get_param( 'page' );
+		$per_page       = max( 1, min( 50, absint( null !== $per_page_param ? $per_page_param : 24 ) ) );
+		$page           = max( 1, absint( null !== $page_param ? $page_param : 1 ) );
+		$offset         = ( $page - 1 ) * $per_page;
+
+		return new WP_REST_Response(
+			array(
+				'subspaces' => $service->get_subspaces( $parent_id, $per_page, $offset, $viewer_id, current_user_can( 'manage_options' ) ),
+				'total'     => $service->count_subspaces( $parent_id ),
+				'page'      => $page,
+				'per_page'  => $per_page,
+			),
+			200
+		);
+	}
+
+	/**
+	 * Whether a viewer may see 'members'-visibility space fields: a member of the
+	 * space, or anyone who can manage it.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $viewer_id Current user ID (0 when logged out).
+	 * @return bool
+	 */
+	private function viewer_can_see_member_fields( int $space_id, int $viewer_id ): bool {
+		if ( $viewer_id <= 0 ) {
+			return false;
+		}
+		if ( ( new SpaceMemberService() )->is_member( $space_id, $viewer_id ) ) {
+			return true;
+		}
+
+		return (bool) buddynext_service( 'permissions' )->can(
+			$viewer_id,
+			'buddynext-manage-space',
+			array( 'space_id' => $space_id )
+		);
+	}
+
+	/**
+	 * GET /spaces/fields — the registered field definitions (form schema, no values).
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response
+	 */
+	public function get_space_field_definitions( WP_REST_Request $request ): WP_REST_Response {
+		unset( $request );
+
+		$fields = array();
+		foreach ( SpaceFieldRegistry::instance()->get_fields() as $field ) {
+			$fields[] = array(
+				'key'         => $field['key'],
+				'label'       => $field['label'],
+				'description' => $field['description'],
+				'type'        => $field['type'],
+				'options'     => $field['options'],
+				'section'     => $field['section'],
+				'sort_order'  => $field['sort_order'],
+				'visibility'  => $field['visibility'],
+				'is_required' => $field['is_required'],
+			);
+		}
+
+		return new WP_REST_Response( array( 'fields' => $fields ), 200 );
+	}
+
+	/**
+	 * POST /spaces/{id}/fields — save space field values (space managers only).
+	 *
+	 * Atomic per the registry: a required-field error rejects the whole submit
+	 * with a 422 and per-field messages; otherwise all values save and return 200.
+	 *
+	 * @param WP_REST_Request $request REST request with a `fields` object param.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function save_space_fields( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$space    = ( new SpaceService() )->get( $space_id );
+
+		if ( null === $space ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		if ( ! buddynext_service( 'permissions' )->can(
+			get_current_user_id(),
+			'buddynext-manage-space',
+			array( 'space_id' => $space_id )
+		) ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'You do not have permission to edit this space.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$values = (array) $request->get_param( 'fields' );
+		$result = SpaceFieldRegistry::instance()->save_for_space( $space_id, $values );
+		$status = empty( $result['errors'] ) ? 200 : 422;
+
+		return new WP_REST_Response( $result, $status );
 	}
 
 	/**
@@ -749,12 +942,20 @@ class SpaceController extends BaseRestController {
 		if ( null !== $request->get_param( 'type' ) ) {
 			$data['type'] = sanitize_key( (string) $request->get_param( 'type' ) );
 		}
+		// Move under a new parent (>0) or detach to the top level (0). The service
+		// validates depth, cycles, the per-parent cap, and manage permission.
+		if ( null !== $request->get_param( 'parent_id' ) ) {
+			$data['parent_id'] = (int) $request->get_param( 'parent_id' );
+		}
 
 		$result = $service->update( $space_id, $user_id, $data );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
-			return $result;
+			// Respect the error's own HTTP status (404 / 422 from a parent move),
+			// defaulting to 403 for the permission/not-found errors that carry none.
+			$error_data = $result->get_error_data();
+			$status     = is_array( $error_data ) && isset( $error_data['status'] ) ? (int) $error_data['status'] : 403;
+			return new WP_Error( $result->get_error_code(), $result->get_error_message(), array( 'status' => $status ) );
 		}
 
 		return new WP_REST_Response( $service->get( $space_id ), 200 );
@@ -1022,7 +1223,7 @@ class SpaceController extends BaseRestController {
 
 		if (
 			'direct' === $join_method
-			&& (bool) get_option( 'bn_space_' . $space_id . '_require_join_approval', 0 )
+			&& (bool) buddynext_get_space_field( $space_id, 'require_join_approval' )
 		) {
 			$join_method = 'request';
 		}

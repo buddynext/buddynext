@@ -3,7 +3,7 @@
  * Plugin Name: BuddyNext
  * Plugin URI:  https://buddynext.com/
  * Description: The social layer for WordPress.
- * Version:     1.0.3
+ * Version:     1.0.4
  * Author:      Wbcom Designs
  * Author URI:  https://wbcomdesigns.com
  * License:     GPLv2 or later
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BUDDYNEXT_VERSION', '1.0.3' );
+define( 'BUDDYNEXT_VERSION', '1.0.4' );
 define( 'BUDDYNEXT_FILE', __FILE__ );
 define( 'BUDDYNEXT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BUDDYNEXT_URL', plugin_dir_url( __FILE__ ) );
@@ -40,6 +40,33 @@ spl_autoload_register(
 			require $file;
 		}
 	}
+);
+
+// Wire WordPress's native metadata API to the bn_space_meta table. WP's
+// _get_meta_table('bn_space') resolves the $wpdb property `bn_spacemeta` (no
+// underscore) and the `bn_space_id` column; our physical table is bn_space_meta.
+// Without this alias every get/add/update/delete_metadata('bn_space', …) — and
+// register_meta / WP_Meta_Query / the meta object cache — silently returns false
+// and no space field can be stored. Re-aliased on blog switch so multisite writes
+// after switch_to_blog() hit the correct blog's table.
+$GLOBALS['wpdb']->bn_spacemeta = $GLOBALS['wpdb']->prefix . 'bn_space_meta';
+add_action(
+	'switch_blog',
+	static function (): void {
+		$GLOBALS['wpdb']->bn_spacemeta = $GLOBALS['wpdb']->prefix . 'bn_space_meta';
+	}
+);
+
+// Boot the space-field registry on init: it fires buddynext_register_space_fields
+// (core + third parties register there, mirroring the Nav API's
+// buddynext_register_nav) and wires each field to register_meta('bn_space', …).
+// Priority 9 so fields are registered before REST routes initialise at init:10.
+add_action(
+	'init',
+	static function (): void {
+		\BuddyNext\Spaces\SpaceFieldRegistry::instance()->boot();
+	},
+	9
 );
 
 register_activation_hook( __FILE__, array( \BuddyNext\Core\Installer::class, 'run' ) );
@@ -226,6 +253,106 @@ function buddynext_spend_credits( int $user_id, int $amount, string $reason ): b
  */
 function buddynext_service( string $key ): mixed {
 	return \BuddyNext\Core\Container::instance()->get( $key );
+}
+
+/**
+ * Read per-space metadata.
+ *
+ * Thin wrapper over the native WP metadata API for meta_type 'bn_space' (backed
+ * by the bn_space_meta table via the $wpdb->bn_spacemeta alias set at boot). This
+ * is the canonical per-space storage — every per-space attribute is a meta row,
+ * never a new column or an autoloaded option.
+ *
+ * @param int    $space_id bn_spaces.id.
+ * @param string $key      Meta key. Empty returns all keys for the space.
+ * @param bool   $single   Return a single value rather than an array.
+ * @return mixed
+ */
+function get_space_meta( int $space_id, string $key = '', bool $single = false ): mixed {
+	return get_metadata( 'bn_space', $space_id, $key, $single );
+}
+
+/**
+ * Add a per-space metadata row.
+ *
+ * @param int    $space_id bn_spaces.id.
+ * @param string $key      Meta key.
+ * @param mixed  $value    Meta value (will be serialized by WP if needed).
+ * @param bool   $unique   Only add when the key has no existing value.
+ * @return int|false Meta ID on success, false on failure.
+ */
+function add_space_meta( int $space_id, string $key, mixed $value, bool $unique = false ): int|false {
+	return add_metadata( 'bn_space', $space_id, $key, $value, $unique );
+}
+
+/**
+ * Create or update a per-space metadata value.
+ *
+ * Per-key rows make this atomic — no read-modify-write clobber between writers.
+ *
+ * @param int    $space_id   bn_spaces.id.
+ * @param string $key        Meta key.
+ * @param mixed  $value      New value.
+ * @param mixed  $prev_value Only update the row matching this previous value.
+ * @return int|bool Meta ID when a row is created, true on update, false on failure.
+ */
+function update_space_meta( int $space_id, string $key, mixed $value, mixed $prev_value = '' ): int|bool {
+	return update_metadata( 'bn_space', $space_id, $key, $value, $prev_value );
+}
+
+/**
+ * Delete per-space metadata.
+ *
+ * @param int    $space_id bn_spaces.id.
+ * @param string $key      Meta key.
+ * @param mixed  $value    Only delete rows matching this value (empty deletes all for the key).
+ * @return bool
+ */
+function delete_space_meta( int $space_id, string $key, mixed $value = '' ): bool {
+	return delete_metadata( 'bn_space', $space_id, $key, $value );
+}
+
+/**
+ * Register a typed, owner-editable space field — the single developer entry point
+ * AND the path core uses for its own built-in space options (no two-tier system).
+ *
+ * One call drives storage (bn_space_meta), the management-screen render + save
+ * (via the FieldType engine), REST exposure, and search-folding. Mirrors the
+ * profile-field model. Delegates to SpaceFieldRegistry; registration of the
+ * underlying register_meta('bn_space', …) happens on 'init'.
+ *
+ * @param string $key  Meta key / field key.
+ * @param array  $args Field definition: label, type (any FieldType type), single,
+ *                     show_in_rest, searchable, visibility ('public'|'members'),
+ *                     section, sort_order, options, default.
+ * @return void
+ */
+function buddynext_register_space_field( string $key, array $args = array() ): void {
+	\BuddyNext\Spaces\SpaceFieldRegistry::instance()->register( $key, $args );
+}
+
+/**
+ * Read a single space field value, type-cast, with the field's registered
+ * default applied when unset. The canonical accessor for per-space settings —
+ * the default lives once in the field registration, never duplicated per reader.
+ *
+ * @param int    $space_id bn_spaces.id.
+ * @param string $key      Registered field key.
+ * @return mixed Typed value (bool / int / string / array) per the field type.
+ */
+function buddynext_get_space_field( int $space_id, string $key ): mixed {
+	$registry = \BuddyNext\Spaces\SpaceFieldRegistry::instance();
+	$field    = $registry->get_field( $key );
+	$value    = get_space_meta( $space_id, $key, true );
+
+	if ( null === $field ) {
+		return $value; // Not a registered field — return the raw stored value.
+	}
+	if ( '' === (string) $value && '' !== (string) $field['default'] ) {
+		$value = $field['default'];
+	}
+
+	return \BuddyNext\Profile\FieldType::rest_value( $field, $value );
 }
 
 /**

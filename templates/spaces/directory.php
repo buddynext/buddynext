@@ -90,6 +90,13 @@ if ( 'mine' === $bn_scope && $current_user_id > 0 ) {
 	$bn_query_args['member'] = $current_user_id;
 }
 
+// Top-level browse shows root spaces only — sub-spaces are discovered from their
+// parent, so the grid never flattens a deep tree. "My Spaces" (member-scoped) and
+// search still surface sub-spaces directly.
+if ( ! isset( $bn_query_args['member'] ) ) {
+	$bn_query_args['roots_only'] = true;
+}
+
 // ── Fetch spaces + total via the service layer ────────────────────────────────
 if ( '' !== $bn_search ) {
 	// search() applies the same secret-space visibility predicate; it has no

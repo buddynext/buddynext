@@ -452,6 +452,21 @@ class SpaceService {
 			$format[]        = '%s';
 		}
 
+		// Move under a new parent, or detach to the top level. Validated for depth,
+		// cycles, the per-parent cap, and manage permission on the new parent.
+		if ( array_key_exists( 'parent_id', $data ) ) {
+			$new_parent     = (int) $data['parent_id'];
+			$current_parent = (int) ( $space['parent_id'] ?? 0 );
+			if ( $new_parent !== $current_parent ) {
+				$resolved = $this->validate_parent_move( $space_id, $space, $user_id, $new_parent );
+				if ( is_wp_error( $resolved ) ) {
+					return $resolved;
+				}
+				$fields['parent_id'] = $resolved; // int (move) or null (detach).
+				$format[]            = '%d';
+			}
+		}
+
 		if ( ! empty( $fields ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->update(
@@ -698,16 +713,17 @@ class SpaceService {
 			array( '%d' )
 		);
 
-		// Remove the per-space option rows (bn_space_{id}_*) so deleting a space
-		// doesn't leave orphaned autoloaded options behind. delete_option() keeps
-		// the options cache coherent (a raw LIKE delete would leave a stale
-		// alloptions entry for the request). Integrations that store their own
-		// per-space option register the suffix via the filter.
-		$bn_space_option_suffixes = apply_filters(
-			'buddynext_space_option_suffixes',
-			array( 'who_can_post', 'require_join_approval', 'jetonomy_forum_id', 'mvs_media_tab', 'banned_words' )
-		);
-		foreach ( (array) $bn_space_option_suffixes as $bn_suffix ) {
+		// Remove this space's metadata. The built-in settings and any
+		// developer-registered space fields all live in bn_space_meta now, so a
+		// single delete clears them — no orphaned rows after the space is gone.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete( $wpdb->bn_spacemeta, array( 'bn_space_id' => $space_id ), array( '%d' ) );
+
+		// Back-compat: an integration that still keeps its own per-space option can
+		// register its suffix here so a deleted space leaves nothing behind. Core
+		// no longer stores any option this way (default is empty).
+		$bn_space_option_suffixes = (array) apply_filters( 'buddynext_space_option_suffixes', array() );
+		foreach ( $bn_space_option_suffixes as $bn_suffix ) {
 			delete_option( 'bn_space_' . $space_id . '_' . sanitize_key( (string) $bn_suffix ) );
 		}
 
@@ -919,6 +935,13 @@ class SpaceService {
 			$params[] = $category_id;
 		}
 
+		// Top-level directory browse shows root spaces only — sub-spaces are
+		// discovered from their parent, so 50k spaces never flatten into one grid.
+		// Member-scoped lists ("my spaces") and search are unaffected.
+		if ( ! empty( $args['roots_only'] ) ) {
+			$where[] = 'parent_id IS NULL';
+		}
+
 		return array(
 			'where_sql' => $where ? ( 'WHERE ' . implode( ' AND ', $where ) ) : '',
 			'params'    => $params,
@@ -1087,6 +1110,190 @@ class SpaceService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return array_map( array( $this, 'hydrate' ), (array) $rows );
+	}
+
+	/**
+	 * Return a parent space's sub-spaces, most-active first.
+	 *
+	 * Index-backed by KEY parent (parent_id). Bounded by $limit (1-50). A secret
+	 * child is hidden from a viewer who is neither a site admin nor an active
+	 * member/owner of that child — mirrors the directory's secret-scope so a
+	 * sub-space is exactly as discoverable as a top-level space of the same type.
+	 *
+	 * @param int  $parent_id Parent space ID.
+	 * @param int  $limit     Max rows (clamped 1-50).
+	 * @param int  $offset    Row offset.
+	 * @param int  $viewer_id Viewer ID for visibility scoping (0 = logged out).
+	 * @param bool $is_admin  Site admin sees every child.
+	 * @return array[] Hydrated sub-space rows.
+	 */
+	public function get_subspaces( int $parent_id, int $limit = 24, int $offset = 0, int $viewer_id = 0, bool $is_admin = false ): array {
+		global $wpdb;
+
+		$parent_id = absint( $parent_id );
+		if ( $parent_id <= 0 ) {
+			return array();
+		}
+
+		$limit  = max( 1, min( 50, $limit ) );
+		$offset = max( 0, $offset );
+
+		$members_table = $wpdb->prefix . 'bn_space_members';
+		$where         = array( 'parent_id = %d', 'is_archived = 0' );
+		$params        = array( $parent_id );
+
+		if ( ! $is_admin ) {
+			$unlisted = SpaceTypeRegistry::instance()->unlisted_keys();
+			if ( $unlisted ) {
+				// Slugs are sanitize_key()'d in the registry, so safe to interpolate.
+				$placeholders = implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $unlisted ) );
+				if ( $viewer_id > 0 ) {
+					$where[]  = "( type NOT IN ( {$placeholders} ) OR owner_id = %d OR id IN ( SELECT space_id FROM {$members_table} WHERE user_id = %d AND status = 'active' ) )";
+					$params[] = $viewer_id;
+					$params[] = $viewer_id;
+				} else {
+					$where[] = "type NOT IN ( {$placeholders} )";
+				}
+			}
+		}
+
+		$where_sql = 'WHERE ' . implode( ' AND ', $where );
+		$params[]  = $limit;
+		$params[]  = $offset;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_spaces {$where_sql} ORDER BY member_count DESC, name ASC LIMIT %d OFFSET %d",
+				$params
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		return array_map( array( $this, 'hydrate' ), (array) $rows );
+	}
+
+	/**
+	 * Count a parent's active (non-archived) sub-spaces. Index-backed by parent.
+	 *
+	 * @param int $parent_id Parent space ID.
+	 * @return int
+	 */
+	public function count_subspaces( int $parent_id ): int {
+		global $wpdb;
+
+		$parent_id = absint( $parent_id );
+		if ( $parent_id <= 0 ) {
+			return 0;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces WHERE parent_id = %d AND is_archived = 0",
+				$parent_id
+			)
+		);
+	}
+
+	/**
+	 * A compact summary of a space's parent, for breadcrumb navigation.
+	 *
+	 * Reads the cached parent row (no extra join on list rows), returning just the
+	 * fields a breadcrumb needs.
+	 *
+	 * @param int $parent_id Parent space ID.
+	 * @return array{id:int,name:string,slug:string}|null Null when there is no parent.
+	 */
+	public function parent_summary( int $parent_id ): ?array {
+		$parent_id = absint( $parent_id );
+		if ( $parent_id <= 0 ) {
+			return null;
+		}
+
+		$parent = $this->get( $parent_id );
+		if ( null === $parent ) {
+			return null;
+		}
+
+		return array(
+			'id'   => (int) $parent['id'],
+			'name' => (string) $parent['name'],
+			'slug' => (string) $parent['slug'],
+		);
+	}
+
+	/**
+	 * Validate a parent change for {@see update()} — move under a new parent, or
+	 * detach to the top level.
+	 *
+	 * Returns the resolved parent id (int) to move, null to detach, or a WP_Error
+	 * when the move would break the two-level depth rule, form a cycle, exceed the
+	 * per-parent cap, or the actor cannot manage the target parent.
+	 *
+	 * @param int                 $space_id   The space being moved.
+	 * @param array<string,mixed> $space      Hydrated row of the space being moved.
+	 * @param int                 $user_id    Acting user.
+	 * @param int                 $new_parent Requested parent id (0 = detach).
+	 * @return int|null|WP_Error
+	 */
+	private function validate_parent_move( int $space_id, array $space, int $user_id, int $new_parent ): int|null|WP_Error {
+		unset( $space );
+
+		// Detach to the top level — always safe (a child simply becomes a root).
+		if ( $new_parent <= 0 ) {
+			return null;
+		}
+
+		if ( '0' === (string) get_option( 'buddynext_space_allow_sub', '1' ) ) {
+			return new WP_Error( 'sub_spaces_disabled', __( 'Sub-spaces are disabled on this community.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		if ( $new_parent === $space_id ) {
+			return new WP_Error( 'invalid_parent', __( 'A space cannot be its own parent.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$parent_row = $wpdb->get_row(
+			$wpdb->prepare( "SELECT id, parent_id FROM {$wpdb->prefix}bn_spaces WHERE id = %d", $new_parent ),
+			ARRAY_A
+		);
+		if ( null === $parent_row ) {
+			return new WP_Error( 'parent_not_found', __( 'The selected parent space does not exist.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		// The target must be a root: nesting under a sub-space would be three deep.
+		if ( null !== $parent_row['parent_id'] && (int) $parent_row['parent_id'] > 0 ) {
+			return new WP_Error( 'max_depth_exceeded', __( 'Spaces may only be nested two levels deep.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		// A space that itself has sub-spaces cannot be nested — its children would
+		// become three levels deep.
+		if ( $this->count_subspaces( $space_id ) > 0 ) {
+			return new WP_Error( 'has_children', __( 'Move or remove this space\'s sub-spaces before nesting it under another space.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		if ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-manage-space', array( 'space_id' => $new_parent ) ) ) {
+			return new WP_Error( 'forbidden', __( 'You can only move a space under one you manage.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		$max_sub = (int) get_option( 'buddynext_space_max_sub_spaces', 0 );
+		if ( $max_sub > 0 && $this->count_subspaces( $new_parent ) >= $max_sub ) {
+			return new WP_Error(
+				'max_sub_spaces_exceeded',
+				sprintf(
+					/* translators: %d: maximum number of sub-spaces allowed per parent. */
+					__( 'This space already has the maximum of %d sub-spaces.', 'buddynext' ),
+					$max_sub
+				),
+				array( 'status' => 422 )
+			);
+		}
+
+		return $new_parent;
 	}
 
 	/**

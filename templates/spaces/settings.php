@@ -161,10 +161,10 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		$bn_subtab = isset( $_POST['bn_settings_subtab'] ) ? sanitize_key( wp_unslash( $_POST['bn_settings_subtab'] ) ) : 'general';
 
 		if ( 'integrations' === $bn_subtab ) {
-			update_option( 'bn_space_' . $space_id . '_push_to_feed', isset( $_POST['push_to_feed'] ) ? 1 : 0 );
-			update_option( 'bn_space_' . $space_id . '_mvs_media_tab', isset( $_POST['mvs_media_tab'] ) ? 1 : 0 );
+			update_space_meta( $space_id, 'push_to_feed', isset( $_POST['push_to_feed'] ) ? '1' : '0' );
+			update_space_meta( $space_id, 'mvs_media_tab', isset( $_POST['mvs_media_tab'] ) ? '1' : '0' );
 			if ( isset( $_POST['jetonomy_forum_id'] ) ) {
-				update_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', absint( $_POST['jetonomy_forum_id'] ) );
+				update_space_meta( $space_id, 'jetonomy_forum_id', absint( $_POST['jetonomy_forum_id'] ) );
 			}
 		}
 
@@ -187,18 +187,18 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_permissions_nonce'] )
 	if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_space_permissions_nonce'] ) ), 'bn_space_permissions_' . $space_id ) ) {
 		$save_notice = 'error';
 	} else {
-		update_option( 'bn_space_' . $space_id . '_require_join_approval', isset( $_POST['require_join_approval'] ) ? 1 : 0 );
+		update_space_meta( $space_id, 'require_join_approval', isset( $_POST['require_join_approval'] ) ? '1' : '0' );
 		$bn_who_post = isset( $_POST['who_can_post'] ) ? sanitize_key( wp_unslash( $_POST['who_can_post'] ) ) : 'members';
 		if ( ! in_array( $bn_who_post, array( 'members', 'mods', 'owner' ), true ) ) {
 			$bn_who_post = 'members';
 		}
-		update_option( 'bn_space_' . $space_id . '_who_can_post', $bn_who_post );
+		update_space_meta( $space_id, 'who_can_post', $bn_who_post );
 
 		$bn_who_invite = isset( $_POST['who_can_invite'] ) ? sanitize_key( wp_unslash( $_POST['who_can_invite'] ) ) : 'mods';
 		if ( ! in_array( $bn_who_invite, array( 'members', 'mods', 'owner' ), true ) ) {
 			$bn_who_invite = 'mods';
 		}
-		update_option( 'bn_space_' . $space_id . '_who_can_invite', $bn_who_invite );
+		update_space_meta( $space_id, 'who_can_invite', $bn_who_invite );
 		$save_notice = 'success';
 	}
 }
@@ -236,7 +236,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_moderation_nonce'] ) 
 	} else {
 		// No post pre-approval: members post freely, moderation is reactive.
 		$raw_banned_words = isset( $_POST['banned_words'] ) ? sanitize_textarea_field( wp_unslash( $_POST['banned_words'] ) ) : '';
-		update_option( 'bn_space_' . $space_id . '_banned_words', $raw_banned_words );
+		update_space_meta( $space_id, 'banned_words', $raw_banned_words );
 		$save_notice = 'success';
 	}
 }
@@ -254,7 +254,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_notifications_nonce']
 		if ( ! in_array( $pref_value, $allowed_prefs, true ) ) {
 			$pref_value = 'all';
 		}
-		update_option( 'bn_space_' . $space_id . '_default_notification_pref', $pref_value );
+		update_space_meta( $space_id, 'default_notification_pref', $pref_value );
 		$save_notice = 'success';
 	}
 }
@@ -318,18 +318,18 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_members_nonce'] ) ) {
 	}
 }
 
-$require_join_approval = (bool) get_option( 'bn_space_' . $space_id . '_require_join_approval', 0 );
-$push_to_feed          = (bool) get_option( 'bn_space_' . $space_id . '_push_to_feed', 1 );
-$mvs_media_tab         = (bool) get_option( 'bn_space_' . $space_id . '_mvs_media_tab', 0 );
-$jetonomy_forum_id     = (int) get_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', 0 );
-$who_can_post          = (string) get_option( 'bn_space_' . $space_id . '_who_can_post', 'members' );
-$who_can_invite        = (string) get_option( 'bn_space_' . $space_id . '_who_can_invite', 'mods' );
+$require_join_approval = (bool) buddynext_get_space_field( $space_id, 'require_join_approval' );
+$push_to_feed          = (bool) buddynext_get_space_field( $space_id, 'push_to_feed' );
+$mvs_media_tab         = (bool) buddynext_get_space_field( $space_id, 'mvs_media_tab' );
+$jetonomy_forum_id     = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
+$who_can_post          = (string) buddynext_get_space_field( $space_id, 'who_can_post' );
+$who_can_invite        = (string) buddynext_get_space_field( $space_id, 'who_can_invite' );
 
 // Moderation options.
-$mod_banned_words = (string) get_option( 'bn_space_' . $space_id . '_banned_words', '' );
+$mod_banned_words = (string) buddynext_get_space_field( $space_id, 'banned_words' );
 
 // Notifications option.
-$default_notification_pref = (string) get_option( 'bn_space_' . $space_id . '_default_notification_pref', 'all' );
+$default_notification_pref = (string) buddynext_get_space_field( $space_id, 'default_notification_pref' );
 
 // Members list — always fetched so the members tab renders without a
 // conditional query. SpaceMemberService::get_members() returns the active

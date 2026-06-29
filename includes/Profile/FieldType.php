@@ -802,6 +802,76 @@ class FieldType {
 	}
 
 	/**
+	 * Plain-text representation of a value (no HTML) for app-native rendering,
+	 * notifications, and exports.
+	 *
+	 * Unlike searchable_text() this covers every type (including boolean / number /
+	 * date / color), and unlike render_display() it returns no markup.
+	 *
+	 * @param array $field Field definition.
+	 * @param mixed $value Stored value.
+	 * @return string
+	 */
+	public static function display_text( array $field, $value ): string {
+		$type = self::resolve_type( isset( $field['type'] ) ? (string) $field['type'] : 'text' );
+
+		if ( 'boolean' === $type ) {
+			return self::truthy( $value ) ? __( 'Yes', 'buddynext' ) : __( 'No', 'buddynext' );
+		}
+
+		if ( 'multiselect' === $type ) {
+			$options = self::options( $field );
+			$labels  = array();
+			foreach ( self::multi_values( $value ) as $slug ) {
+				$labels[] = $options[ $slug ] ?? $slug;
+			}
+			return implode( ', ', $labels );
+		}
+
+		if ( 'select' === $type || 'radio' === $type ) {
+			$options = self::options( $field );
+			$slug    = sanitize_title( (string) $value );
+			return $options[ $slug ] ?? (string) $value;
+		}
+
+		return (string) $value;
+	}
+
+	/**
+	 * Type-shaped value for REST / app payloads: a boolean as bool, a number as
+	 * int|float, a multiselect as an array of slugs, everything else as a string.
+	 *
+	 * Keeps the app client from re-parsing stringified meta values.
+	 *
+	 * @param array $field Field definition.
+	 * @param mixed $value Stored value.
+	 * @return bool|int|float|string|array<int,string>
+	 */
+	public static function rest_value( array $field, $value ): bool|int|float|string|array {
+		$type = self::resolve_type( isset( $field['type'] ) ? (string) $field['type'] : 'text' );
+
+		if ( 'boolean' === $type ) {
+			return self::truthy( $value );
+		}
+
+		if ( 'number' === $type ) {
+			$string = (string) $value;
+			if ( '' === $string ) {
+				return '';
+			}
+			$number = (float) $string;
+			// Return a whole number as int, a fractional number as float.
+			return ( is_finite( $number ) && floor( $number ) === $number ) ? (int) $number : $number;
+		}
+
+		if ( 'multiselect' === $type ) {
+			return self::multi_values( $value );
+		}
+
+		return (string) $value;
+	}
+
+	/**
 	 * Loosely coerce a value to bool for checkbox / boolean handling.
 	 *
 	 * @param mixed $value Raw value.

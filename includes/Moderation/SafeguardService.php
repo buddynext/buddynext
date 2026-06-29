@@ -135,7 +135,7 @@ class SafeguardService {
 		$raw = (string) get_option( 'buddynext_banned_words', '' );
 
 		if ( $space_id > 0 ) {
-			$space_raw = (string) get_option( 'bn_space_' . $space_id . '_banned_words', '' );
+			$space_raw = (string) buddynext_get_space_field( $space_id, 'banned_words' );
 			if ( '' !== $space_raw ) {
 				$raw = '' !== $raw ? $raw . "\n" . $space_raw : $space_raw;
 			}

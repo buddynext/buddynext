@@ -45,6 +45,21 @@ class SpaceMemberService {
 	// ── Public membership API ───────────────────────────────────────────────
 
 	/**
+	 * Resolve the space's configured default notification preference for new
+	 * members, used by every membership-creation path (join / request / invite)
+	 * so the owner's "Default notifications for new members" setting is honoured
+	 * once, in one place.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return string One of 'all' | 'mentions_only' | 'none'.
+	 */
+	private function default_notification_pref( int $space_id ): string {
+		$pref = (string) buddynext_get_space_field( $space_id, 'default_notification_pref' );
+
+		return in_array( $pref, array( 'all', 'mentions_only', 'none' ), true ) ? $pref : 'all';
+	}
+
+	/**
 	 * Join a space directly (open spaces or accepting an invitation).
 	 *
 	 * For open spaces the status is set to 'active' immediately. If the user
@@ -125,14 +140,15 @@ class SpaceMemberService {
 				array( '%d', '%d' )
 			);
 		} else {
-			// New member.
+			// New member — seed notification preference from the space default.
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				$wpdb->prepare(
-					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status, joined_at)
-					 VALUES (%d, %d, 'member', 'active', %s)",
+					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status, notification_pref, joined_at)
+					 VALUES (%d, %d, 'member', 'active', %s, %s)",
 					$space_id,
 					$user_id,
+					$this->default_notification_pref( $space_id ),
 					current_time( 'mysql', true )
 				)
 			);
@@ -224,10 +240,11 @@ class SpaceMemberService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status, joined_at)
-				 VALUES (%d, %d, 'member', 'pending', %s)",
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status, notification_pref, joined_at)
+				 VALUES (%d, %d, 'member', 'pending', %s, %s)",
 				$space_id,
 				$user_id,
+				$this->default_notification_pref( $space_id ),
 				current_time( 'mysql', true )
 			)
 		);
@@ -253,10 +270,30 @@ class SpaceMemberService {
 	 * @return bool
 	 */
 	public function can_invite( int $space_id, int $inviter_id ): bool {
-		$inviter_role = $this->get_role( $space_id, $inviter_id );
+		if ( user_can( $inviter_id, 'manage_options' ) ) {
+			return true;
+		}
 
-		return in_array( $inviter_role, array( 'owner', 'moderator' ), true )
-			|| user_can( $inviter_id, 'manage_options' );
+		$inviter_role = $this->get_role( $space_id, $inviter_id );
+		if ( '' === $inviter_role ) {
+			return false; // Not a member of the space.
+		}
+
+		// Honour the per-space "who can invite" setting (members | mods | owner),
+		// using the same role-rank threshold model as who_can_post in SpacePostGuard.
+		$who       = (string) buddynext_get_space_field( $space_id, 'who_can_invite' );
+		$role_rank = array(
+			'member'    => 1,
+			'moderator' => 2,
+			'owner'     => 3,
+		);
+		$req_rank  = array(
+			'members' => 1,
+			'mods'    => 2,
+			'owner'   => 3,
+		);
+
+		return ( $role_rank[ $inviter_role ] ?? 0 ) >= ( $req_rank[ $who ] ?? 2 );
 	}
 
 	/**
@@ -299,10 +336,11 @@ class SpaceMemberService {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				$wpdb->prepare(
-					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status, joined_at)
-					 VALUES (%d, %d, 'member', 'invited', %s)",
+					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status, notification_pref, joined_at)
+					 VALUES (%d, %d, 'member', 'invited', %s, %s)",
 					$space_id,
 					$invited_user_id,
+					$this->default_notification_pref( $space_id ),
 					current_time( 'mysql', true )
 				)
 			);

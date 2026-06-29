@@ -59,8 +59,20 @@ class Installer {
 	 *      per-integration key buddynext_integration_jetonomy_feed: carry an explicit
 	 *      opt-out ('0') over, then delete the legacy option. The Integration Display
 	 *      admin tab now owns the toggle. No schema change.
+	 * 11 — Spaces foundation. (a) Added KEY parent (parent_id) on bn_spaces and KEY
+	 *      space_status (space_id, status, joined_at) on bn_space_members so sub-space
+	 *      lookups and space-roster pagination stay index-backed at 50k members/space
+	 *      (no filesort or full scan) — applied to existing installs via the idempotent
+	 *      ADD KEY in maybe_alter_tables(), fresh installs inline in CREATE TABLE.
+	 *      (b) Added the bn_space_meta table (WP-meta-shaped: meta_id, bn_space_id)
+	 *      as the per-space metadata substrate behind the native metadata API. Pro
+	 *      shipped this table first with a bespoke ( id, space_id ) schema, so
+	 *      maybe_reshape_space_meta() converges any pre-existing table to canonical
+	 *      (copying space_id -> bn_space_id) BEFORE dbDelta runs; fresh installs get
+	 *      the canonical table inline. Free now owns the table; Pro reads it via the
+	 *      *_space_meta() API.
 	 */
-	private const SCHEMA_VERSION = 10;
+	private const SCHEMA_VERSION = 11;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -98,6 +110,12 @@ class Installer {
 		// v10: converge the legacy Jetonomy feed-sync option into the unified
 		// per-integration key so the admin has a single control, not two.
 		self::maybe_migrate_jetonomy_feed_sync();
+
+		// v11: migrate the per-space settings from autoloaded bn_space_{id}_* options
+		// into bn_space_meta (the canonical field store). Runs after the field
+		// registry boots on init, so register_meta sanitisation applies. Removes the
+		// options once copied — readers now resolve these via get_space_meta().
+		self::maybe_migrate_space_options();
 
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
 	}
@@ -262,6 +280,13 @@ class Installer {
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
+		// v11: reshape a pre-existing bn_space_meta table to the canonical WP-meta
+		// shape BEFORE dbDelta runs. Pro shipped this table first with a bespoke
+		// schema (id PK, space_id) that the native metadata API can't use; Free now
+		// owns it. Running first means dbDelta then sees a canonical table and does
+		// not add a duplicate meta_id column. No-op on fresh installs (table absent).
+		self::maybe_reshape_space_meta( $wpdb->prefix );
+
 		// Suppress echo of DB errors during schema creation so that WP-CLI
 		// and browser activation do not see unexpected HTML output from dbDelta.
 		$wpdb->suppress_errors( true );
@@ -327,11 +352,38 @@ class Installer {
 			),
 		);
 
+		// Per-table additive index back-fills. dbDelta cannot reliably add a KEY
+		// to a pre-existing table across MySQL/MariaDB versions, so each new index
+		// is added here via a guarded ALTER. Each clause is a hardcoded constant;
+		// table names are built from $wpdb->prefix — no untrusted input.
+		$table_indexes = array(
+			// v11: index sub-space lookups (WHERE parent_id = ?) and roster
+			// pagination (WHERE space_id = ? AND status = ? ORDER BY joined_at) so
+			// neither scans/filesorts at 50k members.
+			'bn_spaces'        => array(
+				'parent' => 'ADD KEY parent (parent_id)',
+			),
+			'bn_space_members' => array(
+				'space_status' => 'ADD KEY space_status (space_id, status, joined_at)',
+			),
+		);
+
 		$wpdb->suppress_errors( true );
 		foreach ( $table_columns as $table_slug => $columns ) {
 			$table = $p . $table_slug;
 			foreach ( $columns as $column => $clause ) {
 				if ( self::column_exists( $table, $column ) ) {
+					continue;
+				}
+
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$wpdb->query( "ALTER TABLE `{$table}` {$clause}" );
+			}
+		}
+		foreach ( $table_indexes as $table_slug => $indexes ) {
+			$table = $p . $table_slug;
+			foreach ( $indexes as $index => $clause ) {
+				if ( self::index_exists( $table, $index ) ) {
 					continue;
 				}
 
@@ -365,6 +417,172 @@ class Installer {
 		);
 
 		return null !== $found;
+	}
+
+	/**
+	 * Whether a named index exists on a table, via INFORMATION_SCHEMA.
+	 *
+	 * Mirrors {@see column_exists()} so {@see maybe_alter_tables()} can add a KEY
+	 * idempotently (dbDelta cannot reliably alter indexes on a pre-existing table).
+	 *
+	 * @param string $table Fully-prefixed table name.
+	 * @param string $index Index name to check.
+	 * @return bool
+	 */
+	private static function index_exists( string $table, string $index ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$found = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS
+				 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND INDEX_NAME = %s
+				 LIMIT 1',
+				DB_NAME,
+				$table,
+				$index
+			)
+		);
+
+		return null !== $found;
+	}
+
+	/**
+	 * Migrate per-space settings from bn_space_{id}_* options into bn_space_meta.
+	 *
+	 * The eight built-in per-space settings used to be standalone options; they are
+	 * now core space fields stored in bn_space_meta. This copies any existing
+	 * values over (idempotent: skips a key already present in meta) and deletes the
+	 * option so the autoloaded-options footprint goes to zero. Runs once at the
+	 * v11 upgrade.
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_space_options(): void {
+		global $wpdb;
+
+		$keys    = array(
+			'push_to_feed',
+			'mvs_media_tab',
+			'jetonomy_forum_id',
+			'require_join_approval',
+			'who_can_post',
+			'who_can_invite',
+			'banned_words',
+			'default_notification_pref',
+		);
+		$pattern = '^bn_space_[0-9]+_(' . implode( '|', $keys ) . ')$';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name REGEXP %s",
+				$pattern
+			)
+		);
+
+		foreach ( (array) $rows as $row ) {
+			if ( ! preg_match( '/^bn_space_(\d+)_(.+)$/', (string) $row->option_name, $m ) ) {
+				continue;
+			}
+			$space_id = (int) $m[1];
+			$key      = (string) $m[2];
+
+			if ( '' === (string) get_space_meta( $space_id, $key, true ) ) {
+				update_space_meta( $space_id, $key, maybe_unserialize( $row->option_value ) );
+			}
+			delete_option( (string) $row->option_name );
+		}
+	}
+
+	/**
+	 * Whether a table exists, via INFORMATION_SCHEMA.
+	 *
+	 * @param string $table Fully-prefixed table name.
+	 * @return bool
+	 */
+	private static function table_exists( string $table ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$found = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+				 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+				 LIMIT 1',
+				DB_NAME,
+				$table
+			)
+		);
+
+		return null !== $found;
+	}
+
+	/**
+	 * Converge a pre-existing bn_space_meta table to the canonical WP-meta shape.
+	 *
+	 * Pro shipped this table first as ( id PK, space_id, meta_key, meta_value ) and
+	 * read it with raw SQL; the native metadata API needs ( meta_id PK, bn_space_id,
+	 * meta_key, meta_value ). This migrates either the legacy Pro shape OR a partly
+	 * dbDelta-merged hybrid to canonical, preserving any rows (white-label brand
+	 * blobs) by copying space_id -> bn_space_id. Idempotent and order-critical: it
+	 * MUST run before dbDelta so dbDelta does not add a second id column. No-op once
+	 * the table is canonical (meta_id present, space_id gone) or absent.
+	 *
+	 * @param string $p Table prefix.
+	 * @return void
+	 */
+	private static function maybe_reshape_space_meta( string $p ): void {
+		global $wpdb;
+
+		$table = $p . 'bn_space_meta';
+
+		if ( ! self::table_exists( $table ) ) {
+			return; // Fresh install — dbDelta creates the canonical table.
+		}
+
+		$has_space_id = self::column_exists( $table, 'space_id' );
+		$has_meta_id  = self::column_exists( $table, 'meta_id' );
+
+		if ( $has_meta_id && ! $has_space_id ) {
+			return; // Already canonical.
+		}
+
+		$wpdb->suppress_errors( true );
+
+		// Ensure the WP-meta object-id column exists, then carry legacy rows over.
+		if ( ! self::column_exists( $table, 'bn_space_id' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "ALTER TABLE `{$table}` ADD COLUMN bn_space_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0" );
+		}
+		if ( $has_space_id ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "UPDATE `{$table}` SET bn_space_id = space_id WHERE bn_space_id = 0 AND space_id > 0" );
+		}
+
+		// Rename the legacy PK id -> meta_id (the column the metadata API references).
+		if ( ! $has_meta_id && self::column_exists( $table, 'id' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "ALTER TABLE `{$table}` CHANGE id meta_id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT" );
+		}
+
+		// Retire the legacy unique key + space_id column (index dropped first).
+		if ( $has_space_id ) {
+			if ( self::index_exists( $table, 'space_key' ) ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$wpdb->query( "ALTER TABLE `{$table}` DROP INDEX space_key" );
+			}
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "ALTER TABLE `{$table}` DROP COLUMN space_id" );
+		}
+
+		// Ensure the canonical indexes (dbDelta would add them, but be explicit).
+		if ( ! self::index_exists( $table, 'bn_space_id' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "ALTER TABLE `{$table}` ADD KEY bn_space_id (bn_space_id)" );
+		}
+
+		$wpdb->suppress_errors( false );
 	}
 
 	/**
@@ -976,6 +1194,7 @@ class Installer {
 				UNIQUE KEY         slug (slug),
 				KEY                owner (owner_id),
 				KEY                category (category_id),
+				KEY                parent (parent_id),
 				KEY                is_archived (is_archived)
 			) {$cs};",
 
@@ -988,7 +1207,8 @@ class Installer {
 				joined_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY       (space_id, user_id),
 				KEY               user_role (user_id, role),
-				KEY               user_status (user_id, status)
+				KEY               user_status (user_id, status),
+				KEY               space_status (space_id, status, joined_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_space_categories (
@@ -1003,6 +1223,22 @@ class Installer {
 				sort_order  INT NOT NULL DEFAULT 0,
 				PRIMARY KEY (id),
 				UNIQUE KEY  slug (slug)
+			) {$cs};",
+
+			// Per-space metadata — WP-meta-shaped so the native metadata API
+			// (get/add/update/delete_metadata, register_meta, WP_Meta_Query, meta
+			// cache) works against it once $wpdb->bn_spacemeta is aliased. meta_type
+			// is 'bn_space', so WP derives the id column as bn_space_id. This is the
+			// extensibility substrate: every new per-space attribute is a meta row,
+			// never a new column or an autoloaded option.
+			"CREATE TABLE {$p}bn_space_meta (
+				meta_id     BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				bn_space_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+				meta_key    VARCHAR(255) DEFAULT NULL,
+				meta_value  LONGTEXT DEFAULT NULL,
+				PRIMARY KEY (meta_id),
+				KEY         bn_space_id (bn_space_id),
+				KEY         meta_key (meta_key(191))
 			) {$cs};",
 
 			// ── Notifications + Email ──────────────────────────────────────────
