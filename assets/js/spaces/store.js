@@ -427,6 +427,31 @@ function syncPendingCounters() {
 	}
 }
 
+/* Route a membership click to the action that matches the button's LIVE state.
+ *
+ * The membership button is re-stated client-side by swapButtonState(), which
+ * rewrites data-wp-on--click imperatively. The WP Interactivity API binds the
+ * directive at hydration and does not re-bind an out-of-band attribute change,
+ * so a button swapped from "Join" to "Joined" still invokes the hydration-time
+ * action (joinSpace) on the next click. Each of the four membership actions
+ * therefore routes by the button's current data-current-state first: whichever
+ * action the stale binding fires, the correct one runs. Returns true when the
+ * click was delegated (caller must stop). */
+var MEMBERSHIP_ACTION_FOR_STATE = {
+	join:    'joinSpace',
+	request: 'requestJoin',
+	joined:  'leaveSpace',
+	pending: 'cancelJoinRequest',
+};
+function routeMembership( event, ownState ) {
+	var btn   = event && event.target && event.target.closest( 'button' );
+	var state = btn ? ( btn.dataset.currentState || '' ) : '';
+	if ( ! state || state === ownState ) { return false; }
+	var fn = MEMBERSHIP_ACTION_FOR_STATE[ state ] && storeInstance.actions[ MEMBERSHIP_ACTION_FOR_STATE[ state ] ];
+	if ( fn ) { fn( event ); return true; }
+	return false;
+}
+
 /* ── Store ─────────────────────────────────────────────────────────── */
 
 var storeInstance = store( 'buddynext/spaces', {
@@ -467,6 +492,7 @@ var storeInstance = store( 'buddynext/spaces', {
 		 * shown in the card's stat line without reloading.
 		 */
 		joinSpace: async function ( event ) {
+			if ( routeMembership( event, 'join' ) ) { return; }
 			var btn     = event && event.target && event.target.closest( 'button' );
 			var spaceId = resolveSpaceId( btn );
 			if ( ! spaceId ) { return; }
@@ -584,6 +610,7 @@ var storeInstance = store( 'buddynext/spaces', {
 		 * The endpoint returns { pending: true } on success.
 		 */
 		requestJoin: async function ( event ) {
+			if ( routeMembership( event, 'request' ) ) { return; }
 			var btn     = event && event.target && event.target.closest( 'button' );
 			var spaceId = resolveSpaceId( btn );
 			if ( ! spaceId ) { return; }
@@ -676,6 +703,7 @@ var storeInstance = store( 'buddynext/spaces', {
 		 * (private/secret) and decrements the displayed member count.
 		 */
 		leaveSpace: async function ( event ) {
+			if ( routeMembership( event, 'joined' ) ) { return; }
 			var btn     = event && event.target && event.target.closest( 'button' );
 			var spaceId = resolveSpaceId( btn );
 			if ( ! spaceId ) { return; }
@@ -734,6 +762,7 @@ var storeInstance = store( 'buddynext/spaces', {
 		 * the REST controller handles for pending-status members too).
 		 */
 		cancelJoinRequest: async function ( event ) {
+			if ( routeMembership( event, 'pending' ) ) { return; }
 			var btn     = event && event.target && event.target.closest( 'button' );
 			var spaceId = resolveSpaceId( btn );
 			if ( ! spaceId ) { return; }
