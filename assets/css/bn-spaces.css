@@ -1530,6 +1530,17 @@ a.bn-sh-statpill:focus-visible {
 	color: var(--bn-ink);
 }
 
+/* Custom-fields panel — "Show as a tab" promotion toggle (eligible fields). */
+.bn-space-settings__tab-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin-block-start: var(--bn-s1);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	cursor: pointer;
+}
+
 /* Custom-fields panel — per-field validation error + required marker. */
 .bn-space-settings__field-error {
 	font-size: var(--bn-text-xs);

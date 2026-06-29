@@ -926,6 +926,15 @@ class SpaceController extends BaseRestController {
 
 		$values = (array) $request->get_param( 'fields' );
 		$result = SpaceFieldRegistry::instance()->save_for_space( $space_id, $values );
+
+		// Promotion of eligible fields to space tabs is presentation, not a field
+		// value — persisted only when the values validated, and only when the
+		// caller sent the `tabs` key (so a values-only save leaves tabs untouched).
+		if ( empty( $result['errors'] ) && null !== $request->get_param( 'tabs' ) ) {
+			$tabs = array_map( 'strval', (array) $request->get_param( 'tabs' ) );
+			SpaceFieldRegistry::instance()->set_promoted_tabs( $space_id, $tabs );
+		}
+
 		$status = empty( $result['errors'] ) ? 200 : 422;
 
 		return new WP_REST_Response( $result, $status );

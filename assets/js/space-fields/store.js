@@ -12,12 +12,15 @@ let I18N = {};
 function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
 
 /* Collect one value per registered field row, by input shape. */
+/* The "Show as a tab" checkbox ([data-bn-field-tab]) lives in the same row as the
+ * field value input, so it is excluded everywhere below — it is collected
+ * separately by collectTabs(). */
 function collectFields( root ) {
 	const out = {};
 	root.querySelectorAll( '[data-field-key]' ).forEach( function ( row ) {
 		const key    = row.dataset.fieldKey;
 		const radios = row.querySelectorAll( 'input[type=radio]' );
-		const cb     = row.querySelector( 'input[type=checkbox]' );
+		const cb     = row.querySelector( 'input[type=checkbox]:not([data-bn-field-tab])' );
 		const multi  = row.querySelector( 'select[multiple]' );
 		if ( radios.length ) {
 			const checked = Array.prototype.find.call( radios, function ( r ) { return r.checked; } );
@@ -27,11 +30,21 @@ function collectFields( root ) {
 		} else if ( multi ) {
 			out[ key ] = Array.prototype.map.call( multi.selectedOptions, function ( o ) { return o.value; } );
 		} else {
-			const el = row.querySelector( 'input, select, textarea' );
+			const el = row.querySelector( 'input:not([data-bn-field-tab]), select, textarea' );
 			out[ key ] = el ? el.value : '';
 		}
 	} );
 	return out;
+}
+
+/* Field keys whose "Show as a tab" toggle is checked. */
+function collectTabs( root ) {
+	const tabs = [];
+	root.querySelectorAll( '[data-field-key]' ).forEach( function ( row ) {
+		const toggle = row.querySelector( '[data-bn-field-tab]' );
+		if ( toggle && toggle.checked ) { tabs.push( row.dataset.fieldKey ); }
+	} );
+	return tabs;
 }
 
 function clearErrors( root ) {
@@ -56,7 +69,7 @@ const spaceFieldsStore = store( 'buddynext/space-fields', {
 				const res = yield restFetch( '/spaces/' + ctx.spaceId + '/fields', {
 					method: 'POST',
 					nonce: ctx.restNonce,
-					body: { fields: collectFields( root ) },
+					body: { fields: collectFields( root ), tabs: collectTabs( root ) },
 					toastOnError: false,
 				} );
 				if ( res.ok ) {

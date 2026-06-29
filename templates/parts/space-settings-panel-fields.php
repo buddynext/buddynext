@@ -47,7 +47,8 @@ if ( ! $bn_space ) {
 }
 
 $bn_space_id      = isset( $args['fields_settings']['space_id'] ) ? (int) $args['fields_settings']['space_id'] : 0;
-$bn_custom_fields = SpaceFieldRegistry::instance()->get_custom_fields();
+$bn_sf_registry   = SpaceFieldRegistry::instance();
+$bn_custom_fields = $bn_sf_registry->get_custom_fields();
 
 $bn_classes = array_merge( array( 'bn-card', 'bn-space-settings__panel' ), array_filter( (array) $args['classes'], 'is_string' ) );
 /** Computed root-class list. @var array<int,string> $bn_classes */
@@ -103,6 +104,14 @@ do_action( 'buddynext_part_space_settings_panel_fields_before', $args );
 							<p class="bn-space-settings__hint"><?php echo esc_html( (string) $bn_field['description'] ); ?></p>
 						<?php endif; ?>
 						<p class="bn-space-settings__field-error" data-bn-field-error hidden></p>
+
+						<?php // Reference-content fields (textarea/url) can be promoted to a first-class space tab. ?>
+						<?php if ( $bn_sf_registry->is_tab_eligible( $bn_field ) ) : ?>
+							<label class="bn-space-settings__tab-toggle">
+								<input type="checkbox" data-bn-field-tab <?php checked( $bn_sf_registry->is_promoted_tab( $bn_space_id, $bn_key ) ); ?>>
+								<span><?php esc_html_e( 'Show as a tab in this space', 'buddynext' ); ?></span>
+							</label>
+						<?php endif; ?>
 					</div>
 				<?php endforeach; ?>
 
