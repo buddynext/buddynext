@@ -574,9 +574,36 @@ $bn_subtitle = sprintf(
 	// instead of a Reset-filters CTA that would no-op.
 	$bn_filters_active = ( '' !== $bn_search ) || ( '' !== $bn_cat_slug ) || ( 'mine' === $bn_scope ) || ( 'popular' !== $bn_orderby );
 	?>
+
+	<?php
+	// Always-present "no results" state so a reactive filter that returns zero can
+	// reveal it (the spaces store toggles [data-bn-sd-empty] via setDirectoryUiState).
+	// Shown on an SSR filtered-empty load; hidden otherwise (incl. when there are
+	// results, so the grid owns the viewport).
+	?>
+	<div class="bn-sd-empty" data-bn-sd-empty<?php echo ( empty( $bn_spaces ) && $bn_filters_active ) ? '' : ' style="display:none"'; ?>>
+		<?php
+		buddynext_get_template(
+			'parts/empty-state.php',
+			array(
+				'icon'  => 'search',
+				'title' => __( 'No spaces match', 'buddynext' ),
+				'body'  => __( 'Try widening your filters.', 'buddynext' ),
+			)
+		);
+		?>
+		<button
+			type="button"
+			class="bn-btn"
+			data-variant="secondary"
+			data-size="sm"
+			data-wp-on--click="actions.resetFilters"
+		><?php esc_html_e( 'Reset filters', 'buddynext' ); ?></button>
+	</div>
+
 	<?php if ( empty( $bn_spaces ) && ! $bn_filters_active ) : ?>
 
-		<div class="bn-sd-empty" data-bn-sd-empty>
+		<div class="bn-sd-empty bn-sd-empty--coldstart">
 			<?php
 			buddynext_get_template(
 				'parts/empty-state.php',
@@ -597,28 +624,6 @@ $bn_subtitle = sprintf(
 					data-bn-create-space-trigger
 				><?php esc_html_e( 'Create a space', 'buddynext' ); ?></button>
 			<?php endif; ?>
-		</div>
-
-	<?php elseif ( empty( $bn_spaces ) ) : ?>
-
-		<div class="bn-sd-empty" data-bn-sd-empty>
-			<?php
-			buddynext_get_template(
-				'parts/empty-state.php',
-				array(
-					'icon'  => 'search',
-					'title' => __( 'No spaces match', 'buddynext' ),
-					'body'  => __( 'Try widening your filters.', 'buddynext' ),
-				)
-			);
-			?>
-			<button
-				type="button"
-				class="bn-btn"
-				data-variant="secondary"
-				data-size="sm"
-				data-wp-on--click="actions.resetFilters"
-			><?php esc_html_e( 'Reset filters', 'buddynext' ); ?></button>
 		</div>
 
 	<?php elseif ( $bn_render_sections ) : ?>
