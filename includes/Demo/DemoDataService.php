@@ -45,6 +45,7 @@ use BuddyNext\Profile\ProfileService;
 use BuddyNext\Reactions\ReactionService;
 use BuddyNext\SocialGraph\ConnectionService;
 use BuddyNext\SocialGraph\FollowService;
+use BuddyNext\Spaces\SpaceCategoryService;
 use BuddyNext\Spaces\SpaceMemberService;
 use BuddyNext\Spaces\SpaceService;
 
@@ -216,40 +217,46 @@ class DemoDataService {
 	 */
 	private const SPACES = array(
 		array(
-			'name' => 'Design Critique',
-			'slug' => 'design-critique',
-			'type' => 'open',
-			'desc' => 'Share work in progress and get honest, kind feedback.',
+			'name'     => 'Design Critique',
+			'slug'     => 'design-critique',
+			'type'     => 'open',
+			'desc'     => 'Share work in progress and get honest, kind feedback.',
+			'category' => 'general',
 		),
 		array(
-			'name' => 'Frontend Guild',
-			'slug' => 'frontend-guild',
-			'type' => 'open',
-			'desc' => 'Everything CSS, a11y, and the modern web platform.',
+			'name'     => 'Frontend Guild',
+			'slug'     => 'frontend-guild',
+			'type'     => 'open',
+			'desc'     => 'Everything CSS, a11y, and the modern web platform.',
+			'category' => 'help-support',
 		),
 		array(
-			'name' => 'Book Club',
-			'slug' => 'book-club',
-			'type' => 'private',
-			'desc' => 'One book a month. Request to join and pick up the current read.',
+			'name'     => 'Book Club',
+			'slug'     => 'book-club',
+			'type'     => 'private',
+			'desc'     => 'One book a month. Request to join and pick up the current read.',
+			'category' => 'off-topic',
 		),
 		array(
-			'name' => 'Trail Runners',
-			'slug' => 'trail-runners',
-			'type' => 'open',
-			'desc' => 'Routes, gear talk, and weekend meetups.',
+			'name'     => 'Trail Runners',
+			'slug'     => 'trail-runners',
+			'type'     => 'open',
+			'desc'     => 'Routes, gear talk, and weekend meetups.',
+			'category' => 'general',
 		),
 		array(
-			'name' => 'Founders Lounge',
-			'slug' => 'founders-lounge',
-			'type' => 'secret',
-			'desc' => 'Invite-only room for the core team to talk shop.',
+			'name'     => 'Founders Lounge',
+			'slug'     => 'founders-lounge',
+			'type'     => 'secret',
+			'desc'     => 'Invite-only room for the core team to talk shop.',
+			'category' => 'announcements',
 		),
 		array(
-			'name' => 'Photo Walks',
-			'slug' => 'photo-walks',
-			'type' => 'private',
-			'desc' => 'Monthly city photo walks. Members share their best frame.',
+			'name'     => 'Photo Walks',
+			'slug'     => 'photo-walks',
+			'type'     => 'private',
+			'desc'     => 'Monthly city photo walks. Members share their best frame.',
+			'category' => 'introductions',
 		),
 	);
 
@@ -573,6 +580,17 @@ class DemoDataService {
 		$space_members = new SpaceMemberService();
 		$space_ids     = array();
 		$space_by_slug = array();
+
+		// Map category slugs to ids so the seeded spaces are filterable by category
+		// in the directory (the category chips are dead weight on a fresh, empty
+		// dataset otherwise).
+		$cat_by_slug = array();
+		foreach ( ( new SpaceCategoryService() )->get_all() as $bn_cat ) {
+			if ( isset( $bn_cat['slug'], $bn_cat['id'] ) ) {
+				$cat_by_slug[ (string) $bn_cat['slug'] ] = (int) $bn_cat['id'];
+			}
+		}
+
 		foreach ( self::SPACES as $i => $space ) {
 			$owner_id = $user_ids[ $i % count( $user_ids ) ];
 			$space_id = $space_service->create(
@@ -582,6 +600,7 @@ class DemoDataService {
 					'slug'        => $space['slug'],
 					'type'        => $space['type'],
 					'description' => $space['desc'],
+					'category_id' => $cat_by_slug[ $space['category'] ] ?? 0,
 				)
 			);
 			if ( is_wp_error( $space_id ) ) {
