@@ -47,7 +47,7 @@ Owner-driven usability items raised during review. Each must be tested 1-by-1. S
 | **R1** Nav UX | ✅ DONE + browser-verified | breadcrumb (sub-space hero) + Sub-spaces rail card + manager Add-CTA → fixed-parent create modal. See "R1 — as built" below. |
 | **R2** member panel → REST | ✅ DONE + browser-verified | settings Members panel converted to the `buddynext/space-members` store. See "R2 — as built" below. |
 | **R3** web field panel | ✅ DONE + browser-verified | additive "Custom fields" settings panel for developer-registered (non-core) fields. See "R3 — as built" below. |
-| **R4** search-fold (optional) | ⏳ PENDING | public+searchable fields → `bn_search_index` |
+| **R4** search-fold (optional) | ✅ DONE + verified | searchable+public space fields folded into `bn_search_index`; see U-tracker R4 row. |
 
 All ✅/🟡 are phpcs (0 errors) + PHPStan L5 clean. Local DB already migrated to v11; reset
 `buddynext_schema_version` + reload wp-admin to re-run a fresh migration.
