@@ -37,6 +37,9 @@ $bn_visibility   = isset( $_GET['bn_type'] ) ? sanitize_key( wp_unslash( $_GET['
 $bn_orderby      = isset( $_GET['bn_sort'] ) ? sanitize_key( wp_unslash( $_GET['bn_sort'] ) ) : 'popular'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_paged        = isset( $_GET['bn_page'] ) ? max( 1, absint( $_GET['bn_page'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_per_page     = 18;
+// Opt-in: include sub-spaces in the directory (off by default — the directory is
+// roots-only so it stays uncrowded and bounded at 20-30k member-created spaces).
+$bn_include_subspaces = isset( $_GET['bn_subspaces'] ) && '1' === $_GET['bn_subspaces']; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 // Scope comes from the pretty rewrite (/spaces/mine/ → query var bn_scope) or,
 // as a fallback, a legacy ?bn_scope= query string.
 $bn_scope = (string) get_query_var( 'bn_scope', '' );
@@ -115,8 +118,9 @@ $bn_section_cap     = 12;
 
 // Top-level browse shows root spaces only — sub-spaces are discovered from their
 // parent, so the grid never flattens a deep tree. "My Spaces" (member-scoped) and
-// search still surface sub-spaces directly.
-if ( ! isset( $bn_query_args['member'] ) ) {
+// search still surface sub-spaces directly; the "Include sub-spaces" toggle opts
+// the All view into the full flat list.
+if ( ! isset( $bn_query_args['member'] ) && ! $bn_include_subspaces ) {
 	$bn_query_args['roots_only'] = true;
 }
 
@@ -543,6 +547,20 @@ $bn_subtitle = sprintf(
 				<?php endforeach; ?>
 			</ul>
 		</div>
+
+		<?php // Opt-in toggle: include sub-spaces in the flat list (All view only — My Spaces + search already show them). SSR link so it works without JS. ?>
+		<?php if ( ! $bn_is_mine ) : ?>
+			<a
+				class="bn-btn bn-sd-subspaces-toggle"
+				data-variant="<?php echo $bn_include_subspaces ? 'primary' : 'secondary'; ?>"
+				data-size="sm"
+				href="<?php echo esc_url( $bn_include_subspaces ? remove_query_arg( 'bn_subspaces' ) : add_query_arg( 'bn_subspaces', '1' ) ); ?>"
+				aria-pressed="<?php echo $bn_include_subspaces ? 'true' : 'false'; ?>"
+			>
+				<?php buddynext_icon( 'layers' ); ?>
+				<?php esc_html_e( 'Include sub-spaces', 'buddynext' ); ?>
+			</a>
+		<?php endif; ?>
 	</div>
 
 	<div class="bn-sd-loading" data-bn-loading hidden aria-hidden="true">

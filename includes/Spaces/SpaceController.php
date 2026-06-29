@@ -534,8 +534,10 @@ class SpaceController extends BaseRestController {
 
 		// Top-level browse shows root spaces only — sub-spaces are reached from
 		// their parent. Mirrors templates/spaces/directory.php so SSR + REST match.
-		// "My Spaces" and search still surface sub-spaces.
-		if ( ! isset( $args['member'] ) ) {
+		// "My Spaces" and search still surface sub-spaces; the include_subspaces
+		// opt-in flattens the All view to the full list.
+		$bn_include_subspaces = in_array( (string) $request->get_param( 'include_subspaces' ), array( '1', 'true', 'yes' ), true );
+		if ( ! isset( $args['member'] ) && ! $bn_include_subspaces ) {
 			$args['roots_only'] = true;
 		}
 

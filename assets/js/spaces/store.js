@@ -1732,12 +1732,17 @@ function readSpacesFilterState() {
 	var scopeChip    = document.querySelector( '[data-bn-scope-chip][aria-selected="true"]' );
 	var scope        = scopeChip ? ( scopeChip.getAttribute( 'data-bn-scope-chip' ) || 'all' ) : 'all';
 	var isCat        = ( 'cat' === scope && scopeChip );
+	// The "Include sub-spaces" opt-in is an SSR link (no JS needed); the reactive
+	// path preserves it by reading the current URL so a filter/sort doesn't silently
+	// drop it.
+	var includeSubspaces = '1' === new URLSearchParams( window.location.search ).get( 'bn_subspaces' );
 	return {
-		q:            search ? search.value : '',
-		mine:         ( 'mine' === scope ),
-		categoryId:   isCat ? ( scopeChip.getAttribute( 'data-bn-cat-id' ) || '' ) : '',
-		categorySlug: isCat ? ( scopeChip.getAttribute( 'data-bn-cat-slug' ) || '' ) : '',
-		sort:         sort || 'popular',
+		q:                search ? search.value : '',
+		mine:             ( 'mine' === scope ),
+		categoryId:       isCat ? ( scopeChip.getAttribute( 'data-bn-cat-id' ) || '' ) : '',
+		categorySlug:     isCat ? ( scopeChip.getAttribute( 'data-bn-cat-slug' ) || '' ) : '',
+		sort:             sort || 'popular',
+		includeSubspaces: includeSubspaces,
 	};
 }
 
@@ -1979,6 +1984,7 @@ async function executeSpacesFilter() {
 	if ( state.mine ) { params.set( 'mine', '1' ); }
 	if ( state.categoryId ) { params.set( 'category_id', state.categoryId ); }
 	if ( state.sort ) { params.set( 'orderby', state.sort ); }
+	if ( state.includeSubspaces ) { params.set( 'include_subspaces', '1' ); }
 	params.set( 'per_page', '18' );
 
 	try {
