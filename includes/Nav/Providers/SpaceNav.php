@@ -309,11 +309,33 @@ final class SpaceNav {
 		if ( null === $space ) {
 			return;
 		}
+
+		// Custom (non-core) field values to surface on About: visibility-filtered
+		// for the viewer, with a value, and NOT already promoted to their own tab
+		// (those render on the tab instead, so About never duplicates them).
+		$viewer_id  = get_current_user_id();
+		$see_member = ( $viewer_id > 0 && ( new SpaceMemberService() )->is_member( $space_id, $viewer_id ) )
+			|| current_user_can( 'manage_options' );
+		$registry   = SpaceFieldRegistry::instance();
+		$promoted   = array();
+		foreach ( $registry->promoted_tab_fields( $space_id ) as $bn_pf ) {
+			$promoted[] = (string) $bn_pf['key'];
+		}
+		$about_fields = array();
+		foreach ( $registry->resolve_for_space( $space_id, $see_member ) as $bn_field ) {
+			if ( empty( $bn_field['core'] )
+				&& '' !== (string) $bn_field['display']
+				&& ! in_array( (string) $bn_field['key'], $promoted, true ) ) {
+				$about_fields[] = $bn_field;
+			}
+		}
+
 		buddynext_get_template(
 			'parts/space-about-panel.php',
 			array(
-				'space' => $space,
-				'meta'  => SpaceService::display_meta( $space ),
+				'space'         => $space,
+				'meta'          => SpaceService::display_meta( $space ),
+				'custom_fields' => $about_fields,
 			)
 		);
 	}

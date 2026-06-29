@@ -42,6 +42,7 @@ $args = array(
 	'space'            => isset( $space ) ? $space : null,
 	'description_html' => isset( $description_html ) ? (string) $description_html : '',
 	'meta'             => isset( $meta ) && is_array( $meta ) ? $meta : array(),
+	'custom_fields'    => isset( $custom_fields ) && is_array( $custom_fields ) ? $custom_fields : array(),
 	'classes'          => isset( $classes ) ? (array) $classes : array(),
 );
 
@@ -69,9 +70,10 @@ $bn_class   = trim(
 	)
 );
 
-$bn_space     = $args['space'];
-$bn_desc_html = (string) $args['description_html'];
-$bn_meta      = (array) $args['meta'];
+$bn_space        = $args['space'];
+$bn_desc_html    = (string) $args['description_html'];
+$bn_meta         = (array) $args['meta'];
+$bn_about_fields = (array) $args['custom_fields'];
 
 $bn_privacy_label = isset( $bn_meta['privacy_label'] ) ? (string) $bn_meta['privacy_label'] : '';
 $bn_privacy_tone  = isset( $bn_meta['privacy_tone'] ) ? (string) $bn_meta['privacy_tone'] : 'info';
@@ -123,6 +125,27 @@ do_action( 'buddynext_part_space_about_panel_before', $args );
 					<?php echo esc_html( $bn_space->category_name ); ?>
 				</a>
 			</div>
+		</section>
+	<?php endif; ?>
+
+	<?php // Owner-defined custom field values (visibility-filtered; tab-promoted fields render on their own tab, not here). ?>
+	<?php if ( ! empty( $bn_about_fields ) ) : ?>
+		<section class="bn-sh-about__fields">
+			<h3 class="bn-sh-about__section-title"><?php esc_html_e( 'Details', 'buddynext' ); ?></h3>
+			<dl class="bn-sh-about__meta">
+				<?php foreach ( $bn_about_fields as $bn_af ) : ?>
+					<div>
+						<dt><?php echo esc_html( (string) $bn_af['label'] ); ?></dt>
+						<dd>
+							<?php if ( 'url' === ( $bn_af['type'] ?? '' ) ) : ?>
+								<a href="<?php echo esc_url( (string) $bn_af['display'] ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( (string) $bn_af['display'] ); ?></a>
+							<?php else : ?>
+								<?php echo esc_html( (string) $bn_af['display'] ); ?>
+							<?php endif; ?>
+						</dd>
+					</div>
+				<?php endforeach; ?>
+			</dl>
 		</section>
 	<?php endif; ?>
 
