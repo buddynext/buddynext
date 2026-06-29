@@ -50,6 +50,11 @@ $bn_space_url             = isset( $bn_settings['space_url'] ) ? (string) $bn_se
 $bn_who_can_post          = isset( $bn_settings['who_can_post'] ) ? (string) $bn_settings['who_can_post'] : 'members';
 $bn_who_can_invite        = isset( $bn_settings['who_can_invite'] ) ? (string) $bn_settings['who_can_invite'] : 'mods';
 $bn_require_join_approval = ! empty( $bn_settings['require_join_approval'] );
+$bn_auto_join_on_signup   = ! empty( $bn_settings['auto_join_on_signup'] );
+$bn_auto_join_types       = isset( $bn_settings['auto_join_member_types'] ) ? (array) $bn_settings['auto_join_member_types'] : array();
+// Member types are resolved here (settings render only), never in the always-on
+// field registration. Empty list = the filter UI is hidden (nothing to limit by).
+$bn_member_types = buddynext_service( 'member_types' )->get_all();
 
 $bn_classes = array_merge( array( 'bn-card', 'bn-space-settings__panel' ), array_filter( (array) $args['classes'], 'is_string' ) );
 /** Computed root-class list. @var array<int,string> $bn_classes */
@@ -127,6 +132,38 @@ do_action( 'buddynext_part_space_settings_panel_permissions_before', $args );
 				<span class="bn-toggle" aria-hidden="true"></span>
 			</label>
 		</div>
+
+		<div class="bn-toggle-row">
+			<div class="bn-toggle-row__copy">
+				<div class="bn-toggle-row__label"><?php esc_html_e( 'Auto-join new members', 'buddynext' ); ?></div>
+				<div class="bn-toggle-row__desc"><?php esc_html_e( 'New members are added to this space automatically. They can leave at any time.', 'buddynext' ); ?></div>
+			</div>
+			<label class="bn-space-settings__toggle-shell">
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="auto_join_on_signup" value="1" <?php checked( $bn_auto_join_on_signup ); ?>>
+				<span class="bn-toggle" aria-hidden="true"></span>
+			</label>
+		</div>
+
+		<?php // Sub-option of auto-join: limit it to member types. Only meaningful when the toggle above is on. ?>
+		<?php if ( ! empty( $bn_member_types ) ) : ?>
+			<div class="bn-space-settings__field bn-space-settings__field--sub">
+				<label><?php esc_html_e( 'Limit auto-join to member types', 'buddynext' ); ?></label>
+				<p class="bn-space-settings__hint"><?php esc_html_e( 'Leave all unchecked to auto-join every new member. Tick types to auto-join only members assigned that type. Only applies when auto-join is on.', 'buddynext' ); ?></p>
+				<div class="bn-checkbox-grid">
+					<?php foreach ( $bn_member_types as $bn_mt ) : ?>
+						<?php $bn_mt_slug = isset( $bn_mt['slug'] ) ? (string) $bn_mt['slug'] : ''; ?>
+						<?php
+						if ( '' === $bn_mt_slug ) {
+							continue; }
+						?>
+						<label class="bn-checkbox-row">
+							<input type="checkbox" name="auto_join_member_types[]" value="<?php echo esc_attr( $bn_mt_slug ); ?>" <?php checked( in_array( $bn_mt_slug, $bn_auto_join_types, true ) ); ?>>
+							<span><?php echo esc_html( isset( $bn_mt['name'] ) ? (string) $bn_mt['name'] : $bn_mt_slug ); ?></span>
+						</label>
+					<?php endforeach; ?>
+				</div>
+			</div>
+		<?php endif; ?>
 
 	</div>
 

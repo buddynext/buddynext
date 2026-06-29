@@ -198,6 +198,22 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_permissions_nonce'] )
 			$bn_who_invite = 'mods';
 		}
 		update_space_meta( $space_id, 'who_can_invite', $bn_who_invite );
+
+		// Auto-join: master toggle + member-type filter (validated against the live
+		// member-type slugs; the filter is only meaningful when the toggle is on).
+		update_space_meta( $space_id, 'auto_join_on_signup', isset( $_POST['auto_join_on_signup'] ) ? '1' : '0' );
+		$bn_valid_type_slugs = array();
+		foreach ( buddynext_service( 'member_types' )->get_all() as $bn_mt ) {
+			if ( isset( $bn_mt['slug'] ) ) {
+				$bn_valid_type_slugs[] = (string) $bn_mt['slug'];
+			}
+		}
+		// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- each element sanitized via sanitize_key below, then intersected with the valid slug set.
+		$bn_aj_raw = isset( $_POST['auto_join_member_types'] ) ? (array) wp_unslash( $_POST['auto_join_member_types'] ) : array();
+		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		$bn_aj_types = array_values( array_intersect( array_map( 'sanitize_key', $bn_aj_raw ), $bn_valid_type_slugs ) );
+		update_space_meta( $space_id, 'auto_join_member_types', implode( ',', $bn_aj_types ) );
+
 		$save_notice = 'success';
 	}
 }
@@ -270,6 +286,15 @@ $mvs_media_tab         = (bool) buddynext_get_space_field( $space_id, 'mvs_media
 $jetonomy_forum_id     = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
 $who_can_post          = (string) buddynext_get_space_field( $space_id, 'who_can_post' );
 $who_can_invite        = (string) buddynext_get_space_field( $space_id, 'who_can_invite' );
+
+// Auto-join: a boolean master toggle + an optional member-type filter (comma-joined
+// slugs read raw and split to an array of slugs the panel renders as checkboxes).
+$auto_join_on_signup    = (bool) buddynext_get_space_field( $space_id, 'auto_join_on_signup' );
+$auto_join_member_types = array_values(
+	array_filter(
+		array_map( 'trim', explode( ',', (string) get_space_meta( $space_id, 'auto_join_member_types', true ) ) )
+	)
+);
 
 // Moderation options.
 $mod_banned_words = (string) buddynext_get_space_field( $space_id, 'banned_words' );
@@ -548,11 +573,13 @@ foreach ( $builtin_tabs as $bn_t ) {
 				array(
 					'space'                => $space,
 					'permissions_settings' => array(
-						'space_id'              => $space_id,
-						'space_url'             => $space_url,
-						'who_can_post'          => $who_can_post,
-						'who_can_invite'        => $who_can_invite,
-						'require_join_approval' => $require_join_approval,
+						'space_id'               => $space_id,
+						'space_url'              => $space_url,
+						'who_can_post'           => $who_can_post,
+						'who_can_invite'         => $who_can_invite,
+						'require_join_approval'  => $require_join_approval,
+						'auto_join_on_signup'    => $auto_join_on_signup,
+						'auto_join_member_types' => $auto_join_member_types,
 					),
 				),
 			),

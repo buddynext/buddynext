@@ -87,6 +87,24 @@ final class CoreSpaceFields {
 				'core'       => true,
 			)
 		);
+		$registry->register(
+			'auto_join_on_signup',
+			array(
+				'label'      => __( 'Auto-join new members', 'buddynext' ),
+				'type'       => 'boolean',
+				'default'    => '0',
+				'section'    => 'permissions',
+				'sort_order' => 40,
+				'visibility' => 'members',
+				'core'       => true,
+			)
+		);
+		// NOTE: the auto-join member-type filter (`auto_join_member_types`) is NOT a
+		// registered field — it is stored as plain space meta (comma-joined slugs) by
+		// the Permissions panel and read by AutoJoinService. Registering it would
+		// require baking member-type options into this always-on hook (a per-request
+		// query) AND would route saves through the multiselect option-validating
+		// sanitizer, which strips any value when options are empty.
 
 		// ── Moderation ───────────────────────────────────────────────────────
 		$registry->register(

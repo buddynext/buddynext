@@ -1544,6 +1544,34 @@ a.bn-sh-statpill:focus-visible {
 	color: var(--bn-ink);
 }
 
+/* Sub-option block (e.g. auto-join member-type filter under its toggle). */
+.bn-space-settings__field--sub {
+	margin-inline-start: var(--bn-s4);
+	padding-inline-start: var(--bn-s4);
+	border-inline-start: 2px solid var(--bn-line);
+}
+
+/* Checkbox grid — member-type picker and similar multi-select rows. */
+.bn-checkbox-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+	gap: var(--bn-s2);
+}
+
+.bn-checkbox-row {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-normal);
+	color: var(--bn-ink-2);
+	cursor: pointer;
+}
+
+.bn-checkbox-row input {
+	flex: none;
+}
+
 /* Custom-fields panel — "Show as a tab" promotion toggle (eligible fields). */
 .bn-space-settings__tab-toggle {
 	display: inline-flex;
