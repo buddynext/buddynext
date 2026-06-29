@@ -1367,6 +1367,13 @@ class AssetService {
 					'remove'             => __( 'Remove', 'buddynext' ),
 					'removeMemberFailed' => __( 'Could not remove member. Try again.', 'buddynext' ),
 					'updateRoleFailed'   => __( 'Could not update role. Try again.', 'buddynext' ),
+					'banMemberTitle'     => __( 'Ban this member?', 'buddynext' ),
+					'banMemberBody'      => __( 'They will be removed and blocked from rejoining this space.', 'buddynext' ),
+					'ban'                => __( 'Ban', 'buddynext' ),
+					'banMemberFailed'    => __( 'Could not ban member. Try again.', 'buddynext' ),
+					'enterIdentifier'    => __( 'Enter a username or email address.', 'buddynext' ),
+					'inviteSent'         => __( 'Invitation sent.', 'buddynext' ),
+					'inviteFailed'       => __( 'Could not send the invitation.', 'buddynext' ),
 				),
 			)
 		);

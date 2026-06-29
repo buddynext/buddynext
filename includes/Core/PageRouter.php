@@ -1130,11 +1130,12 @@ class PageRouter {
 				if ( 'moderation' === $space_action_v ) {
 					$assets->enqueue( 'moderation' );
 				}
-				// The members sub-view renders Remove-member / Change-role buttons
-				// bound to the buddynext/space-members store, so that module must
-				// load there too — without it the buttons render but never hydrate.
+				// The members sub-view AND the settings "Members" panel render
+				// Remove / Change-role / Ban / Invite buttons bound to the
+				// buddynext/space-members store, so that module must load on both —
+				// without it the buttons render but never hydrate.
 				$bn_space_tab = isset( $_GET['bn_tab'] ) ? sanitize_key( wp_unslash( $_GET['bn_tab'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-				if ( 'members' === $space_action_v || 'members' === $bn_space_tab ) {
+				if ( in_array( $space_action_v, array( 'members', 'settings' ), true ) || 'members' === $bn_space_tab ) {
 					$assets->enqueue( 'space-members' );
 				}
 				// Localize the spaces URL base + i18n so the spaces store can

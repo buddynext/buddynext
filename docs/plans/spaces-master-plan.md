@@ -26,7 +26,7 @@ threshold) — no dup. Verify per item: data-flow (DB) + browser, all states.
 | **T11** admin completeness | ✅ DONE + browser-verified | Live run 2026-06-29: PENDING column renders, "Sub-space of Design Critique" label shows on the child row, Archive→ "Archived" badge + Unarchive action, Unarchive round-trips. **Known cosmetic gap confirmed live: no admin success notice after the `?archived=1` redirect** (see follow-ups). |
 | **Gap-audit** enforcement fixes | 🟡 DONE — code-verified | `can_invite()` honors `who_can_invite`; `default_notification_pref` seeded on join/request/invite (shared helper) — **browser-verify** |
 | **R1** Nav UX | ✅ DONE + browser-verified | breadcrumb (sub-space hero) + Sub-spaces rail card + manager Add-CTA → fixed-parent create modal. See "R1 — as built" below. |
-| **R2** member panel → REST | ⏳ PENDING | convert legacy POST to Interactivity/REST |
+| **R2** member panel → REST | ✅ DONE + browser-verified | settings Members panel converted to the `buddynext/space-members` store. See "R2 — as built" below. |
 | **R3** web field panel | ⏳ PENDING | render registered fields on settings screen |
 | **R4** search-fold (optional) | ⏳ PENDING | public+searchable fields → `bn_search_index` |
 
@@ -69,11 +69,24 @@ Shipped as server-render (SSR reads the same SpaceService data the REST exposes 
   breakpoint; mobile parent context is carried by the always-visible hero breadcrumb. A mobile sub-space
   surface is a template-wide concern, out of R1 scope.)
 
-### R2 — member-management panel → REST/Interactivity
-- Convert `templates/parts/space-settings-panel-members.php` (legacy full-page POST in `settings.php`) to an
-  Interactivity store calling the existing `buddynext/v1` member routes (promote/demote/remove/ban/invite
-  all exist), optimistic UI + toasts, aligned with the Nav render seam.
-- Verify: each action fires REST, updates roster without reload, toast; multi-actor states; 390px + dark.
+### R2 — member-management panel → REST/Interactivity — AS BUILT (2026-06-29, browser-verified)
+Converted `templates/parts/space-settings-panel-members.php` from 5 server POST forms to the **existing**
+`buddynext/space-members` Interactivity store (the same store the Members tab uses — no new store).
+- **Reused** `removeMember` + `changeRole`; **added** `banMember` (`POST /spaces/{id}/bans {user_id}`) and
+  `inviteMember` (`POST /spaces/{id}/invite {identifier}`) to `assets/js/space-members/store.js`, plus their
+  i18n keys in `AssetService::i18n_space_members`. Invite is bound to the form's `submit` so Enter and the
+  button both work; `preventDefault` stops the native POST; success clears the field + toasts (no reload,
+  since an invite doesn't change the active roster); role/remove/ban reload (roster changes).
+- Panel wrapped in `data-wp-interactive="buddynext/space-members"` with `spaceId` + `restNonce` context;
+  each button carries `data-user-id` (+ `data-role` for promote/demote). Owner row has no actions.
+- `PageRouter` now enqueues the `space-members` module on the **settings** sub-page too (was members-tab
+  only) — without it the buttons render but never hydrate.
+- Removed the legacy POST handler in `templates/spaces/settings.php` (and the now-dead `$save_error_message`
+  + `invite_sent` notice) — the panel is a pure REST client like the rest of the app layer.
+- Verified live on Design Critique (admin): promote→Moderator→demote→Member; remove (confirm→gone);
+  ban (confirm→removed + `bn_space_bans` row); invite `bn_demo_jonas_berg`→`invited` row + field cleared;
+  empty-invite→validation, no POST. Zero legacy forms in the DOM. WPCS + PHPStan-L5 clean; 390px no-overflow;
+  dark inherited. Seed roster restored after testing (10 active, 0 bans).
 
 ### R3 — web field-management panel
 - Render the registered fields on the space settings screen from `GET /spaces/{id}` `fields[]` +

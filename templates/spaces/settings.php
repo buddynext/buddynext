@@ -122,8 +122,7 @@ $settings_tab = isset( $_GET['bn_stab'] ) ? sanitize_key( wp_unslash( $_GET['bn_
 
 // ── Handle saved settings (POST) ─────────────────────────────────────────────
 
-$save_notice        = '';
-$save_error_message = '';
+$save_notice = '';
 
 // sanitize_key() lowercases, so uppercase the result before comparing against
 // 'POST' — otherwise every POST handler below is skipped and saves are dropped.
@@ -259,64 +258,11 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_notifications_nonce']
 	}
 }
 
-// ── Handle members tab POST actions ──────────────────────────────────────────
-
-if ( 'POST' === $request_method && isset( $_POST['bn_space_members_nonce'] ) ) {
-	if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_space_members_nonce'] ) ), 'bn_space_members_' . $space_id ) ) {
-		$save_notice = 'error';
-	} else {
-		$member_action = isset( $_POST['member_action'] ) ? sanitize_key( wp_unslash( $_POST['member_action'] ) ) : '';
-		$target_user   = isset( $_POST['target_user_id'] ) ? absint( $_POST['target_user_id'] ) : 0;
-
-		if ( in_array( $member_action, array( 'promote', 'demote', 'remove', 'ban', 'invite' ), true ) ) {
-			$member_service = new \BuddyNext\Spaces\SpaceMemberService();
-			$acting_user_id = get_current_user_id();
-
-			if ( $target_user && 'promote' === $member_action ) {
-				// change_role validates the role + acting permission, busts the
-				// member cache and fires the role-change hook (the raw UPDATE did none).
-				$promote_result = $member_service->change_role( $space_id, $target_user, 'moderator', $acting_user_id );
-				$save_notice    = is_wp_error( $promote_result ) ? 'error' : 'success';
-				if ( is_wp_error( $promote_result ) ) {
-					$save_error_message = $promote_result->get_error_message();
-				}
-			} elseif ( $target_user && 'demote' === $member_action ) {
-				$demote_result = $member_service->change_role( $space_id, $target_user, 'member', $acting_user_id );
-				$save_notice   = is_wp_error( $demote_result ) ? 'error' : 'success';
-				if ( is_wp_error( $demote_result ) ) {
-					$save_error_message = $demote_result->get_error_message();
-				}
-			} elseif ( $target_user && 'remove' === $member_action ) {
-				$remove_result = $member_service->remove( $space_id, $target_user, $acting_user_id );
-				$save_notice   = ( ! is_wp_error( $remove_result ) ) ? 'success' : 'error';
-			} elseif ( $target_user && 'ban' === $member_action ) {
-				$ban_result  = $member_service->ban( $space_id, $acting_user_id, $target_user );
-				$save_notice = ( ! is_wp_error( $ban_result ) ) ? 'success' : 'error';
-				if ( is_wp_error( $ban_result ) ) {
-					$save_error_message = $ban_result->get_error_message();
-				}
-			} elseif ( 'invite' === $member_action ) {
-				$invite_identifier = isset( $_POST['invite_identifier'] ) ? sanitize_text_field( wp_unslash( $_POST['invite_identifier'] ) ) : '';
-				// Accept an @-prefixed username, matching the @username mention format.
-				$invite_identifier = ltrim( $invite_identifier, '@' );
-				if ( $invite_identifier ) {
-					$invite_user = is_email( $invite_identifier )
-						? get_user_by( 'email', $invite_identifier )
-						: get_user_by( 'login', $invite_identifier );
-					if ( $invite_user ) {
-						$invite_result = $member_service->invite( $space_id, $acting_user_id, $invite_user->ID );
-						$save_notice   = ( ! is_wp_error( $invite_result ) ) ? 'invite_sent' : 'error';
-						if ( is_wp_error( $invite_result ) ) {
-							$save_error_message = $invite_result->get_error_message();
-						}
-					} else {
-						$save_notice = 'error';
-					}
-				}
-			}
-		}
-	}
-}
+// Member-management actions (promote / demote / remove / ban / invite) now run
+// through the buddynext/space-members Interactivity store against buddynext/v1
+// (see templates/parts/space-settings-panel-members.php) — the same store the
+// Members tab uses. The legacy server-side POST handler was removed; the panel
+// is a REST client like the rest of the app layer.
 
 $require_join_approval = (bool) buddynext_get_space_field( $space_id, 'require_join_approval' );
 $push_to_feed          = (bool) buddynext_get_space_field( $space_id, 'push_to_feed' );
@@ -536,12 +482,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 	<!-- Content shell -->
 	<div class="bn-space-settings__shell">
 
-		<?php if ( 'invite_sent' === $save_notice ) : ?>
-			<div class="bn-card bn-space-settings__notice" data-tone="success" role="status">
-				<span class="bn-space-settings__notice-icon" aria-hidden="true"><?php buddynext_icon( 'check-circle' ); ?></span>
-				<?php esc_html_e( 'Invitation sent successfully.', 'buddynext' ); ?>
-			</div>
-		<?php elseif ( 'success' === $save_notice ) : ?>
+		<?php if ( 'success' === $save_notice ) : ?>
 			<div class="bn-card bn-space-settings__notice" data-tone="success" role="status">
 				<span class="bn-space-settings__notice-icon" aria-hidden="true"><?php buddynext_icon( 'check-circle' ); ?></span>
 				<?php esc_html_e( 'Changes saved successfully.', 'buddynext' ); ?>
@@ -549,13 +490,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 		<?php elseif ( 'error' === $save_notice ) : ?>
 			<div class="bn-card bn-space-settings__notice" data-tone="danger" role="alert">
 				<span class="bn-space-settings__notice-icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
-				<?php
-				if ( '' !== $save_error_message ) {
-					echo esc_html( $save_error_message );
-				} else {
-					esc_html_e( 'Security check failed. Please try again.', 'buddynext' );
-				}
-				?>
+				<?php esc_html_e( 'Could not save your changes. Please check the form and try again.', 'buddynext' ); ?>
 			</div>
 		<?php endif; ?>
 

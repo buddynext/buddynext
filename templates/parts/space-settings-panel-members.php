@@ -64,154 +64,166 @@ $bn_class   = trim(
 );
 
 do_action( 'buddynext_part_space_settings_panel_members_before', $args );
+
+// REST/Interactivity context for the buddynext/space-members store — the same
+// store the Members tab uses. Management actions (promote/demote/remove/ban/
+// invite) all run through buddynext/v1, never a server-side POST.
+$bn_sspm_ctx = (string) wp_json_encode(
+	array(
+		'spaceId'   => $bn_space_id,
+		'restNonce' => wp_create_nonce( 'wp_rest' ),
+	)
+);
 ?>
-<div class="<?php echo esc_attr( $bn_class ); ?>">
-	<header class="bn-space-settings__panel-head">
-		<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Members', 'buddynext' ); ?></h2>
-		<p class="bn-space-settings__panel-desc">
-			<?php
-			$bn_sspm_count = count( $bn_space_members );
-			printf(
-				/* translators: %d: number of active members */
-				esc_html( _n( '%d active member', '%d active members', $bn_sspm_count, 'buddynext' ) ),
-				(int) $bn_sspm_count
-			);
-			?>
-		</p>
-	</header>
-
-	<?php if ( empty( $bn_space_members ) ) : ?>
-		<p class="bn-space-settings__empty">
-			<?php esc_html_e( 'No active members yet.', 'buddynext' ); ?>
-		</p>
-	<?php else : ?>
-		<ul class="bn-space-settings__member-list" role="list">
-			<?php foreach ( $bn_space_members as $bn_member ) : ?>
+<div
+	class="bn-space-settings__members"
+	data-wp-interactive="buddynext/space-members"
+	data-wp-context="<?php echo esc_attr( $bn_sspm_ctx ); ?>"
+>
+	<div class="<?php echo esc_attr( $bn_class ); ?>">
+		<header class="bn-space-settings__panel-head">
+			<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Members', 'buddynext' ); ?></h2>
+			<p class="bn-space-settings__panel-desc">
 				<?php
-				$bn_member_avatar_url = get_avatar_url( (int) $bn_member->user_id, array( 'size' => 72 ) );
-				$bn_member_role       = in_array( $bn_member->role, array( 'owner', 'moderator', 'member' ), true )
-					? $bn_member->role
-					: 'member';
-				$bn_is_owner          = ( 'owner' === $bn_member_role );
-
-				$role_tone_map  = array(
-					'owner'     => 'accent',
-					'moderator' => 'info',
-					'member'    => 'default',
+				$bn_sspm_count = count( $bn_space_members );
+				printf(
+					/* translators: %d: number of active members */
+					esc_html( _n( '%d active member', '%d active members', $bn_sspm_count, 'buddynext' ) ),
+					(int) $bn_sspm_count
 				);
-				$role_label_map = array(
-					'owner'     => __( 'Owner', 'buddynext' ),
-					'moderator' => __( 'Moderator', 'buddynext' ),
-					'member'    => __( 'Member', 'buddynext' ),
-				);
-				$role_tone      = $role_tone_map[ $bn_member_role ] ?? 'default';
-				$role_label     = $role_label_map[ $bn_member_role ] ?? ucfirst( $bn_member_role );
 				?>
-				<li class="bn-space-settings__member-row" role="listitem">
-					<span class="bn-avatar" data-size="md" aria-hidden="true">
-						<?php if ( $bn_member_avatar_url ) : ?>
-							<img
-								src="<?php echo esc_url( $bn_member_avatar_url ); ?>"
-								alt=""
-								loading="lazy"
-							>
-						<?php else : ?>
-							<?php echo esc_html( strtoupper( substr( $bn_member->display_name, 0, 1 ) ) ); ?>
-						<?php endif; ?>
-					</span>
+			</p>
+		</header>
 
-					<div class="bn-space-settings__member-info">
-						<p class="bn-space-settings__member-name"><?php echo esc_html( $bn_member->display_name ); ?></p>
-						<p class="bn-space-settings__member-meta">@<?php echo esc_html( $bn_member->user_login ); ?></p>
-					</div>
+		<?php if ( empty( $bn_space_members ) ) : ?>
+			<p class="bn-space-settings__empty">
+				<?php esc_html_e( 'No active members yet.', 'buddynext' ); ?>
+			</p>
+		<?php else : ?>
+			<ul class="bn-space-settings__member-list" role="list">
+				<?php foreach ( $bn_space_members as $bn_member ) : ?>
+					<?php
+					$bn_member_avatar_url = get_avatar_url( (int) $bn_member->user_id, array( 'size' => 72 ) );
+					$bn_member_role       = in_array( $bn_member->role, array( 'owner', 'moderator', 'member' ), true )
+						? $bn_member->role
+						: 'member';
+					$bn_is_owner          = ( 'owner' === $bn_member_role );
 
-					<span class="bn-badge" data-tone="<?php echo esc_attr( $role_tone ); ?>"><?php echo esc_html( $role_label ); ?></span>
+					$role_tone_map  = array(
+						'owner'     => 'accent',
+						'moderator' => 'info',
+						'member'    => 'default',
+					);
+					$role_label_map = array(
+						'owner'     => __( 'Owner', 'buddynext' ),
+						'moderator' => __( 'Moderator', 'buddynext' ),
+						'member'    => __( 'Member', 'buddynext' ),
+					);
+					$role_tone      = $role_tone_map[ $bn_member_role ];
+					$role_label     = $role_label_map[ $bn_member_role ];
+					$bn_uid_attr    = esc_attr( (string) $bn_member->user_id );
+					?>
+					<li class="bn-space-settings__member-row" role="listitem">
+						<span class="bn-avatar" data-size="md" aria-hidden="true">
+							<?php if ( $bn_member_avatar_url ) : ?>
+								<img
+									src="<?php echo esc_url( $bn_member_avatar_url ); ?>"
+									alt=""
+									loading="lazy"
+								>
+							<?php else : ?>
+								<?php echo esc_html( strtoupper( substr( $bn_member->display_name, 0, 1 ) ) ); ?>
+							<?php endif; ?>
+						</span>
 
-					<?php if ( ! $bn_is_owner ) : ?>
-						<div class="bn-space-settings__member-actions">
-							<?php if ( 'member' === $bn_member_role ) : ?>
-								<form method="post" action="">
-									<?php wp_nonce_field( 'bn_space_members_' . $bn_space_id, 'bn_space_members_nonce' ); ?>
-									<input type="hidden" name="target_user_id" value="<?php echo esc_attr( (string) $bn_member->user_id ); ?>">
-									<input type="hidden" name="member_action" value="promote">
-									<button type="submit" class="bn-btn" data-variant="ghost" data-size="sm">
+						<div class="bn-space-settings__member-info">
+							<p class="bn-space-settings__member-name"><?php echo esc_html( $bn_member->display_name ); ?></p>
+							<p class="bn-space-settings__member-meta">@<?php echo esc_html( $bn_member->user_login ); ?></p>
+						</div>
+
+						<span class="bn-badge" data-tone="<?php echo esc_attr( $role_tone ); ?>"><?php echo esc_html( $role_label ); ?></span>
+
+						<?php if ( ! $bn_is_owner ) : ?>
+							<div class="bn-space-settings__member-actions">
+								<?php if ( 'member' === $bn_member_role ) : ?>
+									<button
+										type="button"
+										class="bn-btn"
+										data-variant="ghost"
+										data-size="sm"
+										data-user-id="<?php echo $bn_uid_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above. ?>"
+										data-role="moderator"
+										data-wp-on--click="actions.changeRole"
+									>
 										<?php esc_html_e( 'Make moderator', 'buddynext' ); ?>
 									</button>
-								</form>
-							<?php elseif ( 'moderator' === $bn_member_role ) : ?>
-								<form method="post" action="">
-									<?php wp_nonce_field( 'bn_space_members_' . $bn_space_id, 'bn_space_members_nonce' ); ?>
-									<input type="hidden" name="target_user_id" value="<?php echo esc_attr( (string) $bn_member->user_id ); ?>">
-									<input type="hidden" name="member_action" value="demote">
-									<button type="submit" class="bn-btn" data-variant="ghost" data-size="sm">
+								<?php elseif ( 'moderator' === $bn_member_role ) : ?>
+									<button
+										type="button"
+										class="bn-btn"
+										data-variant="ghost"
+										data-size="sm"
+										data-user-id="<?php echo $bn_uid_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above. ?>"
+										data-role="member"
+										data-wp-on--click="actions.changeRole"
+									>
 										<?php esc_html_e( 'Remove moderator', 'buddynext' ); ?>
 									</button>
-								</form>
-							<?php endif; ?>
+								<?php endif; ?>
 
-							<form method="post" action="">
-								<?php wp_nonce_field( 'bn_space_members_' . $bn_space_id, 'bn_space_members_nonce' ); ?>
-								<input type="hidden" name="target_user_id" value="<?php echo esc_attr( (string) $bn_member->user_id ); ?>">
-								<input type="hidden" name="member_action" value="remove">
 								<button
-									type="submit"
+									type="button"
 									class="bn-btn"
 									data-variant="ghost"
 									data-size="sm"
-									data-bn-confirm="<?php echo esc_attr( __( 'Remove this member from the space?', 'buddynext' ) ); ?>"
+									data-user-id="<?php echo $bn_uid_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above. ?>"
+									data-wp-on--click="actions.removeMember"
 								>
 									<?php esc_html_e( 'Remove', 'buddynext' ); ?>
 								</button>
-							</form>
 
-							<form method="post" action="">
-								<?php wp_nonce_field( 'bn_space_members_' . $bn_space_id, 'bn_space_members_nonce' ); ?>
-								<input type="hidden" name="target_user_id" value="<?php echo esc_attr( (string) $bn_member->user_id ); ?>">
-								<input type="hidden" name="member_action" value="ban">
 								<button
-									type="submit"
+									type="button"
 									class="bn-btn"
 									data-variant="danger"
 									data-size="sm"
-									data-bn-confirm="<?php echo esc_attr( __( 'Ban this member? They will not be able to rejoin.', 'buddynext' ) ); ?>"
+									data-user-id="<?php echo $bn_uid_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above. ?>"
+									data-wp-on--click="actions.banMember"
 								>
 									<?php esc_html_e( 'Ban', 'buddynext' ); ?>
 								</button>
-							</form>
-						</div>
-					<?php endif; ?>
-				</li>
-			<?php endforeach; ?>
-		</ul>
-	<?php endif; ?>
-</div>
+							</div>
+						<?php endif; ?>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+		<?php endif; ?>
+	</div>
 
-<div class="bn-card bn-space-settings__panel">
-	<header class="bn-space-settings__panel-head">
-		<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Invite member', 'buddynext' ); ?></h2>
-		<p class="bn-space-settings__panel-desc">
-			<?php esc_html_e( 'Enter a username or email address to send an invitation.', 'buddynext' ); ?>
-		</p>
-	</header>
-	<form method="post" action="" class="bn-space-settings__invite-row">
-		<?php wp_nonce_field( 'bn_space_members_' . $bn_space_id, 'bn_space_members_nonce' ); ?>
-		<input type="hidden" name="member_action" value="invite">
-		<input type="hidden" name="target_user_id" value="0">
-		<label class="bn-sr-only" for="bn_invite_identifier">
-			<?php esc_html_e( 'Username or email address', 'buddynext' ); ?>
-		</label>
-		<input
-			type="text"
-			id="bn_invite_identifier"
-			name="invite_identifier"
-			class="bn-input"
-			placeholder="<?php esc_attr_e( 'Username or email address', 'buddynext' ); ?>"
-			required
-		>
-		<button type="submit" class="bn-btn" data-variant="primary" data-size="md">
-			<?php esc_html_e( 'Send invite', 'buddynext' ); ?>
-		</button>
-	</form>
+	<div class="bn-card bn-space-settings__panel">
+		<header class="bn-space-settings__panel-head">
+			<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Invite member', 'buddynext' ); ?></h2>
+			<p class="bn-space-settings__panel-desc">
+				<?php esc_html_e( 'Enter a username or email address to send an invitation.', 'buddynext' ); ?>
+			</p>
+		</header>
+		<form class="bn-space-settings__invite-row" data-bn-invite-form data-wp-on--submit="actions.inviteMember">
+			<label class="bn-sr-only" for="bn_invite_identifier">
+				<?php esc_html_e( 'Username or email address', 'buddynext' ); ?>
+			</label>
+			<input
+				type="text"
+				id="bn_invite_identifier"
+				class="bn-input"
+				data-bn-invite-identifier
+				placeholder="<?php esc_attr_e( 'Username or email address', 'buddynext' ); ?>"
+				autocomplete="off"
+			>
+			<button type="submit" class="bn-btn" data-variant="primary" data-size="md">
+				<?php esc_html_e( 'Send invite', 'buddynext' ); ?>
+			</button>
+		</form>
+	</div>
 </div>
 <?php
 do_action( 'buddynext_part_space_settings_panel_members_after', $args );
