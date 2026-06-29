@@ -808,6 +808,26 @@
 	gap: var(--bn-s5);
 }
 
+/* The hero lives in the shell main column, which the right "Member of" rail
+   narrows well below the viewport width — a 1280px viewport can still leave the
+   head only ~600px wide, crushing the 1fr identity column so the name wraps. Make
+   the hero a size container and stack the head on the CONTAINER width (not the
+   viewport), so the name keeps its row and the actions drop below when tight. */
+.bn-pf-hero {
+	container-type: inline-size;
+}
+
+@container (max-width: 720px) {
+	.bn-pf-head {
+		grid-template-columns: 1fr;
+	}
+
+	.bn-pf-actions {
+		justify-self: start;
+		justify-content: flex-start;
+	}
+}
+
 .bn-pf-avatar-wrap {
 	position: relative;
 	margin-block-start: calc(var(--bn-s12) * -1);
