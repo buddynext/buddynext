@@ -1051,6 +1051,68 @@ a.bn-sh-statpill:focus-visible {
 	color: var(--bn-ink-3);
 }
 
+/* Promoted custom field tab (U3) — a field's value rendered as its own space
+   tab body: textarea -> formatted content, url -> a labelled CTA. */
+.bn-space-field-tab {
+	padding: var(--bn-s6);
+}
+
+.bn-space-field-tab__head {
+	margin-block-end: var(--bn-s4);
+}
+
+.bn-space-field-tab__title {
+	margin: 0;
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-xl);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink);
+}
+
+.bn-space-field-tab__desc {
+	margin: var(--bn-s1) 0 0;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+
+.bn-space-field-tab__content {
+	font-size: var(--bn-text-base);
+	line-height: var(--bn-leading-body);
+	color: var(--bn-ink);
+}
+
+.bn-space-field-tab__content p {
+	margin: 0 0 var(--bn-s3);
+}
+
+.bn-space-field-tab__cta {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--bn-s2);
+}
+
+.bn-space-field-tab__cta .bn-btn svg {
+	width: 16px;
+	height: 16px;
+}
+
+.bn-space-field-tab__url {
+	margin: 0;
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	word-break: break-all;
+}
+
+.bn-space-field-tab__empty {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--bn-s3);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
 /* Sub-spaces rail — children of a space as compact navigation rows, plus the
    manager "Add sub-space" CTA. Reuses the side-member row rhythm; the emblem is
    square-cornered (via .bn-avatar override) so a space reads distinct from a

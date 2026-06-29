@@ -22,6 +22,7 @@ use BuddyNext\Core\PageRouter;
 use BuddyNext\Media\MediaClient;
 use BuddyNext\Nav\NavContext;
 use BuddyNext\Nav\NavRegistry;
+use BuddyNext\Spaces\SpaceFieldRegistry;
 use BuddyNext\Spaces\SpaceMemberService;
 use BuddyNext\Spaces\SpacePostGuard;
 use BuddyNext\Spaces\SpaceService;
@@ -36,6 +37,90 @@ final class SpaceNav {
 	 */
 	public function register(): void {
 		add_action( 'buddynext_register_nav', array( $this, 'register_items' ) );
+		// Owner-promoted custom fields become first-class space tabs. The promotion
+		// set is per-space, so they are injected per nav build (which carries the
+		// space context) via the registry's contextual filter, not at registration.
+		add_filter( 'buddynext_nav_items', array( $this, 'inject_field_tabs' ), 20, 2 );
+	}
+
+	/**
+	 * Inject a tab for each custom field an owner has promoted on THIS space.
+	 *
+	 * Hooked on `buddynext_nav_items` (runs per nav build with the live context).
+	 * A field tab is visibility-gated like its field; an empty tab is hidden from
+	 * regular members but shown to managers (with an "add content" nudge) so they
+	 * can tell it is promoted. Reuses the clean-URL tab seam (/spaces/{slug}/field-{key}/).
+	 *
+	 * @param array<int,array<string,mixed>> $items   Raw nav-item definitions.
+	 * @param NavContext                     $context Active nav context.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function inject_field_tabs( array $items, NavContext $context ): array {
+		if ( 'space' !== $context->surface || $context->subject_id <= 0 ) {
+			return $items;
+		}
+
+		$fields = SpaceFieldRegistry::instance()->promoted_tab_fields( $context->subject_id );
+		if ( empty( $fields ) ) {
+			return $items;
+		}
+
+		// Slot promoted tabs just after About (40), before Moderation (50).
+		$priority = 41;
+		foreach ( $fields as $field ) {
+			$key        = (string) $field['key'];
+			$visibility = (string) ( $field['visibility'] ?? 'public' );
+			$is_url     = 'url' === ( $field['type'] ?? '' );
+
+			$items[] = array(
+				'id'        => 'field-' . $key,
+				'surface'   => 'space',
+				'layer'     => 'primary',
+				'label'     => (string) $field['label'],
+				'icon'      => $is_url ? 'link' : 'file-text',
+				'priority'  => $priority++,
+				'url'       => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'field-' . $key ),
+				'condition' => static function ( NavContext $c ) use ( $key, $visibility ): bool {
+					$can_manage = $c->role_at_least( 'moderator' ) || current_user_can( 'manage_options' );
+					// Members-only fields are hidden from non-members (managers aside).
+					if ( 'members' === $visibility && ! $c->role_at_least( 'member' ) && ! $can_manage ) {
+						return false;
+					}
+					// Hide an empty tab from regular members; managers still see it.
+					$has_value = '' !== (string) get_space_meta( $c->subject_id, $key, true );
+					return $has_value || $can_manage;
+				},
+				'render'    => function ( NavContext $c ) use ( $field ): void {
+					$this->render_field_tab_panel( $c->subject_id, $field );
+				},
+			);
+		}
+
+		return $items;
+	}
+
+	/**
+	 * Render a promoted custom field as a space tab body.
+	 *
+	 * @param int                 $space_id Space ID.
+	 * @param array<string,mixed> $field    Field definition.
+	 * @return void
+	 */
+	private function render_field_tab_panel( int $space_id, array $field ): void {
+		$role       = ( new SpaceMemberService() )->get_role( $space_id, get_current_user_id() );
+		$can_manage = in_array( $role, array( 'owner', 'moderator' ), true ) || current_user_can( 'manage_options' );
+		$space      = ( new SpaceService() )->get( $space_id );
+
+		buddynext_get_template(
+			'parts/space-field-tab.php',
+			array(
+				'field'      => $field,
+				'value'      => get_space_meta( $space_id, (string) $field['key'], true ),
+				'space_id'   => $space_id,
+				'space_slug' => (string) ( $space['slug'] ?? '' ),
+				'can_manage' => $can_manage,
+			)
+		);
 	}
 
 	/**

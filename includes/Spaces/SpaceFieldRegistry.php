@@ -31,6 +31,24 @@ defined( 'ABSPATH' ) || exit;
 final class SpaceFieldRegistry {
 
 	/**
+	 * Field types eligible to be promoted to a space tab — long-form reference
+	 * content that earns its own navigation tab (textarea = a content page, url =
+	 * a labelled link/CTA). Short/scalar types (boolean/select/number) show on
+	 * About instead.
+	 *
+	 * @var string[]
+	 */
+	private const TAB_TYPES = array( 'textarea', 'url' );
+
+	/**
+	 * Per-space meta key holding the list of field keys an owner has promoted to
+	 * tabs on that space.
+	 *
+	 * @var string
+	 */
+	private const PROMOTED_TABS_KEY = 'promoted_field_tabs';
+
+	/**
 	 * Singleton instance.
 	 *
 	 * @var self|null
@@ -206,6 +224,75 @@ final class SpaceFieldRegistry {
 	}
 
 	/**
+	 * Whether a field may be promoted to a space tab: a third-party (non-core)
+	 * field of a reference-content type (see TAB_TYPES).
+	 *
+	 * @param array<string,mixed> $field Field definition.
+	 * @return bool
+	 */
+	public function is_tab_eligible( array $field ): bool {
+		return empty( $field['core'] )
+			&& in_array( (string) ( $field['type'] ?? '' ), self::TAB_TYPES, true );
+	}
+
+	/**
+	 * The eligible fields an owner has promoted to tabs on a space, ordered by
+	 * section then sort_order. Intersects the stored promotion list with the
+	 * currently-registered eligible fields, so a removed or now-ineligible field
+	 * silently drops its tab.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function promoted_tab_fields( int $space_id ): array {
+		$promoted = get_space_meta( $space_id, self::PROMOTED_TABS_KEY, true );
+		$promoted = is_array( $promoted ) ? array_map( 'strval', $promoted ) : array();
+		if ( empty( $promoted ) ) {
+			return array();
+		}
+
+		$out = array();
+		foreach ( $this->get_fields() as $field ) {
+			if ( $this->is_tab_eligible( $field ) && in_array( (string) $field['key'], $promoted, true ) ) {
+				$out[] = $field;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Whether a single field is currently promoted to a tab on a space.
+	 *
+	 * @param int    $space_id Space ID.
+	 * @param string $key      Field key.
+	 * @return bool
+	 */
+	public function is_promoted_tab( int $space_id, string $key ): bool {
+		$promoted = get_space_meta( $space_id, self::PROMOTED_TABS_KEY, true );
+		$promoted = is_array( $promoted ) ? array_map( 'strval', $promoted ) : array();
+		return in_array( sanitize_key( $key ), $promoted, true );
+	}
+
+	/**
+	 * Persist the set of fields promoted to tabs on a space. Validated against the
+	 * currently-registered eligible fields so only real, promotable keys are saved.
+	 *
+	 * @param int      $space_id Space ID.
+	 * @param string[] $keys     Field keys to promote.
+	 * @return void
+	 */
+	public function set_promoted_tabs( int $space_id, array $keys ): void {
+		$eligible = array();
+		foreach ( $this->get_fields() as $field ) {
+			if ( $this->is_tab_eligible( $field ) ) {
+				$eligible[] = (string) $field['key'];
+			}
+		}
+		$clean = array_values( array_intersect( array_map( 'sanitize_key', $keys ), $eligible ) );
+		update_space_meta( $space_id, self::PROMOTED_TABS_KEY, $clean );
+	}
+
+	/**
 	 * Fields belonging to one management section, ordered by sort_order.
 	 *
 	 * @param string $section Section slug.
@@ -267,6 +354,7 @@ final class SpaceFieldRegistry {
 				'sort_order'  => $field['sort_order'],
 				'visibility'  => $field['visibility'],
 				'is_required' => $field['is_required'],
+				'core'        => ! empty( $field['core'] ),
 				'value'       => FieldType::rest_value( $field, $value ),
 				'display'     => FieldType::display_text( $field, $value ),
 			);
