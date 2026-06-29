@@ -64,6 +64,26 @@ class SpaceController extends BaseRestController {
 			)
 		);
 
+		// Suggested spaces for the current viewer (ranked discovery). Auth-required —
+		// suggestions are per-viewer. Registered before '/spaces/(?P<id>\d+)' so the
+		// literal 'suggestions' segment is unambiguous.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/suggestions',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'suggested_spaces' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'limit' => array(
+						'type'              => 'integer',
+						'default'           => 6,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
 		// Space field definitions (the form schema the app + web render from). Public
 		// read — values are per-space and gated on GET /spaces/{id}. Registered
 		// before the {id} route, but '\d+' means 'fields' can never match it anyway.
@@ -534,6 +554,26 @@ class SpaceController extends BaseRestController {
 		$spaces = $this->enrich_directory_rows( (array) $spaces, $viewer );
 
 		return new WP_REST_Response( $spaces, 200 );
+	}
+
+	/**
+	 * GET /spaces/suggestions — ranked suggested spaces for the current viewer.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response
+	 */
+	public function suggested_spaces( WP_REST_Request $request ): WP_REST_Response {
+		$viewer = get_current_user_id();
+		$limit  = absint( $request->get_param( 'limit' ) );
+		$limit  = $limit > 0 ? min( 24, $limit ) : 6;
+
+		$rows = ( new SpaceSuggestionService() )->suggest( $viewer, $limit );
+		foreach ( $rows as &$bn_row ) {
+			unset( $bn_row['_bn_score'] ); // Internal ranking field — not part of the API.
+		}
+		unset( $bn_row );
+
+		return new WP_REST_Response( $this->enrich_directory_rows( $rows, $viewer ), 200 );
 	}
 
 	/**

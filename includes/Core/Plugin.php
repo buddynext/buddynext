@@ -340,6 +340,9 @@ class Plugin {
 		// Wire owner-curated space auto-join (on signup + member-type assignment).
 		( new \BuddyNext\Spaces\AutoJoinListener() )->register();
 
+		// Bust per-viewer space-suggestion caches on membership / follow changes.
+		( new \BuddyNext\Spaces\SpaceSuggestionListener() )->register();
+
 		// Wire the WordPress Privacy Tools integration so Tools → Export/Erase
 		// Personal Data covers BuddyNext's custom tables and bn_* user meta.
 		// Registered unconditionally — admin GDPR/CCPA compliance must always work.

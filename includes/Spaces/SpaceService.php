@@ -956,6 +956,22 @@ class SpaceService {
 			$where[] = 'parent_id IS NULL';
 		}
 
+		// Bound the result to / exclude an explicit id set — used by the suggestion
+		// engine (hydrate ranked candidates, visibility-safe) and "spaces I'm not in"
+		// views. Ids are integer-cast, so the inlined IN lists are injection-safe.
+		if ( ! empty( $args['include_space_ids'] ) ) {
+			$bn_inc = implode( ',', array_map( 'absint', (array) $args['include_space_ids'] ) );
+			if ( '' !== $bn_inc ) {
+				$where[] = "id IN ({$bn_inc})";
+			}
+		}
+		if ( ! empty( $args['exclude_space_ids'] ) ) {
+			$bn_exc = implode( ',', array_map( 'absint', (array) $args['exclude_space_ids'] ) );
+			if ( '' !== $bn_exc ) {
+				$where[] = "id NOT IN ({$bn_exc})";
+			}
+		}
+
 		return array(
 			'where_sql'       => $where ? ( 'WHERE ' . implode( ' AND ', $where ) ) : '',
 			'params'          => $params,
