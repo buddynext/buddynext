@@ -1232,12 +1232,14 @@ class SpaceService {
 	 * A compact summary of a space's parent, for breadcrumb navigation.
 	 *
 	 * Reads the cached parent row (no extra join on list rows), returning just the
-	 * fields a breadcrumb needs.
+	 * fields a breadcrumb needs. Viewer-scoped: a secret/unlisted parent the viewer
+	 * cannot see resolves to null so a child never leaks the parent's name + link.
 	 *
 	 * @param int $parent_id Parent space ID.
-	 * @return array{id:int,name:string,slug:string}|null Null when there is no parent.
+	 * @param int $viewer_id Viewer user ID (0 = anonymous) for the visibility scope.
+	 * @return array{id:int,name:string,slug:string}|null Null when no/unseeable parent.
 	 */
-	public function parent_summary( int $parent_id ): ?array {
+	public function parent_summary( int $parent_id, int $viewer_id = 0 ): ?array {
 		$parent_id = absint( $parent_id );
 		if ( $parent_id <= 0 ) {
 			return null;
@@ -1246,6 +1248,20 @@ class SpaceService {
 		$parent = $this->get( $parent_id );
 		if ( null === $parent ) {
 			return null;
+		}
+
+		// Visibility scope: an unlisted (secret) parent is hidden from a viewer who
+		// neither owns it, actively belongs to it, nor is a site admin — so an open
+		// child nested under a secret parent never leaks the parent's name + link.
+		$type = (string) ( $parent['type'] ?? 'open' );
+		if ( ! SpaceTypeRegistry::instance()->is_listed( $type ) ) {
+			$can_see = current_user_can( 'manage_options' )
+				|| ( $viewer_id > 0
+					&& ( (int) ( $parent['owner_id'] ?? 0 ) === $viewer_id
+						|| ( new SpaceMemberService() )->is_member( $parent_id, $viewer_id ) ) );
+			if ( ! $can_see ) {
+				return null;
+			}
 		}
 
 		return array(

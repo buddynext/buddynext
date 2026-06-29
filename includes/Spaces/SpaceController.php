@@ -824,7 +824,7 @@ class SpaceController extends BaseRestController {
 
 		// Breadcrumb: a sub-space carries a compact summary of its parent, plus a
 		// live count of its own children so a space-home can show "N sub-spaces".
-		$space['parent']         = ( new SpaceService() )->parent_summary( (int) ( $space['parent_id'] ?? 0 ) );
+		$space['parent']         = ( new SpaceService() )->parent_summary( (int) ( $space['parent_id'] ?? 0 ), get_current_user_id() );
 		$space['subspace_count'] = ( new SpaceService() )->count_subspaces( (int) $space['id'] );
 
 		return new WP_REST_Response( $space, 200 );

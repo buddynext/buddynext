@@ -144,10 +144,10 @@ do_action( 'buddynext_part_space_hero_before', $args );
 			// Breadcrumb — only on a sub-space, giving the parent context a member
 			// expects (Slack/Notion-style "Parent > This space"). Placed BELOW the
 			// title so the title sits at the same position as on a root space (no
-			// vertical drift). parent_summary() is visibility-scoped, so a parent
+			// vertical drift). parent_summary() is viewer-scoped, so a secret parent
 			// the viewer cannot see resolves to null and the crumb is omitted.
 			$bn_sh_parent = ! empty( $bn_space->parent_id )
-				? ( new \BuddyNext\Spaces\SpaceService() )->parent_summary( (int) $bn_space->parent_id )
+				? ( new \BuddyNext\Spaces\SpaceService() )->parent_summary( (int) $bn_space->parent_id, get_current_user_id() )
 				: null;
 			if ( is_array( $bn_sh_parent ) && ! empty( $bn_sh_parent['slug'] ) ) :
 				?>
