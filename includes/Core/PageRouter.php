@@ -64,6 +64,7 @@ class PageRouter {
 		}
 
 		add_filter( 'request', array( $this, 'suppress_default_query' ) );
+		add_filter( 'query_vars', array( $this, 'register_directory_query_vars' ) );
 		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
 	}
 
@@ -1634,8 +1635,43 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Whitelist the spaces-directory scope query vars so the pretty /spaces/mine/
+	 * rewrite rules below can pass them through (WP strips unknown vars).
+	 *
+	 * @param array<int,string> $vars Registered public query vars.
+	 * @return array<int,string>
+	 */
+	public function register_directory_query_vars( array $vars ): array {
+		$vars[] = 'bn_scope';
+		$vars[] = 'bn_membership';
+		return $vars;
+	}
+
+	/**
+	 * Register Spaces hub rewrite rules (directory, /spaces/mine/ views, and the
+	 * generic /spaces/{slug}/{action}/ space routes).
+	 *
+	 * @return void
+	 */
 	private function register_spaces_rules(): void {
 		$s = self::hub_slug( 'buddynext_slug_spaces', 'spaces' );
+
+		// Pretty "My Spaces" directory views: /spaces/mine/ (sectioned managed +
+		// joined) and /spaces/mine/managed|joined/ (one bucket, paginated). Added
+		// BEFORE the generic {slug} rules below — add_rewrite_rule( 'top' ) preserves
+		// addition order within the top bucket, so these match first and "mine" is
+		// never read as a space slug. Reserves only the word "mine" as a non-slug.
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/mine/(managed|joined)/?$',
+			'index.php?bn_hub=spaces&bn_scope=mine&bn_membership=$matches[1]',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/mine/?$',
+			'index.php?bn_hub=spaces&bn_scope=mine',
+			'top'
+		);
 
 		// One generic rule for every space sub-route: /spaces/{slug}/{action}/.
 		// The dispatcher (get_template_for) routes by action — content tabs
@@ -1655,6 +1691,22 @@ class PageRouter {
 		add_rewrite_rule(
 			'^' . preg_quote( $s, '/' ) . '/?$',
 			'index.php?bn_hub=spaces',
+			'top'
+		);
+
+		// Pretty "My Spaces" directory views: /spaces/mine/ (sectioned managed +
+		// joined) and /spaces/mine/managed|joined/ (one bucket, paginated). Added
+		// LAST so that — add_rewrite_rule( 'top' ) prepending the most recent — they
+		// sit ABOVE the generic {slug} rules and win, instead of "mine" being read
+		// as a space slug. Reserves only the word "mine" as a non-slug.
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/mine/(managed|joined)/?$',
+			'index.php?bn_hub=spaces&bn_scope=mine&bn_membership=$matches[1]',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/mine/?$',
+			'index.php?bn_hub=spaces&bn_scope=mine',
 			'top'
 		);
 	}

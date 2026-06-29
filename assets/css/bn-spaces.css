@@ -114,6 +114,63 @@
 	gap: var(--bn-s4);
 }
 
+/* "My Spaces" labelled sections (managed / joined). */
+.bn-sd-section {
+	margin-block-end: var(--bn-s8);
+}
+
+.bn-sd-section:last-child {
+	margin-block-end: 0;
+}
+
+.bn-sd-section__head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	margin-block-end: var(--bn-s4);
+}
+
+.bn-sd-section__title {
+	display: flex;
+	align-items: baseline;
+	gap: var(--bn-s2);
+	margin: 0;
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-lg);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink);
+}
+
+.bn-sd-section__count {
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-ink-3);
+}
+
+.bn-sd-section__viewall {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	flex: 0 0 auto;
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-accent);
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.bn-sd-section__viewall:hover,
+.bn-sd-section__viewall:focus-visible {
+	text-decoration: underline;
+}
+
+.bn-sd-section__viewall svg {
+	width: 14px;
+	height: 14px;
+}
+
 /* Owner-set fixed desktop column count (Settings > Spaces > Directory columns).
    Applies only on desktop (≥1025px); the responsive breakpoints below still step
    the directory down to 2 then 1 on tablet/mobile. */
@@ -450,7 +507,10 @@
 
 .bn-sh-hero__info {
 	flex: 1;
-	min-width: 0;
+	/* Give the title a readable minimum so a two-word name never crushes into a
+	   stacked column; when the row is tight the action cluster wraps below
+	   instead (the head is flex-wrap). Falls back to 100% on very narrow heads. */
+	min-width: min(100%, 16rem);
 	padding-block-end: var(--bn-s1);
 }
 

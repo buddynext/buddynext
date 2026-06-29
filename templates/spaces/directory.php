@@ -37,8 +37,14 @@ $bn_visibility   = isset( $_GET['bn_type'] ) ? sanitize_key( wp_unslash( $_GET['
 $bn_orderby      = isset( $_GET['bn_sort'] ) ? sanitize_key( wp_unslash( $_GET['bn_sort'] ) ) : 'popular'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_paged        = isset( $_GET['bn_page'] ) ? max( 1, absint( $_GET['bn_page'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_per_page     = 18;
-$bn_scope        = isset( $_GET['bn_scope'] ) ? sanitize_key( wp_unslash( $_GET['bn_scope'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$rest_nonce      = wp_create_nonce( 'wp_rest' );
+// Scope comes from the pretty rewrite (/spaces/mine/ → query var bn_scope) or,
+// as a fallback, a legacy ?bn_scope= query string.
+$bn_scope = (string) get_query_var( 'bn_scope', '' );
+if ( '' === $bn_scope && isset( $_GET['bn_scope'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$bn_scope = wp_unslash( $_GET['bn_scope'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+}
+$bn_scope   = sanitize_key( $bn_scope );
+$rest_nonce = wp_create_nonce( 'wp_rest' );
 
 $bn_is_site_admin = current_user_can( 'manage_options' );
 $bn_space_service = new \BuddyNext\Spaces\SpaceService();
@@ -86,9 +92,26 @@ if ( '' !== $bn_cat_slug && isset( $bn_cat_by_slug[ $bn_cat_slug ] ) ) {
 }
 
 // "My Spaces" scope → the service's `member` arg (owned or active membership).
-if ( 'mine' === $bn_scope && $current_user_id > 0 ) {
-	$bn_query_args['member'] = $current_user_id;
+// A `bn_membership` sub-filter ('managed' = owner/moderator, 'joined' = member)
+// narrows to one bucket — the paginated "View all" target. Without it, My Spaces
+// renders as two sections (managed + joined), fetched separately below so each
+// stays bounded and pagination never straddles the two groups.
+$bn_membership = (string) get_query_var( 'bn_membership', '' );
+if ( '' === $bn_membership && isset( $_GET['bn_membership'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$bn_membership = wp_unslash( $_GET['bn_membership'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 }
+$bn_membership = sanitize_key( $bn_membership );
+$bn_is_mine    = ( 'mine' === $bn_scope && $current_user_id > 0 );
+if ( $bn_is_mine ) {
+	$bn_query_args['member'] = $current_user_id;
+	if ( in_array( $bn_membership, array( 'managed', 'joined' ), true ) ) {
+		$bn_query_args['member_role'] = 'managed' === $bn_membership ? 'manage' : 'joined';
+	}
+}
+
+// Two-section "My Spaces" view: only when no sub-filter and no search is active.
+$bn_render_sections = $bn_is_mine && '' === $bn_membership && '' === $bn_search;
+$bn_section_cap     = 12;
 
 // Top-level browse shows root spaces only — sub-spaces are discovered from their
 // parent, so the grid never flattens a deep tree. "My Spaces" (member-scoped) and
@@ -98,7 +121,40 @@ if ( ! isset( $bn_query_args['member'] ) ) {
 }
 
 // ── Fetch spaces + total via the service layer ────────────────────────────────
-if ( '' !== $bn_search ) {
+$bn_managed_spaces = array();
+$bn_joined_spaces  = array();
+$bn_managed_total  = 0;
+$bn_joined_total   = 0;
+if ( $bn_render_sections ) {
+	// My Spaces, two sections: each bucket is a separate bounded query (capped),
+	// so pagination never straddles the groups. Totals drive the "View all" links.
+	$bn_managed_listing = $bn_space_service->list_spaces_with_total(
+		array_merge(
+			$bn_query_args,
+			array(
+				'member_role' => 'manage',
+				'per_page'    => $bn_section_cap,
+				'page'        => 1,
+			)
+		)
+	);
+	$bn_joined_listing  = $bn_space_service->list_spaces_with_total(
+		array_merge(
+			$bn_query_args,
+			array(
+				'member_role' => 'joined',
+				'per_page'    => $bn_section_cap,
+				'page'        => 1,
+			)
+		)
+	);
+	$bn_managed_spaces  = $bn_managed_listing['items'];
+	$bn_joined_spaces   = $bn_joined_listing['items'];
+	$bn_managed_total   = (int) $bn_managed_listing['total'];
+	$bn_joined_total    = (int) $bn_joined_listing['total'];
+	$bn_spaces          = array_merge( $bn_managed_spaces, $bn_joined_spaces );
+	$total_spaces       = $bn_managed_total + $bn_joined_total;
+} elseif ( '' !== $bn_search ) {
 	// search() applies the same secret-space visibility predicate; it has no
 	// paginated-total variant (the REST route returns search rows unpaginated
 	// too), so the subtitle/pager reflect the returned batch.
@@ -397,36 +453,37 @@ $bn_subtitle = sprintf(
 			// in the URL so the initial highlight is always unambiguous.
 			$bn_is_mine = ( 'mine' === $bn_scope && $current_user_id > 0 );
 			?>
-			<button
-				type="button"
+			<?php // All Spaces + My Spaces are pretty-URL links (scope = a view, not a reactive filter); category/search/sort stay reactive within the All view. ?>
+			<a
 				class="bn-tab bn-sd-chip"
 				role="tab"
 				aria-selected="<?php echo ( ! $bn_is_mine && '' === $bn_cat_slug ) ? 'true' : 'false'; ?>"
-				data-bn-scope-chip="all"
-				data-wp-on--click="actions.setScope"
-			><?php esc_html_e( 'All Spaces', 'buddynext' ); ?></button>
+				href="<?php echo esc_url( \BuddyNext\Core\PageRouter::spaces_url() ); ?>"
+			><?php esc_html_e( 'All Spaces', 'buddynext' ); ?></a>
 			<?php if ( $current_user_id > 0 ) : ?>
-				<button
-					type="button"
+				<?php // My Spaces is a real pretty-URL link (/spaces/mine/), not a reactive filter — it opens the sectioned managed/joined view. ?>
+				<a
 					class="bn-tab bn-sd-chip"
 					role="tab"
 					aria-selected="<?php echo $bn_is_mine ? 'true' : 'false'; ?>"
-					data-bn-scope-chip="mine"
-					data-wp-on--click="actions.setScope"
-				><?php esc_html_e( 'My Spaces', 'buddynext' ); ?></button>
+					href="<?php echo esc_url( trailingslashit( \BuddyNext\Core\PageRouter::spaces_url() ) . 'mine/' ); ?>"
+				><?php esc_html_e( 'My Spaces', 'buddynext' ); ?></a>
 			<?php endif; ?>
-			<?php foreach ( $categories as $bn_cat_item ) : ?>
-				<button
-					type="button"
-					class="bn-tab bn-sd-chip"
-					role="tab"
-					aria-selected="<?php echo ( ! $bn_is_mine && $bn_cat_item->slug === $bn_cat_slug ) ? 'true' : 'false'; ?>"
-					data-bn-scope-chip="cat"
-					data-bn-cat-id="<?php echo esc_attr( (string) $bn_cat_item->id ); ?>"
-					data-bn-cat-slug="<?php echo esc_attr( (string) $bn_cat_item->slug ); ?>"
-					data-wp-on--click="actions.setScope"
-				><?php echo esc_html( $bn_cat_item->name ); ?></button>
-			<?php endforeach; ?>
+			<?php // Category chips refine the All-spaces directory (reactive); they don't apply to the sectioned My Spaces view, so hide them there. ?>
+			<?php if ( ! $bn_is_mine ) : ?>
+				<?php foreach ( $categories as $bn_cat_item ) : ?>
+					<button
+						type="button"
+						class="bn-tab bn-sd-chip"
+						role="tab"
+						aria-selected="<?php echo ( $bn_cat_item->slug === $bn_cat_slug ) ? 'true' : 'false'; ?>"
+						data-bn-scope-chip="cat"
+						data-bn-cat-id="<?php echo esc_attr( (string) $bn_cat_item->id ); ?>"
+						data-bn-cat-slug="<?php echo esc_attr( (string) $bn_cat_item->slug ); ?>"
+						data-wp-on--click="actions.setScope"
+					><?php echo esc_html( $bn_cat_item->name ); ?></button>
+				<?php endforeach; ?>
+			<?php endif; ?>
 		</nav>
 
 		<div class="bn-sd-sort" data-bn-sort-popover>
@@ -537,6 +594,68 @@ $bn_subtitle = sprintf(
 				data-wp-on--click="actions.resetFilters"
 			><?php esc_html_e( 'Reset filters', 'buddynext' ); ?></button>
 		</div>
+
+	<?php elseif ( $bn_render_sections ) : ?>
+
+		<?php
+		// "My Spaces" → two labelled sections (managed first), each rendered from
+		// the shared card part. Each is a separate bounded query (capped); a
+		// section over the cap links to its own paginated pretty view.
+		$bn_sd_cols      = (string) get_option( 'buddynext_spaces_dir_columns', '3' );
+		$bn_sd_cols      = in_array( $bn_sd_cols, array( '2', '3', '4' ), true ) ? $bn_sd_cols : 'auto';
+		$bn_sd_cols_attr = 'auto' !== $bn_sd_cols ? ' data-cols="' . esc_attr( $bn_sd_cols ) . '"' : '';
+		$bn_spaces_base  = trailingslashit( \BuddyNext\Core\PageRouter::spaces_url() );
+		$bn_sections     = array(
+			array(
+				'title'   => __( 'Spaces you manage', 'buddynext' ),
+				'spaces'  => $bn_managed_spaces,
+				'total'   => $bn_managed_total,
+				'viewall' => $bn_spaces_base . 'mine/managed/',
+			),
+			array(
+				'title'   => __( 'Spaces you have joined', 'buddynext' ),
+				'spaces'  => $bn_joined_spaces,
+				'total'   => $bn_joined_total,
+				'viewall' => $bn_spaces_base . 'mine/joined/',
+			),
+		);
+		foreach ( $bn_sections as $bn_sec ) :
+			if ( empty( $bn_sec['spaces'] ) ) {
+				continue;
+			}
+			?>
+			<section class="bn-sd-section">
+				<header class="bn-sd-section__head">
+					<h2 class="bn-sd-section__title">
+						<?php echo esc_html( (string) $bn_sec['title'] ); ?>
+						<span class="bn-sd-section__count"><?php echo esc_html( number_format_i18n( (int) $bn_sec['total'] ) ); ?></span>
+					</h2>
+					<?php if ( (int) $bn_sec['total'] > $bn_section_cap ) : ?>
+						<a class="bn-sd-section__viewall" href="<?php echo esc_url( (string) $bn_sec['viewall'] ); ?>">
+							<?php esc_html_e( 'View all', 'buddynext' ); ?>
+							<?php buddynext_icon( 'chevron-right' ); ?>
+						</a>
+					<?php endif; ?>
+				</header>
+				<div class="bn-sd-grid" role="list" data-bn-sd-grid<?php echo $bn_sd_cols_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped attribute. ?>>
+					<?php
+					foreach ( (array) $bn_sec['spaces'] as $space ) {
+						buddynext_get_template(
+							'parts/space-directory-card.php',
+							array(
+								'space'           => $space,
+								'membership'      => $membership_map[ (int) $space['id'] ] ?? null,
+								'current_user_id' => $current_user_id,
+								'cat_by_id'       => $bn_cat_by_id,
+							)
+						);
+					}
+					?>
+				</div>
+			</section>
+			<?php
+		endforeach;
+		?>
 
 	<?php else : ?>
 
