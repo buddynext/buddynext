@@ -27,7 +27,7 @@ threshold) — no dup. Verify per item: data-flow (DB) + browser, all states.
 | **Gap-audit** enforcement fixes | 🟡 DONE — code-verified | `can_invite()` honors `who_can_invite`; `default_notification_pref` seeded on join/request/invite (shared helper) — **browser-verify** |
 | **R1** Nav UX | ✅ DONE + browser-verified | breadcrumb (sub-space hero) + Sub-spaces rail card + manager Add-CTA → fixed-parent create modal. See "R1 — as built" below. |
 | **R2** member panel → REST | ✅ DONE + browser-verified | settings Members panel converted to the `buddynext/space-members` store. See "R2 — as built" below. |
-| **R3** web field panel | ⏳ PENDING | render registered fields on settings screen |
+| **R3** web field panel | ✅ DONE + browser-verified | additive "Custom fields" settings panel for developer-registered (non-core) fields. See "R3 — as built" below. |
 | **R4** search-fold (optional) | ⏳ PENDING | public+searchable fields → `bn_search_index` |
 
 All ✅/🟡 are phpcs (0 errors) + PHPStan L5 clean. Local DB already migrated to v11; reset
@@ -88,12 +88,26 @@ Converted `templates/parts/space-settings-panel-members.php` from 5 server POST 
   empty-invite→validation, no POST. Zero legacy forms in the DOM. WPCS + PHPStan-L5 clean; 390px no-overflow;
   dark inherited. Seed roster restored after testing (10 active, 0 bans).
 
-### R3 — web field-management panel
-- Render the registered fields on the space settings screen from `GET /spaces/{id}` `fields[]` +
-  `GET /spaces/fields`, saving via `POST /spaces/{id}/fields`. Reuse `FieldType::render_input()` server-side
-  for initial markup, drive saves over REST. Replaces per-tab hardcoded forms for registered fields.
-- Verify: 8 built-in fields render in their sections with current values; save persists to `bn_space_meta`;
-  invalid value shows the per-field 422 inline; 390px + dark.
+### R3 — web field-management panel — AS BUILT (2026-06-29, browser-verified)
+**Scope decision (owner, 2026-06-29): additive, not a replacement.** The 8 built-in fields keep their
+polished bespoke tabs (no regression risk); R3 adds a registry-driven surface for the fields that have NO UI
+today — third-party developer-registered space fields (the P-B "developer-friendly" deliverable).
+- **`core` flag** added to `SpaceFieldRegistry::register()`; `CoreSpaceFields` marks its 8 as `core=true`.
+  New `get_custom_fields()` returns only non-core fields (empty on a stock install).
+- **New panel** `templates/parts/space-settings-panel-fields.php` renders each custom field via
+  `Profile\FieldType::render_input()` (booleans render their own label; others get a `<label for>` + hint +
+  required marker + inline error slot). Wrapped in a `buddynext/space-fields` interactive region.
+- **New store** `assets/js/space-fields/store.js` (`saveFields`): collects inputs by shape
+  (checkbox→'1'/'0', radio, multiselect, value), `POST /spaces/{id}/fields {fields}`, success toast, and
+  per-field inline errors from the 422 `{errors:{key:msg}}` body. i18n in `AssetService::i18n_space_fields`;
+  module registered + `enqueue('space-fields')` on the settings sub-page.
+- **Settings screen** (`templates/spaces/settings.php`): a "Custom fields" tab is spliced in **only when
+  `get_custom_fields()` is non-empty** (the typical owner with none never sees an empty tab), slotted before
+  Danger zone; panel added to the dispatch map.
+- Verified live (temp-registered `meeting_url` url + `skill_level` select): tab appears only with custom
+  fields; both render with labels/hints; save persists to `bn_space_meta`; an invalid select option shows the
+  per-field 422 inline ("Please choose a valid option for Skill level."); the 8 core fields never appear here.
+  WPCS + PHPStan-L5 clean; 390px no-overflow; dark inherited. Temp field + test meta cleaned up after.
 
 ### R4 — search-fold (optional, smaller)
 - Fold public + searchable space fields into `bn_search_index` via `SearchService::index()` so a developer

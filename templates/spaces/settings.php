@@ -365,6 +365,24 @@ $builtin_tabs = array(
 	),
 );
 
+// Custom-fields tab — shown only when a plugin has registered non-core per-space
+// fields, so the typical owner (none registered) never sees an empty tab. Slotted
+// in before the Danger zone, which stays last.
+if ( ! empty( \BuddyNext\Spaces\SpaceFieldRegistry::instance()->get_custom_fields() ) ) {
+	array_splice(
+		$builtin_tabs,
+		count( $builtin_tabs ) - 1,
+		0,
+		array(
+			array(
+				'slug'  => 'fields',
+				'label' => __( 'Custom fields', 'buddynext' ),
+				'icon'  => 'list',
+			),
+		)
+	);
+}
+
 // Apply the canonical tab-registry filter once at composer level so Pro and
 // bridge-registered tabs (e.g. P6.2 Brand tab) are recognized as valid
 // `bn_stab` values before the active-tab validator runs. The part fires the
@@ -575,6 +593,13 @@ foreach ( $builtin_tabs as $bn_t ) {
 				array(
 					'space'             => $space,
 					'branding_settings' => array( 'space_id' => $space_id ),
+				),
+			),
+			'fields'        => array(
+				'parts/space-settings-panel-fields.php',
+				array(
+					'space'           => $space,
+					'fields_settings' => array( 'space_id' => $space_id ),
 				),
 			),
 		);

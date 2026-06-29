@@ -104,6 +104,10 @@ final class SpaceFieldRegistry {
 			'options'      => isset( $args['options'] ) && is_array( $args['options'] ) ? $args['options'] : array(),
 			'is_required'  => ! empty( $args['is_required'] ),
 			'default'      => $args['default'] ?? '',
+			// BuddyNext's own built-in fields set core=true; they have bespoke
+			// settings UI. Third-party fields (core=false) surface in the generic
+			// "Custom fields" settings panel via get_custom_fields().
+			'core'         => ! empty( $args['core'] ),
 		);
 
 		$this->fields[ $key ] = $field;
@@ -183,6 +187,22 @@ final class SpaceFieldRegistry {
 		);
 
 		return $fields;
+	}
+
+	/**
+	 * Third-party (non-core) fields, ordered by section then sort_order. These
+	 * have no bespoke settings UI, so the generic "Custom fields" panel renders
+	 * them. Empty on a stock install (only the 8 built-in core fields exist).
+	 *
+	 * @return array<string,array<string,mixed>>
+	 */
+	public function get_custom_fields(): array {
+		return array_filter(
+			$this->get_fields(),
+			static function ( array $field ): bool {
+				return empty( $field['core'] );
+			}
+		);
 	}
 
 	/**

@@ -468,6 +468,7 @@ class AssetService {
 			'@buddynext/gamification'       => 'gamification/store',
 			'@buddynext/moderation'         => 'moderation/store',
 			'@buddynext/space-members'      => 'space-members/store',
+			'@buddynext/space-fields'       => 'space-fields/store',
 			'@buddynext/social-buttons'     => 'social/follow-store',
 			'@buddynext/media-upload'       => 'media/upload-store',
 			'@buddynext/media-albums'       => 'media/albums-store',
@@ -480,6 +481,7 @@ class AssetService {
 			'@buddynext/feed',
 			'@buddynext/moderation',
 			'@buddynext/space-members',
+			'@buddynext/space-fields',
 			'@buddynext/profile',
 			'@buddynext/members',
 			'@buddynext/social-buttons',
@@ -571,6 +573,7 @@ class AssetService {
 		$this->i18n_search();
 		$this->i18n_hashtags();
 		$this->i18n_space_members();
+		$this->i18n_space_fields();
 		$this->i18n_auth();
 		$this->i18n_auth_login();
 		$this->i18n_auth_signup();
@@ -1374,6 +1377,23 @@ class AssetService {
 					'enterIdentifier'    => __( 'Enter a username or email address.', 'buddynext' ),
 					'inviteSent'         => __( 'Invitation sent.', 'buddynext' ),
 					'inviteFailed'       => __( 'Could not send the invitation.', 'buddynext' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * Store: the space custom-fields panel save/validation toasts.
+	 *
+	 * @return void
+	 */
+	private function i18n_space_fields(): void {
+		wp_interactivity_state(
+			'buddynext/space-fields',
+			array(
+				'i18n' => array(
+					'saved'      => __( 'Fields saved.', 'buddynext' ),
+					'saveFailed' => __( 'Could not save the fields. Try again.', 'buddynext' ),
 				),
 			)
 		);

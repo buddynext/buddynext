@@ -50,6 +50,7 @@ final class CoreSpaceFields {
 				'section'    => 'permissions',
 				'sort_order' => 10,
 				'visibility' => 'members',
+				'core'       => true,
 			)
 		);
 		$registry->register(
@@ -66,6 +67,7 @@ final class CoreSpaceFields {
 				'section'    => 'permissions',
 				'sort_order' => 20,
 				'visibility' => 'members',
+				'core'       => true,
 			)
 		);
 		$registry->register(
@@ -82,6 +84,7 @@ final class CoreSpaceFields {
 				'section'    => 'permissions',
 				'sort_order' => 30,
 				'visibility' => 'members',
+				'core'       => true,
 			)
 		);
 
@@ -96,6 +99,7 @@ final class CoreSpaceFields {
 				'section'     => 'moderation',
 				'sort_order'  => 10,
 				'visibility'  => 'members',
+				'core'        => true,
 			)
 		);
 
@@ -114,6 +118,7 @@ final class CoreSpaceFields {
 				'section'    => 'notifications',
 				'sort_order' => 10,
 				'visibility' => 'members',
+				'core'       => true,
 			)
 		);
 
@@ -127,6 +132,7 @@ final class CoreSpaceFields {
 				'section'    => 'integrations',
 				'sort_order' => 10,
 				'visibility' => 'members',
+				'core'       => true,
 			)
 		);
 		$registry->register(
@@ -138,6 +144,7 @@ final class CoreSpaceFields {
 				'section'    => 'integrations',
 				'sort_order' => 20,
 				'visibility' => 'members',
+				'core'       => true,
 			)
 		);
 		$registry->register(
@@ -149,6 +156,7 @@ final class CoreSpaceFields {
 				'section'    => 'integrations',
 				'sort_order' => 30,
 				'visibility' => 'members',
+				'core'       => true,
 			)
 		);
 	}

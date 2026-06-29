@@ -1138,6 +1138,11 @@ class PageRouter {
 				if ( in_array( $space_action_v, array( 'members', 'settings' ), true ) || 'members' === $bn_space_tab ) {
 					$assets->enqueue( 'space-members' );
 				}
+				// The settings "Custom fields" panel saves registered space fields
+				// over REST via the buddynext/space-fields store.
+				if ( 'settings' === $space_action_v ) {
+					$assets->enqueue( 'space-fields' );
+				}
 				// Localize the spaces URL base + i18n so the spaces store can
 				// rebuild URLs without reloading the page (reactive directory,
 				// create-space redirect target). Deferred to wp_enqueue_scripts

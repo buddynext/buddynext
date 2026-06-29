@@ -1406,6 +1406,18 @@ a.bn-sh-statpill:focus-visible {
 	color: var(--bn-ink);
 }
 
+/* Custom-fields panel — per-field validation error + required marker. */
+.bn-space-settings__field-error {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-danger);
+	margin: 0;
+}
+
+.bn-space-settings__required {
+	color: var(--bn-danger);
+	margin-inline-start: 2px;
+}
+
 .bn-space-settings__hint {
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
