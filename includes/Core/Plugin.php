@@ -337,6 +337,9 @@ class Plugin {
 		// Wire onboarding nudge scheduling and cron handlers.
 		( new OnboardingListener() )->register();
 
+		// Wire owner-curated space auto-join (on signup + member-type assignment).
+		( new \BuddyNext\Spaces\AutoJoinListener() )->register();
+
 		// Wire the WordPress Privacy Tools integration so Tools → Export/Erase
 		// Personal Data covers BuddyNext's custom tables and bn_* user meta.
 		// Registered unconditionally — admin GDPR/CCPA compliance must always work.
