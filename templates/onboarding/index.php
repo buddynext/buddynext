@@ -61,20 +61,14 @@ if ( isset( $_GET['redo'] ) && isset( $_GET['_step'] ) ) { // phpcs:ignore WordP
 	$saved_step = max( 1, min( 4, (int) $_GET['_step'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 }
 
-$bn_ob_spaces  = buddynext_service( 'spaces' );
 $bn_ob_members = buddynext_service( 'space_members' );
 $bn_ob_follows = buddynext_service( 'follows' );
 $bn_ob_explore = new ExploreService();
 
-// Recommended spaces (step 2) — most-populated spaces via the service the
-// REST controller uses (returns hydrated id/name/member_count/description/avatar_url).
-$recommended_spaces = $bn_ob_spaces->list_spaces(
-	array(
-		'orderby'  => 'member_count',
-		'order'    => 'DESC',
-		'per_page' => 6,
-	)
-);
+// Recommended spaces (step 2) — ranked, viewer-aware suggestions (social proof +
+// category + popularity) that exclude spaces the new member is already in, including
+// any auto-joined on signup. Falls back to popularity for a brand-new account.
+$recommended_spaces = ( new \BuddyNext\Spaces\SpaceSuggestionService() )->suggest( $ob_user_id, 6 );
 
 // Spaces the user already belongs to + people they already follow (prefill the
 // Join / Follow button states) via bulk service accessors.

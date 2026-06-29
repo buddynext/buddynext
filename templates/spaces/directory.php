@@ -566,6 +566,40 @@ $bn_subtitle = sprintf(
 		><?php esc_html_e( 'Retry', 'buddynext' ); ?></button>
 	</div>
 
+	<?php
+	// "Suggested for you" — ranked discovery rail on the pristine All view (logged-in,
+	// page 1, no search/category). Inside the interactive region so the 1-click Join
+	// binds, but OUTSIDE [data-bn-sd-grid] so a reactive filter swap never wipes it.
+	// Empty (member already in everything / nothing fits) -> nothing renders.
+	if ( $current_user_id > 0 && ! $bn_is_mine && 1 === $bn_paged && '' === $bn_search && '' === $bn_cat_slug ) :
+		$bn_suggested = ( new \BuddyNext\Spaces\SpaceSuggestionService() )->suggest( $current_user_id, 4 );
+		if ( ! empty( $bn_suggested ) ) :
+			?>
+			<section class="bn-sd-section bn-sd-section--suggested">
+				<header class="bn-sd-section__head">
+					<h2 class="bn-sd-section__title"><?php esc_html_e( 'Suggested for you', 'buddynext' ); ?></h2>
+				</header>
+				<div class="bn-sd-grid" role="list">
+					<?php
+					foreach ( $bn_suggested as $bn_sug ) {
+						buddynext_get_template(
+							'parts/space-directory-card.php',
+							array(
+								'space'           => $bn_sug,
+								'membership'      => null,
+								'current_user_id' => $current_user_id,
+								'cat_by_id'       => isset( $bn_cat_by_id ) ? $bn_cat_by_id : array(),
+							)
+						);
+					}
+					?>
+				</div>
+			</section>
+			<?php
+		endif;
+	endif;
+	?>
+
 	<div class="bn-sd-results" data-bn-sd-results>
 
 	<?php
