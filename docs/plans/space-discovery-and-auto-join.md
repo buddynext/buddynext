@@ -2,7 +2,7 @@
 
 Status: **BUILT + browser-verified** (2026-06-30) · Branch: `1.0.4` · Author: vapvarun
 
-**As built:** Phase 1 (owner settings: `auto_join_on_signup` boolean field + `auto_join_member_types` plain-meta filter, Permissions panel) · Phase 2 (`AutoJoinService` + `AutoJoinListener` on `user_register` + `buddynext_member_type_assigned`) · Phase 3 (`SpaceSuggestionService` ranking + cache + `SpaceSuggestionListener` busts + `GET /spaces/suggestions` + `SpaceService` `include_space_ids`/`exclude_space_ids` args) · Phase 4 (directory "Suggested for you" rail + onboarding step-2 upgrade). **Deferred:** the bulk "apply to existing members" backfill (storm-guarded AS path — see §4.3); auto-join is going-forward only for now.
+**As built:** Phase 1 (owner settings: `auto_join_on_signup` boolean field + `auto_join_member_types` plain-meta filter, Permissions panel) · Phase 2 (`AutoJoinService` + `AutoJoinListener` on `user_register` + `buddynext_member_type_assigned`) · Phase 3 (`SpaceSuggestionService` ranking + cache + `SpaceSuggestionListener` busts + `GET /spaces/suggestions` + `SpaceService` `include_space_ids`/`exclude_space_ids` args) · Phase 4 (directory "Suggested for you" rail + onboarding step-2 upgrade). **Out of scope by design:** the bulk "apply to existing members" backfill is NOT built — BuddyNext ships as a new plugin with no legacy membership base, so going-forward auto-join (signup + member-type assignment) is the complete behavior, not a partial one. The backfill design notes in §4.3 / §8 are retained only as a reference should a future migration ever need them; nothing in the shipped feature depends on them.
 Grounded against live code (2026-06-30) via three exploration passes — every integration point below carries a `file:line` anchor.
 
 ---
@@ -107,7 +107,7 @@ Both call **`SpaceMemberService::join($space_id, $user_id)`** directly — it is
 | | Free (this plan) | Pro (future) |
 |---|---|---|
 | Suggestions | social-proof + category + popularity, cached | AI/affinity ranking, "because you follow X" explanations |
-| Auto-join | `auto_join_on_signup` + member-type filter + backfill | full rule-builder on the Moderation Rules engine, profile-field conditions |
+| Auto-join | `auto_join_on_signup` + member-type filter (going-forward) | full rule-builder on the Moderation Rules engine, profile-field conditions |
 
 Pro extends via filters: `buddynext_space_suggestion_ids` (re-rank) and `buddynext_auto_join_eligible_spaces` (add rule-driven spaces).
 
