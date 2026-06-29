@@ -293,6 +293,48 @@ final class SpaceFieldRegistry {
 	}
 
 	/**
+	 * Concatenated plain text of a space's searchable + public field values, for
+	 * folding into the public search index. Members-only / non-searchable values
+	 * are excluded — global search is public-facing.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return string
+	 */
+	public function searchable_public_text( int $space_id ): string {
+		$parts = array();
+		foreach ( $this->get_fields() as $field ) {
+			if ( empty( $field['searchable'] ) || 'public' !== ( $field['visibility'] ?? '' ) ) {
+				continue;
+			}
+			$value = (string) get_space_meta( $space_id, (string) $field['key'], true );
+			if ( '' !== $value ) {
+				$parts[] = wp_strip_all_tags( $value );
+			}
+		}
+		return trim( implode( ' ', $parts ) );
+	}
+
+	/**
+	 * Whether a space has at least one searchable + public field with a value
+	 * among a given set of keys (used to decide whether a field save needs a
+	 * search re-index).
+	 *
+	 * @param string[] $keys Field keys that were just saved.
+	 * @return bool
+	 */
+	public function any_searchable_public( array $keys ): bool {
+		$keys = array_map( 'strval', $keys );
+		foreach ( $this->get_fields() as $field ) {
+			if ( ! empty( $field['searchable'] )
+				&& 'public' === ( $field['visibility'] ?? '' )
+				&& in_array( (string) $field['key'], $keys, true ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Fields belonging to one management section, ordered by sort_order.
 	 *
 	 * @param string $section Section slug.
@@ -415,6 +457,13 @@ final class SpaceFieldRegistry {
 		foreach ( $validated as $key => $entry ) {
 			update_space_meta( $space_id, $key, $entry['value'] );
 			$saved[ $key ] = FieldType::rest_value( $entry['field'], $entry['value'] );
+		}
+
+		// When a searchable + public field changed, re-index the space so its value
+		// becomes discoverable (the search content build folds it in). Consumed
+		// only by SearchIndexListener::on_space_updated.
+		if ( ! empty( $saved ) && $this->any_searchable_public( array_keys( $saved ) ) ) {
+			do_action( 'buddynext_space_updated', $space_id );
 		}
 
 		return array(

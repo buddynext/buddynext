@@ -14,6 +14,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Search;
 
 use BuddyNext\Contracts\ListenerInterface;
+use BuddyNext\Spaces\SpaceFieldRegistry;
 
 /**
  * Wires lifecycle hooks to search index writes via Action Scheduler or inline.
@@ -247,6 +248,14 @@ class SearchIndexListener implements ListenerInterface {
 		$owner_id   = (int) $row['owner_id'];
 		$title      = (string) $row['name'];
 		$content    = wp_strip_all_tags( (string) ( $row['description'] ?? '' ) );
+
+		// Fold the space's searchable + public custom field values into the index
+		// content so a developer field (searchable:true, visibility:public) makes
+		// the space discoverable. Members-only/private values are never indexed.
+		$bn_field_text = SpaceFieldRegistry::instance()->searchable_public_text( $space_id );
+		if ( '' !== $bn_field_text ) {
+			$content = trim( $content . ' ' . $bn_field_text );
+		}
 
 		buddynext_service( 'search' )->index(
 			'space',
