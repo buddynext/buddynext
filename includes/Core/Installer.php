@@ -71,8 +71,14 @@ class Installer {
 	 *      (copying space_id -> bn_space_id) BEFORE dbDelta runs; fresh installs get
 	 *      the canonical table inline. Free now owns the table; Pro reads it via the
 	 *      *_space_meta() API.
+	 * 12 — Directory ordering at scale. Added KEY dir_popular (parent_id, member_count)
+	 *      and KEY dir_name (parent_id, name) on bn_spaces so the roots directory's
+	 *      two dominant sorts (popularity + alphabetical) are index-backed backward/
+	 *      forward scans instead of a filesort on every load — fatal at 20-30k
+	 *      member-created spaces per site. Existing installs via the idempotent ADD
+	 *      KEY loop; fresh installs inline in CREATE TABLE.
 	 */
-	private const SCHEMA_VERSION = 11;
+	private const SCHEMA_VERSION = 12;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -361,7 +367,16 @@ class Installer {
 			// pagination (WHERE space_id = ? AND status = ? ORDER BY joined_at) so
 			// neither scans/filesorts at 50k members.
 			'bn_spaces'        => array(
-				'parent' => 'ADD KEY parent (parent_id)',
+				'parent'      => 'ADD KEY parent (parent_id)',
+				// v12: the directory browses ROOTS ordered by one of a few sorts
+				// (WHERE parent_id IS NULL ORDER BY <col>). Without a (parent_id,<col>)
+				// composite each sort filesorts every load — fatal at 20-30k
+				// member-created spaces per site. Index the two dominant orders:
+				// popularity (member_count, the default) and alphabetical (name).
+				// "Recently active" needs a denormalized activity column (planned);
+				// "newest" (created_at) is rarer and left to filesort for now.
+				'dir_popular' => 'ADD KEY dir_popular (parent_id, member_count)',
+				'dir_name'    => 'ADD KEY dir_name (parent_id, name)',
 			),
 			'bn_space_members' => array(
 				'space_status' => 'ADD KEY space_status (space_id, status, joined_at)',
@@ -1195,7 +1210,9 @@ class Installer {
 				KEY                owner (owner_id),
 				KEY                category (category_id),
 				KEY                parent (parent_id),
-				KEY                is_archived (is_archived)
+				KEY                is_archived (is_archived),
+				KEY                dir_popular (parent_id, member_count),
+				KEY                dir_name (parent_id, name)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_space_members (
