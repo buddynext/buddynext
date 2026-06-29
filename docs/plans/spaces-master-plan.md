@@ -26,7 +26,7 @@ Owner-driven usability items raised during review. Each must be tested 1-by-1. S
 | U4 | **Display custom fields on About** — non-core fields with a value, visibility-filtered, that are NOT promoted to a tab, render in an About "Details" `<dl>` (`SpaceNav::render_about_panel` resolves them; `space-about-panel.php` renders; url→link, others→`display_text`). | ✅ done + browser-verified | Verified: About "Details" shows "Accepting new members: Yes" (boolean) + "Skill level: Advanced" (select); a tab-promoted field is excluded (no duplication); core settings fields never appear. |
 | R4 | Search-fold: public+searchable space fields → `bn_search_index`. | ⏳ optional/deferred | A `searchable:true,visibility:public` field's value is findable in search. |
 | F1 | **DRY:** flat directory grid converted to the shared `parts/space-directory-card.php` (the 148-line inline card removed). Both the All-spaces grid and the sectioned My Spaces view now render from one card source. | ✅ done + browser-verified | `/spaces/` renders identically (6 cards, correct per-role CTAs Manage/Joined/Join). |
-| F2 | Sidebar "Your spaces" widget still mixes managed/joined — give it the same managed-first / split treatment. | ⏳ follow-up | Sidebar groups or leads with managed. |
+| F2 | **Sidebar "Your spaces" widget split** into "You manage" + "You joined" sub-groups (same `member_role` filter), so a member's own spaces are easy to find in the rail too. | ✅ done + browser-verified | Sidebar shows "You manage" (2) + "You joined" (3), matching the main My Spaces view. |
 
 ---
 

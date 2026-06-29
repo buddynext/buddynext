@@ -362,6 +362,20 @@
 	gap: 2px;
 }
 
+/* "Your spaces" sidebar sub-group label (You manage / You joined). */
+.bn-sd-side-grouplabel {
+	margin: var(--bn-s3) 0 var(--bn-s1);
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-semibold);
+	text-transform: uppercase;
+	letter-spacing: var(--bn-ls-wide, 0.04em);
+	color: var(--bn-ink-3);
+}
+
+.bn-sd-side-grouplabel:first-child {
+	margin-block-start: 0;
+}
+
 .bn-sd-side-row {
 	display: inline-flex;
 	align-items: center;

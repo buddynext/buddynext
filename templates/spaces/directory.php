@@ -265,34 +265,60 @@ add_action(
 			return $space;
 		};
 
-		// Card: Your spaces (members only). The service's `member` arg INNER JOINs
-		// the viewer's active memberships and lifts the secret-space exclusion.
+		// Card: Your spaces (members only) — split into "You manage" (owner/mod) and
+		// "You joined" (member) via the same member_role filter the directory uses,
+		// so the spaces a member is responsible for are easy to find.
 		if ( $current_user_id ) {
-			$bn_my_spaces = $bn_space_service->list_spaces(
+			$bn_my_managed = $bn_space_service->list_spaces(
 				array(
-					'member'   => $current_user_id,
-					'viewer'   => $current_user_id,
-					'per_page' => 6,
+					'member'      => $current_user_id,
+					'viewer'      => $current_user_id,
+					'member_role' => 'manage',
+					'per_page'    => 5,
+				)
+			);
+			$bn_my_joined  = $bn_space_service->list_spaces(
+				array(
+					'member'      => $current_user_id,
+					'viewer'      => $current_user_id,
+					'member_role' => 'joined',
+					'per_page'    => 5,
 				)
 			);
 
-			if ( ! empty( $bn_my_spaces ) ) {
+			if ( ! empty( $bn_my_managed ) || ! empty( $bn_my_joined ) ) {
+				$bn_my_groups = array(
+					array(
+						'label'  => __( 'You manage', 'buddynext' ),
+						'spaces' => $bn_my_managed,
+					),
+					array(
+						'label'  => __( 'You joined', 'buddynext' ),
+						'spaces' => $bn_my_joined,
+					),
+				);
 				ob_start();
-				?>
-				<ul class="bn-sd-side-list">
+				foreach ( $bn_my_groups as $bn_grp ) :
+					if ( empty( $bn_grp['spaces'] ) ) {
+						continue;
+					}
+					?>
+					<p class="bn-sd-side-grouplabel"><?php echo esc_html( (string) $bn_grp['label'] ); ?></p>
+					<ul class="bn-sd-side-list">
+						<?php
+						foreach ( $bn_grp['spaces'] as $bn_ms ) :
+							$bn_ms = $bn_resolve_slug( $bn_ms );
+							?>
+							<li>
+								<a href="<?php echo esc_url( buddynext_space_url( $bn_ms['slug'] ) ); ?>" class="bn-sd-side-row">
+									<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo bn_space_side_emblem( $bn_ms ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
+									<span><?php echo esc_html( $bn_ms['name'] ); ?></span>
+								</a>
+							</li>
+						<?php endforeach; ?>
+					</ul>
 					<?php
-					foreach ( $bn_my_spaces as $bn_ms ) :
-						$bn_ms = $bn_resolve_slug( $bn_ms );
-						?>
-						<li>
-							<a href="<?php echo esc_url( buddynext_space_url( $bn_ms['slug'] ) ); ?>" class="bn-sd-side-row">
-								<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo bn_space_side_emblem( $bn_ms ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
-								<span><?php echo esc_html( $bn_ms['name'] ); ?></span>
-							</a>
-						</li>
-					<?php endforeach; ?>
-				</ul>
-				<?php
+				endforeach;
 				$bn_my_html = (string) ob_get_clean();
 
 				buddynext_get_template(
