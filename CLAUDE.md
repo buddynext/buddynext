@@ -10,9 +10,10 @@
 > **RESUMING WORK?** Start with `free-internal/docs/qa/RESUME.md` (in `buddynext-pro`).
 >
 > **READ FIRST:** `audit/manifest.json` (local gitignored / `free-internal/audit/manifest.json` in
-> `buddynext-pro`) is the canonical inventory — 135 REST endpoints, 39 tables, 21 capabilities, 55 services,
-> 548 plugin-own hooks fired. Use this before grepping. See also `FEATURE_AUDIT.md`, `CODE_FLOWS.md`,
-> `ROLE_MATRIX.md` beside it. Refresh after non-trivial changes.
+> `buddynext-pro`) is the canonical inventory — 192 REST routes, 42 tables, 18 blocks, 5 cron jobs,
+> 752 hook listeners, 188 templates (regenerated 2026-06-30 via the wp-plugin-qa scanner). Use this before
+> grepping. See also `FEATURE_AUDIT.md`, `CODE_FLOWS.md`, `ROLE_MATRIX.md` beside it. Refresh after
+> non-trivial changes.
 
 ## What Is BuddyNext
 
