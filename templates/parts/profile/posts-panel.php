@@ -42,6 +42,9 @@ if ( 'posts' === $bn_pl_kind && $bn_pl_is_owner ) :
 endif;
 
 if ( ! empty( $bn_pl_posts ) ) :
+	// Wrap in .bn-feed-stack so cards get the same vertical gap as the main feeds
+	// (.bn-post-card carries no margin — spacing comes from the stack's gap).
+	echo '<div class="bn-feed-stack">';
 	foreach ( $bn_pl_posts as $bn_pl_post ) {
 		$bn_pl_post = (array) $bn_pl_post;
 		// Decode media_ids JSON string for the post-card partial.
@@ -57,6 +60,7 @@ if ( ! empty( $bn_pl_posts ) ) :
 			)
 		);
 	}
+	echo '</div>';
 else :
 	// Per-kind empty state.
 	if ( 'scheduled' === $bn_pl_kind ) {

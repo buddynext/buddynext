@@ -217,7 +217,9 @@ add_action(
 				<div class="bn-sh-side-spaces__cta" data-wp-interactive="buddynext/spaces">
 					<button
 						type="button"
-						class="bn-btn bn-btn--sm bn-btn--ghost bn-sh-side-spaces__add"
+						class="bn-btn bn-sh-side-spaces__add"
+						data-variant="ghost"
+						data-size="sm"
 						data-wp-on--click="actions.openCreate"
 						data-bn-create-space-trigger
 					>
@@ -314,7 +316,9 @@ add_action(
 							</a>
 							<?php if ( $bn_msgs_on ) : ?>
 								<a
-									class="bn-btn bn-btn--sm bn-btn--ghost bn-sh-side-mod__msg"
+									class="bn-btn bn-sh-side-mod__msg"
+									data-variant="ghost"
+									data-size="sm"
 									href="<?php echo esc_url( add_query_arg( 'recipient', $bn_mod_uid, home_url( '/messages/' ) ) ); ?>"
 									aria-label="
 									<?php

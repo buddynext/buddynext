@@ -66,6 +66,27 @@ class PageRouter {
 		add_filter( 'request', array( $this, 'suppress_default_query' ) );
 		add_filter( 'query_vars', array( $this, 'register_directory_query_vars' ) );
 		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
+
+		// Hub pages render from a virtual WP_Post (ID 0), so core's admin-bar
+		// "Edit Page" resolves to wp-admin/edit.php. Drop that node on hub routes.
+		add_action( 'admin_bar_menu', array( $this, 'remove_hub_edit_node' ), 999 );
+	}
+
+	/**
+	 * Remove the admin-bar "Edit Page" node on BuddyNext hub routes.
+	 *
+	 * Hubs are not editable as a single post (the rendered WP_Post is virtual,
+	 * ID 0), so the core edit link points at wp-admin/edit.php. Removing the node
+	 * avoids a dead-end link for admins viewing a hub.
+	 *
+	 * @param \WP_Admin_Bar $wp_admin_bar The admin bar instance.
+	 * @return void
+	 */
+	public function remove_hub_edit_node( \WP_Admin_Bar $wp_admin_bar ): void {
+		if ( ! self::is_bn_route() ) {
+			return;
+		}
+		$wp_admin_bar->remove_node( 'edit' );
 	}
 
 	/**
