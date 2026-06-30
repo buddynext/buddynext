@@ -27,6 +27,8 @@ use BuddyNext\Core\CounterService;
 use BuddyNext\Core\CronScheduler;
 use BuddyNext\Core\RoleService;
 use BuddyNext\Core\TemplateLoader;
+use BuddyNext\Core\CoreHubs;
+use BuddyNext\Core\HubRegistry;
 use BuddyNext\Core\PageRouter;
 use BuddyNext\Theme\TokenService;
 use BuddyNext\Feed\BookmarkService;
@@ -395,6 +397,9 @@ class Plugin {
 		// into the NavRegistry (resolved lazily per request via buddynext_nav()).
 		( new \BuddyNext\Nav\Providers\ProfileNav() )->register();
 		( new \BuddyNext\Nav\Providers\SpaceNav() )->register();
+
+		// Populate the hub registry before the router's 'init' hook registers rewrites.
+		CoreHubs::register( HubRegistry::instance() );
 
 		// Register URL rewrite rules for pretty profile URLs.
 		( new PageRouter() )->init();
