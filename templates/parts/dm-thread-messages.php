@@ -118,9 +118,9 @@ do_action( 'buddynext_part_dm_thread_messages_before', $args );
 	endforeach;
 	?>
 
-	<?php if ( $is_typing ) : ?>
-		<div class="bn-dm-typing" aria-live="polite">
-			<span class="bn-avatar bn-dm-avatar bn-dm-tone-<?php echo (int) $th_tone; ?>" data-size="sm" aria-hidden="true">
+	<?php // Always in the DOM so the thread poll can toggle it live; hidden until the engine reports the other participant typing. ?>
+	<div class="bn-dm-typing" aria-live="polite" data-bn-typing<?php echo $is_typing ? '' : ' hidden'; ?>>
+		<span class="bn-avatar bn-dm-avatar bn-dm-tone-<?php echo (int) $th_tone; ?>" data-size="sm" aria-hidden="true">
 				<?php if ( false !== strpos( $th_avatar, 'src=' ) ) : ?>
 					<?php
 					echo wp_kses(
@@ -159,7 +159,6 @@ do_action( 'buddynext_part_dm_thread_messages_before', $args );
 				?>
 			</span>
 		</div>
-	<?php endif; ?>
 
 </div>
 <?php

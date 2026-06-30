@@ -72,6 +72,11 @@ let threadPollTimer          = null; // window.setInterval id for the open threa
 let threadPollFn             = null; // The current thread's poll function (for refocus catch-up).
 let threadPollVisibilityBound = false; // visibilitychange listener bound once.
 
+// Throttle outbound typing pings. The engine stores typing in wp_cache with a 5s
+// TTL, so one ping per few seconds while the composer is active keeps the pip
+// alive without a request per keystroke.
+let lastTypingPing = 0;
+
 /**
  * Stop the open-thread poll, if any.
  *
@@ -627,6 +632,28 @@ const messagesStore = store( 'buddynext/messages', {
 			const el = event.target;
 			el.style.height = 'auto';
 			el.style.height = Math.min( el.scrollHeight, 160 ) + 'px';
+			actions.signalTyping();
+		},
+		// Tell the engine this user is typing, throttled. The other side's poll
+		// reads it back (data.typing) and shows the indicator. Fire-and-forget —
+		// a dropped ping just means the pip blinks off until the next keystroke.
+		signalTyping() {
+			const ctx    = getContext();
+			const convId = parseInt( ctx.activeConvId, 10 ) || 0;
+			if ( ! convId ) {
+				return;
+			}
+			const now = Date.now();
+			if ( now - lastTypingPing < 3000 ) {
+				return;
+			}
+			lastTypingPing = now;
+			restFetch( '/conversations/' + convId + '/typing', {
+				base: ctx.mvsRest,
+				nonce: ctx.nonce,
+				method: 'POST',
+				toastOnError: false,
+			} );
 		},
 		onInputKeydown( event ) {
 			// Enter sends; Shift+Enter inserts a newline.
@@ -1611,6 +1638,24 @@ const messagesStore = store( 'buddynext/messages', {
 						} );
 						if ( data.server_time ) {
 							since = data.server_time;
+						}
+						// Live typing indicator: the engine returns the IDs of other
+						// participants currently typing. Toggle the always-present
+						// pip, and keep it in view only if the reader is already at
+						// the bottom (never yank someone scrolled up reading history).
+						const typingEl = threadEl ? threadEl.querySelector( '[data-bn-typing]' ) : null;
+						if ( typingEl ) {
+							const someoneTyping = Array.isArray( data.typing ) && data.typing.length > 0;
+							if ( someoneTyping && typingEl.hidden ) {
+								const log = logEl();
+								const atBottom = log && ( log.scrollHeight - log.scrollTop - log.clientHeight ) < 80;
+								typingEl.hidden = false;
+								if ( atBottom && log ) {
+									log.scrollTop = log.scrollHeight;
+								}
+							} else if ( ! someoneTyping ) {
+								typingEl.hidden = true;
+							}
 						}
 					}
 				} catch ( _e ) {}
