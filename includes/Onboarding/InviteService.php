@@ -83,14 +83,20 @@ class InviteService {
 
 		$invite_id = (int) $wpdb->insert_id;
 		if ( $invite_id > 0 ) {
-			$this->send_invite_email(
-				array(
-					'id'         => $invite_id,
-					'email'      => sanitize_email( $email ),
-					'first_name' => sanitize_text_field( $first_name ),
-					'token'      => $token,
-				)
+			$payload = array(
+				'id'         => $invite_id,
+				'email'      => sanitize_email( $email ),
+				'first_name' => sanitize_text_field( $first_name ),
+				'token'      => $token,
 			);
+			// Defer the send to Action Scheduler so a bulk/CSV import (which loops
+			// create()) enqueues N fast async sends instead of N blocking wp_mail()
+			// calls that time the request out. Falls back to inline when AS is absent.
+			if ( function_exists( 'as_enqueue_async_action' ) ) {
+				as_enqueue_async_action( 'buddynext_async_send_invite_email', array( $payload ), 'buddynext' );
+			} else {
+				$this->send_invite_email( $payload );
+			}
 		}
 
 		return $invite_id;
@@ -393,6 +399,20 @@ class InviteService {
 			array( '%s' ),
 			array( '%d' )
 		);
+	}
+
+	/**
+	 * Public entry point for the deferred invite-email send.
+	 *
+	 * The `buddynext_async_send_invite_email` Action Scheduler callback
+	 * (OnboardingListener::handle_async_invite_email) calls this so create() can
+	 * enqueue the send instead of dispatching inline.
+	 *
+	 * @param array<string, mixed> $invite Invite payload { id, email, first_name, token }.
+	 * @return bool True when the email was handed to wp_mail successfully.
+	 */
+	public function deliver_invite_email( array $invite ): bool {
+		return $this->send_invite_email( $invite );
 	}
 
 	/**

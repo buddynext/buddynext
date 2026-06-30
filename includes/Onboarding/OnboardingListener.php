@@ -33,6 +33,22 @@ class OnboardingListener implements ListenerInterface {
 		add_action( 'bn_onboarding_nudge_24h', array( $this, 'handle_onboarding_nudge' ), 10, 1 );
 		add_action( 'bn_onboarding_nudge_72h', array( $this, 'handle_onboarding_nudge' ), 10, 1 );
 		add_action( 'template_redirect', array( $this, 'maybe_redirect_to_onboarding' ), 5 );
+		add_action( 'buddynext_async_send_invite_email', array( $this, 'handle_async_invite_email' ), 10, 1 );
+	}
+
+	/**
+	 * Action Scheduler callback: send a deferred invite email.
+	 *
+	 * InviteService::create() enqueues this (one per invite) so a bulk/CSV import
+	 * never blocks the request on a loop of synchronous wp_mail() calls.
+	 *
+	 * @param mixed $invite Invite payload { id, email, first_name, token }.
+	 * @return void
+	 */
+	public function handle_async_invite_email( $invite ): void {
+		if ( is_array( $invite ) ) {
+			( new InviteService() )->deliver_invite_email( $invite );
+		}
 	}
 
 	/**

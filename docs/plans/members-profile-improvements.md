@@ -9,9 +9,9 @@ lives in `spaces-master-plan.md`. Both repos on `1.0.4`. Last updated 2026-06-29
 integrity)** — the security/privacy fixes, the **complete member-directory scale cluster** (indexed
 sorts/filters, bounded reads, no IN/NOT-IN id lists, no per-card N+1, bounded count), and the canonical
 member-delete purge, **T17/F4** (suspension-filter dedup, premise corrected), **T18/F5** (dead digest-queue
-removal), **T13** (self-clear member type), and **T20/E1–E3** (hygiene), each browser-verified where
-applicable (the scale + delete work re-verified on a 1.5k-member / 300-space seed). The remaining tasks (T9,
-T14, T15, T19, T21, Workstreams C–D leftovers + E4/E5 + F6/F7 + B3) are unstarted; their plan + exact
+removal), **T13** (self-clear member type), **T20/E1–E3** (hygiene), and **T19/F6** (invite pre-fill +
+async send), each browser-verified where applicable (the scale + delete work re-verified on a 1.5k-member /
+300-space seed). The remaining tasks (T9, T14, T15, T21/F7, E4, E5, B3) are unstarted; their plan + exact
 touch-points are validated at code `file:line`.
 **QA: re-verify the shipped work with the [QA test cases](#qa-test-cases--shipped-work-re-verify) below.**
 
@@ -30,7 +30,7 @@ touch-points are validated at code `file:line`.
 | A6 | 🟡 PART | scale-audit addendum (2026-06-30): ✅ A6a SSR online→indexed `bn_presence` EXISTS, ✅ A6b exclude→correlated `NOT EXISTS`, ✅ A6c `post_count` removed, ✅ A6d `newest`→`u.ID`, ✅ A1 member-type→`idx_type_id` — all via a shared `directory_filter_sql()` + one `pre_user_query`; **full 9-point verification matrix passed** (suspended/shadowban/block/dir-optout excluded live, online/type/search/count, EXACT SSR↔REST parity). Remaining: A6e (count-includes-cursor, LOW) + A6f core-table notes |
 | T17 | ✅ DONE | suspension-filter dedup — **corrected**: discovery surfaces use a DIFFERENT gate (ANY active suspension) than `moderation_exclude_sql()` (hide_posts content gate), so converging onto it would be a regression. Added `ModerationService::discovery_exclude_sql()`; Search converged; Explore (ID-list) + directory (NOT EXISTS) documented as intentional form-differences. Search verified 200 |
 | T18 | ✅ DONE | removed the dead `buddynext_digest_queue_*` write (`on_queue_email_digest` handler + registration); digests are cron-driven from `bn_notifications`+`bn_notification_prefs`. `buddynext_queue_email_digest` kept as an addon extension point |
-| T19 | ⏳ PENDING | invite email pre-fill + async send |
+| T19 | ✅ DONE | invite email pre-fill (`signup.php` value attr + context from `$bn_invite['email']`) + async send (`create()` enqueues `buddynext_async_send_invite_email` via Action Scheduler; `OnboardingListener` handles it). Verified: pre-fill renders the invited email; create() schedules 1 async action (not inline) |
 | T20 | ✅ DONE | hygiene — E1 self-target guard was ALREADY handled (BlockService rejects self-block/mute/restrict; false finding); E2 `/account-type` gated to `require_auth` (no public caller, was leaking `is_private`); E3 stale 5-of-13 `parts/profile-field.php` deleted (loaded nowhere). E4 (member-field API) + E5 (manifest refresh) remain |
 | T21 | ⏳ PENDING | digest cron at scale (verify cadence first) |
 
@@ -71,6 +71,8 @@ no filesort); QA verifies the **behaviour**.
 | **QA-T3** | Delete integrity | A member with follows/connections/blocks/space memberships/a member type/online presence | Delete the member (Users → Delete, or WP-CLI) | None of their rows linger anywhere — they vanish from the directory, online list, space rosters (and member_count drops), search, follower lists. No "ghost" members. Their authored **posts** are a separate concern (out of scope here) |
 | **QA-T13** | Self-clear member type | A member who has a self-selected member type | Profile edit → member-type select → **"— None —"** | The type clears with a success toast (no error/danger toast). Previously this 404'd |
 | **QA-E2** | Account-type not anonymous | — | Logged **out**, call `GET /wp-json/buddynext/v1/users/{id}/account-type` | 401 (not the account's `is_private`). Logged-in, the same call still works (200) |
+| **QA-T19a** | Invite email pre-fill | Invite-only registration; a pending invite for an address | Open the invite link (`/login/signup/?invite=…`) **logged out** | The email field is pre-filled with the invited address (you don't re-type it) |
+| **QA-T19b** | Invite send is async | — | Create invites (single or **CSV import** of many) | The request returns promptly even for a large CSV; emails go out via Action Scheduler (Tools → Scheduled Actions shows `buddynext_async_send_invite_email`), not inline — no timeout |
 
 **Caveats QA should know:**
 - **A6a live-vs-cached:** the REST member list caches results ~60s per viewer, so a just-changed presence/online state can lag up to 60s on the *live* (JS) list; the SSR hard-reload is always live. Not a bug.
@@ -463,10 +465,13 @@ shared gate and warning NOT to converge onto `moderation_exclude_sql()`.
 registration; `EmailSender` still fires `buddynext_queue_email_digest` as an addon extension point (core
 keeps no queue), with the docblocks updated to say so.
 
-**F6 · T19 — Invite email pre-fill + async send (UX/Perf).** `signup.php` has `'email' => ''` (`:100`)
-though `$bn_invite` is resolved (`:65`) — invited users re-type their email. `InviteService::create`
-loops `wp_mail()` synchronously (`:447`) so a large CSV import can time out.
-- **Fix:** pass `$bn_invite['email']`; defer invite emails to Action Scheduler.
+**F6 · ✅ DONE — Invite email pre-fill + async send.** `signup.php` now seeds the invited address into BOTH
+the store context AND the email input's `value` attribute (the field is an uncontrolled
+`data-wp-on--input`, so the context alone wouldn't paint it) via `$bn_invite['email']`. `InviteService::
+create()` now enqueues `buddynext_async_send_invite_email` through Action Scheduler instead of a blocking
+`wp_mail()` (handler: `OnboardingListener::handle_async_invite_email` → `InviteService::deliver_invite_email`;
+inline fallback when AS is absent), so a CSV import that loops `create()` schedules N fast async sends.
+Verified live: signup renders the invited email pre-filled; `create()` schedules exactly 1 async action.
 
 **F7 · T21 — Digest cron at scale (verify-first).** The digest cron sends inline `wp_mail()` capped at
 200 users/run; at 50k members with a 1×/day cron the backlog can grow.

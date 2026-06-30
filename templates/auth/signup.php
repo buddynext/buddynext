@@ -94,10 +94,18 @@ if ( 'invite' === $bn_reg_mode ) {
 		data-variant="register"
 		data-wp-interactive="buddynext/auth-signup"
 		<?php
+		// Pre-fill the email for an invited signup so the member doesn't re-type the
+		// address the invitation was sent to (already known + validated). $bn_invite is
+		// only set in invite-only mode; default to empty otherwise. Seeded into BOTH the
+		// store context (below) and the input's value attribute (the field is an
+		// uncontrolled data-wp-on--input, so the context alone won't paint it).
+		$bn_prefill_email = ( isset( $bn_invite ) && is_array( $bn_invite ) && ! empty( $bn_invite['email'] ) )
+			? (string) $bn_invite['email']
+			: '';
 		// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 		echo wp_interactivity_data_wp_context(
 			array(
-				'email'            => '',
+				'email'            => $bn_prefill_email,
 				'userLogin'        => '',
 				'password'         => '',
 				'termsAgreed'      => false,
@@ -144,6 +152,7 @@ if ( 'invite' === $bn_reg_mode ) {
 							name="email"
 							autocomplete="email"
 							placeholder="you@example.com"
+							value="<?php echo esc_attr( $bn_prefill_email ); ?>"
 							required
 							data-wp-bind--disabled="state.submitting"
 							data-wp-bind--aria-invalid="state.emailInvalid"
