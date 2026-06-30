@@ -491,6 +491,19 @@ class PageRouter {
 		// back to the bare hub title.
 		if ( 'spaces' === $hub && ! empty( $context['space_slug'] ) ) {
 			$space_record = ( new \BuddyNext\Spaces\SpaceService() )->get_by_slug( (string) $context['space_slug'] );
+			// Leak-proof: a secret/unlisted space's name must not appear in the page
+			// <title> for a viewer who cannot see it. The body already 404s, but the
+			// title was still emitting "{name} · Spaces" (existence + name
+			// disclosure). Mirror the body's secret-space gate.
+			if ( null !== $space_record
+				&& \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) ( $space_record['type'] ?? '' ) ) ) {
+				$bn_title_viewer = get_current_user_id();
+				$bn_title_member = $bn_title_viewer > 0
+					&& ( new \BuddyNext\Spaces\SpaceMemberService() )->is_member( (int) ( $space_record['id'] ?? 0 ), $bn_title_viewer );
+				if ( ! $bn_title_member && ! user_can( $bn_title_viewer, 'manage_options' ) ) {
+					$space_record = null;
+				}
+			}
 			if ( null !== $space_record ) {
 				$space_name = (string) ( $space_record['name'] ?? '' );
 				// Clean URLs: the tab is always bn_space_action now (no ?bn_tab=).
