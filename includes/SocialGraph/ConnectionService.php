@@ -706,6 +706,90 @@ class ConnectionService {
 	}
 
 	/**
+	 * Mutual-connection IDs between a viewer and many peers, in one query.
+	 *
+	 * A member-directory card shows a mutual count + a few avatars, and derives
+	 * its 1st/2nd/3rd-degree badge from whether any mutuals exist. Doing that per
+	 * row calls mutual_connections() once for the card and again inside
+	 * connection_degree() — up to 2N queries for a page of N members. This resolves
+	 * every peer's mutuals against the viewer in a single self-join: the viewer's
+	 * accepted-connection partners intersected with each peer's, grouped by peer.
+	 * The intersection runs entirely in SQL (no full connection set loaded into
+	 * PHP), matching mutual_connections()'s memory-safe approach.
+	 *
+	 * @param int   $viewer_id Viewer user ID.
+	 * @param int[] $peer_ids  Peer user IDs on the current page.
+	 * @param int   $cap       Optional max mutuals kept per peer (0 = all); ordered
+	 *                         by ascending ID, so a small cap feeds the avatar pile.
+	 * @return array<int, int[]> Peer-ID keyed map of mutual IDs (peers with none omitted).
+	 */
+	public function mutual_ids_for( int $viewer_id, array $peer_ids, int $cap = 0 ): array {
+		$peer_ids = array_values( array_unique( array_filter( array_map( 'intval', $peer_ids ) ) ) );
+		$peer_ids = array_values(
+			array_filter(
+				$peer_ids,
+				static function ( $id ) use ( $viewer_id ) {
+					return $id !== $viewer_id;
+				}
+			)
+		);
+		if ( $viewer_id <= 0 || ! $peer_ids ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ', ', array_fill( 0, count( $peer_ids ), '%d' ) );
+		// pb derives (peer, partner) for every accepted row touching the peer set,
+		// once per endpoint that is a peer (the UNION handles peer-to-peer rows on
+		// both sides). va is the viewer's accepted-connection partner set. Joining
+		// on partner equality yields each peer's mutuals with the viewer.
+		$params = array_merge(
+			$peer_ids,                                    // pb half 1: requester_id IN (peers).
+			$peer_ids,                                    // pb half 2: recipient_id IN (peers).
+			array( $viewer_id, $viewer_id, $viewer_id ),  // va: CASE + WHERE pair.
+			array( $viewer_id )                           // Exclude the viewer as a self-mutual.
+		);
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $placeholders is a generated %d list; $params binds the peer set twice then the viewer ID for the va sub-select and the self-mutual guard.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT pb.peer_id, pb.partner FROM (
+				     SELECT requester_id AS peer_id, recipient_id AS partner
+				       FROM {$wpdb->prefix}bn_connections
+				      WHERE status = 'accepted' AND requester_id IN ( {$placeholders} )
+				     UNION
+				     SELECT recipient_id AS peer_id, requester_id AS partner
+				       FROM {$wpdb->prefix}bn_connections
+				      WHERE status = 'accepted' AND recipient_id IN ( {$placeholders} )
+				 ) pb
+				 INNER JOIN (
+				     SELECT CASE WHEN requester_id = %d THEN recipient_id ELSE requester_id END AS partner
+				       FROM {$wpdb->prefix}bn_connections
+				      WHERE status = 'accepted' AND ( requester_id = %d OR recipient_id = %d )
+				 ) va ON va.partner = pb.partner
+				 WHERE pb.partner <> %d
+				 ORDER BY pb.peer_id, pb.partner",
+				$params
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		$map = array();
+		foreach ( (array) $rows as $row ) {
+			$map[ (int) $row->peer_id ][] = (int) $row->partner;
+		}
+
+		if ( $cap > 0 ) {
+			foreach ( $map as $peer => $ids ) {
+				$map[ $peer ] = array_slice( $ids, 0, $cap );
+			}
+		}
+
+		return $map;
+	}
+
+	/**
 	 * Return the connection degree between two users.
 	 *
 	 * Degree 1 means the users are directly connected. Degree 2 means they
