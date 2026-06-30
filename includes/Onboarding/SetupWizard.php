@@ -342,8 +342,17 @@ class SetupWizard {
 			8 => __( 'Done', 'buddynext' ),
 		);
 		$is_final    = ( self::TOTAL_STEPS === $step );
-		$continue    = $is_final ? __( 'Finish setup', 'buddynext' ) : __( 'Continue', 'buddynext' );
-		$progress    = (int) round( ( ( $step - 1 ) / max( 1, self::TOTAL_STEPS - 1 ) ) * 100 );
+
+		// Reaching the final ("Done") step marks setup complete, so the
+		// "setup not complete" admin notice clears even when the owner leaves via
+		// the menu or the "View your community" link rather than submitting the
+		// step-8 form. finish() is idempotent (guarded by is_complete()).
+		if ( $is_final && ! $this->is_complete() ) {
+			$this->finish();
+		}
+
+		$continue = $is_final ? __( 'Finish setup', 'buddynext' ) : __( 'Continue', 'buddynext' );
+		$progress = (int) round( ( ( $step - 1 ) / max( 1, self::TOTAL_STEPS - 1 ) ) * 100 );
 		?>
 		<div class="bn-wizard-wrap">
 			<div class="bn-wizard" data-v2 data-step="<?php echo absint( $step ); ?>">
