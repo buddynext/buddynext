@@ -272,10 +272,13 @@ add_action(
 		// Card: Suggested for you (members only) — personalized discovery (social proof +
 		// category affinity + popularity). Lives in the sidebar as a discovery aside (it
 		// used to sit between the filters and the grid). Empty (member already in
-		// everything / nothing fits) -> the card is not rendered.
+		// everything / nothing fits) -> the card is not rendered, and "Popular this week"
+		// below shows as the fallback. Logged-out visitors get "Popular this week" only.
+		$bn_suggested_shown = false;
 		if ( $current_user_id ) {
 			$bn_suggested = ( new \BuddyNext\Spaces\SpaceSuggestionService() )->suggest( $current_user_id, 5 );
 			if ( ! empty( $bn_suggested ) ) {
+				$bn_suggested_shown = true;
 				ob_start();
 				?>
 				<ul class="bn-sd-side-list">
@@ -380,8 +383,10 @@ add_action(
 			}
 		}
 
-		// Card 3: Featured spaces (highest member-count, type=open).
-		$bn_featured = $bn_space_service->list_spaces(
+		// Card: Popular this week — shown to logged-out visitors (who can't get
+		// suggestions) and as the fallback for a logged-in member with no suggestions.
+		// Suppressed when "Suggested for you" rendered, so the two don't overlap.
+		$bn_featured = $bn_suggested_shown ? array() : $bn_space_service->list_spaces(
 			array(
 				'type'     => 'open',
 				'orderby'  => 'member_count',
