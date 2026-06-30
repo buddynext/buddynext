@@ -35,6 +35,18 @@ class FeedService {
 	private const DEFAULT_LIMIT = 20;
 
 	/**
+	 * Object-cache group for short-lived feed reads.
+	 */
+	private const CACHE_GROUP = 'buddynext_feed';
+
+	/**
+	 * TTL (seconds) for the new-count poll memo. Short enough that the "N new
+	 * posts" hint stays near-live, long enough to collapse the repeated polls a
+	 * single open tab fires on its stable after_id.
+	 */
+	private const NEW_COUNT_TTL = 30;
+
+	/**
 	 * User_meta key storing the list of announcement post IDs the user has
 	 * dismissed. Value is a flat array of integer post IDs.
 	 */
@@ -606,6 +618,18 @@ class FeedService {
 			$filter = 'for-you';
 		}
 
+		// Short-TTL memo: an open feed polls /feed/new-count on a stable after_id
+		// every cycle, so without this each poll re-ran the COUNT(*). Keyed by the
+		// three inputs the result depends on; time-expiry only (no event bust —
+		// busting on every post at scale would defeat the cache, and a count this
+		// soft tolerates up to NEW_COUNT_TTL of lag). On a site with no persistent
+		// object cache this degrades to the previous per-request behaviour.
+		$cache_key = "new_count_{$user_id}_{$filter}_{$after_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
 		$excluded_where = $this->excluded_users_where();
 
 		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $user_id );
@@ -629,10 +653,14 @@ class FeedService {
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
 
-		return array(
+		$result = array(
 			'count'     => isset( $row['new_count'] ) ? (int) $row['new_count'] : 0,
 			'newest_id' => isset( $row['newest_id'] ) ? (int) $row['newest_id'] : $after_id,
 		);
+
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::NEW_COUNT_TTL );
+
+		return $result;
 	}
 
 	/**
