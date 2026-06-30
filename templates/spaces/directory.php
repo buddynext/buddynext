@@ -269,6 +269,49 @@ add_action(
 			return $space;
 		};
 
+		// Card: Suggested for you (members only) — personalized discovery (social proof +
+		// category affinity + popularity). Lives in the sidebar as a discovery aside (it
+		// used to sit between the filters and the grid). Empty (member already in
+		// everything / nothing fits) -> the card is not rendered.
+		if ( $current_user_id ) {
+			$bn_suggested = ( new \BuddyNext\Spaces\SpaceSuggestionService() )->suggest( $current_user_id, 5 );
+			if ( ! empty( $bn_suggested ) ) {
+				ob_start();
+				?>
+				<ul class="bn-sd-side-list">
+					<?php
+					foreach ( $bn_suggested as $bn_sug ) :
+						$bn_sug = $bn_resolve_slug( $bn_sug );
+						?>
+						<li>
+							<a href="<?php echo esc_url( buddynext_space_url( $bn_sug['slug'] ) ); ?>" class="bn-sd-side-row">
+								<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo bn_space_side_emblem( $bn_sug ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
+								<span class="bn-sd-side-row__main">
+									<span><?php echo esc_html( $bn_sug['name'] ); ?></span>
+									<span class="bn-sd-side-row__meta">
+									<?php
+									$bn_sug_mc = (int) $bn_sug['member_count'];
+									/* translators: %s: formatted member count */ printf( esc_html( _n( '%s member', '%s members', $bn_sug_mc, 'buddynext' ) ), esc_html( number_format_i18n( $bn_sug_mc ) ) );
+									?>
+									</span>
+								</span>
+							</a>
+						</li>
+					<?php endforeach; ?>
+				</ul>
+				<?php
+				buddynext_get_template(
+					'parts/sidebar-card.php',
+					array(
+						'id'         => 'spaces-suggested',
+						'title'      => __( 'Suggested for you', 'buddynext' ),
+						'title_icon' => 'sparkles',
+						'body_html'  => (string) ob_get_clean(),
+					)
+				);
+			}
+		}
+
 		// Card: Your spaces (members only) — split into "You manage" (owner/mod) and
 		// "You joined" (member) via the same member_role filter the directory uses,
 		// so the spaces a member is responsible for are easy to find.
@@ -588,40 +631,7 @@ $bn_subtitle = sprintf(
 		><?php esc_html_e( 'Retry', 'buddynext' ); ?></button>
 	</div>
 
-	<?php
-	// "Suggested for you" — ranked discovery rail on the pristine All view (logged-in,
-	// page 1, no search/category). Inside the interactive region so the 1-click Join
-	// binds, but OUTSIDE [data-bn-sd-grid] so a reactive filter swap never wipes it.
-	// Empty (member already in everything / nothing fits) -> nothing renders.
-	if ( $current_user_id > 0 && ! $bn_is_mine && 1 === $bn_paged && '' === $bn_search && '' === $bn_cat_slug ) :
-		$bn_suggested = ( new \BuddyNext\Spaces\SpaceSuggestionService() )->suggest( $current_user_id, 4 );
-		if ( ! empty( $bn_suggested ) ) :
-			?>
-			<section class="bn-sd-section bn-sd-section--suggested">
-				<header class="bn-sd-section__head">
-					<h2 class="bn-sd-section__title"><?php esc_html_e( 'Suggested for you', 'buddynext' ); ?></h2>
-				</header>
-				<div class="bn-sd-grid" role="list">
-					<?php
-					foreach ( $bn_suggested as $bn_sug ) {
-						buddynext_get_template(
-							'parts/space-directory-card.php',
-							array(
-								'space'           => $bn_sug,
-								'membership'      => null,
-								'current_user_id' => $current_user_id,
-								'cat_by_id'       => $bn_cat_by_id,
-							)
-						);
-					}
-					?>
-				</div>
-			</section>
-			<?php
-		endif;
-	endif;
-	?>
-
+	<?php // "Suggested for you" now lives in the right sidebar (a discovery aside, not between the filters and the grid) — see the buddynext_right_sidebar registration above. ?>
 	<div class="bn-sd-results" data-bn-sd-results>
 
 	<?php
