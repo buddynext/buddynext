@@ -1970,6 +1970,59 @@ function applySpacesFilter() {
 	}, 250 );
 }
 
+/* Rebuild the directory pager for the reactive (filtered) result set. The reactive
+ * view always lands on page 1; pages 2+ are SSR <a> links carrying the current
+ * filters + bn_page=N, so they reload server-side via the indexed OFFSET (no reactive
+ * deep-offset fetches). Markup mirrors parts/pagination.php (.bn-pagination/.bn-page-btn). */
+function rebuildReactivePager( totalPages ) {
+	var container = document.querySelector( '[data-bn-sd-pager]' );
+	if ( ! container ) { return; }
+	while ( container.firstChild ) { container.removeChild( container.firstChild ); }
+	totalPages = parseInt( totalPages, 10 ) || 1;
+	if ( totalPages < 2 ) { return; }
+
+	var base = new URL( window.location.href );
+	base.searchParams.delete( 'bn_page' );
+	function href( n ) {
+		var u = new URL( base.href );
+		if ( n > 1 ) { u.searchParams.set( 'bn_page', String( n ) ); }
+		return u.pathname + u.search;
+	}
+	function item( label, n, isCurrent, isDots ) {
+		var el;
+		if ( isCurrent || isDots ) {
+			el = document.createElement( 'span' );
+			el.className = 'bn-page-btn' + ( isCurrent ? ' current' : ' dots' );
+			if ( isCurrent ) { el.setAttribute( 'aria-current', 'page' ); }
+		} else {
+			el = document.createElement( 'a' );
+			el.className = 'bn-page-btn';
+			el.href = href( n );
+		}
+		el.textContent = label;
+		return el;
+	}
+
+	var nav = document.createElement( 'nav' );
+	nav.className = 'bn-pagination';
+	nav.setAttribute( 'aria-label', t( 'pagerLabel', 'Spaces directory pages' ) );
+
+	var current = 1; // reactive filter resets to page 1 of the filtered set.
+	var win = 2, start = Math.max( 1, current - win ), end = Math.min( totalPages, current + win );
+	if ( start > 1 ) {
+		nav.appendChild( item( '1', 1, false, false ) );
+		if ( start > 2 ) { nav.appendChild( item( '…', 0, false, true ) ); }
+	}
+	for ( var p = start; p <= end; p++ ) { nav.appendChild( item( String( p ), p, p === current, false ) ); }
+	if ( end < totalPages ) {
+		if ( end < totalPages - 1 ) { nav.appendChild( item( '…', 0, false, true ) ); }
+		nav.appendChild( item( String( totalPages ), totalPages, false, false ) );
+	}
+	nav.appendChild( item( t( 'nextPage', 'Next ›' ), current + 1, false, false ) );
+
+	container.appendChild( nav );
+}
+
 async function executeSpacesFilter() {
 	if ( bnSpacesFilterAbort ) {
 		try { bnSpacesFilterAbort.abort(); } catch ( _e ) {}
@@ -1986,6 +2039,9 @@ async function executeSpacesFilter() {
 	if ( state.sort ) { params.set( 'orderby', state.sort ); }
 	if ( state.includeSubspaces ) { params.set( 'include_subspaces', '1' ); }
 	params.set( 'per_page', '18' );
+	// Ask for the total so the pager can be rebuilt for the filtered set (search
+	// stays a bare array — it doesn't reactively paginate).
+	if ( ! state.q ) { params.set( 'paginate', '1' ); }
 
 	try {
 		var res = await restFetch( '/spaces?' + params.toString(), {
@@ -2007,8 +2063,9 @@ async function executeSpacesFilter() {
 			return;
 		}
 
-		var rows = res.data;
-		if ( ! Array.isArray( rows ) ) { rows = ( rows && rows.items ) || []; }
+		var payload    = res.data;
+		var rows       = Array.isArray( payload ) ? payload : ( ( payload && payload.items ) || [] );
+		var totalPages = ( payload && payload.total_pages ) ? parseInt( payload.total_pages, 10 ) : 1;
 
 		var grid = document.querySelector( '[data-bn-sd-grid]' );
 		if ( ! grid ) {
@@ -2048,6 +2105,11 @@ async function executeSpacesFilter() {
 			else { url.searchParams.delete( 'bn_sort' ); }
 			window.history.replaceState( {}, '', url.toString() );
 		} catch ( _e ) {}
+
+		// Rebuild the pager AFTER the URL is updated so its SSR page-links carry the
+		// just-applied filters (a reactive filter resets to page 1; pages 2+ reload
+		// server-side via the indexed OFFSET).
+		rebuildReactivePager( totalPages );
 	} catch ( err ) {
 		if ( err && 'AbortError' === err.name ) { return; }
 		setDirectoryUiState( 'error' );

@@ -766,17 +766,20 @@ $bn_subtitle = sprintf(
 
 		</div>
 
-		<?php
-		buddynext_get_template(
-			'parts/pagination.php',
-			array(
-				'current'    => $bn_paged,
-				'total'      => $total_pages,
-				'query_var'  => 'bn_page',
-				'aria_label' => __( 'Spaces directory pages', 'buddynext' ),
-			)
-		);
-		?>
+		<?php // Always-present wrapper so a reactive filter can rebuild the pager for the filtered set (the store injects SSR page-links here; deeper pages reload server-side via the indexed OFFSET). ?>
+		<div class="bn-sd-pager" data-bn-sd-pager>
+			<?php
+			buddynext_get_template(
+				'parts/pagination.php',
+				array(
+					'current'    => $bn_paged,
+					'total'      => $total_pages,
+					'query_var'  => 'bn_page',
+					'aria_label' => __( 'Spaces directory pages', 'buddynext' ),
+				)
+			);
+			?>
+		</div>
 
 	<?php endif; ?>
 

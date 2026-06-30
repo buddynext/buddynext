@@ -547,6 +547,27 @@ class SpaceController extends BaseRestController {
 				? sanitize_text_field( (string) $request->get_param( 'q' ) )
 				: '' );
 
+		// Opt-in pagination metadata for the reactive directory: paginate=1 wraps the
+		// rows with a total + total_pages (so the client can rebuild its pager for the
+		// filtered set). Default + the search path stay a bare array (back-compat).
+		$bn_paginate = in_array( (string) $request->get_param( 'paginate' ), array( '1', 'true', 'yes' ), true );
+
+		if ( '' === $search_param && $bn_paginate ) {
+			$result = ( new SpaceService() )->list_spaces_with_total( $args );
+			$items  = $this->enrich_directory_rows( (array) ( $result['items'] ?? array() ), $viewer );
+			$total  = (int) ( $result['total'] ?? 0 );
+
+			return new WP_REST_Response(
+				array(
+					'items'       => $items,
+					'total'       => $total,
+					'total_pages' => (int) ceil( $total / max( 1, $per_page ) ),
+					'page'        => absint( null !== $page_param ? $page_param : 1 ),
+				),
+				200
+			);
+		}
+
 		if ( '' !== $search_param ) {
 			$spaces = ( new SpaceService() )->search( $search_param, $args );
 		} else {
