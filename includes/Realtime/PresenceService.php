@@ -70,6 +70,35 @@ class PresenceService {
 	 */
 	public function register(): void {
 		add_action( 'template_redirect', array( $this, 'heartbeat' ) );
+		add_action( 'wp_logout', array( $this, 'clear_on_logout' ) );
+	}
+
+	/**
+	 * Clear a user's presence on explicit logout so they read offline at once.
+	 *
+	 * Presence is a decaying heartbeat (ONLINE_WINDOW seconds); without this an
+	 * explicit logout would keep showing the user "online" until the window
+	 * elapsed. bn_presence is BuddyNext's own table, so this deletes the row
+	 * directly; last_active_at() then resolves 0 (offline). The throttle transient
+	 * is cleared too so a later re-login stamps immediately instead of being
+	 * collapsed by the stale guard. A browser/tab close (no logout event) still
+	 * decays naturally over the window — that is expected heartbeat behaviour.
+	 *
+	 * @since 1.0.4
+	 *
+	 * @param int $user_id Logging-out user (passed by the wp_logout action).
+	 * @return void
+	 */
+	public function clear_on_logout( int $user_id ): void {
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete( $wpdb->prefix . 'bn_presence', array( 'user_id' => $user_id ), array( '%d' ) );
+		delete_transient( 'bn_presence_' . $user_id );
 	}
 
 	/**
