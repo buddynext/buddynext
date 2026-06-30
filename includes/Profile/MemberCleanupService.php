@@ -29,12 +29,16 @@ class MemberCleanupService {
 	 * Decrements the denormalised `bn_spaces.member_count` for the member's active
 	 * spaces before their membership rows go away, captures the posts they reacted
 	 * to so `reaction_count` can be reconciled after, then deletes every user-keyed
-	 * row. Finally fires the canonical `buddynext_purge_user_data` extension event so
-	 * addons clean their own per-user tables on the SAME signal regardless of how the
-	 * member was removed.
+	 * row AND hard-deletes their authored posts + comments (standard GDPR erasure —
+	 * uniform across both delete paths; content is never reassigned/kept). Finally
+	 * fires the canonical `buddynext_purge_user_data` extension event so addons clean
+	 * their own per-user tables on the SAME signal regardless of how the member was
+	 * removed.
 	 *
 	 * @param int    $user_id Member being removed.
-	 * @param string $context 'delete' (hard delete) | 'gdpr-erase' (anonymising eraser).
+	 * @param string $context 'delete' (admin delete) | 'gdpr-erase' (privacy eraser).
+	 *                        Both hard-delete; the value is passed through to the
+	 *                        buddynext_purge_user_data event for addon context only.
 	 * @return bool True when at least one row was removed.
 	 */
 	public function purge_user_relations( int $user_id, string $context = 'delete' ): bool {
@@ -110,6 +114,29 @@ class MemberCleanupService {
 			if ( (int) $wpdb->query( $sql ) > 0 ) {
 				$removed = true;
 			}
+		}
+
+		// Authored posts + comments are hard-deleted with the member — standard GDPR
+		// erasure: the person's content goes with the person, on BOTH the admin-delete
+		// and the GDPR-eraser paths (it is never reassigned to a tombstone). They are
+		// deliberately kept out of the user-keyed delete set above so this runs through
+		// PostService::delete, which cascades each post's child rows (reactions,
+		// comments, poll options/votes, shares, hashtag links) — a bare table DELETE
+		// would orphan those. Comments the member left on OTHERS' posts are then removed
+		// and those posts' comment_count reconciled.
+		$own_post_ids = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$p}bn_posts WHERE user_id = %d", $user_id ) );
+		$commented_on = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT object_id FROM {$p}bn_comments WHERE user_id = %d AND object_type = 'post'", $user_id ) );
+		$post_service = buddynext_service( 'post_service' );
+		if ( is_object( $post_service ) ) {
+			foreach ( $own_post_ids as $pid ) {
+				$post_service->delete( (int) $pid, $user_id );
+			}
+		}
+		if ( (int) $wpdb->query( $wpdb->prepare( "DELETE FROM {$p}bn_comments WHERE user_id = %d", $user_id ) ) > 0 || ! empty( $own_post_ids ) ) {
+			$removed = true;
+		}
+		if ( ! empty( $commented_on ) && is_object( $post_service ) && method_exists( $post_service, 'recount_counters' ) ) {
+			$post_service->recount_counters( array_map( 'intval', $commented_on ) );
 		}
 
 		// Sweep every bn_* usermeta row. A no-op on hard delete (core already removed

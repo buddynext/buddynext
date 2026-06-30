@@ -18,8 +18,8 @@ pending-follow miscount fixed), each browser-verified where applicable (the scal
 + counter work re-verified on a 1.5k-member / 300-space seed). The remaining tasks (T14/D3, E5, B3) are
 unstarted; their plan + exact touch-points are validated at code `file:line`. **B3** (invite→user
 reconciliation on signup) is also done, and **T14/D3** (File field — removed Free's fake; Pro owns the real
-uploader) is resolved. Only **E5** (manifest refresh, do last) and the **orphaned-posts** delete-vs-reassign
-decision remain.
+uploader) is resolved. The **orphaned-posts** policy is decided + shipped (uniform GDPR hard-delete — see
+Workstream B follow-up). Only **E5** (manifest refresh, do last) remains.
 
 **Post-implementation uniformity audit (all 16 done tasks).** Swept the shipped work for divergent paths /
 dups / dead code. All 16 present + aligned. Three cleanups landed in the directory layer (the one area a
@@ -324,11 +324,15 @@ but cold cache = one self-join per card). The REST path already batches mutual c
 > back-compat. **Verified live** on the 1.5k-member seed: deleted a member seeded a row in all 21 user-keyed
 > tables → every relational table purged to 0, zero leaks.
 >
-> **Follow-up (NOT B — scope boundary):** authored content (`bn_posts`, and its cascade) is intentionally
-> NOT purged by the relational cleanup — on hard delete a member's posts are left with an orphaned
-> `user_id` (the GDPR eraser handles posts separately via `delete_user_posts`). Worth a dedicated task:
-> decide delete-vs-reassign for `bn_posts`/`bn_comments` on `deleted_user`. **B3** (`bn_invites` email
-> reconciliation) also still open.
+> **Follow-up — ✅ DONE (authored content):** decided **hard-delete** (standard GDPR erasure), NOT
+> reassign-to-tombstone — a member who is deleted takes their content with them. `purge_user_relations()`
+> now removes the member's own posts via `PostService::delete` (cascading each post's reactions / comments /
+> poll options+votes / shares / hashtag links — a bare table DELETE would orphan those), then deletes their
+> comments on OTHERS' posts and reconciles those posts' `comment_count`. Uniform across every delete path
+> (admin delete, self-delete, the privacy eraser) — `ProfileController` no longer reassigns to an admin, and
+> the contradictory `buddynext_anonymize_on_delete` setting was retired. Verified on the seed: a member's
+> post is hard-deleted (cascade), their comment removed, the commented-on post's count reconciled 1→0.
+> **B3** (`bn_invites` reconciliation) is also done (see Workstream B).
 
 **The duplicate (the real problem):** two parallel member-purge lists that overlap **and disagree**:
 - `SocialGraph\UserCleanupListener::on_deleted_user` (`:78-96`) — follows, connections, blocks,

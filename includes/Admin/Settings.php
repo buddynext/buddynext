@@ -130,7 +130,6 @@ class Settings extends AdminPageBase {
 		'buddynext_data_retention_days'         => array( 'integer', 'absint' ),
 		'buddynext_allow_data_export'           => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_allow_account_deletion'      => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_anonymize_on_delete'         => array( 'boolean', 'rest_sanitize_boolean' ),
 
 		// Webhooks.
 		'buddynext_webhook_secret'              => array( 'string', 'sanitize_text_field' ),
@@ -717,7 +716,6 @@ class Settings extends AdminPageBase {
 			'buddynext_google_indexing',
 			'buddynext_allow_data_export',
 			'buddynext_allow_account_deletion',
-			'buddynext_anonymize_on_delete',
 			'buddynext_data_retention_days',
 		),
 		// Integrations tab options moved to the unified Integration Display tab.
@@ -2121,12 +2119,10 @@ class Settings extends AdminPageBase {
 			(bool) get_option( 'buddynext_allow_account_deletion', true )
 		);
 
-		$this->render_toggle_row(
-			'buddynext_anonymize_on_delete',
-			__( 'Anonymise posts on account deletion', 'buddynext' ),
-			__( 'When enabled, posts by deleted members are reassigned to an anonymous author rather than hard-deleted. Preserves community discussion threads.', 'buddynext' ),
-			(bool) get_option( 'buddynext_anonymize_on_delete', true )
-		);
+		// Note: there is intentionally no "anonymise on delete" toggle. Member deletion
+		// is a uniform GDPR hard-delete on every path (admin delete, self-delete, the
+		// privacy eraser) — a deleted member's posts + comments are removed with them,
+		// never reassigned to a tombstone. See MemberCleanupService::purge_user_relations.
 
 		$this->close_section();
 	}

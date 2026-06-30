@@ -566,11 +566,11 @@ class ProfileController extends BaseRestController {
 	/**
 	 * DELETE /me/account — let a member delete their own account.
 	 *
-	 * Gated by the Privacy → "Allow account deletion" setting. Scrubs the
-	 * member's BuddyNext data via the existing privacy eraser, then removes the
-	 * WP account. The "Anonymize on delete" setting controls whether any
-	 * remaining WP-authored content is reassigned to a neutral author (kept,
-	 * de-identified) or deleted with the account. Administrators cannot self-delete.
+	 * Gated by the Privacy → "Allow account deletion" setting. Scrubs the member's
+	 * BuddyNext data (including their authored posts + comments) via the privacy
+	 * eraser, then removes the WP account and deletes any remaining WP-core authored
+	 * content — standard GDPR erasure, the same uniform hard-delete every other delete
+	 * path uses. Content is never reassigned/kept. Administrators cannot self-delete.
 	 *
 	 * @return WP_REST_Response|WP_Error
 	 */
@@ -598,10 +598,8 @@ class ProfileController extends BaseRestController {
 			);
 		}
 
-		$anonymize = (bool) get_option( 'buddynext_anonymize_on_delete', true );
-
-		// Erase the member's BuddyNext data (follows, connections, blocks, prefs,
-		// posts, comments) via the existing eraser, paginated to completion.
+		// Erase the member's BuddyNext data (follows, connections, blocks, prefs, and
+		// their authored posts + comments) via the eraser, paginated to completion.
 		$privacy = new \BuddyNext\Privacy\PrivacyTools();
 		$page    = 1;
 		do {
@@ -610,21 +608,12 @@ class ProfileController extends BaseRestController {
 			++$page;
 		} while ( ! $done && $page < 100 );
 
-		// Remove the WP account. When anonymising, reassign any remaining authored
-		// content to the site's first administrator instead of deleting it.
+		// Remove the WP account, DELETING (not reassigning) any remaining WP-core
+		// authored content — standard GDPR erasure: a member who deletes their account
+		// takes their content with them. Same uniform policy MemberCleanupService
+		// applies to the BuddyNext tables, on every delete path.
 		require_once ABSPATH . 'wp-admin/includes/user.php';
-		$reassign = null;
-		if ( $anonymize ) {
-			$admins   = get_users(
-				array(
-					'role'   => 'administrator',
-					'number' => 1,
-					'fields' => array( 'ID' ),
-				)
-			);
-			$reassign = ! empty( $admins ) ? (int) $admins[0]->ID : null;
-		}
-		wp_delete_user( $user_id, $reassign );
+		wp_delete_user( $user_id );
 
 		// The session is now invalid; tell the client to send the user home.
 		return new WP_REST_Response(
