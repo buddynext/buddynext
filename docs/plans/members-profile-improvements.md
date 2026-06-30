@@ -8,10 +8,11 @@ lives in `spaces-master-plan.md`. Both repos on `1.0.4`. Last updated 2026-06-29
 **Done + pushed on `1.0.4`:** T1, T2, T4/A1, T6, T16 (A2/A3/A5), A6a–A6d, **T3 (Workstream B — delete
 integrity)** — the security/privacy fixes, the **complete member-directory scale cluster** (indexed
 sorts/filters, bounded reads, no IN/NOT-IN id lists, no per-card N+1, bounded count), and the canonical
-member-delete purge, plus **T17/F4** (suspension-filter dedup, premise corrected) and **T18/F5** (dead
-digest-queue removal), each browser-verified where applicable (the scale + delete work re-verified on a
-1.5k-member / 300-space seed). The remaining tasks (T9, T13–T15, T19–T21, Workstreams C–F + B3) are
-unstarted; their plan + exact touch-points are validated at code `file:line`.
+member-delete purge, **T17/F4** (suspension-filter dedup, premise corrected), **T18/F5** (dead digest-queue
+removal), **T13** (self-clear member type), and **T20/E1–E3** (hygiene), each browser-verified where
+applicable (the scale + delete work re-verified on a 1.5k-member / 300-space seed). The remaining tasks (T9,
+T14, T15, T19, T21, Workstreams C–D leftovers + E4/E5 + F6/F7 + B3) are unstarted; their plan + exact
+touch-points are validated at code `file:line`.
 **QA: re-verify the shipped work with the [QA test cases](#qa-test-cases--shipped-work-re-verify) below.**
 
 | Task | State | One-liner |
@@ -22,7 +23,7 @@ unstarted; their plan + exact touch-points are validated at code `file:line`.
 | T4 | ✅ DONE | member-type directory filter → indexed `bn_member_type_assignments` (A1) — both REST + SSR; EXPLAIN uses `idx_type_id`; SSR==REST verified; never loses members (usermeta_without_assignment=0) |
 | T6 | ✅ DONE | bound unbounded reads — `get_members`/controller always-paginate + 200 cap; `transfer_candidates` mods-first + LIMIT 200; `pending_followers`/`list_follow_requests` bounded+paginated; `suggestions` friend-sample capped 200. Browser-verified (members tab + transfer dropdown intact) |
 | T9 | ⏳ PENDING | finish follow + build connection denormalization (cache-cold) |
-| T13 | ⏳ PENDING | self-clear member type (404 fix) → reuse `remove_user_type()` |
+| T13 | ✅ DONE | self-clear member type — empty slug now calls `remove_user_type()` (under the existing own-profile `can_set_user_type` gate) instead of 404. Verified: PUT `{type_slug:""}` → 200 (was 404) |
 | T14 | ⏳ PENDING | File profile field (decision D3: wire upload vs remove) |
 | T15 | ⏳ PENDING | member field search → FULLTEXT via `bn_search_index` (decision D2) |
 | T16 | ✅ DONE | directory SSR scale — A5 per-card N+1 batched (online + mutual set-based); A2/A3 `count_total`/`COUNT` bounded to a 1000 cap (page-number pager kept; look-ahead redesign deferred as cross-cutting SSR+JS). Browser-verified |
@@ -30,7 +31,7 @@ unstarted; their plan + exact touch-points are validated at code `file:line`.
 | T17 | ✅ DONE | suspension-filter dedup — **corrected**: discovery surfaces use a DIFFERENT gate (ANY active suspension) than `moderation_exclude_sql()` (hide_posts content gate), so converging onto it would be a regression. Added `ModerationService::discovery_exclude_sql()`; Search converged; Explore (ID-list) + directory (NOT EXISTS) documented as intentional form-differences. Search verified 200 |
 | T18 | ✅ DONE | removed the dead `buddynext_digest_queue_*` write (`on_queue_email_digest` handler + registration); digests are cron-driven from `bn_notifications`+`bn_notification_prefs`. `buddynext_queue_email_digest` kept as an addon extension point |
 | T19 | ⏳ PENDING | invite email pre-fill + async send |
-| T20 | ⏳ PENDING | hygiene (block self-target guard, account-type gate, stale partial) |
+| T20 | ✅ DONE | hygiene — E1 self-target guard was ALREADY handled (BlockService rejects self-block/mute/restrict; false finding); E2 `/account-type` gated to `require_auth` (no public caller, was leaking `is_private`); E3 stale 5-of-13 `parts/profile-field.php` deleted (loaded nowhere). E4 (member-field API) + E5 (manifest refresh) remain |
 | T21 | ⏳ PENDING | digest cron at scale (verify cadence first) |
 
 **Open decisions:** D2 (field search FULLTEXT vs LIKE), D3 (File field upload vs remove), and which of the
@@ -68,6 +69,8 @@ no filesort); QA verifies the **behaviour**.
 | **QA-A2a** | Pager still works | A filtered set spanning >1 page (e.g. search a common letter) | Page 1 → click **Next** / page **2** | Page 2 renders the remaining members; "« Prev" returns to page 1; counts add up |
 | **QA-A2b** | Bounded total | A directory with **>1000** matching members (large site) | Open `/members/`, read the "Members" total + the pager | The total saturates at **1,000** and the pager at ~50 pages (by design — an exact 50k count is noise; people browse a few pages). Under 1,000 the total is exact. SSR and live (REST) agree |
 | **QA-T3** | Delete integrity | A member with follows/connections/blocks/space memberships/a member type/online presence | Delete the member (Users → Delete, or WP-CLI) | None of their rows linger anywhere — they vanish from the directory, online list, space rosters (and member_count drops), search, follower lists. No "ghost" members. Their authored **posts** are a separate concern (out of scope here) |
+| **QA-T13** | Self-clear member type | A member who has a self-selected member type | Profile edit → member-type select → **"— None —"** | The type clears with a success toast (no error/danger toast). Previously this 404'd |
+| **QA-E2** | Account-type not anonymous | — | Logged **out**, call `GET /wp-json/buddynext/v1/users/{id}/account-type` | 401 (not the account's `is_private`). Logged-in, the same call still works (200) |
 
 **Caveats QA should know:**
 - **A6a live-vs-cached:** the REST member list caches results ~60s per viewer, so a just-changed presence/online state can lag up to 60s on the *live* (JS) list; the SSR hard-reload is always live. Not a bug.
@@ -396,12 +399,14 @@ Admin can create a File field (`ProfileFieldsManager:134-139`); the front end re
 
 ## Workstream E — Hygiene (cheap correctness/clarity)
 
-- **E1 · Self-target guard** on block/mute/restrict (`BlockController.php:122-135`) — reject acting on yourself.
-- **E2 · `GET /users/{id}/account-type` is public** (`FollowController.php:167`) — leaks `is_private` to
-  logged-out callers; gate to `require_auth` (or document as intentional).
-- **E3 · Unused-partial trap.** `templates/parts/profile-field.php:138-224` handles only 5 of 13 field
-  types; the live path uses `FieldType::render_input()` (`edit.php:443`, correct). Delete the stale partial
-  or bring it to parity — no logic depends on it today.
+- **E1 · ✅ ALREADY HANDLED (false finding).** `BlockService` already rejects self-targeting —
+  `cannot_block_self` (`:59`), `cannot_mute_self` (`:181`), `cannot_restrict_self` (`:274`) — and
+  `BlockController` propagates those as 400s. The guard lives in the service, not the controller; no change.
+- **E2 · ✅ DONE.** `GET /users/{id}/account-type` permission_callback `__return_true` → `require_auth`
+  (`FollowController.php`). Confirmed no public caller anywhere (whole-codebase grep). Authed access verified
+  200; logged-out now 401 instead of leaking `is_private`.
+- **E3 · ✅ DONE.** Deleted the stale `templates/parts/profile-field.php` (239 lines, 5-of-13 field types) —
+  confirmed loaded nowhere (the live path is `FieldType::render_input()` at `edit.php:443`).
 - **E4 · Member-field registration API (developer-friendliness — P-B).** *Code-proven:*
   `buddynext_register_profile_field` is referenced in a **comment** (`AuthController.php:1137`) but is
   **defined nowhere** (grep of `includes/` finds no function, filter, or registry class) — a dangling API

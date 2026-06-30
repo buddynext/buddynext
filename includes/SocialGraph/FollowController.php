@@ -164,7 +164,11 @@ class FollowController extends BaseRestController {
 			array(
 				'methods'             => \WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'account_type' ),
-				'permission_callback' => '__return_true',
+				// Auth-gated: a member's private/public account state is not anonymous
+				// data — don't expose it to logged-out callers. No public caller relies
+				// on this; it is only meaningful to a logged-in viewer deciding how to
+				// follow or connect.
+				'permission_callback' => array( $this, 'require_auth' ),
 				'args'                => array(
 					'id' => array(
 						'required' => true,
@@ -197,7 +201,7 @@ class FollowController extends BaseRestController {
 	}
 
 	/**
-	 * GET /users/{id}/account-type — whether the target account is private (public).
+	 * GET /users/{id}/account-type — whether the target account is private (auth required).
 	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response
