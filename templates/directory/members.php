@@ -124,7 +124,10 @@ $user_query_args = array(
 	'orderby'     => $bn_query_orderby,
 	'order'       => $bn_order,
 	'fields'      => 'all',
-	'count_total' => true,
+	// No SQL_CALC_FOUND_ROWS — it would scan the WHOLE filtered match set (50k) on
+	// every render just to size the pager. A bounded capped count (below) sizes it
+	// instead; people browse a few pages, not page 2500 (directory-behaviour principle).
+	'count_total' => false,
 );
 
 // Dynamic, privacy-aware search resolved to user IDs so the server render
@@ -197,12 +200,24 @@ $bn_pre_user_query = static function ( $bn_q ) use ( $bn_dir_filter ) {
 	$bn_q->query_where .= ' AND ' . $bn_clause; // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 };
 
+// Bounded directory total — fetch at most CAP ids once (the count query stops at
+// CAP, never scanning the full 50k set), so the displayed total + the page-number
+// pager saturate at CAP instead of growing unbounded. An exact "47,213" is noise;
+// a capped count is honest enough for a directory people browse a few pages of.
+$bn_count_cap                 = 1000;
+$bn_count_args                = $user_query_args;
+$bn_count_args['number']      = $bn_count_cap;
+$bn_count_args['fields']      = 'ID';
+$bn_count_args['count_total'] = false;
+unset( $bn_count_args['paged'] ); // Count the whole (capped) set, not one page.
+
 add_action( 'pre_user_query', $bn_pre_user_query );
-$user_query = new WP_User_Query( $user_query_args );
+$bn_count_query = new WP_User_Query( $bn_count_args );
+$user_query     = new WP_User_Query( $user_query_args );
 remove_action( 'pre_user_query', $bn_pre_user_query );
 
 $members     = $user_query->get_results();
-$total_users = (int) $user_query->get_total();
+$total_users = count( (array) $bn_count_query->get_results() ); // <= $bn_count_cap
 $total_pages = (int) ceil( $total_users / max( 1, $bn_per_page ) );
 
 // ── Batch-prime per-page member state (no per-card N+1) ───────────────────

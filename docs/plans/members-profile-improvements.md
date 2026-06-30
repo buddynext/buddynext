@@ -5,9 +5,10 @@ lives in `spaces-master-plan.md`. Both repos on `1.0.4`. Last updated 2026-06-29
 
 ## STATUS — IN PROGRESS (security + directory-scale cluster shipped 2026-06-30)
 
-**Done + pushed on `1.0.4`:** T1, T2, T4/A1, T6, A6a–A6d — the security/privacy fixes + the full
-member-directory scale cluster, each browser-verified. The remaining tasks (T3, T9, T13–T21, A2–A5,
-Workstreams B–F) are unstarted; their plan + exact touch-points are validated at code `file:line`.
+**Done + pushed on `1.0.4`:** T1, T2, T4/A1, T6, T16 (A2/A3/A5), A6a–A6d — the security/privacy fixes +
+the **complete member-directory scale cluster** (indexed sorts/filters, bounded reads, no IN/NOT-IN id
+lists, no per-card N+1, bounded count), each browser-verified. The remaining tasks (T3, T9, T13–T15,
+T17–T21, Workstreams B–F) are unstarted; their plan + exact touch-points are validated at code `file:line`.
 **QA: re-verify the shipped work with the [QA test cases](#qa-test-cases--shipped-work-re-verify) below.**
 
 | Task | State | One-liner |
@@ -21,7 +22,7 @@ Workstreams B–F) are unstarted; their plan + exact touch-points are validated 
 | T13 | ⏳ PENDING | self-clear member type (404 fix) → reuse `remove_user_type()` |
 | T14 | ⏳ PENDING | File profile field (decision D3: wire upload vs remove) |
 | T15 | ⏳ PENDING | member field search → FULLTEXT via `bn_search_index` (decision D2) |
-| T16 | ⏳ PENDING | directory server-render unify + per-card N+1 batch |
+| T16 | ✅ DONE | directory SSR scale — A5 per-card N+1 batched (online + mutual set-based); A2/A3 `count_total`/`COUNT` bounded to a 1000 cap (page-number pager kept; look-ahead redesign deferred as cross-cutting SSR+JS). Browser-verified |
 | A6 | 🟡 PART | scale-audit addendum (2026-06-30): ✅ A6a SSR online→indexed `bn_presence` EXISTS, ✅ A6b exclude→correlated `NOT EXISTS`, ✅ A6c `post_count` removed, ✅ A6d `newest`→`u.ID`, ✅ A1 member-type→`idx_type_id` — all via a shared `directory_filter_sql()` + one `pre_user_query`; **full 9-point verification matrix passed** (suspended/shadowban/block/dir-optout excluded live, online/type/search/count, EXACT SSR↔REST parity). Remaining: A6e (count-includes-cursor, LOW) + A6f core-table notes |
 | T17 | ⏳ PENDING | converge suspension filter on `moderation_exclude_sql()` (dedup) |
 | T18 | ⏳ PENDING | remove dead digest queue write |
@@ -60,6 +61,9 @@ no filesort); QA verifies the **behaviour**.
 | **QA-A6c** | "Most active" sort | — | Directory → sort **Most active** | Orders by recent activity (presence); page loads without slowness; no error (it must NOT count WP posts) |
 | **QA-A6d** | "Newest" sort + load more | — | Directory default sort (Newest) → scroll / "Load more" | Newest members first; the next page continues correctly with **no duplicates and no skipped members** |
 | **QA-parity** | SSR ↔ live consistency | — | Hard-reload `/members/`, note the members shown, then let the JS filter bar hydrate / re-fetch | The same members in the same order before and after hydration — the first paint and the live list agree |
+| **QA-A5** | Grid online dot + mutuals (no N+1) | Be active as one member; have two members share a connection with you | Open `/members/` | The active member shows the online dot; a member you share connections with shows the correct "N mutual" count + avatar pile — same values as before, just rendered without a per-card query |
+| **QA-A2a** | Pager still works | A filtered set spanning >1 page (e.g. search a common letter) | Page 1 → click **Next** / page **2** | Page 2 renders the remaining members; "« Prev" returns to page 1; counts add up |
+| **QA-A2b** | Bounded total | A directory with **>1000** matching members (large site) | Open `/members/`, read the "Members" total + the pager | The total saturates at **1,000** and the pager at ~50 pages (by design — an exact 50k count is noise; people browse a few pages). Under 1,000 the total is exact. SSR and live (REST) agree |
 
 **Caveats QA should know:**
 - **A6a live-vs-cached:** the REST member list caches results ~60s per viewer, so a just-changed presence/online state can lag up to 60s on the *live* (JS) list; the SSR hard-reload is always live. Not a bug.
@@ -145,22 +149,22 @@ rows on the hottest filter while the purpose-built `bn_member_type_assignments` 
   helper is preferred add ONE `user_type_assignment_exists_sql()` — do **not** copy the `WHERE type_id`
   SQL a third time.
 
-**A2 · P1 — Unify the server-render path with the cached keyset REST path.**
-The no-JS / hard-reload first page (`members.php:121-128`) uses OFFSET + `count_total`
-(SQL_CALC_FOUND_ROWS) + a usermeta `meta_query`, **uncached** — opposite of REST `list_members` (keyset +
-60s cache). Every hard reload re-runs the heavy query at 50k.
-- **Fix:** route the server render through the same keyset + cache path (or cache page-1 with the same
-  per-viewer salt); drop SQL_CALC_FOUND_ROWS; reuse the dedicated count (A3).
-- **Touch:** `templates/directory/members.php:121-128, 226-229`; the shared path in
-  `MemberDirectoryService::list_members` (`:289-324` keyset, `:526` cache).
+**A2 · ✅ DONE — SSR `count_total` (SQL_CALC_FOUND_ROWS) bounded.**
+The server render dropped `count_total` (which scanned the WHOLE 50k match set every render just to size
+the pager). It now sizes the total with a bounded capped count: a second `fields => 'ID'`, `number => CAP`
+WP_User_Query reusing the same args + the same `pre_user_query` fragment, so it stops at CAP (1000) and the
+displayed total + page-number pager saturate there. **Decision:** kept the page-number pager (the whole
+directory — SSR + the JS `syncPager` — is page-number/OFFSET based; a true look-ahead Prev/Next would be a
+cross-cutting SSR+JS+sidebar redesign). Capping the count is the behaviour-principle-aligned scale fix (an
+exact 50k total is noise; people browse a few pages) at far lower risk. Verified: search "a" → total 28
+(exact under cap), page 1 = 20 cards "1 2 Next»", page 2 = 8 cards "«Prev 1 2"; SSR==REST. The keyset REST
+path + 60s cache were already in place (A6d) — not re-routed. *(A5 per-card N+1 also done; see below.)*
 
-**A3 · P1 — REST `total` recomputes the full filtered set on every cache miss.**
-`MemberDirectoryService.php:386-401` runs `COUNT(*)` over a subquery that materialises the entire
-filtered membership through correlated usermeta `EXISTS` clauses; only the 60s cache shields it.
-- **Fix:** A1 already removes the usermeta type predicate from this subquery; keep the dedicated
-  `COUNT(*)` (never `count(list_all())`), ensure it rides indexed predicates, and keep it cached
-  alongside the page.
-- **Touch:** `MemberDirectoryService.php:386-401`.
+**A3 · ✅ DONE — REST `total` capped.**
+`list_members()`'s `COUNT(*)` subquery LIMIT changed `PHP_INT_MAX` → `DIRECTORY_COUNT_CAP` (1000), so the
+count never scans the full 50k set; `total` saturates at 1000 (kept in sync with the SSR cap so the two
+surfaces agree). A1 already moved the type predicate to the indexed assignments table; the count stays
+cached alongside the page (60s).
 
 **A4 · P1 — Free-text directory search is leading-wildcard `meta_value LIKE '%term%'` per mirror field.**
 `MemberDirectoryService.php:255-264, 691-695` — unindexable, scales with (searchable fields × 50k); does

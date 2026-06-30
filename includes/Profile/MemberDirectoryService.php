@@ -28,6 +28,14 @@ class MemberDirectoryService {
 	private const DEFAULT_LIMIT = 20;
 
 	/**
+	 * Cap on the directory total — the COUNT subquery stops here so it never scans
+	 * the full match set at 50k members; the directory shows/pages a bounded count
+	 * (an exact total is noise on a list people browse a few pages of). Kept in sync
+	 * with the server-rendered directory's $bn_count_cap.
+	 */
+	private const DIRECTORY_COUNT_CAP = 1000;
+
+	/**
 	 * Return a cursor-paginated list of members.
 	 *
 	 * Supported $filters keys:
@@ -372,9 +380,12 @@ class MemberDirectoryService {
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
-		// Fetch total count (without LIMIT) for the same filter set.
+		// Bounded total for the same filter set — the inner SELECT stops at the cap, so
+		// COUNT never scans the full 50k match set. The directory shows/pages a capped
+		// total (an exact "47,213" is noise; people browse a few pages, not page 2500).
+		// Matches the server-rendered directory's cap so the two surfaces agree.
 		$count_params   = array_slice( $params, 0, count( $params ) - 1 );
-		$count_params[] = PHP_INT_MAX;
+		$count_params[] = self::DIRECTORY_COUNT_CAP;
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$total = (int) $wpdb->get_var(
 			$wpdb->prepare(
