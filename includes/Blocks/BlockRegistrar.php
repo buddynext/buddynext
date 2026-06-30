@@ -142,8 +142,6 @@ class BlockRegistrar {
 			'bn-profile-fields'         => array( $this, 'render_profile_fields' ),
 			'bn-profile-completion-bar' => array( $this, 'render_profile_completion_bar' ),
 			// Utility.
-			'bn-registration-form'      => array( $this, 'render_registration_form' ),
-			'bn-login-form'             => array( $this, 'render_login_form' ),
 			'bn-notification-bell'      => array( $this, 'render_notification_bell' ),
 			'bn-header-user-menu'       => array( $this, 'render_header_user_menu' ),
 			'bn-search-bar'             => array( $this, 'render_search_bar' ),
@@ -438,40 +436,6 @@ class BlockRegistrar {
 	// -------------------------------------------------------------------------
 	// Render callbacks — Utility
 	// -------------------------------------------------------------------------
-
-	/**
-	 * Render the Registration Form block.
-	 *
-	 * @param array<string, mixed> $attributes Block attributes.
-	 * @return string
-	 */
-	public function render_registration_form( array $attributes ): string {
-		$redirect_url = esc_url_raw( $attributes['redirectUrl'] ?? '' );
-
-		ob_start();
-		buddynext_get_template(
-			'blocks/registration-form.php',
-			compact( 'redirect_url' )
-		);
-		return (string) ob_get_clean();
-	}
-
-	/**
-	 * Render the Login Form block.
-	 *
-	 * @param array<string, mixed> $attributes Block attributes.
-	 * @return string
-	 */
-	public function render_login_form( array $attributes ): string {
-		$redirect_url = esc_url_raw( $attributes['redirectUrl'] ?? '' );
-
-		ob_start();
-		buddynext_get_template(
-			'blocks/login-form.php',
-			compact( 'redirect_url' )
-		);
-		return (string) ob_get_clean();
-	}
 
 	/**
 	 * Render the Notification Bell block.
