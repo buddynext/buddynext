@@ -1214,6 +1214,43 @@ class ModerationService {
 	}
 
 	/**
+	 * Discovery-surface counterpart to moderation_exclude_sql().
+	 *
+	 * Member-discovery surfaces (directory, search, explore) exclude a member from
+	 * being FOUND on ANY active suspension — not only the hide_posts = 1 content
+	 * variant. A suspended member must not surface in a member list, search result,
+	 * or explore deck regardless of whether the suspension also hides their existing
+	 * content; shadow-banned members are likewise undiscoverable. Identical NOT IN
+	 * form + hard-sanitised column to moderation_exclude_sql(); the ONLY difference
+	 * is the dropped hide_posts predicate.
+	 *
+	 * (The member directory itself emits the same gate as NOT EXISTS clauses instead
+	 * — MemberDirectoryService::directory_exclusion_subqueries() — because a NOT IN
+	 * subquery can't be reopened alongside its self-joined mutual-connection
+	 * subquery on MySQL 5.7; the gate is identical, only the SQL shape differs.)
+	 *
+	 * @param string $column ID column to filter (e.g. 'author_id', 'user_id').
+	 * @return string Raw SQL fragment — safe to embed.
+	 */
+	public function discovery_exclude_sql( string $column = 'user_id' ): string {
+		global $wpdb;
+
+		$column = preg_replace( '/[^a-zA-Z0-9_.]/', '', $column );
+		if ( '' === $column || ! preg_match( '/^[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)?$/', (string) $column ) ) {
+			$column = 'user_id';
+		}
+
+		return "AND {$column} NOT IN (
+			    SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
+			    WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
+			  )
+			  AND {$column} NOT IN (
+			    SELECT user_id FROM {$wpdb->usermeta}
+			    WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
+			  )";
+	}
+
+	/**
 	 * Get the active suspension record for a user.
 	 *
 	 * Returns the full suspension row so callers can read the reason,

@@ -8,9 +8,10 @@ lives in `spaces-master-plan.md`. Both repos on `1.0.4`. Last updated 2026-06-29
 **Done + pushed on `1.0.4`:** T1, T2, T4/A1, T6, T16 (A2/A3/A5), A6a–A6d, **T3 (Workstream B — delete
 integrity)** — the security/privacy fixes, the **complete member-directory scale cluster** (indexed
 sorts/filters, bounded reads, no IN/NOT-IN id lists, no per-card N+1, bounded count), and the canonical
-member-delete purge, each browser-verified (the scale + delete work re-verified on a 1.5k-member /
-300-space seed). The remaining tasks (T9, T13–T15, T17–T21, Workstreams C–F + B3) are unstarted; their plan
-+ exact touch-points are validated at code `file:line`.
+member-delete purge, plus **T17/F4** (suspension-filter dedup, premise corrected) and **T18/F5** (dead
+digest-queue removal), each browser-verified where applicable (the scale + delete work re-verified on a
+1.5k-member / 300-space seed). The remaining tasks (T9, T13–T15, T19–T21, Workstreams C–F + B3) are
+unstarted; their plan + exact touch-points are validated at code `file:line`.
 **QA: re-verify the shipped work with the [QA test cases](#qa-test-cases--shipped-work-re-verify) below.**
 
 | Task | State | One-liner |
@@ -26,8 +27,8 @@ member-delete purge, each browser-verified (the scale + delete work re-verified 
 | T15 | ⏳ PENDING | member field search → FULLTEXT via `bn_search_index` (decision D2) |
 | T16 | ✅ DONE | directory SSR scale — A5 per-card N+1 batched (online + mutual set-based); A2/A3 `count_total`/`COUNT` bounded to a 1000 cap (page-number pager kept; look-ahead redesign deferred as cross-cutting SSR+JS). Browser-verified |
 | A6 | 🟡 PART | scale-audit addendum (2026-06-30): ✅ A6a SSR online→indexed `bn_presence` EXISTS, ✅ A6b exclude→correlated `NOT EXISTS`, ✅ A6c `post_count` removed, ✅ A6d `newest`→`u.ID`, ✅ A1 member-type→`idx_type_id` — all via a shared `directory_filter_sql()` + one `pre_user_query`; **full 9-point verification matrix passed** (suspended/shadowban/block/dir-optout excluded live, online/type/search/count, EXACT SSR↔REST parity). Remaining: A6e (count-includes-cursor, LOW) + A6f core-table notes |
-| T17 | ⏳ PENDING | converge suspension filter on `moderation_exclude_sql()` (dedup) |
-| T18 | ⏳ PENDING | remove dead digest queue write |
+| T17 | ✅ DONE | suspension-filter dedup — **corrected**: discovery surfaces use a DIFFERENT gate (ANY active suspension) than `moderation_exclude_sql()` (hide_posts content gate), so converging onto it would be a regression. Added `ModerationService::discovery_exclude_sql()`; Search converged; Explore (ID-list) + directory (NOT EXISTS) documented as intentional form-differences. Search verified 200 |
+| T18 | ✅ DONE | removed the dead `buddynext_digest_queue_*` write (`on_queue_email_digest` handler + registration); digests are cron-driven from `bn_notifications`+`bn_notification_prefs`. `buddynext_queue_email_digest` kept as an addon extension point |
 | T19 | ⏳ PENDING | invite email pre-fill + async send |
 | T20 | ⏳ PENDING | hygiene (block self-target guard, account-type gate, stale partial) |
 | T21 | ⏳ PENDING | digest cron at scale (verify cadence first) |
@@ -441,15 +442,21 @@ one array (no LIMIT/paging — bot-spam risk); `FollowService` suggestion `IN (f
 LIMIT; `transfer_candidates` unbounded.
 - **Fix:** sane default page sizes + hard caps; keyset-paginate the follow-requests list.
 
-**F4 · T17 — Converge suspension filter (dedup).** A shared `ModerationService::moderation_exclude_sql()`
-(`:1194`) already exists (used by Feed/Follow/SpaceMember), but **Search** (`:374`), **Explore** (`:514`),
-and **MemberDirectory** (`:201,557`) each hand-roll their own suspension/shadow-ban subqueries.
-- **Fix:** route them through the shared helper where the bespoke variant isn't intentional.
+**F4 · ✅ DONE — Suspension-filter dedup (premise corrected).** The audit assumed Search/Explore/Directory
+should converge onto `moderation_exclude_sql()`. **Code review showed that would be a regression:** that
+helper is the **hide_posts content gate** (`WHERE ... hide_posts = 1`), whereas the three discovery surfaces
+deliberately use the **full-suspension discovery gate** (`WHERE lifted_at IS NULL` — ANY active suspension
+makes a member undiscoverable). So instead: added `ModerationService::discovery_exclude_sql()` (the
+discovery gate, NOT IN form, sibling to `moderation_exclude_sql()`); **Search** now uses it (verified 200);
+**Explore** keeps its ID-list (it merges the gate with the viewer's blocks) and **MemberDirectory** keeps
+its `NOT EXISTS` form (MySQL-5.7 compat with its mutual self-join) — both now carry comments pointing to the
+shared gate and warning NOT to converge onto `moderation_exclude_sql()`.
 
-**F5 · T18 — Dead digest queue (data).** `EmailDispatchListener` (`:119`) writes
-`buddynext_digest_queue_{freq}` usermeta with **zero readers** (the cron queries `bn_notification_prefs`
-directly), so the queue just accumulates orphaned usermeta.
-- **Fix:** delete the dead write path.
+**F5 · ✅ DONE — Dead digest queue removed.** `EmailDispatchListener::on_queue_email_digest` wrote
+`buddynext_digest_queue_{freq}` usermeta that **nothing read** (the digest cron builds from
+`bn_notifications` + `bn_notification_prefs`, logging to `bn_email_log`). Removed the handler + its
+registration; `EmailSender` still fires `buddynext_queue_email_digest` as an addon extension point (core
+keeps no queue), with the docblocks updated to say so.
 
 **F6 · T19 — Invite email pre-fill + async send (UX/Perf).** `signup.php` has `'email' => ''` (`:100`)
 though `$bn_invite` is resolved (`:65`) — invited users re-type their email. `InviteService::create`

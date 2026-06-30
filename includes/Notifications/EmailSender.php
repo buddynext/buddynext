@@ -48,7 +48,9 @@ class EmailSender {
 	 *
 	 * Checks the user's email_freq preference before dispatching:
 	 * - 'off'             → no action
-	 * - 'daily'|'weekly'  → fires buddynext_queue_email_digest action and returns
+	 * - 'daily'|'weekly'  → no immediate send; the digest cron builds + sends from the
+	 *                       recorded notifications. Fires buddynext_queue_email_digest
+	 *                       as an addon extension point only (core keeps no queue).
 	 * - 'immediate'       → fetches template, renders, and sends
 	 *
 	 * @param int    $user_id           Recipient user ID.
@@ -94,8 +96,15 @@ class EmailSender {
 		}
 
 		if ( 'daily' === $email_freq || 'weekly' === $email_freq ) {
+			// No immediate email: the notification is already persisted in
+			// bn_notifications, and the daily/weekly cron (CronService::handle_*_digest)
+			// builds + sends the batched digest from there + bn_notification_prefs,
+			// logging to bn_email_log. Core keeps NO per-user queue — a dead,
+			// never-read buddynext_digest_queue_* usermeta accumulator was removed.
 			/**
-			 * Fires when a notification should be queued for digest delivery.
+			 * Extension point: a notification was routed to digest delivery. Core needs
+			 * no queue (the digest cron reads bn_notifications); an addon may hook this
+			 * to drive its own digest pipeline.
 			 *
 			 * @param int    $user_id           Recipient user ID.
 			 * @param string $notification_type Notification type key.

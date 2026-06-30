@@ -368,16 +368,11 @@ class SearchService {
 		$media_join  = $media_only ? " INNER JOIN {$wpdb->prefix}bn_posts mp ON mp.id = si.object_id" : '';
 		$media_where = $media_only ? " AND mp.media_ids IS NOT NULL AND mp.media_ids != ''" : '';
 
-		// Exclude suspended and shadow-banned users' content from all search results.
-		$excluded_where =
-			" AND si.author_id NOT IN (
-			    SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
-			    WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
-			  )
-			  AND si.author_id NOT IN (
-			    SELECT user_id FROM {$wpdb->usermeta}
-			    WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
-			  )";
+		// Exclude suspended + shadow-banned authors' content from all search results
+		// via the shared discovery gate (ANY active suspension — the discoverability
+		// rule, not the hide_posts content variant). One definition shared with the
+		// member directory + explore. See ModerationService::discovery_exclude_sql().
+		$excluded_where = ' ' . buddynext_service( 'moderation' )->discovery_exclude_sql( 'si.author_id' );
 
 		/**
 		 * Filter the query args before SQL is built for the search.

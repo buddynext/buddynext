@@ -537,6 +537,13 @@ class MemberDirectoryService {
 	 * diverge. The fragments carry NO placeholders — $user_col is a caller-supplied
 	 * column reference (`u.ID` / `wp_users.ID`), never user input.
 	 *
+	 * The suspension + shadow-ban part is the shared DISCOVERY gate (ANY active
+	 * suspension, the discoverability rule) — identical to
+	 * ModerationService::discovery_exclude_sql(), emitted as NOT EXISTS (not NOT IN)
+	 * because a NOT IN subquery can't be reopened alongside this query's self-joined
+	 * mutual-connection subquery on MySQL 5.7. Do NOT converge onto
+	 * moderation_exclude_sql() — that is the hide_posts content gate, a different rule.
+	 *
 	 * @param string $user_col Correlated user-id column for the outer query.
 	 * @return string[] Three `NOT EXISTS (...)` clause strings.
 	 */

@@ -509,6 +509,12 @@ class ExploreService {
 	private function excluded_member_ids(): array {
 		global $wpdb;
 
+		// This is the shared discovery gate (ANY active suspension + shadow-ban — see
+		// ModerationService::discovery_exclude_sql(), NOT the hide_posts content gate),
+		// but resolved to an ID list here on purpose: Explore merges it with the
+		// viewer's bidirectional blocks into one exclusion set, which the deck applies
+		// as IDs. Same gate, materialised differently — do not converge onto the SQL
+		// helper, and never onto moderation_exclude_sql() (wrong, hide_posts, gate).
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$suspended = $wpdb->get_col(
 			"SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
