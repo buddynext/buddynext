@@ -127,12 +127,6 @@ class FieldType {
 				'is_choice'             => false,
 				'is_searchable_capable' => false,
 			),
-			'file'        => array(
-				'label'                 => __( 'File', 'buddynext' ),
-				'value_kind'            => 'scalar',
-				'is_choice'             => false,
-				'is_searchable_capable' => false,
-			),
 		);
 	}
 
@@ -336,25 +330,6 @@ class FieldType {
 					esc_attr( $name ),
 					esc_attr( $color ),
 					$required
-				);
-
-			case 'file':
-				$current = '';
-				if ( '' !== (string) $value ) {
-					$current = sprintf(
-						'<a class="bn-field-file-current" href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
-						esc_url( (string) $value ),
-						esc_html__( 'Current file', 'buddynext' )
-					);
-				}
-				return sprintf(
-					'<input type="url" class="bn-input bn-field-file" id="%1$s" name="%2$s" value="%3$s" placeholder="%4$s"%5$s /> %6$s',
-					esc_attr( $id ),
-					esc_attr( $name ),
-					esc_attr( (string) $value ),
-					esc_attr__( 'https://example.com/file.pdf', 'buddynext' ),
-					$required,
-					$current
 				);
 
 			case 'text':
@@ -583,26 +558,6 @@ class FieldType {
 					esc_html( $color )
 				);
 
-			case 'file':
-				$url = esc_url( (string) $value );
-				if ( '' === $url ) {
-					return '';
-				}
-				$is_image = (bool) preg_match( '/\.(jpe?g|png|gif|webp|svg|avif)$/i', (string) $value );
-				if ( $is_image ) {
-					return sprintf(
-						'<a class="bn-field-value bn-field-file bn-field-file-image" href="%1$s" target="_blank" rel="noopener noreferrer"><img src="%1$s" alt="%2$s" loading="lazy" /></a>',
-						$url,
-						esc_attr( isset( $field['label'] ) ? (string) $field['label'] : '' )
-					);
-				}
-				return sprintf(
-					'<a class="bn-field-value bn-field-file" href="%1$s" target="_blank" rel="noopener noreferrer">%2$s %3$s</a>',
-					$url,
-					buddynext_get_icon( 'file', 'bn-field-file-icon' ),
-					esc_html( wp_basename( (string) $value ) )
-				);
-
 			case 'select':
 			case 'radio':
 				$options = self::options( $field );
@@ -665,7 +620,6 @@ class FieldType {
 				return sanitize_textarea_field( (string) ( is_array( $raw ) ? '' : $raw ) );
 
 			case 'url':
-			case 'file':
 				$url = esc_url_raw( trim( (string) $raw ) );
 				if ( '' !== trim( (string) $raw ) && '' === $url ) {
 					/* translators: %s: field label. */

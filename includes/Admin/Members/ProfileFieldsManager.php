@@ -131,12 +131,6 @@ class ProfileFieldsManager {
 				'is_searchable_capable' => false,
 				'value_kind'            => 'scalar',
 			),
-			'file'        => array(
-				'label'                 => __( 'File', 'buddynext' ),
-				'is_choice'             => false,
-				'is_searchable_capable' => false,
-				'value_kind'            => 'scalar',
-			),
 		);
 	}
 

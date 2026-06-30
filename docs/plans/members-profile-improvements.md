@@ -17,8 +17,9 @@ unified on the FULLTEXT `bn_search_index` engine — directory search == unified
 pending-follow miscount fixed), each browser-verified where applicable (the scale + delete + digest + search
 + counter work re-verified on a 1.5k-member / 300-space seed). The remaining tasks (T14/D3, E5, B3) are
 unstarted; their plan + exact touch-points are validated at code `file:line`. **B3** (invite→user
-reconciliation on signup) is also done — only **T14/D3** (File field, needs a decision) and **E5** (manifest
-refresh, do last) remain.
+reconciliation on signup) is also done, and **T14/D3** (File field — removed Free's fake; Pro owns the real
+uploader) is resolved. Only **E5** (manifest refresh, do last) and the **orphaned-posts** delete-vs-reassign
+decision remain.
 
 **Post-implementation uniformity audit (all 16 done tasks).** Swept the shipped work for divergent paths /
 dups / dead code. All 16 present + aligned. Three cleanups landed in the directory layer (the one area a
@@ -42,7 +43,7 @@ digest is cron-driven via T21) — a harmless public hook, intentionally kept.
 | T6 | ✅ DONE | bound unbounded reads — `get_members`/controller always-paginate + 200 cap; `transfer_candidates` mods-first + LIMIT 200; `pending_followers`/`list_follow_requests` bounded+paginated; `suggestions` friend-sample capped 200. Browser-verified (members tab + transfer dropdown intact) |
 | T9 | ✅ DONE | follow denormalization wired + connection denormalization built (cache-cold O(1)). Fixed latent bug: `recount_follow_counts` counted pending follows (read path counts `approved` only). `CounterService` gains `adjust_user_counter` (atomic, clamped, cache-bust), `recount_connection_counts`, `recount_all_follow_counts`, `recount_all_connection_counts` (set-based). Follow/connection write paths maintain the counters; reads lazy-populate; daily cron + B2 purge + ToolsTab reconcile. Verified on seed: inc/dec, read==meta, drift heal, purge-peer decrement |
 | T13 | ✅ DONE | self-clear member type — empty slug now calls `remove_user_type()` (under the existing own-profile `can_set_user_type` gate) instead of 404. Verified: PUT `{type_slug:""}` → 200 (was 404) |
-| T14 | ⏳ PENDING | File profile field (decision D3: wire upload vs remove) |
+| T14 | ✅ DONE | File profile field (D3 resolved). The "build uploader vs remove" was a false binary: **Pro already ships a real "File upload" advanced field** (`AdvancedFieldTypes` + `render_file`/`validate_file`), and Free shipped a half-baked URL-paste `file` that collided on the same slug. Removed Free's fake (`FieldType` def + render/display/sanitize cases + admin picker); schema v14 migrates any existing `file` field → `url` (it already behaved as one). Pro's uploader is untouched + verified (Pro hooks Free's `buddynext_field_render_input`/`_display`/`_sanitize` before the switch; dropdown shows Pro's "File upload"). Clean tiering: basic fields Free, File upload Pro |
 | T15 | ✅ DONE | member field search → FULLTEXT `bn_search_index` (D2 resolved: consistency). Step A: `index_user` indexes name + bio + headline + public searchable fields. Step B: `SearchService::match_member_ids()` + both directory search paths (SSR `matching_user_ids`, REST `list_members`) route through it. Verified: directory search == unified `/search/members` (identical 38-member set for "Rivera"); all 3 engines agree; 1530 members reindexed |
 | T16 | ✅ DONE | directory SSR scale — A5 per-card N+1 batched (online + mutual set-based); A2/A3 `count_total`/`COUNT` bounded to a 1000 cap (page-number pager kept; look-ahead redesign deferred as cross-cutting SSR+JS). Browser-verified |
 | A6 | 🟡 PART | scale-audit addendum (2026-06-30): ✅ A6a SSR online→indexed `bn_presence` EXISTS, ✅ A6b exclude→correlated `NOT EXISTS`, ✅ A6c `post_count` removed, ✅ A6d `newest`→`u.ID`, ✅ A1 member-type→`idx_type_id` — all via a shared `directory_filter_sql()` + one `pre_user_query`; **full 9-point verification matrix passed** (suspended/shadowban/block/dir-optout excluded live, online/type/search/count, EXACT SSR↔REST parity). Remaining: A6e (count-includes-cursor, LOW) + A6f core-table notes |
@@ -427,14 +428,19 @@ Profile edit offers "— None —" (`edit.php:519-530`); the store sends `type_s
   returning success. **No new route, no new service method.**
 - **Touch:** `MemberTypeController::set_user_type` (`:293-300`).
 
-**D2 · "File" profile field type has no upload — members paste a URL.**
-Admin can create a File field (`ProfileFieldsManager:134-139`); the front end renders a plain
-`<input type="url">` (`FieldType.php:341-358`) validated as a URL — no picker, no value-upload endpoint.
-- **Fix (decision D3):** (a) wire a real upload — **reuse** the avatar/cover media path
-  (`ProfileController` `/me/avatar:149`, `/me/cover:165`) for a field value-upload — OR (b) remove `file`
-  from the matrix + the `case 'file'` so owners can't create a half-working type. *Pick one — don't ship
-  a type that looks supported but isn't.*
-- **Touch:** `FieldType.php:341-358`; `ProfileFieldsManager.php:134-139`.
+**D2 · ✅ DONE (= T14/D3) — removed Free's fake "File" type; Pro owns the real File upload.**
+The audit framing ("wire an uploader vs remove") missed the real picture: **Pro already ships a working
+"File upload" advanced field** (`buddynext-pro` `AdvancedFieldTypes` + `AdvancedFieldRenderer::render_file`
++ `AdvancedFieldValidator::validate_file`), registered on the `buddynext_field_types` filter and rendered/
+validated via Free's `buddynext_field_render_input`/`_display`/`_sanitize` add-on hooks (which fire *before*
+Free's `switch`). Free *also* shipped a half-baked `file` type that just took a pasted URL — a duplicate on
+the same slug and a UX lie (looks like upload, isn't). Owner decision (mainstream-social bar — FB/X have no
+file field; avatar + cover + the Media tab cover member uploads): **drop Free's fake**, leave the real
+uploader as the Pro feature it always was. Removed the `FieldType` builtin def + the `file`
+render/display/sanitize cases + the admin picker entry; schema **v14** `maybe_migrate_file_fields()`
+converges any existing `file` field → `url` (its sanitiser already aliased file→url, so values survive).
+Verified: dropdown now shows Pro's "File upload" (its filter still adds it), Pro rendering path untouched,
+migration flips a seeded `file` field → `url`. Clean Free/Pro tiering, one slug, one owner.
 
 ---
 

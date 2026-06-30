@@ -80,8 +80,13 @@ class Installer {
 	 * 13 — Added KEY dir_recent (parent_id, created_at) on bn_spaces so the "Newest"
 	 *      directory sort is also index-backed (no filesort) at scale. created_at is
 	 *      immutable after insert, so the index is write-once — no ongoing maintenance.
+	 * 14 — Retired the 'file' profile-field type (a mislabelled URL field with no real
+	 *      uploader; avatar + cover + the Media tab already cover member uploads). Any
+	 *      existing field is converged to 'url' via maybe_migrate_file_fields() — it
+	 *      already behaved as a URL field (the sanitiser aliased file -> url), so stored
+	 *      values are preserved. No schema change.
 	 */
-	private const SCHEMA_VERSION = 13;
+	private const SCHEMA_VERSION = 14;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -126,7 +131,28 @@ class Installer {
 		// options once copied — readers now resolve these via get_space_meta().
 		self::maybe_migrate_space_options();
 
+		// v14: retire the 'file' profile-field type (a mislabelled URL field, no real
+		// uploader) — converge any existing field to the 'url' type it already behaved
+		// as, so stored values survive and the type drops out of the picker.
+		self::maybe_migrate_file_fields();
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * Converge any retired 'file' profile field to 'url' (schema v14).
+	 *
+	 * The 'file' type rendered a URL input and its sanitiser already aliased
+	 * file -> url, so this only relabels the type column; stored URL values are kept.
+	 * Idempotent — a no-op once no 'file' rows remain.
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_file_fields(): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET type = 'url' WHERE type = 'file'" );
 	}
 
 	/**
