@@ -29,16 +29,13 @@
  * Plus every bn_* row in {prefix}usermeta for the user (discovered dynamically
  * so the key list never drifts as features add meta).
  *
- * ERASURE STRATEGY (mirrors how BuddyNext already handles deleted users)
+ * ERASURE STRATEGY (the SAME canonical hard-delete the account-delete path uses)
  * ─────────────────────────────────────────────────────────────────────
- *   - Posts            → hard-delete + cascade child rows, matching
- *                        Feed\PostService::delete().
- *   - Comments         → soft-delete (is_deleted=1, content blanked), matching
- *                        Comments\CommentService::delete(), so threads survive
- *                        and the author is anonymised at render.
- *   - Relational rows  → hard-delete in both directions, matching
- *                        SocialGraph\UserCleanupListener::on_deleted_user().
- *   - bn_* user meta   → deleted.
+ * Full GDPR erasure - everything tied to the member is HARD-DELETED via
+ * MemberCleanupService::purge_user_relations(): their posts (cascading each post's child
+ * rows), their comments, every relational row, and all bn_* user meta. There is no
+ * anonymise / keep-the-thread path - deleting a member removes the person AND their
+ * content, the same uniform policy on every delete path.
  *
  * DEFERRED (not owned by BuddyNext)
  * ─────────────────────────────────
@@ -812,7 +809,7 @@ class PrivacyTools implements ListenerInterface {
 	 * @return array{items_removed:bool,items_retained:bool,messages:array<int,string>,done:bool}
 	 */
 	public function erase( string $email_address, int $page = 1 ): array {
-		$page = max( 1, (int) $page );
+		unset( $page ); // Single-pass erase: the core pagination contract is satisfied in one call.
 		$user = get_user_by( 'email', $email_address );
 
 		if ( ! $user instanceof \WP_User ) {
@@ -824,25 +821,17 @@ class PrivacyTools implements ListenerInterface {
 			);
 		}
 
-		$user_id = (int) $user->ID;
-		$removed = false;
-
-		if ( 1 === $page ) {
-			$removed = $this->erase_relational( $user_id );
-		}
-
-		// Posts + comments are the only unbounded sets — erase a page at a time.
-		$post_removed    = $this->erase_posts_page( $user_id );
-		$comment_removed = $this->erase_comments_page( $user_id );
-		$removed         = $removed || $post_removed || $comment_removed;
-
-		$done = ! $this->has_posts( $user_id ) && ! $this->has_erasable_comments( $user_id );
+		// Full GDPR erasure in a single pass: the canonical purge HARD-DELETES every
+		// user-keyed table INCLUDING the member's posts (cascading each post's child rows)
+		// and their comments. There is no anonymise/keep-the-thread path - deleting a
+		// member removes the person AND their content, the same policy account-delete uses.
+		$removed = $this->erase_relational( (int) $user->ID );
 
 		return array(
 			'items_removed'  => $removed,
 			'items_retained' => false,
 			'messages'       => array(),
-			'done'           => $done,
+			'done'           => true,
 		);
 	}
 
@@ -864,103 +853,6 @@ class PrivacyTools implements ListenerInterface {
 		// recount + bn_* usermeta sweep) and fires buddynext_purge_user_data with that
 		// context so addons scrub their own per-user rows on the same signal.
 		return ( new \BuddyNext\Profile\MemberCleanupService() )->purge_user_relations( $user_id, 'gdpr-erase' );
-	}
-
-	/**
-	 * Hard-delete one page of the user's posts, cascading child rows.
-	 *
-	 * Mirrors Feed\PostService::delete() — poll votes/options, reactions,
-	 * comments, shares, and bookmarks tied to the post are removed first.
-	 *
-	 * @param int $user_id User id.
-	 * @return bool Whether any post was removed.
-	 */
-	private function erase_posts_page( int $user_id ): bool {
-		global $wpdb;
-		$p = $wpdb->prefix;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$post_ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT id FROM {$p}bn_posts WHERE user_id = %d ORDER BY id ASC LIMIT %d",
-				$user_id,
-				self::PER_PAGE
-			)
-		);
-
-		if ( empty( $post_ids ) ) {
-			return false;
-		}
-
-		// $ids_in is a comma-joined list of intval()-cast post IDs and $p is
-		// $wpdb->prefix, so these interpolations carry no untrusted input.
-		$ids_in = implode( ',', array_map( 'intval', $post_ids ) );
-
-		$wpdb->query( "DELETE FROM {$p}bn_poll_votes WHERE post_id IN ({$ids_in})" );
-		$wpdb->query( "DELETE FROM {$p}bn_poll_options WHERE post_id IN ({$ids_in})" );
-		$wpdb->query( "DELETE FROM {$p}bn_reactions WHERE object_type = 'post' AND object_id IN ({$ids_in})" );
-		$wpdb->query( "DELETE FROM {$p}bn_comments WHERE object_type = 'post' AND object_id IN ({$ids_in})" );
-		$wpdb->query( "DELETE FROM {$p}bn_shares WHERE post_id IN ({$ids_in})" );
-		$wpdb->query( "DELETE FROM {$p}bn_bookmarks WHERE post_id IN ({$ids_in})" );
-		$wpdb->query( "DELETE FROM {$p}bn_posts WHERE id IN ({$ids_in})" );
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-		foreach ( $post_ids as $post_id ) {
-			wp_cache_delete( 'post_' . (int) $post_id, 'bn_posts' );
-		}
-
-		return true;
-	}
-
-	/**
-	 * Soft-delete one page of the user's comments (anonymise, keep threads).
-	 *
-	 * Mirrors Comments\CommentService::delete(): set is_deleted=1 and blank the
-	 * content so reply threads stay intact and the author is anonymised at
-	 * render. Only not-yet-deleted comments are processed so the page contract
-	 * eventually drains.
-	 *
-	 * @param int $user_id User id.
-	 * @return bool Whether any comment was anonymised.
-	 */
-	private function erase_comments_page( int $user_id ): bool {
-		global $wpdb;
-		$p = $wpdb->prefix;
-
-		// Fetch id + parent object so we can both soft-delete and reconcile the
-		// affected posts' comment_count below, without a second interpolated
-		// query (the recount counts only is_deleted = 0 rows).
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT id, object_type, object_id FROM {$p}bn_comments WHERE user_id = %d AND is_deleted = 0 ORDER BY id ASC LIMIT %d",
-				$user_id,
-				self::PER_PAGE
-			)
-		);
-
-		if ( empty( $rows ) ) {
-			return false;
-		}
-
-		$comment_ids      = array();
-		$comment_post_ids = array();
-		foreach ( $rows as $row ) {
-			$comment_ids[] = (int) $row->id;
-			if ( 'post' === $row->object_type ) {
-				$comment_post_ids[] = (int) $row->object_id;
-			}
-		}
-
-		$ids_in = implode( ',', $comment_ids );
-		$wpdb->query( "UPDATE {$p}bn_comments SET is_deleted = 1, content = '' WHERE id IN ({$ids_in})" );
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-		if ( ! empty( $comment_post_ids ) ) {
-			buddynext_service( 'post_service' )->recount_counters( $comment_post_ids );
-		}
-
-		return true;
 	}
 
 	/*
@@ -994,16 +886,6 @@ class PrivacyTools implements ListenerInterface {
 	}
 
 	/**
-	 * Whether the user still has any posts (erase-loop guard).
-	 *
-	 * @param int $user_id User id.
-	 * @return bool
-	 */
-	private function has_posts( int $user_id ): bool {
-		return $this->count_posts( $user_id ) > 0;
-	}
-
-	/**
 	 * Whether the user has any comments at all (export-loop guard).
 	 *
 	 * @param int $user_id User id.
@@ -1011,18 +893,6 @@ class PrivacyTools implements ListenerInterface {
 	 */
 	private function has_comments( int $user_id ): bool {
 		return $this->count_comments( $user_id ) > 0;
-	}
-
-	/**
-	 * Whether the user still has any not-yet-anonymised comments (erase guard).
-	 *
-	 * @param int $user_id User id.
-	 * @return bool
-	 */
-	private function has_erasable_comments( int $user_id ): bool {
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE user_id = %d AND is_deleted = 0", $user_id ) ) > 0;
 	}
 
 	/**
