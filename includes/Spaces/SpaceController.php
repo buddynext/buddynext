@@ -1197,7 +1197,7 @@ class SpaceController extends BaseRestController {
 		$member_service = new SpaceMemberService();
 		$actor_role     = $member_service->get_role( $space_id, $current_id );
 
-		if ( ! in_array( $actor_role, array( 'owner', 'moderator' ), true ) && ! user_can( $current_id, 'manage_options' ) ) {
+		if ( ! SpaceRoles::can_moderate( $actor_role, $current_id ) ) {
 			return new WP_Error(
 				'rest_forbidden',
 				__( 'Only space owners and moderators can view pending requests.', 'buddynext' ),
@@ -1593,7 +1593,7 @@ class SpaceController extends BaseRestController {
 		$service = new SpaceMemberService();
 		$role    = $service->get_role( $space_id, $actor_id );
 
-		if ( ! in_array( $role, array( 'owner', 'moderator' ), true ) && ! user_can( $actor_id, 'manage_options' ) ) {
+		if ( ! SpaceRoles::can_moderate( $role, $actor_id ) ) {
 			return new WP_Error( 'forbidden', __( 'Only owners and moderators can remove members.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 

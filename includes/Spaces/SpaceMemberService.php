@@ -380,10 +380,7 @@ class SpaceMemberService {
 	public function approve_request( int $space_id, int $actor_id, int $user_id ): bool|WP_Error {
 		$actor_role = $this->get_role( $space_id, $actor_id );
 
-		if (
-			! in_array( $actor_role, array( 'owner', 'moderator' ), true )
-			&& ! user_can( $actor_id, 'manage_options' )
-		) {
+		if ( ! SpaceRoles::can_moderate( $actor_role, $actor_id ) ) {
 			return new WP_Error(
 				'forbidden',
 				__( 'Only the space owner or a moderator can approve join requests.', 'buddynext' )
@@ -451,10 +448,7 @@ class SpaceMemberService {
 	public function decline_request( int $space_id, int $actor_id, int $user_id ): bool|WP_Error {
 		$actor_role = $this->get_role( $space_id, $actor_id );
 
-		if (
-			! in_array( $actor_role, array( 'owner', 'moderator' ), true )
-			&& ! user_can( $actor_id, 'manage_options' )
-		) {
+		if ( ! SpaceRoles::can_moderate( $actor_role, $actor_id ) ) {
 			return new WP_Error(
 				'forbidden',
 				__( 'Only the space owner or a moderator can decline join requests.', 'buddynext' )
@@ -513,10 +507,7 @@ class SpaceMemberService {
 	public function ban( int $space_id, int $actor_id, int $user_id, string $reason = '' ): bool|WP_Error {
 		$actor_role = $this->get_role( $space_id, $actor_id );
 
-		if (
-			! in_array( $actor_role, array( 'owner', 'moderator' ), true )
-			&& ! user_can( $actor_id, 'manage_options' )
-		) {
+		if ( ! SpaceRoles::can_moderate( $actor_role, $actor_id ) ) {
 			return new WP_Error(
 				'forbidden',
 				__( 'Only the space owner or a moderator can ban members.', 'buddynext' )
@@ -878,10 +869,7 @@ class SpaceMemberService {
 	public function remove( int $space_id, int $user_id, int $acting_user_id ): bool {
 		$acting_role = $this->get_role( $space_id, $acting_user_id );
 
-		if (
-			! in_array( $acting_role, array( 'owner', 'moderator' ), true )
-			&& ! user_can( $acting_user_id, 'manage_options' )
-		) {
+		if ( ! SpaceRoles::can_moderate( $acting_role, $acting_user_id ) ) {
 			return false;
 		}
 
