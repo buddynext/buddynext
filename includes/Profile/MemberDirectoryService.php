@@ -666,6 +666,103 @@ class MemberDirectoryService {
 	}
 
 	/**
+	 * Of a page of member IDs, which are active within the online window (<5 min).
+	 *
+	 * One bounded `IN` query over the indexed bn_presence table, replacing the
+	 * per-card `PresenceService::last_active_at()` lookup (uncached, one query each)
+	 * the server-rendered grid issued per member — the cold-cache online-dot N+1.
+	 *
+	 * @param int[] $user_ids Page member IDs.
+	 * @return array<int,true> Online subset as a user_id => true lookup map.
+	 */
+	public function online_among( array $user_ids ): array {
+		global $wpdb;
+
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		$in = implode( ',', $ids );
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$wpdb->prefix}bn_presence WHERE user_id IN ({$in}) AND last_active >= %d",
+				time() - 300
+			)
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$map = array();
+		foreach ( (array) $rows as $uid ) {
+			$map[ (int) $uid ] = true;
+		}
+		return $map;
+	}
+
+	/**
+	 * For a page of member IDs, return each member's mutual connections with the
+	 * viewer (connection peers shared by BOTH the viewer and that member).
+	 *
+	 * Two batched queries (the viewer's accepted peers, then the shared-peer join)
+	 * for the whole page, replacing the per-card `mutual_connections()` self-join
+	 * the grid issued per member — the cold-cache mutual N+1. Mirrors the set-based
+	 * mutual logic list_members() uses, but returns the peer IDs (the grid derives
+	 * both the count and the first-N avatar pile from them).
+	 *
+	 * @param int   $viewer_id  Viewing user.
+	 * @param int[] $member_ids Page member IDs.
+	 * @return array<int,int[]> member_id => mutual peer user IDs.
+	 */
+	public function mutual_peers_for_page( int $viewer_id, array $member_ids ): array {
+		global $wpdb;
+
+		$member_ids = array_values( array_unique( array_filter( array_map( 'intval', $member_ids ) ) ) );
+		if ( $viewer_id <= 0 || empty( $member_ids ) ) {
+			return array();
+		}
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$viewer_peer_ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT CASE WHEN c.requester_id = %d THEN c.recipient_id ELSE c.requester_id END
+				 FROM {$wpdb->prefix}bn_connections c
+				 WHERE c.status = 'accepted' AND ( c.requester_id = %d OR c.recipient_id = %d )",
+				$viewer_id,
+				$viewer_id,
+				$viewer_id
+			)
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$viewer_peer_ids = array_values( array_unique( array_map( 'intval', (array) $viewer_peer_ids ) ) );
+		if ( empty( $viewer_peer_ids ) ) {
+			return array();
+		}
+
+		$uid_in  = implode( ',', $member_ids );
+		$peer_in = implode( ',', $viewer_peer_ids );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			"SELECT CASE WHEN c.requester_id IN ({$uid_in}) THEN c.requester_id ELSE c.recipient_id END AS target_id,
+			        CASE WHEN c.requester_id IN ({$uid_in}) THEN c.recipient_id ELSE c.requester_id END AS peer_id
+			 FROM {$wpdb->prefix}bn_connections c
+			 WHERE c.status = 'accepted'
+			   AND ( c.requester_id IN ({$uid_in}) OR c.recipient_id IN ({$uid_in}) )
+			   AND ( CASE WHEN c.requester_id IN ({$uid_in}) THEN c.recipient_id ELSE c.requester_id END ) IN ({$peer_in})",
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$map = array();
+		foreach ( (array) $rows as $r ) {
+			$map[ (int) $r['target_id'] ][] = (int) $r['peer_id'];
+		}
+		return $map;
+	}
+
+	/**
 	 * Most-recently-active members for the "Online now" sidebar widget.
 	 *
 	 * Returns lightweight rows (ID, display_name, user_login) for users active

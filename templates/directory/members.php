@@ -205,28 +205,51 @@ $members     = $user_query->get_results();
 $total_users = (int) $user_query->get_total();
 $total_pages = (int) ceil( $total_users / max( 1, $bn_per_page ) );
 
-// ── Helpers ───────────────────────────────────────────────────────────────
-// Per-card $bn_is_online goes through BlockService so the restrict gate applies;
-// that helper owns the 5-minute window internally.
-$bn_is_online = static function ( int $user_id ) use ( $current_user_id ): bool {
-	return buddynext_service( 'blocks' )->is_user_online( $current_user_id, $user_id );
-};
+// ── Batch-prime per-page member state (no per-card N+1) ───────────────────
+// Every per-card lookup the grid needs — follow-state, online dot, mutual
+// connections, block-restrict — is resolved for the WHOLE page up front, in a
+// handful of set-based queries, so the card loop issues ZERO queries (cold-cache
+// safe; the global rule is object cache is a bonus, never a dependency).
+$bn_member_ids = array_map( static fn( $m ) => (int) $m->ID, (array) $members );
+$bn_blocks_svc = buddynext_service( 'blocks' );
 
-$bn_mutual_ids = static function ( int $user_a, int $user_b ): array {
-	if ( 0 === $user_a || 0 === $user_b || $user_a === $user_b ) {
-		return array();
-	}
-	return buddynext_service( 'connections' )->mutual_connections( $user_a, $user_b );
-};
-
-// Resolve follow-state for every rendered member in ONE batched lookup instead
-// of a SELECT per card (the old per-card N+1). FollowService::following_map()
-// returns a target_id => bool map; the grid reads it with an O(1) isset().
-$bn_member_ids    = array_map( static fn( $m ) => (int) $m->ID, (array) $members );
+// Follow-state map (target_id => bool) in one query.
 $bn_following_map = $current_user_id > 0
 	? buddynext_service( 'follows' )->following_map( $current_user_id, $bn_member_ids )
 	: array();
-$bn_is_following  = static function ( int $target_user_id ) use ( $bn_following_map ): bool {
+
+// Prime the viewer→peer block-restrict cache so the per-card restrict gate is a
+// cache hit, not a query; build the online subset (one bounded bn_presence IN,
+// replacing the per-card last_active_at lookup) and the mutual-connection peer map
+// (two batched queries, replacing the per-card mutual_connections() self-join).
+if ( $current_user_id > 0 && ! empty( $bn_member_ids ) ) {
+	$bn_blocks_svc->prime_restricted_cache( $current_user_id, $bn_member_ids );
+}
+$bn_online_set = $bn_directory_service->online_among( $bn_member_ids );
+$bn_mutual_map = $current_user_id > 0
+	? $bn_directory_service->mutual_peers_for_page( $current_user_id, $bn_member_ids )
+	: array();
+
+// ── Per-card helpers (read the prebuilt maps — O(1), no query) ────────────
+$bn_is_online = static function ( int $user_id ) use ( $current_user_id, $bn_online_set, $bn_blocks_svc ): bool {
+	if ( empty( $bn_online_set[ $user_id ] ) ) {
+		return false;
+	}
+	// Block restrict gate, resolved from the primed cache (no per-card query).
+	if ( $current_user_id > 0 && $current_user_id !== $user_id && $bn_blocks_svc->is_restricted( $current_user_id, $user_id ) ) {
+		return false;
+	}
+	return true;
+};
+
+$bn_mutual_ids = static function ( int $user_a, int $user_b ) use ( $bn_mutual_map ): array {
+	// $user_a is the viewer, $user_b the rendered member — read the page map.
+	return ( 0 === $user_a || 0 === $user_b || $user_a === $user_b )
+		? array()
+		: ( $bn_mutual_map[ $user_b ] ?? array() );
+};
+
+$bn_is_following = static function ( int $target_user_id ) use ( $bn_following_map ): bool {
 	return ! empty( $bn_following_map[ $target_user_id ] );
 };
 
