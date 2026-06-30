@@ -36,6 +36,23 @@ $bn_pp_is_conn = 'connections' === $bn_pp_relation;
 
 if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 	$bn_pp_store = $bn_pp_is_conn ? 'buddynext/connection-requests' : 'buddynext/follow-requests';
+
+	// Batch-prime mutual-connection counts + headline for the whole request list,
+	// so a long pending queue (popular/private accounts) never fires a per-row
+	// mutual query. Mutual counts reuse the directory's one-query self-join; the
+	// headline reads from primed usermeta.
+	$bn_pp_ids = array();
+	foreach ( $bn_pp_pending as $bn_pp_u ) {
+		if ( $bn_pp_u instanceof WP_User ) {
+			$bn_pp_ids[] = (int) $bn_pp_u->ID;
+		}
+	}
+	$bn_pp_ids    = array_values( array_unique( array_filter( $bn_pp_ids ) ) );
+	$bn_pp_mutual = array();
+	if ( $bn_pp_viewer > 0 && ! empty( $bn_pp_ids ) && function_exists( 'buddynext_service' ) ) {
+		$bn_pp_mutual = buddynext_service( 'connections' )->mutual_ids_for( $bn_pp_viewer, $bn_pp_ids );
+		update_meta_cache( 'user', $bn_pp_ids );
+	}
 	?>
 	<section class="bn-follow-requests" aria-label="<?php echo $bn_pp_is_conn ? esc_attr__( 'Pending connection requests', 'buddynext' ) : esc_attr__( 'Pending follow requests', 'buddynext' ); ?>">
 		<header class="bn-follow-requests__head">
@@ -93,6 +110,28 @@ if ( ! empty( $bn_pp_pending ) && 'following' !== $bn_pp_relation ) :
 					<div class="bn-follow-requests__id">
 						<a href="<?php echo esc_url( $bn_pp_rurl ); ?>" class="bn-follow-requests__name"><?php echo esc_html( $bn_pp_req->display_name ); ?></a>
 						<span class="bn-follow-requests__handle">@<?php echo esc_html( $bn_pp_req->user_nicename ); ?></span>
+						<?php
+						$bn_pp_headline = (string) get_user_meta( $bn_pp_rid, 'bn_headline', true );
+						if ( '' !== $bn_pp_headline ) :
+							?>
+							<span class="bn-follow-requests__headline"><?php echo esc_html( $bn_pp_headline ); ?></span>
+						<?php endif; ?>
+						<?php
+						$bn_pp_mc = isset( $bn_pp_mutual[ $bn_pp_rid ] ) ? count( (array) $bn_pp_mutual[ $bn_pp_rid ] ) : 0;
+						if ( $bn_pp_mc > 0 ) :
+							?>
+							<span class="bn-follow-requests__mutual">
+								<?php
+								echo esc_html(
+									sprintf(
+										/* translators: %d: number of mutual connections */
+										_n( '%d mutual connection', '%d mutual connections', $bn_pp_mc, 'buddynext' ),
+										$bn_pp_mc
+									)
+								);
+								?>
+							</span>
+						<?php endif; ?>
 					</div>
 					<div class="bn-follow-requests__actions">
 						<?php if ( $bn_pp_is_conn ) : ?>

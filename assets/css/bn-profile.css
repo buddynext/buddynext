@@ -1185,10 +1185,39 @@
 	color: var(--bn-ink-3);
 	margin-top: 2px;
 }
+/* Headline + mutual-connection context, so a member can tell who is requesting
+   before approving (parity with the directory member card). Tokens flip in dark
+   mode; the headline truncates to one line so a long tagline never breaks the row. */
+.bn-follow-requests__headline {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-2);
+	margin-top: 3px;
+	line-height: 1.3;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.bn-follow-requests__mutual {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	margin-top: 3px;
+	line-height: 1.3;
+}
 .bn-follow-requests__actions {
 	display: inline-flex;
 	gap: 8px;
 	flex-shrink: 0;
+}
+/* Narrow phones: the avatar + two action buttons leave the id column too thin for
+   the headline + mutual line, so stack the actions below (aligned past the avatar).
+   The id then fills the first row and reads cleanly. */
+@media (max-width: 480px) {
+	.bn-follow-requests__row { flex-wrap: wrap; }
+	.bn-follow-requests__id { flex-basis: calc(100% - 40px - var(--s3)); }
+	.bn-follow-requests__actions {
+		width: 100%;
+		justify-content: flex-end;
+	}
 }
 
 /* Blocked & muted lists in the profile-edit Privacy → Relations card.
