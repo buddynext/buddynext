@@ -73,6 +73,22 @@ path). No parallel/duplicate implementations are introduced.
 
 ## Workstream A — Member directory at scale (the one real P0 + its P1 neighbours)
 
+> **Governing principle — design for real directory behavior (see `[[buddynext-directory-ux-behavior]]`).**
+> People scan page 1 of the default sort, then **filter/search** to find a specific member — they do NOT
+> deep-paginate (2-3 pages max, essentially never deeper). So the scale answer is NOT "make `COUNT(*)` +
+> deep OFFSET scale"; it's: make **page 1 + the default sort + the filters** fast, and stop computing the
+> things users never use. This re-frames the tasks below:
+> - **A2/A3 (the total) → REPLACE the grand-total with a look-ahead "Next"/"Load more" pager**: fetch
+>   `per_page + 1`, show a next affordance when the extra row exists; display an approximate count ("1k+")
+>   or none. This DELETES the `SQL_CALC_FOUND_ROWS` (SSR) and the full `COUNT(*)` subquery (REST) instead of
+>   trying to index them. Deep OFFSET is moot at 2-3 pages; **keyset is reserved for deep-scroll feeds, not
+>   the member directory** — indexed shallow OFFSET is fine here.
+> - **A1, A4 (type filter, search) move UP in priority** — fast indexed filters/search are the real
+>   navigation, so they earn the most ROI.
+> - **A5, A6a, A6b (N+1, unbounded `IN`/`NOT IN`) stay mandatory** — they bite page 1 regardless of depth.
+> - **A6d (newest → `u.ID`) + the default-sort index** matter because everyone hits the default sort on
+>   page 1; the inherent core-table sorts (A6f) are low-value precisely because few users sort by them.
+
 **A1 · P0 — Type filter must use the indexed `bn_member_type_assignments`, not a usermeta value scan.**
 Both directory paths match `wp_usermeta.meta_value = slug` (`MemberDirectoryService.php:277`;
 `templates/directory/members.php:188-196`) — `meta_value` is unindexable, so this scans ~50k usermeta
