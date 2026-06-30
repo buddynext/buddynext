@@ -3,10 +3,12 @@
 One file for the whole Members/Profile component: initial plan, what's done, what's pending. Spaces work
 lives in `spaces-master-plan.md`. Both repos on `1.0.4`. Last updated 2026-06-29.
 
-## STATUS — NOT STARTED (Spaces shipped first per owner sequencing)
+## STATUS — IN PROGRESS (security + directory-scale cluster shipped 2026-06-30)
 
-Every task below is **⏳ PENDING**. Nothing built yet; the plan + exact touch-points are validated at
-code `file:line`. Pick up here after the Spaces frontend panels land.
+**Done + pushed on `1.0.4`:** T1, T2, T4/A1, T6, A6a–A6d — the security/privacy fixes + the full
+member-directory scale cluster, each browser-verified. The remaining tasks (T3, T9, T13–T21, A2–A5,
+Workstreams B–F) are unstarted; their plan + exact touch-points are validated at code `file:line`.
+**QA: re-verify the shipped work with the [QA test cases](#qa-test-cases--shipped-work-re-verify) below.**
 
 | Task | State | One-liner |
 |---|---|---|
@@ -29,6 +31,40 @@ code `file:line`. Pick up here after the Spaces frontend panels land.
 
 **Open decisions:** D2 (field search FULLTEXT vs LIKE), D3 (File field upload vs remove), and which of the
 7 people-expectation suggestions (bottom of this file) land in 1.0.4.
+
+---
+
+## QA test cases — shipped work (re-verify)
+
+Test surface: the local demo site `http://buddynext.local`. Append `?autologin=<user_login>` to any URL
+to log in (e.g. `?autologin=bn_demo_alex_rivera`). REST checks: open dev-tools console on a logged-in page
+and `fetch('/wp-json/buddynext/v1/...', { headers: { 'X-WP-Nonce': <restNonce from the page> } })`.
+All of these must also hold on a **large site (≈50k members)** — the whole point of the cluster is that
+these surfaces stay correct AND fast at scale. Dev-level checks already confirmed (EXPLAIN: index-backed,
+no filesort); QA verifies the **behaviour**.
+
+| # | Area | Setup | Steps | Expected |
+|---|---|---|---|---|
+| **QA-T1** | Profile REST visibility (security) | User B blocks User A (or set A's profile to "followers only" with B not following) | As B, open A's profile page / hover card, and `GET /users/{A}/profile` | **404 / "User not found"** — no profile data leaks. A public profile, your own, or one you're allowed to see → 200. |
+| **QA-T2** | Explore bidirectional block (privacy) | User C blocks the viewer V | As V, open **Explore → Members** | C does **not** appear in V's deck (before the fix, C still showed because V hadn't blocked C) |
+| **QA-T6a** | Bounded member roster | A space with many members | `GET /spaces/{id}/members` with **no** `per_page` | Returns a bounded page (≤50), `X-WP-Total` header = the real total (never the whole 50k roster in one response) |
+| **QA-T6b** | Bounded transfer picker | Own a space | Space **Settings → Danger zone → Transfer ownership** | Candidate dropdown renders (moderators listed first), bounded — never a 50k-option dropdown |
+| **QA-T6c** | Bounded follow-requests | A private account with pending requests | `GET /me/follow-requests` | Returns `{ ids, total, page, total_pages }`; `ids` length ≤200 (bot-flood safe); `total` = the true count |
+| **QA-A1** | Member-type filter (indexed) | A member assigned a type (e.g. *developer*) | `/members/?type=developer` (hard reload) **and** the type pill in the directory UI **and** `GET /members?member_type=developer` | Only members of that type appear; the SSR list and the REST list are **identical**; filtering stays fast at scale |
+| **QA-A6a** | Online filter | Be active as one member (browse as them) | `/members/?online=1` | Only members active in the last 5 min appear; everyone else is absent. (Reflects live presence — note the live-vs-cached caveat below) |
+| **QA-A6b-1** | Suspended excluded | Suspend a member who is visible in the directory | Reload `/members/` | The suspended member disappears from the SSR list **and** the live (REST) list |
+| **QA-A6b-2** | Shadow-banned excluded | Shadow-ban a visible member | Reload `/members/` | The shadow-banned member disappears from both |
+| **QA-A6b-3** | Blocked excluded (both directions) | Block a member (or have them block you) | Reload `/members/` | That member disappears from both — for *either* block direction |
+| **QA-A6b-4** | Directory opt-out | A member turns **off** "Show me in the member directory" (privacy settings) | Reload `/members/` | That member disappears from both |
+| **QA-A6b-5** | Self excluded | Any logged-in member | Open `/members/` | You do **not** see yourself in the directory |
+| **QA-A6c** | "Most active" sort | — | Directory → sort **Most active** | Orders by recent activity (presence); page loads without slowness; no error (it must NOT count WP posts) |
+| **QA-A6d** | "Newest" sort + load more | — | Directory default sort (Newest) → scroll / "Load more" | Newest members first; the next page continues correctly with **no duplicates and no skipped members** |
+| **QA-parity** | SSR ↔ live consistency | — | Hard-reload `/members/`, note the members shown, then let the JS filter bar hydrate / re-fetch | The same members in the same order before and after hydration — the first paint and the live list agree |
+
+**Caveats QA should know:**
+- **A6a live-vs-cached:** the REST member list caches results ~60s per viewer, so a just-changed presence/online state can lag up to 60s on the *live* (JS) list; the SSR hard-reload is always live. Not a bug.
+- **A6b instant vs cached:** suspend/block/opt-out is reflected immediately on a hard reload (SSR) and on the next cache cycle for the live list (block/unblock busts the viewer's cache immediately; suspend/shadowban respect the 60s TTL).
+- **Empty type filter:** a member type with no *current* members (or only orphaned assignments) correctly shows an empty list — verify with a type that has a real, active member.
 
 ---
 
