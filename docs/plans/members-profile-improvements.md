@@ -20,7 +20,7 @@ code `file:line`. Pick up here after the Spaces frontend panels land.
 | T14 | ⏳ PENDING | File profile field (decision D3: wire upload vs remove) |
 | T15 | ⏳ PENDING | member field search → FULLTEXT via `bn_search_index` (decision D2) |
 | T16 | ⏳ PENDING | directory server-render unify + per-card N+1 batch |
-| A6 | ⏳ PENDING | scale-audit addendum (2026-06-30): SSR `online_ids` IN-list (A6a), unbounded `exclude` NOT IN (A6b), `post_count` orderby (A6c), REST `newest`→`u.ID` (A6d), total-includes-cursor (A6e), core-table notes (A6f) — see Workstream A6 |
+| A6 | 🟡 PART | scale-audit addendum (2026-06-30): ✅ A6c `post_count` orderby + ✅ A6d `newest`→`u.ID` (filesort killed, EXPLAIN-verified) done; ⏳ A6a SSR `online_ids` IN-list + A6b unbounded `exclude` NOT IN + A1 member-type index queued together (one `pre_user_query`, ready-to-execute plan + verification matrix in Workstream A6); A6e/A6f notes |
 | T17 | ⏳ PENDING | converge suspension filter on `moderation_exclude_sql()` (dedup) |
 | T18 | ⏳ PENDING | remove dead digest queue write |
 | T19 | ⏳ PENDING | invite email pre-fill + async send |
@@ -160,6 +160,29 @@ but cold cache = one self-join per card). The REST path already batches mutual c
   `NOT IN (subquery)` for blocks (`:198-238`) via a `pre_user_query` clause injection — never materialise
   global exclusion ids in PHP. **Cross-ref T17** (converge suspension filter on `moderation_exclude_sql()`) —
   same fix, do once.
+
+> **Ready-to-execute approach for A1 + A6a + A6b (do these three together — one `pre_user_query`):**
+> 1. Add `MemberDirectoryService::directory_filter_sql( int $viewer_id, array $args ): array` returning
+>    `[ $sql_fragment, $prepare_params ]` built from the **exact** `list_members()` WHERE clauses
+>    (`MemberDirectoryService.php:198-283`): suspended `NOT EXISTS` (`:200-205`), shadowban `NOT EXISTS`
+>    (`:206-211`), dir-optout `NOT EXISTS` (`:216-221`), `block_exclude_sql()` (`:230-238`), member_type
+>    `EXISTS` on the assignments table (A1 — `EXISTS(SELECT 1 FROM bn_member_type_assignments a WHERE
+>    a.user_id = {users}.ID AND a.type_id = %d)` after resolving slug→type_id via `MemberTypeService::
+>    get_by_slug()`), and online `EXISTS(SELECT 1 FROM bn_presence p WHERE p.user_id = {users}.ID AND
+>    p.last_active > UNIX_TIMESTAMP()-300)` (A6a). Reuse, do NOT re-author the SQL — this is why the
+>    privacy risk stays low.
+> 2. In `templates/directory/members.php`: REMOVE `'exclude' => $bn_dir_excluded_ids` (A6b), the online
+>    `include` list (A6a), and the member_type `meta_query` (A1); keep search/relation `include` (bounded)
+>    and the dir-optout (now in the fragment). Add+remove a `pre_user_query` closure that appends the
+>    prepared fragment to `$query->query_where` (reference `{$wpdb->users}.ID`).
+> 3. **Verification matrix (ALL must pass before done — privacy-sensitive):** (a) a suspended user is
+>    absent from the SSR directory; (b) a shadow-banned user is absent; (c) a user who blocked the viewer
+>    is absent AND a user the viewer blocked is absent; (d) a dir-opted-out user is absent; (e) the online
+>    filter shows only <5-min-active members; (f) the member-type filter returns only that type (EXPLAIN
+>    uses `idx_type_id`, not a usermeta scan); (g) search still works; (h) the count/look-ahead pager is
+>    still correct; (i) SSR result set == REST first-page result set (the two engines agree).
+> Also do A1 on the **REST** side: swap `:277` (`bn_member_type` usermeta `EXISTS`) to the same
+> `bn_member_type_assignments` `EXISTS` so both surfaces use the indexed table.
 
 - **A6c · ✅ DONE — SSR `orderby => 'post_count'` ran a correlated `wp_posts` count per user.**
   Fixed: the SSR `WP_User_Query` now uses `$bn_query_orderby` (falls back to `registered` for the paint
