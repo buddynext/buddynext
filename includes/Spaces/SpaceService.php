@@ -929,7 +929,7 @@ class SpaceService {
 			// own spaces so others' secret spaces stay hidden.
 			if ( ! $is_admin && ! SpaceTypeRegistry::instance()->is_listed( $type ) && $member_id <= 0 ) {
 				if ( $viewer_id > 0 ) {
-					$where[]  = "( owner_id = %d OR id IN ( SELECT space_id FROM {$members_table} WHERE user_id = %d AND status = 'active' ) )";
+					$where[]  = '( ' . $this->owned_or_member_subquery( $members_table ) . ' )';
 					$params[] = $viewer_id;
 					$params[] = $viewer_id;
 				} else {
@@ -946,7 +946,7 @@ class SpaceService {
 				// Slugs are sanitize_key()'d in the registry, so safe to interpolate.
 				$placeholders = implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $unlisted ) );
 				if ( $viewer_id > 0 ) {
-					$where[]  = "( type NOT IN ( {$placeholders} ) OR owner_id = %d OR id IN ( SELECT space_id FROM {$members_table} WHERE user_id = %d AND status = 'active' ) )";
+					$where[]  = "( type NOT IN ( {$placeholders} ) OR " . $this->owned_or_member_subquery( $members_table ) . ' )';
 					$params[] = $viewer_id;
 					$params[] = $viewer_id;
 				} else {
@@ -1024,7 +1024,7 @@ class SpaceService {
 		$mine_sql = '1=1';
 		if ( $member_id > 0 ) {
 			$mine_members = $wpdb->prefix . 'bn_space_members';
-			$mine_sql     = "( owner_id = %d OR id IN ( SELECT space_id FROM {$mine_members} WHERE user_id = %d AND status = 'active' ) )";
+			$mine_sql     = '( ' . $this->owned_or_member_subquery( $mine_members ) . ' )';
 		}
 
 		// Exclude unlisted (secret-equivalent) types from search. Slugs are
@@ -1038,7 +1038,7 @@ class SpaceService {
 			$placeholders  = implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $unlisted ) );
 			$members_table = $wpdb->prefix . 'bn_space_members';
 			if ( $viewer_id > 0 ) {
-				$exclude_sql = "( type NOT IN ( {$placeholders} ) OR owner_id = %d OR id IN ( SELECT space_id FROM {$members_table} WHERE user_id = %d AND status = 'active' ) )";
+				$exclude_sql = "( type NOT IN ( {$placeholders} ) OR " . $this->owned_or_member_subquery( $members_table ) . ' )';
 				$params[]    = $viewer_id;
 				$params[]    = $viewer_id;
 			} else {
@@ -1199,6 +1199,23 @@ class SpaceService {
 	}
 
 	/**
+	 * The "viewer owns it, or is an active member of it" visibility sub-predicate.
+	 *
+	 * This `owner_id = %d OR id IN ( active-membership )` fragment is the heart of
+	 * every secret/unlisted-space visibility check — it was copied verbatim across
+	 * the directory list, search, and sub-space queries. Centralised here so the
+	 * security predicate has a single definition and can never drift between the
+	 * surfaces that must agree. Returns SQL carrying two %d placeholders (both
+	 * bound to the viewer ID, in order); callers wrap it and push the two params.
+	 *
+	 * @param string $members_table Fully-qualified bn_space_members table name.
+	 * @return string
+	 */
+	private function owned_or_member_subquery( string $members_table ): string {
+		return "owner_id = %d OR id IN ( SELECT space_id FROM {$members_table} WHERE user_id = %d AND status = 'active' )";
+	}
+
+	/**
 	 * Build the shared visibility-scoped WHERE for a parent's sub-spaces.
 	 *
 	 * One source of truth so get_subspaces() (the visible LIST) and
@@ -1225,7 +1242,7 @@ class SpaceService {
 				$placeholders = implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $unlisted ) );
 				if ( $viewer_id > 0 ) {
 					$members_table = $wpdb->prefix . 'bn_space_members';
-					$where[]       = "( type NOT IN ( {$placeholders} ) OR owner_id = %d OR id IN ( SELECT space_id FROM {$members_table} WHERE user_id = %d AND status = 'active' ) )";
+					$where[]       = "( type NOT IN ( {$placeholders} ) OR " . $this->owned_or_member_subquery( $members_table ) . ' )';
 					$params[]      = $viewer_id;
 					$params[]      = $viewer_id;
 				} else {
