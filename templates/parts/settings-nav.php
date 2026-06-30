@@ -23,6 +23,18 @@ $bn_settings_tabs = array(
 	'privacy'       => __( 'Privacy', 'buddynext' ),
 	'appearance'    => __( 'Appearance', 'buddynext' ),
 );
+
+/**
+ * Filter the Settings hub tab strip so addons can register their own sections.
+ *
+ * Each entry is `section-slug => Tab label`. The slug must resolve through
+ * PageRouter::settings_url() (a bare slug maps to /settings/{slug}/) and the
+ * addon is responsible for routing that URL + providing its section template.
+ *
+ * @param array<string,string> $bn_settings_tabs   Section slug => tab label.
+ * @param string               $bn_settings_active Active section slug.
+ */
+$bn_settings_tabs = (array) apply_filters( 'buddynext_settings_tabs', $bn_settings_tabs, $bn_settings_active );
 ?>
 <header class="bn-settings__head">
 	<h1 class="bn-settings__title"><?php esc_html_e( 'Settings', 'buddynext' ); ?></h1>
