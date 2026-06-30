@@ -1230,10 +1230,31 @@ class SpaceService {
 	 * @return array{0: string[], 1: array<int, mixed>} [ where-clauses, prepared params ].
 	 */
 	private function subspace_visibility_where( int $parent_id, int $viewer_id, bool $is_admin ): array {
+		list( $where, $params ) = $this->subspace_visibility_filter( $viewer_id, $is_admin );
+		array_unshift( $where, 'parent_id = %d' );
+		array_unshift( $params, $parent_id );
+
+		return array( $where, $params );
+	}
+
+	/**
+	 * The viewer-scoped, parent-independent visibility filter for sub-spaces.
+	 *
+	 * Just the "this child is visible to the viewer" half of subspace_visibility_where()
+	 * — is_archived plus the secret/unlisted scope (listed types, or the viewer owns/
+	 * actively belongs to the child). Lifted out so the single-parent WHERE and the
+	 * batched count_visible_subspaces_for() share ONE definition of the visibility
+	 * boundary; a parent clause is prepended by each caller.
+	 *
+	 * @param int  $viewer_id Viewer ID (0 = logged out).
+	 * @param bool $is_admin  Site admin sees every child.
+	 * @return array{0: string[], 1: array<int, mixed>} [ where-clauses, prepared params ].
+	 */
+	private function subspace_visibility_filter( int $viewer_id, bool $is_admin ): array {
 		global $wpdb;
 
-		$where  = array( 'parent_id = %d', 'is_archived = 0' );
-		$params = array( $parent_id );
+		$where  = array( 'is_archived = 0' );
+		$params = array();
 
 		if ( ! $is_admin ) {
 			$unlisted = SpaceTypeRegistry::instance()->unlisted_keys();
@@ -1288,6 +1309,55 @@ class SpaceService {
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+	}
+
+	/**
+	 * Visible sub-space counts for many parents in one query.
+	 *
+	 * The batched sibling of count_visible_subspaces(), for a directory page that
+	 * shows a "N sub-spaces" chip per card: counting per card would be an N+1. Applies
+	 * the SAME visibility scope (so secret children never inflate a count the viewer
+	 * can't open) across all parents, grouped by parent_id.
+	 *
+	 * @param int[] $parent_ids Parent space IDs on the page.
+	 * @param int   $viewer_id  Viewer ID (0 = logged out).
+	 * @param bool  $is_admin   Site admin counts every child.
+	 * @return array<int, int> Parent-ID keyed count map; every requested parent is present (0 if none).
+	 */
+	public function count_visible_subspaces_for( array $parent_ids, int $viewer_id = 0, bool $is_admin = false ): array {
+		global $wpdb;
+
+		$parent_ids = array_values( array_unique( array_filter( array_map( 'intval', $parent_ids ) ) ) );
+		if ( empty( $parent_ids ) ) {
+			return array();
+		}
+
+		// Seed every requested parent to 0 so parents with no visible children are
+		// still present in the map (a missing key would read as "unknown", not zero).
+		$counts = array_fill_keys( $parent_ids, 0 );
+
+		list( $where, $params ) = $this->subspace_visibility_filter( $viewer_id, $is_admin );
+		$placeholders           = implode( ', ', array_fill( 0, count( $parent_ids ), '%d' ) );
+		array_unshift( $where, "parent_id IN ( {$placeholders} )" );
+		$params    = array_merge( $parent_ids, $params );
+		$where_sql = 'WHERE ' . implode( ' AND ', $where );
+
+		// The %d placeholders live inside the interpolated $where_sql (parent IN list
+		// + viewer), so the query IS prepared — phpcs just can't see them in the literal.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT parent_id, COUNT(*) AS n FROM {$wpdb->prefix}bn_spaces {$where_sql} GROUP BY parent_id",
+				$params
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		foreach ( (array) $rows as $r ) {
+			$counts[ (int) $r->parent_id ] = (int) $r->n;
+		}
+
+		return $counts;
 	}
 
 	/**

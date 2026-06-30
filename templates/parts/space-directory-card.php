@@ -17,6 +17,7 @@
  *                              (`[ 'role' => string, 'status' => string ]`) or null.
  * @var int   $current_user_id  Optional. Current viewer ID (0 = logged out).
  * @var array $cat_by_id        Optional. Category map keyed by id (`[ id => [name,slug] ]`).
+ * @var int   $subspace_count   Optional. Visibility-scoped sub-space count for this space. Default 0.
  */
 
 declare( strict_types=1 );
@@ -36,6 +37,7 @@ if ( null === $bn_dc_space ) {
 $bn_dc_membership = isset( $membership ) && is_array( $membership ) ? $membership : null;
 $bn_dc_uid        = isset( $current_user_id ) ? (int) $current_user_id : 0;
 $bn_dc_cat_by_id  = isset( $cat_by_id ) && is_array( $cat_by_id ) ? $cat_by_id : array();
+$bn_dc_subspaces  = isset( $subspace_count ) ? (int) $subspace_count : 0;
 
 $space_id = (int) $bn_dc_space['id'];
 // 'admin' is not a space role (ALLOWED_ROLES = owner|moderator|member); site
@@ -105,6 +107,14 @@ if ( ! empty( $bn_dc_space['avatar_url'] ) ) {
 				printf( esc_html( _n( '%s member', '%s members', (int) ( $bn_dc_space['member_count'] ?? 0 ), 'buddynext' ) ), esc_html( $member_count ) );
 				?>
 			</span>
+			<?php if ( $bn_dc_subspaces > 0 ) : ?>
+				<span class="bn-sd-card__stat">
+					<?php
+					// translators: %s: sub-space count.
+					printf( esc_html( _n( '%s sub-space', '%s sub-spaces', $bn_dc_subspaces, 'buddynext' ) ), esc_html( number_format_i18n( $bn_dc_subspaces ) ) );
+					?>
+				</span>
+			<?php endif; ?>
 		</div>
 
 		<div class="bn-sd-card__foot">

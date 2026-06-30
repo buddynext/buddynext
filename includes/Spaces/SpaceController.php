@@ -668,16 +668,25 @@ class SpaceController extends BaseRestController {
 			}
 		}
 
+		// Visibility-scoped sub-space count per card (one grouped query for the page),
+		// so the directory can surface "N sub-spaces" pre-join without a per-card count.
+		$subspace_counts = ( new SpaceService() )->count_visible_subspaces_for(
+			$space_ids,
+			$viewer_id,
+			current_user_can( 'manage_options' )
+		);
+
 		$tones = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
 
 		foreach ( $rows as &$row ) {
-			$sid                  = (int) ( $row['id'] ?? 0 );
-			$row['category_name'] = $cat_map[ $sid ]['category_name'] ?? null;
-			$row['category_slug'] = $cat_map[ $sid ]['category_slug'] ?? null;
-			$row['cover_tone']    = $tones[ $sid % count( $tones ) ];
-			$row['type_label']    = SpaceService::type_label( (string) ( $row['type'] ?? 'open' ) );
-			$row['type_tone']     = SpaceTypeRegistry::instance()->tone( (string) ( $row['type'] ?? 'open' ) );
-			$row['join_method']   = SpaceTypeRegistry::instance()->join_method( (string) ( $row['type'] ?? 'open' ) );
+			$sid                   = (int) ( $row['id'] ?? 0 );
+			$row['category_name']  = $cat_map[ $sid ]['category_name'] ?? null;
+			$row['category_slug']  = $cat_map[ $sid ]['category_slug'] ?? null;
+			$row['subspace_count'] = (int) ( $subspace_counts[ $sid ] ?? 0 );
+			$row['cover_tone']     = $tones[ $sid % count( $tones ) ];
+			$row['type_label']     = SpaceService::type_label( (string) ( $row['type'] ?? 'open' ) );
+			$row['type_tone']      = SpaceTypeRegistry::instance()->tone( (string) ( $row['type'] ?? 'open' ) );
+			$row['join_method']    = SpaceTypeRegistry::instance()->join_method( (string) ( $row['type'] ?? 'open' ) );
 
 			$membership               = $member_map[ $sid ] ?? null;
 			$row['membership_role']   = $membership['role'] ?? '';

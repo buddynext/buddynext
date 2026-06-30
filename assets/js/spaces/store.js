@@ -1862,6 +1862,17 @@ function buildSpaceCard( row ) {
 	stat.className   = 'bn-sd-card__stat';
 	stat.textContent = fmt( t( 'membersCount', '%d members' ), memberCount );
 	stats.appendChild( stat );
+
+	// Sub-space count chip (pre-join discovery) — mirrors space-directory-card.php.
+	var subCount = ( row.subspace_count != null ) ? parseInt( row.subspace_count, 10 ) : 0;
+	if ( subCount > 0 ) {
+		var subStat = document.createElement( 'span' );
+		subStat.className   = 'bn-sd-card__stat';
+		var subTpl          = ( 1 === subCount ) ? t( 'subspaceCountOne', '%d sub-space' ) : t( 'subspacesCount', '%d sub-spaces' );
+		subStat.textContent = fmt( subTpl, subCount );
+		stats.appendChild( subStat );
+	}
+
 	body.appendChild( stats );
 
 	// ── Foot: membership-aware CTA, mirroring directory.php ────────────

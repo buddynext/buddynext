@@ -179,6 +179,27 @@ if ( $current_user_id && ! empty( $bn_spaces ) ) {
 	$membership_map = ( new \BuddyNext\Spaces\SpaceMemberService() )->membership_map( $current_user_id, $bn_space_ids );
 }
 
+// ── Visibility-scoped sub-space count for every rendered card (one query) ─────
+// Lets each card show "N sub-spaces" for pre-join discovery. Covers the main
+// listing and the managed/joined sections — every set that renders the card.
+$bn_subspace_counts = array();
+$bn_count_ids       = array();
+foreach ( array( $bn_spaces, $bn_managed_spaces, $bn_joined_spaces ) as $bn_count_set ) {
+	foreach ( (array) $bn_count_set as $bn_count_row ) {
+		if ( isset( $bn_count_row['id'] ) ) {
+			$bn_count_ids[] = (int) $bn_count_row['id'];
+		}
+	}
+}
+$bn_count_ids = array_values( array_unique( array_filter( $bn_count_ids ) ) );
+if ( ! empty( $bn_count_ids ) ) {
+	$bn_subspace_counts = ( new \BuddyNext\Spaces\SpaceService() )->count_visible_subspaces_for(
+		$bn_count_ids,
+		(int) $current_user_id,
+		current_user_can( 'manage_options' )
+	);
+}
+
 // Categories list for the create-space modal (expects objects with ->id/->name).
 $categories = array_map(
 	static fn( $c ) => (object) array(
@@ -749,6 +770,7 @@ $bn_subtitle = sprintf(
 								'membership'      => $membership_map[ (int) $space['id'] ] ?? null,
 								'current_user_id' => $current_user_id,
 								'cat_by_id'       => $bn_cat_by_id,
+								'subspace_count'  => (int) ( $bn_subspace_counts[ (int) $space['id'] ] ?? 0 ),
 							)
 						);
 					}
@@ -778,6 +800,7 @@ $bn_subtitle = sprintf(
 						'membership'      => $membership_map[ (int) $space['id'] ] ?? null,
 						'current_user_id' => $current_user_id,
 						'cat_by_id'       => $bn_cat_by_id,
+						'subspace_count'  => (int) ( $bn_subspace_counts[ (int) $space['id'] ] ?? 0 ),
 					)
 				);
 				?>
