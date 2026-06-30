@@ -110,6 +110,23 @@ Per-space ban list. Records members banned from a specific space (distinct from 
 
 Relationships: `space_id` references `bn_spaces.id`; `user_id` and `banned_by` reference WordPress users. Ban/unban operations fire `buddynext_space_user_banned` / `buddynext_space_user_unbanned`.
 
+## Counting sub-spaces - visible vs structural
+
+A space can nest (`bn_spaces.parent_id`). There are two distinct sub-space counts on `SpaceService`, and using the wrong one leaks secret children:
+
+| Method | Scope | Use for |
+|---|---|---|
+| `count_visible_subspaces( int $parent_id, int $viewer_id = 0, bool $is_admin = false )` | Visibility-scoped: applies the same scope as `get_subspaces()`, so the "N sub-spaces" a member sees matches the list they can actually open. A site admin counts every child. | Anything member-facing - a "N sub-spaces" badge or header count. |
+| `count_subspaces( int $parent_id )` | Unscoped structural count of all non-archived children. | Move / nesting-cap validation, where you need the true child total regardless of who is looking. |
+
+> **Never show `count_subspaces()` to a member.** It includes secret/unlisted children the viewer cannot open, which would leak their existence. Use `count_visible_subspaces()` with the viewer for any displayed count.
+
+## Per-space settings: bn_space_meta and the Pro paywall
+
+Per-space attributes are stored as metadata rows in **`bn_space_meta`** (not new columns, not autoloaded options), reachable through the native WP metadata API wired to the `bn_space` meta type - or the thin Free wrappers `get_space_meta()` / `add_space_meta()` / `update_space_meta()` / `delete_space_meta()`. Registered, typed space fields go through `buddynext_register_space_field()` and read back via `buddynext_get_space_field()`.
+
+Pro reuses this Free storage rather than adding its own table: the per-space paywall copy is written to `bn_space_meta` under the keys `buddynextpro_paywall_cta_url`, `buddynextpro_paywall_cta_label`, and `buddynextpro_paywall_description` (via `update_space_meta()`). This is the Free/Pro contract in action - Pro never alters the Free schema.
+
 ## Notes / gotchas
 
 - **`member_count` must be maintained.** Every join, leave, and removal adjusts `bn_spaces.member_count`. Never derive the member total with `COUNT(*)` in a page render - read the column. The daily recount job reconciles any drift.

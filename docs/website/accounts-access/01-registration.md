@@ -41,7 +41,7 @@ The new member's path depends on two settings: your **Registration Mode** and wh
 - **Instant access (Open mode, verification off).** The account is created and the member is signed in immediately. They land on the onboarding wizard if onboarding is enabled, otherwise on the activity feed.
 - **Verification required.** The account is created and the member is sent to a verification screen. They must click the link in the confirmation email before getting full access. (See the Email Verification page for the full flow.)
 - **Admin approval (Approval mode).** The account is created but held. The member sees a message that their account is awaiting administrator approval, and they cannot sign in until an admin approves them.
-- **Invite only (Invite mode).** A valid invitation is required. Without one, sign-up is refused with a message that the community is invite-only. An invitation link can also drop the new member straight into the space they were invited to.
+- **Invite only (Invite mode).** A valid invitation is required. Without one, sign-up is refused with a message that the community is invite-only. When someone opens their invitation link, the sign-up form already has their email address filled in, so they only need to choose a username and password. An invitation link can also drop the new member straight into the space they were invited to.
 
 ## Setting it up (for owners)
 

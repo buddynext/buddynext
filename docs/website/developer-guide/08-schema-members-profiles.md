@@ -206,6 +206,54 @@ Indexes:
 
 Relationships: `user_id` -> `wp_users.ID`, `field_id` -> `bn_profile_fields.id`. A member's complete profile is the set of value rows joined back to fields and groups.
 
+## Denormalized social-graph counters (usermeta)
+
+Follower, following, and connection totals are **denormalized into `wp_usermeta`** so a profile header or directory card never runs `COUNT(*)` against the edge tables. The counters are maintained by `BuddyNext\Core\CounterService` and read back by the service layer (`FollowService::follower_count()` / `following_count()`, `ConnectionService::connection_count()`).
+
+| Usermeta key | Holds | Counts |
+|---|---|---|
+| `bn_follower_count` | Users following this member | `bn_follows` rows where `following_id = user` AND `status = 'approved'` |
+| `bn_following_count` | Users this member follows | `bn_follows` rows where `follower_id = user` AND `status = 'approved'` |
+| `bn_connection_count` | Accepted connections | `bn_connections` rows where the user is requester or recipient AND `status = 'accepted'` |
+
+`CounterService` methods:
+
+- `adjust_user_counter( int $user_id, string $meta_key, int $delta )` - the O(1) write path used by every follow/connection change. A single clamped `UPDATE ... GREATEST(0, ...)` with no re-count of the edge table. It is a no-op when the row is absent (the read path lazy-recounts a missing key), then busts the per-user meta cache.
+- `recount_follow_counts( int $user_id )` / `recount_connection_counts( int $user_id )` - authoritative per-user recount from the edge tables (the lazy-recount + repair path).
+- `recount_all_follow_counts()` / `recount_all_connection_counts()` - set-based drift self-heal for every user with a counter row, run from the daily recount job. Each `UPDATE ... LEFT JOIN` carries a `WHERE meta_value <> COALESCE(...)` guard so only genuinely-drifted rows are written.
+
+> **Follow counts are approved-only.** A pending follow to a private account is not a follower yet, so the denormalized store and the `FollowService` reads both filter `status = 'approved'`. Keep that filter when extending follow counting, or the displayed total will jump on every still-pending request.
+
+## Member search index
+
+A member is mirrored into the unified `bn_search_index` table (one row per object, `object_type = 'user'`) by `ProfileService::index_user( int $user_id )`. The indexed `content` is the member's `display_name` (as the title) plus the concatenation of:
+
+- the headline (`bn_headline` usermeta),
+- the bio (`bn_field_bio` usermeta), and
+- the public, searchable extended-profile field mirrors returned by `MemberDirectoryService::searchable_mirror_keys()`.
+
+Member-directory and global search then match against this row through the shared FULLTEXT primitive `SearchService::match_member_ids( string $term, int $limit = 500 )`, which uses the `ft_search` FULLTEXT index when present and falls back to `LIKE` otherwise, returning the matching `object_id` (user) list. Reuse `match_member_ids()` rather than writing your own query when you need a "members matching this term" id set.
+
+## Member deletion is a GDPR hard-delete
+
+Deleting a member runs `BuddyNext\Profile\MemberCleanupService::purge_user_relations( int $user_id, string $context = 'delete' )`. As well as removing the member's social-graph rows, counters, and profile values, it **hard-deletes the posts and comments they authored** (standard GDPR erasure - there is no soft-delete or reassign-to-tombstone path). It then fires:
+
+```php
+do_action( 'buddynext_purge_user_data', int $user_id, string $context );
+```
+
+so addons that store their own per-user rows can clean up in the same pass. The `$context` (`'delete'` or the erasure context) is passed through for addon information only - both contexts hard-delete. This is the canonical cleanup seam; hook it instead of `deleted_user` when your data is BuddyNext-scoped.
+
+## Registering a member field from code
+
+`bn_profile_fields` / `bn_profile_values` are the storage for admin-created fields. To add an extended-profile field **from code** (for example an integration adding one field), call the Free helper:
+
+```php
+buddynext_register_member_field( string $key, array $args = [] );
+```
+
+It is the member-side companion to `buddynext_register_space_field()` and shares its `( $key, $args )` shape. The field surfaces on the profile, the profile edit UI, and `GET /users/{id}/profile`, and - because a programmatic field has no `bn_profile_fields` row - its submitted value is stored to **`bn_field_{key}` usermeta** (not `bn_profile_values`). The `$args['type']` must be one of the Free field types; the "File upload" (`file`) type is **Pro-only** and is not registered in Free. See the Extending cookbook for a worked recipe.
+
 ## Notes / gotchas
 
 - **ID width differs.** `bn_member_types` and `bn_member_type_assignments` use `INT UNSIGNED` ids; every other table here uses `BIGINT(20) UNSIGNED`. Match the column type when joining or storing references.
