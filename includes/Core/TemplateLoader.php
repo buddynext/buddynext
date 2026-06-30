@@ -63,6 +63,17 @@ class TemplateLoader {
 			return $default;
 		}
 
+		// 4. Addon-registered template directories (Pro, bridges). Theme overrides
+		// (1-2) and the Free default (3) still win; this only resolves templates
+		// Free does not ship, e.g. Pro membership surfaces. Searched last so a
+		// child theme can still override an addon template at buddynext/{relative}.
+		foreach ( (array) apply_filters( 'buddynext_template_locations', array() ) as $bn_dir ) {
+			$bn_candidate = trailingslashit( (string) $bn_dir ) . $relative;
+			if ( file_exists( $bn_candidate ) ) {
+				return $bn_candidate;
+			}
+		}
+
 		return null;
 	}
 
