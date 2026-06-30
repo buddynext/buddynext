@@ -1169,28 +1169,10 @@ class SpaceService {
 		$limit  = max( 1, min( 50, $limit ) );
 		$offset = max( 0, $offset );
 
-		$members_table = $wpdb->prefix . 'bn_space_members';
-		$where         = array( 'parent_id = %d', 'is_archived = 0' );
-		$params        = array( $parent_id );
-
-		if ( ! $is_admin ) {
-			$unlisted = SpaceTypeRegistry::instance()->unlisted_keys();
-			if ( $unlisted ) {
-				// Slugs are sanitize_key()'d in the registry, so safe to interpolate.
-				$placeholders = implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $unlisted ) );
-				if ( $viewer_id > 0 ) {
-					$where[]  = "( type NOT IN ( {$placeholders} ) OR owner_id = %d OR id IN ( SELECT space_id FROM {$members_table} WHERE user_id = %d AND status = 'active' ) )";
-					$params[] = $viewer_id;
-					$params[] = $viewer_id;
-				} else {
-					$where[] = "type NOT IN ( {$placeholders} )";
-				}
-			}
-		}
-
-		$where_sql = 'WHERE ' . implode( ' AND ', $where );
-		$params[]  = $limit;
-		$params[]  = $offset;
+		list( $where, $params ) = $this->subspace_visibility_where( $parent_id, $viewer_id, $is_admin );
+		$where_sql              = 'WHERE ' . implode( ' AND ', $where );
+		$params[]               = $limit;
+		$params[]               = $offset;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$rows = $wpdb->get_results(
@@ -1203,6 +1185,81 @@ class SpaceService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
 		return array_map( array( $this, 'hydrate' ), (array) $rows );
+	}
+
+	/**
+	 * Build the shared visibility-scoped WHERE for a parent's sub-spaces.
+	 *
+	 * One source of truth so get_subspaces() (the visible LIST) and
+	 * count_visible_subspaces() (the displayed COUNT) can never diverge — a member must
+	 * never see a sub-space total that includes secret/unlisted children they can't open.
+	 * Non-admins see a child only when its type is listed, OR they own it, OR they are an
+	 * active member of it.
+	 *
+	 * @param int  $parent_id Parent space ID (already absint-ed by the caller).
+	 * @param int  $viewer_id Viewer ID (0 = logged out).
+	 * @param bool $is_admin  Site admin sees every child.
+	 * @return array{0: string[], 1: array<int, mixed>} [ where-clauses, prepared params ].
+	 */
+	private function subspace_visibility_where( int $parent_id, int $viewer_id, bool $is_admin ): array {
+		global $wpdb;
+
+		$where  = array( 'parent_id = %d', 'is_archived = 0' );
+		$params = array( $parent_id );
+
+		if ( ! $is_admin ) {
+			$unlisted = SpaceTypeRegistry::instance()->unlisted_keys();
+			if ( $unlisted ) {
+				// Slugs are sanitize_key()'d in the registry, so safe to interpolate.
+				$placeholders = implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $unlisted ) );
+				if ( $viewer_id > 0 ) {
+					$members_table = $wpdb->prefix . 'bn_space_members';
+					$where[]       = "( type NOT IN ( {$placeholders} ) OR owner_id = %d OR id IN ( SELECT space_id FROM {$members_table} WHERE user_id = %d AND status = 'active' ) )";
+					$params[]      = $viewer_id;
+					$params[]      = $viewer_id;
+				} else {
+					$where[] = "type NOT IN ( {$placeholders} )";
+				}
+			}
+		}
+
+		return array( $where, $params );
+	}
+
+	/**
+	 * Count a parent's sub-spaces VISIBLE to a viewer (non-archived).
+	 *
+	 * The display-safe sibling of count_subspaces(): it applies the SAME visibility
+	 * scope as get_subspaces(), so the "N sub-spaces" a member sees matches the list they
+	 * can actually open — no secret-child leak in the count. count_subspaces() stays the
+	 * unscoped structural count, correct for move/cap validation.
+	 *
+	 * @param int  $parent_id Parent space ID.
+	 * @param int  $viewer_id Viewer ID (0 = logged out).
+	 * @param bool $is_admin  Site admin counts every child.
+	 * @return int
+	 */
+	public function count_visible_subspaces( int $parent_id, int $viewer_id = 0, bool $is_admin = false ): int {
+		global $wpdb;
+
+		$parent_id = absint( $parent_id );
+		if ( $parent_id <= 0 ) {
+			return 0;
+		}
+
+		list( $where, $params ) = $this->subspace_visibility_where( $parent_id, $viewer_id, $is_admin );
+		$where_sql              = 'WHERE ' . implode( ' AND ', $where );
+
+		// The %d placeholders live inside the interpolated $where_sql (parent + viewer),
+		// so the query IS prepared — phpcs just can't see them in the literal string.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces {$where_sql}",
+				$params
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 	}
 
 	/**
