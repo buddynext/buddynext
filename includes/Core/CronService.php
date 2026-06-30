@@ -45,9 +45,13 @@ class CronService {
 	 * Sends via wp_mail using the bn.daily_digest template and logs each
 	 * successful delivery to bn_email_log with digest_date = today.
 	 *
+	 * Self-chains via Action Scheduler when a chunk fills the cap, so every daily user
+	 * is reached (the old un-cursored LIMIT starved everyone past the first ~200).
+	 *
+	 * @param int $after_id Keyset cursor for chained chunks (0 = first/recurring run).
 	 * @return void
 	 */
-	public function handle_daily_digest(): void {
+	public function handle_daily_digest( int $after_id = 0 ): void {
 		if ( $this->digests_disabled() ) {
 			return;
 		}
@@ -57,7 +61,7 @@ class CronService {
 			return;
 		}
 
-		$user_ids = $this->get_digest_user_ids( 'daily' );
+		$user_ids = $this->get_digest_user_ids( 'daily', $after_id );
 		if ( empty( $user_ids ) ) {
 			return;
 		}
@@ -77,6 +81,8 @@ class CronService {
 				$this->log_digest( $user_id, 'bn.daily_digest' );
 			}
 		}
+
+		$this->chain_next_digest_chunk( CronScheduler::JOB_DAILY_DIGEST, $user_ids );
 	}
 
 	// ── Weekly digest ─────────────────────────────────────────────────────────
@@ -87,11 +93,13 @@ class CronService {
 	 * Identical flow to handle_daily_digest() but spans 7 days and uses the
 	 * bn.weekly_digest template. The digest_already_sent check looks for a
 	 * bn_email_log row with type = 'bn.weekly_digest' and a digest_date within
-	 * the current ISO week so multiple cron runs do not re-send.
+	 * the current ISO week so multiple cron runs do not re-send. Self-chains via
+	 * Action Scheduler the same way handle_daily_digest() does.
 	 *
+	 * @param int $after_id Keyset cursor for chained chunks (0 = first/recurring run).
 	 * @return void
 	 */
-	public function handle_weekly_digest(): void {
+	public function handle_weekly_digest( int $after_id = 0 ): void {
 		if ( $this->digests_disabled() ) {
 			return;
 		}
@@ -101,7 +109,7 @@ class CronService {
 			return;
 		}
 
-		$user_ids = $this->get_digest_user_ids( 'weekly' );
+		$user_ids = $this->get_digest_user_ids( 'weekly', $after_id );
 		if ( empty( $user_ids ) ) {
 			return;
 		}
@@ -121,6 +129,8 @@ class CronService {
 				$this->log_digest( $user_id, 'bn.weekly_digest' );
 			}
 		}
+
+		$this->chain_next_digest_chunk( CronScheduler::JOB_WEEKLY_DIGEST, $user_ids );
 	}
 
 	/**
@@ -287,32 +297,63 @@ class CronService {
 	// ── Private helpers ───────────────────────────────────────────────────────
 
 	/**
-	 * Return distinct user IDs that have a global email_freq preference of $freq.
+	 * Page through the distinct user IDs whose email_freq preference is $freq.
 	 *
-	 * Only returns a global preference row (type = 'global') to avoid sending
-	 * separate digests for every individual notification type. Capped at
-	 * DIGEST_USER_CAP to prevent PHP timeout on large sites.
+	 * DISTINCT user_id collapses a member's multiple notification-pref rows to a
+	 * single digest. Keyset-paginated by user_id (cursor $after_id) and capped at
+	 * DIGEST_USER_CAP per chunk, so the handler chains through the whole base via
+	 * Action Scheduler without any single unbounded run.
 	 *
-	 * @param string $freq 'daily' or 'weekly'.
+	 * @param string $freq     'daily' or 'weekly'.
+	 * @param int    $after_id Keyset cursor — return only users with a greater user_id.
 	 * @return int[]
 	 */
-	private function get_digest_user_ids( string $freq ): array {
+	private function get_digest_user_ids( string $freq, int $after_id = 0 ): array {
 		global $wpdb;
 
+		// Keyset cursor on user_id (not a bare LIMIT) so successive runs page through
+		// EVERY digest-frequency user. The old `LIMIT 200` with no cursor returned the
+		// same first ~200 users every run and starved everyone past them; the caller
+		// chains the next chunk via Action Scheduler keyed on the last user_id here.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$raw = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT DISTINCT user_id
 				   FROM {$wpdb->prefix}bn_notification_prefs
-				  WHERE email_freq = %s
+				  WHERE email_freq = %s AND user_id > %d
+				  ORDER BY user_id ASC
 				  LIMIT %d",
 				$freq,
+				$after_id,
 				self::DIGEST_USER_CAP
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return array_map( 'intval', (array) $raw );
+	}
+
+	/**
+	 * Chain the next digest chunk via Action Scheduler when this run filled the cap.
+	 *
+	 * A full chunk (== DIGEST_USER_CAP rows) means more digest-frequency users remain
+	 * past the cursor, so we enqueue a one-off run of the SAME recurring hook keyed on
+	 * the last user_id. The chain converges (the cursor only advances) and terminates
+	 * the first time a chunk returns fewer than the cap, so a 50k-user base is fully
+	 * processed in one cadence cycle while each run stays bounded.
+	 *
+	 * @param string $hook     The digest job hook (JOB_DAILY_DIGEST / JOB_WEEKLY_DIGEST).
+	 * @param int[]  $user_ids The user IDs this run processed (ascending).
+	 * @return void
+	 */
+	private function chain_next_digest_chunk( string $hook, array $user_ids ): void {
+		if ( count( $user_ids ) < self::DIGEST_USER_CAP ) {
+			return; // Last chunk (an empty chunk is also < cap) — all users paged through.
+		}
+		if ( ! function_exists( 'as_enqueue_async_action' ) ) {
+			return; // No Action Scheduler — degrade to the next recurring run.
+		}
+		as_enqueue_async_action( $hook, array( (int) max( $user_ids ) ), CronScheduler::GROUP );
 	}
 
 	/**

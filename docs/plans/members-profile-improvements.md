@@ -10,9 +10,10 @@ integrity)** — the security/privacy fixes, the **complete member-directory sca
 sorts/filters, bounded reads, no IN/NOT-IN id lists, no per-card N+1, bounded count), and the canonical
 member-delete purge, **T17/F4** (suspension-filter dedup, premise corrected), **T18/F5** (dead digest-queue
 removal), **T13** (self-clear member type), **T20/E1–E3** (hygiene), and **T19/F6** (invite pre-fill +
-async send), each browser-verified where applicable (the scale + delete work re-verified on a 1.5k-member /
-300-space seed). The remaining tasks (T9, T14, T15, T21/F7, E4, E5, B3) are unstarted; their plan + exact
-touch-points are validated at code `file:line`.
+async send), and **T21/F7** (digest cron at scale — keyset + AS chaining), each browser-verified where
+applicable (the scale + delete + digest work re-verified on a 1.5k-member / 300-space seed). The remaining
+tasks (T9, T14, T15, E4, E5, B3) are unstarted; their plan + exact touch-points are validated at code
+`file:line`.
 **QA: re-verify the shipped work with the [QA test cases](#qa-test-cases--shipped-work-re-verify) below.**
 
 | Task | State | One-liner |
@@ -32,7 +33,7 @@ touch-points are validated at code `file:line`.
 | T18 | ✅ DONE | removed the dead `buddynext_digest_queue_*` write (`on_queue_email_digest` handler + registration); digests are cron-driven from `bn_notifications`+`bn_notification_prefs`. `buddynext_queue_email_digest` kept as an addon extension point |
 | T19 | ✅ DONE | invite email pre-fill (`signup.php` value attr + context from `$bn_invite['email']`) + async send (`create()` enqueues `buddynext_async_send_invite_email` via Action Scheduler; `OnboardingListener` handles it). Verified: pre-fill renders the invited email; create() schedules 1 async action (not inline) |
 | T20 | ✅ DONE | hygiene — E1 self-target guard was ALREADY handled (BlockService rejects self-block/mute/restrict; false finding); E2 `/account-type` gated to `require_auth` (no public caller, was leaking `is_private`); E3 stale 5-of-13 `parts/profile-field.php` deleted (loaded nowhere). E4 (member-field API) + E5 (manifest refresh) remain |
-| T21 | ⏳ PENDING | digest cron at scale (verify cadence first) |
+| T21 | ✅ DONE | digest cron at scale — **verified the defect is real** (un-cursored `LIMIT 200` starved every digest user past the first ~200), then fixed: keyset cursor on `user_id` + AS self-chaining (`chain_next_digest_chunk`) so one cadence reaches ALL users in bounded 200-chunks. Verified live (250 daily users → chunk1 chains at cursor=200th uid, chunk2 of 50 does not chain) |
 
 **Open decisions:** D2 (field search FULLTEXT vs LIKE), D3 (File field upload vs remove), and which of the
 7 people-expectation suggestions (bottom of this file) land in 1.0.4.
@@ -73,6 +74,7 @@ no filesort); QA verifies the **behaviour**.
 | **QA-E2** | Account-type not anonymous | — | Logged **out**, call `GET /wp-json/buddynext/v1/users/{id}/account-type` | 401 (not the account's `is_private`). Logged-in, the same call still works (200) |
 | **QA-T19a** | Invite email pre-fill | Invite-only registration; a pending invite for an address | Open the invite link (`/login/signup/?invite=…`) **logged out** | The email field is pre-filled with the invited address (you don't re-type it) |
 | **QA-T19b** | Invite send is async | — | Create invites (single or **CSV import** of many) | The request returns promptly even for a large CSV; emails go out via Action Scheduler (Tools → Scheduled Actions shows `buddynext_async_send_invite_email`), not inline — no timeout |
+| **QA-T21** | Digest reaches everyone | More than ~200 members set to daily/weekly email digest, each with unread notifications | Let the digest cron run (or trigger it) | EVERY digest member gets their digest, not just the first 200. Tools → Scheduled Actions shows `buddynext_daily_digest`/`buddynext_weekly_digest` chaining through chunks until done |
 
 **Caveats QA should know:**
 - **A6a live-vs-cached:** the REST member list caches results ~60s per viewer, so a just-changed presence/online state can lag up to 60s on the *live* (JS) list; the SSR hard-reload is always live. Not a bug.
@@ -473,7 +475,18 @@ create()` now enqueues `buddynext_async_send_invite_email` through Action Schedu
 inline fallback when AS is absent), so a CSV import that loops `create()` schedules N fast async sends.
 Verified live: signup renders the invited email pre-filled; `create()` schedules exactly 1 async action.
 
-**F7 · T21 — Digest cron at scale (verify-first).** The digest cron sends inline `wp_mail()` capped at
+**F7 · ✅ DONE — Digest cron at scale.** Verify-first confirmed the defect is REAL and worse than a backlog:
+`get_digest_user_ids()` did `LIMIT 200` with **no ORDER BY and no cursor**, so every recurring run returned
+the same first ~200 users and **permanently starved everyone past them** (the loop's per-user skip can't
+help — those users are never queried). Fixed with a keyset cursor on `user_id` + AS self-chaining: each run
+processes ≤`DIGEST_USER_CAP` users ordered by id, and `chain_next_digest_chunk()` enqueues a one-off run of
+the same recurring hook keyed on the last id whenever a chunk fills the cap. The chain only advances and
+terminates on the first short chunk, so a 50k base is fully processed in one cadence cycle, each run bounded.
+(Also corrected a stale `get_digest_user_ids` docblock that claimed a `type='global'` filter the query never
+had — `DISTINCT user_id` is what dedups.) Verified live on the seed (250 daily users → chunk1 chains at
+cursor = the 200th uid, chunk2 of 50 stops).
+
+**F7-OLD ·** The digest cron sends inline `wp_mail()` capped at
 200 users/run; at 50k members with a 1×/day cron the backlog can grow.
 - **Fix (verify cadence first):** move sends to Action Scheduler if a real backlog exists.
 
