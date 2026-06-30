@@ -58,9 +58,9 @@ class PageRouter {
 		add_action( 'init', array( $this, 'maybe_flush_rewrites' ), 20 );
 		add_action( 'pre_get_posts', array( $this, 'set_hub_vars' ) );
 
-		// Flush rewrites whenever any hub slug changes.
-		foreach ( array( 'activity', 'people', 'spaces', 'messages', 'notifications', 'auth', 'onboarding' ) as $hub ) {
-			add_action( 'update_option_buddynext_slug_' . $hub, array( $this, 'flush_on_slug_change' ) );
+		// Flush rewrites whenever any hub slug changes (sourced from the registry).
+		foreach ( HubRegistry::instance()->all() as $bn_hub ) {
+			add_action( 'update_option_' . $bn_hub->slug_option, array( $this, 'flush_on_slug_change' ) );
 		}
 
 		add_filter( 'request', array( $this, 'suppress_default_query' ) );
