@@ -86,7 +86,7 @@ class Installer {
 	 *      already behaved as a URL field (the sanitiser aliased file -> url), so stored
 	 *      values are preserved. No schema change.
 	 */
-	private const SCHEMA_VERSION = 14;
+	private const SCHEMA_VERSION = 15;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -1340,7 +1340,8 @@ class Installer {
 				digest_date DATE DEFAULT NULL,
 				sent_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
-				KEY         user_type (user_id, type, digest_date)
+				KEY         user_type (user_id, type, digest_date),
+				KEY         type (type)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_verify_tokens (

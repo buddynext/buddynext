@@ -189,6 +189,7 @@ class Plugin {
 					$container->get( 'admin_spaces' )->register();
 					$container->get( 'admin_nav' )->register();
 					$container->get( 'admin_email_editor' )->register();
+					( new \BuddyNext\Admin\EmailLog() )->register();
 					$container->get( 'setup_wizard' )->init();
 					( new \BuddyNext\Demo\DemoAdmin() )->register();
 					( new \BuddyNext\Admin\AppearanceTab() )->register();

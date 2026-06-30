@@ -229,6 +229,10 @@ class AdminHub {
 			'section'  => 'notifications',
 			'position' => 30,
 		),
+		'settings:email-log'            => array(
+			'section'  => 'notifications',
+			'position' => 40,
+		),
 
 		// Realtime & Push (Pro). Hidden in free (no tabs register).
 		'settings:realtime'             => array(
