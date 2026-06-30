@@ -530,6 +530,19 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					}
 					$bn_mt_html .= '</select>';
 
+					// Surface the selected type's description so the member knows
+					// what it means (the data is already plumbed, just not shown).
+					$bn_mt_desc = '';
+					foreach ( $bn_self_types as $bn_t ) {
+						if ( (string) ( $bn_t['slug'] ?? '' ) === $bn_current_slug ) {
+							$bn_mt_desc = (string) ( $bn_t['description'] ?? '' );
+							break;
+						}
+					}
+					if ( '' !== $bn_mt_desc ) {
+						$bn_mt_html .= '<p class="bn-field-hint bn-ep-member-type-desc">' . esc_html( $bn_mt_desc ) . '</p>';
+					}
+
 					buddynext_get_template(
 						'parts/profile-edit-section.php',
 						array(
