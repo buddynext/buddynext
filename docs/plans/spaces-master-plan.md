@@ -146,7 +146,7 @@ today — third-party developer-registered space fields (the P-B "developer-frie
 - ⏳ Pro `MembershipAdmin` `bn_space_{id}_paywall_*` options → migrate to `bn_space_meta` (Pro follow-up).
 - ⏳ Sub-space `total` counts secret children a non-member can't see (rare count discrepancy).
 - ⏳ `handle_archive` redirects `?archived=1` but no matching admin success notice (cosmetic) — **confirmed live 2026-06-29** (archive/unarchive both work; just no `add_settings_error`/notice on return).
-- ⏳ Directory composite index (S3) deferred — EXPLAIN-gate on a seeded 5k-space lab before adding.
+- ✅ Directory composite indexes (S3) — DONE (schema v12, 2026-06-30). `dir_popular (parent_id, member_count)` + `dir_name (parent_id, name)` kill the directory filesort at the 20-30k-spaces-per-site scale target (EXPLAIN: backward index scan, no filesort). Justified by the owner's stated scale (members create spaces → 20-30k directory rows), not deferred. Also added: opt-in "Include sub-spaces" filter (roots-only default stays uncrowded + bounded) and a reactive pager that rebuilds for the filtered set (SSR page-links + indexed OFFSET; keyset reserved for deep-scroll feeds). Deferred: "Recently active" sort (needs a denormalized `last_activity_at` column + post-path maintenance) and reactive pagination for the *search* path. See [[buddynext-scale-target]].
 
 **Verified clean:** zero remaining `bn_space_` option reads/writes in Free (only the empty back-compat
 `buddynext_space_option_suffixes` filter); all 8 fields migrated + have consumers; `delete()` clears meta;
