@@ -17,6 +17,18 @@ unified on the FULLTEXT `bn_search_index` engine — directory search == unified
 pending-follow miscount fixed), each browser-verified where applicable (the scale + delete + digest + search
 + counter work re-verified on a 1.5k-member / 300-space seed). The remaining tasks (T14/D3, E5, B3) are
 unstarted; their plan + exact touch-points are validated at code `file:line`.
+
+**Post-implementation uniformity audit (all 16 done tasks).** Swept the shipped work for divergent paths /
+dups / dead code. All 16 present + aligned. Three cleanups landed in the directory layer (the one area a
+later task could have left a stale path): (A) `MemberDirectoryService` computed card `follower_count` via a
+live `COUNT(*)` subquery with no `status` filter — it both duplicated T9's denormalised counter and diverged
+(counted pending follows); now reads the denormalised `bn_follower_count` from the primed meta cache
+(page-bounded lazy populate), so directory == profile == FollowService (verified: 2 == 2 == 2). (B) removed
+the now-caller-less `excluded_user_ids()` (the unbounded global suspended+shadowban scan A6 replaced with
+NOT EXISTS — not in the manifest, no Pro contract). (C) `online_now()` reused the canonical
+`directory_exclusion_subqueries()` instead of re-inlining the same gate. One observation left as-is: the
+`buddynext_queue_email_digest` action still fires (EmailSender) but is consumer-less in core post-F5 (the
+digest is cron-driven via T21) — a harmless public hook, intentionally kept.
 **QA: re-verify the shipped work with the [QA test cases](#qa-test-cases--shipped-work-re-verify) below.**
 
 | Task | State | One-liner |

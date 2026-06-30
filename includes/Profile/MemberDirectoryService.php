@@ -125,10 +125,11 @@ class MemberDirectoryService {
 		// Build SELECT — scalar subqueries for computed card fields.
 		// ------------------------------------------------------------------ //
 
-		// is_online is resolved after the main query via update_meta_cache() to avoid
-		// an N+1 subquery per row. The SELECT column is omitted intentionally.
-
-		$follower_count_subquery = "(SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows f WHERE f.following_id = u.ID) AS follower_count";
+		// is_online AND follower_count are both resolved after the main query — the
+		// latter from the denormalised bn_follower_count usermeta (T9), so it matches
+		// FollowService::follower_count() exactly instead of a second, divergent
+		// per-row COUNT(*) subquery that also counted pending follows. SELECT columns
+		// for both are omitted here.
 
 		// mutual_connection_count is computed post-query to avoid the MySQL 5.7
 		// "Can't reopen table" error that occurs when bn_connections is referenced
@@ -355,8 +356,7 @@ class MemberDirectoryService {
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT u.ID, u.display_name, u.user_login, u.user_registered{$presence_select},
-				        {$follower_count_subquery}
+				"SELECT u.ID, u.display_name, u.user_login, u.user_registered{$presence_select}
 				 FROM {$wpdb->users} u
 				 {$join_sql}
 				 WHERE {$where_sql}
@@ -460,8 +460,31 @@ class MemberDirectoryService {
 			$blocks->prime_restricted_cache( $viewer_id, $row_ids );
 		}
 
+		// Resolve follower counts from the denormalised bn_follower_count usermeta
+		// (primed by update_meta_cache above), keeping the directory consistent with the
+		// profile + O(1) per card. Any member whose counter row isn't seeded yet is
+		// recounted once here, so the directory self-heals a page at a time (bounded to
+		// the page size) instead of re-scanning bn_follows on every load forever.
+		$follower_counts = array();
+		$needs_recount   = array();
+		foreach ( $row_ids as $uid ) {
+			$meta = get_user_meta( $uid, 'bn_follower_count', true );
+			if ( '' === $meta ) {
+				$needs_recount[] = $uid;
+			} else {
+				$follower_counts[ $uid ] = (int) $meta;
+			}
+		}
+		if ( $needs_recount ) {
+			$counters = buddynext_service( 'counters' );
+			foreach ( $needs_recount as $uid ) {
+				$counters->recount_follow_counts( $uid );
+				$follower_counts[ $uid ] = (int) get_user_meta( $uid, 'bn_follower_count', true );
+			}
+		}
+
 		$items = array_map(
-			static function ( $r ) use ( $mutual_counts, $viewer_id, $blocks ) {
+			static function ( $r ) use ( $mutual_counts, $follower_counts, $viewer_id, $blocks ) {
 				$uid = (int) $r['ID'];
 				$bio = get_user_meta( $uid, 'bn_field_bio', true );
 				return array(
@@ -471,7 +494,7 @@ class MemberDirectoryService {
 					'registered_at'           => $r['user_registered'],
 					'bio'                     => $bio ? $bio : '',
 					'is_online'               => $blocks->is_user_online( $viewer_id, $uid ),
-					'follower_count'          => (int) $r['follower_count'],
+					'follower_count'          => $follower_counts[ $uid ] ?? 0,
 					'mutual_connection_count' => $mutual_counts[ $uid ] ?? 0,
 				);
 			},
@@ -621,42 +644,6 @@ class MemberDirectoryService {
 	}
 
 	/**
-	 * User IDs the directory must exclude from results.
-	 *
-	 * Retained for back-compat / external callers. The server-rendered directory no
-	 * longer materialises this list — it injects directory_filter_sql() instead — so
-	 * this method has no internal caller; it mirrors the exclusion list_members()
-	 * applies (active suspensions + shadow-banned + both-direction blocks when a
-	 * $viewer_id is supplied). The viewer is NOT added here — callers append it.
-	 *
-	 * @param int $viewer_id Optional. Viewing user, used to fold in their block
-	 *                       relationships. Default 0 (no block exclusion).
-	 * @return int[] Distinct user IDs to exclude.
-	 */
-	public function excluded_user_ids( int $viewer_id = 0 ): array {
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$suspended = $wpdb->get_col(
-			"SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
-			 WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())"
-		);
-
-		$shadow_banned = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT user_id FROM {$wpdb->usermeta}
-				 WHERE meta_key = %s AND meta_value = '1'",
-				'bn_shadow_banned'
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-		$blocked = $viewer_id > 0 ? buddynext_service( 'blocks' )->block_related_ids( $viewer_id ) : array();
-
-		return array_values( array_unique( array_map( 'intval', array_merge( (array) $suspended, (array) $shadow_banned, $blocked ) ) ) );
-	}
-
-	/**
 	 * User IDs active within the online window (last 5 minutes).
 	 *
 	 * Used to apply the "Online only" filter to the server-rendered first page's
@@ -789,6 +776,11 @@ class MemberDirectoryService {
 		// returning up to $limit visible members.
 		$fetch = $limit * 3;
 
+		// Same discovery gate the directory queries use — reuse the one canonical
+		// builder instead of re-inlining the suspended / shadow-banned / opt-out
+		// NOT EXISTS clauses here, so the two surfaces can never drift apart.
+		$exclusions = implode( ' AND ', $this->directory_exclusion_subqueries( 'u.ID' ) );
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
@@ -796,19 +788,7 @@ class MemberDirectoryService {
 				   FROM {$wpdb->users} u
 				   JOIN {$wpdb->prefix}bn_presence pres ON pres.user_id = u.ID
 				  WHERE pres.last_active >= %d
-				    AND NOT EXISTS (
-				        SELECT 1 FROM {$wpdb->prefix}bn_user_suspensions s_ex
-				        WHERE s_ex.user_id = u.ID AND s_ex.lifted_at IS NULL
-				          AND ( s_ex.expires_at IS NULL OR s_ex.expires_at > UTC_TIMESTAMP() )
-				      )
-				    AND NOT EXISTS (
-				        SELECT 1 FROM {$wpdb->usermeta} um_ban
-				        WHERE um_ban.user_id = u.ID AND um_ban.meta_key = 'bn_shadow_banned' AND um_ban.meta_value = '1'
-				      )
-				    AND NOT EXISTS (
-				        SELECT 1 FROM {$wpdb->usermeta} um_dir
-				        WHERE um_dir.user_id = u.ID AND um_dir.meta_key = 'bn_privacy_show_in_directory' AND um_dir.meta_value = '0'
-				      )
+				    AND {$exclusions}
 				  ORDER BY pres.last_active DESC
 				  LIMIT %d",
 				time() - 300,
