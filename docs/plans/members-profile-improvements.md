@@ -5,17 +5,19 @@ lives in `spaces-master-plan.md`. Both repos on `1.0.4`. Last updated 2026-06-29
 
 ## STATUS — IN PROGRESS (security + directory-scale cluster shipped 2026-06-30)
 
-**Done + pushed on `1.0.4`:** T1, T2, T4/A1, T6, T16 (A2/A3/A5), A6a–A6d — the security/privacy fixes +
-the **complete member-directory scale cluster** (indexed sorts/filters, bounded reads, no IN/NOT-IN id
-lists, no per-card N+1, bounded count), each browser-verified. The remaining tasks (T3, T9, T13–T15,
-T17–T21, Workstreams B–F) are unstarted; their plan + exact touch-points are validated at code `file:line`.
+**Done + pushed on `1.0.4`:** T1, T2, T4/A1, T6, T16 (A2/A3/A5), A6a–A6d, **T3 (Workstream B — delete
+integrity)** — the security/privacy fixes, the **complete member-directory scale cluster** (indexed
+sorts/filters, bounded reads, no IN/NOT-IN id lists, no per-card N+1, bounded count), and the canonical
+member-delete purge, each browser-verified (the scale + delete work re-verified on a 1.5k-member /
+300-space seed). The remaining tasks (T9, T13–T15, T17–T21, Workstreams C–F + B3) are unstarted; their plan
++ exact touch-points are validated at code `file:line`.
 **QA: re-verify the shipped work with the [QA test cases](#qa-test-cases--shipped-work-re-verify) below.**
 
 | Task | State | One-liner |
 |---|---|---|
 | T1 | ✅ DONE | Profile REST visibility leak (security) — `get_profile` now calls `can_view_profile()`, 404 on block/private; browser-verified (`f94c570f`) |
 | T2 | ✅ DONE | Explore one-directional block → `block_related_ids()` (bidirectional, same helper the directory uses) |
-| T3 | ⏳ PENDING | one canonical `purge_user_relations()` + `buddynext_purge_user_data` action (dup fix) |
+| T3 | ✅ DONE | one canonical `MemberCleanupService::purge_user_relations()` + `buddynext_purge_user_data` action; both the delete listener AND the GDPR eraser defer to it; closes the gap tables (member-type/presence/search-index/space-bans/appeals/shares/reactions/poll-votes). Verified live: deleted a member with rows in all 21 user-keyed tables → all purged, zero leaks |
 | T4 | ✅ DONE | member-type directory filter → indexed `bn_member_type_assignments` (A1) — both REST + SSR; EXPLAIN uses `idx_type_id`; SSR==REST verified; never loses members (usermeta_without_assignment=0) |
 | T6 | ✅ DONE | bound unbounded reads — `get_members`/controller always-paginate + 200 cap; `transfer_candidates` mods-first + LIMIT 200; `pending_followers`/`list_follow_requests` bounded+paginated; `suggestions` friend-sample capped 200. Browser-verified (members tab + transfer dropdown intact) |
 | T9 | ⏳ PENDING | finish follow + build connection denormalization (cache-cold) |
@@ -64,6 +66,7 @@ no filesort); QA verifies the **behaviour**.
 | **QA-A5** | Grid online dot + mutuals (no N+1) | Be active as one member; have two members share a connection with you | Open `/members/` | The active member shows the online dot; a member you share connections with shows the correct "N mutual" count + avatar pile — same values as before, just rendered without a per-card query |
 | **QA-A2a** | Pager still works | A filtered set spanning >1 page (e.g. search a common letter) | Page 1 → click **Next** / page **2** | Page 2 renders the remaining members; "« Prev" returns to page 1; counts add up |
 | **QA-A2b** | Bounded total | A directory with **>1000** matching members (large site) | Open `/members/`, read the "Members" total + the pager | The total saturates at **1,000** and the pager at ~50 pages (by design — an exact 50k count is noise; people browse a few pages). Under 1,000 the total is exact. SSR and live (REST) agree |
+| **QA-T3** | Delete integrity | A member with follows/connections/blocks/space memberships/a member type/online presence | Delete the member (Users → Delete, or WP-CLI) | None of their rows linger anywhere — they vanish from the directory, online list, space rosters (and member_count drops), search, follower lists. No "ghost" members. Their authored **posts** are a separate concern (out of scope here) |
 
 **Caveats QA should know:**
 - **A6a live-vs-cached:** the REST member list caches results ~60s per viewer, so a just-changed presence/online state can lag up to 60s on the *live* (JS) list; the SSR hard-reload is always live. Not a bug.
@@ -277,6 +280,21 @@ but cold cache = one self-join per card). The REST path already batches mutual c
 ---
 
 ## Workstream B — Referential integrity on user delete (P1 at churn) — the dedup that matters
+
+> **✅ B1 + B2 DONE.** New `Profile\MemberCleanupService::purge_user_relations( $user_id, $context )` holds
+> the ONE canonical table set; `SocialGraph\UserCleanupListener::on_deleted_user` (`delete`) and
+> `Privacy\PrivacyTools::erase_relational` (`gdpr-erase`) both defer to it (their two divergent lists are
+> gone). Closes every gap (member-type assignments, presence, search index, space bans, appeals, shares,
+> reactions, poll votes). Fires `do_action( 'buddynext_purge_user_data', $user_id, $context )` as the public
+> member-cleanup extension contract; the old `buddynext_user_relations_purged` still fires on delete for
+> back-compat. **Verified live** on the 1.5k-member seed: deleted a member seeded a row in all 21 user-keyed
+> tables → every relational table purged to 0, zero leaks.
+>
+> **Follow-up (NOT B — scope boundary):** authored content (`bn_posts`, and its cascade) is intentionally
+> NOT purged by the relational cleanup — on hard delete a member's posts are left with an orphaned
+> `user_id` (the GDPR eraser handles posts separately via `delete_user_posts`). Worth a dedicated task:
+> decide delete-vs-reassign for `bn_posts`/`bn_comments` on `deleted_user`. **B3** (`bn_invites` email
+> reconciliation) also still open.
 
 **The duplicate (the real problem):** two parallel member-purge lists that overlap **and disagree**:
 - `SocialGraph\UserCleanupListener::on_deleted_user` (`:78-96`) — follows, connections, blocks,

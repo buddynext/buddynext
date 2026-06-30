@@ -857,78 +857,13 @@ class PrivacyTools implements ListenerInterface {
 	 * @return bool Whether anything was removed.
 	 */
 	private function erase_relational( int $user_id ): bool {
-		global $wpdb;
-		$p       = $wpdb->prefix;
-		$removed = false;
-
-		// Decrement member counts for spaces the user actively belonged to.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $p is $wpdb->prefix; every query is built via $wpdb->prepare() (the $queries array holds pre-prepared strings).
-		$active_space_ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT space_id FROM {$p}bn_space_members WHERE user_id = %d AND status = 'active'",
-				$user_id
-			)
-		);
-		foreach ( $active_space_ids as $space_id ) {
-			$wpdb->query(
-				$wpdb->prepare(
-					"UPDATE {$p}bn_spaces SET member_count = GREATEST(1, member_count) - 1 WHERE id = %d",
-					(int) $space_id
-				)
-			);
-			wp_cache_delete( 'space_' . (int) $space_id, 'bn_spaces' );
-		}
-
-		// Capture the posts this user reacted to BEFORE the reactions are deleted
-		// below, so their denormalised reaction_count can be reconciled after
-		// (deleting the rows alone would leave the counters drifted high).
-		$reaction_post_ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT DISTINCT object_id FROM {$p}bn_reactions WHERE user_id = %d AND object_type = 'post'",
-				$user_id
-			)
-		);
-
-		$queries = array(
-			$wpdb->prepare( "DELETE FROM {$p}bn_follows WHERE follower_id = %d OR following_id = %d", $user_id, $user_id ),
-			$wpdb->prepare( "DELETE FROM {$p}bn_connections WHERE requester_id = %d OR recipient_id = %d", $user_id, $user_id ),
-			$wpdb->prepare( "DELETE FROM {$p}bn_blocks WHERE blocker_id = %d OR blocked_id = %d", $user_id, $user_id ),
-			$wpdb->prepare( "DELETE FROM {$p}bn_space_members WHERE user_id = %d", $user_id ),
-			$wpdb->prepare( "DELETE FROM {$p}bn_hashtag_follows WHERE user_id = %d", $user_id ),
-			$wpdb->prepare( "DELETE FROM {$p}bn_notification_prefs WHERE user_id = %d", $user_id ),
-			$wpdb->prepare( "DELETE FROM {$p}bn_notifications WHERE recipient_id = %d OR sender_id = %d", $user_id, $user_id ),
-			$wpdb->prepare( "DELETE FROM {$p}bn_profile_values WHERE user_id = %d", $user_id ),
-			$wpdb->prepare( "DELETE FROM {$p}bn_bookmarks WHERE user_id = %d", $user_id ),
-			$wpdb->prepare( "DELETE FROM {$p}bn_reactions WHERE user_id = %d", $user_id ),
-			$wpdb->prepare( "DELETE FROM {$p}bn_poll_votes WHERE user_id = %d", $user_id ),
-		);
-		foreach ( $queries as $sql ) {
-			if ( $wpdb->query( $sql ) > 0 ) {
-				$removed = true;
-			}
-		}
-
-		// Delete every bn_* user meta row.
-		$deleted_meta = $wpdb->query(
-			$wpdb->prepare(
-				"DELETE FROM {$wpdb->usermeta} WHERE user_id = %d AND meta_key LIKE %s",
-				$user_id,
-				$wpdb->esc_like( 'bn_' ) . '%'
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
-		if ( $deleted_meta > 0 ) {
-			$removed = true;
-		}
-
-		// Reconcile reaction_count on the posts the user had reacted to.
-		if ( ! empty( $reaction_post_ids ) ) {
-			buddynext_service( 'post_service' )->recount_counters( array_map( 'intval', $reaction_post_ids ) );
-		}
-
-		clean_user_cache( $user_id );
-
-		return $removed;
+		// Defer to the ONE canonical member-cleanup service (shared with the
+		// hard-delete path, SocialGraph\UserCleanupListener) so the eraser and the
+		// delete can never diverge or miss a table. Context 'gdpr-erase' runs the same
+		// full purge (every user-keyed table + member_count decrement + reaction
+		// recount + bn_* usermeta sweep) and fires buddynext_purge_user_data with that
+		// context so addons scrub their own per-user rows on the same signal.
+		return ( new \BuddyNext\Profile\MemberCleanupService() )->purge_user_relations( $user_id, 'gdpr-erase' );
 	}
 
 	/**

@@ -52,52 +52,18 @@ class UserCleanupListener {
 			return;
 		}
 
-		global $wpdb;
-		$p = $wpdb->prefix;
-
-		// Spaces the user actively belonged to — decrement their member_count
-		// before the membership rows go away so directory totals stay honest.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$active_space_ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT space_id FROM {$p}bn_space_members WHERE user_id = %d AND status = 'active'",
-				$user_id
-			)
-		);
-		foreach ( $active_space_ids as $space_id ) {
-			$wpdb->query(
-				$wpdb->prepare(
-					"UPDATE {$p}bn_spaces SET member_count = GREATEST(1, member_count) - 1 WHERE id = %d",
-					(int) $space_id
-				)
-			);
-			wp_cache_delete( 'space_' . (int) $space_id, 'bn_spaces' );
-		}
-
-		// Relational rows in both directions.
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$p}bn_follows WHERE follower_id = %d OR following_id = %d", $user_id, $user_id ) );
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$p}bn_connections WHERE requester_id = %d OR recipient_id = %d", $user_id, $user_id ) );
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$p}bn_blocks WHERE blocker_id = %d OR blocked_id = %d", $user_id, $user_id ) );
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$p}bn_space_members WHERE user_id = %d", $user_id ) );
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$p}bn_hashtag_follows WHERE user_id = %d", $user_id ) );
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$p}bn_notification_prefs WHERE user_id = %d", $user_id ) );
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$p}bn_notifications WHERE recipient_id = %d OR sender_id = %d", $user_id, $user_id ) );
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$p}bn_user_strikes WHERE user_id = %d", $user_id ) );
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$p}bn_user_suspensions WHERE user_id = %d", $user_id ) );
-		// Per-user data (not authored content): the member's saved posts. Without
-		// this, deleting a user left orphaned bookmark rows behind.
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$p}bn_bookmarks WHERE user_id = %d", $user_id ) );
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-		// Profile-field values are owned by the Profile service (its table + its
-		// searchable mirror/cache), so delegate rather than reach into
-		// bn_profile_values here. wp_delete_user removes the usermeta mirror; this
-		// clears the canonical rows that core knows nothing about.
-		( new \BuddyNext\Profile\ProfileService() )->delete_user_values( $user_id );
+		// ONE canonical purge, shared with the GDPR eraser (Privacy\PrivacyTools):
+		// every user-keyed table, the member_count decrement, the reaction_count
+		// reconcile, and the buddynext_purge_user_data extension event. This listener
+		// previously carried its own purge list that disagreed with — and missed
+		// tables the eraser cleaned (member-type assignments, presence, search index,
+		// space bans, appeals, shares, reactions, poll votes); both now defer here.
+		( new \BuddyNext\Profile\MemberCleanupService() )->purge_user_relations( $user_id, 'delete' );
 
 		/**
-		 * Fires after BuddyNext has purged a deleted user's relational rows, so
-		 * extensions can clean their own per-user tables.
+		 * Back-compat: the original delete-only event. Prefer the canonical
+		 * `buddynext_purge_user_data` (fired by MemberCleanupService on BOTH the
+		 * delete and the GDPR-erase path). Retained so existing listeners keep firing.
 		 *
 		 * @param int $user_id The deleted user id.
 		 */
