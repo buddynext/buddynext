@@ -125,11 +125,12 @@ class MemberDirectoryService {
 		// Build SELECT — scalar subqueries for computed card fields.
 		// ------------------------------------------------------------------ //
 
-		// is_online AND follower_count are both resolved after the main query — the
-		// latter from the denormalised bn_follower_count usermeta (T9), so it matches
-		// FollowService::follower_count() exactly instead of a second, divergent
-		// per-row COUNT(*) subquery that also counted pending follows. SELECT columns
-		// for both are omitted here.
+		// follower_count is resolved after the main query from the denormalised
+		// bn_follower_count usermeta (T9), so it matches FollowService::follower_count()
+		// exactly instead of a second, divergent per-row COUNT(*) subquery that also
+		// counted pending follows. is_online is resolved from the last_active column the
+		// always-present bn_presence JOIN selects (see below). Both SELECT columns are
+		// omitted from the scalar-subquery block here.
 
 		// mutual_connection_count is computed post-query to avoid the MySQL 5.7
 		// "Can't reopen table" error that occurs when bn_connections is referenced
@@ -184,18 +185,17 @@ class MemberDirectoryService {
 			);
 		}
 
-		// Online-only / most_active JOIN — the indexed bn_presence table replaces the
-		// non-sargable CAST(meta_value) scan over wp_usermeta. last_active is an INT
-		// column with its own KEY, so the online filter / sort become index-friendly.
-		// When present, last_active is also selected so the cursor reads it from the
-		// row instead of a per-row meta lookup.
-		$presence_select = '';
-		if ( $online_only || 'online' === $sort || 'most_active' === $sort ) {
-			$joins[]         = "LEFT JOIN {$wpdb->prefix}bn_presence AS pres ON pres.user_id = u.ID";
-			$presence_select = ', COALESCE(pres.last_active, 0) AS last_active';
-		}
+		// bn_presence LEFT JOIN — always present. The online filter/sort use the
+		// indexed INT last_active column (sargable, unlike the old CAST(meta_value)
+		// usermeta scan), AND every card's is_online dot reads last_active straight
+		// from the row. That folds what was a per-card last_active_at() lookup (an N+1
+		// across the page) into this one query; bn_presence.user_id is the PK, so the
+		// join is a single index lookup per row.
+		$joins[]         = "LEFT JOIN {$wpdb->prefix}bn_presence AS pres ON pres.user_id = u.ID";
+		$presence_select = ', COALESCE(pres.last_active, 0) AS last_active';
 
-		$join_sql = $joins ? ( "\n" . implode( "\n", $joins ) ) : '';
+		// $joins always carries at least the bn_presence JOIN above, so no empty guard.
+		$join_sql = "\n" . implode( "\n", $joins );
 
 		// ------------------------------------------------------------------ //
 		// Build WHERE clauses.
@@ -260,7 +260,7 @@ class MemberDirectoryService {
 		}
 
 		if ( $online_only ) {
-			$where_clauses[] = 'pres.last_active > UNIX_TIMESTAMP() - 300';
+			$where_clauses[] = 'pres.last_active > UNIX_TIMESTAMP() - ' . PresenceService::ONLINE_WINDOW;
 		}
 
 		// ------------------------------------------------------------------ //
@@ -447,10 +447,10 @@ class MemberDirectoryService {
 
 		$blocks = buddynext_service( 'blocks' );
 
-		// Prime the user + usermeta caches for the whole page in two queries so
-		// the per-row get_avatar_url() (user/email lookup), get_user_meta()
-		// (bio) and is_user_online() (last-active meta) below are cache hits
-		// rather than an N+1 across the page.
+		// Prime the user + usermeta caches for the whole page in two queries so the
+		// per-row get_avatar_url() (user/email lookup) and get_user_meta() (bio) below
+		// are cache hits rather than an N+1 across the page. Presence is already on the
+		// row via the bn_presence JOIN, and follower counts are batch-resolved below.
 		$row_ids = array_values( array_filter( array_map( static fn( $r ) => (int) $r['ID'], $rows ) ) );
 		if ( $row_ids ) {
 			cache_users( $row_ids );
@@ -493,7 +493,9 @@ class MemberDirectoryService {
 					'avatar_url'              => get_avatar_url( $uid, array( 'size' => 96 ) ),
 					'registered_at'           => $r['user_registered'],
 					'bio'                     => $bio ? $bio : '',
-					'is_online'               => $blocks->is_user_online( $viewer_id, $uid ),
+					// last_active comes from the always-present bn_presence JOIN, so this
+					// resolves with no per-card presence query (restrict gate still applies).
+					'is_online'               => $blocks->is_user_online_at( $viewer_id, $uid, (int) ( $r['last_active'] ?? 0 ) ),
 					'follower_count'          => $follower_counts[ $uid ] ?? 0,
 					'mutual_connection_count' => $mutual_counts[ $uid ] ?? 0,
 				);
@@ -637,7 +639,8 @@ class MemberDirectoryService {
 
 		// Online filter — indexed bn_presence range, EXISTS not a 30-50k IN list.
 		if ( ! empty( $args['online_only'] ) ) {
-			$clauses[] = "EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_presence p_on WHERE p_on.user_id = {$user_col} AND p_on.last_active > UNIX_TIMESTAMP() - 300 )";
+			$online_window = PresenceService::ONLINE_WINDOW;
+			$clauses[]     = "EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_presence p_on WHERE p_on.user_id = {$user_col} AND p_on.last_active > UNIX_TIMESTAMP() - {$online_window} )";
 		}
 
 		return array( implode( ' AND ', $clauses ), $params );
@@ -681,7 +684,7 @@ class MemberDirectoryService {
 		$rows = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT user_id FROM {$wpdb->prefix}bn_presence WHERE user_id IN ({$in}) AND last_active >= %d",
-				time() - 300
+				time() - PresenceService::ONLINE_WINDOW
 			)
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -791,7 +794,7 @@ class MemberDirectoryService {
 				    AND {$exclusions}
 				  ORDER BY pres.last_active DESC
 				  LIMIT %d",
-				time() - 300,
+				time() - PresenceService::ONLINE_WINDOW,
 				$fetch
 			)
 		);
