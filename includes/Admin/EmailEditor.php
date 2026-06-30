@@ -512,7 +512,7 @@ class EmailEditor {
 			'{{requests_url}}'    => home_url( '/messages/requests/' ),
 			'{{post_url}}'        => home_url( '/' ),
 			'{{follow_back_url}}' => home_url( '/' ),
-			'{{login_url}}'       => wp_login_url(),
+			'{{login_url}}'       => ( '' !== \BuddyNext\Core\PageRouter::auth_url() ? \BuddyNext\Core\PageRouter::auth_url() : wp_login_url() ),
 			'{{reset_url}}'       => home_url( '/' ),
 			'{{otp_code}}'        => '123456',
 			'{{unsubscribe_url}}' => home_url( '/notifications/settings/' ),

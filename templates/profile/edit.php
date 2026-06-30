@@ -26,7 +26,8 @@ defined( 'ABSPATH' ) || exit;
 // Must be logged in and editing own profile (or admin).
 $current_user_id = get_current_user_id();
 if ( ! $current_user_id ) {
-	wp_safe_redirect( wp_login_url( get_permalink() ) );
+	$bn_auth = \BuddyNext\Core\PageRouter::auth_url();
+	wp_safe_redirect( '' !== $bn_auth ? add_query_arg( 'redirect_to', get_permalink(), $bn_auth ) : wp_login_url( get_permalink() ) );
 	exit;
 }
 

@@ -299,11 +299,13 @@ class ShortcodeService {
 	 * @return string Escaped HTML.
 	 */
 	private function login_required_html(): string {
+		$auth      = PageRouter::auth_url();
+		$login_url = '' !== $auth ? add_query_arg( 'redirect_to', get_permalink(), $auth ) : wp_login_url( get_permalink() );
 		return $this->wrap_embedded(
 			sprintf(
 				'<p class="bn-login-required">%s <a href="%s">%s</a></p>',
 				esc_html__( 'You must be logged in to view this page.', 'buddynext' ),
-				esc_url( wp_login_url( get_permalink() ) ),
+				esc_url( $login_url ),
 				esc_html__( 'Log in', 'buddynext' )
 			),
 			false
