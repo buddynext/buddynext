@@ -1456,6 +1456,10 @@ class PageRouter {
 				return 'onboarding/index.php';
 
 			default:
+				$bn_descriptor = HubRegistry::instance()->get( $hub );
+				if ( null !== $bn_descriptor && is_callable( $bn_descriptor->resolve_template ) ) {
+					return ( $bn_descriptor->resolve_template )( $hub );
+				}
 				return null;
 		}
 	}
@@ -1500,6 +1504,14 @@ class PageRouter {
 		$this->register_auth_rules();
 		$this->register_moderation_rules();
 		$this->register_onboarding_rules();
+
+		// Addon hubs (registered via buddynext_register_hubs) declare their own
+		// rewrite rules through the registry.
+		foreach ( HubRegistry::instance()->all() as $bn_hub ) {
+			if ( is_callable( $bn_hub->register_rules ) ) {
+				( $bn_hub->register_rules )();
+			}
+		}
 	}
 
 	/**
@@ -1645,6 +1657,11 @@ class PageRouter {
 	public function register_directory_query_vars( array $vars ): array {
 		$vars[] = 'bn_scope';
 		$vars[] = 'bn_membership';
+		foreach ( HubRegistry::instance()->all() as $bn_hub ) {
+			foreach ( $bn_hub->query_vars as $bn_qv ) {
+				$vars[] = $bn_qv;
+			}
+		}
 		return $vars;
 	}
 
