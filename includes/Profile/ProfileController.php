@@ -645,8 +645,24 @@ class ProfileController extends BaseRestController {
 	public function get_profile( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$profile_user_id = (int) $request->get_param( 'id' );
 		$viewer_id       = get_current_user_id();
-		$service         = buddynext_service( 'profiles' );
-		$profile         = $service->get_profile( $profile_user_id, $viewer_id );
+
+		// SECURITY: gate the read with the canonical profile-visibility check (block +
+		// public/followers/connections) — the same gate the profile template uses
+		// (PrivacyService::can_view_profile). REST previously skipped it, leaking full
+		// profile data to a blocked viewer / a non-follower of a private account. Return
+		// the same 404 as a missing user so existence isn't leaked either.
+		$privacy = buddynext_service( 'privacy' );
+		if ( $privacy instanceof \BuddyNext\SocialGraph\PrivacyService
+			&& ! $privacy->can_view_profile( $viewer_id, $profile_user_id ) ) {
+			return new WP_Error(
+				'user_not_found',
+				__( 'User not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$service = buddynext_service( 'profiles' );
+		$profile = $service->get_profile( $profile_user_id, $viewer_id );
 
 		if ( null === $profile ) {
 			return new WP_Error(
