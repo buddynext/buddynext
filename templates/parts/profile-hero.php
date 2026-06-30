@@ -598,7 +598,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 				<?php // Logged-out guest: a single Follow CTA routed through login that returns to this profile (mirrors the member-directory guest pattern) so the hero is never action-less. ?>
 			<div class="bn-pf-actions">
 				<a class="bn-btn" data-variant="primary" data-size="sm"
-					href="<?php echo esc_url( wp_login_url( \BuddyNext\Core\PageRouter::profile_url( $bn_pf_uid ) ) ); ?>">
+					href="<?php echo esc_url( add_query_arg( 'redirect_to', \BuddyNext\Core\PageRouter::profile_url( $bn_pf_uid ), \BuddyNext\Core\PageRouter::auth_url() ) ); ?>">
 					<?php esc_html_e( 'Follow', 'buddynext' ); ?>
 				</a>
 			</div>

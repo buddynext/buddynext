@@ -364,7 +364,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 				class="bn-btn"
 				data-variant="primary"
 				data-size="sm"
-				href="<?php echo esc_url( wp_login_url( $bn_profile_url ) ); ?>"
+				href="<?php echo esc_url( add_query_arg( 'redirect_to', $bn_profile_url, \BuddyNext\Core\PageRouter::auth_url() ) ); ?>"
 			>
 				<?php esc_html_e( 'View profile', 'buddynext' ); ?>
 			</a>

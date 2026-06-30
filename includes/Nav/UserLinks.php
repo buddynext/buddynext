@@ -337,16 +337,17 @@ final class UserLinks {
 	 * The registration URL, or '' when registration is closed.
 	 *
 	 * The BuddyNext auth hub owns its own registration policy, so when it is
-	 * configured the Register link always points there. Otherwise we only offer
-	 * Register when WordPress registration is open — so the item is hidden
-	 * everywhere (header guest area + menus) rather than leading to a dead end.
+	 * configured the Register link points at the hub's signup sub-route (not the
+	 * login base). Otherwise we only offer Register when WordPress registration is
+	 * open — so the item is hidden everywhere (header guest area + menus) rather
+	 * than leading to a dead end.
 	 *
 	 * @return string
 	 */
 	private static function register_url(): string {
 		$auth = PageRouter::auth_url();
 		if ( '' !== $auth ) {
-			return $auth;
+			return PageRouter::signup_url();
 		}
 		return get_option( 'users_can_register' ) ? wp_registration_url() : '';
 	}

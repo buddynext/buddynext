@@ -68,7 +68,7 @@ if ( ! $redirect_url ) {
 
 		<p class="bn-auth-foot">
 			<?php esc_html_e( "Don't have an account?", 'buddynext' ); ?>
-			<a href="<?php echo esc_url( wp_registration_url() ); ?>">
+			<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::signup_url() ); ?>">
 				<?php esc_html_e( 'Create one', 'buddynext' ); ?>
 			</a>
 		</p>

@@ -139,7 +139,7 @@ do_action( 'buddynext_part_hashtag_hero_before', $args );
 					class="bn-btn"
 					data-variant="primary"
 					data-size="md"
-					href="<?php echo esc_url( wp_registration_url() ); ?>"
+					href="<?php echo esc_url( \BuddyNext\Core\PageRouter::signup_url() ); ?>"
 				>
 					<span>
 						<?php

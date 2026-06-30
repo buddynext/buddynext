@@ -76,7 +76,7 @@ $nonce = wp_create_nonce( 'buddynext_register' );
 
 		<p class="bn-auth-foot">
 			<?php esc_html_e( 'Already have an account?', 'buddynext' ); ?>
-			<a href="<?php echo esc_url( wp_login_url() ); ?>">
+			<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::auth_url() ); ?>">
 				<?php esc_html_e( 'Sign in', 'buddynext' ); ?>
 			</a>
 		</p>
