@@ -598,20 +598,13 @@ class ProfileController extends BaseRestController {
 			);
 		}
 
-		// Erase the member's BuddyNext data (follows, connections, blocks, prefs, and
-		// their authored posts + comments) via the eraser, paginated to completion.
-		$privacy = new \BuddyNext\Privacy\PrivacyTools();
-		$page    = 1;
-		do {
-			$result = $privacy->erase( $user->user_email, $page );
-			$done   = ! isset( $result['done'] ) || (bool) $result['done'];
-			++$page;
-		} while ( ! $done && $page < 100 );
-
-		// Remove the WP account, DELETING (not reassigning) any remaining WP-core
-		// authored content — standard GDPR erasure: a member who deletes their account
-		// takes their content with them. Same uniform policy MemberCleanupService
-		// applies to the BuddyNext tables, on every delete path.
+		// Delete the WP account. This fires `deleted_user`, which runs the ONE canonical
+		// MemberCleanupService::purge_user_relations() - hard-deleting the member's
+		// BuddyNext data (follows, connections, blocks, prefs, and their authored posts +
+		// comments) and firing buddynext_purge_user_data exactly once, so Free and Pro
+		// per-user rows are purged together - and DELETES (never reassigns) any remaining
+		// WP-core authored content. Standard GDPR erasure: a member who deletes their
+		// account takes their content with them, the same uniform policy on every path.
 		require_once ABSPATH . 'wp-admin/includes/user.php';
 		wp_delete_user( $user_id );
 
