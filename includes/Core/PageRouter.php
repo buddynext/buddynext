@@ -2495,16 +2495,12 @@ class PageRouter {
 	 * @return string
 	 */
 	private static function default_slug( string $option_name ): string {
-		$map = array(
-			'buddynext_slug_activity'        => 'activity',
-			'buddynext_slug_people'          => 'members',
-			'buddynext_slug_spaces'          => 'spaces',
-			'buddynext_slug_messages'        => 'messages',
-			'buddynext_slug_notifications'   => 'notifications',
-			'buddynext_slug_auth'            => 'login',
-			'buddynext_slug_onboarding'      => 'onboarding',
-			'buddynext_slug_community_admin' => 'bn-community-admin',
-		);
+		// Hub defaults come from the registry; the non-hub community-admin slug
+		// and the ultimate fallback stay here.
+		$map = array( 'buddynext_slug_community_admin' => 'bn-community-admin' );
+		foreach ( HubRegistry::instance()->all() as $hub ) {
+			$map[ $hub->slug_option ] = $hub->default_slug;
+		}
 		return $map[ $option_name ] ?? 'community';
 	}
 }
