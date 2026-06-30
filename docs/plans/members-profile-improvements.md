@@ -20,6 +20,7 @@ code `file:line`. Pick up here after the Spaces frontend panels land.
 | T14 | ⏳ PENDING | File profile field (decision D3: wire upload vs remove) |
 | T15 | ⏳ PENDING | member field search → FULLTEXT via `bn_search_index` (decision D2) |
 | T16 | ⏳ PENDING | directory server-render unify + per-card N+1 batch |
+| A6 | ⏳ PENDING | scale-audit addendum (2026-06-30): SSR `online_ids` IN-list (A6a), unbounded `exclude` NOT IN (A6b), `post_count` orderby (A6c), REST `newest`→`u.ID` (A6d), total-includes-cursor (A6e), core-table notes (A6f) — see Workstream A6 |
 | T17 | ⏳ PENDING | converge suspension filter on `moderation_exclude_sql()` (dedup) |
 | T18 | ⏳ PENDING | remove dead digest queue write |
 | T19 | ⏳ PENDING | invite email pre-fill + async send |
@@ -122,6 +123,65 @@ but cold cache = one self-join per card). The REST path already batches mutual c
 - **Touch:** `templates/parts/member-directory-grid.php:131,135`.
 - **Reuse — no new helper:** `Realtime\PresenceService::online_ids()` (`:228`, one query for all online
   ids) + the REST batched `$mutual_counts` (`MemberDirectoryService.php:417-458, 476`).
+
+### A6 · Scale-audit addendum (connectivity/scale audit 2026-06-30) — additional gaps the above tasks don't explicitly name. Wrap one-by-one; none skipped.
+
+> Context: the **REST path** (`MemberDirectoryService::list_members`) is already scale-safe (keyset cursor, batched hydration, per-viewer 60s cache+bust, correlated `NOT EXISTS`/subquery exclusions). The gaps cluster in the **SSR `WP_User_Query`** path (`templates/directory/members.php`), which is reachable deep via `?paged=N`, so each detonates at arbitrary page depth — not just page 1. A6a-A6c are the concrete SSR killers behind A2's "unify the SSR path"; treat them as A2's acceptance criteria.
+
+- **A6a · P0/HIGH — `online_user_ids()` returns an UNBOUNDED id list stuffed into `WP_User_Query 'include'`.**
+  `templates/directory/members.php:214` → `MemberDirectoryService::online_user_ids()` (`:584-588`) →
+  `PresenceService::online_ids()` (`:228-240`) is `SELECT user_id FROM bn_presence WHERE last_active > %s`
+  with **no LIMIT**. At "30-50k active" that's a `WHERE ID IN (…50,000 literals…)` SQL string — megabyte
+  query, parser blowup, defeats every other index.
+  **Fix:** don't resolve online to an id list for SSR — push it as a JOIN on `bn_presence` (sargable
+  `pres.last_active > …`), exactly as the REST path does (`:184-187, 282`). Folds into A2.
+
+- **A6b · P0/HIGH — `exclude` is a globally-unbounded `NOT IN` literal list.**
+  `excluded_user_ids()` (`:552-573`) fetches **all** suspended + **all** shadow-banned users globally (two
+  unbounded `get_col`s) ∪ the viewer's blocks, fed into `WP_User_Query 'exclude'` (`members.php:130-132`)
+  → `WHERE ID NOT IN (…)`. These populations grow with the site.
+  **Fix:** mirror the REST correlated `NOT EXISTS` (indexed by `user_id`) for suspended/shadowban +
+  `NOT IN (subquery)` for blocks (`:198-238`) via a `pre_user_query` clause injection — never materialise
+  global exclusion ids in PHP. **Cross-ref T17** (converge suspension filter on `moderation_exclude_sql()`) —
+  same fix, do once.
+
+- **A6c · P1/MED-HIGH — SSR `orderby => 'post_count'` runs a correlated `wp_posts` count per user.**
+  `members.php:64` whitelists `post_count`, passed straight to `WP_User_Query` (`:124`). WP attaches a
+  per-user `wp_posts` count subquery — brutal at 100k, AND semantically wrong (counts core WP posts, not
+  BuddyNext activity; the REST equivalent `most_active` uses `bn_presence`).
+  **Fix:** drop `post_count` from the SSR sort whitelist (or map it to the same `bn_presence` ordering REST
+  uses) so the two surfaces agree and neither touches `wp_posts`. Folds into A2.
+
+- **A6d · P2/MED — REST `newest` sort filesorts on `wp_users.user_registered` (no core index).**
+  `MemberDirectoryService.php:344` (`ORDER BY u.user_registered DESC`) + keyset `:317`. `wp_users` has no
+  index on `user_registered`.
+  **Fix (free, no core ALTER):** order by `u.ID DESC` — for an AUTO_INCREMENT users table ID order *is*
+  registration order and it's the PRIMARY KEY (zero filesort; the keyset becomes a pure id range). Cheapest
+  win in the file; also makes the SSR `newest`+OFFSET (A2/S-5) ride the PRIMARY KEY.
+
+- **A6e · LOW — REST `total` subquery includes the cursor predicate, so the count shrinks as you paginate.**
+  `$count_params = array_slice($params, 0, -1)` (`:387`) reuses `$where_sql`, which already carries the
+  cursor WHERE (`:289-324`). Harmless if the client reads `total` only on the first (cursorless) load;
+  misleading if it drives a persistent "N members" label. **Fix:** build the count WHERE without the cursor
+  clause. Not a scale gap (makes deep counts cheaper); flagged so it isn't lost. Lives alongside A3.
+
+- **A6f · NOTE / inherent core-table constraints (NOT actionable via a `bn_*` index — record so we don't
+  chase the spaces trick here).** Members live in `wp_users`/`wp_usermeta`, so the spaces fix (add a
+  `(parent_id, sort_col)` composite to a table we OWN) does **not** transfer:
+  - `alphabetical` sort (`display_name ASC`, `:334`) and `most_active` sort (`COALESCE(pres.last_active,0)
+    DESC` over a LEFT JOIN, `:339`) filesort inherently at 100k — core column / nullable-join-expression.
+    Escape hatch only if it becomes a real complaint: a `bn_*` member-index shadow table, or drive
+    `FROM bn_presence INNER JOIN users` for most_active (excludes presence-less members — a product call).
+  - The dir-optout `NOT EXISTS` / member_type `meta_query` (`members.php:171-194`) ride core usermeta
+    indexes only (A1 moves member_type to the indexed assignments table; the optout `OR NULL` branch stays
+    core-bound). Document the ceiling; don't pretend a `bn_*` index fixes it.
+
+- **Already scale-safe in the REST path — DO NOT re-fix (recorded so the wrap doesn't touch them):** keyset
+  cursor for all four sorts (`:289-324, 812-882`); fully batched hydration — `update_meta_cache`/`cache_users`
+  + 2-query mutual counts + primed follow/status/block maps, no per-row query in the result loop
+  (`:412-473`, Controller `:166-189`); per-viewer version-salt result cache + `bust_viewer()` on
+  block/unblock (`:104-114, 890-937`); `bn_presence` PRIMARY(user_id)+KEY(last_active) drives the online
+  filter + `online_now` widget sargably; bounded viewer-own block exclusion (`PrivacyService:323-376`).
 
 ---
 
