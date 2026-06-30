@@ -36,8 +36,11 @@ tasks (T9, T14, T15, E5, B3) are unstarted; their plan + exact touch-points are 
 | T20 | ✅ DONE | hygiene — E1 self-target guard was ALREADY handled (BlockService rejects self-block/mute/restrict; false finding); E2 `/account-type` gated to `require_auth` (no public caller, was leaking `is_private`); E3 stale 5-of-13 `parts/profile-field.php` deleted (loaded nowhere). E4 (member-field API) + E5 (manifest refresh) remain |
 | T21 | ✅ DONE | digest cron at scale — **verified the defect is real** (un-cursored `LIMIT 200` starved every digest user past the first ~200), then fixed: keyset cursor on `user_id` + AS self-chaining (`chain_next_digest_chunk`) so one cadence reaches ALL users in bounded 200-chunks. Verified live (250 daily users → chunk1 chains at cursor=200th uid, chunk2 of 50 does not chain) |
 
-**Open decisions:** D2 (field search FULLTEXT vs LIKE), D3 (File field upload vs remove), and which of the
-7 people-expectation suggestions (bottom of this file) land in 1.0.4.
+**Open decisions:** ~~D2~~ **RESOLVED** (owner: be consistent with the existing unified search/Explore →
+unify on the FULLTEXT `bn_search_index` engine; the member index now carries name + bio + headline +
+public searchable fields so a member is findable by their attributes everywhere — **Step A done**; Step B =
+route the directory search box onto the same engine + cross-check). D3 (File field upload vs remove), and
+which of the 7 people-expectation suggestions land in 1.0.4 — still open.
 
 ---
 

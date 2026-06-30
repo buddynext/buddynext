@@ -1240,7 +1240,12 @@ class ProfileService {
 	/**
 	 * Write or refresh this user's entry in bn_search_index.
 	 *
-	 * Called after profile saves so the search index stays current.
+	 * Called after profile saves so the search index stays current. The `content`
+	 * column carries the member's headline, bio, and every PUBLIC searchable
+	 * profile-field value (the bn_field_{key} mirror is written public-only, so
+	 * private values are never indexed), making a member findable by their profile
+	 * attributes — not just their display name — in BOTH the unified search and the
+	 * directory search (which both read this one index). Title stays the display name.
 	 *
 	 * @param int $user_id User to index.
 	 */
@@ -1251,6 +1256,26 @@ class ProfileService {
 			return;
 		}
 
+		$parts    = array();
+		$headline = (string) get_user_meta( $user_id, 'bn_headline', true );
+		if ( '' !== $headline ) {
+			$parts[] = $headline;
+		}
+		$bio = (string) get_user_meta( $user_id, 'bn_field_bio', true );
+		if ( '' !== $bio ) {
+			$parts[] = $bio;
+		}
+		$directory = buddynext_service( 'member_directory' );
+		if ( is_object( $directory ) && method_exists( $directory, 'searchable_mirror_keys' ) ) {
+			foreach ( $directory->searchable_mirror_keys() as $mirror_key ) {
+				$mirror_val = (string) get_user_meta( $user_id, (string) $mirror_key, true );
+				if ( '' !== $mirror_val ) {
+					$parts[] = $mirror_val;
+				}
+			}
+		}
+		$content = trim( implode( ' ', array_values( array_unique( $parts ) ) ) );
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1258,10 +1283,11 @@ class ProfileService {
 			$wpdb->prepare(
 				"INSERT INTO {$wpdb->prefix}bn_search_index
 				    (object_type, object_id, title, content, author_id, visibility)
-				 VALUES ('user', %d, %s, '', %d, 'public')
-				 ON DUPLICATE KEY UPDATE title = VALUES(title), updated_at = NOW()",
+				 VALUES ('user', %d, %s, %s, %d, 'public')
+				 ON DUPLICATE KEY UPDATE title = VALUES(title), content = VALUES(content), updated_at = NOW()",
 				$user_id,
 				$wp_user->display_name,
+				$content,
 				$user_id
 			)
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

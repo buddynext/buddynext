@@ -926,7 +926,7 @@ class MemberDirectoryService {
 	 *
 	 * @return string[] Usermeta keys, e.g. array( 'bn_field_skills', 'bn_field_role' ).
 	 */
-	private function searchable_mirror_keys(): array {
+	public function searchable_mirror_keys(): array {
 		static $keys = null;
 
 		if ( null !== $keys ) {
