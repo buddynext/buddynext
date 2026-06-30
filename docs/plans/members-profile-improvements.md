@@ -13,14 +13,14 @@ code `file:line`. Pick up here after the Spaces frontend panels land.
 | T1 | ✅ DONE | Profile REST visibility leak (security) — `get_profile` now calls `can_view_profile()`, 404 on block/private; browser-verified (`f94c570f`) |
 | T2 | ✅ DONE | Explore one-directional block → `block_related_ids()` (bidirectional, same helper the directory uses) |
 | T3 | ⏳ PENDING | one canonical `purge_user_relations()` + `buddynext_purge_user_data` action (dup fix) |
-| T4 | ⏳ PENDING | member-type directory filter → indexed `bn_member_type_assignments` (P0) |
+| T4 | ✅ DONE | member-type directory filter → indexed `bn_member_type_assignments` (A1) — both REST + SSR; EXPLAIN uses `idx_type_id`; SSR==REST verified; never loses members (usermeta_without_assignment=0) |
 | T6 | ✅ DONE | bound unbounded reads — `get_members`/controller always-paginate + 200 cap; `transfer_candidates` mods-first + LIMIT 200; `pending_followers`/`list_follow_requests` bounded+paginated; `suggestions` friend-sample capped 200. Browser-verified (members tab + transfer dropdown intact) |
 | T9 | ⏳ PENDING | finish follow + build connection denormalization (cache-cold) |
 | T13 | ⏳ PENDING | self-clear member type (404 fix) → reuse `remove_user_type()` |
 | T14 | ⏳ PENDING | File profile field (decision D3: wire upload vs remove) |
 | T15 | ⏳ PENDING | member field search → FULLTEXT via `bn_search_index` (decision D2) |
 | T16 | ⏳ PENDING | directory server-render unify + per-card N+1 batch |
-| A6 | 🟡 PART | scale-audit addendum (2026-06-30): ✅ A6c `post_count` orderby + ✅ A6d `newest`→`u.ID` (filesort killed, EXPLAIN-verified) done; ⏳ A6a SSR `online_ids` IN-list + A6b unbounded `exclude` NOT IN + A1 member-type index queued together (one `pre_user_query`, ready-to-execute plan + verification matrix in Workstream A6); A6e/A6f notes |
+| A6 | 🟡 PART | scale-audit addendum (2026-06-30): ✅ A6a SSR online→indexed `bn_presence` EXISTS, ✅ A6b exclude→correlated `NOT EXISTS`, ✅ A6c `post_count` removed, ✅ A6d `newest`→`u.ID`, ✅ A1 member-type→`idx_type_id` — all via a shared `directory_filter_sql()` + one `pre_user_query`; **full 9-point verification matrix passed** (suspended/shadowban/block/dir-optout excluded live, online/type/search/count, EXACT SSR↔REST parity). Remaining: A6e (count-includes-cursor, LOW) + A6f core-table notes |
 | T17 | ⏳ PENDING | converge suspension filter on `moderation_exclude_sql()` (dedup) |
 | T18 | ⏳ PENDING | remove dead digest queue write |
 | T19 | ⏳ PENDING | invite email pre-fill + async send |
@@ -89,7 +89,11 @@ path). No parallel/duplicate implementations are introduced.
 > - **A6d (newest → `u.ID`) + the default-sort index** matter because everyone hits the default sort on
 >   page 1; the inherent core-table sorts (A6f) are low-value precisely because few users sort by them.
 
-**A1 · P0 — Type filter must use the indexed `bn_member_type_assignments`, not a usermeta value scan.**
+**A1 · ✅ DONE — Type filter must use the indexed `bn_member_type_assignments`, not a usermeta value scan.**
+Done on BOTH paths: REST `list_members()` (`:277` swapped to an `idx_type_id` EXISTS) and the SSR via
+`directory_filter_sql()`. EXPLAIN drives from `mta` on `idx_type_id` (`ref`, not a scan). Verified
+SSR==REST `[647]` for `?type=developer`; `usermeta_without_assignment=0` confirms the switch never loses a
+member (the assignments table is the complete canonical source; the usermeta mirror was under-counting).
 Both directory paths match `wp_usermeta.meta_value = slug` (`MemberDirectoryService.php:277`;
 `templates/directory/members.php:188-196`) — `meta_value` is unindexable, so this scans ~50k usermeta
 rows on the hottest filter while the purpose-built `bn_member_type_assignments` (`idx_type_id`,
@@ -144,7 +148,11 @@ but cold cache = one self-join per card). The REST path already batches mutual c
 
 > Context: the **REST path** (`MemberDirectoryService::list_members`) is already scale-safe (keyset cursor, batched hydration, per-viewer 60s cache+bust, correlated `NOT EXISTS`/subquery exclusions). The gaps cluster in the **SSR `WP_User_Query`** path (`templates/directory/members.php`), which is reachable deep via `?paged=N`, so each detonates at arbitrary page depth — not just page 1. A6a-A6c are the concrete SSR killers behind A2's "unify the SSR path"; treat them as A2's acceptance criteria.
 
-- **A6a · P0/HIGH — `online_user_ids()` returns an UNBOUNDED id list stuffed into `WP_User_Query 'include'`.**
+- **A6a · ✅ DONE — `online_user_ids()` returned an UNBOUNDED id list stuffed into `WP_User_Query 'include'`.**
+  Fixed: the SSR online filter is now an indexed `bn_presence` EXISTS injected via
+  `directory_filter_sql()` + `pre_user_query` — no 50k id list. Verified live: with one
+  member made active, `?online=1` returns exactly that member.
+  *(original finding below)*
   `templates/directory/members.php:214` → `MemberDirectoryService::online_user_ids()` (`:584-588`) →
   `PresenceService::online_ids()` (`:228-240`) is `SELECT user_id FROM bn_presence WHERE last_active > %s`
   with **no LIMIT**. At "30-50k active" that's a `WHERE ID IN (…50,000 literals…)` SQL string — megabyte
@@ -152,7 +160,13 @@ but cold cache = one self-join per card). The REST path already batches mutual c
   **Fix:** don't resolve online to an id list for SSR — push it as a JOIN on `bn_presence` (sargable
   `pres.last_active > …`), exactly as the REST path does (`:184-187, 282`). Folds into A2.
 
-- **A6b · P0/HIGH — `exclude` is a globally-unbounded `NOT IN` literal list.**
+- **A6b · ✅ DONE — `exclude` was a globally-unbounded `NOT IN` literal list.**
+  Fixed: suspended/shadowban/dir-optout are now correlated `NOT EXISTS` + the shared
+  `block_exclude_sql()`, injected via `directory_filter_sql()` + `pre_user_query` — no
+  materialised global id list. Verified live: suspended, shadow-banned, blocked (both
+  directions), and dir-opted-out members each drop from the SSR directory, with EXACT
+  SSR↔REST parity. The viewer self-exclusion (`ID != %d`) is in the fragment too.
+  *(original finding below)*
   `excluded_user_ids()` (`:552-573`) fetches **all** suspended + **all** shadow-banned users globally (two
   unbounded `get_col`s) ∪ the viewer's blocks, fed into `WP_User_Query 'exclude'` (`members.php:130-132`)
   → `WHERE ID NOT IN (…)`. These populations grow with the site.

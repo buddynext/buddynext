@@ -192,33 +192,14 @@ class MemberDirectoryService {
 		// Build WHERE clauses.
 		// ------------------------------------------------------------------ //
 
-		// Exclude suspended and shadow-banned users.
-		// Uses NOT EXISTS instead of NOT IN to avoid MySQL 5.7 "Can't reopen table" error
-		// when combined with the self-joined bn_connections mutual_subquery.
-		$where_clauses = array(
-			'u.ID != %d',
-			"NOT EXISTS (
-			    SELECT 1 FROM {$wpdb->prefix}bn_user_suspensions s_ex
-			    WHERE s_ex.user_id = u.ID
-			      AND s_ex.lifted_at IS NULL
-			      AND (s_ex.expires_at IS NULL OR s_ex.expires_at > UTC_TIMESTAMP())
-			  )",
-			"NOT EXISTS (
-			    SELECT 1 FROM {$wpdb->usermeta} um_ban
-			    WHERE um_ban.user_id = u.ID
-			      AND um_ban.meta_key = 'bn_shadow_banned'
-			      AND um_ban.meta_value = '1'
-			  )",
-			// Honor the "Show me in the member directory" privacy toggle
-			// (usermeta bn_privacy_show_in_directory). Default-visible: only
-			// members who EXPLICITLY set the meta to '0' are excluded; an
-			// absent meta (every existing member) leaves them listed.
-			"NOT EXISTS (
-			    SELECT 1 FROM {$wpdb->usermeta} um_dir
-			    WHERE um_dir.user_id = u.ID
-			      AND um_dir.meta_key = 'bn_privacy_show_in_directory'
-			      AND um_dir.meta_value = '0'
-			  )",
+		// Exclude suspended / shadow-banned / directory-opted-out users. NOT EXISTS
+		// (not NOT IN) both avoids the MySQL 5.7 "Can't reopen table" error with the
+		// self-joined mutual subquery AND stays bounded at scale. The three clauses
+		// are the canonical set shared with the server-rendered directory
+		// (directory_exclusion_subqueries) so the two surfaces never diverge.
+		$where_clauses = array_merge(
+			array( 'u.ID != %d' ),
+			$this->directory_exclusion_subqueries( 'u.ID' )
 		);
 
 		// Bidirectional block exclusion — viewer should not see users they have
@@ -272,10 +253,13 @@ class MemberDirectoryService {
 		}
 
 		if ( '' !== $member_type ) {
-			// Filter by the bn_member_type write-through usermeta (the fast-read
-			// cache MemberTypeService maintains on every assign).
-			$where_clauses[] = "EXISTS ( SELECT 1 FROM {$wpdb->usermeta} um_mtype WHERE um_mtype.user_id = u.ID AND um_mtype.meta_key = 'bn_member_type' AND um_mtype.meta_value = %s )";
-			$params[]        = $member_type;
+			// Filter via the indexed bn_member_type_assignments table (idx_type_id)
+			// instead of the unindexable bn_member_type usermeta value scan. An
+			// unknown slug resolves to type_id 0 → matches nobody (correct empty set).
+			$mt_row          = buddynext_service( 'member_types' )->get_by_slug( $member_type );
+			$mt_id           = ( is_array( $mt_row ) && isset( $mt_row['id'] ) ) ? (int) $mt_row['id'] : 0;
+			$where_clauses[] = "EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_member_type_assignments mta WHERE mta.user_id = u.ID AND mta.type_id = %d )";
+			$params[]        = $mt_id;
 		}
 
 		if ( $online_only ) {
@@ -534,21 +518,110 @@ class MemberDirectoryService {
 	}
 
 	/**
+	 * The three literal exclusion subqueries every directory surface applies:
+	 * active suspensions, shadow-bans, and the "Show me in the member directory"
+	 * opt-out. Correlated `NOT EXISTS` (each indexed by user_id / meta_key) so the
+	 * cost is bounded and there is no materialised id list. Shared verbatim by
+	 * list_members() (REST) and directory_filter_sql() (SSR) so the two never
+	 * diverge. The fragments carry NO placeholders — $user_col is a caller-supplied
+	 * column reference (`u.ID` / `wp_users.ID`), never user input.
+	 *
+	 * @param string $user_col Correlated user-id column for the outer query.
+	 * @return string[] Three `NOT EXISTS (...)` clause strings.
+	 */
+	private function directory_exclusion_subqueries( string $user_col ): array {
+		global $wpdb;
+
+		return array(
+			"NOT EXISTS (
+			    SELECT 1 FROM {$wpdb->prefix}bn_user_suspensions s_ex
+			    WHERE s_ex.user_id = {$user_col}
+			      AND s_ex.lifted_at IS NULL
+			      AND (s_ex.expires_at IS NULL OR s_ex.expires_at > UTC_TIMESTAMP())
+			  )",
+			"NOT EXISTS (
+			    SELECT 1 FROM {$wpdb->usermeta} um_ban
+			    WHERE um_ban.user_id = {$user_col}
+			      AND um_ban.meta_key = 'bn_shadow_banned'
+			      AND um_ban.meta_value = '1'
+			  )",
+			"NOT EXISTS (
+			    SELECT 1 FROM {$wpdb->usermeta} um_dir
+			    WHERE um_dir.user_id = {$user_col}
+			      AND um_dir.meta_key = 'bn_privacy_show_in_directory'
+			      AND um_dir.meta_value = '0'
+			  )",
+		);
+	}
+
+	/**
+	 * Build the directory WHERE-injection fragment for the server-rendered page
+	 * (templates/directory/members.php). Returns the SAME exclusion + filter logic
+	 * list_members() applies — suspended/shadowban/dir-optout NOT EXISTS, the
+	 * bidirectional block exclusion, the member-type filter (indexed
+	 * bn_member_type_assignments, NOT a usermeta value scan), and the online filter
+	 * (indexed bn_presence EXISTS) — as correlated subqueries, never as a
+	 * materialised IN / NOT IN id list. The SSR injects the prepared fragment via a
+	 * `pre_user_query` clause so the WP_User_Query (and its COUNT) stay bounded at
+	 * 50k members.
+	 *
+	 * @param int    $viewer_id Viewing user (folds in their block relationships).
+	 * @param array  $args      { member_type?: string slug, online_only?: bool }.
+	 * @param string $user_col  Correlated user-id column (e.g. "wp_users.ID").
+	 * @return array{0:string,1:array} [ SQL fragment with %d/%s placeholders, prepare params ].
+	 */
+	public function directory_filter_sql( int $viewer_id, array $args, string $user_col ): array {
+		global $wpdb;
+
+		// Exclude the viewer themselves (matches list_members' `u.ID != %d`; for a
+		// logged-out viewer this is `!= 0`, which excludes nobody), then the shared
+		// suspended / shadow-banned / directory-opt-out subqueries.
+		$clauses = array_merge(
+			array( "{$user_col} != %d" ),
+			$this->directory_exclusion_subqueries( $user_col )
+		);
+		$params  = array( $viewer_id );
+
+		// Bidirectional block exclusion — the one canonical builder list_members
+		// uses (forward + reverse `block`). Empty for logged-out viewers.
+		[ $block_sql, $block_params ] = buddynext_service( 'privacy' )->block_exclude_sql(
+			$viewer_id,
+			$user_col,
+			array( 'block' ),
+			array( 'block' )
+		);
+		if ( '' !== $block_sql ) {
+			$clauses[] = $block_sql;
+			$params    = array_merge( $params, $block_params );
+		}
+
+		// Member-type filter via the indexed assignments table (idx_type_id) rather
+		// than the unindexable bn_member_type usermeta value scan. An unknown slug
+		// resolves to type_id 0 → matches nobody (correct empty result).
+		$member_type = isset( $args['member_type'] ) ? (string) $args['member_type'] : '';
+		if ( '' !== $member_type ) {
+			$type_row  = buddynext_service( 'member_types' )->get_by_slug( $member_type );
+			$type_id   = ( is_array( $type_row ) && isset( $type_row['id'] ) ) ? (int) $type_row['id'] : 0;
+			$clauses[] = "EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_member_type_assignments mta WHERE mta.user_id = {$user_col} AND mta.type_id = %d )";
+			$params[]  = $type_id;
+		}
+
+		// Online filter — indexed bn_presence range, EXISTS not a 30-50k IN list.
+		if ( ! empty( $args['online_only'] ) ) {
+			$clauses[] = "EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_presence p_on WHERE p_on.user_id = {$user_col} AND p_on.last_active > UNIX_TIMESTAMP() - 300 )";
+		}
+
+		return array( implode( ' AND ', $clauses ), $params );
+	}
+
+	/**
 	 * User IDs the directory must exclude from results.
 	 *
-	 * Mirrors the exclusion list_members() applies (active suspensions +
-	 * shadow-banned), so the server-rendered first page (built with a
-	 * WP_User_Query in templates/directory/members.php) hides the exact same
-	 * members the REST/live pipeline does. The suspension gate matches
-	 * list_members() (lifted_at IS NULL + not expired), not the hide_posts
-	 * variant used by moderation_exclude_sql(), so the two surfaces never
-	 * diverge. The viewer is NOT added here — callers append it themselves
-	 * because some surfaces include the viewer.
-	 *
-	 * When a $viewer_id is supplied, both-direction block relationships are
-	 * also excluded (users the viewer blocked + users who blocked the viewer),
-	 * matching the REST pipeline's block_exclude_sql() so the first server-
-	 * rendered page does not leak blocked members on a no-JS / hard reload.
+	 * Retained for back-compat / external callers. The server-rendered directory no
+	 * longer materialises this list — it injects directory_filter_sql() instead — so
+	 * this method has no internal caller; it mirrors the exclusion list_members()
+	 * applies (active suspensions + shadow-banned + both-direction blocks when a
+	 * $viewer_id is supplied). The viewer is NOT added here — callers append it.
 	 *
 	 * @param int $viewer_id Optional. Viewing user, used to fold in their block
 	 *                       relationships. Default 0 (no block exclusion).
