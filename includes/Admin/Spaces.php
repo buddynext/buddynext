@@ -192,6 +192,27 @@ class Spaces extends AdminPageBase {
 			</div>
 			<?php
 		}
+
+		// Archive/unarchive confirmation (handle_archive redirects with ?archived=1|0).
+		// isset (not !empty) because the unarchive value '0' is falsy.
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
+		if ( isset( $_GET['archived'] ) ) {
+			$bn_archived = '1' === sanitize_text_field( wp_unslash( $_GET['archived'] ) );
+			// phpcs:enable WordPress.Security.NonceVerification.Recommended
+			?>
+			<div class="notice notice-success is-dismissible">
+				<p>
+				<?php
+				if ( $bn_archived ) {
+					esc_html_e( 'Space archived.', 'buddynext' );
+				} else {
+					esc_html_e( 'Space unarchived.', 'buddynext' );
+				}
+				?>
+				</p>
+			</div>
+			<?php
+		}
 		?>
 
 		<div class="bn-stat-grid">

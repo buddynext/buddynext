@@ -263,6 +263,12 @@ class MemberDirectoryService {
 			$where_clauses[] = 'pres.last_active > UNIX_TIMESTAMP() - ' . PresenceService::ONLINE_WINDOW;
 		}
 
+		// Snapshot the filter-only WHERE for the bounded total (A6e): the count must NOT
+		// carry the keyset cursor added below, or the "N members" label would shrink as
+		// the client pages deeper. Same filter set + cap as the page query, no cursor.
+		$count_clauses = $where_clauses;
+		$count_params  = $params;
+
 		// ------------------------------------------------------------------ //
 		// Cursor WHERE — per-sort composite keyset.
 		// ------------------------------------------------------------------ //
@@ -372,8 +378,10 @@ class MemberDirectoryService {
 		// COUNT never scans the full 50k match set. The directory shows/pages a capped
 		// total (an exact "47,213" is noise; people browse a few pages, not page 2500).
 		// Matches the server-rendered directory's cap so the two surfaces agree.
-		$count_params   = array_slice( $params, 0, count( $params ) - 1 );
-		$count_params[] = self::DIRECTORY_COUNT_CAP;
+		// Use the pre-cursor snapshot (A6e) so the total is stable across pages, and the
+		// same cap as the page query so the two surfaces agree.
+		$count_where_sql = implode( "\n   AND ", $count_clauses );
+		$count_params[]  = self::DIRECTORY_COUNT_CAP;
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$total = (int) $wpdb->get_var(
 			$wpdb->prepare(
@@ -381,7 +389,7 @@ class MemberDirectoryService {
 				    SELECT u.ID
 				    FROM {$wpdb->users} u
 				    {$join_sql}
-				    WHERE {$where_sql}
+				    WHERE {$count_where_sql}
 				    LIMIT %d
 				 ) AS _ct",
 				...$count_params
