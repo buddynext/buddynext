@@ -2997,6 +2997,10 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	.bn-composer { padding: var(--s3) var(--s3) var(--s2); }
 	.bn-composer__tools { gap: var(--s1); }
 	.bn-composer__privacy { font-size: 10px; padding: 0 var(--s2); }
+	/* The desktop worst-case label reservation (100px) is too wide to share a
+	   row with the Post button on mobile and pushes the audience chip onto its
+	   own line. Let the label size to its content here. */
+	.bn-composer__privacy-chip strong { min-inline-size: auto; }
 }
 
 /* ── End-of-feed marker ────────────────────────────────────────────────────
