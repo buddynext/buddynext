@@ -349,6 +349,17 @@ $bn_pf_ctx = array(
 			array( 'display_name' => $display_name )
 		);
 	endif;
+
+	// Share modal: any logged-in viewer can share posts shown in the profile
+	// feed, so the modal must be present here too (mirrors home.php and
+	// single-post.php). Without it the post Share button's bn-open-share-modal
+	// event has no element to bind to and the click does nothing.
+	if ( $current_user_id ) :
+		buddynext_get_template(
+			'partials/share-modal.php',
+			array( 'current_user_id' => $current_user_id )
+		);
+	endif;
 	?>
 
 </div><!-- /.bn-pf-stack -->
