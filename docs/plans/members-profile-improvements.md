@@ -10,9 +10,10 @@ integrity)** — the security/privacy fixes, the **complete member-directory sca
 sorts/filters, bounded reads, no IN/NOT-IN id lists, no per-card N+1, bounded count), and the canonical
 member-delete purge, **T17/F4** (suspension-filter dedup, premise corrected), **T18/F5** (dead digest-queue
 removal), **T13** (self-clear member type), **T20/E1–E3** (hygiene), and **T19/F6** (invite pre-fill +
-async send), and **T21/F7** (digest cron at scale — keyset + AS chaining), each browser-verified where
+async send), **T21/F7** (digest cron at scale — keyset + AS chaining), and **E4** (member-field
+registration API — premise was stale, then 4 real gaps fixed end-to-end), each browser-verified where
 applicable (the scale + delete + digest work re-verified on a 1.5k-member / 300-space seed). The remaining
-tasks (T9, T14, T15, E4, E5, B3) are unstarted; their plan + exact touch-points are validated at code
+tasks (T9, T14, T15, E5, B3) are unstarted; their plan + exact touch-points are validated at code
 `file:line`.
 **QA: re-verify the shipped work with the [QA test cases](#qa-test-cases--shipped-work-re-verify) below.**
 
@@ -75,6 +76,7 @@ no filesort); QA verifies the **behaviour**.
 | **QA-T19a** | Invite email pre-fill | Invite-only registration; a pending invite for an address | Open the invite link (`/login/signup/?invite=…`) **logged out** | The email field is pre-filled with the invited address (you don't re-type it) |
 | **QA-T19b** | Invite send is async | — | Create invites (single or **CSV import** of many) | The request returns promptly even for a large CSV; emails go out via Action Scheduler (Tools → Scheduled Actions shows `buddynext_async_send_invite_email`), not inline — no timeout |
 | **QA-T21** | Digest reaches everyone | More than ~200 members set to daily/weekly email digest, each with unread notifications | Let the digest cron run (or trigger it) | EVERY digest member gets their digest, not just the first 200. Tools → Scheduled Actions shows `buddynext_daily_digest`/`buddynext_weekly_digest` chaining through chunks until done |
+| **QA-E4** | Developer member field | A small mu-plugin/addon calling `buddynext_register_member_field( 'x_handle', [ 'group_key'=>'details', 'label'=>'X handle', 'type'=>'text' ] )` | Open a member's profile **edit**, type a value, save; reopen | The field renders in edit, persists, and shows the saved value on reload + in `GET /users/{id}/profile` (no code change to the plugin needed by the addon) |
 
 **Caveats QA should know:**
 - **A6a live-vs-cached:** the REST member list caches results ~60s per viewer, so a just-changed presence/online state can lag up to 60s on the *live* (JS) list; the SSR hard-reload is always live. Not a bug.
@@ -411,14 +413,23 @@ Admin can create a File field (`ProfileFieldsManager:134-139`); the front end re
   200; logged-out now 401 instead of leaking `is_private`.
 - **E3 · ✅ DONE.** Deleted the stale `templates/parts/profile-field.php` (239 lines, 5-of-13 field types) —
   confirmed loaded nowhere (the live path is `FieldType::render_input()` at `edit.php:443`).
-- **E4 · Member-field registration API (developer-friendliness — P-B).** *Code-proven:*
-  `buddynext_register_profile_field` is referenced in a **comment** (`AuthController.php:1137`) but is
-  **defined nowhere** (grep of `includes/` finds no function, filter, or registry class) — a dangling API
-  reference. `register_meta` is also never called anywhere. So today there is **no** code-level way for a
-  developer to register a member field. Standard fix (mirror the planned Spaces field API for symmetry):
-  ship a real `buddynext_register_member_field()` over `register_meta('user', …)` that surfaces the field
-  in the profile edit UI + REST, and fix/remove the stale `AuthController:1137` comment. (Lower priority
-  than A/B/D, but it is the concrete "developer-friendly" deliverable, not optional polish.)
+- **E4 · ✅ DONE — Member-field registration API (premise corrected, then 4 real gaps fixed).** The audit
+  said `buddynext_register_profile_field` was "defined nowhere" — **stale**: it's defined at
+  `buddynext.php:575` and wires fields onto the `buddynext_profile_fields` filter. BUT verifying end-to-end
+  showed the API was **broken in four places**, so a registered field never actually reached a member:
+  (1) `normalize_field_row()` only read `field_key`, silently **dropping** every field registered with the
+  documented `key` arg (so `get_fields()` never even contained it); (2) `get_profile()` — the path the edit
+  UI + member REST read — builds from the DB and **never merged** the filter's virtual fields; (3)
+  `save_profile()` built `$field_by_key` from the DB-only `get_flat_fields()`, so a submitted virtual value
+  was **skipped**; (4) even when reached, it had **no virtual branch** to store the value. Fixes:
+  normalize accepts `key`; `get_profile()` gains `merge_virtual_fields()` (value from `bn_field_{key}`,
+  visibility-gated like DB fields); `save_profile()` layers virtual fields into `$field_by_key` and writes
+  `bn_field_{key}` on id 0. Added `buddynext_register_member_field( $key, $args )` — the Spaces-symmetric
+  name the plan wanted — as a wrapper. Verified live: a code-registered field **renders** in profile edit,
+  **surfaces** in `GET /users/{id}/profile`, and a **PUT → GET round-trip** persists + reads back. The
+  `AuthController:1137` comment was accurate; refreshed it to name the new alias + the read/save keys.
+  (`register_meta('user', …)` was NOT used — BuddyNext serves its own `buddynext/v1` REST, so the filter
+  path is the correct surface; register_meta targets core `/wp/v2/users`.)
 - **E5 · Manifest refresh.** Its `permission_callback` column is unreliable here (renders array callbacks
   as `__return_true`, e.g. `/member-types` admin routes) and is 2 days stale — drift only, code gates
   correctly. Regenerate (`/wp-plugin-onboard --refresh`) after A–D land.

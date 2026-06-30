@@ -618,6 +618,23 @@ function buddynext_register_profile_field( array $args ): void {
 }
 
 /**
+ * Register a member (extended-profile) field from code — the member-side companion to
+ * buddynext_register_space_field(), with the same ($key, $args) signature for symmetry.
+ *
+ * The field surfaces on the member's profile + edit UI + REST (via ProfileService) and
+ * its value is stored to the bn_field_{key} usermeta the profile save path writes.
+ * Thin wrapper over buddynext_register_profile_field().
+ *
+ * @param string              $key  Field key (stored as bn_field_{key}).
+ * @param array<string,mixed> $args Definition (group_key, label, type, visibility, options, …).
+ * @return void
+ */
+function buddynext_register_member_field( string $key, array $args = array() ): void {
+	$args['key'] = sanitize_key( $key );
+	buddynext_register_profile_field( $args );
+}
+
+/**
  * Effective default registration mode when the owner has not set one.
  *
  * Per owner decision, BuddyNext does not impose its own opinion on a fresh

@@ -194,7 +194,11 @@ class ProfileService {
 	 * @return array<string, mixed>|null
 	 */
 	private function normalize_field_row( array $field, int $group_id ): ?array {
-		$field_key = sanitize_key( (string) ( $field['field_key'] ?? '' ) );
+		// Accept 'key' as an alias for 'field_key': buddynext_register_member_field()/
+		// buddynext_register_profile_field() register with 'key', and without this every
+		// code-registered field was silently dropped here (no field_key -> null), so it
+		// never reached get_fields() and the save path could not persist it.
+		$field_key = sanitize_key( (string) ( $field['field_key'] ?? $field['key'] ?? '' ) );
 		$label     = sanitize_text_field( (string) ( $field['label'] ?? '' ) );
 		if ( '' === $field_key || '' === $label ) {
 			return null;
@@ -477,6 +481,19 @@ class ProfileService {
 		$flat_fields  = $this->get_flat_fields();
 		$field_by_key = array_column( $flat_fields, null, 'field_key' );
 
+		// Layer in code-registered (virtual) fields. get_flat_fields() is a DB-only
+		// query, so without this a buddynext_register_member_field() value can't be
+		// saved — the flat loop below skips any submitted key not in $field_by_key, and
+		// the virtual branch (field id 0) then writes it to bn_field_{key}.
+		foreach ( $this->get_fields() as $vgroup ) {
+			foreach ( (array) ( $vgroup['fields'] ?? array() ) as $vfield ) {
+				$vkey = (string) ( $vfield['field_key'] ?? '' );
+				if ( ! empty( $vfield['is_virtual'] ) && '' !== $vkey && ! isset( $field_by_key[ $vkey ] ) ) {
+					$field_by_key[ $vkey ] = $vfield;
+				}
+			}
+		}
+
 		// Accumulate per-field rejection messages so the method can report an
 		// honest result instead of always claiming success.
 		$field_errors = array();
@@ -651,6 +668,21 @@ class ProfileService {
 				$chosen_visibility,
 				(string) ( $field['visibility'] ?? 'public' )
 			);
+
+			// Code-registered (virtual) field — id 0, no bn_profile_fields row. Its
+			// value lives in the bn_field_{key} usermeta that get_profile()'s virtual
+			// merge (and, for searchable fields, the directory mirror) reads — the same
+			// key the registration-time save path uses. upsert_value() would instead
+			// orphan a bn_profile_values row on field_id 0, which nothing reads.
+			if ( 0 === $field_id ) {
+				$vkey = 'bn_field_' . sanitize_key( (string) $key );
+				if ( '' !== $sanitized_val ) {
+					update_user_meta( $user_id, $vkey, $sanitized_val );
+				} else {
+					delete_user_meta( $user_id, $vkey );
+				}
+				continue;
+			}
 
 			$this->upsert_value( $user_id, $field_id, 0, $sanitized_val, $entry_visibility );
 
@@ -948,6 +980,19 @@ class ProfileService {
 			$output_groups[] = $out;
 		}
 
+		// Merge code-registered (virtual) fields so a developer's
+		// buddynext_register_member_field() / buddynext_register_profile_field() fields
+		// actually appear on the member's profile + edit UI. get_profile() is the path
+		// the edit template and the member REST read, and it builds from the DB — so
+		// without this the filter-registered fields only ever showed in get_fields().
+		$output_groups = $this->merge_virtual_fields(
+			$output_groups,
+			$profile_user_id,
+			$is_owner,
+			$viewer_is_follower,
+			$viewer_is_connection
+		);
+
 		// Collect a flat list of all fields from non-repeater groups for quick access.
 		$flat_fields = array();
 		foreach ( $output_groups as $group ) {
@@ -985,6 +1030,95 @@ class ProfileService {
 		wp_cache_set( $cache_key, $profile, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $profile;
+	}
+
+	/**
+	 * Merge code-registered (virtual) fields into a profile's group list.
+	 *
+	 * The `buddynext_profile_fields` filter (populated by
+	 * buddynext_register_member_field()/buddynext_register_profile_field()) is applied
+	 * to an EMPTY group set to harvest just the virtual fields, each shaped like a DB
+	 * field with its value read from the `bn_field_{key}` usermeta the save path
+	 * writes. Visibility is gated for non-owners exactly like DB fields, and a virtual
+	 * field whose key a DB field already owns is skipped (the DB field wins).
+	 *
+	 * @param array<int,array<string,mixed>> $output_groups        DB-built groups.
+	 * @param int                            $profile_user_id      Profile owner.
+	 * @param bool                           $is_owner             Viewer is the owner.
+	 * @param bool                           $viewer_is_follower   Viewer follows the owner.
+	 * @param bool                           $viewer_is_connection Viewer is connected to the owner.
+	 * @return array<int,array<string,mixed>> Groups with virtual fields merged in.
+	 */
+	private function merge_virtual_fields( array $output_groups, int $profile_user_id, bool $is_owner, bool $viewer_is_follower, bool $viewer_is_connection ): array {
+		$virtual = (array) apply_filters( 'buddynext_profile_fields', array() );
+		if ( empty( $virtual ) ) {
+			return $output_groups;
+		}
+
+		// Index flat groups by key + collect every field key already present so a DB
+		// field is never duplicated by a same-key virtual registration.
+		$flat_group_index = array();
+		$seen_keys        = array();
+		foreach ( $output_groups as $gi => $g ) {
+			if ( isset( $g['fields'] ) && is_array( $g['fields'] ) ) {
+				$flat_group_index[ (string) ( $g['group_key'] ?? '' ) ] = $gi;
+				foreach ( $g['fields'] as $f ) {
+					$seen_keys[ (string) ( $f['field_key'] ?? '' ) ] = true;
+				}
+			}
+		}
+
+		foreach ( $virtual as $vg ) {
+			$gkey = sanitize_key( (string) ( $vg['group_key'] ?? 'details' ) );
+			foreach ( (array) ( $vg['fields'] ?? array() ) as $vf ) {
+				$fkey = sanitize_key( (string) ( $vf['key'] ?? $vf['field_key'] ?? '' ) );
+				if ( '' === $fkey || isset( $seen_keys[ $fkey ] ) ) {
+					continue;
+				}
+
+				$fvis = (string) ( $vf['visibility'] ?? 'public' );
+				if ( ! $is_owner ) {
+					if ( 'private' === $fvis
+						|| ( 'connections' === $fvis && ! $viewer_is_connection )
+						|| ( 'followers' === $fvis && ! $viewer_is_follower ) ) {
+						continue;
+					}
+				}
+
+				$field = array(
+					'field_id'         => 0,
+					'field_key'        => $fkey,
+					'label'            => (string) ( $vf['label'] ?? $fkey ),
+					'type'             => (string) ( $vf['type'] ?? 'text' ),
+					'options'          => $vf['options'] ?? null,
+					'is_required'      => (bool) ( $vf['is_required'] ?? false ),
+					'sort_order'       => (int) ( $vf['sort_order'] ?? 99 ),
+					'value'            => get_user_meta( $profile_user_id, 'bn_field_' . $fkey, true ),
+					'field_visibility' => $fvis,
+					'group_visibility' => 'public',
+					'entry_visibility' => null,
+					'is_virtual'       => true,
+				);
+
+				if ( isset( $flat_group_index[ $gkey ] ) ) {
+					$output_groups[ $flat_group_index[ $gkey ] ]['fields'][] = $field;
+				} else {
+					$output_groups[]           = array(
+						'id'         => 0,
+						'group_key'  => $gkey,
+						'label'      => (string) ( $vg['label'] ?? ucwords( str_replace( array( '_', '-' ), ' ', $gkey ) ) ),
+						'type'       => 'flat',
+						'visibility' => 'public',
+						'sort_order' => (int) ( $vg['sort_order'] ?? 99 ),
+						'fields'     => array( $field ),
+					);
+					$flat_group_index[ $gkey ] = count( $output_groups ) - 1;
+				}
+				$seen_keys[ $fkey ] = true;
+			}
+		}
+
+		return $output_groups;
 	}
 
 	/**
