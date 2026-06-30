@@ -1,8 +1,18 @@
 # CLAUDE.md — BuddyNext
 
-> **RESUMING WORK?** Start with [`docs/qa/RESUME.md`](docs/qa/RESUME.md) — open tasks, environment quirks, resumption recipe. Last session summary: [`docs/qa/SESSION-2026-05-22.md`](docs/qa/SESSION-2026-05-22.md).
+> **INTERNAL DEV DOCS LIVE IN THE PRIVATE `buddynext-pro` REPO** under `free-internal/` — plans, audit,
+> specs, standards, journeys, conformance, qa, v2 Plans, superpowers, and the loose top-level planning
+> `.md`s. The public `buddynext` repo keeps **customer-facing docs only** (`docs/website/`). `audit/` is
+> also kept **gitignored-locally** so tooling (CertRunner, flow-audit) still resolves the regenerated
+> `manifest.json` + baseline. Any `docs/...` / `audit/...` path named below resolves under
+> `../buddynext-pro/free-internal/` (or, for `audit/`, the local gitignored copy).
 >
-> **READ FIRST:** [`audit/manifest.json`](audit/manifest.json) is the canonical inventory — 135 REST endpoints, 39 tables, 21 capabilities, 55 services, 548 plugin-own hooks fired. Use this before grepping. See also [`audit/FEATURE_AUDIT.md`](audit/FEATURE_AUDIT.md), [`audit/CODE_FLOWS.md`](audit/CODE_FLOWS.md), [`audit/ROLE_MATRIX.md`](audit/ROLE_MATRIX.md). Refresh after non-trivial changes.
+> **RESUMING WORK?** Start with `free-internal/docs/qa/RESUME.md` (in `buddynext-pro`).
+>
+> **READ FIRST:** `audit/manifest.json` (local gitignored / `free-internal/audit/manifest.json` in
+> `buddynext-pro`) is the canonical inventory — 135 REST endpoints, 39 tables, 21 capabilities, 55 services,
+> 548 plugin-own hooks fired. Use this before grepping. See also `FEATURE_AUDIT.md`, `CODE_FLOWS.md`,
+> `ROLE_MATRIX.md` beside it. Refresh after non-trivial changes.
 
 ## What Is BuddyNext
 

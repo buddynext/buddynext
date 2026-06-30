@@ -55,3 +55,10 @@ audit/flow.json
 
 # Local test runner output
 test-results/
+
+# Internal dev docs + audit live in the private buddynext-pro repo (free-internal/).
+# Public repo keeps customer-facing docs (docs/website/) only. audit/ stays on disk
+# (gitignored) so local tooling resolves the regenerated manifest + flow-audit baseline.
+/audit/
+/docs/*
+!/docs/website/
