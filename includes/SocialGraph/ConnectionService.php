@@ -177,6 +177,12 @@ class ConnectionService {
 
 		$this->invalidate_connection_cache();
 
+		// A pending request just became an accepted connection — count it for both
+		// peers (a connection is one shared row, counted from either side).
+		$counters = buddynext_service( 'counters' );
+		$counters->adjust_user_counter( $requester_id, 'bn_connection_count', 1 );
+		$counters->adjust_user_counter( $recipient_id, 'bn_connection_count', 1 );
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$connection_id = (int) $wpdb->get_var(
 			$wpdb->prepare(
@@ -361,6 +367,11 @@ class ConnectionService {
 		}
 
 		$this->invalidate_connection_cache();
+
+		// The accepted connection is gone — decrement the counter for both peers.
+		$counters = buddynext_service( 'counters' );
+		$counters->adjust_user_counter( $user_a, 'bn_connection_count', -1 );
+		$counters->adjust_user_counter( $user_b, 'bn_connection_count', -1 );
 
 		/**
 		 * Fires after a connection is removed.
@@ -723,8 +734,6 @@ class ConnectionService {
 	 * @return int
 	 */
 	public function connection_count( int $user_id ): int {
-		global $wpdb;
-
 		$cache_key = "connection_count_{$user_id}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
@@ -732,17 +741,15 @@ class ConnectionService {
 			return (int) $cached;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$count = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*)
-				 FROM {$wpdb->prefix}bn_connections
-				 WHERE ( requester_id = %d OR recipient_id = %d )
-				   AND status = 'accepted'",
-				$user_id,
-				$user_id
-			)
-		);
+		// Read the denormalised counter (O(1) cache-cold) instead of COUNT(*)-ing
+		// bn_connections. A missing key lazy-recounts so the store self-heals; the
+		// accept/remove paths and the daily reconcile keep it current after.
+		$meta = get_user_meta( $user_id, 'bn_connection_count', true );
+		if ( '' === $meta ) {
+			buddynext_service( 'counters' )->recount_connection_counts( $user_id );
+			$meta = get_user_meta( $user_id, 'bn_connection_count', true );
+		}
+		$count = (int) $meta;
 
 		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
 

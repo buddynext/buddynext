@@ -146,6 +146,12 @@ class FollowService {
 		}
 
 		if ( $inserted ) {
+			// Maintain the denormalised follow counters in O(1) — this branch is
+			// reached only for a NEW approved edge (the pending path returned above).
+			$counters = buddynext_service( 'counters' );
+			$counters->adjust_user_counter( $following_id, 'bn_follower_count', 1 );
+			$counters->adjust_user_counter( $follower_id, 'bn_following_count', 1 );
+
 			/**
 			 * Fires after a new follow relationship is created.
 			 *
@@ -204,6 +210,18 @@ class FollowService {
 	public function unfollow( int $follower_id, int $following_id ): bool {
 		global $wpdb;
 
+		// Capture the edge's status before deleting: only an APPROVED follow was ever
+		// counted, so only an approved one decrements the denormalised counters — a
+		// withdrawn pending request must leave the displayed counts untouched.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$was_approved = 'approved' === (string) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT status FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND following_id = %d",
+				$follower_id,
+				$following_id
+			)
+		);
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_follows',
@@ -222,6 +240,13 @@ class FollowService {
 			// during block cleanup) must not evict still-valid follower/following
 			// counts. Mirrors the approve/reject_follow_request pattern below.
 			$this->invalidate_follow_cache( $follower_id, $following_id );
+
+			// Decrement the denormalised counters only for an approved edge.
+			if ( $was_approved ) {
+				$counters = buddynext_service( 'counters' );
+				$counters->adjust_user_counter( $following_id, 'bn_follower_count', -1 );
+				$counters->adjust_user_counter( $follower_id, 'bn_following_count', -1 );
+			}
 
 			/**
 			 * Fires after a follow relationship is removed.
@@ -445,8 +470,6 @@ class FollowService {
 	 * @return int
 	 */
 	public function follower_count( int $user_id ): int {
-		global $wpdb;
-
 		$cache_key = "follower_count_{$user_id}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
@@ -454,15 +477,16 @@ class FollowService {
 			return (int) $cached;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$count = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*)
-				 FROM {$wpdb->prefix}bn_follows
-				 WHERE following_id = %d AND status = 'approved'",
-				$user_id
-			)
-		);
+		// Read the denormalised counter (O(1)) rather than COUNT(*)-ing bn_follows on
+		// every cache-cold call (P-A: counts must hold up cache-cold). A missing key —
+		// first read, or a member who followed before this counter shipped — lazy
+		// recounts so the store self-heals; the write paths keep it current after.
+		$meta = get_user_meta( $user_id, 'bn_follower_count', true );
+		if ( '' === $meta ) {
+			buddynext_service( 'counters' )->recount_follow_counts( $user_id );
+			$meta = get_user_meta( $user_id, 'bn_follower_count', true );
+		}
+		$count = (int) $meta;
 
 		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
 
@@ -476,8 +500,6 @@ class FollowService {
 	 * @return int
 	 */
 	public function following_count( int $user_id ): int {
-		global $wpdb;
-
 		$cache_key = "following_count_{$user_id}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
@@ -485,15 +507,13 @@ class FollowService {
 			return (int) $cached;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$count = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*)
-				 FROM {$wpdb->prefix}bn_follows
-				 WHERE follower_id = %d AND status = 'approved'",
-				$user_id
-			)
-		);
+		// Denormalised counter read with lazy-recount self-heal — see follower_count().
+		$meta = get_user_meta( $user_id, 'bn_following_count', true );
+		if ( '' === $meta ) {
+			buddynext_service( 'counters' )->recount_follow_counts( $user_id );
+			$meta = get_user_meta( $user_id, 'bn_following_count', true );
+		}
+		$count = (int) $meta;
 
 		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
 
@@ -714,6 +734,11 @@ class FollowService {
 		}
 
 		$this->invalidate_follow_cache( $follower_id, $owner_id );
+
+		// The pending edge just became approved — now it counts.
+		$counters = buddynext_service( 'counters' );
+		$counters->adjust_user_counter( $owner_id, 'bn_follower_count', 1 );
+		$counters->adjust_user_counter( $follower_id, 'bn_following_count', 1 );
 
 		/** Mirrors the same hooks the public follow() path fires. */
 		do_action( 'buddynext_user_followed', $follower_id, $owner_id );

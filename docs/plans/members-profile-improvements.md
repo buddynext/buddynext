@@ -12,10 +12,11 @@ member-delete purge, **T17/F4** (suspension-filter dedup, premise corrected), **
 removal), **T13** (self-clear member type), **T20/E1–E3** (hygiene), and **T19/F6** (invite pre-fill +
 async send), **T21/F7** (digest cron at scale — keyset + AS chaining), and **E4** (member-field
 registration API — premise was stale, then 4 real gaps fixed end-to-end), and **T15/A4/D2** (member search
-unified on the FULLTEXT `bn_search_index` engine — directory search == unified search, cross-checked), each
-browser-verified where applicable (the scale + delete + digest + search work re-verified on a 1.5k-member /
-300-space seed). The remaining tasks (T9, T14/D3, E5, B3) are unstarted; their plan + exact touch-points are
-validated at code `file:line`.
+unified on the FULLTEXT `bn_search_index` engine — directory search == unified search, cross-checked), and
+**T9/C2/D1** (follow + connection count denormalization — O(1) cache-cold, drift-reconciled, a latent
+pending-follow miscount fixed), each browser-verified where applicable (the scale + delete + digest + search
++ counter work re-verified on a 1.5k-member / 300-space seed). The remaining tasks (T14/D3, E5, B3) are
+unstarted; their plan + exact touch-points are validated at code `file:line`.
 **QA: re-verify the shipped work with the [QA test cases](#qa-test-cases--shipped-work-re-verify) below.**
 
 | Task | State | One-liner |
@@ -25,7 +26,7 @@ validated at code `file:line`.
 | T3 | ✅ DONE | one canonical `MemberCleanupService::purge_user_relations()` + `buddynext_purge_user_data` action; both the delete listener AND the GDPR eraser defer to it; closes the gap tables (member-type/presence/search-index/space-bans/appeals/shares/reactions/poll-votes). Verified live: deleted a member with rows in all 21 user-keyed tables → all purged, zero leaks |
 | T4 | ✅ DONE | member-type directory filter → indexed `bn_member_type_assignments` (A1) — both REST + SSR; EXPLAIN uses `idx_type_id`; SSR==REST verified; never loses members (usermeta_without_assignment=0) |
 | T6 | ✅ DONE | bound unbounded reads — `get_members`/controller always-paginate + 200 cap; `transfer_candidates` mods-first + LIMIT 200; `pending_followers`/`list_follow_requests` bounded+paginated; `suggestions` friend-sample capped 200. Browser-verified (members tab + transfer dropdown intact) |
-| T9 | ⏳ PENDING | finish follow + build connection denormalization (cache-cold) |
+| T9 | ✅ DONE | follow denormalization wired + connection denormalization built (cache-cold O(1)). Fixed latent bug: `recount_follow_counts` counted pending follows (read path counts `approved` only). `CounterService` gains `adjust_user_counter` (atomic, clamped, cache-bust), `recount_connection_counts`, `recount_all_follow_counts`, `recount_all_connection_counts` (set-based). Follow/connection write paths maintain the counters; reads lazy-populate; daily cron + B2 purge + ToolsTab reconcile. Verified on seed: inc/dec, read==meta, drift heal, purge-peer decrement |
 | T13 | ✅ DONE | self-clear member type — empty slug now calls `remove_user_type()` (under the existing own-profile `can_set_user_type` gate) instead of 404. Verified: PUT `{type_slug:""}` → 200 (was 404) |
 | T14 | ⏳ PENDING | File profile field (decision D3: wire upload vs remove) |
 | T15 | ✅ DONE | member field search → FULLTEXT `bn_search_index` (D2 resolved: consistency). Step A: `index_user` indexes name + bio + headline + public searchable fields. Step B: `SearchService::match_member_ids()` + both directory search paths (SSR `matching_user_ids`, REST `list_members`) route through it. Verified: directory search == unified `/search/members` (identical 38-member set for "Rivera"); all 3 engines agree; 1530 members reindexed |
@@ -82,6 +83,7 @@ no filesort); QA verifies the **behaviour**.
 | **QA-T21** | Digest reaches everyone | More than ~200 members set to daily/weekly email digest, each with unread notifications | Let the digest cron run (or trigger it) | EVERY digest member gets their digest, not just the first 200. Tools → Scheduled Actions shows `buddynext_daily_digest`/`buddynext_weekly_digest` chaining through chunks until done |
 | **QA-E4** | Developer member field | A small mu-plugin/addon calling `buddynext_register_member_field( 'x_handle', [ 'group_key'=>'details', 'label'=>'X handle', 'type'=>'text' ] )` | Open a member's profile **edit**, type a value, save; reopen | The field renders in edit, persists, and shows the saved value on reload + in `GET /users/{id}/profile` (no code change to the plugin needed by the addon) |
 | **QA-T15** | Search is consistent + finds by field | A member with a distinctive searchable field value (a skill/role) who has saved their profile | Search that value in the **directory** search box, in **unified search**, and on a member name | Both the directory and unified search return the **same** members; a member is found by their field value (skill/role), not just their name. (Existing members must be reindexed once for older data to be findable by field) |
+| **QA-T9** | Follow/connection counts hold at scale | Two members A and B | A follows B (check B's follower count + A's following count); A unfollows; A connects with B and both accept (check both connection counts); remove the connection | Counts increment/decrement immediately and survive a page reload (read cache-cold). Deleting a member drops their followers'/connections' counts by one. A private account's pending follow request does NOT raise the follower count until approved |
 
 **Caveats QA should know:**
 - **A6a live-vs-cached:** the REST member list caches results ~60s per viewer, so a just-changed presence/online state can lag up to 60s on the *live* (JS) list; the SSR hard-reload is always live. Not a bug.
@@ -354,8 +356,11 @@ invite→user on signup/delete if cheap, else document the intentional gap.
 `:534`, with a documented null-miss correction at `:519-522`). The linkage audit's "no cache" claim was
 wrong. **Nothing to touch.** Both `get_all_with_counts` (`:87-113`) and `get_type_member_count` are cached.
 
-**C2 · Decision D1 — follow/connection counts → finish the denormalization that already half-exists.**
-*(Code-proven — supersedes both the "keep cached" and the "add columns via Installer" drafts; both were wrong.)*
+**C2 · ✅ DONE (= T9) — Decision D1 — follow/connection counts → finished the denormalization that already half-existed.**
+*(Code-proven — superseded both the "keep cached" and the "add columns via Installer" drafts; both were wrong.)*
+*Built + verified end-to-end on the 1.5k seed: counters maintained on every write path (status-aware for
+follows), reads lazy-populate from usermeta (O(1) cache-cold), the daily cron + B2 purge + ToolsTab button
+reconcile drift. The latent `recount_follow_counts` "counts pending follows" bug was fixed in the same pass.*
 
 Proven current state:
 - **The follow counter store ALREADY EXISTS but is dead.** `CounterService::recount_follow_counts()`
@@ -531,8 +536,10 @@ All anchors verified in code.
 *instances of* an existing pattern in their existing class — not parallel mechanisms.
 
 ## Decisions to lock before coding
-- **D1 (C2):** keep cached `COUNT(*)` for follow/connection counts; do NOT denormalize unless profiling demands. *(proposed)*
-- **D2 (A4):** member field-search via `bn_search_index` FULLTEXT vs accept bounded LIKE. *(recommend FULLTEXT)*
+- **D1 (C2): ✅ RESOLVED + DONE** — wired the half-existing follow denormalization + built the symmetric
+  connection one (the "keep cached" draft was superseded by the code-proven C2 decision; see T9 above). Counts
+  are now O(1) cache-cold via usermeta counters, drift-reconciled daily + on the manual ToolsTab button.
+- **D2 (A4): ✅ RESOLVED + DONE** — member field-search unified on `bn_search_index` FULLTEXT (see T15).
 - **D3 (D2):** File field — wire a real upload vs remove the type from the matrix. *(pick one)*
 
 ## Files-to-touch index (quick reference)

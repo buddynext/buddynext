@@ -76,6 +76,13 @@ class MemberCleanupService {
 			)
 		);
 
+		// Follow + connection peers whose denormalised counters must drop by one when
+		// this member's edges are deleted below — captured BEFORE the rows go away.
+		// The member's OWN counters live in their bn_* usermeta, wiped by the sweep.
+		$peers_lose_follower   = $wpdb->get_col( $wpdb->prepare( "SELECT following_id FROM {$p}bn_follows WHERE follower_id = %d AND status = 'approved'", $user_id ) );
+		$peers_lose_following  = $wpdb->get_col( $wpdb->prepare( "SELECT follower_id FROM {$p}bn_follows WHERE following_id = %d AND status = 'approved'", $user_id ) );
+		$peers_lose_connection = $wpdb->get_col( $wpdb->prepare( "SELECT CASE WHEN requester_id = %d THEN recipient_id ELSE requester_id END FROM {$p}bn_connections WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted'", $user_id, $user_id, $user_id ) );
+
 		// The complete user-keyed table set. Two-direction relations match either
 		// side; search-index removal covers both the member's own entry and every
 		// row they authored.
@@ -129,6 +136,23 @@ class MemberCleanupService {
 			$post_service = buddynext_service( 'post_service' );
 			if ( is_object( $post_service ) && method_exists( $post_service, 'recount_counters' ) ) {
 				$post_service->recount_counters( array_map( 'intval', $reaction_post_ids ) );
+			}
+		}
+
+		// Decrement the denormalised follow/connection counters for every peer whose
+		// edge with this member was just removed (one edge each, so -1 is exact). This
+		// fixes the source of truth immediately; the short-TTL count caches and the
+		// daily reconcile (recount_all_*) cover the cached read layer.
+		$counters = buddynext_service( 'counters' );
+		if ( is_object( $counters ) ) {
+			foreach ( $peers_lose_follower as $peer ) {
+				$counters->adjust_user_counter( (int) $peer, 'bn_follower_count', -1 );
+			}
+			foreach ( $peers_lose_following as $peer ) {
+				$counters->adjust_user_counter( (int) $peer, 'bn_following_count', -1 );
+			}
+			foreach ( $peers_lose_connection as $peer ) {
+				$counters->adjust_user_counter( (int) $peer, 'bn_connection_count', -1 );
 			}
 		}
 

@@ -292,6 +292,8 @@ class CronService {
 		$counters = new CounterService();
 		$counters->recount_all_space_members();
 		$counters->recount_all_hashtag_counts();
+		$counters->recount_all_follow_counts();
+		$counters->recount_all_connection_counts();
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────

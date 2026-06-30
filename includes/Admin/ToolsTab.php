@@ -186,6 +186,7 @@ class ToolsTab {
 					<?php
 					$this->recount_button( 'space_members', __( 'Recount space members', 'buddynext' ) );
 					$this->recount_button( 'follow_counts', __( 'Recount follow counts', 'buddynext' ) );
+					$this->recount_button( 'connection_counts', __( 'Recount connection counts', 'buddynext' ) );
 					$this->recount_button( 'post_engagement', __( 'Recount post reactions & comments', 'buddynext' ) );
 					?>
 				</div>
@@ -274,9 +275,13 @@ class ToolsTab {
 				}
 				break;
 			case 'follow_counts':
-				foreach ( (array) get_users( array( 'fields' => 'ID' ) ) as $id ) {
-					$counter->recount_follow_counts( (int) $id );
-				}
+				// Set-based reconcile of every existing counter row (scale-safe — the
+				// old per-user get_users() loop ran 2 COUNTs per user and timed out on
+				// large sites). Missing rows lazy-populate on first read.
+				$counter->recount_all_follow_counts();
+				break;
+			case 'connection_counts':
+				$counter->recount_all_connection_counts();
 				break;
 			case 'post_engagement':
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
