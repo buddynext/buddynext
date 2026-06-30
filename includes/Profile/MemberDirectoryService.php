@@ -227,32 +227,20 @@ class MemberDirectoryService {
 		}
 
 		if ( '' !== $search ) {
-			$like_search = '%' . $wpdb->esc_like( $search ) . '%';
-
-			// Always match core identity columns.
-			$search_or = array(
-				'u.display_name LIKE %s',
-				'u.user_login LIKE %s',
-			);
-			$params[]  = $like_search;
-			$params[]  = $like_search;
-
-			// Dynamically OR-match every searchable field's privacy-safe mirror.
-			// One correlated EXISTS per mirror key; the mirror only contains
-			// public-visibility values, so this stays privacy-safe with no
-			// per-row checks. Each EXISTS is its own bn_field_{key} usermeta row.
-			foreach ( $this->searchable_mirror_keys() as $meta_key ) {
-				$search_or[] = "EXISTS (
-				    SELECT 1 FROM {$wpdb->usermeta} um_search
-				    WHERE um_search.user_id = u.ID
-				      AND um_search.meta_key = %s
-				      AND um_search.meta_value LIKE %s
-				  )";
-				$params[]    = $meta_key;
-				$params[]    = $like_search;
+			// Route through the shared FULLTEXT bn_search_index engine (the same
+			// SearchService::match_member_ids() primitive the SSR directory, unified
+			// search, Explore, and /search/members use) so EVERY member-search surface
+			// returns the same members for a query. Matched on indexed content (display
+			// name + bio + headline + public searchable fields), not a per-mirror
+			// leading-wildcard usermeta scan. The suspended/shadowban/dir-opt-out/block
+			// gate already lives in $where_clauses above; this adds only the match set
+			// (intval-interpolated, no placeholders). An empty match → no results.
+			$match_ids = buddynext_service( 'search' )->match_member_ids( $search );
+			if ( empty( $match_ids ) ) {
+				$where_clauses[] = '1 = 0';
+			} else {
+				$where_clauses[] = 'u.ID IN ( ' . implode( ',', array_map( 'intval', $match_ids ) ) . ' )';
 			}
-
-			$where_clauses[] = '(' . implode( ' OR ', $search_or ) . ')';
 		}
 
 		if ( '' !== $location ) {
@@ -851,17 +839,20 @@ class MemberDirectoryService {
 	}
 
 	/**
-	 * Return user IDs whose name, login, email, or any privacy-safe searchable
-	 * field mirror matches a free-text term.
+	 * Return the member IDs matching a free-text directory-search term.
 	 *
-	 * Shares the exact match surface used by list_members() so the
-	 * server-rendered directory page (templates/directory/members.php, which
-	 * builds a WP_User_Query) gets the same dynamic, privacy-aware search as the
-	 * REST/live path — no duplicate matching logic, no mirror search for
-	 * private/tightened values (their mirrors are absent by contract).
+	 * Routes through the shared `SearchService::match_member_ids()` — the same
+	 * FULLTEXT `bn_search_index` primitive the unified search + Explore + the
+	 * `/search/members` endpoint use — so the directory search box and the unified
+	 * search return the SAME members for a query (consistency), matched on indexed
+	 * content (display name + bio + headline + public searchable fields, written by
+	 * ProfileService::index_user) instead of a per-mirror leading-wildcard usermeta
+	 * scan. The directory's own query applies the suspended / shadow-banned / blocked /
+	 * directory-opt-out gate on top of these ids (directory_filter_sql for the SSR
+	 * page; list_members() for REST), so this stays a pure, reusable term-match.
 	 *
 	 * @param string $term Search term.
-	 * @return int[] Matching user IDs (empty array when the term is blank or matches nothing).
+	 * @return int[] Matching member user IDs (empty when the term is blank or matches nothing).
 	 */
 	public function matching_user_ids( string $term ): array {
 		$term = trim( $term );
@@ -869,46 +860,7 @@ class MemberDirectoryService {
 			return array();
 		}
 
-		global $wpdb;
-
-		$like = '%' . $wpdb->esc_like( $term ) . '%';
-
-		// Public directory search matches name + username only (plus the opt-in
-		// searchable profile-field mirrors added below) — never user_email.
-		// Searching a public directory by email enables address enumeration,
-		// which is why LinkedIn / X / Facebook don't allow it either. This keeps
-		// the surface identical to list_members() (no divergence).
-		$ors    = array( 'u.display_name LIKE %s', 'u.user_login LIKE %s' );
-		$params = array( $like, $like );
-
-		foreach ( $this->searchable_mirror_keys() as $meta_key ) {
-			$ors[]    = "EXISTS ( SELECT 1 FROM {$wpdb->usermeta} ums WHERE ums.user_id = u.ID AND ums.meta_key = %s AND ums.meta_value LIKE %s )";
-			$params[] = $meta_key;
-			$params[] = $like;
-		}
-
-		// Honor the directory opt-out here too so the server-rendered directory
-		// search (WP_User_Query built from these IDs) never surfaces a member
-		// who turned off "Show me in the member directory". Default-visible:
-		// only an explicit '0' excludes; an absent meta leaves the member found.
-		$dir_optout = "NOT EXISTS ( SELECT 1 FROM {$wpdb->usermeta} um_dir WHERE um_dir.user_id = u.ID AND um_dir.meta_key = 'bn_privacy_show_in_directory' AND um_dir.meta_value = '0' )";
-
-		// Mirror list_members(): directory search must never surface suspended or
-		// shadow-banned members (this feeds the server-rendered results page).
-		$suspended_ex = "NOT EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_user_suspensions s_ex WHERE s_ex.user_id = u.ID AND s_ex.lifted_at IS NULL AND ( s_ex.expires_at IS NULL OR s_ex.expires_at > UTC_TIMESTAMP() ) )";
-		$shadow_ex    = "NOT EXISTS ( SELECT 1 FROM {$wpdb->usermeta} um_ban WHERE um_ban.user_id = u.ID AND um_ban.meta_key = 'bn_shadow_banned' AND um_ban.meta_value = '1' )";
-
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$ids = $wpdb->get_col(
-			$wpdb->prepare(
-				// The OR clauses are built internally from %s placeholders; every user value is passed via $params. Static table names + literal opt-out/suspension clauses only. phpcs cannot see the interpolated placeholders.
-				"SELECT u.ID FROM {$wpdb->users} u WHERE ( " . implode( ' OR ', $ors ) . " ) AND {$dir_optout} AND {$suspended_ex} AND {$shadow_ex}", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-				...$params
-			)
-		);
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		return array_map( 'intval', (array) $ids );
+		return buddynext_service( 'search' )->match_member_ids( $term );
 	}
 
 	/**

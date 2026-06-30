@@ -11,10 +11,11 @@ sorts/filters, bounded reads, no IN/NOT-IN id lists, no per-card N+1, bounded co
 member-delete purge, **T17/F4** (suspension-filter dedup, premise corrected), **T18/F5** (dead digest-queue
 removal), **T13** (self-clear member type), **T20/E1–E3** (hygiene), and **T19/F6** (invite pre-fill +
 async send), **T21/F7** (digest cron at scale — keyset + AS chaining), and **E4** (member-field
-registration API — premise was stale, then 4 real gaps fixed end-to-end), each browser-verified where
-applicable (the scale + delete + digest work re-verified on a 1.5k-member / 300-space seed). The remaining
-tasks (T9, T14, T15, E5, B3) are unstarted; their plan + exact touch-points are validated at code
-`file:line`.
+registration API — premise was stale, then 4 real gaps fixed end-to-end), and **T15/A4/D2** (member search
+unified on the FULLTEXT `bn_search_index` engine — directory search == unified search, cross-checked), each
+browser-verified where applicable (the scale + delete + digest + search work re-verified on a 1.5k-member /
+300-space seed). The remaining tasks (T9, T14/D3, E5, B3) are unstarted; their plan + exact touch-points are
+validated at code `file:line`.
 **QA: re-verify the shipped work with the [QA test cases](#qa-test-cases--shipped-work-re-verify) below.**
 
 | Task | State | One-liner |
@@ -27,7 +28,7 @@ tasks (T9, T14, T15, E5, B3) are unstarted; their plan + exact touch-points are 
 | T9 | ⏳ PENDING | finish follow + build connection denormalization (cache-cold) |
 | T13 | ✅ DONE | self-clear member type — empty slug now calls `remove_user_type()` (under the existing own-profile `can_set_user_type` gate) instead of 404. Verified: PUT `{type_slug:""}` → 200 (was 404) |
 | T14 | ⏳ PENDING | File profile field (decision D3: wire upload vs remove) |
-| T15 | ⏳ PENDING | member field search → FULLTEXT via `bn_search_index` (decision D2) |
+| T15 | ✅ DONE | member field search → FULLTEXT `bn_search_index` (D2 resolved: consistency). Step A: `index_user` indexes name + bio + headline + public searchable fields. Step B: `SearchService::match_member_ids()` + both directory search paths (SSR `matching_user_ids`, REST `list_members`) route through it. Verified: directory search == unified `/search/members` (identical 38-member set for "Rivera"); all 3 engines agree; 1530 members reindexed |
 | T16 | ✅ DONE | directory SSR scale — A5 per-card N+1 batched (online + mutual set-based); A2/A3 `count_total`/`COUNT` bounded to a 1000 cap (page-number pager kept; look-ahead redesign deferred as cross-cutting SSR+JS). Browser-verified |
 | A6 | 🟡 PART | scale-audit addendum (2026-06-30): ✅ A6a SSR online→indexed `bn_presence` EXISTS, ✅ A6b exclude→correlated `NOT EXISTS`, ✅ A6c `post_count` removed, ✅ A6d `newest`→`u.ID`, ✅ A1 member-type→`idx_type_id` — all via a shared `directory_filter_sql()` + one `pre_user_query`; **full 9-point verification matrix passed** (suspended/shadowban/block/dir-optout excluded live, online/type/search/count, EXACT SSR↔REST parity). Remaining: A6e (count-includes-cursor, LOW) + A6f core-table notes |
 | T17 | ✅ DONE | suspension-filter dedup — **corrected**: discovery surfaces use a DIFFERENT gate (ANY active suspension) than `moderation_exclude_sql()` (hide_posts content gate), so converging onto it would be a regression. Added `ModerationService::discovery_exclude_sql()`; Search converged; Explore (ID-list) + directory (NOT EXISTS) documented as intentional form-differences. Search verified 200 |
@@ -80,6 +81,7 @@ no filesort); QA verifies the **behaviour**.
 | **QA-T19b** | Invite send is async | — | Create invites (single or **CSV import** of many) | The request returns promptly even for a large CSV; emails go out via Action Scheduler (Tools → Scheduled Actions shows `buddynext_async_send_invite_email`), not inline — no timeout |
 | **QA-T21** | Digest reaches everyone | More than ~200 members set to daily/weekly email digest, each with unread notifications | Let the digest cron run (or trigger it) | EVERY digest member gets their digest, not just the first 200. Tools → Scheduled Actions shows `buddynext_daily_digest`/`buddynext_weekly_digest` chaining through chunks until done |
 | **QA-E4** | Developer member field | A small mu-plugin/addon calling `buddynext_register_member_field( 'x_handle', [ 'group_key'=>'details', 'label'=>'X handle', 'type'=>'text' ] )` | Open a member's profile **edit**, type a value, save; reopen | The field renders in edit, persists, and shows the saved value on reload + in `GET /users/{id}/profile` (no code change to the plugin needed by the addon) |
+| **QA-T15** | Search is consistent + finds by field | A member with a distinctive searchable field value (a skill/role) who has saved their profile | Search that value in the **directory** search box, in **unified search**, and on a member name | Both the directory and unified search return the **same** members; a member is found by their field value (skill/role), not just their name. (Existing members must be reindexed once for older data to be findable by field) |
 
 **Caveats QA should know:**
 - **A6a live-vs-cached:** the REST member list caches results ~60s per viewer, so a just-changed presence/online state can lag up to 60s on the *live* (JS) list; the SSR hard-reload is always live. Not a bug.
@@ -182,14 +184,16 @@ count never scans the full 50k set; `total` saturates at 1000 (kept in sync with
 surfaces agree). A1 already moved the type predicate to the indexed assignments table; the count stays
 cached alongside the page (60s).
 
-**A4 · P1 — Free-text directory search is leading-wildcard `meta_value LIKE '%term%'` per mirror field.**
-`MemberDirectoryService.php:255-264, 691-695` — unindexable, scales with (searchable fields × 50k); does
-**not** use the `ft_search` FULLTEXT index content search uses.
-- **Fix (gated by decision D2):** fold searchable member fields into `bn_search_index` (FULLTEXT) and
-  search there — **reuse** `Search\SearchService::index()` (`:48`, the existing writer) + the FULLTEXT
-  reader (`:528-615`) — OR accept the LIKE scan as bounded by the small searchable-field count and
-  document the ceiling. *Recommend FULLTEXT for parity.*
-- **Touch:** `MemberDirectoryService.php:255-264, 691-695`; `SearchService.php:48` (writer) if FULLTEXT.
+**A4 · ✅ DONE (= T15/D2) — directory search now FULLTEXT, consistent with the unified search.**
+The directory's per-mirror leading-wildcard `LIKE` is replaced by the shared
+`SearchService::match_member_ids()` FULLTEXT lookup over `bn_search_index` (LIKE fallback when the
+`ft_search` index is absent — the same seam `search()` uses). Both directory search paths route through it:
+the SSR `matching_user_ids()` (the rich inline LIKE+exclusion query is gone — the SSR main query's
+`directory_filter_sql` already applies the gate) and the REST `list_members()` (the inline search OR-block
+→ `u.ID IN ( match ids )`). The index is enriched so a member is matched on name + bio + headline + public
+searchable fields (A4/Step A). **Cross-checked:** the directory search and unified `/search/members` return
+the identical member set for a query (38 for "Rivera"); the SSR primitive, the shared primitive, and the
+unified search all agree. Existing members reindexed (going-forward: `index_user` on each profile save).
 
 **A5 · P1 — Per-card N+1 in the server grid.**
 `member-directory-grid.php:131,135` call `is_online` and `mutual_connections` per card (wp_cache-backed,

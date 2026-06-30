@@ -711,6 +711,62 @@ class SearchService {
 	}
 
 	/**
+	 * Return the member (user) IDs matching a free-text term from the shared
+	 * bn_search_index, FULLTEXT when the ft_search index is present (LIKE fallback
+	 * otherwise — same seam search() uses). This is the single member-search-by-term
+	 * primitive the member directory routes through, so the directory search box and
+	 * the unified search return the same members for a query.
+	 *
+	 * Pure term-match (no moderation/visibility gate) — the directory's own query
+	 * applies the suspended/shadowban/block/dir-opt-out exclusion on top, so this stays
+	 * a thin, reusable lookup. Bounded by $limit (people browse a few pages of results).
+	 *
+	 * @param string $term  Search term.
+	 * @param int    $limit Max IDs (clamped 1..1000).
+	 * @return int[] Matching member user IDs, most-relevant first under FULLTEXT.
+	 */
+	public function match_member_ids( string $term, int $limit = 500 ): array {
+		$term = trim( $term );
+		if ( '' === $term ) {
+			return array();
+		}
+
+		global $wpdb;
+		$limit = max( 1, min( 1000, $limit ) );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $this->has_fulltext_index() ) {
+			$rows = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT object_id FROM {$wpdb->prefix}bn_search_index
+					 WHERE object_type IN ('user','member')
+					   AND MATCH(title, content) AGAINST(%s IN BOOLEAN MODE)
+					 ORDER BY MATCH(title, content) AGAINST(%s IN BOOLEAN MODE) DESC
+					 LIMIT %d",
+					$term,
+					$term,
+					$limit
+				)
+			);
+		} else {
+			$like = '%' . $wpdb->esc_like( $term ) . '%';
+			$rows = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT object_id FROM {$wpdb->prefix}bn_search_index
+					 WHERE object_type IN ('user','member') AND ( title LIKE %s OR content LIKE %s )
+					 LIMIT %d",
+					$like,
+					$like,
+					$limit
+				)
+			);
+		}
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_values( array_unique( array_map( 'intval', (array) $rows ) ) );
+	}
+
+	/**
 	 * Turn raw search() items into presentation-ready rows for a result section.
 	 *
 	 * The search index only stores object_id / title / content / author_id, so a
