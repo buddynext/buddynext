@@ -16,7 +16,9 @@ unified on the FULLTEXT `bn_search_index` engine — directory search == unified
 **T9/C2/D1** (follow + connection count denormalization — O(1) cache-cold, drift-reconciled, a latent
 pending-follow miscount fixed), each browser-verified where applicable (the scale + delete + digest + search
 + counter work re-verified on a 1.5k-member / 300-space seed). The remaining tasks (T14/D3, E5, B3) are
-unstarted; their plan + exact touch-points are validated at code `file:line`.
+unstarted; their plan + exact touch-points are validated at code `file:line`. **B3** (invite→user
+reconciliation on signup) is also done — only **T14/D3** (File field, needs a decision) and **E5** (manifest
+refresh, do last) remain.
 
 **Post-implementation uniformity audit (all 16 done tasks).** Swept the shipped work for divergent paths /
 dups / dead code. All 16 present + aligned. Three cleanups landed in the directory layer (the one area a
@@ -356,8 +358,17 @@ decrements `bn_spaces.member_count` (`:70`).
   `buddynext_user_relations_purged` action at `UserCleanupListener:104` fires on the delete path only —
   consolidate it into the new contract so addons get ONE event regardless of how the user was removed.)
 
-**B3 · Minor — `bn_invites` keys on `email`, never reconciled to a created/deleted user.** Reconcile
-invite→user on signup/delete if cheap, else document the intentional gap.
+**B3 · ✅ DONE — `bn_invites` reconciled on signup (delete side documented as an intentional gap).**
+*Signup (done):* the token path already flipped its specific invite (`AuthController`), but a registration
+with the invited address but NO token (direct sign-up, admin-created account, social login) left the invite
+`pending` forever. `InviteService::mark_registered_by_email()` (one indexed write on the `email` key) now
+runs from `OnboardingListener::reconcile_invites_on_register` on `user_register`, flipping every pending
+invite for that address to `registered`. Verified: a pending invite + a tokenless sign-up of that email →
+`registered`. *Delete (intentional gap):* a deleted member's invite stays `registered` — it is an
+email-keyed historical record, not user-keyed, and is harmless: `create()` only blocks on an existing
+`pending` invite, so a future re-invite of the same address is never blocked, and the email is no longer
+resolvable to the deleted user anyway. Cleaning it would need the email captured pre-deletion for marginal
+value, so it is left as-is.
 
 ---
 

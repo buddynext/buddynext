@@ -137,6 +137,41 @@ class InviteService {
 	}
 
 	/**
+	 * Reconcile every pending invite for an email address to 'registered'.
+	 *
+	 * The token-redemption path (AuthController) flips the one invite a member signed
+	 * up through, but a member can also register with the invited address WITHOUT the
+	 * link (direct sign-up, admin-created account, social login). bn_invites keys on
+	 * email and carries no user_id, so absent this those invites would sit 'pending'
+	 * forever in the admin list. Hooked on user_register — one indexed write (the
+	 * `email` key) on a rare event. Flips ALL of an address's pending invites, since
+	 * registering fulfils every outstanding invitation to that person at once.
+	 *
+	 * @param string $email Newly-registered account email.
+	 * @return int Number of pending invites flipped to 'registered'.
+	 */
+	public function mark_registered_by_email( string $email ): int {
+		$email = sanitize_email( $email );
+		if ( '' === $email ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->update(
+			$wpdb->prefix . 'bn_invites',
+			array( 'status' => 'registered' ),
+			array(
+				'email'  => $email,
+				'status' => 'pending',
+			),
+			array( '%s' ),
+			array( '%s', '%s' )
+		);
+	}
+
+	/**
 	 * Mark an invite as bounced (email could not be delivered).
 	 *
 	 * @param int $invite_id Invite record ID.
