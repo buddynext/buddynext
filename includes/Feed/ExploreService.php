@@ -526,8 +526,11 @@ class ExploreService {
 		$blocked = array();
 		if ( $viewer > 0 && function_exists( 'buddynext_service' ) ) {
 			$blocks = buddynext_service( 'blocks' );
-			if ( $blocks && method_exists( $blocks, 'blocked_users' ) ) {
-				$blocked = (array) $blocks->blocked_users( $viewer );
+			// Bidirectional block exclusion (the canonical helper the member directory
+			// uses) — a user who blocked the viewer must also drop out of the viewer's
+			// Explore deck, not only users the viewer blocked.
+			if ( $blocks && method_exists( $blocks, 'block_related_ids' ) ) {
+				$blocked = (array) $blocks->block_related_ids( $viewer );
 			}
 		}
 

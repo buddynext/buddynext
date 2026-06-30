@@ -10,8 +10,8 @@ code `file:line`. Pick up here after the Spaces frontend panels land.
 
 | Task | State | One-liner |
 |---|---|---|
-| T1 | ⏳ PENDING | Profile REST visibility leak (security) — gate `get_profile` with `can_view_profile()` |
-| T2 | ⏳ PENDING | Explore one-directional block → `block_related_ids()` |
+| T1 | ✅ DONE | Profile REST visibility leak (security) — `get_profile` now calls `can_view_profile()`, 404 on block/private; browser-verified (`f94c570f`) |
+| T2 | ✅ DONE | Explore one-directional block → `block_related_ids()` (bidirectional, same helper the directory uses) |
 | T3 | ⏳ PENDING | one canonical `purge_user_relations()` + `buddynext_purge_user_data` action (dup fix) |
 | T4 | ⏳ PENDING | member-type directory filter → indexed `bn_member_type_assignments` (P0) |
 | T6 | ⏳ PENDING | bound unbounded reads (`get_members` default, follow-requests list) |
