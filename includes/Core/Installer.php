@@ -77,8 +77,11 @@ class Installer {
 	 *      forward scans instead of a filesort on every load — fatal at 20-30k
 	 *      member-created spaces per site. Existing installs via the idempotent ADD
 	 *      KEY loop; fresh installs inline in CREATE TABLE.
+	 * 13 — Added KEY dir_recent (parent_id, created_at) on bn_spaces so the "Newest"
+	 *      directory sort is also index-backed (no filesort) at scale. created_at is
+	 *      immutable after insert, so the index is write-once — no ongoing maintenance.
 	 */
-	private const SCHEMA_VERSION = 12;
+	private const SCHEMA_VERSION = 13;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -373,10 +376,15 @@ class Installer {
 				// composite each sort filesorts every load — fatal at 20-30k
 				// member-created spaces per site. Index the two dominant orders:
 				// popularity (member_count, the default) and alphabetical (name).
-				// "Recently active" needs a denormalized activity column (planned);
-				// "newest" (created_at) is rarer and left to filesort for now.
+				// "Recently active" sort is intentionally NOT built (it would need a
+				// denormalized activity column maintained on every space post — an
+				// ongoing background cost we chose to skip).
 				'dir_popular' => 'ADD KEY dir_popular (parent_id, member_count)',
 				'dir_name'    => 'ADD KEY dir_name (parent_id, name)',
+				// v13: the "Newest" sort (parent_id IS NULL ORDER BY created_at DESC).
+				// created_at is immutable after insert, so this index is write-once —
+				// a pure read win with no ongoing maintenance.
+				'dir_recent'  => 'ADD KEY dir_recent (parent_id, created_at)',
 			),
 			'bn_space_members' => array(
 				'space_status' => 'ADD KEY space_status (space_id, status, joined_at)',
@@ -1212,7 +1220,8 @@ class Installer {
 				KEY                parent (parent_id),
 				KEY                is_archived (is_archived),
 				KEY                dir_popular (parent_id, member_count),
-				KEY                dir_name (parent_id, name)
+				KEY                dir_name (parent_id, name),
+				KEY                dir_recent (parent_id, created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_space_members (

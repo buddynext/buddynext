@@ -403,9 +403,13 @@ do_action( 'buddynext_spaces_directory_before', $current_user_id );
 // spaces — open/private/secret is a creator concern, surfaced on each card and
 // in space settings, never as a directory filter. The chips render from
 // $categories (fetched above); the row is built inline below.
+// "Most active" is intentionally omitted — without a denormalized activity column
+// (deliberately not built: it would need maintenance on every space post) it was just
+// popularity relabeled. All three shown sorts are index-backed (dir_popular / dir_name
+// / dir_recent), filesort-free at scale. The 'active' alias survives in $bn_sort_map
+// only so a stale ?bn_sort=active URL still resolves (to popularity).
 $bn_sort_options = array(
 	'popular'      => __( 'Sort: Popular', 'buddynext' ),
-	'active'       => __( 'Most active', 'buddynext' ),
 	'newest'       => __( 'Newest', 'buddynext' ),
 	'alphabetical' => __( 'A → Z', 'buddynext' ),
 );
