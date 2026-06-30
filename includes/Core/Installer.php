@@ -1910,85 +1910,47 @@ MUPLUGIN;
 	}
 
 	/**
-	 * Create the six BuddyNext hub pages (activity, members, spaces, messages,
-	 * notifications, auth/login) if they do not already exist.
+	 * Create the BuddyNext hub backing pages if they do not already exist.
 	 *
-	 * Safe to call on every activation — existing published pages are left
-	 * untouched.
+	 * Iterates the HubRegistry and creates one published WP page per hub that
+	 * has backing_page === true. Hubs with backing_page === false (e.g. onboarding)
+	 * are skipped. Safe to call on every activation — existing published pages are
+	 * left untouched.
 	 *
 	 * @return void
 	 */
 	public static function create_hub_pages(): void {
-		$hubs = array(
-			'activity'      => array(
-				'option_slug' => 'buddynext_slug_activity',
-				'option_page' => 'buddynext_page_activity',
-				'title'       => __( 'Activity', 'buddynext' ),
-				'shortcode'   => '[buddynext_activity]',
-				'default'     => 'activity',
-			),
-			'people'        => array(
-				'option_slug' => 'buddynext_slug_people',
-				'option_page' => 'buddynext_page_people',
-				'title'       => __( 'Members', 'buddynext' ),
-				'shortcode'   => '[buddynext_people]',
-				'default'     => 'members',
-			),
-			'spaces'        => array(
-				'option_slug' => 'buddynext_slug_spaces',
-				'option_page' => 'buddynext_page_spaces',
-				'title'       => __( 'Spaces', 'buddynext' ),
-				'shortcode'   => '[buddynext_spaces]',
-				'default'     => 'spaces',
-			),
-			'messages'      => array(
-				'option_slug' => 'buddynext_slug_messages',
-				'option_page' => 'buddynext_page_messages',
-				'title'       => __( 'Messages', 'buddynext' ),
-				'shortcode'   => '[buddynext_messages]',
-				'default'     => 'messages',
-			),
-			'notifications' => array(
-				'option_slug' => 'buddynext_slug_notifications',
-				'option_page' => 'buddynext_page_notifications',
-				'title'       => __( 'Notifications', 'buddynext' ),
-				'shortcode'   => '[buddynext_notifications]',
-				'default'     => 'notifications',
-			),
-			'auth'          => array(
-				'option_slug' => 'buddynext_slug_auth',
-				'option_page' => 'buddynext_page_auth',
-				'title'       => __( 'Login', 'buddynext' ),
-				'shortcode'   => '[buddynext_auth]',
-				'default'     => 'login',
-			),
-		);
+		// create_hub_pages() can run at activation before the normal boot path; make
+		// sure the hub registry is populated.
+		if ( ! HubRegistry::instance()->has( 'feed' ) ) {
+			CoreHubs::register( HubRegistry::instance() );
+		}
 
-		foreach ( $hubs as $hub ) {
-			$existing_id = (int) get_option( $hub['option_page'], 0 );
+		foreach ( HubRegistry::instance()->all() as $hub ) {
+			if ( ! $hub->backing_page ) {
+				continue;
+			}
+			$existing_id = (int) get_option( $hub->page_option, 0 );
 			if ( $existing_id > 0 && 'publish' === get_post_status( $existing_id ) ) {
 				continue;
 			}
-
-			$slug = (string) get_option( $hub['option_slug'], $hub['default'] );
+			$slug = (string) get_option( $hub->slug_option, $hub->default_slug );
 			if ( '' === $slug ) {
-				$slug = $hub['default'];
+				$slug = $hub->default_slug;
 			}
-
 			$page_id = wp_insert_post(
 				array(
-					'post_title'     => $hub['title'],
+					'post_title'     => $hub->title,
 					'post_name'      => $slug,
-					'post_content'   => $hub['shortcode'],
+					'post_content'   => $hub->shortcode,
 					'post_status'    => 'publish',
 					'post_type'      => 'page',
 					'comment_status' => 'closed',
 				)
 			);
-
 			if ( $page_id > 0 ) {
-				update_option( $hub['option_page'], $page_id );
-				update_option( $hub['option_slug'], $slug );
+				update_option( $hub->page_option, $page_id );
+				update_option( $hub->slug_option, $slug );
 			}
 		}
 
