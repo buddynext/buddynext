@@ -1154,21 +1154,19 @@ class SpaceController extends BaseRestController {
 		// reads the total from the X-WP-Total header — the response body stays a
 		// bare members array.
 		$member_service = new SpaceMemberService();
-		$per_page       = (int) $request->get_param( 'per_page' );
-		$page           = max( 1, (int) $request->get_param( 'page' ) );
+		// Always paginate — a member list is never returned unbounded. An absent /
+		// non-positive per_page defaults to a sane page rather than the old "all" path
+		// (which loaded a full 50k roster); the real total comes from count_members.
+		$per_page = (int) $request->get_param( 'per_page' );
+		$per_page = $per_page > 0 ? min( 100, $per_page ) : 50;
+		$page     = max( 1, (int) $request->get_param( 'page' ) );
 
-		if ( $per_page > 0 ) {
-			$per_page = min( 100, $per_page );
-			$members  = $member_service->get_members( $space_id, $viewer_id, $per_page, ( $page - 1 ) * $per_page );
-			$total    = $member_service->count_members( $space_id, $viewer_id );
-		} else {
-			$members = $member_service->get_members( $space_id, $viewer_id );
-			$total   = count( $members );
-		}
+		$members = $member_service->get_members( $space_id, $viewer_id, $per_page, ( $page - 1 ) * $per_page );
+		$total   = $member_service->count_members( $space_id, $viewer_id );
 
 		$response = new WP_REST_Response( $members, 200 );
 		$response->header( 'X-WP-Total', (string) $total );
-		$response->header( 'X-WP-TotalPages', (string) ( $per_page > 0 ? (int) ceil( $total / $per_page ) : 1 ) );
+		$response->header( 'X-WP-TotalPages', (string) ( (int) ceil( $total / $per_page ) ) );
 
 		return $response;
 	}

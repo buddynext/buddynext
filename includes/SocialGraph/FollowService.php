@@ -558,7 +558,10 @@ class FollowService {
 	 * @return int[]
 	 */
 	public function suggestions( int $user_id ): array {
-		$following = $this->following( $user_id );
+		// Bound the friend-of-friend sample: a user following thousands draws
+		// candidates from (and excludes) the first 200 follows, so neither the IN-list
+		// nor the NOT-IN exclude grows into a multi-thousand-literal query.
+		$following = array_slice( $this->following( $user_id ), 0, 200 );
 
 		if ( empty( $following ) ) {
 			return array();
@@ -628,10 +631,17 @@ class FollowService {
 	 * is waiting on approval.
 	 *
 	 * @param int $owner_id Owner of the private account.
+	 * @param int $limit    Max rows (default 200, hard-capped at 200) — the inbox is
+	 *                      bounded so a follow-request bot-flood can't load thousands.
+	 *                      Use pending_followers_count() for the true total.
+	 * @param int $offset   Pagination offset.
 	 * @return int[] Follower user IDs ordered oldest-first.
 	 */
-	public function pending_followers( int $owner_id ): array {
+	public function pending_followers( int $owner_id, int $limit = 200, int $offset = 0 ): array {
 		global $wpdb;
+
+		$limit  = ( $limit <= 0 ) ? 200 : min( $limit, 200 );
+		$offset = max( 0, $offset );
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_col(
@@ -639,8 +649,11 @@ class FollowService {
 				"SELECT follower_id
 				 FROM {$wpdb->prefix}bn_follows
 				 WHERE following_id = %d AND status = 'pending'
-				 ORDER BY created_at ASC",
-				$owner_id
+				 ORDER BY created_at ASC
+				 LIMIT %d OFFSET %d",
+				$owner_id,
+				$limit,
+				$offset
 			)
 		);
 

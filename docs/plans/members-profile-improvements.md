@@ -14,7 +14,7 @@ code `file:line`. Pick up here after the Spaces frontend panels land.
 | T2 | ✅ DONE | Explore one-directional block → `block_related_ids()` (bidirectional, same helper the directory uses) |
 | T3 | ⏳ PENDING | one canonical `purge_user_relations()` + `buddynext_purge_user_data` action (dup fix) |
 | T4 | ⏳ PENDING | member-type directory filter → indexed `bn_member_type_assignments` (P0) |
-| T6 | ⏳ PENDING | bound unbounded reads (`get_members` default, follow-requests list) |
+| T6 | ✅ DONE | bound unbounded reads — `get_members`/controller always-paginate + 200 cap; `transfer_candidates` mods-first + LIMIT 200; `pending_followers`/`list_follow_requests` bounded+paginated; `suggestions` friend-sample capped 200. Browser-verified (members tab + transfer dropdown intact) |
 | T9 | ⏳ PENDING | finish follow + build connection denormalization (cache-cold) |
 | T13 | ⏳ PENDING | self-clear member type (404 fix) → reuse `remove_user_type()` |
 | T14 | ⏳ PENDING | File profile field (decision D3: wire upload vs remove) |

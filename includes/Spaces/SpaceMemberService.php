@@ -42,6 +42,13 @@ class SpaceMemberService {
 	 */
 	private const ALLOWED_ROLES = array( 'owner', 'moderator', 'member' );
 
+	/**
+	 * Hard cap on rows returned by a single roster read — a member list is ALWAYS
+	 * bounded so no caller can load a full 50k roster into memory. Paginate via
+	 * $offset for more. The historic $limit = 0 "all" default now clamps to this.
+	 */
+	private const MAX_MEMBERS_PER_QUERY = 200;
+
 	// ── Public membership API ───────────────────────────────────────────────
 
 	/**
@@ -1088,12 +1095,12 @@ class SpaceMemberService {
 			$moderation_where = ' ' . buddynext_service( 'moderation' )->moderation_exclude_sql( 'sm.user_id' );
 		}
 
-		$limit_sql = '';
-		if ( $limit > 0 ) {
-			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$limit_sql = $wpdb->prepare( ' LIMIT %d OFFSET %d', $limit, max( 0, $offset ) );
-			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		}
+		// Always bounded — $limit <= 0 (the historic "all") clamps to the cap, a larger
+		// ask clamps down, so a full 50k roster is never loaded in one read.
+		$limit = ( $limit <= 0 ) ? self::MAX_MEMBERS_PER_QUERY : min( $limit, self::MAX_MEMBERS_PER_QUERY );
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$limit_sql = $wpdb->prepare( ' LIMIT %d OFFSET %d', $limit, max( 0, $offset ) );
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
@@ -1189,11 +1196,16 @@ class SpaceMemberService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
+				// Bounded + moderators first so the likely transfer targets are always
+				// in the (capped) candidate set, even on a large space. A very large
+				// space would want a search-backed picker (follow-up); the cap keeps the
+				// read safe meanwhile.
 				"SELECT sm.user_id, sm.role, u.display_name
 				 FROM {$wpdb->prefix}bn_space_members sm
 				 INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id
 				 WHERE sm.space_id = %d AND sm.status = 'active' AND sm.user_id <> %d
-				 ORDER BY u.display_name ASC",
+				 ORDER BY FIELD(sm.role, 'owner', 'moderator', 'member'), u.display_name ASC
+				 LIMIT 200",
 				$space_id,
 				$exclude_owner_id
 			),

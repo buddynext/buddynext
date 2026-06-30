@@ -402,17 +402,34 @@ class FollowController extends BaseRestController {
 
 	/**
 	 * GET /me/follow-requests — list pending follow requests for the
-	 * current (private-account) user.
+	 * current (private-account) user. Bounded + paginated.
 	 *
-	 * Response shape: { ids: int[] }
+	 * Response shape: { ids: int[], total: int, page: int, total_pages: int }
 	 *
+	 * @param WP_REST_Request $request REST request (reads the `page` param).
 	 * @return WP_REST_Response
 	 */
-	public function list_follow_requests(): WP_REST_Response {
+	public function list_follow_requests( WP_REST_Request $request ): WP_REST_Response {
 		$owner_id = get_current_user_id();
-		$ids      = buddynext_service( 'follows' )->pending_followers( $owner_id );
+		$follows  = buddynext_service( 'follows' );
+		$per_page = 200;
+		$page     = max( 1, (int) $request->get_param( 'page' ) );
 
-		return new WP_REST_Response( array( 'ids' => $ids ), 200 );
+		// Bounded + paginated — the inbox never returns thousands of IDs in one array
+		// (follow-request bot-flood safety). The true count comes from the dedicated
+		// counter so the UI can still show "N pending".
+		$ids   = $follows->pending_followers( $owner_id, $per_page, ( $page - 1 ) * $per_page );
+		$total = $follows->pending_followers_count( $owner_id );
+
+		return new WP_REST_Response(
+			array(
+				'ids'         => $ids,
+				'total'       => $total,
+				'page'        => $page,
+				'total_pages' => (int) ceil( $total / $per_page ),
+			),
+			200
+		);
 	}
 
 	/**
