@@ -746,6 +746,17 @@ class SpaceService {
 		 */
 		do_action( 'buddynext_space_deleted', $space_id, $user_id );
 
+		/**
+		 * Fires so add-ons can purge their own per-space data on deletion — the
+		 * space-side parity of buddynext_purge_user_data (the member-purge cleanup
+		 * hook). Kept separate from buddynext_space_deleted so cleanup listeners
+		 * have a dedicated, clearly-named hook.
+		 *
+		 * @param int $space_id Deleted space ID.
+		 * @param int $user_id  User who deleted it.
+		 */
+		do_action( 'buddynext_purge_space_data', $space_id, $user_id );
+
 		return true;
 	}
 
@@ -1563,7 +1574,7 @@ class SpaceService {
 	 * @return array
 	 */
 	private function hydrate( array $row ): array {
-		return array(
+		$space = array(
 			'id'              => (int) ( $row['id'] ?? 0 ),
 			'name'            => $row['name'] ?? '',
 			'slug'            => $row['slug'] ?? '',
@@ -1584,5 +1595,15 @@ class SpaceService {
 			// "spaces you manage" vs "spaces you've joined" without a second query.
 			'viewer_role'     => $row['viewer_role'] ?? null,
 		);
+
+		/**
+		 * Filter a hydrated space array. Every space payload — single-space REST
+		 * responses, list/directory rows — passes through here, so add-ons (native
+		 * app, bridges) can attach computed fields to a space on every surface.
+		 *
+		 * @param array<string,mixed> $space The hydrated space.
+		 * @param array<string,mixed> $row   The raw bn_spaces row.
+		 */
+		return (array) apply_filters( 'buddynext_prepare_space', $space, $row );
 	}
 }

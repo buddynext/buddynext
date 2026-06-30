@@ -111,18 +111,19 @@ class SpacePostGuard {
 			return false;
 		}
 
-		$who       = (string) buddynext_get_space_field( $space_id, 'who_can_post' );
-		$role_rank = array(
-			'member'    => 1,
-			'moderator' => 2,
-			'owner'     => 3,
-		);
-		$req_rank  = array(
-			'members' => 1,
-			'mods'    => 2,
-			'owner'   => 3,
-		);
+		$who = (string) buddynext_get_space_field( $space_id, 'who_can_post' );
+		$can = SpaceRoles::meets( $role, $who, 1 );
 
-		return ( $role_rank[ $role ] ?? 0 ) >= ( $req_rank[ $who ] ?? 1 );
+		/**
+		 * Filter whether a user may post in a space, after the per-space
+		 * who_can_post gate. Lets add-ons apply conditional rules (e.g. require an
+		 * active membership tier to post).
+		 *
+		 * @param bool   $can      Whether posting is allowed.
+		 * @param int    $space_id Space ID.
+		 * @param int    $user_id  User attempting to post.
+		 * @param string $role     The user's role in the space (owner|moderator|member).
+		 */
+		return (bool) apply_filters( 'buddynext_space_can_post', $can, $space_id, $user_id, $role );
 	}
 }

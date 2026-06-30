@@ -287,20 +287,20 @@ class SpaceMemberService {
 		}
 
 		// Honour the per-space "who can invite" setting (members | mods | owner),
-		// using the same role-rank threshold model as who_can_post in SpacePostGuard.
-		$who       = (string) buddynext_get_space_field( $space_id, 'who_can_invite' );
-		$role_rank = array(
-			'member'    => 1,
-			'moderator' => 2,
-			'owner'     => 3,
-		);
-		$req_rank  = array(
-			'members' => 1,
-			'mods'    => 2,
-			'owner'   => 3,
-		);
+		// using the shared role-rank model (SpaceRoles) — same gate as who_can_post.
+		$who = (string) buddynext_get_space_field( $space_id, 'who_can_invite' );
+		$can = SpaceRoles::meets( $inviter_role, $who, 2 );
 
-		return ( $role_rank[ $inviter_role ] ?? 0 ) >= ( $req_rank[ $who ] ?? 2 );
+		/**
+		 * Filter whether a user may invite others to a space, after the per-space
+		 * who_can_invite gate.
+		 *
+		 * @param bool   $can          Whether inviting is allowed.
+		 * @param int    $space_id     Space ID.
+		 * @param int    $inviter_id   User attempting to invite.
+		 * @param string $inviter_role The inviter's role in the space.
+		 */
+		return (bool) apply_filters( 'buddynext_space_can_invite', $can, $space_id, $inviter_id, $inviter_role );
 	}
 
 	/**

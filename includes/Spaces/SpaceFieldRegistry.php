@@ -459,6 +459,19 @@ final class SpaceFieldRegistry {
 			$saved[ $key ] = FieldType::rest_value( $entry['field'], $entry['value'] );
 		}
 
+		if ( ! empty( $saved ) ) {
+			/**
+			 * Fires after space custom fields are saved — for ANY field, unlike
+			 * buddynext_space_updated below which fires only when a searchable +
+			 * public field changed (search re-index). Lets add-ons sync or react to
+			 * non-searchable field changes too.
+			 *
+			 * @param int                 $space_id Space ID.
+			 * @param array<string,mixed> $saved    Map of saved field key => REST value.
+			 */
+			do_action( 'buddynext_space_fields_saved', $space_id, $saved );
+		}
+
 		// When a searchable + public field changed, re-index the space so its value
 		// becomes discoverable (the search content build folds it in). Consumed
 		// only by SearchIndexListener::on_space_updated.
