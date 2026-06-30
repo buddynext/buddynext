@@ -141,17 +141,22 @@ $initial_context = wp_json_encode(
 do_action( 'buddynext_notification_prefs_before', $current_user_id );
 ?>
 
-<div class="bn-notif-prefs"
-	data-wp-interactive="buddynext/notification-prefs"
-	data-wp-context='<?php echo esc_attr( (string) $initial_context ); ?>'
-	data-wp-init="callbacks.init">
+<div class="bn-settings">
 
 	<?php
 	// Settings hub chrome — this page is the "Notifications" tab. The hub header
 	// (Settings + tabs) replaces a second page title; the active tab already
 	// says where you are, so no redundant "Notification preferences" heading.
+	// Rendered inside the shared .bn-settings wrapper (NOT inside the interactive
+	// flex container below) so the tab strip -> content rhythm matches the
+	// Account/Privacy/Appearance tabs exactly (no double gap under the tabs).
 	buddynext_get_template( 'parts/settings-nav.php', array( 'bn_settings_active' => 'notifications' ) );
 	?>
+
+	<div class="bn-notif-prefs"
+		data-wp-interactive="buddynext/notification-prefs"
+		data-wp-context='<?php echo esc_attr( (string) $initial_context ); ?>'
+		data-wp-init="callbacks.init">
 
 	<!-- Section 1: Channels -->
 	<section class="bn-card bn-prefs-card" data-v2 aria-labelledby="bn-prefs-channels-title">
@@ -441,6 +446,7 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 				</button>
 			</footer>
 		</div>
+	</div>
 	</div>
 </div>
 
