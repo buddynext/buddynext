@@ -145,6 +145,10 @@ class Plugin {
 		// Front-end cookie-consent banner (no-op unless the Privacy setting is on).
 		( new \BuddyNext\Privacy\CookieConsentService() )->register();
 
+		// Owner-configurable redirect after logout (login + onboarding are applied
+		// at their own call sites). No-op until the owner sets a destination.
+		\BuddyNext\Core\RedirectSettings::register();
+
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			\WP_CLI::add_command( 'buddynext demo', new \BuddyNext\Demo\DemoCommand() );
 			\WP_CLI::add_command( 'buddynext cert', new \BuddyNext\Cert\CertCommand() );

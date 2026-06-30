@@ -55,6 +55,11 @@ class Settings extends AdminPageBase {
 		'buddynext_reg_spam_protection'         => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_reg_challenge'               => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_reg_rate_limit'              => array( 'integer', 'absint' ),
+		// Post-login / logout / onboarding redirect destinations. Blank = built-in
+		// default (feed / home / profile); resolved + validated by RedirectSettings.
+		'buddynext_login_redirect'              => array( 'string', 'esc_url_raw' ),
+		'buddynext_logout_redirect'             => array( 'string', 'esc_url_raw' ),
+		'buddynext_onboarding_redirect'         => array( 'string', 'esc_url_raw' ),
 		// Login & sign-up split-panel branding (plug-and-play: blank falls back to site identity).
 		'buddynext_auth_panel_show'             => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_auth_panel_heading'          => array( 'string', 'sanitize_text_field' ),
@@ -1446,6 +1451,31 @@ class Settings extends AdminPageBase {
 			</span>
 		</div>
 		<?php
+
+		$this->close_section();
+
+		$this->open_section( __( 'Redirects', 'buddynext' ) );
+
+		$this->render_text_row(
+			\BuddyNext\Core\RedirectSettings::OPT_LOGIN,
+			__( 'After login', 'buddynext' ),
+			(string) get_option( \BuddyNext\Core\RedirectSettings::OPT_LOGIN, '' ),
+			__( 'Where members go after logging in. Leave blank for the activity feed (default). A link a member was sent to (e.g. a gated page) always takes priority.', 'buddynext' )
+		);
+
+		$this->render_text_row(
+			\BuddyNext\Core\RedirectSettings::OPT_LOGOUT,
+			__( 'After logout', 'buddynext' ),
+			(string) get_option( \BuddyNext\Core\RedirectSettings::OPT_LOGOUT, '' ),
+			__( 'Where members go after logging out. Leave blank for the site home page (default).', 'buddynext' )
+		);
+
+		$this->render_text_row(
+			\BuddyNext\Core\RedirectSettings::OPT_ONBOARDING,
+			__( 'After onboarding', 'buddynext' ),
+			(string) get_option( \BuddyNext\Core\RedirectSettings::OPT_ONBOARDING, '' ),
+			__( 'Where new members go after finishing onboarding. Leave blank for their profile (default).', 'buddynext' )
+		);
 
 		$this->close_section();
 

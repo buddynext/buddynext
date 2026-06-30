@@ -279,8 +279,9 @@ class OnboardingController {
 			array(
 				'completed'   => true,
 				// Land the new member on their own profile — the thing they just
-				// built in the wizard — rather than the activity feed.
-				'redirect_to' => \BuddyNext\Core\PageRouter::profile_url( $user_id ),
+				// built in the wizard — rather than the activity feed. Owners can
+				// override the destination in Settings > Registration & Login.
+				'redirect_to' => \BuddyNext\Core\RedirectSettings::onboarding( \BuddyNext\Core\PageRouter::profile_url( $user_id ) ),
 			),
 			200
 		);

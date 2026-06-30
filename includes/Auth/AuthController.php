@@ -465,7 +465,7 @@ class AuthController {
 
 		$redirect_to = (string) $request->get_param( 'redirect_to' );
 		if ( '' === $redirect_to ) {
-			$redirect_to = \BuddyNext\Core\PageRouter::activity_url();
+			$redirect_to = \BuddyNext\Core\RedirectSettings::login( \BuddyNext\Core\PageRouter::activity_url() );
 		}
 
 		// Two-factor gate (optional, per-user). When on, hold the session and
@@ -547,7 +547,7 @@ class AuthController {
 
 		$redirect_to = (string) $request->get_param( 'redirect_to' );
 		if ( '' === $redirect_to ) {
-			$redirect_to = \BuddyNext\Core\PageRouter::activity_url();
+			$redirect_to = \BuddyNext\Core\RedirectSettings::login( \BuddyNext\Core\PageRouter::activity_url() );
 		}
 
 		return new WP_REST_Response(
