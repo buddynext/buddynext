@@ -1867,7 +1867,7 @@ function buildSpaceCard( row ) {
 	// ── Foot: membership-aware CTA, mirroring directory.php ────────────
 	var role        = row.membership_role || '';
 	var status      = row.membership_status || '';
-	var isAdminMod  = ( 'active' === status ) && ( 'owner' === role || 'admin' === role || 'moderator' === role );
+	var isAdminMod  = ( 'active' === status ) && ( 'owner' === role || 'moderator' === role );
 	var isMember    = ( 'active' === status );
 	var isPending   = ( 'pending' === status );
 	var joinMethod  = row.join_method || ( 'open' === type ? 'direct' : 'request' );

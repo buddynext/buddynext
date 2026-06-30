@@ -37,8 +37,10 @@ $bn_dc_membership = isset( $membership ) && is_array( $membership ) ? $membershi
 $bn_dc_uid        = isset( $current_user_id ) ? (int) $current_user_id : 0;
 $bn_dc_cat_by_id  = isset( $cat_by_id ) && is_array( $cat_by_id ) ? $cat_by_id : array();
 
-$space_id     = (int) $bn_dc_space['id'];
-$is_admin_mod = $bn_dc_membership && in_array( $bn_dc_membership['role'], array( 'admin', 'moderator', 'owner' ), true ) && 'active' === $bn_dc_membership['status'];
+$space_id = (int) $bn_dc_space['id'];
+// 'admin' is not a space role (ALLOWED_ROLES = owner|moderator|member); site
+// admins are gated server-side via manage_options. Dead branch removed.
+$is_admin_mod = $bn_dc_membership && in_array( $bn_dc_membership['role'], array( 'moderator', 'owner' ), true ) && 'active' === $bn_dc_membership['status'];
 $is_member    = $bn_dc_membership && 'active' === $bn_dc_membership['status'];
 $is_pending   = $bn_dc_membership && 'pending' === $bn_dc_membership['status'];
 
