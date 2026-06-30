@@ -63,7 +63,14 @@ if ( '' === $type_slug_filter ) {
 
 $allowed_sort = array( 'registered', 'display_name', 'post_count' );
 $bn_orderby   = in_array( $orderby_raw, $allowed_sort, true ) ? $orderby_raw : 'registered';
-$bn_order     = 'registered' === $bn_orderby ? 'DESC' : 'ASC';
+
+// The SSR WP_User_Query must NEVER order by post_count — WP implements that orderby
+// with a correlated wp_posts COUNT per user (brutal at 50k, and it counts core WP
+// posts, not BuddyNext activity). "Most active" is a REST-only sort (bn_presence);
+// for the initial server paint we fall back to newest and the JS re-sorts via REST
+// ($bn_initial_sort below still hands the JS 'most_active').
+$bn_query_orderby = ( 'post_count' === $bn_orderby ) ? 'registered' : $bn_orderby;
+$bn_order         = 'registered' === $bn_query_orderby ? 'DESC' : 'ASC';
 
 $allowed_relations = array( 'all', 'following', 'connections' );
 $bn_relation       = in_array( $relation_raw, $allowed_relations, true ) ? $relation_raw : 'all';
@@ -121,7 +128,7 @@ $bn_dir_excluded_ids = array_unique(
 $user_query_args = array(
 	'number'      => $bn_per_page,
 	'paged'       => $bn_current_page,
-	'orderby'     => $bn_orderby,
+	'orderby'     => $bn_query_orderby,
 	'order'       => $bn_order,
 	'fields'      => 'all',
 	'count_total' => true,

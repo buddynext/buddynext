@@ -161,19 +161,17 @@ but cold cache = one self-join per card). The REST path already batches mutual c
   global exclusion ids in PHP. **Cross-ref T17** (converge suspension filter on `moderation_exclude_sql()`) —
   same fix, do once.
 
-- **A6c · P1/MED-HIGH — SSR `orderby => 'post_count'` runs a correlated `wp_posts` count per user.**
-  `members.php:64` whitelists `post_count`, passed straight to `WP_User_Query` (`:124`). WP attaches a
-  per-user `wp_posts` count subquery — brutal at 100k, AND semantically wrong (counts core WP posts, not
-  BuddyNext activity; the REST equivalent `most_active` uses `bn_presence`).
-  **Fix:** drop `post_count` from the SSR sort whitelist (or map it to the same `bn_presence` ordering REST
-  uses) so the two surfaces agree and neither touches `wp_posts`. Folds into A2.
+- **A6c · ✅ DONE — SSR `orderby => 'post_count'` ran a correlated `wp_posts` count per user.**
+  Fixed: the SSR `WP_User_Query` now uses `$bn_query_orderby` (falls back to `registered` for the paint
+  when `most_active`/`post_count` is requested), so it never attaches WP's per-user `wp_posts` COUNT. The
+  JS still re-sorts via REST `most_active` (`bn_presence`) — `$bn_initial_sort` keeps handing it
+  `most_active`. Browser-verified (renders + initial sort = most_active, no `wp_posts` subquery).
 
-- **A6d · P2/MED — REST `newest` sort filesorts on `wp_users.user_registered` (no core index).**
-  `MemberDirectoryService.php:344` (`ORDER BY u.user_registered DESC`) + keyset `:317`. `wp_users` has no
-  index on `user_registered`.
-  **Fix (free, no core ALTER):** order by `u.ID DESC` — for an AUTO_INCREMENT users table ID order *is*
-  registration order and it's the PRIMARY KEY (zero filesort; the keyset becomes a pure id range). Cheapest
-  win in the file; also makes the SSR `newest`+OFFSET (A2/S-5) ride the PRIMARY KEY.
+- **A6d · ✅ DONE — REST `newest` sort filesorted on `wp_users.user_registered` (no core index).**
+  Fixed: `MemberDirectoryService` newest now `ORDER BY u.ID DESC` with an ID-only keyset cursor (ID is
+  registration order + the PRIMARY KEY). EXPLAIN = `range` on PRIMARY, `Backward index scan`, **no
+  filesort**. Cursor continuity verified live (page1 [647..642] → page2 [641..636]); legacy `registered`
+  cursors still honoured via their `id`.
 
 - **A6e · LOW — REST `total` subquery includes the cursor predicate, so the count shrinks as you paginate.**
   `$count_params = array_slice($params, 0, -1)` (`:387`) reuses `$where_sql`, which already carries the

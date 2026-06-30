@@ -313,10 +313,12 @@ class MemberDirectoryService {
 
 				case 'newest':
 				default:
-					if ( isset( $cursor_data['registered'], $cursor_data['id'] ) ) {
-						$where_clauses[] = '(u.user_registered < %s OR (u.user_registered = %s AND u.ID < %d))';
-						$params[]        = $cursor_data['registered'];
-						$params[]        = $cursor_data['registered'];
+					// Keyset on the PRIMARY KEY: for an AUTO_INCREMENT users table ID
+					// order IS registration order, so `u.ID < cursor` is a clean index
+					// range (no filesort, no unindexed user_registered range). A legacy
+					// cursor that still carries 'registered' is honoured via its 'id'.
+					if ( isset( $cursor_data['id'] ) ) {
+						$where_clauses[] = 'u.ID < %d';
 						$params[]        = (int) $cursor_data['id'];
 					}
 					break;
@@ -341,7 +343,10 @@ class MemberDirectoryService {
 
 			case 'newest':
 			default:
-				$order_sql = 'ORDER BY u.user_registered DESC, u.ID DESC';
+				// ID DESC == newest-first on an AUTO_INCREMENT users table, and ID is
+				// the PRIMARY KEY — a pure backward index scan, no filesort (wp_users
+				// has no index on user_registered).
+				$order_sql = 'ORDER BY u.ID DESC';
 				break;
 		}
 
@@ -831,9 +836,10 @@ class MemberDirectoryService {
 
 			case 'newest':
 			default:
+				// ID-only keyset (see the newest WHERE/ORDER BY — ID is registration
+				// order on wp_users and the PRIMARY KEY, so no filesort).
 				$data = array(
-					'registered' => $row['user_registered'],
-					'id'         => (int) $row['ID'],
+					'id' => (int) $row['ID'],
 				);
 				break;
 		}
