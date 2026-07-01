@@ -968,7 +968,20 @@ class ProfileService {
 				foreach ( $entries as $entry_fields ) {
 					$sorted = array_values( $entry_fields );
 					usort( $sorted, static fn( $a, $b ) => $a['sort_order'] <=> $b['sort_order'] );
-					$out['entries'][] = $sorted;
+
+					// Surface the entry's saved privacy as `_visibility` so the edit
+					// form can pre-select it on reload — it is stored on every value
+					// row of the entry, mirroring the `group_key[n][_visibility]`
+					// save contract. Without this the per-entry privacy lock always
+					// rendered the default even after the member tightened it.
+					$entry_out = $sorted;
+					foreach ( $sorted as $sorted_field ) {
+						if ( isset( $sorted_field['entry_visibility'] ) && '' !== $sorted_field['entry_visibility'] ) {
+							$entry_out['_visibility'] = (string) $sorted_field['entry_visibility'];
+							break;
+						}
+					}
+					$out['entries'][] = $entry_out;
 				}
 			} else {
 				// Flat group — always entry_index 0.

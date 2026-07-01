@@ -446,7 +446,11 @@ function collectRepeaterEntries( containerId ) {
 	var entries = [];
 	container.querySelectorAll( '.bn-ep-repeater-entry' ).forEach( function ( row ) {
 		var entry = {};
-		row.querySelectorAll( 'input[name], textarea[name]' ).forEach( function ( el ) {
+		// Include select[name] so the per-entry privacy lock (_visibility) is
+		// collected — matches collectFlatData(). Without it the member's privacy
+		// choice on Work Experience / Education rows was never sent and reset to
+		// the default on reload.
+		row.querySelectorAll( 'input[name], textarea[name], select[name]' ).forEach( function ( el ) {
 			var m = el.name.match( /\[\d+\]\[([^\]]+)\]$/ );
 			if ( ! m ) { return; }
 			// Checkboxes (e.g. work_current) store "1" when ticked, "" otherwise —
@@ -690,6 +694,80 @@ function renumberEntries( containerId ) {
 	} );
 }
 
+/* Build the per-entry privacy lock, mirroring the SERVER markup in
+   templates/profile/edit.php ($bn_privacy_select + the .bn-ep-repeater-vis
+   wrapper). A JS-added entry MUST carry this control or its privacy choice can
+   never be set — and the option set must never be looser than the group's admin
+   default (members may only tighten). Preferred path: clone an existing
+   server-rendered `.bn-ep-field-vis` from the SAME container, which reuses the
+   lock icon, labels, and the exact admin-default-filtered option set verbatim
+   (zero drift), then reset to the first offered option — the admin default,
+   matching a freshly server-rendered entry. Fallback (empty repeater, nothing to
+   clone): build the full public→private ladder from $bn_vis_labels, defaulting to
+   "public"; the server re-clamps up to the admin default on save, so this is safe. */
+function buildEntryVisNode( group, index ) {
+	var field = document.createElement( 'div' );
+	field.className = 'bn-ep-field bn-ep-field--full bn-ep-repeater-vis';
+
+	var selectId   = 'bn-ep-' + String( group ).replace( /_/g, '-' ) + '-vis-' + index;
+	var selectName = group + '[' + index + '][_visibility]';
+
+	var container = document.getElementById( repeaterContainerId( group ) );
+	var template  = container ? container.querySelector( '.bn-ep-field-vis' ) : null;
+	if ( template ) {
+		var visClone = template.cloneNode( true );
+		var selClone = visClone.querySelector( '.bn-ep-field-vis__select' );
+		var lblClone = visClone.querySelector( '.bn-ep-field-vis__label' );
+		if ( selClone ) {
+			selClone.id   = selectId;
+			selClone.name = selectName;
+			// First offered option = the admin default (options are rank-ordered
+			// and filtered to >= the admin default), so a new entry starts there.
+			if ( selClone.options.length ) { selClone.selectedIndex = 0; }
+		}
+		if ( lblClone ) { lblClone.setAttribute( 'for', selectId ); }
+		field.appendChild( visClone );
+		return field;
+	}
+
+	var vis = document.createElement( 'span' );
+	vis.className = 'bn-ep-field-vis';
+	vis.setAttribute( 'data-bn-vis', '' );
+
+	var label = document.createElement( 'label' );
+	label.className = 'bn-ep-field-vis__label';
+	label.setAttribute( 'for', selectId );
+	// Vendored Lucide lock, mirroring IconService::render( 'lock', 'bn-ep-vis-lock' ).
+	label.innerHTML = '<svg class="bn-icon bn-ep-vis-lock" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
+	var sr = document.createElement( 'span' );
+	sr.className   = 'screen-reader-text';
+	sr.textContent = t( 'visWhoCanSee', 'Who can see this field' );
+	label.appendChild( sr );
+
+	var select = document.createElement( 'select' );
+	select.className = 'bn-input bn-ep-field-vis__select';
+	select.id        = selectId;
+	select.name      = selectName;
+	select.setAttribute( 'data-wp-on--change', 'actions.markDirty' );
+	// Same slugs + labels as the server's $bn_vis_labels — never a new set.
+	[
+		[ 'public',      t( 'visPublic', 'Public' ) ],
+		[ 'followers',   t( 'visFollowers', 'Followers' ) ],
+		[ 'connections', t( 'visConnections', 'Connections' ) ],
+		[ 'private',     t( 'visPrivate', 'Only me' ) ],
+	].forEach( function ( pair ) {
+		var opt = document.createElement( 'option' );
+		opt.value       = pair[0];
+		opt.textContent = pair[1];
+		select.appendChild( opt );
+	} );
+
+	vis.appendChild( label );
+	vis.appendChild( select );
+	field.appendChild( vis );
+	return field;
+}
+
 /* Build a blank repeater entry DOM node for a given group. */
 function buildEntryNode( group, index ) {
 	var groupConfig = {
@@ -828,6 +906,11 @@ function buildEntryNode( group, index ) {
 		field.appendChild( control );
 		grid.appendChild( field );
 	} );
+
+	// Per-entry privacy lock (the `group[index][_visibility]` control), appended
+	// after the field grid to match the server-rendered entry order in
+	// templates/profile/edit.php.
+	entry.appendChild( buildEntryVisNode( group, index ) );
 
 	return entry;
 }
