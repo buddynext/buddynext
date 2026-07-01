@@ -1927,8 +1927,25 @@ class PageRouter {
 
 		$raw_space_slug = (string) $query->get( 'bn_space_slug', '' );
 		if ( '' !== $raw_space_slug ) {
-			$space_id = $this->resolve_space( sanitize_title( $raw_space_slug ) );
-			$query->set( 'bn_resolved_space_id', $space_id );
+			// Reserved directory-scope words are never space slugs. If the generic
+			// /spaces/{slug}/ rewrite rule captured "mine" (it out-orders the pretty
+			// /spaces/mine/ rule on installs where Learnomy/other plugins inject an
+			// early spaces/{slug} rule), re-route to the My-Spaces directory view
+			// instead of resolving a non-existent space (which 404s "Space not
+			// found."). Order-independent — no reliance on rewrite-rule priority.
+			$reserved = (array) apply_filters( 'buddynext_reserved_space_slugs', array( 'mine' ) );
+			if ( in_array( $raw_space_slug, $reserved, true ) ) {
+				$query->set( 'bn_scope', 'mine' );
+				$action = sanitize_key( (string) $query->get( 'bn_space_action', '' ) );
+				if ( 'managed' === $action || 'joined' === $action ) {
+					$query->set( 'bn_membership', $action );
+				}
+				$query->set( 'bn_space_slug', '' );
+				$query->set( 'bn_space_action', '' );
+			} else {
+				$space_id = $this->resolve_space( sanitize_title( $raw_space_slug ) );
+				$query->set( 'bn_resolved_space_id', $space_id );
+			}
 		}
 
 		// Member-type filter: the 'bottom'-priority rewrite rule populates bn_member_type
