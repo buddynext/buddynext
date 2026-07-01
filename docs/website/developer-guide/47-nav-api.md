@@ -4,6 +4,10 @@ How to add a menu item or a tab to BuddyNext from an addon or a theme. BuddyNext
 
 ![A member profile whose primary tabs are resolved through the Nav registry documented here](../images/member-profile.webp)
 
+> **Runnable, tested snippets:** every recipe below has a copy-paste, live-verified version in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) under `navigation/` (`add-profile-tab.php`, `add-space-tab.php`, `add-rail-item.php`, `relabel-remove-nav.php`). Drop one in `wp-content/mu-plugins/` and it works as-is.
+>
+> **Current API (important):** a profile OR space tab is a **single** `$registry->register([...])` call that carries both a lazy `url` and a **`render` callable** - `PanelRenderer` server-renders only the active tab's panel. The older two-step approach (`buddynext_profile_tab_panel_open()`/`_close()` helpers + a `buddynext_part_profile_tab_panel_after` action) has been **removed**; use the `render` key shown in the snippets. Two tested caveats on the modify-existing recipe: relabeling a tab that carries a **count** badge does not visibly change its label (target a count-less tab), and primary-tab **order** is provider-driven, so `buddynext_nav_move()` from the filter is a best-effort nudge, not a hard reorder.
+
 ## Overview / Contract
 
 There are two navigation systems. Use the right one for the surface you are extending.
