@@ -118,6 +118,20 @@ unset( $all_types_raw, $t );
 // never as a materialised IN / NOT IN id list, so the query stays bounded at 50k.
 $bn_directory_service = buddynext_service( 'member_directory' );
 
+// Directory-accurate per-type counts for the "By type" facet. list_members()
+// filters a type via INNER JOIN wp_users + the discovery gate and excludes the
+// viewer, so the raw assignment-row counts on get_all_with_counts() (which count
+// orphaned rows for deleted users and the viewer's own row) would not match the
+// list. Override each row's member_count with the count that reflects exactly
+// who the list shows, so clicking a facet of N lands on N members.
+if ( method_exists( $bn_directory_service, 'type_member_counts' ) ) {
+	$bn_type_counts = $bn_directory_service->type_member_counts( $current_user_id );
+	foreach ( $dir_types as &$bn_dir_type ) {
+		$bn_dir_type['member_count'] = (int) ( $bn_type_counts[ (int) ( $bn_dir_type['id'] ?? 0 ) ] ?? 0 );
+	}
+	unset( $bn_dir_type );
+}
+
 $user_query_args = array(
 	'number'      => $bn_per_page,
 	'paged'       => $bn_current_page,

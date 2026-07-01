@@ -36,6 +36,22 @@ class MemberDirectoryService {
 	private const DIRECTORY_COUNT_CAP = 1000;
 
 	/**
+	 * Object-cache key for the viewer-independent, discovery-gated per-type member
+	 * counts (see type_member_counts()). Stored in the 'buddynext' group and busted
+	 * by MemberTypeService on the same events as its own counts cache (type
+	 * create/update/delete, member assign/remove).
+	 */
+	public const TYPE_COUNTS_CACHE_KEY = 'bn_dir_type_counts';
+
+	/**
+	 * TTL for the gated per-type count cache. Event-busted, so this only bounds
+	 * staleness from raw user deletion (which can orphan an assignment row without
+	 * firing a member-type event) — the INNER JOIN wp_users already keeps orphans
+	 * out of the number, this just refreshes the cached snapshot.
+	 */
+	private const TYPE_COUNTS_TTL = 3600;
+
+	/**
 	 * Return a cursor-paginated list of members.
 	 *
 	 * Supported $filters keys:
@@ -591,6 +607,119 @@ class MemberDirectoryService {
 			      AND um_dir.meta_value = '0'
 			  )",
 		);
+	}
+
+	/**
+	 * Per-member-type counts that MATCH the directory listing exactly.
+	 *
+	 * Counts are computed with the SAME predicate list_members() applies for a
+	 * `member_type` filter: an INNER JOIN to wp_users (so assignment rows left
+	 * behind for deleted users never inflate the number) plus the shared
+	 * suspended / shadow-banned / directory-opt-out discovery gate, then the viewer
+	 * is removed from their own type(s) to mirror list_members()'s `u.ID != viewer`.
+	 * The net effect: clicking a "By type" facet of N lands on a list of exactly N
+	 * members.
+	 *
+	 * Caching split: the heavy grouped scan is VIEWER-INDEPENDENT (discovery gate
+	 * only) so it is cached once under TYPE_COUNTS_CACHE_KEY and shared by every
+	 * viewer; the per-viewer part is only a single indexed lookup of the viewer's
+	 * own type ids, subtracted at read time — so no per-viewer cache entry is
+	 * needed. (The viewer's bidirectional blocks are NOT folded in here, unlike the
+	 * live list, because that would make the count viewer-specific and defeat the
+	 * shared cache; blocks in the directory are rare and only ever shift a facet by
+	 * the count of blocked members in that one type.)
+	 *
+	 * @param int $viewer_id Viewing user (removed from their own type counts).
+	 * @return array<int,int> type_id => visible member count.
+	 */
+	public function type_member_counts( int $viewer_id = 0 ): array {
+		$counts = $this->gated_type_member_counts();
+
+		if ( $viewer_id > 0 ) {
+			foreach ( $this->viewer_directory_type_ids( $viewer_id ) as $type_id ) {
+				if ( isset( $counts[ $type_id ] ) && $counts[ $type_id ] > 0 ) {
+					--$counts[ $type_id ];
+				}
+			}
+		}
+
+		return $counts;
+	}
+
+	/**
+	 * Viewer-independent, discovery-gated member count per type_id.
+	 *
+	 * One grouped query: assignment rows INNER JOINed to wp_users (orphan-free)
+	 * and filtered by the shared directory discovery gate, GROUP BY type_id. Cached
+	 * in the 'buddynext' group; MemberTypeService busts TYPE_COUNTS_CACHE_KEY on
+	 * every type/assignment change so the snapshot stays fresh.
+	 *
+	 * @return array<int,int> type_id => gated member count (types with no gated members are absent).
+	 */
+	private function gated_type_member_counts(): array {
+		$cached = wp_cache_get( self::TYPE_COUNTS_CACHE_KEY, 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		global $wpdb;
+
+		// The gate fragments carry NO placeholders (they interpolate only trusted
+		// table names / literal meta keys), so they are safe to embed directly.
+		$exclusions = implode( "\n     AND ", $this->directory_exclusion_subqueries( 'u.ID' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			"SELECT mta.type_id AS type_id, COUNT(*) AS member_count
+			   FROM {$wpdb->prefix}bn_member_type_assignments mta
+			   INNER JOIN {$wpdb->users} u ON u.ID = mta.user_id
+			  WHERE {$exclusions}
+			  GROUP BY mta.type_id",
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$counts = array();
+		foreach ( (array) $rows as $row ) {
+			$counts[ (int) $row['type_id'] ] = (int) $row['member_count'];
+		}
+
+		wp_cache_set( self::TYPE_COUNTS_CACHE_KEY, $counts, 'buddynext', self::TYPE_COUNTS_TTL ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $counts;
+	}
+
+	/**
+	 * The type ids the viewer is discovery-visible under (usually one in Free).
+	 *
+	 * Returns a type id ONLY when the viewer both holds that type AND passes the
+	 * discovery gate — i.e. exactly the rows that were counted in
+	 * gated_type_member_counts() — so subtracting one per returned id can never
+	 * push a facet negative or double-subtract a gated-out viewer. Single indexed
+	 * lookup on the viewer's user_id; not cached (already O(1)).
+	 *
+	 * @param int $viewer_id Viewing user.
+	 * @return int[] Type ids to decrement for this viewer.
+	 */
+	private function viewer_directory_type_ids( int $viewer_id ): array {
+		global $wpdb;
+
+		$exclusions = implode( "\n     AND ", $this->directory_exclusion_subqueries( 'u.ID' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT mta.type_id
+				   FROM {$wpdb->prefix}bn_member_type_assignments mta
+				   INNER JOIN {$wpdb->users} u ON u.ID = mta.user_id
+				  WHERE mta.user_id = %d
+				    AND {$exclusions}",
+				$viewer_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return array_map( 'intval', (array) $ids );
 	}
 
 	/**
