@@ -271,7 +271,7 @@ class InviteManager {
 			</div>
 		<?php endif; ?>
 
-			<div class="bn-settings-section" style="max-width:620px;">
+			<div class="bn-settings-section bn-a-narrow-form">
 				<div class="bn-ss-header">
 					<span class="bn-ss-title"><?php esc_html_e( 'Invite a Member', 'buddynext' ); ?></span>
 				</div>
@@ -293,7 +293,7 @@ class InviteManager {
 				</div>
 			</div>
 
-			<div class="bn-settings-section" style="max-width:620px;">
+			<div class="bn-settings-section bn-a-narrow-form">
 				<div class="bn-ss-header">
 					<span class="bn-ss-title"><?php esc_html_e( 'Send Bulk Invitations', 'buddynext' ); ?></span>
 				</div>

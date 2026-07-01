@@ -154,7 +154,7 @@ class Spaces extends AdminPageBase {
 		$cats_url = add_query_arg( 'subtab', 'categories', $base_url );
 		$is_cats  = ( 'categories' === $subtab );
 		?>
-		<nav class="bn-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Spaces admin sections', 'buddynext' ); ?>" style="margin-block-end:var(--bn-s4,16px)">
+		<nav class="bn-tabs bn-a-block-gap" role="tablist" aria-label="<?php esc_attr_e( 'Spaces admin sections', 'buddynext' ); ?>">
 			<a href="<?php echo esc_url( $base_url ); ?>" class="bn-tab" role="tab" aria-selected="<?php echo $is_cats ? 'false' : 'true'; ?>">
 				<?php esc_html_e( 'Spaces', 'buddynext' ); ?>
 			</a>

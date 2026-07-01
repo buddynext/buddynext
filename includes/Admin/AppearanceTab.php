@@ -77,7 +77,7 @@ class AppearanceTab {
 				<div class="bn-ss-body">
 					<p class="bn-av-section-desc"><?php esc_html_e( 'Shown at the top of the navigation rail. A wide PNG/SVG around 160×40 works best. Leave empty to show the community name instead.', 'buddynext' ); ?></p>
 					<?php if ( '' !== $logo ) : ?>
-						<p><img src="<?php echo esc_url( $logo ); ?>" alt="" style="max-height:40px;max-width:240px;"></p>
+						<p><img src="<?php echo esc_url( $logo ); ?>" alt="" class="bn-a-logo-preview"></p>
 						<p><label><input type="checkbox" name="bn_remove_logo" value="1"> <?php esc_html_e( 'Remove current logo', 'buddynext' ); ?></label></p>
 					<?php endif; ?>
 					<input type="file" name="bn_logo_file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
@@ -93,7 +93,7 @@ class AppearanceTab {
 							<option value="<?php echo esc_attr( $tv ); ?>" <?php selected( $theme, $tv ); ?>><?php echo esc_html( $tl ); ?></option>
 						<?php endforeach; ?>
 					</select>
-					<p class="bn-av-section-desc" style="margin-top:8px;">
+					<p class="bn-av-section-desc bn-a-gap-top-sm">
 						<?php esc_html_e( 'Accent colour is set under', 'buddynext' ); ?>
 						<a href="<?php echo esc_url( admin_url( 'admin.php?page=buddynext&tab=general' ) ); ?>"><?php esc_html_e( 'General → Brand Color', 'buddynext' ); ?></a>.
 					</p>

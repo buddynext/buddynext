@@ -2243,8 +2243,21 @@ button.bn-btn-danger:hover {
 	list-style: none;
 }
 .bn-social-help > summary::-webkit-details-marker { display: none; }
-.bn-social-help > summary::before { content: "▸ "; }
-.bn-social-help[open] > summary::before { content: "▾ "; }
+/* Disclosure caret drawn in CSS (no glyph character) — a right-pointing
+   triangle that rotates to point down when the details is open. */
+.bn-social-help > summary::before {
+	content: "";
+	display: inline-block;
+	width: 0;
+	height: 0;
+	margin-right: var(--bn-a-s2, 6px);
+	border-left: 5px solid currentColor;
+	border-top: 4px solid transparent;
+	border-bottom: 4px solid transparent;
+	vertical-align: middle;
+	transition: transform 0.15s ease;
+}
+.bn-social-help[open] > summary::before { transform: rotate(90deg); }
 .bn-social-help__steps {
 	margin: var(--bn-a-s3) 0;
 	padding-left: var(--bn-a-s5);
@@ -2289,3 +2302,21 @@ button.bn-btn-danger:hover {
 	vertical-align: middle;
 }
 .bn-admin-hub__content table:not(.form-table) tbody tr:hover td { background: var(--bn-a-bg-subtle); }
+
+/* ── Extracted inline-style helpers ──────────────────────────────────────
+   Static presentation lifted out of style="" attributes (ux F1). Dynamic
+   values (user-chosen colours, computed widths, JS-toggled visibility) stay
+   inline — that is the correct use of the attribute. */
+.bn-a-narrow-form   { max-width: 620px; }
+.bn-a-input-tiny    { max-width: 100px; }
+.bn-a-logo-preview  { max-height: 40px; max-width: 240px; }
+.bn-a-flush-top     { margin-top: 0; }
+.bn-a-gap-top       { margin-top: var(--bn-a-s3, 16px); }
+.bn-a-gap-top-sm    { margin-top: var(--bn-a-s2, 8px); }
+.bn-a-block-gap     { margin-block-end: var(--bn-s4, 16px); }
+.bn-a-flush         { padding: 0; }
+.bn-a-readonly-hint { cursor: default; opacity: 0.7; }
+.bn-a-pf-col        { flex: 0 0 180px; }
+.bn-a-pf-col-wide   { flex: 0 0 220px; }
+.bn-a-pf-col-narrow { flex: 0 0 160px; }
+.bn-a-pf-swatch     { width: 64px; }

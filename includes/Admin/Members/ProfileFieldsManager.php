@@ -1216,12 +1216,12 @@ class ProfileFieldsManager {
 					<table class="bn-pf-table">
 						<thead>
 							<tr>
-								<th style="width:64px;"><?php esc_html_e( 'Order', 'buddynext' ); ?></th>
+								<th class="bn-a-pf-swatch"><?php esc_html_e( 'Order', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'Field Name', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'Type', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'Required', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'Visible to', 'buddynext' ); ?></th>
-								<th style="width:64px;"></th>
+								<th class="bn-a-pf-swatch"></th>
 							</tr>
 						</thead>
 						<tbody>
@@ -1330,7 +1330,7 @@ class ProfileFieldsManager {
 							$date_display_val  = ( $is_date_type && is_array( $field['options'] ) ) ? ( $field['options']['display'] ?? 'date' ) : 'date';
 							?>
 							<tr id="<?php echo esc_attr( $edit_panel_id ); ?>" style="display:none;">
-								<td colspan="6" style="padding:0;">
+								<td colspan="6" class="bn-a-flush">
 									<div class="bn-pf-ef-panel">
 										<p class="bn-pf-af-title"><?php esc_html_e( 'Edit field', 'buddynext' ); ?></p>
 										<form method="post" action="<?php echo esc_url( $post_url ); ?>">
@@ -1346,7 +1346,7 @@ class ProfileFieldsManager {
 														value="<?php echo esc_attr( $field['label'] ); ?>"
 														required>
 												</div>
-												<div class="bn-pf-af-field" style="flex:0 0 180px;">
+												<div class="bn-pf-af-field bn-a-pf-col">
 													<label for="bn-ef-type-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Field Type', 'buddynext' ); ?></label>
 													<select id="bn-ef-type-<?php echo absint( $fid ); ?>" name="type"
 														data-bn-pf-opts-wrap="bn-ef-opts-<?php echo absint( $fid ); ?>"
@@ -1362,7 +1362,7 @@ class ProfileFieldsManager {
 														<?php endforeach; ?>
 													</select>
 												</div>
-												<div class="bn-pf-af-field" style="flex:0 0 160px;">
+												<div class="bn-pf-af-field bn-a-pf-col-narrow">
 													<label for="bn-ef-vis-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Visible to', 'buddynext' ); ?></label>
 													<select id="bn-ef-vis-<?php echo absint( $fid ); ?>" name="visibility">
 														<?php foreach ( $vis_labels as $vis_val => $vis_lbl ) : ?>
@@ -1467,7 +1467,7 @@ class ProfileFieldsManager {
 									placeholder="<?php esc_attr_e( 'e.g. Job Title', 'buddynext' ); ?>"
 									required>
 							</div>
-							<div class="bn-pf-af-field" style="flex:0 0 180px;">
+							<div class="bn-pf-af-field bn-a-pf-col">
 								<label for="bn-af-type-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Field Type', 'buddynext' ); ?></label>
 								<select id="bn-af-type-<?php echo absint( $gid ); ?>" name="type"
 									data-bn-pf-opts-wrap="bn-af-opts-<?php echo absint( $gid ); ?>"
@@ -1480,7 +1480,7 @@ class ProfileFieldsManager {
 									<?php endforeach; ?>
 								</select>
 							</div>
-							<div class="bn-pf-af-field" style="flex:0 0 160px;">
+							<div class="bn-pf-af-field bn-a-pf-col-narrow">
 								<label for="bn-af-vis-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Visible to', 'buddynext' ); ?></label>
 								<select id="bn-af-vis-<?php echo absint( $gid ); ?>" name="visibility">
 									<?php foreach ( $vis_labels as $vis_val => $vis_lbl ) : ?>
@@ -1574,14 +1574,14 @@ class ProfileFieldsManager {
 								<input type="text" id="bn-ag-label" name="label"
 									placeholder="<?php esc_attr_e( 'e.g. Work Experience', 'buddynext' ); ?>" required>
 							</div>
-							<div class="bn-pf-ag-field" style="flex:0 0 220px;">
+							<div class="bn-pf-ag-field bn-a-pf-col-wide">
 								<label for="bn-ag-type"><?php esc_html_e( 'Group Type', 'buddynext' ); ?></label>
 								<select id="bn-ag-type" name="type">
 									<option value="flat"><?php esc_html_e( 'Single entry', 'buddynext' ); ?></option>
 									<option value="repeater"><?php esc_html_e( 'Multiple entries (e.g. past jobs)', 'buddynext' ); ?></option>
 								</select>
 							</div>
-							<div class="bn-pf-ag-field" style="flex:0 0 180px;">
+							<div class="bn-pf-ag-field bn-a-pf-col">
 								<label for="bn-ag-vis"><?php esc_html_e( 'Default visibility', 'buddynext' ); ?></label>
 								<select id="bn-ag-vis" name="visibility">
 									<option value="public"><?php esc_html_e( 'Everyone', 'buddynext' ); ?></option>

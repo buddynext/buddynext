@@ -1133,7 +1133,7 @@ class Settings extends AdminPageBase {
 
 		$this->open_section( __( 'Features', 'buddynext' ) );
 
-		echo '<p class="bn-field-hint" style="margin-top:0">' .
+		echo '<p class="bn-field-hint bn-a-flush-top">' .
 			esc_html__( 'Pick which features your community uses. Core features always run. You can enable or disable everything else from this tab — changes apply immediately on save.', 'buddynext' ) .
 			'</p>';
 
@@ -2253,7 +2253,7 @@ class Settings extends AdminPageBase {
 
 				<div class="bn-companion-card__actions">
 					<?php if ( 'active' === $bn_status ) : ?>
-						<span class="bn-addon-row__action" aria-disabled="true" style="cursor:default;opacity:.7;">
+						<span class="bn-addon-row__action bn-a-readonly-hint" aria-disabled="true">
 							<?php esc_html_e( 'Connected', 'buddynext' ); ?>
 						</span>
 					<?php elseif ( 'inactive' === $bn_status && $can_activate && '' !== $bn_basename ) : ?>
@@ -2496,7 +2496,7 @@ class Settings extends AdminPageBase {
 			);
 			?>
 
-			<div class="bn-field" style="margin-top:16px;">
+			<div class="bn-field bn-a-gap-top">
 				<label for="bn-webhook-add-url"><?php esc_html_e( 'New endpoint URL', 'buddynext' ); ?></label>
 				<input type="url"
 					id="bn-webhook-add-url"

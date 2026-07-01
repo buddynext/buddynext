@@ -253,14 +253,10 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	/* Semantic */
 	--green:       var(--bn-success);
 	--green-bg:    var(--bn-success-bg);
-	--green-dark:  oklch(45% 0.15 145);
 	--amber:       var(--bn-warn);
 	--amber-bg:    var(--bn-warn-bg);
-	--amber-light: oklch(72% 0.16 75);
 	--red:         var(--bn-danger);
 	--red-bg:      var(--bn-danger-bg);
-	--bronze:      oklch(52% 0.12 60);
-	--silver:      oklch(70% 0.005 var(--bn-hue));
 	--pink:        oklch(60% 0.20 350);
 
 	/* Auth-page gradient stops */

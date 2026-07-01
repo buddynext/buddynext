@@ -435,8 +435,7 @@ abstract class AdminPageBase {
 					<?php if ( null !== $max ) : ?>
 					max="<?php echo absint( $max ); ?>"
 					<?php endif; ?>
-					class="bn-text-input small-text"
-					style="max-width:100px">
+					class="bn-text-input small-text bn-a-input-tiny">
 			<?php if ( '' !== $hint ) : ?>
 				<span class="bn-field-hint"><?php echo esc_html( $hint ); ?></span>
 			<?php endif; ?>
