@@ -37,6 +37,13 @@
 	gap: var(--bn-s5);
 }
 
+/* Profile Activity tab: the owner composer and the .bn-feed-stack sit as direct
+   siblings in .bn-pf-tab-content with no gap; separate the composer from the
+   first post by the same amount as the card-to-card gap so it is not flush. */
+.bn-pf-tab-content > .bn-composer {
+	margin-block-end: var(--bn-s5);
+}
+
 /* ── Post card (v2 pattern) ─────────────────────────────────────────────────────
    Source: docs/v2 Plans/v2/home-feed.html post sections + post-detail.html.
    Single border, no shadow at rest, padding `--bn-s5`, gap `--bn-s4` between
@@ -1240,6 +1247,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
    inner-template overrides here only tweak content rhythm at small widths. */
 @media (max-width: 640px) {
 	.bn-feed-stack { gap: var(--bn-s3); }
+	.bn-pf-tab-content > .bn-composer { margin-block-end: var(--bn-s3); }
 
 	.bn-post-card__head { flex-wrap: wrap; }
 	/* Hide the inline per-post Follow on mobile. Repeated on every card it eats a
