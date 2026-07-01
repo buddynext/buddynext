@@ -135,12 +135,40 @@ class WPMediaVerseBridge {
 	}
 
 	/**
+	 * When true, `on_media_uploaded()` skips the standalone-upload feed sync for
+	 * the current request. Set by BuddyNext-owned upload surfaces (composer,
+	 * avatar, cover, comment media) because those either create their own post
+	 * explicitly on submit or create none at all — only the standalone
+	 * WPMediaVerse "Upload Media" surface should auto-surface in the feed.
+	 *
+	 * @var bool
+	 */
+	private static $suppress_upload_activity = false;
+
+	/**
+	 * Toggle auto feed-sync suppression for BuddyNext-originated uploads.
+	 *
+	 * BuddyNext upload endpoints wrap their engine `handle()` call in this so an
+	 * abandoned or removed composer photo — and avatar/cover changes — never
+	 * auto-publish a post the member never confirmed. `mvs_media_uploaded` fires
+	 * synchronously inside `handle()`, so a request-scoped flag is sufficient.
+	 *
+	 * @param bool $suppress Whether to suppress the next upload's feed sync.
+	 * @return void
+	 */
+	public static function suppress_upload_activity( bool $suppress = true ): void {
+		self::$suppress_upload_activity = $suppress;
+	}
+
+	/**
 	 * Defer a feed entry for a fresh WPMediaVerse upload.
 	 *
-	 * Runs on `mvs_media_uploaded`. A BuddyNext composer photo uploads the media
-	 * first and creates its post a moment later (a separate request), so posting
-	 * immediately would duplicate it. We re-check after a short delay and only
-	 * publish if the media was NOT attached to a BuddyNext post in the meantime.
+	 * Runs on `mvs_media_uploaded`. Only standalone WPMediaVerse uploads (the
+	 * dashboard "Upload Media" surface, which posts to `mvs/v1/media` directly)
+	 * should auto-surface here. BuddyNext-originated uploads route through
+	 * `buddynext/v1/me/media` and set the suppression flag, so a composer photo
+	 * only ever posts when the member explicitly clicks Post (via PostService),
+	 * and abandoning or removing it publishes nothing.
 	 *
 	 * @param int    $media_id   WPMediaVerse media-index id.
 	 * @param array  $file_data  Upload metadata (privacy, user_id, …).
@@ -152,6 +180,12 @@ class WPMediaVerseBridge {
 		$media_id = (int) $media_id;
 		$user_id  = (int) $user_id;
 		if ( $media_id <= 0 || $user_id <= 0 ) {
+			return;
+		}
+
+		// BuddyNext-owned surfaces own their own posting decision — never
+		// auto-publish on their behalf.
+		if ( self::$suppress_upload_activity ) {
 			return;
 		}
 

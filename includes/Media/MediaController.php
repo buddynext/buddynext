@@ -293,7 +293,23 @@ class MediaController extends BaseRestController {
 		// The engine validates MIME, size, duplicates, strips EXIF, optimizes and
 		// generates thumbnails; we hand it the file and the member as author so the
 		// new media surfaces in their own gallery (Galleries::user_media_ids).
-		$media_id = $upload->handle( $file_data, $user_id, $args );
+		//
+		// Suppress the WPMediaVerse bridge's standalone-upload feed sync for the
+		// duration of this call: BuddyNext surfaces (composer, avatar, cover,
+		// comment media) decide their own posting on submit, so an abandoned or
+		// removed composer photo must never auto-publish. `mvs_media_uploaded`
+		// fires synchronously inside handle(), so the flag scope is this request.
+		$bridge = '\\BuddyNext\\Bridges\\WPMediaVerseBridge';
+		if ( class_exists( $bridge ) ) {
+			$bridge::suppress_upload_activity( true );
+		}
+		try {
+			$media_id = $upload->handle( $file_data, $user_id, $args );
+		} finally {
+			if ( class_exists( $bridge ) ) {
+				$bridge::suppress_upload_activity( false );
+			}
+		}
 
 		if ( is_wp_error( $media_id ) ) {
 			return $media_id;
