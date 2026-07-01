@@ -111,7 +111,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-06-27-hashtag-rewrite-reflush';
+	private const ROUTER_VERSION = '2026-07-01-spaces-mine-reflush';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
@@ -1742,22 +1742,6 @@ class PageRouter {
 		add_rewrite_rule(
 			'^' . preg_quote( $s, '/' ) . '/?$',
 			'index.php?bn_hub=spaces',
-			'top'
-		);
-
-		// Pretty "My Spaces" directory views: /spaces/mine/ (sectioned managed +
-		// joined) and /spaces/mine/managed|joined/ (one bucket, paginated). Added
-		// LAST so that — add_rewrite_rule( 'top' ) prepending the most recent — they
-		// sit ABOVE the generic {slug} rules and win, instead of "mine" being read
-		// as a space slug. Reserves only the word "mine" as a non-slug.
-		add_rewrite_rule(
-			'^' . preg_quote( $s, '/' ) . '/mine/(managed|joined)/?$',
-			'index.php?bn_hub=spaces&bn_scope=mine&bn_membership=$matches[1]',
-			'top'
-		);
-		add_rewrite_rule(
-			'^' . preg_quote( $s, '/' ) . '/mine/?$',
-			'index.php?bn_hub=spaces&bn_scope=mine',
 			'top'
 		);
 	}

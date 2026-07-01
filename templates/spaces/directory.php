@@ -670,28 +670,33 @@ $bn_subtitle = sprintf(
 	<?php
 	// Always-present "no results" state so a reactive filter that returns zero can
 	// reveal it (the spaces store toggles [data-bn-sd-empty] via setDirectoryUiState).
-	// Shown on an SSR filtered-empty load; hidden otherwise (incl. when there are
-	// results, so the grid owns the viewport).
-	?>
-	<div class="bn-sd-empty" data-bn-sd-empty<?php echo ( empty( $bn_spaces ) && $bn_filters_active ) ? '' : ' style="display:none"'; ?>>
-		<?php
-		buddynext_get_template(
-			'parts/empty-state.php',
-			array(
-				'icon'  => 'search',
-				'title' => __( 'No spaces match', 'buddynext' ),
-				'body'  => __( 'Try widening your filters.', 'buddynext' ),
-			)
-		);
+	// Shown on an SSR filtered-empty load; hidden otherwise. NOT rendered on the
+	// "My Spaces" sections view: that view owns its own cold-start below, and the
+	// store would otherwise reveal this filter-empty on top of it (double state).
+	if ( ! $bn_render_sections ) :
 		?>
-		<button
-			type="button"
-			class="bn-btn"
-			data-variant="secondary"
-			data-size="sm"
-			data-wp-on--click="actions.resetFilters"
-		><?php esc_html_e( 'Reset filters', 'buddynext' ); ?></button>
-	</div>
+		<div class="bn-sd-empty" data-bn-sd-empty<?php echo ( empty( $bn_spaces ) && $bn_filters_active ) ? '' : ' style="display:none"'; ?>>
+			<?php
+			buddynext_get_template(
+				'parts/empty-state.php',
+				array(
+					'icon'  => 'search',
+					'title' => __( 'No spaces match', 'buddynext' ),
+					'body'  => __( 'Try widening your filters.', 'buddynext' ),
+				)
+			);
+			?>
+			<button
+				type="button"
+				class="bn-btn"
+				data-variant="secondary"
+				data-size="sm"
+				data-wp-on--click="actions.resetFilters"
+			><?php esc_html_e( 'Reset filters', 'buddynext' ); ?></button>
+		</div>
+		<?php
+	endif;
+	?>
 
 	<?php if ( empty( $bn_spaces ) && ! $bn_filters_active ) : ?>
 
@@ -779,6 +784,38 @@ $bn_subtitle = sprintf(
 			</section>
 			<?php
 		endforeach;
+
+		// Zero-space member: neither section rendered (both empty), so show a
+		// friendly cold-start instead of a blank "My Spaces" page.
+		if ( empty( $bn_managed_spaces ) && empty( $bn_joined_spaces ) ) :
+			?>
+			<div class="bn-sd-empty bn-sd-empty--coldstart">
+				<?php
+				buddynext_get_template(
+					'parts/empty-state.php',
+					array(
+						'icon'  => 'home',
+						'title' => __( 'You are not in any spaces yet', 'buddynext' ),
+						'body'  => __( 'Browse the community to find spaces to join, or create your own.', 'buddynext' ),
+					)
+				);
+				?>
+				<div class="bn-sd-empty__actions">
+					<a class="bn-btn" data-variant="primary" data-size="sm" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::spaces_url() ); ?>"><?php esc_html_e( 'Browse spaces', 'buddynext' ); ?></a>
+					<?php if ( buddynext_can( get_current_user_id(), 'buddynext-spaces/create' ) ) : ?>
+						<button
+							type="button"
+							class="bn-btn"
+							data-variant="secondary"
+							data-size="sm"
+							data-wp-on--click="actions.openCreate"
+							data-bn-create-space-trigger
+						><?php esc_html_e( 'Create a space', 'buddynext' ); ?></button>
+					<?php endif; ?>
+				</div>
+			</div>
+			<?php
+		endif;
 		?>
 
 	<?php else : ?>

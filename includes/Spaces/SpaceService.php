@@ -34,6 +34,17 @@ class SpaceService {
 	private const CACHE_TTL = 600;
 
 	/**
+	 * Slugs reserved for spaces-hub routes — a member must never create a space
+	 * whose slug shadows a real route (e.g. `mine` would collide with the
+	 * /spaces/mine/ "My Spaces" view). Defence-in-depth alongside rewrite-rule
+	 * ordering. Addons that register their own /spaces/<word>/ routes (e.g.
+	 * Learnomy's plans/buy/manage) extend the list via buddynext_reserved_space_slugs.
+	 *
+	 * @var string[]
+	 */
+	private const RESERVED_SLUGS = array( 'mine', 'managed', 'joined' );
+
+	/**
 	 * Space type — listed in directory; anyone can join.
 	 */
 	public const TYPE_OPEN = 'open';
@@ -53,13 +64,29 @@ class SpaceService {
 	public const TYPE_SECRET = 'secret';
 
 	/**
+	 * Whether a slug is reserved for a spaces-hub route and so cannot be used as a
+	 * space slug (defence-in-depth alongside rewrite-rule ordering — e.g. `mine`
+	 * shadows /spaces/mine/). Filterable via buddynext_reserved_space_slugs so
+	 * addon routes (Learnomy plans/buy/manage, etc.) can extend the list.
+	 *
+	 * @param string $slug Sanitized slug.
+	 * @return bool
+	 */
+	public static function is_reserved_slug( string $slug ): bool {
+		/**
+		 * Reserved space slugs.
+		 *
+		 * @param string[] $reserved Reserved slug list.
+		 */
+		$reserved = (array) apply_filters( 'buddynext_reserved_space_slugs', self::RESERVED_SLUGS );
+
+		return in_array( $slug, array_map( 'strval', $reserved ), true );
+	}
+
+	/**
 	 * Return the i18n'd human-readable label for a space type.
 	 *
-	 * Canonical labels:
-	 *   open    -> "Open"
-	 *   private -> "Private"
-	 *   secret  -> "Secret"
-	 *
+	 * Canonical labels: open -> "Open", private -> "Private", secret -> "Secret".
 	 * Use everywhere a type is rendered to a user (directory chips, hero badge,
 	 * settings forms) so the surface vocabulary never drifts from the data layer.
 	 *
@@ -198,6 +225,10 @@ class SpaceService {
 
 		if ( '' === $slug ) {
 			return new WP_Error( 'missing_slug', __( 'A space slug is required.', 'buddynext' ) );
+		}
+
+		if ( self::is_reserved_slug( $slug ) ) {
+			return new WP_Error( 'slug_reserved', __( 'That slug is reserved. Please choose another.', 'buddynext' ) );
 		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -424,6 +455,9 @@ class SpaceService {
 		if ( isset( $data['slug'] ) ) {
 			$new_slug = sanitize_title( $data['slug'] );
 			if ( '' !== $new_slug && $new_slug !== $space['slug'] ) {
+				if ( self::is_reserved_slug( $new_slug ) ) {
+					return new WP_Error( 'slug_reserved', __( 'That slug is reserved. Please choose another.', 'buddynext' ) );
+				}
 				// Ensure new slug is unique.
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$conflict = $wpdb->get_var(
