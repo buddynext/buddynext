@@ -89,9 +89,7 @@ $membership = ( null !== $bn_member_status_now )
 	: null;
 
 $is_member  = $membership && 'active' === $membership->status;
-$is_pending = $membership && 'pending' === $membership->status;
 $is_invited = $membership && 'invited' === $membership->status;
-$is_guest   = ( 0 === (int) $current_user_id );
 
 // Secret spaces are leak-proof: a logged-out visitor (or any non-member who
 // isn't a site admin) reaches the canonical 404 surface so we never confirm
@@ -233,38 +231,14 @@ if ( ! $bn_active_renderable ) {
 						: esc_html__( 'Join to read posts and participate in discussions.', 'buddynext' );
 					?>
 				</p>
-				<?php if ( $is_invited ) : ?>
-					<?php // The invitation banner above owns Accept/Decline; the gate shows no join CTA. ?>
-				<?php elseif ( $is_guest ) : ?>
-					<a
-						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::auth_url() . '?redirect_to=' . rawurlencode( buddynext_space_url( $space->slug ) ) ); ?>"
-						class="bn-btn"
-						data-variant="primary"
-						data-size="md"
-					>
-						<?php esc_html_e( 'Log in to request access', 'buddynext' ); ?>
-					</a>
-				<?php elseif ( $is_pending ) : ?>
-					<button
-						class="bn-btn"
-						data-variant="secondary"
-						data-size="md"
-						data-current-state="pending"
-						data-wp-on--click="actions.cancelJoinRequest"
-					>
-						<?php esc_html_e( 'Request pending', 'buddynext' ); ?>
-					</button>
-				<?php else : ?>
-					<button
-						class="bn-btn"
-						data-variant="primary"
-						data-size="md"
-						data-current-state="request"
-						data-wp-on--click="actions.requestJoin"
-					>
-						<?php esc_html_e( 'Request to join', 'buddynext' ); ?>
-					</button>
-				<?php endif; ?>
+				<?php
+				// The gate card is purely informational. The space hero (always
+				// rendered in the header) owns the single primary CTA for every
+				// state — guest "Log in to join", pending "Request pending", and
+				// "Request to join" — so repeating it here produced two identical
+				// buttons on one page. One primary CTA per page, matching how
+				// Facebook/LinkedIn present a gated group.
+				?>
 			</div>
 
 		<?php else : ?>
