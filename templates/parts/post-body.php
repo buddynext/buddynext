@@ -136,7 +136,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 			// shares this path (mixed photo/video/audio) — BuddyNext owns the
 			// UX, so there is no MediaVerse-side hydration.
 			if ( ! empty( $bn_body_media_ids ) ) {
-				echo \BuddyNext\Media\MediaRenderer::grid( array_map( 'absint', (array) $bn_body_media_ids ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer escapes all URLs/attributes internally.
+				echo \BuddyNext\Media\MediaRenderer::grid( array_map( 'absint', (array) $bn_body_media_ids ), (int) $args['bn_post_id'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer escapes all URLs/attributes internally.
 			}
 			?>
 

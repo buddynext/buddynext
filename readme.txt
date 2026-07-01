@@ -62,6 +62,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Improve  - Member lists inside a space and nested sub-spaces stay fast in very large communities.
 * Improve  - Per-space settings no longer load on every page request, keeping large sites fast as the number of spaces grows.
 * Fix      - A photo added to the activity composer is shared only when you click Post; removing it or leaving the page no longer publishes it on its own.
+* Fix      - Sharing a photo from the media viewer now opens the full Share menu with Repost and Copy link instead of silently copying the page link.
 * Fix      - Deleting a space now keeps its sub-spaces by moving them to the top level, instead of leaving them stranded under a space that no longer exists.
 * Fix      - The privacy choice on each Work Experience and Education entry is saved and shown correctly after you reload the profile editor.
 * Fix      - The site-wide login redirect setting is now honored, so members land on the page you configured after signing in.

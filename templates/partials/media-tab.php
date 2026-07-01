@@ -102,7 +102,7 @@ $bn_mt_ctx = array(
 		echo '<div class="bn-media-grid-region" data-bn-media-region data-bn-owner="' . esc_attr( $bn_mt_is_owner ? '1' : '0' ) . '">';
 		if ( ! empty( $bn_mt_media_ids ) ) {
 			echo '<div class="bn-card bn-profile-media-card">';
-			echo \BuddyNext\Media\MediaRenderer::gallery( array_map( 'absint', $bn_mt_media_ids ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer emits pre-sanitized markup.
+			echo \BuddyNext\Media\MediaRenderer::gallery( array_map( 'absint', $bn_mt_media_ids ), array( 'user_id' => $bn_mt_owner_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer emits pre-sanitized markup.
 			echo '</div>';
 		} else {
 			?>

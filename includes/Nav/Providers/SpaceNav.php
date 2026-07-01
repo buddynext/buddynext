@@ -354,7 +354,7 @@ final class SpaceNav {
 			: array();
 
 		if ( ! empty( $ids ) ) {
-			echo \BuddyNext\Media\MediaRenderer::gallery( $ids ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer::gallery() returns escaped markup.
+			echo \BuddyNext\Media\MediaRenderer::gallery( $ids, array( 'space_id' => $space_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer::gallery() returns escaped markup.
 			return;
 		}
 

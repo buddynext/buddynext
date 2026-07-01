@@ -354,7 +354,7 @@ class MediaController extends BaseRestController {
 
 		$response = new WP_REST_Response(
 			array(
-				'html'        => MediaRenderer::gallery( array_map( 'absint', $ids ) ),
+				'html'        => MediaRenderer::gallery( array_map( 'absint', $ids ), array( 'user_id' => $owner ) ),
 				'ids'         => array_map( 'absint', $ids ),
 				'total'       => $total,
 				'page'        => $page,
@@ -516,7 +516,7 @@ class MediaController extends BaseRestController {
 				$summary,
 				array(
 					'is_owner'    => $is_owner,
-					'html'        => MediaRenderer::gallery( array_map( 'absint', $ids ) ),
+					'html'        => MediaRenderer::gallery( array_map( 'absint', $ids ), array( 'user_id' => (int) $summary['owner'] ) ),
 					'ids'         => array_map( 'absint', $ids ),
 					'page'        => $page,
 					'per_page'    => $per_page,
