@@ -690,6 +690,36 @@ class SpaceService {
 
 		global $wpdb;
 
+		// Re-home any direct sub-spaces to the top level before this space is torn
+		// down. Spaces are shared community data (their own members, posts and
+		// sub-tree) that must survive a parent's deletion — leaving them pointing
+		// at a now-deleted parent_id would orphan them out of the directory and
+		// every get_subspaces() query. Detaching to root (parent_id = NULL) keeps
+		// each child and its own sub-tree intact as an independent top-level space,
+		// mirroring how update() detaches a space.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$child_spaces = (array) $wpdb->get_results( $wpdb->prepare( "SELECT id, slug FROM {$wpdb->prefix}bn_spaces WHERE parent_id = %d", $space_id ) );
+		if ( $child_spaces ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update(
+				$wpdb->prefix . 'bn_spaces',
+				array( 'parent_id' => null ),
+				array( 'parent_id' => $space_id ),
+				array( '%d' ),
+				array( '%d' )
+			);
+			foreach ( $child_spaces as $child ) {
+				$child_id = (int) $child->id;
+				wp_cache_delete( "space_{$child_id}", self::CACHE_GROUP );
+				if ( ! empty( $child->slug ) ) {
+					wp_cache_delete( 'space_slug_' . $child->slug, self::CACHE_GROUP );
+				}
+
+				/** This action is documented in includes/Spaces/SpaceService.php */
+				do_action( 'buddynext_space_updated', $child_id, $user_id, array( 'parent_id' => null ) );
+			}
+		}
+
 		// Capture every user whose membership / ban cache must be flushed once the
 		// space and its rows are gone — the bulk deletes below fire no per-user
 		// hooks, so cached role / status / ban entries would otherwise survive the
