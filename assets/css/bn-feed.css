@@ -1118,10 +1118,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 
 .bn-skeleton {
 	background: var(--bn-surface);
-	border: 1px solid var(--bn-border);
 	border-radius: var(--bn-r-xl);
-	padding: var(--bn-s4);
-	margin-bottom: var(--bn-s3);
 }
 
 .bn-skeleton-line {
