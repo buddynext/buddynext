@@ -632,7 +632,13 @@ const messagesStore = store( 'buddynext/messages', {
 			const el = event.target;
 			el.style.height = 'auto';
 			el.style.height = Math.min( el.scrollHeight, 160 ) + 'px';
-			actions.signalTyping();
+			// Only ping while there is actual content. Clearing the textarea
+			// (or a send that empties it) must NOT renew the server's typing
+			// TTL, or the recipient's "typing…" pip lingers for ~5s after the
+			// member stops. Match the Messenger/LinkedIn instant-clear feel.
+			if ( '' !== el.value.trim() ) {
+				actions.signalTyping();
+			}
 		},
 		// Tell the engine this user is typing, throttled. The other side's poll
 		// reads it back (data.typing) and shows the indicator. Fire-and-forget —
