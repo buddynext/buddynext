@@ -181,7 +181,7 @@ $bn_mt_ctx = array(
 
 	<?php if ( $bn_mt_is_owner ) : ?>
 		<?php // ── CREATE ALBUM MODAL ─────────────────────────────────────────────── ?>
-	<div class="bn-modal-backdrop bn-album-modal" data-wp-bind--hidden="!context.createOpen">
+	<div class="bn-modal-backdrop bn-album-modal is-hidden" data-wp-class--is-hidden="!context.createOpen">
 		<div class="bn-modal__panel" data-size="sm" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e( 'New album', 'buddynext' ); ?>">
 			<div class="bn-modal__head">
 				<h3 class="bn-modal__title">
@@ -224,7 +224,7 @@ $bn_mt_ctx = array(
 	</div>
 
 		<?php // ── ADD-MEDIA PICKER MODAL ─────────────────────────────────────────── ?>
-	<div class="bn-modal-backdrop bn-album-picker" data-wp-bind--hidden="!context.pickerOpen">
+	<div class="bn-modal-backdrop bn-album-picker is-hidden" data-wp-class--is-hidden="!context.pickerOpen">
 		<div class="bn-modal__panel" data-size="lg" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e( 'Add media', 'buddynext' ); ?>">
 			<div class="bn-modal__head">
 				<h3 class="bn-modal__title"><?php esc_html_e( 'Add media to album', 'buddynext' ); ?></h3>

@@ -133,6 +133,13 @@ $get_fv = static function ( string $group_key, string $field_key ) use ( $group_
 
 $entry_fv = static function ( array $entry_fields, string $fkey ): string {
 	foreach ( $entry_fields as $f ) {
+		// Repeater entries carry non-field meta alongside their field arrays —
+		// ProfileService appends a scalar `_visibility` element (consumed by the
+		// edit form). Skip anything that isn't a field array so this lookup never
+		// dereferences a string offset. Mirrors the guard in profile/edit.php.
+		if ( ! is_array( $f ) || ! isset( $f['field_key'] ) ) {
+			continue;
+		}
 		if ( $f['field_key'] === $fkey ) {
 			return (string) ( $f['value'] ?? '' );
 		}

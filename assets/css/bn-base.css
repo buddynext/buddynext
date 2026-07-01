@@ -2548,7 +2548,8 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	border-top: 1px solid var(--bn-line-faint);
 }
 .bn-modal[hidden],
-.bn-modal-backdrop[hidden] { display: none !important; }
+.bn-modal-backdrop[hidden],
+.bn-modal-backdrop.is-hidden { display: none !important; }
 
 /* Danger-tone modal (destructive confirm). */
 .bn-modal__panel[data-tone="danger"] .bn-modal__title {
