@@ -70,6 +70,8 @@ Deleting a space is permanent and removes everything tied to it. When a space is
 - The space's reports, moderation log entries, and member bans.
 - The space itself.
 
+Sub-spaces are **not** deleted. If the space you delete is a parent, each of its sub-spaces is kept and moved up to the top level, becoming an independent space with all of its own members and posts intact - rather than being removed or left pointing at a parent that no longer exists.
+
 Only the owner or a site admin can delete a space.
 
 > **Warning:** Deletion cannot be undone. There is no trash or restore for a deleted space. Use archive if you might want it back.

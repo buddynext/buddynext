@@ -61,6 +61,15 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * New      - Developers can add their own per-space settings that appear on the space management screen, save automatically, and are available over the REST API - the same system the built-in space settings now use.
 * Improve  - Member lists inside a space and nested sub-spaces stay fast in very large communities.
 * Improve  - Per-space settings no longer load on every page request, keeping large sites fast as the number of spaces grows.
+* Fix      - A photo added to the activity composer is shared only when you click Post; removing it or leaving the page no longer publishes it on its own.
+* Fix      - Deleting a space now keeps its sub-spaces by moving them to the top level, instead of leaving them stranded under a space that no longer exists.
+* Fix      - The privacy choice on each Work Experience and Education entry is saved and shown correctly after you reload the profile editor.
+* Fix      - The site-wide login redirect setting is now honored, so members land on the page you configured after signing in.
+* Fix      - Choosing a member type in the directory now filters the member list, and each type count matches the members shown when you open it.
+* Fix      - A private space now shows a single join button instead of two.
+* Fix      - The direct-message typing indicator clears as soon as you stop typing or send, instead of lingering.
+* Fix      - The profile Media tab, albums, and other interactive profile sections load reliably, and album dialogs no longer flash open on page load.
+* Fix      - The "loading more posts" indicator shows a clean loading bar instead of an empty bordered box.
 * Compat   - Pairs with BuddyNext Pro 1.0.4. Install both updates together.
 
 = 1.0.3 - June 2026 =
