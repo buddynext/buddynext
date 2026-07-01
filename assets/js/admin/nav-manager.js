@@ -183,6 +183,12 @@
 			if ( $( listId ).length ) {
 				$( listId ).sortable( {
 					handle: '.bn-drag-row__handle',
+					// The handle is a <button>, which is in jQuery UI Sortable's
+					// default cancel list ("input,textarea,button,select,option,a"),
+					// so a mousedown on it aborts the drag and the row never moves.
+					// Clear cancel — the handle option already limits drag start to
+					// the handle, so nothing else can initiate a sort.
+					cancel: '',
 					axis: 'y',
 					containment: 'parent',
 					update: function () {

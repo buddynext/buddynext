@@ -70,6 +70,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - The direct-message typing indicator clears as soon as you stop typing or send, instead of lingering.
 * Fix      - The profile Media tab, albums, and other interactive profile sections load reliably, and album dialogs no longer flash open on page load.
 * Fix      - The "loading more posts" indicator shows a clean loading bar instead of an empty bordered box.
+* Fix      - Dragging a navigation tab by its handle in Settings > Navigation now reorders it; the drag was previously ignored, forcing you to edit each tab's position number by hand.
 * Compat   - Pairs with BuddyNext Pro 1.0.4. Install both updates together.
 
 = 1.0.3 - June 2026 =
