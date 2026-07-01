@@ -2232,19 +2232,23 @@ class PageRouter {
 	/**
 	 * Return the member directory URL filtered to a specific member type.
 	 *
-	 * The URL uses the 'bottom'-priority rewrite rule registered in
-	 * register_people_rules() so that the user-slug rules always take
-	 * precedence when a URL segment also happens to be a valid user slug.
+	 * Uses the `?type=` query argument — the single member-type filter contract
+	 * the directory already reads (members.php reads get_query_var/`$_GET['type']`)
+	 * and the reactive JS filter and the "By role" facet already emit. A pretty
+	 * `/members/{slug}/` URL cannot be used here: it is indistinguishable from a
+	 * profile URL (`/members/{username}/`), and the user-slug rewrite always wins,
+	 * so such a link dead-ends on a blank profile instead of the filtered list.
 	 *
 	 * @param string $type_slug Member type slug (lowercase alphanumeric + hyphens).
-	 * @return string Absolute trailing-slashed URL.
+	 * @return string Absolute directory URL, filtered by type when a slug is given.
 	 */
 	public static function member_type_url( string $type_slug ): string {
+		$type_slug = sanitize_key( $type_slug );
 		if ( '' === $type_slug ) {
 			return self::people_url();
 		}
 
-		return self::people_url() . rawurlencode( sanitize_key( $type_slug ) ) . '/';
+		return add_query_arg( 'type', $type_slug, self::people_url() );
 	}
 
 	/**
