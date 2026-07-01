@@ -83,7 +83,7 @@ class Members extends AdminPageBase {
 			$version,
 			true
 		);
-		wp_set_script_translations( 'bn-admin-bulk-select', 'buddynext' );
+		wp_set_script_translations( 'bn-admin-bulk-select', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 		wp_enqueue_script(
 			'bn-admin-members',
@@ -93,7 +93,7 @@ class Members extends AdminPageBase {
 			true
 		);
 
-		wp_set_script_translations( 'bn-admin-members', 'buddynext' );
+		wp_set_script_translations( 'bn-admin-members', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 		wp_localize_script(
 			'bn-admin-members',

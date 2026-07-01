@@ -75,7 +75,7 @@ class Spaces extends AdminPageBase {
 			$version,
 			true
 		);
-		wp_set_script_translations( 'bn-admin-bulk-select', 'buddynext' );
+		wp_set_script_translations( 'bn-admin-bulk-select', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 		wp_enqueue_script(
 			'bn-admin-spaces',
@@ -84,7 +84,7 @@ class Spaces extends AdminPageBase {
 			$version,
 			true
 		);
-		wp_set_script_translations( 'bn-admin-spaces', 'buddynext' );
+		wp_set_script_translations( 'bn-admin-spaces', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 	}
 
 	/**

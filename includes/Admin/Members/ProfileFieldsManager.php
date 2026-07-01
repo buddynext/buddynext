@@ -271,7 +271,7 @@ class ProfileFieldsManager {
 			true
 		);
 
-		wp_set_script_translations( 'bn-profile-fields', 'buddynext' );
+		wp_set_script_translations( 'bn-profile-fields', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 		// Expose the field-type matrix to the editor JS so the options editor
 		// and the is_searchable control react to the selected type. The

@@ -541,7 +541,7 @@ class Settings extends AdminPageBase {
 			(string) filemtime( $abs ),
 			true
 		);
-		wp_set_script_translations( 'buddynext-admin-settings', 'buddynext' );
+		wp_set_script_translations( 'buddynext-admin-settings', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 	}
 
 	/**

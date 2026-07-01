@@ -120,7 +120,7 @@ class SetupWizard {
 			$version,
 			true
 		);
-		wp_set_script_translations( 'bn-setup-wizard', 'buddynext' );
+		wp_set_script_translations( 'bn-setup-wizard', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 	}
 
 	// ── State machine ─────────────────────────────────────────────────────────

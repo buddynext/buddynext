@@ -527,7 +527,7 @@ class AdminHub {
 				$version,
 				true
 			);
-			wp_set_script_translations( 'bn-admin-palette', 'buddynext' );
+			wp_set_script_translations( 'bn-admin-palette', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 			wp_localize_script( 'bn-admin-palette', 'bnNavIndex', AdminNavIndex::build() );
 		}
 	}

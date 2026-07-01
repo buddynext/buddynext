@@ -173,7 +173,7 @@ class AssetService {
 			self::VERSION,
 			true
 		);
-		wp_set_script_translations( 'bn-admin-dialogs', 'buddynext' );
+		wp_set_script_translations( 'bn-admin-dialogs', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 		// Members admin (Members + Member Types + Profile Fields + Avatar
 		// Settings + Member Type Field). Lives at ?page=buddynext-members.
@@ -204,7 +204,7 @@ class AssetService {
 				self::VERSION,
 				true
 			);
-			wp_set_script_translations( 'bn-admin-taxonomy', 'buddynext' );
+			wp_set_script_translations( 'bn-admin-taxonomy', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 		}
 
 		// Email Templates editor — wherever the central placement map routes the
@@ -224,7 +224,7 @@ class AssetService {
 				self::VERSION,
 				true
 			);
-			wp_set_script_translations( 'bn-email-editor', 'buddynext' );
+			wp_set_script_translations( 'bn-email-editor', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 			// Pass the REAL branded shell + sample merge-tag values so the editor
 			// preview is byte-identical to a genuine send (one uniform header +
@@ -334,7 +334,7 @@ class AssetService {
 			$v,
 			false
 		);
-		wp_set_script_translations( 'bn-shell-font-scale', 'buddynext' );
+		wp_set_script_translations( 'bn-shell-font-scale', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 		// ── Shell extras (search overlay, notif dropdown, hover card, shortcuts) ─
 		// Loaded in the footer so it can hydrate any shell-level UI surfaces.
@@ -347,7 +347,7 @@ class AssetService {
 			$v,
 			true
 		);
-		wp_set_script_translations( 'bn-shell-extras', 'buddynext' );
+		wp_set_script_translations( 'bn-shell-extras', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 		// ── Feature CSS (each depends on the base) ─────────────────────────────
 		$feature_styles = array(

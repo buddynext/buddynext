@@ -462,7 +462,7 @@ class NavManager extends AdminPageBase {
 			true
 		);
 
-		wp_set_script_translations( 'bn-nav-manager', 'buddynext' );
+		wp_set_script_translations( 'bn-nav-manager', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 		$first_slug = '';
 		$main_tabs  = $this->get_tabs_for_scope( 'main' );
