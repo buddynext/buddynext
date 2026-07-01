@@ -53,7 +53,12 @@ if ( isset( $_GET['bn_social_error'] ) ) { // phpcs:ignore WordPress.Security.No
 	$login_error = sanitize_text_field( wp_unslash( (string) $_GET['bn_social_error'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 }
 
-$redirect_to = isset( $_GET['redirect_to'] ) ? sanitize_url( wp_unslash( $_GET['redirect_to'] ) ) : \BuddyNext\Core\PageRouter::activity_url(); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+// Only honour an explicit ?redirect_to= param here; otherwise send an empty
+// default so the single server-side resolver in AuthController owns the
+// priority chain: explicit param > owner option (RedirectSettings::login) >
+// activity-feed default. Forcing a non-empty value here would bypass the
+// owner-configured post-login redirect (buddynext_login_redirect).
+$redirect_to = isset( $_GET['redirect_to'] ) ? sanitize_url( wp_unslash( $_GET['redirect_to'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 /**
  * Filter — third-party social-login providers.
