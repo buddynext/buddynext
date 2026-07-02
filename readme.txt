@@ -64,6 +64,11 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * New      - Developers can add their own per-space settings that appear on the space management screen, save automatically, and are available over the REST API - the same system the built-in space settings now use.
 * New      - Profile sections can be limited to a member type, so each type gets its own profile fields - a restricted section appears only on profiles of members with that type and never on the signup form.
 * New      - Every profile field can carry owner-written help text under its name and an example placeholder inside the input, shown on both the profile editor and the signup form.
+* New      - A My Spaces view at /spaces/mine/ lists the spaces a member belongs to, with a friendly empty state.
+* New      - Direct messages show a live typing indicator while the other person writes.
+* New      - A read-only Email Log in the admin lists every message the community has sent, so owners can answer "did that email go out" without guesswork.
+* New      - Connection request rows show the requester's headline and how many connections you share.
+* New      - Space cards in the directory show how many sub-spaces a space has, counting only the ones the viewer is allowed to see.
 * Improve  - Core profile fields (bio, headline, location) are now protected from accidental deletion, so search and member cards keep working no matter how the profile form is customized.
 * Improve  - The Social Links, Work Experience, and Education profile sections can now be removed when they do not fit your community; profile pages simply hide a section that is gone.
 * Improve  - Deleting a profile field or group that holds member data now shows exactly how many members are affected and asks you to type its name to confirm, and the cleanup runs in small background batches so large sites stay responsive.
@@ -97,6 +102,10 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - Removed a PHP warning that fired on profiles whose fields hold multiple values, such as interests.
 * Fix      - BuddyNext emails now always carry your configured sender identity, even when another plugin overrides the site-wide email sender.
 * Improve  - The admin left navigation and stacked toggle rows now breathe with the same calm rhythm as the rest of the Wbcom admin family.
+* Improve  - License moved to its own entry in the WordPress admin menu, so activating it no longer means hunting through tabs.
+* Improve  - Every guest-facing login and register link routes through the community's branded auth pages instead of the bare WordPress form.
+* Improve  - Members read as offline the moment they log out, and the feed's new-post check stops re-counting when nothing changed.
+* Improve  - Choosing a member type at signup now shows each type's description, not just its name.
 * Improve  - Integration Display is rebuilt as one card per integration with proper switches and descriptions instead of a plain checkbox list.
 * New      - The admin spaces list shows each space's last activity and can sort by it, so you can tell active spaces from quiet ones at a glance.
 * Fix      - Registration works out of the box: a fresh install now enables WordPress registration to match the plugin's default Open mode.
@@ -106,7 +115,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Improve  - The admin works comfortably on iPad: the navigation keeps its sidebar layout instead of pushing content below the fold.
 * Improve  - The Webhooks screen now uses the full panel width and lays event choices out as a comfortable grid.
 * Improve  - Logo fields now use the WordPress media library with a preview and Remove button instead of a bare file input.
-* Improve  - Settings screens are width-capped for comfortable reading on wide monitors; the Custom CSS box gains syntax highlighting.
+* Improve  - Settings cards fill the panel on every screen with inputs capped at a comfortable reading width, and the Custom CSS box gains syntax highlighting.
 * Improve  - The Navigation screen leads with plain language; developer hook names and the capability field now live behind For developers and Advanced disclosures.
 * Fix      - The Integrations screen no longer shows a Save button with nothing to save, drops a duplicate Connected label, and its description now matches the companion grid it shows.
 * Fix      - Keyword rules set to Block now reject a new member's post instead of only holding it for review; a block always outranks a hold.
@@ -120,7 +129,12 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - The "loading more posts" indicator shows a clean loading bar instead of an empty bordered box.
 * Fix      - Dragging a navigation tab by its handle in Settings > Navigation now reorders it; the drag was previously ignored, forcing you to edit each tab's position number by hand.
 * Fix      - On your profile Activity tab, the post box now has a gap below it instead of sitting flush against the first post.
-* Compat   - Pairs with BuddyNext Pro 1.0.4. Install both updates together.
+* Fix      - A secret space's name no longer appears in the browser tab title for members who cannot see the space.
+* Fix      - Sharing works from the profile feed too; the share dialog previously opened only on the main feed.
+* Dev      - Add-on plugins can register their own community hubs (pages, rules, templates) through the new HubRegistry, and their own template directories via buddynext_template_locations.
+* Dev      - Bundled Action Scheduler updated to 4.0.0.
+* Dev      - Every member-delete path funnels through one canonical purge event, including the WordPress GDPR eraser.
+* Compat   - Requires PHP 8.1. Pairs with BuddyNext Pro 1.0.4 - install both updates together.
 
 = 1.0.3 - June 2026 =
 
