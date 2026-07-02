@@ -83,6 +83,9 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Improve  - All email subject lines now follow one consistent style; your own customized subjects are left untouched.
 * Fix      - The confirmation popup for removing media or deleting an album now explains what you are confirming; it previously opened with empty text.
 * Fix      - Removed a repeated PHP notice about translations loading too early that filled the debug log on WordPress 6.7 and newer.
+* Fix      - The community rail and mobile navigation toggles can now actually be turned off; unchecking them previously saved but silently reverted to on.
+* Fix      - Changing a community page slug now takes effect immediately instead of returning "page not found" until permalinks were re-saved by hand.
+* Fix      - Turning an integration menu off no longer silently disables its sub-tabs behind the scenes when you next save the screen.
 * Fix      - Choosing a member type in the directory now filters the member list, and each type count matches the members shown when you open it.
 * Fix      - A private space now shows a single join button instead of two.
 * Fix      - The direct-message typing indicator clears as soon as you stop typing or send, instead of lingering.

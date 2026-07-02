@@ -44,9 +44,9 @@ class Settings extends AdminPageBase {
 		'buddynext_public_explore'              => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_enable_dm'                   => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_default_dm_access'           => array( 'string', 'sanitize_key' ),
-		'buddynext_enable_community_nav'        => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_enable_community_rail'       => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_enable_community_mobile_nav' => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_enable_community_nav'        => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_enable_community_rail'       => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_enable_community_mobile_nav' => array( 'boolean', 'rest_sanitize_boolean', true ),
 		'buddynext_member_dir_columns'          => array( 'string', array( self::class, 'sanitize_dir_columns' ) ),
 
 		// Registration.

@@ -102,7 +102,7 @@ class IntegrationControlsAdmin {
 										<?php foreach ( $bn_subtabs as $bn_sub => $bn_sub_label ) : ?>
 											<p>
 												<label>
-													<input type="checkbox" name="subtab[<?php echo esc_attr( $key ); ?>][<?php echo esc_attr( $bn_sub ); ?>]" value="1" <?php checked( buddynext_integration_enabled( $key, 'nav', (string) $bn_sub ) ); ?>>
+													<input type="checkbox" name="subtab[<?php echo esc_attr( $key ); ?>][<?php echo esc_attr( $bn_sub ); ?>]" value="1" <?php checked( '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$bn_sub}", '1' ) ); // Raw sub flag, NOT the parent-AND-sub helper: with the parent nav off the helper reads false, the box renders unchecked, and the next save writes explicit 0s - silently disabling sub-tabs the owner never touched. ?>>
 													<?php echo esc_html( (string) $bn_sub_label ); ?>
 												</label>
 											</p>

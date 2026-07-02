@@ -1976,7 +1976,13 @@ class PageRouter {
 	 * @return void
 	 */
 	public function flush_on_slug_change(): void {
-		flush_rewrite_rules();
+		// SOFT flush: this hook fires inside the save request, AFTER
+		// register_rewrites (init:10) already registered rules built from the
+		// OLD slug - an immediate flush_rewrite_rules() would regenerate and
+		// persist those stale rules, so the new slug 404s until a manual
+		// flush. Deleting the option instead makes the NEXT request rebuild
+		// the rules with the fresh option values.
+		delete_option( 'rewrite_rules' );
 	}
 
 	/**
