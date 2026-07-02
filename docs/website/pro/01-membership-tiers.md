@@ -27,18 +27,16 @@ For the member, a tier is a clear promise. For you, it is a single place to defi
 
 ## How it works (for members)
 
-Members never touch the admin. They see two surfaces, and BuddyNext creates both for you automatically - you do not have to build them by hand.
+Members never touch the admin. They see two surfaces, and BuddyNext creates both for you automatically - you do not have to build them by hand. (Both were reworked in 1.0.4.)
 
-When the Monetization feature is on (Platform → Features, on by default with Pro), BuddyNext publishes two pages:
+- **The pricing page** - a normal, editable WordPress page at `/membership-plans/` by default. It carries the pricing shortcode, and because it is a real page you can restyle the plan showcase with the editor you already use: add a hero, testimonials, an FAQ, anything.
+- **Settings > Membership** - the member's own billing area, at `/settings/membership/`, sitting alongside their notification settings.
 
-- **Membership** - the pricing page, at `/membership-plans/` by default.
-- **My Membership** - the member's own plan and billing status, at `/my-membership/` by default.
-
-You can rename either slug, or point the surface at a different page, from Settings → Pages & URLs (the same place you set the Members and Spaces URLs). The default pricing slug avoids the bare `/membership/` path, which other plugins sometimes claim. If a page is ever deleted, BuddyNext recreates it on the next admin screen load while Monetization is on.
+You can rename the pricing slug, or point it at a different page, from Settings → Pages & URLs. The default slug avoids the bare `/membership/` path, which other plugins sometimes claim. If the page is ever deleted, BuddyNext recreates it on the next admin screen load while Monetization is on. The billing area is a settings tab rather than a page, so it needs no Pages & URLs row.
 
 ### View the plans and subscribe
 
-The pricing page lists every active plan with its name, description, price, and billing interval. Each paid plan has its own button that starts checkout; the free plan is marked as the member's current plan. The button submits a standard form, so the buy flow works even with JavaScript disabled. After a member completes checkout, they are returned to the My Membership page with a confirmation, and their subscription becomes active.
+The pricing page lists every active plan with its name, description, price, and billing interval. Each paid plan has its own button that starts checkout; the free plan is marked as the member's current plan. The button submits a standard form, so the buy flow works even with JavaScript disabled. After a member completes checkout, they are returned to their Settings > Membership tab with a confirmation, and their subscription becomes active.
 
 To show the pricing table somewhere else as well - a marketing landing page, for example - drop this shortcode on any page:
 
@@ -46,19 +44,18 @@ To show the pricing table somewhere else as well - a marketing landing page, for
 [buddynext_membership_pricing]
 ```
 
-### Check their own membership
+### Manage their own plan (Settings > Membership)
 
-The My Membership page shows a member their current plan, its price, status, and renewal date, plus the confirmation banner when they return from a successful payment. To place it on another page too, use this shortcode:
+The member's billing area shows their current plan, price and interval, status, and renewal date - plus, since 1.0.4:
+
+- **Payment history** with a **downloadable invoice** for every charge.
+- **Cancel** - protected by a proper confirmation dialog. Cancelling keeps access until the paid period ends; the plan shows as cancelling until then, and afterwards the member lands in a lapsed state (free plan) rather than being cut off mid-period.
+
+To surface a compact version of this plan summary on another page, the shortcode remains available:
 
 ```text
 [buddynext_my_membership]
 ```
-
-The page shows one of three states:
-
-- Not logged in - a prompt to log in.
-- No active membership - a note that they have no plan yet.
-- Active membership - the plan name, price and interval, status (Active, Trialing, and so on), and the renewal date when the subscription has an expiry.
 
 
 ## Setting it up (for owners)
@@ -164,6 +161,10 @@ So extending access is a matter of the next successful payment or a renewed gran
 ### Settings reference
 
 The tier and subscription screens above have no separate options - everything is stored on the tier itself. The one shared settings group is the paywall prompt, documented in Gating Spaces.
+
+### Entitlements that explain themselves (1.0.4)
+
+Every entitlement row in the plan editor carries a one-line explanation of what granting it does - "Members can enter spaces gated to paying plans", "How many spaces a member on this plan can create" - directly under its toggle or limit. You configure plans without a reference manual open in the next tab.
 
 ## Good to know
 

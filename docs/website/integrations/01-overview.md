@@ -62,6 +62,18 @@ An integration is only active when its companion plugin is active. Bridges are o
 
 Some integrations also expose their own per-feature toggles (for example, whether forum activity appears in the feed). Those live on the integration's own page.
 
+### Choose where each integration appears (Integration Display)
+
+Enabling an integration decides *that* it runs; **Platform > Integration Display** decides *where members see it*. Each connected integration gets its own card with plain switches:
+
+- **Show in navigation** - adds (or removes) the integration's tab in member navigation.
+- **Post to the activity feed** - whether that integration's events (new discussions, new listings, new media, and so on) appear in the community feed.
+- **Navigation sub-tabs** - integrations that add several member tabs (for example Career Board's Jobs and Resume) let you switch each sub-tab individually.
+
+This is the screen to visit when you want a companion's data without its menu clutter - for example, keeping forum posts in the feed while hiding the Discussions tab from navigation. Turning a navigation switch off never deletes anything; it only hides the surface.
+
+![Platform - Integration Display, one card per connected integration with navigation and feed switches](../images/admin-integration-display.webp)
+
 ## Good to know
 
 - An integration does nothing until its companion is present. BuddyNext loads zero integration code for a companion that is not installed, so unused integrations never affect performance.

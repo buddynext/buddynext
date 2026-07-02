@@ -72,7 +72,7 @@ These live under **BuddyNext > Settings > Registration**.
 | Sign-ups per hour from one visitor | The most sign-up attempts allowed from a single visitor per hour. Set to 0 to remove this limit. | 5 |
 | Allowed email domains | One domain per line. When set, only addresses from these domains can register. Leave blank to allow all. | Blank (all domains) |
 
-> **Note:** Registration Mode also respects the core WordPress "Anyone can register" setting. If registration is closed in WordPress, sign-up is closed too, and visitors see a "Registration is currently closed" message.
+> **Note:** Registration Mode also respects the core WordPress "Anyone can register" setting. If registration is closed in WordPress, sign-up is closed too, and visitors see a "Registration is currently closed" message. A fresh BuddyNext install (1.0.4+) turns the core setting on to match its default Open mode, so registration works out of the box; changing the Registration Mode keeps the two in sync from then on.
 
 ### The default role for new members
 

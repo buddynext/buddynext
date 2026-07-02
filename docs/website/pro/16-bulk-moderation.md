@@ -46,6 +46,11 @@ There is nothing to configure to use Bulk Moderation. The page is available to a
 | Reports per page | How many pending reports the queue shows per page before pagination kicks in. | 25 |
 | Suspension duration (days) | Days a bulk suspension lasts, entered at action time. | 7 |
 
+## Reworked in 1.0.4
+
+- **Queue rows show content, not IDs.** Each reported item displays its author and an excerpt ("Yuki: Weekend trail was brutal...") instead of a raw object reference, with system-generated reports labeled as such - you judge the content at a glance.
+- **Bulk member actions take names.** The Members field accepts usernames, emails, or IDs, comma-separated. No more looking up numeric user IDs before you can warn or suspend.
+
 ## Good to know
 
 - The queue is paginated. The report queue shows 25 reports per page. Select-all selects the reports on the current page; page through to handle the rest. This keeps the page fast even when the queue is thousands of reports deep.

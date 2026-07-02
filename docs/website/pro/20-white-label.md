@@ -53,6 +53,8 @@ A per-space brand can be managed by a site administrator or by that space's owne
 
 ## Good to know
 
+- **Logo selection uses the media library (1.0.4).** Pick, preview, and remove logos through the standard WordPress media picker - no URL pasting required (a URL field remains for externally hosted assets).
+
 This section is honest about what renders today and where the current edges are, so you can plan around them.
 
 - **Where the settings live.** The site-wide White-label tab is reachable from its own URL under the BuddyNext admin, but it is not surfaced as a visible tab in the current settings layout. Open it directly to configure site branding; the per-space Brand controls appear within a space's own settings.

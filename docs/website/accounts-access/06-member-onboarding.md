@@ -8,12 +8,13 @@ BuddyNext greets every new member with a short, four-step welcome wizard the mom
 
 ## What it is
 
-The onboarding wizard is a guided first-session flow that opens right after a new member registers (or right after they verify their email, if email verification is turned on). It has four steps:
+The onboarding wizard is a guided first-session flow that opens right after a new member registers (or right after they verify their email, if email verification is turned on). It has five steps:
 
 1. **Profile** - set a display name, write a short bio, claim a username/handle, and upload an avatar.
-2. **Spaces** - join suggested spaces with one click.
-3. **People** - follow suggested members.
-4. **Notifications** - choose how to be notified (email, in-app, push).
+2. **Interests** - pick topics from your community's space categories; these personalize the member's suggestions and feed (see [Member Interests](../members/11-interests.md)).
+3. **Spaces** - join suggested spaces with one click.
+4. **People** - follow suggested members.
+5. **Notifications** - choose how to be notified (email, in-app, push).
 
 The member can move forward and back through the steps, or skip the wizard entirely at any point. When they finish, BuddyNext lands them on their own profile - the thing they just built.
 
@@ -39,15 +40,19 @@ You will see the wizard automatically after you join. Here is what each step doe
 
 A live preview updates as you type so you can see how your profile will look.
 
-### Step 2 - Spaces
+### Step 2 - Interests
 
-You will see a set of suggested spaces. Tap **Join** on any that interest you - each one joins instantly, right there in the wizard. You can join as many or as few as you like.
+Your community's topics appear as tappable chips - pick the ones you care about, or skip. Your picks shape who and what BuddyNext suggests to you from your very first session, and you can change them any time on your profile.
 
-### Step 3 - People
+### Step 3 - Spaces
+
+You will see a set of suggested spaces. Tap **Join** on any that interest you - each one joins instantly, right there in the wizard. You can join as many or as few as you like. The wizard only suggests open spaces here; private spaces use a request-to-join flow from the spaces directory instead.
+
+### Step 4 - People
 
 Suggested members are listed here. Tap **Follow** to start following anyone. Following someone means their posts show up in your feed, so picking a few here gives you a feed worth reading from your very first visit.
 
-### Step 4 - Notifications
+### Step 5 - Notifications
 
 Choose how the community reaches you. Toggle each delivery channel on or off:
 
@@ -84,7 +89,7 @@ When the feature is on, any logged-in member who has not yet finished (or skippe
 
 ### Default notification channels
 
-Step 4 starts every member with sensible defaults: in-app and email notifications on, push off. Members change these in the wizard, and can adjust them later from their notification preferences. The wizard only writes the channels a member actually changes, so any other per-event preferences they set elsewhere are preserved.
+Step 5 starts every member with sensible defaults: in-app and email notifications on, push off. Members change these in the wizard, and can adjust them later from their notification preferences. The wizard only writes the channels a member actually changes, so any other per-event preferences they set elsewhere are preserved.
 
 ### Reminder emails
 

@@ -352,6 +352,51 @@ Because a programmatic field has no `bn_profile_fields` row, its submitted value
 
 ---
 
+## Recipe 10 - Register an add-on hub (1.0.4)
+
+**Goal:** give your add-on its own community page - a real URL like `/events/` that renders inside the BuddyNext shell, with a backing WP page, slug setting, rewrite rules, and template resolution handled for you.
+
+**Seam:** `HubRegistry` + the `buddynext_register_hubs` action.
+
+```php
+add_action( 'buddynext_register_hubs', function ( \BuddyNext\Core\HubRegistry $reg ) {
+	$reg->register(
+		new \BuddyNext\Core\HubDescriptor(
+			'events',                       // hub key (bn_hub query var)
+			'myaddon_slug_events',          // option holding the URL slug
+			'events',                       // default slug
+			'myaddon_page_events',          // option holding the backing page id
+			__( 'Events', 'my-addon' ),     // backing page title
+			'[myaddon_events]',             // backing page content shortcode
+			null,                           // query_var (defaults to the key)
+			function ( string $slug ) {     // register_rules
+				add_rewrite_rule( '^' . $slug . '/?$', 'index.php?bn_hub=events', 'top' );
+			},
+			function ( string $hub ): ?string { // resolve_template
+				return 'events' === $hub ? MY_ADDON_DIR . 'templates/events.php' : null;
+			}
+		)
+	);
+} );
+```
+
+One registration buys the whole lifecycle: the Installer creates the backing page, Pages & URLs shows the slug setting, slug changes flush rewrites, and PageRouter dispatches your rules and template. The 7 built-in hubs register through exactly this API (`includes/Core/CoreHubs.php`), so anything they can do, your hub can do.
+
+## Recipe 11 - Ship your own templates (1.0.4)
+
+**Goal:** let BuddyNext's template loader find templates inside your add-on, with the child-theme override chain intact.
+
+**Seam:** the `buddynext_template_locations` filter on `TemplateLoader`.
+
+```php
+add_filter( 'buddynext_template_locations', function ( array $dirs ): array {
+	$dirs[] = MY_ADDON_DIR . 'templates/buddynext';
+	return $dirs;
+} );
+```
+
+Lookup order: child theme, then parent theme, then BuddyNext's own `templates/`, then each registered add-on directory. Add-on directories are searched last on purpose - they resolve templates Free does not ship (like Pro membership surfaces), while a site owner can still override any of them from their theme at `buddynext/{path}` - see Child Theme Template Overrides.
+
 ## Notes and gotchas
 
 - **Filters return, actions react.** A filter that returns nothing erases the value. An action's return value is ignored.

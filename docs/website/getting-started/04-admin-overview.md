@@ -37,6 +37,15 @@ Tabs marked **(Pro)** require BuddyNext Pro. Everything else is in the free plug
 
 > **Note:** Sections marked (Pro) and individual (Pro) tabs appear only when BuddyNext Pro is active. With the free plugin alone you see Settings, Platform, Members, Spaces, Engagement, Notifications, and Moderation, with the Pro-only tabs inside them hidden.
 
+## Refined in 1.0.4
+
+The admin had a full quality pass in 1.0.4, so screenshots from earlier versions may look slightly different:
+
+- Every settings screen uses the same full-width card style, with inputs capped at a comfortable reading width.
+- The left navigation shows real hierarchy - section labels with their screens nested beneath - and keeps its sidebar layout on iPad.
+- Logo and image fields open the WordPress media library with a preview and a Remove button.
+- **License** has its own entry in the BuddyNext admin menu, so activating updates no longer means hunting through tabs.
+
 ## Jump to any setting with the command palette
 
 You do not have to remember which section a setting lives in. BuddyNext registers every one of its settings with WordPress core's built-in **Command Palette**.

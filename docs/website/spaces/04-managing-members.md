@@ -67,6 +67,13 @@ The settings that shape member management live on the space's Permissions settin
 
 > **Tip:** Turning on Require approval for new members gives an otherwise open space a review step without making it fully private. Use it when you want anyone to be able to find and ask, but you still want the final say on who gets in.
 
+## The admin spaces list (1.0.4)
+
+The **BuddyNext > Spaces > Directory** roster in wp-admin gained two owner tools:
+
+- **Last Activity** - each space shows when something last happened in it ("2 days ago"), and the column header sorts by it. On a large site this is how you separate the spaces that are alive from the ones that quietly died - sort by activity, review the tail, archive what nobody uses.
+- **Join Requests** - the pending column is now named for what it holds: members waiting for approval on request-to-join spaces.
+
 ## Good to know
 
 - **Invited vs requested are different states.** An invited person was added by you and is waiting to accept. A requested person asked to join and is waiting for you to approve. Both sit outside the active roster, but the direction is opposite: an invite is yours to send, a request is theirs to make.

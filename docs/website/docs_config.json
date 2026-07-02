@@ -11,6 +11,7 @@
         "getting-started/03-admin-setup-wizard.md",
         "getting-started/04-admin-overview.md",
         "getting-started/05-whats-new-in-1-0-3.md",
+        "getting-started/06-whats-new-in-1-0-4.md",
         "getting-started/06-shortcodes-and-placement.md"
       ]
     },
@@ -72,7 +73,8 @@
         "members/07-connections.md",
         "members/08-blocking-and-muting.md",
         "members/09-presence-online.md",
-        "members/10-profile-media-and-albums.md"
+        "members/10-profile-media-and-albums.md",
+        "members/11-interests.md"
       ]
     },
     {

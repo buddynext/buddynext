@@ -87,14 +87,24 @@ The free tier covers the everyday field types most communities need.
 
 You can render a single profile group anywhere on the site with the Profile Fields block. The block has two settings: which member's profile to read from, and which group to display (for example Basic Info or Work Experience). Leave the member setting at its default to show the profile being viewed.
 
+## Shaping the form (1.0.4)
+
+Since 1.0.4 the profile form is fully yours to shape:
+
+- **Help text and placeholders.** Every field can carry an owner-written hint that renders under its name, and an example placeholder inside the input. Both appear on the profile editor and the signup form - write them once, guide members everywhere.
+- **Sections per member type.** A group can be limited to one member type. A "Coach details" section then appears only on coaches' profiles, never on students' - and a restricted section never appears on the signup form, because the member has no type yet at that point.
+- **Remove preset sections.** The seeded Social Links, Work Experience, and Education groups can be deleted when they do not fit your community. Profiles simply hide a section that is gone.
+- **Core fields are protected.** Bio, headline, and location cannot be deleted, because member cards, search, and the directory depend on them. Everything else is fair game.
+- **Deletes show their impact.** Removing a field or group that holds member data tells you exactly how many members are affected and asks you to type its name to confirm. The value cleanup then runs in small background batches, so deleting a field on a 100,000-member site does not slow anything down.
+
 ## Good to know
 
 - **Visibility is enforced by relationship, not by hiding in the page.** When a profile is read, BuddyNext checks the viewer's relationship to the owner (logged-out, follower, connection, or the owner themselves) and drops any field the viewer is not allowed to see before the value ever leaves the server. A Private field never appears for anyone but the owner.
 - **Most restrictive wins.** A value's effective visibility is the strictest of the group setting, the field setting, and the member's own per-field choice. Tightening any one of them tightens the result.
-- **Required is a nudge, not a hard block.** A field marked required counts against the member's profile completion score, so they are prompted to fill it. Submitting the profile with a required field left empty does not currently block the save; the field is simply recorded as incomplete. Treat required as "strongly encouraged" rather than "cannot continue."
+- **Required is enforced.** Since 1.0.4, saving a profile with a required field left empty is rejected with a clear message next to that field. Required fields also count against the member's profile completion score.
 - **Bad values are skipped, not rejected.** If a member enters a value that does not fit the field type (for example letters in a Number field), that one value is not stored and the rest of the profile still saves. The member is not shown an inline error for the skipped field today.
 - **Empty profiles hide the feature.** A field with no value does not render on the profile view. A brand-new community with empty profiles will look sparse until members fill fields in, which is why setting a few fields to show on registration is worth doing.
-- **The starter set is yours to keep or change.** BuddyNext seeds a few groups (such as Basic Info, Social Links, Work Experience, Education, and Skills) so you are not starting from a blank slate. You can edit, reorder, or extend them.
+- **The starter set is yours to keep or change.** BuddyNext seeds a few groups (such as Basic Info, Social Links, Work Experience, Education, and Interests) so you are not starting from a blank slate. You can edit, reorder, or extend them - see [Member Interests](11-interests.md) for the one field with a system role.
 
 ## Free vs Pro
 

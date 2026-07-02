@@ -83,6 +83,10 @@ Every BuddyNext email - notifications, digests, account emails, invites, and the
 
 Because every email uses the same shell, your whole outbound mail looks consistent without any per-email design work.
 
+## The Email Log (1.0.4)
+
+**Members > Email Log** lists every email the community has sent - recipient, subject, type, and when it went out. It is read-only and exists to answer one question fast: *"did that email actually go out?"* When a member says they never received their verification message or a digest, check the log before debugging your mail server - if the row is there, BuddyNext handed the message to WordPress and the trail continues with your email delivery (SMTP plugin or host).
+
 ## Good to know
 
 - **Emails are sent in the background.** When a member action triggers an email, BuddyNext sends it just after, in the background, rather than making the member wait. The action that triggered it (following, commenting, and so on) stays fast, and the email goes out a moment later. If the background path is ever unavailable, BuddyNext sends the email right away instead, so it is never lost.
