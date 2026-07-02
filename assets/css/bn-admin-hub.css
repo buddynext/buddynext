@@ -626,7 +626,18 @@
 .bn-admin-hub--paneled .bn-admin-hub__header { padding-top: 0; }
 
 /* iPad portrait + narrow: panel stacks above content */
-@media ( max-width: 900px ) {
+/* iPad landscape/portrait (admin target floor is 768 - owner: admin is
+   desktop + iPad only): keep the two-column layout with a narrower rail
+   instead of stacking the full nav above the content, which buried every
+   screen below the fold on tablets. */
+@media ( max-width: 1024px ) {
+	.bn-admin-hub--paneled .bn-admin-hub__shell { grid-template-columns: 200px minmax( 0, 1fr ); }
+	.bn-hub-nav-link { padding-inline-start: var(--bn-s4, 16px); }
+}
+
+/* Below the iPad floor (out of admin scope, kept usable): stack, with the
+   nav sections all collapsed so content stays within one swipe. */
+@media ( max-width: 767px ) {
 	.bn-admin-hub--paneled .bn-admin-hub__shell { grid-template-columns: 1fr; }
 	.bn-admin-hub__panel { position: static; max-height: none; }
 }
