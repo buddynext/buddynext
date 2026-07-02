@@ -939,6 +939,28 @@ class AdminHub {
 				array( $this, 'render_section' )
 			);
 		}
+
+		// License lives as a tab inside a section, which buries the one screen
+		// an owner needs when an update fails - surface it as a direct WP
+		// submenu entry too (owner request). Only exists while Pro is active
+		// (the tab itself registers Pro-gated). Deep link via the placement
+		// map so it follows the tab if it moves sections.
+		$bn_has_license = false;
+		foreach ( self::$tabs as $bn_section_tabs ) {
+			if ( isset( $bn_section_tabs['license'] ) ) {
+				$bn_has_license = true;
+				break;
+			}
+		}
+		if ( $bn_has_license ) {
+			global $submenu;
+			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- appending a deep-link entry, not overriding core state.
+			$submenu[ self::TOP_SLUG ][] = array(
+				esc_html__( 'License', 'buddynext' ),
+				'manage_options',
+				esc_url( self::tab_url( 'settings', 'license' ) ),
+			);
+		}
 	}
 
 	// ── Render ───────────────────────────────────────────────────────────────
