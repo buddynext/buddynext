@@ -50,7 +50,14 @@ function resolveNonce() {
 // over a stale in-memory copy.
 let currentNonce = null;
 
-function activeNonce( opts ) {
+function activeNonce( opts, isRetry ) {
+	// On the post-refresh retry the freshly minted nonce must win — the
+	// per-call opts.nonce is the value baked into the page HTML, which is
+	// exactly what a full-page cache serves stale ("Cookie check failed").
+	// Re-sending it would make the recovery a guaranteed no-op.
+	if ( isRetry && currentNonce ) {
+		return currentNonce;
+	}
 	return opts.nonce || currentNonce || resolveNonce();
 }
 
@@ -135,7 +142,7 @@ function performRequest( path, opts, isRetry ) {
 		} );
 	}
 
-	const nonce = activeNonce( opts );
+	const nonce = activeNonce( opts, isRetry );
 	if ( nonce && ! headers[ 'X-WP-Nonce' ] ) {
 		headers[ 'X-WP-Nonce' ] = nonce;
 	}

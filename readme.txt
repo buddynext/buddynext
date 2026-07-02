@@ -71,6 +71,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - The privacy choice on each Work Experience and Education entry is saved and shown correctly after you reload the profile editor.
 * Fix      - The site-wide login redirect setting is now honored, so members land on the page you configured after signing in.
 * Fix      - The after-login, after-logout, and after-onboarding redirect fields on Registration & Login now save, so the destinations you set are actually applied.
+* Fix      - Signing in from a page a caching layer served stale no longer fails with "Cookie check failed" - the form retries with a freshly minted security token instead of re-sending the stale one baked into the cached page.
 * Fix      - Choosing a member type in the directory now filters the member list, and each type count matches the members shown when you open it.
 * Fix      - A private space now shows a single join button instead of two.
 * Fix      - The direct-message typing indicator clears as soon as you stop typing or send, instead of lingering.
