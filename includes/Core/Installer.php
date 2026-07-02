@@ -118,7 +118,7 @@ class Installer {
 	 *      converged to the Installer seed (one canonical schema from either
 	 *      provisioning path).
 	 */
-	private const SCHEMA_VERSION = 18;
+	private const SCHEMA_VERSION = 19;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -184,7 +184,59 @@ class Installer {
 		// profile seeder — see maybe_migrate_skills_field_key.
 		self::maybe_purge_orphan_interest_meta();
 
+		// v19: converge the seeded email-template subjects on one natural style
+		// (no em-dash separators, no exclamation endings). Byte-exact matches
+		// against the former seeds, so owner-customized subjects are untouched.
+		self::maybe_migrate_email_subjects();
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * Normalize the seeded email-template subjects (schema v19).
+	 *
+	 * The original seeds mixed four subject styles (em-dash suffixes,
+	 * exclamation endings, on/from phrasing) that sit side by side in a
+	 * member's inbox. Converge on natural sentences with {{site_name}} woven
+	 * in — and no em-dashes (site-wide content rule). Each UPDATE matches the
+	 * exact former seeded string, so an owner-customized subject is NEVER
+	 * overwritten. Idempotent — a re-run matches nothing.
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_email_subjects(): void {
+		global $wpdb;
+
+		$em  = "\xE2\x80\x94"; // The former seeds used an em-dash separator.
+		$map = array(
+			'email_verify'                 => array( "Verify your email address {$em} {{site_name}}", 'Verify your email address on {{site_name}}' ),
+			'email_change_confirm'         => array( "Confirm your new email address {$em} {{site_name}}", 'Confirm your new email address on {{site_name}}' ),
+			'welcome'                      => array( 'Welcome to {{site_name}}!', 'Welcome to {{site_name}}' ),
+			'bn.post_commented'            => array( "New comment on your post {$em} {{site_name}}", 'New comment on your {{site_name}} post' ),
+			'bn.space_join_requested'      => array( "New join request for your space {$em} {{site_name}}", 'New join request for your {{site_name}} space' ),
+			'bn.space_request_approved'    => array( "Your space join request was approved {$em} {{site_name}}", 'Your {{site_name}} space join request was approved' ),
+			'bn.strike_issued'             => array( "A moderation action has been taken on your account {$em} {{site_name}}", 'A moderation action was taken on your {{site_name}} account' ),
+			'bn.strike_warning'            => array( "Warning: your account has received multiple strikes {$em} {{site_name}}", 'Your {{site_name}} account has received multiple strikes' ),
+			'bn.member_suspended'          => array( "Your account has been suspended {$em} {{site_name}}", 'Your {{site_name}} account has been suspended' ),
+			'bn.appeal_resolved'           => array( "Your appeal has been reviewed {$em} {{site_name}}", 'Your {{site_name}} appeal has been reviewed' ),
+			'bn.unsuspension_confirmation' => array( "Your account suspension has been lifted {$em} {{site_name}}", 'Your {{site_name}} account suspension has been lifted' ),
+			'bn.jetonomy_reply'            => array( "New reply to your discussion {$em} {{site_name}}", 'New reply to your {{site_name}} discussion' ),
+			'bn.new_report'                => array( "New content report awaiting review {$em} {{site_name}}", 'New content report awaiting review on {{site_name}}' ),
+			'bn.badge_awarded'             => array( 'You earned a badge on {{site_name}}!', 'You earned a badge on {{site_name}}' ),
+			'bn.level_up'                  => array( 'You levelled up on {{site_name}}!', 'You levelled up on {{site_name}}' ),
+		);
+
+		foreach ( $map as $type => $pair ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_email_templates SET subject = %s WHERE type = %s AND subject = %s",
+					$pair[1],
+					$type,
+					$pair[0]
+				)
+			);
+		}
 	}
 
 	/**
@@ -832,21 +884,21 @@ class Installer {
 		$templates = array(
 			array(
 				'type'         => 'email_verify',
-				'subject'      => 'Verify your email address — {{site_name}}',
+				'subject'      => 'Verify your email address on {{site_name}}',
 				'preview_text' => 'Click the link to confirm your address',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Please verify your email address by clicking the link below:</p><p><a href="{{verify_url}}">Verify my email</a></p><p>This link expires in 24 hours.</p>',
 			),
 			array(
 				'type'         => 'email_change_confirm',
-				'subject'      => 'Confirm your new email address — {{site_name}}',
+				'subject'      => 'Confirm your new email address on {{site_name}}',
 				'preview_text' => 'Confirm the email change on your account',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>You asked to change the email address on your {{site_name}} account to this inbox. Confirm the change by clicking the link below:</p><p><a href="{{verify_url}}">Confirm my new email</a></p><p>This link expires in 24 hours. If you did not request this, ignore this email and your address stays the same.</p>',
 			),
 			array(
 				'type'         => 'welcome',
-				'subject'      => 'Welcome to {{site_name}}!',
+				'subject'      => 'Welcome to {{site_name}}',
 				'preview_text' => 'Your community account is ready',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}}! Your account is all set — <a href="{{site_url}}">start exploring</a>.</p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}} Your account is all set — <a href="{{site_url}}">start exploring</a>.</p>',
 			),
 			array(
 				'type'         => 'bn.new_follower',
@@ -886,7 +938,7 @@ class Installer {
 			),
 			array(
 				'type'         => 'bn.post_commented',
-				'subject'      => 'New comment on your post — {{site_name}}',
+				'subject'      => 'New comment on your {{site_name}} post',
 				'preview_text' => 'Someone commented on your post',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your post received a new comment on {{site_name}}. <a href="{{action_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
@@ -904,67 +956,67 @@ class Installer {
 			),
 			array(
 				'type'         => 'bn.space_join_requested',
-				'subject'      => 'New join request for your space — {{site_name}}',
+				'subject'      => 'New join request for your {{site_name}} space',
 				'preview_text' => 'A member wants to join your space',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>A new member has requested to join your space on {{site_name}}. <a href="{{action_url}}">Review the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.space_request_approved',
-				'subject'      => 'Your space join request was approved — {{site_name}}',
+				'subject'      => 'Your {{site_name}} space join request was approved',
 				'preview_text' => 'Welcome to the space',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your request to join a space on {{site_name}} has been approved. <a href="{{action_url}}">Visit the space.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.strike_issued',
-				'subject'      => 'A moderation action has been taken on your account — {{site_name}}',
+				'subject'      => 'A moderation action was taken on your {{site_name}} account',
 				'preview_text' => 'Important account notice',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>A moderation strike has been issued on your account at {{site_name}}. Please review the community guidelines to avoid further action.</p>',
 			),
 			array(
 				'type'         => 'bn.badge_awarded',
-				'subject'      => 'You earned a badge on {{site_name}}!',
+				'subject'      => 'You earned a badge on {{site_name}}',
 				'preview_text' => 'Congratulations on your new badge',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Congratulations! You earned a new badge on {{site_name}}. <a href="{{action_url}}">View your profile.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.level_up',
-				'subject'      => 'You levelled up on {{site_name}}!',
+				'subject'      => 'You levelled up on {{site_name}}',
 				'preview_text' => 'Your community level increased',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>You have reached a new level on {{site_name}}. <a href="{{action_url}}">See your new level.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.jetonomy_reply',
-				'subject'      => 'New reply to your discussion — {{site_name}}',
+				'subject'      => 'New reply to your {{site_name}} discussion',
 				'preview_text' => 'Someone replied to your discussion',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your discussion received a new reply on {{site_name}}. <a href="{{action_url}}">View the reply.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.strike_warning',
-				'subject'      => 'Warning: your account has received multiple strikes — {{site_name}}',
+				'subject'      => 'Your {{site_name}} account has received multiple strikes',
 				'preview_text' => 'You have received multiple moderation strikes',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has received multiple moderation strikes. Please review our community guidelines to avoid further action.</p><p>If you believe this is in error, you can contact our moderation team.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.member_suspended',
-				'subject'      => 'Your account has been suspended — {{site_name}}',
+				'subject'      => 'Your {{site_name}} account has been suspended',
 				'preview_text' => 'Your account has been suspended',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has been suspended. You will not be able to post or interact with the community during this period.</p><p>If you believe this was done in error, you may submit an appeal from your account page.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.appeal_resolved',
-				'subject'      => 'Your appeal has been reviewed — {{site_name}}',
+				'subject'      => 'Your {{site_name}} appeal has been reviewed',
 				'preview_text' => 'Your moderation appeal has been resolved',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your appeal on {{site_name}} has been reviewed and <strong>{{decision}}</strong>.</p><p>If you have questions about this decision, please contact our moderation team.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.unsuspension_confirmation',
-				'subject'      => 'Your account suspension has been lifted — {{site_name}}',
+				'subject'      => 'Your {{site_name}} account suspension has been lifted',
 				'preview_text' => 'Welcome back — your suspension has been lifted',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Good news — your account suspension on {{site_name}} has been lifted. You can post and interact with the community again.</p><p>Please review our community guidelines to keep your account in good standing.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.new_report',
-				'subject'      => 'New content report awaiting review — {{site_name}}',
+				'subject'      => 'New content report awaiting review on {{site_name}}',
 				'preview_text' => 'A member reported content for moderation',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>A new report was filed on {{site_name}} and is waiting in the moderation queue.</p><p><a href="{{action_url}}">Review the moderation queue &rarr;</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),

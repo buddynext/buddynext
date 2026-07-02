@@ -93,6 +93,39 @@ class RegistrationEmailListener {
 			return;
 		}
 
+		// Render from the owner-editable 'welcome' template row (subject, body,
+		// tokens, brand wrap, sender identity) via the transactional email path —
+		// previously this method hardcoded both subject and body, so editing the
+		// Welcome template in admin changed nothing (Basecamp 10056336232). The
+		// template's enabled=0 suppresses the send (owner turned welcome off);
+		// the hardcoded copy below survives only as the no-row fallback so a
+		// deleted template can never silently kill the welcome email.
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$has_template = (bool) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_email_templates WHERE type = %s",
+				'welcome'
+			)
+		);
+
+		if ( $has_template && function_exists( 'buddynext_service' ) ) {
+			try {
+				buddynext_service( 'email_sender' )->send(
+					$user_id,
+					'welcome',
+					array(
+						'action_url' => PageRouter::activity_url(),
+					)
+				);
+				update_user_meta( $user_id, 'bn_welcome_sent', '1' );
+				return;
+			} catch ( \RuntimeException $e ) {
+				// Container key not found — fall through to the direct mail below.
+				unset( $e );
+			}
+		}
+
 		$site    = $this->site_name();
 		$subject = sprintf(
 			/* translators: %s: site name */

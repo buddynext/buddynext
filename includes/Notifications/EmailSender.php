@@ -33,6 +33,21 @@ class EmailSender {
 	private NotificationPrefCatalogue $catalogue;
 
 	/**
+	 * Transactional account-email types.
+	 *
+	 * These are not member notification preferences: they bypass the catalogue
+	 * gate, the master email channel toggle, and per-type frequency prefs, and
+	 * they send immediately (no Action Scheduler defer) because the member is
+	 * typically waiting on them. Their template row still governs content and
+	 * enabled=0 still suppresses the send. email_change_confirm is deliberately
+	 * absent — it targets the CANDIDATE address and dispatches directly through
+	 * send_with_identity() in VerificationListener.
+	 *
+	 * @var string[]
+	 */
+	private const TRANSACTIONAL_TYPES = array( 'email_verify', 'welcome' );
+
+	/**
 	 * Constructor.
 	 *
 	 * @param NotificationPrefService   $pref_service Notification preference service.
@@ -67,6 +82,13 @@ class EmailSender {
 	 */
 	public function send( int $user_id, string $notification_type, array $data, bool $defer = true ): void {
 		if ( $user_id <= 0 || '' === $notification_type ) {
+			return;
+		}
+
+		// Transactional account emails: skip the notification-preference
+		// machinery entirely and send inline — see TRANSACTIONAL_TYPES.
+		if ( in_array( $notification_type, self::TRANSACTIONAL_TYPES, true ) ) {
+			$this->send_now( $user_id, $notification_type, $data );
 			return;
 		}
 
@@ -148,8 +170,12 @@ class EmailSender {
 	 */
 	public function send_now( int $user_id, string $notification_type, array $data ): void {
 		// Defense-in-depth: honour the can_email gate here too (in case this is
-		// ever invoked outside the send() path).
-		if ( '' !== $notification_type && ! $this->catalogue->can_email( $notification_type ) ) {
+		// ever invoked outside the send() path). Transactional account emails
+		// are exempt — they are not catalogue-governed preferences.
+		if ( '' !== $notification_type
+			&& ! in_array( $notification_type, self::TRANSACTIONAL_TYPES, true )
+			&& ! $this->catalogue->can_email( $notification_type )
+		) {
 			return;
 		}
 
