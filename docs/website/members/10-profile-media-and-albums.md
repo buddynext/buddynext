@@ -50,6 +50,8 @@ Switch to the **Albums** view to group your media into named sets.
 
 When someone else views your Albums, they only see the albums they are allowed to see. A private album does not appear in the list for anyone but you, and there is no way for someone to stumble onto it by guessing a link.
 
+![Avatar & Cover settings - sizes, defaults, and moderation](../images/admin-avatar-cover.webp)
+
 ## Setting it up (for owners)
 
 Profile media and albums need the **WPMediaVerse** companion plugin active. WPMediaVerse provides the storage and processing behind the scenes - it handles the actual file uploads, generates the preview images, and stores each item's privacy setting (see WPMediaVerse). Once it is active, the Media tab appears on member profiles automatically; there is nothing else to switch on.

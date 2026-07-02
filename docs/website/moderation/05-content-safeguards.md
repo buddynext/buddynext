@@ -61,6 +61,8 @@ All safeguards live under the Moderation settings tab. Each one is a single opti
 
 > **Tip:** Set the strike thresholds so they escalate in order: warn at the lowest count, suspend higher, permanent ban highest (or left at 0 if you never want an automatic permanent ban). A member who keeps accumulating strikes is warned first, suspended next, and only banned if the behavior continues.
 
+![The Pending queue where held posts wait for review](../images/admin-mod-pending.webp)
+
 ## Good to know
 
 - **A threshold of 0 means off.** Every numeric guard treats 0 as "disabled," not "block everything." A rate limit of 0 allows unlimited posting; a new-member threshold of 0 lets new members post freely; a permanent-ban threshold of 0 means strikes never auto-ban.

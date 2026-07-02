@@ -85,6 +85,8 @@ Because every email uses the same shell, your whole outbound mail looks consiste
 
 ## The Email Log (1.0.4)
 
+![The Email Log listing every message the community has sent](../images/admin-email-log.webp)
+
 **Members > Email Log** lists every email the community has sent - recipient, subject, type, and when it went out. It is read-only and exists to answer one question fast: *"did that email actually go out?"* When a member says they never received their verification message or a digest, check the log before debugging your mail server - if the row is there, BuddyNext handed the message to WordPress and the trail continues with your email delivery (SMTP plugin or host).
 
 ## Good to know

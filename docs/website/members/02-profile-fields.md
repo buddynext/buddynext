@@ -89,6 +89,8 @@ You can render a single profile group anywhere on the site with the Profile Fiel
 
 ## Shaping the form (1.0.4)
 
+![The profile fields editor - flat rows with inline Required and visibility controls](../images/admin-profile-fields.webp)
+
 Since 1.0.4 the profile form is fully yours to shape:
 
 - **Help text and placeholders.** Every field can carry an owner-written hint that renders under its name, and an example placeholder inside the input. Both appear on the profile editor and the signup form - write them once, guide members everywhere.

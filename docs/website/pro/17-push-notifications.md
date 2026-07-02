@@ -88,6 +88,8 @@ The result message tells you what happened:
 
 > **Tip:** The "delivered to N devices" count is the metric to watch during setup. It is the count from your last test send, not a long-term log. If it reports zero devices, enable browser push on your own preferences page and re-run the test.
 
+![The Push Prefs tab where an admin manages their own devices](../images/admin-push-prefs.webp)
+
 ## Good to know
 
 - Push is layered on top of your existing notifications. It does not create new notification types - it delivers the ones you already have to off-site devices.

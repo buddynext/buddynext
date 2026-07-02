@@ -69,6 +69,8 @@ The settings that shape member management live on the space's Permissions settin
 
 ## The admin spaces list (1.0.4)
 
+![The admin spaces list sorted by Last Activity](../images/admin-spaces-directory.webp)
+
 The **BuddyNext > Spaces > Directory** roster in wp-admin gained two owner tools:
 
 - **Last Activity** - each space shows when something last happened in it ("2 days ago"), and the column header sorts by it. On a large site this is how you separate the spaces that are alive from the ones that quietly died - sort by activity, review the tail, archive what nobody uses.

@@ -46,6 +46,8 @@ The admin had a full quality pass in 1.0.4, so screenshots from earlier versions
 - Logo and image fields open the WordPress media library with a preview and a Remove button.
 - **License** has its own entry in the BuddyNext admin menu, so activating updates no longer means hunting through tabs.
 
+![The License screen, now one click from the admin menu](../images/admin-license.webp)
+
 ## Jump to any setting with the command palette
 
 You do not have to remember which section a setting lives in. BuddyNext registers every one of its settings with WordPress core's built-in **Command Palette**.

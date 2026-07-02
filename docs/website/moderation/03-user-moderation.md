@@ -6,6 +6,8 @@ User moderation is the set of actions a moderator or admin takes against a membe
 
 ![The Moderation > Suspensions tab listing suspended members and controls](../images/admin-suspensions.webp)
 
+![The Moderation Log recording every moderation action with actor, target, and time](../images/admin-mod-log.webp)
+
 Where reporting deals with a single piece of content, user moderation deals with the person behind it. The actions escalate in severity, so a first-time slip and a repeat offender are handled differently.
 
 ## Why use it
