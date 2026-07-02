@@ -455,7 +455,7 @@ final class ProfileNav {
 			// Repeater entries (work / education) with any value.
 			foreach ( (array) ( $group['entries'] ?? array() ) as $entry ) {
 				foreach ( (array) $entry as $field ) {
-					if ( is_array( $field ) && '' !== (string) ( $field['value'] ?? '' ) ) {
+					if ( is_array( $field ) && self::field_has_value( $field['value'] ?? '' ) ) {
 						return true;
 					}
 				}
@@ -469,11 +469,28 @@ final class ProfileNav {
 				if ( 'basic_info' === $gkey && in_array( $fkey, $hero, true ) ) {
 					continue;
 				}
-				if ( '' !== (string) ( $field['value'] ?? '' ) ) {
+				if ( self::field_has_value( $field['value'] ?? '' ) ) {
 					return true;
 				}
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Whether a profile field value is non-empty, array-safe.
+	 *
+	 * Multi-value fields (e.g. the interests category_multiselect) carry an
+	 * ARRAY value - the old string cast tripped a PHP "Array to string
+	 * conversion" warning on every profile-nav render for members with picks.
+	 *
+	 * @param mixed $value Field value (string, scalar, or array of picks).
+	 * @return bool
+	 */
+	private static function field_has_value( $value ): bool {
+		if ( is_array( $value ) ) {
+			return array() !== array_filter( $value, static fn( $v ) => '' !== (string) $v );
+		}
+		return '' !== (string) $value;
 	}
 }

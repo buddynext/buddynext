@@ -500,13 +500,25 @@ function collectRepeaterEntries( containerId ) {
 function buildPayload( ctx ) {
 	var wrap = document.querySelector( '[data-wp-interactive="buddynext/profile"]' );
 	var data = collectFlatData( wrap );
-	var workContainerId = repeaterContainerId( 'work_experience' );
-	if ( document.getElementById( workContainerId ) ) {
-		data.work_experience = collectRepeaterEntries( workContainerId );
+	// EVERY repeater container on the page, not a hardcoded pair: admin-created
+	// repeater groups were invisible to the payload, so their values saved with
+	// a success toast but never reached the server (silent data loss). The
+	// container carries its real group key in data-bn-repeater-group; the two
+	// legacy id lookups remain as a fallback for cached markup without it.
+	var seen = {};
+	var containers = document.querySelectorAll( '[data-bn-repeater-group]' );
+	for ( var i = 0; i < containers.length; i++ ) {
+		var groupKey = containers[ i ].getAttribute( 'data-bn-repeater-group' );
+		if ( groupKey && ! seen[ groupKey ] ) {
+			seen[ groupKey ] = true;
+			data[ groupKey ] = collectRepeaterEntries( containers[ i ].id );
+		}
 	}
-	var eduContainerId = repeaterContainerId( 'education' );
-	if ( document.getElementById( eduContainerId ) ) {
-		data.education = collectRepeaterEntries( eduContainerId );
+	var legacy = [ 'work_experience', 'education' ];
+	for ( var j = 0; j < legacy.length; j++ ) {
+		if ( ! seen[ legacy[ j ] ] && document.getElementById( repeaterContainerId( legacy[ j ] ) ) ) {
+			data[ legacy[ j ] ] = collectRepeaterEntries( repeaterContainerId( legacy[ j ] ) );
+		}
 	}
 	return data;
 }

@@ -93,6 +93,8 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - The member data-export and account-deletion permissions can now actually be turned off on a fresh install.
 * Fix      - New spaces now honor the default space type chosen in Spaces settings; the create dialog previously always preselected Open.
 * Fix      - Deleting a member now also removes their pending email-verification tokens immediately.
+* Fix      - Values saved in owner-created repeater profile groups now persist; they previously vanished after a success message.
+* Fix      - Removed a PHP warning that fired on profiles whose fields hold multiple values, such as interests.
 * Improve  - The admin left navigation and stacked toggle rows now breathe with the same calm rhythm as the rest of the Wbcom admin family.
 * Improve  - Logo fields now use the WordPress media library with a preview and Remove button instead of a bare file input.
 * Improve  - Settings screens are width-capped for comfortable reading on wide monitors; the Custom CSS box gains syntax highlighting.

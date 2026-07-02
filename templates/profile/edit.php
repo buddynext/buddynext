@@ -340,7 +340,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						}
 					}
 
-					$bn_rep_html = '<div class="bn-ep-card-body" id="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_gkey ) . '-entries' ) . '" data-bn-required-fields="' . esc_attr( implode( ',', array_keys( $bn_req_keys ) ) ) . '">';
+					$bn_rep_html = '<div class="bn-ep-card-body" id="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_gkey ) . '-entries' ) . '" data-bn-repeater-group="' . esc_attr( $bn_gkey ) . '" data-bn-required-fields="' . esc_attr( implode( ',', array_keys( $bn_req_keys ) ) ) . '">';
 
 					foreach ( $bn_entries as $bn_idx => $bn_entry ) {
 						$bn_idx_int = (int) $bn_idx;
