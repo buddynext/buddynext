@@ -118,7 +118,7 @@ class Installer {
 	 *      converged to the Installer seed (one canonical schema from either
 	 *      provisioning path).
 	 */
-	private const SCHEMA_VERSION = 21;
+	private const SCHEMA_VERSION = 22;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -183,6 +183,18 @@ class Installer {
 		// interests->skills field-key rename runs inside run(), BEFORE the
 		// profile seeder — see maybe_migrate_skills_field_key.
 		self::maybe_purge_orphan_interest_meta();
+
+		// v22: backfill bn_spaces.last_active_at from each space's newest post
+		// (one grouped query). New activity keeps it current via PostService.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			"UPDATE {$wpdb->prefix}bn_spaces s
+			   LEFT JOIN ( SELECT space_id, MAX(created_at) AS la FROM {$wpdb->prefix}bn_posts WHERE space_id IS NOT NULL GROUP BY space_id ) p
+			     ON p.space_id = s.id
+			    SET s.last_active_at = p.la
+			  WHERE s.last_active_at IS NULL AND p.la IS NOT NULL"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		// v21: bn_mod_log rows written by the column's CURRENT_TIMESTAMP default
 		// carry the MySQL SERVER timezone. On non-UTC servers they render hours
@@ -620,6 +632,12 @@ class Installer {
 		$table_columns = array(
 			// Schema-parity columns for the unified taxonomy editor (v4).
 			// Categories gain colour/icon/directory-visibility to match bn_member_types.
+			// Denormalized activity stamp for the spaces roster (owner: no way to
+			// tell alive from dead spaces at the 20-30k design target). Written on
+			// space-post create; backfilled once below.
+			'bn_spaces'           => array(
+				'last_active_at' => 'ADD COLUMN last_active_at DATETIME NULL DEFAULT NULL',
+			),
 			'bn_space_categories' => array(
 				'color'       => "ADD COLUMN color VARCHAR(7) NOT NULL DEFAULT '#0073aa'",
 				'text_color'  => "ADD COLUMN text_color VARCHAR(7) NOT NULL DEFAULT '#ffffff'",
@@ -1560,6 +1578,7 @@ class Installer {
 				type               ENUM('open','private','secret') NOT NULL DEFAULT 'open',
 				owner_id           BIGINT(20) UNSIGNED NOT NULL,
 				member_count       INT UNSIGNED NOT NULL DEFAULT 0,
+				last_active_at     DATETIME NULL DEFAULT NULL,
 				cover_image_url    VARCHAR(500) DEFAULT NULL,
 				avatar_url         VARCHAR(500) DEFAULT NULL,
 				rules              TEXT NULL DEFAULT NULL,

@@ -169,11 +169,18 @@ class Spaces extends AdminPageBase {
 			return;
 		}
 
+		// Sort: default newest-created; ?orderby=last_active_at surfaces the
+		// alive-vs-dead signal (whitelisted in the query builder).
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only list filter.
+		$bn_orderby = sanitize_key( wp_unslash( $_GET['orderby'] ?? 'created_at' ) );
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
 		$data   = $this->list_spaces(
 			array(
-				'page'   => $page,
-				'search' => $search,
-				'type'   => $type,
+				'page'    => $page,
+				'search'  => $search,
+				'type'    => $type,
+				'orderby' => $bn_orderby,
 			)
 		);
 		$spaces = $data['spaces'];
@@ -310,7 +317,8 @@ class Spaces extends AdminPageBase {
 							<th scope="col"><?php esc_html_e( 'Type', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Members', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Join Requests', 'buddynext' ); ?></th>
-							<th scope="col"><?php esc_html_e( 'Created', 'buddynext' ); ?></th>
+							<th scope="col"><a href="<?php echo esc_url( add_query_arg( 'orderby', 'last_active_at' ) ); ?>" class="bn-th-sort<?php echo 'last_active_at' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Last Activity', 'buddynext' ); ?></a></th>
+							<th scope="col"><a href="<?php echo esc_url( remove_query_arg( 'orderby' ) ); ?>" class="bn-th-sort<?php echo 'created_at' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Created', 'buddynext' ); ?></a></th>
 							<th scope="col"><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
 						</tr>
 					</thead>
@@ -384,6 +392,18 @@ class Spaces extends AdminPageBase {
 										<?php else : ?>
 											<span class="bn-row-meta" aria-hidden="true">-</span>
 										<?php endif; ?>
+									</td>
+									<td>
+										<?php
+										$bn_last_active = (string) ( $space['last_active_at'] ?? '' );
+										if ( '' !== $bn_last_active ) {
+											$bn_la_ts = strtotime( $bn_last_active . ' UTC' );
+											/* translators: %s: human time difference, e.g. "2 days". */
+											echo esc_html( sprintf( __( '%s ago', 'buddynext' ), human_time_diff( $bn_la_ts, time() ) ) );
+										} else {
+											echo '<span aria-hidden="true">&#8212;</span><span class="screen-reader-text">' . esc_html__( 'No activity yet', 'buddynext' ) . '</span>';
+										}
+										?>
 									</td>
 									<td><?php echo esc_html( (string) $created ); ?></td>
 									<td>
@@ -762,7 +782,7 @@ class Spaces extends AdminPageBase {
 		$offset = ( $page - 1 ) * $per_page;
 		$table  = $wpdb->prefix . 'bn_spaces';
 
-		$allowed_columns = array( 'id', 'name', 'member_count', 'created_at', 'type' );
+		$allowed_columns = array( 'id', 'name', 'member_count', 'created_at', 'last_active_at', 'type' );
 		if ( ! in_array( $orderby, $allowed_columns, true ) ) {
 			$orderby = 'created_at';
 		}
@@ -814,17 +834,18 @@ class Spaces extends AdminPageBase {
 		$spaces = array();
 		foreach ( (array) $rows as $row ) {
 			$spaces[] = array(
-				'id'            => (int) $row->id,
-				'name'          => $row->name,
-				'slug'          => (string) $row->slug,
-				'owner_id'      => (int) $row->owner_id,
-				'member_count'  => (int) $row->member_count,
-				'type'          => $row->type,
-				'parent_id'     => isset( $row->parent_id ) ? (int) $row->parent_id : 0,
-				'is_archived'   => ! empty( $row->is_archived ),
-				'created_at'    => $row->created_at,
-				'pending_count' => 0,
-				'parent_name'   => '',
+				'id'             => (int) $row->id,
+				'name'           => $row->name,
+				'slug'           => (string) $row->slug,
+				'owner_id'       => (int) $row->owner_id,
+				'member_count'   => (int) $row->member_count,
+				'type'           => $row->type,
+				'parent_id'      => isset( $row->parent_id ) ? (int) $row->parent_id : 0,
+				'is_archived'    => ! empty( $row->is_archived ),
+				'created_at'     => $row->created_at,
+				'last_active_at' => isset( $row->last_active_at ) ? (string) $row->last_active_at : '',
+				'pending_count'  => 0,
+				'parent_name'    => '',
 			);
 		}
 

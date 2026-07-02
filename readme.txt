@@ -98,6 +98,8 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - BuddyNext emails now always carry your configured sender identity, even when another plugin overrides the site-wide email sender.
 * Improve  - The admin left navigation and stacked toggle rows now breathe with the same calm rhythm as the rest of the Wbcom admin family.
 * Improve  - Integration Display is rebuilt as one card per integration with proper switches and descriptions instead of a plain checkbox list.
+* New      - The admin spaces list shows each space's last activity and can sort by it, so you can tell active spaces from quiet ones at a glance.
+* Improve  - The admin works comfortably on iPad: the navigation keeps its sidebar layout instead of pushing content below the fold.
 * Improve  - The Webhooks screen now uses the full panel width and lays event choices out as a comfortable grid.
 * Improve  - Logo fields now use the WordPress media library with a preview and Remove button instead of a bare file input.
 * Improve  - Settings screens are width-capped for comfortable reading on wide monitors; the Custom CSS box gains syntax highlighting.
