@@ -389,9 +389,13 @@
    a second one (the "double container" bug). Covers every card vocabulary in
    use: .bn-settings-section (Settings + new screens), .bn-card / .bn-admin-section
    (Invites, legacy), .bn-pf-card / .bn-pf-af-panel (Profile Fields, Member Types),
-   .bn-table-wrap (Members, Spaces). */
-.bn-admin-hub .bn-admin-hub__main :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) form,
-.bn-admin-hub .bn-admin-hub__main--wide :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) form {
+   .bn-table-wrap (Members, Spaces).
+   The :not(.bn-modal__panel) is a deliberate specificity bump (0-4-1): the
+   auto-card rule above is also 0-4-1, so without it this later reset LOST the
+   cascade and every inline control (visibility select, Required toggle,
+   delete) rendered inside its own floating card. */
+.bn-admin-hub .bn-admin-hub__main :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) form:not(.bn-modal__panel),
+.bn-admin-hub .bn-admin-hub__main--wide :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) form:not(.bn-modal__panel) {
 	background: none;
 	border: 0;
 	box-shadow: none;

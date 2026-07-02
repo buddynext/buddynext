@@ -1272,11 +1272,11 @@ class ProfileFieldsManager {
 			?>
 			<div class="bn-settings-section bn-pf-card">
 
-				<!-- Group header -->
+				<!-- Group header: LEFT = identity (title + badges), RIGHT = one compact control row. -->
 				<div class="bn-ss-header bn-pf-card-head">
-					<span class="bn-ss-title bn-pf-group-name"><?php echo esc_html( $group['label'] ); ?></span>
+					<div class="bn-pf-head-id">
+						<span class="bn-ss-title bn-pf-group-name"><?php echo esc_html( $group['label'] ); ?></span>
 
-					<div class="bn-pf-meta">
 						<?php if ( $is_system ) : ?>
 							<span class="bn-pf-badge bn-pf-b-system"><?php esc_html_e( 'System', 'buddynext' ); ?></span>
 						<?php endif; ?>
@@ -1285,12 +1285,26 @@ class ProfileFieldsManager {
 							<?php echo 'repeater' === $group['type'] ? esc_html__( 'Multiple entries', 'buddynext' ) : esc_html__( 'Single entry', 'buddynext' ); ?>
 						</span>
 
+						<span class="bn-pf-badge bn-pf-b-count">
+							<?php
+							echo esc_html(
+								sprintf(
+									/* translators: %d: number of fields */
+									_n( '%d field', '%d fields', $field_count, 'buddynext' ),
+									$field_count
+								)
+							);
+							?>
+						</span>
+					</div><!-- .bn-pf-head-id -->
+
+					<div class="bn-pf-head-actions">
 						<!-- Inline group visibility -->
 						<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form">
 							<input type="hidden" name="action" value="bn_update_profile_group">
 							<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
 							<?php wp_nonce_field( 'bn_update_profile_group_' . $gid ); ?>
-							<select class="bn-pf-vis-grp" name="visibility" data-bn-autosubmit title="<?php esc_attr_e( 'Group visibility', 'buddynext' ); ?>">
+							<select class="bn-pf-head-select bn-pf-vis-grp" name="visibility" data-bn-autosubmit title="<?php esc_attr_e( 'Group visibility', 'buddynext' ); ?>">
 								<?php foreach ( $vis_labels as $vis_val => $vis_lbl ) : ?>
 									<option value="<?php echo esc_attr( $vis_val ); ?>" <?php selected( $group['visibility'], $vis_val ); ?>>
 										<?php echo esc_html( $vis_lbl ); ?>
@@ -1306,7 +1320,7 @@ class ProfileFieldsManager {
 								<input type="hidden" name="action" value="bn_update_profile_group">
 								<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
 								<?php wp_nonce_field( 'bn_update_profile_group_' . $gid ); ?>
-								<select class="bn-pf-type-restrict" name="type_restriction" data-bn-autosubmit
+								<select class="bn-pf-head-select bn-pf-type-restrict" name="type_restriction" data-bn-autosubmit
 									title="<?php esc_attr_e( 'Limit to member type - this section only appears on profiles of members with the selected type.', 'buddynext' ); ?>">
 									<option value="" <?php selected( $grp_restriction, '' ); ?>><?php esc_html_e( 'All member types', 'buddynext' ); ?></option>
 									<?php foreach ( $member_types as $mt ) : ?>
@@ -1333,20 +1347,6 @@ class ProfileFieldsManager {
 							</form>
 						<?php endif; ?>
 
-						<span class="bn-pf-field-count">
-							<?php
-							echo esc_html(
-								sprintf(
-									/* translators: %d: number of fields */
-									_n( '%d field', '%d fields', $field_count, 'buddynext' ),
-									$field_count
-								)
-							);
-							?>
-						</span>
-					</div><!-- .bn-pf-meta -->
-
-					<div class="bn-pf-head-actions">
 						<?php if ( ! $is_first_grp ) : ?>
 							<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form">
 								<input type="hidden" name="action" value="bn_reorder_group">

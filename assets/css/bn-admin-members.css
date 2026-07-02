@@ -693,15 +693,16 @@
 	font-size: var(--bn-a-text-md);
 	font-weight: var(--bn-a-fw-bold);
 	color: var(--bn-a-text-1);
-	flex: 1;
-	min-width: 100px;
+	white-space: nowrap;
 }
 
-.bn-pf-meta {
+/* Left identity cluster: title + badges, vertically centered as one unit. */
+.bn-pf-head-id {
 	display: flex;
 	align-items: center;
 	gap: var(--bn-a-s2);
 	flex-wrap: wrap;
+	min-width: 0;
 }
 
 .bn-pf-badge {
@@ -744,17 +745,53 @@
 	color: var(--bn-a-red);
 }
 
-.bn-pf-field-count {
-	font-size: var(--bn-a-text-xs);
+.bn-pf-b-count {
+	background: var(--bn-a-bg);
+	border: 1px solid var(--bn-a-border);
 	color: var(--bn-a-text-3);
+	font-weight: var(--bn-a-fw-semibold);
 }
 
+/* One compact inline control row on the right of the group header:
+   visibility select, member-type select, reorder arrows, + Add Field,
+   Delete Group. All controls share the same 28px visual height. */
 .bn-pf-head-actions {
 	display: flex;
 	align-items: center;
-	gap: var(--bn-a-s1);
-	flex-shrink: 0;
+	gap: var(--bn-a-s2);
+	flex-wrap: wrap;
+	justify-content: flex-end;
 	margin-inline-start: auto;
+}
+
+/* Compact header selects — beat the .bn-admin-hub select input baseline
+   (full form-input padding) with a control sized for a header row. */
+.bn-admin-hub select.bn-pf-head-select {
+	padding: 3px var(--bn-a-s2);
+	padding-inline-end: var(--bn-a-s5);
+	font-size: var(--bn-a-text-xs);
+	line-height: 1.4;
+	/* wp-core forms.css forces select { min-height: 40px } — far too tall for
+	   a header control row; let the compact padding define the height. */
+	min-height: 0;
+	color: var(--bn-a-text-2);
+	max-width: 180px;
+	min-width: 0;
+	text-overflow: ellipsis;
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-sm);
+	background-color: var(--bn-a-bg);
+	cursor: pointer;
+}
+
+.bn-admin-hub select.bn-pf-head-select:hover {
+	border-color: var(--bn-a-border-strong, var(--bn-a-border));
+	color: var(--bn-a-text-1);
+}
+
+.bn-admin-hub select.bn-pf-head-select:focus {
+	border-color: var(--bn-a-brand);
+	color: var(--bn-a-text-1);
 }
 
 .bn-pf-icon-btn {
@@ -803,36 +840,28 @@
 	outline-offset: var(--bn-a-outline-offset);
 }
 
+/* Quiet danger text button — deliberately the lowest-weight control in the
+   header row; the destructive styling only asserts itself on hover/focus. */
 .bn-pf-del-group-btn {
-	padding: var(--bn-a-s1) var(--bn-a-s3);
-	background: var(--bn-a-bg);
-	border: 1px solid var(--bn-a-border);
+	padding: 3px var(--bn-a-s2);
+	background: none;
+	border: none;
 	color: var(--bn-a-text-3);
 	border-radius: var(--bn-a-r-sm);
 	font-size: var(--bn-a-text-xs);
 	font-weight: var(--bn-a-fw-semibold);
 	cursor: pointer;
+	transition: background var(--bn-a-transition), color var(--bn-a-transition);
 }
 
 .bn-pf-del-group-btn:hover {
-	border-color: var(--bn-a-red);
 	color: var(--bn-a-red);
 	background: var(--bn-a-red-bg);
 }
 
-.bn-pf-vis-grp {
-	font-size: var(--bn-a-text-xs);
-	border: 1px solid var(--bn-a-border);
-	border-radius: var(--bn-a-r-sm);
-	padding: var(--bn-a-s1) var(--bn-a-s2);
-	background: var(--bn-a-bg);
-	color: var(--bn-a-text-1);
-	cursor: pointer;
-}
-
-.bn-pf-vis-grp:focus {
-	outline: none;
-	border-color: var(--bn-a-brand);
+.bn-pf-del-group-btn:focus-visible {
+	outline: 2px solid var(--bn-a-red);
+	outline-offset: var(--bn-a-outline-offset);
 }
 
 .bn-pf-table {
@@ -884,6 +913,16 @@
    select, delete). Zero margin so they sit flush inside the table cell. */
 .bn-pf-inline-form {
 	margin: 0;
+}
+
+/* Delete forms hold trigger + impact panel + confirm/cancel: keep the pieces
+   on one centered row (wrapping as a unit when the impact panel reveals). */
+.bn-pf-inline-form.bn-del-form {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-a-s2);
+	flex-wrap: wrap;
+	justify-content: flex-end;
 }
 
 .bn-pf-req-wrap {
