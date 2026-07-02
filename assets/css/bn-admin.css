@@ -84,6 +84,11 @@
 	/* -- Typography ------------------------------------------------------- */
 	--bn-a-font-body:         var(--bn-font-ui);
 	--bn-a-font-display:      var(--bn-font-display);
+	/* Admin-scoped reading size: measured against Learnomy's admin, our field
+	   content, table cells, and inputs ran 13px vs its 14px - the one real
+	   size gap behind the "very small" feel (nav/titles/hints already match).
+	   This sheet only loads in wp-admin, so member-facing text is untouched. */
+	--bn-text-sm:             14px;
 	--bn-a-text-xs:           var(--bn-text-xs);
 	--bn-a-text-sm:           var(--bn-text-sm);
 	--bn-a-text-md:           var(--bn-text-md);
