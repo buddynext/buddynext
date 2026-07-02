@@ -194,11 +194,6 @@
 
 .bn-post-card__author-name:hover { color: var(--bn-accent); }
 
-.bn-post-card__member-type {
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
-}
-
 /* Connection-degree pill (1st / 2nd) — matches parts/member-card's
    .bn-md-card__degree so the byline and directory read consistently. */
 .bn-post-card__degree {
