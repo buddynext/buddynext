@@ -288,7 +288,14 @@ class Settings extends AdminPageBase {
 			return;
 		}
 		?>
-		<form method="post" action="options.php" class="bn-settings-form">
+		<?php
+		// Table/manager screens need the full panel width; the 840px reading cap
+		// is for stacked field forms only (owner: "why are we not using full
+		// width here" on Webhooks).
+		$bn_wide_tabs  = array( 'webhooks' );
+		$bn_form_class = in_array( $slug, $bn_wide_tabs, true ) ? 'bn-settings-form bn-settings-form--wide' : 'bn-settings-form';
+		?>
+		<form method="post" action="options.php" class="<?php echo esc_attr( $bn_form_class ); ?>">
 			<?php settings_fields( 'buddynext_' . $slug ); ?>
 			<?php // Explicit referer so options.php redirects back to THIS tab after save. WP 6.7+ no longer guarantees settings_fields() emits _wp_http_referer, so without this the redirect drops ?tab= and falls back to General. ?>
 			<input type="hidden" name="_wp_http_referer" value="<?php echo esc_attr( remove_query_arg( 'settings-updated', sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) ) ); ?>">

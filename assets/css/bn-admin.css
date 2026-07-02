@@ -671,6 +671,41 @@ select.bn-text-input {
 	border-bottom: 1px solid var(--bn-a-border-soft);
 }
 
+/* Toggle-row copy column + nested sub-tab group (Integration Display cards). */
+.bn-toggle-row__copy {
+	min-width: 0;
+}
+
+.bn-toggle-row__label {
+	font-weight: var(--bn-fw-medium, 500);
+	color: var(--bn-a-text-1);
+}
+
+.bn-toggle-row__copy .bn-field-hint {
+	margin: var(--bn-a-s1) 0 0;
+}
+
+.bn-int-subtab-group {
+	margin-top: var(--bn-a-s3);
+	padding: var(--bn-a-s2) var(--bn-a-s4);
+	background: var(--bn-sunken);
+	border-radius: var(--bn-a-r-md);
+}
+
+.bn-int-subtab-group__kicker {
+	display: block;
+	padding-top: var(--bn-a-s2);
+	font-size: var(--bn-text-2xs, 11px);
+	font-weight: var(--bn-fw-semibold, 600);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--bn-a-text-3);
+}
+
+.bn-int-subtab-group .bn-toggle-row:last-child {
+	border-bottom: 0;
+}
+
 .bn-toggle-row:last-child {
 	border-bottom: none;
 }
@@ -1940,9 +1975,38 @@ button.bn-btn-danger:hover {
 .bn-webhook-event-row {
 	display: flex;
 	align-items: center;
-	gap: var(--bn-s2);
-	width: fit-content;
-	margin-bottom: var(--bn-s1);
+	gap: var(--bn-a-s2);
+	padding: var(--bn-a-s2) var(--bn-a-s3);
+	border: 1px solid var(--bn-a-border-soft);
+	border-radius: var(--bn-a-r-md);
+	cursor: pointer;
+}
+
+.bn-webhook-event-row:hover {
+	background: var(--bn-sunken);
+}
+
+.bn-webhook-event-row code {
+	margin-inline-start: auto;
+	font-size: var(--bn-text-2xs, 11px);
+	color: var(--bn-a-text-3);
+}
+
+/* The events fieldset lays rows out as a responsive two-column grid - the
+   previous compact single-column pile read as raw markup (owner). */
+.bn-settings-form fieldset.bn-field:has(.bn-webhook-event-row) {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+	gap: var(--bn-a-s2) var(--bn-a-s3);
+}
+
+.bn-settings-form fieldset.bn-field:has(.bn-webhook-event-row) legend {
+	margin-bottom: var(--bn-a-s2);
+	font-weight: var(--bn-fw-semibold, 600);
+}
+
+.bn-settings-form--wide {
+	max-width: none;
 }
 
 /* Endpoint row code element — the URL inside the webhook table. */

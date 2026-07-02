@@ -70,63 +70,85 @@ class IntegrationControlsAdmin {
 			<input type="hidden" name="action" value="bn_integration_controls_save">
 			<?php wp_nonce_field( 'bn_integration_controls_save' ); ?>
 
-			<div class="bn-settings-section">
-				<div class="bn-ss-header">
-					<span class="bn-ss-title"><?php esc_html_e( 'Integration Display & Activity', 'buddynext' ); ?></span>
+			<?php if ( empty( $integrations ) ) : ?>
+				<div class="bn-settings-section">
+					<div class="bn-ss-body">
+						<div class="bn-empty">
+							<p><?php esc_html_e( 'No controllable integrations are active yet. Activate an integration (such as Career Board, Listora, Learnomy, Jetonomy, or Gamification) and it will appear here.', 'buddynext' ); ?></p>
+						</div>
+					</div>
 				</div>
-				<div class="bn-ss-body">
-					<p class="bn-av-section-desc">
-						<?php esc_html_e( 'For each active integration, choose whether it shows its tab in member navigation and whether its events post to the activity feed. Everything is on by default — turn off only what your community does not need.', 'buddynext' ); ?>
-					</p>
+			<?php else : ?>
+				<?php foreach ( $integrations as $key => $entry ) : ?>
+					<?php
+					$bn_label   = (string) ( $entry['label'] ?? $key );
+					$bn_subtabs = (array) ( $entry['subtabs'] ?? array() );
+					?>
+					<div class="bn-settings-section">
+						<div class="bn-ss-header">
+							<span class="bn-ss-title"><?php echo esc_html( $bn_label ); ?></span>
+							<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Connected', 'buddynext' ); ?></span>
+						</div>
+						<div class="bn-ss-body">
+							<?php if ( ! empty( $entry['has_nav'] ) ) : ?>
+								<div class="bn-toggle-row">
+									<div class="bn-toggle-row__copy">
+										<span class="bn-toggle-row__label"><?php esc_html_e( 'Show in navigation', 'buddynext' ); ?></span>
+										<p class="bn-field-hint">
+											<?php
+											/* translators: %s: integration name. */
+											printf( esc_html__( 'Adds the %s tab to member navigation.', 'buddynext' ), esc_html( $bn_label ) );
+											?>
+										</p>
+									</div>
+									<label class="bn-toggle-label">
+										<input type="checkbox" name="nav[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( buddynext_integration_enabled( $key, 'nav' ) ); ?> role="switch" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: integration name. */ __( 'Show %s in navigation', 'buddynext' ), $bn_label ) ); ?>">
+										<span class="bn-toggle--inline"></span>
+									</label>
+								</div>
+							<?php endif; ?>
+							<?php if ( ! empty( $entry['has_feed'] ) ) : ?>
+								<div class="bn-toggle-row">
+									<div class="bn-toggle-row__copy">
+										<span class="bn-toggle-row__label"><?php esc_html_e( 'Post to the activity feed', 'buddynext' ); ?></span>
+										<p class="bn-field-hint">
+											<?php
+											/* translators: %s: integration name. */
+											printf( esc_html__( 'New %s events appear in the community feed.', 'buddynext' ), esc_html( $bn_label ) );
+											?>
+										</p>
+									</div>
+									<label class="bn-toggle-label">
+										<input type="checkbox" name="feed[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( buddynext_integration_enabled( $key, 'feed' ) ); ?> role="switch" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: integration name. */ __( 'Post %s events to the activity feed', 'buddynext' ), $bn_label ) ); ?>">
+										<span class="bn-toggle--inline"></span>
+									</label>
+								</div>
+							<?php endif; ?>
+							<?php if ( ! empty( $bn_subtabs ) ) : ?>
+								<div class="bn-int-subtab-group">
+									<span class="bn-int-subtab-group__kicker"><?php esc_html_e( 'Navigation sub-tabs', 'buddynext' ); ?></span>
+									<?php foreach ( $bn_subtabs as $bn_sub => $bn_sub_label ) : ?>
+										<div class="bn-toggle-row bn-toggle-row--sub">
+											<div class="bn-toggle-row__copy">
+												<span class="bn-toggle-row__label"><?php echo esc_html( (string) $bn_sub_label ); ?></span>
+											</div>
+											<label class="bn-toggle-label">
+												<?php // Raw sub flag, NOT the parent-AND-sub helper: with the parent nav off the helper reads false and the next save would write explicit 0s. ?>
+												<input type="checkbox" name="subtab[<?php echo esc_attr( $key ); ?>][<?php echo esc_attr( $bn_sub ); ?>]" value="1" <?php checked( '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$bn_sub}", '1' ) ); ?> role="switch" aria-label="<?php echo esc_attr( (string) $bn_sub_label ); ?>">
+												<span class="bn-toggle--inline"></span>
+											</label>
+										</div>
+									<?php endforeach; ?>
+								</div>
+							<?php endif; ?>
+						</div>
+					</div>
+				<?php endforeach; ?>
 
-					<?php if ( empty( $integrations ) ) : ?>
-						<p class="bn-empty"><?php esc_html_e( 'No controllable integrations are active yet. Activate an integration (such as Career Board, Listora, Learnomy, Jetonomy, or Gamification) and it will appear here.', 'buddynext' ); ?></p>
-					<?php else : ?>
-						<?php foreach ( $integrations as $key => $entry ) : ?>
-							<?php
-							$bn_label   = (string) ( $entry['label'] ?? $key );
-							$bn_subtabs = (array) ( $entry['subtabs'] ?? array() );
-							?>
-							<fieldset class="bn-int-controls">
-								<legend class="bn-roles-group"><?php echo esc_html( $bn_label ); ?></legend>
-								<?php if ( ! empty( $entry['has_nav'] ) ) : ?>
-									<p>
-										<label>
-											<input type="checkbox" name="nav[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( buddynext_integration_enabled( $key, 'nav' ) ); ?>>
-											<?php esc_html_e( 'Show in navigation', 'buddynext' ); ?>
-										</label>
-									</p>
-								<?php endif; ?>
-								<?php if ( ! empty( $entry['has_feed'] ) ) : ?>
-									<p>
-										<label>
-											<input type="checkbox" name="feed[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( buddynext_integration_enabled( $key, 'feed' ) ); ?>>
-											<?php esc_html_e( 'Post to the activity feed', 'buddynext' ); ?>
-										</label>
-									</p>
-								<?php endif; ?>
-								<?php if ( ! empty( $bn_subtabs ) ) : ?>
-									<fieldset class="bn-int-subtabs">
-										<legend class="bn-av-section-desc"><?php esc_html_e( 'Sub-tabs', 'buddynext' ); ?></legend>
-										<?php foreach ( $bn_subtabs as $bn_sub => $bn_sub_label ) : ?>
-											<p>
-												<label>
-													<input type="checkbox" name="subtab[<?php echo esc_attr( $key ); ?>][<?php echo esc_attr( $bn_sub ); ?>]" value="1" <?php checked( '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$bn_sub}", '1' ) ); // Raw sub flag, NOT the parent-AND-sub helper: with the parent nav off the helper reads false, the box renders unchecked, and the next save writes explicit 0s - silently disabling sub-tabs the owner never touched. ?>>
-													<?php echo esc_html( (string) $bn_sub_label ); ?>
-												</label>
-											</p>
-										<?php endforeach; ?>
-									</fieldset>
-								<?php endif; ?>
-							</fieldset>
-						<?php endforeach; ?>
-
-						<p>
-							<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
-						</p>
-					<?php endif; ?>
+				<div class="bn-save-bar">
+					<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
 				</div>
-			</div>
+			<?php endif; ?>
 		</form>
 		<?php
 	}
