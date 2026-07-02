@@ -114,7 +114,7 @@
 
 	/* -- Structural / component sizes ------------------------------------ */
 	--bn-a-page-max-w:        1100px;
-	--bn-a-settings-max-w:    840px;
+	--bn-a-control-max-w:     560px;
 	--bn-a-table-search-w:    240px;
 	--bn-a-addon-accent-w:    3px;
 	--bn-a-row-badge-py:      2px;
@@ -395,9 +395,24 @@
    (.bn-settings-form on options.php tabs, .bn-settings-content on
    admin-post forms) so full-width data surfaces — Members/Spaces tables,
    directories, the nav manager — are NOT capped. */
-.bn-settings-form,
-.bn-settings-content {
-	max-width: var(--bn-a-settings-max-w);
+/* UNIFORM CONTAINER CONTRACT (owner, 2026-07-02): section cards fill the
+   panel width on EVERY tab - the visual container level is the card, never
+   the form/wrapper. Readability comes from capping the CONTROLS inside the
+   full-width card (the Learnomy/WooCommerce model), not from capping the
+   page. */
+.bn-settings-section .bn-ss-body input[type="text"],
+.bn-settings-section .bn-ss-body input[type="email"],
+.bn-settings-section .bn-ss-body input[type="url"],
+.bn-settings-section .bn-ss-body input[type="number"],
+.bn-settings-section .bn-ss-body input[type="password"],
+.bn-settings-section .bn-ss-body select,
+.bn-settings-section .bn-ss-body textarea {
+	max-width: var(--bn-a-control-max-w, 560px);
+}
+
+.bn-settings-section .bn-ss-body .bn-field-hint,
+.bn-settings-section .bn-ss-body p.description {
+	max-width: 72ch;
 }
 
 .bn-settings-section {
