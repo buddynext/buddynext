@@ -541,6 +541,17 @@ class Installer {
 			RecommendedDefaults::seed();
 			self::seed_starter_space_categories( $wpdb->prefix );
 			self::seed_starter_member_types( $wpdb->prefix );
+
+			// Mirror BuddyNext's default OPEN registration mode onto WP core's
+			// users_can_register - the same sync Settings performs on save. WP
+			// ships with registration off, so without this a fresh community's
+			// signup was dead while the admin screen honestly claimed "Open -
+			// anyone can register" (found on the 1.0.4 dist-zip journey QA).
+			// Fresh installs only: an existing site's core flag reflects a
+			// deliberate owner choice and is never touched here.
+			if ( false === get_option( 'buddynext_reg_mode', false ) ) {
+				update_option( 'users_can_register', '1' );
+			}
 		}
 
 		self::create_hub_pages();
@@ -1241,7 +1252,11 @@ class Installer {
 
 		$now = current_time( 'mysql', true );
 
+		// File the starter space under the starter General category so the
+		// directory's category chips work from the very first space.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$bn_general_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$p}bn_space_categories WHERE slug = %s LIMIT 1", 'general' ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table prefix.
+
 		$wpdb->insert(
 			$p . 'bn_spaces',
 			array(
@@ -1251,9 +1266,10 @@ class Installer {
 				'type'         => 'open',
 				'owner_id'     => $owner,
 				'member_count' => 1,
+				'category_id'  => $bn_general_id > 0 ? $bn_general_id : null,
 				'created_at'   => $now,
 			),
-			array( '%s', '%s', '%s', '%s', '%d', '%d', '%s' )
+			array( '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s' )
 		);
 
 		$space_id = (int) $wpdb->insert_id;

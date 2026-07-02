@@ -584,10 +584,32 @@ class DemoDataService {
 		// Map category slugs to ids so the seeded spaces are filterable by category
 		// in the directory (the category chips are dead weight on a fresh, empty
 		// dataset otherwise).
-		$cat_by_slug = array();
-		foreach ( ( new SpaceCategoryService() )->get_all() as $bn_cat ) {
+		$bn_cat_service = new SpaceCategoryService();
+		$cat_by_slug    = array();
+		foreach ( $bn_cat_service->get_all() as $bn_cat ) {
 			if ( isset( $bn_cat['slug'], $bn_cat['id'] ) ) {
 				$cat_by_slug[ (string) $bn_cat['slug'] ] = (int) $bn_cat['id'];
+			}
+		}
+
+		// Create any category this dataset references that the site lacks -
+		// otherwise those spaces seed uncategorized and the directory's category
+		// chips filter to an empty page (found on the 1.0.4 dist-zip QA: the
+		// starter kit ships only 3 of the 5 slugs the demo spaces use).
+		foreach ( self::SPACES as $bn_demo_space ) {
+			$bn_cat_slug = (string) $bn_demo_space['category'];
+			if ( isset( $cat_by_slug[ $bn_cat_slug ] ) ) {
+				continue;
+			}
+			$bn_new_cat = $bn_cat_service->create(
+				array(
+					'name' => ucwords( str_replace( '-', ' ', $bn_cat_slug ) ),
+					'slug' => $bn_cat_slug,
+				)
+			);
+			if ( ! is_wp_error( $bn_new_cat ) ) {
+				$cat_by_slug[ $bn_cat_slug ]    = (int) $bn_new_cat;
+				$manifest['space_categories'][] = (int) $bn_new_cat;
 			}
 		}
 
@@ -1065,6 +1087,18 @@ class DemoDataService {
 
 		// Users (and their image folders). Reassign authored content is moot —
 		// their posts were already removed above.
+		// Categories this seeder created (starter categories are never touched).
+		$bn_demo_cats = (array) ( $manifest['space_categories'] ?? array() );
+		if ( ! empty( $bn_demo_cats ) ) {
+			$say( 'Removing demo space categories…' );
+			$bn_cat_service = new SpaceCategoryService();
+			foreach ( array_map( 'absint', $bn_demo_cats ) as $bn_cat_id ) {
+				if ( $bn_cat_id > 0 ) {
+					$bn_cat_service->delete( $bn_cat_id );
+				}
+			}
+		}
+
 		$say( 'Removing members…' );
 		if ( ! function_exists( 'wp_delete_user' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/user.php';
