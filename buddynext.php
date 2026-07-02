@@ -11,7 +11,7 @@
  * Text Domain: buddynext
  * Domain Path: /languages
  * Requires at least: 6.9
- * Requires PHP: 8.0
+ * Requires PHP: 8.1
  *
  * @package BuddyNext
  */
