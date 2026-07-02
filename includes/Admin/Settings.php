@@ -24,6 +24,18 @@ class Settings extends AdminPageBase {
 	private const OPTION_WEBHOOK_SECRET = 'buddynext_webhook_secret';
 
 	/**
+	 * Tabs that render NO Settings-API inputs and therefore must not be
+	 * wrapped in the options.php form (which always appends a "Save Settings"
+	 * button with nothing to save). Integrations is a read-only companion
+	 * grid whose actions are one-click REST/nonce links. Tools is NOT listed
+	 * because it never routes through this class — ToolsTab renders its own
+	 * admin-post action forms.
+	 *
+	 * @var string[]
+	 */
+	private const NO_FORM_TABS = array( 'integrations' );
+
+	/**
 	 * All settings registered by this class.
 	 * Format: option_name => [ type, sanitize_callback ].
 	 *
@@ -267,6 +279,14 @@ class Settings extends AdminPageBase {
 			add_settings_error( 'buddynext_messages', 'buddynext_settings_saved', __( 'Settings saved.', 'buddynext' ), 'updated' );
 		}
 		settings_errors( 'buddynext_messages' );
+
+		// Tabs with no Settings-API inputs render bare — no options.php form,
+		// no save bar. The settings group stays registered in register_settings()
+		// so nothing changes for the tabs that keep the form.
+		if ( in_array( $slug, self::NO_FORM_TABS, true ) ) {
+			$this->$method();
+			return;
+		}
 		?>
 		<form method="post" action="options.php" class="bn-settings-form">
 			<?php settings_fields( 'buddynext_' . $slug ); ?>
@@ -496,7 +516,7 @@ class Settings extends AdminPageBase {
 			'notifications' => __( 'In-app + email notification rules and the events that trigger them.', 'buddynext' ),
 			'email'         => __( 'Sender identity and delivery configuration for outgoing community email.', 'buddynext' ),
 			'moderation'    => __( 'Site-wide moderation toggles: reporting, auto-hide thresholds, mod roles.', 'buddynext' ),
-			'integrations'  => __( 'Outbound integrations: Slack, Discord, webhooks, third-party identity.', 'buddynext' ),
+			'integrations'  => __( 'Wbcom companion plugins that light up extra features - install and activate in one click.', 'buddynext' ),
 			'privacy'       => __( 'Data retention, export, and member privacy controls.', 'buddynext' ),
 			'webhooks'      => __( 'Push community events to external services in real time.', 'buddynext' ),
 		);
@@ -964,6 +984,14 @@ class Settings extends AdminPageBase {
 		<?php
 		$this->render_tab_bar( $tabs, $active_tab, $base_url );
 		$this->open_tab_panel( $active_tab );
+
+		// Same opt-out as render_settings_tab(): tabs with no Settings-API
+		// inputs render without the options.php form + save bar.
+		if ( in_array( $active_tab, self::NO_FORM_TABS, true ) ) {
+			$this->{'render_tab_' . $active_tab}();
+			$this->close_tab_panel();
+			return;
+		}
 		?>
 		<form method="post" action="options.php">
 			<?php settings_fields( 'buddynext_' . $active_tab ); ?>
@@ -1133,6 +1161,14 @@ class Settings extends AdminPageBase {
 			'bridges'      => __( 'Integration bridges', 'buddynext' ),
 			'integrations' => __( 'Power-user integrations', 'buddynext' ),
 		);
+
+		echo '<p class="bn-field-hint">';
+		printf(
+			/* translators: %s: link to the Integration Display tab. */
+			esc_html__( 'Turn integrations on or off here; control where they appear under %s.', 'buddynext' ),
+			'<a href="' . esc_url( AdminHub::tab_url( 'settings', 'integration-controls' ) ) . '">' . esc_html__( 'Integration Display', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
+		);
+		echo '</p>';
 
 		$this->open_section( __( 'Features', 'buddynext' ) );
 
@@ -2178,6 +2214,14 @@ class Settings extends AdminPageBase {
 		$can_activate = current_user_can( 'activate_plugins' );
 		$logo_base    = defined( 'BUDDYNEXT_URL' ) ? (string) constant( 'BUDDYNEXT_URL' ) : '';
 		$logo_base   .= 'assets/img/companions/';
+
+		echo '<p class="bn-field-hint">';
+		printf(
+			/* translators: %s: link to the Features tab. */
+			esc_html__( 'Install companions here; enable them under %s.', 'buddynext' ),
+			'<a href="' . esc_url( AdminHub::tab_url( 'settings', 'features' ) ) . '">' . esc_html__( 'Features', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
+		);
+		echo '</p>';
 		?>
 
 		<div class="bn-fam-header">
@@ -2255,11 +2299,8 @@ class Settings extends AdminPageBase {
 				<?php endif; ?>
 
 				<div class="bn-companion-card__actions">
-					<?php if ( 'active' === $bn_status ) : ?>
-						<span class="bn-addon-row__action bn-a-readonly-hint" aria-disabled="true">
-							<?php esc_html_e( 'Connected', 'buddynext' ); ?>
-						</span>
-					<?php elseif ( 'inactive' === $bn_status && $can_activate && '' !== $bn_basename ) : ?>
+					<?php // Active companions already carry the "Connected" status badge in the card head, so the actions row shows only "Learn more". ?>
+					<?php if ( 'inactive' === $bn_status && $can_activate && '' !== $bn_basename ) : ?>
 						<a href="<?php echo esc_url( wp_nonce_url( self_admin_url( 'plugins.php?action=activate&plugin=' . rawurlencode( $bn_basename ) . '&plugin_status=all' ), 'activate-plugin_' . $bn_basename ) ); ?>"
 							class="bn-addon-row__action"><?php esc_html_e( 'Activate', 'buddynext' ); ?></a>
 					<?php elseif ( 'not_installed' === $bn_status && $can_install ) : ?>
@@ -2341,7 +2382,14 @@ class Settings extends AdminPageBase {
 				</button>
 			</div>
 			<span class="bn-field-hint">
-				<?php esc_html_e( 'A shared secret BuddyNext uses to sign outgoing webhooks (HMAC-SHA256) and to verify inbound access requests at POST buddynext/v1/webhook/access. Click Generate for a strong secret, copy it into your receiving service (Slack, Zapier, your endpoint), then Save. Rotating invalidates the old value until you update it there. Leave blank to disable signature verification.', 'buddynext' ); ?>
+				<?php
+				// State-aware: the button reads "Generate" until a secret exists, then "Rotate".
+				if ( $has_secret ) {
+					esc_html_e( 'A shared secret BuddyNext uses to sign outgoing webhooks (HMAC-SHA256) and to verify inbound access requests at POST buddynext/v1/webhook/access. Click Rotate for a new strong secret, then Save - the old value stops working, so copy the new one into your receiving service (Slack, Zapier, your endpoint). Leave blank to disable signature verification.', 'buddynext' );
+				} else {
+					esc_html_e( 'A shared secret BuddyNext uses to sign outgoing webhooks (HMAC-SHA256) and to verify inbound access requests at POST buddynext/v1/webhook/access. Click Generate for a strong secret, copy it into your receiving service (Slack, Zapier, your endpoint), then Save. Leave blank to disable signature verification.', 'buddynext' );
+				}
+				?>
 			</span>
 			<span class="bn-secret-msg" role="status" aria-live="polite" data-bn-secret-msg></span>
 		</div>

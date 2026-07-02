@@ -861,12 +861,17 @@ class Plugin {
 	/**
 	 * Validate and move an uploaded logo file into the uploads dir.
 	 *
-	 * One shared implementation so every "upload a logo" surface (Settings →
-	 * Appearance, Pro White-label) uses the identical flow, limits, and error
-	 * codes instead of each rolling its own. A single site asset (not
-	 * per-member), so a plain wp_handle_upload is the right tool — no attachment
-	 * row, no ImageStorageService variations. Callers must verify the request
-	 * nonce + capability before calling this.
+	 * One shared implementation so every "upload a logo" surface uses the
+	 * identical flow, limits, and error codes instead of each rolling its own.
+	 * A single site asset (not per-member), so a plain wp_handle_upload is the
+	 * right tool — no attachment row, no ImageStorageService variations.
+	 * Callers must verify the request nonce + capability before calling this.
+	 *
+	 * Since 1.0.4 the free Appearance logo and the Pro White-label logo save a
+	 * media-library / pasted URL (AdminPageBase::render_media_row), so current
+	 * code no longer calls this. Retained because Pro <= 1.0.3's White-label
+	 * save posts a file and calls this method — removing it would fatal a site
+	 * that updates free ahead of Pro.
 	 *
 	 * @param string $file_key The $_FILES key holding the uploaded logo.
 	 * @return string|\WP_Error URL on success; \WP_Error (code logo_size|logo_type|logo_upload) on failure.

@@ -90,6 +90,11 @@
 			scopePanel.querySelectorAll( '.bn-config-btn' ).forEach( function ( b ) {
 				b.classList.remove( 'bn-config-btn-active' );
 			} );
+			// Mark the list row whose item is open in the inspector so the
+			// list and the config panel visibly agree on the selection.
+			scopePanel.querySelectorAll( '.bn-drag-row' ).forEach( function ( row ) {
+				row.classList.toggle( 'is-selected', row.dataset.slug === slug );
+			} );
 		}
 
 		var panelId = 'bn-config-' + scope + '-' + slug;

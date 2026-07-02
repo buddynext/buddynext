@@ -207,6 +207,40 @@ class AssetService {
 			wp_set_script_translations( 'bn-admin-taxonomy', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 		}
 
+		// Shared media-library picker for single-image fields
+		// (AdminPageBase::render_media_row). Registered on every BN admin page
+		// so any consumer — including Pro's White-label tab — enqueues the same
+		// handle instead of rolling its own; enqueued below only where free
+		// renders a media row.
+		wp_register_script(
+			'bn-admin-media',
+			$this->assets_url . 'js/admin/media-picker.js',
+			array( 'wp-i18n' ),
+			self::VERSION,
+			true
+		);
+		wp_set_script_translations( 'bn-admin-media', 'buddynext', BUDDYNEXT_DIR . 'languages' );
+
+		// Settings → Appearance: the media picker drives the Logo field, and the
+		// core code editor (CodeMirror) upgrades the Custom CSS textarea. Both
+		// fall back gracefully — plain URL input / plain textarea — when
+		// unavailable (user disabled syntax highlighting, blocked JS).
+		if ( \BuddyNext\Admin\AdminHub::is_tab_active( 'appearance' ) ) {
+			wp_enqueue_media();
+			wp_enqueue_script( 'bn-admin-media' );
+
+			$bn_editor = wp_enqueue_code_editor( array( 'type' => 'text/css' ) );
+			if ( false !== $bn_editor ) {
+				wp_add_inline_script(
+					'code-editor',
+					sprintf(
+						'( function() { var bnInitCssEditor = function() { if ( window.wp && wp.codeEditor && document.getElementById( "bn-custom-css" ) ) { wp.codeEditor.initialize( "bn-custom-css", %s ); } }; if ( "loading" === document.readyState ) { document.addEventListener( "DOMContentLoaded", bnInitCssEditor ); } else { bnInitCssEditor(); } } )();',
+						wp_json_encode( $bn_editor )
+					)
+				);
+			}
+		}
+
 		// Email Templates editor — wherever the central placement map routes the
 		// 'templates' tab (Notifications section). Gating on the tab slug keeps
 		// its assets attached no matter which section owns it.

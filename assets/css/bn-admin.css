@@ -114,6 +114,7 @@
 
 	/* -- Structural / component sizes ------------------------------------ */
 	--bn-a-page-max-w:        1100px;
+	--bn-a-settings-max-w:    840px;
 	--bn-a-table-search-w:    240px;
 	--bn-a-addon-accent-w:    3px;
 	--bn-a-row-badge-py:      2px;
@@ -361,9 +362,43 @@
 	margin: 0;
 }
 
+/* Media picker row (AdminPageBase::render_media_row) — thumbnail preview +
+   Select / Remove buttons + the URL input that carries the posted value
+   (and doubles as the no-JS fallback). Wired by js/admin/media-picker.js. */
+.bn-media-preview {
+	margin-bottom: var(--bn-a-s3);
+}
+
+.bn-media-preview img {
+	display: block;
+}
+
+.bn-media-controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-a-s2);
+}
+
+.bn-media-controls .bn-media-url {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
 /* --------------------------------------------------------------------------
    Section cards
    -------------------------------------------------------------------------- */
+
+/* Settings reading width — on a wide monitor an uncapped settings card pushes
+   the control ~1000px away from its label. Cap settings form stacks at a
+   comfortable reading width. Scoped to the settings wrappers only
+   (.bn-settings-form on options.php tabs, .bn-settings-content on
+   admin-post forms) so full-width data surfaces — Members/Spaces tables,
+   directories, the nav manager — are NOT capped. */
+.bn-settings-form,
+.bn-settings-content {
+	max-width: var(--bn-a-settings-max-w);
+}
 
 .bn-settings-section {
 	background: var(--bn-a-bg);
@@ -2277,6 +2312,7 @@ button.bn-btn-danger:hover {
 	.bn-social-card__head { flex-wrap: wrap; }
 	.bn-social-card__toggle { margin-left: 0; width: 100%; }
 	.bn-copy-row { flex-direction: column; }
+	.bn-media-controls { flex-direction: column; align-items: stretch; }
 }
 
 /* --------------------------------------------------------------------------

@@ -244,7 +244,7 @@ class ToolsTab {
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
 						<input type="hidden" name="action" value="bn_tools_import">
 						<?php wp_nonce_field( 'bn_tools_import' ); ?>
-						<input type="file" name="bn_settings_file" accept="application/json,.json" required>
+						<input type="file" name="bn_settings_file" class="bn-input" accept="application/json,.json" required>
 						<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Import settings', 'buddynext' ); ?></button>
 					</form>
 				</div>

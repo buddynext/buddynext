@@ -94,6 +94,10 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - New spaces now honor the default space type chosen in Spaces settings; the create dialog previously always preselected Open.
 * Fix      - Deleting a member now also removes their pending email-verification tokens immediately.
 * Improve  - The admin left navigation and stacked toggle rows now breathe with the same calm rhythm as the rest of the Wbcom admin family.
+* Improve  - Logo fields now use the WordPress media library with a preview and Remove button instead of a bare file input.
+* Improve  - Settings screens are width-capped for comfortable reading on wide monitors; the Custom CSS box gains syntax highlighting.
+* Improve  - The Navigation screen leads with plain language; developer hook names and the capability field now live behind For developers and Advanced disclosures.
+* Fix      - The Integrations screen no longer shows a Save button with nothing to save, drops a duplicate Connected label, and its description now matches the companion grid it shows.
 * Fix      - Keyword rules set to Block now reject a new member's post instead of only holding it for review; a block always outranks a hold.
 * Fix      - Posts using a banned hashtag are now rejected as the setting promises; previously the tag was silently dropped while the post published.
 * Fix      - Blocked domains now also catch links pasted into the post text and subdomains of a blocked entry, not just the attached link field.

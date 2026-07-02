@@ -56,6 +56,15 @@ class IntegrationControlsAdmin {
 		}
 
 		$integrations = buddynext_integrations();
+
+		echo '<p class="bn-field-hint">';
+		printf(
+			/* translators: 1: link to the Integrations tab, 2: link to the Features tab. */
+			esc_html__( 'Choose where enabled integrations appear; install and enable them under %1$s and %2$s.', 'buddynext' ),
+			'<a href="' . esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'integrations' ) ) . '">' . esc_html__( 'Integrations', 'buddynext' ) . '</a>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
+			'<a href="' . esc_url( \BuddyNext\Admin\AdminHub::tab_url( 'settings', 'features' ) ) . '">' . esc_html__( 'Features', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
+		);
+		echo '</p>';
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-admin-hub__form-bare">
 			<input type="hidden" name="action" value="bn_integration_controls_save">
