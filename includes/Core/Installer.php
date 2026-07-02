@@ -110,7 +110,13 @@ class Installer {
 	 *      (b) Added bn_profile_fields.description + placeholder (help text under the
 	 *      label, placeholder inside the input) so owners can hint every custom
 	 *      field — guarded ALTERs for existing installs, inline in CREATE TABLE for
-	 *      fresh ones.
+	 *      fresh ones. (c) G7: converged the wizard-preset pseudo-types
+	 *      (social->url, toggle->boolean, daterange->text) via
+	 *      maybe_migrate_wizard_preset_types() — none of them ever existed in the
+	 *      FieldType registry, so they all degraded to bare text inputs. The wizard
+	 *      preset library now declares registry types only, with field keys
+	 *      converged to the Installer seed (one canonical schema from either
+	 *      provisioning path).
 	 */
 	private const SCHEMA_VERSION = 18;
 
@@ -167,6 +173,11 @@ class Installer {
 		// render as checkboxes on the edit form instead of degrading to text.
 		self::maybe_migrate_checkbox_fields();
 
+		// v18 (G7): converge the never-registered wizard-preset pseudo-types
+		// (social/toggle/daterange) to their registered equivalents so existing
+		// installs stop depending on the silent resolve_type() text fallback.
+		self::maybe_migrate_wizard_preset_types();
+
 		// v17: purge the orphaned onboarding-interests user meta — the canonical
 		// interests store is the 'interests' profile field. The paired
 		// interests->skills field-key rename runs inside run(), BEFORE the
@@ -207,6 +218,38 @@ class Installer {
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET type = 'boolean' WHERE type = 'checkbox'" );
+
+		wp_cache_delete( 'all_fields', 'buddynext_profiles' );
+	}
+
+	/**
+	 * Converge legacy wizard-preset pseudo-types to registered types (schema
+	 * v18, G7 / card 10055921163).
+	 *
+	 * The setup wizard used to declare field types that never existed in the
+	 * FieldType registry, so resolve_type() silently degraded them all to bare
+	 * text inputs:
+	 *
+	 *   - 'social'    -> 'url'     (URL values; gains URL validation + input)
+	 *   - 'toggle'    -> 'boolean' (stores '1'/'0'; gains the real checkbox)
+	 *   - 'daterange' -> 'text'    (free-form range strings; already rendered
+	 *                               as text via the fallback — this makes the
+	 *                               stored type honest instead of accidental)
+	 *
+	 * Values are preserved in every case. The preset library itself now only
+	 * declares registry types with keys converged to the Installer seed, so no
+	 * new rows of these types can appear. Idempotent.
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_wizard_preset_types(): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET type = 'url' WHERE type = 'social'" );
+		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET type = 'boolean' WHERE type = 'toggle'" );
+		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET type = 'text' WHERE type = 'daterange'" );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		wp_cache_delete( 'all_fields', 'buddynext_profiles' );
 	}

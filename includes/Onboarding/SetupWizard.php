@@ -699,6 +699,16 @@ class SetupWizard {
 	 * Each preset defines a group and its default fields. Used by both the
 	 * render and save methods to keep labels, keys, and fields in one place.
 	 *
+	 * CONTRACT (G7, card 10055921163): every field type below MUST exist in
+	 * FieldType::types() (no 'social'/'daterange'/'toggle' pseudo-types —
+	 * resolve_type() silently degrades unknown slugs to a bare text input),
+	 * and every field key/label/type MUST match the Installer seed
+	 * (seed_default_profile_groups_and_fields) exactly, so the wizard path
+	 * and the installer path produce ONE canonical schema. Guarded by
+	 * tests/Onboarding/SetupWizardTest.php.
+	 *
+	 * Field tuple: [ field_key, label, type, is_searchable ].
+	 *
 	 * @return array<string, array{label: string, icon: string, description: string, type: string, fields: array}>
 	 */
 	private function get_profile_group_presets(): array {
@@ -709,47 +719,49 @@ class SetupWizard {
 				'description' => __( 'Twitter/X, LinkedIn, GitHub, Instagram, YouTube', 'buddynext' ),
 				'type'        => 'flat',
 				'fields'      => array(
-					array( 'social_twitter', 'Twitter / X', 'social' ),
-					array( 'social_linkedin', 'LinkedIn', 'social' ),
-					array( 'social_github', 'GitHub', 'social' ),
-					array( 'social_instagram', 'Instagram', 'social' ),
-					array( 'social_youtube', 'YouTube', 'social' ),
+					array( 'social_twitter', 'Twitter / X', 'url', 0 ),
+					array( 'social_linkedin', 'LinkedIn', 'url', 0 ),
+					array( 'social_github', 'GitHub', 'url', 0 ),
+					array( 'social_instagram', 'Instagram', 'url', 0 ),
+					array( 'social_youtube', 'YouTube', 'url', 0 ),
 				),
 			),
 			'work_experience' => array(
 				'label'       => __( 'Work Experience', 'buddynext' ),
 				'icon'        => 'briefcase',
-				'description' => __( 'Company, job title, date range — repeatable entries', 'buddynext' ),
+				'description' => __( 'Company, job title, start and end dates - repeatable entries', 'buddynext' ),
 				'type'        => 'repeater',
 				'fields'      => array(
-					array( 'work_company', __( 'Company', 'buddynext' ), 'text' ),
-					array( 'work_title', __( 'Job Title', 'buddynext' ), 'text' ),
-					array( 'work_location', __( 'Location', 'buddynext' ), 'text' ),
-					array( 'work_daterange', __( 'Date Range', 'buddynext' ), 'daterange' ),
-					array( 'work_current', __( 'Currently working here', 'buddynext' ), 'toggle' ),
-					array( 'work_description', __( 'Description', 'buddynext' ), 'textarea' ),
+					array( 'work_company', __( 'Company', 'buddynext' ), 'text', 0 ),
+					array( 'work_title', __( 'Job Title', 'buddynext' ), 'text', 0 ),
+					array( 'work_location', __( 'Location', 'buddynext' ), 'text', 0 ),
+					array( 'work_start_date', __( 'Start Date', 'buddynext' ), 'date', 0 ),
+					array( 'work_end_date', __( 'End Date', 'buddynext' ), 'date', 0 ),
+					array( 'work_current', __( 'Currently Working', 'buddynext' ), 'boolean', 0 ),
+					array( 'work_description', __( 'Description', 'buddynext' ), 'textarea', 0 ),
 				),
 			),
 			'education'       => array(
 				'label'       => __( 'Education', 'buddynext' ),
 				'icon'        => 'graduation-cap',
-				'description' => __( 'Institution, degree, field of study — repeatable entries', 'buddynext' ),
+				'description' => __( 'Institution, degree, field of study - repeatable entries', 'buddynext' ),
 				'type'        => 'repeater',
 				'fields'      => array(
-					array( 'edu_institution', __( 'Institution', 'buddynext' ), 'text' ),
-					array( 'edu_degree', __( 'Degree', 'buddynext' ), 'text' ),
-					array( 'edu_field', __( 'Field of Study', 'buddynext' ), 'text' ),
-					array( 'edu_daterange', __( 'Date Range', 'buddynext' ), 'daterange' ),
-					array( 'edu_current', __( 'Currently attending', 'buddynext' ), 'toggle' ),
+					array( 'edu_institution', __( 'Institution', 'buddynext' ), 'text', 0 ),
+					array( 'edu_degree', __( 'Degree', 'buddynext' ), 'text', 0 ),
+					array( 'edu_field', __( 'Field of Study', 'buddynext' ), 'text', 0 ),
+					array( 'edu_start_year', __( 'Start Year', 'buddynext' ), 'number', 0 ),
+					array( 'edu_end_year', __( 'End Year', 'buddynext' ), 'number', 0 ),
+					array( 'edu_current', __( 'Currently Attending', 'buddynext' ), 'boolean', 0 ),
 				),
 			),
 			'skills'          => array(
 				'label'       => __( 'Skills', 'buddynext' ),
 				'icon'        => 'zap',
-				'description' => __( 'A multi-select skills field', 'buddynext' ),
+				'description' => __( 'A free-text skills field, searchable in the member directory', 'buddynext' ),
 				'type'        => 'flat',
 				'fields'      => array(
-					array( 'skills', __( 'Skills', 'buddynext' ), 'multiselect' ),
+					array( 'skills', __( 'Skills', 'buddynext' ), 'text', 1 ),
 				),
 			),
 		);
@@ -805,11 +817,12 @@ class SetupWizard {
 			foreach ( $preset['fields'] as $i => $field ) {
 				$service->create_field(
 					array(
-						'group_id'   => $group_id,
-						'field_key'  => $field[0],
-						'label'      => $field[1],
-						'type'       => $field[2],
-						'sort_order' => $i + 1,
+						'group_id'      => $group_id,
+						'field_key'     => $field[0],
+						'label'         => $field[1],
+						'type'          => $field[2],
+						'is_searchable' => (int) ( $field[3] ?? 0 ),
+						'sort_order'    => $i + 1,
 					)
 				);
 			}

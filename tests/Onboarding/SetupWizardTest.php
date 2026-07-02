@@ -131,4 +131,108 @@ class SetupWizardTest extends \WP_UnitTestCase {
 		}
 		$this->assertLessThanOrEqual( SetupWizard::TOTAL_STEPS, $this->wizard->get_current_step() );
 	}
+
+	/**
+	 * Return the private preset library.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	private function presets(): array {
+		$method = new \ReflectionMethod( $this->wizard, 'get_profile_group_presets' );
+		$method->setAccessible( true );
+
+		return (array) $method->invoke( $this->wizard );
+	}
+
+	/**
+	 * G7 (card 10055921163): every preset field type must exist in the
+	 * FieldType registry — no pseudo-types that silently degrade to text.
+	 */
+	public function test_preset_field_types_are_all_registered(): void {
+		$registered = array_keys( \BuddyNext\Profile\FieldType::types() );
+
+		foreach ( $this->presets() as $preset_key => $preset ) {
+			foreach ( (array) $preset['fields'] as $field ) {
+				$this->assertContains(
+					$field[2],
+					$registered,
+					"Preset {$preset_key} field {$field[0]} declares unregistered type {$field[2]}."
+				);
+			}
+		}
+	}
+
+	/**
+	 * G7: the wizard presets and the Installer seed must produce ONE canonical
+	 * schema — every preset field key must exist in the seeded
+	 * bn_profile_fields with the exact same type.
+	 */
+	public function test_preset_fields_converge_with_installer_seed(): void {
+		global $wpdb;
+
+		$seeded = array();
+		$rows   = $wpdb->get_results(
+			"SELECT field_key, type FROM {$wpdb->prefix}bn_profile_fields",
+			ARRAY_A
+		);
+		foreach ( (array) $rows as $row ) {
+			$seeded[ (string) $row['field_key'] ] = (string) $row['type'];
+		}
+
+		foreach ( $this->presets() as $preset_key => $preset ) {
+			foreach ( (array) $preset['fields'] as $field ) {
+				$this->assertArrayHasKey(
+					$field[0],
+					$seeded,
+					"Preset {$preset_key} field key {$field[0]} is not in the Installer seed (two provisioning paths, two schemas)."
+				);
+				$this->assertSame(
+					$seeded[ $field[0] ],
+					$field[2],
+					"Preset {$preset_key} field {$field[0]} type diverges from the Installer seed."
+				);
+			}
+		}
+	}
+
+	/**
+	 * G7: legacy pseudo-typed rows from old wizard runs are converged to
+	 * registered types by the v18 migration (values preserved).
+	 */
+	public function test_legacy_pseudo_type_rows_are_converged(): void {
+		global $wpdb;
+
+		$legacy = array(
+			'legacy_social'    => array( 'social', 'url' ),
+			'legacy_toggle'    => array( 'toggle', 'boolean' ),
+			'legacy_daterange' => array( 'daterange', 'text' ),
+		);
+
+		$group_id = (int) $wpdb->get_var( "SELECT id FROM {$wpdb->prefix}bn_profile_groups ORDER BY id ASC LIMIT 1" );
+		foreach ( $legacy as $key => list( $old_type ) ) {
+			$wpdb->insert(
+				$wpdb->prefix . 'bn_profile_fields',
+				array(
+					'group_id'  => $group_id,
+					'field_key' => $key,
+					'label'     => $key,
+					'type'      => $old_type,
+				),
+				array( '%d', '%s', '%s', '%s' )
+			);
+		}
+
+		$migrate = new \ReflectionMethod( Installer::class, 'maybe_migrate_wizard_preset_types' );
+		$migrate->setAccessible( true );
+		$migrate->invoke( null );
+
+		foreach ( $legacy as $key => list( , $new_type ) ) {
+			$this->assertSame(
+				$new_type,
+				(string) $wpdb->get_var(
+					$wpdb->prepare( "SELECT type FROM {$wpdb->prefix}bn_profile_fields WHERE field_key = %s", $key )
+				)
+			);
+		}
+	}
 }
