@@ -32,6 +32,17 @@ class ModerationLogService {
 	public function log( int $actor_id, string $action, array $context = array() ): int {
 		global $wpdb;
 
+		// Convenience keys: callers historically passed report_id/post_id, which
+		// the logger silently dropped - rows landed with NULL object refs.
+		if ( ! isset( $context['object_type'] ) && isset( $context['report_id'] ) ) {
+			$context['object_type'] = 'report';
+			$context['object_id']   = (int) $context['report_id'];
+		}
+		if ( ! isset( $context['object_type'] ) && isset( $context['post_id'] ) ) {
+			$context['object_type'] = 'post';
+			$context['object_id']   = (int) $context['post_id'];
+		}
+
 		$object_type    = isset( $context['object_type'] ) ? sanitize_key( (string) $context['object_type'] ) : null;
 		$object_id      = isset( $context['object_id'] ) ? (int) $context['object_id'] : null;
 		$target_user_id = isset( $context['target_user_id'] ) ? (int) $context['target_user_id'] : null;
@@ -47,8 +58,13 @@ class ModerationLogService {
 				'object_id'      => $object_id,
 				'target_user_id' => $target_user_id,
 				'note'           => $note,
+				// Explicit UTC: the column default is CURRENT_TIMESTAMP, which is
+				// the MySQL SERVER timezone - on non-UTC servers rows rendered
+				// hours in the future ("in 5 hours"). PHP-side writes are UTC
+				// everywhere else in the plugin.
+				'created_at'     => gmdate( 'Y-m-d H:i:s' ),
 			),
-			array( '%d', '%s', '%s', '%d', '%d', '%s' )
+			array( '%d', '%s', '%s', '%d', '%d', '%s', '%s' )
 		);
 
 		return (int) $wpdb->insert_id;

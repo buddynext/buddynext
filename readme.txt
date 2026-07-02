@@ -93,6 +93,10 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - The member data-export and account-deletion permissions can now actually be turned off on a fresh install.
 * Fix      - New spaces now honor the default space type chosen in Spaces settings; the create dialog previously always preselected Open.
 * Fix      - Deleting a member now also removes their pending email-verification tokens immediately.
+* Fix      - Keyword rules set to Block now reject a new member's post instead of only holding it for review; a block always outranks a hold.
+* Fix      - Posts using a banned hashtag are now rejected as the setting promises; previously the tag was silently dropped while the post published.
+* Fix      - Blocked domains now also catch links pasted into the post text and subdomains of a blocked entry, not just the attached link field.
+* Fix      - Moderation Log entries now record what was acted on and show correct times on hosts whose database timezone is not UTC.
 * Fix      - Choosing a member type in the directory now filters the member list, and each type count matches the members shown when you open it.
 * Fix      - A private space now shows a single join button instead of two.
 * Fix      - The direct-message typing indicator clears as soon as you stop typing or send, instead of lingering.

@@ -51,6 +51,33 @@ class HashtagService {
 	}
 
 	/**
+	 * Return the first banned hashtag present in a text, or '' when clean.
+	 *
+	 * Lets the pre-submit safeguard REJECT posts carrying a banned tag, as the
+	 * admin hint promises - previously banned tags were only silently skipped
+	 * at indexing time while the post itself published.
+	 *
+	 * @param string $text Raw post text.
+	 * @return string Banned slug found, or '' when none.
+	 */
+	public function first_banned_in_text( string $text ): string {
+		$banned = $this->banned_hashtag_slugs();
+		if ( empty( $banned ) ) {
+			return '';
+		}
+		// Raw pattern, NOT extract(): extract() strips banned slugs from its
+		// result set, so it can never report one.
+		$pattern = (string) apply_filters( 'buddynext_hashtag_pattern', '/#([\p{L}][\p{L}\p{N}_]{0,49})/u' );
+		preg_match_all( $pattern, $text, $matches );
+		foreach ( array_map( 'strtolower', (array) ( $matches[1] ?? array() ) ) as $slug ) {
+			if ( in_array( $slug, $banned, true ) ) {
+				return $slug;
+			}
+		}
+		return '';
+	}
+
+	/**
 	 * Parse the buddynext_banned_hashtags option into a list of normalized slugs.
 	 *
 	 * The option is a newline-separated textarea string, so the previous
