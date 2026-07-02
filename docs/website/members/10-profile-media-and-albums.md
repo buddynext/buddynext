@@ -2,7 +2,7 @@
 
 Every member profile has a Media tab where members upload their own photos and videos, choose who can see each one, and group them into albums. It turns a profile from a single header image into a personal gallery - a place a member can show their work, their trips, or whatever they want the community to see.
 
-![A member profile Media tab showing the photo and video grid, the upload control, and the Albums view with album cards](../images/profile-media.webp)
+![A member profile with the Media tab in its tab strip](../images/member-profile.webp)
 
 ## Why use it
 

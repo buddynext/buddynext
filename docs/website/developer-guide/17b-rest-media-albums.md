@@ -4,7 +4,7 @@ This page documents the member-facing media and album REST surface that powers t
 
 The feature is a thin BuddyNext layer over the **WPMediaVerse** companion engine. BuddyNext never calls the engine's own REST and never loads its CSS or JS - it consumes WPMediaVerse server-side through the `BuddyNext\Media\MediaClient` service seam, and applies its own ownership gate (logged in, acting on own media) as the authority. When the engine is absent, write routes return `503` with `bn_media_unavailable` rather than fataling.
 
-![The profile Media tab driven by the media and album REST routes documented here](../images/profile-media.webp)
+![A member profile whose Media tab is driven by the media and album REST routes documented here](../images/member-profile.webp)
 
 ## Overview / Contract
 
