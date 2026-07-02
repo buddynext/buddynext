@@ -118,7 +118,7 @@ class Installer {
 	 *      converged to the Installer seed (one canonical schema from either
 	 *      provisioning path).
 	 */
-	private const SCHEMA_VERSION = 20;
+	private const SCHEMA_VERSION = 21;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -183,6 +183,21 @@ class Installer {
 		// interests->skills field-key rename runs inside run(), BEFORE the
 		// profile seeder — see maybe_migrate_skills_field_key.
 		self::maybe_purge_orphan_interest_meta();
+
+		// v21: bn_mod_log rows written by the column's CURRENT_TIMESTAMP default
+		// carry the MySQL SERVER timezone. On non-UTC servers they render hours
+		// in the future ("in 4 hours"). A log row dated in the future is
+		// impossible, so shift any such row back by the server's current UTC
+		// offset. New rows write explicit UTC (ModerationLogService). Idempotent:
+		// after one pass no future-dated rows remain (offset-0 servers match none).
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			"UPDATE {$wpdb->prefix}bn_mod_log
+			    SET created_at = DATE_SUB(created_at, INTERVAL TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) SECOND)
+			  WHERE created_at > UTC_TIMESTAMP()
+			    AND TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) > 0"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		// v20: a digest_frequency row stored as '' (pre-default install) makes the
 		// admin select display "Disabled" while the cron gate treats '' as ENABLED
