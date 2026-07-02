@@ -122,8 +122,7 @@ $settings_tab = isset( $_GET['bn_stab'] ) ? sanitize_key( wp_unslash( $_GET['bn_
 
 // ── Handle saved settings (POST) ─────────────────────────────────────────────
 
-$save_notice        = '';
-$save_error_message = '';
+$save_notice = '';
 
 // sanitize_key() lowercases, so uppercase the result before comparing against
 // 'POST' — otherwise every POST handler below is skipped and saves are dropped.
@@ -161,10 +160,10 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		$bn_subtab = isset( $_POST['bn_settings_subtab'] ) ? sanitize_key( wp_unslash( $_POST['bn_settings_subtab'] ) ) : 'general';
 
 		if ( 'integrations' === $bn_subtab ) {
-			update_option( 'bn_space_' . $space_id . '_push_to_feed', isset( $_POST['push_to_feed'] ) ? 1 : 0 );
-			update_option( 'bn_space_' . $space_id . '_mvs_media_tab', isset( $_POST['mvs_media_tab'] ) ? 1 : 0 );
+			update_space_meta( $space_id, 'push_to_feed', isset( $_POST['push_to_feed'] ) ? '1' : '0' );
+			update_space_meta( $space_id, 'mvs_media_tab', isset( $_POST['mvs_media_tab'] ) ? '1' : '0' );
 			if ( isset( $_POST['jetonomy_forum_id'] ) ) {
-				update_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', absint( $_POST['jetonomy_forum_id'] ) );
+				update_space_meta( $space_id, 'jetonomy_forum_id', absint( $_POST['jetonomy_forum_id'] ) );
 			}
 		}
 
@@ -187,18 +186,34 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_permissions_nonce'] )
 	if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_space_permissions_nonce'] ) ), 'bn_space_permissions_' . $space_id ) ) {
 		$save_notice = 'error';
 	} else {
-		update_option( 'bn_space_' . $space_id . '_require_join_approval', isset( $_POST['require_join_approval'] ) ? 1 : 0 );
+		update_space_meta( $space_id, 'require_join_approval', isset( $_POST['require_join_approval'] ) ? '1' : '0' );
 		$bn_who_post = isset( $_POST['who_can_post'] ) ? sanitize_key( wp_unslash( $_POST['who_can_post'] ) ) : 'members';
 		if ( ! in_array( $bn_who_post, array( 'members', 'mods', 'owner' ), true ) ) {
 			$bn_who_post = 'members';
 		}
-		update_option( 'bn_space_' . $space_id . '_who_can_post', $bn_who_post );
+		update_space_meta( $space_id, 'who_can_post', $bn_who_post );
 
 		$bn_who_invite = isset( $_POST['who_can_invite'] ) ? sanitize_key( wp_unslash( $_POST['who_can_invite'] ) ) : 'mods';
 		if ( ! in_array( $bn_who_invite, array( 'members', 'mods', 'owner' ), true ) ) {
 			$bn_who_invite = 'mods';
 		}
-		update_option( 'bn_space_' . $space_id . '_who_can_invite', $bn_who_invite );
+		update_space_meta( $space_id, 'who_can_invite', $bn_who_invite );
+
+		// Auto-join: master toggle + member-type filter (validated against the live
+		// member-type slugs; the filter is only meaningful when the toggle is on).
+		update_space_meta( $space_id, 'auto_join_on_signup', isset( $_POST['auto_join_on_signup'] ) ? '1' : '0' );
+		$bn_valid_type_slugs = array();
+		foreach ( buddynext_service( 'member_types' )->get_all() as $bn_mt ) {
+			if ( isset( $bn_mt['slug'] ) ) {
+				$bn_valid_type_slugs[] = (string) $bn_mt['slug'];
+			}
+		}
+		// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- each element sanitized via sanitize_key below, then intersected with the valid slug set.
+		$bn_aj_raw = isset( $_POST['auto_join_member_types'] ) ? (array) wp_unslash( $_POST['auto_join_member_types'] ) : array();
+		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		$bn_aj_types = array_values( array_intersect( array_map( 'sanitize_key', $bn_aj_raw ), $bn_valid_type_slugs ) );
+		update_space_meta( $space_id, 'auto_join_member_types', implode( ',', $bn_aj_types ) );
+
 		$save_notice = 'success';
 	}
 }
@@ -236,7 +251,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_moderation_nonce'] ) 
 	} else {
 		// No post pre-approval: members post freely, moderation is reactive.
 		$raw_banned_words = isset( $_POST['banned_words'] ) ? sanitize_textarea_field( wp_unslash( $_POST['banned_words'] ) ) : '';
-		update_option( 'bn_space_' . $space_id . '_banned_words', $raw_banned_words );
+		update_space_meta( $space_id, 'banned_words', $raw_banned_words );
 		$save_notice = 'success';
 	}
 }
@@ -254,82 +269,38 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_notifications_nonce']
 		if ( ! in_array( $pref_value, $allowed_prefs, true ) ) {
 			$pref_value = 'all';
 		}
-		update_option( 'bn_space_' . $space_id . '_default_notification_pref', $pref_value );
+		update_space_meta( $space_id, 'default_notification_pref', $pref_value );
 		$save_notice = 'success';
 	}
 }
 
-// ── Handle members tab POST actions ──────────────────────────────────────────
+// Member-management actions (promote / demote / remove / ban / invite) now run
+// through the buddynext/space-members Interactivity store against buddynext/v1
+// (see templates/parts/space-settings-panel-members.php) — the same store the
+// Members tab uses. The legacy server-side POST handler was removed; the panel
+// is a REST client like the rest of the app layer.
 
-if ( 'POST' === $request_method && isset( $_POST['bn_space_members_nonce'] ) ) {
-	if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_space_members_nonce'] ) ), 'bn_space_members_' . $space_id ) ) {
-		$save_notice = 'error';
-	} else {
-		$member_action = isset( $_POST['member_action'] ) ? sanitize_key( wp_unslash( $_POST['member_action'] ) ) : '';
-		$target_user   = isset( $_POST['target_user_id'] ) ? absint( $_POST['target_user_id'] ) : 0;
+$require_join_approval = (bool) buddynext_get_space_field( $space_id, 'require_join_approval' );
+$push_to_feed          = (bool) buddynext_get_space_field( $space_id, 'push_to_feed' );
+$mvs_media_tab         = (bool) buddynext_get_space_field( $space_id, 'mvs_media_tab' );
+$jetonomy_forum_id     = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
+$who_can_post          = (string) buddynext_get_space_field( $space_id, 'who_can_post' );
+$who_can_invite        = (string) buddynext_get_space_field( $space_id, 'who_can_invite' );
 
-		if ( in_array( $member_action, array( 'promote', 'demote', 'remove', 'ban', 'invite' ), true ) ) {
-			$member_service = new \BuddyNext\Spaces\SpaceMemberService();
-			$acting_user_id = get_current_user_id();
-
-			if ( $target_user && 'promote' === $member_action ) {
-				// change_role validates the role + acting permission, busts the
-				// member cache and fires the role-change hook (the raw UPDATE did none).
-				$promote_result = $member_service->change_role( $space_id, $target_user, 'moderator', $acting_user_id );
-				$save_notice    = is_wp_error( $promote_result ) ? 'error' : 'success';
-				if ( is_wp_error( $promote_result ) ) {
-					$save_error_message = $promote_result->get_error_message();
-				}
-			} elseif ( $target_user && 'demote' === $member_action ) {
-				$demote_result = $member_service->change_role( $space_id, $target_user, 'member', $acting_user_id );
-				$save_notice   = is_wp_error( $demote_result ) ? 'error' : 'success';
-				if ( is_wp_error( $demote_result ) ) {
-					$save_error_message = $demote_result->get_error_message();
-				}
-			} elseif ( $target_user && 'remove' === $member_action ) {
-				$remove_result = $member_service->remove( $space_id, $target_user, $acting_user_id );
-				$save_notice   = ( ! is_wp_error( $remove_result ) ) ? 'success' : 'error';
-			} elseif ( $target_user && 'ban' === $member_action ) {
-				$ban_result  = $member_service->ban( $space_id, $acting_user_id, $target_user );
-				$save_notice = ( ! is_wp_error( $ban_result ) ) ? 'success' : 'error';
-				if ( is_wp_error( $ban_result ) ) {
-					$save_error_message = $ban_result->get_error_message();
-				}
-			} elseif ( 'invite' === $member_action ) {
-				$invite_identifier = isset( $_POST['invite_identifier'] ) ? sanitize_text_field( wp_unslash( $_POST['invite_identifier'] ) ) : '';
-				// Accept an @-prefixed username, matching the @username mention format.
-				$invite_identifier = ltrim( $invite_identifier, '@' );
-				if ( $invite_identifier ) {
-					$invite_user = is_email( $invite_identifier )
-						? get_user_by( 'email', $invite_identifier )
-						: get_user_by( 'login', $invite_identifier );
-					if ( $invite_user ) {
-						$invite_result = $member_service->invite( $space_id, $acting_user_id, $invite_user->ID );
-						$save_notice   = ( ! is_wp_error( $invite_result ) ) ? 'invite_sent' : 'error';
-						if ( is_wp_error( $invite_result ) ) {
-							$save_error_message = $invite_result->get_error_message();
-						}
-					} else {
-						$save_notice = 'error';
-					}
-				}
-			}
-		}
-	}
-}
-
-$require_join_approval = (bool) get_option( 'bn_space_' . $space_id . '_require_join_approval', 0 );
-$push_to_feed          = (bool) get_option( 'bn_space_' . $space_id . '_push_to_feed', 1 );
-$mvs_media_tab         = (bool) get_option( 'bn_space_' . $space_id . '_mvs_media_tab', 0 );
-$jetonomy_forum_id     = (int) get_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', 0 );
-$who_can_post          = (string) get_option( 'bn_space_' . $space_id . '_who_can_post', 'members' );
-$who_can_invite        = (string) get_option( 'bn_space_' . $space_id . '_who_can_invite', 'mods' );
+// Auto-join: a boolean master toggle + an optional member-type filter (comma-joined
+// slugs read raw and split to an array of slugs the panel renders as checkboxes).
+$auto_join_on_signup    = (bool) buddynext_get_space_field( $space_id, 'auto_join_on_signup' );
+$auto_join_member_types = array_values(
+	array_filter(
+		array_map( 'trim', explode( ',', (string) get_space_meta( $space_id, 'auto_join_member_types', true ) ) )
+	)
+);
 
 // Moderation options.
-$mod_banned_words = (string) get_option( 'bn_space_' . $space_id . '_banned_words', '' );
+$mod_banned_words = (string) buddynext_get_space_field( $space_id, 'banned_words' );
 
 // Notifications option.
-$default_notification_pref = (string) get_option( 'bn_space_' . $space_id . '_default_notification_pref', 'all' );
+$default_notification_pref = (string) buddynext_get_space_field( $space_id, 'default_notification_pref' );
 
 // Members list — always fetched so the members tab renders without a
 // conditional query. SpaceMemberService::get_members() returns the active
@@ -418,6 +389,24 @@ $builtin_tabs = array(
 		'icon'  => 'alert-triangle',
 	),
 );
+
+// Custom-fields tab — shown only when a plugin has registered non-core per-space
+// fields, so the typical owner (none registered) never sees an empty tab. Slotted
+// in before the Danger zone, which stays last.
+if ( ! empty( \BuddyNext\Spaces\SpaceFieldRegistry::instance()->get_custom_fields() ) ) {
+	array_splice(
+		$builtin_tabs,
+		count( $builtin_tabs ) - 1,
+		0,
+		array(
+			array(
+				'slug'  => 'fields',
+				'label' => __( 'Custom fields', 'buddynext' ),
+				'icon'  => 'list',
+			),
+		)
+	);
+}
 
 // Apply the canonical tab-registry filter once at composer level so Pro and
 // bridge-registered tabs (e.g. P6.2 Brand tab) are recognized as valid
@@ -536,12 +525,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 	<!-- Content shell -->
 	<div class="bn-space-settings__shell">
 
-		<?php if ( 'invite_sent' === $save_notice ) : ?>
-			<div class="bn-card bn-space-settings__notice" data-tone="success" role="status">
-				<span class="bn-space-settings__notice-icon" aria-hidden="true"><?php buddynext_icon( 'check-circle' ); ?></span>
-				<?php esc_html_e( 'Invitation sent successfully.', 'buddynext' ); ?>
-			</div>
-		<?php elseif ( 'success' === $save_notice ) : ?>
+		<?php if ( 'success' === $save_notice ) : ?>
 			<div class="bn-card bn-space-settings__notice" data-tone="success" role="status">
 				<span class="bn-space-settings__notice-icon" aria-hidden="true"><?php buddynext_icon( 'check-circle' ); ?></span>
 				<?php esc_html_e( 'Changes saved successfully.', 'buddynext' ); ?>
@@ -549,13 +533,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 		<?php elseif ( 'error' === $save_notice ) : ?>
 			<div class="bn-card bn-space-settings__notice" data-tone="danger" role="alert">
 				<span class="bn-space-settings__notice-icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
-				<?php
-				if ( '' !== $save_error_message ) {
-					echo esc_html( $save_error_message );
-				} else {
-					esc_html_e( 'Security check failed. Please try again.', 'buddynext' );
-				}
-				?>
+				<?php esc_html_e( 'Could not save your changes. Please check the form and try again.', 'buddynext' ); ?>
 			</div>
 		<?php endif; ?>
 
@@ -595,11 +573,13 @@ foreach ( $builtin_tabs as $bn_t ) {
 				array(
 					'space'                => $space,
 					'permissions_settings' => array(
-						'space_id'              => $space_id,
-						'space_url'             => $space_url,
-						'who_can_post'          => $who_can_post,
-						'who_can_invite'        => $who_can_invite,
-						'require_join_approval' => $require_join_approval,
+						'space_id'               => $space_id,
+						'space_url'              => $space_url,
+						'who_can_post'           => $who_can_post,
+						'who_can_invite'         => $who_can_invite,
+						'require_join_approval'  => $require_join_approval,
+						'auto_join_on_signup'    => $auto_join_on_signup,
+						'auto_join_member_types' => $auto_join_member_types,
 					),
 				),
 			),
@@ -640,6 +620,13 @@ foreach ( $builtin_tabs as $bn_t ) {
 				array(
 					'space'             => $space,
 					'branding_settings' => array( 'space_id' => $space_id ),
+				),
+			),
+			'fields'        => array(
+				'parts/space-settings-panel-fields.php',
+				array(
+					'space'           => $space,
+					'fields_settings' => array( 'space_id' => $space_id ),
 				),
 			),
 		);

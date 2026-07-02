@@ -55,8 +55,70 @@ class Installer {
 	 *     (bn_space_*) and the custom-CSS blob to autoload=off via
 	 *     maybe_fix_autoload() so they stop loading on every request as the
 	 *     community grows. No schema change.
+	 * 10 — converge the legacy buddynext_jetonomy_feed_sync option into the unified
+	 *      per-integration key buddynext_integration_jetonomy_feed: carry an explicit
+	 *      opt-out ('0') over, then delete the legacy option. The Integration Display
+	 *      admin tab now owns the toggle. No schema change.
+	 * 11 — Spaces foundation. (a) Added KEY parent (parent_id) on bn_spaces and KEY
+	 *      space_status (space_id, status, joined_at) on bn_space_members so sub-space
+	 *      lookups and space-roster pagination stay index-backed at 50k members/space
+	 *      (no filesort or full scan) — applied to existing installs via the idempotent
+	 *      ADD KEY in maybe_alter_tables(), fresh installs inline in CREATE TABLE.
+	 *      (b) Added the bn_space_meta table (WP-meta-shaped: meta_id, bn_space_id)
+	 *      as the per-space metadata substrate behind the native metadata API. Pro
+	 *      shipped this table first with a bespoke ( id, space_id ) schema, so
+	 *      maybe_reshape_space_meta() converges any pre-existing table to canonical
+	 *      (copying space_id -> bn_space_id) BEFORE dbDelta runs; fresh installs get
+	 *      the canonical table inline. Free now owns the table; Pro reads it via the
+	 *      *_space_meta() API.
+	 * 12 — Directory ordering at scale. Added KEY dir_popular (parent_id, member_count)
+	 *      and KEY dir_name (parent_id, name) on bn_spaces so the roots directory's
+	 *      two dominant sorts (popularity + alphabetical) are index-backed backward/
+	 *      forward scans instead of a filesort on every load — fatal at 20-30k
+	 *      member-created spaces per site. Existing installs via the idempotent ADD
+	 *      KEY loop; fresh installs inline in CREATE TABLE.
+	 * 13 — Added KEY dir_recent (parent_id, created_at) on bn_spaces so the "Newest"
+	 *      directory sort is also index-backed (no filesort) at scale. created_at is
+	 *      immutable after insert, so the index is write-once — no ongoing maintenance.
+	 * 14 — Retired the 'file' profile-field type (a mislabelled URL field with no real
+	 *      uploader; avatar + cover + the Media tab already cover member uploads). Any
+	 *      existing field is converged to 'url' via maybe_migrate_file_fields() — it
+	 *      already behaved as a URL field (the sanitiser aliased file -> url), so stored
+	 *      values are preserved. No schema change.
+	 * 16 — Interests/personalization foundation (Phase 0). (a) Added
+	 *      bn_profile_fields.is_system so load-bearing fields (bio, headline,
+	 *      location — search index, directory cards/filter, hero) are protected
+	 *      from deletion; seeded via seed_system_profile_fields() (idempotent,
+	 *      runs inside run()). (b) Added KEY field_value (field_id, value(20))
+	 *      on bn_profile_values — the people-matching index for category-valued
+	 *      fields ("members with category N" = exact (field_id, value) lookup).
+	 *      Existing installs get both via the guarded ALTERs in
+	 *      maybe_alter_tables(); fresh installs inline in CREATE TABLE.
+	 *      (c) Converged the legacy 'checkbox' profile-field type to 'boolean'
+	 *      via maybe_migrate_checkbox_fields() — 'checkbox' was never in the
+	 *      FieldType registry (it degraded to a text input on the edit form);
+	 *      'boolean' is the registered equivalent and stores the same '1'/'0'
+	 *      values, so member data is preserved.
+	 * 18 — Profile-field freedom pass (profile-field-system-governance.md §4.1 + G1).
+	 *      (a) Ungated the preset groups: social_links, work_experience and education
+	 *      drop group-level is_system (seeder change + an idempotent convergence
+	 *      UPDATE inside seed_default_profile_groups_and_fields() for existing
+	 *      installs) so owners can prune sections that do not fit their niche —
+	 *      display templates already self-hide when a group is gone. Only
+	 *      basic_info, skills and interests remain system groups (basic_info carries
+	 *      the code-consumed spine fields; interests feeds the suggestion engines).
+	 *      (b) Added bn_profile_fields.description + placeholder (help text under the
+	 *      label, placeholder inside the input) so owners can hint every custom
+	 *      field — guarded ALTERs for existing installs, inline in CREATE TABLE for
+	 *      fresh ones. (c) G7: converged the wizard-preset pseudo-types
+	 *      (social->url, toggle->boolean, daterange->text) via
+	 *      maybe_migrate_wizard_preset_types() — none of them ever existed in the
+	 *      FieldType registry, so they all degraded to bare text inputs. The wizard
+	 *      preset library now declares registry types only, with field keys
+	 *      converged to the Installer seed (one canonical schema from either
+	 *      provisioning path).
 	 */
-	private const SCHEMA_VERSION = 9;
+	private const SCHEMA_VERSION = 22;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -91,7 +153,255 @@ class Installer {
 		// clears the meta.
 		self::maybe_drop_last_active_meta();
 
+		// v10: converge the legacy Jetonomy feed-sync option into the unified
+		// per-integration key so the admin has a single control, not two.
+		self::maybe_migrate_jetonomy_feed_sync();
+
+		// v11: migrate the per-space settings from autoloaded bn_space_{id}_* options
+		// into bn_space_meta (the canonical field store). Runs after the field
+		// registry boots on init, so register_meta sanitisation applies. Removes the
+		// options once copied — readers now resolve these via get_space_meta().
+		self::maybe_migrate_space_options();
+
+		// v14: retire the 'file' profile-field type (a mislabelled URL field, no real
+		// uploader) — converge any existing field to the 'url' type it already behaved
+		// as, so stored values survive and the type drops out of the picker.
+		self::maybe_migrate_file_fields();
+
+		// v16: converge the never-registered 'checkbox' profile-field type to the
+		// registered 'boolean' equivalent (same '1'/'0' storage), so the fields
+		// render as checkboxes on the edit form instead of degrading to text.
+		self::maybe_migrate_checkbox_fields();
+
+		// v18 (G7): converge the never-registered wizard-preset pseudo-types
+		// (social/toggle/daterange) to their registered equivalents so existing
+		// installs stop depending on the silent resolve_type() text fallback.
+		self::maybe_migrate_wizard_preset_types();
+
+		// v17: purge the orphaned onboarding-interests user meta — the canonical
+		// interests store is the 'interests' profile field. The paired
+		// interests->skills field-key rename runs inside run(), BEFORE the
+		// profile seeder — see maybe_migrate_skills_field_key.
+		self::maybe_purge_orphan_interest_meta();
+
+		// v22: backfill bn_spaces.last_active_at from each space's newest post
+		// (one grouped query). New activity keeps it current via PostService.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			"UPDATE {$wpdb->prefix}bn_spaces s
+			   LEFT JOIN ( SELECT space_id, MAX(created_at) AS la FROM {$wpdb->prefix}bn_posts WHERE space_id IS NOT NULL GROUP BY space_id ) p
+			     ON p.space_id = s.id
+			    SET s.last_active_at = p.la
+			  WHERE s.last_active_at IS NULL AND p.la IS NOT NULL"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// v21: bn_mod_log rows written by the column's CURRENT_TIMESTAMP default
+		// carry the MySQL SERVER timezone. On non-UTC servers they render hours
+		// in the future ("in 4 hours"). A log row dated in the future is
+		// impossible, so shift any such row back by the server's current UTC
+		// offset. New rows write explicit UTC (ModerationLogService). Idempotent:
+		// after one pass no future-dated rows remain (offset-0 servers match none).
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			"UPDATE {$wpdb->prefix}bn_mod_log
+			    SET created_at = DATE_SUB(created_at, INTERVAL TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) SECOND)
+			  WHERE created_at > UTC_TIMESTAMP()
+			    AND TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW()) > 0"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// v20: a digest_frequency row stored as '' (pre-default install) makes the
+		// admin select display "Disabled" while the cron gate treats '' as ENABLED
+		// - and a save from that state silently persists 'never'. Normalize to the
+		// registered default. Idempotent.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "UPDATE {$wpdb->options} SET option_value = 'weekly' WHERE option_name = 'buddynext_digest_frequency' AND option_value = ''" );
+
+		// v19: converge the seeded email-template subjects on one natural style
+		// (no em-dash separators, no exclamation endings). Byte-exact matches
+		// against the former seeds, so owner-customized subjects are untouched.
+		self::maybe_migrate_email_subjects();
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * Normalize the seeded email-template subjects (schema v19).
+	 *
+	 * The original seeds mixed four subject styles (em-dash suffixes,
+	 * exclamation endings, on/from phrasing) that sit side by side in a
+	 * member's inbox. Converge on natural sentences with {{site_name}} woven
+	 * in — and no em-dashes (site-wide content rule). Each UPDATE matches the
+	 * exact former seeded string, so an owner-customized subject is NEVER
+	 * overwritten. Idempotent — a re-run matches nothing.
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_email_subjects(): void {
+		global $wpdb;
+
+		$em  = "\xE2\x80\x94"; // The former seeds used an em-dash separator.
+		$map = array(
+			'email_verify'                 => array( "Verify your email address {$em} {{site_name}}", 'Verify your email address on {{site_name}}' ),
+			'email_change_confirm'         => array( "Confirm your new email address {$em} {{site_name}}", 'Confirm your new email address on {{site_name}}' ),
+			'welcome'                      => array( 'Welcome to {{site_name}}!', 'Welcome to {{site_name}}' ),
+			'bn.post_commented'            => array( "New comment on your post {$em} {{site_name}}", 'New comment on your {{site_name}} post' ),
+			'bn.space_join_requested'      => array( "New join request for your space {$em} {{site_name}}", 'New join request for your {{site_name}} space' ),
+			'bn.space_request_approved'    => array( "Your space join request was approved {$em} {{site_name}}", 'Your {{site_name}} space join request was approved' ),
+			'bn.strike_issued'             => array( "A moderation action has been taken on your account {$em} {{site_name}}", 'A moderation action was taken on your {{site_name}} account' ),
+			'bn.strike_warning'            => array( "Warning: your account has received multiple strikes {$em} {{site_name}}", 'Your {{site_name}} account has received multiple strikes' ),
+			'bn.member_suspended'          => array( "Your account has been suspended {$em} {{site_name}}", 'Your {{site_name}} account has been suspended' ),
+			'bn.appeal_resolved'           => array( "Your appeal has been reviewed {$em} {{site_name}}", 'Your {{site_name}} appeal has been reviewed' ),
+			'bn.unsuspension_confirmation' => array( "Your account suspension has been lifted {$em} {{site_name}}", 'Your {{site_name}} account suspension has been lifted' ),
+			'bn.jetonomy_reply'            => array( "New reply to your discussion {$em} {{site_name}}", 'New reply to your {{site_name}} discussion' ),
+			'bn.new_report'                => array( "New content report awaiting review {$em} {{site_name}}", 'New content report awaiting review on {{site_name}}' ),
+			'bn.badge_awarded'             => array( 'You earned a badge on {{site_name}}!', 'You earned a badge on {{site_name}}' ),
+			'bn.level_up'                  => array( 'You levelled up on {{site_name}}!', 'You levelled up on {{site_name}}' ),
+		);
+
+		foreach ( $map as $type => $pair ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_email_templates SET subject = %s WHERE type = %s AND subject = %s",
+					$pair[1],
+					$type,
+					$pair[0]
+				)
+			);
+		}
+	}
+
+	/**
+	 * Converge any retired 'file' profile field to 'url' (schema v14).
+	 *
+	 * The 'file' type rendered a URL input and its sanitiser already aliased
+	 * file -> url, so this only relabels the type column; stored URL values are kept.
+	 * Idempotent — a no-op once no 'file' rows remain.
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_file_fields(): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET type = 'url' WHERE type = 'file'" );
+	}
+
+	/**
+	 * Converge any legacy 'checkbox' profile field to 'boolean' (schema v16).
+	 *
+	 * 'checkbox' was never a registered FieldType — the engine degraded it to a
+	 * text input on the profile edit form. 'boolean' is the registered
+	 * equivalent and reads/writes the same '1'/'0' values, so stored member
+	 * data is preserved. Idempotent — a no-op once no 'checkbox' rows remain.
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_checkbox_fields(): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET type = 'boolean' WHERE type = 'checkbox'" );
+
+		wp_cache_delete( 'all_fields', 'buddynext_profiles' );
+	}
+
+	/**
+	 * Converge legacy wizard-preset pseudo-types to registered types (schema
+	 * v18, G7 / card 10055921163).
+	 *
+	 * The setup wizard used to declare field types that never existed in the
+	 * FieldType registry, so resolve_type() silently degraded them all to bare
+	 * text inputs:
+	 *
+	 *   - 'social'    -> 'url'     (URL values; gains URL validation + input)
+	 *   - 'toggle'    -> 'boolean' (stores '1'/'0'; gains the real checkbox)
+	 *   - 'daterange' -> 'text'    (free-form range strings; already rendered
+	 *                               as text via the fallback — this makes the
+	 *                               stored type honest instead of accidental)
+	 *
+	 * Values are preserved in every case. The preset library itself now only
+	 * declares registry types with keys converged to the Installer seed, so no
+	 * new rows of these types can appear. Idempotent.
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_wizard_preset_types(): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET type = 'url' WHERE type = 'social'" );
+		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET type = 'boolean' WHERE type = 'toggle'" );
+		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET type = 'text' WHERE type = 'daterange'" );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_delete( 'all_fields', 'buddynext_profiles' );
+	}
+
+	/**
+	 * Rename the legacy skills-group field key interests->skills (schema v17).
+	 *
+	 * The original seed named the skills group's field 'interests'
+	 * ("Skills / Interests"), which blocks the canonical Interests field
+	 * (bn_profile_fields.field_key is table-wide UNIQUE). Values ride on
+	 * field_id, so member data is untouched. Group-scoped so only the legacy
+	 * shape matches, and guarded against a pre-existing custom 'skills' key
+	 * (rename skipped; the seeder's INSERT IGNORE then leaves that site's own
+	 * field authoritative). Idempotent — a no-op once no legacy row remains.
+	 *
+	 * MUST run before seed_default_profile_groups_and_fields() (see run()).
+	 *
+	 * @param string $p Table prefix.
+	 * @return void
+	 */
+	private static function maybe_migrate_skills_field_key( string $p ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$has_skills_key = (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM `{$p}bn_profile_fields` WHERE field_key = 'skills'"
+		);
+		if ( $has_skills_key > 0 ) {
+			return; // A 'skills' key already exists (renamed earlier, or owner-created) — nothing to converge.
+		}
+
+		$renamed = $wpdb->query(
+			"UPDATE `{$p}bn_profile_fields` f
+			   JOIN `{$p}bn_profile_groups` g ON g.id = f.group_id
+			    SET f.field_key = 'skills', f.label = 'Skills'
+			  WHERE f.field_key = 'interests'
+			    AND g.group_key = 'skills'"
+		);
+
+		if ( $renamed > 0 ) {
+			// Carry the search-mirror meta with the key so directory/global search
+			// keeps matching until the next profile save regenerates it.
+			$wpdb->query(
+				"UPDATE {$wpdb->usermeta}
+				    SET meta_key = 'bn_field_skills'
+				  WHERE meta_key = 'bn_field_interests'"
+			);
+			wp_cache_delete( 'all_fields', 'buddynext_profiles' );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Purge the orphaned onboarding-interests user meta (schema v17).
+	 *
+	 * The bn_interests (comma-joined labels) and bn_onboarding_interests (category
+	 * IDs) keys were written by an onboarding step that was removed before anything
+	 * read them; the canonical store is now the 'interests' profile field (one
+	 * bn_profile_values row per picked category). delete_metadata with
+	 * delete_all clears every user in one call. Idempotent.
+	 *
+	 * @return void
+	 */
+	private static function maybe_purge_orphan_interest_meta(): void {
+		delete_metadata( 'user', 0, 'bn_interests', '', true );
+		delete_metadata( 'user', 0, 'bn_onboarding_interests', '', true );
 	}
 
 	/**
@@ -106,6 +416,28 @@ class Installer {
 	 */
 	private static function maybe_drop_last_active_meta(): void {
 		delete_metadata( 'user', 0, \BuddyNext\Realtime\PresenceService::META_KEY, '', true );
+	}
+
+	/**
+	 * One-time convergence: fold the legacy buddynext_jetonomy_feed_sync option into
+	 * the unified per-integration key buddynext_integration_jetonomy_feed.
+	 *
+	 * Both default ON, so only an explicit opt-out ('0') needs carrying; an absent or
+	 * '1' legacy value maps to the unified default-on (no write). The legacy option is
+	 * then deleted so the admin sees a single control on the Integration Display tab,
+	 * never two. Idempotent — a re-run finds the option already gone and no-ops.
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_jetonomy_feed_sync(): void {
+		$legacy = get_option( 'buddynext_jetonomy_feed_sync', null );
+		if ( null === $legacy ) {
+			return;
+		}
+		if ( '0' === (string) $legacy ) {
+			update_option( 'buddynext_integration_jetonomy_feed', '0', false );
+		}
+		delete_option( 'buddynext_jetonomy_feed_sync' );
 	}
 
 	/**
@@ -185,6 +517,14 @@ class Installer {
 		self::install_schema();
 
 		self::seed_email_templates( $wpdb->prefix );
+
+		// v17: MUST run before the profile seeder — it renames the legacy
+		// skills-group field key interests->skills so the seeder's INSERT IGNORE
+		// can never create a duplicate 'skills' field, and so the freed
+		// 'interests' key is available for the canonical category_multiselect
+		// field the seeder adds. Idempotent no-op on fresh installs.
+		self::maybe_migrate_skills_field_key( $wpdb->prefix );
+
 		self::seed_default_profile_groups_and_fields( $wpdb->prefix );
 		self::seed_default_space( $wpdb->prefix );
 
@@ -231,6 +571,13 @@ class Installer {
 		$charset = $wpdb->get_charset_collate();
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		// v11: reshape a pre-existing bn_space_meta table to the canonical WP-meta
+		// shape BEFORE dbDelta runs. Pro shipped this table first with a bespoke
+		// schema (id PK, space_id) that the native metadata API can't use; Free now
+		// owns it. Running first means dbDelta then sees a canonical table and does
+		// not add a duplicate meta_id column. No-op on fresh installs (table absent).
+		self::maybe_reshape_space_meta( $wpdb->prefix );
 
 		// Suppress echo of DB errors during schema creation so that WP-CLI
 		// and browser activation do not see unexpected HTML output from dbDelta.
@@ -285,6 +632,12 @@ class Installer {
 		$table_columns = array(
 			// Schema-parity columns for the unified taxonomy editor (v4).
 			// Categories gain colour/icon/directory-visibility to match bn_member_types.
+			// Denormalized activity stamp for the spaces roster (owner: no way to
+			// tell alive from dead spaces at the 20-30k design target). Written on
+			// space-post create; backfilled once below.
+			'bn_spaces'           => array(
+				'last_active_at' => 'ADD COLUMN last_active_at DATETIME NULL DEFAULT NULL',
+			),
 			'bn_space_categories' => array(
 				'color'       => "ADD COLUMN color VARCHAR(7) NOT NULL DEFAULT '#0073aa'",
 				'text_color'  => "ADD COLUMN text_color VARCHAR(7) NOT NULL DEFAULT '#ffffff'",
@@ -292,8 +645,53 @@ class Installer {
 				'show_in_dir' => 'ADD COLUMN show_in_dir TINYINT(1) NOT NULL DEFAULT 1',
 			),
 			// v5: a flat field can be surfaced on the registration form.
+			// v16: load-bearing fields (bio/headline/location) are marked is_system
+			// so they cannot be deleted out from under search + directory + hero.
 			'bn_profile_fields'   => array(
 				'show_on_register' => 'ADD COLUMN show_on_register TINYINT(1) NOT NULL DEFAULT 0',
+				'is_system'        => 'ADD COLUMN is_system TINYINT(1) NOT NULL DEFAULT 0',
+				// v18 (G1): owner-authored help text (rendered under the label on
+				// edit + signup) and input placeholder. Empty = render nothing.
+				'description'      => 'ADD COLUMN description VARCHAR(255) DEFAULT NULL',
+				'placeholder'      => 'ADD COLUMN placeholder VARCHAR(255) DEFAULT NULL',
+			),
+		);
+
+		// Per-table additive index back-fills. dbDelta cannot reliably add a KEY
+		// to a pre-existing table across MySQL/MariaDB versions, so each new index
+		// is added here via a guarded ALTER. Each clause is a hardcoded constant;
+		// table names are built from $wpdb->prefix — no untrusted input.
+		$table_indexes = array(
+			// v11: index sub-space lookups (WHERE parent_id = ?) and roster
+			// pagination (WHERE space_id = ? AND status = ? ORDER BY joined_at) so
+			// neither scans/filesorts at 50k members.
+			'bn_spaces'         => array(
+				'parent'      => 'ADD KEY parent (parent_id)',
+				// v12: the directory browses ROOTS ordered by one of a few sorts
+				// (WHERE parent_id IS NULL ORDER BY <col>). Without a (parent_id,<col>)
+				// composite each sort filesorts every load — fatal at 20-30k
+				// member-created spaces per site. Index the two dominant orders:
+				// popularity (member_count, the default) and alphabetical (name).
+				// "Recently active" sort is intentionally NOT built (it would need a
+				// denormalized activity column maintained on every space post — an
+				// ongoing background cost we chose to skip).
+				'dir_popular' => 'ADD KEY dir_popular (parent_id, member_count)',
+				'dir_name'    => 'ADD KEY dir_name (parent_id, name)',
+				// v13: the "Newest" sort (parent_id IS NULL ORDER BY created_at DESC).
+				// created_at is immutable after insert, so this index is write-once —
+				// a pure read win with no ongoing maintenance.
+				'dir_recent'  => 'ADD KEY dir_recent (parent_id, created_at)',
+			),
+			'bn_space_members'  => array(
+				'space_status' => 'ADD KEY space_status (space_id, status, joined_at)',
+			),
+			// v16: the people-matching index. "Members with value X for field F"
+			// (e.g. a category-valued interests field) becomes an exact
+			// (field_id, value) range scan instead of a full-table walk. The
+			// value column is LONGTEXT, so the index takes a 20-char prefix —
+			// exact enough for numeric IDs and short slugs.
+			'bn_profile_values' => array(
+				'field_value' => 'ADD KEY field_value (field_id, value(20))',
 			),
 		);
 
@@ -302,6 +700,17 @@ class Installer {
 			$table = $p . $table_slug;
 			foreach ( $columns as $column => $clause ) {
 				if ( self::column_exists( $table, $column ) ) {
+					continue;
+				}
+
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$wpdb->query( "ALTER TABLE `{$table}` {$clause}" );
+			}
+		}
+		foreach ( $table_indexes as $table_slug => $indexes ) {
+			$table = $p . $table_slug;
+			foreach ( $indexes as $index => $clause ) {
+				if ( self::index_exists( $table, $index ) ) {
 					continue;
 				}
 
@@ -338,8 +747,194 @@ class Installer {
 	}
 
 	/**
+	 * Whether a named index exists on a table, via INFORMATION_SCHEMA.
+	 *
+	 * Mirrors {@see column_exists()} so {@see maybe_alter_tables()} can add a KEY
+	 * idempotently (dbDelta cannot reliably alter indexes on a pre-existing table).
+	 *
+	 * @param string $table Fully-prefixed table name.
+	 * @param string $index Index name to check.
+	 * @return bool
+	 */
+	private static function index_exists( string $table, string $index ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$found = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS
+				 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND INDEX_NAME = %s
+				 LIMIT 1',
+				DB_NAME,
+				$table,
+				$index
+			)
+		);
+
+		return null !== $found;
+	}
+
+	/**
+	 * Migrate per-space settings from bn_space_{id}_* options into bn_space_meta.
+	 *
+	 * The eight built-in per-space settings used to be standalone options; they are
+	 * now core space fields stored in bn_space_meta. This copies any existing
+	 * values over (idempotent: skips a key already present in meta) and deletes the
+	 * option so the autoloaded-options footprint goes to zero. Runs once at the
+	 * v11 upgrade.
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_space_options(): void {
+		global $wpdb;
+
+		$keys    = array(
+			'push_to_feed',
+			'mvs_media_tab',
+			'jetonomy_forum_id',
+			'require_join_approval',
+			'who_can_post',
+			'who_can_invite',
+			'banned_words',
+			'default_notification_pref',
+		);
+		$pattern = '^bn_space_[0-9]+_(' . implode( '|', $keys ) . ')$';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name REGEXP %s",
+				$pattern
+			)
+		);
+
+		foreach ( (array) $rows as $row ) {
+			if ( ! preg_match( '/^bn_space_(\d+)_(.+)$/', (string) $row->option_name, $m ) ) {
+				continue;
+			}
+			$space_id = (int) $m[1];
+			$key      = (string) $m[2];
+
+			if ( '' === (string) get_space_meta( $space_id, $key, true ) ) {
+				update_space_meta( $space_id, $key, maybe_unserialize( $row->option_value ) );
+			}
+			delete_option( (string) $row->option_name );
+		}
+	}
+
+	/**
+	 * Whether a table exists, via INFORMATION_SCHEMA.
+	 *
+	 * @param string $table Fully-prefixed table name.
+	 * @return bool
+	 */
+	private static function table_exists( string $table ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$found = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+				 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+				 LIMIT 1',
+				DB_NAME,
+				$table
+			)
+		);
+
+		return null !== $found;
+	}
+
+	/**
+	 * Converge a pre-existing bn_space_meta table to the canonical WP-meta shape.
+	 *
+	 * Pro shipped this table first as ( id PK, space_id, meta_key, meta_value ) and
+	 * read it with raw SQL; the native metadata API needs ( meta_id PK, bn_space_id,
+	 * meta_key, meta_value ). This migrates either the legacy Pro shape OR a partly
+	 * dbDelta-merged hybrid to canonical, preserving any rows (white-label brand
+	 * blobs) by copying space_id -> bn_space_id. Idempotent and order-critical: it
+	 * MUST run before dbDelta so dbDelta does not add a second id column. No-op once
+	 * the table is canonical (meta_id present, space_id gone) or absent.
+	 *
+	 * @param string $p Table prefix.
+	 * @return void
+	 */
+	private static function maybe_reshape_space_meta( string $p ): void {
+		global $wpdb;
+
+		$table = $p . 'bn_space_meta';
+
+		if ( ! self::table_exists( $table ) ) {
+			return; // Fresh install — dbDelta creates the canonical table.
+		}
+
+		$has_space_id = self::column_exists( $table, 'space_id' );
+		$has_meta_id  = self::column_exists( $table, 'meta_id' );
+
+		if ( $has_meta_id && ! $has_space_id ) {
+			return; // Already canonical.
+		}
+
+		$wpdb->suppress_errors( true );
+
+		// Ensure the WP-meta object-id column exists, then carry legacy rows over.
+		if ( ! self::column_exists( $table, 'bn_space_id' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "ALTER TABLE `{$table}` ADD COLUMN bn_space_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0" );
+		}
+		if ( $has_space_id ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "UPDATE `{$table}` SET bn_space_id = space_id WHERE bn_space_id = 0 AND space_id > 0" );
+		}
+
+		// Rename the legacy PK id -> meta_id (the column the metadata API references).
+		if ( ! $has_meta_id && self::column_exists( $table, 'id' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "ALTER TABLE `{$table}` CHANGE id meta_id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT" );
+		}
+
+		// Retire the legacy unique key + space_id column (index dropped first).
+		if ( $has_space_id ) {
+			if ( self::index_exists( $table, 'space_key' ) ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$wpdb->query( "ALTER TABLE `{$table}` DROP INDEX space_key" );
+			}
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "ALTER TABLE `{$table}` DROP COLUMN space_id" );
+		}
+
+		// Ensure the canonical indexes (dbDelta would add them, but be explicit).
+		if ( ! self::index_exists( $table, 'bn_space_id' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "ALTER TABLE `{$table}` ADD KEY bn_space_id (bn_space_id)" );
+		}
+
+		$wpdb->suppress_errors( false );
+	}
+
+	/**
 	 * Insert default email templates using INSERT IGNORE so existing
 	 * customised templates are never overwritten on upgrade.
+	 *
+	 * @param string $p Table prefix.
+	 */
+	/**
+	 * Public wrapper: restore any missing seeded email-template rows.
+	 *
+	 * INSERT IGNORE recreates only absent types, so owner-customized rows are
+	 * never touched. Used by the template editor's "Reset to default" so a
+	 * reset restores the seeded copy instead of leaving a dead type whose
+	 * event emails silently stop sending.
+	 *
+	 * @return void
+	 */
+	public static function reseed_email_templates(): void {
+		global $wpdb;
+		self::seed_email_templates( $wpdb->prefix );
+	}
+
+	/**
+	 * Seed the default email-template rows (INSERT IGNORE - existing rows kept).
 	 *
 	 * @param string $p Table prefix.
 	 */
@@ -349,21 +944,21 @@ class Installer {
 		$templates = array(
 			array(
 				'type'         => 'email_verify',
-				'subject'      => 'Verify your email address — {{site_name}}',
+				'subject'      => 'Verify your email address on {{site_name}}',
 				'preview_text' => 'Click the link to confirm your address',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Please verify your email address by clicking the link below:</p><p><a href="{{verify_url}}">Verify my email</a></p><p>This link expires in 24 hours.</p>',
 			),
 			array(
 				'type'         => 'email_change_confirm',
-				'subject'      => 'Confirm your new email address — {{site_name}}',
+				'subject'      => 'Confirm your new email address on {{site_name}}',
 				'preview_text' => 'Confirm the email change on your account',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>You asked to change the email address on your {{site_name}} account to this inbox. Confirm the change by clicking the link below:</p><p><a href="{{verify_url}}">Confirm my new email</a></p><p>This link expires in 24 hours. If you did not request this, ignore this email and your address stays the same.</p>',
 			),
 			array(
 				'type'         => 'welcome',
-				'subject'      => 'Welcome to {{site_name}}!',
+				'subject'      => 'Welcome to {{site_name}}',
 				'preview_text' => 'Your community account is ready',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}}! Your account is all set — <a href="{{site_url}}">start exploring</a>.</p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}} Your account is all set — <a href="{{site_url}}">start exploring</a>.</p>',
 			),
 			array(
 				'type'         => 'bn.new_follower',
@@ -403,7 +998,7 @@ class Installer {
 			),
 			array(
 				'type'         => 'bn.post_commented',
-				'subject'      => 'New comment on your post — {{site_name}}',
+				'subject'      => 'New comment on your {{site_name}} post',
 				'preview_text' => 'Someone commented on your post',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your post received a new comment on {{site_name}}. <a href="{{action_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
@@ -421,67 +1016,67 @@ class Installer {
 			),
 			array(
 				'type'         => 'bn.space_join_requested',
-				'subject'      => 'New join request for your space — {{site_name}}',
+				'subject'      => 'New join request for your {{site_name}} space',
 				'preview_text' => 'A member wants to join your space',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>A new member has requested to join your space on {{site_name}}. <a href="{{action_url}}">Review the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.space_request_approved',
-				'subject'      => 'Your space join request was approved — {{site_name}}',
+				'subject'      => 'Your {{site_name}} space join request was approved',
 				'preview_text' => 'Welcome to the space',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your request to join a space on {{site_name}} has been approved. <a href="{{action_url}}">Visit the space.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.strike_issued',
-				'subject'      => 'A moderation action has been taken on your account — {{site_name}}',
+				'subject'      => 'A moderation action was taken on your {{site_name}} account',
 				'preview_text' => 'Important account notice',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>A moderation strike has been issued on your account at {{site_name}}. Please review the community guidelines to avoid further action.</p>',
 			),
 			array(
 				'type'         => 'bn.badge_awarded',
-				'subject'      => 'You earned a badge on {{site_name}}!',
+				'subject'      => 'You earned a badge on {{site_name}}',
 				'preview_text' => 'Congratulations on your new badge',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Congratulations! You earned a new badge on {{site_name}}. <a href="{{action_url}}">View your profile.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.level_up',
-				'subject'      => 'You levelled up on {{site_name}}!',
+				'subject'      => 'You levelled up on {{site_name}}',
 				'preview_text' => 'Your community level increased',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>You have reached a new level on {{site_name}}. <a href="{{action_url}}">See your new level.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.jetonomy_reply',
-				'subject'      => 'New reply to your discussion — {{site_name}}',
+				'subject'      => 'New reply to your {{site_name}} discussion',
 				'preview_text' => 'Someone replied to your discussion',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your discussion received a new reply on {{site_name}}. <a href="{{action_url}}">View the reply.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.strike_warning',
-				'subject'      => 'Warning: your account has received multiple strikes — {{site_name}}',
+				'subject'      => 'Your {{site_name}} account has received multiple strikes',
 				'preview_text' => 'You have received multiple moderation strikes',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has received multiple moderation strikes. Please review our community guidelines to avoid further action.</p><p>If you believe this is in error, you can contact our moderation team.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.member_suspended',
-				'subject'      => 'Your account has been suspended — {{site_name}}',
+				'subject'      => 'Your {{site_name}} account has been suspended',
 				'preview_text' => 'Your account has been suspended',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has been suspended. You will not be able to post or interact with the community during this period.</p><p>If you believe this was done in error, you may submit an appeal from your account page.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.appeal_resolved',
-				'subject'      => 'Your appeal has been reviewed — {{site_name}}',
+				'subject'      => 'Your {{site_name}} appeal has been reviewed',
 				'preview_text' => 'Your moderation appeal has been resolved',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your appeal on {{site_name}} has been reviewed and <strong>{{decision}}</strong>.</p><p>If you have questions about this decision, please contact our moderation team.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.unsuspension_confirmation',
-				'subject'      => 'Your account suspension has been lifted — {{site_name}}',
+				'subject'      => 'Your {{site_name}} account suspension has been lifted',
 				'preview_text' => 'Welcome back — your suspension has been lifted',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Good news — your account suspension on {{site_name}} has been lifted. You can post and interact with the community again.</p><p>Please review our community guidelines to keep your account in good standing.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.new_report',
-				'subject'      => 'New content report awaiting review — {{site_name}}',
+				'subject'      => 'New content report awaiting review on {{site_name}}',
 				'preview_text' => 'A member reported content for moderation',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>A new report was filed on {{site_name}} and is waiting in the moderation queue.</p><p><a href="{{action_url}}">Review the moderation queue &rarr;</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
@@ -692,17 +1287,24 @@ class Installer {
 
 		// ── 1. Groups ──────────────────────────────────────────────────────────
 
-		// All five built-in groups are seeded on install (INSERT IGNORE is safe
+		// All six built-in groups are seeded on install (INSERT IGNORE is safe
 		// on re-runs). The spec defines these as the canonical group set:
 		// Basic Info (flat), Social Links (flat), Work Experience (repeater),
-		// Education (repeater), Skills (flat).
+		// Education (repeater), Skills (flat), Interests (flat — the
+		// category_multiselect field that powers people/space/feed suggestions;
+		// see docs/plans/interests-personalization.md).
 		// Format: group_key, label, type, visibility, is_system, sort_order.
+		// Freedom pass (v18): only basic_info (spine fields), skills and interests
+		// (suggestion signal) are system groups. The showcase sections — Social
+		// Links, Work Experience, Education — are the owner's to keep or prune;
+		// display templates self-hide when a group is gone (display contract §3).
 		$groups = array(
 			array( 'basic_info', 'Basic Info', 'flat', 'public', 1, 1 ),
-			array( 'social_links', 'Social Links', 'flat', 'public', 1, 2 ),
-			array( 'work_experience', 'Work Experience', 'repeater', 'public', 1, 3 ),
-			array( 'education', 'Education', 'repeater', 'public', 1, 4 ),
+			array( 'social_links', 'Social Links', 'flat', 'public', 0, 2 ),
+			array( 'work_experience', 'Work Experience', 'repeater', 'public', 0, 3 ),
+			array( 'education', 'Education', 'repeater', 'public', 0, 4 ),
 			array( 'skills', 'Skills', 'flat', 'public', 1, 5 ),
+			array( 'interests', 'Interests', 'flat', 'public', 1, 6 ),
 		);
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -721,6 +1323,27 @@ class Installer {
 				)
 			);
 		}
+
+		// An existing site may carry the SetupWizard-preset 'interests' group
+		// (seeded is_system=0): converge it to the canonical system group. The
+		// INSERT IGNORE above no-ops on it, so flip the flag explicitly.
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_groups`
+			    SET is_system = 1, label = 'Interests'
+			  WHERE group_key = 'interests'
+			    AND is_system = 0"
+		);
+
+		// Freedom pass (v18): converge pre-v18 installs where the showcase
+		// sections were seeded is_system=1 — the INSERT IGNORE above no-ops on
+		// existing rows, so drop the group lock explicitly. Field-level
+		// is_system (the bio/headline/location/interests spine) is untouched.
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_groups`
+			    SET is_system = 0
+			  WHERE group_key IN ('social_links', 'work_experience', 'education')
+			    AND is_system = 1"
+		);
 
 		// ── 2. Fields ─────────────────────────────────────────────────────────
 		// Each INSERT uses a subquery to resolve group_id by group_key.
@@ -759,8 +1382,15 @@ class Installer {
 			array( 'education', 'edu_end_year', 'End Year', 'number', 0, 0, 5 ),
 			array( 'education', 'edu_current', 'Currently Attending', 'boolean', 0, 0, 6 ),
 
-			// skills (flat).
-			array( 'skills', 'interests', 'Skills / Interests', 'text', 0, 1, 1 ),
+			// skills (flat). Key renamed interests->skills in v17 (the canonical
+			// 'interests' key now belongs to the category_multiselect field below);
+			// maybe_migrate_skills_field_key() converges existing sites BEFORE this
+			// seeder runs, so the INSERT IGNORE never creates a duplicate.
+			array( 'skills', 'skills', 'Skills', 'text', 0, 1, 1 ),
+
+			// interests (flat) — the suggestion signal: one bn_profile_values row
+			// per picked space category (see docs/plans/interests-personalization.md).
+			array( 'interests', 'interests', 'Interests', 'category_multiselect', 0, 1, 1 ),
 		);
 
 		foreach ( $fields as $f ) {
@@ -781,6 +1411,21 @@ class Installer {
 				)
 			);
 		}
+
+		// ── 3. System-field protection (v16/v17) ─────────────────────────────
+		// Exactly the load-bearing spine is protected from deletion: bio (search
+		// index + directory cards), headline (hero + directory), location
+		// (directory filter), interests (the suggestion signal the engines read).
+		// Every other seeded field stays deletable so owners can customise their
+		// profile schema — display-only fields degrade gracefully by design.
+		// Idempotent single UPDATE; covers fresh installs and (via
+		// maybe_upgrade -> run) existing sites alike.
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_fields`
+			    SET is_system = 1
+			  WHERE field_key IN ('bio', 'headline', 'location', 'interests')
+			    AND is_system = 0"
+		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
@@ -933,6 +1578,7 @@ class Installer {
 				type               ENUM('open','private','secret') NOT NULL DEFAULT 'open',
 				owner_id           BIGINT(20) UNSIGNED NOT NULL,
 				member_count       INT UNSIGNED NOT NULL DEFAULT 0,
+				last_active_at     DATETIME NULL DEFAULT NULL,
 				cover_image_url    VARCHAR(500) DEFAULT NULL,
 				avatar_url         VARCHAR(500) DEFAULT NULL,
 				rules              TEXT NULL DEFAULT NULL,
@@ -946,7 +1592,11 @@ class Installer {
 				UNIQUE KEY         slug (slug),
 				KEY                owner (owner_id),
 				KEY                category (category_id),
-				KEY                is_archived (is_archived)
+				KEY                parent (parent_id),
+				KEY                is_archived (is_archived),
+				KEY                dir_popular (parent_id, member_count),
+				KEY                dir_name (parent_id, name),
+				KEY                dir_recent (parent_id, created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_space_members (
@@ -958,7 +1608,8 @@ class Installer {
 				joined_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY       (space_id, user_id),
 				KEY               user_role (user_id, role),
-				KEY               user_status (user_id, status)
+				KEY               user_status (user_id, status),
+				KEY               space_status (space_id, status, joined_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_space_categories (
@@ -973,6 +1624,22 @@ class Installer {
 				sort_order  INT NOT NULL DEFAULT 0,
 				PRIMARY KEY (id),
 				UNIQUE KEY  slug (slug)
+			) {$cs};",
+
+			// Per-space metadata — WP-meta-shaped so the native metadata API
+			// (get/add/update/delete_metadata, register_meta, WP_Meta_Query, meta
+			// cache) works against it once $wpdb->bn_spacemeta is aliased. meta_type
+			// is 'bn_space', so WP derives the id column as bn_space_id. This is the
+			// extensibility substrate: every new per-space attribute is a meta row,
+			// never a new column or an autoloaded option.
+			"CREATE TABLE {$p}bn_space_meta (
+				meta_id     BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				bn_space_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+				meta_key    VARCHAR(255) DEFAULT NULL,
+				meta_value  LONGTEXT DEFAULT NULL,
+				PRIMARY KEY (meta_id),
+				KEY         bn_space_id (bn_space_id),
+				KEY         meta_key (meta_key(191))
 			) {$cs};",
 
 			// ── Notifications + Email ──────────────────────────────────────────
@@ -1022,7 +1689,8 @@ class Installer {
 				digest_date DATE DEFAULT NULL,
 				sent_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
-				KEY         user_type (user_id, type, digest_date)
+				KEY         user_type (user_id, type, digest_date),
+				KEY         type (type)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_verify_tokens (
@@ -1119,9 +1787,12 @@ class Installer {
 				label         VARCHAR(255) NOT NULL,
 				type          VARCHAR(32) NOT NULL DEFAULT 'text',
 				options       JSON DEFAULT NULL,
+				description   VARCHAR(255) DEFAULT NULL,
+				placeholder   VARCHAR(255) DEFAULT NULL,
 				is_required   TINYINT(1) NOT NULL DEFAULT 0,
 				is_searchable TINYINT(1) NOT NULL DEFAULT 0,
 				show_on_register TINYINT(1) NOT NULL DEFAULT 0,
+				is_system     TINYINT(1) NOT NULL DEFAULT 0,
 				visibility    ENUM('public','followers','connections','private') NOT NULL DEFAULT 'public',
 				sort_order    INT NOT NULL DEFAULT 0,
 				PRIMARY KEY   (id),
@@ -1139,7 +1810,8 @@ class Installer {
 				PRIMARY KEY      (id),
 				UNIQUE KEY       user_field_entry (user_id, field_id, entry_index),
 				KEY              field_idx (field_id),
-				KEY              user_idx (user_id)
+				KEY              user_idx (user_id),
+				KEY              field_value (field_id, value(20))
 			) {$cs};",
 
 			// ── Search Index ───────────────────────────────────────────────────
@@ -1460,10 +2132,10 @@ if ( is_admin() || ( defined( 'WP_CLI' ) && WP_CLI ) ) {
 /**
  * Determine whether the current HTTP request targets a BuddyNext front-end route.
  *
- * Queries wp_options directly via $wpdb — WordPress option API is not yet
- * available this early in the bootstrap sequence.
- *
- * Uses a static guard so the DB query runs at most once per request.
+ * Reads the autoloaded buddynext_slug_* options via the options API, so the
+ * lookup is served from the single alloptions cache WordPress loads each request
+ * (no extra query) and from the object cache on Redis/Memcached sites. A static
+ * guard ensures the work runs at most once per request.
  *
  * @return bool
  */
@@ -1483,39 +2155,12 @@ function buddynext_mu_is_bn_request() {
 		return false;
 	}
 
-	global $wpdb;
-
-	// Fetch all six slug options in a single query.
-	$option_names = array(
-		'buddynext_slug_activity',
-		'buddynext_slug_people',
-		'buddynext_slug_spaces',
-		'buddynext_slug_messages',
-		'buddynext_slug_notifications',
-		'buddynext_slug_auth',
-	);
-
-	$placeholders = implode( ', ', array_fill( 0, count( $option_names ), "'%s'" ) );
-
-	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-	$rows = $wpdb->get_results(
-		$wpdb->prepare(
-			"SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name IN ( {$placeholders} )",
-			$option_names
-		),
-		ARRAY_A
-	);
-	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-
-	// Build a map of option_name => value, then merge with hard-coded defaults.
-	$fetched = array();
-	if ( is_array( $rows ) ) {
-		foreach ( $rows as $row ) {
-			$fetched[ $row['option_name'] ] = $row['option_value'];
-		}
-	}
-
-	$defaults = array(
+	// Read the six hub slugs via the options API. They are autoloaded, so this
+	// is served from the single alloptions cache WordPress already loads each
+	// request (no extra query) and from the object cache on Redis/Memcached
+	// sites. The option_active_plugins filter below is registered only AFTER
+	// this function returns, so reading options here cannot recurse into it.
+	$slug_defaults = array(
 		'buddynext_slug_activity'      => 'activity',
 		'buddynext_slug_people'        => 'members',
 		'buddynext_slug_spaces'        => 'spaces',
@@ -1524,12 +2169,15 @@ function buddynext_mu_is_bn_request() {
 		'buddynext_slug_auth'          => 'login',
 	);
 
-	$slugs = array_merge( $defaults, $fetched );
+	foreach ( $slug_defaults as $option_name => $default_slug ) {
+		$slug = trim( (string) get_option( $option_name, $default_slug ) );
+		if ( '' === $slug ) {
+			$slug = $default_slug;
+		}
 
-	foreach ( $slugs as $slug ) {
 		// Match the first path segment exactly — not a bare prefix — so a page
-		// like /membership/ does not get isolated by the 'members' slug.
-		if ( '' !== $slug && ( $path === $slug || 0 === strpos( $path, $slug . '/' ) ) ) {
+		// like /membership/ is not isolated by the 'members' slug.
+		if ( $path === $slug || 0 === strpos( $path, $slug . '/' ) ) {
 			$result = true;
 			return true;
 		}
@@ -1592,13 +2240,12 @@ if ( buddynext_mu_is_bn_request() ) {
 			);
 
 			// Plus any dynamic / 3rd-party additions BuddyNext mirrors into the
-			// `buddynext_isolation_plugins` option (raw SQL: the WP option API is not
-			// available this early). The hard-coded family above is the floor; this
-			// merge only adds extras a filter contributed at runtime.
-			global $wpdb;
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-			$json         = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = 'buddynext_isolation_plugins' LIMIT 1" );
-			$integrations = is_string( $json ) ? json_decode( $json, true ) : null;
+			// `buddynext_isolation_plugins` option. Read via the options API so it
+			// rides the object cache (Redis/Memcached) instead of a raw query. The
+			// hard-coded family above is the floor; this merge only adds extras a
+			// filter contributed at runtime.
+			$stored       = get_option( 'buddynext_isolation_plugins', '' );
+			$integrations = is_string( $stored ) ? json_decode( $stored, true ) : $stored;
 			if ( ! is_array( $integrations ) ) {
 				$integrations = array();
 			}
@@ -1617,85 +2264,47 @@ MUPLUGIN;
 	}
 
 	/**
-	 * Create the six BuddyNext hub pages (activity, members, spaces, messages,
-	 * notifications, auth/login) if they do not already exist.
+	 * Create the BuddyNext hub backing pages if they do not already exist.
 	 *
-	 * Safe to call on every activation — existing published pages are left
-	 * untouched.
+	 * Iterates the HubRegistry and creates one published WP page per hub that
+	 * has backing_page === true. Hubs with backing_page === false (e.g. onboarding)
+	 * are skipped. Safe to call on every activation — existing published pages are
+	 * left untouched.
 	 *
 	 * @return void
 	 */
 	public static function create_hub_pages(): void {
-		$hubs = array(
-			'activity'      => array(
-				'option_slug' => 'buddynext_slug_activity',
-				'option_page' => 'buddynext_page_activity',
-				'title'       => __( 'Activity', 'buddynext' ),
-				'shortcode'   => '[buddynext_activity]',
-				'default'     => 'activity',
-			),
-			'people'        => array(
-				'option_slug' => 'buddynext_slug_people',
-				'option_page' => 'buddynext_page_people',
-				'title'       => __( 'Members', 'buddynext' ),
-				'shortcode'   => '[buddynext_people]',
-				'default'     => 'members',
-			),
-			'spaces'        => array(
-				'option_slug' => 'buddynext_slug_spaces',
-				'option_page' => 'buddynext_page_spaces',
-				'title'       => __( 'Spaces', 'buddynext' ),
-				'shortcode'   => '[buddynext_spaces]',
-				'default'     => 'spaces',
-			),
-			'messages'      => array(
-				'option_slug' => 'buddynext_slug_messages',
-				'option_page' => 'buddynext_page_messages',
-				'title'       => __( 'Messages', 'buddynext' ),
-				'shortcode'   => '[buddynext_messages]',
-				'default'     => 'messages',
-			),
-			'notifications' => array(
-				'option_slug' => 'buddynext_slug_notifications',
-				'option_page' => 'buddynext_page_notifications',
-				'title'       => __( 'Notifications', 'buddynext' ),
-				'shortcode'   => '[buddynext_notifications]',
-				'default'     => 'notifications',
-			),
-			'auth'          => array(
-				'option_slug' => 'buddynext_slug_auth',
-				'option_page' => 'buddynext_page_auth',
-				'title'       => __( 'Login', 'buddynext' ),
-				'shortcode'   => '[buddynext_auth]',
-				'default'     => 'login',
-			),
-		);
+		// create_hub_pages() can run at activation before the normal boot path; make
+		// sure the hub registry is populated.
+		if ( ! HubRegistry::instance()->has( 'feed' ) ) {
+			CoreHubs::register( HubRegistry::instance() );
+		}
 
-		foreach ( $hubs as $hub ) {
-			$existing_id = (int) get_option( $hub['option_page'], 0 );
+		foreach ( HubRegistry::instance()->all() as $hub ) {
+			if ( ! $hub->backing_page ) {
+				continue;
+			}
+			$existing_id = (int) get_option( $hub->page_option, 0 );
 			if ( $existing_id > 0 && 'publish' === get_post_status( $existing_id ) ) {
 				continue;
 			}
-
-			$slug = (string) get_option( $hub['option_slug'], $hub['default'] );
+			$slug = (string) get_option( $hub->slug_option, $hub->default_slug );
 			if ( '' === $slug ) {
-				$slug = $hub['default'];
+				$slug = $hub->default_slug;
 			}
-
 			$page_id = wp_insert_post(
 				array(
-					'post_title'     => $hub['title'],
+					'post_title'     => $hub->title,
 					'post_name'      => $slug,
-					'post_content'   => $hub['shortcode'],
+					'post_content'   => $hub->shortcode,
 					'post_status'    => 'publish',
 					'post_type'      => 'page',
 					'comment_status' => 'closed',
 				)
 			);
-
 			if ( $page_id > 0 ) {
-				update_option( $hub['option_page'], $page_id );
-				update_option( $hub['option_slug'], $slug );
+				update_option( $hub->page_option, $page_id );
+				update_option( $hub->slug_option, $slug );
 			}
 		}
 

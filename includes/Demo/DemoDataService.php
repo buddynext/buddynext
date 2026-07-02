@@ -45,6 +45,7 @@ use BuddyNext\Profile\ProfileService;
 use BuddyNext\Reactions\ReactionService;
 use BuddyNext\SocialGraph\ConnectionService;
 use BuddyNext\SocialGraph\FollowService;
+use BuddyNext\Spaces\SpaceCategoryService;
 use BuddyNext\Spaces\SpaceMemberService;
 use BuddyNext\Spaces\SpaceService;
 
@@ -216,40 +217,92 @@ class DemoDataService {
 	 */
 	private const SPACES = array(
 		array(
-			'name' => 'Design Critique',
-			'slug' => 'design-critique',
-			'type' => 'open',
-			'desc' => 'Share work in progress and get honest, kind feedback.',
+			'name'     => 'Design Critique',
+			'slug'     => 'design-critique',
+			'type'     => 'open',
+			'desc'     => 'Share work in progress and get honest, kind feedback.',
+			'category' => 'general',
 		),
 		array(
-			'name' => 'Frontend Guild',
-			'slug' => 'frontend-guild',
-			'type' => 'open',
-			'desc' => 'Everything CSS, a11y, and the modern web platform.',
+			'name'     => 'Frontend Guild',
+			'slug'     => 'frontend-guild',
+			'type'     => 'open',
+			'desc'     => 'Everything CSS, a11y, and the modern web platform.',
+			'category' => 'help-support',
 		),
 		array(
-			'name' => 'Book Club',
-			'slug' => 'book-club',
-			'type' => 'private',
-			'desc' => 'One book a month. Request to join and pick up the current read.',
+			'name'     => 'Book Club',
+			'slug'     => 'book-club',
+			'type'     => 'private',
+			'desc'     => 'One book a month. Request to join and pick up the current read.',
+			'category' => 'off-topic',
 		),
 		array(
-			'name' => 'Trail Runners',
-			'slug' => 'trail-runners',
-			'type' => 'open',
-			'desc' => 'Routes, gear talk, and weekend meetups.',
+			'name'     => 'Trail Runners',
+			'slug'     => 'trail-runners',
+			'type'     => 'open',
+			'desc'     => 'Routes, gear talk, and weekend meetups.',
+			'category' => 'general',
 		),
 		array(
-			'name' => 'Founders Lounge',
-			'slug' => 'founders-lounge',
-			'type' => 'secret',
-			'desc' => 'Invite-only room for the core team to talk shop.',
+			'name'     => 'Founders Lounge',
+			'slug'     => 'founders-lounge',
+			'type'     => 'secret',
+			'desc'     => 'Invite-only room for the core team to talk shop.',
+			'category' => 'announcements',
 		),
 		array(
-			'name' => 'Photo Walks',
-			'slug' => 'photo-walks',
-			'type' => 'private',
-			'desc' => 'Monthly city photo walks. Members share their best frame.',
+			'name'     => 'Photo Walks',
+			'slug'     => 'photo-walks',
+			'type'     => 'private',
+			'desc'     => 'Monthly city photo walks. Members share their best frame.',
+			'category' => 'introductions',
+		),
+	);
+
+	/**
+	 * Sub-spaces to seed under the roots above, keyed by parent slug. Proves the
+	 * parent <-> child link end to end on a seeded community — the breadcrumb up
+	 * from a child and the "Sub-spaces" rail down from a parent. A private child
+	 * under an open parent also exercises the visibility-scoped get_subspaces().
+	 *
+	 * @var array<int,array<string,string>>
+	 */
+	private const SUBSPACES = array(
+		array(
+			'parent' => 'design-critique',
+			'name'   => 'UI Patterns',
+			'slug'   => 'ui-patterns',
+			'type'   => 'open',
+			'desc'   => 'A shared library of interface patterns and when to reach for each.',
+		),
+		array(
+			'parent' => 'design-critique',
+			'name'   => 'Accessibility Lab',
+			'slug'   => 'accessibility-lab',
+			'type'   => 'open',
+			'desc'   => 'Audits, fixes, and WCAG questions pulled from real project work.',
+		),
+		array(
+			'parent' => 'design-critique',
+			'name'   => 'Design Systems',
+			'slug'   => 'design-systems',
+			'type'   => 'private',
+			'desc'   => 'Tokens, components, and governance for the system team.',
+		),
+		array(
+			'parent' => 'frontend-guild',
+			'name'   => 'CSS Architecture',
+			'slug'   => 'css-architecture',
+			'type'   => 'open',
+			'desc'   => 'Cascade layers, container queries, and CSS that scales.',
+		),
+		array(
+			'parent' => 'frontend-guild',
+			'name'   => 'Web Performance',
+			'slug'   => 'web-performance',
+			'type'   => 'open',
+			'desc'   => 'Core Web Vitals, bundle budgets, and real-device profiling.',
 		),
 	);
 
@@ -526,6 +579,18 @@ class DemoDataService {
 		$space_service = new SpaceService();
 		$space_members = new SpaceMemberService();
 		$space_ids     = array();
+		$space_by_slug = array();
+
+		// Map category slugs to ids so the seeded spaces are filterable by category
+		// in the directory (the category chips are dead weight on a fresh, empty
+		// dataset otherwise).
+		$cat_by_slug = array();
+		foreach ( ( new SpaceCategoryService() )->get_all() as $bn_cat ) {
+			if ( isset( $bn_cat['slug'], $bn_cat['id'] ) ) {
+				$cat_by_slug[ (string) $bn_cat['slug'] ] = (int) $bn_cat['id'];
+			}
+		}
+
 		foreach ( self::SPACES as $i => $space ) {
 			$owner_id = $user_ids[ $i % count( $user_ids ) ];
 			$space_id = $space_service->create(
@@ -535,13 +600,15 @@ class DemoDataService {
 					'slug'        => $space['slug'],
 					'type'        => $space['type'],
 					'description' => $space['desc'],
+					'category_id' => $cat_by_slug[ $space['category'] ] ?? 0,
 				)
 			);
 			if ( is_wp_error( $space_id ) ) {
 				continue;
 			}
-			$space_ids[]          = $space_id;
-			$manifest['spaces'][] = $space_id;
+			$space_ids[]                     = $space_id;
+			$space_by_slug[ $space['slug'] ] = $space_id;
+			$manifest['spaces'][]            = $space_id;
 
 			$this->store_bundled( $storage, 'avatar', 'space', $space_id, 'avatars/avatar-' . sprintf( '%02d', ( ( $i + 4 ) % 12 ) + 1 ) . '.png' );
 			$this->store_bundled( $storage, 'cover', 'space', $space_id, 'covers/cover-' . sprintf( '%02d', ( ( $i + 3 ) % 8 ) + 1 ) . '.png' );
@@ -566,6 +633,49 @@ class DemoDataService {
 			}
 		}
 		$say( sprintf( 'Created %d spaces.', count( $space_ids ) ) );
+
+		// ── Sub-spaces (children of the roots above) ────────────────────────
+		// Created through SpaceService::create() with parent_id so depth/cap are
+		// validated exactly as the live UI does, then a slice of members joins so
+		// the rail counts read realistically.
+		$say( 'Creating sub-spaces…' );
+		$sub_count = 0;
+		foreach ( self::SUBSPACES as $i => $sub ) {
+			$parent_id = $space_by_slug[ $sub['parent'] ] ?? 0;
+			if ( ! $parent_id ) {
+				continue;
+			}
+			$owner_id = $user_ids[ ( $i + 1 ) % count( $user_ids ) ];
+			$sub_id   = $space_service->create(
+				$owner_id,
+				array(
+					'name'        => $sub['name'],
+					'slug'        => $sub['slug'],
+					'type'        => $sub['type'],
+					'description' => $sub['desc'],
+					'parent_id'   => $parent_id,
+				)
+			);
+			if ( is_wp_error( $sub_id ) ) {
+				continue;
+			}
+			$space_ids[]          = $sub_id;
+			$manifest['spaces'][] = $sub_id;
+			++$sub_count;
+
+			$this->store_bundled( $storage, 'avatar', 'space', $sub_id, 'avatars/avatar-' . sprintf( '%02d', ( ( $i + 7 ) % 12 ) + 1 ) . '.png' );
+
+			// A third of the roster joins each sub-space (fewer than a root space,
+			// which reads right for a focused child). SUBSPACES are open/private
+			// only — discovery surfaces — so every child takes auto-joins.
+			foreach ( $user_ids as $j => $member_id ) {
+				if ( $member_id === $owner_id || 0 !== ( ( $i + $j ) % 3 ) ) {
+					continue;
+				}
+				$space_members->join( $sub_id, $member_id );
+			}
+		}
+		$say( sprintf( 'Created %d sub-spaces.', $sub_count ) );
 
 		// ── Posts (global + in-space) with comments + reactions ─────────────
 		$say( 'Creating posts, comments, reactions…' );
@@ -652,7 +762,6 @@ class DemoDataService {
 					require_once ABSPATH . 'wp-admin/includes/file.php';
 				}
 				$say( 'Creating media posts…' );
-				$manifest['media'] = $manifest['media'] ?? array();
 				foreach ( self::MEDIA_POSTS as $mi => $mp ) {
 					$src = BUDDYNEXT_DIR . 'assets/demo/' . $mp['img'];
 					if ( ! is_readable( $src ) ) {

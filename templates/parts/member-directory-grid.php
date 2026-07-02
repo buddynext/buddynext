@@ -80,6 +80,35 @@ $bn_members       = (array) $args['members'];
 $bn_viewer_id     = (int) $args['viewer_id'];
 $bn_messages_base = '' !== (string) $args['messages_base'] ? (string) $args['messages_base'] : \BuddyNext\Core\PageRouter::messages_url();
 
+// Batch-prime every per-member relationship signal in a handful of queries up
+// front, instead of the N+1 a per-card service lookup per member would fire.
+// These maps are keyed by member ID and read inside the loop below; the default
+// callables further down close over them, and caller-supplied callables still
+// override. statuses_for() also encodes pending direction and primes the
+// per-pair cache, so connection_state needs no per-row pending_sent() lookup.
+// That lookup was previously capped at 20 and mislabelled sent/received past it.
+$bn_member_ids = array();
+foreach ( $bn_members as $bn_m ) {
+	if ( isset( $bn_m->ID ) ) {
+		$bn_member_ids[] = (int) $bn_m->ID;
+	}
+}
+$bn_member_ids = array_values( array_unique( array_filter( $bn_member_ids ) ) );
+
+$bn_status_map    = array();
+$bn_following_map = array();
+$bn_mutual_map    = array();
+$bn_muted_set     = array();
+if ( $bn_viewer_id > 0 && ! empty( $bn_member_ids ) && function_exists( 'buddynext_service' ) ) {
+	$bn_conn_service   = buddynext_service( 'connections' );
+	$bn_status_map     = $bn_conn_service->statuses_for( $bn_viewer_id, $bn_member_ids );
+	$bn_mutual_map     = $bn_conn_service->mutual_ids_for( $bn_viewer_id, $bn_member_ids );
+	$bn_following_map  = buddynext_service( 'follows' )->following_map( $bn_viewer_id, $bn_member_ids );
+	$bn_blocks_service = buddynext_service( 'blocks' );
+	$bn_blocks_service->prime_restricted_cache( $bn_viewer_id, $bn_member_ids );
+	$bn_muted_set = array_fill_keys( $bn_blocks_service->muted_users( $bn_viewer_id ), true );
+}
+
 // Per-member state is read straight from the relevant services here, so a
 // caller only needs to pass `members` (+ optionally `viewer_id`). Callers that
 // already have cached lookups (the directory) may still pass their own
@@ -102,9 +131,9 @@ $bn_initials_fn     = is_callable( $args['initials_fn'] )
 	? $args['initials_fn']
 	: static fn( string $name ): string => \BuddyNext\Profile\AvatarService::initials_for( $name );
 $bn_is_online_fn    = is_callable( $args['is_online_fn'] ) ? $args['is_online_fn'] : static fn( int $uid ): bool => (bool) buddynext_service( 'blocks' )->is_user_online( $bn_viewer_id, $uid );
-$bn_is_following_fn = is_callable( $args['is_following_fn'] ) ? $args['is_following_fn'] : static fn( int $uid ): bool => $bn_viewer_id > 0 && (bool) buddynext_service( 'follows' )->is_following( $bn_viewer_id, $uid );
-$bn_mutual_fn       = is_callable( $args['mutual_ids_fn'] ) ? $args['mutual_ids_fn'] : static function ( int $a, int $b ): array {
-	return ( $a > 0 && $b > 0 && $a !== $b ) ? (array) buddynext_service( 'connections' )->mutual_connections( $a, $b ) : array();
+$bn_is_following_fn = is_callable( $args['is_following_fn'] ) ? $args['is_following_fn'] : static fn( int $uid ): bool => ! empty( $bn_following_map[ $uid ] );
+$bn_mutual_fn       = is_callable( $args['mutual_ids_fn'] ) ? $args['mutual_ids_fn'] : static function ( int $a, int $b ) use ( $bn_mutual_map ): array {
+	return (array) ( $bn_mutual_map[ $b ] ?? array() );
 };
 
 do_action( 'buddynext_part_member_directory_grid_before', $args );
@@ -145,8 +174,12 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 				'avatar_url' => (string) get_avatar_url( $bn_mu_id, array( 'size' => 40 ) ),
 			);
 		}
-		$bn_degree     = $bn_viewer_id > 0 && $bn_viewer_id !== $bn_member_id
-			? (int) buddynext_service( 'connections' )->connection_degree( $bn_viewer_id, $bn_member_id )
+		// Direction-aware status from the primed map: 'accepted', 'pending-sent',
+		// 'pending-received', another raw status, or null. Degree mirrors
+		// connection_degree(): connected => 1, share a mutual => 2, else 3.
+		$bn_status     = $bn_status_map[ $bn_member_id ] ?? null;
+		$bn_degree     = ( $bn_viewer_id > 0 && $bn_viewer_id !== $bn_member_id )
+			? ( 'accepted' === $bn_status ? 1 : ( ! empty( $bn_mutual_ids ) ? 2 : 3 ) )
 			: 0;
 		$bn_type_slug  = (string) get_user_meta( $bn_member_id, 'bn_member_type', true );
 		$bn_type_data  = '' !== $bn_type_slug ? ( $bn_type_map[ $bn_type_slug ] ?? null ) : null;
@@ -154,27 +187,30 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 		$bn_type_icon  = ( is_array( $bn_type_data ) && isset( $bn_type_data['icon_svg'] ) ) ? (string) $bn_type_data['icon_svg'] : '';
 		// Open (or start) a native DM with this member — /messages/?to={id}
 		// find-or-creates the conversation and opens it.
-		$bn_messages_url  = add_query_arg( 'to', $bn_member_id, $bn_messages_base );
-		$bn_conn_status   = $bn_viewer_id > 0
-			? buddynext_service( 'connections' )->status( $bn_viewer_id, $bn_member_id )
-			: null;
+		$bn_messages_url = add_query_arg( 'to', $bn_member_id, $bn_messages_base );
+		// Reduce the direction-encoded status to the raw value the card expects
+		// ('accepted' | 'pending' | other | null).
+		$bn_conn_status = null;
+		if ( null !== $bn_status ) {
+			$bn_conn_status = ( 0 === strpos( $bn_status, 'pending' ) ) ? 'pending' : $bn_status;
+		}
 		$bn_tone_count    = max( 1, count( $bn_tones ) );
 		$bn_avatar_tone   = ! empty( $bn_tones ) ? (string) $bn_tones[ $bn_member_id % $bn_tone_count ] : 'accent';
 		$bn_presence_attr = $bn_is_online ? 'online' : 'offline';
 		$bn_initials_text = (string) $bn_initials_fn( $bn_display_name );
 
-		// Resolve direction-aware connection state for the 5-state Connect button.
+		// 5-state Connect button — the primed map already carries the pending
+		// direction, so no per-row pending_sent() lookup is needed.
 		$bn_conn_state = 'none';
-		if ( 'accepted' === $bn_conn_status ) {
+		if ( 'accepted' === $bn_status ) {
 			$bn_conn_state = 'accepted';
-		} elseif ( 'pending' === $bn_conn_status && $bn_viewer_id > 0 ) {
-			$bn_sent_ids   = buddynext_service( 'connections' )->pending_sent( $bn_viewer_id );
-			$bn_conn_state = in_array( $bn_member_id, $bn_sent_ids, true ) ? 'pending-sent' : 'pending-received';
+		} elseif ( 'pending-sent' === $bn_status ) {
+			$bn_conn_state = 'pending-sent';
+		} elseif ( 'pending-received' === $bn_status ) {
+			$bn_conn_state = 'pending-received';
 		}
 
-		$bn_is_muted = $bn_viewer_id > 0
-			? (bool) buddynext_service( 'blocks' )->is_muted( $bn_viewer_id, $bn_member_id )
-			: false;
+		$bn_is_muted = isset( $bn_muted_set[ $bn_member_id ] );
 
 		buddynext_get_template(
 			'parts/member-card.php',

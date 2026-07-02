@@ -1,0 +1,79 @@
+{
+  "domain": "buddynext",
+  "potFile": "languages/buddynext.pot",
+  "languagesDir": "languages",
+  "engine": "claude",
+  "model": "haiku",
+  "batch": 40,
+  "makeJson": true,
+  "protect": [
+    "Jetonomy",
+    "Pro",
+    "WordPress",
+    "BuddyPress",
+    "REST",
+    "API",
+    "URL",
+    "CSV",
+    "AI"
+  ],
+  "glossary": {
+    "Space": "",
+    "Trust Level": ""
+  },
+  "locales": [
+    {
+      "locale": "de_DE",
+      "name": "German",
+      "register": "informal (du)"
+    },
+    {
+      "locale": "fr_FR",
+      "name": "French",
+      "register": "informal (tu)"
+    },
+    {
+      "locale": "es_ES",
+      "name": "Spanish",
+      "register": "informal (tú)"
+    },
+    {
+      "locale": "nl_NL",
+      "name": "Dutch",
+      "register": "informal (je)"
+    },
+    {
+      "locale": "ko_KR",
+      "name": "Korean",
+      "register": "polite (해요체)",
+      "model": "sonnet"
+    },
+    {
+      "locale": "pt_BR",
+      "name": "Portuguese (Brazil)",
+      "register": "informal (você)"
+    },
+    {
+      "locale": "it_IT",
+      "name": "Italian",
+      "register": "informal (tu)"
+    },
+    {
+      "locale": "ru_RU",
+      "name": "Russian",
+      "register": "neutral"
+    },
+    {
+      "locale": "ja",
+      "name": "Japanese",
+      "register": "polite (です/ます)",
+      "model": "sonnet"
+    },
+    {
+      "locale": "zh_CN",
+      "name": "Chinese (Simplified)",
+      "register": "neutral",
+      "model": "sonnet"
+    }
+  ]
+}

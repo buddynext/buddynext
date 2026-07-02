@@ -31,6 +31,7 @@ class Spaces extends AdminPageBase {
 	 */
 	public function register(): void {
 		add_action( 'admin_post_bn_delete_space', array( $this, 'handle_delete' ) );
+		add_action( 'admin_post_bn_archive_space', array( $this, 'handle_archive' ) );
 		add_action( 'admin_post_bn_bulk_spaces', array( $this, 'handle_bulk' ) );
 		add_action( 'admin_post_bn_save_space_category', array( $this, 'handle_save_category' ) );
 		add_action( 'admin_post_bn_delete_space_category', array( $this, 'handle_delete_category' ) );
@@ -74,7 +75,7 @@ class Spaces extends AdminPageBase {
 			$version,
 			true
 		);
-		wp_set_script_translations( 'bn-admin-bulk-select', 'buddynext' );
+		wp_set_script_translations( 'bn-admin-bulk-select', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 		wp_enqueue_script(
 			'bn-admin-spaces',
@@ -83,7 +84,7 @@ class Spaces extends AdminPageBase {
 			$version,
 			true
 		);
-		wp_set_script_translations( 'bn-admin-spaces', 'buddynext' );
+		wp_set_script_translations( 'bn-admin-spaces', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 	}
 
 	/**
@@ -153,7 +154,7 @@ class Spaces extends AdminPageBase {
 		$cats_url = add_query_arg( 'subtab', 'categories', $base_url );
 		$is_cats  = ( 'categories' === $subtab );
 		?>
-		<nav class="bn-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Spaces admin sections', 'buddynext' ); ?>" style="margin-block-end:var(--bn-s4,16px)">
+		<nav class="bn-tabs bn-a-block-gap" role="tablist" aria-label="<?php esc_attr_e( 'Spaces admin sections', 'buddynext' ); ?>">
 			<a href="<?php echo esc_url( $base_url ); ?>" class="bn-tab" role="tab" aria-selected="<?php echo $is_cats ? 'false' : 'true'; ?>">
 				<?php esc_html_e( 'Spaces', 'buddynext' ); ?>
 			</a>
@@ -168,11 +169,18 @@ class Spaces extends AdminPageBase {
 			return;
 		}
 
+		// Sort: default newest-created; ?orderby=last_active_at surfaces the
+		// alive-vs-dead signal (whitelisted in the query builder).
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only list filter.
+		$bn_orderby = sanitize_key( wp_unslash( $_GET['orderby'] ?? 'created_at' ) );
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
 		$data   = $this->list_spaces(
 			array(
-				'page'   => $page,
-				'search' => $search,
-				'type'   => $type,
+				'page'    => $page,
+				'search'  => $search,
+				'type'    => $type,
+				'orderby' => $bn_orderby,
 			)
 		);
 		$spaces = $data['spaces'];
@@ -188,6 +196,27 @@ class Spaces extends AdminPageBase {
 			?>
 			<div class="notice notice-success is-dismissible">
 				<p><?php esc_html_e( 'Space deleted successfully.', 'buddynext' ); ?></p>
+			</div>
+			<?php
+		}
+
+		// Archive/unarchive confirmation (handle_archive redirects with ?archived=1|0).
+		// isset (not !empty) because the unarchive value '0' is falsy.
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
+		if ( isset( $_GET['archived'] ) ) {
+			$bn_archived = '1' === sanitize_text_field( wp_unslash( $_GET['archived'] ) );
+			// phpcs:enable WordPress.Security.NonceVerification.Recommended
+			?>
+			<div class="notice notice-success is-dismissible">
+				<p>
+				<?php
+				if ( $bn_archived ) {
+					esc_html_e( 'Space archived.', 'buddynext' );
+				} else {
+					esc_html_e( 'Space unarchived.', 'buddynext' );
+				}
+				?>
+				</p>
 			</div>
 			<?php
 		}
@@ -287,14 +316,16 @@ class Spaces extends AdminPageBase {
 							<th scope="col"><?php esc_html_e( 'Space', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Type', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Members', 'buddynext' ); ?></th>
-							<th scope="col"><?php esc_html_e( 'Created', 'buddynext' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Join Requests', 'buddynext' ); ?></th>
+							<th scope="col"><a href="<?php echo esc_url( add_query_arg( 'orderby', 'last_active_at' ) ); ?>" class="bn-th-sort<?php echo 'last_active_at' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Last Activity', 'buddynext' ); ?></a></th>
+							<th scope="col"><a href="<?php echo esc_url( remove_query_arg( 'orderby' ) ); ?>" class="bn-th-sort<?php echo 'created_at' === $bn_orderby ? ' is-active' : ''; ?>"><?php esc_html_e( 'Created', 'buddynext' ); ?></a></th>
 							<th scope="col"><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
 						</tr>
 					</thead>
 					<tbody>
 						<?php if ( empty( $spaces ) ) : ?>
 							<tr>
-								<td colspan="6">
+								<td colspan="7">
 									<p class="description"><?php esc_html_e( 'No spaces found.', 'buddynext' ); ?></p>
 								</td>
 							</tr>
@@ -323,6 +354,17 @@ class Spaces extends AdminPageBase {
 											<?php if ( ! empty( $space['is_archived'] ) ) : ?>
 												<span class="bn-badge" data-tone="warning"><?php esc_html_e( 'Archived', 'buddynext' ); ?></span>
 											<?php endif; ?>
+											<?php if ( '' !== (string) $space['parent_name'] ) : ?>
+												<span class="bn-row-meta">
+													<?php
+													printf(
+														/* translators: %s: parent space name */
+														esc_html__( 'Sub-space of %s', 'buddynext' ),
+														esc_html( (string) $space['parent_name'] )
+													);
+													?>
+												</span>
+											<?php endif; ?>
 											<?php if ( $owner ) : ?>
 												<span class="bn-row-meta">
 													<?php
@@ -344,6 +386,25 @@ class Spaces extends AdminPageBase {
 										</span>
 									</td>
 									<td><?php echo esc_html( (string) $space['member_count'] ); ?></td>
+									<td>
+										<?php if ( $space['pending_count'] > 0 ) : ?>
+											<span class="bn-badge" data-tone="info"><?php echo esc_html( (string) $space['pending_count'] ); ?></span>
+										<?php else : ?>
+											<span class="bn-row-meta" aria-hidden="true">-</span>
+										<?php endif; ?>
+									</td>
+									<td>
+										<?php
+										$bn_last_active = (string) ( $space['last_active_at'] ?? '' );
+										if ( '' !== $bn_last_active ) {
+											$bn_la_ts = strtotime( $bn_last_active . ' UTC' );
+											/* translators: %s: human time difference, e.g. "2 days". */
+											echo esc_html( sprintf( __( '%s ago', 'buddynext' ), human_time_diff( $bn_la_ts, time() ) ) );
+										} else {
+											echo '<span aria-hidden="true">&#8212;</span><span class="screen-reader-text">' . esc_html__( 'No activity yet', 'buddynext' ) . '</span>';
+										}
+										?>
+									</td>
 									<td><?php echo esc_html( (string) $created ); ?></td>
 									<td>
 										<div class="bn-row-actions">
@@ -356,6 +417,16 @@ class Spaces extends AdminPageBase {
 													class="bn-btn" data-variant="secondary" data-size="sm">
 												<?php esc_html_e( 'Manage', 'buddynext' ); ?>
 											</a>
+											<?php // Archive / Unarchive — a non-destructive way to retire a space without deleting its content. ?>
+											<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+												<?php wp_nonce_field( 'bn_archive_space' ); ?>
+												<input type="hidden" name="action" value="bn_archive_space">
+												<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
+												<input type="hidden" name="archive" value="<?php echo empty( $space['is_archived'] ) ? '1' : '0'; ?>">
+												<button type="submit" class="bn-btn" data-variant="ghost" data-size="sm">
+													<?php echo empty( $space['is_archived'] ) ? esc_html__( 'Archive', 'buddynext' ) : esc_html__( 'Unarchive', 'buddynext' ); ?>
+												</button>
+											</form>
 											<form method="post"
 													action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
 													class="bn-delete-space-form">
@@ -711,7 +782,7 @@ class Spaces extends AdminPageBase {
 		$offset = ( $page - 1 ) * $per_page;
 		$table  = $wpdb->prefix . 'bn_spaces';
 
-		$allowed_columns = array( 'id', 'name', 'member_count', 'created_at', 'type' );
+		$allowed_columns = array( 'id', 'name', 'member_count', 'created_at', 'last_active_at', 'type' );
 		if ( ! in_array( $orderby, $allowed_columns, true ) ) {
 			$orderby = 'created_at';
 		}
@@ -763,15 +834,50 @@ class Spaces extends AdminPageBase {
 		$spaces = array();
 		foreach ( (array) $rows as $row ) {
 			$spaces[] = array(
-				'id'           => (int) $row->id,
-				'name'         => $row->name,
-				'slug'         => (string) $row->slug,
-				'owner_id'     => (int) $row->owner_id,
-				'member_count' => (int) $row->member_count,
-				'type'         => $row->type,
-				'is_archived'  => ! empty( $row->is_archived ),
-				'created_at'   => $row->created_at,
+				'id'             => (int) $row->id,
+				'name'           => $row->name,
+				'slug'           => (string) $row->slug,
+				'owner_id'       => (int) $row->owner_id,
+				'member_count'   => (int) $row->member_count,
+				'type'           => $row->type,
+				'parent_id'      => isset( $row->parent_id ) ? (int) $row->parent_id : 0,
+				'is_archived'    => ! empty( $row->is_archived ),
+				'created_at'     => $row->created_at,
+				'last_active_at' => isset( $row->last_active_at ) ? (string) $row->last_active_at : '',
+				'pending_count'  => 0,
+				'parent_name'    => '',
 			);
+		}
+
+		// Batch the per-row pending-join counts and parent names for THIS page in
+		// one query each — no per-row N+1 on the admin list.
+		$page_ids = array_map( static fn( array $s ): int => $s['id'], $spaces );
+		if ( $page_ids ) {
+			$ids_in = implode( ',', array_map( 'absint', $page_ids ) );
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+			$pending_rows = $wpdb->get_results( "SELECT space_id, COUNT(*) AS cnt FROM {$wpdb->prefix}bn_space_members WHERE status = 'pending' AND space_id IN ({$ids_in}) GROUP BY space_id" );
+			$pending_map  = array();
+			foreach ( (array) $pending_rows as $pr ) {
+				$pending_map[ (int) $pr->space_id ] = (int) $pr->cnt;
+			}
+
+			$parent_ids   = array_values( array_unique( array_filter( array_map( static fn( array $s ): int => $s['parent_id'], $spaces ) ) ) );
+			$parent_names = array();
+			if ( $parent_ids ) {
+				$pids_in = implode( ',', array_map( 'absint', $parent_ids ) );
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+				$prows = $wpdb->get_results( "SELECT id, name FROM {$wpdb->prefix}bn_spaces WHERE id IN ({$pids_in})" );
+				foreach ( (array) $prows as $p ) {
+					$parent_names[ (int) $p->id ] = (string) $p->name;
+				}
+			}
+
+			foreach ( $spaces as &$s ) {
+				$s['pending_count'] = $pending_map[ $s['id'] ] ?? 0;
+				$s['parent_name']   = $s['parent_id'] > 0 ? ( $parent_names[ $s['parent_id'] ] ?? '' ) : '';
+			}
+			unset( $s );
 		}
 
 		$pages = $per_page > 0 ? (int) ceil( $total / $per_page ) : 1;
@@ -846,6 +952,42 @@ class Spaces extends AdminPageBase {
 					'page'        => 'buddynext-spaces',
 					'bulk_action' => $bulk_action,
 					'bulk_done'   => $done,
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Archive or unarchive a space - a non-destructive retire that keeps content.
+	 *
+	 * @return void
+	 */
+	public function handle_archive(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ), 403 );
+		}
+
+		check_admin_referer( 'bn_archive_space' );
+
+		$space_id = absint( wp_unslash( $_POST['space_id'] ?? 0 ) );
+		$archive  = '1' === sanitize_text_field( wp_unslash( $_POST['archive'] ?? '1' ) );
+
+		if ( $space_id > 0 ) {
+			$service = new \BuddyNext\Spaces\SpaceService();
+			if ( $archive ) {
+				$service->archive( $space_id, get_current_user_id() );
+			} else {
+				$service->unarchive( $space_id, get_current_user_id() );
+			}
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'     => 'buddynext-spaces',
+					'archived' => $archive ? '1' : '0',
 				),
 				admin_url( 'admin.php' )
 			)

@@ -294,6 +294,16 @@ class MemberTypeController extends BaseRestController {
 		$user_id   = absint( $request->get_param( 'id' ) );
 		$type_slug = sanitize_key( (string) $request->get_param( 'type_slug' ) );
 
+		// "— None —" in profile edit sends an empty slug to clear the member's type.
+		// can_set_user_type() already confirmed this is the member's own profile (or an
+		// admin), so reuse the existing remove_user_type() rather than 404-ing on an
+		// empty slug — members previously could self-assign but not self-clear (the
+		// DELETE route is admin-only), which 404'd + danger-toasted on "None".
+		if ( '' === $type_slug ) {
+			$this->service->remove_user_type( $user_id );
+			return rest_ensure_response( array( 'member_type' => null ) );
+		}
+
 		$type = $this->service->get_by_slug( $type_slug );
 		if ( ! $type ) {
 			return new WP_Error( 'not_found', __( 'Member type not found.', 'buddynext' ), array( 'status' => 404 ) );

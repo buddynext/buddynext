@@ -95,11 +95,14 @@ class WidgetListener implements ListenerInterface {
 	/**
 	 * Invalidate the user's joined-spaces cache on membership change.
 	 *
-	 * @param int $user_id  Member whose status changed.
+	 * The space membership hooks fire space-first — ( space_id, user_id, ... ) — so
+	 * the param order here matches the firing order, not the (stale) doc.
+	 *
 	 * @param int $space_id Affected space (unused — kept for hook arg shape).
+	 * @param int $user_id  Member whose status changed.
 	 * @return void
 	 */
-	public function bust_user( int $user_id, int $space_id ): void {
+	public function bust_user( int $space_id, int $user_id ): void {
 		unset( $space_id ); // shape-only param, no per-space cache today.
 		$this->cache->invalidate_user( $user_id );
 	}

@@ -26,7 +26,8 @@ defined( 'ABSPATH' ) || exit;
 // Must be logged in and editing own profile (or admin).
 $current_user_id = get_current_user_id();
 if ( ! $current_user_id ) {
-	wp_safe_redirect( wp_login_url( get_permalink() ) );
+	$bn_auth = \BuddyNext\Core\PageRouter::auth_url();
+	wp_safe_redirect( '' !== $bn_auth ? add_query_arg( 'redirect_to', get_permalink(), $bn_auth ) : wp_login_url( get_permalink() ) );
 	exit;
 }
 
@@ -339,7 +340,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						}
 					}
 
-					$bn_rep_html = '<div class="bn-ep-card-body" id="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_gkey ) . '-entries' ) . '" data-bn-required-fields="' . esc_attr( implode( ',', array_keys( $bn_req_keys ) ) ) . '">';
+					$bn_rep_html = '<div class="bn-ep-card-body" id="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_gkey ) . '-entries' ) . '" data-bn-repeater-group="' . esc_attr( $bn_gkey ) . '" data-bn-required-fields="' . esc_attr( implode( ',', array_keys( $bn_req_keys ) ) ) . '">';
 
 					foreach ( $bn_entries as $bn_idx => $bn_entry ) {
 						$bn_idx_int = (int) $bn_idx;
@@ -368,13 +369,20 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 								? ' <span class="bn-ep-required" aria-hidden="true">*</span>'
 								: '';
 
+							// G1: owner-authored help text renders under the label; an
+							// empty description renders nothing (no empty shells).
+							$bn_sf_hint = '';
+							if ( ! empty( $bn_field['description'] ) ) {
+								$bn_sf_hint = '<p class="bn-ep-hint bn-ep-field-hint">' . esc_html( (string) $bn_field['description'] ) . '</p>';
+							}
+
 							// A boolean's control is already self-labelling (the checkbox
 							// carries its own label), so it gets a full-width row with no
 							// redundant outer label.
 							if ( 'boolean' === $bn_ftype ) {
-								$bn_rep_html .= '<div class="bn-ep-field bn-ep-field--full">' . $bn_ctrl . '</div>';
+								$bn_rep_html .= '<div class="bn-ep-field bn-ep-field--full">' . $bn_ctrl . $bn_sf_hint . '</div>';
 							} else {
-								$bn_rep_html .= '<div class="bn-ep-field"><label class="bn-ep-label" for="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_fkey ) . '-' . $bn_idx_int ) . '">' . esc_html( $bn_label ) . $bn_sf_required . '</label>' . $bn_ctrl . '</div>';
+								$bn_rep_html .= '<div class="bn-ep-field"><label class="bn-ep-label" for="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_fkey ) . '-' . $bn_idx_int ) . '">' . esc_html( $bn_label ) . $bn_sf_required . '</label>' . $bn_sf_hint . $bn_ctrl . '</div>';
 							}
 						}
 						$bn_rep_html .= '</div>';
@@ -478,9 +486,17 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						. ' data-wp-text="context.errors.' . esc_attr( $bn_fkey ) . '"'
 						. ' data-wp-bind--hidden="!context.errors.' . esc_attr( $bn_fkey ) . '"></span>';
 
+					// G1: owner-authored help text renders under the label; an empty
+					// description renders nothing (no empty shells).
+					$bn_field_hint = '';
+					if ( ! empty( $bn_field['description'] ) ) {
+						$bn_field_hint = '<p class="bn-ep-hint bn-ep-field-hint">' . esc_html( (string) $bn_field['description'] ) . '</p>';
+					}
+
 					$bn_body_html .= '<div class="' . esc_attr( $bn_field_cls ) . '"'
 						. ' data-wp-class--bn-ep-field--error="context.errors.' . esc_attr( $bn_fkey ) . '">';
 					$bn_body_html .= '<div class="bn-ep-field-head"><label class="bn-ep-label" for="' . esc_attr( $bn_inp_id ) . '">' . esc_html( $bn_label ) . $bn_req_mark . '</label>' . $bn_privacy_html . '</div>';
+					$bn_body_html .= $bn_field_hint;
 					$bn_body_html .= $bn_control;
 					$bn_body_html .= $bn_err_html;
 					$bn_body_html .= '</div>';
@@ -528,6 +544,19 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						);
 					}
 					$bn_mt_html .= '</select>';
+
+					// Surface the selected type's description so the member knows
+					// what it means (the data is already plumbed, just not shown).
+					$bn_mt_desc = '';
+					foreach ( $bn_self_types as $bn_t ) {
+						if ( (string) ( $bn_t['slug'] ?? '' ) === $bn_current_slug ) {
+							$bn_mt_desc = (string) ( $bn_t['description'] ?? '' );
+							break;
+						}
+					}
+					if ( '' !== $bn_mt_desc ) {
+						$bn_mt_html .= '<p class="bn-field-hint bn-ep-member-type-desc">' . esc_html( $bn_mt_desc ) . '</p>';
+					}
 
 					buddynext_get_template(
 						'parts/profile-edit-section.php',

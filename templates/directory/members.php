@@ -63,7 +63,18 @@ if ( '' === $type_slug_filter ) {
 
 $allowed_sort = array( 'registered', 'display_name', 'post_count' );
 $bn_orderby   = in_array( $orderby_raw, $allowed_sort, true ) ? $orderby_raw : 'registered';
-$bn_order     = 'registered' === $bn_orderby ? 'DESC' : 'ASC';
+
+// Map the UI sort to the SSR WP_User_Query orderby:
+// - "newest" (registered) → ID DESC. ID is registration order on an AUTO_INCREMENT
+// users table AND the PRIMARY KEY, so it's filesort-free and — crucially — matches
+// the REST list_members() newest sort (also ID DESC, post-A6d) exactly, so the SSR
+// first page and the live keyset pager never disagree at a page boundary.
+// - "alphabetical" (display_name) → display_name ASC.
+// - "most active" (post_count) → NEVER the WP wp_posts COUNT subquery; falls back to
+// ID DESC for the server paint and the JS re-sorts via REST bn_presence
+// ($bn_initial_sort below still hands the JS 'most_active').
+$bn_query_orderby = ( 'display_name' === $bn_orderby ) ? 'display_name' : 'ID';
+$bn_order         = ( 'display_name' === $bn_query_orderby ) ? 'ASC' : 'DESC';
 
 $allowed_relations = array( 'all', 'following', 'connections' );
 $bn_relation       = in_array( $relation_raw, $allowed_relations, true ) ? $relation_raw : 'all';
@@ -100,36 +111,38 @@ foreach ( $all_types_raw as $t ) {
 unset( $all_types_raw, $t );
 
 // ── Fetch users ───────────────────────────────────────────────────────────
-// Resolve user IDs to exclude via the directory service so the server-rendered
-// first page hides exactly the same members (active suspensions + shadow-banned
-// + both-direction blocks) the REST/live pipeline (MemberDirectoryService::
-// list_members) does — no inline SQL, single source of truth. Passing the viewer
-// folds in their block relationships; the viewer is appended here too because the
-// REST path also excludes them, so a hard reload never lists you or blocked users.
+// The server-rendered first page applies the SAME exclusions + filters the
+// REST/live pipeline (MemberDirectoryService::list_members) does — suspended,
+// shadow-banned, directory-opted-out, bidirectional blocks, member-type, and
+// online-only — but as correlated subqueries injected via pre_user_query (below),
+// never as a materialised IN / NOT IN id list, so the query stays bounded at 50k.
 $bn_directory_service = buddynext_service( 'member_directory' );
 
-$bn_dir_excluded_ids = array_unique(
-	array_map(
-		'intval',
-		array_merge(
-			$bn_directory_service->excluded_user_ids( $current_user_id ),
-			$current_user_id > 0 ? array( $current_user_id ) : array()
-		)
-	)
-);
+// Directory-accurate per-type counts for the "By type" facet. list_members()
+// filters a type via INNER JOIN wp_users + the discovery gate and excludes the
+// viewer, so the raw assignment-row counts on get_all_with_counts() (which count
+// orphaned rows for deleted users and the viewer's own row) would not match the
+// list. Override each row's member_count with the count that reflects exactly
+// who the list shows, so clicking a facet of N lands on N members.
+if ( method_exists( $bn_directory_service, 'type_member_counts' ) ) {
+	$bn_type_counts = $bn_directory_service->type_member_counts( $current_user_id );
+	foreach ( $dir_types as &$bn_dir_type ) {
+		$bn_dir_type['member_count'] = (int) ( $bn_type_counts[ (int) ( $bn_dir_type['id'] ?? 0 ) ] ?? 0 );
+	}
+	unset( $bn_dir_type );
+}
 
 $user_query_args = array(
 	'number'      => $bn_per_page,
 	'paged'       => $bn_current_page,
-	'orderby'     => $bn_orderby,
+	'orderby'     => $bn_query_orderby,
 	'order'       => $bn_order,
 	'fields'      => 'all',
-	'count_total' => true,
+	// No SQL_CALC_FOUND_ROWS — it would scan the WHOLE filtered match set (50k) on
+	// every render just to size the pager. A bounded capped count (below) sizes it
+	// instead; people browse a few pages, not page 2500 (directory-behaviour principle).
+	'count_total' => false,
 );
-
-if ( ! empty( $bn_dir_excluded_ids ) ) {
-	$user_query_args['exclude'] = $bn_dir_excluded_ids;
-}
 
 // Dynamic, privacy-aware search resolved to user IDs so the server render
 // matches the REST/live path exactly (name/login/email + every searchable
@@ -163,38 +176,6 @@ if ( $current_user_id > 0 && 'all' !== $bn_relation ) {
 	}
 }
 
-// Member-directory visibility: hide anyone who opted out of the directory
-// (usermeta bn_privacy_show_in_directory = '0'). Default-visible, so we match
-// users WITHOUT the meta or with any value other than '0'. This must run on the
-// initial server render too — not only the REST pagination path
-// (MemberDirectoryService) — or opted-out members leak onto the first page load.
-$bn_meta_query = array(
-	'relation' => 'AND',
-	array(
-		'relation' => 'OR',
-		array(
-			'key'     => 'bn_privacy_show_in_directory',
-			'compare' => 'NOT EXISTS',
-		),
-		array(
-			'key'     => 'bn_privacy_show_in_directory',
-			'value'   => '0',
-			'compare' => '!=',
-		),
-	),
-);
-
-// Filter by member type via denormalised usermeta (write-through cache — no JOIN needed).
-if ( '' !== $type_slug_filter ) {
-	$bn_meta_query[] = array(
-		'key'     => 'bn_member_type',
-		'value'   => $type_slug_filter,
-		'compare' => '=',
-	);
-}
-
-$user_query_args['meta_query'] = $bn_meta_query; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
-
 // Apply the resolved search IDs to `include`, intersecting with any relation
 // constraint already set above (most-restrictive wins).
 if ( null !== $bn_search_ids ) {
@@ -206,50 +187,98 @@ if ( null !== $bn_search_ids ) {
 	}
 }
 
-// Online-only filter — restrict to users active within the last 5 minutes,
-// applied to `include` (most-restrictive wins) exactly like search/relation so
-// the rendered members AND the pagination total reflect it. Without this the
-// pager would offer pages that the client-side online filter then empties.
-if ( $bn_online_only ) {
-	$bn_online_ids = $bn_directory_service->online_user_ids();
+// Exclusions (suspended / shadow-banned / dir-opt-out / bidirectional blocks),
+// the member-type filter (indexed bn_member_type_assignments), and the online-only
+// filter (indexed bn_presence) are injected as correlated subqueries via
+// pre_user_query — never as a materialised IN / NOT IN id list — so this query AND
+// its SQL_CALC_FOUND_ROWS count stay bounded at 50k members. Identical SQL to the
+// REST list_members(), so the server render and the live pipeline agree exactly.
+$bn_dir_filter = $bn_directory_service->directory_filter_sql(
+	$current_user_id,
+	array(
+		'member_type' => $type_slug_filter,
+		'online_only' => $bn_online_only,
+	),
+	$GLOBALS['wpdb']->users . '.ID'
+);
 
-	if ( empty( $bn_online_ids ) ) {
-		$user_query_args['include'] = array( 0 );
-	} elseif ( isset( $user_query_args['include'] ) && is_array( $user_query_args['include'] ) ) {
-		$bn_online_intersect        = array_values( array_intersect( $user_query_args['include'], $bn_online_ids ) );
-		$user_query_args['include'] = empty( $bn_online_intersect ) ? array( 0 ) : $bn_online_intersect;
-	} else {
-		$user_query_args['include'] = $bn_online_ids;
+$bn_pre_user_query = static function ( $bn_q ) use ( $bn_dir_filter ) {
+	global $wpdb;
+	[ $bn_frag, $bn_frag_params ] = $bn_dir_filter;
+	if ( '' === trim( (string) $bn_frag ) ) {
+		return;
 	}
-}
+	$bn_clause          = ! empty( $bn_frag_params )
+		? $wpdb->prepare( $bn_frag, ...$bn_frag_params ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		: $bn_frag;
+	$bn_q->query_where .= ' AND ' . $bn_clause; // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+};
 
-$user_query  = new WP_User_Query( $user_query_args );
+// Bounded directory total — fetch at most CAP ids once (the count query stops at
+// CAP, never scanning the full 50k set), so the displayed total + the page-number
+// pager saturate at CAP instead of growing unbounded. An exact "47,213" is noise;
+// a capped count is honest enough for a directory people browse a few pages of.
+$bn_count_cap                 = 1000;
+$bn_count_args                = $user_query_args;
+$bn_count_args['number']      = $bn_count_cap;
+$bn_count_args['fields']      = 'ID';
+$bn_count_args['count_total'] = false;
+unset( $bn_count_args['paged'] ); // Count the whole (capped) set, not one page.
+
+add_action( 'pre_user_query', $bn_pre_user_query );
+$bn_count_query = new WP_User_Query( $bn_count_args );
+$user_query     = new WP_User_Query( $user_query_args );
+remove_action( 'pre_user_query', $bn_pre_user_query );
+
 $members     = $user_query->get_results();
-$total_users = (int) $user_query->get_total();
+$total_users = count( (array) $bn_count_query->get_results() ); // <= $bn_count_cap
 $total_pages = (int) ceil( $total_users / max( 1, $bn_per_page ) );
 
-// ── Helpers ───────────────────────────────────────────────────────────────
-// Per-card $bn_is_online goes through BlockService so the restrict gate applies;
-// that helper owns the 5-minute window internally.
-$bn_is_online = static function ( int $user_id ) use ( $current_user_id ): bool {
-	return buddynext_service( 'blocks' )->is_user_online( $current_user_id, $user_id );
-};
+// ── Batch-prime per-page member state (no per-card N+1) ───────────────────
+// Every per-card lookup the grid needs — follow-state, online dot, mutual
+// connections, block-restrict — is resolved for the WHOLE page up front, in a
+// handful of set-based queries, so the card loop issues ZERO queries (cold-cache
+// safe; the global rule is object cache is a bonus, never a dependency).
+$bn_member_ids = array_map( static fn( $m ) => (int) $m->ID, (array) $members );
+$bn_blocks_svc = buddynext_service( 'blocks' );
 
-$bn_mutual_ids = static function ( int $user_a, int $user_b ): array {
-	if ( 0 === $user_a || 0 === $user_b || $user_a === $user_b ) {
-		return array();
-	}
-	return buddynext_service( 'connections' )->mutual_connections( $user_a, $user_b );
-};
-
-// Resolve follow-state for every rendered member in ONE batched lookup instead
-// of a SELECT per card (the old per-card N+1). FollowService::following_map()
-// returns a target_id => bool map; the grid reads it with an O(1) isset().
-$bn_member_ids    = array_map( static fn( $m ) => (int) $m->ID, (array) $members );
+// Follow-state map (target_id => bool) in one query.
 $bn_following_map = $current_user_id > 0
 	? buddynext_service( 'follows' )->following_map( $current_user_id, $bn_member_ids )
 	: array();
-$bn_is_following  = static function ( int $target_user_id ) use ( $bn_following_map ): bool {
+
+// Prime the viewer→peer block-restrict cache so the per-card restrict gate is a
+// cache hit, not a query; build the online subset (one bounded bn_presence IN,
+// replacing the per-card last_active_at lookup) and the mutual-connection peer map
+// (two batched queries, replacing the per-card mutual_connections() self-join).
+if ( $current_user_id > 0 && ! empty( $bn_member_ids ) ) {
+	$bn_blocks_svc->prime_restricted_cache( $current_user_id, $bn_member_ids );
+}
+$bn_online_set = $bn_directory_service->online_among( $bn_member_ids );
+$bn_mutual_map = $current_user_id > 0
+	? $bn_directory_service->mutual_peers_for_page( $current_user_id, $bn_member_ids )
+	: array();
+
+// ── Per-card helpers (read the prebuilt maps — O(1), no query) ────────────
+$bn_is_online = static function ( int $user_id ) use ( $current_user_id, $bn_online_set, $bn_blocks_svc ): bool {
+	if ( empty( $bn_online_set[ $user_id ] ) ) {
+		return false;
+	}
+	// Block restrict gate, resolved from the primed cache (no per-card query).
+	if ( $current_user_id > 0 && $current_user_id !== $user_id && $bn_blocks_svc->is_restricted( $current_user_id, $user_id ) ) {
+		return false;
+	}
+	return true;
+};
+
+$bn_mutual_ids = static function ( int $user_a, int $user_b ) use ( $bn_mutual_map ): array {
+	// $user_a is the viewer, $user_b the rendered member — read the page map.
+	return ( 0 === $user_a || 0 === $user_b || $user_a === $user_b )
+		? array()
+		: ( $bn_mutual_map[ $user_b ] ?? array() );
+};
+
+$bn_is_following = static function ( int $target_user_id ) use ( $bn_following_map ): bool {
 	return ! empty( $bn_following_map[ $target_user_id ] );
 };
 

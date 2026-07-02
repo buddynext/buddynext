@@ -276,6 +276,9 @@ class FeedServiceTest extends \WP_UnitTestCase {
 
 	// ── Suspension + shadow-ban filtering ──────────────────────────────────
 
+	/**
+	 * Posts by a suspended member are excluded from the home feed.
+	 */
 	public function test_home_feed_excludes_suspended_user_posts(): void {
 		$this->follows->follow( $this->alice, $this->bob );
 		$post_id = $this->posts->create(
@@ -358,6 +361,9 @@ class FeedServiceTest extends \WP_UnitTestCase {
 
 	// ── Home-feed filter tabs (F2) ─────────────────────────────────────────
 
+	/**
+	 * The Following filter returns only posts from followed authors.
+	 */
 	public function test_home_feed_following_filter_only_returns_followed_authors(): void {
 		$this->follows->follow( $this->alice, $this->bob );
 		$bob_id   = $this->posts->create(
@@ -556,5 +562,80 @@ class FeedServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( 0, $counts['following'] );
 		$this->assertSame( 0, $counts['spaces'] );
 		$this->assertSame( 0, $counts['network'] );
+	}
+
+	/**
+	 * For-you ranks posts from open spaces matching the viewer's picked
+	 * interests above the general public stream (tier-then-recency), while a
+	 * viewer with no picks keeps the plain chronological order — the additive
+	 * interest signal (plan section 4.3).
+	 */
+	public function test_for_you_ranks_interest_space_posts_first(): void {
+		global $wpdb;
+
+		// Open space in a fresh category; bob posts there FIRST (older).
+		$cat_id = ( new \BuddyNext\Spaces\SpaceCategoryService() )->create( array( 'name' => 'Tier Test Cat' ) );
+		$this->assertNotWPError( $cat_id );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_spaces',
+			array(
+				'name'        => 'Tier Test Space',
+				'slug'        => 'tier-test-space',
+				'type'        => 'open',
+				'category_id' => (int) $cat_id,
+				'owner_id'    => $this->bob,
+				'created_at'  => gmdate( 'Y-m-d H:i:s' ),
+			)
+		);
+		$space_id = (int) $wpdb->insert_id;
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_space_members',
+			array(
+				'space_id'  => $space_id,
+				'user_id'   => $this->bob,
+				'role'      => 'owner',
+				'status'    => 'active',
+				'joined_at' => gmdate( 'Y-m-d H:i:s' ),
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$space_post = $this->posts->create(
+			$this->bob,
+			array(
+				'type'     => 'text',
+				'content'  => 'Interest space post',
+				'privacy'  => 'public',
+				'space_id' => $space_id,
+			)
+		);
+		$plain_post = $this->posts->create(
+			$this->carol,
+			array(
+				'type'    => 'text',
+				'content' => 'Newer plain public post',
+				'privacy' => 'public',
+			)
+		);
+
+		// No picks: chronological — the newer plain post outranks the space post.
+		$before = array_column( $this->feed->home_feed( $this->alice )['items'], 'id' );
+		$this->assertLessThan(
+			(int) array_search( $space_post, $before, true ),
+			(int) array_search( $plain_post, $before, true ),
+			'Without interests the newer plain post must rank first (chronological).'
+		);
+
+		// Alice picks the category: the interest-space post moves above it.
+		( new \BuddyNext\Onboarding\OnboardingService() )->save_interest_ids( $this->alice, array( (int) $cat_id ) );
+		( new \BuddyNext\Feed\FeedCache() )->invalidate_all_users();
+
+		$after = array_column( $this->feed->home_feed( $this->alice )['items'], 'id' );
+		$this->assertLessThan(
+			(int) array_search( $plain_post, $after, true ),
+			(int) array_search( $space_post, $after, true ),
+			'With the category picked the interest-space post must rank first.'
+		);
 	}
 }

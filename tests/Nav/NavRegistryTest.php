@@ -59,7 +59,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface' => 'profile',
 				'layer'   => 'primary',
 				'label'   => 'Posts',
-				'tab'     => 'posts',
+				'url'     => 'https://t/posts/',
 			)
 		);
 		$out = $this->reg->resolve( new NavContext( 'profile', 5, 5 ) );
@@ -92,7 +92,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface'   => 'profile',
 				'layer'     => 'primary',
 				'label'     => 'Scheduled',
-				'tab'       => 'scheduled',
+				'url'       => 'https://t/scheduled/',
 				'condition' => static fn( NavContext $c ) => $c->is_self(),
 			)
 		);
@@ -112,7 +112,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface' => 'profile',
 				'layer'   => 'primary',
 				'label'   => 'Discussions',
-				'tab'     => 'discussions',
+				'url'     => 'https://t/discussions/',
 			)
 		);
 		$this->reg->register(
@@ -139,7 +139,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface'  => 'profile',
 				'layer'    => 'primary',
 				'label'    => 'A',
-				'tab'      => 'a',
+				'url'      => 'https://t/a/',
 				'priority' => 10,
 			)
 		);
@@ -149,7 +149,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface'  => 'profile',
 				'layer'    => 'primary',
 				'label'    => 'C',
-				'tab'      => 'c',
+				'url'      => 'https://t/c/',
 				'priority' => 30,
 			)
 		);
@@ -159,7 +159,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface'  => 'profile',
 				'layer'    => 'primary',
 				'label'    => 'B',
-				'tab'      => 'b',
+				'url'      => 'https://t/b/',
 				'priority' => 20,
 			)
 		);
@@ -169,7 +169,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface'  => 'profile',
 				'layer'    => 'primary',
 				'label'    => 'X',
-				'tab'      => 'x',
+				'url'      => 'https://t/x/',
 				'priority' => 99,
 				'after'    => 'a',
 			)
@@ -188,7 +188,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface' => 'profile',
 				'layer'   => 'primary',
 				'label'   => 'Network',
-				'tab'     => 'network',
+				'url'     => 'https://t/network/',
 			)
 		);
 		$this->reg->register(
@@ -198,7 +198,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'layer'    => 'primary',
 				'parent'   => 'network',
 				'label'    => 'Followers',
-				'tab'      => 'net-followers',
+				'url'      => 'https://t/net-followers/',
 				'priority' => 20,
 			)
 		);
@@ -209,7 +209,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'layer'    => 'primary',
 				'parent'   => 'network',
 				'label'    => 'Connections',
-				'tab'      => 'net-connections',
+				'url'      => 'https://t/net-connections/',
 				'priority' => 10,
 			)
 		);
@@ -234,7 +234,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface' => 'profile',
 				'layer'   => 'primary',
 				'label'   => 'Network',
-				'tab'     => 'network',
+				'url'     => 'https://t/network/',
 			)
 		);
 
@@ -249,7 +249,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 						'surface'  => 'profile',
 						'layer'    => 'primary',
 						'label'    => 'Courses',
-						'tab'      => 'courses',
+						'url'      => 'https://t/courses/',
 						'priority' => 80,
 					)
 				);
@@ -260,7 +260,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 						'layer'   => 'primary',
 						'parent'  => 'courses',
 						'label'   => 'Certificates',
-						'tab'     => 'certs',
+						'url'     => 'https://t/certs/',
 					)
 				);
 				// (b) a sub-nav child added under the EXISTING core parent.
@@ -271,7 +271,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 						'layer'   => 'primary',
 						'parent'  => 'network',
 						'label'   => 'Mutual',
-						'tab'     => 'mutual',
+						'url'     => 'https://t/mutual/',
 					)
 				);
 			}
@@ -297,7 +297,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'layer'   => 'primary',
 				'parent'  => 'nope',
 				'label'   => 'Lonely',
-				'tab'     => 'lonely',
+				'url'     => 'https://t/lonely/',
 			)
 		);
 		$out = $this->reg->resolve( new NavContext( 'profile', 5, 5 ) );
@@ -365,7 +365,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface' => 'profile',
 				'layer'   => 'primary',
 				'label'   => 'Posts',
-				'tab'     => 'posts',
+				'url'     => 'https://t/posts/',
 			)
 		);
 		$this->reg->register(
@@ -374,7 +374,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface' => 'space',
 				'layer'   => 'primary',
 				'label'   => 'Feed',
-				'tab'     => 'feed',
+				'url'     => 'https://t/feed/',
 			)
 		);
 		$space = $this->reg->resolve( new NavContext( 'space', 3, 5, 'member' ) );
@@ -391,7 +391,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface'  => 'profile',
 				'layer'    => 'primary',
 				'label'    => 'A',
-				'tab'      => 'a',
+				'url'      => 'https://t/a/',
 				'priority' => 10,
 			)
 		);
@@ -401,7 +401,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface'  => 'profile',
 				'layer'    => 'primary',
 				'label'    => 'B',
-				'tab'      => 'b',
+				'url'      => 'https://t/b/',
 				'priority' => 20,
 			)
 		);
@@ -411,7 +411,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface'  => 'profile',
 				'layer'    => 'primary',
 				'label'    => 'C',
-				'tab'      => 'c',
+				'url'      => 'https://t/c/',
 				'priority' => 30,
 			)
 		);
@@ -443,7 +443,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'layer'      => 'metric',
 				'label'      => 'Admin',
 				'capability' => 'manage_options',
-				'count'      => static function ( NavContext $c ) use ( &$ran ) {
+				'count'      => static function () use ( &$ran ) {
 					$ran++;
 					return 7;
 				},
@@ -488,7 +488,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface' => 'profile',
 				'layer'   => 'metric',
 				'label'   => 'Neg',
-				'count'   => static fn( NavContext $c ) => -5,
+				'count'   => static fn() => -5,
 			)
 		);
 		$out  = $this->reg->resolve( new NavContext( 'profile', 5, 5 ) );
@@ -535,8 +535,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface' => 'profile',
 				'layer'   => 'primary',
 				'label'   => 'EmptyUrl',
-				'tab'     => 'emptyurl',
-				'url'     => static fn( NavContext $c ) => '',
+				'url'     => static fn() => '',
 			)
 		);
 		$out  = $this->reg->resolve( new NavContext( 'profile', 7, 7 ) );
@@ -558,7 +557,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface'  => 'profile',
 				'layer'    => 'primary',
 				'label'    => 'A',
-				'tab'      => 'a',
+				'url'      => 'https://t/a/',
 				'priority' => 10,
 			)
 		);
@@ -568,7 +567,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface'  => 'profile',
 				'layer'    => 'primary',
 				'label'    => 'B',
-				'tab'      => 'b',
+				'url'      => 'https://t/b/',
 				'priority' => 20,
 			)
 		);
@@ -578,7 +577,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface'  => 'profile',
 				'layer'    => 'primary',
 				'label'    => 'C',
-				'tab'      => 'c',
+				'url'      => 'https://t/c/',
 				'priority' => 30,
 			)
 		);
@@ -588,7 +587,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface'  => 'profile',
 				'layer'    => 'primary',
 				'label'    => 'Z',
-				'tab'      => 'z',
+				'url'      => 'https://t/z/',
 				'priority' => 99,
 				'before'   => 'b',
 			)
@@ -609,7 +608,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface'  => 'profile',
 				'layer'    => 'primary',
 				'label'    => 'A',
-				'tab'      => 'a',
+				'url'      => 'https://t/a/',
 				'priority' => 10,
 			)
 		);
@@ -619,7 +618,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface'  => 'profile',
 				'layer'    => 'primary',
 				'label'    => 'B',
-				'tab'      => 'b',
+				'url'      => 'https://t/b/',
 				'priority' => 20,
 			)
 		);
@@ -629,7 +628,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface'  => 'profile',
 				'layer'    => 'primary',
 				'label'    => 'C',
-				'tab'      => 'c',
+				'url'      => 'https://t/c/',
 				'priority' => 30,
 			)
 		);
@@ -639,7 +638,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface'  => 'profile',
 				'layer'    => 'primary',
 				'label'    => 'W',
-				'tab'      => 'w',
+				'url'      => 'https://t/w/',
 				'priority' => 99,
 				'after'    => 'a',
 				'before'   => 'c',
@@ -661,7 +660,7 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface' => 'profile',
 				'layer'   => 'primary',
 				'label'   => 'First',
-				'tab'     => 'first',
+				'url'     => 'https://t/first/',
 			)
 		);
 		$this->reg->register(
@@ -670,13 +669,13 @@ class NavRegistryTest extends \WP_UnitTestCase {
 				'surface' => 'profile',
 				'layer'   => 'primary',
 				'label'   => 'Second',
-				'tab'     => 'second',
+				'url'     => 'https://t/second/',
 			)
 		);
 		$out     = $this->reg->resolve( new NavContext( 'profile', 5, 5 ) );
 		$primary = $out->layer( 'primary' );
 		$this->assertSame( array( 'dup' ), array_map( static fn( $n ) => $n->id, $primary ) );
-		$this->assertSame( 'first', $primary[0]->tab );
+		$this->assertSame( 'First', $primary[0]->label );
 	}
 
 	/**
@@ -695,5 +694,114 @@ class NavRegistryTest extends \WP_UnitTestCase {
 		$this->assertTrue( $member->role_at_least( 'member' ) );
 		$this->assertFalse( $member->role_at_least( 'moderator' ) );
 		$this->assertFalse( $none->role_at_least( 'member' ), 'empty role satisfies nothing' );
+	}
+
+	/**
+	 * The `full_load` flag round-trips through the contract (default false), so the
+	 * shared nav renderer can emit `data-bn-full-load` for drill-in tabs and the
+	 * client-nav transport reads it instead of hardcoding a route regex.
+	 */
+	public function test_full_load_flag_round_trips(): void {
+		$this->reg->register(
+			array(
+				'id'        => 'settings',
+				'surface'   => 'space',
+				'layer'     => 'primary',
+				'label'     => 'Settings',
+				'url'       => 'https://example.test/spaces/x/settings/',
+				'full_load' => true,
+			)
+		);
+		$this->reg->register(
+			array(
+				'id'      => 'feed',
+				'surface' => 'space',
+				'layer'   => 'primary',
+				'label'   => 'Feed',
+				'url'     => 'https://example.test/spaces/x/',
+			)
+		);
+
+		$out   = $this->reg->resolve( new NavContext( 'space', 9, 5, 'member' ) );
+		$items = array();
+		foreach ( $out->layer( 'primary' ) as $n ) {
+			$items[ $n->id ] = $n;
+		}
+
+		$this->assertTrue( $items['settings']->full_load, 'full_load => true is preserved' );
+		$this->assertFalse( $items['feed']->full_load, 'full_load defaults to false' );
+	}
+
+	/**
+	 * Resolving the same context twice runs the count callable once (memoized),
+	 * but a different context resolves afresh. This is what lets the shared space
+	 * header and the space body both ask for the nav without a double count query.
+	 */
+	public function test_resolve_memoizes_per_context(): void {
+		// Tab count callables are skipped by default (scalability); this test uses the
+		// count callable as its "did resolve run?" probe, so opt the badges back on.
+		add_filter( 'buddynext_nav_show_tab_count', '__return_true' );
+
+		$count_calls = 0;
+		$this->reg->register(
+			array(
+				'id'      => 'feed',
+				'surface' => 'space',
+				'layer'   => 'primary',
+				'label'   => 'Feed',
+				'render'  => static function (): void {},
+				'count'   => static function () use ( &$count_calls ): int {
+					++$count_calls;
+					return 3;
+				},
+			)
+		);
+
+		$ctx = new NavContext( 'space', 9, 5, 'member' );
+		$a   = $this->reg->resolve( $ctx );
+		$b   = $this->reg->resolve( new NavContext( 'space', 9, 5, 'member' ) );
+
+		$this->assertSame( $a, $b, 'identical context returns the cached ResolvedNav' );
+		$this->assertSame( 1, $count_calls, 'count callable runs once across identical resolves' );
+
+		// A different viewer is a different context — resolves again.
+		$this->reg->resolve( new NavContext( 'space', 9, 8, 'member' ) );
+		$this->assertSame( 2, $count_calls, 'a different context re-resolves' );
+	}
+
+	/**
+	 * Resetting the registry drops the resolved cache, so a re-registered count
+	 * callable runs again (the cache never leaks across a registry reset).
+	 */
+	public function test_reset_clears_resolved_cache(): void {
+		// The count callable is this test's re-resolution probe; tab counts are off by
+		// default (scalability), so opt them back on for the probe to fire.
+		add_filter( 'buddynext_nav_show_tab_count', '__return_true' );
+
+		$count_calls = 0;
+		$register    = function () use ( &$count_calls ): void {
+			$this->reg->register(
+				array(
+					'id'      => 'feed',
+					'surface' => 'space',
+					'layer'   => 'primary',
+					'label'   => 'Feed',
+					'render'  => static function (): void {},
+					'count'   => static function () use ( &$count_calls ): int {
+						++$count_calls;
+						return 1;
+					},
+				)
+			);
+		};
+
+		$register();
+		$this->reg->resolve( new NavContext( 'space', 9, 5, 'member' ) );
+		$this->assertSame( 1, $count_calls );
+
+		$this->reg->reset();
+		$register();
+		$this->reg->resolve( new NavContext( 'space', 9, 5, 'member' ) );
+		$this->assertSame( 2, $count_calls, 'reset() invalidated the memo' );
 	}
 }

@@ -74,7 +74,7 @@ class AvatarSettings {
 			true
 		);
 
-		wp_set_script_translations( 'bn-avatar-settings', 'buddynext' );
+		wp_set_script_translations( 'bn-avatar-settings', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 		wp_localize_script(
 			'bn-avatar-settings',

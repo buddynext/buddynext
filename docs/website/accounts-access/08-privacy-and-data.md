@@ -23,7 +23,6 @@ These live in the admin area under Settings, in the Privacy section.
 | Data retention (days) | How many days member data is kept before it is eligible for cleanup. Use this to enforce a retention policy rather than holding data forever. | 365 |
 | Allow data export | Lets members download a copy of their own data from their settings. Turning this off removes the Export control for members. | On |
 | Allow account deletion | Lets members permanently delete their own account from their settings. Turning this off removes the Delete account control for members. | On |
-| Anonymize on delete | Decides what happens to a deleted member's authored content. On: their account is removed but remaining content is reassigned to an administrator so threads stay intact. Off: that content is removed along with the account. | On |
 | Search-engine indexing | Controls whether search engines may index community content. Choose the policy that matches how public you want the community to be. | Public posts |
 
 > **Note:** Export and deletion are member rights under privacy law. Leave them on unless you have a specific reason and an alternative process for handling member requests. If you turn them off, make sure members know how else to reach you with a data request.
@@ -53,18 +52,18 @@ When you delete your account, BuddyNext erases your community data - your follow
 
 > **Note:** Deleting your account is permanent. If you only want to step away, consider making your account private or muting people instead of deleting.
 
-## What anonymize-on-delete means for your content
+## What deleting an account removes
 
-Whether your authored content survives a deletion depends on the owner's Anonymize on delete setting:
+Deleting a member account is a full erasure - there is no "keep my content" option:
 
-- **Anonymize on (default):** your account is removed and your personal data is erased, but any content still attributed to you is reassigned to a site administrator. This keeps conversations and threads readable for everyone else instead of leaving gaps where your posts used to be.
-- **Anonymize off:** your content is removed together with your account.
+- Your personal profile data, preferences, follows, connections, and blocks are erased.
+- Your posts and comments are permanently deleted along with the account - genuinely removed, not just hidden from view. Once the deletion runs, they are gone.
 
-Either way, your personal profile data, preferences, and social connections are erased. The setting only governs what happens to content other members may have been replying to.
+This matches the standard expectation that deleting an account removes the person and their content, rather than keeping it under another name.
 
 ## Good to know
 
 - **GDPR alignment.** The export tool supports the right of access (members get a copy of their data), and the deletion tool supports the right to erasure (members can be forgotten). Retention and consent give owners the policy controls that privacy regimes expect.
-- **What gets removed versus anonymized.** Deletion always erases personal data: profile, preferences, follows, connections, blocks, and the member's own posts and comments. Anonymize on delete only decides whether any remaining authored content is kept under an administrator or removed entirely.
+- **What gets removed.** Deletion erases everything tied to the member: profile, preferences, follows, connections, blocks, and their own posts and comments. It is a complete erasure, not a hide, with no option to retain the content.
 - **Administrators are protected.** A site administrator cannot delete their own account through the member-facing tool, so you cannot accidentally lock yourself out of your own community. Administrator accounts are managed through WordPress.
 - **Consent and indexing are community-wide.** The cookie banner and the search-engine indexing policy apply to the whole community. Individual members can still choose to hide their own profile from search engines in their Privacy settings.

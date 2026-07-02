@@ -12,6 +12,7 @@
  *
  * Counters managed here:
  *   bn_follows   → wp_usermeta bn_follower_count / bn_following_count
+ *   bn_connections → wp_usermeta bn_connection_count
  *   bn_reactions → bn_posts.reaction_count
  *   bn_comments  → bn_posts.comment_count
  *   bn_space_members → bn_spaces.member_count
@@ -44,22 +45,160 @@ class CounterService {
 	public function recount_follow_counts( int $user_id ): void {
 		global $wpdb;
 
+		// Count only APPROVED follows — a pending request to a private account is
+		// not a follower yet, and FollowService::follower_count()/following_count()
+		// both filter status = 'approved', so the denormalised store must match or
+		// the displayed count would jump on every (still-pending) request.
 		$follower_count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE following_id = %d",
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE following_id = %d AND status = 'approved'",
 				$user_id
 			)
 		);
 
 		$following_count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d",
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND status = 'approved'",
 				$user_id
 			)
 		);
 
 		update_user_meta( $user_id, 'bn_follower_count', $follower_count );
 		update_user_meta( $user_id, 'bn_following_count', $following_count );
+	}
+
+	/**
+	 * Recount and store the accepted-connection count for a user.
+	 *
+	 * Mirrors recount_follow_counts for the symmetric bn_connections graph: a
+	 * connection is one row shared by both peers, counted from either side.
+	 * Stored in wp_usermeta bn_connection_count, read by
+	 * ConnectionService::connection_count().
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @return void
+	 */
+	public function recount_connection_counts( int $user_id ): void {
+		global $wpdb;
+
+		$count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_connections
+				 WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted'",
+				$user_id,
+				$user_id
+			)
+		);
+
+		update_user_meta( $user_id, 'bn_connection_count', $count );
+	}
+
+	/**
+	 * Atomically adjust an EXISTING usermeta counter by a delta, clamped at 0.
+	 *
+	 * Used by the follow/connection write paths to maintain bn_follower_count /
+	 * bn_following_count / bn_connection_count in O(1) without re-counting the edge
+	 * table. The UPDATE is a no-op when the row is absent — that is intentional: the
+	 * read path lazy-recounts a missing key (which would already include this change),
+	 * so seeding a partial row here would risk an off-by-one. Busts WordPress's
+	 * per-user meta cache so the very next get_user_meta() sees the new value.
+	 *
+	 * @param int    $user_id  WordPress user ID.
+	 * @param string $meta_key Counter meta key (bn_follower_count, etc.).
+	 * @param int    $delta    Signed amount to add (typically +1 / -1).
+	 * @return void
+	 */
+	public function adjust_user_counter( int $user_id, string $meta_key, int $delta ): void {
+		if ( 0 === $delta || $user_id <= 0 || '' === $meta_key ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->usermeta}
+				 SET meta_value = GREATEST(0, CAST(meta_value AS SIGNED) + %d)
+				 WHERE user_id = %d AND meta_key = %s",
+				$delta,
+				$user_id,
+				$meta_key
+			)
+		);
+
+		wp_cache_delete( $user_id, 'user_meta' );
+	}
+
+	/**
+	 * Reconcile bn_follower_count + bn_following_count for EVERY user with a
+	 * counter row, in two set-based passes (drift self-heal).
+	 *
+	 * The follow counters live in usermeta (no per-user column), so this can only
+	 * fix rows that already exist — but that is sufficient: the read path lazy-counts
+	 * a missing key, and the write paths only touch existing rows, so a user without
+	 * a row has never had a stale value displayed. Each UPDATE...LEFT JOIN carries a
+	 * `WHERE meta_value <> COALESCE(...)` guard so only genuinely-drifted rows are
+	 * written. Run from the daily recount job. Counts only 'approved' follows.
+	 *
+	 * @return void
+	 */
+	public function recount_all_follow_counts(): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"UPDATE {$wpdb->usermeta} um
+			 LEFT JOIN (
+			     SELECT following_id AS uid, COUNT(*) AS cnt
+			       FROM {$wpdb->prefix}bn_follows
+			      WHERE status = 'approved'
+			      GROUP BY following_id
+			 ) f ON f.uid = um.user_id
+			 SET um.meta_value = COALESCE(f.cnt, 0)
+			 WHERE um.meta_key = 'bn_follower_count' AND um.meta_value <> COALESCE(f.cnt, 0)"
+		);
+
+		$wpdb->query(
+			"UPDATE {$wpdb->usermeta} um
+			 LEFT JOIN (
+			     SELECT follower_id AS uid, COUNT(*) AS cnt
+			       FROM {$wpdb->prefix}bn_follows
+			      WHERE status = 'approved'
+			      GROUP BY follower_id
+			 ) f ON f.uid = um.user_id
+			 SET um.meta_value = COALESCE(f.cnt, 0)
+			 WHERE um.meta_key = 'bn_following_count' AND um.meta_value <> COALESCE(f.cnt, 0)"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Reconcile bn_connection_count for EVERY user with a counter row in one
+	 * set-based pass (drift self-heal). Same guard + lazy-row semantics as
+	 * recount_all_follow_counts; counts accepted connections from either side via
+	 * a UNION ALL of both endpoint columns. Run from the daily recount job.
+	 *
+	 * @return void
+	 */
+	public function recount_all_connection_counts(): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"UPDATE {$wpdb->usermeta} um
+			 LEFT JOIN (
+			     SELECT uid, COUNT(*) AS cnt FROM (
+			         SELECT requester_id AS uid FROM {$wpdb->prefix}bn_connections WHERE status = 'accepted'
+			         UNION ALL
+			         SELECT recipient_id AS uid FROM {$wpdb->prefix}bn_connections WHERE status = 'accepted'
+			     ) endpoints
+			     GROUP BY uid
+			 ) c ON c.uid = um.user_id
+			 SET um.meta_value = COALESCE(c.cnt, 0)
+			 WHERE um.meta_key = 'bn_connection_count' AND um.meta_value <> COALESCE(c.cnt, 0)"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	// ── Post reaction count ───────────────────────────────────────────────────

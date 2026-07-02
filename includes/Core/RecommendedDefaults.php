@@ -48,8 +48,9 @@ class RecommendedDefaults {
 		'buddynext_allow_bookmarks'            => '1',
 		'buddynext_enable_link_preview'        => true,
 		'buddynext_enable_emoji_picker'        => true,
-		// Integrations — surface Jetonomy discussions in the feed out of the box.
-		'buddynext_jetonomy_feed_sync'         => '1',
+		'buddynext_feed_new_posts_indicator'   => true,
+		// Integrations now default-on via the unified buddynext_integration_*_feed
+		// keys (absent = enabled), so no Jetonomy feed default is seeded here.
 		// Notifications on by default for every new member.
 		'buddynext_notif_default_follow'       => true,
 		'buddynext_notif_default_connection'   => true,

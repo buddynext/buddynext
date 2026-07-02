@@ -29,10 +29,27 @@ class OnboardingListener implements ListenerInterface {
 	 */
 	public function register(): void {
 		add_action( 'user_register', array( $this, 'on_user_register_schedule_nudges' ), 15, 1 );
+		add_action( 'user_register', array( $this, 'reconcile_invites_on_register' ), 16, 1 );
 		add_action( 'buddynext_onboarding_completed', array( $this, 'on_onboarding_completed_cancel_nudges' ), 10, 1 );
 		add_action( 'bn_onboarding_nudge_24h', array( $this, 'handle_onboarding_nudge' ), 10, 1 );
 		add_action( 'bn_onboarding_nudge_72h', array( $this, 'handle_onboarding_nudge' ), 10, 1 );
 		add_action( 'template_redirect', array( $this, 'maybe_redirect_to_onboarding' ), 5 );
+		add_action( 'buddynext_async_send_invite_email', array( $this, 'handle_async_invite_email' ), 10, 1 );
+	}
+
+	/**
+	 * Action Scheduler callback: send a deferred invite email.
+	 *
+	 * InviteService::create() enqueues this (one per invite) so a bulk/CSV import
+	 * never blocks the request on a loop of synchronous wp_mail() calls.
+	 *
+	 * @param mixed $invite Invite payload { id, email, first_name, token }.
+	 * @return void
+	 */
+	public function handle_async_invite_email( $invite ): void {
+		if ( is_array( $invite ) ) {
+			( new InviteService() )->deliver_invite_email( $invite );
+		}
 	}
 
 	/**
@@ -145,6 +162,24 @@ class OnboardingListener implements ListenerInterface {
 		}
 		if ( ! wp_next_scheduled( 'bn_onboarding_nudge_72h', array( $user_id ) ) ) {
 			wp_schedule_single_event( time() + ( 3 * DAY_IN_SECONDS ), 'bn_onboarding_nudge_72h', array( $user_id ) );
+		}
+	}
+
+	/**
+	 * Reconcile any pending email invitation when an invited address registers.
+	 *
+	 * Catches the registration paths that don't carry the invite token (direct
+	 * sign-up, admin-created account, social login) — the token path already flips
+	 * its specific invite in AuthController. Delegates to InviteService, which keys on
+	 * the indexed email column. See InviteService::mark_registered_by_email().
+	 *
+	 * @param int $user_id Newly registered user ID.
+	 * @return void
+	 */
+	public function reconcile_invites_on_register( int $user_id ): void {
+		$user = get_userdata( $user_id );
+		if ( $user && '' !== (string) $user->user_email ) {
+			( new InviteService() )->mark_registered_by_email( (string) $user->user_email );
 		}
 	}
 

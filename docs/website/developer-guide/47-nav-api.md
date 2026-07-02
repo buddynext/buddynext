@@ -4,6 +4,12 @@ How to add a menu item or a tab to BuddyNext from an addon or a theme. BuddyNext
 
 ![A member profile whose primary tabs are resolved through the Nav registry documented here](../images/member-profile.webp)
 
+> **Runnable, tested snippets:** every recipe below has a copy-paste, live-verified version in [`buddynext/buddynext-snippets`](https://github.com/buddynext/buddynext-snippets) under `navigation/` (`add-profile-tab.php`, `add-space-tab.php`, `add-rail-item.php`, `relabel-remove-nav.php`). Drop one in `wp-content/mu-plugins/` and it works as-is.
+>
+> **Current API (important):** a profile OR space tab is a **single** `$registry->register([...])` call that carries both a lazy `url` and a **`render` callable** - `PanelRenderer` server-renders only the active tab's panel. The older two-step approach (`buddynext_profile_tab_panel_open()`/`_close()` helpers + a `buddynext_part_profile_tab_panel_after` action) has been **removed**; use the `render` key shown in the snippets.
+>
+> **Reorder / relabel and the admin overrides (tested):** `buddynext_nav_move()` and `buddynext_nav_set()` in a `buddynext_nav_items` filter DO reorder and relabel - verified live (e.g. `buddynext_nav_move( $items, 'about', array( 'priority' => 1 ) )` moves About to the front). The one precedence rule to know: if the **site owner** has relabeled or reordered a specific tab in the admin **Navigation** screen, that saved setting wins for that tab (the admin overrides apply at priority 20 - the intended precedence). Your filter change is honoured for every tab the owner has not customised. So a `nav_set`/`nav_move` that "does nothing" almost always means the owner has already pinned that tab in the admin.
+
 ## Overview / Contract
 
 There are two navigation systems. Use the right one for the surface you are extending.

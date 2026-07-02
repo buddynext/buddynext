@@ -84,6 +84,11 @@
 	/* -- Typography ------------------------------------------------------- */
 	--bn-a-font-body:         var(--bn-font-ui);
 	--bn-a-font-display:      var(--bn-font-display);
+	/* Admin-scoped reading size: measured against Learnomy's admin, our field
+	   content, table cells, and inputs ran 13px vs its 14px - the one real
+	   size gap behind the "very small" feel (nav/titles/hints already match).
+	   This sheet only loads in wp-admin, so member-facing text is untouched. */
+	--bn-text-sm:             14px;
 	--bn-a-text-xs:           var(--bn-text-xs);
 	--bn-a-text-sm:           var(--bn-text-sm);
 	--bn-a-text-md:           var(--bn-text-md);
@@ -109,6 +114,7 @@
 
 	/* -- Structural / component sizes ------------------------------------ */
 	--bn-a-page-max-w:        1100px;
+	--bn-a-control-max-w:     560px;
 	--bn-a-table-search-w:    240px;
 	--bn-a-addon-accent-w:    3px;
 	--bn-a-row-badge-py:      2px;
@@ -356,9 +362,58 @@
 	margin: 0;
 }
 
+/* Media picker row (AdminPageBase::render_media_row) — thumbnail preview +
+   Select / Remove buttons + the URL input that carries the posted value
+   (and doubles as the no-JS fallback). Wired by js/admin/media-picker.js. */
+.bn-media-preview {
+	margin-bottom: var(--bn-a-s3);
+}
+
+.bn-media-preview img {
+	display: block;
+}
+
+.bn-media-controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-a-s2);
+}
+
+.bn-media-controls .bn-media-url {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
 /* --------------------------------------------------------------------------
    Section cards
    -------------------------------------------------------------------------- */
+
+/* Settings reading width — on a wide monitor an uncapped settings card pushes
+   the control ~1000px away from its label. Cap settings form stacks at a
+   comfortable reading width. Scoped to the settings wrappers only
+   (.bn-settings-form on options.php tabs, .bn-settings-content on
+   admin-post forms) so full-width data surfaces — Members/Spaces tables,
+   directories, the nav manager — are NOT capped. */
+/* UNIFORM CONTAINER CONTRACT (owner, 2026-07-02): section cards fill the
+   panel width on EVERY tab - the visual container level is the card, never
+   the form/wrapper. Readability comes from capping the CONTROLS inside the
+   full-width card (the Learnomy/WooCommerce model), not from capping the
+   page. */
+.bn-settings-section .bn-ss-body input[type="text"],
+.bn-settings-section .bn-ss-body input[type="email"],
+.bn-settings-section .bn-ss-body input[type="url"],
+.bn-settings-section .bn-ss-body input[type="number"],
+.bn-settings-section .bn-ss-body input[type="password"],
+.bn-settings-section .bn-ss-body select,
+.bn-settings-section .bn-ss-body textarea {
+	max-width: var(--bn-a-control-max-w, 560px);
+}
+
+.bn-settings-section .bn-ss-body .bn-field-hint,
+.bn-settings-section .bn-ss-body p.description {
+	max-width: 72ch;
+}
 
 .bn-settings-section {
 	background: var(--bn-a-bg);
@@ -625,8 +680,45 @@ select.bn-text-input {
 	align-items: flex-start;
 	justify-content: space-between;
 	gap: var(--bn-a-s4);
-	padding: var(--bn-a-s3) 0;
+	/* 16px band (was 12px): stacked toggle groups read denser than form-field
+	   rows; Learnomy's 16px row rhythm is the reference (card 10056978256). */
+	padding: var(--bn-a-s4) 0;
 	border-bottom: 1px solid var(--bn-a-border-soft);
+}
+
+/* Toggle-row copy column + nested sub-tab group (Integration Display cards). */
+.bn-toggle-row__copy {
+	min-width: 0;
+}
+
+.bn-toggle-row__label {
+	font-weight: var(--bn-fw-medium, 500);
+	color: var(--bn-a-text-1);
+}
+
+.bn-toggle-row__copy .bn-field-hint {
+	margin: var(--bn-a-s1) 0 0;
+}
+
+.bn-int-subtab-group {
+	margin-top: var(--bn-a-s3);
+	padding: var(--bn-a-s2) var(--bn-a-s4);
+	background: var(--bn-sunken);
+	border-radius: var(--bn-a-r-md);
+}
+
+.bn-int-subtab-group__kicker {
+	display: block;
+	padding-top: var(--bn-a-s2);
+	font-size: var(--bn-text-2xs, 11px);
+	font-weight: var(--bn-fw-semibold, 600);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--bn-a-text-3);
+}
+
+.bn-int-subtab-group .bn-toggle-row:last-child {
+	border-bottom: 0;
 }
 
 .bn-toggle-row:last-child {
@@ -1898,9 +1990,38 @@ button.bn-btn-danger:hover {
 .bn-webhook-event-row {
 	display: flex;
 	align-items: center;
-	gap: var(--bn-s2);
-	width: fit-content;
-	margin-bottom: var(--bn-s1);
+	gap: var(--bn-a-s2);
+	padding: var(--bn-a-s2) var(--bn-a-s3);
+	border: 1px solid var(--bn-a-border-soft);
+	border-radius: var(--bn-a-r-md);
+	cursor: pointer;
+}
+
+.bn-webhook-event-row:hover {
+	background: var(--bn-sunken);
+}
+
+.bn-webhook-event-row code {
+	margin-inline-start: auto;
+	font-size: var(--bn-text-2xs, 11px);
+	color: var(--bn-a-text-3);
+}
+
+/* The events fieldset lays rows out as a responsive two-column grid - the
+   previous compact single-column pile read as raw markup (owner). */
+.bn-settings-form fieldset.bn-field:has(.bn-webhook-event-row) {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+	gap: var(--bn-a-s2) var(--bn-a-s3);
+}
+
+.bn-settings-form fieldset.bn-field:has(.bn-webhook-event-row) legend {
+	margin-bottom: var(--bn-a-s2);
+	font-weight: var(--bn-fw-semibold, 600);
+}
+
+.bn-settings-form--wide {
+	max-width: none;
 }
 
 /* Endpoint row code element — the URL inside the webhook table. */
@@ -2243,8 +2364,21 @@ button.bn-btn-danger:hover {
 	list-style: none;
 }
 .bn-social-help > summary::-webkit-details-marker { display: none; }
-.bn-social-help > summary::before { content: "▸ "; }
-.bn-social-help[open] > summary::before { content: "▾ "; }
+/* Disclosure caret drawn in CSS (no glyph character) — a right-pointing
+   triangle that rotates to point down when the details is open. */
+.bn-social-help > summary::before {
+	content: "";
+	display: inline-block;
+	width: 0;
+	height: 0;
+	margin-right: var(--bn-a-s2, 6px);
+	border-left: 5px solid currentColor;
+	border-top: 4px solid transparent;
+	border-bottom: 4px solid transparent;
+	vertical-align: middle;
+	transition: transform 0.15s ease;
+}
+.bn-social-help[open] > summary::before { transform: rotate(90deg); }
 .bn-social-help__steps {
 	margin: var(--bn-a-s3) 0;
 	padding-left: var(--bn-a-s5);
@@ -2257,6 +2391,7 @@ button.bn-btn-danger:hover {
 	.bn-social-card__head { flex-wrap: wrap; }
 	.bn-social-card__toggle { margin-left: 0; width: 100%; }
 	.bn-copy-row { flex-direction: column; }
+	.bn-media-controls { flex-direction: column; align-items: stretch; }
 }
 
 /* --------------------------------------------------------------------------
@@ -2289,3 +2424,21 @@ button.bn-btn-danger:hover {
 	vertical-align: middle;
 }
 .bn-admin-hub__content table:not(.form-table) tbody tr:hover td { background: var(--bn-a-bg-subtle); }
+
+/* ── Extracted inline-style helpers ──────────────────────────────────────
+   Static presentation lifted out of style="" attributes (ux F1). Dynamic
+   values (user-chosen colours, computed widths, JS-toggled visibility) stay
+   inline — that is the correct use of the attribute. */
+.bn-a-narrow-form   { max-width: 620px; }
+.bn-a-input-tiny    { max-width: 100px; }
+.bn-a-logo-preview  { max-height: 40px; max-width: 240px; }
+.bn-a-flush-top     { margin-top: 0; }
+.bn-a-gap-top       { margin-top: var(--bn-a-s3, 16px); }
+.bn-a-gap-top-sm    { margin-top: var(--bn-a-s2, 8px); }
+.bn-a-block-gap     { margin-block-end: var(--bn-s4, 16px); }
+.bn-a-flush         { padding: 0; }
+.bn-a-readonly-hint { cursor: default; opacity: 0.7; }
+.bn-a-pf-col        { flex: 0 0 180px; }
+.bn-a-pf-col-wide   { flex: 0 0 220px; }
+.bn-a-pf-col-narrow { flex: 0 0 160px; }
+.bn-a-pf-swatch     { width: 64px; }

@@ -188,9 +188,22 @@ class IconService {
 	 * @return string Sanitized SVG markup safe for inline output.
 	 */
 	public static function render( string $name, string $css_class = '' ): string {
+		// Per-request memo. A single page (the feed especially) renders the same
+		// handful of icons many times; caching the finished markup per
+		// (name, css_class) turns N file_get_contents + wp_kses passes into one
+		// per unique icon per request. Trusted local assets, so the key is just
+		// the name + class. Cleared naturally at the end of each request.
+		static $cache = array();
+
+		$key = $name . '|' . $css_class;
+		if ( isset( $cache[ $key ] ) ) {
+			return $cache[ $key ];
+		}
+
 		$path = self::icons_dir() . sanitize_file_name( $name ) . '.svg';
 
 		if ( ! file_exists( $path ) ) {
+			$cache[ $key ] = '';
 			return '';
 		}
 
@@ -198,6 +211,7 @@ class IconService {
 		$svg = file_get_contents( $path );
 
 		if ( false === $svg || '' === trim( $svg ) ) {
+			$cache[ $key ] = '';
 			return '';
 		}
 
@@ -206,7 +220,8 @@ class IconService {
 		$classes = 'bn-icon' . ( '' !== $css_class ? ' ' . $css_class : '' );
 		$svg     = str_replace( '<svg ', '<svg class="' . esc_attr( $classes ) . '" ', $svg );
 
-		return wp_kses( $svg, self::allowed_tags() );
+		$cache[ $key ] = wp_kses( $svg, self::allowed_tags() );
+		return $cache[ $key ];
 	}
 
 	/**

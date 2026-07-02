@@ -45,7 +45,7 @@ class GamificationAchievementsTest extends \WP_UnitTestCase {
 
 	private function render(): string {
 		ob_start();
-		$this->tab->render_panel( array( 'profile_user_id' => $this->member_id ) );
+		$this->tab->render_panel( $this->member_id );
 		return (string) ob_get_clean();
 	}
 
@@ -98,7 +98,9 @@ class GamificationAchievementsTest extends \WP_UnitTestCase {
 		);
 
 		$html = $this->render();
-		$this->assertStringContainsString( 'data-tab-panel="achievements"', $html );
+		// The panel renders directly into the registry seam (no reveal wrapper) —
+		// its root carries the bn-achievements class.
+		$this->assertStringContainsString( 'class="bn-achievements"', $html );
 		$this->assertStringContainsString( 'Champion', $html );
 		$this->assertStringContainsString( 'Participant', $html );
 		$this->assertLessThan(

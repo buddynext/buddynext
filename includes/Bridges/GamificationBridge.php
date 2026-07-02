@@ -59,6 +59,10 @@ class GamificationBridge {
 		if ( $user_id <= 0 || empty( $def['is_credential'] ) ) {
 			return;
 		}
+		// Owner control: respect the Gamification activity toggle (Integrations).
+		if ( ! buddynext_integration_enabled( 'gamification', 'feed' ) ) {
+			return;
+		}
 
 		$name = isset( $def['name'] ) ? (string) $def['name'] : '';
 		if ( '' === $name ) {

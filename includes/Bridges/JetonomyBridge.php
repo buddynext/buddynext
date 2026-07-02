@@ -69,6 +69,11 @@ class JetonomyBridge {
 		// trigger). Replaces the old buddynext_profile_extra_data + buddynext_space_tabs.
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav_items' ) );
 
+		// Owner controls: register on the integration registry so the site owner can
+		// toggle the Discussions tab + the discussion activity from BuddyNext →
+		// Integrations (default on). The nav/feed gating below reads those toggles.
+		add_filter( 'buddynext_integrations', array( $this, 'register_integration' ) );
+
 		// On-demand space forum: provision + redirect when a member first opens a
 		// forumless space's Discussions tab (web).
 		// Priority 5 so the on-demand forum provision/redirect runs before
@@ -197,7 +202,7 @@ class JetonomyBridge {
 		$is_public_discussion = $this->is_public_discussion( $space_id, (int) $post->is_private, (string) $post->status );
 
 		if ( $is_public_discussion
-			&& '0' !== (string) get_option( 'buddynext_jetonomy_feed_sync', '1' )
+			&& buddynext_integration_enabled( 'jetonomy', 'feed' )
 			&& (bool) apply_filters( 'buddynext_jetonomy_discussion_activity', true, $post_id ) ) {
 			$url = $this->discussion_url( $post_id, $space_id );
 			if ( '' !== $url ) {
@@ -398,7 +403,7 @@ class JetonomyBridge {
 	 * @return int Jetonomy forum (jt_spaces) id, or 0 on failure.
 	 */
 	public function provision_space_forum( int $space_id ): int {
-		$existing = (int) get_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', 0 );
+		$existing = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
 		if ( $existing > 0 ) {
 			return $existing;
 		}
@@ -423,7 +428,7 @@ class JetonomyBridge {
 		);
 
 		if ( $forum_id > 0 ) {
-			update_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', $forum_id, false );
+			update_space_meta( $space_id, 'jetonomy_forum_id', $forum_id );
 		}
 
 		return $forum_id;
@@ -554,20 +559,26 @@ class JetonomyBridge {
 	 * @return void
 	 */
 	public function register_nav_items( \BuddyNext\Nav\NavRegistry $registry ): void {
-		$jetonomy_active = static fn(): bool => class_exists( 'Jetonomy\Jetonomy' );
+		// Active AND the owner hasn't hidden the Discussions tab (Integrations control).
+		$jetonomy_active = static fn(): bool => class_exists( 'Jetonomy\Jetonomy' )
+			&& buddynext_integration_enabled( 'jetonomy', 'nav' );
 
-		// Profile: a primary tab owning the member's discussions panel.
+		// Profile: a primary tab owning the member's discussions panel — clean URL +
+		// the content-seam render, same as every other profile tab.
 		$registry->register(
 			array(
 				'id'        => 'discussions',
 				'surface'   => 'profile',
 				'layer'     => 'primary',
 				'label'     => __( 'Discussions', 'buddynext' ),
-				'tab'       => 'discussions',
 				'icon'      => 'message-square',
 				'priority'  => 60,
 				'condition' => $jetonomy_active,
+				'url'       => static fn( \BuddyNext\Nav\NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . 'discussions/',
 				'count'     => fn( \BuddyNext\Nav\NavContext $c ): int => $this->discussion_count( $c->subject_id ),
+				'render'    => function ( \BuddyNext\Nav\NavContext $c ): void {
+					$this->render_profile_discussions_panel( $c->subject_id );
+				},
 			)
 		);
 
@@ -592,6 +603,88 @@ class JetonomyBridge {
 					return trailingslashit( \BuddyNext\Core\PageRouter::space_url( $c->subject_id ) ) . 'discussions/';
 				},
 				'count'     => fn( \BuddyNext\Nav\NavContext $c ): int => $this->space_discussion_count( $c->subject_id ),
+				'render'    => function ( \BuddyNext\Nav\NavContext $c ): void {
+					$this->render_space_discussions_panel( $c->subject_id, $c->viewer_id );
+				},
+			)
+		);
+	}
+
+	/**
+	 * Register Jetonomy on the integration registry so the owner can toggle its
+	 * Discussions tab + discussion activity from BuddyNext → Integrations.
+	 *
+	 * @param array<string,array<string,mixed>> $items Registered integrations.
+	 * @return array<string,array<string,mixed>>
+	 */
+	public function register_integration( array $items ): array {
+		if ( class_exists( 'Jetonomy\Jetonomy' ) ) {
+			$items['jetonomy'] = array(
+				'label'    => __( 'Jetonomy', 'buddynext' ),
+				'has_nav'  => true,
+				'has_feed' => true,
+			);
+		}
+		return $items;
+	}
+
+	/**
+	 * Render the space Discussions panel — the registry content seam for the space
+	 * Discussions tab. Self-contained: the bridge owns all jt_* access, so it
+	 * resolves the linked forum's threads + the forum/provision context + the
+	 * viewer's posting permission from just the space id + viewer, then renders the
+	 * shared discussions part. This replaces the old hardcoded spaces/home.php
+	 * branch that instantiated the bridge directly, so the space tab and its panel
+	 * are now declared together like every other registry tab.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $viewer_id Current viewer user ID (0 = logged out).
+	 * @return void
+	 */
+	public function render_space_discussions_panel( int $space_id, int $viewer_id ): void {
+		$space = ( new \BuddyNext\Spaces\SpaceService() )->get_object( $space_id );
+		if ( null === $space ) {
+			return;
+		}
+
+		// Posting permission mirrors the feed composer gate: an active member, on a
+		// non-archived space, whose role meets the space's "who can post" threshold.
+		$status    = $viewer_id > 0 ? (string) ( new \BuddyNext\Spaces\SpaceMemberService() )->get_status( $space_id, $viewer_id ) : '';
+		$is_member = 'active' === $status;
+		$can_post  = $is_member
+			&& empty( $space->is_archived )
+			&& \BuddyNext\Spaces\SpacePostGuard::can_post( $space_id, $viewer_id );
+
+		$forum_ctx = $this->space_forum_context( $space_id );
+
+		buddynext_get_template(
+			'parts/space-discussions-panel.php',
+			array(
+				'space'         => $space,
+				'discussions'   => $this->space_discussions( $space_id, 20 ),
+				'forum_url'     => (string) $forum_ctx['forum_url'],
+				'forum_linked'  => (bool) $forum_ctx['linked'],
+				'provision_url' => (string) $forum_ctx['provision_url'],
+				'can_post'      => $can_post,
+			)
+		);
+	}
+
+	/**
+	 * Render the profile Discussions panel — the registry content seam for the
+	 * profile Discussions tab. The bridge owns all jt_* access, so it self-fetches
+	 * the member's discussions and hands them to the shared part. Replaces the old
+	 * hardcoded profile-tab-panel.php branch.
+	 *
+	 * @param int $user_id Profile being viewed.
+	 * @return void
+	 */
+	public function render_profile_discussions_panel( int $user_id ): void {
+		buddynext_get_template(
+			'parts/profile/discussions-panel.php',
+			array(
+				'profile_user_id' => $user_id,
+				'discussions'     => $this->user_discussions( $user_id, 20 ),
 			)
 		);
 	}
@@ -672,7 +765,7 @@ class JetonomyBridge {
 		if ( $space_id <= 0 ) {
 			return 0;
 		}
-		return (int) get_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', 0 );
+		return (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
 	}
 
 	/**

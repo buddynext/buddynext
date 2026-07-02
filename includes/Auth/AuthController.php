@@ -465,7 +465,7 @@ class AuthController {
 
 		$redirect_to = (string) $request->get_param( 'redirect_to' );
 		if ( '' === $redirect_to ) {
-			$redirect_to = \BuddyNext\Core\PageRouter::activity_url();
+			$redirect_to = \BuddyNext\Core\RedirectSettings::login( \BuddyNext\Core\PageRouter::activity_url() );
 		}
 
 		// Two-factor gate (optional, per-user). When on, hold the session and
@@ -547,7 +547,7 @@ class AuthController {
 
 		$redirect_to = (string) $request->get_param( 'redirect_to' );
 		if ( '' === $redirect_to ) {
-			$redirect_to = \BuddyNext\Core\PageRouter::activity_url();
+			$redirect_to = \BuddyNext\Core\RedirectSettings::login( \BuddyNext\Core\PageRouter::activity_url() );
 		}
 
 		return new WP_REST_Response(
@@ -1133,10 +1133,11 @@ class AuthController {
 	 *
 	 * DB-backed fields (those with a bn_profile_fields row) are written via
 	 * ProfileService::save_profile so they land in bn_profile_values and the
-	 * searchable usermeta mirror. Programmatic/virtual fields (id 0, registered
-	 * via buddynext_register_profile_field) have no row, so their value is stored
-	 * to usermeta as bn_field_{key}. Addons can take over storage entirely on the
-	 * buddynext_registration_fields_saved action.
+	 * searchable usermeta mirror. Programmatic/virtual fields (id 0, registered via
+	 * buddynext_register_member_field() / buddynext_register_profile_field()) have no
+	 * row, so their value is stored to usermeta as bn_field_{key} — the same key
+	 * get_profile()'s virtual merge and save_profile()'s virtual branch use. Addons can
+	 * take over storage entirely on the buddynext_registration_fields_saved action.
 	 *
 	 * @param int                             $user_id     New user id.
 	 * @param array<int, array<string,mixed>> $reg_fields The registration field defs.

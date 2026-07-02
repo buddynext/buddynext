@@ -80,7 +80,7 @@ class PresenceServiceTest extends WP_UnitTestCase {
 
 		$this->assertSame( '', (string) get_user_meta( $uid, PresenceService::META_KEY, true ), 'Legacy meta deleted by the v9 migration.' );
 		$this->assertTrue( PresenceService::is_online( $uid ), 'Presence still resolves from bn_presence after the cleanup.' );
-		$this->assertSame( 9, (int) get_option( 'buddynext_schema_version' ), 'Schema version advanced to 9.' );
+		$this->assertSame( 10, (int) get_option( 'buddynext_schema_version' ), 'Schema version advanced to the current revision.' );
 	}
 
 	/**

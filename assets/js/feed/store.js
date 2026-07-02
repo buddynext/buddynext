@@ -3662,6 +3662,9 @@ const bnPill = {
 	restUrl:   '',
 	restNonce: '',
 	pollTimer: null,
+	enabled:   true,
+	pollMs:    POLL_INTERVAL,
+	realtimeActive: false,
 };
 
 function bnPillRender() {
@@ -3689,7 +3692,7 @@ function bnPillRender() {
 }
 
 async function bnPillPoll() {
-	if ( document.hidden || ! bnPill.restUrl ) { return; }
+	if ( ! bnPill.enabled || document.hidden || ! bnPill.restUrl ) { return; }
 	try {
 		const url = bnPill.restUrl + '/feed/new-count?after_id=' + encodeURIComponent( bnPill.watermark ) +
 			'&filter=' + encodeURIComponent( bnPill.filter );
@@ -3717,9 +3720,13 @@ async function bnPillPoll() {
 
 function bnPillSchedule() {
 	if ( bnPill.pollTimer ) { window.clearTimeout( bnPill.pollTimer ); bnPill.pollTimer = null; }
+	// No background poll when the indicator is off, the interval is 0 (disabled
+	// via the buddynext_feed_new_count_interval filter), or a realtime layer is
+	// already pushing post.new events (Pro websockets) — the poll is redundant then.
+	if ( ! bnPill.enabled || bnPill.pollMs <= 0 || bnPill.realtimeActive ) { return; }
 	bnPill.pollTimer = window.setTimeout( function () {
 		bnPillPoll().finally( bnPillSchedule );
-	}, POLL_INTERVAL );
+	}, bnPill.pollMs );
 }
 
 /*
@@ -3782,12 +3789,24 @@ function initRealtimeNewPostsPill() {
 		if ( cardId > bnPill.watermark ) { bnPill.watermark = cardId; }
 	} );
 
+	// Resolve the new-posts indicator config from the feed shell. The server
+	// encodes the poll cadence in ms: -1 = indicator off, 0 = no background poll
+	// (realtime pills only), > 0 = poll interval. A missing attr keeps the default.
+	const bnStack = document.querySelector( '.bn-feed-stack' );
+	const bnRawMs = bnStack ? parseInt( bnStack.dataset.bnNewPollMs || '', 10 ) : NaN;
+	bnPill.enabled = Number.isNaN( bnRawMs ) ? true : bnRawMs >= 0;
+	bnPill.pollMs  = Number.isNaN( bnRawMs ) ? POLL_INTERVAL : Math.max( 0, bnRawMs );
+
 	// Install the document-delegated listeners exactly once.
 	if ( ! window.__bnPillInited ) {
 		window.__bnPillInited = true;
 
 		document.addEventListener( 'bn:realtime:post-new', ( e ) => {
-			if ( ! bnPill.feed ) { return; }
+			if ( ! bnPill.feed || ! bnPill.enabled ) { return; }
+			// A realtime layer is live (Pro websockets): stop the redundant
+			// background poll and let pushed events drive the pill from here on.
+			bnPill.realtimeActive = true;
+			if ( bnPill.pollTimer ) { window.clearTimeout( bnPill.pollTimer ); bnPill.pollTimer = null; }
 			const id = parseInt( e.detail?.post_id, 10 );
 			const author = parseInt( e.detail?.user_id, 10 );
 			if ( ! id ) { return; }

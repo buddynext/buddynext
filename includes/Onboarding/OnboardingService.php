@@ -2,16 +2,19 @@
 /**
  * Member onboarding wizard service.
  *
- * Tracks the four-step new-member onboarding flow. Wizard state is stored in
+ * Tracks the five-step new-member onboarding flow. Wizard state is stored in
  * user meta. Calling finish() fires buddynext_onboarding_completed — but only
  * on the first completion so downstream hooks (nudge email cancellation,
  * WBGam points) do not fire twice.
  *
  * Steps:
  *   1. Profile — display name, handle, avatar, bio
- *   2. Spaces — join recommended spaces (handled by caller)
- *   3. People — follow suggested members (handled by caller)
- *   4. Notifications — pick delivery channels (handled by caller)
+ *   2. Interests — pick space categories (auto-skipped when the owner has
+ *      defined no categories; step_list() drops it and the wizard renders
+ *      four steps with contiguous numbering)
+ *   3. Spaces — join recommended spaces (handled by caller)
+ *   4. People — follow suggested members (handled by caller)
+ *   5. Notifications — pick delivery channels (handled by caller)
  *
  * @package BuddyNext\Onboarding
  */
@@ -26,9 +29,11 @@ namespace BuddyNext\Onboarding;
 class OnboardingService {
 
 	/**
-	 * Total number of onboarding steps.
+	 * Total number of onboarding steps (with the Interests step present —
+	 * step_list() is the per-site truth and drops Interests when the owner
+	 * has no categories).
 	 */
-	public const TOTAL_STEPS = 4;
+	public const TOTAL_STEPS = 5;
 
 	/**
 	 * User meta key for the current step.
@@ -63,6 +68,54 @@ class OnboardingService {
 	}
 
 	/**
+	 * The ordered wizard step list for this site (1-based positions).
+	 *
+	 * The Interests step ("What are you into?") is included only when the
+	 * owner has authored at least one space category — with an empty
+	 * taxonomy the chip grid would be an empty shell, so the step drops out
+	 * server-side and the wizard renders four steps with contiguous
+	 * numbering. Each step carries key / label / icon; the template derives
+	 * positions and the total from this list.
+	 *
+	 * @return array<int, array{key:string, label:string, icon:string}> Steps keyed 1..N.
+	 */
+	public function step_list(): array {
+		$steps   = array();
+		$steps[] = array(
+			'key'   => 'profile',
+			'label' => __( 'Profile', 'buddynext' ),
+			'icon'  => 'user',
+		);
+
+		if ( array() !== \BuddyNext\Profile\FieldType::category_options() ) {
+			$steps[] = array(
+				'key'   => 'interests',
+				'label' => __( 'Interests', 'buddynext' ),
+				'icon'  => 'sparkles',
+			);
+		}
+
+		$steps[] = array(
+			'key'   => 'spaces',
+			'label' => __( 'Spaces', 'buddynext' ),
+			'icon'  => 'building',
+		);
+		$steps[] = array(
+			'key'   => 'people',
+			'label' => __( 'People', 'buddynext' ),
+			'icon'  => 'users',
+		);
+		$steps[] = array(
+			'key'   => 'notifications',
+			'label' => __( 'Notifications', 'buddynext' ),
+			'icon'  => 'bell',
+		);
+
+		// 1-based positions — the template binds each section to its position.
+		return array_combine( range( 1, count( $steps ) ), $steps );
+	}
+
+	/**
 	 * Save data for a wizard step and advance to the next step.
 	 *
 	 * @param int                  $user_id WordPress user ID.
@@ -72,51 +125,68 @@ class OnboardingService {
 	 */
 	public function save_step( int $user_id, int $step, array $data ): void {
 		// Step 1 is the only step whose data lands here (display name +
-		// bio). Step 2 (Spaces), Step 3 (People), and Step 4 (channels)
-		// each go through their own dedicated REST endpoints when the
-		// affordance is used, so this dispatcher only persists profile
-		// data and advances the saved-step pointer.
+		// bio). Interests (POST /me/interests), Spaces (join), People
+		// (follow), and Notifications (channels) each go through their own
+		// dedicated REST endpoints when the affordance is used, so this
+		// dispatcher only persists profile data and advances the
+		// saved-step pointer.
 		if ( 1 === $step ) {
 			$this->save_profile( $user_id, $data );
-		} elseif ( 2 === $step && isset( $data['interest_ids'] ) ) {
-			$this->save_interest_ids( $user_id, (array) $data['interest_ids'] );
 		}
 		$next = min( self::TOTAL_STEPS, $step + 1 );
 		update_user_meta( $user_id, self::META_STEP, $next );
 	}
 
 	/**
-	 * Persist the Step 2 interest category IDs.
+	 * Persist the member's interest picks (space-category IDs).
 	 *
-	 * @param int              $user_id      WordPress user ID.
-	 * @param array<int,mixed> $interest_ids Interest category IDs.
-	 * @return void
+	 * Thin alias over the canonical profile-save path: the picks live in the
+	 * system 'interests' profile field (type category_multiselect, one
+	 * bn_profile_values row per pick) — never in user meta. The field's
+	 * sanitiser absints each ID and validates it against the live category
+	 * set, so this passes the raw selection straight through.
+	 *
+	 * @param int              $user_id WordPress user ID.
+	 * @param array<int,mixed> $ids     Space-category IDs.
+	 * @return int[] The stored category IDs.
 	 */
-	public function save_interest_ids( int $user_id, array $interest_ids ): void {
-		$ids = array_values( array_filter( array_map( 'absint', $interest_ids ) ) );
-		update_user_meta( $user_id, 'bn_onboarding_interests', $ids );
+	public function save_interest_ids( int $user_id, array $ids ): array {
+		$clean = array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) );
+
+		buddynext_service( 'profiles' )->save_profile(
+			$user_id,
+			array( 'interests' => implode( ',', $clean ) )
+		);
+
+		return $this->get_interest_ids( $user_id );
 	}
 
 	/**
-	 * Persist free-text interest labels (the member's chosen interests).
+	 * Read the member's stored interest picks from the profile field.
 	 *
-	 * @param int              $user_id WordPress user ID.
-	 * @param array<int,mixed> $labels Interest label strings.
-	 * @return string The stored comma-joined label string.
+	 * @param int $user_id WordPress user ID.
+	 * @return int[] Picked space-category IDs (entry order), empty when the
+	 *               field is absent or nothing is picked.
 	 */
-	public function save_interests( int $user_id, array $labels ): string {
-		$clean = array_values(
-			array_filter(
-				array_map(
-					static fn( $l ): string => sanitize_text_field( (string) $l ),
-					$labels
-				),
-				static fn( string $l ): bool => '' !== $l
+	public function get_interest_ids( int $user_id ): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT v.value
+				   FROM {$wpdb->prefix}bn_profile_values v
+				   JOIN {$wpdb->prefix}bn_profile_fields f ON f.id = v.field_id
+				  WHERE v.user_id = %d
+				    AND f.field_key = 'interests'
+				    AND f.type = 'category_multiselect'
+				  ORDER BY v.entry_index ASC",
+				$user_id
 			)
 		);
-		$value = implode( ',', $clean );
-		update_user_meta( $user_id, 'bn_interests', $value );
-		return $value;
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return array_values( array_filter( array_map( 'absint', (array) $ids ) ) );
 	}
 
 	/**
@@ -267,11 +337,13 @@ class OnboardingService {
 		do_action( 'buddynext_onboarding_completed', $user_id );
 	}
 
-	// Step 2 (Spaces)        → join handled in OnboardingController::complete()
+	// Interests     → save_interest_ids() above, via POST /me/interests on the
+	// step's Continue and again (idempotent) in OnboardingController::complete().
+	// Spaces        → join handled in OnboardingController::complete()
 	// and the inline joinSuggestedSpace REST call.
-	// Step 3 (People)        → follow handled in OnboardingController::complete()
+	// People        → follow handled in OnboardingController::complete()
 	// and the inline followSuggestedUser REST call.
-	// Step 4 (Notifications) → save_channels() above, invoked on complete.
+	// Notifications → save_channels() above, invoked on complete.
 
 	// -------------------------------------------------------------------------
 	// Private helpers

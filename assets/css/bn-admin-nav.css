@@ -108,6 +108,28 @@
 	font-family: var(--bn-font-mono);
 }
 
+/* Developer hook names sit collapsed behind a "For developers" disclosure so
+   owners read one plain line; devs expand on demand. */
+.bn-scope-tip__intro {
+	margin: 0;
+}
+.bn-scope-tip__dev {
+	margin-top: var(--bn-a-s2);
+}
+.bn-scope-tip__dev summary {
+	cursor: pointer;
+	color: var(--bn-a-text-2);
+	font-weight: var(--bn-a-fw-medium);
+}
+.bn-scope-tip__dev summary:focus-visible {
+	outline: 2px solid var(--bn-ring);
+	outline-offset: 2px;
+	border-radius: var(--bn-a-r-sm);
+}
+.bn-scope-tip__dev p {
+	margin: var(--bn-a-s2) 0 0;
+}
+
 /* ── Main panel ────────────────────────────────────────────────────────── */
 
 .bn-nav-main-panel {
@@ -198,6 +220,13 @@
 
 .bn-nav-list .bn-drag-row[data-row-dependency] .bn-toggle-wrap {
 	cursor: not-allowed;
+}
+
+/* Row whose item is open in the inspector — mirrors .bn-config-btn-active so
+   the list and the config panel visibly agree on the current selection. */
+.bn-nav-list .bn-drag-row.is-selected {
+	border-color: var(--bn-a-brand);
+	background: var(--bn-a-brand-light);
 }
 
 /* Fixed slot indicator (mobile Create / Profile) — a quiet, non-interactive
@@ -416,6 +445,32 @@
 
 .bn-cf:last-child {
 	margin-bottom: 0;
+}
+
+/* "Advanced" disclosure in the inspector — keeps the free-text capability
+   field out of the default view; opens automatically when Visibility is set
+   to "Custom capability" (server-side `open` attribute). */
+.bn-cf-advanced {
+	margin-bottom: var(--bn-a-s4);
+}
+
+.bn-cf-advanced > summary {
+	cursor: pointer;
+	font-weight: var(--bn-a-fw-semibold);
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-2);
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+}
+
+.bn-cf-advanced > summary:focus-visible {
+	outline: 2px solid var(--bn-ring);
+	outline-offset: 2px;
+	border-radius: var(--bn-a-r-sm);
+}
+
+.bn-cf-advanced[open] > summary {
+	margin-bottom: var(--bn-a-s2);
 }
 
 .bn-cf > label {

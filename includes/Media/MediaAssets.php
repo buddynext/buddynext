@@ -73,7 +73,7 @@ class MediaAssets {
 			$js_ver,
 			true
 		);
-		wp_set_script_translations( 'bn-media-lightbox', 'buddynext' );
+		wp_set_script_translations( 'bn-media-lightbox', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 		// Config for the interactive lightbox. It consumes WPMediaVerse at the
 		// API level only — reactions / comments / favorite / view all hit the

@@ -423,21 +423,44 @@ class BlockService {
 	 *
 	 * Single seam for the four surfaces that decide whether to render a
 	 * green presence dot (member directory, profile hero, DM list rail,
-	 * DM thread header). Centralises the bn_last_active threshold so it
-	 * lives in one place, and applies the restrict gate: a user the
-	 * viewer has restricted always reads as offline so the viewer never
-	 * sees activity signals from them.
+	 * DM thread header), reading the indexed bn_presence table via
+	 * PresenceService::last_active_at(). The window defaults to the shared
+	 * PresenceService::ONLINE_WINDOW so every surface agrees, and the restrict
+	 * gate applies: a user the viewer has restricted always reads as offline so
+	 * the viewer never sees activity signals from them.
 	 *
 	 * The check is one-way. The restricted user themselves sees normal
 	 * presence dots — restrict is silent.
 	 *
 	 * @param int $viewer_id    Viewer (0 = anonymous, no restrict gate applied).
 	 * @param int $target_id    User whose presence is being checked.
-	 * @param int $threshold_s  Optional. Window in seconds. Default 300 (5 minutes).
+	 * @param int $threshold_s  Optional. Window in seconds. Default PresenceService::ONLINE_WINDOW.
 	 * @return bool
 	 */
-	public function is_user_online( int $viewer_id, int $target_id, int $threshold_s = 300 ): bool {
-		if ( $target_id <= 0 ) {
+	public function is_user_online( int $viewer_id, int $target_id, int $threshold_s = \BuddyNext\Realtime\PresenceService::ONLINE_WINDOW ): bool {
+		return $this->is_user_online_at(
+			$viewer_id,
+			$target_id,
+			\BuddyNext\Realtime\PresenceService::last_active_at( $target_id ),
+			$threshold_s
+		);
+	}
+
+	/**
+	 * Online check from an already-resolved last_active timestamp — the no-query
+	 * sibling of is_user_online(), for callers that batch-fetch presence. The member
+	 * directory selects last_active in its main query and calls this per card, so a
+	 * page of members never fires a last_active_at() lookup per row. Applies the same
+	 * restrict gate + window as is_user_online().
+	 *
+	 * @param int $viewer_id   Viewer (0 = anonymous, no restrict gate applied).
+	 * @param int $target_id   User whose presence is being checked.
+	 * @param int $last_active Target's last_active UNIX timestamp (0 = never seen → offline).
+	 * @param int $threshold_s Optional. Window in seconds. Default PresenceService::ONLINE_WINDOW.
+	 * @return bool
+	 */
+	public function is_user_online_at( int $viewer_id, int $target_id, int $last_active, int $threshold_s = \BuddyNext\Realtime\PresenceService::ONLINE_WINDOW ): bool {
+		if ( $target_id <= 0 || $last_active <= 0 ) {
 			return false;
 		}
 
@@ -445,10 +468,6 @@ class BlockService {
 			return false;
 		}
 
-		$last_active = \BuddyNext\Realtime\PresenceService::last_active_at( $target_id );
-		if ( $last_active <= 0 ) {
-			return false;
-		}
 		return $last_active >= ( time() - $threshold_s );
 	}
 

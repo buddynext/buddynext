@@ -23,7 +23,6 @@
  * @var string   $username           Author user_nicename.
  * @var string   $avatar_url         Avatar URL.
  * @var string   $initials           Two-letter fallback initials.
- * @var string   $member_type_label  Member-type badge label.
  * @var int      $degree             Viewer→author connection degree (1=1st, 2=2nd; 0/3+ hidden).
  * @var bool     $show_follow        When true, render an inline Follow button (caller gates on not-already-following).
  * @var string   $created_at         UTC MySQL datetime.
@@ -58,7 +57,6 @@ $args = array(
 	'username'          => isset( $username ) ? (string) $username : '',
 	'avatar_url'        => isset( $avatar_url ) ? (string) $avatar_url : '',
 	'initials'          => isset( $initials ) ? (string) $initials : '',
-	'member_type_label' => isset( $member_type_label ) ? (string) $member_type_label : '',
 	'degree'            => isset( $degree ) ? (int) $degree : 0,
 	'show_follow'       => isset( $show_follow ) ? (bool) $show_follow : false,
 	'created_at'        => isset( $created_at ) ? (string) $created_at : '',
@@ -124,10 +122,6 @@ do_action( 'buddynext_part_post_byline_before', $args );
 				data-bn-user-name="<?php echo esc_attr( (string) $args['display_name'] ); ?>"
 				data-bn-user-handle="<?php echo esc_attr( (string) $args['username'] ); ?>"
 			><?php echo esc_html( (string) $args['display_name'] ); ?></a>
-
-			<?php if ( '' !== (string) $args['member_type_label'] ) : ?>
-				<span class="bn-badge bn-post-card__member-type" data-tone="accent"><?php echo esc_html( (string) $args['member_type_label'] ); ?></span>
-			<?php endif; ?>
 
 			<?php
 			// Connection-degree pill (1st / 2nd) — mirrors parts/member-card +

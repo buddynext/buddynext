@@ -18,6 +18,7 @@
  * @var bool        $can_post       Optional. Viewer's role satisfies the "Who can post" gate. Default = is_member.
  * @var bool        $is_guest       Optional. Viewer is logged out. Default false.
  * @var bool        $is_pending     Optional. Viewer has pending join request. Default false.
+ * @var bool        $is_archived    Optional. Space is archived (read-only) — shows a notice. Default false.
  * @var array       $posts          Optional. List of post arrays for the feed. Default [].
  * @var array|null  $pinned_post    Optional. Pinned post row (or null when absent).
  * @var WP_User|null $current_user  Optional. Current WP_User object (for composer guard).
@@ -48,6 +49,7 @@ $args = array(
 	'can_post'     => isset( $can_post ) ? (bool) $can_post : ( isset( $is_member ) ? (bool) $is_member : false ),
 	'is_guest'     => isset( $is_guest ) ? (bool) $is_guest : false,
 	'is_pending'   => isset( $is_pending ) ? (bool) $is_pending : false,
+	'is_archived'  => isset( $is_archived ) ? (bool) $is_archived : false,
 	'posts'        => isset( $posts ) && is_array( $posts ) ? $posts : array(),
 	'pinned_post'  => isset( $pinned_post ) ? $pinned_post : null,
 	'current_user' => isset( $current_user ) ? $current_user : null,
@@ -65,16 +67,17 @@ $bn_classes = array_filter( (array) $args['classes'], 'is_string' );
 /** Computed root-class list. @var array<int,string> $bn_classes */
 $bn_classes = (array) apply_filters( 'buddynext_part_space_feed_panel_classes', $bn_classes, $args );
 
-$bn_space      = $args['space'];
-$bn_space_id   = (int) $args['space_id'];
-$bn_viewer_id  = (int) $args['viewer_id'];
-$bn_is_member  = (bool) $args['is_member'];
-$bn_can_post   = (bool) $args['can_post'];
-$bn_is_guest   = (bool) $args['is_guest'];
-$bn_is_pending = (bool) $args['is_pending'];
-$bn_posts      = (array) $args['posts'];
-$bn_pinned     = $args['pinned_post'];
-$bn_user       = $args['current_user'];
+$bn_space       = $args['space'];
+$bn_space_id    = (int) $args['space_id'];
+$bn_viewer_id   = (int) $args['viewer_id'];
+$bn_is_member   = (bool) $args['is_member'];
+$bn_can_post    = (bool) $args['can_post'];
+$bn_is_guest    = (bool) $args['is_guest'];
+$bn_is_pending  = (bool) $args['is_pending'];
+$bn_is_archived = (bool) $args['is_archived'];
+$bn_posts       = (array) $args['posts'];
+$bn_pinned      = $args['pinned_post'];
+$bn_user        = $args['current_user'];
 
 $bn_wrap_class = trim(
 	implode(
@@ -96,6 +99,12 @@ if ( '' !== $bn_wrap_class ) {
 	echo '<div class="' . esc_attr( $bn_wrap_class ) . '">';
 }
 ?>
+
+<?php if ( $bn_is_archived ) : ?>
+	<div class="bn-notice" role="status">
+		<?php esc_html_e( 'This space is archived. You can still read past activity, but new posts, comments, and joins are disabled.', 'buddynext' ); ?>
+	</div>
+<?php endif; ?>
 
 <?php if ( $bn_is_member && $bn_user && $bn_can_post ) : ?>
 	<?php

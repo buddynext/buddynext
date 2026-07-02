@@ -856,6 +856,9 @@
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
 }
+/* The indicator is always in the DOM (1:1 + group) so the poll can toggle it
+   live; `display:flex` above would otherwise defeat the bare `hidden` attribute. */
+.bn-dm-typing[hidden] { display: none; }
 
 .bn-dm-typing__dots {
 	display: inline-flex;

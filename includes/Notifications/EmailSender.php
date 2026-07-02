@@ -33,6 +33,21 @@ class EmailSender {
 	private NotificationPrefCatalogue $catalogue;
 
 	/**
+	 * Transactional account-email types.
+	 *
+	 * These are not member notification preferences: they bypass the catalogue
+	 * gate, the master email channel toggle, and per-type frequency prefs, and
+	 * they send immediately (no Action Scheduler defer) because the member is
+	 * typically waiting on them. Their template row still governs content and
+	 * enabled=0 still suppresses the send. email_change_confirm is deliberately
+	 * absent — it targets the CANDIDATE address and dispatches directly through
+	 * send_with_identity() in VerificationListener.
+	 *
+	 * @var string[]
+	 */
+	private const TRANSACTIONAL_TYPES = array( 'email_verify', 'welcome' );
+
+	/**
 	 * Constructor.
 	 *
 	 * @param NotificationPrefService   $pref_service Notification preference service.
@@ -48,16 +63,32 @@ class EmailSender {
 	 *
 	 * Checks the user's email_freq preference before dispatching:
 	 * - 'off'             → no action
-	 * - 'daily'|'weekly'  → fires buddynext_queue_email_digest action and returns
+	 * - 'daily'|'weekly'  → no immediate send; the digest cron builds + sends from the
+	 *                       recorded notifications. Fires buddynext_queue_email_digest
+	 *                       as an addon extension point only (core keeps no queue).
 	 * - 'immediate'       → fetches template, renders, and sends
 	 *
 	 * @param int    $user_id           Recipient user ID.
 	 * @param string $notification_type Notification type key.
 	 * @param array  $data              Notification data payload.
+	 * @param bool   $defer             When true (default) an immediate email is
+	 *                                  enqueued via Action Scheduler so it never
+	 *                                  blocks the originating request. Pass false
+	 *                                  from a context that is ALREADY an async AS
+	 *                                  worker (e.g. the batched space-post email
+	 *                                  stage) so the send happens inline instead of
+	 *                                  spawning one sub-action per recipient.
 	 * @return void
 	 */
-	public function send( int $user_id, string $notification_type, array $data ): void {
+	public function send( int $user_id, string $notification_type, array $data, bool $defer = true ): void {
 		if ( $user_id <= 0 || '' === $notification_type ) {
+			return;
+		}
+
+		// Transactional account emails: skip the notification-preference
+		// machinery entirely and send inline — see TRANSACTIONAL_TYPES.
+		if ( in_array( $notification_type, self::TRANSACTIONAL_TYPES, true ) ) {
+			$this->send_now( $user_id, $notification_type, $data );
 			return;
 		}
 
@@ -87,8 +118,15 @@ class EmailSender {
 		}
 
 		if ( 'daily' === $email_freq || 'weekly' === $email_freq ) {
+			// No immediate email: the notification is already persisted in
+			// bn_notifications, and the daily/weekly cron (CronService::handle_*_digest)
+			// builds + sends the batched digest from there + bn_notification_prefs,
+			// logging to bn_email_log. Core keeps NO per-user queue — a dead,
+			// never-read buddynext_digest_queue_* usermeta accumulator was removed.
 			/**
-			 * Fires when a notification should be queued for digest delivery.
+			 * Extension point: a notification was routed to digest delivery. Core needs
+			 * no queue (the digest cron reads bn_notifications); an addon may hook this
+			 * to drive its own digest pipeline.
 			 *
 			 * @param int    $user_id           Recipient user ID.
 			 * @param string $notification_type Notification type key.
@@ -99,8 +137,10 @@ class EmailSender {
 		}
 
 		// Immediate send — dispatch asynchronously via Action Scheduler when
-		// available so it does not block the current request.
-		if ( function_exists( 'as_enqueue_async_action' ) ) {
+		// available so it does not block the current request. Skipped when the
+		// caller is already an AS worker ($defer = false): it sends inline below
+		// rather than spawning one sub-action per recipient.
+		if ( $defer && function_exists( 'as_enqueue_async_action' ) ) {
 			as_enqueue_async_action(
 				'buddynext_send_notification_email',
 				array(
@@ -130,8 +170,12 @@ class EmailSender {
 	 */
 	public function send_now( int $user_id, string $notification_type, array $data ): void {
 		// Defense-in-depth: honour the can_email gate here too (in case this is
-		// ever invoked outside the send() path).
-		if ( '' !== $notification_type && ! $this->catalogue->can_email( $notification_type ) ) {
+		// ever invoked outside the send() path). Transactional account emails
+		// are exempt — they are not catalogue-governed preferences.
+		if ( '' !== $notification_type
+			&& ! in_array( $notification_type, self::TRANSACTIONAL_TYPES, true )
+			&& ! $this->catalogue->can_email( $notification_type )
+		) {
 			return;
 		}
 
@@ -322,12 +366,20 @@ class EmailSender {
 		$from_name    = self::from_name();
 		$from_address = self::from_address();
 
+		// PHP_INT_MAX: BuddyNext is the master plugin for every integration -
+		// on ITS OWN sends its configured identity must win over any plugin
+		// hooking wp_mail_from* globally (Learnomy's notifier does, at 20, and
+		// was stomping the From on every BuddyNext email). These filters exist
+		// only for the duration of this one send, so other plugins' emails are
+		// never touched. buddynext_email_identity_priority lets a site opt out.
+		$bn_identity_priority = (int) apply_filters( 'buddynext_email_identity_priority', PHP_INT_MAX );
+
 		$name_filter = null;
 		if ( '' !== $from_name ) {
 			$name_filter = static function () use ( $from_name ) {
 				return $from_name;
 			};
-			add_filter( 'wp_mail_from_name', $name_filter );
+			add_filter( 'wp_mail_from_name', $name_filter, $bn_identity_priority );
 		}
 
 		$address_filter = null;
@@ -335,7 +387,7 @@ class EmailSender {
 			$address_filter = static function () use ( $from_address ) {
 				return $from_address;
 			};
-			add_filter( 'wp_mail_from', $address_filter );
+			add_filter( 'wp_mail_from', $address_filter, $bn_identity_priority );
 		}
 
 		// Make this the authoritative identity path: ensure the HTML Content-Type
@@ -368,10 +420,10 @@ class EmailSender {
 		$sent = wp_mail( $to, $subject, $body, $headers );
 
 		if ( null !== $name_filter ) {
-			remove_filter( 'wp_mail_from_name', $name_filter );
+			remove_filter( 'wp_mail_from_name', $name_filter, $bn_identity_priority );
 		}
 		if ( null !== $address_filter ) {
-			remove_filter( 'wp_mail_from', $address_filter );
+			remove_filter( 'wp_mail_from', $address_filter, $bn_identity_priority );
 		}
 
 		// Record the send in bn_email_log so identity sends (auth lifecycle,

@@ -142,6 +142,57 @@ class NotificationPrefService {
 	}
 
 	/**
+	 * Batch variant of get_pref()'s on_site decision for many users at once.
+	 *
+	 * Returns a map of user_id => bool (whether the in-app/on_site channel is
+	 * enabled for the given type). One query covers every user; users with no
+	 * stored row fall back to the SAME default_pref() the single-user path uses,
+	 * so the batched fan-out filters recipients identically to create(). Built
+	 * for high-volume fan-out (space new-post) where a per-user get_pref() would
+	 * be an N+1.
+	 *
+	 * @param int[]  $user_ids User IDs.
+	 * @param string $type     Notification type key (e.g. 'bn.space_new_post').
+	 * @return array<int,bool> user_id => on_site enabled.
+	 */
+	public function get_on_site_map( array $user_ids, string $type ): array {
+		$user_ids = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
+		if ( empty( $user_ids ) ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$type         = sanitize_text_field( $type );
+		$placeholders = implode( ', ', array_fill( 0, count( $user_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT user_id, on_site FROM {$wpdb->prefix}bn_notification_prefs
+				 WHERE type = %s AND user_id IN ( {$placeholders} )",
+				array_merge( array( $type ), $user_ids )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$stored = array();
+		foreach ( (array) $rows as $row ) {
+			$stored[ (int) $row['user_id'] ] = (bool) $row['on_site'];
+		}
+
+		$default = (bool) $this->default_pref( $type )['on_site'];
+
+		$map = array();
+		foreach ( $user_ids as $uid ) {
+			$map[ $uid ] = $stored[ $uid ] ?? $default;
+		}
+
+		return $map;
+	}
+
+	/**
 	 * Set the notification preference for a user and type.
 	 *
 	 * Uses INSERT ... ON DUPLICATE KEY UPDATE for idempotency.

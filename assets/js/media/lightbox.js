@@ -98,6 +98,11 @@
 			src:    tile.getAttribute( 'data-media-src' ) || ( img ? img.src : '' ),
 			poster: img ? img.src : '',
 			alt:    tile.getAttribute( 'aria-label' ) || '',
+			// Source post the media came from (present only when it was posted).
+			// Drives Share: with a post id the lightbox opens that post's rich
+			// Share modal; without one it falls back to Copy link.
+			postId:    parseInt( tile.getAttribute( 'data-post-id' ), 10 ) || 0,
+			permalink: tile.getAttribute( 'data-post-permalink' ) || '',
 			// Private DM media: the lightbox hides social chrome (reactions,
 			// comments, favorite, share) and skips those REST calls.
 			dm:     '1' === tile.getAttribute( 'data-bn-dm' ),
@@ -286,22 +291,60 @@
 	}
 
 	function share() {
-		// Share the BuddyNext page the media lives on (post / profile) — never a
-		// signed (expiring) file URL or the MediaVerse /media/ page.
-		var url = window.location.href;
-		if ( navigator.share ) {
-			navigator.share( { url: url } ).catch( function () {} );
+		var item = gallery[ index ] || null;
+
+		// DM media has no social layer (chrome is hidden) — never share it.
+		if ( item && item.dm ) { return; }
+
+		// When the media came from a post, open the SAME rich Share modal the
+		// post cards use (Repost + Copy link), threading the source post id so
+		// Repost works. The modal carries its own wp_rest nonce + buddynext/v1
+		// restUrl, so the lightbox only supplies the post id + permalink.
+		var modal = document.querySelector( '.bn-share-modal' );
+		if ( item && item.postId && modal ) {
+			// Hand off to the share modal — close the lightbox first so its
+			// full-screen overlay does not sit on top of (and block) the modal.
+			var detail = {
+				postId:    item.postId,
+				permalink: item.permalink || window.location.href,
+				author:    '',
+				excerpt:   '',
+			};
+			close();
+			document.dispatchEvent( new CustomEvent( 'bn-open-share-modal', { detail: detail } ) );
 			return;
 		}
-		// navigator.clipboard is only defined in a secure context (HTTPS /
-		// localhost). On plain http it is undefined, which left Share doing
-		// nothing — fall back to a temporary textarea + execCommand('copy').
-		copyToClipboard( url );
+
+		// No source post (e.g. a direct upload) — copy the page link the media
+		// lives on. Never a signed (expiring) file URL or the MediaVerse page.
+		copyToClipboard( item && item.permalink ? item.permalink : window.location.href );
+	}
+
+	// Toast feedback that never goes silent: use the shared bnToast when it is
+	// on the page, otherwise render a minimal toast (same DOM contract as
+	// shell/extras.js) so a copy on a surface without bn-shell-extras still
+	// tells the user it worked.
+	function notify( msg, tone ) {
+		if ( typeof window.bnToast === 'function' ) {
+			window.bnToast( msg, tone );
+			return;
+		}
+		var c = document.querySelector( '.bn-toast-container' );
+		if ( ! c ) {
+			c = document.createElement( 'div' );
+			c.className = 'bn-toast-container';
+			document.body.appendChild( c );
+		}
+		var t = document.createElement( 'div' );
+		t.className = 'bn-toast' + ( 'success' === tone ? ' bn-toast--success' : ( 'info' === tone ? ' bn-toast--info' : '' ) );
+		t.textContent = msg;
+		c.appendChild( t );
+		setTimeout( function () { t.remove(); }, 3000 );
 	}
 
 	function copyToClipboard( text ) {
 		var done = function () {
-			if ( window.bnToast ) { window.bnToast( __( 'Link copied', 'buddynext' ), 'success' ); }
+			notify( __( 'Link copied', 'buddynext' ), 'success' );
 		};
 		if ( navigator.clipboard && window.isSecureContext ) {
 			navigator.clipboard.writeText( text ).then( done ).catch( function () { legacyCopy( text, done ); } );
@@ -329,9 +372,7 @@
 		} catch ( e ) {}
 		// Last resort (no Clipboard API + execCommand failed): surface the link in
 		// a toast for manual copy. No native prompt() — see the UX-audit F8 rule.
-		if ( window.bnToast ) {
-			window.bnToast( ( I18N.copyManual || 'Copy this link: ' ) + text, 'info' );
-		}
+		notify( ( I18N.copyManual || 'Copy this link: ' ) + text, 'info' );
 	}
 
 	function renderComments( list ) {

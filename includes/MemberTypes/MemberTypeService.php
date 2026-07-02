@@ -98,11 +98,16 @@ class MemberTypeService {
 		$types_table       = $wpdb->prefix . 'bn_member_types';
 		$assignments_table = $wpdb->prefix . 'bn_member_type_assignments';
 
+		// COUNT(u.ID) over a LEFT JOIN to wp_users counts only assignment rows that
+		// still resolve to a real user — an assignment left behind for a deleted user
+		// (orphan) has a NULL u.ID and is skipped, so the admin types table never
+		// shows an inflated total. Types with no assignments still appear with 0.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
-			"SELECT t.*, COUNT(a.user_id) AS member_count
+			"SELECT t.*, COUNT(u.ID) AS member_count
 			   FROM {$types_table} t
 			   LEFT JOIN {$assignments_table} a ON a.type_id = t.id
+			   LEFT JOIN {$wpdb->users} u ON u.ID = a.user_id
 			  GROUP BY t.id
 			  ORDER BY t.sort_order ASC, t.id ASC",
 			ARRAY_A
@@ -212,6 +217,9 @@ class MemberTypeService {
 
 		$this->cache->delete( 'bn_member_types_all' );
 		$this->cache->delete( self::COUNTS_CACHE_KEY );
+		// Keep the directory's discovery-gated per-type counts (the "By type" / "By
+		// role" facets) in lockstep with this cache — same invalidation events.
+		$this->cache->delete( \BuddyNext\Profile\MemberDirectoryService::TYPE_COUNTS_CACHE_KEY );
 
 		$type_data       = $validated;
 		$type_data['id'] = $new_id;
@@ -279,6 +287,9 @@ class MemberTypeService {
 
 		$this->cache->delete( 'bn_member_types_all' );
 		$this->cache->delete( self::COUNTS_CACHE_KEY );
+		// Keep the directory's discovery-gated per-type counts (the "By type" / "By
+		// role" facets) in lockstep with this cache — same invalidation events.
+		$this->cache->delete( \BuddyNext\Profile\MemberDirectoryService::TYPE_COUNTS_CACHE_KEY );
 
 		return true;
 	}
@@ -338,6 +349,9 @@ class MemberTypeService {
 
 		$this->cache->delete( 'bn_member_types_all' );
 		$this->cache->delete( self::COUNTS_CACHE_KEY );
+		// Keep the directory's discovery-gated per-type counts (the "By type" / "By
+		// role" facets) in lockstep with this cache — same invalidation events.
+		$this->cache->delete( \BuddyNext\Profile\MemberDirectoryService::TYPE_COUNTS_CACHE_KEY );
 		$this->cache->delete( 'bn_member_type_count_' . $id );
 
 		do_action( 'buddynext_member_type_deleted', $id, $type['slug'] );
@@ -466,6 +480,9 @@ class MemberTypeService {
 		$this->cache->delete( 'bn_member_type_' . $user_id );
 		$this->cache->delete( 'bn_member_type_count_' . $type_id );
 		$this->cache->delete( self::COUNTS_CACHE_KEY );
+		// Keep the directory's discovery-gated per-type counts (the "By type" / "By
+		// role" facets) in lockstep with this cache — same invalidation events.
+		$this->cache->delete( \BuddyNext\Profile\MemberDirectoryService::TYPE_COUNTS_CACHE_KEY );
 		if ( $previous ) {
 			$this->cache->delete( 'bn_member_type_count_' . $previous['id'] );
 		}
@@ -495,6 +512,9 @@ class MemberTypeService {
 
 		$this->cache->delete( 'bn_member_type_' . $user_id );
 		$this->cache->delete( self::COUNTS_CACHE_KEY );
+		// Keep the directory's discovery-gated per-type counts (the "By type" / "By
+		// role" facets) in lockstep with this cache — same invalidation events.
+		$this->cache->delete( \BuddyNext\Profile\MemberDirectoryService::TYPE_COUNTS_CACHE_KEY );
 		if ( $existing ) {
 			$this->cache->delete( 'bn_member_type_count_' . $existing['id'] );
 			do_action( 'buddynext_member_type_removed', $user_id, (string) $existing['slug'] );

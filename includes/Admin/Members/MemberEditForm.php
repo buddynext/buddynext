@@ -433,6 +433,29 @@ class MemberEditForm {
 			$options = $field['options'];
 		}
 
+		// Category-backed picks (system Interests field and any other
+		// category_multiselect) are chosen by the member — show the resolved
+		// labels read-only and emit NO input, so saving this form never
+		// clobbers the member's selection. Deleted categories drop out of the
+		// label list automatically.
+		if ( 'category_multiselect' === $type ) {
+			$picked_labels = \BuddyNext\Profile\FieldType::display_text( $field, $raw_val );
+			?>
+	<div class="bn-field-row">
+		<div class="bn-label"><?php echo esc_html( $label ); ?></div>
+		<div class="bn-control">
+			<?php if ( '' !== $picked_labels ) : ?>
+				<span class="bn-field-value"><?php echo esc_html( $picked_labels ); ?></span>
+			<?php else : ?>
+				<p class="bn-edit-empty"><?php esc_html_e( 'Nothing selected yet.', 'buddynext' ); ?></p>
+			<?php endif; ?>
+			<p class="bn-edit-hint"><?php esc_html_e( 'Members choose these themselves from onboarding or their profile. Read-only here.', 'buddynext' ); ?></p>
+		</div>
+	</div>
+			<?php
+			return;
+		}
+
 		$input_id = 'bn-pf-' . $key;
 		?>
 <div class="bn-field-row">

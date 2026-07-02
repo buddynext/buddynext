@@ -72,7 +72,7 @@ class DemoAdmin {
 						?>
 					</p>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
-						onsubmit="return confirm('<?php echo esc_js( __( 'Remove all demo data? This cannot be undone.', 'buddynext' ) ); ?>');">
+						data-bn-confirm="<?php echo esc_attr__( 'Remove all demo data? This cannot be undone.', 'buddynext' ); ?>" data-bn-confirm-tone="danger">
 						<input type="hidden" name="action" value="bn_demo_cleanup">
 						<?php wp_nonce_field( 'bn_demo_cleanup' ); ?>
 						<button type="submit" class="bn-btn" data-variant="danger"><?php esc_html_e( 'Remove Demo Data', 'buddynext' ); ?></button>

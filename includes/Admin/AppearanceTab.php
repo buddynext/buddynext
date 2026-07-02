@@ -51,12 +51,8 @@ class AppearanceTab {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Appearance saved.', 'buddynext' ) . '</p></div>';
 		}
 		$bn_logo_err = isset( $_GET['bn_error'] ) ? sanitize_key( wp_unslash( $_GET['bn_error'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		if ( 'logo_size' === $bn_logo_err ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Logo not saved: file exceeds the 2MB limit.', 'buddynext' ) . '</p></div>';
-		} elseif ( 'logo_type' === $bn_logo_err ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Logo not saved: only PNG, JPEG, WebP, or SVG files are allowed.', 'buddynext' ) . '</p></div>';
-		} elseif ( 'logo_upload' === $bn_logo_err ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Logo not saved: the upload failed. Please try again.', 'buddynext' ) . '</p></div>';
+		if ( 'logo_url' === $bn_logo_err ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Logo not saved: select an image from the media library or enter a valid image URL.', 'buddynext' ) . '</p></div>';
 		}
 
 		$logo   = (string) get_option( 'buddynext_logo_url', '' );
@@ -68,7 +64,7 @@ class AppearanceTab {
 			'dark'  => __( 'Dark', 'buddynext' ),
 		);
 		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data" class="bn-admin-hub__form-bare">
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-admin-hub__form-bare bn-settings-content">
 			<input type="hidden" name="action" value="bn_appearance_save">
 			<?php wp_nonce_field( 'bn_appearance_save' ); ?>
 
@@ -76,11 +72,15 @@ class AppearanceTab {
 				<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Logo', 'buddynext' ); ?></span></div>
 				<div class="bn-ss-body">
 					<p class="bn-av-section-desc"><?php esc_html_e( 'Shown at the top of the navigation rail. A wide PNG/SVG around 160×40 works best. Leave empty to show the community name instead.', 'buddynext' ); ?></p>
-					<?php if ( '' !== $logo ) : ?>
-						<p><img src="<?php echo esc_url( $logo ); ?>" alt="" style="max-height:40px;max-width:240px;"></p>
-						<p><label><input type="checkbox" name="bn_remove_logo" value="1"> <?php esc_html_e( 'Remove current logo', 'buddynext' ); ?></label></p>
-					<?php endif; ?>
-					<input type="file" name="bn_logo_file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+					<?php
+					AdminPageBase::render_media_row(
+						'bn_logo_url',
+						__( 'Logo image', 'buddynext' ),
+						$logo,
+						__( 'Pick an image from the media library, or paste an image URL directly.', 'buddynext' ),
+						__( 'Select logo', 'buddynext' )
+					);
+					?>
 				</div>
 			</div>
 
@@ -93,7 +93,7 @@ class AppearanceTab {
 							<option value="<?php echo esc_attr( $tv ); ?>" <?php selected( $theme, $tv ); ?>><?php echo esc_html( $tl ); ?></option>
 						<?php endforeach; ?>
 					</select>
-					<p class="bn-av-section-desc" style="margin-top:8px;">
+					<p class="bn-av-section-desc bn-a-gap-top-sm">
 						<?php esc_html_e( 'Accent colour is set under', 'buddynext' ); ?>
 						<a href="<?php echo esc_url( admin_url( 'admin.php?page=buddynext&tab=general' ) ); ?>"><?php esc_html_e( 'General → Brand Color', 'buddynext' ); ?></a>.
 					</p>
@@ -104,7 +104,8 @@ class AppearanceTab {
 				<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Custom CSS', 'buddynext' ); ?></span></div>
 				<div class="bn-ss-body">
 					<p class="bn-av-section-desc"><?php esc_html_e( 'Injected on community pages after the theme styles. Use the BuddyNext token variables (e.g. var(--bn-accent)) where you can.', 'buddynext' ); ?></p>
-					<textarea name="bn_custom_css" class="bn-textarea large-text code" rows="10" spellcheck="false"><?php echo esc_textarea( $css ); ?></textarea>
+					<?php // #bn-custom-css is upgraded to the core code editor (CodeMirror) by AssetService when the tab is active; without it this stays a plain textarea. ?>
+					<textarea id="bn-custom-css" name="bn_custom_css" class="bn-textarea large-text code" rows="10" spellcheck="false"><?php echo esc_textarea( $css ); ?></textarea>
 				</div>
 			</div>
 
@@ -134,19 +135,19 @@ class AppearanceTab {
 		// autoload=false: the CSS blob is only read on wp_head, not every request.
 		update_option( 'buddynext_custom_css', $css, false );
 
-		// Logo: remove takes precedence, then a new upload. A failed upload must NOT
-		// report success — carry its error code so the page shows why it was rejected
-		// (the other settings above already saved, so keep bn_appearance too).
+		// Logo: the media row posts a URL (media-library pick or a pasted one).
+		// Empty clears the logo; a value that fails sanitisation is rejected with
+		// an error instead of silently wiping the stored logo (the other settings
+		// above already saved, so keep bn_appearance too).
 		$logo_error = '';
-		if ( ! empty( $_POST['bn_remove_logo'] ) ) {
+		$raw_logo   = isset( $_POST['bn_logo_url'] ) ? trim( (string) wp_unslash( $_POST['bn_logo_url'] ) ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitised via esc_url_raw() on the next line.
+		$logo_url   = esc_url_raw( $raw_logo );
+		if ( '' === $raw_logo ) {
 			delete_option( 'buddynext_logo_url' );
-		} elseif ( ! empty( $_FILES['bn_logo_file']['name'] ) ) {
-			$url = $this->handle_logo_upload();
-			if ( is_wp_error( $url ) ) {
-				$logo_error = $url->get_error_code();
-			} else {
-				update_option( 'buddynext_logo_url', $url );
-			}
+		} elseif ( '' === $logo_url ) {
+			$logo_error = 'logo_url';
+		} else {
+			update_option( 'buddynext_logo_url', $logo_url );
 		}
 
 		$redirect_args = array(
@@ -160,19 +161,5 @@ class AppearanceTab {
 
 		wp_safe_redirect( add_query_arg( $redirect_args, admin_url( 'admin.php' ) ) );
 		exit;
-	}
-
-	/**
-	 * Move the uploaded logo into the uploads dir and return its URL.
-	 *
-	 * A single site asset (not per-member), so a plain wp_handle_upload is the
-	 * right tool — no attachment row, no ImageStorageService variations.
-	 *
-	 * @return string|\WP_Error URL on success, WP_Error (code logo_size|logo_type|logo_upload) on failure.
-	 */
-	private function handle_logo_upload() {
-		// Delegates to the shared uploader so Appearance and Pro White-label use
-		// one identical flow, limits, and error codes.
-		return \BuddyNext\Core\Plugin::handle_logo_upload( 'bn_logo_file' );
 	}
 }

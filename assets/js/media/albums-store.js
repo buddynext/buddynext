@@ -156,8 +156,11 @@ const albumsStore = store( 'buddynext/media-albums', {
 			const ctx = getContext();
 			const id = Number( ctx.activeAlbumId ) || 0;
 			if ( ! id ) { return; }
-			const ok = await bnConfirm( t( 'confirmDeleteAlbum', 'Delete this album? The photos stay in your media.' ), {
-				confirmLabel: t( 'delete', 'Delete' ), tone: 'danger',
+			const ok = await bnConfirm( {
+				title:        t( 'confirmDeleteAlbumTitle', 'Delete this album?' ),
+				body:         t( 'confirmDeleteAlbumBody', 'The photos stay in your media.' ),
+				confirmLabel: t( 'delete', 'Delete' ),
+				tone:         'danger',
 			} );
 			if ( ! ok ) { return; }
 			try {
@@ -361,7 +364,10 @@ function bindDetailDelete( ctx ) {
 		e.stopPropagation();
 		const id = parseInt( btn.getAttribute( 'data-bn-album-remove' ), 10 ) || 0;
 		if ( ! id || ! ctx.activeAlbumId ) { return; }
-		const ok = await bnConfirm( t( 'confirmRemove', 'Remove this from the album?' ), { tone: 'danger' } );
+		const ok = await bnConfirm( {
+			title: t( 'confirmRemove', 'Remove this from the album?' ),
+			tone:  'danger',
+		} );
 		if ( ! ok ) { return; }
 		try {
 			const res = await restFetch( '/me/albums/' + ctx.activeAlbumId + '/items/' + id, {

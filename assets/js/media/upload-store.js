@@ -371,7 +371,9 @@ function bindRegionDelete() {
 		if ( ! id ) {
 			return;
 		}
-		const ok = await bnConfirm( t( 'confirmDelete', 'Remove this media? This cannot be undone.' ), {
+		const ok = await bnConfirm( {
+			title:        t( 'confirmDeleteTitle', 'Remove this media?' ),
+			body:         t( 'confirmDeleteBody', 'This cannot be undone.' ),
 			confirmLabel: t( 'remove', 'Remove' ),
 			tone:         'danger',
 		} );

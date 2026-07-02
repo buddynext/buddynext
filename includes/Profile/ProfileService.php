@@ -43,6 +43,14 @@ class ProfileService {
 	private const COMPLETION_CACHE_TTL = 300;
 
 	/**
+	 * Rows deleted per bn_profile_values purge batch (§4.3 batched purge).
+	 *
+	 * Sized so a single DELETE stays a short, index-backed (field_idx) operation
+	 * that never stalls concurrent profile saves at 100k members.
+	 */
+	private const VALUE_PURGE_BATCH = 500;
+
+	/**
 	 * Return all profile groups with their nested field definitions.
 	 *
 	 * Return shape:
@@ -80,14 +88,18 @@ class ProfileService {
 				g.visibility   AS group_visibility,
 				g.is_system    AS group_is_system,
 				g.sort_order   AS group_sort_order,
+				g.type_restriction AS group_type_restriction,
 				f.id           AS field_id,
 				f.field_key,
 				f.label        AS field_label,
 				f.type         AS field_type,
 				f.options,
+				f.description,
+				f.placeholder,
 				f.is_required,
 				f.is_searchable,
 				f.show_on_register,
+				f.is_system    AS field_is_system,
 				f.visibility   AS field_visibility,
 				f.sort_order   AS field_sort_order
 			FROM {$wpdb->prefix}bn_profile_groups g
@@ -104,14 +116,15 @@ class ProfileService {
 
 			if ( ! isset( $groups[ $gid ] ) ) {
 				$groups[ $gid ] = array(
-					'id'         => $gid,
-					'group_key'  => $row['group_key'],
-					'label'      => $row['group_label'],
-					'type'       => $row['group_type'],
-					'visibility' => $row['group_visibility'],
-					'is_system'  => (bool) $row['group_is_system'],
-					'sort_order' => (int) $row['group_sort_order'],
-					'fields'     => array(),
+					'id'               => $gid,
+					'group_key'        => $row['group_key'],
+					'label'            => $row['group_label'],
+					'type'             => $row['group_type'],
+					'visibility'       => $row['group_visibility'],
+					'is_system'        => (bool) $row['group_is_system'],
+					'sort_order'       => (int) $row['group_sort_order'],
+					'type_restriction' => isset( $row['group_type_restriction'] ) ? (string) $row['group_type_restriction'] : '',
+					'fields'           => array(),
 				);
 			}
 
@@ -123,9 +136,12 @@ class ProfileService {
 					'label'            => $row['field_label'],
 					'type'             => $row['field_type'],
 					'options'          => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
+					'description'      => (string) ( $row['description'] ?? '' ),
+					'placeholder'      => (string) ( $row['placeholder'] ?? '' ),
 					'is_required'      => (bool) $row['is_required'],
 					'is_searchable'    => (bool) $row['is_searchable'],
 					'show_on_register' => (bool) ( $row['show_on_register'] ?? false ),
+					'is_system'        => (bool) ( $row['field_is_system'] ?? false ),
 					'visibility'       => $row['field_visibility'] ?? 'public',
 					'sort_order'       => (int) $row['field_sort_order'],
 				);
@@ -194,7 +210,11 @@ class ProfileService {
 	 * @return array<string, mixed>|null
 	 */
 	private function normalize_field_row( array $field, int $group_id ): ?array {
-		$field_key = sanitize_key( (string) ( $field['field_key'] ?? '' ) );
+		// Accept 'key' as an alias for 'field_key': buddynext_register_member_field()/
+		// buddynext_register_profile_field() register with 'key', and without this every
+		// code-registered field was silently dropped here (no field_key -> null), so it
+		// never reached get_fields() and the save path could not persist it.
+		$field_key = sanitize_key( (string) ( $field['field_key'] ?? $field['key'] ?? '' ) );
 		$label     = sanitize_text_field( (string) ( $field['label'] ?? '' ) );
 		if ( '' === $field_key || '' === $label ) {
 			return null;
@@ -212,9 +232,12 @@ class ProfileService {
 			'label'            => $label,
 			'type'             => sanitize_key( (string) ( $field['type'] ?? 'text' ) ),
 			'options'          => $field['options'] ?? null,
+			'description'      => sanitize_text_field( (string) ( $field['description'] ?? '' ) ),
+			'placeholder'      => sanitize_text_field( (string) ( $field['placeholder'] ?? '' ) ),
 			'is_required'      => ! empty( $field['is_required'] ),
 			'is_searchable'    => ! empty( $field['is_searchable'] ),
 			'show_on_register' => ! empty( $field['show_on_register'] ),
+			'is_system'        => ! empty( $field['is_system'] ),
 			'visibility'       => $visibility,
 			'sort_order'       => (int) ( $field['sort_order'] ?? 0 ),
 			'is_virtual'       => empty( $field['id'] ),
@@ -234,6 +257,12 @@ class ProfileService {
 		$reg = array();
 		foreach ( $this->get_fields() as $group ) {
 			if ( 'repeater' === ( $group['type'] ?? '' ) ) {
+				continue;
+			}
+			// G2: a member-type-restricted group never surfaces at registration —
+			// a registrant has no member type yet, so its fields don't exist for
+			// them (per-member-type profiles enrich AFTER the type is assigned).
+			if ( '' !== (string) ( $group['type_restriction'] ?? '' ) ) {
 				continue;
 			}
 			foreach ( $group['fields'] as $field ) {
@@ -266,7 +295,7 @@ class ProfileService {
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
-			"SELECT id, group_key, label, type, visibility, is_system, sort_order
+			"SELECT id, group_key, label, type, visibility, is_system, sort_order, type_restriction
 			 FROM {$wpdb->prefix}bn_profile_groups
 			 ORDER BY sort_order ASC, id ASC",
 			ARRAY_A
@@ -276,13 +305,14 @@ class ProfileService {
 		$groups = array_map(
 			static function ( array $row ): array {
 				return array(
-					'id'         => (int) $row['id'],
-					'group_key'  => $row['group_key'],
-					'label'      => $row['label'],
-					'type'       => $row['type'],
-					'visibility' => $row['visibility'],
-					'is_system'  => (bool) $row['is_system'],
-					'sort_order' => (int) $row['sort_order'],
+					'id'               => (int) $row['id'],
+					'group_key'        => $row['group_key'],
+					'label'            => $row['label'],
+					'type'             => $row['type'],
+					'visibility'       => $row['visibility'],
+					'is_system'        => (bool) $row['is_system'],
+					'sort_order'       => (int) $row['sort_order'],
+					'type_restriction' => isset( $row['type_restriction'] ) ? (string) $row['type_restriction'] : '',
 				);
 			},
 			(array) $rows
@@ -361,7 +391,8 @@ class ProfileService {
 	 * does not yet exist.
 	 *
 	 * @param array $data Field data: group_id|group_name, field_key, label, type,
-	 *                    options, is_required, is_searchable, visibility, sort_order.
+	 *                    options, description, placeholder, is_required,
+	 *                    is_searchable, visibility, sort_order.
 	 * @return int Inserted field ID.
 	 */
 	public function create_field( array $data ): int {
@@ -410,13 +441,15 @@ class ProfileService {
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT IGNORE INTO {$wpdb->prefix}bn_profile_fields
-					(group_id, field_key, label, type, options, is_required, is_searchable, show_on_register, visibility, sort_order)
-				 VALUES (%d, %s, %s, %s, %s, %d, %d, %d, %s, %d)",
+					(group_id, field_key, label, type, options, description, placeholder, is_required, is_searchable, show_on_register, visibility, sort_order)
+				 VALUES (%d, %s, %s, %s, %s, %s, %s, %d, %d, %d, %s, %d)",
 				$group_id,
 				$field_key,
 				sanitize_text_field( (string) ( $data['label'] ?? '' ) ),
 				$data['type'] ?? 'text',
 				wp_json_encode( $data['options'] ?? null ),
+				sanitize_text_field( (string) ( $data['description'] ?? '' ) ),
+				sanitize_text_field( (string) ( $data['placeholder'] ?? '' ) ),
 				(int) ( $data['is_required'] ?? 0 ),
 				(int) ( $data['is_searchable'] ?? 0 ),
 				(int) ( $data['show_on_register'] ?? 0 ),
@@ -477,6 +510,19 @@ class ProfileService {
 		$flat_fields  = $this->get_flat_fields();
 		$field_by_key = array_column( $flat_fields, null, 'field_key' );
 
+		// Layer in code-registered (virtual) fields. get_flat_fields() is a DB-only
+		// query, so without this a buddynext_register_member_field() value can't be
+		// saved — the flat loop below skips any submitted key not in $field_by_key, and
+		// the virtual branch (field id 0) then writes it to bn_field_{key}.
+		foreach ( $this->get_fields() as $vgroup ) {
+			foreach ( (array) ( $vgroup['fields'] ?? array() ) as $vfield ) {
+				$vkey = (string) ( $vfield['field_key'] ?? '' );
+				if ( ! empty( $vfield['is_virtual'] ) && '' !== $vkey && ! isset( $field_by_key[ $vkey ] ) ) {
+					$field_by_key[ $vkey ] = $vfield;
+				}
+			}
+		}
+
 		// Accumulate per-field rejection messages so the method can report an
 		// honest result instead of always claiming success.
 		$field_errors = array();
@@ -535,6 +581,19 @@ class ProfileService {
 						}
 
 						$sanitized_val = (string) $sanitized_val;
+
+						// G3: enforce is_required at the persistence layer. A required
+						// sub-field submitted empty is rejected (the stored value is
+						// never cleared) and reported in the error map — every caller
+						// (REST, admin editor, onboarding) gets the same contract.
+						if ( ! empty( $field_def['is_required'] ) && '' === $sanitized_val ) {
+							$field_errors[ "{$key}[{$entry_index}][{$field_key}]" ] = sprintf(
+								/* translators: %s: profile field label. */
+								__( '%s is required.', 'buddynext' ),
+								(string) ( $field_def['label'] ?? $field_key )
+							);
+							continue;
+						}
 
 						/**
 						 * Validate a profile-field value before persistence.
@@ -627,6 +686,21 @@ class ProfileService {
 
 			$sanitized_val = (string) $sanitized_val;
 
+			// G3: enforce is_required at the persistence layer (Bugs card
+			// 10055873101). Submitting an empty value for a required field is
+			// rejected — the stored value is never cleared and the caller gets a
+			// per-field error. An OMITTED key is a partial update and stays legal,
+			// so the registration path (which only submits its own opted-in
+			// fields) is unchanged.
+			if ( ! empty( $field['is_required'] ) && '' === $sanitized_val ) {
+				$field_errors[ (string) $key ] = sprintf(
+					/* translators: %s: profile field label. */
+					__( '%s is required.', 'buddynext' ),
+					(string) ( $field['label'] ?? $key )
+				);
+				continue;
+			}
+
 			/** This filter is documented above in the repeater branch. */
 			$validation = apply_filters(
 				'buddynext_profile_field_validate',
@@ -651,6 +725,51 @@ class ProfileService {
 				$chosen_visibility,
 				(string) ( $field['visibility'] ?? 'public' )
 			);
+
+			// Code-registered (virtual) field — id 0, no bn_profile_fields row. Its
+			// value lives in the bn_field_{key} usermeta that get_profile()'s virtual
+			// merge (and, for searchable fields, the directory mirror) reads — the same
+			// key the registration-time save path uses. upsert_value() would instead
+			// orphan a bn_profile_values row on field_id 0, which nothing reads.
+			if ( 0 === $field_id ) {
+				$vkey = 'bn_field_' . sanitize_key( (string) $key );
+				if ( '' !== $sanitized_val ) {
+					update_user_meta( $user_id, $vkey, $sanitized_val );
+				} else {
+					delete_user_meta( $user_id, $vkey );
+				}
+				continue;
+			}
+
+			// Set-valued flat field (e.g. category_multiselect): stored as ONE
+			// bn_profile_values row per pick (entry_index 0..n) so the picks stay
+			// individually matchable via the (field_id, value) index — a joined
+			// CSV value could never back a "members with pick X" lookup. The
+			// sanitised CSV is only the in-memory transport; the search mirror
+			// still gets one human-readable value like every other flat field.
+			if ( \BuddyNext\Profile\FieldType::is_multi_entry( $field_type ) ) {
+				$this->save_multi_entry_value( $user_id, $field_id, $sanitized_val, $entry_visibility );
+				$this->sync_search_mirror( $user_id, $field, $sanitized_val, $entry_visibility );
+
+				// Every interests write funnels through this branch (onboarding
+				// step 2 / POST /me/interests alias / profile edit), so this is
+				// the single choke point for the suggestion engines' signal.
+				if ( 'interests' === (string) $key ) {
+					/**
+					 * Fires when a member's interest picks are saved.
+					 *
+					 * InterestListener busts the per-viewer follow- and
+					 * space-suggestion caches here so suggestions shift on
+					 * the next fetch after an interest edit.
+					 *
+					 * @since 1.0.4
+					 *
+					 * @param int $user_id The member whose interests changed.
+					 */
+					do_action( 'buddynext_member_interests_updated', $user_id );
+				}
+				continue;
+			}
 
 			$this->upsert_value( $user_id, $field_id, 0, $sanitized_val, $entry_visibility );
 
@@ -713,6 +832,18 @@ class ProfileService {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Public cache invalidation for events that change what a profile renders
+	 * without going through save_profile() — e.g. a member-type assignment or
+	 * removal flips which type-restricted groups exist on the profile (G2).
+	 *
+	 * @param int $user_id Profile owner whose cached views to invalidate.
+	 * @return void
+	 */
+	public function invalidate_profile_cache( int $user_id ): void {
+		$this->bust_profile_cache( $user_id );
 	}
 
 	/**
@@ -819,11 +950,14 @@ class ProfileService {
 					g.type         AS group_type,
 					g.visibility   AS group_visibility,
 					g.sort_order   AS group_sort_order,
+					g.type_restriction AS group_type_restriction,
 					f.id           AS field_id,
 					f.field_key,
 					f.label        AS field_label,
 					f.type         AS field_type,
 					f.options,
+					f.description,
+					f.placeholder,
 					f.is_required  AS field_is_required,
 					f.visibility   AS field_visibility,
 					f.sort_order   AS field_sort_order,
@@ -840,6 +974,21 @@ class ProfileService {
 			ARRAY_A
 		);
 
+		// G2 (per-member-type profiles): a group restricted to a member type
+		// exists only on profiles of members who HOLD that type — resolved once
+		// per profile, from the profile owner (not the viewer). NULL/empty
+		// restriction = visible to all (the default; existing sites unchanged).
+		// Values of non-matching members are retained in bn_profile_values,
+		// just never rendered.
+		$owner_type_slug = '';
+		if ( function_exists( 'buddynext_service' ) ) {
+			$member_types = buddynext_service( 'member_types' );
+			if ( is_object( $member_types ) && method_exists( $member_types, 'get_user_type' ) ) {
+				$owner_type      = $member_types->get_user_type( $profile_user_id );
+				$owner_type_slug = is_array( $owner_type ) ? (string) ( $owner_type['slug'] ?? '' ) : '';
+			}
+		}
+
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		// Organise rows into groups → entries → fields.
 		$raw_groups = array();
@@ -850,6 +999,14 @@ class ProfileService {
 			$eidx  = (int) ( $row['entry_index'] ?? 0 );
 			$gtype = $row['group_type'];
 			$gvis  = $row['group_visibility'];
+
+			// G2: skip groups restricted to a member type the profile owner does
+			// not hold — applies to every viewer, including the owner (the group
+			// does not exist for them until the type is assigned).
+			$g_restriction = (string) ( $row['group_type_restriction'] ?? '' );
+			if ( '' !== $g_restriction && $g_restriction !== $owner_type_slug ) {
+				continue;
+			}
 
 			// Enforce group/field/entry visibility for non-owners (most restrictive wins).
 			if ( ! $is_owner ) {
@@ -903,6 +1060,8 @@ class ProfileService {
 				'label'            => $row['field_label'],
 				'type'             => $row['field_type'],
 				'options'          => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
+				'description'      => (string) ( $row['description'] ?? '' ),
+				'placeholder'      => (string) ( $row['placeholder'] ?? '' ),
 				'is_required'      => (bool) ( $row['field_is_required'] ?? false ),
 				'sort_order'       => (int) $row['field_sort_order'],
 				'value'            => $row['value'],
@@ -936,17 +1095,64 @@ class ProfileService {
 				foreach ( $entries as $entry_fields ) {
 					$sorted = array_values( $entry_fields );
 					usort( $sorted, static fn( $a, $b ) => $a['sort_order'] <=> $b['sort_order'] );
-					$out['entries'][] = $sorted;
+
+					// Surface the entry's saved privacy as `_visibility` so the edit
+					// form can pre-select it on reload — it is stored on every value
+					// row of the entry, mirroring the `group_key[n][_visibility]`
+					// save contract. Without this the per-entry privacy lock always
+					// rendered the default even after the member tightened it.
+					$entry_out = $sorted;
+					foreach ( $sorted as $sorted_field ) {
+						if ( isset( $sorted_field['entry_visibility'] ) && '' !== $sorted_field['entry_visibility'] ) {
+							$entry_out['_visibility'] = (string) $sorted_field['entry_visibility'];
+							break;
+						}
+					}
+					$out['entries'][] = $entry_out;
 				}
 			} else {
-				// Flat group — always entry_index 0.
-				$flat_fields = isset( $entries[0] ) ? array_values( $entries[0] ) : array();
+				// Flat group — scalar fields live at entry_index 0; set-valued
+				// fields (one row per pick, e.g. category_multiselect) span
+				// entry_index 0..n, so their picks are aggregated across every
+				// entry into an ordered array value. Missing field or zero picks
+				// both yield an empty array — callers never see an error.
+				$flat_fields = isset( $entries[0] ) ? $entries[0] : array();
+
+				foreach ( $flat_fields as $flat_fid => $flat_field ) {
+					if ( ! \BuddyNext\Profile\FieldType::is_multi_entry( (string) ( $flat_field['type'] ?? '' ) ) ) {
+						continue;
+					}
+
+					$picks = array();
+					foreach ( $entries as $entry_fields ) {
+						$pick = $entry_fields[ $flat_fid ]['value'] ?? null;
+						if ( null !== $pick && '' !== (string) $pick ) {
+							$picks[] = (string) $pick;
+						}
+					}
+					$flat_fields[ $flat_fid ]['value'] = $picks;
+				}
+
+				$flat_fields = array_values( $flat_fields );
 				usort( $flat_fields, static fn( $a, $b ) => $a['sort_order'] <=> $b['sort_order'] );
 				$out['fields'] = $flat_fields;
 			}
 
 			$output_groups[] = $out;
 		}
+
+		// Merge code-registered (virtual) fields so a developer's
+		// buddynext_register_member_field() / buddynext_register_profile_field() fields
+		// actually appear on the member's profile + edit UI. get_profile() is the path
+		// the edit template and the member REST read, and it builds from the DB — so
+		// without this the filter-registered fields only ever showed in get_fields().
+		$output_groups = $this->merge_virtual_fields(
+			$output_groups,
+			$profile_user_id,
+			$is_owner,
+			$viewer_is_follower,
+			$viewer_is_connection
+		);
 
 		// Collect a flat list of all fields from non-repeater groups for quick access.
 		$flat_fields = array();
@@ -985,6 +1191,95 @@ class ProfileService {
 		wp_cache_set( $cache_key, $profile, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $profile;
+	}
+
+	/**
+	 * Merge code-registered (virtual) fields into a profile's group list.
+	 *
+	 * The `buddynext_profile_fields` filter (populated by
+	 * buddynext_register_member_field()/buddynext_register_profile_field()) is applied
+	 * to an EMPTY group set to harvest just the virtual fields, each shaped like a DB
+	 * field with its value read from the `bn_field_{key}` usermeta the save path
+	 * writes. Visibility is gated for non-owners exactly like DB fields, and a virtual
+	 * field whose key a DB field already owns is skipped (the DB field wins).
+	 *
+	 * @param array<int,array<string,mixed>> $output_groups        DB-built groups.
+	 * @param int                            $profile_user_id      Profile owner.
+	 * @param bool                           $is_owner             Viewer is the owner.
+	 * @param bool                           $viewer_is_follower   Viewer follows the owner.
+	 * @param bool                           $viewer_is_connection Viewer is connected to the owner.
+	 * @return array<int,array<string,mixed>> Groups with virtual fields merged in.
+	 */
+	private function merge_virtual_fields( array $output_groups, int $profile_user_id, bool $is_owner, bool $viewer_is_follower, bool $viewer_is_connection ): array {
+		$virtual = (array) apply_filters( 'buddynext_profile_fields', array() );
+		if ( empty( $virtual ) ) {
+			return $output_groups;
+		}
+
+		// Index flat groups by key + collect every field key already present so a DB
+		// field is never duplicated by a same-key virtual registration.
+		$flat_group_index = array();
+		$seen_keys        = array();
+		foreach ( $output_groups as $gi => $g ) {
+			if ( isset( $g['fields'] ) && is_array( $g['fields'] ) ) {
+				$flat_group_index[ (string) ( $g['group_key'] ?? '' ) ] = $gi;
+				foreach ( $g['fields'] as $f ) {
+					$seen_keys[ (string) ( $f['field_key'] ?? '' ) ] = true;
+				}
+			}
+		}
+
+		foreach ( $virtual as $vg ) {
+			$gkey = sanitize_key( (string) ( $vg['group_key'] ?? 'details' ) );
+			foreach ( (array) ( $vg['fields'] ?? array() ) as $vf ) {
+				$fkey = sanitize_key( (string) ( $vf['key'] ?? $vf['field_key'] ?? '' ) );
+				if ( '' === $fkey || isset( $seen_keys[ $fkey ] ) ) {
+					continue;
+				}
+
+				$fvis = (string) ( $vf['visibility'] ?? 'public' );
+				if ( ! $is_owner ) {
+					if ( 'private' === $fvis
+						|| ( 'connections' === $fvis && ! $viewer_is_connection )
+						|| ( 'followers' === $fvis && ! $viewer_is_follower ) ) {
+						continue;
+					}
+				}
+
+				$field = array(
+					'field_id'         => 0,
+					'field_key'        => $fkey,
+					'label'            => (string) ( $vf['label'] ?? $fkey ),
+					'type'             => (string) ( $vf['type'] ?? 'text' ),
+					'options'          => $vf['options'] ?? null,
+					'is_required'      => (bool) ( $vf['is_required'] ?? false ),
+					'sort_order'       => (int) ( $vf['sort_order'] ?? 99 ),
+					'value'            => get_user_meta( $profile_user_id, 'bn_field_' . $fkey, true ),
+					'field_visibility' => $fvis,
+					'group_visibility' => 'public',
+					'entry_visibility' => null,
+					'is_virtual'       => true,
+				);
+
+				if ( isset( $flat_group_index[ $gkey ] ) ) {
+					$output_groups[ $flat_group_index[ $gkey ] ]['fields'][] = $field;
+				} else {
+					$output_groups[]           = array(
+						'id'         => 0,
+						'group_key'  => $gkey,
+						'label'      => (string) ( $vg['label'] ?? ucwords( str_replace( array( '_', '-' ), ' ', $gkey ) ) ),
+						'type'       => 'flat',
+						'visibility' => 'public',
+						'sort_order' => (int) ( $vg['sort_order'] ?? 99 ),
+						'fields'     => array( $field ),
+					);
+					$flat_group_index[ $gkey ] = count( $output_groups ) - 1;
+				}
+				$seen_keys[ $fkey ] = true;
+			}
+		}
+
+		return $output_groups;
 	}
 
 	/**
@@ -1106,7 +1401,12 @@ class ProfileService {
 	/**
 	 * Write or refresh this user's entry in bn_search_index.
 	 *
-	 * Called after profile saves so the search index stays current.
+	 * Called after profile saves so the search index stays current. The `content`
+	 * column carries the member's headline, bio, and every PUBLIC searchable
+	 * profile-field value (the bn_field_{key} mirror is written public-only, so
+	 * private values are never indexed), making a member findable by their profile
+	 * attributes — not just their display name — in BOTH the unified search and the
+	 * directory search (which both read this one index). Title stays the display name.
 	 *
 	 * @param int $user_id User to index.
 	 */
@@ -1117,6 +1417,26 @@ class ProfileService {
 			return;
 		}
 
+		$parts    = array();
+		$headline = (string) get_user_meta( $user_id, 'bn_headline', true );
+		if ( '' !== $headline ) {
+			$parts[] = $headline;
+		}
+		$bio = (string) get_user_meta( $user_id, 'bn_field_bio', true );
+		if ( '' !== $bio ) {
+			$parts[] = $bio;
+		}
+		$directory = buddynext_service( 'member_directory' );
+		if ( is_object( $directory ) && method_exists( $directory, 'searchable_mirror_keys' ) ) {
+			foreach ( $directory->searchable_mirror_keys() as $mirror_key ) {
+				$mirror_val = (string) get_user_meta( $user_id, (string) $mirror_key, true );
+				if ( '' !== $mirror_val ) {
+					$parts[] = $mirror_val;
+				}
+			}
+		}
+		$content = trim( implode( ' ', array_values( array_unique( $parts ) ) ) );
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1124,10 +1444,11 @@ class ProfileService {
 			$wpdb->prepare(
 				"INSERT INTO {$wpdb->prefix}bn_search_index
 				    (object_type, object_id, title, content, author_id, visibility)
-				 VALUES ('user', %d, %s, '', %d, 'public')
-				 ON DUPLICATE KEY UPDATE title = VALUES(title), updated_at = NOW()",
+				 VALUES ('user', %d, %s, %s, %d, 'public')
+				 ON DUPLICATE KEY UPDATE title = VALUES(title), content = VALUES(content), updated_at = NOW()",
 				$user_id,
 				$wp_user->display_name,
+				$content,
 				$user_id
 			)
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1225,7 +1546,9 @@ class ProfileService {
 		);
 
 		foreach ( (array) $field_ids as $field_id ) {
-			$this->delete_field( (int) $field_id );
+			// Force: the group itself passed the system-group guard above, so its
+			// fields go with it even if one carries a (misplaced) system flag.
+			$this->delete_field( (int) $field_id, true );
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1246,7 +1569,8 @@ class ProfileService {
 	 * Update a profile field definition.
 	 *
 	 * Allowed $data keys: label, type, options (null, array, or JSON string),
-	 * is_required, is_searchable, show_on_register, visibility, sort_order.
+	 * description, placeholder, is_required, is_searchable, show_on_register,
+	 * visibility, sort_order.
 	 * Unknown keys are ignored.
 	 * When 'options' is an array it is json_encoded before saving.
 	 * Busts 'all_fields' cache key.
@@ -1282,6 +1606,16 @@ class ProfileService {
 				$update['options'] = (string) $data['options'];
 				$format[]          = '%s';
 			}
+		}
+
+		if ( isset( $data['description'] ) ) {
+			$update['description'] = sanitize_text_field( (string) $data['description'] );
+			$format[]              = '%s';
+		}
+
+		if ( isset( $data['placeholder'] ) ) {
+			$update['placeholder'] = sanitize_text_field( (string) $data['placeholder'] );
+			$format[]              = '%s';
 		}
 
 		if ( isset( $data['is_required'] ) ) {
@@ -1339,30 +1673,48 @@ class ProfileService {
 	 * then removes the field definition row from bn_profile_fields.
 	 * Busts 'all_fields' cache key.
 	 *
-	 * @param int $id Profile field ID.
-	 * @return void
+	 * System fields (is_system = 1: bio, headline, location) cannot be deleted —
+	 * search indexing, directory cards/filters, and the profile hero read them
+	 * by key, so removing one silently breaks those surfaces. The admin UI hides
+	 * the delete control, but this guard is the enforcement: a direct REST or
+	 * admin-post request is refused. Owners can still relabel, reorder, or
+	 * change visibility on a system field.
+	 *
+	 * @param int  $id    Profile field ID.
+	 * @param bool $force Internal: bypass the system-field guard. Only
+	 *                    delete_group() passes true, so a (non-system) group
+	 *                    delete can cascade through its fields.
+	 * @return true|\WP_Error True on success; WP_Error('system_field') for a protected field.
 	 */
-	public function delete_field( int $id ): void {
+	public function delete_field( int $id, bool $force = false ): bool|\WP_Error {
 		global $wpdb;
 
 		// Capture the field key before removing the definition so its search-
 		// mirror usermeta (bn_field_{key}, written by sync_search_mirror) can be
 		// purged across every user — otherwise stale mirrors linger and can leak
-		// into search results.
+		// into search results. is_system rides the same lookup for the guard.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$field_key = (string) $wpdb->get_var( $wpdb->prepare( "SELECT field_key FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $id ) );
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		// Delete stored values for this field across all users.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_profile_values',
-			array( 'field_id' => $id ),
-			array( '%d' )
+		$def = $wpdb->get_row(
+			$wpdb->prepare( "SELECT field_key, is_system FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $id ),
+			ARRAY_A
 		);
-
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		// Delete the field definition.
+
+		$field_key = is_array( $def ) ? (string) ( $def['field_key'] ?? '' ) : '';
+
+		if ( ! $force && is_array( $def ) && ! empty( $def['is_system'] ) ) {
+			return new \WP_Error(
+				'system_field',
+				__( 'This is a core field used by search and member cards - it cannot be deleted.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		// Delete the field definition FIRST so the field disappears from every
+		// surface (admin row, edit form, profile view — all join on the
+		// definition) immediately; the orphaned bn_profile_values rows are then
+		// purged in the background (§4.3), never as one unbounded DELETE that
+		// could hold a lock storm at 100k members.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_profile_fields',
@@ -1378,6 +1730,130 @@ class ProfileService {
 		}
 
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
+
+		// Batched value purge (§4.3, BACKGROUND-JOBS.md pattern 2: reactive
+		// single-shot). With Action Scheduler present the worker chunks through
+		// bn_profile_values and re-enqueues itself while full batches remain;
+		// absent AS the same worker drains inline, still bounded per query.
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( 'buddynext_purge_field_values', array( $id ), 'buddynext' );
+		} else {
+			while ( self::VALUE_PURGE_BATCH === $this->purge_field_values( $id ) ) {
+				continue;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Delete one bounded batch of orphaned values for a removed field.
+	 *
+	 * Runs as the buddynext_purge_field_values Action Scheduler worker (group
+	 * 'buddynext'); a full batch re-enqueues itself for the next chunk. The
+	 * field definition is already gone when this runs, so every reader
+	 * (INNER JOIN on bn_profile_fields) ignores the rows in the interim.
+	 *
+	 * @param int $field_id Deleted field whose stored values to purge.
+	 * @return int Rows deleted this batch.
+	 */
+	public function purge_field_values( int $field_id ): int {
+		if ( $field_id <= 0 ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$deleted = (int) $wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->prefix}bn_profile_values WHERE field_id = %d LIMIT %d",
+				$field_id,
+				self::VALUE_PURGE_BATCH
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( self::VALUE_PURGE_BATCH === $deleted && function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( 'buddynext_purge_field_values', array( $field_id ), 'buddynext' );
+		}
+
+		return $deleted;
+	}
+
+	/**
+	 * Count DISTINCT members holding a stored value for any of the given fields.
+	 *
+	 * One indexed COUNT (field_idx on bn_profile_values) — powers the
+	 * impact-confirm on destructive deletes (§4.2: "permanently deletes values
+	 * for N members") for both single fields and whole groups.
+	 *
+	 * @param int[] $field_ids Field definition ids.
+	 * @return int
+	 */
+	public function count_users_with_field_values( array $field_ids ): int {
+		$field_ids = array_values( array_filter( array_map( 'intval', $field_ids ) ) );
+		if ( empty( $field_ids ) ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ', ', array_fill( 0, count( $field_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(DISTINCT user_id) FROM {$wpdb->prefix}bn_profile_values WHERE field_id IN ({$placeholders})",
+				...$field_ids
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+	}
+
+	/**
+	 * Per-field and per-group affected-member counts for the field manager.
+	 *
+	 * Two aggregate queries total (never one COUNT per row) so the admin screen
+	 * renders the §4.2 impact numbers at any schema size. Keys are definition
+	 * ids; a field/group with no stored values is simply absent from its map.
+	 *
+	 * @return array{fields: array<int, int>, groups: array<int, int>}
+	 */
+	public function value_user_counts(): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$field_rows = $wpdb->get_results(
+			"SELECT field_id, COUNT(DISTINCT user_id) AS users
+			   FROM {$wpdb->prefix}bn_profile_values
+			  GROUP BY field_id",
+			ARRAY_A
+		);
+
+		$group_rows = $wpdb->get_results(
+			"SELECT f.group_id, COUNT(DISTINCT v.user_id) AS users
+			   FROM {$wpdb->prefix}bn_profile_values v
+			  INNER JOIN {$wpdb->prefix}bn_profile_fields f ON f.id = v.field_id
+			  GROUP BY f.group_id",
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$fields = array();
+		foreach ( (array) $field_rows as $row ) {
+			$fields[ (int) $row['field_id'] ] = (int) $row['users'];
+		}
+
+		$groups = array();
+		foreach ( (array) $group_rows as $row ) {
+			$groups[ (int) $row['group_id'] ] = (int) $row['users'];
+		}
+
+		return array(
+			'fields' => $fields,
+			'groups' => $groups,
+		);
 	}
 
 	/**
@@ -1552,12 +2028,16 @@ class ProfileService {
 				f.group_id,
 				g.type       AS group_type,
 				g.visibility AS group_visibility,
+				g.type_restriction AS group_type_restriction,
 				f.field_key,
 				f.label,
 				f.type,
 				f.options,
+				f.description,
+				f.placeholder,
 				f.is_required,
 				f.is_searchable,
+				f.is_system,
 				f.visibility,
 				f.sort_order
 			 FROM {$wpdb->prefix}bn_profile_fields f
@@ -1570,18 +2050,22 @@ class ProfileService {
 		return array_map(
 			static function ( array $row ): array {
 				return array(
-					'id'               => (int) $row['id'],
-					'group_id'         => (int) $row['group_id'],
-					'group_type'       => $row['group_type'],
-					'group_visibility' => $row['group_visibility'] ?? 'public',
-					'field_key'        => $row['field_key'],
-					'label'            => $row['label'] ?? $row['field_key'],
-					'type'             => $row['type'],
-					'options'          => isset( $row['options'] ) ? json_decode( (string) $row['options'], true ) : null,
-					'is_required'      => (bool) $row['is_required'],
-					'is_searchable'    => (bool) $row['is_searchable'],
-					'visibility'       => $row['visibility'] ?? 'public',
-					'sort_order'       => (int) $row['sort_order'],
+					'id'                     => (int) $row['id'],
+					'group_id'               => (int) $row['group_id'],
+					'group_type'             => $row['group_type'],
+					'group_visibility'       => $row['group_visibility'] ?? 'public',
+					'group_type_restriction' => (string) ( $row['group_type_restriction'] ?? '' ),
+					'field_key'              => $row['field_key'],
+					'label'                  => $row['label'] ?? $row['field_key'],
+					'type'                   => $row['type'],
+					'options'                => isset( $row['options'] ) ? json_decode( (string) $row['options'], true ) : null,
+					'description'            => (string) ( $row['description'] ?? '' ),
+					'placeholder'            => (string) ( $row['placeholder'] ?? '' ),
+					'is_required'            => (bool) $row['is_required'],
+					'is_searchable'          => (bool) $row['is_searchable'],
+					'is_system'              => (bool) ( $row['is_system'] ?? false ),
+					'visibility'             => $row['visibility'] ?? 'public',
+					'sort_order'             => (int) $row['sort_order'],
 				);
 			},
 			(array) $rows
@@ -1755,15 +2239,32 @@ class ProfileService {
 			'group_visibility' => (string) $def['group_visibility'],
 		);
 
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT user_id, value, entry_visibility
-				 FROM {$wpdb->prefix}bn_profile_values
-				 WHERE field_id = %d AND entry_index = 0",
-				$field_id
-			),
-			ARRAY_A
-		);
+		if ( \BuddyNext\Profile\FieldType::is_multi_entry( (string) $def['type'] ) ) {
+			// Set-valued field: one row per pick — rejoin every user's picks so
+			// the rebuilt mirror covers the full selection, not just entry 0.
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT user_id,
+					        GROUP_CONCAT(value ORDER BY entry_index SEPARATOR ',') AS value,
+					        MIN(entry_visibility) AS entry_visibility
+					 FROM {$wpdb->prefix}bn_profile_values
+					 WHERE field_id = %d
+					 GROUP BY user_id",
+					$field_id
+				),
+				ARRAY_A
+			);
+		} else {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT user_id, value, entry_visibility
+					 FROM {$wpdb->prefix}bn_profile_values
+					 WHERE field_id = %d AND entry_index = 0",
+					$field_id
+				),
+				ARRAY_A
+			);
+		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		foreach ( (array) $rows as $row ) {
@@ -1791,6 +2292,13 @@ class ProfileService {
 	 */
 	private function mirror_value( array $field, string $stored_value ): string {
 		$type = isset( $field['type'] ) ? (string) $field['type'] : 'text';
+
+		// Live-optioned set types (category_multiselect) mirror the option
+		// LABELS resolved by the engine — the stored IDs would be meaningless
+		// to a directory keyword search.
+		if ( \BuddyNext\Profile\FieldType::is_multi_entry( $type ) ) {
+			return \BuddyNext\Profile\FieldType::searchable_text( $field, $stored_value );
+		}
 
 		if ( 'multiselect' !== $type ) {
 			return $stored_value;
@@ -1867,6 +2375,44 @@ class ProfileService {
 		// leave the uploads/bn-avatars/{user_id}/ files orphaned forever.
 		( new \BuddyNext\Media\ImageStorageService() )->delete( 'avatar', 'user', $user_id );
 		$this->bust_profile_cache( $user_id );
+	}
+
+	/**
+	 * Persist a set-valued flat field as one bn_profile_values row per pick.
+	 *
+	 * The sanitised transport value is a comma-joined list (e.g. category IDs);
+	 * each element is written at its ordinal entry_index, and surplus rows from
+	 * a previous, larger selection are deleted. Bounded by the pick count —
+	 * never a table scan. An empty value clears every row (the field reads as
+	 * "no picks").
+	 *
+	 * @param int         $user_id          User ID.
+	 * @param int         $field_id         Field ID.
+	 * @param string      $joined           Sanitised comma-joined picks ('' clears all).
+	 * @param string|null $entry_visibility Clamped per-entry visibility, or null.
+	 * @return void
+	 */
+	private function save_multi_entry_value( int $user_id, int $field_id, string $joined, ?string $entry_visibility ): void {
+		global $wpdb;
+
+		$picks = '' === $joined ? array() : explode( ',', $joined );
+
+		foreach ( $picks as $index => $pick ) {
+			$this->upsert_value( $user_id, $field_id, (int) $index, (string) $pick, $entry_visibility );
+		}
+
+		// Drop rows beyond the new selection (a previous save had more picks).
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->prefix}bn_profile_values
+				  WHERE user_id = %d AND field_id = %d AND entry_index >= %d",
+				$user_id,
+				$field_id,
+				count( $picks )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**

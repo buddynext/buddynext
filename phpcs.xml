@@ -10,6 +10,10 @@
 	<!-- Exclude generated/third-party paths -->
 	<exclude-pattern>vendor/</exclude-pattern>
 	<exclude-pattern>node_modules/</exclude-pattern>
+	<!-- Vendored runtime deps (Action Scheduler, EDD SL SDK) ship verbatim from
+	     upstream and are not authored to this ruleset — a dep refresh must not
+	     trip the gate, which passes staged paths explicitly. -->
+	<exclude-pattern>libs/</exclude-pattern>
 
 	<!-- Base standard -->
 	<rule ref="WordPress">

@@ -1,6 +1,6 @@
 {
   "name": "buddynext-e2e",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "description": "Playwright end-to-end test suite for BuddyNext Free + Pro. The PHP plugin lives alongside; this file exists only to host the e2e tooling.",
   "scripts": {

@@ -61,6 +61,16 @@ class RegistrationGuard {
 	 * @return true|WP_Error True to allow, WP_Error (with a user-safe message) to block.
 	 */
 	public function check( array $ctx ): bool|WP_Error {
+		// Allowed email domains are an ACCESS POLICY, not spam protection - they
+		// live in their own admin section and owners expect them enforced even
+		// with the spam-protection master switch off (previously the early
+		// return below silently bypassed a configured allowlist). Privileged
+		// creators (admin/import/CLI) are still exempt via the check below.
+		if ( ! ( is_user_logged_in() && current_user_can( 'create_users' ) )
+			&& ! $this->domain_allowed( (string) ( $ctx['email'] ?? '' ) ) ) {
+			return new WP_Error( 'bn_reg_domain', __( 'Only users from allowed email domains may register.', 'buddynext' ) );
+		}
+
 		// Master switch — default on, admin can disable in Settings → Registration.
 		$enabled = (bool) get_option( self::OPT_PROTECTION, true );
 		if ( ! (bool) apply_filters( 'buddynext_spam_protection_enabled', $enabled ) ) {
@@ -93,13 +103,6 @@ class RegistrationGuard {
 			if ( ! $ok ) {
 				return new WP_Error( 'bn_reg_challenge', __( 'That answer was not correct. Please solve the verification question and try again.', 'buddynext' ) );
 			}
-		}
-
-		// 3.5) Allowed email domains — when the admin has configured an allowlist
-		// in Settings → Registration, only addresses on those domains may register.
-		// Empty allowlist = allow all domains (the documented default behaviour).
-		if ( ! $this->domain_allowed( (string) ( $ctx['email'] ?? '' ) ) ) {
-			return new WP_Error( 'bn_reg_domain', __( 'Only users from allowed email domains may register.', 'buddynext' ) );
 		}
 
 		// 4) Score-based signals.

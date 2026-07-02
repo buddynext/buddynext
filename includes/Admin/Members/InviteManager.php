@@ -271,7 +271,7 @@ class InviteManager {
 			</div>
 		<?php endif; ?>
 
-			<div class="bn-settings-section" style="max-width:620px;">
+			<div class="bn-settings-section bn-a-narrow-form">
 				<div class="bn-ss-header">
 					<span class="bn-ss-title"><?php esc_html_e( 'Invite a Member', 'buddynext' ); ?></span>
 				</div>
@@ -293,7 +293,7 @@ class InviteManager {
 				</div>
 			</div>
 
-			<div class="bn-settings-section" style="max-width:620px;">
+			<div class="bn-settings-section bn-a-narrow-form">
 				<div class="bn-ss-header">
 					<span class="bn-ss-title"><?php esc_html_e( 'Send Bulk Invitations', 'buddynext' ); ?></span>
 				</div>
@@ -330,7 +330,21 @@ class InviteManager {
 				</div>
 
 				<?php if ( empty( $invites ) ) : ?>
-					<p><?php esc_html_e( 'No invitations match this filter.', 'buddynext' ); ?></p>
+					<?php
+					// First-run vs filtered-empty: on a fresh site the default
+					// 'pending' chip made the very first impression an
+					// error-flavored no-match message.
+					global $wpdb;
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					$bn_any_invites = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_invites" );
+					?>
+					<?php if ( 0 === $bn_any_invites ) : ?>
+						<div class="bn-empty">
+							<p><?php esc_html_e( 'No invitations yet - send your first invite above.', 'buddynext' ); ?></p>
+						</div>
+					<?php else : ?>
+						<p><?php esc_html_e( 'No invitations match this filter.', 'buddynext' ); ?></p>
+					<?php endif; ?>
 				<?php else : ?>
 					<table class="widefat striped">
 						<thead>

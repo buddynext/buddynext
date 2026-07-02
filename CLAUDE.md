@@ -1,8 +1,19 @@
 # CLAUDE.md — BuddyNext
 
-> **RESUMING WORK?** Start with [`docs/qa/RESUME.md`](docs/qa/RESUME.md) — open tasks, environment quirks, resumption recipe. Last session summary: [`docs/qa/SESSION-2026-05-22.md`](docs/qa/SESSION-2026-05-22.md).
+> **INTERNAL DEV DOCS LIVE IN THE PRIVATE `buddynext-pro` REPO** under `free-internal/` — plans, audit,
+> specs, standards, journeys, conformance, qa, v2 Plans, superpowers, and the loose top-level planning
+> `.md`s. The public `buddynext` repo keeps **customer-facing docs only** (`docs/website/`). `audit/` is
+> also kept **gitignored-locally** so tooling (CertRunner, flow-audit) still resolves the regenerated
+> `manifest.json` + baseline. Any `docs/...` / `audit/...` path named below resolves under
+> `../buddynext-pro/free-internal/` (or, for `audit/`, the local gitignored copy).
 >
-> **READ FIRST:** [`audit/manifest.json`](audit/manifest.json) is the canonical inventory — 135 REST endpoints, 39 tables, 21 capabilities, 55 services, 548 plugin-own hooks fired. Use this before grepping. See also [`audit/FEATURE_AUDIT.md`](audit/FEATURE_AUDIT.md), [`audit/CODE_FLOWS.md`](audit/CODE_FLOWS.md), [`audit/ROLE_MATRIX.md`](audit/ROLE_MATRIX.md). Refresh after non-trivial changes.
+> **RESUMING WORK?** Start with `free-internal/docs/qa/RESUME.md` (in `buddynext-pro`).
+>
+> **READ FIRST:** `audit/manifest.json` (local gitignored / `free-internal/audit/manifest.json` in
+> `buddynext-pro`) is the canonical inventory — 192 REST routes, 42 tables, 18 blocks, 5 cron jobs,
+> 752 hook listeners, 188 templates (regenerated 2026-06-30 via the wp-plugin-qa scanner). Use this before
+> grepping. See also `FEATURE_AUDIT.md`, `CODE_FLOWS.md`, `ROLE_MATRIX.md` beside it. Refresh after
+> non-trivial changes.
 
 ## What Is BuddyNext
 
@@ -14,15 +25,6 @@ Enterprise-grade social community platform for WordPress (free + pro). Owned by 
 - **REST namespaces:** `buddynext/v1` (free) · `buddynext-pro/v1` (pro)
 - **Bootstrap hook:** `plugins_loaded:15` → `BuddyNext\Core\Plugin::init()` → fires `buddynext_loaded`
 - **PHP:** 8.1+ · **WP:** 6.9+ (Abilities API required)
-
----
-
-## Recent Changes
-
-| Date | Branch | Change |
-|---|---|---|
-| 2026-06-25 | 1.0.3 | Profile media uploads + albums + fixes. New `includes/Media/MediaController.php` adds owner-gated `buddynext/v1` endpoints (`POST/GET/DELETE /me/media`, `GET /users/{id}/media`, album list/create/detail/add/remove/update/delete/reorder), consuming WPMediaVerse through the `MediaClient` service seam only (no engine REST, no MV css/js on BN screens). New `buddynext/media` (upload) + `buddynext/media-albums` islands, `templates/partials/media-tab.php` + `media-upload-composer.php`, `assets/css/bn-media-upload.css`, and a shared `assets/js/media/upload-core.js` (unified validation + 256px `makeThumb` reused by the Media tab, feed composer, and DM preview). `Galleries` gains album read helpers; `MediaClient` gains `albums()`/`privacy()` accessors + `default_video_poster()`. Owner-only writes; private albums hidden in list AND 404 on the detail endpoint for non-owners. Also fixed: display_name reverting to the login slug on blur (controlled input in `profile-edit-hero.php` + `syncNameField`), and posterless videos showing a black tile (`MediaUrlResolver` poster fallback). Two WP Interactivity lessons applied: seed EVERY context key in the initial `data-wp-context` (proxies don't track keys added after hydration) and `data-wp-bind--value` does not drive a `<select>` (set imperatively). |
-| 2026-06-25 | 1.0.3 | Scale audit on a 100k-user Docker lab under the Reign host theme. Fixed 7 bugs (commit `bf7f6811`): comment edit/delete by non-owner 500→403 (+404/400); member-directory result cache now busts on block/unblock via a per-viewer version salt (`MemberDirectoryService`); announcement dismiss/end now bust the page-1 home-feed cache (`FeedService::flush_home_cache`/`flush_all_home_caches`); type-scoped search normalizes plural→singular `object_type` (`SearchService::normalize_object_type`); appeal decide writes both audit column pairs; member warning writes a single `bn_mod_log` row; all `buddynext_post_created` listeners default trailing params so a 2-arg `do_action` can't fatal. Added regression tests (full free suite 1194 passing) and refreshed 9 `docs/journeys/` runbooks to match 1.0.3. |
 
 ---
 
@@ -577,10 +579,10 @@ do_action( 'buddynext_comment_created',        $comment_id, $post_id, $user_id )
 do_action( 'buddynext_comment_updated',        $comment_id, $post_id, $user_id );
 do_action( 'buddynext_comment_deleted',        $comment_id, $post_id, $user_id );
 do_action( 'buddynext_space_created',          $space_id, $user_id );
-do_action( 'buddynext_space_member_joined',    $user_id, $space_id, $role );
-do_action( 'buddynext_space_member_left',      $user_id, $space_id );
-do_action( 'buddynext_space_member_removed',   $user_id, $space_id, $removed_by );
-do_action( 'buddynext_space_join_approved',    $user_id, $space_id );
+do_action( 'buddynext_space_member_joined',    $space_id, $user_id, $role );      // space-first
+do_action( 'buddynext_space_member_left',      $space_id, $user_id );             // space-first
+do_action( 'buddynext_space_member_removed',   $space_id, $user_id, $removed_by ); // space-first
+do_action( 'buddynext_space_join_approved',    $space_id, $user_id, $approved_by ); // space-first
 do_action( 'buddynext_member_type_assigned',   $user_id, $new_slug, $old_slug );
 do_action( 'buddynext_member_type_removed',    $user_id, $removed_slug );
 do_action( 'buddynext_member_type_created',    $type_id, $type_data );
@@ -665,44 +667,3 @@ A phase is Done when ALL of:
 - [ ] Mobile layout works at 390px viewport
 - [ ] `wp rewrite flush` runs clean after activation
 - [ ] DB tables created correctly (verified via `wp db tables`)
-- [ ] CLAUDE.md "Recent Changes" table updated
-
----
-
-## Recent Changes
-
-| Date | Phase | Type | Description |
-|------|-------|------|-------------|
-| 2026-06-15 | header-user-section | feature | Reusable zero-JS logged-in header section (BuddyNext\Header\HeaderUserSection): notification bell + messages icon + avatar with a CSS-only (:focus-within) profile dropdown (quick links + log out). Shipped as the buddynext/header-user-menu block (block-based widget), the [buddynext_user_menu] shortcode, and buddynext_header_{notification_bell,messages_bell,user_menu}() helpers. assets/css/bn-header.css enqueued site-wide only when logged in; no JS file. Reign theme gains a parallel BN elseif branch in template-parts/header-icons/{notification,message,user-menu}.php + header/header-mobile.php (BuddyPress branch untouched; BP/BN mutually exclusive at runtime). |
-| 2026-06-15 | header-user-section | fix | bn-base.css dark tokens now also trigger on [data-bx-mode="dark"] (the Wbcom sibling-theme color-mode toggle used by BuddyX/Reign), so every BN surface follows the host theme's dark toggle instead of only BN's own [data-bn-theme]/[data-theme]. |
-| 2026-06-15 | header-user-section | feature | Header dropdown links are now filterable via `buddynext_header_user_menu_links` (label/url/icon rows; Log Out always appended + result normalized so a bad filter can't break markup). Reign ships a dedicated compat module inc/plugins-support/buddynext/reign-buddynext-functions.php (loaded from functions.php when BUDDYNEXT_VERSION is defined and BuddyPress is inactive): guarantees the bell/messages/user-menu header icons are present and feeds the site's assigned "User Profile" (menu-2) nav menu into the BN dropdown as a real, admin-controlled menu (falls back to BN defaults). bn-header.css reserves a 20px icon column so icon-less menu items still align. |
-| 2026-06-14 | career-board-int | refactor | CareerBoardBridge moved Free→Pro (jobs = application layer); Free no longer registers it. Pro registers it on the buddynext_load_bridges seam. Added PostService::delete_by_link so the bridge never queries bn_posts directly. |
-| 2026-06-14 | career-board-int | fix | Career Board bridge corrected to real hook signatures (verified against wp-career-board source): guard on wcb_run (was nonexistent wcb_get_job/WCB_Career_Board); on_job_created reads from the job post (hook passes WP_REST_Request, not an array); status_changed/withdrawn resolve candidate (_wcb_candidate_id meta) and employer (job post_author) since the hooks omit them. |
-| 2026-06-14 | notifications-flow | refactor | NotificationController extends REST/BaseRestController and is now $wpdb/usermeta-free (channel + space-pref data access moved into NotificationPrefService::get_channel_prefs/set_channel_prefs/list_space_notification_prefs) |
-| 2026-06-14 | notifications-flow | feature | Added NotificationService::get (canonical hydrated row); Pro PushDispatcher reads it instead of querying bn_notifications directly |
-| 2026-06-14 | social-graph-flow | refactor | FollowController, ConnectionController, BlockController extend REST/BaseRestController |
-| 2026-06-14 | social-graph-flow | feature | Added relationship-inspection endpoints: GET /users/{id}/follow/status, /connection/status, /mutual-connections, /account-type, /me/follow-requests/count (bulk-status endpoints deferred — directory returns relationship data server-side) |
-| 2026-06-14 | social-graph-flow | docs | Documented that Pro FunnelService reads Free analytics tables (incl. bn_follows) directly by design (read-only funnel aggregates, not routed through services) |
-| 2026-06-14 | spaces-flow | refactor | SpaceController is now $wpdb-free: ban/unban/remove delegate to SpaceMemberService, transfer to new SpaceService::transfer_ownership, join ban-check to is_banned_from_space |
-| 2026-06-14 | spaces-flow | fix | Reconciled the removal hook: SpaceMemberService::remove() fires the canonical buddynext_space_member_removed (consumed by WidgetListener), not the orphan buddynext_member_removed_from_space; controller no longer double-fires ban/unban/remove hooks |
-| 2026-06-14 | spaces-flow | refactor | SpaceController + SpaceCategoryController extend REST/BaseRestController |
-| 2026-06-14 | spaces-flow | feature | Added PUT /space-categories/{id} (edit category) and POST /spaces/{id}/join/cancel (withdraw pending request) |
-| 2026-06-14 | spaces-flow | refactor | Pro BrandService + RealtimeAssets read bn_spaces via Free SpaceService (get/get_by_slug); PaywallIntegration required_ability read kept (Pro-only column, documented) |
-| 2026-06-14 | profile-flow | refactor | ProfileController, MemberTypeController, MemberDirectoryController extend REST/BaseRestController (local require_auth/require_admin removed; MemberType keeps can_set_user_type) |
-| 2026-06-14 | profile-flow | feature | Added DELETE /users/{id}/avatar (admin) — closes the admin avatar-removal gap |
-| 2026-06-14 | profile-flow | feature | Added ProfileService::get_field_key; Pro AdvancedFieldRenderer resolves field keys through it instead of querying bn_profile_fields directly |
-| 2026-06-14 | profile-flow | note | Deferred: no post-upload cover focal-point adjustment endpoint (focal set on upload only); low priority |
-| 2026-06-14 | feed-flow | refactor | bn_posts counter writes (comment/reaction/share) + author lookups consolidated onto PostService::increment_counter/decrement_counter/get_author_id; routed from Comment/Reaction services + WPMediaVerse bridge |
-| 2026-06-14 | feed-flow | fix | Counter decrement used GREATEST(0, col-1) which underflows UNSIGNED columns; now GREATEST(1, col)-1 |
-| 2026-06-14 | feed-flow | refactor | FeedController announcement reads/writes moved to PostService::get_announcement/end_announcement (FeedController is $wpdb-free) |
-| 2026-06-14 | feed-flow | refactor | 8 Feed/Comments/Reactions controllers extend REST/BaseRestController; require_moderator promoted to base |
-| 2026-06-14 | feed-flow | feature | PostService gains set_schedule/clear_schedule/mark_published/get_posts_by_status; Pro scheduled-posts writes route through it (no direct bn_posts writes from Pro) |
-| 2026-06-13 | moderation-flow | refactor | ModerationController is now fully $wpdb-free — content-warning, appeals-list, and space-ban-list reads moved into ModerationService / SpaceMemberService |
-| 2026-06-13 | moderation-flow | feature | Added REST/BaseRestController (shared require_auth/require_admin); ModerationController extends it |
-| 2026-06-13 | moderation-flow | feature | Added app-readiness read endpoints: GET /me/appeals, /users/{id}/warnings, /users/{id}/shadow-ban, /users/{id}/suspensions |
-| 2026-06-13 | moderation-flow | fix | GET /posts/{id}/content-warning read a phantom content_warning_text column (404'd every post); removed it |
-| 2026-06-13 | moderation-flow | fix | GET /spaces/{id}/bans ordered by a non-existent id column (returned empty); order by created_at. ban_from_space() stored null into NOT NULL banned_by; store 0 |
-| 2026-06-13 | moderation-flow | refactor | Consolidated log_warning() into warn(); Pro BulkModAdmin reads the queue via ModerationService::get_queue() instead of raw SQL |
-| 2026-06-12 | — | feature | Licensing: vendored EDD SL SDK at libs/edd-sl-sdk (family-wide single source); registered item 1664401 with preset auto-activated key in buddynext.php; Settings > License tab (Pro-only, fires buddynext_admin_license_tab_content); updates only — no feature gating |
-
-> Older entries (2026-03-21 → 2026-06-12: initial build through the REST controller-refactor wave) are recoverable via `git log` and `audit/manifest.json`. This table is capped to the current architectural state forward — do not re-expand it with commit-level rows that git already records.

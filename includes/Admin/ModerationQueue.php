@@ -847,9 +847,11 @@ class ModerationQueue {
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-mod-action-form"
 			<?php
+			// Declarative confirm via the shared bn-admin-dialogs modal (enqueued on
+			// every buddynext-* admin page); replaces the native browser confirm().
 			if ( '' !== $confirm ) :
 				?>
-				onsubmit="return confirm('<?php echo esc_js( $confirm ); ?>');"<?php endif; ?>>
+				data-bn-confirm="<?php echo esc_attr( $confirm ); ?>" data-bn-confirm-tone="<?php echo esc_attr( 'delete' === $variant ? 'danger' : 'neutral' ); ?>"<?php endif; ?>>
 			<input type="hidden" name="action" value="<?php echo esc_attr( $action ); ?>">
 			<?php wp_nonce_field( $action ); ?>
 			<?php foreach ( $fields as $name => $value ) : ?>

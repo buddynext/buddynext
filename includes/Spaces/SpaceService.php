@@ -34,6 +34,17 @@ class SpaceService {
 	private const CACHE_TTL = 600;
 
 	/**
+	 * Slugs reserved for spaces-hub routes — a member must never create a space
+	 * whose slug shadows a real route (e.g. `mine` would collide with the
+	 * /spaces/mine/ "My Spaces" view). Defence-in-depth alongside rewrite-rule
+	 * ordering. Addons that register their own /spaces/<word>/ routes (e.g.
+	 * Learnomy's plans/buy/manage) extend the list via buddynext_reserved_space_slugs.
+	 *
+	 * @var string[]
+	 */
+	private const RESERVED_SLUGS = array( 'mine', 'managed', 'joined' );
+
+	/**
 	 * Space type — listed in directory; anyone can join.
 	 */
 	public const TYPE_OPEN = 'open';
@@ -53,13 +64,29 @@ class SpaceService {
 	public const TYPE_SECRET = 'secret';
 
 	/**
+	 * Whether a slug is reserved for a spaces-hub route and so cannot be used as a
+	 * space slug (defence-in-depth alongside rewrite-rule ordering — e.g. `mine`
+	 * shadows /spaces/mine/). Filterable via buddynext_reserved_space_slugs so
+	 * addon routes (Learnomy plans/buy/manage, etc.) can extend the list.
+	 *
+	 * @param string $slug Sanitized slug.
+	 * @return bool
+	 */
+	public static function is_reserved_slug( string $slug ): bool {
+		/**
+		 * Reserved space slugs.
+		 *
+		 * @param string[] $reserved Reserved slug list.
+		 */
+		$reserved = (array) apply_filters( 'buddynext_reserved_space_slugs', self::RESERVED_SLUGS );
+
+		return in_array( $slug, array_map( 'strval', $reserved ), true );
+	}
+
+	/**
 	 * Return the i18n'd human-readable label for a space type.
 	 *
-	 * Canonical labels:
-	 *   open    -> "Open"
-	 *   private -> "Private"
-	 *   secret  -> "Secret"
-	 *
+	 * Canonical labels: open -> "Open", private -> "Private", secret -> "Secret".
 	 * Use everywhere a type is rendered to a user (directory chips, hero badge,
 	 * settings forms) so the surface vocabulary never drifts from the data layer.
 	 *
@@ -68,6 +95,51 @@ class SpaceService {
 	 */
 	public static function type_label( string $type ): string {
 		return SpaceTypeRegistry::instance()->label( $type );
+	}
+
+	/**
+	 * The space row as an object with category name/slug resolved.
+	 *
+	 * The one loader for the shared parts: the bare `get()` row plus its category
+	 * lookup, cast to the object shape every part reads (hero, about, members,
+	 * feed, sidebar). Used by the space hub shell AND each space panel render, so
+	 * the hub and a panel never resolve the row two different ways.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return object|null Null when the space does not exist.
+	 */
+	public function get_object( int $space_id ): ?object {
+		$row = $this->get( $space_id );
+		if ( null === $row ) {
+			return null;
+		}
+		$row['category_name'] = '';
+		$row['category_slug'] = '';
+		if ( ! empty( $row['category_id'] ) ) {
+			$category = ( new SpaceCategoryService() )->get_by_id( (int) $row['category_id'] );
+			if ( is_array( $category ) ) {
+				$row['category_name'] = (string) ( $category['name'] ?? '' );
+				$row['category_slug'] = (string) ( $category['slug'] ?? '' );
+			}
+		}
+		return (object) $row;
+	}
+
+	/**
+	 * Presentation meta shared by the space hub header and the About panel: the
+	 * privacy type's label + tone and the formatted member count. One source so a
+	 * panel and the shell never format the same facts two different ways.
+	 *
+	 * @param object $space Space object from {@see get_object()}.
+	 * @return array{privacy_label:string,privacy_tone:string,member_count_fmt:string}
+	 */
+	public static function display_meta( object $space ): array {
+		$type = isset( $space->type ) ? (string) $space->type : '';
+		return array(
+			'privacy_label'    => self::type_label( $type ),
+			'privacy_tone'     => SpaceTypeRegistry::instance()->tone( $type ),
+			'member_count_fmt' => number_format_i18n( (int) ( $space->member_count ?? 0 ) ),
+		);
 	}
 
 	/**
@@ -153,6 +225,10 @@ class SpaceService {
 
 		if ( '' === $slug ) {
 			return new WP_Error( 'missing_slug', __( 'A space slug is required.', 'buddynext' ) );
+		}
+
+		if ( self::is_reserved_slug( $slug ) ) {
+			return new WP_Error( 'slug_reserved', __( 'That slug is reserved. Please choose another.', 'buddynext' ) );
 		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -379,6 +455,9 @@ class SpaceService {
 		if ( isset( $data['slug'] ) ) {
 			$new_slug = sanitize_title( $data['slug'] );
 			if ( '' !== $new_slug && $new_slug !== $space['slug'] ) {
+				if ( self::is_reserved_slug( $new_slug ) ) {
+					return new WP_Error( 'slug_reserved', __( 'That slug is reserved. Please choose another.', 'buddynext' ) );
+				}
 				// Ensure new slug is unique.
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$conflict = $wpdb->get_var(
@@ -405,6 +484,21 @@ class SpaceService {
 		if ( isset( $data['rules'] ) ) {
 			$fields['rules'] = sanitize_textarea_field( (string) $data['rules'] );
 			$format[]        = '%s';
+		}
+
+		// Move under a new parent, or detach to the top level. Validated for depth,
+		// cycles, the per-parent cap, and manage permission on the new parent.
+		if ( array_key_exists( 'parent_id', $data ) ) {
+			$new_parent     = (int) $data['parent_id'];
+			$current_parent = (int) ( $space['parent_id'] ?? 0 );
+			if ( $new_parent !== $current_parent ) {
+				$resolved = $this->validate_parent_move( $space_id, $space, $user_id, $new_parent );
+				if ( is_wp_error( $resolved ) ) {
+					return $resolved;
+				}
+				$fields['parent_id'] = $resolved; // int (move) or null (detach).
+				$format[]            = '%d';
+			}
 		}
 
 		if ( ! empty( $fields ) ) {
@@ -596,6 +690,36 @@ class SpaceService {
 
 		global $wpdb;
 
+		// Re-home any direct sub-spaces to the top level before this space is torn
+		// down. Spaces are shared community data (their own members, posts and
+		// sub-tree) that must survive a parent's deletion — leaving them pointing
+		// at a now-deleted parent_id would orphan them out of the directory and
+		// every get_subspaces() query. Detaching to root (parent_id = NULL) keeps
+		// each child and its own sub-tree intact as an independent top-level space,
+		// mirroring how update() detaches a space.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$child_spaces = (array) $wpdb->get_results( $wpdb->prepare( "SELECT id, slug FROM {$wpdb->prefix}bn_spaces WHERE parent_id = %d", $space_id ) );
+		if ( $child_spaces ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update(
+				$wpdb->prefix . 'bn_spaces',
+				array( 'parent_id' => null ),
+				array( 'parent_id' => $space_id ),
+				array( '%d' ),
+				array( '%d' )
+			);
+			foreach ( $child_spaces as $child ) {
+				$child_id = (int) $child->id;
+				wp_cache_delete( "space_{$child_id}", self::CACHE_GROUP );
+				if ( ! empty( $child->slug ) ) {
+					wp_cache_delete( 'space_slug_' . $child->slug, self::CACHE_GROUP );
+				}
+
+				/** This action is documented in includes/Spaces/SpaceService.php */
+				do_action( 'buddynext_space_updated', $child_id, $user_id, array( 'parent_id' => null ) );
+			}
+		}
+
 		// Capture every user whose membership / ban cache must be flushed once the
 		// space and its rows are gone — the bulk deletes below fire no per-user
 		// hooks, so cached role / status / ban entries would otherwise survive the
@@ -653,16 +777,17 @@ class SpaceService {
 			array( '%d' )
 		);
 
-		// Remove the per-space option rows (bn_space_{id}_*) so deleting a space
-		// doesn't leave orphaned autoloaded options behind. delete_option() keeps
-		// the options cache coherent (a raw LIKE delete would leave a stale
-		// alloptions entry for the request). Integrations that store their own
-		// per-space option register the suffix via the filter.
-		$bn_space_option_suffixes = apply_filters(
-			'buddynext_space_option_suffixes',
-			array( 'who_can_post', 'require_join_approval', 'jetonomy_forum_id', 'mvs_media_tab', 'banned_words' )
-		);
-		foreach ( (array) $bn_space_option_suffixes as $bn_suffix ) {
+		// Remove this space's metadata. The built-in settings and any
+		// developer-registered space fields all live in bn_space_meta now, so a
+		// single delete clears them — no orphaned rows after the space is gone.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete( $wpdb->bn_spacemeta, array( 'bn_space_id' => $space_id ), array( '%d' ) );
+
+		// Back-compat: an integration that still keeps its own per-space option can
+		// register its suffix here so a deleted space leaves nothing behind. Core
+		// no longer stores any option this way (default is empty).
+		$bn_space_option_suffixes = (array) apply_filters( 'buddynext_space_option_suffixes', array() );
+		foreach ( $bn_space_option_suffixes as $bn_suffix ) {
 			delete_option( 'bn_space_' . $space_id . '_' . sanitize_key( (string) $bn_suffix ) );
 		}
 
@@ -684,6 +809,17 @@ class SpaceService {
 		 * @param int $user_id  User who deleted it.
 		 */
 		do_action( 'buddynext_space_deleted', $space_id, $user_id );
+
+		/**
+		 * Fires so add-ons can purge their own per-space data on deletion — the
+		 * space-side parity of buddynext_purge_user_data (the member-purge cleanup
+		 * hook). Kept separate from buddynext_space_deleted so cleanup listeners
+		 * have a dedicated, clearly-named hook.
+		 *
+		 * @param int $space_id Deleted space ID.
+		 * @param int $user_id  User who deleted it.
+		 */
+		do_action( 'buddynext_purge_space_data', $space_id, $user_id );
 
 		return true;
 	}
@@ -708,13 +844,14 @@ class SpaceService {
 	public function list_spaces( array $args = array() ): array {
 		global $wpdb;
 
-		$scope     = $this->list_query_scope( $args );
-		$member_id = $scope['member_id'];
-		$where_sql = $scope['where_sql'];
-		$orderby   = $scope['orderby'];
-		$order     = $scope['order'];
-		$per_page  = $scope['per_page'];
-		$offset    = $scope['offset'];
+		$scope           = $this->list_query_scope( $args );
+		$member_id       = $scope['member_id'];
+		$member_role_sql = $scope['member_role_sql'];
+		$where_sql       = $scope['where_sql'];
+		$orderby         = $scope['orderby'];
+		$order           = $scope['order'];
+		$per_page        = $scope['per_page'];
+		$offset          = $scope['offset'];
 
 		$params   = $scope['params'];
 		$params[] = $per_page;
@@ -727,7 +864,7 @@ class SpaceService {
 		if ( $member_id > 0 ) {
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT s.* FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active' {$where_sql} ORDER BY s.{$orderby} {$order} LIMIT %d OFFSET %d",
+					"SELECT s.*, sm.role AS viewer_role FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active'{$member_role_sql} {$where_sql} ORDER BY s.{$orderby} {$order} LIMIT %d OFFSET %d",
 					$member_id,
 					...$params
 				),
@@ -762,9 +899,10 @@ class SpaceService {
 	public function list_spaces_with_total( array $args = array() ): array {
 		global $wpdb;
 
-		$scope     = $this->list_query_scope( $args );
-		$member_id = $scope['member_id'];
-		$where_sql = $scope['where_sql'];
+		$scope           = $this->list_query_scope( $args );
+		$member_id       = $scope['member_id'];
+		$member_role_sql = $scope['member_role_sql'];
+		$where_sql       = $scope['where_sql'];
 
 		// $where_sql contains only hardcoded strings or validated enum values; the
 		// embedded placeholders are bound through prepare() with $scope['params'].
@@ -773,7 +911,7 @@ class SpaceService {
 		if ( $member_id > 0 ) {
 			$total = (int) $wpdb->get_var(
 				$wpdb->prepare(
-					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active' {$where_sql}",
+					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active'{$member_role_sql} {$where_sql}",
 					$member_id,
 					...$scope['params']
 				)
@@ -805,7 +943,7 @@ class SpaceService {
 	 * its bound params, the validated orderby/order, and the resolved pagination.
 	 *
 	 * @param array<string, mixed> $args Query arguments (see list_spaces()).
-	 * @return array{where_sql: string, params: array<int, mixed>, orderby: string, order: string, per_page: int, offset: int, member_id: int}
+	 * @return array{where_sql: string, params: array<int, mixed>, orderby: string, order: string, per_page: int, offset: int, member_id: int, member_role_sql: string}
 	 */
 	private function list_query_scope( array $args ): array {
 		global $wpdb;
@@ -818,6 +956,18 @@ class SpaceService {
 		$member_id   = isset( $args['member'] ) ? absint( $args['member'] ) : 0;
 		$viewer_id   = isset( $args['viewer'] ) ? absint( $args['viewer'] ) : 0;
 		$is_admin    = ! empty( $args['is_admin'] );
+
+		// Member-scoped lists ("my spaces") can be narrowed to the viewer's
+		// relationship: 'manage' = spaces they own or moderate, 'joined' = plain
+		// membership. The fragment extends the membership JOIN in list_spaces*().
+		// Role values are hardcoded enums, so they are safe to interpolate.
+		$member_role     = $member_id > 0 && isset( $args['member_role'] ) ? (string) $args['member_role'] : '';
+		$member_role_sql = '';
+		if ( 'manage' === $member_role ) {
+			$member_role_sql = " AND sm.role IN ( 'owner', 'moderator' )";
+		} elseif ( 'joined' === $member_role ) {
+			$member_role_sql = " AND sm.role = 'member'";
+		}
 
 		$allowed_orderby = array( 'member_count', 'name', 'created_at' );
 		$raw_orderby     = isset( $args['orderby'] ) ? (string) $args['orderby'] : 'member_count';
@@ -843,7 +993,7 @@ class SpaceService {
 			// own spaces so others' secret spaces stay hidden.
 			if ( ! $is_admin && ! SpaceTypeRegistry::instance()->is_listed( $type ) && $member_id <= 0 ) {
 				if ( $viewer_id > 0 ) {
-					$where[]  = "( owner_id = %d OR id IN ( SELECT space_id FROM {$members_table} WHERE user_id = %d AND status = 'active' ) )";
+					$where[]  = '( ' . $this->owned_or_member_subquery( $members_table ) . ' )';
 					$params[] = $viewer_id;
 					$params[] = $viewer_id;
 				} else {
@@ -860,7 +1010,7 @@ class SpaceService {
 				// Slugs are sanitize_key()'d in the registry, so safe to interpolate.
 				$placeholders = implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $unlisted ) );
 				if ( $viewer_id > 0 ) {
-					$where[]  = "( type NOT IN ( {$placeholders} ) OR owner_id = %d OR id IN ( SELECT space_id FROM {$members_table} WHERE user_id = %d AND status = 'active' ) )";
+					$where[]  = "( type NOT IN ( {$placeholders} ) OR " . $this->owned_or_member_subquery( $members_table ) . ' )';
 					$params[] = $viewer_id;
 					$params[] = $viewer_id;
 				} else {
@@ -874,14 +1024,38 @@ class SpaceService {
 			$params[] = $category_id;
 		}
 
+		// Top-level directory browse shows root spaces only — sub-spaces are
+		// discovered from their parent, so 50k spaces never flatten into one grid.
+		// Member-scoped lists ("my spaces") and search are unaffected.
+		if ( ! empty( $args['roots_only'] ) ) {
+			$where[] = 'parent_id IS NULL';
+		}
+
+		// Bound the result to / exclude an explicit id set — used by the suggestion
+		// engine (hydrate ranked candidates, visibility-safe) and "spaces I'm not in"
+		// views. Ids are integer-cast, so the inlined IN lists are injection-safe.
+		if ( ! empty( $args['include_space_ids'] ) ) {
+			$bn_inc = implode( ',', array_map( 'absint', (array) $args['include_space_ids'] ) );
+			if ( '' !== $bn_inc ) {
+				$where[] = "id IN ({$bn_inc})";
+			}
+		}
+		if ( ! empty( $args['exclude_space_ids'] ) ) {
+			$bn_exc = implode( ',', array_map( 'absint', (array) $args['exclude_space_ids'] ) );
+			if ( '' !== $bn_exc ) {
+				$where[] = "id NOT IN ({$bn_exc})";
+			}
+		}
+
 		return array(
-			'where_sql' => $where ? ( 'WHERE ' . implode( ' AND ', $where ) ) : '',
-			'params'    => $params,
-			'orderby'   => $orderby,
-			'order'     => $order,
-			'per_page'  => $per_page,
-			'offset'    => $offset,
-			'member_id' => $member_id,
+			'where_sql'       => $where ? ( 'WHERE ' . implode( ' AND ', $where ) ) : '',
+			'params'          => $params,
+			'orderby'         => $orderby,
+			'order'           => $order,
+			'per_page'        => $per_page,
+			'offset'          => $offset,
+			'member_id'       => $member_id,
+			'member_role_sql' => $member_role_sql,
 		);
 	}
 
@@ -914,7 +1088,7 @@ class SpaceService {
 		$mine_sql = '1=1';
 		if ( $member_id > 0 ) {
 			$mine_members = $wpdb->prefix . 'bn_space_members';
-			$mine_sql     = "( owner_id = %d OR id IN ( SELECT space_id FROM {$mine_members} WHERE user_id = %d AND status = 'active' ) )";
+			$mine_sql     = '( ' . $this->owned_or_member_subquery( $mine_members ) . ' )';
 		}
 
 		// Exclude unlisted (secret-equivalent) types from search. Slugs are
@@ -928,7 +1102,7 @@ class SpaceService {
 			$placeholders  = implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $unlisted ) );
 			$members_table = $wpdb->prefix . 'bn_space_members';
 			if ( $viewer_id > 0 ) {
-				$exclude_sql = "( type NOT IN ( {$placeholders} ) OR owner_id = %d OR id IN ( SELECT space_id FROM {$members_table} WHERE user_id = %d AND status = 'active' ) )";
+				$exclude_sql = "( type NOT IN ( {$placeholders} ) OR " . $this->owned_or_member_subquery( $members_table ) . ' )';
 				$params[]    = $viewer_id;
 				$params[]    = $viewer_id;
 			} else {
@@ -1042,6 +1216,350 @@ class SpaceService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return array_map( array( $this, 'hydrate' ), (array) $rows );
+	}
+
+	/**
+	 * Return a parent space's sub-spaces, most-active first.
+	 *
+	 * Index-backed by KEY parent (parent_id). Bounded by $limit (1-50). A secret
+	 * child is hidden from a viewer who is neither a site admin nor an active
+	 * member/owner of that child — mirrors the directory's secret-scope so a
+	 * sub-space is exactly as discoverable as a top-level space of the same type.
+	 *
+	 * @param int  $parent_id Parent space ID.
+	 * @param int  $limit     Max rows (clamped 1-50).
+	 * @param int  $offset    Row offset.
+	 * @param int  $viewer_id Viewer ID for visibility scoping (0 = logged out).
+	 * @param bool $is_admin  Site admin sees every child.
+	 * @return array[] Hydrated sub-space rows.
+	 */
+	public function get_subspaces( int $parent_id, int $limit = 24, int $offset = 0, int $viewer_id = 0, bool $is_admin = false ): array {
+		global $wpdb;
+
+		$parent_id = absint( $parent_id );
+		if ( $parent_id <= 0 ) {
+			return array();
+		}
+
+		$limit  = max( 1, min( 50, $limit ) );
+		$offset = max( 0, $offset );
+
+		list( $where, $params ) = $this->subspace_visibility_where( $parent_id, $viewer_id, $is_admin );
+		$where_sql              = 'WHERE ' . implode( ' AND ', $where );
+		$params[]               = $limit;
+		$params[]               = $offset;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_spaces {$where_sql} ORDER BY member_count DESC, name ASC LIMIT %d OFFSET %d",
+				$params
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		return array_map( array( $this, 'hydrate' ), (array) $rows );
+	}
+
+	/**
+	 * The "viewer owns it, or is an active member of it" visibility sub-predicate.
+	 *
+	 * This `owner_id = %d OR id IN ( active-membership )` fragment is the heart of
+	 * every secret/unlisted-space visibility check — it was copied verbatim across
+	 * the directory list, search, and sub-space queries. Centralised here so the
+	 * security predicate has a single definition and can never drift between the
+	 * surfaces that must agree. Returns SQL carrying two %d placeholders (both
+	 * bound to the viewer ID, in order); callers wrap it and push the two params.
+	 *
+	 * @param string $members_table Fully-qualified bn_space_members table name.
+	 * @return string
+	 */
+	private function owned_or_member_subquery( string $members_table ): string {
+		return "owner_id = %d OR id IN ( SELECT space_id FROM {$members_table} WHERE user_id = %d AND status = 'active' )";
+	}
+
+	/**
+	 * Build the shared visibility-scoped WHERE for a parent's sub-spaces.
+	 *
+	 * One source of truth so get_subspaces() (the visible LIST) and
+	 * count_visible_subspaces() (the displayed COUNT) can never diverge — a member must
+	 * never see a sub-space total that includes secret/unlisted children they can't open.
+	 * Non-admins see a child only when its type is listed, OR they own it, OR they are an
+	 * active member of it.
+	 *
+	 * @param int  $parent_id Parent space ID (already absint-ed by the caller).
+	 * @param int  $viewer_id Viewer ID (0 = logged out).
+	 * @param bool $is_admin  Site admin sees every child.
+	 * @return array{0: string[], 1: array<int, mixed>} [ where-clauses, prepared params ].
+	 */
+	private function subspace_visibility_where( int $parent_id, int $viewer_id, bool $is_admin ): array {
+		list( $where, $params ) = $this->subspace_visibility_filter( $viewer_id, $is_admin );
+		array_unshift( $where, 'parent_id = %d' );
+		array_unshift( $params, $parent_id );
+
+		return array( $where, $params );
+	}
+
+	/**
+	 * The viewer-scoped, parent-independent visibility filter for sub-spaces.
+	 *
+	 * Just the "this child is visible to the viewer" half of subspace_visibility_where()
+	 * — is_archived plus the secret/unlisted scope (listed types, or the viewer owns/
+	 * actively belongs to the child). Lifted out so the single-parent WHERE and the
+	 * batched count_visible_subspaces_for() share ONE definition of the visibility
+	 * boundary; a parent clause is prepended by each caller.
+	 *
+	 * @param int  $viewer_id Viewer ID (0 = logged out).
+	 * @param bool $is_admin  Site admin sees every child.
+	 * @return array{0: string[], 1: array<int, mixed>} [ where-clauses, prepared params ].
+	 */
+	private function subspace_visibility_filter( int $viewer_id, bool $is_admin ): array {
+		global $wpdb;
+
+		$where  = array( 'is_archived = 0' );
+		$params = array();
+
+		if ( ! $is_admin ) {
+			$unlisted = SpaceTypeRegistry::instance()->unlisted_keys();
+			if ( $unlisted ) {
+				// Slugs are sanitize_key()'d in the registry, so safe to interpolate.
+				$placeholders = implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $unlisted ) );
+				if ( $viewer_id > 0 ) {
+					$members_table = $wpdb->prefix . 'bn_space_members';
+					$where[]       = "( type NOT IN ( {$placeholders} ) OR " . $this->owned_or_member_subquery( $members_table ) . ' )';
+					$params[]      = $viewer_id;
+					$params[]      = $viewer_id;
+				} else {
+					$where[] = "type NOT IN ( {$placeholders} )";
+				}
+			}
+		}
+
+		return array( $where, $params );
+	}
+
+	/**
+	 * Count a parent's sub-spaces VISIBLE to a viewer (non-archived).
+	 *
+	 * The display-safe sibling of count_subspaces(): it applies the SAME visibility
+	 * scope as get_subspaces(), so the "N sub-spaces" a member sees matches the list they
+	 * can actually open — no secret-child leak in the count. count_subspaces() stays the
+	 * unscoped structural count, correct for move/cap validation.
+	 *
+	 * @param int  $parent_id Parent space ID.
+	 * @param int  $viewer_id Viewer ID (0 = logged out).
+	 * @param bool $is_admin  Site admin counts every child.
+	 * @return int
+	 */
+	public function count_visible_subspaces( int $parent_id, int $viewer_id = 0, bool $is_admin = false ): int {
+		global $wpdb;
+
+		$parent_id = absint( $parent_id );
+		if ( $parent_id <= 0 ) {
+			return 0;
+		}
+
+		list( $where, $params ) = $this->subspace_visibility_where( $parent_id, $viewer_id, $is_admin );
+		$where_sql              = 'WHERE ' . implode( ' AND ', $where );
+
+		// The %d placeholders live inside the interpolated $where_sql (parent + viewer),
+		// so the query IS prepared — phpcs just can't see them in the literal string.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces {$where_sql}",
+				$params
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+	}
+
+	/**
+	 * Visible sub-space counts for many parents in one query.
+	 *
+	 * The batched sibling of count_visible_subspaces(), for a directory page that
+	 * shows a "N sub-spaces" chip per card: counting per card would be an N+1. Applies
+	 * the SAME visibility scope (so secret children never inflate a count the viewer
+	 * can't open) across all parents, grouped by parent_id.
+	 *
+	 * @param int[] $parent_ids Parent space IDs on the page.
+	 * @param int   $viewer_id  Viewer ID (0 = logged out).
+	 * @param bool  $is_admin   Site admin counts every child.
+	 * @return array<int, int> Parent-ID keyed count map; every requested parent is present (0 if none).
+	 */
+	public function count_visible_subspaces_for( array $parent_ids, int $viewer_id = 0, bool $is_admin = false ): array {
+		global $wpdb;
+
+		$parent_ids = array_values( array_unique( array_filter( array_map( 'intval', $parent_ids ) ) ) );
+		if ( empty( $parent_ids ) ) {
+			return array();
+		}
+
+		// Seed every requested parent to 0 so parents with no visible children are
+		// still present in the map (a missing key would read as "unknown", not zero).
+		$counts = array_fill_keys( $parent_ids, 0 );
+
+		list( $where, $params ) = $this->subspace_visibility_filter( $viewer_id, $is_admin );
+		$placeholders           = implode( ', ', array_fill( 0, count( $parent_ids ), '%d' ) );
+		array_unshift( $where, "parent_id IN ( {$placeholders} )" );
+		$params    = array_merge( $parent_ids, $params );
+		$where_sql = 'WHERE ' . implode( ' AND ', $where );
+
+		// The %d placeholders live inside the interpolated $where_sql (parent IN list
+		// + viewer), so the query IS prepared — phpcs just can't see them in the literal.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT parent_id, COUNT(*) AS n FROM {$wpdb->prefix}bn_spaces {$where_sql} GROUP BY parent_id",
+				$params
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		foreach ( (array) $rows as $r ) {
+			$counts[ (int) $r->parent_id ] = (int) $r->n;
+		}
+
+		return $counts;
+	}
+
+	/**
+	 * Count a parent's active (non-archived) sub-spaces. Index-backed by parent.
+	 *
+	 * @param int $parent_id Parent space ID.
+	 * @return int
+	 */
+	public function count_subspaces( int $parent_id ): int {
+		global $wpdb;
+
+		$parent_id = absint( $parent_id );
+		if ( $parent_id <= 0 ) {
+			return 0;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces WHERE parent_id = %d AND is_archived = 0",
+				$parent_id
+			)
+		);
+	}
+
+	/**
+	 * A compact summary of a space's parent, for breadcrumb navigation.
+	 *
+	 * Reads the cached parent row (no extra join on list rows), returning just the
+	 * fields a breadcrumb needs. Viewer-scoped: a secret/unlisted parent the viewer
+	 * cannot see resolves to null so a child never leaks the parent's name + link.
+	 *
+	 * @param int $parent_id Parent space ID.
+	 * @param int $viewer_id Viewer user ID (0 = anonymous) for the visibility scope.
+	 * @return array{id:int,name:string,slug:string}|null Null when no/unseeable parent.
+	 */
+	public function parent_summary( int $parent_id, int $viewer_id = 0 ): ?array {
+		$parent_id = absint( $parent_id );
+		if ( $parent_id <= 0 ) {
+			return null;
+		}
+
+		$parent = $this->get( $parent_id );
+		if ( null === $parent ) {
+			return null;
+		}
+
+		// Visibility scope: an unlisted (secret) parent is hidden from a viewer who
+		// neither owns it, actively belongs to it, nor is a site admin — so an open
+		// child nested under a secret parent never leaks the parent's name + link.
+		$type = (string) ( $parent['type'] ?? 'open' );
+		if ( ! SpaceTypeRegistry::instance()->is_listed( $type ) ) {
+			$can_see = current_user_can( 'manage_options' )
+				|| ( $viewer_id > 0
+					&& ( (int) ( $parent['owner_id'] ?? 0 ) === $viewer_id
+						|| ( new SpaceMemberService() )->is_member( $parent_id, $viewer_id ) ) );
+			if ( ! $can_see ) {
+				return null;
+			}
+		}
+
+		return array(
+			'id'   => (int) $parent['id'],
+			'name' => (string) $parent['name'],
+			'slug' => (string) $parent['slug'],
+		);
+	}
+
+	/**
+	 * Validate a parent change for {@see update()} — move under a new parent, or
+	 * detach to the top level.
+	 *
+	 * Returns the resolved parent id (int) to move, null to detach, or a WP_Error
+	 * when the move would break the two-level depth rule, form a cycle, exceed the
+	 * per-parent cap, or the actor cannot manage the target parent.
+	 *
+	 * @param int                 $space_id   The space being moved.
+	 * @param array<string,mixed> $space      Hydrated row of the space being moved.
+	 * @param int                 $user_id    Acting user.
+	 * @param int                 $new_parent Requested parent id (0 = detach).
+	 * @return int|null|WP_Error
+	 */
+	private function validate_parent_move( int $space_id, array $space, int $user_id, int $new_parent ): int|null|WP_Error {
+		unset( $space );
+
+		// Detach to the top level — always safe (a child simply becomes a root).
+		if ( $new_parent <= 0 ) {
+			return null;
+		}
+
+		if ( '0' === (string) get_option( 'buddynext_space_allow_sub', '1' ) ) {
+			return new WP_Error( 'sub_spaces_disabled', __( 'Sub-spaces are disabled on this community.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		if ( $new_parent === $space_id ) {
+			return new WP_Error( 'invalid_parent', __( 'A space cannot be its own parent.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$parent_row = $wpdb->get_row(
+			$wpdb->prepare( "SELECT id, parent_id FROM {$wpdb->prefix}bn_spaces WHERE id = %d", $new_parent ),
+			ARRAY_A
+		);
+		if ( null === $parent_row ) {
+			return new WP_Error( 'parent_not_found', __( 'The selected parent space does not exist.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		// The target must be a root: nesting under a sub-space would be three deep.
+		if ( null !== $parent_row['parent_id'] && (int) $parent_row['parent_id'] > 0 ) {
+			return new WP_Error( 'max_depth_exceeded', __( 'Spaces may only be nested two levels deep.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		// A space that itself has sub-spaces cannot be nested — its children would
+		// become three levels deep.
+		if ( $this->count_subspaces( $space_id ) > 0 ) {
+			return new WP_Error( 'has_children', __( 'Move or remove this space\'s sub-spaces before nesting it under another space.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		if ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-manage-space', array( 'space_id' => $new_parent ) ) ) {
+			return new WP_Error( 'forbidden', __( 'You can only move a space under one you manage.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		$max_sub = (int) get_option( 'buddynext_space_max_sub_spaces', 0 );
+		if ( $max_sub > 0 && $this->count_subspaces( $new_parent ) >= $max_sub ) {
+			return new WP_Error(
+				'max_sub_spaces_exceeded',
+				sprintf(
+					/* translators: %d: maximum number of sub-spaces allowed per parent. */
+					__( 'This space already has the maximum of %d sub-spaces.', 'buddynext' ),
+					$max_sub
+				),
+				array( 'status' => 422 )
+			);
+		}
+
+		return $new_parent;
 	}
 
 	/**
@@ -1207,7 +1725,7 @@ class SpaceService {
 	 * @return array
 	 */
 	private function hydrate( array $row ): array {
-		return array(
+		$space = array(
 			'id'              => (int) ( $row['id'] ?? 0 ),
 			'name'            => $row['name'] ?? '',
 			'slug'            => $row['slug'] ?? '',
@@ -1223,6 +1741,20 @@ class SpaceService {
 			'is_archived'     => ! empty( $row['is_archived'] ),
 			'archived_at'     => $row['archived_at'] ?? null,
 			'created_at'      => $row['created_at'] ?? '',
+			// Present only on member-scoped lists (the viewer's role in the space:
+			// owner | moderator | member). Null elsewhere. Lets clients group
+			// "spaces you manage" vs "spaces you've joined" without a second query.
+			'viewer_role'     => $row['viewer_role'] ?? null,
 		);
+
+		/**
+		 * Filter a hydrated space array. Every space payload — single-space REST
+		 * responses, list/directory rows — passes through here, so add-ons (native
+		 * app, bridges) can attach computed fields to a space on every surface.
+		 *
+		 * @param array<string,mixed> $space The hydrated space.
+		 * @param array<string,mixed> $row   The raw bn_spaces row.
+		 */
+		return (array) apply_filters( 'buddynext_prepare_space', $space, $row );
 	}
 }

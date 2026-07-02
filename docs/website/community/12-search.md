@@ -73,6 +73,7 @@ You do not normally need to reindex. The index is updated as content changes. A 
 ## Good to know
 
 - **Full-text matching.** Search uses the database's full-text engine to match words in titles and content, with a simpler word-match fallback in environments where full-text is unavailable. Members do not need to do anything different; results just work.
+- **People are found by their profile details.** The Members section matches a person's name and username as well as the profile details they have filled in - their bio, headline, and any fields the owner made searchable, such as skills or role. It is the same matching the member directory uses, so a search here and a search in the directory turn up the same people. Fields a member has kept private are never matched.
 - **Empty query.** Submitting an empty query does not error. The page shows an empty state prompting you to type something.
 - **Secret spaces stay hidden.** Spaces marked secret are indexed as private, so they never surface in public results.
 - **Newly posted content.** Indexing is near-immediate, but on a very busy site a brand-new post may take a moment to appear in search while the background job runs.

@@ -19,6 +19,12 @@ if ( isset( $bn_item ) && null !== $bn_item->icon && function_exists( 'buddynext
 }
 ?>
 <span class="bn-tab__label"><?php echo esc_html( isset( $bn_item ) ? $bn_item->label : '' ); ?></span>
+<?php
+// Render the badge only when a count was actually resolved. The resolver decides
+// which counts run (NavRegistry): lightweight people-counts like Members / Network
+// stay on, while expensive per-user content COUNT(*) badges are skipped at scale
+// (opt every badge back on via the buddynext_nav_show_tab_count filter).
+?>
 <?php if ( isset( $bn_count ) && '' !== $bn_count ) : ?>
 	<span class="bn-tab__count"><?php echo esc_html( $bn_count ); ?></span>
 <?php endif; ?>

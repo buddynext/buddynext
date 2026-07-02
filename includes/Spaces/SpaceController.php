@@ -64,6 +64,49 @@ class SpaceController extends BaseRestController {
 			)
 		);
 
+		// Suggested spaces for the current viewer (ranked discovery). Auth-required —
+		// suggestions are per-viewer. Registered before '/spaces/(?P<id>\d+)' so the
+		// literal 'suggestions' segment is unambiguous.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/suggestions',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'suggested_spaces' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'limit' => array(
+						'type'              => 'integer',
+						'default'           => 6,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
+		// Space field definitions (the form schema the app + web render from). Public
+		// read — values are per-space and gated on GET /spaces/{id}. Registered
+		// before the {id} route, but '\d+' means 'fields' can never match it anyway.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/fields',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_space_field_definitions' ),
+				'permission_callback' => '__return_true',
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/fields',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'save_space_fields' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/spaces/(?P<id>[\d]+)',
@@ -94,6 +137,16 @@ class SpaceController extends BaseRestController {
 				'callback'            => array( $this, 'get_space_members' ),
 				'permission_callback' => '__return_true',
 				'args'                => $this->member_pagination_args(),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/subspaces',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_subspaces' ),
+				'permission_callback' => '__return_true',
 			)
 		);
 
@@ -381,15 +434,13 @@ class SpaceController extends BaseRestController {
 		foreach ( $bools as $key => $opt ) {
 			$param = $request->get_param( $key );
 			if ( null !== $param ) {
-				// autoload=false: per-space settings are read on demand, never every
-				// request — keeping them out of alloptions matters at thousands of spaces.
-				update_option( 'bn_space_' . $space_id . '_' . $opt, $param ? 1 : 0, false );
+				update_space_meta( $space_id, $opt, $param ? '1' : '0' );
 			}
 		}
 
 		return new WP_REST_Response(
 			array(
-				'require_join_approval' => (int) get_option( 'bn_space_' . $space_id . '_require_join_approval', 0 ),
+				'require_join_approval' => (int) buddynext_get_space_field( $space_id, 'require_join_approval' ),
 			),
 			200
 		);
@@ -471,11 +522,51 @@ class SpaceController extends BaseRestController {
 			$args['member'] = $viewer;
 		}
 
+		// Relationship filter on the member scope: 'managed' = spaces the viewer
+		// owns or moderates, 'joined' = plain membership. Implies the member scope,
+		// so a client can request just one bucket (each with its own pagination).
+		// The response also carries `viewer_role` per space for client-side grouping.
+		$membership_param = $request->get_param( 'membership' );
+		if ( $viewer > 0 && in_array( (string) $membership_param, array( 'managed', 'joined' ), true ) ) {
+			$args['member']      = $viewer;
+			$args['member_role'] = 'managed' === (string) $membership_param ? 'manage' : 'joined';
+		}
+
+		// Top-level browse shows root spaces only — sub-spaces are reached from
+		// their parent. Mirrors templates/spaces/directory.php so SSR + REST match.
+		// "My Spaces" and search still surface sub-spaces; the include_subspaces
+		// opt-in flattens the All view to the full list.
+		$bn_include_subspaces = in_array( (string) $request->get_param( 'include_subspaces' ), array( '1', 'true', 'yes' ), true );
+		if ( ! isset( $args['member'] ) && ! $bn_include_subspaces ) {
+			$args['roots_only'] = true;
+		}
+
 		$search_param = null !== $request->get_param( 'search' )
 			? sanitize_text_field( (string) $request->get_param( 'search' ) )
 			: ( null !== $request->get_param( 'q' )
 				? sanitize_text_field( (string) $request->get_param( 'q' ) )
 				: '' );
+
+		// Opt-in pagination metadata for the reactive directory: paginate=1 wraps the
+		// rows with a total + total_pages (so the client can rebuild its pager for the
+		// filtered set). Default + the search path stay a bare array (back-compat).
+		$bn_paginate = in_array( (string) $request->get_param( 'paginate' ), array( '1', 'true', 'yes' ), true );
+
+		if ( '' === $search_param && $bn_paginate ) {
+			$result = ( new SpaceService() )->list_spaces_with_total( $args );
+			$items  = $this->enrich_directory_rows( (array) ( $result['items'] ?? array() ), $viewer );
+			$total  = (int) ( $result['total'] ?? 0 );
+
+			return new WP_REST_Response(
+				array(
+					'items'       => $items,
+					'total'       => $total,
+					'total_pages' => (int) ceil( $total / max( 1, $per_page ) ),
+					'page'        => absint( null !== $page_param ? $page_param : 1 ),
+				),
+				200
+			);
+		}
 
 		if ( '' !== $search_param ) {
 			$spaces = ( new SpaceService() )->search( $search_param, $args );
@@ -486,6 +577,26 @@ class SpaceController extends BaseRestController {
 		$spaces = $this->enrich_directory_rows( (array) $spaces, $viewer );
 
 		return new WP_REST_Response( $spaces, 200 );
+	}
+
+	/**
+	 * GET /spaces/suggestions — ranked suggested spaces for the current viewer.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response
+	 */
+	public function suggested_spaces( WP_REST_Request $request ): WP_REST_Response {
+		$viewer = get_current_user_id();
+		$limit  = absint( $request->get_param( 'limit' ) );
+		$limit  = $limit > 0 ? min( 24, $limit ) : 6;
+
+		$rows = ( new SpaceSuggestionService() )->suggest( $viewer, $limit );
+		foreach ( $rows as &$bn_row ) {
+			unset( $bn_row['_bn_score'] ); // Internal ranking field — not part of the API.
+		}
+		unset( $bn_row );
+
+		return new WP_REST_Response( $this->enrich_directory_rows( $rows, $viewer ), 200 );
 	}
 
 	/**
@@ -557,16 +668,25 @@ class SpaceController extends BaseRestController {
 			}
 		}
 
+		// Visibility-scoped sub-space count per card (one grouped query for the page),
+		// so the directory can surface "N sub-spaces" pre-join without a per-card count.
+		$subspace_counts = ( new SpaceService() )->count_visible_subspaces_for(
+			$space_ids,
+			$viewer_id,
+			current_user_can( 'manage_options' )
+		);
+
 		$tones = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
 
 		foreach ( $rows as &$row ) {
-			$sid                  = (int) ( $row['id'] ?? 0 );
-			$row['category_name'] = $cat_map[ $sid ]['category_name'] ?? null;
-			$row['category_slug'] = $cat_map[ $sid ]['category_slug'] ?? null;
-			$row['cover_tone']    = $tones[ $sid % count( $tones ) ];
-			$row['type_label']    = SpaceService::type_label( (string) ( $row['type'] ?? 'open' ) );
-			$row['type_tone']     = SpaceTypeRegistry::instance()->tone( (string) ( $row['type'] ?? 'open' ) );
-			$row['join_method']   = SpaceTypeRegistry::instance()->join_method( (string) ( $row['type'] ?? 'open' ) );
+			$sid                   = (int) ( $row['id'] ?? 0 );
+			$row['category_name']  = $cat_map[ $sid ]['category_name'] ?? null;
+			$row['category_slug']  = $cat_map[ $sid ]['category_slug'] ?? null;
+			$row['subspace_count'] = (int) ( $subspace_counts[ $sid ] ?? 0 );
+			$row['cover_tone']     = $tones[ $sid % count( $tones ) ];
+			$row['type_label']     = SpaceService::type_label( (string) ( $row['type'] ?? 'open' ) );
+			$row['type_tone']      = SpaceTypeRegistry::instance()->tone( (string) ( $row['type'] ?? 'open' ) );
+			$row['join_method']    = SpaceTypeRegistry::instance()->join_method( (string) ( $row['type'] ?? 'open' ) );
 
 			$membership               = $member_map[ $sid ] ?? null;
 			$row['membership_role']   = $membership['role'] ?? '';
@@ -611,7 +731,7 @@ class SpaceController extends BaseRestController {
 		$name        = sanitize_text_field( (string) ( $request->get_param( 'name' ) ?? '' ) );
 		$slug_raw    = (string) ( $request->get_param( 'slug' ) ?? '' );
 		$slug        = sanitize_title( $slug_raw );
-		$type        = sanitize_key( (string) ( $request->get_param( 'type' ) ?? 'open' ) );
+		$type        = sanitize_key( (string) ( $request->get_param( 'type' ) ?? get_option( 'buddynext_space_default_type', 'open' ) ) );
 		$description = sanitize_textarea_field( (string) ( $request->get_param( 'description' ) ?? '' ) );
 		$category_id = absint( $request->get_param( 'category_id' ) );
 		$parent_id   = absint( $request->get_param( 'parent_id' ) );
@@ -725,7 +845,173 @@ class SpaceController extends BaseRestController {
 			}
 		}
 
+		// Attach registered space fields with their values. Members-only fields are
+		// included for members and anyone who can manage the space; a public viewer
+		// sees public fields only. App and web render from this same payload.
+		$viewer_id       = get_current_user_id();
+		$space['fields'] = SpaceFieldRegistry::instance()->resolve_for_space(
+			(int) $space['id'],
+			$this->viewer_can_see_member_fields( (int) $space['id'], $viewer_id )
+		);
+
+		// Breadcrumb: a sub-space carries a compact summary of its parent, plus a
+		// live count of its own children so a space-home can show "N sub-spaces".
+		$space['parent'] = ( new SpaceService() )->parent_summary( (int) ( $space['parent_id'] ?? 0 ), get_current_user_id() );
+		// Visibility-scoped so the count matches the children this viewer can actually
+		// open — never leak a total that includes secret/unlisted sub-spaces.
+		$space['subspace_count'] = ( new SpaceService() )->count_visible_subspaces( (int) $space['id'], $viewer_id, current_user_can( 'manage_options' ) );
+
 		return new WP_REST_Response( $space, 200 );
+	}
+
+	/**
+	 * GET /spaces/{id}/subspaces — a parent's sub-spaces, paginated + visibility-scoped.
+	 *
+	 * Public read: a secret child is hidden from a non-member exactly like a
+	 * top-level secret space. Index-backed and bounded so a parent's children
+	 * list never scans at scale.
+	 *
+	 * @param WP_REST_Request $request REST request (id, page, per_page).
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_subspaces( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$parent_id = (int) $request->get_param( 'id' );
+		$service   = new SpaceService();
+		$parent    = $service->get( $parent_id );
+
+		if ( null === $parent ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		// A secret parent's children are only listable by its members / admins.
+		$viewer_id = get_current_user_id();
+		if ( SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) $parent['type'] )
+			&& ( 0 === $viewer_id || ! ( new SpaceMemberService() )->is_member( (int) $parent['id'], $viewer_id ) ) ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$per_page_param = $request->get_param( 'per_page' );
+		$page_param     = $request->get_param( 'page' );
+		$per_page       = max( 1, min( 50, absint( null !== $per_page_param ? $per_page_param : 24 ) ) );
+		$page           = max( 1, absint( null !== $page_param ? $page_param : 1 ) );
+		$offset         = ( $page - 1 ) * $per_page;
+
+		return new WP_REST_Response(
+			array(
+				'subspaces' => $service->get_subspaces( $parent_id, $per_page, $offset, $viewer_id, current_user_can( 'manage_options' ) ),
+				'total'     => $service->count_visible_subspaces( $parent_id, $viewer_id, current_user_can( 'manage_options' ) ),
+				'page'      => $page,
+				'per_page'  => $per_page,
+			),
+			200
+		);
+	}
+
+	/**
+	 * Whether a viewer may see 'members'-visibility space fields: a member of the
+	 * space, or anyone who can manage it.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $viewer_id Current user ID (0 when logged out).
+	 * @return bool
+	 */
+	private function viewer_can_see_member_fields( int $space_id, int $viewer_id ): bool {
+		if ( $viewer_id <= 0 ) {
+			return false;
+		}
+		if ( ( new SpaceMemberService() )->is_member( $space_id, $viewer_id ) ) {
+			return true;
+		}
+
+		return (bool) buddynext_service( 'permissions' )->can(
+			$viewer_id,
+			'buddynext-manage-space',
+			array( 'space_id' => $space_id )
+		);
+	}
+
+	/**
+	 * GET /spaces/fields — the registered field definitions (form schema, no values).
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response
+	 */
+	public function get_space_field_definitions( WP_REST_Request $request ): WP_REST_Response {
+		unset( $request );
+
+		$fields = array();
+		foreach ( SpaceFieldRegistry::instance()->get_fields() as $field ) {
+			$fields[] = array(
+				'key'         => $field['key'],
+				'label'       => $field['label'],
+				'description' => $field['description'],
+				'type'        => $field['type'],
+				'options'     => $field['options'],
+				'section'     => $field['section'],
+				'sort_order'  => $field['sort_order'],
+				'visibility'  => $field['visibility'],
+				'is_required' => $field['is_required'],
+			);
+		}
+
+		return new WP_REST_Response( array( 'fields' => $fields ), 200 );
+	}
+
+	/**
+	 * POST /spaces/{id}/fields — save space field values (space managers only).
+	 *
+	 * Atomic per the registry: a required-field error rejects the whole submit
+	 * with a 422 and per-field messages; otherwise all values save and return 200.
+	 *
+	 * @param WP_REST_Request $request REST request with a `fields` object param.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function save_space_fields( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$space    = ( new SpaceService() )->get( $space_id );
+
+		if ( null === $space ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		if ( ! buddynext_service( 'permissions' )->can(
+			get_current_user_id(),
+			'buddynext-manage-space',
+			array( 'space_id' => $space_id )
+		) ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'You do not have permission to edit this space.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$values = (array) $request->get_param( 'fields' );
+		$result = SpaceFieldRegistry::instance()->save_for_space( $space_id, $values );
+
+		// Promotion of eligible fields to space tabs is presentation, not a field
+		// value — persisted only when the values validated, and only when the
+		// caller sent the `tabs` key (so a values-only save leaves tabs untouched).
+		if ( empty( $result['errors'] ) && null !== $request->get_param( 'tabs' ) ) {
+			$tabs = array_map( 'strval', (array) $request->get_param( 'tabs' ) );
+			SpaceFieldRegistry::instance()->set_promoted_tabs( $space_id, $tabs );
+		}
+
+		$status = empty( $result['errors'] ) ? 200 : 422;
+
+		return new WP_REST_Response( $result, $status );
 	}
 
 	/**
@@ -749,12 +1035,20 @@ class SpaceController extends BaseRestController {
 		if ( null !== $request->get_param( 'type' ) ) {
 			$data['type'] = sanitize_key( (string) $request->get_param( 'type' ) );
 		}
+		// Move under a new parent (>0) or detach to the top level (0). The service
+		// validates depth, cycles, the per-parent cap, and manage permission.
+		if ( null !== $request->get_param( 'parent_id' ) ) {
+			$data['parent_id'] = (int) $request->get_param( 'parent_id' );
+		}
 
 		$result = $service->update( $space_id, $user_id, $data );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
-			return $result;
+			// Respect the error's own HTTP status (404 / 422 from a parent move),
+			// defaulting to 403 for the permission/not-found errors that carry none.
+			$error_data = $result->get_error_data();
+			$status     = is_array( $error_data ) && isset( $error_data['status'] ) ? (int) $error_data['status'] : 403;
+			return new WP_Error( $result->get_error_code(), $result->get_error_message(), array( 'status' => $status ) );
 		}
 
 		return new WP_REST_Response( $service->get( $space_id ), 200 );
@@ -871,21 +1165,19 @@ class SpaceController extends BaseRestController {
 		// reads the total from the X-WP-Total header — the response body stays a
 		// bare members array.
 		$member_service = new SpaceMemberService();
-		$per_page       = (int) $request->get_param( 'per_page' );
-		$page           = max( 1, (int) $request->get_param( 'page' ) );
+		// Always paginate — a member list is never returned unbounded. An absent /
+		// non-positive per_page defaults to a sane page rather than the old "all" path
+		// (which loaded a full 50k roster); the real total comes from count_members.
+		$per_page = (int) $request->get_param( 'per_page' );
+		$per_page = $per_page > 0 ? min( 100, $per_page ) : 50;
+		$page     = max( 1, (int) $request->get_param( 'page' ) );
 
-		if ( $per_page > 0 ) {
-			$per_page = min( 100, $per_page );
-			$members  = $member_service->get_members( $space_id, $viewer_id, $per_page, ( $page - 1 ) * $per_page );
-			$total    = $member_service->count_members( $space_id, $viewer_id );
-		} else {
-			$members = $member_service->get_members( $space_id, $viewer_id );
-			$total   = count( $members );
-		}
+		$members = $member_service->get_members( $space_id, $viewer_id, $per_page, ( $page - 1 ) * $per_page );
+		$total   = $member_service->count_members( $space_id, $viewer_id );
 
 		$response = new WP_REST_Response( $members, 200 );
 		$response->header( 'X-WP-Total', (string) $total );
-		$response->header( 'X-WP-TotalPages', (string) ( $per_page > 0 ? (int) ceil( $total / $per_page ) : 1 ) );
+		$response->header( 'X-WP-TotalPages', (string) ( (int) ceil( $total / $per_page ) ) );
 
 		return $response;
 	}
@@ -914,7 +1206,7 @@ class SpaceController extends BaseRestController {
 		$member_service = new SpaceMemberService();
 		$actor_role     = $member_service->get_role( $space_id, $current_id );
 
-		if ( ! in_array( $actor_role, array( 'owner', 'moderator' ), true ) && ! user_can( $current_id, 'manage_options' ) ) {
+		if ( ! SpaceRoles::can_moderate( $actor_role, $current_id ) ) {
 			return new WP_Error(
 				'rest_forbidden',
 				__( 'Only space owners and moderators can view pending requests.', 'buddynext' ),
@@ -1022,7 +1314,7 @@ class SpaceController extends BaseRestController {
 
 		if (
 			'direct' === $join_method
-			&& (bool) get_option( 'bn_space_' . $space_id . '_require_join_approval', 0 )
+			&& (bool) buddynext_get_space_field( $space_id, 'require_join_approval' )
 		) {
 			$join_method = 'request';
 		}
@@ -1310,7 +1602,7 @@ class SpaceController extends BaseRestController {
 		$service = new SpaceMemberService();
 		$role    = $service->get_role( $space_id, $actor_id );
 
-		if ( ! in_array( $role, array( 'owner', 'moderator' ), true ) && ! user_can( $actor_id, 'manage_options' ) ) {
+		if ( ! SpaceRoles::can_moderate( $role, $actor_id ) ) {
 			return new WP_Error( 'forbidden', __( 'Only owners and moderators can remove members.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 

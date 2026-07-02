@@ -58,13 +58,45 @@ class PageRouter {
 		add_action( 'init', array( $this, 'maybe_flush_rewrites' ), 20 );
 		add_action( 'pre_get_posts', array( $this, 'set_hub_vars' ) );
 
-		// Flush rewrites whenever any hub slug changes.
-		foreach ( array( 'activity', 'people', 'spaces', 'messages', 'notifications', 'auth', 'onboarding' ) as $hub ) {
-			add_action( 'update_option_buddynext_slug_' . $hub, array( $this, 'flush_on_slug_change' ) );
-		}
+		// Flush rewrites whenever any hub slug changes (sourced from the registry).
+		// Deferred to init:1 — the registry is populated on init:0 (see
+		// Plugin::init(); moved off plugins_loaded so the descriptors' translated
+		// titles don't trip WP 6.7's _load_textdomain_just_in_time notice). The
+		// update_option_* hooks only ever fire on admin saves, long after init.
+		add_action(
+			'init',
+			function (): void {
+				foreach ( HubRegistry::instance()->all() as $bn_hub ) {
+					add_action( 'update_option_' . $bn_hub->slug_option, array( $this, 'flush_on_slug_change' ) );
+				}
+			},
+			1
+		);
 
 		add_filter( 'request', array( $this, 'suppress_default_query' ) );
+		add_filter( 'query_vars', array( $this, 'register_directory_query_vars' ) );
 		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
+
+		// Hub pages render from a virtual WP_Post (ID 0), so core's admin-bar
+		// "Edit Page" resolves to wp-admin/edit.php. Drop that node on hub routes.
+		add_action( 'admin_bar_menu', array( $this, 'remove_hub_edit_node' ), 999 );
+	}
+
+	/**
+	 * Remove the admin-bar "Edit Page" node on BuddyNext hub routes.
+	 *
+	 * Hubs are not editable as a single post (the rendered WP_Post is virtual,
+	 * ID 0), so the core edit link points at wp-admin/edit.php. Removing the node
+	 * avoids a dead-end link for admins viewing a hub.
+	 *
+	 * @param \WP_Admin_Bar $wp_admin_bar The admin bar instance.
+	 * @return void
+	 */
+	public function remove_hub_edit_node( \WP_Admin_Bar $wp_admin_bar ): void {
+		if ( ! self::is_bn_route() ) {
+			return;
+		}
+		$wp_admin_bar->remove_node( 'edit' );
 	}
 
 	/**
@@ -89,7 +121,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-06-17-legacy-search-redirect';
+	private const ROUTER_VERSION = '2026-07-01-spaces-mine-reflush';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
@@ -469,6 +501,19 @@ class PageRouter {
 		// back to the bare hub title.
 		if ( 'spaces' === $hub && ! empty( $context['space_slug'] ) ) {
 			$space_record = ( new \BuddyNext\Spaces\SpaceService() )->get_by_slug( (string) $context['space_slug'] );
+			// Leak-proof: a secret/unlisted space's name must not appear in the page
+			// <title> for a viewer who cannot see it. The body already 404s, but the
+			// title was still emitting "{name} · Spaces" (existence + name
+			// disclosure). Mirror the body's secret-space gate.
+			if ( null !== $space_record
+				&& \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) ( $space_record['type'] ?? '' ) ) ) {
+				$bn_title_viewer = get_current_user_id();
+				$bn_title_member = $bn_title_viewer > 0
+					&& ( new \BuddyNext\Spaces\SpaceMemberService() )->is_member( (int) ( $space_record['id'] ?? 0 ), $bn_title_viewer );
+				if ( ! $bn_title_member && ! user_can( $bn_title_viewer, 'manage_options' ) ) {
+					$space_record = null;
+				}
+			}
 			if ( null !== $space_record ) {
 				$space_name = (string) ( $space_record['name'] ?? '' );
 				// Clean URLs: the tab is always bn_space_action now (no ?bn_tab=).
@@ -902,10 +947,16 @@ class PageRouter {
 		}
 
 		// Client-side navigation action — owns the .bn-app navigate handler and
-		// lazy-loads the Interactivity router. Enqueued on every hub so the
-		// action exists site-wide; inert until the buddynext_client_nav_enabled
-		// rollout switch is flipped (per-surface, after Phase 3 hardening).
-		wp_enqueue_script_module( '@buddynext/navigate' );
+		// lazy-loads the Interactivity router. Loaded ONLY when client-nav is
+		// enabled. While it is off (the rollout default), hub-shell.php does not
+		// render the navigate directive, so the module would have no consumer —
+		// shipping it would be a dead asset on every visitor's page. Gate on the
+		// same buddynext_client_nav_enabled filter the shell reads so the enqueue
+		// and the directive stay in lockstep.
+		$bn_client_nav = (bool) apply_filters( 'buddynext_client_nav_enabled', false );
+		if ( $bn_client_nav ) {
+			wp_enqueue_script_module( '@buddynext/navigate' );
+		}
 
 		// Localize REST endpoints + nav URLs for shell/extras.js.
 		//
@@ -943,7 +994,7 @@ class PageRouter {
 			// exact bug class the standard prevents). The navigate action is
 			// wired and inert until this flips true. Filterable for staged
 			// activation once surfaces are verified.
-			'clientNav'          => (bool) apply_filters( 'buddynext_client_nav_enabled', false ),
+			'clientNav'          => $bn_client_nav,
 			// Deny-list path prefixes for the client-side navigate action.
 			// Routes matching these full-load instead of client-navigating
 			// (rich editors + security-sensitive flows). Resolved server-side
@@ -981,6 +1032,30 @@ class PageRouter {
 					// plugin's own config — never hardcode /media/ or /community/.
 					'media'       => self::wpmediaverse_deny_paths(),
 					'discussions' => self::jetonomy_deny_paths(),
+				)
+			),
+			// Rich-route deny PATTERNS — sub-routes that must FULL-LOAD because they
+			// host a rich editor / their own router region (NOT whole-surface bases,
+			// which live in navDeny above). Owned here because PageRouter defines these
+			// routes; emitted as JS-RegExp source strings tested against the path, so
+			// the transport carries ZERO hardcoded route literals. Built from the live,
+			// admin-configurable people/space bases so a renamed base stays accurate.
+			'navDenyPatterns'    => array_values(
+				array_filter(
+					(array) apply_filters(
+						'buddynext_client_nav_deny_patterns',
+						array(
+							// Profile edit — rich uploader + repeater fields.
+							preg_quote( rtrim( (string) wp_parse_url( self::people_url(), PHP_URL_PATH ), '/' ), '/' ) . '/[^/]+/edit/?$',
+							// Space settings / admin — cover-icon upload + forms.
+							preg_quote( rtrim( (string) wp_parse_url( self::spaces_url(), PHP_URL_PATH ), '/' ), '/' ) . '/[^/]+/(settings|admin)/?$',
+							// Single-post permalink — rich reply composer.
+							'/p/\\d+/?$',
+							// Membership checkout — Stripe Embedded Checkout mounts here.
+							'/(checkout|membership/checkout)/?$',
+						)
+					),
+					static fn( $p ): bool => is_string( $p ) && '' !== $p
 				)
 			),
 			// Connect-request style. Default false = 1-click connect (Facebook).
@@ -1100,12 +1175,18 @@ class PageRouter {
 				if ( 'moderation' === $space_action_v ) {
 					$assets->enqueue( 'moderation' );
 				}
-				// The members sub-view renders Remove-member / Change-role buttons
-				// bound to the buddynext/space-members store, so that module must
-				// load there too — without it the buttons render but never hydrate.
+				// The members sub-view AND the settings "Members" panel render
+				// Remove / Change-role / Ban / Invite buttons bound to the
+				// buddynext/space-members store, so that module must load on both —
+				// without it the buttons render but never hydrate.
 				$bn_space_tab = isset( $_GET['bn_tab'] ) ? sanitize_key( wp_unslash( $_GET['bn_tab'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-				if ( 'members' === $space_action_v || 'members' === $bn_space_tab ) {
+				if ( in_array( $space_action_v, array( 'members', 'settings' ), true ) || 'members' === $bn_space_tab ) {
 					$assets->enqueue( 'space-members' );
+				}
+				// The settings "Custom fields" panel saves registered space fields
+				// over REST via the buddynext/space-fields store.
+				if ( 'settings' === $space_action_v ) {
+					$assets->enqueue( 'space-fields' );
 				}
 				// Localize the spaces URL base + i18n so the spaces store can
 				// rebuild URLs without reloading the page (reactive directory,
@@ -1419,6 +1500,10 @@ class PageRouter {
 				return 'onboarding/index.php';
 
 			default:
+				$bn_descriptor = HubRegistry::instance()->get( $hub );
+				if ( null !== $bn_descriptor && is_callable( $bn_descriptor->resolve_template ) ) {
+					return ( $bn_descriptor->resolve_template )( $hub );
+				}
 				return null;
 		}
 	}
@@ -1463,6 +1548,14 @@ class PageRouter {
 		$this->register_auth_rules();
 		$this->register_moderation_rules();
 		$this->register_onboarding_rules();
+
+		// Addon hubs (registered via buddynext_register_hubs) declare their own
+		// rewrite rules through the registry.
+		foreach ( HubRegistry::instance()->all() as $bn_hub ) {
+			if ( is_callable( $bn_hub->register_rules ) ) {
+				( $bn_hub->register_rules )();
+			}
+		}
 	}
 
 	/**
@@ -1598,8 +1691,48 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Whitelist the spaces-directory scope query vars so the pretty /spaces/mine/
+	 * rewrite rules below can pass them through (WP strips unknown vars).
+	 *
+	 * @param array<int,string> $vars Registered public query vars.
+	 * @return array<int,string>
+	 */
+	public function register_directory_query_vars( array $vars ): array {
+		$vars[] = 'bn_scope';
+		$vars[] = 'bn_membership';
+		foreach ( HubRegistry::instance()->all() as $bn_hub ) {
+			foreach ( $bn_hub->query_vars as $bn_qv ) {
+				$vars[] = $bn_qv;
+			}
+		}
+		return $vars;
+	}
+
+	/**
+	 * Register Spaces hub rewrite rules (directory, /spaces/mine/ views, and the
+	 * generic /spaces/{slug}/{action}/ space routes).
+	 *
+	 * @return void
+	 */
 	private function register_spaces_rules(): void {
 		$s = self::hub_slug( 'buddynext_slug_spaces', 'spaces' );
+
+		// Pretty "My Spaces" directory views: /spaces/mine/ (sectioned managed +
+		// joined) and /spaces/mine/managed|joined/ (one bucket, paginated). Added
+		// BEFORE the generic {slug} rules below — add_rewrite_rule( 'top' ) preserves
+		// addition order within the top bucket, so these match first and "mine" is
+		// never read as a space slug. Reserves only the word "mine" as a non-slug.
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/mine/(managed|joined)/?$',
+			'index.php?bn_hub=spaces&bn_scope=mine&bn_membership=$matches[1]',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/mine/?$',
+			'index.php?bn_hub=spaces&bn_scope=mine',
+			'top'
+		);
 
 		// One generic rule for every space sub-route: /spaces/{slug}/{action}/.
 		// The dispatcher (get_template_for) routes by action — content tabs
@@ -1804,8 +1937,25 @@ class PageRouter {
 
 		$raw_space_slug = (string) $query->get( 'bn_space_slug', '' );
 		if ( '' !== $raw_space_slug ) {
-			$space_id = $this->resolve_space( sanitize_title( $raw_space_slug ) );
-			$query->set( 'bn_resolved_space_id', $space_id );
+			// Reserved directory-scope words are never space slugs. If the generic
+			// /spaces/{slug}/ rewrite rule captured "mine" (it out-orders the pretty
+			// /spaces/mine/ rule on installs where Learnomy/other plugins inject an
+			// early spaces/{slug} rule), re-route to the My-Spaces directory view
+			// instead of resolving a non-existent space (which 404s "Space not
+			// found."). Order-independent — no reliance on rewrite-rule priority.
+			$reserved = (array) apply_filters( 'buddynext_reserved_space_slugs', array( 'mine' ) );
+			if ( in_array( $raw_space_slug, $reserved, true ) ) {
+				$query->set( 'bn_scope', 'mine' );
+				$action = sanitize_key( (string) $query->get( 'bn_space_action', '' ) );
+				if ( 'managed' === $action || 'joined' === $action ) {
+					$query->set( 'bn_membership', $action );
+				}
+				$query->set( 'bn_space_slug', '' );
+				$query->set( 'bn_space_action', '' );
+			} else {
+				$space_id = $this->resolve_space( sanitize_title( $raw_space_slug ) );
+				$query->set( 'bn_resolved_space_id', $space_id );
+			}
 		}
 
 		// Member-type filter: the 'bottom'-priority rewrite rule populates bn_member_type
@@ -1826,7 +1976,13 @@ class PageRouter {
 	 * @return void
 	 */
 	public function flush_on_slug_change(): void {
-		flush_rewrite_rules();
+		// SOFT flush: this hook fires inside the save request, AFTER
+		// register_rewrites (init:10) already registered rules built from the
+		// OLD slug - an immediate flush_rewrite_rules() would regenerate and
+		// persist those stale rules, so the new slug 404s until a manual
+		// flush. Deleting the option instead makes the NEXT request rebuild
+		// the rules with the fresh option values.
+		delete_option( 'rewrite_rules' );
 	}
 
 	/**
@@ -2092,19 +2248,23 @@ class PageRouter {
 	/**
 	 * Return the member directory URL filtered to a specific member type.
 	 *
-	 * The URL uses the 'bottom'-priority rewrite rule registered in
-	 * register_people_rules() so that the user-slug rules always take
-	 * precedence when a URL segment also happens to be a valid user slug.
+	 * Uses the `?type=` query argument — the single member-type filter contract
+	 * the directory already reads (members.php reads get_query_var/`$_GET['type']`)
+	 * and the reactive JS filter and the "By role" facet already emit. A pretty
+	 * `/members/{slug}/` URL cannot be used here: it is indistinguishable from a
+	 * profile URL (`/members/{username}/`), and the user-slug rewrite always wins,
+	 * so such a link dead-ends on a blank profile instead of the filtered list.
 	 *
 	 * @param string $type_slug Member type slug (lowercase alphanumeric + hyphens).
-	 * @return string Absolute trailing-slashed URL.
+	 * @return string Absolute directory URL, filtered by type when a slug is given.
 	 */
 	public static function member_type_url( string $type_slug ): string {
+		$type_slug = sanitize_key( $type_slug );
 		if ( '' === $type_slug ) {
 			return self::people_url();
 		}
 
-		return self::people_url() . rawurlencode( sanitize_key( $type_slug ) ) . '/';
+		return add_query_arg( 'type', $type_slug, self::people_url() );
 	}
 
 	/**
@@ -2407,16 +2567,12 @@ class PageRouter {
 	 * @return string
 	 */
 	private static function default_slug( string $option_name ): string {
-		$map = array(
-			'buddynext_slug_activity'        => 'activity',
-			'buddynext_slug_people'          => 'members',
-			'buddynext_slug_spaces'          => 'spaces',
-			'buddynext_slug_messages'        => 'messages',
-			'buddynext_slug_notifications'   => 'notifications',
-			'buddynext_slug_auth'            => 'login',
-			'buddynext_slug_onboarding'      => 'onboarding',
-			'buddynext_slug_community_admin' => 'bn-community-admin',
-		);
+		// Hub defaults come from the registry; the non-hub community-admin slug
+		// and the ultimate fallback stay here.
+		$map = array( 'buddynext_slug_community_admin' => 'bn-community-admin' );
+		foreach ( HubRegistry::instance()->all() as $hub ) {
+			$map[ $hub->slug_option ] = $hub->default_slug;
+		}
 		return $map[ $option_name ] ?? 'community';
 	}
 }

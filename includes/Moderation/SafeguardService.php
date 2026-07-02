@@ -52,7 +52,7 @@ class SafeguardService {
 			return $banned;
 		}
 
-		$domain = $this->check_blocked_domain( $url );
+		$domain = $this->check_blocked_domain( $url, $content );
 		if ( is_wp_error( $domain ) ) {
 			return $domain;
 		}
@@ -62,31 +62,41 @@ class SafeguardService {
 			return $rate;
 		}
 
+		$tag = $this->check_banned_hashtags( $content );
+		if ( is_wp_error( $tag ) ) {
+			return $tag;
+		}
+
+		/**
+		 * Filter the safeguard check result.
+		 *
+		 * Pro keyword blocklists and ML scoring hooks stack here. Return a
+		 * WP_Error to block the post, or return true to allow it through.
+		 *
+		 * Runs BEFORE the flag-tier gates below (duplicate content, new-member
+		 * review): those return hold-for-review verdicts, and a hold must never
+		 * outrank a Pro severity=block rule - previously a new member's post
+		 * containing a blocked keyword was held instead of rejected because the
+		 * gate returned first.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param true|WP_Error $result   True when all hard-stop checks pass; WP_Error on failure.
+		 * @param int           $user_id  Author user ID.
+		 * @param string        $content  Post content to inspect.
+		 * @param string        $link_url Optional URL attached to the post.
+		 */
+		$pro = apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url );
+		if ( is_wp_error( $pro ) ) {
+			return $pro;
+		}
+
 		$dupe = $this->check_duplicate_content( $user_id, $content );
 		if ( is_wp_error( $dupe ) ) {
 			return $dupe;
 		}
 
-		$gate = $this->check_new_member_gate( $user_id );
-		if ( is_wp_error( $gate ) ) {
-			return $gate;
-		}
-
-		/**
-		 * Filter the final safeguard check result.
-		 *
-		 * Pro keyword blocklists and ML scoring hooks stack here. Return a
-		 * WP_Error to block the post, or return true to allow it through.
-		 * The $result parameter will be true when all built-in checks pass.
-		 *
-		 * @since 1.0.0
-		 *
-		 * @param true|WP_Error $result   True when all built-in checks pass; WP_Error on failure.
-		 * @param int           $user_id  Author user ID.
-		 * @param string        $content  Post content to inspect.
-		 * @param string        $link_url Optional URL attached to the post.
-		 */
-		return apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url );
+		return $this->check_new_member_gate( $user_id );
 	}
 
 	/**
@@ -110,9 +120,14 @@ class SafeguardService {
 			return $banned;
 		}
 
-		$domain = $this->check_blocked_domain( $url );
+		$domain = $this->check_blocked_domain( $url, $content );
 		if ( is_wp_error( $domain ) ) {
 			return $domain;
+		}
+
+		$tag = $this->check_banned_hashtags( $content );
+		if ( is_wp_error( $tag ) ) {
+			return $tag;
 		}
 
 		return apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url );
@@ -135,7 +150,7 @@ class SafeguardService {
 		$raw = (string) get_option( 'buddynext_banned_words', '' );
 
 		if ( $space_id > 0 ) {
-			$space_raw = (string) get_option( 'bn_space_' . $space_id . '_banned_words', '' );
+			$space_raw = (string) buddynext_get_space_field( $space_id, 'banned_words' );
 			if ( '' !== $space_raw ) {
 				$raw = '' !== $raw ? $raw . "\n" . $space_raw : $space_raw;
 			}
@@ -171,11 +186,40 @@ class SafeguardService {
 	 * @param string $url URL attached to the post (may be empty).
 	 * @return true|WP_Error
 	 */
-	private function check_blocked_domain( string $url ): bool|WP_Error {
-		if ( '' === $url ) {
+	/**
+	 * Reject posts that carry a banned hashtag (option buddynext_banned_hashtags).
+	 *
+	 * The admin hint states "Posts using these tags are rejected" - this gate
+	 * makes that true (previously the tag was only silently un-indexed).
+	 *
+	 * @param string $content Post content.
+	 * @return true|WP_Error True when clean; WP_Error(422) when a banned tag is present.
+	 */
+	private function check_banned_hashtags( string $content ): bool|WP_Error {
+		if ( '' === trim( $content ) || ! class_exists( '\\BuddyNext\\Hashtags\\HashtagService' ) ) {
 			return true;
 		}
+		$slug = ( new \BuddyNext\Hashtags\HashtagService() )->first_banned_in_text( $content );
+		if ( '' !== $slug ) {
+			return new WP_Error(
+				'banned_hashtag',
+				__( 'This post uses a hashtag that is not allowed.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+		return true;
+	}
 
+	/**
+	 * Block posts whose attached link OR body-text URLs hit a blocked domain.
+	 *
+	 * Matches the exact host or any subdomain of each blocked entry.
+	 *
+	 * @param string $url     Attached link URL ('' when none).
+	 * @param string $content Post body - scanned for pasted URLs too.
+	 * @return true|WP_Error True when clean; WP_Error(422) on a blocked host.
+	 */
+	private function check_blocked_domain( string $url, string $content = '' ): bool|WP_Error {
 		$raw     = (string) get_option( 'buddynext_blocked_domains', '' );
 		$domains = array_filter( array_map( 'trim', explode( "\n", $raw ) ) );
 
@@ -183,19 +227,36 @@ class SafeguardService {
 			return true;
 		}
 
-		$host = (string) wp_parse_url( $url, PHP_URL_HOST );
+		// Collect every host the post carries: the attached link AND any URL
+		// pasted into the body - previously only link_url was checked, so a
+		// blocked domain in the text sailed through.
+		$hosts = array();
+		if ( '' !== $url ) {
+			$hosts[] = (string) wp_parse_url( $url, PHP_URL_HOST );
+		}
+		foreach ( wp_extract_urls( $content ) as $found ) {
+			$hosts[] = (string) wp_parse_url( $found, PHP_URL_HOST );
+		}
+		$hosts = array_unique( array_filter( array_map( 'strtolower', $hosts ) ) );
 
-		if ( '' === $host ) {
+		if ( empty( $hosts ) ) {
 			return true;
 		}
 
 		foreach ( $domains as $blocked ) {
-			if ( '' !== $blocked && strtolower( $host ) === strtolower( $blocked ) ) {
-				return new WP_Error(
-					'blocked_domain',
-					__( 'This link is not allowed.', 'buddynext' ),
-					array( 'status' => 422 )
-				);
+			$blocked = strtolower( $blocked );
+			if ( '' === $blocked ) {
+				continue;
+			}
+			foreach ( $hosts as $host ) {
+				// Exact host or any subdomain of the blocked entry.
+				if ( $host === $blocked || str_ends_with( $host, '.' . $blocked ) ) {
+					return new WP_Error(
+						'blocked_domain',
+						__( 'This link is not allowed.', 'buddynext' ),
+						array( 'status' => 422 )
+					);
+				}
 			}
 		}
 

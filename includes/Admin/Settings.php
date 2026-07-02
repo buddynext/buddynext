@@ -24,6 +24,18 @@ class Settings extends AdminPageBase {
 	private const OPTION_WEBHOOK_SECRET = 'buddynext_webhook_secret';
 
 	/**
+	 * Tabs that render NO Settings-API inputs and therefore must not be
+	 * wrapped in the options.php form (which always appends a "Save Settings"
+	 * button with nothing to save). Integrations is a read-only companion
+	 * grid whose actions are one-click REST/nonce links. Tools is NOT listed
+	 * because it never routes through this class — ToolsTab renders its own
+	 * admin-post action forms.
+	 *
+	 * @var string[]
+	 */
+	private const NO_FORM_TABS = array( 'integrations' );
+
+	/**
 	 * All settings registered by this class.
 	 * Format: option_name => [ type, sanitize_callback ].
 	 *
@@ -44,9 +56,9 @@ class Settings extends AdminPageBase {
 		'buddynext_public_explore'              => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_enable_dm'                   => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_default_dm_access'           => array( 'string', 'sanitize_key' ),
-		'buddynext_enable_community_nav'        => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_enable_community_rail'       => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_enable_community_mobile_nav' => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_enable_community_nav'        => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_enable_community_rail'       => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_enable_community_mobile_nav' => array( 'boolean', 'rest_sanitize_boolean', true ),
 		'buddynext_member_dir_columns'          => array( 'string', array( self::class, 'sanitize_dir_columns' ) ),
 
 		// Registration.
@@ -55,6 +67,11 @@ class Settings extends AdminPageBase {
 		'buddynext_reg_spam_protection'         => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_reg_challenge'               => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_reg_rate_limit'              => array( 'integer', 'absint' ),
+		// Post-login / logout / onboarding redirect destinations. Blank = built-in
+		// default (feed / home / profile); resolved + validated by RedirectSettings.
+		'buddynext_login_redirect'              => array( 'string', 'esc_url_raw' ),
+		'buddynext_logout_redirect'             => array( 'string', 'esc_url_raw' ),
+		'buddynext_onboarding_redirect'         => array( 'string', 'esc_url_raw' ),
 		// Login & sign-up split-panel branding (plug-and-play: blank falls back to site identity).
 		'buddynext_auth_panel_show'             => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_auth_panel_heading'          => array( 'string', 'sanitize_text_field' ),
@@ -74,6 +91,7 @@ class Settings extends AdminPageBase {
 		'buddynext_allow_bookmarks'             => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
 		'buddynext_enable_link_preview'         => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_enable_emoji_picker'         => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_feed_new_posts_indicator'    => array( 'boolean', 'rest_sanitize_boolean', true ),
 		'buddynext_post_edit_window'            => array( 'integer', 'absint' ),
 		'buddynext_connection_require_note'     => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
 
@@ -110,7 +128,7 @@ class Settings extends AdminPageBase {
 		'buddynext_notif_default_comment'       => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_notif_default_mention'       => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_notif_default_space_join'    => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_digest_frequency'            => array( 'string', 'sanitize_key' ),
+		'buddynext_digest_frequency'            => array( 'string', 'sanitize_key', 'weekly' ),
 		'buddynext_admin_alert_email'           => array( 'string', 'sanitize_email' ),
 
 		// Email.
@@ -119,16 +137,16 @@ class Settings extends AdminPageBase {
 		'buddynext_email_reply_to'              => array( 'string', 'sanitize_email' ),
 		'buddynext_email_footer_text'           => array( 'string', 'sanitize_textarea_field' ),
 
-		// Integrations.
-		'buddynext_jetonomy_feed_sync'          => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
+		// Integrations: the Jetonomy feed toggle moved to the unified Integration
+		// Display tab (buddynext_integration_jetonomy_feed), so it is no longer a
+		// Settings-API option here.
 
 		// Privacy & Data.
 		'buddynext_google_indexing'             => array( 'string', 'sanitize_key' ),
 		'buddynext_cookie_consent'              => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_data_retention_days'         => array( 'integer', 'absint' ),
-		'buddynext_allow_data_export'           => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_allow_account_deletion'      => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_anonymize_on_delete'         => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_allow_data_export'           => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_allow_account_deletion'      => array( 'boolean', 'rest_sanitize_boolean', true ),
 
 		// Webhooks.
 		'buddynext_webhook_secret'              => array( 'string', 'sanitize_text_field' ),
@@ -261,8 +279,23 @@ class Settings extends AdminPageBase {
 			add_settings_error( 'buddynext_messages', 'buddynext_settings_saved', __( 'Settings saved.', 'buddynext' ), 'updated' );
 		}
 		settings_errors( 'buddynext_messages' );
+
+		// Tabs with no Settings-API inputs render bare — no options.php form,
+		// no save bar. The settings group stays registered in register_settings()
+		// so nothing changes for the tabs that keep the form.
+		if ( in_array( $slug, self::NO_FORM_TABS, true ) ) {
+			$this->$method();
+			return;
+		}
 		?>
-		<form method="post" action="options.php" class="bn-settings-form">
+		<?php
+		// Table/manager screens need the full panel width; the 840px reading cap
+		// is for stacked field forms only (owner: "why are we not using full
+		// width here" on Webhooks).
+		$bn_wide_tabs  = array( 'webhooks' );
+		$bn_form_class = in_array( $slug, $bn_wide_tabs, true ) ? 'bn-settings-form bn-settings-form--wide' : 'bn-settings-form';
+		?>
+		<form method="post" action="options.php" class="<?php echo esc_attr( $bn_form_class ); ?>">
 			<?php settings_fields( 'buddynext_' . $slug ); ?>
 			<?php // Explicit referer so options.php redirects back to THIS tab after save. WP 6.7+ no longer guarantees settings_fields() emits _wp_http_referer, so without this the redirect drops ?tab= and falls back to General. ?>
 			<input type="hidden" name="_wp_http_referer" value="<?php echo esc_attr( remove_query_arg( 'settings-updated', sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) ) ); ?>">
@@ -490,7 +523,7 @@ class Settings extends AdminPageBase {
 			'notifications' => __( 'In-app + email notification rules and the events that trigger them.', 'buddynext' ),
 			'email'         => __( 'Sender identity and delivery configuration for outgoing community email.', 'buddynext' ),
 			'moderation'    => __( 'Site-wide moderation toggles: reporting, auto-hide thresholds, mod roles.', 'buddynext' ),
-			'integrations'  => __( 'Outbound integrations: Slack, Discord, webhooks, third-party identity.', 'buddynext' ),
+			'integrations'  => __( 'Wbcom companion plugins that light up extra features - install and activate in one click.', 'buddynext' ),
 			'privacy'       => __( 'Data retention, export, and member privacy controls.', 'buddynext' ),
 			'webhooks'      => __( 'Push community events to external services in real time.', 'buddynext' ),
 		);
@@ -535,7 +568,7 @@ class Settings extends AdminPageBase {
 			(string) filemtime( $abs ),
 			true
 		);
-		wp_set_script_translations( 'buddynext-admin-settings', 'buddynext' );
+		wp_set_script_translations( 'buddynext-admin-settings', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 	}
 
 	/**
@@ -648,6 +681,9 @@ class Settings extends AdminPageBase {
 			'buddynext_reg_spam_protection',
 			'buddynext_reg_challenge',
 			'buddynext_reg_rate_limit',
+			'buddynext_login_redirect',
+			'buddynext_logout_redirect',
+			'buddynext_onboarding_redirect',
 			'buddynext_auth_panel_show',
 			'buddynext_auth_panel_heading',
 			'buddynext_auth_panel_tagline',
@@ -664,6 +700,7 @@ class Settings extends AdminPageBase {
 			'buddynext_allow_bookmarks',
 			'buddynext_enable_link_preview',
 			'buddynext_enable_emoji_picker',
+			'buddynext_feed_new_posts_indicator',
 			'buddynext_post_edit_window',
 			'buddynext_enabled_reactions',
 			'buddynext_connection_require_note',
@@ -714,12 +751,10 @@ class Settings extends AdminPageBase {
 			'buddynext_google_indexing',
 			'buddynext_allow_data_export',
 			'buddynext_allow_account_deletion',
-			'buddynext_anonymize_on_delete',
 			'buddynext_data_retention_days',
 		),
-		'integrations'  => array(
-			'buddynext_jetonomy_feed_sync',
-		),
+		// Integrations tab options moved to the unified Integration Display tab.
+		'integrations'  => array(),
 		'webhooks'      => array(
 			'buddynext_webhook_secret',
 		),
@@ -756,14 +791,19 @@ class Settings extends AdminPageBase {
 	public function register_settings(): void {
 		foreach ( self::SETTINGS_MAP as $option => $config ) {
 			list( $type, $sanitize ) = $config;
-			register_setting(
-				self::option_group( $option ),
-				$option,
-				array(
-					'type'              => $type,
-					'sanitize_callback' => $sanitize,
-				)
+			$args                    = array(
+				'type'              => $type,
+				'sanitize_callback' => $sanitize,
 			);
+			// Optional 3rd element = registered default. Required for default-ON
+			// booleans that are not seeded with a DB row: without a registered
+			// default, saving the option OFF equals WP's absent-default (false),
+			// so update_option() no-ops, the row is never written, and the toggle
+			// reverts to ON on the next load.
+			if ( array_key_exists( 2, $config ) ) {
+				$args['default'] = $config[2];
+			}
+			register_setting( self::option_group( $option ), $option, $args );
 		}
 
 		// FeatureRegistry catalog persisted as a single map of slug=>bool.
@@ -951,6 +991,14 @@ class Settings extends AdminPageBase {
 		<?php
 		$this->render_tab_bar( $tabs, $active_tab, $base_url );
 		$this->open_tab_panel( $active_tab );
+
+		// Same opt-out as render_settings_tab(): tabs with no Settings-API
+		// inputs render without the options.php form + save bar.
+		if ( in_array( $active_tab, self::NO_FORM_TABS, true ) ) {
+			$this->{'render_tab_' . $active_tab}();
+			$this->close_tab_panel();
+			return;
+		}
 		?>
 		<form method="post" action="options.php">
 			<?php settings_fields( 'buddynext_' . $active_tab ); ?>
@@ -1121,9 +1169,17 @@ class Settings extends AdminPageBase {
 			'integrations' => __( 'Power-user integrations', 'buddynext' ),
 		);
 
+		echo '<p class="bn-field-hint">';
+		printf(
+			/* translators: %s: link to the Integration Display tab. */
+			esc_html__( 'Turn integrations on or off here; control where they appear under %s.', 'buddynext' ),
+			'<a href="' . esc_url( AdminHub::tab_url( 'settings', 'integration-controls' ) ) . '">' . esc_html__( 'Integration Display', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
+		);
+		echo '</p>';
+
 		$this->open_section( __( 'Features', 'buddynext' ) );
 
-		echo '<p class="bn-field-hint" style="margin-top:0">' .
+		echo '<p class="bn-field-hint bn-a-flush-top">' .
 			esc_html__( 'Pick which features your community uses. Core features always run. You can enable or disable everything else from this tab — changes apply immediately on save.', 'buddynext' ) .
 			'</p>';
 
@@ -1444,6 +1500,31 @@ class Settings extends AdminPageBase {
 
 		$this->close_section();
 
+		$this->open_section( __( 'Redirects', 'buddynext' ) );
+
+		$this->render_text_row(
+			\BuddyNext\Core\RedirectSettings::OPT_LOGIN,
+			__( 'After login', 'buddynext' ),
+			(string) get_option( \BuddyNext\Core\RedirectSettings::OPT_LOGIN, '' ),
+			__( 'Where members go after logging in. Leave blank for the activity feed (default). A link a member was sent to (e.g. a gated page) always takes priority.', 'buddynext' )
+		);
+
+		$this->render_text_row(
+			\BuddyNext\Core\RedirectSettings::OPT_LOGOUT,
+			__( 'After logout', 'buddynext' ),
+			(string) get_option( \BuddyNext\Core\RedirectSettings::OPT_LOGOUT, '' ),
+			__( 'Where members go after logging out. Leave blank for the site home page (default).', 'buddynext' )
+		);
+
+		$this->render_text_row(
+			\BuddyNext\Core\RedirectSettings::OPT_ONBOARDING,
+			__( 'After onboarding', 'buddynext' ),
+			(string) get_option( \BuddyNext\Core\RedirectSettings::OPT_ONBOARDING, '' ),
+			__( 'Where new members go after finishing onboarding. Leave blank for their profile (default).', 'buddynext' )
+		);
+
+		$this->close_section();
+
 		// ── Social login (OAuth2) ──────────────────────────────────────────
 		$this->open_section( __( 'Social Login', 'buddynext' ) );
 		$social = (array) get_option( 'buddynext_social_login', array() );
@@ -1604,6 +1685,13 @@ class Settings extends AdminPageBase {
 			__( 'Enable emoji picker', 'buddynext' ),
 			__( 'Show the emoji picker button in the post composer and comment editor.', 'buddynext' ),
 			(bool) get_option( 'buddynext_enable_emoji_picker', true )
+		);
+
+		$this->render_toggle_row(
+			'buddynext_feed_new_posts_indicator',
+			__( 'Show new-posts indicator', 'buddynext' ),
+			__( 'Show a "new posts" pill on the activity feed when fresh posts arrive. While the feed tab is open it checks for new posts about once a minute (paused when the tab is hidden); turn this off to stop those background checks entirely. Developers can tune the cadence with the buddynext_feed_new_count_interval filter.', 'buddynext' ),
+			(bool) get_option( 'buddynext_feed_new_posts_indicator', true )
 		);
 
 		$this->render_number_row(
@@ -2107,12 +2195,10 @@ class Settings extends AdminPageBase {
 			(bool) get_option( 'buddynext_allow_account_deletion', true )
 		);
 
-		$this->render_toggle_row(
-			'buddynext_anonymize_on_delete',
-			__( 'Anonymise posts on account deletion', 'buddynext' ),
-			__( 'When enabled, posts by deleted members are reassigned to an anonymous author rather than hard-deleted. Preserves community discussion threads.', 'buddynext' ),
-			(bool) get_option( 'buddynext_anonymize_on_delete', true )
-		);
+		// Note: there is intentionally no "anonymise on delete" toggle. Member deletion
+		// is a uniform GDPR hard-delete on every path (admin delete, self-delete, the
+		// privacy eraser) — a deleted member's posts + comments are removed with them,
+		// never reassigned to a tombstone. See MemberCleanupService::purge_user_relations.
 
 		$this->close_section();
 	}
@@ -2135,6 +2221,14 @@ class Settings extends AdminPageBase {
 		$can_activate = current_user_can( 'activate_plugins' );
 		$logo_base    = defined( 'BUDDYNEXT_URL' ) ? (string) constant( 'BUDDYNEXT_URL' ) : '';
 		$logo_base   .= 'assets/img/companions/';
+
+		echo '<p class="bn-field-hint">';
+		printf(
+			/* translators: %s: link to the Features tab. */
+			esc_html__( 'Install companions here; enable them under %s.', 'buddynext' ),
+			'<a href="' . esc_url( AdminHub::tab_url( 'settings', 'features' ) ) . '">' . esc_html__( 'Features', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
+		);
+		echo '</p>';
 		?>
 
 		<div class="bn-fam-header">
@@ -2212,11 +2306,8 @@ class Settings extends AdminPageBase {
 				<?php endif; ?>
 
 				<div class="bn-companion-card__actions">
-					<?php if ( 'active' === $bn_status ) : ?>
-						<span class="bn-addon-row__action" aria-disabled="true" style="cursor:default;opacity:.7;">
-							<?php esc_html_e( 'Connected', 'buddynext' ); ?>
-						</span>
-					<?php elseif ( 'inactive' === $bn_status && $can_activate && '' !== $bn_basename ) : ?>
+					<?php // Active companions already carry the "Connected" status badge in the card head, so the actions row shows only "Learn more". ?>
+					<?php if ( 'inactive' === $bn_status && $can_activate && '' !== $bn_basename ) : ?>
 						<a href="<?php echo esc_url( wp_nonce_url( self_admin_url( 'plugins.php?action=activate&plugin=' . rawurlencode( $bn_basename ) . '&plugin_status=all' ), 'activate-plugin_' . $bn_basename ) ); ?>"
 							class="bn-addon-row__action"><?php esc_html_e( 'Activate', 'buddynext' ); ?></a>
 					<?php elseif ( 'not_installed' === $bn_status && $can_install ) : ?>
@@ -2246,17 +2337,11 @@ class Settings extends AdminPageBase {
 		// The companion installer behaviour lives in assets/js/admin/settings.js
 		// (initCompanions), wired to the data-* attributes on [data-bn-companions]
 		// above. No inline script - see the UX-audit F2 rule.
-
-		$this->open_section( __( 'Jetonomy Settings', 'buddynext' ) );
-
-		$this->render_toggle_row(
-			'buddynext_jetonomy_feed_sync',
-			__( 'Surface new Jetonomy discussions in activity feed', 'buddynext' ),
-			__( 'When enabled, new Jetonomy forum posts appear as feed cards in the BuddyNext activity feed. On by default. Can be overridden per space.', 'buddynext' ),
-			'0' !== (string) get_option( 'buddynext_jetonomy_feed_sync', '1' )
-		);
-
-		$this->close_section();
+		//
+		// The Jetonomy discussion-activity toggle moved to the unified Integration
+		// Display tab (BuddyNext -> Platform -> Integration Display), which owns the
+		// nav + feed toggle for every integration. It is intentionally NOT duplicated
+		// here so the admin sees a single control, not two.
 	}
 
 	/**
@@ -2304,7 +2389,14 @@ class Settings extends AdminPageBase {
 				</button>
 			</div>
 			<span class="bn-field-hint">
-				<?php esc_html_e( 'A shared secret BuddyNext uses to sign outgoing webhooks (HMAC-SHA256) and to verify inbound access requests at POST buddynext/v1/webhook/access. Click Generate for a strong secret, copy it into your receiving service (Slack, Zapier, your endpoint), then Save. Rotating invalidates the old value until you update it there. Leave blank to disable signature verification.', 'buddynext' ); ?>
+				<?php
+				// State-aware: the button reads "Generate" until a secret exists, then "Rotate".
+				if ( $has_secret ) {
+					esc_html_e( 'A shared secret BuddyNext uses to sign outgoing webhooks (HMAC-SHA256) and to verify inbound access requests at POST buddynext/v1/webhook/access. Click Rotate for a new strong secret, then Save - the old value stops working, so copy the new one into your receiving service (Slack, Zapier, your endpoint). Leave blank to disable signature verification.', 'buddynext' );
+				} else {
+					esc_html_e( 'A shared secret BuddyNext uses to sign outgoing webhooks (HMAC-SHA256) and to verify inbound access requests at POST buddynext/v1/webhook/access. Click Generate for a strong secret, copy it into your receiving service (Slack, Zapier, your endpoint), then Save. Leave blank to disable signature verification.', 'buddynext' );
+				}
+				?>
 			</span>
 			<span class="bn-secret-msg" role="status" aria-live="polite" data-bn-secret-msg></span>
 		</div>
@@ -2462,7 +2554,7 @@ class Settings extends AdminPageBase {
 			);
 			?>
 
-			<div class="bn-field" style="margin-top:16px;">
+			<div class="bn-field bn-a-gap-top">
 				<label for="bn-webhook-add-url"><?php esc_html_e( 'New endpoint URL', 'buddynext' ); ?></label>
 				<input type="url"
 					id="bn-webhook-add-url"

@@ -368,16 +368,11 @@ class SearchService {
 		$media_join  = $media_only ? " INNER JOIN {$wpdb->prefix}bn_posts mp ON mp.id = si.object_id" : '';
 		$media_where = $media_only ? " AND mp.media_ids IS NOT NULL AND mp.media_ids != ''" : '';
 
-		// Exclude suspended and shadow-banned users' content from all search results.
-		$excluded_where =
-			" AND si.author_id NOT IN (
-			    SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
-			    WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
-			  )
-			  AND si.author_id NOT IN (
-			    SELECT user_id FROM {$wpdb->usermeta}
-			    WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
-			  )";
+		// Exclude suspended + shadow-banned authors' content from all search results
+		// via the shared discovery gate (ANY active suspension — the discoverability
+		// rule, not the hide_posts content variant). One definition shared with the
+		// member directory + explore. See ModerationService::discovery_exclude_sql().
+		$excluded_where = ' ' . buddynext_service( 'moderation' )->discovery_exclude_sql( 'si.author_id' );
 
 		/**
 		 * Filter the query args before SQL is built for the search.
@@ -713,6 +708,62 @@ class SearchService {
 		);
 
 		return $results;
+	}
+
+	/**
+	 * Return the member (user) IDs matching a free-text term from the shared
+	 * bn_search_index, FULLTEXT when the ft_search index is present (LIKE fallback
+	 * otherwise — same seam search() uses). This is the single member-search-by-term
+	 * primitive the member directory routes through, so the directory search box and
+	 * the unified search return the same members for a query.
+	 *
+	 * Pure term-match (no moderation/visibility gate) — the directory's own query
+	 * applies the suspended/shadowban/block/dir-opt-out exclusion on top, so this stays
+	 * a thin, reusable lookup. Bounded by $limit (people browse a few pages of results).
+	 *
+	 * @param string $term  Search term.
+	 * @param int    $limit Max IDs (clamped 1..1000).
+	 * @return int[] Matching member user IDs, most-relevant first under FULLTEXT.
+	 */
+	public function match_member_ids( string $term, int $limit = 500 ): array {
+		$term = trim( $term );
+		if ( '' === $term ) {
+			return array();
+		}
+
+		global $wpdb;
+		$limit = max( 1, min( 1000, $limit ) );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $this->has_fulltext_index() ) {
+			$rows = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT object_id FROM {$wpdb->prefix}bn_search_index
+					 WHERE object_type IN ('user','member')
+					   AND MATCH(title, content) AGAINST(%s IN BOOLEAN MODE)
+					 ORDER BY MATCH(title, content) AGAINST(%s IN BOOLEAN MODE) DESC
+					 LIMIT %d",
+					$term,
+					$term,
+					$limit
+				)
+			);
+		} else {
+			$like = '%' . $wpdb->esc_like( $term ) . '%';
+			$rows = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT object_id FROM {$wpdb->prefix}bn_search_index
+					 WHERE object_type IN ('user','member') AND ( title LIKE %s OR content LIKE %s )
+					 LIMIT %d",
+					$like,
+					$like,
+					$limit
+				)
+			);
+		}
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_values( array_unique( array_map( 'intval', (array) $rows ) ) );
 	}
 
 	/**

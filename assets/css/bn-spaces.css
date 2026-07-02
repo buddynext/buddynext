@@ -114,6 +114,63 @@
 	gap: var(--bn-s4);
 }
 
+/* "My Spaces" labelled sections (managed / joined). */
+.bn-sd-section {
+	margin-block-end: var(--bn-s8);
+}
+
+.bn-sd-section:last-child {
+	margin-block-end: 0;
+}
+
+.bn-sd-section__head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	margin-block-end: var(--bn-s4);
+}
+
+.bn-sd-section__title {
+	display: flex;
+	align-items: baseline;
+	gap: var(--bn-s2);
+	margin: 0;
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-lg);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink);
+}
+
+.bn-sd-section__count {
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-ink-3);
+}
+
+.bn-sd-section__viewall {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	flex: 0 0 auto;
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-accent);
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.bn-sd-section__viewall:hover,
+.bn-sd-section__viewall:focus-visible {
+	text-decoration: underline;
+}
+
+.bn-sd-section__viewall svg {
+	width: 14px;
+	height: 14px;
+}
+
 /* Owner-set fixed desktop column count (Settings > Spaces > Directory columns).
    Applies only on desktop (≥1025px); the responsive breakpoints below still step
    the directory down to 2 then 1 on tablet/mobile. */
@@ -305,6 +362,20 @@
 	gap: 2px;
 }
 
+/* "Your spaces" sidebar sub-group label (You manage / You joined). */
+.bn-sd-side-grouplabel {
+	margin: var(--bn-s3) 0 var(--bn-s1);
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-semibold);
+	text-transform: uppercase;
+	letter-spacing: var(--bn-ls-wide, 0.04em);
+	color: var(--bn-ink-3);
+}
+
+.bn-sd-side-grouplabel:first-child {
+	margin-block-start: 0;
+}
+
 .bn-sd-side-row {
 	display: inline-flex;
 	align-items: center;
@@ -450,8 +521,57 @@
 
 .bn-sh-hero__info {
 	flex: 1;
-	min-width: 0;
+	/* Give the title a readable minimum so a two-word name never crushes into a
+	   stacked column; when the row is tight the action cluster wraps below
+	   instead (the head is flex-wrap). Falls back to 100% on very narrow heads. */
+	min-width: min(100%, 16rem);
 	padding-block-end: var(--bn-s1);
+}
+
+/* Sub-space breadcrumb — parent context above the space name. */
+.bn-sh-hero__breadcrumb {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	/* Sits below the title: a comfortable gap above (collapses with the title's
+	   own margin-bottom) and a small gap before the category handle / content. */
+	margin-block: var(--bn-s2) var(--bn-s1);
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-medium);
+	line-height: var(--bn-leading-tight);
+	min-width: 0;
+}
+
+.bn-sh-hero__crumb {
+	color: var(--bn-ink-3);
+	text-decoration: none;
+	max-width: 16ch;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+a.bn-sh-hero__crumb:hover,
+a.bn-sh-hero__crumb:focus-visible {
+	color: var(--bn-accent);
+	text-decoration: underline;
+}
+
+.bn-sh-hero__crumb--current {
+	color: var(--bn-ink-2);
+	font-weight: var(--bn-fw-semibold);
+}
+
+.bn-sh-hero__crumb-sep {
+	display: inline-flex;
+	align-items: center;
+	color: var(--bn-ink-4);
+	flex: 0 0 auto;
+}
+
+.bn-sh-hero__crumb-sep svg {
+	width: 14px;
+	height: 14px;
 }
 
 .bn-sh-hero__name {
@@ -945,6 +1065,147 @@ a.bn-sh-statpill:focus-visible {
 	color: var(--bn-ink-3);
 }
 
+/* Promoted custom field tab (U3) — a field's value rendered as its own space
+   tab body: textarea -> formatted content, url -> a labelled CTA. */
+.bn-space-field-tab {
+	padding: var(--bn-s6);
+}
+
+.bn-space-field-tab__head {
+	margin-block-end: var(--bn-s4);
+}
+
+.bn-space-field-tab__title {
+	margin: 0;
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-xl);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink);
+}
+
+.bn-space-field-tab__desc {
+	margin: var(--bn-s1) 0 0;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+
+.bn-space-field-tab__content {
+	font-size: var(--bn-text-base);
+	line-height: var(--bn-leading-body);
+	color: var(--bn-ink);
+}
+
+.bn-space-field-tab__content p {
+	margin: 0 0 var(--bn-s3);
+}
+
+.bn-space-field-tab__cta {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--bn-s2);
+}
+
+.bn-space-field-tab__cta .bn-btn svg {
+	width: 16px;
+	height: 16px;
+}
+
+.bn-space-field-tab__url {
+	margin: 0;
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	word-break: break-all;
+}
+
+.bn-space-field-tab__empty {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--bn-s3);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+/* Sub-spaces rail — children of a space as compact navigation rows, plus the
+   manager "Add sub-space" CTA. Reuses the side-member row rhythm; the emblem is
+   square-cornered (via .bn-avatar override) so a space reads distinct from a
+   person's round avatar. */
+.bn-sh-side-spaces {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+}
+
+.bn-sh-side-space__id {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	min-width: 0;
+	padding: var(--bn-s1);
+	margin-inline: calc(-1 * var(--bn-s1));
+	border-radius: var(--bn-r-md);
+	text-decoration: none;
+	color: inherit;
+	transition: background-color 0.14s ease;
+}
+
+.bn-sh-side-space__id:hover,
+.bn-sh-side-space__id:focus-visible {
+	background: var(--bn-sunken);
+}
+
+.bn-sh-side-space__emblem {
+	flex-shrink: 0;
+	border-radius: var(--bn-r-md);
+	color: var( --bn-accent-fg, #fff );
+	font-weight: var(--bn-fw-bold);
+}
+
+.bn-sh-side-space__body {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	gap: 1px;
+}
+
+.bn-sh-side-space__name {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bn-sh-side-space__id:hover .bn-sh-side-space__name,
+.bn-sh-side-space__id:focus-visible .bn-sh-side-space__name {
+	color: var(--bn-accent);
+}
+
+.bn-sh-side-space__meta {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+
+.bn-sh-side-spaces__cta {
+	margin-block-start: var(--bn-s2);
+}
+
+.bn-sh-side-spaces__add {
+	width: 100%;
+	justify-content: center;
+	gap: var(--bn-s1);
+}
+
+.bn-sh-side-spaces__add svg {
+	width: 15px;
+	height: 15px;
+}
+
 
 /* ── Legacy space-hero shell (still used by spaces/members.php,
  * spaces/moderation.php, spaces/settings.php — Phase 3 templates).
@@ -1281,6 +1542,57 @@ a.bn-sh-statpill:focus-visible {
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-semibold);
 	color: var(--bn-ink);
+}
+
+/* Sub-option block (e.g. auto-join member-type filter under its toggle). */
+.bn-space-settings__field--sub {
+	margin-inline-start: var(--bn-s4);
+	padding-inline-start: var(--bn-s4);
+	border-inline-start: 2px solid var(--bn-line);
+}
+
+/* Checkbox grid — member-type picker and similar multi-select rows. */
+.bn-checkbox-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+	gap: var(--bn-s2);
+}
+
+.bn-checkbox-row {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-normal);
+	color: var(--bn-ink-2);
+	cursor: pointer;
+}
+
+.bn-checkbox-row input {
+	flex: none;
+}
+
+/* Custom-fields panel — "Show as a tab" promotion toggle (eligible fields). */
+.bn-space-settings__tab-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin-block-start: var(--bn-s1);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	cursor: pointer;
+}
+
+/* Custom-fields panel — per-field validation error + required marker. */
+.bn-space-settings__field-error {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-danger);
+	margin: 0;
+}
+
+.bn-space-settings__required {
+	color: var(--bn-danger);
+	margin-inline-start: 2px;
 }
 
 .bn-space-settings__hint {
@@ -2130,6 +2442,43 @@ a.bn-sh-statpill:focus-visible {
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s1);
+}
+
+/* Fixed-parent field (sub-space creation) — a read-only label + a chip showing
+   the locked parent, in place of the parent-picker select. */
+.bn-create-space-form__label-text {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink-2);
+}
+
+.bn-create-space-form__fixed-parent {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin: 0;
+	padding: var(--bn-s2) var(--bn-s3);
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink);
+	align-self: flex-start;
+	max-width: 100%;
+}
+
+.bn-create-space-form__fixed-parent svg {
+	width: 16px;
+	height: 16px;
+	color: var(--bn-ink-3);
+	flex-shrink: 0;
+}
+
+.bn-create-space-form__fixed-parent strong {
+	font-weight: var(--bn-fw-semibold);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .bn-create-space-form__hint {

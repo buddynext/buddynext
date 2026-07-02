@@ -186,6 +186,7 @@ class ToolsTab {
 					<?php
 					$this->recount_button( 'space_members', __( 'Recount space members', 'buddynext' ) );
 					$this->recount_button( 'follow_counts', __( 'Recount follow counts', 'buddynext' ) );
+					$this->recount_button( 'connection_counts', __( 'Recount connection counts', 'buddynext' ) );
 					$this->recount_button( 'post_engagement', __( 'Recount post reactions & comments', 'buddynext' ) );
 					?>
 				</div>
@@ -243,7 +244,7 @@ class ToolsTab {
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
 						<input type="hidden" name="action" value="bn_tools_import">
 						<?php wp_nonce_field( 'bn_tools_import' ); ?>
-						<input type="file" name="bn_settings_file" accept="application/json,.json" required>
+						<input type="file" name="bn_settings_file" class="bn-input" accept="application/json,.json" required>
 						<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Import settings', 'buddynext' ); ?></button>
 					</form>
 				</div>
@@ -274,9 +275,13 @@ class ToolsTab {
 				}
 				break;
 			case 'follow_counts':
-				foreach ( (array) get_users( array( 'fields' => 'ID' ) ) as $id ) {
-					$counter->recount_follow_counts( (int) $id );
-				}
+				// Set-based reconcile of every existing counter row (scale-safe — the
+				// old per-user get_users() loop ran 2 COUNTs per user and timed out on
+				// large sites). Missing rows lazy-populate on first read.
+				$counter->recount_all_follow_counts();
+				break;
+			case 'connection_counts':
+				$counter->recount_all_connection_counts();
 				break;
 			case 'post_engagement':
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

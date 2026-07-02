@@ -11,6 +11,7 @@
 defined( 'ABSPATH' ) || exit;
 ?>
 <span class="bn-subnav__label"><?php echo esc_html( $bn_sub->label ); ?></span>
+<?php // Show the badge only when the resolver ran this count (Network people-counts do). ?>
 <?php if ( '' !== $bn_s_count ) : ?>
 	<span class="bn-subnav__count"><?php echo esc_html( $bn_s_count ); ?></span>
 <?php endif; ?>

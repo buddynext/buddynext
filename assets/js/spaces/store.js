@@ -427,6 +427,31 @@ function syncPendingCounters() {
 	}
 }
 
+/* Route a membership click to the action that matches the button's LIVE state.
+ *
+ * The membership button is re-stated client-side by swapButtonState(), which
+ * rewrites data-wp-on--click imperatively. The WP Interactivity API binds the
+ * directive at hydration and does not re-bind an out-of-band attribute change,
+ * so a button swapped from "Join" to "Joined" still invokes the hydration-time
+ * action (joinSpace) on the next click. Each of the four membership actions
+ * therefore routes by the button's current data-current-state first: whichever
+ * action the stale binding fires, the correct one runs. Returns true when the
+ * click was delegated (caller must stop). */
+var MEMBERSHIP_ACTION_FOR_STATE = {
+	join:    'joinSpace',
+	request: 'requestJoin',
+	joined:  'leaveSpace',
+	pending: 'cancelJoinRequest',
+};
+function routeMembership( event, ownState ) {
+	var btn   = event && event.target && event.target.closest( 'button' );
+	var state = btn ? ( btn.dataset.currentState || '' ) : '';
+	if ( ! state || state === ownState ) { return false; }
+	var fn = MEMBERSHIP_ACTION_FOR_STATE[ state ] && storeInstance.actions[ MEMBERSHIP_ACTION_FOR_STATE[ state ] ];
+	if ( fn ) { fn( event ); return true; }
+	return false;
+}
+
 /* ── Store ─────────────────────────────────────────────────────────── */
 
 var storeInstance = store( 'buddynext/spaces', {
@@ -467,6 +492,7 @@ var storeInstance = store( 'buddynext/spaces', {
 		 * shown in the card's stat line without reloading.
 		 */
 		joinSpace: async function ( event ) {
+			if ( routeMembership( event, 'join' ) ) { return; }
 			var btn     = event && event.target && event.target.closest( 'button' );
 			var spaceId = resolveSpaceId( btn );
 			if ( ! spaceId ) { return; }
@@ -584,6 +610,7 @@ var storeInstance = store( 'buddynext/spaces', {
 		 * The endpoint returns { pending: true } on success.
 		 */
 		requestJoin: async function ( event ) {
+			if ( routeMembership( event, 'request' ) ) { return; }
 			var btn     = event && event.target && event.target.closest( 'button' );
 			var spaceId = resolveSpaceId( btn );
 			if ( ! spaceId ) { return; }
@@ -676,6 +703,7 @@ var storeInstance = store( 'buddynext/spaces', {
 		 * (private/secret) and decrements the displayed member count.
 		 */
 		leaveSpace: async function ( event ) {
+			if ( routeMembership( event, 'joined' ) ) { return; }
 			var btn     = event && event.target && event.target.closest( 'button' );
 			var spaceId = resolveSpaceId( btn );
 			if ( ! spaceId ) { return; }
@@ -734,6 +762,7 @@ var storeInstance = store( 'buddynext/spaces', {
 		 * the REST controller handles for pending-status members too).
 		 */
 		cancelJoinRequest: async function ( event ) {
+			if ( routeMembership( event, 'pending' ) ) { return; }
 			var btn     = event && event.target && event.target.closest( 'button' );
 			var spaceId = resolveSpaceId( btn );
 			if ( ! spaceId ) { return; }
@@ -1703,12 +1732,17 @@ function readSpacesFilterState() {
 	var scopeChip    = document.querySelector( '[data-bn-scope-chip][aria-selected="true"]' );
 	var scope        = scopeChip ? ( scopeChip.getAttribute( 'data-bn-scope-chip' ) || 'all' ) : 'all';
 	var isCat        = ( 'cat' === scope && scopeChip );
+	// The "Include sub-spaces" opt-in is an SSR link (no JS needed); the reactive
+	// path preserves it by reading the current URL so a filter/sort doesn't silently
+	// drop it.
+	var includeSubspaces = '1' === new URLSearchParams( window.location.search ).get( 'bn_subspaces' );
 	return {
-		q:            search ? search.value : '',
-		mine:         ( 'mine' === scope ),
-		categoryId:   isCat ? ( scopeChip.getAttribute( 'data-bn-cat-id' ) || '' ) : '',
-		categorySlug: isCat ? ( scopeChip.getAttribute( 'data-bn-cat-slug' ) || '' ) : '',
-		sort:         sort || 'popular',
+		q:                search ? search.value : '',
+		mine:             ( 'mine' === scope ),
+		categoryId:       isCat ? ( scopeChip.getAttribute( 'data-bn-cat-id' ) || '' ) : '',
+		categorySlug:     isCat ? ( scopeChip.getAttribute( 'data-bn-cat-slug' ) || '' ) : '',
+		sort:             sort || 'popular',
+		includeSubspaces: includeSubspaces,
 	};
 }
 
@@ -1828,12 +1862,23 @@ function buildSpaceCard( row ) {
 	stat.className   = 'bn-sd-card__stat';
 	stat.textContent = fmt( t( 'membersCount', '%d members' ), memberCount );
 	stats.appendChild( stat );
+
+	// Sub-space count chip (pre-join discovery) — mirrors space-directory-card.php.
+	var subCount = ( row.subspace_count != null ) ? parseInt( row.subspace_count, 10 ) : 0;
+	if ( subCount > 0 ) {
+		var subStat = document.createElement( 'span' );
+		subStat.className   = 'bn-sd-card__stat';
+		var subTpl          = ( 1 === subCount ) ? t( 'subspaceCountOne', '%d sub-space' ) : t( 'subspacesCount', '%d sub-spaces' );
+		subStat.textContent = fmt( subTpl, subCount );
+		stats.appendChild( subStat );
+	}
+
 	body.appendChild( stats );
 
 	// ── Foot: membership-aware CTA, mirroring directory.php ────────────
 	var role        = row.membership_role || '';
 	var status      = row.membership_status || '';
-	var isAdminMod  = ( 'active' === status ) && ( 'owner' === role || 'admin' === role || 'moderator' === role );
+	var isAdminMod  = ( 'active' === status ) && ( 'owner' === role || 'moderator' === role );
 	var isMember    = ( 'active' === status );
 	var isPending   = ( 'pending' === status );
 	var joinMethod  = row.join_method || ( 'open' === type ? 'direct' : 'request' );
@@ -1936,6 +1981,59 @@ function applySpacesFilter() {
 	}, 250 );
 }
 
+/* Rebuild the directory pager for the reactive (filtered) result set. The reactive
+ * view always lands on page 1; pages 2+ are SSR <a> links carrying the current
+ * filters + bn_page=N, so they reload server-side via the indexed OFFSET (no reactive
+ * deep-offset fetches). Markup mirrors parts/pagination.php (.bn-pagination/.bn-page-btn). */
+function rebuildReactivePager( totalPages ) {
+	var container = document.querySelector( '[data-bn-sd-pager]' );
+	if ( ! container ) { return; }
+	while ( container.firstChild ) { container.removeChild( container.firstChild ); }
+	totalPages = parseInt( totalPages, 10 ) || 1;
+	if ( totalPages < 2 ) { return; }
+
+	var base = new URL( window.location.href );
+	base.searchParams.delete( 'bn_page' );
+	function href( n ) {
+		var u = new URL( base.href );
+		if ( n > 1 ) { u.searchParams.set( 'bn_page', String( n ) ); }
+		return u.pathname + u.search;
+	}
+	function item( label, n, isCurrent, isDots ) {
+		var el;
+		if ( isCurrent || isDots ) {
+			el = document.createElement( 'span' );
+			el.className = 'bn-page-btn' + ( isCurrent ? ' current' : ' dots' );
+			if ( isCurrent ) { el.setAttribute( 'aria-current', 'page' ); }
+		} else {
+			el = document.createElement( 'a' );
+			el.className = 'bn-page-btn';
+			el.href = href( n );
+		}
+		el.textContent = label;
+		return el;
+	}
+
+	var nav = document.createElement( 'nav' );
+	nav.className = 'bn-pagination';
+	nav.setAttribute( 'aria-label', t( 'pagerLabel', 'Spaces directory pages' ) );
+
+	var current = 1; // reactive filter resets to page 1 of the filtered set.
+	var win = 2, start = Math.max( 1, current - win ), end = Math.min( totalPages, current + win );
+	if ( start > 1 ) {
+		nav.appendChild( item( '1', 1, false, false ) );
+		if ( start > 2 ) { nav.appendChild( item( '…', 0, false, true ) ); }
+	}
+	for ( var p = start; p <= end; p++ ) { nav.appendChild( item( String( p ), p, p === current, false ) ); }
+	if ( end < totalPages ) {
+		if ( end < totalPages - 1 ) { nav.appendChild( item( '…', 0, false, true ) ); }
+		nav.appendChild( item( String( totalPages ), totalPages, false, false ) );
+	}
+	nav.appendChild( item( t( 'nextPage', 'Next ›' ), current + 1, false, false ) );
+
+	container.appendChild( nav );
+}
+
 async function executeSpacesFilter() {
 	if ( bnSpacesFilterAbort ) {
 		try { bnSpacesFilterAbort.abort(); } catch ( _e ) {}
@@ -1950,7 +2048,11 @@ async function executeSpacesFilter() {
 	if ( state.mine ) { params.set( 'mine', '1' ); }
 	if ( state.categoryId ) { params.set( 'category_id', state.categoryId ); }
 	if ( state.sort ) { params.set( 'orderby', state.sort ); }
+	if ( state.includeSubspaces ) { params.set( 'include_subspaces', '1' ); }
 	params.set( 'per_page', '18' );
+	// Ask for the total so the pager can be rebuilt for the filtered set (search
+	// stays a bare array — it doesn't reactively paginate).
+	if ( ! state.q ) { params.set( 'paginate', '1' ); }
 
 	try {
 		var res = await restFetch( '/spaces?' + params.toString(), {
@@ -1972,8 +2074,9 @@ async function executeSpacesFilter() {
 			return;
 		}
 
-		var rows = res.data;
-		if ( ! Array.isArray( rows ) ) { rows = ( rows && rows.items ) || []; }
+		var payload    = res.data;
+		var rows       = Array.isArray( payload ) ? payload : ( ( payload && payload.items ) || [] );
+		var totalPages = ( payload && payload.total_pages ) ? parseInt( payload.total_pages, 10 ) : 1;
 
 		var grid = document.querySelector( '[data-bn-sd-grid]' );
 		if ( ! grid ) {
@@ -2013,6 +2116,11 @@ async function executeSpacesFilter() {
 			else { url.searchParams.delete( 'bn_sort' ); }
 			window.history.replaceState( {}, '', url.toString() );
 		} catch ( _e ) {}
+
+		// Rebuild the pager AFTER the URL is updated so its SSR page-links carry the
+		// just-applied filters (a reactive filter resets to page 1; pages 2+ reload
+		// server-side via the indexed OFFSET).
+		rebuildReactivePager( totalPages );
 	} catch ( err ) {
 		if ( err && 'AbortError' === err.name ) { return; }
 		setDirectoryUiState( 'error' );

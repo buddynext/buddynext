@@ -368,6 +368,75 @@ abstract class AdminPageBase {
 	}
 
 	/**
+	 * Render a media-library picker row for a single image (e.g. a logo).
+	 *
+	 * Emits a thumbnail preview, a Select button that opens the WordPress
+	 * media library, a Remove button, and a URL input that carries the posted
+	 * value. The buttons are wired by assets/js/admin/media-picker.js (handle
+	 * 'bn-admin-media'); the screen that renders this row must enqueue that
+	 * handle plus wp_enqueue_media(). Without JS the URL input still posts, so
+	 * the row degrades gracefully — owners can paste an image URL directly.
+	 *
+	 * Stores a plain URL string, back-compatible with previously saved upload
+	 * URLs. Public static so screens outside this base class (Settings →
+	 * Appearance, Pro White-label) share the exact same pattern.
+	 *
+	 * @param string $option_name  WP option name (input name + id basis).
+	 * @param string $label        Field label.
+	 * @param string $value        Current image URL ('' = none).
+	 * @param string $hint         Optional hint text beneath the field.
+	 * @param string $select_label Select-button label. Defaults to "Select image".
+	 * @return void
+	 */
+	public static function render_media_row(
+		string $option_name,
+		string $label,
+		string $value,
+		string $hint = '',
+		string $select_label = ''
+	): void {
+		if ( '' === $select_label ) {
+			$select_label = __( 'Select image', 'buddynext' );
+		}
+		$input_id = 'bn-field-' . sanitize_key( $option_name );
+		$has_img  = '' !== $value;
+		?>
+		<div class="bn-field bn-media-field" data-bn-media-field>
+			<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
+			<div class="bn-media-preview" data-bn-media-preview <?php echo $has_img ? '' : 'hidden'; ?>>
+				<img src="<?php echo esc_url( $value ); ?>" alt="" class="bn-a-logo-preview">
+			</div>
+			<div class="bn-media-controls">
+				<button type="button"
+						class="bn-btn"
+						data-variant="secondary"
+						data-bn-media-select
+						data-title="<?php echo esc_attr( $select_label ); ?>">
+					<?php echo esc_html( $select_label ); ?>
+				</button>
+				<button type="button"
+						class="bn-btn"
+						data-variant="ghost"
+						data-bn-media-remove
+						<?php echo $has_img ? '' : 'hidden'; ?>>
+					<?php esc_html_e( 'Remove', 'buddynext' ); ?>
+				</button>
+				<input type="url"
+						id="<?php echo esc_attr( $input_id ); ?>"
+						name="<?php echo esc_attr( $option_name ); ?>"
+						value="<?php echo esc_attr( $value ); ?>"
+						class="bn-text-input bn-media-url"
+						placeholder="https://"
+						spellcheck="false">
+			</div>
+			<?php if ( '' !== $hint ) : ?>
+				<span class="bn-field-hint"><?php echo esc_html( $hint ); ?></span>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Render a labelled textarea field.
 	 *
 	 * @param string $option_name WP option name.
@@ -435,8 +504,7 @@ abstract class AdminPageBase {
 					<?php if ( null !== $max ) : ?>
 					max="<?php echo absint( $max ); ?>"
 					<?php endif; ?>
-					class="bn-text-input small-text"
-					style="max-width:100px">
+					class="bn-text-input small-text bn-a-input-tiny">
 			<?php if ( '' !== $hint ) : ?>
 				<span class="bn-field-hint"><?php echo esc_html( $hint ); ?></span>
 			<?php endif; ?>

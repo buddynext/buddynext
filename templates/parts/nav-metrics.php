@@ -4,9 +4,9 @@
  *
  * Renders the count-pill row from resolved Nav metric items (NavItem[]). Used by
  * BOTH the member profile and the space surface so the stat row is consistent: a
- * metric is display-only by default; it may deep-link (item->tab jumps to a tab/
- * sub-tab, item->url opens a list) but the whole row reads as counts, never a
- * second navigation. Optional week-over-week delta/trend chip.
+ * metric is display-only by default; it may deep-link to its panel via a clean
+ * `item->url` (e.g. /members/x/followers/) but the whole row reads as counts,
+ * never a second navigation. Optional week-over-week delta/trend chip.
  *
  * @package BuddyNext\Nav
  *
@@ -42,13 +42,7 @@ $bn_metrics_extra = isset( $extra_class ) ? trim( (string) $extra_class ) : '';
 		$bn_m_label = null !== $bn_m->label_value ? $bn_m->label_value : $bn_m->label;
 		$bn_m_aria  = '' !== $bn_m_value ? sprintf( '%s %s', $bn_m_value, $bn_m_label ) : $bn_m_label;
 		?>
-		<?php if ( null !== $bn_m->tab ) : ?>
-			<button class="bn-nav-metric" type="button" data-wp-on--click="actions.setTab" data-tab="<?php echo esc_attr( $bn_m->tab ); ?>" aria-label="<?php echo esc_attr( $bn_m_aria ); ?>">
-				<span class="bn-nav-metric__value"><?php echo esc_html( $bn_m_value ); ?></span>
-				<span class="bn-nav-metric__label"><?php echo esc_html( $bn_m_label ); ?></span>
-				<?php echo $bn_m_delta; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above. ?>
-			</button>
-		<?php elseif ( null !== $bn_m->url_value ) : ?>
+		<?php if ( null !== $bn_m->url_value ) : ?>
 			<a class="bn-nav-metric" href="<?php echo esc_url( (string) $bn_m->url_value ); ?>" aria-label="<?php echo esc_attr( $bn_m_aria ); ?>">
 				<span class="bn-nav-metric__value"><?php echo esc_html( $bn_m_value ); ?></span>
 				<span class="bn-nav-metric__label"><?php echo esc_html( $bn_m_label ); ?></span>

@@ -131,12 +131,6 @@ class ProfileFieldsManager {
 				'is_searchable_capable' => false,
 				'value_kind'            => 'scalar',
 			),
-			'file'        => array(
-				'label'                 => __( 'File', 'buddynext' ),
-				'is_choice'             => false,
-				'is_searchable_capable' => false,
-				'value_kind'            => 'scalar',
-			),
 		);
 	}
 
@@ -277,7 +271,7 @@ class ProfileFieldsManager {
 			true
 		);
 
-		wp_set_script_translations( 'bn-profile-fields', 'buddynext' );
+		wp_set_script_translations( 'bn-profile-fields', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 		// Expose the field-type matrix to the editor JS so the options editor
 		// and the is_searchable control react to the selected type. The
@@ -373,6 +367,8 @@ class ProfileFieldsManager {
 		$type        = sanitize_key( wp_unslash( $_POST['type'] ?? 'text' ) );
 		$is_required = absint( wp_unslash( $_POST['is_required'] ?? 0 ) );
 		$visibility  = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
+		$description = sanitize_text_field( wp_unslash( $_POST['description'] ?? '' ) );
+		$placeholder = sanitize_text_field( wp_unslash( $_POST['placeholder'] ?? '' ) );
 
 		if ( ! in_array( $type, self::field_types(), true ) ) {
 			$type = 'text';
@@ -429,6 +425,8 @@ class ProfileFieldsManager {
 					'label'         => $label,
 					'type'          => $type,
 					'options'       => $parsed_opts,
+					'description'   => $description,
+					'placeholder'   => $placeholder,
 					'is_required'   => $is_required > 0 ? 1 : 0,
 					'is_searchable' => $is_searchable,
 					'visibility'    => $visibility,
@@ -618,8 +616,40 @@ class ProfileFieldsManager {
 
 		check_admin_referer( 'bn_delete_profile_group_' . $group_id );
 
+		$notice = 'deleted';
 		if ( $group_id > 0 ) {
-			buddynext_service( 'profiles' )->delete_group( $group_id );
+			global $wpdb;
+
+			$service = buddynext_service( 'profiles' );
+
+			// §4.2 impact-confirm: when the group's fields hold stored values,
+			// the delete must arrive with a matching type-to-confirm token (the
+			// group name or DELETE). The admin UI collects it; this server check
+			// is the enforcement, so a hand-crafted POST cannot skip it.
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$group_label = (string) $wpdb->get_var(
+				$wpdb->prepare( "SELECT label FROM {$wpdb->prefix}bn_profile_groups WHERE id = %d", $group_id )
+			);
+			$field_ids   = array_map(
+				'intval',
+				(array) $wpdb->get_col(
+					$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_profile_fields WHERE group_id = %d", $group_id )
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			$affected = $service->count_users_with_field_values( $field_ids );
+
+			if ( $affected > 0 && ! $this->confirm_text_matches( $group_label ) ) {
+				$notice = 'confirm';
+			} else {
+				$result = $service->delete_group( $group_id );
+				if ( is_wp_error( $result ) ) {
+					// System groups refuse deletion — surface the refusal instead
+					// of a false "Deleted." success.
+					$notice = 'locked';
+				}
+			}
 		}
 
 		wp_safe_redirect(
@@ -627,7 +657,7 @@ class ProfileFieldsManager {
 				array(
 					'page'         => 'buddynext-members',
 					'tab'          => 'profile-fields',
-					'bn_pf_notice' => 'deleted',
+					'bn_pf_notice' => $notice,
 				),
 				admin_url( 'admin.php' )
 			)
@@ -652,8 +682,34 @@ class ProfileFieldsManager {
 
 		check_admin_referer( 'bn_delete_profile_field_' . $field_id );
 
+		$notice = 'deleted';
 		if ( $field_id > 0 ) {
-			buddynext_service( 'profiles' )->delete_field( $field_id );
+			global $wpdb;
+
+			$service = buddynext_service( 'profiles' );
+
+			// §4.2 impact-confirm: a field with stored member values only deletes
+			// when the request carries a matching type-to-confirm token (the
+			// field name or DELETE). Server-side enforcement — the UI input alone
+			// is not the gate.
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$field_label = (string) $wpdb->get_var(
+				$wpdb->prepare( "SELECT label FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $field_id )
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			$affected = $service->count_users_with_field_values( array( $field_id ) );
+
+			if ( $affected > 0 && ! $this->confirm_text_matches( $field_label ) ) {
+				$notice = 'confirm';
+			} else {
+				$result = $service->delete_field( $field_id );
+				if ( is_wp_error( $result ) ) {
+					// System fields refuse deletion — surface the refusal instead
+					// of a false "Deleted." success.
+					$notice = 'locked';
+				}
+			}
 		}
 
 		wp_safe_redirect(
@@ -661,7 +717,7 @@ class ProfileFieldsManager {
 				array(
 					'page'         => 'buddynext-members',
 					'tab'          => 'profile-fields',
-					'bn_pf_notice' => 'deleted',
+					'bn_pf_notice' => $notice,
 				),
 				admin_url( 'admin.php' )
 			)
@@ -670,7 +726,34 @@ class ProfileFieldsManager {
 	}
 
 	/**
-	 * Handle admin_post_bn_update_profile_group — update visibility on a group.
+	 * Whether the submitted type-to-confirm token authorises a destructive
+	 * delete (§4.2).
+	 *
+	 * Accepts the item's current name or the literal word DELETE, both
+	 * case-insensitively and whitespace-trimmed. Called only after the nonce
+	 * has been verified by the delete handlers.
+	 *
+	 * @param string $label Current field/group label the admin must retype.
+	 * @return bool
+	 */
+	private function confirm_text_matches( string $label ): bool {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified by the calling delete handler.
+		$input = trim( sanitize_text_field( wp_unslash( $_POST['bn_confirm_text'] ?? '' ) ) );
+
+		if ( '' === $input ) {
+			return false;
+		}
+
+		if ( 0 === strcasecmp( $input, 'DELETE' ) ) {
+			return true;
+		}
+
+		return mb_strtolower( $input ) === mb_strtolower( trim( $label ) );
+	}
+
+	/**
+	 * Handle admin_post_bn_update_profile_group — update visibility and/or the
+	 * member-type restriction on a group.
 	 *
 	 * @return void
 	 */
@@ -683,20 +766,49 @@ class ProfileFieldsManager {
 
 		check_admin_referer( 'bn_update_profile_group_' . $group_id );
 
-		$visibility = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
+		// Each inline group control autosubmits its own single-attribute form,
+		// so only the submitted attribute is updated — a visibility change must
+		// never clobber the member-type restriction and vice versa.
+		$update = array();
+		$format = array();
 
-		if ( ! in_array( $visibility, self::VISIBILITY_VALUES, true ) ) {
-			$visibility = 'public';
+		if ( isset( $_POST['visibility'] ) ) {
+			$visibility = sanitize_key( wp_unslash( $_POST['visibility'] ) );
+			if ( ! in_array( $visibility, self::VISIBILITY_VALUES, true ) ) {
+				$visibility = 'public';
+			}
+			$update['visibility'] = $visibility;
+			$format[]             = '%s';
 		}
 
-		if ( $group_id > 0 ) {
+		// G2 (per-member-type profiles): limit the group to one LIVE member
+		// type. Empty = every member sees it (the default). Unknown slugs are
+		// refused so a stale form cannot point the group at a deleted type.
+		if ( isset( $_POST['type_restriction'] ) ) {
+			$restriction = sanitize_key( wp_unslash( $_POST['type_restriction'] ) );
+			if ( '' === $restriction ) {
+				$update['type_restriction'] = null;
+				$format[]                   = '%s';
+			} else {
+				$live_slugs = array_map(
+					static fn( $t ) => (string) ( $t['slug'] ?? '' ),
+					(array) buddynext_service( 'member_types' )->get_all()
+				);
+				if ( in_array( $restriction, $live_slugs, true ) ) {
+					$update['type_restriction'] = $restriction;
+					$format[]                   = '%s';
+				}
+			}
+		}
+
+		if ( $group_id > 0 && ! empty( $update ) ) {
 			global $wpdb;
 
 			$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$wpdb->prefix . 'bn_profile_groups',
-				array( 'visibility' => $visibility ),
+				$update,
 				array( 'id' => $group_id ),
-				array( '%s' ),
+				$format,
 				array( '%d' )
 			);
 
@@ -812,9 +924,11 @@ class ProfileFieldsManager {
 			exit;
 		}
 
-		$label      = sanitize_text_field( wp_unslash( $_POST['label'] ?? '' ) );
-		$type       = sanitize_key( wp_unslash( $_POST['type'] ?? 'text' ) );
-		$visibility = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
+		$label       = sanitize_text_field( wp_unslash( $_POST['label'] ?? '' ) );
+		$type        = sanitize_key( wp_unslash( $_POST['type'] ?? 'text' ) );
+		$visibility  = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
+		$description = sanitize_text_field( wp_unslash( $_POST['description'] ?? '' ) );
+		$placeholder = sanitize_text_field( wp_unslash( $_POST['placeholder'] ?? '' ) );
 
 		if ( ! in_array( $type, self::field_types(), true ) ) {
 			$type = 'text';
@@ -873,13 +987,15 @@ class ProfileFieldsManager {
 				'label'            => $label,
 				'type'             => $type,
 				'options'          => null !== $parsed_opts ? wp_json_encode( $parsed_opts ) : null,
+				'description'      => $description,
+				'placeholder'      => $placeholder,
 				'is_required'      => $is_required,
 				'is_searchable'    => $is_searchable,
 				'show_on_register' => $show_on_register,
 				'visibility'       => $visibility,
 			),
 			array( 'id' => $field_id ),
-			array( '%s', '%s', '%s', '%d', '%d', '%d', '%s' ),
+			array( '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s' ),
 			array( '%d' )
 		);
 
@@ -1081,12 +1197,22 @@ class ProfileFieldsManager {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Deleted.', 'buddynext' ) . '</p></div>';
 		} elseif ( 'error' === $bn_pf_notice ) {
 			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Not saved — please check the field name and try again.', 'buddynext' ) . '</p></div>';
+		} elseif ( 'locked' === $bn_pf_notice ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'This is a core field used by search and member cards - it cannot be deleted.', 'buddynext' ) . '</p></div>';
+		} elseif ( 'confirm' === $bn_pf_notice ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Not deleted - the confirmation text did not match. Type the exact name (or DELETE) to remove an item that has stored member values.', 'buddynext' ) . '</p></div>';
 		}
 
 		$groups      = buddynext_service( 'profiles' )->get_fields();
 		$post_url    = admin_url( 'admin-post.php' );
 		$base_url    = admin_url( 'admin.php?page=buddynext-members&tab=profile-fields' );
 		$group_count = count( $groups );
+
+		// §4.2 impact-confirm: per-field and per-group affected-member counts
+		// (two aggregate queries total). A field/group with stored values renders
+		// a type-to-confirm step on its delete control; the delete handlers
+		// re-verify server-side.
+		$impact_counts = buddynext_service( 'profiles' )->value_user_counts();
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$show_add_group = absint( wp_unslash( $_GET['add_group'] ?? 0 ) );
@@ -1120,6 +1246,17 @@ class ProfileFieldsManager {
 			'connections' => __( 'Connections only', 'buddynext' ),
 			'private'     => __( 'Only me', 'buddynext' ),
 		);
+
+		// G2: the "Limit to member type" control is populated from the site's
+		// LIVE member types and only rendered when the owner has defined any —
+		// no dead control on sites without member types.
+		$member_types = array();
+		if ( function_exists( 'buddynext_service' ) ) {
+			$mt_service = buddynext_service( 'member_types' );
+			if ( is_object( $mt_service ) && method_exists( $mt_service, 'get_all' ) ) {
+				$member_types = (array) $mt_service->get_all();
+			}
+		}
 		?>
 
 		<div class="bn-pf-wrap">
@@ -1135,11 +1272,11 @@ class ProfileFieldsManager {
 			?>
 			<div class="bn-settings-section bn-pf-card">
 
-				<!-- Group header -->
+				<!-- Group header: LEFT = identity (title + badges), RIGHT = one compact control row. -->
 				<div class="bn-ss-header bn-pf-card-head">
-					<span class="bn-ss-title bn-pf-group-name"><?php echo esc_html( $group['label'] ); ?></span>
+					<div class="bn-pf-head-id">
+						<span class="bn-ss-title bn-pf-group-name"><?php echo esc_html( $group['label'] ); ?></span>
 
-					<div class="bn-pf-meta">
 						<?php if ( $is_system ) : ?>
 							<span class="bn-pf-badge bn-pf-b-system"><?php esc_html_e( 'System', 'buddynext' ); ?></span>
 						<?php endif; ?>
@@ -1148,21 +1285,7 @@ class ProfileFieldsManager {
 							<?php echo 'repeater' === $group['type'] ? esc_html__( 'Multiple entries', 'buddynext' ) : esc_html__( 'Single entry', 'buddynext' ); ?>
 						</span>
 
-						<!-- Inline group visibility -->
-						<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form">
-							<input type="hidden" name="action" value="bn_update_profile_group">
-							<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
-							<?php wp_nonce_field( 'bn_update_profile_group_' . $gid ); ?>
-							<select class="bn-pf-vis-grp" name="visibility" data-bn-autosubmit title="<?php esc_attr_e( 'Group visibility', 'buddynext' ); ?>">
-								<?php foreach ( $vis_labels as $vis_val => $vis_lbl ) : ?>
-									<option value="<?php echo esc_attr( $vis_val ); ?>" <?php selected( $group['visibility'], $vis_val ); ?>>
-										<?php echo esc_html( $vis_lbl ); ?>
-									</option>
-								<?php endforeach; ?>
-							</select>
-						</form>
-
-						<span class="bn-pf-field-count">
+						<span class="bn-pf-badge bn-pf-b-count">
 							<?php
 							echo esc_html(
 								sprintf(
@@ -1173,9 +1296,57 @@ class ProfileFieldsManager {
 							);
 							?>
 						</span>
-					</div><!-- .bn-pf-meta -->
+					</div><!-- .bn-pf-head-id -->
 
 					<div class="bn-pf-head-actions">
+						<!-- Inline group visibility -->
+						<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form">
+							<input type="hidden" name="action" value="bn_update_profile_group">
+							<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
+							<?php wp_nonce_field( 'bn_update_profile_group_' . $gid ); ?>
+							<select class="bn-pf-head-select bn-pf-vis-grp" name="visibility" data-bn-autosubmit title="<?php esc_attr_e( 'Group visibility', 'buddynext' ); ?>">
+								<?php foreach ( $vis_labels as $vis_val => $vis_lbl ) : ?>
+									<option value="<?php echo esc_attr( $vis_val ); ?>" <?php selected( $group['visibility'], $vis_val ); ?>>
+										<?php echo esc_html( $vis_lbl ); ?>
+									</option>
+								<?php endforeach; ?>
+							</select>
+						</form>
+
+						<?php if ( ! empty( $member_types ) ) : ?>
+							<?php $grp_restriction = (string) ( $group['type_restriction'] ?? '' ); ?>
+							<!-- Inline member-type restriction (per-member-type profiles) -->
+							<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form">
+								<input type="hidden" name="action" value="bn_update_profile_group">
+								<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
+								<?php wp_nonce_field( 'bn_update_profile_group_' . $gid ); ?>
+								<select class="bn-pf-head-select bn-pf-type-restrict" name="type_restriction" data-bn-autosubmit
+									title="<?php esc_attr_e( 'Limit to member type - this section only appears on profiles of members with the selected type.', 'buddynext' ); ?>">
+									<option value="" <?php selected( $grp_restriction, '' ); ?>><?php esc_html_e( 'All member types', 'buddynext' ); ?></option>
+									<?php foreach ( $member_types as $mt ) : ?>
+										<?php
+										$mt_slug = (string) ( $mt['slug'] ?? '' );
+										$mt_name = (string) ( $mt['name'] ?? $mt_slug );
+										if ( '' === $mt_slug ) {
+											continue;
+										}
+										?>
+										<option value="<?php echo esc_attr( $mt_slug ); ?>" <?php selected( $grp_restriction, $mt_slug ); ?>>
+											<?php
+											echo esc_html(
+												sprintf(
+													/* translators: %s: member type name. */
+													__( 'Only: %s', 'buddynext' ),
+													$mt_name
+												)
+											);
+											?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+							</form>
+						<?php endif; ?>
+
 						<?php if ( ! $is_first_grp ) : ?>
 							<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form">
 								<input type="hidden" name="action" value="bn_reorder_group">
@@ -1203,13 +1374,44 @@ class ProfileFieldsManager {
 						</a>
 
 						<?php if ( ! $is_system ) : ?>
-							<?php $del_nonce = wp_create_nonce( 'bn_delete_profile_group_' . $gid ); ?>
-							<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form bn-del-form">
+							<?php
+							$del_nonce    = wp_create_nonce( 'bn_delete_profile_group_' . $gid );
+							$grp_affected = (int) ( $impact_counts['groups'][ $gid ] ?? 0 );
+							?>
+							<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form bn-del-form"
+								<?php if ( $grp_affected > 0 ) : ?>
+									data-bn-confirm-label="<?php echo esc_attr( $group['label'] ); ?>"
+								<?php endif; ?>
+							>
 								<input type="hidden" name="action" value="bn_delete_profile_group">
 								<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
 								<input type="hidden" name="_wpnonce" value="<?php echo esc_attr( $del_nonce ); ?>">
 								<button type="button" class="bn-pf-del-group-btn bn-del-trigger"><?php esc_html_e( 'Delete Group', 'buddynext' ); ?></button>
-								<button type="submit" class="bn-del-confirm" style="display:none;"><?php esc_html_e( 'Yes, delete', 'buddynext' ); ?></button>
+								<?php if ( $grp_affected > 0 ) : ?>
+									<span class="bn-del-impact" hidden>
+										<span class="bn-del-impact-text">
+											<?php
+											echo esc_html(
+												sprintf(
+													/* translators: 1: number of members with stored values, 2: group name. */
+													_n(
+														'This permanently deletes stored values for %1$d member. Type "%2$s" or DELETE to confirm.',
+														'This permanently deletes stored values for %1$d members. Type "%2$s" or DELETE to confirm.',
+														$grp_affected,
+														'buddynext'
+													),
+													$grp_affected,
+													$group['label']
+												)
+											);
+											?>
+										</span>
+										<input type="text" name="bn_confirm_text" class="bn-del-confirm-input"
+											autocomplete="off"
+											aria-label="<?php esc_attr_e( 'Type the name or DELETE to confirm', 'buddynext' ); ?>">
+									</span>
+								<?php endif; ?>
+								<button type="submit" class="bn-del-confirm" style="display:none;" <?php disabled( $grp_affected > 0 ); ?>><?php esc_html_e( 'Yes, delete', 'buddynext' ); ?></button>
 								<button type="button" class="bn-del-cancel" style="display:none;"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
 							</form>
 						<?php endif; ?>
@@ -1222,12 +1424,12 @@ class ProfileFieldsManager {
 					<table class="bn-pf-table">
 						<thead>
 							<tr>
-								<th style="width:64px;"><?php esc_html_e( 'Order', 'buddynext' ); ?></th>
+								<th class="bn-a-pf-swatch"><?php esc_html_e( 'Order', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'Field Name', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'Type', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'Required', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'Visible to', 'buddynext' ); ?></th>
-								<th style="width:64px;"></th>
+								<th class="bn-a-pf-swatch"></th>
 							</tr>
 						</thead>
 						<tbody>
@@ -1314,14 +1516,48 @@ class ProfileFieldsManager {
 										<button type="button" class="bn-pf-edit-btn"
 											data-bn-pf-toggle-edit="bn-ef-row-<?php echo absint( $fid ); ?>"
 											title="<?php esc_attr_e( 'Edit field', 'buddynext' ); ?>"><?php buddynext_icon( 'edit' ); ?></button>
-										<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form bn-del-form">
-											<input type="hidden" name="action" value="bn_delete_profile_field">
-											<input type="hidden" name="field_id" value="<?php echo absint( $fid ); ?>">
-											<?php wp_nonce_field( 'bn_delete_profile_field_' . $fid ); ?>
-											<button type="button" class="bn-pf-del-field bn-del-trigger" title="<?php esc_attr_e( 'Remove field', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
-											<button type="submit" class="bn-del-confirm" style="display:none;"><?php esc_html_e( 'Delete?', 'buddynext' ); ?></button>
-											<button type="button" class="bn-del-cancel" style="display:none;"><?php esc_html_e( 'No', 'buddynext' ); ?></button>
-										</form>
+										<?php if ( ! empty( $field['is_system'] ) ) : ?>
+											<?php // System field: no delete control (the service guard also refuses direct requests). Relabel/reorder/visibility stay editable. ?>
+											<span class="bn-badge" data-tone="neutral" title="<?php esc_attr_e( 'Core field - used by search and member cards. It cannot be deleted.', 'buddynext' ); ?>"><?php esc_html_e( 'Core', 'buddynext' ); ?></span>
+										<?php else : ?>
+											<?php $fld_affected = (int) ( $impact_counts['fields'][ $fid ] ?? 0 ); ?>
+											<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form bn-del-form"
+												<?php if ( $fld_affected > 0 ) : ?>
+													data-bn-confirm-label="<?php echo esc_attr( $field['label'] ); ?>"
+												<?php endif; ?>
+											>
+												<input type="hidden" name="action" value="bn_delete_profile_field">
+												<input type="hidden" name="field_id" value="<?php echo absint( $fid ); ?>">
+												<?php wp_nonce_field( 'bn_delete_profile_field_' . $fid ); ?>
+												<button type="button" class="bn-pf-del-field bn-del-trigger" title="<?php esc_attr_e( 'Remove field', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
+												<?php if ( $fld_affected > 0 ) : ?>
+													<span class="bn-del-impact" hidden>
+														<span class="bn-del-impact-text">
+															<?php
+															echo esc_html(
+																sprintf(
+																	/* translators: 1: number of members with stored values, 2: field name. */
+																	_n(
+																		'This permanently deletes stored values for %1$d member. Type "%2$s" or DELETE to confirm.',
+																		'This permanently deletes stored values for %1$d members. Type "%2$s" or DELETE to confirm.',
+																		$fld_affected,
+																		'buddynext'
+																	),
+																	$fld_affected,
+																	$field['label']
+																)
+															);
+															?>
+														</span>
+														<input type="text" name="bn_confirm_text" class="bn-del-confirm-input"
+															autocomplete="off"
+															aria-label="<?php esc_attr_e( 'Type the name or DELETE to confirm', 'buddynext' ); ?>">
+													</span>
+												<?php endif; ?>
+												<button type="submit" class="bn-del-confirm" style="display:none;" <?php disabled( $fld_affected > 0 ); ?>><?php esc_html_e( 'Delete?', 'buddynext' ); ?></button>
+												<button type="button" class="bn-del-cancel" style="display:none;"><?php esc_html_e( 'No', 'buddynext' ); ?></button>
+											</form>
+										<?php endif; ?>
 									</div>
 								</td>
 							</tr>
@@ -1336,7 +1572,7 @@ class ProfileFieldsManager {
 							$date_display_val  = ( $is_date_type && is_array( $field['options'] ) ) ? ( $field['options']['display'] ?? 'date' ) : 'date';
 							?>
 							<tr id="<?php echo esc_attr( $edit_panel_id ); ?>" style="display:none;">
-								<td colspan="6" style="padding:0;">
+								<td colspan="6" class="bn-a-flush">
 									<div class="bn-pf-ef-panel">
 										<p class="bn-pf-af-title"><?php esc_html_e( 'Edit field', 'buddynext' ); ?></p>
 										<form method="post" action="<?php echo esc_url( $post_url ); ?>">
@@ -1352,7 +1588,7 @@ class ProfileFieldsManager {
 														value="<?php echo esc_attr( $field['label'] ); ?>"
 														required>
 												</div>
-												<div class="bn-pf-af-field" style="flex:0 0 180px;">
+												<div class="bn-pf-af-field bn-a-pf-col">
 													<label for="bn-ef-type-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Field Type', 'buddynext' ); ?></label>
 													<select id="bn-ef-type-<?php echo absint( $fid ); ?>" name="type"
 														data-bn-pf-opts-wrap="bn-ef-opts-<?php echo absint( $fid ); ?>"
@@ -1368,7 +1604,7 @@ class ProfileFieldsManager {
 														<?php endforeach; ?>
 													</select>
 												</div>
-												<div class="bn-pf-af-field" style="flex:0 0 160px;">
+												<div class="bn-pf-af-field bn-a-pf-col-narrow">
 													<label for="bn-ef-vis-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Visible to', 'buddynext' ); ?></label>
 													<select id="bn-ef-vis-<?php echo absint( $fid ); ?>" name="visibility">
 														<?php foreach ( $vis_labels as $vis_val => $vis_lbl ) : ?>
@@ -1379,6 +1615,26 @@ class ProfileFieldsManager {
 													</select>
 												</div>
 											</div>
+											<?php // G1: owner-authored hints. Empty = nothing renders on the member forms. ?>
+											<div class="bn-pf-af-row">
+												<div class="bn-pf-af-field">
+													<label for="bn-ef-desc-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Help text', 'buddynext' ); ?></label>
+													<input type="text"
+														id="bn-ef-desc-<?php echo absint( $fid ); ?>"
+														name="description"
+														value="<?php echo esc_attr( (string) ( $field['description'] ?? '' ) ); ?>"
+														maxlength="255">
+												</div>
+												<div class="bn-pf-af-field">
+													<label for="bn-ef-ph-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Placeholder', 'buddynext' ); ?></label>
+													<input type="text"
+														id="bn-ef-ph-<?php echo absint( $fid ); ?>"
+														name="placeholder"
+														value="<?php echo esc_attr( (string) ( $field['placeholder'] ?? '' ) ); ?>"
+														maxlength="255">
+												</div>
+											</div>
+											<p class="bn-pf-opts-hint"><?php esc_html_e( 'Help text appears under the field name on the profile edit and signup forms. Placeholder shows inside the empty input. Leave both blank to show nothing extra.', 'buddynext' ); ?></p>
 											<div id="bn-ef-opts-<?php echo absint( $fid ); ?>" class="bn-pf-opts-wrap" style="<?php echo $is_choice_type ? '' : 'display:none;'; ?>">
 												<label for="bn-ef-opts-ta-<?php echo absint( $fid ); ?>">
 													<?php esc_html_e( 'Options (one per line)', 'buddynext' ); ?>
@@ -1473,7 +1729,7 @@ class ProfileFieldsManager {
 									placeholder="<?php esc_attr_e( 'e.g. Job Title', 'buddynext' ); ?>"
 									required>
 							</div>
-							<div class="bn-pf-af-field" style="flex:0 0 180px;">
+							<div class="bn-pf-af-field bn-a-pf-col">
 								<label for="bn-af-type-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Field Type', 'buddynext' ); ?></label>
 								<select id="bn-af-type-<?php echo absint( $gid ); ?>" name="type"
 									data-bn-pf-opts-wrap="bn-af-opts-<?php echo absint( $gid ); ?>"
@@ -1486,7 +1742,7 @@ class ProfileFieldsManager {
 									<?php endforeach; ?>
 								</select>
 							</div>
-							<div class="bn-pf-af-field" style="flex:0 0 160px;">
+							<div class="bn-pf-af-field bn-a-pf-col-narrow">
 								<label for="bn-af-vis-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Visible to', 'buddynext' ); ?></label>
 								<select id="bn-af-vis-<?php echo absint( $gid ); ?>" name="visibility">
 									<?php foreach ( $vis_labels as $vis_val => $vis_lbl ) : ?>
@@ -1495,6 +1751,26 @@ class ProfileFieldsManager {
 								</select>
 							</div>
 						</div>
+						<?php // G1: owner-authored hints. Empty = nothing renders on the member forms. ?>
+						<div class="bn-pf-af-row">
+							<div class="bn-pf-af-field">
+								<label for="bn-af-desc-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Help text', 'buddynext' ); ?></label>
+								<input type="text"
+									id="bn-af-desc-<?php echo absint( $gid ); ?>"
+									name="description"
+									placeholder="<?php esc_attr_e( 'e.g. Shown under the field name to explain what to enter', 'buddynext' ); ?>"
+									maxlength="255">
+							</div>
+							<div class="bn-pf-af-field">
+								<label for="bn-af-ph-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Placeholder', 'buddynext' ); ?></label>
+								<input type="text"
+									id="bn-af-ph-<?php echo absint( $gid ); ?>"
+									name="placeholder"
+									placeholder="<?php esc_attr_e( 'e.g. Example value shown inside the empty input', 'buddynext' ); ?>"
+									maxlength="255">
+							</div>
+						</div>
+						<p class="bn-pf-opts-hint"><?php esc_html_e( 'Help text appears under the field name on the profile edit and signup forms. Placeholder shows inside the empty input. Leave both blank to show nothing extra.', 'buddynext' ); ?></p>
 						<div id="bn-af-opts-<?php echo absint( $gid ); ?>" class="bn-pf-opts-wrap" style="display:none;">
 							<label for="bn-af-opts-ta-<?php echo absint( $gid ); ?>">
 								<?php esc_html_e( 'Options (one per line)', 'buddynext' ); ?>
@@ -1580,14 +1856,14 @@ class ProfileFieldsManager {
 								<input type="text" id="bn-ag-label" name="label"
 									placeholder="<?php esc_attr_e( 'e.g. Work Experience', 'buddynext' ); ?>" required>
 							</div>
-							<div class="bn-pf-ag-field" style="flex:0 0 220px;">
+							<div class="bn-pf-ag-field bn-a-pf-col-wide">
 								<label for="bn-ag-type"><?php esc_html_e( 'Group Type', 'buddynext' ); ?></label>
 								<select id="bn-ag-type" name="type">
 									<option value="flat"><?php esc_html_e( 'Single entry', 'buddynext' ); ?></option>
 									<option value="repeater"><?php esc_html_e( 'Multiple entries (e.g. past jobs)', 'buddynext' ); ?></option>
 								</select>
 							</div>
-							<div class="bn-pf-ag-field" style="flex:0 0 180px;">
+							<div class="bn-pf-ag-field bn-a-pf-col">
 								<label for="bn-ag-vis"><?php esc_html_e( 'Default visibility', 'buddynext' ); ?></label>
 								<select id="bn-ag-vis" name="visibility">
 									<option value="public"><?php esc_html_e( 'Everyone', 'buddynext' ); ?></option>

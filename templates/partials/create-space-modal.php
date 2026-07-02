@@ -36,6 +36,16 @@ $bn_csm_categories = isset( $categories ) && is_array( $categories ) ? $categori
 // Root spaces the current user manages — eligible parents for a sub-space.
 // Empty (field hidden) unless the render site supplies them.
 $bn_csm_parents = isset( $parent_spaces ) && is_array( $parent_spaces ) ? $parent_spaces : array();
+// Fixed parent — when the modal is opened from a parent space's "Add sub-space"
+// CTA, the parent is locked to that space (object with ->id, ->name). The picker
+// is replaced by a read-only context line + a hidden parent_id, and the modal
+// reframes as "Create a sub-space". Takes precedence over the dropdown.
+$bn_csm_fixed_parent = isset( $fixed_parent ) && is_object( $fixed_parent ) && ! empty( $fixed_parent->id )
+	? $fixed_parent
+	: null;
+$bn_csm_title        = null !== $bn_csm_fixed_parent
+	? __( 'Create a sub-space', 'buddynext' )
+	: __( 'Create a space', 'buddynext' );
 ?>
 <div
 	class="bn-modal-backdrop"
@@ -48,7 +58,7 @@ $bn_csm_parents = isset( $parent_spaces ) && is_array( $parent_spaces ) ? $paren
 	<div class="bn-modal__panel" data-size="md">
 		<header class="bn-modal__head">
 			<h2 class="bn-modal__title" id="bn-create-space-title">
-				<?php esc_html_e( 'Create a space', 'buddynext' ); ?>
+				<?php echo esc_html( $bn_csm_title ); ?>
 			</h2>
 			<button
 				type="button"
@@ -113,11 +123,15 @@ $bn_csm_parents = isset( $parent_spaces ) && is_array( $parent_spaces ) ? $paren
 						'request' => __( 'request to join', 'buddynext' ),
 						'invite'  => __( 'invite only, hidden', 'buddynext' ),
 					);
+					// Preselect the owner's default (Spaces -> Settings). The select
+					// always submits a value, so without this the first option (open)
+					// silently overrode buddynext_space_default_type on every create.
+					$bn_default_type = (string) get_option( 'buddynext_space_default_type', 'open' );
 					foreach ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->all() as $bn_type_key => $bn_type_cfg ) :
 						$bn_hint  = $bn_join_hints[ $bn_type_cfg['join'] ] ?? '';
 						$bn_label = $bn_type_cfg['label'] . ( '' !== $bn_hint ? ' — ' . $bn_hint : '' );
 						?>
-						<option value="<?php echo esc_attr( (string) $bn_type_key ); ?>"><?php echo esc_html( $bn_label ); ?></option>
+						<option value="<?php echo esc_attr( (string) $bn_type_key ); ?>" <?php selected( $bn_default_type, (string) $bn_type_key ); ?>><?php echo esc_html( $bn_label ); ?></option>
 					<?php endforeach; ?>
 				</select>
 				<p class="bn-create-space-form__error" data-bn-error-for="type" hidden></p>
@@ -146,7 +160,18 @@ $bn_csm_parents = isset( $parent_spaces ) && is_array( $parent_spaces ) ? $paren
 				</div>
 			<?php endif; ?>
 
-			<?php if ( ! empty( $bn_csm_parents ) ) : ?>
+			<?php if ( null !== $bn_csm_fixed_parent ) : ?>
+				<div class="bn-create-space-form__field">
+					<span class="bn-create-space-form__label-text">
+						<?php esc_html_e( 'Parent space', 'buddynext' ); ?>
+					</span>
+					<p class="bn-create-space-form__fixed-parent">
+						<?php buddynext_icon( 'layers' ); ?>
+						<strong><?php echo esc_html( (string) $bn_csm_fixed_parent->name ); ?></strong>
+					</p>
+					<input type="hidden" name="parent_id" value="<?php echo esc_attr( (string) (int) $bn_csm_fixed_parent->id ); ?>">
+				</div>
+			<?php elseif ( ! empty( $bn_csm_parents ) ) : ?>
 				<div class="bn-create-space-form__field">
 					<label for="bn-create-space-parent">
 						<?php esc_html_e( 'Parent space', 'buddynext' ); ?>

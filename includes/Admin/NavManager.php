@@ -462,7 +462,7 @@ class NavManager extends AdminPageBase {
 			true
 		);
 
-		wp_set_script_translations( 'bn-nav-manager', 'buddynext' );
+		wp_set_script_translations( 'bn-nav-manager', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 		$first_slug = '';
 		$main_tabs  = $this->get_tabs_for_scope( 'main' );
@@ -1010,12 +1010,19 @@ class NavManager extends AdminPageBase {
 				<?php esc_html_e( 'Mobile Bottom Nav', 'buddynext' ); ?>
 			</div>
 			<div class="bn-scope-tip">
-				<?php
-				echo wp_kses(
-					__( 'Any plugin can inject links into any scope — <code>buddynext_register_nav()</code> / <code>buddynext_nav_items</code> (profile + space tabs and metrics), <code>buddynext_rail_items</code> (left rail), <code>buddynext_context_nav</code> (sub-nav).', 'buddynext' ),
-					array( 'code' => array() )
-				);
-				?>
+				<p class="bn-scope-tip__intro"><?php esc_html_e( 'Compatible plugins can add their own links to these menus automatically.', 'buddynext' ); ?></p>
+				<?php // Hook names are developer jargon — keep them collapsed so owners see one plain line. ?>
+				<details class="bn-scope-tip__dev">
+					<summary><?php esc_html_e( 'For developers', 'buddynext' ); ?></summary>
+					<p>
+						<?php
+						echo wp_kses(
+							__( 'Any plugin can inject links into any scope — <code>buddynext_register_nav()</code> / <code>buddynext_nav_items</code> (profile + space tabs and metrics), <code>buddynext_rail_items</code> (left rail), <code>buddynext_context_nav</code> (sub-nav).', 'buddynext' ),
+							array( 'code' => array() )
+						);
+						?>
+					</p>
+				</details>
 			</div>
 		</div>
 		<?php
@@ -1382,16 +1389,23 @@ class NavManager extends AdminPageBase {
 				</select>
 			</div>
 
-			<div class="bn-cf">
-				<label for="bn-cfg-cap-<?php echo esc_attr( $slug ); ?>">
-					<?php esc_html_e( 'Required Capability', 'buddynext' ); ?>
-				</label>
-				<input type="text"
-						id="bn-cfg-cap-<?php echo esc_attr( $slug ); ?>"
-						name="<?php echo esc_attr( $n( 'capability' ) ); ?>"
-						value="<?php echo esc_attr( $capability ); ?>"
-						maxlength="80">
-			</div>
+			<?php // Free-text capability is a developer-grade control — kept behind an Advanced disclosure; opens automatically when Visibility is already "Custom capability". ?>
+			<details class="bn-cf-advanced" <?php echo 'cap' === $visibility ? 'open' : ''; ?>>
+				<summary><?php esc_html_e( 'Advanced', 'buddynext' ); ?></summary>
+				<div class="bn-cf">
+					<label for="bn-cfg-cap-<?php echo esc_attr( $slug ); ?>">
+						<?php esc_html_e( 'Required Capability', 'buddynext' ); ?>
+					</label>
+					<input type="text"
+							id="bn-cfg-cap-<?php echo esc_attr( $slug ); ?>"
+							name="<?php echo esc_attr( $n( 'capability' ) ); ?>"
+							value="<?php echo esc_attr( $capability ); ?>"
+							maxlength="80">
+					<span class="bn-cf-hint">
+						<?php esc_html_e( 'A WordPress capability, e.g. read or edit_posts. Used when Visibility is set to "Custom capability" — members whose role lacks it will not see this item. Leave as read to allow everyone.', 'buddynext' ); ?>
+					</span>
+				</div>
+			</details>
 
 			<div class="bn-config-divider"></div>
 

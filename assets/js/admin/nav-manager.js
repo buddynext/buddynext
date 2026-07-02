@@ -90,6 +90,11 @@
 			scopePanel.querySelectorAll( '.bn-config-btn' ).forEach( function ( b ) {
 				b.classList.remove( 'bn-config-btn-active' );
 			} );
+			// Mark the list row whose item is open in the inspector so the
+			// list and the config panel visibly agree on the selection.
+			scopePanel.querySelectorAll( '.bn-drag-row' ).forEach( function ( row ) {
+				row.classList.toggle( 'is-selected', row.dataset.slug === slug );
+			} );
 		}
 
 		var panelId = 'bn-config-' + scope + '-' + slug;
@@ -183,6 +188,12 @@
 			if ( $( listId ).length ) {
 				$( listId ).sortable( {
 					handle: '.bn-drag-row__handle',
+					// The handle is a <button>, which is in jQuery UI Sortable's
+					// default cancel list ("input,textarea,button,select,option,a"),
+					// so a mousedown on it aborts the drag and the row never moves.
+					// Clear cancel — the handle option already limits drag start to
+					// the handle, so nothing else can initiate a sort.
+					cancel: '',
 					axis: 'y',
 					containment: 'parent',
 					update: function () {

@@ -94,6 +94,71 @@ const spaceMembersStore = store( 'buddynext/space-members', {
 				bnToast( t( 'updateRoleFailed', 'Could not update role. Try again.' ), { tone: 'danger' } );
 			}
 		},
+
+		* banMember( event ) {
+			const ctx = getContext();
+			const btn = event.target.closest( '[data-user-id]' );
+			if ( ! btn || ! ctx.restNonce || ! ctx.spaceId ) { return; }
+			ctx.menuOpen = false;
+			const ok = yield bnConfirm( {
+				title: t( 'banMemberTitle', 'Ban this member?' ),
+				body: t( 'banMemberBody', 'They will be removed and blocked from rejoining this space.' ),
+				confirmLabel: t( 'ban', 'Ban' ),
+				tone: 'danger',
+			} );
+			if ( ! ok ) { return; }
+			try {
+				const res = yield restFetch( '/spaces/' + ctx.spaceId + '/bans', {
+					method: 'POST',
+					nonce: ctx.restNonce,
+					body: { user_id: parseInt( btn.dataset.userId, 10 ) },
+					toastOnError: false,
+				} );
+				if ( res.ok ) {
+					window.location.reload();
+				} else {
+					bnToast( t( 'banMemberFailed', 'Could not ban member. Try again.' ), { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( t( 'banMemberFailed', 'Could not ban member. Try again.' ), { tone: 'danger' } );
+			}
+		},
+
+		* inviteMember( event ) {
+			// Bound to the form's submit, so Enter and the button both reach here.
+			if ( event && typeof event.preventDefault === 'function' ) { event.preventDefault(); }
+			const ctx = getContext();
+			if ( ! ctx.restNonce || ! ctx.spaceId ) { return; }
+			const root  = ( event.target.closest( '[data-bn-invite-form]' ) ) || document;
+			const input = root.querySelector( '[data-bn-invite-identifier]' );
+			const identifier = input ? String( input.value || '' ).trim() : '';
+			if ( ! identifier ) {
+				bnToast( t( 'enterIdentifier', 'Enter a username or email address.' ), { tone: 'danger' } );
+				if ( input ) { input.focus(); }
+				return;
+			}
+			const btn = root.querySelector( 'button' );
+			if ( btn ) { btn.disabled = true; }
+			try {
+				const res = yield restFetch( '/spaces/' + ctx.spaceId + '/invite', {
+					method: 'POST',
+					nonce: ctx.restNonce,
+					body: { identifier: identifier },
+					toastOnError: false,
+				} );
+				if ( res.ok ) {
+					bnToast( t( 'inviteSent', 'Invitation sent.' ), { tone: 'success' } );
+					if ( input ) { input.value = ''; }
+				} else {
+					const msg = ( res.data && res.data.message ) ? res.data.message : t( 'inviteFailed', 'Could not send the invitation.' );
+					bnToast( msg, { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( t( 'inviteFailed', 'Could not send the invitation.' ), { tone: 'danger' } );
+			} finally {
+				if ( btn ) { btn.disabled = false; }
+			}
+		},
 	},
 } );
 

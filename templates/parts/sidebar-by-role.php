@@ -8,8 +8,10 @@
  *
  * Data sources:
  *   - `count_users()`        — WordPress role → count map.
- *   - `member_types` service — BuddyNext custom member-type counts (via
- *                              MemberTypeService::get_all_with_counts()).
+ *   - `member_types` service — type definitions (names/slugs), with per-type
+ *                              counts sourced from
+ *                              MemberDirectoryService::type_member_counts() so
+ *                              they match the directory list + "By type" facet.
  *
  * Render shape:
  *
@@ -92,8 +94,21 @@ if ( $bn_admin_count > 0 ) {
 $bn_type_rows = array();
 if ( function_exists( 'buddynext_service' ) ) {
 	$bn_service = buddynext_service( 'member_types' );
-	if ( is_object( $bn_service ) && method_exists( $bn_service, 'get_all_with_counts' ) ) {
-		$bn_type_rows_raw = (array) $bn_service->get_all_with_counts();
+	if ( is_object( $bn_service ) && method_exists( $bn_service, 'get_all' ) ) {
+		// Type definitions for names/slugs; counts come from the directory service
+		// so this card matches the "By type" facet and the filtered list exactly
+		// (orphan-free, discovery-gated, viewer excluded) rather than raw assignment
+		// rows. Types with no directory-visible members resolve to 0 and are skipped
+		// by the <= 0 guard below.
+		$bn_type_rows_raw = (array) $bn_service->get_all();
+		$bn_dir_service   = buddynext_service( 'member_directory' );
+		$bn_type_counts   = ( is_object( $bn_dir_service ) && method_exists( $bn_dir_service, 'type_member_counts' ) )
+			? (array) $bn_dir_service->type_member_counts( get_current_user_id() )
+			: array();
+		foreach ( $bn_type_rows_raw as &$bn_type_row ) {
+			$bn_type_row['member_count'] = (int) ( $bn_type_counts[ (int) ( $bn_type_row['id'] ?? 0 ) ] ?? 0 );
+		}
+		unset( $bn_type_row );
 		usort(
 			$bn_type_rows_raw,
 			static function ( array $a, array $b ): int {

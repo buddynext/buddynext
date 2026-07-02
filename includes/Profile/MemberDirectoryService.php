@@ -28,6 +28,30 @@ class MemberDirectoryService {
 	private const DEFAULT_LIMIT = 20;
 
 	/**
+	 * Cap on the directory total — the COUNT subquery stops here so it never scans
+	 * the full match set at 50k members; the directory shows/pages a bounded count
+	 * (an exact total is noise on a list people browse a few pages of). Kept in sync
+	 * with the server-rendered directory's $bn_count_cap.
+	 */
+	private const DIRECTORY_COUNT_CAP = 1000;
+
+	/**
+	 * Object-cache key for the viewer-independent, discovery-gated per-type member
+	 * counts (see type_member_counts()). Stored in the 'buddynext' group and busted
+	 * by MemberTypeService on the same events as its own counts cache (type
+	 * create/update/delete, member assign/remove).
+	 */
+	public const TYPE_COUNTS_CACHE_KEY = 'bn_dir_type_counts';
+
+	/**
+	 * TTL for the gated per-type count cache. Event-busted, so this only bounds
+	 * staleness from raw user deletion (which can orphan an assignment row without
+	 * firing a member-type event) — the INNER JOIN wp_users already keeps orphans
+	 * out of the number, this just refreshes the cached snapshot.
+	 */
+	private const TYPE_COUNTS_TTL = 3600;
+
+	/**
 	 * Return a cursor-paginated list of members.
 	 *
 	 * Supported $filters keys:
@@ -117,10 +141,12 @@ class MemberDirectoryService {
 		// Build SELECT — scalar subqueries for computed card fields.
 		// ------------------------------------------------------------------ //
 
-		// is_online is resolved after the main query via update_meta_cache() to avoid
-		// an N+1 subquery per row. The SELECT column is omitted intentionally.
-
-		$follower_count_subquery = "(SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows f WHERE f.following_id = u.ID) AS follower_count";
+		// follower_count is resolved after the main query from the denormalised
+		// bn_follower_count usermeta (T9), so it matches FollowService::follower_count()
+		// exactly instead of a second, divergent per-row COUNT(*) subquery that also
+		// counted pending follows. is_online is resolved from the last_active column the
+		// always-present bn_presence JOIN selects (see below). Both SELECT columns are
+		// omitted from the scalar-subquery block here.
 
 		// mutual_connection_count is computed post-query to avoid the MySQL 5.7
 		// "Can't reopen table" error that occurs when bn_connections is referenced
@@ -175,50 +201,30 @@ class MemberDirectoryService {
 			);
 		}
 
-		// Online-only / most_active JOIN — the indexed bn_presence table replaces the
-		// non-sargable CAST(meta_value) scan over wp_usermeta. last_active is an INT
-		// column with its own KEY, so the online filter / sort become index-friendly.
-		// When present, last_active is also selected so the cursor reads it from the
-		// row instead of a per-row meta lookup.
-		$presence_select = '';
-		if ( $online_only || 'online' === $sort || 'most_active' === $sort ) {
-			$joins[]         = "LEFT JOIN {$wpdb->prefix}bn_presence AS pres ON pres.user_id = u.ID";
-			$presence_select = ', COALESCE(pres.last_active, 0) AS last_active';
-		}
+		// bn_presence LEFT JOIN — always present. The online filter/sort use the
+		// indexed INT last_active column (sargable, unlike the old CAST(meta_value)
+		// usermeta scan), AND every card's is_online dot reads last_active straight
+		// from the row. That folds what was a per-card last_active_at() lookup (an N+1
+		// across the page) into this one query; bn_presence.user_id is the PK, so the
+		// join is a single index lookup per row.
+		$joins[]         = "LEFT JOIN {$wpdb->prefix}bn_presence AS pres ON pres.user_id = u.ID";
+		$presence_select = ', COALESCE(pres.last_active, 0) AS last_active';
 
-		$join_sql = $joins ? ( "\n" . implode( "\n", $joins ) ) : '';
+		// $joins always carries at least the bn_presence JOIN above, so no empty guard.
+		$join_sql = "\n" . implode( "\n", $joins );
 
 		// ------------------------------------------------------------------ //
 		// Build WHERE clauses.
 		// ------------------------------------------------------------------ //
 
-		// Exclude suspended and shadow-banned users.
-		// Uses NOT EXISTS instead of NOT IN to avoid MySQL 5.7 "Can't reopen table" error
-		// when combined with the self-joined bn_connections mutual_subquery.
-		$where_clauses = array(
-			'u.ID != %d',
-			"NOT EXISTS (
-			    SELECT 1 FROM {$wpdb->prefix}bn_user_suspensions s_ex
-			    WHERE s_ex.user_id = u.ID
-			      AND s_ex.lifted_at IS NULL
-			      AND (s_ex.expires_at IS NULL OR s_ex.expires_at > UTC_TIMESTAMP())
-			  )",
-			"NOT EXISTS (
-			    SELECT 1 FROM {$wpdb->usermeta} um_ban
-			    WHERE um_ban.user_id = u.ID
-			      AND um_ban.meta_key = 'bn_shadow_banned'
-			      AND um_ban.meta_value = '1'
-			  )",
-			// Honor the "Show me in the member directory" privacy toggle
-			// (usermeta bn_privacy_show_in_directory). Default-visible: only
-			// members who EXPLICITLY set the meta to '0' are excluded; an
-			// absent meta (every existing member) leaves them listed.
-			"NOT EXISTS (
-			    SELECT 1 FROM {$wpdb->usermeta} um_dir
-			    WHERE um_dir.user_id = u.ID
-			      AND um_dir.meta_key = 'bn_privacy_show_in_directory'
-			      AND um_dir.meta_value = '0'
-			  )",
+		// Exclude suspended / shadow-banned / directory-opted-out users. NOT EXISTS
+		// (not NOT IN) both avoids the MySQL 5.7 "Can't reopen table" error with the
+		// self-joined mutual subquery AND stays bounded at scale. The three clauses
+		// are the canonical set shared with the server-rendered directory
+		// (directory_exclusion_subqueries) so the two surfaces never diverge.
+		$where_clauses = array_merge(
+			array( 'u.ID != %d' ),
+			$this->directory_exclusion_subqueries( 'u.ID' )
 		);
 
 		// Bidirectional block exclusion — viewer should not see users they have
@@ -238,32 +244,20 @@ class MemberDirectoryService {
 		}
 
 		if ( '' !== $search ) {
-			$like_search = '%' . $wpdb->esc_like( $search ) . '%';
-
-			// Always match core identity columns.
-			$search_or = array(
-				'u.display_name LIKE %s',
-				'u.user_login LIKE %s',
-			);
-			$params[]  = $like_search;
-			$params[]  = $like_search;
-
-			// Dynamically OR-match every searchable field's privacy-safe mirror.
-			// One correlated EXISTS per mirror key; the mirror only contains
-			// public-visibility values, so this stays privacy-safe with no
-			// per-row checks. Each EXISTS is its own bn_field_{key} usermeta row.
-			foreach ( $this->searchable_mirror_keys() as $meta_key ) {
-				$search_or[] = "EXISTS (
-				    SELECT 1 FROM {$wpdb->usermeta} um_search
-				    WHERE um_search.user_id = u.ID
-				      AND um_search.meta_key = %s
-				      AND um_search.meta_value LIKE %s
-				  )";
-				$params[]    = $meta_key;
-				$params[]    = $like_search;
+			// Route through the shared FULLTEXT bn_search_index engine (the same
+			// SearchService::match_member_ids() primitive the SSR directory, unified
+			// search, Explore, and /search/members use) so EVERY member-search surface
+			// returns the same members for a query. Matched on indexed content (display
+			// name + bio + headline + public searchable fields), not a per-mirror
+			// leading-wildcard usermeta scan. The suspended/shadowban/dir-opt-out/block
+			// gate already lives in $where_clauses above; this adds only the match set
+			// (intval-interpolated, no placeholders). An empty match → no results.
+			$match_ids = buddynext_service( 'search' )->match_member_ids( $search );
+			if ( empty( $match_ids ) ) {
+				$where_clauses[] = '1 = 0';
+			} else {
+				$where_clauses[] = 'u.ID IN ( ' . implode( ',', array_map( 'intval', $match_ids ) ) . ' )';
 			}
-
-			$where_clauses[] = '(' . implode( ' OR ', $search_or ) . ')';
 		}
 
 		if ( '' !== $location ) {
@@ -272,15 +266,24 @@ class MemberDirectoryService {
 		}
 
 		if ( '' !== $member_type ) {
-			// Filter by the bn_member_type write-through usermeta (the fast-read
-			// cache MemberTypeService maintains on every assign).
-			$where_clauses[] = "EXISTS ( SELECT 1 FROM {$wpdb->usermeta} um_mtype WHERE um_mtype.user_id = u.ID AND um_mtype.meta_key = 'bn_member_type' AND um_mtype.meta_value = %s )";
-			$params[]        = $member_type;
+			// Filter via the indexed bn_member_type_assignments table (idx_type_id)
+			// instead of the unindexable bn_member_type usermeta value scan. An
+			// unknown slug resolves to type_id 0 → matches nobody (correct empty set).
+			$mt_row          = buddynext_service( 'member_types' )->get_by_slug( $member_type );
+			$mt_id           = ( is_array( $mt_row ) && isset( $mt_row['id'] ) ) ? (int) $mt_row['id'] : 0;
+			$where_clauses[] = "EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_member_type_assignments mta WHERE mta.user_id = u.ID AND mta.type_id = %d )";
+			$params[]        = $mt_id;
 		}
 
 		if ( $online_only ) {
-			$where_clauses[] = 'pres.last_active > UNIX_TIMESTAMP() - 300';
+			$where_clauses[] = 'pres.last_active > UNIX_TIMESTAMP() - ' . PresenceService::ONLINE_WINDOW;
 		}
+
+		// Snapshot the filter-only WHERE for the bounded total (A6e): the count must NOT
+		// carry the keyset cursor added below, or the "N members" label would shrink as
+		// the client pages deeper. Same filter set + cap as the page query, no cursor.
+		$count_clauses = $where_clauses;
+		$count_params  = $params;
 
 		// ------------------------------------------------------------------ //
 		// Cursor WHERE — per-sort composite keyset.
@@ -313,10 +316,12 @@ class MemberDirectoryService {
 
 				case 'newest':
 				default:
-					if ( isset( $cursor_data['registered'], $cursor_data['id'] ) ) {
-						$where_clauses[] = '(u.user_registered < %s OR (u.user_registered = %s AND u.ID < %d))';
-						$params[]        = $cursor_data['registered'];
-						$params[]        = $cursor_data['registered'];
+					// Keyset on the PRIMARY KEY: for an AUTO_INCREMENT users table ID
+					// order IS registration order, so `u.ID < cursor` is a clean index
+					// range (no filesort, no unindexed user_registered range). A legacy
+					// cursor that still carries 'registered' is honoured via its 'id'.
+					if ( isset( $cursor_data['id'] ) ) {
+						$where_clauses[] = 'u.ID < %d';
 						$params[]        = (int) $cursor_data['id'];
 					}
 					break;
@@ -341,7 +346,10 @@ class MemberDirectoryService {
 
 			case 'newest':
 			default:
-				$order_sql = 'ORDER BY u.user_registered DESC, u.ID DESC';
+				// ID DESC == newest-first on an AUTO_INCREMENT users table, and ID is
+				// the PRIMARY KEY — a pure backward index scan, no filesort (wp_users
+				// has no index on user_registered).
+				$order_sql = 'ORDER BY u.ID DESC';
 				break;
 		}
 
@@ -370,8 +378,7 @@ class MemberDirectoryService {
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT u.ID, u.display_name, u.user_login, u.user_registered{$presence_select},
-				        {$follower_count_subquery}
+				"SELECT u.ID, u.display_name, u.user_login, u.user_registered{$presence_select}
 				 FROM {$wpdb->users} u
 				 {$join_sql}
 				 WHERE {$where_sql}
@@ -383,9 +390,14 @@ class MemberDirectoryService {
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
-		// Fetch total count (without LIMIT) for the same filter set.
-		$count_params   = array_slice( $params, 0, count( $params ) - 1 );
-		$count_params[] = PHP_INT_MAX;
+		// Bounded total for the same filter set — the inner SELECT stops at the cap, so
+		// COUNT never scans the full 50k match set. The directory shows/pages a capped
+		// total (an exact "47,213" is noise; people browse a few pages, not page 2500).
+		// Matches the server-rendered directory's cap so the two surfaces agree.
+		// Use the pre-cursor snapshot (A6e) so the total is stable across pages, and the
+		// same cap as the page query so the two surfaces agree.
+		$count_where_sql = implode( "\n   AND ", $count_clauses );
+		$count_params[]  = self::DIRECTORY_COUNT_CAP;
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$total = (int) $wpdb->get_var(
 			$wpdb->prepare(
@@ -393,7 +405,7 @@ class MemberDirectoryService {
 				    SELECT u.ID
 				    FROM {$wpdb->users} u
 				    {$join_sql}
-				    WHERE {$where_sql}
+				    WHERE {$count_where_sql}
 				    LIMIT %d
 				 ) AS _ct",
 				...$count_params
@@ -459,10 +471,10 @@ class MemberDirectoryService {
 
 		$blocks = buddynext_service( 'blocks' );
 
-		// Prime the user + usermeta caches for the whole page in two queries so
-		// the per-row get_avatar_url() (user/email lookup), get_user_meta()
-		// (bio) and is_user_online() (last-active meta) below are cache hits
-		// rather than an N+1 across the page.
+		// Prime the user + usermeta caches for the whole page in two queries so the
+		// per-row get_avatar_url() (user/email lookup) and get_user_meta() (bio) below
+		// are cache hits rather than an N+1 across the page. Presence is already on the
+		// row via the bn_presence JOIN, and follower counts are batch-resolved below.
 		$row_ids = array_values( array_filter( array_map( static fn( $r ) => (int) $r['ID'], $rows ) ) );
 		if ( $row_ids ) {
 			cache_users( $row_ids );
@@ -472,8 +484,31 @@ class MemberDirectoryService {
 			$blocks->prime_restricted_cache( $viewer_id, $row_ids );
 		}
 
+		// Resolve follower counts from the denormalised bn_follower_count usermeta
+		// (primed by update_meta_cache above), keeping the directory consistent with the
+		// profile + O(1) per card. Any member whose counter row isn't seeded yet is
+		// recounted once here, so the directory self-heals a page at a time (bounded to
+		// the page size) instead of re-scanning bn_follows on every load forever.
+		$follower_counts = array();
+		$needs_recount   = array();
+		foreach ( $row_ids as $uid ) {
+			$meta = get_user_meta( $uid, 'bn_follower_count', true );
+			if ( '' === $meta ) {
+				$needs_recount[] = $uid;
+			} else {
+				$follower_counts[ $uid ] = (int) $meta;
+			}
+		}
+		if ( $needs_recount ) {
+			$counters = buddynext_service( 'counters' );
+			foreach ( $needs_recount as $uid ) {
+				$counters->recount_follow_counts( $uid );
+				$follower_counts[ $uid ] = (int) get_user_meta( $uid, 'bn_follower_count', true );
+			}
+		}
+
 		$items = array_map(
-			static function ( $r ) use ( $mutual_counts, $viewer_id, $blocks ) {
+			static function ( $r ) use ( $mutual_counts, $follower_counts, $viewer_id, $blocks ) {
 				$uid = (int) $r['ID'];
 				$bio = get_user_meta( $uid, 'bn_field_bio', true );
 				return array(
@@ -482,8 +517,10 @@ class MemberDirectoryService {
 					'avatar_url'              => get_avatar_url( $uid, array( 'size' => 96 ) ),
 					'registered_at'           => $r['user_registered'],
 					'bio'                     => $bio ? $bio : '',
-					'is_online'               => $blocks->is_user_online( $viewer_id, $uid ),
-					'follower_count'          => (int) $r['follower_count'],
+					// last_active comes from the always-present bn_presence JOIN, so this
+					// resolves with no per-card presence query (restrict gate still applies).
+					'is_online'               => $blocks->is_user_online_at( $viewer_id, $uid, (int) ( $r['last_active'] ?? 0 ) ),
+					'follower_count'          => $follower_counts[ $uid ] ?? 0,
 					'mutual_connection_count' => $mutual_counts[ $uid ] ?? 0,
 				);
 			},
@@ -529,47 +566,221 @@ class MemberDirectoryService {
 	}
 
 	/**
-	 * User IDs the directory must exclude from results.
+	 * The three literal exclusion subqueries every directory surface applies:
+	 * active suspensions, shadow-bans, and the "Show me in the member directory"
+	 * opt-out. Correlated `NOT EXISTS` (each indexed by user_id / meta_key) so the
+	 * cost is bounded and there is no materialised id list. Shared verbatim by
+	 * list_members() (REST) and directory_filter_sql() (SSR) so the two never
+	 * diverge. The fragments carry NO placeholders — $user_col is a caller-supplied
+	 * column reference (`u.ID` / `wp_users.ID`), never user input.
 	 *
-	 * Mirrors the exclusion list_members() applies (active suspensions +
-	 * shadow-banned), so the server-rendered first page (built with a
-	 * WP_User_Query in templates/directory/members.php) hides the exact same
-	 * members the REST/live pipeline does. The suspension gate matches
-	 * list_members() (lifted_at IS NULL + not expired), not the hide_posts
-	 * variant used by moderation_exclude_sql(), so the two surfaces never
-	 * diverge. The viewer is NOT added here — callers append it themselves
-	 * because some surfaces include the viewer.
+	 * The suspension + shadow-ban part is the shared DISCOVERY gate (ANY active
+	 * suspension, the discoverability rule) — identical to
+	 * ModerationService::discovery_exclude_sql(), emitted as NOT EXISTS (not NOT IN)
+	 * because a NOT IN subquery can't be reopened alongside this query's self-joined
+	 * mutual-connection subquery on MySQL 5.7. Do NOT converge onto
+	 * moderation_exclude_sql() — that is the hide_posts content gate, a different rule.
 	 *
-	 * When a $viewer_id is supplied, both-direction block relationships are
-	 * also excluded (users the viewer blocked + users who blocked the viewer),
-	 * matching the REST pipeline's block_exclude_sql() so the first server-
-	 * rendered page does not leak blocked members on a no-JS / hard reload.
-	 *
-	 * @param int $viewer_id Optional. Viewing user, used to fold in their block
-	 *                       relationships. Default 0 (no block exclusion).
-	 * @return int[] Distinct user IDs to exclude.
+	 * @param string $user_col Correlated user-id column for the outer query.
+	 * @return string[] Three `NOT EXISTS (...)` clause strings.
 	 */
-	public function excluded_user_ids( int $viewer_id = 0 ): array {
+	private function directory_exclusion_subqueries( string $user_col ): array {
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$suspended = $wpdb->get_col(
-			"SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
-			 WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())"
+		return array(
+			"NOT EXISTS (
+			    SELECT 1 FROM {$wpdb->prefix}bn_user_suspensions s_ex
+			    WHERE s_ex.user_id = {$user_col}
+			      AND s_ex.lifted_at IS NULL
+			      AND (s_ex.expires_at IS NULL OR s_ex.expires_at > UTC_TIMESTAMP())
+			  )",
+			"NOT EXISTS (
+			    SELECT 1 FROM {$wpdb->usermeta} um_ban
+			    WHERE um_ban.user_id = {$user_col}
+			      AND um_ban.meta_key = 'bn_shadow_banned'
+			      AND um_ban.meta_value = '1'
+			  )",
+			"NOT EXISTS (
+			    SELECT 1 FROM {$wpdb->usermeta} um_dir
+			    WHERE um_dir.user_id = {$user_col}
+			      AND um_dir.meta_key = 'bn_privacy_show_in_directory'
+			      AND um_dir.meta_value = '0'
+			  )",
 		);
+	}
 
-		$shadow_banned = $wpdb->get_col(
+	/**
+	 * Per-member-type counts that MATCH the directory listing exactly.
+	 *
+	 * Counts are computed with the SAME predicate list_members() applies for a
+	 * `member_type` filter: an INNER JOIN to wp_users (so assignment rows left
+	 * behind for deleted users never inflate the number) plus the shared
+	 * suspended / shadow-banned / directory-opt-out discovery gate, then the viewer
+	 * is removed from their own type(s) to mirror list_members()'s `u.ID != viewer`.
+	 * The net effect: clicking a "By type" facet of N lands on a list of exactly N
+	 * members.
+	 *
+	 * Caching split: the heavy grouped scan is VIEWER-INDEPENDENT (discovery gate
+	 * only) so it is cached once under TYPE_COUNTS_CACHE_KEY and shared by every
+	 * viewer; the per-viewer part is only a single indexed lookup of the viewer's
+	 * own type ids, subtracted at read time — so no per-viewer cache entry is
+	 * needed. (The viewer's bidirectional blocks are NOT folded in here, unlike the
+	 * live list, because that would make the count viewer-specific and defeat the
+	 * shared cache; blocks in the directory are rare and only ever shift a facet by
+	 * the count of blocked members in that one type.)
+	 *
+	 * @param int $viewer_id Viewing user (removed from their own type counts).
+	 * @return array<int,int> type_id => visible member count.
+	 */
+	public function type_member_counts( int $viewer_id = 0 ): array {
+		$counts = $this->gated_type_member_counts();
+
+		if ( $viewer_id > 0 ) {
+			foreach ( $this->viewer_directory_type_ids( $viewer_id ) as $type_id ) {
+				if ( isset( $counts[ $type_id ] ) && $counts[ $type_id ] > 0 ) {
+					--$counts[ $type_id ];
+				}
+			}
+		}
+
+		return $counts;
+	}
+
+	/**
+	 * Viewer-independent, discovery-gated member count per type_id.
+	 *
+	 * One grouped query: assignment rows INNER JOINed to wp_users (orphan-free)
+	 * and filtered by the shared directory discovery gate, GROUP BY type_id. Cached
+	 * in the 'buddynext' group; MemberTypeService busts TYPE_COUNTS_CACHE_KEY on
+	 * every type/assignment change so the snapshot stays fresh.
+	 *
+	 * @return array<int,int> type_id => gated member count (types with no gated members are absent).
+	 */
+	private function gated_type_member_counts(): array {
+		$cached = wp_cache_get( self::TYPE_COUNTS_CACHE_KEY, 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		global $wpdb;
+
+		// The gate fragments carry NO placeholders (they interpolate only trusted
+		// table names / literal meta keys), so they are safe to embed directly.
+		$exclusions = implode( "\n     AND ", $this->directory_exclusion_subqueries( 'u.ID' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			"SELECT mta.type_id AS type_id, COUNT(*) AS member_count
+			   FROM {$wpdb->prefix}bn_member_type_assignments mta
+			   INNER JOIN {$wpdb->users} u ON u.ID = mta.user_id
+			  WHERE {$exclusions}
+			  GROUP BY mta.type_id",
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$counts = array();
+		foreach ( (array) $rows as $row ) {
+			$counts[ (int) $row['type_id'] ] = (int) $row['member_count'];
+		}
+
+		wp_cache_set( self::TYPE_COUNTS_CACHE_KEY, $counts, 'buddynext', self::TYPE_COUNTS_TTL ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $counts;
+	}
+
+	/**
+	 * The type ids the viewer is discovery-visible under (usually one in Free).
+	 *
+	 * Returns a type id ONLY when the viewer both holds that type AND passes the
+	 * discovery gate — i.e. exactly the rows that were counted in
+	 * gated_type_member_counts() — so subtracting one per returned id can never
+	 * push a facet negative or double-subtract a gated-out viewer. Single indexed
+	 * lookup on the viewer's user_id; not cached (already O(1)).
+	 *
+	 * @param int $viewer_id Viewing user.
+	 * @return int[] Type ids to decrement for this viewer.
+	 */
+	private function viewer_directory_type_ids( int $viewer_id ): array {
+		global $wpdb;
+
+		$exclusions = implode( "\n     AND ", $this->directory_exclusion_subqueries( 'u.ID' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$ids = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT user_id FROM {$wpdb->usermeta}
-				 WHERE meta_key = %s AND meta_value = '1'",
-				'bn_shadow_banned'
+				"SELECT mta.type_id
+				   FROM {$wpdb->prefix}bn_member_type_assignments mta
+				   INNER JOIN {$wpdb->users} u ON u.ID = mta.user_id
+				  WHERE mta.user_id = %d
+				    AND {$exclusions}",
+				$viewer_id
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-		$blocked = $viewer_id > 0 ? buddynext_service( 'blocks' )->block_related_ids( $viewer_id ) : array();
+		return array_map( 'intval', (array) $ids );
+	}
 
-		return array_values( array_unique( array_map( 'intval', array_merge( (array) $suspended, (array) $shadow_banned, $blocked ) ) ) );
+	/**
+	 * Build the directory WHERE-injection fragment for the server-rendered page
+	 * (templates/directory/members.php). Returns the SAME exclusion + filter logic
+	 * list_members() applies — suspended/shadowban/dir-optout NOT EXISTS, the
+	 * bidirectional block exclusion, the member-type filter (indexed
+	 * bn_member_type_assignments, NOT a usermeta value scan), and the online filter
+	 * (indexed bn_presence EXISTS) — as correlated subqueries, never as a
+	 * materialised IN / NOT IN id list. The SSR injects the prepared fragment via a
+	 * `pre_user_query` clause so the WP_User_Query (and its COUNT) stay bounded at
+	 * 50k members.
+	 *
+	 * @param int    $viewer_id Viewing user (folds in their block relationships).
+	 * @param array  $args      { member_type?: string slug, online_only?: bool }.
+	 * @param string $user_col  Correlated user-id column (e.g. "wp_users.ID").
+	 * @return array{0:string,1:array} [ SQL fragment with %d/%s placeholders, prepare params ].
+	 */
+	public function directory_filter_sql( int $viewer_id, array $args, string $user_col ): array {
+		global $wpdb;
+
+		// Exclude the viewer themselves (matches list_members' `u.ID != %d`; for a
+		// logged-out viewer this is `!= 0`, which excludes nobody), then the shared
+		// suspended / shadow-banned / directory-opt-out subqueries.
+		$clauses = array_merge(
+			array( "{$user_col} != %d" ),
+			$this->directory_exclusion_subqueries( $user_col )
+		);
+		$params  = array( $viewer_id );
+
+		// Bidirectional block exclusion — the one canonical builder list_members
+		// uses (forward + reverse `block`). Empty for logged-out viewers.
+		[ $block_sql, $block_params ] = buddynext_service( 'privacy' )->block_exclude_sql(
+			$viewer_id,
+			$user_col,
+			array( 'block' ),
+			array( 'block' )
+		);
+		if ( '' !== $block_sql ) {
+			$clauses[] = $block_sql;
+			$params    = array_merge( $params, $block_params );
+		}
+
+		// Member-type filter via the indexed assignments table (idx_type_id) rather
+		// than the unindexable bn_member_type usermeta value scan. An unknown slug
+		// resolves to type_id 0 → matches nobody (correct empty result).
+		$member_type = isset( $args['member_type'] ) ? (string) $args['member_type'] : '';
+		if ( '' !== $member_type ) {
+			$type_row  = buddynext_service( 'member_types' )->get_by_slug( $member_type );
+			$type_id   = ( is_array( $type_row ) && isset( $type_row['id'] ) ) ? (int) $type_row['id'] : 0;
+			$clauses[] = "EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_member_type_assignments mta WHERE mta.user_id = {$user_col} AND mta.type_id = %d )";
+			$params[]  = $type_id;
+		}
+
+		// Online filter — indexed bn_presence range, EXISTS not a 30-50k IN list.
+		if ( ! empty( $args['online_only'] ) ) {
+			$online_window = PresenceService::ONLINE_WINDOW;
+			$clauses[]     = "EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_presence p_on WHERE p_on.user_id = {$user_col} AND p_on.last_active > UNIX_TIMESTAMP() - {$online_window} )";
+		}
+
+		return array( implode( ' AND ', $clauses ), $params );
 	}
 
 	/**
@@ -585,6 +796,103 @@ class MemberDirectoryService {
 		// Indexed range scan over bn_presence (was a non-sargable CAST(meta_value)
 		// scan over wp_usermeta).
 		return PresenceService::online_ids();
+	}
+
+	/**
+	 * Of a page of member IDs, which are active within the online window (<5 min).
+	 *
+	 * One bounded `IN` query over the indexed bn_presence table, replacing the
+	 * per-card `PresenceService::last_active_at()` lookup (uncached, one query each)
+	 * the server-rendered grid issued per member — the cold-cache online-dot N+1.
+	 *
+	 * @param int[] $user_ids Page member IDs.
+	 * @return array<int,true> Online subset as a user_id => true lookup map.
+	 */
+	public function online_among( array $user_ids ): array {
+		global $wpdb;
+
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		$in = implode( ',', $ids );
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$wpdb->prefix}bn_presence WHERE user_id IN ({$in}) AND last_active >= %d",
+				time() - PresenceService::ONLINE_WINDOW
+			)
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$map = array();
+		foreach ( (array) $rows as $uid ) {
+			$map[ (int) $uid ] = true;
+		}
+		return $map;
+	}
+
+	/**
+	 * For a page of member IDs, return each member's mutual connections with the
+	 * viewer (connection peers shared by BOTH the viewer and that member).
+	 *
+	 * Two batched queries (the viewer's accepted peers, then the shared-peer join)
+	 * for the whole page, replacing the per-card `mutual_connections()` self-join
+	 * the grid issued per member — the cold-cache mutual N+1. Mirrors the set-based
+	 * mutual logic list_members() uses, but returns the peer IDs (the grid derives
+	 * both the count and the first-N avatar pile from them).
+	 *
+	 * @param int   $viewer_id  Viewing user.
+	 * @param int[] $member_ids Page member IDs.
+	 * @return array<int,int[]> member_id => mutual peer user IDs.
+	 */
+	public function mutual_peers_for_page( int $viewer_id, array $member_ids ): array {
+		global $wpdb;
+
+		$member_ids = array_values( array_unique( array_filter( array_map( 'intval', $member_ids ) ) ) );
+		if ( $viewer_id <= 0 || empty( $member_ids ) ) {
+			return array();
+		}
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$viewer_peer_ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT CASE WHEN c.requester_id = %d THEN c.recipient_id ELSE c.requester_id END
+				 FROM {$wpdb->prefix}bn_connections c
+				 WHERE c.status = 'accepted' AND ( c.requester_id = %d OR c.recipient_id = %d )",
+				$viewer_id,
+				$viewer_id,
+				$viewer_id
+			)
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$viewer_peer_ids = array_values( array_unique( array_map( 'intval', (array) $viewer_peer_ids ) ) );
+		if ( empty( $viewer_peer_ids ) ) {
+			return array();
+		}
+
+		$uid_in  = implode( ',', $member_ids );
+		$peer_in = implode( ',', $viewer_peer_ids );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			"SELECT CASE WHEN c.requester_id IN ({$uid_in}) THEN c.requester_id ELSE c.recipient_id END AS target_id,
+			        CASE WHEN c.requester_id IN ({$uid_in}) THEN c.recipient_id ELSE c.requester_id END AS peer_id
+			 FROM {$wpdb->prefix}bn_connections c
+			 WHERE c.status = 'accepted'
+			   AND ( c.requester_id IN ({$uid_in}) OR c.recipient_id IN ({$uid_in}) )
+			   AND ( CASE WHEN c.requester_id IN ({$uid_in}) THEN c.recipient_id ELSE c.requester_id END ) IN ({$peer_in})",
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$map = array();
+		foreach ( (array) $rows as $r ) {
+			$map[ (int) $r['target_id'] ][] = (int) $r['peer_id'];
+		}
+		return $map;
 	}
 
 	/**
@@ -608,6 +916,11 @@ class MemberDirectoryService {
 		// returning up to $limit visible members.
 		$fetch = $limit * 3;
 
+		// Same discovery gate the directory queries use — reuse the one canonical
+		// builder instead of re-inlining the suspended / shadow-banned / opt-out
+		// NOT EXISTS clauses here, so the two surfaces can never drift apart.
+		$exclusions = implode( ' AND ', $this->directory_exclusion_subqueries( 'u.ID' ) );
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
@@ -615,22 +928,10 @@ class MemberDirectoryService {
 				   FROM {$wpdb->users} u
 				   JOIN {$wpdb->prefix}bn_presence pres ON pres.user_id = u.ID
 				  WHERE pres.last_active >= %d
-				    AND NOT EXISTS (
-				        SELECT 1 FROM {$wpdb->prefix}bn_user_suspensions s_ex
-				        WHERE s_ex.user_id = u.ID AND s_ex.lifted_at IS NULL
-				          AND ( s_ex.expires_at IS NULL OR s_ex.expires_at > UTC_TIMESTAMP() )
-				      )
-				    AND NOT EXISTS (
-				        SELECT 1 FROM {$wpdb->usermeta} um_ban
-				        WHERE um_ban.user_id = u.ID AND um_ban.meta_key = 'bn_shadow_banned' AND um_ban.meta_value = '1'
-				      )
-				    AND NOT EXISTS (
-				        SELECT 1 FROM {$wpdb->usermeta} um_dir
-				        WHERE um_dir.user_id = u.ID AND um_dir.meta_key = 'bn_privacy_show_in_directory' AND um_dir.meta_value = '0'
-				      )
+				    AND {$exclusions}
 				  ORDER BY pres.last_active DESC
 				  LIMIT %d",
-				time() - 300,
+				time() - PresenceService::ONLINE_WINDOW,
 				$fetch
 			)
 		);
@@ -658,17 +959,20 @@ class MemberDirectoryService {
 	}
 
 	/**
-	 * Return user IDs whose name, login, email, or any privacy-safe searchable
-	 * field mirror matches a free-text term.
+	 * Return the member IDs matching a free-text directory-search term.
 	 *
-	 * Shares the exact match surface used by list_members() so the
-	 * server-rendered directory page (templates/directory/members.php, which
-	 * builds a WP_User_Query) gets the same dynamic, privacy-aware search as the
-	 * REST/live path — no duplicate matching logic, no mirror search for
-	 * private/tightened values (their mirrors are absent by contract).
+	 * Routes through the shared `SearchService::match_member_ids()` — the same
+	 * FULLTEXT `bn_search_index` primitive the unified search + Explore + the
+	 * `/search/members` endpoint use — so the directory search box and the unified
+	 * search return the SAME members for a query (consistency), matched on indexed
+	 * content (display name + bio + headline + public searchable fields, written by
+	 * ProfileService::index_user) instead of a per-mirror leading-wildcard usermeta
+	 * scan. The directory's own query applies the suspended / shadow-banned / blocked /
+	 * directory-opt-out gate on top of these ids (directory_filter_sql for the SSR
+	 * page; list_members() for REST), so this stays a pure, reusable term-match.
 	 *
 	 * @param string $term Search term.
-	 * @return int[] Matching user IDs (empty array when the term is blank or matches nothing).
+	 * @return int[] Matching member user IDs (empty when the term is blank or matches nothing).
 	 */
 	public function matching_user_ids( string $term ): array {
 		$term = trim( $term );
@@ -676,46 +980,7 @@ class MemberDirectoryService {
 			return array();
 		}
 
-		global $wpdb;
-
-		$like = '%' . $wpdb->esc_like( $term ) . '%';
-
-		// Public directory search matches name + username only (plus the opt-in
-		// searchable profile-field mirrors added below) — never user_email.
-		// Searching a public directory by email enables address enumeration,
-		// which is why LinkedIn / X / Facebook don't allow it either. This keeps
-		// the surface identical to list_members() (no divergence).
-		$ors    = array( 'u.display_name LIKE %s', 'u.user_login LIKE %s' );
-		$params = array( $like, $like );
-
-		foreach ( $this->searchable_mirror_keys() as $meta_key ) {
-			$ors[]    = "EXISTS ( SELECT 1 FROM {$wpdb->usermeta} ums WHERE ums.user_id = u.ID AND ums.meta_key = %s AND ums.meta_value LIKE %s )";
-			$params[] = $meta_key;
-			$params[] = $like;
-		}
-
-		// Honor the directory opt-out here too so the server-rendered directory
-		// search (WP_User_Query built from these IDs) never surfaces a member
-		// who turned off "Show me in the member directory". Default-visible:
-		// only an explicit '0' excludes; an absent meta leaves the member found.
-		$dir_optout = "NOT EXISTS ( SELECT 1 FROM {$wpdb->usermeta} um_dir WHERE um_dir.user_id = u.ID AND um_dir.meta_key = 'bn_privacy_show_in_directory' AND um_dir.meta_value = '0' )";
-
-		// Mirror list_members(): directory search must never surface suspended or
-		// shadow-banned members (this feeds the server-rendered results page).
-		$suspended_ex = "NOT EXISTS ( SELECT 1 FROM {$wpdb->prefix}bn_user_suspensions s_ex WHERE s_ex.user_id = u.ID AND s_ex.lifted_at IS NULL AND ( s_ex.expires_at IS NULL OR s_ex.expires_at > UTC_TIMESTAMP() ) )";
-		$shadow_ex    = "NOT EXISTS ( SELECT 1 FROM {$wpdb->usermeta} um_ban WHERE um_ban.user_id = u.ID AND um_ban.meta_key = 'bn_shadow_banned' AND um_ban.meta_value = '1' )";
-
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$ids = $wpdb->get_col(
-			$wpdb->prepare(
-				// The OR clauses are built internally from %s placeholders; every user value is passed via $params. Static table names + literal opt-out/suspension clauses only. phpcs cannot see the interpolated placeholders.
-				"SELECT u.ID FROM {$wpdb->users} u WHERE ( " . implode( ' OR ', $ors ) . " ) AND {$dir_optout} AND {$suspended_ex} AND {$shadow_ex}", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-				...$params
-			)
-		);
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		return array_map( 'intval', (array) $ids );
+		return buddynext_service( 'search' )->match_member_ids( $term );
 	}
 
 	/**
@@ -733,7 +998,7 @@ class MemberDirectoryService {
 	 *
 	 * @return string[] Usermeta keys, e.g. array( 'bn_field_skills', 'bn_field_role' ).
 	 */
-	private function searchable_mirror_keys(): array {
+	public function searchable_mirror_keys(): array {
 		static $keys = null;
 
 		if ( null !== $keys ) {
@@ -831,9 +1096,10 @@ class MemberDirectoryService {
 
 			case 'newest':
 			default:
+				// ID-only keyset (see the newest WHERE/ORDER BY — ID is registration
+				// order on wp_users and the PRIMARY KEY, so no filesort).
 				$data = array(
-					'registered' => $row['user_registered'],
-					'id'         => (int) $row['ID'],
+					'id' => (int) $row['ID'],
 				);
 				break;
 		}

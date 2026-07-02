@@ -424,6 +424,34 @@ function collectFlatData( wrap ) {
 		// Skip the slug input (handled by its own endpoint) and any repeater fields.
 		if ( el.id === 'bn-ep-slug' ) { return; }
 		if ( /\[\d+\]\[/.test( el.name ) ) { return; }
+
+		// Checkbox GROUP (multiselect / category_multiselect render name="key[]"):
+		// send the checked values as an array under the bare key. The old
+		// `data[el.name] = el.value` path stored a literal "key[]" entry with
+		// whatever checkbox came last, checked or not — the server never
+		// recognised the key, so these fields silently never saved.
+		if ( 'checkbox' === el.type && /\[\]$/.test( el.name ) ) {
+			var groupKey = el.name.slice( 0, -2 );
+			if ( ! Array.isArray( data[ groupKey ] ) ) { data[ groupKey ] = []; }
+			if ( el.checked ) { data[ groupKey ].push( el.value ); }
+			return;
+		}
+
+		// Single checkbox (boolean field): the checked STATE is the value —
+		// reading el.value sent "1" even when unchecked.
+		if ( 'checkbox' === el.type ) {
+			data[ el.name ] = el.checked ? '1' : '';
+			return;
+		}
+
+		// Radio group: only the checked option wins (default empty) — reading
+		// el.value made the LAST rendered option win regardless of selection.
+		if ( 'radio' === el.type ) {
+			if ( ! ( el.name in data ) ) { data[ el.name ] = ''; }
+			if ( el.checked ) { data[ el.name ] = el.value; }
+			return;
+		}
+
 		data[ el.name ] = el.value;
 	} );
 	return data;
@@ -446,7 +474,11 @@ function collectRepeaterEntries( containerId ) {
 	var entries = [];
 	container.querySelectorAll( '.bn-ep-repeater-entry' ).forEach( function ( row ) {
 		var entry = {};
-		row.querySelectorAll( 'input[name], textarea[name]' ).forEach( function ( el ) {
+		// Include select[name] so the per-entry privacy lock (_visibility) is
+		// collected — matches collectFlatData(). Without it the member's privacy
+		// choice on Work Experience / Education rows was never sent and reset to
+		// the default on reload.
+		row.querySelectorAll( 'input[name], textarea[name], select[name]' ).forEach( function ( el ) {
 			var m = el.name.match( /\[\d+\]\[([^\]]+)\]$/ );
 			if ( ! m ) { return; }
 			// Checkboxes (e.g. work_current) store "1" when ticked, "" otherwise —
@@ -468,13 +500,25 @@ function collectRepeaterEntries( containerId ) {
 function buildPayload( ctx ) {
 	var wrap = document.querySelector( '[data-wp-interactive="buddynext/profile"]' );
 	var data = collectFlatData( wrap );
-	var workContainerId = repeaterContainerId( 'work_experience' );
-	if ( document.getElementById( workContainerId ) ) {
-		data.work_experience = collectRepeaterEntries( workContainerId );
+	// EVERY repeater container on the page, not a hardcoded pair: admin-created
+	// repeater groups were invisible to the payload, so their values saved with
+	// a success toast but never reached the server (silent data loss). The
+	// container carries its real group key in data-bn-repeater-group; the two
+	// legacy id lookups remain as a fallback for cached markup without it.
+	var seen = {};
+	var containers = document.querySelectorAll( '[data-bn-repeater-group]' );
+	for ( var i = 0; i < containers.length; i++ ) {
+		var groupKey = containers[ i ].getAttribute( 'data-bn-repeater-group' );
+		if ( groupKey && ! seen[ groupKey ] ) {
+			seen[ groupKey ] = true;
+			data[ groupKey ] = collectRepeaterEntries( containers[ i ].id );
+		}
 	}
-	var eduContainerId = repeaterContainerId( 'education' );
-	if ( document.getElementById( eduContainerId ) ) {
-		data.education = collectRepeaterEntries( eduContainerId );
+	var legacy = [ 'work_experience', 'education' ];
+	for ( var j = 0; j < legacy.length; j++ ) {
+		if ( ! seen[ legacy[ j ] ] && document.getElementById( repeaterContainerId( legacy[ j ] ) ) ) {
+			data[ legacy[ j ] ] = collectRepeaterEntries( repeaterContainerId( legacy[ j ] ) );
+		}
 	}
 	return data;
 }
@@ -690,6 +734,80 @@ function renumberEntries( containerId ) {
 	} );
 }
 
+/* Build the per-entry privacy lock, mirroring the SERVER markup in
+   templates/profile/edit.php ($bn_privacy_select + the .bn-ep-repeater-vis
+   wrapper). A JS-added entry MUST carry this control or its privacy choice can
+   never be set — and the option set must never be looser than the group's admin
+   default (members may only tighten). Preferred path: clone an existing
+   server-rendered `.bn-ep-field-vis` from the SAME container, which reuses the
+   lock icon, labels, and the exact admin-default-filtered option set verbatim
+   (zero drift), then reset to the first offered option — the admin default,
+   matching a freshly server-rendered entry. Fallback (empty repeater, nothing to
+   clone): build the full public→private ladder from $bn_vis_labels, defaulting to
+   "public"; the server re-clamps up to the admin default on save, so this is safe. */
+function buildEntryVisNode( group, index ) {
+	var field = document.createElement( 'div' );
+	field.className = 'bn-ep-field bn-ep-field--full bn-ep-repeater-vis';
+
+	var selectId   = 'bn-ep-' + String( group ).replace( /_/g, '-' ) + '-vis-' + index;
+	var selectName = group + '[' + index + '][_visibility]';
+
+	var container = document.getElementById( repeaterContainerId( group ) );
+	var template  = container ? container.querySelector( '.bn-ep-field-vis' ) : null;
+	if ( template ) {
+		var visClone = template.cloneNode( true );
+		var selClone = visClone.querySelector( '.bn-ep-field-vis__select' );
+		var lblClone = visClone.querySelector( '.bn-ep-field-vis__label' );
+		if ( selClone ) {
+			selClone.id   = selectId;
+			selClone.name = selectName;
+			// First offered option = the admin default (options are rank-ordered
+			// and filtered to >= the admin default), so a new entry starts there.
+			if ( selClone.options.length ) { selClone.selectedIndex = 0; }
+		}
+		if ( lblClone ) { lblClone.setAttribute( 'for', selectId ); }
+		field.appendChild( visClone );
+		return field;
+	}
+
+	var vis = document.createElement( 'span' );
+	vis.className = 'bn-ep-field-vis';
+	vis.setAttribute( 'data-bn-vis', '' );
+
+	var label = document.createElement( 'label' );
+	label.className = 'bn-ep-field-vis__label';
+	label.setAttribute( 'for', selectId );
+	// Vendored Lucide lock, mirroring IconService::render( 'lock', 'bn-ep-vis-lock' ).
+	label.innerHTML = '<svg class="bn-icon bn-ep-vis-lock" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
+	var sr = document.createElement( 'span' );
+	sr.className   = 'screen-reader-text';
+	sr.textContent = t( 'visWhoCanSee', 'Who can see this field' );
+	label.appendChild( sr );
+
+	var select = document.createElement( 'select' );
+	select.className = 'bn-input bn-ep-field-vis__select';
+	select.id        = selectId;
+	select.name      = selectName;
+	select.setAttribute( 'data-wp-on--change', 'actions.markDirty' );
+	// Same slugs + labels as the server's $bn_vis_labels — never a new set.
+	[
+		[ 'public',      t( 'visPublic', 'Public' ) ],
+		[ 'followers',   t( 'visFollowers', 'Followers' ) ],
+		[ 'connections', t( 'visConnections', 'Connections' ) ],
+		[ 'private',     t( 'visPrivate', 'Only me' ) ],
+	].forEach( function ( pair ) {
+		var opt = document.createElement( 'option' );
+		opt.value       = pair[0];
+		opt.textContent = pair[1];
+		select.appendChild( opt );
+	} );
+
+	vis.appendChild( label );
+	vis.appendChild( select );
+	field.appendChild( vis );
+	return field;
+}
+
 /* Build a blank repeater entry DOM node for a given group. */
 function buildEntryNode( group, index ) {
 	var groupConfig = {
@@ -829,6 +947,11 @@ function buildEntryNode( group, index ) {
 		grid.appendChild( field );
 	} );
 
+	// Per-entry privacy lock (the `group[index][_visibility]` control), appended
+	// after the field grid to match the server-rendered entry order in
+	// templates/profile/edit.php.
+	entry.appendChild( buildEntryVisNode( group, index ) );
+
 	return entry;
 }
 
@@ -905,47 +1028,6 @@ function syncDirtyAttr( dirty ) {
 	if ( wrap ) { wrap.dataset.bnDirty = dirty ? '1' : '0'; }
 }
 
-/* -- Tab URL sync ------------------------------------------------------- */
-
-function bnProfileBase() {
-	var base = '';
-	try { base = getContext().profileBaseUrl || ''; } catch ( _e ) {}
-	return base.replace( /\/+$/, '' );
-}
-
-// Derive the active tab from the current URL and write it into reactive state.
-// Used by both Back/Forward (popstate) and BuddyNext client navigation
-// (buddynext:navigated) so arriving at /members/{slug}/{tab}/ via ANY navigation
-// — including a rail/You-section link into a different tab of the same profile —
-// repaints the correct panel. Without this, the persisted profile island keeps
-// its previous context.activeTab and the old panel sticks after a region swap.
-// No-ops when the new URL is outside this profile (a different member / hub):
-// that swap re-hydrates a fresh island which seeds activeTab server-side.
-function syncActiveTabFromUrl( ctx ) {
-	// Read the base from the captured context, NOT bnProfileBase()/getContext():
-	// this runs from a plain event listener where getContext() has no active scope.
-	var base = ( ctx && ctx.profileBaseUrl ) ? String( ctx.profileBaseUrl ).replace( /\/+$/, '' ) : '';
-	if ( ! base ) { return; }
-	try {
-		var basePath = new URL( base, window.location.origin ).pathname.replace( /\/+$/, '' );
-		var path     = window.location.pathname.replace( /\/+$/, '' );
-		if ( path.indexOf( basePath ) !== 0 ) { return; }
-		var tab = path.slice( basePath.length ).replace( /^\/+/, '' ).split( '/' )[ 0 ] || '';
-		ctx.activeTab = tab || 'posts';
-	} catch ( _e ) {}
-}
-
-// Pretty URLs only: push /members/{slug}/{tab}/ (base for 'posts'), never ?tab=.
-// The active tab is reactive state (context.activeTab) — this only mirrors it
-// into the address bar so deep links + Back/Forward work; it never paints DOM.
-function pushTabToUrl( tabId ) {
-	if ( ! window.history || typeof window.history.pushState !== 'function' ) { return; }
-	var base = bnProfileBase();
-	if ( ! base ) { return; }
-	var url = ( tabId && tabId !== 'posts' ) ? base + '/' + tabId + '/' : base + '/';
-	window.history.pushState( { bnTab: tabId }, '', url );
-}
-
 /* -- Store ------------------------------------------------------------- */
 
 const profileStore = store( 'buddynext/profile', {
@@ -972,55 +1054,12 @@ const profileStore = store( 'buddynext/profile', {
 		get slugIsOk()         { return getContext().slugAvailable === true; },
 		get slugIsTaken()      { return getContext().slugAvailable === false; },
 		get slugSaveDisabled() { const c = getContext(); return ! c.slugAvailable || c.slugSaving; },
-		/* Single source of truth for the active profile tab. Each [data-tab-panel]
-		 * carries its own per-panel context (tabSlug) and inherits the region's
-		 * activeTab, so this getter is true only for the panel whose slug matches
-		 * the active tab. Drives data-wp-bind--hidden="!state.isActiveTab" on the
-		 * panels and data-wp-class--active / aria-selected on the tabs and chips. */
-		get isActiveTab() { const c = getContext(); return c.activeTab === c.tabSlug; },
-		/* Branch-active: a parent tab that owns a one-level sub-nav stays lit while
-		 * any of its children is the active tab. The child slug list rides in the
-		 * tab's own context (branch); falls back to the plain tabSlug match so a
-		 * parent with an empty branch behaves like a leaf. Drives the parent tab's
-		 * data-wp-class--active / aria-selected in parts/nav-bar.php. */
-		get isActiveBranch() {
-			const c = getContext();
-			if ( c.activeTab === c.tabSlug ) { return true; }
-			return Array.isArray( c.branch ) && c.branch.indexOf( c.activeTab ) !== -1;
-		},
 	},
 	callbacks: {
 		/* Init for the edit page: register the beforeunload guard once. */
 		initEditGuard() {
 			ensureUnloadGuard();
 			wireCurrentToggles();
-		},
-		/* Init for the view page: keep context.activeTab (seeded server-side from
-		 * the route action for deep links) in sync with Back/Forward. The popstate
-		 * handler only writes the reactive state — the panels' data-wp-bind--hidden
-		 * and the tabs' data-wp-class--active repaint themselves from it. No manual
-		 * DOM toggling. */
-		initView() {
-			const ctx = getContext();
-			if ( ! window.__bnProfileNavBound ) {
-				// Back/Forward: trust the pushed history state, else read the URL.
-				window.addEventListener( 'popstate', function ( event ) {
-					var tab = ( event.state && event.state.bnTab ) || '';
-					if ( tab ) {
-						ctx.activeTab = tab;
-					} else {
-						syncActiveTabFromUrl( ctx );
-					}
-				} );
-				// BuddyNext client navigation (forward link clicks) swaps the router
-				// region without a popstate, so re-sync the tab from the new URL too —
-				// otherwise a You-section link into another tab of THIS profile leaves
-				// the previous panel showing. Same handling as any other navigation.
-				document.addEventListener( 'buddynext:navigated', function () {
-					syncActiveTabFromUrl( ctx );
-				} );
-				window.__bnProfileNavBound = true;
-			}
 		},
 	},
 	actions: {
@@ -1085,33 +1124,6 @@ const profileStore = store( 'buddynext/profile', {
 				if ( btn ) { btn.disabled = false; }
 				bnToast( t( 'deleteAccountFailedRetry', 'Could not delete your account. Please try again.' ), 'danger' );
 			}
-		},
-
-		/* Profile tab switching - Posts / Replies / Media / Likes …
-		 *
-		 * Single source of truth: sets context.activeTab. Every [data-tab-panel]
-		 * reveals/hides itself reactively via data-wp-bind--hidden="!state.isActiveTab"
-		 * and every tab/chip lights up via data-wp-class--active="state.isActiveTab" +
-		 * aria-selected — no DOM is toggled here. The clicked slug is read from the
-		 * element's own context (tabSlug), falling back to its data-tab attribute for
-		 * the hero stat-strip chips (which carry data-tab but no per-element context).
-		 * The pretty URL is pushed so reload + Back/Forward work; popstate (initView)
-		 * mirrors the URL back into context.activeTab.
-		 */
-		setTab( event ) {
-			// Preserve "open in new tab" for modified/middle clicks on stat-chip
-			// links; a plain left-click switches the panel in place (no reload).
-			if ( event && ( event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1 ) ) { return; }
-			const ctx = getContext();
-			let tabId = ctx.tabSlug || '';
-			if ( ! tabId && event && event.target ) {
-				const el = event.target.closest( '[data-tab]' );
-				tabId = el ? el.dataset.tab : '';
-			}
-			if ( ! tabId ) { return; }
-			if ( event && typeof event.preventDefault === 'function' ) { event.preventDefault(); }
-			ctx.activeTab = tabId;
-			pushTabToUrl( tabId );
 		},
 
 		/* Share profile — prefers the native Web Share API (iOS, Android,

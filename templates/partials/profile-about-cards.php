@@ -9,7 +9,7 @@
  *
  * @var array    $work_entries
  * @var array    $edu_entries
- * @var array    $interests
+ * @var array    $interest_chips Interest picks: array{name:string, url:string}[].
  * @var callable $entry_fv
  *
  * @package BuddyNext
@@ -22,7 +22,7 @@ defined( 'ABSPATH' ) || exit;
 
 $bn_pf_work    = isset( $work_entries ) && is_array( $work_entries ) ? $work_entries : array();
 $bn_pf_edu     = isset( $edu_entries ) && is_array( $edu_entries ) ? $edu_entries : array();
-$bn_pf_int     = isset( $interests ) && is_array( $interests ) ? $interests : array();
+$bn_pf_int     = isset( $interest_chips ) && is_array( $interest_chips ) ? $interest_chips : array();
 $bn_pf_noop    = static fn( array $entry_fields, string $field_key ): string => ''; // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter -- default fallback signature.
 $bn_pf_entryfv = isset( $entry_fv ) && is_callable( $entry_fv ) ? $entry_fv : $bn_pf_noop;
 ?>
@@ -122,13 +122,22 @@ $bn_pf_entryfv = isset( $entry_fv ) && is_callable( $entry_fv ) ? $entry_fv : $b
 	</header>
 	<div class="bn-pf-tag-cloud">
 		<?php
-		foreach ( $bn_pf_int as $interest_tag ) :
-			$tag_slug = sanitize_title( (string) $interest_tag );
-			$tag_url  = home_url( '/activity/hashtag/' . $tag_slug . '/' );
+		// Each chip deep-links to the spaces directory filtered to that
+		// category (?bn_cat=slug) — the interest is a discovery surface.
+		foreach ( $bn_pf_int as $bn_pf_chip ) :
+			$bn_pf_chip_name = (string) ( $bn_pf_chip['name'] ?? '' );
+			$bn_pf_chip_url  = (string) ( $bn_pf_chip['url'] ?? '' );
+			if ( '' === $bn_pf_chip_name ) {
+				continue;
+			}
 			?>
-			<a class="bn-pf-tag-chip" href="<?php echo esc_url( $tag_url ); ?>">
-				#<?php echo esc_html( $interest_tag ); ?>
-			</a>
+			<?php if ( '' !== $bn_pf_chip_url ) : ?>
+				<a class="bn-pf-tag-chip" href="<?php echo esc_url( $bn_pf_chip_url ); ?>">
+					<?php echo esc_html( $bn_pf_chip_name ); ?>
+				</a>
+			<?php else : ?>
+				<span class="bn-pf-tag-chip"><?php echo esc_html( $bn_pf_chip_name ); ?></span>
+			<?php endif; ?>
 		<?php endforeach; ?>
 	</div>
 </section>

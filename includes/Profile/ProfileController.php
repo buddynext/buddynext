@@ -566,11 +566,11 @@ class ProfileController extends BaseRestController {
 	/**
 	 * DELETE /me/account — let a member delete their own account.
 	 *
-	 * Gated by the Privacy → "Allow account deletion" setting. Scrubs the
-	 * member's BuddyNext data via the existing privacy eraser, then removes the
-	 * WP account. The "Anonymize on delete" setting controls whether any
-	 * remaining WP-authored content is reassigned to a neutral author (kept,
-	 * de-identified) or deleted with the account. Administrators cannot self-delete.
+	 * Gated by the Privacy → "Allow account deletion" setting. Scrubs the member's
+	 * BuddyNext data (including their authored posts + comments) via the privacy
+	 * eraser, then removes the WP account and deletes any remaining WP-core authored
+	 * content — standard GDPR erasure, the same uniform hard-delete every other delete
+	 * path uses. Content is never reassigned/kept. Administrators cannot self-delete.
 	 *
 	 * @return WP_REST_Response|WP_Error
 	 */
@@ -598,33 +598,15 @@ class ProfileController extends BaseRestController {
 			);
 		}
 
-		$anonymize = (bool) get_option( 'buddynext_anonymize_on_delete', true );
-
-		// Erase the member's BuddyNext data (follows, connections, blocks, prefs,
-		// posts, comments) via the existing eraser, paginated to completion.
-		$privacy = new \BuddyNext\Privacy\PrivacyTools();
-		$page    = 1;
-		do {
-			$result = $privacy->erase( $user->user_email, $page );
-			$done   = ! isset( $result['done'] ) || (bool) $result['done'];
-			++$page;
-		} while ( ! $done && $page < 100 );
-
-		// Remove the WP account. When anonymising, reassign any remaining authored
-		// content to the site's first administrator instead of deleting it.
+		// Delete the WP account. This fires `deleted_user`, which runs the ONE canonical
+		// MemberCleanupService::purge_user_relations() - hard-deleting the member's
+		// BuddyNext data (follows, connections, blocks, prefs, and their authored posts +
+		// comments) and firing buddynext_purge_user_data exactly once, so Free and Pro
+		// per-user rows are purged together - and DELETES (never reassigns) any remaining
+		// WP-core authored content. Standard GDPR erasure: a member who deletes their
+		// account takes their content with them, the same uniform policy on every path.
 		require_once ABSPATH . 'wp-admin/includes/user.php';
-		$reassign = null;
-		if ( $anonymize ) {
-			$admins   = get_users(
-				array(
-					'role'   => 'administrator',
-					'number' => 1,
-					'fields' => array( 'ID' ),
-				)
-			);
-			$reassign = ! empty( $admins ) ? (int) $admins[0]->ID : null;
-		}
-		wp_delete_user( $user_id, $reassign );
+		wp_delete_user( $user_id );
 
 		// The session is now invalid; tell the client to send the user home.
 		return new WP_REST_Response(
@@ -645,8 +627,24 @@ class ProfileController extends BaseRestController {
 	public function get_profile( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$profile_user_id = (int) $request->get_param( 'id' );
 		$viewer_id       = get_current_user_id();
-		$service         = buddynext_service( 'profiles' );
-		$profile         = $service->get_profile( $profile_user_id, $viewer_id );
+
+		// SECURITY: gate the read with the canonical profile-visibility check (block +
+		// public/followers/connections) — the same gate the profile template uses
+		// (PrivacyService::can_view_profile). REST previously skipped it, leaking full
+		// profile data to a blocked viewer / a non-follower of a private account. Return
+		// the same 404 as a missing user so existence isn't leaked either.
+		$privacy = buddynext_service( 'privacy' );
+		if ( $privacy instanceof \BuddyNext\SocialGraph\PrivacyService
+			&& ! $privacy->can_view_profile( $viewer_id, $profile_user_id ) ) {
+			return new WP_Error(
+				'user_not_found',
+				__( 'User not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$service = buddynext_service( 'profiles' );
+		$profile = $service->get_profile( $profile_user_id, $viewer_id );
 
 		if ( null === $profile ) {
 			return new WP_Error(
@@ -1306,7 +1304,11 @@ class ProfileController extends BaseRestController {
 	public function delete_field( WP_REST_Request $request ): WP_REST_Response {
 		$id = (int) $request->get_param( 'id' );
 
-		buddynext_service( 'profiles' )->delete_field( $id );
+		$result = buddynext_service( 'profiles' )->delete_field( $id );
+		if ( is_wp_error( $result ) ) {
+			$status = (int) ( $result->get_error_data()['status'] ?? 400 );
+			return new WP_REST_Response( array( 'error' => $result->get_error_message() ), $status );
+		}
 
 		return new WP_REST_Response( array( 'deleted' => true ), 200 );
 	}

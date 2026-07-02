@@ -133,18 +133,21 @@ class OnboardingControllerTest extends \WP_Test_REST_TestCase {
 	// ── POST /me/onboarding/complete ─────────────────────────────────────────
 
 	/**
-	 * Complete marks done, persists interests, and returns a redirect target.
+	 * Complete marks done, persists interest picks into the profile field
+	 * (never user meta), and returns a redirect target.
 	 */
 	public function test_complete_marks_complete_and_stores_interests(): void {
 		wp_set_current_user( $this->user_id );
+		$cat_id  = $this->create_category( 'Web Dev' );
 		$request = new WP_REST_Request( 'POST', '/buddynext/v1/me/onboarding/complete' );
-		$request->set_param( 'interests', array( 'Web Dev', 'Design' ) );
+		$request->set_param( 'interests', array( $cat_id ) );
 		$response = rest_do_request( $request );
 		$this->assertSame( 200, $response->get_status() );
 		$data = $response->get_data();
 		$this->assertTrue( $data['completed'] );
 		$this->assertSame( '1', (string) get_user_meta( $this->user_id, 'bn_onboarding_complete', true ) );
-		$this->assertSame( 'Web Dev,Design', (string) get_user_meta( $this->user_id, 'bn_interests', true ) );
+		$this->assertSame( array( $cat_id ), ( new \BuddyNext\Onboarding\OnboardingService() )->get_interest_ids( $this->user_id ) );
+		$this->assertSame( '', (string) get_user_meta( $this->user_id, 'bn_interests', true ) );
 	}
 
 	/**
@@ -164,17 +167,47 @@ class OnboardingControllerTest extends \WP_Test_REST_TestCase {
 		$this->assertSame( 1, $count );
 	}
 
-	// ── POST /me/interests ───────────────────────────────────────────────────
+	// ── GET/POST /me/interests ───────────────────────────────────────────────
 
 	/**
-	 * Save-interests endpoint stores the labels under bn_interests.
+	 * POST stores category-ID picks in the profile field and echoes id+label
+	 * pairs; GET round-trips the same payload. No user meta is written.
 	 */
-	public function test_save_interests_persists_labels(): void {
+	public function test_interests_endpoint_round_trips_category_picks(): void {
 		wp_set_current_user( $this->user_id );
-		$request = new WP_REST_Request( 'POST', '/buddynext/v1/me/interests' );
-		$request->set_param( 'interests', array( 'AI & ML', 'Startups' ) );
-		$response = rest_do_request( $request );
+		$cat_id = $this->create_category( 'AI and ML' );
+
+		$post = new WP_REST_Request( 'POST', '/buddynext/v1/me/interests' );
+		$post->set_param( 'interests', array( $cat_id ) );
+		$response = rest_do_request( $post );
 		$this->assertSame( 200, $response->get_status() );
-		$this->assertSame( 'AI & ML,Startups', (string) get_user_meta( $this->user_id, 'bn_interests', true ) );
+		$data = $response->get_data();
+		$this->assertTrue( $data['saved'] );
+		$this->assertSame( $cat_id, (int) $data['interests'][0]['id'] );
+		$this->assertSame( 'AI and ML', (string) $data['interests'][0]['name'] );
+
+		$get      = new WP_REST_Request( 'GET', '/buddynext/v1/me/interests' );
+		$response = rest_do_request( $get );
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame( $cat_id, (int) $response->get_data()['interests'][0]['id'] );
+		$this->assertSame( '', (string) get_user_meta( $this->user_id, 'bn_interests', true ) );
+	}
+
+	/**
+	 * Create (or resolve) a space category for interest tests.
+	 *
+	 * @param string $name Category name.
+	 * @return int Category ID.
+	 */
+	private function create_category( string $name ): int {
+		$id = ( new \BuddyNext\Spaces\SpaceCategoryService() )->create( array( 'name' => $name ) );
+		if ( ! is_wp_error( $id ) ) {
+			return (int) $id;
+		}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_space_categories WHERE slug = %s", sanitize_title( $name ) )
+		);
 	}
 }

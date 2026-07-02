@@ -67,8 +67,7 @@ final class NavItem {
 	 * @param string            $label      Display label (already translated).
 	 * @param string|null       $parent     Parent primary item id (sub-nav), else null.
 	 * @param string|null       $icon       Lucide icon slug.
-	 * @param string|null       $tab        In-page reactive tab target.
-	 * @param string|null       $url        Real route (rail/context/metric list).
+	 * @param string|null       $url        Clean route for the tab/list (every surface is url+render now).
 	 * @param string|null       $capability Capability gate (buddynext_can), null = public.
 	 * @param callable|null     $condition  callable(NavContext):bool extra visibility gate.
 	 * @param bool              $hide_empty Omit when the resolved count is 0 (only
@@ -84,6 +83,24 @@ final class NavItem {
 	 * @param callable|null     $count_label callable(int $count):string returning the
 	 *                                      pluralized label for the resolved count
 	 *                                      (use _n() inside). Overrides `label` when set.
+	 * @param callable|null     $render     callable(NavContext):void that ECHOES this item's
+	 *                                      panel HTML (the item's screen). The single content
+	 *                                      seam — core, Pro, and integrations all supply this
+	 *                                      and the surface renders the active panel through it.
+	 *                                      The callable owns its own escaping (same contract as
+	 *                                      a template part). Null = no panel of its own.
+	 * @param bool              $full_load  This tab is a drill-in page (rich editor / its own
+	 *                                      router region), so the client-nav transport must
+	 *                                      FULL-LOAD it instead of swapping. The shared nav
+	 *                                      renderer emits it as `data-bn-full-load` and the
+	 *                                      transport reads that per-link — no hardcoded route
+	 *                                      regex in the JS. Default false = client-navigable.
+	 * @param bool              $lightweight_count This tab's count is inexpensive to compute (a denormalized
+	 *                                      column or a small, indexed people-count like members /
+	 *                                      followers) AND meaningful to show, so the resolver
+	 *                                      runs it even though per-tab badges are off by default.
+	 *                                      Use ONLY for counts that stay fast at large-community
+	 *                                      scale — never for per-user content COUNT(*) scans.
 	 */
 	public function __construct(
 		public string $id,
@@ -92,7 +109,6 @@ final class NavItem {
 		public string $label,
 		public ?string $parent = null, // phpcs:ignore Universal.NamingConventions.NoReservedKeywordParameterNames.parentFound -- Established public promoted property of this value object; read as $item->parent and passed as the named arg parent: across Nav/. Renaming is a breaking API change.
 		public ?string $icon = null,
-		public ?string $tab = null,
 		public mixed $url = null,
 		public ?string $capability = null,
 		public mixed $condition = null,
@@ -105,7 +121,10 @@ final class NavItem {
 		public mixed $count = null,
 		public mixed $active = null,
 		public int $seq = 0,
-		public mixed $count_label = null
+		public mixed $count_label = null,
+		public mixed $render = null,
+		public bool $full_load = false,
+		public bool $lightweight_count = false
 	) {}
 
 	/**
@@ -130,8 +149,6 @@ final class NavItem {
 			return null;
 		}
 
-		$tab = isset( $a['tab'] ) && '' !== (string) $a['tab'] ? sanitize_key( (string) $a['tab'] ) : null;
-
 		// URL may be a string (escaped now) OR a callable(NavContext):string
 		// (resolved lazily at resolve time, then escaped) — see resolve_url().
 		$url = null;
@@ -146,11 +163,17 @@ final class NavItem {
 		$parent = isset( $a['parent'] ) && '' !== (string) $a['parent'] ? sanitize_key( (string) $a['parent'] ) : null;
 		$icon   = isset( $a['icon'] ) && '' !== (string) $a['icon'] ? sanitize_key( (string) $a['icon'] ) : null;
 
+		// A render callable echoes the item's panel HTML (its screen) — the content
+		// seam. An item may carry it alongside a tab/url, or a primary item can be
+		// reachable purely by carrying render (the surface derives the URL from the id).
+		$render = ( isset( $a['render'] ) && is_callable( $a['render'] ) ) ? $a['render'] : null;
+
 		// Layer-specific minimums.
 		switch ( $layer ) {
 			case 'primary':
-				// A tab must be navigable in-page (tab) or via a route (url).
-				if ( null === $tab && null === $url ) {
+				// A primary tab must be reachable: a clean route (url) and/or a
+				// render panel (registry-driven content).
+				if ( null === $url && null === $render ) {
 					return null;
 				}
 				break;
@@ -193,7 +216,6 @@ final class NavItem {
 			label: $label,
 			parent: $parent,
 			icon: $icon,
-			tab: $tab,
 			url: $url,
 			capability: isset( $a['capability'] ) && '' !== (string) $a['capability'] ? (string) $a['capability'] : null,
 			condition: $condition,
@@ -210,6 +232,9 @@ final class NavItem {
 			active: $active,
 			seq: $seq,
 			count_label: $count_label,
+			render: $render,
+			full_load: ! empty( $a['full_load'] ),
+			lightweight_count: ! empty( $a['lightweight_count'] ),
 		);
 	}
 
@@ -301,5 +326,26 @@ final class NavItem {
 	 */
 	public function is_active( NavContext $ctx ): bool {
 		return null !== $this->active && (bool) call_user_func( $this->active, $ctx );
+	}
+
+	/**
+	 * Whether this item carries its own panel (a render callable).
+	 */
+	public function has_render(): bool {
+		return is_callable( $this->render );
+	}
+
+	/**
+	 * Echo this item's panel for the given context. No-op when the item has no
+	 * render. The callable owns its own escaping (same contract as a template
+	 * part), so output is emitted as-is — never re-wrapped or double-escaped.
+	 *
+	 * @param NavContext $ctx Resolution context (carries the active sub-tab on ->sub).
+	 * @return void
+	 */
+	public function render_panel( NavContext $ctx ): void {
+		if ( is_callable( $this->render ) ) {
+			call_user_func( $this->render, $ctx );
+		}
 	}
 }

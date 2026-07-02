@@ -20,7 +20,10 @@ declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
-$bn_lb_reactions = array(
+// Honor the owner's enabled-reactions palette (Settings -> Activity Feed) and
+// any Pro custom slugs, mirroring parts/post-actions.php - previously this
+// hardcoded all six, so a reaction the owner disabled still showed here.
+$bn_lb_builtin   = array(
 	'like'  => __( 'Like', 'buddynext' ),
 	'love'  => __( 'Love', 'buddynext' ),
 	'haha'  => __( 'Haha', 'buddynext' ),
@@ -28,6 +31,17 @@ $bn_lb_reactions = array(
 	'sad'   => __( 'Sad', 'buddynext' ),
 	'angry' => __( 'Angry', 'buddynext' ),
 );
+$bn_lb_reactions = array();
+$bn_lb_types     = class_exists( '\\BuddyNext\\Reactions\\ReactionService' )
+	? (array) \BuddyNext\Reactions\ReactionService::reaction_types()
+	: array_keys( $bn_lb_builtin );
+foreach ( $bn_lb_types as $bn_lb_slug ) {
+	$bn_lb_slug = (string) $bn_lb_slug;
+	if ( '' === $bn_lb_slug ) {
+		continue;
+	}
+	$bn_lb_reactions[ $bn_lb_slug ] = $bn_lb_builtin[ $bn_lb_slug ] ?? ucwords( str_replace( array( '-', '_' ), ' ', $bn_lb_slug ) );
+}
 ?>
 <div class="bn-lightbox" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e( 'Media viewer', 'buddynext' ); ?>" hidden>
 	<button type="button" class="bn-lightbox__backdrop" data-bn-lb-close aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"></button>

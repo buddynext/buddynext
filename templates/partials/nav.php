@@ -80,7 +80,7 @@ $bn_unread_notifs    = $bn_nav_current_user
 $bn_context_items = apply_filters( 'buddynext_context_nav', array(), $bn_nav_active );
 if ( ! empty( $bn_context_items ) ) :
 	?>
-<nav class="bn-context-nav" aria-label="<?php esc_attr_e( 'Section navigation', 'buddynext' ); ?>">
+<nav class="bn-context-nav" data-bn-nav aria-label="<?php esc_attr_e( 'Section navigation', 'buddynext' ); ?>">
 	<div class="bn-context-nav__inner">
 		<?php foreach ( $bn_context_items as $ctx_item ) : ?>
 			<a href="<?php echo esc_url( $ctx_item['url'] ); ?>"
@@ -207,7 +207,7 @@ if ( $bn_nav_current_user ) :
 		);
 	}
 	?>
-<nav class="bn-mobile-nav"
+<nav class="bn-mobile-nav" data-bn-nav
 	aria-label="<?php esc_attr_e( 'Mobile navigation', 'buddynext' ); ?>">
 	<?php
 	foreach ( $bn_bar_items as $bn_m_item ) :
@@ -215,11 +215,13 @@ if ( $bn_nav_current_user ) :
 		$bn_m_create = isset( $bn_m_item['type'] ) && 'create' === $bn_m_item['type'];
 		$bn_m_more   = isset( $bn_m_item['type'] ) && 'more' === $bn_m_item['type'];
 		$bn_m_badge  = ! empty( $bn_m_item['badge'] );
+		// Active state rides aria-current="page" (not a bespoke class), so the one
+		// generic nav-API active-sync in navigate.js can re-mark it after a client
+		// nav by reading [data-bn-nav] — no mobile-specific selector in the JS.
 		$bn_m_active = ! $bn_m_create && ! $bn_m_more && '' !== $bn_m_key && $bn_m_key === $bn_mobile_active;
 		$bn_m_class  = 'bn-mobile-nav__item'
 			. ( $bn_m_create ? ' bn-mobile-nav__item--create' : '' )
-			. ( $bn_m_more ? ' bn-mobile-nav__item--more' : '' )
-			. ( $bn_m_active ? ' bn-mobile-nav__item--active' : '' );
+			. ( $bn_m_more ? ' bn-mobile-nav__item--more' : '' );
 
 		if ( $bn_m_more ) :
 			?>
@@ -237,6 +239,7 @@ if ( $bn_nav_current_user ) :
 			?>
 			<a href="<?php echo esc_url( (string) ( $bn_m_item['url'] ?? '#' ) ); ?>"
 				class="<?php echo esc_attr( $bn_m_class ); ?>"
+				<?php echo $bn_m_active ? 'aria-current="page"' : ''; ?>
 				<?php echo $bn_m_create ? 'aria-label="' . esc_attr( (string) $bn_m_item['label'] ) . '"' : ''; ?>>
 				<?php buddynext_icon( (string) ( $bn_m_item['icon'] ?? 'home' ) ); ?>
 				<?php if ( $bn_m_badge ) : ?>

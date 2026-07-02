@@ -21,7 +21,7 @@ Most member types are assigned by you, the owner. From a member's point of view,
 
 The badge uses the color you chose for the type, so groups are visually distinct.
 
-If you mark a type as self-selectable, members can choose it themselves. The type then appears as a selector on their own profile edit page, and they can pick from the available self-select types. Types you have not marked self-selectable never appear as a choice - only an owner can assign those.
+If you mark a type as self-selectable, members can choose it themselves. The type then appears as a selector on their own profile edit page, and they can pick from the available self-select types - or choose "None" to clear the type they picked earlier. Types you have not marked self-selectable never appear as a choice - only an owner can assign those.
 
 
 ## Setting it up (for owners)
@@ -52,7 +52,7 @@ Open a member from the admin members list and use the **Member Type** dropdown i
 
 ### Self-selectable types
 
-If a type has **Allow members to self-assign** turned on, members can set it themselves from their profile edit page - you do not have to assign it. This is useful when the member knows their own category better than you do (a skill track, a role they identify with). The profile selector only lists types you have marked self-selectable; if none are self-selectable, no selector appears.
+If a type has **Allow members to self-assign** turned on, members can set it themselves from their profile edit page - you do not have to assign it. This is useful when the member knows their own category better than you do (a skill track, a role they identify with). Members can also pick "None" to clear a self-selected type and go back to having no type. The profile selector only lists types you have marked self-selectable; if none are self-selectable, no selector appears.
 
 ## Good to know
 

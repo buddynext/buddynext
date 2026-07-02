@@ -65,7 +65,7 @@ $bn_class   = trim(
 
 do_action( 'buddynext_part_space_settings_panel_notifications_before', $args );
 ?>
-<form method="post" action="" class="bn-space-settings__form">
+<form method="post" action="" class="bn-space-settings__form" data-wp-on--input="actions.savebarMarkDirty" data-wp-on--change="actions.savebarMarkDirty">
 	<?php wp_nonce_field( 'bn_space_notifications_' . $bn_space_id, 'bn_space_notifications_nonce' ); ?>
 
 	<div class="<?php echo esc_attr( $bn_class ); ?>">

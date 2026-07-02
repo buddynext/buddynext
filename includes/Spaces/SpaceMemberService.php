@@ -42,7 +42,29 @@ class SpaceMemberService {
 	 */
 	private const ALLOWED_ROLES = array( 'owner', 'moderator', 'member' );
 
+	/**
+	 * Hard cap on rows returned by a single roster read — a member list is ALWAYS
+	 * bounded so no caller can load a full 50k roster into memory. Paginate via
+	 * $offset for more. The historic $limit = 0 "all" default now clamps to this.
+	 */
+	private const MAX_MEMBERS_PER_QUERY = 200;
+
 	// ── Public membership API ───────────────────────────────────────────────
+
+	/**
+	 * Resolve the space's configured default notification preference for new
+	 * members, used by every membership-creation path (join / request / invite)
+	 * so the owner's "Default notifications for new members" setting is honoured
+	 * once, in one place.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return string One of 'all' | 'mentions_only' | 'none'.
+	 */
+	private function default_notification_pref( int $space_id ): string {
+		$pref = (string) buddynext_get_space_field( $space_id, 'default_notification_pref' );
+
+		return in_array( $pref, array( 'all', 'mentions_only', 'none' ), true ) ? $pref : 'all';
+	}
 
 	/**
 	 * Join a space directly (open spaces or accepting an invitation).
@@ -125,14 +147,15 @@ class SpaceMemberService {
 				array( '%d', '%d' )
 			);
 		} else {
-			// New member.
+			// New member — seed notification preference from the space default.
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				$wpdb->prepare(
-					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status, joined_at)
-					 VALUES (%d, %d, 'member', 'active', %s)",
+					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status, notification_pref, joined_at)
+					 VALUES (%d, %d, 'member', 'active', %s, %s)",
 					$space_id,
 					$user_id,
+					$this->default_notification_pref( $space_id ),
 					current_time( 'mysql', true )
 				)
 			);
@@ -224,10 +247,11 @@ class SpaceMemberService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status, joined_at)
-				 VALUES (%d, %d, 'member', 'pending', %s)",
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status, notification_pref, joined_at)
+				 VALUES (%d, %d, 'member', 'pending', %s, %s)",
 				$space_id,
 				$user_id,
+				$this->default_notification_pref( $space_id ),
 				current_time( 'mysql', true )
 			)
 		);
@@ -253,10 +277,30 @@ class SpaceMemberService {
 	 * @return bool
 	 */
 	public function can_invite( int $space_id, int $inviter_id ): bool {
-		$inviter_role = $this->get_role( $space_id, $inviter_id );
+		if ( user_can( $inviter_id, 'manage_options' ) ) {
+			return true;
+		}
 
-		return in_array( $inviter_role, array( 'owner', 'moderator' ), true )
-			|| user_can( $inviter_id, 'manage_options' );
+		$inviter_role = $this->get_role( $space_id, $inviter_id );
+		if ( '' === $inviter_role ) {
+			return false; // Not a member of the space.
+		}
+
+		// Honour the per-space "who can invite" setting (members | mods | owner),
+		// using the shared role-rank model (SpaceRoles) — same gate as who_can_post.
+		$who = (string) buddynext_get_space_field( $space_id, 'who_can_invite' );
+		$can = SpaceRoles::meets( $inviter_role, $who, 2 );
+
+		/**
+		 * Filter whether a user may invite others to a space, after the per-space
+		 * who_can_invite gate.
+		 *
+		 * @param bool   $can          Whether inviting is allowed.
+		 * @param int    $space_id     Space ID.
+		 * @param int    $inviter_id   User attempting to invite.
+		 * @param string $inviter_role The inviter's role in the space.
+		 */
+		return (bool) apply_filters( 'buddynext_space_can_invite', $can, $space_id, $inviter_id, $inviter_role );
 	}
 
 	/**
@@ -299,10 +343,11 @@ class SpaceMemberService {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				$wpdb->prepare(
-					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status, joined_at)
-					 VALUES (%d, %d, 'member', 'invited', %s)",
+					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status, notification_pref, joined_at)
+					 VALUES (%d, %d, 'member', 'invited', %s, %s)",
 					$space_id,
 					$invited_user_id,
+					$this->default_notification_pref( $space_id ),
 					current_time( 'mysql', true )
 				)
 			);
@@ -335,10 +380,7 @@ class SpaceMemberService {
 	public function approve_request( int $space_id, int $actor_id, int $user_id ): bool|WP_Error {
 		$actor_role = $this->get_role( $space_id, $actor_id );
 
-		if (
-			! in_array( $actor_role, array( 'owner', 'moderator' ), true )
-			&& ! user_can( $actor_id, 'manage_options' )
-		) {
+		if ( ! SpaceRoles::can_moderate( $actor_role, $actor_id ) ) {
 			return new WP_Error(
 				'forbidden',
 				__( 'Only the space owner or a moderator can approve join requests.', 'buddynext' )
@@ -406,10 +448,7 @@ class SpaceMemberService {
 	public function decline_request( int $space_id, int $actor_id, int $user_id ): bool|WP_Error {
 		$actor_role = $this->get_role( $space_id, $actor_id );
 
-		if (
-			! in_array( $actor_role, array( 'owner', 'moderator' ), true )
-			&& ! user_can( $actor_id, 'manage_options' )
-		) {
+		if ( ! SpaceRoles::can_moderate( $actor_role, $actor_id ) ) {
 			return new WP_Error(
 				'forbidden',
 				__( 'Only the space owner or a moderator can decline join requests.', 'buddynext' )
@@ -468,10 +507,7 @@ class SpaceMemberService {
 	public function ban( int $space_id, int $actor_id, int $user_id, string $reason = '' ): bool|WP_Error {
 		$actor_role = $this->get_role( $space_id, $actor_id );
 
-		if (
-			! in_array( $actor_role, array( 'owner', 'moderator' ), true )
-			&& ! user_can( $actor_id, 'manage_options' )
-		) {
+		if ( ! SpaceRoles::can_moderate( $actor_role, $actor_id ) ) {
 			return new WP_Error(
 				'forbidden',
 				__( 'Only the space owner or a moderator can ban members.', 'buddynext' )
@@ -833,10 +869,7 @@ class SpaceMemberService {
 	public function remove( int $space_id, int $user_id, int $acting_user_id ): bool {
 		$acting_role = $this->get_role( $space_id, $acting_user_id );
 
-		if (
-			! in_array( $acting_role, array( 'owner', 'moderator' ), true )
-			&& ! user_can( $acting_user_id, 'manage_options' )
-		) {
+		if ( ! SpaceRoles::can_moderate( $acting_role, $acting_user_id ) ) {
 			return false;
 		}
 
@@ -1050,12 +1083,12 @@ class SpaceMemberService {
 			$moderation_where = ' ' . buddynext_service( 'moderation' )->moderation_exclude_sql( 'sm.user_id' );
 		}
 
-		$limit_sql = '';
-		if ( $limit > 0 ) {
-			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$limit_sql = $wpdb->prepare( ' LIMIT %d OFFSET %d', $limit, max( 0, $offset ) );
-			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		}
+		// Always bounded — $limit <= 0 (the historic "all") clamps to the cap, a larger
+		// ask clamps down, so a full 50k roster is never loaded in one read.
+		$limit = ( $limit <= 0 ) ? self::MAX_MEMBERS_PER_QUERY : min( $limit, self::MAX_MEMBERS_PER_QUERY );
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$limit_sql = $wpdb->prepare( ' LIMIT %d OFFSET %d', $limit, max( 0, $offset ) );
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
@@ -1151,11 +1184,16 @@ class SpaceMemberService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
+				// Bounded + moderators first so the likely transfer targets are always
+				// in the (capped) candidate set, even on a large space. A very large
+				// space would want a search-backed picker (follow-up); the cap keeps the
+				// read safe meanwhile.
 				"SELECT sm.user_id, sm.role, u.display_name
 				 FROM {$wpdb->prefix}bn_space_members sm
 				 INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id
 				 WHERE sm.space_id = %d AND sm.status = 'active' AND sm.user_id <> %d
-				 ORDER BY u.display_name ASC",
+				 ORDER BY FIELD(sm.role, 'owner', 'moderator', 'member'), u.display_name ASC
+				 LIMIT 200",
 				$space_id,
 				$exclude_owner_id
 			),

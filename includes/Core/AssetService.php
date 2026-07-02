@@ -173,7 +173,7 @@ class AssetService {
 			self::VERSION,
 			true
 		);
-		wp_set_script_translations( 'bn-admin-dialogs', 'buddynext' );
+		wp_set_script_translations( 'bn-admin-dialogs', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 		// Members admin (Members + Member Types + Profile Fields + Avatar
 		// Settings + Member Type Field). Lives at ?page=buddynext-members.
@@ -204,7 +204,41 @@ class AssetService {
 				self::VERSION,
 				true
 			);
-			wp_set_script_translations( 'bn-admin-taxonomy', 'buddynext' );
+			wp_set_script_translations( 'bn-admin-taxonomy', 'buddynext', BUDDYNEXT_DIR . 'languages' );
+		}
+
+		// Shared media-library picker for single-image fields
+		// (AdminPageBase::render_media_row). Registered on every BN admin page
+		// so any consumer — including Pro's White-label tab — enqueues the same
+		// handle instead of rolling its own; enqueued below only where free
+		// renders a media row.
+		wp_register_script(
+			'bn-admin-media',
+			$this->assets_url . 'js/admin/media-picker.js',
+			array( 'wp-i18n' ),
+			self::VERSION,
+			true
+		);
+		wp_set_script_translations( 'bn-admin-media', 'buddynext', BUDDYNEXT_DIR . 'languages' );
+
+		// Settings → Appearance: the media picker drives the Logo field, and the
+		// core code editor (CodeMirror) upgrades the Custom CSS textarea. Both
+		// fall back gracefully — plain URL input / plain textarea — when
+		// unavailable (user disabled syntax highlighting, blocked JS).
+		if ( \BuddyNext\Admin\AdminHub::is_tab_active( 'appearance' ) ) {
+			wp_enqueue_media();
+			wp_enqueue_script( 'bn-admin-media' );
+
+			$bn_editor = wp_enqueue_code_editor( array( 'type' => 'text/css' ) );
+			if ( false !== $bn_editor ) {
+				wp_add_inline_script(
+					'code-editor',
+					sprintf(
+						'( function() { var bnInitCssEditor = function() { if ( window.wp && wp.codeEditor && document.getElementById( "bn-custom-css" ) ) { wp.codeEditor.initialize( "bn-custom-css", %s ); } }; if ( "loading" === document.readyState ) { document.addEventListener( "DOMContentLoaded", bnInitCssEditor ); } else { bnInitCssEditor(); } } )();',
+						wp_json_encode( $bn_editor )
+					)
+				);
+			}
 		}
 
 		// Email Templates editor — wherever the central placement map routes the
@@ -224,7 +258,7 @@ class AssetService {
 				self::VERSION,
 				true
 			);
-			wp_set_script_translations( 'bn-email-editor', 'buddynext' );
+			wp_set_script_translations( 'bn-email-editor', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 			// Pass the REAL branded shell + sample merge-tag values so the editor
 			// preview is byte-identical to a genuine send (one uniform header +
@@ -334,7 +368,7 @@ class AssetService {
 			$v,
 			false
 		);
-		wp_set_script_translations( 'bn-shell-font-scale', 'buddynext' );
+		wp_set_script_translations( 'bn-shell-font-scale', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 		// ── Shell extras (search overlay, notif dropdown, hover card, shortcuts) ─
 		// Loaded in the footer so it can hydrate any shell-level UI surfaces.
@@ -347,7 +381,7 @@ class AssetService {
 			$v,
 			true
 		);
-		wp_set_script_translations( 'bn-shell-extras', 'buddynext' );
+		wp_set_script_translations( 'bn-shell-extras', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
 		// ── Feature CSS (each depends on the base) ─────────────────────────────
 		$feature_styles = array(
@@ -468,6 +502,7 @@ class AssetService {
 			'@buddynext/gamification'       => 'gamification/store',
 			'@buddynext/moderation'         => 'moderation/store',
 			'@buddynext/space-members'      => 'space-members/store',
+			'@buddynext/space-fields'       => 'space-fields/store',
 			'@buddynext/social-buttons'     => 'social/follow-store',
 			'@buddynext/media-upload'       => 'media/upload-store',
 			'@buddynext/media-albums'       => 'media/albums-store',
@@ -480,6 +515,7 @@ class AssetService {
 			'@buddynext/feed',
 			'@buddynext/moderation',
 			'@buddynext/space-members',
+			'@buddynext/space-fields',
 			'@buddynext/profile',
 			'@buddynext/members',
 			'@buddynext/social-buttons',
@@ -571,6 +607,7 @@ class AssetService {
 		$this->i18n_search();
 		$this->i18n_hashtags();
 		$this->i18n_space_members();
+		$this->i18n_space_fields();
 		$this->i18n_auth();
 		$this->i18n_auth_login();
 		$this->i18n_auth_signup();
@@ -1224,32 +1261,33 @@ class AssetService {
 			array(
 				'i18n' => array(
 					/* translators: 1: current step number, 2: total step count */
-					'stepLabel'               => __( 'Step %1$s of %2$s', 'buddynext' ),
-					'displayNameError'        => __( 'Display name must be at least 2 characters.', 'buddynext' ),
-					'previewName'             => __( 'Your name', 'buddynext' ),
-					'previewHandle'           => __( '@username', 'buddynext' ),
-					'previewBio'              => __( "Add a short bio so people know what you're into.", 'buddynext' ),
-					'usernameChecking'        => __( 'Checking…', 'buddynext' ),
-					'usernameAvailable'       => __( 'Available', 'buddynext' ),
-					'usernameTaken'           => __( 'Taken', 'buddynext' ),
-					'btnJoin'                 => __( 'Join', 'buddynext' ),
-					'btnJoined'               => __( 'Joined', 'buddynext' ),
-					'btnFollow'               => __( 'Follow', 'buddynext' ),
-					'btnFollowing'            => __( 'Following', 'buddynext' ),
-					'toastCompleteLater'      => __( 'You can complete onboarding any time from settings.', 'buddynext' ),
-					'toastJoinedSpace'        => __( 'Joined the space.', 'buddynext' ),
-					'toastLeftSpace'          => __( 'Left the space.', 'buddynext' ),
-					'toastSpaceUpdateFailed'  => __( 'Could not update space. Please try again.', 'buddynext' ),
-					'toastFollowing'          => __( 'Following.', 'buddynext' ),
-					'toastUnfollowed'         => __( 'Unfollowed.', 'buddynext' ),
-					'toastFollowUpdateFailed' => __( 'Could not update follow. Please try again.', 'buddynext' ),
-					'toastImageTooLarge'      => __( 'Image too large. Max 4MB.', 'buddynext' ),
-					'toastImageDimensions'    => __( 'Image must be at most 1024×1024 pixels. Please choose a smaller photo.', 'buddynext' ),
-					'toastPhotoUploadFailed'  => __( 'Could not upload photo. Please try again.', 'buddynext' ),
-					'toastPhotoUpdated'       => __( 'Profile photo updated.', 'buddynext' ),
-					'toastAllSet'             => __( 'You are all set. Welcome aboard!', 'buddynext' ),
-					'toastFinishFailed'       => __( 'Could not finish onboarding. Please try again.', 'buddynext' ),
-					'errorGeneric'            => __( 'Something went wrong. Please try again.', 'buddynext' ),
+					'stepLabel'                => __( 'Step %1$s of %2$s', 'buddynext' ),
+					'displayNameError'         => __( 'Display name must be at least 2 characters.', 'buddynext' ),
+					'previewName'              => __( 'Your name', 'buddynext' ),
+					'previewHandle'            => __( '@username', 'buddynext' ),
+					'previewBio'               => __( "Add a short bio so people know what you're into.", 'buddynext' ),
+					'usernameChecking'         => __( 'Checking…', 'buddynext' ),
+					'usernameAvailable'        => __( 'Available', 'buddynext' ),
+					'usernameTaken'            => __( 'Taken', 'buddynext' ),
+					'btnJoin'                  => __( 'Join', 'buddynext' ),
+					'btnJoined'                => __( 'Joined', 'buddynext' ),
+					'btnFollow'                => __( 'Follow', 'buddynext' ),
+					'btnFollowing'             => __( 'Following', 'buddynext' ),
+					'toastCompleteLater'       => __( 'You can complete onboarding any time from settings.', 'buddynext' ),
+					'toastJoinedSpace'         => __( 'Joined the space.', 'buddynext' ),
+					'toastLeftSpace'           => __( 'Left the space.', 'buddynext' ),
+					'toastSpaceUpdateFailed'   => __( 'Could not update space. Please try again.', 'buddynext' ),
+					'toastFollowing'           => __( 'Following.', 'buddynext' ),
+					'toastUnfollowed'          => __( 'Unfollowed.', 'buddynext' ),
+					'toastFollowUpdateFailed'  => __( 'Could not update follow. Please try again.', 'buddynext' ),
+					'toastImageTooLarge'       => __( 'Image too large. Max 4MB.', 'buddynext' ),
+					'toastImageDimensions'     => __( 'Image must be at most 1024×1024 pixels. Please choose a smaller photo.', 'buddynext' ),
+					'toastPhotoUploadFailed'   => __( 'Could not upload photo. Please try again.', 'buddynext' ),
+					'toastPhotoUpdated'        => __( 'Profile photo updated.', 'buddynext' ),
+					'toastAllSet'              => __( 'You are all set. Welcome aboard!', 'buddynext' ),
+					'toastFinishFailed'        => __( 'Could not finish onboarding. Please try again.', 'buddynext' ),
+					'toastInterestsSaveFailed' => __( 'Could not save your interests. Please try again.', 'buddynext' ),
+					'errorGeneric'             => __( 'Something went wrong. Please try again.', 'buddynext' ),
 				),
 			)
 		);
@@ -1367,6 +1405,30 @@ class AssetService {
 					'remove'             => __( 'Remove', 'buddynext' ),
 					'removeMemberFailed' => __( 'Could not remove member. Try again.', 'buddynext' ),
 					'updateRoleFailed'   => __( 'Could not update role. Try again.', 'buddynext' ),
+					'banMemberTitle'     => __( 'Ban this member?', 'buddynext' ),
+					'banMemberBody'      => __( 'They will be removed and blocked from rejoining this space.', 'buddynext' ),
+					'ban'                => __( 'Ban', 'buddynext' ),
+					'banMemberFailed'    => __( 'Could not ban member. Try again.', 'buddynext' ),
+					'enterIdentifier'    => __( 'Enter a username or email address.', 'buddynext' ),
+					'inviteSent'         => __( 'Invitation sent.', 'buddynext' ),
+					'inviteFailed'       => __( 'Could not send the invitation.', 'buddynext' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * Store: the space custom-fields panel save/validation toasts.
+	 *
+	 * @return void
+	 */
+	private function i18n_space_fields(): void {
+		wp_interactivity_state(
+			'buddynext/space-fields',
+			array(
+				'i18n' => array(
+					'saved'      => __( 'Fields saved.', 'buddynext' ),
+					'saveFailed' => __( 'Could not save the fields. Try again.', 'buddynext' ),
 				),
 			)
 		);

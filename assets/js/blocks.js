@@ -129,8 +129,6 @@
 		{ name: 'buddynext/profile-header',         label: __( 'Profile Header', 'buddynext' ),         ssr: true  },
 		{ name: 'buddynext/profile-fields',         label: __( 'Profile Fields', 'buddynext' ),         ssr: true  },
 		{ name: 'buddynext/profile-completion-bar', label: __( 'Profile Completion Bar', 'buddynext' ), ssr: false },
-		{ name: 'buddynext/registration-form',      label: __( 'Registration Form', 'buddynext' ),      ssr: false },
-		{ name: 'buddynext/login-form',             label: __( 'Login Form', 'buddynext' ),             ssr: false },
 		{ name: 'buddynext/notification-bell',      label: __( 'Notification Bell', 'buddynext' ),      ssr: false },
 		{ name: 'buddynext/search-bar',             label: __( 'Search Bar', 'buddynext' ),             ssr: false },
 		{ name: 'buddynext/header-user-menu',       label: __( 'Header User Menu', 'buddynext' ),       ssr: true  },

@@ -35,6 +35,18 @@ class FeedService {
 	private const DEFAULT_LIMIT = 20;
 
 	/**
+	 * Object-cache group for short-lived feed reads.
+	 */
+	private const CACHE_GROUP = 'buddynext_feed';
+
+	/**
+	 * TTL (seconds) for the new-count poll memo. Short enough that the "N new
+	 * posts" hint stays near-live, long enough to collapse the repeated polls a
+	 * single open tab fires on its stable after_id.
+	 */
+	private const NEW_COUNT_TTL = 30;
+
+	/**
 	 * User_meta key storing the list of announcement post IDs the user has
 	 * dismissed. Value is a flat array of integer post IDs.
 	 */
@@ -272,16 +284,37 @@ class FeedService {
 		 */
 		// Connections-first weighting on the blended "For you" feed (the free
 		// ordering the spec calls for): rank posts from the viewer's connections
-		// above the rest, then chronological. IDs are capped + absint'd, so the
-		// CASE stays index-safe and carries no user data. Other filters
+		// above the rest, then posts in open spaces matching the viewer's picked
+		// interests (the tier-then-recency house pattern; the for-you catch-all
+		// already INCLUDES all public open-space posts, so interests act on rank,
+		// not inclusion — see docs/plans/interests-personalization.md §4.3), then
+		// chronological. IDs are capped + absint'd, so the CASE stays index-safe
+		// and carries no user data; the interest subquery is uncorrelated and
+		// rides the bn_spaces category index. Blank interests / no connections
+		// leave the ordering exactly as before (additive signal). Other filters
 		// (following / spaces / network) keep the plain chronological order.
 		$default_order_by = 'is_pinned DESC, created_at DESC, id DESC';
 		if ( 'for-you' === $filter && $user_id > 0 ) {
-			$bn_conn_ids = $this->connection_ids_capped( $user_id );
+			global $wpdb;
+			$bn_conn_ids     = $this->connection_ids_capped( $user_id );
+			$bn_interest_ids = array_slice(
+				( new \BuddyNext\Onboarding\OnboardingService() )->get_interest_ids( $user_id ),
+				0,
+				10
+			);
+
+			$bn_tiers = array();
 			if ( ! empty( $bn_conn_ids ) ) {
-				$default_order_by = 'is_pinned DESC, CASE WHEN user_id IN ('
-					. implode( ',', $bn_conn_ids )
-					. ') THEN 0 ELSE 1 END ASC, created_at DESC, id DESC';
+				$bn_tiers[] = 'WHEN user_id IN (' . implode( ',', $bn_conn_ids ) . ') THEN ' . count( $bn_tiers );
+			}
+			if ( ! empty( $bn_interest_ids ) ) {
+				$bn_tiers[] = "WHEN space_id IN (SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' AND category_id IN ("
+					. implode( ',', array_map( 'absint', $bn_interest_ids ) )
+					. ')) THEN ' . count( $bn_tiers );
+			}
+			if ( ! empty( $bn_tiers ) ) {
+				$default_order_by = 'is_pinned DESC, CASE ' . implode( ' ', $bn_tiers )
+					. ' ELSE ' . count( $bn_tiers ) . ' END ASC, created_at DESC, id DESC';
 			}
 		}
 
@@ -484,11 +517,10 @@ class FeedService {
 	/**
 	 * Space IDs whose owner disabled "Push space posts to activity feed".
 	 *
-	 * Reads the per-space bn_space_{id}_push_to_feed options (default 1 = push)
-	 * and returns the IDs explicitly set to 0. Cached per request — the home feed
-	 * builds its source clause once, and the result set (opted-out spaces) is
-	 * small. The option_name LIKE is anchored on the bn_space_ prefix so the
-	 * options index is usable.
+	 * Reads the per-space push_to_feed field (default 1 = push) from bn_space_meta
+	 * and returns the space IDs explicitly set to 0. Cached per request — the home
+	 * feed builds its source clause once, and the opted-out set is small. The
+	 * meta_key index makes the lookup a direct indexed scan.
 	 *
 	 * @return int[] Space IDs to exclude from the home feed.
 	 */
@@ -500,20 +532,14 @@ class FeedService {
 
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$names = $wpdb->get_col(
-			"SELECT option_name FROM {$wpdb->options}
-			 WHERE option_name LIKE 'bn\\_space\\_%\\_push\\_to\\_feed'
-			   AND option_value = '0'"
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = array_map(
+			'intval',
+			(array) $wpdb->get_col(
+				"SELECT bn_space_id FROM {$wpdb->bn_spacemeta}
+				 WHERE meta_key = 'push_to_feed' AND meta_value = '0'"
+			)
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		$ids = array();
-		foreach ( (array) $names as $name ) {
-			if ( preg_match( '/^bn_space_(\d+)_push_to_feed$/', (string) $name, $m ) ) {
-				$ids[] = (int) $m[1];
-			}
-		}
 
 		return $ids;
 	}
@@ -613,6 +639,18 @@ class FeedService {
 			$filter = 'for-you';
 		}
 
+		// Short-TTL memo: an open feed polls /feed/new-count on a stable after_id
+		// every cycle, so without this each poll re-ran the COUNT(*). Keyed by the
+		// three inputs the result depends on; time-expiry only (no event bust —
+		// busting on every post at scale would defeat the cache, and a count this
+		// soft tolerates up to NEW_COUNT_TTL of lag). On a site with no persistent
+		// object cache this degrades to the previous per-request behaviour.
+		$cache_key = "new_count_{$user_id}_{$filter}_{$after_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
 		$excluded_where = $this->excluded_users_where();
 
 		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $user_id );
@@ -636,10 +674,14 @@ class FeedService {
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
 
-		return array(
+		$result = array(
 			'count'     => isset( $row['new_count'] ) ? (int) $row['new_count'] : 0,
 			'newest_id' => isset( $row['newest_id'] ) ? (int) $row['newest_id'] : $after_id,
 		);
+
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::NEW_COUNT_TTL );
+
+		return $result;
 	}
 
 	/**
@@ -1038,6 +1080,30 @@ class FeedService {
 	}
 
 	/**
+	 * Shared SQL guard for the public Explore surface — used by the deck query AND
+	 * the Explore pulse count so the stat always matches what the grid shows.
+	 *
+	 * Excludes reshares (amplification, not original discovery content; the Explore
+	 * card cannot dereference shared_post_id), authorless rows (a deleted account
+	 * otherwise renders as "Community member"), and rows with nothing to show (no
+	 * text, media, poll, or link). Static fragment — only table/column names, no
+	 * user input — safe to interpolate.
+	 *
+	 * @return string A leading-" AND " WHERE fragment.
+	 */
+	public function explore_renderable_where(): string {
+		global $wpdb;
+		return " AND type <> 'share'
+			   AND user_id IN ( SELECT ID FROM {$wpdb->users} )
+			   AND (
+			       TRIM( COALESCE( content, '' ) ) <> ''
+			       OR ( media_ids IS NOT NULL AND media_ids <> '' AND media_ids <> '[]' )
+			       OR type = 'poll'
+			       OR ( link_url IS NOT NULL AND link_url <> '' )
+			   )";
+	}
+
+	/**
 	 * Return the public explore feed (all public posts, newest first).
 	 *
 	 * @param string|null $cursor      Pagination cursor.
@@ -1074,7 +1140,12 @@ class FeedService {
 				break;
 		}
 
-		// $cursor_where, $excluded_where and $filter_where contain only table/column names — no user data, safe.
+		// Public-discovery guard (shared with the Explore pulse count so the stat
+		// matches the grid) — never surface a reshare, an authorless row, or a row
+		// with nothing to show. See explore_renderable_where().
+		$renderable_where = $this->explore_renderable_where();
+
+		// $cursor_where, $excluded_where, $filter_where and $renderable_where contain only table/column names — no user data, safe.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
@@ -1083,6 +1154,7 @@ class FeedService {
 			   {$excluded_where}
 			   {$block_mute_where}
 			   {$filter_where}
+			   {$renderable_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",

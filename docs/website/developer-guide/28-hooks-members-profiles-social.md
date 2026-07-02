@@ -24,6 +24,9 @@ The action and filter seams for user lifecycle, member profiles, profile fields,
 | `buddynext_member_unsuspended` | action | A suspension is lifted | `int $user_id, int $by_user_id` |
 | `buddynext_member_approved` | action | A pending registration is approved | `int $user_id` |
 | `buddynext_member_rejected` | action | A pending registration is rejected | `int $user_id` |
+| `buddynext_purge_user_data` | action | A member is deleted and their relations are purged | `int $user_id, string $context` |
+
+`buddynext_purge_user_data` is the canonical member-cleanup seam. It fires from `MemberCleanupService::purge_user_relations()` after BuddyNext removes the member's own social-graph rows, counters, and profile values, and **hard-deletes their authored posts and comments** (GDPR erasure). Hook it - rather than `deleted_user` - to clean up any per-user rows your addon stores. `$context` (`'delete'` or the erasure context) is informational only; both contexts hard-delete.
 
 ## Profile view and stat-strip seams
 

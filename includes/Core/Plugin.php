@@ -27,6 +27,8 @@ use BuddyNext\Core\CounterService;
 use BuddyNext\Core\CronScheduler;
 use BuddyNext\Core\RoleService;
 use BuddyNext\Core\TemplateLoader;
+use BuddyNext\Core\CoreHubs;
+use BuddyNext\Core\HubRegistry;
 use BuddyNext\Core\PageRouter;
 use BuddyNext\Theme\TokenService;
 use BuddyNext\Feed\BookmarkService;
@@ -66,6 +68,7 @@ use BuddyNext\Search\SearchService;
 use BuddyNext\Auth\VerificationListener;
 use BuddyNext\Auth\VerificationService;
 use BuddyNext\Outbound\OutboundWebhookService;
+use BuddyNext\Onboarding\InterestListener;
 use BuddyNext\Onboarding\OnboardingListener;
 use BuddyNext\Privacy\PrivacyTools;
 use BuddyNext\Outbound\OutboundWebhookListener;
@@ -114,6 +117,10 @@ class Plugin {
 		// (the composer gate alone is bypassable via REST).
 		( new \BuddyNext\Spaces\SpacePostGuard() )->register();
 
+		// Register the built-in per-space settings as core space fields (stored in
+		// bn_space_meta, rendered + saved + REST-exposed through the field engine).
+		( new \BuddyNext\Spaces\CoreSpaceFields() )->register();
+
 		// Apply the admin-editable capability → required-role overrides on top of
 		// PermissionService's defaults. Registered front + admin (the gate must
 		// change everywhere, not just in wp-admin) via the native role-map filter
@@ -138,6 +145,10 @@ class Plugin {
 
 		// Front-end cookie-consent banner (no-op unless the Privacy setting is on).
 		( new \BuddyNext\Privacy\CookieConsentService() )->register();
+
+		// Owner-configurable redirect after logout (login + onboarding are applied
+		// at their own call sites). No-op until the owner sets a destination.
+		\BuddyNext\Core\RedirectSettings::register();
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			\WP_CLI::add_command( 'buddynext demo', new \BuddyNext\Demo\DemoCommand() );
@@ -179,11 +190,13 @@ class Plugin {
 					$container->get( 'admin_spaces' )->register();
 					$container->get( 'admin_nav' )->register();
 					$container->get( 'admin_email_editor' )->register();
+					( new \BuddyNext\Admin\EmailLog() )->register();
 					$container->get( 'setup_wizard' )->init();
 					( new \BuddyNext\Demo\DemoAdmin() )->register();
 					( new \BuddyNext\Admin\AppearanceTab() )->register();
 					( new \BuddyNext\Admin\ToolsTab() )->register();
 					( new \BuddyNext\Admin\RolesTab() )->register();
+					( new \BuddyNext\Admin\IntegrationControlsAdmin() )->register();
 					( new \BuddyNext\Admin\Insights() )->register();
 					( new \BuddyNext\Admin\ModerationQueue() )->register();
 					// "BuddyNext" metabox on Appearance → Menus — add per-member
@@ -329,8 +342,39 @@ class Plugin {
 			1
 		);
 
+		// Batched purge worker for a deleted profile field's stored values
+		// (§4.3): each run deletes one bounded chunk of bn_profile_values and
+		// re-enqueues itself (Action Scheduler group 'buddynext') while full
+		// batches remain — never one unbounded DELETE.
+		add_action(
+			'buddynext_purge_field_values',
+			static function ( $field_id ) use ( $container ) {
+				$container->get( 'profiles' )->purge_field_values( (int) $field_id );
+			},
+			10,
+			1
+		);
+
+		// A member-type change flips which type-restricted profile groups exist
+		// on that member's profile (G2), so the cached get_profile() buckets
+		// must not outlive the assignment.
+		$bust_profile_on_type_change = static function ( $user_id ) use ( $container ) {
+			$container->get( 'profiles' )->invalidate_profile_cache( (int) $user_id );
+		};
+		add_action( 'buddynext_member_type_assigned', $bust_profile_on_type_change, 10, 1 );
+		add_action( 'buddynext_member_type_removed', $bust_profile_on_type_change, 10, 1 );
+
 		// Wire onboarding nudge scheduling and cron handlers.
 		( new OnboardingListener() )->register();
+
+		// Wire owner-curated space auto-join (on signup + member-type assignment).
+		( new \BuddyNext\Spaces\AutoJoinListener() )->register();
+
+		// Bust per-viewer space-suggestion caches on membership / follow changes.
+		( new \BuddyNext\Spaces\SpaceSuggestionListener() )->register();
+
+		// Bust per-viewer follow- + space-suggestion caches on interest edits.
+		( new InterestListener() )->register();
 
 		// Wire the WordPress Privacy Tools integration so Tools → Export/Erase
 		// Personal Data covers BuddyNext's custom tables and bn_* user meta.
@@ -384,6 +428,20 @@ class Plugin {
 		// into the NavRegistry (resolved lazily per request via buddynext_nav()).
 		( new \BuddyNext\Nav\Providers\ProfileNav() )->register();
 		( new \BuddyNext\Nav\Providers\SpaceNav() )->register();
+
+		// Populate the hub registry on init:0 — before the router's init:10
+		// rewrite registration, but late enough that the descriptors' translated
+		// titles no longer trip WP 6.7's _load_textdomain_just_in_time notice
+		// (translations must not load before init). Activation-time consumers
+		// (Installer::create_hub_pages) self-populate via their has('feed')
+		// guard, so nothing reads the registry before init.
+		add_action(
+			'init',
+			static function (): void {
+				CoreHubs::register( HubRegistry::instance() );
+			},
+			0
+		);
 
 		// Register URL rewrite rules for pretty profile URLs.
 		( new PageRouter() )->init();
@@ -803,12 +861,17 @@ class Plugin {
 	/**
 	 * Validate and move an uploaded logo file into the uploads dir.
 	 *
-	 * One shared implementation so every "upload a logo" surface (Settings →
-	 * Appearance, Pro White-label) uses the identical flow, limits, and error
-	 * codes instead of each rolling its own. A single site asset (not
-	 * per-member), so a plain wp_handle_upload is the right tool — no attachment
-	 * row, no ImageStorageService variations. Callers must verify the request
-	 * nonce + capability before calling this.
+	 * One shared implementation so every "upload a logo" surface uses the
+	 * identical flow, limits, and error codes instead of each rolling its own.
+	 * A single site asset (not per-member), so a plain wp_handle_upload is the
+	 * right tool — no attachment row, no ImageStorageService variations.
+	 * Callers must verify the request nonce + capability before calling this.
+	 *
+	 * Since 1.0.4 the free Appearance logo and the Pro White-label logo save a
+	 * media-library / pasted URL (AdminPageBase::render_media_row), so current
+	 * code no longer calls this. Retained because Pro <= 1.0.3's White-label
+	 * save posts a file and calls this method — removing it would fatal a site
+	 * that updates free ahead of Pro.
 	 *
 	 * @param string $file_key The $_FILES key holding the uploaded logo.
 	 * @return string|\WP_Error URL on success; \WP_Error (code logo_size|logo_type|logo_upload) on failure.

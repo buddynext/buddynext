@@ -99,7 +99,22 @@
 		onTypeChange( sel, optWrapId, dateWrapId );
 	} );
 
-	// Inline two-step delete confirmation — no browser dialogs.
+	/**
+	 * Whether a type-to-confirm input authorises the delete: the item's name
+	 * (data-bn-confirm-label) or the literal word DELETE, case-insensitive.
+	 */
+	function confirmTextMatches( form, value ) {
+		var label = form.getAttribute( 'data-bn-confirm-label' ) || '';
+		var input = ( value || '' ).trim().toLowerCase();
+		if ( '' === input ) {
+			return false;
+		}
+		return 'delete' === input || input === label.trim().toLowerCase();
+	}
+
+	// Inline two-step delete confirmation — no browser dialogs. Items whose
+	// stored member values would be destroyed additionally require a
+	// type-to-confirm token (impact-confirm); the server re-verifies the token.
 	document.addEventListener( 'click', function ( e ) {
 		if ( e.target.matches && e.target.matches( '.bn-del-trigger' ) ) {
 			var form = e.target.closest( '.bn-del-form' );
@@ -109,11 +124,19 @@
 			e.target.style.display = 'none';
 			var confirmBtn = form.querySelector( '.bn-del-confirm' );
 			var cancelBtn  = form.querySelector( '.bn-del-cancel' );
+			var impact     = form.querySelector( '.bn-del-impact' );
 			if ( confirmBtn ) {
 				confirmBtn.style.display = 'inline-flex';
 			}
 			if ( cancelBtn ) {
 				cancelBtn.style.display = 'inline-flex';
+			}
+			if ( impact ) {
+				impact.hidden = false;
+				var impactInput = impact.querySelector( '.bn-del-confirm-input' );
+				if ( impactInput ) {
+					impactInput.focus();
+				}
 			}
 		}
 		if ( e.target.matches && e.target.matches( '.bn-del-cancel' ) ) {
@@ -124,15 +147,41 @@
 			var trigger = form2.querySelector( '.bn-del-trigger' );
 			var confirm2 = form2.querySelector( '.bn-del-confirm' );
 			var cancel2  = form2.querySelector( '.bn-del-cancel' );
+			var impact2  = form2.querySelector( '.bn-del-impact' );
 			if ( trigger ) {
 				trigger.style.display = 'inline-flex';
 			}
 			if ( confirm2 ) {
 				confirm2.style.display = 'none';
+				if ( form2.hasAttribute( 'data-bn-confirm-label' ) ) {
+					confirm2.disabled = true;
+				}
 			}
 			if ( cancel2 ) {
 				cancel2.style.display = 'none';
 			}
+			if ( impact2 ) {
+				impact2.hidden = true;
+				var resetInput = impact2.querySelector( '.bn-del-confirm-input' );
+				if ( resetInput ) {
+					resetInput.value = '';
+				}
+			}
+		}
+	} );
+
+	// Gate the confirm button on the type-to-confirm token as the admin types.
+	document.addEventListener( 'input', function ( e ) {
+		if ( ! e.target.matches || ! e.target.matches( '.bn-del-confirm-input' ) ) {
+			return;
+		}
+		var form = e.target.closest( '.bn-del-form' );
+		if ( ! form ) {
+			return;
+		}
+		var confirmBtn = form.querySelector( '.bn-del-confirm' );
+		if ( confirmBtn ) {
+			confirmBtn.disabled = ! confirmTextMatches( form, e.target.value );
 		}
 	} );
 

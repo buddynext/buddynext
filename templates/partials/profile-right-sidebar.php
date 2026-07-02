@@ -13,7 +13,8 @@
  * @var array                       $social_links
  * @var array                       $work_entries
  * @var array                       $edu_entries
- * @var array                       $interests
+ * @var array                       $skills          Skill strings (field 25, comma-separated text).
+ * @var array                       $interest_chips  Interest picks: array{name:string, url:string}[].
  * @var array                       $member_spaces
  * @var callable                    $get_fv
  * @var callable                    $entry_fv
@@ -31,7 +32,8 @@ $bn_pf_comp       = isset( $completion ) ? $completion : null;
 $bn_pf_social     = isset( $social_links ) && is_array( $social_links ) ? $social_links : array();
 $bn_pf_work       = isset( $work_entries ) && is_array( $work_entries ) ? $work_entries : array();
 $bn_pf_edu        = isset( $edu_entries ) && is_array( $edu_entries ) ? $edu_entries : array();
-$bn_pf_int        = isset( $interests ) && is_array( $interests ) ? $interests : array();
+$bn_pf_skills     = isset( $skills ) && is_array( $skills ) ? $skills : array();
+$bn_pf_int_chips  = isset( $interest_chips ) && is_array( $interest_chips ) ? $interest_chips : array();
 $bn_pf_spaces     = isset( $member_spaces ) && is_array( $member_spaces ) ? $member_spaces : array();
 $bn_pf_noop_fv    = static fn( string $group_key, string $field_key ): string => ''; // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter -- default fallback signature.
 $bn_pf_noop_entry = static fn( array $entry_fields, string $field_key ): string => ''; // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter -- default fallback signature.
@@ -49,32 +51,40 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 	// flat field and still drives REST + gamification, but driving the ring off
 	// it left the widget stuck below 100% with all visible tasks done, giving
 	// the member no way to see which hidden field was missing.
-	$bn_pf_tasks = array(
-		array(
-			'label' => __( 'Add a bio', 'buddynext' ),
-			'done'  => '' !== $bn_pf_get_fv( 'basic_info', 'bio' ),
-		),
-		array(
-			'label' => __( 'Add a tagline', 'buddynext' ),
-			'done'  => '' !== $bn_pf_get_fv( 'basic_info', 'headline' ),
-		),
-		array(
-			'label' => __( 'Set your location', 'buddynext' ),
-			'done'  => '' !== $bn_pf_get_fv( 'basic_info', 'location' ),
-		),
-		array(
-			'label' => __( 'Add your skills', 'buddynext' ),
-			'done'  => ! empty( $bn_pf_int ),
-		),
-		array(
-			'label' => __( 'Add work experience', 'buddynext' ),
-			'done'  => ! empty( $bn_pf_work ),
-		),
-		array(
-			'label' => __( 'Link an account', 'buddynext' ),
-			'done'  => ! empty( $bn_pf_social ),
-		),
-	);
+	//
+	// view.php builds the canonical, EXISTENCE-FILTERED task list (a task whose
+	// backing field/group was deleted from the schema is dropped, never shown
+	// as forever-undone) and passes it as $strength_tasks — the same set that
+	// drives the mobile hero chip. The inline build below is only the fallback
+	// for a caller that did not supply the list.
+	$bn_pf_tasks = isset( $strength_tasks ) && is_array( $strength_tasks )
+		? $strength_tasks
+		: array(
+			array(
+				'label' => __( 'Add a bio', 'buddynext' ),
+				'done'  => '' !== $bn_pf_get_fv( 'basic_info', 'bio' ),
+			),
+			array(
+				'label' => __( 'Add a tagline', 'buddynext' ),
+				'done'  => '' !== $bn_pf_get_fv( 'basic_info', 'headline' ),
+			),
+			array(
+				'label' => __( 'Set your location', 'buddynext' ),
+				'done'  => '' !== $bn_pf_get_fv( 'basic_info', 'location' ),
+			),
+			array(
+				'label' => __( 'Add your skills', 'buddynext' ),
+				'done'  => ! empty( $bn_pf_skills ),
+			),
+			array(
+				'label' => __( 'Add work experience', 'buddynext' ),
+				'done'  => ! empty( $bn_pf_work ),
+			),
+			array(
+				'label' => __( 'Link an account', 'buddynext' ),
+				'done'  => ! empty( $bn_pf_social ),
+			),
+		);
 
 	$bn_pf_total = count( $bn_pf_tasks );
 	$bn_pf_done  = count(
@@ -91,7 +101,11 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 	$bn_ring_circ   = 150.80; // 2·π·r, r = 24 (matches the SVG below)
 	$bn_ring_pct    = $bn_pf_total > 0 ? (int) round( ( $bn_pf_done / $bn_pf_total ) * 100 ) : 0;
 	$bn_ring_offset = $bn_ring_circ * ( 1 - ( $bn_ring_pct / 100 ) );
-	?>
+
+	// No tasks at all (every backing field removed from the schema): skip the
+	// widget entirely rather than rendering a 0% ring with an empty checklist.
+	if ( ! empty( $bn_pf_tasks ) ) :
+		?>
 	<div class="bn-widget">
 		<div class="bn-widget-title"><?php esc_html_e( 'Profile Strength', 'buddynext' ); ?></div>
 
@@ -155,6 +169,7 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 		</ul>
 		<?php endif; ?>
 	</div>
+		<?php endif; ?>
 <?php endif; ?>
 
 <?php if ( $bn_pf_social ) : ?>
@@ -251,12 +266,27 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 </div>
 <?php endif; ?>
 
-<?php if ( $bn_pf_int ) : ?>
+<?php if ( $bn_pf_int_chips ) : ?>
 <div class="bn-widget">
 	<div class="bn-widget-title"><?php esc_html_e( 'Interests', 'buddynext' ); ?></div>
 	<div class="bn-skill-chips">
-		<?php foreach ( $bn_pf_int as $interest ) : ?>
-			<span class="bn-skill-chip"><?php echo esc_html( $interest ); ?></span>
+		<?php foreach ( $bn_pf_int_chips as $bn_pf_chip ) : ?>
+			<?php if ( '' !== (string) ( $bn_pf_chip['url'] ?? '' ) ) : ?>
+				<a class="bn-skill-chip" href="<?php echo esc_url( (string) $bn_pf_chip['url'] ); ?>"><?php echo esc_html( (string) ( $bn_pf_chip['name'] ?? '' ) ); ?></a>
+			<?php else : ?>
+				<span class="bn-skill-chip"><?php echo esc_html( (string) ( $bn_pf_chip['name'] ?? '' ) ); ?></span>
+			<?php endif; ?>
+		<?php endforeach; ?>
+	</div>
+</div>
+<?php endif; ?>
+
+<?php if ( $bn_pf_skills ) : ?>
+<div class="bn-widget">
+	<div class="bn-widget-title"><?php esc_html_e( 'Skills', 'buddynext' ); ?></div>
+	<div class="bn-skill-chips">
+		<?php foreach ( $bn_pf_skills as $bn_pf_skill ) : ?>
+			<span class="bn-skill-chip"><?php echo esc_html( (string) $bn_pf_skill ); ?></span>
 		<?php endforeach; ?>
 	</div>
 </div>

@@ -140,6 +140,27 @@ do_action( 'buddynext_part_space_hero_before', $args );
 			<h1 class="bn-sh-hero__name"
 				aria-label="<?php echo esc_attr( sprintf( '%s (%s)', $bn_space->name, $bn_privacy_label ) ); ?>"
 			><?php echo esc_html( $bn_space->name ); ?><span class="bn-badge" data-tone="<?php echo esc_attr( $bn_privacy_tone ); ?>"><?php echo esc_html( $bn_privacy_label ); ?></span></h1>
+			<?php
+			// Breadcrumb — only on a sub-space, giving the parent context a member
+			// expects (Slack/Notion-style "Parent > This space"). Placed BELOW the
+			// title so the title sits at the same position as on a root space (no
+			// vertical drift). parent_summary() is viewer-scoped, so a secret parent
+			// the viewer cannot see resolves to null and the crumb is omitted.
+			$bn_sh_parent = ! empty( $bn_space->parent_id )
+				? ( new \BuddyNext\Spaces\SpaceService() )->parent_summary( (int) $bn_space->parent_id, get_current_user_id() )
+				: null;
+			if ( is_array( $bn_sh_parent ) && ! empty( $bn_sh_parent['slug'] ) ) :
+				?>
+				<nav class="bn-sh-hero__breadcrumb" aria-label="<?php esc_attr_e( 'Breadcrumb', 'buddynext' ); ?>">
+					<a class="bn-sh-hero__crumb" href="<?php echo esc_url( buddynext_space_url( (string) $bn_sh_parent['slug'] ) ); ?>">
+						<?php echo esc_html( (string) $bn_sh_parent['name'] ); ?>
+					</a>
+					<span class="bn-sh-hero__crumb-sep" aria-hidden="true"><?php buddynext_icon( 'chevron-right' ); ?></span>
+					<span class="bn-sh-hero__crumb bn-sh-hero__crumb--current" aria-current="page">
+						<?php echo esc_html( (string) $bn_space->name ); ?>
+					</span>
+				</nav>
+			<?php endif; ?>
 			<?php if ( ! empty( $bn_space->category_name ) ) : ?>
 				<div class="bn-sh-hero__handle">
 					<?php buddynext_icon( 'hash' ); ?>

@@ -153,7 +153,16 @@ function trapFocus( container ) {
  * @param {string} [opts.cancelLabel]  Default 'Cancel'.
  * @return {Promise<boolean>}
  */
-export function bnConfirm( opts ) {
+export function bnConfirm( opts, legacyOpts ) {
+	// Canonical signature is ONE options object ({ title, body, confirmLabel,
+	// tone }). Some callers historically passed ( message, opts ) — a bare
+	// string first — which Object.assign would spread into useless indexed
+	// characters, rendering an EMPTY dialog (blank title and body). Normalize
+	// the legacy shape so a drifted caller can never show a contentless
+	// confirm again.
+	if ( 'string' === typeof opts ) {
+		opts = Object.assign( { body: opts }, legacyOpts || {} );
+	}
 	const cfg = Object.assign( { tone: 'danger' }, opts || {} );
 
 	return new Promise( function ( resolve ) {

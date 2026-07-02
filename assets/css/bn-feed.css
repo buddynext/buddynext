@@ -37,6 +37,13 @@
 	gap: var(--bn-s5);
 }
 
+/* Profile Activity tab: the owner composer and the .bn-feed-stack sit as direct
+   siblings in .bn-pf-tab-content with no gap; separate the composer from the
+   first post by the same amount as the card-to-card gap so it is not flush. */
+.bn-pf-tab-content > .bn-composer {
+	margin-block-end: var(--bn-s5);
+}
+
 /* ── Post card (v2 pattern) ─────────────────────────────────────────────────────
    Source: docs/v2 Plans/v2/home-feed.html post sections + post-detail.html.
    Single border, no shadow at rest, padding `--bn-s5`, gap `--bn-s4` between
@@ -186,11 +193,6 @@
 }
 
 .bn-post-card__author-name:hover { color: var(--bn-accent); }
-
-.bn-post-card__member-type {
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
-}
 
 /* Connection-degree pill (1st / 2nd) — matches parts/member-card's
    .bn-md-card__degree so the byline and directory read consistently. */
@@ -1118,10 +1120,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 
 .bn-skeleton {
 	background: var(--bn-surface);
-	border: 1px solid var(--bn-border);
 	border-radius: var(--bn-r-xl);
-	padding: var(--bn-s4);
-	margin-bottom: var(--bn-s3);
 }
 
 .bn-skeleton-line {
@@ -1243,6 +1242,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
    inner-template overrides here only tweak content rhythm at small widths. */
 @media (max-width: 640px) {
 	.bn-feed-stack { gap: var(--bn-s3); }
+	.bn-pf-tab-content > .bn-composer { margin-block-end: var(--bn-s3); }
 
 	.bn-post-card__head { flex-wrap: wrap; }
 	/* Hide the inline per-post Follow on mobile. Repeated on every card it eats a
@@ -2997,6 +2997,10 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	.bn-composer { padding: var(--s3) var(--s3) var(--s2); }
 	.bn-composer__tools { gap: var(--s1); }
 	.bn-composer__privacy { font-size: 10px; padding: 0 var(--s2); }
+	/* The desktop worst-case label reservation (100px) is too wide to share a
+	   row with the Post button on mobile and pushes the audience chip onto its
+	   own line. Let the label size to its content here. */
+	.bn-composer__privacy-chip strong { min-inline-size: auto; }
 }
 
 /* ── End-of-feed marker ────────────────────────────────────────────────────

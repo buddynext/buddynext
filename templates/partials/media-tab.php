@@ -20,6 +20,9 @@ defined( 'ABSPATH' ) || exit;
 $bn_mt_owner_id  = isset( $bn_mt_owner_id ) ? (int) $bn_mt_owner_id : 0;
 $bn_mt_is_owner  = isset( $bn_mt_is_owner ) ? (bool) $bn_mt_is_owner : false;
 $bn_mt_media_ids = isset( $bn_mt_media_ids ) ? (array) $bn_mt_media_ids : array();
+// Owner control: the Albums sub-view can be hidden via BuddyNext -> Integrations
+// (Media -> Albums sub-tab). Default on. When off, only the flat Media gallery shows.
+$bn_mt_albums_enabled = ! isset( $bn_mt_albums_enabled ) || (bool) $bn_mt_albums_enabled;
 
 $bn_mt_ctx = array(
 	'restNonce'          => wp_create_nonce( 'wp_rest' ),
@@ -43,26 +46,28 @@ $bn_mt_ctx = array(
 	'createPrivacy'      => 'public',
 	'pickerOpen'         => false,
 	't'                  => array(
-		'oneItem'            => __( '1 item', 'buddynext' ),
+		'oneItem'                 => __( '1 item', 'buddynext' ),
 		/* translators: %d: number of items in an album. */
-		'nItems'             => __( '%d items', 'buddynext' ),
-		'albumCreated'       => __( 'Album created.', 'buddynext' ),
-		'albumSaved'         => __( 'Album updated.', 'buddynext' ),
-		'createFailed'       => __( 'Could not save the album.', 'buddynext' ),
-		'confirmDeleteAlbum' => __( 'Delete this album? The photos stay in your media.', 'buddynext' ),
-		'delete'             => __( 'Delete', 'buddynext' ),
-		'albumDeleted'       => __( 'Album deleted.', 'buddynext' ),
-		'deleteFailed'       => __( 'Could not delete the album.', 'buddynext' ),
-		'setCover'           => __( 'Set as cover', 'buddynext' ),
-		'coverSet'           => __( 'Cover updated.', 'buddynext' ),
-		'coverFailed'        => __( 'Could not set the cover.', 'buddynext' ),
-		'added'              => __( 'Added to album.', 'buddynext' ),
-		'addFailed'          => __( 'Could not add media.', 'buddynext' ),
-		'emptyAlbum'         => __( 'This album is empty.', 'buddynext' ),
-		'removeFromAlbum'    => __( 'Remove from album', 'buddynext' ),
-		'confirmRemove'      => __( 'Remove this from the album?', 'buddynext' ),
-		'removedFromAlbum'   => __( 'Removed from album.', 'buddynext' ),
-		'removeFailed'       => __( 'Could not remove.', 'buddynext' ),
+		'nItems'                  => __( '%d items', 'buddynext' ),
+		'albumCreated'            => __( 'Album created.', 'buddynext' ),
+		'albumSaved'              => __( 'Album updated.', 'buddynext' ),
+		'createFailed'            => __( 'Could not save the album.', 'buddynext' ),
+		'confirmDeleteAlbum'      => __( 'Delete this album? The photos stay in your media.', 'buddynext' ),
+		'confirmDeleteAlbumTitle' => __( 'Delete this album?', 'buddynext' ),
+		'confirmDeleteAlbumBody'  => __( 'The photos stay in your media.', 'buddynext' ),
+		'delete'                  => __( 'Delete', 'buddynext' ),
+		'albumDeleted'            => __( 'Album deleted.', 'buddynext' ),
+		'deleteFailed'            => __( 'Could not delete the album.', 'buddynext' ),
+		'setCover'                => __( 'Set as cover', 'buddynext' ),
+		'coverSet'                => __( 'Cover updated.', 'buddynext' ),
+		'coverFailed'             => __( 'Could not set the cover.', 'buddynext' ),
+		'added'                   => __( 'Added to album.', 'buddynext' ),
+		'addFailed'               => __( 'Could not add media.', 'buddynext' ),
+		'emptyAlbum'              => __( 'This album is empty.', 'buddynext' ),
+		'removeFromAlbum'         => __( 'Remove from album', 'buddynext' ),
+		'confirmRemove'           => __( 'Remove this from the album?', 'buddynext' ),
+		'removedFromAlbum'        => __( 'Removed from album.', 'buddynext' ),
+		'removeFailed'            => __( 'Could not remove.', 'buddynext' ),
 	),
 );
 ?>
@@ -70,9 +75,14 @@ $bn_mt_ctx = array(
 	data-wp-interactive="buddynext/media-albums"
 	<?php
 	echo wp_interactivity_data_wp_context( $bn_mt_ctx ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- helper returns an escaped attribute.
+	// Skip the albums init (no REST load) when the owner has hidden the Albums sub-tab.
+	if ( $bn_mt_albums_enabled ) {
+		echo ' data-wp-init="callbacks.initAlbums"';
+	}
 	?>
-	data-wp-init="callbacks.initAlbums">
+	>
 
+	<?php if ( $bn_mt_albums_enabled ) : ?>
 	<div class="bn-media-subnav" role="tablist" aria-label="<?php esc_attr_e( 'Media views', 'buddynext' ); ?>">
 		<button type="button" class="bn-media-subnav__tab" role="tab"
 			data-wp-bind--aria-selected="state.viewIsMedia"
@@ -83,6 +93,7 @@ $bn_mt_ctx = array(
 			data-wp-class--bn-media-subnav__tab--active="state.viewIsAlbums"
 			data-wp-on--click="actions.showAlbums"><?php esc_html_e( 'Albums', 'buddynext' ); ?></button>
 	</div>
+	<?php endif; ?>
 
 	<?php // ── MEDIA VIEW ─────────────────────────────────────────────────────── ?>
 	<div class="bn-media-view" data-wp-bind--hidden="!state.viewIsMedia">
@@ -93,7 +104,7 @@ $bn_mt_ctx = array(
 		echo '<div class="bn-media-grid-region" data-bn-media-region data-bn-owner="' . esc_attr( $bn_mt_is_owner ? '1' : '0' ) . '">';
 		if ( ! empty( $bn_mt_media_ids ) ) {
 			echo '<div class="bn-card bn-profile-media-card">';
-			echo \BuddyNext\Media\MediaRenderer::gallery( array_map( 'absint', $bn_mt_media_ids ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer emits pre-sanitized markup.
+			echo \BuddyNext\Media\MediaRenderer::gallery( array_map( 'absint', $bn_mt_media_ids ), array( 'user_id' => $bn_mt_owner_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer emits pre-sanitized markup.
 			echo '</div>';
 		} else {
 			?>
@@ -172,7 +183,7 @@ $bn_mt_ctx = array(
 
 	<?php if ( $bn_mt_is_owner ) : ?>
 		<?php // ── CREATE ALBUM MODAL ─────────────────────────────────────────────── ?>
-	<div class="bn-modal-backdrop bn-album-modal" data-wp-bind--hidden="!context.createOpen">
+	<div class="bn-modal-backdrop bn-album-modal is-hidden" data-wp-class--is-hidden="!context.createOpen">
 		<div class="bn-modal__panel" data-size="sm" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e( 'New album', 'buddynext' ); ?>">
 			<div class="bn-modal__head">
 				<h3 class="bn-modal__title">
@@ -215,7 +226,7 @@ $bn_mt_ctx = array(
 	</div>
 
 		<?php // ── ADD-MEDIA PICKER MODAL ─────────────────────────────────────────── ?>
-	<div class="bn-modal-backdrop bn-album-picker" data-wp-bind--hidden="!context.pickerOpen">
+	<div class="bn-modal-backdrop bn-album-picker is-hidden" data-wp-class--is-hidden="!context.pickerOpen">
 		<div class="bn-modal__panel" data-size="lg" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e( 'Add media', 'buddynext' ); ?>">
 			<div class="bn-modal__head">
 				<h3 class="bn-modal__title"><?php esc_html_e( 'Add media to album', 'buddynext' ); ?></h3>

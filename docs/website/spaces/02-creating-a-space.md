@@ -57,7 +57,7 @@ The owner (and site admins) edit a space from its own settings screen. Settings 
 
 ### Archiving and restoring
 
-Archiving freezes a space without destroying it. An archived space stays viewable to its members but is closed to new posts and other write actions. This is the safe option for a community that has gone quiet but whose history you want to keep. The owner or a site admin can restore an archived space back to active at any time, which reopens it for posting.
+Archiving freezes a space without destroying it. An archived space stays viewable to its members but is closed to new posts and other write actions. This is the safe option for a community that has gone quiet but whose history you want to keep. The owner or a site admin can restore an archived space back to active at any time, which reopens it for posting. After you archive or restore a space, BuddyNext shows a short confirmation message so you know the change took effect.
 
 > **Tip:** Archive before you delete. Archiving is reversible and keeps every post and member; deletion is permanent.
 
@@ -70,6 +70,8 @@ Deleting a space is permanent and removes everything tied to it. When a space is
 - The space's reports, moderation log entries, and member bans.
 - The space itself.
 
+Sub-spaces are **not** deleted. If the space you delete is a parent, each of its sub-spaces is kept and moved up to the top level, becoming an independent space with all of its own members and posts intact - rather than being removed or left pointing at a parent that no longer exists.
+
 Only the owner or a site admin can delete a space.
 
 > **Warning:** Deletion cannot be undone. There is no trash or restore for a deleted space. Use archive if you might want it back.
@@ -81,6 +83,8 @@ A space has exactly one owner. The current owner (or a site admin) can transfer 
 ### Sub-spaces
 
 A space can contain sub-spaces - child spaces nested one level under a parent. This suits a parent community that needs dedicated rooms, for example a "Design" parent with "UI", "Research", and "Branding" sub-spaces under it. Only someone who manages the parent space can add a sub-space to it. Nesting is limited to two levels (a parent and its direct children); a sub-space cannot itself have sub-spaces. The owner settings below control whether sub-spaces are allowed at all and how many a single parent may have.
+
+A parent space shows how many sub-spaces it has, but the number only counts the sub-spaces a given viewer is allowed to see. If a parent contains a secret sub-space that someone cannot access, that sub-space is left out of the count for them - so no one learns about a hidden room from the total.
 
 ## Setting it up (for owners)
 

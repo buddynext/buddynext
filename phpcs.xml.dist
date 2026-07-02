@@ -6,6 +6,16 @@
     <file>includes/</file>
     <file>tests/</file>
 
+    <!--
+        Vendored runtime dependencies (Action Scheduler, EDD SL SDK) live under
+        libs/ and ship verbatim from upstream. They are third-party code, not
+        authored to this project's WordPress-Coding-Standards ruleset, so exclude
+        the whole tree — a dependency refresh must never trip the gate. The
+        pre-commit hook passes staged paths explicitly; phpcs still honours this
+        exclude-pattern for those, so bundled files are skipped either way.
+    -->
+    <exclude-pattern>*/libs/*</exclude-pattern>
+
     <rule ref="WordPress"/>
 
     <!--

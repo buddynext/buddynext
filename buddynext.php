@@ -3,7 +3,7 @@
  * Plugin Name: BuddyNext
  * Plugin URI:  https://buddynext.com/
  * Description: The social layer for WordPress.
- * Version:     1.0.3
+ * Version:     1.0.4
  * Author:      Wbcom Designs
  * Author URI:  https://wbcomdesigns.com
  * License:     GPLv2 or later
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BUDDYNEXT_VERSION', '1.0.3' );
+define( 'BUDDYNEXT_VERSION', '1.0.4' );
 define( 'BUDDYNEXT_FILE', __FILE__ );
 define( 'BUDDYNEXT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BUDDYNEXT_URL', plugin_dir_url( __FILE__ ) );
@@ -40,6 +40,33 @@ spl_autoload_register(
 			require $file;
 		}
 	}
+);
+
+// Wire WordPress's native metadata API to the bn_space_meta table. WP's
+// _get_meta_table('bn_space') resolves the $wpdb property `bn_spacemeta` (no
+// underscore) and the `bn_space_id` column; our physical table is bn_space_meta.
+// Without this alias every get/add/update/delete_metadata('bn_space', …) — and
+// register_meta / WP_Meta_Query / the meta object cache — silently returns false
+// and no space field can be stored. Re-aliased on blog switch so multisite writes
+// after switch_to_blog() hit the correct blog's table.
+$GLOBALS['wpdb']->bn_spacemeta = $GLOBALS['wpdb']->prefix . 'bn_space_meta';
+add_action(
+	'switch_blog',
+	static function (): void {
+		$GLOBALS['wpdb']->bn_spacemeta = $GLOBALS['wpdb']->prefix . 'bn_space_meta';
+	}
+);
+
+// Boot the space-field registry on init: it fires buddynext_register_space_fields
+// (core + third parties register there, mirroring the Nav API's
+// buddynext_register_nav) and wires each field to register_meta('bn_space', …).
+// Priority 9 so fields are registered before REST routes initialise at init:10.
+add_action(
+	'init',
+	static function (): void {
+		\BuddyNext\Spaces\SpaceFieldRegistry::instance()->boot();
+	},
+	9
 );
 
 register_activation_hook( __FILE__, array( \BuddyNext\Core\Installer::class, 'run' ) );
@@ -229,6 +256,106 @@ function buddynext_service( string $key ): mixed {
 }
 
 /**
+ * Read per-space metadata.
+ *
+ * Thin wrapper over the native WP metadata API for meta_type 'bn_space' (backed
+ * by the bn_space_meta table via the $wpdb->bn_spacemeta alias set at boot). This
+ * is the canonical per-space storage — every per-space attribute is a meta row,
+ * never a new column or an autoloaded option.
+ *
+ * @param int    $space_id bn_spaces.id.
+ * @param string $key      Meta key. Empty returns all keys for the space.
+ * @param bool   $single   Return a single value rather than an array.
+ * @return mixed
+ */
+function get_space_meta( int $space_id, string $key = '', bool $single = false ): mixed {
+	return get_metadata( 'bn_space', $space_id, $key, $single );
+}
+
+/**
+ * Add a per-space metadata row.
+ *
+ * @param int    $space_id bn_spaces.id.
+ * @param string $key      Meta key.
+ * @param mixed  $value    Meta value (will be serialized by WP if needed).
+ * @param bool   $unique   Only add when the key has no existing value.
+ * @return int|false Meta ID on success, false on failure.
+ */
+function add_space_meta( int $space_id, string $key, mixed $value, bool $unique = false ): int|false {
+	return add_metadata( 'bn_space', $space_id, $key, $value, $unique );
+}
+
+/**
+ * Create or update a per-space metadata value.
+ *
+ * Per-key rows make this atomic — no read-modify-write clobber between writers.
+ *
+ * @param int    $space_id   bn_spaces.id.
+ * @param string $key        Meta key.
+ * @param mixed  $value      New value.
+ * @param mixed  $prev_value Only update the row matching this previous value.
+ * @return int|bool Meta ID when a row is created, true on update, false on failure.
+ */
+function update_space_meta( int $space_id, string $key, mixed $value, mixed $prev_value = '' ): int|bool {
+	return update_metadata( 'bn_space', $space_id, $key, $value, $prev_value );
+}
+
+/**
+ * Delete per-space metadata.
+ *
+ * @param int    $space_id bn_spaces.id.
+ * @param string $key      Meta key.
+ * @param mixed  $value    Only delete rows matching this value (empty deletes all for the key).
+ * @return bool
+ */
+function delete_space_meta( int $space_id, string $key, mixed $value = '' ): bool {
+	return delete_metadata( 'bn_space', $space_id, $key, $value );
+}
+
+/**
+ * Register a typed, owner-editable space field — the single developer entry point
+ * AND the path core uses for its own built-in space options (no two-tier system).
+ *
+ * One call drives storage (bn_space_meta), the management-screen render + save
+ * (via the FieldType engine), REST exposure, and search-folding. Mirrors the
+ * profile-field model. Delegates to SpaceFieldRegistry; registration of the
+ * underlying register_meta('bn_space', …) happens on 'init'.
+ *
+ * @param string $key  Meta key / field key.
+ * @param array  $args Field definition: label, type (any FieldType type), single,
+ *                     show_in_rest, searchable, visibility ('public'|'members'),
+ *                     section, sort_order, options, default.
+ * @return void
+ */
+function buddynext_register_space_field( string $key, array $args = array() ): void {
+	\BuddyNext\Spaces\SpaceFieldRegistry::instance()->register( $key, $args );
+}
+
+/**
+ * Read a single space field value, type-cast, with the field's registered
+ * default applied when unset. The canonical accessor for per-space settings —
+ * the default lives once in the field registration, never duplicated per reader.
+ *
+ * @param int    $space_id bn_spaces.id.
+ * @param string $key      Registered field key.
+ * @return mixed Typed value (bool / int / string / array) per the field type.
+ */
+function buddynext_get_space_field( int $space_id, string $key ): mixed {
+	$registry = \BuddyNext\Spaces\SpaceFieldRegistry::instance();
+	$field    = $registry->get_field( $key );
+	$value    = get_space_meta( $space_id, $key, true );
+
+	if ( null === $field ) {
+		return $value; // Not a registered field — return the raw stored value.
+	}
+	if ( '' === (string) $value && '' !== (string) $field['default'] ) {
+		$value = $field['default'];
+	}
+
+	return \BuddyNext\Profile\FieldType::rest_value( $field, $value );
+}
+
+/**
  * Whether a community feature toggle is enabled.
  *
  * Single, defensive accessor for the FeatureRegistry so enforcement points
@@ -305,6 +432,59 @@ function buddynext_register_nav( array $item ): void {
  */
 function buddynext_nav( \BuddyNext\Nav\NavContext $context ): \BuddyNext\Nav\ResolvedNav {
 	return \BuddyNext\Nav\NavRegistry::instance()->resolve( $context );
+}
+
+/**
+ * The owner-controllable integrations registered for this site (keyed by key).
+ *
+ * The single open list — any plugin (in-house or third-party) registers an entry
+ * on the `buddynext_integrations` filter and appears here, on the Integrations
+ * admin page, and under `buddynext_integration_enabled()` gating, with no core
+ * edit. See \BuddyNext\Integrations\IntegrationRegistry.
+ *
+ * @return array<string,array<string,mixed>>
+ */
+function buddynext_integrations(): array {
+	return \BuddyNext\Integrations\IntegrationRegistry::instance()->all();
+}
+
+/**
+ * Whether an integration's nav and/or activity is enabled for this site.
+ *
+ * The ONLY read path for the per-integration owner toggles — bridges call this in
+ * their nav `condition` and their activity handler; never the raw option (so keys
+ * never drift). Default is ON: an ABSENT option means enabled, so a fresh install
+ * and a newly added integration are on until the owner opts OUT.
+ *
+ * @param string $key    Integration key (e.g. 'jetonomy', 'careerboard').
+ * @param string $aspect 'nav' (tab/sub-tab visibility) or 'feed' (activity posting).
+ * @param string $sub    Optional sub-tab key — for `nav`, also requires that sub-tab's
+ *                       toggle (and the parent integration's nav toggle) to be on.
+ * @return bool
+ */
+function buddynext_integration_enabled( string $key, string $aspect = 'nav', string $sub = '' ): bool {
+	$key = sanitize_key( $key );
+	$sub = '' !== $sub ? sanitize_key( $sub ) : '';
+
+	if ( 'feed' === $aspect ) {
+		$on = '0' !== (string) get_option( "buddynext_integration_{$key}_feed", '1' );
+	} else {
+		$on = '0' !== (string) get_option( "buddynext_integration_{$key}_nav", '1' );
+		if ( $on && '' !== $sub ) {
+			$on = '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$sub}", '1' );
+		}
+	}
+
+	/**
+	 * Override an integration's enabled state at read time (e.g. per space) without
+	 * persisting an option.
+	 *
+	 * @param bool   $on     Resolved enabled state.
+	 * @param string $key    Integration key.
+	 * @param string $aspect 'nav' | 'feed'.
+	 * @param string $sub    Sub-tab key ('' when none).
+	 */
+	return (bool) apply_filters( 'buddynext_integration_enabled', $on, $key, $aspect, $sub );
 }
 
 /**
@@ -438,6 +618,23 @@ function buddynext_register_profile_field( array $args ): void {
 }
 
 /**
+ * Register a member (extended-profile) field from code — the member-side companion to
+ * buddynext_register_space_field(), with the same ($key, $args) signature for symmetry.
+ *
+ * The field surfaces on the member's profile + edit UI + REST (via ProfileService) and
+ * its value is stored to the bn_field_{key} usermeta the profile save path writes.
+ * Thin wrapper over buddynext_register_profile_field().
+ *
+ * @param string              $key  Field key (stored as bn_field_{key}).
+ * @param array<string,mixed> $args Definition (group_key, label, type, visibility, options, …).
+ * @return void
+ */
+function buddynext_register_member_field( string $key, array $args = array() ): void {
+	$args['key'] = sanitize_key( $key );
+	buddynext_register_profile_field( $args );
+}
+
+/**
  * Effective default registration mode when the owner has not set one.
  *
  * Per owner decision, BuddyNext does not impose its own opinion on a fresh
@@ -512,51 +709,6 @@ function buddynext_get_template( string $relative, array $vars = array() ): void
 		return;
 	}
 	buddynext_service( 'template_loader' )->render( $relative, $vars );
-}
-
-/**
- * Open a profile tab panel with the correct Interactivity contract.
- *
- * The profile tab switcher reveals exactly one panel by binding each panel's
- * visibility to a single reactive value: a panel is shown when its own
- * `tabSlug` context matches the region's `state.activeTab`. Every panel must
- * therefore carry BOTH its per-panel context (`data-wp-context` with `tabSlug`)
- * AND the reactive `data-wp-bind--hidden="!state.isActiveTab"` binding, plus a
- * static `hidden` attribute on initial render unless it is the active tab (so
- * deep links paint the right panel server-side, before hydration).
- *
- * Free's own panels emit this inline in parts/profile-tab-panel.php; this helper
- * is the shared seam for panels injected by integrations through the
- * `buddynext_part_profile_tab_panel_after` action (Pro Portfolio, Achievements,
- * …) so every injector produces the identical contract instead of hand-rolling
- * it (and getting the bindings wrong, which leaves the panel permanently hidden).
- *
- * Pair every call with buddynext_profile_tab_panel_close().
- *
- * @param string $slug          Tab slug this panel belongs to (matches the tab's slug).
- * @param string $active_tab    The initially-active tab slug (from the panel-after $args).
- * @param string $extra_classes Optional space-separated classes appended to `.bn-profile-tab-panel`.
- * @return void
- */
-function buddynext_profile_tab_panel_open( string $slug, string $active_tab = '', string $extra_classes = '' ): void {
-	$class_list = trim( 'bn-profile-tab-panel ' . $extra_classes );
-	$context    = (string) wp_json_encode( array( 'tabSlug' => $slug ) );
-	printf(
-		'<div class="%1$s" data-tab-panel="%2$s" data-wp-context=\'%3$s\' data-wp-bind--hidden="!state.isActiveTab"%4$s>',
-		esc_attr( $class_list ),
-		esc_attr( $slug ),
-		esc_attr( $context ),
-		( $slug === $active_tab ) ? '' : ' hidden'
-	);
-}
-
-/**
- * Close a profile tab panel opened with buddynext_profile_tab_panel_open().
- *
- * @return void
- */
-function buddynext_profile_tab_panel_close(): void {
-	echo '</div>';
 }
 
 /**

@@ -83,14 +83,20 @@ class InviteService {
 
 		$invite_id = (int) $wpdb->insert_id;
 		if ( $invite_id > 0 ) {
-			$this->send_invite_email(
-				array(
-					'id'         => $invite_id,
-					'email'      => sanitize_email( $email ),
-					'first_name' => sanitize_text_field( $first_name ),
-					'token'      => $token,
-				)
+			$payload = array(
+				'id'         => $invite_id,
+				'email'      => sanitize_email( $email ),
+				'first_name' => sanitize_text_field( $first_name ),
+				'token'      => $token,
 			);
+			// Defer the send to Action Scheduler so a bulk/CSV import (which loops
+			// create()) enqueues N fast async sends instead of N blocking wp_mail()
+			// calls that time the request out. Falls back to inline when AS is absent.
+			if ( function_exists( 'as_enqueue_async_action' ) ) {
+				as_enqueue_async_action( 'buddynext_async_send_invite_email', array( $payload ), 'buddynext' );
+			} else {
+				$this->send_invite_email( $payload );
+			}
 		}
 
 		return $invite_id;
@@ -128,6 +134,41 @@ class InviteService {
 	 */
 	public function mark_registered( int $invite_id ): void {
 		$this->set_status( $invite_id, 'registered' );
+	}
+
+	/**
+	 * Reconcile every pending invite for an email address to 'registered'.
+	 *
+	 * The token-redemption path (AuthController) flips the one invite a member signed
+	 * up through, but a member can also register with the invited address WITHOUT the
+	 * link (direct sign-up, admin-created account, social login). bn_invites keys on
+	 * email and carries no user_id, so absent this those invites would sit 'pending'
+	 * forever in the admin list. Hooked on user_register — one indexed write (the
+	 * `email` key) on a rare event. Flips ALL of an address's pending invites, since
+	 * registering fulfils every outstanding invitation to that person at once.
+	 *
+	 * @param string $email Newly-registered account email.
+	 * @return int Number of pending invites flipped to 'registered'.
+	 */
+	public function mark_registered_by_email( string $email ): int {
+		$email = sanitize_email( $email );
+		if ( '' === $email ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->update(
+			$wpdb->prefix . 'bn_invites',
+			array( 'status' => 'registered' ),
+			array(
+				'email'  => $email,
+				'status' => 'pending',
+			),
+			array( '%s' ),
+			array( '%s', '%s' )
+		);
 	}
 
 	/**
@@ -393,6 +434,20 @@ class InviteService {
 			array( '%s' ),
 			array( '%d' )
 		);
+	}
+
+	/**
+	 * Public entry point for the deferred invite-email send.
+	 *
+	 * The `buddynext_async_send_invite_email` Action Scheduler callback
+	 * (OnboardingListener::handle_async_invite_email) calls this so create() can
+	 * enqueue the send instead of dispatching inline.
+	 *
+	 * @param array<string, mixed> $invite Invite payload { id, email, first_name, token }.
+	 * @return bool True when the email was handed to wp_mail successfully.
+	 */
+	public function deliver_invite_email( array $invite ): bool {
+		return $this->send_invite_email( $invite );
 	}
 
 	/**

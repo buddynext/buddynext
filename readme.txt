@@ -4,7 +4,7 @@ Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 1.0.3
+Stable tag: 1.0.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,6 +55,68 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.0.4 - June 2026 =
+
+* New      - Members can pick their interests from your space categories during onboarding and edit them any time on their profile, where each interest links to the matching spaces in the directory.
+* New      - People and space suggestions are now personalized by the interests each member picks, so a brand-new member sees relevant members and spaces to follow and join from their very first session.
+* New      - The For You feed ranks posts from spaces in a member's picked interests higher, and Explore suggests popular spaces from those interests instead of only the newest ones.
+* New      - Developers can add their own per-space settings that appear on the space management screen, save automatically, and are available over the REST API - the same system the built-in space settings now use.
+* New      - Profile sections can be limited to a member type, so each type gets its own profile fields - a restricted section appears only on profiles of members with that type and never on the signup form.
+* New      - Every profile field can carry owner-written help text under its name and an example placeholder inside the input, shown on both the profile editor and the signup form.
+* Improve  - Core profile fields (bio, headline, location) are now protected from accidental deletion, so search and member cards keep working no matter how the profile form is customized.
+* Improve  - The Social Links, Work Experience, and Education profile sections can now be removed when they do not fit your community; profile pages simply hide a section that is gone.
+* Improve  - Deleting a profile field or group that holds member data now shows exactly how many members are affected and asks you to type its name to confirm, and the cleanup runs in small background batches so large sites stay responsive.
+* Improve  - Member lists inside a space and nested sub-spaces stay fast in very large communities.
+* Improve  - Per-space settings no longer load on every page request, keeping large sites fast as the number of spaces grows.
+* Fix      - Required profile fields are now enforced when saving: an empty value is rejected with a clear message next to the field instead of being silently accepted.
+* Fix      - The setup wizard's profile sections now create the same real field types as a fresh install (URL inputs, date pickers, yes/no checkboxes) instead of plain text boxes with mismatched field names.
+* Fix      - A photo added to the activity composer is shared only when you click Post; removing it or leaving the page no longer publishes it on its own.
+* Fix      - Sharing a photo from the media viewer now opens the full Share menu with Repost and Copy link instead of silently copying the page link.
+* Fix      - Deleting a space now keeps its sub-spaces by moving them to the top level, instead of leaving them stranded under a space that no longer exists.
+* Fix      - The privacy choice on each Work Experience and Education entry is saved and shown correctly after you reload the profile editor.
+* Fix      - The site-wide login redirect setting is now honored, so members land on the page you configured after signing in.
+* Fix      - The after-login, after-logout, and after-onboarding redirect fields on Registration & Login now save, so the destinations you set are actually applied.
+* Fix      - Signing in from a page a caching layer served stale no longer fails with "Cookie check failed" - the form retries with a freshly minted security token instead of re-sending the stale one baked into the cached page.
+* Fix      - The email verification message is now actually sent when you require email verification; it was silently dropped, leaving new members waiting on the "check your inbox" screen forever.
+* Fix      - The Welcome email now uses the template you edit in the admin; it previously sent built-in copy no matter what you wrote.
+* Improve  - All email subject lines now follow one consistent style; your own customized subjects are left untouched.
+* Fix      - The confirmation popup for removing media or deleting an album now explains what you are confirming; it previously opened with empty text.
+* Fix      - Removed a repeated PHP notice about translations loading too early that filled the debug log on WordPress 6.7 and newer.
+* Fix      - The community rail and mobile navigation toggles can now actually be turned off; unchecking them previously saved but silently reverted to on.
+* Fix      - Changing a community page slug now takes effect immediately instead of returning "page not found" until permalinks were re-saved by hand.
+* Fix      - Turning an integration menu off no longer silently disables its sub-tabs behind the scenes when you next save the screen.
+* Fix      - Resetting an email template to default now restores the standard copy immediately; it previously left that email silently disabled until re-saved.
+* Fix      - The media lightbox reaction bar now honors your enabled-reactions choice instead of always showing all six.
+* Fix      - The email digest setting now reflects its real state; a fresh install previously displayed Disabled while digests were actually on.
+* Fix      - The allowed email domains list is now enforced even when spam protection is switched off; it is an access policy, not a spam check.
+* Fix      - The member data-export and account-deletion permissions can now actually be turned off on a fresh install.
+* Fix      - New spaces now honor the default space type chosen in Spaces settings; the create dialog previously always preselected Open.
+* Fix      - Deleting a member now also removes their pending email-verification tokens immediately.
+* Fix      - Values saved in owner-created repeater profile groups now persist; they previously vanished after a success message.
+* Fix      - Removed a PHP warning that fired on profiles whose fields hold multiple values, such as interests.
+* Fix      - BuddyNext emails now always carry your configured sender identity, even when another plugin overrides the site-wide email sender.
+* Improve  - The admin left navigation and stacked toggle rows now breathe with the same calm rhythm as the rest of the Wbcom admin family.
+* Improve  - Integration Display is rebuilt as one card per integration with proper switches and descriptions instead of a plain checkbox list.
+* New      - The admin spaces list shows each space's last activity and can sort by it, so you can tell active spaces from quiet ones at a glance.
+* Improve  - The admin works comfortably on iPad: the navigation keeps its sidebar layout instead of pushing content below the fold.
+* Improve  - The Webhooks screen now uses the full panel width and lays event choices out as a comfortable grid.
+* Improve  - Logo fields now use the WordPress media library with a preview and Remove button instead of a bare file input.
+* Improve  - Settings screens are width-capped for comfortable reading on wide monitors; the Custom CSS box gains syntax highlighting.
+* Improve  - The Navigation screen leads with plain language; developer hook names and the capability field now live behind For developers and Advanced disclosures.
+* Fix      - The Integrations screen no longer shows a Save button with nothing to save, drops a duplicate Connected label, and its description now matches the companion grid it shows.
+* Fix      - Keyword rules set to Block now reject a new member's post instead of only holding it for review; a block always outranks a hold.
+* Fix      - Posts using a banned hashtag are now rejected as the setting promises; previously the tag was silently dropped while the post published.
+* Fix      - Blocked domains now also catch links pasted into the post text and subdomains of a blocked entry, not just the attached link field.
+* Fix      - Moderation Log entries now record what was acted on and show correct times on hosts whose database timezone is not UTC.
+* Fix      - Choosing a member type in the directory now filters the member list, and each type count matches the members shown when you open it.
+* Fix      - A private space now shows a single join button instead of two.
+* Fix      - The direct-message typing indicator clears as soon as you stop typing or send, instead of lingering.
+* Fix      - The profile Media tab, albums, and other interactive profile sections load reliably, and album dialogs no longer flash open on page load.
+* Fix      - The "loading more posts" indicator shows a clean loading bar instead of an empty bordered box.
+* Fix      - Dragging a navigation tab by its handle in Settings > Navigation now reorders it; the drag was previously ignored, forcing you to edit each tab's position number by hand.
+* Fix      - On your profile Activity tab, the post box now has a gap below it instead of sitting flush against the first post.
+* Compat   - Pairs with BuddyNext Pro 1.0.4. Install both updates together.
 
 = 1.0.3 - June 2026 =
 

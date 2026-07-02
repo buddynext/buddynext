@@ -324,6 +324,34 @@ add_action( 'plugins_loaded', static function (): void {
 
 ---
 
+## Recipe 9 - Register a member profile field from code
+
+**Goal:** add an extended-profile field to every member from an addon, without an admin creating it in the field builder by hand.
+
+**Seam:** `buddynext_register_member_field( string $key, array $args )` - the member-side companion to `buddynext_register_space_field()`, with the same `( $key, $args )` shape. Call it on `buddynext_loaded` (or `init`).
+
+```php
+add_action( 'buddynext_loaded', static function (): void {
+    buddynext_register_member_field( 'github_url', [
+        'label'      => 'GitHub',
+        'type'       => 'url',          // a Free field type (see note below).
+        'group_key'  => 'social_links', // attached to an existing group, or created if absent.
+        'visibility' => 'public',
+    ] );
+} );
+```
+
+The field then:
+
+- renders in the profile **edit UI** and on the **profile**, and
+- is returned by **`GET /users/{id}/profile`** through `ProfileService`.
+
+Because a programmatic field has no `bn_profile_fields` row, its submitted value is stored to **`bn_field_{key}` usermeta** (here `bn_field_github_url`) on save, not to the `bn_profile_values` table. Read it back with `get_user_meta( $user_id, 'bn_field_github_url', true )`.
+
+> **Note:** `type` must be one of the Free field types (`text`, `textarea`, `url`, `email`, `phone`, `number`, `date`, `boolean`, `select`, `radio`, `multiselect`, `color`). The "File upload" (`file`) type is **Pro-only** - it is registered by Pro on the `buddynext_field_types` filter and is not available in Free.
+
+---
+
 ## Notes and gotchas
 
 - **Filters return, actions react.** A filter that returns nothing erases the value. An action's return value is ignored.

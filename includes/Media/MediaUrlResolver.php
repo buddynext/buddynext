@@ -52,9 +52,19 @@ class MediaUrlResolver {
 			return null;
 		}
 
-		$thumb = method_exists( $repo, 'get_broadcast_thumbnail_url' )
-			? (string) $repo->get_broadcast_thumbnail_url( $media_id, 'thumb_large' )
-			: '';
+		// Prefer the viewer-aware thumbnail (WPMediaVerse 1.8.1+) so non-public
+		// media (Members / Friends / Only Me) show their real poster to viewers who
+		// are allowed to see them — owner, admin, permitted audience — instead of a
+		// generic placeholder. It returns '' when the current viewer lacks access.
+		// Fall back to the anonymous broadcast URL (older engines / public media),
+		// then to the bundled default video poster.
+		$thumb = '';
+		if ( method_exists( $repo, 'get_thumbnail_url_for_viewer' ) ) {
+			$thumb = (string) $repo->get_thumbnail_url_for_viewer( $media_id, 'thumb_large' );
+		}
+		if ( '' === $thumb && method_exists( $repo, 'get_broadcast_thumbnail_url' ) ) {
+			$thumb = (string) $repo->get_broadcast_thumbnail_url( $media_id, 'thumb_large' );
+		}
 		// A video with no server-generated poster frame yields an empty thumb,
 		// which would render as a black poster-less tile. Fall back to the
 		// engine's bundled default video poster so the BuddyNext gallery matches

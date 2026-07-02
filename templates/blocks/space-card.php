@@ -34,12 +34,11 @@ $is_member = $viewer_id
 	? buddynext_service( 'space_members' )->is_member( $space_id, $viewer_id )
 	: false;
 
-$bn_type         = $space['type'] ?? 'open';
-$bn_privacy_tone = match ( $bn_type ) {
-	'open'    => 'info',
-	'private' => 'warn',
-	default   => 'danger',
-};
+$bn_type = $space['type'] ?? 'open';
+// Source the badge tone from the registry (single source of truth) so it matches
+// the directory / REST / display_meta surfaces — a hardcoded map drifted (open
+// rendered 'info' here vs the registry's 'success').
+$bn_privacy_tone  = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->tone( (string) $bn_type );
 $bn_privacy_label = \BuddyNext\Spaces\SpaceService::type_label( (string) $bn_type );
 
 if ( ! function_exists( 'bn_space_cover_tone' ) ) {

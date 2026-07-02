@@ -325,6 +325,23 @@ class PostService {
 	 * @return void
 	 */
 	private function run_post_published_effects( int $post_id, int $user_id, string $type, array $data, string $flag_reason = '' ): void {
+		// Keep the space's denormalized activity stamp current (one indexed
+		// UPDATE) - the admin roster sorts/filters on it, so the owner can tell
+		// alive from dead spaces without a GROUP BY over bn_posts at request time.
+		$bn_space_id = (int) ( $data['space_id'] ?? 0 );
+		if ( $bn_space_id > 0 ) {
+			global $wpdb;
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update(
+				$wpdb->prefix . 'bn_spaces',
+				array( 'last_active_at' => gmdate( 'Y-m-d H:i:s' ) ),
+				array( 'id' => $bn_space_id ),
+				array( '%s' ),
+				array( '%d' )
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		}
+
 		/**
 		 * Fires after a new post goes live.
 		 *

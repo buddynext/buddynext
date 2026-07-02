@@ -143,10 +143,6 @@ $profile_link = $post_author_id > 0 ? PageRouter::profile_url( $post_author_id )
 // Initials fallback — shared canonical helper (supersedes the inline copy).
 $initials = AvatarService::initials_for( (string) $display_name );
 
-// Member type badge.
-$member_type_slug  = get_user_meta( $post_author_id, 'bn_member_type', true );
-$member_type_label = $member_type_slug ? get_user_meta( $post_author_id, 'bn_member_type_label', true ) : '';
-
 // ── Timestamps ─────────────────────────────────────────────────────────────────
 // Relative times come from the canonical buddynext_time_ago() helper (UTC-anchored).
 $post_time    = buddynext_time_ago( $created_at );
@@ -496,7 +492,6 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			'username'          => $username,
 			'avatar_url'        => $avatar_url,
 			'initials'          => $initials,
-			'member_type_label' => $member_type_label,
 			'degree'            => $byline_degree,
 			'show_follow'       => $byline_show_follow,
 			'created_at'        => $created_at,

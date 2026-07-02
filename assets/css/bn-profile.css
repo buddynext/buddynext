@@ -808,6 +808,26 @@
 	gap: var(--bn-s5);
 }
 
+/* The hero lives in the shell main column, which the right "Member of" rail
+   narrows well below the viewport width — a 1280px viewport can still leave the
+   head only ~600px wide, crushing the 1fr identity column so the name wraps. Make
+   the hero a size container and stack the head on the CONTAINER width (not the
+   viewport), so the name keeps its row and the actions drop below when tight. */
+.bn-pf-hero {
+	container-type: inline-size;
+}
+
+@container (max-width: 720px) {
+	.bn-pf-head {
+		grid-template-columns: 1fr;
+	}
+
+	.bn-pf-actions {
+		justify-self: start;
+		justify-content: flex-start;
+	}
+}
+
 .bn-pf-avatar-wrap {
 	position: relative;
 	margin-block-start: calc(var(--bn-s12) * -1);
@@ -1165,10 +1185,39 @@
 	color: var(--bn-ink-3);
 	margin-top: 2px;
 }
+/* Headline + mutual-connection context, so a member can tell who is requesting
+   before approving (parity with the directory member card). Tokens flip in dark
+   mode; the headline truncates to one line so a long tagline never breaks the row. */
+.bn-follow-requests__headline {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-2);
+	margin-top: 3px;
+	line-height: 1.3;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.bn-follow-requests__mutual {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	margin-top: 3px;
+	line-height: 1.3;
+}
 .bn-follow-requests__actions {
 	display: inline-flex;
 	gap: 8px;
 	flex-shrink: 0;
+}
+/* Narrow phones: the avatar + two action buttons leave the id column too thin for
+   the headline + mutual line, so stack the actions below (aligned past the avatar).
+   The id then fills the first row and reads cleanly. */
+@media (max-width: 480px) {
+	.bn-follow-requests__row { flex-wrap: wrap; }
+	.bn-follow-requests__id { flex-basis: calc(100% - 40px - var(--s3)); }
+	.bn-follow-requests__actions {
+		width: 100%;
+		justify-content: flex-end;
+	}
 }
 
 /* Blocked & muted lists in the profile-edit Privacy → Relations card.
@@ -1939,6 +1988,52 @@ a.bn-space-row:hover .bn-space-name {
 	min-width: 0;
 }
 .bn-ep-field--full { grid-column: 1 / -1; }
+
+/* Choice grids — multiselect / category_multiselect checkbox groups and radio
+   groups render each option as a selectable chip that wraps naturally at any
+   viewport. Scoped to the group fieldsets so the single boolean checkbox row
+   keeps its plain look. */
+.bn-field-checkbox-group,
+.bn-field-radio-group {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	border: 0;
+	padding: 0;
+	margin: 0;
+	min-width: 0;
+}
+.bn-field-checkbox-group .bn-field-checkbox,
+.bn-field-radio-group .bn-field-radio {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	min-height: var(--bn-s10);
+	padding: var(--bn-s2) var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-surface);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	cursor: pointer;
+	transition: border-color 0.14s ease, background 0.14s ease;
+}
+.bn-field-checkbox-group .bn-field-checkbox:hover,
+.bn-field-radio-group .bn-field-radio:hover {
+	border-color: var(--bn-line-strong);
+}
+.bn-field-checkbox-group .bn-field-checkbox:has(input:checked),
+.bn-field-radio-group .bn-field-radio:has(input:checked) {
+	border-color: var(--bn-accent);
+	background: var(--bn-accent-50);
+	color: var(--bn-ink);
+}
+.bn-field-checkbox-group .bn-field-checkbox:has(input:focus-visible),
+.bn-field-radio-group .bn-field-radio:has(input:focus-visible) {
+	outline: 2px solid var(--bn-ring);
+	outline-offset: 2px;
+}
+
 .bn-ep-label {
 	font-size: var(--bn-text-sm);
 	font-weight: 600;
