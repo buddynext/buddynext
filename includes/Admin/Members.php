@@ -940,7 +940,20 @@ class Members extends AdminPageBase {
 			)
 		);
 		$suspended_count = $susp_data['total'];
-		$active_count    = max( 0, $this->get_member_count() - $suspended_count );
+
+		// Active = seen in the last 30 days (bn_presence, the same source as
+		// the roster's Last Active column). The old Total-minus-suspended math
+		// read 1,530/1,530 forever on a healthy site - a stat that never moves
+		// tells the owner nothing.
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$active_count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_presence WHERE last_active >= %d",
+				time() - ( 30 * DAY_IN_SECONDS )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$action = sanitize_key( wp_unslash( $_GET['action'] ?? '' ) );
@@ -995,7 +1008,7 @@ class Members extends AdminPageBase {
 				<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $this->get_member_count() ) ); ?></div>
 			</div>
 			<div class="bn-stat">
-				<div class="bn-stat__label"><?php esc_html_e( 'Active', 'buddynext' ); ?></div>
+				<div class="bn-stat__label"><?php esc_html_e( 'Active (30 days)', 'buddynext' ); ?></div>
 				<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $active_count ) ); ?></div>
 			</div>
 			<div class="bn-stat">

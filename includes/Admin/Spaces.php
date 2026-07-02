@@ -309,7 +309,7 @@ class Spaces extends AdminPageBase {
 							<th scope="col"><?php esc_html_e( 'Space', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Type', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Members', 'buddynext' ); ?></th>
-							<th scope="col"><?php esc_html_e( 'Pending', 'buddynext' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Join Requests', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Created', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
 						</tr>
