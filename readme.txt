@@ -81,6 +81,8 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - The email verification message is now actually sent when you require email verification; it was silently dropped, leaving new members waiting on the "check your inbox" screen forever.
 * Fix      - The Welcome email now uses the template you edit in the admin; it previously sent built-in copy no matter what you wrote.
 * Improve  - All email subject lines now follow one consistent style; your own customized subjects are left untouched.
+* Fix      - The confirmation popup for removing media or deleting an album now explains what you are confirming; it previously opened with empty text.
+* Fix      - Removed a repeated PHP notice about translations loading too early that filled the debug log on WordPress 6.7 and newer.
 * Fix      - Choosing a member type in the directory now filters the member list, and each type count matches the members shown when you open it.
 * Fix      - A private space now shows a single join button instead of two.
 * Fix      - The direct-message typing indicator clears as soon as you stop typing or send, instead of lingering.
