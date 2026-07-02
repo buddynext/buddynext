@@ -62,9 +62,15 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * New      - People and space suggestions are now personalized by the interests each member picks, so a brand-new member sees relevant members and spaces to follow and join from their very first session.
 * New      - The For You feed ranks posts from spaces in a member's picked interests higher, and Explore suggests popular spaces from those interests instead of only the newest ones.
 * New      - Developers can add their own per-space settings that appear on the space management screen, save automatically, and are available over the REST API - the same system the built-in space settings now use.
+* New      - Profile sections can be limited to a member type, so each type gets its own profile fields - a restricted section appears only on profiles of members with that type and never on the signup form.
+* New      - Every profile field can carry owner-written help text under its name and an example placeholder inside the input, shown on both the profile editor and the signup form.
 * Improve  - Core profile fields (bio, headline, location) are now protected from accidental deletion, so search and member cards keep working no matter how the profile form is customized.
+* Improve  - The Social Links, Work Experience, and Education profile sections can now be removed when they do not fit your community; profile pages simply hide a section that is gone.
+* Improve  - Deleting a profile field or group that holds member data now shows exactly how many members are affected and asks you to type its name to confirm, and the cleanup runs in small background batches so large sites stay responsive.
 * Improve  - Member lists inside a space and nested sub-spaces stay fast in very large communities.
 * Improve  - Per-space settings no longer load on every page request, keeping large sites fast as the number of spaces grows.
+* Fix      - Required profile fields are now enforced when saving: an empty value is rejected with a clear message next to the field instead of being silently accepted.
+* Fix      - The setup wizard's profile sections now create the same real field types as a fresh install (URL inputs, date pickers, yes/no checkboxes) instead of plain text boxes with mismatched field names.
 * Fix      - A photo added to the activity composer is shared only when you click Post; removing it or leaving the page no longer publishes it on its own.
 * Fix      - Sharing a photo from the media viewer now opens the full Share menu with Repost and Copy link instead of silently copying the page link.
 * Fix      - Deleting a space now keeps its sub-spaces by moving them to the top level, instead of leaving them stranded under a space that no longer exists.
