@@ -350,14 +350,23 @@ class FieldType {
 		$id       = 'bn-field-' . sanitize_html_class( $name );
 		$required = ! empty( $field['is_required'] ) ? ' required' : '';
 
+		// G1: owner-authored placeholder (bn_profile_fields.placeholder). The
+		// simple <input> types read it inside render_simple_input(); textarea
+		// needs it here. Empty = no attribute at all.
+		$placeholder_attr = '';
+		if ( isset( $field['placeholder'] ) && '' !== (string) $field['placeholder'] ) {
+			$placeholder_attr = ' placeholder="' . esc_attr( (string) $field['placeholder'] ) . '"';
+		}
+
 		switch ( $type ) {
 			case 'textarea':
 				return sprintf(
-					'<textarea class="bn-input bn-field-textarea" id="%1$s" name="%2$s" rows="4"%4$s>%3$s</textarea>',
+					'<textarea class="bn-input bn-field-textarea" id="%1$s" name="%2$s" rows="4"%4$s%5$s>%3$s</textarea>',
 					esc_attr( $id ),
 					esc_attr( $name ),
 					esc_textarea( (string) $value ),
-					$required
+					$required,
+					$placeholder_attr
 				);
 
 			case 'select':

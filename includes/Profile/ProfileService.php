@@ -88,11 +88,14 @@ class ProfileService {
 				g.visibility   AS group_visibility,
 				g.is_system    AS group_is_system,
 				g.sort_order   AS group_sort_order,
+				g.type_restriction AS group_type_restriction,
 				f.id           AS field_id,
 				f.field_key,
 				f.label        AS field_label,
 				f.type         AS field_type,
 				f.options,
+				f.description,
+				f.placeholder,
 				f.is_required,
 				f.is_searchable,
 				f.show_on_register,
@@ -113,14 +116,15 @@ class ProfileService {
 
 			if ( ! isset( $groups[ $gid ] ) ) {
 				$groups[ $gid ] = array(
-					'id'         => $gid,
-					'group_key'  => $row['group_key'],
-					'label'      => $row['group_label'],
-					'type'       => $row['group_type'],
-					'visibility' => $row['group_visibility'],
-					'is_system'  => (bool) $row['group_is_system'],
-					'sort_order' => (int) $row['group_sort_order'],
-					'fields'     => array(),
+					'id'               => $gid,
+					'group_key'        => $row['group_key'],
+					'label'            => $row['group_label'],
+					'type'             => $row['group_type'],
+					'visibility'       => $row['group_visibility'],
+					'is_system'        => (bool) $row['group_is_system'],
+					'sort_order'       => (int) $row['group_sort_order'],
+					'type_restriction' => isset( $row['group_type_restriction'] ) ? (string) $row['group_type_restriction'] : '',
+					'fields'           => array(),
 				);
 			}
 
@@ -132,6 +136,8 @@ class ProfileService {
 					'label'            => $row['field_label'],
 					'type'             => $row['field_type'],
 					'options'          => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
+					'description'      => (string) ( $row['description'] ?? '' ),
+					'placeholder'      => (string) ( $row['placeholder'] ?? '' ),
 					'is_required'      => (bool) $row['is_required'],
 					'is_searchable'    => (bool) $row['is_searchable'],
 					'show_on_register' => (bool) ( $row['show_on_register'] ?? false ),
@@ -226,6 +232,8 @@ class ProfileService {
 			'label'            => $label,
 			'type'             => sanitize_key( (string) ( $field['type'] ?? 'text' ) ),
 			'options'          => $field['options'] ?? null,
+			'description'      => sanitize_text_field( (string) ( $field['description'] ?? '' ) ),
+			'placeholder'      => sanitize_text_field( (string) ( $field['placeholder'] ?? '' ) ),
 			'is_required'      => ! empty( $field['is_required'] ),
 			'is_searchable'    => ! empty( $field['is_searchable'] ),
 			'show_on_register' => ! empty( $field['show_on_register'] ),
@@ -249,6 +257,12 @@ class ProfileService {
 		$reg = array();
 		foreach ( $this->get_fields() as $group ) {
 			if ( 'repeater' === ( $group['type'] ?? '' ) ) {
+				continue;
+			}
+			// G2: a member-type-restricted group never surfaces at registration —
+			// a registrant has no member type yet, so its fields don't exist for
+			// them (per-member-type profiles enrich AFTER the type is assigned).
+			if ( '' !== (string) ( $group['type_restriction'] ?? '' ) ) {
 				continue;
 			}
 			foreach ( $group['fields'] as $field ) {
@@ -281,7 +295,7 @@ class ProfileService {
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
-			"SELECT id, group_key, label, type, visibility, is_system, sort_order
+			"SELECT id, group_key, label, type, visibility, is_system, sort_order, type_restriction
 			 FROM {$wpdb->prefix}bn_profile_groups
 			 ORDER BY sort_order ASC, id ASC",
 			ARRAY_A
@@ -291,13 +305,14 @@ class ProfileService {
 		$groups = array_map(
 			static function ( array $row ): array {
 				return array(
-					'id'         => (int) $row['id'],
-					'group_key'  => $row['group_key'],
-					'label'      => $row['label'],
-					'type'       => $row['type'],
-					'visibility' => $row['visibility'],
-					'is_system'  => (bool) $row['is_system'],
-					'sort_order' => (int) $row['sort_order'],
+					'id'               => (int) $row['id'],
+					'group_key'        => $row['group_key'],
+					'label'            => $row['label'],
+					'type'             => $row['type'],
+					'visibility'       => $row['visibility'],
+					'is_system'        => (bool) $row['is_system'],
+					'sort_order'       => (int) $row['sort_order'],
+					'type_restriction' => isset( $row['type_restriction'] ) ? (string) $row['type_restriction'] : '',
 				);
 			},
 			(array) $rows
@@ -376,7 +391,8 @@ class ProfileService {
 	 * does not yet exist.
 	 *
 	 * @param array $data Field data: group_id|group_name, field_key, label, type,
-	 *                    options, is_required, is_searchable, visibility, sort_order.
+	 *                    options, description, placeholder, is_required,
+	 *                    is_searchable, visibility, sort_order.
 	 * @return int Inserted field ID.
 	 */
 	public function create_field( array $data ): int {
@@ -425,13 +441,15 @@ class ProfileService {
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT IGNORE INTO {$wpdb->prefix}bn_profile_fields
-					(group_id, field_key, label, type, options, is_required, is_searchable, show_on_register, visibility, sort_order)
-				 VALUES (%d, %s, %s, %s, %s, %d, %d, %d, %s, %d)",
+					(group_id, field_key, label, type, options, description, placeholder, is_required, is_searchable, show_on_register, visibility, sort_order)
+				 VALUES (%d, %s, %s, %s, %s, %s, %s, %d, %d, %d, %s, %d)",
 				$group_id,
 				$field_key,
 				sanitize_text_field( (string) ( $data['label'] ?? '' ) ),
 				$data['type'] ?? 'text',
 				wp_json_encode( $data['options'] ?? null ),
+				sanitize_text_field( (string) ( $data['description'] ?? '' ) ),
+				sanitize_text_field( (string) ( $data['placeholder'] ?? '' ) ),
 				(int) ( $data['is_required'] ?? 0 ),
 				(int) ( $data['is_searchable'] ?? 0 ),
 				(int) ( $data['show_on_register'] ?? 0 ),
@@ -817,6 +835,18 @@ class ProfileService {
 	}
 
 	/**
+	 * Public cache invalidation for events that change what a profile renders
+	 * without going through save_profile() — e.g. a member-type assignment or
+	 * removal flips which type-restricted groups exist on the profile (G2).
+	 *
+	 * @param int $user_id Profile owner whose cached views to invalidate.
+	 * @return void
+	 */
+	public function invalidate_profile_cache( int $user_id ): void {
+		$this->bust_profile_cache( $user_id );
+	}
+
+	/**
 	 * Bust every viewer-relationship cache bucket for a user's profile.
 	 *
 	 * Clears the owner bucket plus all follower/connection combinations keyed by
@@ -920,11 +950,14 @@ class ProfileService {
 					g.type         AS group_type,
 					g.visibility   AS group_visibility,
 					g.sort_order   AS group_sort_order,
+					g.type_restriction AS group_type_restriction,
 					f.id           AS field_id,
 					f.field_key,
 					f.label        AS field_label,
 					f.type         AS field_type,
 					f.options,
+					f.description,
+					f.placeholder,
 					f.is_required  AS field_is_required,
 					f.visibility   AS field_visibility,
 					f.sort_order   AS field_sort_order,
@@ -941,6 +974,21 @@ class ProfileService {
 			ARRAY_A
 		);
 
+		// G2 (per-member-type profiles): a group restricted to a member type
+		// exists only on profiles of members who HOLD that type — resolved once
+		// per profile, from the profile owner (not the viewer). NULL/empty
+		// restriction = visible to all (the default; existing sites unchanged).
+		// Values of non-matching members are retained in bn_profile_values,
+		// just never rendered.
+		$owner_type_slug = '';
+		if ( function_exists( 'buddynext_service' ) ) {
+			$member_types = buddynext_service( 'member_types' );
+			if ( is_object( $member_types ) && method_exists( $member_types, 'get_user_type' ) ) {
+				$owner_type      = $member_types->get_user_type( $profile_user_id );
+				$owner_type_slug = is_array( $owner_type ) ? (string) ( $owner_type['slug'] ?? '' ) : '';
+			}
+		}
+
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		// Organise rows into groups → entries → fields.
 		$raw_groups = array();
@@ -951,6 +999,14 @@ class ProfileService {
 			$eidx  = (int) ( $row['entry_index'] ?? 0 );
 			$gtype = $row['group_type'];
 			$gvis  = $row['group_visibility'];
+
+			// G2: skip groups restricted to a member type the profile owner does
+			// not hold — applies to every viewer, including the owner (the group
+			// does not exist for them until the type is assigned).
+			$g_restriction = (string) ( $row['group_type_restriction'] ?? '' );
+			if ( '' !== $g_restriction && $g_restriction !== $owner_type_slug ) {
+				continue;
+			}
 
 			// Enforce group/field/entry visibility for non-owners (most restrictive wins).
 			if ( ! $is_owner ) {
@@ -1004,6 +1060,8 @@ class ProfileService {
 				'label'            => $row['field_label'],
 				'type'             => $row['field_type'],
 				'options'          => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
+				'description'      => (string) ( $row['description'] ?? '' ),
+				'placeholder'      => (string) ( $row['placeholder'] ?? '' ),
 				'is_required'      => (bool) ( $row['field_is_required'] ?? false ),
 				'sort_order'       => (int) $row['field_sort_order'],
 				'value'            => $row['value'],
@@ -1511,7 +1569,8 @@ class ProfileService {
 	 * Update a profile field definition.
 	 *
 	 * Allowed $data keys: label, type, options (null, array, or JSON string),
-	 * is_required, is_searchable, show_on_register, visibility, sort_order.
+	 * description, placeholder, is_required, is_searchable, show_on_register,
+	 * visibility, sort_order.
 	 * Unknown keys are ignored.
 	 * When 'options' is an array it is json_encoded before saving.
 	 * Busts 'all_fields' cache key.
@@ -1547,6 +1606,16 @@ class ProfileService {
 				$update['options'] = (string) $data['options'];
 				$format[]          = '%s';
 			}
+		}
+
+		if ( isset( $data['description'] ) ) {
+			$update['description'] = sanitize_text_field( (string) $data['description'] );
+			$format[]              = '%s';
+		}
+
+		if ( isset( $data['placeholder'] ) ) {
+			$update['placeholder'] = sanitize_text_field( (string) $data['placeholder'] );
+			$format[]              = '%s';
 		}
 
 		if ( isset( $data['is_required'] ) ) {
@@ -1959,10 +2028,13 @@ class ProfileService {
 				f.group_id,
 				g.type       AS group_type,
 				g.visibility AS group_visibility,
+				g.type_restriction AS group_type_restriction,
 				f.field_key,
 				f.label,
 				f.type,
 				f.options,
+				f.description,
+				f.placeholder,
 				f.is_required,
 				f.is_searchable,
 				f.is_system,
@@ -1978,19 +2050,22 @@ class ProfileService {
 		return array_map(
 			static function ( array $row ): array {
 				return array(
-					'id'               => (int) $row['id'],
-					'group_id'         => (int) $row['group_id'],
-					'group_type'       => $row['group_type'],
-					'group_visibility' => $row['group_visibility'] ?? 'public',
-					'field_key'        => $row['field_key'],
-					'label'            => $row['label'] ?? $row['field_key'],
-					'type'             => $row['type'],
-					'options'          => isset( $row['options'] ) ? json_decode( (string) $row['options'], true ) : null,
-					'is_required'      => (bool) $row['is_required'],
-					'is_searchable'    => (bool) $row['is_searchable'],
-					'is_system'        => (bool) ( $row['is_system'] ?? false ),
-					'visibility'       => $row['visibility'] ?? 'public',
-					'sort_order'       => (int) $row['sort_order'],
+					'id'                     => (int) $row['id'],
+					'group_id'               => (int) $row['group_id'],
+					'group_type'             => $row['group_type'],
+					'group_visibility'       => $row['group_visibility'] ?? 'public',
+					'group_type_restriction' => (string) ( $row['group_type_restriction'] ?? '' ),
+					'field_key'              => $row['field_key'],
+					'label'                  => $row['label'] ?? $row['field_key'],
+					'type'                   => $row['type'],
+					'options'                => isset( $row['options'] ) ? json_decode( (string) $row['options'], true ) : null,
+					'description'            => (string) ( $row['description'] ?? '' ),
+					'placeholder'            => (string) ( $row['placeholder'] ?? '' ),
+					'is_required'            => (bool) $row['is_required'],
+					'is_searchable'          => (bool) $row['is_searchable'],
+					'is_system'              => (bool) ( $row['is_system'] ?? false ),
+					'visibility'             => $row['visibility'] ?? 'public',
+					'sort_order'             => (int) $row['sort_order'],
 				);
 			},
 			(array) $rows

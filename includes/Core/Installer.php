@@ -515,6 +515,10 @@ class Installer {
 			'bn_profile_fields'   => array(
 				'show_on_register' => 'ADD COLUMN show_on_register TINYINT(1) NOT NULL DEFAULT 0',
 				'is_system'        => 'ADD COLUMN is_system TINYINT(1) NOT NULL DEFAULT 0',
+				// v18 (G1): owner-authored help text (rendered under the label on
+				// edit + signup) and input placeholder. Empty = render nothing.
+				'description'      => 'ADD COLUMN description VARCHAR(255) DEFAULT NULL',
+				'placeholder'      => 'ADD COLUMN placeholder VARCHAR(255) DEFAULT NULL',
 			),
 		);
 
@@ -1627,6 +1631,8 @@ class Installer {
 				label         VARCHAR(255) NOT NULL,
 				type          VARCHAR(32) NOT NULL DEFAULT 'text',
 				options       JSON DEFAULT NULL,
+				description   VARCHAR(255) DEFAULT NULL,
+				placeholder   VARCHAR(255) DEFAULT NULL,
 				is_required   TINYINT(1) NOT NULL DEFAULT 0,
 				is_searchable TINYINT(1) NOT NULL DEFAULT 0,
 				show_on_register TINYINT(1) NOT NULL DEFAULT 0,

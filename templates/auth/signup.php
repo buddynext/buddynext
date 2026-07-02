@@ -275,6 +275,10 @@ if ( 'invite' === $bn_reg_mode ) {
 									<span class="bn-auth-required" aria-hidden="true">*</span>
 								<?php endif; ?>
 							</label>
+							<?php if ( ! empty( $bn_reg_field['description'] ) ) : ?>
+								<?php // G1: owner-authored help text; empty renders nothing. ?>
+								<p class="bn-auth-hint bn-auth-field-hint"><?php echo esc_html( (string) $bn_reg_field['description'] ); ?></p>
+							<?php endif; ?>
 							<?php
 							// FieldType::render_input returns escaped, type-safe markup.
 							// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped

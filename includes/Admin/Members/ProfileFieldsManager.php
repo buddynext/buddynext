@@ -367,6 +367,8 @@ class ProfileFieldsManager {
 		$type        = sanitize_key( wp_unslash( $_POST['type'] ?? 'text' ) );
 		$is_required = absint( wp_unslash( $_POST['is_required'] ?? 0 ) );
 		$visibility  = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
+		$description = sanitize_text_field( wp_unslash( $_POST['description'] ?? '' ) );
+		$placeholder = sanitize_text_field( wp_unslash( $_POST['placeholder'] ?? '' ) );
 
 		if ( ! in_array( $type, self::field_types(), true ) ) {
 			$type = 'text';
@@ -423,6 +425,8 @@ class ProfileFieldsManager {
 					'label'         => $label,
 					'type'          => $type,
 					'options'       => $parsed_opts,
+					'description'   => $description,
+					'placeholder'   => $placeholder,
 					'is_required'   => $is_required > 0 ? 1 : 0,
 					'is_searchable' => $is_searchable,
 					'visibility'    => $visibility,
@@ -748,7 +752,8 @@ class ProfileFieldsManager {
 	}
 
 	/**
-	 * Handle admin_post_bn_update_profile_group — update visibility on a group.
+	 * Handle admin_post_bn_update_profile_group — update visibility and/or the
+	 * member-type restriction on a group.
 	 *
 	 * @return void
 	 */
@@ -761,20 +766,49 @@ class ProfileFieldsManager {
 
 		check_admin_referer( 'bn_update_profile_group_' . $group_id );
 
-		$visibility = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
+		// Each inline group control autosubmits its own single-attribute form,
+		// so only the submitted attribute is updated — a visibility change must
+		// never clobber the member-type restriction and vice versa.
+		$update = array();
+		$format = array();
 
-		if ( ! in_array( $visibility, self::VISIBILITY_VALUES, true ) ) {
-			$visibility = 'public';
+		if ( isset( $_POST['visibility'] ) ) {
+			$visibility = sanitize_key( wp_unslash( $_POST['visibility'] ) );
+			if ( ! in_array( $visibility, self::VISIBILITY_VALUES, true ) ) {
+				$visibility = 'public';
+			}
+			$update['visibility'] = $visibility;
+			$format[]             = '%s';
 		}
 
-		if ( $group_id > 0 ) {
+		// G2 (per-member-type profiles): limit the group to one LIVE member
+		// type. Empty = every member sees it (the default). Unknown slugs are
+		// refused so a stale form cannot point the group at a deleted type.
+		if ( isset( $_POST['type_restriction'] ) ) {
+			$restriction = sanitize_key( wp_unslash( $_POST['type_restriction'] ) );
+			if ( '' === $restriction ) {
+				$update['type_restriction'] = null;
+				$format[]                   = '%s';
+			} else {
+				$live_slugs = array_map(
+					static fn( $t ) => (string) ( $t['slug'] ?? '' ),
+					(array) buddynext_service( 'member_types' )->get_all()
+				);
+				if ( in_array( $restriction, $live_slugs, true ) ) {
+					$update['type_restriction'] = $restriction;
+					$format[]                   = '%s';
+				}
+			}
+		}
+
+		if ( $group_id > 0 && ! empty( $update ) ) {
 			global $wpdb;
 
 			$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$wpdb->prefix . 'bn_profile_groups',
-				array( 'visibility' => $visibility ),
+				$update,
 				array( 'id' => $group_id ),
-				array( '%s' ),
+				$format,
 				array( '%d' )
 			);
 
@@ -890,9 +924,11 @@ class ProfileFieldsManager {
 			exit;
 		}
 
-		$label      = sanitize_text_field( wp_unslash( $_POST['label'] ?? '' ) );
-		$type       = sanitize_key( wp_unslash( $_POST['type'] ?? 'text' ) );
-		$visibility = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
+		$label       = sanitize_text_field( wp_unslash( $_POST['label'] ?? '' ) );
+		$type        = sanitize_key( wp_unslash( $_POST['type'] ?? 'text' ) );
+		$visibility  = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
+		$description = sanitize_text_field( wp_unslash( $_POST['description'] ?? '' ) );
+		$placeholder = sanitize_text_field( wp_unslash( $_POST['placeholder'] ?? '' ) );
 
 		if ( ! in_array( $type, self::field_types(), true ) ) {
 			$type = 'text';
@@ -951,13 +987,15 @@ class ProfileFieldsManager {
 				'label'            => $label,
 				'type'             => $type,
 				'options'          => null !== $parsed_opts ? wp_json_encode( $parsed_opts ) : null,
+				'description'      => $description,
+				'placeholder'      => $placeholder,
 				'is_required'      => $is_required,
 				'is_searchable'    => $is_searchable,
 				'show_on_register' => $show_on_register,
 				'visibility'       => $visibility,
 			),
 			array( 'id' => $field_id ),
-			array( '%s', '%s', '%s', '%d', '%d', '%d', '%s' ),
+			array( '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s' ),
 			array( '%d' )
 		);
 
@@ -1208,6 +1246,17 @@ class ProfileFieldsManager {
 			'connections' => __( 'Connections only', 'buddynext' ),
 			'private'     => __( 'Only me', 'buddynext' ),
 		);
+
+		// G2: the "Limit to member type" control is populated from the site's
+		// LIVE member types and only rendered when the owner has defined any —
+		// no dead control on sites without member types.
+		$member_types = array();
+		if ( function_exists( 'buddynext_service' ) ) {
+			$mt_service = buddynext_service( 'member_types' );
+			if ( is_object( $mt_service ) && method_exists( $mt_service, 'get_all' ) ) {
+				$member_types = (array) $mt_service->get_all();
+			}
+		}
 		?>
 
 		<div class="bn-pf-wrap">
@@ -1249,6 +1298,40 @@ class ProfileFieldsManager {
 								<?php endforeach; ?>
 							</select>
 						</form>
+
+						<?php if ( ! empty( $member_types ) ) : ?>
+							<?php $grp_restriction = (string) ( $group['type_restriction'] ?? '' ); ?>
+							<!-- Inline member-type restriction (per-member-type profiles) -->
+							<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form">
+								<input type="hidden" name="action" value="bn_update_profile_group">
+								<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
+								<?php wp_nonce_field( 'bn_update_profile_group_' . $gid ); ?>
+								<select class="bn-pf-type-restrict" name="type_restriction" data-bn-autosubmit
+									title="<?php esc_attr_e( 'Limit to member type - this section only appears on profiles of members with the selected type.', 'buddynext' ); ?>">
+									<option value="" <?php selected( $grp_restriction, '' ); ?>><?php esc_html_e( 'All member types', 'buddynext' ); ?></option>
+									<?php foreach ( $member_types as $mt ) : ?>
+										<?php
+										$mt_slug = (string) ( $mt['slug'] ?? '' );
+										$mt_name = (string) ( $mt['name'] ?? $mt_slug );
+										if ( '' === $mt_slug ) {
+											continue;
+										}
+										?>
+										<option value="<?php echo esc_attr( $mt_slug ); ?>" <?php selected( $grp_restriction, $mt_slug ); ?>>
+											<?php
+											echo esc_html(
+												sprintf(
+													/* translators: %s: member type name. */
+													__( 'Only: %s', 'buddynext' ),
+													$mt_name
+												)
+											);
+											?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+							</form>
+						<?php endif; ?>
 
 						<span class="bn-pf-field-count">
 							<?php
@@ -1532,6 +1615,26 @@ class ProfileFieldsManager {
 													</select>
 												</div>
 											</div>
+											<?php // G1: owner-authored hints. Empty = nothing renders on the member forms. ?>
+											<div class="bn-pf-af-row">
+												<div class="bn-pf-af-field">
+													<label for="bn-ef-desc-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Help text', 'buddynext' ); ?></label>
+													<input type="text"
+														id="bn-ef-desc-<?php echo absint( $fid ); ?>"
+														name="description"
+														value="<?php echo esc_attr( (string) ( $field['description'] ?? '' ) ); ?>"
+														maxlength="255">
+												</div>
+												<div class="bn-pf-af-field">
+													<label for="bn-ef-ph-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Placeholder', 'buddynext' ); ?></label>
+													<input type="text"
+														id="bn-ef-ph-<?php echo absint( $fid ); ?>"
+														name="placeholder"
+														value="<?php echo esc_attr( (string) ( $field['placeholder'] ?? '' ) ); ?>"
+														maxlength="255">
+												</div>
+											</div>
+											<p class="bn-pf-opts-hint"><?php esc_html_e( 'Help text appears under the field name on the profile edit and signup forms. Placeholder shows inside the empty input. Leave both blank to show nothing extra.', 'buddynext' ); ?></p>
 											<div id="bn-ef-opts-<?php echo absint( $fid ); ?>" class="bn-pf-opts-wrap" style="<?php echo $is_choice_type ? '' : 'display:none;'; ?>">
 												<label for="bn-ef-opts-ta-<?php echo absint( $fid ); ?>">
 													<?php esc_html_e( 'Options (one per line)', 'buddynext' ); ?>
@@ -1648,6 +1751,26 @@ class ProfileFieldsManager {
 								</select>
 							</div>
 						</div>
+						<?php // G1: owner-authored hints. Empty = nothing renders on the member forms. ?>
+						<div class="bn-pf-af-row">
+							<div class="bn-pf-af-field">
+								<label for="bn-af-desc-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Help text', 'buddynext' ); ?></label>
+								<input type="text"
+									id="bn-af-desc-<?php echo absint( $gid ); ?>"
+									name="description"
+									placeholder="<?php esc_attr_e( 'e.g. Shown under the field name to explain what to enter', 'buddynext' ); ?>"
+									maxlength="255">
+							</div>
+							<div class="bn-pf-af-field">
+								<label for="bn-af-ph-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Placeholder', 'buddynext' ); ?></label>
+								<input type="text"
+									id="bn-af-ph-<?php echo absint( $gid ); ?>"
+									name="placeholder"
+									placeholder="<?php esc_attr_e( 'e.g. Example value shown inside the empty input', 'buddynext' ); ?>"
+									maxlength="255">
+							</div>
+						</div>
+						<p class="bn-pf-opts-hint"><?php esc_html_e( 'Help text appears under the field name on the profile edit and signup forms. Placeholder shows inside the empty input. Leave both blank to show nothing extra.', 'buddynext' ); ?></p>
 						<div id="bn-af-opts-<?php echo absint( $gid ); ?>" class="bn-pf-opts-wrap" style="display:none;">
 							<label for="bn-af-opts-ta-<?php echo absint( $gid ); ?>">
 								<?php esc_html_e( 'Options (one per line)', 'buddynext' ); ?>

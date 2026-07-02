@@ -369,13 +369,20 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 								? ' <span class="bn-ep-required" aria-hidden="true">*</span>'
 								: '';
 
+							// G1: owner-authored help text renders under the label; an
+							// empty description renders nothing (no empty shells).
+							$bn_sf_hint = '';
+							if ( ! empty( $bn_field['description'] ) ) {
+								$bn_sf_hint = '<p class="bn-ep-hint bn-ep-field-hint">' . esc_html( (string) $bn_field['description'] ) . '</p>';
+							}
+
 							// A boolean's control is already self-labelling (the checkbox
 							// carries its own label), so it gets a full-width row with no
 							// redundant outer label.
 							if ( 'boolean' === $bn_ftype ) {
-								$bn_rep_html .= '<div class="bn-ep-field bn-ep-field--full">' . $bn_ctrl . '</div>';
+								$bn_rep_html .= '<div class="bn-ep-field bn-ep-field--full">' . $bn_ctrl . $bn_sf_hint . '</div>';
 							} else {
-								$bn_rep_html .= '<div class="bn-ep-field"><label class="bn-ep-label" for="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_fkey ) . '-' . $bn_idx_int ) . '">' . esc_html( $bn_label ) . $bn_sf_required . '</label>' . $bn_ctrl . '</div>';
+								$bn_rep_html .= '<div class="bn-ep-field"><label class="bn-ep-label" for="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_fkey ) . '-' . $bn_idx_int ) . '">' . esc_html( $bn_label ) . $bn_sf_required . '</label>' . $bn_sf_hint . $bn_ctrl . '</div>';
 							}
 						}
 						$bn_rep_html .= '</div>';
@@ -479,9 +486,17 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						. ' data-wp-text="context.errors.' . esc_attr( $bn_fkey ) . '"'
 						. ' data-wp-bind--hidden="!context.errors.' . esc_attr( $bn_fkey ) . '"></span>';
 
+					// G1: owner-authored help text renders under the label; an empty
+					// description renders nothing (no empty shells).
+					$bn_field_hint = '';
+					if ( ! empty( $bn_field['description'] ) ) {
+						$bn_field_hint = '<p class="bn-ep-hint bn-ep-field-hint">' . esc_html( (string) $bn_field['description'] ) . '</p>';
+					}
+
 					$bn_body_html .= '<div class="' . esc_attr( $bn_field_cls ) . '"'
 						. ' data-wp-class--bn-ep-field--error="context.errors.' . esc_attr( $bn_fkey ) . '">';
 					$bn_body_html .= '<div class="bn-ep-field-head"><label class="bn-ep-label" for="' . esc_attr( $bn_inp_id ) . '">' . esc_html( $bn_label ) . $bn_req_mark . '</label>' . $bn_privacy_html . '</div>';
+					$bn_body_html .= $bn_field_hint;
 					$bn_body_html .= $bn_control;
 					$bn_body_html .= $bn_err_html;
 					$bn_body_html .= '</div>';

@@ -355,6 +355,15 @@ class Plugin {
 			1
 		);
 
+		// A member-type change flips which type-restricted profile groups exist
+		// on that member's profile (G2), so the cached get_profile() buckets
+		// must not outlive the assignment.
+		$bust_profile_on_type_change = static function ( $user_id ) use ( $container ) {
+			$container->get( 'profiles' )->invalidate_profile_cache( (int) $user_id );
+		};
+		add_action( 'buddynext_member_type_assigned', $bust_profile_on_type_change, 10, 1 );
+		add_action( 'buddynext_member_type_removed', $bust_profile_on_type_change, 10, 1 );
+
 		// Wire onboarding nudge scheduling and cron handlers.
 		( new OnboardingListener() )->register();
 
