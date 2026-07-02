@@ -116,7 +116,7 @@ class Settings extends AdminPageBase {
 		'buddynext_notif_default_comment'       => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_notif_default_mention'       => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_notif_default_space_join'    => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_digest_frequency'            => array( 'string', 'sanitize_key' ),
+		'buddynext_digest_frequency'            => array( 'string', 'sanitize_key', 'weekly' ),
 		'buddynext_admin_alert_email'           => array( 'string', 'sanitize_email' ),
 
 		// Email.

@@ -86,6 +86,9 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - The community rail and mobile navigation toggles can now actually be turned off; unchecking them previously saved but silently reverted to on.
 * Fix      - Changing a community page slug now takes effect immediately instead of returning "page not found" until permalinks were re-saved by hand.
 * Fix      - Turning an integration menu off no longer silently disables its sub-tabs behind the scenes when you next save the screen.
+* Fix      - Resetting an email template to default now restores the standard copy immediately; it previously left that email silently disabled until re-saved.
+* Fix      - The media lightbox reaction bar now honors your enabled-reactions choice instead of always showing all six.
+* Fix      - The email digest setting now reflects its real state; a fresh install previously displayed Disabled while digests were actually on.
 * Fix      - Choosing a member type in the directory now filters the member list, and each type count matches the members shown when you open it.
 * Fix      - A private space now shows a single join button instead of two.
 * Fix      - The direct-message typing indicator clears as soon as you stop typing or send, instead of lingering.

@@ -627,6 +627,12 @@ class EmailEditor {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete( $table, array( 'type' => $slug ), array( '%s' ) );
 
+		// Re-seed the catalogue default row immediately: EmailSender::send_now()
+		// returns early when a template row is missing, so a bare delete would
+		// silently kill this event's real emails until the owner re-saved the
+		// editor (the editor itself shows catalogue defaults, masking the gap).
+		\BuddyNext\Core\Installer::reseed_email_templates();
+
 		$redirect = $this->hub_url(
 			array(
 				'template' => $slug,

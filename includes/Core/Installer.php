@@ -118,7 +118,7 @@ class Installer {
 	 *      converged to the Installer seed (one canonical schema from either
 	 *      provisioning path).
 	 */
-	private const SCHEMA_VERSION = 19;
+	private const SCHEMA_VERSION = 20;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -183,6 +183,13 @@ class Installer {
 		// interests->skills field-key rename runs inside run(), BEFORE the
 		// profile seeder — see maybe_migrate_skills_field_key.
 		self::maybe_purge_orphan_interest_meta();
+
+		// v20: a digest_frequency row stored as '' (pre-default install) makes the
+		// admin select display "Disabled" while the cron gate treats '' as ENABLED
+		// - and a save from that state silently persists 'never'. Normalize to the
+		// registered default. Idempotent.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "UPDATE {$wpdb->options} SET option_value = 'weekly' WHERE option_name = 'buddynext_digest_frequency' AND option_value = ''" );
 
 		// v19: converge the seeded email-template subjects on one natural style
 		// (no em-dash separators, no exclamation endings). Byte-exact matches
@@ -875,6 +882,26 @@ class Installer {
 	/**
 	 * Insert default email templates using INSERT IGNORE so existing
 	 * customised templates are never overwritten on upgrade.
+	 *
+	 * @param string $p Table prefix.
+	 */
+	/**
+	 * Public wrapper: restore any missing seeded email-template rows.
+	 *
+	 * INSERT IGNORE recreates only absent types, so owner-customized rows are
+	 * never touched. Used by the template editor's "Reset to default" so a
+	 * reset restores the seeded copy instead of leaving a dead type whose
+	 * event emails silently stop sending.
+	 *
+	 * @return void
+	 */
+	public static function reseed_email_templates(): void {
+		global $wpdb;
+		self::seed_email_templates( $wpdb->prefix );
+	}
+
+	/**
+	 * Seed the default email-template rows (INSERT IGNORE - existing rows kept).
 	 *
 	 * @param string $p Table prefix.
 	 */
