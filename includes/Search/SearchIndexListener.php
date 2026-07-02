@@ -77,7 +77,14 @@ class SearchIndexListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_index_user( int $user_id ): void {
-		$this->dispatch( 'buddynext_async_index_user', array( $user_id ) );
+		// Inline, not queued: indexing ONE member is a single-row upsert, and
+		// queuing it makes member searchability depend on Action Scheduler
+		// actually running. On hosts with broken loopback (wp-cron/AS runner
+		// unreachable - found on the 1.0.4 dist-zip QA install) every member
+		// stayed unsearchable forever: directory search, DM recipient search,
+		// and unified search all returned nothing. Bulk paths (reindex_all,
+		// posts, spaces) stay on the queue - they are the bursty work.
+		$this->async_index_user( $user_id );
 	}
 
 	/**

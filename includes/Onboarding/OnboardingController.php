@@ -293,15 +293,33 @@ class OnboardingController {
 			$this->service->save_channels( $user_id, $channels );
 		}
 
-		// Step 2 — join selected spaces.
+		// Step 2 — join selected spaces. Route by each space's join method,
+		// exactly like the spaces REST endpoint: a direct join() here let any
+		// authenticated user post a PRIVATE space id to this endpoint and
+		// become an active member with no approval (found on the 1.0.4
+		// dist-zip journey QA). Private -> request_join(); invite-only -> skip.
 		$spaces = (array) $request->get_param( 'spaces' );
 		if ( ! empty( $spaces ) && function_exists( 'buddynext_service' ) ) {
 			$space_members = buddynext_service( 'space_members' );
+			$space_service = buddynext_service( 'spaces' );
 			if ( $space_members && method_exists( $space_members, 'join' ) ) {
 				foreach ( array_map( 'absint', $spaces ) as $space_id ) {
-					if ( $space_id > 0 ) {
-						$space_members->join( $space_id, $user_id );
+					if ( $space_id <= 0 ) {
+						continue;
 					}
+					$bn_space = $space_service && method_exists( $space_service, 'get' ) ? $space_service->get( $space_id ) : null;
+					if ( null === $bn_space ) {
+						continue; // Unknown space id - never default-join it.
+					}
+					$bn_method = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) ( $bn_space['type'] ?? 'open' ) );
+					if ( 'invite' === $bn_method ) {
+						continue;
+					}
+					if ( 'request' === $bn_method && method_exists( $space_members, 'request_join' ) ) {
+						$space_members->request_join( $space_id, $user_id );
+						continue;
+					}
+					$space_members->join( $space_id, $user_id );
 				}
 			}
 		}
