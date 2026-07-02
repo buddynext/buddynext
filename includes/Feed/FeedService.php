@@ -284,16 +284,37 @@ class FeedService {
 		 */
 		// Connections-first weighting on the blended "For you" feed (the free
 		// ordering the spec calls for): rank posts from the viewer's connections
-		// above the rest, then chronological. IDs are capped + absint'd, so the
-		// CASE stays index-safe and carries no user data. Other filters
+		// above the rest, then posts in open spaces matching the viewer's picked
+		// interests (the tier-then-recency house pattern; the for-you catch-all
+		// already INCLUDES all public open-space posts, so interests act on rank,
+		// not inclusion — see docs/plans/interests-personalization.md §4.3), then
+		// chronological. IDs are capped + absint'd, so the CASE stays index-safe
+		// and carries no user data; the interest subquery is uncorrelated and
+		// rides the bn_spaces category index. Blank interests / no connections
+		// leave the ordering exactly as before (additive signal). Other filters
 		// (following / spaces / network) keep the plain chronological order.
 		$default_order_by = 'is_pinned DESC, created_at DESC, id DESC';
 		if ( 'for-you' === $filter && $user_id > 0 ) {
-			$bn_conn_ids = $this->connection_ids_capped( $user_id );
+			global $wpdb;
+			$bn_conn_ids     = $this->connection_ids_capped( $user_id );
+			$bn_interest_ids = array_slice(
+				( new \BuddyNext\Onboarding\OnboardingService() )->get_interest_ids( $user_id ),
+				0,
+				10
+			);
+
+			$bn_tiers = array();
 			if ( ! empty( $bn_conn_ids ) ) {
-				$default_order_by = 'is_pinned DESC, CASE WHEN user_id IN ('
-					. implode( ',', $bn_conn_ids )
-					. ') THEN 0 ELSE 1 END ASC, created_at DESC, id DESC';
+				$bn_tiers[] = 'WHEN user_id IN (' . implode( ',', $bn_conn_ids ) . ') THEN ' . count( $bn_tiers );
+			}
+			if ( ! empty( $bn_interest_ids ) ) {
+				$bn_tiers[] = "WHEN space_id IN (SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' AND category_id IN ("
+					. implode( ',', array_map( 'absint', $bn_interest_ids ) )
+					. ')) THEN ' . count( $bn_tiers );
+			}
+			if ( ! empty( $bn_tiers ) ) {
+				$default_order_by = 'is_pinned DESC, CASE ' . implode( ' ', $bn_tiers )
+					. ' ELSE ' . count( $bn_tiers ) . ' END ASC, created_at DESC, id DESC';
 			}
 		}
 

@@ -199,8 +199,18 @@ class ExploreService {
 			);
 		}
 
-		$discovery = array();
-		foreach ( $this->newest_spaces( self::DISCOVERY_SPACES, null )['items'] as $space_card ) {
+		// "Spaces you might like": when the viewer has picked interests, the
+		// space garnish is drawn from open spaces in those categories (most
+		// members first, minus spaces already joined) instead of plain newest —
+		// the Explore listing itself stays chronological by design. Blank
+		// interests (or no matches) fall back to newest, so guests and
+		// non-pickers see exactly the previous deck (additive signal).
+		$discovery     = array();
+		$space_garnish = $this->interest_spaces( get_current_user_id(), self::DISCOVERY_SPACES );
+		if ( array() === $space_garnish ) {
+			$space_garnish = $this->newest_spaces( self::DISCOVERY_SPACES, null )['items'];
+		}
+		foreach ( $space_garnish as $space_card ) {
 			$discovery[] = $space_card;
 		}
 		foreach ( $this->newest_members( self::DISCOVERY_MEMBERS, null )['items'] as $member_card ) {
@@ -381,6 +391,79 @@ class ExploreService {
 			'items'       => $items,
 			'next_cursor' => $has_more ? $this->encode_offset( $offset + $limit ) : null,
 		);
+	}
+
+	/**
+	 * "Spaces you might like" — open spaces in the viewer's picked interest
+	 * categories, most members first, minus spaces already joined.
+	 *
+	 * Bounded by the pick cap (10) and the card limit; both subqueries ride
+	 * existing indexes (bn_spaces.category, bn_space_members.user_feed).
+	 * Returns an empty array for guests, blank interests, or no matches — the
+	 * caller falls back to the newest-spaces garnish (additive signal, plan
+	 * §4.3 in docs/plans/interests-personalization.md).
+	 *
+	 * @param int $user_id Viewing user ID (0 = guest).
+	 * @param int $limit   Max cards.
+	 * @return array<int,array<string,mixed>> Space card payloads.
+	 */
+	private function interest_spaces( int $user_id, int $limit ): array {
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+
+		$picks = array_slice(
+			( new \BuddyNext\Onboarding\OnboardingService() )->get_interest_ids( $user_id ),
+			0,
+			10
+		);
+		if ( array() === $picks ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$in = implode( ',', array_map( 'absint', $picks ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, name, slug, description, avatar_url, member_count, type, created_at
+				   FROM {$wpdb->prefix}bn_spaces
+				  WHERE type = 'open'
+				    AND is_archived = 0
+				    AND category_id IN ({$in})
+				    AND id NOT IN (
+						SELECT space_id FROM {$wpdb->prefix}bn_space_members
+						 WHERE user_id = %d AND status = 'active'
+				    )
+				  ORDER BY member_count DESC, id DESC
+				  LIMIT %d",
+				$user_id,
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$items = array();
+		foreach ( (array) $rows as $row ) {
+			$items[] = array(
+				'kind'  => 'space',
+				'space' => array(
+					'id'           => (int) $row['id'],
+					'name'         => (string) $row['name'],
+					'slug'         => (string) $row['slug'],
+					'description'  => (string) ( $row['description'] ?? '' ),
+					'avatar_url'   => (string) ( $row['avatar_url'] ?? '' ),
+					'member_count' => (int) ( $row['member_count'] ?? 0 ),
+					'type'         => (string) ( $row['type'] ?? 'open' ),
+					'created_at'   => (string) ( $row['created_at'] ?? '' ),
+				),
+			);
+		}
+
+		return $items;
 	}
 
 	/**

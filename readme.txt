@@ -60,6 +60,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 * New      - Members can pick their interests from your space categories during onboarding and edit them any time on their profile, where each interest links to the matching spaces in the directory.
 * New      - People and space suggestions are now personalized by the interests each member picks, so a brand-new member sees relevant members and spaces to follow and join from their very first session.
+* New      - The For You feed ranks posts from spaces in a member's picked interests higher, and Explore suggests popular spaces from those interests instead of only the newest ones.
 * New      - Developers can add their own per-space settings that appear on the space management screen, save automatically, and are available over the REST API - the same system the built-in space settings now use.
 * Improve  - Core profile fields (bio, headline, location) are now protected from accidental deletion, so search and member cards keep working no matter how the profile form is customized.
 * Improve  - Member lists inside a space and nested sub-spaces stay fast in very large communities.
