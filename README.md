@@ -7,9 +7,9 @@
 <p align="center"><strong>The community operating system for WordPress.</strong></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0.0-2563eb" alt="Version 1.0.0">
+  <img src="https://img.shields.io/badge/version-1.0.4-2563eb" alt="Version 1.0.4">
   <img src="https://img.shields.io/badge/WordPress-6.9%2B-21759b" alt="WordPress 6.9+">
-  <img src="https://img.shields.io/badge/PHP-8.0--8.4-777bb4" alt="PHP 8.0 to 8.4">
+  <img src="https://img.shields.io/badge/PHP-8.1--8.4-777bb4" alt="PHP 8.1 to 8.4">
   <img src="https://img.shields.io/badge/license-GPLv2%2B-4c9a2a" alt="License GPLv2+">
   <a href="https://wbcomdesigns.com"><img src="https://img.shields.io/badge/by-Wbcom%20Designs-1a1a1a" alt="By Wbcom Designs"></a>
   <a href="https://wbcomdesigns.com"><img src="https://img.shields.io/badge/part%20of-the%20Wbcom%20family-0b5cff" alt="Part of the Wbcom family"></a>
@@ -107,7 +107,7 @@ Explore the full catalog at [wbcomdesigns.com](https://wbcomdesigns.com).
 ## Requirements
 
 - WordPress 6.9 or newer
-- PHP 8.0 to 8.4
+- PHP 8.1 to 8.4
 
 ## Installation
 
