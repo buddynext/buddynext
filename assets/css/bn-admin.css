@@ -625,7 +625,9 @@ select.bn-text-input {
 	align-items: flex-start;
 	justify-content: space-between;
 	gap: var(--bn-a-s4);
-	padding: var(--bn-a-s3) 0;
+	/* 16px band (was 12px): stacked toggle groups read denser than form-field
+	   rows; Learnomy's 16px row rhythm is the reference (card 10056978256). */
+	padding: var(--bn-a-s4) 0;
 	border-bottom: 1px solid var(--bn-a-border-soft);
 }
 
