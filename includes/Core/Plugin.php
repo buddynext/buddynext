@@ -342,6 +342,19 @@ class Plugin {
 			1
 		);
 
+		// Batched purge worker for a deleted profile field's stored values
+		// (§4.3): each run deletes one bounded chunk of bn_profile_values and
+		// re-enqueues itself (Action Scheduler group 'buddynext') while full
+		// batches remain — never one unbounded DELETE.
+		add_action(
+			'buddynext_purge_field_values',
+			static function ( $field_id ) use ( $container ) {
+				$container->get( 'profiles' )->purge_field_values( (int) $field_id );
+			},
+			10,
+			1
+		);
+
 		// Wire onboarding nudge scheduling and cron handlers.
 		( new OnboardingListener() )->register();
 

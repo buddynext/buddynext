@@ -1005,6 +1005,53 @@
 	background: var(--bn-a-bg-subtle);
 }
 
+.bn-del-confirm:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+	background: var(--bn-a-red-bg);
+	color: var(--bn-a-red);
+}
+
+/* Impact-confirm: revealed with the confirm/cancel step when the delete would
+   destroy stored member values. Type-to-confirm input gates the confirm button. */
+.bn-del-impact {
+	display: inline-flex;
+	flex-direction: column;
+	gap: var(--bn-a-s1);
+	max-width: 320px;
+	padding: var(--bn-a-s2) var(--bn-a-s3);
+	background: var(--bn-a-red-bg);
+	border: 1px solid var(--bn-a-red);
+	border-radius: var(--bn-a-r-sm);
+	text-align: start;
+}
+
+.bn-del-impact[hidden] {
+	display: none;
+}
+
+.bn-del-impact-text {
+	color: var(--bn-a-red);
+	font-size: var(--bn-a-text-sm);
+	font-weight: var(--bn-a-fw-semibold);
+	line-height: 1.4;
+}
+
+.bn-del-confirm-input {
+	width: 100%;
+	padding: 3px var(--bn-a-s2);
+	border: 1px solid var(--bn-a-red);
+	border-radius: var(--bn-a-r-sm);
+	background: var(--bn-a-bg);
+	color: var(--bn-a-text-1);
+	font-size: var(--bn-a-text-sm);
+}
+
+.bn-del-confirm-input:focus-visible {
+	outline: 2px solid var(--bn-a-red);
+	outline-offset: var(--bn-a-outline-offset);
+}
+
 .bn-pf-ef-panel {
 	padding: var(--bn-a-s5);
 	background: var(--bn-a-bg-subtle);

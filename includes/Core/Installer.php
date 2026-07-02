@@ -99,8 +99,20 @@ class Installer {
 	 *      FieldType registry (it degraded to a text input on the edit form);
 	 *      'boolean' is the registered equivalent and stores the same '1'/'0'
 	 *      values, so member data is preserved.
+	 * 18 — Profile-field freedom pass (profile-field-system-governance.md §4.1 + G1).
+	 *      (a) Ungated the preset groups: social_links, work_experience and education
+	 *      drop group-level is_system (seeder change + an idempotent convergence
+	 *      UPDATE inside seed_default_profile_groups_and_fields() for existing
+	 *      installs) so owners can prune sections that do not fit their niche —
+	 *      display templates already self-hide when a group is gone. Only
+	 *      basic_info, skills and interests remain system groups (basic_info carries
+	 *      the code-consumed spine fields; interests feeds the suggestion engines).
+	 *      (b) Added bn_profile_fields.description + placeholder (help text under the
+	 *      label, placeholder inside the input) so owners can hint every custom
+	 *      field — guarded ALTERs for existing installs, inline in CREATE TABLE for
+	 *      fresh ones.
 	 */
-	private const SCHEMA_VERSION = 17;
+	private const SCHEMA_VERSION = 18;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -1123,11 +1135,15 @@ class Installer {
 		// category_multiselect field that powers people/space/feed suggestions;
 		// see docs/plans/interests-personalization.md).
 		// Format: group_key, label, type, visibility, is_system, sort_order.
+		// Freedom pass (v18): only basic_info (spine fields), skills and interests
+		// (suggestion signal) are system groups. The showcase sections — Social
+		// Links, Work Experience, Education — are the owner's to keep or prune;
+		// display templates self-hide when a group is gone (display contract §3).
 		$groups = array(
 			array( 'basic_info', 'Basic Info', 'flat', 'public', 1, 1 ),
-			array( 'social_links', 'Social Links', 'flat', 'public', 1, 2 ),
-			array( 'work_experience', 'Work Experience', 'repeater', 'public', 1, 3 ),
-			array( 'education', 'Education', 'repeater', 'public', 1, 4 ),
+			array( 'social_links', 'Social Links', 'flat', 'public', 0, 2 ),
+			array( 'work_experience', 'Work Experience', 'repeater', 'public', 0, 3 ),
+			array( 'education', 'Education', 'repeater', 'public', 0, 4 ),
 			array( 'skills', 'Skills', 'flat', 'public', 1, 5 ),
 			array( 'interests', 'Interests', 'flat', 'public', 1, 6 ),
 		);
@@ -1157,6 +1173,17 @@ class Installer {
 			    SET is_system = 1, label = 'Interests'
 			  WHERE group_key = 'interests'
 			    AND is_system = 0"
+		);
+
+		// Freedom pass (v18): converge pre-v18 installs where the showcase
+		// sections were seeded is_system=1 — the INSERT IGNORE above no-ops on
+		// existing rows, so drop the group lock explicitly. Field-level
+		// is_system (the bio/headline/location/interests spine) is untouched.
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_groups`
+			    SET is_system = 0
+			  WHERE group_key IN ('social_links', 'work_experience', 'education')
+			    AND is_system = 1"
 		);
 
 		// ── 2. Fields ─────────────────────────────────────────────────────────

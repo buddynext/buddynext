@@ -55,18 +55,20 @@ class SystemFieldGuardTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * The installer flags exactly bio/headline/location as system fields.
+	 * The installer flags exactly the code-consumed spine as system fields:
+	 * bio, headline, location (search/directory/hero) + interests (the
+	 * suggestion signal added in the interests Phase 0 migration).
 	 *
 	 * @return void
 	 */
-	public function test_seed_marks_exactly_the_loadbearing_trio_as_system(): void {
+	public function test_seed_marks_exactly_the_loadbearing_spine_as_system(): void {
 		global $wpdb;
 
 		$system_keys = $wpdb->get_col(
 			"SELECT field_key FROM {$wpdb->prefix}bn_profile_fields WHERE is_system = 1 ORDER BY field_key ASC"
 		);
 
-		$this->assertSame( array( 'bio', 'headline', 'location' ), $system_keys );
+		$this->assertSame( array( 'bio', 'headline', 'interests', 'location' ), $system_keys );
 	}
 
 	/**

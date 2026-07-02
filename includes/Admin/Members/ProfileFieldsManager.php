@@ -614,11 +614,37 @@ class ProfileFieldsManager {
 
 		$notice = 'deleted';
 		if ( $group_id > 0 ) {
-			$result = buddynext_service( 'profiles' )->delete_group( $group_id );
-			if ( is_wp_error( $result ) ) {
-				// System groups refuse deletion — surface the refusal instead of
-				// a false "Deleted." success.
-				$notice = 'locked';
+			global $wpdb;
+
+			$service = buddynext_service( 'profiles' );
+
+			// §4.2 impact-confirm: when the group's fields hold stored values,
+			// the delete must arrive with a matching type-to-confirm token (the
+			// group name or DELETE). The admin UI collects it; this server check
+			// is the enforcement, so a hand-crafted POST cannot skip it.
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$group_label = (string) $wpdb->get_var(
+				$wpdb->prepare( "SELECT label FROM {$wpdb->prefix}bn_profile_groups WHERE id = %d", $group_id )
+			);
+			$field_ids   = array_map(
+				'intval',
+				(array) $wpdb->get_col(
+					$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_profile_fields WHERE group_id = %d", $group_id )
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			$affected = $service->count_users_with_field_values( $field_ids );
+
+			if ( $affected > 0 && ! $this->confirm_text_matches( $group_label ) ) {
+				$notice = 'confirm';
+			} else {
+				$result = $service->delete_group( $group_id );
+				if ( is_wp_error( $result ) ) {
+					// System groups refuse deletion — surface the refusal instead
+					// of a false "Deleted." success.
+					$notice = 'locked';
+				}
 			}
 		}
 
@@ -654,11 +680,31 @@ class ProfileFieldsManager {
 
 		$notice = 'deleted';
 		if ( $field_id > 0 ) {
-			$result = buddynext_service( 'profiles' )->delete_field( $field_id );
-			if ( is_wp_error( $result ) ) {
-				// System fields refuse deletion — surface the refusal instead of
-				// a false "Deleted." success.
-				$notice = 'locked';
+			global $wpdb;
+
+			$service = buddynext_service( 'profiles' );
+
+			// §4.2 impact-confirm: a field with stored member values only deletes
+			// when the request carries a matching type-to-confirm token (the
+			// field name or DELETE). Server-side enforcement — the UI input alone
+			// is not the gate.
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$field_label = (string) $wpdb->get_var(
+				$wpdb->prepare( "SELECT label FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $field_id )
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			$affected = $service->count_users_with_field_values( array( $field_id ) );
+
+			if ( $affected > 0 && ! $this->confirm_text_matches( $field_label ) ) {
+				$notice = 'confirm';
+			} else {
+				$result = $service->delete_field( $field_id );
+				if ( is_wp_error( $result ) ) {
+					// System fields refuse deletion — surface the refusal instead
+					// of a false "Deleted." success.
+					$notice = 'locked';
+				}
 			}
 		}
 
@@ -673,6 +719,32 @@ class ProfileFieldsManager {
 			)
 		);
 		exit;
+	}
+
+	/**
+	 * Whether the submitted type-to-confirm token authorises a destructive
+	 * delete (§4.2).
+	 *
+	 * Accepts the item's current name or the literal word DELETE, both
+	 * case-insensitively and whitespace-trimmed. Called only after the nonce
+	 * has been verified by the delete handlers.
+	 *
+	 * @param string $label Current field/group label the admin must retype.
+	 * @return bool
+	 */
+	private function confirm_text_matches( string $label ): bool {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified by the calling delete handler.
+		$input = trim( sanitize_text_field( wp_unslash( $_POST['bn_confirm_text'] ?? '' ) ) );
+
+		if ( '' === $input ) {
+			return false;
+		}
+
+		if ( 0 === strcasecmp( $input, 'DELETE' ) ) {
+			return true;
+		}
+
+		return mb_strtolower( $input ) === mb_strtolower( trim( $label ) );
 	}
 
 	/**
@@ -1089,12 +1161,20 @@ class ProfileFieldsManager {
 			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Not saved — please check the field name and try again.', 'buddynext' ) . '</p></div>';
 		} elseif ( 'locked' === $bn_pf_notice ) {
 			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'This is a core field used by search and member cards - it cannot be deleted.', 'buddynext' ) . '</p></div>';
+		} elseif ( 'confirm' === $bn_pf_notice ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Not deleted - the confirmation text did not match. Type the exact name (or DELETE) to remove an item that has stored member values.', 'buddynext' ) . '</p></div>';
 		}
 
 		$groups      = buddynext_service( 'profiles' )->get_fields();
 		$post_url    = admin_url( 'admin-post.php' );
 		$base_url    = admin_url( 'admin.php?page=buddynext-members&tab=profile-fields' );
 		$group_count = count( $groups );
+
+		// §4.2 impact-confirm: per-field and per-group affected-member counts
+		// (two aggregate queries total). A field/group with stored values renders
+		// a type-to-confirm step on its delete control; the delete handlers
+		// re-verify server-side.
+		$impact_counts = buddynext_service( 'profiles' )->value_user_counts();
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$show_add_group = absint( wp_unslash( $_GET['add_group'] ?? 0 ) );
@@ -1211,13 +1291,44 @@ class ProfileFieldsManager {
 						</a>
 
 						<?php if ( ! $is_system ) : ?>
-							<?php $del_nonce = wp_create_nonce( 'bn_delete_profile_group_' . $gid ); ?>
-							<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form bn-del-form">
+							<?php
+							$del_nonce    = wp_create_nonce( 'bn_delete_profile_group_' . $gid );
+							$grp_affected = (int) ( $impact_counts['groups'][ $gid ] ?? 0 );
+							?>
+							<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form bn-del-form"
+								<?php if ( $grp_affected > 0 ) : ?>
+									data-bn-confirm-label="<?php echo esc_attr( $group['label'] ); ?>"
+								<?php endif; ?>
+							>
 								<input type="hidden" name="action" value="bn_delete_profile_group">
 								<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
 								<input type="hidden" name="_wpnonce" value="<?php echo esc_attr( $del_nonce ); ?>">
 								<button type="button" class="bn-pf-del-group-btn bn-del-trigger"><?php esc_html_e( 'Delete Group', 'buddynext' ); ?></button>
-								<button type="submit" class="bn-del-confirm" style="display:none;"><?php esc_html_e( 'Yes, delete', 'buddynext' ); ?></button>
+								<?php if ( $grp_affected > 0 ) : ?>
+									<span class="bn-del-impact" hidden>
+										<span class="bn-del-impact-text">
+											<?php
+											echo esc_html(
+												sprintf(
+													/* translators: 1: number of members with stored values, 2: group name. */
+													_n(
+														'This permanently deletes stored values for %1$d member. Type "%2$s" or DELETE to confirm.',
+														'This permanently deletes stored values for %1$d members. Type "%2$s" or DELETE to confirm.',
+														$grp_affected,
+														'buddynext'
+													),
+													$grp_affected,
+													$group['label']
+												)
+											);
+											?>
+										</span>
+										<input type="text" name="bn_confirm_text" class="bn-del-confirm-input"
+											autocomplete="off"
+											aria-label="<?php esc_attr_e( 'Type the name or DELETE to confirm', 'buddynext' ); ?>">
+									</span>
+								<?php endif; ?>
+								<button type="submit" class="bn-del-confirm" style="display:none;" <?php disabled( $grp_affected > 0 ); ?>><?php esc_html_e( 'Yes, delete', 'buddynext' ); ?></button>
 								<button type="button" class="bn-del-cancel" style="display:none;"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
 							</form>
 						<?php endif; ?>
@@ -1326,12 +1437,41 @@ class ProfileFieldsManager {
 											<?php // System field: no delete control (the service guard also refuses direct requests). Relabel/reorder/visibility stay editable. ?>
 											<span class="bn-badge" data-tone="neutral" title="<?php esc_attr_e( 'Core field - used by search and member cards. It cannot be deleted.', 'buddynext' ); ?>"><?php esc_html_e( 'Core', 'buddynext' ); ?></span>
 										<?php else : ?>
-											<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form bn-del-form">
+											<?php $fld_affected = (int) ( $impact_counts['fields'][ $fid ] ?? 0 ); ?>
+											<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form bn-del-form"
+												<?php if ( $fld_affected > 0 ) : ?>
+													data-bn-confirm-label="<?php echo esc_attr( $field['label'] ); ?>"
+												<?php endif; ?>
+											>
 												<input type="hidden" name="action" value="bn_delete_profile_field">
 												<input type="hidden" name="field_id" value="<?php echo absint( $fid ); ?>">
 												<?php wp_nonce_field( 'bn_delete_profile_field_' . $fid ); ?>
 												<button type="button" class="bn-pf-del-field bn-del-trigger" title="<?php esc_attr_e( 'Remove field', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
-												<button type="submit" class="bn-del-confirm" style="display:none;"><?php esc_html_e( 'Delete?', 'buddynext' ); ?></button>
+												<?php if ( $fld_affected > 0 ) : ?>
+													<span class="bn-del-impact" hidden>
+														<span class="bn-del-impact-text">
+															<?php
+															echo esc_html(
+																sprintf(
+																	/* translators: 1: number of members with stored values, 2: field name. */
+																	_n(
+																		'This permanently deletes stored values for %1$d member. Type "%2$s" or DELETE to confirm.',
+																		'This permanently deletes stored values for %1$d members. Type "%2$s" or DELETE to confirm.',
+																		$fld_affected,
+																		'buddynext'
+																	),
+																	$fld_affected,
+																	$field['label']
+																)
+															);
+															?>
+														</span>
+														<input type="text" name="bn_confirm_text" class="bn-del-confirm-input"
+															autocomplete="off"
+															aria-label="<?php esc_attr_e( 'Type the name or DELETE to confirm', 'buddynext' ); ?>">
+													</span>
+												<?php endif; ?>
+												<button type="submit" class="bn-del-confirm" style="display:none;" <?php disabled( $fld_affected > 0 ); ?>><?php esc_html_e( 'Delete?', 'buddynext' ); ?></button>
 												<button type="button" class="bn-del-cancel" style="display:none;"><?php esc_html_e( 'No', 'buddynext' ); ?></button>
 											</form>
 										<?php endif; ?>

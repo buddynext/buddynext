@@ -43,6 +43,14 @@ class ProfileService {
 	private const COMPLETION_CACHE_TTL = 300;
 
 	/**
+	 * Rows deleted per bn_profile_values purge batch (§4.3 batched purge).
+	 *
+	 * Sized so a single DELETE stays a short, index-backed (field_idx) operation
+	 * that never stalls concurrent profile saves at 100k members.
+	 */
+	private const VALUE_PURGE_BATCH = 500;
+
+	/**
 	 * Return all profile groups with their nested field definitions.
 	 *
 	 * Return shape:
@@ -556,6 +564,19 @@ class ProfileService {
 
 						$sanitized_val = (string) $sanitized_val;
 
+						// G3: enforce is_required at the persistence layer. A required
+						// sub-field submitted empty is rejected (the stored value is
+						// never cleared) and reported in the error map — every caller
+						// (REST, admin editor, onboarding) gets the same contract.
+						if ( ! empty( $field_def['is_required'] ) && '' === $sanitized_val ) {
+							$field_errors[ "{$key}[{$entry_index}][{$field_key}]" ] = sprintf(
+								/* translators: %s: profile field label. */
+								__( '%s is required.', 'buddynext' ),
+								(string) ( $field_def['label'] ?? $field_key )
+							);
+							continue;
+						}
+
 						/**
 						 * Validate a profile-field value before persistence.
 						 *
@@ -646,6 +667,21 @@ class ProfileService {
 			}
 
 			$sanitized_val = (string) $sanitized_val;
+
+			// G3: enforce is_required at the persistence layer (Bugs card
+			// 10055873101). Submitting an empty value for a required field is
+			// rejected — the stored value is never cleared and the caller gets a
+			// per-field error. An OMITTED key is a partial update and stays legal,
+			// so the registration path (which only submits its own opted-in
+			// fields) is unchanged.
+			if ( ! empty( $field['is_required'] ) && '' === $sanitized_val ) {
+				$field_errors[ (string) $key ] = sprintf(
+					/* translators: %s: profile field label. */
+					__( '%s is required.', 'buddynext' ),
+					(string) ( $field['label'] ?? $key )
+				);
+				continue;
+			}
 
 			/** This filter is documented above in the repeater branch. */
 			$validation = apply_filters(
@@ -1605,16 +1641,11 @@ class ProfileService {
 			);
 		}
 
-		// Delete stored values for this field across all users.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_profile_values',
-			array( 'field_id' => $id ),
-			array( '%d' )
-		);
-
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		// Delete the field definition.
+		// Delete the field definition FIRST so the field disappears from every
+		// surface (admin row, edit form, profile view — all join on the
+		// definition) immediately; the orphaned bn_profile_values rows are then
+		// purged in the background (§4.3), never as one unbounded DELETE that
+		// could hold a lock storm at 100k members.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_profile_fields',
@@ -1631,7 +1662,129 @@ class ProfileService {
 
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
 
+		// Batched value purge (§4.3, BACKGROUND-JOBS.md pattern 2: reactive
+		// single-shot). With Action Scheduler present the worker chunks through
+		// bn_profile_values and re-enqueues itself while full batches remain;
+		// absent AS the same worker drains inline, still bounded per query.
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( 'buddynext_purge_field_values', array( $id ), 'buddynext' );
+		} else {
+			while ( self::VALUE_PURGE_BATCH === $this->purge_field_values( $id ) ) {
+				continue;
+			}
+		}
+
 		return true;
+	}
+
+	/**
+	 * Delete one bounded batch of orphaned values for a removed field.
+	 *
+	 * Runs as the buddynext_purge_field_values Action Scheduler worker (group
+	 * 'buddynext'); a full batch re-enqueues itself for the next chunk. The
+	 * field definition is already gone when this runs, so every reader
+	 * (INNER JOIN on bn_profile_fields) ignores the rows in the interim.
+	 *
+	 * @param int $field_id Deleted field whose stored values to purge.
+	 * @return int Rows deleted this batch.
+	 */
+	public function purge_field_values( int $field_id ): int {
+		if ( $field_id <= 0 ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$deleted = (int) $wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->prefix}bn_profile_values WHERE field_id = %d LIMIT %d",
+				$field_id,
+				self::VALUE_PURGE_BATCH
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( self::VALUE_PURGE_BATCH === $deleted && function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( 'buddynext_purge_field_values', array( $field_id ), 'buddynext' );
+		}
+
+		return $deleted;
+	}
+
+	/**
+	 * Count DISTINCT members holding a stored value for any of the given fields.
+	 *
+	 * One indexed COUNT (field_idx on bn_profile_values) — powers the
+	 * impact-confirm on destructive deletes (§4.2: "permanently deletes values
+	 * for N members") for both single fields and whole groups.
+	 *
+	 * @param int[] $field_ids Field definition ids.
+	 * @return int
+	 */
+	public function count_users_with_field_values( array $field_ids ): int {
+		$field_ids = array_values( array_filter( array_map( 'intval', $field_ids ) ) );
+		if ( empty( $field_ids ) ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ', ', array_fill( 0, count( $field_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(DISTINCT user_id) FROM {$wpdb->prefix}bn_profile_values WHERE field_id IN ({$placeholders})",
+				...$field_ids
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+	}
+
+	/**
+	 * Per-field and per-group affected-member counts for the field manager.
+	 *
+	 * Two aggregate queries total (never one COUNT per row) so the admin screen
+	 * renders the §4.2 impact numbers at any schema size. Keys are definition
+	 * ids; a field/group with no stored values is simply absent from its map.
+	 *
+	 * @return array{fields: array<int, int>, groups: array<int, int>}
+	 */
+	public function value_user_counts(): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$field_rows = $wpdb->get_results(
+			"SELECT field_id, COUNT(DISTINCT user_id) AS users
+			   FROM {$wpdb->prefix}bn_profile_values
+			  GROUP BY field_id",
+			ARRAY_A
+		);
+
+		$group_rows = $wpdb->get_results(
+			"SELECT f.group_id, COUNT(DISTINCT v.user_id) AS users
+			   FROM {$wpdb->prefix}bn_profile_values v
+			  INNER JOIN {$wpdb->prefix}bn_profile_fields f ON f.id = v.field_id
+			  GROUP BY f.group_id",
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$fields = array();
+		foreach ( (array) $field_rows as $row ) {
+			$fields[ (int) $row['field_id'] ] = (int) $row['users'];
+		}
+
+		$groups = array();
+		foreach ( (array) $group_rows as $row ) {
+			$groups[ (int) $row['group_id'] ] = (int) $row['users'];
+		}
+
+		return array(
+			'fields' => $fields,
+			'groups' => $groups,
+		);
 	}
 
 	/**
