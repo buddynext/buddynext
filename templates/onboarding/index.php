@@ -94,7 +94,16 @@ $bn_ob_explore = new ExploreService();
 // Recommended spaces (step 2) — ranked, viewer-aware suggestions (social proof +
 // category + popularity) that exclude spaces the new member is already in, including
 // any auto-joined on signup. Falls back to popularity for a brand-new account.
-$recommended_spaces = ( new \BuddyNext\Spaces\SpaceSuggestionService() )->suggest( $ob_user_id, 6 );
+// Wizard step 3 promises ONE-CLICK join, so only direct-join (open) spaces
+// belong here - a private space's request-to-join flow needs its own page
+// (found on the 1.0.4 dist-zip journey QA: a new member "joined" a private
+// space from this list with no approval).
+$recommended_spaces = array_values(
+	array_filter(
+		( new \BuddyNext\Spaces\SpaceSuggestionService() )->suggest( $ob_user_id, 6 ),
+		static fn ( array $ob_s ): bool => 'direct' === \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) ( $ob_s['type'] ?? 'open' ) )
+	)
+);
 
 // Spaces the user already belongs to + people they already follow (prefill the
 // Join / Follow button states) via bulk service accessors.
