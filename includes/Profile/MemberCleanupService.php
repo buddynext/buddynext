@@ -98,6 +98,9 @@ class MemberCleanupService {
 			$wpdb->prepare( "DELETE FROM {$p}bn_space_bans WHERE user_id = %d", $user_id ),
 			$wpdb->prepare( "DELETE FROM {$p}bn_hashtag_follows WHERE user_id = %d", $user_id ),
 			$wpdb->prepare( "DELETE FROM {$p}bn_notification_prefs WHERE user_id = %d", $user_id ),
+			// Verification tokens: without this a deleted user's tokens lingered
+			// until the expiry cron - a gap in the uniform hard-delete contract.
+			$wpdb->prepare( "DELETE FROM {$p}bn_verify_tokens WHERE user_id = %d", $user_id ),
 			$wpdb->prepare( "DELETE FROM {$p}bn_notifications WHERE recipient_id = %d OR sender_id = %d", $user_id, $user_id ),
 			$wpdb->prepare( "DELETE FROM {$p}bn_user_strikes WHERE user_id = %d", $user_id ),
 			$wpdb->prepare( "DELETE FROM {$p}bn_user_suspensions WHERE user_id = %d", $user_id ),

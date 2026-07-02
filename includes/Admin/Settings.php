@@ -133,8 +133,8 @@ class Settings extends AdminPageBase {
 		'buddynext_google_indexing'             => array( 'string', 'sanitize_key' ),
 		'buddynext_cookie_consent'              => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_data_retention_days'         => array( 'integer', 'absint' ),
-		'buddynext_allow_data_export'           => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_allow_account_deletion'      => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_allow_data_export'           => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_allow_account_deletion'      => array( 'boolean', 'rest_sanitize_boolean', true ),
 
 		// Webhooks.
 		'buddynext_webhook_secret'              => array( 'string', 'sanitize_text_field' ),

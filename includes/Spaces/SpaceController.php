@@ -731,7 +731,7 @@ class SpaceController extends BaseRestController {
 		$name        = sanitize_text_field( (string) ( $request->get_param( 'name' ) ?? '' ) );
 		$slug_raw    = (string) ( $request->get_param( 'slug' ) ?? '' );
 		$slug        = sanitize_title( $slug_raw );
-		$type        = sanitize_key( (string) ( $request->get_param( 'type' ) ?? 'open' ) );
+		$type        = sanitize_key( (string) ( $request->get_param( 'type' ) ?? get_option( 'buddynext_space_default_type', 'open' ) ) );
 		$description = sanitize_textarea_field( (string) ( $request->get_param( 'description' ) ?? '' ) );
 		$category_id = absint( $request->get_param( 'category_id' ) );
 		$parent_id   = absint( $request->get_param( 'parent_id' ) );

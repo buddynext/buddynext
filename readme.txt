@@ -89,6 +89,10 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - Resetting an email template to default now restores the standard copy immediately; it previously left that email silently disabled until re-saved.
 * Fix      - The media lightbox reaction bar now honors your enabled-reactions choice instead of always showing all six.
 * Fix      - The email digest setting now reflects its real state; a fresh install previously displayed Disabled while digests were actually on.
+* Fix      - The allowed email domains list is now enforced even when spam protection is switched off; it is an access policy, not a spam check.
+* Fix      - The member data-export and account-deletion permissions can now actually be turned off on a fresh install.
+* Fix      - New spaces now honor the default space type chosen in Spaces settings; the create dialog previously always preselected Open.
+* Fix      - Deleting a member now also removes their pending email-verification tokens immediately.
 * Fix      - Choosing a member type in the directory now filters the member list, and each type count matches the members shown when you open it.
 * Fix      - A private space now shows a single join button instead of two.
 * Fix      - The direct-message typing indicator clears as soon as you stop typing or send, instead of lingering.

@@ -123,11 +123,15 @@ $bn_csm_title        = null !== $bn_csm_fixed_parent
 						'request' => __( 'request to join', 'buddynext' ),
 						'invite'  => __( 'invite only, hidden', 'buddynext' ),
 					);
+					// Preselect the owner's default (Spaces -> Settings). The select
+					// always submits a value, so without this the first option (open)
+					// silently overrode buddynext_space_default_type on every create.
+					$bn_default_type = (string) get_option( 'buddynext_space_default_type', 'open' );
 					foreach ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->all() as $bn_type_key => $bn_type_cfg ) :
 						$bn_hint  = $bn_join_hints[ $bn_type_cfg['join'] ] ?? '';
 						$bn_label = $bn_type_cfg['label'] . ( '' !== $bn_hint ? ' — ' . $bn_hint : '' );
 						?>
-						<option value="<?php echo esc_attr( (string) $bn_type_key ); ?>"><?php echo esc_html( $bn_label ); ?></option>
+						<option value="<?php echo esc_attr( (string) $bn_type_key ); ?>" <?php selected( $bn_default_type, (string) $bn_type_key ); ?>><?php echo esc_html( $bn_label ); ?></option>
 					<?php endforeach; ?>
 				</select>
 				<p class="bn-create-space-form__error" data-bn-error-for="type" hidden></p>
