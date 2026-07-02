@@ -59,9 +59,19 @@ class PageRouter {
 		add_action( 'pre_get_posts', array( $this, 'set_hub_vars' ) );
 
 		// Flush rewrites whenever any hub slug changes (sourced from the registry).
-		foreach ( HubRegistry::instance()->all() as $bn_hub ) {
-			add_action( 'update_option_' . $bn_hub->slug_option, array( $this, 'flush_on_slug_change' ) );
-		}
+		// Deferred to init:1 — the registry is populated on init:0 (see
+		// Plugin::init(); moved off plugins_loaded so the descriptors' translated
+		// titles don't trip WP 6.7's _load_textdomain_just_in_time notice). The
+		// update_option_* hooks only ever fire on admin saves, long after init.
+		add_action(
+			'init',
+			function (): void {
+				foreach ( HubRegistry::instance()->all() as $bn_hub ) {
+					add_action( 'update_option_' . $bn_hub->slug_option, array( $this, 'flush_on_slug_change' ) );
+				}
+			},
+			1
+		);
 
 		add_filter( 'request', array( $this, 'suppress_default_query' ) );
 		add_filter( 'query_vars', array( $this, 'register_directory_query_vars' ) );

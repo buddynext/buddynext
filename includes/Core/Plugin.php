@@ -429,8 +429,19 @@ class Plugin {
 		( new \BuddyNext\Nav\Providers\ProfileNav() )->register();
 		( new \BuddyNext\Nav\Providers\SpaceNav() )->register();
 
-		// Populate the hub registry before the router's 'init' hook registers rewrites.
-		CoreHubs::register( HubRegistry::instance() );
+		// Populate the hub registry on init:0 — before the router's init:10
+		// rewrite registration, but late enough that the descriptors' translated
+		// titles no longer trip WP 6.7's _load_textdomain_just_in_time notice
+		// (translations must not load before init). Activation-time consumers
+		// (Installer::create_hub_pages) self-populate via their has('feed')
+		// guard, so nothing reads the registry before init.
+		add_action(
+			'init',
+			static function (): void {
+				CoreHubs::register( HubRegistry::instance() );
+			},
+			0
+		);
 
 		// Register URL rewrite rules for pretty profile URLs.
 		( new PageRouter() )->init();
