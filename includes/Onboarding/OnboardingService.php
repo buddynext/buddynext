@@ -2,16 +2,19 @@
 /**
  * Member onboarding wizard service.
  *
- * Tracks the four-step new-member onboarding flow. Wizard state is stored in
+ * Tracks the five-step new-member onboarding flow. Wizard state is stored in
  * user meta. Calling finish() fires buddynext_onboarding_completed — but only
  * on the first completion so downstream hooks (nudge email cancellation,
  * WBGam points) do not fire twice.
  *
  * Steps:
  *   1. Profile — display name, handle, avatar, bio
- *   2. Spaces — join recommended spaces (handled by caller)
- *   3. People — follow suggested members (handled by caller)
- *   4. Notifications — pick delivery channels (handled by caller)
+ *   2. Interests — pick space categories (auto-skipped when the owner has
+ *      defined no categories; step_list() drops it and the wizard renders
+ *      four steps with contiguous numbering)
+ *   3. Spaces — join recommended spaces (handled by caller)
+ *   4. People — follow suggested members (handled by caller)
+ *   5. Notifications — pick delivery channels (handled by caller)
  *
  * @package BuddyNext\Onboarding
  */
@@ -26,9 +29,11 @@ namespace BuddyNext\Onboarding;
 class OnboardingService {
 
 	/**
-	 * Total number of onboarding steps.
+	 * Total number of onboarding steps (with the Interests step present —
+	 * step_list() is the per-site truth and drops Interests when the owner
+	 * has no categories).
 	 */
-	public const TOTAL_STEPS = 4;
+	public const TOTAL_STEPS = 5;
 
 	/**
 	 * User meta key for the current step.
@@ -63,6 +68,54 @@ class OnboardingService {
 	}
 
 	/**
+	 * The ordered wizard step list for this site (1-based positions).
+	 *
+	 * The Interests step ("What are you into?") is included only when the
+	 * owner has authored at least one space category — with an empty
+	 * taxonomy the chip grid would be an empty shell, so the step drops out
+	 * server-side and the wizard renders four steps with contiguous
+	 * numbering. Each step carries key / label / icon; the template derives
+	 * positions and the total from this list.
+	 *
+	 * @return array<int, array{key:string, label:string, icon:string}> Steps keyed 1..N.
+	 */
+	public function step_list(): array {
+		$steps   = array();
+		$steps[] = array(
+			'key'   => 'profile',
+			'label' => __( 'Profile', 'buddynext' ),
+			'icon'  => 'user',
+		);
+
+		if ( array() !== \BuddyNext\Profile\FieldType::category_options() ) {
+			$steps[] = array(
+				'key'   => 'interests',
+				'label' => __( 'Interests', 'buddynext' ),
+				'icon'  => 'sparkles',
+			);
+		}
+
+		$steps[] = array(
+			'key'   => 'spaces',
+			'label' => __( 'Spaces', 'buddynext' ),
+			'icon'  => 'building',
+		);
+		$steps[] = array(
+			'key'   => 'people',
+			'label' => __( 'People', 'buddynext' ),
+			'icon'  => 'users',
+		);
+		$steps[] = array(
+			'key'   => 'notifications',
+			'label' => __( 'Notifications', 'buddynext' ),
+			'icon'  => 'bell',
+		);
+
+		// 1-based positions — the template binds each section to its position.
+		return array_combine( range( 1, count( $steps ) ), $steps );
+	}
+
+	/**
 	 * Save data for a wizard step and advance to the next step.
 	 *
 	 * @param int                  $user_id WordPress user ID.
@@ -72,10 +125,11 @@ class OnboardingService {
 	 */
 	public function save_step( int $user_id, int $step, array $data ): void {
 		// Step 1 is the only step whose data lands here (display name +
-		// bio). Step 2 (Spaces), Step 3 (People), and Step 4 (channels)
-		// each go through their own dedicated REST endpoints when the
-		// affordance is used, so this dispatcher only persists profile
-		// data and advances the saved-step pointer.
+		// bio). Interests (POST /me/interests), Spaces (join), People
+		// (follow), and Notifications (channels) each go through their own
+		// dedicated REST endpoints when the affordance is used, so this
+		// dispatcher only persists profile data and advances the
+		// saved-step pointer.
 		if ( 1 === $step ) {
 			$this->save_profile( $user_id, $data );
 		}
@@ -283,11 +337,13 @@ class OnboardingService {
 		do_action( 'buddynext_onboarding_completed', $user_id );
 	}
 
-	// Step 2 (Spaces)        → join handled in OnboardingController::complete()
+	// Interests     → save_interest_ids() above, via POST /me/interests on the
+	// step's Continue and again (idempotent) in OnboardingController::complete().
+	// Spaces        → join handled in OnboardingController::complete()
 	// and the inline joinSuggestedSpace REST call.
-	// Step 3 (People)        → follow handled in OnboardingController::complete()
+	// People        → follow handled in OnboardingController::complete()
 	// and the inline followSuggestedUser REST call.
-	// Step 4 (Notifications) → save_channels() above, invoked on complete.
+	// Notifications → save_channels() above, invoked on complete.
 
 	// -------------------------------------------------------------------------
 	// Private helpers

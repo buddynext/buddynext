@@ -55,36 +55,61 @@ $bn_ap_get_fv = static function ( string $gkey, string $fkey ) use ( $bn_ap_grou
 	return '';
 };
 
-$bn_ap_work      = array_values(
+$bn_ap_work = array_values(
 	array_filter(
 		isset( $bn_ap_groups['work_experience']['entries'] ) ? $bn_ap_groups['work_experience']['entries'] : array(),
 		static fn( array $e ): bool => '' !== $bn_ap_entry_fv( $e, 'work_company' ) || '' !== $bn_ap_entry_fv( $e, 'work_title' )
 	)
 );
-$bn_ap_edu       = array_values(
+$bn_ap_edu  = array_values(
 	array_filter(
 		isset( $bn_ap_groups['education']['entries'] ) ? $bn_ap_groups['education']['entries'] : array(),
 		static fn( array $e ): bool => '' !== $bn_ap_entry_fv( $e, 'edu_institution' ) || '' !== $bn_ap_entry_fv( $e, 'edu_degree' )
 	)
 );
-$bn_ap_interests = array_filter( array_map( 'trim', explode( ',', $bn_ap_get_fv( 'skills', 'skills' ) ) ) );
+// Interests — the member's picked space categories (system category_multiselect
+// field). get_profile() has already applied per-entry visibility, so an empty
+// list here means "nothing visible to this viewer" and the card is skipped.
+// Chips deep-link to the spaces directory filtered to the category.
+$bn_ap_interest_ids = array();
+foreach ( (array) ( $bn_ap_groups['interests']['fields'] ?? array() ) as $bn_ap_int_field ) {
+	if ( is_array( $bn_ap_int_field ) && 'interests' === (string) ( $bn_ap_int_field['field_key'] ?? '' ) ) {
+		$bn_ap_interest_ids = array_values( array_filter( array_map( 'absint', (array) ( $bn_ap_int_field['value'] ?? array() ) ) ) );
+		break;
+	}
+}
+$bn_ap_interest_chips = array();
+if ( ! empty( $bn_ap_interest_ids ) ) {
+	$bn_ap_cat_names = \BuddyNext\Profile\FieldType::category_options();
+	$bn_ap_cat_links = \BuddyNext\Profile\FieldType::category_directory_links();
+	foreach ( $bn_ap_interest_ids as $bn_ap_cat_id ) {
+		if ( ! isset( $bn_ap_cat_names[ (string) $bn_ap_cat_id ] ) ) {
+			continue;
+		}
+		$bn_ap_interest_chips[] = array(
+			'name' => (string) $bn_ap_cat_names[ (string) $bn_ap_cat_id ],
+			'url'  => (string) ( $bn_ap_cat_links[ (string) $bn_ap_cat_id ] ?? '' ),
+		);
+	}
+}
 
 buddynext_get_template(
 	'partials/profile-about-cards.php',
 	array(
-		'work_entries' => $bn_ap_work,
-		'edu_entries'  => $bn_ap_edu,
-		'interests'    => $bn_ap_interests,
-		'entry_fv'     => $bn_ap_entry_fv,
+		'work_entries'   => $bn_ap_work,
+		'edu_entries'    => $bn_ap_edu,
+		'interest_chips' => $bn_ap_interest_chips,
+		'entry_fv'       => $bn_ap_entry_fv,
 	)
 );
 
 // Every other admin-defined field — including custom types the curated cards
 // above don't know — renders through the single field-type engine. get_profile()
 // has already applied per-field visibility, so anything present is allowed. Keys
-// the hero + about-cards surface prominently are skipped to avoid duplication.
+// the hero + about-cards surface prominently are skipped to avoid duplication
+// (the interests group has its curated card above).
 $bn_ap_hero_keys   = array( 'headline', 'bio', 'pronouns', 'location', 'website' );
-$bn_ap_skip_groups = array( 'work_experience', 'education', 'social_links' );
+$bn_ap_skip_groups = array( 'work_experience', 'education', 'social_links', 'interests' );
 
 foreach ( (array) ( $bn_ap_profile['groups'] ?? array() ) as $bn_ap_g ) {
 	$bn_ap_gkey  = isset( $bn_ap_g['group_key'] ) ? (string) $bn_ap_g['group_key'] : '';
@@ -119,7 +144,10 @@ foreach ( (array) ( $bn_ap_profile['groups'] ?? array() ) as $bn_ap_g ) {
 			if ( 'basic_info' === $bn_ap_gkey && in_array( $bn_ap_fkey, $bn_ap_hero_keys, true ) ) {
 				continue;
 			}
-			if ( '' === (string) ( $bn_ap_f['value'] ?? '' ) ) {
+			// Set-valued fields (category_multiselect) carry an ARRAY value —
+			// never string-cast an array (PHP warning); empty either way = skip.
+			$bn_ap_fval = $bn_ap_f['value'] ?? '';
+			if ( is_array( $bn_ap_fval ) ? array() === $bn_ap_fval : '' === (string) $bn_ap_fval ) {
 				continue;
 			}
 			$bn_ap_label = isset( $bn_ap_f['label'] ) ? (string) $bn_ap_f['label'] : ucwords( str_replace( '_', ' ', $bn_ap_fkey ) );

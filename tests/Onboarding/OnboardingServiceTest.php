@@ -106,6 +106,27 @@ class OnboardingServiceTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The step_list() method includes the Interests step when categories exist and drops
+	 * it (contiguous 4-step numbering) when the owner has none — the
+	 * server-side auto-skip contract.
+	 */
+	public function test_step_list_auto_skips_interests_without_categories(): void {
+		$this->create_category( 'Autoskip Check' );
+		$with = $this->service->step_list();
+		$this->assertContains( 'interests', array_column( $with, 'key' ) );
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_space_categories" );
+		wp_cache_flush();
+
+		$without = $this->service->step_list();
+		$this->assertNotContains( 'interests', array_column( $without, 'key' ) );
+		$this->assertCount( 4, $without );
+		$this->assertSame( range( 1, 4 ), array_keys( $without ) );
+	}
+
+	/**
 	 * Create (or resolve) a space category for interest tests.
 	 *
 	 * @param string $name Category name.

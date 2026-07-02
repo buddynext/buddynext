@@ -2,11 +2,15 @@
 /**
  * BuddyNext — Onboarding Wizard template.
  *
- * Four-step wizard shown to new users after registration. Steps:
- *   1. Profile     — display name, username, bio.
- *   2. Interests   — multi-select tag grid (at least 1 required).
- *   3. Spaces      — suggested-spaces card list (join inline).
- *   4. People      — suggested-follows grid (follow inline).
+ * Five-step wizard shown to new users after registration. Steps:
+ *   1. Profile       — display name, username, bio.
+ *   2. Interests     — space-category chip grid ("What are you into?").
+ *                      Auto-skipped server-side when the owner has defined
+ *                      no categories (OnboardingService::step_list() drops
+ *                      it; the wizard renders four steps, no gap).
+ *   3. Spaces        — suggested-spaces card list (join inline).
+ *   4. People        — suggested-follows grid (follow inline).
+ *   5. Notifications — delivery-channel toggles.
  *
  * Each step is fully reactive via the Interactivity API store
  * (`@buddynext/onboarding`). Continue / Back / Skip / Finish actions
@@ -53,12 +57,34 @@ $avatar_url = get_avatar_url( $ob_user_id, array( 'size' => 100 ) );
 // live preview shows the photo when set, the initial otherwise.
 $custom_avatar = (string) get_user_meta( $ob_user_id, 'bn_avatar', true );
 $bio           = (string) get_user_meta( $ob_user_id, 'bn_bio', true );
-$saved_step    = max( 1, (int) get_user_meta( $ob_user_id, 'bn_onboarding_step', true ) );
+
+$bn_ob_service = new \BuddyNext\Onboarding\OnboardingService();
+
+// Server-decided step list — the Interests step is present only when the
+// owner has authored space categories, so an empty taxonomy renders a
+// four-step wizard with contiguous numbering (no gap, no empty step).
+$steps       = $bn_ob_service->step_list();
+$total_steps = count( $steps );
+$step_pos    = array();
+foreach ( $steps as $bn_ob_step_num => $bn_ob_step_info ) {
+	$step_pos[ $bn_ob_step_info['key'] ] = (int) $bn_ob_step_num;
+}
+
+$saved_step = max( 1, min( $total_steps, (int) get_user_meta( $ob_user_id, 'bn_onboarding_step', true ) ) );
 // Dev-only: ?_step=N (with redo) lets the user jump to a specific step
 // for testing. Requires ?redo=1 to opt in so a stray bookmarked link
 // can't be used to skip past a step.
 if ( isset( $_GET['redo'] ) && isset( $_GET['_step'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-	$saved_step = max( 1, min( 4, (int) $_GET['_step'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$saved_step = max( 1, min( $total_steps, (int) $_GET['_step'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+}
+
+// Interests step data: the owner's live categories (name + color) and the
+// member's already-stored picks (redo / resume case). Absent step → both empty.
+$bn_ob_categories   = array();
+$bn_ob_interest_ids = array();
+if ( isset( $step_pos['interests'] ) ) {
+	$bn_ob_categories   = ( new \BuddyNext\Spaces\SpaceCategoryService() )->get_all();
+	$bn_ob_interest_ids = $bn_ob_service->get_interest_ids( $ob_user_id );
 }
 
 $bn_ob_members = buddynext_service( 'space_members' );
@@ -110,30 +136,6 @@ $initial_in_app = array_key_exists( 'in_app', $channel_prefs ) ? (bool) $channel
 $initial_push   = array_key_exists( 'push', $channel_prefs ) ? (bool) $channel_prefs['push'] : $push_available;
 $initial_sound  = array_key_exists( 'sound', $channel_prefs ) ? (bool) $channel_prefs['sound'] : false;
 
-// Step config (label, icon) — V2-aligned set:
-// 1 Profile · 2 Spaces · 3 People · 4 Notifications.
-// "Interests" used to live here but nothing downstream read the saved
-// bn_interests meta, so the step was removed; "Notifications" replaces
-// it so the user gets a deliberate choice about how BN will ping them.
-$steps        = array(
-	1 => array(
-		'label' => __( 'Profile', 'buddynext' ),
-		'icon'  => 'user',
-	),
-	2 => array(
-		'label' => __( 'Spaces', 'buddynext' ),
-		'icon'  => 'building',
-	),
-	3 => array(
-		'label' => __( 'People', 'buddynext' ),
-		'icon'  => 'users',
-	),
-	4 => array(
-		'label' => __( 'Notifications', 'buddynext' ),
-		'icon'  => 'bell',
-	),
-);
-$total_steps  = count( $steps );
 $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 ?>
 
@@ -145,6 +147,8 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 		array(
 			'step'                => $saved_step,
 			'totalSteps'          => $total_steps,
+			'interestsStep'       => $step_pos['interests'] ?? 0,
+			'interestIds'         => $bn_ob_interest_ids,
 			'joinedSpaces'        => $joined_space_ids,
 			'followingUsers'      => $already_following,
 			'displayName'         => $display_name,
@@ -325,17 +329,82 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 
 		</section>
 
-		<!-- ── Step 2: Spaces ── -->
+		<?php if ( isset( $step_pos['interests'] ) ) : ?>
+		<!-- ── Step <?php echo esc_html( (string) $step_pos['interests'] ); ?>: Interests ── -->
 		<section class="bn-ob-step"
-			id="bn-ob-step-2"
-			data-step="2"
-			aria-labelledby="bn-ob-step-2-title"
-			data-wp-bind--hidden="!state.isStep2"
+			id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['interests'] ); ?>"
+			data-step="<?php echo esc_attr( (string) $step_pos['interests'] ); ?>"
+			aria-labelledby="bn-ob-step-<?php echo esc_attr( (string) $step_pos['interests'] ); ?>-title"
+			data-wp-bind--hidden="!state.isStep<?php echo esc_attr( (string) $step_pos['interests'] ); ?>"
+		>
+
+			<header class="bn-ob-step__head">
+				<span class="bn-ob-step__icon" aria-hidden="true"><?php buddynext_icon( 'sparkles' ); ?></span>
+				<h1 id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['interests'] ); ?>-title" class="bn-ob-step__title"><?php esc_html_e( 'What are you into?', 'buddynext' ); ?></h1>
+				<p class="bn-ob-step__sub"><?php esc_html_e( 'Choose the topics you care about. You can change these on your profile any time.', 'buddynext' ); ?></p>
+			</header>
+
+			<div class="bn-ob-card">
+				<div class="bn-ob-chips" role="group" aria-label="<?php esc_attr_e( 'Interest topics', 'buddynext' ); ?>">
+					<?php foreach ( $bn_ob_categories as $bn_ob_cat ) : ?>
+						<?php
+						$bn_ob_cat_id     = (int) $bn_ob_cat['id'];
+						$bn_ob_cat_picked = in_array( $bn_ob_cat_id, $bn_ob_interest_ids, true );
+						?>
+						<button class="bn-ob-chip<?php echo $bn_ob_cat_picked ? ' is-selected' : ''; ?>"
+							type="button"
+							data-cat-id="<?php echo esc_attr( (string) $bn_ob_cat_id ); ?>"
+							aria-pressed="<?php echo $bn_ob_cat_picked ? 'true' : 'false'; ?>"
+							data-wp-on--click="actions.toggleInterest">
+							<span class="bn-ob-chip__label"><?php echo esc_html( (string) $bn_ob_cat['name'] ); ?></span>
+						</button>
+					<?php endforeach; ?>
+				</div>
+				<p class="bn-ob-chips__count"
+					data-wp-bind--hidden="!state.interestsHintVisible">
+					<?php esc_html_e( 'Pick a few to personalize your community.', 'buddynext' ); ?>
+				</p>
+			</div>
+
+			<div class="bn-ob-actions">
+				<button class="bn-btn"
+					type="button"
+					data-variant="ghost"
+					data-size="lg"
+					data-wp-on--click="actions.prevStep">
+					<?php esc_html_e( 'Back', 'buddynext' ); ?>
+				</button>
+				<button class="bn-btn"
+					type="button"
+					data-variant="ghost"
+					data-size="lg"
+					data-wp-on--click="actions.skipStep">
+					<?php esc_html_e( 'Skip for now', 'buddynext' ); ?>
+				</button>
+				<button class="bn-btn"
+					type="button"
+					data-variant="primary"
+					data-size="lg"
+					data-wp-bind--disabled="state.saving"
+					data-wp-on--click="actions.continueInterests">
+					<?php esc_html_e( 'Continue', 'buddynext' ); ?>
+				</button>
+			</div>
+
+		</section>
+		<?php endif; ?>
+
+		<!-- ── Step <?php echo esc_html( (string) $step_pos['spaces'] ); ?>: Spaces ── -->
+		<section class="bn-ob-step"
+			id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['spaces'] ); ?>"
+			data-step="<?php echo esc_attr( (string) $step_pos['spaces'] ); ?>"
+			aria-labelledby="bn-ob-step-<?php echo esc_attr( (string) $step_pos['spaces'] ); ?>-title"
+			data-wp-bind--hidden="!state.isStep<?php echo esc_attr( (string) $step_pos['spaces'] ); ?>"
 		>
 
 			<header class="bn-ob-step__head">
 				<span class="bn-ob-step__icon" aria-hidden="true"><?php buddynext_icon( 'building' ); ?></span>
-				<h1 id="bn-ob-step-2-title" class="bn-ob-step__title"><?php esc_html_e( 'Join some spaces', 'buddynext' ); ?></h1>
+				<h1 id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['spaces'] ); ?>-title" class="bn-ob-step__title"><?php esc_html_e( 'Join some spaces', 'buddynext' ); ?></h1>
 				<p class="bn-ob-step__sub"><?php esc_html_e( 'Spaces are topic-focused communities. Join the ones that interest you.', 'buddynext' ); ?></p>
 			</header>
 
@@ -420,17 +489,17 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 
 		</section>
 
-		<!-- ── Step 3: Follow People ── -->
+		<!-- ── Step <?php echo esc_html( (string) $step_pos['people'] ); ?>: Follow People ── -->
 		<section class="bn-ob-step"
-			id="bn-ob-step-3"
-			data-step="3"
-			aria-labelledby="bn-ob-step-3-title"
-			data-wp-bind--hidden="!state.isStep3"
+			id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['people'] ); ?>"
+			data-step="<?php echo esc_attr( (string) $step_pos['people'] ); ?>"
+			aria-labelledby="bn-ob-step-<?php echo esc_attr( (string) $step_pos['people'] ); ?>-title"
+			data-wp-bind--hidden="!state.isStep<?php echo esc_attr( (string) $step_pos['people'] ); ?>"
 		>
 
 			<header class="bn-ob-step__head">
 				<span class="bn-ob-step__icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></span>
-				<h1 id="bn-ob-step-3-title" class="bn-ob-step__title"><?php esc_html_e( 'Follow some members', 'buddynext' ); ?></h1>
+				<h1 id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['people'] ); ?>-title" class="bn-ob-step__title"><?php esc_html_e( 'Follow some members', 'buddynext' ); ?></h1>
 				<p class="bn-ob-step__sub"><?php esc_html_e( 'Start building your feed by following members in your areas of interest.', 'buddynext' ); ?></p>
 			</header>
 
@@ -522,17 +591,17 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 
 		</section>
 
-		<!-- ── Step 4: Notifications ── -->
+		<!-- ── Step <?php echo esc_html( (string) $step_pos['notifications'] ); ?>: Notifications ── -->
 		<section class="bn-ob-step"
-			id="bn-ob-step-4"
-			data-step="4"
-			aria-labelledby="bn-ob-step-4-title"
-			data-wp-bind--hidden="!state.isStep4"
+			id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['notifications'] ); ?>"
+			data-step="<?php echo esc_attr( (string) $step_pos['notifications'] ); ?>"
+			aria-labelledby="bn-ob-step-<?php echo esc_attr( (string) $step_pos['notifications'] ); ?>-title"
+			data-wp-bind--hidden="!state.isStep<?php echo esc_attr( (string) $step_pos['notifications'] ); ?>"
 		>
 
 			<header class="bn-ob-step__head">
 				<span class="bn-ob-step__icon" aria-hidden="true"><?php buddynext_icon( 'bell' ); ?></span>
-				<h1 id="bn-ob-step-4-title" class="bn-ob-step__title"><?php esc_html_e( 'How should we ping you?', 'buddynext' ); ?></h1>
+				<h1 id="bn-ob-step-<?php echo esc_attr( (string) $step_pos['notifications'] ); ?>-title" class="bn-ob-step__title"><?php esc_html_e( 'How should we ping you?', 'buddynext' ); ?></h1>
 				<p class="bn-ob-step__sub"><?php esc_html_e( 'Pick the channels you want to hear from. You can fine-tune which events on each channel from your settings.', 'buddynext' ); ?></p>
 			</header>
 

@@ -658,6 +658,10 @@ class FieldType {
 	/**
 	 * Render multiselect values as chips.
 	 *
+	 * Category-backed chips (category_multiselect) are links into the spaces
+	 * directory filtered to that category — a discovery surface, not
+	 * decoration. Admin-authored option chips stay plain spans.
+	 *
 	 * @param array $field Field definition.
 	 * @param mixed $value Stored value (comma-joined slugs or array).
 	 * @return string Escaped HTML chip list (empty string when no values).
@@ -674,13 +678,22 @@ class FieldType {
 		// option types keep the slug fallback (the option list may be edited back).
 		$drop_unresolved = self::is_multi_entry( (string) ( $field['type'] ?? '' ) );
 
+		// Category chips deep-link to /spaces/?bn_cat={slug} — the directory's
+		// existing category filter (templates/spaces/directory.php reads bn_cat
+		// and lights the matching chip). Keyed by category ID.
+		$links = $drop_unresolved ? self::category_directory_links() : array();
+
 		$chips = '';
 		foreach ( $selected as $slug ) {
 			if ( $drop_unresolved && ! isset( $options[ $slug ] ) ) {
 				continue;
 			}
-			$label  = $options[ $slug ] ?? $slug;
-			$chips .= '<span class="bn-chip bn-field-chip">' . esc_html( $label ) . '</span>';
+			$label = $options[ $slug ] ?? $slug;
+			if ( isset( $links[ $slug ] ) ) {
+				$chips .= '<a class="bn-chip bn-field-chip" href="' . esc_url( $links[ $slug ] ) . '">' . esc_html( $label ) . '</a>';
+			} else {
+				$chips .= '<span class="bn-chip bn-field-chip">' . esc_html( $label ) . '</span>';
+			}
 		}
 
 		if ( '' === $chips ) {
@@ -688,6 +701,34 @@ class FieldType {
 		}
 
 		return '<span class="bn-field-value bn-field-chips">' . $chips . '</span>';
+	}
+
+	/**
+	 * Spaces-directory deep links for every live category, keyed by category ID.
+	 *
+	 * PHP coerces the numeric-string keys to integers, so consumers should
+	 * look up with (int) casts or rely on loose array access.
+	 *
+	 * @return array<int,string> Category ID => directory URL filtered to it.
+	 */
+	public static function category_directory_links(): array {
+		if ( ! class_exists( '\BuddyNext\Spaces\SpaceCategoryService' )
+			|| ! class_exists( '\BuddyNext\Core\PageRouter' ) ) {
+			return array();
+		}
+
+		$base  = \BuddyNext\Core\PageRouter::spaces_url();
+		$links = array();
+		foreach ( ( new \BuddyNext\Spaces\SpaceCategoryService() )->get_all() as $category ) {
+			$id       = isset( $category['id'] ) ? (int) $category['id'] : 0;
+			$cat_slug = (string) ( $category['slug'] ?? '' );
+			if ( $id <= 0 || '' === $cat_slug ) {
+				continue;
+			}
+			$links[ (string) $id ] = add_query_arg( 'bn_cat', rawurlencode( $cat_slug ), $base );
+		}
+
+		return $links;
 	}
 
 	/**

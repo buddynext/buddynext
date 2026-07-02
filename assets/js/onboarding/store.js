@@ -1,9 +1,11 @@
-/* BuddyNext — Onboarding Interactivity API store (4-step wizard).
+/* BuddyNext — Onboarding Interactivity API store (5-step wizard).
  *
  * Provides reactive state for the wizard, action handlers for every
  * affordance in templates/onboarding/index.php, and REST integration
  * for joining spaces, following users, saving interests, and completing
- * the wizard.
+ * the wizard. Step positions are server-decided (the Interests step is
+ * dropped when the owner has no categories), so `context.totalSteps` is
+ * 4 or 5 and every getter works off the context, never a hardcoded map.
  */
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '../shell/rest-client.js';
@@ -62,7 +64,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 		},
 		get progressPercent() {
 			const c = ctx();
-			const total = c.totalSteps || 4;
+			const total = c.totalSteps || 5;
 			const step  = c.step || 1;
 			return Math.round( ( step / total ) * 100 );
 		},
@@ -71,7 +73,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 		},
 		get stepLabel() {
 			const c = ctx();
-			const total = c.totalSteps || 4;
+			const total = c.totalSteps || 5;
 			const step  = c.step || 1;
 			return fmt( t( 'stepLabel', 'Step %1$s of %2$s' ), step, total );
 		},
@@ -79,14 +81,23 @@ const onboardingStore = store( 'buddynext/onboarding', {
 		get isStep2() { return ( ctx().step || 1 ) === 2; },
 		get isStep3() { return ( ctx().step || 1 ) === 3; },
 		get isStep4() { return ( ctx().step || 1 ) === 4; },
+		get isStep5() { return ( ctx().step || 1 ) === 5; },
 		get isStepActive1() { return ( ctx().step || 1 ) === 1; },
 		get isStepActive2() { return ( ctx().step || 1 ) === 2; },
 		get isStepActive3() { return ( ctx().step || 1 ) === 3; },
 		get isStepActive4() { return ( ctx().step || 1 ) === 4; },
+		get isStepActive5() { return ( ctx().step || 1 ) === 5; },
 		get isStepDone1() { return ( ctx().step || 1 ) > 1; },
 		get isStepDone2() { return ( ctx().step || 1 ) > 2; },
 		get isStepDone3() { return ( ctx().step || 1 ) > 3; },
-		get isStepDone4() { return false; },
+		get isStepDone4() { return ( ctx().step || 1 ) > 4; },
+		get isStepDone5() { return false; },
+		// Soft interests hint — visible until the member has picked at least
+		// three topics (never blocking; Continue works with any count).
+		get interestsHintVisible() {
+			const picked = ctx().interestIds;
+			return ( Array.isArray( picked ) ? picked.length : 0 ) < 3;
+		},
 		get displayNameError() {
 			const c = ctx();
 			if ( ! c.displayNameDirty ) { return ''; }
@@ -124,7 +135,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 	actions: {
 		nextStep() {
 			const c = ctx();
-			const total = c.totalSteps || 4;
+			const total = c.totalSteps || 5;
 			if ( ( c.step || 1 ) < total ) {
 				c.step = ( c.step || 1 ) + 1;
 				// Persist step server-side (best-effort).
@@ -145,7 +156,7 @@ const onboardingStore = store( 'buddynext/onboarding', {
 		},
 		skipStep() {
 			const c = ctx();
-			const total = c.totalSteps || 4;
+			const total = c.totalSteps || 5;
 			if ( ( c.step || 1 ) < total ) {
 				c.step = ( c.step || 1 ) + 1;
 				return;
@@ -158,6 +169,59 @@ const onboardingStore = store( 'buddynext/onboarding', {
 				} )
 				.catch( () => {
 					window.location.href = c.redirectUrl || '/activity/';
+				} );
+		},
+		toggleInterest( event ) {
+			const c = ctx();
+			const btn = event && event.target ? event.target.closest( '[data-cat-id]' ) : null;
+			if ( ! btn ) { return; }
+			const catId = parseInt( btn.getAttribute( 'data-cat-id' ), 10 );
+			if ( ! catId ) { return; }
+			const picked = Array.isArray( c.interestIds ) ? c.interestIds.slice() : [];
+			const idx = picked.indexOf( catId );
+			if ( idx === -1 ) {
+				picked.push( catId );
+				btn.setAttribute( 'aria-pressed', 'true' );
+				btn.classList.add( 'is-selected' );
+			} else {
+				picked.splice( idx, 1 );
+				btn.setAttribute( 'aria-pressed', 'false' );
+				btn.classList.remove( 'is-selected' );
+			}
+			c.interestIds = picked;
+		},
+		continueInterests() {
+			// Persist the picks BEFORE advancing (cold-start contract: the
+			// picks are stored by the time the Spaces / People steps show),
+			// then walk forward. Zero picks is a valid save (clears any
+			// stale picks from a redo run).
+			const c = ctx();
+			if ( c.saving ) { return; }
+			c.saving = true;
+			c.error  = '';
+			rest( c, 'me/interests', {
+				method: 'POST',
+				body:   { interests: Array.isArray( c.interestIds ) ? c.interestIds : [] },
+			} )
+				.then( ( r ) => {
+					if ( ! r.ok ) { throw new Error( 'Failed' ); }
+					c.saving = false;
+					// Advance on the captured context (getContext() is not
+					// available inside promise callbacks) and persist the
+					// step pointer best-effort, mirroring nextStep().
+					const total = c.totalSteps || 5;
+					if ( ( c.step || 1 ) < total ) {
+						c.step = ( c.step || 1 ) + 1;
+						rest( c, 'me/onboarding/step', {
+							method: 'POST',
+							body:   { step: c.step - 1, data: {} },
+						} ).catch( () => {} );
+					}
+				} )
+				.catch( () => {
+					c.saving = false;
+					c.error  = t( 'toastInterestsSaveFailed', 'Could not save your interests. Please try again.' );
+					toast( t( 'toastInterestsSaveFailed', 'Could not save your interests. Please try again.' ), 'danger' );
 				} );
 		},
 		setDisplayName( event ) {

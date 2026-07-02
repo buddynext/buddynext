@@ -175,8 +175,35 @@ if ( '' === $profile_slug ) {
 // with the right-sidebar widget so both surfaces agree.
 $member_spaces = buddynext_service( 'space_members' )->membership_rows( $user_id, 5 );
 
-$interests  = array_filter( array_map( 'trim', explode( ',', $get_fv( 'skills', 'skills' ) ) ) );
+$skills     = array_filter( array_map( 'trim', explode( ',', $get_fv( 'skills', 'skills' ) ) ) );
 $completion = $is_own_profile ? $profile_svc->get_completion_score( $user_id ) : null;
+
+// Interests — the member's picked space categories from the system
+// category_multiselect field. Sourced from get_profile()'s output above, so
+// per-entry visibility is already applied (viewers who may not see the field
+// get an empty list). Each chip deep-links to the spaces directory filtered
+// to that category; deleted categories drop out silently.
+$bn_pf_interest_ids = array();
+foreach ( (array) ( $group_data['interests']['fields'] ?? array() ) as $bn_pf_int_field ) {
+	if ( is_array( $bn_pf_int_field ) && 'interests' === (string) ( $bn_pf_int_field['field_key'] ?? '' ) ) {
+		$bn_pf_interest_ids = array_values( array_filter( array_map( 'absint', (array) ( $bn_pf_int_field['value'] ?? array() ) ) ) );
+		break;
+	}
+}
+$interest_chips = array();
+if ( ! empty( $bn_pf_interest_ids ) ) {
+	$bn_pf_cat_names = \BuddyNext\Profile\FieldType::category_options();
+	$bn_pf_cat_links = \BuddyNext\Profile\FieldType::category_directory_links();
+	foreach ( $bn_pf_interest_ids as $bn_pf_cat_id ) {
+		if ( ! isset( $bn_pf_cat_names[ (string) $bn_pf_cat_id ] ) ) {
+			continue;
+		}
+		$interest_chips[] = array(
+			'name' => (string) $bn_pf_cat_names[ (string) $bn_pf_cat_id ],
+			'url'  => (string) ( $bn_pf_cat_links[ (string) $bn_pf_cat_id ] ?? '' ),
+		);
+	}
+}
 
 // Profile-strength tasks: the SAME curated set drives the mobile hero chip and
 // the desktop sidebar ring/checklist — so both surfaces always agree. Driving
@@ -218,7 +245,7 @@ if ( $bn_pf_field_exists( 'basic_info', 'location' ) ) {
 if ( $bn_pf_field_exists( 'skills', 'skills' ) ) {
 	$bn_pf_strength_tasks[] = array(
 		'label' => __( 'Add your skills', 'buddynext' ),
-		'done'  => ! empty( $interests ),
+		'done'  => ! empty( $skills ),
 	);
 }
 if ( isset( $group_data['work_experience'] ) ) {
@@ -242,7 +269,7 @@ $strength_tasks       = $bn_pf_strength_tasks;
 $is_online            = buddynext_service( 'blocks' )->is_user_online( $current_user_id, $user_id );
 
 // --- Sidebar widget hook (partial holds the markup) -----------------------
-$bn_pf_sidebar_args = compact( 'is_own_profile', 'completion', 'social_links', 'work_entries', 'edu_entries', 'interests', 'member_spaces', 'get_fv', 'entry_fv', 'strength_tasks' );
+$bn_pf_sidebar_args = compact( 'is_own_profile', 'completion', 'social_links', 'work_entries', 'edu_entries', 'skills', 'interest_chips', 'member_spaces', 'get_fv', 'entry_fv', 'strength_tasks' );
 add_action(
 	'buddynext_right_sidebar',
 	static function () use ( $bn_pf_sidebar_args ): void {
