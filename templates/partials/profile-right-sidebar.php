@@ -49,32 +49,40 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 	// flat field and still drives REST + gamification, but driving the ring off
 	// it left the widget stuck below 100% with all visible tasks done, giving
 	// the member no way to see which hidden field was missing.
-	$bn_pf_tasks = array(
-		array(
-			'label' => __( 'Add a bio', 'buddynext' ),
-			'done'  => '' !== $bn_pf_get_fv( 'basic_info', 'bio' ),
-		),
-		array(
-			'label' => __( 'Add a tagline', 'buddynext' ),
-			'done'  => '' !== $bn_pf_get_fv( 'basic_info', 'headline' ),
-		),
-		array(
-			'label' => __( 'Set your location', 'buddynext' ),
-			'done'  => '' !== $bn_pf_get_fv( 'basic_info', 'location' ),
-		),
-		array(
-			'label' => __( 'Add your skills', 'buddynext' ),
-			'done'  => ! empty( $bn_pf_int ),
-		),
-		array(
-			'label' => __( 'Add work experience', 'buddynext' ),
-			'done'  => ! empty( $bn_pf_work ),
-		),
-		array(
-			'label' => __( 'Link an account', 'buddynext' ),
-			'done'  => ! empty( $bn_pf_social ),
-		),
-	);
+	//
+	// view.php builds the canonical, EXISTENCE-FILTERED task list (a task whose
+	// backing field/group was deleted from the schema is dropped, never shown
+	// as forever-undone) and passes it as $strength_tasks — the same set that
+	// drives the mobile hero chip. The inline build below is only the fallback
+	// for a caller that did not supply the list.
+	$bn_pf_tasks = isset( $strength_tasks ) && is_array( $strength_tasks )
+		? $strength_tasks
+		: array(
+			array(
+				'label' => __( 'Add a bio', 'buddynext' ),
+				'done'  => '' !== $bn_pf_get_fv( 'basic_info', 'bio' ),
+			),
+			array(
+				'label' => __( 'Add a tagline', 'buddynext' ),
+				'done'  => '' !== $bn_pf_get_fv( 'basic_info', 'headline' ),
+			),
+			array(
+				'label' => __( 'Set your location', 'buddynext' ),
+				'done'  => '' !== $bn_pf_get_fv( 'basic_info', 'location' ),
+			),
+			array(
+				'label' => __( 'Add your skills', 'buddynext' ),
+				'done'  => ! empty( $bn_pf_int ),
+			),
+			array(
+				'label' => __( 'Add work experience', 'buddynext' ),
+				'done'  => ! empty( $bn_pf_work ),
+			),
+			array(
+				'label' => __( 'Link an account', 'buddynext' ),
+				'done'  => ! empty( $bn_pf_social ),
+			),
+		);
 
 	$bn_pf_total = count( $bn_pf_tasks );
 	$bn_pf_done  = count(
@@ -91,7 +99,11 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 	$bn_ring_circ   = 150.80; // 2·π·r, r = 24 (matches the SVG below)
 	$bn_ring_pct    = $bn_pf_total > 0 ? (int) round( ( $bn_pf_done / $bn_pf_total ) * 100 ) : 0;
 	$bn_ring_offset = $bn_ring_circ * ( 1 - ( $bn_ring_pct / 100 ) );
-	?>
+
+	// No tasks at all (every backing field removed from the schema): skip the
+	// widget entirely rather than rendering a 0% ring with an empty checklist.
+	if ( ! empty( $bn_pf_tasks ) ) :
+		?>
 	<div class="bn-widget">
 		<div class="bn-widget-title"><?php esc_html_e( 'Profile Strength', 'buddynext' ); ?></div>
 
@@ -155,6 +167,7 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 		</ul>
 		<?php endif; ?>
 	</div>
+		<?php endif; ?>
 <?php endif; ?>
 
 <?php if ( $bn_pf_social ) : ?>

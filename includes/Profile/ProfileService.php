@@ -88,6 +88,7 @@ class ProfileService {
 				f.is_required,
 				f.is_searchable,
 				f.show_on_register,
+				f.is_system    AS field_is_system,
 				f.visibility   AS field_visibility,
 				f.sort_order   AS field_sort_order
 			FROM {$wpdb->prefix}bn_profile_groups g
@@ -126,6 +127,7 @@ class ProfileService {
 					'is_required'      => (bool) $row['is_required'],
 					'is_searchable'    => (bool) $row['is_searchable'],
 					'show_on_register' => (bool) ( $row['show_on_register'] ?? false ),
+					'is_system'        => (bool) ( $row['field_is_system'] ?? false ),
 					'visibility'       => $row['field_visibility'] ?? 'public',
 					'sort_order'       => (int) $row['field_sort_order'],
 				);
@@ -219,6 +221,7 @@ class ProfileService {
 			'is_required'      => ! empty( $field['is_required'] ),
 			'is_searchable'    => ! empty( $field['is_searchable'] ),
 			'show_on_register' => ! empty( $field['show_on_register'] ),
+			'is_system'        => ! empty( $field['is_system'] ),
 			'visibility'       => $visibility,
 			'sort_order'       => (int) ( $field['sort_order'] ?? 0 ),
 			'is_virtual'       => empty( $field['id'] ),
@@ -684,6 +687,18 @@ class ProfileService {
 				continue;
 			}
 
+			// Set-valued flat field (e.g. category_multiselect): stored as ONE
+			// bn_profile_values row per pick (entry_index 0..n) so the picks stay
+			// individually matchable via the (field_id, value) index — a joined
+			// CSV value could never back a "members with pick X" lookup. The
+			// sanitised CSV is only the in-memory transport; the search mirror
+			// still gets one human-readable value like every other flat field.
+			if ( \BuddyNext\Profile\FieldType::is_multi_entry( $field_type ) ) {
+				$this->save_multi_entry_value( $user_id, $field_id, $sanitized_val, $entry_visibility );
+				$this->sync_search_mirror( $user_id, $field, $sanitized_val, $entry_visibility );
+				continue;
+			}
+
 			$this->upsert_value( $user_id, $field_id, 0, $sanitized_val, $entry_visibility );
 
 			// A2: write/delete the privacy-safe search mirror.
@@ -984,8 +999,29 @@ class ProfileService {
 					$out['entries'][] = $entry_out;
 				}
 			} else {
-				// Flat group — always entry_index 0.
-				$flat_fields = isset( $entries[0] ) ? array_values( $entries[0] ) : array();
+				// Flat group — scalar fields live at entry_index 0; set-valued
+				// fields (one row per pick, e.g. category_multiselect) span
+				// entry_index 0..n, so their picks are aggregated across every
+				// entry into an ordered array value. Missing field or zero picks
+				// both yield an empty array — callers never see an error.
+				$flat_fields = isset( $entries[0] ) ? $entries[0] : array();
+
+				foreach ( $flat_fields as $flat_fid => $flat_field ) {
+					if ( ! \BuddyNext\Profile\FieldType::is_multi_entry( (string) ( $flat_field['type'] ?? '' ) ) ) {
+						continue;
+					}
+
+					$picks = array();
+					foreach ( $entries as $entry_fields ) {
+						$pick = $entry_fields[ $flat_fid ]['value'] ?? null;
+						if ( null !== $pick && '' !== (string) $pick ) {
+							$picks[] = (string) $pick;
+						}
+					}
+					$flat_fields[ $flat_fid ]['value'] = $picks;
+				}
+
+				$flat_fields = array_values( $flat_fields );
 				usort( $flat_fields, static fn( $a, $b ) => $a['sort_order'] <=> $b['sort_order'] );
 				$out['fields'] = $flat_fields;
 			}
@@ -1398,7 +1434,9 @@ class ProfileService {
 		);
 
 		foreach ( (array) $field_ids as $field_id ) {
-			$this->delete_field( (int) $field_id );
+			// Force: the group itself passed the system-group guard above, so its
+			// fields go with it even if one carries a (misplaced) system flag.
+			$this->delete_field( (int) $field_id, true );
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1512,19 +1550,42 @@ class ProfileService {
 	 * then removes the field definition row from bn_profile_fields.
 	 * Busts 'all_fields' cache key.
 	 *
-	 * @param int $id Profile field ID.
-	 * @return void
+	 * System fields (is_system = 1: bio, headline, location) cannot be deleted —
+	 * search indexing, directory cards/filters, and the profile hero read them
+	 * by key, so removing one silently breaks those surfaces. The admin UI hides
+	 * the delete control, but this guard is the enforcement: a direct REST or
+	 * admin-post request is refused. Owners can still relabel, reorder, or
+	 * change visibility on a system field.
+	 *
+	 * @param int  $id    Profile field ID.
+	 * @param bool $force Internal: bypass the system-field guard. Only
+	 *                    delete_group() passes true, so a (non-system) group
+	 *                    delete can cascade through its fields.
+	 * @return true|\WP_Error True on success; WP_Error('system_field') for a protected field.
 	 */
-	public function delete_field( int $id ): void {
+	public function delete_field( int $id, bool $force = false ): bool|\WP_Error {
 		global $wpdb;
 
 		// Capture the field key before removing the definition so its search-
 		// mirror usermeta (bn_field_{key}, written by sync_search_mirror) can be
 		// purged across every user — otherwise stale mirrors linger and can leak
-		// into search results.
+		// into search results. is_system rides the same lookup for the guard.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$field_key = (string) $wpdb->get_var( $wpdb->prepare( "SELECT field_key FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $id ) );
+		$def = $wpdb->get_row(
+			$wpdb->prepare( "SELECT field_key, is_system FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $id ),
+			ARRAY_A
+		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$field_key = is_array( $def ) ? (string) ( $def['field_key'] ?? '' ) : '';
+
+		if ( ! $force && is_array( $def ) && ! empty( $def['is_system'] ) ) {
+			return new \WP_Error(
+				'system_field',
+				__( 'This is a core field used by search and member cards - it cannot be deleted.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
 
 		// Delete stored values for this field across all users.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1551,6 +1612,8 @@ class ProfileService {
 		}
 
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
+
+		return true;
 	}
 
 	/**
@@ -1731,6 +1794,7 @@ class ProfileService {
 				f.options,
 				f.is_required,
 				f.is_searchable,
+				f.is_system,
 				f.visibility,
 				f.sort_order
 			 FROM {$wpdb->prefix}bn_profile_fields f
@@ -1753,6 +1817,7 @@ class ProfileService {
 					'options'          => isset( $row['options'] ) ? json_decode( (string) $row['options'], true ) : null,
 					'is_required'      => (bool) $row['is_required'],
 					'is_searchable'    => (bool) $row['is_searchable'],
+					'is_system'        => (bool) ( $row['is_system'] ?? false ),
 					'visibility'       => $row['visibility'] ?? 'public',
 					'sort_order'       => (int) $row['sort_order'],
 				);
@@ -1928,15 +1993,32 @@ class ProfileService {
 			'group_visibility' => (string) $def['group_visibility'],
 		);
 
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT user_id, value, entry_visibility
-				 FROM {$wpdb->prefix}bn_profile_values
-				 WHERE field_id = %d AND entry_index = 0",
-				$field_id
-			),
-			ARRAY_A
-		);
+		if ( \BuddyNext\Profile\FieldType::is_multi_entry( (string) $def['type'] ) ) {
+			// Set-valued field: one row per pick — rejoin every user's picks so
+			// the rebuilt mirror covers the full selection, not just entry 0.
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT user_id,
+					        GROUP_CONCAT(value ORDER BY entry_index SEPARATOR ',') AS value,
+					        MIN(entry_visibility) AS entry_visibility
+					 FROM {$wpdb->prefix}bn_profile_values
+					 WHERE field_id = %d
+					 GROUP BY user_id",
+					$field_id
+				),
+				ARRAY_A
+			);
+		} else {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT user_id, value, entry_visibility
+					 FROM {$wpdb->prefix}bn_profile_values
+					 WHERE field_id = %d AND entry_index = 0",
+					$field_id
+				),
+				ARRAY_A
+			);
+		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		foreach ( (array) $rows as $row ) {
@@ -1964,6 +2046,13 @@ class ProfileService {
 	 */
 	private function mirror_value( array $field, string $stored_value ): string {
 		$type = isset( $field['type'] ) ? (string) $field['type'] : 'text';
+
+		// Live-optioned set types (category_multiselect) mirror the option
+		// LABELS resolved by the engine — the stored IDs would be meaningless
+		// to a directory keyword search.
+		if ( \BuddyNext\Profile\FieldType::is_multi_entry( $type ) ) {
+			return \BuddyNext\Profile\FieldType::searchable_text( $field, $stored_value );
+		}
 
 		if ( 'multiselect' !== $type ) {
 			return $stored_value;
@@ -2040,6 +2129,44 @@ class ProfileService {
 		// leave the uploads/bn-avatars/{user_id}/ files orphaned forever.
 		( new \BuddyNext\Media\ImageStorageService() )->delete( 'avatar', 'user', $user_id );
 		$this->bust_profile_cache( $user_id );
+	}
+
+	/**
+	 * Persist a set-valued flat field as one bn_profile_values row per pick.
+	 *
+	 * The sanitised transport value is a comma-joined list (e.g. category IDs);
+	 * each element is written at its ordinal entry_index, and surplus rows from
+	 * a previous, larger selection are deleted. Bounded by the pick count —
+	 * never a table scan. An empty value clears every row (the field reads as
+	 * "no picks").
+	 *
+	 * @param int         $user_id          User ID.
+	 * @param int         $field_id         Field ID.
+	 * @param string      $joined           Sanitised comma-joined picks ('' clears all).
+	 * @param string|null $entry_visibility Clamped per-entry visibility, or null.
+	 * @return void
+	 */
+	private function save_multi_entry_value( int $user_id, int $field_id, string $joined, ?string $entry_visibility ): void {
+		global $wpdb;
+
+		$picks = '' === $joined ? array() : explode( ',', $joined );
+
+		foreach ( $picks as $index => $pick ) {
+			$this->upsert_value( $user_id, $field_id, (int) $index, (string) $pick, $entry_visibility );
+		}
+
+		// Drop rows beyond the new selection (a previous save had more picks).
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->prefix}bn_profile_values
+				  WHERE user_id = %d AND field_id = %d AND entry_index >= %d",
+				$user_id,
+				$field_id,
+				count( $picks )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**

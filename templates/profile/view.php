@@ -178,27 +178,71 @@ $member_spaces = buddynext_service( 'space_members' )->membership_rows( $user_id
 $interests  = array_filter( array_map( 'trim', explode( ',', $get_fv( 'skills', 'interests' ) ) ) );
 $completion = $is_own_profile ? $profile_svc->get_completion_score( $user_id ) : null;
 
-// Profile-strength percentage from the SAME 6 curated tasks the strength
-// widget shows (bio, tagline, location, skills, work, linked account) — so the
-// mobile hero chip and the desktop sidebar ring agree. Driving the chip off
-// get_completion_score() (which scores every flat field) left mobile stuck at
-// e.g. 83% with all 6 visible tasks done. Sidebar computes the identical set.
-$bn_pf_strength_tasks = array(
-	'' !== $bio,
-	'' !== $headline,
-	'' !== $location,
-	! empty( $interests ),
-	! empty( $work_entries ),
-	! empty( $social_links ),
-);
+// Profile-strength tasks: the SAME curated set drives the mobile hero chip and
+// the desktop sidebar ring/checklist — so both surfaces always agree. Driving
+// the chip off get_completion_score() (which scores every flat field) left
+// mobile stuck at e.g. 83% with all visible tasks done.
+//
+// Each task is EXISTENCE-FILTERED: a task whose backing field or group the
+// owner deleted from the profile schema drops out of the list entirely,
+// instead of prompting members forever for a field that no longer exists.
+// The check is uniform even for the system-protected bio/headline/location.
+$bn_pf_field_exists = static function ( string $group_key, string $field_key ) use ( $group_data ): bool {
+	foreach ( (array) ( $group_data[ $group_key ]['fields'] ?? array() ) as $field ) {
+		if ( is_array( $field ) && ( $field['field_key'] ?? '' ) === $field_key ) {
+			return true;
+		}
+	}
+	return false;
+};
+
+$bn_pf_strength_tasks = array();
+if ( $bn_pf_field_exists( 'basic_info', 'bio' ) ) {
+	$bn_pf_strength_tasks[] = array(
+		'label' => __( 'Add a bio', 'buddynext' ),
+		'done'  => '' !== $bio,
+	);
+}
+if ( $bn_pf_field_exists( 'basic_info', 'headline' ) ) {
+	$bn_pf_strength_tasks[] = array(
+		'label' => __( 'Add a tagline', 'buddynext' ),
+		'done'  => '' !== $headline,
+	);
+}
+if ( $bn_pf_field_exists( 'basic_info', 'location' ) ) {
+	$bn_pf_strength_tasks[] = array(
+		'label' => __( 'Set your location', 'buddynext' ),
+		'done'  => '' !== $location,
+	);
+}
+if ( $bn_pf_field_exists( 'skills', 'interests' ) ) {
+	$bn_pf_strength_tasks[] = array(
+		'label' => __( 'Add your skills', 'buddynext' ),
+		'done'  => ! empty( $interests ),
+	);
+}
+if ( isset( $group_data['work_experience'] ) ) {
+	$bn_pf_strength_tasks[] = array(
+		'label' => __( 'Add work experience', 'buddynext' ),
+		'done'  => ! empty( $work_entries ),
+	);
+}
+if ( ! empty( $group_data['social_links']['fields'] ) ) {
+	$bn_pf_strength_tasks[] = array(
+		'label' => __( 'Link an account', 'buddynext' ),
+		'done'  => ! empty( $social_links ),
+	);
+}
+
 $bn_pf_strength_total = count( $bn_pf_strength_tasks );
 $bn_pf_strength_pct   = $bn_pf_strength_total > 0
-	? (int) round( ( count( array_filter( $bn_pf_strength_tasks ) ) / $bn_pf_strength_total ) * 100 )
+	? (int) round( ( count( array_filter( array_column( $bn_pf_strength_tasks, 'done' ) ) ) / $bn_pf_strength_total ) * 100 )
 	: 0;
+$strength_tasks       = $bn_pf_strength_tasks;
 $is_online            = buddynext_service( 'blocks' )->is_user_online( $current_user_id, $user_id );
 
 // --- Sidebar widget hook (partial holds the markup) -----------------------
-$bn_pf_sidebar_args = compact( 'is_own_profile', 'completion', 'social_links', 'work_entries', 'edu_entries', 'interests', 'member_spaces', 'get_fv', 'entry_fv' );
+$bn_pf_sidebar_args = compact( 'is_own_profile', 'completion', 'social_links', 'work_entries', 'edu_entries', 'interests', 'member_spaces', 'get_fv', 'entry_fv', 'strength_tasks' );
 add_action(
 	'buddynext_right_sidebar',
 	static function () use ( $bn_pf_sidebar_args ): void {

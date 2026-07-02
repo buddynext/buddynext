@@ -612,8 +612,14 @@ class ProfileFieldsManager {
 
 		check_admin_referer( 'bn_delete_profile_group_' . $group_id );
 
+		$notice = 'deleted';
 		if ( $group_id > 0 ) {
-			buddynext_service( 'profiles' )->delete_group( $group_id );
+			$result = buddynext_service( 'profiles' )->delete_group( $group_id );
+			if ( is_wp_error( $result ) ) {
+				// System groups refuse deletion — surface the refusal instead of
+				// a false "Deleted." success.
+				$notice = 'locked';
+			}
 		}
 
 		wp_safe_redirect(
@@ -621,7 +627,7 @@ class ProfileFieldsManager {
 				array(
 					'page'         => 'buddynext-members',
 					'tab'          => 'profile-fields',
-					'bn_pf_notice' => 'deleted',
+					'bn_pf_notice' => $notice,
 				),
 				admin_url( 'admin.php' )
 			)
@@ -646,8 +652,14 @@ class ProfileFieldsManager {
 
 		check_admin_referer( 'bn_delete_profile_field_' . $field_id );
 
+		$notice = 'deleted';
 		if ( $field_id > 0 ) {
-			buddynext_service( 'profiles' )->delete_field( $field_id );
+			$result = buddynext_service( 'profiles' )->delete_field( $field_id );
+			if ( is_wp_error( $result ) ) {
+				// System fields refuse deletion — surface the refusal instead of
+				// a false "Deleted." success.
+				$notice = 'locked';
+			}
 		}
 
 		wp_safe_redirect(
@@ -655,7 +667,7 @@ class ProfileFieldsManager {
 				array(
 					'page'         => 'buddynext-members',
 					'tab'          => 'profile-fields',
-					'bn_pf_notice' => 'deleted',
+					'bn_pf_notice' => $notice,
 				),
 				admin_url( 'admin.php' )
 			)
@@ -1075,6 +1087,8 @@ class ProfileFieldsManager {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Deleted.', 'buddynext' ) . '</p></div>';
 		} elseif ( 'error' === $bn_pf_notice ) {
 			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Not saved — please check the field name and try again.', 'buddynext' ) . '</p></div>';
+		} elseif ( 'locked' === $bn_pf_notice ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'This is a core field used by search and member cards - it cannot be deleted.', 'buddynext' ) . '</p></div>';
 		}
 
 		$groups      = buddynext_service( 'profiles' )->get_fields();
@@ -1308,14 +1322,19 @@ class ProfileFieldsManager {
 										<button type="button" class="bn-pf-edit-btn"
 											data-bn-pf-toggle-edit="bn-ef-row-<?php echo absint( $fid ); ?>"
 											title="<?php esc_attr_e( 'Edit field', 'buddynext' ); ?>"><?php buddynext_icon( 'edit' ); ?></button>
-										<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form bn-del-form">
-											<input type="hidden" name="action" value="bn_delete_profile_field">
-											<input type="hidden" name="field_id" value="<?php echo absint( $fid ); ?>">
-											<?php wp_nonce_field( 'bn_delete_profile_field_' . $fid ); ?>
-											<button type="button" class="bn-pf-del-field bn-del-trigger" title="<?php esc_attr_e( 'Remove field', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
-											<button type="submit" class="bn-del-confirm" style="display:none;"><?php esc_html_e( 'Delete?', 'buddynext' ); ?></button>
-											<button type="button" class="bn-del-cancel" style="display:none;"><?php esc_html_e( 'No', 'buddynext' ); ?></button>
-										</form>
+										<?php if ( ! empty( $field['is_system'] ) ) : ?>
+											<?php // System field: no delete control (the service guard also refuses direct requests). Relabel/reorder/visibility stay editable. ?>
+											<span class="bn-badge" data-tone="neutral" title="<?php esc_attr_e( 'Core field - used by search and member cards. It cannot be deleted.', 'buddynext' ); ?>"><?php esc_html_e( 'Core', 'buddynext' ); ?></span>
+										<?php else : ?>
+											<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form bn-del-form">
+												<input type="hidden" name="action" value="bn_delete_profile_field">
+												<input type="hidden" name="field_id" value="<?php echo absint( $fid ); ?>">
+												<?php wp_nonce_field( 'bn_delete_profile_field_' . $fid ); ?>
+												<button type="button" class="bn-pf-del-field bn-del-trigger" title="<?php esc_attr_e( 'Remove field', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
+												<button type="submit" class="bn-del-confirm" style="display:none;"><?php esc_html_e( 'Delete?', 'buddynext' ); ?></button>
+												<button type="button" class="bn-del-cancel" style="display:none;"><?php esc_html_e( 'No', 'buddynext' ); ?></button>
+											</form>
+										<?php endif; ?>
 									</div>
 								</td>
 							</tr>

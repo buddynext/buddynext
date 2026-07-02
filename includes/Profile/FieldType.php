@@ -28,6 +28,14 @@
  * itself. multi (multiselect) values are stored as a comma-joined list of
  * option SLUGS.
  *
+ * One deliberate exception to the "no DB access" purity rule:
+ * category_multiselect resolves its choices LIVE from SpaceCategoryService
+ * (see category_options()) so the pick list can never drift from the owner's
+ * category taxonomy — a stored options snapshot would go stale on every
+ * category rename/delete. The service call is object-cached, and an
+ * unavailable Spaces schema degrades to an empty choice list (renderers show
+ * nothing; nothing errors).
+ *
  * @package BuddyNext\Profile
  */
 
@@ -55,73 +63,83 @@ class FieldType {
 	 */
 	private static function builtin_types(): array {
 		return array(
-			'text'        => array(
+			'text'                 => array(
 				'label'                 => __( 'Text', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 			),
-			'textarea'    => array(
+			'textarea'             => array(
 				'label'                 => __( 'Paragraph', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 			),
-			'url'         => array(
+			'url'                  => array(
 				'label'                 => __( 'URL', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 			),
-			'email'       => array(
+			'email'                => array(
 				'label'                 => __( 'Email', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 			),
-			'phone'       => array(
+			'phone'                => array(
 				'label'                 => __( 'Phone', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 			),
-			'number'      => array(
+			'number'               => array(
 				'label'                 => __( 'Number', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => false,
 			),
-			'date'        => array(
+			'date'                 => array(
 				'label'                 => __( 'Date', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => false,
 			),
-			'boolean'     => array(
+			'boolean'              => array(
 				'label'                 => __( 'Yes / No', 'buddynext' ),
 				'value_kind'            => 'bool',
 				'is_choice'             => false,
 				'is_searchable_capable' => false,
 			),
-			'select'      => array(
+			'select'               => array(
 				'label'                 => __( 'Dropdown', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => true,
 				'is_searchable_capable' => true,
 			),
-			'radio'       => array(
+			'radio'                => array(
 				'label'                 => __( 'Radio', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => true,
 				'is_searchable_capable' => true,
 			),
-			'multiselect' => array(
+			'multiselect'          => array(
 				'label'                 => __( 'Multi-select', 'buddynext' ),
 				'value_kind'            => 'multi',
 				'is_choice'             => true,
 				'is_searchable_capable' => true,
 			),
-			'color'       => array(
+			// Choices come LIVE from the owner's space categories, never from an
+			// admin-authored options list — hence is_choice = false (no options
+			// editor). Values are category IDs, stored one bn_profile_values row
+			// per pick (see ProfileService::save_multi_entry_value()).
+			'category_multiselect' => array(
+				'label'                 => __( 'Space Categories', 'buddynext' ),
+				'value_kind'            => 'multi',
+				'is_choice'             => false,
+				'is_searchable_capable' => true,
+			),
+			'color'                => array(
 				'label'                 => __( 'Colour', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
@@ -210,6 +228,12 @@ class FieldType {
 	 * @return array<string,string> slug => label.
 	 */
 	private static function options( array $field ): array {
+		// Live-optioned type: the choice list is the owner's category taxonomy,
+		// resolved fresh on every call — never the stored options JSON.
+		if ( 'category_multiselect' === (string) ( $field['type'] ?? '' ) ) {
+			return self::category_options();
+		}
+
 		$raw = $field['options'] ?? null;
 		if ( ! is_array( $raw ) ) {
 			return array();
@@ -231,6 +255,53 @@ class FieldType {
 		}
 
 		return $pairs;
+	}
+
+	/**
+	 * Live space-category choices for category_multiselect fields.
+	 *
+	 * Keyed by the category ID (as a string), value = category name. Resolved
+	 * from SpaceCategoryService on every call — the service response is
+	 * object-cached, so this stays cheap on hot paths. Returns an empty list
+	 * when the Spaces layer is unavailable or the owner has no categories:
+	 * renderers then show nothing and sanitisation accepts nothing — never an
+	 * error. (This is the engine's one deliberate data dependency; see the
+	 * file header.)
+	 *
+	 * @return array<int|string,string> Category ID => name (PHP coerces the
+	 *                                  numeric-string keys to int).
+	 */
+	public static function category_options(): array {
+		if ( ! class_exists( '\BuddyNext\Spaces\SpaceCategoryService' ) ) {
+			return array();
+		}
+
+		$pairs = array();
+		foreach ( ( new \BuddyNext\Spaces\SpaceCategoryService() )->get_all() as $category ) {
+			$id = isset( $category['id'] ) ? (int) $category['id'] : 0;
+			if ( $id <= 0 ) {
+				continue;
+			}
+			$pairs[ (string) $id ] = (string) ( $category['name'] ?? $id );
+		}
+
+		return $pairs;
+	}
+
+	/**
+	 * Whether a type stores ONE bn_profile_values row per selected value
+	 * (entry_index 0..n) instead of a single scalar row.
+	 *
+	 * Set-valued types keep each pick individually matchable through the
+	 * (field_id, value) index — suggestion engines rely on that shape. The
+	 * sanitised comma-joined value is only the in-memory transport;
+	 * ProfileService splits it into rows on save and re-aggregates on read.
+	 *
+	 * @param string $type Field type slug.
+	 * @return bool
+	 */
+	public static function is_multi_entry( string $type ): bool {
+		return 'category_multiselect' === $type;
 	}
 
 	/**
@@ -296,6 +367,15 @@ class FieldType {
 				return self::render_radio_input( $field, $value, $name, $id );
 
 			case 'multiselect':
+				return self::render_multiselect_input( $field, $value, $name, $id );
+
+			case 'category_multiselect':
+				// Same checkbox-grid control with live category choices. An owner
+				// with zero categories gets an intentional empty state instead of
+				// a bare fieldset with an orphaned label.
+				if ( array() === self::options( $field ) ) {
+					return '<span class="bn-field-value">' . esc_html__( 'No categories are available yet.', 'buddynext' ) . '</span>';
+				}
 				return self::render_multiselect_input( $field, $value, $name, $id );
 
 			case 'boolean':
@@ -450,6 +530,10 @@ class FieldType {
 		$html = '<fieldset class="bn-field-checkbox-group">';
 		$i    = 0;
 		foreach ( $options as $slug => $label ) {
+			// PHP coerces numeric-string array keys (category IDs) to int, so the
+			// key must be re-cast before the strict membership check — otherwise
+			// saved picks never render as checked.
+			$slug   = (string) $slug;
 			$opt_id = $id . '-' . (string) $i;
 			$html  .= sprintf(
 				'<label class="bn-field-checkbox" for="%1$s"><input type="checkbox" id="%1$s" name="%2$s[]" value="%3$s"%4$s /> <span>%5$s</span></label>',
@@ -491,7 +575,7 @@ class FieldType {
 			return '<span class="bn-field-value bn-field-bool">' . esc_html__( 'Yes', 'buddynext' ) . '</span>';
 		}
 
-		if ( 'multiselect' === $type ) {
+		if ( 'multiselect' === $type || 'category_multiselect' === $type ) {
 			return self::render_chips( $field, $value );
 		}
 
@@ -585,10 +669,22 @@ class FieldType {
 			return '';
 		}
 
+		// Live-optioned types: a value that no longer resolves (its category was
+		// deleted) is dropped — a raw ID chip would be meaningless. Admin-authored
+		// option types keep the slug fallback (the option list may be edited back).
+		$drop_unresolved = self::is_multi_entry( (string) ( $field['type'] ?? '' ) );
+
 		$chips = '';
 		foreach ( $selected as $slug ) {
+			if ( $drop_unresolved && ! isset( $options[ $slug ] ) ) {
+				continue;
+			}
 			$label  = $options[ $slug ] ?? $slug;
 			$chips .= '<span class="bn-chip bn-field-chip">' . esc_html( $label ) . '</span>';
+		}
+
+		if ( '' === $chips ) {
+			return '';
 		}
 
 		return '<span class="bn-field-value bn-field-chips">' . $chips . '</span>';
@@ -714,6 +810,21 @@ class FieldType {
 				}
 				return implode( ',', $valid );
 
+			case 'category_multiselect':
+				// Values are category IDs: absint each and keep only IDs that
+				// exist in the live taxonomy (deleted/unknown categories are
+				// silently dropped — the signal degrades, nothing errors).
+				$live     = self::options( $field );
+				$incoming = is_array( $raw ) ? $raw : explode( ',', (string) $raw );
+				$valid    = array();
+				foreach ( $incoming as $one ) {
+					$id = is_scalar( $one ) ? absint( $one ) : 0;
+					if ( $id > 0 && isset( $live[ (string) $id ] ) && ! in_array( (string) $id, $valid, true ) ) {
+						$valid[] = (string) $id;
+					}
+				}
+				return implode( ',', $valid );
+
 			case 'text':
 			default:
 				return sanitize_text_field( (string) ( is_array( $raw ) ? '' : $raw ) );
@@ -737,10 +848,14 @@ class FieldType {
 			return '';
 		}
 
-		if ( 'multiselect' === $type ) {
+		if ( 'multiselect' === $type || 'category_multiselect' === $type ) {
 			$options = self::options( $field );
+			$drop    = self::is_multi_entry( $type );
 			$labels  = array();
 			foreach ( self::multi_values( $value ) as $slug ) {
+				if ( $drop && ! isset( $options[ $slug ] ) ) {
+					continue; // Deleted category: a raw ID is not searchable text.
+				}
 				$labels[] = $options[ $slug ] ?? $slug;
 			}
 			return implode( ', ', $labels );
@@ -773,10 +888,14 @@ class FieldType {
 			return self::truthy( $value ) ? __( 'Yes', 'buddynext' ) : __( 'No', 'buddynext' );
 		}
 
-		if ( 'multiselect' === $type ) {
+		if ( 'multiselect' === $type || 'category_multiselect' === $type ) {
 			$options = self::options( $field );
+			$drop    = self::is_multi_entry( $type );
 			$labels  = array();
 			foreach ( self::multi_values( $value ) as $slug ) {
+				if ( $drop && ! isset( $options[ $slug ] ) ) {
+					continue; // Deleted category: no human-readable label to show.
+				}
 				$labels[] = $options[ $slug ] ?? $slug;
 			}
 			return implode( ', ', $labels );
@@ -799,7 +918,7 @@ class FieldType {
 	 *
 	 * @param array $field Field definition.
 	 * @param mixed $value Stored value.
-	 * @return bool|int|float|string|array<int,string>
+	 * @return bool|int|float|string|array<int,int|string>
 	 */
 	public static function rest_value( array $field, $value ): bool|int|float|string|array {
 		$type = self::resolve_type( isset( $field['type'] ) ? (string) $field['type'] : 'text' );
@@ -820,6 +939,16 @@ class FieldType {
 
 		if ( 'multiselect' === $type ) {
 			return self::multi_values( $value );
+		}
+
+		if ( 'category_multiselect' === $type ) {
+			// A set of category IDs — typed as ints so app clients can join
+			// against the categories payload without re-parsing strings.
+			return array_values(
+				array_filter(
+					array_map( 'absint', self::multi_values( $value ) )
+				)
+			);
 		}
 
 		return (string) $value;

@@ -424,6 +424,34 @@ function collectFlatData( wrap ) {
 		// Skip the slug input (handled by its own endpoint) and any repeater fields.
 		if ( el.id === 'bn-ep-slug' ) { return; }
 		if ( /\[\d+\]\[/.test( el.name ) ) { return; }
+
+		// Checkbox GROUP (multiselect / category_multiselect render name="key[]"):
+		// send the checked values as an array under the bare key. The old
+		// `data[el.name] = el.value` path stored a literal "key[]" entry with
+		// whatever checkbox came last, checked or not — the server never
+		// recognised the key, so these fields silently never saved.
+		if ( 'checkbox' === el.type && /\[\]$/.test( el.name ) ) {
+			var groupKey = el.name.slice( 0, -2 );
+			if ( ! Array.isArray( data[ groupKey ] ) ) { data[ groupKey ] = []; }
+			if ( el.checked ) { data[ groupKey ].push( el.value ); }
+			return;
+		}
+
+		// Single checkbox (boolean field): the checked STATE is the value —
+		// reading el.value sent "1" even when unchecked.
+		if ( 'checkbox' === el.type ) {
+			data[ el.name ] = el.checked ? '1' : '';
+			return;
+		}
+
+		// Radio group: only the checked option wins (default empty) — reading
+		// el.value made the LAST rendered option win regardless of selection.
+		if ( 'radio' === el.type ) {
+			if ( ! ( el.name in data ) ) { data[ el.name ] = ''; }
+			if ( el.checked ) { data[ el.name ] = el.value; }
+			return;
+		}
+
 		data[ el.name ] = el.value;
 	} );
 	return data;

@@ -85,8 +85,22 @@ class Installer {
 	 *      existing field is converged to 'url' via maybe_migrate_file_fields() — it
 	 *      already behaved as a URL field (the sanitiser aliased file -> url), so stored
 	 *      values are preserved. No schema change.
+	 * 16 — Interests/personalization foundation (Phase 0). (a) Added
+	 *      bn_profile_fields.is_system so load-bearing fields (bio, headline,
+	 *      location — search index, directory cards/filter, hero) are protected
+	 *      from deletion; seeded via seed_system_profile_fields() (idempotent,
+	 *      runs inside run()). (b) Added KEY field_value (field_id, value(20))
+	 *      on bn_profile_values — the people-matching index for category-valued
+	 *      fields ("members with category N" = exact (field_id, value) lookup).
+	 *      Existing installs get both via the guarded ALTERs in
+	 *      maybe_alter_tables(); fresh installs inline in CREATE TABLE.
+	 *      (c) Converged the legacy 'checkbox' profile-field type to 'boolean'
+	 *      via maybe_migrate_checkbox_fields() — 'checkbox' was never in the
+	 *      FieldType registry (it degraded to a text input on the edit form);
+	 *      'boolean' is the registered equivalent and stores the same '1'/'0'
+	 *      values, so member data is preserved.
 	 */
-	private const SCHEMA_VERSION = 15;
+	private const SCHEMA_VERSION = 16;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -136,6 +150,11 @@ class Installer {
 		// as, so stored values survive and the type drops out of the picker.
 		self::maybe_migrate_file_fields();
 
+		// v16: converge the never-registered 'checkbox' profile-field type to the
+		// registered 'boolean' equivalent (same '1'/'0' storage), so the fields
+		// render as checkboxes on the edit form instead of degrading to text.
+		self::maybe_migrate_checkbox_fields();
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
 	}
 
@@ -153,6 +172,25 @@ class Installer {
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET type = 'url' WHERE type = 'file'" );
+	}
+
+	/**
+	 * Converge any legacy 'checkbox' profile field to 'boolean' (schema v16).
+	 *
+	 * 'checkbox' was never a registered FieldType — the engine degraded it to a
+	 * text input on the profile edit form. 'boolean' is the registered
+	 * equivalent and reads/writes the same '1'/'0' values, so stored member
+	 * data is preserved. Idempotent — a no-op once no 'checkbox' rows remain.
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_checkbox_fields(): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET type = 'boolean' WHERE type = 'checkbox'" );
+
+		wp_cache_delete( 'all_fields', 'buddynext_profiles' );
 	}
 
 	/**
@@ -382,8 +420,11 @@ class Installer {
 				'show_in_dir' => 'ADD COLUMN show_in_dir TINYINT(1) NOT NULL DEFAULT 1',
 			),
 			// v5: a flat field can be surfaced on the registration form.
+			// v16: load-bearing fields (bio/headline/location) are marked is_system
+			// so they cannot be deleted out from under search + directory + hero.
 			'bn_profile_fields'   => array(
 				'show_on_register' => 'ADD COLUMN show_on_register TINYINT(1) NOT NULL DEFAULT 0',
+				'is_system'        => 'ADD COLUMN is_system TINYINT(1) NOT NULL DEFAULT 0',
 			),
 		);
 
@@ -395,7 +436,7 @@ class Installer {
 			// v11: index sub-space lookups (WHERE parent_id = ?) and roster
 			// pagination (WHERE space_id = ? AND status = ? ORDER BY joined_at) so
 			// neither scans/filesorts at 50k members.
-			'bn_spaces'        => array(
+			'bn_spaces'         => array(
 				'parent'      => 'ADD KEY parent (parent_id)',
 				// v12: the directory browses ROOTS ordered by one of a few sorts
 				// (WHERE parent_id IS NULL ORDER BY <col>). Without a (parent_id,<col>)
@@ -412,8 +453,16 @@ class Installer {
 				// a pure read win with no ongoing maintenance.
 				'dir_recent'  => 'ADD KEY dir_recent (parent_id, created_at)',
 			),
-			'bn_space_members' => array(
+			'bn_space_members'  => array(
 				'space_status' => 'ADD KEY space_status (space_id, status, joined_at)',
+			),
+			// v16: the people-matching index. "Members with value X for field F"
+			// (e.g. a category-valued interests field) becomes an exact
+			// (field_id, value) range scan instead of a full-table walk. The
+			// value column is LONGTEXT, so the index takes a 20-char prefix —
+			// exact enough for numeric IDs and short slugs.
+			'bn_profile_values' => array(
+				'field_value' => 'ADD KEY field_value (field_id, value(20))',
 			),
 		);
 
@@ -1078,6 +1127,20 @@ class Installer {
 				)
 			);
 		}
+
+		// ── 3. System-field protection (v16) ─────────────────────────────────
+		// Exactly the load-bearing trio is protected from deletion: bio (search
+		// index + directory cards), headline (hero + directory), location
+		// (directory filter). Every other seeded field stays deletable so owners
+		// can customise their profile schema — display-only fields degrade
+		// gracefully by design. Idempotent single UPDATE; covers fresh installs
+		// and (via maybe_upgrade -> run) existing sites alike.
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_fields`
+			    SET is_system = 1
+			  WHERE field_key IN ('bio', 'headline', 'location')
+			    AND is_system = 0"
+		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
@@ -1441,6 +1504,7 @@ class Installer {
 				is_required   TINYINT(1) NOT NULL DEFAULT 0,
 				is_searchable TINYINT(1) NOT NULL DEFAULT 0,
 				show_on_register TINYINT(1) NOT NULL DEFAULT 0,
+				is_system     TINYINT(1) NOT NULL DEFAULT 0,
 				visibility    ENUM('public','followers','connections','private') NOT NULL DEFAULT 'public',
 				sort_order    INT NOT NULL DEFAULT 0,
 				PRIMARY KEY   (id),
@@ -1458,7 +1522,8 @@ class Installer {
 				PRIMARY KEY      (id),
 				UNIQUE KEY       user_field_entry (user_id, field_id, entry_index),
 				KEY              field_idx (field_id),
-				KEY              user_idx (user_id)
+				KEY              user_idx (user_id),
+				KEY              field_value (field_id, value(20))
 			) {$cs};",
 
 			// ── Search Index ───────────────────────────────────────────────────

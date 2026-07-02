@@ -59,6 +59,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 = 1.0.4 - June 2026 =
 
 * New      - Developers can add their own per-space settings that appear on the space management screen, save automatically, and are available over the REST API - the same system the built-in space settings now use.
+* Improve  - Core profile fields (bio, headline, location) are now protected from accidental deletion, so search and member cards keep working no matter how the profile form is customized.
 * Improve  - Member lists inside a space and nested sub-spaces stay fast in very large communities.
 * Improve  - Per-space settings no longer load on every page request, keeping large sites fast as the number of spaces grows.
 * Fix      - A photo added to the activity composer is shared only when you click Post; removing it or leaving the page no longer publishes it on its own.

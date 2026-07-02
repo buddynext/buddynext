@@ -1988,6 +1988,52 @@ a.bn-space-row:hover .bn-space-name {
 	min-width: 0;
 }
 .bn-ep-field--full { grid-column: 1 / -1; }
+
+/* Choice grids — multiselect / category_multiselect checkbox groups and radio
+   groups render each option as a selectable chip that wraps naturally at any
+   viewport. Scoped to the group fieldsets so the single boolean checkbox row
+   keeps its plain look. */
+.bn-field-checkbox-group,
+.bn-field-radio-group {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	border: 0;
+	padding: 0;
+	margin: 0;
+	min-width: 0;
+}
+.bn-field-checkbox-group .bn-field-checkbox,
+.bn-field-radio-group .bn-field-radio {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	min-height: var(--bn-s10);
+	padding: var(--bn-s2) var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-surface);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	cursor: pointer;
+	transition: border-color 0.14s ease, background 0.14s ease;
+}
+.bn-field-checkbox-group .bn-field-checkbox:hover,
+.bn-field-radio-group .bn-field-radio:hover {
+	border-color: var(--bn-line-strong);
+}
+.bn-field-checkbox-group .bn-field-checkbox:has(input:checked),
+.bn-field-radio-group .bn-field-radio:has(input:checked) {
+	border-color: var(--bn-accent);
+	background: var(--bn-accent-50);
+	color: var(--bn-ink);
+}
+.bn-field-checkbox-group .bn-field-checkbox:has(input:focus-visible),
+.bn-field-radio-group .bn-field-radio:has(input:focus-visible) {
+	outline: 2px solid var(--bn-ring);
+	outline-offset: 2px;
+}
+
 .bn-ep-label {
 	font-size: var(--bn-text-sm);
 	font-weight: 600;
