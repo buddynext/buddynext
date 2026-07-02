@@ -752,16 +752,11 @@ class SetupWizard {
 					array( 'skills', __( 'Skills', 'buddynext' ), 'multiselect' ),
 				),
 			),
-			'interests'       => array(
-				'label'       => __( 'Interests', 'buddynext' ),
-				'icon'        => 'heart',
-				'description' => __( 'Hobbies, passions, topics — what members care about', 'buddynext' ),
-				'type'        => 'flat',
-				'fields'      => array(
-					array( 'interests', __( 'Interests', 'buddynext' ), 'multiselect' ),
-				),
-			),
 		);
+		// NOTE: the former 'interests' preset is gone — the Interests group is
+		// core-seeded by the Installer as a system field (category_multiselect
+		// backed by the owner's space categories), so it is never optional and
+		// cannot drift. See docs/plans/interests-personalization.md.
 	}
 
 	/**

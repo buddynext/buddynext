@@ -100,7 +100,7 @@ class Installer {
 	 *      'boolean' is the registered equivalent and stores the same '1'/'0'
 	 *      values, so member data is preserved.
 	 */
-	private const SCHEMA_VERSION = 16;
+	private const SCHEMA_VERSION = 17;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -155,6 +155,12 @@ class Installer {
 		// render as checkboxes on the edit form instead of degrading to text.
 		self::maybe_migrate_checkbox_fields();
 
+		// v17: purge the orphaned onboarding-interests user meta — the canonical
+		// interests store is the 'interests' profile field. The paired
+		// interests->skills field-key rename runs inside run(), BEFORE the
+		// profile seeder — see maybe_migrate_skills_field_key.
+		self::maybe_purge_orphan_interest_meta();
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
 	}
 
@@ -191,6 +197,70 @@ class Installer {
 		$wpdb->query( "UPDATE {$wpdb->prefix}bn_profile_fields SET type = 'boolean' WHERE type = 'checkbox'" );
 
 		wp_cache_delete( 'all_fields', 'buddynext_profiles' );
+	}
+
+	/**
+	 * Rename the legacy skills-group field key interests->skills (schema v17).
+	 *
+	 * The original seed named the skills group's field 'interests'
+	 * ("Skills / Interests"), which blocks the canonical Interests field
+	 * (bn_profile_fields.field_key is table-wide UNIQUE). Values ride on
+	 * field_id, so member data is untouched. Group-scoped so only the legacy
+	 * shape matches, and guarded against a pre-existing custom 'skills' key
+	 * (rename skipped; the seeder's INSERT IGNORE then leaves that site's own
+	 * field authoritative). Idempotent — a no-op once no legacy row remains.
+	 *
+	 * MUST run before seed_default_profile_groups_and_fields() (see run()).
+	 *
+	 * @param string $p Table prefix.
+	 * @return void
+	 */
+	private static function maybe_migrate_skills_field_key( string $p ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$has_skills_key = (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM `{$p}bn_profile_fields` WHERE field_key = 'skills'"
+		);
+		if ( $has_skills_key > 0 ) {
+			return; // A 'skills' key already exists (renamed earlier, or owner-created) — nothing to converge.
+		}
+
+		$renamed = $wpdb->query(
+			"UPDATE `{$p}bn_profile_fields` f
+			   JOIN `{$p}bn_profile_groups` g ON g.id = f.group_id
+			    SET f.field_key = 'skills', f.label = 'Skills'
+			  WHERE f.field_key = 'interests'
+			    AND g.group_key = 'skills'"
+		);
+
+		if ( $renamed > 0 ) {
+			// Carry the search-mirror meta with the key so directory/global search
+			// keeps matching until the next profile save regenerates it.
+			$wpdb->query(
+				"UPDATE {$wpdb->usermeta}
+				    SET meta_key = 'bn_field_skills'
+				  WHERE meta_key = 'bn_field_interests'"
+			);
+			wp_cache_delete( 'all_fields', 'buddynext_profiles' );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Purge the orphaned onboarding-interests user meta (schema v17).
+	 *
+	 * The bn_interests (comma-joined labels) and bn_onboarding_interests (category
+	 * IDs) keys were written by an onboarding step that was removed before anything
+	 * read them; the canonical store is now the 'interests' profile field (one
+	 * bn_profile_values row per picked category). delete_metadata with
+	 * delete_all clears every user in one call. Idempotent.
+	 *
+	 * @return void
+	 */
+	private static function maybe_purge_orphan_interest_meta(): void {
+		delete_metadata( 'user', 0, 'bn_interests', '', true );
+		delete_metadata( 'user', 0, 'bn_onboarding_interests', '', true );
 	}
 
 	/**
@@ -306,6 +376,14 @@ class Installer {
 		self::install_schema();
 
 		self::seed_email_templates( $wpdb->prefix );
+
+		// v17: MUST run before the profile seeder — it renames the legacy
+		// skills-group field key interests->skills so the seeder's INSERT IGNORE
+		// can never create a duplicate 'skills' field, and so the freed
+		// 'interests' key is available for the canonical category_multiselect
+		// field the seeder adds. Idempotent no-op on fresh installs.
+		self::maybe_migrate_skills_field_key( $wpdb->prefix );
+
 		self::seed_default_profile_groups_and_fields( $wpdb->prefix );
 		self::seed_default_space( $wpdb->prefix );
 
@@ -1038,10 +1116,12 @@ class Installer {
 
 		// ── 1. Groups ──────────────────────────────────────────────────────────
 
-		// All five built-in groups are seeded on install (INSERT IGNORE is safe
+		// All six built-in groups are seeded on install (INSERT IGNORE is safe
 		// on re-runs). The spec defines these as the canonical group set:
 		// Basic Info (flat), Social Links (flat), Work Experience (repeater),
-		// Education (repeater), Skills (flat).
+		// Education (repeater), Skills (flat), Interests (flat — the
+		// category_multiselect field that powers people/space/feed suggestions;
+		// see docs/plans/interests-personalization.md).
 		// Format: group_key, label, type, visibility, is_system, sort_order.
 		$groups = array(
 			array( 'basic_info', 'Basic Info', 'flat', 'public', 1, 1 ),
@@ -1049,6 +1129,7 @@ class Installer {
 			array( 'work_experience', 'Work Experience', 'repeater', 'public', 1, 3 ),
 			array( 'education', 'Education', 'repeater', 'public', 1, 4 ),
 			array( 'skills', 'Skills', 'flat', 'public', 1, 5 ),
+			array( 'interests', 'Interests', 'flat', 'public', 1, 6 ),
 		);
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -1067,6 +1148,16 @@ class Installer {
 				)
 			);
 		}
+
+		// An existing site may carry the SetupWizard-preset 'interests' group
+		// (seeded is_system=0): converge it to the canonical system group. The
+		// INSERT IGNORE above no-ops on it, so flip the flag explicitly.
+		$wpdb->query(
+			"UPDATE `{$p}bn_profile_groups`
+			    SET is_system = 1, label = 'Interests'
+			  WHERE group_key = 'interests'
+			    AND is_system = 0"
+		);
 
 		// ── 2. Fields ─────────────────────────────────────────────────────────
 		// Each INSERT uses a subquery to resolve group_id by group_key.
@@ -1105,8 +1196,15 @@ class Installer {
 			array( 'education', 'edu_end_year', 'End Year', 'number', 0, 0, 5 ),
 			array( 'education', 'edu_current', 'Currently Attending', 'boolean', 0, 0, 6 ),
 
-			// skills (flat).
-			array( 'skills', 'interests', 'Skills / Interests', 'text', 0, 1, 1 ),
+			// skills (flat). Key renamed interests->skills in v17 (the canonical
+			// 'interests' key now belongs to the category_multiselect field below);
+			// maybe_migrate_skills_field_key() converges existing sites BEFORE this
+			// seeder runs, so the INSERT IGNORE never creates a duplicate.
+			array( 'skills', 'skills', 'Skills', 'text', 0, 1, 1 ),
+
+			// interests (flat) — the suggestion signal: one bn_profile_values row
+			// per picked space category (see docs/plans/interests-personalization.md).
+			array( 'interests', 'interests', 'Interests', 'category_multiselect', 0, 1, 1 ),
 		);
 
 		foreach ( $fields as $f ) {
@@ -1128,17 +1226,18 @@ class Installer {
 			);
 		}
 
-		// ── 3. System-field protection (v16) ─────────────────────────────────
-		// Exactly the load-bearing trio is protected from deletion: bio (search
+		// ── 3. System-field protection (v16/v17) ─────────────────────────────
+		// Exactly the load-bearing spine is protected from deletion: bio (search
 		// index + directory cards), headline (hero + directory), location
-		// (directory filter). Every other seeded field stays deletable so owners
-		// can customise their profile schema — display-only fields degrade
-		// gracefully by design. Idempotent single UPDATE; covers fresh installs
-		// and (via maybe_upgrade -> run) existing sites alike.
+		// (directory filter), interests (the suggestion signal the engines read).
+		// Every other seeded field stays deletable so owners can customise their
+		// profile schema — display-only fields degrade gracefully by design.
+		// Idempotent single UPDATE; covers fresh installs and (via
+		// maybe_upgrade -> run) existing sites alike.
 		$wpdb->query(
 			"UPDATE `{$p}bn_profile_fields`
 			    SET is_system = 1
-			  WHERE field_key IN ('bio', 'headline', 'location')
+			  WHERE field_key IN ('bio', 'headline', 'location', 'interests')
 			    AND is_system = 0"
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared

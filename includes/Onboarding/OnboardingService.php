@@ -78,45 +78,61 @@ class OnboardingService {
 		// data and advances the saved-step pointer.
 		if ( 1 === $step ) {
 			$this->save_profile( $user_id, $data );
-		} elseif ( 2 === $step && isset( $data['interest_ids'] ) ) {
-			$this->save_interest_ids( $user_id, (array) $data['interest_ids'] );
 		}
 		$next = min( self::TOTAL_STEPS, $step + 1 );
 		update_user_meta( $user_id, self::META_STEP, $next );
 	}
 
 	/**
-	 * Persist the Step 2 interest category IDs.
+	 * Persist the member's interest picks (space-category IDs).
 	 *
-	 * @param int              $user_id      WordPress user ID.
-	 * @param array<int,mixed> $interest_ids Interest category IDs.
-	 * @return void
+	 * Thin alias over the canonical profile-save path: the picks live in the
+	 * system 'interests' profile field (type category_multiselect, one
+	 * bn_profile_values row per pick) — never in user meta. The field's
+	 * sanitiser absints each ID and validates it against the live category
+	 * set, so this passes the raw selection straight through.
+	 *
+	 * @param int              $user_id WordPress user ID.
+	 * @param array<int,mixed> $ids     Space-category IDs.
+	 * @return int[] The stored category IDs.
 	 */
-	public function save_interest_ids( int $user_id, array $interest_ids ): void {
-		$ids = array_values( array_filter( array_map( 'absint', $interest_ids ) ) );
-		update_user_meta( $user_id, 'bn_onboarding_interests', $ids );
+	public function save_interest_ids( int $user_id, array $ids ): array {
+		$clean = array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) );
+
+		buddynext_service( 'profiles' )->save_profile(
+			$user_id,
+			array( 'interests' => implode( ',', $clean ) )
+		);
+
+		return $this->get_interest_ids( $user_id );
 	}
 
 	/**
-	 * Persist free-text interest labels (the member's chosen interests).
+	 * Read the member's stored interest picks from the profile field.
 	 *
-	 * @param int              $user_id WordPress user ID.
-	 * @param array<int,mixed> $labels Interest label strings.
-	 * @return string The stored comma-joined label string.
+	 * @param int $user_id WordPress user ID.
+	 * @return int[] Picked space-category IDs (entry order), empty when the
+	 *               field is absent or nothing is picked.
 	 */
-	public function save_interests( int $user_id, array $labels ): string {
-		$clean = array_values(
-			array_filter(
-				array_map(
-					static fn( $l ): string => sanitize_text_field( (string) $l ),
-					$labels
-				),
-				static fn( string $l ): bool => '' !== $l
+	public function get_interest_ids( int $user_id ): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT v.value
+				   FROM {$wpdb->prefix}bn_profile_values v
+				   JOIN {$wpdb->prefix}bn_profile_fields f ON f.id = v.field_id
+				  WHERE v.user_id = %d
+				    AND f.field_key = 'interests'
+				    AND f.type = 'category_multiselect'
+				  ORDER BY v.entry_index ASC",
+				$user_id
 			)
 		);
-		$value = implode( ',', $clean );
-		update_user_meta( $user_id, 'bn_interests', $value );
-		return $value;
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return array_values( array_filter( array_map( 'absint', (array) $ids ) ) );
 	}
 
 	/**

@@ -67,7 +67,7 @@ $bn_ap_edu       = array_values(
 		static fn( array $e ): bool => '' !== $bn_ap_entry_fv( $e, 'edu_institution' ) || '' !== $bn_ap_entry_fv( $e, 'edu_degree' )
 	)
 );
-$bn_ap_interests = array_filter( array_map( 'trim', explode( ',', $bn_ap_get_fv( 'skills', 'interests' ) ) ) );
+$bn_ap_interests = array_filter( array_map( 'trim', explode( ',', $bn_ap_get_fv( 'skills', 'skills' ) ) ) );
 
 buddynext_get_template(
 	'partials/profile-about-cards.php',

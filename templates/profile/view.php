@@ -175,7 +175,7 @@ if ( '' === $profile_slug ) {
 // with the right-sidebar widget so both surfaces agree.
 $member_spaces = buddynext_service( 'space_members' )->membership_rows( $user_id, 5 );
 
-$interests  = array_filter( array_map( 'trim', explode( ',', $get_fv( 'skills', 'interests' ) ) ) );
+$interests  = array_filter( array_map( 'trim', explode( ',', $get_fv( 'skills', 'skills' ) ) ) );
 $completion = $is_own_profile ? $profile_svc->get_completion_score( $user_id ) : null;
 
 // Profile-strength tasks: the SAME curated set drives the mobile hero chip and
@@ -215,7 +215,7 @@ if ( $bn_pf_field_exists( 'basic_info', 'location' ) ) {
 		'done'  => '' !== $location,
 	);
 }
-if ( $bn_pf_field_exists( 'skills', 'interests' ) ) {
+if ( $bn_pf_field_exists( 'skills', 'skills' ) ) {
 	$bn_pf_strength_tasks[] = array(
 		'label' => __( 'Add your skills', 'buddynext' ),
 		'done'  => ! empty( $interests ),

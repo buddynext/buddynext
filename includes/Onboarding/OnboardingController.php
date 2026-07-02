@@ -113,13 +113,21 @@ class OnboardingController {
 			'buddynext/v1',
 			'/me/interests',
 			array(
-				'methods'             => 'POST',
-				'callback'            => array( $this, 'save_interests' ),
-				'permission_callback' => array( $this, 'require_auth' ),
-				'args'                => array(
-					'interests' => array(
-						'required' => false,
-						'type'     => 'array',
+				array(
+					'methods'             => 'GET',
+					'callback'            => array( $this, 'get_interests' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'save_interests' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+					'args'                => array(
+						'interests' => array(
+							'required' => false,
+							'type'     => 'array',
+							'items'    => array( 'type' => 'integer' ),
+						),
 					),
 				),
 			)
@@ -127,23 +135,68 @@ class OnboardingController {
 	}
 
 	/**
-	 * POST /me/interests — persist the member's chosen interest labels.
+	 * GET /me/interests — the member's picked interest categories (ids + labels).
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function get_interests(): WP_REST_Response {
+		return new WP_REST_Response(
+			array( 'interests' => $this->interest_payload( get_current_user_id() ) ),
+			200
+		);
+	}
+
+	/**
+	 * POST /me/interests — persist the member's picked interest categories.
+	 *
+	 * Thin alias over the canonical profile-save path: picks land in the
+	 * system 'interests' profile field (category_multiselect, one
+	 * bn_profile_values row per pick) — never in user meta.
 	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response
 	 */
 	public function save_interests( WP_REST_Request $request ): WP_REST_Response {
-		$user_id   = get_current_user_id();
-		$interests = (array) $request->get_param( 'interests' );
-		$stored    = $this->service->save_interests( $user_id, $interests );
+		$user_id = get_current_user_id();
+		$this->service->save_interest_ids( $user_id, (array) $request->get_param( 'interests' ) );
 
 		return new WP_REST_Response(
 			array(
 				'saved'     => true,
-				'interests' => $stored,
+				'interests' => $this->interest_payload( $user_id ),
 			),
 			200
 		);
+	}
+
+	/**
+	 * Shape the member's picks as id + label pairs (deleted categories drop out).
+	 *
+	 * @param int $user_id User ID.
+	 * @return array<int, array{id:int, name:string}>
+	 */
+	private function interest_payload( int $user_id ): array {
+		$ids = $this->service->get_interest_ids( $user_id );
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		$by_id = array();
+		foreach ( ( new \BuddyNext\Spaces\SpaceCategoryService() )->get_all() as $cat ) {
+			$by_id[ (int) ( $cat['id'] ?? 0 ) ] = (string) ( $cat['name'] ?? '' );
+		}
+
+		$out = array();
+		foreach ( $ids as $id ) {
+			if ( isset( $by_id[ $id ] ) && '' !== $by_id[ $id ] ) {
+				$out[] = array(
+					'id'   => $id,
+					'name' => $by_id[ $id ],
+				);
+			}
+		}
+
+		return $out;
 	}
 
 	/**
@@ -266,10 +319,11 @@ class OnboardingController {
 			}
 		}
 
-		// Interests — persist the chosen labels (idempotent) when supplied.
+		// Interests — persist picked category IDs (idempotent) when supplied.
+		// Lands in the 'interests' profile field via the canonical save path.
 		$interests = $request->get_param( 'interests' );
 		if ( is_array( $interests ) && ! empty( $interests ) ) {
-			$this->service->save_interests( $user_id, $interests );
+			$this->service->save_interest_ids( $user_id, $interests );
 		}
 
 		// Mark complete + fire buddynext_onboarding_completed (first call only).

@@ -81,12 +81,46 @@ class OnboardingServiceTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Step 2 stores the interest category IDs in user meta.
+	 * Interest picks land in the 'interests' profile field (one
+	 * bn_profile_values row per pick) and round-trip via get_interest_ids —
+	 * never in user meta (the legacy bn_onboarding_interests store is gone).
 	 */
-	public function test_save_step2_stores_interest_category_ids(): void {
+	public function test_save_interest_ids_stores_profile_field_rows(): void {
+		$cat_id = $this->create_category( 'Chess Club' );
+
+		$stored = $this->service->save_interest_ids( $this->user_id, array( $cat_id, $cat_id, 0 ) );
+
+		$this->assertSame( array( $cat_id ), $stored );
+		$this->assertSame( array( $cat_id ), $this->service->get_interest_ids( $this->user_id ) );
+		$this->assertSame( '', (string) get_user_meta( $this->user_id, 'bn_onboarding_interests', true ) );
+		$this->assertSame( '', (string) get_user_meta( $this->user_id, 'bn_interests', true ) );
+	}
+
+	/**
+	 * Step 2 no longer persists anything — it only advances the step pointer.
+	 */
+	public function test_save_step2_only_advances_step(): void {
 		$this->service->save_step( $this->user_id, 2, array( 'interest_ids' => array( 3, 7 ) ) );
-		$stored = get_user_meta( $this->user_id, 'bn_onboarding_interests', true );
-		$this->assertSame( array( 3, 7 ), $stored );
+		$this->assertSame( 3, $this->service->get_step( $this->user_id ) );
+		$this->assertSame( '', (string) get_user_meta( $this->user_id, 'bn_onboarding_interests', true ) );
+	}
+
+	/**
+	 * Create (or resolve) a space category for interest tests.
+	 *
+	 * @param string $name Category name.
+	 * @return int Category ID.
+	 */
+	private function create_category( string $name ): int {
+		$id = ( new \BuddyNext\Spaces\SpaceCategoryService() )->create( array( 'name' => $name ) );
+		if ( ! is_wp_error( $id ) ) {
+			return (int) $id;
+		}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_space_categories WHERE slug = %s", sanitize_title( $name ) )
+		);
 	}
 
 	/**
