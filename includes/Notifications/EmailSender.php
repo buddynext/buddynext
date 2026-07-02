@@ -366,12 +366,20 @@ class EmailSender {
 		$from_name    = self::from_name();
 		$from_address = self::from_address();
 
+		// PHP_INT_MAX: BuddyNext is the master plugin for every integration -
+		// on ITS OWN sends its configured identity must win over any plugin
+		// hooking wp_mail_from* globally (Learnomy's notifier does, at 20, and
+		// was stomping the From on every BuddyNext email). These filters exist
+		// only for the duration of this one send, so other plugins' emails are
+		// never touched. buddynext_email_identity_priority lets a site opt out.
+		$bn_identity_priority = (int) apply_filters( 'buddynext_email_identity_priority', PHP_INT_MAX );
+
 		$name_filter = null;
 		if ( '' !== $from_name ) {
 			$name_filter = static function () use ( $from_name ) {
 				return $from_name;
 			};
-			add_filter( 'wp_mail_from_name', $name_filter );
+			add_filter( 'wp_mail_from_name', $name_filter, $bn_identity_priority );
 		}
 
 		$address_filter = null;
@@ -379,7 +387,7 @@ class EmailSender {
 			$address_filter = static function () use ( $from_address ) {
 				return $from_address;
 			};
-			add_filter( 'wp_mail_from', $address_filter );
+			add_filter( 'wp_mail_from', $address_filter, $bn_identity_priority );
 		}
 
 		// Make this the authoritative identity path: ensure the HTML Content-Type
@@ -412,10 +420,10 @@ class EmailSender {
 		$sent = wp_mail( $to, $subject, $body, $headers );
 
 		if ( null !== $name_filter ) {
-			remove_filter( 'wp_mail_from_name', $name_filter );
+			remove_filter( 'wp_mail_from_name', $name_filter, $bn_identity_priority );
 		}
 		if ( null !== $address_filter ) {
-			remove_filter( 'wp_mail_from', $address_filter );
+			remove_filter( 'wp_mail_from', $address_filter, $bn_identity_priority );
 		}
 
 		// Record the send in bn_email_log so identity sends (auth lifecycle,
