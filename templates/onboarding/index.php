@@ -101,10 +101,19 @@ $recommended_spaces = ( new \BuddyNext\Spaces\SpaceSuggestionService() )->sugges
 $joined_space_ids  = $bn_ob_members->spaces_for_user( $ob_user_id );
 $already_following = $bn_ob_follows->following( $ob_user_id );
 
-// Suggested people to follow (step 3) — shared discovery accessor, then enrich
-// each candidate with headline + follower count through the service layer.
+// Suggested people to follow — the ranked engine (interest overlap +
+// friends-of-friends, same list as GET /follow-suggestions) so the picks made
+// on the Interests step personalize this one; newest members remain the
+// fallback when the engine has no signal (member skipped interests and
+// follows nobody yet). The interests Continue reloads the page after saving,
+// so a first-run wizard reaches this code AFTER the picks are stored.
+$bn_ob_suggested_ids = array_slice( $bn_ob_follows->suggestions( $ob_user_id ), 0, 5 );
+if ( array() === $bn_ob_suggested_ids ) {
+	$bn_ob_suggested_ids = $bn_ob_explore->suggested_member_ids( 5 );
+}
+
 $suggested_users = array();
-foreach ( $bn_ob_explore->suggested_member_ids( 5 ) as $sug_uid ) {
+foreach ( $bn_ob_suggested_ids as $sug_uid ) {
 	$sug_uid = (int) $sug_uid;
 	if ( $sug_uid <= 0 || $sug_uid === $ob_user_id ) {
 		continue;

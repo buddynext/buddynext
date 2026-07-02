@@ -192,9 +192,13 @@ const onboardingStore = store( 'buddynext/onboarding', {
 		},
 		continueInterests() {
 			// Persist the picks BEFORE advancing (cold-start contract: the
-			// picks are stored by the time the Spaces / People steps show),
-			// then walk forward. Zero picks is a valid save (clears any
-			// stale picks from a redo run).
+			// picks are stored by the time the Spaces / People steps show).
+			// Zero picks is a valid save (clears any stale picks from a redo
+			// run). The Spaces / People suggestion steps are server-rendered
+			// at page load, so after persisting the step pointer this
+			// RELOADS instead of swapping client-side — the re-render is what
+			// makes the just-saved picks actually rank those steps; the
+			// pointer lands the member on the next step.
 			const c = ctx();
 			if ( c.saving ) { return; }
 			c.saving = true;
@@ -205,17 +209,20 @@ const onboardingStore = store( 'buddynext/onboarding', {
 			} )
 				.then( ( r ) => {
 					if ( ! r.ok ) { throw new Error( 'Failed' ); }
-					c.saving = false;
-					// Advance on the captured context (getContext() is not
-					// available inside promise callbacks) and persist the
-					// step pointer best-effort, mirroring nextStep().
+					// Persist the completed-step pointer (save_step stores
+					// step + 1 as the current step), then reload. `saving`
+					// stays true so the button keeps its busy state until
+					// the fresh page paints.
 					const total = c.totalSteps || 5;
 					if ( ( c.step || 1 ) < total ) {
-						c.step = ( c.step || 1 ) + 1;
 						rest( c, 'me/onboarding/step', {
 							method: 'POST',
-							body:   { step: c.step - 1, data: {} },
-						} ).catch( () => {} );
+							body:   { step: c.step || 1, data: {} },
+						} )
+							.catch( () => {} )
+							.then( () => { window.location.reload(); } );
+					} else {
+						c.saving = false;
 					}
 				} )
 				.catch( () => {

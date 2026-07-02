@@ -68,6 +68,7 @@ use BuddyNext\Search\SearchService;
 use BuddyNext\Auth\VerificationListener;
 use BuddyNext\Auth\VerificationService;
 use BuddyNext\Outbound\OutboundWebhookService;
+use BuddyNext\Onboarding\InterestListener;
 use BuddyNext\Onboarding\OnboardingListener;
 use BuddyNext\Privacy\PrivacyTools;
 use BuddyNext\Outbound\OutboundWebhookListener;
@@ -349,6 +350,9 @@ class Plugin {
 
 		// Bust per-viewer space-suggestion caches on membership / follow changes.
 		( new \BuddyNext\Spaces\SpaceSuggestionListener() )->register();
+
+		// Bust per-viewer follow- + space-suggestion caches on interest edits.
+		( new InterestListener() )->register();
 
 		// Wire the WordPress Privacy Tools integration so Tools → Export/Erase
 		// Personal Data covers BuddyNext's custom tables and bn_* user meta.

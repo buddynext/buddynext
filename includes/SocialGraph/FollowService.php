@@ -39,6 +39,52 @@ class FollowService {
 	public const PRIVATE_META = 'bn_account_private';
 
 	/**
+	 * Cache group for the ranked follow-suggestion candidate lists (separate
+	 * from the relationship cache so a version-salt bust never touches the
+	 * hot follow lookups).
+	 */
+	private const SUGGEST_CACHE_GROUP = 'buddynext_follow_suggestions';
+
+	/**
+	 * Suggestion cache TTL in seconds (5 minutes) — backstop behind the
+	 * explicit busts on follow/unfollow and interest edits.
+	 */
+	private const SUGGEST_CACHE_TTL = 300;
+
+	/**
+	 * Bound on the friends-of-friends candidate query.
+	 */
+	private const FOF_LIMIT = 200;
+
+	/**
+	 * Bound on the interest-overlap candidate query.
+	 */
+	private const INTEREST_LIMIT = 50;
+
+	/**
+	 * Cap on the viewer's picks used for matching (their rarest N).
+	 */
+	private const INTEREST_PICK_CAP = 10;
+
+	/**
+	 * Minimum absolute member count before the selectivity ceiling can
+	 * exclude a category — keeps small communities (where 10% of members is
+	 * a handful) from losing the interest signal entirely.
+	 */
+	private const INTEREST_CEILING_FLOOR = 20;
+
+	/**
+	 * Ranking weight for a friend-of-friend hit (social proof stays king,
+	 * matching the space engine's weighting).
+	 */
+	private const W_FOF = 3;
+
+	/**
+	 * Ranking weight per shared interest category.
+	 */
+	private const W_INTEREST = 2;
+
+	/**
 	 * Return true when the target user has marked their account private.
 	 *
 	 * @param int $user_id Target user.
@@ -561,62 +607,38 @@ class FollowService {
 	}
 
 	/**
-	 * Return follow suggestions based on the friends-of-friends graph.
+	 * Return ranked follow suggestions.
 	 *
-	 * Candidates are users followed by people the given user already follows,
-	 * excluding the requesting user and accounts they already follow.
+	 * Two additive candidate sources, merged and scored in PHP:
+	 *   1. Friends-of-friends (weight 3) — users followed by people the viewer
+	 *      already follows. Social proof stays king, matching the space
+	 *      engine's weighting.
+	 *   2. Interest overlap (weight 2 per shared category) — users sharing
+	 *      picked space categories with the viewer, via the system 'interests'
+	 *      profile field riding the (field_id, value) index on
+	 *      bn_profile_values. Blank interests leave the engine exactly as the
+	 *      friends-of-friends graph alone (additive signal, never a
+	 *      dependency); the interest branch solves the cold start — a new
+	 *      member with picks and zero follows no longer gets an empty list.
 	 *
-	 * The viewer's own following list comes from the cache-backed following()
-	 * (one query, usually cached). The second-degree lookup is then a single
-	 * query that scans bn_follows once — `follower_id IN (friends)` minus the
-	 * exclusion set — instead of one following() call per friend. This removes
-	 * the old N+1 (1 + one query per followed user) while keeping the query to
-	 * a single table reference, so it stays clear of MySQL's "Can't reopen
-	 * table" restriction on the WP test suite's tables.
+	 * The ranked candidate list is cached per viewer (short TTL + explicit
+	 * busts on follow/unfollow and interest edits, see InterestListener). The
+	 * block filter and the buddynext_follow_suggestions seam run on every
+	 * call, outside the cache, so blocks apply instantly and Pro reranking is
+	 * never frozen into Free's cache.
 	 *
 	 * @param int $user_id The user requesting suggestions.
 	 * @return int[]
 	 */
 	public function suggestions( int $user_id ): array {
-		// Bound the friend-of-friend sample: a user following thousands draws
-		// candidates from (and excludes) the first 200 follows, so neither the IN-list
-		// nor the NOT-IN exclude grows into a multi-thousand-literal query.
-		$following = array_slice( $this->following( $user_id ), 0, 200 );
+		$ids = $this->ranked_suggestion_ids( $user_id );
 
-		if ( empty( $following ) ) {
+		if ( empty( $ids ) && empty( $this->following( $user_id ) ) ) {
+			// True cold start with no signal at all (no follows, no interest
+			// matches) — preserve the historical contract: an empty result
+			// without firing the rerank seam.
 			return array();
 		}
-
-		global $wpdb;
-		$table = $wpdb->prefix . 'bn_follows';
-
-		// Already-followed accounts + self are excluded from the candidate set.
-		$exclude    = array_merge( $following, array( $user_id ) );
-		$friends_ph = implode( ', ', array_fill( 0, count( $following ), '%d' ) );
-		$exclude_ph = implode( ', ', array_fill( 0, count( $exclude ), '%d' ) );
-
-		// Suspended + shadow-banned users must not surface here either — every
-		// other discovery surface (feed, directory) applies the same canonical
-		// moderation exclusion, so friend-of-friend suggestions follow suit.
-		// Private accounts ARE intentionally suggestible: bn_account_private
-		// gates activity visibility, not discoverability.
-		$moderation_where = buddynext_service( 'moderation' )->moderation_exclude_sql( 'following_id' );
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $friends_ph/$exclude_ph are generated %d lists bound via array_merge(); $moderation_where is a self-built, word-char-sanitised fragment with no placeholders.
-		$rows = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT DISTINCT following_id
-				 FROM {$table}
-				 WHERE follower_id IN ({$friends_ph})
-				   AND status = 'approved'
-				   AND following_id NOT IN ({$exclude_ph})
-				   {$moderation_where}",
-				array_merge( $following, $exclude )
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-
-		$ids = array_map( 'intval', (array) $rows );
 
 		// Never suggest a user in a block relationship with the viewer (either
 		// direction). Filtered here in the service — not only at the controller —
@@ -642,6 +664,327 @@ class FollowService {
 		 * @param int   $user_id The user the suggestions are for.
 		 */
 		return (array) apply_filters( 'buddynext_follow_suggestions', $ids, $user_id );
+	}
+
+	/**
+	 * Flush a viewer's cached suggestion candidates.
+	 *
+	 * Called on the viewer's own follow/unfollow (a just-followed account must
+	 * drop out immediately) and by InterestListener on interest edits.
+	 *
+	 * @param int $user_id Viewer user ID.
+	 * @return void
+	 */
+	public function flush_suggestions_for( int $user_id ): void {
+		if ( $user_id <= 0 ) {
+			return;
+		}
+		// Bump the per-user version salt embedded in the cache key — the
+		// cheapest portable invalidation without an object-cache group flush
+		// (same pattern as SpaceSuggestionService::flush_for_user()).
+		wp_cache_set(
+			'ver:' . $user_id,
+			$this->suggestions_cache_version( $user_id ) . '.' . wp_rand( 1, 99999 ),
+			self::SUGGEST_CACHE_GROUP
+		);
+	}
+
+	/**
+	 * Current per-user suggestion cache-version salt (seeded on first read).
+	 *
+	 * @param int $user_id Viewer user ID.
+	 * @return string
+	 */
+	private function suggestions_cache_version( int $user_id ): string {
+		$ver = wp_cache_get( 'ver:' . $user_id, self::SUGGEST_CACHE_GROUP );
+		if ( ! is_string( $ver ) || '' === $ver ) {
+			$ver = '1';
+			wp_cache_set( 'ver:' . $user_id, $ver, self::SUGGEST_CACHE_GROUP );
+		}
+		return $ver;
+	}
+
+	/**
+	 * Ranked suggestion candidate ids for a viewer, cached per user.
+	 *
+	 * @param int $user_id Viewer user ID.
+	 * @return int[] Candidate user IDs in rank order.
+	 */
+	private function ranked_suggestion_ids( int $user_id ): array {
+		$cache_key = $user_id . ':' . $this->suggestions_cache_version( $user_id );
+		$cached    = wp_cache_get( $cache_key, self::SUGGEST_CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return array_map( 'intval', $cached );
+		}
+
+		// Bound the friend-of-friend sample: a user following thousands draws
+		// candidates from (and excludes) the first 200 follows, so neither the
+		// IN-list nor the NOT-IN exclude grows into a multi-thousand-literal query.
+		$following = array_slice( $this->following( $user_id ), 0, self::FOF_LIMIT );
+		$exclude   = array_merge( $following, array( $user_id ) );
+
+		$scores = array();
+		foreach ( $this->fof_candidate_ids( $following, $exclude ) as $id ) {
+			$scores[ $id ] = self::W_FOF;
+		}
+		foreach ( $this->interest_overlap_counts( $user_id, $exclude ) as $id => $shared ) {
+			$scores[ $id ] = ( $scores[ $id ] ?? 0 ) + ( self::W_INTEREST * $shared );
+		}
+
+		// Stable descending sort (PHP 8 sorts are stable): equal-score
+		// candidates keep source order, so a friends-of-friends-only result
+		// is bit-identical to the pre-ranking engine's output.
+		arsort( $scores );
+		$ids = array_keys( $scores );
+
+		wp_cache_set( $cache_key, $ids, self::SUGGEST_CACHE_GROUP, self::SUGGEST_CACHE_TTL );
+
+		return $ids;
+	}
+
+	/**
+	 * Friends-of-friends candidate ids.
+	 *
+	 * The viewer's own following list comes from the cache-backed following()
+	 * (one query, usually cached). The second-degree lookup is then a single
+	 * query that scans bn_follows once — `follower_id IN (friends)` minus the
+	 * exclusion set — instead of one following() call per friend. This removes
+	 * the old N+1 (1 + one query per followed user) while keeping the query to
+	 * a single table reference, so it stays clear of MySQL's "Can't reopen
+	 * table" restriction on the WP test suite's tables.
+	 *
+	 * @param int[] $following Viewer's (bounded) followed-user ids.
+	 * @param int[] $exclude   Ids to exclude (followed set + self).
+	 * @return int[]
+	 */
+	private function fof_candidate_ids( array $following, array $exclude ): array {
+		if ( empty( $following ) ) {
+			return array();
+		}
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'bn_follows';
+
+		$friends_ph = implode( ', ', array_fill( 0, count( $following ), '%d' ) );
+		$exclude_ph = implode( ', ', array_fill( 0, count( $exclude ), '%d' ) );
+
+		// Suspended + shadow-banned users must not surface here either — every
+		// other discovery surface (feed, directory) applies the same canonical
+		// moderation exclusion, so friend-of-friend suggestions follow suit.
+		// Private accounts ARE intentionally suggestible: bn_account_private
+		// gates activity visibility, not discoverability.
+		$moderation_where = buddynext_service( 'moderation' )->moderation_exclude_sql( 'following_id' );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $friends_ph/$exclude_ph are generated %d lists bound via array_merge(); $moderation_where is a self-built, word-char-sanitised fragment with no placeholders.
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT following_id
+				 FROM {$table}
+				 WHERE follower_id IN ({$friends_ph})
+				   AND status = 'approved'
+				   AND following_id NOT IN ({$exclude_ph})
+				   {$moderation_where}
+				 LIMIT %d",
+				array_merge( $following, $exclude, array( self::FOF_LIMIT ) )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		return array_map( 'intval', (array) $rows );
+	}
+
+	/**
+	 * Candidate user id => shared-interest count for the viewer.
+	 *
+	 * One indexed query on bn_profile_values riding the (field_id, value)
+	 * index: range-scans ONLY the rows for the viewer's categories, never all
+	 * members. Guards that keep it flat at 100k members:
+	 *   - selectivity ceiling: categories held by more than ~10% of members
+	 *     are excluded from matching (a category everyone shares carries no
+	 *     signal, and it is also the only case that makes the scan expensive);
+	 *   - the IN-list is capped at the viewer's ~10 rarest picks;
+	 *   - the result is bounded (LIMIT 50) and cached by the caller.
+	 *
+	 * Returns an empty map when the viewer has no picks, the interests field
+	 * is absent, or nothing overlaps — the engine then falls back to the
+	 * friends-of-friends signal alone (never a dependency, never a throw).
+	 *
+	 * @param int   $user_id Viewer user ID.
+	 * @param int[] $exclude Ids to exclude (followed set + self).
+	 * @return array<int,int> Candidate user id => shared category count.
+	 */
+	private function interest_overlap_counts( int $user_id, array $exclude ): array {
+		$field_id = $this->interests_field_id();
+		if ( $field_id <= 0 ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		// Viewer's own picks — bounded by the pick count, rides the
+		// user_field_entry index.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$picks = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT value FROM {$wpdb->prefix}bn_profile_values
+				  WHERE user_id = %d AND field_id = %d
+				  ORDER BY entry_index ASC",
+				$user_id,
+				$field_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$picks = array_values( array_unique( array_filter( array_map( 'absint', (array) $picks ) ) ) );
+		if ( empty( $picks ) ) {
+			return array();
+		}
+
+		$stats  = $this->interest_category_stats( $field_id );
+		$counts = $stats['counts'];
+
+		/**
+		 * Filter the selectivity ceiling fraction for interest matching.
+		 *
+		 * Categories picked by more than this fraction of members are excluded
+		 * from suggestion matching — a near-universal pick carries no signal
+		 * and is the only case that makes the overlap scan expensive.
+		 *
+		 * @param float $fraction Ceiling fraction of total members (default 0.10).
+		 * @param int   $user_id  The viewer the suggestions are for.
+		 */
+		$fraction = (float) apply_filters( 'buddynext_interest_match_ceiling', 0.10, $user_id );
+		$fraction = min( 1.0, max( 0.001, $fraction ) );
+		$ceiling  = max( self::INTEREST_CEILING_FLOOR, (int) ceil( $stats['total_members'] * $fraction ) );
+
+		$picks = array_values(
+			array_filter(
+				$picks,
+				static fn( int $cat ): bool => ( $counts[ $cat ] ?? 0 ) <= $ceiling
+			)
+		);
+		if ( empty( $picks ) ) {
+			return array();
+		}
+
+		// Cap the IN-list at the viewer's rarest picks — the rarest categories
+		// carry the most signal (TF-IDF logic) and scan the fewest rows.
+		if ( count( $picks ) > self::INTEREST_PICK_CAP ) {
+			usort(
+				$picks,
+				static fn( int $a, int $b ): int => ( $counts[ $a ] ?? 0 ) <=> ( $counts[ $b ] ?? 0 )
+			);
+			$picks = array_slice( $picks, 0, self::INTEREST_PICK_CAP );
+		}
+
+		// Category ids are stored as strings in the value column — bind as %s
+		// so the comparison stays on the (field_id, value) index.
+		$pick_values = array_map( 'strval', $picks );
+		$picks_ph    = implode( ', ', array_fill( 0, count( $pick_values ), '%s' ) );
+		$exclude_ph  = implode( ', ', array_fill( 0, count( $exclude ), '%d' ) );
+
+		$moderation_where = buddynext_service( 'moderation' )->moderation_exclude_sql( 'user_id' );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $picks_ph/$exclude_ph are generated placeholder lists; every placeholder is bound via one array_merge() argument; $moderation_where is a self-built, word-char-sanitised fragment with no placeholders.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT user_id, COUNT(*) AS shared
+				 FROM {$wpdb->prefix}bn_profile_values
+				 WHERE field_id = %d
+				   AND value IN ({$picks_ph})
+				   AND user_id NOT IN ({$exclude_ph})
+				   {$moderation_where}
+				 GROUP BY user_id
+				 ORDER BY shared DESC
+				 LIMIT %d",
+				array_merge( array( $field_id ), $pick_values, $exclude, array( self::INTEREST_LIMIT ) )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		$out = array();
+		foreach ( (array) $rows as $row ) {
+			$out[ (int) $row['user_id'] ] = (int) $row['shared'];
+		}
+		return $out;
+	}
+
+	/**
+	 * Per-category pick counts + total member count for the selectivity ceiling.
+	 *
+	 * One cheap grouped COUNT over the interests field (bounded by the number
+	 * of authored categories) plus the users-table count, object-cached for
+	 * 5 minutes — ceiling statistics may lag interest edits by the TTL, which
+	 * is harmless for a tuning guard.
+	 *
+	 * @param int $field_id Interests field id.
+	 * @return array{total_members:int, counts:array<int,int>}
+	 */
+	private function interest_category_stats( int $field_id ): array {
+		$cache_key = 'interest_stats:' . $field_id;
+		$cached    = wp_cache_get( $cache_key, self::SUGGEST_CACHE_GROUP );
+		if ( is_array( $cached ) && isset( $cached['total_members'], $cached['counts'] ) ) {
+			return $cached;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows  = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT value, COUNT(*) AS c FROM {$wpdb->prefix}bn_profile_values
+				  WHERE field_id = %d GROUP BY value",
+				$field_id
+			),
+			ARRAY_A
+		);
+		$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->users}" );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$counts = array();
+		foreach ( (array) $rows as $row ) {
+			$cat = absint( $row['value'] );
+			if ( $cat > 0 ) {
+				$counts[ $cat ] = (int) $row['c'];
+			}
+		}
+
+		$stats = array(
+			'total_members' => $total,
+			'counts'        => $counts,
+		);
+		wp_cache_set( $cache_key, $stats, self::SUGGEST_CACHE_GROUP, self::SUGGEST_CACHE_TTL );
+
+		return $stats;
+	}
+
+	/**
+	 * Resolve the system 'interests' profile field id (0 when absent).
+	 *
+	 * Missing field (deleted install state, isolation harness) simply
+	 * disables the interest branch — never a throw (no-fatal contract).
+	 *
+	 * @return int
+	 */
+	private function interests_field_id(): int {
+		$cached = wp_cache_get( 'interests_field_id', self::SUGGEST_CACHE_GROUP );
+		if ( is_int( $cached ) ) {
+			return $cached;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$field_id = (int) $wpdb->get_var(
+			"SELECT id FROM {$wpdb->prefix}bn_profile_fields
+			  WHERE field_key = 'interests' AND type = 'category_multiselect'
+			  LIMIT 1"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_set( 'interests_field_id', $field_id, self::SUGGEST_CACHE_GROUP, self::SUGGEST_CACHE_TTL );
+
+		return $field_id;
 	}
 
 	/**
@@ -807,5 +1150,10 @@ class FollowService {
 		wp_cache_delete( "following_{$follower_id}", self::CACHE_GROUP );
 		wp_cache_delete( "follower_count_{$following_id}", self::CACHE_GROUP );
 		wp_cache_delete( "following_count_{$follower_id}", self::CACHE_GROUP );
+
+		// The follower's ranked suggestion candidates depend on their follow
+		// set — bust so a just-followed account drops out immediately instead
+		// of lingering for the cache TTL.
+		$this->flush_suggestions_for( $follower_id );
 	}
 }

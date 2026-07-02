@@ -7,7 +7,9 @@
  *   1. Social proof (weight 3) — spaces that people the viewer follows are active
  *      members of (bn_follows -> bn_space_members).
  *   2. Category affinity (weight 2) — spaces in the categories of the spaces the
- *      viewer already belongs to.
+ *      viewer already belongs to, unioned with the viewer's explicit interest
+ *      picks (system 'interests' profile field) so the signal works before
+ *      they have joined anything.
  *   3. Popularity (weight ~1) — member_count, the cold-start fallback.
  *
  * Candidates are hydrated through SpaceService::list_spaces() with the viewer scope,
@@ -52,12 +54,77 @@ final class SpaceSuggestionService {
 		$cache_key = $user_id . ':' . $limit . ':' . $this->cache_version( $user_id );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( is_array( $cached ) ) {
-			return $cached;
+			return $this->apply_suggestions_filter( $cached, $user_id, $limit );
 		}
 
 		$rows = $this->rank( $user_id, $limit );
 		wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
-		return $rows;
+		return $this->apply_suggestions_filter( $rows, $user_id, $limit );
+	}
+
+	/**
+	 * Run the buddynext_space_suggestions seam over the final ranked id list.
+	 *
+	 * Applied outside the cache on every call (parity with the follow engine's
+	 * buddynext_follow_suggestions seam) so a Pro reranker is never frozen
+	 * into Free's cache. Rows are reordered to the filtered id order; ids the
+	 * filter injects that were not in the ranked set are hydrated
+	 * visibility-safe in one batched list_spaces() call.
+	 *
+	 * @param array<int,array<string,mixed>> $rows    Ranked, hydrated rows.
+	 * @param int                            $user_id Viewer user ID.
+	 * @param int                            $limit   Maximum suggestions.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function apply_suggestions_filter( array $rows, int $user_id, int $limit ): array {
+		$ranked_ids = array_map( static fn( $r ) => (int) $r['id'], $rows );
+
+		/**
+		 * Filter the suggested-spaces ranked id list.
+		 *
+		 * @param int[] $ranked_ids Suggested space IDs in rank order.
+		 * @param int   $user_id    The user the suggestions are for.
+		 */
+		$filtered = (array) apply_filters( 'buddynext_space_suggestions', $ranked_ids, $user_id );
+		$filtered = array_values( array_unique( array_map( 'intval', $filtered ) ) );
+
+		if ( $filtered === $ranked_ids ) {
+			return $rows;
+		}
+
+		$by_id = array();
+		foreach ( $rows as $row ) {
+			$by_id[ (int) $row['id'] ] = $row;
+		}
+
+		// Hydrate filter-injected ids through the same viewer-scoped path as
+		// the ranked candidates, so a reranker can never surface a space the
+		// viewer must not see.
+		$missing = array_values( array_diff( $filtered, array_keys( $by_id ) ) );
+		if ( ! empty( $missing ) ) {
+			$extra = ( new SpaceService() )->list_spaces(
+				array(
+					'include_space_ids' => $missing,
+					'viewer'            => $user_id,
+					'roots_only'        => true,
+					'per_page'          => count( $missing ),
+				)
+			);
+			foreach ( (array) $extra as $row ) {
+				$by_id[ (int) $row['id'] ] = $row;
+			}
+		}
+
+		$out = array();
+		foreach ( $filtered as $sid ) {
+			if ( isset( $by_id[ $sid ] ) ) {
+				$out[] = $by_id[ $sid ];
+			}
+			if ( count( $out ) >= $limit ) {
+				break;
+			}
+		}
+		return $out;
 	}
 
 	/**
@@ -109,12 +176,20 @@ final class SpaceSuggestionService {
 		$mine = ( new SpaceMemberService() )->spaces_for_user( $user_id );
 		$mine = array_map( 'intval', (array) $mine );
 
-		$my_categories = $this->my_categories( $mine );
+		$my_categories = $this->my_categories( $user_id, $mine );
 		$social        = $this->social_proof_counts( $user_id, $mine );
 
 		$candidate_ids = array_values(
 			array_unique(
-				array_merge( array_keys( $social ), $this->popular_ids( $mine ) )
+				array_merge(
+					array_keys( $social ),
+					$this->popular_ids( $mine ),
+					// Category affinity contributes CANDIDATES too, not just a
+					// re-score: an interest-matched space that is not already
+					// top-N popular could otherwise never surface — exactly the
+					// cold-start case the interest picks exist to solve.
+					$this->category_candidate_ids( $my_categories, $mine )
+				)
 			)
 		);
 		if ( empty( $candidate_ids ) ) {
@@ -158,21 +233,33 @@ final class SpaceSuggestionService {
 	}
 
 	/**
-	 * Distinct category ids of the viewer's joined spaces.
+	 * Category ids the viewer has an affinity for: the union of the categories
+	 * of their joined spaces (implicit interest from behavior) and their
+	 * explicit interest picks (the system 'interests' profile field).
 	 *
-	 * @param int[] $mine Joined space ids.
+	 * The picks make the category-affinity signal work from minute zero —
+	 * before the member has joined anything — so onboarding's "spaces to
+	 * join" step ranks with the picks made one step earlier. Blank picks
+	 * leave this exactly as the joined-space categories (additive signal).
+	 *
+	 * @param int   $user_id Viewer user ID.
+	 * @param int[] $mine    Joined space ids.
 	 * @return int[]
 	 */
-	private function my_categories( array $mine ): array {
-		if ( empty( $mine ) ) {
-			return array();
+	private function my_categories( int $user_id, array $mine ): array {
+		$cats = array();
+
+		if ( ! empty( $mine ) ) {
+			global $wpdb;
+			$in = implode( ',', array_map( 'absint', $mine ) );
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- ids are absint-cast; result is cached by the caller.
+			$cats = (array) $wpdb->get_col( "SELECT DISTINCT category_id FROM {$wpdb->prefix}bn_spaces WHERE id IN ({$in}) AND category_id IS NOT NULL" );
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
-		global $wpdb;
-		$in = implode( ',', array_map( 'absint', $mine ) );
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- ids are absint-cast; result is cached by the caller.
-		$cats = $wpdb->get_col( "SELECT DISTINCT category_id FROM {$wpdb->prefix}bn_spaces WHERE id IN ({$in}) AND category_id IS NOT NULL" );
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		return array_map( 'intval', (array) $cats );
+
+		$picks = ( new \BuddyNext\Onboarding\OnboardingService() )->get_interest_ids( $user_id );
+
+		return array_values( array_unique( array_merge( array_map( 'intval', $cats ), $picks ) ) );
 	}
 
 	/**
@@ -215,6 +302,36 @@ final class SpaceSuggestionService {
 			$out[ (int) $r['space_id'] ] = (int) $r['c'];
 		}
 		return $out;
+	}
+
+	/**
+	 * Top spaces (by member_count) inside the viewer's affinity categories,
+	 * excluding the viewer's own — the category signal's candidate pool.
+	 *
+	 * Rides the bn_spaces category index; bounded by CANDIDATE_POOL; result
+	 * is cached by the caller like the other signal pools.
+	 *
+	 * @param int[] $categories Affinity category ids (joined + interest picks).
+	 * @param int[] $mine       Joined space ids to exclude.
+	 * @return int[]
+	 */
+	private function category_candidate_ids( array $categories, array $mine ): array {
+		$categories = array_values( array_filter( array_map( 'absint', $categories ) ) );
+		if ( empty( $categories ) ) {
+			return array();
+		}
+
+		global $wpdb;
+		$in_cats  = implode( ',', $categories );
+		$not_mine = empty( $mine ) ? '' : ' AND id NOT IN (' . implode( ',', array_map( 'absint', $mine ) ) . ')';
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- category/own ids are absint-cast; LIMIT is a class const int; result is cached by the caller.
+		$ids = $wpdb->get_col(
+			"SELECT id FROM {$wpdb->prefix}bn_spaces
+			 WHERE is_archived = 0 AND parent_id IS NULL AND category_id IN ({$in_cats}){$not_mine}
+			 ORDER BY member_count DESC LIMIT " . self::CANDIDATE_POOL
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return array_map( 'intval', (array) $ids );
 	}
 
 	/**

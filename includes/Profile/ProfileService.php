@@ -696,6 +696,24 @@ class ProfileService {
 			if ( \BuddyNext\Profile\FieldType::is_multi_entry( $field_type ) ) {
 				$this->save_multi_entry_value( $user_id, $field_id, $sanitized_val, $entry_visibility );
 				$this->sync_search_mirror( $user_id, $field, $sanitized_val, $entry_visibility );
+
+				// Every interests write funnels through this branch (onboarding
+				// step 2 / POST /me/interests alias / profile edit), so this is
+				// the single choke point for the suggestion engines' signal.
+				if ( 'interests' === (string) $key ) {
+					/**
+					 * Fires when a member's interest picks are saved.
+					 *
+					 * InterestListener busts the per-viewer follow- and
+					 * space-suggestion caches here so suggestions shift on
+					 * the next fetch after an interest edit.
+					 *
+					 * @since 1.0.4
+					 *
+					 * @param int $user_id The member whose interests changed.
+					 */
+					do_action( 'buddynext_member_interests_updated', $user_id );
+				}
 				continue;
 			}
 
