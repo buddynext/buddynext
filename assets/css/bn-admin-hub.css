@@ -338,9 +338,13 @@
 
 /* Wrap every <form> + standalone <table.wp-list-table> in a card chrome.
    Excludes the .bn-admin-hub__picker (the wide-layout select) and the
-   .bn-admin-search stub (handled separately). */
-.bn-admin-hub__main form:not(.bn-admin-hub__form-bare):not(.bn-admin-hub__picker):not(.bn-modal__panel):not(:has(.bn-settings-section)),
-.bn-admin-hub__main--wide form:not(.bn-admin-hub__form-bare):not(.bn-admin-hub__picker):not(.bn-modal__panel):not(:has(.bn-settings-section)),
+   .bn-admin-search stub (handled separately). Structural exclusions: a form
+   containing a .bn-settings-section is already carded by its sections, and a
+   form inside a table cell or an existing card is an INLINE CONTROL (the
+   Profile Fields per-row Required/visibility forms) - carding those produced
+   box-in-box rows. */
+.bn-admin-hub__main form:not(.bn-admin-hub__form-bare):not(.bn-admin-hub__picker):not(.bn-modal__panel):not(:has(.bn-settings-section)):not(td form):not(th form):not(.bn-card form):not(.bn-settings-section form),
+.bn-admin-hub__main--wide form:not(.bn-admin-hub__form-bare):not(.bn-admin-hub__picker):not(.bn-modal__panel):not(:has(.bn-settings-section)):not(td form):not(th form):not(.bn-card form):not(.bn-settings-section form),
 .bn-admin-hub__main > table.wp-list-table,
 .bn-admin-hub__main--wide > table.wp-list-table {
 	background: var(--bn-surface, #fff);
