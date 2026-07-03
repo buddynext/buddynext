@@ -27,9 +27,9 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 	/**
 	 * Tabs whose option rows are declared via settings_fields() and rendered by
-	 * the descriptor-driven render_sections() path. Tabs not listed here still
-	 * use their bespoke render_tab_*() method. As each tab is migrated its slug
-	 * is added here and its keys move out of SETTINGS_MAP/TAB_OPTIONS.
+	 * the descriptor-driven render_sections() path. Tabs not listed here keep a
+	 * bespoke render_tab_*() method (Registration, Webhooks, Features) but still
+	 * declare their options in settings_fields() for registration + search.
 	 *
 	 * @var string[]
 	 */
@@ -563,57 +563,6 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	}
 
 	/**
-	 * Which settings tab owns each option.
-	 *
-	 * Every tab registers its options under its OWN option group
-	 * ("buddynext_{tab}") and its form submits that same group, so saving one
-	 * tab only ever processes that tab's options. Previously every option shared
-	 * the single "buddynext" group, so options.php iterated all of them on every
-	 * save and null-sanitized the ones not on the active tab — silently wiping
-	 * other tabs' values. This map is the single source of truth for the
-	 * option→group assignment; a new option MUST be added to the tab that
-	 * renders it (option_group() falls back to "buddynext" for anything missing).
-	 *
-	 * @var array<string, string[]>
-	 */
-	private const TAB_OPTIONS = array(
-		// General, Social, Spaces, Moderation, Notifications and Email are
-		// descriptor-registered (settings_fields()); the SettingsDriver assigns
-		// their save groups. Only bespoke-UI tabs remain mapped here.
-		// buddynext_features (array option, bespoke feature matrix) is registered
-		// explicitly and grouped here. Registration's social_login and Webhooks'
-		// secret resolve their group via the descriptor registry (save_group_of).
-		'features'     => array(
-			'buddynext_features',
-		),
-		// Integrations tab options moved to the unified Integration Display tab.
-		'integrations' => array(),
-	);
-
-	/**
-	 * Resolve the option group (settings-tab scope) an option belongs to.
-	 *
-	 * Returns "buddynext_{tab}" when the option is mapped in TAB_OPTIONS, or the
-	 * legacy "buddynext" group as a safe fallback for any unmapped option.
-	 *
-	 * @param string $option Option name.
-	 * @return string Settings group / option_page name.
-	 */
-	public static function option_group( string $option ): string {
-		// Descriptor-declared options (see DESCRIPTOR_TABS) resolve via the driver.
-		if ( in_array( $option, SettingsRegistry::all_keys(), true ) ) {
-			return SettingsDriver::save_group_of( $option, 'buddynext' );
-		}
-		foreach ( self::TAB_OPTIONS as $tab => $options ) {
-			if ( in_array( $option, $options, true ) ) {
-				return 'buddynext_' . $tab;
-			}
-		}
-
-		return 'buddynext';
-	}
-
-	/**
 	 * AdminHub section key the settings tabs render under (for tab_url()).
 	 *
 	 * @return string
@@ -623,11 +572,12 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	}
 
 	/**
-	 * Descriptor declaration for every option on a DESCRIPTOR_TABS tab.
+	 * Descriptor declaration for every plain option across all tabs.
 	 *
-	 * Single source of truth for those options: render, register/sanitize,
-	 * save-grouping, and the ⌘K search index all derive from this. Non-migrated
-	 * tabs still declare their options in SETTINGS_MAP/TAB_OPTIONS until ported.
+	 * Single source of truth: register/sanitize, save-grouping, and the ⌘K search
+	 * index all derive from this for every option. DESCRIPTOR_TABS also render
+	 * from it; the bespoke tabs (Registration, Webhooks, Features) render their
+	 * own controls but still declare here so their options register + are found.
 	 *
 	 * @return Section[]
 	 */
@@ -1779,9 +1729,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	/**
 	 * Register all settings with the WordPress Settings API.
 	 *
-	 * Each option is registered under its tab's own group (see TAB_OPTIONS) so a
-	 * save only touches the active tab's options. Registering here also ensures
-	 * the sanitize_callback runs on save even though rendering is manual.
+	 * Every plain option is derived from settings_fields() by SettingsDriver and
+	 * registered under its tab's own group (buddynext_{tab}) so a save only
+	 * touches the active tab's options. The three array options are registered
+	 * explicitly below. Registering here also ensures the sanitize_callback runs
+	 * on save even though bespoke tabs render their controls manually.
 	 *
 	 * @return void
 	 */
