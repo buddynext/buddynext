@@ -193,6 +193,56 @@ abstract class AdminPageBase {
 	}
 
 	/**
+	 * Render ordered sections of option fields from descriptors.
+	 *
+	 * Each Section becomes an open_section() card; each Field dispatches to the
+	 * matching render_*_row() helper and is wrapped in a stable anchor id so the
+	 * command palette can deep-link and scroll-highlight the exact control. This
+	 * is the single render path for descriptor-declared options — page classes
+	 * declare fields via ProvidesSettings::settings_fields() and never call the
+	 * row helpers by hand.
+	 *
+	 * @param \BuddyNext\Admin\Settings\Section[] $sections Ordered sections.
+	 * @return void
+	 */
+	protected function render_sections( array $sections ): void {
+		foreach ( $sections as $section ) {
+			$this->open_section( $section->title );
+			foreach ( $section->fields as $field ) {
+				printf( '<div id="%s" class="bn-opt">', esc_attr( $field->anchor() ) );
+				switch ( $field->type ) {
+					case 'toggle':
+						$this->render_toggle_row( $field->key, $field->label, $field->hint, (bool) get_option( $field->key, $field->default ) );
+						break;
+					case 'number':
+						$this->render_number_row( $field->key, $field->label, (int) get_option( $field->key, $field->default ), $field->hint, (int) ( $field->min ?? 0 ), $field->max );
+						break;
+					case 'select':
+						$this->render_select_row( $field->key, $field->label, (string) get_option( $field->key, $field->default ), $field->choices, $field->hint );
+						break;
+					case 'textarea':
+						$this->render_textarea_row( $field->key, $field->label, (string) get_option( $field->key, $field->default ), $field->hint );
+						break;
+					case 'color':
+						$this->render_color_row( $field->key, $field->label, (string) get_option( $field->key, $field->default ), $field->hint );
+						break;
+					case 'media':
+						self::render_media_row( $field->key, $field->label, (string) get_option( $field->key, $field->default ), $field->hint );
+						break;
+					case 'password':
+					case 'secret':
+						$this->render_password_row( $field->key, $field->label, (string) get_option( $field->key, $field->default ), $field->hint );
+						break;
+					default: // text, email, url, readonly.
+						$this->render_text_row( $field->key, $field->label, (string) get_option( $field->key, $field->default ), $field->hint );
+				}
+				echo '</div>';
+			}
+			$this->close_section();
+		}
+	}
+
+	/**
 	 * Render a labelled toggle-switch row inside a section card.
 	 *
 	 * The underlying input is a checkbox with screen-reader-text class so it

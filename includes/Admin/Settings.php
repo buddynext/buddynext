@@ -13,10 +13,27 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Admin;
 
+use BuddyNext\Admin\Settings\Field;
+use BuddyNext\Admin\Settings\Section;
+use BuddyNext\Admin\Settings\SettingsDriver;
+use BuddyNext\Admin\Settings\SettingsRegistry;
+use BuddyNext\Contracts\ProvidesSettings;
+use BuddyNext\Privacy\CookieConsentService;
+
 /**
  * Registers and renders the BuddyNext admin settings page.
  */
-class Settings extends AdminPageBase {
+class Settings extends AdminPageBase implements ProvidesSettings {
+
+	/**
+	 * Tabs whose option rows are declared via settings_fields() and rendered by
+	 * the descriptor-driven render_sections() path. Tabs not listed here still
+	 * use their bespoke render_tab_*() method. As each tab is migrated its slug
+	 * is added here and its keys move out of SETTINGS_MAP/TAB_OPTIONS.
+	 *
+	 * @var string[]
+	 */
+	private const DESCRIPTOR_TABS = array( 'privacy' );
 
 	/**
 	 * Option name for the webhook shared secret.
@@ -141,12 +158,8 @@ class Settings extends AdminPageBase {
 		// Display tab (buddynext_integration_jetonomy_feed), so it is no longer a
 		// Settings-API option here.
 
-		// Privacy & Data.
-		'buddynext_google_indexing'             => array( 'string', 'sanitize_key' ),
-		'buddynext_cookie_consent'              => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_data_retention_days'         => array( 'integer', 'absint' ),
-		'buddynext_allow_data_export'           => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_allow_account_deletion'      => array( 'boolean', 'rest_sanitize_boolean', true ),
+		// Privacy & Data options are declared via settings_fields() (descriptor
+		// registry) — see DESCRIPTOR_TABS — not here.
 
 		// Webhooks.
 		'buddynext_webhook_secret'              => array( 'string', 'sanitize_text_field' ),
@@ -160,6 +173,10 @@ class Settings extends AdminPageBase {
 	 * @return void
 	 */
 	public function register(): void {
+		// Declare this page's descriptor-driven options into the shared registry
+		// (single source for register/sanitize/save-group + the ⌘K search index).
+		SettingsRegistry::register( $this );
+
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_buddynext_apply_recommended', array( $this, 'handle_apply_recommended' ) );
@@ -267,8 +284,9 @@ class Settings extends AdminPageBase {
 	 * @return void
 	 */
 	private function render_settings_tab( string $slug ): void {
-		$method = 'render_tab_' . $slug;
-		if ( ! method_exists( $this, $method ) ) {
+		$is_descriptor = in_array( $slug, self::DESCRIPTOR_TABS, true );
+		$method        = 'render_tab_' . $slug;
+		if ( ! $is_descriptor && ! method_exists( $this, $method ) ) {
 			echo '<p>' . esc_html__( 'Unknown settings tab.', 'buddynext' ) . '</p>';
 			return;
 		}
@@ -299,7 +317,13 @@ class Settings extends AdminPageBase {
 			<?php settings_fields( 'buddynext_' . $slug ); ?>
 			<?php // Explicit referer so options.php redirects back to THIS tab after save. WP 6.7+ no longer guarantees settings_fields() emits _wp_http_referer, so without this the redirect drops ?tab= and falls back to General. ?>
 			<input type="hidden" name="_wp_http_referer" value="<?php echo esc_attr( remove_query_arg( 'settings-updated', sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) ) ); ?>">
-			<?php $this->$method(); ?>
+			<?php
+			if ( $is_descriptor ) {
+				$this->render_sections( $this->sections_for_tab( $slug ) );
+			} else {
+				$this->$method();
+			}
+			?>
 			<?php $this->render_save_bar(); ?>
 		</form>
 		<?php
@@ -746,13 +770,8 @@ class Settings extends AdminPageBase {
 			'buddynext_email_reply_to',
 			'buddynext_email_footer_text',
 		),
-		'privacy'       => array(
-			'buddynext_cookie_consent',
-			'buddynext_google_indexing',
-			'buddynext_allow_data_export',
-			'buddynext_allow_account_deletion',
-			'buddynext_data_retention_days',
-		),
+		// Privacy tab options are declared via settings_fields() (descriptor
+		// registry) and grouped by SettingsDriver — not listed here.
 		// Integrations tab options moved to the unified Integration Display tab.
 		'integrations'  => array(),
 		'webhooks'      => array(
@@ -770,6 +789,10 @@ class Settings extends AdminPageBase {
 	 * @return string Settings group / option_page name.
 	 */
 	public static function option_group( string $option ): string {
+		// Descriptor-declared options (see DESCRIPTOR_TABS) resolve via the driver.
+		if ( in_array( $option, SettingsRegistry::all_keys(), true ) ) {
+			return SettingsDriver::save_group_of( $option, 'buddynext' );
+		}
 		foreach ( self::TAB_OPTIONS as $tab => $options ) {
 			if ( in_array( $option, $options, true ) ) {
 				return 'buddynext_' . $tab;
@@ -777,6 +800,129 @@ class Settings extends AdminPageBase {
 		}
 
 		return 'buddynext';
+	}
+
+	/**
+	 * AdminHub section key the settings tabs render under (for tab_url()).
+	 *
+	 * @return string
+	 */
+	public function settings_page_section(): string {
+		return 'settings';
+	}
+
+	/**
+	 * Descriptor declaration for every option on a DESCRIPTOR_TABS tab.
+	 *
+	 * Single source of truth for those options: render, register/sanitize,
+	 * save-grouping, and the ⌘K search index all derive from this. Non-migrated
+	 * tabs still declare their options in SETTINGS_MAP/TAB_OPTIONS until ported.
+	 *
+	 * @return Section[]
+	 */
+	public function settings_fields(): array {
+		return array(
+			new Section(
+				'privacy',
+				__( 'Search Engine Indexing', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_google_indexing',
+							'type'    => 'select',
+							'label'   => __( 'Allow search engines to index', 'buddynext' ),
+							'default' => 'public_posts',
+							'choices' => array(
+								'all'          => __( 'Everything — public posts, profiles, and spaces', 'buddynext' ),
+								'public_posts' => __( 'Public posts only', 'buddynext' ),
+								'none'         => __( 'Nothing — noindex all community pages', 'buddynext' ),
+							),
+							'hint'    => __( 'Controls the robots meta tag on BuddyNext front-end pages. Profiles and spaces always respect their own privacy settings regardless of this setting.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'privacy',
+				__( 'Cookie Consent', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_cookie_consent',
+							'type'    => 'toggle',
+							'label'   => __( 'Show cookie consent notice', 'buddynext' ),
+							'hint'    => __( 'Display a consent banner on first visit. Required in some jurisdictions (EU/GDPR). BuddyNext itself sets only functional cookies.', 'buddynext' ),
+							'default' => false,
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_cookie_consent_text',
+							'type'    => 'textarea',
+							'label'   => __( 'Notice text', 'buddynext' ),
+							'hint'    => __( 'Wording shown in the banner. Leave blank to use the default. No effect unless the notice is turned on above.', 'buddynext' ),
+							'default' => CookieConsentService::default_message(),
+						)
+					),
+				)
+			),
+			new Section(
+				'privacy',
+				__( 'Data Retention', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_data_retention_days',
+							'type'    => 'number',
+							'label'   => __( 'Activity log retention (days)', 'buddynext' ),
+							'default' => 365,
+							'min'     => 0,
+							'max'     => 3650,
+							'hint'    => __( 'BuddyNext activity log entries older than this are purged automatically. Set to 0 to retain indefinitely.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'privacy',
+				__( 'Member Rights', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_allow_data_export',
+							'type'    => 'toggle',
+							'label'   => __( 'Allow members to export their data', 'buddynext' ),
+							'default' => true,
+							'hint'    => __( 'Adds a "Download my data" option on member profile settings. Generates a JSON archive of posts, reactions, and profile fields.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_allow_account_deletion',
+							'type'    => 'toggle',
+							'label'   => __( 'Allow members to delete their account', 'buddynext' ),
+							'default' => true,
+							'hint'    => __( 'Adds a "Delete account" option on member profile settings. Admins can always delete accounts regardless of this setting.', 'buddynext' ),
+						)
+					),
+				)
+			),
+		);
+	}
+
+	/**
+	 * Sections declared for a single tab.
+	 *
+	 * @param string $tab Tab slug.
+	 * @return Section[]
+	 */
+	private function sections_for_tab( string $tab ): array {
+		return array_values(
+			array_filter(
+				$this->settings_fields(),
+				static fn( Section $section ) => $section->tab === $tab
+			)
+		);
 	}
 
 	/**
@@ -789,6 +935,9 @@ class Settings extends AdminPageBase {
 	 * @return void
 	 */
 	public function register_settings(): void {
+		// Descriptor-declared options (DESCRIPTOR_TABS) register via the driver.
+		SettingsDriver::register_page( $this, 'buddynext' );
+
 		foreach ( self::SETTINGS_MAP as $option => $config ) {
 			list( $type, $sanitize ) = $config;
 			$args                    = array(
@@ -1004,7 +1153,13 @@ class Settings extends AdminPageBase {
 			<?php settings_fields( 'buddynext_' . $active_tab ); ?>
 			<?php // Explicit referer so options.php redirects back to THIS tab after save (WP 6.7+ may not emit _wp_http_referer via settings_fields()). ?>
 			<input type="hidden" name="_wp_http_referer" value="<?php echo esc_attr( remove_query_arg( 'settings-updated', sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) ) ); ?>">
-			<?php $this->{'render_tab_' . $active_tab}(); ?>
+			<?php
+			if ( in_array( $active_tab, self::DESCRIPTOR_TABS, true ) ) {
+				$this->render_sections( $this->sections_for_tab( $active_tab ) );
+			} else {
+				$this->{'render_tab_' . $active_tab}();
+			}
+			?>
 			<?php $this->render_save_bar(); ?>
 		</form>
 		<?php
@@ -2127,78 +2282,6 @@ class Settings extends AdminPageBase {
 			3,
 			540
 		);
-
-		$this->close_section();
-	}
-
-	/**
-	 * Render the Privacy & Data settings tab.
-	 *
-	 * Controls data retention, member-initiated data export, and account deletion behaviour.
-	 *
-	 * @return void
-	 */
-	private function render_tab_privacy(): void {
-		$this->open_section( __( 'Search Engine Indexing', 'buddynext' ) );
-
-		$this->render_select_row(
-			'buddynext_google_indexing',
-			__( 'Allow search engines to index', 'buddynext' ),
-			(string) get_option( 'buddynext_google_indexing', 'public_posts' ),
-			array(
-				'all'          => __( 'Everything — public posts, profiles, and spaces', 'buddynext' ),
-				'public_posts' => __( 'Public posts only', 'buddynext' ),
-				'none'         => __( 'Nothing — noindex all community pages', 'buddynext' ),
-			),
-			__( 'Controls the robots meta tag on BuddyNext front-end pages. Profiles and spaces always respect their own privacy settings regardless of this setting.', 'buddynext' )
-		);
-
-		$this->close_section();
-
-		$this->open_section( __( 'Cookie Consent', 'buddynext' ) );
-
-		$this->render_toggle_row(
-			'buddynext_cookie_consent',
-			__( 'Show cookie consent notice', 'buddynext' ),
-			__( 'Display a consent banner on first visit. Required in some jurisdictions (EU/GDPR). BuddyNext itself sets only functional cookies.', 'buddynext' ),
-			(bool) get_option( 'buddynext_cookie_consent', false )
-		);
-
-		$this->close_section();
-
-		$this->open_section( __( 'Data Retention', 'buddynext' ) );
-
-		$this->render_number_row(
-			'buddynext_data_retention_days',
-			__( 'Activity log retention (days)', 'buddynext' ),
-			(int) get_option( 'buddynext_data_retention_days', 365 ),
-			__( 'BuddyNext activity log entries older than this are purged automatically. Set to 0 to retain indefinitely.', 'buddynext' ),
-			0,
-			3650
-		);
-
-		$this->close_section();
-
-		$this->open_section( __( 'Member Rights', 'buddynext' ) );
-
-		$this->render_toggle_row(
-			'buddynext_allow_data_export',
-			__( 'Allow members to export their data', 'buddynext' ),
-			__( 'Adds a "Download my data" option on member profile settings. Generates a JSON archive of posts, reactions, and profile fields.', 'buddynext' ),
-			(bool) get_option( 'buddynext_allow_data_export', true )
-		);
-
-		$this->render_toggle_row(
-			'buddynext_allow_account_deletion',
-			__( 'Allow members to delete their account', 'buddynext' ),
-			__( 'Adds a "Delete account" option on member profile settings. Admins can always delete accounts regardless of this setting.', 'buddynext' ),
-			(bool) get_option( 'buddynext_allow_account_deletion', true )
-		);
-
-		// Note: there is intentionally no "anonymise on delete" toggle. Member deletion
-		// is a uniform GDPR hard-delete on every path (admin delete, self-delete, the
-		// privacy eraser) — a deleted member's posts + comments are removed with them,
-		// never reassigned to a tombstone. See MemberCleanupService::purge_user_relations.
 
 		$this->close_section();
 	}
