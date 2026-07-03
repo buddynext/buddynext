@@ -209,32 +209,40 @@ abstract class AdminPageBase {
 		foreach ( $sections as $section ) {
 			$this->open_section( $section->title );
 			foreach ( $section->fields as $field ) {
+				if ( 'custom' === $field->type && null !== $field->render_callback ) {
+					printf( '<div id="%s" class="bn-opt">', esc_attr( $field->anchor() ) );
+					call_user_func( $field->render_callback );
+					echo '</div>';
+					continue;
+				}
 				printf( '<div id="%s" class="bn-opt">', esc_attr( $field->anchor() ) );
+				$value = $field->display_value();
+				$hint  = $field->hint();
 				switch ( $field->type ) {
 					case 'toggle':
-						$this->render_toggle_row( $field->key, $field->label, $field->hint, (bool) get_option( $field->key, $field->default ) );
+						$this->render_toggle_row( $field->key, $field->label, $hint, (bool) $value, $field->disabled() );
 						break;
 					case 'number':
-						$this->render_number_row( $field->key, $field->label, (int) get_option( $field->key, $field->default ), $field->hint, (int) ( $field->min ?? 0 ), $field->max );
+						$this->render_number_row( $field->key, $field->label, (int) $value, $hint, (int) ( $field->min ?? 0 ), $field->max );
 						break;
 					case 'select':
-						$this->render_select_row( $field->key, $field->label, (string) get_option( $field->key, $field->default ), $field->choices, $field->hint );
+						$this->render_select_row( $field->key, $field->label, (string) $value, $field->choices(), $hint );
 						break;
 					case 'textarea':
-						$this->render_textarea_row( $field->key, $field->label, (string) get_option( $field->key, $field->default ), $field->hint );
+						$this->render_textarea_row( $field->key, $field->label, (string) $value, $hint );
 						break;
 					case 'color':
-						$this->render_color_row( $field->key, $field->label, (string) get_option( $field->key, $field->default ), $field->hint );
+						$this->render_color_row( $field->key, $field->label, (string) $value, $hint );
 						break;
 					case 'media':
-						self::render_media_row( $field->key, $field->label, (string) get_option( $field->key, $field->default ), $field->hint );
+						self::render_media_row( $field->key, $field->label, (string) $value, $hint );
 						break;
 					case 'password':
 					case 'secret':
-						$this->render_password_row( $field->key, $field->label, (string) get_option( $field->key, $field->default ), $field->hint );
+						$this->render_password_row( $field->key, $field->label, (string) $value, $hint );
 						break;
 					default: // text, email, url, readonly.
-						$this->render_text_row( $field->key, $field->label, (string) get_option( $field->key, $field->default ), $field->hint );
+						$this->render_text_row( $field->key, $field->label, (string) $value, $hint );
 				}
 				echo '</div>';
 			}

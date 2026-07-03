@@ -35,7 +35,9 @@ final class SettingsDriver {
 		foreach ( $page->settings_fields() as $section ) {
 			$group = $group_prefix . '_' . $section->tab;
 			foreach ( $section->fields as $field ) {
-				if ( 'readonly' === $field->type ) {
+				// Display-only or bespoke composite controls carry no registered
+				// option of their own (their backing option, if any, is bespoke).
+				if ( 'readonly' === $field->type || 'custom' === $field->type ) {
 					continue;
 				}
 				$args = array(
