@@ -55,6 +55,16 @@ final class Field {
 	public mixed $default;
 
 	/**
+	 * Whether a `default` was explicitly declared. When false, the driver
+	 * registers no Settings-API default, so read sites keep using their own
+	 * inline get_option() fallback (which may be dynamic) — matching the prior
+	 * bespoke behaviour exactly.
+	 *
+	 * @var bool
+	 */
+	public bool $has_default;
+
+	/**
 	 * Value => label map for `select`.
 	 *
 	 * @var array<int|string, string>
@@ -140,6 +150,7 @@ final class Field {
 		$this->label             = (string) ( $args['label'] ?? '' );
 		$this->hint              = (string) ( $args['hint'] ?? '' );
 		$this->default           = $args['default'] ?? '';
+		$this->has_default       = array_key_exists( 'default', $args );
 		$this->choices           = (array) ( $args['choices'] ?? array() );
 		$this->min               = isset( $args['min'] ) ? (int) $args['min'] : null;
 		$this->max               = isset( $args['max'] ) ? (int) $args['max'] : null;

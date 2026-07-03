@@ -52,57 +52,12 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 */
 	private const NO_FORM_TABS = array( 'integrations' );
 
-	/**
-	 * All settings registered by this class.
-	 * Format: option_name => [ type, sanitize_callback ].
-	 *
-	 * Defaults are intentionally NOT carried here. WordPress only honours a
-	 * register_setting() 'default' for get_option() reads while the setting is
-	 * registered (admin_init), and every read site already passes its own
-	 * inline get_option( $option, $fallback ) default — so a 'default' column
-	 * here would just be a second, drift-prone copy. The inline fallbacks at
-	 * the read sites are the single source of truth.
-	 *
-	 * @var array<string, array{string, callable|string}>
-	 */
-	private const SETTINGS_MAP = array(
-		// General, Social, Spaces, Moderation, Notifications, Email and Privacy
-		// options are declared via the descriptor registry (settings_fields()),
-		// not here. Only tabs with heavy bespoke UI remain map-registered below.
-
-		// Registration.
-		'buddynext_reg_mode'            => array( 'string', 'sanitize_key' ),
-		'buddynext_email_verify'        => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_reg_spam_protection' => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_reg_challenge'       => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_reg_rate_limit'      => array( 'integer', 'absint' ),
-		// Post-login / logout / onboarding redirect destinations. Blank = built-in
-		// default (feed / home / profile); resolved + validated by RedirectSettings.
-		'buddynext_login_redirect'      => array( 'string', 'esc_url_raw' ),
-		'buddynext_logout_redirect'     => array( 'string', 'esc_url_raw' ),
-		'buddynext_onboarding_redirect' => array( 'string', 'esc_url_raw' ),
-		// Login & sign-up split-panel branding (plug-and-play: blank falls back to site identity).
-		'buddynext_auth_panel_show'     => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_auth_panel_heading'  => array( 'string', 'sanitize_text_field' ),
-		'buddynext_auth_panel_tagline'  => array( 'string', 'sanitize_textarea_field' ),
-		'buddynext_auth_panel_quote'    => array( 'string', 'sanitize_textarea_field' ),
-		'buddynext_auth_panel_image'    => array( 'string', 'esc_url_raw' ),
-		// Terms of Service page linked from the sign-up consent line — an
-		// admin-chosen page, never a guessed slug. Privacy reuses WordPress
-		// core's own Privacy Policy page from Settings → Privacy.
-		'buddynext_terms_page_id'       => array( 'integer', 'absint' ),
-		'buddynext_allowed_domains'     => array( 'string', 'sanitize_textarea_field' ),
-
-		// Integrations: the Jetonomy feed toggle moved to the unified Integration
-		// Display tab (buddynext_integration_jetonomy_feed), so it is no longer a
-		// Settings-API option here.
-
-		// Privacy & Data options are declared via settings_fields() (descriptor
-		// registry) — see DESCRIPTOR_TABS — not here.
-
-		// Webhooks.
-		'buddynext_webhook_secret'      => array( 'string', 'sanitize_text_field' ),
-	);
+	// Every plain option is declared via the descriptor registry
+	// (settings_fields()) and registered by SettingsDriver — including the
+	// bespoke-rendered Registration and Webhooks tabs, whose descriptors register
+	// + index while their custom UI still renders the controls. The three array
+	// options (features, social_login, enabled_reactions) are registered
+	// explicitly in register_settings(). There is no SETTINGS_MAP any more.
 
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -625,35 +580,14 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		// General, Social, Spaces, Moderation, Notifications and Email are
 		// descriptor-registered (settings_fields()); the SettingsDriver assigns
 		// their save groups. Only bespoke-UI tabs remain mapped here.
+		// buddynext_features (array option, bespoke feature matrix) is registered
+		// explicitly and grouped here. Registration's social_login and Webhooks'
+		// secret resolve their group via the descriptor registry (save_group_of).
 		'features'     => array(
 			'buddynext_features',
 		),
-		'registration' => array(
-			'buddynext_reg_mode',
-			'buddynext_email_verify',
-			'buddynext_reg_spam_protection',
-			'buddynext_reg_challenge',
-			'buddynext_reg_rate_limit',
-			'buddynext_login_redirect',
-			'buddynext_logout_redirect',
-			'buddynext_onboarding_redirect',
-			'buddynext_auth_panel_show',
-			'buddynext_auth_panel_heading',
-			'buddynext_auth_panel_tagline',
-			'buddynext_auth_panel_quote',
-			'buddynext_auth_panel_image',
-			'buddynext_terms_page_id',
-			'buddynext_allowed_domains',
-			'buddynext_social_login',
-		),
-		// Social's reaction palette (buddynext_enabled_reactions) is registered
-		// bespoke under the buddynext_social group; the rest of Social/Spaces/
-		// Moderation/Notifications/Email/Privacy are descriptor-registered.
 		// Integrations tab options moved to the unified Integration Display tab.
 		'integrations' => array(),
-		'webhooks'     => array(
-			'buddynext_webhook_secret',
-		),
 	);
 
 	/**
@@ -700,12 +634,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	public function settings_fields(): array {
 		return array_merge(
 			$this->fields_general(),
+			$this->fields_registration(),
 			$this->fields_social(),
 			$this->fields_spaces(),
 			$this->fields_moderation(),
 			$this->fields_notifications(),
 			$this->fields_email(),
-			$this->fields_privacy()
+			$this->fields_privacy(),
+			$this->fields_webhooks(),
+			$this->fields_features()
 		);
 	}
 
@@ -1574,6 +1511,257 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	}
 
 	/**
+	 * Registration tab option descriptors.
+	 *
+	 * The Registration tab keeps its bespoke render_tab_registration() (conditional
+	 * email-verify UI, social-login credential cards, legal-page info block), so
+	 * these descriptors exist to register + index its options only — never set a
+	 * registered default here, so the bespoke render's inline get_option()
+	 * fallbacks (some dynamic) are preserved exactly.
+	 *
+	 * @return Section[]
+	 */
+	private function fields_registration(): array {
+		return array(
+			new Section(
+				'registration',
+				__( 'Registration Settings', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'   => 'buddynext_reg_mode',
+							'type'  => 'select',
+							'label' => __( 'Registration Mode', 'buddynext' ),
+							'hint'  => __( 'Controls who can create a new account on your community.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_email_verify',
+							'type'  => 'toggle',
+							'label' => __( 'Require email verification', 'buddynext' ),
+							'hint'  => __( 'New registrations must verify their email before accessing the community.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'registration',
+				__( 'Login &amp; Sign-up Panel', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'   => 'buddynext_auth_panel_show',
+							'type'  => 'toggle',
+							'label' => __( 'Show the branding panel', 'buddynext' ),
+							'hint'  => __( 'Displays a branded side panel next to the login and sign-up forms.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_auth_panel_heading',
+							'type'  => 'text',
+							'label' => __( 'Panel heading', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_auth_panel_tagline',
+							'type'  => 'textarea',
+							'label' => __( 'Panel tagline', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_auth_panel_quote',
+							'type'  => 'textarea',
+							'label' => __( 'Featured quote', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_auth_panel_image',
+							'type'  => 'url',
+							'label' => __( 'Panel banner image URL', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'registration',
+				__( 'Legal Pages', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'      => 'buddynext_terms_page_id',
+							'type'     => 'select',
+							'label'    => __( 'Terms of Service page', 'buddynext' ),
+							'sanitize' => 'absint',
+							'hint'     => __( 'Linked from the sign-up consent line.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'registration',
+				__( 'Spam &amp; Abuse Protection', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'   => 'buddynext_reg_spam_protection',
+							'type'  => 'toggle',
+							'label' => __( 'Protect the sign-up form', 'buddynext' ),
+							'hint'  => __( 'In-house rate limit, honeypot, and time-trap. On by default.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_reg_challenge',
+							'type'  => 'toggle',
+							'label' => __( 'Show a human-verification question', 'buddynext' ),
+							'hint'  => __( 'Adds an accessible verification question to the sign-up form.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_reg_rate_limit',
+							'type'  => 'number',
+							'label' => __( 'Sign-ups per hour per IP', 'buddynext' ),
+							'min'   => 0,
+							'max'   => 100,
+							'hint'  => __( 'Maximum sign-up attempts from one IP per hour. 0 disables the limit.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'registration',
+				__( 'Access Restrictions', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'   => 'buddynext_allowed_domains',
+							'type'  => 'textarea',
+							'label' => __( 'Allowed email domains', 'buddynext' ),
+							'hint'  => __( 'One domain per line. When set, only these domains can register.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'registration',
+				__( 'Redirects', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'   => 'buddynext_login_redirect',
+							'type'  => 'url',
+							'label' => __( 'After login', 'buddynext' ),
+							'hint'  => __( 'Where members go after logging in. Blank = activity feed.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_logout_redirect',
+							'type'  => 'url',
+							'label' => __( 'After logout', 'buddynext' ),
+							'hint'  => __( 'Where members go after logging out. Blank = site home.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_onboarding_redirect',
+							'type'  => 'url',
+							'label' => __( 'After onboarding', 'buddynext' ),
+							'hint'  => __( 'Where new members go after onboarding. Blank = their profile.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'registration',
+				__( 'Social Login', 'buddynext' ),
+				array(
+					// Index-only pointer: the social-login provider cards are bespoke,
+					// and buddynext_social_login is registered explicitly as an array
+					// option. This readonly entry just makes "Social Login" findable.
+					new Field(
+						array(
+							'key'   => 'buddynext_social_login',
+							'type'  => 'readonly',
+							'label' => __( 'Social Login', 'buddynext' ),
+							'hint'  => __( 'Sign in with Google, Facebook, and more.', 'buddynext' ),
+						)
+					),
+				)
+			),
+		);
+	}
+
+	/**
+	 * Webhooks tab option descriptors.
+	 *
+	 * The secret keeps its bespoke reveal/copy/generate control in
+	 * render_tab_webhooks(); this descriptor registers + indexes it only.
+	 *
+	 * @return Section[]
+	 */
+	private function fields_webhooks(): array {
+		return array(
+			new Section(
+				'webhooks',
+				__( 'Webhook Secret', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'   => self::OPTION_WEBHOOK_SECRET,
+							'type'  => 'secret',
+							'label' => __( 'Shared Secret', 'buddynext' ),
+							'hint'  => __( 'Signs outgoing webhooks and verifies inbound access requests.', 'buddynext' ),
+						)
+					),
+				)
+			),
+		);
+	}
+
+	/**
+	 * Features tab search pointers — one index-only entry per feature.
+	 *
+	 * Features are stored in the single buddynext_features array option and
+	 * rendered bespoke; these readonly descriptors make each feature findable by
+	 * name in ⌘K. Not registered (readonly) and not rendered (Features is not a
+	 * DESCRIPTOR_TAB). Returns empty if the feature service is unavailable.
+	 *
+	 * @return Section[]
+	 */
+	private function fields_features(): array {
+		$registry = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
+		if ( ! is_object( $registry ) || ! method_exists( $registry, 'by_group' ) ) {
+			return array();
+		}
+		$fields = array();
+		foreach ( $registry->by_group() as $features ) {
+			foreach ( (array) $features as $feature ) {
+				$slug  = isset( $feature['slug'] ) ? (string) $feature['slug'] : '';
+				$label = isset( $feature['label'] ) ? (string) $feature['label'] : '';
+				if ( '' === $slug || '' === $label ) {
+					continue;
+				}
+				$fields[] = new Field(
+					array(
+						'key'   => 'buddynext_feature_' . $slug,
+						'type'  => 'readonly',
+						'label' => $label,
+						'hint'  => isset( $feature['description'] ) ? (string) $feature['description'] : '',
+					)
+				);
+			}
+		}
+		return array( new Section( 'features', __( 'Features', 'buddynext' ), $fields ) );
+	}
+
+	/**
 	 * Sections declared for a single tab.
 	 *
 	 * @param string $tab Tab slug.
@@ -1598,23 +1786,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 * @return void
 	 */
 	public function register_settings(): void {
-		// Descriptor-declared options (DESCRIPTOR_TABS) register via the driver.
+		// Every plain option (all tabs, incl. the bespoke-rendered Registration
+		// and Webhooks) is declared in settings_fields() and registered here from
+		// those descriptors. The three array options below are registered
+		// explicitly because they carry bespoke composite UI.
 		SettingsDriver::register_page( $this, 'buddynext' );
-
-		// Remaining map entries are the bespoke-UI tabs (Registration, Webhooks);
-		// every default-ON option moved to the descriptor registry, which carries
-		// its own registered default via the driver.
-		foreach ( self::SETTINGS_MAP as $option => $config ) {
-			list( $type, $sanitize ) = $config;
-			register_setting(
-				self::option_group( $option ),
-				$option,
-				array(
-					'type'              => $type,
-					'sanitize_callback' => $sanitize,
-				)
-			);
-		}
 
 		// FeatureRegistry catalog persisted as a single map of slug=>bool.
 		// Mandatory features are filtered out by the registry; only

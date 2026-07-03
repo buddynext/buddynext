@@ -154,14 +154,16 @@ class SettingsDriftGuardTest extends \WP_UnitTestCase {
 			$this->assertArrayHasKey( $key, $wp_registered_settings, "Option dropped from save path: {$key}" );
 		}
 
-		// No key may live in BOTH the descriptor registry and SETTINGS_MAP — that
-		// would register it under two groups and break its tab's save.
-		$map_keys        = array_keys( ( new \ReflectionClass( Settings::class ) )->getConstants()['SETTINGS_MAP'] );
+		// No key may live in BOTH the descriptor registry and any legacy map - that
+		// would register it under two groups and break its tab's save. SETTINGS_MAP
+		// is fully retired; this guards against a future re-introduction.
+		$map             = ( new \ReflectionClass( Settings::class ) )->getConstants()['SETTINGS_MAP'] ?? array();
+		$map_keys        = array_keys( $map );
 		$descriptor_keys = $this->descriptor_keys( $settings );
 		$this->assertSame(
 			array(),
 			array_values( array_intersect( $map_keys, $descriptor_keys ) ),
-			'Option double-registered (in both SETTINGS_MAP and descriptors)'
+			'Option double-registered (in both a legacy map and descriptors)'
 		);
 	}
 }

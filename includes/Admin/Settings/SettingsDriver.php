@@ -44,11 +44,12 @@ final class SettingsDriver {
 					'type'              => self::wp_type( $field->type ),
 					'sanitize_callback' => $field->sanitizer(),
 				);
-				// Register a default only when one is meaningfully set. A registered
-				// default is required for default-ON booleans that have no seeded DB
-				// row, else saving OFF equals WP's absent-default and the row is
-				// never written (toggle reverts to ON on next load).
-				if ( is_bool( $field->default ) || '' !== (string) $field->default || array() !== $field->choices ) {
+				// Register a default ONLY when the field explicitly declared one.
+				// A registered default is required for default-ON booleans with no
+				// seeded DB row (else saving OFF equals WP's absent-default and the
+				// row is never written). Fields with no declared default keep their
+				// read-site inline fallback (which may be dynamic) untouched.
+				if ( $field->has_default ) {
 					$args['default'] = $field->default;
 				}
 				register_setting( $group, $field->key, $args );
