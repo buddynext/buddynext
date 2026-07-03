@@ -29,6 +29,18 @@ These live in the admin area under Settings, in the Privacy section.
 
 > **Note:** Members can also set their own profile to skip search engines from the Privacy section of their profile editor. The owner indexing setting is the community-wide policy; the per-member toggle is the individual override.
 
+## Cookie consent banner
+
+If your community needs to ask visitors for cookie consent - for example under EU or GDPR rules - BuddyNext can show a small cookie notice at the bottom of the screen on a visitor's first visit.
+
+**Where to find the cookie banner setting:** in the admin area, open BuddyNext, then Members, then the Privacy and Data tab, and look under Cookie Consent. Turn on "Show cookie consent notice."
+
+**Change the cookie notice text:** once the banner is on, a "Notice text" box appears right below the toggle. Type your own wording there and save. Leave it blank to use the built-in message. If your site has a Privacy Policy page set (under the WordPress Settings, Privacy screen), the banner links to it automatically.
+
+**How the notice behaves:** it appears once. When a visitor clicks "Got it," their choice is remembered and the banner is not shown again. BuddyNext itself only sets essential cookies, such as the one that keeps members signed in.
+
+> **Tip:** can't find it from a search? The cookie banner lives on the Privacy and Data tab. You can also press Cmd/Ctrl + K anywhere in the BuddyNext admin and type "cookie" to jump straight to it.
+
 ## Export my data
 
 Members can download their own information at any time when the owner has left export enabled.

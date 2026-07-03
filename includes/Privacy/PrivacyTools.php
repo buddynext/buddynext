@@ -80,6 +80,26 @@ class PrivacyTools implements ListenerInterface {
 	public function register(): void {
 		add_filter( 'wp_privacy_personal_data_exporters', array( $this, 'register_exporter' ) );
 		add_filter( 'wp_privacy_personal_data_erasers', array( $this, 'register_eraser' ) );
+		add_action( 'admin_init', array( $this, 'add_privacy_policy_content' ) );
+	}
+
+	/**
+	 * Contribute suggested privacy-policy text to WordPress' Privacy Policy Guide
+	 * (Settings → Privacy → Policies), so a site owner writing their policy sees
+	 * what BuddyNext stores. Community platforms process substantial personal
+	 * data, so appearing here (like WordPress core and other plugins) is expected.
+	 *
+	 * @return void
+	 */
+	public function add_privacy_policy_content(): void {
+		if ( ! function_exists( 'wp_add_privacy_policy_content' ) ) {
+			return;
+		}
+
+		$content = '<p>' . esc_html__( 'This community runs on BuddyNext. When you register and take part, BuddyNext stores the profile details you provide, the posts, comments, reactions, and polls you create, your follows and connections, the spaces you join, direct messages you send, and community notifications. It also records limited technical data such as IP addresses for spam protection and moderation.', 'buddynext' ) . '</p>'
+			. '<p>' . esc_html__( 'You can download a copy of your data or request deletion of your account at any time from your account settings, subject to the tools your site owner has enabled. Financial records tied to purchases may be retained where the law requires it.', 'buddynext' ) . '</p>';
+
+		wp_add_privacy_policy_content( __( 'BuddyNext', 'buddynext' ), $content );
 	}
 
 	/**
