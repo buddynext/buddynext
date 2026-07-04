@@ -253,6 +253,50 @@ class NotificationService {
 	}
 
 	/**
+	 * Mark a single notification unread (ownership-checked).
+	 *
+	 * The inverse of mark_read(): lets a member restore a notification to the
+	 * unread state (a standard affordance on mainstream notification centres).
+	 * Busts the per-user unread-count cache so the badge reflects the change.
+	 *
+	 * @param int $notif_id Notification id.
+	 * @param int $user_id  Current user id (must own the notification).
+	 * @return true|WP_Error True on success, WP_Error(403) when not the owner.
+	 */
+	public function mark_unread( int $notif_id, int $user_id ): bool|WP_Error {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$recipient_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT recipient_id FROM {$wpdb->prefix}bn_notifications WHERE id = %d",
+				$notif_id
+			)
+		);
+
+		if ( 0 === $recipient_id || $recipient_id !== $user_id ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'You cannot mark this notification as unread.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_notifications',
+			array( 'is_read' => 0 ),
+			array( 'id' => $notif_id ),
+			array( '%d' ),
+			array( '%d' )
+		);
+
+		wp_cache_delete( "unread_{$user_id}", self::CACHE_GROUP );
+
+		return true;
+	}
+
+	/**
 	 * Delete a single notification belonging to the given user.
 	 *
 	 * Returns a WP_Error with status 403 when the notification does not belong
