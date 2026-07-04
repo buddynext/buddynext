@@ -169,4 +169,40 @@ class HashtagServiceTest extends \WP_UnitTestCase {
 		$slugs    = array_map( static fn( $t ): string => (string) ( $t['slug'] ?? '' ), $trending );
 		$this->assertContains( 'utctag', $slugs );
 	}
+
+	/**
+	 * A public post inside a private/secret space must NOT appear on the public
+	 * tag page (guest), but MUST appear for a member of that space. Regression
+	 * guard for card 10062124931 (tag pages leaked private-space posts).
+	 *
+	 * @covers \BuddyNext\Hashtags\HashtagService::get_feed
+	 */
+	public function test_tag_feed_hides_private_space_posts_from_guests(): void {
+		global $wpdb;
+		$author = self::factory()->user->create();
+		$member = self::factory()->user->create();
+
+		$wpdb->insert( $wpdb->prefix . 'bn_hashtags', array( 'slug' => 'spacetag', 'post_count' => 0, 'follower_count' => 0 ) );
+		$hid = (int) $wpdb->insert_id;
+
+		$wpdb->insert( $wpdb->prefix . 'bn_spaces', array( 'name' => 'Secret', 'slug' => 'secret-s', 'type' => 'secret', 'owner_id' => $author, 'created_at' => current_time( 'mysql', true ) ) );
+		$secret = (int) $wpdb->insert_id;
+		$wpdb->insert( $wpdb->prefix . 'bn_space_members', array( 'space_id' => $secret, 'user_id' => $member, 'status' => 'active' ) );
+
+		$make = function ( int $space ) use ( $wpdb, $author, $hid ): int {
+			$wpdb->insert( $wpdb->prefix . 'bn_posts', array( 'user_id' => $author, 'content' => '#spacetag', 'type' => 'text', 'privacy' => 'public', 'status' => 'published', 'space_id' => $space, 'created_at' => current_time( 'mysql', true ) ) );
+			$pid = (int) $wpdb->insert_id;
+			$wpdb->insert( $wpdb->prefix . 'bn_post_hashtags', array( 'post_id' => $pid, 'object_type' => 'post', 'hashtag_id' => $hid, 'created_at' => current_time( 'mysql', true ) ) );
+			return $pid;
+		};
+		$open_post   = $make( 0 );
+		$secret_post = $make( $secret );
+
+		$guest_ids  = array_map( static fn( $r ): int => (int) $r['id'], $this->service->get_feed( '#spacetag', array( 'viewer_id' => 0 ) )['items'] );
+		$member_ids = array_map( static fn( $r ): int => (int) $r['id'], $this->service->get_feed( '#spacetag', array( 'viewer_id' => $member ) )['items'] );
+
+		$this->assertContains( $open_post, $guest_ids, 'non-space post is public' );
+		$this->assertNotContains( $secret_post, $guest_ids, 'secret-space post must NOT leak to guests' );
+		$this->assertContains( $secret_post, $member_ids, 'a space member still sees the post' );
+	}
 }

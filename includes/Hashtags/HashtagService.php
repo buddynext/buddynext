@@ -245,9 +245,13 @@ class HashtagService {
 			$follow_param = array( $viewer_id );
 		}
 
+		// Space-visibility guard: keep public posts that live in private/secret
+		// spaces off the public tag page (visible only to space members).
+		[ $space_where, $space_params ] = $this->space_visibility_where( 'p', $viewer_id );
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
-			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- Placeholder count is dynamic: the optional follow JOIN's %d and the variable $cursor_params are spread via array_merge() and match at runtime; the sniff cannot resolve the conditional/array args statically.
+			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- Placeholder count is dynamic: the optional follow JOIN's %d, the space-visibility fragment's optional %d, and the variable $cursor_params are spread via array_merge() and match at runtime; the sniff cannot resolve the conditional/array args statically.
 				"SELECT p.id, p.user_id, p.content, p.type, p.privacy,
 				        p.reaction_count, p.comment_count, p.share_count, p.created_at,
 				        ph.created_at AS bn_cursor_ts
@@ -258,10 +262,11 @@ class HashtagService {
 				   AND ph.object_type = 'post'
 				   AND p.status       = 'published'
 				   AND p.privacy      = 'public'
+				   {$space_where}
 				   {$cursor_where}
 				 ORDER BY {$order_sql}
 				 LIMIT %d",
-				...array_merge( $follow_param, array( $hashtag['id'] ), $cursor_params, array( $per_page + 1 ) )
+				...array_merge( $follow_param, array( $hashtag['id'] ), $space_params, $cursor_params, array( $per_page + 1 ) )
 			),
 			ARRAY_A
 		);
@@ -778,6 +783,41 @@ class HashtagService {
 	 * @param int $limit      Max contributors (1-20). Default 5.
 	 * @return array<int,array{user_id:int, display_name:string, post_count:int}>
 	 */
+	/**
+	 * Space-visibility WHERE fragment for tag queries (with its bound params).
+	 *
+	 * A public-privacy post inside a private/secret space must NOT surface on the
+	 * public tag page. This limits rows to non-space posts, posts in OPEN spaces,
+	 * and — for a logged-in viewer — posts in private/secret spaces the viewer
+	 * belongs to. get_feed / top_contributors / contributor_count all apply this
+	 * identical rule so no tag surface can leak (one definition, no drift). For a
+	 * guest (viewer 0) the fragment carries no bound params.
+	 *
+	 * @param string $alias     bn_posts table alias used by the caller.
+	 * @param int    $viewer_id Current viewer id (0 = guest).
+	 * @return array{0:string,1:array<int,int>} [ WHERE fragment (leading AND), params ].
+	 */
+	private function space_visibility_where( string $alias, int $viewer_id ): array {
+		global $wpdb;
+
+		$sql    = "AND (
+			{$alias}.space_id IS NULL
+			OR {$alias}.space_id = 0
+			OR {$alias}.space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )";
+		$params = array();
+
+		if ( $viewer_id > 0 ) {
+			$sql     .= " OR {$alias}.space_id IN (
+				SELECT space_id FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active'
+			)";
+			$params[] = $viewer_id;
+		}
+
+		$sql .= ' )';
+
+		return array( $sql, $params );
+	}
+
 	public function top_contributors( int $hashtag_id, int $limit = 5 ): array {
 		if ( $hashtag_id <= 0 ) {
 			return array();
@@ -785,6 +825,8 @@ class HashtagService {
 		$limit = max( 1, min( 20, $limit ) );
 
 		global $wpdb;
+		// Public tag page: exclude posts in private/secret spaces (guest scope).
+		[ $space_where ] = $this->space_visibility_where( 'p', 0 );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
@@ -794,6 +836,7 @@ class HashtagService {
 				 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
 				 WHERE ph.hashtag_id = %d AND ph.object_type = 'post'
 				   AND p.status = 'published' AND p.privacy = 'public'
+				   {$space_where}
 				 GROUP BY p.user_id
 				 ORDER BY post_count DESC
 				 LIMIT %d",
@@ -829,6 +872,8 @@ class HashtagService {
 		}
 
 		global $wpdb;
+		// Public tag page: exclude posts in private/secret spaces (guest scope).
+		[ $space_where ] = $this->space_visibility_where( 'p', 0 );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return (int) $wpdb->get_var(
 			$wpdb->prepare(
@@ -836,7 +881,8 @@ class HashtagService {
 				 FROM {$wpdb->prefix}bn_post_hashtags ph
 				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = ph.post_id
 				 WHERE ph.hashtag_id = %d AND ph.object_type = 'post'
-				   AND p.status = 'published' AND p.privacy = 'public'",
+				   AND p.status = 'published' AND p.privacy = 'public'
+				   {$space_where}",
 				$hashtag_id
 			)
 		);
