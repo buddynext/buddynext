@@ -56,6 +56,11 @@ class WPMediaVerseBridge {
 		// Gate DMs on bn_blocks + the recipient's DM-privacy preference.
 		add_filter( 'mvs_can_send_message', array( $this, 'check_block' ), 10, 3 );
 
+		// Run DM text through auto-moderation (banned words + Pro rules) so a member
+		// can't plant blocked content in a direct message — posts/comments/profile
+		// are guarded; DMs were not.
+		add_filter( 'mvs_message_content_check', array( $this, 'moderate_dm_content' ), 10, 4 );
+
 		// When that gate denies, report WHY (block vs privacy preference) so the
 		// sender sees an accurate notice instead of a generic "blocked".
 		add_filter( 'mvs_dm_denial_reason', array( $this, 'dm_denial_reason' ), 10, 3 );
@@ -461,6 +466,33 @@ class WPMediaVerseBridge {
 			default:
 				return true;
 		}
+	}
+
+	/**
+	 * Auto-moderation gate for DM text (hooked on the engine's
+	 * mvs_message_content_check). Runs the message through the same content
+	 * safeguard as posts/comments; a WP_Error rejects the send.
+	 *
+	 * @param true|\WP_Error $result           Running result (WP_Error already blocks).
+	 * @param string         $content          Message text.
+	 * @param int            $sender_id        Sender user ID.
+	 * @param int            $_conversation_id Conversation ID (unused).
+	 * @return true|\WP_Error
+	 */
+	public function moderate_dm_content( $result, string $content, int $sender_id, int $_conversation_id ) {
+		if ( is_wp_error( $result ) || '' === trim( $content ) || ! function_exists( 'buddynext_service' ) ) {
+			return $result;
+		}
+
+		$guard = buddynext_service( 'safeguard' );
+		if ( is_object( $guard ) && method_exists( $guard, 'check_content' ) ) {
+			$verdict = $guard->check_content( $content, '', $sender_id );
+			if ( is_wp_error( $verdict ) ) {
+				return $verdict;
+			}
+		}
+
+		return $result;
 	}
 
 	/**

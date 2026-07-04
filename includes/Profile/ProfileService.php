@@ -479,6 +479,29 @@ class ProfileService {
 	}
 
 	/**
+	 * Collect submitted free-text values from a save_profile payload into one string
+	 * for a single auto-moderation scan. Skips visibility markers and non-strings.
+	 *
+	 * @param array<string,mixed> $data Submitted profile data (flat and/or repeater).
+	 * @return string
+	 */
+	private static function collect_text_values( array $data ): string {
+		$parts = array();
+		array_walk_recursive(
+			$data,
+			static function ( $value, $key ) use ( &$parts ): void {
+				if ( '_visibility' === $key ) {
+					return;
+				}
+				if ( is_string( $value ) && '' !== trim( $value ) ) {
+					$parts[] = $value;
+				}
+			}
+		);
+		return implode( "\n", $parts );
+	}
+
+	/**
 	 * Save profile field values for a user.
 	 *
 	 * Flat fields: keyed directly as field_key => value.
@@ -506,6 +529,23 @@ class ProfileService {
 	 */
 	public function save_profile( int $user_id, array $data ): bool|\WP_Error {
 		global $wpdb;
+
+		// Auto-moderation: scan the submitted free-text values so banned words / links
+		// can't be planted in a bio or custom field. Posts and comments run the same
+		// safeguard; profile fields previously did not. One check over the joined text
+		// keeps it to a single evaluation before any DB write.
+		if ( function_exists( 'buddynext_service' ) ) {
+			$profile_text = self::collect_text_values( $data );
+			if ( '' !== $profile_text ) {
+				$guard = buddynext_service( 'safeguard' );
+				if ( is_object( $guard ) && method_exists( $guard, 'check_content' ) ) {
+					$verdict = $guard->check_content( $profile_text, '', $user_id );
+					if ( is_wp_error( $verdict ) ) {
+						return $verdict;
+					}
+				}
+			}
+		}
 
 		$flat_fields  = $this->get_flat_fields();
 		$field_by_key = array_column( $flat_fields, null, 'field_key' );
