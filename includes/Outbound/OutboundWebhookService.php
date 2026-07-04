@@ -254,6 +254,74 @@ class OutboundWebhookService {
 	}
 
 	/**
+	 * Update an endpoint's URL, events, active state, and/or secret.
+	 *
+	 * Supports the operations that previously forced a delete+recreate: changing the
+	 * subscribed events, re-enabling after an auto-disable (is_active), and rotating
+	 * the signing secret (pass a non-empty 'secret'). Only the keys present in
+	 * $fields are touched.
+	 *
+	 * @param int                 $webhook_id Endpoint ID.
+	 * @param array<string,mixed> $fields     Any of: url, events (array), is_active (bool), secret (string).
+	 * @return bool|WP_Error
+	 */
+	public function update( int $webhook_id, array $fields ): bool|WP_Error {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$exists = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_outbound_webhooks WHERE id = %d", $webhook_id ) );
+		if ( ! $exists ) {
+			return new WP_Error( 'not_found', __( 'Webhook endpoint not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		$data   = array();
+		$format = array();
+
+		if ( array_key_exists( 'url', $fields ) ) {
+			$url = (string) $fields['url'];
+			if ( ! str_starts_with( $url, 'https://' ) || ! filter_var( $url, FILTER_VALIDATE_URL ) ) {
+				return new WP_Error( 'invalid_url', __( 'Webhook URL must be a valid https:// URL.', 'buddynext' ), array( 'status' => 422 ) );
+			}
+			$data['url'] = $url;
+			$format[]    = '%s';
+		}
+		if ( array_key_exists( 'events', $fields ) ) {
+			$events         = array_values( array_unique( array_map( 'sanitize_text_field', (array) $fields['events'] ) ) );
+			$data['events'] = (string) wp_json_encode( $events );
+			$format[]       = '%s';
+		}
+		if ( array_key_exists( 'is_active', $fields ) ) {
+			$data['is_active'] = (int) (bool) $fields['is_active'];
+			$format[]          = '%d';
+		}
+		if ( array_key_exists( 'secret', $fields ) && '' !== (string) $fields['secret'] ) {
+			$data['secret'] = (string) $fields['secret'];
+			$format[]       = '%s';
+		}
+
+		if ( empty( $data ) ) {
+			return true;
+		}
+
+		$data['updated_at'] = current_time( 'mysql', true );
+		$format[]           = '%s';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_outbound_webhooks',
+			$data,
+			array( 'id' => $webhook_id ),
+			$format,
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$this->flush_active_cache();
+
+		return false !== $updated;
+	}
+
+	/**
 	 * Get paginated delivery log for a specific webhook endpoint.
 	 *
 	 * @param int $webhook_id Webhook row ID.

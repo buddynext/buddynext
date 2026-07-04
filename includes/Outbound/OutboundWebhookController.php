@@ -102,6 +102,32 @@ class OutboundWebhookController {
 						),
 					),
 				),
+				array(
+					'methods'             => WP_REST_Server::EDITABLE,
+					'callback'            => array( $this, 'update_webhook' ),
+					'permission_callback' => array( $this, 'require_admin' ),
+					'args'                => array(
+						'id'        => array(
+							'required' => true,
+							'type'     => 'integer',
+							'minimum'  => 1,
+						),
+						'url'       => array(
+							'type'              => 'string',
+							'sanitize_callback' => 'sanitize_url',
+						),
+						'events'    => array(
+							'type' => 'array',
+						),
+						'is_active' => array(
+							'type' => 'boolean',
+						),
+						'secret'    => array(
+							'type'              => 'string',
+							'sanitize_callback' => 'sanitize_text_field',
+						),
+					),
+				),
 			)
 		);
 
@@ -217,6 +243,47 @@ class OutboundWebhookController {
 		}
 
 		return new WP_REST_Response( array( 'deleted' => true ), 200 );
+	}
+
+	/**
+	 * PATCH/PUT /webhooks/{id} — update an endpoint (events, active state, URL, or
+	 * rotate the secret) without delete+recreate.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function update_webhook( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$id     = (int) $request->get_param( 'id' );
+		$fields = array();
+
+		if ( null !== $request->get_param( 'url' ) ) {
+			$fields['url'] = (string) $request->get_param( 'url' );
+		}
+		if ( null !== $request->get_param( 'events' ) ) {
+			$fields['events'] = (array) $request->get_param( 'events' );
+		}
+		if ( null !== $request->get_param( 'is_active' ) ) {
+			$fields['is_active'] = (bool) $request->get_param( 'is_active' );
+		}
+		if ( null !== $request->get_param( 'secret' ) ) {
+			$fields['secret'] = (string) $request->get_param( 'secret' );
+		}
+
+		$result = $this->service->update( $id, $fields );
+
+		if ( is_wp_error( $result ) ) {
+			$data   = $result->get_error_data();
+			$status = is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 400;
+			return new WP_Error( $result->get_error_code(), $result->get_error_message(), array( 'status' => $status ) );
+		}
+
+		return new WP_REST_Response(
+			array(
+				'success' => true,
+				'id'      => $id,
+			),
+			200
+		);
 	}
 
 	/**
