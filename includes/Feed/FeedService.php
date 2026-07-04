@@ -47,6 +47,14 @@ class FeedService {
 	private const NEW_COUNT_TTL = 30;
 
 	/**
+	 * TTL (seconds) for the home-tab count memo. The four per-tab COUNT(*) are
+	 * heavy on a large bn_posts, so collapse the repeat loads (nav re-render,
+	 * poll, multiple tabs) onto one set of counts. A nav badge tolerates this much
+	 * staleness; the feed itself always reflects live content.
+	 */
+	private const HOME_COUNTS_TTL = 60;
+
+	/**
 	 * User_meta key storing the list of announcement post IDs the user has
 	 * dismissed. Value is a flat array of integer post IDs.
 	 */
@@ -589,6 +597,14 @@ class FeedService {
 			return $counts;
 		}
 
+		// Short-TTL memo: the four per-tab COUNT(*) over bn_posts are heavy at
+		// scale and were re-run on every nav render. Collapse them for HOME_COUNTS_TTL.
+		$cache_key = "home_counts_{$user_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
 		$excluded_where = $this->excluded_users_where();
 
 		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $user_id );
@@ -624,6 +640,8 @@ class FeedService {
 
 			$counts[ $key ] = $count;
 		}
+
+		wp_cache_set( $cache_key, $counts, self::CACHE_GROUP, self::HOME_COUNTS_TTL );
 
 		return $counts;
 	}
