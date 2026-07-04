@@ -750,6 +750,47 @@ a.bn-sh-statpill:focus-visible {
 	margin: 0;
 }
 
+/* Bounded pinned strip: a few pins inline, the rest folded in a <details>. */
+.bn-sh-pinned-strip {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s3);
+}
+
+.bn-sh-pinned-strip .bn-sh-pinned {
+	margin: 0;
+}
+
+.bn-sh-pinned-strip__more {
+	margin: 0;
+}
+
+.bn-sh-pinned-strip__more > summary {
+	cursor: pointer;
+	list-style: none;
+	padding: var(--bn-s2) var(--bn-s3);
+	font-size: var(--bn-text-sm);
+	font-weight: 600;
+	color: var(--bn-accent);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-sunken);
+	min-height: var(--bn-tap, 40px);
+	display: flex;
+	align-items: center;
+}
+
+.bn-sh-pinned-strip__more > summary::-webkit-details-marker {
+	display: none;
+}
+
+.bn-sh-pinned-strip__more[open] > summary {
+	margin-block-end: var(--bn-s3);
+}
+
+.bn-sh-pinned-strip__more > .bn-sh-pinned + .bn-sh-pinned {
+	margin-block-start: var(--bn-s3);
+}
+
 /* Gate (private-space teaser) */
 .bn-sh-gate {
 	padding: var(--bn-s8) var(--bn-s5);

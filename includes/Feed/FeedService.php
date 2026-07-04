@@ -1355,6 +1355,43 @@ class FeedService {
 	}
 
 	/**
+	 * Return a space's pinned posts (up to the cap), newest first.
+	 *
+	 * The single-row space_pinned_post() left Pro's "10 pins per space" invisible —
+	 * up to 9 pins were stored but never rendered. This returns the whole pinned
+	 * set so the space feed can show a bounded pinned strip.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $limit    Max pins to return (clamped 1-20).
+	 * @return array[] Hydrated pinned post rows, newest first.
+	 */
+	public function space_pinned_posts( int $space_id, int $limit = 10 ): array {
+		if ( $space_id <= 0 ) {
+			return array();
+		}
+
+		$limit = max( 1, min( $limit, 20 ) );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_posts
+				 WHERE space_id = %d AND is_pinned = 1 AND status = 'published'
+				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+				 ORDER BY created_at DESC
+				 LIMIT %d",
+				$space_id,
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( fn( $row ) => $this->post_service->hydrate( $row ), (array) $rows );
+	}
+
+	/**
 	 * Count published, live (non-future) posts in a space.
 	 *
 	 * @param int $space_id Space ID.

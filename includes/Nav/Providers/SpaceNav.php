@@ -256,14 +256,17 @@ final class SpaceNav {
 
 		$feed = buddynext_service( 'feed' );
 
-		// Pinned announcement (hydrated array). The part renders it as an object and
-		// shows the author name, which hydrate() does not carry, so enrich it here.
-		$pinned     = null;
-		$pinned_arr = $feed->space_pinned_post( $space_id );
-		if ( is_array( $pinned_arr ) ) {
+		// Pinned posts (up to the per-space cap). The part renders each as an object
+		// and shows the author name, which hydrate() does not carry, so enrich here.
+		// Pro allows up to 10 pins per space; the panel bounds how many show at once.
+		$pinned_posts = array();
+		foreach ( $feed->space_pinned_posts( $space_id, 10 ) as $pinned_arr ) {
+			if ( ! is_array( $pinned_arr ) ) {
+				continue;
+			}
 			$author                    = get_userdata( (int) ( $pinned_arr['user_id'] ?? 0 ) );
 			$pinned_arr['author_name'] = $author ? $author->display_name : __( 'Admin', 'buddynext' );
-			$pinned                    = (object) $pinned_arr;
+			$pinned_posts[]            = (object) $pinned_arr;
 		}
 
 		// Regular feed (hydrated arrays). The pinned post leads as its own card, so
@@ -288,7 +291,7 @@ final class SpaceNav {
 				'is_pending'   => $is_pending,
 				'is_archived'  => $archived,
 				'posts'        => $posts,
-				'pinned_post'  => $pinned,
+				'pinned_posts' => $pinned_posts,
 				'current_user' => $viewer_id > 0 ? get_userdata( $viewer_id ) : null,
 			)
 		);
