@@ -1405,6 +1405,16 @@ class FeedService {
 		if ( ! empty( $poll_ids ) ) {
 			buddynext_service( 'polls' )->user_votes_map( $viewer, $poll_ids );
 		}
+
+		/**
+		 * Fires after core viewer-state is primed for a page of feed items, so add-ons
+		 * (e.g. Pro member labels) can batch-prime their own per-author data in one
+		 * query instead of an N+1 in the byline loop.
+		 *
+		 * @param array $items  Hydrated feed rows about to render.
+		 * @param int   $viewer Current user ID.
+		 */
+		do_action( 'buddynext_feed_viewer_state_primed', $items, $viewer );
 	}
 
 	/**
