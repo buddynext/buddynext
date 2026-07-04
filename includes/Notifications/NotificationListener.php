@@ -243,29 +243,50 @@ class NotificationListener implements ListenerInterface {
 	}
 
 	/**
-	 * Notify the post owner when someone reacts to their content.
+	 * Notify the owner of the reacted content (post OR comment).
 	 *
-	 * Only fires a notification for 'post' object type.
+	 * Resolves the content owner and notification type from $object_type, then
+	 * runs the shared self/blocked guards and fires the notification. Comment
+	 * reactions carry the parent post id in `data` so the deep-link can resolve
+	 * to the post permalink (a comment id is not a post id).
 	 *
-	 * @param string $object_type Object type (e.g. 'post', 'comment').
-	 * @param int    $object_id   Object ID.
+	 * @param string $object_type Object type: 'post' or 'comment'.
+	 * @param int    $object_id   Reacted object ID.
 	 * @param int    $user_id     User who reacted.
 	 * @param string $emoji       Emoji slug used for the reaction.
 	 */
 	public function on_reaction_added( string $object_type, int $object_id, int $user_id, string $emoji ): void {
-		if ( 'post' !== $object_type ) {
-			return;
-		}
-
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$owner_id = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT user_id FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
-				$object_id
-			)
-		);
+		if ( 'post' === $object_type ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$owner_id  = (int) $wpdb->get_var(
+				$wpdb->prepare( "SELECT user_id FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1", $object_id )
+			);
+			$type      = 'bn.post_reacted';
+			$group_key = 'post_reactions_' . $object_id;
+			$data      = array( 'emoji' => $emoji );
+		} elseif ( 'comment' === $object_type ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$comment = $wpdb->get_row(
+				$wpdb->prepare( "SELECT user_id, object_type, object_id FROM {$wpdb->prefix}bn_comments WHERE id = %d LIMIT 1", $object_id ),
+				ARRAY_A
+			);
+			if ( null === $comment ) {
+				return;
+			}
+			$owner_id  = (int) $comment['user_id'];
+			$post_id   = ( 'post' === (string) $comment['object_type'] ) ? (int) $comment['object_id'] : 0;
+			$type      = 'bn.comment_reacted';
+			$group_key = 'comment_reactions_' . $object_id;
+			$data      = array(
+				'emoji'      => $emoji,
+				'post_id'    => $post_id,
+				'comment_id' => $object_id,
+			);
+		} else {
+			return;
+		}
 
 		if ( 0 === $owner_id || $owner_id === $user_id ) {
 			return;
@@ -283,11 +304,11 @@ class NotificationListener implements ListenerInterface {
 			array(
 				'recipient_id' => $owner_id,
 				'sender_id'    => $user_id,
-				'type'         => 'bn.post_reacted',
-				'object_type'  => 'post',
+				'type'         => $type,
+				'object_type'  => $object_type,
 				'object_id'    => $object_id,
-				'group_key'    => 'post_reactions_' . $object_id,
-				'data'         => array( 'emoji' => $emoji ),
+				'group_key'    => $group_key,
+				'data'         => $data,
 			)
 		);
 	}
