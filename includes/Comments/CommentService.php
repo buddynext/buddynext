@@ -484,13 +484,13 @@ class CommentService {
 	 * @return bool True if pinned, false if user lacks permission or comment not found.
 	 */
 	public function pin( int $comment_id, int $user_id ): bool {
-		if ( ! user_can( $user_id, 'manage_options' ) ) {
-			return false;
-		}
-
 		$comment = $this->get( $comment_id );
 
 		if ( null === $comment ) {
+			return false;
+		}
+
+		if ( ! $this->can_pin_comment( $user_id, (string) $comment['object_type'], (int) $comment['object_id'] ) ) {
 			return false;
 		}
 
@@ -502,6 +502,42 @@ class CommentService {
 	}
 
 	/**
+	 * Whether a user may pin/unpin comments on an object.
+	 *
+	 * Site admins always may. A comment on a post inherits the post's space, so a
+	 * moderator of that space may pin its comments too — the docs promised this but
+	 * only manage_options passed before.
+	 *
+	 * @param int    $user_id     User to check.
+	 * @param string $object_type Object type the comment hangs on (e.g. 'post').
+	 * @param int    $object_id   Object ID.
+	 * @return bool
+	 */
+	public function can_pin_comment( int $user_id, string $object_type, int $object_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return true;
+		}
+
+		if ( 'post' === $object_type && $object_id > 0 && function_exists( 'buddynext_service' ) ) {
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$space_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id ) );
+			if ( $space_id > 0 ) {
+				return (bool) buddynext_service( 'permissions' )->can(
+					$user_id,
+					'buddynext-moderate-space',
+					array( 'space_id' => $space_id )
+				);
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Unpin the pinned comment for an object.
 	 *
 	 * @param string $object_type Object type.
@@ -510,7 +546,7 @@ class CommentService {
 	 * @return bool True if unpinned, false if user lacks permission.
 	 */
 	public function unpin( string $object_type, int $object_id, int $user_id ): bool {
-		if ( ! user_can( $user_id, 'manage_options' ) ) {
+		if ( ! $this->can_pin_comment( $user_id, $object_type, $object_id ) ) {
 			return false;
 		}
 
