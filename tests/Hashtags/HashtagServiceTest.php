@@ -171,6 +171,37 @@ class HashtagServiceTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A Unicode hashtag must survive the full round-trip: extraction keeps it,
+	 * sync stores it verbatim (not sanitize_key-mangled), and get_by_slug finds
+	 * it. Regression guard for card 10062124971 (sanitize_key stripped "#café" to
+	 * "caf" and dropped "#日本語" entirely). ASCII tags are unaffected.
+	 *
+	 * @covers \BuddyNext\Hashtags\HashtagService::normalize_slug
+	 * @covers \BuddyNext\Hashtags\HashtagService::extract
+	 * @covers \BuddyNext\Hashtags\HashtagService::sync
+	 */
+	public function test_unicode_hashtags_round_trip_intact(): void {
+		// Normalizer: Unicode-safe case fold, ASCII lowercase, junk to ''.
+		$this->assertSame( 'café', HashtagService::normalize_slug( '#CAFÉ' ) );
+		$this->assertSame( '日本語', HashtagService::normalize_slug( '#日本語' ) );
+		$this->assertSame( 'wordpress', HashtagService::normalize_slug( '#WordPress' ) );
+		$this->assertSame( '', HashtagService::normalize_slug( '#---' ) );
+
+		$slugs = $this->service->extract( 'Loving #café and #日本語 plus #wordpress' );
+		$this->assertContains( 'café', $slugs, 'Unicode accent survives extraction' );
+		$this->assertContains( '日本語', $slugs, 'CJK tag survives extraction' );
+		$this->assertContains( 'wordpress', $slugs );
+
+		$this->service->sync( 'post', 4242, $slugs );
+
+		// Stored verbatim, and resolvable by the exact Unicode slug.
+		$this->assertSame( 'café', $this->service->get_by_slug( 'café' )['slug'] ?? null );
+		$this->assertSame( '日本語', $this->service->get_by_slug( '日本語' )['slug'] ?? null );
+		// The old mangling stored "caf"; that row must NOT exist now.
+		$this->assertNull( $this->service->get_by_slug( 'caf' ), 'no truncated "caf" row is created' );
+	}
+
+	/**
 	 * A public post inside a private/secret space must NOT appear on the public
 	 * tag page (guest), but MUST appear for a member of that space. Regression
 	 * guard for card 10062124931 (tag pages leaked private-space posts).

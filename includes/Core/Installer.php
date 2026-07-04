@@ -118,7 +118,7 @@ class Installer {
 	 *      converged to the Installer seed (one canonical schema from either
 	 *      provisioning path).
 	 */
-	private const SCHEMA_VERSION = 23;
+	private const SCHEMA_VERSION = 24;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -232,7 +232,39 @@ class Installer {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query( "DELETE FROM {$wpdb->usermeta} WHERE meta_key = 'bn_suspended'" );
 
+		// v24: one-time Unicode hashtag re-sync (R11). The legacy sanitize_key()
+		// normalizer stripped every non-ASCII byte, so "#café" was stored as "caf"
+		// and "#日本語" was dropped. The canonical HashtagService::normalize_slug()
+		// fixes new content going forward; this repairs existing posts. Chunked
+		// through Action Scheduler (HashtagListener::resync_batch self-chains) so a
+		// 100k-post site never re-syncs inline. Enqueued once here; safe to resume.
+		self::schedule_hashtag_resync();
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * Enqueue the one-time Unicode hashtag re-sync (schema v24 / R11).
+	 *
+	 * Uses Action Scheduler when present so the batch worker runs off-request;
+	 * falls back to a single WP-Cron event otherwise. Guarded against duplicate
+	 * scheduling so repeated maybe_upgrade() passes (before the version option
+	 * lands) never stack multiple chains.
+	 *
+	 * @return void
+	 */
+	private static function schedule_hashtag_resync(): void {
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			if ( function_exists( 'as_has_scheduled_action' ) && as_has_scheduled_action( 'buddynext_resync_hashtags' ) ) {
+				return;
+			}
+			as_enqueue_async_action( 'buddynext_resync_hashtags', array( 0 ), 'buddynext' );
+			return;
+		}
+
+		if ( ! wp_next_scheduled( 'buddynext_resync_hashtags', array( 0 ) ) ) {
+			wp_schedule_single_event( time() + 30, 'buddynext_resync_hashtags', array( 0 ) );
+		}
 	}
 
 	/**

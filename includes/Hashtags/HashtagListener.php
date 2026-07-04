@@ -62,6 +62,9 @@ class HashtagListener implements ListenerInterface {
 
 		// Async worker hooks — run inline when Action Scheduler is absent.
 		add_action( 'buddynext_async_index_hashtags', array( $this, 'async_index_hashtags' ), 10, 3 );
+
+		// One-time Unicode re-sync (schema v24 / R11) — self-chaining batch worker.
+		add_action( 'buddynext_resync_hashtags', array( $this, 'resync_batch' ), 10, 1 );
 	}
 
 	/**
@@ -193,6 +196,63 @@ class HashtagListener implements ListenerInterface {
 				}
 			}
 		}
+	}
+
+	/**
+	 * One-time Unicode hashtag re-sync (schema v24 / R11).
+	 *
+	 * Before HashtagService::normalize_slug(), sync() ran sanitize_key() on each
+	 * tag, stripping every non-ASCII byte — so "#café" was stored as "caf" and
+	 * "#日本語" was dropped entirely. This walks every published post whose content
+	 * carries a '#', 100 rows at a time, re-extracting and re-syncing so the
+	 * correct Unicode slugs are registered and linked. ASCII-only tags re-sync to
+	 * the same slug (a harmless no-op).
+	 *
+	 * Self-chains the next batch through Action Scheduler so a 100k-post site never
+	 * does the work inline; it is safe to interrupt and resume (each batch is
+	 * independent and sync() is idempotent). After the final batch it reconciles
+	 * follows orphaned by the old mangling via merge_mangled_follows().
+	 *
+	 * @param int $offset Row offset for this batch.
+	 * @return void
+	 */
+	public function resync_batch( int $offset = 0 ): void {
+		if ( ! buddynext_feature_enabled( 'hashtags' ) ) {
+			return;
+		}
+
+		global $wpdb;
+		$batch_size = 100;
+		$like       = '%' . $wpdb->esc_like( '#' ) . '%';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, content FROM {$wpdb->prefix}bn_posts
+				 WHERE status = 'published' AND content LIKE %s
+				 ORDER BY id
+				 LIMIT %d OFFSET %d",
+				$like,
+				$batch_size,
+				$offset
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		foreach ( (array) $rows as $row ) {
+			$slugs = $this->service->extract( (string) $row['content'] );
+			$this->service->sync( 'post', (int) $row['id'], $slugs );
+		}
+
+		if ( count( (array) $rows ) === $batch_size ) {
+			// A full batch means more rows remain — queue the next window.
+			$this->dispatch( 'buddynext_resync_hashtags', array( $offset + $batch_size ) );
+			return;
+		}
+
+		// Final batch complete — reconcile follows for unambiguously mangled tags.
+		$this->service->merge_mangled_follows();
 	}
 
 	/**

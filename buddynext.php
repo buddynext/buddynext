@@ -1066,16 +1066,23 @@ function buddynext_format_content( string $content ): string {
 	// math like 2*3*4 in chat doesn't accidentally render as italic.
 	$escaped = preg_replace( '/(?<![\w])_([^_\n]+)_(?![\w])/u', '<em>$1</em>', $escaped );
 
-	// Replace #hashtag with a link (word boundary; allow hyphens and underscores).
+	// Replace #hashtag with a link. Uses the SAME detection pattern and slug
+	// normalizer as extraction/storage (HashtagService), so a Unicode tag like
+	// #café or #日本語 links to exactly the slug the registry stored — previously
+	// the ASCII-only regex + sanitize_title() here diverged from the stored slug,
+	// truncating "#café" to a "#caf" link with a dangling "é".
 	// Single chokepoint for the Hashtags feature: when the owner turns it off, the
 	// tag stays as plain text everywhere this formatter runs (feed posts +
 	// comments) — no clickable hashtags leak into a community that disabled them.
 	if ( buddynext_feature_enabled( 'hashtags' ) ) {
 		$escaped = preg_replace_callback(
-			'/#([a-zA-Z0-9_-]+)/u',
+			\BuddyNext\Hashtags\HashtagService::pattern(),
 			static function ( array $m ): string {
-				$slug = sanitize_title( $m[1] );
-				$url  = home_url( '/activity/hashtag/' . $slug . '/' );
+				$slug = \BuddyNext\Hashtags\HashtagService::normalize_slug( $m[1] );
+				if ( '' === $slug ) {
+					return $m[0];
+				}
+				$url = home_url( '/activity/hashtag/' . rawurlencode( $slug ) . '/' );
 				return '<a href="' . esc_url( $url ) . '" class="bn-hashtag">#' . esc_html( $m[1] ) . '</a>';
 			},
 			$escaped

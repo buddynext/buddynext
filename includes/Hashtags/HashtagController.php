@@ -82,7 +82,7 @@ class HashtagController {
 
 		register_rest_route(
 			'buddynext/v1',
-			'/hashtags/(?P<slug>[a-zA-Z0-9_-]+)/follow',
+			'/hashtags/(?P<slug>[^/]+)/follow',
 			array(
 				array(
 					'methods'             => WP_REST_Server::CREATABLE,
@@ -92,7 +92,7 @@ class HashtagController {
 						'slug' => array(
 							'required'          => true,
 							'type'              => 'string',
-							'sanitize_callback' => 'sanitize_key',
+							'sanitize_callback' => 'sanitize_text_field',
 						),
 					),
 				),
@@ -104,7 +104,7 @@ class HashtagController {
 						'slug' => array(
 							'required'          => true,
 							'type'              => 'string',
-							'sanitize_callback' => 'sanitize_key',
+							'sanitize_callback' => 'sanitize_text_field',
 						),
 					),
 				),
@@ -113,7 +113,7 @@ class HashtagController {
 
 		register_rest_route(
 			'buddynext/v1',
-			'/hashtags/(?P<slug>[a-zA-Z0-9_-]+)/feed',
+			'/hashtags/(?P<slug>[^/]+)/feed',
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'get_feed' ),
@@ -122,7 +122,7 @@ class HashtagController {
 					'slug'     => array(
 						'required'          => true,
 						'type'              => 'string',
-						'sanitize_callback' => 'sanitize_key',
+						'sanitize_callback' => 'sanitize_text_field',
 					),
 					'per_page' => array(
 						'required'          => false,
@@ -143,7 +143,7 @@ class HashtagController {
 
 		register_rest_route(
 			'buddynext/v1',
-			'/hashtags/(?P<slug>[a-zA-Z0-9_-]+)',
+			'/hashtags/(?P<slug>[^/]+)',
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'get_by_slug' ),
@@ -152,7 +152,7 @@ class HashtagController {
 					'slug' => array(
 						'required'          => true,
 						'type'              => 'string',
-						'sanitize_callback' => 'sanitize_key',
+						'sanitize_callback' => 'sanitize_text_field',
 					),
 				),
 			)
@@ -214,7 +214,10 @@ class HashtagController {
 	 * @return WP_REST_Response
 	 */
 	public function autocomplete( WP_REST_Request $request ): WP_REST_Response {
-		$prefix  = sanitize_key( (string) $request->get_param( 'q' ) );
+		// Pass the raw prefix through; HashtagService::autocomplete() runs the
+		// canonical normalize_slug(), so a Unicode prefix ("café") is preserved
+		// rather than pre-mangled by sanitize_key() ("caf") before the query.
+		$prefix  = (string) $request->get_param( 'q' );
 		$limit   = (int) $request->get_param( 'limit' );
 		$results = ( new HashtagService() )->autocomplete( $prefix, $limit );
 
