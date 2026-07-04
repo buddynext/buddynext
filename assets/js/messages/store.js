@@ -31,6 +31,8 @@ import { makeThumb } from '../media/upload-core.js';
  * a fallback so the UI never breaks if the state is absent. fmt() fills
  * sprintf-style '%s'/'%d' placeholders. */
 let I18N = {};
+// Debounce handle for the in-conversation message search.
+let dmSearchTimer = null;
 function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
 function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%[sd]/g, () => String( vals[ i++ ] ?? '' ) ); }
 
@@ -1101,6 +1103,78 @@ const messagesStore = store( 'buddynext/messages', {
 			if ( res && res.ok ) {
 				ctx.isMuted = next;
 			}
+		},
+
+		// Toggle the in-conversation message search bar.
+		toggleSearch() {
+			const ctx      = getContext();
+			ctx.searchOpen = ! ctx.searchOpen;
+			if ( ctx.searchOpen ) {
+				setTimeout( () => {
+					const input = document.querySelector( '[data-bn-dm-search-input]' );
+					if ( input ) {
+						input.focus();
+					}
+				}, 0 );
+			} else {
+				const results = document.querySelector( '[data-bn-dm-search-results]' );
+				if ( results ) {
+					results.replaceChildren();
+				}
+			}
+		},
+
+		// Debounced in-conversation search. Queries the engine's per-conversation
+		// message search and renders clickable results; clicking a hit scrolls to
+		// (and briefly highlights) that message when it is loaded in the thread.
+		searchMessages( event ) {
+			const ctx     = getContext();
+			const convId  = parseInt( ctx.activeConvId, 10 ) || 0;
+			const term    = ( event.target.value || '' ).trim();
+			const results = document.querySelector( '[data-bn-dm-search-results]' );
+			if ( ! results || ! convId ) {
+				return;
+			}
+			if ( dmSearchTimer ) {
+				clearTimeout( dmSearchTimer );
+			}
+			if ( term.length < 2 ) {
+				results.replaceChildren();
+				return;
+			}
+			dmSearchTimer = setTimeout( () => {
+				restFetch(
+					'/conversations/' + convId + '/messages/search?q=' + encodeURIComponent( term ) + '&per_page=30',
+					{ base: ctx.mvsRest, nonce: ctx.nonce, method: 'GET', toastOnError: false }
+				).then( ( res ) => {
+					results.replaceChildren();
+					const list = ( res && res.ok && res.data && res.data.results ) || [];
+					if ( ! list.length ) {
+						const empty = document.createElement( 'li' );
+						empty.className = 'bn-dm-search__empty';
+						empty.textContent = results.dataset.emptyText || 'No matching messages.';
+						results.appendChild( empty );
+						return;
+					}
+					list.forEach( ( m ) => {
+						const li  = document.createElement( 'li' );
+						const btn = document.createElement( 'button' );
+						btn.type      = 'button';
+						btn.className = 'bn-dm-search__result';
+						btn.textContent = m.content || '';
+						btn.addEventListener( 'click', () => {
+							const node = document.querySelector( '.bn-dm-msg[data-msg-id="' + ( m.id || 0 ) + '"]' );
+							if ( node ) {
+								node.scrollIntoView( { behavior: 'smooth', block: 'center' } );
+								node.classList.add( 'is-search-hit' );
+								setTimeout( () => node.classList.remove( 'is-search-hit' ), 1600 );
+							}
+						} );
+						li.appendChild( btn );
+						results.appendChild( li );
+					} );
+				} );
+			}, 300 );
 		},
 
 		// ── Rail search / tabs (progressive enhancement over server links) ───────
