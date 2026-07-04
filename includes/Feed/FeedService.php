@@ -301,7 +301,12 @@ class FeedService {
 		// rides the bn_spaces category index. Blank interests / no connections
 		// leave the ordering exactly as before (additive signal). Other filters
 		// (following / spaces / network) keep the plain chronological order.
-		$default_order_by = 'is_pinned DESC, created_at DESC, id DESC';
+		// Home is strictly chronological (plus the for-you affinity tiers below).
+		// Contextual pins (is_pinned) are NOT floated here: a member pinning their
+		// own profile post — or any of a space's pins — used to bleed to the top of
+		// every home timeline. Pins now surface only in their own context (profile
+		// / space feeds); the admin announcement is the sole top-of-home surface.
+		$default_order_by = 'created_at DESC, id DESC';
 		if ( 'for-you' === $filter && $user_id > 0 ) {
 			global $wpdb;
 			$bn_conn_ids     = $this->connection_ids_capped( $user_id );
@@ -321,7 +326,7 @@ class FeedService {
 					. ')) THEN ' . count( $bn_tiers );
 			}
 			if ( ! empty( $bn_tiers ) ) {
-				$default_order_by = 'is_pinned DESC, CASE ' . implode( ' ', $bn_tiers )
+				$default_order_by = 'CASE ' . implode( ' ', $bn_tiers )
 					. ' ELSE ' . count( $bn_tiers ) . ' END ASC, created_at DESC, id DESC';
 			}
 		}

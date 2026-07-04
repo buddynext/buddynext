@@ -1238,8 +1238,21 @@ class PostService {
 			return $ownership;
 		}
 
+		global $wpdb;
+
+		// The pin scope is the post's OWN location, never a caller argument: the
+		// REST controller omitted space_id, so every pin fell into the profile
+		// bucket and the per-space cap was fictional (profile + space pins shared
+		// one bucket). A profile pin (space_id NULL) is capped per author; a space
+		// pin is capped per space. Derive the scope from the post itself.
+		$post = $this->get( $post_id );
+		if ( null === $post ) {
+			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+		$space_id = (int) ( $post['space_id'] ?? 0 ) > 0 ? (int) $post['space_id'] : null;
+
 		/**
-		 * Filter the maximum number of posts a user may pin per scope.
+		 * Filter the maximum number of pinned posts allowed per scope.
 		 *
 		 * Free behaviour: 1 pin per scope (profile or space). Pro can raise this
 		 * limit for premium members by returning a higher integer.
@@ -1252,29 +1265,31 @@ class PostService {
 		 */
 		$pin_limit = (int) apply_filters( 'buddynext_post_pin_limit', 1, $space_id, $user_id );
 
-		global $wpdb;
-
 		if ( $pin_limit > 0 ) {
-			// Single prepare per branch — the previous code prepared the space_id
-			// clause and then interpolated that already-prepared string into a
-			// second prepare(), a double-prepare pattern that can mangle values
-			// and masks SQLi review. Thread $space_id straight into one prepare.
+			// Count only PUBLISHED pins already in this scope, excluding this post
+			// (so re-pinning an already-pinned post is idempotent, not a false cap
+			// hit). A trashed/pending post must never consume a pin slot.
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			if ( null === $space_id ) {
+				// Profile pins: capped per author.
 				$pinned_count = (int) $wpdb->get_var(
 					$wpdb->prepare(
 						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
-						 WHERE user_id = %d AND is_pinned = 1 AND space_id IS NULL",
-						$user_id
+						 WHERE user_id = %d AND is_pinned = 1 AND space_id IS NULL
+						   AND status = 'published' AND id <> %d",
+						$user_id,
+						$post_id
 					)
 				);
 			} else {
+				// Space pins: capped per space (across all pinners/moderators).
 				$pinned_count = (int) $wpdb->get_var(
 					$wpdb->prepare(
 						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
-						 WHERE user_id = %d AND is_pinned = 1 AND space_id = %d",
-						$user_id,
-						$space_id
+						 WHERE is_pinned = 1 AND space_id = %d
+						   AND status = 'published' AND id <> %d",
+						$space_id,
+						$post_id
 					)
 				);
 			}
