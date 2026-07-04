@@ -758,9 +758,16 @@ class ProfileController extends BaseRestController {
 		$json    = $request->get_json_params();
 		$data    = is_array( $json ) && ! empty( $json ) ? $json : (array) $request->get_body_params();
 
+		// A full profile write (the complete editor, web or app) declares itself via
+		// full_write so required fields are enforced across ABSENT keys too. A
+		// partial update (privacy tab, per-field autosave, onboarding step, app
+		// PATCH) omits the flag and keeps present-only enforcement.
+		$full_write = ! empty( $data['full_write'] ) && rest_sanitize_boolean( (string) $data['full_write'] );
+		unset( $data['full_write'] );
+
 		// Validate input before any persistence. Field-level errors are
 		// returned as a 422 payload the JS store can map to inline errors.
-		$errors = $this->validate_profile_payload( $data );
+		$errors = $this->validate_profile_payload( $data, $full_write );
 		if ( ! empty( $errors ) ) {
 			return new WP_REST_Response(
 				array(
@@ -913,10 +920,20 @@ class ProfileController extends BaseRestController {
 	 *   - URL fields (website + social_*) must pass wp_http_validate_url when
 	 *     non-empty. Empty strings are allowed (they clear the field).
 	 *
-	 * @param array<string, mixed> $data Raw request payload.
+	 * On a full write (profile create / complete-editor save) a required field
+	 * that is ABSENT from the payload fails validation, closing the bypass where
+	 * an app or partial PUT omits the key entirely. On a partial update only a
+	 * submitted-empty required value is flagged, so a partial save never demands
+	 * every field.
+	 *
+	 * @param array<string, mixed> $data       Raw request payload.
+	 * @param bool                 $full_write  Whether this is a full profile write
+	 *                                          (create / complete-editor save). When
+	 *                                          true, absent required fields also fail.
+	 *                                          Defaults to false (partial update).
 	 * @return array<string, string> Field-keyed error messages (possibly empty).
 	 */
-	private function validate_profile_payload( array $data ): array {
+	private function validate_profile_payload( array $data, bool $full_write = false ): array {
 		$errors = array();
 
 		if ( array_key_exists( 'display_name', $data ) ) {
@@ -990,9 +1007,12 @@ class ProfileController extends BaseRestController {
 				|| ( is_string( $raw ) && '' === trim( $raw ) )
 				|| ( is_array( $raw ) && array() === $raw ) );
 
-			// Required: only flagged when the field is submitted empty (an omitted
-			// field is a partial update, not a cleared one).
-			if ( ! empty( $field_def['is_required'] ) && $present && $is_empty ) {
+			// Required: flagged when a submitted value is empty (both modes) and,
+			// on a full write, when the key is ABSENT too — an omitted required key
+			// on a create / complete-editor save is a bypass, not a cleared field.
+			// A partial update leaves absent keys untouched, so it never demands
+			// fields the caller did not submit.
+			if ( ! empty( $field_def['is_required'] ) && $is_empty && ( $present || $full_write ) ) {
 				/* translators: %s: profile field label. */
 				$errors[ $fkey ] = sprintf( __( '%s is required.', 'buddynext' ), (string) ( $field_def['label'] ?? $fkey ) );
 				continue;
@@ -1047,6 +1067,24 @@ class ProfileController extends BaseRestController {
 		$service = buddynext_service( 'profiles' );
 		$json    = $request->get_json_params();
 		$data    = is_array( $json ) && ! empty( $json ) ? $json : (array) $request->get_body_params();
+
+		// Mirror PUT /me/profile: a full write enforces required fields across ABSENT
+		// keys, a partial update stays present-only. Validate BEFORE mutating anything
+		// (display_name included) so a 422 leaves the record untouched. Previously this
+		// admin route ran no payload validation and shared the same absent-key bypass.
+		$full_write = ! empty( $data['full_write'] ) && rest_sanitize_boolean( (string) $data['full_write'] );
+		unset( $data['full_write'] );
+
+		$errors = $this->validate_profile_payload( $data, $full_write );
+		if ( ! empty( $errors ) ) {
+			return new WP_REST_Response(
+				array(
+					'saved'  => false,
+					'errors' => $errors,
+				),
+				422
+			);
+		}
 
 		// Handle display_name separately — it's a WP core field, not a profile value.
 		if ( isset( $data['display_name'] ) ) {

@@ -231,6 +231,8 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 		data-bn-profile-user="<?php echo absint( $user_id ); ?>"
 	<?php endif; ?>
 	data-wp-init="callbacks.initEditGuard"
+	<?php // Complete profile editor: submits every field, so the store signals a full write and the server enforces required fields across absent keys. Partial surfaces (privacy tab) omit this marker. ?>
+	data-bn-full-write="1"
 	<?php
 	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 	echo wp_interactivity_data_wp_context(
