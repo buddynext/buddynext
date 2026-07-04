@@ -118,7 +118,7 @@ class Installer {
 	 *      converged to the Installer seed (one canonical schema from either
 	 *      provisioning path).
 	 */
-	private const SCHEMA_VERSION = 24;
+	private const SCHEMA_VERSION = 25;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -1810,7 +1810,8 @@ class Installer {
 				hashtag_id  BIGINT(20) UNSIGNED NOT NULL,
 				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (post_id, object_type, hashtag_id),
-				KEY         hashtag_feed (hashtag_id, created_at)
+				KEY         hashtag_feed (hashtag_id, created_at),
+				KEY         trending_window (created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_hashtag_follows (

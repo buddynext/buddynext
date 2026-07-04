@@ -741,6 +741,11 @@ class HashtagService {
 
 		global $wpdb;
 
+		// SCALE-CONTRACT: the 24-hour window filters on ph.created_at, which the
+		// composite KEY hashtag_feed (hashtag_id, created_at) cannot serve (its
+		// leading column is hashtag_id). The dedicated KEY trending_window
+		// (created_at) on bn_post_hashtags turns this into a range scan over only
+		// the recent rows instead of a full pivot scan — do NOT drop that index.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
