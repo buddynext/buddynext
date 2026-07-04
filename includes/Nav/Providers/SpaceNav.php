@@ -279,6 +279,11 @@ final class SpaceNav {
 			)
 		);
 
+		// Batch-prime per-viewer state for the chronological post-cards before the
+		// SSR loop renders them (C8.3). The pinned strip is a compact title/author
+		// card with no reaction/vote/report state, so it needs no priming.
+		$feed->prime_viewer_state( $posts, $viewer_id );
+
 		buddynext_get_template(
 			'parts/space-feed-panel.php',
 			array(

@@ -29,6 +29,9 @@ if ( 'home' === $scope && $viewer_id ) {
 $bn_posts = $result['items'] ?? array();
 $has_more = null !== ( $result['next_cursor'] ?? null );
 $context  = in_array( $scope, array( 'home', 'explore', 'profile' ), true ) ? $scope : 'home';
+
+// Batch-prime per-viewer state before the SSR post-card loop (C8.3).
+$feed_svc->prime_viewer_state( (array) $bn_posts, $viewer_id );
 ?>
 <div class="bn-block-activity-feed" data-scope="<?php echo esc_attr( $scope ); ?>">
 	<?php if ( empty( $bn_posts ) ) : ?>

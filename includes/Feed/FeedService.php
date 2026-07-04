@@ -1355,6 +1355,59 @@ class FeedService {
 	}
 
 	/**
+	 * Warm every per-viewer cache the post-card reads, in one query per service for
+	 * a whole page of feed items instead of ~3 per card.
+	 *
+	 * The post-card partial resolves viewer state per card — get_user_reaction() +
+	 * is_bookmarked() + user_vote() + user_has_reported(); each now reads a cache
+	 * this fills via a single batched query. MUST be called after a feed query and
+	 * before the SSR post-card loop (home / profile / space / explore / bookmarks
+	 * templates) as well as the REST render path — otherwise the first paint keeps
+	 * the N+1 (the surface QA bounced 10062105921 for).
+	 *
+	 * @param array $items  Hydrated feed rows about to be rendered.
+	 * @param int   $viewer Current user ID (0 when logged out — nothing to prime).
+	 * @return void
+	 */
+	public function prime_viewer_state( array $items, int $viewer ): void {
+		if ( $viewer <= 0 || empty( $items ) ) {
+			return;
+		}
+
+		$post_ids   = array();
+		$author_ids = array();
+		$poll_ids   = array();
+		foreach ( $items as $item ) {
+			$pid = absint( $item['id'] ?? 0 );
+			$aid = absint( $item['user_id'] ?? 0 );
+			if ( $pid ) {
+				$post_ids[] = $pid;
+			}
+			if ( $aid ) {
+				$author_ids[] = $aid;
+			}
+			if ( $pid && 'poll' === ( $item['type'] ?? '' ) ) {
+				$poll_ids[] = $pid;
+			}
+		}
+
+		if ( empty( $post_ids ) ) {
+			return;
+		}
+
+		if ( ! empty( $author_ids ) ) {
+			cache_users( array_values( array_unique( $author_ids ) ) );
+		}
+
+		buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids );
+		buddynext_service( 'bookmarks' )->user_bookmarks( $viewer ); // one cached query for the whole set.
+		buddynext_service( 'moderation' )->user_reported_map( $viewer, 'post', $post_ids );
+		if ( ! empty( $poll_ids ) ) {
+			buddynext_service( 'polls' )->user_votes_map( $viewer, $poll_ids );
+		}
+	}
+
+	/**
 	 * Return a space's pinned posts (up to the cap), newest first.
 	 *
 	 * The single-row space_pinned_post() left Pro's "10 pins per space" invisible —
