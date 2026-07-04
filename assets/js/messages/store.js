@@ -1584,6 +1584,63 @@ const messagesStore = store( 'buddynext/messages', {
 				toastOnError: false,
 			} );
 		},
+
+		// Load an older page of messages and prepend them, keeping the reader's
+		// place. The engine exposes a `before` cursor, so we page from the oldest
+		// message currently in the DOM. Removes the control when a short page
+		// returns (no more history). Fixes a thread being stuck at the newest 50.
+		*loadOlder() {
+			const ctx    = getContext();
+			const convId = parseInt( ctx.activeConvId, 10 ) || 0;
+			const log    = logEl();
+			if ( ! convId || ! log ) {
+				return;
+			}
+			const first    = log.querySelector( '.bn-dm-msg[data-msg-id]' );
+			const beforeId = first ? ( parseInt( first.dataset.msgId, 10 ) || 0 ) : 0;
+			if ( ! beforeId ) {
+				return;
+			}
+			const wrap = log.querySelector( '[data-bn-dm-loadolder]' );
+			if ( wrap ) {
+				wrap.setAttribute( 'aria-busy', 'true' );
+			}
+			const prevHeight = log.scrollHeight;
+			const prevTop    = log.scrollTop;
+
+			const res = yield restFetch(
+				'/conversations/' + convId + '/messages?before=' + beforeId + '&per_page=50',
+				{ base: ctx.mvsRest, nonce: ctx.nonce, method: 'GET', toastOnError: false }
+			);
+			if ( wrap ) {
+				wrap.removeAttribute( 'aria-busy' );
+			}
+			if ( ! res || ! res.ok ) {
+				return;
+			}
+			const data = res.data || {};
+			let list   = Array.isArray( data ) ? data : ( data.messages || data.items || [] );
+			if ( ! Array.isArray( list ) || ! list.length ) {
+				if ( wrap ) {
+					wrap.remove();
+				}
+				return;
+			}
+			// Oldest first, inserted just below the control (or at the top).
+			list = list.slice().sort( ( a, b ) => ( parseInt( a.id, 10 ) || 0 ) - ( parseInt( b.id, 10 ) || 0 ) );
+			const anchor = wrap ? wrap.nextSibling : log.firstChild;
+			list.forEach( ( m ) => {
+				if ( log.querySelector( '.bn-dm-msg[data-msg-id="' + ( m.id || 0 ) + '"]' ) ) {
+					return;
+				}
+				log.insertBefore( buildMessageNode( m, ctx.userId ), anchor );
+			} );
+			// Keep the same message under the viewport (no scroll jump).
+			log.scrollTop = prevTop + ( log.scrollHeight - prevHeight );
+			if ( list.length < 50 && wrap ) {
+				wrap.remove();
+			}
+		},
 	},
 	callbacks: {
 		// Anchor the messages two-pane to the viewport. The plugin renders inside

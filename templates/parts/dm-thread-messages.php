@@ -79,6 +79,19 @@ do_action( 'buddynext_part_dm_thread_messages_before', $args );
 <div class="<?php echo esc_attr( $bn_class ); ?>" role="log" aria-live="polite" aria-label="<?php echo esc_attr( $aria_label ); ?>" data-wp-on--click="actions.onThreadClick">
 
 	<?php
+	// When the first paint fills a whole page (>= 50), older history may exist —
+	// offer a control to page backwards through it (actions.loadOlder prepends the
+	// next page and removes this control when history runs out).
+	if ( count( $messages_iter ) >= 50 ) :
+		?>
+		<div class="bn-dm-loadolder" data-bn-dm-loadolder>
+			<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-wp-on--click="actions.loadOlder">
+				<?php esc_html_e( 'Load older messages', 'buddynext' ); ?>
+			</button>
+		</div>
+		<?php
+	endif;
+
 	$prev_date = '';
 	foreach ( $messages_iter as $msg ) :
 		$msg_at    = $msg['created_at'] ?? '';

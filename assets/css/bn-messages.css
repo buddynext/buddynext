@@ -1994,3 +1994,28 @@ body.admin-bar .bn-dm-info .bn-modal__panel {
 		grid-template-columns: repeat(4, 1fr);
 	}
 }
+
+/* Load-older (thread) + load-more (rail) pagination controls (C17.2). */
+.bn-dm-loadolder {
+	display: flex;
+	justify-content: center;
+	padding: var(--bn-s2, 0.5rem) 0;
+}
+
+.bn-dm-loadolder[aria-busy="true"] {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+.bn-dm-rail__loadmore {
+	display: block;
+	text-align: center;
+	padding: var(--bn-s3, 0.75rem);
+	font-size: var(--bn-text-sm, 0.875rem);
+	color: var(--bn-accent, var(--brand));
+	text-decoration: none;
+}
+
+.bn-dm-rail__loadmore:hover {
+	background: var(--bn-canvas);
+}
