@@ -16,6 +16,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Auth;
 
 use BuddyNext\Auth\VerificationService;
+use BuddyNext\Core\RateLimiter;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -430,6 +431,54 @@ class AuthController {
 	}
 
 	/**
+	 * Rate-limit a raw credential REST endpoint by IP + submitted identifier.
+	 *
+	 * The login / lost-password / reset-password routes are an unmetered brute-force
+	 * surface that also bypasses wp-login.php security plugins, so they get the same
+	 * RateLimiter the registration / social / 2FA paths already use. Keying on
+	 * IP + login means one targeted account throttles without locking a whole NAT
+	 * out of unrelated logins.
+	 *
+	 * @param string $action      Short slug (login|lost|reset) for the key + filter.
+	 * @param string $identifier  Submitted login / email (folded into the key).
+	 * @param bool   $per_ip_only When true the key ignores $identifier, so all
+	 *                            attempts from the IP share one budget — used for
+	 *                            lost/reset-password so an attacker cannot dodge the
+	 *                            limit by rotating the email (enumeration / reset spam).
+	 * @return WP_Error|null 429 error when over the cap, else null.
+	 */
+	private function rate_limit_guard( string $action, string $identifier, bool $per_ip_only = false ): ?WP_Error {
+		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) ) : '';
+		if ( '' === $ip ) {
+			return null;
+		}
+
+		/**
+		 * Filter the per-15-minutes attempt cap for a credential endpoint.
+		 *
+		 * @param int    $max    Default cap (10 attempts / 15 min). 0 disables it.
+		 * @param string $action login|lost|reset.
+		 */
+		$max = (int) apply_filters( 'buddynext_auth_rate_limit', 10, $action );
+		if ( $max <= 0 ) {
+			return null;
+		}
+
+		$subject = $per_ip_only ? $action : ( $action . '|' . strtolower( $identifier ) );
+		$key     = 'bn_auth_' . md5( $ip . '|' . $subject );
+		if ( RateLimiter::count( $key ) >= $max ) {
+			return new WP_Error(
+				'bn_auth_rate_limited',
+				__( 'Too many attempts. Please wait a few minutes and try again.', 'buddynext' ),
+				array( 'status' => 429 )
+			);
+		}
+		RateLimiter::hit( $key, 15 * MINUTE_IN_SECONDS );
+
+		return null;
+	}
+
+	/**
 	 * POST /auth/login — authenticate a user.
 	 *
 	 * @param WP_REST_Request $request Request.
@@ -446,6 +495,11 @@ class AuthController {
 				__( 'Please enter your email or username and your password.', 'buddynext' ),
 				array( 'status' => 400 )
 			);
+		}
+
+		$limited = $this->rate_limit_guard( 'login', $user_input );
+		if ( $limited instanceof WP_Error ) {
+			return $limited;
 		}
 
 		$login = is_email( $user_input ) ? $this->resolve_login_for_email( $user_input ) : $user_input;
@@ -905,6 +959,17 @@ class AuthController {
 			return $generic;
 		}
 
+		$limited = $this->rate_limit_guard( 'lost', $login, true );
+		if ( $limited instanceof WP_Error ) {
+			return new WP_REST_Response(
+				array(
+					'success' => false,
+					'message' => $limited->get_error_message(),
+				),
+				429
+			);
+		}
+
 		// retrieve_password() accepts a login or email; it sends the reset email
 		// when the account exists and returns true, or a WP_Error otherwise. We
 		// swallow the result so the response never reveals which.
@@ -996,6 +1061,11 @@ class AuthController {
 		$key      = sanitize_text_field( (string) $request->get_param( 'key' ) );
 		$login    = sanitize_text_field( (string) $request->get_param( 'login' ) );
 		$password = (string) $request->get_param( 'password' );
+
+		$limited = $this->rate_limit_guard( 'reset', $login, true );
+		if ( $limited instanceof WP_Error ) {
+			return $limited;
+		}
 
 		if ( strlen( $password ) < 8 ) {
 			return new WP_Error(
