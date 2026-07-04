@@ -1235,7 +1235,12 @@ class PostService {
 	public function pin( int $post_id, int $user_id, ?int $space_id = null ): bool|WP_Error {
 		$ownership = $this->assert_owner( $post_id, $user_id );
 		if ( is_wp_error( $ownership ) ) {
-			return $ownership;
+			// Owners pin their own posts; site admins and space moderators may pin
+			// any post in a space they moderate (same escape hatch as delete()).
+			// Space mods managing their own space's pinned set was impossible before.
+			if ( 'not_post_owner' !== $ownership->get_error_code() || ! $this->can_moderate_post( $post_id, $user_id ) ) {
+				return $ownership;
+			}
 		}
 
 		global $wpdb;
@@ -1328,7 +1333,11 @@ class PostService {
 	public function unpin( int $post_id, int $user_id ): bool|WP_Error {
 		$ownership = $this->assert_owner( $post_id, $user_id );
 		if ( is_wp_error( $ownership ) ) {
-			return $ownership;
+			// Same permission as pin(): owner, site admin, or space moderator of the
+			// post's space may unpin it.
+			if ( 'not_post_owner' !== $ownership->get_error_code() || ! $this->can_moderate_post( $post_id, $user_id ) ) {
+				return $ownership;
+			}
 		}
 
 		global $wpdb;
