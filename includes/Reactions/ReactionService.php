@@ -619,6 +619,59 @@ class ReactionService {
 	}
 
 	/**
+	 * Batch-fetch the total reaction count for many objects in ONE query.
+	 *
+	 * Returns a map of object_id => total count (0 where none). Warms the singular
+	 * per-object count cache so a later count() (e.g. per-comment enrichment) is a
+	 * free cache hit — the whole thread's like counts cost this one query instead
+	 * of one per comment.
+	 *
+	 * @param string $object_type Object type (e.g. 'comment').
+	 * @param int[]  $object_ids  Object IDs to count.
+	 * @return array<int,int> object_id => count.
+	 */
+	public function count_map( string $object_type, array $object_ids ): array {
+		$object_type = sanitize_key( $object_type );
+		$object_ids  = array_values( array_unique( array_filter( array_map( 'absint', $object_ids ) ) ) );
+
+		$map = array();
+		foreach ( $object_ids as $id ) {
+			$map[ $id ] = 0;
+		}
+
+		if ( empty( $object_ids ) ) {
+			return $map;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $object_ids ), '%d' ) );
+		$params       = array_merge( array( $object_type ), $object_ids );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT object_id, COUNT(*) AS cnt FROM {$wpdb->prefix}bn_reactions
+				 WHERE object_type = %s AND object_id IN ( {$placeholders} )
+				 GROUP BY object_id",
+				$params
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		foreach ( (array) $rows as $row ) {
+			$map[ (int) $row['object_id'] ] = (int) $row['cnt'];
+		}
+
+		foreach ( $map as $id => $cnt ) {
+			wp_cache_set( "count_{$object_type}_{$id}", $cnt, self::CACHE_GROUP, self::CACHE_TTL );
+		}
+
+		return $map;
+	}
+
+	/**
 	 * Return the total reaction count for an object.
 	 *
 	 * @param string $object_type Object type.

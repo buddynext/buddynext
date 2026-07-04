@@ -346,6 +346,30 @@ class CommentController extends BaseRestController {
 			}
 			return $comment;
 		};
+
+		// Batch-prime the whole thread before enriching so the per-comment reaction
+		// lookups below (count + has_reacted + get_user_emoji) are cache hits, not
+		// ~3 queries per comment on a cold cache (C9.3). Collect every id first,
+		// including nested replies.
+		$bn_comment_ids = array();
+		$bn_author_ids  = array();
+		$collect        = function ( array $comment ) use ( &$collect, &$bn_comment_ids, &$bn_author_ids ): void {
+			$bn_comment_ids[] = (int) $comment['id'];
+			$bn_author_ids[]  = (int) $comment['user_id'];
+			if ( ! empty( $comment['replies'] ) ) {
+				array_map( $collect, $comment['replies'] );
+			}
+		};
+		array_map( $collect, $result['items'] );
+
+		if ( ! empty( $bn_author_ids ) ) {
+			cache_users( array_values( array_unique( array_filter( $bn_author_ids ) ) ) );
+		}
+		if ( $viewer_id > 0 ) {
+			$reactions->get_user_emoji_map( $viewer_id, 'comment', $bn_comment_ids );
+		}
+		$reactions->count_map( 'comment', $bn_comment_ids );
+
 		$result['items'] = array_map( $walk, $result['items'] );
 
 		return new WP_REST_Response( $result, 200 );
