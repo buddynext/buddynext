@@ -9,7 +9,7 @@
  * @package BuddyNext
  *
  * @var int      $profile_user_id Profile being viewed (avatar).
- * @var object[] $discussions     Rows from JetonomyBridge::user_discussions().
+ * @var object[] $discussions     Rows from JetonomyBridge::user_discussions() (each carries a base-slug-aware `url`).
  */
 
 declare( strict_types=1 );
@@ -30,10 +30,10 @@ if ( empty( $bn_pd_rows ) ) :
 endif;
 
 foreach ( $bn_pd_rows as $bn_pd_disc ) :
-	$bn_pd_slug = '' !== (string) $bn_pd_disc->space_slug ? (string) $bn_pd_disc->space_slug : 'general';
 	$bn_pd_name = '' !== (string) $bn_pd_disc->space_name ? (string) $bn_pd_disc->space_name : __( 'General', 'buddynext' );
+	$bn_pd_url  = isset( $bn_pd_disc->url ) ? (string) $bn_pd_disc->url : '';
 	?>
-	<a href="<?php echo esc_url( home_url( '/community/s/' . $bn_pd_slug . '/t/' . $bn_pd_disc->slug . '/' ) ); ?>" class="bn-reply-card bn-reply-card--link bn-reply-card--avatar">
+	<a href="<?php echo esc_url( $bn_pd_url ); ?>" class="bn-reply-card bn-reply-card--link bn-reply-card--avatar">
 		<span class="bn-reply-card__avatar" aria-hidden="true">
 			<img src="<?php echo esc_url( get_avatar_url( $bn_pd_uid, array( 'size' => 80 ) ) ); ?>" alt="" loading="lazy" width="40" height="40" />
 		</span>

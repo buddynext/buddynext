@@ -308,11 +308,35 @@ class JetonomyBridge {
 		$space_slug = (string) $wpdb->get_var( $wpdb->prepare( "SELECT slug FROM {$wpdb->prefix}jt_spaces WHERE id = %d LIMIT 1", $space_id ) );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		if ( '' === $post_slug || '' === $space_slug ) {
+		return $this->discussion_permalink( $space_slug, $post_slug );
+	}
+
+	/**
+	 * Build a Jetonomy discussion (topic) permalink from its space + post slug.
+	 *
+	 * Single source of truth for the discussion URL shape. The base segment always
+	 * comes from Jetonomy's configurable base slug (an owner may rename it from
+	 * `community` to `discuss` or anything else via Settings → General), resolved
+	 * through \Jetonomy\base_url() so BuddyNext never hardcodes the base. Falls back
+	 * to the stored `jetonomy_settings['base_slug']` option (Jetonomy's own default
+	 * `community`) only when the Jetonomy helper is unavailable.
+	 *
+	 * @param string $space_slug jt_spaces.slug.
+	 * @param string $post_slug  jt_posts.slug.
+	 * @return string Discussion permalink, or '' when either slug is empty.
+	 */
+	public function discussion_permalink( string $space_slug, string $post_slug ): string {
+		if ( '' === $space_slug || '' === $post_slug ) {
 			return '';
 		}
 
-		$base = function_exists( 'Jetonomy\base_url' ) ? (string) \Jetonomy\base_url() : home_url( '/community' );
+		if ( function_exists( 'Jetonomy\base_url' ) ) {
+			$base = (string) \Jetonomy\base_url();
+		} else {
+			$settings  = get_option( 'jetonomy_settings', array() );
+			$base_slug = isset( $settings['base_slug'] ) && '' !== (string) $settings['base_slug'] ? (string) $settings['base_slug'] : 'community';
+			$base      = home_url( '/' . ltrim( $base_slug, '/' ) );
+		}
 
 		return rtrim( $base, '/' ) . '/s/' . rawurlencode( $space_slug ) . '/t/' . rawurlencode( $post_slug ) . '/';
 	}
@@ -720,7 +744,7 @@ class JetonomyBridge {
 	 *
 	 * @param int $user_id Discussion author ID.
 	 * @param int $limit   Max rows (1-50). Default 20.
-	 * @return object[] Each row: id, title, slug, reply_count, vote_score, created_at, space_name, space_slug.
+	 * @return object[] Each row: id, title, slug, reply_count, vote_score, created_at, space_name, space_slug, url.
 	 */
 	public function user_discussions( int $user_id, int $limit = 20 ): array {
 		$user_id = absint( $user_id );
@@ -747,7 +771,17 @@ class JetonomyBridge {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return is_array( $rows ) ? $rows : array();
+		if ( ! is_array( $rows ) ) {
+			return array();
+		}
+
+		// Resolve each discussion's permalink through the base-slug-aware helper so
+		// the template renders a ready URL and never rebuilds the /s/…/t/… path.
+		foreach ( $rows as $row ) {
+			$row->url = $this->discussion_permalink( (string) $row->space_slug, (string) $row->slug );
+		}
+
+		return $rows;
 	}
 
 	/**
