@@ -645,6 +645,24 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'default' => CookieConsentService::default_message(),
 						)
 					),
+					new Field(
+						array(
+							'key'     => 'buddynext_cookie_consent_accept_label',
+							'type'    => 'text',
+							'label'   => __( 'Accept button label', 'buddynext' ),
+							'hint'    => __( 'Text on the dismiss button. Leave blank for the default ("Got it").', 'buddynext' ),
+							'default' => '',
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_cookie_consent_policy_label',
+							'type'    => 'text',
+							'label'   => __( 'Privacy-policy link label', 'buddynext' ),
+							'hint'    => __( 'Text of the link to your privacy policy (shown only when a Privacy Policy page is set in Settings → Privacy). Leave blank for the default ("Privacy policy").', 'buddynext' ),
+							'default' => '',
+						)
+					),
 				)
 			),
 			new Section(

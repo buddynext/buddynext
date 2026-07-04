@@ -88,8 +88,12 @@ class CookieConsentService {
 			: '';
 		$custom       = trim( (string) get_option( 'buddynext_cookie_consent_text', '' ) );
 		$message      = '' !== $custom ? $custom : self::default_message();
-		$accept_label = __( 'Got it', 'buddynext' );
-		$policy_label = __( 'Privacy policy', 'buddynext' );
+
+		// Accept + policy-link labels are owner-editable (blank = the default).
+		$custom_accept = trim( (string) get_option( 'buddynext_cookie_consent_accept_label', '' ) );
+		$accept_label  = '' !== $custom_accept ? $custom_accept : __( 'Got it', 'buddynext' );
+		$custom_policy = trim( (string) get_option( 'buddynext_cookie_consent_policy_label', '' ) );
+		$policy_label  = '' !== $custom_policy ? $custom_policy : __( 'Privacy policy', 'buddynext' );
 		?>
 		<div class="bn-cookie-consent" role="region" aria-label="<?php esc_attr_e( 'Cookie notice', 'buddynext' ); ?>" data-bn-cookie-consent data-cookie-name="<?php echo esc_attr( self::COOKIE ); ?>" hidden>
 			<p class="bn-cookie-consent__text">
