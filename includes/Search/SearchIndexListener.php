@@ -38,7 +38,14 @@ class SearchIndexListener implements ListenerInterface {
 		// indexed and stay unsearchable in the members directory / global search.
 		add_action( 'user_register', array( $this, 'on_index_user' ), 20, 1 );
 		add_action( 'buddynext_post_created', array( $this, 'on_post_created' ), 10, 3 );
+		// Re-index on edit: a post's content OR its privacy can change, and the
+		// index must follow — otherwise an edited post keeps its stale text and a
+		// post flipped public->private stays publicly searchable (a privacy leak).
+		add_action( 'buddynext_post_updated', array( $this, 'on_post_updated' ), 10, 3 );
 		add_action( 'buddynext_post_deleted', array( $this, 'on_post_deleted' ), 10, 1 );
+		// When a member flips an account-level search-visibility setting, reindex
+		// their EXISTING posts so their public/private search state follows suit.
+		add_action( 'buddynext_user_search_visibility_changed', array( $this, 'on_user_search_visibility_changed' ), 10, 1 );
 		add_action( 'buddynext_space_created', array( $this, 'on_space_created' ), 10, 2 );
 		add_action( 'buddynext_space_updated', array( $this, 'on_space_updated' ), 10, 1 );
 		add_action( 'buddynext_space_deleted', array( $this, 'on_space_deleted' ), 10, 1 );
@@ -110,6 +117,54 @@ class SearchIndexListener implements ListenerInterface {
 	 */
 	public function on_post_deleted( int $post_id ): void {
 		$this->dispatch( 'buddynext_async_deindex_post', array( $post_id ) );
+	}
+
+	/**
+	 * Handle buddynext_post_updated — re-index an edited post.
+	 *
+	 * Re-runs the same async indexer as creation: async_index_post() re-reads the
+	 * row and recomputes both content and visibility (post privacy AND account
+	 * privacy), so an edit or a privacy flip is reflected in the index.
+	 *
+	 * @param int   $post_id Post ID.
+	 * @param int   $user_id Author ID.
+	 * @param array $fields  Changed fields (unused; the indexer re-reads the row).
+	 * @return void
+	 */
+	public function on_post_updated( int $post_id, int $user_id = 0, array $fields = array() ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
+		$this->dispatch( 'buddynext_async_index_post', array( $post_id, $user_id ) );
+	}
+
+	/**
+	 * Handle buddynext_user_search_visibility_changed — reindex a member's posts.
+	 *
+	 * Fired when a member toggles an account-level setting that governs whether
+	 * their posts appear in global search (private account / search-indexable).
+	 * Each published post is re-indexed so its stored visibility matches the new
+	 * setting; dispatching one async action per post lets Action Scheduler chunk
+	 * the work for prolific authors.
+	 *
+	 * @param int $user_id The member whose search visibility changed.
+	 * @return void
+	 */
+	public function on_user_search_visibility_changed( int $user_id ): void {
+		if ( $user_id <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$post_ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'published'",
+				$user_id
+			)
+		);
+
+		foreach ( $post_ids as $post_id ) {
+			$this->dispatch( 'buddynext_async_index_post', array( (int) $post_id, $user_id ) );
+		}
 	}
 
 	/**

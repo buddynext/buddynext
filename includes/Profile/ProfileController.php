@@ -825,10 +825,33 @@ class ProfileController extends BaseRestController {
 				unset( $data[ $gate_key ] );
 			}
 		}
+		// Capture the search-visibility toggles before the write so we can fire a
+		// reindex only when one actually changes (not on every profile save).
+		$search_vis_keys   = array( 'bn_account_private', 'bn_privacy_search_indexable' );
+		$search_vis_before = array();
+		foreach ( $search_vis_keys as $svk ) {
+			$search_vis_before[ $svk ] = (string) get_user_meta( $user_id, $svk, true );
+		}
+
 		foreach ( $bool_keys as $bk ) {
 			if ( array_key_exists( $bk, $data ) ) {
 				update_user_meta( $user_id, $bk, ! empty( $data[ $bk ] ) ? '1' : '0' );
 				unset( $data[ $bk ] );
+			}
+		}
+
+		foreach ( $search_vis_keys as $svk ) {
+			if ( $search_vis_before[ $svk ] !== (string) get_user_meta( $user_id, $svk, true ) ) {
+				/**
+				 * An account-level setting governing whether a member's posts
+				 * appear in global search changed. Listeners (SearchIndexListener)
+				 * reindex the member's existing posts so their stored search
+				 * visibility follows the new setting.
+				 *
+				 * @param int $user_id The member whose search visibility changed.
+				 */
+				do_action( 'buddynext_user_search_visibility_changed', $user_id );
+				break;
 			}
 		}
 
