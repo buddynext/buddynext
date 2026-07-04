@@ -810,6 +810,7 @@ function buildEntryVisNode( group, index ) {
 	// Same slugs + labels as the server's $bn_vis_labels — never a new set.
 	[
 		[ 'public',      t( 'visPublic', 'Public' ) ],
+		[ 'members',     t( 'visMembers', 'Members' ) ],
 		[ 'followers',   t( 'visFollowers', 'Followers' ) ],
 		[ 'connections', t( 'visConnections', 'Connections' ) ],
 		[ 'private',     t( 'visPrivate', 'Only me' ) ],
