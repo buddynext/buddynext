@@ -249,6 +249,33 @@ class AuthController {
 				'permission_callback' => '__return_true',
 			)
 		);
+
+		// Native-app token flow — mint / list / revoke Application Passwords.
+		register_rest_route(
+			'buddynext/v1',
+			'/auth/app-password',
+			array(
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'issue_app_password' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				array(
+					'methods'             => 'GET',
+					'callback'            => array( $this, 'list_app_passwords' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+			)
+		);
+		register_rest_route(
+			'buddynext/v1',
+			'/auth/app-password/(?P<uuid>[a-fA-F0-9-]+)',
+			array(
+				'methods'             => 'DELETE',
+				'callback'            => array( $this, 'revoke_app_password' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
 	}
 
 	/**
@@ -541,11 +568,137 @@ class AuthController {
 
 		$this->complete_login( $user, $remember );
 
+		$payload = array(
+			'success'     => true,
+			'user_id'     => (int) $user->ID,
+			'redirect_to' => esc_url_raw( $redirect_to ),
+			// A REST nonce so a just-logged-in client can immediately call the
+			// authenticated routes (e.g. mint an app password) over its cookie.
+			'rest_nonce'  => wp_create_nonce( 'wp_rest' ),
+		);
+
+		// One-shot native-app flow: mint an Application Password now so the app can
+		// switch to stateless HTTP Basic auth and drop the cookie jar entirely.
+		if ( (bool) $request->get_param( 'issue_app_password' ) ) {
+			$minted = $this->mint_app_password( (int) $user->ID, (string) $request->get_param( 'device_name' ) );
+			if ( ! is_wp_error( $minted ) ) {
+				$payload['app_password'] = $minted;
+			}
+		}
+
+		return new WP_REST_Response( $payload, 200 );
+	}
+
+	/**
+	 * Mint a WordPress Application Password for a user (the native-app token).
+	 *
+	 * The plaintext password is returned ONCE; the app stores it and authenticates
+	 * every subsequent REST call with HTTP Basic (username:app-password) — no cookie,
+	 * no nonce. Returns a shape the app can persist, or WP_Error when app passwords
+	 * are unavailable for the user (e.g. disabled or non-SSL policy).
+	 *
+	 * @param int    $user_id User to mint for.
+	 * @param string $name    Device / app label (defaults to a generic BuddyNext label).
+	 * @return array{password:string,uuid:string,name:string,username:string}|WP_Error
+	 */
+	private function mint_app_password( int $user_id, string $name = '' ) {
+		if ( ! class_exists( '\WP_Application_Passwords' ) || ! wp_is_application_passwords_available_for_user( $user_id ) ) {
+			return new WP_Error(
+				'app_passwords_unavailable',
+				__( 'Application passwords are not available on this site.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$name    = sanitize_text_field( $name );
+		$label   = '' !== $name ? $name : __( 'BuddyNext app', 'buddynext' );
+		$created = \WP_Application_Passwords::create_new_application_password( $user_id, array( 'name' => $label ) );
+
+		if ( is_wp_error( $created ) ) {
+			return $created;
+		}
+
+		$user = get_userdata( $user_id );
+
+		return array(
+			'password' => (string) $created[0],
+			'uuid'     => (string) ( $created[1]['uuid'] ?? '' ),
+			'name'     => (string) ( $created[1]['name'] ?? $label ),
+			'username' => $user ? $user->user_login : '',
+		);
+	}
+
+	/**
+	 * POST /auth/app-password — mint an Application Password for the current user.
+	 *
+	 * The plaintext password is in the 201 response ONCE; the app stores it and
+	 * authenticates future REST calls with HTTP Basic (username:app-password).
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function issue_app_password( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$minted = $this->mint_app_password( get_current_user_id(), (string) $request->get_param( 'name' ) );
+		if ( is_wp_error( $minted ) ) {
+			return $minted;
+		}
+
+		return new WP_REST_Response( $minted, 201 );
+	}
+
+	/**
+	 * GET /auth/app-password — list the current user's Application Passwords.
+	 *
+	 * Never exposes the secret (only the metadata needed to show + revoke them).
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public function list_app_passwords( WP_REST_Request $request ): WP_REST_Response { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		$user_id = get_current_user_id();
+		$items   = class_exists( '\WP_Application_Passwords' )
+			? \WP_Application_Passwords::get_user_application_passwords( $user_id )
+			: array();
+
+		$out = array();
+		foreach ( (array) $items as $item ) {
+			$out[] = array(
+				'uuid'      => (string) ( $item['uuid'] ?? '' ),
+				'name'      => (string) ( $item['name'] ?? '' ),
+				'created'   => (int) ( $item['created'] ?? 0 ),
+				'last_used' => isset( $item['last_used'] ) ? (int) $item['last_used'] : null,
+			);
+		}
+
+		return new WP_REST_Response( array( 'app_passwords' => $out ), 200 );
+	}
+
+	/**
+	 * DELETE /auth/app-password/{uuid} — revoke one of the current user's tokens.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function revoke_app_password( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		if ( ! class_exists( '\WP_Application_Passwords' ) ) {
+			return new WP_Error(
+				'app_passwords_unavailable',
+				__( 'Application passwords are not available on this site.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$uuid    = sanitize_text_field( (string) $request['uuid'] );
+		$deleted = \WP_Application_Passwords::delete_application_password( get_current_user_id(), $uuid );
+
+		if ( is_wp_error( $deleted ) ) {
+			return $deleted;
+		}
+
 		return new WP_REST_Response(
 			array(
-				'success'     => true,
-				'user_id'     => (int) $user->ID,
-				'redirect_to' => esc_url_raw( $redirect_to ),
+				'success' => true,
+				'uuid'    => $uuid,
 			),
 			200
 		);
