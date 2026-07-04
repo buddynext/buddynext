@@ -884,6 +884,78 @@ function buildReactorRow( r, emojiBase ) {
  *
  * @param {Object} ctx Element context from getContext() (postId, restUrl, …).
  */
+/**
+ * Append a page of comments to the list and (re)build the "View more" control.
+ *
+ * The REST endpoint paginates top-level comments and returns the grand `total`;
+ * the web client previously fetched only page 1 (per_page=20) and ignored the
+ * total, so a 500-comment thread stranded 480 comments. This renders the page's
+ * items, then shows a "View N more comments" button when more remain.
+ *
+ * @param {Element} listEl The [data-comment-list] container.
+ * @param {Object}  data   REST response ({ items, total, page, per_page }).
+ * @param {Object}  ctx    Post-card context (ids, nonce, restUrl).
+ * @return {void}
+ */
+function bnRenderCommentPage( listEl, data, ctx ) {
+	const items   = data.items || [];
+	const total   = Number( data.total ) || items.length;
+	const page    = Number( data.page ) || Number( listEl.dataset.page ) || 1;
+	const perPage = Number( data.per_page ) || 20;
+
+	// Drop any prior load-more button before appending this page's items.
+	const oldBtn = listEl.querySelector( '.bn-comment-loadmore' );
+	if ( oldBtn ) listEl.removeChild( oldBtn );
+
+	items.forEach( ( comment ) => {
+		listEl.appendChild(
+			buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, 0 )
+		);
+	} );
+
+	const shown = page * perPage;
+	if ( shown < total ) {
+		const remaining = total - shown;
+		const btn = document.createElement( 'button' );
+		btn.type      = 'button';
+		btn.className = 'bn-comment-loadmore';
+		btn.textContent = t( 'viewMoreComments', 'View more comments' ) + ' (' + remaining + ')';
+		btn.addEventListener( 'click', () => bnLoadMoreComments( listEl, ctx, btn ) );
+		listEl.appendChild( btn );
+	}
+}
+
+/**
+ * Fetch and append the next page of comments (the load-more click handler).
+ *
+ * @param {Element} listEl The [data-comment-list] container.
+ * @param {Object}  ctx    Post-card context.
+ * @param {Element} btn    The load-more button (disabled while fetching).
+ * @return {Promise<void>}
+ */
+async function bnLoadMoreComments( listEl, ctx, btn ) {
+	const nextPage = ( Number( listEl.dataset.page ) || 1 ) + 1;
+	btn.disabled    = true;
+	btn.textContent = t( 'loadingComments', 'Loading…' );
+
+	try {
+		const res = await restFetch(
+			'/comments?object_type=post&object_id=' + ctx.postId + '&per_page=20&page=' + nextPage,
+			{ nonce: ctx.reactNonce, toastOnError: false }
+		);
+		if ( res.ok ) {
+			listEl.dataset.page = String( nextPage );
+			bnRenderCommentPage( listEl, res.data, ctx );
+		} else {
+			btn.disabled    = false;
+			btn.textContent = t( 'retry', 'Retry' );
+		}
+	} catch ( _e ) {
+		btn.disabled    = false;
+		btn.textContent = t( 'retry', 'Retry' );
+	}
+}
+
 function* bnLoadComments( ctx ) {
 	const listEl = document.querySelector( '[data-comment-list="' + ctx.postId + '"]' );
 	if ( ! listEl || listEl.dataset.loaded ) {
@@ -909,20 +981,16 @@ function* bnLoadComments( ctx ) {
 
 	try {
 		const res = yield restFetch(
-			'/comments?object_type=post&object_id=' + ctx.postId + '&per_page=20',
+			'/comments?object_type=post&object_id=' + ctx.postId + '&per_page=20&page=1',
 			{ nonce: ctx.reactNonce, toastOnError: false }
 		);
 		while ( listEl.firstChild ) {
 			listEl.removeChild( listEl.firstChild );
 		}
 		if ( res.ok ) {
-			const data = res.data;
 			listEl.dataset.loaded = '1';
-			( data.items || [] ).forEach( ( comment ) => {
-				listEl.appendChild(
-					buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, 0 )
-				);
-			} );
+			listEl.dataset.page   = '1';
+			bnRenderCommentPage( listEl, res.data, ctx );
 		} else {
 			const err = document.createElement( 'div' );
 			err.className = 'bn-comment-error';
