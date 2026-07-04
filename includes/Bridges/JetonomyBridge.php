@@ -417,6 +417,159 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * Whether a BuddyNext space currently has a Discussion linked.
+	 *
+	 * A Discussion is opt-in and never mandatory — a space has one only after the
+	 * owner enabled or linked it. Thin boolean wrapper over the link meta for the
+	 * owner-facing control and nav gating.
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return bool True when a Jetonomy discussion is linked.
+	 */
+	public function space_has_discussion( int $space_id ): bool {
+		return $this->forum_id_for_space( $space_id ) > 0;
+	}
+
+	/**
+	 * Resolve the per-space Discussion status for the owner control + tab.
+	 *
+	 * Returns the linked state plus the discussion's display name and public URL
+	 * so the settings panel can show "Active · View" without reaching into jt_*
+	 * itself (the bridge owns that access).
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return array{linked:bool,forum_id:int,name:string,url:string}
+	 */
+	public function space_discussion_status( int $space_id ): array {
+		$forum_id = $this->forum_id_for_space( $space_id );
+		if ( $forum_id <= 0 ) {
+			return array(
+				'linked'   => false,
+				'forum_id' => 0,
+				'name'     => '',
+				'url'      => '',
+			);
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$name = (string) $wpdb->get_var(
+			$wpdb->prepare( "SELECT title FROM {$wpdb->prefix}jt_spaces WHERE id = %d LIMIT 1", $forum_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array(
+			'linked'   => true,
+			'forum_id' => $forum_id,
+			'name'     => $name,
+			'url'      => $this->space_forum_url( $space_id ),
+		);
+	}
+
+	/**
+	 * Jetonomy discussions a given member may attach to their space — ONLY the
+	 * discussions that member authored (owns). Populates the "link an existing
+	 * discussion" picker, so an owner can never attach someone else's discussion.
+	 *
+	 * @param int $owner_id Member the picker is scoped to (the space owner).
+	 * @param int $limit    Max rows (1-200). Default 100.
+	 * @return array<int,array{id:int,title:string}>
+	 */
+	public function linkable_discussions( int $owner_id, int $limit = 100 ): array {
+		$owner_id = absint( $owner_id );
+		if ( $owner_id <= 0 || ! class_exists( '\Jetonomy\Models\Space' ) ) {
+			return array();
+		}
+
+		$limit = max( 1, min( 200, $limit ) );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, title FROM {$wpdb->prefix}jt_spaces WHERE author_id = %d AND status = 'active' ORDER BY title ASC LIMIT %d",
+				$owner_id,
+				$limit
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$out = array();
+		foreach ( (array) $rows as $bn_ld_space ) {
+			if ( isset( $bn_ld_space->id, $bn_ld_space->title ) ) {
+				$out[] = array(
+					'id'    => (int) $bn_ld_space->id,
+					'title' => (string) $bn_ld_space->title,
+				);
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Whether a Jetonomy discussion (jt_spaces id) exists and is active — the
+	 * link-authorization guard for SITE ADMINS, who may attach any discussion.
+	 * Members are held to the stricter discussion_owned_by() check instead.
+	 *
+	 * @param int $forum_id jt_spaces id.
+	 * @return bool
+	 */
+	public function discussion_exists( int $forum_id ): bool {
+		$forum_id = absint( $forum_id );
+		if ( $forum_id <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$found = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}jt_spaces WHERE id = %d AND status = 'active' LIMIT 1", $forum_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $found > 0;
+	}
+
+	/**
+	 * Whether a Jetonomy discussion is owned (authored) by a given member — the
+	 * server-side authorization guard for the "link existing" action, so a crafted
+	 * POST can never attach a discussion the space owner does not own.
+	 *
+	 * @param int $forum_id jt_spaces id.
+	 * @param int $owner_id Member who must own the discussion (the space owner).
+	 * @return bool
+	 */
+	public function discussion_owned_by( int $forum_id, int $owner_id ): bool {
+		$forum_id = absint( $forum_id );
+		$owner_id = absint( $owner_id );
+		if ( $forum_id <= 0 || $owner_id <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$author_id = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT author_id FROM {$wpdb->prefix}jt_spaces WHERE id = %d LIMIT 1", $forum_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $author_id > 0 && $author_id === $owner_id;
+	}
+
+	/**
+	 * Unlink a space's Discussion (owner opt-out). Clears the link only; the
+	 * Jetonomy discussion and all its content are preserved and can be re-linked
+	 * later. Never deletes anyone's posts.
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return void
+	 */
+	public function unlink_space_discussion( int $space_id ): void {
+		update_space_meta( absint( $space_id ), 'jetonomy_forum_id', 0 );
+	}
+
+	/**
 	 * Provision (once) a Jetonomy forum for a BuddyNext space and link it.
 	 *
 	 * Idempotent: returns the existing forum id when already linked. Creates a
@@ -441,10 +594,26 @@ class JetonomyBridge {
 			return 0;
 		}
 
+		$slug = (string) ( $space['slug'] ?? '' );
+
+		// Reconnect, don't duplicate: turning a discussion OFF preserves its
+		// Jetonomy space (content is never deleted), so turning it back ON must
+		// re-link the existing one. jt_spaces.slug is unique — creating a fresh
+		// space with the same slug would fail — so reuse any space already at this
+		// slug instead of inserting a duplicate.
+		if ( '' !== $slug && method_exists( '\Jetonomy\Models\Space', 'find_by_slug' ) ) {
+			$existing_space = \Jetonomy\Models\Space::find_by_slug( $slug );
+			if ( $existing_space && isset( $existing_space->id ) ) {
+				$forum_id = (int) $existing_space->id;
+				update_space_meta( $space_id, 'jetonomy_forum_id', $forum_id );
+				return $forum_id;
+			}
+		}
+
 		$forum_id = (int) \Jetonomy\Models\Space::create(
 			array(
 				'title'      => (string) ( $space['name'] ?? '' ),
-				'slug'       => (string) ( $space['slug'] ?? '' ),
+				'slug'       => $slug,
 				'visibility' => 'public',
 				'status'     => 'active',
 			),
