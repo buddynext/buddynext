@@ -115,6 +115,7 @@ $bn_ctx = wp_json_encode(
 		'groupMembers'      => array(),
 		'groupBusy'         => false,
 		'activeConvId'      => $thread ? (int) $thread['conversation_id'] : 0,
+		'isMuted'           => $thread ? ! empty( $thread['is_muted'] ) : false,
 		'activeIsGroup'     => $thread ? ! empty( $thread['is_group'] ) : false,
 		'activeIsAdmin'     => $thread ? ! empty( $thread['is_admin'] ) : false,
 		'activeGroupName'   => $thread ? (string) $thread['display_name'] : '',

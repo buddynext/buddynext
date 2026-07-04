@@ -1078,6 +1078,31 @@ const messagesStore = store( 'buddynext/messages', {
 			window.location.href = ctx.messagesUrl || '?';
 		},
 
+		// Mute / unmute this conversation. The engine's PATCH sets the participant's
+		// is_muted flag, which its NotificationListener + total-unread count both
+		// already honour — so muting silences this thread's bell/badge without any
+		// member-level block.
+		*toggleMute() {
+			const ctx    = getContext();
+			const convId = parseInt( ctx.activeConvId, 10 ) || 0;
+			if ( ! convId ) {
+				return;
+			}
+			const next   = ! ctx.isMuted;
+			ctx.infoBusy = true;
+			const res    = yield restFetch( '/conversations/' + convId, {
+				base: ctx.mvsRest,
+				nonce: ctx.nonce,
+				method: 'PATCH',
+				body: { is_muted: next ? 1 : 0 },
+				toastOnError: false,
+			} );
+			ctx.infoBusy = false;
+			if ( res && res.ok ) {
+				ctx.isMuted = next;
+			}
+		},
+
 		// ── Rail search / tabs (progressive enhancement over server links) ───────
 		onPanelSearchInput( event ) {
 			const term = ( event.target.value || '' ).toLowerCase().trim();

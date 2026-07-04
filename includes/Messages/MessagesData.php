@@ -473,6 +473,7 @@ class MessagesData {
 
 		return array(
 			'conversation_id' => (int) self::val( $conv, 'id', 0 ),
+			'is_muted'        => (bool) self::val( $conv, 'is_muted', false ),
 			'is_group'        => $is_group,
 			'member_count'    => $is_group ? self::active_count( $conv ) : 0,
 			'participants'    => $is_group ? self::roster( $conv, $viewer, $viewer_admin ) : array(),
