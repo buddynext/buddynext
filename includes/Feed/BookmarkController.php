@@ -239,9 +239,12 @@ class BookmarkController extends BaseRestController {
 			}
 
 			if ( $author_id !== $viewer && ! user_can( $viewer, 'manage_options' ) ) {
-				// Canonical suspension check (bn_user_suspensions) — not the
-				// bn_suspended usermeta, which auto-suspensions don't set.
-				$suspended = buddynext_service( 'moderation' )->is_suspended( $author_id );
+				// Content-visibility: hide only when a hide_posts=1 suspension
+				// opted into content removal — the same predicate as the feed
+				// (hides_posts()), so a bookmarked post stays consistent with how
+				// it appears in the feed. is_suspended() would over-hide
+				// action-restricted (hide_posts=0) members' content.
+				$suspended = buddynext_service( 'moderation' )->hides_posts( $author_id );
 				$shadow    = (bool) get_user_meta( $author_id, 'bn_shadow_banned', true );
 				if ( $suspended || $shadow ) {
 					continue;

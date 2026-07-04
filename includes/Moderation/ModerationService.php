@@ -1146,10 +1146,53 @@ class ModerationService {
 	}
 
 	/**
+	 * Whether a user's post CONTENT must be hidden from viewers.
+	 *
+	 * The canonical content-visibility predicate — the per-user equivalent of
+	 * moderation_exclude_sql(): true only when the user has an active, unexpired
+	 * suspension with hide_posts = 1 (the moderator opted into content removal).
+	 * A hide_posts = 0 suspension is an ACTION restriction and leaves content
+	 * visible, so this returns false for it.
+	 *
+	 * Content-visibility surfaces (feed Gate 5, bookmarks, shared-post embeds,
+	 * single-post view) MUST use this — NOT is_suspended(), which is action-scoped
+	 * (any active suspension) and would hide action-restricted members' content,
+	 * and NOT the retired bn_suspended usermeta (only the admin panel ever set it,
+	 * which is exactly the split-brain this replaces).
+	 *
+	 * @param int $user_id Author to check.
+	 * @return bool True when the author's posts must be hidden.
+	 */
+	public function hides_posts( int $user_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_user_suspensions
+				 WHERE user_id = %d
+				   AND lifted_at IS NULL
+				   AND hide_posts = 1
+				   AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $count > 0;
+	}
+
+	/**
 	 * Check whether a user is currently suspended.
 	 *
 	 * A user is suspended if they have an active suspension row (lifted_at IS NULL)
-	 * that has not yet expired (expires_at IS NULL or expires_at > NOW()).
+	 * that has not yet expired (expires_at IS NULL or expires_at > NOW()). This is
+	 * ACTION-scoped (blocks posting/commenting/reacting); for CONTENT visibility
+	 * use hides_posts() instead.
 	 *
 	 * @param int $user_id User to check.
 	 * @return bool

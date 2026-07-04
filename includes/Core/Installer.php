@@ -118,7 +118,7 @@ class Installer {
 	 *      converged to the Installer seed (one canonical schema from either
 	 *      provisioning path).
 	 */
-	private const SCHEMA_VERSION = 22;
+	private const SCHEMA_VERSION = 23;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -222,6 +222,15 @@ class Installer {
 		// (no em-dash separators, no exclamation endings). Byte-exact matches
 		// against the former seeds, so owner-customized subjects are untouched.
 		self::maybe_migrate_email_subjects();
+
+		// v23: retire the bn_suspended usermeta. Suspension content-visibility is
+		// now read exclusively from the bn_user_suspensions table (hide_posts=1)
+		// via ModerationService::hides_posts(); the meta was only ever written by
+		// the admin panel, which created a split-brain where admin-panel
+		// suspensions hid content that REST/queue suspensions did not. Clear any
+		// stray values so nothing depends on the dead key. Idempotent.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "DELETE FROM {$wpdb->usermeta} WHERE meta_key = 'bn_suspended'" );
 
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
 	}

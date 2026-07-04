@@ -583,4 +583,28 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 
 		$this->assertFalse( $this->service->is_suspended( $this->user_id ) );
 	}
+
+	/**
+	 * hides_posts() is the content-visibility predicate: true only for a
+	 * hide_posts=1 suspension, false for a hide_posts=0 action restriction —
+	 * even though both make is_suspended() true. This is the split-brain fix
+	 * (card 10062130362): content surfaces read this, not the retired meta.
+	 *
+	 * @covers \BuddyNext\Moderation\ModerationService::hides_posts
+	 */
+	public function test_hides_posts_is_hide_posts_aware(): void {
+		// Action restriction (hide_posts=0): suspended, but content stays visible.
+		$this->service->suspend_user( $this->user_id, $this->admin_id, 'action only', array( 'hide_posts' => 0 ) );
+		$this->assertTrue( $this->service->is_suspended( $this->user_id ), 'action restriction still counts as suspended' );
+		$this->assertFalse( $this->service->hides_posts( $this->user_id ), 'hide_posts=0 must NOT hide content' );
+		$this->service->unsuspend_user( $this->user_id, $this->admin_id );
+
+		// Content removal (hide_posts=1): content hidden.
+		$this->service->suspend_user( $this->user_id, $this->admin_id, 'content', array( 'hide_posts' => 1 ) );
+		$this->assertTrue( $this->service->hides_posts( $this->user_id ), 'hide_posts=1 must hide content' );
+
+		// Lifting clears it.
+		$this->service->unsuspend_user( $this->user_id, $this->admin_id );
+		$this->assertFalse( $this->service->hides_posts( $this->user_id ) );
+	}
 }

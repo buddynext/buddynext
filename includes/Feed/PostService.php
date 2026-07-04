@@ -871,6 +871,9 @@ class PostService {
 			: new \BuddyNext\SocialGraph\FollowService();
 		$spaces        = new \BuddyNext\Spaces\SpaceService();
 		$space_members = new \BuddyNext\Spaces\SpaceMemberService();
+		$moderation    = function_exists( 'buddynext_service' )
+			? buddynext_service( 'moderation' )
+			: new \BuddyNext\Moderation\ModerationService();
 		$is_admin      = $viewer > 0 && user_can( $viewer, 'manage_options' );
 
 		$visible = array();
@@ -921,9 +924,13 @@ class PostService {
 				continue;
 			}
 
-			// Gate 5 — author suspended / shadow-banned (admins and the author bypass).
+			// Gate 5 — author's content hidden by a hide_posts suspension, or
+			// shadow-banned (admins and the author bypass). Reads the canonical
+			// bn_user_suspensions table via hides_posts() — the same hide_posts=1
+			// predicate the feed uses — NOT the retired bn_suspended usermeta,
+			// which only the admin panel set (the split-brain this fixes).
 			if ( ! $is_admin && ! $is_author ) {
-				$suspended = (bool) get_user_meta( $author_id, 'bn_suspended', true );
+				$suspended = $moderation->hides_posts( $author_id );
 				$shadow    = (bool) get_user_meta( $author_id, 'bn_shadow_banned', true );
 				if ( $suspended || $shadow ) {
 					continue;
