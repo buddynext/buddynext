@@ -72,6 +72,7 @@ class NotificationListener implements ListenerInterface {
 		// Spaces.
 		add_action( 'buddynext_space_join_requested', array( $this, 'on_space_join_requested' ), 10, 2 );
 		add_action( 'buddynext_space_join_approved', array( $this, 'on_space_join_approved' ), 10, 3 );
+		add_action( 'buddynext_space_join_declined', array( $this, 'on_space_join_declined' ), 10, 3 );
 		add_action( 'buddynext_space_member_invited', array( $this, 'on_space_member_invited' ), 10, 3 );
 
 		// Space posts.
@@ -511,6 +512,33 @@ class NotificationListener implements ListenerInterface {
 				'object_type'  => 'space',
 				'object_id'    => $space_id,
 				'group_key'    => 'space_approved_' . $space_id . '_' . $user_id,
+			)
+		);
+	}
+
+	/**
+	 * Notify a user when their request to join a space is declined.
+	 *
+	 * SpaceMemberService::decline_request fired buddynext_space_join_declined but
+	 * nothing consumed it, so the requester got silence. Mirrors the approve path.
+	 *
+	 * @param int $space_id    Space the request targeted.
+	 * @param int $user_id     User whose request was declined (recipient).
+	 * @param int $_by_user_id Moderator who declined (unused; part of the contract).
+	 */
+	public function on_space_join_declined( int $space_id, int $user_id, int $_by_user_id ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_by_user_id required by hook contract.
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+
+		buddynext_service( 'notifications' )->create(
+			array(
+				'recipient_id' => $user_id,
+				'sender_id'    => null,
+				'type'         => 'bn.space_join_declined',
+				'object_type'  => 'space',
+				'object_id'    => $space_id,
+				'group_key'    => 'space_declined_' . $space_id . '_' . $user_id,
 			)
 		);
 	}
