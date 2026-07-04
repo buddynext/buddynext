@@ -1320,6 +1320,13 @@ class PostService {
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
 
+		// A pin change alters what a cached feed shows for this post, so refresh the
+		// author's feed cache (the space pinned strip queries live, home no longer
+		// floats pins — this covers any other cached surface carrying is_pinned).
+		if ( function_exists( 'buddynext_service' ) ) {
+			buddynext_service( 'feed_cache' )->invalidate_writer( (int) $post['user_id'] );
+		}
+
 		return true;
 	}
 
@@ -1353,6 +1360,12 @@ class PostService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+
+		// Mirror pin(): refresh the author's feed cache after the pin state changes.
+		$bn_unpinned = $this->get( $post_id );
+		if ( $bn_unpinned && function_exists( 'buddynext_service' ) ) {
+			buddynext_service( 'feed_cache' )->invalidate_writer( (int) ( $bn_unpinned['user_id'] ?? 0 ) );
+		}
 
 		return true;
 	}
