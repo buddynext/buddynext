@@ -141,6 +141,58 @@ class HashtagController {
 			)
 		);
 
+		// Sidebar rails for a hashtag page (related tags, top contributors). Public,
+		// registered before the /{slug} catch-all so the extra path segment wins.
+		register_rest_route(
+			'buddynext/v1',
+			'/hashtags/(?P<slug>[^/]+)/related',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'related' ),
+				'permission_callback' => array( $this, 'require_hashtags_enabled' ),
+				'args'                => array(
+					'slug'  => array(
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'limit' => array(
+						'required'          => false,
+						'type'              => 'integer',
+						'default'           => 6,
+						'minimum'           => 1,
+						'maximum'           => 20,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/hashtags/(?P<slug>[^/]+)/contributors',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'contributors' ),
+				'permission_callback' => array( $this, 'require_hashtags_enabled' ),
+				'args'                => array(
+					'slug'  => array(
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'limit' => array(
+						'required'          => false,
+						'type'              => 'integer',
+						'default'           => 5,
+						'minimum'           => 1,
+						'maximum'           => 20,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/hashtags/(?P<slug>[^/]+)',
@@ -153,6 +205,34 @@ class HashtagController {
 						'required'          => true,
 						'type'              => 'string',
 						'sanitize_callback' => 'sanitize_text_field',
+					),
+				),
+			)
+		);
+
+		// The current user's followed hashtags — the app's "tags you follow" list.
+		register_rest_route(
+			'buddynext/v1',
+			'/me/hashtags',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'my_hashtags' ),
+				'permission_callback' => array( $this, 'require_hashtags_enabled_auth' ),
+				'args'                => array(
+					'per_page' => array(
+						'required'          => false,
+						'type'              => 'integer',
+						'default'           => 20,
+						'minimum'           => 1,
+						'maximum'           => 50,
+						'sanitize_callback' => 'absint',
+					),
+					'offset'   => array(
+						'required'          => false,
+						'type'              => 'integer',
+						'default'           => 0,
+						'minimum'           => 0,
+						'sanitize_callback' => 'absint',
 					),
 				),
 			)
@@ -241,7 +321,17 @@ class HashtagController {
 
 		$service->follow( get_current_user_id(), $hashtag['id'] );
 
-		return new WP_REST_Response( array( 'following' => true ), 200 );
+		// Return the fresh follower_count so the client can update the button's
+		// count without a second request (the follow bumped it).
+		$updated = $service->get_by_slug( $slug );
+
+		return new WP_REST_Response(
+			array(
+				'following'      => true,
+				'follower_count' => (int) ( $updated['follower_count'] ?? 0 ),
+			),
+			200
+		);
 	}
 
 	/**
@@ -261,7 +351,15 @@ class HashtagController {
 
 		$service->unfollow( get_current_user_id(), $hashtag['id'] );
 
-		return new WP_REST_Response( array( 'following' => false ), 200 );
+		$updated = $service->get_by_slug( $slug );
+
+		return new WP_REST_Response(
+			array(
+				'following'      => false,
+				'follower_count' => (int) ( $updated['follower_count'] ?? 0 ),
+			),
+			200
+		);
 	}
 
 	/**
@@ -307,5 +405,72 @@ class HashtagController {
 		}
 
 		return new WP_REST_Response( $hashtag, 200 );
+	}
+
+	/**
+	 * Return hashtags frequently used alongside this one (the "related tags" rail).
+	 *
+	 * Exposes HashtagService::related() over REST so the app renders the same
+	 * sidebar rail the web templates do (previously server-rendered only).
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function related( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$service = new HashtagService();
+		$slug    = (string) $request->get_param( 'slug' );
+
+		if ( null === $service->get_by_slug( $slug ) ) {
+			return new WP_Error( 'not_found', __( 'Hashtag not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		return new WP_REST_Response( $service->related( $slug, (int) $request->get_param( 'limit' ) ), 200 );
+	}
+
+	/**
+	 * Return the top contributors to a hashtag plus the total contributor count.
+	 *
+	 * Exposes HashtagService::top_contributors() + contributor_count() over REST
+	 * for the hashtag-page sidebar (previously server-rendered only). Contributor
+	 * figures use the public (guest) scope, matching the web rail.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function contributors( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$service = new HashtagService();
+		$slug    = (string) $request->get_param( 'slug' );
+		$hashtag = $service->get_by_slug( $slug );
+
+		if ( null === $hashtag ) {
+			return new WP_Error( 'not_found', __( 'Hashtag not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		return new WP_REST_Response(
+			array(
+				'contributors' => $service->top_contributors( (int) $hashtag['id'], (int) $request->get_param( 'limit' ) ),
+				'total'        => $service->contributor_count( (int) $hashtag['id'] ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * Return the hashtags the current user follows, paginated.
+	 *
+	 * Backs the app's "tags you follow" screen. has_more comes from the service's
+	 * limit+1 fetch, so the client paginates by bumping offset without a total.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function my_hashtags( WP_REST_Request $request ): WP_REST_Response {
+		$result = ( new HashtagService() )->list_followed(
+			get_current_user_id(),
+			(int) $request->get_param( 'per_page' ),
+			(int) $request->get_param( 'offset' )
+		);
+
+		return new WP_REST_Response( $result, 200 );
 	}
 }

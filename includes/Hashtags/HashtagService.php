@@ -554,6 +554,7 @@ class HashtagService {
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			);
 			wp_cache_delete( "hashtag_following_{$user_id}_{$hashtag_id}", self::CACHE_GROUP );
+			$this->bust_hashtag_row_cache( $hashtag_id );
 		}
 
 		return (bool) $inserted;
@@ -590,6 +591,7 @@ class HashtagService {
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			);
 			wp_cache_delete( "hashtag_following_{$user_id}_{$hashtag_id}", self::CACHE_GROUP );
+			$this->bust_hashtag_row_cache( $hashtag_id );
 		}
 
 		return (bool) $deleted;
@@ -984,6 +986,61 @@ class HashtagService {
 	}
 
 	/**
+	 * Return the hashtags a user follows, newest-follow first, paginated.
+	 *
+	 * Backs GET /me/hashtags (the app's "tags you follow" screen). The user
+	 * lookup rides the bn_hashtag_follows PRIMARY (user_id, hashtag_id); has_more
+	 * is derived from a limit+1 fetch so no COUNT(*) runs on the read path
+	 * (SCALE-CONTRACT §3). A single member follows at most a handful of tags, so
+	 * the recency sort over that small per-user set needs no dedicated index.
+	 *
+	 * @param int $user_id Follower user id.
+	 * @param int $limit   Max rows (1-50). Default 20.
+	 * @param int $offset  Row offset for pagination. Default 0.
+	 * @return array{items: array<int,array>, has_more: bool}
+	 */
+	public function list_followed( int $user_id, int $limit = 20, int $offset = 0 ): array {
+		if ( $user_id <= 0 ) {
+			return array(
+				'items'    => array(),
+				'has_more' => false,
+			);
+		}
+
+		$limit  = max( 1, min( 50, $limit ) );
+		$offset = max( 0, $offset );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT h.id, h.name, h.slug, h.post_count, h.follower_count, h.created_at
+				 FROM {$wpdb->prefix}bn_hashtag_follows hf
+				 INNER JOIN {$wpdb->prefix}bn_hashtags h ON h.id = hf.hashtag_id
+				 WHERE hf.user_id = %d
+				 ORDER BY hf.created_at DESC, h.id DESC
+				 LIMIT %d OFFSET %d",
+				$user_id,
+				$limit + 1,
+				$offset
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$rows     = (array) $rows;
+		$has_more = count( $rows ) > $limit;
+		if ( $has_more ) {
+			$rows = array_slice( $rows, 0, $limit );
+		}
+
+		return array(
+			'items'    => array_map( array( $this, 'hydrate' ), $rows ),
+			'has_more' => $has_more,
+		);
+	}
+
+	/**
 	 * Reconcile follows orphaned by the legacy sanitize_key() mangling (R11).
 	 *
 	 * Before normalize_slug(), a followed "#café" was stored as the ASCII row
@@ -1134,6 +1191,36 @@ class HashtagService {
 		foreach ( array( 10, 20, 50 ) as $limit ) {
 			wp_cache_delete( "trending_{$limit}", self::CACHE_GROUP );
 			delete_transient( 'bn_trending_' . $limit );
+		}
+	}
+
+	/**
+	 * Invalidate the get_by_slug() row cache for a hashtag after its counters
+	 * change.
+	 *
+	 * Follow and unfollow mutate follower_count on bn_hashtags, so the cached
+	 * hashtag_{slug} row (which carries follower_count) would otherwise serve a
+	 * stale count to the very next reader — e.g. the follow REST response, which
+	 * reads the fresh count straight back. Resolves the slug from the id (the
+	 * cache is keyed by slug) and clears that entry.
+	 *
+	 * @param int $hashtag_id Hashtag whose row cache to clear.
+	 * @return void
+	 */
+	private function bust_hashtag_row_cache( int $hashtag_id ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$slug = (string) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT slug FROM {$wpdb->prefix}bn_hashtags WHERE id = %d",
+				$hashtag_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( '' !== $slug ) {
+			wp_cache_delete( "hashtag_{$slug}", self::CACHE_GROUP );
 		}
 	}
 }

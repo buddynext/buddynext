@@ -202,6 +202,40 @@ class HashtagServiceTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * list_followed() returns the user's followed tags (newest first) with
+	 * has_more paging, and follow()/unfollow() keep get_by_slug()'s follower_count
+	 * fresh (the row cache is busted on the counter change). Guards C5.5's
+	 * GET /me/hashtags + the follow-response follower_count.
+	 *
+	 * @covers \BuddyNext\Hashtags\HashtagService::list_followed
+	 * @covers \BuddyNext\Hashtags\HashtagService::follow
+	 * @covers \BuddyNext\Hashtags\HashtagService::unfollow
+	 */
+	public function test_list_followed_and_fresh_follower_count(): void {
+		$a = $this->service->register( 'follow_a' );
+		$b = $this->service->register( 'follow_b' );
+
+		// Prime the row cache with the pre-follow count (0), as a reader would.
+		$this->assertSame( 0, $this->service->get_by_slug( 'follow_a' )['follower_count'] );
+
+		$this->service->follow( $this->user_id, $a );
+		$this->service->follow( $this->user_id, $b );
+
+		// Cache must reflect the bump, not the primed 0.
+		$this->assertSame( 1, $this->service->get_by_slug( 'follow_a' )['follower_count'], 'follow busts the stale row cache' );
+
+		$followed = $this->service->list_followed( $this->user_id );
+		$slugs    = array_column( $followed['items'], 'slug' );
+		$this->assertContains( 'follow_a', $slugs );
+		$this->assertContains( 'follow_b', $slugs );
+		$this->assertFalse( $followed['has_more'] );
+
+		$this->service->unfollow( $this->user_id, $a );
+		$this->assertSame( 0, $this->service->get_by_slug( 'follow_a' )['follower_count'], 'unfollow busts the stale row cache' );
+		$this->assertNotContains( 'follow_a', array_column( $this->service->list_followed( $this->user_id )['items'], 'slug' ) );
+	}
+
+	/**
 	 * A public post inside a private/secret space must NOT appear on the public
 	 * tag page (guest), but MUST appear for a member of that space. Regression
 	 * guard for card 10062124931 (tag pages leaked private-space posts).
