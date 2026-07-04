@@ -25,6 +25,7 @@ use BuddyNext\Feed\ComposerDraftController;
 use BuddyNext\SocialGraph\ConnectionController;
 use BuddyNext\Feed\FeedController;
 use BuddyNext\SocialGraph\FollowController;
+use BuddyNext\Nav\ShellNavController;
 use BuddyNext\Feed\PollController;
 use BuddyNext\Feed\PostController;
 use BuddyNext\Profile\MemberDirectoryController;
@@ -73,6 +74,7 @@ class Router {
 		( new InviteController() )->register_routes();
 		( new OnboardingController() )->register_routes();
 		( new FollowController() )->register_routes();
+		( new ShellNavController() )->register_routes();
 		( new ConnectionController() )->register_routes();
 		( new BlockController() )->register_routes();
 		( new PostController() )->register_routes();

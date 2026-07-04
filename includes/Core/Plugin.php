@@ -737,6 +737,7 @@ class Plugin {
 		$container->bind( 'spaces', fn() => new SpaceService() );
 		$container->bind( 'space_members', fn() => new SpaceMemberService() );
 		$container->bind( 'notifications', fn() => new NotificationService() );
+		$container->bind( 'shell_nav', fn() => new \BuddyNext\Nav\ShellNavService() );
 		$container->bind( 'notification_prefs', fn() => new NotificationPrefService() );
 		$container->bind( 'notification_message', fn() => new NotificationMessageService() );
 		$container->bind( 'notification_pref_catalogue', fn() => new \BuddyNext\Notifications\NotificationPrefCatalogue() );
