@@ -1303,7 +1303,16 @@ class PostService {
 			if ( $pinned_count >= $pin_limit ) {
 				return new WP_Error(
 					'pin_limit_reached',
-					__( 'You have reached the maximum number of pinned posts.', 'buddynext' )
+					sprintf(
+						/* translators: %d: the maximum number of pinned posts allowed in this scope. */
+						_n(
+							'You have reached the maximum of %d pinned post.',
+							'You have reached the maximum of %d pinned posts.',
+							$pin_limit,
+							'buddynext'
+						),
+						$pin_limit
+					)
 				);
 			}
 		}
