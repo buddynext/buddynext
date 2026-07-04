@@ -760,6 +760,34 @@ class FeedService {
 
 		$dismissed = self::dismissed_announcement_ids( $user_id );
 
+		// Priority: if the owner has featured a specific announcement (via the
+		// Announcements admin), it leads the home feed as long as it is still a live
+		// site-wide announcement the viewer hasn't dismissed. This is what stops a
+		// newer announcement from silently displacing the one the owner wants on top;
+		// with nothing featured we fall through to "newest active wins".
+		$featured_id = (int) get_option( 'buddynext_featured_announcement', 0 );
+		if ( $featured_id > 0 && ! in_array( $featured_id, $dismissed, true ) ) {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$featured = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT p.* FROM {$wpdb->prefix}bn_posts p
+					 WHERE p.id = %d
+					   AND p.is_announcement = 1
+					   AND p.type = 'announcement'
+					   AND p.status = 'published'
+					   AND p.space_id IS NULL
+					   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > UTC_TIMESTAMP())
+					 LIMIT 1",
+					$featured_id
+				),
+				ARRAY_A
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			if ( is_array( $featured ) ) {
+				return $this->post_service->hydrate( $featured );
+			}
+		}
+
 		$exclude_sql = '';
 		$params      = array();
 		if ( ! empty( $dismissed ) ) {
@@ -843,6 +871,72 @@ class FeedService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
 		return null === $row ? null : $this->post_service->hydrate( $row );
+	}
+
+	/**
+	 * List every announcement (any status) for the admin management surface.
+	 *
+	 * Returns raw rows (newest first) so the admin can compute active / scheduled /
+	 * expired without hydrating the full post payload.
+	 *
+	 * @param int $limit Max rows (1-500).
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function list_all_announcements( int $limit = 100 ): array {
+		global $wpdb;
+		$limit = max( 1, min( 500, $limit ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, user_id, space_id, content, status, created_at, site_pin_expires_at, scheduled_at
+				 FROM {$wpdb->prefix}bn_posts
+				 WHERE is_announcement = 1 AND type = 'announcement'
+				 ORDER BY created_at DESC
+				 LIMIT %d",
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * End an announcement now (expire it) without deleting the post.
+	 *
+	 * Sets site_pin_expires_at to the current time so active_announcement() /
+	 * space_announcement() stop surfacing it; the post itself stays in the feed.
+	 * Clears the featured pointer if it named this announcement.
+	 *
+	 * @param int $post_id Announcement post ID.
+	 * @return bool
+	 */
+	public function end_announcement_now( int $post_id ): bool {
+		if ( $post_id <= 0 ) {
+			return false;
+		}
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array( 'site_pin_expires_at' => gmdate( 'Y-m-d H:i:s' ) ),
+			array(
+				'id'              => $post_id,
+				'is_announcement' => 1,
+			),
+			array( '%s' ),
+			array( '%d', '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( (int) get_option( 'buddynext_featured_announcement', 0 ) === $post_id ) {
+			delete_option( 'buddynext_featured_announcement' );
+		}
+
+		return false !== $updated;
 	}
 
 	/**

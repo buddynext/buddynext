@@ -198,6 +198,7 @@ class Plugin {
 					( new \BuddyNext\Admin\RolesTab() )->register();
 					( new \BuddyNext\Admin\IntegrationControlsAdmin() )->register();
 					( new \BuddyNext\Admin\Insights() )->register();
+					( new \BuddyNext\Admin\AnnouncementsAdmin() )->register();
 					( new \BuddyNext\Admin\ModerationQueue() )->register();
 					// "BuddyNext" metabox on Appearance → Menus — add per-member
 					// account and auth links to any WordPress menu (resolved by
