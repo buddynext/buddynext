@@ -168,9 +168,40 @@ foreach ( $bn_rail_items as $bn_item ) {
 		</button>
 	</div>
 	<div class="bn-rail__group">
-		<?php foreach ( $bn_main_items as $bn_item ) : ?>
-			<?php $bn_render_rail_item( $bn_item ); ?>
-		<?php endforeach; ?>
+		<?php
+		foreach ( $bn_main_items as $bn_item ) :
+			$bn_render_rail_item( $bn_item );
+
+			// My-spaces switcher: a JS-free expandable flyout under the Spaces item so
+			// a member of many spaces can jump straight to one without opening the full
+			// directory (the sidebar widget caps at a handful). Only when they belong
+			// to at least one space.
+			if ( 'spaces' === (string) ( $bn_item['key'] ?? '' ) && $bn_rail_current_user ) :
+				$bn_my_spaces = buddynext_service( 'space_members' )->membership_rows( $bn_rail_current_user, 15 );
+				if ( ! empty( $bn_my_spaces ) ) :
+					?>
+					<details class="bn-rail__spaces">
+						<summary class="bn-rail__spaces-toggle">
+							<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'layers' ); ?></span>
+							<span class="bn-rail__spaces-title"><?php esc_html_e( 'My spaces', 'buddynext' ); ?></span>
+							<span class="bn-rail__spaces-count"><?php echo esc_html( (string) count( $bn_my_spaces ) ); ?></span>
+							<span class="bn-rail__spaces-chevron" aria-hidden="true"><?php buddynext_icon( 'chevron-down' ); ?></span>
+						</summary>
+						<ul class="bn-rail__spaces-list">
+							<?php foreach ( $bn_my_spaces as $bn_sp ) : ?>
+								<li>
+									<a class="bn-rail__spaces-link" href="<?php echo esc_url( PageRouter::space_url( (int) $bn_sp->id ) ); ?>" title="<?php echo esc_attr( (string) $bn_sp->name ); ?>">
+										<?php echo esc_html( (string) $bn_sp->name ); ?>
+									</a>
+								</li>
+							<?php endforeach; ?>
+						</ul>
+					</details>
+					<?php
+				endif;
+			endif;
+		endforeach;
+		?>
 	</div>
 
 	<?php if ( ! empty( $bn_you_items ) ) : ?>
