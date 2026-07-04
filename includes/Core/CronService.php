@@ -168,6 +168,41 @@ class CronService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$this->purge_stale_unverified();
+		$this->prune_webhook_log();
+	}
+
+	/**
+	 * Prune the outbound-webhook delivery log by age.
+	 *
+	 * The log was only ever trimmed when an endpoint was deleted, so a busy site
+	 * (thousands of deliveries/hour) grew bn_outbound_webhook_log without bound.
+	 * Runs daily; keeps buddynext_webhook_log_retention_days (default 30). 0 disables.
+	 *
+	 * @return void
+	 */
+	private function prune_webhook_log(): void {
+		/**
+		 * Filter the retention window (days) for the outbound-webhook delivery log.
+		 *
+		 * @param int $days Default 30. 0 disables pruning.
+		 */
+		$days = (int) apply_filters( 'buddynext_webhook_log_retention_days', 30 );
+		if ( $days <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'bn_outbound_webhook_log';
+
+		// created_at is written in UTC, so compare against UTC_TIMESTAMP().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$table} WHERE created_at < ( UTC_TIMESTAMP() - INTERVAL %d DAY )",
+				$days
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	/**
