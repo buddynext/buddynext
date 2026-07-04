@@ -1150,6 +1150,9 @@ class SpaceMemberService {
 				'joined_at'     => $r['joined_at'],
 				'display_name'  => (string) ( $r['display_name'] ?? '' ),
 				'user_nicename' => (string) ( $r['user_nicename'] ?? '' ),
+				// Included so a native app can render the member list without a
+				// per-user avatar fetch (client-side N+1).
+				'avatar_url'    => get_avatar_url( (int) $r['user_id'], array( 'size' => 96 ) ),
 			),
 			(array) $rows
 		);
