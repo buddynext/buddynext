@@ -1046,6 +1046,14 @@ class PostService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
+		// Purge this post's cached oEmbed HTML so the edit renders a fresh embed
+		// instead of the 12h-stale transient (get() is still cache-backed here, so
+		// reading the link first is cheap; the transient is keyed by URL).
+		$existing_for_embed = $this->get( $post_id );
+		if ( $existing_for_embed && ! empty( $existing_for_embed['link_url'] ) ) {
+			delete_transient( 'bn_oembed_' . md5( trim( (string) $existing_for_embed['link_url'] ) ) );
+		}
+
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
 
 		/**

@@ -59,9 +59,9 @@ function escapeHtml( str ) {
  * rebuild the chips in place: replace the trigger's chip spans, refresh the
  * total, and hide the strip when the last reaction is removed.
  *
- * A post that had zero reactions has no SSR strip to update — its first chip
- * appears on the next render. Every post that already shows reactions (the
- * toggle path the bug reports) has the strip and is handled here.
+ * The strip is now SSR-present even at zero reactions (rendered hidden), so a
+ * 0 → 1 reaction reveals and fills it in place — no reload needed. When the last
+ * reaction is removed the strip is hidden again.
  *
  * @param {Element|null} cardEl The .bn-post-card being reacted on.
  * @param {Object}       body   The /reactions/toggle response body ({ count, summary }).
@@ -77,7 +77,7 @@ function updateReactionSummary( cardEl, body ) {
 		if ( strip ) strip.hidden = true; // Last reaction removed.
 		return;
 	}
-	if ( ! strip ) return; // 0 → 1 with no SSR strip: appears on next render.
+	if ( ! strip ) return; // Defensive: the strip is SSR-present (hidden at zero) on every card.
 
 	strip.hidden = false;
 	const trigger = strip.querySelector( '.bn-post-card__reactors-trigger' );
