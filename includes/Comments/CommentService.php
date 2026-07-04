@@ -172,9 +172,22 @@ class CommentService {
 		}
 
 		// A comment inherits its post's space; an archived space is read-only.
-		if ( 'post' === $object_type && $object_id > 0 ) {
+		if ( 'post' === $object_type ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$bn_post_space = (int) $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id ) );
+			$bn_post_row = $wpdb->get_row( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id ), ARRAY_A );
+
+			// Post-exists guard: a deleted/nonexistent post returns no row, which
+			// previously fell through with space_id 0 and inserted an orphan
+			// comment against a post that can never render. Reject it.
+			if ( null === $bn_post_row ) {
+				return new WP_Error(
+					'post_not_found',
+					__( 'You cannot comment on a post that no longer exists.', 'buddynext' ),
+					array( 'status' => 404 )
+				);
+			}
+
+			$bn_post_space = (int) $bn_post_row['space_id'];
 			if ( $bn_post_space > 0 && buddynext_service( 'spaces' )->is_archived( $bn_post_space ) ) {
 				return new WP_Error(
 					'space_archived',
@@ -315,6 +328,13 @@ class CommentService {
 
 		if ( null === $comment ) {
 			return new WP_Error( 'not_found', __( 'Comment not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		// get() does not filter soft-deleted rows, so guard here: a tombstoned
+		// comment must never be rewritten (the list anonymises the display, but
+		// without this the new content is still stored on the deleted row).
+		if ( ! empty( $comment['is_deleted'] ) ) {
+			return new WP_Error( 'comment_deleted', __( 'This comment has been deleted and can no longer be edited.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		if ( $comment['user_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
