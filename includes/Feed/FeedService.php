@@ -458,6 +458,13 @@ class FeedService {
 				// users who follow no one. The public catch-all is scoped to non-space
 				// posts and posts in open spaces only — private/secret space posts are
 				// reached solely through the joined-spaces branch, never leaked here.
+				// The followed-hashtag branch carries the SAME public + space-visibility
+				// scope (public privacy AND non-space/open/viewer-is-member) — otherwise
+				// following a tag would surface a public post inside a private/secret
+				// space, or a followers-only post by a non-followed author, to a viewer
+				// who is not a member/follower (the overarching guard below only blocks
+				// 'private'). Member-space posts also reach the viewer via joined-spaces,
+				// so the member clause here is belt-and-suspenders, not the sole path.
 				// Block/mute/excluded filtering is applied by the caller on top.
 				$sql    = "(
 					user_id IN (
@@ -470,12 +477,26 @@ class FeedService {
 					SELECT space_id FROM {$wpdb->prefix}bn_space_members
 					WHERE user_id = %d AND status = 'active'
 				)
-				OR id IN (
-					SELECT ph.post_id FROM {$wpdb->prefix}bn_post_hashtags ph
-					WHERE ph.object_type = 'post'
-					  AND ph.hashtag_id IN (
-						SELECT hf.hashtag_id FROM {$wpdb->prefix}bn_hashtag_follows hf
-						WHERE hf.user_id = %d
+				OR (
+					id IN (
+						SELECT ph.post_id FROM {$wpdb->prefix}bn_post_hashtags ph
+						WHERE ph.object_type = 'post'
+						  AND ph.hashtag_id IN (
+							SELECT hf.hashtag_id FROM {$wpdb->prefix}bn_hashtag_follows hf
+							WHERE hf.user_id = %d
+						)
+					)
+					AND privacy = 'public'
+					AND (
+						space_id IS NULL
+						OR space_id = 0
+						OR space_id IN (
+							SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open'
+						)
+						OR space_id IN (
+							SELECT space_id FROM {$wpdb->prefix}bn_space_members
+							WHERE user_id = %d AND status = 'active'
+						)
 					)
 				)
 				OR (
@@ -488,7 +509,7 @@ class FeedService {
 						)
 					)
 				)";
-				$params = array( $user_id, $user_id, $user_id, $user_id );
+				$params = array( $user_id, $user_id, $user_id, $user_id, $user_id );
 				break;
 		}
 
