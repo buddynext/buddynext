@@ -235,6 +235,56 @@ class FeedController extends BaseRestController {
 	}
 
 	/**
+	 * Warm every per-viewer cache the SSR post-card reads, in one query per service
+	 * for the whole page instead of four index seeks per card (C8.3).
+	 *
+	 * The post-card partial calls get_user_reaction() + is_bookmarked() + user_vote()
+	 * + user_has_reported() per card; each now reads a cache that the matching batch
+	 * primer below fills. cache_users() also primes author objects for the card head.
+	 *
+	 * @param array $items  Raw feed rows.
+	 * @param int   $viewer Current user ID (0 when logged out — nothing to prime).
+	 * @return void
+	 */
+	private function prime_viewer_state( array $items, int $viewer ): void {
+		if ( $viewer <= 0 ) {
+			return;
+		}
+
+		$post_ids   = array();
+		$author_ids = array();
+		$poll_ids   = array();
+		foreach ( $items as $item ) {
+			$pid = absint( $item['id'] ?? 0 );
+			$aid = absint( $item['user_id'] ?? 0 );
+			if ( $pid ) {
+				$post_ids[] = $pid;
+			}
+			if ( $aid ) {
+				$author_ids[] = $aid;
+			}
+			if ( $pid && 'poll' === ( $item['type'] ?? '' ) ) {
+				$poll_ids[] = $pid;
+			}
+		}
+
+		if ( empty( $post_ids ) ) {
+			return;
+		}
+
+		if ( ! empty( $author_ids ) ) {
+			cache_users( array_values( array_unique( $author_ids ) ) );
+		}
+
+		buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids );
+		buddynext_service( 'bookmarks' )->user_bookmarks( $viewer ); // one cached query for the whole set.
+		buddynext_service( 'moderation' )->user_reported_map( $viewer, 'post', $post_ids );
+		if ( ! empty( $poll_ids ) ) {
+			buddynext_service( 'polls' )->user_votes_map( $viewer, $poll_ids );
+		}
+	}
+
+	/**
 	 * Enrich raw feed rows into an app-renderable shape.
 	 *
 	 * The JSON feed previously returned raw hydrate() rows (author as a bare
@@ -712,6 +762,8 @@ class FeedController extends BaseRestController {
 		if ( empty( $items ) || ! function_exists( 'buddynext_get_template' ) ) {
 			return '';
 		}
+
+		$this->prime_viewer_state( $items, $viewer );
 
 		ob_start();
 		foreach ( $items as $item ) {

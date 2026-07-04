@@ -131,6 +131,10 @@ class ModerationService {
 
 		$report_id = (int) $wpdb->insert_id;
 
+		// Bust the per-viewer report-state cache so the action menu flips to
+		// "Reported" immediately on the next render.
+		wp_cache_delete( "reported_{$reporter_id}_" . sanitize_key( $object_type ) . "_{$object_id}", 'buddynext_moderation' );
+
 		$report_row = array(
 			'report_id'   => $report_id,
 			'reporter_id' => $reporter_id,
@@ -246,6 +250,17 @@ class ModerationService {
 			return false;
 		}
 
+		$object_type = sanitize_key( $object_type );
+
+		// Per-viewer cache ('1'/'0'); primed en masse by user_reported_map() so the
+		// SSR feed does not run one report-state seek per card, and busted in
+		// report() when this viewer files a report on the object.
+		$key    = "reported_{$reporter_id}_{$object_type}_{$object_id}";
+		$cached = wp_cache_get( $key, 'buddynext_moderation' );
+		if ( false !== $cached ) {
+			return '1' === (string) $cached;
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -255,13 +270,68 @@ class ModerationService {
 				 WHERE reporter_id = %d AND object_type = %s AND object_id = %d
 				 LIMIT 1",
 				$reporter_id,
-				sanitize_key( $object_type ),
+				$object_type,
 				$object_id
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return null !== $existing;
+		$has = null !== $existing;
+		wp_cache_set( $key, $has ? '1' : '0', 'buddynext_moderation', 300 );
+
+		return $has;
+	}
+
+	/**
+	 * Batch report-state for a set of objects of one type in ONE query.
+	 *
+	 * Returns a map of object_id => bool (has the viewer reported it). Warms the
+	 * per-viewer user_has_reported() cache for every requested id, so a later
+	 * per-card lookup during SSR render is a free cache hit — the whole page's
+	 * report state costs this one query.
+	 *
+	 * @param int    $reporter_id Viewer.
+	 * @param string $object_type Object type (e.g. 'post').
+	 * @param int[]  $object_ids  Object IDs to look up.
+	 * @return array<int,bool> object_id => reported?
+	 */
+	public function user_reported_map( int $reporter_id, string $object_type, array $object_ids ): array {
+		$object_type = sanitize_key( $object_type );
+		$object_ids  = array_values( array_unique( array_filter( array_map( 'absint', $object_ids ) ) ) );
+
+		$map = array();
+		foreach ( $object_ids as $id ) {
+			$map[ $id ] = false;
+		}
+
+		if ( $reporter_id <= 0 || empty( $object_ids ) ) {
+			return $map;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $object_ids ), '%d' ) );
+		$params       = array_merge( array( $reporter_id, $object_type ), $object_ids );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT object_id FROM {$wpdb->prefix}bn_reports
+				 WHERE reporter_id = %d AND object_type = %s AND object_id IN ( {$placeholders} )",
+				$params
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		foreach ( (array) $rows as $id ) {
+			$map[ (int) $id ] = true;
+		}
+
+		foreach ( $map as $id => $reported ) {
+			wp_cache_set( "reported_{$reporter_id}_{$object_type}_{$id}", $reported ? '1' : '0', 'buddynext_moderation', 300 );
+		}
+
+		return $map;
 	}
 
 	/**

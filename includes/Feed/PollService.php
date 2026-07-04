@@ -38,10 +38,14 @@ class PollService {
 	 * Evict the cached results for a poll. Called from every vote.
 	 *
 	 * @param int $post_id Poll post ID.
+	 * @param int $user_id Voting user (0 to skip the per-viewer vote cache).
 	 * @return void
 	 */
-	private function invalidate_results( int $post_id ): void {
+	private function invalidate_results( int $post_id, int $user_id = 0 ): void {
 		wp_cache_delete( "results_{$post_id}", self::CACHE_GROUP );
+		if ( $user_id > 0 ) {
+			wp_cache_delete( "uservote_{$user_id}_{$post_id}", self::CACHE_GROUP );
+		}
 	}
 
 	/**
@@ -160,7 +164,7 @@ class PollService {
 			if ( (int) $existing_option_id === $option_id ) {
 				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				PostService::flush_cache( $post_id );
-				$this->invalidate_results( $post_id );
+				$this->invalidate_results( $post_id, $user_id );
 				return true;
 			}
 		}
@@ -204,7 +208,7 @@ class PollService {
 		do_action( 'buddynext_poll_voted', $post_id, $option_id, $user_id );
 
 		PostService::flush_cache( $post_id );
-		$this->invalidate_results( $post_id );
+		$this->invalidate_results( $post_id, $user_id );
 
 		return true;
 	}
@@ -257,6 +261,19 @@ class PollService {
 	 * @return int|null Option ID or null.
 	 */
 	public function user_vote( int $user_id, int $post_id ): ?int {
+		if ( $user_id <= 0 || $post_id <= 0 ) {
+			return null;
+		}
+
+		// Per-viewer cache (0 = "checked, no vote"); primed en masse by
+		// user_votes_map() so the SSR feed does not run one query per poll card,
+		// and busted on every vote via invalidate_results().
+		$key    = "uservote_{$user_id}_{$post_id}";
+		$cached = wp_cache_get( $key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return 0 === (int) $cached ? null : (int) $cached;
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -269,6 +286,8 @@ class PollService {
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_set( $key, null !== $option_id ? (int) $option_id : 0, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return null !== $option_id ? (int) $option_id : null;
 	}
@@ -309,6 +328,13 @@ class PollService {
 		$map = array();
 		foreach ( (array) $rows as $row ) {
 			$map[ (int) $row['post_id'] ] = (int) $row['option_id'];
+		}
+
+		// Warm the per-viewer cache for every requested id (hit or miss), so a
+		// later user_vote() during SSR render is a free cache hit — the whole
+		// page's poll votes cost this one query.
+		foreach ( $post_ids as $pid ) {
+			wp_cache_set( "uservote_{$user_id}_{$pid}", $map[ $pid ] ?? 0, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
 		return $map;
