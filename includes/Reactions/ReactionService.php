@@ -698,4 +698,73 @@ class ReactionService {
 		wp_cache_delete( "counts_{$object_type}_{$object_id}", self::CACHE_GROUP );
 		wp_cache_delete( "user_emoji_{$user_id}_{$object_type}_{$object_id}", self::CACHE_GROUP );
 	}
+
+	/**
+	 * Delete every reaction row for one emoji slug and reconcile the affected
+	 * objects' denormalised counts.
+	 *
+	 * Called when a custom reaction is removed (Pro): leaving the rows behind made
+	 * get_counts() keep returning a slug the picker had dropped and label() could
+	 * no longer name — an unpickable, unlabeled ghost count. Purging the rows and
+	 * decrementing each affected post's reaction_count by however many it lost
+	 * keeps the totals honest.
+	 *
+	 * @param string $emoji Reaction slug to purge.
+	 * @return int Number of reaction rows deleted.
+	 */
+	public function purge_emoji( string $emoji ): int {
+		$emoji = sanitize_key( $emoji );
+		if ( '' === $emoji ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// Affected objects + how many rows each loses, so counts + caches reconcile.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$affected = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT object_type, object_id, COUNT(*) AS n
+				 FROM {$wpdb->prefix}bn_reactions
+				 WHERE emoji = %s
+				 GROUP BY object_type, object_id",
+				$emoji
+			),
+			ARRAY_A
+		);
+
+		if ( empty( $affected ) ) {
+			return 0;
+		}
+
+		$deleted = (int) $wpdb->query(
+			$wpdb->prepare( "DELETE FROM {$wpdb->prefix}bn_reactions WHERE emoji = %s", $emoji )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		foreach ( (array) $affected as $row ) {
+			$object_type = (string) $row['object_type'];
+			$object_id   = (int) $row['object_id'];
+			$lost        = (int) $row['n'];
+
+			if ( 'post' === $object_type && $object_id > 0 && $lost > 0 ) {
+				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->query(
+					$wpdb->prepare(
+						"UPDATE {$wpdb->prefix}bn_posts
+						 SET reaction_count = GREATEST( 0, CAST( reaction_count AS SIGNED ) - %d )
+						 WHERE id = %d",
+						$lost,
+						$object_id
+					)
+				);
+				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				wp_cache_delete( "post_{$object_id}", 'buddynext_posts' );
+			}
+
+			$this->invalidate_cache( $object_type, $object_id, 0 );
+		}
+
+		return $deleted;
+	}
 }
