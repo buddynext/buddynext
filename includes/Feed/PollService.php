@@ -272,4 +272,45 @@ class PollService {
 
 		return null !== $option_id ? (int) $option_id : null;
 	}
+
+	/**
+	 * Batch-fetch a viewer's poll votes across many posts in ONE query.
+	 *
+	 * Returns a map of post_id => option_id for poll posts the viewer has voted on.
+	 * Replaces calling user_vote() per feed card (the per-card N+1).
+	 *
+	 * @param int   $user_id  Viewer.
+	 * @param int[] $post_ids Poll post IDs to look up.
+	 * @return array<int,int> post_id => option_id (absent when not voted).
+	 */
+	public function user_votes_map( int $user_id, array $post_ids ): array {
+		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
+
+		if ( 0 === $user_id || empty( $post_ids ) ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $post_ids ), '%d' ) );
+		$params       = array_merge( array( $user_id ), $post_ids );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT post_id, option_id FROM {$wpdb->prefix}bn_poll_votes
+				 WHERE user_id = %d AND post_id IN ( {$placeholders} )",
+				$params
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		$map = array();
+		foreach ( (array) $rows as $row ) {
+			$map[ (int) $row['post_id'] ] = (int) $row['option_id'];
+		}
+
+		return $map;
+	}
 }

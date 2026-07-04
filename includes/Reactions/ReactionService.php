@@ -527,6 +527,61 @@ class ReactionService {
 	}
 
 	/**
+	 * Batch-fetch a viewer's reactions across many objects in ONE query.
+	 *
+	 * Returns a map of object_id => emoji (or null where the viewer has not
+	 * reacted). Replaces calling get_user_emoji() in a loop — the per-card N+1 that
+	 * made the feed unusable at scale. Also warms the per-object cache so any later
+	 * singular get_user_emoji() (e.g. the SSR post-card) is a free cache hit.
+	 *
+	 * @param int    $user_id     Viewer.
+	 * @param string $object_type Object type (e.g. 'post').
+	 * @param int[]  $object_ids  Object IDs to look up.
+	 * @return array<int,string|null> object_id => emoji|null.
+	 */
+	public function get_user_emoji_map( int $user_id, string $object_type, array $object_ids ): array {
+		$object_type = sanitize_key( $object_type );
+		$object_ids  = array_values( array_unique( array_filter( array_map( 'absint', $object_ids ) ) ) );
+
+		$map = array();
+		foreach ( $object_ids as $id ) {
+			$map[ $id ] = null;
+		}
+
+		if ( 0 === $user_id || empty( $object_ids ) ) {
+			return $map;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $object_ids ), '%d' ) );
+		$params       = array_merge( array( $user_id, $object_type ), $object_ids );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT object_id, emoji FROM {$wpdb->prefix}bn_reactions
+				 WHERE user_id = %d AND object_type = %s AND object_id IN ( {$placeholders} )",
+				$params
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		foreach ( (array) $rows as $row ) {
+			$map[ (int) $row['object_id'] ] = (string) $row['emoji'];
+		}
+
+		// Warm the singular per-object cache for every requested id (hit or miss),
+		// so a subsequent get_user_emoji() during SSR never re-queries.
+		foreach ( $map as $id => $emoji ) {
+			wp_cache_set( "user_emoji_{$user_id}_{$object_type}_{$id}", $emoji ?? '', self::CACHE_GROUP, self::CACHE_TTL );
+		}
+
+		return $map;
+	}
+
+	/**
 	 * Return the total reaction count for an object.
 	 *
 	 * @param string $object_type Object type.
