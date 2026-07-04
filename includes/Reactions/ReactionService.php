@@ -212,6 +212,43 @@ class ReactionService {
 	}
 
 	/**
+	 * The owner-enabled reaction set with full render metadata.
+	 *
+	 * Single source the app can read to render the reaction picker without
+	 * hardcoding the six defaults — Pro custom reactions (added via
+	 * buddynext_reaction_types) appear here too, each carrying its label, emoji
+	 * char, colour token, and SVG icon URL (buddynext_reaction_meta supplies the
+	 * char/colour; Pro custom slugs ship their own reaction-{slug}.svg).
+	 *
+	 * @return array<int,array{slug:string,label:string,char:string,color:string,icon_url:string}>
+	 */
+	public static function enabled_reactions(): array {
+		$reactions = array();
+
+		foreach ( self::reaction_types() as $slug ) {
+			$meta = (array) apply_filters(
+				'buddynext_reaction_meta',
+				array(
+					'label' => self::label( $slug ),
+					'char'  => '',
+					'color' => '',
+				),
+				$slug
+			);
+
+			$reactions[] = array(
+				'slug'     => $slug,
+				'label'    => self::label( $slug ),
+				'char'     => (string) ( $meta['char'] ?? '' ),
+				'color'    => (string) ( $meta['color'] ?? '' ),
+				'icon_url' => defined( 'BUDDYNEXT_URL' ) ? BUDDYNEXT_URL . 'assets/icons/reaction-' . rawurlencode( $slug ) . '.svg' : '',
+			);
+		}
+
+		return $reactions;
+	}
+
+	/**
 	 * Human-readable, translatable label for a reaction slug.
 	 *
 	 * Single source of truth for reaction labels across the picker, the React

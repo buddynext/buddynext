@@ -183,4 +183,27 @@ class ReactionServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( array(), $this->service->get_user_emoji_map( 0, 'post', array( 1, 2 ) ) );
 		$this->assertSame( array(), $this->service->get_user_emoji_map( $this->user_id, 'post', array() ) );
 	}
+	/**
+	 * The enabled set carries render metadata and includes Pro custom slugs.
+	 *
+	 * @return void
+	 */
+	public function test_enabled_reactions_includes_metadata_and_pro_slugs(): void {
+		$base = ReactionService::enabled_reactions();
+		$this->assertNotEmpty( $base );
+		$this->assertSame(
+			array( 'slug', 'label', 'char', 'color', 'icon_url' ),
+			array_keys( $base[0] )
+		);
+
+		add_filter(
+			'buddynext_reaction_types',
+			static function ( array $types ): array {
+				$types[] = 'celebrate';
+				return $types;
+			}
+		);
+		$slugs = array_column( ReactionService::enabled_reactions(), 'slug' );
+		$this->assertContains( 'celebrate', $slugs );
+	}
 }
