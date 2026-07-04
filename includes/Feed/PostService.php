@@ -188,6 +188,23 @@ class PostService {
 				// neither see nor approve it. A hard block (422) still rejects outright
 				// via the else branch.
 				$flag_reason = (string) $safeguard_result->get_error_message();
+
+				// Append which rule fired + the term it matched so the moderation
+				// report records the cause (Pro stamps rule_name/matched_term onto the
+				// safeguard error data); tuning was previously blind.
+				$flag_data = $safeguard_result->get_error_data();
+				if ( is_array( $flag_data ) ) {
+					$flag_bits = array();
+					if ( ! empty( $flag_data['rule_name'] ) ) {
+						$flag_bits[] = 'rule: ' . (string) $flag_data['rule_name'];
+					}
+					if ( ! empty( $flag_data['matched_term'] ) ) {
+						$flag_bits[] = 'matched: ' . (string) $flag_data['matched_term'];
+					}
+					if ( ! empty( $flag_bits ) ) {
+						$flag_reason .= ' (' . implode( ', ', $flag_bits ) . ')';
+					}
+				}
 			} else {
 				// Hard block (422), suspension, rate limit, etc. — reject outright.
 				return $safeguard_result;
