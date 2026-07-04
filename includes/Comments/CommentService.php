@@ -55,6 +55,18 @@ class CommentService {
 			return new WP_Error( 'empty_content', __( 'Comment content cannot be empty.', 'buddynext' ) );
 		}
 
+		// Email-verification gate — an unverified member cannot comment until they
+		// confirm their address (admins exempt; no-op when verification is off).
+		if ( ! user_can( $user_id, 'manage_options' )
+			&& function_exists( 'buddynext_service' )
+			&& ! buddynext_service( 'verification' )->is_verified( $user_id ) ) {
+			return new WP_Error(
+				'email_unverified',
+				__( 'Please verify your email address before commenting. Check your inbox for the verification link, or request a new one from your account.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		// Trust-&-Safety gate before any DB write. Refuses when the actor is
 		// suspended (spec 09-moderation: "Suspend — locked out… cannot
 		// post/comment/react"), and — for a post or comment target — when a block

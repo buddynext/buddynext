@@ -34,6 +34,14 @@ class VerificationService {
 
 		$token = bin2hex( random_bytes( 32 ) );
 
+		// Stamp the moment this account first entered "awaiting verification" (kept
+		// across resends). Only accounts carrying this marker are eligible for the
+		// stale-unverified cron purge, so members who registered BEFORE verification
+		// was switched on — and never received a token — are never at risk.
+		if ( '' === (string) get_user_meta( $user_id, 'buddynext_verify_pending', true ) ) {
+			update_user_meta( $user_id, 'buddynext_verify_pending', time() );
+		}
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_verify_tokens',
@@ -110,6 +118,8 @@ class VerificationService {
 		$user_id = (int) $row->user_id;
 
 		update_user_meta( $user_id, 'buddynext_email_verified', 1 );
+		// Cleared so the account is no longer a purge candidate.
+		delete_user_meta( $user_id, 'buddynext_verify_pending' );
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(

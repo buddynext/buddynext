@@ -78,6 +78,20 @@ class PostService {
 			);
 		}
 
+		// Email-verification gate. When verification is enforced, an unverified
+		// member cannot post until they confirm their address (admins exempt).
+		// is_verified() returns true when the feature is off, so this is a no-op in
+		// open mode.
+		if ( ! user_can( $user_id, 'manage_options' )
+			&& function_exists( 'buddynext_service' )
+			&& ! buddynext_service( 'verification' )->is_verified( $user_id ) ) {
+			return new WP_Error(
+				'email_unverified',
+				__( 'Please verify your email address before posting. Check your inbox for the verification link, or request a new one from your account.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		if ( 'poll' === $type ) {
 			if ( '0' === (string) get_option( 'buddynext_allow_polls', '1' ) ) {
 				return new WP_Error(
