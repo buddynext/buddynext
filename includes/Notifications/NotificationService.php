@@ -477,7 +477,38 @@ class NotificationService {
 			'group_count' => (int) $r['group_count'],
 			'is_read'     => (bool) $r['is_read'],
 			'created_at'  => $r['created_at'],
+			// The data payload carries type-specific fields (message, url, emoji…)
+			// that NotificationMessageService::compose() and the hub/REST consumers
+			// read to render partner-mirrored (jt.*, suite.*) and data-driven
+			// notifications. It was historically dropped here, so those types fell
+			// back to generic copy + a home_url() link. Hydrated so every consumer
+			// gets the real payload — this is the C2.1 fix.
+			'data'        => $this->decode_data( $r['data'] ?? null ),
 		);
+	}
+
+	/**
+	 * Decode a notification's stored data payload into an array.
+	 *
+	 * The `bn_notifications.data` column holds a JSON blob of type-specific
+	 * fields. Returned as a decoded array so callers receive a structured
+	 * payload rather than a raw JSON string (an already-array value passes
+	 * through unchanged).
+	 *
+	 * @param mixed $raw Raw JSON string (or array) from bn_notifications.data.
+	 * @return array<string,mixed> Decoded payload, or an empty array.
+	 */
+	private function decode_data( $raw ): array {
+		if ( is_array( $raw ) ) {
+			return $raw;
+		}
+		if ( is_string( $raw ) && '' !== $raw ) {
+			$decoded = json_decode( $raw, true );
+			if ( is_array( $decoded ) ) {
+				return $decoded;
+			}
+		}
+		return array();
 	}
 
 	/**
