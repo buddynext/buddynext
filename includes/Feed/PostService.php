@@ -351,6 +351,20 @@ class PostService {
 		 */
 		do_action( 'buddynext_post_created', $post_id, $user_id, $type );
 
+		if ( 'announcement' === $type ) {
+			/**
+			 * Fires when an announcement goes live, so notifications fan out to its
+			 * audience — site-wide, or a single space when space_id is set. Previously
+			 * an announcement only prepended to home page 1, so anyone living in
+			 * spaces/DMs or past page 1 never saw it.
+			 *
+			 * @param int $post_id  Announcement post ID.
+			 * @param int $user_id  Author.
+			 * @param int $space_id Target space (0 = site-wide).
+			 */
+			do_action( 'buddynext_announcement_published', $post_id, $user_id, (int) ( $data['space_id'] ?? 0 ) );
+		}
+
 		// An auto-moderation flag (severity=flag) lets the post publish but files a
 		// system report so the content surfaces in the moderation queue. reporter_id
 		// 0 marks it as system-generated; the flag message is preserved as notes.

@@ -202,6 +202,14 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'daily',
 				'can_email'          => true,
 			),
+			'bn.announcement'           => array(
+				'label'              => __( 'Announcements', 'buddynext' ),
+				'description'        => __( 'An admin or space moderator posted an announcement.', 'buddynext' ),
+				'group'              => self::GROUP_FEED,
+				'default_on_site'    => true,
+				'default_email_freq' => 'immediate',
+				'can_email'          => true,
+			),
 			'bn.space_role_changed'     => array(
 				'label'              => __( 'Space role changes', 'buddynext' ),
 				'description'        => __( 'Your role in a space changed.', 'buddynext' ),

@@ -109,6 +109,13 @@ class NotificationMessageService {
 	 */
 	private function compose_single( string $type, string $actor_name, int $object_id, array $data ): string {
 		switch ( $type ) {
+			case 'bn.announcement':
+				return sprintf(
+					/* translators: %s: actor display name. */
+					__( '%s posted an announcement.', 'buddynext' ),
+					$actor_name
+				);
+
 			case 'bn.new_follower':
 				return sprintf(
 					/* translators: %s: actor display name. */
