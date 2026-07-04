@@ -101,12 +101,36 @@ class PostService {
 			}
 		}
 
-		if ( 'announcement' === $type && ! user_can( $user_id, 'manage_options' ) ) {
-			return new WP_Error(
-				'forbidden',
-				__( 'Only administrators can create announcements.', 'buddynext' ),
-				array( 'status' => 403 )
-			);
+		if ( 'announcement' === $type ) {
+			$ann_space_id = (int) ( $data['space_id'] ?? 0 );
+
+			// Site admins may announce site-wide; a space owner/moderator may announce
+			// to their OWN space. The whole decision is filterable so a site can
+			// delegate the capability differently.
+			$can_announce = user_can( $user_id, 'manage_options' )
+				|| ( $ann_space_id > 0 && function_exists( 'buddynext_service' )
+					&& (bool) buddynext_service( 'permissions' )->can(
+						$user_id,
+						'buddynext-moderate-space',
+						array( 'space_id' => $ann_space_id )
+					) );
+
+			/**
+			 * Filter whether a user may create an announcement.
+			 *
+			 * @param bool $can_announce Default: site admin, or a moderator of the target space.
+			 * @param int  $user_id      Author.
+			 * @param int  $ann_space_id Target space (0 = site-wide).
+			 */
+			$can_announce = (bool) apply_filters( 'buddynext_can_create_announcement', $can_announce, $user_id, $ann_space_id );
+
+			if ( ! $can_announce ) {
+				return new WP_Error(
+					'forbidden',
+					__( 'You do not have permission to create this announcement.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
 		}
 
 		// An archived space is read-only — refuse new posts targeting it.

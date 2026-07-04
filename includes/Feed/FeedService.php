@@ -766,6 +766,7 @@ class FeedService {
 				 WHERE p.is_announcement = 1
 				   AND p.type = 'announcement'
 				   AND p.status = 'published'
+				   AND p.space_id IS NULL
 				   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > UTC_TIMESTAMP())
 				 ORDER BY p.created_at DESC
 				 LIMIT 1"
@@ -774,6 +775,7 @@ class FeedService {
 				 WHERE p.is_announcement = 1
 				   AND p.type = 'announcement'
 				   AND p.status = 'published'
+				   AND p.space_id IS NULL
 				   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > UTC_TIMESTAMP()){$exclude_sql}
 				 ORDER BY p.created_at DESC
 				 LIMIT 1",
@@ -788,6 +790,49 @@ class FeedService {
 		}
 
 		return $this->post_service->hydrate( $row );
+	}
+
+	/**
+	 * Return the active announcement for a single space (or null).
+	 *
+	 * Space-scoped announcements never surface in the home feed (active_announcement
+	 * filters space_id IS NULL); they show at the top of their own space instead.
+	 * Respects the same dismissals + expiry + feature gate.
+	 *
+	 * @param int $space_id Space to check.
+	 * @param int $user_id  Viewing user ID.
+	 * @return array|null Hydrated post array or null.
+	 */
+	public function space_announcement( int $space_id, int $user_id ): ?array {
+		if ( $space_id <= 0 || ! buddynext_feature_enabled( 'announcements' ) ) {
+			return null;
+		}
+
+		global $wpdb;
+
+		$dismissed    = self::dismissed_announcement_ids( $user_id );
+		$placeholders = empty( $dismissed ) ? '' : implode( ',', array_fill( 0, count( $dismissed ), '%d' ) );
+		$exclude_sql  = '' === $placeholders ? '' : " AND p.id NOT IN ({$placeholders})";
+		$params       = array_merge( array( $space_id ), $dismissed );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT p.* FROM {$wpdb->prefix}bn_posts p
+				 WHERE p.is_announcement = 1
+				   AND p.type = 'announcement'
+				   AND p.status = 'published'
+				   AND p.space_id = %d
+				   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > UTC_TIMESTAMP()){$exclude_sql}
+				 ORDER BY p.created_at DESC
+				 LIMIT 1",
+				$params
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		return null === $row ? null : $this->post_service->hydrate( $row );
 	}
 
 	/**

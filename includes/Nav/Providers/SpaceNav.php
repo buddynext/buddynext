@@ -279,6 +279,17 @@ final class SpaceNav {
 			)
 		);
 
+		// A space announcement leads the feed as its own (dismissible) card and is
+		// dropped from the chronological list to avoid showing twice.
+		$space_ann    = $feed->space_announcement( $space_id, $viewer_id );
+		$space_ann_id = is_array( $space_ann ) ? (int) ( $space_ann['id'] ?? 0 ) : 0;
+		if ( $space_ann_id > 0 ) {
+			$posts = array_values(
+				array_filter( $posts, static fn( $p ): bool => (int) ( $p['id'] ?? 0 ) !== $space_ann_id )
+			);
+			array_unshift( $posts, $space_ann );
+		}
+
 		// Batch-prime per-viewer state for the chronological post-cards before the
 		// SSR loop renders them (C8.3). The pinned strip is a compact title/author
 		// card with no reaction/vote/report state, so it needs no priming.
