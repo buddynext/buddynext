@@ -2827,6 +2827,16 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				'space.joined'           => __( 'Space joined', 'buddynext' ),
 				'space.left'             => __( 'Space left', 'buddynext' ),
 			);
+			/**
+			 * Filter the outbound-webhook event catalogue (slug => label).
+			 *
+			 * Pro adds its membership / payment events here so a site owner can
+			 * subscribe an endpoint to purchase.* / membership.* the same way as the
+			 * built-in social events.
+			 *
+			 * @param array<string,string> $catalogue Event slug => human label.
+			 */
+			$catalogue = (array) apply_filters( 'buddynext_webhook_event_catalogue', $catalogue );
 			?>
 
 			<div class="bn-field bn-a-gap-top">
