@@ -51,6 +51,11 @@ class OutboundWebhookService {
 	private const DELIVER_HOOK = 'buddynext_webhook_deliver';
 
 	/**
+	 * Action Scheduler group for webhook deliveries.
+	 */
+	private const AS_GROUP = 'buddynext';
+
+	/**
 	 * Object-cache group for the atomic dispatch de-dupe lock.
 	 */
 	private const DISPATCH_LOCK_GROUP = 'buddynext_webhook';
@@ -383,14 +388,21 @@ class OutboundWebhookService {
 
 		$args = array( $event_slug, $payload );
 
-		// Guard against a double-schedule when two requests fire the SAME event +
-		// payload concurrently: wp_next_scheduled() + wp_schedule_single_event() is
-		// not atomic, so both could see "not scheduled" and both schedule, the cron
-		// runs twice, and the endpoint gets duplicate POSTs. The per-delivery
-		// dedup header does NOT reliably catch this (its hash includes a per-send
-		// timestamp, so duplicates firing in different seconds look distinct).
-		// Under a persistent object cache, wp_cache_add() is atomic and returns
-		// false when the key already exists, so only the first request schedules.
+		// Prefer Action Scheduler: it has its own reliable runner (so deliveries do
+		// not wait for a visitor on no-real-cron sites), and its `unique` flag
+		// atomically prevents a duplicate pending action for the same event+payload —
+		// dedup that no longer depends on a persistent object cache.
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( self::DELIVER_HOOK, $args, self::AS_GROUP, true );
+			return;
+		}
+
+		// Fallback (Action Scheduler absent): guard against a double-schedule when two
+		// requests fire the SAME event + payload concurrently — wp_next_scheduled() +
+		// wp_schedule_single_event() is not atomic, so both could see "not scheduled",
+		// both schedule, the cron runs twice, and the endpoint gets duplicate POSTs.
+		// Under a persistent object cache, wp_cache_add() is atomic and returns false
+		// when the key already exists, so only the first request schedules.
 		$lock_key = 'bn_owh_' . md5( $event_slug . '|' . (string) wp_json_encode( $payload ) );
 		if ( wp_using_ext_object_cache() ) {
 			if ( ! wp_cache_add( $lock_key, 1, self::DISPATCH_LOCK_GROUP, MINUTE_IN_SECONDS ) ) {
