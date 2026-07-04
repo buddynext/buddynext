@@ -557,6 +557,19 @@ class PageRouter {
 			}
 		}
 
+		// Viewing your notifications list clears the badge — the count is expected
+		// to reset when you look at them (every mainstream app does this). Done
+		// before the title + rail render (both read unread_count), so the tab title,
+		// rail badge, and mobile-bar badge all show 0 on this same page load;
+		// mark_all_read busts the unread cache. Only the list view marks read, not
+		// the preferences sub-page.
+		if ( 'notifications' === $hub
+			&& is_user_logged_in()
+			&& 'prefs' !== (string) get_query_var( 'bn_notif_section', '' )
+			&& function_exists( 'buddynext_service' ) ) {
+			buddynext_service( 'notifications' )->mark_all_read( get_current_user_id() );
+		}
+
 		// Specialise the Notifications hub title:
 		// - Prefs section → "Notification preferences".
 		// - List with unread > 0 → "Notifications (3)" / "Notifications (99+)".
