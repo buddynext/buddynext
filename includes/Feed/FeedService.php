@@ -61,6 +61,16 @@ class FeedService {
 	public const DISMISSED_ANNOUNCEMENTS_META = 'bn_dismissed_announcements';
 
 	/**
+	 * Max dismissed-announcement IDs kept per user. Bounds the serialized usermeta
+	 * array and the NOT IN() clause in active_announcement(). Only a handful of
+	 * announcements are ever live, so the oldest ids (expired/deleted announcements
+	 * that can no longer surface) age out safely.
+	 *
+	 * @var int
+	 */
+	private const MAX_DISMISSED_ANNOUNCEMENTS = 100;
+
+	/**
 	 * Follow graph service — used to resolve the home-feed author list.
 	 *
 	 * @var FollowService
@@ -865,7 +875,16 @@ class FeedService {
 		}
 		$dismissed   = self::dismissed_announcement_ids( $user_id );
 		$dismissed[] = $post_id;
-		update_user_meta( $user_id, self::DISMISSED_ANNOUNCEMENTS_META, array_values( array_unique( $dismissed ) ) );
+		$dismissed   = array_values( array_unique( $dismissed ) );
+
+		// Cap the list so it cannot grow without bound (post deletion cannot
+		// efficiently prune every dismisser's usermeta, so keep only the most
+		// recent ids — older ones are for announcements that can no longer surface).
+		if ( count( $dismissed ) > self::MAX_DISMISSED_ANNOUNCEMENTS ) {
+			$dismissed = array_slice( $dismissed, -self::MAX_DISMISSED_ANNOUNCEMENTS );
+		}
+
+		update_user_meta( $user_id, self::DISMISSED_ANNOUNCEMENTS_META, $dismissed );
 	}
 
 	/**
