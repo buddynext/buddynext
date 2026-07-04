@@ -54,6 +54,9 @@ class HashtagListener implements ListenerInterface {
 		// Native BuddyNext feed posts.
 		add_action( 'buddynext_post_created', array( $this, 'on_post_created' ), 10, 3 );
 
+		// Post edits — re-sync tags so removed #tags unlink and new ones register.
+		add_action( 'buddynext_post_updated', array( $this, 'on_post_updated' ), 10, 3 );
+
 		// Post deletion — drop the post's hashtag links and decrement post_count.
 		add_action( 'buddynext_post_deleted', array( $this, 'on_post_deleted' ), 10, 2 );
 
@@ -92,6 +95,38 @@ class HashtagListener implements ListenerInterface {
 		// poll questions, media captions, reshare notes, event/job/discussion
 		// bodies etc. with #hashtags were silently never indexed (never appeared
 		// in hashtag feeds or trending, and following the tag missed them).
+		$this->dispatch( 'buddynext_async_index_hashtags', array( 'post', $post_id, '' ) );
+	}
+
+	/**
+	 * Handle buddynext_post_updated — re-sync hashtags when a post is edited.
+	 *
+	 * Hashtags derive solely from post content, so this only re-processes when the
+	 * content column was actually written this update; edited_at-only saves and
+	 * privacy flips change no tags and are skipped. It re-uses the same async
+	 * worker as creation, which fetches the fresh content and REPLACES the post's
+	 * tag set — so a removed #tag is unlinked (and its post_count decremented) and
+	 * a newly added #tag is registered and linked. Before this, buddynext_post_updated
+	 * had no hashtag consumer: an edited post kept its original tags frozen, so
+	 * deleted tags lingered on the tag page and added tags never appeared. Mirrors
+	 * the search index's C4 consumer of the same event.
+	 *
+	 * @param int   $post_id Post ID.
+	 * @param int   $user_id Editor user ID (unused; kept for hook arity).
+	 * @param array $fields  Columns written this update (see PostService::update).
+	 * @return void
+	 */
+	public function on_post_updated( int $post_id, int $user_id = 0, array $fields = array() ): void {
+		if ( ! buddynext_feature_enabled( 'hashtags' ) ) {
+			return;
+		}
+
+		// Tags come only from content; a save that did not touch content cannot
+		// change the tag set, so there is nothing to re-sync.
+		if ( ! array_key_exists( 'content', $fields ) ) {
+			return;
+		}
+
 		$this->dispatch( 'buddynext_async_index_hashtags', array( 'post', $post_id, '' ) );
 	}
 
