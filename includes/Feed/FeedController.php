@@ -154,6 +154,16 @@ class FeedController extends BaseRestController {
 
 		register_rest_route(
 			'buddynext/v1',
+			'/feed/announcements',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'list_announcements' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
 			'/feed/explore/page',
 			array(
 				'methods'             => 'GET',
@@ -330,6 +340,74 @@ class FeedController extends BaseRestController {
 		$counts  = $this->feed_service()->home_feed_counts( $user_id );
 
 		return new WP_REST_Response( $counts, 200 );
+	}
+
+	/**
+	 * GET /feed/announcements — the active announcements the viewer should see.
+	 *
+	 * The site-wide announcement plus one per space the viewer belongs to, each
+	 * respecting the viewer's dismissals + expiry. Lets the native app fetch/badge/
+	 * push announcements instead of scraping the /feed/home page-1 prepend.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function list_announcements( WP_REST_Request $request ): WP_REST_Response { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		$viewer = get_current_user_id();
+		$feed   = $this->feed_service();
+		$items  = array();
+
+		$site = $feed->active_announcement( $viewer );
+		if ( is_array( $site ) ) {
+			$items[] = $this->shape_announcement( $site );
+		}
+
+		if ( $viewer > 0 ) {
+			global $wpdb;
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$space_ids = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT space_id FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active'",
+					$viewer
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			foreach ( $space_ids as $sid ) {
+				$ann = $feed->space_announcement( (int) $sid, $viewer );
+				if ( is_array( $ann ) ) {
+					$items[] = $this->shape_announcement( $ann );
+				}
+			}
+		}
+
+		return new WP_REST_Response( array( 'announcements' => $items ), 200 );
+	}
+
+	/**
+	 * Shape an announcement post for the REST payload.
+	 *
+	 * @param array $post Hydrated announcement post row.
+	 * @return array
+	 */
+	private function shape_announcement( array $post ): array {
+		$author_id = (int) ( $post['user_id'] ?? 0 );
+		$author    = $author_id ? get_userdata( $author_id ) : null;
+		$content   = (string) ( $post['content'] ?? '' );
+
+		return array(
+			'id'           => (int) ( $post['id'] ?? 0 ),
+			'space_id'     => (int) ( $post['space_id'] ?? 0 ),
+			'content'      => $content,
+			'content_html' => function_exists( 'buddynext_format_content' ) ? buddynext_format_content( $content ) : $content,
+			'created_at'   => (string) ( $post['created_at'] ?? '' ),
+			'expires_at'   => $post['site_pin_expires_at'] ?? null,
+			'author'       => array(
+				'id'           => $author_id,
+				'display_name' => $author ? $author->display_name : '',
+				'avatar_url'   => $author_id ? get_avatar_url( $author_id, array( 'size' => 96 ) ) : '',
+			),
+		);
 	}
 
 	/**
