@@ -317,9 +317,14 @@ class FollowController extends BaseRestController {
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response
 	 */
-	public function get_followers( WP_REST_Request $request ): WP_REST_Response {
+	public function get_followers( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$user_id   = (int) $request->get_param( 'id' );
 		$viewer_id = get_current_user_id();
+
+		if ( ! $this->connections_visible( $user_id, $viewer_id ) ) {
+			return $this->connections_hidden_error();
+		}
+
 		$per_page  = max( 1, min( 50, (int) $request->get_param( 'per_page' ) ) );
 		$page      = max( 1, (int) $request->get_param( 'page' ) );
 
@@ -351,9 +356,14 @@ class FollowController extends BaseRestController {
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response
 	 */
-	public function get_following( WP_REST_Request $request ): WP_REST_Response {
+	public function get_following( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$user_id   = (int) $request->get_param( 'id' );
 		$viewer_id = get_current_user_id();
+
+		if ( ! $this->connections_visible( $user_id, $viewer_id ) ) {
+			return $this->connections_hidden_error();
+		}
+
 		$per_page  = max( 1, min( 50, (int) $request->get_param( 'per_page' ) ) );
 		$page      = max( 1, (int) $request->get_param( 'page' ) );
 
@@ -374,6 +384,48 @@ class FollowController extends BaseRestController {
 				'per_page' => $per_page,
 			),
 			200
+		);
+	}
+
+	/**
+	 * Whether $viewer_id may see $owner_id's follower / following lists.
+	 *
+	 * These routes were public (permission_callback __return_true), so a private
+	 * account that 404s its profile still leaked its whole connection graph. The
+	 * lists now default to the same visibility as the profile (public / followers /
+	 * connections / private + block), and a site can narrow it further with a
+	 * dedicated "who can see my connections" preference via the filter.
+	 *
+	 * @param int $owner_id  Whose connections are requested.
+	 * @param int $viewer_id Who is asking.
+	 * @return bool
+	 */
+	private function connections_visible( int $owner_id, int $viewer_id ): bool {
+		$privacy = buddynext_service( 'privacy' );
+		$default = ! ( $privacy instanceof \BuddyNext\SocialGraph\PrivacyService )
+			|| $privacy->can_view_profile( $viewer_id, $owner_id );
+
+		/**
+		 * Filter whether a viewer may see a user's followers / following lists.
+		 *
+		 * @param bool $can       Default: the viewer can view the profile.
+		 * @param int  $owner_id  Whose connections.
+		 * @param int  $viewer_id Who is asking.
+		 */
+		return (bool) apply_filters( 'buddynext_can_view_connections', $default, $owner_id, $viewer_id );
+	}
+
+	/**
+	 * The response used when a connection list is hidden — the same 404 as a missing
+	 * user, so a private account's existence isn't leaked either.
+	 *
+	 * @return WP_Error
+	 */
+	private function connections_hidden_error(): WP_Error {
+		return new WP_Error(
+			'user_not_found',
+			__( 'User not found.', 'buddynext' ),
+			array( 'status' => 404 )
 		);
 	}
 
