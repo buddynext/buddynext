@@ -1051,6 +1051,12 @@ class SpaceController extends BaseRestController {
 			$data['parent_id'] = (int) $request->get_param( 'parent_id' );
 		}
 
+		// Pro-gated field: the service only persists it when Pro validates the ability
+		// slug (buddynext_sanitize_space_required_ability); ignored on Free.
+		if ( null !== $request->get_param( 'required_ability' ) ) {
+			$data['required_ability'] = sanitize_text_field( (string) $request->get_param( 'required_ability' ) );
+		}
+
 		$result = $service->update( $space_id, $user_id, $data );
 
 		if ( is_wp_error( $result ) ) {

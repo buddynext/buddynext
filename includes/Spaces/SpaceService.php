@@ -486,6 +486,26 @@ class SpaceService {
 			$format[]        = '%s';
 		}
 
+		// required_ability gates the space behind a plan/ability. Free ships no
+		// ability system, so this is a seam: the filter returns null (field ignored)
+		// unless Pro's GatedSpacesIntegration validates the submitted slug and
+		// returns it (or '' to clear the gate).
+		if ( array_key_exists( 'required_ability', $data ) ) {
+			/**
+			 * Validate a space's required_ability before it is persisted.
+			 *
+			 * @param string|null $ability  Validated ability slug, '' to clear, or null to ignore (default).
+			 * @param mixed       $raw      Submitted value.
+			 * @param int         $space_id Space being updated.
+			 * @param int         $user_id  Actor.
+			 */
+			$ability = apply_filters( 'buddynext_sanitize_space_required_ability', null, $data['required_ability'], $space_id, $user_id );
+			if ( null !== $ability ) {
+				$fields['required_ability'] = (string) $ability;
+				$format[]                   = '%s';
+			}
+		}
+
 		// Move under a new parent, or detach to the top level. Validated for depth,
 		// cycles, the per-parent cap, and manage permission on the new parent.
 		if ( array_key_exists( 'parent_id', $data ) ) {
