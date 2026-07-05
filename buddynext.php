@@ -80,6 +80,10 @@ register_deactivation_hook(
 	__FILE__,
 	static function (): void {
 		\BuddyNext\Core\Installer::remove_mu_plugin();
+		// Clear scheduled-post cron events so no orphan recurring sweep survives
+		// deactivation (re-armed on next activation / write).
+		wp_clear_scheduled_hook( \BuddyNext\Feed\ScheduledPostsPublisher::HOOK );
+		wp_clear_scheduled_hook( \BuddyNext\Feed\ScheduledPostsPublisher::SWEEP_HOOK );
 	}
 );
 
