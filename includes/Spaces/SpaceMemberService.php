@@ -1324,6 +1324,35 @@ class SpaceMemberService {
 	}
 
 	/**
+	 * Count the spaces a user actively belongs to.
+	 *
+	 * The rail "My spaces" flyout shows a capped preview of membership_rows(); this
+	 * gives it the TRUE total so the count badge is accurate and a "See all" link can
+	 * appear once the member belongs to more spaces than the preview shows. A single
+	 * COUNT(*) on the (user_id, status) index — big-site safe at thousands of spaces.
+	 *
+	 * @param int $user_id User ID.
+	 * @return int
+	 */
+	public function count_memberships( int $user_id ): int {
+		$user_id = absint( $user_id );
+		if ( $user_id <= 0 ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active'",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
 	 * Count active members of a space (respecting the same block filter as
 	 * get_members()), without loading the rows. Powers paginated totals.
 	 *

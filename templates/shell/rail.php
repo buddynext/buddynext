@@ -177,14 +177,20 @@ foreach ( $bn_rail_items as $bn_item ) {
 			// directory (the sidebar widget caps at a handful). Only when they belong
 			// to at least one space.
 			if ( 'spaces' === (string) ( $bn_item['key'] ?? '' ) && $bn_rail_current_user ) :
-				$bn_my_spaces = buddynext_service( 'space_members' )->membership_rows( $bn_rail_current_user, 15 );
+				// Preview only the most-recently-joined spaces in the rail; the count
+				// badge shows the true total and a "See all" link opens /spaces/mine/
+				// so a member of hundreds of spaces gets a short flyout, not a wall.
+				$bn_spaces_preview = 8;
+				$bn_my_spaces      = buddynext_service( 'space_members' )->membership_rows( $bn_rail_current_user, $bn_spaces_preview );
+				$bn_spaces_total   = buddynext_service( 'space_members' )->count_memberships( $bn_rail_current_user );
 				if ( ! empty( $bn_my_spaces ) ) :
+					$bn_spaces_mine_url = trailingslashit( PageRouter::spaces_url() ) . 'mine/';
 					?>
 					<details class="bn-rail__spaces">
 						<summary class="bn-rail__spaces-toggle">
 							<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'layers' ); ?></span>
 							<span class="bn-rail__spaces-title"><?php esc_html_e( 'My spaces', 'buddynext' ); ?></span>
-							<span class="bn-rail__spaces-count"><?php echo esc_html( (string) count( $bn_my_spaces ) ); ?></span>
+							<span class="bn-rail__spaces-count"><?php echo esc_html( (string) $bn_spaces_total ); ?></span>
 							<span class="bn-rail__spaces-chevron" aria-hidden="true"><?php buddynext_icon( 'chevron-down' ); ?></span>
 						</summary>
 						<ul class="bn-rail__spaces-list">
@@ -195,6 +201,16 @@ foreach ( $bn_rail_items as $bn_item ) {
 									</a>
 								</li>
 							<?php endforeach; ?>
+							<?php if ( $bn_spaces_total > count( $bn_my_spaces ) ) : ?>
+								<li>
+									<a class="bn-rail__spaces-link bn-rail__spaces-all" href="<?php echo esc_url( $bn_spaces_mine_url ); ?>">
+										<?php
+										/* translators: %d: total number of spaces the member belongs to. */
+										echo esc_html( sprintf( __( 'See all %d spaces', 'buddynext' ), $bn_spaces_total ) );
+										?>
+									</a>
+								</li>
+							<?php endif; ?>
 						</ul>
 					</details>
 					<?php
