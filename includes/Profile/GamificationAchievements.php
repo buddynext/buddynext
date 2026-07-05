@@ -39,6 +39,7 @@ class GamificationAchievements {
 		}
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ), 20 );
+		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
 		// Owner control: list on the integration registry so the owner can hide the
 		// Achievements tab from BuddyNext → Integrations (default on).
 		add_filter(
@@ -201,6 +202,39 @@ class GamificationAchievements {
 	 * @return void
 	 */
 	private function render_standing( int $member_id ): void {
+		$tiles = $this->standing_tiles( $member_id );
+
+		if ( empty( $tiles ) ) {
+			return;
+		}
+
+		echo '<div class="bn-achievements__standing">';
+		foreach ( $tiles as $tile ) {
+			echo '<div class="bn-achievements__stat">';
+			$icon = (string) ( $tile['icon'] ?? '' );
+			if ( '' !== $icon && function_exists( 'buddynext_icon' ) && \BuddyNext\Core\IconService::has( $icon ) ) {
+				echo '<span class="bn-achievements__stat-icon" aria-hidden="true">';
+				buddynext_icon( $icon );
+				echo '</span>';
+			}
+			echo '<span class="bn-achievements__stat-value">' . esc_html( (string) $tile['value'] ) . '</span>';
+			echo '<span class="bn-achievements__stat-label">' . esc_html( (string) $tile['label'] ) . '</span>';
+			echo '</div>';
+		}
+		echo '</div>';
+	}
+
+	/**
+	 * The member's standing tiles (points · rank · level · streak) as data.
+	 *
+	 * Single source for both the SSR standing strip and the REST achievements
+	 * payload — read straight from wb-gamification (`wb_gam_*` + the leaderboard
+	 * engine), so the tab and the app never diverge.
+	 *
+	 * @param int $member_id Member.
+	 * @return array<int,array{icon:string,label:string,value:string}>
+	 */
+	private function standing_tiles( int $member_id ): array {
 		$tiles = array();
 
 		if ( function_exists( 'wb_gam_get_user_points' ) ) {
@@ -241,24 +275,71 @@ class GamificationAchievements {
 			}
 		}
 
-		if ( empty( $tiles ) ) {
-			return;
+		return $tiles;
+	}
+
+	/**
+	 * Register the read-only Achievements REST route (app coverage).
+	 *
+	 * Only wired when wb-gamification is active (register() early-returns otherwise),
+	 * so the route never exists on a site without the engine.
+	 *
+	 * @return void
+	 */
+	public function register_rest_routes(): void {
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>\d+)/achievements',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'rest_achievements' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'id' => array(
+						'required'          => true,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * REST: a member's badges + standing — the same data the SSR Achievements tab
+	 * renders, so the native app can draw the badge grid and standing strip.
+	 *
+	 * @param \WP_REST_Request $request Request ({id}).
+	 * @return \WP_REST_Response|\WP_Error 404 when the member does not exist.
+	 */
+	public function rest_achievements( \WP_REST_Request $request ) {
+		$member_id = absint( $request['id'] );
+		if ( $member_id <= 0 || ! get_userdata( $member_id ) ) {
+			return new \WP_Error( 'not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		echo '<div class="bn-achievements__standing">';
-		foreach ( $tiles as $tile ) {
-			echo '<div class="bn-achievements__stat">';
-			$icon = (string) ( $tile['icon'] ?? '' );
-			if ( '' !== $icon && function_exists( 'buddynext_icon' ) && \BuddyNext\Core\IconService::has( $icon ) ) {
-				echo '<span class="bn-achievements__stat-icon" aria-hidden="true">';
-				buddynext_icon( $icon );
-				echo '</span>';
-			}
-			echo '<span class="bn-achievements__stat-value">' . esc_html( (string) $tile['value'] ) . '</span>';
-			echo '<span class="bn-achievements__stat-label">' . esc_html( (string) $tile['label'] ) . '</span>';
-			echo '</div>';
-		}
-		echo '</div>';
+		$badges = array_map(
+			function ( array $badge ) use ( $member_id ): array {
+				$id = isset( $badge['id'] ) ? (string) $badge['id'] : '';
+				return array(
+					'id'            => $id,
+					'name'          => isset( $badge['name'] ) ? (string) $badge['name'] : '',
+					'image_url'     => isset( $badge['image_url'] ) ? (string) $badge['image_url'] : '',
+					'is_credential' => ! empty( $badge['is_credential'] ),
+					'earned_at'     => isset( $badge['earned_at'] ) ? (string) $badge['earned_at'] : '',
+					'share_url'     => '' !== $id ? $this->badge_share_url( $id, $member_id ) : '',
+				);
+			},
+			$this->badges( $member_id )
+		);
+
+		return new \WP_REST_Response(
+			array(
+				'has_standing' => $this->has_standing( $member_id ),
+				'standing'     => array_values( $this->standing_tiles( $member_id ) ),
+				'badges'       => $badges,
+			),
+			200
+		);
 	}
 
 	/**
