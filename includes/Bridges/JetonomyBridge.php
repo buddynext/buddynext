@@ -431,23 +431,54 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Resolve the per-space Discussion status for the owner control + tab.
-	 *
-	 * Returns the linked state plus the discussion's display name and public URL
-	 * so the settings panel can show "Active · View" without reaching into jt_*
-	 * itself (the bridge owns that access).
+	 * Whether a space's dedicated Discussion is currently ENABLED (shown to
+	 * members). A space keeps its one dedicated discussion for its lifetime; the
+	 * owner toggles it on/off with this flag, which hides the tab without ever
+	 * discarding the discussion or its content.
 	 *
 	 * @param int $space_id BuddyNext space ID.
-	 * @return array{linked:bool,forum_id:int,name:string,url:string}
+	 * @return bool True when a discussion exists AND is toggled on.
+	 */
+	public function space_discussion_enabled( int $space_id ): bool {
+		if ( ! $this->space_has_discussion( $space_id ) ) {
+			return false;
+		}
+		return '1' === (string) buddynext_get_space_field( $space_id, 'discussion_enabled' );
+	}
+
+	/**
+	 * Turn a space's dedicated Discussion on or off. Only flips the enabled flag —
+	 * the permanent jetonomy_forum_id link and all discussion content are never
+	 * touched, so re-enabling restores the exact same discussion.
+	 *
+	 * @param int  $space_id BuddyNext space ID.
+	 * @param bool $enabled  Desired state.
+	 * @return void
+	 */
+	public function set_discussion_enabled( int $space_id, bool $enabled ): void {
+		update_space_meta( absint( $space_id ), 'discussion_enabled', $enabled ? '1' : '0' );
+	}
+
+	/**
+	 * Resolve the per-space Discussion status for the owner control + tab.
+	 *
+	 * `has_discussion` — the space has a dedicated discussion (permanent, 1:1).
+	 * `enabled`        — the owner has it toggled on (members see the tab).
+	 * `name` / `url`   — which discussion is linked, so the settings screen can
+	 *                    always show it. The bridge owns all jt_* access.
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return array{has_discussion:bool,enabled:bool,forum_id:int,name:string,url:string}
 	 */
 	public function space_discussion_status( int $space_id ): array {
 		$forum_id = $this->forum_id_for_space( $space_id );
 		if ( $forum_id <= 0 ) {
 			return array(
-				'linked'   => false,
-				'forum_id' => 0,
-				'name'     => '',
-				'url'      => '',
+				'has_discussion' => false,
+				'enabled'        => false,
+				'forum_id'       => 0,
+				'name'           => '',
+				'url'            => '',
 			);
 		}
 
@@ -459,10 +490,11 @@ class JetonomyBridge {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return array(
-			'linked'   => true,
-			'forum_id' => $forum_id,
-			'name'     => $name,
-			'url'      => $this->space_forum_url( $space_id ),
+			'has_discussion' => true,
+			'enabled'        => $this->space_discussion_enabled( $space_id ),
+			'forum_id'       => $forum_id,
+			'name'           => $name,
+			'url'            => $this->space_forum_url( $space_id ),
 		);
 	}
 
@@ -626,14 +658,21 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Provision (once) a Jetonomy forum for a BuddyNext space and link it.
+	 * Provision (once) the ONE dedicated Jetonomy discussion a BuddyNext space
+	 * owns for its lifetime, and store the permanent link.
 	 *
-	 * Idempotent: returns the existing forum id when already linked. Creates a
-	 * paired jt_space named after the BN space (Jetonomy's Space::create) and
-	 * stores the `bn_space_{id}_jetonomy_forum_id` link option.
+	 * A space's discussion is 1:1 and permanent: once created it is NEVER
+	 * duplicated or recreated. If the space already has a linked discussion id
+	 * this returns it unchanged (so turning the toggle off then on reuses the
+	 * exact same discussion — the enabled flag, not this link, is what hides it).
+	 *
+	 * The new discussion is created with a collision-proof slug derived from the
+	 * space slug (suffixed with the space id when that base slug is already taken),
+	 * so it can NEVER silently adopt an unrelated Jetonomy space that merely shares
+	 * a slug — that slug-matching was a hijack risk and is gone.
 	 *
 	 * @param int $space_id BuddyNext space ID.
-	 * @return int Jetonomy forum (jt_spaces) id, or 0 on failure.
+	 * @return int Jetonomy discussion (jt_spaces) id, or 0 on failure.
 	 */
 	public function provision_space_forum( int $space_id ): int {
 		$existing = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
@@ -650,30 +689,16 @@ class JetonomyBridge {
 			return 0;
 		}
 
-		$slug = (string) ( $space['slug'] ?? '' );
-
-		// Reconnect, don't duplicate: turning a discussion OFF preserves its
-		// Jetonomy space (content is never deleted), so turning it back ON must
-		// re-link the existing one. jt_spaces.slug is unique — creating a fresh
-		// space with the same slug would fail — so reuse any space already at this
-		// slug instead of inserting a duplicate.
-		if ( '' !== $slug && method_exists( '\Jetonomy\Models\Space', 'find_by_slug' ) ) {
-			$existing_space = \Jetonomy\Models\Space::find_by_slug( $slug );
-			if ( $existing_space && isset( $existing_space->id ) ) {
-				$forum_id = (int) $existing_space->id;
-				update_space_meta( $space_id, 'jetonomy_forum_id', $forum_id );
-				return $forum_id;
-			}
-		}
-
+		$owner_id = (int) ( $space['owner_id'] ?? 0 );
 		$forum_id = (int) \Jetonomy\Models\Space::create(
 			array(
 				'title'      => (string) ( $space['name'] ?? '' ),
-				'slug'       => $slug,
+				'slug'       => $this->unique_discussion_slug( (string) ( $space['slug'] ?? '' ), $space_id ),
+				'author_id'  => $owner_id,
 				'visibility' => 'public',
 				'status'     => 'active',
 			),
-			(int) ( $space['owner_id'] ?? 0 )
+			$owner_id
 		);
 
 		if ( $forum_id > 0 ) {
@@ -681,6 +706,49 @@ class JetonomyBridge {
 		}
 
 		return $forum_id;
+	}
+
+	/**
+	 * Build a jt_spaces slug that is guaranteed not to collide with an existing
+	 * Jetonomy space. Prefers the BuddyNext space slug; when that is already taken
+	 * (e.g. an unrelated discussion, or a previously-deleted-then-recreated space),
+	 * suffixes the BuddyNext space id — unique per space — and falls back to a
+	 * numbered variant in the vanishingly unlikely event that is taken too.
+	 *
+	 * @param string $base     Preferred slug (the BuddyNext space slug).
+	 * @param int    $space_id BuddyNext space ID (used to disambiguate).
+	 * @return string A slug not currently present in jt_spaces.
+	 */
+	private function unique_discussion_slug( string $base, int $space_id ): string {
+		$base = '' !== trim( $base ) ? sanitize_title( $base ) : 'space-' . $space_id;
+
+		if ( ! $this->discussion_slug_exists( $base ) ) {
+			return $base;
+		}
+
+		$candidate = $base . '-' . $space_id;
+		$suffix    = 2;
+		while ( $this->discussion_slug_exists( $candidate ) ) {
+			$candidate = $base . '-' . $space_id . '-' . $suffix;
+			++$suffix;
+		}
+
+		return $candidate;
+	}
+
+	/**
+	 * Whether a jt_spaces row already uses a given slug.
+	 *
+	 * @param string $slug Slug to test.
+	 * @return bool
+	 */
+	private function discussion_slug_exists( string $slug ): bool {
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}jt_spaces WHERE slug = %s LIMIT 1", $slug )
+		) > 0;
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**
@@ -898,7 +966,10 @@ class JetonomyBridge {
 				'label'     => __( 'Discussions', 'buddynext' ),
 				'icon'      => 'message-square',
 				'priority'  => 35,
-				'condition' => $jetonomy_active,
+				// Per-space: only when THIS space's owner has enabled its dedicated
+				// discussion. A space with none (or with it toggled off) shows no tab.
+				'condition' => fn( \BuddyNext\Nav\NavContext $c ): bool => $jetonomy_active()
+					&& $this->space_discussion_enabled( $c->subject_id ),
 				'url'       => function ( \BuddyNext\Nav\NavContext $c ): string {
 					return trailingslashit( \BuddyNext\Core\PageRouter::space_url( $c->subject_id ) ) . 'discussions/';
 				},

@@ -164,37 +164,40 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 			update_space_meta( $space_id, 'mvs_media_tab', isset( $_POST['mvs_media_tab'] ) ? '1' : '0' );
 
 			// Discussion (powered by Jetonomy) is opt-in per Space and never
-			// mandatory. The single "Discussion" toggle maps to three actions,
-			// derived from the desired on/off state vs the current link plus an
-			// optional "link an existing discussion" pick:
-			//   - enable  : toggle on  + no existing link     -> create + link a new one
-			//   - link    : an existing discussion was chosen -> attach it (also re-links)
-			//   - disable : toggle off + currently linked     -> unlink (content preserved)
+			// mandatory. Each Space owns exactly ONE dedicated discussion for its
+			// lifetime: it is created (or linked) the first time the owner turns it
+			// on, and after that the toggle only shows/hides it — the discussion and
+			// its content are never discarded or duplicated.
+			//   - first enable : create a new dedicated discussion, OR (initial
+			//                     setup only) link one the caller is allowed to.
+			//   - later on/off : just flip the enabled flag; same discussion.
 			if ( class_exists( 'Jetonomy\\Jetonomy' ) ) {
-				$bn_disc_bridge  = new \BuddyNext\Bridges\JetonomyBridge();
-				$bn_disc_enabled = isset( $_POST['bn_discussion_enabled'] );
+				$bn_disc_bridge = new \BuddyNext\Bridges\JetonomyBridge();
+				$bn_disc_on     = isset( $_POST['bn_discussion_enabled'] );
 				$bn_disc_link_id = isset( $_POST['bn_discussion_link_id'] ) ? absint( wp_unslash( $_POST['bn_discussion_link_id'] ) ) : 0;
-				$bn_disc_linked  = $bn_disc_bridge->space_has_discussion( $space_id );
 
-				// Link authorization is role-aware: a SITE ADMIN may attach any
-				// existing discussion; a space owner may only attach a discussion
-				// THEY authored. Validated server-side so a crafted POST can never
-				// let a space owner link someone else's discussion.
-				$bn_disc_owner   = (int) ( $space->owner_id ?? 0 );
-				$bn_disc_is_admin = current_user_can( 'manage_options' );
-				if ( $bn_disc_enabled ) {
-					if ( $bn_disc_link_id > 0 ) {
-						$bn_disc_may_link = $bn_disc_is_admin
-							? $bn_disc_bridge->discussion_exists( $bn_disc_link_id )
-							: $bn_disc_bridge->discussion_owned_by( $bn_disc_link_id, $bn_disc_owner );
+				if ( $bn_disc_on ) {
+					// Establish the dedicated discussion once, if it has none yet.
+					if ( ! $bn_disc_bridge->space_has_discussion( $space_id ) ) {
+						// Initial-setup link is role-aware: a SITE ADMIN may adopt any
+						// existing discussion; a space owner may only adopt one THEY
+						// authored. Re-validated here so a crafted POST cannot widen it.
+						$bn_disc_owner    = (int) ( $space->owner_id ?? 0 );
+						$bn_disc_is_admin = current_user_can( 'manage_options' );
+						$bn_disc_may_link = $bn_disc_link_id > 0 && (
+							$bn_disc_is_admin
+								? $bn_disc_bridge->discussion_exists( $bn_disc_link_id )
+								: $bn_disc_bridge->discussion_owned_by( $bn_disc_link_id, $bn_disc_owner )
+						);
 						if ( $bn_disc_may_link ) {
 							update_space_meta( $space_id, 'jetonomy_forum_id', $bn_disc_link_id );
+						} else {
+							$bn_disc_bridge->provision_space_forum( $space_id );
 						}
-					} elseif ( ! $bn_disc_linked ) {
-						$bn_disc_bridge->provision_space_forum( $space_id );
 					}
-				} elseif ( $bn_disc_linked ) {
-					$bn_disc_bridge->unlink_space_discussion( $space_id );
+					$bn_disc_bridge->set_discussion_enabled( $space_id, true );
+				} else {
+					$bn_disc_bridge->set_discussion_enabled( $space_id, false );
 				}
 			}
 		}

@@ -51,16 +51,19 @@ $bn_jetonomy_forum_id = isset( $args['integrations_settings']['jetonomy_forum_id
 $bn_push_to_feed      = ! empty( $args['integrations_settings']['push_to_feed'] );
 $bn_mvs_media_tab     = (bool) $args['mvs_media_tab'];
 
-// Discussion (Jetonomy) — opt-in per Space, never mandatory. BuddyNext always
-// calls this "Discussion" regardless of Jetonomy's own configurable label.
-$bn_disc_status   = isset( $args['integrations_settings']['discussion_status'] ) && is_array( $args['integrations_settings']['discussion_status'] )
+// Discussion (Jetonomy) — opt-in per Space, never mandatory. A Space owns ONE
+// dedicated discussion for its lifetime: before it exists the owner sees a picker
+// (create new / link existing); once it exists the panel shows WHICH discussion
+// is linked and the toggle only enables/disables it. BuddyNext always calls this
+// "Discussion" regardless of Jetonomy's own configurable label.
+$bn_disc_status = isset( $args['integrations_settings']['discussion_status'] ) && is_array( $args['integrations_settings']['discussion_status'] )
 	? $args['integrations_settings']['discussion_status']
-	: array( 'linked' => false, 'forum_id' => 0, 'name' => '', 'url' => '' );
-$bn_disc_linked      = ! empty( $bn_disc_status['linked'] );
-$bn_disc_url         = isset( $bn_disc_status['url'] ) ? (string) $bn_disc_status['url'] : '';
-$bn_disc_linkedid    = isset( $bn_disc_status['forum_id'] ) ? (int) $bn_disc_status['forum_id'] : 0;
-$bn_disc_linked_name = isset( $bn_disc_status['name'] ) ? (string) $bn_disc_status['name'] : '';
-$bn_disc_space_id    = isset( $bn_space->id ) ? (int) $bn_space->id : 0;
+	: array( 'has_discussion' => false, 'enabled' => false, 'forum_id' => 0, 'name' => '', 'url' => '' );
+$bn_disc_has      = ! empty( $bn_disc_status['has_discussion'] );
+$bn_disc_enabled  = ! empty( $bn_disc_status['enabled'] );
+$bn_disc_url      = isset( $bn_disc_status['url'] ) ? (string) $bn_disc_status['url'] : '';
+$bn_disc_name     = isset( $bn_disc_status['name'] ) ? (string) $bn_disc_status['name'] : '';
+$bn_disc_space_id = isset( $bn_space->id ) ? (int) $bn_space->id : 0;
 
 $bn_classes = array_merge( array( 'bn-card', 'bn-space-settings__panel' ), array_filter( (array) $args['classes'], 'is_string' ) );
 /** Computed root-class list. @var array<int,string> $bn_classes */
@@ -91,42 +94,61 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 		<div class="bn-toggle-row__copy">
 			<div class="bn-toggle-row__label"><?php esc_html_e( 'Discussion', 'buddynext' ); ?></div>
 			<div class="bn-toggle-row__desc">
-				<?php esc_html_e( 'Give this Space its own discussion area. Optional — turn it on only when this Space needs threaded conversations.', 'buddynext' ); ?>
+				<?php
+				if ( $bn_disc_has ) {
+					esc_html_e( 'This Space has its own discussion area for threaded conversations.', 'buddynext' );
+				} else {
+					esc_html_e( 'Give this Space its own discussion area. Turn the switch on and a discussion is created for it automatically.', 'buddynext' );
+				}
+				?>
 			</div>
 			<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) ) : ?>
-				<?php if ( $bn_disc_linked && '' !== $bn_disc_url ) : ?>
-					<p class="bn-space-settings__hint">
-						<?php esc_html_e( 'Active.', 'buddynext' ); ?>
-						<a href="<?php echo esc_url( $bn_disc_url ); ?>"><?php esc_html_e( 'View discussion', 'buddynext' ); ?></a>
+				<?php if ( $bn_disc_has ) : ?>
+					<?php
+					// This Space already owns its one dedicated discussion. Show WHICH
+					// one is linked (permanent — it is never swapped or duplicated);
+					// the toggle beside this row only enables/disables it.
+					?>
+					<p class="bn-space-settings__hint bn-space-settings__discussion-linked">
+						<?php
+						printf(
+							/* translators: %s: the linked discussion's name. */
+							esc_html__( 'Linked discussion: %s', 'buddynext' ),
+							'<strong>' . esc_html( '' !== $bn_disc_name ? $bn_disc_name : __( 'Discussion', 'buddynext' ) ) . '</strong>'
+						);
+						?>
+						<?php if ( '' !== $bn_disc_url ) : ?>
+							&middot; <a href="<?php echo esc_url( $bn_disc_url ); ?>"><?php esc_html_e( 'View discussion', 'buddynext' ); ?></a>
+						<?php endif; ?>
 					</p>
+				<?php else : ?>
+					<?php
+					// First-time setup only: create a new dedicated discussion (default)
+					// or link an existing one. The typeahead search scopes results by
+					// role server-side (site admin: all; space owner: their own), so it
+					// scales past a bounded <select> on sites with thousands of
+					// discussions. Once set, this picker is replaced by the line above.
+					?>
+					<div class="bn-space-settings__discussion-picker" data-bn-discussion-picker data-space-id="<?php echo esc_attr( (string) $bn_disc_space_id ); ?>">
+						<input type="hidden" name="bn_discussion_link_id" value="0" data-bn-discussion-link-id>
+						<label class="bn-space-settings__discussion-picker-label" for="bn_discussion_search"><?php esc_html_e( 'Already have a discussion? Link it instead (optional):', 'buddynext' ); ?></label>
+						<input
+							type="text"
+							id="bn_discussion_search"
+							class="bn-input bn-space-settings__discussion-search"
+							value=""
+							placeholder="<?php esc_attr_e( 'Search your discussions to link one…', 'buddynext' ); ?>"
+							autocomplete="off"
+							role="combobox"
+							aria-expanded="false"
+							aria-controls="bn_discussion_results"
+							data-bn-discussion-search
+							data-wp-on--input="actions.discussionSearch"
+							data-wp-on--focus="actions.discussionSearch">
+						<button type="button" class="bn-space-settings__discussion-clear" data-bn-discussion-clear hidden data-wp-on--click="actions.discussionClear" aria-label="<?php esc_attr_e( 'Clear — create a new discussion instead', 'buddynext' ); ?>">&times;</button>
+						<ul id="bn_discussion_results" class="bn-space-settings__discussion-results" data-bn-discussion-results role="listbox" hidden></ul>
+					</div>
 				<?php endif; ?>
-
-				<?php
-				// Typeahead picker — the actionable frontend control for BOTH roles.
-				// Leave the field empty to create a new discussion on enable; search
-				// + pick to link an existing one. The search endpoint scopes results
-				// by role server-side (admins: all; members: their own), so it scales
-				// past a bounded <select> on sites with thousands of discussions.
-				?>
-				<div class="bn-space-settings__discussion-picker" data-bn-discussion-picker data-space-id="<?php echo esc_attr( (string) $bn_disc_space_id ); ?>">
-					<input type="hidden" name="bn_discussion_link_id" value="<?php echo esc_attr( (string) $bn_disc_linkedid ); ?>" data-bn-discussion-link-id>
-					<label class="bn-sr-only" for="bn_discussion_search"><?php esc_html_e( 'Link an existing discussion', 'buddynext' ); ?></label>
-					<input
-						type="text"
-						id="bn_discussion_search"
-						class="bn-input bn-space-settings__discussion-search"
-						value="<?php echo esc_attr( $bn_disc_linked ? $bn_disc_linked_name : '' ); ?>"
-						placeholder="<?php esc_attr_e( 'Create a new discussion, or search to link an existing one…', 'buddynext' ); ?>"
-						autocomplete="off"
-						role="combobox"
-						aria-expanded="false"
-						aria-controls="bn_discussion_results"
-						data-bn-discussion-search
-						data-wp-on--input="actions.discussionSearch"
-						data-wp-on--focus="actions.discussionSearch">
-					<button type="button" class="bn-space-settings__discussion-clear" data-bn-discussion-clear hidden data-wp-on--click="actions.discussionClear" aria-label="<?php esc_attr_e( 'Clear — create a new discussion instead', 'buddynext' ); ?>">&times;</button>
-					<ul id="bn_discussion_results" class="bn-space-settings__discussion-results" data-bn-discussion-results role="listbox" hidden></ul>
-				</div>
 			<?php else : ?>
 				<p class="bn-space-settings__hint">
 					<?php esc_html_e( 'Discussions are unavailable on this site right now.', 'buddynext' ); ?>
@@ -135,7 +157,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 		</div>
 		<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) ) : ?>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable discussion', 'buddynext' ); ?>">
-				<input type="checkbox" class="bn-space-settings__toggle-input" name="bn_discussion_enabled" value="1" <?php checked( $bn_disc_linked ); ?>>
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="bn_discussion_enabled" value="1" <?php checked( $bn_disc_enabled ); ?>>
 				<span class="bn-toggle" aria-hidden="true"></span>
 			</label>
 		<?php endif; ?>
@@ -143,10 +165,10 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 
 	<div class="bn-toggle-row">
 		<div class="bn-toggle-row__copy">
-			<div class="bn-toggle-row__label"><?php esc_html_e( 'Push space posts to activity feed', 'buddynext' ); ?></div>
-			<div class="bn-toggle-row__desc"><?php esc_html_e( "Space posts appear in members' home feeds. Off = space-only.", 'buddynext' ); ?></div>
+			<div class="bn-toggle-row__label"><?php esc_html_e( 'Share activity to the main feed', 'buddynext' ); ?></div>
+			<div class="bn-toggle-row__desc"><?php esc_html_e( 'When on, new posts and discussion topics from this Space also appear in the main activity feed. When off, they stay inside this Space.', 'buddynext' ); ?></div>
 		</div>
-		<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Push space posts to activity feed', 'buddynext' ); ?>">
+		<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Share activity to the main feed', 'buddynext' ); ?>">
 			<input type="checkbox" class="bn-space-settings__toggle-input" name="push_to_feed" value="1" <?php checked( $bn_push_to_feed ); ?>>
 			<span class="bn-toggle" aria-hidden="true"></span>
 		</label>

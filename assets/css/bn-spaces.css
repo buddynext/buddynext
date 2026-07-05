@@ -1731,6 +1731,13 @@ a.bn-sh-statpill:focus-visible {
 	max-inline-size: 420px;
 }
 
+.bn-space-settings__discussion-picker-label {
+	display: block;
+	margin-block-end: var(--bn-s1);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+
 .bn-space-settings__discussion-search {
 	inline-size: 100%;
 	padding-inline-end: var(--bn-s6);
