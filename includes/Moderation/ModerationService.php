@@ -1866,6 +1866,19 @@ class ModerationService {
 			return new WP_Error( 'db_error', __( 'Database error updating report status.', 'buddynext' ) );
 		}
 
+		// Zero rows changed means another moderator already cleared this content's
+		// reports between our read and write. Return a distinct signal so the caller
+		// skips the audit-log write (no duplicate mod-log row) and the UI can say
+		// "already handled" instead of reporting a false success — and we don't
+		// re-notify reporters or restore an already-restored post.
+		if ( 0 === (int) $updated ) {
+			return new WP_Error(
+				'already_resolved',
+				__( 'This report was already actioned by another moderator.', 'buddynext' ),
+				array( 'status' => 409 )
+			);
+		}
+
 		// Lift an auto-hide once the reports are cleared. auto_hide_post() flips a
 		// 'published' post to 'pending' when the report threshold is hit; resolving
 		// or dismissing all of its open reports means a human has cleared it, so it
