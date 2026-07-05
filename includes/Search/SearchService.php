@@ -519,6 +519,26 @@ class SearchService {
 			return $driver_result;
 		}
 
+		// Visibility gate. Guests and the default path see only public rows. A
+		// logged-in viewer additionally sees content in spaces they belong to: the
+		// private space itself (space rows store their id in object_id, space_id 0)
+		// and any content whose space_id is one of their spaces. Space ids are cast
+		// to int and embedded directly (an all-integer IN() list is injection-safe),
+		// so the four search queries below need no extra prepared params.
+		$visibility_where = "si.visibility = 'public'";
+		if ( $viewer_id > 0 ) {
+			$member_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'space_members' ) : null;
+			$viewer_spaces  = ( is_object( $member_service ) && method_exists( $member_service, 'spaces_for_user' ) )
+				? array_filter( array_map( 'intval', (array) $member_service->spaces_for_user( $viewer_id ) ) )
+				: array();
+			if ( ! empty( $viewer_spaces ) ) {
+				$space_in         = implode( ',', array_map( 'absint', $viewer_spaces ) );
+				$visibility_where = "( si.visibility = 'public'"
+					. " OR ( si.object_type = 'space' AND si.object_id IN ({$space_in}) )"
+					. " OR ( si.space_id IN ({$space_in}) ) )";
+			}
+		}
+
 		if ( $this->has_fulltext_index() ) {
 			// FULLTEXT path — uses ft_search index for performance on production.
 			// $search_condition is the output of a prior $wpdb->prepare() call — it is already
@@ -542,7 +562,7 @@ class SearchService {
 						SELECT 1
 						 FROM {$wpdb->prefix}bn_search_index si
 						 {$media_join}
-						 WHERE si.visibility = 'public'
+						 WHERE {$visibility_where}
 						   AND {$search_condition}
 						   {$type_where}
 						   {$media_where}
@@ -562,7 +582,7 @@ class SearchService {
 					        MATCH(si.title, si.content) AGAINST(%s IN BOOLEAN MODE) AS relevance
 					 FROM {$wpdb->prefix}bn_search_index si
 					 {$media_join}
-					 WHERE si.visibility = 'public'
+					 WHERE {$visibility_where}
 					   AND MATCH(si.title, si.content) AGAINST(%s IN BOOLEAN MODE)
 					   {$type_where}
 					   {$media_where}
@@ -590,7 +610,7 @@ class SearchService {
 						SELECT 1
 						 FROM {$wpdb->prefix}bn_search_index si
 						 {$media_join}
-						 WHERE si.visibility = 'public'
+						 WHERE {$visibility_where}
 						   AND (si.title LIKE %s OR si.content LIKE %s)
 						   {$type_where}
 						   {$media_where}
@@ -609,7 +629,7 @@ class SearchService {
 					"SELECT si.object_type, si.object_id, si.title, si.content, si.author_id, si.visibility, si.created_at
 					 FROM {$wpdb->prefix}bn_search_index si
 					 {$media_join}
-					 WHERE si.visibility = 'public'
+					 WHERE {$visibility_where}
 					   AND (si.title LIKE %s OR si.content LIKE %s)
 					   {$type_where}
 					   {$media_where}
