@@ -419,26 +419,50 @@
 	margin: 0;
 }
 
-/* ── Sidebar widgets (uses .bn-widget defined in bn-feed.css) ───────────── */
+/* ── Your-stats widgets (uses .bn-widget defined in bn-feed.css) ─────────── */
+
+/* The three widgets (badges · streak · milestone) flow in a responsive row so
+   they fill the width instead of stacking full-width with dead space beside them. */
+.bn-lb-widgets {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+	gap: var(--bn-s4);
+	align-items: start;
+	margin-top: var(--bn-s5);
+}
+
+/* Each widget is a self-contained card. The base .bn-widget chrome lives in
+   bn-profile.css, which the leaderboard route does not load — so define it here
+   (scoped) too, otherwise the three widgets run together with no separation. */
+.bn-lb-widgets .bn-widget {
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	padding: var(--bn-s4);
+	margin: 0;
+}
 
 .bn-lb-badges-grid {
 	display: grid;
-	grid-template-columns: repeat(4, 1fr);
+	/* Compact fixed-size tiles — never balloon into giant squares when the widget
+	   is wide (the old repeat(4,1fr) + aspect-ratio:1 did exactly that). */
+	grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
 	gap: var(--bn-s2);
 	margin-bottom: var(--bn-s2);
 }
 
 .bn-lb-badge-cell {
 	aspect-ratio: 1;
+	max-width: 110px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	flex-direction: column;
-	gap: 2px;
+	gap: var(--bn-s1);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-sunken);
 	border: 1px solid var(--bn-line);
-	padding: var(--bn-s1);
+	padding: var(--bn-s2);
 	color: var(--bn-accent);
 	overflow: hidden;
 	transition: border-color var(--bn-dur-fast) var(--bn-ease);
@@ -453,9 +477,10 @@
 	filter: grayscale(1);
 }
 
-.bn-lb-badge-cell img {
-	width: 28px;
-	height: 28px;
+.bn-lb-badge-cell img,
+.bn-lb-badge-cell svg {
+	width: 34px;
+	height: 34px;
 	object-fit: contain;
 }
 

@@ -516,8 +516,9 @@ $updated_iso = gmdate( 'c' );
 
 	<?php endif; // End: leaderboard data check. ?>
 
-	<!-- Sidebar widgets -->
-	<aside aria-label="<?php esc_attr_e( 'Your gamification widgets', 'buddynext' ); ?>">
+	<!-- Your-stats widgets: a responsive row (badges · streak · milestone) that fills
+		the width instead of three full-width blocks with dead space beside them. -->
+	<aside class="bn-lb-widgets" aria-label="<?php esc_attr_e( 'Your gamification widgets', 'buddynext' ); ?>">
 
 		<!-- Your Badges -->
 		<div class="bn-widget">
@@ -621,10 +622,7 @@ $updated_iso = gmdate( 'c' );
 					<span><?php echo esc_html( number_format_i18n( $next_milestone_pts ) ); ?> <?php esc_html_e( 'pts', 'buddynext' ); ?></span>
 				</div>
 				<div class="bn-lb-milestone__hint">
-					<?php
-					// translators: %d: number of remaining points.
-					echo esc_html( sprintf( __( '%d points to go to reach the next level.', 'buddynext' ), $milestone_remaining ) );
-					?>
+					<?php esc_html_e( 'Earn points by posting, commenting, reacting, and keeping a daily streak.', 'buddynext' ); ?>
 				</div>
 			</div>
 		<?php endif; ?>
