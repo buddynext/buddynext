@@ -1830,6 +1830,23 @@ class ModerationService {
 			return new WP_Error( 'report_not_found', __( 'Report not found.', 'buddynext' ) );
 		}
 
+		// Capture the reporters of the open reports we're about to clear, so we can
+		// tell them the outcome. Read before the UPDATE (which flips the status the
+		// WHERE keys off).
+		$reporter_ids = ( in_array( $status, array( 'resolved', 'dismissed' ), true ) )
+			? array_map(
+				'intval',
+				(array) $wpdb->get_col(
+					$wpdb->prepare(
+						"SELECT DISTINCT reporter_id FROM {$wpdb->prefix}bn_reports
+						 WHERE object_type = %s AND object_id = %d AND status IN ('pending','escalated')",
+						(string) $target['object_type'],
+						(int) $target['object_id']
+					)
+				)
+			)
+			: array();
+
 		$updated = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$wpdb->prefix}bn_reports
@@ -1879,7 +1896,57 @@ class ModerationService {
 			}
 		}
 
+		// Tell the reporters we reviewed their report (respecting their prefs — the
+		// notification service consults on_site/channel prefs before creating).
+		if ( ! empty( $reporter_ids ) ) {
+			$this->notify_reporters_reviewed(
+				$reporter_ids,
+				$actor_id,
+				(string) $target['object_type'],
+				(int) $target['object_id']
+			);
+		}
+
 		return true;
+	}
+
+	/**
+	 * Notify each reporter that their report was reviewed (resolved/dismissed).
+	 * The `bn.report_resolved` type is deliberately outcome-neutral ("we reviewed
+	 * your report") so it fits both resolve and dismiss without leaking the moderator's
+	 * decision. Idempotent per content via the group key. Skips the actor themselves.
+	 *
+	 * @param int[]  $reporter_ids Distinct reporter user IDs.
+	 * @param int    $actor_id     Moderator who actioned the report.
+	 * @param string $object_type  Reported content type.
+	 * @param int    $object_id    Reported content ID.
+	 * @return void
+	 */
+	private function notify_reporters_reviewed( array $reporter_ids, int $actor_id, string $object_type, int $object_id ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+		$notifications = buddynext_service( 'notifications' );
+		if ( ! is_object( $notifications ) || ! method_exists( $notifications, 'create' ) ) {
+			return;
+		}
+
+		foreach ( array_unique( $reporter_ids ) as $reporter_id ) {
+			$reporter_id = (int) $reporter_id;
+			if ( $reporter_id <= 0 || $reporter_id === $actor_id ) {
+				continue;
+			}
+			$notifications->create(
+				array(
+					'recipient_id' => $reporter_id,
+					'sender_id'    => $actor_id,
+					'type'         => 'bn.report_resolved',
+					'object_type'  => $object_type,
+					'object_id'    => $object_id,
+					'group_key'    => 'report_resolved_' . $object_type . '_' . $object_id,
+				)
+			);
+		}
 	}
 
 	/**
