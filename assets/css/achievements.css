@@ -358,23 +358,24 @@ a.bn-achievements__badge-link:focus-visible {
 	color: var(--bn-ink-3);
 }
 
-.bn-gam-earn__grid {
+/* One earning action per row — full width so a long label never collides with
+   the limit hint / points (the card grid crammed them together). */
+.bn-gam-earn__list {
 	list-style: none;
 	margin: 0;
 	padding: 0;
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-	gap: var(--bn-s2);
 }
 
-.bn-gam-earn__item {
+.bn-gam-earn__row {
 	display: flex;
 	align-items: center;
-	gap: var(--bn-s2);
-	padding: var(--bn-s2) var(--bn-s3);
-	border: 1px solid var(--bn-line);
-	border-radius: var(--bn-r-md);
-	background: var(--bn-sunken);
+	gap: var(--bn-s3);
+	padding: var(--bn-s2) 0;
+	border-bottom: 1px solid var(--bn-line);
+}
+
+.bn-gam-earn__row:last-child {
+	border-bottom: 0;
 }
 
 .bn-gam-earn__label {
@@ -384,8 +385,15 @@ a.bn-achievements__badge-link:focus-visible {
 	min-width: 0;
 }
 
+.bn-gam-earn__right {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	flex: none;
+}
+
 .bn-gam-earn__meta {
-	font-size: var(--bn-text-2xs, 0.7rem);
+	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-4);
 	white-space: nowrap;
 }
@@ -488,4 +496,13 @@ a.bn-achievements__badge-link:focus-visible {
 .bn-gam-kudos .bn-notice--error {
 	background: var(--bn-danger-soft, var(--bn-sunken));
 	color: var(--bn-danger, var(--bn-ink-2));
+}
+
+/* Jetonomy credential strip on the profile Discussions tab. The shared .bn-stat-grid
+   lays out for many stats (leaves empty columns for just 3) and has no bottom margin,
+   so the tiles ran full-bleed into the discussion list — fit the 3 tiles to the row
+   and add breathing room below. */
+.bn-jt-cred-strip {
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	margin-bottom: var(--bn-s4);
 }

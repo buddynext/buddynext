@@ -182,11 +182,12 @@ class GamificationPoints {
 		}
 
 		foreach ( $grouped as $category => $actions ) {
-			echo '<h4 class="bn-gam-earn__cat">' . esc_html( $this->humanize( (string) $category ) ) . '</h4>';
-			echo '<ul class="bn-gam-earn__grid" role="list">';
+			echo '<h4 class="bn-gam-earn__cat">' . esc_html( $this->category_label( (string) $category ) ) . '</h4>';
+			echo '<ul class="bn-gam-earn__list" role="list">';
 			foreach ( $actions as $action ) {
-				echo '<li class="bn-gam-earn__item">';
+				echo '<li class="bn-gam-earn__row">';
 				echo '<span class="bn-gam-earn__label">' . esc_html( (string) $action['label'] ) . '</span>';
+				echo '<span class="bn-gam-earn__right">';
 				$meta = $this->limit_text( (int) $action['cooldown'], (int) $action['daily_cap'] );
 				if ( '' !== $meta ) {
 					echo '<span class="bn-gam-earn__meta">' . esc_html( $meta ) . '</span>';
@@ -198,6 +199,7 @@ class GamificationPoints {
 						number_format_i18n( (int) $action['points'] )
 					)
 				) . '</span>';
+				echo '</span>';
 				echo '</li>';
 			}
 			echo '</ul>';
@@ -268,6 +270,32 @@ class GamificationPoints {
 			$parts[] = sprintf( _n( '%d min cooldown', '%d min cooldown', $mins, 'buddynext' ), $mins );
 		}
 		return implode( ' · ', $parts );
+	}
+
+	/**
+	 * Community-friendly label for an earning category.
+	 *
+	 * The engine's category slugs are developer-facing (the core-actions slug in
+	 * particular reads as jargon); map the known ones to words a member understands,
+	 * and title-case anything unmapped.
+	 *
+	 * @param string $slug Category slug.
+	 * @return string
+	 */
+	private function category_label( string $slug ): string {
+		$labels = array(
+			'content'   => __( 'Content', 'buddynext' ),
+			'social'    => __( 'Social', 'buddynext' ),
+			'community' => __( 'Community', 'buddynext' ),
+			'wordpress' => __( 'Getting started', 'buddynext' ),
+			'media'     => __( 'Media', 'buddynext' ),
+			'listings'  => __( 'Listings', 'buddynext' ),
+			'careers'   => __( 'Careers', 'buddynext' ),
+			'learning'  => __( 'Learning', 'buddynext' ),
+			'general'   => __( 'General', 'buddynext' ),
+		);
+
+		return $labels[ strtolower( $slug ) ] ?? $this->humanize( $slug );
 	}
 
 	/**

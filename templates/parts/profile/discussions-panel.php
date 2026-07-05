@@ -43,7 +43,7 @@ endif;
 // Credential strip (outcomes first). Accepted answers is the real credential —
 // this member solved someone's question — not just activity volume.
 ?>
-<div class="bn-stat-grid">
+<div class="bn-stat-grid bn-jt-cred-strip">
 	<div class="bn-stat">
 		<span class="bn-stat__value"><?php echo esc_html( number_format_i18n( $bn_pd_accepted ) ); ?></span>
 		<span class="bn-stat__label"><?php esc_html_e( 'Accepted answers', 'buddynext' ); ?></span>
