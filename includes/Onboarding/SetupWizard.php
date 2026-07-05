@@ -1148,6 +1148,13 @@ class SetupWizard {
 	 */
 	private function render_step_done(): void {
 		$frontend_url = home_url( '/' );
+
+		// Opt-in sample content: a fresh community looks empty, so offer to seed demo
+		// members/spaces/posts so the owner can visualise the layout. Reuses the same
+		// DemoDataService the Tools screen + CLI use (no second seed path); it can be
+		// removed cleanly later from Tools. Shown only when not already seeded.
+		$demo_service = new \BuddyNext\Demo\DemoDataService();
+		$demo_seeded  = $demo_service->is_seeded();
 		?>
 		<div class="bn-wizard__done">
 			<div class="bn-wizard__done-icon" aria-hidden="true">
@@ -1155,6 +1162,25 @@ class SetupWizard {
 			</div>
 			<h2 class="bn-wizard__title bn-wizard__title--done"><?php esc_html_e( 'Your community is ready.', 'buddynext' ); ?></h2>
 			<p class="bn-wizard__sub"><?php esc_html_e( 'Everything is configured. Open your dashboard to start inviting members, or jump to the front-end to see what they’ll see.', 'buddynext' ); ?></p>
+
+			<div class="bn-wizard__sample">
+				<?php if ( $demo_seeded ) : ?>
+					<p class="bn-wizard__sample-note">
+						<?php echo \BuddyNext\Core\IconService::render( 'check' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService output is wp_kses'd. ?>
+						<?php esc_html_e( 'Sample content has been added. You can remove it anytime from Tools → Demo Content.', 'buddynext' ); ?>
+					</p>
+				<?php else : ?>
+					<p class="bn-wizard__sample-note"><?php esc_html_e( 'New community feeling empty? Add sample members, spaces, and posts to visualise the layout. You can remove it cleanly later from Tools.', 'buddynext' ); ?></p>
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+						<input type="hidden" name="action" value="bn_demo_seed">
+						<?php wp_nonce_field( 'bn_demo_seed' ); ?>
+						<button type="submit" class="bn-wizard__btn-secondary">
+							<?php esc_html_e( 'Add sample content', 'buddynext' ); ?>
+						</button>
+					</form>
+				<?php endif; ?>
+			</div>
+
 			<div class="bn-wizard__done-actions">
 				<button type="submit" name="wizard_action" value="continue" class="bn-wizard__btn-continue">
 					<span><?php esc_html_e( 'Go to dashboard', 'buddynext' ); ?></span>

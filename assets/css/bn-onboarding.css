@@ -1506,6 +1506,36 @@ label.bn-wizard__addon-info[for] { cursor: pointer; }
 	justify-content: center;
 }
 
+/* Opt-in sample-content panel on the final step. */
+.bn-wizard__sample {
+	margin: var(--bn-s4) auto 0;
+	max-width: 34rem;
+	padding: var(--bn-s3);
+	border: 1px solid var(--bn-border, var(--bn-line));
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface-2, var(--bn-canvas));
+}
+
+.bn-wizard__sample-note {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bn-s2);
+	margin: 0 0 var(--bn-s3);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-wizard__sample-note:last-child {
+	margin-bottom: 0;
+}
+
+.bn-wizard__sample form {
+	display: flex;
+	justify-content: center;
+	margin: 0;
+}
+
 /* ── Mobile ──────────────────────────────────────────────────────────── */
 
 @media (max-width: 720px) {
