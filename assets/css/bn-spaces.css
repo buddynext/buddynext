@@ -1724,6 +1724,68 @@ a.bn-sh-statpill:focus-visible {
 	max-inline-size: 320px;
 }
 
+/* Discussion-link typeahead picker (Integrations panel). */
+.bn-space-settings__discussion-picker {
+	position: relative;
+	margin-block-start: var(--bn-s2);
+	max-inline-size: 420px;
+}
+
+.bn-space-settings__discussion-search {
+	inline-size: 100%;
+	padding-inline-end: var(--bn-s6);
+}
+
+.bn-space-settings__discussion-clear {
+	position: absolute;
+	inset-block-start: var(--bn-s2);
+	inset-inline-end: var(--bn-s2);
+	inline-size: 24px;
+	block-size: 24px;
+	border: 0;
+	border-radius: var(--bn-r-md);
+	background: transparent;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-lg);
+	line-height: 1;
+	cursor: pointer;
+}
+
+.bn-space-settings__discussion-clear:hover {
+	background: var(--bn-accent-100);
+	color: var(--bn-ink-2);
+}
+
+.bn-space-settings__discussion-results {
+	position: absolute;
+	inset-inline: 0;
+	inset-block-start: calc(100% + var(--bn-s1));
+	z-index: 20;
+	margin: 0;
+	padding: var(--bn-s1);
+	list-style: none;
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+	max-block-size: 260px;
+	overflow-y: auto;
+}
+
+.bn-space-settings__discussion-result {
+	padding: var(--bn-s2) var(--bn-s3);
+	border-radius: var(--bn-r-md);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	cursor: pointer;
+}
+
+.bn-space-settings__discussion-result:hover,
+.bn-space-settings__discussion-result:focus {
+	background: var(--bn-accent-100);
+	outline: none;
+}
+
 /* Toggle shell — checkbox-input bridged to a .bn-toggle visual track. */
 .bn-space-settings__toggle-shell {
 	position: relative;

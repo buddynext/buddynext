@@ -467,11 +467,11 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Jetonomy discussions a given member may attach to their space — ONLY the
-	 * discussions that member authored (owns). Populates the "link an existing
-	 * discussion" picker, so an owner can never attach someone else's discussion.
+	 * Jetonomy discussions a space owner may attach to their space — ONLY the
+	 * discussions that owner authored. Populates the "link an existing discussion"
+	 * picker, so a space owner can never attach someone else's discussion.
 	 *
-	 * @param int $owner_id Member the picker is scoped to (the space owner).
+	 * @param int $owner_id The space owner the picker is scoped to.
 	 * @param int $limit    Max rows (1-200). Default 100.
 	 * @return array<int,array{id:int,title:string}>
 	 */
@@ -532,12 +532,12 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Whether a Jetonomy discussion is owned (authored) by a given member — the
+	 * Whether a Jetonomy discussion is authored by a given space owner — the
 	 * server-side authorization guard for the "link existing" action, so a crafted
 	 * POST can never attach a discussion the space owner does not own.
 	 *
 	 * @param int $forum_id jt_spaces id.
-	 * @param int $owner_id Member who must own the discussion (the space owner).
+	 * @param int $owner_id The space owner who must own the discussion.
 	 * @return bool
 	 */
 	public function discussion_owned_by( int $forum_id, int $owner_id ): bool {
@@ -555,6 +555,62 @@ class JetonomyBridge {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return $author_id > 0 && $author_id === $owner_id;
+	}
+
+	/**
+	 * Search discussions by title for the "link an existing discussion" typeahead
+	 * — bounded so it scales to sites with thousands of discussions (never dumps
+	 * the full set). Scope mirrors the save-time authorization: pass $owner_id > 0
+	 * to restrict to that member's OWN discussions; pass 0 for the admin-only
+	 * "search across all discussions" scope.
+	 *
+	 * @param string $q        Title query (substring match).
+	 * @param int    $owner_id Restrict to this author; 0 = all authors (admin scope).
+	 * @param int    $limit    Max rows (1-50). Default 20.
+	 * @return array<int,array{id:int,title:string}>
+	 */
+	public function search_discussions( string $q, int $owner_id, int $limit = 20 ): array {
+		if ( ! class_exists( '\Jetonomy\Models\Space' ) ) {
+			return array();
+		}
+
+		$limit = max( 1, min( 50, $limit ) );
+
+		global $wpdb;
+		$like = '%' . $wpdb->esc_like( trim( $q ) ) . '%';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $owner_id > 0 ) {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT id, title FROM {$wpdb->prefix}jt_spaces WHERE author_id = %d AND status = 'active' AND title LIKE %s ORDER BY title ASC LIMIT %d",
+					absint( $owner_id ),
+					$like,
+					$limit
+				)
+			);
+		} else {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT id, title FROM {$wpdb->prefix}jt_spaces WHERE status = 'active' AND title LIKE %s ORDER BY title ASC LIMIT %d",
+					$like,
+					$limit
+				)
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$out = array();
+		foreach ( (array) $rows as $bn_sd_row ) {
+			if ( isset( $bn_sd_row->id, $bn_sd_row->title ) ) {
+				$out[] = array(
+					'id'    => (int) $bn_sd_row->id,
+					'title' => (string) $bn_sd_row->title,
+				);
+			}
+		}
+
+		return $out;
 	}
 
 	/**
@@ -719,6 +775,57 @@ class JetonomyBridge {
 					),
 				),
 			)
+		);
+
+		// Typeahead for the "link an existing discussion" picker. Bounded search so
+		// it scales past a bounded <select> on sites with thousands of discussions.
+		// Same manage-space gate as provisioning; scope is role-derived server-side
+		// (admins search all, members only their own) — the client cannot widen it.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>\d+)/discussion-search',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'rest_search_discussions' ),
+				'permission_callback' => array( $this, 'rest_provision_permission' ),
+				'args'                => array(
+					'id' => array(
+						'required'          => true,
+						'sanitize_callback' => 'absint',
+					),
+					'q'  => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * REST: typeahead search for the "link an existing discussion" picker.
+	 *
+	 * Scope is derived from the caller's role, NOT the request: a site admin
+	 * searches across all discussions; any other manager searches only the space
+	 * owner's own discussions — matching the save-time authorization so the client
+	 * can never widen its own scope.
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return \WP_REST_Response
+	 */
+	public function rest_search_discussions( \WP_REST_Request $request ): \WP_REST_Response {
+		$space_id = (int) $request['id'];
+		$q        = (string) $request->get_param( 'q' );
+
+		$owner_id = 0;
+		if ( ! current_user_can( 'manage_options' ) ) {
+			$space    = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+			$owner_id = (int) ( $space['owner_id'] ?? 0 );
+		}
+
+		return new \WP_REST_Response(
+			array( 'results' => $this->search_discussions( $q, $owner_id ) ),
+			200
 		);
 	}
 

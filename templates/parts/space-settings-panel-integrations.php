@@ -11,10 +11,11 @@
  *
  * @var object $space                 Required. Space row.
  * @var array  $integrations_settings Required. Bundle:
- *   - `jetonomy_forum_id`    (int)   Legacy linked-forum id (kept for BC).
- *   - `push_to_feed`         (bool)
- *   - `discussion_status`    (array) {linked:bool, forum_id:int, name:string, url:string}
- *   - `linkable_discussions` (array) List of {id:int, title:string} for the picker.
+ *   - `jetonomy_forum_id` (int)   Legacy linked-forum id (kept for BC).
+ *   - `push_to_feed`      (bool)
+ *   - `discussion_status` (array) {linked:bool, forum_id:int, name:string, url:string}
+ *     The link picker is a REST typeahead (discussion-search), not a prefetched
+ *     list — role-scoped server-side (site admin: all; space owner: their own).
  * @var bool   $mvs_media_tab         Required. Current value of the media-tab toggle.
  * @var array  $classes               Optional. Extra CSS classes appended to `.bn-card`.
  *
@@ -55,12 +56,11 @@ $bn_mvs_media_tab     = (bool) $args['mvs_media_tab'];
 $bn_disc_status   = isset( $args['integrations_settings']['discussion_status'] ) && is_array( $args['integrations_settings']['discussion_status'] )
 	? $args['integrations_settings']['discussion_status']
 	: array( 'linked' => false, 'forum_id' => 0, 'name' => '', 'url' => '' );
-$bn_disc_linked   = ! empty( $bn_disc_status['linked'] );
-$bn_disc_url      = isset( $bn_disc_status['url'] ) ? (string) $bn_disc_status['url'] : '';
-$bn_disc_options  = isset( $args['integrations_settings']['linkable_discussions'] ) && is_array( $args['integrations_settings']['linkable_discussions'] )
-	? $args['integrations_settings']['linkable_discussions']
-	: array();
-$bn_disc_linkedid = isset( $bn_disc_status['forum_id'] ) ? (int) $bn_disc_status['forum_id'] : 0;
+$bn_disc_linked      = ! empty( $bn_disc_status['linked'] );
+$bn_disc_url         = isset( $bn_disc_status['url'] ) ? (string) $bn_disc_status['url'] : '';
+$bn_disc_linkedid    = isset( $bn_disc_status['forum_id'] ) ? (int) $bn_disc_status['forum_id'] : 0;
+$bn_disc_linked_name = isset( $bn_disc_status['name'] ) ? (string) $bn_disc_status['name'] : '';
+$bn_disc_space_id    = isset( $bn_space->id ) ? (int) $bn_space->id : 0;
 
 $bn_classes = array_merge( array( 'bn-card', 'bn-space-settings__panel' ), array_filter( (array) $args['classes'], 'is_string' ) );
 /** Computed root-class list. @var array<int,string> $bn_classes */
@@ -84,7 +84,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 <div class="<?php echo esc_attr( $bn_class ); ?>">
 	<header class="bn-space-settings__panel-head">
 		<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Integrations', 'buddynext' ); ?></h2>
-		<p class="bn-space-settings__panel-desc"><?php esc_html_e( 'Connect third-party features to this space.', 'buddynext' ); ?></p>
+		<p class="bn-space-settings__panel-desc"><?php esc_html_e( 'Turn on optional features for this Space.', 'buddynext' ); ?></p>
 	</header>
 
 	<div class="bn-toggle-row">
@@ -100,21 +100,36 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 						<a href="<?php echo esc_url( $bn_disc_url ); ?>"><?php esc_html_e( 'View discussion', 'buddynext' ); ?></a>
 					</p>
 				<?php endif; ?>
-				<?php if ( ! empty( $bn_disc_options ) ) : ?>
-					<div class="bn-space-settings__inline-select">
-						<label class="bn-sr-only" for="bn_discussion_link_id"><?php esc_html_e( 'Link an existing discussion', 'buddynext' ); ?></label>
-						<select id="bn_discussion_link_id" name="bn_discussion_link_id" class="bn-select">
-							<option value="0"><?php esc_html_e( 'Create a new discussion', 'buddynext' ); ?></option>
-							<?php foreach ( $bn_disc_options as $bn_disc_opt ) : ?>
-								<option value="<?php echo esc_attr( (string) $bn_disc_opt['id'] ); ?>" <?php selected( $bn_disc_linkedid, (int) $bn_disc_opt['id'] ); ?>><?php echo esc_html( (string) $bn_disc_opt['title'] ); ?></option>
-							<?php endforeach; ?>
-						</select>
-					</div>
-				<?php endif; ?>
-				<p class="bn-space-settings__hint"><?php esc_html_e( 'Powered by Jetonomy.', 'buddynext' ); ?></p>
+
+				<?php
+				// Typeahead picker — the actionable frontend control for BOTH roles.
+				// Leave the field empty to create a new discussion on enable; search
+				// + pick to link an existing one. The search endpoint scopes results
+				// by role server-side (admins: all; members: their own), so it scales
+				// past a bounded <select> on sites with thousands of discussions.
+				?>
+				<div class="bn-space-settings__discussion-picker" data-bn-discussion-picker data-space-id="<?php echo esc_attr( (string) $bn_disc_space_id ); ?>">
+					<input type="hidden" name="bn_discussion_link_id" value="<?php echo esc_attr( (string) $bn_disc_linkedid ); ?>" data-bn-discussion-link-id>
+					<label class="bn-sr-only" for="bn_discussion_search"><?php esc_html_e( 'Link an existing discussion', 'buddynext' ); ?></label>
+					<input
+						type="text"
+						id="bn_discussion_search"
+						class="bn-input bn-space-settings__discussion-search"
+						value="<?php echo esc_attr( $bn_disc_linked ? $bn_disc_linked_name : '' ); ?>"
+						placeholder="<?php esc_attr_e( 'Create a new discussion, or search to link an existing one…', 'buddynext' ); ?>"
+						autocomplete="off"
+						role="combobox"
+						aria-expanded="false"
+						aria-controls="bn_discussion_results"
+						data-bn-discussion-search
+						data-wp-on--input="actions.discussionSearch"
+						data-wp-on--focus="actions.discussionSearch">
+					<button type="button" class="bn-space-settings__discussion-clear" data-bn-discussion-clear hidden data-wp-on--click="actions.discussionClear" aria-label="<?php esc_attr_e( 'Clear — create a new discussion instead', 'buddynext' ); ?>">&times;</button>
+					<ul id="bn_discussion_results" class="bn-space-settings__discussion-results" data-bn-discussion-results role="listbox" hidden></ul>
+				</div>
 			<?php else : ?>
 				<p class="bn-space-settings__hint">
-					<?php esc_html_e( 'Discussions need the Jetonomy plugin, which is not active on this site.', 'buddynext' ); ?>
+					<?php esc_html_e( 'Discussions are unavailable on this site right now.', 'buddynext' ); ?>
 				</p>
 			<?php endif; ?>
 		</div>
@@ -139,14 +154,11 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 
 	<div class="bn-toggle-row">
 		<div class="bn-toggle-row__copy">
-			<div class="bn-toggle-row__label">
-				<span class="bn-badge" data-tone="media"><?php esc_html_e( 'WPMediaVerse', 'buddynext' ); ?></span>
-				<?php esc_html_e( 'Media tab', 'buddynext' ); ?>
-			</div>
+			<div class="bn-toggle-row__label"><?php esc_html_e( 'Media tab', 'buddynext' ); ?></div>
 			<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Media tab for uploading and sharing files in this space.', 'buddynext' ); ?></div>
 			<?php if ( ! class_exists( 'WPMediaVerse\\Core\\Plugin' ) ) : ?>
 				<p class="bn-space-settings__hint">
-					<?php esc_html_e( 'WPMediaVerse is not active on this site.', 'buddynext' ); ?>
+					<?php esc_html_e( 'Media sharing is unavailable on this site right now.', 'buddynext' ); ?>
 				</p>
 			<?php endif; ?>
 		</div>

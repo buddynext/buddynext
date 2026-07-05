@@ -177,9 +177,9 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 				$bn_disc_linked  = $bn_disc_bridge->space_has_discussion( $space_id );
 
 				// Link authorization is role-aware: a SITE ADMIN may attach any
-				// existing discussion; a member may only attach a discussion THEY
-				// own (the space owner). Validated server-side so a crafted POST can
-				// never let a member link someone else's discussion.
+				// existing discussion; a space owner may only attach a discussion
+				// THEY authored. Validated server-side so a crafted POST can never
+				// let a space owner link someone else's discussion.
 				$bn_disc_owner   = (int) ( $space->owner_id ?? 0 );
 				$bn_disc_is_admin = current_user_can( 'manage_options' );
 				if ( $bn_disc_enabled ) {
@@ -317,21 +317,17 @@ $push_to_feed          = (bool) buddynext_get_space_field( $space_id, 'push_to_f
 $mvs_media_tab         = (bool) buddynext_get_space_field( $space_id, 'mvs_media_tab' );
 $jetonomy_forum_id     = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
 
-// Discussion (Jetonomy) status + linkable list for the opt-in per-Space control.
-$bn_discussion_status    = array(
+// Discussion (Jetonomy) status for the opt-in per-Space control. The link picker
+// itself is a REST typeahead (buddynext/v1 discussion-search), role-scoped
+// server-side, so nothing is prefetched here even on 1000+ discussion sites.
+$bn_discussion_status = array(
 	'linked'   => false,
 	'forum_id' => 0,
 	'name'     => '',
 	'url'      => '',
 );
-$bn_linkable_discussions = array();
 if ( class_exists( 'Jetonomy\\Jetonomy' ) ) {
-	$bn_disc_bridge_ro       = new \BuddyNext\Bridges\JetonomyBridge();
-	$bn_discussion_status    = $bn_disc_bridge_ro->space_discussion_status( $space_id );
-	// Picker is scoped to the space owner's OWN discussions (a member can only
-	// link their own). Admins link across all spaces via search (REST), not this
-	// bounded select, so it never dumps 1000+ options into the DOM.
-	$bn_linkable_discussions = $bn_disc_bridge_ro->linkable_discussions( (int) ( $space->owner_id ?? 0 ) );
+	$bn_discussion_status = ( new \BuddyNext\Bridges\JetonomyBridge() )->space_discussion_status( $space_id );
 }
 $who_can_post          = (string) buddynext_get_space_field( $space_id, 'who_can_post' );
 $who_can_invite        = (string) buddynext_get_space_field( $space_id, 'who_can_invite' );
@@ -611,10 +607,9 @@ foreach ( $builtin_tabs as $bn_t ) {
 				array(
 					'space'                 => $space,
 					'integrations_settings' => array(
-						'jetonomy_forum_id'    => $jetonomy_forum_id,
-						'push_to_feed'         => $push_to_feed,
-						'discussion_status'    => $bn_discussion_status,
-						'linkable_discussions' => $bn_linkable_discussions,
+						'jetonomy_forum_id' => $jetonomy_forum_id,
+						'push_to_feed'      => $push_to_feed,
+						'discussion_status' => $bn_discussion_status,
 					),
 					'mvs_media_tab'         => $mvs_media_tab,
 				),

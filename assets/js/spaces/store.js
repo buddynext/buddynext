@@ -45,6 +45,116 @@ function bnSavebarRollback( form ) {
 	}
 }
 
+/* ── Discussion-link typeahead (Integrations panel) ────────────────────── */
+
+/** Debounce handle for the Discussion search box. @type {number} */
+var discussionSearchTimer = null;
+
+/**
+ * Mark the space-settings form that owns `el` dirty so the sticky savebar
+ * appears — used by the Discussion picker, which mutates a hidden field the
+ * form's input/change listeners don't otherwise see.
+ *
+ * @param {Element} el Any element inside the settings form.
+ */
+function markSettingsDirty( el ) {
+	var form = el && el.closest ? el.closest( 'form' ) : null;
+	if ( ! form ) { return; }
+	bnSavebarDirtyForm = form;
+	storeInstance.state.savebarPhase = 'dirty';
+}
+
+/**
+ * Hide + empty a Discussion picker's results listbox.
+ *
+ * @param {Element} picker The [data-bn-discussion-picker] wrapper.
+ */
+function closeDiscussionResults( picker ) {
+	var list  = picker && picker.querySelector( '[data-bn-discussion-results]' );
+	var input = picker && picker.querySelector( '[data-bn-discussion-search]' );
+	if ( list ) { list.innerHTML = ''; list.setAttribute( 'hidden', '' ); }
+	if ( input ) { input.setAttribute( 'aria-expanded', 'false' ); }
+}
+
+/**
+ * Fetch + render discussion search results into a picker's listbox. Each result
+ * links its jt_spaces id + title; clicking one fills the search box, sets the
+ * hidden bn_discussion_link_id and marks the form dirty. The endpoint scopes
+ * results by role server-side, so this never returns another owner's private
+ * discussions to a space owner.
+ *
+ * @param {Element} picker The [data-bn-discussion-picker] wrapper.
+ * @param {string}  q      Title query.
+ */
+async function renderDiscussionResults( picker, q ) {
+	var list    = picker.querySelector( '[data-bn-discussion-results]' );
+	var spaceId = picker.getAttribute( 'data-space-id' );
+	if ( ! list || ! spaceId ) { return; }
+
+	var res = await restFetch(
+		'/spaces/' + spaceId + '/discussion-search?q=' + encodeURIComponent( q ),
+		{ method: 'GET', nonce: resolveNonce(), toastOnError: false }
+	);
+	var results = ( res.ok && res.data && res.data.results ) || [];
+
+	list.innerHTML = '';
+	if ( ! results.length ) {
+		closeDiscussionResults( picker );
+		return;
+	}
+
+	results.forEach( function ( row ) {
+		var li = document.createElement( 'li' );
+		li.className = 'bn-space-settings__discussion-result';
+		li.setAttribute( 'role', 'option' );
+		li.setAttribute( 'tabindex', '0' );
+		li.setAttribute( 'data-id', String( row.id ) );
+		li.textContent = row.title;
+		li.addEventListener( 'click', function () { pickDiscussion( picker, row ); } );
+		li.addEventListener( 'keydown', function ( ev ) {
+			if ( 'Enter' === ev.key || ' ' === ev.key ) { ev.preventDefault(); pickDiscussion( picker, row ); }
+		} );
+		list.appendChild( li );
+	} );
+
+	list.removeAttribute( 'hidden' );
+	var input = picker.querySelector( '[data-bn-discussion-search]' );
+	if ( input ) { input.setAttribute( 'aria-expanded', 'true' ); }
+}
+
+/**
+ * Commit a chosen discussion to a picker: fill the search box, set the hidden
+ * link id, reveal the clear button, close the list and mark the form dirty.
+ *
+ * @param {Element} picker The [data-bn-discussion-picker] wrapper.
+ * @param {{id:number,title:string}} row Chosen discussion.
+ */
+function pickDiscussion( picker, row ) {
+	var input  = picker.querySelector( '[data-bn-discussion-search]' );
+	var hidden = picker.querySelector( '[data-bn-discussion-link-id]' );
+	var clear  = picker.querySelector( '[data-bn-discussion-clear]' );
+	if ( input ) { input.value = row.title; }
+	if ( hidden ) { hidden.value = String( row.id ); }
+	if ( clear ) { clear.removeAttribute( 'hidden' ); }
+	// Picking a discussion implies "enable this Space's discussion" — flip the
+	// toggle on so the owner does not have to toggle separately after choosing.
+	setDiscussionEnabled( picker, true );
+	closeDiscussionResults( picker );
+	markSettingsDirty( input || picker );
+}
+
+/**
+ * Set the Discussion enable toggle that pairs with a picker.
+ *
+ * @param {Element} picker  The [data-bn-discussion-picker] wrapper.
+ * @param {boolean} enabled Desired checked state.
+ */
+function setDiscussionEnabled( picker, enabled ) {
+	var row    = picker && picker.closest( '.bn-toggle-row' );
+	var toggle = row && row.querySelector( 'input[name="bn_discussion_enabled"]' );
+	if ( toggle ) { toggle.checked = !! enabled; }
+}
+
 /**
  * Resolve nonce. Tries the Interactivity API context first (works when
  * called inside a directive callback), then reads the data-wp-context
@@ -1169,6 +1279,64 @@ var storeInstance = store( 'buddynext/spaces', {
 			} catch ( _e ) {
 				btn.disabled = false;
 			}
+		},
+
+		/* ── Settings: Discussion (Jetonomy) link typeahead ────────────────
+		 *
+		 * The Discussion picker in the Integrations panel. Leaving the field
+		 * empty creates a new discussion on enable; searching + picking links an
+		 * existing one. Results come from GET /spaces/{id}/discussion-search,
+		 * scoped by role server-side (site admin: all; space owner: their own),
+		 * so it scales past a bounded <select> on large sites.
+		 * ─────────────────────────────────────────────────────────────────── */
+
+		/**
+		 * Debounced search as the owner types in the Discussion picker. Renders
+		 * matching discussions into the results listbox; picking one sets the
+		 * hidden bn_discussion_link_id and marks the settings form dirty.
+		 *
+		 * @param {Event} event input/focus on the search box.
+		 */
+		discussionSearch: function ( event ) {
+			var input = event && event.target && event.target.closest( '[data-bn-discussion-search]' );
+			if ( ! input ) { return; }
+			var picker = input.closest( '[data-bn-discussion-picker]' );
+			if ( ! picker ) { return; }
+
+			var q = ( input.value || '' ).trim();
+			// Typing a fresh query invalidates any previously picked link: an empty
+			// or hand-edited field means "create a new discussion" (id 0) until the
+			// owner explicitly picks a result again.
+			var hidden = picker.querySelector( '[data-bn-discussion-link-id]' );
+			var clear  = picker.querySelector( '[data-bn-discussion-clear]' );
+			if ( hidden && '0' !== hidden.value ) {
+				hidden.value = '0';
+				if ( clear ) { clear.setAttribute( 'hidden', '' ); }
+				markSettingsDirty( input );
+			}
+
+			clearTimeout( discussionSearchTimer );
+			discussionSearchTimer = setTimeout( function () {
+				renderDiscussionResults( picker, q );
+			}, 250 );
+		},
+
+		/**
+		 * Clear the picked discussion — revert to "create a new discussion".
+		 *
+		 * @param {Event} event click on the clear button.
+		 */
+		discussionClear: function ( event ) {
+			var btn    = event && event.target && event.target.closest( '[data-bn-discussion-clear]' );
+			var picker = btn && btn.closest( '[data-bn-discussion-picker]' );
+			if ( ! picker ) { return; }
+			var input  = picker.querySelector( '[data-bn-discussion-search]' );
+			var hidden = picker.querySelector( '[data-bn-discussion-link-id]' );
+			if ( input ) { input.value = ''; }
+			if ( hidden ) { hidden.value = '0'; }
+			btn.setAttribute( 'hidden', '' );
+			closeDiscussionResults( picker );
+			markSettingsDirty( input || picker );
 		},
 
 		/* ── Settings: delete with name-confirm gate ───────────────────── */
