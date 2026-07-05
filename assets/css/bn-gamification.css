@@ -202,6 +202,10 @@
 	flex-direction: column;
 	gap: var(--bn-s2);
 	margin-bottom: var(--bn-s5);
+	/* Semantic <ol> for a11y, but the per-row rank pill is the visible rank —
+	   suppress the native list markers so the number never shows twice. */
+	list-style: none;
+	padding-inline-start: 0;
 }
 
 .bn-lb-row {

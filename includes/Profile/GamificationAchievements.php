@@ -38,6 +38,7 @@ class GamificationAchievements {
 			return;
 		}
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav' ) );
+		add_filter( 'buddynext_rail_items', array( $this, 'inject_leaderboard_nav_item' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ), 20 );
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
 		// Owner control: list on the integration registry so the owner can hide the
@@ -113,6 +114,44 @@ class GamificationAchievements {
 			array(),
 			$ver
 		);
+	}
+
+	/**
+	 * Add the community "Leaderboard" link to the left rail when gamification is on.
+	 *
+	 * Hooked on: buddynext_rail_items( array $items, string $hub ). The leaderboard is
+	 * a community destination (like Explore), so it sits in the primary group, not the
+	 * personal "You" group. Respects the owner's gamification-nav toggle. Without this,
+	 * the leaderboard page existed but was unreachable from the shell — the tab was the
+	 * only gamification surface wired into the nav.
+	 *
+	 * @param array<int, array<string,mixed>> $items Existing rail items.
+	 * @return array<int, array<string,mixed>>
+	 */
+	public function inject_leaderboard_nav_item( array $items ): array {
+		if ( ! buddynext_integration_enabled( 'gamification', 'nav' ) ) {
+			return $items;
+		}
+
+		$url  = \BuddyNext\Core\PageRouter::leaderboard_url();
+		$path = rtrim( (string) ( wp_parse_url( $url, PHP_URL_PATH ) ?? '' ), '/' );
+
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
+		$is_active   = '' !== $path && str_starts_with( rtrim( $request_uri, '/' ), $path );
+
+		$items[] = array(
+			'key'    => 'leaderboard',
+			'label'  => __( 'Leaderboard', 'buddynext' ),
+			'url'    => $url,
+			'icon'   => 'award',
+			'show'   => true,
+			'active' => $is_active,
+			'group'  => 'primary',
+			'order'  => 95,
+		);
+
+		return $items;
 	}
 
 	/**
