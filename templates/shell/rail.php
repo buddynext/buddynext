@@ -180,7 +180,7 @@ foreach ( $bn_rail_items as $bn_item ) {
 				// Preview only the most-recently-joined spaces in the rail; the count
 				// badge shows the true total and a "See all" link opens /spaces/mine/
 				// so a member of hundreds of spaces gets a short flyout, not a wall.
-				$bn_spaces_preview = 8;
+				$bn_spaces_preview = 5;
 				$bn_my_spaces      = buddynext_service( 'space_members' )->membership_rows( $bn_rail_current_user, $bn_spaces_preview );
 				$bn_spaces_total   = buddynext_service( 'space_members' )->count_memberships( $bn_rail_current_user );
 				if ( ! empty( $bn_my_spaces ) ) :
