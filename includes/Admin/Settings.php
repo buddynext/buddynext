@@ -768,6 +768,20 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'default' => true,
 						)
 					),
+					new Field(
+						array(
+							'key'               => 'buddynext_media_single_pages',
+							'type'              => 'select',
+							'label'             => __( 'Media links', 'buddynext' ),
+							'default'           => 'activity',
+							'choices'           => array(
+								'activity'  => __( 'Open the activity it was posted in', 'buddynext' ),
+								'dedicated' => __( 'Open a dedicated media page', 'buddynext' ),
+							),
+							'disabled_callback' => static fn() => ! class_exists( 'WPMediaVerse\\Core\\Plugin' ),
+							'hint'              => __( 'Members post media as activity updates. "Open the activity" keeps every media link inside the feed: its /media/ page redirects to the post it was shared in, so media is not exposed as a separate public URL. "Open a dedicated media page" keeps a standalone page per item, for gallery-style sites.', 'buddynext' ),
+						)
+					),
 				)
 			),
 			new Section(
