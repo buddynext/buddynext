@@ -31,6 +31,17 @@ use BuddyNext\Feed\IntegrationActivity;
 class JetonomyBridge {
 
 	/**
+	 * Object-cache group for the bridge's per-view count/list reads.
+	 */
+	private const CACHE_GROUP = 'buddynext_jetonomy';
+
+	/**
+	 * Cache TTL (seconds). A hard staleness bound even if an invalidation hook is
+	 * ever missed; the create/delete hooks clear the affected keys immediately.
+	 */
+	private const CACHE_TTL = 300;
+
+	/**
 	 * Attach hooks.
 	 *
 	 * Called from Plugin::init() via buddynext_load_bridges action.
@@ -223,6 +234,11 @@ class JetonomyBridge {
 		 * @param string $content   Discussion content (plain text).
 		 */
 		do_action( 'buddynext_jetonomy_post_indexed', $post_id, $space_id, $author_id, $title, $content );
+
+		// A new discussion changes the author's profile count/list and the space's
+		// count/list — drop those cached reads so the next view is accurate.
+		$this->invalidate_member_caches( $author_id );
+		$this->invalidate_space_caches( $space_id );
 	}
 
 	/**
@@ -257,6 +273,45 @@ class JetonomyBridge {
 		if ( '' !== $url ) {
 			IntegrationActivity::remove( $url, 'discussion' );
 		}
+
+		// Deleting a discussion drops the author's published count — invalidate the
+		// author's + the space's cached reads. Jetonomy soft-deletes (status → trash)
+		// so the row still resolves the author id.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$author_id = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT author_id FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1", $post_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$this->invalidate_member_caches( $author_id );
+		$this->invalidate_space_caches( $space_id );
+	}
+
+	/**
+	 * Drop a member's cached discussion count + panel list.
+	 *
+	 * @param int $user_id Discussion author whose caches to clear.
+	 * @return void
+	 */
+	private function invalidate_member_caches( int $user_id ): void {
+		if ( $user_id <= 0 ) {
+			return;
+		}
+		wp_cache_delete( 'jt_dcount_' . $user_id, self::CACHE_GROUP );
+		wp_cache_delete( 'jt_ulist_' . $user_id, self::CACHE_GROUP );
+	}
+
+	/**
+	 * Drop a space forum's cached discussion count + panel list.
+	 *
+	 * @param int $forum_id Resolved Jetonomy forum id (jt_posts.space_id).
+	 * @return void
+	 */
+	private function invalidate_space_caches( int $forum_id ): void {
+		if ( $forum_id <= 0 ) {
+			return;
+		}
+		wp_cache_delete( 'jt_scount_' . $forum_id, self::CACHE_GROUP );
+		wp_cache_delete( 'jt_slist_' . $forum_id, self::CACHE_GROUP );
 	}
 
 	/**
@@ -1137,16 +1192,29 @@ class JetonomyBridge {
 			return 0;
 		}
 
+		// Nav badges call this on EVERY profile view — cache the COUNT so a large
+		// forum does not pay a jt_posts scan per page load. Invalidated on the
+		// member's post create/delete (invalidate_member_caches).
+		$cache_key = 'jt_dcount_' . $user_id;
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		return (int) $wpdb->get_var(
+		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}jt_posts WHERE author_id = %d AND status = 'publish'",
 				$user_id
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $count;
 	}
 
 	/**
@@ -1164,6 +1232,18 @@ class JetonomyBridge {
 			return array();
 		}
 		$limit = max( 1, min( 50, $limit ) );
+
+		// The profile panel + REST both request the default page; cache that hot
+		// path (invalidated on the member's post create/delete). Non-default limits
+		// are rare and bypass the cache so they never serve a truncated set.
+		$use_cache = ( 20 === $limit );
+		$cache_key = 'jt_ulist_' . $user_id;
+		if ( $use_cache ) {
+			$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
+			if ( is_array( $cached ) ) {
+				return $cached;
+			}
+		}
 
 		global $wpdb;
 
@@ -1191,6 +1271,10 @@ class JetonomyBridge {
 		// the template renders a ready URL and never rebuilds the /s/…/t/… path.
 		foreach ( $rows as $row ) {
 			$row->url = $this->discussion_permalink( (string) $row->space_slug, (string) $row->slug );
+		}
+
+		if ( $use_cache ) {
+			wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
 		return $rows;
@@ -1316,6 +1400,17 @@ class JetonomyBridge {
 		}
 		$limit = max( 1, min( 50, $limit ) );
 
+		// Cache the default page (keyed by the resolved forum id, matching the
+		// invalidation hooks); odd limits bypass the cache.
+		$use_cache = ( 20 === $limit );
+		$cache_key = 'jt_slist_' . $forum_id;
+		if ( $use_cache ) {
+			$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
+			if ( is_array( $cached ) ) {
+				return $cached;
+			}
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1334,7 +1429,13 @@ class JetonomyBridge {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return is_array( $rows ) ? $rows : array();
+		$rows = is_array( $rows ) ? $rows : array();
+
+		if ( $use_cache ) {
+			wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
+		}
+
+		return $rows;
 	}
 
 	/**
@@ -1353,16 +1454,28 @@ class JetonomyBridge {
 			return 0;
 		}
 
+		// Nav badges call this on EVERY space view — cache the COUNT keyed by the
+		// resolved forum id (invalidated on that forum's post create/delete).
+		$cache_key = 'jt_scount_' . $forum_id;
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		return (int) $wpdb->get_var(
+		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}jt_posts WHERE space_id = %d AND status = 'publish'",
 				$forum_id
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $count;
 	}
 
 	/**

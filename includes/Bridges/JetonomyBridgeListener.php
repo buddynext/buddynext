@@ -166,8 +166,15 @@ class JetonomyBridgeListener implements ListenerInterface {
 		if ( ! $this->is_jetonomy( $type ) ) {
 			return $meta;
 		}
+		// Guard the icon slug so a future icon-set change can never render a blank
+		// notification meta — fall back to the always-present bell (matches the
+		// IconService::has pattern used across the suite panels).
+		$icon = 'messages-square';
+		if ( ! \BuddyNext\Core\IconService::has( $icon ) ) {
+			$icon = 'bell';
+		}
 		return array(
-			'icon'  => 'messages-square',
+			'icon'  => $icon,
 			'tone'  => 'info',
 			'label' => __( 'Discussions', 'buddynext' ),
 		);
