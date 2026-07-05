@@ -314,6 +314,14 @@ class SearchService {
 		$offset     = ( $page - 1 ) * $per_page;
 		$safe_query = sanitize_text_field( $query );
 
+		// A query shorter than the FULLTEXT minimum token size can never match in
+		// BOOLEAN MODE, so short queries returned nothing. Detect them and route to
+		// the LIKE path (substring), which matches a 1-2 char term. Normal-length
+		// queries still use FULLTEXT as the primary path.
+		$min_token    = $this->fulltext_min_token();
+		$is_short     = mb_strlen( $safe_query ) < $min_token;
+		$use_fulltext = $this->has_fulltext_index() && ! $is_short;
+
 		// The `media` pseudo-type is posts that carry attachments. It reuses the
 		// whole post-search pipeline (FULLTEXT/LIKE seam, block + suspension
 		// exclusions, date window, sort) and only adds a join to bn_posts on a
@@ -539,7 +547,10 @@ class SearchService {
 			}
 		}
 
-		if ( $this->has_fulltext_index() ) {
+		$total = 0;
+		$rows  = array();
+
+		if ( $use_fulltext ) {
 			// FULLTEXT path — uses ft_search index for performance on production.
 			// $search_condition is the output of a prior $wpdb->prepare() call — it is already
 			// escaped and safe to embed. $excluded_where and $block_where contain only
@@ -613,10 +624,25 @@ class SearchService {
 				ARRAY_A
 			);
 			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-		} else {
-			// LIKE fallback — used in test environments where TEMPORARY tables
-			// do not support FULLTEXT indexes.
+		}
+
+		// LIKE path. Runs as the PRIMARY search for short queries (below the FULLTEXT
+		// token size) and when no FULLTEXT index exists, AND as a FUZZY fallback when
+		// the FULLTEXT path matched nothing — so a typo'd or too-short query still
+		// returns results instead of an empty page. When acting as the fuzzy
+		// fallback, SOUNDEX (phonetic) matching is added so a misspelled name
+		// ("jhon" → "John") still surfaces.
+		$fuzzy = $use_fulltext && 0 === $total;
+		if ( ! $use_fulltext || $fuzzy ) {
 			$like = '%' . $wpdb->esc_like( $safe_query ) . '%';
+
+			if ( $fuzzy ) {
+				$like_match  = '( si.title LIKE %s OR si.content LIKE %s OR SOUNDEX(si.title) = SOUNDEX(%s) OR SOUNDEX(si.content) = SOUNDEX(%s) )';
+				$like_params = array( $like, $like, $safe_query, $safe_query );
+			} else {
+				$like_match  = '( si.title LIKE %s OR si.content LIKE %s )';
+				$like_params = array( $like, $like );
+			}
 
 			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			// SCALE-CONTRACT §3: bound the COUNT to the 1000-row ceiling.
@@ -627,7 +653,7 @@ class SearchService {
 						 FROM {$wpdb->prefix}bn_search_index si
 						 {$media_join}
 						 WHERE {$visibility_where}
-						   AND (si.title LIKE %s OR si.content LIKE %s)
+						   AND {$like_match}
 						   {$type_where}
 						   {$media_where}
 						   {$block_where}
@@ -636,7 +662,7 @@ class SearchService {
 						   {$date_where}
 						 LIMIT %d
 					) bn_bounded",
-					...array_merge( array( $like, $like ), $type_params, $block_params, $advanced_params, array( self::MAX_RESULTS + 1 ) )
+					...array_merge( $like_params, $type_params, $block_params, $advanced_params, array( self::MAX_RESULTS + 1 ) )
 				)
 			);
 
@@ -646,7 +672,7 @@ class SearchService {
 					 FROM {$wpdb->prefix}bn_search_index si
 					 {$media_join}
 					 WHERE {$visibility_where}
-					   AND (si.title LIKE %s OR si.content LIKE %s)
+					   AND {$like_match}
 					   {$type_where}
 					   {$media_where}
 					   {$block_where}
@@ -655,7 +681,7 @@ class SearchService {
 					   {$date_where}
 					 ORDER BY si.updated_at DESC
 					 LIMIT %d OFFSET %d",
-					...array_merge( array( $like, $like ), $type_params, $block_params, $advanced_params, array( $row_limit, $offset ) )
+					...array_merge( $like_params, $type_params, $block_params, $advanced_params, array( $row_limit, $offset ) )
 				),
 				ARRAY_A
 			);
@@ -963,6 +989,25 @@ class SearchService {
 		}
 
 		return $rows;
+	}
+
+	/**
+	 * The server's InnoDB FULLTEXT minimum token size (default 3). A query shorter
+	 * than this can never match in BOOLEAN MODE, so search() routes short queries to
+	 * the LIKE path instead. Cached per-request.
+	 *
+	 * @return int Minimum token length (at least 1).
+	 */
+	private function fulltext_min_token(): int {
+		static $min = null;
+		if ( null !== $min ) {
+			return $min;
+		}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$value = $wpdb->get_var( 'SELECT @@innodb_ft_min_token_size' );
+		$min   = ( null !== $value ) ? max( 1, (int) $value ) : 3;
+		return $min;
 	}
 
 	/**
