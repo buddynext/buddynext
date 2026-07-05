@@ -19,11 +19,6 @@ use BuddyNext\Contracts\ListenerInterface;
 class GamificationBridgeListener implements ListenerInterface {
 
 	/**
-	 * User-meta key holding queued on-earn toasts awaiting the next shell load.
-	 */
-	private const TOAST_META = 'bn_gam_pending_toasts';
-
-	/**
 	 * Register WBGamification notification hooks.
 	 *
 	 * Bails immediately when WBGamification is not active so no hooks are
@@ -46,10 +41,6 @@ class GamificationBridgeListener implements ListenerInterface {
 		// do_action( 'wb_gam_level_changed', int $user_id, array $new_level, array|null $old_level ).
 		add_action( 'wb_gam_badge_awarded', array( $this, 'on_badge_awarded' ), 10, 3 );
 		add_action( 'wb_gam_level_changed', array( $this, 'on_level_changed' ), 10, 3 );
-
-		// Celebratory on-earn toast: the earn fires server-side, so queue a toast for
-		// the earner and flush it on their next shell load (Free has no realtime push).
-		add_action( 'wp_enqueue_scripts', array( $this, 'flush_toasts' ), 20 );
 	}
 
 	/**
@@ -87,14 +78,6 @@ class GamificationBridgeListener implements ListenerInterface {
 					'badge_name' => $badge_name,
 				),
 			)
-		);
-
-		$this->queue_toast(
-			$user_id,
-			'' !== $badge_name
-				/* translators: %s: badge name. */
-				? sprintf( __( 'You earned the “%s” badge!', 'buddynext' ), $badge_name )
-				: __( 'You earned a new badge!', 'buddynext' )
 		);
 	}
 
@@ -145,69 +128,5 @@ class GamificationBridgeListener implements ListenerInterface {
 				),
 			)
 		);
-
-		$this->queue_toast(
-			$user_id,
-			'' !== $new_level_name
-				/* translators: %s: level name. */
-				? sprintf( __( 'You reached %s!', 'buddynext' ), $new_level_name )
-				: __( 'You levelled up!', 'buddynext' )
-		);
-	}
-
-	/**
-	 * Queue a celebratory toast for a member, shown on their next shell page load.
-	 *
-	 * The earn happens server-side (often during a background/AJAX request), so the
-	 * toast is parked in user meta and flushed by flush_toasts() on the next front-end
-	 * render — a realtime-free path that still gives the Duolingo/Discord "you earned
-	 * it!" moment. Capped so a burst of earns can never bloat the meta row.
-	 *
-	 * @param int    $user_id Earner.
-	 * @param string $message Ready-to-display celebratory line.
-	 * @return void
-	 */
-	private function queue_toast( int $user_id, string $message ): void {
-		if ( $user_id <= 0 || '' === $message ) {
-			return;
-		}
-
-		// get_user_meta returns '' (not array()) when unset — guard so the cast never
-		// seeds a stray empty entry.
-		$pending   = get_user_meta( $user_id, self::TOAST_META, true );
-		$pending   = is_array( $pending ) ? $pending : array();
-		$pending[] = array( 'message' => $message );
-		$pending   = array_slice( $pending, -5 );
-
-		update_user_meta( $user_id, self::TOAST_META, $pending );
-	}
-
-	/**
-	 * Flush any queued toasts for the current user onto the shell.
-	 *
-	 * Runs on wp_enqueue_scripts (after the shell bundle registers). Localises the
-	 * pending toasts onto bn-shell-extras and appends a tiny trigger that fires
-	 * window.bnToast() once the shell dialog module has defined it, then clears the
-	 * queue so each toast shows exactly once.
-	 *
-	 * @return void
-	 */
-	public function flush_toasts(): void {
-		if ( ! is_user_logged_in() || ! wp_script_is( 'bn-shell-extras', 'enqueued' ) ) {
-			return;
-		}
-
-		$user_id = get_current_user_id();
-		$pending = get_user_meta( $user_id, self::TOAST_META, true );
-		if ( ! is_array( $pending ) || empty( $pending ) ) {
-			return;
-		}
-
-		// Expose the queued toasts as a global; the notifications store module shows them
-		// on nav-ready (post-hydration) via window.bnToast — the reliable path, since an
-		// inline trigger races the shell's Interactivity hydration and gets wiped.
-		wp_localize_script( 'bn-shell-extras', 'bnGamToasts', array_values( $pending ) );
-
-		delete_user_meta( $user_id, self::TOAST_META );
 	}
 }
