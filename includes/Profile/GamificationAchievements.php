@@ -235,6 +235,57 @@ class GamificationAchievements {
 	}
 
 	/**
+	 * The full badge catalogue for a member — earned AND locked — so BN can show
+	 * "what you can earn next" in-shell instead of sending members to the plugin's
+	 * own /gamification/ page. Reads wb-gamification's BadgeEngine (guarded); falls
+	 * back to earned-only when the catalogue method is unavailable.
+	 *
+	 * Ordered earned-first, then credential locked, then the rest — so the grid
+	 * leads with what the member has and follows with attainable goals.
+	 *
+	 * @param int $member_id Member.
+	 * @return array<int,array<string,mixed>> Each: id, name, description, image_url,
+	 *               is_credential, category, earned (bool), earned_at.
+	 */
+	private function all_badges( int $member_id ): array {
+		if ( ! is_callable( array( '\WBGam\Engine\BadgeEngine', 'get_all_badges_for_user' ) ) ) {
+			// Engine catalogue unavailable — degrade to earned-only, flagged earned.
+			return array_map(
+				static function ( array $badge ): array {
+					$badge['earned'] = true;
+					return $badge;
+				},
+				$this->badges( $member_id )
+			);
+		}
+
+		$all = \WBGam\Engine\BadgeEngine::get_all_badges_for_user( $member_id );
+		if ( ! is_array( $all ) ) {
+			return array();
+		}
+
+		usort(
+			$all,
+			static function ( array $a, array $b ): int {
+				// Earned first, then credentials, then name — a stable, goal-first order.
+				$ea = ! empty( $a['earned'] ) ? 1 : 0;
+				$eb = ! empty( $b['earned'] ) ? 1 : 0;
+				if ( $ea !== $eb ) {
+					return $eb <=> $ea;
+				}
+				$ca = ! empty( $a['is_credential'] ) ? 1 : 0;
+				$cb = ! empty( $b['is_credential'] ) ? 1 : 0;
+				if ( $ca !== $cb ) {
+					return $cb <=> $ca;
+				}
+				return strcasecmp( (string) ( $a['name'] ?? '' ), (string) ( $b['name'] ?? '' ) );
+			}
+		);
+
+		return $all;
+	}
+
+	/**
 	 * Render the standing strip: points · level · current streak.
 	 *
 	 * @param int $member_id Member.
@@ -388,7 +439,9 @@ class GamificationAchievements {
 	 * @return void
 	 */
 	private function render_badges( int $member_id ): void {
-		$badges = $this->badges( $member_id );
+		$all    = $this->all_badges( $member_id );
+		$total  = count( $all );
+		$earned = count( array_filter( $all, static fn( array $b ): bool => ! empty( $b['earned'] ) ) );
 
 		echo '<div class="bn-card bn-achievements__panel">';
 		echo '<header class="bn-achievements__head">';
@@ -397,35 +450,57 @@ class GamificationAchievements {
 			buddynext_icon( 'award' );
 		}
 		echo ' ' . esc_html__( 'Badges', 'buddynext' );
-		if ( ! empty( $badges ) ) {
-			echo ' <span class="bn-achievements__count">' . esc_html( number_format_i18n( count( $badges ) ) ) . '</span>';
+		if ( $total > 0 ) {
+			echo ' <span class="bn-achievements__count">' . esc_html(
+				sprintf(
+					/* translators: 1: badges earned, 2: total badges available. */
+					__( '%1$s / %2$s', 'buddynext' ),
+					number_format_i18n( $earned ),
+					number_format_i18n( $total )
+				)
+			) . '</span>';
 		}
 		echo '</h3>';
-
-		$hub = $this->hub_url();
-		if ( '' !== $hub ) {
-			echo '<a class="bn-link bn-achievements__cta" href="' . esc_url( $hub ) . '">' . esc_html__( 'View leaderboard', 'buddynext' ) . '</a>';
-		}
 		echo '</header>';
 
-		if ( empty( $badges ) ) {
-			echo '<p class="bn-achievements__empty">' . esc_html__( 'No badges earned yet — keep contributing to unlock them.', 'buddynext' ) . '</p>';
+		if ( 0 === $total ) {
+			echo '<p class="bn-achievements__empty">' . esc_html__( 'No badges available yet.', 'buddynext' ) . '</p>';
 			echo '</div>';
 			return;
 		}
 
+		// Earned-vs-total progress so members see how far they are through the set.
+		$pct = (int) round( $earned / $total * 100 );
+		echo '<div class="bn-progress bn-achievements__progress" data-tone="accent" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' . esc_attr( (string) $pct ) . '">';
+		echo '<div class="bn-progress__fill" style="width:' . esc_attr( (string) $pct ) . '%;"></div>';
+		echo '</div>';
+
 		$date_format = (string) get_option( 'date_format', 'M j, Y' );
 
 		echo '<ul class="bn-achievements__grid" role="list">';
-		foreach ( $badges as $badge ) {
-			$id    = isset( $badge['id'] ) ? (string) $badge['id'] : '';
-			$name  = isset( $badge['name'] ) ? (string) $badge['name'] : '';
-			$image = isset( $badge['image_url'] ) ? (string) $badge['image_url'] : '';
-			$is_cr = ! empty( $badge['is_credential'] );
-			$when  = ! empty( $badge['earned_at'] ) ? date_i18n( $date_format, (int) strtotime( (string) $badge['earned_at'] ) ) : '';
-			$url   = '' !== $id ? $this->badge_share_url( $id, $member_id ) : '';
+		foreach ( $all as $badge ) {
+			$is_earned = ! empty( $badge['earned'] );
+			$id        = isset( $badge['id'] ) ? (string) $badge['id'] : '';
+			$name      = isset( $badge['name'] ) ? (string) $badge['name'] : '';
+			$desc      = isset( $badge['description'] ) ? (string) $badge['description'] : '';
+			$image     = isset( $badge['image_url'] ) ? (string) $badge['image_url'] : '';
+			$is_cr     = ! empty( $badge['is_credential'] );
+			$when      = ( $is_earned && ! empty( $badge['earned_at'] ) ) ? date_i18n( $date_format, (int) strtotime( (string) $badge['earned_at'] ) ) : '';
+			// Only earned badges have a public share page; locked ones are static.
+			$url = ( $is_earned && '' !== $id ) ? $this->badge_share_url( $id, $member_id ) : '';
 
-			echo '<li class="bn-achievements__badge' . ( $is_cr ? ' is-credential' : '' ) . '">';
+			$classes = 'bn-achievements__badge';
+			if ( $is_cr ) {
+				$classes .= ' is-credential';
+			}
+			if ( ! $is_earned ) {
+				$classes .= ' is-locked';
+			}
+
+			// The description doubles as the "how to earn it" hint on locked badges.
+			$title = '' !== $desc ? ' title="' . esc_attr( $desc ) . '"' : '';
+
+			echo '<li class="' . esc_attr( $classes ) . '"' . $title . '>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $title pre-escaped above.
 			if ( '' !== $url ) {
 				echo '<a class="bn-achievements__badge-link" href="' . esc_url( $url ) . '">';
 			} else {
@@ -433,16 +508,18 @@ class GamificationAchievements {
 			}
 
 			echo '<span class="bn-achievements__badge-medal">';
-			if ( '' !== $image ) {
+			if ( $is_earned && '' !== $image ) {
 				echo '<img src="' . esc_url( $image ) . '" alt="" loading="lazy" />';
 			} elseif ( function_exists( 'buddynext_icon' ) ) {
-				buddynext_icon( 'award' );
+				buddynext_icon( $is_earned ? 'award' : 'lock' );
 			}
 			echo '</span>';
 
 			echo '<span class="bn-achievements__badge-name">' . esc_html( $name ) . '</span>';
 			if ( '' !== $when ) {
 				echo '<span class="bn-achievements__badge-date">' . esc_html( $when ) . '</span>';
+			} elseif ( ! $is_earned && '' !== $desc ) {
+				echo '<span class="bn-achievements__badge-date bn-achievements__badge-goal">' . esc_html( $desc ) . '</span>';
 			}
 
 			echo '' !== $url ? '</a>' : '</div>';

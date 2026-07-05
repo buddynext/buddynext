@@ -209,6 +209,37 @@ a.bn-achievements__badge-link:focus-visible {
 	margin-top: auto;
 }
 
+/* Earned-vs-total progress bar above the grid. */
+.bn-achievements__progress {
+	margin: 0 0 var(--bn-s3);
+}
+
+/* Locked badges: dimmed medal + the description shown as a "how to earn it" goal,
+   so the catalogue tells members what is still attainable (no trip to /gamification/). */
+.bn-achievements__badge.is-locked {
+	opacity: 0.72;
+}
+
+.bn-achievements__badge.is-locked .bn-achievements__badge-medal {
+	background: var(--bn-sunken);
+}
+
+.bn-achievements__badge.is-locked .bn-achievements__badge-medal svg {
+	color: var(--bn-ink-4);
+}
+
+.bn-achievements__badge-goal {
+	font-weight: var(--bn-fw-normal);
+	color: var(--bn-ink-3);
+	line-height: 1.3;
+	/* Clamp long descriptions so cells stay uniform; full text is in the title. */
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
 @media (max-width: 640px) {
 	.bn-achievements__grid {
 		grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
