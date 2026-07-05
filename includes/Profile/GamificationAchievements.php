@@ -424,11 +424,22 @@ class GamificationAchievements {
 	 * @return int
 	 */
 	private function leaderboard_rank( int $member_id ): int {
+		// Request-scoped memo: the standing strip resolves rank once per render, but
+		// a page can render several member panels — avoid re-hitting the engine (and
+		// its cache lookup) for the same member within one request.
+		static $ranks = array();
+		if ( array_key_exists( $member_id, $ranks ) ) {
+			return $ranks[ $member_id ];
+		}
+
 		if ( ! is_callable( array( '\WBGam\Engine\LeaderboardEngine', 'get_user_rank' ) ) ) {
+			$ranks[ $member_id ] = 0;
 			return 0;
 		}
-		$data = \WBGam\Engine\LeaderboardEngine::get_user_rank( $member_id, 'all' );
-		return is_array( $data ) && isset( $data['rank'] ) ? (int) $data['rank'] : 0;
+		$data                = \WBGam\Engine\LeaderboardEngine::get_user_rank( $member_id, 'all' );
+		$ranks[ $member_id ] = is_array( $data ) && isset( $data['rank'] ) ? (int) $data['rank'] : 0;
+
+		return $ranks[ $member_id ];
 	}
 
 	/**

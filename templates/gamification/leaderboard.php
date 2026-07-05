@@ -58,12 +58,20 @@ if ( ! in_array( $period, $allowed_periods, true ) ) {
 	$period = 'month';
 }
 
-// wb_gam_get_leaderboard() accepts 'all'|'week'|'month'|'day'.
+// Map the UI period label to the value the gamification read API expects.
 $api_period = ( 'alltime' === $period ) ? 'all' : $period;
 
-// Fetch top 10 ranked users via the plugin read API.
-// Each entry: ['rank'=>int,'user_id'=>int,'display_name'=>string,'avatar_url'=>string,'points'=>int].
-$leaderboard = wb_gam_get_leaderboard( $api_period, 10 );
+// Rank window — how many top members to show. GET-driven like the period. The
+// engine caps the size internally, so the UI only offers a few sane presets.
+$allowed_windows = array( 10, 25, 50, 100 );
+$window          = isset( $_GET['window'] ) ? absint( wp_unslash( $_GET['window'] ) ) : 10; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+if ( ! in_array( $window, $allowed_windows, true ) ) {
+	$window = 10;
+}
+
+// Fetch the top ranked users via the plugin read API.
+// Each entry: ['rank'=>int,'user_id'=>int,'display_name'=>string,'avatar_url'=>string,'points'=>int,'rank_change'=>int,'is_new'=>bool].
+$leaderboard = wb_gam_get_leaderboard( $api_period, $window );
 if ( ! is_array( $leaderboard ) ) {
 	$leaderboard = array();
 }
@@ -72,13 +80,22 @@ if ( ! is_array( $leaderboard ) ) {
 $current_user_pts  = $current_user_id ? (int) wb_gam_get_user_points( $current_user_id ) : 0;
 $current_user_rank = 0;
 
-// Resolve the current user's rank from the returned leaderboard rows.
-// If the user is outside the top 10, rank stays 0 (rendered as "Unranked").
+// Resolve the current user's rank from the returned leaderboard rows first
+// (cheap — already loaded), then fall back to the engine's true rank when the
+// member is outside the visible window, so everyone sees their standing rather
+// than "Unranked".
 if ( $current_user_id ) {
 	foreach ( $leaderboard as $row ) {
 		if ( (int) ( $row['user_id'] ?? 0 ) === $current_user_id ) {
 			$current_user_rank = (int) ( $row['rank'] ?? 0 );
 			break;
+		}
+	}
+
+	if ( 0 === $current_user_rank && is_callable( array( '\WBGam\Engine\LeaderboardEngine', 'get_user_rank' ) ) ) {
+		$rank_data = \WBGam\Engine\LeaderboardEngine::get_user_rank( $current_user_id, $api_period );
+		if ( is_array( $rank_data ) && isset( $rank_data['rank'] ) && $current_user_pts > 0 ) {
+			$current_user_rank = (int) $rank_data['rank'];
 		}
 	}
 }
@@ -111,11 +128,12 @@ foreach ( $leaderboard as $row ) {
 	}
 }
 
-// Rank change — wb-gamification does not expose a rank-snapshot read API,
-// so deltas default to 0 (no change) until that data source lands.
+// Rank change — real trend from the engine snapshot (previous rank vs current).
+// Positive = moved up; 0 = no change, a brand-new entrant, or a live read before
+// the first two snapshot ticks exist. No more hardwired zeros.
 $rank_changes = array();
 foreach ( $leaderboard as $row ) {
-	$rank_changes[ (int) ( $row['user_id'] ?? 0 ) ] = 0;
+	$rank_changes[ (int) ( $row['user_id'] ?? 0 ) ] = (int) ( $row['rank_change'] ?? 0 );
 }
 
 // Compute next milestone for current user (next 100-pt boundary).
@@ -314,8 +332,15 @@ $updated_iso = gmdate( 'c' );
 			<label class="bn-lb-filters__select-label" for="bn-lb-window">
 				<?php esc_html_e( 'Show', 'buddynext' ); ?>
 			</label>
-			<select id="bn-lb-window" name="window" class="bn-select" disabled>
-				<option><?php esc_html_e( 'Top 10', 'buddynext' ); ?></option>
+			<select id="bn-lb-window" name="window" class="bn-select" data-wp-on--change="actions.setWindow">
+				<?php foreach ( $allowed_windows as $bn_win ) : ?>
+					<option value="<?php echo esc_attr( (string) $bn_win ); ?>" <?php selected( $window, $bn_win ); ?>>
+						<?php
+						/* translators: %d: number of top members shown. */
+						echo esc_html( sprintf( __( 'Top %d', 'buddynext' ), $bn_win ) );
+						?>
+					</option>
+				<?php endforeach; ?>
 			</select>
 		</div>
 	</div>

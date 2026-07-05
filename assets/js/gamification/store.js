@@ -16,5 +16,10 @@ store( 'buddynext/gamification', {
 				window.location.href = url.toString();
 			}
 		},
+		setWindow( event ) {
+			const url = new URL( window.location.href );
+			url.searchParams.set( 'window', event.target.value );
+			window.location.href = url.toString();
+		},
 	},
 } );
