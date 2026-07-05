@@ -754,3 +754,36 @@ function bootstrapNotifPolling() {
 }
 
 onNavReady( bootstrapNotifPolling, { once: true } );
+
+// Celebratory on-earn toasts queued server-side (GamificationBridgeListener parks a
+// message per badge/level earn in bnGamToasts). Show them once the shell nav is ready
+// so they land on the hydrated page (an earlier inline trigger is wiped by hydration),
+// reusing the same window.bnToast the notification poll uses. Clear so each shows once.
+onNavReady(
+	function () {
+		const pending = ( typeof window !== 'undefined' && Array.isArray( window.bnGamToasts ) ) ? window.bnGamToasts : [];
+		if ( typeof window !== 'undefined' ) {
+			window.bnGamToasts = [];
+		}
+		if ( ! pending.length ) {
+			return;
+		}
+		// Show via the shell's own bnToast once the dialog module has defined it. A
+		// generous settle keeps the toast out of the shell's initial render churn.
+		let tries = 0;
+		const show = function () {
+			tries += 1;
+			if ( 'function' === typeof window.bnToast ) {
+				pending.forEach( function ( item ) {
+					if ( item && item.message ) {
+						window.bnToast( item.message, { tone: 'success', timeout: 6000 } );
+					}
+				} );
+			} else if ( tries < 40 ) {
+				setTimeout( show, 300 );
+			}
+		};
+		setTimeout( show, 1200 );
+	},
+	{ once: true }
+);
