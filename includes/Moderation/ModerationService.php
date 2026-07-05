@@ -829,6 +829,13 @@ class ModerationService {
 			? sanitize_key( (string) $args['reason'] )
 			: '';
 
+		// Sort: newest report first (default), or most-reported first so the admin
+		// can triage the loudest content at scale. report_count is the aggregate
+		// COUNT(*) alias below; both branches are code-controlled literals.
+		$order_by = ( isset( $args['sort'] ) && 'reported' === $args['sort'] )
+			? 'ORDER BY report_count DESC, MAX(created_at) DESC'
+			: 'ORDER BY MAX(created_at) DESC';
+
 		// Normalise space_ids: array of positive ints, empty = no restriction.
 		$space_ids = array();
 		if ( ! empty( $args['space_ids'] ) && is_array( $args['space_ids'] ) ) {
@@ -893,7 +900,7 @@ class ModerationService {
 				        MAX(created_at) AS created_at
 				 FROM {$wpdb->prefix}bn_reports {$where_sql}
 				 GROUP BY object_type, object_id
-				 ORDER BY MAX(created_at) DESC
+				 {$order_by}
 				 LIMIT %d OFFSET %d",
 				...$list_params
 			),
