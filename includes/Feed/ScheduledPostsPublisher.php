@@ -127,14 +127,13 @@ final class ScheduledPostsPublisher {
 			if ( $post_service->mark_published( $post_id ) ) {
 				++$published;
 
-				/**
-				 * Fires after a scheduled post is published.
-				 *
-				 * @param int    $post_id Post ID.
-				 * @param int    $user_id Author user ID.
-				 * @param string $type    Post type slug.
-				 */
-				do_action( 'buddynext_post_created', $post_id, $user_id, $type );
+				// Run the SAME at-go-live effects the immediate publish path runs —
+				// buddynext_post_created fan-out (search / hashtags / webhooks / space
+				// notifications), @mention notifications, and auto-moderation. This
+				// fires buddynext_post_created itself, so we no longer fire it here (a
+				// scheduled @mention was previously never delivered and auto-mod never
+				// evaluated at go-live).
+				$post_service->run_published_effects( $post_id );
 			}
 		}
 

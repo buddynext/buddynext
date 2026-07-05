@@ -452,6 +452,70 @@ class PostService {
 	}
 
 	/**
+	 * Run the full at-go-live effects for a deferred publish (scheduled post or an
+	 * admin "publish now"), reusing the exact side-effects the immediate path runs.
+	 *
+	 * The deferred paths previously fired only the bare buddynext_post_created
+	 * action, so a scheduled post that @mentioned someone never notified them and
+	 * auto-moderation never evaluated at go-live. This loads the post, evaluates the
+	 * content safeguard NOW (reactive: a flag still publishes and files a report),
+	 * and delegates to run_post_published_effects — which fires buddynext_post_created
+	 * itself, so the caller must NOT fire it again (no double fan-out).
+	 *
+	 * @param int $post_id Post that just went live.
+	 * @return void
+	 */
+	public function run_published_effects( int $post_id ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT user_id, type, content, space_id, link_url FROM {$wpdb->prefix}bn_posts WHERE id = %d",
+				$post_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( null === $row ) {
+			return;
+		}
+
+		$user_id = (int) $row['user_id'];
+		$type    = (string) $row['type'];
+		$data    = array(
+			'content'  => (string) ( $row['content'] ?? '' ),
+			'space_id' => (int) ( $row['space_id'] ?? 0 ),
+			'link_url' => (string) ( $row['link_url'] ?? '' ),
+		);
+
+		// Evaluate auto-moderation at go-live. Reactive model: a flag (or a
+		// pending_review hold) publishes and files a system report — it does not
+		// retroactively block a post that was authored and scheduled earlier.
+		$flag_reason = '';
+		$result      = $this->get_safeguard()->check( $user_id, $data['content'], $data['link_url'], $data['space_id'] );
+		if ( is_wp_error( $result ) && ( 'pending_review' === $result->get_error_code() || $this->is_flag_error( $result ) ) ) {
+			$flag_reason = (string) $result->get_error_message();
+			$flag_data   = $result->get_error_data();
+			if ( is_array( $flag_data ) ) {
+				$flag_bits = array();
+				if ( ! empty( $flag_data['rule_name'] ) ) {
+					$flag_bits[] = 'rule: ' . (string) $flag_data['rule_name'];
+				}
+				if ( ! empty( $flag_data['matched_term'] ) ) {
+					$flag_bits[] = 'matched: ' . (string) $flag_data['matched_term'];
+				}
+				if ( ! empty( $flag_bits ) ) {
+					$flag_reason .= ' (' . implode( ', ', $flag_bits ) . ')';
+				}
+			}
+		}
+
+		$this->run_post_published_effects( $post_id, $user_id, $type, $data, $flag_reason );
+	}
+
+	/**
 	 * Whether an actor may @mention a target, honouring the target's
 	 * `bn_privacy_mention` audience preference (everyone / members /
 	 * connections / nobody). Fails open if the privacy service is unavailable.
