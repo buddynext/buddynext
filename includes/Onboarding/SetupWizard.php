@@ -1096,7 +1096,8 @@ class SetupWizard {
 			data-i18n-installing="<?php esc_attr_e( 'Installing…', 'buddynext' ); ?>"
 			data-i18n-activating="<?php esc_attr_e( 'Activating…', 'buddynext' ); ?>"
 			data-i18n-done="<?php esc_attr_e( 'Active', 'buddynext' ); ?>"
-			data-i18n-failed="<?php esc_attr_e( 'Failed', 'buddynext' ); ?>">
+			data-i18n-failed="<?php esc_attr_e( 'Failed', 'buddynext' ); ?>"
+			data-i18n-retry="<?php esc_attr_e( 'Retry', 'buddynext' ); ?>">
 			<?php
 			foreach ( $companions as $bn_slug => $bn_c ) :
 				$bn_status = \BuddyNext\Integrations\CompanionRegistry::status( (string) $bn_slug );

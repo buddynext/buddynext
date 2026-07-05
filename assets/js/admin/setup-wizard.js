@@ -100,9 +100,66 @@
 		var i18n     = {
 			installing: list.getAttribute( 'data-i18n-installing' ) || __( 'Installing…', 'buddynext' ),
 			done:       list.getAttribute( 'data-i18n-done' ) || __( 'Active', 'buddynext' ),
-			failed:     list.getAttribute( 'data-i18n-failed' ) || __( 'Failed', 'buddynext' )
+			failed:     list.getAttribute( 'data-i18n-failed' ) || __( 'Failed', 'buddynext' ),
+			retry:      list.getAttribute( 'data-i18n-retry' ) || __( 'Retry', 'buddynext' )
 		};
 		var ran = false;
+
+		// Install a single companion by slug, updating its row. Returns a Promise
+		// resolving to whether it succeeded. Shared by the initial sequential run
+		// and the per-row Retry button so a failed install can be re-tried on its
+		// own instead of re-running the whole step.
+		function installOne( row, slug ) {
+			var status = row ? row.querySelector( '.bn-wizard__addon-status' ) : null;
+			var msg    = row ? row.querySelector( '.bn-wizard__addon-msg' ) : null;
+			removeRetry( row );
+			if ( status ) { status.textContent = i18n.installing; }
+			if ( msg ) { msg.textContent = ''; }
+			if ( row ) { row.setAttribute( 'data-state', 'installing' ); }
+			return fetch( endpoint, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
+				body: JSON.stringify( { slug: slug } )
+			} ).then( function ( r ) {
+				return r.json().then( function ( d ) { return { ok: r.ok, d: d }; } );
+			} ).then( function ( res ) {
+				if ( status ) { status.textContent = res.ok ? i18n.done : i18n.failed; }
+				if ( row ) { row.setAttribute( 'data-state', res.ok ? 'active' : 'failed' ); }
+				if ( ! res.ok ) {
+					if ( msg ) { msg.textContent = ( res.d && res.d.message ) ? res.d.message : i18n.failed; }
+					addRetry( row, slug );
+				}
+				return res.ok;
+			} ).catch( function () {
+				if ( status ) { status.textContent = i18n.failed; }
+				if ( row ) { row.setAttribute( 'data-state', 'failed' ); }
+				addRetry( row, slug );
+				return false;
+			} );
+		}
+
+		// Remove any existing Retry control from a row (e.g. before a re-attempt).
+		function removeRetry( row ) {
+			if ( ! row ) { return; }
+			var existing = row.querySelector( '.bn-wizard__addon-retry' );
+			if ( existing ) { existing.parentNode.removeChild( existing ); }
+		}
+
+		// Add a per-row Retry button after a failed install.
+		function addRetry( row, slug ) {
+			if ( ! row || row.querySelector( '.bn-wizard__addon-retry' ) ) { return; }
+			var b = document.createElement( 'button' );
+			b.type      = 'button';
+			b.className = 'bn-wizard__addon-retry';
+			b.textContent = i18n.retry;
+			b.addEventListener( 'click', function () { installOne( row, slug ); } );
+			var msg = row.querySelector( '.bn-wizard__addon-msg' );
+			if ( msg && msg.parentNode ) {
+				msg.parentNode.insertBefore( b, msg.nextSibling );
+			} else {
+				row.appendChild( b );
+			}
+		}
 
 		btn.addEventListener( 'click', function ( e ) {
 			if ( ran ) {
@@ -131,29 +188,12 @@
 					advance();
 					return;
 				}
-				var cb     = checks[ i++ ];
-				var row    = cb.closest( '.bn-wizard__addon' );
-				var status = row ? row.querySelector( '.bn-wizard__addon-status' ) : null;
-				var msg    = row ? row.querySelector( '.bn-wizard__addon-msg' ) : null;
+				var cb  = checks[ i++ ];
+				var row = cb.closest( '.bn-wizard__addon' );
 				cb.disabled = true;
-				if ( status ) { status.textContent = i18n.installing; }
-				if ( msg ) { msg.textContent = ''; }
-				fetch( endpoint, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
-					body: JSON.stringify( { slug: cb.value } )
-				} ).then( function ( r ) {
-					return r.json().then( function ( d ) { return { ok: r.ok, d: d }; } );
-				} ).then( function ( res ) {
-					if ( status ) { status.textContent = res.ok ? i18n.done : i18n.failed; }
-					if ( row ) { row.setAttribute( 'data-state', res.ok ? 'active' : 'failed' ); }
-					if ( ! res.ok && msg ) { msg.textContent = ( res.d && res.d.message ) ? res.d.message : i18n.failed; }
-					nextOne();
-				} ).catch( function () {
-					if ( status ) { status.textContent = i18n.failed; }
-					if ( row ) { row.setAttribute( 'data-state', 'failed' ); }
-					nextOne();
-				} );
+				// Sequential install; a failure marks the row + adds its own Retry
+				// (via installOne) but does not abort the remaining installs.
+				installOne( row, cb.value ).then( function () { nextOne(); } );
 			}
 			nextOne();
 		} );
