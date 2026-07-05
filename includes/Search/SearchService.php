@@ -550,9 +550,25 @@ class SearchService {
 				'MATCH(si.title, si.content) AGAINST(%s IN BOOLEAN MODE)',
 				$safe_query . '*'
 			);
-			$order_clause     = $sort_recent
+
+			// Exact/prefix name boost: FULLTEXT BOOLEAN MODE ranks title + content
+			// equally, and member rows store the name in content with an empty title,
+			// so an exact-name query was not surfaced first. This pre-prepared
+			// fragment (same safe-to-embed pattern as $search_condition) sorts an
+			// exact title/content match first (0), then a prefix match (1), then the
+			// rest (2) — so searching a member's name puts that member at the top.
+			$boost_like   = $wpdb->esc_like( $safe_query );
+			$name_boost   = $wpdb->prepare(
+				'(CASE WHEN si.title = %s OR si.content = %s THEN 0'
+				. ' WHEN si.title LIKE %s OR si.content LIKE %s THEN 1 ELSE 2 END)',
+				$safe_query,
+				$safe_query,
+				$boost_like . '%',
+				$boost_like . '%'
+			);
+			$order_clause = $sort_recent
 				? 'si.updated_at DESC'
-				: 'relevance DESC, si.updated_at DESC';
+				: $name_boost . ' ASC, relevance DESC, si.updated_at DESC';
 
 			// SCALE-CONTRACT §3: bound the COUNT so it never scans past the
 			// 1000-row ceiling. Totals beyond it render as "1000+" in the UI.
