@@ -503,6 +503,8 @@ class Plugin {
 					( new GamificationBridgeListener() )->register();
 					// Gamification's Achievements profile tab (badge grid + standing).
 					( new \BuddyNext\Profile\GamificationAchievements() )->register();
+					// Gamification's Points tab (recent ledger + how-to-earn guide).
+					( new \BuddyNext\Profile\GamificationPoints() )->register();
 				}
 				if ( buddynext_feature_enabled( 'jetonomy' ) ) {
 					( new JetonomyBridge() )->init();
