@@ -598,7 +598,6 @@ class CronService {
 			'bn.strike_issued'          => 'A moderation action was taken on your account',
 			'bn.badge_awarded'          => 'You earned a new badge',
 			'bn.level_up'               => 'You reached a new community level',
-			'bn.jetonomy_reply'         => 'New reply to your discussion',
 		);
 
 		$items = '';

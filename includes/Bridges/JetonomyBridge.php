@@ -8,7 +8,9 @@
  * - Discussion created → BN feed activity (engagement; link card to Jetonomy,
  *   via Feed\IntegrationActivity; filter buddynext_jetonomy_discussion_activity)
  * - Discussion deleted → removes the search entry + the feed activity
- * - Reply notifications are handled by JetonomyBridgeListener (jetonomy_after_create_reply)
+ * - Reply / mention / accepted-answer notifications are mirrored for display only by
+ *   JetonomyBridgeListener (from jetonomy_notification_created); Jetonomy owns the row
+ *   text and the email, so BN never creates a second row or emails on its behalf
  * - Unified nav: BuddyNext subnav injected on all Jetonomy pages (jetonomy_before_content);
  *   Jetonomy's own community nav suppressed (jetonomy_show_community_nav → false)
  * - Space Discussions tab (linked or on-demand forum) + profile Discussions count
@@ -59,9 +61,6 @@ class JetonomyBridge {
 		// BuddyNext does not inject its nav/wrapper or suppress Jetonomy's own
 		// navigation. (Owner rule: BN must not touch Jetonomy pages.) The link
 		// INTO discussions lives on BuddyNext's own rail (inject_discussions_nav_item).
-
-		// Cross-plugin notifications: JT reply → BN notification for post author.
-		add_action( 'jetonomy_after_create_reply', array( $this, 'notify_discussion_reply' ), 10, 1 );
 
 		// Register Discussions on BOTH the member-profile and space nav surfaces via
 		// the unified Nav API (one registry, one renderer) — profile tab carries a
@@ -1252,56 +1251,6 @@ class JetonomyBridge {
 			'forum_url'     => $this->space_forum_url( $space_id ),
 			'linked'        => $this->forum_id_for_space( $space_id ) > 0,
 			'provision_url' => $this->provision_forum_url( $space_id ),
-		);
-	}
-
-	/**
-	 * Create a BuddyNext notification when someone replies to a Jetonomy discussion.
-	 *
-	 * The space context is resolved from the reply's parent post, so the hook's
-	 * second argument is not needed and is not requested (accepted_args = 1).
-	 *
-	 * @param int $reply_id Jetonomy reply ID.
-	 */
-	public function notify_discussion_reply( int $reply_id ): void {
-		if ( ! class_exists( 'Jetonomy\Models\Reply' ) || ! class_exists( 'Jetonomy\Models\Post' ) ) {
-			return;
-		}
-
-		$reply = \Jetonomy\Models\Reply::find( $reply_id );
-		if ( ! $reply ) {
-			return;
-		}
-
-		$post = \Jetonomy\Models\Post::find( (int) $reply->post_id );
-		if ( ! $post ) {
-			return;
-		}
-
-		$reply_author_id = (int) $reply->author_id;
-		$post_author_id  = (int) $post->author_id;
-
-		// Don't notify yourself.
-		if ( $reply_author_id === $post_author_id || 0 === $post_author_id ) {
-			return;
-		}
-
-		$replier      = get_userdata( $reply_author_id );
-		$replier_name = $replier ? $replier->display_name : __( 'Someone', 'buddynext' );
-
-		( new \BuddyNext\Notifications\NotificationService() )->create(
-			array(
-				'recipient_id' => $post_author_id,
-				'sender_id'    => $reply_author_id,
-				'type'         => 'bn.jetonomy_reply',
-				'object_type'  => 'jetonomy_post',
-				'object_id'    => (int) $reply->post_id,
-				'message'      => sprintf(
-					/* translators: %s: replier name */
-					__( '%s replied to your discussion', 'buddynext' ),
-					$replier_name
-				),
-			)
 		);
 	}
 

@@ -384,14 +384,6 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'weekly',
 				'can_email'          => true,
 			),
-			'bn.jetonomy_reply'         => array(
-				'label'              => __( 'Discussion replies', 'buddynext' ),
-				'description'        => __( 'Someone replied to a discussion you started.', 'buddynext' ),
-				'group'              => self::GROUP_GROWTH,
-				'default_on_site'    => true,
-				'default_email_freq' => 'immediate',
-				'can_email'          => true,
-			),
 		);
 
 		/**

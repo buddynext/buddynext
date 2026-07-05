@@ -295,7 +295,6 @@ class Installer {
 			'bn.member_suspended'          => array( "Your account has been suspended {$em} {{site_name}}", 'Your {{site_name}} account has been suspended' ),
 			'bn.appeal_resolved'           => array( "Your appeal has been reviewed {$em} {{site_name}}", 'Your {{site_name}} appeal has been reviewed' ),
 			'bn.unsuspension_confirmation' => array( "Your account suspension has been lifted {$em} {{site_name}}", 'Your {{site_name}} account suspension has been lifted' ),
-			'bn.jetonomy_reply'            => array( "New reply to your discussion {$em} {{site_name}}", 'New reply to your {{site_name}} discussion' ),
 			'bn.new_report'                => array( "New content report awaiting review {$em} {{site_name}}", 'New content report awaiting review on {{site_name}}' ),
 			'bn.badge_awarded'             => array( 'You earned a badge on {{site_name}}!', 'You earned a badge on {{site_name}}' ),
 			'bn.level_up'                  => array( 'You levelled up on {{site_name}}!', 'You levelled up on {{site_name}}' ),
@@ -1095,12 +1094,6 @@ class Installer {
 				'subject'      => 'You levelled up on {{site_name}}',
 				'preview_text' => 'Your community level increased',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>You have reached a new level on {{site_name}}. <a href="{{action_url}}">See your new level.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
-			),
-			array(
-				'type'         => 'bn.jetonomy_reply',
-				'subject'      => 'New reply to your {{site_name}} discussion',
-				'preview_text' => 'Someone replied to your discussion',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your discussion received a new reply on {{site_name}}. <a href="{{action_url}}">View the reply.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.strike_warning',

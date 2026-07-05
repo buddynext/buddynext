@@ -384,13 +384,6 @@ class NotificationMessageService {
 					$actor_name
 				);
 
-			case 'bn.jetonomy_reply':
-				return sprintf(
-					/* translators: %s: actor display name. */
-					__( '%s replied to your discussion.', 'buddynext' ),
-					$actor_name
-				);
-
 			case 'bn.test':
 				return __( 'Test notification.', 'buddynext' );
 
@@ -731,11 +724,6 @@ class NotificationMessageService {
 					'tone'  => 'warn',
 					'label' => __( 'Media favourite', 'buddynext' ),
 				),
-				'bn.jetonomy_reply'         => array(
-					'icon'  => 'message-circle',
-					'tone'  => 'accent',
-					'label' => __( 'Discussion reply', 'buddynext' ),
-				),
 				'bn.test'                   => array(
 					'icon'  => 'bell',
 					'tone'  => 'info',
@@ -895,7 +883,6 @@ class NotificationMessageService {
 					: PageRouter::messages_url();
 
 			case 'bn.media_favorited':
-			case 'bn.jetonomy_reply':
 				return $object_id > 0
 					? add_query_arg( 'post_id', $object_id, PageRouter::activity_url() )
 					: PageRouter::activity_url();
