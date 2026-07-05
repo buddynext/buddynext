@@ -448,6 +448,10 @@ class SearchIndexListener implements ListenerInterface {
 			$offset += $batch_size;
 		} while ( ! empty( $space_rows ) );
 
+		// Record completion so the admin Tools screen can show when the index was
+		// last fully rebuilt (SearchService::index_stats()).
+		update_option( 'buddynext_search_last_reindex', time(), false );
+
 		do_action( 'buddynext_reindex_complete' );
 	}
 

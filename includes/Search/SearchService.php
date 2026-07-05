@@ -1034,6 +1034,38 @@ class SearchService {
 	}
 
 	/**
+	 * Health snapshot of the search index for the admin Tools screen: how many
+	 * rows are indexed (total + per object type), whether the FULLTEXT index is in
+	 * place, and when the index was last fully rebuilt. Lets the owner diagnose the
+	 * "search returns nothing" case (empty/stale index) instead of guessing.
+	 *
+	 * @return array{total:int,by_type:array<string,int>,fulltext:bool,last_reindex:int}
+	 */
+	public function index_stats(): array {
+		global $wpdb;
+		$table = $wpdb->prefix . 'bn_search_index';
+
+		// $table is a trusted, code-derived identifier ($wpdb->prefix . constant); a
+		// table name can't be a bound placeholder.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+		$rows  = $wpdb->get_results( "SELECT object_type, COUNT(*) AS n FROM {$table} GROUP BY object_type", ARRAY_A );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$by_type = array();
+		foreach ( (array) $rows as $row ) {
+			$by_type[ (string) $row['object_type'] ] = (int) $row['n'];
+		}
+
+		return array(
+			'total'        => $total,
+			'by_type'      => $by_type,
+			'fulltext'     => $this->has_fulltext_index(),
+			'last_reindex' => (int) get_option( 'buddynext_search_last_reindex', 0 ),
+		);
+	}
+
+	/**
 	 * Enqueue a full re-index of all users and spaces.
 	 *
 	 * Called on plugin activation. Uses Action Scheduler when available,
