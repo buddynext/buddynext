@@ -39,7 +39,6 @@
 			comments: overlay.querySelector( '[data-bn-lb-comments]' ),
 			favorite: overlay.querySelector( '[data-bn-lb-favorite]' ),
 			download: overlay.querySelector( '[data-bn-lb-download]' ),
-			open:     overlay.querySelector( '[data-bn-lb-open]' ),
 			form:     overlay.querySelector( '[data-bn-lb-comment-form]' ),
 			input:    overlay.querySelector( '[data-bn-lb-comment-input]' ),
 			// DM full-bleed chrome (sender + download float over the stage; the
@@ -165,7 +164,6 @@
 			if ( m.file_url ) {
 				var dl = isDM ? panel.dmDownload : panel.download;
 				if ( dl ) { dl.setAttribute( 'href', m.file_url ); }
-				if ( ! isDM && panel.open ) { panel.open.setAttribute( 'href', m.file_url ); }
 			}
 		} ).catch( function () {} );
 

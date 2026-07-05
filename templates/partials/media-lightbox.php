@@ -89,9 +89,6 @@ foreach ( $bn_lb_types as $bn_lb_slug ) {
 					<a class="bn-lightbox__action" data-bn-lb-download download target="_blank" rel="noopener">
 						<?php buddynext_icon( 'download' ); ?><span><?php esc_html_e( 'Download', 'buddynext' ); ?></span>
 					</a>
-					<a class="bn-lightbox__action" data-bn-lb-open target="_blank" rel="noopener">
-						<?php buddynext_icon( 'external-link' ); ?><span><?php esc_html_e( 'Open', 'buddynext' ); ?></span>
-					</a>
 				</div>
 
 				<div class="bn-lightbox__comments" data-bn-lb-comments aria-live="polite"></div>
