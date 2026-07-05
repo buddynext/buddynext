@@ -293,11 +293,11 @@ function buildRunUrl( ctx, args ) {
 		var panel = document.createElement( 'div' );
 		panel.className = 'bn-search-recent';
 		panel.setAttribute( 'role', 'region' );
-		panel.setAttribute( 'aria-label', 'Recent searches' );
+		panel.setAttribute( 'aria-label', t( 'recentSearchesLabel', 'Recent searches' ) );
 
 		var title = document.createElement( 'span' );
 		title.className = 'bn-search-recent__title';
-		title.textContent = 'Recent:';
+		title.textContent = t( 'recentSearchesTitle', 'Recent:' );
 		panel.appendChild( title );
 
 		list.forEach( function ( prevQ ) {
@@ -313,7 +313,7 @@ function buildRunUrl( ctx, args ) {
 		var clear = document.createElement( 'button' );
 		clear.type = 'button';
 		clear.className = 'bn-search-recent__clear';
-		clear.textContent = 'Clear';
+		clear.textContent = t( 'clear', 'Clear' );
 		clear.addEventListener( 'click', function () {
 			clearAll();
 			panel.remove();

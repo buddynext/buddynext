@@ -1361,6 +1361,10 @@ class AssetService {
 					'nameSearchFirst'       => __( 'Please name this search first.', 'buddynext' ),
 					'searchSaved'           => __( 'Search saved.', 'buddynext' ),
 					'searchSaveProRequired' => __( 'Could not save. Saved searches require BuddyNext Pro.', 'buddynext' ),
+					'recentSearchesLabel'   => __( 'Recent searches', 'buddynext' ),
+					'recentSearchesTitle'   => __( 'Recent:', 'buddynext' ),
+					'clear'                 => __( 'Clear', 'buddynext' ),
+					'suggestionsLabel'      => __( 'Search suggestions', 'buddynext' ),
 				),
 			)
 		);
