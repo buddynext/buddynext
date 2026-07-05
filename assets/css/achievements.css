@@ -399,3 +399,93 @@ a.bn-achievements__badge-link:focus-visible {
 	font-size: var(--bn-text-xs);
 	white-space: nowrap;
 }
+
+/* ── Kudos tab ──────────────────────────────────────────────────────────── */
+.bn-gam-kudos {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+
+.bn-gam-kudos__form {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+	padding: var(--bn-s4);
+	align-items: flex-start;
+}
+
+.bn-gam-kudos__form-label {
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+}
+
+.bn-gam-kudos__form .bn-input {
+	width: 100%;
+	resize: vertical;
+}
+
+.bn-gam-kudos__feed {
+	list-style: none;
+	margin: var(--bn-s2) 0 0;
+	padding: 0;
+}
+
+.bn-gam-kudos__item {
+	display: flex;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3) 0;
+	border-bottom: 1px solid var(--bn-line);
+}
+
+.bn-gam-kudos__item:last-child {
+	border-bottom: 0;
+}
+
+.bn-gam-kudos__avatar {
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	flex: none;
+	object-fit: cover;
+}
+
+.bn-gam-kudos__body {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.bn-gam-kudos__from {
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-ink);
+}
+
+.bn-gam-kudos__time {
+	font-weight: var(--bn-fw-normal);
+	color: var(--bn-ink-4);
+	font-size: var(--bn-text-xs);
+}
+
+.bn-gam-kudos__msg {
+	color: var(--bn-ink-2);
+}
+
+/* Kudos give-result notice (achievements.css loads on profiles; the shared
+   .bn-notice styles live in bn-spaces.css which this route does not enqueue). */
+.bn-gam-kudos .bn-notice {
+	padding: var(--bn-s2) var(--bn-s3);
+	border-radius: var(--bn-r-md);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-gam-kudos .bn-notice--success {
+	background: var(--bn-accent-soft);
+	color: var(--bn-accent);
+}
+
+.bn-gam-kudos .bn-notice--error {
+	background: var(--bn-danger-soft, var(--bn-sunken));
+	color: var(--bn-danger, var(--bn-ink-2));
+}

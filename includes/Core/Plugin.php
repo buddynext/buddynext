@@ -505,6 +505,8 @@ class Plugin {
 					( new \BuddyNext\Profile\GamificationAchievements() )->register();
 					// Gamification's Points tab (recent ledger + how-to-earn guide).
 					( new \BuddyNext\Profile\GamificationPoints() )->register();
+					// Gamification's Kudos tab (peer recognition: give + received).
+					( new \BuddyNext\Profile\GamificationKudos() )->register();
 				}
 				if ( buddynext_feature_enabled( 'jetonomy' ) ) {
 					( new JetonomyBridge() )->init();
