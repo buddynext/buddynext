@@ -867,6 +867,67 @@ class JetonomyBridge {
 				),
 			)
 		);
+
+		// Member Discussions credential panel (app coverage). Public read — the same
+		// credential-first payload the SSR profile tab renders, so web and app show
+		// the same accepted-answers/reputation strip plus recent discussions.
+		register_rest_route(
+			'buddynext/v1',
+			'/members/(?P<id>\d+)/discussions',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'rest_member_discussions' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'id' => array(
+						'required'          => true,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * REST: a member's Discussions credential panel (credentials + recent
+	 * discussions). Mirrors the SSR profile tab so the native app renders it too.
+	 *
+	 * @param \WP_REST_Request $request Request ({id}).
+	 * @return \WP_REST_Response|\WP_Error 404 when the member does not exist.
+	 */
+	public function rest_member_discussions( \WP_REST_Request $request ) {
+		$user_id = absint( $request['id'] );
+		if ( $user_id <= 0 || ! get_userdata( $user_id ) ) {
+			return new \WP_Error( 'not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		$payload = $this->member_discussion_profile( $user_id, 20 );
+
+		$discussions = array_map(
+			static function ( $row ): array {
+				return array(
+					'id'          => (int) $row->id,
+					'title'       => (string) $row->title,
+					'url'         => isset( $row->url ) ? (string) $row->url : '',
+					'reply_count' => (int) $row->reply_count,
+					'vote_score'  => (int) $row->vote_score,
+					'space_name'  => isset( $row->space_name ) ? (string) $row->space_name : '',
+					'created_at'  => (string) $row->created_at,
+				);
+			},
+			$payload['discussions']
+		);
+
+		return new \WP_REST_Response(
+			array(
+				'accepted_answers' => (int) $payload['accepted_answers'],
+				'reputation'       => (int) $payload['reputation'],
+				'trust_level'      => (int) $payload['trust_level'],
+				'discussion_count' => (int) $payload['discussion_count'],
+				'discussions'      => $discussions,
+			),
+			200
+		);
 	}
 
 	/**
@@ -1050,11 +1111,16 @@ class JetonomyBridge {
 	 * @return void
 	 */
 	public function render_profile_discussions_panel( int $user_id ): void {
+		$profile = $this->member_discussion_profile( $user_id, 20 );
 		buddynext_get_template(
 			'parts/profile/discussions-panel.php',
 			array(
-				'profile_user_id' => $user_id,
-				'discussions'     => $this->user_discussions( $user_id, 20 ),
+				'profile_user_id'  => $user_id,
+				'discussions'      => $profile['discussions'],
+				'discussion_count' => $profile['discussion_count'],
+				'accepted_answers' => $profile['accepted_answers'],
+				'reputation'       => $profile['reputation'],
+				'trust_level'      => $profile['trust_level'],
 			)
 		);
 	}
@@ -1128,6 +1194,87 @@ class JetonomyBridge {
 		}
 
 		return $rows;
+	}
+
+	/**
+	 * Count a member's accepted answers — the real credential Jetonomy tracks.
+	 *
+	 * An accepted answer (jt_replies.is_accepted) is an outcome (this member solved
+	 * someone's question), unlike started-discussion counts which are activity churn.
+	 * The bridge owns all jt_* access, so it self-fetches.
+	 *
+	 * @param int $user_id Reply author ID.
+	 * @return int
+	 */
+	public function accepted_answer_count( int $user_id ): int {
+		$user_id = absint( $user_id );
+		if ( $user_id <= 0 ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}jt_replies WHERE author_id = %d AND is_accepted = 1 AND status = 'publish'",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Read a member's Jetonomy reputation + trust level from its UserProfile model.
+	 *
+	 * Reputation/trust are the standing Jetonomy maintains for a member — the
+	 * credential worth surfacing on a profile. Returns zeros when Jetonomy or the
+	 * profile row is unavailable so callers never have to null-check.
+	 *
+	 * @param int $user_id Member ID.
+	 * @return array{reputation:int,trust_level:int}
+	 */
+	public function member_reputation( int $user_id ): array {
+		$user_id = absint( $user_id );
+		$out     = array(
+			'reputation'  => 0,
+			'trust_level' => 0,
+		);
+		if ( $user_id <= 0 || ! class_exists( '\Jetonomy\Models\UserProfile' ) ) {
+			return $out;
+		}
+
+		$profile = \Jetonomy\Models\UserProfile::find_by_user( $user_id );
+		if ( $profile ) {
+			$out['reputation']  = (int) ( $profile->reputation ?? 0 );
+			$out['trust_level'] = (int) ( $profile->trust_level ?? 0 );
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Assemble the full profile Discussions payload — the single source both the
+	 * SSR panel and the REST route consume, so web and app render the same tab
+	 * (app-coverage / REST-first house rule).
+	 *
+	 * Credential-first: accepted answers + reputation/trust are the outcomes worth
+	 * showing; the recent-discussions list is supporting context, not the headline.
+	 *
+	 * @param int $user_id Member being viewed.
+	 * @param int $limit   Max discussion rows (1-50). Default 20.
+	 * @return array{discussions:object[],discussion_count:int,accepted_answers:int,reputation:int,trust_level:int}
+	 */
+	public function member_discussion_profile( int $user_id, int $limit = 20 ): array {
+		$credentials = $this->member_reputation( $user_id );
+
+		return array(
+			'discussions'      => $this->user_discussions( $user_id, $limit ),
+			'discussion_count' => $this->discussion_count( $user_id ),
+			'accepted_answers' => $this->accepted_answer_count( $user_id ),
+			'reputation'       => $credentials['reputation'],
+			'trust_level'      => $credentials['trust_level'],
+		);
 	}
 
 	/**
