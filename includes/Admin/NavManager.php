@@ -283,7 +283,7 @@ class NavManager extends AdminPageBase {
 											pattern="[a-z0-9\-]+"
 											spellcheck="false"
 											placeholder="<?php echo esc_attr( $cfg['default'] ); ?>">
-										<span class="bn-field-hint"><?php echo esc_html( trailingslashit( home_url( '/' . ( '' !== $slug_val ? $slug_val : $cfg['default'] ) ) ) ); ?></span>
+										<span class="bn-field-hint"><?php echo esc_html( trailingslashit( home_url( '/' . ( '' !== $slug_val ? $slug_val : $cfg['default'] ) ) ) ); // bn-route-ok: admin preview of the slug being edited. ?></span>
 									<?php else : ?>
 										<span class="bn-field-hint"><?php esc_html_e( 'Renders under Activity feed', 'buddynext' ); ?></span>
 									<?php endif; ?>

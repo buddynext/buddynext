@@ -113,7 +113,7 @@ else :
 		// public URL, so the template needs no jt_* table access.
 		$jt_url = ! empty( $jt_post->url )
 			? (string) $jt_post->url
-			: home_url( '/community/' );
+			: home_url( '/community/' ); // bn-route-ok: bridge-supplied URL first, literal only as fallback.
 		?>
 		<article class="bn-card bn-card-bridge bn-card-bridge--jetonomy" data-interactive>
 			<header class="bn-card-bridge__source">

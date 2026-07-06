@@ -587,6 +587,6 @@ class GamificationAchievements {
 		if ( is_callable( array( '\WBGam\Engine\BadgeSharePage', 'get_share_url' ) ) ) {
 			return (string) \WBGam\Engine\BadgeSharePage::get_share_url( $badge_id, $user_id );
 		}
-		return home_url( 'gamification/badge/' . $badge_id . '/' . $user_id . '/share/' );
+		return home_url( 'gamification/badge/' . $badge_id . '/' . $user_id . '/share/' ); // bn-route-ok: wb-gam's fixed share rewrite, fallback only.
 	}
 }
