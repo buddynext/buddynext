@@ -271,16 +271,6 @@ class EmailEditor {
 					'body'    => "Hi {{recipient_name}},\n\nYou have reached level <strong>{{new_level}}</strong> on {{site_name}}!\n\n<a href=\"{{profile_url}}\">See your new level →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
 				),
 			),
-			__( 'Jetonomy', 'buddynext' )     => array(
-				'bn.jetonomy_reply' => array(
-					'name'    => __( 'Forum Reply', 'buddynext' ),
-					'trigger' => __( 'When someone replies to your forum discussion', 'buddynext' ),
-					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
-					'subject' => 'New reply to your discussion — {{site_name}}',
-					'preview' => 'Someone replied to your discussion.',
-					'body'    => "Hi {{recipient_name}},\n\n<strong>{{replier_name}}</strong> replied to your discussion: <em>{{discussion_title}}</em>.\n\n<a href=\"{{reply_url}}\">View the reply →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
-				),
-			),
 			__( 'Auth', 'buddynext' )         => array(
 				'welcome'              => array(
 					'name'    => __( 'Welcome Email', 'buddynext' ),

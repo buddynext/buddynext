@@ -132,6 +132,12 @@ do_action( 'buddynext_part_dm_thread_header_before', $args );
 	</<?php echo esc_attr( $bn_id_tag ); ?>>
 
 	<div class="bn-dm-pane__actions" role="toolbar" aria-label="<?php esc_attr_e( 'Conversation actions', 'buddynext' ); ?>">
+		<span class="bn-tooltip-trigger">
+			<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" aria-label="<?php esc_attr_e( 'Search this conversation', 'buddynext' ); ?>" data-wp-on--click="actions.toggleSearch">
+				<?php buddynext_icon( 'search' ); ?>
+			</button>
+			<span class="bn-tooltip" data-pos="bottom"><?php esc_html_e( 'Search', 'buddynext' ); ?></span>
+		</span>
 		<?php if ( $is_group ) : ?>
 			<span class="bn-tooltip-trigger">
 				<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" aria-label="<?php esc_attr_e( 'Group members', 'buddynext' ); ?>" data-wp-on--click="actions.openGroupPanel">
@@ -163,5 +169,21 @@ do_action( 'buddynext_part_dm_thread_header_before', $args );
 		</span>
 	</div>
 </header>
+
+<?php /* In-conversation message search (revealed by the header Search button). */ ?>
+<div class="bn-dm-search" data-bn-dm-search data-wp-bind--hidden="!context.searchOpen">
+	<div class="bn-dm-search__bar">
+		<?php buddynext_icon( 'search', 'bn-dm-search__icon' ); ?>
+		<input
+			type="search"
+			class="bn-dm-search__input"
+			data-bn-dm-search-input
+			placeholder="<?php esc_attr_e( 'Search messages…', 'buddynext' ); ?>"
+			aria-label="<?php esc_attr_e( 'Search messages in this conversation', 'buddynext' ); ?>"
+			data-wp-on--input="actions.searchMessages"
+		>
+	</div>
+	<ul class="bn-dm-search__results" data-bn-dm-search-results data-empty-text="<?php esc_attr_e( 'No matching messages.', 'buddynext' ); ?>" aria-live="polite"></ul>
+</div>
 <?php
 do_action( 'buddynext_part_dm_thread_header_after', $args );

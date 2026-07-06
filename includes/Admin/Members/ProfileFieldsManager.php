@@ -224,7 +224,7 @@ class ProfileFieldsManager {
 	 *
 	 * @var string[]
 	 */
-	private const VISIBILITY_VALUES = array( 'public', 'followers', 'connections', 'private' );
+	private const VISIBILITY_VALUES = array( 'public', 'members', 'followers', 'connections', 'private' );
 
 	/**
 	 * Register admin hooks.
@@ -1242,6 +1242,7 @@ class ProfileFieldsManager {
 
 		$vis_labels = array(
 			'public'      => __( 'Public', 'buddynext' ),
+			'members'     => __( 'Members only', 'buddynext' ),
 			'followers'   => __( 'Followers only', 'buddynext' ),
 			'connections' => __( 'Connections only', 'buddynext' ),
 			'private'     => __( 'Only me', 'buddynext' ),
@@ -1866,9 +1867,9 @@ class ProfileFieldsManager {
 							<div class="bn-pf-ag-field bn-a-pf-col">
 								<label for="bn-ag-vis"><?php esc_html_e( 'Default visibility', 'buddynext' ); ?></label>
 								<select id="bn-ag-vis" name="visibility">
-									<option value="public"><?php esc_html_e( 'Everyone', 'buddynext' ); ?></option>
-									<option value="followers"><?php esc_html_e( 'Followers only', 'buddynext' ); ?></option>
-									<option value="private"><?php esc_html_e( 'Only me', 'buddynext' ); ?></option>
+									<?php foreach ( $vis_labels as $vis_val => $vis_lbl ) : ?>
+										<option value="<?php echo esc_attr( $vis_val ); ?>"><?php echo esc_html( $vis_lbl ); ?></option>
+									<?php endforeach; ?>
 								</select>
 							</div>
 						</div>

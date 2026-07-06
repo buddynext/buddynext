@@ -339,13 +339,18 @@ class MessagesData {
 	 * @param string $tab    Tab filter (all|unread|requests).
 	 * @return array{pinned:array,recent:array,unread:int,requests:int}
 	 */
-	public static function conversations( int $viewer, string $tab = 'all' ): array {
+	public static function conversations( int $viewer, string $tab = 'all', int $limit = 50 ): array {
+		$limit  = max( 50, min( 500, $limit ) );
 		$svc    = self::svc();
-		$rows   = $svc ? (array) $svc->get_conversations( $viewer, $tab, 50, 1 ) : array();
-		$pinned = array();
-		$recent = array();
-		$unread = 0;
-		$reqs   = 0;
+		$rows   = $svc ? (array) $svc->get_conversations( $viewer, $tab, $limit, 1 ) : array();
+		// A full page means the inbox is larger than the current cap — the rail
+		// offers a "Load more" that re-renders with a higher cap (server-side, so no
+		// rail-item template is duplicated in JS).
+		$has_more = count( $rows ) >= $limit;
+		$pinned   = array();
+		$recent   = array();
+		$unread   = 0;
+		$reqs     = 0;
 
 		foreach ( $rows as $conv ) {
 			$mapped  = self::map_conversation( $conv, $viewer );
@@ -365,6 +370,8 @@ class MessagesData {
 			'recent'   => $recent,
 			'unread'   => $unread,
 			'requests' => $reqs,
+			'has_more' => $has_more,
+			'limit'    => $limit,
 		);
 	}
 
@@ -466,6 +473,7 @@ class MessagesData {
 
 		return array(
 			'conversation_id' => (int) self::val( $conv, 'id', 0 ),
+			'is_muted'        => (bool) self::val( $conv, 'is_muted', false ),
 			'is_group'        => $is_group,
 			'member_count'    => $is_group ? self::active_count( $conv ) : 0,
 			'participants'    => $is_group ? self::roster( $conv, $viewer, $viewer_admin ) : array(),

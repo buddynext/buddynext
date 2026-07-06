@@ -53,4 +53,29 @@
 			},
 		} );
 	} );
+
+	// Deep-link: when the palette navigates to a specific setting (url carries a
+	// #bn-opt-* hash), scroll to and briefly highlight the exact control on
+	// arrival so the user's eye lands on it, not just the tab.
+	function highlightHashTarget() {
+		var hash = window.location.hash;
+		if ( 0 !== hash.indexOf( '#bn-opt-' ) ) {
+			return;
+		}
+		var el = document.getElementById( hash.slice( 1 ) );
+		if ( ! el ) {
+			return;
+		}
+		el.scrollIntoView( { block: 'center', behavior: 'smooth' } );
+		el.classList.add( 'bn-opt-highlight' );
+		window.setTimeout( function () {
+			el.classList.remove( 'bn-opt-highlight' );
+		}, 1600 );
+	}
+
+	if ( 'loading' === document.readyState ) {
+		document.addEventListener( 'DOMContentLoaded', highlightHashTarget );
+	} else {
+		highlightHashTarget();
+	}
 }() );

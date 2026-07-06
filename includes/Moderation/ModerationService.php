@@ -131,6 +131,10 @@ class ModerationService {
 
 		$report_id = (int) $wpdb->insert_id;
 
+		// Bust the per-viewer report-state cache so the action menu flips to
+		// "Reported" immediately on the next render.
+		wp_cache_delete( "reported_{$reporter_id}_" . sanitize_key( $object_type ) . "_{$object_id}", 'buddynext_moderation' );
+
 		$report_row = array(
 			'report_id'   => $report_id,
 			'reporter_id' => $reporter_id,
@@ -246,6 +250,17 @@ class ModerationService {
 			return false;
 		}
 
+		$object_type = sanitize_key( $object_type );
+
+		// Per-viewer cache ('1'/'0'); primed en masse by user_reported_map() so the
+		// SSR feed does not run one report-state seek per card, and busted in
+		// report() when this viewer files a report on the object.
+		$key    = "reported_{$reporter_id}_{$object_type}_{$object_id}";
+		$cached = wp_cache_get( $key, 'buddynext_moderation' );
+		if ( false !== $cached ) {
+			return '1' === (string) $cached;
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -255,13 +270,68 @@ class ModerationService {
 				 WHERE reporter_id = %d AND object_type = %s AND object_id = %d
 				 LIMIT 1",
 				$reporter_id,
-				sanitize_key( $object_type ),
+				$object_type,
 				$object_id
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return null !== $existing;
+		$has = null !== $existing;
+		wp_cache_set( $key, $has ? '1' : '0', 'buddynext_moderation', 300 );
+
+		return $has;
+	}
+
+	/**
+	 * Batch report-state for a set of objects of one type in ONE query.
+	 *
+	 * Returns a map of object_id => bool (has the viewer reported it). Warms the
+	 * per-viewer user_has_reported() cache for every requested id, so a later
+	 * per-card lookup during SSR render is a free cache hit — the whole page's
+	 * report state costs this one query.
+	 *
+	 * @param int    $reporter_id Viewer.
+	 * @param string $object_type Object type (e.g. 'post').
+	 * @param int[]  $object_ids  Object IDs to look up.
+	 * @return array<int,bool> object_id => reported?
+	 */
+	public function user_reported_map( int $reporter_id, string $object_type, array $object_ids ): array {
+		$object_type = sanitize_key( $object_type );
+		$object_ids  = array_values( array_unique( array_filter( array_map( 'absint', $object_ids ) ) ) );
+
+		$map = array();
+		foreach ( $object_ids as $id ) {
+			$map[ $id ] = false;
+		}
+
+		if ( $reporter_id <= 0 || empty( $object_ids ) ) {
+			return $map;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $object_ids ), '%d' ) );
+		$params       = array_merge( array( $reporter_id, $object_type ), $object_ids );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT object_id FROM {$wpdb->prefix}bn_reports
+				 WHERE reporter_id = %d AND object_type = %s AND object_id IN ( {$placeholders} )",
+				$params
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		foreach ( (array) $rows as $id ) {
+			$map[ (int) $id ] = true;
+		}
+
+		foreach ( $map as $id => $reported ) {
+			wp_cache_set( "reported_{$reporter_id}_{$object_type}_{$id}", $reported ? '1' : '0', 'buddynext_moderation', 300 );
+		}
+
+		return $map;
 	}
 
 	/**
@@ -759,6 +829,13 @@ class ModerationService {
 			? sanitize_key( (string) $args['reason'] )
 			: '';
 
+		// Sort: newest report first (default), or most-reported first so the admin
+		// can triage the loudest content at scale. report_count is the aggregate
+		// COUNT(*) alias below; both branches are code-controlled literals.
+		$order_by = ( isset( $args['sort'] ) && 'reported' === $args['sort'] )
+			? 'ORDER BY report_count DESC, MAX(created_at) DESC'
+			: 'ORDER BY MAX(created_at) DESC';
+
 		// Normalise space_ids: array of positive ints, empty = no restriction.
 		$space_ids = array();
 		if ( ! empty( $args['space_ids'] ) && is_array( $args['space_ids'] ) ) {
@@ -823,7 +900,7 @@ class ModerationService {
 				        MAX(created_at) AS created_at
 				 FROM {$wpdb->prefix}bn_reports {$where_sql}
 				 GROUP BY object_type, object_id
-				 ORDER BY MAX(created_at) DESC
+				 {$order_by}
 				 LIMIT %d OFFSET %d",
 				...$list_params
 			),
@@ -1146,10 +1223,53 @@ class ModerationService {
 	}
 
 	/**
+	 * Whether a user's post CONTENT must be hidden from viewers.
+	 *
+	 * The canonical content-visibility predicate — the per-user equivalent of
+	 * moderation_exclude_sql(): true only when the user has an active, unexpired
+	 * suspension with hide_posts = 1 (the moderator opted into content removal).
+	 * A hide_posts = 0 suspension is an ACTION restriction and leaves content
+	 * visible, so this returns false for it.
+	 *
+	 * Content-visibility surfaces (feed Gate 5, bookmarks, shared-post embeds,
+	 * single-post view) MUST use this — NOT is_suspended(), which is action-scoped
+	 * (any active suspension) and would hide action-restricted members' content,
+	 * and NOT the retired bn_suspended usermeta (only the admin panel ever set it,
+	 * which is exactly the split-brain this replaces).
+	 *
+	 * @param int $user_id Author to check.
+	 * @return bool True when the author's posts must be hidden.
+	 */
+	public function hides_posts( int $user_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_user_suspensions
+				 WHERE user_id = %d
+				   AND lifted_at IS NULL
+				   AND hide_posts = 1
+				   AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $count > 0;
+	}
+
+	/**
 	 * Check whether a user is currently suspended.
 	 *
 	 * A user is suspended if they have an active suspension row (lifted_at IS NULL)
-	 * that has not yet expired (expires_at IS NULL or expires_at > NOW()).
+	 * that has not yet expired (expires_at IS NULL or expires_at > NOW()). This is
+	 * ACTION-scoped (blocks posting/commenting/reacting); for CONTENT visibility
+	 * use hides_posts() instead.
 	 *
 	 * @param int $user_id User to check.
 	 * @return bool
@@ -1710,6 +1830,23 @@ class ModerationService {
 			return new WP_Error( 'report_not_found', __( 'Report not found.', 'buddynext' ) );
 		}
 
+		// Capture the reporters of the open reports we're about to clear, so we can
+		// tell them the outcome. Read before the UPDATE (which flips the status the
+		// WHERE keys off).
+		$reporter_ids = ( in_array( $status, array( 'resolved', 'dismissed' ), true ) )
+			? array_map(
+				'intval',
+				(array) $wpdb->get_col(
+					$wpdb->prepare(
+						"SELECT DISTINCT reporter_id FROM {$wpdb->prefix}bn_reports
+						 WHERE object_type = %s AND object_id = %d AND status IN ('pending','escalated')",
+						(string) $target['object_type'],
+						(int) $target['object_id']
+					)
+				)
+			)
+			: array();
+
 		$updated = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$wpdb->prefix}bn_reports
@@ -1727,6 +1864,19 @@ class ModerationService {
 		// $wpdb->query returns false on SQL error, int (rows affected) otherwise.
 		if ( false === $updated ) {
 			return new WP_Error( 'db_error', __( 'Database error updating report status.', 'buddynext' ) );
+		}
+
+		// Zero rows changed means another moderator already cleared this content's
+		// reports between our read and write. Return a distinct signal so the caller
+		// skips the audit-log write (no duplicate mod-log row) and the UI can say
+		// "already handled" instead of reporting a false success — and we don't
+		// re-notify reporters or restore an already-restored post.
+		if ( 0 === (int) $updated ) {
+			return new WP_Error(
+				'already_resolved',
+				__( 'This report was already actioned by another moderator.', 'buddynext' ),
+				array( 'status' => 409 )
+			);
 		}
 
 		// Lift an auto-hide once the reports are cleared. auto_hide_post() flips a
@@ -1759,7 +1909,57 @@ class ModerationService {
 			}
 		}
 
+		// Tell the reporters we reviewed their report (respecting their prefs — the
+		// notification service consults on_site/channel prefs before creating).
+		if ( ! empty( $reporter_ids ) ) {
+			$this->notify_reporters_reviewed(
+				$reporter_ids,
+				$actor_id,
+				(string) $target['object_type'],
+				(int) $target['object_id']
+			);
+		}
+
 		return true;
+	}
+
+	/**
+	 * Notify each reporter that their report was reviewed (resolved/dismissed).
+	 * The `bn.report_resolved` type is deliberately outcome-neutral ("we reviewed
+	 * your report") so it fits both resolve and dismiss without leaking the moderator's
+	 * decision. Idempotent per content via the group key. Skips the actor themselves.
+	 *
+	 * @param int[]  $reporter_ids Distinct reporter user IDs.
+	 * @param int    $actor_id     Moderator who actioned the report.
+	 * @param string $object_type  Reported content type.
+	 * @param int    $object_id    Reported content ID.
+	 * @return void
+	 */
+	private function notify_reporters_reviewed( array $reporter_ids, int $actor_id, string $object_type, int $object_id ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+		$notifications = buddynext_service( 'notifications' );
+		if ( ! is_object( $notifications ) || ! method_exists( $notifications, 'create' ) ) {
+			return;
+		}
+
+		foreach ( array_unique( $reporter_ids ) as $reporter_id ) {
+			$reporter_id = (int) $reporter_id;
+			if ( $reporter_id <= 0 || $reporter_id === $actor_id ) {
+				continue;
+			}
+			$notifications->create(
+				array(
+					'recipient_id' => $reporter_id,
+					'sender_id'    => $actor_id,
+					'type'         => 'bn.report_resolved',
+					'object_type'  => $object_type,
+					'object_id'    => $object_id,
+					'group_key'    => 'report_resolved_' . $object_type . '_' . $object_id,
+				)
+			);
+		}
 	}
 
 	/**

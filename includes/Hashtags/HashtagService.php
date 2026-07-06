@@ -41,6 +41,56 @@ class HashtagService {
 	private const TRENDING_TRANSIENT_TTL = 30 * MINUTE_IN_SECONDS;
 
 	/**
+	 * The single hashtag detection pattern, shared by extraction, the banned-tag
+	 * scan, and the content linkifier (buddynext_format_content) so all three
+	 * agree on what a tag is: a letter-first slug of up to 50 letters/numbers/
+	 * underscores drawn from ANY script (the /u flag makes \p{L}\p{N} match
+	 * Unicode). Filterable via buddynext_hashtag_pattern; a replacement MUST keep
+	 * a single capture group (group 1) carrying the tag body without the '#'.
+	 *
+	 * @return string PCRE pattern (u-flagged); capture group 1 = tag body.
+	 */
+	public static function pattern(): string {
+		return (string) apply_filters( 'buddynext_hashtag_pattern', '/#([\p{L}][\p{L}\p{N}_]{0,49})/u' );
+	}
+
+	/**
+	 * Canonical hashtag slug normalizer — the ONE rule every hashtag surface
+	 * (extraction, registry upsert, sync, lookup, autocomplete, follow map, and
+	 * the content linkifier) routes through, so a tag composed as text, stored in
+	 * the registry, rendered as a link, and looked up from a URL all resolve to
+	 * the exact same slug.
+	 *
+	 * Previously each surface normalized differently: extract() kept Unicode via a
+	 * \p{L} regex while sync()/register()/get_by_slug()/autocomplete() ran
+	 * sanitize_key(), which strips every non-[a-z0-9_] byte — so "#café" was
+	 * stored as "caf" and "#日本語" was dropped entirely. This folds case
+	 * Unicode-aware (mb_strtolower) and keeps letters/numbers/underscore from any
+	 * script, mirroring the [\p{L}\p{N}_] class of pattern() exactly.
+	 *
+	 * @param string $tag Raw tag text, with or without a leading '#'.
+	 * @return string Normalized slug (lowercased; Unicode letters/numbers/
+	 *                underscore only; max 50 chars), or '' when nothing survives.
+	 */
+	public static function normalize_slug( string $tag ): string {
+		$tag = ltrim( trim( $tag ), '#' );
+		if ( '' === $tag ) {
+			return '';
+		}
+
+		$tag = function_exists( 'mb_strtolower' ) ? mb_strtolower( $tag, 'UTF-8' ) : strtolower( $tag );
+
+		// Keep letters, numbers, and underscore from every script; drop the rest.
+		$stripped = preg_replace( '/[^\p{L}\p{N}_]+/u', '', $tag );
+		if ( ! is_string( $stripped ) || '' === $stripped ) {
+			return '';
+		}
+
+		// Bound to the same 50-char limit the extraction regex enforces.
+		return function_exists( 'mb_substr' ) ? mb_substr( $stripped, 0, 50, 'UTF-8' ) : substr( $stripped, 0, 50 );
+	}
+
+	/**
 	 * Extract unique hashtag slugs from a string (spec-named alias for extract()).
 	 *
 	 * @param string $text Raw text that may contain #tags.
@@ -67,10 +117,10 @@ class HashtagService {
 		}
 		// Raw pattern, NOT extract(): extract() strips banned slugs from its
 		// result set, so it can never report one.
-		$pattern = (string) apply_filters( 'buddynext_hashtag_pattern', '/#([\p{L}][\p{L}\p{N}_]{0,49})/u' );
-		preg_match_all( $pattern, $text, $matches );
-		foreach ( array_map( 'strtolower', (array) ( $matches[1] ?? array() ) ) as $slug ) {
-			if ( in_array( $slug, $banned, true ) ) {
+		preg_match_all( self::pattern(), $text, $matches );
+		foreach ( (array) ( $matches[1] ?? array() ) as $raw ) {
+			$slug = self::normalize_slug( $raw );
+			if ( '' !== $slug && in_array( $slug, $banned, true ) ) {
 				return $slug;
 			}
 		}
@@ -83,9 +133,9 @@ class HashtagService {
 	 * The option is a newline-separated textarea string, so the previous
 	 * `(array) get_option(...)` cast produced a single-element array containing
 	 * the whole blob — meaning the ban check only ever matched when exactly one
-	 * tag was configured. Split on newlines and normalize each entry the same way
-	 * tags themselves are (strip a leading #, sanitize_key) so matching is
-	 * case-insensitive and #-agnostic.
+	 * tag was configured. Split on newlines and normalize each entry through the
+	 * canonical normalize_slug() so matching is case-insensitive, #-agnostic, and
+	 * Unicode-safe (a banned "#café" now actually matches the stored "café").
 	 *
 	 * @return array<int,string> Normalized banned slugs.
 	 */
@@ -101,7 +151,7 @@ class HashtagService {
 			$lines = array();
 		}
 		foreach ( $lines as $line ) {
-			$slug = sanitize_key( ltrim( trim( (string) $line ), '#' ) );
+			$slug = self::normalize_slug( (string) $line );
 			if ( '' !== $slug ) {
 				$slugs[] = $slug;
 			}
@@ -120,7 +170,7 @@ class HashtagService {
 	 * @return int Hashtag ID, or 0 on failure.
 	 */
 	public function register( string $tag ): int {
-		$slug = sanitize_key( ltrim( $tag, '#' ) );
+		$slug = self::normalize_slug( $tag );
 
 		if ( '' === $slug ) {
 			return 0;
@@ -194,7 +244,7 @@ class HashtagService {
 	 * @return array{items: array[], next_cursor: string|null, hashtag: array|null}
 	 */
 	public function get_feed( string $tag, array $args = array() ): array {
-		$slug    = sanitize_key( ltrim( $tag, '#' ) );
+		$slug    = self::normalize_slug( $tag );
 		$hashtag = $this->get_by_slug( $slug );
 
 		if ( null === $hashtag ) {
@@ -245,9 +295,13 @@ class HashtagService {
 			$follow_param = array( $viewer_id );
 		}
 
+		// Space-visibility guard: keep public posts that live in private/secret
+		// spaces off the public tag page (visible only to space members).
+		[ $space_where, $space_params ] = $this->space_visibility_where( 'p', $viewer_id );
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
-			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- Placeholder count is dynamic: the optional follow JOIN's %d and the variable $cursor_params are spread via array_merge() and match at runtime; the sniff cannot resolve the conditional/array args statically.
+			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- Placeholder count is dynamic: the optional follow JOIN's %d, the space-visibility fragment's optional %d, and the variable $cursor_params are spread via array_merge() and match at runtime; the sniff cannot resolve the conditional/array args statically.
 				"SELECT p.id, p.user_id, p.content, p.type, p.privacy,
 				        p.reaction_count, p.comment_count, p.share_count, p.created_at,
 				        ph.created_at AS bn_cursor_ts
@@ -258,10 +312,11 @@ class HashtagService {
 				   AND ph.object_type = 'post'
 				   AND p.status       = 'published'
 				   AND p.privacy      = 'public'
+				   {$space_where}
 				   {$cursor_where}
 				 ORDER BY {$order_sql}
 				 LIMIT %d",
-				...array_merge( $follow_param, array( $hashtag['id'] ), $cursor_params, array( $per_page + 1 ) )
+				...array_merge( $follow_param, array( $hashtag['id'] ), $space_params, $cursor_params, array( $per_page + 1 ) )
 			),
 			ARRAY_A
 		);
@@ -316,25 +371,17 @@ class HashtagService {
 	 * @return string[] Lowercased, deduplicated array of tag slugs (no leading #).
 	 */
 	public function extract( string $content ): array {
-		/**
-		 * Filter the regex used to extract hashtags from content.
-		 *
-		 * Must return a valid PCRE pattern with a single capture group (group 1)
-		 * yielding the hashtag slug without the leading '#'. Default supports a
-		 * letter-first, alphanumeric/underscore slug up to 50 chars. Applies to
-		 * every extraction surface (posts, bridged forum/media/job content).
-		 *
-		 * @param string $pattern Default extraction regex.
-		 */
-		$pattern = (string) apply_filters( 'buddynext_hashtag_pattern', '/#([\p{L}][\p{L}\p{N}_]{0,49})/u' );
-		preg_match_all( $pattern, $content, $matches );
+		preg_match_all( self::pattern(), $content, $matches );
 
 		if ( empty( $matches[1] ) ) {
 			return array();
 		}
 
-		$slugs = array_map( 'strtolower', $matches[1] );
-		$slugs = array_values( array_unique( $slugs ) );
+		// Route every raw match through the canonical normalizer so extraction
+		// yields the exact slug the registry will store (Unicode-safe). Drop any
+		// that normalize to '' and de-duplicate.
+		$slugs = array_map( array( self::class, 'normalize_slug' ), $matches[1] );
+		$slugs = array_values( array_unique( array_filter( $slugs, static fn( string $s ): bool => '' !== $s ) ) );
 
 		$banned = $this->banned_hashtag_slugs();
 		if ( ! empty( $banned ) ) {
@@ -408,7 +455,7 @@ class HashtagService {
 		$new_hashtag_ids = array();
 
 		foreach ( $slugs as $slug ) {
-			$slug = sanitize_key( $slug );
+			$slug = self::normalize_slug( $slug );
 
 			if ( '' === $slug ) {
 				continue;
@@ -507,6 +554,7 @@ class HashtagService {
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			);
 			wp_cache_delete( "hashtag_following_{$user_id}_{$hashtag_id}", self::CACHE_GROUP );
+			$this->bust_hashtag_row_cache( $hashtag_id );
 		}
 
 		return (bool) $inserted;
@@ -543,6 +591,7 @@ class HashtagService {
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			);
 			wp_cache_delete( "hashtag_following_{$user_id}_{$hashtag_id}", self::CACHE_GROUP );
+			$this->bust_hashtag_row_cache( $hashtag_id );
 		}
 
 		return (bool) $deleted;
@@ -588,7 +637,7 @@ class HashtagService {
 	 * @return array[]
 	 */
 	public function autocomplete( string $prefix, int $limit = 10 ): array {
-		$prefix = sanitize_key( $prefix );
+		$prefix = self::normalize_slug( $prefix );
 		if ( '' === $prefix ) {
 			return array();
 		}
@@ -628,7 +677,7 @@ class HashtagService {
 	 * @return array|null
 	 */
 	public function get_by_slug( string $slug ): ?array {
-		$slug      = sanitize_key( $slug );
+		$slug      = self::normalize_slug( $slug );
 		$cache_key = "hashtag_{$slug}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
@@ -694,6 +743,11 @@ class HashtagService {
 
 		global $wpdb;
 
+		// SCALE-CONTRACT: the 24-hour window filters on ph.created_at, which the
+		// composite KEY hashtag_feed (hashtag_id, created_at) cannot serve (its
+		// leading column is hashtag_id). The dedicated KEY trending_window
+		// (created_at) on bn_post_hashtags turns this into a range scan over only
+		// the recent rows instead of a full pivot scan — do NOT drop that index.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
@@ -771,6 +825,41 @@ class HashtagService {
 	}
 
 	/**
+	 * Space-visibility WHERE fragment for tag queries (with its bound params).
+	 *
+	 * A public-privacy post inside a private/secret space must NOT surface on the
+	 * public tag page. This limits rows to non-space posts, posts in OPEN spaces,
+	 * and — for a logged-in viewer — posts in private/secret spaces the viewer
+	 * belongs to. get_feed / top_contributors / contributor_count all apply this
+	 * identical rule so no tag surface can leak (one definition, no drift). For a
+	 * guest (viewer 0) the fragment carries no bound params.
+	 *
+	 * @param string $alias     bn_posts table alias used by the caller.
+	 * @param int    $viewer_id Current viewer id (0 = guest).
+	 * @return array{0:string,1:array<int,int>} [ WHERE fragment (leading AND), params ].
+	 */
+	private function space_visibility_where( string $alias, int $viewer_id ): array {
+		global $wpdb;
+
+		$sql    = "AND (
+			{$alias}.space_id IS NULL
+			OR {$alias}.space_id = 0
+			OR {$alias}.space_id IN ( SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open' )";
+		$params = array();
+
+		if ( $viewer_id > 0 ) {
+			$sql     .= " OR {$alias}.space_id IN (
+				SELECT space_id FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active'
+			)";
+			$params[] = $viewer_id;
+		}
+
+		$sql .= ' )';
+
+		return array( $sql, $params );
+	}
+
+	/**
 	 * Return the top contributors to a hashtag — the members who have posted the
 	 * most public, published posts carrying it, most prolific first.
 	 *
@@ -785,6 +874,8 @@ class HashtagService {
 		$limit = max( 1, min( 20, $limit ) );
 
 		global $wpdb;
+		// Public tag page: exclude posts in private/secret spaces (guest scope).
+		[ $space_where ] = $this->space_visibility_where( 'p', 0 );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
@@ -794,6 +885,7 @@ class HashtagService {
 				 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
 				 WHERE ph.hashtag_id = %d AND ph.object_type = 'post'
 				   AND p.status = 'published' AND p.privacy = 'public'
+				   {$space_where}
 				 GROUP BY p.user_id
 				 ORDER BY post_count DESC
 				 LIMIT %d",
@@ -829,6 +921,8 @@ class HashtagService {
 		}
 
 		global $wpdb;
+		// Public tag page: exclude posts in private/secret spaces (guest scope).
+		[ $space_where ] = $this->space_visibility_where( 'p', 0 );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return (int) $wpdb->get_var(
 			$wpdb->prepare(
@@ -836,7 +930,8 @@ class HashtagService {
 				 FROM {$wpdb->prefix}bn_post_hashtags ph
 				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = ph.post_id
 				 WHERE ph.hashtag_id = %d AND ph.object_type = 'post'
-				   AND p.status = 'published' AND p.privacy = 'public'",
+				   AND p.status = 'published' AND p.privacy = 'public'
+				   {$space_where}",
 				$hashtag_id
 			)
 		);
@@ -858,7 +953,7 @@ class HashtagService {
 	public function following_map( int $user_id, array $slugs ): array {
 		$normalized = array();
 		foreach ( $slugs as $slug ) {
-			$norm = sanitize_key( ltrim( (string) $slug, '#' ) );
+			$norm = self::normalize_slug( (string) $slug );
 			if ( '' !== $norm ) {
 				$normalized[ $norm ] = false;
 			}
@@ -891,6 +986,184 @@ class HashtagService {
 	}
 
 	/**
+	 * Return the hashtags a user follows, newest-follow first, paginated.
+	 *
+	 * Backs GET /me/hashtags (the app's "tags you follow" screen). The user
+	 * lookup rides the bn_hashtag_follows PRIMARY (user_id, hashtag_id); has_more
+	 * is derived from a limit+1 fetch so no COUNT(*) runs on the read path
+	 * (SCALE-CONTRACT §3). A single member follows at most a handful of tags, so
+	 * the recency sort over that small per-user set needs no dedicated index.
+	 *
+	 * @param int $user_id Follower user id.
+	 * @param int $limit   Max rows (1-50). Default 20.
+	 * @param int $offset  Row offset for pagination. Default 0.
+	 * @return array{items: array<int,array>, has_more: bool}
+	 */
+	public function list_followed( int $user_id, int $limit = 20, int $offset = 0 ): array {
+		if ( $user_id <= 0 ) {
+			return array(
+				'items'    => array(),
+				'has_more' => false,
+			);
+		}
+
+		$limit  = max( 1, min( 50, $limit ) );
+		$offset = max( 0, $offset );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT h.id, h.name, h.slug, h.post_count, h.follower_count, h.created_at
+				 FROM {$wpdb->prefix}bn_hashtag_follows hf
+				 INNER JOIN {$wpdb->prefix}bn_hashtags h ON h.id = hf.hashtag_id
+				 WHERE hf.user_id = %d
+				 ORDER BY hf.created_at DESC, h.id DESC
+				 LIMIT %d OFFSET %d",
+				$user_id,
+				$limit + 1,
+				$offset
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$rows     = (array) $rows;
+		$has_more = count( $rows ) > $limit;
+		if ( $has_more ) {
+			$rows = array_slice( $rows, 0, $limit );
+		}
+
+		return array(
+			'items'    => array_map( array( $this, 'hydrate' ), $rows ),
+			'has_more' => $has_more,
+		);
+	}
+
+	/**
+	 * Reconcile follows orphaned by the legacy sanitize_key() mangling (R11).
+	 *
+	 * Before normalize_slug(), a followed "#café" was stored as the ASCII row
+	 * "caf". After the Unicode fix, fresh "#café" posts register a NEW "café" row,
+	 * so the pre-existing follower of "caf" silently stops receiving posts. This
+	 * moves those followers onto the correct row — but ONLY when the old row is
+	 * provably pure wreckage, never when it might be a legitimate tag:
+	 *
+	 *   1. It must run AFTER the full post re-sync (resync_batch) so post_count is
+	 *      authoritative.
+	 *   2. The old row must have followers, an all-[a-z0-9_] slug, AND post_count
+	 *      = 0 — i.e. every post that ever mapped to it has been repointed to a
+	 *      Unicode row, so it was never a real ASCII tag (a genuine "#caf" would
+	 *      still carry posts and is left untouched).
+	 *   3. There must be EXACTLY ONE registry slug whose sanitize_key() equals the
+	 *      old slug (the unambiguous Unicode counterpart). Two candidates (café,
+	 *      cafē) is ambiguous → the old row simply decays, per R11's fallback.
+	 *
+	 * The emptied old row is kept (not deleted) so its URL still resolves.
+	 *
+	 * @return int Number of old→new follow merges performed.
+	 */
+	public function merge_mangled_follows(): int {
+		global $wpdb;
+
+		// Old wreckage candidates: followed, zero own posts, pure ASCII shape.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$old_rows = $wpdb->get_results(
+			"SELECT id, slug FROM {$wpdb->prefix}bn_hashtags
+			 WHERE follower_count > 0 AND post_count = 0 AND slug REGEXP '^[a-z0-9_]+$'",
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( empty( $old_rows ) ) {
+			return 0;
+		}
+
+		// Bucket every Unicode/mixed-case slug by its legacy sanitize_key() form so
+		// the unambiguous 1:1 counterpart of each old slug can be found. Walked in
+		// pages so a large registry never loads at once.
+		$buckets = array();
+		$offset  = 0;
+		do {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT id, slug FROM {$wpdb->prefix}bn_hashtags ORDER BY id LIMIT 500 OFFSET %d",
+					$offset
+				),
+				ARRAY_A
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			foreach ( (array) $rows as $r ) {
+				$mangled = sanitize_key( (string) $r['slug'] );
+				// Skip already-ASCII-clean slugs: sanitize_key is a no-op on them,
+				// so they are not the Unicode counterpart of anything.
+				if ( '' === $mangled || $mangled === (string) $r['slug'] ) {
+					continue;
+				}
+				$buckets[ $mangled ][] = $r;
+			}
+			$offset += 500;
+		} while ( ! empty( $rows ) );
+
+		$merged = 0;
+		foreach ( $old_rows as $old ) {
+			$candidates = $buckets[ (string) $old['slug'] ] ?? array();
+			if ( 1 !== count( $candidates ) ) {
+				continue; // 0 = nothing to merge; >1 = ambiguous, let the old row decay.
+			}
+			$new_id = (int) $candidates[0]['id'];
+			$old_id = (int) $old['id'];
+			if ( $new_id === $old_id ) {
+				continue;
+			}
+			$this->move_follows( $old_id, $new_id );
+			++$merged;
+		}
+
+		return $merged;
+	}
+
+	/**
+	 * Move every follower of one hashtag onto another and recount both rows.
+	 *
+	 * Used by the R11 reconciliation (merge_mangled_follows). INSERT IGNORE keeps
+	 * users who already follow the target from double-counting.
+	 *
+	 * @param int $old_id Source hashtag id (emptied of followers).
+	 * @param int $new_id Destination hashtag id.
+	 * @return void
+	 */
+	private function move_follows( int $old_id, int $new_id ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_hashtag_follows (user_id, hashtag_id)
+				 SELECT user_id, %d FROM {$wpdb->prefix}bn_hashtag_follows WHERE hashtag_id = %d",
+				$new_id,
+				$old_id
+			)
+		);
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->prefix}bn_hashtag_follows WHERE hashtag_id = %d",
+				$old_id
+			)
+		);
+		foreach ( array( $old_id, $new_id ) as $hid ) {
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_hashtags SET follower_count = (SELECT COUNT(*) FROM {$wpdb->prefix}bn_hashtag_follows WHERE hashtag_id = %d) WHERE id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					$hid,
+					$hid
+				)
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
 	 * Hydrate a raw DB row into a typed hashtag array.
 	 *
 	 * @param array $row Raw ARRAY_A row.
@@ -918,6 +1191,36 @@ class HashtagService {
 		foreach ( array( 10, 20, 50 ) as $limit ) {
 			wp_cache_delete( "trending_{$limit}", self::CACHE_GROUP );
 			delete_transient( 'bn_trending_' . $limit );
+		}
+	}
+
+	/**
+	 * Invalidate the get_by_slug() row cache for a hashtag after its counters
+	 * change.
+	 *
+	 * Follow and unfollow mutate follower_count on bn_hashtags, so the cached
+	 * hashtag_{slug} row (which carries follower_count) would otherwise serve a
+	 * stale count to the very next reader — e.g. the follow REST response, which
+	 * reads the fresh count straight back. Resolves the slug from the id (the
+	 * cache is keyed by slug) and clears that entry.
+	 *
+	 * @param int $hashtag_id Hashtag whose row cache to clear.
+	 * @return void
+	 */
+	private function bust_hashtag_row_cache( int $hashtag_id ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$slug = (string) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT slug FROM {$wpdb->prefix}bn_hashtags WHERE id = %d",
+				$hashtag_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( '' !== $slug ) {
+			wp_cache_delete( "hashtag_{$slug}", self::CACHE_GROUP );
 		}
 	}
 }

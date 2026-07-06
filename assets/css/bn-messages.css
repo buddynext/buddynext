@@ -1994,3 +1994,94 @@ body.admin-bar .bn-dm-info .bn-modal__panel {
 		grid-template-columns: repeat(4, 1fr);
 	}
 }
+
+/* Load-older (thread) + load-more (rail) pagination controls (C17.2). */
+.bn-dm-loadolder {
+	display: flex;
+	justify-content: center;
+	padding: var(--bn-s2, 0.5rem) 0;
+}
+
+.bn-dm-loadolder[aria-busy="true"] {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+.bn-dm-rail__loadmore {
+	display: block;
+	text-align: center;
+	padding: var(--bn-s3, 0.75rem);
+	font-size: var(--bn-text-sm, 0.875rem);
+	color: var(--bn-accent, var(--brand));
+	text-decoration: none;
+}
+
+.bn-dm-rail__loadmore:hover {
+	background: var(--bn-canvas);
+}
+
+/* In-conversation message search (C17.4). */
+.bn-dm-search {
+	border-bottom: 1px solid var(--bn-line, #e5e7eb);
+	background: var(--bn-surface, #fff);
+}
+
+.bn-dm-search__bar {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2, 0.5rem);
+	padding: var(--bn-s2, 0.5rem) var(--bn-s3, 0.75rem);
+}
+
+.bn-dm-search__input {
+	flex: 1;
+	border: 0;
+	background: none;
+	font-size: var(--bn-text-sm, 0.875rem);
+	color: var(--bn-ink, inherit);
+	outline: none;
+}
+
+.bn-dm-search__results {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	max-height: 40vh;
+	overflow-y: auto;
+}
+
+.bn-dm-search__result {
+	display: block;
+	width: 100%;
+	text-align: start;
+	background: none;
+	border: 0;
+	padding: var(--bn-s2, 0.5rem) var(--bn-s3, 0.75rem);
+	font-size: var(--bn-text-sm, 0.875rem);
+	color: var(--bn-ink-2, #646970);
+	cursor: pointer;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.bn-dm-search__result:hover {
+	background: var(--bn-canvas);
+	color: var(--bn-ink);
+}
+
+.bn-dm-search__empty {
+	padding: var(--bn-s3, 0.75rem);
+	font-size: var(--bn-text-sm, 0.875rem);
+	color: var(--bn-ink-2, #646970);
+	text-align: center;
+}
+
+.bn-dm-msg.is-search-hit {
+	animation: bn-dm-search-flash 1.5s ease;
+}
+
+@keyframes bn-dm-search-flash {
+	0%, 100% { background: transparent; }
+	30% { background: color-mix( in oklab, var(--bn-accent, #2563eb) 18%, transparent ); }
+}

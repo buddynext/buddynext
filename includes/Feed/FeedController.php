@@ -66,6 +66,23 @@ class FeedController extends BaseRestController {
 
 		register_rest_route(
 			'buddynext/v1',
+			'/feed/viewer-state',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'viewer_state' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'post_ids' => array(
+						'required'    => true,
+						'description' => 'Comma-separated post IDs to fetch the viewer\'s reaction/bookmark/vote state for.',
+						'type'        => 'string',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
 			'/feed/new-count',
 			array(
 				'methods'             => 'GET',
@@ -132,6 +149,16 @@ class FeedController extends BaseRestController {
 						'sanitize_callback' => 'sanitize_key',
 					),
 				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/feed/announcements',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'list_announcements' ),
+				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
 
@@ -210,7 +237,96 @@ class FeedController extends BaseRestController {
 
 		$result = $this->feed_service()->home_feed( $user_id, $cursor, $per_page, $filter );
 
+		if ( ! empty( $result['items'] ) && is_array( $result['items'] ) ) {
+			$result['items'] = $this->enrich_items_for_rest( (array) $result['items'], $user_id );
+		}
+
 		return new WP_REST_Response( $result, 200 );
+	}
+
+	/**
+	 * Enrich raw feed rows into an app-renderable shape.
+	 *
+	 * The JSON feed previously returned raw hydrate() rows (author as a bare
+	 * user_id, no viewer state, no rendered content), so the native app could not
+	 * render what the web SSR renders without N extra calls per card. This adds,
+	 * per item: an author object (display_name + avatar), formatted content_html
+	 * (the same buddynext_format_content() the comment REST uses), and a
+	 * viewer_state block (my_reaction / is_bookmarked / my_voted_option_id /
+	 * can_edit). Everything is primed ONCE for the whole page — author cache via
+	 * cache_users(), reactions + poll votes via single batch maps, bookmarks via
+	 * the already-cached user_bookmarks() — so enrichment adds a constant handful
+	 * of queries, not four per card.
+	 *
+	 * @param array $items  Raw feed rows from FeedService::home_feed().
+	 * @param int   $viewer Current user ID (0 when logged out).
+	 * @return array Enriched items.
+	 */
+	private function enrich_items_for_rest( array $items, int $viewer ): array {
+		if ( empty( $items ) ) {
+			return $items;
+		}
+
+		$post_ids   = array();
+		$author_ids = array();
+		$poll_ids   = array();
+		foreach ( $items as $item ) {
+			$pid = absint( $item['id'] ?? 0 );
+			$aid = absint( $item['user_id'] ?? 0 );
+			if ( $pid ) {
+				$post_ids[] = $pid;
+			}
+			if ( $aid ) {
+				$author_ids[] = $aid;
+			}
+			if ( $pid && 'poll' === ( $item['type'] ?? '' ) ) {
+				$poll_ids[] = $pid;
+			}
+		}
+
+		// Prime once for the whole page (no per-card lookups below).
+		if ( ! empty( $author_ids ) ) {
+			cache_users( array_values( array_unique( $author_ids ) ) );
+		}
+
+		$reactions = array();
+		$votes     = array();
+		$bookmarks = array();
+		if ( $viewer > 0 ) {
+			$reactions = buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids );
+			$votes     = buddynext_service( 'polls' )->user_votes_map( $viewer, $poll_ids );
+			$bookmarks = array_flip( buddynext_service( 'bookmarks' )->user_bookmarks( $viewer ) );
+		}
+
+		$format = function_exists( 'buddynext_format_content' );
+
+		foreach ( $items as &$item ) {
+			$pid    = absint( $item['id'] ?? 0 );
+			$aid    = absint( $item['user_id'] ?? 0 );
+			$author = $aid ? get_userdata( $aid ) : null;
+
+			$item['author'] = array(
+				'id'           => $aid,
+				'display_name' => $author ? $author->display_name : __( 'Community Member', 'buddynext' ),
+				'avatar_url'   => $aid ? get_avatar_url( $aid, array( 'size' => 96 ) ) : '',
+			);
+
+			$item['content_html'] = $format
+				? buddynext_format_content( (string) ( $item['content'] ?? '' ) )
+				: (string) ( $item['content'] ?? '' );
+
+			$item['viewer_state'] = array(
+				'my_reaction'        => $reactions[ $pid ] ?? null,
+				'is_bookmarked'      => isset( $bookmarks[ $pid ] ),
+				'my_voted_option_id' => isset( $votes[ $pid ] ) ? (int) $votes[ $pid ] : 0,
+				// Baseline: author or admin. Under-reports for space moderators
+				// (safe direction — never shows an edit affordance the API rejects).
+				'can_edit'           => $viewer > 0 && ( $viewer === $aid || user_can( $viewer, 'manage_options' ) ),
+			);
+		}
+		unset( $item );
+
+		return $items;
 	}
 
 	/**
@@ -224,6 +340,111 @@ class FeedController extends BaseRestController {
 		$counts  = $this->feed_service()->home_feed_counts( $user_id );
 
 		return new WP_REST_Response( $counts, 200 );
+	}
+
+	/**
+	 * GET /feed/announcements — the active announcements the viewer should see.
+	 *
+	 * The site-wide announcement plus one per space the viewer belongs to, each
+	 * respecting the viewer's dismissals + expiry. Lets the native app fetch/badge/
+	 * push announcements instead of scraping the /feed/home page-1 prepend.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function list_announcements( WP_REST_Request $request ): WP_REST_Response { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		$viewer = get_current_user_id();
+		$feed   = $this->feed_service();
+		$items  = array();
+
+		$site = $feed->active_announcement( $viewer );
+		if ( is_array( $site ) ) {
+			$items[] = $this->shape_announcement( $site );
+		}
+
+		if ( $viewer > 0 ) {
+			global $wpdb;
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$space_ids = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT space_id FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active'",
+					$viewer
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			foreach ( $space_ids as $sid ) {
+				$ann = $feed->space_announcement( (int) $sid, $viewer );
+				if ( is_array( $ann ) ) {
+					$items[] = $this->shape_announcement( $ann );
+				}
+			}
+		}
+
+		return new WP_REST_Response( array( 'announcements' => $items ), 200 );
+	}
+
+	/**
+	 * Shape an announcement post for the REST payload.
+	 *
+	 * @param array $post Hydrated announcement post row.
+	 * @return array
+	 */
+	private function shape_announcement( array $post ): array {
+		$author_id = (int) ( $post['user_id'] ?? 0 );
+		$author    = $author_id ? get_userdata( $author_id ) : null;
+		$content   = (string) ( $post['content'] ?? '' );
+
+		return array(
+			'id'           => (int) ( $post['id'] ?? 0 ),
+			'space_id'     => (int) ( $post['space_id'] ?? 0 ),
+			'content'      => $content,
+			'content_html' => function_exists( 'buddynext_format_content' ) ? buddynext_format_content( $content ) : $content,
+			'created_at'   => (string) ( $post['created_at'] ?? '' ),
+			'expires_at'   => $post['site_pin_expires_at'] ?? null,
+			'author'       => array(
+				'id'           => $author_id,
+				'display_name' => $author ? $author->display_name : '',
+				'avatar_url'   => $author_id ? get_avatar_url( $author_id, array( 'size' => 96 ) ) : '',
+			),
+		);
+	}
+
+	/**
+	 * Batch viewer-state for a set of posts.
+	 *
+	 * Lets the app refresh reaction / bookmark / vote state for posts it already
+	 * holds (e.g. after a scroll or a cross-feed merge) in ONE request instead of
+	 * one call per post. Uses the same batch primitives as the feed enrichment, so
+	 * it stays O(1) in queries regardless of how many ids are passed.
+	 *
+	 * @param WP_REST_Request $request Incoming request (post_ids: CSV of IDs).
+	 * @return WP_REST_Response Map of post_id => { my_reaction, is_bookmarked, my_voted_option_id }.
+	 */
+	public function viewer_state( WP_REST_Request $request ): WP_REST_Response {
+		$viewer   = get_current_user_id();
+		$raw      = (string) $request->get_param( 'post_ids' );
+		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', explode( ',', $raw ) ) ) ) );
+		$post_ids = array_slice( $post_ids, 0, 100 ); // bound the batch.
+
+		if ( empty( $post_ids ) ) {
+			return new WP_REST_Response( array( 'states' => (object) array() ), 200 );
+		}
+
+		$reactions = buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids );
+		$votes     = buddynext_service( 'polls' )->user_votes_map( $viewer, $post_ids );
+		$bookmarks = array_flip( buddynext_service( 'bookmarks' )->user_bookmarks( $viewer ) );
+
+		$states = array();
+		foreach ( $post_ids as $pid ) {
+			$states[ $pid ] = array(
+				'my_reaction'        => $reactions[ $pid ] ?? null,
+				'is_bookmarked'      => isset( $bookmarks[ $pid ] ),
+				'my_voted_option_id' => isset( $votes[ $pid ] ) ? (int) $votes[ $pid ] : 0,
+			);
+		}
+
+		return new WP_REST_Response( array( 'states' => $states ), 200 );
 	}
 
 	/**
@@ -569,6 +790,8 @@ class FeedController extends BaseRestController {
 		if ( empty( $items ) || ! function_exists( 'buddynext_get_template' ) ) {
 			return '';
 		}
+
+		$this->feed_service()->prime_viewer_state( $items, $viewer );
 
 		ob_start();
 		foreach ( $items as $item ) {

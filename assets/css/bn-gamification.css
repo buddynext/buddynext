@@ -202,6 +202,10 @@
 	flex-direction: column;
 	gap: var(--bn-s2);
 	margin-bottom: var(--bn-s5);
+	/* Semantic <ol> for a11y, but the per-row rank pill is the visible rank —
+	   suppress the native list markers so the number never shows twice. */
+	list-style: none;
+	padding-inline-start: 0;
 }
 
 .bn-lb-row {
@@ -415,26 +419,53 @@
 	margin: 0;
 }
 
-/* ── Sidebar widgets (uses .bn-widget defined in bn-feed.css) ───────────── */
+/* ── Your-stats widgets (uses .bn-widget defined in bn-feed.css) ─────────── */
+
+/* The three widgets (badges · streak · milestone) flow in a responsive row so
+   they fill the width instead of stacking full-width with dead space beside them. */
+.bn-lb-widgets {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+	gap: var(--bn-s4);
+	align-items: start;
+	margin-top: var(--bn-s5);
+}
+
+/* Each widget is a self-contained card. The base .bn-widget chrome lives in
+   bn-profile.css, which the leaderboard route does not load — so define it here
+   (scoped) too, otherwise the three widgets run together with no separation. */
+.bn-lb-widgets .bn-widget {
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	padding: var(--bn-s4);
+	margin: 0;
+}
 
 .bn-lb-badges-grid {
 	display: grid;
-	grid-template-columns: repeat(4, 1fr);
+	/* Compact fixed-size tiles — never balloon into giant squares when the widget
+	   is wide (the old repeat(4,1fr) + aspect-ratio:1 did exactly that). */
+	grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
 	gap: var(--bn-s2);
 	margin-bottom: var(--bn-s2);
 }
 
 .bn-lb-badge-cell {
-	aspect-ratio: 1;
+	/* min-height (not aspect-ratio:1) so a two-line badge name fits without being
+	   clipped — the cell grows a little instead of forcing every name onto one
+	   truncated line. */
+	min-height: 96px;
+	max-width: 130px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	flex-direction: column;
-	gap: 2px;
+	gap: var(--bn-s1);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-sunken);
 	border: 1px solid var(--bn-line);
-	padding: var(--bn-s1);
+	padding: var(--bn-s2);
 	color: var(--bn-accent);
 	overflow: hidden;
 	transition: border-color var(--bn-dur-fast) var(--bn-ease);
@@ -449,9 +480,10 @@
 	filter: grayscale(1);
 }
 
-.bn-lb-badge-cell img {
-	width: 28px;
-	height: 28px;
+.bn-lb-badge-cell img,
+.bn-lb-badge-cell svg {
+	width: 34px;
+	height: 34px;
 	object-fit: contain;
 }
 
@@ -459,12 +491,15 @@
 	font-size: var(--bn-text-2xs);
 	font-weight: var(--bn-fw-semibold);
 	color: var(--bn-ink-2);
-	line-height: 1.1;
+	line-height: 1.2;
 	text-align: center;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 	max-width: 100%;
+	/* Wrap to at most two lines instead of truncating every name to an ellipsis. */
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
 }
 
 .bn-lb-badge-hint {

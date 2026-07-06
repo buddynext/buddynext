@@ -293,11 +293,11 @@ function buildRunUrl( ctx, args ) {
 		var panel = document.createElement( 'div' );
 		panel.className = 'bn-search-recent';
 		panel.setAttribute( 'role', 'region' );
-		panel.setAttribute( 'aria-label', 'Recent searches' );
+		panel.setAttribute( 'aria-label', t( 'recentSearchesLabel', 'Recent searches' ) );
 
 		var title = document.createElement( 'span' );
 		title.className = 'bn-search-recent__title';
-		title.textContent = 'Recent:';
+		title.textContent = t( 'recentSearchesTitle', 'Recent:' );
 		panel.appendChild( title );
 
 		list.forEach( function ( prevQ ) {
@@ -313,7 +313,7 @@ function buildRunUrl( ctx, args ) {
 		var clear = document.createElement( 'button' );
 		clear.type = 'button';
 		clear.className = 'bn-search-recent__clear';
-		clear.textContent = 'Clear';
+		clear.textContent = t( 'clear', 'Clear' );
 		clear.addEventListener( 'click', function () {
 			clearAll();
 			panel.remove();
@@ -324,4 +324,95 @@ function buildRunUrl( ctx, args ) {
 	}
 
 	onNavReady( init );
+} )();
+
+/* --------------------------------------------------------------------------
+   As-you-type suggestions overlay.
+
+   Debounced typeahead on the search input: hits GET /search/suggest (grouped,
+   capped per type) and renders a grouped overlay under the field. Clicking a
+   suggestion navigates straight to it. Web + native app previously had no
+   suggestion endpoint or typeahead at all. Keyboard: Escape closes; the input's
+   own submit still runs a full search.
+   -------------------------------------------------------------------------- */
+( function () {
+	if ( typeof document === 'undefined' ) { return; }
+
+	function initTypeahead() {
+		var input = document.getElementById( 'bn-search-q' );
+		if ( ! input || input.getAttribute( 'data-bn-typeahead' ) === '1' ) { return; }
+		input.setAttribute( 'data-bn-typeahead', '1' );
+		input.setAttribute( 'autocomplete', 'off' );
+
+		var overlay = document.createElement( 'div' );
+		overlay.className = 'bn-search-suggest';
+		overlay.setAttribute( 'role', 'listbox' );
+		overlay.setAttribute( 'aria-label', t( 'suggestionsLabel', 'Search suggestions' ) );
+		overlay.hidden = true;
+		var host = input.closest( '.bn-search-hero__field' ) || input.parentNode;
+		host.appendChild( overlay );
+
+		var timer = null;
+		var lastQ = '';
+
+		function close() {
+			overlay.hidden = true;
+			overlay.textContent = '';
+		}
+
+		function render( groups ) {
+			overlay.textContent = '';
+			// grouped_search returns { types: [ { type, results, total }, … ] }.
+			var types = ( groups && groups.types ) || [];
+			if ( ! types.length ) { close(); return; }
+			types.forEach( function ( group ) {
+				var head = document.createElement( 'div' );
+				head.className = 'bn-search-suggest__group';
+				head.textContent = group.type || '';
+				overlay.appendChild( head );
+				( group.results || [] ).forEach( function ( item ) {
+					if ( ! item || ! item.url ) { return; }
+					var a = document.createElement( 'a' );
+					a.className = 'bn-search-suggest__item';
+					a.setAttribute( 'role', 'option' );
+					a.href = item.url;
+					a.textContent = item.title || item.url;
+					overlay.appendChild( a );
+				} );
+			} );
+			overlay.hidden = false;
+		}
+
+		function fetchSuggest( q ) {
+			restFetch( '/search/suggest?q=' + encodeURIComponent( q ), { method: 'GET' } )
+				.then( function ( res ) {
+					// Ignore a stale response if the query moved on.
+					if ( q !== lastQ ) { return; }
+					var data = res && res.data ? res.data : {};
+					render( data.groups || [] );
+				} )
+				.catch( function () { close(); } );
+		}
+
+		input.addEventListener( 'input', function () {
+			var q = input.value.trim();
+			lastQ = q;
+			if ( timer ) { clearTimeout( timer ); }
+			// Too short to be useful — clear (server also short-circuits blanks).
+			if ( q.length < 2 ) { close(); return; }
+			timer = setTimeout( function () { fetchSuggest( q ); }, 250 );
+		} );
+
+		input.addEventListener( 'keydown', function ( e ) {
+			if ( e.key === 'Escape' ) { close(); }
+		} );
+
+		// Close when focus leaves the field + overlay (deferred so a click on a
+		// suggestion registers before the overlay is torn down).
+		document.addEventListener( 'click', function ( e ) {
+			if ( ! host.contains( e.target ) ) { close(); }
+		} );
+	}
+
+	onNavReady( initTypeahead );
 } )();

@@ -66,6 +66,10 @@ $bn_nav_current_user = get_current_user_id();
 $bn_unread_notifs    = $bn_nav_current_user
 	? (int) buddynext_service( 'notifications' )->unread_count( $bn_nav_current_user )
 	: 0;
+$bn_unread_messages  = $bn_nav_current_user && class_exists( '\BuddyNext\Messages\MessagesData' )
+	? (int) \BuddyNext\Messages\MessagesData::unread_count( $bn_nav_current_user )
+	: 0;
+$bn_messages_on      = class_exists( '\BuddyNext\Messages\MessagesData' ) && \BuddyNext\Messages\MessagesData::entry_enabled();
 
 /**
  * Level 2 Context Nav — per-section sub-navigation.
@@ -95,7 +99,6 @@ if ( ! empty( $bn_context_items ) ) :
 
 <?php
 if ( $bn_nav_current_user ) :
-	$bn_badge_label = $bn_unread_notifs > 99 ? '99+' : (string) $bn_unread_notifs;
 	?>
 	<?php
 	// Curated 5-slot bottom bar. Kept data-driven so Settings → Navigation
@@ -135,12 +138,22 @@ if ( $bn_nav_current_user ) :
 			'type'  => 'create',
 		),
 		array(
-			'key'   => 'notifications',
-			'url'   => $bn_nav_urls['notifications'],
-			'icon'  => 'bell',
-			'label' => __( 'Alerts', 'buddynext' ),
-			'show'  => true,
-			'badge' => true,
+			'key'         => 'notifications',
+			'url'         => $bn_nav_urls['notifications'],
+			'icon'        => 'bell',
+			'label'       => __( 'Alerts', 'buddynext' ),
+			'show'        => true,
+			'badge'       => true,
+			'badge_count' => $bn_unread_notifs,
+		),
+		array(
+			'key'         => 'messages',
+			'url'         => $bn_nav_urls['messages'],
+			'icon'        => 'message-circle',
+			'label'       => __( 'Messages', 'buddynext' ),
+			'show'        => (bool) $bn_nav_current_user && $bn_messages_on,
+			'badge'       => true,
+			'badge_count' => $bn_unread_messages,
 		),
 		array(
 			'key'   => 'profile',
@@ -161,6 +174,7 @@ if ( $bn_nav_current_user ) :
 		'feed'          => 'feed',
 		'spaces'        => 'spaces',
 		'notifications' => 'notifications',
+		'messages'      => 'messages',
 	);
 	$bn_mobile_active     = isset( $bn_mobile_active_map[ $bn_nav_active ] ) ? $bn_mobile_active_map[ $bn_nav_active ] : '';
 
@@ -243,10 +257,16 @@ if ( $bn_nav_current_user ) :
 				<?php echo $bn_m_create ? 'aria-label="' . esc_attr( (string) $bn_m_item['label'] ) . '"' : ''; ?>>
 				<?php buddynext_icon( (string) ( $bn_m_item['icon'] ?? 'home' ) ); ?>
 				<?php if ( $bn_m_badge ) : ?>
-					<?php // Server-rendered count, matching the header bell + rail badges. The mobile nav has no notifications Interactivity store loaded on feed/spaces/profile, so binding to state.unreadLabel there wiped the count — the static count re-renders correctly on every hub. ?>
+					<?php
+					// Server-rendered per-slot count (Alerts + Messages), matching the
+					// header bell + rail badges. The mobile nav has no Interactivity
+					// store on feed/spaces/profile, so a static count re-renders
+					// correctly on every hub.
+					$bn_m_count = (int) ( $bn_m_item['badge_count'] ?? 0 );
+					?>
 					<span class="bn-mobile-nav__badge"
-						<?php echo 0 === $bn_unread_notifs ? 'hidden' : ''; ?>>
-						<?php echo esc_html( $bn_badge_label ); ?>
+						<?php echo 0 === $bn_m_count ? 'hidden' : ''; ?>>
+						<?php echo esc_html( $bn_m_count > 99 ? '99+' : (string) $bn_m_count ); ?>
 					</span>
 				<?php endif; ?>
 				<?php if ( ! $bn_m_create ) : ?>

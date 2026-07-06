@@ -166,6 +166,126 @@ class CronService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_verify_tokens WHERE expires_at < UTC_TIMESTAMP()" );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$this->purge_stale_unverified();
+		$this->prune_webhook_log();
+	}
+
+	/**
+	 * Prune the outbound-webhook delivery log by age.
+	 *
+	 * The log was only ever trimmed when an endpoint was deleted, so a busy site
+	 * (thousands of deliveries/hour) grew bn_outbound_webhook_log without bound.
+	 * Runs daily; keeps buddynext_webhook_log_retention_days (default 30). 0 disables.
+	 *
+	 * @return void
+	 */
+	private function prune_webhook_log(): void {
+		/**
+		 * Filter the retention window (days) for the outbound-webhook delivery log.
+		 *
+		 * @param int $days Default 30. 0 disables pruning.
+		 */
+		$days = (int) apply_filters( 'buddynext_webhook_log_retention_days', 30 );
+		if ( $days <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+		$table = $wpdb->prefix . 'bn_outbound_webhook_log';
+
+		// created_at is written in UTC, so compare against UTC_TIMESTAMP().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$table} WHERE created_at < ( UTC_TIMESTAMP() - INTERVAL %d DAY )",
+				$days
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Delete accounts that registered under email verification and never verified.
+	 *
+	 * Only accounts carrying the buddynext_verify_pending marker (set at token
+	 * creation, cleared on verify) are eligible, so members who registered before
+	 * verification was enabled are never touched. An account is deleted only when it
+	 * is past the grace window AND is not an admin AND has no content — belt and
+	 * braces on top of the posting gate. Bounded per run; the marker is cleared for
+	 * anything skipped so the batch keeps making progress.
+	 *
+	 * @return void
+	 */
+	private function purge_stale_unverified(): void {
+		if ( ! (bool) get_option( 'buddynext_email_verify', false ) ) {
+			return; // Verification not enforced — nothing to purge.
+		}
+
+		/**
+		 * Filter the grace period (days) before a never-verified account is deleted.
+		 *
+		 * @param int $days Default 7. 0 disables the purge.
+		 */
+		$days = (int) apply_filters( 'buddynext_unverified_purge_days', 7 );
+		if ( $days <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+		$cutoff = time() - ( $days * DAY_IN_SECONDS );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$wpdb->usermeta}
+				 WHERE meta_key = 'buddynext_verify_pending' AND CAST(meta_value AS UNSIGNED) < %d
+				 ORDER BY user_id ASC
+				 LIMIT 50",
+				$cutoff
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( empty( $ids ) ) {
+			return;
+		}
+
+		if ( ! function_exists( 'wp_delete_user' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/user.php';
+		}
+
+		foreach ( $ids as $raw_id ) {
+			$uid = (int) $raw_id;
+
+			// Legitimate accounts that happen to be unverified: never delete an
+			// admin, an already-verified account, or one with any content. Clear the
+			// marker so they drop out of future scans.
+			if ( user_can( $uid, 'manage_options' )
+				|| (bool) get_user_meta( $uid, 'buddynext_email_verified', true )
+				|| $this->user_has_posts( $uid ) ) {
+				delete_user_meta( $uid, 'buddynext_verify_pending' );
+				continue;
+			}
+
+			wp_delete_user( $uid );
+		}
+	}
+
+	/**
+	 * Whether a user has authored any bn_posts row.
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	private function user_has_posts( int $user_id ): bool {
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d LIMIT 1", $user_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return $count > 0;
 	}
 
 	// ── Notification pruning ──────────────────────────────────────────────────
@@ -478,7 +598,6 @@ class CronService {
 			'bn.strike_issued'          => 'A moderation action was taken on your account',
 			'bn.badge_awarded'          => 'You earned a new badge',
 			'bn.level_up'               => 'You reached a new community level',
-			'bn.jetonomy_reply'         => 'New reply to your discussion',
 		);
 
 		$items = '';

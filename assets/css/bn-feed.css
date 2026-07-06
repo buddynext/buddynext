@@ -1766,6 +1766,31 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	min-height: var(--bn-tap, 40px);
 }
 
+/* "View more comments" load-more control for long threads. */
+.bn-comment-loadmore {
+	display: block;
+	width: 100%;
+	margin-block-start: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
+	background: var(--bn-sunken);
+	border: 0;
+	border-radius: var(--bn-r-md);
+	color: var(--bn-accent);
+	font-size: var(--bn-text-sm);
+	font-weight: 600;
+	cursor: pointer;
+	min-height: var(--bn-tap, 40px);
+}
+
+.bn-comment-loadmore:hover {
+	background: var(--bn-hover, var(--bn-sunken));
+}
+
+.bn-comment-loadmore:disabled {
+	color: var(--bn-ink-2);
+	cursor: default;
+}
+
 /* Inline comment-submit error rail above the textarea. */
 .bn-comment-submit-error {
 	display: flex;

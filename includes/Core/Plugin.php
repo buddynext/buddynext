@@ -198,6 +198,7 @@ class Plugin {
 					( new \BuddyNext\Admin\RolesTab() )->register();
 					( new \BuddyNext\Admin\IntegrationControlsAdmin() )->register();
 					( new \BuddyNext\Admin\Insights() )->register();
+					( new \BuddyNext\Admin\AnnouncementsAdmin() )->register();
 					( new \BuddyNext\Admin\ModerationQueue() )->register();
 					// "BuddyNext" metabox on Appearance → Menus — add per-member
 					// account and auth links to any WordPress menu (resolved by
@@ -502,6 +503,10 @@ class Plugin {
 					( new GamificationBridgeListener() )->register();
 					// Gamification's Achievements profile tab (badge grid + standing).
 					( new \BuddyNext\Profile\GamificationAchievements() )->register();
+					// Gamification's Points tab (recent ledger + how-to-earn guide).
+					( new \BuddyNext\Profile\GamificationPoints() )->register();
+					// Gamification's Kudos tab (peer recognition: give + received).
+					( new \BuddyNext\Profile\GamificationKudos() )->register();
 				}
 				if ( buddynext_feature_enabled( 'jetonomy' ) ) {
 					( new JetonomyBridge() )->init();
@@ -736,6 +741,7 @@ class Plugin {
 		$container->bind( 'spaces', fn() => new SpaceService() );
 		$container->bind( 'space_members', fn() => new SpaceMemberService() );
 		$container->bind( 'notifications', fn() => new NotificationService() );
+		$container->bind( 'shell_nav', fn() => new \BuddyNext\Nav\ShellNavService() );
 		$container->bind( 'notification_prefs', fn() => new NotificationPrefService() );
 		$container->bind( 'notification_message', fn() => new NotificationMessageService() );
 		$container->bind( 'notification_pref_catalogue', fn() => new \BuddyNext\Notifications\NotificationPrefCatalogue() );

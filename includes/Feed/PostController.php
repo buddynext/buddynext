@@ -7,8 +7,8 @@
  *   GET    /posts/{id}      — get a post
  *   PUT    /posts/{id}      — update a post (owner only)
  *   DELETE /posts/{id}      — delete a post (owner only)
- *   POST   /posts/{id}/pin  — pin a post (owner only)
- *   DELETE /posts/{id}/pin  — unpin a post (owner only)
+ *   POST   /posts/{id}/pin  — pin a post (owner, site admin, or space moderator)
+ *   DELETE /posts/{id}/pin  — unpin a post (owner, site admin, or space moderator)
  *
  * @package BuddyNext\Feed
  */
@@ -452,10 +452,10 @@ class PostController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function pin_post( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		$gate = $this->require_cap( 'buddynext-feed/pin-post' );
-		if ( is_wp_error( $gate ) ) {
-			return $gate;
-		}
+		// Authorization is the service's job (owner, site admin, or a moderator of
+		// the post's space) — a context-less global 'moderator' cap here wrongly
+		// blocked space moderators from pinning in their own space. Same model as
+		// delete_post(): require_auth on the route, fine-grained check in the service.
 		$post_id = (int) $request->get_param( 'id' );
 		$user_id = get_current_user_id();
 		$result  = ( new PostService() )->pin( $post_id, $user_id );
@@ -475,10 +475,8 @@ class PostController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function unpin_post( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		$gate = $this->require_cap( 'buddynext-feed/pin-post' );
-		if ( is_wp_error( $gate ) ) {
-			return $gate;
-		}
+		// Authorization delegated to the service (owner / admin / space moderator),
+		// mirroring pin_post() and delete_post().
 		$post_id = (int) $request->get_param( 'id' );
 		$user_id = get_current_user_id();
 		$result  = ( new PostService() )->unpin( $post_id, $user_id );

@@ -169,4 +169,105 @@ class HashtagServiceTest extends \WP_UnitTestCase {
 		$slugs    = array_map( static fn( $t ): string => (string) ( $t['slug'] ?? '' ), $trending );
 		$this->assertContains( 'utctag', $slugs );
 	}
+
+	/**
+	 * A Unicode hashtag must survive the full round-trip: extraction keeps it,
+	 * sync stores it verbatim (not sanitize_key-mangled), and get_by_slug finds
+	 * it. Regression guard for card 10062124971 (sanitize_key stripped "#café" to
+	 * "caf" and dropped "#日本語" entirely). ASCII tags are unaffected.
+	 *
+	 * @covers \BuddyNext\Hashtags\HashtagService::normalize_slug
+	 * @covers \BuddyNext\Hashtags\HashtagService::extract
+	 * @covers \BuddyNext\Hashtags\HashtagService::sync
+	 */
+	public function test_unicode_hashtags_round_trip_intact(): void {
+		// Normalizer: Unicode-safe case fold, ASCII lowercase, junk to ''.
+		$this->assertSame( 'café', HashtagService::normalize_slug( '#CAFÉ' ) );
+		$this->assertSame( '日本語', HashtagService::normalize_slug( '#日本語' ) );
+		$this->assertSame( 'wordpress', HashtagService::normalize_slug( '#WordPress' ) );
+		$this->assertSame( '', HashtagService::normalize_slug( '#---' ) );
+
+		$slugs = $this->service->extract( 'Loving #café and #日本語 plus #wordpress' );
+		$this->assertContains( 'café', $slugs, 'Unicode accent survives extraction' );
+		$this->assertContains( '日本語', $slugs, 'CJK tag survives extraction' );
+		$this->assertContains( 'wordpress', $slugs );
+
+		$this->service->sync( 'post', 4242, $slugs );
+
+		// Stored verbatim, and resolvable by the exact Unicode slug.
+		$this->assertSame( 'café', $this->service->get_by_slug( 'café' )['slug'] ?? null );
+		$this->assertSame( '日本語', $this->service->get_by_slug( '日本語' )['slug'] ?? null );
+		// The old mangling stored "caf"; that row must NOT exist now.
+		$this->assertNull( $this->service->get_by_slug( 'caf' ), 'no truncated "caf" row is created' );
+	}
+
+	/**
+	 * list_followed() returns the user's followed tags (newest first) with
+	 * has_more paging, and follow()/unfollow() keep get_by_slug()'s follower_count
+	 * fresh (the row cache is busted on the counter change). Guards C5.5's
+	 * GET /me/hashtags + the follow-response follower_count.
+	 *
+	 * @covers \BuddyNext\Hashtags\HashtagService::list_followed
+	 * @covers \BuddyNext\Hashtags\HashtagService::follow
+	 * @covers \BuddyNext\Hashtags\HashtagService::unfollow
+	 */
+	public function test_list_followed_and_fresh_follower_count(): void {
+		$a = $this->service->register( 'follow_a' );
+		$b = $this->service->register( 'follow_b' );
+
+		// Prime the row cache with the pre-follow count (0), as a reader would.
+		$this->assertSame( 0, $this->service->get_by_slug( 'follow_a' )['follower_count'] );
+
+		$this->service->follow( $this->user_id, $a );
+		$this->service->follow( $this->user_id, $b );
+
+		// Cache must reflect the bump, not the primed 0.
+		$this->assertSame( 1, $this->service->get_by_slug( 'follow_a' )['follower_count'], 'follow busts the stale row cache' );
+
+		$followed = $this->service->list_followed( $this->user_id );
+		$slugs    = array_column( $followed['items'], 'slug' );
+		$this->assertContains( 'follow_a', $slugs );
+		$this->assertContains( 'follow_b', $slugs );
+		$this->assertFalse( $followed['has_more'] );
+
+		$this->service->unfollow( $this->user_id, $a );
+		$this->assertSame( 0, $this->service->get_by_slug( 'follow_a' )['follower_count'], 'unfollow busts the stale row cache' );
+		$this->assertNotContains( 'follow_a', array_column( $this->service->list_followed( $this->user_id )['items'], 'slug' ) );
+	}
+
+	/**
+	 * A public post inside a private/secret space must NOT appear on the public
+	 * tag page (guest), but MUST appear for a member of that space. Regression
+	 * guard for card 10062124931 (tag pages leaked private-space posts).
+	 *
+	 * @covers \BuddyNext\Hashtags\HashtagService::get_feed
+	 */
+	public function test_tag_feed_hides_private_space_posts_from_guests(): void {
+		global $wpdb;
+		$author = self::factory()->user->create();
+		$member = self::factory()->user->create();
+
+		$wpdb->insert( $wpdb->prefix . 'bn_hashtags', array( 'slug' => 'spacetag', 'post_count' => 0, 'follower_count' => 0 ) );
+		$hid = (int) $wpdb->insert_id;
+
+		$wpdb->insert( $wpdb->prefix . 'bn_spaces', array( 'name' => 'Secret', 'slug' => 'secret-s', 'type' => 'secret', 'owner_id' => $author, 'created_at' => current_time( 'mysql', true ) ) );
+		$secret = (int) $wpdb->insert_id;
+		$wpdb->insert( $wpdb->prefix . 'bn_space_members', array( 'space_id' => $secret, 'user_id' => $member, 'status' => 'active' ) );
+
+		$make = function ( int $space ) use ( $wpdb, $author, $hid ): int {
+			$wpdb->insert( $wpdb->prefix . 'bn_posts', array( 'user_id' => $author, 'content' => '#spacetag', 'type' => 'text', 'privacy' => 'public', 'status' => 'published', 'space_id' => $space, 'created_at' => current_time( 'mysql', true ) ) );
+			$pid = (int) $wpdb->insert_id;
+			$wpdb->insert( $wpdb->prefix . 'bn_post_hashtags', array( 'post_id' => $pid, 'object_type' => 'post', 'hashtag_id' => $hid, 'created_at' => current_time( 'mysql', true ) ) );
+			return $pid;
+		};
+		$open_post   = $make( 0 );
+		$secret_post = $make( $secret );
+
+		$guest_ids  = array_map( static fn( $r ): int => (int) $r['id'], $this->service->get_feed( '#spacetag', array( 'viewer_id' => 0 ) )['items'] );
+		$member_ids = array_map( static fn( $r ): int => (int) $r['id'], $this->service->get_feed( '#spacetag', array( 'viewer_id' => $member ) )['items'] );
+
+		$this->assertContains( $open_post, $guest_ids, 'non-space post is public' );
+		$this->assertNotContains( $secret_post, $guest_ids, 'secret-space post must NOT leak to guests' );
+		$this->assertContains( $secret_post, $member_ids, 'a space member still sees the post' );
+	}
 }

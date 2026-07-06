@@ -13,10 +13,27 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Admin;
 
+use BuddyNext\Admin\Settings\Field;
+use BuddyNext\Admin\Settings\Section;
+use BuddyNext\Admin\Settings\SettingsDriver;
+use BuddyNext\Admin\Settings\SettingsRegistry;
+use BuddyNext\Contracts\ProvidesSettings;
+use BuddyNext\Privacy\CookieConsentService;
+
 /**
  * Registers and renders the BuddyNext admin settings page.
  */
-class Settings extends AdminPageBase {
+class Settings extends AdminPageBase implements ProvidesSettings {
+
+	/**
+	 * Tabs whose option rows are declared via settings_fields() and rendered by
+	 * the descriptor-driven render_sections() path. Tabs not listed here keep a
+	 * bespoke render_tab_*() method (Registration, Webhooks, Features) but still
+	 * declare their options in settings_fields() for registration + search.
+	 *
+	 * @var string[]
+	 */
+	private const DESCRIPTOR_TABS = array( 'social', 'spaces', 'moderation', 'notifications', 'email', 'privacy' );
 
 	/**
 	 * Option name for the webhook shared secret.
@@ -35,122 +52,12 @@ class Settings extends AdminPageBase {
 	 */
 	private const NO_FORM_TABS = array( 'integrations' );
 
-	/**
-	 * All settings registered by this class.
-	 * Format: option_name => [ type, sanitize_callback ].
-	 *
-	 * Defaults are intentionally NOT carried here. WordPress only honours a
-	 * register_setting() 'default' for get_option() reads while the setting is
-	 * registered (admin_init), and every read site already passes its own
-	 * inline get_option( $option, $fallback ) default — so a 'default' column
-	 * here would just be a second, drift-prone copy. The inline fallbacks at
-	 * the read sites are the single source of truth.
-	 *
-	 * @var array<string, array{string, callable|string}>
-	 */
-	private const SETTINGS_MAP = array(
-		// General.
-		'buddynext_site_name'                   => array( 'string', 'sanitize_text_field' ),
-		'buddynext_brand_color'                 => array( 'string', array( self::class, 'sanitize_brand_color' ) ),
-		'buddynext_description'                 => array( 'string', 'sanitize_textarea_field' ),
-		'buddynext_public_explore'              => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_enable_dm'                   => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_default_dm_access'           => array( 'string', 'sanitize_key' ),
-		'buddynext_enable_community_nav'        => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_enable_community_rail'       => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_enable_community_mobile_nav' => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_member_dir_columns'          => array( 'string', array( self::class, 'sanitize_dir_columns' ) ),
-
-		// Registration.
-		'buddynext_reg_mode'                    => array( 'string', 'sanitize_key' ),
-		'buddynext_email_verify'                => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_reg_spam_protection'         => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_reg_challenge'               => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_reg_rate_limit'              => array( 'integer', 'absint' ),
-		// Post-login / logout / onboarding redirect destinations. Blank = built-in
-		// default (feed / home / profile); resolved + validated by RedirectSettings.
-		'buddynext_login_redirect'              => array( 'string', 'esc_url_raw' ),
-		'buddynext_logout_redirect'             => array( 'string', 'esc_url_raw' ),
-		'buddynext_onboarding_redirect'         => array( 'string', 'esc_url_raw' ),
-		// Login & sign-up split-panel branding (plug-and-play: blank falls back to site identity).
-		'buddynext_auth_panel_show'             => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_auth_panel_heading'          => array( 'string', 'sanitize_text_field' ),
-		'buddynext_auth_panel_tagline'          => array( 'string', 'sanitize_textarea_field' ),
-		'buddynext_auth_panel_quote'            => array( 'string', 'sanitize_textarea_field' ),
-		'buddynext_auth_panel_image'            => array( 'string', 'esc_url_raw' ),
-		// Terms of Service page linked from the sign-up consent line — an
-		// admin-chosen page, never a guessed slug. Privacy reuses WordPress
-		// core's own Privacy Policy page from Settings → Privacy.
-		'buddynext_terms_page_id'               => array( 'integer', 'absint' ),
-		'buddynext_allowed_domains'             => array( 'string', 'sanitize_textarea_field' ),
-
-		// Social.
-		'buddynext_default_post_privacy'        => array( 'string', 'sanitize_key' ),
-		'buddynext_allow_polls'                 => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
-		'buddynext_allow_shares'                => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
-		'buddynext_allow_bookmarks'             => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
-		'buddynext_enable_link_preview'         => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_enable_emoji_picker'         => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_feed_new_posts_indicator'    => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_post_edit_window'            => array( 'integer', 'absint' ),
-		'buddynext_connection_require_note'     => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
-
-		// Spaces.
-		'buddynext_space_creation_role'         => array( 'string', 'sanitize_key' ),
-		'buddynext_space_max_sub_spaces'        => array( 'integer', 'absint' ),
-		'buddynext_space_max_per_member'        => array( 'integer', 'absint' ),
-		'buddynext_space_allow_sub'             => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
-		'buddynext_space_default_type'          => array( 'string', 'sanitize_key' ),
-		'buddynext_space_default_category'      => array( 'integer', 'absint' ),
-		'buddynext_spaces_dir_columns'          => array( 'string', array( self::class, 'sanitize_dir_columns' ) ),
-
-		// Moderation.
-		'buddynext_auto_hide_threshold'         => array( 'integer', 'absint' ),
-		'buddynext_strike_warn_threshold'       => array( 'integer', 'absint' ),
-		'buddynext_strike_suspend_threshold'    => array( 'integer', 'absint' ),
-		'buddynext_strike_perma_ban_threshold'  => array( 'integer', 'absint' ),
-		'buddynext_mod_queue_alert_threshold'   => array( 'integer', 'absint' ),
-		'buddynext_banned_words'                => array( 'string', 'sanitize_textarea_field' ),
-		'buddynext_blocked_domains'             => array( 'string', 'sanitize_textarea_field' ),
-		'buddynext_blocked_ips'                 => array( 'string', array( self::class, 'sanitize_ip_list' ) ),
-		'buddynext_banned_hashtags'             => array( 'string', 'sanitize_textarea_field' ),
-		'buddynext_post_rate_limit'             => array( 'integer', 'absint' ),
-		'buddynext_comment_rate_limit'          => array( 'integer', 'absint' ),
-		'buddynext_new_member_post_threshold'   => array( 'integer', 'absint' ),
-		'buddynext_duplicate_post_window'       => array( 'integer', 'absint' ),
-		'buddynext_premod_mode'                 => array( 'string', 'sanitize_key' ),
-		'buddynext_premod_new_member_count'     => array( 'integer', 'absint' ),
-
-		// Notifications.
-		'buddynext_notif_default_follow'        => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_notif_default_connection'    => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_notif_default_reaction'      => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_notif_default_comment'       => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_notif_default_mention'       => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_notif_default_space_join'    => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_digest_frequency'            => array( 'string', 'sanitize_key', 'weekly' ),
-		'buddynext_admin_alert_email'           => array( 'string', 'sanitize_email' ),
-
-		// Email.
-		'buddynext_email_from_name'             => array( 'string', 'sanitize_text_field' ),
-		'buddynext_email_from_address'          => array( 'string', 'sanitize_email' ),
-		'buddynext_email_reply_to'              => array( 'string', 'sanitize_email' ),
-		'buddynext_email_footer_text'           => array( 'string', 'sanitize_textarea_field' ),
-
-		// Integrations: the Jetonomy feed toggle moved to the unified Integration
-		// Display tab (buddynext_integration_jetonomy_feed), so it is no longer a
-		// Settings-API option here.
-
-		// Privacy & Data.
-		'buddynext_google_indexing'             => array( 'string', 'sanitize_key' ),
-		'buddynext_cookie_consent'              => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_data_retention_days'         => array( 'integer', 'absint' ),
-		'buddynext_allow_data_export'           => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_allow_account_deletion'      => array( 'boolean', 'rest_sanitize_boolean', true ),
-
-		// Webhooks.
-		'buddynext_webhook_secret'              => array( 'string', 'sanitize_text_field' ),
-	);
+	// Every plain option is declared via the descriptor registry
+	// (settings_fields()) and registered by SettingsDriver — including the
+	// bespoke-rendered Registration and Webhooks tabs, whose descriptors register
+	// + index while their custom UI still renders the controls. The three array
+	// options (features, social_login, enabled_reactions) are registered
+	// explicitly in register_settings(). There is no SETTINGS_MAP any more.
 
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -160,6 +67,10 @@ class Settings extends AdminPageBase {
 	 * @return void
 	 */
 	public function register(): void {
+		// Declare this page's descriptor-driven options into the shared registry
+		// (single source for register/sanitize/save-group + the ⌘K search index).
+		SettingsRegistry::register( $this );
+
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_buddynext_apply_recommended', array( $this, 'handle_apply_recommended' ) );
@@ -267,8 +178,9 @@ class Settings extends AdminPageBase {
 	 * @return void
 	 */
 	private function render_settings_tab( string $slug ): void {
-		$method = 'render_tab_' . $slug;
-		if ( ! method_exists( $this, $method ) ) {
+		$is_descriptor = in_array( $slug, self::DESCRIPTOR_TABS, true );
+		$method        = 'render_tab_' . $slug;
+		if ( ! $is_descriptor && ! method_exists( $this, $method ) ) {
 			echo '<p>' . esc_html__( 'Unknown settings tab.', 'buddynext' ) . '</p>';
 			return;
 		}
@@ -299,7 +211,13 @@ class Settings extends AdminPageBase {
 			<?php settings_fields( 'buddynext_' . $slug ); ?>
 			<?php // Explicit referer so options.php redirects back to THIS tab after save. WP 6.7+ no longer guarantees settings_fields() emits _wp_http_referer, so without this the redirect drops ?tab= and falls back to General. ?>
 			<input type="hidden" name="_wp_http_referer" value="<?php echo esc_attr( remove_query_arg( 'settings-updated', sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) ) ); ?>">
-			<?php $this->$method(); ?>
+			<?php
+			if ( $is_descriptor ) {
+				$this->render_sections( $this->sections_for_tab( $slug ) );
+			} else {
+				$this->$method();
+			}
+			?>
 			<?php $this->render_save_bar(); ?>
 		</form>
 		<?php
@@ -645,166 +563,1218 @@ class Settings extends AdminPageBase {
 	}
 
 	/**
-	 * Which settings tab owns each option.
+	 * AdminHub section key the settings tabs render under (for tab_url()).
 	 *
-	 * Every tab registers its options under its OWN option group
-	 * ("buddynext_{tab}") and its form submits that same group, so saving one
-	 * tab only ever processes that tab's options. Previously every option shared
-	 * the single "buddynext" group, so options.php iterated all of them on every
-	 * save and null-sanitized the ones not on the active tab — silently wiping
-	 * other tabs' values. This map is the single source of truth for the
-	 * option→group assignment; a new option MUST be added to the tab that
-	 * renders it (option_group() falls back to "buddynext" for anything missing).
-	 *
-	 * @var array<string, string[]>
+	 * @return string
 	 */
-	private const TAB_OPTIONS = array(
-		'general'       => array(
-			'buddynext_site_name',
-			'buddynext_brand_color',
-			'buddynext_description',
-			'buddynext_public_explore',
-			'buddynext_enable_dm',
-			'buddynext_default_dm_access',
-			'buddynext_enable_community_nav',
-			'buddynext_enable_community_rail',
-			'buddynext_enable_community_mobile_nav',
-			'buddynext_member_dir_columns',
-			'buddynext_spaces_dir_columns',
-		),
-		'features'      => array(
-			'buddynext_features',
-		),
-		'registration'  => array(
-			'buddynext_reg_mode',
-			'buddynext_email_verify',
-			'buddynext_reg_spam_protection',
-			'buddynext_reg_challenge',
-			'buddynext_reg_rate_limit',
-			'buddynext_login_redirect',
-			'buddynext_logout_redirect',
-			'buddynext_onboarding_redirect',
-			'buddynext_auth_panel_show',
-			'buddynext_auth_panel_heading',
-			'buddynext_auth_panel_tagline',
-			'buddynext_auth_panel_quote',
-			'buddynext_auth_panel_image',
-			'buddynext_terms_page_id',
-			'buddynext_allowed_domains',
-			'buddynext_social_login',
-		),
-		'social'        => array(
-			'buddynext_default_post_privacy',
-			'buddynext_allow_polls',
-			'buddynext_allow_shares',
-			'buddynext_allow_bookmarks',
-			'buddynext_enable_link_preview',
-			'buddynext_enable_emoji_picker',
-			'buddynext_feed_new_posts_indicator',
-			'buddynext_post_edit_window',
-			'buddynext_enabled_reactions',
-			'buddynext_connection_require_note',
-		),
-		'spaces'        => array(
-			'buddynext_space_creation_role',
-			'buddynext_space_max_per_member',
-			'buddynext_space_allow_sub',
-			'buddynext_space_max_sub_spaces',
-			'buddynext_space_default_type',
-			'buddynext_space_default_category',
-		),
-		'moderation'    => array(
-			'buddynext_premod_mode',
-			'buddynext_premod_new_member_count',
-			'buddynext_banned_words',
-			'buddynext_banned_hashtags',
-			'buddynext_blocked_domains',
-			'buddynext_blocked_ips',
-			'buddynext_post_rate_limit',
-			'buddynext_comment_rate_limit',
-			'buddynext_duplicate_post_window',
-			'buddynext_new_member_post_threshold',
-			'buddynext_auto_hide_threshold',
-			'buddynext_mod_queue_alert_threshold',
-			'buddynext_strike_warn_threshold',
-			'buddynext_strike_suspend_threshold',
-			'buddynext_strike_perma_ban_threshold',
-		),
-		'notifications' => array(
-			'buddynext_notif_default_follow',
-			'buddynext_notif_default_connection',
-			'buddynext_notif_default_reaction',
-			'buddynext_notif_default_comment',
-			'buddynext_notif_default_mention',
-			'buddynext_notif_default_space_join',
-			'buddynext_digest_frequency',
-			'buddynext_admin_alert_email',
-		),
-		'email'         => array(
-			'buddynext_email_from_name',
-			'buddynext_email_from_address',
-			'buddynext_email_reply_to',
-			'buddynext_email_footer_text',
-		),
-		'privacy'       => array(
-			'buddynext_cookie_consent',
-			'buddynext_google_indexing',
-			'buddynext_allow_data_export',
-			'buddynext_allow_account_deletion',
-			'buddynext_data_retention_days',
-		),
-		// Integrations tab options moved to the unified Integration Display tab.
-		'integrations'  => array(),
-		'webhooks'      => array(
-			'buddynext_webhook_secret',
-		),
-	);
+	public function settings_page_section(): string {
+		return 'settings';
+	}
 
 	/**
-	 * Resolve the option group (settings-tab scope) an option belongs to.
+	 * Descriptor declaration for every plain option across all tabs.
 	 *
-	 * Returns "buddynext_{tab}" when the option is mapped in TAB_OPTIONS, or the
-	 * legacy "buddynext" group as a safe fallback for any unmapped option.
+	 * Single source of truth: register/sanitize, save-grouping, and the ⌘K search
+	 * index all derive from this for every option. DESCRIPTOR_TABS also render
+	 * from it; the bespoke tabs (Registration, Webhooks, Features) render their
+	 * own controls but still declare here so their options register + are found.
 	 *
-	 * @param string $option Option name.
-	 * @return string Settings group / option_page name.
+	 * @return Section[]
 	 */
-	public static function option_group( string $option ): string {
-		foreach ( self::TAB_OPTIONS as $tab => $options ) {
-			if ( in_array( $option, $options, true ) ) {
-				return 'buddynext_' . $tab;
+	public function settings_fields(): array {
+		return array_merge(
+			$this->fields_general(),
+			$this->fields_registration(),
+			$this->fields_social(),
+			$this->fields_spaces(),
+			$this->fields_moderation(),
+			$this->fields_notifications(),
+			$this->fields_email(),
+			$this->fields_privacy(),
+			$this->fields_webhooks(),
+			$this->fields_features()
+		);
+	}
+
+	/**
+	 * Privacy & Data option descriptors.
+	 *
+	 * @return Section[]
+	 */
+	private function fields_privacy(): array {
+		return array(
+			new Section(
+				'privacy',
+				__( 'Search Engine Indexing', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_google_indexing',
+							'type'    => 'select',
+							'label'   => __( 'Allow search engines to index', 'buddynext' ),
+							'default' => 'public_posts',
+							'choices' => array(
+								'all'          => __( 'Everything — public posts, profiles, and spaces', 'buddynext' ),
+								'public_posts' => __( 'Public posts only', 'buddynext' ),
+								'none'         => __( 'Nothing — noindex all community pages', 'buddynext' ),
+							),
+							'hint'    => __( 'Controls the robots meta tag on BuddyNext front-end pages. Profiles and spaces always respect their own privacy settings regardless of this setting.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'privacy',
+				__( 'Cookie Consent', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_cookie_consent',
+							'type'    => 'toggle',
+							'label'   => __( 'Show cookie consent notice', 'buddynext' ),
+							'hint'    => __( 'Display a consent banner on first visit. Required in some jurisdictions (EU/GDPR). BuddyNext itself sets only functional cookies.', 'buddynext' ),
+							'default' => false,
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_cookie_consent_text',
+							'type'    => 'textarea',
+							'label'   => __( 'Notice text', 'buddynext' ),
+							'hint'    => __( 'Wording shown in the banner. Leave blank to use the default. No effect unless the notice is turned on above.', 'buddynext' ),
+							'default' => CookieConsentService::default_message(),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_cookie_consent_accept_label',
+							'type'    => 'text',
+							'label'   => __( 'Accept button label', 'buddynext' ),
+							'hint'    => __( 'Text on the dismiss button. Leave blank for the default ("Got it").', 'buddynext' ),
+							'default' => '',
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_cookie_consent_policy_label',
+							'type'    => 'text',
+							'label'   => __( 'Privacy-policy link label', 'buddynext' ),
+							'hint'    => __( 'Text of the link to your privacy policy (shown only when a Privacy Policy page is set in Settings → Privacy). Leave blank for the default ("Privacy policy").', 'buddynext' ),
+							'default' => '',
+						)
+					),
+				)
+			),
+			new Section(
+				'privacy',
+				__( 'Data Retention', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_data_retention_days',
+							'type'    => 'number',
+							'label'   => __( 'Activity log retention (days)', 'buddynext' ),
+							'default' => 365,
+							'min'     => 0,
+							'max'     => 3650,
+							'hint'    => __( 'BuddyNext activity log entries older than this are purged automatically. Set to 0 to retain indefinitely.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'privacy',
+				__( 'Member Rights', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_allow_data_export',
+							'type'    => 'toggle',
+							'label'   => __( 'Allow members to export their data', 'buddynext' ),
+							'default' => true,
+							'hint'    => __( 'Adds a "Download my data" option on member profile settings. Generates a JSON archive of posts, reactions, and profile fields.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_allow_account_deletion',
+							'type'    => 'toggle',
+							'label'   => __( 'Allow members to delete their account', 'buddynext' ),
+							'default' => true,
+							'hint'    => __( 'Adds a "Delete account" option on member profile settings. Admins can always delete accounts regardless of this setting.', 'buddynext' ),
+						)
+					),
+				)
+			),
+		);
+	}
+
+	/**
+	 * General tab option descriptors.
+	 *
+	 * @return Section[]
+	 */
+	private function fields_general(): array {
+		$dir_cols = array(
+			'auto' => __( 'Auto (fit to width)', 'buddynext' ),
+			'2'    => __( '2 columns', 'buddynext' ),
+			'3'    => __( '3 columns', 'buddynext' ),
+			'4'    => __( '4 columns', 'buddynext' ),
+		);
+		return array(
+			new Section(
+				'general',
+				__( 'Community Identity', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'            => 'buddynext_site_name',
+							'type'           => 'text',
+							'label'          => __( 'Community Name', 'buddynext' ),
+							'hint'           => __( 'Displayed in the site header, emails, and browser title.', 'buddynext' ),
+							'value_callback' => static fn() => (string) get_option( 'buddynext_site_name', get_bloginfo( 'name' ) ),
+						)
+					),
+					new Field(
+						array(
+							'key'      => 'buddynext_brand_color',
+							'type'     => 'color',
+							'label'    => __( 'Brand color', 'buddynext' ),
+							'default'  => '#0073aa',
+							'sanitize' => array( self::class, 'sanitize_brand_color' ),
+							'hint'     => __( 'Your community accent — used for buttons, links, active tabs, and badges across every member-facing screen. Click the swatch to pick, or paste a hex code.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_description',
+							'type'  => 'textarea',
+							'label' => __( 'Community Description', 'buddynext' ),
+							'hint'  => __( 'Short description shown on the community landing page and in meta tags.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'general',
+				__( 'Discovery', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_public_explore',
+							'type'    => 'toggle',
+							'label'   => __( 'Public explore feed', 'buddynext' ),
+							'hint'    => __( 'Allow guests to browse the explore feed without logging in.', 'buddynext' ),
+							'default' => true,
+						)
+					),
+					new Field(
+						array(
+							'key'               => 'buddynext_media_single_pages',
+							'type'              => 'select',
+							'label'             => __( 'Media links', 'buddynext' ),
+							'default'           => 'activity',
+							'choices'           => array(
+								'activity'  => __( 'Open the activity it was posted in', 'buddynext' ),
+								'dedicated' => __( 'Open a dedicated media page', 'buddynext' ),
+							),
+							'disabled_callback' => static fn() => ! class_exists( 'WPMediaVerse\\Core\\Plugin' ),
+							'hint'              => __( 'Members post media as activity updates. "Open the activity" keeps every media link inside the feed: its /media/ page redirects to the post it was shared in, so media is not exposed as a separate public URL. "Open a dedicated media page" keeps a standalone page per item, for gallery-style sites.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'general',
+				__( 'Direct Messaging', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'               => 'buddynext_enable_dm',
+							'type'              => 'toggle',
+							'label'             => __( 'Enable direct messaging', 'buddynext' ),
+							'default'           => true,
+							'value_callback'    => static fn() => class_exists( 'WPMediaVerse\\Core\\Plugin' ) && (bool) get_option( 'buddynext_enable_dm', true ),
+							'disabled_callback' => static fn() => ! class_exists( 'WPMediaVerse\\Core\\Plugin' ),
+							'hint_callback'     => static fn() => class_exists( 'WPMediaVerse\\Core\\Plugin' )
+								? __( 'Allow members to send private messages. Requires the WPMediaVerse plugin.', 'buddynext' )
+								: __( 'Direct Messaging requires the WPMediaVerse plugin. Install and activate it to enable this feature.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_default_dm_access',
+							'type'    => 'select',
+							'label'   => __( 'Who can DM me (default)', 'buddynext' ),
+							'default' => 'everyone',
+							'choices' => array(
+								'everyone'    => __( 'Everyone', 'buddynext' ),
+								'members'     => __( 'Members only', 'buddynext' ),
+								'connections' => __( 'Connections only', 'buddynext' ),
+								'nobody'      => __( 'No one', 'buddynext' ),
+							),
+							'hint'    => __( 'Default privacy applied to new accounts. Members can override this in their own privacy settings.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'general',
+				__( 'Directory columns', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'      => 'buddynext_member_dir_columns',
+							'type'     => 'select',
+							'label'    => __( 'Member directory columns (desktop)', 'buddynext' ),
+							'default'  => '3',
+							'choices'  => $dir_cols,
+							'sanitize' => array( self::class, 'sanitize_dir_columns' ),
+							'hint'     => __( 'How many member cards per row on desktop. A fixed value caps the row and still steps down to fewer columns on tablet and mobile; Auto fits as many as the width allows.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'      => 'buddynext_spaces_dir_columns',
+							'type'     => 'select',
+							'label'    => __( 'Space directory columns (desktop)', 'buddynext' ),
+							'default'  => '3',
+							'choices'  => $dir_cols,
+							'sanitize' => array( self::class, 'sanitize_dir_columns' ),
+							'hint'     => __( 'How many space cards per row on desktop in the Spaces directory. A fixed value caps the row and still steps down on tablet and mobile; Auto fits as many as the width allows.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'general',
+				__( 'Community menu', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_enable_community_nav',
+							'type'    => 'toggle',
+							'label'   => __( 'Auto-place the community menu in your theme', 'buddynext' ),
+							'default' => true,
+							'hint'    => __( 'Drops the Feed / Members / Spaces menu into your theme automatically. Turn off to use your theme\'s own menu instead. To rename, reorder, or hide individual items, use the Navigation tab.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_enable_community_rail',
+							'type'    => 'toggle',
+							'label'   => __( 'Show the desktop sidebar rail', 'buddynext' ),
+							'default' => true,
+							'hint'    => __( 'The left navigation rail on desktop hub pages. Turn off to hide the desktop rail while keeping the mobile bottom bar. Only applies when community navigation (above) is on.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_enable_community_mobile_nav',
+							'type'    => 'toggle',
+							'label'   => __( 'Show the mobile bottom tab bar', 'buddynext' ),
+							'default' => true,
+							'hint'    => __( 'The bottom navigation bar on mobile hub pages. Turn off to hide the mobile bar while keeping the desktop rail. Only applies when community navigation (above) is on.', 'buddynext' ),
+						)
+					),
+				)
+			),
+		);
+	}
+
+	/**
+	 * Social tab option descriptors.
+	 *
+	 * @return Section[]
+	 */
+	private function fields_social(): array {
+		return array(
+			new Section(
+				'social',
+				__( 'Activity Feed', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_default_post_privacy',
+							'type'    => 'select',
+							'label'   => __( 'Default post visibility', 'buddynext' ),
+							'default' => 'public',
+							'choices' => array(
+								'public'      => __( 'Public', 'buddynext' ),
+								'followers'   => __( 'Followers only', 'buddynext' ),
+								'connections' => __( 'Connections only', 'buddynext' ),
+								'private'     => __( 'Only me', 'buddynext' ),
+							),
+							'hint'    => __( 'Members can override this in their own post composer.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'      => 'buddynext_allow_polls',
+							'type'     => 'toggle',
+							'label'    => __( 'Allow polls', 'buddynext' ),
+							'default'  => '1',
+							'sanitize' => array( self::class, 'sanitize_bool_flag' ),
+							'hint'     => __( 'Members can attach a poll to their posts.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'      => 'buddynext_allow_shares',
+							'type'     => 'toggle',
+							'label'    => __( 'Allow re-shares', 'buddynext' ),
+							'default'  => '1',
+							'sanitize' => array( self::class, 'sanitize_bool_flag' ),
+							'hint'     => __( 'Members can share other members\' posts to their own feed.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'      => 'buddynext_allow_bookmarks',
+							'type'     => 'toggle',
+							'label'    => __( 'Allow bookmarks', 'buddynext' ),
+							'default'  => '1',
+							'sanitize' => array( self::class, 'sanitize_bool_flag' ),
+							'hint'     => __( 'Members can save posts to a private bookmarks list.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_enable_link_preview',
+							'type'    => 'toggle',
+							'label'   => __( 'Enable link previews', 'buddynext' ),
+							'default' => true,
+							'hint'    => __( 'When a post contains a URL, fetch and display its Open Graph preview (title, image, description).', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_enable_emoji_picker',
+							'type'    => 'toggle',
+							'label'   => __( 'Enable emoji picker', 'buddynext' ),
+							'default' => true,
+							'hint'    => __( 'Show the emoji picker button in the post composer and comment editor.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_feed_new_posts_indicator',
+							'type'    => 'toggle',
+							'label'   => __( 'Show new-posts indicator', 'buddynext' ),
+							'default' => true,
+							'hint'    => __( 'Show a "new posts" pill on the activity feed when fresh posts arrive. While the feed tab is open it checks for new posts about once a minute (paused when the tab is hidden); turn this off to stop those background checks entirely. Developers can tune the cadence with the buddynext_feed_new_count_interval filter.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_post_edit_window',
+							'type'    => 'number',
+							'label'   => __( 'Post edit window (minutes)', 'buddynext' ),
+							'default' => 60,
+							'min'     => 0,
+							'hint'    => __( 'How many minutes after posting a member can edit their post. Set to 0 for no limit.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'             => 'buddynext_reactions_palette',
+							'type'            => 'custom',
+							'render_callback' => array( $this, 'render_reaction_palette' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'social',
+				__( 'Connections', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'      => 'buddynext_connection_require_note',
+							'type'     => 'toggle',
+							'label'    => __( 'Ask for a note when connecting', 'buddynext' ),
+							'default'  => '0',
+							'sanitize' => array( self::class, 'sanitize_bool_flag' ),
+							'hint'     => __( 'Off (default): one click sends the connection request, like Facebook. On: the member is asked to add a short note with their request, like LinkedIn - and that note is delivered to the recipient as a direct-message request so they can decide whether to engage before accepting.', 'buddynext' ),
+						)
+					),
+				)
+			),
+		);
+	}
+
+	/**
+	 * Render the reaction-palette control (bespoke composite, wired to the
+	 * buddynext_enabled_reactions array option). Extracted from the former
+	 * render_tab_social() so it can be a `custom` field in fields_social().
+	 *
+	 * @return void
+	 */
+	public function render_reaction_palette(): void {
+		$bn_all_reactions        = \BuddyNext\Reactions\ReactionService::REACTION_TYPES;
+		$bn_enabled_reactions    = (array) get_option( 'buddynext_enabled_reactions', $bn_all_reactions );
+		$bn_features             = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
+		$bn_reactions_on         = ! is_object( $bn_features ) || ! method_exists( $bn_features, 'is_enabled' ) || $bn_features->is_enabled( 'reactions' );
+		$bn_reaction_field_class = $bn_reactions_on ? 'bn-field bn-reaction-field' : 'bn-field bn-reaction-field is-disabled';
+		?>
+		<div class="<?php echo esc_attr( $bn_reaction_field_class ); ?>">
+			<span class="bn-tl-title"><?php esc_html_e( 'Reactions', 'buddynext' ); ?></span>
+			<span class="bn-tl-desc"><?php esc_html_e( 'Choose which reactions members can use on posts and comments. At least one is always kept.', 'buddynext' ); ?></span>
+			<?php if ( ! $bn_reactions_on ) : ?>
+				<p class="bn-field-note bn-reaction-field__off-note">
+					<?php esc_html_e( 'Reactions are turned off under Platform → Features. Enable the Reactions feature there to choose which emoji members can use.', 'buddynext' ); ?>
+				</p>
+			<?php endif; ?>
+			<div class="bn-reaction-palette">
+				<?php foreach ( $bn_all_reactions as $bn_reaction ) : ?>
+					<label class="bn-reaction-palette__item">
+						<input
+							type="checkbox"
+							name="buddynext_enabled_reactions[]"
+							value="<?php echo esc_attr( $bn_reaction ); ?>"
+							<?php checked( in_array( $bn_reaction, $bn_enabled_reactions, true ) ); ?>
+							<?php disabled( ! $bn_reactions_on ); ?>
+						>
+						<?php
+						// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService emoji markup is wp_kses'd.
+						echo \BuddyNext\Core\IconService::render_emoji( $bn_reaction, 'bn-reaction-palette__emoji' );
+						?>
+						<span><?php echo esc_html( ucfirst( $bn_reaction ) ); ?></span>
+					</label>
+				<?php endforeach; ?>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Spaces tab option descriptors.
+	 *
+	 * @return Section[]
+	 */
+	private function fields_spaces(): array {
+		return array(
+			new Section(
+				'spaces',
+				__( 'Creation & limits', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_space_creation_role',
+							'type'    => 'select',
+							'label'   => __( 'Who can create spaces', 'buddynext' ),
+							'default' => 'member',
+							'choices' => array(
+								'member' => __( 'Any member', 'buddynext' ),
+								'admin'  => __( 'Admins only', 'buddynext' ),
+							),
+							'hint'    => __( 'Restricting to admins prevents members from creating unmoderated spaces.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_space_max_per_member',
+							'type'  => 'number',
+							'label' => __( 'Max spaces per member', 'buddynext' ),
+							'min'   => 0,
+							'hint'  => __( 'Maximum number of spaces a single member can create. Set to 0 for no limit. Admins are exempt.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'      => 'buddynext_space_allow_sub',
+							'type'     => 'toggle',
+							'label'    => __( 'Allow sub-spaces', 'buddynext' ),
+							'default'  => '1',
+							'sanitize' => array( self::class, 'sanitize_bool_flag' ),
+							'hint'     => __( 'Let space owners create spaces nested inside their own. Turn off to keep every space top-level.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_space_max_sub_spaces',
+							'type'  => 'number',
+							'label' => __( 'Max sub-spaces per space', 'buddynext' ),
+							'min'   => 0,
+							'hint'  => __( 'Maximum number of sub-spaces a space owner can create inside their space. Set to 0 for no limit.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'spaces',
+				__( 'New-space defaults', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'              => 'buddynext_space_default_type',
+							'type'             => 'select',
+							'label'            => __( 'Default visibility for new spaces', 'buddynext' ),
+							'default'          => 'open',
+							'choices_callback' => static function () {
+								$type_options = array();
+								foreach ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->all() as $slug => $cfg ) {
+									$type_options[ $slug ] = (string) ( $cfg['label'] ?? ucfirst( $slug ) );
+								}
+								return $type_options;
+							},
+							'hint'             => __( 'The visibility a space starts with when created. Owners can still change it per space.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'              => 'buddynext_space_default_category',
+							'type'             => 'select',
+							'label'            => __( 'Default category for new spaces', 'buddynext' ),
+							'default'          => 0,
+							'value_callback'   => static fn() => (string) (int) get_option( 'buddynext_space_default_category', 0 ),
+							'choices_callback' => static function () {
+								$category_options = array( '0' => __( '— None —', 'buddynext' ) );
+								$spaces_service   = function_exists( 'buddynext_service' ) ? buddynext_service( 'spaces' ) : null;
+								if ( is_object( $spaces_service ) && method_exists( $spaces_service, 'get_categories' ) ) {
+									foreach ( $spaces_service->get_categories() as $cat_id => $cat_name ) {
+										$category_options[ (string) $cat_id ] = $cat_name;
+									}
+								}
+								return $category_options;
+							},
+							'hint'             => __( 'New spaces without a chosen category are filed here. Manage the list under Spaces → Directory → Categories.', 'buddynext' ),
+						)
+					),
+				)
+			),
+		);
+	}
+
+	/**
+	 * Moderation tab option descriptors.
+	 *
+	 * @return Section[]
+	 */
+	private function fields_moderation(): array {
+		return array(
+			new Section(
+				'moderation',
+				__( 'Post Approval (Pre-Moderation)', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_premod_mode',
+							'type'    => 'select',
+							'label'   => __( 'Hold posts for approval', 'buddynext' ),
+							'default' => 'off',
+							'choices' => array(
+								'off'         => __( 'Off — every member posts instantly (recommended)', 'buddynext' ),
+								'new_members' => __( 'New members only — hold their first posts until approved', 'buddynext' ),
+								'links'       => __( 'Posts with links — hold anything containing a URL', 'buddynext' ),
+								'all'         => __( 'Everything — hold every post until a moderator approves', 'buddynext' ),
+							),
+							'hint'    => __( 'Held posts wait in the Moderation > Pending queue and never appear in feeds until approved. Off by default — a community grows by welcoming people, so only turn this up if you start seeing spam. Admins and moderators are never held.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_premod_new_member_count',
+							'type'    => 'number',
+							'label'   => __( 'New-member posts to review', 'buddynext' ),
+							'default' => 1,
+							'min'     => 1,
+							'hint'    => __( 'When holding "New members only", review this many of a member\'s first posts before they post freely. Used only by the New members mode.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'moderation',
+				__( 'Auto-Moderation Thresholds', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_auto_hide_threshold',
+							'type'    => 'number',
+							'label'   => __( 'Auto-hide after N reports', 'buddynext' ),
+							'default' => 5,
+							'min'     => 1,
+							'hint'    => __( 'Content is hidden automatically once it reaches this number of reports. Reviewable in the moderation queue.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_mod_queue_alert_threshold',
+							'type'    => 'number',
+							'label'   => __( 'Queue alert threshold', 'buddynext' ),
+							'default' => 20,
+							'min'     => 0,
+							'hint'    => __( 'Send a daily email to admins when the moderation queue exceeds this many unreviewed items. Set to 0 to disable.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'moderation',
+				__( 'Strike System', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_strike_warn_threshold',
+							'type'    => 'number',
+							'label'   => __( 'Strikes before warning', 'buddynext' ),
+							'default' => 2,
+							'min'     => 1,
+							'hint'    => __( 'A warning email is sent to the member after this many active strikes.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_strike_suspend_threshold',
+							'type'    => 'number',
+							'label'   => __( 'Strikes before suspension', 'buddynext' ),
+							'default' => 5,
+							'min'     => 1,
+							'hint'    => __( 'The member is automatically suspended after this many active strikes.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_strike_perma_ban_threshold',
+							'type'    => 'number',
+							'label'   => __( 'Strikes before permanent ban', 'buddynext' ),
+							'default' => 0,
+							'min'     => 0,
+							'hint'    => __( 'The member is permanently banned after this many lifetime strikes. Set to 0 to disable automatic permanent bans.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'moderation',
+				__( 'Content Safeguards', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'   => 'buddynext_banned_words',
+							'type'  => 'textarea',
+							'label' => __( 'Banned words', 'buddynext' ),
+							'hint'  => __( 'One word or phrase per line. Posts containing any of these are rejected. Case-insensitive substring match.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_banned_hashtags',
+							'type'  => 'textarea',
+							'label' => __( 'Banned hashtags', 'buddynext' ),
+							'hint'  => __( 'One hashtag per line (without the # sign). Posts using these tags are rejected.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_blocked_domains',
+							'type'  => 'textarea',
+							'label' => __( 'Blocked link domains', 'buddynext' ),
+							'hint'  => __( 'One domain per line (e.g. spam.example.com). Posts linking to these domains are rejected.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'      => 'buddynext_blocked_ips',
+							'type'     => 'textarea',
+							'label'    => __( 'Blocked IP addresses', 'buddynext' ),
+							'sanitize' => array( self::class, 'sanitize_ip_list' ),
+							'hint'     => __( 'One IP address per line (IPv4 or IPv6). Members posting or commenting from these addresses are blocked. Invalid entries are dropped on save.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_post_rate_limit',
+							'type'    => 'number',
+							'label'   => __( 'Post rate limit (per minute)', 'buddynext' ),
+							'default' => 10,
+							'min'     => 0,
+							'hint'    => __( 'Maximum number of posts a member can create per minute. Set to 0 to disable rate limiting.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_comment_rate_limit',
+							'type'    => 'number',
+							'label'   => __( 'Comment rate limit (per minute)', 'buddynext' ),
+							'default' => 30,
+							'min'     => 0,
+							'hint'    => __( 'Maximum number of comments a member can post per minute. Set to 0 to disable rate limiting.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_duplicate_post_window',
+							'type'    => 'number',
+							'label'   => __( 'Duplicate post window (minutes)', 'buddynext' ),
+							'default' => 0,
+							'min'     => 0,
+							'hint'    => __( 'Hold a post for review when the member has already posted identical content within this many minutes. Set to 0 to disable.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_new_member_post_threshold',
+							'type'    => 'number',
+							'label'   => __( 'New member review threshold', 'buddynext' ),
+							'default' => 0,
+							'min'     => 0,
+							'hint'    => __( 'Posts by members with fewer than this many published posts are held for review. Set to 0 to disable.', 'buddynext' ),
+						)
+					),
+				)
+			),
+		);
+	}
+
+	/**
+	 * Notifications tab option descriptors.
+	 *
+	 * @return Section[]
+	 */
+	private function fields_notifications(): array {
+		return array(
+			new Section(
+				'notifications',
+				__( 'Default Notification Preferences', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_notif_default_follow',
+							'type'    => 'toggle',
+							'label'   => __( 'New follower', 'buddynext' ),
+							'default' => true,
+							'hint'    => __( 'Notify users by default when someone follows them.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_notif_default_connection',
+							'type'    => 'toggle',
+							'label'   => __( 'Connection request', 'buddynext' ),
+							'default' => true,
+							'hint'    => __( 'Notify users by default when they receive a connection request.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_notif_default_reaction',
+							'type'    => 'toggle',
+							'label'   => __( 'Reaction on post', 'buddynext' ),
+							'default' => true,
+							'hint'    => __( 'Notify users by default when someone reacts to their post.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_notif_default_comment',
+							'type'    => 'toggle',
+							'label'   => __( 'Comment on post', 'buddynext' ),
+							'default' => true,
+							'hint'    => __( 'Notify users by default when someone comments on their post.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_notif_default_mention',
+							'type'    => 'toggle',
+							'label'   => __( '@mention in post or comment', 'buddynext' ),
+							'default' => true,
+							'hint'    => __( 'Notify users by default when they are mentioned.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_notif_default_space_join',
+							'type'    => 'toggle',
+							'label'   => __( 'New space member', 'buddynext' ),
+							'default' => true,
+							'hint'    => __( 'Notify space owners by default when someone joins their space.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'notifications',
+				__( 'Email Digest', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_digest_frequency',
+							'type'    => 'select',
+							'label'   => __( 'Digest frequency', 'buddynext' ),
+							'default' => 'weekly',
+							'choices' => array(
+								'never'  => __( 'Disabled — no digest emails', 'buddynext' ),
+								'daily'  => __( 'Daily', 'buddynext' ),
+								'weekly' => __( 'Weekly', 'buddynext' ),
+							),
+							'hint'    => __( 'How often BuddyNext sends a digest of unread notifications. Individual users can opt out.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'notifications',
+				__( 'Admin Alerts', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'            => 'buddynext_admin_alert_email',
+							'type'           => 'text',
+							'label'          => __( 'Admin alert email', 'buddynext' ),
+							'sanitize'       => 'sanitize_email',
+							'value_callback' => static fn() => (string) get_option( 'buddynext_admin_alert_email', get_option( 'admin_email', '' ) ),
+							'hint'           => __( 'Receives daily alerts when the moderation queue or pending registration count is high. Defaults to WordPress admin email.', 'buddynext' ),
+						)
+					),
+				)
+			),
+		);
+	}
+
+	/**
+	 * Email tab option descriptors.
+	 *
+	 * @return Section[]
+	 */
+	private function fields_email(): array {
+		return array(
+			new Section(
+				'email',
+				__( 'Sender Identity', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'            => 'buddynext_email_from_name',
+							'type'           => 'text',
+							'label'          => __( 'From name', 'buddynext' ),
+							'value_callback' => static fn() => \BuddyNext\Notifications\EmailSender::from_name(),
+							'hint'           => __( 'Display name shown in the "From:" field of all community emails. Defaults to your site name.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'            => 'buddynext_email_from_address',
+							'type'           => 'text',
+							'label'          => __( 'From address', 'buddynext' ),
+							'sanitize'       => 'sanitize_email',
+							'value_callback' => static fn() => \BuddyNext\Notifications\EmailSender::from_address(),
+							'hint'           => __( 'Sending address for all BuddyNext system emails. Defaults to your admin email; use a verified domain for best deliverability.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'      => 'buddynext_email_reply_to',
+							'type'     => 'text',
+							'label'    => __( 'Reply-To address', 'buddynext' ),
+							'sanitize' => 'sanitize_email',
+							'hint'     => __( 'Optional. If set, replies to community emails go here instead of the From address. Applied to every BuddyNext email.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'email',
+				__( 'Email Footer', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'   => 'buddynext_email_footer_text',
+							'type'  => 'textarea',
+							'label' => __( 'Footer text', 'buddynext' ),
+							'hint'  => __( 'Appended to the bottom of every BuddyNext email. Plain text, plus the placeholders {{site_name}}, {{site_url}}, and {{current_year}}.', 'buddynext' ),
+						)
+					),
+				)
+			),
+		);
+	}
+
+	/**
+	 * Registration tab option descriptors.
+	 *
+	 * The Registration tab keeps its bespoke render_tab_registration() (conditional
+	 * email-verify UI, social-login credential cards, legal-page info block), so
+	 * these descriptors exist to register + index its options only — never set a
+	 * registered default here, so the bespoke render's inline get_option()
+	 * fallbacks (some dynamic) are preserved exactly.
+	 *
+	 * @return Section[]
+	 */
+	private function fields_registration(): array {
+		return array(
+			new Section(
+				'registration',
+				__( 'Registration Settings', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'   => 'buddynext_reg_mode',
+							'type'  => 'select',
+							'label' => __( 'Registration Mode', 'buddynext' ),
+							'hint'  => __( 'Controls who can create a new account on your community.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_email_verify',
+							'type'  => 'toggle',
+							'label' => __( 'Require email verification', 'buddynext' ),
+							'hint'  => __( 'New registrations must verify their email before accessing the community.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'registration',
+				__( 'Login &amp; Sign-up Panel', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'   => 'buddynext_auth_panel_show',
+							'type'  => 'toggle',
+							'label' => __( 'Show the branding panel', 'buddynext' ),
+							'hint'  => __( 'Displays a branded side panel next to the login and sign-up forms.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_auth_panel_heading',
+							'type'  => 'text',
+							'label' => __( 'Panel heading', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_auth_panel_tagline',
+							'type'  => 'textarea',
+							'label' => __( 'Panel tagline', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_auth_panel_quote',
+							'type'  => 'textarea',
+							'label' => __( 'Featured quote', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_auth_panel_image',
+							'type'  => 'url',
+							'label' => __( 'Panel banner image URL', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'registration',
+				__( 'Legal Pages', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'      => 'buddynext_terms_page_id',
+							'type'     => 'select',
+							'label'    => __( 'Terms of Service page', 'buddynext' ),
+							'sanitize' => 'absint',
+							'hint'     => __( 'Linked from the sign-up consent line.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'registration',
+				__( 'Spam &amp; Abuse Protection', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'   => 'buddynext_reg_spam_protection',
+							'type'  => 'toggle',
+							'label' => __( 'Protect the sign-up form', 'buddynext' ),
+							'hint'  => __( 'In-house rate limit, honeypot, and time-trap. On by default.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_reg_challenge',
+							'type'  => 'toggle',
+							'label' => __( 'Show a human-verification question', 'buddynext' ),
+							'hint'  => __( 'Adds an accessible verification question to the sign-up form.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_reg_rate_limit',
+							'type'  => 'number',
+							'label' => __( 'Sign-ups per hour per IP', 'buddynext' ),
+							'min'   => 0,
+							'max'   => 100,
+							'hint'  => __( 'Maximum sign-up attempts from one IP per hour. 0 disables the limit.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'registration',
+				__( 'Access Restrictions', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'   => 'buddynext_allowed_domains',
+							'type'  => 'textarea',
+							'label' => __( 'Allowed email domains', 'buddynext' ),
+							'hint'  => __( 'One domain per line. When set, only these domains can register.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'registration',
+				__( 'Redirects', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'   => 'buddynext_login_redirect',
+							'type'  => 'url',
+							'label' => __( 'After login', 'buddynext' ),
+							'hint'  => __( 'Where members go after logging in. Blank = activity feed.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_logout_redirect',
+							'type'  => 'url',
+							'label' => __( 'After logout', 'buddynext' ),
+							'hint'  => __( 'Where members go after logging out. Blank = site home.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_onboarding_redirect',
+							'type'  => 'url',
+							'label' => __( 'After onboarding', 'buddynext' ),
+							'hint'  => __( 'Where new members go after onboarding. Blank = their profile.', 'buddynext' ),
+						)
+					),
+				)
+			),
+			new Section(
+				'registration',
+				__( 'Social Login', 'buddynext' ),
+				array(
+					// Index-only pointer: the social-login provider cards are bespoke,
+					// and buddynext_social_login is registered explicitly as an array
+					// option. This readonly entry just makes "Social Login" findable.
+					new Field(
+						array(
+							'key'   => 'buddynext_social_login',
+							'type'  => 'readonly',
+							'label' => __( 'Social Login', 'buddynext' ),
+							'hint'  => __( 'Sign in with Google, Facebook, and more.', 'buddynext' ),
+						)
+					),
+				)
+			),
+		);
+	}
+
+	/**
+	 * Webhooks tab option descriptors.
+	 *
+	 * The secret keeps its bespoke reveal/copy/generate control in
+	 * render_tab_webhooks(); this descriptor registers + indexes it only.
+	 *
+	 * @return Section[]
+	 */
+	private function fields_webhooks(): array {
+		return array(
+			new Section(
+				'webhooks',
+				__( 'Webhook Secret', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'   => self::OPTION_WEBHOOK_SECRET,
+							'type'  => 'secret',
+							'label' => __( 'Shared Secret', 'buddynext' ),
+							'hint'  => __( 'Signs outgoing webhooks and verifies inbound access requests.', 'buddynext' ),
+						)
+					),
+				)
+			),
+		);
+	}
+
+	/**
+	 * Features tab search pointers — one index-only entry per feature.
+	 *
+	 * Features are stored in the single buddynext_features array option and
+	 * rendered bespoke; these readonly descriptors make each feature findable by
+	 * name in ⌘K. Not registered (readonly) and not rendered (Features is not a
+	 * DESCRIPTOR_TAB). Returns empty if the feature service is unavailable.
+	 *
+	 * @return Section[]
+	 */
+	private function fields_features(): array {
+		$registry = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
+		if ( ! is_object( $registry ) || ! method_exists( $registry, 'by_group' ) ) {
+			return array();
+		}
+		$fields = array();
+		foreach ( $registry->by_group() as $features ) {
+			foreach ( (array) $features as $feature ) {
+				$slug  = isset( $feature['slug'] ) ? (string) $feature['slug'] : '';
+				$label = isset( $feature['label'] ) ? (string) $feature['label'] : '';
+				if ( '' === $slug || '' === $label ) {
+					continue;
+				}
+				$fields[] = new Field(
+					array(
+						'key'   => 'buddynext_feature_' . $slug,
+						'type'  => 'readonly',
+						'label' => $label,
+						'hint'  => isset( $feature['description'] ) ? (string) $feature['description'] : '',
+					)
+				);
 			}
 		}
+		return array( new Section( 'features', __( 'Features', 'buddynext' ), $fields ) );
+	}
 
-		return 'buddynext';
+	/**
+	 * Sections declared for a single tab.
+	 *
+	 * @param string $tab Tab slug.
+	 * @return Section[]
+	 */
+	private function sections_for_tab( string $tab ): array {
+		return array_values(
+			array_filter(
+				$this->settings_fields(),
+				static fn( Section $section ) => $section->tab === $tab
+			)
+		);
 	}
 
 	/**
 	 * Register all settings with the WordPress Settings API.
 	 *
-	 * Each option is registered under its tab's own group (see TAB_OPTIONS) so a
-	 * save only touches the active tab's options. Registering here also ensures
-	 * the sanitize_callback runs on save even though rendering is manual.
+	 * Every plain option is derived from settings_fields() by SettingsDriver and
+	 * registered under its tab's own group (buddynext_{tab}) so a save only
+	 * touches the active tab's options. The three array options are registered
+	 * explicitly below. Registering here also ensures the sanitize_callback runs
+	 * on save even though bespoke tabs render their controls manually.
 	 *
 	 * @return void
 	 */
 	public function register_settings(): void {
-		foreach ( self::SETTINGS_MAP as $option => $config ) {
-			list( $type, $sanitize ) = $config;
-			$args                    = array(
-				'type'              => $type,
-				'sanitize_callback' => $sanitize,
-			);
-			// Optional 3rd element = registered default. Required for default-ON
-			// booleans that are not seeded with a DB row: without a registered
-			// default, saving the option OFF equals WP's absent-default (false),
-			// so update_option() no-ops, the row is never written, and the toggle
-			// reverts to ON on the next load.
-			if ( array_key_exists( 2, $config ) ) {
-				$args['default'] = $config[2];
-			}
-			register_setting( self::option_group( $option ), $option, $args );
-		}
+		// Every plain option (all tabs, incl. the bespoke-rendered Registration
+		// and Webhooks) is declared in settings_fields() and registered here from
+		// those descriptors. The three array options below are registered
+		// explicitly because they carry bespoke composite UI.
+		SettingsDriver::register_page( $this, 'buddynext' );
 
 		// FeatureRegistry catalog persisted as a single map of slug=>bool.
 		// Mandatory features are filtered out by the registry; only
@@ -1004,7 +1974,13 @@ class Settings extends AdminPageBase {
 			<?php settings_fields( 'buddynext_' . $active_tab ); ?>
 			<?php // Explicit referer so options.php redirects back to THIS tab after save (WP 6.7+ may not emit _wp_http_referer via settings_fields()). ?>
 			<input type="hidden" name="_wp_http_referer" value="<?php echo esc_attr( remove_query_arg( 'settings-updated', sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) ) ); ?>">
-			<?php $this->{'render_tab_' . $active_tab}(); ?>
+			<?php
+			if ( in_array( $active_tab, self::DESCRIPTOR_TABS, true ) ) {
+				$this->render_sections( $this->sections_for_tab( $active_tab ) );
+			} else {
+				$this->{'render_tab_' . $active_tab}();
+			}
+			?>
 			<?php $this->render_save_bar(); ?>
 		</form>
 		<?php
@@ -1019,128 +1995,13 @@ class Settings extends AdminPageBase {
 	 * @return void
 	 */
 	private function render_tab_general(): void {
+		// General keeps a thin bespoke wrapper only for the one-time "recommended
+		// settings" prompt banner above the form; every option row is declared in
+		// fields_general() and rendered from descriptors (deep-link anchors + one
+		// source of truth). enable_dm's dynamic hint / disabled state is carried
+		// by the field's hint_callback + disabled_callback.
 		$this->render_recommended_prompt();
-
-		$this->open_section( __( 'Community Identity', 'buddynext' ) );
-
-		$this->render_text_row(
-			'buddynext_site_name',
-			__( 'Community Name', 'buddynext' ),
-			(string) get_option( 'buddynext_site_name', get_bloginfo( 'name' ) ),
-			__( 'Displayed in the site header, emails, and browser title.', 'buddynext' ),
-			360
-		);
-
-		$this->render_color_row(
-			'buddynext_brand_color',
-			__( 'Brand color', 'buddynext' ),
-			(string) get_option( 'buddynext_brand_color', '#0073aa' ),
-			__( 'Your community accent — used for buttons, links, active tabs, and badges across every member-facing screen. Click the swatch to pick, or paste a hex code.', 'buddynext' )
-		);
-
-		$this->render_textarea_row(
-			'buddynext_description',
-			__( 'Community Description', 'buddynext' ),
-			(string) get_option( 'buddynext_description', '' ),
-			__( 'Short description shown on the community landing page and in meta tags.', 'buddynext' ),
-			3,
-			540
-		);
-
-		$this->close_section();
-
-		$this->open_section( __( 'Discovery', 'buddynext' ) );
-
-		$this->render_toggle_row(
-			'buddynext_public_explore',
-			__( 'Public explore feed', 'buddynext' ),
-			__( 'Allow guests to browse the explore feed without logging in.', 'buddynext' ),
-			(bool) get_option( 'buddynext_public_explore', true )
-		);
-
-		$this->close_section();
-
-		$this->open_section( __( 'Direct Messaging', 'buddynext' ) );
-
-		// Direct messaging runs on the WPMediaVerse engine — gate the toggle when
-		// it is not active so owners can't enable a feature that can't function.
-		$bn_dm_available = class_exists( 'WPMediaVerse\\Core\\Plugin' );
-		$this->render_toggle_row(
-			'buddynext_enable_dm',
-			__( 'Enable direct messaging', 'buddynext' ),
-			$bn_dm_available
-				? __( 'Allow members to send private messages. Requires the WPMediaVerse plugin.', 'buddynext' )
-				: __( 'Direct Messaging requires the WPMediaVerse plugin. Install and activate it to enable this feature.', 'buddynext' ),
-			$bn_dm_available && (bool) get_option( 'buddynext_enable_dm', true ),
-			! $bn_dm_available
-		);
-
-		$this->render_select_row(
-			'buddynext_default_dm_access',
-			__( 'Who can DM me (default)', 'buddynext' ),
-			(string) get_option( 'buddynext_default_dm_access', 'everyone' ),
-			array(
-				'everyone'    => __( 'Everyone', 'buddynext' ),
-				'members'     => __( 'Members only', 'buddynext' ),
-				'connections' => __( 'Connections only', 'buddynext' ),
-				'nobody'      => __( 'No one', 'buddynext' ),
-			),
-			__( 'Default privacy applied to new accounts. Members can override this in their own privacy settings.', 'buddynext' )
-		);
-
-		$this->close_section();
-
-		$this->open_section( __( 'Directory columns', 'buddynext' ) );
-
-		$bn_dir_col_choices = array(
-			'auto' => __( 'Auto (fit to width)', 'buddynext' ),
-			'2'    => __( '2 columns', 'buddynext' ),
-			'3'    => __( '3 columns', 'buddynext' ),
-			'4'    => __( '4 columns', 'buddynext' ),
-		);
-
-		$this->render_select_row(
-			'buddynext_member_dir_columns',
-			__( 'Member directory columns (desktop)', 'buddynext' ),
-			(string) get_option( 'buddynext_member_dir_columns', '3' ),
-			$bn_dir_col_choices,
-			__( 'How many member cards per row on desktop. A fixed value caps the row and still steps down to fewer columns on tablet and mobile; Auto fits as many as the width allows.', 'buddynext' )
-		);
-
-		$this->render_select_row(
-			'buddynext_spaces_dir_columns',
-			__( 'Space directory columns (desktop)', 'buddynext' ),
-			(string) get_option( 'buddynext_spaces_dir_columns', '3' ),
-			$bn_dir_col_choices,
-			__( 'How many space cards per row on desktop in the Spaces directory. A fixed value caps the row and still steps down on tablet and mobile; Auto fits as many as the width allows.', 'buddynext' )
-		);
-
-		$this->close_section();
-
-		$this->open_section( __( 'Community menu', 'buddynext' ) );
-
-		$this->render_toggle_row(
-			'buddynext_enable_community_nav',
-			__( 'Auto-place the community menu in your theme', 'buddynext' ),
-			__( 'Drops the Feed / Members / Spaces menu into your theme automatically. Turn off to use your theme\'s own menu instead. To rename, reorder, or hide individual items, use the Navigation tab.', 'buddynext' ),
-			(bool) get_option( 'buddynext_enable_community_nav', true )
-		);
-
-		$this->render_toggle_row(
-			'buddynext_enable_community_rail',
-			__( 'Show the desktop sidebar rail', 'buddynext' ),
-			__( 'The left navigation rail on desktop hub pages. Turn off to hide the desktop rail while keeping the mobile bottom bar. Only applies when community navigation (above) is on.', 'buddynext' ),
-			(bool) get_option( 'buddynext_enable_community_rail', true )
-		);
-
-		$this->render_toggle_row(
-			'buddynext_enable_community_mobile_nav',
-			__( 'Show the mobile bottom tab bar', 'buddynext' ),
-			__( 'The bottom navigation bar on mobile hub pages. Turn off to hide the mobile bar while keeping the desktop rail. Only applies when community navigation (above) is on.', 'buddynext' ),
-			(bool) get_option( 'buddynext_enable_community_mobile_nav', true )
-		);
-
-		$this->close_section();
+		$this->render_sections( $this->sections_for_tab( 'general' ) );
 	}
 
 	/**
@@ -1632,578 +2493,6 @@ class Settings extends AdminPageBase {
 	}
 
 	/**
-	 * Render the Social settings tab.
-	 *
-	 * @return void
-	 */
-	private function render_tab_social(): void {
-		$this->open_section( __( 'Activity Feed', 'buddynext' ) );
-
-		$this->render_select_row(
-			'buddynext_default_post_privacy',
-			__( 'Default post visibility', 'buddynext' ),
-			(string) get_option( 'buddynext_default_post_privacy', 'public' ),
-			array(
-				'public'      => __( 'Public', 'buddynext' ),
-				'followers'   => __( 'Followers only', 'buddynext' ),
-				'connections' => __( 'Connections only', 'buddynext' ),
-				'private'     => __( 'Only me', 'buddynext' ),
-			),
-			__( 'Members can override this in their own post composer.', 'buddynext' )
-		);
-
-		$this->render_toggle_row(
-			'buddynext_allow_polls',
-			__( 'Allow polls', 'buddynext' ),
-			__( 'Members can attach a poll to their posts.', 'buddynext' ),
-			'0' !== (string) get_option( 'buddynext_allow_polls', '1' )
-		);
-
-		$this->render_toggle_row(
-			'buddynext_allow_shares',
-			__( 'Allow re-shares', 'buddynext' ),
-			__( 'Members can share other members\' posts to their own feed.', 'buddynext' ),
-			'0' !== (string) get_option( 'buddynext_allow_shares', '1' )
-		);
-
-		$this->render_toggle_row(
-			'buddynext_allow_bookmarks',
-			__( 'Allow bookmarks', 'buddynext' ),
-			__( 'Members can save posts to a private bookmarks list.', 'buddynext' ),
-			'0' !== (string) get_option( 'buddynext_allow_bookmarks', '1' )
-		);
-
-		$this->render_toggle_row(
-			'buddynext_enable_link_preview',
-			__( 'Enable link previews', 'buddynext' ),
-			__( 'When a post contains a URL, fetch and display its Open Graph preview (title, image, description).', 'buddynext' ),
-			(bool) get_option( 'buddynext_enable_link_preview', true )
-		);
-
-		$this->render_toggle_row(
-			'buddynext_enable_emoji_picker',
-			__( 'Enable emoji picker', 'buddynext' ),
-			__( 'Show the emoji picker button in the post composer and comment editor.', 'buddynext' ),
-			(bool) get_option( 'buddynext_enable_emoji_picker', true )
-		);
-
-		$this->render_toggle_row(
-			'buddynext_feed_new_posts_indicator',
-			__( 'Show new-posts indicator', 'buddynext' ),
-			__( 'Show a "new posts" pill on the activity feed when fresh posts arrive. While the feed tab is open it checks for new posts about once a minute (paused when the tab is hidden); turn this off to stop those background checks entirely. Developers can tune the cadence with the buddynext_feed_new_count_interval filter.', 'buddynext' ),
-			(bool) get_option( 'buddynext_feed_new_posts_indicator', true )
-		);
-
-		$this->render_number_row(
-			'buddynext_post_edit_window',
-			__( 'Post edit window (minutes)', 'buddynext' ),
-			(int) get_option( 'buddynext_post_edit_window', 60 ),
-			__( 'How many minutes after posting a member can edit their post. Set to 0 for no limit.', 'buddynext' ),
-			0
-		);
-
-		// Reaction palette — which of the canonical reactions members may use.
-		// This "which six emoji" control only has meaning while the Reactions
-		// feature itself is enabled (Settings → Features). When that master toggle
-		// is off, the whole reaction surface is removed front-end + REST, so the
-		// palette is disabled here with a pointer to the feature toggle.
-		$bn_all_reactions        = \BuddyNext\Reactions\ReactionService::REACTION_TYPES;
-		$bn_enabled_reactions    = (array) get_option( 'buddynext_enabled_reactions', $bn_all_reactions );
-		$bn_features             = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
-		$bn_reactions_on         = ! is_object( $bn_features ) || ! method_exists( $bn_features, 'is_enabled' ) || $bn_features->is_enabled( 'reactions' );
-		$bn_reaction_field_class = $bn_reactions_on ? 'bn-field bn-reaction-field' : 'bn-field bn-reaction-field is-disabled';
-		?>
-		<div class="<?php echo esc_attr( $bn_reaction_field_class ); ?>">
-			<span class="bn-tl-title"><?php esc_html_e( 'Reactions', 'buddynext' ); ?></span>
-			<span class="bn-tl-desc"><?php esc_html_e( 'Choose which reactions members can use on posts and comments. At least one is always kept.', 'buddynext' ); ?></span>
-			<?php if ( ! $bn_reactions_on ) : ?>
-				<p class="bn-field-note bn-reaction-field__off-note">
-					<?php esc_html_e( 'Reactions are turned off under Platform → Features. Enable the Reactions feature there to choose which emoji members can use.', 'buddynext' ); ?>
-				</p>
-			<?php endif; ?>
-			<div class="bn-reaction-palette">
-				<?php foreach ( $bn_all_reactions as $bn_reaction ) : ?>
-					<label class="bn-reaction-palette__item">
-						<input
-							type="checkbox"
-							name="buddynext_enabled_reactions[]"
-							value="<?php echo esc_attr( $bn_reaction ); ?>"
-							<?php checked( in_array( $bn_reaction, $bn_enabled_reactions, true ) ); ?>
-							<?php disabled( ! $bn_reactions_on ); ?>
-						>
-						<?php
-						// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService emoji markup is wp_kses'd.
-						echo \BuddyNext\Core\IconService::render_emoji( $bn_reaction, 'bn-reaction-palette__emoji' );
-						?>
-						<span><?php echo esc_html( ucfirst( $bn_reaction ) ); ?></span>
-					</label>
-				<?php endforeach; ?>
-			</div>
-		</div>
-		<?php
-
-		$this->close_section();
-
-		// ── Connections ────────────────────────────────────────────────────
-		$this->open_section( __( 'Connections', 'buddynext' ) );
-
-		$this->render_toggle_row(
-			'buddynext_connection_require_note',
-			__( 'Ask for a note when connecting', 'buddynext' ),
-			__( 'Off (default): one click sends the connection request, like Facebook. On: the member is asked to add a short note with their request, like LinkedIn - and that note is delivered to the recipient as a direct-message request so they can decide whether to engage before accepting.', 'buddynext' ),
-			'1' === (string) get_option( 'buddynext_connection_require_note', '0' )
-		);
-
-		$this->close_section();
-	}
-
-	/**
-	 * Render the Spaces settings tab.
-	 *
-	 * @return void
-	 */
-	private function render_tab_spaces(): void {
-		// ── Creation & limits ──────────────────────────────────────────────
-		$this->open_section( __( 'Creation & limits', 'buddynext' ) );
-
-		// The on/off switch for the Spaces hub lives on the Features tab
-		// (FeatureRegistry 'spaces'), which is the single source of truth and
-		// already route-guards the hub. No duplicate toggle here.
-		$this->render_select_row(
-			'buddynext_space_creation_role',
-			__( 'Who can create spaces', 'buddynext' ),
-			(string) get_option( 'buddynext_space_creation_role', 'member' ),
-			array(
-				'member' => __( 'Any member', 'buddynext' ),
-				'admin'  => __( 'Admins only', 'buddynext' ),
-			),
-			__( 'Restricting to admins prevents members from creating unmoderated spaces.', 'buddynext' )
-		);
-
-		$this->render_number_row(
-			'buddynext_space_max_per_member',
-			__( 'Max spaces per member', 'buddynext' ),
-			(int) get_option( 'buddynext_space_max_per_member', 0 ),
-			__( 'Maximum number of spaces a single member can create. Set to 0 for no limit. Admins are exempt.', 'buddynext' ),
-			0
-		);
-
-		$this->render_toggle_row(
-			'buddynext_space_allow_sub',
-			__( 'Allow sub-spaces', 'buddynext' ),
-			__( 'Let space owners create spaces nested inside their own. Turn off to keep every space top-level.', 'buddynext' ),
-			'0' !== (string) get_option( 'buddynext_space_allow_sub', '1' )
-		);
-
-		$this->render_number_row(
-			'buddynext_space_max_sub_spaces',
-			__( 'Max sub-spaces per space', 'buddynext' ),
-			(int) get_option( 'buddynext_space_max_sub_spaces', 0 ),
-			__( 'Maximum number of sub-spaces a space owner can create inside their space. Set to 0 for no limit.', 'buddynext' ),
-			0
-		);
-
-		$this->close_section();
-
-		// ── New-space defaults ─────────────────────────────────────────────
-		$this->open_section( __( 'New-space defaults', 'buddynext' ) );
-
-		$type_options = array();
-		foreach ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->all() as $slug => $cfg ) {
-			$type_options[ $slug ] = (string) ( $cfg['label'] ?? ucfirst( $slug ) );
-		}
-		$this->render_select_row(
-			'buddynext_space_default_type',
-			__( 'Default visibility for new spaces', 'buddynext' ),
-			(string) get_option( 'buddynext_space_default_type', 'open' ),
-			$type_options,
-			__( 'The visibility a space starts with when created. Owners can still change it per space.', 'buddynext' )
-		);
-
-		$category_options = array( '0' => __( '— None —', 'buddynext' ) );
-		$spaces_service   = function_exists( 'buddynext_service' ) ? buddynext_service( 'spaces' ) : null;
-		if ( is_object( $spaces_service ) && method_exists( $spaces_service, 'get_categories' ) ) {
-			foreach ( $spaces_service->get_categories() as $cat_id => $cat_name ) {
-				$category_options[ (string) $cat_id ] = $cat_name;
-			}
-		}
-		$this->render_select_row(
-			'buddynext_space_default_category',
-			__( 'Default category for new spaces', 'buddynext' ),
-			(string) (int) get_option( 'buddynext_space_default_category', 0 ),
-			$category_options,
-			__( 'New spaces without a chosen category are filed here. Manage the list under Spaces → Directory → Categories.', 'buddynext' )
-		);
-
-		$this->close_section();
-
-		// Directory columns (member + space) live together under
-		// General → Directory columns, so the two layout controls are configured
-		// in one place rather than split across tabs.
-	}
-
-	/**
-	 * Render the Moderation settings tab.
-	 *
-	 * @return void
-	 */
-	private function render_tab_moderation(): void {
-		$this->open_section( __( 'Post Approval (Pre-Moderation)', 'buddynext' ) );
-
-		$this->render_select_row(
-			'buddynext_premod_mode',
-			__( 'Hold posts for approval', 'buddynext' ),
-			(string) get_option( 'buddynext_premod_mode', 'off' ),
-			array(
-				'off'         => __( 'Off — every member posts instantly (recommended)', 'buddynext' ),
-				'new_members' => __( 'New members only — hold their first posts until approved', 'buddynext' ),
-				'links'       => __( 'Posts with links — hold anything containing a URL', 'buddynext' ),
-				'all'         => __( 'Everything — hold every post until a moderator approves', 'buddynext' ),
-			),
-			__( 'Held posts wait in the Moderation > Pending queue and never appear in feeds until approved. Off by default — a community grows by welcoming people, so only turn this up if you start seeing spam. Admins and moderators are never held.', 'buddynext' )
-		);
-
-		$this->render_number_row(
-			'buddynext_premod_new_member_count',
-			__( 'New-member posts to review', 'buddynext' ),
-			(int) get_option( 'buddynext_premod_new_member_count', 1 ),
-			__( 'When holding "New members only", review this many of a member\'s first posts before they post freely. Used only by the New members mode.', 'buddynext' ),
-			1
-		);
-
-		$this->close_section();
-
-		$this->open_section( __( 'Auto-Moderation Thresholds', 'buddynext' ) );
-
-		$this->render_number_row(
-			'buddynext_auto_hide_threshold',
-			__( 'Auto-hide after N reports', 'buddynext' ),
-			(int) get_option( 'buddynext_auto_hide_threshold', 5 ),
-			__( 'Content is hidden automatically once it reaches this number of reports. Reviewable in the moderation queue.', 'buddynext' ),
-			1
-		);
-
-		$this->render_number_row(
-			'buddynext_mod_queue_alert_threshold',
-			__( 'Queue alert threshold', 'buddynext' ),
-			(int) get_option( 'buddynext_mod_queue_alert_threshold', 20 ),
-			__( 'Send a daily email to admins when the moderation queue exceeds this many unreviewed items. Set to 0 to disable.', 'buddynext' ),
-			0
-		);
-
-		$this->close_section();
-
-		$this->open_section( __( 'Strike System', 'buddynext' ) );
-
-		$this->render_number_row(
-			'buddynext_strike_warn_threshold',
-			__( 'Strikes before warning', 'buddynext' ),
-			(int) get_option( 'buddynext_strike_warn_threshold', 2 ),
-			__( 'A warning email is sent to the member after this many active strikes.', 'buddynext' ),
-			1
-		);
-
-		$this->render_number_row(
-			'buddynext_strike_suspend_threshold',
-			__( 'Strikes before suspension', 'buddynext' ),
-			(int) get_option( 'buddynext_strike_suspend_threshold', 5 ),
-			__( 'The member is automatically suspended after this many active strikes.', 'buddynext' ),
-			1
-		);
-
-		$this->render_number_row(
-			'buddynext_strike_perma_ban_threshold',
-			__( 'Strikes before permanent ban', 'buddynext' ),
-			(int) get_option( 'buddynext_strike_perma_ban_threshold', 0 ),
-			__( 'The member is permanently banned after this many lifetime strikes. Set to 0 to disable automatic permanent bans.', 'buddynext' ),
-			0
-		);
-
-		$this->close_section();
-
-		$this->open_section( __( 'Content Safeguards', 'buddynext' ) );
-
-		$this->render_textarea_row(
-			'buddynext_banned_words',
-			__( 'Banned words', 'buddynext' ),
-			(string) get_option( 'buddynext_banned_words', '' ),
-			__( 'One word or phrase per line. Posts containing any of these are rejected. Case-insensitive substring match.', 'buddynext' ),
-			5,
-			480
-		);
-
-		$this->render_textarea_row(
-			'buddynext_banned_hashtags',
-			__( 'Banned hashtags', 'buddynext' ),
-			(string) get_option( 'buddynext_banned_hashtags', '' ),
-			__( 'One hashtag per line (without the # sign). Posts using these tags are rejected.', 'buddynext' ),
-			4,
-			480
-		);
-
-		$this->render_textarea_row(
-			'buddynext_blocked_domains',
-			__( 'Blocked link domains', 'buddynext' ),
-			(string) get_option( 'buddynext_blocked_domains', '' ),
-			__( 'One domain per line (e.g. spam.example.com). Posts linking to these domains are rejected.', 'buddynext' ),
-			4,
-			480
-		);
-
-		$this->render_textarea_row(
-			'buddynext_blocked_ips',
-			__( 'Blocked IP addresses', 'buddynext' ),
-			(string) get_option( 'buddynext_blocked_ips', '' ),
-			__( 'One IP address per line (IPv4 or IPv6). Members posting or commenting from these addresses are blocked. Invalid entries are dropped on save.', 'buddynext' ),
-			4,
-			480
-		);
-
-		$this->render_number_row(
-			'buddynext_post_rate_limit',
-			__( 'Post rate limit (per minute)', 'buddynext' ),
-			(int) get_option( 'buddynext_post_rate_limit', 10 ),
-			__( 'Maximum number of posts a member can create per minute. Set to 0 to disable rate limiting.', 'buddynext' ),
-			0
-		);
-
-		$this->render_number_row(
-			'buddynext_comment_rate_limit',
-			__( 'Comment rate limit (per minute)', 'buddynext' ),
-			(int) get_option( 'buddynext_comment_rate_limit', 30 ),
-			__( 'Maximum number of comments a member can post per minute. Set to 0 to disable rate limiting.', 'buddynext' ),
-			0
-		);
-
-		$this->render_number_row(
-			'buddynext_duplicate_post_window',
-			__( 'Duplicate post window (minutes)', 'buddynext' ),
-			(int) get_option( 'buddynext_duplicate_post_window', 0 ),
-			__( 'Hold a post for review when the member has already posted identical content within this many minutes. Set to 0 to disable.', 'buddynext' ),
-			0
-		);
-
-		$this->render_number_row(
-			'buddynext_new_member_post_threshold',
-			__( 'New member review threshold', 'buddynext' ),
-			(int) get_option( 'buddynext_new_member_post_threshold', 0 ),
-			__( 'Posts by members with fewer than this many published posts are held for review. Set to 0 to disable.', 'buddynext' ),
-			0
-		);
-
-		$this->close_section();
-	}
-
-	/**
-	 * Render the Notifications settings tab.
-	 *
-	 * Default notification preferences applied to new user accounts.
-	 * Individual users can override these from their own notification settings.
-	 *
-	 * @return void
-	 */
-	private function render_tab_notifications(): void {
-		$this->open_section( __( 'Default Notification Preferences', 'buddynext' ) );
-
-		$this->render_toggle_row(
-			'buddynext_notif_default_follow',
-			__( 'New follower', 'buddynext' ),
-			__( 'Notify users by default when someone follows them.', 'buddynext' ),
-			(bool) get_option( 'buddynext_notif_default_follow', true )
-		);
-
-		$this->render_toggle_row(
-			'buddynext_notif_default_connection',
-			__( 'Connection request', 'buddynext' ),
-			__( 'Notify users by default when they receive a connection request.', 'buddynext' ),
-			(bool) get_option( 'buddynext_notif_default_connection', true )
-		);
-
-		$this->render_toggle_row(
-			'buddynext_notif_default_reaction',
-			__( 'Reaction on post', 'buddynext' ),
-			__( 'Notify users by default when someone reacts to their post.', 'buddynext' ),
-			(bool) get_option( 'buddynext_notif_default_reaction', true )
-		);
-
-		$this->render_toggle_row(
-			'buddynext_notif_default_comment',
-			__( 'Comment on post', 'buddynext' ),
-			__( 'Notify users by default when someone comments on their post.', 'buddynext' ),
-			(bool) get_option( 'buddynext_notif_default_comment', true )
-		);
-
-		$this->render_toggle_row(
-			'buddynext_notif_default_mention',
-			__( '@mention in post or comment', 'buddynext' ),
-			__( 'Notify users by default when they are mentioned.', 'buddynext' ),
-			(bool) get_option( 'buddynext_notif_default_mention', true )
-		);
-
-		$this->render_toggle_row(
-			'buddynext_notif_default_space_join',
-			__( 'New space member', 'buddynext' ),
-			__( 'Notify space owners by default when someone joins their space.', 'buddynext' ),
-			(bool) get_option( 'buddynext_notif_default_space_join', true )
-		);
-
-		$this->close_section();
-
-		$this->open_section( __( 'Email Digest', 'buddynext' ) );
-
-		$this->render_select_row(
-			'buddynext_digest_frequency',
-			__( 'Digest frequency', 'buddynext' ),
-			(string) get_option( 'buddynext_digest_frequency', 'weekly' ),
-			array(
-				'never'  => __( 'Disabled — no digest emails', 'buddynext' ),
-				'daily'  => __( 'Daily', 'buddynext' ),
-				'weekly' => __( 'Weekly', 'buddynext' ),
-			),
-			__( 'How often BuddyNext sends a digest of unread notifications. Individual users can opt out.', 'buddynext' )
-		);
-
-		$this->close_section();
-
-		$this->open_section( __( 'Admin Alerts', 'buddynext' ) );
-
-		$this->render_text_row(
-			'buddynext_admin_alert_email',
-			__( 'Admin alert email', 'buddynext' ),
-			(string) get_option( 'buddynext_admin_alert_email', get_option( 'admin_email', '' ) ),
-			__( 'Receives daily alerts when the moderation queue or pending registration count is high. Defaults to WordPress admin email.', 'buddynext' ),
-			320
-		);
-
-		$this->close_section();
-	}
-
-	/**
-	 * Render the Email settings tab.
-	 *
-	 * Controls the sender identity and footer for all BuddyNext system emails.
-	 *
-	 * @return void
-	 */
-	private function render_tab_email(): void {
-		$this->open_section( __( 'Sender Identity', 'buddynext' ) );
-
-		// Surface the EFFECTIVE values (resolvers fall back to site name / admin
-		// email) so the fields are never blank and show exactly what every email
-		// will actually use.
-		$this->render_text_row(
-			'buddynext_email_from_name',
-			__( 'From name', 'buddynext' ),
-			\BuddyNext\Notifications\EmailSender::from_name(),
-			__( 'Display name shown in the "From:" field of all community emails. Defaults to your site name.', 'buddynext' ),
-			300
-		);
-
-		$this->render_text_row(
-			'buddynext_email_from_address',
-			__( 'From address', 'buddynext' ),
-			\BuddyNext\Notifications\EmailSender::from_address(),
-			__( 'Sending address for all BuddyNext system emails. Defaults to your admin email; use a verified domain for best deliverability.', 'buddynext' ),
-			300
-		);
-
-		$this->render_text_row(
-			'buddynext_email_reply_to',
-			__( 'Reply-To address', 'buddynext' ),
-			(string) get_option( 'buddynext_email_reply_to', '' ),
-			__( 'Optional. If set, replies to community emails go here instead of the From address. Applied to every BuddyNext email.', 'buddynext' ),
-			300
-		);
-
-		$this->close_section();
-
-		$this->open_section( __( 'Email Footer', 'buddynext' ) );
-
-		$this->render_textarea_row(
-			'buddynext_email_footer_text',
-			__( 'Footer text', 'buddynext' ),
-			(string) get_option( 'buddynext_email_footer_text', '' ),
-			__( 'Appended to the bottom of every BuddyNext email. Plain text, plus the placeholders {{site_name}}, {{site_url}}, and {{current_year}}.', 'buddynext' ),
-			3,
-			540
-		);
-
-		$this->close_section();
-	}
-
-	/**
-	 * Render the Privacy & Data settings tab.
-	 *
-	 * Controls data retention, member-initiated data export, and account deletion behaviour.
-	 *
-	 * @return void
-	 */
-	private function render_tab_privacy(): void {
-		$this->open_section( __( 'Search Engine Indexing', 'buddynext' ) );
-
-		$this->render_select_row(
-			'buddynext_google_indexing',
-			__( 'Allow search engines to index', 'buddynext' ),
-			(string) get_option( 'buddynext_google_indexing', 'public_posts' ),
-			array(
-				'all'          => __( 'Everything — public posts, profiles, and spaces', 'buddynext' ),
-				'public_posts' => __( 'Public posts only', 'buddynext' ),
-				'none'         => __( 'Nothing — noindex all community pages', 'buddynext' ),
-			),
-			__( 'Controls the robots meta tag on BuddyNext front-end pages. Profiles and spaces always respect their own privacy settings regardless of this setting.', 'buddynext' )
-		);
-
-		$this->close_section();
-
-		$this->open_section( __( 'Cookie Consent', 'buddynext' ) );
-
-		$this->render_toggle_row(
-			'buddynext_cookie_consent',
-			__( 'Show cookie consent notice', 'buddynext' ),
-			__( 'Display a consent banner on first visit. Required in some jurisdictions (EU/GDPR). BuddyNext itself sets only functional cookies.', 'buddynext' ),
-			(bool) get_option( 'buddynext_cookie_consent', false )
-		);
-
-		$this->close_section();
-
-		$this->open_section( __( 'Data Retention', 'buddynext' ) );
-
-		$this->render_number_row(
-			'buddynext_data_retention_days',
-			__( 'Activity log retention (days)', 'buddynext' ),
-			(int) get_option( 'buddynext_data_retention_days', 365 ),
-			__( 'BuddyNext activity log entries older than this are purged automatically. Set to 0 to retain indefinitely.', 'buddynext' ),
-			0,
-			3650
-		);
-
-		$this->close_section();
-
-		$this->open_section( __( 'Member Rights', 'buddynext' ) );
-
-		$this->render_toggle_row(
-			'buddynext_allow_data_export',
-			__( 'Allow members to export their data', 'buddynext' ),
-			__( 'Adds a "Download my data" option on member profile settings. Generates a JSON archive of posts, reactions, and profile fields.', 'buddynext' ),
-			(bool) get_option( 'buddynext_allow_data_export', true )
-		);
-
-		$this->render_toggle_row(
-			'buddynext_allow_account_deletion',
-			__( 'Allow members to delete their account', 'buddynext' ),
-			__( 'Adds a "Delete account" option on member profile settings. Admins can always delete accounts regardless of this setting.', 'buddynext' ),
-			(bool) get_option( 'buddynext_allow_account_deletion', true )
-		);
-
-		// Note: there is intentionally no "anonymise on delete" toggle. Member deletion
-		// is a uniform GDPR hard-delete on every path (admin delete, self-delete, the
-		// privacy eraser) — a deleted member's posts + comments are removed with them,
-		// never reassigned to a tombstone. See MemberCleanupService::purge_user_relations.
-
-		$this->close_section();
-	}
-
-	/**
 	 * Render the Integrations settings tab.
 	 *
 	 * Shows the Wbcom family header + a card grid of companion plugins.
@@ -2552,6 +2841,16 @@ class Settings extends AdminPageBase {
 				'space.joined'           => __( 'Space joined', 'buddynext' ),
 				'space.left'             => __( 'Space left', 'buddynext' ),
 			);
+			/**
+			 * Filter the outbound-webhook event catalogue (slug => label).
+			 *
+			 * Pro adds its membership / payment events here so a site owner can
+			 * subscribe an endpoint to purchase.* / membership.* the same way as the
+			 * built-in social events.
+			 *
+			 * @param array<string,string> $catalogue Event slug => human label.
+			 */
+			$catalogue = (array) apply_filters( 'buddynext_webhook_event_catalogue', $catalogue );
 			?>
 
 			<div class="bn-field bn-a-gap-top">

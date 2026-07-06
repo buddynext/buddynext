@@ -55,6 +55,18 @@ class CommentService {
 			return new WP_Error( 'empty_content', __( 'Comment content cannot be empty.', 'buddynext' ) );
 		}
 
+		// Email-verification gate — an unverified member cannot comment until they
+		// confirm their address (admins exempt; no-op when verification is off).
+		if ( ! user_can( $user_id, 'manage_options' )
+			&& function_exists( 'buddynext_service' )
+			&& ! buddynext_service( 'verification' )->is_verified( $user_id ) ) {
+			return new WP_Error(
+				'email_unverified',
+				__( 'Please verify your email address before commenting. Check your inbox for the verification link, or request a new one from your account.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		// Trust-&-Safety gate before any DB write. Refuses when the actor is
 		// suspended (spec 09-moderation: "Suspend — locked out… cannot
 		// post/comment/react"), and — for a post or comment target — when a block
@@ -172,9 +184,22 @@ class CommentService {
 		}
 
 		// A comment inherits its post's space; an archived space is read-only.
-		if ( 'post' === $object_type && $object_id > 0 ) {
+		if ( 'post' === $object_type ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$bn_post_space = (int) $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id ) );
+			$bn_post_row = $wpdb->get_row( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id ), ARRAY_A );
+
+			// Post-exists guard: a deleted/nonexistent post returns no row, which
+			// previously fell through with space_id 0 and inserted an orphan
+			// comment against a post that can never render. Reject it.
+			if ( null === $bn_post_row ) {
+				return new WP_Error(
+					'post_not_found',
+					__( 'You cannot comment on a post that no longer exists.', 'buddynext' ),
+					array( 'status' => 404 )
+				);
+			}
+
+			$bn_post_space = (int) $bn_post_row['space_id'];
 			if ( $bn_post_space > 0 && buddynext_service( 'spaces' )->is_archived( $bn_post_space ) ) {
 				return new WP_Error(
 					'space_archived',
@@ -315,6 +340,13 @@ class CommentService {
 
 		if ( null === $comment ) {
 			return new WP_Error( 'not_found', __( 'Comment not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		// get() does not filter soft-deleted rows, so guard here: a tombstoned
+		// comment must never be rewritten (the list anonymises the display, but
+		// without this the new content is still stored on the deleted row).
+		if ( ! empty( $comment['is_deleted'] ) ) {
+			return new WP_Error( 'comment_deleted', __( 'This comment has been deleted and can no longer be edited.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		if ( $comment['user_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
@@ -464,13 +496,13 @@ class CommentService {
 	 * @return bool True if pinned, false if user lacks permission or comment not found.
 	 */
 	public function pin( int $comment_id, int $user_id ): bool {
-		if ( ! user_can( $user_id, 'manage_options' ) ) {
-			return false;
-		}
-
 		$comment = $this->get( $comment_id );
 
 		if ( null === $comment ) {
+			return false;
+		}
+
+		if ( ! $this->can_pin_comment( $user_id, (string) $comment['object_type'], (int) $comment['object_id'] ) ) {
 			return false;
 		}
 
@@ -482,6 +514,42 @@ class CommentService {
 	}
 
 	/**
+	 * Whether a user may pin/unpin comments on an object.
+	 *
+	 * Site admins always may. A comment on a post inherits the post's space, so a
+	 * moderator of that space may pin its comments too — the docs promised this but
+	 * only manage_options passed before.
+	 *
+	 * @param int    $user_id     User to check.
+	 * @param string $object_type Object type the comment hangs on (e.g. 'post').
+	 * @param int    $object_id   Object ID.
+	 * @return bool
+	 */
+	public function can_pin_comment( int $user_id, string $object_type, int $object_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return true;
+		}
+
+		if ( 'post' === $object_type && $object_id > 0 && function_exists( 'buddynext_service' ) ) {
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$space_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id ) );
+			if ( $space_id > 0 ) {
+				return (bool) buddynext_service( 'permissions' )->can(
+					$user_id,
+					'buddynext-moderate-space',
+					array( 'space_id' => $space_id )
+				);
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Unpin the pinned comment for an object.
 	 *
 	 * @param string $object_type Object type.
@@ -490,7 +558,7 @@ class CommentService {
 	 * @return bool True if unpinned, false if user lacks permission.
 	 */
 	public function unpin( string $object_type, int $object_id, int $user_id ): bool {
-		if ( ! user_can( $user_id, 'manage_options' ) ) {
+		if ( ! $this->can_pin_comment( $user_id, $object_type, $object_id ) ) {
 			return false;
 		}
 

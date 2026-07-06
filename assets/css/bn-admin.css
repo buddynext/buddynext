@@ -2442,3 +2442,10 @@ button.bn-btn-danger:hover {
 .bn-a-pf-col-wide   { flex: 0 0 220px; }
 .bn-a-pf-col-narrow { flex: 0 0 160px; }
 .bn-a-pf-swatch     { width: 64px; }
+
+/* Command-palette deep-link: transient highlight on the targeted setting row. */
+.bn-opt-highlight {
+	border-radius: var(--bn-r-md);
+	box-shadow: 0 0 0 2px var(--bn-accent);
+	transition: box-shadow 0.2s ease;
+}

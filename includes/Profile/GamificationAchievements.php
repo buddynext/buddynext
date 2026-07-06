@@ -38,7 +38,9 @@ class GamificationAchievements {
 			return;
 		}
 		add_action( 'buddynext_register_nav', array( $this, 'register_nav' ) );
+		add_filter( 'buddynext_rail_items', array( $this, 'inject_leaderboard_nav_item' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ), 20 );
+		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
 		// Owner control: list on the integration registry so the owner can hide the
 		// Achievements tab from BuddyNext → Integrations (default on).
 		add_filter(
@@ -112,6 +114,44 @@ class GamificationAchievements {
 			array(),
 			$ver
 		);
+	}
+
+	/**
+	 * Add the community "Leaderboard" link to the left rail when gamification is on.
+	 *
+	 * Hooked on: buddynext_rail_items( array $items, string $hub ). The leaderboard is
+	 * a community destination (like Explore), so it sits in the primary group, not the
+	 * personal "You" group. Respects the owner's gamification-nav toggle. Without this,
+	 * the leaderboard page existed but was unreachable from the shell — the tab was the
+	 * only gamification surface wired into the nav.
+	 *
+	 * @param array<int, array<string,mixed>> $items Existing rail items.
+	 * @return array<int, array<string,mixed>>
+	 */
+	public function inject_leaderboard_nav_item( array $items ): array {
+		if ( ! buddynext_integration_enabled( 'gamification', 'nav' ) ) {
+			return $items;
+		}
+
+		$url  = \BuddyNext\Core\PageRouter::leaderboard_url();
+		$path = rtrim( (string) ( wp_parse_url( $url, PHP_URL_PATH ) ?? '' ), '/' );
+
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
+		$is_active   = '' !== $path && str_starts_with( rtrim( $request_uri, '/' ), $path );
+
+		$items[] = array(
+			'key'    => 'leaderboard',
+			'label'  => __( 'Leaderboard', 'buddynext' ),
+			'url'    => $url,
+			'icon'   => 'award',
+			'show'   => true,
+			'active' => $is_active,
+			'group'  => 'primary',
+			'order'  => 95,
+		);
+
+		return $items;
 	}
 
 	/**
@@ -195,12 +235,96 @@ class GamificationAchievements {
 	}
 
 	/**
+	 * The full badge catalogue for a member — earned AND locked — so BN can show
+	 * "what you can earn next" in-shell instead of sending members to the plugin's
+	 * own /gamification/ page. Reads wb-gamification's BadgeEngine (guarded); falls
+	 * back to earned-only when the catalogue method is unavailable.
+	 *
+	 * Ordered earned-first, then credential locked, then the rest — so the grid
+	 * leads with what the member has and follows with attainable goals.
+	 *
+	 * @param int $member_id Member.
+	 * @return array<int,array<string,mixed>> Each: id, name, description, image_url,
+	 *               is_credential, category, earned (bool), earned_at.
+	 */
+	private function all_badges( int $member_id ): array {
+		if ( ! is_callable( array( '\WBGam\Engine\BadgeEngine', 'get_all_badges_for_user' ) ) ) {
+			// Engine catalogue unavailable — degrade to earned-only, flagged earned.
+			return array_map(
+				static function ( array $badge ): array {
+					$badge['earned'] = true;
+					return $badge;
+				},
+				$this->badges( $member_id )
+			);
+		}
+
+		$all = \WBGam\Engine\BadgeEngine::get_all_badges_for_user( $member_id );
+		if ( ! is_array( $all ) ) {
+			return array();
+		}
+
+		usort(
+			$all,
+			static function ( array $a, array $b ): int {
+				// Earned first, then credentials, then name — a stable, goal-first order.
+				$ea = ! empty( $a['earned'] ) ? 1 : 0;
+				$eb = ! empty( $b['earned'] ) ? 1 : 0;
+				if ( $ea !== $eb ) {
+					return $eb <=> $ea;
+				}
+				$ca = ! empty( $a['is_credential'] ) ? 1 : 0;
+				$cb = ! empty( $b['is_credential'] ) ? 1 : 0;
+				if ( $ca !== $cb ) {
+					return $cb <=> $ca;
+				}
+				return strcasecmp( (string) ( $a['name'] ?? '' ), (string) ( $b['name'] ?? '' ) );
+			}
+		);
+
+		return $all;
+	}
+
+	/**
 	 * Render the standing strip: points · level · current streak.
 	 *
 	 * @param int $member_id Member.
 	 * @return void
 	 */
 	private function render_standing( int $member_id ): void {
+		$tiles = $this->standing_tiles( $member_id );
+
+		if ( empty( $tiles ) ) {
+			return;
+		}
+
+		echo '<div class="bn-achievements__standing">';
+		foreach ( $tiles as $tile ) {
+			echo '<div class="bn-achievements__stat">';
+			$icon = (string) ( $tile['icon'] ?? '' );
+			if ( '' !== $icon && function_exists( 'buddynext_icon' ) && \BuddyNext\Core\IconService::has( $icon ) ) {
+				echo '<span class="bn-achievements__stat-icon" aria-hidden="true">';
+				buddynext_icon( $icon );
+				echo '</span>';
+			}
+			echo '<span class="bn-achievements__stat-value">' . esc_html( (string) $tile['value'] ) . '</span>';
+			echo '<span class="bn-achievements__stat-label">' . esc_html( (string) $tile['label'] ) . '</span>';
+			echo '</div>';
+		}
+		echo '</div>';
+	}
+
+	/**
+	 * The member's standing tiles (points · rank · level · streak) as data.
+	 *
+	 * Single source for both the SSR standing strip and the REST achievements
+	 * payload — read straight from wb-gamification (`wb_gam_*` + the leaderboard
+	 * engine), so the tab and the app never diverge.
+	 *
+	 * @param int $member_id Member.
+	 * @return array<int,array{icon:string,label:string,value:string}>
+	 */
+	private function standing_tiles( int $member_id ): array {
 		$tiles = array();
 
 		if ( function_exists( 'wb_gam_get_user_points' ) ) {
@@ -241,24 +365,71 @@ class GamificationAchievements {
 			}
 		}
 
-		if ( empty( $tiles ) ) {
-			return;
+		return $tiles;
+	}
+
+	/**
+	 * Register the read-only Achievements REST route (app coverage).
+	 *
+	 * Only wired when wb-gamification is active (register() early-returns otherwise),
+	 * so the route never exists on a site without the engine.
+	 *
+	 * @return void
+	 */
+	public function register_rest_routes(): void {
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>\d+)/achievements',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'rest_achievements' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'id' => array(
+						'required'          => true,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * REST: a member's badges + standing — the same data the SSR Achievements tab
+	 * renders, so the native app can draw the badge grid and standing strip.
+	 *
+	 * @param \WP_REST_Request $request Request ({id}).
+	 * @return \WP_REST_Response|\WP_Error 404 when the member does not exist.
+	 */
+	public function rest_achievements( \WP_REST_Request $request ) {
+		$member_id = absint( $request['id'] );
+		if ( $member_id <= 0 || ! get_userdata( $member_id ) ) {
+			return new \WP_Error( 'not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		echo '<div class="bn-achievements__standing">';
-		foreach ( $tiles as $tile ) {
-			echo '<div class="bn-achievements__stat">';
-			$icon = (string) ( $tile['icon'] ?? '' );
-			if ( '' !== $icon && function_exists( 'buddynext_icon' ) && \BuddyNext\Core\IconService::has( $icon ) ) {
-				echo '<span class="bn-achievements__stat-icon" aria-hidden="true">';
-				buddynext_icon( $icon );
-				echo '</span>';
-			}
-			echo '<span class="bn-achievements__stat-value">' . esc_html( (string) $tile['value'] ) . '</span>';
-			echo '<span class="bn-achievements__stat-label">' . esc_html( (string) $tile['label'] ) . '</span>';
-			echo '</div>';
-		}
-		echo '</div>';
+		$badges = array_map(
+			function ( array $badge ) use ( $member_id ): array {
+				$id = isset( $badge['id'] ) ? (string) $badge['id'] : '';
+				return array(
+					'id'            => $id,
+					'name'          => isset( $badge['name'] ) ? (string) $badge['name'] : '',
+					'image_url'     => isset( $badge['image_url'] ) ? (string) $badge['image_url'] : '',
+					'is_credential' => ! empty( $badge['is_credential'] ),
+					'earned_at'     => isset( $badge['earned_at'] ) ? (string) $badge['earned_at'] : '',
+					'share_url'     => '' !== $id ? $this->badge_share_url( $id, $member_id ) : '',
+				);
+			},
+			$this->badges( $member_id )
+		);
+
+		return new \WP_REST_Response(
+			array(
+				'has_standing' => $this->has_standing( $member_id ),
+				'standing'     => array_values( $this->standing_tiles( $member_id ) ),
+				'badges'       => $badges,
+			),
+			200
+		);
 	}
 
 	/**
@@ -268,7 +439,9 @@ class GamificationAchievements {
 	 * @return void
 	 */
 	private function render_badges( int $member_id ): void {
-		$badges = $this->badges( $member_id );
+		$all    = $this->all_badges( $member_id );
+		$total  = count( $all );
+		$earned = count( array_filter( $all, static fn( array $b ): bool => ! empty( $b['earned'] ) ) );
 
 		echo '<div class="bn-card bn-achievements__panel">';
 		echo '<header class="bn-achievements__head">';
@@ -277,35 +450,57 @@ class GamificationAchievements {
 			buddynext_icon( 'award' );
 		}
 		echo ' ' . esc_html__( 'Badges', 'buddynext' );
-		if ( ! empty( $badges ) ) {
-			echo ' <span class="bn-achievements__count">' . esc_html( number_format_i18n( count( $badges ) ) ) . '</span>';
+		if ( $total > 0 ) {
+			echo ' <span class="bn-achievements__count">' . esc_html(
+				sprintf(
+					/* translators: 1: badges earned, 2: total badges available. */
+					__( '%1$s / %2$s', 'buddynext' ),
+					number_format_i18n( $earned ),
+					number_format_i18n( $total )
+				)
+			) . '</span>';
 		}
 		echo '</h3>';
-
-		$hub = $this->hub_url();
-		if ( '' !== $hub ) {
-			echo '<a class="bn-link bn-achievements__cta" href="' . esc_url( $hub ) . '">' . esc_html__( 'View leaderboard', 'buddynext' ) . '</a>';
-		}
 		echo '</header>';
 
-		if ( empty( $badges ) ) {
-			echo '<p class="bn-achievements__empty">' . esc_html__( 'No badges earned yet — keep contributing to unlock them.', 'buddynext' ) . '</p>';
+		if ( 0 === $total ) {
+			echo '<p class="bn-achievements__empty">' . esc_html__( 'No badges available yet.', 'buddynext' ) . '</p>';
 			echo '</div>';
 			return;
 		}
 
+		// Earned-vs-total progress so members see how far they are through the set.
+		$pct = (int) round( $earned / $total * 100 );
+		echo '<div class="bn-progress bn-achievements__progress" data-tone="accent" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' . esc_attr( (string) $pct ) . '">';
+		echo '<div class="bn-progress__fill" style="width:' . esc_attr( (string) $pct ) . '%;"></div>';
+		echo '</div>';
+
 		$date_format = (string) get_option( 'date_format', 'M j, Y' );
 
 		echo '<ul class="bn-achievements__grid" role="list">';
-		foreach ( $badges as $badge ) {
-			$id    = isset( $badge['id'] ) ? (string) $badge['id'] : '';
-			$name  = isset( $badge['name'] ) ? (string) $badge['name'] : '';
-			$image = isset( $badge['image_url'] ) ? (string) $badge['image_url'] : '';
-			$is_cr = ! empty( $badge['is_credential'] );
-			$when  = ! empty( $badge['earned_at'] ) ? date_i18n( $date_format, (int) strtotime( (string) $badge['earned_at'] ) ) : '';
-			$url   = '' !== $id ? $this->badge_share_url( $id, $member_id ) : '';
+		foreach ( $all as $badge ) {
+			$is_earned = ! empty( $badge['earned'] );
+			$id        = isset( $badge['id'] ) ? (string) $badge['id'] : '';
+			$name      = isset( $badge['name'] ) ? (string) $badge['name'] : '';
+			$desc      = isset( $badge['description'] ) ? (string) $badge['description'] : '';
+			$image     = isset( $badge['image_url'] ) ? (string) $badge['image_url'] : '';
+			$is_cr     = ! empty( $badge['is_credential'] );
+			$when      = ( $is_earned && ! empty( $badge['earned_at'] ) ) ? date_i18n( $date_format, (int) strtotime( (string) $badge['earned_at'] ) ) : '';
+			// Only earned badges have a public share page; locked ones are static.
+			$url = ( $is_earned && '' !== $id ) ? $this->badge_share_url( $id, $member_id ) : '';
 
-			echo '<li class="bn-achievements__badge' . ( $is_cr ? ' is-credential' : '' ) . '">';
+			$classes = 'bn-achievements__badge';
+			if ( $is_cr ) {
+				$classes .= ' is-credential';
+			}
+			if ( ! $is_earned ) {
+				$classes .= ' is-locked';
+			}
+
+			// The description doubles as the "how to earn it" hint on locked badges.
+			$title = '' !== $desc ? ' title="' . esc_attr( $desc ) . '"' : '';
+
+			echo '<li class="' . esc_attr( $classes ) . '"' . $title . '>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $title pre-escaped above.
 			if ( '' !== $url ) {
 				echo '<a class="bn-achievements__badge-link" href="' . esc_url( $url ) . '">';
 			} else {
@@ -313,16 +508,18 @@ class GamificationAchievements {
 			}
 
 			echo '<span class="bn-achievements__badge-medal">';
-			if ( '' !== $image ) {
+			if ( $is_earned && '' !== $image ) {
 				echo '<img src="' . esc_url( $image ) . '" alt="" loading="lazy" />';
 			} elseif ( function_exists( 'buddynext_icon' ) ) {
-				buddynext_icon( 'award' );
+				buddynext_icon( $is_earned ? 'award' : 'lock' );
 			}
 			echo '</span>';
 
 			echo '<span class="bn-achievements__badge-name">' . esc_html( $name ) . '</span>';
 			if ( '' !== $when ) {
 				echo '<span class="bn-achievements__badge-date">' . esc_html( $when ) . '</span>';
+			} elseif ( ! $is_earned && '' !== $desc ) {
+				echo '<span class="bn-achievements__badge-date bn-achievements__badge-goal">' . esc_html( $desc ) . '</span>';
 			}
 
 			echo '' !== $url ? '</a>' : '</div>';
@@ -343,11 +540,22 @@ class GamificationAchievements {
 	 * @return int
 	 */
 	private function leaderboard_rank( int $member_id ): int {
+		// Request-scoped memo: the standing strip resolves rank once per render, but
+		// a page can render several member panels — avoid re-hitting the engine (and
+		// its cache lookup) for the same member within one request.
+		static $ranks = array();
+		if ( array_key_exists( $member_id, $ranks ) ) {
+			return $ranks[ $member_id ];
+		}
+
 		if ( ! is_callable( array( '\WBGam\Engine\LeaderboardEngine', 'get_user_rank' ) ) ) {
+			$ranks[ $member_id ] = 0;
 			return 0;
 		}
-		$data = \WBGam\Engine\LeaderboardEngine::get_user_rank( $member_id, 'all' );
-		return is_array( $data ) && isset( $data['rank'] ) ? (int) $data['rank'] : 0;
+		$data                = \WBGam\Engine\LeaderboardEngine::get_user_rank( $member_id, 'all' );
+		$ranks[ $member_id ] = is_array( $data ) && isset( $data['rank'] ) ? (int) $data['rank'] : 0;
+
+		return $ranks[ $member_id ];
 	}
 
 	/**

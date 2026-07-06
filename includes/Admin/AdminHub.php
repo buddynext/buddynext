@@ -207,6 +207,10 @@ class AdminHub {
 			'section'  => 'engagement',
 			'position' => 10,
 		),
+		'growth:announcements'          => array(
+			'section'  => 'engagement',
+			'position' => 15,
+		),
 		'settings:social'               => array(
 			'section'  => 'engagement',
 			'position' => 20,

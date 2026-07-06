@@ -650,3 +650,74 @@ body.admin-bar .bn-app__rail {
 	background: var(--bn-canvas);
 	color: var(--bn-accent, var(--brand));
 }
+
+/* My-spaces switcher — a JS-free <details> flyout under the Spaces rail item
+   (C16.4), so a member of many spaces can jump to one without the full directory. */
+.bn-rail__spaces {
+	margin: 0;
+}
+
+.bn-rail__spaces-toggle {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s2) var(--bn-s3);
+	min-height: var(--bn-s10);
+	border-radius: var(--bn-r-sm);
+	font-size: var(--bn-text-base);
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-ink-2);
+	cursor: pointer;
+	list-style: none;
+	transition: background 0.12s, color 0.12s;
+}
+
+.bn-rail__spaces-toggle::-webkit-details-marker {
+	display: none;
+}
+
+.bn-rail__spaces-toggle:hover {
+	background: var(--bn-canvas);
+	color: var(--bn-ink);
+}
+
+.bn-rail__spaces-count {
+	margin-inline-start: auto;
+	font-size: var(--bn-text-xs, 0.6875rem);
+	opacity: 0.7;
+}
+
+.bn-rail__spaces-chevron {
+	display: inline-flex;
+	transition: transform 0.15s ease;
+}
+
+.bn-rail__spaces[open] .bn-rail__spaces-chevron {
+	transform: rotate(180deg);
+}
+
+.bn-rail__spaces-list {
+	list-style: none;
+	margin: 0;
+	padding-inline-start: calc(var(--bn-rail-icon-size) + var(--bn-s3) * 2);
+	max-height: 40vh;
+	overflow-y: auto;
+}
+
+.bn-rail__spaces-link {
+	display: block;
+	padding: var(--bn-s1, 0.25rem) var(--bn-s3);
+	border-radius: var(--bn-r-sm);
+	font-size: var(--bn-text-sm, 0.875rem);
+	color: var(--bn-ink-2);
+	text-decoration: none;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	transition: background 0.12s, color 0.12s;
+}
+
+.bn-rail__spaces-link:hover {
+	background: var(--bn-canvas);
+	color: var(--bn-ink);
+}

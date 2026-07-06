@@ -118,7 +118,7 @@ class Installer {
 	 *      converged to the Installer seed (one canonical schema from either
 	 *      provisioning path).
 	 */
-	private const SCHEMA_VERSION = 22;
+	private const SCHEMA_VERSION = 25;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -223,7 +223,48 @@ class Installer {
 		// against the former seeds, so owner-customized subjects are untouched.
 		self::maybe_migrate_email_subjects();
 
+		// v23: retire the bn_suspended usermeta. Suspension content-visibility is
+		// now read exclusively from the bn_user_suspensions table (hide_posts=1)
+		// via ModerationService::hides_posts(); the meta was only ever written by
+		// the admin panel, which created a split-brain where admin-panel
+		// suspensions hid content that REST/queue suspensions did not. Clear any
+		// stray values so nothing depends on the dead key. Idempotent.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "DELETE FROM {$wpdb->usermeta} WHERE meta_key = 'bn_suspended'" );
+
+		// v24: one-time Unicode hashtag re-sync (R11). The legacy sanitize_key()
+		// normalizer stripped every non-ASCII byte, so "#café" was stored as "caf"
+		// and "#日本語" was dropped. The canonical HashtagService::normalize_slug()
+		// fixes new content going forward; this repairs existing posts. Chunked
+		// through Action Scheduler (HashtagListener::resync_batch self-chains) so a
+		// 100k-post site never re-syncs inline. Enqueued once here; safe to resume.
+		self::schedule_hashtag_resync();
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * Enqueue the one-time Unicode hashtag re-sync (schema v24 / R11).
+	 *
+	 * Uses Action Scheduler when present so the batch worker runs off-request;
+	 * falls back to a single WP-Cron event otherwise. Guarded against duplicate
+	 * scheduling so repeated maybe_upgrade() passes (before the version option
+	 * lands) never stack multiple chains.
+	 *
+	 * @return void
+	 */
+	private static function schedule_hashtag_resync(): void {
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			if ( function_exists( 'as_has_scheduled_action' ) && as_has_scheduled_action( 'buddynext_resync_hashtags' ) ) {
+				return;
+			}
+			as_enqueue_async_action( 'buddynext_resync_hashtags', array( 0 ), 'buddynext' );
+			return;
+		}
+
+		if ( ! wp_next_scheduled( 'buddynext_resync_hashtags', array( 0 ) ) ) {
+			wp_schedule_single_event( time() + 30, 'buddynext_resync_hashtags', array( 0 ) );
+		}
 	}
 
 	/**
@@ -254,7 +295,6 @@ class Installer {
 			'bn.member_suspended'          => array( "Your account has been suspended {$em} {{site_name}}", 'Your {{site_name}} account has been suspended' ),
 			'bn.appeal_resolved'           => array( "Your appeal has been reviewed {$em} {{site_name}}", 'Your {{site_name}} appeal has been reviewed' ),
 			'bn.unsuspension_confirmation' => array( "Your account suspension has been lifted {$em} {{site_name}}", 'Your {{site_name}} account suspension has been lifted' ),
-			'bn.jetonomy_reply'            => array( "New reply to your discussion {$em} {{site_name}}", 'New reply to your {{site_name}} discussion' ),
 			'bn.new_report'                => array( "New content report awaiting review {$em} {{site_name}}", 'New content report awaiting review on {{site_name}}' ),
 			'bn.badge_awarded'             => array( 'You earned a badge on {{site_name}}!', 'You earned a badge on {{site_name}}' ),
 			'bn.level_up'                  => array( 'You levelled up on {{site_name}}!', 'You levelled up on {{site_name}}' ),
@@ -1056,12 +1096,6 @@ class Installer {
 				'body_html'    => '<p>Hi {{user_name}},</p><p>You have reached a new level on {{site_name}}. <a href="{{action_url}}">See your new level.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
-				'type'         => 'bn.jetonomy_reply',
-				'subject'      => 'New reply to your {{site_name}} discussion',
-				'preview_text' => 'Someone replied to your discussion',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your discussion received a new reply on {{site_name}}. <a href="{{action_url}}">View the reply.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
-			),
-			array(
 				'type'         => 'bn.strike_warning',
 				'subject'      => 'Your {{site_name}} account has received multiple strikes',
 				'preview_text' => 'You have received multiple moderation strikes',
@@ -1769,7 +1803,8 @@ class Installer {
 				hashtag_id  BIGINT(20) UNSIGNED NOT NULL,
 				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (post_id, object_type, hashtag_id),
-				KEY         hashtag_feed (hashtag_id, created_at)
+				KEY         hashtag_feed (hashtag_id, created_at),
+				KEY         trending_window (created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_hashtag_follows (
@@ -1787,7 +1822,7 @@ class Installer {
 				group_key        VARCHAR(100) NOT NULL,
 				label            VARCHAR(255) NOT NULL,
 				type             ENUM('flat','repeater') NOT NULL DEFAULT 'flat',
-				visibility       ENUM('public','followers','connections','private') NOT NULL DEFAULT 'public',
+				visibility       ENUM('public','members','followers','connections','private') NOT NULL DEFAULT 'public',
 				is_system        TINYINT(1) NOT NULL DEFAULT 0,
 				sort_order       INT NOT NULL DEFAULT 0,
 				type_restriction VARCHAR(100) DEFAULT NULL,
@@ -1809,7 +1844,7 @@ class Installer {
 				is_searchable TINYINT(1) NOT NULL DEFAULT 0,
 				show_on_register TINYINT(1) NOT NULL DEFAULT 0,
 				is_system     TINYINT(1) NOT NULL DEFAULT 0,
-				visibility    ENUM('public','followers','connections','private') NOT NULL DEFAULT 'public',
+				visibility    ENUM('public','members','followers','connections','private') NOT NULL DEFAULT 'public',
 				sort_order    INT NOT NULL DEFAULT 0,
 				PRIMARY KEY   (id),
 				UNIQUE KEY    field_key (field_key),
@@ -1822,7 +1857,7 @@ class Installer {
 				field_id         BIGINT(20) UNSIGNED NOT NULL,
 				entry_index      SMALLINT UNSIGNED NOT NULL DEFAULT 0,
 				value            LONGTEXT DEFAULT NULL,
-				entry_visibility ENUM('public','followers','connections','private') DEFAULT NULL,
+				entry_visibility ENUM('public','members','followers','connections','private') DEFAULT NULL,
 				PRIMARY KEY      (id),
 				UNIQUE KEY       user_field_entry (user_id, field_id, entry_index),
 				KEY              field_idx (field_id),

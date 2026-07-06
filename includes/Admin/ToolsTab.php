@@ -41,6 +41,7 @@ class ToolsTab {
 		add_action( 'admin_post_bn_tools_flush_cache', array( $this, 'handle_flush_cache' ) );
 		add_action( 'admin_post_bn_tools_export', array( $this, 'handle_export' ) );
 		add_action( 'admin_post_bn_tools_import', array( $this, 'handle_import' ) );
+		add_action( 'admin_post_bn_tools_reindex_search', array( $this, 'handle_reindex_search' ) );
 
 		AdminHub::register_tab(
 			'settings',
@@ -72,6 +73,7 @@ class ToolsTab {
 		}
 
 		$this->render_background_tasks_section();
+		$this->render_search_index_section();
 		$this->render_repair_section();
 		$this->render_cache_section();
 		$this->render_export_import_section();
@@ -162,6 +164,93 @@ class ToolsTab {
 						</p>
 					</div>
 				<?php endif; ?>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Search index health + manual rebuild.
+	 *
+	 * Reindex otherwise only runs on activation, cron, or WP-CLI, so a stale or
+	 * missing index means search silently returns nothing with no diagnosis path.
+	 * This surfaces the row counts, FULLTEXT status, and a rebuild button.
+	 *
+	 * @return void
+	 */
+	private function render_search_index_section(): void {
+		$search = buddynext_service( 'search' );
+		if ( ! $search instanceof \BuddyNext\Search\SearchService ) {
+			return;
+		}
+		$stats = $search->index_stats();
+		$empty = 0 === $stats['total'];
+		$last  = $stats['last_reindex'] > 0
+			? sprintf(
+				/* translators: %s: human time diff, e.g. "2 hours". */
+				__( '%s ago', 'buddynext' ),
+				human_time_diff( $stats['last_reindex'], time() )
+			)
+			: __( 'never', 'buddynext' );
+		?>
+		<div class="bn-settings-section">
+			<div class="bn-ss-header">
+				<span class="bn-ss-title"><?php esc_html_e( 'Search index', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-ss-body">
+				<p class="bn-av-section-desc">
+					<?php esc_html_e( 'Global search reads a unified index of members, posts, and spaces. If it looks empty or out of date — search returns nothing or misses recent content — rebuild it here.', 'buddynext' ); ?>
+				</p>
+
+				<?php if ( $empty ) : ?>
+					<div class="notice notice-warning inline">
+						<p>
+							<strong><?php esc_html_e( 'The search index is empty.', 'buddynext' ); ?></strong>
+							<?php esc_html_e( 'Search will return no results until it is built. Click Rebuild below.', 'buddynext' ); ?>
+						</p>
+					</div>
+				<?php elseif ( ! $stats['fulltext'] ) : ?>
+					<div class="notice notice-warning inline">
+						<p>
+							<strong><?php esc_html_e( 'FULLTEXT index missing.', 'buddynext' ); ?></strong>
+							<?php esc_html_e( 'Search is running on the slower LIKE fallback. Rebuilding restores the FULLTEXT index.', 'buddynext' ); ?>
+						</p>
+					</div>
+				<?php endif; ?>
+
+				<ul class="bn-av-section-desc" style="margin:0 0 var(--bn-a-space-3,12px);">
+					<li>
+						<?php
+						/* translators: %s: number of indexed rows. */
+						printf( esc_html__( 'Indexed rows: %s', 'buddynext' ), '<strong>' . esc_html( number_format_i18n( $stats['total'] ) ) . '</strong>' );
+						if ( ! empty( $stats['by_type'] ) ) {
+							$parts = array();
+							foreach ( $stats['by_type'] as $bn_type => $bn_n ) {
+								$parts[] = esc_html( $bn_type ) . ' ' . esc_html( number_format_i18n( $bn_n ) );
+							}
+							echo ' <span class="description">(' . esc_html( implode( ', ', $parts ) ) . ')</span>';
+						}
+						?>
+					</li>
+					<li>
+						<?php
+						/* translators: %s: "present" or "missing". */
+						printf( esc_html__( 'FULLTEXT index: %s', 'buddynext' ), $stats['fulltext'] ? esc_html__( 'present', 'buddynext' ) : esc_html__( 'missing', 'buddynext' ) );
+						?>
+					</li>
+					<li>
+						<?php
+						/* translators: %s: time since last rebuild, e.g. "2 hours ago". */
+						printf( esc_html__( 'Last full rebuild: %s', 'buddynext' ), esc_html( $last ) );
+						?>
+					</li>
+				</ul>
+
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<input type="hidden" name="action" value="bn_tools_reindex_search">
+					<?php wp_nonce_field( 'bn_tools_reindex_search' ); ?>
+					<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Rebuild search index', 'buddynext' ); ?></button>
+				</form>
 			</div>
 		</div>
 		<?php
@@ -293,6 +382,18 @@ class ToolsTab {
 		}
 
 		$this->redirect_back( 'recounted' );
+	}
+
+	/**
+	 * Kick off a full search-index rebuild (async via Action Scheduler, or WP-Cron
+	 * fallback). Idempotent and safe to run any time.
+	 *
+	 * @return void
+	 */
+	public function handle_reindex_search(): void {
+		$this->guard( 'bn_tools_reindex_search' );
+		\BuddyNext\Search\SearchService::schedule_reindex_all();
+		$this->redirect_back( 'search_reindexing' );
 	}
 
 	/**
@@ -502,6 +603,8 @@ class ToolsTab {
 				return __( 'Counters recomputed.', 'buddynext' );
 			case 'flushed':
 				return __( 'Cache flushed.', 'buddynext' );
+			case 'search_reindexing':
+				return __( 'Search index rebuild started. It runs in the background and may take a few minutes on large communities.', 'buddynext' );
 			case 'imported':
 				return __( 'Settings imported.', 'buddynext' );
 			case 'import_empty':

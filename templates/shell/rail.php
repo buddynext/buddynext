@@ -29,120 +29,27 @@ $bn_rail_current_user = get_current_user_id();
 $bn_unread_notifs     = 0;
 $bn_unread_messages   = 0;
 
-if ( $bn_rail_current_user ) {
-	// Single source of truth for the unread count. NotificationService caches
-	// the result, so the rail and the notification bell share one query instead
-	// of running parallel raw-SQL and service paths.
-	$bn_unread_notifs = (int) buddynext_service( 'notifications' )->unread_count( $bn_rail_current_user );
+// Canonical shell item list (Feed / Explore / Members / Spaces / Notifications /
+// Messages + the personal "You" group), with show-flags + unread badges, built once
+// in Nav\ShellNavService so the rail and the GET /shell-nav REST endpoint (native
+// app) can never drift. Owner overrides are applied by the buddynext_rail_items
+// filter below, exactly as before.
+$bn_rail_items = buddynext_service( 'shell_nav' )->base_items( $bn_rail_current_user );
 
-	// Unread DM badge. MessagesData::unread_count() keeps the WPMediaVerse
-	// class_exists guard and the 60s cache inside the data layer so the rail
-	// no longer reaches into the mvs_* tables directly.
-	$bn_unread_messages = \BuddyNext\Messages\MessagesData::unread_count( $bn_rail_current_user );
-}
-
-// The Spaces page itself is already guarded (PageRouter redirects when the
-// feature is off); hide its rail entry too so the nav doesn't link to a
-// disabled surface.
-$bn_spaces_enabled = ! function_exists( 'buddynext_service' )
-	|| ! is_object( buddynext_service( 'features' ) )
-	|| buddynext_service( 'features' )->is_enabled( 'spaces' );
-
-$bn_rail_items = array(
-	array(
-		'key'   => 'feed',
-		'label' => __( 'Feed', 'buddynext' ),
-		'url'   => PageRouter::activity_url(),
-		'icon'  => 'home',
-		'show'  => true,
-	),
-	array(
-		'key'   => 'explore',
-		'label' => __( 'Explore', 'buddynext' ),
-		'url'   => PageRouter::explore_url(),
-		'icon'  => 'globe',
-		'show'  => true,
-	),
-	array(
-		'key'   => 'people',
-		'label' => __( 'Members', 'buddynext' ),
-		'url'   => PageRouter::people_url(),
-		'icon'  => 'users',
-		'show'  => true,
-	),
-	array(
-		'key'   => 'spaces',
-		'label' => __( 'Spaces', 'buddynext' ),
-		'url'   => PageRouter::spaces_url(),
-		'icon'  => 'hash',
-		'show'  => $bn_spaces_enabled,
-	),
-	array(
-		'key'   => 'notifications',
-		'label' => __( 'Notifications', 'buddynext' ),
-		'url'   => PageRouter::notifications_url(),
-		'icon'  => 'bell',
-		'badge' => $bn_unread_notifs,
-		'show'  => (bool) $bn_rail_current_user,
-	),
-	array(
-		'key'   => 'messages',
-		'label' => __( 'Messages', 'buddynext' ),
-		'url'   => PageRouter::messages_url(),
-		'icon'  => 'message-circle',
-		'badge' => $bn_unread_messages,
-		'show'  => (bool) $bn_rail_current_user && \BuddyNext\Messages\MessagesData::entry_enabled(),
-	),
-);
-
-// Personal "You" group — Profile / Edit Profile / Bookmarks / Settings. These
-// render under the "You" heading at the foot of the rail and, like the community
-// items above, are part of $bn_rail_items so the Navigation admin governs them
-// too (hide / relabel / reorder / cap-gate via Nav\NavOverrides::apply_rail).
-// The `group` key keeps them in their own visual section after the override sort;
-// `order` 200+ keeps them below the community items and any bridge-injected tab.
+// Sub-section active states the base list can't infer (they depend on the current
+// page, not just the hub): light up Bookmarks / Settings when their sub-view is open.
 if ( $bn_rail_current_user ) {
 	$bn_bookmarks_active = ( 'feed' === $hub && 'bookmarks' === (string) get_query_var( 'bn_feed_section', '' ) );
 	$bn_settings_active  = ( 'settings' === $hub || ( 'notifications' === $hub && 'prefs' === (string) get_query_var( 'bn_notif_section', '' ) ) );
-
-	$bn_rail_items[] = array(
-		'key'   => 'profile',
-		'label' => __( 'Profile', 'buddynext' ),
-		'url'   => PageRouter::profile_url( $bn_rail_current_user ),
-		'icon'  => 'user',
-		'show'  => true,
-		'group' => 'you',
-		'order' => 200,
-	);
-	$bn_rail_items[] = array(
-		'key'   => 'edit-profile',
-		'label' => __( 'Edit Profile', 'buddynext' ),
-		'url'   => PageRouter::edit_profile_url( $bn_rail_current_user ),
-		'icon'  => 'edit',
-		'show'  => true,
-		'group' => 'you',
-		'order' => 210,
-	);
-	$bn_rail_items[] = array(
-		'key'    => 'bookmarks',
-		'label'  => __( 'Bookmarks', 'buddynext' ),
-		'url'    => PageRouter::bookmarks_url(),
-		'icon'   => 'bookmark',
-		'show'   => true,
-		'group'  => 'you',
-		'order'  => 220,
-		'active' => $bn_bookmarks_active,
-	);
-	$bn_rail_items[] = array(
-		'key'    => 'settings',
-		'label'  => __( 'Settings', 'buddynext' ),
-		'url'    => PageRouter::settings_url(),
-		'icon'   => 'settings',
-		'show'   => true,
-		'group'  => 'you',
-		'order'  => 230,
-		'active' => $bn_settings_active,
-	);
+	foreach ( $bn_rail_items as &$bn_ri ) {
+		$bn_ri_key = (string) ( $bn_ri['key'] ?? '' );
+		if ( 'bookmarks' === $bn_ri_key ) {
+			$bn_ri['active'] = $bn_bookmarks_active;
+		} elseif ( 'settings' === $bn_ri_key ) {
+			$bn_ri['active'] = $bn_settings_active;
+		}
+	}
+	unset( $bn_ri );
 }
 
 /**
@@ -261,9 +168,56 @@ foreach ( $bn_rail_items as $bn_item ) {
 		</button>
 	</div>
 	<div class="bn-rail__group">
-		<?php foreach ( $bn_main_items as $bn_item ) : ?>
-			<?php $bn_render_rail_item( $bn_item ); ?>
-		<?php endforeach; ?>
+		<?php
+		foreach ( $bn_main_items as $bn_item ) :
+			$bn_render_rail_item( $bn_item );
+
+			// My-spaces switcher: a JS-free expandable flyout under the Spaces item so
+			// a member of many spaces can jump straight to one without opening the full
+			// directory (the sidebar widget caps at a handful). Only when they belong
+			// to at least one space.
+			if ( 'spaces' === (string) ( $bn_item['key'] ?? '' ) && $bn_rail_current_user ) :
+				// Preview only the most-recently-joined spaces in the rail; the count
+				// badge shows the true total and a "See all" link opens /spaces/mine/
+				// so a member of hundreds of spaces gets a short flyout, not a wall.
+				$bn_spaces_preview = 5;
+				$bn_my_spaces      = buddynext_service( 'space_members' )->membership_rows( $bn_rail_current_user, $bn_spaces_preview );
+				$bn_spaces_total   = buddynext_service( 'space_members' )->count_memberships( $bn_rail_current_user );
+				if ( ! empty( $bn_my_spaces ) ) :
+					$bn_spaces_mine_url = trailingslashit( PageRouter::spaces_url() ) . 'mine/';
+					?>
+					<details class="bn-rail__spaces">
+						<summary class="bn-rail__spaces-toggle">
+							<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'layers' ); ?></span>
+							<span class="bn-rail__spaces-title"><?php esc_html_e( 'My spaces', 'buddynext' ); ?></span>
+							<span class="bn-rail__spaces-count"><?php echo esc_html( (string) $bn_spaces_total ); ?></span>
+							<span class="bn-rail__spaces-chevron" aria-hidden="true"><?php buddynext_icon( 'chevron-down' ); ?></span>
+						</summary>
+						<ul class="bn-rail__spaces-list">
+							<?php foreach ( $bn_my_spaces as $bn_sp ) : ?>
+								<li>
+									<a class="bn-rail__spaces-link" href="<?php echo esc_url( PageRouter::space_url( (int) $bn_sp->id ) ); ?>" title="<?php echo esc_attr( (string) $bn_sp->name ); ?>">
+										<?php echo esc_html( (string) $bn_sp->name ); ?>
+									</a>
+								</li>
+							<?php endforeach; ?>
+							<?php if ( $bn_spaces_total > count( $bn_my_spaces ) ) : ?>
+								<li>
+									<a class="bn-rail__spaces-link bn-rail__spaces-all" href="<?php echo esc_url( $bn_spaces_mine_url ); ?>">
+										<?php
+										/* translators: %d: total number of spaces the member belongs to. */
+										echo esc_html( sprintf( __( 'See all %d spaces', 'buddynext' ), $bn_spaces_total ) );
+										?>
+									</a>
+								</li>
+							<?php endif; ?>
+						</ul>
+					</details>
+					<?php
+				endif;
+			endif;
+		endforeach;
+		?>
 	</div>
 
 	<?php if ( ! empty( $bn_you_items ) ) : ?>

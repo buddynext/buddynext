@@ -400,6 +400,25 @@ v2 prototypes in `docs/v2 Plans/v2/` are the only design source. Each surface be
 
 ## Plugin Architecture
 
+### Routing surfaces — `/feed/` is NOT the activity feed (read before QA-ing feeds)
+
+Three things share the word "feed" — never conflate them:
+
+- **`/feed/`** = **WordPress core RSS** (`Content-Type: application/rss+xml`). Not ours. Never test the community activity stream here.
+- **`/activity/`** = the **community activity feed**; 302-redirects to **`/activity/explore/`** (the Explore deck is the default landing). Backed by `FeedService::home_feed()` (for-you / following) and `explore_feed()`.
+- **Internal hub key `'feed'`** — in `Core/PageRouter.php` the activity page is keyed `'feed'` (`buddynext_page_activity` + `buddynext_page_explore` → hub `'feed'`, label "Activity Feed") but its **public slug is `activity`** (`activity_url()`). The code says "feed"; the URL says `/activity/`.
+
+QA / browser-test the activity feed, post & comment composers, mention-typeahead, and the "N new posts" pill at **`/activity/`** (or `/activity/explore/`) — never `/feed/`. Feed methods: `home_feed` (`/activity`), `explore_feed` (`/feed/explore` REST + `/activity/explore/` page), `profile_feed`, `space_feed`.
+
+### WordPress core stays untouched (non-negotiable)
+
+BuddyNext **adds alongside** WordPress core — it never overrides, disables, shadows, or breaks core behaviour. Core must keep working exactly as a vanilla install.
+
+- **Never claim a core URL.** `/feed/`, `/comments/feed/`, `/wp-json/wp/v2/*`, `/wp-login.php`, `/xmlrpc.php`, author/date/category archives, etc. stay core. BuddyNext uses its **own** slugs (`/activity/`, `/spaces/`, …) and its **own** REST namespace (`buddynext/v1`) — never `wp/v2`.
+- **Add rewrite rules and query vars additively.** Register new rules/`query_vars`; never remove or reorder core ones. Don't blanket-override `template_include`, `request`, `parse_query`, or `pre_get_posts` in a way that changes core queries outside our own surfaces.
+- **Don't disarm core features.** No unconditional `remove_action`/`remove_filter` on core feeds, oEmbed, REST, cron, or the admin bar. Gate every hook to our own post types / pages / conditions.
+- **Verify after any routing/rewrite/feed/query-var change:** `/feed/` still returns `application/rss+xml`, a normal WP page/post still renders, and `/wp-json/wp/v2/posts` still responds. If a BuddyNext change alters any of those, it's a bug — fix the scope, don't ship it.
+
 ### Bootstrap Chain
 ```
 plugins_loaded (priority 10) → WPMediaVerse, Jetonomy (addons)

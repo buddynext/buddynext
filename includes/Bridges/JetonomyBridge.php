@@ -8,7 +8,9 @@
  * - Discussion created → BN feed activity (engagement; link card to Jetonomy,
  *   via Feed\IntegrationActivity; filter buddynext_jetonomy_discussion_activity)
  * - Discussion deleted → removes the search entry + the feed activity
- * - Reply notifications are handled by JetonomyBridgeListener (jetonomy_after_create_reply)
+ * - Reply / mention / accepted-answer notifications are mirrored for display only by
+ *   JetonomyBridgeListener (from jetonomy_notification_created); Jetonomy owns the row
+ *   text and the email, so BN never creates a second row or emails on its behalf
  * - Unified nav: BuddyNext subnav injected on all Jetonomy pages (jetonomy_before_content);
  *   Jetonomy's own community nav suppressed (jetonomy_show_community_nav → false)
  * - Space Discussions tab (linked or on-demand forum) + profile Discussions count
@@ -27,6 +29,17 @@ use BuddyNext\Feed\IntegrationActivity;
  * Jetonomy ↔ BuddyNext integration layer.
  */
 class JetonomyBridge {
+
+	/**
+	 * Object-cache group for the bridge's per-view count/list reads.
+	 */
+	private const CACHE_GROUP = 'buddynext_jetonomy';
+
+	/**
+	 * Cache TTL (seconds). A hard staleness bound even if an invalidation hook is
+	 * ever missed; the create/delete hooks clear the affected keys immediately.
+	 */
+	private const CACHE_TTL = 300;
 
 	/**
 	 * Attach hooks.
@@ -59,9 +72,6 @@ class JetonomyBridge {
 		// BuddyNext does not inject its nav/wrapper or suppress Jetonomy's own
 		// navigation. (Owner rule: BN must not touch Jetonomy pages.) The link
 		// INTO discussions lives on BuddyNext's own rail (inject_discussions_nav_item).
-
-		// Cross-plugin notifications: JT reply → BN notification for post author.
-		add_action( 'jetonomy_after_create_reply', array( $this, 'notify_discussion_reply' ), 10, 1 );
 
 		// Register Discussions on BOTH the member-profile and space nav surfaces via
 		// the unified Nav API (one registry, one renderer) — profile tab carries a
@@ -224,6 +234,11 @@ class JetonomyBridge {
 		 * @param string $content   Discussion content (plain text).
 		 */
 		do_action( 'buddynext_jetonomy_post_indexed', $post_id, $space_id, $author_id, $title, $content );
+
+		// A new discussion changes the author's profile count/list and the space's
+		// count/list — drop those cached reads so the next view is accurate.
+		$this->invalidate_member_caches( $author_id );
+		$this->invalidate_space_caches( $space_id );
 	}
 
 	/**
@@ -258,6 +273,45 @@ class JetonomyBridge {
 		if ( '' !== $url ) {
 			IntegrationActivity::remove( $url, 'discussion' );
 		}
+
+		// Deleting a discussion drops the author's published count — invalidate the
+		// author's + the space's cached reads. Jetonomy soft-deletes (status → trash)
+		// so the row still resolves the author id.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$author_id = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT author_id FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1", $post_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$this->invalidate_member_caches( $author_id );
+		$this->invalidate_space_caches( $space_id );
+	}
+
+	/**
+	 * Drop a member's cached discussion count + panel list.
+	 *
+	 * @param int $user_id Discussion author whose caches to clear.
+	 * @return void
+	 */
+	private function invalidate_member_caches( int $user_id ): void {
+		if ( $user_id <= 0 ) {
+			return;
+		}
+		wp_cache_delete( 'jt_dcount_' . $user_id, self::CACHE_GROUP );
+		wp_cache_delete( 'jt_ulist_' . $user_id, self::CACHE_GROUP );
+	}
+
+	/**
+	 * Drop a space forum's cached discussion count + panel list.
+	 *
+	 * @param int $forum_id Resolved Jetonomy forum id (jt_posts.space_id).
+	 * @return void
+	 */
+	private function invalidate_space_caches( int $forum_id ): void {
+		if ( $forum_id <= 0 ) {
+			return;
+		}
+		wp_cache_delete( 'jt_scount_' . $forum_id, self::CACHE_GROUP );
+		wp_cache_delete( 'jt_slist_' . $forum_id, self::CACHE_GROUP );
 	}
 
 	/**
@@ -308,11 +362,35 @@ class JetonomyBridge {
 		$space_slug = (string) $wpdb->get_var( $wpdb->prepare( "SELECT slug FROM {$wpdb->prefix}jt_spaces WHERE id = %d LIMIT 1", $space_id ) );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		if ( '' === $post_slug || '' === $space_slug ) {
+		return $this->discussion_permalink( $space_slug, $post_slug );
+	}
+
+	/**
+	 * Build a Jetonomy discussion (topic) permalink from its space + post slug.
+	 *
+	 * Single source of truth for the discussion URL shape. The base segment always
+	 * comes from Jetonomy's configurable base slug (an owner may rename it from
+	 * `community` to `discuss` or anything else via Settings → General), resolved
+	 * through \Jetonomy\base_url() so BuddyNext never hardcodes the base. Falls back
+	 * to the stored `jetonomy_settings['base_slug']` option (Jetonomy's own default
+	 * `community`) only when the Jetonomy helper is unavailable.
+	 *
+	 * @param string $space_slug jt_spaces.slug.
+	 * @param string $post_slug  jt_posts.slug.
+	 * @return string Discussion permalink, or '' when either slug is empty.
+	 */
+	public function discussion_permalink( string $space_slug, string $post_slug ): string {
+		if ( '' === $space_slug || '' === $post_slug ) {
 			return '';
 		}
 
-		$base = function_exists( 'Jetonomy\base_url' ) ? (string) \Jetonomy\base_url() : home_url( '/community' );
+		if ( function_exists( 'Jetonomy\base_url' ) ) {
+			$base = (string) \Jetonomy\base_url();
+		} else {
+			$settings  = get_option( 'jetonomy_settings', array() );
+			$base_slug = isset( $settings['base_slug'] ) && '' !== (string) $settings['base_slug'] ? (string) $settings['base_slug'] : 'community';
+			$base      = home_url( '/' . ltrim( $base_slug, '/' ) );
+		}
 
 		return rtrim( $base, '/' ) . '/s/' . rawurlencode( $space_slug ) . '/t/' . rawurlencode( $post_slug ) . '/';
 	}
@@ -393,14 +471,262 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Provision (once) a Jetonomy forum for a BuddyNext space and link it.
+	 * Whether a BuddyNext space currently has a Discussion linked.
 	 *
-	 * Idempotent: returns the existing forum id when already linked. Creates a
-	 * paired jt_space named after the BN space (Jetonomy's Space::create) and
-	 * stores the `bn_space_{id}_jetonomy_forum_id` link option.
+	 * A Discussion is opt-in and never mandatory — a space has one only after the
+	 * owner enabled or linked it. Thin boolean wrapper over the link meta for the
+	 * owner-facing control and nav gating.
 	 *
 	 * @param int $space_id BuddyNext space ID.
-	 * @return int Jetonomy forum (jt_spaces) id, or 0 on failure.
+	 * @return bool True when a Jetonomy discussion is linked.
+	 */
+	public function space_has_discussion( int $space_id ): bool {
+		return $this->forum_id_for_space( $space_id ) > 0;
+	}
+
+	/**
+	 * Whether a space's dedicated Discussion is currently ENABLED (shown to
+	 * members). A space keeps its one dedicated discussion for its lifetime; the
+	 * owner toggles it on/off with this flag, which hides the tab without ever
+	 * discarding the discussion or its content.
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return bool True when a discussion exists AND is toggled on.
+	 */
+	public function space_discussion_enabled( int $space_id ): bool {
+		if ( ! $this->space_has_discussion( $space_id ) ) {
+			return false;
+		}
+		return '1' === (string) buddynext_get_space_field( $space_id, 'discussion_enabled' );
+	}
+
+	/**
+	 * Turn a space's dedicated Discussion on or off. Only flips the enabled flag —
+	 * the permanent jetonomy_forum_id link and all discussion content are never
+	 * touched, so re-enabling restores the exact same discussion.
+	 *
+	 * @param int  $space_id BuddyNext space ID.
+	 * @param bool $enabled  Desired state.
+	 * @return void
+	 */
+	public function set_discussion_enabled( int $space_id, bool $enabled ): void {
+		update_space_meta( absint( $space_id ), 'discussion_enabled', $enabled ? '1' : '0' );
+	}
+
+	/**
+	 * Resolve the per-space Discussion status for the owner control + tab.
+	 *
+	 * `has_discussion` — the space has a dedicated discussion (permanent, 1:1).
+	 * `enabled`        — the owner has it toggled on (members see the tab).
+	 * `name` / `url`   — which discussion is linked, so the settings screen can
+	 *                    always show it. The bridge owns all jt_* access.
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return array{has_discussion:bool,enabled:bool,forum_id:int,name:string,url:string}
+	 */
+	public function space_discussion_status( int $space_id ): array {
+		$forum_id = $this->forum_id_for_space( $space_id );
+		if ( $forum_id <= 0 ) {
+			return array(
+				'has_discussion' => false,
+				'enabled'        => false,
+				'forum_id'       => 0,
+				'name'           => '',
+				'url'            => '',
+			);
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$name = (string) $wpdb->get_var(
+			$wpdb->prepare( "SELECT title FROM {$wpdb->prefix}jt_spaces WHERE id = %d LIMIT 1", $forum_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array(
+			'has_discussion' => true,
+			'enabled'        => $this->space_discussion_enabled( $space_id ),
+			'forum_id'       => $forum_id,
+			'name'           => $name,
+			'url'            => $this->space_forum_url( $space_id ),
+		);
+	}
+
+	/**
+	 * Jetonomy discussions a space owner may attach to their space — ONLY the
+	 * discussions that owner authored. Populates the "link an existing discussion"
+	 * picker, so a space owner can never attach someone else's discussion.
+	 *
+	 * @param int $owner_id The space owner the picker is scoped to.
+	 * @param int $limit    Max rows (1-200). Default 100.
+	 * @return array<int,array{id:int,title:string}>
+	 */
+	public function linkable_discussions( int $owner_id, int $limit = 100 ): array {
+		$owner_id = absint( $owner_id );
+		if ( $owner_id <= 0 || ! class_exists( '\Jetonomy\Models\Space' ) ) {
+			return array();
+		}
+
+		$limit = max( 1, min( 200, $limit ) );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, title FROM {$wpdb->prefix}jt_spaces WHERE author_id = %d AND status = 'active' ORDER BY title ASC LIMIT %d",
+				$owner_id,
+				$limit
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$out = array();
+		foreach ( (array) $rows as $bn_ld_space ) {
+			if ( isset( $bn_ld_space->id, $bn_ld_space->title ) ) {
+				$out[] = array(
+					'id'    => (int) $bn_ld_space->id,
+					'title' => (string) $bn_ld_space->title,
+				);
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Whether a Jetonomy discussion (jt_spaces id) exists and is active — the
+	 * link-authorization guard for SITE ADMINS, who may attach any discussion.
+	 * Members are held to the stricter discussion_owned_by() check instead.
+	 *
+	 * @param int $forum_id jt_spaces id.
+	 * @return bool
+	 */
+	public function discussion_exists( int $forum_id ): bool {
+		$forum_id = absint( $forum_id );
+		if ( $forum_id <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$found = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}jt_spaces WHERE id = %d AND status = 'active' LIMIT 1", $forum_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $found > 0;
+	}
+
+	/**
+	 * Whether a Jetonomy discussion is authored by a given space owner — the
+	 * server-side authorization guard for the "link existing" action, so a crafted
+	 * POST can never attach a discussion the space owner does not own.
+	 *
+	 * @param int $forum_id jt_spaces id.
+	 * @param int $owner_id The space owner who must own the discussion.
+	 * @return bool
+	 */
+	public function discussion_owned_by( int $forum_id, int $owner_id ): bool {
+		$forum_id = absint( $forum_id );
+		$owner_id = absint( $owner_id );
+		if ( $forum_id <= 0 || $owner_id <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$author_id = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT author_id FROM {$wpdb->prefix}jt_spaces WHERE id = %d LIMIT 1", $forum_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $author_id > 0 && $author_id === $owner_id;
+	}
+
+	/**
+	 * Search discussions by title for the "link an existing discussion" typeahead
+	 * — bounded so it scales to sites with thousands of discussions (never dumps
+	 * the full set). Scope mirrors the save-time authorization: pass $owner_id > 0
+	 * to restrict to that member's OWN discussions; pass 0 for the admin-only
+	 * "search across all discussions" scope.
+	 *
+	 * @param string $q        Title query (substring match).
+	 * @param int    $owner_id Restrict to this author; 0 = all authors (admin scope).
+	 * @param int    $limit    Max rows (1-50). Default 20.
+	 * @return array<int,array{id:int,title:string}>
+	 */
+	public function search_discussions( string $q, int $owner_id, int $limit = 20 ): array {
+		if ( ! class_exists( '\Jetonomy\Models\Space' ) ) {
+			return array();
+		}
+
+		$limit = max( 1, min( 50, $limit ) );
+
+		global $wpdb;
+		$like = '%' . $wpdb->esc_like( trim( $q ) ) . '%';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $owner_id > 0 ) {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT id, title FROM {$wpdb->prefix}jt_spaces WHERE author_id = %d AND status = 'active' AND title LIKE %s ORDER BY title ASC LIMIT %d",
+					absint( $owner_id ),
+					$like,
+					$limit
+				)
+			);
+		} else {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT id, title FROM {$wpdb->prefix}jt_spaces WHERE status = 'active' AND title LIKE %s ORDER BY title ASC LIMIT %d",
+					$like,
+					$limit
+				)
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$out = array();
+		foreach ( (array) $rows as $bn_sd_row ) {
+			if ( isset( $bn_sd_row->id, $bn_sd_row->title ) ) {
+				$out[] = array(
+					'id'    => (int) $bn_sd_row->id,
+					'title' => (string) $bn_sd_row->title,
+				);
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Unlink a space's Discussion (owner opt-out). Clears the link only; the
+	 * Jetonomy discussion and all its content are preserved and can be re-linked
+	 * later. Never deletes anyone's posts.
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return void
+	 */
+	public function unlink_space_discussion( int $space_id ): void {
+		update_space_meta( absint( $space_id ), 'jetonomy_forum_id', 0 );
+	}
+
+	/**
+	 * Provision (once) the ONE dedicated Jetonomy discussion a BuddyNext space
+	 * owns for its lifetime, and store the permanent link.
+	 *
+	 * A space's discussion is 1:1 and permanent: once created it is NEVER
+	 * duplicated or recreated. If the space already has a linked discussion id
+	 * this returns it unchanged (so turning the toggle off then on reuses the
+	 * exact same discussion — the enabled flag, not this link, is what hides it).
+	 *
+	 * The new discussion is created with a collision-proof slug derived from the
+	 * space slug (suffixed with the space id when that base slug is already taken),
+	 * so it can NEVER silently adopt an unrelated Jetonomy space that merely shares
+	 * a slug — that slug-matching was a hijack risk and is gone.
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return int Jetonomy discussion (jt_spaces) id, or 0 on failure.
 	 */
 	public function provision_space_forum( int $space_id ): int {
 		$existing = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
@@ -417,14 +743,16 @@ class JetonomyBridge {
 			return 0;
 		}
 
+		$owner_id = (int) ( $space['owner_id'] ?? 0 );
 		$forum_id = (int) \Jetonomy\Models\Space::create(
 			array(
 				'title'      => (string) ( $space['name'] ?? '' ),
-				'slug'       => (string) ( $space['slug'] ?? '' ),
+				'slug'       => $this->unique_discussion_slug( (string) ( $space['slug'] ?? '' ), $space_id ),
+				'author_id'  => $owner_id,
 				'visibility' => 'public',
 				'status'     => 'active',
 			),
-			(int) ( $space['owner_id'] ?? 0 )
+			$owner_id
 		);
 
 		if ( $forum_id > 0 ) {
@@ -432,6 +760,49 @@ class JetonomyBridge {
 		}
 
 		return $forum_id;
+	}
+
+	/**
+	 * Build a jt_spaces slug that is guaranteed not to collide with an existing
+	 * Jetonomy space. Prefers the BuddyNext space slug; when that is already taken
+	 * (e.g. an unrelated discussion, or a previously-deleted-then-recreated space),
+	 * suffixes the BuddyNext space id — unique per space — and falls back to a
+	 * numbered variant in the vanishingly unlikely event that is taken too.
+	 *
+	 * @param string $base     Preferred slug (the BuddyNext space slug).
+	 * @param int    $space_id BuddyNext space ID (used to disambiguate).
+	 * @return string A slug not currently present in jt_spaces.
+	 */
+	private function unique_discussion_slug( string $base, int $space_id ): string {
+		$base = '' !== trim( $base ) ? sanitize_title( $base ) : 'space-' . $space_id;
+
+		if ( ! $this->discussion_slug_exists( $base ) ) {
+			return $base;
+		}
+
+		$candidate = $base . '-' . $space_id;
+		$suffix    = 2;
+		while ( $this->discussion_slug_exists( $candidate ) ) {
+			$candidate = $base . '-' . $space_id . '-' . $suffix;
+			++$suffix;
+		}
+
+		return $candidate;
+	}
+
+	/**
+	 * Whether a jt_spaces row already uses a given slug.
+	 *
+	 * @param string $slug Slug to test.
+	 * @return bool
+	 */
+	private function discussion_slug_exists( string $slug ): bool {
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}jt_spaces WHERE slug = %s LIMIT 1", $slug )
+		) > 0;
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**
@@ -527,6 +898,118 @@ class JetonomyBridge {
 				),
 			)
 		);
+
+		// Typeahead for the "link an existing discussion" picker. Bounded search so
+		// it scales past a bounded <select> on sites with thousands of discussions.
+		// Same manage-space gate as provisioning; scope is role-derived server-side
+		// (admins search all, members only their own) — the client cannot widen it.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>\d+)/discussion-search',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'rest_search_discussions' ),
+				'permission_callback' => array( $this, 'rest_provision_permission' ),
+				'args'                => array(
+					'id' => array(
+						'required'          => true,
+						'sanitize_callback' => 'absint',
+					),
+					'q'  => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+				),
+			)
+		);
+
+		// Member Discussions credential panel (app coverage). Public read — the same
+		// credential-first payload the SSR profile tab renders, so web and app show
+		// the same accepted-answers/reputation strip plus recent discussions.
+		register_rest_route(
+			'buddynext/v1',
+			'/members/(?P<id>\d+)/discussions',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'rest_member_discussions' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'id' => array(
+						'required'          => true,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * REST: a member's Discussions credential panel (credentials + recent
+	 * discussions). Mirrors the SSR profile tab so the native app renders it too.
+	 *
+	 * @param \WP_REST_Request $request Request ({id}).
+	 * @return \WP_REST_Response|\WP_Error 404 when the member does not exist.
+	 */
+	public function rest_member_discussions( \WP_REST_Request $request ) {
+		$user_id = absint( $request['id'] );
+		if ( $user_id <= 0 || ! get_userdata( $user_id ) ) {
+			return new \WP_Error( 'not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		$payload = $this->member_discussion_profile( $user_id, 20 );
+
+		$discussions = array_map(
+			static function ( $row ): array {
+				return array(
+					'id'          => (int) $row->id,
+					'title'       => (string) $row->title,
+					'url'         => isset( $row->url ) ? (string) $row->url : '',
+					'reply_count' => (int) $row->reply_count,
+					'vote_score'  => (int) $row->vote_score,
+					'space_name'  => isset( $row->space_name ) ? (string) $row->space_name : '',
+					'created_at'  => (string) $row->created_at,
+				);
+			},
+			$payload['discussions']
+		);
+
+		return new \WP_REST_Response(
+			array(
+				'accepted_answers' => (int) $payload['accepted_answers'],
+				'reputation'       => (int) $payload['reputation'],
+				'trust_level'      => (int) $payload['trust_level'],
+				'discussion_count' => (int) $payload['discussion_count'],
+				'discussions'      => $discussions,
+			),
+			200
+		);
+	}
+
+	/**
+	 * REST: typeahead search for the "link an existing discussion" picker.
+	 *
+	 * Scope is derived from the caller's role, NOT the request: a site admin
+	 * searches across all discussions; any other manager searches only the space
+	 * owner's own discussions — matching the save-time authorization so the client
+	 * can never widen its own scope.
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return \WP_REST_Response
+	 */
+	public function rest_search_discussions( \WP_REST_Request $request ): \WP_REST_Response {
+		$space_id = (int) $request['id'];
+		$q        = (string) $request->get_param( 'q' );
+
+		$owner_id = 0;
+		if ( ! current_user_can( 'manage_options' ) ) {
+			$space    = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+			$owner_id = (int) ( $space['owner_id'] ?? 0 );
+		}
+
+		return new \WP_REST_Response(
+			array( 'results' => $this->search_discussions( $q, $owner_id ) ),
+			200
+		);
 	}
 
 	/**
@@ -598,7 +1081,10 @@ class JetonomyBridge {
 				'label'     => __( 'Discussions', 'buddynext' ),
 				'icon'      => 'message-square',
 				'priority'  => 35,
-				'condition' => $jetonomy_active,
+				// Per-space: only when THIS space's owner has enabled its dedicated
+				// discussion. A space with none (or with it toggled off) shows no tab.
+				'condition' => fn( \BuddyNext\Nav\NavContext $c ): bool => $jetonomy_active()
+					&& $this->space_discussion_enabled( $c->subject_id ),
 				'url'       => function ( \BuddyNext\Nav\NavContext $c ): string {
 					return trailingslashit( \BuddyNext\Core\PageRouter::space_url( $c->subject_id ) ) . 'discussions/';
 				},
@@ -680,11 +1166,16 @@ class JetonomyBridge {
 	 * @return void
 	 */
 	public function render_profile_discussions_panel( int $user_id ): void {
+		$profile = $this->member_discussion_profile( $user_id, 20 );
 		buddynext_get_template(
 			'parts/profile/discussions-panel.php',
 			array(
-				'profile_user_id' => $user_id,
-				'discussions'     => $this->user_discussions( $user_id, 20 ),
+				'profile_user_id'  => $user_id,
+				'discussions'      => $profile['discussions'],
+				'discussion_count' => $profile['discussion_count'],
+				'accepted_answers' => $profile['accepted_answers'],
+				'reputation'       => $profile['reputation'],
+				'trust_level'      => $profile['trust_level'],
 			)
 		);
 	}
@@ -701,16 +1192,29 @@ class JetonomyBridge {
 			return 0;
 		}
 
+		// Nav badges call this on EVERY profile view — cache the COUNT so a large
+		// forum does not pay a jt_posts scan per page load. Invalidated on the
+		// member's post create/delete (invalidate_member_caches).
+		$cache_key = 'jt_dcount_' . $user_id;
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		return (int) $wpdb->get_var(
+		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}jt_posts WHERE author_id = %d AND status = 'publish'",
 				$user_id
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $count;
 	}
 
 	/**
@@ -720,7 +1224,7 @@ class JetonomyBridge {
 	 *
 	 * @param int $user_id Discussion author ID.
 	 * @param int $limit   Max rows (1-50). Default 20.
-	 * @return object[] Each row: id, title, slug, reply_count, vote_score, created_at, space_name, space_slug.
+	 * @return object[] Each row: id, title, slug, reply_count, vote_score, created_at, space_name, space_slug, url.
 	 */
 	public function user_discussions( int $user_id, int $limit = 20 ): array {
 		$user_id = absint( $user_id );
@@ -728,6 +1232,18 @@ class JetonomyBridge {
 			return array();
 		}
 		$limit = max( 1, min( 50, $limit ) );
+
+		// The profile panel + REST both request the default page; cache that hot
+		// path (invalidated on the member's post create/delete). Non-default limits
+		// are rare and bypass the cache so they never serve a truncated set.
+		$use_cache = ( 20 === $limit );
+		$cache_key = 'jt_ulist_' . $user_id;
+		if ( $use_cache ) {
+			$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
+			if ( is_array( $cached ) ) {
+				return $cached;
+			}
+		}
 
 		global $wpdb;
 
@@ -747,7 +1263,102 @@ class JetonomyBridge {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return is_array( $rows ) ? $rows : array();
+		if ( ! is_array( $rows ) ) {
+			return array();
+		}
+
+		// Resolve each discussion's permalink through the base-slug-aware helper so
+		// the template renders a ready URL and never rebuilds the /s/…/t/… path.
+		foreach ( $rows as $row ) {
+			$row->url = $this->discussion_permalink( (string) $row->space_slug, (string) $row->slug );
+		}
+
+		if ( $use_cache ) {
+			wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Count a member's accepted answers — the real credential Jetonomy tracks.
+	 *
+	 * An accepted answer (jt_replies.is_accepted) is an outcome (this member solved
+	 * someone's question), unlike started-discussion counts which are activity churn.
+	 * The bridge owns all jt_* access, so it self-fetches.
+	 *
+	 * @param int $user_id Reply author ID.
+	 * @return int
+	 */
+	public function accepted_answer_count( int $user_id ): int {
+		$user_id = absint( $user_id );
+		if ( $user_id <= 0 ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}jt_replies WHERE author_id = %d AND is_accepted = 1 AND status = 'publish'",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Read a member's Jetonomy reputation + trust level from its UserProfile model.
+	 *
+	 * Reputation/trust are the standing Jetonomy maintains for a member — the
+	 * credential worth surfacing on a profile. Returns zeros when Jetonomy or the
+	 * profile row is unavailable so callers never have to null-check.
+	 *
+	 * @param int $user_id Member ID.
+	 * @return array{reputation:int,trust_level:int}
+	 */
+	public function member_reputation( int $user_id ): array {
+		$user_id = absint( $user_id );
+		$out     = array(
+			'reputation'  => 0,
+			'trust_level' => 0,
+		);
+		if ( $user_id <= 0 || ! class_exists( '\Jetonomy\Models\UserProfile' ) ) {
+			return $out;
+		}
+
+		$profile = \Jetonomy\Models\UserProfile::find_by_user( $user_id );
+		if ( $profile ) {
+			$out['reputation']  = (int) ( $profile->reputation ?? 0 );
+			$out['trust_level'] = (int) ( $profile->trust_level ?? 0 );
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Assemble the full profile Discussions payload — the single source both the
+	 * SSR panel and the REST route consume, so web and app render the same tab
+	 * (app-coverage / REST-first house rule).
+	 *
+	 * Credential-first: accepted answers + reputation/trust are the outcomes worth
+	 * showing; the recent-discussions list is supporting context, not the headline.
+	 *
+	 * @param int $user_id Member being viewed.
+	 * @param int $limit   Max discussion rows (1-50). Default 20.
+	 * @return array{discussions:object[],discussion_count:int,accepted_answers:int,reputation:int,trust_level:int}
+	 */
+	public function member_discussion_profile( int $user_id, int $limit = 20 ): array {
+		$credentials = $this->member_reputation( $user_id );
+
+		return array(
+			'discussions'      => $this->user_discussions( $user_id, $limit ),
+			'discussion_count' => $this->discussion_count( $user_id ),
+			'accepted_answers' => $this->accepted_answer_count( $user_id ),
+			'reputation'       => $credentials['reputation'],
+			'trust_level'      => $credentials['trust_level'],
+		);
 	}
 
 	/**
@@ -789,6 +1400,17 @@ class JetonomyBridge {
 		}
 		$limit = max( 1, min( 50, $limit ) );
 
+		// Cache the default page (keyed by the resolved forum id, matching the
+		// invalidation hooks); odd limits bypass the cache.
+		$use_cache = ( 20 === $limit );
+		$cache_key = 'jt_slist_' . $forum_id;
+		if ( $use_cache ) {
+			$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
+			if ( is_array( $cached ) ) {
+				return $cached;
+			}
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -807,7 +1429,13 @@ class JetonomyBridge {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return is_array( $rows ) ? $rows : array();
+		$rows = is_array( $rows ) ? $rows : array();
+
+		if ( $use_cache ) {
+			wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
+		}
+
+		return $rows;
 	}
 
 	/**
@@ -826,16 +1454,28 @@ class JetonomyBridge {
 			return 0;
 		}
 
+		// Nav badges call this on EVERY space view — cache the COUNT keyed by the
+		// resolved forum id (invalidated on that forum's post create/delete).
+		$cache_key = 'jt_scount_' . $forum_id;
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		return (int) $wpdb->get_var(
+		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}jt_posts WHERE space_id = %d AND status = 'publish'",
 				$forum_id
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $count;
 	}
 
 	/**
@@ -871,56 +1511,6 @@ class JetonomyBridge {
 			'forum_url'     => $this->space_forum_url( $space_id ),
 			'linked'        => $this->forum_id_for_space( $space_id ) > 0,
 			'provision_url' => $this->provision_forum_url( $space_id ),
-		);
-	}
-
-	/**
-	 * Create a BuddyNext notification when someone replies to a Jetonomy discussion.
-	 *
-	 * The space context is resolved from the reply's parent post, so the hook's
-	 * second argument is not needed and is not requested (accepted_args = 1).
-	 *
-	 * @param int $reply_id Jetonomy reply ID.
-	 */
-	public function notify_discussion_reply( int $reply_id ): void {
-		if ( ! class_exists( 'Jetonomy\Models\Reply' ) || ! class_exists( 'Jetonomy\Models\Post' ) ) {
-			return;
-		}
-
-		$reply = \Jetonomy\Models\Reply::find( $reply_id );
-		if ( ! $reply ) {
-			return;
-		}
-
-		$post = \Jetonomy\Models\Post::find( (int) $reply->post_id );
-		if ( ! $post ) {
-			return;
-		}
-
-		$reply_author_id = (int) $reply->author_id;
-		$post_author_id  = (int) $post->author_id;
-
-		// Don't notify yourself.
-		if ( $reply_author_id === $post_author_id || 0 === $post_author_id ) {
-			return;
-		}
-
-		$replier      = get_userdata( $reply_author_id );
-		$replier_name = $replier ? $replier->display_name : __( 'Someone', 'buddynext' );
-
-		( new \BuddyNext\Notifications\NotificationService() )->create(
-			array(
-				'recipient_id' => $post_author_id,
-				'sender_id'    => $reply_author_id,
-				'type'         => 'bn.jetonomy_reply',
-				'object_type'  => 'jetonomy_post',
-				'object_id'    => (int) $reply->post_id,
-				'message'      => sprintf(
-					/* translators: %s: replier name */
-					__( '%s replied to your discussion', 'buddynext' ),
-					$replier_name
-				),
-			)
 		);
 	}
 

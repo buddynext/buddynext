@@ -221,7 +221,7 @@ class ProfileService {
 		}
 
 		$visibility = (string) ( $field['visibility'] ?? 'public' );
-		if ( ! in_array( $visibility, array( 'public', 'followers', 'connections', 'private' ), true ) ) {
+		if ( ! in_array( $visibility, array( 'public', 'members', 'followers', 'connections', 'private' ), true ) ) {
 			$visibility = 'public';
 		}
 
@@ -479,6 +479,29 @@ class ProfileService {
 	}
 
 	/**
+	 * Collect submitted free-text values from a save_profile payload into one string
+	 * for a single auto-moderation scan. Skips visibility markers and non-strings.
+	 *
+	 * @param array<string,mixed> $data Submitted profile data (flat and/or repeater).
+	 * @return string
+	 */
+	private static function collect_text_values( array $data ): string {
+		$parts = array();
+		array_walk_recursive(
+			$data,
+			static function ( $value, $key ) use ( &$parts ): void {
+				if ( '_visibility' === $key ) {
+					return;
+				}
+				if ( is_string( $value ) && '' !== trim( $value ) ) {
+					$parts[] = $value;
+				}
+			}
+		);
+		return implode( "\n", $parts );
+	}
+
+	/**
 	 * Save profile field values for a user.
 	 *
 	 * Flat fields: keyed directly as field_key => value.
@@ -506,6 +529,23 @@ class ProfileService {
 	 */
 	public function save_profile( int $user_id, array $data ): bool|\WP_Error {
 		global $wpdb;
+
+		// Auto-moderation: scan the submitted free-text values so banned words / links
+		// can't be planted in a bio or custom field. Posts and comments run the same
+		// safeguard; profile fields previously did not. One check over the joined text
+		// keeps it to a single evaluation before any DB write.
+		if ( function_exists( 'buddynext_service' ) ) {
+			$profile_text = self::collect_text_values( $data );
+			if ( '' !== $profile_text ) {
+				$guard = buddynext_service( 'safeguard' );
+				if ( is_object( $guard ) && method_exists( $guard, 'check_content' ) ) {
+					$verdict = $guard->check_content( $profile_text, '', $user_id );
+					if ( is_wp_error( $verdict ) ) {
+						return $verdict;
+					}
+				}
+			}
+		}
 
 		$flat_fields  = $this->get_flat_fields();
 		$field_by_key = array_column( $flat_fields, null, 'field_key' );
@@ -858,12 +898,17 @@ class ProfileService {
 	private function bust_profile_cache( int $user_id ): void {
 		wp_cache_delete( "profile_{$user_id}_viewer_owner", self::CACHE_GROUP );
 
-		foreach ( array( 0, 1 ) as $follower ) {
-			foreach ( array( 0, 1 ) as $connection ) {
-				wp_cache_delete(
-					sprintf( 'profile_%d_viewer_f%d_c%d', $user_id, $follower, $connection ),
-					self::CACHE_GROUP
-				);
+		// Must match every dimension of the read cache key (member + follower +
+		// connection) — the read gate keys on _m%d_f%d_c%d, so an update has to bust
+		// all member×follower×connection buckets or a members-tier field goes stale.
+		foreach ( array( 0, 1 ) as $member ) {
+			foreach ( array( 0, 1 ) as $follower ) {
+				foreach ( array( 0, 1 ) as $connection ) {
+					wp_cache_delete(
+						sprintf( 'profile_%d_viewer_m%d_f%d_c%d', $user_id, $member, $follower, $connection ),
+						self::CACHE_GROUP
+					);
+				}
 			}
 		}
 	}
@@ -918,14 +963,22 @@ class ProfileService {
 			? buddynext_service( 'connections' )->are_connected( $viewer_id, $profile_user_id )
 			: false;
 
-		// Key on owner + follower + connection state so each distinct viewer
-		// relationship gets its own cache bucket (no cross-relationship leak).
+		// A logged-in (non-owner) viewer is a "member" and may see `members`-tier
+		// fields; an anonymous viewer (viewer_id 0) may not.
+		$viewer_is_member = $viewer_id > 0 && ! $is_owner;
+
+		// Key on owner + member + follower + connection state so each distinct
+		// viewer relationship gets its own cache bucket (no cross-relationship
+		// leak). The member flag is REQUIRED: without it a logged-in stranger and
+		// an anonymous visitor both hash to f0_c0 and a `members`-tier field cached
+		// for one would leak to the other.
 		if ( $is_owner ) {
 			$cache_key = "profile_{$profile_user_id}_viewer_owner";
 		} else {
 			$cache_key = sprintf(
-				'profile_%d_viewer_f%d_c%d',
+				'profile_%d_viewer_m%d_f%d_c%d',
 				$profile_user_id,
+				$viewer_is_member ? 1 : 0,
 				$viewer_is_follower ? 1 : 0,
 				$viewer_is_connection ? 1 : 0
 			);
@@ -1008,32 +1061,30 @@ class ProfileService {
 				continue;
 			}
 
-			// Enforce group/field/entry visibility for non-owners (most restrictive wins).
+			// Enforce group/field/entry visibility for non-owners (most restrictive
+			// wins). Rank-driven so the ladder lives in one place (visibility_rank).
 			if ( ! $is_owner ) {
-				$fvis          = $row['field_visibility'] ?? 'public';
-				$evis          = $row['entry_visibility'] ?? 'public';
+				$fvis          = (string) ( $row['field_visibility'] ?? 'public' );
+				$evis          = (string) ( $row['entry_visibility'] ?? 'public' );
 				$effective_vis = 'public';
-				foreach ( array( $gvis, $fvis, $evis ) as $v ) {
-					if ( 'private' === $v ) {
-						$effective_vis = 'private';
-						break;
-					}
-					if ( 'connections' === $v ) {
-						$effective_vis = 'connections';
-					}
-					if ( 'followers' === $v && 'connections' !== $effective_vis ) {
-						$effective_vis = 'followers';
+				foreach ( array( (string) $gvis, $fvis, $evis ) as $v ) {
+					if ( self::visibility_rank( $v ) > self::visibility_rank( $effective_vis ) ) {
+						$effective_vis = $v;
 					}
 				}
 				if ( 'private' === $effective_vis ) {
 					continue;
 				}
-				// Reuse the connection flag resolved once before the cache lookup —
-				// no per-row SQL. The cache key already captures this relationship.
+				// Reuse the relationship flags resolved once before the cache lookup
+				// — no per-row SQL. The cache key already captures each relationship.
 				if ( 'connections' === $effective_vis && ! $viewer_is_connection ) {
 					continue;
 				}
 				if ( 'followers' === $effective_vis && ! $viewer_is_follower ) {
+					continue;
+				}
+				// `members` = any logged-in viewer; deny only the anonymous public web.
+				if ( 'members' === $effective_vis && ! $viewer_is_member ) {
 					continue;
 				}
 			}
@@ -1150,6 +1201,7 @@ class ProfileService {
 			$output_groups,
 			$profile_user_id,
 			$is_owner,
+			$viewer_is_member,
 			$viewer_is_follower,
 			$viewer_is_connection
 		);
@@ -1206,11 +1258,12 @@ class ProfileService {
 	 * @param array<int,array<string,mixed>> $output_groups        DB-built groups.
 	 * @param int                            $profile_user_id      Profile owner.
 	 * @param bool                           $is_owner             Viewer is the owner.
+	 * @param bool                           $viewer_is_member     Viewer is a logged-in member (non-owner).
 	 * @param bool                           $viewer_is_follower   Viewer follows the owner.
 	 * @param bool                           $viewer_is_connection Viewer is connected to the owner.
 	 * @return array<int,array<string,mixed>> Groups with virtual fields merged in.
 	 */
-	private function merge_virtual_fields( array $output_groups, int $profile_user_id, bool $is_owner, bool $viewer_is_follower, bool $viewer_is_connection ): array {
+	private function merge_virtual_fields( array $output_groups, int $profile_user_id, bool $is_owner, bool $viewer_is_member, bool $viewer_is_follower, bool $viewer_is_connection ): array {
 		$virtual = (array) apply_filters( 'buddynext_profile_fields', array() );
 		if ( empty( $virtual ) ) {
 			return $output_groups;
@@ -1241,7 +1294,8 @@ class ProfileService {
 				if ( ! $is_owner ) {
 					if ( 'private' === $fvis
 						|| ( 'connections' === $fvis && ! $viewer_is_connection )
-						|| ( 'followers' === $fvis && ! $viewer_is_follower ) ) {
+						|| ( 'followers' === $fvis && ! $viewer_is_follower )
+						|| ( 'members' === $fvis && ! $viewer_is_member ) ) {
 						continue;
 					}
 				}
@@ -2075,17 +2129,20 @@ class ProfileService {
 	/**
 	 * Visibility restrictiveness rank (higher = more restrictive).
 	 *
-	 * Order per spec: private > connections > followers > public.
+	 * Order per spec: private > connections > followers > members > public.
+	 * `members` = any logged-in member (broader than followers/connections, but
+	 * narrower than the public web).
 	 *
 	 * @param string $visibility One of the visibility_enum values.
-	 * @return int Rank; unknown values fall back to the most permissive (public).
+	 * @return int Rank; unknown values fall back to the most restrictive (private).
 	 */
 	private static function visibility_rank( string $visibility ): int {
 		$ranks = array(
 			'public'      => 0,
-			'followers'   => 1,
-			'connections' => 2,
-			'private'     => 3,
+			'members'     => 1,
+			'followers'   => 2,
+			'connections' => 3,
+			'private'     => 4,
 		);
 
 		// An unknown value silently ranking as public would leak a field that was
@@ -2097,7 +2154,7 @@ class ProfileService {
 				esc_html( sprintf( 'Unknown profile-field visibility "%s"; treating as private.', $visibility ) ),
 				'1.0.0'
 			);
-			return 3;
+			return 4;
 		}
 
 		return $ranks[ $visibility ];
@@ -2116,7 +2173,7 @@ class ProfileService {
 			return null;
 		}
 
-		$allowed = array( 'public', 'followers', 'connections', 'private' );
+		$allowed = array( 'public', 'members', 'followers', 'connections', 'private' );
 		if ( ! in_array( $chosen, $allowed, true ) ) {
 			return null;
 		}

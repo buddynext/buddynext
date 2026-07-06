@@ -410,6 +410,16 @@
       "id": "hook-consumed-never-fired:buddynext_cleanup_email_log",
       "reason": "Cron-fired hook, not a do_action() target. Registered as a CronScheduler recurring job (CronScheduler::JOB_CLEANUP_EMAIL_LOG): handler bound at includes/Core/CronScheduler.php:118, armed weekly via maybe_schedule() at :156 (item S3a, bn_email_log retention prune). WP-Cron / Action Scheduler invokes the action, so the scanner finds no literal firing site. False positive.",
       "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_publish_scheduled_sweep",
+      "reason": "Cron-fired hook, not a do_action() target. ScheduledPostsPublisher::SWEEP_HOOK ('buddynext_publish_scheduled_sweep'): handler bound at includes/Feed/ScheduledPostsPublisher.php:67 and armed as an hourly WP-Cron safety-net sweep via wp_schedule_event(...self::SWEEP_HOOK) at :70. WP-Cron invokes the action; the scanner cannot resolve the const at the schedule site. False positive (1.0.5 scheduled-posts catch-up sweep).",
+      "severity": "error"
+    },
+    {
+      "id": "hook-consumed-never-fired:buddynext_suite_panels_changed",
+      "reason": "Inbound extension seam, not fired by BN core. Consumed at buddynext-pro/includes/Suite/SuiteProfile.php:77 to invalidate the suite-panel cache; documented (SuiteProfile.php:171) as fired by integrations that add suite panels (e.g. certificate/credential plugins) via do_action('buddynext_suite_panels_changed', $member_id). No BN-core firing site by design. False positive.",
+      "severity": "error"
     }
   ]
 }

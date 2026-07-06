@@ -79,7 +79,11 @@ if ( $active_conv_id <= 0 ) {
 }
 
 $helpers = MessagesData::helpers( $viewer );
-$convs   = MessagesData::conversations( $viewer, $active_tab );
+// Inbox cap grows via the ?convs= param so a member with more than 50 conversations
+// can page the rail (the "Load more" link below bumps it). phpcs:ignore below —
+// read-only display param, no state change.
+$bn_convs_cap = isset( $_GET['convs'] ) ? absint( wp_unslash( $_GET['convs'] ) ) : 50; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$convs        = MessagesData::conversations( $viewer, $active_tab, $bn_convs_cap );
 
 // When the inbox is opened with no explicit conversation (and the member is not
 // trying to reach a blocked/unreachable recipient), auto-open the most recent
@@ -111,6 +115,8 @@ $bn_ctx = wp_json_encode(
 		'groupMembers'      => array(),
 		'groupBusy'         => false,
 		'activeConvId'      => $thread ? (int) $thread['conversation_id'] : 0,
+		'isMuted'           => $thread ? ! empty( $thread['is_muted'] ) : false,
+		'searchOpen'        => false,
 		'activeIsGroup'     => $thread ? ! empty( $thread['is_group'] ) : false,
 		'activeIsAdmin'     => $thread ? ! empty( $thread['is_admin'] ) : false,
 		'activeGroupName'   => $thread ? (string) $thread['display_name'] : '',
@@ -174,6 +180,8 @@ $bn_ctx = wp_json_encode(
 				'request_count'        => $convs['requests'],
 				'current_user_id'      => $viewer,
 				'compose_url'          => $messages_url,
+				'convs_has_more'       => ! empty( $convs['has_more'] ),
+				'convs_next_cap'       => (int) ( $convs['limit'] ?? 50 ) + 50,
 			)
 		)
 	);

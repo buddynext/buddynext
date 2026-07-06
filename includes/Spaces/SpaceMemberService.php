@@ -82,6 +82,17 @@ class SpaceMemberService {
 		// Pro's gated-space gate) receive the actual required_ability + type.
 		$space = $this->load_space_row( $space_id );
 
+		// A missing space (just deleted, or a bad ID) must 404 before any DB write —
+		// otherwise load_space_row's empty array slips past the archived check and a
+		// membership row is inserted for a space_id that no longer exists.
+		if ( empty( $space ) ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'This space no longer exists.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
 		// An archived space is read-only — it accepts no new members or requests.
 		if ( ! empty( $space['is_archived'] ) ) {
 			return new WP_Error(
@@ -193,6 +204,17 @@ class SpaceMemberService {
 	public function request_join( int $space_id, int $user_id ): bool|WP_Error {
 		// Pre-load space row so listeners receive the actual required_ability + type.
 		$space = $this->load_space_row( $space_id );
+
+		// A missing space (just deleted, or a bad ID) must 404 before any DB write —
+		// otherwise load_space_row's empty array slips past the archived check and a
+		// membership row is inserted for a space_id that no longer exists.
+		if ( empty( $space ) ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'This space no longer exists.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
 
 		// An archived space is read-only — it accepts no new members or requests.
 		if ( ! empty( $space['is_archived'] ) ) {
@@ -312,6 +334,14 @@ class SpaceMemberService {
 	 * @return true|WP_Error
 	 */
 	public function invite( int $space_id, int $inviter_id, int $invited_user_id ): bool|WP_Error {
+		if ( empty( $this->load_space_row( $space_id ) ) ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'This space no longer exists.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
 		if ( ! $this->can_invite( $space_id, $inviter_id ) ) {
 			return new WP_Error(
 				'forbidden',
@@ -378,6 +408,14 @@ class SpaceMemberService {
 	 * @return true|WP_Error
 	 */
 	public function approve_request( int $space_id, int $actor_id, int $user_id ): bool|WP_Error {
+		if ( empty( $this->load_space_row( $space_id ) ) ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'This space no longer exists.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
 		$actor_role = $this->get_role( $space_id, $actor_id );
 
 		if ( ! SpaceRoles::can_moderate( $actor_role, $actor_id ) ) {
@@ -1112,6 +1150,9 @@ class SpaceMemberService {
 				'joined_at'     => $r['joined_at'],
 				'display_name'  => (string) ( $r['display_name'] ?? '' ),
 				'user_nicename' => (string) ( $r['user_nicename'] ?? '' ),
+				// Included so a native app can render the member list without a
+				// per-user avatar fetch (client-side N+1).
+				'avatar_url'    => get_avatar_url( (int) $r['user_id'], array( 'size' => 96 ) ),
 			),
 			(array) $rows
 		);
@@ -1280,6 +1321,35 @@ class SpaceMemberService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Count the spaces a user actively belongs to.
+	 *
+	 * The rail "My spaces" flyout shows a capped preview of membership_rows(); this
+	 * gives it the TRUE total so the count badge is accurate and a "See all" link can
+	 * appear once the member belongs to more spaces than the preview shows. A single
+	 * COUNT(*) on the (user_id, status) index — big-site safe at thousands of spaces.
+	 *
+	 * @param int $user_id User ID.
+	 * @return int
+	 */
+	public function count_memberships( int $user_id ): int {
+		$user_id = absint( $user_id );
+		if ( $user_id <= 0 ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active'",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**

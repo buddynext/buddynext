@@ -104,6 +104,14 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'daily',
 				'can_email'          => true,
 			),
+			'bn.comment_reacted'        => array(
+				'label'              => __( 'Reactions on your comments', 'buddynext' ),
+				'description'        => __( 'Someone reacted to a comment you authored.', 'buddynext' ),
+				'group'              => self::GROUP_FEED,
+				'default_on_site'    => true,
+				'default_email_freq' => 'daily',
+				'can_email'          => true,
+			),
 			'bn.post_commented'         => array(
 				'label'              => __( 'Comments on your posts', 'buddynext' ),
 				'description'        => __( 'Someone commented on a post you authored.', 'buddynext' ),
@@ -192,6 +200,14 @@ class NotificationPrefCatalogue {
 				'group'              => self::GROUP_SPACES,
 				'default_on_site'    => true,
 				'default_email_freq' => 'daily',
+				'can_email'          => true,
+			),
+			'bn.announcement'           => array(
+				'label'              => __( 'Announcements', 'buddynext' ),
+				'description'        => __( 'An admin or space moderator posted an announcement.', 'buddynext' ),
+				'group'              => self::GROUP_FEED,
+				'default_on_site'    => true,
+				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
 			'bn.space_role_changed'     => array(
@@ -366,14 +382,6 @@ class NotificationPrefCatalogue {
 				'group'              => self::GROUP_GROWTH,
 				'default_on_site'    => true,
 				'default_email_freq' => 'weekly',
-				'can_email'          => true,
-			),
-			'bn.jetonomy_reply'         => array(
-				'label'              => __( 'Discussion replies', 'buddynext' ),
-				'description'        => __( 'Someone replied to a discussion you started.', 'buddynext' ),
-				'group'              => self::GROUP_GROWTH,
-				'default_on_site'    => true,
-				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
 		);

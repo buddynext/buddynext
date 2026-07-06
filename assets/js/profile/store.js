@@ -574,6 +574,17 @@ function profileSaveUrl() {
 		: '/me/profile';
 }
 
+/* True when the current edit surface submits the COMPLETE profile (the full
+   profile editor, edit.php), as opposed to a partial surface (privacy tab,
+   per-field autosave). The full editor marks its interactive root with
+   data-bn-full-write; partial surfaces omit it. The server enforces required
+   fields across ABSENT keys only on a full write, so a partial save never
+   demands every field. */
+function isFullWriteSurface() {
+	var root = document.querySelector( '[data-wp-interactive="buddynext/profile"]' );
+	return !! ( root && root.getAttribute( 'data-bn-full-write' ) === '1' );
+}
+
 /* Resolve a profile sub-resource endpoint (avatar / cover) for the user being
    edited — /users/{id}/{segment} when an admin is editing someone else (the same
    data-bn-profile-user target profileSaveUrl uses), else the own /me/{segment}.
@@ -654,10 +665,17 @@ async function doSave( ctx ) {
 	clearErrors( ctx );
 
 	try {
+		var payload = buildPayload( ctx );
+		// The complete profile editor (edit.php) marks its root data-bn-full-write;
+		// partial surfaces (privacy tab, per-field autosave) omit it. Signal a full
+		// write so the server enforces required fields across absent keys too.
+		if ( isFullWriteSurface() ) {
+			payload.full_write = true;
+		}
 		var res = await restFetch( profileSaveUrl(), {
 			method:       'PUT',
 			nonce:        nonce(),
-			body:         buildPayload( ctx ),
+			body:         payload,
 			toastOnError: false,
 		} );
 
@@ -792,6 +810,7 @@ function buildEntryVisNode( group, index ) {
 	// Same slugs + labels as the server's $bn_vis_labels — never a new set.
 	[
 		[ 'public',      t( 'visPublic', 'Public' ) ],
+		[ 'members',     t( 'visMembers', 'Members' ) ],
 		[ 'followers',   t( 'visFollowers', 'Followers' ) ],
 		[ 'connections', t( 'visConnections', 'Connections' ) ],
 		[ 'private',     t( 'visPrivate', 'Only me' ) ],

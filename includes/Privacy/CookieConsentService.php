@@ -24,6 +24,19 @@ class CookieConsentService {
 	private const COOKIE = 'bn_cookie_consent';
 
 	/**
+	 * The built-in banner wording.
+	 *
+	 * Single source for the default copy: shown when the owner has not set a
+	 * custom `buddynext_cookie_consent_text`, and offered as the placeholder /
+	 * registered default of that option so editing is opt-in (plug-and-play).
+	 *
+	 * @return string
+	 */
+	public static function default_message(): string {
+		return __( 'We use cookies to keep you signed in and to improve your experience. By continuing to browse, you agree to our use of cookies.', 'buddynext' );
+	}
+
+	/**
 	 * Register hooks. No-op unless the banner is enabled.
 	 *
 	 * @return void
@@ -73,9 +86,14 @@ class CookieConsentService {
 		$privacy_url  = (int) get_option( 'wp_page_for_privacy_policy' ) > 0
 			? get_privacy_policy_url()
 			: '';
-		$message      = __( 'We use cookies to keep you signed in and to improve your experience. By continuing to browse, you agree to our use of cookies.', 'buddynext' );
-		$accept_label = __( 'Got it', 'buddynext' );
-		$policy_label = __( 'Privacy policy', 'buddynext' );
+		$custom       = trim( (string) get_option( 'buddynext_cookie_consent_text', '' ) );
+		$message      = '' !== $custom ? $custom : self::default_message();
+
+		// Accept + policy-link labels are owner-editable (blank = the default).
+		$custom_accept = trim( (string) get_option( 'buddynext_cookie_consent_accept_label', '' ) );
+		$accept_label  = '' !== $custom_accept ? $custom_accept : __( 'Got it', 'buddynext' );
+		$custom_policy = trim( (string) get_option( 'buddynext_cookie_consent_policy_label', '' ) );
+		$policy_label  = '' !== $custom_policy ? $custom_policy : __( 'Privacy policy', 'buddynext' );
 		?>
 		<div class="bn-cookie-consent" role="region" aria-label="<?php esc_attr_e( 'Cookie notice', 'buddynext' ); ?>" data-bn-cookie-consent data-cookie-name="<?php echo esc_attr( self::COOKIE ); ?>" hidden>
 			<p class="bn-cookie-consent__text">

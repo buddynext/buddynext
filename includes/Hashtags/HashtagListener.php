@@ -54,6 +54,9 @@ class HashtagListener implements ListenerInterface {
 		// Native BuddyNext feed posts.
 		add_action( 'buddynext_post_created', array( $this, 'on_post_created' ), 10, 3 );
 
+		// Post edits — re-sync tags so removed #tags unlink and new ones register.
+		add_action( 'buddynext_post_updated', array( $this, 'on_post_updated' ), 10, 3 );
+
 		// Post deletion — drop the post's hashtag links and decrement post_count.
 		add_action( 'buddynext_post_deleted', array( $this, 'on_post_deleted' ), 10, 2 );
 
@@ -62,6 +65,9 @@ class HashtagListener implements ListenerInterface {
 
 		// Async worker hooks — run inline when Action Scheduler is absent.
 		add_action( 'buddynext_async_index_hashtags', array( $this, 'async_index_hashtags' ), 10, 3 );
+
+		// One-time Unicode re-sync (schema v24 / R11) — self-chaining batch worker.
+		add_action( 'buddynext_resync_hashtags', array( $this, 'resync_batch' ), 10, 1 );
 	}
 
 	/**
@@ -89,6 +95,38 @@ class HashtagListener implements ListenerInterface {
 		// poll questions, media captions, reshare notes, event/job/discussion
 		// bodies etc. with #hashtags were silently never indexed (never appeared
 		// in hashtag feeds or trending, and following the tag missed them).
+		$this->dispatch( 'buddynext_async_index_hashtags', array( 'post', $post_id, '' ) );
+	}
+
+	/**
+	 * Handle buddynext_post_updated — re-sync hashtags when a post is edited.
+	 *
+	 * Hashtags derive solely from post content, so this only re-processes when the
+	 * content column was actually written this update; edited_at-only saves and
+	 * privacy flips change no tags and are skipped. It re-uses the same async
+	 * worker as creation, which fetches the fresh content and REPLACES the post's
+	 * tag set — so a removed #tag is unlinked (and its post_count decremented) and
+	 * a newly added #tag is registered and linked. Before this, buddynext_post_updated
+	 * had no hashtag consumer: an edited post kept its original tags frozen, so
+	 * deleted tags lingered on the tag page and added tags never appeared. Mirrors
+	 * the search index's C4 consumer of the same event.
+	 *
+	 * @param int   $post_id Post ID.
+	 * @param int   $user_id Editor user ID (unused; kept for hook arity).
+	 * @param array $fields  Columns written this update (see PostService::update).
+	 * @return void
+	 */
+	public function on_post_updated( int $post_id, int $user_id = 0, array $fields = array() ): void {
+		if ( ! buddynext_feature_enabled( 'hashtags' ) ) {
+			return;
+		}
+
+		// Tags come only from content; a save that did not touch content cannot
+		// change the tag set, so there is nothing to re-sync.
+		if ( ! array_key_exists( 'content', $fields ) ) {
+			return;
+		}
+
 		$this->dispatch( 'buddynext_async_index_hashtags', array( 'post', $post_id, '' ) );
 	}
 
@@ -193,6 +231,63 @@ class HashtagListener implements ListenerInterface {
 				}
 			}
 		}
+	}
+
+	/**
+	 * One-time Unicode hashtag re-sync (schema v24 / R11).
+	 *
+	 * Before HashtagService::normalize_slug(), sync() ran sanitize_key() on each
+	 * tag, stripping every non-ASCII byte — so "#café" was stored as "caf" and
+	 * "#日本語" was dropped entirely. This walks every published post whose content
+	 * carries a '#', 100 rows at a time, re-extracting and re-syncing so the
+	 * correct Unicode slugs are registered and linked. ASCII-only tags re-sync to
+	 * the same slug (a harmless no-op).
+	 *
+	 * Self-chains the next batch through Action Scheduler so a 100k-post site never
+	 * does the work inline; it is safe to interrupt and resume (each batch is
+	 * independent and sync() is idempotent). After the final batch it reconciles
+	 * follows orphaned by the old mangling via merge_mangled_follows().
+	 *
+	 * @param int $offset Row offset for this batch.
+	 * @return void
+	 */
+	public function resync_batch( int $offset = 0 ): void {
+		if ( ! buddynext_feature_enabled( 'hashtags' ) ) {
+			return;
+		}
+
+		global $wpdb;
+		$batch_size = 100;
+		$like       = '%' . $wpdb->esc_like( '#' ) . '%';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, content FROM {$wpdb->prefix}bn_posts
+				 WHERE status = 'published' AND content LIKE %s
+				 ORDER BY id
+				 LIMIT %d OFFSET %d",
+				$like,
+				$batch_size,
+				$offset
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		foreach ( (array) $rows as $row ) {
+			$slugs = $this->service->extract( (string) $row['content'] );
+			$this->service->sync( 'post', (int) $row['id'], $slugs );
+		}
+
+		if ( count( (array) $rows ) === $batch_size ) {
+			// A full batch means more rows remain — queue the next window.
+			$this->dispatch( 'buddynext_resync_hashtags', array( $offset + $batch_size ) );
+			return;
+		}
+
+		// Final batch complete — reconcile follows for unambiguously mangled tags.
+		$this->service->merge_mangled_follows();
 	}
 
 	/**

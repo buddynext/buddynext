@@ -638,4 +638,62 @@ class FeedServiceTest extends \WP_UnitTestCase {
 			'With the category picked the interest-space post must rank first.'
 		);
 	}
+
+	/**
+	 * A public post inside a private space, carrying a hashtag, must NOT reach the
+	 * for-you feed of someone who only FOLLOWS that hashtag and is not a member of
+	 * the space; a member of the space still sees it, and a genuinely public post
+	 * with the tag reaches the follower. Regression guard for the QA bounce on
+	 * card 10062124931 (Surface 4 — the followed-hashtag branch of home_source_clause
+	 * had no space/privacy scope, so a private-space post leaked to tag followers).
+	 *
+	 * @covers \BuddyNext\Feed\FeedService::home_feed
+	 */
+	public function test_followed_hashtag_does_not_leak_private_space_posts(): void {
+		global $wpdb;
+
+		// Private space; Carol is an active member, Alice is not.
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_spaces',
+			array(
+				'name'       => 'Leak Space',
+				'slug'       => 'leak-space',
+				'type'       => 'private',
+				'owner_id'   => $this->bob,
+				'created_at' => current_time( 'mysql', 1 ),
+			)
+		);
+		$space_id = (int) $wpdb->insert_id;
+		foreach ( array( $this->bob => 'owner', $this->carol => 'member' ) as $uid => $role ) {
+			$wpdb->insert(
+				$wpdb->prefix . 'bn_space_members',
+				array(
+					'space_id'  => $space_id,
+					'user_id'   => $uid,
+					'role'      => $role,
+					'status'    => 'active',
+					'joined_at' => current_time( 'mysql', 1 ),
+				)
+			);
+		}
+
+		// Hashtag that Alice (a non-member) follows.
+		$wpdb->insert( $wpdb->prefix . 'bn_hashtags', array( 'name' => 'leaktag', 'slug' => 'leaktag', 'created_at' => current_time( 'mysql', 1 ) ) );
+		$hid = (int) $wpdb->insert_id;
+		$wpdb->insert( $wpdb->prefix . 'bn_hashtag_follows', array( 'user_id' => $this->alice, 'hashtag_id' => $hid ) );
+
+		// P: public post INSIDE the private space, tagged. Q: public control, no space, tagged.
+		$secret_post = $this->posts->create( $this->bob, array( 'type' => 'text', 'content' => 'secret #leaktag', 'privacy' => 'public', 'space_id' => $space_id ) );
+		$public_post = $this->posts->create( $this->bob, array( 'type' => 'text', 'content' => 'open #leaktag', 'privacy' => 'public' ) );
+		foreach ( array( $secret_post, $public_post ) as $pid ) {
+			$wpdb->insert( $wpdb->prefix . 'bn_post_hashtags', array( 'post_id' => $pid, 'object_type' => 'post', 'hashtag_id' => $hid, 'created_at' => current_time( 'mysql', 1 ) ) );
+		}
+
+		$alice_ids = array_column( $this->feed->home_feed( $this->alice )['items'], 'id' );
+		$carol_ids = array_column( $this->feed->home_feed( $this->carol )['items'], 'id' );
+
+		$this->assertNotContains( $secret_post, $alice_ids, 'a tag-follower who is not a space member must NOT see the private-space post' );
+		$this->assertContains( $public_post, $alice_ids, 'the genuinely public tagged post still reaches the tag-follower' );
+		$this->assertContains( $secret_post, $carol_ids, 'a member of the space still sees the post' );
+	}
 }

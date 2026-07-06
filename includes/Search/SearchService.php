@@ -314,6 +314,14 @@ class SearchService {
 		$offset     = ( $page - 1 ) * $per_page;
 		$safe_query = sanitize_text_field( $query );
 
+		// A query shorter than the FULLTEXT minimum token size can never match in
+		// BOOLEAN MODE, so short queries returned nothing. Detect them and route to
+		// the LIKE path (substring), which matches a 1-2 char term. Normal-length
+		// queries still use FULLTEXT as the primary path.
+		$min_token    = $this->fulltext_min_token();
+		$is_short     = mb_strlen( $safe_query ) < $min_token;
+		$use_fulltext = $this->has_fulltext_index() && ! $is_short;
+
 		// The `media` pseudo-type is posts that carry attachments. It reuses the
 		// whole post-search pipeline (FULLTEXT/LIKE seam, block + suspension
 		// exclusions, date window, sort) and only adds a join to bn_posts on a
@@ -519,7 +527,30 @@ class SearchService {
 			return $driver_result;
 		}
 
-		if ( $this->has_fulltext_index() ) {
+		// Visibility gate. Guests and the default path see only public rows. A
+		// logged-in viewer additionally sees content in spaces they belong to: the
+		// private space itself (space rows store their id in object_id, space_id 0)
+		// and any content whose space_id is one of their spaces. Space ids are cast
+		// to int and embedded directly (an all-integer IN() list is injection-safe),
+		// so the four search queries below need no extra prepared params.
+		$visibility_where = "si.visibility = 'public'";
+		if ( $viewer_id > 0 ) {
+			$member_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'space_members' ) : null;
+			$viewer_spaces  = ( is_object( $member_service ) && method_exists( $member_service, 'spaces_for_user' ) )
+				? array_filter( array_map( 'intval', (array) $member_service->spaces_for_user( $viewer_id ) ) )
+				: array();
+			if ( ! empty( $viewer_spaces ) ) {
+				$space_in         = implode( ',', array_map( 'absint', $viewer_spaces ) );
+				$visibility_where = "( si.visibility = 'public'"
+					. " OR ( si.object_type = 'space' AND si.object_id IN ({$space_in}) )"
+					. " OR ( si.space_id IN ({$space_in}) ) )";
+			}
+		}
+
+		$total = 0;
+		$rows  = array();
+
+		if ( $use_fulltext ) {
 			// FULLTEXT path — uses ft_search index for performance on production.
 			// $search_condition is the output of a prior $wpdb->prepare() call — it is already
 			// escaped and safe to embed. $excluded_where and $block_where contain only
@@ -530,9 +561,25 @@ class SearchService {
 				'MATCH(si.title, si.content) AGAINST(%s IN BOOLEAN MODE)',
 				$safe_query . '*'
 			);
-			$order_clause     = $sort_recent
+
+			// Exact/prefix name boost: FULLTEXT BOOLEAN MODE ranks title + content
+			// equally, and member rows store the name in content with an empty title,
+			// so an exact-name query was not surfaced first. This pre-prepared
+			// fragment (same safe-to-embed pattern as $search_condition) sorts an
+			// exact title/content match first (0), then a prefix match (1), then the
+			// rest (2) — so searching a member's name puts that member at the top.
+			$boost_like   = $wpdb->esc_like( $safe_query );
+			$name_boost   = $wpdb->prepare(
+				'(CASE WHEN si.title = %s OR si.content = %s THEN 0'
+				. ' WHEN si.title LIKE %s OR si.content LIKE %s THEN 1 ELSE 2 END)',
+				$safe_query,
+				$safe_query,
+				$boost_like . '%',
+				$boost_like . '%'
+			);
+			$order_clause = $sort_recent
 				? 'si.updated_at DESC'
-				: 'relevance DESC, si.updated_at DESC';
+				: $name_boost . ' ASC, relevance DESC, si.updated_at DESC';
 
 			// SCALE-CONTRACT §3: bound the COUNT so it never scans past the
 			// 1000-row ceiling. Totals beyond it render as "1000+" in the UI.
@@ -542,7 +589,7 @@ class SearchService {
 						SELECT 1
 						 FROM {$wpdb->prefix}bn_search_index si
 						 {$media_join}
-						 WHERE si.visibility = 'public'
+						 WHERE {$visibility_where}
 						   AND {$search_condition}
 						   {$type_where}
 						   {$media_where}
@@ -562,7 +609,7 @@ class SearchService {
 					        MATCH(si.title, si.content) AGAINST(%s IN BOOLEAN MODE) AS relevance
 					 FROM {$wpdb->prefix}bn_search_index si
 					 {$media_join}
-					 WHERE si.visibility = 'public'
+					 WHERE {$visibility_where}
 					   AND MATCH(si.title, si.content) AGAINST(%s IN BOOLEAN MODE)
 					   {$type_where}
 					   {$media_where}
@@ -577,10 +624,25 @@ class SearchService {
 				ARRAY_A
 			);
 			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-		} else {
-			// LIKE fallback — used in test environments where TEMPORARY tables
-			// do not support FULLTEXT indexes.
+		}
+
+		// LIKE path. Runs as the PRIMARY search for short queries (below the FULLTEXT
+		// token size) and when no FULLTEXT index exists, AND as a FUZZY fallback when
+		// the FULLTEXT path matched nothing — so a typo'd or too-short query still
+		// returns results instead of an empty page. When acting as the fuzzy
+		// fallback, SOUNDEX (phonetic) matching is added so a misspelled name
+		// ("jhon" → "John") still surfaces.
+		$fuzzy = $use_fulltext && 0 === $total;
+		if ( ! $use_fulltext || $fuzzy ) {
 			$like = '%' . $wpdb->esc_like( $safe_query ) . '%';
+
+			if ( $fuzzy ) {
+				$like_match  = '( si.title LIKE %s OR si.content LIKE %s OR SOUNDEX(si.title) = SOUNDEX(%s) OR SOUNDEX(si.content) = SOUNDEX(%s) )';
+				$like_params = array( $like, $like, $safe_query, $safe_query );
+			} else {
+				$like_match  = '( si.title LIKE %s OR si.content LIKE %s )';
+				$like_params = array( $like, $like );
+			}
 
 			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			// SCALE-CONTRACT §3: bound the COUNT to the 1000-row ceiling.
@@ -590,8 +652,8 @@ class SearchService {
 						SELECT 1
 						 FROM {$wpdb->prefix}bn_search_index si
 						 {$media_join}
-						 WHERE si.visibility = 'public'
-						   AND (si.title LIKE %s OR si.content LIKE %s)
+						 WHERE {$visibility_where}
+						   AND {$like_match}
 						   {$type_where}
 						   {$media_where}
 						   {$block_where}
@@ -600,7 +662,7 @@ class SearchService {
 						   {$date_where}
 						 LIMIT %d
 					) bn_bounded",
-					...array_merge( array( $like, $like ), $type_params, $block_params, $advanced_params, array( self::MAX_RESULTS + 1 ) )
+					...array_merge( $like_params, $type_params, $block_params, $advanced_params, array( self::MAX_RESULTS + 1 ) )
 				)
 			);
 
@@ -609,8 +671,8 @@ class SearchService {
 					"SELECT si.object_type, si.object_id, si.title, si.content, si.author_id, si.visibility, si.created_at
 					 FROM {$wpdb->prefix}bn_search_index si
 					 {$media_join}
-					 WHERE si.visibility = 'public'
-					   AND (si.title LIKE %s OR si.content LIKE %s)
+					 WHERE {$visibility_where}
+					   AND {$like_match}
 					   {$type_where}
 					   {$media_where}
 					   {$block_where}
@@ -619,7 +681,7 @@ class SearchService {
 					   {$date_where}
 					 ORDER BY si.updated_at DESC
 					 LIMIT %d OFFSET %d",
-					...array_merge( array( $like, $like ), $type_params, $block_params, $advanced_params, array( $row_limit, $offset ) )
+					...array_merge( $like_params, $type_params, $block_params, $advanced_params, array( $row_limit, $offset ) )
 				),
 				ARRAY_A
 			);
@@ -930,6 +992,25 @@ class SearchService {
 	}
 
 	/**
+	 * The server's InnoDB FULLTEXT minimum token size (default 3). A query shorter
+	 * than this can never match in BOOLEAN MODE, so search() routes short queries to
+	 * the LIKE path instead. Cached per-request.
+	 *
+	 * @return int Minimum token length (at least 1).
+	 */
+	private function fulltext_min_token(): int {
+		static $min = null;
+		if ( null !== $min ) {
+			return $min;
+		}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$value = $wpdb->get_var( 'SELECT @@innodb_ft_min_token_size' );
+		$min   = ( null !== $value ) ? max( 1, (int) $value ) : 3;
+		return $min;
+	}
+
+	/**
 	 * Check whether the FULLTEXT index exists on the search index table.
 	 *
 	 * Returns false in test environments where the table is a TEMPORARY table
@@ -950,6 +1031,38 @@ class SearchService {
 			)
 		);
 		return (bool) $result;
+	}
+
+	/**
+	 * Health snapshot of the search index for the admin Tools screen: how many
+	 * rows are indexed (total + per object type), whether the FULLTEXT index is in
+	 * place, and when the index was last fully rebuilt. Lets the owner diagnose the
+	 * "search returns nothing" case (empty/stale index) instead of guessing.
+	 *
+	 * @return array{total:int,by_type:array<string,int>,fulltext:bool,last_reindex:int}
+	 */
+	public function index_stats(): array {
+		global $wpdb;
+		$table = $wpdb->prefix . 'bn_search_index';
+
+		// $table is a trusted, code-derived identifier ($wpdb->prefix . constant); a
+		// table name can't be a bound placeholder.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+		$rows  = $wpdb->get_results( "SELECT object_type, COUNT(*) AS n FROM {$table} GROUP BY object_type", ARRAY_A );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$by_type = array();
+		foreach ( (array) $rows as $row ) {
+			$by_type[ (string) $row['object_type'] ] = (int) $row['n'];
+		}
+
+		return array(
+			'total'        => $total,
+			'by_type'      => $by_type,
+			'fulltext'     => $this->has_fulltext_index(),
+			'last_reindex' => (int) get_option( 'buddynext_search_last_reindex', 0 ),
+		);
 	}
 
 	/**

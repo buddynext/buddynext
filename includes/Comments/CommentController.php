@@ -209,7 +209,7 @@ class CommentController extends BaseRestController {
 		$created['viewer_reaction']   = null;
 		$created['can_edit']          = true;
 		$created['can_delete']        = true;
-		$created['can_pin']           = user_can( $user_id, 'manage_options' );
+		$created['can_pin']           = $service->can_pin_comment( $user_id, (string) ( $created['object_type'] ?? '' ), (int) ( $created['object_id'] ?? 0 ) );
 		$created['replies']           = array();
 		$created['is_pinned']         = false;
 		$created['author_meta_html']  = wp_kses_post(
@@ -289,7 +289,11 @@ class CommentController extends BaseRestController {
 		// can_pin let the JS decide which action buttons to render without
 		// re-hitting the server on every paint. is_pinned drives the
 		// "Pinned" badge in the thread head.
-		$enrich = function ( array $comment ) use ( $reactions, $viewer_id, $pinned_id, $anonymize ): array {
+		// Pinning is per-object, so resolve it once (all comments hang on the same
+		// object): admins, plus moderators of the post's space, may pin.
+		$can_pin_object = $service->can_pin_comment( $viewer_id, $object_type, $object_id );
+
+		$enrich = function ( array $comment ) use ( $reactions, $viewer_id, $pinned_id, $anonymize, $can_pin_object ): array {
 			$comment['author_name']       = (string) get_the_author_meta( 'display_name', $comment['user_id'] );
 			$comment['author_avatar_url'] = (string) get_avatar_url( $comment['user_id'], array( 'size' => 40 ) );
 			$comment['like_count']        = $reactions->count( 'comment', (int) $comment['id'] );
@@ -304,7 +308,7 @@ class CommentController extends BaseRestController {
 			$comment['can_edit']        = $viewer_id > 0
 				&& ( (int) $comment['user_id'] === $viewer_id || user_can( $viewer_id, 'manage_options' ) );
 			$comment['can_delete']      = $comment['can_edit'];
-			$comment['can_pin']         = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
+			$comment['can_pin']         = $can_pin_object;
 			$comment['is_pinned']       = ( $pinned_id > 0 && (int) $comment['id'] === $pinned_id );
 
 			$comment['author_meta_html'] = wp_kses_post(
@@ -346,6 +350,30 @@ class CommentController extends BaseRestController {
 			}
 			return $comment;
 		};
+
+		// Batch-prime the whole thread before enriching so the per-comment reaction
+		// lookups below (count + has_reacted + get_user_emoji) are cache hits, not
+		// ~3 queries per comment on a cold cache (C9.3). Collect every id first,
+		// including nested replies.
+		$bn_comment_ids = array();
+		$bn_author_ids  = array();
+		$collect        = function ( array $comment ) use ( &$collect, &$bn_comment_ids, &$bn_author_ids ): void {
+			$bn_comment_ids[] = (int) $comment['id'];
+			$bn_author_ids[]  = (int) $comment['user_id'];
+			if ( ! empty( $comment['replies'] ) ) {
+				array_map( $collect, $comment['replies'] );
+			}
+		};
+		array_map( $collect, $result['items'] );
+
+		if ( ! empty( $bn_author_ids ) ) {
+			cache_users( array_values( array_unique( array_filter( $bn_author_ids ) ) ) );
+		}
+		if ( $viewer_id > 0 ) {
+			$reactions->get_user_emoji_map( $viewer_id, 'comment', $bn_comment_ids );
+		}
+		$reactions->count_map( 'comment', $bn_comment_ids );
+
 		$result['items'] = array_map( $walk, $result['items'] );
 
 		return new WP_REST_Response( $result, 200 );
@@ -387,7 +415,7 @@ class CommentController extends BaseRestController {
 		$updated['viewer_reaction']   = $user_id > 0 ? $reactions->get_user_emoji( $user_id, 'comment', $comment_id ) : null;
 		$updated['can_edit']          = true;
 		$updated['can_delete']        = true;
-		$updated['can_pin']           = user_can( $user_id, 'manage_options' );
+		$updated['can_pin']           = $service->can_pin_comment( $user_id, (string) ( $updated['object_type'] ?? '' ), (int) ( $updated['object_id'] ?? 0 ) );
 		$updated['is_pinned']         = ( (int) get_option(
 			'bn_pinned_comment_' . sanitize_key( (string) $updated['object_type'] ) . '_' . (int) $updated['object_id'],
 			0

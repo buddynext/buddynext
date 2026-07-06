@@ -47,10 +47,28 @@ class FeedService {
 	private const NEW_COUNT_TTL = 30;
 
 	/**
+	 * TTL (seconds) for the home-tab count memo. The four per-tab COUNT(*) are
+	 * heavy on a large bn_posts, so collapse the repeat loads (nav re-render,
+	 * poll, multiple tabs) onto one set of counts. A nav badge tolerates this much
+	 * staleness; the feed itself always reflects live content.
+	 */
+	private const HOME_COUNTS_TTL = 60;
+
+	/**
 	 * User_meta key storing the list of announcement post IDs the user has
 	 * dismissed. Value is a flat array of integer post IDs.
 	 */
 	public const DISMISSED_ANNOUNCEMENTS_META = 'bn_dismissed_announcements';
+
+	/**
+	 * Max dismissed-announcement IDs kept per user. Bounds the serialized usermeta
+	 * array and the NOT IN() clause in active_announcement(). Only a handful of
+	 * announcements are ever live, so the oldest ids (expired/deleted announcements
+	 * that can no longer surface) age out safely.
+	 *
+	 * @var int
+	 */
+	private const MAX_DISMISSED_ANNOUNCEMENTS = 100;
 
 	/**
 	 * Follow graph service — used to resolve the home-feed author list.
@@ -293,7 +311,12 @@ class FeedService {
 		// rides the bn_spaces category index. Blank interests / no connections
 		// leave the ordering exactly as before (additive signal). Other filters
 		// (following / spaces / network) keep the plain chronological order.
-		$default_order_by = 'is_pinned DESC, created_at DESC, id DESC';
+		// Home is strictly chronological (plus the for-you affinity tiers below).
+		// Contextual pins (is_pinned) are NOT floated here: a member pinning their
+		// own profile post — or any of a space's pins — used to bleed to the top of
+		// every home timeline. Pins now surface only in their own context (profile
+		// / space feeds); the admin announcement is the sole top-of-home surface.
+		$default_order_by = 'created_at DESC, id DESC';
 		if ( 'for-you' === $filter && $user_id > 0 ) {
 			global $wpdb;
 			$bn_conn_ids     = $this->connection_ids_capped( $user_id );
@@ -313,7 +336,7 @@ class FeedService {
 					. ')) THEN ' . count( $bn_tiers );
 			}
 			if ( ! empty( $bn_tiers ) ) {
-				$default_order_by = 'is_pinned DESC, CASE ' . implode( ' ', $bn_tiers )
+				$default_order_by = 'CASE ' . implode( ' ', $bn_tiers )
 					. ' ELSE ' . count( $bn_tiers ) . ' END ASC, created_at DESC, id DESC';
 			}
 		}
@@ -458,6 +481,13 @@ class FeedService {
 				// users who follow no one. The public catch-all is scoped to non-space
 				// posts and posts in open spaces only — private/secret space posts are
 				// reached solely through the joined-spaces branch, never leaked here.
+				// The followed-hashtag branch carries the SAME public + space-visibility
+				// scope (public privacy AND non-space/open/viewer-is-member) — otherwise
+				// following a tag would surface a public post inside a private/secret
+				// space, or a followers-only post by a non-followed author, to a viewer
+				// who is not a member/follower (the overarching guard below only blocks
+				// 'private'). Member-space posts also reach the viewer via joined-spaces,
+				// so the member clause here is belt-and-suspenders, not the sole path.
 				// Block/mute/excluded filtering is applied by the caller on top.
 				$sql    = "(
 					user_id IN (
@@ -470,12 +500,26 @@ class FeedService {
 					SELECT space_id FROM {$wpdb->prefix}bn_space_members
 					WHERE user_id = %d AND status = 'active'
 				)
-				OR id IN (
-					SELECT ph.post_id FROM {$wpdb->prefix}bn_post_hashtags ph
-					WHERE ph.object_type = 'post'
-					  AND ph.hashtag_id IN (
-						SELECT hf.hashtag_id FROM {$wpdb->prefix}bn_hashtag_follows hf
-						WHERE hf.user_id = %d
+				OR (
+					id IN (
+						SELECT ph.post_id FROM {$wpdb->prefix}bn_post_hashtags ph
+						WHERE ph.object_type = 'post'
+						  AND ph.hashtag_id IN (
+							SELECT hf.hashtag_id FROM {$wpdb->prefix}bn_hashtag_follows hf
+							WHERE hf.user_id = %d
+						)
+					)
+					AND privacy = 'public'
+					AND (
+						space_id IS NULL
+						OR space_id = 0
+						OR space_id IN (
+							SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open'
+						)
+						OR space_id IN (
+							SELECT space_id FROM {$wpdb->prefix}bn_space_members
+							WHERE user_id = %d AND status = 'active'
+						)
 					)
 				)
 				OR (
@@ -488,7 +532,7 @@ class FeedService {
 						)
 					)
 				)";
-				$params = array( $user_id, $user_id, $user_id, $user_id );
+				$params = array( $user_id, $user_id, $user_id, $user_id, $user_id );
 				break;
 		}
 
@@ -568,6 +612,14 @@ class FeedService {
 			return $counts;
 		}
 
+		// Short-TTL memo: the four per-tab COUNT(*) over bn_posts are heavy at
+		// scale and were re-run on every nav render. Collapse them for HOME_COUNTS_TTL.
+		$cache_key = "home_counts_{$user_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
 		$excluded_where = $this->excluded_users_where();
 
 		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $user_id );
@@ -603,6 +655,8 @@ class FeedService {
 
 			$counts[ $key ] = $count;
 		}
+
+		wp_cache_set( $cache_key, $counts, self::CACHE_GROUP, self::HOME_COUNTS_TTL );
 
 		return $counts;
 	}
@@ -706,6 +760,34 @@ class FeedService {
 
 		$dismissed = self::dismissed_announcement_ids( $user_id );
 
+		// Priority: if the owner has featured a specific announcement (via the
+		// Announcements admin), it leads the home feed as long as it is still a live
+		// site-wide announcement the viewer hasn't dismissed. This is what stops a
+		// newer announcement from silently displacing the one the owner wants on top;
+		// with nothing featured we fall through to "newest active wins".
+		$featured_id = (int) get_option( 'buddynext_featured_announcement', 0 );
+		if ( $featured_id > 0 && ! in_array( $featured_id, $dismissed, true ) ) {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$featured = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT p.* FROM {$wpdb->prefix}bn_posts p
+					 WHERE p.id = %d
+					   AND p.is_announcement = 1
+					   AND p.type = 'announcement'
+					   AND p.status = 'published'
+					   AND p.space_id IS NULL
+					   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > UTC_TIMESTAMP())
+					 LIMIT 1",
+					$featured_id
+				),
+				ARRAY_A
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			if ( is_array( $featured ) ) {
+				return $this->post_service->hydrate( $featured );
+			}
+		}
+
 		$exclude_sql = '';
 		$params      = array();
 		if ( ! empty( $dismissed ) ) {
@@ -722,6 +804,7 @@ class FeedService {
 				 WHERE p.is_announcement = 1
 				   AND p.type = 'announcement'
 				   AND p.status = 'published'
+				   AND p.space_id IS NULL
 				   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > UTC_TIMESTAMP())
 				 ORDER BY p.created_at DESC
 				 LIMIT 1"
@@ -730,6 +813,7 @@ class FeedService {
 				 WHERE p.is_announcement = 1
 				   AND p.type = 'announcement'
 				   AND p.status = 'published'
+				   AND p.space_id IS NULL
 				   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > UTC_TIMESTAMP()){$exclude_sql}
 				 ORDER BY p.created_at DESC
 				 LIMIT 1",
@@ -744,6 +828,115 @@ class FeedService {
 		}
 
 		return $this->post_service->hydrate( $row );
+	}
+
+	/**
+	 * Return the active announcement for a single space (or null).
+	 *
+	 * Space-scoped announcements never surface in the home feed (active_announcement
+	 * filters space_id IS NULL); they show at the top of their own space instead.
+	 * Respects the same dismissals + expiry + feature gate.
+	 *
+	 * @param int $space_id Space to check.
+	 * @param int $user_id  Viewing user ID.
+	 * @return array|null Hydrated post array or null.
+	 */
+	public function space_announcement( int $space_id, int $user_id ): ?array {
+		if ( $space_id <= 0 || ! buddynext_feature_enabled( 'announcements' ) ) {
+			return null;
+		}
+
+		global $wpdb;
+
+		$dismissed    = self::dismissed_announcement_ids( $user_id );
+		$placeholders = empty( $dismissed ) ? '' : implode( ',', array_fill( 0, count( $dismissed ), '%d' ) );
+		$exclude_sql  = '' === $placeholders ? '' : " AND p.id NOT IN ({$placeholders})";
+		$params       = array_merge( array( $space_id ), $dismissed );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT p.* FROM {$wpdb->prefix}bn_posts p
+				 WHERE p.is_announcement = 1
+				   AND p.type = 'announcement'
+				   AND p.status = 'published'
+				   AND p.space_id = %d
+				   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > UTC_TIMESTAMP()){$exclude_sql}
+				 ORDER BY p.created_at DESC
+				 LIMIT 1",
+				$params
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		return null === $row ? null : $this->post_service->hydrate( $row );
+	}
+
+	/**
+	 * List every announcement (any status) for the admin management surface.
+	 *
+	 * Returns raw rows (newest first) so the admin can compute active / scheduled /
+	 * expired without hydrating the full post payload.
+	 *
+	 * @param int $limit Max rows (1-500).
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function list_all_announcements( int $limit = 100 ): array {
+		global $wpdb;
+		$limit = max( 1, min( 500, $limit ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, user_id, space_id, content, status, created_at, site_pin_expires_at, scheduled_at
+				 FROM {$wpdb->prefix}bn_posts
+				 WHERE is_announcement = 1 AND type = 'announcement'
+				 ORDER BY created_at DESC
+				 LIMIT %d",
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * End an announcement now (expire it) without deleting the post.
+	 *
+	 * Sets site_pin_expires_at to the current time so active_announcement() /
+	 * space_announcement() stop surfacing it; the post itself stays in the feed.
+	 * Clears the featured pointer if it named this announcement.
+	 *
+	 * @param int $post_id Announcement post ID.
+	 * @return bool
+	 */
+	public function end_announcement_now( int $post_id ): bool {
+		if ( $post_id <= 0 ) {
+			return false;
+		}
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array( 'site_pin_expires_at' => gmdate( 'Y-m-d H:i:s' ) ),
+			array(
+				'id'              => $post_id,
+				'is_announcement' => 1,
+			),
+			array( '%s' ),
+			array( '%d', '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( (int) get_option( 'buddynext_featured_announcement', 0 ) === $post_id ) {
+			delete_option( 'buddynext_featured_announcement' );
+		}
+
+		return false !== $updated;
 	}
 
 	/**
@@ -776,7 +969,16 @@ class FeedService {
 		}
 		$dismissed   = self::dismissed_announcement_ids( $user_id );
 		$dismissed[] = $post_id;
-		update_user_meta( $user_id, self::DISMISSED_ANNOUNCEMENTS_META, array_values( array_unique( $dismissed ) ) );
+		$dismissed   = array_values( array_unique( $dismissed ) );
+
+		// Cap the list so it cannot grow without bound (post deletion cannot
+		// efficiently prune every dismisser's usermeta, so keep only the most
+		// recent ids — older ones are for announcements that can no longer surface).
+		if ( count( $dismissed ) > self::MAX_DISMISSED_ANNOUNCEMENTS ) {
+			$dismissed = array_slice( $dismissed, -self::MAX_DISMISSED_ANNOUNCEMENTS );
+		}
+
+		update_user_meta( $user_id, self::DISMISSED_ANNOUNCEMENTS_META, $dismissed );
 	}
 
 	/**
@@ -1308,6 +1510,106 @@ class FeedService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return is_array( $row ) ? $this->post_service->hydrate( $row ) : null;
+	}
+
+	/**
+	 * Warm every per-viewer cache the post-card reads, in one query per service for
+	 * a whole page of feed items instead of ~3 per card.
+	 *
+	 * The post-card partial resolves viewer state per card — get_user_reaction() +
+	 * is_bookmarked() + user_vote() + user_has_reported(); each now reads a cache
+	 * this fills via a single batched query. MUST be called after a feed query and
+	 * before the SSR post-card loop (home / profile / space / explore / bookmarks
+	 * templates) as well as the REST render path — otherwise the first paint keeps
+	 * the N+1 (the surface QA bounced 10062105921 for).
+	 *
+	 * @param array $items  Hydrated feed rows about to be rendered.
+	 * @param int   $viewer Current user ID (0 when logged out — nothing to prime).
+	 * @return void
+	 */
+	public function prime_viewer_state( array $items, int $viewer ): void {
+		if ( $viewer <= 0 || empty( $items ) ) {
+			return;
+		}
+
+		$post_ids   = array();
+		$author_ids = array();
+		$poll_ids   = array();
+		foreach ( $items as $item ) {
+			$pid = absint( $item['id'] ?? 0 );
+			$aid = absint( $item['user_id'] ?? 0 );
+			if ( $pid ) {
+				$post_ids[] = $pid;
+			}
+			if ( $aid ) {
+				$author_ids[] = $aid;
+			}
+			if ( $pid && 'poll' === ( $item['type'] ?? '' ) ) {
+				$poll_ids[] = $pid;
+			}
+		}
+
+		if ( empty( $post_ids ) ) {
+			return;
+		}
+
+		if ( ! empty( $author_ids ) ) {
+			cache_users( array_values( array_unique( $author_ids ) ) );
+		}
+
+		buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids );
+		buddynext_service( 'bookmarks' )->user_bookmarks( $viewer ); // one cached query for the whole set.
+		buddynext_service( 'moderation' )->user_reported_map( $viewer, 'post', $post_ids );
+		if ( ! empty( $poll_ids ) ) {
+			buddynext_service( 'polls' )->user_votes_map( $viewer, $poll_ids );
+		}
+
+		/**
+		 * Fires after core viewer-state is primed for a page of feed items, so add-ons
+		 * (e.g. Pro member labels) can batch-prime their own per-author data in one
+		 * query instead of an N+1 in the byline loop.
+		 *
+		 * @param array $items  Hydrated feed rows about to render.
+		 * @param int   $viewer Current user ID.
+		 */
+		do_action( 'buddynext_feed_viewer_state_primed', $items, $viewer );
+	}
+
+	/**
+	 * Return a space's pinned posts (up to the cap), newest first.
+	 *
+	 * The single-row space_pinned_post() left Pro's "10 pins per space" invisible —
+	 * up to 9 pins were stored but never rendered. This returns the whole pinned
+	 * set so the space feed can show a bounded pinned strip.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $limit    Max pins to return (clamped 1-20).
+	 * @return array[] Hydrated pinned post rows, newest first.
+	 */
+	public function space_pinned_posts( int $space_id, int $limit = 10 ): array {
+		if ( $space_id <= 0 ) {
+			return array();
+		}
+
+		$limit = max( 1, min( $limit, 20 ) );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_posts
+				 WHERE space_id = %d AND is_pinned = 1 AND status = 'published'
+				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+				 ORDER BY created_at DESC
+				 LIMIT %d",
+				$space_id,
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( fn( $row ) => $this->post_service->hydrate( $row ), (array) $rows );
 	}
 
 	/**

@@ -79,17 +79,43 @@ class ModerationQueue {
 	 */
 	public function render_reports(): void {
 		$this->maybe_notice();
-		$service = new ModerationService();
-		$queue   = $service->get_queue( array( 'per_page' => 50 ) );
-		$items   = $queue['items'] ?? array();
+
+		// Filters + pagination. The queue can hold thousands of reports; the old
+		// hardcoded per_page=50 with no paging capped the admin at 50 groups and
+		// gave no way to narrow by type/reason or reorder (big-site checklist).
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET filters on an admin screen.
+		$page   = isset( $_GET['mod_page'] ) ? max( 1, absint( wp_unslash( $_GET['mod_page'] ) ) ) : 1;
+		$type   = isset( $_GET['mod_type'] ) ? sanitize_key( wp_unslash( (string) $_GET['mod_type'] ) ) : '';
+		$reason = isset( $_GET['mod_reason'] ) ? sanitize_key( wp_unslash( (string) $_GET['mod_reason'] ) ) : '';
+		$sort   = ( isset( $_GET['mod_sort'] ) && 'reported' === $_GET['mod_sort'] ) ? 'reported' : 'recent';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		$per_page = 20;
+		$service  = new ModerationService();
+		$queue    = $service->get_queue(
+			array(
+				'per_page'    => $per_page,
+				'page'        => $page,
+				'object_type' => $type,
+				'reason'      => $reason,
+				'sort'        => $sort,
+			)
+		);
+		$items    = $queue['items'] ?? array();
+		$total    = (int) ( $queue['total'] ?? 0 );
+		$pages    = (int) ceil( $total / max( 1, $per_page ) );
+		$filtered = ( '' !== $type || '' !== $reason );
 		?>
 		<div class="bn-settings-section bn-mod-queue" data-mod-queue>
 			<div class="bn-ss-header">
 				<span class="bn-ss-title"><?php esc_html_e( 'Report queue', 'buddynext' ); ?></span>
-				<span class="bn-ss-count"><?php echo esc_html( (string) ( $queue['total'] ?? 0 ) ); ?></span>
+				<span class="bn-ss-count"><?php echo esc_html( (string) $total ); ?></span>
 			</div>
 			<div class="bn-ss-body">
-				<?php if ( empty( $items ) ) : ?>
+				<?php $this->render_queue_filters( $type, $reason, $sort ); ?>
+				<?php if ( empty( $items ) && $filtered ) : ?>
+					<p><?php esc_html_e( 'No reports match these filters.', 'buddynext' ); ?></p>
+				<?php elseif ( empty( $items ) ) : ?>
 					<p><?php esc_html_e( 'Nothing to review. The queue is clear.', 'buddynext' ); ?></p>
 					<?php
 					$this->sample_preview(
@@ -125,9 +151,86 @@ class ModerationQueue {
 						<?php endforeach; ?>
 					</tbody>
 				</table>
+					<?php
+					// Shared paginator, preserving the active filter/sort across pages.
+					AdminPageBase::render_pagination(
+						$page,
+						$pages,
+						$total,
+						$per_page,
+						static function ( int $p ) use ( $type, $reason, $sort ): string {
+							$query = array( 'mod_page' => $p );
+							if ( '' !== $type ) {
+								$query['mod_type'] = $type;
+							}
+							if ( '' !== $reason ) {
+								$query['mod_reason'] = $reason;
+							}
+							if ( 'recent' !== $sort ) {
+								$query['mod_sort'] = $sort;
+							}
+							return add_query_arg( $query, remove_query_arg( array( 'mod_page', 'mod_type', 'mod_reason', 'mod_sort' ) ) );
+						},
+						__( 'Report queue pagination', 'buddynext' )
+					);
+					?>
 				<?php endif; ?>
 			</div>
 		</div>
+		<?php
+	}
+
+	/**
+	 * Render the report-queue filter/sort bar (GET form). Resets to page 1 on apply.
+	 *
+	 * @param string $type   Active object-type filter ('' = all).
+	 * @param string $reason Active reason filter ('' = all).
+	 * @param string $sort   Active sort ('recent' | 'reported').
+	 * @return void
+	 */
+	private function render_queue_filters( string $type, string $reason, string $sort ): void {
+		$types = array(
+			'post'    => __( 'Posts', 'buddynext' ),
+			'comment' => __( 'Comments', 'buddynext' ),
+			'user'    => __( 'Members', 'buddynext' ),
+			'space'   => __( 'Spaces', 'buddynext' ),
+		);
+		?>
+		<form method="get" class="bn-mod-queue-filters" style="display:flex;gap:var(--bn-a-space-2,8px);flex-wrap:wrap;align-items:center;margin-bottom:var(--bn-a-space-3,12px);">
+			<?php
+			// Preserve the admin page/tab routing params in the GET form.
+			foreach ( array( 'page', 'tab' ) as $bn_keep ) {
+				// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				$bn_val = isset( $_GET[ $bn_keep ] ) ? sanitize_key( wp_unslash( (string) $_GET[ $bn_keep ] ) ) : '';
+				if ( '' !== $bn_val ) {
+					printf( '<input type="hidden" name="%s" value="%s">', esc_attr( $bn_keep ), esc_attr( $bn_val ) );
+				}
+			}
+			?>
+			<label class="screen-reader-text" for="bn-mod-type"><?php esc_html_e( 'Filter by content type', 'buddynext' ); ?></label>
+			<select name="mod_type" id="bn-mod-type">
+				<option value=""><?php esc_html_e( 'All content types', 'buddynext' ); ?></option>
+				<?php foreach ( $types as $bn_key => $bn_label ) : ?>
+					<option value="<?php echo esc_attr( $bn_key ); ?>" <?php selected( $type, $bn_key ); ?>><?php echo esc_html( $bn_label ); ?></option>
+				<?php endforeach; ?>
+			</select>
+
+			<label class="screen-reader-text" for="bn-mod-reason"><?php esc_html_e( 'Filter by reason', 'buddynext' ); ?></label>
+			<select name="mod_reason" id="bn-mod-reason">
+				<option value=""><?php esc_html_e( 'All reasons', 'buddynext' ); ?></option>
+				<?php foreach ( self::REASON_LABELS as $bn_key => $bn_label ) : ?>
+					<option value="<?php echo esc_attr( $bn_key ); ?>" <?php selected( $reason, $bn_key ); ?>><?php echo esc_html( $bn_label ); ?></option>
+				<?php endforeach; ?>
+			</select>
+
+			<label class="screen-reader-text" for="bn-mod-sort"><?php esc_html_e( 'Sort', 'buddynext' ); ?></label>
+			<select name="mod_sort" id="bn-mod-sort">
+				<option value="recent" <?php selected( $sort, 'recent' ); ?>><?php esc_html_e( 'Newest first', 'buddynext' ); ?></option>
+				<option value="reported" <?php selected( $sort, 'reported' ); ?>><?php esc_html_e( 'Most reported', 'buddynext' ); ?></option>
+			</select>
+
+			<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Apply', 'buddynext' ); ?></button>
+		</form>
 		<?php
 	}
 

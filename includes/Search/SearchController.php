@@ -173,6 +173,63 @@ class SearchController {
 				),
 			)
 		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/search/suggest',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'suggest' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'q'         => array(
+						'description'       => __( 'Partial query for as-you-type suggestions.', 'buddynext' ),
+						'type'              => 'string',
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'per_group' => array(
+						'description'       => __( 'Max suggestions per type group.', 'buddynext' ),
+						'type'              => 'integer',
+						'required'          => false,
+						'default'           => 5,
+						'minimum'           => 1,
+						'maximum'           => 10,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * GET /search/suggest — grouped as-you-type suggestions (limit per_group per
+	 * type). Powers the web typeahead overlay and native-app suggestions; both
+	 * previously had no suggestion endpoint at all. Returns an empty groups list
+	 * for a blank/too-short query rather than erroring, so the client can just
+	 * clear its overlay.
+	 *
+	 * @param WP_REST_Request $request REST request with q + optional per_group.
+	 * @return WP_REST_Response
+	 */
+	public function suggest( WP_REST_Request $request ): WP_REST_Response {
+		$query = trim( (string) ( $request->get_param( 'q' ) ?? '' ) );
+
+		if ( '' === $query ) {
+			return new WP_REST_Response( array( 'groups' => array() ), 200 );
+		}
+
+		$per_group = (int) ( $request->get_param( 'per_group' ) ?? 5 );
+		$viewer_id = get_current_user_id();
+		$groups    = ( new SearchService() )->grouped_search( $query, $viewer_id, $per_group );
+
+		return new WP_REST_Response(
+			array(
+				'query'  => $query,
+				'groups' => $groups,
+			),
+			200
+		);
 	}
 
 	/**

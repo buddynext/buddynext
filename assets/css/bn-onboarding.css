@@ -1361,6 +1361,22 @@
 label.bn-wizard__addon-info[for] { cursor: pointer; }
 .bn-wizard__addon-msg { font-size: var(--bn-text-xs); color: oklch(50% 0.2 28); margin-top: 2px; }
 .bn-wizard__addon-msg:empty { display: none; }
+
+/* Per-row Retry for a failed companion install. */
+.bn-wizard__addon-retry {
+	margin-inline-start: var(--bn-s2);
+	padding: 2px var(--bn-s2);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-accent);
+	background: transparent;
+	border: 1px solid var(--bn-accent);
+	border-radius: var(--bn-r-sm);
+	cursor: pointer;
+}
+
+.bn-wizard__addon-retry:hover {
+	background: color-mix(in oklch, var(--bn-accent) 12%, transparent);
+}
 .bn-wizard__addon[data-state="failed"] .bn-wizard__addon-status {
 	background: color-mix(in oklch, oklch(58% 0.2 28) 16%, var(--bn-surface));
 	color: oklch(45% 0.2 28);
@@ -1504,6 +1520,36 @@ label.bn-wizard__addon-info[for] { cursor: pointer; }
 	margin-top: var(--bn-s3);
 	flex-wrap: wrap;
 	justify-content: center;
+}
+
+/* Opt-in sample-content panel on the final step. */
+.bn-wizard__sample {
+	margin: var(--bn-s4) auto 0;
+	max-width: 34rem;
+	padding: var(--bn-s3);
+	border: 1px solid var(--bn-border, var(--bn-line));
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface-2, var(--bn-canvas));
+}
+
+.bn-wizard__sample-note {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bn-s2);
+	margin: 0 0 var(--bn-s3);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-wizard__sample-note:last-child {
+	margin-bottom: 0;
+}
+
+.bn-wizard__sample form {
+	display: flex;
+	justify-content: center;
+	margin: 0;
 }
 
 /* ── Mobile ──────────────────────────────────────────────────────────── */

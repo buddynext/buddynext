@@ -46,6 +46,11 @@ $bn_bm_page    = $bn_bm_service->user_bookmarks_paged(
 
 $bn_visible_posts  = is_array( $bn_bm_page['items'] ?? null ) ? $bn_bm_page['items'] : array();
 $bn_bm_next_cursor = is_string( $bn_bm_page['next_cursor'] ?? null ) ? $bn_bm_page['next_cursor'] : '';
+
+// Batch-prime per-viewer state before the SSR post-card loop (C8.3).
+if ( function_exists( 'buddynext_service' ) ) {
+	buddynext_service( 'feed' )->prime_viewer_state( $bn_visible_posts, $current_user_id );
+}
 $bn_bm_has_more    = '' !== $bn_bm_next_cursor;
 
 // ── Sidebar — same as home feed ────────────────────────────────────────────

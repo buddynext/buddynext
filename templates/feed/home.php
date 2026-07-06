@@ -81,6 +81,11 @@ $feed_posts     = array_values( (array) ( $service_result['items'] ?? array() ) 
 $next_cursor    = (string) ( $service_result['next_cursor'] ?? '' );
 $has_more       = '' !== $next_cursor;
 
+// Batch-prime every per-viewer cache the post-card reads (reaction / bookmark /
+// vote / report) BEFORE the SSR card loop below, so the first paint costs one
+// query per service for the whole page instead of ~3 per card (C8.3).
+$bn_feed_service_obj->prime_viewer_state( $feed_posts, $current_user_id );
+
 // ── REST nonce + URLs ───────────────────────────────────────────────────────
 $rest_nonce = wp_create_nonce( 'wp_rest' );
 

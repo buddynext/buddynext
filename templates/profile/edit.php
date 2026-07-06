@@ -114,7 +114,7 @@ $location = $fv['location'] ?? '';
  * ── Field-level privacy helpers ────────────────────────────────────────────
  *
  * Restrictiveness ladder (contracts.visibility_resolution):
- *   public(0) < followers(1) < connections(2) < private(3)
+ *   public(0) < members(1) < followers(2) < connections(3) < private(4)
  *
  * The admin sets each field's DEFAULT visibility; a member may only TIGHTEN
  * it. So the per-field lock selector offers ONLY options whose rank is
@@ -123,15 +123,17 @@ $location = $fv['location'] ?? '';
  */
 $bn_vis_labels = array(
 	'public'      => __( 'Public', 'buddynext' ),
+	'members'     => __( 'Members', 'buddynext' ),
 	'followers'   => __( 'Followers', 'buddynext' ),
 	'connections' => __( 'Connections', 'buddynext' ),
 	'private'     => __( 'Only me', 'buddynext' ),
 );
 $bn_vis_rank   = array(
 	'public'      => 0,
-	'followers'   => 1,
-	'connections' => 2,
-	'private'     => 3,
+	'members'     => 1,
+	'followers'   => 2,
+	'connections' => 3,
+	'private'     => 4,
 );
 
 /**
@@ -139,7 +141,7 @@ $bn_vis_rank   = array(
  *
  * @param mixed  $value    Candidate slug.
  * @param string $fallback Slug returned when $value is unknown.
- * @return string One of public|followers|connections|private.
+ * @return string One of public|members|followers|connections|private.
  */
 $bn_vis_norm = static function ( $value, string $fallback = 'public' ) use ( $bn_vis_rank ): string {
 	$value = is_string( $value ) ? $value : '';
@@ -231,6 +233,8 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 		data-bn-profile-user="<?php echo absint( $user_id ); ?>"
 	<?php endif; ?>
 	data-wp-init="callbacks.initEditGuard"
+	<?php // Complete profile editor: submits every field, so the store signals a full write and the server enforces required fields across absent keys. Partial surfaces (privacy tab) omit this marker. ?>
+	data-bn-full-write="1"
 	<?php
 	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 	echo wp_interactivity_data_wp_context(

@@ -51,6 +51,8 @@ $args = array(
 	'request_count'        => isset( $request_count ) ? (int) $request_count : 0,
 	'current_user_id'      => isset( $current_user_id ) ? (int) $current_user_id : 0,
 	'compose_url'          => isset( $compose_url ) ? (string) $compose_url : '',
+	'convs_has_more'       => ! empty( $convs_has_more ),
+	'convs_next_cap'       => isset( $convs_next_cap ) ? (int) $convs_next_cap : 100,
 	'initials_fn'          => isset( $initials_fn ) && is_callable( $initials_fn ) ? $initials_fn : null,
 	'tone_fn'              => isset( $tone_fn ) && is_callable( $tone_fn ) ? $tone_fn : null,
 	'relative_fn'          => isset( $relative_fn ) && is_callable( $relative_fn ) ? $relative_fn : null,
@@ -209,6 +211,12 @@ do_action( 'buddynext_part_dm_rail_before', $args );
 				);
 				?>
 			<?php endforeach; ?>
+		<?php endif; ?>
+
+		<?php if ( ! empty( $args['convs_has_more'] ) ) : ?>
+			<a class="bn-dm-rail__loadmore" href="<?php echo esc_url( add_query_arg( 'convs', (int) $args['convs_next_cap'] ) ); ?>">
+				<?php esc_html_e( 'Load more conversations', 'buddynext' ); ?>
+			</a>
 		<?php endif; ?>
 
 		<?php if ( empty( $pinned ) && empty( $recent ) ) : ?>

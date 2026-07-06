@@ -34,17 +34,43 @@ final class ScheduledPostsPublisher {
 	public const HOOK = 'buddynext_publish_scheduled';
 
 	/**
+	 * Recurring hourly safety-net hook. The single-event arm() is precise but
+	 * fragile — a dropped event (DB restore, cleared hook) would strand posts
+	 * forever. This hourly sweep re-runs publish_due so overdue rows always go out.
+	 */
+	public const SWEEP_HOOK = 'buddynext_publish_scheduled_sweep';
+
+	/**
 	 * Max posts published per pass (keeps a burst of due posts bounded).
 	 */
 	private const BATCH = 100;
 
 	/**
-	 * Wire the publish worker to its hook. Called once from Plugin::init().
+	 * Option holding per-post publish-attempt counts, so a row that repeatedly
+	 * fails to publish is capped instead of retried forever. Keyed by post id.
+	 */
+	private const ATTEMPTS_OPTION = 'buddynext_sched_publish_attempts';
+
+	/**
+	 * Give up (and mark the row failed) after this many failed publish attempts.
+	 */
+	private const MAX_ATTEMPTS = 3;
+
+	/**
+	 * Wire the publish worker to its hooks and ensure the hourly safety-net sweep
+	 * is scheduled. Called once from Plugin::init().
 	 *
 	 * @return void
 	 */
 	public static function register(): void {
-		add_action( self::HOOK, array( self::class, 'publish_due' ) );
+		// Wrapped so the action callbacks return void; publish_due() itself returns
+		// the published count for direct callers, which an action must not forward.
+		add_action( self::HOOK, static function (): void { self::publish_due(); } );
+		add_action( self::SWEEP_HOOK, static function (): void { self::publish_due(); } );
+
+		if ( ! wp_next_scheduled( self::SWEEP_HOOK ) ) {
+			wp_schedule_event( time() + HOUR_IN_SECONDS, 'hourly', self::SWEEP_HOOK );
+		}
 	}
 
 	/**
@@ -126,15 +152,21 @@ final class ScheduledPostsPublisher {
 
 			if ( $post_service->mark_published( $post_id ) ) {
 				++$published;
+				self::clear_attempts( $post_id );
 
-				/**
-				 * Fires after a scheduled post is published.
-				 *
-				 * @param int    $post_id Post ID.
-				 * @param int    $user_id Author user ID.
-				 * @param string $type    Post type slug.
-				 */
-				do_action( 'buddynext_post_created', $post_id, $user_id, $type );
+				// Run the SAME at-go-live effects the immediate publish path runs —
+				// buddynext_post_created fan-out (search / hashtags / webhooks / space
+				// notifications), @mention notifications, and auto-moderation. This
+				// fires buddynext_post_created itself, so we no longer fire it here (a
+				// scheduled @mention was previously never delivered and auto-mod never
+				// evaluated at go-live).
+				$post_service->run_published_effects( $post_id );
+			} else {
+				// mark_published() failed. Previously ignored, so the row stayed
+				// scheduled forever with no error surfaced. Count the attempt and,
+				// after MAX_ATTEMPTS, mark the row failed + fire an action so admins
+				// can surface it — instead of retrying every sweep indefinitely.
+				self::record_failure( $post_id );
 			}
 		}
 
@@ -144,5 +176,70 @@ final class ScheduledPostsPublisher {
 		self::arm();
 
 		return $published;
+	}
+
+	/**
+	 * Record a failed publish attempt for a post. After MAX_ATTEMPTS the row is
+	 * returned to 'draft' with its schedule cleared — so it leaves the scheduled
+	 * queue instead of being retried every sweep forever — and
+	 * buddynext_scheduled_publish_failed fires so the failure can be surfaced.
+	 *
+	 * ('draft' is used rather than a dedicated 'failed' status because the status
+	 * ENUM has no 'failed' value and adding one needs a schema migration, which is
+	 * disallowed pre-release. The fired action carries the failure for surfacing.)
+	 *
+	 * @param int $post_id Post whose publish attempt failed.
+	 * @return void
+	 */
+	private static function record_failure( int $post_id ): void {
+		$attempts = (array) get_option( self::ATTEMPTS_OPTION, array() );
+		$count    = (int) ( $attempts[ $post_id ] ?? 0 ) + 1;
+
+		if ( $count >= self::MAX_ATTEMPTS ) {
+			global $wpdb;
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update(
+				$wpdb->prefix . 'bn_posts',
+				array(
+					'status'       => 'draft',
+					'scheduled_at' => null,
+				),
+				array( 'id' => $post_id ),
+				array( '%s', '%s' ),
+				array( '%d' )
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			wp_cache_delete( "post_{$post_id}", 'buddynext_posts' );
+			unset( $attempts[ $post_id ] );
+			update_option( self::ATTEMPTS_OPTION, $attempts, false );
+
+			/**
+			 * Fires when a scheduled post is abandoned after repeated publish
+			 * failures (returned to draft). Admin-notice / logging consumers can
+			 * hook it to surface the failure to the owner.
+			 *
+			 * @param int $post_id  Post that could not be published.
+			 * @param int $attempts Number of attempts made.
+			 */
+			do_action( 'buddynext_scheduled_publish_failed', $post_id, $count );
+			return;
+		}
+
+		$attempts[ $post_id ] = $count;
+		update_option( self::ATTEMPTS_OPTION, $attempts, false );
+	}
+
+	/**
+	 * Clear the failed-attempt counter for a post that published successfully.
+	 *
+	 * @param int $post_id Post that published.
+	 * @return void
+	 */
+	private static function clear_attempts( int $post_id ): void {
+		$attempts = (array) get_option( self::ATTEMPTS_OPTION, array() );
+		if ( isset( $attempts[ $post_id ] ) ) {
+			unset( $attempts[ $post_id ] );
+			update_option( self::ATTEMPTS_OPTION, $attempts, false );
+		}
 	}
 }

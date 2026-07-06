@@ -33,8 +33,8 @@
 }
 
 /* A soft theme-accent icon chip per stat — gives each metric a glanceable
-   symbol (points/level/streak), using OKLCH accent tokens, never an AI-marker
-   purple. */
+	symbol (points/level/streak), using OKLCH accent tokens, never an AI-marker
+	purple. */
 .bn-achievements__stat-icon {
 	display: inline-flex;
 	align-items: center;
@@ -140,7 +140,7 @@
 	text-align: center;
 	transition: border-color 0.15s ease, transform 0.15s ease;
 	/* Fill the grid cell so every badge box is the same height regardless of how
-	   many lines the badge name wraps to (the <li> stretches; the box must too). */
+		many lines the badge name wraps to (the <li> stretches; the box must too). */
 	height: 100%;
 	box-sizing: border-box;
 }
@@ -167,8 +167,8 @@ a.bn-achievements__badge-link:focus-visible {
 	align-items: center;
 	justify-content: center;
 	/* A soft theme-accent medallion (OKLCH tokens, not an AI-marker gradient) so
-	   even a simple badge SVG reads as a designed medal, not a bare icon in a
-	   plain circle. */
+		even a simple badge SVG reads as a designed medal, not a bare icon in a
+		plain circle. */
 	background: radial-gradient(circle at 50% 32%, var(--bn-accent-soft), var(--bn-surface-soft));
 	box-shadow: inset 0 0 0 1px var(--bn-border);
 }
@@ -182,7 +182,7 @@ a.bn-achievements__badge-link:focus-visible {
 	width: 100%;
 	height: 100%;
 	/* contain (not cover) + padding shows the whole badge artwork centered,
-	   instead of cropping a thin outline to fill the circle. */
+		instead of cropping a thin outline to fill the circle. */
 	object-fit: contain;
 	padding: 11px;
 	display: block;
@@ -205,8 +205,39 @@ a.bn-achievements__badge-link:focus-visible {
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-4);
 	/* Anchor the date to the bottom so it lines up across cards whose names wrap
-	   to a different number of lines. */
+		to a different number of lines. */
 	margin-top: auto;
+}
+
+/* Earned-vs-total progress bar above the grid. */
+.bn-achievements__progress {
+	margin: 0 0 var(--bn-s3);
+}
+
+/* Locked badges: dimmed medal + the description shown as a "how to earn it" goal,
+	so the catalogue tells members what is still attainable (no trip to /gamification/). */
+.bn-achievements__badge.is-locked {
+	opacity: 0.72;
+}
+
+.bn-achievements__badge.is-locked .bn-achievements__badge-medal {
+	background: var(--bn-sunken);
+}
+
+.bn-achievements__badge.is-locked .bn-achievements__badge-medal svg {
+	color: var(--bn-ink-4);
+}
+
+.bn-achievements__badge-goal {
+	font-weight: var(--bn-fw-normal);
+	color: var(--bn-ink-3);
+	line-height: 1.3;
+	/* Clamp long descriptions so cells stay uniform; full text is in the title. */
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
 }
 
 @media (max-width: 640px) {
@@ -222,4 +253,256 @@ a.bn-achievements__badge-link:focus-visible {
 	.bn-achievements__badge-medal img {
 		padding: 9px;
 	}
+}
+
+/* ── Points tab (ledger + how-to-earn) ──────────────────────────────────── */
+.bn-gam-points {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+
+.bn-gam-points__total {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: var(--bn-s4);
+}
+
+.bn-gam-points__total-value {
+	font-size: var(--bn-text-2xl, 1.75rem);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink);
+	line-height: 1;
+}
+
+.bn-gam-points__total-label {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+
+.bn-gam-points__panel {
+	padding: var(--bn-s4);
+}
+
+/* Ledger */
+.bn-gam-ledger {
+	list-style: none;
+	margin: var(--bn-s2) 0 0;
+	padding: 0;
+}
+
+.bn-gam-ledger__row {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s2) 0;
+	border-bottom: 1px solid var(--bn-line);
+}
+
+.bn-gam-ledger__row:last-child {
+	border-bottom: 0;
+}
+
+.bn-gam-ledger__icon {
+	display: inline-flex;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	align-items: center;
+	justify-content: center;
+	background: var(--bn-accent-soft);
+	color: var(--bn-accent);
+	flex: none;
+}
+
+.bn-gam-ledger__icon svg {
+	width: 1rem;
+	height: 1rem;
+}
+
+.bn-gam-ledger__body {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.bn-gam-ledger__label {
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-ink);
+}
+
+.bn-gam-ledger__time {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-4);
+}
+
+.bn-gam-ledger__points {
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-accent);
+	white-space: nowrap;
+}
+
+.bn-gam-ledger__points.is-negative {
+	color: var(--bn-ink-3);
+}
+
+/* Earn guide */
+.bn-gam-earn__cat {
+	margin: var(--bn-s4) 0 var(--bn-s2);
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-semibold);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--bn-ink-3);
+}
+
+/* One earning action per row — full width so a long label never collides with
+   the limit hint / points (the card grid crammed them together). */
+.bn-gam-earn__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.bn-gam-earn__row {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s2) 0;
+	border-bottom: 1px solid var(--bn-line);
+}
+
+.bn-gam-earn__row:last-child {
+	border-bottom: 0;
+}
+
+.bn-gam-earn__label {
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-ink);
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.bn-gam-earn__right {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	flex: none;
+}
+
+.bn-gam-earn__meta {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-4);
+	white-space: nowrap;
+}
+
+.bn-gam-earn__pts {
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-accent);
+	background: var(--bn-accent-soft);
+	border-radius: 999px;
+	padding: 2px 8px;
+	font-size: var(--bn-text-xs);
+	white-space: nowrap;
+}
+
+/* ── Kudos tab ──────────────────────────────────────────────────────────── */
+.bn-gam-kudos {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+
+.bn-gam-kudos__form {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+	padding: var(--bn-s4);
+	align-items: flex-start;
+}
+
+.bn-gam-kudos__form-label {
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+}
+
+.bn-gam-kudos__form .bn-input {
+	width: 100%;
+	resize: vertical;
+}
+
+.bn-gam-kudos__feed {
+	list-style: none;
+	margin: var(--bn-s2) 0 0;
+	padding: 0;
+}
+
+.bn-gam-kudos__item {
+	display: flex;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3) 0;
+	border-bottom: 1px solid var(--bn-line);
+}
+
+.bn-gam-kudos__item:last-child {
+	border-bottom: 0;
+}
+
+.bn-gam-kudos__avatar {
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	flex: none;
+	object-fit: cover;
+}
+
+.bn-gam-kudos__body {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.bn-gam-kudos__from {
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-ink);
+}
+
+.bn-gam-kudos__time {
+	font-weight: var(--bn-fw-normal);
+	color: var(--bn-ink-4);
+	font-size: var(--bn-text-xs);
+}
+
+.bn-gam-kudos__msg {
+	color: var(--bn-ink-2);
+}
+
+/* Kudos give-result notice (achievements.css loads on profiles; the shared
+   .bn-notice styles live in bn-spaces.css which this route does not enqueue). */
+.bn-gam-kudos .bn-notice {
+	padding: var(--bn-s2) var(--bn-s3);
+	border-radius: var(--bn-r-md);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-gam-kudos .bn-notice--success {
+	background: var(--bn-accent-soft);
+	color: var(--bn-accent);
+}
+
+.bn-gam-kudos .bn-notice--error {
+	background: var(--bn-danger-soft, var(--bn-sunken));
+	color: var(--bn-danger, var(--bn-ink-2));
+}
+
+/* Jetonomy credential strip on the profile Discussions tab. The shared .bn-stat-grid
+   lays out for many stats (leaves empty columns for just 3) and has no bottom margin,
+   so the tiles ran full-bleed into the discussion list — fit the 3 tiles to the row
+   and add breathing room below. */
+.bn-jt-cred-strip {
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	margin-bottom: var(--bn-s4);
 }

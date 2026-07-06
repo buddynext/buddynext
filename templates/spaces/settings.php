@@ -162,8 +162,43 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		if ( 'integrations' === $bn_subtab ) {
 			update_space_meta( $space_id, 'push_to_feed', isset( $_POST['push_to_feed'] ) ? '1' : '0' );
 			update_space_meta( $space_id, 'mvs_media_tab', isset( $_POST['mvs_media_tab'] ) ? '1' : '0' );
-			if ( isset( $_POST['jetonomy_forum_id'] ) ) {
-				update_space_meta( $space_id, 'jetonomy_forum_id', absint( $_POST['jetonomy_forum_id'] ) );
+
+			// Discussion (powered by Jetonomy) is opt-in per Space and never
+			// mandatory. Each Space owns exactly ONE dedicated discussion for its
+			// lifetime: it is created (or linked) the first time the owner turns it
+			// on, and after that the toggle only shows/hides it — the discussion and
+			// its content are never discarded or duplicated.
+			//   - first enable : create a new dedicated discussion, OR (initial
+			//                     setup only) link one the caller is allowed to.
+			//   - later on/off : just flip the enabled flag; same discussion.
+			if ( class_exists( 'Jetonomy\\Jetonomy' ) ) {
+				$bn_disc_bridge = new \BuddyNext\Bridges\JetonomyBridge();
+				$bn_disc_on     = isset( $_POST['bn_discussion_enabled'] );
+				$bn_disc_link_id = isset( $_POST['bn_discussion_link_id'] ) ? absint( wp_unslash( $_POST['bn_discussion_link_id'] ) ) : 0;
+
+				if ( $bn_disc_on ) {
+					// Establish the dedicated discussion once, if it has none yet.
+					if ( ! $bn_disc_bridge->space_has_discussion( $space_id ) ) {
+						// Initial-setup link is role-aware: a SITE ADMIN may adopt any
+						// existing discussion; a space owner may only adopt one THEY
+						// authored. Re-validated here so a crafted POST cannot widen it.
+						$bn_disc_owner    = (int) ( $space->owner_id ?? 0 );
+						$bn_disc_is_admin = current_user_can( 'manage_options' );
+						$bn_disc_may_link = $bn_disc_link_id > 0 && (
+							$bn_disc_is_admin
+								? $bn_disc_bridge->discussion_exists( $bn_disc_link_id )
+								: $bn_disc_bridge->discussion_owned_by( $bn_disc_link_id, $bn_disc_owner )
+						);
+						if ( $bn_disc_may_link ) {
+							update_space_meta( $space_id, 'jetonomy_forum_id', $bn_disc_link_id );
+						} else {
+							$bn_disc_bridge->provision_space_forum( $space_id );
+						}
+					}
+					$bn_disc_bridge->set_discussion_enabled( $space_id, true );
+				} else {
+					$bn_disc_bridge->set_discussion_enabled( $space_id, false );
+				}
 			}
 		}
 
@@ -284,6 +319,19 @@ $require_join_approval = (bool) buddynext_get_space_field( $space_id, 'require_j
 $push_to_feed          = (bool) buddynext_get_space_field( $space_id, 'push_to_feed' );
 $mvs_media_tab         = (bool) buddynext_get_space_field( $space_id, 'mvs_media_tab' );
 $jetonomy_forum_id     = (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
+
+// Discussion (Jetonomy) status for the opt-in per-Space control. The link picker
+// itself is a REST typeahead (buddynext/v1 discussion-search), role-scoped
+// server-side, so nothing is prefetched here even on 1000+ discussion sites.
+$bn_discussion_status = array(
+	'linked'   => false,
+	'forum_id' => 0,
+	'name'     => '',
+	'url'      => '',
+);
+if ( class_exists( 'Jetonomy\\Jetonomy' ) ) {
+	$bn_discussion_status = ( new \BuddyNext\Bridges\JetonomyBridge() )->space_discussion_status( $space_id );
+}
 $who_can_post          = (string) buddynext_get_space_field( $space_id, 'who_can_post' );
 $who_can_invite        = (string) buddynext_get_space_field( $space_id, 'who_can_invite' );
 
@@ -564,6 +612,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 					'integrations_settings' => array(
 						'jetonomy_forum_id' => $jetonomy_forum_id,
 						'push_to_feed'      => $push_to_feed,
+						'discussion_status' => $bn_discussion_status,
 					),
 					'mvs_media_tab'         => $mvs_media_tab,
 				),

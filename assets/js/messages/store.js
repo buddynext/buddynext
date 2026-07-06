@@ -31,6 +31,8 @@ import { makeThumb } from '../media/upload-core.js';
  * a fallback so the UI never breaks if the state is absent. fmt() fills
  * sprintf-style '%s'/'%d' placeholders. */
 let I18N = {};
+// Debounce handle for the in-conversation message search.
+let dmSearchTimer = null;
 function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
 function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%[sd]/g, () => String( vals[ i++ ] ?? '' ) ); }
 
@@ -1078,6 +1080,103 @@ const messagesStore = store( 'buddynext/messages', {
 			window.location.href = ctx.messagesUrl || '?';
 		},
 
+		// Mute / unmute this conversation. The engine's PATCH sets the participant's
+		// is_muted flag, which its NotificationListener + total-unread count both
+		// already honour — so muting silences this thread's bell/badge without any
+		// member-level block.
+		*toggleMute() {
+			const ctx    = getContext();
+			const convId = parseInt( ctx.activeConvId, 10 ) || 0;
+			if ( ! convId ) {
+				return;
+			}
+			const next   = ! ctx.isMuted;
+			ctx.infoBusy = true;
+			const res    = yield restFetch( '/conversations/' + convId, {
+				base: ctx.mvsRest,
+				nonce: ctx.nonce,
+				method: 'PATCH',
+				body: { is_muted: next ? 1 : 0 },
+				toastOnError: false,
+			} );
+			ctx.infoBusy = false;
+			if ( res && res.ok ) {
+				ctx.isMuted = next;
+			}
+		},
+
+		// Toggle the in-conversation message search bar.
+		toggleSearch() {
+			const ctx      = getContext();
+			ctx.searchOpen = ! ctx.searchOpen;
+			if ( ctx.searchOpen ) {
+				setTimeout( () => {
+					const input = document.querySelector( '[data-bn-dm-search-input]' );
+					if ( input ) {
+						input.focus();
+					}
+				}, 0 );
+			} else {
+				const results = document.querySelector( '[data-bn-dm-search-results]' );
+				if ( results ) {
+					results.replaceChildren();
+				}
+			}
+		},
+
+		// Debounced in-conversation search. Queries the engine's per-conversation
+		// message search and renders clickable results; clicking a hit scrolls to
+		// (and briefly highlights) that message when it is loaded in the thread.
+		searchMessages( event ) {
+			const ctx     = getContext();
+			const convId  = parseInt( ctx.activeConvId, 10 ) || 0;
+			const term    = ( event.target.value || '' ).trim();
+			const results = document.querySelector( '[data-bn-dm-search-results]' );
+			if ( ! results || ! convId ) {
+				return;
+			}
+			if ( dmSearchTimer ) {
+				clearTimeout( dmSearchTimer );
+			}
+			if ( term.length < 2 ) {
+				results.replaceChildren();
+				return;
+			}
+			dmSearchTimer = setTimeout( () => {
+				restFetch(
+					'/conversations/' + convId + '/messages/search?q=' + encodeURIComponent( term ) + '&per_page=30',
+					{ base: ctx.mvsRest, nonce: ctx.nonce, method: 'GET', toastOnError: false }
+				).then( ( res ) => {
+					results.replaceChildren();
+					const list = ( res && res.ok && res.data && res.data.results ) || [];
+					if ( ! list.length ) {
+						const empty = document.createElement( 'li' );
+						empty.className = 'bn-dm-search__empty';
+						empty.textContent = results.dataset.emptyText || 'No matching messages.';
+						results.appendChild( empty );
+						return;
+					}
+					list.forEach( ( m ) => {
+						const li  = document.createElement( 'li' );
+						const btn = document.createElement( 'button' );
+						btn.type      = 'button';
+						btn.className = 'bn-dm-search__result';
+						btn.textContent = m.content || '';
+						btn.addEventListener( 'click', () => {
+							const node = document.querySelector( '.bn-dm-msg[data-msg-id="' + ( m.id || 0 ) + '"]' );
+							if ( node ) {
+								node.scrollIntoView( { behavior: 'smooth', block: 'center' } );
+								node.classList.add( 'is-search-hit' );
+								setTimeout( () => node.classList.remove( 'is-search-hit' ), 1600 );
+							}
+						} );
+						li.appendChild( btn );
+						results.appendChild( li );
+					} );
+				} );
+			}, 300 );
+		},
+
 		// ── Rail search / tabs (progressive enhancement over server links) ───────
 		onPanelSearchInput( event ) {
 			const term = ( event.target.value || '' ).toLowerCase().trim();
@@ -1583,6 +1682,63 @@ const messagesStore = store( 'buddynext/messages', {
 				method: 'POST',
 				toastOnError: false,
 			} );
+		},
+
+		// Load an older page of messages and prepend them, keeping the reader's
+		// place. The engine exposes a `before` cursor, so we page from the oldest
+		// message currently in the DOM. Removes the control when a short page
+		// returns (no more history). Fixes a thread being stuck at the newest 50.
+		*loadOlder() {
+			const ctx    = getContext();
+			const convId = parseInt( ctx.activeConvId, 10 ) || 0;
+			const log    = logEl();
+			if ( ! convId || ! log ) {
+				return;
+			}
+			const first    = log.querySelector( '.bn-dm-msg[data-msg-id]' );
+			const beforeId = first ? ( parseInt( first.dataset.msgId, 10 ) || 0 ) : 0;
+			if ( ! beforeId ) {
+				return;
+			}
+			const wrap = log.querySelector( '[data-bn-dm-loadolder]' );
+			if ( wrap ) {
+				wrap.setAttribute( 'aria-busy', 'true' );
+			}
+			const prevHeight = log.scrollHeight;
+			const prevTop    = log.scrollTop;
+
+			const res = yield restFetch(
+				'/conversations/' + convId + '/messages?before=' + beforeId + '&per_page=50',
+				{ base: ctx.mvsRest, nonce: ctx.nonce, method: 'GET', toastOnError: false }
+			);
+			if ( wrap ) {
+				wrap.removeAttribute( 'aria-busy' );
+			}
+			if ( ! res || ! res.ok ) {
+				return;
+			}
+			const data = res.data || {};
+			let list   = Array.isArray( data ) ? data : ( data.messages || data.items || [] );
+			if ( ! Array.isArray( list ) || ! list.length ) {
+				if ( wrap ) {
+					wrap.remove();
+				}
+				return;
+			}
+			// Oldest first, inserted just below the control (or at the top).
+			list = list.slice().sort( ( a, b ) => ( parseInt( a.id, 10 ) || 0 ) - ( parseInt( b.id, 10 ) || 0 ) );
+			const anchor = wrap ? wrap.nextSibling : log.firstChild;
+			list.forEach( ( m ) => {
+				if ( log.querySelector( '.bn-dm-msg[data-msg-id="' + ( m.id || 0 ) + '"]' ) ) {
+					return;
+				}
+				log.insertBefore( buildMessageNode( m, ctx.userId ), anchor );
+			} );
+			// Keep the same message under the viewport (no scroll jump).
+			log.scrollTop = prevTop + ( log.scrollHeight - prevHeight );
+			if ( list.length < 50 && wrap ) {
+				wrap.remove();
+			}
 		},
 	},
 	callbacks: {

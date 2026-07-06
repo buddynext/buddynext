@@ -39,6 +39,47 @@
 	gap: var(--bn-s2);
 }
 
+/* As-you-type suggestions overlay (typeahead). */
+.bn-search-suggest {
+	position: absolute;
+	inset-inline: 0;
+	top: calc(100% + var(--bn-s2));
+	z-index: 40;
+	max-height: 60vh;
+	overflow-y: auto;
+	padding: var(--bn-s2);
+	background: var(--bn-surface, var(--bn-canvas));
+	border: 1px solid var(--bn-line, var(--bn-border));
+	border-radius: var(--bn-r-md);
+	box-shadow: var(--bn-shadow-2, 0 8px 24px rgba(0, 0, 0, 0.12));
+}
+
+.bn-search-suggest[hidden] {
+	display: none;
+}
+
+.bn-search-suggest__group {
+	padding: var(--bn-s2) var(--bn-s2) 2px;
+	font-size: var(--bn-text-xs);
+	font-weight: 600;
+	text-transform: capitalize;
+	color: var(--bn-ink-2);
+}
+
+.bn-search-suggest__item {
+	display: block;
+	padding: var(--bn-s2) var(--bn-s2);
+	border-radius: var(--bn-r-sm);
+	color: var(--bn-ink-1, var(--bn-ink));
+	text-decoration: none;
+}
+
+.bn-search-suggest__item:hover,
+.bn-search-suggest__item:focus {
+	background: color-mix(in oklch, var(--bn-accent) 12%, transparent);
+	color: var(--bn-ink-1, var(--bn-ink));
+}
+
 .bn-search-hero__icon {
 	position: absolute;
 	inset-inline-start: var(--bn-s3);

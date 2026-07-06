@@ -84,8 +84,13 @@ $bn_tone     = isset( $tone ) ? (string) $tone : '';
 				</ul>
 			</div>
 
-			<?php /* Safety actions. */ ?>
+			<?php /* Conversation controls + safety actions. */ ?>
 			<div class="bn-dm-info__actions">
+				<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-wp-bind--disabled="context.infoBusy" data-wp-on--click="actions.toggleMute">
+					<?php buddynext_icon( 'bell-off' ); ?>
+					<span data-wp-bind--hidden="context.isMuted"><?php esc_html_e( 'Mute conversation', 'buddynext' ); ?></span>
+					<span data-wp-bind--hidden="!context.isMuted"><?php esc_html_e( 'Unmute conversation', 'buddynext' ); ?></span>
+				</button>
 				<button type="button" class="bn-btn bn-dm-info__danger" data-variant="ghost" data-size="sm" data-wp-bind--disabled="context.infoBusy" data-wp-on--click="actions.reportRecipient">
 					<?php buddynext_icon( 'flag' ); ?>
 					<span><?php esc_html_e( 'Report conversation', 'buddynext' ); ?></span>

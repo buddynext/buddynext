@@ -51,6 +51,11 @@ class OutboundWebhookService {
 	private const DELIVER_HOOK = 'buddynext_webhook_deliver';
 
 	/**
+	 * Action Scheduler group for webhook deliveries.
+	 */
+	private const AS_GROUP = 'buddynext';
+
+	/**
 	 * Object-cache group for the atomic dispatch de-dupe lock.
 	 */
 	private const DISPATCH_LOCK_GROUP = 'buddynext_webhook';
@@ -254,6 +259,74 @@ class OutboundWebhookService {
 	}
 
 	/**
+	 * Update an endpoint's URL, events, active state, and/or secret.
+	 *
+	 * Supports the operations that previously forced a delete+recreate: changing the
+	 * subscribed events, re-enabling after an auto-disable (is_active), and rotating
+	 * the signing secret (pass a non-empty 'secret'). Only the keys present in
+	 * $fields are touched.
+	 *
+	 * @param int                 $webhook_id Endpoint ID.
+	 * @param array<string,mixed> $fields     Any of: url, events (array), is_active (bool), secret (string).
+	 * @return bool|WP_Error
+	 */
+	public function update( int $webhook_id, array $fields ): bool|WP_Error {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$exists = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_outbound_webhooks WHERE id = %d", $webhook_id ) );
+		if ( ! $exists ) {
+			return new WP_Error( 'not_found', __( 'Webhook endpoint not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		$data   = array();
+		$format = array();
+
+		if ( array_key_exists( 'url', $fields ) ) {
+			$url = (string) $fields['url'];
+			if ( ! str_starts_with( $url, 'https://' ) || ! filter_var( $url, FILTER_VALIDATE_URL ) ) {
+				return new WP_Error( 'invalid_url', __( 'Webhook URL must be a valid https:// URL.', 'buddynext' ), array( 'status' => 422 ) );
+			}
+			$data['url'] = $url;
+			$format[]    = '%s';
+		}
+		if ( array_key_exists( 'events', $fields ) ) {
+			$events         = array_values( array_unique( array_map( 'sanitize_text_field', (array) $fields['events'] ) ) );
+			$data['events'] = (string) wp_json_encode( $events );
+			$format[]       = '%s';
+		}
+		if ( array_key_exists( 'is_active', $fields ) ) {
+			$data['is_active'] = (int) (bool) $fields['is_active'];
+			$format[]          = '%d';
+		}
+		if ( array_key_exists( 'secret', $fields ) && '' !== (string) $fields['secret'] ) {
+			$data['secret'] = (string) $fields['secret'];
+			$format[]       = '%s';
+		}
+
+		if ( empty( $data ) ) {
+			return true;
+		}
+
+		$data['updated_at'] = current_time( 'mysql', true );
+		$format[]           = '%s';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_outbound_webhooks',
+			$data,
+			array( 'id' => $webhook_id ),
+			$format,
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$this->flush_active_cache();
+
+		return false !== $updated;
+	}
+
+	/**
 	 * Get paginated delivery log for a specific webhook endpoint.
 	 *
 	 * @param int $webhook_id Webhook row ID.
@@ -315,14 +388,21 @@ class OutboundWebhookService {
 
 		$args = array( $event_slug, $payload );
 
-		// Guard against a double-schedule when two requests fire the SAME event +
-		// payload concurrently: wp_next_scheduled() + wp_schedule_single_event() is
-		// not atomic, so both could see "not scheduled" and both schedule, the cron
-		// runs twice, and the endpoint gets duplicate POSTs. The per-delivery
-		// dedup header does NOT reliably catch this (its hash includes a per-send
-		// timestamp, so duplicates firing in different seconds look distinct).
-		// Under a persistent object cache, wp_cache_add() is atomic and returns
-		// false when the key already exists, so only the first request schedules.
+		// Prefer Action Scheduler: it has its own reliable runner (so deliveries do
+		// not wait for a visitor on no-real-cron sites), and its `unique` flag
+		// atomically prevents a duplicate pending action for the same event+payload —
+		// dedup that no longer depends on a persistent object cache.
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( self::DELIVER_HOOK, $args, self::AS_GROUP, true );
+			return;
+		}
+
+		// Fallback (Action Scheduler absent): guard against a double-schedule when two
+		// requests fire the SAME event + payload concurrently — wp_next_scheduled() +
+		// wp_schedule_single_event() is not atomic, so both could see "not scheduled",
+		// both schedule, the cron runs twice, and the endpoint gets duplicate POSTs.
+		// Under a persistent object cache, wp_cache_add() is atomic and returns false
+		// when the key already exists, so only the first request schedules.
 		$lock_key = 'bn_owh_' . md5( $event_slug . '|' . (string) wp_json_encode( $payload ) );
 		if ( wp_using_ext_object_cache() ) {
 			if ( ! wp_cache_add( $lock_key, 1, self::DISPATCH_LOCK_GROUP, MINUTE_IN_SECONDS ) ) {
@@ -664,15 +744,75 @@ class OutboundWebhookService {
 		);
 
 		if ( $error_count >= self::MAX_CONSECUTIVE_FAILURES ) {
-			$wpdb->update(
-				$wpdb->prefix . 'bn_outbound_webhooks',
-				array( 'is_active' => 0 ),
-				array( 'id' => $webhook_id ),
-				array( '%d' ),
-				array( '%d' )
+			// Read the current state first so we only notify on the transition
+			// (active → disabled) — a repeatedly-retried delivery must not email the
+			// owner more than once.
+			$was_active = (int) $wpdb->get_var(
+				$wpdb->prepare( "SELECT is_active FROM {$wpdb->prefix}bn_outbound_webhooks WHERE id = %d", $webhook_id )
 			);
-			$this->flush_active_cache();
+
+			if ( 1 === $was_active ) {
+				$wpdb->update(
+					$wpdb->prefix . 'bn_outbound_webhooks',
+					array( 'is_active' => 0 ),
+					array( 'id' => $webhook_id ),
+					array( '%d' ),
+					array( '%d' )
+				);
+				$this->flush_active_cache();
+				$this->notify_auto_disabled( $webhook_id );
+			}
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Tell the owner an endpoint was auto-disabled so the integration doesn't go
+	 * dark silently (Stripe / GitHub email on the same event).
+	 *
+	 * Emails the endpoint's creator (falling back to the site admin) and fires
+	 * buddynext_webhook_auto_disabled so a dashboard notice can surface it too.
+	 *
+	 * @param int $webhook_id Endpoint that was disabled.
+	 * @return void
+	 */
+	private function notify_auto_disabled( int $webhook_id ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$url = (string) $wpdb->get_var(
+			$wpdb->prepare( "SELECT url FROM {$wpdb->prefix}bn_outbound_webhooks WHERE id = %d", $webhook_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		/**
+		 * Fires when an outbound webhook endpoint is auto-disabled after repeated
+		 * delivery failures. Admin-notice / dashboard consumers can hook it.
+		 *
+		 * @param int    $webhook_id Endpoint ID.
+		 * @param string $url        Endpoint URL.
+		 */
+		do_action( 'buddynext_webhook_auto_disabled', $webhook_id, $url );
+
+		// The endpoints table has no per-endpoint owner, so notify the site admin.
+		$to = (string) get_option( 'admin_email' );
+		if ( '' === $to ) {
+			return;
+		}
+
+		$site    = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
+		$subject = sprintf(
+			/* translators: %s: site name. */
+			__( '[%s] A webhook was disabled after repeated failures', 'buddynext' ),
+			$site
+		);
+		$body = sprintf(
+			/* translators: 1: endpoint URL, 2: failure threshold. */
+			__( "The webhook endpoint %1\$s was automatically disabled after %2\$d consecutive delivery failures.\n\nCheck that the receiver is reachable, then re-enable it (rotating its secret if needed) from BuddyNext → Webhooks.", 'buddynext' ),
+			$url,
+			(int) self::MAX_CONSECUTIVE_FAILURES
+		);
+
+		wp_mail( $to, $subject, $body );
 	}
 }

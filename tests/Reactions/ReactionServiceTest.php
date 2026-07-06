@@ -157,4 +157,53 @@ class ReactionServiceTest extends \WP_UnitTestCase {
 
 		$this->assertSame( array( 'post', $this->post_id, $this->user_id ), $captured );
 	}
+	/**
+	 * The batch map returns each reacted emoji and a null for un-reacted ids.
+	 *
+	 * @return void
+	 */
+	public function test_get_user_emoji_map_batches_reactions(): void {
+		$this->service->react( $this->user_id, 'post', 101, 'like' );
+		$this->service->react( $this->user_id, 'post', 103, 'love' );
+
+		$map = $this->service->get_user_emoji_map( $this->user_id, 'post', array( 101, 102, 103 ) );
+
+		// Reacted posts return their emoji; the un-reacted one is present but null.
+		$this->assertSame( 'like', $map[101] );
+		$this->assertNull( $map[102] );
+		$this->assertSame( 'love', $map[103] );
+	}
+
+	/**
+	 * The batch map short-circuits to empty for a guest or an empty id list.
+	 *
+	 * @return void
+	 */
+	public function test_get_user_emoji_map_empty_for_guest_or_no_ids(): void {
+		$this->assertSame( array(), $this->service->get_user_emoji_map( 0, 'post', array( 1, 2 ) ) );
+		$this->assertSame( array(), $this->service->get_user_emoji_map( $this->user_id, 'post', array() ) );
+	}
+	/**
+	 * The enabled set carries render metadata and includes Pro custom slugs.
+	 *
+	 * @return void
+	 */
+	public function test_enabled_reactions_includes_metadata_and_pro_slugs(): void {
+		$base = ReactionService::enabled_reactions();
+		$this->assertNotEmpty( $base );
+		$this->assertSame(
+			array( 'slug', 'label', 'char', 'color', 'icon_url' ),
+			array_keys( $base[0] )
+		);
+
+		add_filter(
+			'buddynext_reaction_types',
+			static function ( array $types ): array {
+				$types[] = 'celebrate';
+				return $types;
+			}
+		);
+		$slugs = array_column( ReactionService::enabled_reactions(), 'slug' );
+		$this->assertContains( 'celebrate', $slugs );
+	}
 }

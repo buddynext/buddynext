@@ -40,6 +40,22 @@ class WPMediaVerseBridge {
 	private bool $mirroring_follow = false;
 
 	/**
+	 * Object-cache group + TTL for the media -> source-activity lookup. The lookup
+	 * scans bn_posts (JSON_CONTAINS on media_ids is not indexable), so the result
+	 * is cached: a media's source post never changes once created.
+	 *
+	 * @var string
+	 */
+	private const CACHE_GROUP = 'buddynext_media';
+
+	/**
+	 * Cache TTL for the media -> source-activity lookup, in seconds.
+	 *
+	 * @var int
+	 */
+	private const CACHE_TTL = 3600;
+
+	/**
 	 * Attach all hooks.
 	 *
 	 * Called from Plugin::init() via buddynext_load_bridges action.
@@ -55,6 +71,11 @@ class WPMediaVerseBridge {
 
 		// Gate DMs on bn_blocks + the recipient's DM-privacy preference.
 		add_filter( 'mvs_can_send_message', array( $this, 'check_block' ), 10, 3 );
+
+		// Run DM text through auto-moderation (banned words + Pro rules) so a member
+		// can't plant blocked content in a direct message — posts/comments/profile
+		// are guarded; DMs were not.
+		add_filter( 'mvs_message_content_check', array( $this, 'moderate_dm_content' ), 10, 3 );
 
 		// When that gate denies, report WHY (block vs privacy preference) so the
 		// sender sees an accurate notice instead of a generic "blocked".
@@ -132,6 +153,14 @@ class WPMediaVerseBridge {
 		// never duplicated.
 		add_action( 'mvs_media_uploaded', array( $this, 'on_media_uploaded' ), 10, 4 );
 		add_action( 'buddynext_mvs_media_activity', array( $this, 'publish_media_activity' ), 10, 3 );
+
+		// Media links resolve to the activity the item was posted in, not a
+		// dedicated /media/{slug}/ page — every upload already becomes an activity
+		// (photo post or media card), so a standalone public page per item is
+		// redundant SEO/crawl surface the owner rarely wants. Owner can switch to
+		// dedicated pages (Settings -> General -> Discovery). Standalone MVS (no BN)
+		// keeps its native single pages: this filter simply isn't attached there.
+		add_filter( 'mvs_single_media_redirect', array( $this, 'redirect_single_media' ), 10, 3 );
 	}
 
 	/**
@@ -279,6 +308,93 @@ class WPMediaVerseBridge {
 			default:
 				return __( 'shared a photo', 'buddynext' );
 		}
+	}
+
+	/**
+	 * Redirect a WPMediaVerse single-media URL to the activity it was posted in.
+	 *
+	 * Filters `mvs_single_media_redirect`. When the owner keeps the default
+	 * ('activity'), /media/{slug}/ resolves to the source activity (photo post or
+	 * media card), so media lives in the community feed and is not exposed as a
+	 * separate public page. When there is no source activity, it falls back to the
+	 * Explore feed — never a dead page. When the owner chose 'dedicated', or when
+	 * an earlier filter already set a target, this leaves the decision untouched.
+	 *
+	 * @param string $redirect Target URL resolved so far ('' = render native page).
+	 * @param int    $media_id The media item's id.
+	 * @param string $slug     Requested slug (unused; kept for the filter contract).
+	 * @return string Target URL, or '' to render WPMediaVerse's native single page.
+	 */
+	public function redirect_single_media( string $redirect, int $media_id, string $slug ): string {
+		unset( $slug );
+
+		// Respect a decision another layer already made.
+		if ( '' !== $redirect ) {
+			return $redirect;
+		}
+
+		// Owner opted into standalone media pages — keep MVS's native single page.
+		if ( 'dedicated' === (string) get_option( 'buddynext_media_single_pages', 'activity' ) ) {
+			return '';
+		}
+
+		// Prefer the activity the media was posted in.
+		$post_id = $this->source_post_for_media( $media_id );
+		if ( $post_id > 0 ) {
+			$url = \BuddyNext\Core\PageRouter::post_url( $post_id );
+			if ( '' !== $url ) {
+				return $url;
+			}
+		}
+
+		// Fallback: the Explore feed (never a standalone media page, never a 404).
+		$explore_id = (int) get_option( 'mvs_page_explore', 0 );
+		return $explore_id > 0 ? (string) get_permalink( $explore_id ) : '';
+	}
+
+	/**
+	 * Find the BuddyNext post a media item was surfaced in (photo post or media card).
+	 *
+	 * Photo uploads store the media id in `bn_posts.media_ids` (JSON); non-photo
+	 * uploads become a media card whose `link_url` is the media's /media/ permalink.
+	 * Cached because JSON_CONTAINS can't use an index and a media's source post is
+	 * stable once created.
+	 *
+	 * @param int $media_id Media id.
+	 * @return int Source post id, or 0 when the media has no BuddyNext activity.
+	 */
+	private function source_post_for_media( int $media_id ): int {
+		if ( $media_id <= 0 ) {
+			return 0;
+		}
+
+		$cache_key = 'src_post_' . $media_id;
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
+		$media_url = '';
+		$repo      = MediaClient::repo();
+		if ( is_object( $repo ) && method_exists( $repo, 'get_permalink' ) ) {
+			$media_url = (string) $repo->get_permalink( $media_id );
+		}
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$post_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_posts
+				 WHERE ( media_ids IS NOT NULL AND JSON_CONTAINS( media_ids, %s ) )
+				    OR ( link_url = %s AND link_url <> '' )
+				 ORDER BY id DESC LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				(string) wp_json_encode( $media_id ),
+				$media_url
+			)
+		);
+
+		wp_cache_set( $cache_key, $post_id, self::CACHE_GROUP, self::CACHE_TTL );
+		return $post_id;
 	}
 
 	/**
@@ -461,6 +577,36 @@ class WPMediaVerseBridge {
 			default:
 				return true;
 		}
+	}
+
+	/**
+	 * Auto-moderation gate for DM text (hooked on the engine's
+	 * mvs_message_content_check). Runs the message through the same content
+	 * safeguard as posts/comments; a WP_Error rejects the send.
+	 *
+	 * The engine passes a 4th arg (conversation id) that content moderation does
+	 * not need — banned-word checks are conversation-agnostic — so the callback
+	 * simply does not declare it (WordPress passes it; PHP ignores the extra arg).
+	 *
+	 * @param true|\WP_Error $result    Running result (WP_Error already blocks).
+	 * @param string         $content   Message text.
+	 * @param int            $sender_id Sender user ID.
+	 * @return true|\WP_Error
+	 */
+	public function moderate_dm_content( $result, string $content, int $sender_id ) {
+		if ( is_wp_error( $result ) || '' === trim( $content ) || ! function_exists( 'buddynext_service' ) ) {
+			return $result;
+		}
+
+		$guard = buddynext_service( 'safeguard' );
+		if ( is_object( $guard ) && method_exists( $guard, 'check_content' ) ) {
+			$verdict = $guard->check_content( $content, '', $sender_id );
+			if ( is_wp_error( $verdict ) ) {
+				return $verdict;
+			}
+		}
+
+		return $result;
 	}
 
 	/**

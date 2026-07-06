@@ -142,6 +142,16 @@ class SpaceController extends BaseRestController {
 
 		register_rest_route(
 			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/pinned',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_space_pinned' ),
+				'permission_callback' => '__return_true',
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
 			'/spaces/(?P<id>[\d]+)/subspaces',
 			array(
 				'methods'             => 'GET',
@@ -1041,6 +1051,12 @@ class SpaceController extends BaseRestController {
 			$data['parent_id'] = (int) $request->get_param( 'parent_id' );
 		}
 
+		// Pro-gated field: the service only persists it when Pro validates the ability
+		// slug (buddynext_sanitize_space_required_ability); ignored on Free.
+		if ( null !== $request->get_param( 'required_ability' ) ) {
+			$data['required_ability'] = sanitize_text_field( (string) $request->get_param( 'required_ability' ) );
+		}
+
 		$result = $service->update( $space_id, $user_id, $data );
 
 		if ( is_wp_error( $result ) ) {
@@ -1129,9 +1145,53 @@ class SpaceController extends BaseRestController {
 	}
 
 	/**
-	 * List active members of a space.
+	 * GET /spaces/{id}/pinned — the space's pinned posts, for the app.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_space_pinned( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id  = (int) $request->get_param( 'id' );
+		$space     = ( new SpaceService() )->get( $space_id );
+		$viewer_id = get_current_user_id();
+
+		if ( null === $space ) {
+			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		// Same visibility guard as the roster: a hidden space's pins are for members
+		// and admins only.
+		if ( SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) $space['type'] ) && ! user_can( $viewer_id, 'manage_options' ) ) {
+			if ( 'active' !== ( new SpaceMemberService() )->get_status( $space_id, $viewer_id ) ) {
+				return new WP_Error( 'forbidden', __( 'You do not have access to this space.', 'buddynext' ), array( 'status' => 403 ) );
+			}
+		}
+
+		// The pinned set the space feed strip shows, exposed for the app. Author is
+		// enriched here; the client can call /feed/viewer-state for the viewer's
+		// reaction/bookmark state across these post ids.
+		$pinned = array();
+		foreach ( buddynext_service( 'feed' )->space_pinned_posts( $space_id, 10 ) as $post ) {
+			$author_id      = (int) ( $post['user_id'] ?? 0 );
+			$author         = $author_id ? get_userdata( $author_id ) : null;
+			$post['author'] = array(
+				'id'           => $author_id,
+				'display_name' => $author ? $author->display_name : __( 'Community Member', 'buddynext' ),
+				'avatar_url'   => $author_id ? get_avatar_url( $author_id, array( 'size' => 96 ) ) : '',
+			);
+			if ( function_exists( 'buddynext_format_content' ) ) {
+				$post['content_html'] = buddynext_format_content( (string) ( $post['content'] ?? '' ) );
+			}
+			$pinned[] = $post;
+		}
+
+		return new WP_REST_Response( array( 'pinned' => $pinned ), 200 );
+	}
+
+	/**
+	 * GET /spaces/{id}/members — the space roster.
+	 *
+	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function get_space_members( WP_REST_Request $request ): WP_REST_Response|WP_Error {

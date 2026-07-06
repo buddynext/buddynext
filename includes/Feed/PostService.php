@@ -78,6 +78,20 @@ class PostService {
 			);
 		}
 
+		// Email-verification gate. When verification is enforced, an unverified
+		// member cannot post until they confirm their address (admins exempt).
+		// is_verified() returns true when the feature is off, so this is a no-op in
+		// open mode.
+		if ( ! user_can( $user_id, 'manage_options' )
+			&& function_exists( 'buddynext_service' )
+			&& ! buddynext_service( 'verification' )->is_verified( $user_id ) ) {
+			return new WP_Error(
+				'email_unverified',
+				__( 'Please verify your email address before posting. Check your inbox for the verification link, or request a new one from your account.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		if ( 'poll' === $type ) {
 			if ( '0' === (string) get_option( 'buddynext_allow_polls', '1' ) ) {
 				return new WP_Error(
@@ -101,12 +115,36 @@ class PostService {
 			}
 		}
 
-		if ( 'announcement' === $type && ! user_can( $user_id, 'manage_options' ) ) {
-			return new WP_Error(
-				'forbidden',
-				__( 'Only administrators can create announcements.', 'buddynext' ),
-				array( 'status' => 403 )
-			);
+		if ( 'announcement' === $type ) {
+			$ann_space_id = (int) ( $data['space_id'] ?? 0 );
+
+			// Site admins may announce site-wide; a space owner/moderator may announce
+			// to their OWN space. The whole decision is filterable so a site can
+			// delegate the capability differently.
+			$can_announce = user_can( $user_id, 'manage_options' )
+				|| ( $ann_space_id > 0 && function_exists( 'buddynext_service' )
+					&& (bool) buddynext_service( 'permissions' )->can(
+						$user_id,
+						'buddynext-moderate-space',
+						array( 'space_id' => $ann_space_id )
+					) );
+
+			/**
+			 * Filter whether a user may create an announcement.
+			 *
+			 * @param bool $can_announce Default: site admin, or a moderator of the target space.
+			 * @param int  $user_id      Author.
+			 * @param int  $ann_space_id Target space (0 = site-wide).
+			 */
+			$can_announce = (bool) apply_filters( 'buddynext_can_create_announcement', $can_announce, $user_id, $ann_space_id );
+
+			if ( ! $can_announce ) {
+				return new WP_Error(
+					'forbidden',
+					__( 'You do not have permission to create this announcement.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
 		}
 
 		// An archived space is read-only — refuse new posts targeting it.
@@ -150,6 +188,23 @@ class PostService {
 				// neither see nor approve it. A hard block (422) still rejects outright
 				// via the else branch.
 				$flag_reason = (string) $safeguard_result->get_error_message();
+
+				// Append which rule fired + the term it matched so the moderation
+				// report records the cause (Pro stamps rule_name/matched_term onto the
+				// safeguard error data); tuning was previously blind.
+				$flag_data = $safeguard_result->get_error_data();
+				if ( is_array( $flag_data ) ) {
+					$flag_bits = array();
+					if ( ! empty( $flag_data['rule_name'] ) ) {
+						$flag_bits[] = 'rule: ' . (string) $flag_data['rule_name'];
+					}
+					if ( ! empty( $flag_data['matched_term'] ) ) {
+						$flag_bits[] = 'matched: ' . (string) $flag_data['matched_term'];
+					}
+					if ( ! empty( $flag_bits ) ) {
+						$flag_reason .= ' (' . implode( ', ', $flag_bits ) . ')';
+					}
+				}
 			} else {
 				// Hard block (422), suspension, rate limit, etc. — reject outright.
 				return $safeguard_result;
@@ -351,6 +406,20 @@ class PostService {
 		 */
 		do_action( 'buddynext_post_created', $post_id, $user_id, $type );
 
+		if ( 'announcement' === $type ) {
+			/**
+			 * Fires when an announcement goes live, so notifications fan out to its
+			 * audience — site-wide, or a single space when space_id is set. Previously
+			 * an announcement only prepended to home page 1, so anyone living in
+			 * spaces/DMs or past page 1 never saw it.
+			 *
+			 * @param int $post_id  Announcement post ID.
+			 * @param int $user_id  Author.
+			 * @param int $space_id Target space (0 = site-wide).
+			 */
+			do_action( 'buddynext_announcement_published', $post_id, $user_id, (int) ( $data['space_id'] ?? 0 ) );
+		}
+
 		// An auto-moderation flag (severity=flag) lets the post publish but files a
 		// system report so the content surfaces in the moderation queue. reporter_id
 		// 0 marks it as system-generated; the flag message is preserved as notes.
@@ -380,6 +449,70 @@ class PostService {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Run the full at-go-live effects for a deferred publish (scheduled post or an
+	 * admin "publish now"), reusing the exact side-effects the immediate path runs.
+	 *
+	 * The deferred paths previously fired only the bare buddynext_post_created
+	 * action, so a scheduled post that @mentioned someone never notified them and
+	 * auto-moderation never evaluated at go-live. This loads the post, evaluates the
+	 * content safeguard NOW (reactive: a flag still publishes and files a report),
+	 * and delegates to run_post_published_effects — which fires buddynext_post_created
+	 * itself, so the caller must NOT fire it again (no double fan-out).
+	 *
+	 * @param int $post_id Post that just went live.
+	 * @return void
+	 */
+	public function run_published_effects( int $post_id ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT user_id, type, content, space_id, link_url FROM {$wpdb->prefix}bn_posts WHERE id = %d",
+				$post_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( null === $row ) {
+			return;
+		}
+
+		$user_id = (int) $row['user_id'];
+		$type    = (string) $row['type'];
+		$data    = array(
+			'content'  => (string) ( $row['content'] ?? '' ),
+			'space_id' => (int) ( $row['space_id'] ?? 0 ),
+			'link_url' => (string) ( $row['link_url'] ?? '' ),
+		);
+
+		// Evaluate auto-moderation at go-live. Reactive model: a flag (or a
+		// pending_review hold) publishes and files a system report — it does not
+		// retroactively block a post that was authored and scheduled earlier.
+		$flag_reason = '';
+		$result      = $this->get_safeguard()->check( $user_id, $data['content'], $data['link_url'], $data['space_id'] );
+		if ( is_wp_error( $result ) && ( 'pending_review' === $result->get_error_code() || $this->is_flag_error( $result ) ) ) {
+			$flag_reason = (string) $result->get_error_message();
+			$flag_data   = $result->get_error_data();
+			if ( is_array( $flag_data ) ) {
+				$flag_bits = array();
+				if ( ! empty( $flag_data['rule_name'] ) ) {
+					$flag_bits[] = 'rule: ' . (string) $flag_data['rule_name'];
+				}
+				if ( ! empty( $flag_data['matched_term'] ) ) {
+					$flag_bits[] = 'matched: ' . (string) $flag_data['matched_term'];
+				}
+				if ( ! empty( $flag_bits ) ) {
+					$flag_reason .= ' (' . implode( ', ', $flag_bits ) . ')';
+				}
+			}
+		}
+
+		$this->run_post_published_effects( $post_id, $user_id, $type, $data, $flag_reason );
 	}
 
 	/**
@@ -871,6 +1004,9 @@ class PostService {
 			: new \BuddyNext\SocialGraph\FollowService();
 		$spaces        = new \BuddyNext\Spaces\SpaceService();
 		$space_members = new \BuddyNext\Spaces\SpaceMemberService();
+		$moderation    = function_exists( 'buddynext_service' )
+			? buddynext_service( 'moderation' )
+			: new \BuddyNext\Moderation\ModerationService();
 		$is_admin      = $viewer > 0 && user_can( $viewer, 'manage_options' );
 
 		$visible = array();
@@ -921,9 +1057,13 @@ class PostService {
 				continue;
 			}
 
-			// Gate 5 — author suspended / shadow-banned (admins and the author bypass).
+			// Gate 5 — author's content hidden by a hide_posts suspension, or
+			// shadow-banned (admins and the author bypass). Reads the canonical
+			// bn_user_suspensions table via hides_posts() — the same hide_posts=1
+			// predicate the feed uses — NOT the retired bn_suspended usermeta,
+			// which only the admin panel set (the split-brain this fixes).
 			if ( ! $is_admin && ! $is_author ) {
-				$suspended = (bool) get_user_meta( $author_id, 'bn_suspended', true );
+				$suspended = $moderation->hides_posts( $author_id );
 				$shadow    = (bool) get_user_meta( $author_id, 'bn_shadow_banned', true );
 				if ( $suspended || $shadow ) {
 					continue;
@@ -1038,6 +1178,14 @@ class PostService {
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// Purge this post's cached oEmbed HTML so the edit renders a fresh embed
+		// instead of the 12h-stale transient (get() is still cache-backed here, so
+		// reading the link first is cheap; the transient is keyed by URL).
+		$existing_for_embed = $this->get( $post_id );
+		if ( $existing_for_embed && ! empty( $existing_for_embed['link_url'] ) ) {
+			delete_transient( 'bn_oembed_' . md5( trim( (string) $existing_for_embed['link_url'] ) ) );
+		}
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
 
@@ -1220,11 +1368,29 @@ class PostService {
 	public function pin( int $post_id, int $user_id, ?int $space_id = null ): bool|WP_Error {
 		$ownership = $this->assert_owner( $post_id, $user_id );
 		if ( is_wp_error( $ownership ) ) {
-			return $ownership;
+			// Owners pin their own posts; site admins and space moderators may pin
+			// any post in a space they moderate (same escape hatch as delete()).
+			// Space mods managing their own space's pinned set was impossible before.
+			if ( 'not_post_owner' !== $ownership->get_error_code() || ! $this->can_moderate_post( $post_id, $user_id ) ) {
+				return $ownership;
+			}
 		}
 
+		global $wpdb;
+
+		// The pin scope is the post's OWN location, never a caller argument: the
+		// REST controller omitted space_id, so every pin fell into the profile
+		// bucket and the per-space cap was fictional (profile + space pins shared
+		// one bucket). A profile pin (space_id NULL) is capped per author; a space
+		// pin is capped per space. Derive the scope from the post itself.
+		$post = $this->get( $post_id );
+		if ( null === $post ) {
+			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+		$space_id = (int) ( $post['space_id'] ?? 0 ) > 0 ? (int) $post['space_id'] : null;
+
 		/**
-		 * Filter the maximum number of posts a user may pin per scope.
+		 * Filter the maximum number of pinned posts allowed per scope.
 		 *
 		 * Free behaviour: 1 pin per scope (profile or space). Pro can raise this
 		 * limit for premium members by returning a higher integer.
@@ -1237,29 +1403,31 @@ class PostService {
 		 */
 		$pin_limit = (int) apply_filters( 'buddynext_post_pin_limit', 1, $space_id, $user_id );
 
-		global $wpdb;
-
 		if ( $pin_limit > 0 ) {
-			// Single prepare per branch — the previous code prepared the space_id
-			// clause and then interpolated that already-prepared string into a
-			// second prepare(), a double-prepare pattern that can mangle values
-			// and masks SQLi review. Thread $space_id straight into one prepare.
+			// Count only PUBLISHED pins already in this scope, excluding this post
+			// (so re-pinning an already-pinned post is idempotent, not a false cap
+			// hit). A trashed/pending post must never consume a pin slot.
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			if ( null === $space_id ) {
+				// Profile pins: capped per author.
 				$pinned_count = (int) $wpdb->get_var(
 					$wpdb->prepare(
 						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
-						 WHERE user_id = %d AND is_pinned = 1 AND space_id IS NULL",
-						$user_id
+						 WHERE user_id = %d AND is_pinned = 1 AND space_id IS NULL
+						   AND status = 'published' AND id <> %d",
+						$user_id,
+						$post_id
 					)
 				);
 			} else {
+				// Space pins: capped per space (across all pinners/moderators).
 				$pinned_count = (int) $wpdb->get_var(
 					$wpdb->prepare(
 						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
-						 WHERE user_id = %d AND is_pinned = 1 AND space_id = %d",
-						$user_id,
-						$space_id
+						 WHERE is_pinned = 1 AND space_id = %d
+						   AND status = 'published' AND id <> %d",
+						$space_id,
+						$post_id
 					)
 				);
 			}
@@ -1268,7 +1436,16 @@ class PostService {
 			if ( $pinned_count >= $pin_limit ) {
 				return new WP_Error(
 					'pin_limit_reached',
-					__( 'You have reached the maximum number of pinned posts.', 'buddynext' )
+					sprintf(
+						/* translators: %d: the maximum number of pinned posts allowed in this scope. */
+						_n(
+							'You have reached the maximum of %d pinned post.',
+							'You have reached the maximum of %d pinned posts.',
+							$pin_limit,
+							'buddynext'
+						),
+						$pin_limit
+					)
 				);
 			}
 		}
@@ -1285,6 +1462,13 @@ class PostService {
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
 
+		// A pin change alters what a cached feed shows for this post, so refresh the
+		// author's feed cache (the space pinned strip queries live, home no longer
+		// floats pins — this covers any other cached surface carrying is_pinned).
+		if ( function_exists( 'buddynext_service' ) ) {
+			buddynext_service( 'feed_cache' )->invalidate_writer( (int) $post['user_id'] );
+		}
+
 		return true;
 	}
 
@@ -1298,7 +1482,11 @@ class PostService {
 	public function unpin( int $post_id, int $user_id ): bool|WP_Error {
 		$ownership = $this->assert_owner( $post_id, $user_id );
 		if ( is_wp_error( $ownership ) ) {
-			return $ownership;
+			// Same permission as pin(): owner, site admin, or space moderator of the
+			// post's space may unpin it.
+			if ( 'not_post_owner' !== $ownership->get_error_code() || ! $this->can_moderate_post( $post_id, $user_id ) ) {
+				return $ownership;
+			}
 		}
 
 		global $wpdb;
@@ -1314,6 +1502,12 @@ class PostService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+
+		// Mirror pin(): refresh the author's feed cache after the pin state changes.
+		$bn_unpinned = $this->get( $post_id );
+		if ( $bn_unpinned && function_exists( 'buddynext_service' ) ) {
+			buddynext_service( 'feed_cache' )->invalidate_writer( (int) ( $bn_unpinned['user_id'] ?? 0 ) );
+		}
 
 		return true;
 	}

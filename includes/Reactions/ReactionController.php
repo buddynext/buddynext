@@ -107,6 +107,33 @@ class ReactionController extends BaseRestController {
 				),
 			)
 		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/reactions/types',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'get_types' ),
+				'permission_callback' => '__return_true',
+			)
+		);
+	}
+
+	/**
+	 * GET /reactions/types — the owner-enabled reaction set for the app.
+	 *
+	 * Returns the enabled slugs with label + emoji char + colour + icon URL, so a
+	 * native app renders the exact picker the web shows (including Pro custom
+	 * reactions) instead of hardcoding the six defaults.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function get_types( WP_REST_Request $request ): WP_REST_Response { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		return new WP_REST_Response(
+			array( 'reactions' => ReactionService::enabled_reactions() ),
+			200
+		);
 	}
 
 	/**

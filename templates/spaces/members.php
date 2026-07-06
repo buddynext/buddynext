@@ -325,6 +325,15 @@ $mem_privacy = array(
 						<div class="bn-md-card__identity">
 							<h3 class="bn-md-card__name"><a href="<?php echo esc_url( $member_url ); ?>"><?php echo esc_html( $member_name ); ?></a></h3>
 							<p class="bn-md-card__handle"><?php echo esc_html( $member_handle ); ?></p>
+							<?php
+							// Member labels (Pro) via the shared member-card meta seam, so
+							// they show in the space roster like the directory + search.
+							$bn_sm_labels = (string) apply_filters( 'buddynext_member_card_meta_html', '', $member_id, $member );
+							if ( '' !== $bn_sm_labels ) {
+								// Chip markup is wp_kses'd inside IconService::render_emoji().
+								echo '<div class="bn-md-card__labels">' . $bn_sm_labels . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+							}
+							?>
 						</div>
 
 						<span class="bn-badge bn-md-card__type" data-tone="<?php echo esc_attr( $role_meta['tone'] ); ?>"><?php echo esc_html( $role_meta['label'] ); ?></span>

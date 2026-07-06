@@ -48,6 +48,18 @@ class EmailSender {
 	private const TRANSACTIONAL_TYPES = array( 'email_verify', 'welcome' );
 
 	/**
+	 * Composed-email types: owner-authored campaign/drip mail whose subject and
+	 * body ARE the message (no template row, no per-type preference). These are
+	 * exempt from the can_email pref gate — but the exemption is keyed on this
+	 * explicit allowlist, NEVER on mere presence of inline content, so a
+	 * partner mirror (suite.*, jt.*) that happens to carry a subject/body can
+	 * never bypass the partner-email gate.
+	 *
+	 * @var string[]
+	 */
+	private const COMPOSED_EMAIL_TYPES = array( 'bn.broadcast', 'bn.drip_step' );
+
+	/**
 	 * Constructor.
 	 *
 	 * @param NotificationPrefService   $pref_service Notification preference service.
@@ -166,43 +178,52 @@ class EmailSender {
 	 * @param int    $user_id           Recipient user ID.
 	 * @param string $notification_type Notification type key.
 	 * @param array  $data              Notification data payload.
-	 * @return void
+	 * @return bool True when the email was handed off to wp_mail(), false otherwise.
 	 */
-	public function send_now( int $user_id, string $notification_type, array $data ): void {
-		// Defense-in-depth: honour the can_email gate here too (in case this is
-		// ever invoked outside the send() path). Transactional account emails
-		// are exempt — they are not catalogue-governed preferences.
-		if ( '' !== $notification_type
-			&& ! in_array( $notification_type, self::TRANSACTIONAL_TYPES, true )
-			&& ! $this->catalogue->can_email( $notification_type )
-		) {
-			return;
-		}
-
-		$template = $this->get_template( $notification_type );
-
+	public function send_now( int $user_id, string $notification_type, array $data ): bool {
 		// Composed-email path: campaign and drip-step senders author the subject
 		// and body per message and pass them in $data. These are first-class
 		// emails — the authored content IS the email — so they do not require a
 		// seeded bn_email_templates row. Event emails (e.g. bn.new_follower)
-		// continue to render from their template row as before.
+		// continue to render from their template row as before. Computed up front
+		// because the can_email gate below must know whether this is composed mail.
 		$inline_subject = isset( $data['subject'] ) ? (string) $data['subject'] : '';
 		$inline_body    = isset( $data['body_html'] ) ? (string) $data['body_html'] : '';
 		$has_inline     = '' !== $inline_subject && '' !== $inline_body;
 
+		// A composed campaign/drip email is exempt from the per-type can_email
+		// pref gate — the owner explicitly authored and sent it. Keyed on the
+		// COMPOSED_EMAIL_TYPES allowlist AND inline content, never on inline
+		// presence alone, so a partner mirror can never slip past the gate.
+		$composed_exempt = $has_inline && in_array( $notification_type, self::COMPOSED_EMAIL_TYPES, true );
+
+		// Defense-in-depth: honour the can_email gate here too (in case this is
+		// ever invoked outside the send() path). Transactional account emails and
+		// composed campaign/drip emails are exempt — they are not
+		// catalogue-governed preferences.
+		if ( '' !== $notification_type
+			&& ! in_array( $notification_type, self::TRANSACTIONAL_TYPES, true )
+			&& ! $composed_exempt
+			&& ! $this->catalogue->can_email( $notification_type )
+		) {
+			return false;
+		}
+
+		$template = $this->get_template( $notification_type );
+
 		if ( null === $template && ! $has_inline ) {
-			return;
+			return false;
 		}
 
 		// A disabled template row suppresses its own event emails, but never a
 		// composed campaign/drip email that carries its own authored content.
 		if ( null !== $template && ! $has_inline && ! (bool) $template->enabled ) {
-			return;
+			return false;
 		}
 
 		$user = get_userdata( $user_id );
 		if ( false === $user || '' === $user->user_email ) {
-			return;
+			return false;
 		}
 
 		$subject_src = $has_inline ? $inline_subject : (string) $template->subject;
@@ -245,10 +266,10 @@ class EmailSender {
 
 		if ( isset( $payload['send'] ) && false === $payload['send'] ) {
 			// Pro has captured the email for batch/campaign delivery — skip wp_mail().
-			return;
+			return false;
 		}
 
-		self::send_with_identity(
+		$sent = self::send_with_identity(
 			$payload['to'],
 			$payload['subject'],
 			$payload['body'],
@@ -256,6 +277,10 @@ class EmailSender {
 		);
 
 		$this->log_sent( $user_id, $notification_type );
+
+		// Report the actual wp_mail() outcome so callers (broadcast/drip) can
+		// record a truthful sent/failed status instead of assuming success.
+		return (bool) $sent;
 	}
 
 	/**

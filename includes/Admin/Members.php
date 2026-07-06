@@ -300,18 +300,21 @@ class Members extends AdminPageBase {
 	/**
 	 * Suspend a community member.
 	 *
-	 * Sets the bn_suspended usermeta flag, writes a row to bn_user_suspensions,
-	 * and fires both buddynext_user_suspended (canonical — EventListener listens
-	 * here for email/notification dispatch) and the legacy buddynext_member_suspended
-	 * hook for any third-party listeners.
+	 * Writes a row to bn_user_suspensions (hide_posts=0 — an action restriction
+	 * that leaves the member's existing content visible) and fires both
+	 * buddynext_user_suspended (canonical — EventListener listens here for
+	 * email/notification dispatch) and the legacy buddynext_member_suspended hook
+	 * for any third-party listeners.
+	 *
+	 * The bn_user_suspensions table is the single source of truth for suspension
+	 * state; the old bn_suspended usermeta was retired (it created a split-brain
+	 * where admin-panel suspensions hid content that REST/queue ones did not).
 	 *
 	 * @param int    $user_id WordPress user ID.
 	 * @param string $reason  Optional reason recorded with the suspension.
 	 * @return void
 	 */
 	public function suspend_member( int $user_id, string $reason = '' ): void {
-		update_user_meta( $user_id, 'bn_suspended', '1' );
-
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
@@ -351,16 +354,15 @@ class Members extends AdminPageBase {
 	/**
 	 * Lift the suspension for a community member.
 	 *
-	 * Removes the bn_suspended usermeta flag, marks the most-recent
-	 * bn_user_suspensions row as lifted, and fires both buddynext_user_unsuspended
-	 * (canonical) and the legacy buddynext_member_unsuspended hook.
+	 * Marks the most-recent active bn_user_suspensions row as lifted and fires
+	 * both buddynext_user_unsuspended (canonical) and the legacy
+	 * buddynext_member_unsuspended hook. (The retired bn_suspended usermeta is no
+	 * longer written or read; a one-time upgrade step clears any stray values.)
 	 *
 	 * @param int $user_id WordPress user ID.
 	 * @return void
 	 */
 	public function unsuspend_member( int $user_id ): void {
-		delete_user_meta( $user_id, 'bn_suspended' );
-
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(

@@ -181,6 +181,16 @@ class MemberDirectoryController extends BaseRestController {
 				$connection_map = buddynext_service( 'connections' )->statuses_for( $viewer_id, $page_ids );
 				$blocked_either = buddynext_service( 'blocks' )->blocking_either_map( $viewer_id, $page_ids );
 			}
+
+			/**
+			 * Fires with the page's member IDs after core bulk-priming, so add-ons
+			 * (e.g. Pro member labels) can batch-prime their own per-member data in
+			 * one query before shape_item() runs per row.
+			 *
+			 * @param int[] $page_ids  Member user IDs on this page.
+			 * @param int   $viewer_id Current viewer.
+			 */
+			do_action( 'buddynext_directory_members_primed', $page_ids, $viewer_id );
 		}
 
 		$items = array_map(
@@ -270,7 +280,7 @@ class MemberDirectoryController extends BaseRestController {
 			}
 		}
 
-		return array(
+		$item = array(
 			'user_id'        => $uid,
 			'display_name'   => $display_name,
 			'handle'         => $login,
@@ -297,6 +307,16 @@ class MemberDirectoryController extends BaseRestController {
 			'is_following'   => $is_following,
 			'connection'     => $this->shape_connection_state( $conn_status ),
 		);
+
+		/**
+		 * Filter a directory member REST item, so add-ons (e.g. Pro member labels)
+		 * can attach their own fields. Per-member data should be batch-primed on the
+		 * buddynext_directory_members_primed action so this stays free of N+1.
+		 *
+		 * @param array $item The shaped member item.
+		 * @param int   $uid  Member user ID.
+		 */
+		return (array) apply_filters( 'buddynext_rest_member_item', $item, $uid );
 	}
 
 	/**

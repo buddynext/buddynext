@@ -72,10 +72,15 @@ class NotificationListener implements ListenerInterface {
 		// Spaces.
 		add_action( 'buddynext_space_join_requested', array( $this, 'on_space_join_requested' ), 10, 2 );
 		add_action( 'buddynext_space_join_approved', array( $this, 'on_space_join_approved' ), 10, 3 );
+		add_action( 'buddynext_space_join_declined', array( $this, 'on_space_join_declined' ), 10, 3 );
 		add_action( 'buddynext_space_member_invited', array( $this, 'on_space_member_invited' ), 10, 3 );
 
 		// Space posts.
 		add_action( 'buddynext_post_created', array( $this, 'on_post_created_in_space' ), 10, 3 );
+
+		// Announcements — fan a bell notification out to the audience on publish.
+		add_action( 'buddynext_announcement_published', array( $this, 'on_announcement_published' ), 10, 3 );
+		add_action( 'buddynext_async_announcement_fanout', array( $this, 'async_announcement_fanout' ), 10, 1 );
 
 		// Async worker — runs inline when Action Scheduler is absent.
 		add_action( 'buddynext_async_space_new_post_notification', array( $this, 'async_space_new_post_notification' ), 10, 1 );
@@ -243,29 +248,50 @@ class NotificationListener implements ListenerInterface {
 	}
 
 	/**
-	 * Notify the post owner when someone reacts to their content.
+	 * Notify the owner of the reacted content (post OR comment).
 	 *
-	 * Only fires a notification for 'post' object type.
+	 * Resolves the content owner and notification type from $object_type, then
+	 * runs the shared self/blocked guards and fires the notification. Comment
+	 * reactions carry the parent post id in `data` so the deep-link can resolve
+	 * to the post permalink (a comment id is not a post id).
 	 *
-	 * @param string $object_type Object type (e.g. 'post', 'comment').
-	 * @param int    $object_id   Object ID.
+	 * @param string $object_type Object type: 'post' or 'comment'.
+	 * @param int    $object_id   Reacted object ID.
 	 * @param int    $user_id     User who reacted.
 	 * @param string $emoji       Emoji slug used for the reaction.
 	 */
 	public function on_reaction_added( string $object_type, int $object_id, int $user_id, string $emoji ): void {
-		if ( 'post' !== $object_type ) {
-			return;
-		}
-
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$owner_id = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT user_id FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
-				$object_id
-			)
-		);
+		if ( 'post' === $object_type ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$owner_id  = (int) $wpdb->get_var(
+				$wpdb->prepare( "SELECT user_id FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1", $object_id )
+			);
+			$type      = 'bn.post_reacted';
+			$group_key = 'post_reactions_' . $object_id;
+			$data      = array( 'emoji' => $emoji );
+		} elseif ( 'comment' === $object_type ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$comment = $wpdb->get_row(
+				$wpdb->prepare( "SELECT user_id, object_type, object_id FROM {$wpdb->prefix}bn_comments WHERE id = %d LIMIT 1", $object_id ),
+				ARRAY_A
+			);
+			if ( null === $comment ) {
+				return;
+			}
+			$owner_id  = (int) $comment['user_id'];
+			$post_id   = ( 'post' === (string) $comment['object_type'] ) ? (int) $comment['object_id'] : 0;
+			$type      = 'bn.comment_reacted';
+			$group_key = 'comment_reactions_' . $object_id;
+			$data      = array(
+				'emoji'      => $emoji,
+				'post_id'    => $post_id,
+				'comment_id' => $object_id,
+			);
+		} else {
+			return;
+		}
 
 		if ( 0 === $owner_id || $owner_id === $user_id ) {
 			return;
@@ -283,11 +309,11 @@ class NotificationListener implements ListenerInterface {
 			array(
 				'recipient_id' => $owner_id,
 				'sender_id'    => $user_id,
-				'type'         => 'bn.post_reacted',
-				'object_type'  => 'post',
+				'type'         => $type,
+				'object_type'  => $object_type,
 				'object_id'    => $object_id,
-				'group_key'    => 'post_reactions_' . $object_id,
-				'data'         => array( 'emoji' => $emoji ),
+				'group_key'    => $group_key,
+				'data'         => $data,
 			)
 		);
 	}
@@ -491,6 +517,33 @@ class NotificationListener implements ListenerInterface {
 	}
 
 	/**
+	 * Notify a user when their request to join a space is declined.
+	 *
+	 * SpaceMemberService::decline_request fired buddynext_space_join_declined but
+	 * nothing consumed it, so the requester got silence. Mirrors the approve path.
+	 *
+	 * @param int $space_id    Space the request targeted.
+	 * @param int $user_id     User whose request was declined (recipient).
+	 * @param int $_by_user_id Moderator who declined (unused; part of the contract).
+	 */
+	public function on_space_join_declined( int $space_id, int $user_id, int $_by_user_id ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_by_user_id required by hook contract.
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+
+		buddynext_service( 'notifications' )->create(
+			array(
+				'recipient_id' => $user_id,
+				'sender_id'    => null,
+				'type'         => 'bn.space_join_declined',
+				'object_type'  => 'space',
+				'object_id'    => $space_id,
+				'group_key'    => 'space_declined_' . $space_id . '_' . $user_id,
+			)
+		);
+	}
+
+	/**
 	 * Notify a user when they are invited to join a space.
 	 *
 	 * @param int $invited_user_id User who was invited (notification recipient).
@@ -656,6 +709,149 @@ class NotificationListener implements ListenerInterface {
 				'buddynext'
 			);
 		}
+	}
+
+	/**
+	 * Fan an announcement notification out to its audience on publish.
+	 *
+	 * Notifies the first bounded batch inline (guaranteed delivery on small sites)
+	 * then hands the remainder to a keyset-paginated background pager.
+	 *
+	 * @param int $post_id   Announcement post ID.
+	 * @param int $author_id Author (never notified).
+	 * @param int $space_id  Target space (0 = site-wide, notify all members).
+	 * @return void
+	 */
+	public function on_announcement_published( int $post_id, int $author_id, int $space_id = 0 ): void {
+		if ( $post_id <= 0 || ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+
+		$batch_size = $this->fanout_batch_size();
+		$batch      = $this->fan_out_announcement_batch( $post_id, $author_id, $space_id, 0, $batch_size );
+
+		if ( $batch_size === $batch['count'] && $batch['last_user_id'] > 0 && function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action(
+				'buddynext_async_announcement_fanout',
+				array(
+					'post_id'       => $post_id,
+					'author_id'     => $author_id,
+					'space_id'      => $space_id,
+					'after_user_id' => $batch['last_user_id'],
+				),
+				'buddynext'
+			);
+		}
+	}
+
+	/**
+	 * Background pager for the announcement fan-out.
+	 *
+	 * @param array $args post_id, author_id, space_id, after_user_id.
+	 * @return void
+	 */
+	public function async_announcement_fanout( array $args ): void {
+		$post_id       = (int) ( $args['post_id'] ?? 0 );
+		$author_id     = (int) ( $args['author_id'] ?? 0 );
+		$space_id      = (int) ( $args['space_id'] ?? 0 );
+		$after_user_id = max( 0, (int) ( $args['after_user_id'] ?? 0 ) );
+
+		if ( 0 === $post_id ) {
+			return;
+		}
+
+		$batch_size = $this->fanout_batch_size();
+		$batch      = $this->fan_out_announcement_batch( $post_id, $author_id, $space_id, $after_user_id, $batch_size );
+
+		if ( $batch_size === $batch['count'] && $batch['last_user_id'] > 0 && function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action(
+				'buddynext_async_announcement_fanout',
+				array(
+					'post_id'       => $post_id,
+					'author_id'     => $author_id,
+					'space_id'      => $space_id,
+					'after_user_id' => $batch['last_user_id'],
+				),
+				'buddynext'
+			);
+		}
+	}
+
+	/**
+	 * Create one keyset page of announcement notifications.
+	 *
+	 * Site-wide announcements (space_id 0) fan out to every member; space-scoped
+	 * ones only to that space's active members. Each recipient goes through
+	 * NotificationService::create(), which applies the per-recipient preference
+	 * gates and email dispatch — so this batched path notifies exactly who the
+	 * per-row path would.
+	 *
+	 * @param int $post_id       Announcement post ID.
+	 * @param int $author_id     Author (excluded).
+	 * @param int $space_id      Target space (0 = site-wide).
+	 * @param int $after_user_id Keyset cursor.
+	 * @param int $limit         Page size.
+	 * @return array{count:int,last_user_id:int}
+	 */
+	private function fan_out_announcement_batch( int $post_id, int $author_id, int $space_id, int $after_user_id, int $limit ): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $space_id > 0 ) {
+			$ids = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT user_id FROM {$wpdb->prefix}bn_space_members
+					 WHERE space_id = %d AND status = 'active' AND user_id != %d AND user_id > %d
+					 ORDER BY user_id ASC
+					 LIMIT %d",
+					$space_id,
+					$author_id,
+					$after_user_id,
+					$limit
+				)
+			);
+		} else {
+			$ids = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT ID FROM {$wpdb->users} WHERE ID != %d AND ID > %d ORDER BY ID ASC LIMIT %d",
+					$author_id,
+					$after_user_id,
+					$limit
+				)
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( empty( $ids ) ) {
+			return array(
+				'count'        => 0,
+				'last_user_id' => $after_user_id,
+			);
+		}
+
+		$svc          = buddynext_service( 'notifications' );
+		$last_user_id = $after_user_id;
+
+		foreach ( $ids as $raw_id ) {
+			$member_id    = (int) $raw_id;
+			$last_user_id = $member_id;
+
+			$svc->create(
+				array(
+					'recipient_id' => $member_id,
+					'sender_id'    => $author_id,
+					'type'         => 'bn.announcement',
+					'object_type'  => 'post',
+					'object_id'    => $post_id,
+					'group_key'    => 'announcement_' . $post_id . '_' . $member_id,
+				)
+			);
+		}
+
+		return array(
+			'count'        => count( $ids ),
+			'last_user_id' => $last_user_id,
+		);
 	}
 
 	/**

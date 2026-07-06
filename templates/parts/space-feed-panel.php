@@ -20,7 +20,7 @@
  * @var bool        $is_pending     Optional. Viewer has pending join request. Default false.
  * @var bool        $is_archived    Optional. Space is archived (read-only) — shows a notice. Default false.
  * @var array       $posts          Optional. List of post arrays for the feed. Default [].
- * @var array|null  $pinned_post    Optional. Pinned post row (or null when absent).
+ * @var array        $pinned_posts   Optional. Pinned post rows (objects), newest first.
  * @var WP_User|null $current_user  Optional. Current WP_User object (for composer guard).
  * @var array       $classes        Optional. Extra CSS classes appended to the wrapper.
  *
@@ -51,7 +51,7 @@ $args = array(
 	'is_pending'   => isset( $is_pending ) ? (bool) $is_pending : false,
 	'is_archived'  => isset( $is_archived ) ? (bool) $is_archived : false,
 	'posts'        => isset( $posts ) && is_array( $posts ) ? $posts : array(),
-	'pinned_post'  => isset( $pinned_post ) ? $pinned_post : null,
+	'pinned_posts' => isset( $pinned_posts ) ? (array) $pinned_posts : array(),
 	'current_user' => isset( $current_user ) ? $current_user : null,
 	'classes'      => isset( $classes ) ? (array) $classes : array(),
 );
@@ -76,7 +76,7 @@ $bn_is_guest    = (bool) $args['is_guest'];
 $bn_is_pending  = (bool) $args['is_pending'];
 $bn_is_archived = (bool) $args['is_archived'];
 $bn_posts       = (array) $args['posts'];
-$bn_pinned      = $args['pinned_post'];
+$bn_pinned_posts = (array) $args['pinned_posts'];
 $bn_user        = $args['current_user'];
 
 $bn_wrap_class = trim(
@@ -155,23 +155,67 @@ if ( '' !== $bn_wrap_class ) {
 	</div>
 <?php endif; ?>
 
-<?php if ( $bn_pinned ) : ?>
-	<div class="bn-card bn-sh-pinned">
-		<div class="bn-sh-pinned__label">
-			<?php buddynext_icon( 'bookmark' ); ?>
-			<?php esc_html_e( 'Pinned announcement', 'buddynext' ); ?>
+<?php
+if ( ! empty( $bn_pinned_posts ) ) :
+	// Bounded pinned strip: show the first few inline, fold the rest behind a
+	// native <details> so a space with up to 10 pins never buries fresh posts.
+	$bn_pinned_total   = count( $bn_pinned_posts );
+	$bn_pinned_visible = 3;
+
+	/**
+	 * Render one compact pinned-post card.
+	 *
+	 * @param object $bn_pinned Hydrated pinned post (with author_name).
+	 * @return void
+	 */
+	$bn_render_pinned = static function ( $bn_pinned ): void {
+		?>
+		<div class="bn-card bn-sh-pinned">
+			<div class="bn-sh-pinned__label">
+				<?php buddynext_icon( 'bookmark' ); ?>
+				<?php esc_html_e( 'Pinned', 'buddynext' ); ?>
+			</div>
+			<p class="bn-sh-pinned__title"><?php echo esc_html( wp_trim_words( $bn_pinned->content ?? '', 24 ) ); ?></p>
+			<p class="bn-sh-pinned__meta">
+				<?php
+				printf(
+					/* translators: 1: author display name, 2: time ago label. */
+					esc_html__( 'Pinned by %1$s · %2$s', 'buddynext' ),
+					esc_html( $bn_pinned->author_name ?? __( 'Admin', 'buddynext' ) ),
+					esc_html( buddynext_time_ago( (string) $bn_pinned->created_at ) )
+				);
+				?>
+			</p>
 		</div>
-		<p class="bn-sh-pinned__title"><?php echo esc_html( wp_trim_words( $bn_pinned->content ?? '', 24 ) ); ?></p>
-		<p class="bn-sh-pinned__meta">
-			<?php
-			printf(
-				/* translators: 1: author display name, 2: time ago label. */
-				esc_html__( 'Pinned by %1$s · %2$s', 'buddynext' ),
-				esc_html( $bn_pinned->author_name ?? __( 'Admin', 'buddynext' ) ),
-				esc_html( buddynext_time_ago( (string) $bn_pinned->created_at ) )
-			);
-			?>
-		</p>
+		<?php
+	};
+	?>
+	<div class="bn-sh-pinned-strip" aria-label="<?php esc_attr_e( 'Pinned posts', 'buddynext' ); ?>">
+		<?php
+		foreach ( array_slice( $bn_pinned_posts, 0, $bn_pinned_visible ) as $bn_pinned ) {
+			$bn_render_pinned( $bn_pinned );
+		}
+		?>
+		<?php if ( $bn_pinned_total > $bn_pinned_visible ) : ?>
+			<details class="bn-sh-pinned-strip__more">
+				<summary>
+					<?php
+					echo esc_html(
+						sprintf(
+							/* translators: %d: number of additional pinned posts. */
+							_n( 'Show %d more pinned post', 'Show %d more pinned posts', $bn_pinned_total - $bn_pinned_visible, 'buddynext' ),
+							$bn_pinned_total - $bn_pinned_visible
+						)
+					);
+					?>
+				</summary>
+				<?php
+				foreach ( array_slice( $bn_pinned_posts, $bn_pinned_visible ) as $bn_pinned ) {
+					$bn_render_pinned( $bn_pinned );
+				}
+				?>
+			</details>
+		<?php endif; ?>
 	</div>
 <?php endif; ?>
 

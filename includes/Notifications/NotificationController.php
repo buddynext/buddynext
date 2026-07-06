@@ -43,6 +43,18 @@ class NotificationController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'list_notifications' ),
 				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'filter' => array(
+						'type'              => 'string',
+						'enum'              => array( 'all', 'unread', 'read' ),
+						'default'           => 'all',
+						'sanitize_callback' => 'sanitize_key',
+					),
+					'offset' => array(
+						'type'    => 'integer',
+						'minimum' => 0,
+					),
+				),
 			)
 		);
 
@@ -87,6 +99,23 @@ class NotificationController extends BaseRestController {
 				array(
 					'methods'             => 'POST',
 					'callback'            => array( $this, 'mark_read' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/me/notifications/(?P<id>[\d]+)/unread',
+			array(
+				array(
+					'methods'             => 'PUT',
+					'callback'            => array( $this, 'mark_unread' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'mark_unread' ),
 					'permission_callback' => array( $this, 'require_auth' ),
 				),
 			)
@@ -165,7 +194,13 @@ class NotificationController extends BaseRestController {
 		$cursor   = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
 		$per_page = min( (int) ( $request->get_param( 'per_page' ) ?? 20 ), 50 );
 
-		$result   = ( new NotificationService() )->list_for_user( $user_id, $cursor, $per_page );
+		// filter: all|unread|read (the app's unread-only tab). offset: page via
+		// LIMIT/OFFSET as an alternative to keyset cursor paging. Both are already
+		// supported by the service; they were simply never wired through here.
+		$filter = (string) ( $request->get_param( 'filter' ) ?? 'all' );
+		$offset = null !== $request->get_param( 'offset' ) ? max( 0, (int) $request->get_param( 'offset' ) ) : null;
+
+		$result   = ( new NotificationService() )->list_for_user( $user_id, $cursor, $per_page, $filter, $offset );
 		$composer = new NotificationMessageService();
 		$composed = $composer->compose_batch( $result['items'] ?? array() );
 
@@ -219,6 +254,24 @@ class NotificationController extends BaseRestController {
 		}
 
 		return new WP_REST_Response( array( 'read' => true ), 200 );
+	}
+
+	/**
+	 * Mark a single notification unread for the current user.
+	 *
+	 * @param WP_REST_Request $request Incoming request (id param).
+	 * @return WP_REST_Response|WP_Error 200 { read: false } or a 403 WP_Error.
+	 */
+	public function mark_unread( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$notif_id = (int) $request->get_param( 'id' );
+		$user_id  = get_current_user_id();
+		$result   = ( new NotificationService() )->mark_unread( $notif_id, $user_id );
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return new WP_REST_Response( array( 'read' => false ), 200 );
 	}
 
 	/**

@@ -9,7 +9,8 @@
  * never redirect a member away from the site.
  *
  * Options are registered for save/sanitize on the Registration & Login settings
- * tab (Settings::SETTINGS_MAP, esc_url_raw).
+ * tab via the admin settings registry (Settings::fields_registration(), url type
+ * -> esc_url_raw).
  *
  * @package BuddyNext\Core
  */

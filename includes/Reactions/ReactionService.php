@@ -212,6 +212,43 @@ class ReactionService {
 	}
 
 	/**
+	 * The owner-enabled reaction set with full render metadata.
+	 *
+	 * Single source the app can read to render the reaction picker without
+	 * hardcoding the six defaults — Pro custom reactions (added via
+	 * buddynext_reaction_types) appear here too, each carrying its label, emoji
+	 * char, colour token, and SVG icon URL (buddynext_reaction_meta supplies the
+	 * char/colour; Pro custom slugs ship their own reaction-{slug}.svg).
+	 *
+	 * @return array<int,array{slug:string,label:string,char:string,color:string,icon_url:string}>
+	 */
+	public static function enabled_reactions(): array {
+		$reactions = array();
+
+		foreach ( self::reaction_types() as $slug ) {
+			$meta = (array) apply_filters(
+				'buddynext_reaction_meta',
+				array(
+					'label' => self::label( $slug ),
+					'char'  => '',
+					'color' => '',
+				),
+				$slug
+			);
+
+			$reactions[] = array(
+				'slug'     => $slug,
+				'label'    => self::label( $slug ),
+				'char'     => (string) ( $meta['char'] ?? '' ),
+				'color'    => (string) ( $meta['color'] ?? '' ),
+				'icon_url' => defined( 'BUDDYNEXT_URL' ) ? BUDDYNEXT_URL . 'assets/icons/reaction-' . rawurlencode( $slug ) . '.svg' : '',
+			);
+		}
+
+		return $reactions;
+	}
+
+	/**
 	 * Human-readable, translatable label for a reaction slug.
 	 *
 	 * Single source of truth for reaction labels across the picker, the React
@@ -527,6 +564,114 @@ class ReactionService {
 	}
 
 	/**
+	 * Batch-fetch a viewer's reactions across many objects in ONE query.
+	 *
+	 * Returns a map of object_id => emoji (or null where the viewer has not
+	 * reacted). Replaces calling get_user_emoji() in a loop — the per-card N+1 that
+	 * made the feed unusable at scale. Also warms the per-object cache so any later
+	 * singular get_user_emoji() (e.g. the SSR post-card) is a free cache hit.
+	 *
+	 * @param int    $user_id     Viewer.
+	 * @param string $object_type Object type (e.g. 'post').
+	 * @param int[]  $object_ids  Object IDs to look up.
+	 * @return array<int,string|null> object_id => emoji|null.
+	 */
+	public function get_user_emoji_map( int $user_id, string $object_type, array $object_ids ): array {
+		$object_type = sanitize_key( $object_type );
+		$object_ids  = array_values( array_unique( array_filter( array_map( 'absint', $object_ids ) ) ) );
+
+		$map = array();
+		foreach ( $object_ids as $id ) {
+			$map[ $id ] = null;
+		}
+
+		if ( 0 === $user_id || empty( $object_ids ) ) {
+			return $map;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $object_ids ), '%d' ) );
+		$params       = array_merge( array( $user_id, $object_type ), $object_ids );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT object_id, emoji FROM {$wpdb->prefix}bn_reactions
+				 WHERE user_id = %d AND object_type = %s AND object_id IN ( {$placeholders} )",
+				$params
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		foreach ( (array) $rows as $row ) {
+			$map[ (int) $row['object_id'] ] = (string) $row['emoji'];
+		}
+
+		// Warm the singular per-object cache for every requested id (hit or miss),
+		// so a subsequent get_user_emoji() during SSR never re-queries.
+		foreach ( $map as $id => $emoji ) {
+			wp_cache_set( "user_emoji_{$user_id}_{$object_type}_{$id}", $emoji ?? '', self::CACHE_GROUP, self::CACHE_TTL );
+		}
+
+		return $map;
+	}
+
+	/**
+	 * Batch-fetch the total reaction count for many objects in ONE query.
+	 *
+	 * Returns a map of object_id => total count (0 where none). Warms the singular
+	 * per-object count cache so a later count() (e.g. per-comment enrichment) is a
+	 * free cache hit — the whole thread's like counts cost this one query instead
+	 * of one per comment.
+	 *
+	 * @param string $object_type Object type (e.g. 'comment').
+	 * @param int[]  $object_ids  Object IDs to count.
+	 * @return array<int,int> object_id => count.
+	 */
+	public function count_map( string $object_type, array $object_ids ): array {
+		$object_type = sanitize_key( $object_type );
+		$object_ids  = array_values( array_unique( array_filter( array_map( 'absint', $object_ids ) ) ) );
+
+		$map = array();
+		foreach ( $object_ids as $id ) {
+			$map[ $id ] = 0;
+		}
+
+		if ( empty( $object_ids ) ) {
+			return $map;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $object_ids ), '%d' ) );
+		$params       = array_merge( array( $object_type ), $object_ids );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT object_id, COUNT(*) AS cnt FROM {$wpdb->prefix}bn_reactions
+				 WHERE object_type = %s AND object_id IN ( {$placeholders} )
+				 GROUP BY object_id",
+				$params
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		foreach ( (array) $rows as $row ) {
+			$map[ (int) $row['object_id'] ] = (int) $row['cnt'];
+		}
+
+		foreach ( $map as $id => $cnt ) {
+			wp_cache_set( "count_{$object_type}_{$id}", $cnt, self::CACHE_GROUP, self::CACHE_TTL );
+		}
+
+		return $map;
+	}
+
+	/**
 	 * Return the total reaction count for an object.
 	 *
 	 * @param string $object_type Object type.
@@ -605,5 +750,74 @@ class ReactionService {
 		wp_cache_delete( "count_{$object_type}_{$object_id}", self::CACHE_GROUP );
 		wp_cache_delete( "counts_{$object_type}_{$object_id}", self::CACHE_GROUP );
 		wp_cache_delete( "user_emoji_{$user_id}_{$object_type}_{$object_id}", self::CACHE_GROUP );
+	}
+
+	/**
+	 * Delete every reaction row for one emoji slug and reconcile the affected
+	 * objects' denormalised counts.
+	 *
+	 * Called when a custom reaction is removed (Pro): leaving the rows behind made
+	 * get_counts() keep returning a slug the picker had dropped and label() could
+	 * no longer name — an unpickable, unlabeled ghost count. Purging the rows and
+	 * decrementing each affected post's reaction_count by however many it lost
+	 * keeps the totals honest.
+	 *
+	 * @param string $emoji Reaction slug to purge.
+	 * @return int Number of reaction rows deleted.
+	 */
+	public function purge_emoji( string $emoji ): int {
+		$emoji = sanitize_key( $emoji );
+		if ( '' === $emoji ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// Affected objects + how many rows each loses, so counts + caches reconcile.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$affected = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT object_type, object_id, COUNT(*) AS n
+				 FROM {$wpdb->prefix}bn_reactions
+				 WHERE emoji = %s
+				 GROUP BY object_type, object_id",
+				$emoji
+			),
+			ARRAY_A
+		);
+
+		if ( empty( $affected ) ) {
+			return 0;
+		}
+
+		$deleted = (int) $wpdb->query(
+			$wpdb->prepare( "DELETE FROM {$wpdb->prefix}bn_reactions WHERE emoji = %s", $emoji )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		foreach ( (array) $affected as $row ) {
+			$object_type = (string) $row['object_type'];
+			$object_id   = (int) $row['object_id'];
+			$lost        = (int) $row['n'];
+
+			if ( 'post' === $object_type && $object_id > 0 && $lost > 0 ) {
+				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->query(
+					$wpdb->prepare(
+						"UPDATE {$wpdb->prefix}bn_posts
+						 SET reaction_count = GREATEST( 0, CAST( reaction_count AS SIGNED ) - %d )
+						 WHERE id = %d",
+						$lost,
+						$object_id
+					)
+				);
+				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				wp_cache_delete( "post_{$object_id}", 'buddynext_posts' );
+			}
+
+			$this->invalidate_cache( $object_type, $object_id, 0 );
+		}
+
+		return $deleted;
 	}
 }

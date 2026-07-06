@@ -109,6 +109,13 @@ class NotificationMessageService {
 	 */
 	private function compose_single( string $type, string $actor_name, int $object_id, array $data ): string {
 		switch ( $type ) {
+			case 'bn.announcement':
+				return sprintf(
+					/* translators: %s: actor display name. */
+					__( '%s posted an announcement.', 'buddynext' ),
+					$actor_name
+				);
+
 			case 'bn.new_follower':
 				return sprintf(
 					/* translators: %s: actor display name. */
@@ -157,6 +164,22 @@ class NotificationMessageService {
 				return sprintf(
 					/* translators: %s: actor display name. */
 					__( '%s reacted to your post.', 'buddynext' ),
+					$actor_name
+				);
+
+			case 'bn.comment_reacted':
+				$emoji = isset( $data['emoji'] ) ? (string) $data['emoji'] : '';
+				if ( '' !== $emoji ) {
+					return sprintf(
+						/* translators: 1: actor display name, 2: emoji slug. */
+						__( '%1$s reacted %2$s to your comment.', 'buddynext' ),
+						$actor_name,
+						$emoji
+					);
+				}
+				return sprintf(
+					/* translators: %s: actor display name. */
+					__( '%s reacted to your comment.', 'buddynext' ),
 					$actor_name
 				);
 
@@ -361,13 +384,6 @@ class NotificationMessageService {
 					$actor_name
 				);
 
-			case 'bn.jetonomy_reply':
-				return sprintf(
-					/* translators: %s: actor display name. */
-					__( '%s replied to your discussion.', 'buddynext' ),
-					$actor_name
-				);
-
 			case 'bn.test':
 				return __( 'Test notification.', 'buddynext' );
 
@@ -436,6 +452,14 @@ class NotificationMessageService {
 				return sprintf(
 					/* translators: 1: actor display name, 2: number of other actors. */
 					_n( '%1$s and %2$d other reacted to your post.', '%1$s and %2$d others reacted to your post.', $others, 'buddynext' ),
+					$actor_name,
+					$others
+				);
+
+			case 'bn.comment_reacted':
+				return sprintf(
+					/* translators: 1: actor display name, 2: number of other actors. */
+					_n( '%1$s and %2$d other reacted to your comment.', '%1$s and %2$d others reacted to your comment.', $others, 'buddynext' ),
 					$actor_name,
 					$others
 				);
@@ -536,6 +560,11 @@ class NotificationMessageService {
 					'label' => __( 'Connection declined', 'buddynext' ),
 				),
 				'bn.post_reacted'           => array(
+					'icon'  => 'heart',
+					'tone'  => 'warn',
+					'label' => __( 'Reaction', 'buddynext' ),
+				),
+				'bn.comment_reacted'        => array(
 					'icon'  => 'heart',
 					'tone'  => 'warn',
 					'label' => __( 'Reaction', 'buddynext' ),
@@ -695,11 +724,6 @@ class NotificationMessageService {
 					'tone'  => 'warn',
 					'label' => __( 'Media favourite', 'buddynext' ),
 				),
-				'bn.jetonomy_reply'         => array(
-					'icon'  => 'message-circle',
-					'tone'  => 'accent',
-					'label' => __( 'Discussion reply', 'buddynext' ),
-				),
 				'bn.test'                   => array(
 					'icon'  => 'bell',
 					'tone'  => 'info',
@@ -799,6 +823,15 @@ class NotificationMessageService {
 				// The rejected post is gone — send the author to their feed.
 				return PageRouter::activity_url();
 
+			case 'bn.comment_reacted':
+				// object_id is a bn_comments id, not a post id — deep-link to the
+				// parent post permalink carried in data.post_id (set by the
+				// listener), falling back to the feed when it is unavailable.
+				$comment_post_id = isset( $data['post_id'] ) ? (int) $data['post_id'] : 0;
+				return $comment_post_id > 0
+					? PageRouter::post_url( $comment_post_id )
+					: PageRouter::activity_url();
+
 			case 'bn.post_reacted':
 			case 'bn.post_commented':
 			case 'bn.comment_reply':
@@ -850,7 +883,6 @@ class NotificationMessageService {
 					: PageRouter::messages_url();
 
 			case 'bn.media_favorited':
-			case 'bn.jetonomy_reply':
 				return $object_id > 0
 					? add_query_arg( 'post_id', $object_id, PageRouter::activity_url() )
 					: PageRouter::activity_url();
@@ -936,6 +968,7 @@ class NotificationMessageService {
 			array(
 				'bn.new_follower',
 				'bn.post_reacted',
+				'bn.comment_reacted',
 				'bn.post_commented',
 				'bn.post_shared',
 				'bn.space_join',
