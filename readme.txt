@@ -4,7 +4,7 @@ Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.6
+Stable tag: 1.0.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -56,13 +56,14 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 == Changelog ==
 
-= 1.0.6 - July 2026 =
+= 1.0.5 - July 2026 =
 
 Stability and integration hardening pass across auth, spaces, messaging, moderation, notifications, and search.
 
 * New      - Media shared to the community links back to the activity it was posted in; a dedicated per-item media page is opt-in under Settings.
 * New      - Direct messages gain per-conversation mute, load-older history, and in-thread search.
 * New      - Scheduled posts get an hourly catch-up sweep so a missed cron never strands a post.
+* New      - The member profile API exposes the Profile Strength checklist, and developers can reshape the checklist for custom profile schemas via a filter.
 * Improve  - One navigation source powers both the web rail and the native app, so menus stay in sync.
 * Improve  - Visiting Notifications clears the unread badge, and search adds a debounced typeahead with viewer-scoped visibility so members find only spaces they can see.
 * Improve  - Onboarding can seed opt-in sample content from the setup wizard, and companion installs retry per row.
@@ -72,8 +73,10 @@ Stability and integration hardening pass across auth, spaces, messaging, moderat
 * Fix      - Auto-moderation matches on word boundaries (no false positives on substrings) and covers profiles and direct messages; bulk moderation runs asynchronously with progress.
 * Fix      - Required profile fields are enforced on the full write path, and member-directory visibility honors the configured tier.
 * Fix      - Search suggestions return grouped results and boost exact and prefix name matches.
-* Fix      - Toggle switches keep a visible off-state track on every settings surface; under some themes an off switch rendered invisible.
+* Fix      - Toggle switches keep a visible off-state track, the selected tab keeps its highlight, and modal close buttons keep their hover state under themed buttons.
 * Fix      - Profile completion rewards fire only when the completion percentage actually changes, closing a refresh-to-farm-points loophole and a repeating cooldown notice.
+* Fix      - Hashtag, mention, member, and space links resolve correctly on sites that renamed their community page slugs.
+* Fix      - The profile completion reward milestone now follows the Profile Strength checklist members actually see, so finishing the visible tasks triggers it reliably.
 * Security - Registration and auth stay self-contained (in-house spam protection and optional TOTP two-factor); no third-party captcha is reintroduced.
 * Dev      - Outbound webhooks cover membership events with a filterable catalogue, 30-day log retention, auto-disable on repeated failure, and PATCH updates.
 
