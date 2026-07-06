@@ -220,7 +220,7 @@ class OnboardingListener implements ListenerInterface {
 			'bn.onboarding_nudge',
 			array(
 				'recipient_name' => $user->display_name,
-				'onboarding_url' => home_url( '/?bn_hub=profile&bn_endpoint=onboarding' ),
+				'onboarding_url' => \BuddyNext\Core\PageRouter::onboarding_url(),
 			)
 		);
 	}

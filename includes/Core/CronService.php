@@ -438,12 +438,21 @@ class CronService {
 		// same first ~200 users every run and starved everyone past them; the caller
 		// chains the next chunk via Action Scheduler keyed on the last user_id here.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// The NOT EXISTS honours the digest email's own unsubscribe link, which
+		// writes a (user, 'digest', email_freq='off') row. Without it that row
+		// was written but never read — the member kept receiving digests after
+		// unsubscribing (customer report, 2026-07-06). Sargable via the same
+		// (user_id, type) key the pref reads use.
 		$raw = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT DISTINCT user_id
-				   FROM {$wpdb->prefix}bn_notification_prefs
-				  WHERE email_freq = %s AND user_id > %d
-				  ORDER BY user_id ASC
+				"SELECT DISTINCT p.user_id
+				   FROM {$wpdb->prefix}bn_notification_prefs p
+				  WHERE p.email_freq = %s AND p.user_id > %d
+				    AND NOT EXISTS (
+						SELECT 1 FROM {$wpdb->prefix}bn_notification_prefs px
+						 WHERE px.user_id = p.user_id AND px.type = 'digest' AND px.email_freq = 'off'
+					)
+				  ORDER BY p.user_id ASC
 				  LIMIT %d",
 				$freq,
 				$after_id,
@@ -648,6 +657,12 @@ class CronService {
 			'{{user_name}}'         => $user->display_name,
 			'{{notification_list}}' => $notif_list,
 			'{{unsubscribe_url}}'   => esc_url( $unsub_url ),
+			// The seeded digest templates link their heading through
+			// {{action_url}}; without this entry the literal token shipped as
+			// the href in customer inboxes (2026-07-06 token audit). A digest
+			// summarises notifications, so the action is the notifications hub.
+			'{{action_url}}'        => esc_url( \BuddyNext\Core\PageRouter::notifications_url() ),
+			'{{current_year}}'      => gmdate( 'Y' ),
 		);
 
 		$subject = str_replace( array_keys( $tokens ), array_values( $tokens ), (string) $template->subject );

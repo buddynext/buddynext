@@ -54,6 +54,7 @@ class EmailDispatchListener implements ListenerInterface {
 		add_action( 'buddynext_notification_created', array( $this, 'on_notification_created' ), 10, 3 );
 		add_action( 'buddynext_send_notification_email', array( $this, 'on_send_notification_email' ), 10, 3 );
 		add_action( 'init', array( $this, 'handle_unsubscribe_request' ) );
+		add_action( 'wp_footer', array( $this, 'render_unsubscribe_status_notice' ) );
 	}
 
 	/**
@@ -136,11 +137,15 @@ class EmailDispatchListener implements ListenerInterface {
 			exit;
 		}
 
+		// Only the email channel is being switched off — preserve the member's
+		// existing on-site preference instead of force-enabling it.
+		$current = $this->pref_service->get_pref( $uid, $type );
+
 		$this->pref_service->set_pref(
 			$uid,
 			$type,
 			array(
-				'on_site'    => true,
+				'on_site'    => ! isset( $current['on_site'] ) || ! empty( $current['on_site'] ),
 				'email_freq' => 'off',
 			)
 		);
@@ -149,5 +154,38 @@ class EmailDispatchListener implements ListenerInterface {
 			add_query_arg( 'bn_unsub_status', 'success', home_url( '/' ) )
 		);
 		exit;
+	}
+
+	/**
+	 * Render a visible confirmation after an unsubscribe redirect.
+	 *
+	 * The handler above redirects to the home page with ?bn_unsub_status=…;
+	 * without this banner the member landed on a plain page with no feedback
+	 * and reasonably concluded the link did nothing (customer report,
+	 * 2026-07-06). Works logged-in and logged-out; the manage link goes to the
+	 * notification preferences screen (which prompts login when needed).
+	 *
+	 * @return void
+	 */
+	public function render_unsubscribe_status_notice(): void {
+		$status = isset( $_GET['bn_unsub_status'] ) ? sanitize_key( wp_unslash( (string) $_GET['bn_unsub_status'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only display of a redirect flag.
+
+		if ( ! in_array( $status, array( 'success', 'invalid' ), true ) ) {
+			return;
+		}
+
+		$is_success = 'success' === $status;
+		$message    = $is_success
+			? __( "You're unsubscribed - we won't email you about this anymore.", 'buddynext' )
+			: __( 'This unsubscribe link is invalid or has expired.', 'buddynext' );
+		?>
+		<div class="bn-unsub-notice <?php echo esc_attr( $is_success ? 'bn-unsub-notice--success' : 'bn-unsub-notice--error' ); ?>" role="status">
+			<span class="bn-unsub-notice__message"><?php echo esc_html( $message ); ?></span>
+			<a class="bn-unsub-notice__manage" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::notification_prefs_url() ); ?>">
+				<?php esc_html_e( 'Manage email preferences', 'buddynext' ); ?>
+			</a>
+			<a class="bn-unsub-notice__dismiss" href="<?php echo esc_url( remove_query_arg( 'bn_unsub_status' ) ); ?>" aria-label="<?php esc_attr_e( 'Dismiss', 'buddynext' ); ?>">&times;</a>
+		</div>
+		<?php
 	}
 }
