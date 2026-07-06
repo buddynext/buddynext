@@ -1493,7 +1493,7 @@ class JetonomyBridge {
 				'bn_provision_forum' => absint( $space_id ),
 				'_bnpf'              => wp_create_nonce( 'bn_provision_forum_' . absint( $space_id ) ),
 			),
-			home_url( '/spaces/' )
+			\BuddyNext\Core\PageRouter::spaces_url()
 		);
 	}
 

@@ -319,7 +319,7 @@ add_action(
 									class="bn-btn bn-sh-side-mod__msg"
 									data-variant="ghost"
 									data-size="sm"
-									href="<?php echo esc_url( add_query_arg( 'recipient', $bn_mod_uid, home_url( '/messages/' ) ) ); ?>"
+									href="<?php echo esc_url( add_query_arg( 'recipient', $bn_mod_uid, \BuddyNext\Core\PageRouter::messages_url() ) ); ?>"
 									aria-label="
 									<?php
 									/* translators: %s: moderator display name */

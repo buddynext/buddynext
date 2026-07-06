@@ -145,7 +145,7 @@ wp_enqueue_style( 'bn-auth' );
 				</p>
 				<div class="bn-verify-actions">
 					<a class="bn-btn" data-variant="primary" data-size="lg"
-						href="<?php echo esc_url( home_url( '/members/' . wp_get_current_user()->user_login . '/edit/' ) ); ?>">
+						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>">
 						<?php esc_html_e( 'Open profile settings', 'buddynext' ); ?>
 					</a>
 				</div>

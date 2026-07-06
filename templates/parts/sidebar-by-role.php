@@ -75,7 +75,7 @@ $bn_rows   = array();
 $bn_rows[] = array(
 	'label' => __( 'Members', 'buddynext' ),
 	'count' => $bn_total,
-	'href'  => home_url( '/members/' ),
+	'href'  => \BuddyNext\Core\PageRouter::people_url(),
 );
 if ( $bn_moderator_count > 0 ) {
 	$bn_rows[] = array(
@@ -127,7 +127,7 @@ if ( function_exists( 'buddynext_service' ) ) {
 					(string) ( $bn_type['name'] ?? $bn_type['slug'] ?? '' )
 				),
 				'count' => $bn_type_count,
-				'href'  => add_query_arg( 'type', (string) ( $bn_type['slug'] ?? '' ), home_url( '/members/' ) ),
+				'href'  => add_query_arg( 'type', (string) ( $bn_type['slug'] ?? '' ), \BuddyNext\Core\PageRouter::people_url() ),
 			);
 			if ( count( $bn_type_rows ) >= (int) $args['max_member_types'] ) {
 				break;

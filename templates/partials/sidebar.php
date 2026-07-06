@@ -60,8 +60,8 @@ if ( null !== $bn_sidebar_widgets ) {
 	$sbar_spaces    = array();
 }
 
-$sbar_spaces_url  = home_url( '/spaces/' );
-$sbar_members_url = home_url( '/members/' );
+$sbar_spaces_url  = \BuddyNext\Core\PageRouter::spaces_url();
+$sbar_members_url = \BuddyNext\Core\PageRouter::people_url();
 ?>
 
 <?php
@@ -98,7 +98,7 @@ if ( $sidebar_user_id > 0 ) {
 		<?php if ( ! empty( $sbar_trending ) ) : ?>
 			<?php foreach ( $sbar_trending as $sbar_tag ) : ?>
 				<div class="bn-sbar-row">
-					<a href="<?php echo esc_url( home_url( '/activity/hashtag/' . rawurlencode( $sbar_tag->slug ) . '/' ) ); ?>"
+					<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::hashtag_feed_url( (string) $sbar_tag->slug ) ); ?>"
 						class="bn-sbar-row__name">
 						#<?php echo esc_html( $sbar_tag->slug ); ?>
 					</a>
@@ -132,7 +132,7 @@ if ( $sidebar_user_id > 0 ) {
 				<?php
 				$sbar_sug_id     = (int) ( $sbar_sug->ID ?? 0 );
 				$sbar_sug_avatar = get_avatar_url( $sbar_sug_id, array( 'size' => 40 ) );
-				$sbar_sug_url    = home_url( '/members/' . $sbar_sug->user_login . '/' );
+				$sbar_sug_url    = \BuddyNext\Core\PageRouter::profile_url( $sbar_sug_id );
 				$sbar_sug_status = (string) ( $sbar_sug->follow_status ?? 'unfollowed' );
 				?>
 				<div class="bn-sbar-row">
@@ -182,7 +182,7 @@ if ( $sidebar_user_id > 0 ) {
 		<?php if ( ! empty( $sbar_spaces ) ) : ?>
 			<?php foreach ( $sbar_spaces as $sbar_sp ) : ?>
 				<?php
-				$sbar_sp_url      = home_url( '/spaces/' . $sbar_sp->slug . '/' );
+				$sbar_sp_url      = \BuddyNext\Core\PageRouter::spaces_url() . rawurlencode( (string) $sbar_sp->slug ) . '/';
 				$sbar_sp_initials = strtoupper( mb_substr( (string) $sbar_sp->name, 0, 2 ) );
 				$sbar_sp_unread   = isset( $sbar_sp->unread_count ) ? (int) $sbar_sp->unread_count : 0;
 				?>
