@@ -91,12 +91,6 @@ parameters:
 			path: includes/Demo/DemoDataService.php
 
 		-
-			message: '#^Action callback returns int but should not return anything\.$#'
-			identifier: return.void
-			count: 1
-			path: includes/Feed/ScheduledPostsPublisher.php
-
-		-
 			message: '#^Expression on left side of \?\? is not nullable\.$#'
 			identifier: nullCoalesce.expr
 			count: 1
@@ -145,6 +139,12 @@ parameters:
 			path: includes/Profile/FieldType.php
 
 		-
+			message: '#^Call to static method get_all_badges_for_user\(\) on an unknown class WBGam\\Engine\\BadgeEngine\.$#'
+			identifier: class.notFound
+			count: 1
+			path: includes/Profile/GamificationAchievements.php
+
+		-
 			message: '#^Call to static method get_share_url\(\) on an unknown class WBGam\\Engine\\BadgeSharePage\.$#'
 			identifier: class.notFound
 			count: 2
@@ -157,16 +157,28 @@ parameters:
 			path: includes/Profile/GamificationAchievements.php
 
 		-
-			message: '#^Offset ''icon'' on array\{icon\: ''crown''\|''star''\|''trending''\|''zap'', label\: mixed, value\: mixed\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
+			message: '#^Call to static method get_received\(\) on an unknown class WBGam\\Engine\\KudosEngine\.$#'
+			identifier: class.notFound
 			count: 1
-			path: includes/Profile/GamificationAchievements.php
+			path: includes/Profile/GamificationKudos.php
 
 		-
-			message: '#^Strict comparison using \!\=\= between '''' and ''crown''\|''star''\|''trending''\|''zap'' will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
+			message: '#^Call to static method get_received_count\(\) on an unknown class WBGam\\Engine\\KudosEngine\.$#'
+			identifier: class.notFound
 			count: 1
-			path: includes/Profile/GamificationAchievements.php
+			path: includes/Profile/GamificationKudos.php
+
+		-
+			message: '#^Call to static method send\(\) on an unknown class WBGam\\Engine\\KudosEngine\.$#'
+			identifier: class.notFound
+			count: 1
+			path: includes/Profile/GamificationKudos.php
+
+		-
+			message: '#^Call to static method get_history\(\) on an unknown class WBGam\\Engine\\PointsEngine\.$#'
+			identifier: class.notFound
+			count: 1
+			path: includes/Profile/GamificationPoints.php
 
 		-
 			message: '#^Parameter \#2 \$callback of function array_filter expects \(callable\(string\)\: bool\)\|null, ''strlen'' given\.$#'

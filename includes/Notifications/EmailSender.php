@@ -178,7 +178,7 @@ class EmailSender {
 	 * @param int    $user_id           Recipient user ID.
 	 * @param string $notification_type Notification type key.
 	 * @param array  $data              Notification data payload.
-	 * @return void
+	 * @return bool True when the email was handed off to wp_mail(), false otherwise.
 	 */
 	public function send_now( int $user_id, string $notification_type, array $data ): bool {
 		// Composed-email path: campaign and drip-step senders author the subject

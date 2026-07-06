@@ -4,7 +4,7 @@ Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.4
+Stable tag: 1.0.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,6 +55,25 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.0.5 - July 2026 =
+
+Stability and integration hardening pass across auth, spaces, messaging, moderation, notifications, and search.
+
+* New      - Media shared to the community links back to the activity it was posted in; a dedicated per-item media page is opt-in under Settings.
+* New      - Direct messages gain per-conversation mute, load-older history, and in-thread search.
+* New      - Scheduled posts get an hourly catch-up sweep so a missed cron never strands a post.
+* Improve  - One navigation source powers both the web rail and the native app, so menus stay in sync.
+* Improve  - Visiting Notifications clears the unread badge, and search adds a debounced typeahead with viewer-scoped visibility so members find only spaces they can see.
+* Improve  - Onboarding can seed opt-in sample content from the setup wizard, and companion installs retry per row.
+* Fix      - Authentication hardening: login rate-limiting, an email-verification gate before first sign-in, and an application-password token flow for the native app.
+* Fix      - Spaces: a deleted space returns a proper 404 instead of a fatal, decline notifications send, and member avatars resolve in the API.
+* Fix      - Followers and following lists respect connection visibility.
+* Fix      - Auto-moderation matches on word boundaries (no false positives on substrings) and covers profiles and direct messages; bulk moderation runs asynchronously with progress.
+* Fix      - Required profile fields are enforced on the full write path, and member-directory visibility honors the configured tier.
+* Fix      - Search suggestions return grouped results and boost exact and prefix name matches.
+* Security - Registration and auth stay self-contained (in-house spam protection and optional TOTP two-factor); no third-party captcha is reintroduced.
+* Dev      - Outbound webhooks cover membership events with a filterable catalogue, 30-day log retention, auto-disable on repeated failure, and PATCH updates.
 
 = 1.0.4 - June 2026 =
 

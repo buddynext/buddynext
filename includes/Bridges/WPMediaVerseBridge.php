@@ -75,7 +75,7 @@ class WPMediaVerseBridge {
 		// Run DM text through auto-moderation (banned words + Pro rules) so a member
 		// can't plant blocked content in a direct message — posts/comments/profile
 		// are guarded; DMs were not.
-		add_filter( 'mvs_message_content_check', array( $this, 'moderate_dm_content' ), 10, 4 );
+		add_filter( 'mvs_message_content_check', array( $this, 'moderate_dm_content' ), 10, 3 );
 
 		// When that gate denies, report WHY (block vs privacy preference) so the
 		// sender sees an accurate notice instead of a generic "blocked".
