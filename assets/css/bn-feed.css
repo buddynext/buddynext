@@ -1918,6 +1918,11 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	overflow: hidden;
 	background: var(--bn-surface-2, var(--bn-elev-1));
 	aspect-ratio: 16 / 9;
+	/* Same height cap the direct oembed and single-image media use: 32rem tall
+		at 16/9 => this max width. Without it, a reshare card on a wide content
+		column (full-width single-post layouts) rendered its image/video preview
+		taller than the viewport. */
+	max-width: calc( 32rem * 16 / 9 );
 }
 .bn-post-card__shared-thumb img {
 	display: block;
