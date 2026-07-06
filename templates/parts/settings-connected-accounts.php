@@ -59,7 +59,7 @@ if ( class_exists( '\BuddyNext\Auth\SocialLogin' ) ) {
 			if ( $bn_linked ) {
 				$bn_sc_html .= '<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-user-id="' . esc_attr( (string) $user_id ) . '" data-provider="' . esc_attr( $bn_sp_id ) . '" data-wp-on--click="actions.unlinkSocial">' . esc_html__( 'Unlink', 'buddynext' ) . '</button>';
 			} else {
-				$bn_sc_html .= '<a class="bn-btn" data-variant="ghost" data-size="sm" href="' . esc_url( home_url( '/oauth/' . $bn_sp_id . '/' ) ) . '">' . esc_html__( 'Connect', 'buddynext' ) . '</a>';
+				$bn_sc_html .= '<a class="bn-btn" data-variant="ghost" data-size="sm" href="' . esc_url( home_url( '/oauth/' . $bn_sp_id . '/' ) ) . '">' . esc_html__( 'Connect', 'buddynext' ) . '</a>'; // bn-route-ok: plugin-registered fixed /oauth/ rewrite.
 			}
 			$bn_sc_html .= '</div>';
 		}

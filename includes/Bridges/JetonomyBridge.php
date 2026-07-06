@@ -389,7 +389,7 @@ class JetonomyBridge {
 		} else {
 			$settings  = get_option( 'jetonomy_settings', array() );
 			$base_slug = isset( $settings['base_slug'] ) && '' !== (string) $settings['base_slug'] ? (string) $settings['base_slug'] : 'community';
-			$base      = home_url( '/' . ltrim( $base_slug, '/' ) );
+			$base      = home_url( '/' . ltrim( $base_slug, '/' ) ); // bn-route-ok: built from Jetonomy's configured base slug.
 		}
 
 		return rtrim( $base, '/' ) . '/s/' . rawurlencode( $space_slug ) . '/t/' . rawurlencode( $post_slug ) . '/';
@@ -467,7 +467,7 @@ class JetonomyBridge {
 		$settings  = get_option( 'jetonomy_settings', array() );
 		$base_slug = isset( $settings['base_slug'] ) ? (string) $settings['base_slug'] : 'community';
 
-		return home_url( '/' . $base_slug . '/s/' . rawurlencode( $jt_slug ) . '/' );
+		return home_url( '/' . $base_slug . '/s/' . rawurlencode( $jt_slug ) . '/' ); // bn-route-ok: built from Jetonomy's configured base slug.
 	}
 
 	/**
@@ -1528,7 +1528,7 @@ class JetonomyBridge {
 			return $items;
 		}
 
-		$base        = function_exists( 'Jetonomy\base_url' ) ? \Jetonomy\base_url() : home_url( '/community' );
+		$base        = function_exists( 'Jetonomy\base_url' ) ? \Jetonomy\base_url() : home_url( '/community' ); // bn-route-ok: canonical Jetonomy API first, literal only as absent-plugin fallback.
 		$current_url = home_url( add_query_arg( array() ) );
 
 		$items[] = array(
@@ -1581,7 +1581,7 @@ class JetonomyBridge {
 				'title'       => $jt_post->title,
 				'slug'        => $jt_post->post_slug,
 				'space_id'    => (int) $jt_post->space_id,
-				'url'         => '' !== $jt_url ? $jt_url : home_url( '/community/' ),
+				'url'         => '' !== $jt_url ? $jt_url : home_url( '/community/' ), // bn-route-ok: bridge-supplied URL first, literal only as fallback.
 				'author_id'   => (int) $jt_post->author_id,
 				'author_name' => $jt_post->author_name,
 				'reply_count' => (int) $jt_post->reply_count,

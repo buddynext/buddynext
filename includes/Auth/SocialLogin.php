@@ -298,7 +298,7 @@ class SocialLogin {
 	 * @return string
 	 */
 	public static function callback_url( string $id ): string {
-		return home_url( '/oauth/' . rawurlencode( $id ) . '/callback/' );
+		return home_url( '/oauth/' . rawurlencode( $id ) . '/callback/' ); // bn-route-ok: plugin-registered fixed /oauth/ rewrite.
 	}
 
 	/**
@@ -317,7 +317,7 @@ class SocialLogin {
 				'id'    => $id,
 				'label' => (string) $def['label'],
 				'icon'  => (string) apply_filters( 'buddynext_social_icon', (string) $def['icon'], $id ),
-				'url'   => home_url( '/oauth/' . rawurlencode( $id ) . '/' ),
+				'url'   => home_url( '/oauth/' . rawurlencode( $id ) . '/' ), // bn-route-ok: plugin-registered fixed /oauth/ rewrite.
 			);
 		}
 		return $providers;
@@ -754,8 +754,10 @@ class SocialLogin {
 	 * @return void
 	 */
 	private function bail( string $message ): void {
-		$login = home_url( '/' . (string) get_option( 'buddynext_slug_login', 'login' ) . '/' );
-		wp_safe_redirect( add_query_arg( 'bn_social_error', rawurlencode( $message ), $login ) );
+		// PageRouter::auth_url() reads the canonical buddynext_slug_auth option;
+		// this previously read a never-written buddynext_slug_login key, so the
+		// error redirect broke the moment the auth slug was renamed.
+		wp_safe_redirect( add_query_arg( 'bn_social_error', rawurlencode( $message ), \BuddyNext\Core\PageRouter::auth_url() ) );
 		exit;
 	}
 

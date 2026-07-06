@@ -106,6 +106,18 @@ else
 	note "bin/check-rest-boundary.sh missing"
 fi
 
+# 3b. Route URLs — no hand-rolled home_url() paths outside PageRouter
+section "Route URLs (PageRouter only)"
+if [ -x bin/check-route-urls.sh ]; then
+	if bin/check-route-urls.sh; then
+		:
+	else
+		fail "hand-rolled route URL — use a PageRouter builder or annotate bn-route-ok"
+	fi
+else
+	note "bin/check-route-urls.sh missing"
+fi
+
 # 4. PHPStan
 section "PHPStan (level 5)"
 if [ -x vendor/bin/phpstan ]; then
