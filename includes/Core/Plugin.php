@@ -640,12 +640,18 @@ class Plugin {
 			);
 		}
 
-		// Add WPMediaVerse pages if active.
+		// Add WPMediaVerse pages if active — resolved from MediaVerse's own
+		// configured Explore page (never a hardcoded /media/, which 404s the
+		// moment the site renames or relocates that page).
 		if ( class_exists( 'WPMediaVerse\Core\Plugin' ) ) {
-			$pages[] = array(
-				'title' => __( 'Media', 'buddynext' ),
-				'url'   => home_url( '/media/' ),
-			);
+			$mvs_explore_id = (int) get_option( 'mvs_page_explore', 0 );
+			$mvs_url        = $mvs_explore_id > 0 ? (string) get_permalink( $mvs_explore_id ) : '';
+			if ( '' !== $mvs_url ) {
+				$pages[] = array(
+					'title' => __( 'Media', 'buddynext' ),
+					'url'   => $mvs_url,
+				);
+			}
 		}
 
 		// Build fake post objects for Walker_Nav_Menu_Checklist.

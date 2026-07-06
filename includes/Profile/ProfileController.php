@@ -656,6 +656,13 @@ class ProfileController extends BaseRestController {
 
 		$profile['completion'] = $service->get_completion_score( $profile_user_id );
 
+		// Member-facing strength checklist (the Profile Strength ring) — own
+		// profile only: it is an owner surface, and the tasks derive from
+		// owner-scoped field data, not this viewer-scoped payload.
+		if ( $viewer_id === $profile_user_id ) {
+			$profile['strength'] = $service->get_strength( $profile_user_id, $profile );
+		}
+
 		// Social-graph + post counts and bio — consumed by the member hover card,
 		// member directory, and native app profile header. Computed at the REST
 		// layer (not the cached profile payload) so follow/post changes are
@@ -720,6 +727,7 @@ class ProfileController extends BaseRestController {
 		}
 
 		$profile['completion'] = $service->get_completion_score( $user_id );
+		$profile['strength']   = $service->get_strength( $user_id, is_array( $profile ) && ! empty( $profile['groups'] ) ? $profile : null );
 
 		return new WP_REST_Response( $profile, 200 );
 	}

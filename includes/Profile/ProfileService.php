@@ -1495,6 +1495,176 @@ class ProfileService {
 	}
 
 	/**
+	 * Return the member-facing profile-strength checklist and percentage.
+	 *
+	 * This is the CURATED metric behind the Profile Strength ring, the mobile
+	 * hero chip, and member-facing rewards: a short list of high-value, always
+	 * actionable tasks, so finishing every visible task always lands on 100%.
+	 * It is intentionally different from get_completion_score(), which scores
+	 * every flat schema field and feeds REST/analytics — driving member-visible
+	 * surfaces off that metric left the ring stuck below 100% with every
+	 * visible task done, and (worse) let reward systems promise a "profile
+	 * completed" award the member could never trigger.
+	 *
+	 * Tasks are EXISTENCE-FILTERED: a task whose backing field or group the
+	 * owner removed from the profile schema drops out of the list entirely,
+	 * instead of prompting members forever for a field that no longer exists.
+	 *
+	 * @param int        $user_id Profile owner.
+	 * @param array|null $profile Optional preloaded get_profile( $user_id, $user_id )
+	 *                            output — callers that already hold it (the profile
+	 *                            template) pass it to avoid a second load.
+	 * @return array{tasks: array<int, array{label: string, done: bool}>, done: int, total: int, percent: int}
+	 */
+	public function get_strength( int $user_id, ?array $profile = null ): array {
+		if ( null === $profile ) {
+			$profile = $this->get_profile( $user_id, $user_id );
+		}
+
+		$groups = array();
+		if ( is_array( $profile ) ) {
+			foreach ( (array) ( $profile['groups'] ?? array() ) as $group ) {
+				if ( isset( $group['group_key'] ) ) {
+					$groups[ (string) $group['group_key'] ] = $group;
+				}
+			}
+		}
+
+		$field = static function ( string $group_key, string $field_key ) use ( $groups ): ?array {
+			foreach ( (array) ( $groups[ $group_key ]['fields'] ?? array() ) as $f ) {
+				if ( is_array( $f ) && ( $f['field_key'] ?? '' ) === $field_key ) {
+					return $f;
+				}
+			}
+			return null;
+		};
+
+		$tasks = array();
+
+		foreach ( array(
+			array( 'basic_info', 'bio', __( 'Add a bio', 'buddynext' ) ),
+			array( 'basic_info', 'headline', __( 'Add a tagline', 'buddynext' ) ),
+			array( 'basic_info', 'location', __( 'Set your location', 'buddynext' ) ),
+		) as $simple ) {
+			$f = $field( $simple[0], $simple[1] );
+			if ( null !== $f ) {
+				$tasks[] = array(
+					'label' => $simple[2],
+					'done'  => '' !== (string) ( $f['value'] ?? '' ),
+				);
+			}
+		}
+
+		$skills_field = $field( 'skills', 'skills' );
+		if ( null !== $skills_field ) {
+			$tasks[] = array(
+				'label' => __( 'Add your skills', 'buddynext' ),
+				'done'  => array() !== array_filter( array_map( 'trim', explode( ',', (string) ( $skills_field['value'] ?? '' ) ) ) ),
+			);
+		}
+
+		if ( isset( $groups['work_experience'] ) ) {
+			$has_work = false;
+			foreach ( (array) ( $groups['work_experience']['entries'] ?? array() ) as $entry ) {
+				foreach ( (array) $entry as $f ) {
+					if ( is_array( $f ) && in_array( $f['field_key'] ?? '', array( 'work_company', 'work_title' ), true )
+						&& '' !== (string) ( $f['value'] ?? '' ) ) {
+						$has_work = true;
+						break 2;
+					}
+				}
+			}
+			$tasks[] = array(
+				'label' => __( 'Add work experience', 'buddynext' ),
+				'done'  => $has_work,
+			);
+		}
+
+		if ( ! empty( $groups['social_links']['fields'] ) ) {
+			$has_social = false;
+			foreach ( (array) $groups['social_links']['fields'] as $f ) {
+				if ( is_array( $f ) && '' !== (string) ( $f['value'] ?? '' ) ) {
+					$has_social = true;
+					break;
+				}
+			}
+			$tasks[] = array(
+				'label' => __( 'Link an account', 'buddynext' ),
+				'done'  => $has_social,
+			);
+		}
+
+		/**
+		 * Filter the profile-strength checklist for a member.
+		 *
+		 * The defaults above cover BuddyNext's installer-created system schema
+		 * (bio / headline / location are the deletion-protected core fields) and
+		 * are existence-filtered, but a site running a custom profile schema can
+		 * replace or extend the checklist here — each task is
+		 * array{label: string, done: bool}. The percentage, the Profile Strength
+		 * ring, and the buddynext_profile_strength_changed hook all follow
+		 * whatever this filter returns.
+		 *
+		 * @param array      $tasks   Task list: array{label: string, done: bool}[].
+		 * @param int        $user_id Profile owner.
+		 * @param array|null $profile get_profile() output the tasks were derived from.
+		 */
+		$tasks = (array) apply_filters( 'buddynext_profile_strength_tasks', $tasks, $user_id, $profile );
+
+		$total   = count( $tasks );
+		$done    = count( array_filter( array_column( $tasks, 'done' ) ) );
+		$percent = $total > 0 ? (int) round( ( $done / $total ) * 100 ) : 0;
+
+		$this->maybe_fire_strength_changed( $user_id, $percent );
+
+		return array(
+			'tasks'   => $tasks,
+			'done'    => $done,
+			'total'   => $total,
+			'percent' => $percent,
+		);
+	}
+
+	/**
+	 * Fire 'buddynext_profile_strength_changed' only on a real change.
+	 *
+	 * Same change-gate pattern as maybe_fire_completion_changed(): compared
+	 * against the last persisted percentage in user meta, first calculation
+	 * records the baseline silently.
+	 *
+	 * @param int $user_id Profile owner.
+	 * @param int $percent Freshly calculated strength percentage.
+	 */
+	private function maybe_fire_strength_changed( int $user_id, int $percent ): void {
+		$stored = get_user_meta( $user_id, 'bn_profile_strength_pct', true );
+
+		if ( '' !== $stored && (int) $stored === $percent ) {
+			return;
+		}
+
+		update_user_meta( $user_id, 'bn_profile_strength_pct', $percent );
+
+		if ( '' === $stored ) {
+			return;
+		}
+
+		/**
+		 * Fires when a member's profile-strength percentage changes.
+		 *
+		 * Strength is the curated member-facing checklist (the Profile Strength
+		 * ring) — the metric the member actually sees. Reward systems keying a
+		 * "profile completed" promise should listen HERE (percent === 100), not
+		 * to buddynext_profile_completion_changed, whose all-fields score can
+		 * stay below 100 forever while the member's widget says "All set".
+		 * Guaranteed to fire only on an actual value change.
+		 *
+		 * @param int $user_id Member whose profile strength changed.
+		 * @param int $percent New strength percentage (0-100).
+		 */
+		do_action( 'buddynext_profile_strength_changed', $user_id, $percent );
+	}
+
+	/**
 	 * Write or refresh this user's entry in bn_search_index.
 	 *
 	 * Called after profile saves so the search index stays current. The `content`
