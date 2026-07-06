@@ -1086,18 +1086,21 @@ function buddynext_format_content( string $content ): string {
 				if ( '' === $slug ) {
 					return $m[0];
 				}
-				$url = home_url( '/activity/hashtag/' . rawurlencode( $slug ) . '/' );
+				$url = \BuddyNext\Core\PageRouter::hashtag_feed_url( $slug );
 				return '<a href="' . esc_url( $url ) . '" class="bn-hashtag">#' . esc_html( $m[1] ) . '</a>';
 			},
 			$escaped
 		);
 	}
 
-	// Replace @username with a link to the member profile.
-	$escaped = preg_replace_callback(
+	// Replace @username with a link to the member profile. Built from the
+	// configurable People hub base (never a hardcoded /members/) so mention
+	// links survive renamed hub slugs.
+	$bn_people_base = \BuddyNext\Core\PageRouter::people_url();
+	$escaped        = preg_replace_callback(
 		'/@([a-zA-Z0-9_-]+)/u',
-		static function ( array $m ): string {
-			$url = home_url( '/members/' . rawurlencode( $m[1] ) . '/' );
+		static function ( array $m ) use ( $bn_people_base ): string {
+			$url = $bn_people_base . rawurlencode( $m[1] ) . '/';
 			return '<a href="' . esc_url( $url ) . '" class="bn-mention">@' . esc_html( $m[1] ) . '</a>';
 		},
 		$escaped

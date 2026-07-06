@@ -2348,6 +2348,32 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
  * sweep doesn't invent ad-hoc patterns.
  * ════════════════════════════════════════════════════════════════════════ */
 
+/* Background-bleed defense. Host themes (BuddyX's `.bx-tokens-applied button`,
+	0,1,1; similar broad bare-`button` rules in others) paint an accent fill onto
+	BuddyNext's ghost/icon controls, which set no background of their own. Pin
+	their DEFAULT background transparent under .bn-app (0,2,0 — out-specifies the
+	theme's selector) so the controls stay flat.
+
+	ORDER MATTERS: this block must sit BEFORE every component's stateful rules in
+	this file. Several stateful fills are also 0,2,0 (.bn-tab[aria-selected],
+	.bn-tab.is-active, .bn-modal__close:hover is 0,2,1 but the principle holds),
+	and a later same-specificity transparent pin silently cancels them — that
+	exact ordering mistake made the active-tab tint and modal-close hover vanish
+	when this block lived at the end of the file. Keep it here, above the
+	component sections, so stateful rules win the cascade tie.
+
+	The toggle is NOT in this list — its unchecked track is a filled control, so
+	it gets the same defense pinned to var(--bn-line-strong) next to its base
+	rule below. Button-scoped for the lightbox wildcard so the backdrop div keeps
+	its overlay. Visually a no-op under themes that don't bleed. */
+.bn-app .bn-tab,
+.bn-app .bn-composer__tool,
+.bn-app .bn-more-menu-item,
+.bn-app .bn-modal__close,
+.bn-app button[class*="bn-lightbox__"] {
+	background-color: transparent;
+}
+
 /* ── Toggle switch ──────────────────────────────────────────────────── */
 .bn-toggle {
 	position: relative;
@@ -2985,26 +3011,6 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 		border-bottom-color) so a themed border can't reflow the tab row. */
 	border-bottom-width: 2px;
 	border-bottom-style: solid;
-}
-
-/* Background-bleed defense. Host themes (BuddyX's `.bx-tokens-applied button`,
-	0,1,1; similar broad bare-`button` rules in others) paint an accent fill onto
-	BuddyNext's ghost/icon controls, which set no background of their own. Pin
-	their DEFAULT background transparent under .bn-app (0,2,0 — out-specifies the
-	theme's selector) so the controls stay flat. Stateful fills still win at higher
-	specificity and are untouched (e.g. the lightbox :hover rules in the feature
-	stylesheets, loaded after bn-base). The toggle is NOT in this list — its
-	unchecked track is a filled control, so it gets the same defense pinned to
-	var(--bn-line-strong) next to its base rule instead. Button-scoped for the
-	lightbox wildcard so the backdrop div keeps its overlay. Visually a no-op
-	under themes that don't bleed (these are already transparent). */
-.bn-app .bn-pf-pill,
-.bn-app .bn-tab,
-.bn-app .bn-composer__tool,
-.bn-app .bn-more-menu-item,
-.bn-app .bn-modal__close,
-.bn-app button[class*="bn-lightbox__"] {
-	background-color: transparent;
 }
 
 /* ── Tooltip ────────────────────────────────────────────────────────── */

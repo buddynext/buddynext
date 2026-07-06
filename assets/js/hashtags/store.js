@@ -129,7 +129,12 @@ const hashtagsStore = store( 'buddynext/feed', {
 					if ( ++tick > 20 ) { clearInterval( poll ); }
 				}, 50 );
 			} else {
-				window.location.href = '/activity/?compose=' + encodeURIComponent( '#' + tag + ' ' );
+				// Canonical activity URL from the server-injected state
+				// (AssetService::i18n_hashtags) so renamed hub slugs are honoured.
+				const hashtagsState = store( 'buddynext/hashtags' ).state;
+				const activityUrl   = ( hashtagsState && hashtagsState.urls && hashtagsState.urls.activity )
+					|| window.location.origin + '/activity/';
+				window.location.href = activityUrl + '?compose=' + encodeURIComponent( '#' + tag + ' ' );
 			}
 		},
 

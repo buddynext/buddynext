@@ -686,6 +686,15 @@ class AssetService {
 		wp_interactivity_state(
 			'buddynext/feed',
 			array(
+				// Canonical hub URLs for client-side navigation. Resolved through
+				// PageRouter so renamed hub slugs (buddynext_slug_*) are honoured —
+				// the store must never hand-roll '/activity/...' paths.
+				'urls' => array(
+					'search'      => \BuddyNext\Core\PageRouter::search_url(),
+					'hashtagBase' => \BuddyNext\Core\PageRouter::activity_url() . 'hashtag/',
+					'people'      => \BuddyNext\Core\PageRouter::people_url(),
+					'spaces'      => \BuddyNext\Core\PageRouter::spaces_url(),
+				),
 				'i18n' => array(
 					'timeJustNow'             => __( 'just now', 'buddynext' ),
 					/* translators: %d: number of minutes */
@@ -1381,6 +1390,10 @@ class AssetService {
 		wp_interactivity_state(
 			'buddynext/hashtags',
 			array(
+				// Canonical compose target (see the feed store's `urls` note).
+				'urls' => array(
+					'activity' => \BuddyNext\Core\PageRouter::activity_url(),
+				),
 				'i18n' => array(
 					'followUpdateFailed' => __( 'Could not update follow state. Try again.', 'buddynext' ),
 					/* translators: %s: hashtag slug (without the leading #) */

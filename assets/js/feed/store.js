@@ -3256,9 +3256,16 @@ store( 'buddynext/feed-tabs', {
  * The explore template binds chips to actions.setFilter and the search input
  * to actions.onSearch under the buddynext/feed namespace. These wire facet
  * clicks to the search results page so chips actually filter, and the search
- * input routes to /activity/search/?q=… on submit.
+ * input routes to the search results page on submit.
+ *
+ * URLs come from the server-injected state (AssetService::i18n_feed) so
+ * renamed hub slugs are honoured; the default-slug literal is only the
+ * fallback for a stale cached state.
  */
-const BN_SEARCH_PATH = '/activity/search/';
+const bnFeedUrl = ( key, fallbackPath ) => {
+	const urls = feedStore.state && feedStore.state.urls;
+	return ( urls && urls[ key ] ) || window.location.origin + fallbackPath;
+};
 
 const feedStore = store( 'buddynext/feed', {
 	state: {
@@ -3278,7 +3285,7 @@ const feedStore = store( 'buddynext/feed', {
 			if ( filter.indexOf( 'tag:' ) === 0 ) {
 				const slug = filter.slice( 4 );
 				if ( ! slug ) { return; }
-				window.location.href = '/activity/hashtag/' + encodeURIComponent( slug ) + '/';
+				window.location.href = bnFeedUrl( 'hashtagBase', '/activity/hashtag/' ) + encodeURIComponent( slug ) + '/';
 				return;
 			}
 
@@ -3333,7 +3340,7 @@ const feedStore = store( 'buddynext/feed', {
 			const q = ( ev.target.value || '' ).trim();
 			if ( '' === q ) { return; }
 
-			const target_url = new URL( window.location.origin + BN_SEARCH_PATH );
+			const target_url = new URL( bnFeedUrl( 'search', '/activity/search/' ) );
 			target_url.searchParams.set( 'q', q );
 			window.location.href = target_url.toString();
 		},
@@ -3383,7 +3390,7 @@ function initExploreSearch() {
 		e.preventDefault();
 		const q = ( input.value || '' ).trim();
 		if ( '' === q ) { return; }
-		const target_url = new URL( window.location.origin + BN_SEARCH_PATH );
+		const target_url = new URL( bnFeedUrl( 'search', '/activity/search/' ) );
 		target_url.searchParams.set( 'q', q );
 		window.location.href = target_url.toString();
 	} );

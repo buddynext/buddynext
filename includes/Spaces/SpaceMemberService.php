@@ -977,6 +977,13 @@ class SpaceMemberService {
 			return new WP_Error( 'forbidden', __( 'Only the space owner can change member roles.', 'buddynext' ) );
 		}
 
+		// Re-assigning the current role is a no-op — skip the write and the
+		// buddynext_space_role_changed hook (it promises an actual change, so
+		// consumers may notify or award on it).
+		if ( $this->get_role( $space_id, $target_id ) === $new_role ) {
+			return true;
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

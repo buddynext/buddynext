@@ -104,10 +104,16 @@ class PrivacyService {
 	 * @param string $value   Preference value.
 	 */
 	public function set_preference( int $user_id, string $key, string $value ): void {
+		// Re-saving the same value (settings form resubmit) is not a change —
+		// the hook promises one, so consumers may treat it as a member action.
+		if ( $this->get_preference( $user_id, $key ) === $value ) {
+			return;
+		}
+
 		update_user_meta( $user_id, self::META_PREFIX . $key, $value );
 
 		/**
-		 * Fires after a user's privacy preference is changed.
+		 * Fires after a user's privacy preference actually changes value.
 		 *
 		 * @param int    $user_id User whose preference changed.
 		 * @param string $key     Preference key (e.g. 'who_can_follow', 'who_can_connect', 'profile_visibility').

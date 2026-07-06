@@ -57,7 +57,7 @@ class TrendingHashtagsWidget extends \WP_Widget {
 			foreach ( (array) $rows as $row ) {
 				printf(
 					'<a class="buddynext-hashtag" href="%s">#%s <span>(%d)</span></a> ',
-					esc_url( home_url( '/hashtag/' . rawurlencode( (string) $row['name'] ) ) ),
+					esc_url( \BuddyNext\Core\PageRouter::hashtag_feed_url( (string) $row['name'] ) ),
 					esc_html( (string) $row['name'] ),
 					(int) $row['post_count']
 				);
