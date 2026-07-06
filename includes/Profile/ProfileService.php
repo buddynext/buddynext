@@ -1343,8 +1343,13 @@ class ProfileService {
 	 * are excluded from the score because their count is unbounded and not
 	 * meaningful as a completion signal.
 	 *
-	 * Fires 'buddynext_profile_completion_changed' with the new percentage
-	 * every time the score is freshly calculated (cache miss).
+	 * Fires 'buddynext_profile_completion_changed' only when the percentage
+	 * actually differs from the last persisted value (bn_profile_completion_pct
+	 * user meta) — never on a mere recalculation. Consumers treat the hook as a
+	 * member action (wb-gamification awards points on it), so firing it per
+	 * cache miss meant every profile pageview on a non-persistent-object-cache
+	 * site re-attempted an award: a cooldown toast on every page and a
+	 * refresh-to-farm-points exploit.
 	 *
 	 * @param int $user_id User to score.
 	 * @return array {
@@ -1390,7 +1395,7 @@ class ProfileService {
 			);
 
 			wp_cache_set( $cache_key, $score, self::CACHE_GROUP, self::COMPLETION_CACHE_TTL );
-			do_action( 'buddynext_profile_completion_changed', $user_id, 0 );
+			$this->maybe_fire_completion_changed( $user_id, 0 );
 
 			return $score;
 		}
@@ -1447,9 +1452,46 @@ class ProfileService {
 		);
 
 		wp_cache_set( $cache_key, $score, self::CACHE_GROUP, self::COMPLETION_CACHE_TTL );
-		do_action( 'buddynext_profile_completion_changed', $user_id, $percent );
+		$this->maybe_fire_completion_changed( $user_id, $percent );
 
 		return $score;
+	}
+
+	/**
+	 * Fire 'buddynext_profile_completion_changed' only on a real change.
+	 *
+	 * Compares against the last persisted percentage in user meta so the hook
+	 * keeps its contract (a change happened) on sites without a persistent
+	 * object cache, where get_completion_score() recalculates on every request.
+	 * The first-ever calculation records the baseline silently — viewing a
+	 * profile is not a completion change.
+	 *
+	 * @param int $user_id User whose completion was calculated.
+	 * @param int $percent Freshly calculated completion percentage.
+	 */
+	private function maybe_fire_completion_changed( int $user_id, int $percent ): void {
+		$stored = get_user_meta( $user_id, 'bn_profile_completion_pct', true );
+
+		if ( '' !== $stored && (int) $stored === $percent ) {
+			return;
+		}
+
+		update_user_meta( $user_id, 'bn_profile_completion_pct', $percent );
+
+		if ( '' === $stored ) {
+			return;
+		}
+
+		/**
+		 * Fires when a user's profile completion percentage changes.
+		 *
+		 * Guaranteed to fire only on an actual value change (never on a mere
+		 * recalculation), so consumers may treat it as a member action.
+		 *
+		 * @param int $user_id User whose completion changed.
+		 * @param int $percent New completion percentage (0-100).
+		 */
+		do_action( 'buddynext_profile_completion_changed', $user_id, $percent );
 	}
 
 	/**

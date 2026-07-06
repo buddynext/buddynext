@@ -2363,6 +2363,17 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	border: none;
 	padding: 0;
 }
+
+/* Background-bleed defense for the toggle: pinned to its TRACK fill, not
+	transparent like the ghost controls further down — the unchecked track is a
+	filled control (pinning it transparent made every OFF switch invisible,
+	spaces settings → Integrations was where QA caught it). 0,2,0 out-specifies
+	themed bare-button fills (BuddyX `.bx-tokens-applied button`, 0,1,1).
+	Checked fills still win: [aria-checked="true"] (0,2,0, later in this
+	sheet), :has(:checked) (0,2,1), and `:checked + .bn-toggle` (later sheet). */
+.bn-app .bn-toggle {
+	background-color: var(--bn-line-strong);
+}
 .bn-toggle::before {
 	content: '';
 	position: absolute;
@@ -2981,15 +2992,15 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	BuddyNext's ghost/icon controls, which set no background of their own. Pin
 	their DEFAULT background transparent under .bn-app (0,2,0 — out-specifies the
 	theme's selector) so the controls stay flat. Stateful fills still win at higher
-	specificity and are untouched: the checked toggle (.bn-toggle:has(:checked),
-	0,3,1) and the lightbox :hover rules in the feature stylesheets (loaded after
-	bn-base). Button-scoped for the lightbox wildcard so the backdrop div keeps its
-	overlay. Visually a no-op under themes that don't bleed (these are already
-	transparent). */
+	specificity and are untouched (e.g. the lightbox :hover rules in the feature
+	stylesheets, loaded after bn-base). The toggle is NOT in this list — its
+	unchecked track is a filled control, so it gets the same defense pinned to
+	var(--bn-line-strong) next to its base rule instead. Button-scoped for the
+	lightbox wildcard so the backdrop div keeps its overlay. Visually a no-op
+	under themes that don't bleed (these are already transparent). */
 .bn-app .bn-pf-pill,
 .bn-app .bn-tab,
 .bn-app .bn-composer__tool,
-.bn-app .bn-toggle,
 .bn-app .bn-more-menu-item,
 .bn-app .bn-modal__close,
 .bn-app button[class*="bn-lightbox__"] {
