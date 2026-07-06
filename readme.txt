@@ -77,6 +77,8 @@ Stability and integration hardening pass across auth, spaces, messaging, moderat
 * Fix      - Profile completion rewards fire only when the completion percentage actually changes, closing a refresh-to-farm-points loophole and a repeating cooldown notice.
 * Fix      - Hashtag, mention, member, and space links resolve correctly on sites that renamed their community page slugs.
 * Fix      - The profile completion reward milestone now follows the Profile Strength checklist members actually see, so finishing the visible tasks triggers it reliably.
+* Fix      - Reshared posts cap their image and video preview height instead of filling the screen on wide layouts.
+* Fix      - Email unsubscribe now shows a clear confirmation, digest unsubscribes actually stop digest emails, and digest emails carry working links instead of raw placeholders.
 * Security - Registration and auth stay self-contained (in-house spam protection and optional TOTP two-factor); no third-party captcha is reintroduced.
 * Dev      - Outbound webhooks cover membership events with a filterable catalogue, 30-day log retention, auto-disable on repeated failure, and PATCH updates.
 
