@@ -4,7 +4,7 @@ Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.5
+Stable tag: 1.0.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -56,7 +56,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 == Changelog ==
 
-= 1.0.5 - July 2026 =
+= 1.0.6 - July 2026 =
 
 Stability and integration hardening pass across auth, spaces, messaging, moderation, notifications, and search.
 
@@ -72,6 +72,8 @@ Stability and integration hardening pass across auth, spaces, messaging, moderat
 * Fix      - Auto-moderation matches on word boundaries (no false positives on substrings) and covers profiles and direct messages; bulk moderation runs asynchronously with progress.
 * Fix      - Required profile fields are enforced on the full write path, and member-directory visibility honors the configured tier.
 * Fix      - Search suggestions return grouped results and boost exact and prefix name matches.
+* Fix      - Toggle switches keep a visible off-state track on every settings surface; under some themes an off switch rendered invisible.
+* Fix      - Profile completion rewards fire only when the completion percentage actually changes, closing a refresh-to-farm-points loophole and a repeating cooldown notice.
 * Security - Registration and auth stay self-contained (in-house spam protection and optional TOTP two-factor); no third-party captcha is reintroduced.
 * Dev      - Outbound webhooks cover membership events with a filterable catalogue, 30-day log retention, auto-disable on repeated failure, and PATCH updates.
 
