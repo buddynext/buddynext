@@ -3535,3 +3535,51 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 		width: 100%;
 	}
 }
+
+/* ── Email unsubscribe confirmation banner ──────────────────────────────
+	Rendered by EmailDispatchListener::render_unsubscribe_status_notice() on
+	?bn_unsub_status=… redirects. Fixed toast-style so it reads on any page
+	(logged-in or logged-out) without theme cooperation. */
+.bn-unsub-notice {
+	position: fixed;
+	inset-inline: 0;
+	bottom: var(--bn-s6);
+	margin-inline: auto;
+	width: fit-content;
+	max-width: min(92vw, 34rem);
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3) var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-inline-start: 3px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-raised, var(--bn-surface));
+	color: var(--bn-ink);
+	box-shadow: var(--bn-shadow-lg);
+	font-size: var(--bn-text-sm);
+	z-index: 1200;
+}
+.bn-unsub-notice--success { border-inline-start-color: var(--bn-success); }
+.bn-unsub-notice--error { border-inline-start-color: var(--bn-danger); }
+.bn-unsub-notice__manage {
+	color: var(--bn-accent);
+	font-weight: var(--bn-fw-semibold);
+	text-decoration: none;
+	white-space: nowrap;
+}
+.bn-unsub-notice__manage:hover,
+.bn-unsub-notice__manage:focus-visible { text-decoration: underline; }
+.bn-unsub-notice__dismiss {
+	color: var(--bn-ink-3);
+	text-decoration: none;
+	font-size: var(--bn-text-lg);
+	line-height: 1;
+	padding: 0 var(--bn-s1);
+}
+@media (max-width: 640px) {
+	.bn-unsub-notice {
+		bottom: var(--bn-s4);
+		flex-wrap: wrap;
+	}
+}
