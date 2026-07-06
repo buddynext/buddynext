@@ -1003,6 +1003,7 @@ class ProfileService {
 					g.type         AS group_type,
 					g.visibility   AS group_visibility,
 					g.sort_order   AS group_sort_order,
+					g.is_system    AS group_is_system,
 					g.type_restriction AS group_type_restriction,
 					f.id           AS field_id,
 					f.field_key,
@@ -1096,6 +1097,7 @@ class ProfileService {
 					'label'      => $row['group_label'],
 					'type'       => $gtype,
 					'visibility' => $gvis,
+					'is_system'  => (bool) ( $row['group_is_system'] ?? false ),
 					'sort_order' => (int) $row['group_sort_order'],
 					'_entries'   => array(),
 				);
@@ -1138,6 +1140,7 @@ class ProfileService {
 				'label'      => $group['label'],
 				'type'       => $group['type'],
 				'visibility' => $group['visibility'],
+				'is_system'  => ! empty( $group['is_system'] ),
 				'sort_order' => $group['sort_order'],
 			);
 
@@ -1497,18 +1500,21 @@ class ProfileService {
 	/**
 	 * Return the member-facing profile-strength checklist and percentage.
 	 *
-	 * This is the CURATED metric behind the Profile Strength ring, the mobile
-	 * hero chip, and member-facing rewards: a short list of high-value, always
-	 * actionable tasks, so finishing every visible task always lands on 100%.
-	 * It is intentionally different from get_completion_score(), which scores
-	 * every flat schema field and feeds REST/analytics — driving member-visible
-	 * surfaces off that metric left the ring stuck below 100% with every
-	 * visible task done, and (worse) let reward systems promise a "profile
-	 * completed" award the member could never trigger.
+	 * This is the metric behind the Profile Strength ring, the mobile hero
+	 * chip, and member-facing rewards: every task is VISIBLE and actionable,
+	 * so finishing the checklist always lands on 100%. It is intentionally
+	 * different from get_completion_score(), whose all-fields percentage feeds
+	 * REST/analytics but gave members no task list — driving member-visible
+	 * surfaces off it left the ring stuck below 100% with no way to see what
+	 * was missing, and let reward systems promise a "profile completed" award
+	 * the member could never trigger.
 	 *
-	 * Tasks are EXISTENCE-FILTERED: a task whose backing field or group the
-	 * owner removed from the profile schema drops out of the list entirely,
-	 * instead of prompting members forever for a field that no longer exists.
+	 * The task list is derived from the LIVE schema (see the granularity rules
+	 * at the derivation below) — never from seeded field/group keys or
+	 * hardcoded names, because site owners rename labels, delete the preset
+	 * sections, and build custom schemas. Renames and custom fields flow
+	 * through automatically; the buddynext_profile_strength_tasks filter
+	 * remains the per-site override.
 	 *
 	 * @param int        $user_id Profile owner.
 	 * @param array|null $profile Optional preloaded get_profile( $user_id, $user_id )
@@ -1530,67 +1536,80 @@ class ProfileService {
 			}
 		}
 
-		$field = static function ( string $group_key, string $field_key ) use ( $groups ): ?array {
-			foreach ( (array) ( $groups[ $group_key ]['fields'] ?? array() ) as $f ) {
-				if ( is_array( $f ) && ( $f['field_key'] ?? '' ) === $field_key ) {
-					return $f;
-				}
-			}
-			return null;
-		};
+		// SCHEMA-DRIVEN, never keyed on seeded field/group keys or English names:
+		// site owners rename labels, delete the preset groups, and build custom
+		// schemas, so tasks derive from what the schema actually contains.
+		// Granularity comes from schema FLAGS only:
+		//   - SYSTEM flat groups (the code-consumed spine: basics, skills,
+		//     interests) -> one task per field, labelled from the field's live
+		//     admin-set label.
+		//   - NON-SYSTEM flat groups (social links and any custom cluster) ->
+		//     one rollup task per group, done when any field in it is filled.
+		//   - Repeater groups (work experience, education, customs) -> one task
+		//     per group, done when it has at least one non-empty entry.
+		$filled = static fn( $value ): bool => '' !== trim(
+			is_array( $value ) ? implode( '', array_map( 'strval', $value ) ) : (string) $value
+		);
 
 		$tasks = array();
 
-		foreach ( array(
-			array( 'basic_info', 'bio', __( 'Add a bio', 'buddynext' ) ),
-			array( 'basic_info', 'headline', __( 'Add a tagline', 'buddynext' ) ),
-			array( 'basic_info', 'location', __( 'Set your location', 'buddynext' ) ),
-		) as $simple ) {
-			$f = $field( $simple[0], $simple[1] );
-			if ( null !== $f ) {
-				$tasks[] = array(
-					'label' => $simple[2],
-					'done'  => '' !== (string) ( $f['value'] ?? '' ),
-				);
-			}
-		}
+		foreach ( $groups as $group ) {
+			$group_label = (string) ( $group['label'] ?? '' );
 
-		$skills_field = $field( 'skills', 'skills' );
-		if ( null !== $skills_field ) {
-			$tasks[] = array(
-				'label' => __( 'Add your skills', 'buddynext' ),
-				'done'  => array() !== array_filter( array_map( 'trim', explode( ',', (string) ( $skills_field['value'] ?? '' ) ) ) ),
-			);
-		}
-
-		if ( isset( $groups['work_experience'] ) ) {
-			$has_work = false;
-			foreach ( (array) ( $groups['work_experience']['entries'] ?? array() ) as $entry ) {
-				foreach ( (array) $entry as $f ) {
-					if ( is_array( $f ) && in_array( $f['field_key'] ?? '', array( 'work_company', 'work_title' ), true )
-						&& '' !== (string) ( $f['value'] ?? '' ) ) {
-						$has_work = true;
-						break 2;
+			if ( 'repeater' === ( $group['type'] ?? 'flat' ) ) {
+				$has_entry = false;
+				foreach ( (array) ( $group['entries'] ?? array() ) as $entry ) {
+					foreach ( (array) $entry as $f ) {
+						if ( is_array( $f ) && isset( $f['field_key'] ) && $filled( $f['value'] ?? '' ) ) {
+							$has_entry = true;
+							break 2;
+						}
 					}
 				}
+				$tasks[] = array(
+					'label' => sprintf(
+						/* translators: %s: profile section name (owner-defined, e.g. "Work Experience") */
+						__( 'Add %s', 'buddynext' ),
+						$group_label
+					),
+					'done'  => $has_entry,
+				);
+				continue;
 			}
-			$tasks[] = array(
-				'label' => __( 'Add work experience', 'buddynext' ),
-				'done'  => $has_work,
-			);
-		}
 
-		if ( ! empty( $groups['social_links']['fields'] ) ) {
-			$has_social = false;
-			foreach ( (array) $groups['social_links']['fields'] as $f ) {
-				if ( is_array( $f ) && '' !== (string) ( $f['value'] ?? '' ) ) {
-					$has_social = true;
+			$fields = array_filter( (array) ( $group['fields'] ?? array() ), 'is_array' );
+			if ( array() === $fields ) {
+				continue;
+			}
+
+			if ( ! empty( $group['is_system'] ) ) {
+				foreach ( $fields as $f ) {
+					$tasks[] = array(
+						'label' => sprintf(
+							/* translators: %s: profile field name (owner-defined, e.g. "Bio") */
+							__( 'Add %s', 'buddynext' ),
+							(string) ( $f['label'] ?? '' )
+						),
+						'done'  => $filled( $f['value'] ?? '' ),
+					);
+				}
+				continue;
+			}
+
+			$any_filled = false;
+			foreach ( $fields as $f ) {
+				if ( $filled( $f['value'] ?? '' ) ) {
+					$any_filled = true;
 					break;
 				}
 			}
 			$tasks[] = array(
-				'label' => __( 'Link an account', 'buddynext' ),
-				'done'  => $has_social,
+				'label' => sprintf(
+					/* translators: %s: profile section name (owner-defined, e.g. "Social Links") */
+					__( 'Add %s', 'buddynext' ),
+					$group_label
+				),
+				'done'  => $any_filled,
 			);
 		}
 
