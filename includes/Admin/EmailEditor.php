@@ -492,7 +492,7 @@ class EmailEditor {
 			'{{notification_message}}' => __( 'This is a sample notification message.', 'buddynext' ),
 			'{{verify_url}}'           => home_url( '/' ),
 			'{{login_url}}'            => ( '' !== \BuddyNext\Core\PageRouter::auth_url() ? \BuddyNext\Core\PageRouter::auth_url() : wp_login_url() ),
-			'{{unsubscribe_url}}'      => home_url( '/notifications/settings/' ),
+			'{{unsubscribe_url}}'      => \BuddyNext\Core\PageRouter::notification_prefs_url(),
 			'{{current_year}}'         => gmdate( 'Y' ),
 			'{{site_name}}'            => get_bloginfo( 'name' ),
 			'{{site_url}}'             => home_url(),

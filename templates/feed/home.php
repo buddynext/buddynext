@@ -276,7 +276,7 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 				'title' => __( 'Join your first space', 'buddynext' ),
 				'text'  => __( 'Posts from spaces you join appear here.', 'buddynext' ),
 				'cta'   => __( 'Browse spaces', 'buddynext' ),
-				'url'   => home_url( '/spaces/' ),
+				'url'   => \BuddyNext\Core\PageRouter::spaces_url(),
 			),
 			'network'   => array(
 				'icon'  => 'users',

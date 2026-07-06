@@ -415,7 +415,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 						<span><?php esc_html_e( 'Edit profile', 'buddynext' ); ?></span>
 					</a>
 					<?php
-					$bn_pf_share_url = home_url( '/members/' . rawurlencode( $bn_pf_slug ) . '/' );
+					$bn_pf_share_url = \BuddyNext\Core\PageRouter::people_url() . rawurlencode( $bn_pf_slug ) . '/';
 					?>
 					<button type="button"
 						class="bn-btn"
