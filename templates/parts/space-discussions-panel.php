@@ -95,7 +95,9 @@ $bn_thread_base = '' !== $bn_forum_url ? trailingslashit( $bn_forum_url ) . 't/'
 				'icon'      => 'messages-square',
 				'title'     => __( 'No discussions yet', 'buddynext' ),
 				'body'      => __( 'Be the first to start a conversation in this space.', 'buddynext' ),
-				'cta_url'   => '' !== $bn_forum_url ? $bn_forum_url : '',
+				// Link straight to the forum's new-topic composer, not the forum
+				// landing, so "Start a discussion" opens the editor in one click.
+				'cta_url'   => '' !== $bn_forum_url ? trailingslashit( $bn_forum_url ) . 'new/' : '',
 				'cta_label' => '' !== $bn_forum_url ? __( 'Start a discussion', 'buddynext' ) : '',
 				'cta_icon'  => 'plus',
 			)

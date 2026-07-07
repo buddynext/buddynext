@@ -837,7 +837,9 @@ class JetonomyBridge {
 		$this->provision_space_forum( $space_id );
 		$url = $this->space_forum_url( $space_id );
 		if ( '' !== $url ) {
-			wp_safe_redirect( $url );
+			// Land on the new-topic composer so the member who clicked "Start the
+			// first discussion" can write it immediately, not on the empty forum.
+			wp_safe_redirect( trailingslashit( $url ) . 'new/' );
 			exit;
 		}
 	}
