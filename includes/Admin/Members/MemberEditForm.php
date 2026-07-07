@@ -340,6 +340,15 @@ class MemberEditForm {
 								</div>
 								<?php
 								foreach ( $entry_fields as $entry_field ) :
+									// A saved entry carries non-field meta — a scalar `_visibility`
+									// element ProfileService appends beside the field arrays. Skip
+									// anything that isn't a field array so the array-typed renderer
+									// never receives a string. Mirrors the guard in profile/edit.php
+									// and profile/view.php; field-key agnostic, so it holds for any
+									// owner-defined repeater schema.
+									if ( ! is_array( $entry_field ) || ! isset( $entry_field['field_key'] ) ) {
+										continue;
+									}
 									$this->render_repeater_field_input( $group_key, $e_idx, $entry_field );
 								endforeach;
 								if ( empty( $entry_fields ) ) :
