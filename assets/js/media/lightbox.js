@@ -171,6 +171,15 @@
 		// and author (from the meta fetch above) are all that show.
 		if ( isDM ) { return; }
 
+		// Guests can only view + download: the interaction controls aren't rendered
+		// for logged-out visitors (see media-lightbox.php) and every call below is
+		// auth-only, so skip them (no 401 noise, no null panel) and just track the
+		// view best-effort — mirrors the DM skip above.
+		if ( ! LOGGED_IN ) {
+			api( '/media/' + id + '/view', { method: 'POST' } ).catch( function () {} );
+			return;
+		}
+
 		// Favorite status — reflect the real state on open (the reset above is
 		// just the optimistic default until this resolves).
 		if ( panel.favorite ) {
@@ -374,6 +383,7 @@
 	}
 
 	function renderComments( list ) {
+		if ( ! panel.comments ) { return; }
 		clear( panel.comments );
 		if ( ! list.length ) {
 			var empty = document.createElement( 'p' );
