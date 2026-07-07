@@ -75,22 +75,27 @@ class MembersTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * suspend_member() sets the suspended usermeta flag.
+	 * Records an active suspension via suspend_member(). Suspension state is read
+	 * from the bn_user_suspensions table (via ModerationService::is_suspended) —
+	 * the old bn_suspended usermeta was retired because it split-brained state.
 	 */
-	public function test_suspend_member_sets_usermeta(): void {
+	public function test_suspend_member_marks_member_suspended(): void {
 		$user_id = $this->factory->user->create();
 		$this->members->suspend_member( $user_id );
-		$this->assertEquals( '1', get_user_meta( $user_id, 'bn_suspended', true ) );
+		$this->assertTrue( buddynext_service( 'moderation' )->is_suspended( $user_id ) );
 	}
 
 	/**
-	 * unsuspend_member() removes the suspended flag.
+	 * Lifts the active suspension via unsuspend_member() so the member reads as
+	 * no-longer-suspended through the same source of truth.
 	 */
-	public function test_unsuspend_member_removes_usermeta(): void {
+	public function test_unsuspend_member_lifts_suspension(): void {
 		$user_id = $this->factory->user->create();
-		update_user_meta( $user_id, 'bn_suspended', '1' );
+		$this->members->suspend_member( $user_id );
+		$this->assertTrue( buddynext_service( 'moderation' )->is_suspended( $user_id ) );
+
 		$this->members->unsuspend_member( $user_id );
-		$this->assertEmpty( get_user_meta( $user_id, 'bn_suspended', true ) );
+		$this->assertFalse( buddynext_service( 'moderation' )->is_suspended( $user_id ) );
 	}
 
 	/**

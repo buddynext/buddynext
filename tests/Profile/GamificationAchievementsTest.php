@@ -70,13 +70,30 @@ class GamificationAchievementsTest extends \WP_UnitTestCase {
 		return null;
 	}
 
+	/**
+	 * Adds the Achievements tab for a member with a badge. The count is skipped by
+	 * default for scale and resolves to the real earned-badge count only when a
+	 * site opts the tab-count back on.
+	 */
 	public function test_tab_added_when_member_has_badges(): void {
 		$this->set_badges( array( array( 'id' => 'champ', 'name' => 'Champion', 'is_credential' => 1, 'earned_at' => '2026-01-01' ) ) );
 
 		$item = $this->achievements_item();
 		$this->assertNotNull( $item );
 		$this->assertSame( 'achievements', $item->id );
-		$this->assertSame( 1, (int) $item->count_value );
+
+		// Like every other primary tab, the count query is skipped by default so a
+		// large community doesn't pay a COUNT per nav resolution (NavRegistry::resolve).
+		$this->assertNull( $item->count_value );
+
+		// The count callable is still correctly wired: opting the tab-count back on
+		// via the public filter resolves it to the real earned-badge count.
+		add_filter( 'buddynext_nav_show_tab_count', '__return_true' );
+		$opted_in = $this->achievements_item();
+		remove_filter( 'buddynext_nav_show_tab_count', '__return_true' );
+
+		$this->assertNotNull( $opted_in );
+		$this->assertSame( 1, (int) $opted_in->count_value );
 	}
 
 	public function test_tab_added_when_member_has_points_but_no_badges(): void {
