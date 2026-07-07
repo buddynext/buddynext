@@ -115,7 +115,7 @@ do_action( 'buddynext_part_post_options_menu_before', $args );
 			><?php buddynext_icon( 'bookmark' ); ?>
 				<?php // Two labels toggled by context.isPinned so the verb flips immediately on pin/unpin, no reload. ?>
 				<span data-wp-bind--hidden="!context.isPinned"<?php echo ! empty( $args['is_pinned'] ) ? '' : ' hidden'; ?>><?php esc_html_e( 'Unpin', 'buddynext' ); ?></span>
-				<span data-wp-bind--hidden="context.isPinned"<?php echo ! empty( $args['is_pinned'] ) ? ' hidden' : ''; ?>><?php esc_html_e( 'Pin to profile', 'buddynext' ); ?></span>
+				<span data-wp-bind--hidden="context.isPinned"<?php echo ! empty( $args['is_pinned'] ) ? ' hidden' : ''; ?>><?php esc_html_e( 'Pin', 'buddynext' ); ?></span>
 			</button>
 		<?php endif; ?>
 
