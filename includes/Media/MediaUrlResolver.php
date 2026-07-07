@@ -78,6 +78,18 @@ class MediaUrlResolver {
 			? (string) $repo->get_broadcast_url( $media_id )
 			: (string) $repo->get( $media_id, 'file_url' );
 
+		// A private / non-public image has no anonymous broadcast URL, so $url comes
+		// back empty and the lightbox <img> (which uses the full file, not the
+		// thumbnail) renders broken even for a viewer allowed to see it — the
+		// member's own Media tab being the common case. Fall back to the same
+		// viewer-aware signed serve URL the thumbnail uses (the largest size the
+		// engine will authorize) so the owner and permitted audience get a working
+		// image. Scoped to images: a video/audio file cannot be served through the
+		// image thumbnail seam, so those keep the broadcast/file-URL behaviour.
+		if ( '' === $url && 'image' === $type && method_exists( $repo, 'get_thumbnail_url_for_viewer' ) ) {
+			$url = (string) $repo->get_thumbnail_url_for_viewer( $media_id, 'thumb_large' );
+		}
+
 		return array(
 			'id'        => $media_id,
 			'type'      => $type,
