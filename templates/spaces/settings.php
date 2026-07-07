@@ -412,11 +412,6 @@ $builtin_tabs = array(
 		'icon'  => 'users',
 	),
 	array(
-		'slug'  => 'branding',
-		'label' => __( 'Branding', 'buddynext' ),
-		'icon'  => 'image',
-	),
-	array(
 		'slug'  => 'moderation',
 		'label' => __( 'Moderation', 'buddynext' ),
 		'icon'  => 'shield',
@@ -662,13 +657,6 @@ foreach ( $builtin_tabs as $bn_t ) {
 						'space_id' => $space_id,
 						'members'  => $space_members,
 					),
-				),
-			),
-			'branding'      => array(
-				'parts/space-settings-panel-branding.php',
-				array(
-					'space'             => $space,
-					'branding_settings' => array( 'space_id' => $space_id ),
 				),
 			),
 			'fields'        => array(
