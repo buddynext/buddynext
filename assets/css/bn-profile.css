@@ -2492,6 +2492,17 @@ a.bn-space-row:hover .bn-space-name {
 	.bn-ep-account-row { flex-direction: column; align-items: flex-start; gap: var(--bn-s2); }
 }
 
+/* The fixed mobile bottom nav (.bn-mobile-nav) is visible <=768px at z-index
+   9500; the fixed save bar sits at bottom:0 z-180, so the nav covered its
+   Save/Cancel buttons and mobile users could not save. Lift the save bar to sit
+   flush above the nav (its ~52px height + iOS safe-area) across the SAME
+   breakpoint the nav uses, so the buttons stay tappable. */
+@media (max-width: 768px) {
+	.bn-ep-save-bar {
+		inset-block-end: calc(52px + env(safe-area-inset-bottom, 0px));
+	}
+}
+
 /* Owner action bar removed — Edit profile / Share live in the hero action
    cluster, Edit cover on the cover, Edit avatar as a badge on the avatar
    (.bn-pf-avatar-edit). The standalone toolbar was a redundant duplicate. */
