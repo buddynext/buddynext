@@ -501,7 +501,11 @@ export function bnToast( message, opts ) {
 	// the app, so normalise here instead of forcing one at every call site.
 	const cfg     = ( 'string' === typeof opts ) ? { tone: opts } : ( opts || {} );
 	const tone    = cfg.tone || 'info';
-	const timeout = typeof cfg.timeout === 'number' ? cfg.timeout : 3000;
+	// Errors and warnings carry information the user must read (a validation rule,
+	// a failure reason), so they dwell longer than a transient success/info
+	// confirmation. An explicit timeout still wins.
+	const isAlert = ( 'danger' === tone || 'error' === tone || 'warn' === tone || 'warning' === tone );
+	const timeout = typeof cfg.timeout === 'number' ? cfg.timeout : ( isAlert ? 7000 : 3000 );
 
 	let container = document.querySelector( '.bn-toast-container' );
 	if ( ! container ) {
@@ -522,16 +526,26 @@ export function bnToast( message, opts ) {
 	} else if ( 'info' === tone ) {
 		toast.classList.add( 'bn-toast--info' );
 	}
-	toast.setAttribute( 'role', 'status' );
-	toast.setAttribute( 'aria-live', 'polite' );
+	// Alerts announce assertively so a screen reader interrupts with the reason.
+	toast.setAttribute( 'role', isAlert ? 'alert' : 'status' );
+	toast.setAttribute( 'aria-live', isAlert ? 'assertive' : 'polite' );
 	toast.textContent = message;
 
 	container.appendChild( toast );
 
-	window.setTimeout( function () {
-		toast.remove();
-		if ( container && ! container.children.length ) {
-			container.remove();
-		}
-	}, timeout );
+	// JS owns the lifetime: fade out via the --leaving class, then remove. Clicking
+	// the toast dismisses it early so a lingering error can be cleared on demand.
+	let removeTimer;
+	const dismiss = function () {
+		window.clearTimeout( removeTimer );
+		toast.classList.add( 'bn-toast--leaving' );
+		window.setTimeout( function () {
+			toast.remove();
+			if ( container && ! container.children.length ) {
+				container.remove();
+			}
+		}, 250 );
+	};
+	toast.addEventListener( 'click', dismiss );
+	removeTimer = window.setTimeout( dismiss, timeout );
 }

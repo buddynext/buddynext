@@ -652,8 +652,14 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	font-weight: var(--fw-medium);
 	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 	pointer-events: auto;
-	animation: bn-toast-in 0.25s ease, bn-toast-out 0.25s ease 2.75s forwards;
+	cursor: pointer;
+	animation: bn-toast-in 0.25s ease;
 }
+/* The exit fade is JS-driven: bnToast owns each toast's dwell (longer for errors
+   so a validation message can be read, and click-to-dismiss), then adds this
+   class to fade it out. It must NOT auto-play on a fixed delay — that hid error
+   toasts before they could be read. */
+.bn-toast--leaving { animation: bn-toast-out 0.25s ease forwards; }
 .bn-toast--success { background: var(--green); color: var(--text-on-brand); }
 .bn-toast--error   { background: var(--red); color: var(--text-on-brand); }
 @keyframes bn-toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

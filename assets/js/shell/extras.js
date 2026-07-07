@@ -33,11 +33,16 @@
 	// ── Toast helper ───────────────────────────────────────────────────────
 	window.bnToast = function ( msg, type ) {
 		// Accept a tone string — bnToast(msg, 'success') — or an options object —
-		// bnToast(msg, { tone }). Map to one of the four real toast classes
+		// bnToast(msg, { tone, timeout }). Map to one of the four real toast classes
 		// (error/success/info/warning); 'danger'/'warn' are aliases that would
-		// otherwise emit undefined classes and render neutral.
-		var tone = ( 'string' === typeof type ) ? type : ( type && type.tone ) || '';
-		var cls  = '';
+		// otherwise emit undefined classes and render neutral. Kept behaviourally
+		// identical to the module bnToast in dialog.js.
+		var opts    = ( type && 'object' === typeof type ) ? type : {};
+		var tone    = ( 'string' === typeof type ) ? type : ( opts.tone || '' );
+		// Errors/warnings dwell longer than transient success/info; explicit wins.
+		var isAlert = ( 'danger' === tone || 'error' === tone || 'warn' === tone || 'warning' === tone );
+		var timeout = ( 'number' === typeof opts.timeout ) ? opts.timeout : ( isAlert ? 7000 : 3000 );
+		var cls     = '';
 		if ( 'success' === tone ) {
 			cls = 'bn-toast--success';
 		} else if ( 'danger' === tone || 'error' === tone ) {
@@ -55,9 +60,22 @@
 		}
 		var t = document.createElement( 'div' );
 		t.className = 'bn-toast' + ( cls ? ' ' + cls : '' );
+		t.setAttribute( 'role', isAlert ? 'alert' : 'status' );
+		t.setAttribute( 'aria-live', isAlert ? 'assertive' : 'polite' );
 		t.textContent = msg;
 		c.appendChild( t );
-		setTimeout( function () { t.remove(); }, 3000 );
+		// JS-owned lifetime: fade via --leaving, then remove; click dismisses early.
+		var removeTimer;
+		var dismiss = function () {
+			window.clearTimeout( removeTimer );
+			t.classList.add( 'bn-toast--leaving' );
+			setTimeout( function () {
+				t.remove();
+				if ( c && ! c.children.length ) { c.remove(); }
+			}, 250 );
+		};
+		t.addEventListener( 'click', dismiss );
+		removeTimer = setTimeout( dismiss, timeout );
 	};
 
 	// ── Notification dropdown ──────────────────────────────────────────────
