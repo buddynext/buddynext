@@ -185,7 +185,6 @@ class GamificationAchievements {
 				'surface'   => 'profile',
 				'layer'     => 'primary',
 				'label'     => __( 'Achievements', 'buddynext' ),
-				'icon'      => 'award',
 				'priority'  => 70,
 				'condition' => static fn( \BuddyNext\Nav\NavContext $c ): bool => buddynext_integration_enabled( 'gamification', 'nav' ) && $c->subject_id > 0,
 				'url'       => function ( \BuddyNext\Nav\NavContext $c ): string {

@@ -202,7 +202,6 @@ final class ProfileNav {
 				'surface'  => 'profile',
 				'layer'    => 'primary',
 				'label'    => __( 'Network', 'buddynext' ),
-				'icon'     => 'users',
 				'priority' => 55,
 				'url'      => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'connections' ),
 			),
