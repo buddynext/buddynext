@@ -191,7 +191,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 
 		$forum_id = $this->bridge->provision_space_forum( $space_id );
 		$this->assertGreaterThan( 0, $forum_id );
-		$this->assertSame( $forum_id, (int) get_option( 'bn_space_' . $space_id . '_jetonomy_forum_id' ) );
+		$this->assertSame( $forum_id, (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' ) );
 
 		// Idempotent: a second call returns the same forum, creates no new jt_space.
 		global $wpdb;
@@ -227,11 +227,13 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	public function test_space_discussions_tab_links_to_in_hub_route(): void {
 		$space_id = 4242;
 
-		// The space Discussions tab is always registered and points at the clean
-		// in-hub discussions route (a real <a>), whether or not a forum is linked.
-		// The forum is provisioned on demand when a member first opens the panel;
-		// the nonce-protected provision URL lives in the panel data
-		// (JetonomyBridge::provision_forum_url), never in the tab link itself.
+		// The space Discussions tab appears once the space has a linked forum AND
+		// its owner has enabled discussion (per-space opt-in). When present it
+		// points at the clean in-hub discussions route (a real <a>) — the
+		// nonce-protected provision URL lives in the panel data, never the tab link.
+		update_space_meta( $space_id, 'jetonomy_forum_id', 777 );
+		update_space_meta( $space_id, 'discussion_enabled', '1' );
+
 		$url = $this->resolve_space_discussions_url( $space_id );
 		$this->assertNotNull( $url, 'Space Discussions tab should be registered.' );
 		$this->assertStringContainsString( '/discussions/', (string) $url );

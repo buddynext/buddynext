@@ -161,7 +161,13 @@ class SpaceServiceTest extends \WP_UnitTestCase {
 			)
 		);
 
-		// Per-space options that delete() previously left orphaned.
+		// Core keeps space settings in bn_space_meta now; an integration that still
+		// stores its own per-space option registers its suffix via this filter so
+		// delete() clears it. Verify that cleanup path leaves nothing orphaned.
+		add_filter(
+			'buddynext_space_option_suffixes',
+			static fn( array $s ): array => array_merge( $s, array( 'who_can_post', 'require_join_approval' ) )
+		);
 		update_option( "bn_space_{$space_id}_who_can_post", 'members' );
 		update_option( "bn_space_{$space_id}_require_join_approval", '1' );
 

@@ -42,8 +42,6 @@ class BlockRegistrarTest extends \WP_UnitTestCase {
 		'buddynext/profile-fields',
 		'buddynext/profile-completion-bar',
 		// Utility.
-		'buddynext/registration-form',
-		'buddynext/login-form',
 		'buddynext/notification-bell',
 		'buddynext/header-user-menu',
 		'buddynext/search-bar',

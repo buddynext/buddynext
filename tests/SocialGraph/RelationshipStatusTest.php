@@ -76,6 +76,9 @@ class RelationshipStatusTest extends \WP_Test_REST_TestCase {
 		$user = self::factory()->user->create();
 		update_user_meta( $user, 'bn_account_private', '1' );
 
+		// The account-type endpoint requires an authenticated viewer.
+		wp_set_current_user( self::factory()->user->create() );
+
 		$response = rest_do_request( new WP_REST_Request( 'GET', "/buddynext/v1/users/{$user}/account-type" ) );
 		$this->assertSame( 200, $response->get_status() );
 		$this->assertTrue( $response->get_data()['is_private'] );
