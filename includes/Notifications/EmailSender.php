@@ -640,7 +640,7 @@ class EmailSender {
 		// request", "See the post"). Resolved per notification type against the
 		// recipient; falls back to the site home when no specific target exists
 		// so the link is never empty.
-		$action_url = ( new NotificationMessageService() )->email_action_url( $notification_type, $user_id, $data );
+		$action_url = buddynext_service( 'notification_message' )->email_action_url( $notification_type, $user_id, $data );
 		if ( '' === $action_url ) {
 			$action_url = home_url( '/' );
 		}

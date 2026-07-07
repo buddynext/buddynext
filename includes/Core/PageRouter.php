@@ -732,16 +732,6 @@ class PageRouter {
 
 		do_action( 'buddynext_before_hub', $hub, $template );
 
-		// htmx partial swap: when request has HX-Request header, return only
-		// the template content (no theme header/footer). This enables SPA-like
-		// navigation where only the content area swaps on link clicks.
-		if ( ! empty( $_SERVER['HTTP_HX_REQUEST'] ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			header( 'HX-Push-Url: ' . esc_url( home_url( add_query_arg( array() ) ) ) );
-			header( 'HX-Trigger: bnPageSwap' );
-			buddynext_get_template( $template, $context );
-			exit;
-		}
-
 		// BuddyNext sits *inside* the active theme's chrome. The theme owns
 		// the document — DOCTYPE / <html> / <head> / wp_head() / <body> /
 		// wp_body_open() / wp_footer() / </html> all come from the theme via
