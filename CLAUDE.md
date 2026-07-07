@@ -32,6 +32,10 @@ Enterprise-grade social community platform for WordPress (free + pro). Owned by 
 
 **Model = mainstream social: Facebook, X (Twitter), LinkedIn.** We are NOT building a complex or niche community. If a request adds complexity those platforms don't have, it is out of scope by default. (The UX-parity bar is separately noted under *Premium UX* and *Design System Tokens* — this section is about deciding what is a real defect / in-scope ask in the first place.)
 
+**Mission: a FAST, STABLE community — not a BuddyPress re-creation.** Speed and stability come first on every request. BuddyPress's failure mode is feature-sprawl — hundreds of niche options and hooks that make it slow, fragile, and hard to maintain. We do the opposite: a lean core that does the mainstream-social basics excellently and stays fast at 100k members. A request that adds an option/branch/feature BuddyPress has but FB/X/LinkedIn don't is out of scope by default — say no and keep the core lean.
+
+**QA agents pipe ALL customer feedback into cards indiscriminately — treat the board as a raw feed, not a task list.** Actioning every single card is exactly how a product bloats into BuddyPress. **Most cards are NOT tasks.** The default disposition of any card is *not a task* until it clears the bar below. Do not open code, branch, or "fix" a card before it passes. Batch-judge; reject the majority with a one-line reason (by-design / matches FB-X-LinkedIn / niche / duplicate / deferred-feature-not-a-bug).
+
 **The bar for whether a bug report, feature ask, or QA card is VALID is two questions — not what QA prefers:**
 
 1. Would a **mass end user (member)** genuinely expect this, or be broken/confused by the current behavior?
