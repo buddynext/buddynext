@@ -1152,6 +1152,12 @@ class JetonomyBridge {
 				'forum_linked'  => (bool) $forum_ctx['linked'],
 				'provision_url' => (string) $forum_ctx['provision_url'],
 				'can_post'      => $can_post,
+				// Provisioning (creating the forum) is gated to the space owner /
+				// moderator, unlike posting. The empty-state "Start the first
+				// discussion" CTA must follow provisioning, not posting: a member who
+				// could post but not provision otherwise saw a CTA that failed the
+				// permission check and fell through to All Spaces.
+				'can_provision' => $this->can_provision_forum( $space_id, $viewer_id ),
 			)
 		);
 	}
@@ -1488,12 +1494,21 @@ class JetonomyBridge {
 	 * @return string
 	 */
 	private function provision_forum_url( int $space_id ): string {
+		// Base the trigger on the SPACE's own URL, never the /spaces/ directory: if
+		// the provision handler falls through (expired nonce, or a viewer who may
+		// post but not provision), WordPress renders the base URL — and rendering
+		// the All Spaces directory is exactly the "thrown back to All Spaces"
+		// symptom. Off the space URL, a fall-through stays on the space.
+		$base = \BuddyNext\Core\PageRouter::space_url( absint( $space_id ) );
+		if ( '' === $base ) {
+			$base = \BuddyNext\Core\PageRouter::spaces_url();
+		}
 		return add_query_arg(
 			array(
 				'bn_provision_forum' => absint( $space_id ),
 				'_bnpf'              => wp_create_nonce( 'bn_provision_forum_' . absint( $space_id ) ),
 			),
-			\BuddyNext\Core\PageRouter::spaces_url()
+			$base
 		);
 	}
 

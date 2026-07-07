@@ -21,19 +21,21 @@
  * @var string   $forum_url    Linked forum URL ('' when no forum is linked).
  * @var bool     $forum_linked Whether a forum is linked yet.
  * @var string   $provision_url On-demand provision-trigger URL (empty-state CTA).
- * @var bool     $can_post     Whether the viewer may start the forum / post.
+ * @var bool     $can_post      Whether the viewer may post in the forum.
+ * @var bool     $can_provision Whether the viewer may provision (create) the forum — gates the empty-state CTA.
  */
 
 declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
-$bn_space        = isset( $space ) && is_object( $space ) ? $space : null;
-$bn_discussions  = isset( $discussions ) && is_array( $discussions ) ? $discussions : array();
-$bn_forum_url    = isset( $forum_url ) ? (string) $forum_url : '';
-$bn_forum_linked = isset( $forum_linked ) ? (bool) $forum_linked : ( '' !== $bn_forum_url );
-$bn_provision    = isset( $provision_url ) ? (string) $provision_url : '';
-$bn_can_post     = isset( $can_post ) ? (bool) $can_post : false;
+$bn_space         = isset( $space ) && is_object( $space ) ? $space : null;
+$bn_discussions   = isset( $discussions ) && is_array( $discussions ) ? $discussions : array();
+$bn_forum_url     = isset( $forum_url ) ? (string) $forum_url : '';
+$bn_forum_linked  = isset( $forum_linked ) ? (bool) $forum_linked : ( '' !== $bn_forum_url );
+$bn_provision     = isset( $provision_url ) ? (string) $provision_url : '';
+$bn_can_post      = isset( $can_post ) ? (bool) $can_post : false;
+$bn_can_provision = isset( $can_provision ) ? (bool) $can_provision : false;
 
 // Thread permalinks derive from the forum URL (which already carries the
 // Jetonomy space slug), never the BN space slug — the two can differ.
@@ -107,11 +109,11 @@ $bn_thread_base = '' !== $bn_forum_url ? trailingslashit( $bn_forum_url ) . 't/'
 			array(
 				'icon'      => 'messages-square',
 				'title'     => __( 'Discussions are not set up yet', 'buddynext' ),
-				'body'      => $bn_can_post
+				'body'      => $bn_can_provision
 					? __( 'Start the first discussion to open a forum for this space.', 'buddynext' )
-					: __( 'A forum opens here once a member starts the first discussion.', 'buddynext' ),
-				'cta_url'   => $bn_can_post ? $bn_provision : '',
-				'cta_label' => $bn_can_post ? __( 'Start the first discussion', 'buddynext' ) : '',
+					: __( 'A forum opens here once a space organizer starts the first discussion.', 'buddynext' ),
+				'cta_url'   => $bn_can_provision ? $bn_provision : '',
+				'cta_label' => $bn_can_provision ? __( 'Start the first discussion', 'buddynext' ) : '',
 				'cta_icon'  => 'plus',
 			)
 		);
