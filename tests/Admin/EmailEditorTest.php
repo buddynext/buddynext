@@ -66,11 +66,13 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	// ── Catalogue ─────────────────────────────────────────────────────────────
 
 	/**
-	 * get_catalogue() returns an array with eight categories.
+	 * get_catalogue() returns the seven template categories. The Jetonomy "Forum
+	 * Reply" category was intentionally removed in the collect-only fix for bug
+	 * #10062150983 — BN no longer emails on a partner's behalf (Jetonomy owns it).
 	 */
-	public function test_catalogue_has_four_categories(): void {
+	public function test_catalogue_has_seven_categories(): void {
 		$catalogue = $this->editor->get_catalogue();
-		$this->assertCount( 8, $catalogue );
+		$this->assertCount( 7, $catalogue );
 	}
 
 	/**
@@ -89,15 +91,15 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * get_catalogue() includes all 29 templates.
+	 * get_catalogue() includes all 28 templates across the seven categories.
 	 */
-	public function test_catalogue_has_twelve_templates(): void {
+	public function test_catalogue_has_all_templates(): void {
 		$catalogue = $this->editor->get_catalogue();
 		$total     = 0;
 		foreach ( $catalogue as $templates ) {
 			$total += count( $templates );
 		}
-		$this->assertSame( 29, $total );
+		$this->assertSame( 28, $total );
 	}
 
 	/**
