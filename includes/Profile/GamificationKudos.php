@@ -52,9 +52,10 @@ class GamificationKudos {
 				'id'        => self::TAB_SLUG,
 				'surface'   => 'profile',
 				'layer'     => 'primary',
+				'parent'    => GamificationAchievements::PARENT_SLUG,
 				'label'     => __( 'Kudos', 'buddynext' ),
 				'icon'      => 'heart',
-				'priority'  => 74,
+				'priority'  => 30,
 				'condition' => static fn( \BuddyNext\Nav\NavContext $c ): bool =>
 					buddynext_integration_enabled( 'gamification', 'nav' ) && $c->subject_id > 0,
 				'url'       => static fn( \BuddyNext\Nav\NavContext $c ): string =>

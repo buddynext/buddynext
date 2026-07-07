@@ -62,9 +62,14 @@ class GamificationAchievementsTest extends \WP_UnitTestCase {
 		remove_all_actions( 'buddynext_register_nav' );
 		$this->tab->register_nav( $registry );
 		$out = $registry->resolve( new \BuddyNext\Nav\NavContext( 'profile', $this->member_id, $this->member_id ) );
+		// Achievements is now a sub-tab nested under the "gamification" parent tab,
+		// so look inside the parent's children (falling back to top-level).
 		foreach ( $out->layer( 'primary' ) as $item ) {
-			if ( 'achievements' === $item->id ) {
-				return $item;
+			$candidates = ( 'gamification' === $item->id ) ? $item->children : array( $item );
+			foreach ( $candidates as $sub ) {
+				if ( 'achievements' === $sub->id ) {
+					return $sub;
+				}
 			}
 		}
 		return null;

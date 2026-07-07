@@ -29,6 +29,15 @@ class GamificationAchievements {
 	private const MAX_BADGES = 24;
 
 	/**
+	 * Parent primary-tab id that houses the three gamification sub-tabs
+	 * (Achievements / Points / Kudos). GamificationPoints + GamificationKudos
+	 * nest under this id via their `parent` so the trio occupies one top-level
+	 * slot instead of three. Kept a literal on the child side to avoid a
+	 * cross-class constant dependency.
+	 */
+	public const PARENT_SLUG = 'gamification';
+
+	/**
 	 * Wire the tab + panel hooks. Called from Plugin bridge-loading.
 	 *
 	 * @return void
@@ -164,14 +173,38 @@ class GamificationAchievements {
 	 * @return void
 	 */
 	public function register_nav( \BuddyNext\Nav\NavRegistry $registry ): void {
+		// Parent container: one "Achievements" top-level tab that houses the
+		// gamification sub-tabs so Achievements / Points / Kudos don't each take a
+		// primary slot. Owns no panel — landing deep-links to the first available
+		// child (Achievements when the member has standing, else Kudos, which is
+		// always present). Shown whenever gamification nav is on (Kudos guarantees
+		// at least one child, so the parent never renders empty).
 		$registry->register(
 			array(
-				'id'        => self::TAB_SLUG,
+				'id'        => self::PARENT_SLUG,
 				'surface'   => 'profile',
 				'layer'     => 'primary',
 				'label'     => __( 'Achievements', 'buddynext' ),
 				'icon'      => 'award',
 				'priority'  => 70,
+				'condition' => static fn( \BuddyNext\Nav\NavContext $c ): bool => buddynext_integration_enabled( 'gamification', 'nav' ) && $c->subject_id > 0,
+				'url'       => function ( \BuddyNext\Nav\NavContext $c ): string {
+					$base = trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) );
+					return $base . ( $this->has_standing( $c->subject_id ) ? self::TAB_SLUG . '/' : 'kudos/' );
+				},
+			)
+		);
+
+		// Achievements sub-tab — the badge grid + points/level standing strip.
+		$registry->register(
+			array(
+				'id'        => self::TAB_SLUG,
+				'surface'   => 'profile',
+				'layer'     => 'primary',
+				'parent'    => self::PARENT_SLUG,
+				'label'     => __( 'Achievements', 'buddynext' ),
+				'icon'      => 'award',
+				'priority'  => 10,
 				'condition' => fn( \BuddyNext\Nav\NavContext $c ): bool => buddynext_integration_enabled( 'gamification', 'nav' ) && $this->has_standing( $c->subject_id ),
 				'url'       => static fn( \BuddyNext\Nav\NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . self::TAB_SLUG . '/',
 				'count'     => fn( \BuddyNext\Nav\NavContext $c ): int => count( $this->badges( $c->subject_id ) ),
