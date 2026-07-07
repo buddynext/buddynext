@@ -78,16 +78,18 @@ class MediaUrlResolver {
 			? (string) $repo->get_broadcast_url( $media_id )
 			: (string) $repo->get( $media_id, 'file_url' );
 
-		// A private / non-public image has no anonymous broadcast URL, so $url comes
-		// back empty and the lightbox <img> (which uses the full file, not the
-		// thumbnail) renders broken even for a viewer allowed to see it — the
-		// member's own Media tab being the common case. Fall back to the same
-		// viewer-aware signed serve URL the thumbnail uses (the largest size the
-		// engine will authorize) so the owner and permitted audience get a working
-		// image. Scoped to images: a video/audio file cannot be served through the
-		// image thumbnail seam, so those keep the broadcast/file-URL behaviour.
-		if ( '' === $url && 'image' === $type && method_exists( $repo, 'get_thumbnail_url_for_viewer' ) ) {
-			$url = (string) $repo->get_thumbnail_url_for_viewer( $media_id, 'thumb_large' );
+		// A private / non-public item has no anonymous broadcast URL, so the
+		// full-file $url comes back empty and the lightbox stage (which uses the
+		// full file, not the thumbnail) renders broken even for a viewer allowed to
+		// see it — the member's own Media tab being the common case. Fall back to
+		// the engine's viewer-aware signed serve URL for the ORIGINAL file
+		// (WPMediaVerse 2.0.0+ get_url_for_viewer()), the canonical seam for
+		// authorized non-public delivery — not a WP-core attachment/thumbnail
+		// helper (MediaVerse does not use WP attachments). It resolves the real
+		// file for any media type, and returns '' if the viewer may not see it (in
+		// which case the item was already filtered out of the gallery upstream).
+		if ( '' === $url && method_exists( $repo, 'get_url_for_viewer' ) ) {
+			$url = (string) $repo->get_url_for_viewer( $media_id );
 		}
 
 		return array(
