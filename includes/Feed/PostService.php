@@ -1324,6 +1324,35 @@ class PostService {
 	}
 
 	/**
+	 * Resolve the feed card id for a content type + external link, or 0.
+	 *
+	 * The read-side counterpart to exists_by_link(): a bridge that must act ON the
+	 * card (e.g. mirror a partner reply as a comment on it) needs its id, not just
+	 * whether it exists. Keeps raw bn_posts access inside the service layer.
+	 *
+	 * @param string $type     Post type marker (e.g. 'discussion').
+	 * @param string $link_url Canonical link the card points at.
+	 * @return int Card id, or 0 when no card matches.
+	 */
+	public function get_id_by_link( string $type, string $link_url ): int {
+		if ( '' === $type || '' === $link_url ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_posts WHERE type = %s AND link_url = %s LIMIT 1",
+				$type,
+				$link_url
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
 	 * Delete feed cards matching a content type and external link.
 	 *
 	 * Used by integration bridges (e.g. Career Board) to remove the feed card
