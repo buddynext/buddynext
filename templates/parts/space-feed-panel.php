@@ -67,17 +67,17 @@ $bn_classes = array_filter( (array) $args['classes'], 'is_string' );
 /** Computed root-class list. @var array<int,string> $bn_classes */
 $bn_classes = (array) apply_filters( 'buddynext_part_space_feed_panel_classes', $bn_classes, $args );
 
-$bn_space       = $args['space'];
-$bn_space_id    = (int) $args['space_id'];
-$bn_viewer_id   = (int) $args['viewer_id'];
-$bn_is_member   = (bool) $args['is_member'];
-$bn_can_post    = (bool) $args['can_post'];
-$bn_is_guest    = (bool) $args['is_guest'];
-$bn_is_pending  = (bool) $args['is_pending'];
-$bn_is_archived = (bool) $args['is_archived'];
-$bn_posts       = (array) $args['posts'];
+$bn_space        = $args['space'];
+$bn_space_id     = (int) $args['space_id'];
+$bn_viewer_id    = (int) $args['viewer_id'];
+$bn_is_member    = (bool) $args['is_member'];
+$bn_can_post     = (bool) $args['can_post'];
+$bn_is_guest     = (bool) $args['is_guest'];
+$bn_is_pending   = (bool) $args['is_pending'];
+$bn_is_archived  = (bool) $args['is_archived'];
+$bn_posts        = (array) $args['posts'];
 $bn_pinned_posts = (array) $args['pinned_posts'];
-$bn_user        = $args['current_user'];
+$bn_user         = $args['current_user'];
 
 $bn_wrap_class = trim(
 	implode(
@@ -162,18 +162,48 @@ if ( ! empty( $bn_pinned_posts ) ) :
 	$bn_pinned_total   = count( $bn_pinned_posts );
 	$bn_pinned_visible = 3;
 
+	// Who can unpin from the strip, mirroring the full post card's Pin/Unpin
+	// affordance (post-card.php: own post OR site admin). Without this the pinned
+	// strip was a dead end — a pinned post was pulled out of the feed (so its
+	// normal card, which carries the kebab Unpin, never rendered) and the compact
+	// card had no controls, leaving no way to unpin from the UI.
+	$bn_pin_viewer   = get_current_user_id();
+	$bn_pin_is_admin = $bn_pin_viewer > 0 && user_can( $bn_pin_viewer, 'manage_options' );
+	$bn_pin_nonce    = $bn_pin_viewer > 0 ? wp_create_nonce( 'wp_rest' ) : '';
+
 	/**
 	 * Render one compact pinned-post card.
 	 *
 	 * @param object $bn_pinned Hydrated pinned post (with author_name).
 	 * @return void
 	 */
-	$bn_render_pinned = static function ( $bn_pinned ): void {
+	$bn_render_pinned = static function ( $bn_pinned ) use ( $bn_pin_viewer, $bn_pin_is_admin, $bn_pin_nonce ): void {
+		$bn_pid       = (int) ( $bn_pinned->id ?? 0 );
+		$bn_can_unpin = $bn_pin_viewer > 0 && $bn_pid > 0
+			&& ( (int) ( $bn_pinned->user_id ?? 0 ) === $bn_pin_viewer || $bn_pin_is_admin );
+		// The unpin button reuses the post-card store's REST unpin + reloads so the
+		// card leaves the strip and reappears in the feed. Each eligible card is its
+		// own Interactivity island carrying the post id + REST nonce.
+		$bn_pin_ctx = (string) wp_json_encode(
+			array(
+				'postId'     => $bn_pid,
+				'reactNonce' => $bn_pin_nonce,
+			)
+		);
 		?>
-		<div class="bn-card bn-sh-pinned">
+		<div class="bn-card bn-sh-pinned"
+			<?php if ( $bn_can_unpin ) : ?>
+			data-wp-interactive="buddynext/post-card" data-wp-context='<?php echo esc_attr( $bn_pin_ctx ); ?>'
+			<?php endif; ?>
+		>
 			<div class="bn-sh-pinned__label">
 				<?php buddynext_icon( 'bookmark' ); ?>
 				<?php esc_html_e( 'Pinned', 'buddynext' ); ?>
+				<?php if ( $bn_can_unpin ) : ?>
+					<button type="button" class="bn-sh-pinned__unpin" data-wp-on--click="actions.unpinPinnedFromStrip" aria-label="<?php esc_attr_e( 'Unpin this post', 'buddynext' ); ?>">
+						<?php buddynext_icon( 'x' ); ?><span><?php esc_html_e( 'Unpin', 'buddynext' ); ?></span>
+					</button>
+				<?php endif; ?>
 			</div>
 			<p class="bn-sh-pinned__title"><?php echo esc_html( wp_trim_words( $bn_pinned->content ?? '', 24 ) ); ?></p>
 			<p class="bn-sh-pinned__meta">

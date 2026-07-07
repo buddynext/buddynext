@@ -1696,6 +1696,31 @@ store( 'buddynext/post-card', {
 				bnToast( t( 'pinStatusFailed', 'Could not change pin status. Try again.' ), { tone: 'danger' } );
 			}
 		},
+		* unpinPinnedFromStrip() {
+			// Unpin from the compact pinned strip (space feed). The strip and the
+			// feed are server-rendered and the post moves between them on unpin, so
+			// reload on success to reflect the new placement.
+			const ctx = getContext();
+			try {
+				const res = yield restFetch( '/posts/' + ctx.postId + '/pin', {
+					method:  'DELETE',
+					nonce:   ctx.reactNonce,
+					toastOnError: false,
+				} );
+				if ( res.ok ) {
+					bnToast( t( 'postUnpinned', 'Post unpinned' ), { tone: 'success' } );
+					window.location.reload();
+				} else {
+					let message = t( 'postUnpinFailed', 'Could not unpin this post. Try again.' );
+					if ( res.data && res.data.message ) {
+						message = res.data.message;
+					}
+					bnToast( message, { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( t( 'pinStatusFailed', 'Could not change pin status. Try again.' ), { tone: 'danger' } );
+			}
+		},
 		* loadComments() {
 			yield* bnLoadComments( getContext() );
 		},
