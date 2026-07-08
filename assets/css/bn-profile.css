@@ -1909,6 +1909,50 @@ a.bn-space-row:hover .bn-space-name {
 	cursor: pointer;
 }
 
+/* Cover action cluster — Remove + Change sit as a right-aligned flex row so the
+   variable-width "Change cover" label never has to be measured for positioning. */
+.bn-pf-cover__actions {
+	position: absolute;
+	inset-block-end: var(--bn-s3);
+	inset-inline-end: var(--bn-s3);
+	z-index: 2;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+}
+/* The edit button now flows inside the flex row instead of positioning itself. */
+.bn-pf-cover__actions .bn-pf-cover__edit {
+	position: static;
+	inset: auto;
+}
+.bn-ep-cover-remove {
+	width: 40px;
+	height: 40px;
+	border-radius: var(--bn-r-full);
+	background: color-mix(in oklch, var(--bn-ink) 75%, transparent);
+	color: var(--bn-surface);
+	border: none;
+	box-shadow: var(--bn-shadow-sm);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: background var(--bn-dur-fast) var(--bn-ease), color var(--bn-dur-fast) var(--bn-ease);
+}
+.bn-ep-cover-remove svg {
+	width: 16px;
+	height: 16px;
+	stroke: currentColor;
+	fill: none;
+}
+.bn-ep-cover-remove:hover,
+.bn-ep-cover-remove:focus-visible {
+	background: var(--bn-danger);
+	color: var(--bn-accent-fg);
+}
+.bn-ep-cover-remove:focus-visible { box-shadow: var(--bn-ring); outline: none; }
+.bn-ep-cover-remove[hidden] { display: none; }
+
 .bn-ep-hero-id {
 	min-width: 0;
 	padding-block-start: var(--bn-s4);
