@@ -74,7 +74,11 @@
 }
 
 .bn-tab.bn-sd-chip {
-	padding: var(--bn-s2) var(--bn-s4);
+	/* Wider pill padding: set the shared --bn-tab-px token only — the base .bn-tab
+	   rule AND the .bn-app theme-defense lock both read it, so rest and hover stay
+	   in sync automatically (no separate per-state re-lock needed). */
+	--bn-tab-px: var(--bn-s4);
+	padding: var(--bn-s2) var(--bn-tab-px);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-full);
 	background: var(--bn-surface);
@@ -99,20 +103,6 @@
 .bn-tab.bn-sd-chip:hover {
 	border-color: var(--bn-line-strong);
 	color: var(--bn-ink);
-}
-/* Lock the chip's wider padding on EVERY interactive state. The base .bn-tab
-   theme-defense in bn-base.css pins `.bn-app .bn-tab:hover|:focus|:active` to the
-   narrower default padding (0,3,0) to stop a host theme reflowing the tab row —
-   but that also out-specified this chip variant's 16px inline padding (0,2,0),
-   so the pill snapped 16px→12px on hover and appeared to shrink/vibrate. Re-pin
-   the chip padding at matching (0,3,1) specificity so it holds at rest AND on
-   hover/focus/active. */
-.bn-app .bn-tab.bn-sd-chip,
-.bn-app .bn-tab.bn-sd-chip:hover,
-.bn-app .bn-tab.bn-sd-chip:focus,
-.bn-app .bn-tab.bn-sd-chip:active,
-.bn-app .bn-tab.bn-sd-chip:focus-visible {
-	padding: var(--bn-s2) var(--bn-s4);
 }
 
 .bn-tab.bn-sd-chip[aria-selected="true"] {
