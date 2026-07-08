@@ -118,7 +118,7 @@ class Installer {
 	 *      converged to the Installer seed (one canonical schema from either
 	 *      provisioning path).
 	 */
-	private const SCHEMA_VERSION = 25;
+	private const SCHEMA_VERSION = 26;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -232,6 +232,14 @@ class Installer {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query( "DELETE FROM {$wpdb->usermeta} WHERE meta_key = 'bn_suspended'" );
 
+		// v26: strip default-matching nav label overrides. The Navigation admin
+		// previously persisted every tab's label — including un-renamed core tabs —
+		// which baked the admin-locale string into buddynext_nav_overrides* and made
+		// the front-end rail / profile tabs ignore translations. Clear labels that
+		// still equal their default so those tabs resolve their translatable __()
+		// label again; genuine renames and custom tabs are untouched. Idempotent.
+		self::maybe_migrate_nav_default_labels();
+
 		// v24: one-time Unicode hashtag re-sync (R11). The legacy sanitize_key()
 		// normalizer stripped every non-ASCII byte, so "#café" was stored as "caf"
 		// and "#日本語" was dropped. The canonical HashtagService::normalize_slug()
@@ -241,6 +249,73 @@ class Installer {
 		self::schedule_hashtag_resync();
 
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * Clear default-matching nav label overrides so translated tabs render (v26).
+	 *
+	 * The Navigation admin used to persist a label for every tab, including core
+	 * tabs the owner never renamed. Those stored labels (the admin-locale default
+	 * strings) then overrode the front-end's translatable __() labels, so the rail
+	 * and profile tabs showed English on a translated site. This strips any core-tab
+	 * label that still equals its default; genuine renames and custom-tab labels are
+	 * preserved. Compares against both the current locale and the en_US source
+	 * strings so English-seeded and same-locale-seeded installs are both cleaned;
+	 * any residual self-heals on the next Navigation save. Idempotent.
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_nav_default_labels(): void {
+		if ( ! class_exists( '\BuddyNext\Admin\NavManager' ) ) {
+			return;
+		}
+
+		$scope_option = array(
+			'main'    => 'buddynext_nav_overrides',
+			'profile' => 'buddynext_nav_overrides_profile',
+			'space'   => 'buddynext_nav_overrides_space',
+			'mobile'  => 'buddynext_nav_overrides_mobile',
+		);
+
+		$manager   = new \BuddyNext\Admin\NavManager();
+		$switch_en = get_locale() !== 'en_US' && function_exists( 'switch_to_locale' );
+
+		foreach ( $scope_option as $scope => $option_key ) {
+			$stored = get_option( $option_key, null );
+			if ( ! is_array( $stored ) || empty( $stored ) ) {
+				continue;
+			}
+
+			$defaults_current = $manager->default_label_map( $scope );
+			$defaults_en      = $defaults_current;
+			if ( $switch_en ) {
+				switch_to_locale( 'en_US' );
+				$defaults_en = $manager->default_label_map( $scope );
+				restore_previous_locale();
+			}
+
+			$changed = false;
+			foreach ( $stored as $slug => $ov ) {
+				if ( ! is_array( $ov ) || ! empty( $ov['custom'] ) ) {
+					continue; // Never touch custom-tab labels (they have no __() default).
+				}
+				$label = (string) ( $ov['label'] ?? '' );
+				if ( '' === $label ) {
+					continue;
+				}
+				$slug = (string) $slug;
+				if ( (string) ( $defaults_current[ $slug ] ?? '' ) === $label
+					|| (string) ( $defaults_en[ $slug ] ?? '' ) === $label
+				) {
+					$stored[ $slug ]['label'] = '';
+					$changed                  = true;
+				}
+			}
+
+			if ( $changed ) {
+				update_option( $option_key, $stored );
+			}
+		}
 	}
 
 	/**
