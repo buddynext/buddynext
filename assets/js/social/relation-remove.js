@@ -72,7 +72,11 @@ function installRelationRemove() {
 		} catch ( _e ) {
 			btn.disabled = false;
 			if ( typeof window.bnToast === 'function' ) {
-				window.bnToast( 'Could not update. Try again.', { tone: 'danger' } );
+				// This side-effect module is not an Interactivity store, so it reads
+				// its one string from the shell dictionary (PageRouter bnShellData.i18n)
+				// with an English fallback — see assets/js/shell/dialog.js si().
+				const dict = ( window.bnShellData && window.bnShellData.i18n ) || {};
+				window.bnToast( dict.updateFailed || 'Could not update. Try again.', { tone: 'danger' } );
 			}
 		}
 	} );

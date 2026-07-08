@@ -17,6 +17,26 @@
  */
 
 /**
+ * Read a shell-level translated string from window.bnShellData.i18n, falling
+ * back to the English literal when the dictionary (or key) is absent.
+ *
+ * dialog.js is framework-agnostic — it is NOT an Interactivity Script Module, so
+ * it cannot read a per-store wp_interactivity_state() i18n dict. Its own default
+ * labels, and the report-reason list that no caller can reach, are translated
+ * server-side in PageRouter ($bn_shell_data['i18n']) and read here. Callers that
+ * pass a translated opt still override the default; this only localizes the
+ * fallbacks and the internal report-reason strings.
+ *
+ * @param {string} key      Dictionary key (see PageRouter $bn_shell_data['i18n']).
+ * @param {string} fallback English fallback when the dictionary is unavailable.
+ * @return {string}
+ */
+function si( key, fallback ) {
+	const dict = ( typeof window !== 'undefined' && window.bnShellData && window.bnShellData.i18n ) || {};
+	return ( typeof dict[ key ] === 'string' && dict[ key ] ) ? dict[ key ] : fallback;
+}
+
+/**
  * Build the modal frame shared by bnConfirm and bnPrompt.
  *
  * @param {Object} opts
@@ -30,8 +50,8 @@
  */
 function buildModalFrame( opts ) {
 	const tone         = opts.tone || 'default';
-	const confirmLabel = opts.confirmLabel || 'Confirm';
-	const cancelLabel  = opts.cancelLabel || 'Cancel';
+	const confirmLabel = opts.confirmLabel || si( 'confirm', 'Confirm' );
+	const cancelLabel  = opts.cancelLabel || si( 'cancel', 'Cancel' );
 
 	const titleId = 'bn-modal-title-' + Math.random().toString( 36 ).slice( 2, 10 );
 
@@ -60,7 +80,7 @@ function buildModalFrame( opts ) {
 	const closeBtn = document.createElement( 'button' );
 	closeBtn.type = 'button';
 	closeBtn.className = 'bn-modal__close';
-	closeBtn.setAttribute( 'aria-label', 'Close' );
+	closeBtn.setAttribute( 'aria-label', si( 'close', 'Close' ) );
 	closeBtn.textContent = '×';
 	head.appendChild( closeBtn );
 
@@ -289,20 +309,20 @@ export function bnPrompt( opts ) {
  */
 export function bnReportDialog( opts ) {
 	const cfg = Object.assign( {
-		title:        'Report',
-		body:         'Reports are reviewed by moderators. The person you report is not notified.',
-		confirmLabel: 'Submit report',
-		cancelLabel:  'Cancel',
+		title:        si( 'reportTitle', 'Report' ),
+		body:         si( 'reportBody', 'Reports are reviewed by moderators. The person you report is not notified.' ),
+		confirmLabel: si( 'reportSubmit', 'Submit report' ),
+		cancelLabel:  si( 'cancel', 'Cancel' ),
 		tone:         'default',
 	}, opts || {} );
 
 	const REASONS = [
-		[ 'spam',           'Spam' ],
-		[ 'harassment',     'Harassment or hate speech' ],
-		[ 'misinformation', 'Misinformation' ],
-		[ 'inappropriate',  'Inappropriate content' ],
-		[ 'impersonation',  'Impersonation' ],
-		[ 'other',          'Something else' ],
+		[ 'spam',           si( 'reasonSpam', 'Spam' ) ],
+		[ 'harassment',     si( 'reasonHarassment', 'Harassment or hate speech' ) ],
+		[ 'misinformation', si( 'reasonMisinformation', 'Misinformation' ) ],
+		[ 'inappropriate',  si( 'reasonInappropriate', 'Inappropriate content' ) ],
+		[ 'impersonation',  si( 'reasonImpersonation', 'Impersonation' ) ],
+		[ 'other',          si( 'reasonOther', 'Something else' ) ],
 	];
 
 	const wrap = document.createElement( 'div' );
@@ -312,7 +332,7 @@ export function bnReportDialog( opts ) {
 	wrap.style.marginTop = '12px';
 
 	const reasonLabel = document.createElement( 'label' );
-	reasonLabel.textContent = 'Reason';
+	reasonLabel.textContent = si( 'reportReasonLabel', 'Reason' );
 	reasonLabel.style.fontWeight = '600';
 	reasonLabel.style.fontSize = '13px';
 	const select = document.createElement( 'select' );
@@ -325,14 +345,14 @@ export function bnReportDialog( opts ) {
 	} );
 
 	const notesLabel = document.createElement( 'label' );
-	notesLabel.textContent = 'Additional details (optional)';
+	notesLabel.textContent = si( 'reportNotesLabel', 'Additional details (optional)' );
 	notesLabel.style.fontWeight = '600';
 	notesLabel.style.fontSize = '13px';
 	const notes = document.createElement( 'textarea' );
 	notes.className = 'bn-textarea';
 	notes.rows = 3;
 	notes.maxLength = 500;
-	notes.placeholder = 'Tell us more about what you saw…';
+	notes.placeholder = si( 'reportNotesPlaceholder', 'Tell us more about what you saw…' );
 	notes.style.width = '100%';
 	notes.style.resize = 'vertical';
 
@@ -396,11 +416,11 @@ export function bnReportDialog( opts ) {
  */
 export function bnConnectNoteDialog( opts ) {
 	const cfg = Object.assign( {
-		title:        'Add a note',
-		body:         'Add a personal message to your connection request, or send it without one.',
-		confirmLabel: 'Send request',
-		cancelLabel:  'Cancel',
-		placeholder:  'e.g. We met at the design meetup — I’d love to stay connected.',
+		title:        si( 'connectTitle', 'Add a note' ),
+		body:         si( 'connectBody', 'Add a personal message to your connection request, or send it without one.' ),
+		confirmLabel: si( 'connectSubmit', 'Send request' ),
+		cancelLabel:  si( 'cancel', 'Cancel' ),
+		placeholder:  si( 'connectPlaceholder', 'e.g. We met at the design meetup — I’d love to stay connected.' ),
 		tone:         'default',
 	}, opts || {} );
 

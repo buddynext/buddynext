@@ -972,6 +972,40 @@ class PageRouter {
 		// wp_enqueue_scripts (priority 20), once the handle exists.
 		$bn_shell_data = array(
 			'restNonce'          => wp_create_nonce( 'wp_rest' ),
+			// Shell-level string dictionary for the framework-agnostic JS helpers
+			// (assets/js/shell/dialog.js, assets/js/social/relation-remove.js).
+			// Those helpers build DOM directly and are not Interactivity Script
+			// Modules, so they cannot read a per-store wp_interactivity_state() dict.
+			// They read window.bnShellData.i18n.<key> here (English literal kept as a
+			// JS fallback). The report-reason list in particular is internal to
+			// dialog.js and unreachable from any caller — this is its only translatable
+			// source. Keep in sync with the keys read in those two files.
+			'i18n'               => array(
+				// Shared modal frame.
+				'close'                  => __( 'Close', 'buddynext' ),
+				'confirm'                => __( 'Confirm', 'buddynext' ),
+				'cancel'                 => __( 'Cancel', 'buddynext' ),
+				// Report dialog.
+				'reportTitle'            => __( 'Report', 'buddynext' ),
+				'reportBody'             => __( 'Reports are reviewed by moderators. The person you report is not notified.', 'buddynext' ),
+				'reportSubmit'           => __( 'Submit report', 'buddynext' ),
+				'reportReasonLabel'      => __( 'Reason', 'buddynext' ),
+				'reportNotesLabel'       => __( 'Additional details (optional)', 'buddynext' ),
+				'reportNotesPlaceholder' => __( 'Tell us more about what you saw…', 'buddynext' ),
+				'reasonSpam'             => __( 'Spam', 'buddynext' ),
+				'reasonHarassment'       => __( 'Harassment or hate speech', 'buddynext' ),
+				'reasonMisinformation'   => __( 'Misinformation', 'buddynext' ),
+				'reasonInappropriate'    => __( 'Inappropriate content', 'buddynext' ),
+				'reasonImpersonation'    => __( 'Impersonation', 'buddynext' ),
+				'reasonOther'            => __( 'Something else', 'buddynext' ),
+				// Connection-note dialog.
+				'connectTitle'           => __( 'Add a note', 'buddynext' ),
+				'connectBody'            => __( 'Add a personal message to your connection request, or send it without one.', 'buddynext' ),
+				'connectSubmit'          => __( 'Send request', 'buddynext' ),
+				'connectPlaceholder'     => __( 'e.g. We met at the design meetup — I’d love to stay connected.', 'buddynext' ),
+				// Generic fallback toast (relation-remove.js).
+				'updateFailed'           => __( 'Could not update. Try again.', 'buddynext' ),
+			),
 			'restSearchUrl'      => esc_url_raw( rest_url( 'buddynext/v1/search' ) ),
 			'restNotifsUrl'      => esc_url_raw( rest_url( 'buddynext/v1/me/notifications?per_page=5' ) ),
 			'restNotifsReadUrl'  => esc_url_raw( rest_url( 'buddynext/v1/me/notifications/read-all' ) ),

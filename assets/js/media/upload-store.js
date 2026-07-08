@@ -388,7 +388,7 @@ function bindRegionDelete() {
 			}
 			bnToast( t( 'removed', 'Media removed.' ), { tone: 'success' } );
 		} else {
-			bnToast( t( 'failed', 'Could not remove.' ), { tone: 'danger' } );
+			bnToast( t( 'removeFailed', 'Could not remove.' ), { tone: 'danger' } );
 		}
 	} );
 }

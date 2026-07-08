@@ -46,6 +46,7 @@ $bn_mu_ctx = array(
 		'confirmDeleteTitle' => __( 'Remove this media?', 'buddynext' ),
 		'confirmDeleteBody'  => __( 'This cannot be undone.', 'buddynext' ),
 		'removed'            => __( 'Media removed.', 'buddynext' ),
+		'removeFailed'       => __( 'Could not remove.', 'buddynext' ),
 	),
 );
 ?>

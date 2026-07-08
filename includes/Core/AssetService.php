@@ -827,6 +827,18 @@ class AssetService {
 					'oneNewComment'           => __( '1 new comment — show', 'buddynext' ),
 					/* translators: %d: number of new comments */
 					'manyNewComments'         => __( '%d new comments — show', 'buddynext' ),
+					// Report button + comment loader + poll results + composer validation.
+					// These keys are read by feed/store.js via t() but were never injected,
+					// so they always rendered the English JS fallback regardless of locale.
+					'reported'                => __( 'Reported', 'buddynext' ),
+					'reportAlready'           => __( 'You already reported this.', 'buddynext' ),
+					'viewMoreComments'        => __( 'View more comments', 'buddynext' ),
+					'loadingComments'         => __( 'Loading…', 'buddynext' ),
+					'oneVote'                 => __( '1 vote', 'buddynext' ),
+					/* translators: %d: number of votes */
+					'manyVotes'               => __( '%d votes', 'buddynext' ),
+					'pollNeedsQuestion'       => __( 'Add a question for your poll.', 'buddynext' ),
+					'composerEmpty'           => __( 'Write something to share.', 'buddynext' ),
 				),
 			)
 		);
@@ -1003,6 +1015,14 @@ class AssetService {
 					'iconRemoved'                     => __( 'Icon removed.', 'buddynext' ),
 					'networkError'                    => __( 'Network error.', 'buddynext' ),
 					'networkErrorRetry'               => __( 'Network error. Please try again.', 'buddynext' ),
+					// Spaces directory card meta + keyset pager. Read by spaces/store.js
+					// via t() but never injected, so they always rendered English.
+					/* translators: %d: number of sub-spaces */
+					'subspaceCountOne'                => __( '%d sub-space', 'buddynext' ),
+					/* translators: %d: number of sub-spaces */
+					'subspacesCount'                  => __( '%d sub-spaces', 'buddynext' ),
+					'pagerLabel'                      => __( 'Spaces directory pages', 'buddynext' ),
+					'nextPage'                        => __( 'Next ›', 'buddynext' ),
 				),
 			)
 		);
@@ -1062,6 +1082,20 @@ class AssetService {
 					'reportConversationTitle'   => __( 'Report this conversation', 'buddynext' ),
 					'reportConversationSuccess' => __( 'Reported. Our moderators will review it.', 'buddynext' ),
 					'reportConversationFailed'  => __( 'Could not submit the report. Try again.', 'buddynext' ),
+					// Delete + unsend message flow. Read by messages/store.js via t() but
+					// never injected, so the entire delete/unsend UX rendered English.
+					'deleteMsgTitle'            => __( 'Delete this message?', 'buddynext' ),
+					'deleteMsgBody'             => __( 'This removes the message for everyone and leaves a "message deleted" note. This cannot be undone.', 'buddynext' ),
+					'deleteMsgConfirm'          => __( 'Delete', 'buddynext' ),
+					'msgDeleted'                => __( 'This message was deleted', 'buddynext' ),
+					'deleteMsgNotSender'        => __( 'You can only delete your own messages.', 'buddynext' ),
+					'deleteMsgFailed'           => __( 'Could not delete the message. Try again.', 'buddynext' ),
+					'unsendMsgTitle'            => __( 'Unsend this message?', 'buddynext' ),
+					'unsendMsgBody'             => __( 'This removes the message for everyone, with no trace. Unsend only works for a short time after sending.', 'buddynext' ),
+					'unsendMsgConfirm'          => __( 'Unsend', 'buddynext' ),
+					'unsendMsgExpired'          => __( 'The time to unsend this message has passed. You can still delete it.', 'buddynext' ),
+					'unsendMsgNotSender'        => __( 'You can only unsend your own messages.', 'buddynext' ),
+					'unsendMsgFailed'           => __( 'Could not unsend the message. Try again.', 'buddynext' ),
 				),
 			)
 		);
@@ -1207,6 +1241,15 @@ class AssetService {
 					'twofaDisableFailed'         => __( 'Could not turn off two-factor.', 'buddynext' ),
 					'unblocked'                  => __( 'Unblocked', 'buddynext' ),
 					'unblockFailed'              => __( 'Could not unblock', 'buddynext' ),
+					// Per-field visibility selector (edit profile). Read by profile/store.js
+					// via t() but never injected, so the picker labels always rendered
+					// English regardless of locale.
+					'visWhoCanSee'               => __( 'Who can see this field', 'buddynext' ),
+					'visPublic'                  => __( 'Public', 'buddynext' ),
+					'visMembers'                 => __( 'Members', 'buddynext' ),
+					'visFollowers'               => __( 'Followers', 'buddynext' ),
+					'visConnections'             => __( 'Connections', 'buddynext' ),
+					'visPrivate'                 => __( 'Only me', 'buddynext' ),
 				),
 			)
 		);
