@@ -49,6 +49,32 @@ final class PrivateCommunity {
 	}
 
 	/**
+	 * Whether the current visitor may access the private community.
+	 *
+	 * The single access seam for membership plugins. Defaults to
+	 * is_user_logged_in(); Paid Memberships Pro, WP Fusion, MemberPress, and the
+	 * like filter `buddynext_private_community_can_access` to decide on their own
+	 * terms — e.g. only a logged-in member with an active plan / required tag
+	 * passes. Return false for a logged-in non-member to send them to the login
+	 * (or upgrade) page like a guest; return true to grant access. Applied to BOTH
+	 * the page redirect and the REST 401 gate, so one hook controls the whole
+	 * surface. A deeper first-party PMP / WP Fusion integration is planned; this
+	 * filter is the stable seam it (and any custom membership logic) hangs off.
+	 *
+	 * @return bool
+	 */
+	public static function can_access(): bool {
+		/**
+		 * Filter whether the current visitor may access a private community.
+		 *
+		 * @since 1.0.7
+		 *
+		 * @param bool $can_access Default: whether the visitor is logged in.
+		 */
+		return (bool) apply_filters( 'buddynext_private_community_can_access', is_user_logged_in() );
+	}
+
+	/**
 	 * Wire the REST gate. The page gate lives in
 	 * PageRouter::dispatch_hub_template() (it needs the resolved hub).
 	 *
@@ -72,7 +98,7 @@ final class PrivateCommunity {
 	 * @return mixed Unchanged result, or a 401 WP_Error for a gated route.
 	 */
 	public static function gate_rest( $result, $server, $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- $server is part of the rest_pre_dispatch signature.
-		if ( null !== $result || is_user_logged_in() || ! self::is_enabled() ) {
+		if ( null !== $result || ! self::is_enabled() || self::can_access() ) {
 			return $result;
 		}
 		if ( ! $request instanceof \WP_REST_Request ) {

@@ -253,8 +253,8 @@ class PageRouter {
 		// pages bypassed membership plugins: they are simply unreachable when logged
 		// out. The matching REST data gate lives in PrivateCommunity::gate_rest().
 		if ( 'auth' !== $hub
-			&& ! is_user_logged_in()
 			&& PrivateCommunity::is_enabled()
+			&& ! PrivateCommunity::can_access()
 		) {
 			global $wp;
 			$return = home_url( user_trailingslashit( (string) ( $wp->request ?? '' ) ) );
