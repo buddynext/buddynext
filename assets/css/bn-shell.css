@@ -694,6 +694,17 @@ body.admin-bar .bn-app__rail {
 	color: var(--bn-ink);
 }
 
+/* The flyout title is a sibling of .bn-rail__label (not that class), so it needs
+   its own single-line ellipsis treatment — otherwise it wraps and clips when the
+   rail is narrow (mid-tablet width) instead of truncating like every other label. */
+.bn-rail__spaces-title {
+	flex: 1;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
 .bn-rail__spaces-count {
 	margin-inline-start: auto;
 	font-size: var(--bn-text-xs, 0.6875rem);

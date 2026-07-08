@@ -1597,6 +1597,9 @@ a.bn-space-row:hover .bn-space-name {
 .bn-pf-tasks {
 	list-style: none;
 	margin: 0;
+	/* list-style:none does not remove the UA <ul> inline padding (~40px); reset it
+	   so the checklist sits flush with the card's left edge. */
+	padding-inline: 0;
 	padding-block-start: var(--bn-s3);
 	display: flex;
 	flex-direction: column;
