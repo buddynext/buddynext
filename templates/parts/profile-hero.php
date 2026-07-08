@@ -186,7 +186,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 					style="<?php echo esc_attr( $bn_pf_img_style ); ?>" />
 			<?php endif; ?>
 			<?php if ( $bn_pf_is_owner ) : ?>
-				<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>"
+				<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() . '#cover' ); ?>"
 					class="bn-pf-cover__edit"
 					aria-label="<?php esc_attr_e( 'Edit cover photo', 'buddynext' ); ?>">
 					<?php buddynext_icon( 'edit' ); ?>

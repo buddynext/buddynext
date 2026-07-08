@@ -1144,6 +1144,18 @@ const profileStore = store( 'buddynext/profile', {
 		initEditGuard() {
 			ensureUnloadGuard();
 			wireCurrentToggles();
+			// Honour a #avatar / #cover deep-link (the view-hero "Edit avatar" /
+			// "Edit cover" links land here) by opening the matching file picker, so
+			// the anchor isn't a dead scroll-to-nothing. A short defer lets the
+			// Interactivity store finish binding the inputs first.
+			var bnHash = ( window.location.hash || '' ).toLowerCase();
+			if ( '#avatar' === bnHash || '#cover' === bnHash ) {
+				var bnPickerId = '#avatar' === bnHash ? 'bn-ep-avatar-file' : 'bn-ep-cover-file';
+				setTimeout( function () {
+					var el = document.getElementById( bnPickerId );
+					if ( el ) { el.click(); }
+				}, 200 );
+			}
 		},
 	},
 	actions: {
