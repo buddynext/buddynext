@@ -388,7 +388,7 @@
 		if ( ! list.length ) {
 			var empty = document.createElement( 'p' );
 			empty.className = 'bn-lightbox__comments-empty';
-			empty.textContent = I18N.noComments || 'No comments yet.';
+			empty.textContent = I18N.noComments || 'No comments yet. Be the first to say something!';
 			panel.comments.appendChild( empty );
 			return;
 		}
@@ -424,7 +424,7 @@
 
 	function requireLogin() {
 		if ( LOGGED_IN ) { return true; }
-		if ( window.bnToast ) { window.bnToast( I18N.loginPrompt || 'Log in to interact.', 'info' ); }
+		if ( window.bnToast ) { window.bnToast( I18N.loginPrompt || 'Log in to react and comment.', 'info' ); }
 		return false;
 	}
 

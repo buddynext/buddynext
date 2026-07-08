@@ -467,7 +467,10 @@ class Plugin {
 		add_action( 'buddynext_reindex_all_cron', array( SearchService::class, 'reindex_all_cron' ) );
 
 		// Register navigation menu locations + custom meta box in Appearance > Menus.
-		add_action( 'after_setup_theme', array( new self(), 'register_nav_menus' ) );
+		// On init (>= 11, after load_plugin_textdomain at init:10) so the location
+		// label resolves in the active locale — after_setup_theme fires before the
+		// textdomain loads and tripped _load_textdomain_just_in_time on WP 6.7+.
+		add_action( 'init', array( new self(), 'register_nav_menus' ), 11 );
 		add_action( 'admin_head-nav-menus.php', array( new self(), 'add_nav_menu_meta_box' ) );
 
 		// Level 2 context nav — per-section sub-navigation items.

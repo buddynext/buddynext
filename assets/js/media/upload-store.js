@@ -348,7 +348,7 @@ function enhanceOwnerTiles() {
 		del.type = 'button';
 		del.className = 'bn-media-cell__delete';
 		del.setAttribute( 'data-bn-media-delete', id );
-		del.setAttribute( 'aria-label', t( 'remove', 'Remove media' ) );
+		del.setAttribute( 'aria-label', t( 'remove', 'Remove' ) );
 		del.textContent = '×';
 		cell.appendChild( del );
 	} );

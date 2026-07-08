@@ -341,7 +341,7 @@
 		}
 
 		if ( e.key === '?' && window.bnToast ) {
-			window.bnToast( '/ search  |  n new post  |  g+f feed  |  g+s spaces  |  g+m members' );
+			window.bnToast( __( '/ search  |  n new post  |  g+f feed  |  g+s spaces  |  g+m members', 'buddynext' ) );
 		}
 	} );
 
