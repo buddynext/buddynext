@@ -432,6 +432,15 @@
 .bn-skill-chip:hover {
 	border-color: var(--bn-p-brand);
 }
+/* The light brand tint (--bn-accent-100) does not flip in dark mode, so the
+   chip rendered light-on-dark. Give it a translucent-accent background that
+   reads on dark surfaces. Covers all three dark triggers (the theme-set
+   [data-bx-mode] included) since the accent text is lifted in dark mode. */
+[data-bn-theme="dark"] .bn-skill-chip,
+[data-theme="dark"] .bn-skill-chip,
+[data-bx-mode="dark"] .bn-skill-chip {
+	background: color-mix( in oklab, var(--bn-p-brand) 22%, transparent );
+}
 
 /* Section group heading */
 .bn-profile-group-heading {
