@@ -328,6 +328,72 @@ class CommentService {
 	}
 
 	/**
+	 * Store the paired Jetonomy reply id on a synced comment (feed↔forum sync map).
+	 *
+	 * The reciprocal id lives on the comment row so edit/delete propagation can
+	 * resolve the pair in both directions without a separate table — forward via
+	 * get_sync_reply_id(), reverse via find_by_sync_reply_id(). Written by
+	 * JetonomyBridge at creation time in both sync directions.
+	 *
+	 * @param int $comment_id BuddyNext comment id.
+	 * @param int $reply_id   Paired Jetonomy reply id (must be > 0).
+	 * @return void
+	 */
+	public function set_sync_reply_id( int $comment_id, int $reply_id ): void {
+		if ( $comment_id <= 0 || $reply_id <= 0 ) {
+			return;
+		}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			"{$wpdb->prefix}bn_comments",
+			array( 'sync_reply_id' => $reply_id ),
+			array( 'id' => $comment_id ),
+			array( '%d' ),
+			array( '%d' )
+		);
+	}
+
+	/**
+	 * Read the paired Jetonomy reply id for a comment (0 when unsynced).
+	 *
+	 * Readable even after a soft delete (is_deleted = 1) — the row persists — so
+	 * delete propagation can still resolve the pair.
+	 *
+	 * @param int $comment_id BuddyNext comment id.
+	 * @return int
+	 */
+	public function get_sync_reply_id( int $comment_id ): int {
+		if ( $comment_id <= 0 ) {
+			return 0;
+		}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT sync_reply_id FROM {$wpdb->prefix}bn_comments WHERE id = %d", $comment_id )
+		);
+	}
+
+	/**
+	 * Reverse-resolve the comment paired with a Jetonomy reply (feed↔forum sync map).
+	 *
+	 * @param int $reply_id Jetonomy reply id.
+	 * @return array<string,mixed>|null Hydrated comment, or null when none is paired.
+	 */
+	public function find_by_sync_reply_id( int $reply_id ): ?array {
+		if ( $reply_id <= 0 ) {
+			return null;
+		}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare( "SELECT * FROM {$wpdb->prefix}bn_comments WHERE sync_reply_id = %d LIMIT 1", $reply_id ),
+			ARRAY_A
+		);
+		return null !== $row ? $this->hydrate( $row ) : null;
+	}
+
+	/**
 	 * Update a comment's content.
 	 *
 	 * @param int    $comment_id Comment to update.

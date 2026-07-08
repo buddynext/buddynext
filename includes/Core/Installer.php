@@ -118,7 +118,7 @@ class Installer {
 	 *      converged to the Installer seed (one canonical schema from either
 	 *      provisioning path).
 	 */
-	private const SCHEMA_VERSION = 26;
+	private const SCHEMA_VERSION = 27;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -1851,12 +1851,14 @@ class Installer {
 				content     TEXT NOT NULL,
 				is_edited   TINYINT(1) NOT NULL DEFAULT 0,
 				is_deleted  TINYINT(1) NOT NULL DEFAULT 0,
+				sync_reply_id BIGINT(20) UNSIGNED DEFAULT NULL,
 				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				KEY         thread (object_type, object_id, parent_id, created_at),
 				KEY         user (user_id),
-				KEY         deleted (is_deleted)
+				KEY         deleted (is_deleted),
+				KEY         sync_reply (sync_reply_id)
 			) {$cs};",
 
 			// ── Hashtags ───────────────────────────────────────────────────────

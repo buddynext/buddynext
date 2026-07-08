@@ -112,6 +112,15 @@ class JetonomyBridge {
 		add_action( 'buddynext_comment_created', array( $this, 'sync_comment_to_forum' ), 10, 4 );
 		add_action( 'jetonomy_after_create_reply', array( $this, 'sync_reply_to_feed' ), 10, 2 );
 
+		// Edit + delete propagation, both directions, resolved through the pair id
+		// stored on the comment at creation (bn_comments.sync_reply_id). Same static
+		// guard blocks the reciprocal mirror. Without this the surfaces desync — an
+		// edit/delete on one side leaves the other side stale.
+		add_action( 'buddynext_comment_updated', array( $this, 'sync_comment_edit_to_forum' ), 10, 1 );
+		add_action( 'buddynext_comment_deleted', array( $this, 'sync_comment_delete_to_forum' ), 10, 1 );
+		add_action( 'jetonomy_reply_updated', array( $this, 'sync_reply_edit_to_feed' ), 10, 1 );
+		add_action( 'jetonomy_after_delete_reply', array( $this, 'sync_reply_delete_to_feed' ), 10, 1 );
+
 		// App coverage: REST to provision/fetch a space's forum URL.
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
 
@@ -925,6 +934,9 @@ class JetonomyBridge {
 			)
 		);
 		if ( ! is_wp_error( $reply_id ) && (int) $reply_id > 0 ) {
+			// Persist the pair on the comment so edit/delete can propagate later
+			// (both directions resolve through bn_comments.sync_reply_id).
+			( new \BuddyNext\Comments\CommentService() )->set_sync_reply_id( $comment_id, (int) $reply_id );
 			// Fire the same post-create signal Jetonomy's REST reply path fires so the
 			// engine's own listeners (notifications, activity, counts) treat this reply
 			// like any other. The reciprocal handler bails on self::$syncing.
@@ -967,7 +979,118 @@ class JetonomyBridge {
 		self::$syncing = true;
 		// CommentService applies its own permission/verification gate and sanitizes;
 		// a WP_Error (e.g. an unverified author) simply means no mirrored comment.
-		( new \BuddyNext\Comments\CommentService() )->create( $author_id, 'post', $card_id, $content );
+		$comments   = new \BuddyNext\Comments\CommentService();
+		$comment_id = $comments->create( $author_id, 'post', $card_id, $content );
+		if ( ! is_wp_error( $comment_id ) && (int) $comment_id > 0 ) {
+			// Persist the pair so edit/delete propagate in both directions.
+			$comments->set_sync_reply_id( (int) $comment_id, $reply_id );
+		}
+		self::$syncing = false;
+	}
+
+	/**
+	 * Two-way sync — editing a feed comment updates the mirrored forum reply.
+	 * Fires on `buddynext_comment_updated`. Resolves the pair via the comment's
+	 * sync_reply_id; a no-op for unsynced comments. Reply::update is model-level
+	 * (fires no controller hook), so it cannot loop back.
+	 *
+	 * @param int $comment_id Edited comment id.
+	 * @return void
+	 */
+	public function sync_comment_edit_to_forum( int $comment_id ): void {
+		if ( self::$syncing || $comment_id <= 0 || ! class_exists( '\Jetonomy\Models\Reply' ) ) {
+			return;
+		}
+		$comments = new \BuddyNext\Comments\CommentService();
+		$reply_id = $comments->get_sync_reply_id( $comment_id );
+		if ( $reply_id <= 0 ) {
+			return;
+		}
+		$comment = $comments->get( $comment_id );
+		$content = null !== $comment ? trim( (string) ( $comment['content'] ?? '' ) ) : '';
+		if ( '' === $content ) {
+			return;
+		}
+		self::$syncing = true;
+		\Jetonomy\Models\Reply::update(
+			$reply_id,
+			array(
+				'content'       => wp_kses_post( $content ),
+				'content_plain' => wp_strip_all_tags( $content ),
+			)
+		);
+		self::$syncing = false;
+	}
+
+	/**
+	 * Two-way sync — deleting a feed comment removes the mirrored forum reply.
+	 * Fires on `buddynext_comment_deleted`. The comment is soft-deleted (row
+	 * persists), so its sync_reply_id is still readable at delete time.
+	 *
+	 * @param int $comment_id Deleted comment id.
+	 * @return void
+	 */
+	public function sync_comment_delete_to_forum( int $comment_id ): void {
+		if ( self::$syncing || $comment_id <= 0 || ! class_exists( '\Jetonomy\Models\Reply' ) ) {
+			return;
+		}
+		$reply_id = ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( $comment_id );
+		if ( $reply_id <= 0 ) {
+			return;
+		}
+		self::$syncing = true;
+		\Jetonomy\Models\Reply::delete( $reply_id );
+		self::$syncing = false;
+	}
+
+	/**
+	 * Two-way sync — editing a forum reply updates the mirrored feed comment.
+	 * Fires on `jetonomy_reply_updated`. Resolves the pair via find_by_sync_reply_id
+	 * and updates as the comment's own author so BuddyNext's ownership gate passes.
+	 * CommentService::update fires buddynext_comment_updated, which the guard blocks.
+	 *
+	 * @param int $reply_id Edited reply id.
+	 * @return void
+	 */
+	public function sync_reply_edit_to_feed( int $reply_id ): void {
+		if ( self::$syncing || $reply_id <= 0 ) {
+			return;
+		}
+		$comments = new \BuddyNext\Comments\CommentService();
+		$comment  = $comments->find_by_sync_reply_id( $reply_id );
+		if ( null === $comment ) {
+			return;
+		}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$content = trim( (string) $wpdb->get_var( $wpdb->prepare( "SELECT content FROM {$wpdb->prefix}jt_replies WHERE id = %d LIMIT 1", $reply_id ) ) );
+		if ( '' === $content ) {
+			return;
+		}
+		self::$syncing = true;
+		$comments->update( (int) $comment['id'], (int) $comment['user_id'], $content );
+		self::$syncing = false;
+	}
+
+	/**
+	 * Two-way sync — deleting a forum reply removes the mirrored feed comment.
+	 * Fires on `jetonomy_after_delete_reply`. Deletes as the comment's own author.
+	 * CommentService::delete fires buddynext_comment_deleted, which the guard blocks.
+	 *
+	 * @param int $reply_id Deleted reply id.
+	 * @return void
+	 */
+	public function sync_reply_delete_to_feed( int $reply_id ): void {
+		if ( self::$syncing || $reply_id <= 0 ) {
+			return;
+		}
+		$comments = new \BuddyNext\Comments\CommentService();
+		$comment  = $comments->find_by_sync_reply_id( $reply_id );
+		if ( null === $comment ) {
+			return;
+		}
+		self::$syncing = true;
+		$comments->delete( (int) $comment['id'], (int) $comment['user_id'] );
 		self::$syncing = false;
 	}
 
