@@ -245,6 +245,23 @@ class PageRouter {
 			set_query_var( 'bn_hub', $hub );
 		}
 
+		// Private-community lockdown: when enabled, every hub requires login except
+		// the auth hub (login / register / reset / verify). A logged-out visitor on
+		// any other hub — feed, members, a single profile, spaces, notifications,
+		// settings, search … — is sent to the auth page with a redirect_to back to
+		// the page they wanted. This closes the routing gap where BuddyNext's own
+		// pages bypassed membership plugins: they are simply unreachable when logged
+		// out. The matching REST data gate lives in PrivateCommunity::gate_rest().
+		if ( 'auth' !== $hub
+			&& ! is_user_logged_in()
+			&& PrivateCommunity::is_enabled()
+		) {
+			global $wp;
+			$return = home_url( user_trailingslashit( (string) ( $wp->request ?? '' ) ) );
+			wp_safe_redirect( add_query_arg( 'redirect_to', rawurlencode( $return ), self::auth_url() ) );
+			exit;
+		}
+
 		// Feature guard: a hub whose feature the admin has disabled must not
 		// render. Spaces is the toggleable hub (FeatureRegistry 'spaces',
 		// default-on) — when it is off, send visitors to the activity hub
