@@ -481,7 +481,8 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	}
 
 	[data-bn-theme="dark"],
-	[data-theme="dark"] {
+	[data-theme="dark"],
+	[data-bx-mode="dark"] {
 		--bn-canvas:  #15161f;
 		--bn-surface: #1c1d2a;
 		--bn-raised:  #20212f;
