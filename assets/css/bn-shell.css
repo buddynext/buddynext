@@ -428,6 +428,14 @@ body.admin-bar .bn-app__rail {
 	justify-content: center;
 	padding-inline: 0;
 }
+/* The My-spaces switcher's summary text uses its own classes (title/count/
+   chevron), not .bn-rail__label, so the collapsed label-hide above does not
+   reach it and it would bleed past the icon-only panel. An inline flyout also
+   has no room at 72px, so hide the whole switcher while collapsed — the Spaces
+   item icon directly above still navigates to the directory. */
+[data-bn-rail="collapsed"] .bn-rail__spaces {
+	display: none;
+}
 [data-bn-rail="collapsed"] .bn-rail__toggle {
 	justify-content: center;
 	margin-inline-start: 0;
@@ -474,6 +482,11 @@ body.admin-bar .bn-app__rail {
 	}
 	.bn-rail__label,
 	.bn-rail__heading {
+		display: none;
+	}
+	/* Match the collapsed-attribute path: hide the My-spaces switcher so its
+	   summary text does not bleed past the width-forced icon-only rail. */
+	.bn-rail__spaces {
 		display: none;
 	}
 	.bn-rail__item {
