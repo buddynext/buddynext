@@ -124,6 +124,32 @@ const spaceMembersStore = store( 'buddynext/space-members', {
 			}
 		},
 
+		* unbanMember( event ) {
+			const ctx = getContext();
+			const btn = event.target.closest( '[data-user-id]' );
+			if ( ! btn || ! ctx.restNonce || ! ctx.spaceId ) { return; }
+			const ok = yield bnConfirm( {
+				title: t( 'unbanMemberTitle', 'Unban this member?' ),
+				body: t( 'unbanMemberBody', 'They will be able to request or join this space again.' ),
+				confirmLabel: t( 'unban', 'Unban' ),
+			} );
+			if ( ! ok ) { return; }
+			try {
+				const res = yield restFetch( '/spaces/' + ctx.spaceId + '/bans/' + btn.dataset.userId, {
+					method: 'DELETE',
+					nonce: ctx.restNonce,
+					toastOnError: false,
+				} );
+				if ( res.ok ) {
+					window.location.reload();
+				} else {
+					bnToast( t( 'unbanMemberFailed', 'Could not unban member. Try again.' ), { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( t( 'unbanMemberFailed', 'Could not unban member. Try again.' ), { tone: 'danger' } );
+			}
+		},
+
 		* inviteMember( event ) {
 			// Bound to the form's submit, so Enter and the button both reach here.
 			if ( event && typeof event.preventDefault === 'function' ) { event.preventDefault(); }

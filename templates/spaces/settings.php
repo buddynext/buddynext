@@ -168,12 +168,12 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 			// lifetime: it is created (or linked) the first time the owner turns it
 			// on, and after that the toggle only shows/hides it — the discussion and
 			// its content are never discarded or duplicated.
-			//   - first enable : create a new dedicated discussion, OR (initial
-			//                     setup only) link one the caller is allowed to.
-			//   - later on/off : just flip the enabled flag; same discussion.
+			// - first enable : create a new dedicated discussion, OR (initial
+			// setup only) link one the caller is allowed to.
+			// - later on/off : just flip the enabled flag; same discussion.
 			if ( class_exists( 'Jetonomy\\Jetonomy' ) ) {
-				$bn_disc_bridge = new \BuddyNext\Bridges\JetonomyBridge();
-				$bn_disc_on     = isset( $_POST['bn_discussion_enabled'] );
+				$bn_disc_bridge  = new \BuddyNext\Bridges\JetonomyBridge();
+				$bn_disc_on      = isset( $_POST['bn_discussion_enabled'] );
 				$bn_disc_link_id = isset( $_POST['bn_discussion_link_id'] ) ? absint( wp_unslash( $_POST['bn_discussion_link_id'] ) ) : 0;
 
 				if ( $bn_disc_on ) {
@@ -332,8 +332,8 @@ $bn_discussion_status = array(
 if ( class_exists( 'Jetonomy\\Jetonomy' ) ) {
 	$bn_discussion_status = ( new \BuddyNext\Bridges\JetonomyBridge() )->space_discussion_status( $space_id );
 }
-$who_can_post          = (string) buddynext_get_space_field( $space_id, 'who_can_post' );
-$who_can_invite        = (string) buddynext_get_space_field( $space_id, 'who_can_invite' );
+$who_can_post   = (string) buddynext_get_space_field( $space_id, 'who_can_post' );
+$who_can_invite = (string) buddynext_get_space_field( $space_id, 'who_can_invite' );
 
 // Auto-join: a boolean master toggle + an optional member-type filter (comma-joined
 // slugs read raw and split to an array of slugs the panel renders as checkboxes).
@@ -383,6 +383,28 @@ $space_members = array_map(
 	),
 	$bn_member_rows
 );
+
+// Banned members — the counterpart to the Ban action. get_space_bans() returns
+// raw bn_space_bans rows (user_id only), so enrich each with the display name +
+// handle so the panel can render an Unban control (DELETE /spaces/{id}/bans/{id}).
+$bn_ban_rows = $bn_member_service->get_space_bans( $space_id );
+$space_bans  = array();
+foreach ( (array) $bn_ban_rows as $bn_ban ) {
+	$bn_ban_uid = (int) ( is_array( $bn_ban ) ? ( $bn_ban['user_id'] ?? 0 ) : 0 );
+	if ( $bn_ban_uid <= 0 ) {
+		continue;
+	}
+	$bn_ban_user = get_userdata( $bn_ban_uid );
+	if ( ! $bn_ban_user ) {
+		continue;
+	}
+	$space_bans[] = (object) array(
+		'user_id'      => $bn_ban_uid,
+		'display_name' => (string) $bn_ban_user->display_name,
+		'user_login'   => (string) $bn_ban_user->user_nicename,
+		'reason'       => (string) ( is_array( $bn_ban ) ? ( $bn_ban['reason'] ?? '' ) : '' ),
+	);
+}
 
 $space_url     = buddynext_space_url( $space->slug ?? '' );
 $settings_base = buddynext_space_settings_url( $space->slug ?? '' );
@@ -656,6 +678,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 					'members_data' => array(
 						'space_id' => $space_id,
 						'members'  => $space_members,
+						'bans'     => $space_bans,
 					),
 				),
 			),
