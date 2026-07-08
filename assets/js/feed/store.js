@@ -1499,10 +1499,15 @@ store( 'buddynext/post-card', {
 				if ( ! res.ok ) {
 					ctx.shareCount  = prevCount;
 					ctx.shareShared = false;
+					// Surface the server's reason (e.g. already_shared) instead of
+					// failing silently — the guard is correct, the UX was mute.
+					const msg = ( res.data && res.data.message ) || t( 'shareFailed', 'Could not share this post. Try again.' );
+					if ( window.bnToast ) { window.bnToast( msg, 'error' ); }
 				}
 			} catch ( _e ) {
 				ctx.shareCount  = prevCount;
 				ctx.shareShared = false;
+				if ( window.bnToast ) { window.bnToast( t( 'shareFailed', 'Could not share this post. Try again.' ), 'error' ); }
 			}
 		},
 		* reportPost() {
@@ -3216,7 +3221,10 @@ store( 'buddynext/share-modal', {
 					}
 					return;
 				}
-				ctx.error = t( 'repostFailed', 'Could not repost. Try again.' );
+				// Show the server's specific reason (e.g. "You have already shared
+				// this post.") inline AND as a toast, not a generic mute failure.
+				ctx.error = ( res.data && res.data.message ) || t( 'repostFailed', 'Could not repost. Try again.' );
+				if ( window.bnToast ) { window.bnToast( ctx.error, 'error' ); }
 				ctx.busy  = false;
 			} catch ( _e ) {
 				ctx.error = t( 'networkError', 'Network error. Try again.' );

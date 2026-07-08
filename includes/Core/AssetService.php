@@ -839,6 +839,7 @@ class AssetService {
 					'manyVotes'               => __( '%d votes', 'buddynext' ),
 					'pollNeedsQuestion'       => __( 'Add a question for your poll.', 'buddynext' ),
 					'composerEmpty'           => __( 'Write something to share.', 'buddynext' ),
+					'shareFailed'             => __( 'Could not share this post. Try again.', 'buddynext' ),
 				),
 			)
 		);
