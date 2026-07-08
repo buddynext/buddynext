@@ -338,6 +338,10 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 [data-bn-theme="dark"],
 [data-theme="dark"],
 [data-bx-mode="dark"] {
+	/* Tell the UA to render native controls (date/time picker popups, <select>
+	   dropdowns, scrollbars, spinners) in their dark variant. Without this a
+	   native <input type="date"> calendar opens light-on-light over a dark page. */
+	color-scheme: dark;
 	--bn-canvas:   oklch(15% 0.008 var(--bn-hue));
 	--bn-surface:  oklch(19% 0.01  var(--bn-hue));
 	--bn-raised:   oklch(22% 0.012 var(--bn-hue));
