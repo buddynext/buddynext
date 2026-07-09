@@ -171,6 +171,11 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				hidden
 				data-wp-bind--hidden="state.retryHidden"
 				data-wp-on--click="actions.submit"><?php esc_html_e( 'Retry', 'buddynext' ); ?></button>
+			<button class="bn-composer__error-retry"
+				type="button"
+				hidden
+				data-wp-bind--hidden="state.resendVerifyHidden"
+				data-wp-on--click="actions.resendVerification"><?php esc_html_e( 'Resend verification email', 'buddynext' ); ?></button>
 		</div>
 
 		<textarea class="bn-composer__prompt"

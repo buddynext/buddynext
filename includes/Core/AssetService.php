@@ -796,6 +796,8 @@ class AssetService {
 					'postSubmittedForReview'  => __( 'Your post was submitted for review.', 'buddynext' ),
 					'postPublishFailed'       => __( 'Could not publish your post. Try again.', 'buddynext' ),
 					'noPermissionToPost'      => __( 'You don’t have permission to post here.', 'buddynext' ),
+					'verifyResent'            => __( 'Verification email sent. Check your inbox.', 'buddynext' ),
+					'verifyResendFailed'      => __( 'Could not resend the verification email. Try again.', 'buddynext' ),
 					'pollMinOptions'          => __( 'Add at least two poll options.', 'buddynext' ),
 					'savingDraft'             => __( 'Saving draft…', 'buddynext' ),
 					'draftSaved'              => __( 'Draft saved', 'buddynext' ),
