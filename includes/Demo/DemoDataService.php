@@ -1219,6 +1219,9 @@ class DemoDataService {
 		// Demo members are established community members, not first-time visitors:
 		// mark onboarding complete so they land on the feed (not the wizard).
 		update_user_meta( $user_id, 'bn_onboarding_complete', '1' );
+		// Mark email verified so demo members can post/comment even when the site
+		// has the email-verification gate enabled (else POST /posts 403s by design).
+		update_user_meta( $user_id, 'buddynext_email_verified', '1' );
 		return (int) $user_id;
 	}
 
