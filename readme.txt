@@ -4,7 +4,7 @@ Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.5
+Stable tag: 1.0.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,6 +55,36 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.0.7 - July 2026 =
+
+* New      - Private Community lockdown so the whole community can be members-only, with a buddynext_private_community_can_access filter to customise access.
+* New      - "Get your community live" first-run setup checklist on the admin dashboard that auto-tracks your setup progress and dismisses when done.
+* New      - Two-way discussion sync between the activity feed and Jetonomy forums, propagating edits and deletes both ways.
+* New      - Unban control for members banned from a space, so an owner can reverse a ban from the space settings.
+* New      - Unpin control on a space's pinned-posts strip.
+* New      - Unread direct-message badge on the header Messages icon.
+* New      - "Resend verification email" action in the composer when a member's email is not yet verified.
+* Improve  - The add-field form now sets "Show on registration" directly and explains what each field type does.
+* Improve  - The Skills profile group can now be removed, like the other starter groups.
+* Improve  - The three gamification profile tabs are folded into a single Achievements tab.
+* Improve  - Error toasts stay longer and are dismissible instead of auto-hiding early.
+* Improve  - Space discussion buttons open the new-topic composer directly.
+* Improve  - Members stay on the community front end after login and logout.
+* Improve  - Dark mode now covers native form controls, skill chips, leaderboard badges, and the BuddyX and Reign mode toggle.
+* Fix      - The delete-group confirmation in the profile-fields admin no longer overlaps the toolbar controls.
+* Fix      - The profile "Edit avatar" and "Edit cover" links now open the matching picker.
+* Fix      - Spaces filter pills no longer shrink or vibrate on hover, verified on BuddyX and Reign.
+* Fix      - Reposting no longer fails silently and single-post comments toggle correctly.
+* Fix      - Private images now display in the media lightbox for viewers allowed to see them.
+* Fix      - The mobile bottom navigation no longer covers Save and Cancel on the Profile Edit and Settings screens.
+* Fix      - Navigation and profile-tab labels now respect the active translation.
+* Fix      - The post pin label no longer reads "Pin to profile" inside a space.
+* Fix      - The gamification "on cooldown" points nag is suppressed; points are awarded silently.
+* Security - Media lightbox actions are gated to logged-in viewers.
+* Dev      - New buddynext_redirect_url filter for login and logout redirect control.
+* Dev      - Notification and PageRouter audit fixes: removed dead code and corrected dependency wiring.
+* Compat   - Aligned with BuddyNext Pro 1.0.7. Install both updates together.
 
 = 1.0.5 - July 2026 =
 
