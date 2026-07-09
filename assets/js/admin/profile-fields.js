@@ -122,6 +122,9 @@
 				return;
 			}
 			e.target.style.display = 'none';
+			// Break the confirmation onto its own full-width row so the impact
+			// box + Yes/Cancel never overlap the group toolbar controls.
+			form.classList.add( 'is-confirming' );
 			var confirmBtn = form.querySelector( '.bn-del-confirm' );
 			var cancelBtn  = form.querySelector( '.bn-del-cancel' );
 			var impact     = form.querySelector( '.bn-del-impact' );
@@ -144,6 +147,7 @@
 			if ( ! form2 ) {
 				return;
 			}
+			form2.classList.remove( 'is-confirming' );
 			var trigger = form2.querySelector( '.bn-del-trigger' );
 			var confirm2 = form2.querySelector( '.bn-del-confirm' );
 			var cancel2  = form2.querySelector( '.bn-del-cancel' );

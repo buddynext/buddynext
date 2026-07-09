@@ -41,6 +41,50 @@ class GamificationBridge {
 		// the public engagement surface. Gated to credential badges so tiny
 		// participation badges never spam the feed.
 		add_action( 'wb_gam_badge_awarded', array( $this, 'on_badge_awarded_activity' ), 10, 3 );
+
+		// Points are a SILENT background reward in BuddyNext. wb-gamification's
+		// per-action cooldown is a transient anti-burst limit; surfacing it to the
+		// member as a toast ("You're on cooldown for this action - try again in a
+		// bit.") scolds them for normal activity (post, then comment) and runs
+		// counter to the mainstream-social bar (Facebook/LinkedIn never nag you for
+		// acting "too fast"). wb-gamification 1.6.3 drops cooldown from its member-
+		// facing skip reasons at the source; this guard keeps the notice suppressed
+		// even when a site is still on an older wb-gamification build. Daily/weekly
+		// cap notices are informative (a real limit that resets) and are left alone.
+		add_filter( 'wb_gam_toast_data', array( $this, 'suppress_cooldown_toast' ), 10, 2 );
+	}
+
+	/**
+	 * Suppress wb-gamification's transient "cooldown" skip toast (silent background points).
+	 *
+	 * The engine calls `wb_gam_toast_data` for every toast before it is queued and
+	 * treats an empty array as "do not show". We only ever drop the `skip` toast
+	 * whose reason is `cooldown`; positive toasts and the informative daily/weekly
+	 * cap notices pass through untouched. Owners who want the cooldown notice back
+	 * can opt in via the `buddynext_gamification_show_cooldown_toast` filter.
+	 *
+	 * @param array $event   Toast event data (type, reason, message, …).
+	 * @param int   $user_id Member who would see the toast.
+	 * @return array The event, or an empty array to suppress it.
+	 */
+	public function suppress_cooldown_toast( $event, $user_id ): array {
+		$event = is_array( $event ) ? $event : array();
+
+		$is_cooldown = 'skip' === ( $event['type'] ?? '' ) && 'cooldown' === ( $event['reason'] ?? '' );
+		if ( ! $is_cooldown ) {
+			return $event;
+		}
+
+		/**
+		 * Allow re-enabling the gamification cooldown skip toast.
+		 *
+		 * @param bool  $show    Whether to show the cooldown toast (default false — silent).
+		 * @param array $event   The toast event.
+		 * @param int   $user_id Member who would see the toast.
+		 */
+		$show = (bool) apply_filters( 'buddynext_gamification_show_cooldown_toast', false, $event, (int) $user_id );
+
+		return $show ? $event : array();
 	}
 
 	/**

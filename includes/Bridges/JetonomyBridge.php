@@ -24,6 +24,7 @@ namespace BuddyNext\Bridges;
 
 use BuddyNext\Search\SearchService;
 use BuddyNext\Feed\IntegrationActivity;
+use BuddyNext\Feed\PostService;
 
 /**
  * Jetonomy ↔ BuddyNext integration layer.
@@ -40,6 +41,17 @@ class JetonomyBridge {
 	 * ever missed; the create/delete hooks clear the affected keys immediately.
 	 */
 	private const CACHE_TTL = 300;
+
+	/**
+	 * Re-entrancy guard for the two-way discussion sync.
+	 *
+	 * Set true while this bridge mirrors a comment into a forum reply (or a reply
+	 * into a comment). The reciprocal hook fires synchronously during that write;
+	 * seeing the flag, its handler returns immediately, so the mirror never loops.
+	 *
+	 * @var bool
+	 */
+	private static bool $syncing = false;
 
 	/**
 	 * Attach hooks.
@@ -91,6 +103,23 @@ class JetonomyBridge {
 		// spaces directory and exits — otherwise the Discussions tab URL
 		// (/spaces/?bn_provision_forum=N) shows the directory instead.
 		add_action( 'template_redirect', array( $this, 'maybe_provision_and_redirect' ), 5 );
+
+		// Two-way discussion sync: a comment on a discussion card in the BuddyNext
+		// feed becomes a reply in the originating Jetonomy forum topic, and a reply
+		// in the forum becomes a comment on the card — so a member who engages on
+		// either surface is heard on both. A static in-request guard (self::$syncing)
+		// blocks the reciprocal mirror, so the two hooks can never loop.
+		add_action( 'buddynext_comment_created', array( $this, 'sync_comment_to_forum' ), 10, 4 );
+		add_action( 'jetonomy_after_create_reply', array( $this, 'sync_reply_to_feed' ), 10, 2 );
+
+		// Edit + delete propagation, both directions, resolved through the pair id
+		// stored on the comment at creation (bn_comments.sync_reply_id). Same static
+		// guard blocks the reciprocal mirror. Without this the surfaces desync — an
+		// edit/delete on one side leaves the other side stale.
+		add_action( 'buddynext_comment_updated', array( $this, 'sync_comment_edit_to_forum' ), 10, 1 );
+		add_action( 'buddynext_comment_deleted', array( $this, 'sync_comment_delete_to_forum' ), 10, 1 );
+		add_action( 'jetonomy_reply_updated', array( $this, 'sync_reply_edit_to_feed' ), 10, 1 );
+		add_action( 'jetonomy_after_delete_reply', array( $this, 'sync_reply_delete_to_feed' ), 10, 1 );
 
 		// App coverage: REST to provision/fetch a space's forum URL.
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
@@ -837,7 +866,9 @@ class JetonomyBridge {
 		$this->provision_space_forum( $space_id );
 		$url = $this->space_forum_url( $space_id );
 		if ( '' !== $url ) {
-			wp_safe_redirect( $url );
+			// Land on the new-topic composer so the member who clicked "Start the
+			// first discussion" can write it immediately, not on the empty forum.
+			wp_safe_redirect( trailingslashit( $url ) . 'new/' );
 			exit;
 		}
 	}
@@ -858,6 +889,262 @@ class JetonomyBridge {
 			return false;
 		}
 		return (bool) buddynext_service( 'permissions' )->can( $user_id, 'buddynext-moderate-space', array( 'space_id' => $space_id ) );
+	}
+
+	/**
+	 * Two-way sync — a comment on a discussion card in the BuddyNext feed becomes a
+	 * reply in the originating Jetonomy forum topic. Fires on `buddynext_comment_created`.
+	 *
+	 * @param int    $comment_id  New comment id.
+	 * @param string $object_type Commented object type ('post', …).
+	 * @param int    $object_id   Commented object id (a bn_posts card).
+	 * @param int    $user_id     Commenter.
+	 * @return void
+	 */
+	public function sync_comment_to_forum( int $comment_id, string $object_type, int $object_id, int $user_id ): void {
+		if ( self::$syncing || 'post' !== $object_type || $object_id <= 0 || $user_id <= 0 ) {
+			return;
+		}
+		if ( ! class_exists( '\Jetonomy\Models\Reply' ) ) {
+			return;
+		}
+
+		$card = ( new PostService() )->get( $object_id );
+		if ( null === $card || 'discussion' !== (string) ( $card['type'] ?? '' ) ) {
+			return;
+		}
+		$topic_id = $this->topic_id_for_card( $card );
+		if ( $topic_id <= 0 ) {
+			return;
+		}
+
+		$comment = ( new \BuddyNext\Comments\CommentService() )->get( $comment_id );
+		$content = null !== $comment ? trim( (string) ( $comment['content'] ?? '' ) ) : '';
+		if ( '' === $content ) {
+			return;
+		}
+
+		self::$syncing = true;
+		$reply_id      = \Jetonomy\Models\Reply::create(
+			array(
+				'post_id'       => $topic_id,
+				'author_id'     => $user_id,
+				'content'       => wp_kses_post( $content ),
+				'content_plain' => wp_strip_all_tags( $content ),
+			)
+		);
+		if ( ! is_wp_error( $reply_id ) && (int) $reply_id > 0 ) {
+			// Persist the pair on the comment so edit/delete can propagate later
+			// (both directions resolve through bn_comments.sync_reply_id).
+			( new \BuddyNext\Comments\CommentService() )->set_sync_reply_id( $comment_id, (int) $reply_id );
+			// Fire the same post-create signal Jetonomy's REST reply path fires so the
+			// engine's own listeners (notifications, activity, counts) treat this reply
+			// like any other. The reciprocal handler bails on self::$syncing.
+			do_action( 'jetonomy_after_create_reply', (int) $reply_id, $topic_id );
+		}
+		self::$syncing = false;
+	}
+
+	/**
+	 * Two-way sync — a reply in a Jetonomy forum topic becomes a comment on that
+	 * topic's discussion card in the BuddyNext feed. Fires on `jetonomy_after_create_reply`.
+	 *
+	 * @param int $reply_id New reply id.
+	 * @param int $post_id  Parent Jetonomy topic (jt_posts) id.
+	 * @return void
+	 */
+	public function sync_reply_to_feed( int $reply_id, int $post_id ): void {
+		if ( self::$syncing || $reply_id <= 0 || $post_id <= 0 ) {
+			return;
+		}
+		$card_id = $this->card_id_for_topic( $post_id );
+		if ( $card_id <= 0 ) {
+			return; // This topic isn't surfaced as a feed card — nothing to mirror onto.
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$reply = $wpdb->get_row(
+			$wpdb->prepare( "SELECT author_id, content, status FROM {$wpdb->prefix}jt_replies WHERE id = %d LIMIT 1", $reply_id ),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$author_id = null !== $reply ? (int) $reply['author_id'] : 0;
+		$content   = null !== $reply ? trim( (string) $reply['content'] ) : '';
+		if ( $author_id <= 0 || '' === $content || 'publish' !== (string) ( $reply['status'] ?? '' ) ) {
+			return; // Only mirror a published reply by a real author.
+		}
+
+		self::$syncing = true;
+		// CommentService applies its own permission/verification gate and sanitizes;
+		// a WP_Error (e.g. an unverified author) simply means no mirrored comment.
+		$comments   = new \BuddyNext\Comments\CommentService();
+		$comment_id = $comments->create( $author_id, 'post', $card_id, $content );
+		if ( ! is_wp_error( $comment_id ) && (int) $comment_id > 0 ) {
+			// Persist the pair so edit/delete propagate in both directions.
+			$comments->set_sync_reply_id( (int) $comment_id, $reply_id );
+		}
+		self::$syncing = false;
+	}
+
+	/**
+	 * Two-way sync — editing a feed comment updates the mirrored forum reply.
+	 * Fires on `buddynext_comment_updated`. Resolves the pair via the comment's
+	 * sync_reply_id; a no-op for unsynced comments. Reply::update is model-level
+	 * (fires no controller hook), so it cannot loop back.
+	 *
+	 * @param int $comment_id Edited comment id.
+	 * @return void
+	 */
+	public function sync_comment_edit_to_forum( int $comment_id ): void {
+		if ( self::$syncing || $comment_id <= 0 || ! class_exists( '\Jetonomy\Models\Reply' ) ) {
+			return;
+		}
+		$comments = new \BuddyNext\Comments\CommentService();
+		$reply_id = $comments->get_sync_reply_id( $comment_id );
+		if ( $reply_id <= 0 ) {
+			return;
+		}
+		$comment = $comments->get( $comment_id );
+		$content = null !== $comment ? trim( (string) ( $comment['content'] ?? '' ) ) : '';
+		if ( '' === $content ) {
+			return;
+		}
+		self::$syncing = true;
+		\Jetonomy\Models\Reply::update(
+			$reply_id,
+			array(
+				'content'       => wp_kses_post( $content ),
+				'content_plain' => wp_strip_all_tags( $content ),
+			)
+		);
+		self::$syncing = false;
+	}
+
+	/**
+	 * Two-way sync — deleting a feed comment removes the mirrored forum reply.
+	 * Fires on `buddynext_comment_deleted`. The comment is soft-deleted (row
+	 * persists), so its sync_reply_id is still readable at delete time.
+	 *
+	 * @param int $comment_id Deleted comment id.
+	 * @return void
+	 */
+	public function sync_comment_delete_to_forum( int $comment_id ): void {
+		if ( self::$syncing || $comment_id <= 0 || ! class_exists( '\Jetonomy\Models\Reply' ) ) {
+			return;
+		}
+		$reply_id = ( new \BuddyNext\Comments\CommentService() )->get_sync_reply_id( $comment_id );
+		if ( $reply_id <= 0 ) {
+			return;
+		}
+		self::$syncing = true;
+		\Jetonomy\Models\Reply::delete( $reply_id );
+		self::$syncing = false;
+	}
+
+	/**
+	 * Two-way sync — editing a forum reply updates the mirrored feed comment.
+	 * Fires on `jetonomy_reply_updated`. Resolves the pair via find_by_sync_reply_id
+	 * and updates as the comment's own author so BuddyNext's ownership gate passes.
+	 * CommentService::update fires buddynext_comment_updated, which the guard blocks.
+	 *
+	 * @param int $reply_id Edited reply id.
+	 * @return void
+	 */
+	public function sync_reply_edit_to_feed( int $reply_id ): void {
+		if ( self::$syncing || $reply_id <= 0 ) {
+			return;
+		}
+		$comments = new \BuddyNext\Comments\CommentService();
+		$comment  = $comments->find_by_sync_reply_id( $reply_id );
+		if ( null === $comment ) {
+			return;
+		}
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$content = trim( (string) $wpdb->get_var( $wpdb->prepare( "SELECT content FROM {$wpdb->prefix}jt_replies WHERE id = %d LIMIT 1", $reply_id ) ) );
+		if ( '' === $content ) {
+			return;
+		}
+		self::$syncing = true;
+		$comments->update( (int) $comment['id'], (int) $comment['user_id'], $content );
+		self::$syncing = false;
+	}
+
+	/**
+	 * Two-way sync — deleting a forum reply removes the mirrored feed comment.
+	 * Fires on `jetonomy_after_delete_reply`. Deletes as the comment's own author.
+	 * CommentService::delete fires buddynext_comment_deleted, which the guard blocks.
+	 *
+	 * @param int $reply_id Deleted reply id.
+	 * @return void
+	 */
+	public function sync_reply_delete_to_feed( int $reply_id ): void {
+		if ( self::$syncing || $reply_id <= 0 ) {
+			return;
+		}
+		$comments = new \BuddyNext\Comments\CommentService();
+		$comment  = $comments->find_by_sync_reply_id( $reply_id );
+		if ( null === $comment ) {
+			return;
+		}
+		self::$syncing = true;
+		$comments->delete( (int) $comment['id'], (int) $comment['user_id'] );
+		self::$syncing = false;
+	}
+
+	/**
+	 * Resolve the Jetonomy topic (jt_posts) id a discussion card points at.
+	 *
+	 * The card's link_url is the discussion permalink `…/s/{space}/t/{post}/`; the
+	 * slugs map back to jt_spaces + jt_posts (scoped, so slugs need not be globally
+	 * unique).
+	 *
+	 * @param array<string,mixed> $card A bn_posts discussion card row.
+	 * @return int Topic id, or 0.
+	 */
+	private function topic_id_for_card( array $card ): int {
+		$url = (string) ( $card['link_url'] ?? '' );
+		if ( '' === $url || ! preg_match( '~/s/([^/]+)/t/([^/?#]+)~', $url, $m ) ) {
+			return 0;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$space_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}jt_spaces WHERE slug = %s LIMIT 1", $m[1] ) );
+		if ( $space_id <= 0 ) {
+			return 0;
+		}
+		$topic_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}jt_posts WHERE slug = %s AND space_id = %d LIMIT 1", $m[2], $space_id ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $topic_id;
+	}
+
+	/**
+	 * Resolve the BuddyNext discussion card id for a Jetonomy topic, or 0 when the
+	 * topic was never surfaced as a feed card.
+	 *
+	 * @param int $topic_id Jetonomy topic (jt_posts) id.
+	 * @return int Card id, or 0.
+	 */
+	private function card_id_for_topic( int $topic_id ): int {
+		if ( $topic_id <= 0 ) {
+			return 0;
+		}
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$space_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1", $topic_id ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $space_id <= 0 ) {
+			return 0;
+		}
+		$url = $this->discussion_url( $topic_id, $space_id );
+		if ( '' === $url ) {
+			return 0;
+		}
+		return ( new PostService() )->get_id_by_link( 'discussion', $url );
 	}
 
 	/**
@@ -1152,6 +1439,12 @@ class JetonomyBridge {
 				'forum_linked'  => (bool) $forum_ctx['linked'],
 				'provision_url' => (string) $forum_ctx['provision_url'],
 				'can_post'      => $can_post,
+				// Provisioning (creating the forum) is gated to the space owner /
+				// moderator, unlike posting. The empty-state "Start the first
+				// discussion" CTA must follow provisioning, not posting: a member who
+				// could post but not provision otherwise saw a CTA that failed the
+				// permission check and fell through to All Spaces.
+				'can_provision' => $this->can_provision_forum( $space_id, $viewer_id ),
 			)
 		);
 	}
@@ -1488,12 +1781,21 @@ class JetonomyBridge {
 	 * @return string
 	 */
 	private function provision_forum_url( int $space_id ): string {
+		// Base the trigger on the SPACE's own URL, never the /spaces/ directory: if
+		// the provision handler falls through (expired nonce, or a viewer who may
+		// post but not provision), WordPress renders the base URL — and rendering
+		// the All Spaces directory is exactly the "thrown back to All Spaces"
+		// symptom. Off the space URL, a fall-through stays on the space.
+		$base = \BuddyNext\Core\PageRouter::space_url( absint( $space_id ) );
+		if ( '' === $base ) {
+			$base = \BuddyNext\Core\PageRouter::spaces_url();
+		}
 		return add_query_arg(
 			array(
 				'bn_provision_forum' => absint( $space_id ),
 				'_bnpf'              => wp_create_nonce( 'bn_provision_forum_' . absint( $space_id ) ),
 			),
-			\BuddyNext\Core\PageRouter::spaces_url()
+			$base
 		);
 	}
 

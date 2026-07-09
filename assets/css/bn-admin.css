@@ -1346,6 +1346,21 @@ button.bn-btn-danger:hover {
 	border-color: var(--bn-a-red) !important;
 }
 
+/* Solid danger buttons use the attribute API (data-variant="danger") and inherit
+   their red fill + white label from bn-base.css. The generic .bn-btn:hover above
+   repaints the background to the subtle grey, which on a solid danger button
+   leaves the white label on a near-white fill (the button reads as blank on
+   hover). Re-assert the solid danger fill at the higher [data-variant] specificity
+   and darken it with filter:brightness() for the hover affordance. Using the solid
+   token + filter (not color-mix) keeps the fill visible even where color-mix is
+   unsupported, so the label never disappears. */
+.bn-btn[data-variant="danger"]:hover,
+.bn-btn[data-variant="danger"]:focus-visible {
+	background: var(--bn-a-red);
+	border-color: var(--bn-a-red);
+	filter: brightness(0.94);
+}
+
 .bn-toolbar {
 	display: flex;
 	align-items: center;

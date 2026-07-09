@@ -317,7 +317,8 @@ class WPMediaVerseBridge {
 	 * ('activity'), /media/{slug}/ resolves to the source activity (photo post or
 	 * media card), so media lives in the community feed and is not exposed as a
 	 * separate public page. When there is no source activity, it falls back to the
-	 * Explore feed — never a dead page. When the owner chose 'dedicated', or when
+	 * owner's Media tab, then the Explore feed — never a dead page. When the owner
+	 * chose 'dedicated', or when
 	 * an earlier filter already set a target, this leaves the decision untouched.
 	 *
 	 * @param string $redirect Target URL resolved so far ('' = render native page).
@@ -344,6 +345,20 @@ class WPMediaVerseBridge {
 			$url = \BuddyNext\Core\PageRouter::post_url( $post_id );
 			if ( '' !== $url ) {
 				return $url;
+			}
+		}
+
+		// No source activity (a direct upload not attached to a post). Land on the
+		// owner's Media tab — a BuddyNext surface that shows this member's media in
+		// context — rather than the generic Explore overview (the "bounced to
+		// overview" symptom). Fall through to the Explore feed only when the owner
+		// can't be resolved, then to '' (render the native page) — never a 404.
+		$repo  = MediaClient::repo();
+		$owner = $repo ? (int) $repo->get( $media_id, 'post_author' ) : 0;
+		if ( $owner > 0 ) {
+			$profile = \BuddyNext\Core\PageRouter::profile_url( $owner );
+			if ( '' !== $profile ) {
+				return trailingslashit( $profile ) . 'media/';
 			}
 		}
 

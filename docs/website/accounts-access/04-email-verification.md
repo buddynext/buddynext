@@ -28,6 +28,8 @@ When verification is required, here is what a new member experiences.
 
 A member with an unverified address can sign in and reach the verification screen, but full community access is held until they confirm. The verification step is meant to come first, so encourage new members to complete it before doing anything else.
 
+If an unverified member tries to post anyway - for example from the post composer on the feed - BuddyNext blocks the post and shows a **Resend verification email** action right there, so they can request a fresh link without leaving what they were doing.
+
 > **Note:** The confirmation link is single-use. Once it has been clicked successfully, clicking it again does nothing - the account is already verified, and that state stays set.
 
 ## Setting it up (for owners)

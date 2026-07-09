@@ -373,6 +373,20 @@
 	object-fit: contain;
 }
 
+/* Badge artwork loads via <img>, so its `currentColor` resolves to black no
+   matter the page theme (host CSS can't reach inside an <img>-rendered SVG).
+   On the dark-mode sunken chip that black line-art disappears — invert the
+   image to light so earned badges stay legible. Scoped to <img> only, so the
+   inline (accent-coloured) fallback award icon is left alone. */
+[data-bn-theme="dark"] .bn-lb-ribbon__item img,
+[data-theme="dark"] .bn-lb-ribbon__item img,
+[data-bx-mode="dark"] .bn-lb-ribbon__item img,
+[data-bn-theme="dark"] .bn-lb-badge-cell img,
+[data-theme="dark"] .bn-lb-badge-cell img,
+[data-bx-mode="dark"] .bn-lb-badge-cell img {
+	filter: invert(1);
+}
+
 .bn-lb-ribbon__more {
 	font-size: var(--bn-text-2xs);
 	font-weight: var(--bn-fw-semibold);

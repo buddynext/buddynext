@@ -1,5 +1,5 @@
 /* BuddyNext - Profile Interactivity API store. */
-import { store, getContext } from '@wordpress/interactivity';
+import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnToast, bnConfirm, bnResolveConnectNote } from '../shell/dialog.js';
 import { restFetch } from '../shell/rest-client.js';
 
@@ -50,6 +50,57 @@ function setAvatarPreview( url ) {
 function toggleAvatarRemove( show ) {
 	var btn = document.querySelector( '[data-bn-avatar-remove]' );
 	if ( btn ) { btn.hidden = ! show; }
+}
+
+/**
+ * Point the cover <img> at a URL, or clear it back to the empty (no-cover) state.
+ * The hero cover is not reactively bound, so it is refreshed directly — mirrors
+ * the local-preview path in handleCoverFileChange.
+ */
+function setCoverPreview( url ) {
+	var img = document.querySelector( '[data-bn-cover-preview]' );
+	if ( ! img ) { return; }
+	var wrap = img.closest( '.bn-pf-cover' );
+	if ( url ) {
+		img.src           = url;
+		img.style.display = '';
+		if ( wrap ) { wrap.classList.add( 'bn-pf-cover--has-image' ); }
+	} else {
+		img.removeAttribute( 'src' );
+		img.style.display        = 'none';
+		img.style.objectPosition = '';
+		img.style.transform      = '';
+		if ( wrap ) { wrap.classList.remove( 'bn-pf-cover--has-image' ); }
+	}
+}
+
+/** Show/hide the "Remove cover" control based on whether a cover exists. */
+function toggleCoverRemove( show ) {
+	var btn = document.querySelector( '[data-bn-cover-remove]' );
+	if ( btn ) { btn.hidden = ! show; }
+}
+
+/**
+ * Build the bn-icon "x" SVG via the SVG namespace (never innerHTML). Matches the
+ * markup IconService::render( 'x' ) emits, so a JS-added repeater remove button is
+ * visually identical to a server-rendered one when no icon is on the page to clone.
+ */
+function buildXIcon() {
+	var ns  = 'http://www.w3.org/2000/svg';
+	var svg = document.createElementNS( ns, 'svg' );
+	svg.setAttribute( 'class', 'bn-icon' );
+	svg.setAttribute( 'viewBox', '0 0 24 24' );
+	svg.setAttribute( 'fill', 'none' );
+	svg.setAttribute( 'stroke', 'currentColor' );
+	svg.setAttribute( 'stroke-width', '2' );
+	svg.setAttribute( 'stroke-linecap', 'round' );
+	svg.setAttribute( 'stroke-linejoin', 'round' );
+	[ 'M18 6 6 18', 'm6 6 12 12' ].forEach( function ( d ) {
+		var path = document.createElementNS( ns, 'path' );
+		path.setAttribute( 'd', d );
+		svg.appendChild( path );
+	} );
+	return svg;
 }
 
 /*
@@ -647,6 +698,7 @@ async function flushStagedMedia( ctx ) {
 			var cvData = cvRes.data || {};
 			if ( cvRes.ok && cvData.cover_url ) {
 				ctx.coverUrl = cvData.cover_url;
+				toggleCoverRemove( true );
 			} else {
 				bnToast( ( cvData && cvData.message ) || t( 'coverSaveFailed', 'Cover could not be saved' ), { tone: 'danger' } );
 			}
@@ -896,12 +948,25 @@ function buildEntryNode( group, index ) {
 	num.className   = 'bn-ep-repeater-num';
 	num.textContent = String( index + 1 );
 	var removeBtn = document.createElement( 'button' );
-	removeBtn.className              = 'bn-ep-repeater-remove';
+	// Mirror the SERVER remove button (templates/profile/edit.php:355) exactly so a
+	// dynamically-added entry's control is the themed ghost button, not a bare
+	// native button with a text "×" (which read unstyled, worst in dark mode).
+	removeBtn.className              = 'bn-btn bn-ep-repeater-remove';
 	removeBtn.type                   = 'button';
+	removeBtn.dataset.variant        = 'ghost';
+	removeBtn.dataset.size           = 'sm';
 	removeBtn.dataset.group          = group;
 	removeBtn.dataset.entryIndex     = String( index );
 	removeBtn.setAttribute( 'aria-label', cfg.removeLabel );
-	removeBtn.textContent            = '×';
+	// Use the same x-icon the server emits: clone an existing rendered icon when
+	// present, else build it via the SVG namespace (no innerHTML — the markup is
+	// identical to IconService 'x', which injects the bn-icon class).
+	var bnExistingX = document.querySelector( '.bn-ep-repeater-remove .bn-icon' );
+	if ( bnExistingX ) {
+		removeBtn.appendChild( bnExistingX.cloneNode( true ) );
+	} else {
+		removeBtn.appendChild( buildXIcon() );
+	}
 	removeBtn.addEventListener( 'click', function () {
 		entry.remove();
 		renumberEntries( cfg.containerId );
@@ -1079,6 +1144,18 @@ const profileStore = store( 'buddynext/profile', {
 		initEditGuard() {
 			ensureUnloadGuard();
 			wireCurrentToggles();
+			// Honour a #avatar / #cover deep-link (the view-hero "Edit avatar" /
+			// "Edit cover" links land here) by opening the matching file picker, so
+			// the anchor isn't a dead scroll-to-nothing. A short defer lets the
+			// Interactivity store finish binding the inputs first.
+			var bnHash = ( window.location.hash || '' ).toLowerCase();
+			if ( '#avatar' === bnHash || '#cover' === bnHash ) {
+				var bnPickerId = '#avatar' === bnHash ? 'bn-ep-avatar-file' : 'bn-ep-cover-file';
+				setTimeout( function () {
+					var el = document.getElementById( bnPickerId );
+					if ( el ) { el.click(); }
+				}, 200 );
+			}
 		},
 	},
 	actions: {
@@ -1585,6 +1662,39 @@ const profileStore = store( 'buddynext/profile', {
 			}
 		},
 
+		async removeCover() {
+			var ctx = getContext();
+
+			var ok = await bnConfirm( {
+				title: t( 'removeCoverTitle', 'Remove cover photo?' ),
+				body: t( 'removeCoverBody', 'Your cover photo will be cleared. You can upload a new one any time.' ),
+				confirmLabel: t( 'remove', 'Remove' ),
+				tone: 'danger',
+			} );
+			if ( ! ok ) { return; }
+
+			// Discard any staged (not-yet-saved) cover — Remove means "no cover".
+			_pendingCover = null;
+
+			try {
+				var res = await restFetch( profileResourcePath( 'cover' ), {
+					method:       'DELETE',
+					nonce:        ctx.restNonce,
+					toastOnError: false,
+				} );
+				if ( res.ok ) {
+					ctx.coverUrl = '';
+					setCoverPreview( '' ); // revert to the empty cover state
+					toggleCoverRemove( false );
+					bnToast( t( 'coverRemoved', 'Cover photo removed' ), { tone: 'success' } );
+				} else {
+					bnToast( t( 'coverRemoveFailed', 'Could not remove your cover. Try again.' ), { tone: 'danger' } );
+				}
+			} catch ( err ) {
+				bnToast( t( 'coverRemoveFailed', 'Could not remove your cover. Try again.' ), { tone: 'danger' } );
+			}
+		},
+
 		async handleCoverFileChange( event ) {
 			var file = event.target.files[ 0 ];
 			if ( ! file ) { return; }
@@ -1619,6 +1729,7 @@ const profileStore = store( 'buddynext/profile', {
 					var wrap = coverImg.closest( '.bn-pf-cover' );
 					if ( wrap ) { wrap.classList.add( 'bn-pf-cover--has-image' ); }
 				}
+				toggleCoverRemove( true );
 				// Mark dirty so Save enables and the beforeunload guard arms.
 				ctx.isDirty = true;
 				syncDirtyAttr( true );
@@ -1786,6 +1897,35 @@ const profileStore = store( 'buddynext/profile', {
 			}
 		},
 
+		/**
+		 * Close the More-options menu and Share popover when a click lands outside
+		 * their wrappers. Bound via data-wp-on-document--click on the .bn-pf-stack
+		 * interactive root, so it closes through the same reactive state as the
+		 * toggle actions. Without this the popovers stayed open until re-clicked —
+		 * a click anywhere else (the expected dismiss gesture) did nothing. Mirrors
+		 * the members-directory closeCardMenuOnOutside pattern.
+		 *
+		 * @param {MouseEvent} event The document click event.
+		 */
+		closeMenusOnOutside( event ) {
+			var ctx = getContext();
+			if ( ! ctx || ( ! ctx.moreMenuOpen && ! ctx.shareMenuOpen ) ) { return; }
+			var ref = getElement() && getElement().ref;
+			if ( ! ref ) { return; }
+			if ( ctx.moreMenuOpen ) {
+				var moreWrap = ref.querySelector( '.bn-more-menu-wrap' );
+				if ( ! moreWrap || ! moreWrap.contains( event.target ) ) {
+					ctx.moreMenuOpen = false;
+				}
+			}
+			if ( ctx.shareMenuOpen ) {
+				var shareWrap = ref.querySelector( '.bn-share-menu-wrap' );
+				if ( ! shareWrap || ! shareWrap.contains( event.target ) ) {
+					ctx.shareMenuOpen = false;
+				}
+			}
+		},
+
 		async copyProfileLink( event ) {
 			var ctx = getContext();
 			var btn = event.target.closest( '[data-share-url]' );
@@ -1870,6 +2010,21 @@ const profileStore = store( 'buddynext/profile', {
 			getContext().blockConfirmOpen = false;
 		},
 
+		/**
+		 * Dismiss the block-confirm modal when the dimmed backdrop itself is clicked
+		 * (the standard modal gesture). Bound via data-wp-on--click on the backdrop;
+		 * clicks that bubble up from the panel/controls have a descendant target, so
+		 * only a direct backdrop click closes it. Previously only the X / Cancel
+		 * buttons closed it.
+		 *
+		 * @param {MouseEvent} event The click event.
+		 */
+		backdropCloseBlock( event ) {
+			if ( getElement() && event.target === getElement().ref ) {
+				getContext().blockConfirmOpen = false;
+			}
+		},
+
 		async confirmBlock() {
 			var ctx = getContext();
 			if ( ctx.blockSubmitting ) { return; }
@@ -1907,6 +2062,18 @@ const profileStore = store( 'buddynext/profile', {
 
 		closeReport() {
 			getContext().reportOpen = false;
+		},
+
+		/**
+		 * Dismiss the report modal on a direct backdrop click — see
+		 * backdropCloseBlock for the rationale.
+		 *
+		 * @param {MouseEvent} event The click event.
+		 */
+		backdropCloseReport( event ) {
+			if ( getElement() && event.target === getElement().ref ) {
+				getContext().reportOpen = false;
+			}
 		},
 
 		setReportReason( event ) {

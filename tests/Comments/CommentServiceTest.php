@@ -11,6 +11,7 @@ namespace BuddyNext\Tests\Comments;
 
 use BuddyNext\Comments\CommentService;
 use BuddyNext\Core\Installer;
+use BuddyNext\Feed\PostService;
 
 /**
  * @covers \BuddyNext\Comments\CommentService
@@ -26,7 +27,19 @@ class CommentServiceTest extends \WP_UnitTestCase {
 		Installer::run();
 		$this->service = new CommentService();
 		$this->user_id = self::factory()->user->create();
-		$this->post_id = 1;
+
+		// Comments validate that the target post exists (a deleted/nonexistent
+		// post is rejected with post_not_found), so seed a real bn_posts row to
+		// comment on rather than a synthetic id.
+		$post_id       = ( new PostService() )->create(
+			$this->user_id,
+			array(
+				'type'    => 'text',
+				'content' => 'Post under test',
+				'privacy' => 'public',
+			)
+		);
+		$this->post_id = is_int( $post_id ) ? $post_id : 0;
 	}
 
 	public function test_create_returns_id(): void {

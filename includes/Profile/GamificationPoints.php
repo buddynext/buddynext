@@ -51,9 +51,10 @@ class GamificationPoints {
 				'id'        => self::TAB_SLUG,
 				'surface'   => 'profile',
 				'layer'     => 'primary',
+				'parent'    => GamificationAchievements::PARENT_SLUG,
 				'label'     => __( 'Points', 'buddynext' ),
 				'icon'      => 'zap',
-				'priority'  => 72,
+				'priority'  => 20,
 				// Own profile only — a member's point ledger is personal.
 				'condition' => static fn( \BuddyNext\Nav\NavContext $c ): bool =>
 					buddynext_integration_enabled( 'gamification', 'nav' )

@@ -74,7 +74,11 @@
 }
 
 .bn-tab.bn-sd-chip {
-	padding: var(--bn-s2) var(--bn-s4);
+	/* Wider pill padding: set the shared --bn-tab-px token only — the base .bn-tab
+	   rule AND the .bn-app theme-defense lock both read it, so rest and hover stay
+	   in sync automatically (no separate per-state re-lock needed). */
+	--bn-tab-px: var(--bn-s4);
+	padding: var(--bn-s2) var(--bn-tab-px);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-full);
 	background: var(--bn-surface);
@@ -720,7 +724,8 @@ a.bn-sh-statpill:focus-visible {
 }
 
 .bn-sh-pinned__label {
-	display: inline-flex;
+	/* Full-width row so the unpin control can sit at the end (margin-auto). */
+	display: flex;
 	align-items: center;
 	gap: var(--bn-s1);
 	font-family: var(--bn-font-mono);
@@ -734,6 +739,32 @@ a.bn-sh-statpill:focus-visible {
 .bn-sh-pinned__label svg {
 	width: 12px;
 	height: 12px;
+}
+
+.bn-sh-pinned__unpin {
+	margin-inline-start: auto;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	padding: var(--bn-s1) var(--bn-s2);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-sm);
+	background: transparent;
+	color: var(--bn-ink-3);
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-medium);
+	text-transform: none;
+	letter-spacing: normal;
+	cursor: pointer;
+	transition: color 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+}
+
+.bn-sh-pinned__unpin:hover,
+.bn-sh-pinned__unpin:focus-visible {
+	color: var(--bn-danger);
+	border-color: var(--bn-danger);
+	background: var(--bn-danger-bg);
 }
 
 .bn-sh-pinned__title {

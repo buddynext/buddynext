@@ -95,9 +95,14 @@ Since 1.0.4 the profile form is fully yours to shape:
 
 - **Help text and placeholders.** Every field can carry an owner-written hint that renders under its name, and an example placeholder inside the input. Both appear on the profile editor and the signup form - write them once, guide members everywhere.
 - **Sections per member type.** A group can be limited to one member type. A "Coach details" section then appears only on coaches' profiles, never on students' - and a restricted section never appears on the signup form, because the member has no type yet at that point.
-- **Remove preset sections.** The seeded Social Links, Work Experience, and Education groups can be deleted when they do not fit your community. Profiles simply hide a section that is gone.
+- **Remove preset sections.** The seeded Social Links, Work Experience, Education, and (since 1.0.7) Skills groups can all be deleted when they do not fit your community. Profiles simply hide a section that is gone.
 - **Core fields are protected.** Bio, headline, and location cannot be deleted, because member cards, search, and the directory depend on them. Everything else is fair game.
 - **Deletes show their impact.** Removing a field or group that holds member data tells you exactly how many members are affected and asks you to type its name to confirm. The value cleanup then runs in small background batches, so deleting a field on a 100,000-member site does not slow anything down.
+
+## Clearer field setup (1.0.7)
+
+- **Show on registration, set once.** The add-field form now includes the "Show on the registration form" checkbox directly, so you decide whether a new field collects a value at signup while you are creating it, instead of adding the field first and coming back to turn it on.
+- **Field types explain themselves.** The add-field form describes what each type does as you pick it - for example, that Dropdown, Radio, and Multi-select let members choose from the options you define below, while Yes / No is a single checkbox and the rest are free text. You no longer have to guess which type fits before trying it.
 
 ## Good to know
 

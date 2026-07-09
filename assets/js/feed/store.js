@@ -1499,10 +1499,15 @@ store( 'buddynext/post-card', {
 				if ( ! res.ok ) {
 					ctx.shareCount  = prevCount;
 					ctx.shareShared = false;
+					// Surface the server's reason (e.g. already_shared) instead of
+					// failing silently — the guard is correct, the UX was mute.
+					const msg = ( res.data && res.data.message ) || t( 'shareFailed', 'Could not share this post. Try again.' );
+					if ( window.bnToast ) { window.bnToast( msg, 'error' ); }
 				}
 			} catch ( _e ) {
 				ctx.shareCount  = prevCount;
 				ctx.shareShared = false;
+				if ( window.bnToast ) { window.bnToast( t( 'shareFailed', 'Could not share this post. Try again.' ), 'error' ); }
 			}
 		},
 		* reportPost() {
@@ -1538,12 +1543,18 @@ store( 'buddynext/post-card', {
 					// Surface the server's reason (e.g. the 409 "already reported"
 					// message) instead of a generic failure. A 409 means the server
 					// already has this user's report, so reflect that in the UI too.
-					if ( res.status === 409 ) {
+					// An already-reported response is an expected outcome, not an
+					// error, so it reads as an info toast; genuine failures stay danger.
+					const alreadyReported = res.status === 409;
+					if ( alreadyReported ) {
 						ctx.hasReported = true;
 						ctx.optionsOpen = false;
 					}
 					const data = res.data || {};
-					bnToast( data.message || t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
+					bnToast(
+						data.message || t( 'reportFailed', 'Could not submit report. Try again.' ),
+						{ tone: alreadyReported ? 'info' : 'danger' }
+					);
 				}
 			} catch ( _e ) {
 				bnToast( t( 'reportFailed', 'Could not submit report. Try again.' ), { tone: 'danger' } );
@@ -1693,6 +1704,31 @@ store( 'buddynext/post-card', {
 				}
 			} catch ( _e ) {
 				ctx.isPinned = prev;
+				bnToast( t( 'pinStatusFailed', 'Could not change pin status. Try again.' ), { tone: 'danger' } );
+			}
+		},
+		* unpinPinnedFromStrip() {
+			// Unpin from the compact pinned strip (space feed). The strip and the
+			// feed are server-rendered and the post moves between them on unpin, so
+			// reload on success to reflect the new placement.
+			const ctx = getContext();
+			try {
+				const res = yield restFetch( '/posts/' + ctx.postId + '/pin', {
+					method:  'DELETE',
+					nonce:   ctx.reactNonce,
+					toastOnError: false,
+				} );
+				if ( res.ok ) {
+					bnToast( t( 'postUnpinned', 'Post unpinned' ), { tone: 'success' } );
+					window.location.reload();
+				} else {
+					let message = t( 'postUnpinFailed', 'Could not unpin this post. Try again.' );
+					if ( res.data && res.data.message ) {
+						message = res.data.message;
+					}
+					bnToast( message, { tone: 'danger' } );
+				}
+			} catch ( _e ) {
 				bnToast( t( 'pinStatusFailed', 'Could not change pin status. Try again.' ), { tone: 'danger' } );
 			}
 		},
@@ -2262,6 +2298,11 @@ store( 'buddynext/post-composer', {
 		get hasNoError() {
 			try { return ! ( getContext().errorMessage || '' ); } catch ( _e ) { return true; }
 		},
+		get resendVerifyHidden() {
+			// Show the "Resend verification email" affordance only when the block
+			// was specifically an unverified-email 403.
+			try { return ! getContext().errorEmailUnverified; } catch ( _e ) { return true; }
+		},
 		get hasNoVoiceError() {
 			try { return ! ( getContext().voiceError || '' ); } catch ( _e ) { return true; }
 		},
@@ -2719,13 +2760,18 @@ store( 'buddynext/post-composer', {
 				// retrying will always fail, so show a permission message and hide
 				// the Retry affordance. Other errors stay retryable.
 				const nonRetryable = res.status === 401 || res.status === 403 || ( data && data.code === 'rest_forbidden' );
+				// An unverified email is a recoverable block: the member can resend
+				// the verification link and post once verified. Surface a resend
+				// affordance instead of a dead-end permission message.
+				const emailUnverified = !! ( data && data.code === 'email_unverified' );
 				let msg = nonRetryable
 					? t( 'noPermissionToPost', 'You don’t have permission to post here.' )
 					: t( 'postPublishFailed', 'Could not publish your post. Try again.' );
 				if ( data && data.message ) { msg = data.message; }
-				ctx.errorMessage   = msg;
-				ctx.errorRetryable = ! nonRetryable;
-				ctx.submitting     = false;
+				ctx.errorMessage       = msg;
+				ctx.errorRetryable     = ! nonRetryable;
+				ctx.errorEmailUnverified = emailUnverified;
+				ctx.submitting         = false;
 			} catch ( _e ) {
 				ctx.errorMessage   = t( 'networkError', 'Network error. Try again.' );
 				ctx.errorRetryable = true;
@@ -2735,6 +2781,29 @@ store( 'buddynext/post-composer', {
 		togglePrivacy() {
 			const ctx        = getContext();
 			ctx.privacyOpen  = ! ctx.privacyOpen;
+		},
+		* resendVerification( event ) {
+			if ( event && typeof event.preventDefault === 'function' ) { event.preventDefault(); }
+			const ctx = getContext();
+			const btn = event && event.target ? event.target.closest( 'button' ) : null;
+			if ( btn ) { btn.disabled = true; }
+			try {
+				const res = yield restFetch( '/auth/verify/resend', {
+					method:       'POST',
+					nonce:        ctx.restNonce,
+					toastOnError: false,
+				} );
+				if ( res.ok ) {
+					bnToast( t( 'verifyResent', 'Verification email sent. Check your inbox.' ), { tone: 'success' } );
+				} else {
+					const data = res.data || {};
+					bnToast( data.message || t( 'verifyResendFailed', 'Could not resend the verification email. Try again.' ), { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( t( 'verifyResendFailed', 'Could not resend the verification email. Try again.' ), { tone: 'danger' } );
+			} finally {
+				if ( btn ) { btn.disabled = false; }
+			}
 		},
 		* submitVoice() {
 			const ctx = getContext();
@@ -3191,7 +3260,10 @@ store( 'buddynext/share-modal', {
 					}
 					return;
 				}
-				ctx.error = t( 'repostFailed', 'Could not repost. Try again.' );
+				// Show the server's specific reason (e.g. "You have already shared
+				// this post.") inline AND as a toast, not a generic mute failure.
+				ctx.error = ( res.data && res.data.message ) || t( 'repostFailed', 'Could not repost. Try again.' );
+				if ( window.bnToast ) { window.bnToast( ctx.error, 'error' ); }
 				ctx.busy  = false;
 			} catch ( _e ) {
 				ctx.error = t( 'networkError', 'Network error. Try again.' );

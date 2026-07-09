@@ -95,7 +95,20 @@ async function renderDiscussionResults( picker, q ) {
 		'/spaces/' + spaceId + '/discussion-search?q=' + encodeURIComponent( q ),
 		{ method: 'GET', nonce: resolveNonce(), toastOnError: false }
 	);
-	var results = ( res.ok && res.data && res.data.results ) || [];
+
+	// A failed request (network / REST error) is NOT the same as "no matches".
+	// restFetch runs with toastOnError:false, so surface a manual danger toast
+	// here instead of falling through to an empty list — otherwise the picker just
+	// closes with no feedback and reads as "no discussions found" on a real error.
+	if ( ! res.ok ) {
+		if ( window.bnToast ) {
+			window.bnToast( t( 'discussionSearchFailed', 'Could not search discussions. Check your connection and try again.' ), 'danger' );
+		}
+		closeDiscussionResults( picker );
+		return;
+	}
+
+	var results = ( res.data && res.data.results ) || [];
 
 	list.innerHTML = '';
 	if ( ! results.length ) {

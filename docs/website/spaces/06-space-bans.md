@@ -20,7 +20,7 @@ These actions are for a space owner or moderator. Regular members do not see ban
 
 ### Ban a member
 
-1. Open the space and go to its member management area.
+1. Open the space, go to its settings, and select the Members tab.
 2. Find the member in the roster.
 3. Choose **Ban**. You will be asked to confirm, since the member will not be able to rejoin.
 4. Confirm. The member is removed from the space immediately and added to the ban list.
@@ -35,15 +35,15 @@ When you ban someone:
 
 ### View the ban list
 
-The space's moderation area shows who is currently banned from that space, oldest ban first, along with the reason recorded at ban time. Use this list to review past decisions and to find someone you want to unban.
+The Members tab in the space's settings has a "Banned members" section showing who is currently banned from that space, oldest ban first, along with the reason recorded at ban time. Use this list to review past decisions and to find someone you want to unban.
 
 ### Unban a member
 
-1. Open the ban list for the space.
-2. Find the member you want to reinstate.
+1. Open the space's settings and select the Members tab.
+2. Scroll to "Banned members" and find the member you want to reinstate.
 3. Choose **Unban**.
 
-Unbanning removes the ban record. The member can join or request to join the space again like anyone else. Unbanning does not automatically re-add them to the space; it just lifts the block, and they rejoin through the normal join flow.
+Unbanning removes the ban record, so a space ban is never a one-way door. The member can join or request to join the space again like anyone else. Unbanning does not automatically re-add them to the space; it just lifts the block, and they rejoin through the normal join flow.
 
 ## Setting it up (for owners)
 

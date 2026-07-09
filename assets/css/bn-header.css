@@ -93,10 +93,11 @@
 	height: 20px;
 }
 
-/* Notification count: a corner badge over the bell's top-right (like every
-   social app), not an inline pill beside it. The surface-coloured ring cuts the
-   badge out from the icon. */
-.bn-block-notification-bell .bn-notification-badge {
+/* Notification / message count: a corner badge over the icon's top-right (like
+   every social app), not an inline pill beside it. The surface-coloured ring
+   cuts the badge out from the icon. Shared by the bell and the messages icon. */
+.bn-block-notification-bell .bn-notification-badge,
+.bn-header-msg .bn-header-msg__badge {
 	position: absolute;
 	top: 1px;
 	right: 1px;

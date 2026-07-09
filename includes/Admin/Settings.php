@@ -605,6 +605,21 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		return array(
 			new Section(
 				'privacy',
+				__( 'Private Community', 'buddynext' ),
+				array(
+					new Field(
+						array(
+							'key'     => 'buddynext_private_community',
+							'type'    => 'toggle',
+							'label'   => __( 'Require login to view the community', 'buddynext' ),
+							'hint'    => __( 'When on, every BuddyNext page — feed, members, profiles, spaces, notifications, settings, search — and its REST data require login; logged-out visitors are sent to the login page. Only the login / register / password-reset page stays public. Use this for a fully private, members-only community.', 'buddynext' ),
+							'default' => false,
+						)
+					),
+				)
+			),
+			new Section(
+				'privacy',
 				__( 'Search Engine Indexing', 'buddynext' ),
 				array(
 					new Field(

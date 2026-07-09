@@ -391,7 +391,13 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				'pollOptions'       => $poll_options_ctx,
 				'pollVotedOptionId' => $my_voted_option_id,
 				'pollTotalVotes'    => $poll_total_votes,
-				'commentsOpen'      => 'single' === $context,
+				// Always start closed so the "N comments" toggle opens on the FIRST
+				// click on every surface (feed + single). Seeding 'single' open made
+				// the single-post toggle start in the open state — the first click
+				// then closed it (looked like a no-op) — and relied on the auto-load-
+				// on-mount path, which raced empty on a freshly loaded permalink.
+				// Loading now runs through the reliable on-click path everywhere.
+				'commentsOpen'      => false,
 				'commentCount'      => $comment_count,
 				'shareCount'        => $share_count,
 				'shareShared'       => false,
@@ -438,7 +444,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 	<?php if ( ! $is_announcement ) : ?>
 		<?php // Always in the DOM so the label can appear/disappear reactively when a member pins/unpins without a reload; hidden bound to context.isPinned. ?>
 		<div class="bn-post-card__pin-label" aria-label="<?php esc_attr_e( 'Pinned post', 'buddynext' ); ?>" data-wp-bind--hidden="!context.isPinned"<?php echo $is_pinned ? '' : ' hidden'; ?>>
-			<?php buddynext_icon( 'bookmark' ); ?> <?php esc_html_e( 'Pinned', 'buddynext' ); ?>
+			<?php buddynext_icon( 'pin' ); ?> <?php esc_html_e( 'Pinned', 'buddynext' ); ?>
 		</div>
 	<?php endif; ?>
 

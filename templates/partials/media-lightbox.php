@@ -42,6 +42,13 @@ foreach ( $bn_lb_types as $bn_lb_slug ) {
 	}
 	$bn_lb_reactions[ $bn_lb_slug ] = $bn_lb_builtin[ $bn_lb_slug ] ?? ucwords( str_replace( array( '-', '_' ), ' ', $bn_lb_slug ) );
 }
+
+// Every interaction here (react / favorite / share / comment) hits an
+// auth-required engine route, so a guest can only view + download. Rather than
+// show controls that fail on click (a "Log in to react" toast), omit them from
+// the DOM for logged-out visitors; only the media, its meta, and Download remain.
+// lightbox.js null-checks each control, so their absence is a no-op there.
+$bn_lb_can_interact = is_user_logged_in();
 ?>
 <div class="bn-lightbox" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e( 'Media viewer', 'buddynext' ); ?>" hidden>
 	<button type="button" class="bn-lightbox__backdrop" data-bn-lb-close aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"></button>
@@ -70,6 +77,7 @@ foreach ( $bn_lb_types as $bn_lb_slug ) {
 			<div class="bn-lightbox__panel-body">
 				<p class="bn-lightbox__views" data-bn-lb-views></p>
 
+				<?php if ( $bn_lb_can_interact ) : ?>
 				<div class="bn-lightbox__reactions" role="group" aria-label="<?php esc_attr_e( 'React to this media', 'buddynext' ); ?>">
 					<?php foreach ( $bn_lb_reactions as $bn_lb_slug => $bn_lb_label ) : ?>
 						<button type="button" class="bn-lightbox__reaction" data-reaction="<?php echo esc_attr( $bn_lb_slug ); ?>" aria-label="<?php echo esc_attr( $bn_lb_label ); ?>" aria-pressed="false">
@@ -78,26 +86,33 @@ foreach ( $bn_lb_types as $bn_lb_slug ) {
 						</button>
 					<?php endforeach; ?>
 				</div>
+				<?php endif; ?>
 
 				<div class="bn-lightbox__actions">
+					<?php if ( $bn_lb_can_interact ) : ?>
 					<button type="button" class="bn-lightbox__action" data-bn-lb-favorite aria-pressed="false">
 						<?php buddynext_icon( 'heart' ); ?><span><?php esc_html_e( 'Favorite', 'buddynext' ); ?></span>
 					</button>
 					<button type="button" class="bn-lightbox__action" data-bn-lb-share>
 						<?php buddynext_icon( 'share' ); ?><span><?php esc_html_e( 'Share', 'buddynext' ); ?></span>
 					</button>
+					<?php endif; ?>
 					<a class="bn-lightbox__action" data-bn-lb-download download target="_blank" rel="noopener">
 						<?php buddynext_icon( 'download' ); ?><span><?php esc_html_e( 'Download', 'buddynext' ); ?></span>
 					</a>
 				</div>
 
+				<?php if ( $bn_lb_can_interact ) : ?>
 				<div class="bn-lightbox__comments" data-bn-lb-comments aria-live="polite"></div>
+				<?php endif; ?>
 			</div>
 
+			<?php if ( $bn_lb_can_interact ) : ?>
 			<form class="bn-lightbox__comment-form" data-bn-lb-comment-form>
 				<input type="text" class="bn-lightbox__comment-input" data-bn-lb-comment-input placeholder="<?php esc_attr_e( 'Add a comment…', 'buddynext' ); ?>" autocomplete="off">
 				<button type="submit" class="bn-btn" data-variant="primary" data-size="sm"><?php esc_html_e( 'Post', 'buddynext' ); ?></button>
 			</form>
+			<?php endif; ?>
 		</aside>
 	</div>
 </div>

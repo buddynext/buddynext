@@ -95,6 +95,9 @@ class MediaAssets {
 					'noComments'  => __( 'No comments yet. Be the first to say something!', 'buddynext' ),
 					'loginPrompt' => __( 'Log in to react and comment.', 'buddynext' ),
 					'posting'     => __( 'Posting…', 'buddynext' ),
+					// Read by lightbox.js when the clipboard API is unavailable; the key
+					// was missing so the manual-copy prompt always rendered its English fallback.
+					'copyManual'  => __( 'Copy this link: ', 'buddynext' ),
 				),
 			)
 		);

@@ -95,8 +95,10 @@ final class HeaderUserSection {
 	/**
 	 * Messages icon → /messages/ (shown only when the messages feature is available).
 	 *
-	 * No unread badge yet — direct-message unread lives in WPMediaVerse and has no
-	 * cheap per-request count; add one here when it exists.
+	 * Carries the unread-DM count as a corner badge, mirroring the notification
+	 * bell beside it. The count comes from MessagesData::unread_count() — the same
+	 * per-request-cached source the sidebar rail badge uses — so the top-menu and
+	 * sidebar Messages icons stay in sync.
 	 *
 	 * @return string
 	 */
@@ -108,8 +110,26 @@ final class HeaderUserSection {
 		if ( '' === $url ) {
 			return '';
 		}
-		return '<a class="bn-header-msg" href="' . esc_url( $url ) . '" aria-label="' . esc_attr__( 'Messages', 'buddynext' ) . '">'
+
+		$unread = MessagesData::unread_count( get_current_user_id() );
+		$label  = $unread > 0
+			? sprintf(
+				/* translators: %d: unread direct-message count */
+				_n( '%d unread message', '%d unread messages', $unread, 'buddynext' ),
+				absint( $unread )
+			)
+			: __( 'Messages', 'buddynext' );
+
+		$badge = '';
+		if ( $unread > 0 ) {
+			$badge = '<span class="bn-badge bn-header-msg__badge" data-tone="danger" aria-hidden="true">'
+				. esc_html( number_format_i18n( min( $unread, 99 ) ) . ( $unread > 99 ? '+' : '' ) )
+				. '</span>';
+		}
+
+		return '<a class="bn-header-msg" href="' . esc_url( $url ) . '" aria-label="' . esc_attr( $label ) . '">'
 			. '<span class="bn-header-msg__icon" aria-hidden="true">' . self::icon( 'messages-square' ) . '</span>'
+			. $badge
 			. '</a>';
 	}
 

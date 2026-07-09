@@ -257,7 +257,8 @@ class HashtagService {
 
 		$per_page  = min( (int) ( $args['per_page'] ?? 20 ), 50 );
 		$cursor    = ( isset( $args['cursor'] ) && is_string( $args['cursor'] ) ) ? $args['cursor'] : null;
-		$sort      = in_array( $args['sort'] ?? 'latest', array( 'latest', 'top', 'following' ), true ) ? (string) $args['sort'] : 'latest';
+		$sort      = (string) ( $args['sort'] ?? 'latest' );
+		$sort      = in_array( $sort, array( 'latest', 'top', 'following' ), true ) ? $sort : 'latest';
 		$viewer_id = isset( $args['viewer_id'] ) ? (int) $args['viewer_id'] : 0;
 
 		// SCALE-CONTRACT §2: keyset cursor, never OFFSET. Key on the pivot's

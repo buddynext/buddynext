@@ -116,7 +116,8 @@ class NotificationMessageServiceTest extends \WP_UnitTestCase {
 			'daily_digest'           => array( 'bn.daily_digest', 'daily digest' ),
 			'weekly_digest'          => array( 'bn.weekly_digest', 'weekly digest' ),
 			'media_favorited'        => array( 'bn.media_favorited', 'favourited' ),
-			'jetonomy_reply'         => array( 'bn.jetonomy_reply', 'replied to your discussion' ),
+			// bn.jetonomy_reply was removed in the collect-only fix (bug #10062150983);
+			// Jetonomy owns that notification now, so BN renders no copy for it.
 			'test'                   => array( 'bn.test', 'Test notification' ),
 		);
 	}

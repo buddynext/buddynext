@@ -315,6 +315,7 @@ $bn_pf_ctx = array(
 );
 ?>
 <div class="bn-pf-stack" data-wp-interactive="buddynext/profile"
+	data-wp-on-document--click="actions.closeMenusOnOutside"
 	<?php echo wp_interactivity_data_wp_context( $bn_pf_ctx ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 >
 

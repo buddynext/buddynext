@@ -95,12 +95,23 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 			src="<?php echo esc_url( $bn_ep_cover ); ?>"
 			alt=""
 			style="object-position:<?php echo esc_attr( (string) $bn_ep_fx ); ?>% <?php echo esc_attr( (string) $bn_ep_fy ); ?>%;transform:scale(<?php echo esc_attr( (string) $bn_ep_zoom ); ?>);<?php echo '' === $bn_ep_cover ? 'display:none;' : ''; ?>" />
-		<button class="bn-pf-cover__edit bn-ep-cover-btn"
-			type="button"
-			data-wp-on--click="actions.triggerCoverUpload">
-			<?php buddynext_icon( 'camera' ); ?>
-			<span><?php esc_html_e( 'Change cover', 'buddynext' ); ?></span>
-		</button>
+		<div class="bn-pf-cover__actions">
+			<button class="bn-pf-cover__remove bn-ep-cover-remove"
+				type="button"
+				data-bn-cover-remove
+				aria-label="<?php esc_attr_e( 'Remove cover photo', 'buddynext' ); ?>"
+				title="<?php esc_attr_e( 'Remove cover photo', 'buddynext' ); ?>"
+				<?php echo '' !== $bn_ep_cover ? '' : 'hidden'; ?>
+				data-wp-on--click="actions.removeCover">
+				<?php buddynext_icon( 'trash' ); ?>
+			</button>
+			<button class="bn-pf-cover__edit bn-ep-cover-btn"
+				type="button"
+				data-wp-on--click="actions.triggerCoverUpload">
+				<?php buddynext_icon( 'camera' ); ?>
+				<span><?php esc_html_e( 'Change cover', 'buddynext' ); ?></span>
+			</button>
+		</div>
 	</div>
 
 	<div class="bn-pf-head bn-ep-hero-head">

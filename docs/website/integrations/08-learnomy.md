@@ -24,6 +24,7 @@ The learning itself - enrolling, taking lessons, completing a course, earning a 
 - **Completing a course posts to the feed.** When a member finishes a course, BuddyNext posts a "completed a course" activity so the community sees the achievement.
 - **Earning a certificate posts to the feed.** When a member earns a certificate, BuddyNext posts an activity that links to the public certificate-verify page, so the credential can be checked and shared.
 - **Only credentials and milestones post - never enrollment noise.** Starting or simply progressing through a course does not post to the feed. Only the achievements that are worth showing - completions and certificates - become feed activity, so the feed stays meaningful.
+- **A Continue Learning panel lives on the profile.** A member's Portfolio tab shows a panel listing the courses they currently have in progress, each with its completion percentage and a link back into the lesson. A "Go to my courses" link jumps to the full Learnomy learning dashboard. This panel is private - it shows only when a member is viewing their own profile, never on someone else's.
 - **Course notifications land in one place.** Learnomy's own notifications gather into the BuddyNext notification center as a Courses source, so a member has a single bell for everything across the community.
 
 > **Note:** Enrolling, taking lessons, and managing courses happen on Learnomy's screens. BuddyNext does not replace those - it surfaces the milestones in the community.
@@ -42,10 +43,11 @@ This integration has no settings of its own in BuddyNext. The learning experienc
 
 - **Only achievements post to the feed.** Course completions and earned certificates each post a feed activity; routine enrollment and progress do not. This keeps the feed focused on real milestones.
 - **Certificates link to a public verify page.** A certificate's feed activity points to the public certificate-verify page, so anyone can confirm the credential is genuine.
+- **The Continue Learning panel is owner-only.** It is a personal resume shortcut, not a public credential like certifications or teaching - only the profile owner ever sees it, on their own profile.
 - **Notifications are gathered as a Courses source.** Learnomy's notifications collect into the BuddyNext bell under a Courses source, so learners follow course activity alongside everything else in the community.
 - **Inert when Learnomy is not installed.** Without the Learnomy plugin, the integration does nothing - no feed activity and no Courses notifications. BuddyNext checks for Learnomy before wiring anything in, so a site without it sees no errors and no empty surfaces.
 - **Learnomy owns the data.** All courses, lessons, and certificates live in Learnomy. BuddyNext reacts to its events and links out to its pages; it does not store or edit the learning content.
 
 ## Free vs Pro
 
-The Learnomy community integration is part of BuddyNext Pro. The Learnomy plugin itself is separate and runs on its own, but surfacing its course completions and certificates inside the BuddyNext community - the feed activity and notification gathering described above - requires BuddyNext Pro.
+The Learnomy community integration is part of BuddyNext Pro. The Learnomy plugin itself is separate and runs on its own, but surfacing its course completions and certificates inside the BuddyNext community - the feed activity, the profile's Continue Learning panel, and notification gathering described above - requires BuddyNext Pro.

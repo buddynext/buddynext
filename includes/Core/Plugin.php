@@ -149,6 +149,7 @@ class Plugin {
 		// Owner-configurable redirect after logout (login + onboarding are applied
 		// at their own call sites). No-op until the owner sets a destination.
 		\BuddyNext\Core\RedirectSettings::register();
+		\BuddyNext\Core\PrivateCommunity::register();
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			\WP_CLI::add_command( 'buddynext demo', new \BuddyNext\Demo\DemoCommand() );
@@ -191,6 +192,7 @@ class Plugin {
 					$container->get( 'admin_nav' )->register();
 					$container->get( 'admin_email_editor' )->register();
 					( new \BuddyNext\Admin\EmailLog() )->register();
+					( new \BuddyNext\Admin\SetupChecklist() )->register();
 					$container->get( 'setup_wizard' )->init();
 					( new \BuddyNext\Demo\DemoAdmin() )->register();
 					( new \BuddyNext\Admin\AppearanceTab() )->register();
@@ -467,7 +469,10 @@ class Plugin {
 		add_action( 'buddynext_reindex_all_cron', array( SearchService::class, 'reindex_all_cron' ) );
 
 		// Register navigation menu locations + custom meta box in Appearance > Menus.
-		add_action( 'after_setup_theme', array( new self(), 'register_nav_menus' ) );
+		// On init (>= 11, after load_plugin_textdomain at init:10) so the location
+		// label resolves in the active locale — after_setup_theme fires before the
+		// textdomain loads and tripped _load_textdomain_just_in_time on WP 6.7+.
+		add_action( 'init', array( new self(), 'register_nav_menus' ), 11 );
 		add_action( 'admin_head-nav-menus.php', array( new self(), 'add_nav_menu_meta_box' ) );
 
 		// Level 2 context nav — per-section sub-navigation items.

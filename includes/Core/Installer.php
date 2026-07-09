@@ -118,7 +118,7 @@ class Installer {
 	 *      converged to the Installer seed (one canonical schema from either
 	 *      provisioning path).
 	 */
-	private const SCHEMA_VERSION = 25;
+	private const SCHEMA_VERSION = 27;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -232,6 +232,14 @@ class Installer {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query( "DELETE FROM {$wpdb->usermeta} WHERE meta_key = 'bn_suspended'" );
 
+		// v26: strip default-matching nav label overrides. The Navigation admin
+		// previously persisted every tab's label — including un-renamed core tabs —
+		// which baked the admin-locale string into buddynext_nav_overrides* and made
+		// the front-end rail / profile tabs ignore translations. Clear labels that
+		// still equal their default so those tabs resolve their translatable __()
+		// label again; genuine renames and custom tabs are untouched. Idempotent.
+		self::maybe_migrate_nav_default_labels();
+
 		// v24: one-time Unicode hashtag re-sync (R11). The legacy sanitize_key()
 		// normalizer stripped every non-ASCII byte, so "#café" was stored as "caf"
 		// and "#日本語" was dropped. The canonical HashtagService::normalize_slug()
@@ -241,6 +249,73 @@ class Installer {
 		self::schedule_hashtag_resync();
 
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * Clear default-matching nav label overrides so translated tabs render (v26).
+	 *
+	 * The Navigation admin used to persist a label for every tab, including core
+	 * tabs the owner never renamed. Those stored labels (the admin-locale default
+	 * strings) then overrode the front-end's translatable __() labels, so the rail
+	 * and profile tabs showed English on a translated site. This strips any core-tab
+	 * label that still equals its default; genuine renames and custom-tab labels are
+	 * preserved. Compares against both the current locale and the en_US source
+	 * strings so English-seeded and same-locale-seeded installs are both cleaned;
+	 * any residual self-heals on the next Navigation save. Idempotent.
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_nav_default_labels(): void {
+		if ( ! class_exists( '\BuddyNext\Admin\NavManager' ) ) {
+			return;
+		}
+
+		$scope_option = array(
+			'main'    => 'buddynext_nav_overrides',
+			'profile' => 'buddynext_nav_overrides_profile',
+			'space'   => 'buddynext_nav_overrides_space',
+			'mobile'  => 'buddynext_nav_overrides_mobile',
+		);
+
+		$manager   = new \BuddyNext\Admin\NavManager();
+		$switch_en = get_locale() !== 'en_US' && function_exists( 'switch_to_locale' );
+
+		foreach ( $scope_option as $scope => $option_key ) {
+			$stored = get_option( $option_key, null );
+			if ( ! is_array( $stored ) || empty( $stored ) ) {
+				continue;
+			}
+
+			$defaults_current = $manager->default_label_map( $scope );
+			$defaults_en      = $defaults_current;
+			if ( $switch_en ) {
+				switch_to_locale( 'en_US' );
+				$defaults_en = $manager->default_label_map( $scope );
+				restore_previous_locale();
+			}
+
+			$changed = false;
+			foreach ( $stored as $slug => $ov ) {
+				if ( ! is_array( $ov ) || ! empty( $ov['custom'] ) ) {
+					continue; // Never touch custom-tab labels (they have no __() default).
+				}
+				$label = (string) ( $ov['label'] ?? '' );
+				if ( '' === $label ) {
+					continue;
+				}
+				$slug = (string) $slug;
+				if ( (string) ( $defaults_current[ $slug ] ?? '' ) === $label
+					|| (string) ( $defaults_en[ $slug ] ?? '' ) === $label
+				) {
+					$stored[ $slug ]['label'] = '';
+					$changed                  = true;
+				}
+			}
+
+			if ( $changed ) {
+				update_option( $option_key, $stored );
+			}
+		}
 	}
 
 	/**
@@ -1344,16 +1419,20 @@ class Installer {
 		// category_multiselect field that powers people/space/feed suggestions;
 		// see docs/plans/interests-personalization.md).
 		// Format: group_key, label, type, visibility, is_system, sort_order.
-		// Freedom pass (v18): only basic_info (spine fields), skills and interests
-		// (suggestion signal) are system groups. The showcase sections — Social
-		// Links, Work Experience, Education — are the owner's to keep or prune;
-		// display templates self-hide when a group is gone (display contract §3).
+		// Freedom pass (v19): only basic_info (spine fields) and interests (the
+		// suggestion signal the people/space/feed engines read) are system groups.
+		// Every showcase section — Social Links, Work Experience, Education, Skills —
+		// is the owner's to keep or prune; display templates self-hide when a group
+		// is gone (display contract §3). Skills was previously locked (v18) as a
+		// mis-labelled "suggestion signal", but it is a plain searchable text field,
+		// not code-consumed — locking the group while its field stayed deletable was
+		// an internal contradiction that blocked the owner-freedom doctrine.
 		$groups = array(
 			array( 'basic_info', 'Basic Info', 'flat', 'public', 1, 1 ),
 			array( 'social_links', 'Social Links', 'flat', 'public', 0, 2 ),
 			array( 'work_experience', 'Work Experience', 'repeater', 'public', 0, 3 ),
 			array( 'education', 'Education', 'repeater', 'public', 0, 4 ),
-			array( 'skills', 'Skills', 'flat', 'public', 1, 5 ),
+			array( 'skills', 'Skills', 'flat', 'public', 0, 5 ),
 			array( 'interests', 'Interests', 'flat', 'public', 1, 6 ),
 		);
 
@@ -1384,14 +1463,15 @@ class Installer {
 			    AND is_system = 0"
 		);
 
-		// Freedom pass (v18): converge pre-v18 installs where the showcase
+		// Freedom pass (v18/v19): converge older installs where the showcase
 		// sections were seeded is_system=1 — the INSERT IGNORE above no-ops on
-		// existing rows, so drop the group lock explicitly. Field-level
+		// existing rows, so drop the group lock explicitly. 'skills' joined this
+		// list in v19 (was mis-locked as a "suggestion signal"). Field-level
 		// is_system (the bio/headline/location/interests spine) is untouched.
 		$wpdb->query(
 			"UPDATE `{$p}bn_profile_groups`
 			    SET is_system = 0
-			  WHERE group_key IN ('social_links', 'work_experience', 'education')
+			  WHERE group_key IN ('social_links', 'work_experience', 'education', 'skills')
 			    AND is_system = 1"
 		);
 
@@ -1776,12 +1856,14 @@ class Installer {
 				content     TEXT NOT NULL,
 				is_edited   TINYINT(1) NOT NULL DEFAULT 0,
 				is_deleted  TINYINT(1) NOT NULL DEFAULT 0,
+				sync_reply_id BIGINT(20) UNSIGNED DEFAULT NULL,
 				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				KEY         thread (object_type, object_id, parent_id, created_at),
 				KEY         user (user_id),
-				KEY         deleted (is_deleted)
+				KEY         deleted (is_deleted),
+				KEY         sync_reply (sync_reply_id)
 			) {$cs};",
 
 			// ── Hashtags ───────────────────────────────────────────────────────

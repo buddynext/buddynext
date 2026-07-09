@@ -1156,6 +1156,13 @@ function openBlockModal( userId, displayName, originEl ) {
 	modal.hidden = false;
 
 	bindOnce( modal, 'block-bound', () => {
+		// Dismiss on backdrop click: a click whose target is the backdrop element
+		// itself (the dimmed area outside the panel) closes the modal, matching the
+		// standard modal gesture. Clicks inside the panel have a descendant target,
+		// so the form and its controls are unaffected.
+		modal.addEventListener( 'click', ( e ) => {
+			if ( e.target === modal ) { modal.hidden = true; }
+		} );
 		modal.querySelectorAll( '[data-wp-on--click="actions.closeBlockConfirm"]' ).forEach( ( b ) => {
 			b.addEventListener( 'click', ( e ) => { e.preventDefault(); modal.hidden = true; } );
 		} );
@@ -1204,6 +1211,10 @@ function openReportModal( targetType, targetId, displayName, originEl ) {
 	modal.hidden = false;
 
 	bindOnce( modal, 'report-bound', () => {
+		// Dismiss on backdrop click — see openBlockModal for the rationale.
+		modal.addEventListener( 'click', ( e ) => {
+			if ( e.target === modal ) { modal.hidden = true; }
+		} );
 		modal.querySelectorAll( '[data-wp-on--click="actions.closeReport"]' ).forEach( ( b ) => {
 			b.addEventListener( 'click', ( e ) => { e.preventDefault(); modal.hidden = true; } );
 		} );

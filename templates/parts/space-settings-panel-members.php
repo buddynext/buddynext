@@ -45,6 +45,9 @@ $bn_space_id      = isset( $args['members_data']['space_id'] ) ? (int) $args['me
 $bn_space_members = isset( $args['members_data']['members'] ) && is_array( $args['members_data']['members'] )
 	? $args['members_data']['members']
 	: array();
+$bn_space_bans    = isset( $args['members_data']['bans'] ) && is_array( $args['members_data']['bans'] )
+	? $args['members_data']['bans']
+	: array();
 
 $bn_classes = array_merge( array( 'bn-card', 'bn-space-settings__panel' ), array_filter( (array) $args['classes'], 'is_string' ) );
 /** Computed root-class list. @var array<int,string> $bn_classes */
@@ -199,6 +202,54 @@ $bn_sspm_ctx = (string) wp_json_encode(
 			</ul>
 		<?php endif; ?>
 	</div>
+
+	<?php if ( ! empty( $bn_space_bans ) ) : ?>
+		<div class="bn-card bn-space-settings__panel">
+			<header class="bn-space-settings__panel-head">
+				<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Banned members', 'buddynext' ); ?></h2>
+				<p class="bn-space-settings__panel-desc">
+					<?php esc_html_e( 'Members blocked from rejoining this space. Unban to let them request or join again.', 'buddynext' ); ?>
+				</p>
+			</header>
+			<ul class="bn-space-settings__member-list" role="list">
+				<?php foreach ( $bn_space_bans as $bn_ban_member ) : ?>
+					<?php
+					$bn_ban_avatar_url = get_avatar_url( (int) $bn_ban_member->user_id, array( 'size' => 72 ) );
+					$bn_ban_uid_attr   = esc_attr( (string) $bn_ban_member->user_id );
+					?>
+					<li class="bn-space-settings__member-row" role="listitem">
+						<span class="bn-avatar" data-size="md" aria-hidden="true">
+							<?php if ( $bn_ban_avatar_url ) : ?>
+								<img src="<?php echo esc_url( $bn_ban_avatar_url ); ?>" alt="" loading="lazy">
+							<?php else : ?>
+								<?php echo esc_html( strtoupper( substr( $bn_ban_member->display_name, 0, 1 ) ) ); ?>
+							<?php endif; ?>
+						</span>
+
+						<div class="bn-space-settings__member-info">
+							<p class="bn-space-settings__member-name"><?php echo esc_html( $bn_ban_member->display_name ); ?></p>
+							<p class="bn-space-settings__member-meta">@<?php echo esc_html( $bn_ban_member->user_login ); ?></p>
+						</div>
+
+						<span class="bn-badge" data-tone="danger"><?php esc_html_e( 'Banned', 'buddynext' ); ?></span>
+
+						<div class="bn-space-settings__member-actions">
+							<button
+								type="button"
+								class="bn-btn"
+								data-variant="ghost"
+								data-size="sm"
+								data-user-id="<?php echo $bn_ban_uid_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above. ?>"
+								data-wp-on--click="actions.unbanMember"
+							>
+								<?php esc_html_e( 'Unban', 'buddynext' ); ?>
+							</button>
+						</div>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+		</div>
+	<?php endif; ?>
 
 	<div class="bn-card bn-space-settings__panel">
 		<header class="bn-space-settings__panel-head">

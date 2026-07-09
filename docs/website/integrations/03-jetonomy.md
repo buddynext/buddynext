@@ -26,11 +26,15 @@ A **Discussions** link appears in the BuddyNext left navigation rail, opening th
 
 ### Per-space forum tab
 
-Every BuddyNext space gains a **Discussions** tab. Opening it takes the member to that space's own forum. The full member experience of a space forum - starting a topic, replying, voting, and how a forum is set up on first use - is covered in Space Forum.
+Every BuddyNext space gains a **Discussions** tab. Opening it takes the member to that space's own forum. The tab's "Start a discussion" button opens the forum's new-topic composer directly, so starting a discussion takes one click instead of landing on the forum first and hunting for a way to post. The full member experience of a space forum - starting a topic, replying, voting, and how a forum is set up on first use - is covered in Space Forum.
 
 ### Discussions in the activity feed
 
 When a member starts a new discussion in a public space, it can also appear as a card in the BuddyNext activity feed, so people following the feed see new discussions without having to visit the forum. This mirroring is controlled by an owner setting (below) and only ever surfaces public discussions from public spaces - private spaces and private topics never leak into the feed.
+
+### Two-way discussion sync
+
+A discussion card in the feed and its matching topic in the forum stay in sync automatically. Comment on the feed card, and that comment appears as a reply in the forum topic. Reply in the forum, and that reply appears as a comment on the feed card. Editing or deleting a comment or reply on either side carries through to the other, so members never have to re-post the same reply twice or worry about the two places drifting apart.
 
 ### Reply notifications and mentions
 
@@ -70,10 +74,11 @@ There is nothing to pre-build for space forums. A space's forum is created the f
 - **Forums never leak private content into the feed.** Only public, published discussions in public spaces become feed cards. A discussion in a private or secret space, or a topic marked private, stays out of the public feed and Explore even when feed sync is on.
 - **Deleting a discussion cleans up after itself.** When a discussion is removed, its feed card and its search entry are removed too, so the feed never points at a thread that no longer exists.
 - **Discussions are searchable.** New discussions are indexed for BuddyNext's unified search, so members find them alongside posts, members, and spaces - this happens whether or not feed sync is on.
+- **The feed card and the forum topic never drift apart.** Every comment or reply, and every edit or delete of one, is mirrored to the other side automatically - there is nothing to re-post by hand.
 - **Inert when not installed.** With Jetonomy inactive, BuddyNext has no Discussions link, no space forum tab, and no feed sync - there are no errors or broken links. Installing the companion is what turns them on.
 
 ## Free vs Pro
 
-The free Jetonomy companion delivers everything described above: the Discussions area, per-space forums, threaded replies, voting, mentions, reply notifications, and feed sync.
+The free Jetonomy companion delivers everything described above: the Discussions area, per-space forums, threaded replies, voting, mentions, reply notifications, feed sync, and the two-way sync between feed comments and forum replies.
 
 Jetonomy's own paid tier extends the forum engine itself (for example its private-messaging extension). Inside a BuddyNext community, direct messaging is owned by BuddyNext through the WPMediaVerse companion, so when BuddyNext messaging is available it takes over the Messages area and Jetonomy's messaging extension steps aside - members get one consistent inbox rather than two. See WPMediaVerse and Direct Messaging for how messaging is provided.

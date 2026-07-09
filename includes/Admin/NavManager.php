@@ -586,6 +586,44 @@ class NavManager extends AdminPageBase {
 	}
 
 	/**
+	 * Map of slug => default (translatable) label for a scope's core tabs.
+	 *
+	 * Built from the same default_* source the editor renders from, so the
+	 * save handler can tell a genuine rename from a default-matching submit
+	 * within one request/locale (a reliable comparison — both sides are the
+	 * current locale). Used by the save handler to decide whether to persist a
+	 * label override, and by the one-time default-label cleanup migration.
+	 *
+	 * @param string $scope One of: main, profile, space, mobile.
+	 * @return array<string,string> Slug => default label.
+	 */
+	public function default_label_map( string $scope ): array {
+		switch ( $scope ) {
+			case 'profile':
+				$defaults = $this->default_profile_tabs();
+				break;
+			case 'space':
+				$defaults = $this->default_space_tabs();
+				break;
+			case 'mobile':
+				$defaults = $this->default_mobile_tabs();
+				break;
+			default:
+				$defaults = $this->default_tabs();
+				break;
+		}
+
+		$map = array();
+		foreach ( $defaults as $tab ) {
+			$slug = sanitize_key( (string) ( $tab['slug'] ?? '' ) );
+			if ( '' !== $slug ) {
+				$map[ $slug ] = sanitize_text_field( (string) ( $tab['label'] ?? '' ) );
+			}
+		}
+		return $map;
+	}
+
+	/**
 	 * Return the sorted, override-applied tab list for any scope.
 	 *
 	 * Applies the relevant filter and merges admin overrides.
@@ -1567,6 +1605,13 @@ class NavManager extends AdminPageBase {
 			$scope_visible = (array) ( $raw_visible[ $scope ] ?? array() );
 			$visible_slugs = array_map( 'sanitize_key', array_keys( $scope_visible ) );
 
+			// Default (translatable) label per slug for this scope. A core tab whose
+			// submitted label still equals its default is NOT a rename — persisting it
+			// would bake the admin-locale string into the option and defeat front-end
+			// translation of that tab (the front end resolves the default via __()).
+			// See NavOverrides: an empty stored label falls through to the __() default.
+			$default_labels = $this->default_label_map( $scope );
+
 			// Previously-stored overrides. A custom tab submitted as an existing
 			// config row carries no 'custom'/'url' field, so carry both forward
 			// from here — otherwise the rebuilt override loses its custom marker
@@ -1605,8 +1650,19 @@ class NavManager extends AdminPageBase {
 					continue;
 				}
 
+				$submitted_label = sanitize_text_field( (string) ( $cfg['label'] ?? '' ) );
+				// Only a genuine rename (differs from the current default) is stored for
+				// a core tab; a default-matching label is cleared so the front end keeps
+				// its translatable __() label. Custom tabs (no __() default) always keep
+				// their label — they are re-merged with custom => true below.
+				$is_custom_tab = ! empty( $existing[ $slug ]['custom'] );
+				$default_label = (string) ( $default_labels[ $slug ] ?? '' );
+				if ( ! $is_custom_tab && '' !== $default_label && $submitted_label === $default_label ) {
+					$submitted_label = '';
+				}
+
 				$overrides[ $slug ] = array(
-					'label'          => sanitize_text_field( (string) ( $cfg['label'] ?? '' ) ),
+					'label'          => $submitted_label,
 					'icon'           => sanitize_key( (string) ( $cfg['icon'] ?? '' ) ),
 					'order'          => max( 1, absint( $cfg['order'] ?? 10 ) ),
 					'hidden'         => ! in_array( $slug, $visible_slugs, true ),

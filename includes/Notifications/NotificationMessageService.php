@@ -918,8 +918,11 @@ class NotificationMessageService {
 
 			case 'bn.badge_awarded':
 			case 'bn.level_up':
+				// Deep-link to the member's own Achievements tab (badge grid +
+				// points/level standing strip), not the general profile, so the
+				// notification lands where the earned badge / new level is shown.
 				$me = $viewer_id;
-				return $me > 0 ? PageRouter::profile_url( $me ) : '';
+				return $me > 0 ? trailingslashit( PageRouter::profile_url( $me ) ) . 'achievements/' : '';
 
 			case 'bn.onboarding_nudge':
 				return PageRouter::onboarding_url();

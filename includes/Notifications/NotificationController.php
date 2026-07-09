@@ -201,7 +201,7 @@ class NotificationController extends BaseRestController {
 		$offset = null !== $request->get_param( 'offset' ) ? max( 0, (int) $request->get_param( 'offset' ) ) : null;
 
 		$result   = ( new NotificationService() )->list_for_user( $user_id, $cursor, $per_page, $filter, $offset );
-		$composer = new NotificationMessageService();
+		$composer = buddynext_service( 'notification_message' );
 		$composed = $composer->compose_batch( $result['items'] ?? array() );
 
 		// Enrich each row with the rendered message, link, icon, and label so

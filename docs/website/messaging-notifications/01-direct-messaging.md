@@ -56,6 +56,8 @@ Direct messaging is controlled from Settings > General, in the Direct Messaging 
 
 - **Live typing indicator.** Since 1.0.4 a conversation shows "typing..." while the other person writes, and it clears the moment they stop or send.
 
+- **Unread message badge.** Since 1.0.7 the header Messages icon carries its own unread count, right beside the notification bell, so a member sees at a glance whether they have new direct messages without opening the inbox.
+
 - Messaging needs the WPMediaVerse companion plugin. BuddyNext is the interface and the privacy layer; WPMediaVerse is the engine that stores and delivers the messages. If WPMediaVerse is not active, the messaging settings are unavailable and members will not see messaging entry points. For how to install and connect it, see the WPMediaVerse integration page.
 - Blocking prevents messaging. If a member has blocked someone, that person cannot send them a message - the block is checked on every send. The sender is told why the send was refused, so a block, a "No one" preference, and a "Connections only" preference each produce an accurate notice rather than a generic error.
 - Privacy preferences are enforced on send. A member set to "Connections only" can be reached only by people they are connected with; a member set to "No one" cannot be reached by direct message at all. Site administrators can always reach members regardless of these preferences.

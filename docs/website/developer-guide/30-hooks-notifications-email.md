@@ -89,7 +89,7 @@ Raise a notification through the canonical service so it inherits the full pipel
 ```php
 // 1. Raise the notification from wherever your event commits.
 add_action( 'my_plugin_mentor_assigned', function ( int $mentee_id, int $mentor_id ): void {
-    buddynext_service( 'notification_service' )->create( [
+    buddynext_service( 'notifications' )->create( [
         'recipient_id' => $mentee_id,
         'sender_id'    => $mentor_id,
         'type'         => 'mentor_assigned',      // your custom type slug
@@ -100,14 +100,23 @@ add_action( 'my_plugin_mentor_assigned', function ( int $mentee_id, int $mentor_
     ] );
 }, 10, 2 );
 
-// 2. (Optional) Provide the human-readable copy for in-app + email + push.
-add_filter( 'buddynext_notification_message', function ( $message, string $type, array $row ) {
+// 2. (Optional) Provide the human-readable message string for in-app + email + push.
+//    The filter passes five arguments and expects a string back.
+add_filter( 'buddynext_notification_message', function ( string $message, string $type, string $actor_name, int $object_id, array $data ): string {
     if ( 'mentor_assigned' === $type ) {
-        $message['title'] = __( 'You have a new mentor', 'my-plugin' );
-        $message['body']  = __( 'A mentor was assigned to you.', 'my-plugin' );
+        return sprintf( __( '%s was assigned as your mentor.', 'my-plugin' ), $actor_name );
     }
     return $message;
-}, 10, 3 );
+}, 10, 5 );
+
+// 3. (Optional) Provide the click-through URL for the notification. Same five-arg
+//    shape; return an absolute URL (or the passed-in $url to leave it unchanged).
+add_filter( 'buddynext_notification_url', function ( string $url, string $type, int $actor_id, int $object_id, array $data ): string {
+    if ( 'mentor_assigned' === $type ) {
+        return home_url( '/mentorship/' . $object_id . '/' );
+    }
+    return $url;
+}, 10, 5 );
 ```
 
 Because the notification flows through `create()`, the in-app row, the email (if a template or message exists), and Pro push all dispatch from the single `buddynext_notification_created` action - no per-channel wiring on your side.

@@ -432,6 +432,15 @@
 .bn-skill-chip:hover {
 	border-color: var(--bn-p-brand);
 }
+/* The light brand tint (--bn-accent-100) does not flip in dark mode, so the
+   chip rendered light-on-dark. Give it a translucent-accent background that
+   reads on dark surfaces. Covers all three dark triggers (the theme-set
+   [data-bx-mode] included) since the accent text is lifted in dark mode. */
+[data-bn-theme="dark"] .bn-skill-chip,
+[data-theme="dark"] .bn-skill-chip,
+[data-bx-mode="dark"] .bn-skill-chip {
+	background: color-mix( in oklab, var(--bn-p-brand) 22%, transparent );
+}
 
 /* Section group heading */
 .bn-profile-group-heading {
@@ -1597,6 +1606,9 @@ a.bn-space-row:hover .bn-space-name {
 .bn-pf-tasks {
 	list-style: none;
 	margin: 0;
+	/* list-style:none does not remove the UA <ul> inline padding (~40px); reset it
+	   so the checklist sits flush with the card's left edge. */
+	padding-inline: 0;
 	padding-block-start: var(--bn-s3);
 	display: flex;
 	flex-direction: column;
@@ -1896,6 +1908,50 @@ a.bn-space-row:hover .bn-space-name {
 .bn-ep-cover-btn {
 	cursor: pointer;
 }
+
+/* Cover action cluster — Remove + Change sit as a right-aligned flex row so the
+   variable-width "Change cover" label never has to be measured for positioning. */
+.bn-pf-cover__actions {
+	position: absolute;
+	inset-block-end: var(--bn-s3);
+	inset-inline-end: var(--bn-s3);
+	z-index: 2;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+}
+/* The edit button now flows inside the flex row instead of positioning itself. */
+.bn-pf-cover__actions .bn-pf-cover__edit {
+	position: static;
+	inset: auto;
+}
+.bn-ep-cover-remove {
+	width: 40px;
+	height: 40px;
+	border-radius: var(--bn-r-full);
+	background: color-mix(in oklch, var(--bn-ink) 75%, transparent);
+	color: var(--bn-surface);
+	border: none;
+	box-shadow: var(--bn-shadow-sm);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: background var(--bn-dur-fast) var(--bn-ease), color var(--bn-dur-fast) var(--bn-ease);
+}
+.bn-ep-cover-remove svg {
+	width: 16px;
+	height: 16px;
+	stroke: currentColor;
+	fill: none;
+}
+.bn-ep-cover-remove:hover,
+.bn-ep-cover-remove:focus-visible {
+	background: var(--bn-danger);
+	color: var(--bn-accent-fg);
+}
+.bn-ep-cover-remove:focus-visible { box-shadow: var(--bn-ring); outline: none; }
+.bn-ep-cover-remove[hidden] { display: none; }
 
 .bn-ep-hero-id {
 	min-width: 0;
@@ -2490,6 +2546,17 @@ a.bn-space-row:hover .bn-space-name {
 	.bn-ep-save-status { display: none; }
 	.bn-ep-slug-field { flex-direction: column; align-items: stretch; }
 	.bn-ep-account-row { flex-direction: column; align-items: flex-start; gap: var(--bn-s2); }
+}
+
+/* The fixed mobile bottom nav (.bn-mobile-nav) is visible <=768px at z-index
+   9500; the fixed save bar sits at bottom:0 z-180, so the nav covered its
+   Save/Cancel buttons and mobile users could not save. Lift the save bar to sit
+   flush above the nav (its ~52px height + iOS safe-area) across the SAME
+   breakpoint the nav uses, so the buttons stay tappable. */
+@media (max-width: 768px) {
+	.bn-ep-save-bar {
+		inset-block-end: calc(52px + env(safe-area-inset-bottom, 0px));
+	}
 }
 
 /* Owner action bar removed — Edit profile / Share live in the hero action

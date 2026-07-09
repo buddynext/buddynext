@@ -189,7 +189,7 @@ final class NavOverrides {
 				'key'   => $slug,
 				'label' => sanitize_text_field( (string) ( $ov['label'] ?? $slug ) ),
 				'url'   => $url,
-				'icon'  => 'link',
+				'icon'  => sanitize_key( (string) ( $ov['icon'] ?? 'link' ) ),
 				'show'  => true,
 				'order' => isset( $ov['order'] ) ? max( 1, (int) $ov['order'] ) : $fallback_order,
 			);
@@ -320,7 +320,7 @@ final class NavOverrides {
 				'layer'    => 'primary',
 				'label'    => sanitize_text_field( (string) ( $ov['label'] ?? $slug ) ),
 				'url'      => $url,
-				'icon'     => 'link',
+				'icon'     => sanitize_key( (string) ( $ov['icon'] ?? 'link' ) ),
 				'priority' => isset( $ov['order'] ) ? max( 1, (int) $ov['order'] ) : 900,
 			);
 		}
@@ -394,7 +394,7 @@ final class NavOverrides {
 			$items[] = array(
 				'key'      => $slug,
 				'url'      => $url,
-				'icon'     => 'link',
+				'icon'     => sanitize_key( (string) ( $ov['icon'] ?? 'link' ) ),
 				'label'    => sanitize_text_field( (string) ( $ov['label'] ?? $slug ) ),
 				'show'     => true,
 				'overflow' => true,

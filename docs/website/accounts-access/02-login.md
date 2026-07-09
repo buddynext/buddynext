@@ -9,7 +9,7 @@ Login is how returning members sign back in to your community. Like the sign-up 
 ## Why use it
 
 - **On-brand sign-in.** The login form picks up your community's colors, fonts, and spacing automatically, and on BuddyNext Pro it carries your white-label branding. It can sit beside the same welcome panel as the sign-up form.
-- **Lands members in the community.** After signing in, members go to the activity feed by default, or to a destination you set - never to a WordPress dashboard.
+- **Lands members in the community.** After signing in, members go to the activity feed by default, or to a destination you set - never to a WordPress dashboard. Signing out sends them back to your branded login page, not the plain WordPress login screen, so they can sign back in without ever seeing the WordPress admin.
 - **Everything in one place.** Remember-me, the forgot-password link, and any social sign-in buttons all live on the one form, so members never hunt for an option.
 - **Secure by default.** Sign-in runs through WordPress's own trusted authentication, so password rules, the pending-approval gate, and (on accounts that enable it) two-factor verification all apply.
 
@@ -40,8 +40,9 @@ To place it: edit a page, add the **Login** form block (search for "login" in th
 
 ### Where members land after signing in
 
-- **Default.** After a successful sign-in, members go to the activity feed.
+- **Default.** After a successful sign-in, members go to the activity feed. This applies no matter which login form they used - the built-in login hub, a theme login form, or any other way they signed in - a member never lands on a WordPress dashboard they have no reason to see.
 - **Per-block destination.** Set a redirect address on the Login form block to send members from that form to a specific page instead.
+- **After signing out**, members return to your branded login page, ready to sign back in, instead of the default WordPress "you are logged out" screen.
 - **Welcome panel.** The login and sign-up forms share the same branded side panel. Control it under **BuddyNext > Settings > Registration**, in the Login and Sign-up Panel section (show or hide it, plus the heading, tagline, featured quote, and banner image). Those settings apply to both screens.
 
 There is no separate login settings tab - login shares the welcome panel and the same pages as sign-up, and it honors the same account states (a member awaiting admin approval or with an unconfirmed email is gated exactly as the registration flow describes).

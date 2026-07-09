@@ -48,6 +48,12 @@ The admin had a full quality pass in 1.0.4, so screenshots from earlier versions
 
 ![The License screen, now one click from the admin menu](../images/admin-license.webp)
 
+## Dark mode follows your theme (1.0.7)
+
+The Appearance tab controls your community's brand color, and dark mode rides along with it automatically. BuddyNext does not have its own light/dark switch - it follows the toggle your theme already provides. If your site runs BuddyX or Reign, switching that theme's light/dark toggle switches BuddyNext with it, with no extra setup.
+
+1.0.7 extends dark mode to reach the corners it used to miss: native form controls (inputs, dropdowns, checkboxes), skill chips on profiles, and leaderboard badges all now follow the theme instead of staying light in a dark layout.
+
 ## Jump to any setting with the command palette
 
 You do not have to remember which section a setting lives in. BuddyNext registers every one of its settings with WordPress core's built-in **Command Palette**.

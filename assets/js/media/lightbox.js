@@ -171,6 +171,15 @@
 		// and author (from the meta fetch above) are all that show.
 		if ( isDM ) { return; }
 
+		// Guests can only view + download: the interaction controls aren't rendered
+		// for logged-out visitors (see media-lightbox.php) and every call below is
+		// auth-only, so skip them (no 401 noise, no null panel) and just track the
+		// view best-effort — mirrors the DM skip above.
+		if ( ! LOGGED_IN ) {
+			api( '/media/' + id + '/view', { method: 'POST' } ).catch( function () {} );
+			return;
+		}
+
 		// Favorite status — reflect the real state on open (the reset above is
 		// just the optimistic default until this resolves).
 		if ( panel.favorite ) {
@@ -374,11 +383,12 @@
 	}
 
 	function renderComments( list ) {
+		if ( ! panel.comments ) { return; }
 		clear( panel.comments );
 		if ( ! list.length ) {
 			var empty = document.createElement( 'p' );
 			empty.className = 'bn-lightbox__comments-empty';
-			empty.textContent = I18N.noComments || 'No comments yet.';
+			empty.textContent = I18N.noComments || 'No comments yet. Be the first to say something!';
 			panel.comments.appendChild( empty );
 			return;
 		}
@@ -414,7 +424,7 @@
 
 	function requireLogin() {
 		if ( LOGGED_IN ) { return true; }
-		if ( window.bnToast ) { window.bnToast( I18N.loginPrompt || 'Log in to interact.', 'info' ); }
+		if ( window.bnToast ) { window.bnToast( I18N.loginPrompt || 'Log in to react and comment.', 'info' ); }
 		return false;
 	}
 

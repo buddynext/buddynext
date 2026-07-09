@@ -245,6 +245,23 @@ class PageRouter {
 			set_query_var( 'bn_hub', $hub );
 		}
 
+		// Private-community lockdown: when enabled, every hub requires login except
+		// the auth hub (login / register / reset / verify). A logged-out visitor on
+		// any other hub — feed, members, a single profile, spaces, notifications,
+		// settings, search … — is sent to the auth page with a redirect_to back to
+		// the page they wanted. This closes the routing gap where BuddyNext's own
+		// pages bypassed membership plugins: they are simply unreachable when logged
+		// out. The matching REST data gate lives in PrivateCommunity::gate_rest().
+		if ( 'auth' !== $hub
+			&& PrivateCommunity::is_enabled()
+			&& ! PrivateCommunity::can_access()
+		) {
+			global $wp;
+			$return = home_url( user_trailingslashit( (string) ( $wp->request ?? '' ) ) );
+			wp_safe_redirect( add_query_arg( 'redirect_to', rawurlencode( $return ), self::auth_url() ) );
+			exit;
+		}
+
 		// Feature guard: a hub whose feature the admin has disabled must not
 		// render. Spaces is the toggleable hub (FeatureRegistry 'spaces',
 		// default-on) — when it is off, send visitors to the activity hub
@@ -732,16 +749,6 @@ class PageRouter {
 
 		do_action( 'buddynext_before_hub', $hub, $template );
 
-		// htmx partial swap: when request has HX-Request header, return only
-		// the template content (no theme header/footer). This enables SPA-like
-		// navigation where only the content area swaps on link clicks.
-		if ( ! empty( $_SERVER['HTTP_HX_REQUEST'] ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			header( 'HX-Push-Url: ' . esc_url( home_url( add_query_arg( array() ) ) ) );
-			header( 'HX-Trigger: bnPageSwap' );
-			buddynext_get_template( $template, $context );
-			exit;
-		}
-
 		// BuddyNext sits *inside* the active theme's chrome. The theme owns
 		// the document — DOCTYPE / <html> / <head> / wp_head() / <body> /
 		// wp_body_open() / wp_footer() / </html> all come from the theme via
@@ -982,6 +989,40 @@ class PageRouter {
 		// wp_enqueue_scripts (priority 20), once the handle exists.
 		$bn_shell_data = array(
 			'restNonce'          => wp_create_nonce( 'wp_rest' ),
+			// Shell-level string dictionary for the framework-agnostic JS helpers
+			// (assets/js/shell/dialog.js, assets/js/social/relation-remove.js).
+			// Those helpers build DOM directly and are not Interactivity Script
+			// Modules, so they cannot read a per-store wp_interactivity_state() dict.
+			// They read window.bnShellData.i18n.<key> here (English literal kept as a
+			// JS fallback). The report-reason list in particular is internal to
+			// dialog.js and unreachable from any caller — this is its only translatable
+			// source. Keep in sync with the keys read in those two files.
+			'i18n'               => array(
+				// Shared modal frame.
+				'close'                  => __( 'Close', 'buddynext' ),
+				'confirm'                => __( 'Confirm', 'buddynext' ),
+				'cancel'                 => __( 'Cancel', 'buddynext' ),
+				// Report dialog.
+				'reportTitle'            => __( 'Report', 'buddynext' ),
+				'reportBody'             => __( 'Reports are reviewed by moderators. The person you report is not notified.', 'buddynext' ),
+				'reportSubmit'           => __( 'Submit report', 'buddynext' ),
+				'reportReasonLabel'      => __( 'Reason', 'buddynext' ),
+				'reportNotesLabel'       => __( 'Additional details (optional)', 'buddynext' ),
+				'reportNotesPlaceholder' => __( 'Tell us more about what you saw…', 'buddynext' ),
+				'reasonSpam'             => __( 'Spam', 'buddynext' ),
+				'reasonHarassment'       => __( 'Harassment or hate speech', 'buddynext' ),
+				'reasonMisinformation'   => __( 'Misinformation', 'buddynext' ),
+				'reasonInappropriate'    => __( 'Inappropriate content', 'buddynext' ),
+				'reasonImpersonation'    => __( 'Impersonation', 'buddynext' ),
+				'reasonOther'            => __( 'Something else', 'buddynext' ),
+				// Connection-note dialog.
+				'connectTitle'           => __( 'Add a note', 'buddynext' ),
+				'connectBody'            => __( 'Add a personal message to your connection request, or send it without one.', 'buddynext' ),
+				'connectSubmit'          => __( 'Send request', 'buddynext' ),
+				'connectPlaceholder'     => __( 'e.g. We met at the design meetup — I’d love to stay connected.', 'buddynext' ),
+				// Generic fallback toast (relation-remove.js).
+				'updateFailed'           => __( 'Could not update. Try again.', 'buddynext' ),
+			),
 			'restSearchUrl'      => esc_url_raw( rest_url( 'buddynext/v1/search' ) ),
 			'restNotifsUrl'      => esc_url_raw( rest_url( 'buddynext/v1/me/notifications?per_page=5' ) ),
 			'restNotifsReadUrl'  => esc_url_raw( rest_url( 'buddynext/v1/me/notifications/read-all' ) ),
