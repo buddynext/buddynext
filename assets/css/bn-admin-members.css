@@ -925,6 +925,17 @@
 	justify-content: flex-end;
 }
 
+/* Confirming state: the impact box + Yes/Cancel would otherwise crowd and
+   overlap the toolbar controls (visibility / member-type / reorder / Add Field)
+   inside the wrapping flex row. Breaking the form onto its own full-width line
+   drops the confirmation cleanly below the toolbar, right-aligned to match it. */
+.bn-pf-head-actions .bn-del-form.is-confirming {
+	flex-basis: 100%;
+	align-items: center;
+	justify-content: flex-end;
+	margin-top: var(--bn-a-s2);
+}
+
 .bn-pf-req-wrap {
 	display: flex;
 	align-items: center;
