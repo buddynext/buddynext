@@ -81,6 +81,13 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - Navigation and profile-tab labels now respect the active translation.
 * Fix      - The post pin label no longer reads "Pin to profile" inside a space.
 * Fix      - The gamification "on cooldown" points nag is suppressed; points are awarded silently.
+* Fix      - Turning off the desktop sidebar rail no longer leaves an empty column on hub pages; content reflows to full width.
+* Fix      - Member profiles with an empty sidebar no longer show a large blank gap on the right.
+* Fix      - The Spaces directory count now matches the spaces shown instead of also counting hidden sub-spaces.
+* Fix      - Profile action menus, the Share popover, and the Block and Report dialogs now close when you click outside them.
+* Fix      - The "Remove Demo Data" button stays readable on hover instead of turning blank.
+* Fix      - The media lightbox comment box now matches the BuddyNext style and centres its empty state instead of inheriting the theme's fonts and leaving a blank gap.
+* Fix      - Linking an existing discussion in a space's settings now shows an error if the search request fails, instead of silently returning no results.
 * Security - Media lightbox actions are gated to logged-in viewers.
 * Dev      - New buddynext_redirect_url filter for login and logout redirect control.
 * Dev      - Notification and PageRouter audit fixes: removed dead code and corrected dependency wiring.
