@@ -1419,16 +1419,20 @@ class Installer {
 		// category_multiselect field that powers people/space/feed suggestions;
 		// see docs/plans/interests-personalization.md).
 		// Format: group_key, label, type, visibility, is_system, sort_order.
-		// Freedom pass (v18): only basic_info (spine fields), skills and interests
-		// (suggestion signal) are system groups. The showcase sections — Social
-		// Links, Work Experience, Education — are the owner's to keep or prune;
-		// display templates self-hide when a group is gone (display contract §3).
+		// Freedom pass (v19): only basic_info (spine fields) and interests (the
+		// suggestion signal the people/space/feed engines read) are system groups.
+		// Every showcase section — Social Links, Work Experience, Education, Skills —
+		// is the owner's to keep or prune; display templates self-hide when a group
+		// is gone (display contract §3). Skills was previously locked (v18) as a
+		// mis-labelled "suggestion signal", but it is a plain searchable text field,
+		// not code-consumed — locking the group while its field stayed deletable was
+		// an internal contradiction that blocked the owner-freedom doctrine.
 		$groups = array(
 			array( 'basic_info', 'Basic Info', 'flat', 'public', 1, 1 ),
 			array( 'social_links', 'Social Links', 'flat', 'public', 0, 2 ),
 			array( 'work_experience', 'Work Experience', 'repeater', 'public', 0, 3 ),
 			array( 'education', 'Education', 'repeater', 'public', 0, 4 ),
-			array( 'skills', 'Skills', 'flat', 'public', 1, 5 ),
+			array( 'skills', 'Skills', 'flat', 'public', 0, 5 ),
 			array( 'interests', 'Interests', 'flat', 'public', 1, 6 ),
 		);
 
@@ -1459,14 +1463,15 @@ class Installer {
 			    AND is_system = 0"
 		);
 
-		// Freedom pass (v18): converge pre-v18 installs where the showcase
+		// Freedom pass (v18/v19): converge older installs where the showcase
 		// sections were seeded is_system=1 — the INSERT IGNORE above no-ops on
-		// existing rows, so drop the group lock explicitly. Field-level
+		// existing rows, so drop the group lock explicitly. 'skills' joined this
+		// list in v19 (was mis-locked as a "suggestion signal"). Field-level
 		// is_system (the bio/headline/location/interests spine) is untouched.
 		$wpdb->query(
 			"UPDATE `{$p}bn_profile_groups`
 			    SET is_system = 0
-			  WHERE group_key IN ('social_links', 'work_experience', 'education')
+			  WHERE group_key IN ('social_links', 'work_experience', 'education', 'skills')
 			    AND is_system = 1"
 		);
 
