@@ -187,14 +187,15 @@ body.admin-bar .bn-app.bn-app--embedded {
 	grid-template-columns: var(--bn-railw) minmax(0, 1fr) var(--bn-shell-sidebar-w);
 }
 
-/* Community navigation disabled (buddynext_community_nav_enabled() === false):
-   the rail markup is not rendered, so drop its grid track and let the content
-   reflow to full width instead of reserving the empty --bn-railw column. */
-.bn-app__shell--no-nav {
+/* Rail not rendered (buddynext_community_rail_enabled() === false — either the
+   master community-nav toggle OR the rail sub-toggle is off): drop the rail grid
+   track and let the content reflow to full width instead of reserving the empty
+   --bn-railw column. */
+.bn-app__shell--no-rail {
 	grid-template-columns: minmax(0, 1fr);
 }
 
-.bn-app__shell--no-nav:has( .bn-app__right ) {
+.bn-app__shell--no-rail:has( .bn-app__right ) {
 	grid-template-columns: minmax(0, 1fr) var(--bn-shell-sidebar-w);
 }
 
@@ -465,7 +466,7 @@ body.admin-bar .bn-app__rail {
 		grid-template-columns: var(--bn-railw) minmax(0, 1fr);
 	}
 	/* No rail + right sidebar hidden at this width → single content column. */
-	.bn-app__shell--no-nav:has( .bn-app__right ) {
+	.bn-app__shell--no-rail:has( .bn-app__right ) {
 		grid-template-columns: minmax(0, 1fr);
 	}
 	.bn-app__right {
@@ -515,7 +516,7 @@ body.admin-bar .bn-app__rail {
 	   so they override the presence-driven sidebar grid above. */
 	.bn-app__shell,
 	.bn-app__shell:has( .bn-app__right ),
-	.bn-app__shell--no-nav:has( .bn-app__right ) {
+	.bn-app__shell--no-rail:has( .bn-app__right ) {
 		grid-template-columns: minmax(0, 1fr);
 	}
 	.bn-app__rail {

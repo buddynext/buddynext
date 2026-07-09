@@ -944,7 +944,13 @@ class SpaceService {
 				)
 			);
 		} else {
-			$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces" );
+			// No bound params, but $where_sql may still carry a param-less predicate
+			// (e.g. roots_only's `parent_id IS NULL`). It MUST be included here or the
+			// count ignores the filter and returns every row — inflating the directory
+			// total by sub-spaces/unlisted rows the grid never shows. The earlier
+			// version omitted $where_sql on this branch, which was the bug. No prepare()
+			// since there are no placeholders to bind.
+			$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces {$where_sql}" );
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare

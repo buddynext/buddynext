@@ -67,12 +67,15 @@ $show_right_sidebar = buddynext_feature_enabled( 'sidebar' )
 // region) would go stale on a client navigation that adds/removes the sidebar.
 $bn_shell_classes = 'bn-app__shell';
 
-// "Show community navigation" toggle (Settings → default on). When off, the
-// owner has opted to drive navigation entirely from the host theme menus, so
-// BuddyNext renders neither the left rail nor the mobile bottom tab bar.
-$bn_community_nav = buddynext_community_nav_enabled();
-if ( ! $bn_community_nav ) {
-	$bn_shell_classes .= ' bn-app__shell--no-nav';
+// The desktop left rail renders only when buddynext_community_rail_enabled() —
+// the master "Show community navigation" toggle AND the rail sub-toggle both on
+// (see rail gate below). Whenever the rail is NOT rendered — either toggle off —
+// collapse its grid track so the main content reflows to full width instead of
+// sitting beside an empty --bn-railw column. Keying this off the rail helper (not
+// the master toggle alone) is the fix for the rail sub-toggle leaving a dead rail
+// column. The mobile bottom bar is gated independently below.
+if ( ! buddynext_community_rail_enabled() ) {
+	$bn_shell_classes .= ' bn-app__shell--no-rail';
 }
 
 // Client-side navigation wiring (data-wp-interactive + router region + navigate

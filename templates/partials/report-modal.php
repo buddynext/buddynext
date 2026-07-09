@@ -34,7 +34,8 @@ $reasons = array(
 	aria-modal="true"
 	aria-labelledby="bn-pf-report-title"
 	hidden
-	data-wp-bind--hidden="!context.reportOpen">
+	data-wp-bind--hidden="!context.reportOpen"
+	data-wp-on--click="actions.backdropCloseReport">
 	<div class="bn-modal__panel" data-size="sm">
 		<header class="bn-modal__head">
 			<h2 class="bn-modal__title" id="bn-pf-report-title">

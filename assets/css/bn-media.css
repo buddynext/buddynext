@@ -335,8 +335,20 @@ body.bn-lightbox-open { overflow: hidden; }
 .bn-lightbox__action[aria-pressed="true"] svg { fill: currentColor; }
 
 /* Comments. */
-.bn-lightbox__comments { display: flex; flex-direction: column; gap: var( --bn-s3, 12px ); }
-.bn-lightbox__comments-empty { margin: 0; color: var( --bn-ink-3, oklch( 58% 0.008 0 ) ); font-size: var( --bn-text-sm, 0.875rem ); }
+/* Grow to fill the panel-body's leftover height so the empty state can center in
+   it instead of sitting as a lone line at the top with a tall blank void below
+   (the panel is a chat-style column: content up top, composer pinned at the
+   bottom). Real comments still stack from the top via the default flex-start. */
+.bn-lightbox__comments { display: flex; flex-direction: column; gap: var( --bn-s3, 12px ); flex: 1 1 auto; min-height: 0; }
+/* margin:auto centers the empty message on both axes within the grown region. */
+.bn-lightbox__comments-empty {
+	margin: auto;
+	max-width: 28ch;
+	text-align: center;
+	color: var( --bn-ink-3, oklch( 58% 0.008 0 ) );
+	font-size: var( --bn-text-sm, 0.875rem );
+	line-height: var( --bn-leading-snug, 1.4 );
+}
 .bn-lightbox__comment { font-size: var( --bn-text-sm, 0.875rem ); line-height: 1.45; }
 .bn-lightbox__comment-author { margin-inline-end: 6px; }
 .bn-lightbox__comment-text { color: var( --bn-ink-2, oklch( 40% 0.01 0 ) ); }
@@ -356,7 +368,13 @@ body.bn-lightbox-open { overflow: hidden; }
 	border-radius: 999px;
 	background: var( --bn-sunken, oklch( 97% 0.004 0 ) );
 	color: var( --bn-ink, oklch( 20% 0.01 0 ) );
-	font: inherit;
+	/* Lock typography to BN tokens (mirrors the .bn-input primitive). `font:
+	   inherit` here pulled the host theme's body typography (16px / 1.6 from
+	   global.min.css) into the field, so it rendered larger than the Post button
+	   beside it and drifted per-theme. */
+	font-family: var( --bn-font-ui );
+	font-size: var( --bn-text-sm, 0.875rem );
+	line-height: var( --bn-leading-snug, 1.4 );
 }
 .bn-lightbox__comment-input:focus-visible { outline: none; border-color: var( --bn-accent, oklch( 58% 0.13 264 ) ); }
 

@@ -25,7 +25,8 @@ $display_name = isset( $display_name ) ? (string) $display_name : '';
 	aria-modal="true"
 	aria-labelledby="bn-pf-block-title"
 	hidden
-	data-wp-bind--hidden="!context.blockConfirmOpen">
+	data-wp-bind--hidden="!context.blockConfirmOpen"
+	data-wp-on--click="actions.backdropCloseBlock">
 	<div class="bn-modal__panel" data-tone="danger" data-size="sm">
 		<header class="bn-modal__head">
 			<h2 class="bn-modal__title" id="bn-pf-block-title">

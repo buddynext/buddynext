@@ -1,5 +1,5 @@
 /* BuddyNext - Profile Interactivity API store. */
-import { store, getContext } from '@wordpress/interactivity';
+import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnToast, bnConfirm, bnResolveConnectNote } from '../shell/dialog.js';
 import { restFetch } from '../shell/rest-client.js';
 
@@ -1897,6 +1897,35 @@ const profileStore = store( 'buddynext/profile', {
 			}
 		},
 
+		/**
+		 * Close the More-options menu and Share popover when a click lands outside
+		 * their wrappers. Bound via data-wp-on-document--click on the .bn-pf-stack
+		 * interactive root, so it closes through the same reactive state as the
+		 * toggle actions. Without this the popovers stayed open until re-clicked —
+		 * a click anywhere else (the expected dismiss gesture) did nothing. Mirrors
+		 * the members-directory closeCardMenuOnOutside pattern.
+		 *
+		 * @param {MouseEvent} event The document click event.
+		 */
+		closeMenusOnOutside( event ) {
+			var ctx = getContext();
+			if ( ! ctx || ( ! ctx.moreMenuOpen && ! ctx.shareMenuOpen ) ) { return; }
+			var ref = getElement() && getElement().ref;
+			if ( ! ref ) { return; }
+			if ( ctx.moreMenuOpen ) {
+				var moreWrap = ref.querySelector( '.bn-more-menu-wrap' );
+				if ( ! moreWrap || ! moreWrap.contains( event.target ) ) {
+					ctx.moreMenuOpen = false;
+				}
+			}
+			if ( ctx.shareMenuOpen ) {
+				var shareWrap = ref.querySelector( '.bn-share-menu-wrap' );
+				if ( ! shareWrap || ! shareWrap.contains( event.target ) ) {
+					ctx.shareMenuOpen = false;
+				}
+			}
+		},
+
 		async copyProfileLink( event ) {
 			var ctx = getContext();
 			var btn = event.target.closest( '[data-share-url]' );
@@ -1981,6 +2010,21 @@ const profileStore = store( 'buddynext/profile', {
 			getContext().blockConfirmOpen = false;
 		},
 
+		/**
+		 * Dismiss the block-confirm modal when the dimmed backdrop itself is clicked
+		 * (the standard modal gesture). Bound via data-wp-on--click on the backdrop;
+		 * clicks that bubble up from the panel/controls have a descendant target, so
+		 * only a direct backdrop click closes it. Previously only the X / Cancel
+		 * buttons closed it.
+		 *
+		 * @param {MouseEvent} event The click event.
+		 */
+		backdropCloseBlock( event ) {
+			if ( getElement() && event.target === getElement().ref ) {
+				getContext().blockConfirmOpen = false;
+			}
+		},
+
 		async confirmBlock() {
 			var ctx = getContext();
 			if ( ctx.blockSubmitting ) { return; }
@@ -2018,6 +2062,18 @@ const profileStore = store( 'buddynext/profile', {
 
 		closeReport() {
 			getContext().reportOpen = false;
+		},
+
+		/**
+		 * Dismiss the report modal on a direct backdrop click — see
+		 * backdropCloseBlock for the rationale.
+		 *
+		 * @param {MouseEvent} event The click event.
+		 */
+		backdropCloseReport( event ) {
+			if ( getElement() && event.target === getElement().ref ) {
+				getContext().reportOpen = false;
+			}
 		},
 
 		setReportReason( event ) {
