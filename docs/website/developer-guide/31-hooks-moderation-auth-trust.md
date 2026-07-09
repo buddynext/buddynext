@@ -123,6 +123,52 @@ The admin moderation queue and the member-facing report modal expose theming sea
 | `buddynext_social_icon` | filter | A social provider's icon is resolved | `string $icon, string $provider_id` |
 | `buddynext_social_user_created` | action | A new account is created from a social login | `int $user_id, string $provider_id, array $profile` |
 
+## Authentication: private community access (1.0.7)
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_private_community_can_access` | filter | Deciding whether the current visitor may access the community, while Private Community mode is on (Settings → Privacy & Data → Private Community) - gates both the hub-page redirect and the REST 401 response | `bool $can_access` (default: `is_user_logged_in()`) |
+
+`PrivateCommunity::can_access()` is the single access seam for membership plugins. By default it grants access to any logged-in visitor. A membership plugin (Paid Memberships Pro, WP Fusion, MemberPress) filters this to decide on its own terms - for example, requiring an active plan or a required tag, not just a login. Return `false` to send a visitor to the login (or upgrade) page like a guest; return `true` to grant access. The filter only runs when Private Community mode is enabled - it has no effect while the community is public.
+
+```php
+// Require an active "pro" membership tag, not just a login, once Private
+// Community mode is on.
+add_filter(
+	'buddynext_private_community_can_access',
+	function ( bool $can_access ): bool {
+		if ( ! is_user_logged_in() ) {
+			return false;
+		}
+		return (bool) wpf_has_tag( get_current_user_id(), 'pro-member' );
+	}
+);
+```
+
+## Authentication: login and logout redirects (1.0.7)
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_redirect_url` | filter | Resolving the login / logout / onboarding redirect URL, after the owner's Settings > Registration & Login value (or the built-in default) has already been applied - runs last, so it has the final say | `string $url, string $context, string $fallback` |
+
+`RedirectSettings::resolve()` is the one place every login, logout, and onboarding redirect passes through - the BuddyNext auth hub, `wp-login.php`, a theme login form, and programmatic sign-in all resolve through it. `$context` is one of `'login'`, `'logout'`, or `'onboarding'`; `$fallback` is the built-in default for that context (for example, the activity feed for login). Send a member to a custom dashboard or an external portal without touching the settings UI:
+
+```php
+add_filter(
+	'buddynext_redirect_url',
+	function ( string $url, string $context, string $fallback ): string {
+		if ( 'login' === $context ) {
+			return home_url( '/dashboard/' );
+		}
+		return $url;
+	},
+	10,
+	3
+);
+```
+
+> **Note:** WordPress's own `wp_safe_redirect()` at the apply point is the safety net - an off-site target still needs `allowed_redirect_hosts` or it falls back to `$fallback`.
+
 ## Examples
 
 ### Add a custom safeguard via `buddynext_safeguard_check`

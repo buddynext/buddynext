@@ -397,6 +397,41 @@ add_filter( 'buddynext_template_locations', function ( array $dirs ): array {
 
 Lookup order: child theme, then parent theme, then BuddyNext's own `templates/`, then each registered add-on directory. Add-on directories are searched last on purpose - they resolve templates Free does not ship (like Pro membership surfaces), while a site owner can still override any of them from their theme at `buddynext/{path}` - see Child Theme Template Overrides.
 
+## Recipe 12 - Add an owner-only Portfolio panel (Pro, 1.0.7)
+
+**Goal:** give an integration its own panel inside a member's Portfolio tab that only the profile owner ever sees - a personal "in progress" shelf (Learnomy's "Continue Learning") rather than a public credential like a certificate or a listing.
+
+**Seam:** `buddynext_member_suite_panels` (Pro). Every suite integration (Career Board, Listora, Learnomy, ...) contributes its panels to the one shared Portfolio tab through this filter; `SuiteProfile::panels()` normalizes each entry and reads an `owner_only` flag off it. Set that flag and the panel is withheld from every viewer except the profile owner - enforced in three places so it can never leak: the Portfolio sub-nav (`SuiteProfile::add_subnav()`, via its `visible_panels()` gate), the section renderer (`SuiteProfile::render_section()`), and the REST endpoint (`PortfolioController::get_portfolio()`, which drops the panel outright for a non-owner viewer).
+
+```php
+add_filter( 'buddynext_member_suite_panels', function ( array $panels, int $member_id ): array {
+	$courses = my_addon_get_in_progress_courses( $member_id );
+	if ( empty( $courses ) ) {
+		return $panels;
+	}
+
+	$panels[] = array(
+		'key'        => 'continue-learning',
+		'label'      => __( 'Continue Learning', 'my-addon' ),
+		'icon'       => 'play',        // a BuddyNext icon slug.
+		'priority'   => 25,
+		'items'      => $courses,      // each item: title, url, image, highlight, ...
+		// Owner-only: rendered on the member's OWN profile alone, never a visitor's.
+		'owner_only' => true,
+		'owner_cta'  => array(
+			'label' => __( 'Go to my courses', 'my-addon' ),
+			'url'   => home_url( '/account/courses/' ),
+		),
+	);
+
+	return $panels;
+}, 10, 2 );
+```
+
+> **Note:** `BuddyNextPro\Integrations\AbstractSuitePanelProvider` is the shared base every bundled Pro integration extends. It wires this filter, the in-process REST fetch, and the panel-array assembly for you - its `panel()` helper takes the same `owner_only` opt. Extend it instead of hooking `buddynext_member_suite_panels` directly if you are shipping more than one panel.
+
+---
+
 ## Notes and gotchas
 
 - **Filters return, actions react.** A filter that returns nothing erases the value. An action's return value is ignored.

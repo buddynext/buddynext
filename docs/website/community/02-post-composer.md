@@ -38,6 +38,8 @@ A member can edit their own post to fix or update the text and change its audien
 
 A member can pin one of their own posts to the top of their profile so visitors see it first. Inside a space, a space organizer can pin a post to the top of that space. Free allows one pin per surface; Pro raises this (see Free vs Pro).
 
+A pinned space post also appears in a compact pinned-posts strip at the top of the space feed. Anyone with permission to unpin it (the post's owner or a site administrator) sees an **Unpin** control right on that strip, so they can lift the pin without having to find the original post first.
+
 ### Drafts
 
 As a member writes, the composer saves the in-progress post as a draft so nothing is lost if they navigate away or close the tab. Drafts can also sync across devices so a post started on a phone can be finished on a laptop.

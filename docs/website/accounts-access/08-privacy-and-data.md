@@ -29,6 +29,18 @@ These live in the admin area under Settings, in the Privacy section.
 
 > **Note:** Members can also set their own profile to skip search engines from the Privacy section of their profile editor. The owner indexing setting is the community-wide policy; the per-member toggle is the individual override.
 
+## Private Community
+
+Some communities are not meant to be seen by the public - an internal team space, a paid community, or a group that should only be visible to its own members. The Private Community setting puts your whole community behind a login screen.
+
+**Where to find it:** in the admin area, open BuddyNext, then Members, then the Privacy and Data tab, and look under Private Community. Turn on "Require login to view the community."
+
+**What happens when it is on:** a visitor who is not signed in is sent to your login page instead of seeing the feed, member directory, spaces, or any other community page. Login, registration, password reset, and any pages you have marked public stay reachable, so a new visitor can still sign up or sign in. Once someone logs in, they see the community normally.
+
+**When to use it:** turn this on if you are running a members-only or invite-only community and do not want any content visible to logged-out visitors, including search engines and people following a shared link. Leave it off for a community that is open to the public, where visitors can browse before deciding to join.
+
+> **Note:** This setting is off by default, so your community stays public unless you turn it on.
+
 ## Cookie consent banner
 
 If your community needs to ask visitors for cookie consent - for example under EU or GDPR rules - BuddyNext can show a small cookie notice at the bottom of the screen on a visitor's first visit.

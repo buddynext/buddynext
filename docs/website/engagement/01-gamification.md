@@ -43,7 +43,7 @@ A few rules keep scoring fair:
 
 ### Where badges and levels show
 
-- **Profile.** A member's profile shows their points, level, leaderboard rank, current streak, and an earned-badges grid, with a "View leaderboard" link. These tiles appear only when WB Gamification is active and the member has earned something to show.
+- **Profile.** A member's profile shows their points, level, leaderboard rank, current streak, and an earned-badges grid, with a "View leaderboard" link. Since 1.0.7 these live together on a single Achievements tab on the profile, instead of being spread across three separate tabs. The tab appears only when WB Gamification is active and the member has earned something to show.
 - **Leaderboard.** The ranked board lists top members with their points and badges, and shows the viewer their own rank, level, streak, and next milestone. See The community leaderboard for the full walkthrough.
 - **Notifications.** When WB Gamification awards a badge or moves a member up a level, BuddyNext drops a notification in the member's bell so the win does not pass unnoticed.
 
