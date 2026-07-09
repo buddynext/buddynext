@@ -362,13 +362,14 @@ class ProfileFieldsManager {
 
 		check_admin_referer( 'bn_create_profile_field' );
 
-		$group_id    = absint( wp_unslash( $_POST['group_id'] ?? 0 ) );
-		$label       = sanitize_text_field( wp_unslash( $_POST['label'] ?? '' ) );
-		$type        = sanitize_key( wp_unslash( $_POST['type'] ?? 'text' ) );
-		$is_required = absint( wp_unslash( $_POST['is_required'] ?? 0 ) );
-		$visibility  = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
-		$description = sanitize_text_field( wp_unslash( $_POST['description'] ?? '' ) );
-		$placeholder = sanitize_text_field( wp_unslash( $_POST['placeholder'] ?? '' ) );
+		$group_id         = absint( wp_unslash( $_POST['group_id'] ?? 0 ) );
+		$label            = sanitize_text_field( wp_unslash( $_POST['label'] ?? '' ) );
+		$type             = sanitize_key( wp_unslash( $_POST['type'] ?? 'text' ) );
+		$is_required      = absint( wp_unslash( $_POST['is_required'] ?? 0 ) );
+		$show_on_register = isset( $_POST['show_on_register'] ) ? 1 : 0;
+		$visibility       = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
+		$description      = sanitize_text_field( wp_unslash( $_POST['description'] ?? '' ) );
+		$placeholder      = sanitize_text_field( wp_unslash( $_POST['placeholder'] ?? '' ) );
 
 		if ( ! in_array( $type, self::field_types(), true ) ) {
 			$type = 'text';
@@ -420,17 +421,18 @@ class ProfileFieldsManager {
 
 			buddynext_service( 'profiles' )->create_field(
 				array(
-					'group_id'      => $group_id,
-					'field_key'     => $field_key,
-					'label'         => $label,
-					'type'          => $type,
-					'options'       => $parsed_opts,
-					'description'   => $description,
-					'placeholder'   => $placeholder,
-					'is_required'   => $is_required > 0 ? 1 : 0,
-					'is_searchable' => $is_searchable,
-					'visibility'    => $visibility,
-					'sort_order'    => $sort_order,
+					'group_id'         => $group_id,
+					'field_key'        => $field_key,
+					'label'            => $label,
+					'type'             => $type,
+					'options'          => $parsed_opts,
+					'description'      => $description,
+					'placeholder'      => $placeholder,
+					'is_required'      => $is_required > 0 ? 1 : 0,
+					'is_searchable'    => $is_searchable,
+					'show_on_register' => $show_on_register,
+					'visibility'       => $visibility,
+					'sort_order'       => $sort_order,
 				)
 			);
 		}
@@ -1752,6 +1754,7 @@ class ProfileFieldsManager {
 								</select>
 							</div>
 						</div>
+						<p class="bn-pf-opts-hint"><?php esc_html_e( 'Dropdown, Radio and Multi-select let members choose from options you define below. Space Categories uses your site categories as the choices; Yes / No is a single checkbox; everything else is free text.', 'buddynext' ); ?></p>
 						<?php // G1: owner-authored hints. Empty = nothing renders on the member forms. ?>
 						<div class="bn-pf-af-row">
 							<div class="bn-pf-af-field">
@@ -1827,6 +1830,10 @@ class ProfileFieldsManager {
 						<div id="bn-af-search-<?php echo absint( $gid ); ?>" class="bn-pf-af-req-row" style="<?php echo $first_type_searchable ? '' : 'display:none;'; ?>">
 							<input type="checkbox" id="bn-af-search-c-<?php echo absint( $gid ); ?>" name="is_searchable" value="1">
 							<label for="bn-af-search-c-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Searchable in the member directory', 'buddynext' ); ?></label>
+						</div>
+						<div class="bn-pf-af-req-row">
+							<input type="checkbox" id="bn-af-reg-<?php echo absint( $gid ); ?>" name="show_on_register" value="1">
+							<label for="bn-af-reg-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Show on the registration form', 'buddynext' ); ?></label>
 						</div>
 						<div class="bn-pf-af-actions">
 							<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Field', 'buddynext' ); ?></button>
