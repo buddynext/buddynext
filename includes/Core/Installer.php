@@ -2005,7 +2005,7 @@ class Installer {
 				reporter_id BIGINT(20) UNSIGNED NOT NULL,
 				object_type VARCHAR(32) NOT NULL,
 				object_id   BIGINT(20) UNSIGNED NOT NULL,
-				reason      ENUM('spam','harassment','misinformation','inappropriate','fake','impersonation','other') NOT NULL DEFAULT 'other',
+				reason      VARCHAR(32) NOT NULL DEFAULT 'other',
 				notes       TEXT DEFAULT NULL,
 				status      ENUM('pending','dismissed','escalated','resolved') NOT NULL DEFAULT 'pending',
 				resolved_by BIGINT(20) UNSIGNED DEFAULT NULL,
