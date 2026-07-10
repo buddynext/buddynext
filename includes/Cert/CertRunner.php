@@ -178,7 +178,7 @@ class CertRunner {
 				'check'  => 'contract',
 				'entity' => $slug,
 				'status' => 'hole',
-				'detail' => 'no oracle — enforcement unproven (add via `cert learn`)',
+				'detail' => 'no oracle — enforcement unproven (add one to audit/cert-oracles.json)',
 			);
 		}
 

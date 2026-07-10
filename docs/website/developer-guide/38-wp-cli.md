@@ -134,7 +134,7 @@ Sample human output:
   PASS  contract  feature-x              disabled code appears when off
   PASS  boot      GET /spaces            200
   FAIL  contract  feature-y              flip had no effect
-  HOLE  contract  feature-z              no oracle - enforcement unproven (add via `cert learn`)
+  HOLE  contract  feature-z              no oracle - enforcement unproven (add one to audit/cert-oracles.json)
 
   2 passed, 1 failed, 1 holes (uncovered)
 Error: Functional certification FAILED - 2 passed, 1 failed, 1 holes (uncovered)
