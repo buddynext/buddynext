@@ -67,6 +67,13 @@ class ModerationService {
 	private const APPEAL_DECISIONS = array( 'approved', 'denied' );
 
 	/**
+	 * Maximum stored length of a report's free-text notes. Mirrors the report
+	 * modal's maxlength=500 and is enforced server-side so a direct API caller
+	 * cannot exceed it.
+	 */
+	private const NOTE_MAX_LENGTH = 500;
+
+	/**
 	 * Submit a report on an object.
 	 *
 	 * Each user may only report a given object once (UNIQUE KEY enforced at DB).
@@ -85,6 +92,11 @@ class ModerationService {
 		if ( ! in_array( $reason, self::reasons(), true ) ) {
 			$reason = 'other';
 		}
+
+		// Enforce the notes length server-side. The modal caps input at 500 via
+		// maxlength, but a direct REST/API caller bypasses that; truncate once so
+		// the stored row and the returned row agree.
+		$notes = mb_substr( sanitize_textarea_field( $notes ), 0, self::NOTE_MAX_LENGTH );
 
 		global $wpdb;
 
@@ -117,7 +129,7 @@ class ModerationService {
 				'object_id'   => $object_id,
 				'reason'      => $reason,
 				'space_id'    => $space_id > 0 ? $space_id : null,
-				'notes'       => sanitize_textarea_field( $notes ),
+				'notes'       => $notes,
 				// Store UTC explicitly. The column default is MySQL
 				// CURRENT_TIMESTAMP, which records the DB server's local time —
 				// on a non-UTC server that mismatches resolved_at (written by
