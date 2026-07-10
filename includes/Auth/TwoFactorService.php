@@ -12,7 +12,9 @@
  *               (TwoFactorController REST endpoints).
  *   - Login    : AuthController issues a challenge after the password step and
  *               completes sign-in only once a code verifies.
- *   - Admin    : Settings → Registration can require 2FA for chosen roles.
+ *   - Roles    : a site can require 2FA for chosen roles via the
+ *               buddynext_2fa_required_roles filter — developer-controlled, with
+ *               no admin screen (2FA is opt-in by design and never forced).
  *
  * Storage (usermeta):
  *   bn_2fa_enabled         '1' once confirmed.
