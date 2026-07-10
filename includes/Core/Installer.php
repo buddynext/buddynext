@@ -1072,7 +1072,7 @@ class Installer {
 				'type'         => 'email_verify',
 				'subject'      => 'Verify your email address on {{site_name}}',
 				'preview_text' => 'Click the link to confirm your address',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Please verify your email address by clicking the link below:</p><p><a href="{{verify_url}}">Verify my email</a></p><p>This link expires in 24 hours.</p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Please verify your email address by clicking the link below:</p><p><a href="{{verify_url}}">Verify my email</a></p><p>This link expires in 48 hours.</p>',
 			),
 			array(
 				'type'         => 'email_change_confirm',

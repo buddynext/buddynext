@@ -153,7 +153,7 @@ class CronService {
 	 * Delete all expired rows from bn_verify_tokens.
 	 *
 	 * Runs daily. Tokens expire based on the expires_at column set when the
-	 * token was created (24 hours by default for email verification).
+	 * token was created (48 hours by default for email verification).
 	 *
 	 * @return void
 	 */
