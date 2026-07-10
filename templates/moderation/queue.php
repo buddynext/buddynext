@@ -78,7 +78,7 @@ $queue_stats     = $bn_mod->queue_stats();
 $pending_count   = (int) $queue_stats['pending'];
 $resolved_today  = (int) $queue_stats['resolved_today'];
 $total_all_time  = (int) $queue_stats['total_all_time'];
-$suspended_count = (int) $queue_stats['at_risk'];
+$suspended_count = (int) $queue_stats['suspended'];
 
 // Fetch the consolidated queue (one row per reported object, reasons merged,
 // offender strikes + identity enriched) via the service the REST controller uses.

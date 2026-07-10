@@ -2482,11 +2482,12 @@ class ModerationService {
 	 * Return the moderation-queue summary counters in one pass.
 	 *
 	 * Replaces the in-template stats SQL: pending reports (raw rows), reports
-	 * resolved/dismissed today, all-time report total, at-risk accounts (users
-	 * with 3+ active strikes), and the urgent count (distinct content groups
-	 * with 3+ reports). The figures back the queue's stat strip.
+	 * resolved/dismissed today, all-time report total, currently-suspended
+	 * accounts (active, un-lifted, un-expired suspensions — the same predicate
+	 * as is_suspended()), and the urgent count (distinct content groups with 3+
+	 * reports). The figures back the queue's stat strip.
 	 *
-	 * @return array{pending:int, resolved_today:int, total_all_time:int, at_risk:int, urgent:int}
+	 * @return array{pending:int, resolved_today:int, total_all_time:int, suspended:int, urgent:int}
 	 */
 	public function queue_stats(): array {
 		global $wpdb;
@@ -2501,12 +2502,12 @@ class ModerationService {
 			ARRAY_A
 		);
 
-		$at_risk = (int) $wpdb->get_var(
-			"SELECT COUNT(*) FROM (
-				SELECT user_id FROM {$wpdb->prefix}bn_user_strikes
-				WHERE is_reversed = 0
-				GROUP BY user_id HAVING COUNT(*) >= 3
-			 ) AS at_risk"
+		// Currently-suspended accounts: active, un-lifted, un-expired suspensions.
+		// Mirrors is_suspended()'s predicate so the tile matches per-user state.
+		$suspended = (int) $wpdb->get_var(
+			"SELECT COUNT(DISTINCT user_id) FROM {$wpdb->prefix}bn_user_suspensions
+				WHERE lifted_at IS NULL
+				  AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())"
 		);
 
 		$urgent = (int) $wpdb->get_var(
@@ -2523,7 +2524,7 @@ class ModerationService {
 			'pending'        => (int) ( $stats['pending'] ?? 0 ),
 			'resolved_today' => (int) ( $stats['resolved_today'] ?? 0 ),
 			'total_all_time' => (int) ( $stats['total_all_time'] ?? 0 ),
-			'at_risk'        => $at_risk,
+			'suspended'      => $suspended,
 			'urgent'         => $urgent,
 		);
 	}
