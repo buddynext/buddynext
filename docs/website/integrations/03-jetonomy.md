@@ -46,7 +46,7 @@ When someone replies to a member's discussion, that member gets a BuddyNext noti
 
 Jetonomy installs from inside BuddyNext - no manual upload or plugin search.
 
-1. Go to **BuddyNext > Settings > Integrations**.
+1. Go to **BuddyNext > Platform > Integrations**.
 2. Find **Jetonomy** under **Companion plugins**. Its description reads "Forum-style threaded discussions and Q&A boards."
 3. Select **Install free**. BuddyNext pulls the plugin from the Wbcom store and installs it. The card then shows **Active**.
 
@@ -57,13 +57,13 @@ If Jetonomy is already installed but switched off, the same row shows an **Activ
 
 ### Feed-sync setting
 
-Once Jetonomy is active, a Jetonomy section appears in BuddyNext settings with a single toggle that controls whether new discussions are mirrored into the activity feed.
+Once Jetonomy is active, it gets a card on the **Platform > Integration Display** tab, where a **Post to the activity feed** switch controls whether new discussions are mirrored into the activity feed. (This is the same per-integration screen that also controls the Discussions navigation tab.)
 
 | Setting | What it does | Default |
 |---|---|---|
-| Surface new Jetonomy discussions in activity feed | When on, a new discussion started in a public space appears as a card in the BuddyNext activity feed, linking back to the full thread. Only public discussions in public, published topics are surfaced; private spaces and private topics are never mirrored. | On |
+| Post to the activity feed (Jetonomy card) | When on, a new discussion started in a public space appears as a card in the BuddyNext activity feed, linking back to the full thread. Only public discussions in public, published topics are surfaced; private spaces and private topics are never mirrored. | On |
 
-This setting is on by default - when Jetonomy is active, new public discussions flow into the feed automatically, and you turn the toggle off only if you would rather keep the forum and the feed separate. The mirror can also be overridden per space.
+This switch is on by default - when Jetonomy is active, new public discussions flow into the feed automatically, and you turn it off only if you would rather keep the forum and the feed separate. The mirror can also be overridden per space.
 
 ### Per-space forum
 

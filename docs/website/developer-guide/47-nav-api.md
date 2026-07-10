@@ -19,7 +19,7 @@ There are two navigation systems. Use the right one for the surface you are exte
 | Nav registry (declarative, gated) | member-profile tabs, space tabs | `buddynext_register_nav` action -> `$registry->register([...])` | `templates/profile/view.php`, `templates/spaces/home.php`, `templates/parts/space-header.php` |
 | Left rail (plain array) | the persistent global left-rail column | `buddynext_rail_items` filter | `templates/shell/rail.php` |
 
-The registry is the modern, gated, ordered system: every item declares a capability and condition, the registry validates and orders it, and one renderer draws it. It is defined in `includes/Nav/` (`NavRegistry.php`, `NavItem.php`, `NavContext.php`, `ResolvedNav.php`, plus the core providers in `includes/Nav/Providers/`). A template resolves a surface with `buddynext_nav()` (defined in `buddynext.php:289`):
+The registry is the modern, gated, ordered system: every item declares a capability and condition, the registry validates and orders it, and one renderer draws it. It is defined in `includes/Nav/` (`NavRegistry.php`, `NavItem.php`, `NavContext.php`, `ResolvedNav.php`, `PanelRenderer.php`, plus the core providers in `includes/Nav/Providers/`). A template resolves a surface with `buddynext_nav()` (defined in `buddynext.php:437`):
 
 ```php
 $nav = buddynext_nav( new \BuddyNext\Nav\NavContext( 'profile', $user_id, $viewer_id ) );
@@ -65,7 +65,7 @@ The filter passes a second argument, the current hub slug: `apply_filters( 'budd
 
 ## Recipe: add a member-profile tab
 
-Profile tabs are reactive, in-page tabs: the profile view server-renders every panel once and the Interactivity API reveals the active one, so a tab switch has no reload. Adding one is two parts: register the tab on the registry, then render its panel.
+Profile tabs are clean-URL tabs (`/members/{slug}/{tab}/`): the profile surface server-renders only the *active* tab's panel through `PanelRenderer` (`includes/Nav/PanelRenderer.php`), so cost stays flat no matter how many integrations add tabs. Adding one is a single `register()` call that declares both the tab's `url` (its clean route) and a `render` callable (its panel).
 
 ### 1. Register the tab
 
@@ -77,7 +77,8 @@ Hook `buddynext_register_nav` and call `$registry->register()` with a registrati
 | `surface` | `string` | `'profile'` here. Required. |
 | `layer` | `string` | `'primary'` for a content tab, `'metric'` for a hero count pill. Required. |
 | `label` | `string` | Already-translated tab label. Required. |
-| `tab` | `string` | In-page reactive tab slug. A `primary` item needs `tab` OR `url`. |
+| `url` | `string` or `callable(NavContext):string` | The tab's clean route, resolved lazily. A `primary` item needs `url` and/or `render`. |
+| `render` | `callable(NavContext):void` | Echoes the tab's panel HTML (its screen). `PanelRenderer` invokes it for the active tab only. Owns its own escaping, like a template part. |
 | `icon` | `string` | Lucide icon slug. |
 | `count` | `int` or `callable(NavContext):int` | Badge / metric value, resolved lazily. Clamped to `>= 0`. |
 | `count_label` | `callable(int $n):string` | Pluralized label for the resolved count (use `_n()` inside); overrides `label`. |
@@ -96,37 +97,36 @@ add_action( 'buddynext_register_nav', static function ( \BuddyNext\Nav\NavRegist
             'surface'   => 'profile',
             'layer'     => 'primary',
             'label'     => __( 'Achievements', 'my-addon' ),
-            'tab'       => 'achievements',
             'icon'      => 'award',
             'priority'  => 70,
+            'url'       => static fn( \BuddyNext\Nav\NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . 'achievements/',
             'condition' => static fn( \BuddyNext\Nav\NavContext $c ): bool => my_addon_has_badges( $c->subject_id ),
             'count'     => static fn( \BuddyNext\Nav\NavContext $c ): int => my_addon_badge_count( $c->subject_id ),
+            'render'    => static function ( \BuddyNext\Nav\NavContext $c ): void {
+                // ... your already-escaped panel markup, keyed off $c->subject_id ...
+            },
         )
     );
 } );
 ```
 
-### 2. Render the panel
+### 2. The `render` callable draws the panel
 
-Render the panel on the `buddynext_part_profile_tab_panel_after` action (fired at the end of `templates/parts/profile-tab-panel.php`). Use the shared helpers so the panel carries the exact Interactivity contract the tab switcher binds to: open with `buddynext_profile_tab_panel_open( $slug, $active_tab, $extra_classes )`, give the panel its DOM id with `buddynext_nav_panel_id( $slug )`, and close with `buddynext_profile_tab_panel_close()`.
+The `render` key in the registration array *is* the panel. It receives the same `NavContext` and echoes the panel's markup; `PanelRenderer` calls it for the active tab only (never the inactive ones), so the cost is one panel regardless of how many tabs exist. The callable owns its own escaping - the same contract as a template part - so escape everything you emit.
 
 ```php
-add_action( 'buddynext_part_profile_tab_panel_after', static function ( array $args ): void {
-    $member_id  = (int) ( $args['profile_user_id'] ?? 0 );
-    $active_tab = (string) ( $args['active_tab'] ?? '' );
+'render' => static function ( \BuddyNext\Nav\NavContext $c ): void {
+    $member_id = $c->subject_id;
     if ( $member_id <= 0 ) {
         return;
     }
-
-    buddynext_profile_tab_panel_open( 'achievements', $active_tab, 'my-achievements' );
+    echo '<div class="my-achievements">';
     // ... your already-escaped panel markup, keyed off $member_id ...
-    buddynext_profile_tab_panel_close();
-} );
+    echo '</div>';
+},
 ```
 
-`buddynext_profile_tab_panel_open()` (defined in `buddynext.php:524`) emits `<div class="bn-profile-tab-panel ..." data-tab-panel="{slug}" data-wp-context='{"tabSlug":"{slug}"}' data-wp-bind--hidden="!state.isActiveTab">` plus a static `hidden` attribute unless the panel is the active one - so deep links paint the right panel server-side and tab clicks repaint reactively. Skip the helper and you will likely get the bindings wrong, leaving the panel permanently hidden.
-
-The canonical end-to-end example is `includes/Profile/GamificationAchievements.php` - it registers the tab in `register_nav()` and renders the panel in `render_panel()`, both gated on the member having gamification standing.
+The older two-step approach (a `buddynext_profile_tab_panel_open()` / `buddynext_profile_tab_panel_close()` helper pair plus a `buddynext_part_profile_tab_panel_after` action) was removed once the surface moved to server-rendering only the active panel - do not use it. The canonical end-to-end example is `includes/Profile/GamificationAchievements.php` - it registers the tab (with `url` + `render`) in `register_nav()` and draws the panel in `render_panel()`, both gated on the member having gamification standing.
 
 ### NavContext: what your callables receive
 
@@ -144,9 +144,9 @@ Every `count`, `condition`, `count_label`, and lazy `url` callable receives a `N
 
 ## Recipe: add a space tab
 
-Space tabs use the same `buddynext_register_nav` action and `register()` call, but with `surface => 'space'` - and they differ from profile tabs in one important way: **space tabs are URL-only real links, not reactive in-page tabs.** Each space panel (feed stream, member grid, media gallery) is heavy, so the space surface server-renders only the panel for the current clean URL (`/spaces/{slug}/{tab}/`) instead of pre-rendering all of them.
+Space tabs use the same `buddynext_register_nav` action and `register()` call, but with `surface => 'space'`. They work like profile tabs: each supplies a lazy `url` (a callable that builds the clean `/spaces/{slug}/{tab}/` route against the live space) and, when you want the surface to draw the panel, a `render` callable - `PanelRenderer` server-renders only the active tab's panel.
 
-So a space tab supplies a `url` (a lazy callable that builds the clean URL against the live space) rather than a `tab`, and you serve your own panel for that route - there is no in-page reveal. See `includes/Nav/Providers/SpaceNav.php` for the core space tabs (Feed, Members, Media, About, Moderation) and how each builds `/spaces/{slug}/{tab}/`.
+The example below is `url`-only: it links to a route you serve yourself (no `render`), so BuddyNext renders nothing for that tab and your own template owns the URL. Supply a `render` callable instead (or as well) to have the space surface draw the panel for you. See `includes/Nav/Providers/SpaceNav.php` for the core space tabs (Feed, Members, Media, About, Moderation) - each builds `/spaces/{slug}/{tab}/` and carries a `render` callable.
 
 ```php
 add_action( 'buddynext_register_nav', static function ( \BuddyNext\Nav\NavRegistry $registry ): void {
@@ -197,9 +197,9 @@ The admin Navigation overrides (`BuddyNext\Nav\NavOverrides::apply_nav_items()`)
 
 - **Register on `buddynext_register_nav`, not at an arbitrary time.** The registry fires this action once, lazily, the first time a surface is resolved (`NavRegistry::resolve()`), so count and condition callables see the live request. Registering outside the action is not guaranteed to be in place.
 - **Ids are unique within a (surface, layer).** A duplicate `(layer, id)` registration keeps the first and calls `_doing_it_wrong()` in debug. Pick a namespaced id for your addon.
-- **A `primary` item needs `tab` OR `url`; `rail`/`context` items need `url`.** An item failing its layer minimum is silently dropped by `NavItem::from_array()`, never rendered.
+- **A `primary` item needs `url` and/or `render`; `rail`/`context` items need `url`.** An item failing its layer minimum is silently dropped by `NavItem::from_array()`, never rendered.
 - **`count` is clamped to `>= 0`** and resolved lazily; a `metric` that shares an id with a top-level `primary` tab is deduped away (the tab's badge is the count's home).
-- **Use the panel helpers for profile panels.** Hand-rolling the `data-wp-context` / `data-wp-bind--hidden` contract is the common way to ship a panel that never reveals.
+- **Draw profile and space panels with the item's `render` callable.** `PanelRenderer` invokes it for the active tab only; a `primary` item with neither `url` nor `render` is dropped.
 - **The left rail is the filter, the tabs are the registry.** Restating the top gotcha because it is the most common mistake: a `global`/`rail` registry item will not appear anywhere. Use `buddynext_rail_items`.
 
 See also the template-part hook contract (Hooks: Template Parts) for the panel-after action family, and Roles and Capabilities for what a `capability` gate resolves through.

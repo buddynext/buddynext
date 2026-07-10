@@ -1,6 +1,6 @@
 # REST: Auth and Account
 
-The authentication and account-management routes under `buddynext/v1`. They cover front-end login, registration, two-factor verification, email verification, member approval, and the self-service account flows (change password, change email, sign out everywhere, manage 2FA). This page is for developers building a custom login UI, a mobile client, or any client that drives these flows over REST.
+The authentication and account-management routes under `buddynext/v1`. They cover front-end login, registration, two-factor verification, email verification, member approval, and the self-service account flows (change password, change email, sign out everywhere, manage 2FA, mint/revoke application passwords, and unlink social providers). This page is for developers building a custom login UI, a mobile client, or any client that drives these flows over REST.
 
 ![The front-end login UI driven by the auth and account REST routes documented on this page](../images/login.webp)
 
@@ -11,7 +11,7 @@ These routes follow the same envelope, error shape, and nonce rules as the rest 
 - **Permission model is unusual here.** Most BuddyNext routes gate on a capability or login state. The auth routes intentionally do not: the pre-login routes are public (`permission_callback => __return_true`) because the caller has no session yet. The account routes and the post-login auth routes gate on "logged in" only. Per-route detail is in the tables below.
 - **Authenticated calls still need the cookie + `wp_rest` nonce.** "Public" means no capability check, not "no authentication needed for state to be correct". A logged-in client calls these with the standard `X-WP-Nonce` header. If the nonce goes stale, mint a fresh one from `GET /auth/nonce` (see Notes).
 
-Source: `includes/Auth/AuthController.php` (auth routes) and `includes/Auth/TwoFactorController.php` (account/2fa routes).
+Source: `includes/Auth/AuthController.php` (auth + app-password routes), `includes/Auth/TwoFactorController.php` (account/2fa routes), and `includes/Auth/SocialLogin.php` (the social-unlink route).
 
 ## Auth routes
 
@@ -31,6 +31,9 @@ All paths below are prefixed with `/wp-json/buddynext/v1`.
 | POST | `/auth/change-password` | Logged in | Set a new password after verifying `current_password`. Returns 422 with field-keyed errors on failure. |
 | POST | `/auth/change-email` | Logged in | Change the current user's email (`email`). |
 | POST | `/auth/sign-out-everywhere` | Logged in | Destroy all of the current user's sessions on every device. |
+| POST | `/auth/app-password` | Logged in | Mint a WordPress Application Password for the current user (optional `name`). The plaintext password is returned once (201). |
+| GET | `/auth/app-password` | Logged in | List the current user's Application Passwords (metadata only, never the secret). |
+| DELETE | `/auth/app-password/{uuid}` | Logged in | Revoke one of the current user's Application Passwords. |
 | GET | `/auth/nonce` | Public | Mint a fresh `wp_rest` nonce for the current session (stale-nonce recovery). |
 
 > The login, register, 2FA, lost-password, and reset-password routes register with `permission_callback => __return_true`. They are reachable by anyone, by design, because the caller is pre-session. The manifest records a `users_can_register` note against the auth group; that is the registration setting these flows respect at the handler level, not a route-level permission gate. `/auth/approve/{id}` checks an admin capability in its own callback; the verify/change/sign-out routes check `require_auth` (logged in).
@@ -46,6 +49,14 @@ Two-factor enrollment and management for the signed-in user. Every route here re
 | POST | `/account/2fa/confirm` | Logged in | Confirm enrollment with a `code` from the authenticator app, activating 2FA. |
 | POST | `/account/2fa/disable` | Logged in | Disable 2FA after re-verifying the account `password`. |
 | POST | `/account/2fa/backup` | Logged in | Regenerate backup codes after re-verifying the account `password`. |
+
+## Social account linking
+
+Social login itself runs over browser rewrite routes (`/oauth/{provider}/` and `/oauth/{provider}/callback/`), not JSON REST. The one REST route on this surface unlinks a provider from the signed-in user.
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| DELETE | `/me/social/{provider}` | Logged in | Unlink a linked social provider (e.g. `google`, `facebook`, `github`, `discord`) from the current user. Returns `{"unlinked": true}`. |
 
 ## Examples
 

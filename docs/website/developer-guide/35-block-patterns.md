@@ -78,7 +78,7 @@ BuddyNext Free does not register any custom post types or taxonomies. There are 
 
 > **Warning:** Do not assume a `buddynext`-style CPT or taxonomy. Spaces, member types, and hashtags are custom tables and services. Use the documented hooks and REST routes (see the REST and Hooks pages) to read or react to BuddyNext content.
 
-For completeness, two integration surfaces that BuddyNext Free **does** register (in addition to the 18 blocks and these 4 patterns):
+For completeness, two integration surfaces that BuddyNext Free **does** register (in addition to the 16 blocks and these 4 patterns):
 
 - **Shortcodes.** `ShortcodeService` (`includes/Shortcodes/ShortcodeService.php`, initialised in `Plugin::init()`) registers 7 hub shortcodes: `[buddynext_activity]`, `[buddynext_people]`, `[buddynext_spaces]`, `[buddynext_messages]`, `[buddynext_notifications]`, `[buddynext_auth]`, and `[buddynext_community_admin]`. These render the same surfaces the blocks do, for classic (non-block) themes.
 - **Widgets.** `WidgetService` (`includes/Widgets/WidgetService.php`, initialised in `Plugin::init()`) registers 3 classic `WP_Widget` widgets: Online Members, Trending Hashtags, and Recent Activity. The block-based equivalents (for block themes) are the `buddynext/*` blocks above.

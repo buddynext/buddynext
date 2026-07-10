@@ -53,7 +53,7 @@ Hashtags are on by default. The feature and its banned-tag list are controlled f
 | Setting | What it does | Default |
 |---|---|---|
 | Hashtags feature | Turns the whole hashtag system on or off. When off, `#tags` stay as plain text everywhere (posts and comments) - no clickable links, no feed pages, no trending list. | On |
-| Banned hashtags | A list of tags to block. A banned tag is stripped when a post is processed, so it never becomes a clickable link or a feed page. | Empty (nothing blocked) |
+| Banned hashtags | A list of tags to block, one per line without the `#`. A post that uses a banned tag is rejected with a message and is not published, so the tag never becomes a clickable link or a feed page. | Empty (nothing blocked) |
 
 
 ### The Trending Hashtags block

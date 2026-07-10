@@ -46,7 +46,13 @@ The labels table shows each label's color swatch, name, icon, and a live count o
 
 ### Assign a label to a member
 
-> **Note:** Today, the admin screen is where you create, edit, and delete labels - attaching a label to a specific member is not yet a point-and-click action there. Assigning a label to a member currently happens from a connected app or a scripted/bulk process. The member count on the admin table updates as assignments are made, so you can always see how many members hold each label. A point-and-click assign control is planned.
+Once you have created at least one label, the **Assign labels to members** panel on the same screen lets you hand labels out without leaving wp-admin:
+
+1. Search for members in the member field and add each one to the list.
+2. Each member you add shows their current labels as chips - click the **×** on a chip to remove a label from that member.
+3. Choose the label you want to apply and select **Assign to selected** to apply it to everyone in the list.
+
+The member count on the labels table updates as assignments are made, so you can always see how many members hold each label. Assignments also go through the same REST endpoints, so a connected app or a scripted/bulk process can assign and unassign the same way.
 
 When a label is assigned to or removed from a member, the change requires administrator permission. The label definitions you create, and each member's current labels, are visible to everyone.
 

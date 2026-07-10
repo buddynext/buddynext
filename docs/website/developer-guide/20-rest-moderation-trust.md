@@ -1,6 +1,6 @@
 # REST: Moderation and Trust
 
-This page documents the moderation REST surface in BuddyNext free: member reports, the moderation queue, appeals, and the per-user trust actions (warnings, strikes, shadow-bans, suspensions, account type). All routes live under the `buddynext/v1` namespace and are registered by `ModerationController` in `includes/Moderation/`.
+This page documents the moderation REST surface in BuddyNext free: member reports, the moderation queue, appeals, the per-user trust actions (warnings, strikes, shadow-bans, suspensions, account type), per-space bans, and post content warnings. All routes live under the `buddynext/v1` namespace and are registered by `ModerationController` in `includes/Moderation/`.
 
 ![The moderation queue driven by the report, queue, appeal, and trust-action REST routes on this page](../images/moderation-queue.webp)
 
@@ -79,6 +79,25 @@ Per-user trust actions. All are site-admin only. Reads (warnings, suspension sta
 | GET | `/users/{id}/account-type` | Auth | The user's account type (public/private). |
 
 > **Note:** Strikes and shadow-ban use a single path for read and write (GET/POST, plus DELETE for shadow-ban). Suspend likewise pairs POST (suspend) and DELETE (lift) on `/users/{id}/suspend`, with separate GET reads on `/suspension` (current) and `/suspensions` (history).
+
+## Space bans
+
+Per-space bans. Gated by `require_space_owner_or_admin` - site admins plus the owner/moderators of the target space.
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/spaces/{id}/bans` | Space owner/admin | List the space's bans. |
+| POST | `/spaces/{id}/bans` | Space owner/admin | Ban a user from the space. Body: `user_id` (required), optional `reason`. |
+| DELETE | `/spaces/{id}/bans/{user_id}` | Space owner/admin | Lift a user's ban from the space. |
+
+## Content warnings
+
+A per-post content-warning flag. Reading it is public (so any viewer's client can show the interstitial); setting or clearing it is site-admin only.
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/posts/{id}/content-warning` | Public | Read the post's content-warning state. |
+| PUT | `/posts/{id}/content-warning` | Admin | Set or clear the warning. Body: `content_warning` (boolean, required), optional `content_warning_type`. |
 
 ## Examples
 

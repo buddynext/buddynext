@@ -1,14 +1,14 @@
 # Blocks Reference
 
-BuddyNext Free ships 18 server-rendered Gutenberg blocks under the `buddynext/*` namespace and the `buddynext` editor category. This page is the contract for each block: its name, purpose, attributes, and the REST data source that backs its rendered output. Developers embedding, theming, or extending these blocks should treat this table as authoritative.
+BuddyNext Free ships 16 server-rendered Gutenberg blocks under the `buddynext/*` namespace and the `buddynext` editor category. This page is the contract for each block: its name, purpose, attributes, and the REST data source that backs its rendered output. Developers embedding, theming, or extending these blocks should treat this table as authoritative.
 
 ![A feed page assembled from the server-rendered BuddyNext Gutenberg blocks documented here](../images/community-activity-feed.webp)
 
 ## Overview / Contract
 
-All 18 blocks share the same registration and rendering model. Read this before the per-block tables.
+All 16 blocks share the same registration and rendering model. Read this before the per-block tables.
 
-- **Registration.** Every block is registered from `includes/Blocks/BlockRegistrar.php` via `register_block_type( block.json, [ 'render_callback' => ... ] )`. Each block's metadata lives in `blocks/bn-{slug}/block.json`. There is no JavaScript build step - render callbacks are inline closures on the registrar.
+- **Registration.** Every block is registered from `includes/Blocks/BlockRegistrar.php::register_blocks()` via `register_block_type( block.json, [ 'render_callback' => ... ] )`. Each block's metadata lives in `blocks/bn-{slug}/block.json`. There is no JavaScript build step - render callbacks are inline closures on the registrar.
 - **Server-rendered (dynamic).** Every block is dynamic: the saved post content holds only the block comment plus attributes, and the markup is produced at request time by a render callback that calls `buddynext_get_template( 'blocks/{slug}.php', ... )`. The template, in turn, reads data through a domain service (`buddynext_service( '...' )`) for the first paint and exposes a REST base URL plus a nonce for live client updates.
 - **Editor preview.** The block editor renders a live preview with `wp.serverSideRender`. The shared editor handle `buddynext-blocks-editor` (`assets/js/blocks.js`) is pre-registered with `wp-server-side-render` in its dependency list and is localised with `window.bnBlocks` (`restUrl`, `nonce`, `searchUrl`) so editor-side REST calls carry a valid `wp_rest` nonce.
 - **REST namespace.** Every data source below is under `buddynext/v1`. Interactive blocks read the base URL from `rest_url( 'buddynext/v1' )` passed into the template; the front-end view modules (`@buddynext/feed`, `@buddynext/social-buttons`, `@buddynext/spaces`) call specific routes under that namespace. Authenticated, state-changing routes require the `wp_rest` nonce; read routes for public directories do not.
@@ -58,8 +58,6 @@ Each row lists the block name, what it renders, its attributes (name, type, defa
 
 | Block | Purpose | Attributes (name : type = default) | REST data source | View module |
 |---|---|---|---|---|
-| `buddynext/registration-form` | Signup form embeddable on any page. | `redirectUrl` : string = `""` | `POST buddynext/v1/auth/register`. | none |
-| `buddynext/login-form` | Login form wrapping WordPress native authentication. | `redirectUrl` : string = `""` | WordPress core authentication (native login handling); no BuddyNext REST route for the credential exchange. | none |
 | `buddynext/notification-bell` | Bell icon with unread count for custom header areas. | none | `notifications` service for the unread count; `buddynext/v1/notifications` (and `buddynext/v1/notifications/mark-all-read`). | none |
 | `buddynext/header-user-menu` | Logged-in header chrome: notification bell, messages icon, and avatar with a CSS-only profile dropdown + log out. Renders nothing for guests. Uses `bn-header.css` and sets `html: false`, `align: false`. | none | `notifications` service for the bell count; notifications routes under `buddynext/v1`. Messages count comes from the WPMediaVerse DM layer when present. | none |
 | `buddynext/search-bar` | Unified search input that opens grouped results. | `placeholder` : string = `""` | `GET buddynext/v1/search` (the editor handle is localised with `searchUrl` pointing at this route). | none |
@@ -100,5 +98,5 @@ echo do_blocks( '<!-- wp:buddynext/member-directory {"perPage":24,"layout":"list
 - **Nonce scope.** Interactive blocks pass `restUrl => rest_url( 'buddynext/v1' )` and a `wp_rest` nonce from the template. State-changing routes (follow, connect, post, join) reject requests without it. Read-only directory routes do not require the nonce.
 - **`userId` / `spaceId` default of 0.** For the per-entity blocks (member card, follow/connect buttons, profile blocks, space card), a `0` default means "resolve from the current context" - the profile being viewed, or the logged-in user. Set an explicit ID to pin the block to one entity.
 - **Big-site lists.** The directory blocks (`member-directory`, `space-directory`) and `activity-feed` are paginated by `perPage` and back onto cursor/paged REST routes; they are safe to place on high-traffic pages. Avoid setting `perPage` to large values to "show everything" - use the directory's own load-more instead.
-- **Login form.** The login block wraps WordPress core authentication, so it does not post to a `buddynext/v1` route for the credential exchange. The registration block does (`buddynext/v1/auth/register`).
-- **Free vs Pro.** All 18 blocks ship in Free. Pro does not replace them; it adds capabilities (for example membership-gated content) that surface through the same blocks and the `buddynext-pro/v1` namespace where Pro routes apply.
+- **Auth is a shortcode, not a block.** There is no signup or login *block*. The signup / login / verify flow is rendered by the `[buddynext_auth]` shortcode (see Block Patterns), not by a `buddynext/*` block, and it wraps WordPress core authentication rather than posting to a `buddynext/v1` route for the credential exchange.
+- **Free vs Pro.** All 16 blocks ship in Free. Pro does not replace them; it adds capabilities (for example membership-gated content) that surface through the same blocks and the `buddynext-pro/v1` namespace where Pro routes apply.

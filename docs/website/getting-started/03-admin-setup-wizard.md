@@ -8,7 +8,7 @@ The Setup Wizard is the first thing BuddyNext shows you after the plugin is acti
 
 ## What it is
 
-The wizard is an eight-step guided setup at **BuddyNext - Setup** in wp-admin. It is built for the community owner, not for developers. Each step asks one plain-language question, shows a short hint, and tells you exactly where the setting lives afterward so you never feel locked in.
+The wizard is an eight-step guided setup that opens automatically the first time BuddyNext is active. Until you finish it, a **Run the setup wizard** link stays in the wp-admin notice area; you can also reach it directly at `wp-admin/admin.php?page=buddynext-setup`. It is built for the community owner, not for developers. Each step asks one plain-language question, shows a short hint, and tells you exactly where the setting lives afterward so you never feel locked in.
 
 You stay in control of the pace:
 
@@ -30,7 +30,7 @@ A community has a lot of moving parts - registration rules, profile fields, noti
 |------|--------|-----------------|
 | 1 | **Branding** | Your community name and a single brand color. The name appears in headers, emails, and the browser tab. The color drives primary buttons, links, and focus states. |
 | 2 | **Registration** | How new members get in (see the registration modes below) and whether to require email verification before a member can post or react. |
-| 3 | **Profile Fields** | Which optional profile groups to add. Headline, bio, and location are already on. Extras (Social Links, Work Experience, Education, Skills, Interests) are all pre-checked - leave them as-is or uncheck what you do not want. |
+| 3 | **Profile Fields** | Which optional profile groups to add. Headline, bio, and location are already on. Extras (Social Links, Work Experience, Education, Skills) are all pre-checked - leave them as-is or uncheck what you do not want. (Interests are added automatically from your space categories, so they are not a choice here.) |
 | 4 | **Notifications** | Which notifications are on by default for every new member: new follower, reactions, comments, mentions, and connection requests. Members can override their own later. |
 | 5 | **Spaces** | Starter categories for organizing spaces. Comes pre-filled with General, Announcements, Help & Support, and Off-topic. Edit the comma-separated list or clear it to set categories up later. |
 | 6 | **Pages** | Creates the core community pages - Community Feed, Members, and Spaces - with editable URL slugs. Pages that already exist are shown with a **Created** badge and are skipped, so nothing is duplicated. |
@@ -57,18 +57,19 @@ Reaching Step 8 and choosing **Finish setup** / **Go to dashboard** marks the wi
 
 ## Re-running the wizard and where settings live afterward
 
-You can re-open the wizard at any time from **BuddyNext - Setup** in wp-admin. It is safe to re-run: existing pages, categories, and profile groups are detected and left untouched rather than duplicated.
+You can re-open the wizard at any time at `wp-admin/admin.php?page=buddynext-setup` (the page stays available even after you finish, though it is hidden from the menu once setup is complete). It is safe to re-run: existing pages, categories, and profile groups are detected and left untouched rather than duplicated.
 
 After setup, every choice has a permanent home in the admin:
 
 | What you set in the wizard | Where to change it later |
 |----------------------------|--------------------------|
-| Community name and brand color | Settings - Branding |
+| Community name | Settings - General |
+| Brand color | Settings - Appearance |
 | Registration mode and email verification | Members - Registration |
 | Profile field groups | Members - Profile Fields |
 | Default notifications | Notifications section |
-| Space categories | Spaces - Categories |
-| Page slugs | Settings - Pages |
+| Space categories | Spaces - Directory, Categories sub-tab |
+| Page slugs | Settings - Pages & URLs |
 | Companion plugins | Platform - Integrations, and the WordPress Plugins screen |
 
 For the full map of the admin and where each of those sections lives, see the Admin Overview.

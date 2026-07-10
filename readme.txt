@@ -88,6 +88,7 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 * Fix      - The "Remove Demo Data" button stays readable on hover instead of turning blank.
 * Fix      - The media lightbox comment box now matches the BuddyNext style and centres its empty state instead of inheriting the theme's fonts and leaving a blank gap.
 * Fix      - Linking an existing discussion in a space's settings now shows an error if the search request fails, instead of silently returning no results.
+* Fix      - The License activation screen loads its styles and scripts correctly on live hosts with a symlinked or non-standard document root, instead of 404ing its assets.
 * Security - Media lightbox actions are gated to logged-in viewers.
 * Dev      - New buddynext_redirect_url filter for login and logout redirect control.
 * Dev      - Notification and PageRouter audit fixes: removed dead code and corrected dependency wiring.

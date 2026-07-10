@@ -39,7 +39,7 @@ Any member can turn off profile-view tracking for themselves. When a member opts
 
 ## Setting it up (for owners)
 
-The dashboard lives under the BuddyNext admin menu as the Analytics page. It requires BuddyNext Free to be active, because the Analytics page is a sub-page of the Free admin menu and reads activity that Free records. Only users who can manage options (administrators) can open it.
+The dashboard lives inside the BuddyNext admin menu, on the Engagement → Insights tab - the analytics suite renders below the at-a-glance summary there. It requires BuddyNext Free to be active, because the page is part of the Free admin menu and reads activity that Free records. Only users who can manage options (administrators) can open it. (The older standalone Analytics URL still works but redirects to the Insights tab.)
 
 
 ### The views
@@ -48,19 +48,18 @@ The dashboard is organized into views you switch between at the top of the page.
 
 | View | What it shows |
 |---|---|
-| Overview | Daily, weekly, and monthly active users (DAU / WAU / MAU) as stat cards, plus a member-growth table of new registrations over the last 30 days. |
-| Content | Top content ranked by engagement (reactions plus comments). |
-| Members | The most active members, ranked by how many tracked actions they have taken. |
-| Spaces | Per-space health: joins, leaves, posts, and net member change over a recent window. |
+| Overview | Stat cards for daily, weekly, and monthly active users (DAU / WAU / MAU) plus posts today, engagement rate, and new signups; a daily-activity chart; and Top content (ranked by engagement - reactions plus comments) and Top members (ranked by tracked actions) tables. |
 | Cohorts | Retention grouped by when members joined, so you can see whether newer or older cohorts stay engaged. |
-| Funnel | Step-by-step conversion through a sequence of actions (for example, register, then join a space, then post). |
+| Funnel | Step-by-step conversion through a sequence of actions (the default sequence: sign up, first post, first reaction received, first follow). |
 | Profile Views | Profile-view data, including the administrator view that can look up any member's profile views. |
+
+> **Note:** Top content and top members appear as tables inside the Overview view, not as separate views. Per-space health metrics are available through the REST API and the app rather than as a dashboard view.
 
 > **Note:** DAU, WAU, and MAU stand for daily, weekly, and monthly active users - the count of distinct members who took at least one tracked action in that window.
 
 ### Exporting to CSV
 
-The Overview view has an Export CSV button. It downloads the member-growth data (date and new registrations) as a spreadsheet-friendly file, so you can keep records, chart it elsewhere, or share it with your team.
+The exportable views each have an Export CSV button in the section header. Overview exports the member-growth series (date and new registrations), Cohorts exports the retention matrix, and Funnel exports the step-by-step conversion report. Profile Views is not exportable. Each file is spreadsheet-friendly, so you can keep records, chart it elsewhere, or share it with your team.
 
 ### Settings
 
@@ -75,7 +74,7 @@ The dashboard has no required configuration. It starts collecting and displaying
 - **Empty state shows zeros.** On a brand-new site, or before any activity has happened, the stat cards read 0 and the tables show "no data" rows. This is expected, not a fault. Seed some activity (members logging in, posting, joining spaces) and the numbers populate.
 - **Admin-only for site-wide views.** Every view except the member's own profile-view panel requires administrator access. Non-admins who try to reach the analytics data are refused.
 - **Counts are distinct actors.** Active-user counts measure distinct members, so one member taking ten actions in a day still counts as one daily active user.
-- **CSV export covers growth data.** The Export button downloads the member-growth series. It is a focused export of registrations over time rather than a dump of every view's table.
+- **CSV export is per view.** The Export button downloads the active view's dataset - the member-growth series on Overview, the retention matrix on Cohorts, or the funnel report on Funnel. Profile Views is not exportable.
 - **Data depends on activity being recorded.** Analytics is built from the events your community generates over time. The longer Pro has been active, the richer the history. It does not backfill activity from before it was installed.
 
 ## Free vs Pro

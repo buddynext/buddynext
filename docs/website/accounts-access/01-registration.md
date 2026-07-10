@@ -17,7 +17,7 @@ Registration is how people create an account and join your community. BuddyNext 
 
 ## How it works for members
 
-1. **Open the sign-up page.** A member visits your sign-up page - your community's built-in login and sign-up hub, or any page where you placed the Registration form block.
+1. **Open the sign-up page.** A member visits your sign-up page - your community's built-in login and sign-up hub, or any page where you added the `[buddynext_auth]` shortcode.
 2. **Fill in the form.** The form asks for an email address, a username, and a password. It also shows any profile fields you chose to collect at sign-up, plus a Terms of Service checkbox.
 3. **Submit.** BuddyNext validates everything inline before creating the account. Errors (for example, a taken username or a weak password) show next to the field they belong to, so nothing is created on a bad submission.
 4. **Arrive in the community.** What happens next depends on your registration mode and whether email verification is on - see the states below.
@@ -50,13 +50,13 @@ The new member's path depends on two settings: your **Registration Mode** and wh
 You have two ways to publish the sign-up form:
 
 - **The built-in login and sign-up hub.** Out of the box, your community already has a login and sign-up page. New members can sign up there with no extra setup.
-- **The Registration form block.** Add the block to any page to embed the same branded form wherever you want it.
+- **The `[buddynext_auth]` shortcode.** Add the shortcode to any page to embed the same branded form wherever you want it. It renders the combined login and sign-up form (the same one the hub uses), so a single page handles both signing in and signing up.
 
-To place it: edit a page, add the **Registration** form block (search for "registration" or "signup" in the block inserter, under the BuddyNext category), and publish. The block has one option, a redirect address, which sends the member to a specific page after they sign up. Leave it blank to use the default destination (the welcome wizard or the feed). Like any block, it also inherits the editor's color, typography, and spacing controls.
+To place it: edit a page, add a shortcode block (or type it directly), enter `[buddynext_auth]`, and publish. Signed-out visitors see the branded login and sign-up forms; signed-in members are sent on to the activity feed. Where members land after sign-up is set globally under **BuddyNext > Members > Registration & Login**, not per page.
 
 ### Registration settings
 
-These live under **BuddyNext > Settings > Registration**.
+These live under **BuddyNext > Members > Registration & Login**.
 
 | Setting | What it does | Default |
 |---|---|---|
@@ -69,7 +69,7 @@ These live under **BuddyNext > Settings > Registration**.
 | Panel banner image | A full-width banner image behind the panel. | Built-in gradient artwork |
 | Protect the sign-up form | Turns on the built-in spam protection, which quietly screens out bots and fake sign-ups without a captcha service. | On |
 | Show a human-verification question | Adds a simple "what is three plus five?" question to the form. No images, no cookies, no external captcha. Requires spam protection to be on. | On |
-| Sign-ups per hour from one visitor | The most sign-up attempts allowed from a single visitor per hour. Set to 0 to remove this limit. | 5 |
+| Sign-ups per hour per IP | The most sign-up attempts allowed from a single IP address per hour. Set to 0 to remove this limit. | 5 |
 | Allowed email domains | One domain per line. When set, only addresses from these domains can register. Leave blank to allow all. | Blank (all domains) |
 
 > **Note:** Registration Mode also respects the core WordPress "Anyone can register" setting. If registration is closed in WordPress, sign-up is closed too, and visitors see a "Registration is currently closed" message. A fresh BuddyNext install (1.0.4+) turns the core setting on to match its default Open mode, so registration works out of the box; changing the Registration Mode keeps the two in sync from then on.
@@ -85,7 +85,7 @@ You decide which profile fields show on the sign-up form. Go to **BuddyNext > Me
 
 ### Manage invitations and approvals
 
-- **Invitations.** When using Invite Only mode, manage invites under **BuddyNext > Members > Invitations** - create, resend, and revoke them there. (There is a shortcut button on the Registration settings tab.)
+- **Invitations.** When using Invite Only mode, manage invites under **BuddyNext > Members > Invites** - create, resend, and revoke them there. (There is a shortcut button on the Registration & Login settings tab.)
 - **Approvals.** In Admin Approval mode, pending accounts wait for review. Approve them from the Members admin screen; until then they cannot sign in.
 
 ![The Invites manager where owners send and track invitations](../images/admin-invites.webp)

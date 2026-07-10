@@ -66,9 +66,11 @@ add_action( 'buddynext_register_nav', function ( \BuddyNext\Nav\NavRegistry $reg
         'surface'  => 'profile',                       // profile | space
         'layer'    => 'primary',                       // primary | metric | rail | context
         'label'    => __( 'Events', 'my-textdomain' ),
-        'tab'      => 'events',                         // the activeTab this tab selects
         'icon'     => 'calendar',                       // an icon slug from assets/icons/
         'priority' => 80,
+        // A primary tab needs a clean route (url) and/or a render panel.
+        'url'       => fn( \BuddyNext\Nav\NavContext $c ): string => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $c->subject_id ) ) . 'events/',
+        'render'    => fn( \BuddyNext\Nav\NavContext $c ): void => my_render_events_panel( $c->subject_id ),
         // Optional: gate visibility, badge a count - both lazy callables that
         // see the live NavContext (subject_id, viewer_id, is_self(), ...).
         'condition' => fn( \BuddyNext\Nav\NavContext $c ): bool => $c->is_self(),
@@ -83,11 +85,12 @@ A left-rail menu item - filter the resolved rail instead of registering on a sur
 // AFTER - BuddyNext: inject a left-rail link.
 add_filter( 'buddynext_rail_items', function ( array $items, string $hub ): array {
     $items[] = array(
-        'id'       => 'help-center',
-        'label'    => __( 'Help Center', 'my-textdomain' ),
-        'icon'     => 'help-circle',
-        'url'      => home_url( '/help/' ),
-        'priority' => 90,
+        'key'   => 'help-center',
+        'label' => __( 'Help Center', 'my-textdomain' ),
+        'icon'  => 'help-circle',
+        'url'   => home_url( '/help/' ),
+        'show'  => true,
+        'order' => 90,
     );
     return $items;
 }, 10, 2 );
@@ -180,7 +183,7 @@ The action you hooked in BuddyPress has a BuddyNext counterpart with a different
 | `friends_friendship_accepted` | `buddynext_connection_accepted` | `( $connection_id, $requester_id, $recipient_id )` |
 | `friends_friendship_rejected` | `buddynext_connection_declined` | `( $connection_id, $requester_id, $recipient_id )` |
 | `friends_friendship_withdrawn` | `buddynext_connection_withdrawn` | `( $connection_id, $requester_id, $recipient_id )` |
-| `friends_friendship_deleted` | `buddynext_connection_removed` | `( $connection_id, ... )` |
+| `friends_friendship_deleted` | `buddynext_connection_removed` | `( $user_a, $user_b )` |
 | (follow add-on) | `buddynext_user_followed` | `( $follower_id, $following_id )` |
 | (follow add-on) | `buddynext_user_unfollowed` | `( $follower_id, $following_id )` |
 | `groups_create_group` | `buddynext_space_created` | `( $space_id, $owner_id )` |

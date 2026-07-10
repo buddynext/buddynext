@@ -41,10 +41,10 @@ Broadcasts live under the BuddyNext admin menu on the Broadcast Campaigns page. 
 Open the Broadcast Campaigns page and fill in the New Campaign form:
 
 1. **Campaign Name** - an internal name so you can find the campaign in your list. Members never see it.
-2. **Email Subject** - the subject line members see in their inbox.
-3. **Email Body** - the message itself. You can write HTML for headings, links, and formatting.
-4. **Segment** - who should receive it (see the segment table below).
-5. Save the campaign. It starts as a draft.
+2. **Compose** - the subject line and the message body. The composer accepts HTML for headings, links, and formatting, and supports merge tags such as `{{first_name}}` and `{{site_name}}`.
+3. **Segment** - who should receive it (see the segment table below).
+4. **Schedule** (optional) - a date and time to send automatically, interpreted in your site's timezone. Leave it blank to keep the campaign as a draft you send manually.
+5. Use **Create Campaign** to save it. With no schedule the campaign starts as a draft; with a schedule set it is queued to send at that time.
 
 ### Choosing a recipient segment
 
@@ -53,9 +53,9 @@ A segment decides which members a campaign goes to. Pick one of these:
 | Segment | Who it reaches |
 |---|---|
 | All users | Every registered member. |
-| By space | Members of a space you choose. |
+| By space | Members of one or more spaces you choose. |
 | By tag | Members carrying a tag you choose. |
-| By activity level | Members grouped by how active they have been. |
+| By activity level | Members active within a number of days you set. |
 | By join date | Members who joined within a date range you set. |
 | By member label | Members carrying a Pro member label you choose (for example, Verified or Staff). |
 
@@ -65,11 +65,11 @@ Before dispatching, use Send Test on the campaign. It emails a copy to your own 
 
 ### Dispatching
 
-When the campaign is ready, use Send Now. This queues a recipient for every member in the segment and begins sending in batches in the background, so a large send does not block your admin screen or time out. The campaign moves to a sending state and then to sent as the batches complete.
+When the campaign is ready, use Send Now. This queues a recipient for every member in the segment and begins sending in batches in the background, so a large send does not block your admin screen or time out. The campaign moves to a sending state and then to sent as the batches complete. You can also set a send time when creating or editing the campaign; a background task promotes scheduled campaigns and dispatches them once their time arrives.
 
 ### Viewing recipients
 
-Each campaign has a recipients view that lists the members it was sent to and their delivery status (queued, sent, or unsubscribed), so you can confirm a send went through and see who opted out.
+Each campaign has a Recipients view that breaks delivery down by status - how many recipients are queued, sent, unsubscribed, or bounced - so you can confirm a send went through and see how many opted out. It shows per-status counts rather than a per-member list.
 
 ### Settings
 
@@ -86,7 +86,7 @@ Each campaign has a recipients view that lists the members it was sent to and th
 - **Include the unsubscribe link.** The per-member unsubscribe link is what makes the unsubscribe work and is expected on every bulk email. Make sure your campaign body includes the unsubscribe placeholder so each member gets their own working link; a delivered system footer also carries it when the body does not.
 - **Open and click tracking is not available yet.** The current scope delivers your campaign and tracks per-recipient delivery status (queued, sent, unsubscribed). It does not yet report email opens or link clicks. This is current scope, not a fault - plan your measurement around delivery and unsubscribes for now.
 - **Dispatch is one-way per campaign.** Once a campaign is sending or sent, sending it again is refused so members are not emailed twice from the same campaign. Create a new campaign to send again.
-- **Empty segments send nothing.** If a segment resolves to zero members (for example, a space with no members), no emails go out and the campaign completes cleanly.
+- **Empty segments send nothing.** If a segment resolves to zero members (for example, a space with no members), no emails go out - the send is refused with a notice that the audience resolved to zero recipients, and the campaign is not marked sent, so you can fix the segment and try again. You must also pick an explicit segment: a campaign with no segment is refused rather than sent to everyone by accident.
 - **Unsubscribing is idempotent.** Clicking an unsubscribe link more than once is safe - the member stays unsubscribed and nothing breaks on the repeat click.
 - **Sending happens in the background.** Large sends are processed in batches by a recurring background task rather than all at once, which is what keeps big campaigns reliable.
 

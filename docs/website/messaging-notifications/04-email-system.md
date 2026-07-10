@@ -31,13 +31,12 @@ Members control which emails they get, and how often, from their notification pr
 
 ## Editing the emails (for owners)
 
-The built-in emails live under Settings > Email Templates. BuddyNext ships a catalogue of transactional templates grouped by area:
+The built-in emails live under BuddyNext > Notifications > Email Templates. BuddyNext ships a catalogue of transactional templates grouped by area:
 
 - **Social** - new follower, connection requested, connection accepted, connection declined, mention, post reacted, post commented, post shared, new message, media favorited.
 - **Spaces** - space invite, join requested, join request approved.
 - **Moderation** - strike issued, warning, member suspended, appeal resolved, unsuspension confirmation, new report (to the team).
 - **Gamification** - badge awarded, level up.
-- **Jetonomy** - discussion reply.
 - **Auth** - account and sign-in lifecycle emails.
 - **Digests** - daily digest, weekly digest (see Email Digests).
 - **Onboarding** - bulk invite, onboarding nudge.
@@ -58,7 +57,7 @@ From the template editor you can send a test email. The test sends the current s
 
 ## Setting it up (for owners)
 
-The sender identity and footer live under Settings > Email. The admin alert recipient lives under Settings > Notifications.
+The sender identity and footer live under BuddyNext > Notifications > Email. The admin alert recipient lives under BuddyNext > Notifications.
 
 | Setting | What it does | Default |
 |---|---|---|
@@ -87,7 +86,7 @@ Because every email uses the same shell, your whole outbound mail looks consiste
 
 ![The Email Log listing every message the community has sent](../images/admin-email-log.webp)
 
-**Members > Email Log** lists every email the community has sent - recipient, subject, type, and when it went out. It is read-only and exists to answer one question fast: *"did that email actually go out?"* When a member says they never received their verification message or a digest, check the log before debugging your mail server - if the row is there, BuddyNext handed the message to WordPress and the trail continues with your email delivery (SMTP plugin or host).
+**BuddyNext > Notifications > Email Log** lists every email the community has sent - recipient, type, and when it went out. It is read-only and exists to answer one question fast: *"did that email actually go out?"* When a member says they never received their verification message or a digest, check the log before debugging your mail server - if the row is there, BuddyNext handed the message to WordPress and the trail continues with your email delivery (SMTP plugin or host).
 
 ## Good to know
 

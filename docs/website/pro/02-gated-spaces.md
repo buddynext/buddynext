@@ -44,16 +44,13 @@ Gating a space is a two-part setup: mark the space as gated, then configure the 
 
 ### Step 1: Mark the space as gated
 
-Here is the honest caveat to plan for: BuddyNext does not yet have a point-and-click control to gate a space. There is no toggle on the space settings screen, and the Paywall tab lists spaces that are already gated rather than letting you gate one.
+Open BuddyNext in wp-admin, go to the Monetization section, and choose the Paywall tab. Below the paywall prompt settings you'll find the **Gate a Space Behind a Plan** control: pick a space, choose the plan a member needs to join it, and select **Apply gate**. To open a space back up, choose **No gate (open)** and apply. Spaces that are already gated are marked in the picker.
 
-For now, tying a space to a tier is a configuration step set behind the scenes rather than from a button. Once a space is linked to the tier you want (for example, the Premium plan), everything else - the join check, the paywall, and the per-space settings row on the Paywall tab - works automatically.
+Once a space is linked to the tier you want (for example, the Premium plan), everything else - the join check, the paywall, and the per-space settings row on the Paywall tab - works automatically.
 
-> **Warning:** Until a point-and-click gating control ships, this step needs a small technical change to the space. If you are not comfortable making it yourself, ask your developer or host to link the space to your chosen tier. Once that is done, the space appears in the Paywall tab and the rest of the setup is point-and-click.
-
-Two related limitations to know about:
+One limitation to know about:
 
 - Gated spaces are not visually badged. A space does not show a lock icon or "members only" label in space directories or listings. The gate is enforced when someone tries to join, and the paywall appears when a blocked member opens the space, but there is no badge marking the space as gated from the outside.
-- The Paywall tab only lists spaces that are already gated. It reads the link you set in Step 1; it does not set it.
 
 ### Step 2: Configure the paywall prompt
 
@@ -88,4 +85,4 @@ Below the global defaults, the Paywall tab lists every gated space with the tier
 
 Gating spaces behind a membership, the paywall prompt, and the per-space override settings are all BuddyNext Pro and depend on Membership Tiers. BuddyNext Free has open and request-to-join spaces but no membership-based gating.
 
-Within Pro, linking a space to a tier is a behind-the-scenes step today, while the paywall prompt is fully managed from the admin Paywall tab. A point-and-click control to gate a space, and a visible badge on gated spaces, are planned but not part of the current release.
+Within Pro, both linking a space to a tier and the paywall prompt are managed from the admin Paywall tab. A visible badge on gated spaces is planned but not part of the current release.

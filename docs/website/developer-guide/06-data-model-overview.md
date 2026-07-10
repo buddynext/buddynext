@@ -14,7 +14,7 @@ Two tables break the `bn_` convention: `jt_posts` and `jt_replies`. These are **
 
 Direct-message tables (`mvs_conversations`, `mvs_messages`, and siblings) are owned by **WPMediaVerse**, not BuddyNext. BuddyNext is the UI layer for messaging only, so those tables are out of scope for this schema reference.
 
-> **Note:** `audit/manifest.json` in each plugin is the authoritative live table inventory. The Free manifest lists 41 tables (39 `bn_*` plus the two borrowed `jt_*` tables); the Pro manifest lists 22 entries, several of which are shared Free tables re-listed for reference (see Schema: Pro Tables). When a count in prose disagrees with the manifest, trust the manifest.
+> **Note:** The Free Installer's `schema()` method is the authoritative table inventory - it creates 40 `bn_*` tables via `dbDelta()`. The master index below lists those 40 plus the two borrowed `jt_*` tables (42 rows total). The Pro manifest re-lists several shared Free tables for reference (see Schema: Pro Tables). When a count in prose disagrees with `schema()`, trust `schema()`.
 
 ## Scale-Contract: the rules that shape every schema
 
@@ -58,10 +58,10 @@ Every Free and Pro table, its domain, its purpose, and the developer-guide page 
 | `bn_bookmarks` | Activity feed | Per-user saved posts | Schema: Core Tables |
 | `bn_poll_options` | Activity feed | Poll option rows attached to poll posts | Schema: Core Tables |
 | `bn_poll_votes` | Activity feed | Per-user poll votes | Schema: Core Tables |
-| `bn_feed_items` | Activity feed | Fan-out feed cache for very large communities | Schema: Core Tables |
 | `bn_spaces` | Spaces | Space (group) definitions with denormalized `member_count` | Schema: Core Tables |
 | `bn_space_members` | Spaces | Space membership rows with role | Schema: Core Tables |
 | `bn_space_categories` | Spaces | Space category taxonomy | Schema: Core Tables |
+| `bn_space_meta` | Spaces | Per-space metadata, WP-meta-shaped (`meta_id`, `bn_space_id`, `meta_key`, `meta_value`); Pro reuses it | Schema: Core Tables |
 | `bn_space_bans` | Spaces / moderation | Per-space user bans | Schema: Core Tables |
 | `bn_hashtags` | Hashtags | Hashtag registry with denormalized `post_count` | Schema: Core Tables |
 | `bn_post_hashtags` | Hashtags | Post-to-hashtag join rows | Schema: Core Tables |
@@ -72,6 +72,7 @@ Every Free and Pro table, its domain, its purpose, and the developer-guide page 
 | `bn_profile_values` | Profiles | Per-user profile field values | Schema: Core Tables |
 | `bn_member_types` | Members | Member type definitions | Schema: Core Tables |
 | `bn_member_type_assignments` | Members | User-to-member-type assignments | Schema: Core Tables |
+| `bn_presence` | Members | Indexed online-presence timestamp per member (member-directory online filter/count) | Schema: Core Tables |
 | `bn_notifications` | Notifications | In-app notification rows | Schema: Core Tables |
 | `bn_notification_prefs` | Notifications | Per-user / per-channel notification preferences | Schema: Core Tables |
 | `bn_email_templates` | Email | Editable email template definitions | Schema: Core Tables |
@@ -112,7 +113,6 @@ Every Free and Pro table, its domain, its purpose, and the developer-guide page 
 | `bn_member_labels` | Labels | Custom member label definitions (Verified, Expert, Staff) | Schema: Pro Tables |
 | `bn_member_label_assignments` | Labels | User-to-label assignment rows | Schema: Pro Tables |
 | `bn_saved_searches` | Search | Per-user saved search queries and filters | Schema: Pro Tables |
-| `bn_space_meta` | Spaces | Per-space brand override plus arbitrary space meta (key/value) | Schema: Pro Tables |
 
 ### Shared Free tables re-listed by the Pro manifest
 
@@ -122,5 +122,5 @@ The Pro manifest also lists `bn_user_suspensions`, `bn_appeals`, `bn_space_bans`
 
 - **Pro never creates or modifies Free tables.** Pro's Installer creates only Pro-owned tables. When a Pro feature needs a new column on a Free table, that column is added by Free, not by a Pro `ALTER`. Pro adds columns only to its own tables, via `Installer::maybe_alter_tables()` guarded by an `INFORMATION_SCHEMA` existence check.
 - **`bn_mod_appeals` does not exist.** The Pro spec drafts named an appeals table `bn_mod_appeals`, but Pro reuses Free's `bn_appeals`. This is a deliberate decision, not an oversight - the two names refer to the same logical table.
-- **The manifest list and the Installer can diverge slightly.** The Pro Installer creates several tables (`bn_plan_gateway_map`, `bn_invoices`, `bn_coupons`, `bn_tax_rules`, `bn_space_meta`, `bn_push_tokens`, `bn_ai_embeddings`) that the snapshot `tables` array in the manifest does not enumerate. The Installer's `schema()` method is the ground truth for what is created; this index follows the Installer.
+- **The manifest list and the Installer can diverge slightly.** The Pro Installer creates several tables (`bn_plan_gateway_map`, `bn_invoices`, `bn_coupons`, `bn_tax_rules`, `bn_push_tokens`, `bn_ai_embeddings`) that the snapshot `tables` array in the manifest does not enumerate. The Installer's `schema()` method is the ground truth for what is created; this index follows the Installer. (`bn_space_meta` is created by **Free**, not Pro - Pro only reads it.)
 - **Borrowed tables are version-gated.** `jt_posts` / `jt_replies` exist only when Jetonomy is active. Never assume their presence - the bridge guards on the Jetonomy plugin being loaded.

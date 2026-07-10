@@ -17,16 +17,17 @@ The page has two sections: a queue of pending reports at the top, and a bulk use
 ### Bulk action on reports
 
 1. Open BuddyNext > Moderation > Bulk (or the Bulk Moderation page under the BuddyNext menu). The pending report queue loads with a checkbox on each row.
-2. Tick the reports you want to act on, or use the select-all checkbox in the header to select every report on the current page.
-3. Choose an action - Dismiss or Remove - and optionally type a reason.
-4. Apply. The page reloads with a summary of what happened.
+2. Optionally narrow the queue with the type and reason filters above the table.
+3. Tick the reports you want to act on, or use the select-all checkbox in the header to select every report on the current page. When you select the whole page, a banner offers "Select all N matching this filter" so you can act on every matching report across all pages, not just the visible 25.
+4. Choose an action - Dismiss or Remove Content - and optionally type a reason.
+5. Apply, and confirm the count in the prompt. A small selection is applied immediately and the page reloads with a summary; a large selection (more than 50 items) is queued and processed in the background, and the notice tells you how many were queued - they clear from the queue as the jobs run.
 
 Dismiss closes the reports as no action needed. Remove takes down the reported content. Both run through the same underlying moderation actions the single-item queue uses, so the result is identical to handling each report by hand - just faster.
 
 ### Bulk action on users
 
 1. Scroll to the Bulk User Actions panel on the same page.
-2. Enter a comma-separated list of user IDs in the User IDs field.
+2. Enter a comma-separated list in the Members field - usernames, emails, or numeric IDs.
 3. Type a reason.
 4. For a suspension, set the duration in days.
 5. Choose Warn Users or Suspend Users.
@@ -53,7 +54,8 @@ There is nothing to configure to use Bulk Moderation. The page is available to a
 
 ## Good to know
 
-- The queue is paginated. The report queue shows 25 reports per page. Select-all selects the reports on the current page; page through to handle the rest. This keeps the page fast even when the queue is thousands of reports deep.
+- The queue is paginated and filterable. The report queue shows 25 reports per page, with filters for object type and reason. Select-all ticks the current page; a "Select all N matching this filter" banner then lets you act on every matching report across all pages. This keeps the page fast even when the queue is thousands of reports deep.
+- Large batches run in the background. A selection of 50 items or fewer is applied inline; anything larger is split into background jobs (via Action Scheduler) so a big cleanup can't stall on a request timeout. The page reports how many were queued, and the reports clear as the jobs complete.
 - It delegates to the same moderation actions. Bulk dismiss, remove, warn, and suspend all route through the same underlying actions that power single-item moderation. There is no separate "bulk" code path that could behave differently - a bulk remove is just many individual removes, each fully wired, with one combined result.
 - It is concurrency-safe. Because each item is processed independently and reported on its own, a report another moderator already resolved, or a member already actioned, simply lands in the failed list with a reason while the rest of your selection completes.
 

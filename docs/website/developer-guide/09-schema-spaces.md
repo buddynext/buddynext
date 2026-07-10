@@ -29,6 +29,7 @@ The space record. One row per space. Spaces can nest (`parent_id`), belong to a 
 | `type` | ENUM(`open`,`private`,`secret`), default `open` | Visibility/join model. `open` = anyone joins; `private` = request to join; `secret` = invite-only and hidden. |
 | `owner_id` | BIGINT UNSIGNED | Owning member (WordPress user ID). |
 | `member_count` | INT UNSIGNED, default 0 | Denormalized member total. Maintained on join/leave. |
+| `last_active_at` | DATETIME, nullable | Last activity in the space, used for "recently active" directory ordering. |
 | `cover_image_url` | VARCHAR(500), nullable | Cover image URL. |
 | `avatar_url` | VARCHAR(500), nullable | Avatar/icon URL. |
 | `rules` | TEXT, nullable | Space rules text. |
@@ -45,7 +46,11 @@ Key indexes:
 - `UNIQUE KEY slug (slug)` - slug routing and dedup.
 - `KEY owner (owner_id)` - "spaces I own".
 - `KEY category (category_id)` - directory filtering by category.
+- `KEY parent (parent_id)` - resolving sub-spaces of a parent.
 - `KEY is_archived (is_archived)` - excluding archived spaces from the directory.
+- `KEY dir_popular (parent_id, member_count)` - directory ordered by popularity within a parent.
+- `KEY dir_name (parent_id, name)` - directory ordered by name within a parent.
+- `KEY dir_recent (parent_id, created_at)` - directory ordered by recency within a parent.
 
 Relationships: `owner_id` references a WordPress user; `category_id` references `bn_space_categories.id`; `parent_id` is a self-reference to `bn_spaces.id`. Membership rows live in `bn_space_members`; bans live in `bn_space_bans`. Posts reference a space via `bn_posts.space_id`.
 
@@ -69,6 +74,7 @@ Key indexes:
 - `PRIMARY KEY (space_id, user_id)` - one membership row per (space, member); serves the membership lookup.
 - `KEY user_role (user_id, role)` - "spaces where I am owner/moderator".
 - `KEY user_status (user_id, status)` - "my active spaces" / pending requests.
+- `KEY space_status (space_id, status, joined_at)` - a space's member roster filtered by status, ordered by join time.
 
 Relationships: `space_id` references `bn_spaces.id`; `user_id` references a WordPress user. Inserting an `active` row increments `bn_spaces.member_count`; removing one decrements it. Role and status changes are routed through `SpaceMemberService`, which also fires the membership hooks (`buddynext_space_member_joined`, `buddynext_space_member_left`, `buddynext_space_member_removed`).
 
@@ -97,16 +103,20 @@ Relationships: referenced by `bn_spaces.category_id`. The `color`, `text_color`,
 
 ## bn_space_bans
 
-Per-space ban list. Records members banned from a specific space (distinct from a `bn_space_members` row whose `status` is `banned`; this is the standalone ban record). This table is referenced in the application code but is not declared in the Free `CREATE TABLE` set shown by the installer schema - see the gotcha below.
+Per-space ban list. Records members banned from a specific space (distinct from a `bn_space_members` row whose `status` is `banned`; this is the standalone ban record). The composite primary key `(space_id, user_id)` makes a ban a single row per pair.
 
 | Column | Type | Notes |
 |--------|------|-------|
-| `space_id` | BIGINT UNSIGNED | The space the ban applies to. |
-| `user_id` | BIGINT UNSIGNED | The banned member. |
-| `banned_by` | BIGINT UNSIGNED | Moderator/owner who issued the ban (stored as 0 when not attributable). |
-| `created_at` | DATETIME | When the ban was issued; ban lists order by this column. |
+| `space_id` | BIGINT UNSIGNED | The space the ban applies to. Part of PK. |
+| `user_id` | BIGINT UNSIGNED | The banned member. Part of PK. |
+| `banned_by` | BIGINT UNSIGNED, NOT NULL | Moderator/owner who issued the ban (stored as `0` when not attributable; the column is `NOT NULL` with no default). |
+| `reason` | TEXT, nullable | Optional ban reason. |
+| `created_at` | DATETIME, default CURRENT_TIMESTAMP | When the ban was issued; ban lists order by this column. |
 
-> **Warning:** The exact column set for `bn_space_bans` could not be verified against a `CREATE TABLE` statement - the installer schema does not emit one under this name, and the live shape should be confirmed against `SpaceMemberService` / `ModerationService` before relying on it. What is verified from the code: bans order by `created_at` (not `id`), and `banned_by` is stored as `0` rather than NULL when the actor is unknown (the column is NOT NULL). Treat the column list above as indicative until confirmed against the running schema.
+Key indexes:
+
+- `PRIMARY KEY (space_id, user_id)` - one ban row per (space, member); serves the "is banned here" lookup.
+- `KEY user_bans (user_id)` - "spaces this member is banned from".
 
 Relationships: `space_id` references `bn_spaces.id`; `user_id` and `banned_by` reference WordPress users. Ban/unban operations fire `buddynext_space_user_banned` / `buddynext_space_user_unbanned`.
 
@@ -124,6 +134,21 @@ A space can nest (`bn_spaces.parent_id`). There are two distinct sub-space count
 ## Per-space settings: bn_space_meta and the Pro paywall
 
 Per-space attributes are stored as metadata rows in **`bn_space_meta`** (not new columns, not autoloaded options), reachable through the native WP metadata API wired to the `bn_space` meta type - or the thin Free wrappers `get_space_meta()` / `add_space_meta()` / `update_space_meta()` / `delete_space_meta()`. Registered, typed space fields go through `buddynext_register_space_field()` and read back via `buddynext_get_space_field()`.
+
+`bn_space_meta` is WP-meta-shaped so the native metadata API works against it once `$wpdb->bn_spacemeta` is aliased (`meta_type` is `bn_space`, so WP derives the id column as `bn_space_id`). It is a **Free** table - created by `BuddyNext\Core\Installer`, not Pro.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `meta_id` | BIGINT UNSIGNED, AUTO_INCREMENT | Primary key. |
+| `bn_space_id` | BIGINT UNSIGNED, default 0 | The space this meta row belongs to; the object-id column WP's metadata API keys on. |
+| `meta_key` | VARCHAR(255), nullable | Meta key. |
+| `meta_value` | LONGTEXT, nullable | Meta value. |
+
+Key indexes:
+
+- `PRIMARY KEY (meta_id)`
+- `KEY bn_space_id (bn_space_id)` - all meta for a space.
+- `KEY meta_key (meta_key(191))` - lookups by key.
 
 Pro reuses this Free storage rather than adding its own table: the per-space paywall copy is written to `bn_space_meta` under the keys `buddynextpro_paywall_cta_url`, `buddynextpro_paywall_cta_label`, and `buddynextpro_paywall_description` (via `update_space_meta()`). This is the Free/Pro contract in action - Pro never alters the Free schema.
 

@@ -32,7 +32,7 @@ The action and filter seams for unified search, the hashtag system, the search i
 |---|---|---|---|
 | `buddynext_hashtag_pattern` | filter | The regex used to extract hashtags from content (default `/#([\p{L}][\p{L}\p{N}_]{0,49})/u`) | `string $pattern` |
 | `buddynext_hashtag_used` | action | A hashtag is recorded against a piece of content (fires once per tag) | `string $tag, int $object_id, int $user_id` |
-| `buddynext_hashtag_related_discussions` | filter | The "related discussions" list on a hashtag feed is built (Jetonomy supplies discussions here) | `array $discussions, ...` |
+| `buddynext_hashtag_related_discussions` | filter | The "related discussions" list on a hashtag feed is built (Jetonomy supplies discussions here) | `array $discussions, string $hashtag_slug` |
 | `buddynext_hashtag_feed_before` / `_after` | action | Around the hashtag feed body | - |
 
 The hashtag system also exposes the full `buddynext_part_hashtag_*` template-part family (hero, posts list, sidebar-about, sidebar-related, sidebar-top-contributors, empty-state), each with the standard `_before` / `_after` / `_args` / `_classes` four-hook contract. See Hooks: Template Parts for that convention.
@@ -93,7 +93,7 @@ The admin hub owns the BuddyNext top-level menu and arranges every settings tab 
 | `buddynext_admin_license_tab_content` | action | The Settings > License tab renders (Pro hooks its activate/deactivate form here) | - |
 | `buddynext_profile_field_types` | filter | The available custom-profile-field type list is built | `array $types` |
 | `buddynext_profile_field_type_labels` | filter | Field-type labels for the admin UI | `array $labels` |
-| `buddynext_before_edit_member_form` / `_after_edit_member_form` | action | Around the admin member-edit form | - |
+| `buddynext_before_edit_member_form` / `_after_edit_member_form` | action | Around the admin member-edit form | `int $user_id, WP_User $wp_user` |
 | `buddynext_outbound_webhook_limit` | filter | The max number of outbound webhooks an admin can register | `int $limit` |
 
 > **Note:** `bn_admin_hub_sections` and `bn_admin_hub_tab_placement` use the internal `bn_*` prefix because they wire admin chrome. They are stable extension points, but treat the section/tab keys as the public contract rather than the surrounding admin classes. See Hooks Overview for the `buddynext_*` vs `bn_*` distinction.

@@ -73,7 +73,7 @@ You do not need to refresh the page to see new activity. The bell badge checks f
 
 ## Setting it up (for owners)
 
-Notifications are on out of the box - there is nothing a member must enable to start receiving them. As the owner, what you control is the default state for the most common notification types, so new members start with sensible settings they can later adjust. Those defaults live under Settings > Notifications and are covered in Notification Preferences.
+Notifications are on out of the box - there is nothing a member must enable to start receiving them. As the owner, what you control is the default state for the most common notification types, so new members start with sensible settings they can later adjust. Those defaults live under BuddyNext > Notifications and are covered in Notification Preferences.
 
 You can also add the bell to your header in the block editor by inserting the Notification Bell block. It shows the bell icon with the live unread badge for the logged-in member and links to the full Notifications page. Logged-out visitors see nothing.
 

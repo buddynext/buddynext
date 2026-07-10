@@ -60,7 +60,7 @@ To surface a compact version of this plan summary on another page, the shortcode
 
 ## Setting it up (for owners)
 
-Monetization is on by default with Pro. You can turn the whole layer on or off under Platform → Features ("Memberships & monetization"): when it is off, the pricing and My Membership pages, checkout, and gated content are all disabled; when you turn it back on, the pages are recreated automatically.
+Monetization is an optional layer and is off by default with Pro. You turn the whole layer on or off under Platform → Features ("Memberships & monetization"): while it is off, the pricing and My Membership pages, checkout, and gated content are all disabled; when you turn it on, the pages are created automatically.
 
 All tier and subscription management lives in wp-admin under BuddyNext, in the Monetization section. You manage tiers, review subscriptions, and configure the upgrade prompt across three tabs: Tiers, Subscriptions, and Paywall. (The Paywall tab is covered in Gating Spaces.)
 

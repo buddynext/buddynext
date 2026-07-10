@@ -20,7 +20,7 @@ For the site owner, search needs no day-to-day attention. Content is indexed aut
 2. Type a query into the search box and submit. The page reloads with grouped results.
 3. Results are split into sections: Members, Posts, Spaces, Hashtags, and Media.
 
-You can also press the `/` key on any community page to jump straight to the search box.
+You can also press the `/` key on any community page to open a quick-search box that suggests results as you type.
 
 ### Filter results by type
 

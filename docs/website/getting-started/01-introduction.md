@@ -118,7 +118,7 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 
 ## Good to know
 
-- BuddyNext requires WordPress 6.9 or newer and PHP 8.2 or newer.
+- BuddyNext requires WordPress 6.9 or newer and PHP 8.1 or newer.
 - The free plugin works fully on its own. Companion plugins are optional and extend specific features.
 - White-label is available only on the Unlimited (Agency) license tier. All other Pro features are identical across every license tier.
 

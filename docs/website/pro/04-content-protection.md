@@ -62,7 +62,7 @@ The locked card non-members see has a heading, a short note, and a call-to-actio
 
 | Setting | What it controls | Default |
 |---|---|---|
-| Call-to-action URL | Where the locked card's button sends non-members to upgrade. Shared with the space paywall. | Your site's `/membership/` page |
+| Call-to-action URL | Where the locked card's button sends non-members to upgrade. Shared with the space paywall. | The membership pricing page (`/membership-plans/` by default) |
 | Call-to-action label | The text on the locked card's button. Shared with the space paywall. | "Become a Member" |
 
 > **Tip:** Point the call-to-action URL at the page where members choose and buy a plan, so a non-member who hits a locked post can subscribe in one click. With Stripe connected, that page is where they pay. See Stripe Payments.

@@ -11,8 +11,8 @@ This page orients you to a local BuddyNext checkout: the runtime requirements, w
 | Requirement | Minimum |
 |---|---|
 | WordPress | 6.9+ (the Abilities API is required) |
-| PHP | 8.2+ (strict types everywhere) |
-| Autoloader | Composer PSR-4 (`BuddyNext\` -> `includes/`) |
+| PHP | 8.1+ (strict types everywhere) |
+| Autoloader | PSR-4 via a hand-rolled `spl_autoload_register` (`BuddyNext\` -> `includes/`) |
 | Dependencies | Vendored - production deps are committed under `vendor/` and `libs/`, so there is no build command to run a working plugin |
 
 The Pro plugin has the same WordPress and PHP floor and `extends` Free, so develop both against the same site. Pro boots after Free (`plugins_loaded:20` vs `:15`) and depends on Free being active.
@@ -31,7 +31,7 @@ includes/
     Installer.php    dbDelta() schema for the bn_* tables
     PageRouter.php   hub routing + shell composition inside theme chrome
     PermissionService.php  buddynext_can( $user_id, 'ability-slug', $context )
-  Bridges/         Layer 1 - adapters to Jetonomy, WPMediaVerse, Gamification, Career Board
+  Bridges/         Layer 1 - adapters to BuddyX, Jetonomy, WPMediaVerse, Gamification
   Auth/  SocialGraph/  Feed/  Profile/  Spaces/  Search/  Notifications/
   Reactions/  Comments/  Hashtags/  Moderation/  Outbound/  Messages/  ...
                    Layer 2 - one folder per feature, each with up to four canonical files:
@@ -46,7 +46,7 @@ includes/
 
 templates/         theme-overridable PHP - hubs, parts/, shell/ (override via {theme}/buddynext/)
 assets/            css/bn-{feature}.css (token-only) + js/{feature}/store.js (Interactivity API)
-blocks/            18 registered Gutenberg blocks (bn-activity-feed, bn-member-directory, ...)
+blocks/            16 registered Gutenberg blocks (bn-activity-feed, bn-member-directory, ...)
 audit/manifest.json  the canonical inventory - read before grepping
 docs/specs/        feature specs, HOOKS.md, the modular-architecture and REST/scale contracts
 ```

@@ -36,14 +36,14 @@ The table lists every hook Pro fires. Names are exact. The `consumed_by` column 
 | `buddynext_user_followed` | action | A follow relationship is created (AI affinity + analytics signal). | `int $follower_id, int $following_id` | `buddynext`, `buddynext-pro` |
 | `buddynext_post_created` | action | A post is created, including when a scheduled post is published. | `int $post_id, int $user_id, string $type` | `buddynext`, `buddynext-pro` |
 | `buddynext_pro_ai_reply_generated` | action | An AI smart-reply suggestion request succeeds. | `int $user_id, int $post_id, int $suggestion_count` | (none) |
-| `buddynext_pro_label_assigned` | action | A custom member label is assigned to a user. | `int $user_id, string $label_slug` | (none) |
-| `buddynext_pro_label_unassigned` | action | A custom member label is removed from a user. | `int $user_id, string $label_slug` | (none) |
-| `buddynext_pro_broadcast_dispatched` | action | A broadcast campaign is sent. | `int $broadcast_id, int $recipient_count` | (none) |
-| `buddynext_pro_bulk_action_executed` | action | A moderator runs a Pro bulk moderation operation. | `string $action_slug, int $actor_id, array $target_ids` | (none) |
+| `buddynext_pro_label_assigned` | action | A custom member label is assigned to a user. | `int $user_id, int $label_id, int $assigned_by_id` | (none) |
+| `buddynext_pro_label_unassigned` | action | A custom member label is removed from a user. | `int $user_id, int $label_id` | (none) |
+| `buddynext_pro_broadcast_dispatched` | action | A broadcast campaign is sent. | `int $broadcast_id, int[] $user_ids` | (none) |
+| `buddynext_pro_bulk_action_executed` | action | A moderator runs a Pro bulk moderation operation. | `string $action, int[] $ids, int $actor_id, array $summary` | (none) |
 | `buddynext_pro_loaded` | action | End of Pro's `Plugin::init()` - the Pro equivalent of Free's `buddynext_loaded`, for binding vertical modules. | (none) | (none) |
 | `buddynext_pro_bind_services` | action | During Pro service-container binding, for registering custom service bindings. | `object $container` | (none) |
 | `buddynext_profile_field_render` | filter | A Pro advanced profile field type is rendered. | `string $html, string $type, array $field, mixed $value` | `buddynext-pro` |
-| `buddynext_search_query_args` | filter | Pro injects advanced search filter args before the SQL is built. | `array $args, string $query, array $context` | `buddynext`, `buddynext-pro` |
+| `buddynext_search_query_args` | filter | Pro injects advanced search filter args before the SQL is built. | `array $args, string $query, int $viewer_id` | `buddynext`, `buddynext-pro` |
 
 > **Note:** `buddynext_ability_granted` is fired with two arguments by Pro's Stripe `WebhookController` and with three (the extra `$source`) by Free's `AccessWebhookController`. Always register your callback for the lowest arg count you need (`add_action( 'buddynext_ability_granted', $cb, 10, 2 )`) so it works regardless of which producer fires.
 
@@ -119,32 +119,37 @@ WPMediaVerse fires these actions, which BuddyNext bridges into community surface
 
 ```php
 do_action( 'mvs_message_sent',     int $message_id, int $conversation_id, int $sender_id, array $recipient_ids )
-do_action( 'mvs_media_uploaded',   int $media_id, int $user_id, array $media_data )
-do_action( 'mvs_media_deleted',    int $media_id )
+do_action( 'mvs_media_uploaded',   int $media_id, array $file_data, int $user_id, string $media_type )
+do_action( 'mvs_media_deleted',    int $media_id, int $author_id )
 do_action( 'mvs_reaction_added',   int $media_id, int $user_id, string $emoji )
-do_action( 'mvs_comment_created',  int $comment_id, int $media_id, int $user_id )
+do_action( 'mvs_comment_created',  int $media_id, int $user_id, int $comment_id )
 do_action( 'mvs_favorite_toggled', int $media_id, int $user_id, string $action ) // 'added' | 'removed'
-do_action( 'mvs_mentions_created', array $mentioned_user_ids, string $context_type, int $context_id )
+do_action( 'mvs_mentions_created', int $media_id, array $mentioned_user_ids, string $context, int $comment_id )
 ```
 
 Pro's `RealtimeDispatcher` consumes `mvs_message_sent` to push a `message.new` event to the `private-conv-{N}` channel.
 
 ### Jetonomy
 
-Jetonomy (forums/discussions) integrates through the general-purpose injection filters rather than a dedicated hook set:
+Jetonomy (forums/discussions) integrates through the unified Nav API and general-purpose injection seams rather than a dedicated hook set:
 
 ```php
-// Add a Discussions count to the profile header stat row.
-apply_filters( 'buddynext_profile_extra_data', array $extra, int $user_id )
+// Register a Discussions tab on the profile and space nav surfaces. Fires with
+// the NavRegistry; call $registry->register( [...] ) to add tabs. This is the
+// current profile/space tab seam - it replaced the removed
+// buddynext_profile_extra_data and buddynext_space_tabs filters.
+do_action( 'buddynext_register_nav', BuddyNext\Nav\NavRegistry $registry )
 
-// Add a Forum tab to a space nav bar.
-apply_filters( 'buddynext_space_tabs', array $tabs, int $space_id )
-
-// Add a Forum link to the left navigation rail.
+// Add a Discussions link to the left navigation rail.
 apply_filters( 'buddynext_rail_items', array $items, string $hub )
+
+// Pull related Jetonomy discussions into a hashtag feed (shared tag slug).
+apply_filters( 'buddynext_hashtag_related_discussions', array $discussions, string $hashtag_slug )
 ```
 
-Jetonomy discussions also surface in the search index and the Explore deck as type `discussion`. See the Core Hooks reference for the full signatures of these injection filters.
+Jetonomy discussions also surface in the search index and the Explore deck as type `discussion`. See the Core Hooks reference for the full signatures of these seams.
+
+> **Note:** The `buddynext_profile_extra_data` and `buddynext_space_tabs` filters were removed. The profile-stat-row and space-tab injection they provided is now the unified Nav API (`buddynext_register_nav` + `NavRegistry::register()`), which drives both the profile and space Discussions tabs from one registry.
 
 ### PWA seams
 

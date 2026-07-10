@@ -18,6 +18,7 @@ The outbound CRUD routes all require the `manage_options` capability. The inboun
 |---|---|---|---|
 | GET | `/buddynext/v1/webhooks` | `manage_options` | List all registered outbound endpoints |
 | POST | `/buddynext/v1/webhooks` | `manage_options` | Register a new endpoint (returns id + signing secret) |
+| PUT | `/buddynext/v1/webhooks/{id}` | `manage_options` | Update an endpoint (`url`, `events`, `is_active`, or rotate `secret`) without delete+recreate |
 | DELETE | `/buddynext/v1/webhooks/{id}` | `manage_options` | Delete an endpoint and its delivery log |
 | GET | `/buddynext/v1/webhooks/{id}/log` | `manage_options` | Paginated delivery log (`per_page` max 100, `page`) |
 | POST | `/buddynext/v1/webhooks/{id}/test` | `manage_options` | Send a test ping to the endpoint |
@@ -36,6 +37,8 @@ The outbound CRUD routes all require the `manage_options` capability. The inboun
 | `events` | array of string | no | Event slugs to subscribe to. Empty (the default) subscribes to all events |
 
 The signing secret is returned in the create response and is the only time the generated value is shown. Outbound deliveries are signed with HMAC-SHA256 using this secret and sent off-request; a delivery that fails is retried with exponential backoff, and an endpoint that accumulates three consecutive failures is automatically deactivated.
+
+`PUT /webhooks/{id}` updates an existing endpoint in place. Send only the fields you want to change - any of `url`, `events`, `is_active` (re-enable a deactivated endpoint), or `secret` (rotate the signing secret). It returns `{"success": true, "id": <id>}`.
 
 ### Request/response example
 

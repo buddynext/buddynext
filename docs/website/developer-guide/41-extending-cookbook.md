@@ -237,12 +237,11 @@ add_filter( 'buddynext_rail_items', static function ( array $items ): array {
 } );
 ```
 
-Append a content block after the profile-stats strip part (the same seam Pro uses to surface a streak tile):
+Append a tile to the shared stat-strip primitive (`parts/stat-strip.php`), the part that renders the profile and space stat rows. Each item needs at least a `label` and a `value` (optional `icon`, `href`, `delta`, `trend`, `tone`):
 
 ```php
-add_filter( 'buddynext_part_profile_stats_strip_args', static function ( array $args ): array {
+add_filter( 'buddynext_part_stat_strip_args', static function ( array $args ): array {
     $args['stats'][] = array(
-        'slug'  => 'points',
         'label' => __( 'Points', 'my-addon' ),
         'value' => '1,240',
     );
@@ -348,7 +347,7 @@ The field then:
 
 Because a programmatic field has no `bn_profile_fields` row, its submitted value is stored to **`bn_field_{key}` usermeta** (here `bn_field_github_url`) on save, not to the `bn_profile_values` table. Read it back with `get_user_meta( $user_id, 'bn_field_github_url', true )`.
 
-> **Note:** `type` must be one of the Free field types (`text`, `textarea`, `url`, `email`, `phone`, `number`, `date`, `boolean`, `select`, `radio`, `multiselect`, `color`). The "File upload" (`file`) type is **Pro-only** - it is registered by Pro on the `buddynext_field_types` filter and is not available in Free.
+> **Note:** `type` must be one of the Free field types (`text`, `textarea`, `url`, `email`, `phone`, `number`, `date`, `boolean`, `select`, `radio`, `multiselect`, `category_multiselect`, `color`). The "File upload" (`file`) type is **Pro-only** - it is registered by Pro on the `buddynext_field_types` filter and is not available in Free.
 
 ---
 

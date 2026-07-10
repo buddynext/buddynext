@@ -38,7 +38,7 @@ Every integration is a bridge: BuddyNext checks whether the companion plugin is 
 
 ### Find the integrations screen
 
-Open BuddyNext settings and go to the Integrations tab. Each companion shows as a card with its name, a one-line description of what it adds, and its current state:
+Open BuddyNext and go to **Platform > Integrations**. Each companion shows as a card with its name, a one-line description of what it adds, and its current state:
 
 - Active - the companion is installed and running, and the integration is live.
 - Inactive - the companion is installed but not activated. Activate it to turn the integration on.

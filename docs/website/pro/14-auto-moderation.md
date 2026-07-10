@@ -18,7 +18,7 @@ Members never see the rules screen. They feel the rules only when something they
 
 - **Blocked content is rejected.** When a member tries to post something a block-level rule matches (a prohibited word, a banned link), the post is refused with a message and never goes live.
 - **Flagged content still posts, quietly.** When content matches a flag-level rule, it is published normally, but a report is filed in the background for a moderator to review. The member is not stopped.
-- **Posting too fast is throttled.** If a rate-limit rule is in place and a member exceeds the hourly cap, further posts are held until enough time passes.
+- **Posting too fast is throttled.** If a rate-limit rule is in place and a member exceeds the hourly cap, further posts are refused until enough time passes.
 - **Heavily reported content can be auto-removed.** If a piece of content collects enough reports within a set window, a threshold rule can remove it (or suspend its author for a set number of days) without waiting for a moderator.
 
 The community sees the effect - less spam, fewer abusive posts - without any visible machinery.
@@ -95,6 +95,7 @@ These ship ready to use. Toggle them on or off and adjust their settings like an
 ## Good to know
 
 - **Lower priority runs first.** When more than one rule could apply, BuddyNext evaluates them in priority order, lowest number first, and the first blocking match wins. Order your strictest rules with the lowest numbers if you want them to take precedence.
+- **Keyword matching is whole-word.** A keyword matches only as a complete word or phrase, not as a fragment inside another word - so blocking "ass" will not trip on "class" or "assist". Matching is also case-insensitive.
 - **Disabled rules do nothing.** A disabled rule is fully inert - it neither blocks, flags, nor counts toward anything until you re-enable it. This is the safe way to pause a rule without losing its configuration.
 - **Block stops, flag reviews.** Block-level matches refuse the submission; flag-level matches let it through and file a report. Choose block for content that should never appear and flag for borderline cases you want a human to judge.
 - **Suspensions are temporary by default.** A threshold rule set to suspend uses a set number of days (7 unless you change it), so an auto-suspension lifts on its own rather than becoming a permanent ban.

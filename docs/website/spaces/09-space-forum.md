@@ -36,7 +36,7 @@ The forum is delivered by the Jetonomy companion plugin. There is almost nothing
 
 ### Install the Jetonomy companion
 
-1. In the BuddyNext admin, open **Integrations**.
+1. In the BuddyNext admin, open **Platform > Integrations**.
 2. Find Jetonomy in the companion list and install it with one click. BuddyNext handles the download and activation for you - there is no manual upload or plugin search.
 3. Once Jetonomy is active, the **Discussions** tab appears on spaces (and on member profiles) automatically. No per-space switch is required - each space's forum is created on demand the first time its Discussions tab is opened.
 
@@ -44,11 +44,11 @@ The forum is delivered by the Jetonomy companion plugin. There is almost nothing
 
 ### Feed sync setting
 
-One setting controls whether forum activity flows into the activity feed. It lives under **Integrations > Jetonomy Settings**.
+One setting controls whether forum activity flows into the activity feed. It lives on the **Integration Display** tab in the BuddyNext admin (Platform > Integrations), as the Jetonomy row's "Post to the activity feed" toggle.
 
 | Setting | What it does | Default |
 |---|---|---|
-| Surface new Jetonomy discussions in activity feed | When on, a new discussion in a connected public space is also published as a card in the BuddyNext activity feed (and Explore), so it gets noticed in the moment. The thread still lives in the forum. When off, discussions are searchable and reachable through the Discussions tab but do not appear as feed cards. | On |
+| Post to the activity feed (Jetonomy row) | When on, a new discussion in a connected public space is also published as a card in the BuddyNext activity feed (and Explore), so it gets noticed in the moment. The thread still lives in the forum. When off, discussions are searchable and reachable through the Discussions tab but do not appear as feed cards. | On |
 
 Privacy is enforced regardless of the setting: only public spaces, public (non-private) discussions, and published discussions can ever become a public feed card. A private or secret space, or a private discussion, never leaks into the public feed.
 

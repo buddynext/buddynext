@@ -1,6 +1,6 @@
 # Admin Pages and Settings
 
-The BuddyNext admin surface and the contracts that shape it: the registered wp-admin pages (5 in free, 20 in Pro), the `AdminHub` section + tab-placement system that arranges every screen into a capped information architecture, the `bn_admin_hub_sections` and `bn_admin_hub_tab_placement` filters for adding or relocating tabs from a mu-plugin, and the options-wiring model (about 86 option keys, registered into per-tab settings groups). This page is for developers adding an admin screen, moving an existing tab, or wiring a new setting.
+The BuddyNext admin surface and the contracts that shape it: the registered wp-admin pages (a single Hub menu with one sub-menu per populated section in free, 18 legacy pages in Pro), the `AdminHub` section + tab-placement system that arranges every screen into a capped information architecture, the `bn_admin_hub_sections` and `bn_admin_hub_tab_placement` filters for adding or relocating tabs from a mu-plugin, and the options-wiring model (per-tab settings groups derived from field descriptors). This page is for developers adding an admin screen, moving an existing tab, or wiring a new setting.
 
 ![The Platform Features admin tab, a live BuddyNext screen arranged by the AdminHub section and tab-placement system](../images/admin-features.webp)
 
@@ -12,7 +12,7 @@ All BuddyNext admin pages gate on the native `manage_options` capability. There 
 
 The admin is built on three layers:
 
-1. **Sections** - the top-level wp-admin sub-menu entries (`?page=` slugs). Declared in `AdminHub::DEFAULT_SECTIONS`, filterable via `bn_admin_hub_sections`.
+1. **Sections** - the top-level wp-admin sub-menu entries (`?page=` slugs). Declared in `AdminHub::default_sections()`, filterable via `bn_admin_hub_sections`.
 2. **Tabs** - the individual screens, contributed by feature classes through `AdminHub::register_tab()`. Each tab declares an *origin* `section:slug`.
 3. **Placement** - a canonical map (`AdminHub::TAB_PLACEMENT`) that moves each tab to its *final* section and sidebar position, filterable via `bn_admin_hub_tab_placement`. This lets a feature keep registering against its own domain while the hub arranges the final layout in one place.
 
@@ -20,59 +20,58 @@ A section appears in the sidebar **only when at least one visible tab is registe
 
 ## Registered admin pages
 
-### Free (5 pages)
+### Free
 
-The free plugin registers one top-level menu and four section sub-menus, all on `manage_options`:
+`AdminHub::build_menu()` (hooked on `admin_menu` priority 9) registers a single top-level menu and then one sub-menu per **populated** section - all on `manage_options`. Individual feature classes do not register their own pages; they contribute *tabs* (see the section / tab API below) and the Hub builds the menu. The section slugs come from `AdminHub::default_sections()`:
 
-| Page slug | Type | Title | Registrar |
-|-----------|------|-------|-----------|
-| `buddynext` | menu | BuddyNext | `Admin/Settings.php` |
-| `buddynext` | submenu | BuddyNext - Settings | `Admin/Settings.php` |
-| `buddynext-members` | submenu | Members | `Admin/Members.php` |
-| `buddynext-spaces` | submenu | Spaces | `Admin/Spaces.php` |
-| `buddynext-integrations` | submenu | Integrations | `Admin/IntegrationHub.php` |
+| Page slug | Type | Title | Section key |
+|-----------|------|-------|-------------|
+| `buddynext` | menu + first submenu | BuddyNext / Settings | `settings` (top) |
+| `buddynext-platform` | submenu | Platform | `platform` |
+| `buddynext-members` | submenu | Members | `members` |
+| `buddynext-spaces` | submenu | Spaces | `spaces` |
+| `buddynext-engagement` | submenu | Engagement | `engagement` |
+| `buddynext-notifications` | submenu | Notifications | `notifications` |
+| `buddynext-moderation` | submenu | Moderation | `moderation` |
+| `buddynext-upgrade` | submenu | Upgrade | `upgrade` (free-only "Free vs Pro" tab) |
 
-The visible section list is larger than this table because `DEFAULT_SECTIONS` declares 12 sections (Settings, Platform, Members, Spaces, Engagement, Notifications, Realtime & Push, Campaigns, Moderation, Auto-Moderation, Monetization, Upgrade). Most are populated by tabs rather than by a dedicated page registrar, and only sections with registered tabs render. Several sections (Realtime & Push, Campaigns, Auto-Moderation, Monetization) register no tabs in free, so they stay hidden until Pro is active.
+`default_sections()` declares 12 sections (Settings, Platform, Members, Spaces, Engagement, Notifications, Realtime & Push, Campaigns, Moderation, Auto-Moderation, Monetization, Upgrade), and only sections with at least one registered tab render. The four that register no tabs in free (Realtime & Push, Campaigns, Auto-Moderation, Monetization) stay hidden until Pro is active. Integrations is not its own section - it is a tab (origin `settings:integrations`) placed into the Platform section by the placement map.
 
-### Pro (20 pages)
+### Pro (18 pages)
 
-Pro registers 20 admin pages, each a `submenu`, all on `manage_options`:
+Pro registers 18 admin pages, each a `submenu` under the `buddynext` parent, all on `manage_options`. Their sidebar entries come from the AdminHub placement map; the registered page slugs are kept so legacy/bookmarked URLs still resolve, and they render inside the Hub chrome:
 
 | Page slug | Title |
 |-----------|-------|
 | `buddynextpro-analytics` | Analytics |
 | `buddynextpro-broadcasts` | Broadcast Campaigns |
-| `buddynextpro-drip` | Drip Sequences |
+| `buddynextpro-drip-sequences` | Drip Sequences |
 | `buddynextpro-member-labels` | Member Labels |
-| `buddynextpro-tiers` | Membership Tiers |
-| `buddynextpro-subs` | Subscriptions |
-| `buddynextpro-paywall` | Paywall Settings |
-| `buddynextpro-modrules` | Moderation Rules |
+| `bnpro-membership-tiers` | Membership Tiers |
+| `bnpro-subscriptions` | Subscriptions |
+| `bnpro-paywall-settings` | Paywall Settings |
+| `buddynextpro-mod-rules` | Moderation Rules |
 | `buddynextpro-bulk-mod` | Bulk Moderation |
 | `buddynextpro-push` | Push |
 | `buddynextpro-push-prefs` | Push Preferences |
 | `buddynextpro-realtime` | Realtime |
 | `buddynextpro-scheduled-posts` | Scheduled Posts |
-| `buddynextpro-ai` | AI Feed |
-| `buddynextpro-ai-mod` | AI Moderation |
-| `buddynextpro-advanced-fields` | Advanced Fields |
+| `buddynextpro-ai-feed` | AI Feed |
+| `buddynextpro-ai-moderation` | AI Moderation |
+| `buddynextpro-payments` | Payments |
 | `buddynextpro-whitelabel` | White-label |
-| `buddynextpro-space-brand` | Space Brand |
 | `buddynextpro-custom-reactions` | Custom Reactions |
-| `buddynextpro-stripe` | Stripe Settings |
 
-Pro tabs register against their domain origin section (for example `monetization:tiers`, `growth:broadcasts`, `moderation:rules`) and are routed into the matching hidden-until-active sections by the placement map. The legacy `buddynextpro-*` page slugs remain registered so old bookmarks resolve, but they render inside the Hub chrome.
-
-> The White-label tab is intentionally hidden from the IA via a `hidden` placement rule, even though Pro still registers its page. The underlying subsystem is slated for removal.
+Pro tabs register against their domain origin section (for example `monetization:tiers`, `growth:broadcasts`, `moderation:rules`) and are routed into the matching hidden-until-active sections by the placement map. The White-label tab is placed as a visible Settings tab (origin `settings:white-label`).
 
 ## The section / tab API
 
 ### Sections
 
-`AdminHub::DEFAULT_SECTIONS` is keyed by a short section key, each entry carrying its `?page=` slug and label. One section is marked `top` (Settings) - its slug is shared with the top-level menu, so clicking "BuddyNext" lands on it.
+`AdminHub::default_sections()` is keyed by a short section key, each entry carrying its `?page=` slug, label, and Lucide icon. One section is marked `top` (Settings) - its slug is shared with the top-level menu, so clicking "BuddyNext" lands on it.
 
 ```php
-// AdminHub::sections() = DEFAULT_SECTIONS merged with the bn_admin_hub_sections filter.
+// AdminHub::sections() = default_sections() merged with the bn_admin_hub_sections filter.
 'settings' => array( 'slug' => 'buddynext', 'label' => 'Settings', 'top' => true ),
 'members'  => array( 'slug' => 'buddynext-members', 'label' => 'Members' ),
 // ...
@@ -102,15 +101,15 @@ This is why a feature can register `growth:broadcasts` while the tab actually re
 
 ## The options-wiring model
 
-The free plugin wires about 86 option keys (the manifest's `optionsWiring` count), the great majority prefixed `buddynext_` (a few legacy `bn_*` avatar keys and the core `admin_email` also appear). Each is read at its consumption point and written from its admin tab. Examples: `buddynext_site_name`, `buddynext_default_post_privacy`, `buddynext_space_creation_role`, `buddynext_banned_words`, `buddynext_enabled_reactions`.
+BuddyNext wires a large set of option keys, the great majority prefixed `buddynext_` (a few legacy `bn_*` avatar keys and the core `admin_email` also appear). Each is read at its consumption point and written from its admin tab. Examples: `buddynext_site_name`, `buddynext_default_post_privacy`, `buddynext_space_creation_role`, `buddynext_banned_words`, `buddynext_enabled_reactions`.
 
-Settings are registered in `Admin/Settings.php::register_settings()` so their `sanitize_callback` runs on save. Options are grouped **per tab**, not in one global bucket: `Settings::option_group( $option )` looks the option up in `TAB_OPTIONS` and returns `buddynext_{tab}` as the settings group (`option_page`). A save therefore only touches the active tab's options. The tab groups are:
+Settings are registered in `Admin/Settings.php::register_settings()`, which calls `SettingsDriver::register_page( $this, 'buddynext' )`. `SettingsDriver` walks the page's field descriptors (`Settings::settings_fields()`) and issues one `register_setting()` per field under a per-tab group named `buddynext_{tab}`, so a save only touches the active tab's options - and `SettingsDriver::save_group_of( $key, 'buddynext' )` answers which group saves a given key. This descriptor-driven approach replaces the old hand-maintained `SETTINGS_MAP` + `TAB_OPTIONS` lists. The tab groups derived from the descriptors are:
 
 ```text
-buddynext_general        buddynext_features       buddynext_registration
-buddynext_social         buddynext_spaces         buddynext_moderation
-buddynext_notifications  buddynext_email          buddynext_privacy
-buddynext_integrations   buddynext_webhooks
+buddynext_general        buddynext_registration   buddynext_social
+buddynext_spaces         buddynext_moderation     buddynext_notifications
+buddynext_email          buddynext_privacy        buddynext_webhooks
+buddynext_features
 ```
 
 Three options carry custom array sanitizers and are registered with explicit standalone `register_setting()` calls (in addition to flowing through their tab group):
@@ -121,7 +120,7 @@ Three options carry custom array sanitizers and are registered with explicit sta
 | `buddynext_social_login` | array | `buddynext_registration` | `sanitize_social_login_option` |
 | `buddynext_enabled_reactions` | array | `buddynext_social` | `sanitize_enabled_reactions` |
 
-> An option with no `TAB_OPTIONS` entry falls back to the `buddynext` group. Keep new options in `SETTINGS_MAP` and `TAB_OPTIONS` so they sanitize on save and post to the right group.
+> An option whose key matches no descriptor field falls back to the `buddynext` group. Add new settings as `Field` descriptors in the relevant `Settings::fields_*()` method so they are registered under the right group and sanitize on save.
 
 ## Examples
 
@@ -185,6 +184,6 @@ Build the link to it with `AdminHub::tab_url( 'marketplace', 'listings' )` rathe
 - **Register tabs before `admin_menu` priority 9.** `AdminHub::build_menu()` runs at that priority; tabs registered later will not appear in their section's sub-menu.
 - **Empty sections are hidden, not removed.** A section with no registered tab is skipped during menu build. Pro-only sections (Campaigns, Realtime & Push, Auto-Moderation, Monetization) stay hidden in free for this reason.
 - **Origin section vs final section.** Always register against your tab's domain origin and let the placement map decide the final location. Resolve URLs and active-state through `AdminHub::tab_url()` / `is_tab_active()`, which apply the same placement, so a relocated tab keeps its assets and links.
-- **Per-tab save scope.** Because options are grouped per tab, saving one tab never overwrites another tab's options. Add new settings to both `SETTINGS_MAP` (for sanitize-on-save) and `TAB_OPTIONS` (for the correct group).
+- **Per-tab save scope.** Because options are grouped per tab, saving one tab never overwrites another tab's options. Add new settings as `Field` descriptors in the relevant `Settings::fields_*()` method; `SettingsDriver` registers them under `buddynext_{tab}` and runs their sanitizer on save.
 
 See also Roles and Capabilities for the `manage_options`-vs-community-role distinction these screens rely on.

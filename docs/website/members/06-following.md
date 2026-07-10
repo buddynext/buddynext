@@ -32,7 +32,7 @@ Every profile has a followers list (everyone who follows that member) and a foll
 
 ### Follow suggestions
 
-BuddyNext can suggest members for you to follow. Suggestions are drawn from members you do not already follow, so the list refreshes as you follow more people. There is no algorithmic ranking behind it at this stage - it is a straightforward "people you might want to follow" starter list, most useful right after you join.
+BuddyNext can suggest members for you to follow. Suggestions are drawn from members you do not already follow, and they are ranked so the most relevant people rise to the top: members followed by people you already follow (friends-of-friends) and members who share your interests are surfaced first. The list refreshes as you follow more people and as you edit your interests. Members you have blocked, or who have blocked you, are never suggested.
 
 ### Follow requests on private accounts
 

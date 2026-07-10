@@ -15,7 +15,7 @@ A clean install is what makes BuddyNext work the moment you switch it on. Activa
 | Requirement | Minimum |
 |-------------|---------|
 | WordPress | 6.9 or newer |
-| PHP | 8.2 or newer |
+| PHP | 8.1 or newer |
 | Database | MySQL 5.7+ or MariaDB 10.3+ (standard WordPress) |
 | Permalinks | Pretty permalinks enabled (any setting other than Plain) |
 
@@ -38,7 +38,7 @@ A clean install is what makes BuddyNext work the moment you switch it on. Activa
 Pro is delivered through a built-in one-click installer, not a manual upload. You do not download a separate Pro zip or search the plugin directory.
 
 1. Buy a BuddyNext Pro license. You will receive a license key.
-2. In wp-admin, open **BuddyNext > Integrations** (the companion hub).
+2. In wp-admin, open **BuddyNext > Platform > Integrations** (the companion hub).
 3. Find **BuddyNext Pro** and click **Install**. BuddyNext fetches and installs Pro for you in one click.
 4. Once installed, activate it.
 5. Go to **BuddyNext > Settings > License**, paste your Pro license key, and activate it.
@@ -47,7 +47,7 @@ Pro is delivered through a built-in one-click installer, not a manual upload. Yo
 
 ## Optional companion plugins
 
-These companion plugins extend specific BuddyNext features. They are all optional - install only the ones whose features you want. Each installs through the same one-click flow under **BuddyNext > Integrations**.
+These companion plugins extend specific BuddyNext features. They are all optional - install only the ones whose features you want. Each installs through the same one-click flow under **BuddyNext > Platform > Integrations**.
 
 | Companion | What it adds | Required for |
 |-----------|--------------|--------------|
@@ -67,5 +67,5 @@ These companion plugins extend specific BuddyNext features. They are all optiona
 
 ## What's next
 
-After activation, the **Setup Wizard** runs on first visit and walks you through naming your community, choosing default pages, and configuring member registration and onboarding. Open it any time from **BuddyNext > Setup Wizard** in wp-admin to revisit those choices.
+After activation, the **Setup Wizard** runs on first visit and walks you through naming your community, choosing default pages, and configuring member registration and onboarding. Reopen it any time at `wp-admin/admin.php?page=buddynext-setup` to revisit those choices.
 

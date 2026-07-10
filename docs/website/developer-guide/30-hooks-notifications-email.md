@@ -70,7 +70,7 @@ The email channel is driven by `EmailSender`. Event emails render from a `bn_ema
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_email_payload` | filter | Immediately before `wp_mail()`, after subject/body/headers are assembled | `array $payload, string $template_slug, array $context` |
-| `buddynext_email_shell` | filter | Wrapping the email body in the branded HTML shell | `string $html` (and shell context) |
+| `buddynext_email_shell` | filter | Wrapping the email body in the branded HTML shell; return HTML containing the literal `{{email_body}}` token to fully replace the default shell | `string $shell, string $body, string $subject` |
 | `buddynext_queue_email_digest` | action | A notification is routed to a digest queue instead of an immediate send | `int $user_id, string $notification_type, array $data` |
 | `buddynext_send_notification_email` | action | Action Scheduler callback to send a notification email asynchronously | `int $user_id, string $notification_type, array $data` |
 

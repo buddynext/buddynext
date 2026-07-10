@@ -104,7 +104,7 @@ Each oracle yields a row with one of three statuses:
 |---|---|
 | `PASS` | The toggle enforces - behavior changed when flipped. |
 | `FAIL` | The toggle is dead - flipping the setting did not change behavior. Fails the gate. |
-| `HOLE` | The feature is toggleable but has no oracle, so enforcement is unproven. Add coverage via `cert learn`. |
+| `HOLE` | The feature is toggleable but has no oracle, so enforcement is unproven. Add coverage by adding an entry to `audit/cert-oracles.json`. |
 
 A `HOLE` is uncovered surface, not a failure, but it signals a gap in the oracle.
 
@@ -144,6 +144,6 @@ Error: Functional certification FAILED - 2 passed, 1 failed, 1 holes (uncovered)
 
 - Both commands declare `@when after_wp_load`, so WordPress is fully loaded before they run - they have access to services, settings, and the REST router.
 - `cert` writes a ledger as a side effect of every run, so CI and the MCP can read the last result without re-running the gate.
-- `demo` and `cert` are Free commands; there are no Pro-specific WP-CLI commands. The cert oracle covers gated features across the product.
+- `demo` and `cert` are Free commands. Pro registers one WP-CLI command of its own - `wp buddynext-pro cert` (`\BuddyNextPro\Cert\CertCommand`, added in the Pro `Plugin::init()`) - the same functional-certification harness scoped to Pro's gated features. It takes the same optional `contract` / `boot` positional and `--porcelain` flag. Free's `cert` oracle covers gated features in Free.
 
 See also the Cron and Async Jobs page for the scheduled-job surface these tools run alongside.

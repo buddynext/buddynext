@@ -46,7 +46,7 @@ Where members see their rewards:
 - **Achievements tab on their profile.** Once a member has earned a badge or any points, an Achievements tab appears on their profile. It shows their earned badges as a grid (credential badges first) and a standing strip with points, level, and streak. The tab stays hidden for brand-new members who have not earned anything yet, so nobody sees an empty tab.
 - **Badge share pages.** Each badge links to its public share page so members can show off a credential outside the community.
 - **The activity feed.** When a member earns a credential badge, BuddyNext posts a feed activity announcing it, so the whole community sees the achievement. Everyday participation badges do not post to the feed, so the feed never fills up with badge spam.
-- **The leaderboard.** A "View leaderboard" link on the Achievements tab takes members to the gamification hub page, where they can see how they rank.
+- **The leaderboard.** A **Leaderboard** link appears in the BuddyNext left navigation rail, taking members to the community leaderboard page where they can see how they rank.
 
 > **Note:** Points, badges, and levels are owned by WB Gamification. BuddyNext reads and displays them but never changes them.
 
@@ -54,15 +54,10 @@ Where members see their rewards:
 
 1. Install and activate WB Gamification alongside BuddyNext.
 2. In WB Gamification, configure the point value for each BuddyNext action you want to reward (the table above lists the actions BuddyNext reports). Set the badges and levels you want to offer.
-3. Create or choose the page that hosts the gamification leaderboard, and set it as the gamification hub page. BuddyNext reads this to build the "View leaderboard" link members see.
 
 That is the whole connection. Once both plugins are active and the actions have points, members start earning the moment they participate.
 
-| Setting | What it does | Default |
-|---|---|---|
-| Gamification hub page | The page WB Gamification uses for the leaderboard. BuddyNext links members to it from the Achievements tab. When unset, the "View leaderboard" link is hidden. | None |
-
-> **Tip:** Set the hub page so the "View leaderboard" link appears. Without it, members can still earn and see badges, but they have no in-community link to the leaderboard.
+This integration has no settings of its own in BuddyNext. BuddyNext hosts its own community leaderboard page automatically, and links to it from the **Leaderboard** item in the left navigation rail - there is no leaderboard page to create or select. You can hide the Leaderboard link (and the Achievements feed activity) from the **Platform > Integration Display** tab if you would rather not surface them.
 
 ## Good to know
 

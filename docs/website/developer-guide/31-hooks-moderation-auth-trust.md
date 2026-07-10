@@ -56,12 +56,12 @@ These fire after a moderator (or an auto-action) acts on content or a member. Tr
 | `buddynext_content_removed` | action | Reported content is removed (by a moderator or an auto-action) | `string $object_type, int $object_id, int $actor_id` |
 | `buddynext_user_warned` | action | A member is issued a warning | `int $user_id, int $actor_id, string $reason` |
 | `buddynext_strike_issued` | action | A strike is recorded against a member | `int $strike_id, int $user_id, int $actor_id` |
-| `buddynext_user_suspended` | action | A member is suspended | `int $user_id, int $actor_id` |
+| `buddynext_user_suspended` | action | A member is suspended | `int $user_id, int $actor_id, string $reason, ?string $expires_at` |
 | `buddynext_user_unsuspended` | action | A suspension is lifted | `int $user_id` |
 | `buddynext_member_suspended` | action | Member-domain mirror of a suspension | `int $user_id, int $by_user_id` |
 | `buddynext_member_unsuspended` | action | Member-domain mirror of an unsuspension | `int $user_id, int $by_user_id` |
-| `buddynext_user_shadow_banned` | action | A member is shadow-banned (their content stays visible only to themselves) | `int $user_id` |
-| `buddynext_user_shadow_ban_removed` | action | A shadow ban is lifted | `int $user_id` |
+| `buddynext_user_shadow_banned` | action | A member is shadow-banned (their content stays visible only to themselves) | `int $user_id, int $actor_id, string $reason` |
+| `buddynext_user_shadow_ban_removed` | action | A shadow ban is lifted | `int $user_id, int $actor_id` |
 | `buddynext_appeal_submitted` | action | A member appeals a moderation decision | `int $user_id, int $appeal_id, string $type, int $suspension_id` |
 | `buddynext_appeal_resolved` | action | An appeal is decided | `int $appeal_id, int $user_id, string $decision` |
 | `buddynext_space_user_banned` | action | A member is banned from a space | `int $space_id, int $user_id, int $banned_by` |

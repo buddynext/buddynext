@@ -4,7 +4,7 @@ Scheduled posts let a member write something now and have it publish automatical
 
 ![A scheduled post going live on time in the community activity feed](../images/community-activity-feed.webp)
 
-![The Campaigns Scheduled Posts admin tab where you review the queue of scheduled posts](../images/admin-scheduled.webp)
+![The Growth > Scheduled Posts admin tab where you review the queue of scheduled posts](../images/admin-scheduled.webp)
 
 ## Why use it
 
@@ -35,7 +35,7 @@ A member can see their own queued posts and cancel any that are still waiting. C
 
 ### The scheduled posts queue
 
-Pro adds a **Scheduled Posts** admin page (under the BuddyNext menu, in the Growth section) that lists every post waiting to publish across the community, ordered by the soonest scheduled time first. For each post you see its ID, author, type, an excerpt, and the scheduled time in UTC.
+Pro adds a **Scheduled Posts** admin page (under the BuddyNext menu, in the Growth section) that lists every post waiting to publish across the community, ordered by the soonest scheduled time first. For each post you see its ID, author, type, an excerpt, and the scheduled time shown in your site's timezone.
 
 
 The queue gives owners three actions.
@@ -58,7 +58,7 @@ The community checks for due posts automatically and publishes any whose schedul
 - Only the author of a scheduled post can cancel it. A member cannot cancel someone else's queued post. Owners and admins can still publish or cancel any post from the admin queue.
 - Cancelling never destroys content. A cancelled scheduled post becomes a draft with its scheduled time cleared, so it can be rescheduled or edited.
 - While a post is scheduled, it is hidden from every feed and its new-post notifications are suppressed. Both happen the moment it publishes, so members are not notified about a post that is not yet visible.
-- All scheduled times are handled in UTC. The admin queue shows the scheduled time in UTC so there is no ambiguity about when a post will go out.
+- Scheduled times are stored in UTC. The admin queue converts each one to your site's timezone, so you read it as a local time rather than raw UTC.
 - If the queue is empty, the admin page shows a clear "No scheduled posts found" message rather than a blank table.
 
 ## Free vs Pro

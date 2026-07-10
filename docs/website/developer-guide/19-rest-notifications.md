@@ -25,6 +25,7 @@ In short:
 | GET | `/me/notifications/unread-count` | auth | Unread count for the bell badge. |
 | PUT | `/me/notifications/read-all` | auth | Mark all of the current user's notifications read. Also accepts `POST`. |
 | PUT | `/me/notifications/(?P<id>[\d]+)/read` | auth | Mark one notification read. Also accepts `POST`. |
+| PUT | `/me/notifications/(?P<id>[\d]+)/unread` | auth | Mark one notification unread. Also accepts `POST`. |
 | DELETE | `/me/notifications/(?P<id>[\d]+)` | auth | Delete one of the current user's notifications. |
 | GET | `/me/notification-prefs` | auth | Per-type preferences, with catalogue defaults merged so every type appears once. |
 | PUT | `/me/notification-prefs` | auth | Update per-type preferences. Body keyed by type, values `{ on_site, email_freq }`. Returns `422` on an invalid `email_freq`. |

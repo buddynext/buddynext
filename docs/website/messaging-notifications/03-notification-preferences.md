@@ -53,7 +53,7 @@ For spaces a member belongs to, the level of new-post notifications can be set p
 
 ## Setting it up (for owners)
 
-The owner controls the starting on-site default for the most common notification types under Settings > Notifications. These defaults apply to members who have not changed the setting themselves; once a member adjusts their own preference, their choice wins.
+The owner controls the starting on-site default for the most common notification types under BuddyNext > Notifications. These defaults apply to members who have not changed the setting themselves; once a member adjusts their own preference, their choice wins.
 
 | Setting | What it controls | Default |
 |---|---|---|

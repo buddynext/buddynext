@@ -4,7 +4,7 @@ An announcement is an admin post that pins to the top of every member's home fee
 
 ![A BuddyNext home feed with an admin announcement pinned above the regular activity](../images/community-activity-feed.webp)
 
-![Platform - Features admin tab where the announcements feature is enabled and managed](../images/admin-features.webp)
+![Platform - Features admin tab where the announcements feature is enabled (announcements are managed from the Engagement - Announcements tab)](../images/admin-features.webp)
 
 ## Why use it
 
@@ -34,14 +34,14 @@ To create one, post to the feed as you normally would, with the post marked as a
 
 ### Ending an announcement
 
-An administrator can end an announcement at any time. Ending it removes the pin so the post stops appearing at the top of members' feeds, while the post itself stays in the feed as a normal post. Only administrators can end an announcement.
+An administrator can end an announcement at any time from the Engagement → Announcements admin tab, which lists every announcement and offers an **End now** action (and a control to feature one to the top). Ending it removes the pin so the post stops appearing at the top of members' feeds, while the post itself stays in the feed as a normal post. Only administrators can end an announcement.
 
 > **Tip:** Ending an announcement is the clean way to retire a notice once it is no longer relevant. You do not have to delete the post to stop it pinning - end it and it becomes an ordinary feed post.
 
 
 ## Good to know
 
-- **Only the newest announcement is pinned.** If more than one announcement is live, only the most recently created one is pinned to the top of the feed. Older announcements drop back to being ordinary posts in the feed - they are not pinned for anyone. To keep a single, clear community notice at the top, post one announcement at a time.
+- **One announcement is pinned at a time.** By default the most recently created live announcement is the one pinned to the top of the feed; older ones drop back to being ordinary posts. An administrator can override this by featuring a specific announcement from the Engagement → Announcements admin tab, and that featured notice then leads the feed (even if a newer announcement exists) until it is dismissed, ended, or expires. To keep a single, clear community notice at the top, post one announcement at a time or feature the one you want.
 - **Only administrators create or end announcements.** A member who tries to create one is refused. The capability is the standard WordPress administrator capability.
 - **Dismissal is per member.** One member dismissing an announcement has no effect on what other members see.
 - **The post is never lost.** Both dismissing (member) and ending (admin) only change whether the post is pinned. The post remains in the feed.
@@ -53,6 +53,6 @@ An administrator can end an announcement at any time. Ending it removes the pin 
 | Admin announcement pinned to every member's home feed | Yes | Yes |
 | Per-member dismiss | Yes | Yes |
 | Admins end an announcement | Yes | Yes |
-| Announcements pinned at once | Newest one only | Newest one only |
+| Announcements pinned at once | One (newest, or the admin-featured one) | One (newest, or the admin-featured one) |
 
 Announcements themselves work the same in Free and Pro. Pro adds a separate capability for ordinary feed posts: it lifts Free's single-pinned-post limit so up to 10 posts can be pinned at once (per space or profile). That pinned-post feature is distinct from the site-wide announcement above.

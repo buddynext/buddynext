@@ -4,8 +4,6 @@ White-label branding replaces BuddyNext's identity with your own across the Word
 
 ![The White-label settings where you set the brand name and logo](../images/admin-appearance.webp)
 
-> **Note:** White-label branding is part of the Agency and Unlimited license tiers. On other Pro tiers the feature is not offered.
-
 > **Changed in 1.0.7:** White-label is now backend-only - a brand name and a logo. Brand color, fonts, custom CSS, and per-space branding overrides have been removed; the community front end always follows your active theme. See Per-space branding for what changed there.
 
 ## Why use it
@@ -37,9 +35,9 @@ The logo field uses the standard WordPress media picker, so you can select, prev
 
 ## Free vs Pro
 
-White-label branding is a Pro feature in its entirety - free BuddyNext always runs its admin under the BuddyNext name. Within Pro, it is offered on the Agency and Unlimited license tiers.
+White-label branding is a Pro feature in its entirety - free BuddyNext always runs its admin under the BuddyNext name.
 
-| | Free | Pro (Agency / Unlimited) |
+| | Free | Pro |
 |---|---|---|
 | Admin brand name and logo | No | Yes |
 | Branded email header | No | Yes |

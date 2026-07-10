@@ -4,7 +4,7 @@ Pro adds six richer profile field types on top of the free profile builder: an e
 
 ![A member profile populated with the richer Pro field types](../images/member-profile.webp)
 
-![The Platform Features admin tab where advanced profile field types are enabled](../images/admin-features.webp)
+![The profile field builder where the advanced Pro field types appear in the field-type dropdown](../images/admin-features.webp)
 
 > **Before you start:** These field types come with BuddyNext Pro. With Pro active, they appear in the same profile field builder you already use, so there is nothing extra to switch on. This page covers the Pro field types only. For the base field builder, member-facing profile editing, and the field types that ship free, see Profile Fields.
 
@@ -95,7 +95,7 @@ Pro field types appear in the same field builder you use for free fields, under 
 
 | Setting | What it controls | Default |
 |---|---|---|
-| Trigger field | The other field this one watches. The conditional field shows only when that field holds the value you set below. | none |
+| Trigger field ID | The ID of the other field this one watches, entered as a number. The conditional field shows only when that field holds the value you set below. | none |
 | Trigger value | The value the watched field must hold for this field to appear. | empty |
 
 ## Good to know
@@ -104,7 +104,7 @@ Pro field types appear in the same field builder you use for free fields, under 
 - The location map, file-name preview, and conditional show/hide are progressive enhancements layered on the saved value. If scripts do not load, members still get a working text or file input and the value still saves - the picker UX is the enhancement, not the storage.
 - Connected apps save through the same checks as the website, so a value entered in a mobile app is validated and stored exactly like one entered on the site.
 - Empty profiles show nothing for a field a member has not filled in. To preview a field type end to end, fill it in and reopen the profile view.
-- A conditional field watches another field by name. If you delete or rename the watched field, set the conditional field's trigger again so it keeps reacting to the right field.
+- A conditional field watches another field by its field ID. If you delete the watched field, or want it to react to a different field, update the conditional field's Trigger field ID so it keeps reacting to the right field.
 
 ## Free vs Pro
 

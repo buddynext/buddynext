@@ -16,8 +16,8 @@ We have kept this honest. Where something is provided by a companion plugin or i
 | Capability | Where it lives in BuddyNext | Notes |
 |---|---|---|
 | Activity feed | Free | Text, link, and poll posts, with reactions, comments, share, bookmark, and report on every post. Photo and file posts are added by the WPMediaVerse companion. |
-| Groups (called Spaces) | Free | Unlimited open and request-to-join spaces, each with its own feed, members, and optional tabs. Private (invite-only) and membership-gated spaces are Pro. |
-| Profiles and profile fields | Free | Avatar, cover, bio, social links, and up to five custom fields with per-field privacy. Advanced field types (date, location, file, conditional) are Pro. |
+| Groups (called Spaces) | Free | Unlimited open, request-to-join (private), and hidden (secret) spaces, each with its own feed, members, and optional tabs. Membership-gated (paid or tiered) space access is Pro. |
+| Profiles and profile fields | Free | Avatar, cover, bio, social links, and custom profile fields with per-field privacy. Advanced field types (date, location, file, conditional) are Pro. |
 | Member types | Free | Define categories like Student, Mentor, or Staff. Custom member labels such as Verified, Expert, or Staff badges are Pro. |
 | Member directory | Free | Searchable, filterable directory that stays fast at scale. Member segments, tags, and CSV export are Pro. |
 | Connections and Follows | Free | Both the mutual Connection model and the one-directional Follow model are included, along with block and mute. |

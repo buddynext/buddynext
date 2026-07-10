@@ -40,7 +40,7 @@ A **Media** link appears in the BuddyNext left navigation rail, pointing to the 
 
 WPMediaVerse installs from inside BuddyNext - no manual upload or plugin search.
 
-1. Go to **BuddyNext > Settings > Integrations**.
+1. Go to **BuddyNext > Platform > Integrations**.
 2. Find **MediaVerse** under **Companion plugins**. Its description reads "Direct messaging, media galleries, and social feeds."
 3. Select **Install free**. BuddyNext pulls the plugin from the Wbcom store and installs it for you. The card then shows **Active**.
 

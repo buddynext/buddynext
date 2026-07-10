@@ -23,17 +23,17 @@ Tabs marked **(Pro)** require BuddyNext Pro. Everything else is in the free plug
 
 | Section | Tabs | What you configure |
 |---------|------|--------------------|
-| **Settings** | General; Appearance; Navigation | Core community name and identity, theme appearance and brand color, and the front-end navigation menu. |
-| **Platform** | Features; Integrations; Tools; Webhooks | Turn whole features on or off, install and connect companion plugins, run maintenance tools, and send outbound webhooks to other systems. |
+| **Settings** | General; Appearance; Navigation; Pages & URLs; White-Label **(Pro)** | Core community name and identity, theme appearance and brand color, the front-end navigation menu, and the URL for each community hub. |
+| **Platform** | Features; Integrations; Integration Display; Tools; Webhooks | Turn whole features on or off, install and connect companion plugins, control how each integration surfaces, run maintenance tools, and send outbound webhooks to other systems. |
 | **Members** | Directory; Labels **(Pro)**; Registration; Roles; Privacy | Manage the member directory, apply member labels, set how people register and verify, define roles and capabilities, and set default privacy. |
 | **Spaces** | Directory; Spaces settings | Manage the spaces directory and configure how spaces, categories, and membership work. |
-| **Engagement** | Insights **(Pro)**; Social; Reactions | View engagement analytics, configure social and social-login behavior, and choose which reactions members can use. |
-| **Notifications** | Notifications; Email; Templates | Set notification defaults and channels, configure sending email identity, and edit the email templates members receive. |
+| **Engagement** | Insights; Announcements; Social; Reactions | View engagement insights, post site-wide announcements, configure social and social-login behavior, and choose which reactions members can use. |
+| **Notifications** | Notifications; Email; Templates; Email Log | Set notification defaults and channels, configure sending email identity, edit the email templates members receive, and review a log of every message sent. |
 | **Realtime & Push (Pro)** | Realtime; Push; Push Preferences | Configure real-time updates, web and mobile push delivery, and the default push preferences for members. |
-| **Campaigns (Pro)** | Broadcasts; Drip | Send broadcast emails to members and build automated drip sequences. |
+| **Campaigns (Pro)** | Broadcasts; Drip; Scheduled Posts; AI Feed | Send broadcast emails, build automated drip sequences, schedule posts, and configure AI feed ranking. |
 | **Moderation** | Moderation; Pending; Reports; Suspensions; Appeals; Bulk **(Pro)** | Set moderation policy, review pending content, work the report queue, manage suspensions, handle member appeals, and run bulk moderation actions. |
 | **Auto-Moderation (Pro)** | Rules; AI Moderation | Build automatic moderation rules (including banned-word rules) and enable AI-assisted content moderation. |
-| **Monetization (Pro)** | Tiers; Subscriptions; Stripe; License | Define paid membership tiers, manage subscriptions, connect Stripe, and enter your Pro license key. |
+| **Monetization (Pro)** | Tiers; Subscriptions; Paywall; Payments; License | Define paid membership tiers, manage subscriptions, configure the paywall prompt, connect payment gateways (Stripe, PayPal, points), and enter your Pro license key. |
 
 > **Note:** Sections marked (Pro) and individual (Pro) tabs appear only when BuddyNext Pro is active. With the free plugin alone you see Settings, Platform, Members, Spaces, Engagement, Notifications, and Moderation, with the Pro-only tabs inside them hidden.
 

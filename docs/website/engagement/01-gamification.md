@@ -27,7 +27,7 @@ Each social action a member takes is sent to WB Gamification, which adds the poi
 | Action | Who earns the points | Default points |
 |---|---|---|
 | A member follows you | The member being followed | 5 |
-| A connection request is accepted | Both members | 10 |
+| A connection request is accepted | The member who sent the request | 10 |
 | You create a post | The author | 5 |
 | You join a space | The member who joins | 5 |
 | Your profile is updated | The member | 2 |
@@ -37,9 +37,8 @@ Each social action a member takes is sent to WB Gamification, which adds the poi
 
 A few rules keep scoring fair:
 
-- A connection awards points to both people, since a connection is mutual.
+- A connection awards its points to the member who sent the request, paid out when the other person accepts it. (Site owners who want to reward both members can wire that up in WB Gamification.)
 - A reaction rewards the owner of the content, not the person who tapped the reaction. Reacting to your own post does not award points.
-- A moderation strike is registered with the gamification engine at 0 points by default, so the owner can choose to attach a penalty if they want one.
 
 ### Where badges and levels show
 

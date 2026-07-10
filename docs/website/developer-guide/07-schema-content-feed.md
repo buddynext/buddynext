@@ -1,8 +1,8 @@
 # Schema: Content and Feed
 
-Reference for the `bn_*` tables that store posts, comments, reactions, shares, bookmarks, polls, the per-recipient feed cache, and the hashtag registry. All tables are created in `BuddyNext\Core\Installer` via `dbDelta()` and are prefixed with the site table prefix (shown here as `bn_`, e.g. `wp_bn_posts`).
+Reference for the `bn_*` tables that store posts, comments, reactions, shares, bookmarks, polls, and the hashtag registry. All tables are created in `BuddyNext\Core\Installer` via `dbDelta()` and are prefixed with the site table prefix (shown here as `bn_`, e.g. `wp_bn_posts`).
 
-![The activity feed rendered from the bn_posts, comments, reactions, and feed-cache tables documented here](../images/community-activity-feed.webp)
+![The activity feed rendered from the bn_posts, comments, and reactions tables documented here](../images/community-activity-feed.webp)
 
 ## Overview / Contract
 
@@ -74,6 +74,7 @@ Threaded comments on posts (and other comment-able objects, keyed by `object_typ
 | `content` | TEXT | Comment body. |
 | `is_edited` | TINYINT(1), default 0 | Edited flag. |
 | `is_deleted` | TINYINT(1), default 0 | Soft-delete flag. |
+| `sync_reply_id` | BIGINT UNSIGNED, nullable | Linked Jetonomy reply ID when the comment is mirrored to/from a discussion reply (Jetonomy sync); NULL otherwise. |
 | `created_at` | DATETIME, default CURRENT_TIMESTAMP | Creation time. |
 | `updated_at` | DATETIME, ON UPDATE CURRENT_TIMESTAMP | Auto-touched on update. |
 
@@ -83,28 +84,9 @@ Key indexes:
 - `KEY thread (object_type, object_id, parent_id, created_at)` - loads a full thread in order.
 - `KEY user (user_id)` - a member's comment history.
 - `KEY deleted (is_deleted)` - filtering out soft-deleted rows.
+- `KEY sync_reply (sync_reply_id)` - resolving the linked Jetonomy reply during sync.
 
 Relationships: `object_type` + `object_id` reference the commented object (a `bn_posts.id` when `object_type` is `post`); `parent_id` is a self-reference. Comment writes increment `bn_posts.comment_count`.
-
-## bn_feed_items
-
-Denormalized per-recipient feed cache. One row per (recipient, post) pair, holding a precomputed ranking score so a member's feed can be read without re-scoring on every request. This table backs the fan-out feed at large member counts; population is driven by Action Scheduler workers, not synchronously in the request.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | BIGINT UNSIGNED, AUTO_INCREMENT | Primary key. |
-| `recipient_id` | BIGINT UNSIGNED | The member whose feed this row belongs to. |
-| `post_id` | BIGINT UNSIGNED | The post placed in that feed. |
-| `score` | FLOAT, default 0 | Ranking score for ordering. |
-| `created_at` | DATETIME, default CURRENT_TIMESTAMP | Insertion time. Cursor column. |
-
-Key indexes:
-
-- `PRIMARY KEY (id)`
-- `UNIQUE KEY recipient_post (recipient_id, post_id)` - one feed entry per post per recipient (idempotent fan-out).
-- `KEY recipient_score (recipient_id, score, created_at)` - reads a recipient's ranked feed.
-
-Relationships: `recipient_id` references a WordPress user; `post_id` references `bn_posts.id`. This is a cache - rows are derived from `bn_posts` and can be rebuilt.
 
 ## bn_reactions
 
@@ -238,6 +220,7 @@ Key indexes:
 
 - `PRIMARY KEY (post_id, object_type, hashtag_id)` - one link per (object, tag).
 - `KEY hashtag_feed (hashtag_id, created_at)` - the "posts for this hashtag" feed, newest first.
+- `KEY trending_window (created_at)` - time-window scans for trending-hashtag aggregation.
 
 Relationships: `hashtag_id` references `bn_hashtags.id`; `post_id` + `object_type` reference the tagged object (a `bn_posts.id` when `object_type` is `post`). Adding a row increments `bn_hashtags.post_count`.
 
@@ -263,5 +246,4 @@ Relationships: `hashtag_id` references `bn_hashtags.id`; `user_id` references a 
 - **Counters must be maintained, never recomputed on read.** Any code path that inserts or deletes a reaction, comment, share, poll vote, or hashtag link must adjust the matching denormalized counter (`bn_posts.*_count`, `bn_poll_options.vote_count`, `bn_hashtags.post_count` / `follower_count`). A periodic recount job (`buddynext_recount_stats`, daily) reconciles drift.
 - **Soft deletes.** `bn_posts.status = 'deleted'` and `bn_comments.is_deleted = 1` keep rows for moderation/audit. Queries must filter these out; the `deleted` index on `bn_comments` exists for that.
 - **`object_type` is the polymorphism seam.** `bn_reactions`, `bn_comments`, and `bn_post_hashtags` all key off `object_type` + `object_id` so the same machinery can target posts today and other object types later. Today the live value is `post` (and `comment` for reactions).
-- **`bn_feed_items` is a cache.** Treat it as derivable from `bn_posts`; it can be truncated and rebuilt by the feed fan-out workers.
 - See also the Schema: Spaces page for `bn_spaces` and the membership tables that `bn_posts.space_id` references.

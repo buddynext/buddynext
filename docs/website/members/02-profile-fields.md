@@ -79,7 +79,6 @@ The free tier covers the everyday field types most communities need.
 | Radio | One choice shown as radio buttons. |
 | Multi-select | Several choices from a list. |
 | Colour | A colour value. |
-| File | A single file. |
 
 > **Tip:** Mark the one or two fields your directory should filter on (such as Skills or Department) as searchable, and the rest as not searchable. Only searchable fields can be used to find members.
 
@@ -111,11 +110,11 @@ Since 1.0.4 the profile form is fully yours to shape:
 - **Required is enforced.** Since 1.0.4, saving a profile with a required field left empty is rejected with a clear message next to that field. Required fields also count against the member's profile completion score.
 - **Bad values are skipped, not rejected.** If a member enters a value that does not fit the field type (for example letters in a Number field), that one value is not stored and the rest of the profile still saves. The member is not shown an inline error for the skipped field today.
 - **Empty profiles hide the feature.** A field with no value does not render on the profile view. A brand-new community with empty profiles will look sparse until members fill fields in, which is why setting a few fields to show on registration is worth doing.
-- **The starter set is yours to keep or change.** BuddyNext seeds a few groups (such as Basic Info, Social Links, Work Experience, Education, and Interests) so you are not starting from a blank slate. You can edit, reorder, or extend them - see [Member Interests](11-interests.md) for the one field with a system role.
+- **The starter set is yours to keep or change.** BuddyNext seeds a few groups (Basic Info, Social Links, Work Experience, Education, Skills, and Interests) so you are not starting from a blank slate. You can edit, reorder, or extend them - see [Member Interests](11-interests.md) for the one field with a system role.
 
 ## Free vs Pro
 
-The free tier covers the basics: the everyday field types listed above (text, paragraph, number, URL, email, phone, date, yes/no, dropdown, radio, multi-select, colour, and file), grouped into sections with visibility, required, searchable, and show-on-registration controls. For a typical community a handful of well-chosen fields is enough to get started.
+The free tier covers the basics: the everyday field types listed above (text, paragraph, number, URL, email, phone, date, yes/no, dropdown, radio, multi-select, and colour), grouped into sections with visibility, required, searchable, and show-on-registration controls. For a typical community a handful of well-chosen fields is enough to get started.
 
 Pro adds six advanced field types for communities that need richer data capture:
 

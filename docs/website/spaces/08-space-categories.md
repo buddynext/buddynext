@@ -22,7 +22,7 @@ A category marked as not shown in the directory still exists and can be assigned
 
 ## Setting it up (for owners)
 
-Categories are managed in the admin under Community > Spaces, in the Categories section. From there you create, edit, reorder, and delete categories. Each category has these fields:
+Categories are managed in the admin under BuddyNext > Spaces, in the Categories subtab. From there you create, edit, reorder, and delete categories. Each category has these fields:
 
 | Field | What it does | Default |
 |-------|--------------|---------|

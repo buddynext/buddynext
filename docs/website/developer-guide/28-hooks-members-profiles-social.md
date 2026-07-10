@@ -17,8 +17,8 @@ The action and filter seams for user lifecycle, member profiles, profile fields,
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
-| `buddynext_member_registered` | action | A member account is registered | `int $user_id` |
-| `buddynext_member_updated` | action | A member account is updated | `int $user_id` |
+| `buddynext_registration_pending` | action | A new registration is created but awaits admin approval | `int $user_id, string $email` |
+| `buddynext_user_verified` | action | A member completes email verification | `int $user_id` |
 | `buddynext_onboarding_completed` | action | A member finishes the onboarding wizard | `int $user_id` |
 | `buddynext_member_suspended` | action | A member is suspended (member-domain mirror) | `int $user_id, int $by_user_id` |
 | `buddynext_member_unsuspended` | action | A suspension is lifted | `int $user_id, int $by_user_id` |
@@ -28,26 +28,13 @@ The action and filter seams for user lifecycle, member profiles, profile fields,
 
 `buddynext_purge_user_data` is the canonical member-cleanup seam. It fires from `MemberCleanupService::purge_user_relations()` after BuddyNext removes the member's own social-graph rows, counters, and profile values, and **hard-deletes their authored posts and comments** (GDPR erasure). Hook it - rather than `deleted_user` - to clean up any per-user rows your addon stores. `$context` (`'delete'` or the erasure context) is informational only; both contexts hard-delete.
 
-## Profile view and stat-strip seams
+## Profile view seam
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_profile_viewed` | action | A member's profile is served to a different viewer (never on self-view) | `int $profile_user_id, int $viewer_id` |
-| `buddynext_profile_extra_data` | filter | Building the profile header stat row | `array $extra, int $user_id` |
 
-`buddynext_profile_extra_data` lets you inject extra stat blocks into the profile header. Each entry is `[ 'label' => string, 'value' => string|int ]`. Entries missing a `label` or with an unset `value` are skipped.
-
-```php
-add_filter( 'buddynext_profile_extra_data', function ( array $extra, int $user_id ): array {
-    global $wpdb;
-    $count   = (int) $wpdb->get_var( $wpdb->prepare(
-        "SELECT COUNT(*) FROM {$wpdb->prefix}jt_posts WHERE author_id = %d AND status = 'publish'",
-        $user_id
-    ) );
-    $extra[] = [ 'label' => 'Discussions', 'value' => $count ];
-    return $extra;
-}, 10, 2 );
-```
+> **Note:** The old `buddynext_profile_extra_data` filter that injected extra stat blocks into the profile header has been removed. Profile and space tabs are now registered through the unified Nav API - hook `buddynext_register_nav` to add a profile tab. See the integration registry (`buddynext_integrations`) for owner-toggle wiring.
 
 ## Profile field type and rendering filters
 
@@ -77,10 +64,10 @@ These fire after the row is written and the relationship has changed.
 |---|---|---|---|
 | `buddynext_user_followed` | action | A follow is created | `int $follower_id, int $following_id` |
 | `buddynext_user_unfollowed` | action | A follow is removed | `int $follower_id, int $following_id` |
-| `buddynext_connection_requested` | action | A connection request is sent | `int $connection_id, int $requester_id, int $recipient_id` |
+| `buddynext_connection_requested` | action | A connection request is sent | `int $connection_id, int $requester_id, int $recipient_id, string $note` |
 | `buddynext_connection_accepted` | action | A connection request is accepted | `int $connection_id, int $requester_id, int $recipient_id` |
-| `buddynext_connection_rejected` | action | A connection request is declined | `int $connection_id, int $requester_id, int $recipient_id` |
-| `buddynext_connection_withdrawn` | action | A pending request is withdrawn by the requester | `int $connection_id, int $requester_id` |
+| `buddynext_connection_declined` | action | A connection request is declined | `int $connection_id, int $requester_id, int $recipient_id` |
+| `buddynext_connection_withdrawn` | action | A pending request is withdrawn by the requester | `int $connection_id, int $requester_id, int $recipient_id` |
 | `buddynext_block` | action | One member blocks another | `int $blocker_id, int $blocked_id` |
 | `buddynext_unblock` | action | A block is removed | `int $blocker_id, int $blocked_id` |
 | `buddynext_mute` | action | One member mutes another | `int $muter_id, int $muted_id` |

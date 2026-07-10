@@ -1,14 +1,14 @@
 # New-Member Onboarding Wizard
 
-BuddyNext greets every new member with a short, four-step welcome wizard the moment they finish signing up. In a few clicks the member fills out their profile, joins a space, follows a few people, and picks how they want to be notified. By the time they reach the feed they already have something to read and people to talk to.
+BuddyNext greets every new member with a short welcome wizard the moment they finish signing up. In a few clicks the member fills out their profile, joins a space, follows a few people, and picks how they want to be notified. By the time they reach the feed they already have something to read and people to talk to.
 
-![The four-step BuddyNext new-member onboarding wizard with live profile preview](../images/onboarding.webp)
+![The BuddyNext new-member onboarding wizard with live profile preview](../images/onboarding.webp)
 
 ![Members - Registration & Login admin tab where the new-member onboarding wizard is configured](../images/admin-registration.webp)
 
 ## What it is
 
-The onboarding wizard is a guided first-session flow that opens right after a new member registers (or right after they verify their email, if email verification is turned on). It has five steps:
+The onboarding wizard is a guided first-session flow that opens right after a new member registers (or right after they verify their email, if email verification is turned on). It has up to five steps - the Interests step appears only when your community has space categories set up, so a community with none shows four:
 
 1. **Profile** - set a display name, write a short bio, claim a username/handle, and upload an avatar.
 2. **Interests** - pick topics from your community's space categories; these personalize the member's suggestions and feed (see [Member Interests](../members/11-interests.md)).
@@ -80,7 +80,7 @@ The wizard is on by default and needs no configuration to work. The settings bel
 
 The wizard is controlled by the **Member onboarding flow** feature.
 
-1. Go to **BuddyNext > Settings > Features**.
+1. Go to **BuddyNext > Platform > Features**.
 2. Find **Member onboarding flow** and toggle it on or off.
 
 When the feature is on, any logged-in member who has not yet finished (or skipped) the wizard is sent to it on their next page view. When it is off, no member is ever redirected to onboarding.
@@ -102,7 +102,7 @@ Some members start onboarding and do not finish. BuddyNext automatically follows
 
 Both emails are scheduled the moment a member registers. As soon as the member completes onboarding, both pending reminders are cancelled, so anyone who finishes never receives them. If a reminder does come due, BuddyNext re-checks first and skips the send for any member who has already finished. This re-engages the people who drifted off without pestering the ones who completed the flow.
 
-> **Note:** The reminder email is titled "Finish setting up your {site name} profile" and links the member straight back into the wizard. You can edit its subject, preview text, and body from your email template settings, where it is listed as the onboarding reminder template.
+> **Note:** The reminder email is titled "Finish setting up your {site name} profile" and links the member straight back into the wizard. You can edit its subject, preview text, and body from your email template settings, where it is listed as the Onboarding Nudge template.
 
 
 ## Good to know

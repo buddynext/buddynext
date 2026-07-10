@@ -58,7 +58,6 @@ The action and filter seams for spaces (groups) and their membership: creation, 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_space_types` | filter | The registered space-type map is resolved | `array $types` (slug-keyed config map) |
-| `buddynext_space_tabs` | filter | A space home page builds its tab bar | `array $tabs` |
 
 Each space-type entry has this shape. Visibility drives the behaviour: `public` allows direct joins, `private` requires a request, `secret` is invite-only.
 

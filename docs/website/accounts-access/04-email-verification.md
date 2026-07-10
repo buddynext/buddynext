@@ -38,11 +38,11 @@ Email verification is controlled in two places in the admin: a master feature sw
 
 ### Step 1 - Turn on the feature
 
-Go to **BuddyNext > Features** and enable **Email Verification**. This makes the verification system available. Until this is on, the require toggle below is hidden, because it would have no effect.
+Go to **BuddyNext > Platform > Features** and enable **Email Verification**. This makes the verification system available. Until this is on, the require toggle below is hidden, because it would have no effect.
 
 ### Step 2 - Require it for new registrations
 
-Go to **BuddyNext > Settings > Registration**. With the feature enabled, you will see the require toggle.
+Go to **BuddyNext > Members > Registration & Login**. With the feature enabled, you will see the require toggle.
 
 | Setting | What it does | Default |
 |---|---|---|

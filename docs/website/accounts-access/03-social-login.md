@@ -4,7 +4,7 @@ Social login lets people sign in or sign up using an account they already have -
 
 ![BuddyNext login form showing social sign-in buttons](../images/login.webp)
 
-![Engagement - Social admin tab where social login providers and social sharing are configured](../images/admin-social.webp)
+![Members - Registration & Login admin tab where social login providers are configured, in the Social Login section](../images/admin-registration.webp)
 
 ## Why use it
 
@@ -36,7 +36,7 @@ These four are the providers BuddyNext ships and walks you through setting up. T
 
 ## Setting it up (for owners)
 
-Social login is configured under **BuddyNext > Settings > Registration**, in the Social Login section. For each network you want to offer, you create a free app on that provider's site, paste two keys into BuddyNext, and copy one redirect link back into the provider. No coding is required.
+Social login is configured under **BuddyNext > Members > Registration & Login**, in the Social Login section. For each network you want to offer, you create a free app on that provider's site, paste two keys into BuddyNext, and copy one redirect link back into the provider. No coding is required.
 
 ### Steps for each provider
 

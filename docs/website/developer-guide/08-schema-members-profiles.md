@@ -88,6 +88,22 @@ Relationships: `blocker_id` and `blocked_id` reference `wp_users.ID`. The pair p
 
 > **Verified:** block, mute, and restrict are a single ENUM column on `bn_blocks`, not separate tables. There is no `bn_mutes` or `bn_restrictions` table in the installer.
 
+## bn_presence
+
+Indexed online-presence store. One row per member holding the last-active UNIX timestamp, so the member-directory "online" filter/sort and the online-count surfaces run against an indexed integer column instead of scanning `wp_usermeta` with a non-sargable `CAST(meta_value)`. Presence is written (throttled) by `BuddyNext\Realtime\PresenceService` and read by the member directory (`Admin\Members`, `Insights`).
+
+| Column | Type | Notes |
+|---|---|---|
+| `user_id` | BIGINT(20) UNSIGNED NOT NULL | The member. References `wp_users.ID`. Primary key. |
+| `last_active` | INT(10) UNSIGNED NOT NULL DEFAULT 0 | Last-active time as a UNIX timestamp. |
+
+Indexes:
+
+- PRIMARY KEY `(user_id)` - one presence row per member; the upsert key.
+- KEY `last_active (last_active)` - sargable range scans for "online in the last N minutes" filters and counts.
+
+Relationships: `user_id` references `wp_users.ID`. This is a derived/live-state store, not authoritative content - `PresenceService::clear_on_logout()` deletes the row on logout and the value is refreshed (throttled) on activity.
+
 ## bn_member_types
 
 Member-type (editorial label) registry - the directory's "Contributor / Staff / ..." badges. Shares its colour/icon/visibility columns with `bn_space_categories` so the unified taxonomy editor renders both the same way. Note the `id` column is `INT UNSIGNED`, narrower than the `BIGINT` used by most other tables.
@@ -145,7 +161,7 @@ Top-level grouping for profile fields (for example "Basic Info", "Work Experienc
 | `group_key` | VARCHAR(100) NOT NULL | Stable machine key (for example `basic_info`). Unique. |
 | `label` | VARCHAR(255) NOT NULL | Display label. |
 | `type` | ENUM('flat','repeater') NOT NULL DEFAULT 'flat' | `repeater` groups allow multiple entries per member. |
-| `visibility` | ENUM('public','followers','connections','private') NOT NULL DEFAULT 'public' | Default visibility for fields in the group. |
+| `visibility` | ENUM('public','members','followers','connections','private') NOT NULL DEFAULT 'public' | Default visibility for fields in the group. |
 | `is_system` | TINYINT(1) NOT NULL DEFAULT 0 | `1` for the built-in seeded groups. |
 | `sort_order` | INT NOT NULL DEFAULT 0 | Display ordering. |
 | `type_restriction` | VARCHAR(100) DEFAULT NULL | Optional member-type slug limiting which members see/fill the group. |
@@ -170,10 +186,13 @@ Individual fields within a group. Each field has a data type, optional select op
 | `label` | VARCHAR(255) NOT NULL | Display label. |
 | `type` | VARCHAR(32) NOT NULL DEFAULT 'text' | Field type: `text`, `textarea`, `url`, `date`, `number`, `boolean`, etc. |
 | `options` | JSON DEFAULT NULL | Choices for select-style fields. |
+| `description` | VARCHAR(255) DEFAULT NULL | Optional help/description text shown under the field. |
+| `placeholder` | VARCHAR(255) DEFAULT NULL | Optional placeholder text for the input. |
 | `is_required` | TINYINT(1) NOT NULL DEFAULT 0 | Whether the field must be filled. |
 | `is_searchable` | TINYINT(1) NOT NULL DEFAULT 0 | Whether values feed the member directory search. |
-| `show_on_register` | TINYINT(1) NOT NULL DEFAULT 0 | Whether the field appears on the registration form (added in schema rev 5). |
-| `visibility` | ENUM('public','followers','connections','private') NOT NULL DEFAULT 'public' | Field-level visibility override. |
+| `show_on_register` | TINYINT(1) NOT NULL DEFAULT 0 | Whether the field appears on the registration form. |
+| `is_system` | TINYINT(1) NOT NULL DEFAULT 0 | `1` for built-in seeded fields. |
+| `visibility` | ENUM('public','members','followers','connections','private') NOT NULL DEFAULT 'public' | Field-level visibility override. |
 | `sort_order` | INT NOT NULL DEFAULT 0 | Display ordering within the group. |
 
 Indexes:
@@ -195,7 +214,7 @@ The actual stored profile data - a tall EAV table with one row per member, per f
 | `field_id` | BIGINT(20) UNSIGNED NOT NULL | The field. References `bn_profile_fields.id`. |
 | `entry_index` | SMALLINT UNSIGNED NOT NULL DEFAULT 0 | Repeater-entry index; `0` for flat fields. |
 | `value` | LONGTEXT DEFAULT NULL | The stored value (serialized as needed by the field type). |
-| `entry_visibility` | ENUM('public','followers','connections','private') DEFAULT NULL | Optional per-entry visibility override; `NULL` inherits the field default. |
+| `entry_visibility` | ENUM('public','members','followers','connections','private') DEFAULT NULL | Optional per-entry visibility override; `NULL` inherits the field default. |
 
 Indexes:
 
@@ -203,6 +222,7 @@ Indexes:
 - UNIQUE KEY `user_field_entry (user_id, field_id, entry_index)` - one value per member/field/entry; the upsert key.
 - KEY `field_idx (field_id)` - directory queries that filter on a searchable field.
 - KEY `user_idx (user_id)` - load a member's full profile.
+- KEY `field_value (field_id, value(20))` - prefix-indexed value lookups for directory filters on a specific field.
 
 Relationships: `user_id` -> `wp_users.ID`, `field_id` -> `bn_profile_fields.id`. A member's complete profile is the set of value rows joined back to fields and groups.
 

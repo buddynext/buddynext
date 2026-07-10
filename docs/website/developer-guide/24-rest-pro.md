@@ -1,6 +1,6 @@
 # REST: Pro namespace
 
-The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with 48 routes. This page is the route reference for developers building on the Pro surfaces: membership and billing, analytics, drip and broadcast campaigns, member labels and tiers, moderation rules, AI assistance, scheduled posts, push, saved searches, white-label/brand, and the realtime + Stripe integration endpoints.
+The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with 63 registered routes (across the controllers under `includes/`). This page is the route reference for developers building on the Pro surfaces: membership and billing, analytics, drip and broadcast campaigns, member labels and tiers, moderation rules, AI assistance, scheduled posts, push, saved searches, the member portfolio, Learnomy course links, and the realtime + payment-gateway (Stripe / PayPal) webhook endpoints.
 
 ![The Pro admin settings backed by the buddynext-pro/v1 REST routes documented here](../images/admin-settings.webp)
 
@@ -12,7 +12,7 @@ The Pro plugin registers its own REST namespace, `buddynext-pro/v1`, with 48 rou
 
 - **The namespace is `buddynext-pro/v1`**, not `buddynext/v1`. All paths below are prefixed with `/wp-json/buddynext-pro/v1`.
 - **Most routes are admin- or owner-gated.** Campaign, moderation-rule, label-admin, analytics-overview, and AI-classify routes require an admin capability. Member-scoped routes (anything under `/me/...`, own subscriptions, saved searches, push) require login. A few are public reads.
-- **Two routes are open at the permission layer but signed at the payload layer:** `/stripe/webhook` and `/realtime/auth`. See the highlight below - "open" does not mean "unauthenticated trust".
+- **The payment-webhook routes are open at the permission layer but signed at the payload layer:** `/stripe/webhook`, `/stripe/membership-webhook`, and `/paypal/membership-webhook` register `permission_callback => __return_true` and are authorised entirely by verifying the provider's signature on the payload. `/realtime/auth` is login-gated and additionally enforces per-channel access. See the highlight below - "open" does not mean "unauthenticated trust".
 
 Source of truth: `audit/manifest.json` (`rest.endpoints`, namespace `buddynext-pro/v1`) in the Pro repo, and the controllers under `includes/`.
 
@@ -21,6 +21,8 @@ Source of truth: `audit/manifest.json` (`rest.endpoints`, namespace `buddynext-p
 | Method | Path | Permission gate | How it is actually authorised |
 |---|---|---|---|
 | POST | `/stripe/webhook` | `none` (public) | Verifies the `Stripe-Signature` header against the configured webhook secret via `\Stripe\Webhook::constructEvent()`; rejects with `stripe_invalid_signature` on mismatch and `stripe_webhook_secret_missing` when no secret is set. Handled in `Stripe/WebhookController`. |
+| POST | `/stripe/membership-webhook` | `none` (public) | The membership gateway's own Stripe webhook receiver. Signature-verified inside the handler. Handled in `Payments/Gateways/Stripe/StripeGateway`. |
+| POST | `/paypal/membership-webhook` | `none` (public) | The membership gateway's PayPal webhook receiver; verifies the event via PayPal's `verify-webhook-signature` API before processing. Handled in `Payments/Gateways/PayPal/PayPalGateway`. |
 | POST | `/realtime/auth` | `require_logged_in` | Mints a Soketi/Pusher channel auth signature `key:hmac_sha256(socket_id:channel, secret)` - but only after confirming the current user may access the requested private channel. Handled in `Realtime/AuthController`. |
 
 `/stripe/webhook` has no WordPress capability check because Stripe calls it server-to-server with no session; its trust comes entirely from the HMAC signature on the payload. `/realtime/auth` is login-gated and additionally enforces per-channel access before returning the signature, so a logged-in user cannot subscribe to a channel they are not entitled to.
@@ -29,16 +31,19 @@ Source of truth: `audit/manifest.json` (`rest.endpoints`, namespace `buddynext-p
 
 ### Membership: tiers, checkout, subscriptions
 
-Tiers are the membership plans. There is no separate `/plans` route - a tier is the plan, and checkout/portal/subscription routes operate against tiers.
+Tiers are the membership plans. Tier CRUD lives under `/tiers`; the buyer-facing checkout flow (plan list, gateway list, checkout, quote) lives under `/membership/*` in `Membership/CheckoutController`; subscriptions and the billing portal live in `Membership/Controllers/SubscriptionsController`.
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET, POST | `/tiers` | Public (GET) / Admin (POST) | List tiers; create a tier. |
 | GET, DELETE | `/tiers/{id}` | Public (GET) / Admin (DELETE) | Get a tier; delete a tier. |
-| POST | `/me/checkout` | Logged in | Create a Stripe checkout session for the current user. |
-| POST | `/me/portal` | Logged in | Create a Stripe billing-portal session for the current user. |
-| POST | `/admin/tiers/{slug}/test-checkout` | Admin | Run a test checkout against a tier. |
+| GET | `/membership/plans` | Public | List purchasable plans. |
+| GET | `/membership/gateways` | Public | List enabled payment gateways. |
+| POST | `/membership/checkout` | Logged in | Start a checkout for a plan (`plan_id`, optional `gateway`, `mode`, `coupon`, `country`). |
+| POST | `/membership/quote` | Logged in | Return a price quote (subtotal, tax, discount, total) for a plan without charging. |
+| POST | `/me/billing-portal` | Logged in | Create a billing-portal session for the current user. |
 | GET | `/me/subscriptions` | Logged in | Current user's subscriptions. |
+| POST | `/me/subscriptions/{id}/cancel` | Logged in | Cancel one of the current user's subscriptions. |
 | GET | `/users/{id}/subscriptions` | Admin | A user's subscription history. |
 
 ### Member tiers vs labels
@@ -46,8 +51,7 @@ Tiers are the membership plans. There is no separate `/plans` route - a tier is 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET, POST | `/labels` | Mixed (GET public / POST admin) | List member labels; create a label. |
-| GET, PUT | `/labels/{id}` | Admin (`manage_options`) | Get a label; update a label. |
-| DELETE | `/labels/{id}/delete` | Admin (`manage_options`) | Delete a label. |
+| GET, PUT, DELETE | `/labels/{id}` | Mixed (GET public / PUT, DELETE admin `manage_options`) | Get, update, or delete a label. |
 | GET | `/users/{user_id}/labels` | Public | Get a user's labels. |
 | POST, DELETE | `/users/{user_id}/labels/{slug}` | Admin (`manage_options`) | Assign / unassign a label to a user. |
 
@@ -61,6 +65,8 @@ Tiers are the membership plans. There is no separate `/plans` route - a tier is 
 | GET | `/analytics/spaces/{space_id}/health` | Admin | Space health metrics. |
 | GET | `/analytics/me/profile-views` | Logged in | Current user's own profile-view data. |
 | GET | `/analytics/users/{user_id}/profile-views` | Admin | Any user's profile-view data. |
+| GET | `/analytics/cohorts` | Admin | Retention cohort data. |
+| GET | `/analytics/funnel` | Admin | Conversion-funnel data. |
 
 ### Drip sequences
 
@@ -69,6 +75,7 @@ Tiers are the membership plans. There is no separate `/plans` route - a tier is 
 | GET, POST | `/drip-sequences` | Admin | List drip sequences; create one. |
 | GET, PUT, DELETE | `/drip-sequences/{id}` | Admin | Get, update, delete a drip sequence. |
 | POST | `/drip-sequences/{id}/steps` | Admin | Add a step to a sequence. |
+| PUT | `/drip-sequences/{id}/steps/{index}` | Admin | Update a step at a given index. |
 | POST | `/drip-sequences/{id}/enroll` | Admin | Enroll a user in a sequence. |
 
 ### Broadcasts
@@ -76,8 +83,11 @@ Tiers are the membership plans. There is no separate `/plans` route - a tier is 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET, POST | `/broadcasts` | Admin | List broadcast campaigns; create one. |
-| GET, PUT | `/broadcasts/{id}` | Admin | Get and update a broadcast. |
+| GET, PUT, DELETE | `/broadcasts/{id}` | Admin | Get, update, or delete a broadcast. |
 | POST | `/broadcasts/{id}/dispatch` | Admin | Send a broadcast now. |
+| GET | `/broadcasts/{id}/stats` | Admin | Delivery / engagement stats for a broadcast. |
+| GET | `/broadcasts/{id}/preview` | Admin | Render a preview of the broadcast. |
+| POST | `/broadcasts/{id}/test-send` | Admin | Send a test copy of the broadcast. |
 
 ### Email preferences
 
@@ -92,7 +102,10 @@ Tiers are the membership plans. There is no separate `/plans` route - a tier is 
 | GET, POST | `/mod-rules` | Admin | List moderation rules; create one. |
 | GET, PUT, DELETE | `/mod-rules/{id}` | Admin | Get, update, delete a rule. |
 | POST | `/mod-rules/{id}/toggle` | Admin | Toggle a rule's enabled state. |
+| GET | `/mod-rules/defaults` | Admin | List the built-in default rule definitions. |
+| PUT | `/mod-rules/defaults/{id}` | Admin | Update a built-in default rule (id is a slug). |
 | POST | `/moderation/bulk` | Admin | Run a bulk moderation action. |
+| GET | `/moderation/bulk/{batch_id}` | Admin | Poll the status of a bulk moderation batch. |
 | POST | `/ai/classify` | Admin | Classify content (moderation signal). |
 | POST | `/ai/reply-suggestions` | Commenter | AI smart-reply suggestions for a thread. |
 
@@ -100,7 +113,7 @@ Tiers are the membership plans. There is no separate `/plans` route - a tier is 
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| POST | `/posts/{id}/schedule` | Post owner | Schedule a post. |
+| POST, DELETE | `/posts/{id}/schedule` | Post owner | Schedule a post; DELETE unschedules it. |
 | GET | `/me/scheduled-posts` | Logged in | Current user's scheduled posts. |
 | GET | `/posts/scheduled` | Admin | All scheduled posts across the site. |
 
@@ -118,36 +131,47 @@ Tiers are the membership plans. There is no separate `/plans` route - a tier is 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET, POST | `/me/saved-searches` | Logged in | List and create saved searches. |
-| GET, PUT | `/me/saved-searches/{id}` | Logged in | Get and update a saved search. |
-| DELETE | `/me/saved-searches/{id}/delete` | Logged in | Delete a saved search. |
+| GET, PUT, DELETE | `/me/saved-searches/{id}` | Logged in | Get, update, or delete a saved search. |
 | POST | `/me/saved-searches/{id}/run` | Logged in | Execute a saved search. |
 
-### White-label and brand
+### Member portfolio
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| POST | `/admin/whitelabel/preview` | Admin | Render a white-label preview. |
-| GET, POST | `/spaces/{id}/brand` | Space brand manager | Get and save a space's brand settings. |
+| GET | `/members/{id}/portfolio` | Public | Read a member's aggregated portfolio (`Suite/Controllers/PortfolioController`). |
 
-### Realtime and Stripe
+### Learnomy course links
+
+Course-space linking for the Learnomy integration (`Integrations/Learnomy/LearnomyLinkController`). Registered only when Learnomy is active.
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/learnomy-link/spaces` | Logged in | List spaces available to link a course to. |
+| GET, POST | `/learnomy-link` | Logged in | List existing course-space links; create a link. |
+| POST | `/learnomy-link/create` | Course creator | Create a linked course (requires create capability). |
+| DELETE | `/learnomy-link/{space}` | Logged in | Remove the course link for a space. |
+
+### Realtime and payment webhooks
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | POST | `/realtime/auth` | Logged in (+ per-channel check) | Mint a realtime channel auth signature. See open-but-signed above. |
 | POST | `/realtime/test-connection` | Admin | Test the realtime connection. |
-| POST | `/stripe/webhook` | Public (signature-verified) | Handle Stripe events. See open-but-signed above. |
+| POST | `/stripe/webhook` | Public (signature-verified) | Handle Stripe events (`Stripe/WebhookController`). See open-but-signed above. |
+| POST | `/stripe/membership-webhook` | Public (signature-verified) | Membership gateway Stripe webhook receiver (`Payments/Gateways/Stripe/StripeGateway`). |
+| POST | `/paypal/membership-webhook` | Public (signature-verified) | Membership gateway PayPal webhook receiver (`Payments/Gateways/PayPal/PayPalGateway`). |
 
 ## Example: create a checkout session
 
 ```bash
-curl -X POST https://example.com/wp-json/buddynext-pro/v1/me/checkout \
+curl -X POST https://example.com/wp-json/buddynext-pro/v1/membership/checkout \
   -H 'Content-Type: application/json' \
   -H 'X-WP-Nonce: <wp_rest nonce>' \
   --cookie 'wordpress_logged_in_...=...' \
-  -d '{ "tier": "pro-monthly" }'
+  -d '{ "plan_id": 12, "gateway": "stripe" }'
 ```
 
-The handler (`Membership/CheckoutController::handle_checkout`) returns a Stripe checkout-session URL for the current user to redirect to. After payment, Stripe calls back into `POST /stripe/webhook`, which verifies the signature and updates the user's subscription. The user can later open the billing portal with `POST /me/portal`.
+The handler (`Membership/CheckoutController::handle_checkout`) takes a required `plan_id` (plus optional `gateway`, `mode`, `coupon`, `country`) and returns a gateway checkout URL for the current user to redirect to. After payment, the gateway calls back into its membership webhook (`POST /stripe/membership-webhook` or `POST /paypal/membership-webhook`), which verifies the signature and updates the user's subscription. The user can later open the billing portal with `POST /me/billing-portal`.
 
 ## Notes
 

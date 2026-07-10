@@ -36,7 +36,7 @@ To keep usage and costs predictable, each member has a daily limit on how many t
 
 ### Moderation that runs in the background
 
-AI moderation is not something members interact with directly. When it is on, new posts are scored for risk as they are submitted. Content that scores above your block threshold and is judged unsafe is stopped at submission, and the member is told their post could not be published - the same experience as hitting any other content rule. Everything else posts normally.
+AI moderation is not something members interact with directly. When a provider is connected, new posts are scored for risk as they are submitted. Content that scores above your block threshold and is judged unsafe is stopped at submission, and the member is told their post could not be published - the same experience as hitting any other content rule. Everything else posts normally.
 
 ## Setting it up (for owners)
 
@@ -44,7 +44,7 @@ AI moderation is not something members interact with directly. When it is on, ne
 
 BuddyNext Pro uses the AI provider you connect on WordPress' built-in Settings > Connectors page. You add your provider and API key there once, and both smart replies and AI moderation use that connection - there is no separate API key field on the BuddyNext screens.
 
-> **Note:** The Connectors page is part of WordPress 7.0. Until you connect a provider there, smart replies stay hidden and AI moderation falls back to a built-in local check (a basic scan for profanity, multi-link spam, "buy cheap" spam phrasing, and all-caps shouting) so the feature still does something useful without a key. Feed ranking does not need a provider - it runs on your own community's engagement signals.
+> **Note:** The Connectors page is part of WordPress 7.0. Until you connect a provider there, smart replies stay hidden and AI moderation does not act on its own - new posts are not AI-blocked at submission and the scheduled review does not run - so it fails open and your community stays protected by the free Content Safeguards and your Auto-Moderation rules until a provider is connected. Feed ranking does not need a provider - it runs on your own community's engagement signals.
 
 ### Step 2: configure the AI Feed page
 
@@ -75,13 +75,13 @@ Open BuddyNext > AI Moderation. This page controls how the classifier scores and
 | Auto-remove threshold | In a scheduled review, a report scoring at or above this is auto-removed. Range 0.00-1.00. | 0.90 |
 | Flag threshold | In a scheduled review, a report scoring at or above this is flagged for a human. Range 0.00-1.00. | 0.70 |
 | Batch cap per run | Caps how many reports each scheduled run reviews, so a backlog never triggers a runaway provider bill. The rest are picked up next run. | 200 |
-| Scan new posts | When on, new posts are classified as they are submitted (real-time), in addition to or instead of the scheduled queue review. | Off |
+| Scan new posts | When on, the scheduled review also scans new member posts - not just reported content - and auto-flags risky ones (spam, abusive, toxic, self-harm) into the moderation queue in batch, using the same per-run cap. This is part of the scheduled review, not a separate real-time submission scan. | Off |
 
-> **Tip:** Start with the scheduled review (Automated review) rather than scanning every new post. A daily batch keeps provider costs low and predictable, and the batch cap protects you from a sudden spike. Turn on real-time post scanning only once you are comfortable with how the classifier behaves on your content.
+> **Tip:** Start with the scheduled review (Automated review) rather than also scanning every new post. A daily batch keeps provider costs low and predictable, and the batch cap protects you from a sudden spike. Turn on "Scan new posts" only once you are comfortable with how the classifier behaves on your content. (Real-time blocking at submission is governed separately by the Block threshold and is active whenever a provider is connected.)
 
 ### Testing your settings
 
-Both the AI Feed and AI Moderation screens are self-checking. The AI Moderation page includes a test bench: paste in some text, run it, and see the score, tone, and whether it would be blocked at your current threshold - useful for tuning the block threshold before you turn scanning on.
+Both the AI Feed and AI Moderation screens show a live connection status for your AI provider, so you can confirm it is connected before relying on it. The AI Moderation page also includes a test bench: paste in some text, run it, and see the score, tone, and whether it would be blocked at your current threshold - useful for tuning the block threshold before you turn scanning on.
 
 ## Good to know
 

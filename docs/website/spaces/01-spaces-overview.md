@@ -75,7 +75,6 @@ Space behavior is configured under the Spaces settings tab. These controls set t
 | Max sub-spaces per space | Maximum number of sub-spaces an owner can create inside their space. Set to 0 for no limit. | 0 (no limit) |
 | Default visibility for new spaces | The type a space starts with when created (Open, Private, or Secret). Owners can still change it per space. | Open |
 | Default category for new spaces | The category a new space is filed under when none is chosen. Manage the category list under Spaces, Directory, Categories. | None |
-| Notify space owners when someone joins | When on, space owners are notified by default each time someone joins their space. | On |
 
 > **Note:** The master on/off switch for the whole Spaces feature lives on the Features tab, not here. When Spaces is turned off there, the directory and these settings are inactive.
 

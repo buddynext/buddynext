@@ -6,7 +6,7 @@ How BuddyNext decides who can do what. This page covers the permission model dev
 
 ## Overview / Contract
 
-BuddyNext does **not** register any custom WordPress roles. The free plugin's manifest lists `customRoles: []`, and Pro adds none either (`customRoles: null`). There is no `add_role()` call and no new `WP_Role` capabilities to map. Member authority is modeled in two BuddyNext-owned layers instead:
+BuddyNext does **not** register any custom WordPress roles. Neither Free nor Pro makes an `add_role()` call, and Pro's manifest confirms this with `customRoles: []`. There are no new `WP_Role` capabilities to map. Member authority is modeled in two BuddyNext-owned layers instead:
 
 - A **community role** stored in user meta (`bn_community_role`): one of `member`, `moderator`, `admin`, `owner`. Defaults to `member` when unset.
 - A **per-space role** stored in the `bn_space_members` table (`role` column): `owner`, `moderator`, or `member` for an active membership.

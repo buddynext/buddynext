@@ -27,13 +27,15 @@ The feed controller serves the home, explore, profile, and space timelines, plus
 | GET | `/feed/home` | auth | Home timeline for the current user. Accepts `?filter=` (one of the home filters, default `for-you`). |
 | GET | `/feed/counts` | auth | Per-tab unread/seen counts for the home feed. |
 | GET | `/feed/new-count` | auth | Number of new posts since `?after_id=`, for the "new posts" pill. Accepts `?filter=`. |
+| GET | `/feed/viewer-state` | auth | Batch the viewer's reaction/bookmark/vote state for a set of posts. Requires `?post_ids=` (comma-separated IDs; the batch is capped at 100). |
 | GET | `/feed/explore` | public* | Community-wide explore deck. Guests allowed only when `buddynext_public_explore` is on. |
 | GET | `/feed/home/page` | auth | Next page of the home feed (cursor pagination). Accepts `?filter=`. |
 | GET | `/feed/explore/page` | public* | Next page of the explore feed (cursor pagination). |
 | GET | `/users/(?P<id>[\d]+)/feed` | public | A member's profile timeline. Private posts are filtered server-side by the viewer's relationship. |
 | GET | `/spaces/(?P<id>[\d]+)/feed` | public | A space's timeline. Secret spaces are gated to members server-side. |
+| GET | `/feed/announcements` | auth | The active announcements the viewer should see: the site-wide announcement plus one per space the viewer belongs to, each respecting the viewer's dismissals and expiry. |
 | POST | `/feed/announcements/(?P<id>[\d]+)/dismiss` | auth | Dismiss a pinned announcement for the current user only. |
-| POST | `/feed/announcements/(?P<id>[\d]+)/end` | auth | End an announcement for everyone (author/owner action). |
+| POST | `/feed/announcements/(?P<id>[\d]+)/end` | auth | End an announcement for everyone. The handler requires `manage_options` (admin action). |
 
 `*` The explore routes use the `require_public_explore` gate: logged-in members always pass; guests pass only when `buddynext_public_explore` (default on) is enabled, otherwise they receive `401 rest_explore_members_only`.
 

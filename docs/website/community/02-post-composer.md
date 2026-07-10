@@ -21,7 +21,7 @@ A member types into the composer and clicks Share. The post is created and appea
 - **Text** - the default. Just type and share. @mentions in the text notify the people named.
 - **Photo and media** - attach images or media from the media tools. A member can only attach their own media.
 - **Link** - paste a URL into the post. The community fetches the page's title, description, and thumbnail in the background and attaches a preview card. The preview may take a moment to appear after posting.
-- **Poll** - turn the post into a poll with 2 to 5 options. Other members vote, with one vote per member per poll.
+- **Poll** - turn the post into a poll with 2 to 4 options, and an optional closing date. Other members vote, with one vote per member per poll.
 - **Schedule** - pick a future date and time. The post is held and published automatically when that time arrives; it stays out of the feed until then.
 
 
@@ -57,7 +57,7 @@ Every composer behavior below is controlled from the community settings. All wor
 | Post rate limit (per minute) | Maximum posts one member may publish per minute, to stop flooding. Set to 0 to disable. Administrators and moderators are exempt. | 10 |
 | Comment rate limit (per minute) | Maximum comments one member may publish per minute. | 30 |
 | Duplicate post window | If a member re-posts identical text within this many minutes, the duplicate is published but flagged into the moderation queue for review. Set to 0 to disable. | 0 (off) |
-| New member post threshold | New members whose total post count is below this number have their posts flagged into the moderation queue for review (the post still publishes). Set to 0 to disable. | 0 (off) |
+| New member review threshold | New members whose total post count is below this number have their posts flagged into the moderation queue for review (the post still publishes). Set to 0 to disable. | 0 (off) |
 
 > **Note:** BuddyNext uses reactive moderation, the same model as mainstream social platforms. The duplicate and new-member thresholds do not hold a post back; the post publishes and a report is filed so a moderator can review it after the fact. If you want posts held for approval before they appear, use pre-moderation in the Moderation settings instead.
 
@@ -66,9 +66,10 @@ Every composer behavior below is controlled from the community settings. All wor
 ## Good to know
 
 - **The schedule tool is in the Free composer.** A Free member can pick a future time and the post stays hidden until then, because the feed never shows future-dated posts. What Pro adds is a place to see and manage scheduled posts, not the clock itself.
-- **Polls are 2 to 5 options.** Fewer than two or more than five is rejected with a clear message. Each member gets one vote per poll, and a vote cannot be changed once cast.
+- **Polls have 2 to 4 options.** The composer offers two required option fields and two optional ones; fewer than two is rejected with a clear message. Each member gets one vote per poll, and a vote can be switched or removed but not stacked. A poll can also carry an optional closing date, after which it stops accepting votes.
 - **Announcements are admin-only.** A post typed as an announcement can only be created by an administrator, and it pins to the top of the feed as the announcement banner described in Activity Feed. Announcements can carry an optional expiry.
 - **Suspended members cannot post.** A suspended account is blocked from creating posts, comments, and reactions until the suspension ends.
+- **Unverified members are prompted to verify.** If your community enforces email verification, a member who has not confirmed their address sees a prompt in the composer instead of the post going through, with a **Resend verification email** button right there. Once they verify, posting works normally. When email verification is not enforced, this never appears.
 - **Archived spaces are read-only.** Once a space is archived it stops accepting new posts.
 
 ## Free vs Pro

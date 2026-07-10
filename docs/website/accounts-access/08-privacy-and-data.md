@@ -15,7 +15,7 @@ People share more freely when they trust that they can get their data back and w
 
 ## Owner settings
 
-These live in the admin area under Settings, in the Privacy section.
+These live in the admin area under **BuddyNext > Members > Privacy & Data**.
 
 | Setting | What it controls | Default |
 |---|---|---|
@@ -33,9 +33,9 @@ These live in the admin area under Settings, in the Privacy section.
 
 Some communities are not meant to be seen by the public - an internal team space, a paid community, or a group that should only be visible to its own members. The Private Community setting puts your whole community behind a login screen.
 
-**Where to find it:** in the admin area, open BuddyNext, then Members, then the Privacy and Data tab, and look under Private Community. Turn on "Require login to view the community."
+**Where to find it:** in the admin area, open BuddyNext, then Members, then the Privacy & Data tab, and look under Private Community. Turn on "Require login to view the community."
 
-**What happens when it is on:** a visitor who is not signed in is sent to your login page instead of seeing the feed, member directory, spaces, or any other community page. Login, registration, password reset, and any pages you have marked public stay reachable, so a new visitor can still sign up or sign in. Once someone logs in, they see the community normally.
+**What happens when it is on:** a visitor who is not signed in is sent to your login page instead of seeing the feed, member directory, spaces, or any other community page. The login, registration, password-reset, and email-verification screens stay reachable, so a new visitor can still sign up or sign in. Once someone logs in, they see the community normally.
 
 **When to use it:** turn this on if you are running a members-only or invite-only community and do not want any content visible to logged-out visitors, including search engines and people following a shared link. Leave it off for a community that is open to the public, where visitors can browse before deciding to join.
 
@@ -45,7 +45,7 @@ Some communities are not meant to be seen by the public - an internal team space
 
 If your community needs to ask visitors for cookie consent - for example under EU or GDPR rules - BuddyNext can show a small cookie notice at the bottom of the screen on a visitor's first visit.
 
-**Where to find the cookie banner setting:** in the admin area, open BuddyNext, then Members, then the Privacy and Data tab, and look under Cookie Consent. Turn on "Show cookie consent notice."
+**Where to find the cookie banner setting:** in the admin area, open BuddyNext, then Members, then the Privacy & Data tab, and look under Cookie Consent. Turn on "Show cookie consent notice."
 
 **Change the cookie notice text:** once the banner is on, a "Notice text" box appears right below the toggle. Type your own wording there and save. Leave it blank to use the built-in message. If your site has a Privacy Policy page set (under the WordPress Settings, Privacy screen), the banner links to it automatically.
 
@@ -53,7 +53,7 @@ If your community needs to ask visitors for cookie consent - for example under E
 
 **How the notice behaves:** it appears once. When a visitor clicks the accept button, their choice is remembered and the banner is not shown again. BuddyNext itself only sets essential cookies, such as the one that keeps members signed in.
 
-> **Tip:** can't find it from a search? The cookie banner lives on the Privacy and Data tab. You can also press Cmd/Ctrl + K anywhere in the BuddyNext admin and type "cookie" to jump straight to it.
+> **Tip:** can't find it from a search? The cookie banner lives on the Privacy & Data tab. You can also press Cmd/Ctrl + K anywhere in the BuddyNext admin and type "cookie" to jump straight to it.
 
 ## Export my data
 

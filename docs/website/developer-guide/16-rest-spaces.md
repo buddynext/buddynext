@@ -1,6 +1,6 @@
 # REST: Spaces
 
-Reference for every Spaces REST route under `buddynext/v1` - space lifecycle (CRUD), membership and roles, join/leave/cancel, pending requests, invites, bans, ownership transfer, archive, permissions, avatar/cover images, per-space notification preference, the space feed, and the space-category routes. This page is for developers calling or extending the Spaces surface.
+Reference for the core Spaces REST routes under `buddynext/v1` - space lifecycle (CRUD), membership and roles, join/leave/cancel, pending requests, invites, bans, ownership transfer, archive, permissions, avatar/cover images, per-space notification preference, the space feed, and the space-category routes. This page is for developers calling or extending the Spaces surface.
 
 ![A Space home driven by the Spaces REST routes - lifecycle, membership, feed, and category - documented on this page](../images/space-home.webp)
 

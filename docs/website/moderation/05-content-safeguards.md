@@ -1,6 +1,6 @@
 # Content Safeguards
 
-Content safeguards are the automatic, always-on rules that check every post before it is saved. They run silently in the background: a banned word, a blocked link, a suspicious IP, or a burst of repeat posts is caught and stopped (or held for review) without a moderator lifting a finger.
+Content safeguards are the automatic, always-on rules that check every post before it is saved. They run silently in the background: a banned word, a blocked link, a suspicious IP, or a burst of repeat posts is caught and stopped (or flagged for review) without a moderator lifting a finger.
 
 ![BuddyNext admin Moderation Controls tab for configuring automatic content safeguard rules](../images/admin-mod-controls.webp)
 
@@ -17,8 +17,8 @@ Proactive guards flip that. They stop the most common, most predictable problems
 - Spam and scam links never reach the feed, because the domain is blocked.
 - Slurs and banned phrases are rejected the instant a member tries to post them.
 - A bot or troll hammering the post button is rate-limited after a few posts a minute.
-- A brand-new account cannot flood the community on day one, because its first posts are held for a quick review.
-- The same message pasted over and over is held instead of repeated.
+- A brand-new account's first posts are flagged for a quick review, so a spam wave on day one gets caught.
+- The same message pasted over and over is flagged for a moderator instead of quietly repeating.
 
 The result is fewer items in the moderation queue, less moderator fatigue, and a cleaner feed for members who never see the junk in the first place. You set the thresholds to match the size and tone of your community, and the guards do the routine work so your moderators can focus on the genuine judgment calls.
 
@@ -30,18 +30,18 @@ Members never configure safeguards - they experience them. When a member writes 
 2. **Banned words** - if the content contains a banned word or phrase (site-wide, or specific to the space they are posting in), the post is rejected with a clear message.
 3. **Blocked link domains** - if the post attaches a link to a blocked domain, it is refused.
 4. **Post rate limit** - if the member has already hit the per-minute post cap, they are asked to slow down.
-5. **Duplicate content** - if the member just posted the exact same content inside the duplicate window, the repeat is held.
-6. **New-member gate** - if the member has not yet reached the post threshold for established members, their post is held for review rather than published immediately.
+5. **Duplicate content** - if the member just posted the exact same content inside the duplicate window, the repeat is flagged for review (it still posts, but a report is filed).
+6. **New-member gate** - if the member has not yet reached the post threshold for established members, their post publishes but is flagged for a moderator to review.
 
 The banned-word and blocked-link checks also run when a member **edits** existing content, so editing cannot be used to sneak a banned word past the first check. The rate-limit, duplicate, and new-member gates only apply at the moment of creation, not on edits.
 
-A held post is not lost. It is saved with a pending status and routed into the moderation queue for a moderator to approve or remove. A rejected post (banned word, blocked link, blocked IP) is stopped outright, and the member sees why.
+A flagged post is not blocked. It publishes normally, and a report is filed to the moderation queue so a moderator can review it - and remove it if needed. A rejected post (banned word, blocked link, blocked IP, or one over the rate limit) is stopped outright, and the member sees why. This keeps moderation reactive: members post freely and nothing waits invisibly in an approval queue.
 
 > **Note:** Banned hashtags work slightly differently. A hashtag on the banned list is never registered or attached to a post, so blocked tags simply do not become clickable, followable topics in your community.
 
 ## Setting it up (for owners)
 
-All safeguards live under the Moderation settings tab. Each one is a single option you can change at any time without touching code. Leave a list empty, or set a numeric threshold to 0, to turn that individual guard off.
+All safeguards live under **BuddyNext > Moderation > Controls**. Each one is a single option you can change at any time without touching code. Leave a list empty, or set a numeric threshold to 0, to turn that individual guard off.
 
 | Setting | What it does | Default |
 |---|---|---|
@@ -50,8 +50,8 @@ All safeguards live under the Moderation settings tab. Each one is a single opti
 | Blocked link domains | Newline-separated list of domains. Any post that attaches a link to a listed domain is rejected. Use this to stop known spam, scam, and phishing destinations. | Empty (off) |
 | Blocked IPs | Newline-separated list of IP addresses. A member posting from a listed IP is blocked before any content check runs. | Empty (off) |
 | Post rate limit | Maximum number of posts one member can publish per minute. Stops bots and burst-flooding. Set to 0 to remove the cap. | 10 |
-| Duplicate post window | Number of minutes during which an identical repeat post by the same member is held instead of published. Set to 0 to allow duplicates. | 0 (off) |
-| New-member post threshold | Number of approved posts a member must reach before their posts publish instantly. Until then, each post is held for review. Set to 0 to let new members post freely. | 0 (off) |
+| Duplicate post window | Number of minutes during which an identical repeat post by the same member is flagged for review. The repeat still publishes, but a report is filed. Set to 0 to allow duplicates. | 0 (off) |
+| New-member post threshold | Number of posts a member must reach before their posts stop being flagged. Until then, each post publishes but is also sent to the moderation queue for review. Set to 0 to let new members post freely. | 0 (off) |
 | Auto-hide threshold | Number of reports a single piece of content can receive before it is automatically hidden pending review. Set to 0 to never auto-hide. | 5 |
 | Moderation-queue alert threshold | Number of pending items in the moderation queue that triggers an admin alert, so a growing backlog does not go unnoticed. Set to 0 to disable the alert. | 20 |
 | Strike warn threshold | Number of strikes against a member that triggers an automatic warning. Set to 0 to disable. | 2 |
@@ -61,15 +61,13 @@ All safeguards live under the Moderation settings tab. Each one is a single opti
 
 > **Tip:** Set the strike thresholds so they escalate in order: warn at the lowest count, suspend higher, permanent ban highest (or left at 0 if you never want an automatic permanent ban). A member who keeps accumulating strikes is warned first, suspended next, and only banned if the behavior continues.
 
-![The Pending queue where held posts wait for review](../images/admin-mod-pending.webp)
-
 ## Good to know
 
 - **A threshold of 0 means off.** Every numeric guard treats 0 as "disabled," not "block everything." A rate limit of 0 allows unlimited posting; a new-member threshold of 0 lets new members post freely; a permanent-ban threshold of 0 means strikes never auto-ban.
 - **An empty list means off.** Leaving banned words, banned hashtags, blocked domains, or blocked IPs empty turns that filter off entirely - it does not block all content.
 - **Banned words run through the moderation rules pipeline.** The site-wide banned-word list is the free, built-in keyword filter. It runs inside the same safeguard check that Pro keyword rules and AI moderation hook into, so your simple word list and any advanced rules are evaluated together on every post and every edit.
 - **Spaces can extend the banned-word list.** A space can keep its own banned-word list on top of the site-wide one, so a space about, say, finance can ban terms that the rest of the community allows. The space list is checked alongside the global list for posts in that space.
-- **Held vs rejected.** The new-member gate and the duplicate-content guard *hold* a post (saved as pending, sent to the queue). Banned words, blocked links, and blocked IPs *reject* the post outright. Auto-hide *hides* content that has already been posted once it crosses the report threshold.
+- **Flagged vs rejected.** The new-member gate and the duplicate-content guard *flag* a post - it still publishes, but a report is filed to the moderation queue for review. Banned words, blocked links, blocked IPs, and the rate limit *reject* the post outright, so it is never saved. Auto-hide *hides* content that has already been posted once it crosses the report threshold.
 - **Edits are re-checked.** Banned words and blocked link domains are re-scanned when a member edits content, closing the loophole where someone posts clean content and edits in something banned afterward.
 
 ## Free vs Pro

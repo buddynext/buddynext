@@ -29,7 +29,7 @@ Interests influence **ranking, not inclusion** - a member still sees the whole c
 
 ## Setting it up (for owners)
 
-1. Create meaningful **space categories** under **BuddyNext > Spaces > Settings > Categories** - these are the interest choices members see.
+1. Create meaningful **space categories** under **BuddyNext > Spaces**, on the **Categories** tab - these are the interest choices members see.
 2. That's it. The onboarding step, the profile field, and the personalization engines all follow your categories automatically.
 
 You can view (but not edit) each member's picks from the admin member profile - interests belong to the member.

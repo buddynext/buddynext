@@ -23,7 +23,7 @@ Members do not set anything up. Once you enable a sequence with a matching trigg
 Members stay in control of their inbox:
 
 - A member who unsubscribes from all community email stops receiving drip steps. The sequence is paused for them rather than deleted, so if they ever opt back in, it can resume.
-- A member can also be unsubscribed from one specific sequence. Their place is kept on record (the enrollment is marked unsubscribed, not erased) so the history is preserved.
+- A member can also unsubscribe from one specific sequence (every drip email carries a per-sequence unsubscribe link). Their opt-out is recorded and their enrollment is kept - it is skipped, not erased - so the history is preserved and it can resume if they re-subscribe.
 
 ## Setting it up (for owners)
 
@@ -33,7 +33,7 @@ Drip sequences are managed under the BuddyNext admin menu, on the Drip Sequences
 
 1. Open the Drip Sequences page. If you have none yet, you will see an empty state inviting you to create one.
 2. Give the sequence a name (for example, "Welcome Journey") and choose a trigger.
-3. Save it. The step editor opens so you can add steps.
+3. Save it. The new sequence starts disabled so you can build its steps first; the step editor opens so you can add them. Enable it from the list when it is ready to go live.
 
 A sequence has these top-level settings:
 
@@ -41,7 +41,7 @@ A sequence has these top-level settings:
 |---|---|---|
 | Name | A label so you can recognize the sequence in the list. Required. | Empty (you must set it) |
 | Trigger | What starts the sequence for a member. See the trigger table below. Required. | Empty (you must choose one) |
-| Enabled | Whether the sequence is live. While disabled, no member is auto-enrolled and no steps go out. | Enabled when created |
+| Enabled | Whether the sequence is live. While disabled, no member is auto-enrolled and no steps go out. | Disabled when created (turn it on from the list once your steps are ready) |
 
 #### Triggers
 
@@ -49,7 +49,7 @@ A sequence has these top-level settings:
 |---|---|
 | New member registers | The moment a new account is created. |
 | Onboarding completed | When a member finishes the onboarding flow. |
-| Manual only | Never automatically; you enroll members yourself (see Manage enrollments). |
+| Manual | Never automatically; members are enrolled through the REST API (see Manage enrollments). |
 
 ### Add steps
 
@@ -59,8 +59,7 @@ Each step is one email in the sequence. Add as many as you need; they are sent i
 |---|---|---|
 | Delay (days) | How long to wait before this step is sent, measured from the previous step (or from enrollment, for the first step). Use 0 to send right away. | 0 |
 | Subject | The email subject line. Required and must not be empty. | Empty (you must set it) |
-| Body | The email content. Accepts HTML. Required and must not be empty. | Empty (you must set it) |
-| Email template | Optional. Choose a saved email template to wrap this step in. Leave blank to send the subject and body as written. | Empty |
+| Body | The email content. Accepts HTML and supports merge tags such as `{{first_name}}`. Required and must not be empty. | Empty (you must set it) |
 
 > **Note:** A step will not save with a blank subject or body. This is deliberate - it stops the sequence from emailing members an empty message.
 
@@ -74,7 +73,7 @@ You can edit a step, reorder steps, and remove a step from the editor. Because e
 ### Manage enrollments
 
 - Members who match a sequence's trigger are enrolled automatically while the sequence is enabled.
-- You can also enroll a member by hand. This is the only way members enter a "Manual only" sequence, and it is useful for adding existing members to a sequence built after they joined.
+- You can also enroll a member through the REST API (`POST /drip-sequences/{id}/enroll`). This is the only way members enter a "Manual" sequence, and it is useful for adding existing members to a sequence built after they joined.
 - If you enroll someone who is already in the sequence, their progress resets to the first step rather than creating a duplicate. A member is never enrolled twice in the same sequence.
 
 ## Good to know

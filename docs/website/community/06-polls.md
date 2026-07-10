@@ -6,7 +6,7 @@ A poll is a post that asks members a question and lets them choose from a short 
 
 ![A poll card showing the question, options as result bars with percentages, and the total vote count](../images/poll-card.webp)
 
-![Platform - Features admin tab where the polls feature is enabled](../images/admin-features.webp)
+![The BuddyNext admin settings, where the "Allow polls" control lives under the Social tab's Activity Feed section](../images/admin-features.webp)
 
 ## Why use it
 
@@ -21,10 +21,11 @@ For an owner, polls turn the feed into a two-way channel. Use one to settle a de
 1. Open the post composer at the top of the feed.
 2. Switch the composer to poll mode using the poll tool.
 3. Type your **question** in the main composer field. The question is required, the same as the text on any other post.
-4. Fill in the answer **options**. You start with two option fields and can add more, up to a maximum of five.
-5. Post it. The poll appears in the feed as a card showing the question and its options.
+4. Fill in the answer **options**. The composer gives you two required option fields plus two optional ones, so a poll can offer up to four choices.
+5. Optionally set a **closing date and time** in the "Poll ends" field. Leave it blank to keep the poll open indefinitely.
+6. Post it. The poll appears in the feed as a card showing the question and its options.
 
-> **Note:** A poll needs at least two options and allows at most five. The composer will not let you post a poll with fewer than two filled-in options.
+> **Note:** A poll needs at least two options and offers up to four. The composer will not let you post a poll with fewer than two filled-in options.
 
 
 ### Vote
@@ -48,8 +49,8 @@ When the setting is off, the poll tool no longer appears in the composer and mem
 
 ## Good to know
 
-- **Minimum two, maximum five options.** Every poll must offer between two and five choices. This keeps polls quick to read and quick to answer.
+- **Minimum two options, up to four.** The composer offers two required option fields and two optional ones, so a poll carries between two and four choices. This keeps polls quick to read and quick to answer.
 - **One vote per person.** Each member can hold one vote on a poll at a time. They can switch it to another option or remove it, but they cannot stack multiple votes.
 - **The question is required.** A poll posts as a normal feed post whose text is the question, so an empty question is not allowed.
 - **Results are live.** There is no "submit" step and no waiting. The moment a vote lands, every viewer's card reflects the new totals on their next view.
-- **No end date yet.** Polls stay open and votable for as long as the post exists. An automatic poll closing date is not available in this version, so do not rely on a poll locking itself at a set time.
+- **Optional closing date.** A poll can carry a closing date and time, set in the composer's "Poll ends" field. Once that time passes, the poll stops accepting votes and the card shows a "Poll closed" state; the results stay visible. Leave the field blank and the poll stays open and votable for as long as the post exists.

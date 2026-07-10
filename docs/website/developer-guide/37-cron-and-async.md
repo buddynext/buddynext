@@ -16,29 +16,53 @@ The full engineering standard lives in the Background-Jobs standard (`docs/stand
 
 ## Scheduled jobs (Free)
 
-Six scheduled hooks ship in Free. Handlers are plain `add_action` callbacks - Action Scheduler and WP-Cron both fire the same hook name.
+Free registers a set of recurring maintenance jobs plus a handful of reactive single-event hooks. Handlers are plain `add_action` callbacks - Action Scheduler and WP-Cron both fire the same hook name.
+
+### Recurring jobs
+
+Registered on `wp_loaded` by `Core\CronScheduler` under the Action Scheduler group `buddynext` (WP-Cron fallback when AS is absent), except where a different registrar is noted.
 
 | Hook | Schedule | What it does |
 |---|---|---|
+| `buddynext_daily_digest` | Daily | Sends the daily activity digest. |
+| `buddynext_weekly_digest` | Weekly | Sends the weekly activity digest. |
+| `buddynext_cleanup_tokens` | Daily | Prunes expired auth / verification tokens. |
+| `buddynext_cleanup_notifications` | Weekly | Prunes read notification rows older than 90 days. |
+| `buddynext_cleanup_activity_log` | Weekly | Prunes activity-log rows past the data-retention window. |
+| `buddynext_cleanup_email_log` | Weekly | Prunes `bn_email_log` rows past the data-retention window. |
+| `buddynext_recount_stats` | Daily | Reconcile pass for counters. Counters are maintained incrementally on every write; this only repairs drift. |
 | `buddynext_daily_queue_check` | Daily | Sweeps the moderation queue for items needing a daily reconcile (aging reports, expiring strikes). Registered by the moderation listener. |
-| `bn_onboarding_nudge_24h` | Single event (armed 24h after signup) | Sends the first onboarding nudge to a member who has not finished the setup steps. Armed per user when they register; self-clears once onboarding completes. |
-| `bn_onboarding_nudge_72h` | Single event (armed 72h after signup) | Sends the second onboarding nudge if the member is still incomplete at 72 hours. Same per-user arming model as the 24h nudge. |
-| `buddynext_webhook_retry` | Every 5 minutes (self-unscheduling) | Drains the outbound webhook retry queue with exponential backoff (300s, 600s, 1200s per attempt). Armed when a delivery fails; disarms itself when the queue is empty. |
-| `buddynext_reindex_all_cron` | Single event | Runs a full rebuild of the `bn_search_index` table (members, posts, spaces, hashtags). Dispatched on demand - for example after a settings change that invalidates the index - not on a fixed cadence. |
-| `edd_sl_sdk_weekly_license_check_` | Weekly | License-validation check from the bundled EDD Software Licensing SDK. Gates plugin updates only, never functionality. |
+| `buddynext_publish_scheduled_sweep` | Hourly | Safety sweep that publishes any scheduled post whose time has passed. Registered by `Feed\ScheduledPostsPublisher`. |
 
-> **Note:** `buddynext_webhook_retry` uses the custom `buddynext_5min` recurrence. It is a self-(un)scheduling recurring job - it arms on the first failed delivery and clears itself once the retry queue drains, so it does not poll when there is no work.
+### Single-event / reactive hooks
+
+Armed on demand and self-clearing - they do not poll when there is no work.
+
+| Hook | When it fires | What it does |
+|---|---|---|
+| `buddynext_publish_scheduled` | Armed at the next due scheduled post's time | Publishes due scheduled posts, then re-arms for the next one (or stays disarmed). Free-owned - runs with Pro absent. |
+| `bn_onboarding_nudge_24h` | Single event, 24h after signup | Sends the first onboarding nudge to a member who has not finished the setup steps. Armed per user at registration; self-clears once onboarding completes. |
+| `bn_onboarding_nudge_72h` | Single event, 72h after signup | Sends the second onboarding nudge if the member is still incomplete at 72 hours. Same per-user arming model as the 24h nudge. |
+| `buddynext_reindex_all_cron` | Single event | Runs a full rebuild of the `bn_search_index` table (members, posts, spaces, hashtags). Dispatched on demand - for example after a settings change that invalidates the index - not on a fixed cadence. |
+| `buddynext_webhook_deliver` | Single event, per outbound delivery | Delivers one outbound webhook off-request. Enqueued async (Action Scheduler) when a webhook fires. |
+| `buddynext_webhook_retry_single` | Single event, per failed delivery | Retries a failed webhook delivery with exponential backoff (300s base, up to 3 attempts). |
+| `edd_sl_sdk_weekly_license_check_{slug}` | Weekly | License-validation check from the bundled EDD Software Licensing SDK. Gates plugin updates only, never functionality. |
+
+> **Note:** There is no recurring webhook-retry poll. Outbound delivery uses single events (`buddynext_webhook_deliver` / `buddynext_webhook_retry_single`) scheduled per delivery with exponential backoff, so nothing polls when the queue is empty. The old custom sub-hour recurrences (`buddynext_1min`, `buddynext_5min`, `buddynext_30min`) were removed in the cron-minimisation pass - every remaining recurring job uses a built-in `daily` / `weekly` / `hourly` recurrence.
 
 ## Scheduled jobs (Pro)
 
-Pro adds four scheduled hooks. All run under the same `buddynext` Action Scheduler group.
+Pro adds its own recurring jobs. Unlike Free they do **not** share the `buddynext` group - each Pro subsystem uses its own Action Scheduler group, so it can be observed and cancelled independently in Tools > Scheduled Actions.
 
-| Hook | Schedule | What it does |
-|---|---|---|
-| `buddynextpro_publish_scheduled` | Every 5 minutes | Publishes posts whose scheduled publish time has arrived. Handled by `Feed\ScheduledPostsService`. |
-| `buddynextpro_broadcast_send_pending` | Every 5 minutes | Sends the next batch of a pending email broadcast. Handled by `Email\BroadcastService`; self-(un)scheduling - armed when a broadcast is queued, disarmed when the send completes. |
-| `buddynextpro_drip_tick` | Every 5 minutes | Advances drip email sequences - enqueues the next due email for each enrolled member. Handled by `Email\DripService`. |
-| `buddynextpro_expire_subscriptions` | Daily | Expires membership subscriptions past their end date and revokes the matching entitlements. Handled by `Membership\SubscriptionService`. |
+| Hook | Schedule | Group | What it does |
+|---|---|---|---|
+| `buddynextpro_broadcast_send_pending` | Every 5 minutes | `buddynextpro_email` | Sends the next batch of a pending email broadcast. Handled by `Email\BroadcastService`; self-(un)scheduling - armed when a broadcast is queued, disarmed when the send completes. |
+| `buddynextpro_drip_tick` | Hourly | `buddynextpro_email` | Advances drip email sequences - enqueues the next due email for each enrolled member. Handled by `Email\DripEnrollmentService` / `Email\DripService`; self-(un)scheduling - stays disarmed when no enrollments are active. |
+| `buddynextpro_expire_subscriptions` | Daily | `buddynextpro` | Expires membership subscriptions past their end date and revokes the matching entitlements. Handled by `Membership\SubscriptionService`. |
+| `buddynextpro_ai_mod_sweep` | Configurable cadence (from the AI-moderation settings) | `buddynextpro_ai_moderation` | Recurring AI-moderation sweep over recent content. Handled by `Moderation\AiModerationSweep`. |
+| `buddynextpro_ai_mod_cleanup` | Daily | `buddynextpro_ai_moderation` | Prunes old AI-moderation bookkeeping rows. Handled by `Moderation\AiModerationSweep`. |
+
+> **Note:** Pro does not register its own scheduled-post publish cron. Publishing is Free-owned - `Feed\ScheduledPostsService` delegates the actual publish to Free's `Feed\ScheduledPostsPublisher` (the `buddynext_publish_scheduled` single event above).
 
 ## The Action Scheduler fan-out pattern
 
@@ -110,7 +134,7 @@ BuddyNext never changes a site-wide cron setting on the owner's behalf.
 
 - **Schedule on `wp_loaded` or `init`, never `plugins_loaded`.** Action Scheduler is not initialized until `init`; an `as_schedule_*` call before that silently no-ops. If you cleared the WP-Cron event first, the job ends up unscheduled entirely. Always verify scheduling happened after the fact.
 - **Deactivation clears both systems.** A job's deactivation handler must call `as_unschedule_all_actions( $hook, array(), 'buddynext' )` and `wp_clear_scheduled_hook( $hook )` so nothing is orphaned.
-- **Free / Pro boundary.** Pro registers its four jobs independently on its own boot; it reuses the same `buddynext` group and the same AS-first / WP-Cron-fallback helper, so all jobs appear together in Tools > Scheduled Actions.
+- **Free / Pro boundary.** Pro registers its jobs independently on its own boot, using the same AS-first / WP-Cron-fallback pattern. Unlike Free's shared `buddynext` group, each Pro subsystem uses its own group (`buddynextpro_email`, `buddynextpro`, `buddynextpro_ai_moderation`); scheduled-post publishing is not a Pro job - Pro delegates it to Free's `ScheduledPostsPublisher`.
 - **Pruning.** Action Scheduler's retention clears the `actionscheduler_*` tables on its own schedule (on by default). Leave it enabled so the logs do not bloat.
 
 See also the Background-Jobs standard for the full decision tree and copy-paste patterns, and the Scale Contract for the fan-out and indexing rules that shaped these jobs.

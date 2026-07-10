@@ -47,10 +47,12 @@ When a Pro feature toggle is on, Pro rebinds a Free key to a subclass. The subcl
 
 ```php
 // Pro's bind, run only when the AI-feed toggle is on. The Pro service
-// takes the same FollowService + PostService dependencies as the parent.
+// takes the same FollowService + PostService + FeedCache dependencies as
+// the parent (FeedService::__construct( $follows, $post_service, $cache )).
 $container->bind( 'feed', fn( $c ) => new \BuddyNextPro\AI\AiRankedFeedService(
     $c->get( 'follows' ),
-    $c->get( 'post_service' )
+    $c->get( 'post_service' ),
+    $c->get( 'feed_cache' )
 ) );
 ```
 
@@ -140,7 +142,8 @@ add_action( 'buddynext_loaded', static function (): void {
         // constructor signature so the container can build it unchanged.
         return new \MyAddon\Feed\MyFeedService(
             $c->get( 'follows' ),
-            $c->get( 'post_service' )
+            $c->get( 'post_service' ),
+            $c->get( 'feed_cache' )
         );
     } );
 }, 30 );

@@ -59,7 +59,6 @@ Every report needs one reason. BuddyNext ships a fixed set so moderators see con
 - **Duplicate reports are prevented.** Each member can report a given item once. If you try to report the same post, comment, or profile a second time, BuddyNext blocks it and tells you that you have already reported this content (or this member). This stops one person from inflating the report count and keeps the queue honest. Where a post card knows you have already reported an item, it shows a Reported state instead of offering Report again.
 - **Many members can report the same item.** The one-per-member limit applies per reporter, not per item. When several different members report the same post, those reports are grouped together for the moderator and the combined count raises the item's urgency in the queue.
 - **Private messages.** A reported direct message is handled with privacy in mind: its content is not shown in the queue, so a moderator can act on the report without reading the private exchange.
-- **Reasons can be extended.** Site owners and developers can add custom reasons to the standard set. The built-in reasons are always available; custom ones are added on top, never removed.
 
 ## Free vs Pro
 

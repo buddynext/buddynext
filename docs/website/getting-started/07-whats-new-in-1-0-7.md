@@ -46,6 +46,7 @@ Dark mode now reaches the corners it used to miss: native form controls, skill c
 - Profile action menus, the Share popover, and the Block and Report dialogs now close when you click outside them.
 - The photo lightbox comment box matches the BuddyNext style and centres its empty state, and searching for a discussion to link now reports an error instead of silently showing nothing when the request fails.
 - Reposting no longer fails silently, private images display in the lightbox for viewers allowed to see them, and the mobile bottom bar no longer covers Save and Cancel on the Profile Edit and Settings screens.
+- The Pro **License** activation screen (Settings > License) loads its styles and scripts correctly on live hosts with a symlinked or non-standard document root, instead of leaving the page unstyled while its assets 404.
 
 ## In BuddyNext Pro 1.0.7
 
@@ -59,4 +60,4 @@ See the [Pro membership guide](../pro/01-membership-tiers.md) for the wider Pro 
 
 For developers: 1.0.7 adds the `buddynext_private_community_can_access` filter for custom private-community access rules and the `buddynext_redirect_url` filter for controlling login and logout redirects. Pro ships a translation-ready i18n delivery standard for its stores and views, and the Notification and PageRouter layers had an audit pass that removed dead code and corrected dependency wiring. See the [developer guide](../developer-guide/03-architecture-overview.md) for the hook references.
 
-The full changelog for both plugins is on each GitHub release: [BuddyNext 1.0.7](https://github.com/buddynext/buddynext/releases/tag/v1.0.7) and [BuddyNext Pro 1.0.7](https://github.com/buddynext/buddynext-pro/releases/tag/v1.0.7).
+The full, human-readable changelog for each plugin lives on its release-notes page: [BuddyNext release notes](https://wbcomdesigns.com/release-notes/buddynext/) and [BuddyNext Pro release notes](https://wbcomdesigns.com/release-notes/buddynext-pro/). Developers can also read the raw notes on each GitHub release: [BuddyNext 1.0.7](https://github.com/buddynext/buddynext/releases/tag/v1.0.7) and [BuddyNext Pro 1.0.7](https://github.com/buddynext/buddynext-pro/releases/tag/v1.0.7).

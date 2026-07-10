@@ -88,19 +88,19 @@ A parent space shows how many sub-spaces it has, but the number only counts the 
 
 ## Setting it up (for owners)
 
-> **Note:** Space creation is a front-end action by design. The admin Spaces page (Community > Spaces) is for managing and moderating existing spaces and categories - listing, deleting, and category management - not for creating spaces. Members create spaces from the Spaces directory.
+> **Note:** Space creation is a front-end action by design. The admin Spaces page (BuddyNext > Spaces) is for managing and moderating existing spaces and categories - listing, deleting, and category management - not for creating spaces. Members create spaces from the Spaces directory.
 
 These settings live under the plugin's Spaces settings. They set the platform-wide rules and the defaults that every new space starts with.
 
 | Setting | What it does | Default |
 |---------|--------------|---------|
-| Who can create spaces | Limits space creation to all members or to site admins only. Set to admins to run a curated, official-spaces-only community. | All members |
+| Who can create spaces | Limits space creation to any member or to site admins only. Set to admins to run a curated, official-spaces-only community. | Any member |
 | Maximum spaces per member | The cap on how many active spaces one member may own. Archived spaces do not count toward the cap. Set to 0 for no limit. | 0 (unlimited) |
 | Allow sub-spaces | Whether members may nest a space under a parent space. Turn off to keep every space top-level. | On |
 | Maximum sub-spaces per parent | The cap on how many sub-spaces a single parent space may contain. Set to 0 for no limit. | 0 (unlimited) |
 | Default visibility for new spaces | The type a new space starts with (Open, Private, or Secret). Owners can still change it per space. | Open |
 | Default category for new spaces | The category a new space is filed under when the creator does not pick one. | None |
-| Space directory columns (desktop) | How many space cards appear per row in the directory on desktop. A fixed value (2, 3, or 4) caps the row and still steps down on tablet and mobile; Auto fits as many as the width allows. | 3 columns |
+| Space directory columns (desktop) | How many space cards appear per row in the directory on desktop. A fixed value (2, 3, or 4) caps the row and still steps down on tablet and mobile; Auto fits as many as the width allows. This control lives on the General settings tab, not the Spaces tab. | 3 columns |
 
 
 ### Managing spaces in the admin

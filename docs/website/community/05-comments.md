@@ -4,7 +4,7 @@ Comments let members reply to a post in a threaded conversation - posting their 
 
 ![A BuddyNext post detail view with a threaded comment conversation underneath the post](../images/post-detail.webp)
 
-![Platform - Features admin tab where the comments feature is enabled and configured](../images/admin-features.webp)
+![Platform - Features admin tab where the comments feature is enabled](../images/admin-features.webp)
 
 ## Why use it
 
@@ -22,7 +22,7 @@ Open the comment area on a post, type your comment, and submit. It appears in th
 
 ### Reply to a comment
 
-Use the reply control on any comment to answer it directly. Your reply nests underneath the comment you answered, keeping the back-and-forth together. Replies can nest up to five levels deep; anything deeper is folded back under the deepest visible comment so the thread stays readable.
+Use the reply control on any comment to answer it directly. Your reply nests underneath the comment you answered, keeping the back-and-forth together. Replies can nest up to five levels deep. A reply that would go past the fifth level is declined with a message ("This thread has reached its maximum reply depth"), so a single thread never marches off the side of the screen.
 
 ### Edit your own comment
 
@@ -59,7 +59,7 @@ The feature toggle lives under Platform > Features. The comment rate limit lives
 ## Good to know
 
 - Soft delete keeps the thread shape. Deleting a comment does not pull its replies down with it. The comment is blanked and shown as deleted, and the replies underneath it stay where they are. This is why a busy thread never collapses when someone removes a comment mid-conversation.
-- Depth is capped at five levels. Replies nest up to five deep. Members can still reply beyond that, but those replies are folded back under the deepest visible comment so the thread does not march off the side of the screen.
+- Depth is capped at five levels. Replies nest up to five deep. A reply that would exceed the fifth level is not accepted - the member is told the thread has reached its maximum reply depth - and in the thread view the deepest level is flattened so it stays readable rather than marching off the side of the screen.
 - Suspended members cannot comment. If a member has been suspended through Moderation, their attempt to comment is blocked with a clear message. See Moderation for how suspensions work.
 - Restricted members are hidden from others. If a post owner has restricted a member, that member's comments are hidden from other viewers on the owner's own posts, while still visible to the owner, admins, and the member themselves.
 - Editing and deleting are limited to your own comments, plus moderators. A member can only edit or delete what they wrote; a moderator can act on any comment.

@@ -6,8 +6,6 @@ Member types are the categories you define for the people in your community - St
 
 ![Member directory with member-type filter tabs and colored type badges on member cards](../images/member-directory.webp)
 
-![Members - Labels admin tab where member types are created, labeled, and assigned](../images/admin-labels.webp)
-
 ## Why use it
 
 People in a community are not interchangeable. A coaching site has coaches and clients; a school has students, teachers, and staff; an alumni network has graduates by year. Member types let you label those groups once, then use that label everywhere it matters: as a badge on profiles and member cards so people can tell at a glance who they are talking to, and as a filter in the directory so anyone can show only the group they are looking for.
@@ -40,7 +38,7 @@ Use the Add Member Type form (the same form edits an existing type). The fields 
 | Colour | The badge background color for this type | A default blue |
 | Description | An optional note describing the type, for your own reference | Empty |
 | Web address | The short, readable identifier used in links (lowercase letters, numbers, hyphens). Auto-filled from the name if left blank | Auto from name |
-| Text colour | The badge text color. Leave blank and a readable color is chosen automatically from the background | Auto for contrast |
+| Text colour | The badge text color, drawn on top of the badge background. | White |
 | Sort order | Controls the order types appear in; lower numbers appear first | 0 |
 | Icon | An optional small icon for the type, shown alongside the badge | Empty |
 | Show as directory filter tab | When on, this type appears as a filter tab in the member directory | On |

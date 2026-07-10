@@ -6,7 +6,7 @@ Push Notifications (Pro) delivers your community's notifications to a member's b
 
 ![Push notifications reaching a member on a mobile device](../images/mobile.webp)
 
-![The Realtime Push admin tab where you connect Firebase and configure web and mobile push](../images/admin-push.webp)
+![The Push admin tab where you connect Firebase and configure web and mobile push](../images/admin-push.webp)
 
 ## Why use it
 
@@ -44,7 +44,7 @@ To stop push on the current browser, use the panel's turn-off control. You can r
 
 ## Setting it up (for owners)
 
-Push settings live under the BuddyNext admin, on the Push tab (Realtime and Push section). The page opens with a short setup guide.
+Push settings live under the BuddyNext admin, on the Push tab (Advanced section). The page opens with a short setup guide.
 
 ### Requirements
 
@@ -59,7 +59,7 @@ Push settings live under the BuddyNext admin, on the Push tab (Realtime and Push
 
 That is all that native app push needs. iOS delivery works automatically once you upload an APNs key inside the Firebase console - there is no separate APNs configuration in BuddyNext.
 
-To also enable push in members' browsers, fill in the Web push fields. Copy the web app values from Firebase console, Project Settings, General, under "Your apps" (the web app config), and copy the Web Push certificate key from Cloud Messaging, under Web Push certificates.
+To also enable push in members' browsers, fill in the Web push fields. Copy the web app values from Firebase console, Project Settings, General, under "Your apps" (the web app config), and copy the VAPID key pair from Cloud Messaging, under Web Push certificates.
 
 ### Settings
 
@@ -71,9 +71,9 @@ To also enable push in members' browsers, fill in the Web push fields. Copy the 
 | Web API key | Your web app's API key, copied from the Firebase web app config. Lets a member's browser register for push. | Empty |
 | Messaging sender ID | Your web app's messaging sender ID, from the same Firebase web app config. | Empty |
 | Web app ID | Your web app's app ID, from the same Firebase web app config. | Empty |
-| Web Push certificate key | The public Web Push certificate key from Firebase Cloud Messaging, under Web Push certificates. Required for browser push. | Empty |
+| VAPID key pair (public) | The public Web Push (VAPID) key pair from Firebase Cloud Messaging, under Web Push certificates. Required for browser push. | Empty |
 
-> **Note:** The Web API key, sender ID, web app ID, and Web Push certificate key are public values meant for the browser - they are not secrets. The service account JSON is a secret and is never sent to the browser. Leave the four web fields blank to disable browser push; native-app push still works.
+> **Note:** The Web API key, sender ID, web app ID, and VAPID key are public values meant for the browser - they are not secrets. The service account JSON is a secret and is never sent to the browser. Leave the four web fields blank to disable browser push; native-app push still works.
 
 ### The self-test
 

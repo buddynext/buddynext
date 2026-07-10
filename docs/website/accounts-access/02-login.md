@@ -16,7 +16,7 @@ Login is how returning members sign back in to your community. Like the sign-up 
 
 ## How it works for members
 
-1. **Open the login page.** A member visits your login page - your community's built-in login hub, or any page where you placed the Login form block.
+1. **Open the login page.** A member visits your login page - your community's built-in login hub, or any page where you added the `[buddynext_auth]` shortcode.
 2. **Enter credentials.** They type their email address or username and their password. A show/hide control lets them check the password as they type.
 3. **Choose Remember me.** Ticking **Remember me** keeps them signed in across browser sessions on that device, so they do not have to log in every visit.
 4. **Sign in.** On success, BuddyNext sends them to the activity feed by default, or to the redirect you configured.
@@ -34,16 +34,16 @@ The login form has a **Forgot password** link that opens the branded password-re
 You can publish the login form two ways:
 
 - **The built-in login hub.** Your community already has a login page, so members can sign in there with no extra setup.
-- **The Login form block.** Add the block to any page to embed the same branded form wherever you want it.
+- **The `[buddynext_auth]` shortcode.** Add the shortcode to any page to embed the same branded form wherever you want it. The same form carries both sign-in and create-account, so one page covers login and sign-up.
 
-To place it: edit a page, add the **Login** form block (search for "login" in the block inserter, under the BuddyNext category), and publish. The block has one option, a redirect address, which sends the member to a specific page after they sign in. Leave it blank to use the default destination (the activity feed). Like any block, it also inherits the editor's color, typography, and spacing controls.
+To place it: edit a page, add a shortcode block (or type it directly), enter `[buddynext_auth]`, and publish. Where members land after signing in is set globally under **BuddyNext > Members > Registration & Login** (blank = the activity feed), not per page.
 
 ### Where members land after signing in
 
 - **Default.** After a successful sign-in, members go to the activity feed. This applies no matter which login form they used - the built-in login hub, a theme login form, or any other way they signed in - a member never lands on a WordPress dashboard they have no reason to see.
-- **Per-block destination.** Set a redirect address on the Login form block to send members from that form to a specific page instead.
+- **Custom destination.** Set a login redirect under **BuddyNext > Members > Registration & Login** to send members to a specific page instead of the feed.
 - **After signing out**, members return to your branded login page, ready to sign back in, instead of the default WordPress "you are logged out" screen.
-- **Welcome panel.** The login and sign-up forms share the same branded side panel. Control it under **BuddyNext > Settings > Registration**, in the Login and Sign-up Panel section (show or hide it, plus the heading, tagline, featured quote, and banner image). Those settings apply to both screens.
+- **Welcome panel.** The login and sign-up forms share the same branded side panel. Control it under **BuddyNext > Members > Registration & Login**, in the Login and Sign-up Panel section (show or hide it, plus the heading, tagline, featured quote, and banner image). Those settings apply to both screens.
 
 There is no separate login settings tab - login shares the welcome panel and the same pages as sign-up, and it honors the same account states (a member awaiting admin approval or with an unconfirmed email is gated exactly as the registration flow describes).
 

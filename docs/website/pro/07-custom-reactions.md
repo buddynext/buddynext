@@ -39,7 +39,11 @@ Open **BuddyNext** in wp-admin and go to **Settings - Reactions** (listed under 
 
 ### Manage existing reactions
 
-The **Current custom reactions** table lists each reaction with its emoji and label. Each row has a **Remove** button (with a confirmation prompt) that deletes that reaction. There is no edit-in-place or drag-to-reorder. To change a reaction, remove it and add it again.
+The **Current custom reactions** table lists each reaction with its emoji, label, and slug, plus its status and order. Each row gives you three controls:
+
+- **Enable / Disable.** A toggle that turns the reaction off without deleting it. A disabled reaction is dropped from the picker but keeps its definition and any reactions members already left; its status shows as **Disabled**. Toggle it back on to return it to the picker. Use this when you want to retire a reaction temporarily rather than remove it for good.
+- **Order.** Up (↑) and down (↓) buttons that move the reaction earlier or later in the picker. The arrows are greyed out at the ends of the list.
+- **Remove.** Deletes the reaction after a confirmation prompt. There is no edit-in-place - to rename a reaction or change its emoji, remove it and add it again.
 
 ### The default reactions
 
@@ -62,7 +66,7 @@ The Add a reaction form has these inputs:
 - **You pick from a built-in emoji set.** The picker offers the Microsoft Fluent emoji that ship with BuddyNext. If every available emoji is already in use, the form tells you so. There is no free-text emoji or image upload.
 - **No duplicates.** You cannot add an emoji that is already a built-in reaction, and you cannot add the same custom emoji twice. The form blocks both with a clear message.
 - **Label is required.** An empty label is rejected, and so is a label over 80 characters.
-- **Removing a reaction does not erase past reactions.** Reactions members already left are kept. Removing a custom reaction simply takes it out of the picker for future use.
+- **Disabling is reversible; removing is not.** Disabling a reaction takes it out of the picker but preserves its definition and the reactions members already left, so you can turn it back on later. Removing a reaction deletes it - the reactions members already left using it are deleted too, but other reactions are untouched.
 - **Only admins can manage reactions.** Adding and removing custom reactions is limited to site administrators.
 
 ## Free vs Pro

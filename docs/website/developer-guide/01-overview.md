@@ -18,7 +18,7 @@ The product is split into two plugins:
 | REST namespace | `buddynext/v1` | `buddynext-pro/v1` |
 | Bootstrap | `plugins_loaded:15` -> `BuddyNext\Core\Plugin::init()` -> fires `buddynext_loaded` | `plugins_loaded:20` -> `BuddyNextPro\Core\Plugin::init()` |
 | Relationship | Standalone, fully functional community | `extends` Free - consumes Free services, hooks, and tables; never forks them |
-| Requires | WordPress 6.9+, PHP 8.2+ | WordPress 6.9+, PHP 8.2+ |
+| Requires | WordPress 6.9+, PHP 8.1+ | WordPress 6.9+, PHP 8.1+ |
 
 Pro boots after Free and extends it through the documented seams - it rebinds container services, listens on Free hooks, and reads Free tables. Pro never copies Free's logic. Licensing gates updates only; it never gates functionality, so the Free plugin is a complete community on its own.
 
@@ -58,7 +58,7 @@ Drawn from the Free plugin's `audit/manifest.json` (the canonical inventory) and
 | CSS files | 29 | - |
 | REST endpoints | 168 (`buddynext/v1`) | 48 (`buddynext-pro/v1`) |
 | Database tables | 41 | 22 |
-| Gutenberg blocks | 18 | 0 |
+| Gutenberg blocks | 16 | 0 |
 | Unique hooks fired | 633 (619 `buddynext_*`) | 34 |
 | Cron events | 6 | 4 |
 

@@ -19,13 +19,13 @@ As of 1.0.1 the BuddyNext-side `GamificationBridge` (`includes/Bridges/Gamificat
 
 ### Engine API BuddyNext calls
 
-The bridge and templates call exactly these engine functions, all guarded with `function_exists`:
+The engine functions below are all guarded with `function_exists`. The write-side calls (submit/register) now live in the engine's own BuddyNext manifest (`wb-gamification/integrations/buddynext.php`); the read-side calls are made by BuddyNext's leaderboard template and Achievements tab. The consume-only `GamificationBridge` no longer calls `wb_gam_submit_event`.
 
 | Function | Used by | Purpose |
 |---|---|---|
-| `wb_gam_submit_event( int $user_id, string $action_id, array $context )` | `GamificationBridge::fire()` | Submit one award event through the full pipeline (points, badges, streaks, webhooks). |
-| `wb_gam_register_action( array $args )` | `GamificationBridge::register_actions()` | Register a BuddyNext action so admins can configure its point value. |
-| `wb_gam_get_actions()` | `GamificationBridge::register_actions()` | Dedup guard - skip already-registered slugs. |
+| `wb_gam_submit_event( int $user_id, string $action_id, array $context )` | engine manifest (`integrations/buddynext.php`) | Submit one award event through the full pipeline (points, badges, streaks, webhooks). |
+| `wb_gam_register_action( array $args )` | engine manifest (`integrations/buddynext.php`) | Register a BuddyNext action so admins can configure its point value. |
+| `wb_gam_get_actions()` | engine manifest (`integrations/buddynext.php`) | Dedup guard - skip already-registered slugs. |
 | `wb_gam_get_leaderboard( string $period, int $limit )` | leaderboard template | Ranked rows (`rank`, `user_id`, `display_name`, `avatar_url`, `points`). |
 | `wb_gam_get_user_points( int $user_id )` | leaderboard + Achievements tab | Points balance. |
 | `wb_gam_get_user_badges( int $user_id )` | leaderboard + Achievements tab | Earned badges. |
@@ -33,9 +33,9 @@ The bridge and templates call exactly these engine functions, all guarded with `
 
 An engine replacing wb-gamification must provide functions of these names and shapes.
 
-## Write-side events (the bridge submission path)
+## Write-side events (the engine manifest submission path)
 
-`GamificationBridge::register_actions()` registers a catalogue of `bn_*` action slugs with default point values, so the engine recognizes the slug and admins get a configurable point row per action:
+The engine's own BuddyNext manifest (`wb-gamification/integrations/buddynext.php`) registers a catalogue of `bn_*` action slugs with default point values, so the engine recognizes the slug and admins get a configurable point row per action. (Pre-1.0.0 this catalogue lived in the BuddyNext-side `GamificationBridge::register_actions()`; that producer wiring was retired and moved into the engine manifest. The catalogue below is the contract shape.)
 
 | Action slug | Label | Default points | Recipient awarded |
 |---|---|---|---|
@@ -49,11 +49,11 @@ An engine replacing wb-gamification must provide functions of these names and sh
 | `bn_reaction_received` | Reaction received on your content | 2 | the content owner |
 | `bn_comment_created` | Comment created | 3 | the comment author |
 
-Each catalogue entry is registered against an inert hook (`buddynext_gamification_noop`, never fired) with `user_callback => '__return_zero'`. This is deliberate: the engine's registration API mandates a real hook + callable and auto-hooks it, but BuddyNext wants to resolve the correct recipient(s) itself and submit manually - so it binds to a never-fired hook (no auto-award) and emits each event exactly once from `fire()`.
+Each catalogue entry is registered against an inert hook (`buddynext_gamification_noop`, never fired) with `user_callback => '__return_zero'`. This is deliberate: the engine's registration API mandates a real hook + callable and auto-hooks it, but the manifest wants to resolve the correct recipient(s) itself and submit manually - so it binds to a never-fired hook (no auto-award) and emits each event exactly once from its own submission handler.
 
-The bridge listens on these BuddyNext producer hooks and translates each into a submission:
+The engine manifest hooks these BuddyNext producer actions and translates each into a submission (the handler column names the pre-1.0.0 bridge method for each mapping; the engine manifest now performs the equivalent mapping declaratively):
 
-| BuddyNext hook (args) | Bridge handler | Submits |
+| BuddyNext hook (args) | Historical handler | Submits |
 |---|---|---|
 | `buddynext_user_followed` (2) | `on_user_followed` | `bn_followed` to the followed user |
 | `buddynext_connection_accepted` (3) | `on_connection_accepted` | `bn_connected` to each peer |
@@ -64,18 +64,16 @@ The bridge listens on these BuddyNext producer hooks and translates each into a 
 | `buddynext_post_reaction_received` (4) | `on_reaction_received` | `bn_reaction_received` to the post author (self-reactions excluded upstream) |
 | `buddynext_comment_created` (variadic) | `on_comment_created` | `bn_comment_created` to the commenter (commenter is the last arg under both producer shapes) |
 
-`fire()` is the single submission point:
+The submission itself is a single guarded call to `wb_gam_submit_event`, of this shape:
 
 ```php
-private function fire( string $action_id, int $user_id, array $context = array() ): void {
-    if ( $user_id <= 0 || ! function_exists( 'wb_gam_submit_event' ) ) {
-        return;
-    }
+// Single submission point (contract shape; now owned by the engine manifest).
+if ( $user_id > 0 && function_exists( 'wb_gam_submit_event' ) ) {
     wb_gam_submit_event( $user_id, $action_id, $context );
 }
 ```
 
-> **Note:** An engine can also hook the raw `buddynext_*` producer actions directly (see `docs/specs/HOOKS.md`) instead of relying on the bridge submission path - for example `buddynext_post_created`, `buddynext_user_followed`, `buddynext_reaction_added`, `buddynext_space_member_joined`. The bridge path exists so admins get a configurable point catalogue out of the box.
+> **Note:** An engine can also hook the raw `buddynext_*` producer actions directly (see `docs/specs/HOOKS.md`) instead of relying on the manifest catalogue path - for example `buddynext_post_created`, `buddynext_user_followed`, `buddynext_reaction_added`, `buddynext_space_member_joined`. The manifest catalogue path exists so admins get a configurable point catalogue out of the box.
 
 ## Session / streak / daily-login pulses
 

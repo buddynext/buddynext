@@ -56,6 +56,10 @@ Direct messaging is controlled from Settings > General, in the Direct Messaging 
 
 - **Live typing indicator.** Since 1.0.4 a conversation shows "typing..." while the other person writes, and it clears the moment they stop or send.
 
+- **Load older history and in-thread search.** Since 1.0.5 a conversation can pull in older messages on demand as you scroll back, and search within the thread to find a past message.
+
+- **Per-conversation mute.** Since 1.0.5 a member can mute a single conversation from its info panel, silencing its unread pings without leaving the thread; unmuting restores them.
+
 - **Unread message badge.** Since 1.0.7 the header Messages icon carries its own unread count, right beside the notification bell, so a member sees at a glance whether they have new direct messages without opening the inbox.
 
 - Messaging needs the WPMediaVerse companion plugin. BuddyNext is the interface and the privacy layer; WPMediaVerse is the engine that stores and delivers the messages. If WPMediaVerse is not active, the messaging settings are unavailable and members will not see messaging entry points. For how to install and connect it, see the WPMediaVerse integration page.

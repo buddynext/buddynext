@@ -35,7 +35,7 @@ When you ban someone:
 
 ### View the ban list
 
-The Members tab in the space's settings has a "Banned members" section showing who is currently banned from that space, oldest ban first, along with the reason recorded at ban time. Use this list to review past decisions and to find someone you want to unban.
+The Members tab in the space's settings has a "Banned members" section showing who is currently banned from that space, oldest ban first. Use this list to review past decisions and to find someone you want to unban.
 
 ### Unban a member
 
@@ -55,7 +55,7 @@ The one related space setting is the default notification preference for new mem
 
 - A banned member who tries to join or request to join is refused. They are not silently dropped; they see a clear "You are banned from this space" message.
 - A ban affects one space only. It does not block, suspend, or restrict the member anywhere else on the site.
-- The ban list is capped to the most recent bans (up to 50) for performance, shown oldest first.
+- The ban list shows up to 50 bans for performance, oldest first.
 - Unbanning a member only restores their ability to join. It does not re-add them or restore their previous role; they come back in as a regular member if they choose to rejoin.
 - Removing a member (without a ban) and banning a member are different. A plain removal lets the person rejoin right away; a ban keeps them out until you unban them.
 - For broader, site-wide enforcement (warnings, suspensions across the whole community), see the site moderation tools, which are separate from per-space bans.

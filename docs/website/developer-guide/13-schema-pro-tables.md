@@ -13,7 +13,7 @@ Pro tables use the same `bn_` prefix as Free (there is no `bnpro_` prefix). Pro'
 1. **Pro never creates or modifies Free tables.** When a Pro feature needs an extra column, it is added to a Pro-owned table, or - for additive columns on Pro tables - through `Installer::maybe_alter_tables()` behind an `INFORMATION_SCHEMA` guard so re-runs are no-ops. The membership tier columns (`price`, `currency`, `billing_type`, `billing_interval`, `trial_days`, `is_free`, `status`, `entitlements`) are back-filled this way onto `bn_membership_tiers`.
 2. **`bn_mod_appeals` does not exist.** The Pro moderation spec named an appeals table `bn_mod_appeals`, but Pro reuses Free's `bn_appeals` for the appeal workflow. The two names are the same logical table; Pro does not duplicate it.
 
-> **Note:** The Pro manifest's `tables` array re-lists five Free tables (see Shared Free tables below). Those are read or extended by Pro but created and owned by Free. The authoritative list of what Pro *creates* is the `schema()` method in `BuddyNextPro\Core\Installer` - this page follows the Installer, which creates more tables than the manifest snapshot enumerates.
+> **Note:** The authoritative list of what Pro *creates* is the `schema()` method in `BuddyNextPro\Core\Installer` (`schema_membership_extension()` + `schema_core()`), which creates **18** Pro-owned tables. This page follows the Installer, not the `audit/manifest.json` snapshot - the manifest's `dbTables` array is a usage index (it also references Free's `bn_posts` and WPMediaVerse's `mvs_*` tables that Pro reads but does not own).
 
 ## Membership
 
@@ -30,6 +30,7 @@ Tier definitions. The base table is created by `schema_core()`; the pricing/bill
 | `name` | VARCHAR(255) | Display name |
 | `description` | TEXT | Nullable |
 | `sort_order` | INT | Default 0; indexed (`sort`) |
+| `points_price` | BIGINT(20) UNSIGNED | Default 0. Gamification points price. Base column in `schema_core()`; also back-filled by `maybe_alter_tables()` for older installs. |
 | `price` | DECIMAL(10,2) | Default 0 (added via ALTER) |
 | `currency` | CHAR(3) | Default `USD` (added via ALTER) |
 | `billing_type` | ENUM('recurring','one_time') | Default `recurring` (added via ALTER) |
@@ -52,7 +53,7 @@ Per-user subscription rows linked to a tier and a gateway. The unique `external_
 | `user_id` | BIGINT(20) UNSIGNED | Subscriber |
 | `tier_id` | BIGINT(20) UNSIGNED | References `bn_membership_tiers.id` |
 | `status` | ENUM('active','expired','cancelled','past_due','trialing') | Default `active` |
-| `source` | ENUM('woocommerce','stripe','manual') | Default `manual` |
+| `source` | VARCHAR(32) | Default `manual`. Gateway/source slug (e.g. `manual`, `stripe`, `paypal`) - a free-text column, not an enum. |
 | `started_at` | DATETIME | Default `CURRENT_TIMESTAMP` |
 | `expires_at` | DATETIME | Nullable; indexed (`expires`) |
 | `external_id` | VARCHAR(255) | Gateway subscription ID, nullable; unique |
@@ -97,7 +98,7 @@ Purchase receipts. The `meta` JSON blob carries line items and billing address f
 | `created_at` | DATETIME | Default `CURRENT_TIMESTAMP` |
 | `meta` | LONGTEXT | JSON line items + address, nullable |
 
-Keys: `PRIMARY (id)`, `KEY user_id (user_id)`, `KEY plan_id (plan_id)`.
+Keys: `PRIMARY (id)`, `KEY user_id (user_id)`, `KEY plan_id (plan_id)`, `KEY created_at (created_at)`, `KEY status (status)`.
 
 ### `bn_coupons`
 
@@ -351,25 +352,15 @@ Keys: `PRIMARY (id)`, `KEY user_id (user_id, created_at)`.
 
 ## Space
 
-### `bn_space_meta`
+Pro does **not** create a `bn_space_meta` table. The white-label per-space brand override (`meta_key = 'buddynextpro_space_brand'`, value is a JSON brand blob) is stored in **Free's** `bn_space_meta` table through the space-meta API - Pro never re-creates a Free table (`Installer::schema_core()` documents this explicitly and omits the `CREATE TABLE`). Free's `bn_space_meta` is WP-meta-shaped (`meta_id`, `bn_space_id`, `meta_key`, `meta_value`); its columns are documented under Schema: Spaces.
 
-Generic per-space key/value store. Used by the white-label per-space brand override (`meta_key = 'buddynextpro_space_brand'`, value is a JSON brand blob) and available for any other per-space metadata. Unique `(space_id, meta_key)` makes writes an upsert.
+## Shared Free tables read or extended by Pro
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | BIGINT(20) UNSIGNED | Primary key, auto-increment |
-| `space_id` | BIGINT(20) UNSIGNED | References Free's `bn_spaces.id` |
-| `meta_key` | VARCHAR(191) | Meta key; indexed (`meta_key`) |
-| `meta_value` | LONGTEXT | Value, nullable |
-
-Keys: `PRIMARY (id)`, `UNIQUE space_key (space_id, meta_key)`, `KEY meta_key (meta_key)`.
-
-## Shared Free tables (re-listed by the Pro manifest)
-
-The Pro `audit/manifest.json` `tables` array includes five tables that Pro does **not** create. They are created and owned by Free's Installer; Pro reads them, and in two cases extends behavior around them. Do not let the manifest re-listing suggest Pro ownership - their columns are documented under Schema: Core Tables, and queries against them go through Free services where one exists.
+Several Free-owned tables are read (and in some cases written) by Pro features. They are created and owned by Free's Installer; Pro never creates or alters them. Their columns are documented under the Free schema pages, and queries against them go through Free services where one exists.
 
 | Table | Owner / creator | What Pro does with it |
 |-------|-----------------|------------------------|
+| `bn_space_meta` | Free | Read/write for the white-label per-space brand override via the space-meta API |
 | `bn_user_suspensions` | Free | Read to extend bulk and auto-suspend flows |
 | `bn_appeals` | Free | Read and write for the appeal workflow (this is the table the spec called `bn_mod_appeals`) |
 | `bn_space_bans` | Free | Read for moderation bulk actions |
@@ -380,6 +371,6 @@ The Pro `audit/manifest.json` `tables` array includes five tables that Pro does 
 
 ## Notes and gotchas
 
-- **Installer is the source of truth, not the manifest snapshot.** `BuddyNextPro\Core\Installer::schema()` creates 19 Pro-owned tables (the six membership tables, two AI tables, push tokens, analytics, four email tables, mod rules, two label tables, saved searches, and space meta). The manifest `tables` array is a hand-maintained snapshot and lags the Installer for `bn_plan_gateway_map`, `bn_invoices`, `bn_coupons`, `bn_tax_rules`, `bn_space_meta`, `bn_push_tokens`, and `bn_ai_embeddings`.
+- **Installer is the source of truth, not the manifest snapshot.** `BuddyNextPro\Core\Installer::schema()` creates 18 Pro-owned tables (the six membership tables - tiers, subscriptions, plan-gateway map, invoices, coupons, tax rules; two AI tables - signals and embeddings; push tokens; analytics; four email tables - campaigns, recipients, drip sequences, drip enrollments; mod rules; two label tables; and saved searches). It does **not** create `bn_space_meta` - that is a Free table Pro reads/writes via the space-meta API. The manifest `dbTables` array is a hand-maintained usage index and is not a reliable schema list.
 - **Additive columns come through `maybe_alter_tables()`.** `dbDelta` cannot add columns to an existing table reliably, so column back-fills (the membership pricing columns, the `signal_type` ENUM widening) run as `INFORMATION_SCHEMA`-guarded `ALTER` statements that are idempotent on re-run. The back-fill is gated by a `buddynextpro_schema_alters` version marker so the schema is not probed on every request once converged.
 - **Pro boots after Free.** Pro initializes at `plugins_loaded:20` (Free at 15), and Pro's `Installer::maybe_upgrade()` runs from `Plugin::init()` so existing installs pick up new tables and columns on the next boot without a re-activation.

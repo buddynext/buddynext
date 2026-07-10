@@ -28,7 +28,7 @@ A member who reads everything as it happens in-app may receive an empty period a
 
 ## Setting it up (for owners)
 
-You control the site-wide digest behavior under Settings > Notifications. The two digest emails themselves (their subject, preview, and body) are editable under Settings > Email Templates, the same way as every other email - see Transactional Email System.
+You control the site-wide digest behavior under BuddyNext > Notifications. The two digest emails themselves (their subject, preview, and body) are editable under BuddyNext > Notifications > Email Templates, the same way as every other email - see Transactional Email System.
 
 | Setting | What it does | Default |
 |---|---|---|

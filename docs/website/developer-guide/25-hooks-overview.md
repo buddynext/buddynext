@@ -76,13 +76,13 @@ The `buddynext_*` domain hooks (everything except the template-part family) are 
 
 | Page | Domain | Representative hooks |
 |---|---|---|
-| 27 | Social graph and members | `buddynext_user_followed`, `buddynext_user_unfollowed`, `buddynext_connection_requested`, `buddynext_connection_accepted`, `buddynext_block`, `buddynext_member_registered`, `buddynext_member_type_assigned` |
-| 28 | Feed, posts, reactions, comments | `buddynext_post_created`, `buddynext_post_updated`, `buddynext_post_deleted`, `buddynext_post_pinned`, `buddynext_reaction_added`, `buddynext_comment_created`, `buddynext_feed_order_by` |
+| 27 | Feed, posts, reactions, comments | `buddynext_post_created`, `buddynext_post_updated`, `buddynext_post_deleted`, `buddynext_post_shared`, `buddynext_reaction_added`, `buddynext_comment_created`, `buddynext_feed_order_by` |
+| 28 | Members, profiles, fields, social graph | `buddynext_user_followed`, `buddynext_user_unfollowed`, `buddynext_connection_requested`, `buddynext_connection_accepted`, `buddynext_member_approved`, `buddynext_member_type_assigned`, `buddynext_profile_field_render` |
 | 29 | Spaces | `buddynext_space_created`, `buddynext_space_member_joined`, `buddynext_space_member_left`, `buddynext_space_member_removed`, `buddynext_space_join_approved`, `buddynext_can_join_space` |
-| 30 | Profiles, fields, avatars, search, hashtags | `buddynext_profile_field_render`, `buddynext_profile_field_validate`, `buddynext_profile_field_types`, `buddynext_search_query_args`, `buddynext_hashtag_*` |
-| 31 | Notifications and email | `buddynext_notification_created`, `buddynext_notification_prefs_*`, the email-template and digest seams |
-| 32 | Moderation and trust | `buddynext_report_created`, `buddynext_user_warned`, `buddynext_user_suspended`, `buddynext_appeal_submitted`, `buddynext_safeguard_check`, `buddynext_moderation_auto_actions` |
-| 33 | Auth, onboarding, registration, outbound webhooks | `buddynext_member_registered`, `buddynext_onboarding_completed`, the 2FA and verification hooks, `buddynext_outbound_webhook_limit` |
+| 30 | Notifications and email | `buddynext_notification_created`, `buddynext_notification_prefs_*`, the email-template and digest seams |
+| 31 | Moderation, auth, trust | `buddynext_report_created`, `buddynext_user_warned`, `buddynext_user_suspended`, `buddynext_appeal_submitted`, `buddynext_safeguard_check`, `buddynext_registration_pending` |
+| 32 | Search, hashtags, sidebar, admin | `buddynext_search_query_args`, `buddynext_hashtag_*`, the sidebar-widget and admin-hub filters |
+| 33 | Pro and integration | Pro hooks (`buddynext_pro_subscription_created`, `buddynext_outbound_webhook_limit`) and the integration bridge seams |
 
 The template-part family (`buddynext_part_*`, 705 hooks) is documented separately on the Hooks: Template Parts page (26), because it is a different kind of seam - presentation rather than events - and dominates the surface by count.
 
