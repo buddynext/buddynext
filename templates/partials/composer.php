@@ -263,6 +263,9 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			<input type="text" class="bn-composer__poll-option"
 				placeholder="<?php esc_attr_e( 'Option 4 (optional)', 'buddynext' ); ?>"
 				aria-label="<?php esc_attr_e( 'Poll option 4', 'buddynext' ); ?>">
+			<input type="text" class="bn-composer__poll-option"
+				placeholder="<?php esc_attr_e( 'Option 5 (optional)', 'buddynext' ); ?>"
+				aria-label="<?php esc_attr_e( 'Poll option 5', 'buddynext' ); ?>">
 			<label class="bn-composer__poll-end-label" for="bn-composer-poll-end">
 				<?php esc_html_e( 'Poll ends (optional)', 'buddynext' ); ?>
 			</label>
