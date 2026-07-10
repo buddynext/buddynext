@@ -49,16 +49,14 @@ class Path {
 		self::$sdk_dir     = dirname( $file );
 		self::$sdk_version = $version;
 
-		// Calculate the URL based on the file path.
-		$is_https = ( ! empty( $_SERVER['HTTPS'] ) && 'off' !== $_SERVER['HTTPS'] ) ||
-			( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && 'https' === $_SERVER['HTTP_X_FORWARDED_PROTO'] );
-
-		$protocol      = $is_https ? 'https' : 'http';
-		$relative_path = str_replace( realpath( $_SERVER['DOCUMENT_ROOT'] ), '', self::$sdk_dir );
-		$relative_path = ltrim( str_replace( '\\', '/', $relative_path ), '/' );
-
-		$host          = $_SERVER['HTTP_HOST'] ?? 'localhost';
-		self::$sdk_url = trailingslashit( "$protocol://$host/$relative_path" );
+		// Resolve the asset URL through WordPress so it is correct on every host.
+		// The previous approach derived the URL from $_SERVER['DOCUMENT_ROOT'],
+		// which breaks wherever realpath() resolves a symlink or the document root
+		// does not prefix-match the plugin path (many live hosts, LocalWP): the
+		// str_replace strips nothing, the full filesystem path leaks into the URL,
+		// and the SDK assets 404. plugins_url() handles HTTPS, host, subdirectory
+		// installs, symlinks and multisite correctly.
+		self::$sdk_url = trailingslashit( plugins_url( '', $file ) );
 	}
 
 	/**
