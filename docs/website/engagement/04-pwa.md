@@ -52,4 +52,4 @@ The defaults are ready to go: the app name is your site name, the icon uses your
 
 The installable PWA, the standalone app-like window, and the offline shell are all part of the free plugin.
 
-A native mobile app, a separate app built for the Apple App Store and Google Play with native push notifications and store distribution, is a distinct item on the Pro roadmap. It is a different delivery vehicle from the PWA described here, not an upgrade of it. The PWA gives members an app-like, installable experience today without an app store; the native app is tracked separately for owners who need a true store presence.
+A native mobile app, a separate app built for the Apple App Store and Google Play with native push notifications and store distribution, is a distinct Pro deliverable planned for the 1.0.8 release. It is a different delivery vehicle from the PWA described here, not an upgrade of it. The PWA gives members an app-like, installable experience today without an app store; the native app is tracked separately for owners who need a true store presence.
