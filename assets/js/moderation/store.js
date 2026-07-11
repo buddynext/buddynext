@@ -90,13 +90,16 @@ const moderationStore = store( 'buddynext/moderation', {
 		* warnUser() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.restNonce ) { return; }
-			// Real route: POST /users/{id}/warn { message } — logs the warning
-			// and notifies the user (no strike penalty).
+			// Real route: POST /users/{id}/warn { message, space_id } — logs the
+			// warning and notifies the user (no strike penalty). space_id carries
+			// the space the report came from: a site admin does not need it, but a
+			// space moderator's authority to warn is scoped to their own space, so
+			// the endpoint would 403 without it.
 			const res = yield restFetch( 'users/' + ctx.userId + '/warn', {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
 				method: 'POST',
-				body: { message: 'Content policy reminder' },
+				body: { message: 'Content policy reminder', space_id: ctx.spaceId || 0 },
 				toastOnError: false,
 			} );
 			bnToast( res.ok ? t( 'warningSent', 'Warning sent.' ) : t( 'warnUserFailed', 'Could not warn the user.' ), { tone: res.ok ? 'success' : 'danger' } );
@@ -231,6 +234,11 @@ const moderationStore = store( 'buddynext/moderation', {
 			window.open( ctx.postUrl || '#', '_blank' );
 		},
 
+		/* Every action below opts out of restFetch's default error toast
+		 * (toastOnError: false) because it owns its own feedback. Each one MUST
+		 * therefore report both outcomes itself — an unreported failure (a 403,
+		 * say) is indistinguishable from success to the moderator. */
+
 		* dismissReport() {
 			const ctx = getContext();
 			if ( ! ctx.reportId || ! ctx.restNonce ) { return; }
@@ -244,19 +252,25 @@ const moderationStore = store( 'buddynext/moderation', {
 				const card = document.querySelector( '.bn-space-mod__report [data-report-id="' + ctx.reportId + '"]' );
 				const row  = ( card && card.closest( '.bn-space-mod__report' ) ) || document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
 				if ( row ) { row.remove(); }
+			} else {
+				bnToast( t( 'dismissFailed', 'Could not dismiss the report. Try again.' ), { tone: 'danger' } );
 			}
 		},
 
 		* warnMember() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.restNonce ) { return; }
-			yield restFetch( 'users/' + ctx.userId + '/warn', {
+			// space_id scopes the warning to this space — it is what authorises a
+			// space moderator (who holds no site-wide moderation capability) to
+			// issue it.
+			const res = yield restFetch( 'users/' + ctx.userId + '/warn', {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
 				method: 'POST',
-				body: { message: 'Space rule violation' },
+				body: { message: 'Space rule violation', space_id: ctx.spaceId || 0 },
 				toastOnError: false,
 			} );
+			bnToast( res.ok ? t( 'memberWarned', 'Warning sent.' ) : t( 'warnMemberFailed', 'Could not warn the member.' ), { tone: res.ok ? 'success' : 'danger' } );
 		},
 
 		* removeFromSpace() {
@@ -269,37 +283,51 @@ const moderationStore = store( 'buddynext/moderation', {
 				tone: 'danger',
 			} );
 			if ( ! ok ) { return; }
-			yield restFetch( 'spaces/' + ctx.spaceId + '/members/' + ctx.userId, {
+			const res = yield restFetch( 'spaces/' + ctx.spaceId + '/members/' + ctx.userId, {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
 				method: 'DELETE',
 				toastOnError: false,
 			} );
-			window.location.reload();
+			// Only reload on success — reloading after a failure just re-renders
+			// the unchanged list and reads as "nothing happened".
+			if ( res.ok ) {
+				window.location.reload();
+			} else {
+				bnToast( t( 'removeFromSpaceFailed', 'Could not remove the member from this space. Try again.' ), { tone: 'danger' } );
+			}
 		},
 
 		* approveJoinRequest() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.spaceId || ! ctx.restNonce ) { return; }
-			yield restFetch( 'spaces/' + ctx.spaceId + '/members/' + ctx.userId + '/approve', {
+			const res = yield restFetch( 'spaces/' + ctx.spaceId + '/members/' + ctx.userId + '/approve', {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
 				method: 'PUT',
 				toastOnError: false,
 			} );
-			window.location.reload();
+			if ( res.ok ) {
+				window.location.reload();
+			} else {
+				bnToast( t( 'approveRequestFailed', 'Could not approve the join request. Try again.' ), { tone: 'danger' } );
+			}
 		},
 
 		* declineJoinRequest() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.spaceId || ! ctx.restNonce ) { return; }
-			yield restFetch( 'spaces/' + ctx.spaceId + '/members/' + ctx.userId, {
+			const res = yield restFetch( 'spaces/' + ctx.spaceId + '/members/' + ctx.userId, {
 				base: ctx.restUrl,
 				nonce: ctx.restNonce,
 				method: 'DELETE',
 				toastOnError: false,
 			} );
-			window.location.reload();
+			if ( res.ok ) {
+				window.location.reload();
+			} else {
+				bnToast( t( 'declineRequestFailed', 'Could not decline the join request. Try again.' ), { tone: 'danger' } );
+			}
 		},
 	},
 } );

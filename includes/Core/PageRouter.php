@@ -421,6 +421,24 @@ class PageRouter {
 			}
 		}
 
+		// ── No-cache: token-bearing pages ─────────────────────────────────
+		// The auth hub (login / signup / reset / verify) is server-rendered for
+		// anonymous visitors and embeds per-request security tokens: the wp_rest
+		// nonce and, on signup, the RegistrationGuard time-trap token plus the
+		// human-check challenge token (both minted at render time). A full-page
+		// cache (WP Rocket, Varnish, Cloudflare) would serve every anonymous
+		// visitor the same copy with a FROZEN token timestamp; once that copy is
+		// older than the token TTL, every sign-up posted from it is scored as
+		// automated and rejected — a site-wide registration outage. Mark the whole
+		// hub uncacheable before any output: the general rule for any
+		// nonce/token-bearing form page, not just signup.
+		if ( 'auth' === $hub ) {
+			if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+				define( 'DONOTCACHEPAGE', true ); // Honoured by WP Rocket, W3TC, WP Super Cache, LiteSpeed, Batcache.
+			}
+			nocache_headers(); // Cache-Control: no-store … — reverse proxies (Varnish, Cloudflare) and browsers.
+		}
+
 		// ── Virtual page setup ────────────────────────────────────────────
 		// No backing WordPress pages exist. Tell WP this is a real page so
 		// it sends 200, generates correct <title>, and themes render their

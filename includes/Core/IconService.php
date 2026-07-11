@@ -164,6 +164,103 @@ class IconService {
 	}
 
 	/**
+	 * Fallback Lucide icon slug per built-in space-category slug.
+	 *
+	 * Only used when a category carries no admin-supplied icon_svg. Categories
+	 * created by the site owner (or built-ins whose icon the owner cleared) fall
+	 * through to self::CATEGORY_ICON_DEFAULT.
+	 *
+	 * @var array<string, string>
+	 */
+	private const CATEGORY_ICON_MAP = array(
+		'technology'  => 'cpu',
+		'design'      => 'image',
+		'marketing'   => 'megaphone',
+		'startups'    => 'rocket',
+		'ai-ml'       => 'cpu',
+		'data'        => 'bar-chart',
+		'product'     => 'target',
+		'writing'     => 'edit',
+		'open-source' => 'globe',
+		'business'    => 'briefcase',
+		'creative'    => 'star',
+	);
+
+	/**
+	 * Icon slug rendered when a space category has neither a stored icon_svg nor
+	 * an entry in CATEGORY_ICON_MAP.
+	 */
+	private const CATEGORY_ICON_DEFAULT = 'home';
+
+	/**
+	 * Render the icon for a space category.
+	 *
+	 * Single source of truth for the category emblem shown on space cards, the
+	 * space hero, the about panel, the settings avatar fallback, and the
+	 * directory sidebar rows. Resolution order:
+	 *
+	 *   1. The category's admin-editable icon_svg (bn_space_categories.icon_svg,
+	 *      edited via the taxonomy editor and round-tripped by
+	 *      SpaceCategoryService) — passed in directly, or looked up by slug.
+	 *   2. The built-in slug → Lucide map (CATEGORY_ICON_MAP).
+	 *   3. The generic CATEGORY_ICON_DEFAULT glyph.
+	 *
+	 * The return value is always wp_kses()-sanitized and safe to echo.
+	 *
+	 * @param string|null $cat_slug Category slug. Empty/unknown yields the default glyph.
+	 * @param string|null $icon_svg Optional pre-resolved icon_svg for the category
+	 *                              (from a hydrated category row). When null the
+	 *                              value is looked up from the category table by
+	 *                              slug; pass '' to skip the lookup entirely.
+	 * @return string Sanitized SVG markup safe for inline output.
+	 */
+	public static function space_category_icon( ?string $cat_slug, ?string $icon_svg = null ): string {
+		$cat_slug = (string) $cat_slug;
+
+		if ( null === $icon_svg ) {
+			$icon_svg = self::category_icon_svg_by_slug( $cat_slug );
+		}
+
+		$icon_svg = trim( (string) $icon_svg );
+		if ( '' !== $icon_svg ) {
+			return wp_kses( $icon_svg, self::allowed_tags() );
+		}
+
+		return self::render( self::CATEGORY_ICON_MAP[ $cat_slug ] ?? self::CATEGORY_ICON_DEFAULT );
+	}
+
+	/**
+	 * Look up a space category's stored icon_svg by slug.
+	 *
+	 * Reads through SpaceCategoryService::get_all() (object-cached, single query
+	 * per request) and memoizes the slug → icon_svg map for the rest of the
+	 * request, so the many per-card icon renders on the directory cost one read.
+	 *
+	 * @param string $cat_slug Category slug.
+	 * @return string Stored icon_svg markup, or '' when the category has none.
+	 */
+	private static function category_icon_svg_by_slug( string $cat_slug ): string {
+		if ( '' === $cat_slug || ! class_exists( '\\BuddyNext\\Spaces\\SpaceCategoryService' ) ) {
+			return '';
+		}
+
+		static $map = null;
+
+		if ( null === $map ) {
+			$map     = array();
+			$service = new \BuddyNext\Spaces\SpaceCategoryService();
+
+			foreach ( $service->get_all() as $category ) {
+				if ( ! empty( $category['slug'] ) ) {
+					$map[ (string) $category['slug'] ] = (string) ( $category['icon_svg'] ?? '' );
+				}
+			}
+		}
+
+		return $map[ $cat_slug ] ?? '';
+	}
+
+	/**
 	 * Whether an icon SVG exists on disk for the given slug.
 	 *
 	 * Lets callers (e.g. integration panels) validate an icon up front and fall

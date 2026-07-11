@@ -904,13 +904,17 @@ class NotificationListener implements ListenerInterface {
 		$last_row      = end( $rows );
 		$last_user_id  = (int) $last_row['user_id'];
 
-		// Space-pref gate: only 'none' suppresses a space new-post (null/'' = 'all').
+		// Space-pref gate. The per-space pref has three values (SpaceMemberService::
+		// NOTIFICATION_PREFS): 'all' | 'mentions_only' | 'none'. A new post is not a
+		// mention, so ONLY 'all' receives this fan-out — 'mentions_only' members are
+		// suppressed here and still get their @-mentions via the separate bn.mention
+		// path. Legacy rows with null/'' normalise to 'all'.
 		$candidates = array();
 		foreach ( $rows as $row ) {
 			$pref = ( null === $row['notification_pref'] || '' === $row['notification_pref'] )
 				? 'all'
 				: (string) $row['notification_pref'];
-			if ( 'none' !== $pref ) {
+			if ( 'all' === $pref ) {
 				$candidates[] = (int) $row['user_id'];
 			}
 		}

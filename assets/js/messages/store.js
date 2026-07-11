@@ -1304,9 +1304,21 @@ const messagesStore = store( 'buddynext/messages', {
 				f.click();
 			}
 		},
-		async onFileSelected( event ) {
-			const ctx  = getContext();
-			const file = event.target.files && event.target.files[ 0 ];
+		// Generator, not `async` — deliberately, and it must stay one. The
+		// Interactivity API only re-enters the action's scope around a `yield`; in
+		// an `async` action everything after the first `await` runs with an empty
+		// scope stack, so any nested action that calls getContext() blows up with
+		// "Cannot read properties of undefined (reading 'context')".
+		// clearAttachment() does exactly that, and every failure branch below calls
+		// it *after* the upload round-trip — so as an async action all three threw:
+		// the optimistic chip stayed on screen advertising a file that never
+		// uploaded, and no message was ever shown. Yielding keeps the scope alive,
+		// matching every other round-trip action in this store (*sendMessage,
+		// *acceptRequest, …).
+		*onFileSelected( event ) {
+			const ctx   = getContext();
+			const input = event.target;
+			const file  = input.files && input.files[ 0 ];
 			if ( ! file ) {
 				return;
 			}
@@ -1315,17 +1327,29 @@ const messagesStore = store( 'buddynext/messages', {
 			ctx.attachmentId      = 0;
 			// Fast small client preview (shared core) — replaces a full-res object
 			// URL so a large image doesn't decode megapixels into the tiny chip.
-			ctx.attachmentPreview = ( file.type.indexOf( 'image/' ) === 0 )
-				? await makeThumb( file )
-				: '';
+			let preview = '';
+			if ( file.type.indexOf( 'image/' ) === 0 ) {
+				preview = yield makeThumb( file );
+			}
+			ctx.attachmentPreview = preview;
 
 			const fd = new FormData();
 			fd.append( 'file', file );
 			fd.append( 'privacy', 'dm' ); // Conversation-scoped MediaVerse media: visible only to the DM's participants, never on any public surface, activity feed, or wall.
 
+			// Undo the optimistic chip and tell the member why. toastOnError:false
+			// suppresses restFetch's own toast, so this handler owns the failure UX:
+			// without it an oversize / disallowed / over-quota file just leaves the
+			// chip behind with no explanation. The server's own reason wins when it
+			// sends one (it names the actual limit); the generic line is the fallback.
+			const failAttachment = ( message ) => {
+				bnToast( message || t( 'attachmentUploadFailed', 'Could not attach that file. Try a different one.' ), { tone: 'danger' } );
+				actions.clearAttachment();
+			};
+
 			try {
 				// FormData sets its own multipart Content-Type boundary — pass it through untouched.
-				const res = await restFetch( '/media', {
+				const res = yield restFetch( '/media', {
 					base: ctx.mvsRest,
 					nonce: ctx.nonce,
 					method: 'POST',
@@ -1333,7 +1357,7 @@ const messagesStore = store( 'buddynext/messages', {
 					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
-					actions.clearAttachment();
+					failAttachment( res.data && res.data.message );
 					return;
 				}
 				const media = res.data || {};
@@ -1345,12 +1369,13 @@ const messagesStore = store( 'buddynext/messages', {
 				if ( ctx.attachmentId ) {
 					ctx.mediaPickerOpen = false; // Uploaded — close the picker, show the composer chip.
 				} else {
-					actions.clearAttachment();
+					// 2xx but no usable media id — the upload did not land either.
+					failAttachment( '' );
 				}
 			} catch ( _e ) {
-				actions.clearAttachment();
+				failAttachment( '' );
 			}
-			event.target.value = '';
+			input.value = '';
 		},
 		clearAttachment() {
 			const ctx = getContext();
@@ -1622,6 +1647,12 @@ const messagesStore = store( 'buddynext/messages', {
 						toastOnError: false,
 					} );
 					if ( ! res.ok ) {
+						// Keep toastOnError:false — an inline hint inside the open
+						// dropdown reads better here than a global toast. But the
+						// dropdown must NOT keep showing the previous query's rows
+						// (or a stale "No people found.") as if they answered this
+						// search: replace them with an explicit error state.
+						list.replaceChildren( composeMessage( t( 'composeError', 'Could not search right now. Try again.' ) ) );
 						return;
 					}
 					const data    = res.data;
@@ -1633,7 +1664,11 @@ const messagesStore = store( 'buddynext/messages', {
 						return;
 					}
 					list.replaceChildren( ...members.map( buildComposeResult ) );
-				} catch ( _e ) {}
+				} catch ( _e ) {
+					// Same in-list error state for anything that threw (render/DOM),
+					// so no failure path leaves stale results on screen.
+					list.replaceChildren( composeMessage( t( 'composeError', 'Could not search right now. Try again.' ) ) );
+				}
 			}, 250 );
 		},
 		onComposeResultClick( event ) {

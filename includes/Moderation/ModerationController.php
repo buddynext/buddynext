@@ -6,15 +6,17 @@
  *   POST   /reports                               — submit a report (auth required)
  *   GET    /reports                               — list reports for an object (admin only)
  *   GET    /reports/queue                         — paginated pending+escalated queue (admin/mod)
- *   POST   /reports/{id}/dismiss                  — dismiss a report (admin only)
- *   POST   /reports/{id}/escalate                 — escalate a report (admin only)
- *   POST   /reports/{id}/resolve                  — resolve a report (admin only)
+ *   POST   /reports/{id}/dismiss                  — dismiss a report (admin/space mod)
+ *   POST   /reports/{id}/escalate                 — escalate a report (admin/space mod)
+ *   POST   /reports/{id}/resolve                  — resolve a report (admin/space mod)
+ *   POST   /reports/{id}/remove                   — remove the reported content (admin/space mod)
  *   GET    /users/{id}/strikes                    — list active strikes for a user (admin only)
  *   POST   /users/{id}/strikes                    — issue a strike (admin only)
  *   POST   /users/{id}/strikes/{sid}/reverse      — reverse a strike (admin only)
  *   GET    /posts/{id}/content-warning            — get content warning state (public)
  *   PUT    /posts/{id}/content-warning            — set/clear content warning (admin only)
- *   POST   /users/{id}/warn                       — issue a warning to a user (admin only)
+ *   POST   /users/{id}/warn                       — issue a warning to a user (admin, or a space
+ *                                                   mod passing that space as space_id)
  *   POST   /users/{id}/shadow-ban                 — shadow-ban a user (admin only)
  *   DELETE /users/{id}/shadow-ban                 — remove shadow ban (admin only)
  *   DELETE /users/{id}/suspend                    — unsuspend a user (admin only)
@@ -250,14 +252,17 @@ class ModerationController extends BaseRestController {
 			)
 		);
 
-		// Report actions.
+		// Report actions. Authenticated at the route; authorised per report by
+		// guard_report_scope() inside each handler — site admins may action any
+		// report, a space owner/moderator only the reports raised in a space they
+		// moderate (the very reports the space Moderation tab shows them).
 		register_rest_route(
 			'buddynext/v1',
 			'/reports/(?P<id>[\d]+)/dismiss',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
 				'callback'            => array( $this, 'dismiss_report' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
 
@@ -267,7 +272,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::EDITABLE,
 				'callback'            => array( $this, 'escalate_report' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
 
@@ -277,7 +282,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::EDITABLE,
 				'callback'            => array( $this, 'resolve_report' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
 
@@ -287,7 +292,7 @@ class ModerationController extends BaseRestController {
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
 				'callback'            => array( $this, 'remove_report_content' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
 
@@ -424,24 +429,33 @@ class ModerationController extends BaseRestController {
 			)
 		);
 
-		// User warning.
+		// User warning. Authenticated at the route; authorised in warn_user() —
+		// site admins may warn anyone, a space owner/moderator may warn a member
+		// in the context of a space they moderate (space_id).
 		register_rest_route(
 			'buddynext/v1',
 			'/users/(?P<id>[\d]+)/warn',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
 				'callback'            => array( $this, 'warn_user' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_auth' ),
 				'args'                => array(
-					'id'      => array(
+					'id'       => array(
 						'required' => true,
 						'type'     => 'integer',
 						'minimum'  => 1,
 					),
-					'message' => array(
+					'message'  => array(
 						'required'          => true,
 						'type'              => 'string',
 						'sanitize_callback' => 'sanitize_textarea_field',
+					),
+					'space_id' => array(
+						'required'          => false,
+						'type'              => 'integer',
+						'default'           => 0,
+						'minimum'           => 0,
+						'sanitize_callback' => 'absint',
 					),
 				),
 			)
@@ -872,6 +886,11 @@ class ModerationController extends BaseRestController {
 		$report_id = (int) $request->get_param( 'id' );
 		$actor_id  = get_current_user_id();
 
+		$scope = $this->guard_report_scope( $report_id );
+		if ( is_wp_error( $scope ) ) {
+			return $scope;
+		}
+
 		$result = $service->dismiss( $report_id, $actor_id );
 
 		if ( is_wp_error( $result ) ) {
@@ -900,6 +919,11 @@ class ModerationController extends BaseRestController {
 		$service   = new ModerationService();
 		$report_id = (int) $request->get_param( 'id' );
 		$actor_id  = get_current_user_id();
+
+		$scope = $this->guard_report_scope( $report_id );
+		if ( is_wp_error( $scope ) ) {
+			return $scope;
+		}
 
 		$result = $service->escalate( $report_id, $actor_id );
 
@@ -930,6 +954,11 @@ class ModerationController extends BaseRestController {
 		$report_id = (int) $request->get_param( 'id' );
 		$actor_id  = get_current_user_id();
 
+		$scope = $this->guard_report_scope( $report_id );
+		if ( is_wp_error( $scope ) ) {
+			return $scope;
+		}
+
 		$result = $service->resolve( $report_id, $actor_id );
 
 		if ( is_wp_error( $result ) ) {
@@ -958,6 +987,11 @@ class ModerationController extends BaseRestController {
 		$service   = new ModerationService();
 		$report_id = (int) $request->get_param( 'id' );
 		$actor_id  = get_current_user_id();
+
+		$scope = $this->guard_report_scope( $report_id );
+		if ( is_wp_error( $scope ) ) {
+			return $scope;
+		}
 
 		$result = $service->remove_content( $report_id, $actor_id );
 
@@ -1168,6 +1202,32 @@ class ModerationController extends BaseRestController {
 		$allowed  = array_map( 'intval', ( new ModerationService() )->get_moderated_space_ids( get_current_user_id() ) );
 		if ( $space_id <= 0 || ! in_array( $space_id, $allowed, true ) ) {
 			return new WP_Error( 'bn_forbidden', __( 'You cannot moderate this post.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+		return true;
+	}
+
+	/**
+	 * Ensure the current user may act on the given report: site admins always
+	 * may; space moderators only for reports raised inside a space they moderate.
+	 *
+	 * The mirror of guard_pending_scope() for report-mutating endpoints
+	 * (dismiss / escalate / resolve / remove). Without it those endpoints were
+	 * manage_options-only while the space Moderation tab rendered their buttons
+	 * to every space owner/moderator — so the buttons 403'd for exactly the
+	 * people they were shown to.
+	 *
+	 * @param int $report_id Report id.
+	 * @return true|WP_Error
+	 */
+	private function guard_report_scope( int $report_id ) {
+		if ( current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+		$report   = ( new ModerationService() )->get_report( $report_id );
+		$space_id = (int) ( $report['space_id'] ?? 0 );
+		$allowed  = array_map( 'intval', ( new ModerationService() )->get_moderated_space_ids( get_current_user_id() ) );
+		if ( $space_id <= 0 || ! in_array( $space_id, $allowed, true ) ) {
+			return new WP_Error( 'bn_forbidden', __( 'You cannot moderate this report.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 		return true;
 	}
@@ -1397,15 +1457,28 @@ class ModerationController extends BaseRestController {
 	/**
 	 * Issue a warning to a user.
 	 *
+	 * Site admins may warn anyone. A space owner/moderator may warn a member in
+	 * the context of a space they moderate — the caller (the space Moderation
+	 * tab, or a space-scoped row in the site queue) sends that space as
+	 * `space_id`. Without a space they hold no warning authority.
+	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function warn_user( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$user_id  = (int) $request->get_param( 'id' );
 		$message  = (string) ( $request->get_param( 'message' ) ?? '' );
+		$space_id = absint( $request->get_param( 'space_id' ) );
 		$actor_id = get_current_user_id();
 
-		$result = ( new ModerationService() )->warn( $user_id, $actor_id, $message );
+		if (
+			! current_user_can( 'manage_options' )
+			&& ! ( $space_id > 0 && buddynext_can( $actor_id, 'buddynext-spaces/moderate', array( 'space_id' => $space_id ) ) )
+		) {
+			return new WP_Error( 'bn_forbidden', __( 'You cannot warn this member.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		$result = ( new ModerationService() )->warn( $user_id, $actor_id, $message, $space_id );
 
 		if ( is_wp_error( $result ) ) {
 			$result->add_data( array( 'status' => 400 ) );

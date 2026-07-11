@@ -506,6 +506,55 @@ class AuthController {
 	}
 
 	/**
+	 * Translate an authenticate-chain WP_Error into a REST gate response, when
+	 * (and only when) it is a NON-CREDENTIAL gate rather than a bad password.
+	 *
+	 * Because wp_authenticate() runs the whole filter chain, its WP_Error can mean
+	 * two very different things:
+	 *
+	 *   1. The credentials were wrong (invalid_username, incorrect_password, …).
+	 *      Those must stay collapsed into one generic 401 by the caller — telling
+	 *      the client which half was wrong turns the endpoint into an account
+	 *      enumeration oracle.
+	 *   2. The credentials were RIGHT but a policy gate refused the sign-in — today
+	 *      that is `bn_pending_approval` (Plugin::register_hooks() adds the
+	 *      wp_authenticate_user filter for the `approval` registration mode).
+	 *      Flattening that into "Invalid email or password." sends a member who
+	 *      typed the correct password off to reset it, chasing a password problem
+	 *      they do not have. wp-login.php shows the real message; the REST login
+	 *      must too.
+	 *
+	 * Only codes on the allowlist below are passed through, so a future gate filter
+	 * cannot accidentally start leaking a credential hint. Email verification is
+	 * intentionally absent: it does not block sign-in (VerificationListener lets the
+	 * user in and the router lands them on /auth/verify/), so it never reaches here.
+	 *
+	 * @param WP_Error $error Error returned by wp_authenticate().
+	 * @return WP_Error|null A 403 gate error to return to the client, or null when
+	 *                       the failure is a credential failure the caller should
+	 *                       answer with its generic 401.
+	 */
+	private static function authenticate_gate_error( WP_Error $error ): ?WP_Error {
+		$gate_codes = array(
+			// Credentials verified, but the account is held for admin approval.
+			'bn_pending_approval',
+		);
+
+		$code = (string) $error->get_error_code();
+		if ( ! in_array( $code, $gate_codes, true ) ) {
+			return null;
+		}
+
+		$message = wp_strip_all_tags( (string) $error->get_error_message() );
+		if ( '' === $message ) {
+			$message = __( 'Your account is awaiting administrator approval.', 'buddynext' );
+		}
+
+		// 403, not 401: the credentials were accepted — access is what is refused.
+		return new WP_Error( $code, $message, array( 'status' => 403 ) );
+	}
+
+	/**
 	 * POST /auth/login — authenticate a user.
 	 *
 	 * @param WP_REST_Request $request Request.
@@ -537,6 +586,14 @@ class AuthController {
 		$user = wp_authenticate( $login, $password );
 
 		if ( is_wp_error( $user ) ) {
+			$gate = self::authenticate_gate_error( $user );
+			if ( $gate instanceof WP_Error ) {
+				return $gate;
+			}
+
+			// Genuine credential failure. The message stays deliberately generic
+			// (never "no such user" / "wrong password") so the endpoint cannot be
+			// used to enumerate which emails hold accounts.
 			return new WP_Error(
 				'rest_login_failed',
 				__( 'Invalid email or password.', 'buddynext' ),

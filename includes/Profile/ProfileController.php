@@ -934,11 +934,16 @@ class ProfileController extends BaseRestController {
 	 * submitted-empty required value is flagged, so a partial save never demands
 	 * every field.
 	 *
-	 * @param array<string, mixed> $data       Raw request payload.
-	 * @param bool                 $full_write  Whether this is a full profile write
-	 *                                          (create / complete-editor save). When
-	 *                                          true, absent required fields also fail.
-	 *                                          Defaults to false (partial update).
+	 * @param array<string, mixed> $data           Raw request payload.
+	 * @param bool                 $full_write     Whether this is a full profile write
+	 *                                             (create / complete-editor save). When
+	 *                                             true, absent required fields also fail.
+	 *                                             Defaults to false (partial update).
+	 * @param int                  $target_user_id User whose profile is being saved. Used
+	 *                                             to resolve their member type so
+	 *                                             type-restricted groups are only enforced
+	 *                                             against members who hold that type.
+	 *                                             0 = unknown (no type resolution).
 	 * @return array<string, string> Field-keyed error messages (possibly empty).
 	 */
 	private function validate_profile_payload( array $data, bool $full_write = false, int $target_user_id = 0 ): array {
@@ -1030,6 +1035,29 @@ class ProfileController extends BaseRestController {
 			// required-enforcement nor field validation applies.
 			$g_restriction = (string) ( $field_def['group_type_restriction'] ?? '' );
 			if ( '' !== $g_restriction && $g_restriction !== $target_type_slug ) {
+				continue;
+			}
+
+			/**
+			 * Filter whether a profile field is ACTIVE for this submission.
+			 *
+			 * A field that is not active is invisible to the member for this save,
+			 * so neither is_required enforcement nor field validation may apply to
+			 * it — exactly like the member-type skip above. Returning false is the
+			 * only way an add-on can stop a field it hides client-side from 422-ing
+			 * the whole profile save when it submits empty (Pro's `conditional`
+			 * field type is the canonical case: its wrapper is hidden by JS but its
+			 * inner input still posts an empty string).
+			 *
+			 * @since 1.0.8
+			 *
+			 * @param bool                 $active         Whether the field applies to this submission.
+			 * @param array<string, mixed> $field_def      Flat field definition (type, options, is_required, …).
+			 * @param array<string, mixed> $data           The full submitted payload.
+			 * @param int                  $target_user_id User whose profile is being saved (0 when unknown).
+			 */
+			$field_active = apply_filters( 'buddynext_profile_field_is_active', true, $field_def, $data, $target_user_id );
+			if ( false === $field_active ) {
 				continue;
 			}
 

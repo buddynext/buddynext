@@ -9,9 +9,11 @@
  * assets/js/media/lightbox.js, which calls the engine REST routes
  * (mvs/v1/media/{id}/reactions|comments|favorite|view) — API-level only.
  *
- * The reaction row is static (the six types never change); JS only toggles the
- * active state + counts. Emoji render as images via buddynext_get_emoji() so
- * BuddyNext never emits raw emoji characters in markup.
+ * The reaction row is server-rendered from the owner-enabled reaction set
+ * (ReactionService::reaction_types(), which honours the enabled-reactions option
+ * and the Pro buddynext_reaction_types filter); JS only toggles the active state
+ * + counts. Emoji render as images via buddynext_get_emoji() so BuddyNext never
+ * emits raw emoji characters in markup.
  *
  * @package BuddyNext
  */
@@ -20,28 +22,14 @@ declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
-// Honor the owner's enabled-reactions palette (Settings -> Activity Feed) and
-// any Pro custom slugs, mirroring parts/post-actions.php - previously this
-// hardcoded all six, so a reaction the owner disabled still showed here.
-$bn_lb_builtin   = array(
-	'like'  => __( 'Like', 'buddynext' ),
-	'love'  => __( 'Love', 'buddynext' ),
-	'haha'  => __( 'Haha', 'buddynext' ),
-	'wow'   => __( 'Wow', 'buddynext' ),
-	'sad'   => __( 'Sad', 'buddynext' ),
-	'angry' => __( 'Angry', 'buddynext' ),
-);
-$bn_lb_reactions = array();
-$bn_lb_types     = class_exists( '\\BuddyNext\\Reactions\\ReactionService' )
-	? (array) \BuddyNext\Reactions\ReactionService::reaction_types()
-	: array_keys( $bn_lb_builtin );
-foreach ( $bn_lb_types as $bn_lb_slug ) {
-	$bn_lb_slug = (string) $bn_lb_slug;
-	if ( '' === $bn_lb_slug ) {
-		continue;
-	}
-	$bn_lb_reactions[ $bn_lb_slug ] = $bn_lb_builtin[ $bn_lb_slug ] ?? ucwords( str_replace( array( '-', '_' ), ' ', $bn_lb_slug ) );
-}
+// Honor the owner's enabled-reactions palette (Settings -> Activity Feed) and any
+// Pro custom slugs, mirroring parts/post-actions.php - previously this hardcoded
+// all six, so a reaction the owner disabled still showed here (and its click was
+// silently coerced server-side). ReactionService::enabled_reactions() is the one
+// source for the set + each slug's translated label.
+$bn_lb_reactions = class_exists( '\\BuddyNext\\Reactions\\ReactionService' )
+	? (array) \BuddyNext\Reactions\ReactionService::enabled_reactions()
+	: array();
 
 // Every interaction here (react / favorite / share / comment) hits an
 // auth-required engine route, so a guest can only view + download. Rather than
@@ -77,9 +65,16 @@ $bn_lb_can_interact = is_user_logged_in();
 			<div class="bn-lightbox__panel-body">
 				<p class="bn-lightbox__views" data-bn-lb-views></p>
 
-				<?php if ( $bn_lb_can_interact ) : ?>
+				<?php if ( $bn_lb_can_interact && $bn_lb_reactions ) : ?>
 				<div class="bn-lightbox__reactions" role="group" aria-label="<?php esc_attr_e( 'React to this media', 'buddynext' ); ?>">
-					<?php foreach ( $bn_lb_reactions as $bn_lb_slug => $bn_lb_label ) : ?>
+					<?php
+					foreach ( $bn_lb_reactions as $bn_lb_reaction ) :
+						$bn_lb_slug  = (string) ( $bn_lb_reaction['slug'] ?? '' );
+						$bn_lb_label = (string) ( $bn_lb_reaction['label'] ?? '' );
+						if ( '' === $bn_lb_slug ) {
+							continue;
+						}
+						?>
 						<button type="button" class="bn-lightbox__reaction" data-reaction="<?php echo esc_attr( $bn_lb_slug ); ?>" aria-label="<?php echo esc_attr( $bn_lb_label ); ?>" aria-pressed="false">
 							<?php echo buddynext_get_emoji( $bn_lb_slug, 'bn-lightbox__reaction-emoji' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 							<span class="bn-lightbox__reaction-count" data-bn-lb-reaction-count hidden>0</span>

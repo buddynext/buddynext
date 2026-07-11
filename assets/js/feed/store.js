@@ -18,6 +18,61 @@ function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl 
 
 /* ── Comment helpers (vanilla DOM — outside WP Interactivity API scope) ── */
 
+/**
+ * The owner-enabled reaction set for the comment picker.
+ *
+ * Mirrors the post-card picker (templates/parts/post-actions.php), which renders
+ * from ReactionService::reaction_types(). The set is serialised server-side onto
+ * .bn-comment-list[data-reactions] (templates/parts/post-comments-list.php) as
+ * [{ slug, label, char, color, emoji_url }] — the owner-chosen subset plus any Pro
+ * custom slugs. Hardcoding the six built-ins here meant a reaction the owner
+ * disabled still rendered (and the server silently coerced the click), and Pro
+ * custom reactions never appeared.
+ *
+ * The six built-ins remain as a fallback only for when the attribute is absent or
+ * unparseable (e.g. a stale cached template), so the picker never renders empty.
+ *
+ * @param {Element|null} list The .bn-comment-list container for this post.
+ * @return {Array<{slug: string, label: string, char: string, color: string, emoji_url: string}>} Reaction set.
+ */
+function resolveReactionSet( list ) {
+	const raw = list ? list.dataset.reactions : '';
+
+	if ( raw ) {
+		try {
+			const parsed = JSON.parse( raw );
+			if ( Array.isArray( parsed ) && parsed.length ) {
+				return parsed
+					.filter( ( r ) => r && r.slug )
+					.map( ( r ) => ( {
+						slug:      String( r.slug ),
+						label:     String( r.label || r.slug ),
+						char:      String( r.char || '' ),
+						color:     String( r.color || '' ),
+						emoji_url: String( r.emoji_url || '' ),
+					} ) );
+			}
+		} catch ( _e ) {
+			// Fall through to the built-in set below.
+		}
+	}
+
+	const base = list && list.dataset.emojiBase ? list.dataset.emojiBase : '';
+	return [
+		{ slug: 'like',  label: t( 'reactionLike',  'Like' ) },
+		{ slug: 'love',  label: t( 'reactionLove',  'Love' ) },
+		{ slug: 'haha',  label: t( 'reactionHaha',  'Haha' ) },
+		{ slug: 'wow',   label: t( 'reactionWow',   'Wow' ) },
+		{ slug: 'sad',   label: t( 'reactionSad',   'Sad' ) },
+		{ slug: 'angry', label: t( 'reactionAngry', 'Angry' ) },
+	].map( ( r ) => ( {
+		...r,
+		char:      '',
+		color:     '',
+		emoji_url: base ? base + r.slug + '.svg' : '',
+	} ) );
+}
+
 function timeAgo( dateStr ) {
 	// The API returns a naive MySQL UTC datetime ("YYYY-MM-DD HH:MM:SS", no zone).
 	// `new Date()` parses a space-separated, zoneless string as LOCAL time, which
@@ -312,33 +367,47 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 	const bnReactList    = document.querySelector( `.bn-comment-list[data-comment-list="${ postId }"]` );
 	const bnReactionsOn  = ! bnReactList || bnReactList.dataset.reactionsEnabled !== '0';
 	if ( ! comment.is_deleted && bnReactionsOn ) {
-		// Resolve the colored Fluent Emoji vendor base via the comment-list
-		// container keyed by postId. wrap.closest() can't be used here
-		// because the wrap is not yet attached to the DOM at this point.
+		// Resolve the owner-enabled reaction set (and each slug's label/glyph) via
+		// the comment-list container keyed by postId. wrap.closest() can't be used
+		// here because the wrap is not yet attached to the DOM at this point.
 		const list      = document.querySelector( `.bn-comment-list[data-comment-list="${ postId }"]` );
-		const emojiBase = list ? list.dataset.emojiBase : '';
-		const REACTIONS = [ 'like', 'love', 'haha', 'wow', 'sad', 'angry' ];
-		const REACTION_LABELS = {
-			like:  t( 'reactionLike', 'Like' ),
-			love:  t( 'reactionLove', 'Love' ),
-			haha:  t( 'reactionHaha', 'Haha' ),
-			wow:   t( 'reactionWow', 'Wow' ),
-			sad:   t( 'reactionSad', 'Sad' ),
-			angry: t( 'reactionAngry', 'Angry' ),
-		};
+		const REACTIONS = resolveReactionSet( list );
+		const REACTION_META   = Object.fromEntries( REACTIONS.map( ( r ) => [ r.slug, r ] ) );
+		const REACTION_LABELS = Object.fromEntries( REACTIONS.map( ( r ) => [ r.slug, r.label ] ) );
 
-		const setReactionIcon = ( parent, type ) => {
+		// Render one reaction glyph into `parent`. Prefers the bundled Fluent SVG;
+		// Pro custom slugs have none, so they fall back to a colour-tinted text
+		// glyph (char, else the label's initial) exactly like the post card.
+		const setReactionIcon = ( parent, type, size ) => {
 			parent.replaceChildren();
-			if ( type && emojiBase ) {
-				const img = document.createElement( 'img' );
-				img.src = emojiBase + type + '.svg';
-				img.alt = REACTION_LABELS[ type ] || '';
-				img.width = 16;
-				img.height = 16;
-				parent.appendChild( img );
-			} else {
+			const meta = type ? REACTION_META[ type ] : null;
+			if ( ! meta ) {
 				parent.textContent = '♡';
+				return;
 			}
+			const px = size || 16;
+			if ( meta.emoji_url ) {
+				const img  = document.createElement( 'img' );
+				img.src    = meta.emoji_url;
+				img.alt    = meta.label || '';
+				img.width  = px;
+				img.height = px;
+				parent.appendChild( img );
+				return;
+			}
+			// .bn-reaction-glyph sizes itself to 100% of its parent, which works on
+			// the post card (the parent .bn-reaction-icon is a fixed box) but not
+			// here — neither .bn-comment__like-icon nor .bn-comment__react-option is
+			// sized. Give it an explicit box so it fills the same slot as the emoji.
+			const glyph = document.createElement( 'span' );
+			glyph.className   = 'bn-reaction-glyph';
+			glyph.textContent = meta.char || ( meta.label || meta.slug ).charAt( 0 ).toUpperCase();
+			glyph.style.width  = px + 'px';
+			glyph.style.height = px + 'px';
+			if ( /^#[0-9a-fA-F]{6}$/.test( meta.color ) ) {
+				glyph.style.color = meta.color;
+			}
+			parent.appendChild( glyph );
 		};
 
 		const wrapBtn = document.createElement( 'span' );
@@ -347,7 +416,10 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		reactBtn = document.createElement( 'button' );
 		reactBtn.type = 'button';
 		reactBtn.className = 'bn-comment__like-btn';
-		reactBtn.dataset.reaction = comment.viewer_liked ? ( comment.viewer_reaction || 'like' ) : '';
+		// Default to the first ENABLED slug, not a hardcoded 'like' — the owner can
+		// disable 'like', in which case it has no glyph or label to render.
+		const defaultReaction = REACTIONS.length ? REACTIONS[ 0 ].slug : 'like';
+		reactBtn.dataset.reaction = comment.viewer_liked ? ( comment.viewer_reaction || defaultReaction ) : '';
 		// Explicit binary state hook ("0"/"1") — distinct from aria-pressed so the
 		// liked state is always a defined attribute, never an empty string.
 		reactBtn.dataset.liked = comment.viewer_liked ? '1' : '0';
@@ -373,29 +445,21 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		reactBtn.appendChild( document.createTextNode( ' ' ) );
 		reactBtn.appendChild( reactCount );
 
-		// 6-emoji picker dropdown.
+		// Reaction picker dropdown — one option per owner-enabled reaction.
 		const picker = document.createElement( 'div' );
 		picker.className = 'bn-comment__react-picker';
 		picker.hidden = true;
 		picker.setAttribute( 'role', 'toolbar' );
 		picker.setAttribute( 'aria-label', t( 'chooseReaction', 'Choose reaction' ) );
-		REACTIONS.forEach( ( type ) => {
+		REACTIONS.forEach( ( reaction ) => {
+			const type = reaction.slug;
 			const opt = document.createElement( 'button' );
 			opt.type = 'button';
 			opt.className = 'bn-comment__react-option';
-			opt.setAttribute( 'aria-label', REACTION_LABELS[ type ] );
-			opt.title = REACTION_LABELS[ type ];
+			opt.setAttribute( 'aria-label', reaction.label );
+			opt.title = reaction.label;
 			opt.dataset.reaction = type;
-			if ( emojiBase ) {
-				const img = document.createElement( 'img' );
-				img.src = emojiBase + type + '.svg';
-				img.alt = REACTION_LABELS[ type ];
-				img.width = 28;
-				img.height = 28;
-				opt.appendChild( img );
-			} else {
-				opt.textContent = REACTION_LABELS[ type ];
-			}
+			setReactionIcon( opt, type, 28 );
 			// Keyboard activation only: mouse/touch selection is handled by the
 			// picker-level 'pointerdown' listener below (so the choice lands before
 			// any blur-driven close). `e.detail === 0` distinguishes a keyboard

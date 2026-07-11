@@ -51,6 +51,24 @@ class ProfileService {
 	private const VALUE_PURGE_BATCH = 500;
 
 	/**
+	 * Members processed per search-mirror rebuild batch.
+	 *
+	 * A field's searchable/visibility flip has to touch every member who holds a
+	 * value for it — usermeta mirror write + bn_search_index rebuild. At 100k
+	 * members that is not a single-request job, so rebuild_field_mirror() walks
+	 * the value rows in keyset batches of this size and re-enqueues itself.
+	 */
+	private const MIRROR_REBUILD_BATCH = 200;
+
+	/**
+	 * Option key prefix for the rebuild_field_mirror() keyset cursor.
+	 *
+	 * Stores the last user_id processed for a field so the next batch resumes
+	 * where the previous one stopped. Deleted when the rebuild completes.
+	 */
+	private const MIRROR_CURSOR_OPTION = 'bn_field_mirror_cursor_';
+
+	/**
 	 * Return all profile groups with their nested field definitions.
 	 *
 	 * Return shape:
@@ -329,6 +347,24 @@ class ProfileService {
 		 * @param array<int, array<string, mixed>> $groups Group rows.
 		 */
 		return (array) apply_filters( 'buddynext_profile_groups', $groups );
+	}
+
+	/**
+	 * Flush the cached profile GROUP + FIELD definitions.
+	 *
+	 * The `all_groups` / `all_fields` entries cache the definition rows (label,
+	 * visibility, type_restriction, …). Any service that mutates those rows from
+	 * outside this class — e.g. MemberTypeService rewriting
+	 * bn_profile_groups.type_restriction when a member type is renamed or deleted
+	 * — must call this, or the definitions stay stale until the TTL expires and
+	 * the change is invisible to every read path (get_groups / get_fields /
+	 * get_profile / get_registration_fields).
+	 *
+	 * @return void
+	 */
+	public static function flush_definition_cache(): void {
+		wp_cache_delete( 'all_groups', self::CACHE_GROUP );
+		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
 	}
 
 	/**
@@ -2482,10 +2518,26 @@ class ProfileService {
 	}
 
 	/**
-	 * Recompute the search mirror for every member who has a value for a field
-	 * after its definition changes (is_searchable toggled, default visibility
-	 * changed). Hooked to buddynext_profile_field_updated so an admin edit
-	 * backfills existing members' mirrors instead of waiting for each to re-save.
+	 * Recompute the search mirror AND the FULLTEXT search index for every member
+	 * who has a value for a field after its definition changes (is_searchable
+	 * toggled, default visibility changed). Hooked to
+	 * buddynext_profile_field_updated so an admin edit backfills existing members
+	 * instead of waiting for each of them to re-save their profile.
+	 *
+	 * Two stores must move together:
+	 *   1. the bn_field_{key} usermeta mirror (sync_search_mirror), and
+	 *   2. the bn_search_index.content FULLTEXT column (index_user), which is what
+	 *      BOTH the members directory and unified search actually read.
+	 * Backfilling only (1) — the previous behaviour — left existing members
+	 * unfindable by the newly-searchable field until each re-saved their profile.
+	 *
+	 * Big-site shape: the value rows are walked in keyset batches of
+	 * MIRROR_REBUILD_BATCH (cursor persisted per field) and each batch re-enqueues
+	 * itself on its own hook via Action Scheduler, so a 100k-member field flip
+	 * never runs inline in the admin request. The per-user reindex is likewise
+	 * queued (buddynext_async_index_user), which also dodges the per-request
+	 * static memo in MemberDirectoryService::searchable_mirror_keys() — each queued
+	 * run resolves a fresh key list.
 	 *
 	 * Flat fields only — the bn_field_{key} mirror is single-valued per user.
 	 *
@@ -2496,6 +2548,14 @@ class ProfileService {
 		if ( $field_id <= 0 ) {
 			return;
 		}
+
+		// Bust the definition caches BEFORE any indexing runs. ProfileFieldsManager
+		// fires buddynext_profile_field_updated *before* it clears 'all_fields', and
+		// searchable_mirror_keys() derives its key list from get_fields() — so
+		// without this the reindex would read the pre-edit field definitions and
+		// rebuild the index with the OLD searchable key list.
+		self::flush_definition_cache();
+		wp_cache_delete( 'bn_dir_searchable_mirrors', 'buddynext' );
 
 		global $wpdb;
 
@@ -2511,10 +2571,11 @@ class ProfileService {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( ! $def || 'flat' !== $def['group_type'] ) {
 			// Repeater fields have no single-valued mirror; nothing to backfill.
-			wp_cache_delete( 'bn_dir_searchable_mirrors', 'buddynext' );
+			delete_option( self::MIRROR_CURSOR_OPTION . $field_id );
 			return;
 		}
 
@@ -2527,18 +2588,68 @@ class ProfileService {
 			'group_visibility' => (string) $def['group_visibility'],
 		);
 
-		if ( \BuddyNext\Profile\FieldType::is_multi_entry( (string) $def['type'] ) ) {
-			// Set-valued field: one row per pick — rejoin every user's picks so
-			// the rebuilt mirror covers the full selection, not just entry 0.
+		$is_multi   = \BuddyNext\Profile\FieldType::is_multi_entry( (string) $def['type'] );
+		$queued     = function_exists( 'as_enqueue_async_action' );
+		$cursor     = (int) get_option( self::MIRROR_CURSOR_OPTION . $field_id, 0 );
+		$batch_size = self::MIRROR_REBUILD_BATCH;
+
+		do {
+			$rows   = $this->field_value_batch( $field_id, $is_multi, $cursor, $batch_size );
+			$found  = count( $rows );
+			$cursor = $this->rebuild_mirror_batch( $rows, $field, $queued );
+
+			if ( $found < $batch_size ) {
+				// Last batch — the rebuild is complete.
+				delete_option( self::MIRROR_CURSOR_OPTION . $field_id );
+				return;
+			}
+
+			if ( $queued ) {
+				// Park the cursor and hand the next batch to Action Scheduler. The
+				// only listener on this hook is rebuild_field_mirror() itself
+				// (Plugin.php), so re-firing it resumes exactly here.
+				update_option( self::MIRROR_CURSOR_OPTION . $field_id, $cursor, false );
+				as_enqueue_async_action( 'buddynext_profile_field_updated', array( $field_id ), 'buddynext' );
+				return;
+			}
+
+			// No Action Scheduler on this host: finish inline, batch by batch, so a
+			// searchable flip is never silently left half-applied.
+		} while ( true );
+	}
+
+	/**
+	 * Fetch one keyset batch of a field's stored values, ordered by user_id.
+	 *
+	 * Keyset (user_id > cursor) rather than OFFSET so the walk stays index-backed
+	 * and cannot skip or repeat rows when members save concurrently.
+	 *
+	 * @param int  $field_id Field whose values to read.
+	 * @param bool $is_multi Whether the field is multi-entry (one row per pick).
+	 * @param int  $cursor   Last user_id processed (0 = start).
+	 * @param int  $limit    Maximum rows to return.
+	 * @return array<int, array<string, mixed>> Rows of user_id, value, entry_visibility.
+	 */
+	private function field_value_batch( int $field_id, bool $is_multi, int $cursor, int $limit ): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $is_multi ) {
+			// Set-valued field: one row per pick — rejoin every user's picks so the
+			// rebuilt mirror covers the full selection, not just entry 0.
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT user_id,
 					        GROUP_CONCAT(value ORDER BY entry_index SEPARATOR ',') AS value,
 					        MIN(entry_visibility) AS entry_visibility
 					 FROM {$wpdb->prefix}bn_profile_values
-					 WHERE field_id = %d
-					 GROUP BY user_id",
-					$field_id
+					 WHERE field_id = %d AND user_id > %d
+					 GROUP BY user_id
+					 ORDER BY user_id ASC
+					 LIMIT %d",
+					$field_id,
+					$cursor,
+					$limit
 				),
 				ARRAY_A
 			);
@@ -2547,25 +2658,56 @@ class ProfileService {
 				$wpdb->prepare(
 					"SELECT user_id, value, entry_visibility
 					 FROM {$wpdb->prefix}bn_profile_values
-					 WHERE field_id = %d AND entry_index = 0",
-					$field_id
+					 WHERE field_id = %d AND entry_index = 0 AND user_id > %d
+					 ORDER BY user_id ASC
+					 LIMIT %d",
+					$field_id,
+					$cursor,
+					$limit
 				),
 				ARRAY_A
 			);
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		foreach ( (array) $rows as $row ) {
+		return (array) $rows;
+	}
+
+	/**
+	 * Rewrite the usermeta mirror + reindex each member in one rebuild batch.
+	 *
+	 * @param array<int, array<string, mixed>> $rows   Value rows (user_id ASC).
+	 * @param array<string, mixed>             $field  Flat field definition.
+	 * @param bool                             $queued Whether Action Scheduler is available.
+	 * @return int The highest user_id processed (the next keyset cursor).
+	 */
+	private function rebuild_mirror_batch( array $rows, array $field, bool $queued ): int {
+		$cursor = 0;
+
+		foreach ( $rows as $row ) {
+			$user_id = (int) $row['user_id'];
+
 			$this->sync_search_mirror(
-				(int) $row['user_id'],
+				$user_id,
 				$field,
 				(string) $row['value'],
-				isset( $row['entry_visibility'] ) ? $row['entry_visibility'] : null
+				$row['entry_visibility'] ?? null
 			);
+
+			// Rebuild bn_search_index.content for this member. Queued when possible:
+			// buddynext_index_user runs index_user() INLINE by design
+			// (SearchIndexListener), which would mean one FULLTEXT upsert per member
+			// inside the admin request.
+			if ( $queued ) {
+				as_enqueue_async_action( 'buddynext_async_index_user', array( $user_id ), 'buddynext' );
+			} else {
+				do_action( 'buddynext_index_user', $user_id );
+			}
+
+			$cursor = max( $cursor, $user_id );
 		}
 
-		// The directory's searchable-mirror key list may have changed.
-		wp_cache_delete( 'bn_dir_searchable_mirrors', 'buddynext' );
+		return $cursor;
 	}
 
 	/**

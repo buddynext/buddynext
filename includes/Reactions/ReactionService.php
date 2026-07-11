@@ -53,12 +53,10 @@ class ReactionService {
 		}
 
 		// Validate the emoji against the allow-list (the owner-enabled, Pro-filterable
-		// reaction types). An unknown slug falls back to the default 'like' so a stray
-		// or disabled type never lands in the table.
-		$emoji = sanitize_key( $emoji );
-		if ( ! in_array( $emoji, self::reaction_types(), true ) ) {
-			$emoji = 'like';
-		}
+		// reaction types). An unknown slug falls back to the first ENABLED type so a
+		// stray or disabled type never lands in the table — hardcoding 'like' here
+		// broke that guarantee precisely when the owner had disabled 'like'.
+		$emoji = self::coerce_to_enabled( $emoji );
 
 		global $wpdb;
 
@@ -212,6 +210,34 @@ class ReactionService {
 	}
 
 	/**
+	 * Normalise an incoming reaction slug to one the owner actually has enabled.
+	 *
+	 * Single guard used by both write paths (react() and the toggle() replace
+	 * branch), so a slug the owner disabled — or a stray/legacy one a client
+	 * sends — can never land in bn_reactions. Out-of-set slugs coerce to the
+	 * FIRST enabled type rather than the literal 'like': the settings sanitizer
+	 * only enforces a non-empty set, so 'like' itself may be disabled, and
+	 * coercing to it would write exactly the slug the owner turned off.
+	 *
+	 * reaction_types() is guaranteed non-empty (it falls back to the canonical
+	 * six when the option is empty); 'like' remains only as a defensive default
+	 * if a filter returns an empty list.
+	 *
+	 * @param string $emoji Raw reaction slug from the client.
+	 * @return string A slug guaranteed to be in the owner-enabled set.
+	 */
+	private static function coerce_to_enabled( string $emoji ): string {
+		$emoji   = sanitize_key( $emoji );
+		$enabled = self::reaction_types();
+
+		if ( in_array( $emoji, $enabled, true ) ) {
+			return $emoji;
+		}
+
+		return (string) ( reset( $enabled ) ?: 'like' );
+	}
+
+	/**
 	 * The owner-enabled reaction set with full render metadata.
 	 *
 	 * Single source the app can read to render the reaction picker without
@@ -360,11 +386,9 @@ class ReactionService {
 		}
 
 		// Replace the existing emoji with the new one. Validate against the
-		// allow-list (mirrors react()) so a switch never writes an unknown slug.
-		$emoji = sanitize_key( $emoji );
-		if ( ! in_array( $emoji, self::reaction_types(), true ) ) {
-			$emoji = 'like';
-		}
+		// allow-list (mirrors react()) so a switch never writes an unknown or
+		// owner-disabled slug.
+		$emoji = self::coerce_to_enabled( $emoji );
 
 		global $wpdb;
 

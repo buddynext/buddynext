@@ -1046,6 +1046,10 @@ class AssetService {
 					'composeNewMessage'         => __( 'New message', 'buddynext' ),
 					'composeHint'               => __( 'Search for a person to message.', 'buddynext' ),
 					'composeNone'               => __( 'No people found.', 'buddynext' ),
+					// Recipient search failed (403/429/500/offline). Rendered as an
+					// in-list hint inside the open dropdown, not a toast, so the
+					// picker never keeps showing the previous query's stale rows.
+					'composeError'              => __( 'Could not search right now. Try again.', 'buddynext' ),
 					'memberCountSingular'       => __( '1 member', 'buddynext' ),
 					/* translators: %d: number of members */
 					'memberCountPlural'         => __( '%d members', 'buddynext' ),
@@ -1060,6 +1064,9 @@ class AssetService {
 					'groupLeaveBody'            => __( 'You will stop receiving messages from this conversation.', 'buddynext' ),
 					'groupLeaveOk'              => __( 'Leave', 'buddynext' ),
 					'attachment'                => __( 'Attachment', 'buddynext' ),
+					// DM attachment upload failed (too large, disallowed type, quota).
+					// Fallback only — the server's own reason is preferred when present.
+					'attachmentUploadFailed'    => __( 'Could not attach that file. Try a different one.', 'buddynext' ),
 					'noPhotosShared'            => __( 'No photos shared yet.', 'buddynext' ),
 					'mediaEmpty'                => __( 'No photos to share yet.', 'buddynext' ),
 					'emojiPickerClose'          => __( 'Close emoji picker', 'buddynext' ),

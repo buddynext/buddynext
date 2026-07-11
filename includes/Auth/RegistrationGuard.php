@@ -46,10 +46,31 @@ defined( 'ABSPATH' ) || exit;
  */
 class RegistrationGuard {
 
-	private const RATE_PREFIX    = 'bn_reg_rl_';
-	private const RATE_MAX       = 5;
-	private const MIN_SECONDS    = 2;
-	private const TOKEN_TTL      = 3600;
+	private const RATE_PREFIX = 'bn_reg_rl_';
+	private const RATE_MAX    = 5;
+
+	/**
+	 * Lower bound of the time-trap: a form submitted in under this many seconds
+	 * was not filled in by a human. THIS is the actual bot signal — keep it.
+	 */
+	private const MIN_SECONDS = 2;
+
+	/**
+	 * Upper bound (max age) of the form tokens — both the time-trap token
+	 * (too_fast()) and the human-check challenge token (verify_challenge()) read
+	 * this one constant, so the two stay in lockstep.
+	 *
+	 * Deliberately generous (a day, matching WP's nonce life) rather than tight:
+	 * an expired upper bound is NOT a bot signal, it just means the form HTML was
+	 * old. It went stale for two entirely human reasons — a full-page cache
+	 * serving a copy minted hours ago (see PageRouter's DONOTCACHEPAGE guard on
+	 * the auth hub, which is the real fix for that), or a person who left the tab
+	 * open while doing something else. Both used to score +100 ("looked
+	 * automated") and be rejected. Tightening this back down does not buy any
+	 * protection: a bot can always mint a fresh token by re-fetching the page.
+	 */
+	private const TOKEN_TTL = DAY_IN_SECONDS;
+
 	private const OPT_PROTECTION = 'buddynext_reg_spam_protection';
 	private const OPT_CHALLENGE  = 'buddynext_reg_challenge';
 

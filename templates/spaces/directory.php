@@ -227,27 +227,21 @@ if ( ! function_exists( 'bn_space_cover_tone' ) ) {
 
 if ( ! function_exists( 'bn_space_category_icon' ) ) {
 	/**
-	 * Returns an SVG icon for a space category slug.
+	 * Template shim for the space-category emblem.
+	 *
+	 * The resolution logic (admin-editable icon_svg first, then the built-in
+	 * slug map, then the default glyph) lives in one place —
+	 * IconService::space_category_icon(). This shim only exists because the
+	 * space parts (space-directory-card, space-hero, space-about-panel,
+	 * space-settings-panel-general) call the helper by its global name.
 	 *
 	 * @param string|null $cat_slug Category slug.
-	 * @return string SVG markup.
+	 * @param string|null $icon_svg Optional pre-resolved icon_svg from a hydrated
+	 *                              category row. Null looks it up by slug.
+	 * @return string Sanitized SVG markup safe for inline output.
 	 */
-	function bn_space_category_icon( ?string $cat_slug ): string {
-		$map  = array(
-			'technology'  => 'cpu',
-			'design'      => 'image',
-			'marketing'   => 'megaphone',
-			'startups'    => 'rocket',
-			'ai-ml'       => 'cpu',
-			'data'        => 'bar-chart',
-			'product'     => 'target',
-			'writing'     => 'edit',
-			'open-source' => 'globe',
-			'business'    => 'briefcase',
-			'creative'    => 'star',
-		);
-		$slug = $map[ (string) $cat_slug ] ?? 'home';
-		return buddynext_get_icon( $slug );
+	function bn_space_category_icon( ?string $cat_slug, ?string $icon_svg = null ): string {
+		return \BuddyNext\Core\IconService::space_category_icon( $cat_slug, $icon_svg );
 	}
 }
 
