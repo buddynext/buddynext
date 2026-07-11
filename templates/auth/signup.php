@@ -113,6 +113,11 @@ if ( 'invite' === $bn_reg_mode ) {
 				'strengthLabel'    => '',
 				'submitting'       => false,
 				'error'            => '',
+				// Approval-mode registration succeeds but issues NO session: the account
+				// is held for an admin. Redirecting such a user to /onboarding/ (which is
+				// login-required) bounces them to a login they cannot pass. So we hold
+				// them here and say so, instead of congratulating them into a dead end.
+				'pendingMessage'   => '',
 				'fieldErrors'      => array(),
 				'restNonce'        => $rest_nonce,
 				'restUrl'          => $rest_root,
@@ -138,8 +143,23 @@ if ( 'invite' === $bn_reg_mode ) {
 					data-wp-bind--hidden="!state.error"
 					data-wp-text="state.error"></div>
 
+				<?php
+				/*
+				 * Approval-mode confirmation. Shown instead of the form once registration
+				 * returns pending:true — the account exists but carries no session, so
+				 * there is nothing to redirect them to and nothing more for them to fill in.
+				 */
+				?>
+				<div class="bn-auth-notice bn-auth-notice--pending" role="status" aria-live="polite"
+					data-wp-bind--hidden="!state.pending">
+					<p class="bn-auth-notice__title"><?php esc_html_e( 'Your account is awaiting approval', 'buddynext' ); ?></p>
+					<p class="bn-auth-notice__body" data-wp-text="state.pendingMessage"></p>
+					<p class="bn-auth-notice__body"><?php esc_html_e( 'We will email you as soon as an administrator approves it. You do not need to do anything else.', 'buddynext' ); ?></p>
+				</div>
+
 				<form class="bn-auth-form"
 					novalidate
+					data-wp-bind--hidden="state.pending"
 					data-wp-on--submit="actions.submitSignup">
 
 					<div class="bn-auth-field">

@@ -114,6 +114,10 @@ const signupStore = store( 'buddynext/auth-signup', {
 	state: {
 		get error() { return ctx().error || ''; },
 		get submitting() { return !! ctx().submitting; },
+		// Approval mode: registration succeeded but issued no session. The form is
+		// swapped for a confirmation notice rather than redirected anywhere.
+		get pending() { return !! ctx().pendingMessage; },
+		get pendingMessage() { return ctx().pendingMessage || ''; },
 		get strengthWidth() {
 			const s = Number( ctx().passwordStrength ) || 0;
 			return ( ( s / 4 ) * 100 ) + '%';
@@ -269,6 +273,19 @@ const signupStore = store( 'buddynext/auth-signup', {
 					c.submitting = false;
 					return;
 				}
+
+				// Admin-approval mode: the account exists but is held for review and was
+				// issued NO session. Redirecting to /onboarding/ (login-required) would
+				// bounce this session-less user straight to a login they cannot pass —
+				// a dead end seconds after being told they were in. Show the real reason
+				// and stay put. Mirrors the social-completion branch below.
+				if ( data.pending ) {
+					c.pendingMessage = data.message || t( 'awaitingApproval', 'Your account is awaiting administrator approval.' );
+					c.submitting = false;
+					c.error = '';
+					return;
+				}
+
 				toast( t( 'accountCreated', 'Account created. Welcome aboard!' ), 'success' );
 				window.location.href = ( data && data.redirect_to ) || '/onboarding/';
 			} catch ( _e ) {
