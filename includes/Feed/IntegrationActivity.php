@@ -120,6 +120,38 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * The permalink a post HAS, or HAD while it was published.
+	 *
+	 * Forces `publish` status on a probe copy and strips WordPress's `__trashed` slug
+	 * suffix, so the URL is identical to the one stored on the activity card when the
+	 * content first went public — whatever the post's current (draft / trashed) state.
+	 *
+	 * That identity is the whole point: remove() matches an activity card by its
+	 * link_url, so a bridge tearing down the card for a trashed post MUST be able to
+	 * reconstruct the URL exactly as it was written. Ask WordPress for the permalink of
+	 * a trashed post and you get the `__trashed` slug, which matches nothing, and the
+	 * activity card is orphaned in the feed forever.
+	 *
+	 * Lives here because this is the class every bridge already goes through to publish
+	 * and remove a card — the URL rule belongs next to the thing it is a key for. It was
+	 * previously copy-pasted, byte for byte, into two Pro bridges.
+	 *
+	 * @param \WP_Post $post The partner post (listing, job, …).
+	 * @return string
+	 */
+	public static function published_permalink( \WP_Post $post ): string {
+		if ( 'publish' === $post->post_status ) {
+			return (string) get_permalink( $post );
+		}
+
+		$probe              = clone $post;
+		$probe->post_status = 'publish';
+		$probe->post_name   = (string) preg_replace( '/__trashed$/', '', (string) $probe->post_name );
+
+		return (string) get_permalink( $probe );
+	}
+
+	/**
 	 * Remove the activity card for a partner page (e.g. when the content is deleted).
 	 *
 	 * @param string $link_url The partner page the card linked to.

@@ -77,6 +77,44 @@ find "$STAGE" -type f -name '*.md' -delete
 find "$STAGE" -type f \( -name '.gitignore' -o -name '.gitattributes' -o -name 'composer.json' -o -name 'composer.lock' -o -name '.editorconfig' \) -delete
 find "$STAGE" -depth -type d \( -name '.github' -o -name '.git' -o -name '.circleci' \) -exec rm -rf {} +
 
+# 4b. Bundled-runtime-dep assertion. The allowlist and the strip in step 4 are two
+#     independent ways to lose a bundled dependency, and losing one is silent: the
+#     zip builds, installs, and only explodes (or quietly disables licensing) on a
+#     customer's site. That has already happened once in this portfolio — a bundled
+#     SDK was stripped from a release zip and the plugin fataled on activation.
+#
+#     So assert, do not assume. These are the files without which the EDD SL SDK is
+#     not merely degraded but ABSENT: the entry file, the class the loader guards on
+#     (buddynext.php checks src/Versions.php before requiring anything), and the two
+#     assets Handler.php enqueues. Pro does NOT bundle the SDK on purpose — it loads
+#     this copy out of BUDDYNEXT_DIR, so if it goes missing here it goes missing for
+#     both plugins at once.
+REQUIRED_FILES=(
+	"libs/edd-sl-sdk/edd-sl-sdk.php"
+	"libs/edd-sl-sdk/src/Versions.php"
+	"libs/edd-sl-sdk/src/Utilities/Path.php"
+	"libs/edd-sl-sdk/src/Handlers/Handler.php"
+	"libs/edd-sl-sdk/assets/build/js/edd-sl-sdk.js"
+	"libs/edd-sl-sdk/assets/build/css/style-edd-sl-sdk.css"
+	"libs/edd-sl-sdk/templates/license-control.php"
+)
+MISSING=0
+for f in "${REQUIRED_FILES[@]}"; do
+	if [ ! -f "$STAGE/$f" ]; then
+		echo "build FAILED: bundled runtime dep missing from the staged package: $f" >&2
+		MISSING=1
+	fi
+done
+if [ "$MISSING" -ne 0 ]; then
+	echo "" >&2
+	echo "The EDD SL SDK must ship inside the zip. It is committed under libs/ and is" >&2
+	echo "NOT restored by composer at install time — if it is not in the package, it is" >&2
+	echo "not on the customer's site. Check the RUNTIME allowlist and the strip in step 4." >&2
+	rm -rf "$TMP"
+	exit 1
+fi
+echo "bundled deps: EDD SL SDK complete (${#REQUIRED_FILES[@]}/${#REQUIRED_FILES[@]})"
+
 # 5. Zip.
 mkdir -p "$DIST"
 ZIP="$DIST/$SLUG-$VERSION.zip"
