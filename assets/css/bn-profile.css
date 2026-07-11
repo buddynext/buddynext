@@ -734,6 +734,11 @@
 	height: 200px;
 	position: relative;
 	overflow: hidden;
+	/* Match the hero card's rounded top corners (.bn-card uses --r-lg). The hero
+	   itself can't use overflow:hidden (it would clip the More-Options dropdown),
+	   so the square-cornered cover otherwise spilled over the card's rounded
+	   corners — most visible at 390px. */
+	border-radius: var(--r-lg) var(--r-lg) 0 0;
 	/* Default cover — a tonal wash of BuddyNext's own accent. Was mixing the
 	   Jetonomy (purple) + MediaVerse (teal) brand accents, which read as a
 	   generic purple/teal "AI" gradient rather than on-brand BuddyNext. */
@@ -1683,7 +1688,9 @@ a.bn-space-row:hover .bn-space-name {
 
 @media (max-width: 640px) {
 	.bn-pf-stack { gap: var(--bn-s3); }
-	.bn-pf-cover { height: 140px; }
+	/* Match .bn-card's mobile radius (--r-md at <=640px) so the cover's rounded
+	   top corners still align with the hero card. */
+	.bn-pf-cover { height: 140px; border-radius: var(--r-md) var(--r-md) 0 0; }
 	.bn-pf-avatar-wrap { margin-block-start: calc(var(--bn-s8) * -1); }
 	.bn-pf-avatar-wrap .bn-avatar[data-size="2xl"] {
 		width: 80px;
