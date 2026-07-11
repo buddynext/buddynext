@@ -113,6 +113,12 @@ class Plugin {
 		// changes, so a just-blocked member disappears immediately (not after TTL).
 		$container->get( 'member_directory' )->register();
 
+		// Hand every space owned by a removed member to an heir (longest-serving
+		// moderator, else a site admin). Without this, deleting a user leaves
+		// bn_spaces.owner_id pointing at a ghost while their owner row is purged:
+		// the space ends up with zero owners and no UI to recover it.
+		( new \BuddyNext\Spaces\SpaceSuccession() )->register();
+
 		// Enforce per-space "who can post" + "require approval" at post-save time
 		// (the composer gate alone is bypassable via REST).
 		( new \BuddyNext\Spaces\SpacePostGuard() )->register();
