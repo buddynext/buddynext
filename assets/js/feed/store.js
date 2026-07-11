@@ -2746,6 +2746,14 @@ store( 'buddynext/post-composer', {
 						area.querySelectorAll( '.bn-composer__media-thumb' ).forEach( function ( el ) { el.remove(); } );
 					} );
 
+					// Reset the schedule sub-form too. Without this a scheduled post left
+					// the schedule panel open with the chosen date still in the field, so
+					// the next post silently inherited the old publish time (and re-typing
+					// felt broken). Close the panel, clear the state and the input.
+					ctx.scheduleOpen = false;
+					ctx.scheduledAt  = '';
+					document.querySelectorAll( '#bn-composer-schedule-at' ).forEach( function ( el ) { el.value = ''; } );
+
 					const created     = res.data || {};
 					const isScheduled = !! body.scheduled_at || 'scheduled' === created.status;
 					// Pre-moderation can hold the post (status=pending): it is NOT
