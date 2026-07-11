@@ -28,13 +28,21 @@
  * itself. multi (multiselect) values are stored as a comma-joined list of
  * option SLUGS.
  *
- * One deliberate exception to the "no DB access" purity rule:
- * category_multiselect resolves its choices LIVE from SpaceCategoryService
- * (see category_options()) so the pick list can never drift from the owner's
- * category taxonomy — a stored options snapshot would go stale on every
- * category rename/delete. The service call is object-cached, and an
- * unavailable Spaces schema degrades to an empty choice list (renderers show
- * nothing; nothing errors).
+ * Two deliberate exceptions to the "no DB access" purity rule — the LIVE-OPTIONED
+ * types. Their choices are resolved on every call rather than read from a stored
+ * options snapshot, so the pick list can never drift from the owner's own data (a
+ * snapshot goes stale on every rename/delete):
+ *
+ *   - category_multiselect     → SpaceCategoryService (see category_options()).
+ *                                Values are category IDs; multi-entry storage.
+ *   - member_type_multiselect  → MemberTypeService (see member_type_options()).
+ *                                Values are member-type SLUGS; stored as one
+ *                                comma-joined string (NOT multi-entry).
+ *
+ * Both service calls are object-cached, and an unavailable schema degrades to an
+ * empty choice list (renderers show an empty state; sanitisation accepts nothing;
+ * nothing errors). Resolving choices at USE time is also what lets a field offer
+ * live choices without putting a query in the always-on registration hook.
  *
  * @package BuddyNext\Profile
  */
@@ -139,6 +147,17 @@ class FieldType {
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 			),
+			// Choices come LIVE from the owner's member types. Same live-options
+			// contract as category_multiselect, but the values are member-type SLUGS
+			// (not IDs) and they are stored as one comma-joined space-meta string, so
+			// this is NOT multi-entry. Exists so a space field can offer member types
+			// without baking a per-request query into the always-on registration hook.
+			'member_type_multiselect' => array(
+				'label'                 => __( 'Member Types', 'buddynext' ),
+				'value_kind'            => 'multi',
+				'is_choice'             => false,
+				'is_searchable_capable' => false,
+			),
 			'color'                => array(
 				'label'                 => __( 'Colour', 'buddynext' ),
 				'value_kind'            => 'scalar',
@@ -228,10 +247,17 @@ class FieldType {
 	 * @return array<string,string> slug => label.
 	 */
 	private static function options( array $field ): array {
-		// Live-optioned type: the choice list is the owner's category taxonomy,
-		// resolved fresh on every call — never the stored options JSON.
-		if ( 'category_multiselect' === (string) ( $field['type'] ?? '' ) ) {
+		// Live-optioned types: the choice list is the owner's own taxonomy, resolved
+		// fresh on every call — never the stored options JSON. This is what lets a
+		// field offer live choices without a query in the registration hook.
+		$field_type = (string) ( $field['type'] ?? '' );
+
+		if ( 'category_multiselect' === $field_type ) {
 			return self::category_options();
+		}
+
+		if ( 'member_type_multiselect' === $field_type ) {
+			return self::member_type_options();
 		}
 
 		$raw = $field['options'] ?? null;
@@ -289,6 +315,56 @@ class FieldType {
 	}
 
 	/**
+	 * The choice list a client should render for this field.
+	 *
+	 * Public accessor for options(). Payload builders MUST come through here rather
+	 * than reading $field['options'] directly: a live-optioned type stores no options
+	 * at registration (that is the whole point — no query in the registration hook),
+	 * so the raw definition advertises an EMPTY pick list. Reading it directly hands
+	 * the app a picker with nothing in it.
+	 *
+	 * @param array $field Field definition.
+	 * @return array<string,string> slug => label.
+	 */
+	public static function choices( array $field ): array {
+		return self::options( $field );
+	}
+
+	/**
+	 * Live member-type choices for member_type_multiselect fields.
+	 *
+	 * Keyed by member-type SLUG (that is what the value stores, and what
+	 * AutoJoinService matches on), value = the type's display name. Resolved from
+	 * MemberTypeService on every call — get_all() is object-cached, so this stays
+	 * cheap. Returns an empty list when the member-types layer is unavailable or the
+	 * owner has defined no types: renderers then show an empty state and
+	 * sanitisation accepts nothing — never an error.
+	 *
+	 * @return array<string,string> Member-type slug => name.
+	 */
+	public static function member_type_options(): array {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return array();
+		}
+
+		$service = buddynext_service( 'member_types' );
+		if ( ! is_object( $service ) || ! method_exists( $service, 'get_all' ) ) {
+			return array();
+		}
+
+		$pairs = array();
+		foreach ( (array) $service->get_all() as $type ) {
+			$slug = isset( $type['slug'] ) ? (string) $type['slug'] : '';
+			if ( '' === $slug ) {
+				continue;
+			}
+			$pairs[ $slug ] = (string) ( $type['name'] ?? $slug );
+		}
+
+		return $pairs;
+	}
+
+	/**
 	 * Whether a type stores ONE bn_profile_values row per selected value
 	 * (entry_index 0..n) instead of a single scalar row.
 	 *
@@ -302,6 +378,22 @@ class FieldType {
 	 */
 	public static function is_multi_entry( string $type ): bool {
 		return 'category_multiselect' === $type;
+	}
+
+	/**
+	 * Whether a type holds a SET of values (chips, comma-joined transport).
+	 *
+	 * The three multiselect types differ in where their choices come from and in
+	 * how they are stored, but every "render as chips / label as a list / expose as
+	 * an array" decision is the same for all of them. One predicate so a new
+	 * set-valued type cannot be added to some of those branches and forgotten in
+	 * the others.
+	 *
+	 * @param string $type Field type slug.
+	 * @return bool
+	 */
+	public static function is_multiselect_family( string $type ): bool {
+		return in_array( $type, array( 'multiselect', 'category_multiselect', 'member_type_multiselect' ), true );
 	}
 
 	/**
@@ -384,6 +476,14 @@ class FieldType {
 				// a bare fieldset with an orphaned label.
 				if ( array() === self::options( $field ) ) {
 					return '<span class="bn-field-value">' . esc_html__( 'No categories are available yet.', 'buddynext' ) . '</span>';
+				}
+				return self::render_multiselect_input( $field, $value, $name, $id );
+
+			case 'member_type_multiselect':
+				// Same checkbox grid, live member-type choices. An owner who has
+				// defined no member types gets an empty state, not an orphaned label.
+				if ( array() === self::options( $field ) ) {
+					return '<span class="bn-field-value">' . esc_html__( 'No member types have been created yet.', 'buddynext' ) . '</span>';
 				}
 				return self::render_multiselect_input( $field, $value, $name, $id );
 
@@ -584,7 +684,7 @@ class FieldType {
 			return '<span class="bn-field-value bn-field-bool">' . esc_html__( 'Yes', 'buddynext' ) . '</span>';
 		}
 
-		if ( 'multiselect' === $type || 'category_multiselect' === $type ) {
+		if ( self::is_multiselect_family( $type ) ) {
 			return self::render_chips( $field, $value );
 		}
 
@@ -875,6 +975,23 @@ class FieldType {
 				}
 				return implode( ',', $valid );
 
+			case 'member_type_multiselect':
+				// Values are member-type SLUGS, kept only when the type still exists.
+				// Unlike the plain multiselect branch this validates against the LIVE
+				// list rather than a stored options JSON — which is exactly why the
+				// field could not simply be registered as a multiselect: with no baked
+				// options, that sanitizer drops every submitted slug and saves ''.
+				$live     = self::options( $field );
+				$incoming = is_array( $raw ) ? $raw : explode( ',', (string) $raw );
+				$valid    = array();
+				foreach ( $incoming as $one ) {
+					$slug = is_scalar( $one ) ? sanitize_key( (string) $one ) : '';
+					if ( '' !== $slug && isset( $live[ $slug ] ) && ! in_array( $slug, $valid, true ) ) {
+						$valid[] = $slug;
+					}
+				}
+				return implode( ',', $valid );
+
 			case 'text':
 			default:
 				return sanitize_text_field( (string) ( is_array( $raw ) ? '' : $raw ) );
@@ -898,7 +1015,7 @@ class FieldType {
 			return '';
 		}
 
-		if ( 'multiselect' === $type || 'category_multiselect' === $type ) {
+		if ( self::is_multiselect_family( $type ) ) {
 			$options = self::options( $field );
 			$drop    = self::is_multi_entry( $type );
 			$labels  = array();
@@ -938,7 +1055,7 @@ class FieldType {
 			return self::truthy( $value ) ? __( 'Yes', 'buddynext' ) : __( 'No', 'buddynext' );
 		}
 
-		if ( 'multiselect' === $type || 'category_multiselect' === $type ) {
+		if ( self::is_multiselect_family( $type ) ) {
 			$options = self::options( $field );
 			$drop    = self::is_multi_entry( $type );
 			$labels  = array();
@@ -987,7 +1104,10 @@ class FieldType {
 			return ( is_finite( $number ) && floor( $number ) === $number ) ? (int) $number : $number;
 		}
 
-		if ( 'multiselect' === $type ) {
+		// Slug-valued sets: hand the client an array of slugs, never a comma string
+		// it would have to re-parse. member_type_multiselect belongs here (its values
+		// are slugs), not with category_multiselect (whose values are ints).
+		if ( 'multiselect' === $type || 'member_type_multiselect' === $type ) {
 			return self::multi_values( $value );
 		}
 

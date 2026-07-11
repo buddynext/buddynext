@@ -99,12 +99,35 @@ final class CoreSpaceFields {
 				'core'       => true,
 			)
 		);
-		// NOTE: the auto-join member-type filter (`auto_join_member_types`) is NOT a
-		// registered field — it is stored as plain space meta (comma-joined slugs) by
-		// the Permissions panel and read by AutoJoinService. Registering it would
-		// require baking member-type options into this always-on hook (a per-request
-		// query) AND would route saves through the multiselect option-validating
-		// sanitizer, which strips any value when options are empty.
+		// The auto-join member-type filter. This used to be deliberately UNregistered,
+		// on two objections that a live-optioned type answers:
+		//
+		// "registering it would bake member-type options into this always-on hook
+		// (a per-request query)" — it does not. `member_type_multiselect` resolves
+		// its choices at USE time, not registration time (exactly as
+		// `category_multiselect` already did), so nothing is queried here.
+		//
+		// "saves would route through the multiselect option-validating sanitizer,
+		// which strips every value when options are empty" — that is why the type
+		// has its own sanitize branch, validating against the LIVE member types.
+		//
+		// Leaving it unregistered meant the ONLY way to set it was the front-end
+		// Permissions panel: no REST read, no REST write, so the native app and every
+		// integration were locked out of a real space setting. Storage is unchanged —
+		// still comma-joined slugs in space meta, still read by AutoJoinService.
+		$registry->register(
+			'auto_join_member_types',
+			array(
+				'label'       => __( 'Limit auto-join to member types', 'buddynext' ),
+				'description' => __( 'Leave empty to auto-join every new member. Pick types to auto-join only members assigned that type. Only applies when auto-join is on.', 'buddynext' ),
+				'type'        => 'member_type_multiselect',
+				'default'     => '',
+				'section'     => 'permissions',
+				'sort_order'  => 50,
+				'visibility'  => 'members',
+				'core'        => true,
+			)
+		);
 
 		// ── Moderation ───────────────────────────────────────────────────────
 		$registry->register(

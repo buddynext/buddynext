@@ -2229,25 +2229,34 @@ class SpaceService {
 	 */
 	private function hydrate( array $row ): array {
 		$space = array(
-			'id'              => (int) ( $row['id'] ?? 0 ),
-			'name'            => $row['name'] ?? '',
-			'slug'            => $row['slug'] ?? '',
-			'description'     => $row['description'] ?? '',
-			'category_id'     => isset( $row['category_id'] ) ? (int) $row['category_id'] : null,
-			'parent_id'       => isset( $row['parent_id'] ) ? (int) $row['parent_id'] : null,
-			'type'            => $row['type'] ?? 'open',
-			'owner_id'        => (int) ( $row['owner_id'] ?? 0 ),
-			'member_count'    => (int) ( $row['member_count'] ?? 0 ),
-			'avatar_url'      => $row['avatar_url'] ?? null,
-			'cover_image_url' => $row['cover_image_url'] ?? null,
-			'rules'           => $row['rules'] ?? null,
-			'is_archived'     => ! empty( $row['is_archived'] ),
-			'archived_at'     => $row['archived_at'] ?? null,
-			'created_at'      => $row['created_at'] ?? '',
+			'id'               => (int) ( $row['id'] ?? 0 ),
+			'name'             => $row['name'] ?? '',
+			'slug'             => $row['slug'] ?? '',
+			'description'      => $row['description'] ?? '',
+			'category_id'      => isset( $row['category_id'] ) ? (int) $row['category_id'] : null,
+			'parent_id'        => isset( $row['parent_id'] ) ? (int) $row['parent_id'] : null,
+			'type'             => $row['type'] ?? 'open',
+			'owner_id'         => (int) ( $row['owner_id'] ?? 0 ),
+			'member_count'     => (int) ( $row['member_count'] ?? 0 ),
+			'avatar_url'       => $row['avatar_url'] ?? null,
+			'cover_image_url'  => $row['cover_image_url'] ?? null,
+			'rules'            => $row['rules'] ?? null,
+			// The Pro entitlement gate on the space (`tier:<slug>`), or null when the
+			// space is ungated. REST already ACCEPTS this on PUT, and Pro admin writes
+			// it — but it was never returned, so no client could tell a space was
+			// paywalled. The native app cannot render a gated space if it cannot see
+			// that the space is gated. It is not a secret: the whole point of a paywall
+			// is that the person outside it is told what would let them in.
+			'required_ability' => isset( $row['required_ability'] ) && '' !== (string) $row['required_ability']
+				? (string) $row['required_ability']
+				: null,
+			'is_archived'      => ! empty( $row['is_archived'] ),
+			'archived_at'      => $row['archived_at'] ?? null,
+			'created_at'       => $row['created_at'] ?? '',
 			// Present only on member-scoped lists (the viewer's role in the space:
 			// owner | moderator | member). Null elsewhere. Lets clients group
 			// "spaces you manage" vs "spaces you've joined" without a second query.
-			'viewer_role'     => $row['viewer_role'] ?? null,
+			'viewer_role'      => $row['viewer_role'] ?? null,
 		);
 
 		/**

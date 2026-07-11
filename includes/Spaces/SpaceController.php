@@ -972,7 +972,10 @@ class SpaceController extends BaseRestController {
 				'label'       => $field['label'],
 				'description' => $field['description'],
 				'type'        => $field['type'],
-				'options'     => $field['options'],
+				// Through the engine, never $field['options'] directly — a live-optioned
+				// type stores no options at registration and would advertise an empty
+				// pick list. See FieldType::choices().
+				'options'     => \BuddyNext\Profile\FieldType::choices( $field ),
 				'section'     => $field['section'],
 				'sort_order'  => $field['sort_order'],
 				'visibility'  => $field['visibility'],

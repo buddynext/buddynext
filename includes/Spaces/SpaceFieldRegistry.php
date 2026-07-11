@@ -391,7 +391,10 @@ final class SpaceFieldRegistry {
 				'label'       => $field['label'],
 				'description' => $field['description'],
 				'type'        => $field['type'],
-				'options'     => $field['options'],
+				// Through the engine, never $field['options'] directly: a live-optioned
+				// type (member_type_multiselect) stores no options at registration, so
+				// the raw definition would advertise an empty pick list to the client.
+				'options'     => FieldType::choices( $field ),
 				'section'     => $field['section'],
 				'sort_order'  => $field['sort_order'],
 				'visibility'  => $field['visibility'],
