@@ -808,6 +808,19 @@ class Installer {
 				// created_at is immutable after insert, so this index is write-once —
 				// a pure read win with no ongoing maintenance.
 				'dir_recent'  => 'ADD KEY dir_recent (parent_id, created_at)',
+				// The wp-admin Spaces list is a DIFFERENT access pattern from the
+				// front-end directory above: it does not scope by parent_id, so none
+				// of the (parent_id, …) composites can serve it. Its leading column
+				// is `type` (the filter segments) and it orders by created_at or
+				// last_active_at — all three unindexed, so every admin page load
+				// filesorted the whole table. Fine at 10k spaces, not at 100k.
+				//
+				// (type, created_at) serves the filtered list AND its ORDER BY from
+				// one index; admin_recent serves the unfiltered default sort;
+				// admin_active serves the "Recently active" sort.
+				'admin_type'   => 'ADD KEY admin_type (type, created_at)',
+				'admin_recent' => 'ADD KEY admin_recent (created_at)',
+				'admin_active' => 'ADD KEY admin_active (last_active_at)',
 			),
 			'bn_space_members'  => array(
 				'space_status' => 'ADD KEY space_status (space_id, status, joined_at)',
@@ -1727,7 +1740,10 @@ class Installer {
 				KEY                is_archived (is_archived),
 				KEY                dir_popular (parent_id, member_count),
 				KEY                dir_name (parent_id, name),
-				KEY                dir_recent (parent_id, created_at)
+				KEY                dir_recent (parent_id, created_at),
+				KEY                admin_type (type, created_at),
+				KEY                admin_recent (created_at),
+				KEY                admin_active (last_active_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_space_members (

@@ -91,7 +91,10 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * get_catalogue() includes all 28 templates across the seven categories.
+	 * get_catalogue() includes all 29 templates across the seven categories.
+	 *
+	 * 29 since bn.space_ownership_received was added: succession hands a member a
+	 * space they did not ask for and cannot leave, so they get an email about it.
 	 */
 	public function test_catalogue_has_all_templates(): void {
 		$catalogue = $this->editor->get_catalogue();
@@ -99,7 +102,7 @@ class EmailEditorTest extends \WP_UnitTestCase {
 		foreach ( $catalogue as $templates ) {
 			$total += count( $templates );
 		}
-		$this->assertSame( 28, $total );
+		$this->assertSame( 29, $total );
 	}
 
 	/**
