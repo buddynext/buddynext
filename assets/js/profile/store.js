@@ -670,7 +670,8 @@ var _pendingCover  = null; // { file, x, y, zoom }
 async function flushStagedMedia( ctx ) {
 	var allOk = true;
 	if ( _pendingAvatar ) {
-		var avFd = new FormData();
+		var avatarOk = false;
+		var avFd     = new FormData();
 		avFd.append( 'avatar', _pendingAvatar.blob, 'avatar.jpg' );
 		try {
 			var avRes = await restFetch( profileResourcePath( 'avatar' ), {
@@ -681,6 +682,7 @@ async function flushStagedMedia( ctx ) {
 			} );
 			var avData = avRes.data || {};
 			if ( avRes.ok && avData.avatar_url ) {
+				avatarOk      = true;
 				ctx.avatarUrl = avData.avatar_url;
 				setAvatarPreview( avData.avatar_url );
 				toggleAvatarRemove( true );
@@ -692,11 +694,17 @@ async function flushStagedMedia( ctx ) {
 			allOk = false;
 			bnToast( t( 'avatarSaveFailed', 'Avatar could not be saved' ), { tone: 'danger' } );
 		}
-		_pendingAvatar = null;
+		// Only drop the staged image once it is actually stored. Clearing it on
+		// failure threw away the member's chosen file while the save bar told them
+		// everything had saved — so pressing Save again silently uploaded nothing.
+		if ( avatarOk ) {
+			_pendingAvatar = null;
+		}
 	}
 
 	if ( _pendingCover ) {
-		var cvFd = new FormData();
+		var coverOk = false;
+		var cvFd    = new FormData();
 		cvFd.append( 'avatar', _pendingCover.file );
 		cvFd.append( 'focal_x', String( _pendingCover.x ) );
 		cvFd.append( 'focal_y', String( _pendingCover.y ) );
@@ -710,6 +718,7 @@ async function flushStagedMedia( ctx ) {
 			} );
 			var cvData = cvRes.data || {};
 			if ( cvRes.ok && cvData.cover_url ) {
+				coverOk      = true;
 				ctx.coverUrl = cvData.cover_url;
 				toggleCoverRemove( true );
 			} else {
@@ -720,7 +729,10 @@ async function flushStagedMedia( ctx ) {
 			allOk = false;
 			bnToast( t( 'coverSaveFailed', 'Cover could not be saved' ), { tone: 'danger' } );
 		}
-		_pendingCover = null;
+		// Retain a rejected cover so Save retries it (see the avatar note above).
+		if ( coverOk ) {
+			_pendingCover = null;
+		}
 	}
 	return allOk;
 }
@@ -753,6 +765,28 @@ async function doSave( ctx ) {
 			// Persist staged avatar/cover now that the field save succeeded, so
 			// they survive reload — and a pre-save Cancel/Leave reverts them.
 			var mediaOk = await flushStagedMedia( ctx );
+
+			// The field data IS persisted at this point, but the save as a whole only
+			// succeeded if the staged avatar/cover uploaded too. Claiming otherwise is
+			// what produced the conflicting messages: the save bar showed a green
+			// "All changes saved" check at the same moment a danger toast said the
+			// cover could not be saved. So the completed state — the tick, the cleared
+			// dirty flag, and the success toast — is announced only when the media
+			// actually landed. On failure the bar stays "Unsaved changes", the staged
+			// image is retained (see flushStagedMedia), and pressing Save retries it.
+			if ( ! mediaOk ) {
+				// flushStagedMedia already toasted the specific reason (too large,
+				// wrong type, …). Do not stack a second message on top of it.
+				//
+				// Keep the bar on "Unsaved changes": the staged image is still
+				// pending, so that is the truth, and it gives the member something to
+				// press to retry after picking a different file. Reporting nothing at
+				// all would leave them with a dismissed toast and no state.
+				ctx.isDirty = true;
+				syncDirtyAttr( true );
+				return;
+			}
+
 			ctx.saved   = true;
 			ctx.isDirty = false;
 			// Mirror the cleared dirty state onto the DOM attribute at the source —
@@ -760,13 +794,7 @@ async function doSave( ctx ) {
 			// saveProfile's .then() left a window where a re-render could surface
 			// the unsaved-changes prompt after a fully successful save.
 			syncDirtyAttr( false );
-			// Only announce a clean "Profile saved" when the staged media also
-			// uploaded. When a cover/avatar upload failed, flushStagedMedia already
-			// showed the specific danger toast — adding a success toast on top read
-			// as two conflicting messages for the same action.
-			if ( mediaOk ) {
-				bnToast( ( window.bnI18n && window.bnI18n.profileSaved ) || t( 'profileSaved', 'Profile saved' ), { tone: 'success' } );
-			}
+			bnToast( ( window.bnI18n && window.bnI18n.profileSaved ) || t( 'profileSaved', 'Profile saved' ), { tone: 'success' } );
 			setTimeout( function () { ctx.saved = false; }, 3000 );
 		} else if ( res.status === 422 && json && json.errors ) {
 			ctx.errors = json.errors;
