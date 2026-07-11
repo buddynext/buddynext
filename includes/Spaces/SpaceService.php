@@ -688,6 +688,137 @@ class SpaceService {
 	}
 
 	/**
+	 * Move a space's ownership atomically across BOTH tables.
+	 *
+	 * The single primitive for every ownership change: the settings-screen
+	 * transfer, automatic succession when an owner is deleted, and the CLI
+	 * repair sweep. `bn_spaces.owner_id` and the `bn_space_members` owner row
+	 * are written together, in a fixed order (heir promoted, previous owner
+	 * demoted, pointer moved last) so they can never diverge — no caller can
+	 * observe one write without the other. No explicit SQL transaction: this
+	 * codebase never wraps writes in one (see transfer_ownership(), update(),
+	 * set_archived()), and WP_UnitTestCase itself runs every test inside a
+	 * real `START TRANSACTION`, which a nested one would silently commit.
+	 *
+	 * Authorization lives HERE, not in the caller — the older
+	 * transfer_ownership() delegated it to callers and a moderator-gated
+	 * template was able to rewrite owner_id.
+	 *
+	 * @param int      $space_id     Space whose ownership moves.
+	 * @param int      $new_owner_id User who becomes the owner. Joined as an
+	 *                               active member (with role promoted to
+	 *                               'owner') if not one already.
+	 * @param int|null $actor_id     User performing the change; requires
+	 *                               `buddynext-manage-space` on this space.
+	 *                               Pass null for SYSTEM context (succession /
+	 *                               CLI), which performs no capability check.
+	 * @return true|WP_Error True on success (including a no-op), WP_Error otherwise.
+	 */
+	public function assign_owner( int $space_id, int $new_owner_id, ?int $actor_id = null ): bool|WP_Error {
+		global $wpdb;
+
+		$space = $this->get( $space_id );
+		if ( null === $space ) {
+			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		if ( $new_owner_id <= 0 || ! get_userdata( $new_owner_id ) ) {
+			return new WP_Error( 'invalid_owner', __( 'That user does not exist.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		// User context: owner-only (or manage_options, via PermissionService's
+		// admin bypass). System context (actor null) intentionally skips this —
+		// used by succession and the CLI repair sweep.
+		if ( null !== $actor_id && ! buddynext_service( 'permissions' )->can( $actor_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
+			return new WP_Error( 'forbidden', __( 'Only the space owner can transfer ownership.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		$previous_owner_id = (int) ( $space['owner_id'] ?? 0 );
+		if ( $previous_owner_id === $new_owner_id ) {
+			return true;
+		}
+
+		$members_table = $wpdb->prefix . 'bn_space_members';
+		$spaces_table  = $wpdb->prefix . 'bn_spaces';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// Was the heir already an ACTIVE member? Decides the member_count delta.
+		$heir_was_active = (bool) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT 1 FROM {$members_table} WHERE space_id = %d AND user_id = %d AND status = 'active'",
+				$space_id,
+				$new_owner_id
+			)
+		);
+
+		// 1. The heir becomes an active owner (UPSERT — covers member, moderator, or non-member).
+		$promoted = $wpdb->query(
+			$wpdb->prepare(
+				"INSERT INTO {$members_table} ( space_id, user_id, role, status, joined_at )
+				 VALUES ( %d, %d, 'owner', 'active', %s )
+				 ON DUPLICATE KEY UPDATE role = 'owner', status = 'active'",
+				$space_id,
+				$new_owner_id,
+				current_time( 'mysql' )
+			)
+		);
+
+		// 2. The previous owner is demoted — the row may already be gone (deleted user), which is fine.
+		$demoted = true;
+		if ( $previous_owner_id > 0 ) {
+			$demoted = false !== $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$members_table} SET role = 'member' WHERE space_id = %d AND user_id = %d AND role = 'owner'",
+					$space_id,
+					$previous_owner_id
+				)
+			);
+		}
+
+		// 3. The denormalised pointer moves LAST.
+		$pointer = $wpdb->update(
+			$spaces_table,
+			array( 'owner_id' => $new_owner_id ),
+			array( 'id' => $space_id ),
+			array( '%d' ),
+			array( '%d' )
+		);
+
+		if ( false === $promoted || false === $demoted || false === $pointer ) {
+			return new WP_Error( 'assign_owner_failed', __( 'Could not transfer ownership.', 'buddynext' ), array( 'status' => 500 ) );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$members = new SpaceMemberService();
+
+		if ( ! $heir_was_active ) {
+			$members->adjust_member_count( $space_id, 1 );
+		}
+
+		// Both writes bypassed SpaceMemberService's own mutators, so bust its
+		// per-user role/status caches directly — otherwise a subsequent
+		// get_role() for either user can return a stale value.
+		$members->flush_user_caches( $space_id, array_filter( array( $new_owner_id, $previous_owner_id ) ) );
+
+		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+		if ( ! empty( $space['slug'] ) ) {
+			wp_cache_delete( 'space_slug_' . $space['slug'], self::CACHE_GROUP );
+		}
+
+		/**
+		 * Fires after a space's ownership moves, however it moved.
+		 *
+		 * @param int      $space_id          Space whose ownership moved.
+		 * @param int      $new_owner_id      The new owner.
+		 * @param int|null $actor_id          Actor, or null for a system reassignment.
+		 * @param int      $previous_owner_id The outgoing owner (0 if none).
+		 */
+		do_action( 'buddynext_space_ownership_transferred', $space_id, $new_owner_id, $actor_id, $previous_owner_id );
+
+		return true;
+	}
+
+	/**
 	 * Delete a space.
 	 *
 	 * Only the owner (or manage_options) may delete. Also removes all

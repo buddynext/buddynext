@@ -1494,14 +1494,21 @@ class SpaceMemberService {
 	/**
 	 * Increment or decrement the member_count on the space row.
 	 *
+	 * The canonical member_count mutator — the only place that writes
+	 * bn_spaces.member_count. Public so other services (e.g. SpaceService's
+	 * assign_owner(), which upserts bn_space_members directly and therefore
+	 * bypasses join()/leave()) can keep the denormalised count correct
+	 * instead of duplicating this SQL.
+	 *
 	 * Uses GREATEST(1, member_count) - 1 to floor at zero WITHOUT underflowing
 	 * the UNSIGNED column (member_count - 1 on a 0 value would wrap to ~1.8e19
 	 * before GREATEST sees it).
 	 *
 	 * @param int $space_id Space ID.
 	 * @param int $delta    +1 to increment, -1 to decrement.
+	 * @return void
 	 */
-	private function adjust_member_count( int $space_id, int $delta ): void {
+	public function adjust_member_count( int $space_id, int $delta ): void {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
