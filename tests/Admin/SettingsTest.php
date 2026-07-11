@@ -125,10 +125,14 @@ class SettingsTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * A future explicit 'closed' mode disables core registration.
+	 * The explicit 'closed' mode disables core registration.
+	 *
+	 * No longer "a future mode": it is selectable in the UI, and the mirror moved
+	 * to Auth\CoreRegistration so it also runs outside wp-admin (a mode set by
+	 * WP-CLI or by code previously never reached the core flag).
 	 */
 	public function test_reg_mode_closed_disables_core_registration(): void {
-		$this->settings->sync_core_registration( '', 'closed' );
+		( new \BuddyNext\Auth\CoreRegistration() )->sync_core_registration( '', 'closed' );
 		$this->assertEquals( 0, get_option( 'users_can_register' ) );
 	}
 

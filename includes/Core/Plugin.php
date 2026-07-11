@@ -301,6 +301,11 @@ class Plugin {
 		// outside the BuddyNext REST login flow.
 		( new \BuddyNext\Auth\TwoFactorLoginGuard() )->register();
 
+		// Bring wp-login.php?action=register under the shared registration gate.
+		// It is redirected to the BuddyNext sign-up route by default, and when the
+		// owner re-enables it, the same policy and spam protection still apply.
+		( new \BuddyNext\Auth\CoreRegistration() )->register();
+
 		// Approval-mode gate: block sign-in for accounts awaiting administrator
 		// approval (set during registration when buddynext_reg_mode = 'approval').
 		add_filter(

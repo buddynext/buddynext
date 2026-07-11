@@ -714,9 +714,9 @@ class SocialLogin {
 		}
 
 		// Spam signals that do not need a form: the rate limit and the
-		// disposable-domain list. (The honeypot, time-trap and human check are
+		// disposable-domain list. The honeypot, time-trap and human check are
 		// properties of a rendered form, so RegistrationGuard skips them for this
-		// source rather than failing a sign-in that could never carry them.)
+		// source rather than failing a sign-in that could never carry them.
 		$guard = ( new RegistrationGuard() )->check(
 			array(
 				'source' => RegistrationPolicy::SOURCE_SOCIAL,

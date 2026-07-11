@@ -76,14 +76,9 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		add_action( 'admin_post_buddynext_apply_recommended', array( $this, 'handle_apply_recommended' ) );
 		add_action( 'admin_post_buddynext_dismiss_recommended', array( $this, 'handle_dismiss_recommended' ) );
 
-		// Keep WP core's users_can_register in lockstep with BuddyNext's
-		// registration policy. BN owns the registration UX, but its /auth/register
-		// endpoint and wp_registration_url() both gate on the core option — so if
-		// an admin sets reg mode to open/invite/approval without separately ticking
-		// Settings -> General -> "Anyone can register", registration is rejected as
-		// "not allowed". Mirror the BN setting onto the core flag on save.
-		add_action( 'update_option_buddynext_reg_mode', array( $this, 'sync_core_registration' ), 10, 2 );
-		add_action( 'add_option_buddynext_reg_mode', array( $this, 'sync_core_registration' ), 10, 2 );
+		// The users_can_register mirror lives in Auth\CoreRegistration, which boots
+		// on every request. Hooking it here meant it only ran in wp-admin, so a mode
+		// set by WP-CLI or by code never reached the core flag.
 
 		// Each settings panel registers as its own Hub tab. The labels here are
 		// the canonical wording; AdminHub's central placement map owns which
@@ -295,24 +290,6 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		exit;
 	}
 
-	/**
-	 * Mirror the BuddyNext registration mode onto WP core's users_can_register.
-	 *
-	 * Fired from both update_option_ and add_option_ for buddynext_reg_mode, whose
-	 * second argument is the new value in either case. Every UI mode
-	 * (open|invite|approval) permits registration — only an explicit 'closed'
-	 * value (none in the UI today, reserved for future) disables it. Without this
-	 * sync, BN's /auth/register gate and wp_registration_url() see registration as
-	 * off until the admin also ticks Settings -> General.
-	 *
-	 * @param mixed $unused_or_old First hook arg (old value on update, option name on add) — unused.
-	 * @param mixed $value         The saved registration mode.
-	 * @return void
-	 */
-	public function sync_core_registration( $unused_or_old, $value ): void {
-		unset( $unused_or_old );
-		update_option( 'users_can_register', 'closed' === (string) $value ? '0' : '1' );
-	}
 
 	/**
 	 * Render the "Recommended for new communities" prompt at the top of the
@@ -1540,6 +1517,22 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'hint'  => __( 'New registrations must verify their email before accessing the community.', 'buddynext' ),
 						)
 					),
+					new Field(
+						array(
+							'key'   => 'buddynext_require_terms',
+							'type'  => 'toggle',
+							'label' => __( 'Require members to accept your terms', 'buddynext' ),
+							'hint'  => __( 'Shows a consent checkbox on every sign-up route. On by default.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_allow_core_registration',
+							'type'  => 'toggle',
+							'label' => __( 'Also allow the WordPress sign-up form', 'buddynext' ),
+							'hint'  => __( 'Off by default: wp-login.php sign-ups are sent to your BuddyNext sign-up page instead. Turn this on if another plugin relies on the WordPress form. It is protected by your settings either way.', 'buddynext' ),
+						)
+					),
 				)
 			),
 			new Section(
@@ -2187,6 +2180,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				'open'     => __( 'Open — anyone can register', 'buddynext' ),
 				'invite'   => __( 'Invite Only — requires an invitation', 'buddynext' ),
 				'approval' => __( 'Admin Approval — admin reviews each request', 'buddynext' ),
+				'closed'   => __( 'Closed — nobody can create an account', 'buddynext' ),
 			),
 			__( 'Controls who can create a new account on your community.', 'buddynext' )
 		);
@@ -2195,6 +2189,20 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		// Email Verification feature is enabled on the Features tab. When the
 		// feature is off, hide the toggle (it would be saved but silently ignored)
 		// and point the admin to where the master switch lives.
+		$this->render_toggle_row(
+			'buddynext_require_terms',
+			__( 'Require members to accept your terms', 'buddynext' ),
+			__( 'Shows a consent checkbox on every sign-up route. On by default.', 'buddynext' ),
+			(bool) get_option( 'buddynext_require_terms', true )
+		);
+
+		$this->render_toggle_row(
+			\BuddyNext\Auth\CoreRegistration::OPT_ALLOW,
+			__( 'Also allow the WordPress sign-up form', 'buddynext' ),
+			__( 'Off by default: wp-login.php sign-ups are sent to your BuddyNext sign-up page instead. Turn this on if another plugin relies on the WordPress form. It is protected by your settings either way.', 'buddynext' ),
+			\BuddyNext\Auth\CoreRegistration::is_allowed()
+		);
+
 		$bn_verification_on = buddynext_feature_enabled( 'verification' );
 		if ( $bn_verification_on ) {
 			$this->render_toggle_row(
