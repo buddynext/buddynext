@@ -1393,7 +1393,7 @@ class AssetService {
 					'btnJoined'                => __( 'Joined', 'buddynext' ),
 					'btnFollow'                => __( 'Follow', 'buddynext' ),
 					'btnFollowing'             => __( 'Following', 'buddynext' ),
-					'toastCompleteLater'       => __( 'You can complete onboarding any time from settings.', 'buddynext' ),
+					'toastSkipped'            => __( 'Skipped. You can fill in your profile any time.', 'buddynext' ),
 					'toastJoinedSpace'         => __( 'Joined the space.', 'buddynext' ),
 					'toastLeftSpace'           => __( 'Left the space.', 'buddynext' ),
 					'toastSpaceUpdateFailed'   => __( 'Could not update space. Please try again.', 'buddynext' ),

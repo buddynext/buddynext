@@ -164,7 +164,15 @@ const onboardingStore = store( 'buddynext/onboarding', {
 			// Last-step skip — finalize skip.
 			rest( c, 'me/onboarding/skip', { method: 'POST' } )
 				.then( () => {
-					toast( t( 'toastCompleteLater', 'You can complete onboarding any time from settings.' ), 'info' );
+					// Says what is true. This used to promise "you can complete
+					// onboarding any time from settings" — there is no settings entry
+					// point back into the wizard. skip() marks it complete and
+					// PageRouter bounces anyone who tries; the only way back in is an
+					// undocumented ?redo=1 that appears in no UI. Members can still
+					// fill their profile in normally, which is what they actually care
+					// about, so say that instead of pointing them at a door that is
+					// not there.
+					toast( t( 'toastSkipped', 'Skipped. You can fill in your profile any time.' ), 'info' );
 					window.location.href = c.redirectUrl || '/activity/';
 				} )
 				.catch( () => {
