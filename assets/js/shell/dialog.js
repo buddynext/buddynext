@@ -515,6 +515,34 @@ export function bnResolveConnectNote( opts ) {
  * @param {number} [opts.timeout] Default 3000ms.
  * @return {void}
  */
+/**
+ * How many toasts may be on screen at once.
+ *
+ * Identical messages are collapsed (see bnToast), so this only bounds genuinely
+ * DIFFERENT messages. Four is enough to show a page failing several ways at once
+ * without the column running off the screen.
+ *
+ * @type {number}
+ */
+const MAX_TOASTS = 4;
+
+/**
+ * Identity of a toast: two toasts are "the same" when they say the same thing in the
+ * same tone. Used to collapse repeats rather than stack them.
+ *
+ * @param {string} message Toast text.
+ * @param {string} tone    Toast tone.
+ * @return {string} Stable key, safe for a selector.
+ */
+function toastKey( message, tone ) {
+	let hash = 0;
+	const raw = `${ tone }|${ message }`;
+	for ( let i = 0; i < raw.length; i++ ) {
+		hash = ( ( hash << 5 ) - hash + raw.charCodeAt( i ) ) | 0;
+	}
+	return `t${ Math.abs( hash ) }`;
+}
+
 export function bnToast( message, opts ) {
 	// Accept either a tone string — bnToast(msg, 'success') — or an options
 	// object — bnToast(msg, { tone, timeout }). Both call styles exist across
@@ -534,8 +562,48 @@ export function bnToast( message, opts ) {
 		document.body.appendChild( container );
 	}
 
+	// COLLAPSE A REPEAT instead of stacking another copy of it.
+	//
+	// Every call used to append a new node, unconditionally. So an action the server
+	// keeps refusing — a rate limit, a plan limit, a permission denial — produced one
+	// toast per attempt, and they piled up until they filled the screen. It is also an
+	// accessibility failure: each toast is an assertive role="alert", so a screen
+	// reader interrupts the user once per copy to read out the SAME sentence.
+	//
+	// The user does not need to be told twelve times. Refresh the existing toast's
+	// dwell timer and count the repeats on it.
+	const existing = container.querySelector( `.bn-toast[data-bn-toast-key="${ toastKey( message, tone ) }"]` );
+	if ( existing ) {
+		const count = ( parseInt( existing.getAttribute( 'data-bn-toast-count' ), 10 ) || 1 ) + 1;
+		existing.setAttribute( 'data-bn-toast-count', String( count ) );
+
+		let badge = existing.querySelector( '.bn-toast__count' );
+		if ( ! badge ) {
+			badge = document.createElement( 'span' );
+			badge.className = 'bn-toast__count';
+			existing.appendChild( badge );
+		}
+		badge.textContent = `×${ count }`;
+
+		// Restart the dwell so the message stays while it is still happening, and
+		// re-announce nothing: the text has not changed, so the live region is quiet.
+		if ( 'function' === typeof existing._bnResetTimer ) {
+			existing._bnResetTimer();
+		}
+		return;
+	}
+
+	// Hard cap on the stack. Distinct messages can still pile up (a page can fail in
+	// several different ways at once), so drop the oldest rather than let the column
+	// grow past the viewport and bury the page.
+	while ( container.children.length >= MAX_TOASTS ) {
+		container.firstElementChild.remove();
+	}
+
 	const toast = document.createElement( 'div' );
 	toast.className = 'bn-toast';
+	toast.setAttribute( 'data-bn-toast-key', toastKey( message, tone ) );
+	toast.setAttribute( 'data-bn-toast-count', '1' );
 	// Map tone to one of the four real toast classes (error/success/info/warning).
 	if ( 'success' === tone ) {
 		toast.classList.add( 'bn-toast--success' );
@@ -566,6 +634,15 @@ export function bnToast( message, opts ) {
 			}
 		}, 250 );
 	};
+
+	// Exposed so a collapsed repeat can restart the dwell: the message is still
+	// current, so it should not vanish just because the first copy is timing out.
+	toast._bnResetTimer = function () {
+		window.clearTimeout( removeTimer );
+		toast.classList.remove( 'bn-toast--leaving' );
+		removeTimer = window.setTimeout( dismiss, timeout );
+	};
+
 	toast.addEventListener( 'click', dismiss );
 	removeTimer = window.setTimeout( dismiss, timeout );
 }

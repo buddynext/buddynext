@@ -665,6 +665,15 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
    class to fade it out. It must NOT auto-play on a fixed delay — that hid error
    toasts before they could be read. */
 .bn-toast--leaving { animation: bn-toast-out 0.25s ease forwards; }
+/* Repeat counter. An action the server keeps refusing used to emit one toast PER
+   attempt and they piled up until they filled the screen (and a screen reader read
+   the same sentence out once per copy — every toast is an assertive alert). The
+   repeat is now collapsed onto the existing toast and counted here. */
+.bn-toast__count {
+	margin-inline-start: var(--s2);
+	opacity: 0.7;
+	font-variant-numeric: tabular-nums;
+}
 .bn-toast--success { background: var(--green); color: var(--text-on-brand); }
 .bn-toast--error   { background: var(--red); color: var(--text-on-brand); }
 @keyframes bn-toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
