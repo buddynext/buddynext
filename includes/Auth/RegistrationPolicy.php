@@ -155,6 +155,29 @@ class RegistrationPolicy {
 	}
 
 	/**
+	 * The human label for a requirement key returned by missing().
+	 *
+	 * Lets a door render "Company is required." rather than leaking the internal
+	 * bn_field_company key at the member.
+	 *
+	 * @param string $requirement Requirement key, e.g. 'bn_field_company'.
+	 * @return string Field label, or the key itself when it has no definition.
+	 */
+	public function label_for( string $requirement ): string {
+		$field_key = str_starts_with( $requirement, 'bn_field_' )
+			? substr( $requirement, strlen( 'bn_field_' ) )
+			: $requirement;
+
+		foreach ( $this->requirements()['fields'] as $field ) {
+			if ( (string) $field['field_key'] === $field_key ) {
+				return (string) $field['label'];
+			}
+		}
+
+		return $requirement;
+	}
+
+	/**
 	 * Sanitize and validate the custom registration fields.
 	 *
 	 * @param array<string,mixed> $data Submitted signup data (bn_field_* keys).

@@ -108,10 +108,17 @@ class RegistrationService {
 			return;
 		}
 
-		buddynext_service( 'profiles' )->save_profile( $user_id, $values );
-
-		/** This action is documented in AuthController::register(). */
-		do_action( 'buddynext_registration_fields_saved', $user_id, $values, $policy->requirements()['fields'] );
+		// Reuse the canonical writer: it splits DB-backed fields (bn_profile_values
+		// + the searchable usermeta mirror) from virtual/programmatic ones (which
+		// have no row and go straight to bn_field_{key} usermeta), and it fires
+		// buddynext_registration_fields_saved. Reimplementing it here would have
+		// silently dropped every code-registered field.
+		AuthController::save_registration_fields(
+			$user_id,
+			$policy->requirements()['fields'],
+			$values,
+			buddynext_service( 'profiles' )
+		);
 	}
 
 	/**
