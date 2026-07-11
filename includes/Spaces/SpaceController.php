@@ -1710,7 +1710,14 @@ class SpaceController extends BaseRestController {
 			return new WP_Error( 'not_a_member', __( 'The new owner must be an active member of the space.', 'buddynext' ), array( 'status' => 422 ) );
 		}
 
-		( new SpaceService() )->transfer_ownership( $space_id, $new_owner_id, $current_user );
+		// assign_owner() is the ownership primitive: it re-checks the capability,
+		// moves bn_spaces.owner_id and the role='owner' row together, and reports
+		// a real failure instead of returning a 200 over a half-applied write.
+		$transferred = ( new SpaceService() )->assign_owner( $space_id, $new_owner_id, $current_user );
+
+		if ( is_wp_error( $transferred ) ) {
+			return $transferred;
+		}
 
 		return new WP_REST_Response(
 			array(

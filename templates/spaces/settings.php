@@ -98,6 +98,10 @@ $settings_tab = isset( $_GET['bn_stab'] ) ? sanitize_key( wp_unslash( $_GET['bn_
 
 $save_notice = '';
 
+// Specific failure text, when a handler has one worth showing (an ownership
+// transfer refused by the primitive, say). Empty = show the generic message.
+$bn_save_error_message = '';
+
 // sanitize_key() lowercases, so uppercase the result before comparing against
 // 'POST' — otherwise every POST handler below is skipped and saves are dropped.
 $request_method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : '';
@@ -237,12 +241,20 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_transfer_nonce'] ) ) 
 		if ( $bn_new_owner > 0 && $bn_new_owner !== (int) $space->owner_id ) {
 			$bn_xfer_service = new \BuddyNext\Spaces\SpaceMemberService();
 			if ( $bn_xfer_service->is_member( $space_id, $bn_new_owner ) ) {
-				// Single service call: it demotes the current owner, promotes the
-				// new owner (both via change_role), updates bn_spaces.owner_id,
-				// busts the cache and fires buddynext_space_ownership_transferred.
-				$bn_space_service->transfer_ownership( $space_id, $bn_new_owner, get_current_user_id() );
-				$save_notice = 'success';
-				$space       = $bn_load_space( $space_id );
+				// The single ownership primitive: it enforces the owner-only
+				// capability itself (this screen is gated at moderator, so the
+				// check MUST live inside the primitive), moves both
+				// bn_spaces.owner_id and the role='owner' row together, busts the
+				// cache and fires buddynext_space_ownership_transferred.
+				$bn_transfer_result = $bn_space_service->assign_owner( $space_id, $bn_new_owner, get_current_user_id() );
+
+				if ( is_wp_error( $bn_transfer_result ) ) {
+					$save_notice           = 'error';
+					$bn_save_error_message = $bn_transfer_result->get_error_message();
+				} else {
+					$save_notice = 'success';
+					$space       = $bn_load_space( $space_id );
+				}
 			} else {
 				$save_notice = 'error';
 			}
@@ -572,7 +584,13 @@ foreach ( $builtin_tabs as $bn_t ) {
 		<?php elseif ( 'error' === $save_notice ) : ?>
 			<div class="bn-card bn-space-settings__notice" data-tone="danger" role="alert">
 				<span class="bn-space-settings__notice-icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
-				<?php esc_html_e( 'Could not save your changes. Please check the form and try again.', 'buddynext' ); ?>
+				<?php
+				if ( '' !== $bn_save_error_message ) {
+					echo esc_html( $bn_save_error_message );
+				} else {
+					esc_html_e( 'Could not save your changes. Please check the form and try again.', 'buddynext' );
+				}
+				?>
 			</div>
 		<?php endif; ?>
 

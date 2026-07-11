@@ -641,61 +641,23 @@ class SpaceService {
 	}
 
 	/**
-	 * Transfer space ownership to an existing member.
+	 * Move a space's ownership.
 	 *
-	 * Owns the bn_spaces.owner_id write (change_role alone does not touch it) so
-	 * the REST controller does not query the table directly. Callers validate
-	 * permission and that the new owner is a member before calling.
+	 * @deprecated 1.0.8 Use assign_owner(), which is atomic and enforces its own
+	 *             authorization. This wrapper had no capability check (so a
+	 *             moderator on the moderator-gated settings screen could seize the
+	 *             space), demoted the actor instead of the owner, and wrote
+	 *             owner_id even when the role changes failed.
 	 *
 	 * @param int $space_id     Space id.
 	 * @param int $new_owner_id Member who becomes the owner.
-	 * @param int $actor_id     Current owner performing the transfer.
-	 * @return void
+	 * @param int $actor_id     User performing the transfer.
+	 * @return bool|WP_Error True on success, WP_Error otherwise.
 	 */
-	public function transfer_ownership( int $space_id, int $new_owner_id, int $actor_id ): void {
-		$members = new SpaceMemberService();
+	public function transfer_ownership( int $space_id, int $new_owner_id, int $actor_id ): bool|WP_Error {
+		_deprecated_function( __METHOD__, '1.0.8', 'SpaceService::assign_owner()' );
 
-		// Read the outgoing owner BEFORE any write, so the
-		// buddynext_space_ownership_transferred payload below carries the same
-		// four arguments assign_owner() publishes. A listener registered with
-		// accepted_args = 4 must not hit an ArgumentCountError just because the
-		// legacy path fired the event.
-		$space             = $this->get( $space_id );
-		$previous_owner_id = (int) ( $space['owner_id'] ?? $actor_id );
-
-		// Demote the current owner, promote the new owner (same order the
-		// controller used previously).
-		$members->change_role( $space_id, $actor_id, 'member', $actor_id );
-		$members->change_role( $space_id, $new_owner_id, 'owner', $actor_id );
-
-		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->update(
-			$wpdb->prefix . 'bn_spaces',
-			array( 'owner_id' => $new_owner_id ),
-			array( 'id' => $space_id ),
-			array( '%d' ),
-			array( '%d' )
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
-
-		/**
-		 * Fires after a space's ownership is transferred.
-		 *
-		 * The whole transfer chain was previously silent (change_role fired no
-		 * hook either), so no webhook / notification could observe this major
-		 * domain event. Four arguments — identical to the payload assign_owner()
-		 * fires — so the published hook contract is the same whichever path moved
-		 * the ownership.
-		 *
-		 * @param int      $space_id          Space whose ownership moved.
-		 * @param int      $new_owner_id      The new owner.
-		 * @param int|null $actor_id          User who performed the transfer.
-		 * @param int      $previous_owner_id The outgoing owner (0 if none).
-		 */
-		do_action( 'buddynext_space_ownership_transferred', $space_id, $new_owner_id, $actor_id, $previous_owner_id );
+		return $this->assign_owner( $space_id, $new_owner_id, $actor_id );
 	}
 
 	/**

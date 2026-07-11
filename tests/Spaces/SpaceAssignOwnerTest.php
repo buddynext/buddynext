@@ -298,4 +298,25 @@ class SpaceAssignOwnerTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 1, $fired );
 	}
+
+	/**
+	 * The old entry point must now reject a moderator too.
+	 *
+	 * The settings screen is gated at moderator, and the legacy
+	 * transfer_ownership() carried no capability check of its own — a moderator
+	 * could seize the space. Routing it through assign_owner() closes that.
+	 *
+	 * @return void
+	 */
+	public function test_deprecated_transfer_ownership_rejects_moderator(): void {
+		$mod = self::factory()->user->create();
+		$this->members->join( $this->space_id, $mod );
+		$this->members->change_role( $this->space_id, $mod, 'moderator', $this->owner_id );
+
+		$this->setExpectedDeprecated( 'BuddyNext\Spaces\SpaceService::transfer_ownership' );
+		$result = $this->spaces->transfer_ownership( $this->space_id, $mod, $mod );
+
+		$this->assertWPError( $result );
+		$this->assertSame( $this->owner_id, (int) $this->spaces->get( $this->space_id )['owner_id'] );
+	}
 }
