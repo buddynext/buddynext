@@ -45,6 +45,15 @@ class SpaceService {
 	private const RESERVED_SLUGS = array( 'mine', 'managed', 'joined' );
 
 	/**
+	 * How many top contributors are computed and cached per space.
+	 *
+	 * One cached list per space, sliced in PHP for whatever the caller asked for. This
+	 * is the cap on that list, and it matches top_contributors()'s own limit ceiling —
+	 * so no caller can ask for more than we cache and silently get a truncated answer.
+	 */
+	private const MAX_TOP_CONTRIBUTORS = 50;
+
+	/**
 	 * Space type — listed in directory; anyone can join.
 	 */
 	public const TYPE_OPEN = 'open';
@@ -1627,36 +1636,88 @@ class SpaceService {
 	 * @return array[] Each item: user_id, display_name, post_count.
 	 */
 	public function top_contributors( int $space_id, int $limit = 3 ): array {
-		global $wpdb;
+		$space_id = absint( $space_id );
+		$limit    = max( 1, min( 50, $limit ) );
 
-		$limit = max( 1, min( 50, $limit ) );
+		if ( $space_id <= 0 ) {
+			return array();
+		}
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT p.user_id, u.display_name, COUNT(*) AS post_count
-				 FROM {$wpdb->prefix}bn_posts p
-				 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
-				 WHERE p.space_id = %d AND p.status = 'published'
-				   AND ( p.scheduled_at IS NULL OR p.scheduled_at <= UTC_TIMESTAMP() )
-				 GROUP BY p.user_id, u.display_name
-				 ORDER BY post_count DESC
-				 LIMIT %d",
-				$space_id,
-				$limit
-			),
-			ARRAY_A
+		// This is a GROUP BY over EVERY published post in the space, and it ran on every
+		// single render of the space home sidebar — uncached, to show three names. At
+		// 100k it is a table scan per page view.
+		//
+		// remember_persistent(), not remember(): the target deployment has no persistent
+		// object cache, so a plain wp_cache would be discarded at the end of the request
+		// and the scan would still run every time. See CacheService::remember_persistent.
+		//
+		// ONE key per space, holding the top MAX_TOP_CONTRIBUTORS, sliced in PHP for the
+		// caller's limit. Keying by limit as well would mean invalidation had to delete
+		// every limit that might exist — 50 transient DELETEs on every post created in
+		// the space, which trades a read problem for a write problem.
+		$all = (array) buddynext_service( 'cache' )->remember_persistent(
+			self::top_contributors_key( $space_id ),
+			15 * MINUTE_IN_SECONDS,
+			static function () use ( $space_id ) {
+				global $wpdb;
+
+				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$rows = $wpdb->get_results(
+					$wpdb->prepare(
+						"SELECT p.user_id, u.display_name, COUNT(*) AS post_count
+						 FROM {$wpdb->prefix}bn_posts p
+						 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
+						 WHERE p.space_id = %d AND p.status = 'published'
+						   AND ( p.scheduled_at IS NULL OR p.scheduled_at <= UTC_TIMESTAMP() )
+						 GROUP BY p.user_id, u.display_name
+						 ORDER BY post_count DESC
+						 LIMIT %d",
+						$space_id,
+						self::MAX_TOP_CONTRIBUTORS
+					),
+					ARRAY_A
+				);
+				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+				return array_map(
+					static fn( $r ) => array(
+						'user_id'      => (int) $r['user_id'],
+						'display_name' => (string) $r['display_name'],
+						'post_count'   => (int) $r['post_count'],
+					),
+					(array) $rows
+				);
+			}
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return array_map(
-			static fn( $r ) => array(
-				'user_id'      => (int) $r['user_id'],
-				'display_name' => (string) $r['display_name'],
-				'post_count'   => (int) $r['post_count'],
-			),
-			(array) $rows
-		);
+		return array_slice( $all, 0, $limit );
+	}
+
+	/**
+	 * Cache key for a space's top-contributor list. One key per space — see the note in
+	 * top_contributors() on why it is NOT keyed by limit.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return string
+	 */
+	private static function top_contributors_key( int $space_id ): string {
+		return "space_topcontrib_{$space_id}";
+	}
+
+	/**
+	 * Drop a space's cached top-contributor list.
+	 *
+	 * Called when a post is created or removed in the space — the only two events that
+	 * can change who is on the list, or in what order.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return void
+	 */
+	public static function bust_top_contributors( int $space_id ): void {
+		$space_id = absint( $space_id );
+		if ( $space_id > 0 ) {
+			buddynext_service( 'cache' )->forget_persistent( self::top_contributors_key( $space_id ) );
+		}
 	}
 
 	/**

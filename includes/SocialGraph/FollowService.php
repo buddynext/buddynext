@@ -599,12 +599,86 @@ class FollowService {
 	 * @return int[]
 	 */
 	public function get_followers( int $user_id, array $args = array() ): array {
-		$all      = $this->followers( $user_id );
 		$per_page = isset( $args['per_page'] ) ? max( 1, (int) $args['per_page'] ) : 20;
 		$page     = isset( $args['page'] ) ? max( 1, (int) $args['page'] ) : 1;
-		$offset   = ( $page - 1 ) * $per_page;
 
-		return array_values( array_slice( $all, $offset, $per_page ) );
+		// Page IN SQL. This used to call followers(), which materialises EVERY approved
+		// follower row, and then array_slice() twenty of them out in PHP. On a popular
+		// account that is a full index scan of 100k+ rows to render one page — and it
+		// ran on every view of the followers tab.
+		return $this->paged_followers( $user_id, $per_page, ( $page - 1 ) * $per_page );
+	}
+
+	/**
+	 * One page of a user's followers, newest first, paged IN SQL.
+	 *
+	 * LIMIT/OFFSET against the (following_id, status, created_at) index, so the rows
+	 * examined are bounded by the page — not by how popular the account is. The index
+	 * already existed; nothing was using it for this read.
+	 *
+	 * @param int $user_id  The user being followed.
+	 * @param int $per_page Rows to return.
+	 * @param int $offset   Rows to skip.
+	 * @return int[] Follower user IDs, newest first.
+	 */
+	public function paged_followers( int $user_id, int $per_page, int $offset = 0 ): array {
+		global $wpdb;
+
+		$user_id  = absint( $user_id );
+		$per_page = max( 1, min( 100, $per_page ) );
+		$offset   = max( 0, $offset );
+
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT follower_id
+				 FROM {$wpdb->prefix}bn_follows
+				 WHERE following_id = %d AND status = 'approved'
+				 ORDER BY created_at DESC, follower_id DESC
+				 LIMIT %d OFFSET %d",
+				$user_id,
+				$per_page,
+				$offset
+			)
+		);
+
+		return array_map( 'intval', (array) $rows );
+	}
+
+	/**
+	 * How many approved followers a user has.
+	 *
+	 * A COUNT(*) — never count( followers() ), which builds the whole list to measure it.
+	 *
+	 * Note: this counts follow rows, so a follower the VIEWER has blocked is still in
+	 * the total even though they are filtered out of the rendered page. That is the
+	 * deliberate trade: the alternative is scanning every follower row on every page
+	 * view to make the number agree with a per-viewer filter. Blocks are rare; an
+	 * unbounded scan on a 100k-follower account is not.
+	 *
+	 * @param int $user_id The user being followed.
+	 * @return int
+	 */
+	public function count_followers( int $user_id ): int {
+		global $wpdb;
+
+		$user_id = absint( $user_id );
+		if ( $user_id <= 0 ) {
+			return 0;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows
+				 WHERE following_id = %d AND status = 'approved'",
+				$user_id
+			)
+		);
 	}
 
 	/**

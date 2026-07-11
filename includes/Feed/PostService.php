@@ -395,6 +395,20 @@ class PostService {
 				array( '%d' )
 			);
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			/**
+			 * Fires when a space's post set changes — a post created in it, or removed
+			 * from it. Carries the SPACE, which `buddynext_post_created` /
+			 * `buddynext_post_deleted` deliberately do not: they carry the post, and by
+			 * the time the delete hook fires the row (and its space_id) is already gone.
+			 *
+			 * Anything caching a per-space aggregate over posts listens here.
+			 *
+			 * @since 1.0.8
+			 *
+			 * @param int $space_id The space whose post set changed.
+			 */
+			do_action( 'buddynext_space_posts_changed', $bn_space_id );
 		}
 
 		/**
@@ -1233,6 +1247,15 @@ class PostService {
 
 		global $wpdb;
 
+		// Read the space BEFORE the row is destroyed. Nothing downstream can recover it
+		// afterwards — buddynext_post_deleted carries only the post id, and by then the
+		// row that knew its space_id is gone. Anything caching a per-space aggregate
+		// over posts needs this to invalidate.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$bn_deleted_space_id = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id )
+		);
+
 		// Cascade-delete all child rows before removing the post.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete( $wpdb->prefix . 'bn_poll_votes', array( 'post_id' => $post_id ), array( '%d' ) );
@@ -1299,6 +1322,11 @@ class PostService {
 		 * @param int $user_id User who deleted the post.
 		 */
 		do_action( 'buddynext_post_deleted', $post_id, $user_id );
+
+		if ( $bn_deleted_space_id > 0 ) {
+			/** Documented in create(). */
+			do_action( 'buddynext_space_posts_changed', $bn_deleted_space_id );
+		}
 
 		return true;
 	}

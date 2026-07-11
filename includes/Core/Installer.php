@@ -1659,11 +1659,20 @@ class Installer {
 				KEY                 shared_post (shared_post_id)
 			) {$cs};",
 
+			/*
+			 * bn_bookmarks. The PRIMARY KEY answers the feed's only question — "is THIS
+			 * post bookmarked" (BookmarkService::bookmarked_among). It cannot answer "my
+			 * bookmarks, newest first": ORDER BY created_at against a (user_id, post_id)
+			 * PK filesorts the member's entire history. user_recent is what makes the
+			 * paged bookmarks hub sargable. (Kept as a PHP comment, not an SQL one —
+			 * dbDelta parses CREATE TABLE with regexes and inline SQL comments break it.)
+			 */
 			"CREATE TABLE {$p}bn_bookmarks (
 				user_id    BIGINT(20) UNSIGNED NOT NULL,
 				post_id    BIGINT(20) UNSIGNED NOT NULL,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				PRIMARY KEY (user_id, post_id)
+				PRIMARY KEY (user_id, post_id),
+				KEY         user_recent (user_id, created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_shares (

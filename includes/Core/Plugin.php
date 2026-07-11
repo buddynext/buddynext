@@ -123,6 +123,14 @@ class Plugin {
 		// (the composer gate alone is bypassable via REST).
 		( new \BuddyNext\Spaces\SpacePostGuard() )->register();
 
+		// A space's top-contributor list is a GROUP BY over every published post in the
+		// space. It is cached (persistently — the target has no object cache), so it has
+		// to be dropped when the space's post set changes, or the sidebar goes stale.
+		add_action(
+			'buddynext_space_posts_changed',
+			array( \BuddyNext\Spaces\SpaceService::class, 'bust_top_contributors' )
+		);
+
 		// Register the built-in per-space settings as core space fields (stored in
 		// bn_space_meta, rendered + saved + REST-exposed through the field engine).
 		( new \BuddyNext\Spaces\CoreSpaceFields() )->register();

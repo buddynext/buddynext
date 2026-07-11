@@ -93,6 +93,62 @@ class CacheService {
 	}
 
 	/**
+	 * Like remember(), but the cache SURVIVES the request even with no object cache.
+	 *
+	 * Everything above is wp_cache-only. On a site with a persistent object cache
+	 * (Redis, Memcached) that is exactly right. On a site WITHOUT one — which is the
+	 * target deployment, shared hosting — WordPress falls back to an in-process array
+	 * that is thrown away at the end of the request. So `remember()` re-computes on
+	 * EVERY request, and a "cached" aggregate is not cached at all. The class docblock
+	 * has always said so; the consequence had not been drawn.
+	 *
+	 * That is fine for something cheap. It is not fine for a query that scans a table:
+	 * an uncached GROUP BY over every post in a space, or the ~18 COUNT(DISTINCT)
+	 * scans behind the analytics dashboard, then run on every single page view.
+	 *
+	 * So: object cache when there is one, transient otherwise. Same pattern
+	 * RateLimiter already uses. Deliberately OPT-IN rather than folded into
+	 * remember() — a transient is a DB write, and quietly turning every cache miss on
+	 * a hot path into one would trade a read problem for a write problem. Use this for
+	 * EXPENSIVE, low-churn values only.
+	 *
+	 * @param string   $key      Cache key.
+	 * @param int      $ttl      TTL in seconds.
+	 * @param callable $callback Produces the value on a miss.
+	 * @return mixed
+	 */
+	public function remember_persistent( string $key, int $ttl, callable $callback ): mixed {
+		if ( wp_using_ext_object_cache() ) {
+			return $this->remember( $key, $ttl, $callback );
+		}
+
+		$transient = 'bn_' . md5( self::GROUP . ':' . $key );
+		$cached    = get_transient( $transient );
+
+		if ( false !== $cached ) {
+			return $cached;
+		}
+
+		$value = $callback();
+		set_transient( $transient, $value, $ttl );
+
+		return $value;
+	}
+
+	/**
+	 * Invalidate a remember_persistent() entry. Must clear BOTH tiers: which one was
+	 * written depends on whether the site had an object cache at write time, and that
+	 * can change under us (a plugin activating Redis mid-life).
+	 *
+	 * @param string $key Cache key.
+	 * @return void
+	 */
+	public function forget_persistent( string $key ): void {
+		$this->delete( $key );
+		delete_transient( 'bn_' . md5( self::GROUP . ':' . $key ) );
+	}
+
+	/**
 	 * Flush all cache entries in the BuddyNext cache group.
 	 *
 	 * Delegates to wp_cache_flush_group() when available (Redis Object Cache,

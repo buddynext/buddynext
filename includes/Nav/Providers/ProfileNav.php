@@ -380,7 +380,10 @@ final class ProfileNav {
 		$members = array();
 		$pending = array();
 		if ( 'followers' === $relation ) {
-			$members = $this->ids_to_users( array_slice( (array) $follow->followers( $uid ), 0, 60 ) );
+			// Ask the DB for 60, rather than loading every follower and slicing 60 off
+			// the front. On a popular account the old form scanned 100k+ rows to build
+			// a list it then threw away.
+			$members = $this->ids_to_users( $follow->paged_followers( $uid, 60, 0 ) );
 			if ( $is_owner ) {
 				$pending = $this->ids_to_users( (array) $follow->pending_followers( $uid ) );
 			}

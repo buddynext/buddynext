@@ -43,28 +43,35 @@ $bn_paged    = max( 1, absint( get_query_var( 'paged', 1 ) ) );
 $follow_svc = buddynext_service( 'follows' );
 $blocks_svc = buddynext_service( 'blocks' );
 
-$all_ids = $follow_svc->followers( $user_id );
-$total   = count( $all_ids );
+// Page in SQL, and count with COUNT(*). This page used to load EVERY approved
+// follower row, filter it in PHP, count the array, and then array_slice() 24 rows out
+// of it — on every view. A member with 100k followers paid for all 100k to see 24.
+$total  = $follow_svc->count_followers( $user_id );
+$offset = ( $bn_paged - 1 ) * $bn_per_page;
 
 // Pending follow requests — only the owner sees them.
 $pending_ids = $is_own_profile ? $follow_svc->pending_followers( $user_id ) : array();
 
+$page_ids = $follow_svc->paged_followers( $user_id, $bn_per_page, $offset );
+
 // Filter out blocked relationships for the viewer (defensive — same rule as REST).
+// Applied to THIS PAGE, not to the whole follower list. A blocked follower is still
+// inside $total (it counts follow rows, not viewer-visible ones), so a page can come
+// back slightly short. That is the deliberate trade: making the number agree with a
+// per-viewer filter means scanning every follower row on every page view, which is
+// exactly what this change exists to stop. Blocks are rare; 100k-row scans are not.
 if ( $current_user_id > 0 ) {
-	$all_ids = array_values(
+	$page_ids = array_values(
 		array_filter(
-			$all_ids,
+			$page_ids,
 			static function ( int $other_id ) use ( $blocks_svc, $current_user_id ): bool {
 				return $other_id === $current_user_id || ! $blocks_svc->is_blocking_either( $current_user_id, $other_id );
 			}
 		)
 	);
-	$total   = count( $all_ids );
 }
 
 $total_pages = $total > 0 ? (int) ceil( $total / $bn_per_page ) : 0;
-$offset      = ( $bn_paged - 1 ) * $bn_per_page;
-$page_ids    = array_slice( $all_ids, $offset, $bn_per_page );
 
 // ── Page title (rendered as <h1> inside the surface) ────────────────────────────
 $page_title = $is_own_profile

@@ -1558,7 +1558,12 @@ class FeedService {
 		}
 
 		buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids );
-		buddynext_service( 'bookmarks' )->user_bookmarks( $viewer ); // one cached query for the whole set.
+		// Prime bookmark state for THIS PAGE only. The old call primed the viewer's
+		// entire bookmark history (unbounded SELECT + filesort — bn_bookmarks has no
+		// created_at index) on every single feed paint, and called it "one cached
+		// query" — but the target deployment has no persistent object cache, so that
+		// wp_cache is a no-op across requests and the query ran every time.
+		buddynext_service( 'bookmarks' )->bookmarked_among( $viewer, $post_ids );
 		buddynext_service( 'moderation' )->user_reported_map( $viewer, 'post', $post_ids );
 		if ( ! empty( $poll_ids ) ) {
 			buddynext_service( 'polls' )->user_votes_map( $viewer, $poll_ids );

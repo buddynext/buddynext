@@ -148,16 +148,23 @@ class BookmarkController extends BaseRestController {
 	public function get_bookmarks( WP_REST_Request $request ): WP_REST_Response {
 		$user_id = get_current_user_id();
 		$expand  = (string) ( $request->get_param( 'expand' ) ?? '' );
-		$all_ids = $this->bookmarks()->user_bookmarks( $user_id );
 
+		// The id-only shape is the native app's "all my saved ids" call. It is
+		// deliberately the ONLY caller that still loads the whole set.
 		if ( 'posts' !== $expand ) {
-			return new WP_REST_Response( array( 'ids' => $all_ids ), 200 );
+			return new WP_REST_Response( array( 'ids' => $this->bookmarks()->user_bookmarks( $user_id ) ), 200 );
 		}
 
 		$per_page = max( 1, min( 50, (int) ( $request->get_param( 'per_page' ) ?? 20 ) ) );
 		$page     = max( 1, (int) ( $request->get_param( 'page' ) ?? 1 ) );
 		$offset   = ( $page - 1 ) * $per_page;
-		$page_ids = array_slice( $all_ids, $offset, $per_page + 1 );
+
+		// Page IN SQL. This used to fetch every bookmark the member had ever made and
+		// then array_slice() twenty rows out of it — an unbounded read wearing a
+		// pagination costume — and get its total by count()ing the array it had just
+		// been forced to build. Both are now bounded: LIMIT/OFFSET on
+		// (user_id, created_at), and a COUNT(*) for the total.
+		$page_ids = $this->bookmarks()->paged_bookmarks( $user_id, $per_page + 1, $offset );
 		$has_more = count( $page_ids ) > $per_page;
 		if ( $has_more ) {
 			$page_ids = array_slice( $page_ids, 0, $per_page );
@@ -168,7 +175,7 @@ class BookmarkController extends BaseRestController {
 		return new WP_REST_Response(
 			array(
 				'items'    => $items,
-				'total'    => count( $all_ids ),
+				'total'    => $this->bookmarks()->count_bookmarks( $user_id ),
 				'page'     => $page,
 				'per_page' => $per_page,
 				'has_more' => $has_more,
