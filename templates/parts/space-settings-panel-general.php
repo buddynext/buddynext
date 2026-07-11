@@ -9,7 +9,14 @@
  *
  * @var object $space            Required. Space row (from `bn_spaces`).
  * @var array  $settings_general Optional. Bundle:
- *   - `categories` (array)        Category rows for the category select.
+ *   - `categories`       (array) Category rows for the category select.
+ *   - `eligible_parents` (array) Spaces this one may be moved under, from
+ *                                SpaceService::eligible_parents(). Empty = no move is
+ *                                possible (sub-spaces off, or this space has children
+ *                                of its own, or the actor manages no other root).
+ *   - `has_subspaces`    (bool)  Whether this space has children — the reason an empty
+ *                                candidate list gets an explanation instead of silence.
+ *   - `sub_spaces_on`    (bool)  Whether sub-spaces are enabled for the community.
  * @var array  $classes          Optional. Extra CSS classes appended to `.bn-card`.
  *
  * Fires:
@@ -42,6 +49,36 @@ if ( ! $bn_space ) {
 $bn_categories = isset( $args['settings_general']['categories'] ) && is_array( $args['settings_general']['categories'] )
 	? $args['settings_general']['categories']
 	: array();
+
+// Parent space. Moving/detaching a sub-space was fully implemented and validated over
+// REST (depth, cycles, per-parent cap, manage permission) but had no control on any
+// surface, so an owner could not promote a sub-space to the top level without making
+// an API call. The candidate list comes from SpaceService::eligible_parents(), which
+// mirrors the service's own validation — the picker must never offer a move that the
+// save would then reject.
+$bn_eligible_parents = isset( $args['settings_general']['eligible_parents'] ) && is_array( $args['settings_general']['eligible_parents'] )
+	? $args['settings_general']['eligible_parents']
+	: array();
+$bn_has_subspaces    = ! empty( $args['settings_general']['has_subspaces'] );
+$bn_sub_spaces_on    = ! empty( $args['settings_general']['sub_spaces_on'] );
+$bn_current_parent   = isset( $bn_space->parent_id ) ? (int) $bn_space->parent_id : 0;
+
+// The current parent is NOT necessarily one of the move candidates: a space can sit
+// under a root the actor does not manage, and that root is correctly absent from the
+// candidate list. It must still appear in the select, or the control would not carry
+// the current value — the browser would fall back to the first option ("Top level")
+// and saving the General tab for an unrelated reason would silently DETACH the space.
+$bn_parent_now = isset( $args['settings_general']['current_parent'] ) && is_array( $args['settings_general']['current_parent'] )
+	? $args['settings_general']['current_parent']
+	: null;
+
+$bn_parent_in_list = false;
+foreach ( $bn_eligible_parents as $bn_candidate ) {
+	if ( (int) $bn_candidate['id'] === $bn_current_parent ) {
+		$bn_parent_in_list = true;
+		break;
+	}
+}
 
 $bn_classes = array_merge( array( 'bn-card', 'bn-space-settings__panel' ), array_filter( (array) $args['classes'], 'is_string' ) );
 /** Computed root-class list. @var array<int,string> $bn_classes */
@@ -179,6 +216,65 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 			<?php endforeach; ?>
 		</select>
 	</div>
+
+	<?php // Parent space. Only shown when sub-spaces are on for the community — a control for a feature the owner switched off is noise. ?>
+	<?php if ( $bn_sub_spaces_on ) : ?>
+		<div class="bn-space-settings__field">
+			<label for="space_parent_id"><?php esc_html_e( 'Parent space', 'buddynext' ); ?></label>
+
+			<?php if ( $bn_has_subspaces ) : ?>
+				<?php
+				// This space has children, so it can only ever be a root: nesting it would
+				// put its children three levels deep. Say that, rather than showing a
+				// picker that would be rejected.
+				?>
+				<select id="space_parent_id" class="bn-select" disabled>
+					<option><?php esc_html_e( 'Top level (this space has sub-spaces)', 'buddynext' ); ?></option>
+				</select>
+				<p class="bn-space-settings__hint">
+					<?php esc_html_e( 'This space has sub-spaces of its own, so it must stay at the top level. Move or remove them first if you want to nest it.', 'buddynext' ); ?>
+				</p>
+
+			<?php elseif ( empty( $bn_eligible_parents ) && $bn_current_parent <= 0 ) : ?>
+				<select id="space_parent_id" class="bn-select" disabled>
+					<option><?php esc_html_e( 'Top level', 'buddynext' ); ?></option>
+				</select>
+				<p class="bn-space-settings__hint">
+					<?php esc_html_e( 'There is no other top-level space you manage that this one could sit under.', 'buddynext' ); ?>
+				</p>
+
+			<?php else : ?>
+				<select name="space_parent_id" id="space_parent_id" class="bn-select">
+					<option value="0" <?php selected( $bn_current_parent, 0 ); ?>>
+						<?php esc_html_e( 'Top level (no parent)', 'buddynext' ); ?>
+					</option>
+
+					<?php // The current parent, when it is not itself a move candidate (a root the actor does not manage). Keeping it selectable makes "leave it where it is" a real choice; without it, saving would detach. ?>
+					<?php if ( $bn_current_parent > 0 && ! $bn_parent_in_list ) : ?>
+						<option value="<?php echo esc_attr( (string) $bn_current_parent ); ?>" selected>
+							<?php
+							echo esc_html(
+								null !== $bn_parent_now && '' !== (string) ( $bn_parent_now['name'] ?? '' )
+									? (string) $bn_parent_now['name']
+									: __( 'Current parent space', 'buddynext' )
+							);
+							?>
+						</option>
+					<?php endif; ?>
+
+					<?php foreach ( $bn_eligible_parents as $bn_parent ) : ?>
+						<option
+							value="<?php echo esc_attr( (string) $bn_parent['id'] ); ?>"
+							<?php selected( $bn_current_parent, (int) $bn_parent['id'] ); ?>
+						><?php echo esc_html( (string) $bn_parent['name'] ); ?></option>
+					<?php endforeach; ?>
+				</select>
+				<p class="bn-space-settings__hint">
+					<?php esc_html_e( 'Choose a space to nest this one under, or move it back to the top level. Only spaces you manage are listed. Members and content are never moved — only where the space sits.', 'buddynext' ); ?>
+				</p>
+			<?php endif; ?>
+		</div>
+	<?php endif; ?>
 </div>
 <?php
 do_action( 'buddynext_part_space_settings_panel_general_after', $args );

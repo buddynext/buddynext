@@ -1994,6 +1994,87 @@ class SpaceService {
 	}
 
 	/**
+	 * The spaces a given space may be moved UNDER, for the actor.
+	 *
+	 * The move itself has been fully implemented and validated over REST for a while
+	 * (depth, cycles, per-parent cap, manage permission) — there was simply no UI, so
+	 * an owner could not promote a sub-space to the top level or re-parent it without
+	 * making an API call. This is the list that control needs.
+	 *
+	 * Mirrors validate_parent_move() exactly, and deliberately so: the picker must not
+	 * be able to offer a move the service would then reject. A candidate must be
+	 *   - a ROOT space (nesting under a sub-space would be three levels deep),
+	 *   - not the space itself,
+	 *   - not archived,
+	 *   - manageable by the actor (owner-only; a site admin manages everything),
+	 *   - and below the per-parent cap, when one is set.
+	 *
+	 * Returns an empty list when sub-spaces are switched off for the community, or
+	 * when the space has children of its own (it cannot be nested at all then — its
+	 * children would end up three deep). Callers should read that empty list as
+	 * "no move is possible", and say why.
+	 *
+	 * @param int $space_id The space being moved.
+	 * @param int $user_id  Acting user.
+	 * @return array<int,array{id:int,name:string}> Candidate parents, by name.
+	 */
+	public function eligible_parents( int $space_id, int $user_id ): array {
+		$space_id = absint( $space_id );
+		$user_id  = absint( $user_id );
+
+		if ( $space_id <= 0 || $user_id <= 0 ) {
+			return array();
+		}
+
+		if ( '0' === (string) get_option( 'buddynext_space_allow_sub', '1' ) ) {
+			return array();
+		}
+
+		// A space that already has sub-spaces can only ever be a root.
+		if ( $this->count_subspaces( $space_id ) > 0 ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Bounded owner-scoped read on an indexed column, for one settings screen.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, name FROM {$wpdb->prefix}bn_spaces
+				 WHERE ( parent_id IS NULL OR parent_id = 0 )
+				   AND id <> %d
+				   AND is_archived = 0
+				 ORDER BY name ASC",
+				$space_id
+			),
+			ARRAY_A
+		);
+
+		$max_sub = (int) get_option( 'buddynext_space_max_sub_spaces', 0 );
+		$out     = array();
+
+		foreach ( (array) $rows as $row ) {
+			$candidate = (int) $row['id'];
+
+			// Owner-only, exactly as the service enforces on save.
+			if ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-manage-space', array( 'space_id' => $candidate ) ) ) {
+				continue;
+			}
+
+			if ( $max_sub > 0 && $this->count_subspaces( $candidate ) >= $max_sub ) {
+				continue;
+			}
+
+			$out[] = array(
+				'id'   => $candidate,
+				'name' => (string) $row['name'],
+			);
+		}
+
+		return $out;
+	}
+
+	/**
 	 * Validate a parent change for {@see update()} — move under a new parent, or
 	 * detach to the top level.
 	 *

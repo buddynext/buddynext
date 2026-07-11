@@ -143,6 +143,13 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		if ( isset( $_POST['space_category_id'] ) ) {
 			$update_data['category_id'] = absint( $_POST['space_category_id'] );
 		}
+		// Move under a new parent, or detach to the top level (0). SpaceService::update()
+		// does the real work — depth, cycles, the per-parent cap and manage permission on
+		// the TARGET — and it is owner-gated, so a moderator is rejected there. All of
+		// that already existed and was reachable only over REST; this is the control.
+		if ( isset( $_POST['space_parent_id'] ) ) {
+			$update_data['parent_id'] = absint( $_POST['space_parent_id'] );
+		}
 		if ( isset( $_POST['space_type'] ) && \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_valid( sanitize_key( (string) wp_unslash( $_POST['space_type'] ) ) ) ) {
 			$update_data['type'] = sanitize_key( wp_unslash( $_POST['space_type'] ) );
 		}
@@ -691,7 +698,24 @@ foreach ( $builtin_tabs as $bn_t ) {
 				'parts/space-settings-panel-general.php',
 				array(
 					'space'            => $space,
-					'settings_general' => array( 'categories' => $categories ),
+					'settings_general' => array(
+						'categories'       => $categories,
+						// The parent picker. eligible_parents() mirrors the service's own
+						// validation, so the control can never offer a move that the save
+						// would reject. Empty is meaningful — the panel explains why
+						// (children of its own, or no other root the actor manages).
+						'eligible_parents' => $bn_space_service->eligible_parents( $space_id, $bn_actor_id ),
+						'has_subspaces'    => $bn_space_service->count_subspaces( $space_id ) > 0,
+						'sub_spaces_on'    => '0' !== (string) get_option( 'buddynext_space_allow_sub', '1' ),
+						// The CURRENT parent, passed separately and always — it is not
+						// necessarily an "eligible parent". A space can sit under a parent
+						// the actor does not manage (someone else's root), and that parent
+						// is correctly absent from the move candidates. Without this the
+						// select would not contain the current value, would fall back to
+						// the first option ("Top level"), and an owner who saved the General
+						// tab for an unrelated reason would SILENTLY DETACH their space.
+						'current_parent'   => $bn_space_service->parent_summary( (int) ( $space->parent_id ?? 0 ), $bn_actor_id ),
+					),
 				),
 			),
 			'privacy'       => array(

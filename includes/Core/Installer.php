@@ -1727,8 +1727,6 @@ class Installer {
 				avatar_url         VARCHAR(500) DEFAULT NULL,
 				rules              TEXT NULL DEFAULT NULL,
 				required_ability   VARCHAR(64) NULL DEFAULT NULL,
-				accent_color       VARCHAR(16) NULL DEFAULT NULL,
-				description_layout VARCHAR(32) NULL DEFAULT 'standard',
 				is_archived        TINYINT(1) NOT NULL DEFAULT 0,
 				archived_at        DATETIME NULL DEFAULT NULL,
 				created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
