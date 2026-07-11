@@ -2347,6 +2347,7 @@ class ProfileService {
 			"SELECT
 				f.id,
 				f.group_id,
+				g.group_key  AS group_key,
 				g.type       AS group_type,
 				g.visibility AS group_visibility,
 				g.type_restriction AS group_type_restriction,
@@ -2373,6 +2374,7 @@ class ProfileService {
 				return array(
 					'id'                     => (int) $row['id'],
 					'group_id'               => (int) $row['group_id'],
+					'group_key'              => (string) ( $row['group_key'] ?? '' ),
 					'group_type'             => $row['group_type'],
 					'group_visibility'       => $row['group_visibility'] ?? 'public',
 					'group_type_restriction' => (string) ( $row['group_type_restriction'] ?? '' ),

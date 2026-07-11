@@ -1061,6 +1061,48 @@ class ProfileController extends BaseRestController {
 				continue;
 			}
 
+			// A repeater sub-field's value is NEVER a top-level payload key: it lives
+			// inside its group's entries (data[group_key][i][field_key], written by
+			// collectRepeaterEntries in the profile store). Measuring it against the
+			// flat payload therefore reports it as absent on EVERY save — so a single
+			// owner toggling Required on any repeater sub-field 422'd every member's
+			// profile, including members who had filled it in and members with no
+			// entries at all. Enforce it per entry instead.
+			if ( 'repeater' === (string) ( $field_def['group_type'] ?? '' ) ) {
+				$gkey = (string) ( $field_def['group_key'] ?? '' );
+
+				// Group not submitted at all -> nothing to validate. A partial update
+				// leaves it untouched; a full write with no entries is a member who
+				// legitimately has none, and a required SUB-field must not force them
+				// to invent one.
+				if ( '' === $gkey || ! array_key_exists( $gkey, $data ) || ! is_array( $data[ $gkey ] ) ) {
+					continue;
+				}
+
+				if ( empty( $field_def['is_required'] ) ) {
+					continue;
+				}
+
+				foreach ( $data[ $gkey ] as $entry_index => $entry ) {
+					$entry_val   = is_array( $entry ) && array_key_exists( $fkey, $entry ) ? $entry[ $fkey ] : null;
+					$entry_empty = ( null === $entry_val
+						|| ( is_string( $entry_val ) && '' === trim( $entry_val ) )
+						|| ( is_array( $entry_val ) && array() === $entry_val ) );
+
+					if ( $entry_empty ) {
+						// Key the error to the entry so the editor can highlight the
+						// offending row instead of showing an unattributable toast.
+						$errors[ $gkey . '.' . (int) $entry_index . '.' . $fkey ] = sprintf(
+							/* translators: %s: profile field label. */
+							__( '%s is required.', 'buddynext' ),
+							(string) ( $field_def['label'] ?? $fkey )
+						);
+					}
+				}
+
+				continue;
+			}
+
 			$present  = array_key_exists( $fkey, $data );
 			$raw      = $present ? $data[ $fkey ] : null;
 			$is_empty = ( null === $raw
