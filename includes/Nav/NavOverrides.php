@@ -306,7 +306,7 @@ final class NavOverrides {
 			if ( '' === $slug || empty( $ov['custom'] ) || ! empty( $ov['hidden'] ) || isset( $existing[ $slug ] ) ) {
 				continue;
 			}
-			$url = esc_url_raw( (string) ( $ov['url'] ?? '' ) );
+			$url = $this->resolve_tokens( (string) ( $ov['url'] ?? '' ), $ctx );
 			if ( '' === $url ) {
 				continue;
 			}
@@ -326,6 +326,63 @@ final class NavOverrides {
 		}
 
 		return $kept;
+	}
+
+	/**
+	 * Resolve subject tokens in an admin-authored custom tab URL.
+	 *
+	 * A custom tab is defined ONCE, site-wide, and appears on EVERY space (or every
+	 * profile) — that uniformity is deliberate: a member who joins five spaces must
+	 * not meet five different navigations, and the native app has to be able to
+	 * render the tab bar. But the stored URL was a single literal href, so a tab
+	 * meant for "this space" pointed at the SAME space from every space on the site.
+	 *
+	 * Tokens make one definition resolve into the subject actually being viewed:
+	 *
+	 *   Space surface   — {space_id}, {slug}, {space_url}
+	 *   Profile surface — {user_id}, {slug} (user_nicename), {profile_url}
+	 *
+	 * e.g. `{space_url}resources/` or `https://example.com/handbook/?space={slug}`.
+	 * A URL with no tokens keeps working exactly as before.
+	 *
+	 * @param string                         $url Raw URL as stored by NavManager.
+	 * @param \BuddyNext\Nav\NavContext|null $ctx Resolution context.
+	 * @return string Escaped URL with tokens resolved, or '' when unusable.
+	 */
+	private function resolve_tokens( string $url, $ctx = null ): string {
+		$url = trim( $url );
+
+		if ( '' === $url || ! ( $ctx instanceof \BuddyNext\Nav\NavContext ) || $ctx->subject_id <= 0 ) {
+			return esc_url_raw( $url );
+		}
+
+		if ( 'space' === $ctx->surface ) {
+			$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $ctx->subject_id );
+
+			if ( null === $space ) {
+				return esc_url_raw( $url );
+			}
+
+			$replacements = array(
+				'{space_id}'  => (string) $ctx->subject_id,
+				'{slug}'      => (string) ( $space['slug'] ?? '' ),
+				'{space_url}' => trailingslashit( \BuddyNext\Core\PageRouter::space_url( $ctx->subject_id ) ),
+			);
+		} else {
+			$user = get_userdata( $ctx->subject_id );
+
+			if ( ! $user ) {
+				return esc_url_raw( $url );
+			}
+
+			$replacements = array(
+				'{user_id}'     => (string) $ctx->subject_id,
+				'{slug}'        => (string) $user->user_nicename,
+				'{profile_url}' => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $ctx->subject_id ) ),
+			);
+		}
+
+		return esc_url_raw( strtr( $url, $replacements ) );
 	}
 
 	// (Removed) apply_space_tabs — the space tab bar now flows through the unified

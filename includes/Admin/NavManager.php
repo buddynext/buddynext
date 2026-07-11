@@ -701,7 +701,7 @@ class NavManager extends AdminPageBase {
 				'icon'        => '' !== (string) ( $ov['icon'] ?? '' ) ? sanitize_key( (string) $ov['icon'] ) : 'tab-custom',
 				'description' => sanitize_text_field( (string) ( $ov['description'] ?? '' ) ),
 				'capability'  => sanitize_text_field( (string) ( $ov['capability'] ?? 'read' ) ),
-				'url'         => esc_url_raw( (string) ( $ov['url'] ?? '' ) ),
+				'url'         => self::sanitize_tab_url( (string) ( $ov['url'] ?? '' ) ),
 				'hidden'      => (bool) ( $ov['hidden'] ?? false ),
 				'custom'      => true,
 			);
@@ -1526,6 +1526,42 @@ class NavManager extends AdminPageBase {
 	}
 
 	/**
+	 * Sanitize a custom nav tab URL without destroying its subject tokens.
+	 *
+	 * A custom tab is defined once, site-wide, and rendered on EVERY space (or
+	 * profile), so its URL carries a placeholder — `{space_url}handbook/` — that is
+	 * resolved per subject at render time by NavOverrides::resolve_tokens().
+	 *
+	 * esc_url_raw() cannot be used on a value in that state: braces are not legal
+	 * URL characters, so it silently mangles `{space_url}handbook/` into
+	 * `http://space_urlhandbook/` and the tab is dead on arrival. Token-bearing
+	 * values are therefore kept as text here (minus any dangerous scheme) and
+	 * escaped with esc_url_raw() once resolved. A plain URL with no tokens is
+	 * escaped exactly as before.
+	 *
+	 * @param string $url Raw URL submitted by the site owner.
+	 * @return string Stored URL, or empty string when unusable.
+	 */
+	private static function sanitize_tab_url( string $url ): string {
+		$url = trim( wp_strip_all_tags( $url ) );
+
+		if ( '' === $url ) {
+			return '';
+		}
+
+		if ( preg_match( '/\{(space_url|space_id|profile_url|user_id|slug)\}/', $url ) ) {
+			// Never let a token-bearing value smuggle an executable scheme through.
+			if ( preg_match( '#^\s*(javascript|data|vbscript):#i', $url ) ) {
+				return '';
+			}
+
+			return sanitize_text_field( $url );
+		}
+
+		return esc_url_raw( $url );
+	}
+
+	/**
 	 * Render the hidden inline "Add Custom Tab" form for a scope.
 	 *
 	 * Shown/hidden by JS; submitted with the main form so PHP reads
@@ -1553,10 +1589,36 @@ class NavManager extends AdminPageBase {
 					<label for="bn-new-tab-url-<?php echo esc_attr( $scope ); ?>">
 						<?php esc_html_e( 'URL', 'buddynext' ); ?>
 					</label>
-					<input type="url"
+					<?php
+					// Deliberately type="text", not type="url": a tokenised value such as
+					// {space_url}handbook/ is not a valid URL, so the browser's native url
+					// validation would reject it and the tokens below would be unusable.
+					?>
+					<input type="text"
 						id="bn-new-tab-url-<?php echo esc_attr( $scope ); ?>"
 						name="bn_new_tab[<?php echo esc_attr( $scope ); ?>][url]"
-						placeholder="<?php esc_attr_e( 'https://...', 'buddynext' ); ?>">
+						placeholder="<?php echo 'space' === $scope ? esc_attr__( '{space_url}handbook/', 'buddynext' ) : esc_attr__( 'https://...', 'buddynext' ); ?>">
+					<p class="description">
+						<?php
+						if ( 'space' === $scope ) {
+							esc_html_e( 'This tab is added to EVERY space, so the link must point at whichever space the member is viewing. Use a placeholder and it is filled in per space:', 'buddynext' );
+							?>
+							<br>
+							<code>{space_url}</code> — <?php esc_html_e( 'that space\'s address, e.g. /spaces/design-critique/', 'buddynext' ); ?><br>
+							<code>{slug}</code> — <?php esc_html_e( 'that space\'s slug, e.g. design-critique', 'buddynext' ); ?><br>
+							<code>{space_id}</code> — <?php esc_html_e( 'that space\'s numeric ID', 'buddynext' ); ?>
+							<?php
+						} else {
+							esc_html_e( 'This tab is added to EVERY profile. Use a placeholder and it is filled in per member:', 'buddynext' );
+							?>
+							<br>
+							<code>{profile_url}</code> — <?php esc_html_e( 'that member\'s profile address', 'buddynext' ); ?><br>
+							<code>{slug}</code> — <?php esc_html_e( 'that member\'s username', 'buddynext' ); ?><br>
+							<code>{user_id}</code> — <?php esc_html_e( 'that member\'s numeric ID', 'buddynext' ); ?>
+							<?php
+						}
+						?>
+					</p>
 				</div>
 				<div class="bn-add-tab-inline-actions">
 					<button type="submit" class="bn-btn" data-variant="primary" data-size="sm">
@@ -1676,14 +1738,14 @@ class NavManager extends AdminPageBase {
 				// the config row does not resubmit, so re-saving keeps the tab.
 				if ( ! empty( $existing[ $slug ]['custom'] ) ) {
 					$overrides[ $slug ]['custom'] = true;
-					$overrides[ $slug ]['url']    = esc_url_raw( (string) ( $cfg['url'] ?? $existing[ $slug ]['url'] ?? '' ) );
+					$overrides[ $slug ]['url']    = self::sanitize_tab_url( (string) ( $cfg['url'] ?? $existing[ $slug ]['url'] ?? '' ) );
 				}
 			}
 
 			// Merge in any new custom tab submitted for this scope.
 			$new_tab   = (array) ( $raw_new_tabs[ $scope ] ?? array() );
 			$new_label = sanitize_text_field( (string) ( $new_tab['label'] ?? '' ) );
-			$new_url   = esc_url_raw( (string) ( $new_tab['url'] ?? '' ) );
+			$new_url   = self::sanitize_tab_url( (string) ( $new_tab['url'] ?? '' ) );
 
 			if ( '' !== $new_label ) {
 				$new_slug = sanitize_key( $new_label );
