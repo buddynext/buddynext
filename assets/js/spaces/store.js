@@ -645,6 +645,14 @@ var storeInstance = store( 'buddynext/spaces', {
 							}
 						}
 					}
+				} else if ( res.ok && ( data.requested || data.pending ) ) {
+					// Open space with "require approval to join": the server accepted
+					// the join REQUEST and returns 200 {requested:true} (not joined).
+					// Reflect a pending state instead of falsely erroring.
+					swapButtonState( btn, 'pending' );
+					if ( window.bnToast ) {
+						window.bnToast( ( data && data.message ) || t( 'joinRequested', 'Request sent — you’ll be notified when it’s approved.' ), 'success' );
+					}
 				} else if ( isGatedDenial( data ) ) {
 					surfacePaywall( btn, spaceId, data );
 				} else if ( btn ) {
