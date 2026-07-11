@@ -1283,7 +1283,18 @@ class AuthController {
 
 		// Re-check the access policy: the community may have closed, or the owner
 		// may have tightened the allowlist, since the sign-up was parked.
-		$access = $policy->check_access( (string) $pending['email'], null, RegistrationPolicy::SOURCE_SOCIAL );
+		//
+		// Carry the parked INVITE into the re-check. Passing null here asked "may
+		// this person join with no invitation?" — which on an invite-only site is
+		// always no. And every invite-only social sign-up comes through this door,
+		// because terms consent defaults on and OAuth cannot supply it. So the
+		// invitation was accepted at the front door and then thrown away at the last
+		// step, blocking exactly the people who had been invited.
+		$access = $policy->check_access(
+			(string) $pending['email'],
+			'' !== (string) ( $pending['invite'] ?? '' ) ? (string) $pending['invite'] : null,
+			RegistrationPolicy::SOURCE_SOCIAL
+		);
 		if ( is_wp_error( $access ) ) {
 			return new WP_Error(
 				$access->get_error_code(),
