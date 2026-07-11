@@ -23,6 +23,31 @@ namespace BuddyNext\Feed;
 class IntegrationActivity {
 
 	/**
+	 * Whether a bridge-driven (system) publish is currently in flight.
+	 *
+	 * Read by SpacePostGuard to skip the per-space `who_can_post` gate. That gate
+	 * governs a MEMBER composing into a space; an integration activity is a mirror
+	 * of content the partner plugin already created and already authorized, whose
+	 * author frequently is not a member of the linked BuddyNext space at all.
+	 *
+	 * Deliberately a system flag rather than a key in the post data array: a data
+	 * key could be smuggled in through a create path and would turn the skip into
+	 * a who_can_post bypass. Nothing a request can supply reaches this.
+	 *
+	 * @var bool
+	 */
+	private static bool $system_publish = false;
+
+	/**
+	 * Whether the current save is a bridge-driven integration publish.
+	 *
+	 * @return bool
+	 */
+	public static function is_system_publish(): bool {
+		return self::$system_publish;
+	}
+
+	/**
 	 * Publish a link-card activity for content a member just created.
 	 *
 	 * Rendered as a standard feed link card pointing at the partner's own page
@@ -41,9 +66,18 @@ class IntegrationActivity {
 	 * @param string $excerpt    Optional short excerpt of the partner content,
 	 *                           stored in link_meta['description'] so the card can
 	 *                           show a title + preview instead of just a verb.
+	 * @param int    $space_id   The BuddyNext space the partner content belongs to,
+	 *                           when it belongs to one. This is what makes the
+	 *                           per-space "Share activity to the main feed" toggle
+	 *                           real: FeedService excludes an opted-out space by
+	 *                           `space_id`, and its clause deliberately lets a NULL
+	 *                           space through, so a card published without one can
+	 *                           never be suppressed — and never appears in the
+	 *                           space's own feed either. Pass 0 for content that
+	 *                           genuinely has no space (a badge, a resume).
 	 * @return int|\WP_Error Post id (0 when an identical card already exists), or WP_Error.
 	 */
-	public static function publish( int $member_id, string $content, string $link_url, string $link_title = '', string $type = 'link', string $excerpt = '' ) {
+	public static function publish( int $member_id, string $content, string $link_url, string $link_title = '', string $type = 'link', string $excerpt = '', int $space_id = 0 ) {
 		if ( $member_id <= 0 || '' === $link_url ) {
 			return new \WP_Error( 'invalid_activity', 'member id and link url are required' );
 		}
@@ -57,25 +91,32 @@ class IntegrationActivity {
 			return 0;
 		}
 
-		return $service->create(
-			$member_id,
-			array(
-				'type'      => $type,
-				'content'   => $content,
-				// Integration activities link OUT to a public partner page (a
-				// public Jetonomy discussion, a job posting, etc.), so they are
-				// inherently public. Set it explicitly rather than inheriting the
-				// site's default-post-privacy option, which may be blank.
-				'privacy'   => 'public',
-				'link_url'  => $link_url,
-				'link_meta' => array(
-					'title'       => $link_title,
-					'description' => $excerpt,
-					'image'       => '',
-					'url'         => $link_url,
-				),
-			)
-		);
+		self::$system_publish = true;
+
+		try {
+			return $service->create(
+				$member_id,
+				array(
+					'type'      => $type,
+					'content'   => $content,
+					'space_id'  => $space_id > 0 ? $space_id : null,
+					// Integration activities link OUT to a public partner page (a
+					// public Jetonomy discussion, a job posting, etc.), so they are
+					// inherently public. Set it explicitly rather than inheriting the
+					// site's default-post-privacy option, which may be blank.
+					'privacy'   => 'public',
+					'link_url'  => $link_url,
+					'link_meta' => array(
+						'title'       => $link_title,
+						'description' => $excerpt,
+						'image'       => '',
+						'url'         => $link_url,
+					),
+				)
+			);
+		} finally {
+			self::$system_publish = false;
+		}
 	}
 
 	/**
