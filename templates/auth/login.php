@@ -47,10 +47,20 @@ if ( isset( $_GET['registration'] ) && 'disabled' === sanitize_key( $_GET['regis
 	$login_error = __( 'Registration is currently closed. Please sign in with an existing account.', 'buddynext' );
 }
 
-// Social sign-in failures (and the approval / takeover-guard notices) are
-// passed back here by SocialLogin::bail().
+// Social sign-in failures (and the approval / takeover-guard notices) are passed
+// back here by SocialLogin::bail() as a CODE, never as a message. The code is
+// resolved against a server-side allowlist, so anything else in the query string
+// collapses to one generic sentence.
+//
+// This used to render whatever text it found in ?bn_social_error=, which meant
+// anyone could hand out a link that put their own words — "your account is
+// locked, call this number" — inside a role="alert" banner on the real login page
+// of the real domain. Escaped, so never XSS, but a ready-made phishing primitive
+// on the most trust-sensitive page in the product.
 if ( isset( $_GET['bn_social_error'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-	$login_error = sanitize_text_field( wp_unslash( (string) $_GET['bn_social_error'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$login_error = \BuddyNext\Auth\SocialLogin::error_message(
+		sanitize_key( wp_unslash( (string) $_GET['bn_social_error'] ) ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	);
 }
 
 // Only honour an explicit ?redirect_to= param here; otherwise send an empty

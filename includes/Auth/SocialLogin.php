@@ -348,9 +348,17 @@ class SocialLogin {
 	 * @return void
 	 */
 	private function start( string $id ): void {
+		// Throttle the START of the flow, not just the callback. This route is an
+		// unauthenticated GET that unconditionally writes a 10-minute transient on
+		// every single hit — with an attacker-controlled redirect_to payload inside
+		// it. Unthrottled, hammering /oauth/google/ filled wp_options with unbounded
+		// _transient_bn_social_state_* rows (the default path with no persistent
+		// object cache): storage exhaustion, no auth, no cost to the attacker.
+		$this->rate_limit();
+
 		$defs = self::get_providers();
 		if ( ! isset( $defs[ $id ] ) || ! self::is_ready( $id ) ) {
-			$this->bail( __( 'That sign-in method is not available.', 'buddynext' ) );
+			$this->bail( 'unavailable' );
 		}
 
 		$s     = self::settings()[ $id ];
@@ -413,35 +421,35 @@ class SocialLogin {
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		if ( ! isset( $defs[ $id ] ) || ! self::is_ready( $id ) || '' === $code || '' === $state ) {
-			$this->bail( __( 'Sign-in was cancelled or failed.', 'buddynext' ) );
+			$this->bail( 'cancelled' );
 		}
 
 		// Same-browser check: the state cookie set at start must match.
 		$cookie_state = isset( $_COOKIE[ self::STATE_COOKIE ] ) ? sanitize_text_field( wp_unslash( (string) $_COOKIE[ self::STATE_COOKIE ] ) ) : '';
 		$this->clear_state_cookie();
 		if ( ! hash_equals( $cookie_state, $state ) ) {
-			$this->bail( __( 'Sign-in could not be verified for this browser. Please try again.', 'buddynext' ) );
+			$this->bail( 'bad_browser' );
 		}
 
 		$stored = get_transient( self::STATE_PREFIX . $state );
 		delete_transient( self::STATE_PREFIX . $state );
 		if ( ! is_array( $stored ) || ( $stored['provider'] ?? '' ) !== $id ) {
-			$this->bail( __( 'Sign-in session expired. Please try again.', 'buddynext' ) );
+			$this->bail( 'expired' );
 		}
 
 		$token = $this->exchange_code( $id, $code );
 		if ( '' === $token ) {
-			$this->bail( __( 'Could not verify your account with the provider.', 'buddynext' ) );
+			$this->bail( 'provider_failed' );
 		}
 
 		$profile = $this->fetch_profile( $id, $token );
 		if ( empty( $profile['email'] ) ) {
-			$this->bail( __( 'No email address was returned by the provider, so we could not sign you in.', 'buddynext' ) );
+			$this->bail( 'no_email' );
 		}
 
 		$resolved = $this->resolve_user( $id, $profile );
 		if ( is_wp_error( $resolved ) ) {
-			$this->bail( $resolved->get_error_message() );
+			$this->bail( $this->code_for( $resolved ) );
 		}
 
 		// A pending-signup token: the owner requires something OAuth cannot give
@@ -477,7 +485,7 @@ class SocialLogin {
 			}
 
 			// Anything else (notably the admin-approval hold) is a refusal.
-			$this->bail( $session->get_error_message() );
+			$this->bail( $this->code_for( $session ) );
 		}
 
 		$dest = ! empty( $stored['redirect_to'] ) ? (string) $stored['redirect_to'] : home_url( '/' );
@@ -550,9 +558,20 @@ class SocialLogin {
 		$email    = sanitize_email( (string) $this->claim( $d, (string) ( $map['email'] ?? '' ) ) );
 		$verified = false;
 
-		// GitHub keeps email on a separate endpoint and only there reports which
+		// GitHub keeps email on a separate endpoint and ONLY there reports which
 		// address is primary AND verified — read it from the horse's mouth.
-		if ( '' === $email && ! empty( $def['email_endpoint'] ) ) {
+		//
+		// This used to run only when /user returned no email at all. But GitHub's
+		// /user DOES return `email` whenever the member has set a public profile
+		// email, so for those members the lookup was skipped — and since GitHub has
+		// no inline `verified` claim and no trust_email, they came out UNVERIFIED.
+		// Same site, same provider: one member auto-linked, the next hit the "sign
+		// in with your password first" wall, depending on a setting on THEIR GitHub
+		// profile that neither they nor the admin would ever connect to the
+		// failure. With email verification on, those accounts were stuck unverified
+		// forever. If the provider has an email endpoint, it is authoritative:
+		// always ask.
+		if ( ! empty( $def['email_endpoint'] ) ) {
 			$emails = $this->api_get_json( (string) $def['email_endpoint'], $token );
 			if ( is_array( $emails ) ) {
 				foreach ( $emails as $row ) {
@@ -575,6 +594,21 @@ class SocialLogin {
 				$verified = true;
 			}
 		}
+
+		/**
+		 * Filter whether a provider's email address may be treated as verified.
+		 *
+		 * This one boolean decides whether an OAuth identity may be merged into an
+		 * EXISTING local account, so it is the most security-sensitive value in the
+		 * flow. Facebook ships trusted on the platform's own assurance; an owner who
+		 * is not comfortable with that assumption can revoke it here rather than
+		 * having to disable the provider outright.
+		 *
+		 * @param bool                 $verified Whether the provider asserts the address is verified.
+		 * @param string               $id       Provider id (google, facebook, github, discord…).
+		 * @param array<string, mixed> $d        Raw provider profile payload.
+		 */
+		$verified = (bool) apply_filters( 'buddynext_social_email_verified', (bool) $verified, $id, (array) $d );
 
 		return array(
 			'id'             => (string) $this->claim( $d, (string) ( $map['id'] ?? '' ) ),
@@ -701,6 +735,20 @@ class SocialLogin {
 		// the same one the BuddyNext form and the WordPress core form pass through
 		// — so the owner's policy binds on this door too. It previously did not:
 		// social login reimplemented registration and inherited none of it.
+
+		// A provider-verified address is required to CREATE an account, not just to
+		// link into an existing one. It used to be required only for linking, so an
+		// unverified address could still mint a brand-new account under someone
+		// else's email — squatting it, because the real owner is then permanently
+		// blocked from registering ("an account already exists with this email").
+		// Registration denial-of-service, and a ready-made phishing surface.
+		if ( ! $profile['email_verified'] ) {
+			return new \WP_Error(
+				'bn_social_unverified_new',
+				__( 'Your provider did not confirm that this email address belongs to you, so we could not create an account. Please sign up with your email instead.', 'buddynext' )
+			);
+		}
+
 		$policy = buddynext_service( 'registration_policy' );
 
 		// Access policy: registration mode (incl. closed), the invite requirement,
@@ -826,17 +874,82 @@ class SocialLogin {
 	}
 
 	/**
-	 * Redirect back to login with an error message.
+	 * Redirect back to the login screen with an error CODE.
 	 *
-	 * @param string $message Error text.
+	 * @param string $code Error code from the error_message() allowlist.
 	 * @return void
 	 */
-	private function bail( string $message ): void {
+	private function bail( string $code ): void {
+		// A CODE, never a message. This used to redirect with the human-readable
+		// error text in the query string, and templates/auth/login.php rendered
+		// whatever it found there into a role="alert" banner. Anyone could hand out
+		// a link like ?bn_social_error=Your+account+is+locked.+Call+1-800-... and
+		// have that sentence appear on the real, TLS-valid login page of the real
+		// domain. Not XSS — the output was escaped — but a first-class phishing
+		// primitive on the most trust-sensitive page in the product.
+		//
 		// PageRouter::auth_url() reads the canonical buddynext_slug_auth option;
 		// this previously read a never-written buddynext_slug_login key, so the
 		// error redirect broke the moment the auth slug was renamed.
-		wp_safe_redirect( add_query_arg( 'bn_social_error', rawurlencode( $message ), \BuddyNext\Core\PageRouter::auth_url() ) );
+		wp_safe_redirect(
+			add_query_arg( 'bn_social_error', rawurlencode( sanitize_key( $code ) ), \BuddyNext\Core\PageRouter::auth_url() )
+		);
 		exit;
+	}
+
+	/**
+	 * Resolve a social sign-in error code to its message.
+	 *
+	 * The map is the allowlist: an unknown code (i.e. anything an attacker put in
+	 * the URL) collapses to one generic sentence, so the query string cannot be
+	 * used to put words on our login screen.
+	 *
+	 * @param string $code Error code from bail().
+	 * @return string Translated, safe-to-display message.
+	 */
+	public static function error_message( string $code ): string {
+		$messages = array(
+			'unavailable'      => __( 'That sign-in method is not available.', 'buddynext' ),
+			'cancelled'        => __( 'Sign-in was cancelled or failed.', 'buddynext' ),
+			'bad_browser'      => __( 'Sign-in could not be verified for this browser. Please try again.', 'buddynext' ),
+			'expired'          => __( 'Sign-in session expired. Please try again.', 'buddynext' ),
+			'provider_failed'  => __( 'Could not verify your account with the provider.', 'buddynext' ),
+			'no_email'         => __( 'No email address was returned by the provider, so we could not sign you in.', 'buddynext' ),
+			'rate_limited'     => __( 'Too many sign-in attempts. Please wait a minute and try again.', 'buddynext' ),
+			'taken'            => __( 'That account is already linked to another member.', 'buddynext' ),
+			'unverified'       => __( 'An account already uses this email. Please sign in with your password, then link this account from your profile settings.', 'buddynext' ),
+			'unverified_new'   => __( 'Your provider did not confirm that this email address belongs to you, so we could not create an account. Please sign up with your email instead.', 'buddynext' ),
+			'pending_approval' => __( 'Your account is awaiting administrator approval.', 'buddynext' ),
+			'reg_closed'       => __( 'Registration is closed on this community.', 'buddynext' ),
+			'reg_invite'       => __( 'This community is invite-only. You need an invitation to join.', 'buddynext' ),
+			'reg_domain'       => __( 'Only users from allowed email domains may register.', 'buddynext' ),
+		);
+
+		$code = sanitize_key( $code );
+
+		return $messages[ $code ] ?? __( 'Sign-in failed. Please try again.', 'buddynext' );
+	}
+
+	/**
+	 * Map a WP_Error from the resolve/session steps onto a bail() code.
+	 *
+	 * @param \WP_Error $error Error to translate.
+	 * @return string Bail code.
+	 */
+	private function code_for( \WP_Error $error ): string {
+		$map = array(
+			'bn_social_taken'          => 'taken',
+			'bn_social_unverified'     => 'unverified',
+			'bn_social_unverified_new' => 'unverified_new',
+			'bn_social_no_id'          => 'provider_failed',
+			'bn_pending_approval'      => 'pending_approval',
+			'bn_reg_closed'            => 'reg_closed',
+			'bn_reg_invite'            => 'reg_invite',
+			'bn_reg_domain'            => 'reg_domain',
+			'bn_reg_rate'              => 'rate_limited',
+		);
+
+		return $map[ $error->get_error_code() ] ?? 'cancelled';
 	}
 
 	/**
@@ -848,7 +961,7 @@ class SocialLogin {
 		$ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) ) : '';
 		$key = 'bn_oauth_rl_' . md5( $ip );
 		if ( RateLimiter::count( $key ) >= self::RATE_MAX ) {
-			$this->bail( __( 'Too many sign-in attempts. Please wait a minute and try again.', 'buddynext' ) );
+			$this->bail( 'rate_limited' );
 		}
 		RateLimiter::hit( $key, MINUTE_IN_SECONDS );
 	}
