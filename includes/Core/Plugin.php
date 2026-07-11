@@ -745,6 +745,14 @@ class Plugin {
 		$container->bind( 'bookmarks', fn() => new BookmarkService() );
 		$container->bind( 'shares', fn() => new ShareService() );
 		$container->bind( 'profiles', fn() => new ProfileService() );
+
+		// The shared registration gate. Every signup door — the BuddyNext form,
+		// its REST endpoint, social login, and the WordPress core form — consumes
+		// these three, so an owner's policy binds on all of them equally.
+		$container->bind( 'registration_policy', fn() => new \BuddyNext\Auth\RegistrationPolicy() );
+		$container->bind( 'registration', fn() => new \BuddyNext\Auth\RegistrationService() );
+		$container->bind( 'session', fn() => new \BuddyNext\Auth\SessionIssuer() );
+
 		$container->bind( 'avatars', fn() => new AvatarService() );
 		$container->bind( 'search', fn() => new SearchService() );
 		$container->bind( 'search_index_listener', fn() => new SearchIndexListener() );
