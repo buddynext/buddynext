@@ -194,9 +194,13 @@ class MemberDirectoryService {
 		// a native JOIN (not a post-query filter) so the COUNT/total and cursor
 		// reflect only followed users.
 		if ( 'following' === $relation && $viewer_id > 0 ) {
+			// Only ACCEPTED follows (status='approved'). A request to follow a
+			// private account is stored status='pending' until approved; without
+			// this filter the directory "Following" tab listed those pending
+			// accounts, diverging from every other following surface.
 			$joins[] = $wpdb->prepare(
 				"INNER JOIN {$wpdb->prefix}bn_follows bfol
-				 ON bfol.follower_id = %d AND bfol.following_id = u.ID",
+				 ON bfol.follower_id = %d AND bfol.following_id = u.ID AND bfol.status = 'approved'",
 				$viewer_id
 			);
 		}
