@@ -775,7 +775,7 @@ class ProfileController extends BaseRestController {
 
 		// Validate input before any persistence. Field-level errors are
 		// returned as a 422 payload the JS store can map to inline errors.
-		$errors = $this->validate_profile_payload( $data, $full_write );
+		$errors = $this->validate_profile_payload( $data, $full_write, $user_id );
 		if ( ! empty( $errors ) ) {
 			return new WP_REST_Response(
 				array(
@@ -941,7 +941,7 @@ class ProfileController extends BaseRestController {
 	 *                                          Defaults to false (partial update).
 	 * @return array<string, string> Field-keyed error messages (possibly empty).
 	 */
-	private function validate_profile_payload( array $data, bool $full_write = false ): array {
+	private function validate_profile_payload( array $data, bool $full_write = false, int $target_user_id = 0 ): array {
 		$errors = array();
 
 		if ( array_key_exists( 'display_name', $data ) ) {
@@ -1003,9 +1003,33 @@ class ProfileController extends BaseRestController {
 		// bare `continue` and still returned 200 {"saved":true}.
 		$profiles    = function_exists( 'buddynext_service' ) ? buddynext_service( 'profiles' ) : null;
 		$flat_fields = ( $profiles instanceof \BuddyNext\Profile\ProfileService ) ? $profiles->get_flat_fields() : array();
+
+		// Resolve the target user's member-type slug so member-type-restricted
+		// groups are enforced only against members who actually hold that type —
+		// the same G2 rule the display path uses (ProfileService::get_profile).
+		// Without this, a required field in a Staff-only group blocks a
+		// Contributor's save with a phantom "required" 422 for a field they never
+		// see. Empty restriction = applies to everyone (unchanged default).
+		$target_type_slug = '';
+		if ( $target_user_id > 0 && function_exists( 'buddynext_service' ) ) {
+			$member_types = buddynext_service( 'member_types' );
+			if ( is_object( $member_types ) && method_exists( $member_types, 'get_user_type' ) ) {
+				$owner_type       = $member_types->get_user_type( $target_user_id );
+				$target_type_slug = is_array( $owner_type ) ? (string) ( $owner_type['slug'] ?? '' ) : '';
+			}
+		}
+
 		foreach ( $flat_fields as $field_def ) {
 			$fkey = (string) ( $field_def['field_key'] ?? '' );
 			if ( '' === $fkey || isset( $errors[ $fkey ] ) ) {
+				continue;
+			}
+
+			// Skip fields whose group is restricted to a member type the target
+			// user does not hold — the field is invisible to them, so neither
+			// required-enforcement nor field validation applies.
+			$g_restriction = (string) ( $field_def['group_type_restriction'] ?? '' );
+			if ( '' !== $g_restriction && $g_restriction !== $target_type_slug ) {
 				continue;
 			}
 
@@ -1083,7 +1107,7 @@ class ProfileController extends BaseRestController {
 		$full_write = ! empty( $data['full_write'] ) && rest_sanitize_boolean( (string) $data['full_write'] );
 		unset( $data['full_write'] );
 
-		$errors = $this->validate_profile_payload( $data, $full_write );
+		$errors = $this->validate_profile_payload( $data, $full_write, $user_id );
 		if ( ! empty( $errors ) ) {
 			return new WP_REST_Response(
 				array(
