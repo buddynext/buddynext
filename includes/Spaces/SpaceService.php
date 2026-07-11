@@ -655,6 +655,14 @@ class SpaceService {
 	public function transfer_ownership( int $space_id, int $new_owner_id, int $actor_id ): void {
 		$members = new SpaceMemberService();
 
+		// Read the outgoing owner BEFORE any write, so the
+		// buddynext_space_ownership_transferred payload below carries the same
+		// four arguments assign_owner() publishes. A listener registered with
+		// accepted_args = 4 must not hit an ArgumentCountError just because the
+		// legacy path fired the event.
+		$space             = $this->get( $space_id );
+		$previous_owner_id = (int) ( $space['owner_id'] ?? $actor_id );
+
 		// Demote the current owner, promote the new owner (same order the
 		// controller used previously).
 		$members->change_role( $space_id, $actor_id, 'member', $actor_id );
@@ -678,41 +686,80 @@ class SpaceService {
 		 *
 		 * The whole transfer chain was previously silent (change_role fired no
 		 * hook either), so no webhook / notification could observe this major
-		 * domain event.
+		 * domain event. Four arguments — identical to the payload assign_owner()
+		 * fires — so the published hook contract is the same whichever path moved
+		 * the ownership.
 		 *
-		 * @param int $space_id     Space whose ownership moved.
-		 * @param int $new_owner_id The new owner.
-		 * @param int $actor_id     User who performed the transfer.
+		 * @param int      $space_id          Space whose ownership moved.
+		 * @param int      $new_owner_id      The new owner.
+		 * @param int|null $actor_id          User who performed the transfer.
+		 * @param int      $previous_owner_id The outgoing owner (0 if none).
 		 */
-		do_action( 'buddynext_space_ownership_transferred', $space_id, $new_owner_id, $actor_id );
+		do_action( 'buddynext_space_ownership_transferred', $space_id, $new_owner_id, $actor_id, $previous_owner_id );
 	}
 
 	/**
-	 * Move a space's ownership atomically across BOTH tables.
+	 * Move a space's ownership across BOTH tables, or change nothing.
 	 *
 	 * The single primitive for every ownership change: the settings-screen
 	 * transfer, automatic succession when an owner is deleted, and the CLI
-	 * repair sweep. `bn_spaces.owner_id` and the `bn_space_members` owner row
-	 * are written together, in a fixed order (heir promoted, previous owner
-	 * demoted, pointer moved last) so they can never diverge — no caller can
-	 * observe one write without the other. No explicit SQL transaction: this
-	 * codebase never wraps writes in one (see transfer_ownership(), update(),
-	 * set_archived()), and WP_UnitTestCase itself runs every test inside a
-	 * real `START TRANSACTION`, which a nested one would silently commit.
+	 * repair sweep. Ownership is denormalised across two places that must agree —
+	 * `bn_spaces.owner_id` and the `role = 'owner'` row in `bn_space_members` —
+	 * and this method exists to make divergence between them impossible.
+	 *
+	 * Three writes, in a fixed order: (W1) the heir is upserted to an active
+	 * owner, (W2) the previous owner is demoted, (W3) the denormalised pointer
+	 * moves last. WHAT IS ACTUALLY GUARANTEED, and how:
+	 *
+	 * 1. SHORT-CIRCUIT (always). Each write's return value is checked before the
+	 *    next one is issued. A failing W1 means W2 and W3 never run, so the
+	 *    method can never demote the incumbent and move the pointer to a user it
+	 *    failed to promote — the ownerless-space outcome.
+	 * 2. TRANSACTION (production). The three writes run inside a single
+	 *    `START TRANSACTION` / `COMMIT`, rolled back on any failure, so no
+	 *    concurrent reader observes a half-applied transfer. Skipped when the
+	 *    WordPress test suite is running (`WP_TESTS_DOMAIN`), because
+	 *    WP_UnitTestCase already wraps every test in its own transaction and
+	 *    MySQL implicitly COMMITs it on a nested `START TRANSACTION` — which
+	 *    would leak committed rows into the test database. Overridable via the
+	 *    `buddynext_space_use_db_transaction` filter.
+	 * 3. COMPENSATION (whenever the transaction is skipped). Because a skipped
+	 *    transaction means no rollback, a failing W2 explicitly undoes W1, and a
+	 *    failing W3 undoes W2 and W1 — restoring the heir's exact prior row (or
+	 *    deleting it, if they had none) and re-promoting the incumbent.
+	 *
+	 * NOT guaranteed: on the non-transactional path the compensating undo is
+	 * itself a DB write, so a database that has stopped accepting writes
+	 * entirely can still leave a partially applied transfer. `wp buddynext
+	 * spaces repair-owners` remains the backstop for that. Every failure path,
+	 * compensated or not, busts the same caches the success path does, so a
+	 * stale role cache never outlives the rows it described.
 	 *
 	 * Authorization lives HERE, not in the caller — the older
 	 * transfer_ownership() delegated it to callers and a moderator-gated
-	 * template was able to rewrite owner_id.
+	 * template was able to rewrite owner_id. A banned user is rejected outright:
+	 * only `status = 'active'` members are ever eligible for anything.
+	 *
+	 * The native return type stays `bool|WP_Error` rather than `true|WP_Error`
+	 * because the standalone `true` type is PHP 8.2+ and this plugin supports
+	 * 8.1 (see "Requires PHP" and the CI matrix). Callers should treat the
+	 * success value as `true` — the @return annotation below is what static
+	 * analysis reads.
 	 *
 	 * @param int      $space_id     Space whose ownership moves.
 	 * @param int      $new_owner_id User who becomes the owner. Joined as an
 	 *                               active member (with role promoted to
-	 *                               'owner') if not one already.
+	 *                               'owner') if not one already. Must not be
+	 *                               banned from the space.
 	 * @param int|null $actor_id     User performing the change; requires
 	 *                               `buddynext-manage-space` on this space.
 	 *                               Pass null for SYSTEM context (succession /
 	 *                               CLI), which performs no capability check.
-	 * @return true|WP_Error True on success (including a no-op), WP_Error otherwise.
+	 * @return true|WP_Error True on success (including a no-op). WP_Error on a
+	 *                       missing space (`space_not_found`), unknown user
+	 *                       (`invalid_owner`), unauthorised actor (`forbidden`),
+	 *                       banned heir (`heir_banned`), or a failed write
+	 *                       (`assign_owner_failed`).
 	 */
 	public function assign_owner( int $space_id, int $new_owner_id, ?int $actor_id = null ): bool|WP_Error {
 		global $wpdb;
@@ -733,28 +780,62 @@ class SpaceService {
 			return new WP_Error( 'forbidden', __( 'Only the space owner can transfer ownership.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
+		// A banned user is never eligible. Without this the W1 upsert's
+		// `status = 'active'` clause would silently resurrect a soft-banned
+		// member as the owner; and a hard ban (a bn_space_bans row) would make
+		// PermissionService::is_space_banned() hard-deny every space capability
+		// to the person who now nominally owns the space — a fresh divergence.
+		// is_space_banned() covers BOTH surfaces (bn_space_bans + the
+		// status = 'banned' membership row), so it is the single check here.
+		if ( buddynext_service( 'permissions' )->is_space_banned( $new_owner_id, $space_id ) ) {
+			return new WP_Error( 'heir_banned', __( 'A banned user cannot be made the owner of this space.', 'buddynext' ), array( 'status' => 409 ) );
+		}
+
 		$previous_owner_id = (int) ( $space['owner_id'] ?? 0 );
 		if ( $previous_owner_id === $new_owner_id ) {
 			return true;
 		}
 
-		$members_table = $wpdb->prefix . 'bn_space_members';
-		$spaces_table  = $wpdb->prefix . 'bn_spaces';
+		$spaces_table = $wpdb->prefix . 'bn_spaces';
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		// Was the heir already an ACTIVE member? Decides the member_count delta.
-		$heir_was_active = (bool) $wpdb->get_var(
+		// The heir's row BEFORE W1: it decides the member_count delta, and it is
+		// the undo state if a later write fails on the non-transactional path.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$heir_row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT 1 FROM {$members_table} WHERE space_id = %d AND user_id = %d AND status = 'active'",
+				"SELECT role, status FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND user_id = %d",
 				$space_id,
 				$new_owner_id
-			)
+			),
+			ARRAY_A
 		);
 
-		// 1. The heir becomes an active owner (UPSERT — covers member, moderator, or non-member).
+		$heir_was_active = is_array( $heir_row ) && 'active' === $heir_row['status'];
+
+		/**
+		 * Filters whether an ownership write runs inside an explicit SQL transaction.
+		 *
+		 * Defaults to true everywhere EXCEPT the WordPress test suite, which
+		 * already wraps each test in its own transaction that a nested
+		 * `START TRANSACTION` would implicitly COMMIT — leaking the test's rows
+		 * into the database. When this returns false the method falls back to
+		 * short-circuiting plus compensating undo (see the method docblock).
+		 *
+		 * @param bool   $use_transaction Whether to open a transaction.
+		 * @param string $operation       The ownership operation being performed.
+		 */
+		$use_txn = (bool) apply_filters( 'buddynext_space_use_db_transaction', ! defined( 'WP_TESTS_DOMAIN' ), 'assign_owner' );
+
+		if ( $use_txn ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query( 'START TRANSACTION' );
+		}
+
+		// W1. The heir becomes an active owner (UPSERT — covers member, moderator, or non-member).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$promoted = $wpdb->query(
 			$wpdb->prepare(
-				"INSERT INTO {$members_table} ( space_id, user_id, role, status, joined_at )
+				"INSERT INTO {$wpdb->prefix}bn_space_members ( space_id, user_id, role, status, joined_at )
 				 VALUES ( %d, %d, 'owner', 'active', %s )
 				 ON DUPLICATE KEY UPDATE role = 'owner', status = 'active'",
 				$space_id,
@@ -763,19 +844,35 @@ class SpaceService {
 			)
 		);
 
-		// 2. The previous owner is demoted — the row may already be gone (deleted user), which is fine.
-		$demoted = true;
+		// Nothing else has been written yet, so there is nothing to undo — but
+		// bail NOW, before W2 demotes the incumbent and W3 points the space at a
+		// user who was never promoted.
+		if ( false === $promoted ) {
+			return $this->abort_owner_transfer( $space, $new_owner_id, $previous_owner_id, $use_txn, false, $heir_row, false );
+		}
+
+		// W2. The previous owner is demoted — their row may already be gone
+		// (deleted user), which is fine: zero rows affected is not a failure.
+		$demoted_rows = 0;
 		if ( $previous_owner_id > 0 ) {
-			$demoted = false !== $wpdb->query(
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$demoted = $wpdb->query(
 				$wpdb->prepare(
-					"UPDATE {$members_table} SET role = 'member' WHERE space_id = %d AND user_id = %d AND role = 'owner'",
+					"UPDATE {$wpdb->prefix}bn_space_members SET role = 'member' WHERE space_id = %d AND user_id = %d AND role = 'owner'",
 					$space_id,
 					$previous_owner_id
 				)
 			);
+
+			if ( false === $demoted ) {
+				return $this->abort_owner_transfer( $space, $new_owner_id, $previous_owner_id, $use_txn, true, $heir_row, false );
+			}
+
+			$demoted_rows = (int) $wpdb->rows_affected;
 		}
 
-		// 3. The denormalised pointer moves LAST.
+		// W3. The denormalised pointer moves LAST.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$pointer = $wpdb->update(
 			$spaces_table,
 			array( 'owner_id' => $new_owner_id ),
@@ -784,26 +881,20 @@ class SpaceService {
 			array( '%d' )
 		);
 
-		if ( false === $promoted || false === $demoted || false === $pointer ) {
-			return new WP_Error( 'assign_owner_failed', __( 'Could not transfer ownership.', 'buddynext' ), array( 'status' => 500 ) );
+		if ( false === $pointer ) {
+			return $this->abort_owner_transfer( $space, $new_owner_id, $previous_owner_id, $use_txn, true, $heir_row, $demoted_rows > 0 );
 		}
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		$members = new SpaceMemberService();
+		if ( $use_txn ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query( 'COMMIT' );
+		}
 
 		if ( ! $heir_was_active ) {
-			$members->adjust_member_count( $space_id, 1 );
+			( new SpaceMemberService() )->adjust_member_count( $space_id, 1 );
 		}
 
-		// Both writes bypassed SpaceMemberService's own mutators, so bust its
-		// per-user role/status caches directly — otherwise a subsequent
-		// get_role() for either user can return a stale value.
-		$members->flush_user_caches( $space_id, array_filter( array( $new_owner_id, $previous_owner_id ) ) );
-
-		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
-		if ( ! empty( $space['slug'] ) ) {
-			wp_cache_delete( 'space_slug_' . $space['slug'], self::CACHE_GROUP );
-		}
+		$this->flush_ownership_caches( $space, array( $new_owner_id, $previous_owner_id ) );
 
 		/**
 		 * Fires after a space's ownership moves, however it moved.
@@ -816,6 +907,117 @@ class SpaceService {
 		do_action( 'buddynext_space_ownership_transferred', $space_id, $new_owner_id, $actor_id, $previous_owner_id );
 
 		return true;
+	}
+
+	/**
+	 * Unwind a failed ownership transfer and report it.
+	 *
+	 * On the transactional path a single ROLLBACK discards whatever W1..W3
+	 * managed to write. When the transaction was skipped (the test suite, or a
+	 * site that filtered it off) there is nothing to roll back, so each write
+	 * that DID land is undone by hand, in reverse order: the incumbent is
+	 * re-promoted, then the heir's row is restored to exactly what it was — or
+	 * deleted outright, if they had no row before W1 inserted one.
+	 *
+	 * Either way the caches are busted before returning, so a partial write can
+	 * never outlive itself in a stale role cache.
+	 *
+	 * @param array      $space             The space row as read before the writes.
+	 * @param int        $new_owner_id      The heir W1 tried to promote.
+	 * @param int        $previous_owner_id The incumbent W2 tried to demote (0 if none).
+	 * @param bool       $used_transaction  Whether the writes ran inside a transaction.
+	 * @param bool       $undo_promotion    Whether W1 actually landed. False when W1 is
+	 *                                      itself the write that failed — nothing was
+	 *                                      written, so the heir's row must be left alone.
+	 * @param array|null $heir_row          The heir's `role`/`status` as read BEFORE W1,
+	 *                                      or null when they had no membership row at all
+	 *                                      (so undoing W1 means deleting the row it
+	 *                                      inserted). Only consulted when $undo_promotion.
+	 * @param bool       $undo_demotion     Whether W2 actually demoted a row.
+	 * @return WP_Error Always — this is the failure path.
+	 */
+	private function abort_owner_transfer( array $space, int $new_owner_id, int $previous_owner_id, bool $used_transaction, bool $undo_promotion, ?array $heir_row, bool $undo_demotion ): WP_Error {
+		global $wpdb;
+
+		$space_id      = (int) $space['id'];
+		$members_table = $wpdb->prefix . 'bn_space_members';
+
+		if ( $used_transaction ) {
+			// One ROLLBACK discards whatever W1..W3 managed to write.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query( 'ROLLBACK' );
+		} else {
+			// No transaction to roll back: undo by hand, in reverse write order.
+			if ( $undo_demotion && $previous_owner_id > 0 ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->query(
+					$wpdb->prepare(
+						"UPDATE {$wpdb->prefix}bn_space_members SET role = 'owner' WHERE space_id = %d AND user_id = %d",
+						$space_id,
+						$previous_owner_id
+					)
+				);
+			}
+
+			if ( $undo_promotion ) {
+				if ( is_array( $heir_row ) ) {
+					// The heir already had a row: put its role and status back exactly.
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					$wpdb->update(
+						$members_table,
+						array(
+							'role'   => (string) $heir_row['role'],
+							'status' => (string) $heir_row['status'],
+						),
+						array(
+							'space_id' => $space_id,
+							'user_id'  => $new_owner_id,
+						),
+						array( '%s', '%s' ),
+						array( '%d', '%d' )
+					);
+				} else {
+					// The heir had no row at all — W1's INSERT is undone by deleting it.
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					$wpdb->delete(
+						$members_table,
+						array(
+							'space_id' => $space_id,
+							'user_id'  => $new_owner_id,
+						),
+						array( '%d', '%d' )
+					);
+				}
+			}
+		}
+
+		$this->flush_ownership_caches( $space, array( $new_owner_id, $previous_owner_id ) );
+
+		return new WP_Error( 'assign_owner_failed', __( 'Could not transfer ownership.', 'buddynext' ), array( 'status' => 500 ) );
+	}
+
+	/**
+	 * Bust every cache an ownership write invalidates.
+	 *
+	 * Ownership writes hit bn_space_members directly rather than going through
+	 * SpaceMemberService's mutators, so that service's per-user role/status
+	 * caches must be flushed by hand — otherwise a later get_role() for either
+	 * user returns a stale value. Called on the success path AND on every
+	 * failure path, since a failed-and-compensated write still touched rows.
+	 *
+	 * @param array $space    The space row (needs `id`, and `slug` if cached).
+	 * @param array $user_ids Users whose membership caches to flush; zeroes are ignored.
+	 * @return void
+	 */
+	private function flush_ownership_caches( array $space, array $user_ids ): void {
+		$space_id = (int) $space['id'];
+
+		( new SpaceMemberService() )->flush_user_caches( $space_id, array_values( array_filter( array_map( 'intval', $user_ids ) ) ) );
+
+		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+		if ( ! empty( $space['slug'] ) ) {
+			wp_cache_delete( 'space_slug_' . $space['slug'], self::CACHE_GROUP );
+		}
 	}
 
 	/**

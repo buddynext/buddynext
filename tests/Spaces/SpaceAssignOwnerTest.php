@@ -14,15 +14,45 @@ use BuddyNext\Spaces\SpaceMemberService;
 use BuddyNext\Spaces\SpaceService;
 
 /**
+ * Covers the single ownership-transfer primitive.
+ *
  * @covers \BuddyNext\Spaces\SpaceService::assign_owner
  */
 class SpaceAssignOwnerTest extends \WP_UnitTestCase {
 
+	/**
+	 * Service under test.
+	 *
+	 * @var SpaceService
+	 */
 	private SpaceService $spaces;
+
+	/**
+	 * Membership service, used to seed and assert member rows.
+	 *
+	 * @var SpaceMemberService
+	 */
 	private SpaceMemberService $members;
+
+	/**
+	 * The space's original owner.
+	 *
+	 * @var int
+	 */
 	private int $owner_id;
+
+	/**
+	 * The space under test.
+	 *
+	 * @var int
+	 */
 	private int $space_id;
 
+	/**
+	 * Create a space owned by a fresh user.
+	 *
+	 * @return void
+	 */
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
@@ -102,15 +132,80 @@ class SpaceAssignOwnerTest extends \WP_UnitTestCase {
 		$this->assertTrue( $this->spaces->assign_owner( $this->space_id, $heir, null ) );
 	}
 
+	/**
+	 * An unknown user ID is rejected before any write.
+	 *
+	 * @return void
+	 */
 	public function test_rejects_nonexistent_user(): void {
 		$this->assertWPError( $this->spaces->assign_owner( $this->space_id, 999999 ) );
 	}
 
+	/**
+	 * Re-assigning to the incumbent is a successful no-op.
+	 *
+	 * @return void
+	 */
 	public function test_noop_when_already_owner(): void {
 		$this->assertTrue( $this->spaces->assign_owner( $this->space_id, $this->owner_id ) );
 		$this->assertSame( $this->owner_id, (int) $this->spaces->get( $this->space_id )['owner_id'] );
 	}
 
+	/**
+	 * A soft-banned member (bn_space_members.status = 'banned') must never be
+	 * promoted to owner: the upsert would silently flip them back to 'active'.
+	 */
+	public function test_soft_banned_member_cannot_be_made_owner(): void {
+		$heir = self::factory()->user->create();
+		$this->members->join( $this->space_id, $heir );
+
+		// ban() writes BOTH surfaces; drop the hard-ban row so this test isolates
+		// the soft ban (status='banned' on the membership row).
+		$this->assertTrue( $this->members->ban( $this->space_id, $this->owner_id, $heir ) );
+		$this->assertTrue( $this->members->unban_from_space( $this->space_id, $heir ) );
+		$this->assertSame( 'banned', $this->members->get_status( $this->space_id, $heir ) );
+
+		$result = $this->spaces->assign_owner( $this->space_id, $heir );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'heir_banned', $result->get_error_code() );
+		$this->assertSame( $this->owner_id, (int) $this->spaces->get( $this->space_id )['owner_id'], 'owner_id must be untouched' );
+		$this->assertSame( 'banned', $this->members->get_status( $this->space_id, $heir ), 'a banned member must not be resurrected as active' );
+	}
+
+	/**
+	 * A hard-banned user (bn_space_bans row, no membership row) must never be
+	 * promoted: PermissionService::is_space_banned() would keep hard-denying
+	 * every capability while they are nominally the owner.
+	 */
+	public function test_hard_banned_user_cannot_be_made_owner(): void {
+		global $wpdb;
+		$heir = self::factory()->user->create();
+
+		// System ban: inserts bn_space_bans and removes any membership row.
+		$this->assertTrue( $this->members->ban_from_space( $this->space_id, $heir, 0, 'spam' ) );
+
+		$result = $this->spaces->assign_owner( $this->space_id, $heir, null );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'heir_banned', $result->get_error_code() );
+		$this->assertSame( $this->owner_id, (int) $this->spaces->get( $this->space_id )['owner_id'], 'owner_id must be untouched' );
+
+		$rows = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND user_id = %d",
+				$this->space_id,
+				$heir
+			)
+		);
+		$this->assertSame( 0, $rows, 'a hard-banned user must not be inserted as a member at all' );
+	}
+
+	/**
+	 * The ownership-transferred event fires exactly once per move.
+	 *
+	 * @return void
+	 */
 	public function test_fires_ownership_transferred_action(): void {
 		$fired = 0;
 		add_action(
