@@ -762,13 +762,32 @@ class ProfileService {
 
 			$sanitized_val = (string) $sanitized_val;
 
+			// A field that is not ACTIVE for this submission is invisible to whoever is
+			// filling the form, so required-enforcement cannot apply to it. Pro's
+			// `conditional` field type is the canonical case: its wrapper is hidden by
+			// JS but its inner input still posts an empty string.
+			//
+			// ProfileController already asked this question — but only on the REST
+			// self-edit path. The enforcement below runs at the PERSISTENCE layer, which
+			// every entry point shares, so the admin member-editor (which calls
+			// save_profile() directly, bypassing the controller) had no skip at all: an
+			// admin editing a member who has a JS-hidden required conditional field was
+			// blocked with a 422 and no way through. Asking here means all three entry
+			// points — REST self-edit, admin editor, onboarding — get the same answer.
+			//
+			// Note this gates the required CHECK only, not the write. An inactive field's
+			// value still persists exactly as it does today on the self-edit path (where
+			// the controller skips validation and save_profile then writes it), so this
+			// removes the spurious 422 without changing what lands in the database.
+			$field_active = (bool) apply_filters( 'buddynext_profile_field_is_active', true, $field, $data, $user_id );
+
 			// G3: enforce is_required at the persistence layer (Bugs card
 			// 10055873101). Submitting an empty value for a required field is
 			// rejected — the stored value is never cleared and the caller gets a
 			// per-field error. An OMITTED key is a partial update and stays legal,
 			// so the registration path (which only submits its own opted-in
 			// fields) is unchanged.
-			if ( ! empty( $field['is_required'] ) && '' === $sanitized_val ) {
+			if ( $field_active && ! empty( $field['is_required'] ) && '' === $sanitized_val ) {
 				$field_errors[ (string) $key ] = sprintf(
 					/* translators: %s: profile field label. */
 					__( '%s is required.', 'buddynext' ),

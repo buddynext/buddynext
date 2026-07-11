@@ -72,7 +72,16 @@ if ( ! empty( $bn_dc_space['avatar_url'] ) ) {
 	$bn_card_emblem = sprintf( '<span class="bn-sd-card__emblem-letter">%s</span>', esc_html( mb_strtoupper( mb_substr( $space_name, 0, 1 ) ) ) );
 }
 ?>
-<article class="bn-card bn-sd-card" data-interactive role="listitem" aria-label="<?php echo esc_attr( sprintf( '%s (%s)', $space_name, $privacy_label ) ); ?>">
+<?php
+// The join method, printed explicitly. Without it the JS falls back to inferring the
+// method from the privacy badge's TONE — and that inference only holds for the three
+// built-in types (open -> success -> direct). A custom space type configured as
+// direct-join but given any other tone was inferred as "request", so after leaving it
+// the member was re-offered "Request to join" on a space they could simply join.
+// The tone fallback stays for old markup; this is the signal it prefers.
+$bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space_type );
+?>
+<article class="bn-card bn-sd-card" data-interactive role="listitem" data-join-method="<?php echo esc_attr( $bn_dc_join_method ); ?>" aria-label="<?php echo esc_attr( sprintf( '%s (%s)', $space_name, $privacy_label ) ); ?>">
 	<a href="<?php echo esc_url( $space_url ); ?>" tabindex="-1" aria-hidden="true" class="bn-sd-card__cover-link">
 		<div class="bn-sd-card__cover" data-tone="<?php echo esc_attr( $cover_tone ); ?>">
 			<?php if ( ! empty( $bn_dc_space['cover_image_url'] ) ) : ?>

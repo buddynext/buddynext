@@ -121,7 +121,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-07-01-spaces-mine-reflush';
+	private const ROUTER_VERSION = '2026-07-11-auth-complete';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 

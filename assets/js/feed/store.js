@@ -495,13 +495,17 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			e.preventDefault();
 			if ( picker.hidden ) {
 				if ( currentUserId <= 0 ) {
-					sendReaction( 'like' ); // surfaces the sign-in toast.
+					sendReaction( defaultReaction ); // surfaces the sign-in toast.
 					return;
 				}
 				openPicker();
 				return;
 			}
-			sendReaction( reactBtn.dataset.reaction ? null : 'like' );
+			// The first ENABLED reaction, never a hardcoded 'like'. The server's
+			// coerce_to_enabled() would store the right slug anyway, so this was only
+			// ever cosmetic — but on a site where the owner has disabled Like, the
+			// button painted the generic glyph for a beat before the response landed.
+			sendReaction( reactBtn.dataset.reaction ? null : defaultReaction );
 		} );
 
 		// Selecting an emoji must fire even if a blur/leave would otherwise hide the
