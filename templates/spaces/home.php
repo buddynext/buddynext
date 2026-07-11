@@ -66,10 +66,14 @@ $is_member  = $membership && 'active' === $membership->status;
 $is_invited = $membership && 'invited' === $membership->status;
 
 // Secret spaces are leak-proof: a logged-out visitor (or any non-member who
-// isn't a site admin) reaches the canonical 404 surface so we never confirm
-// the slug exists. Mirrors the visibility gate enforced by
-// SpaceService::search() and the directory's `type != 'secret'` filter.
-if ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) $space->type ) && ! $is_member && ! current_user_can( 'manage_options' ) ) {
+// isn't a site admin) never confirms the slug exists. PageRouter::dispatch_hub_template()
+// enforces this at template_redirect — the ONLY place a real 404 status header can
+// still be sent (this template runs after get_header() has flushed the document, so
+// a status_header() call here arrives too late and yields a soft "200 OK" 404 page).
+// This is the belt-and-braces guard for a direct template include, and it asks the
+// SAME canonical resolver, so the two can never drift.
+$bn_space_row = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+if ( ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $bn_space_row, $current_user_id ) ) {
 	global $wp_query;
 	$wp_query->set_404();
 	status_header( 404 );
@@ -82,7 +86,7 @@ if ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_hidden_from_non_members
 // guests still see a "Join to participate" CTA instead of the composer. The feed
 // data itself is fetched by the feed panel's render (SpaceNav::render_feed_panel),
 // so it runs only when the Feed tab is the active panel — never when viewing About.
-$gate_feed = ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->content_requires_membership( (string) $space->type ) && ! $is_member && ! current_user_can( 'manage_options' ) );
+$gate_feed = ! \BuddyNext\Spaces\SpaceVisibility::can_view_content( $bn_space_row, $current_user_id );
 
 // Clean-URL active tab: /spaces/{slug}/{tab}/ → bn_space_action. Defaults to feed.
 $active_tab = (string) get_query_var( 'bn_space_action', '' );

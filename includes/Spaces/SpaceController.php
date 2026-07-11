@@ -844,15 +844,14 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
-		if ( SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) $space['type'] ) ) {
-			$viewer_id = get_current_user_id();
-			if ( 0 === $viewer_id || ! ( new SpaceMemberService() )->is_member( $space['id'], $viewer_id ) ) {
-				return new WP_Error(
-					'rest_forbidden',
-					__( 'Space not found.', 'buddynext' ),
-					array( 'status' => 404 )
-				);
-			}
+		// Existence gate — the canonical resolver, the same one the server-rendered
+		// space page consults, so the app and the page can never disagree.
+		if ( ! SpaceVisibility::can_view_space( $space, get_current_user_id() ) ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
 		}
 
 		// Attach registered space fields with their values. Members-only fields are
@@ -897,14 +896,23 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
-		// A secret parent's children are only listable by its members / admins.
+		// A hidden (secret) parent must not confirm it exists — 404. A listed but
+		// gated (private) parent exists publicly, but its structure is content:
+		// only its members / owner / moderators / site admins may list its
+		// children. Both answers come from the canonical resolver.
 		$viewer_id = get_current_user_id();
-		if ( SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) $parent['type'] )
-			&& ( 0 === $viewer_id || ! ( new SpaceMemberService() )->is_member( (int) $parent['id'], $viewer_id ) ) ) {
+		if ( ! SpaceVisibility::can_view_space( $parent, $viewer_id ) ) {
 			return new WP_Error(
 				'rest_forbidden',
 				__( 'Space not found.', 'buddynext' ),
 				array( 'status' => 404 )
+			);
+		}
+		if ( ! SpaceVisibility::can_view_content( $parent, $viewer_id ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'You do not have access to this space.', 'buddynext' ),
+				array( 'status' => 403 )
 			);
 		}
 
@@ -1159,12 +1167,11 @@ class SpaceController extends BaseRestController {
 			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		// Same visibility guard as the roster: a hidden space's pins are for members
-		// and admins only.
-		if ( SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) $space['type'] ) && ! user_can( $viewer_id, 'manage_options' ) ) {
-			if ( 'active' !== ( new SpaceMemberService() )->get_status( $space_id, $viewer_id ) ) {
-				return new WP_Error( 'forbidden', __( 'You do not have access to this space.', 'buddynext' ), array( 'status' => 403 ) );
-			}
+		// Pinned posts are CONTENT: gated on a private space exactly as on a secret
+		// one (the space feed already was). Canonical resolver — one answer for the
+		// page and the app.
+		if ( ! SpaceVisibility::can_view_content( $space, $viewer_id ) ) {
+			return new WP_Error( 'forbidden', __( 'You do not have access to this space.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		// The pinned set the space feed strip shows, exposed for the app. Author is
@@ -1207,17 +1214,18 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
-		// Hidden (secret-equivalent) spaces: only active members and site admins may see the roster.
-		// Pagination args are declared via member_pagination_args() on the routes.
-		if ( SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) $space['type'] ) && ! user_can( $viewer_id, 'manage_options' ) ) {
-			$member_service = new SpaceMemberService();
-			if ( 'active' !== $member_service->get_status( $space_id, $viewer_id ) ) {
-				return new WP_Error(
-					'forbidden',
-					__( 'You do not have access to this space.', 'buddynext' ),
-					array( 'status' => 403 )
-				);
-			}
+		// Roster gate — the canonical resolver, the SAME call the server-rendered
+		// members page makes. Private and secret rosters are members-only (owner,
+		// moderators, active members, site admins); a site owner re-opens them with
+		// one `buddynext_space_can_view_roster` filter that moves both surfaces.
+		// The gate runs BEFORE any roster row is fetched — never fetch 100k rows to
+		// then refuse them. Pagination args are declared via member_pagination_args().
+		if ( ! SpaceVisibility::can_view_roster( $space, $viewer_id ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'You do not have access to this space.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
 		}
 
 		// Pagination is opt-in: with no per_page the full roster is returned

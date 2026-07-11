@@ -1254,6 +1254,11 @@ class SpaceService {
 	 *                       secret spaces.
 	 *   orderby     string  'member_count' | 'name' | 'created_at'. Default 'member_count'.
 	 *   order       string  'ASC' | 'DESC'. Default 'DESC'.
+	 *   viewer      int     Viewer user ID (0 = logged out). Drives secret + archived scope.
+	 *   is_admin    bool    Site admin — sees secret and archived spaces.
+	 *
+	 * Archived spaces are excluded for everyone except the space's owner and site
+	 * admins (see archive_scope()).
 	 *
 	 * @param array<string, mixed> $args Query arguments.
 	 * @return array[]
@@ -1442,6 +1447,20 @@ class SpaceService {
 			}
 		}
 
+		// Archived spaces leave every listing. Archive is the ONLY non-destructive
+		// way to retire a space; while archived rows kept showing in the directory,
+		// owners concluded archive was broken and reached for Delete — a hard
+		// cascade that destroys every post in the space. The predicate lives IN THE
+		// QUERY (never a post-fetch PHP filter) and mirrors subspace_visibility_filter(),
+		// which already excluded archived children.
+		list( $archive_where, $archive_params ) = $this->archive_scope( $viewer_id, $is_admin );
+		foreach ( $archive_where as $archive_clause ) {
+			$where[] = $archive_clause;
+		}
+		foreach ( $archive_params as $archive_param ) {
+			$params[] = $archive_param;
+		}
+
 		if ( $category_id > 0 ) {
 			$where[]  = 'category_id = %d';
 			$params[] = $category_id;
@@ -1487,6 +1506,8 @@ class SpaceService {
 	 *
 	 * Secret spaces are excluded from search results, EXCEPT the viewer's own
 	 * (owned or active membership). Site admins (is_admin arg) see all matches.
+	 * Archived spaces are excluded for everyone except their owner and site admins,
+	 * so a retired space cannot be found here after it left the directory.
 	 *
 	 * @param string               $term Search term.
 	 * @param array<string, mixed> $args Optional per_page / page / viewer / is_admin.
@@ -1533,7 +1554,15 @@ class SpaceService {
 			}
 		}
 
-		// Mine-scope placeholders follow the exclude-scope ones, before the LIKEs.
+		// Archived spaces are retired — they leave search exactly as they leave the
+		// directory (owner + site admin excepted). Same predicate, one definition.
+		list( $archive_where, $archive_params ) = $this->archive_scope( $viewer_id, $is_admin );
+		$archive_sql                            = $archive_where ? implode( ' AND ', $archive_where ) : '1=1';
+		foreach ( $archive_params as $archive_param ) {
+			$params[] = $archive_param;
+		}
+
+		// Mine-scope placeholders follow the exclude- and archive-scope ones, before the LIKEs.
 		if ( $member_id > 0 ) {
 			$params[] = $member_id;
 			$params[] = $member_id;
@@ -1544,14 +1573,15 @@ class SpaceService {
 		$params[] = $per_page;
 		$params[] = $offset;
 
-		// $exclude_sql / $mine_sql hold only literal SQL plus %d placeholders bound
-		// through $params; their placeholder count is dynamic, so the analyser
-		// reports ReplacementsWrongNumber here even though the binding is correct.
+		// $exclude_sql / $archive_sql / $mine_sql hold only literal SQL plus %d
+		// placeholders bound through $params; their placeholder count is dynamic, so
+		// the analyser reports ReplacementsWrongNumber here even though the binding
+		// is correct.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}bn_spaces
-				 WHERE {$exclude_sql} AND {$mine_sql} AND (name LIKE %s OR description LIKE %s)
+				 WHERE {$exclude_sql} AND {$archive_sql} AND {$mine_sql} AND (name LIKE %s OR description LIKE %s)
 				 ORDER BY member_count DESC
 				 LIMIT %d OFFSET %d",
 				...$params
@@ -1700,6 +1730,35 @@ class SpaceService {
 	 */
 	private function owned_or_member_subquery( string $members_table ): string {
 		return "owner_id = %d OR id IN ( SELECT space_id FROM {$members_table} WHERE user_id = %d AND status = 'active' )";
+	}
+
+	/**
+	 * Build the shared "archived spaces are retired" predicate for the listings.
+	 *
+	 * An archived space drops out of the directory, the search results, and the
+	 * suggestion engine — that is what archiving MEANS. The two people who must
+	 * still find it are the ones who can bring it back: its owner (who archived
+	 * it) and a site admin. Everyone else, including its members, sees a retired
+	 * space only by URL.
+	 *
+	 * One definition, used by list_query_scope() (directory list + total) and
+	 * search(), so the grid, its count, and search can never drift apart. Returns
+	 * SQL fragments carrying %d placeholders; callers append the params in order.
+	 *
+	 * @param int  $viewer_id Viewer ID (0 = logged out).
+	 * @param bool $is_admin  Site admin sees archived spaces everywhere.
+	 * @return array{0: string[], 1: array<int, mixed>} [ where-clauses, prepared params ].
+	 */
+	private function archive_scope( int $viewer_id, bool $is_admin ): array {
+		if ( $is_admin ) {
+			return array( array(), array() );
+		}
+
+		if ( $viewer_id > 0 ) {
+			return array( array( '( is_archived = 0 OR owner_id = %d )' ), array( $viewer_id ) );
+		}
+
+		return array( array( 'is_archived = 0' ), array() );
 	}
 
 	/**

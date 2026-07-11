@@ -70,13 +70,28 @@ $bn_ss_to_objects = static function ( array $rows ): array {
 	);
 };
 
+// Roster gate — the ONE canonical resolver, the same call the members page and
+// GET /spaces/{id}/members make. On a private or secret space, a non-member sees
+// WHO IS IN CHARGE (owner + moderators: they need that to decide whether to
+// request to join) but never WHO IS IN THE ROOM. So the moderator list is always
+// fetched; the regular-member preview and the top-contributor list — both of
+// which name ordinary members — are fetched only when the roster is visible.
+$bn_ss_can_view_roster = \BuddyNext\Spaces\SpaceVisibility::can_view_roster(
+	( new \BuddyNext\Spaces\SpaceService() )->get( $bn_ss_space_id ),
+	$bn_ss_viewer
+);
+
 $bn_ss_mods            = array_merge(
 	$bn_ss_member_svc->get_members( $bn_ss_space_id, $bn_ss_viewer, 0, 0, array( 'role' => 'owner' ) ),
 	$bn_ss_member_svc->get_members( $bn_ss_space_id, $bn_ss_viewer, 0, 0, array( 'role' => 'moderator' ) )
 );
-$bn_ss_regulars        = $bn_ss_member_svc->get_members( $bn_ss_space_id, $bn_ss_viewer, 10, 0, array( 'role' => 'member' ) );
+$bn_ss_regulars        = $bn_ss_can_view_roster
+	? $bn_ss_member_svc->get_members( $bn_ss_space_id, $bn_ss_viewer, 10, 0, array( 'role' => 'member' ) )
+	: array();
 $bn_ss_sidebar_members = $bn_ss_to_objects( array_merge( $bn_ss_mods, $bn_ss_regulars ) );
-$bn_ss_contributors    = $bn_ss_to_objects( ( new \BuddyNext\Spaces\SpaceService() )->top_contributors( $bn_ss_space_id, 3 ) );
+$bn_ss_contributors    = $bn_ss_can_view_roster
+	? $bn_ss_to_objects( ( new \BuddyNext\Spaces\SpaceService() )->top_contributors( $bn_ss_space_id, 3 ) )
+	: array();
 
 $bn_ss_meta = \BuddyNext\Spaces\SpaceService::display_meta( $bn_ss_space );
 
@@ -93,7 +108,14 @@ $bn_ss_can_manage  = $bn_ss_is_root && $bn_ss_sub_allowed && $bn_ss_viewer > 0
 		'buddynext-manage-space',
 		array( 'space_id' => $bn_ss_space_id )
 	);
-$bn_ss_subspaces   = $bn_ss_is_root
+// A gated (private/secret) parent's structure is content: a non-member does not
+// get its child list, on the page or from GET /spaces/{id}/subspaces. Same
+// resolver, same answer.
+$bn_ss_can_view_content = \BuddyNext\Spaces\SpaceVisibility::can_view_content(
+	( new \BuddyNext\Spaces\SpaceService() )->get( $bn_ss_space_id ),
+	$bn_ss_viewer
+);
+$bn_ss_subspaces        = ( $bn_ss_is_root && $bn_ss_can_view_content )
 	? ( new \BuddyNext\Spaces\SpaceService() )->get_subspaces( $bn_ss_space_id, 24, 0, $bn_ss_viewer, current_user_can( 'manage_options' ) )
 	: array();
 // Categories for the create-sub-space modal — only fetched for a manager who

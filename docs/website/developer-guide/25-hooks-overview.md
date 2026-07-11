@@ -78,7 +78,7 @@ The `buddynext_*` domain hooks (everything except the template-part family) are 
 |---|---|---|
 | 27 | Feed, posts, reactions, comments | `buddynext_post_created`, `buddynext_post_updated`, `buddynext_post_deleted`, `buddynext_post_shared`, `buddynext_reaction_added`, `buddynext_comment_created`, `buddynext_feed_order_by` |
 | 28 | Members, profiles, fields, social graph | `buddynext_user_followed`, `buddynext_user_unfollowed`, `buddynext_connection_requested`, `buddynext_connection_accepted`, `buddynext_member_approved`, `buddynext_member_type_assigned`, `buddynext_profile_field_render` |
-| 29 | Spaces | `buddynext_space_created`, `buddynext_space_member_joined`, `buddynext_space_member_left`, `buddynext_space_member_removed`, `buddynext_space_join_approved`, `buddynext_can_join_space` |
+| 29 | Spaces | `buddynext_space_created`, `buddynext_space_member_joined`, `buddynext_space_member_left`, `buddynext_space_member_removed`, `buddynext_space_join_approved`, `buddynext_can_join_space`, `buddynext_space_can_view_roster` |
 | 30 | Notifications and email | `buddynext_notification_created`, `buddynext_notification_prefs_*`, the email-template and digest seams |
 | 31 | Moderation, auth, trust | `buddynext_report_created`, `buddynext_user_warned`, `buddynext_user_suspended`, `buddynext_appeal_submitted`, `buddynext_safeguard_check`, `buddynext_registration_pending` |
 | 32 | Search, hashtags, sidebar, admin | `buddynext_search_query_args`, `buddynext_hashtag_*`, the sidebar-widget and admin-hub filters |

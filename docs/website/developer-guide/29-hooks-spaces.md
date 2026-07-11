@@ -11,6 +11,31 @@ The action and filter seams for spaces (groups) and their membership: creation, 
 - **Removal vs ban are distinct events.** A ban also removes the membership, so a ban fires both `buddynext_space_member_removed` (so removal listeners such as cache busting always react) and `buddynext_space_user_banned` (so ban-specific listeners react). Listen to whichever matches your intent.
 - **Idempotent membership writes.** Joins, requests, and invites use `INSERT IGNORE`; their actions fire only when the membership state actually changes. Unban fires only when an active ban row was deleted.
 - **Space types are config maps, not classes.** `buddynext_space_types` filters a slug-keyed array. Behaviour (visibility and join flow) is derived from each entry's `visibility` field; the three built-in types cannot be removed.
+- **Visibility has ONE decision point.** `BuddyNext\Spaces\SpaceVisibility` answers "can this viewer see this space / its roster / its content?" for every surface — the server-rendered template AND the REST route. `buddynext_space_can_view_roster` is applied inside it, so a single `add_filter()` changes the members page and `GET /spaces/{id}/members` together; the page and the app cannot disagree.
+
+## Space visibility
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_space_can_view_roster` | filter | A surface resolves whether a viewer may see a space's member roster | `bool $can_view, int $space_id, int $viewer_id, string $type` |
+
+Default: `true` for open spaces; `false` for private and secret spaces unless the viewer is an active member, a moderator, the space owner, or a site admin. A private space is **listed but gated** — its name, description, house rules, avatar, cover, category, member COUNT, and its owner + moderator list stay public (a stranger needs them to decide whether to request to join), while the full member roster does not.
+
+Return `true` to re-open private rosters Facebook-style. The filter is applied at the single decision point, so this one call re-opens both the members page and the REST roster route:
+
+```php
+// Anyone may browse a private space's member list (Facebook-style).
+add_filter( 'buddynext_space_can_view_roster', '__return_true' );
+
+// Or selectively: open private rosters to logged-in members of the community,
+// but never a secret space's, and never to a logged-out visitor.
+add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $space_id, int $viewer_id, string $type ): bool {
+    if ( $can_view || 'private' !== $type ) {
+        return $can_view;
+    }
+    return $viewer_id > 0;
+}, 10, 4 );
+```
 
 ## Space lifecycle
 

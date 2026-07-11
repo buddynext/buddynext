@@ -1499,6 +1499,17 @@ a.bn-sh-statpill:focus-visible {
 .bn-space-members__empty-desc {
 	font-size: var(--bn-text-sm);
 	margin: 0;
+	max-inline-size: 46ch;
+}
+
+/* Locked-roster state (private/secret space, non-member): the CTA back to the
+   space, where the Join / Request to join action lives. */
+.bn-space-members__empty-actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--bn-s2);
+	margin-block-start: var(--bn-s2);
 }
 
 .bn-space-members__pagination {

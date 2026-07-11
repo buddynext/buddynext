@@ -439,6 +439,21 @@ class PageRouter {
 			nocache_headers(); // Cache-Control: no-store … — reverse proxies (Varnish, Cloudflare) and browsers.
 		}
 
+		// ── Space visibility gate ─────────────────────────────────────────
+		// A hidden (secret) space must answer with a REAL 404 status header, not a
+		// 200 carrying a not-found body. The gate used to live inside
+		// templates/spaces/home.php, which runs AFTER get_header() has flushed the
+		// document — so its status_header( 404 ) came too late and every secret
+		// space URL replied "200 OK". Enforcing it here, before any output, is the
+		// only place the header can still be set. The decision itself comes from
+		// the canonical resolver, so this route and the REST contract agree.
+		if ( 'spaces' === $hub && ! empty( $context['space_id'] ) ) {
+			$bn_gate_space = ( new \BuddyNext\Spaces\SpaceService() )->get( (int) $context['space_id'] );
+			if ( ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $bn_gate_space, get_current_user_id() ) ) {
+				$this->send_404();
+			}
+		}
+
 		// ── Virtual page setup ────────────────────────────────────────────
 		// No backing WordPress pages exist. Tell WP this is a real page so
 		// it sends 200, generates correct <title>, and themes render their
@@ -537,17 +552,12 @@ class PageRouter {
 		if ( 'spaces' === $hub && ! empty( $context['space_slug'] ) ) {
 			$space_record = ( new \BuddyNext\Spaces\SpaceService() )->get_by_slug( (string) $context['space_slug'] );
 			// Leak-proof: a secret/unlisted space's name must not appear in the page
-			// <title> for a viewer who cannot see it. The body already 404s, but the
-			// title was still emitting "{name} · Spaces" (existence + name
-			// disclosure). Mirror the body's secret-space gate.
-			if ( null !== $space_record
-				&& \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) ( $space_record['type'] ?? '' ) ) ) {
-				$bn_title_viewer = get_current_user_id();
-				$bn_title_member = $bn_title_viewer > 0
-					&& ( new \BuddyNext\Spaces\SpaceMemberService() )->is_member( (int) ( $space_record['id'] ?? 0 ), $bn_title_viewer );
-				if ( ! $bn_title_member && ! user_can( $bn_title_viewer, 'manage_options' ) ) {
-					$space_record = null;
-				}
+			// <title> for a viewer who cannot see it (existence + name disclosure).
+			// The route gate above already 404s such a request; this keeps the title
+			// honest for any other path into this branch, and reads its answer from
+			// the same canonical resolver rather than re-deriving the rule.
+			if ( ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $space_record, get_current_user_id() ) ) {
+				$space_record = null;
 			}
 			if ( null !== $space_record ) {
 				$space_name = (string) ( $space_record['name'] ?? '' );
@@ -776,6 +786,31 @@ class PageRouter {
 		// content in. There is no opt-out filter; the host theme's header +
 		// footer always render on BN-mapped slugs.
 		$this->render_shell_with_theme_chrome( $hub, $template, $context );
+		exit;
+	}
+
+	/**
+	 * Send a real WordPress 404 for a BuddyNext route and stop.
+	 *
+	 * Called at template_redirect — BEFORE get_header() flushes the document — so
+	 * the status line actually carries 404 instead of the soft "200 OK with a
+	 * not-found body" a late status_header() call produces. Renders the active
+	 * theme's 404 template so the visitor sees the site's own not-found page.
+	 *
+	 * @return void Never returns: exits.
+	 */
+	private function send_404(): void {
+		global $wp_query;
+
+		$wp_query->set_404();
+		status_header( 404 );
+		nocache_headers();
+
+		$template = get_404_template();
+		if ( '' !== $template ) {
+			include $template;
+		}
+
 		exit;
 	}
 
