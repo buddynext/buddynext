@@ -1514,7 +1514,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'   => 'buddynext_email_verify',
 							'type'  => 'toggle',
 							'label' => __( 'Require email verification', 'buddynext' ),
-							'hint'  => __( 'New registrations must verify their email before accessing the community.', 'buddynext' ),
+							'hint'  => __( 'Ask new members to confirm their email address. Choose how strictly it is enforced below.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_verify_enforcement',
+							'type'  => 'select',
+							'label' => __( 'How strictly to enforce verification', 'buddynext' ),
+							'hint'  => __( 'Restricted (recommended): members can look around but cannot post or comment until they confirm. Full: they cannot use the community at all until they confirm.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1598,6 +1606,14 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
+							'key'   => 'buddynext_2fa_required',
+							'type'  => 'select',
+							'label' => __( 'Require two-factor authentication', 'buddynext' ),
+							'hint'  => __( 'Members are always free to switch two-factor on themselves. This makes it mandatory for the roles you choose.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
 							'key'   => 'buddynext_reg_spam_protection',
 							'type'  => 'toggle',
 							'label' => __( 'Protect the sign-up form', 'buddynext' ),
@@ -1634,6 +1650,14 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'  => 'textarea',
 							'label' => __( 'Allowed email domains', 'buddynext' ),
 							'hint'  => __( 'One domain per line. When set, only these domains can register.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_blocked_email_domains',
+							'type'  => 'textarea',
+							'label' => __( 'Blocked email domains', 'buddynext' ),
+							'hint'  => __( 'One domain per line. Addresses from these domains cannot register.', 'buddynext' ),
 						)
 					),
 				)
@@ -1846,14 +1870,26 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		if ( ! is_array( $raw ) ) {
 			return $out;
 		}
+
+		// The currently stored config, so a blank (write-only) secret field keeps
+		// the saved credential rather than wiping it.
+		$existing = (array) get_option( 'buddynext_social_login', array() );
+
 		// Iterate the same provider list the form renders (get_providers()) so a
 		// provider can never be dropped on save by drifting from a hardcoded list.
 		foreach ( array_keys( \BuddyNext\Auth\SocialLogin::get_providers() ) as $id ) {
-			$p          = isset( $raw[ $id ] ) && is_array( $raw[ $id ] ) ? $raw[ $id ] : array();
+			$p         = isset( $raw[ $id ] ) && is_array( $raw[ $id ] ) ? $raw[ $id ] : array();
+			$submitted = isset( $p['client_secret'] ) ? sanitize_text_field( (string) $p['client_secret'] ) : '';
+
+			// The field renders empty (write-only), so a blank submit means "leave it
+			// alone" — not "wipe my credentials". Only a non-empty value replaces it.
+			$stored = isset( $existing[ $id ]['client_secret'] ) ? (string) $existing[ $id ]['client_secret'] : '';
+			$secret = '' !== $submitted ? $submitted : $stored;
+
 			$out[ $id ] = array(
 				'enabled'       => ! empty( $p['enabled'] ),
 				'client_id'     => isset( $p['client_id'] ) ? sanitize_text_field( (string) $p['client_id'] ) : '',
-				'client_secret' => isset( $p['client_secret'] ) ? sanitize_text_field( (string) $p['client_secret'] ) : '',
+				'client_secret' => $secret,
 			);
 		}
 		return $out;
@@ -2208,8 +2244,23 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			$this->render_toggle_row(
 				'buddynext_email_verify',
 				__( 'Require email verification', 'buddynext' ),
-				__( 'New registrations must verify their email before accessing the community.', 'buddynext' ),
+				__( 'Ask new members to confirm their email address.', 'buddynext' ),
 				(bool) get_option( 'buddynext_email_verify', false )
+			);
+
+			// How strictly. The old copy promised members "must verify before
+			// accessing the community" while the code only ever blocked posting and
+			// commenting. Rather than pick one behaviour and break half the fleet,
+			// the strictness is the owner's — with the safe middle as the default.
+			$this->render_select_row(
+				'buddynext_verify_enforcement',
+				__( 'How strictly to enforce verification', 'buddynext' ),
+				\BuddyNext\Auth\VerificationListener::enforcement(),
+				array(
+					'restricted' => __( 'Restricted — they can look around, but cannot post or comment until they confirm', 'buddynext' ),
+					'full'       => __( 'Full — they cannot use the community at all until they confirm', 'buddynext' ),
+				),
+				__( 'Restricted is recommended: a hard gate costs you sign-ups, because confirmation emails land in spam folders more often than you would like.', 'buddynext' )
 			);
 		} else {
 			$bn_features_url = add_query_arg(
@@ -2323,6 +2374,24 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 		$this->open_section( __( 'Spam &amp; Abuse Protection', 'buddynext' ) );
 
+		// Two-factor had NO admin surface at all — grep for '2fa' in includes/Admin
+		// returned nothing. The only control was a developer filter that was read
+		// and then ignored, so an owner could "require 2FA for administrators" and
+		// simply be wrong. Default is none: forcing an authenticator app on owners
+		// during an update would be a lockout event across the fleet.
+		$this->render_select_row(
+			'buddynext_2fa_required',
+			__( 'Require two-factor authentication', 'buddynext' ),
+			(string) get_option( 'buddynext_2fa_required', 'none' ),
+			array(
+				'none'   => __( 'Nobody — members can still switch it on themselves', 'buddynext' ),
+				'admins' => __( 'Administrators', 'buddynext' ),
+				'staff'  => __( 'Administrators and editors', 'buddynext' ),
+				'all'    => __( 'Everyone', 'buddynext' ),
+			),
+			__( 'Anyone in a required role is asked to set two-factor up the next time they sign in, and cannot use the community until they do.', 'buddynext' )
+		);
+
 		$this->render_toggle_row(
 			'buddynext_reg_spam_protection',
 			__( 'Protect the sign-up form', 'buddynext' ),
@@ -2355,6 +2424,21 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			__( 'Allowed email domains', 'buddynext' ),
 			(string) get_option( 'buddynext_allowed_domains', '' ),
 			__( 'One domain per line (e.g. mycompany.com). When set, only addresses from these domains can register. Leave blank to allow all domains.', 'buddynext' ),
+			4,
+			400
+		);
+
+		// There was no email-domain BLOCKlist at all — only the allowlist above. An
+		// owner who wanted to shut out one abusive domain had to switch to an
+		// allowlist and enumerate every permitted domain on earth instead.
+		// Not to be confused with "Blocked link domains" on the Moderation tab,
+		// which is about links in post content and never touched registration — a
+		// name collision that actively misled people.
+		$this->render_textarea_row(
+			'buddynext_blocked_email_domains',
+			__( 'Blocked email domains', 'buddynext' ),
+			(string) get_option( 'buddynext_blocked_email_domains', '' ),
+			__( 'One domain per line. Addresses from these domains cannot register. Use this to shut out a single abusive domain without having to allow-list every other domain on earth.', 'buddynext' ),
 			4,
 			400
 		);
@@ -2465,10 +2549,18 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					</div>
 					<div class="bn-field">
 						<label for="<?php echo esc_attr( 'bn-sec-' . $pid ); ?>"><?php esc_html_e( 'Client Secret', 'buddynext' ); ?></label>
+						<?php
+						// WRITE-ONLY. The stored secret is never echoed back into the
+						// page. type="password" is not a secret store — the plaintext
+						// sat in the DOM and in View Source, exposed to any admin-side
+						// XSS or browser extension. A blank submit keeps the saved
+						// value (see sanitize_social_login), so the owner can edit
+						// everything else on this screen without retyping it.
+						?>
 						<input type="password" class="bn-input" id="<?php echo esc_attr( 'bn-sec-' . $pid ); ?>"
 							name="<?php echo esc_attr( 'buddynext_social_login[' . $pid . '][client_secret]' ); ?>"
-							value="<?php echo esc_attr( $secret ); ?>"
-							placeholder="<?php esc_attr_e( 'Paste the Client Secret here', 'buddynext' ); ?>"
+							value=""
+							placeholder="<?php echo '' !== $secret ? esc_attr__( 'Saved. Leave blank to keep it, or paste a new one to replace it.', 'buddynext' ) : esc_attr__( 'Paste the Client Secret here', 'buddynext' ); ?>"
 							autocomplete="off" spellcheck="false" />
 					</div>
 					<div class="bn-field">
