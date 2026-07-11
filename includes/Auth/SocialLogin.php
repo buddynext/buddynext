@@ -309,17 +309,32 @@ class SocialLogin {
 	 */
 	public function expose_providers( $providers ) {
 		$providers = is_array( $providers ) ? $providers : array();
+
+		// Carry an invitation token onto the social buttons. Someone who opened
+		// /signup/?invite=TOKEN and then clicked "Continue with Google" used to lose
+		// the invitation on the redirect, so on an invite-only community the button
+		// rejected them — despite them holding a valid invite.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$invite = isset( $_GET['invite'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['invite'] ) ) : '';
+
 		foreach ( self::get_providers() as $id => $def ) {
 			if ( ! self::is_ready( $id ) ) {
 				continue;
 			}
+
+			$url = home_url( '/oauth/' . rawurlencode( $id ) . '/' ); // bn-route-ok: plugin-registered fixed /oauth/ rewrite.
+			if ( '' !== $invite ) {
+				$url = add_query_arg( 'invite', rawurlencode( $invite ), $url );
+			}
+
 			$providers[] = array(
 				'id'    => $id,
 				'label' => (string) $def['label'],
 				'icon'  => (string) apply_filters( 'buddynext_social_icon', (string) $def['icon'], $id ),
-				'url'   => home_url( '/oauth/' . rawurlencode( $id ) . '/' ), // bn-route-ok: plugin-registered fixed /oauth/ rewrite.
+				'url'   => $url,
 			);
 		}
+
 		return $providers;
 	}
 
@@ -366,11 +381,21 @@ class SocialLogin {
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$redirect_to = isset( $_GET['redirect_to'] ) ? esc_url_raw( wp_unslash( (string) $_GET['redirect_to'] ) ) : '';
+
+		// Carry the invitation token through the round-trip. Without this the state
+		// transient held only redirect_to, so an invite could never be redeemed via
+		// OAuth — and on an invite-only community the social buttons rejected
+		// EVERYONE, including people holding a perfectly valid invitation. Respected
+		// is not the same as usable.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$invite = isset( $_GET['invite'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['invite'] ) ) : '';
+
 		set_transient(
 			self::STATE_PREFIX . $state,
 			array(
 				'provider'    => $id,
 				'redirect_to' => $redirect_to,
+				'invite'      => $invite,
 			),
 			10 * MINUTE_IN_SECONDS
 		);
@@ -447,7 +472,8 @@ class SocialLogin {
 			$this->bail( 'no_email' );
 		}
 
-		$resolved = $this->resolve_user( $id, $profile );
+		$invite   = (string) ( $stored['invite'] ?? '' );
+		$resolved = $this->resolve_user( $id, $profile, $invite );
 		if ( is_wp_error( $resolved ) ) {
 			$this->bail( $this->code_for( $resolved ) );
 		}
@@ -676,14 +702,17 @@ class SocialLogin {
 	 * account only when the provider asserts the email is verified — otherwise an
 	 * attacker who registered a provider account under someone else's address
 	 * could take over that local account (the classic social-login takeover, e.g.
-	 * Nextend CVE-2024-9893). Unverified emails can still create a brand-new
-	 * account (nothing to take over), but never silently adopt an existing one.
+	 * Nextend CVE-2024-9893). An unverified address can no longer create a new
+	 * account either — it used to be allowed on the reasoning that there was
+	 * nothing to take over, but it let an attacker squat someone else's email and
+	 * permanently block the real owner from ever registering.
 	 *
 	 * @param string                                                                       $id      Provider id.
 	 * @param array{id:string,email:string,name:string,picture:string,email_verified:bool} $profile Provider profile.
-	 * @return int|\WP_Error User id, or error (closed / pending / takeover-guard).
+	 * @param string                                                                       $invite  Invitation token carried through the OAuth round-trip.
+	 * @return int|string|\WP_Error User id, a pending-signup token, or an error.
 	 */
-	private function resolve_user( string $id, array $profile ) {
+	private function resolve_user( string $id, array $profile, string $invite = '' ) {
 		$meta_key = 'bn_social_' . $id . '_id';
 
 		// Who, if anyone, already owns this provider identity?
@@ -756,7 +785,11 @@ class SocialLogin {
 		// access decision the owner made about who may join — a community
 		// restricted to one corporate domain used to be wide open to any Google
 		// account, because this door never asked.
-		$access = $policy->check_access( (string) $profile['email'], null, RegistrationPolicy::SOURCE_SOCIAL );
+		$access = $policy->check_access(
+			(string) $profile['email'],
+			'' !== $invite ? $invite : null,
+			RegistrationPolicy::SOURCE_SOCIAL
+		);
 		if ( is_wp_error( $access ) ) {
 			return $access;
 		}
@@ -783,6 +816,9 @@ class SocialLogin {
 			'email_verified' => (bool) $profile['email_verified'],
 			'name'           => (string) $profile['name'],
 			'picture'        => (string) $profile['picture'],
+			// The invite must survive the finish-signup step, or a social sign-up
+			// that needs terms consent would silently lose its invitation.
+			'invite'         => $invite,
 		);
 
 		// The owner may require terms consent and/or profile fields that OAuth
@@ -816,6 +852,7 @@ class SocialLogin {
 					'email'      => (string) $pending['email'],
 					'user_login' => $this->unique_login( (string) $pending['email'] ),
 					'password'   => wp_generate_password( 24, true, true ),
+					'invite'     => (string) ( $pending['invite'] ?? '' ),
 					'social'     => array(
 						'provider'       => (string) $pending['provider'],
 						'uid'            => (string) $pending['uid'],
