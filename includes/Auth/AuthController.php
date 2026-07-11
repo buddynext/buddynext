@@ -635,6 +635,18 @@ class AuthController {
 		$password   = (string) $request->get_param( 'password' );
 		$remember   = (bool) $request->get_param( 'remember' );
 
+		// The owner's blocked-IP list. It governed POSTING only, so a blocklisted
+		// IP could still sign in — which is not what anyone means when they block
+		// an IP address.
+		$blocked = ( new RegistrationGuard() )->check_ip( self::client_ip() );
+		if ( is_wp_error( $blocked ) ) {
+			return new WP_Error(
+				'bn_login_ip',
+				__( 'Sign-in from your network is not allowed.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		if ( '' === $user_input || '' === $password ) {
 			return new WP_Error(
 				'rest_missing_credentials',

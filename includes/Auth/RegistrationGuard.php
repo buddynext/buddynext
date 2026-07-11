@@ -121,6 +121,17 @@ class RegistrationGuard {
 
 		$ip = isset( $ctx['ip'] ) ? (string) $ctx['ip'] : '';
 
+		// 1a) The owner's blocked-IP list. It used to govern POSTING only — its own
+		// error string reads "Posting from your network is not allowed." — so a
+		// blocklisted IP could still register and still sign in. An owner who blocks
+		// an IP expects it to stop exactly this.
+		if ( $this->ip_blocked( $ip ) ) {
+			return new WP_Error(
+				'bn_reg_ip',
+				__( 'Sign-ups from your network are not allowed.', 'buddynext' )
+			);
+		}
+
 		// 2) Rate limit — hard stop on hammering. Admin-set in Settings →
 		// Registration; the filter still overrides for code-level control.
 		//
@@ -260,7 +271,99 @@ class RegistrationGuard {
 			);
 		}
 
+		if ( $this->domain_blocked( $email ) ) {
+			return new WP_Error(
+				'bn_reg_domain',
+				__( 'Sign-ups from that email domain are not accepted.', 'buddynext' )
+			);
+		}
+
 		return true;
+	}
+
+	/**
+	 * Is the email's domain on the owner's block list?
+	 *
+	 * There was no email-domain BLOCKlist at all — only an allowlist. An owner who
+	 * wanted to shut out one abusive domain had to switch to an allowlist and
+	 * enumerate every permitted domain on earth instead, which nobody will do.
+	 *
+	 * (Note this is NOT `buddynext_blocked_domains`, which despite the name is a
+	 * blocklist for LINKS in post content and is never consulted at registration.
+	 * The name collision actively misled owners, so this option is deliberately
+	 * called buddynext_blocked_email_domains.)
+	 *
+	 * @param string $email Candidate email address.
+	 * @return bool True when the domain is blocked.
+	 */
+	private function domain_blocked( string $email ): bool {
+		$raw = trim( (string) get_option( 'buddynext_blocked_email_domains', '' ) );
+		if ( '' === $raw ) {
+			return false;
+		}
+
+		$at = strrpos( $email, '@' );
+		if ( false === $at ) {
+			return false;
+		}
+
+		$domain = strtolower( substr( $email, $at + 1 ) );
+		$parts  = preg_split( '/[\r\n,]+/', $raw );
+		$list   = array_filter( array_map( 'trim', is_array( $parts ) ? $parts : array() ) );
+
+		foreach ( $list as $blocked ) {
+			$blocked = strtolower( ltrim( (string) $blocked, '@' ) );
+			if ( '' !== $blocked && $domain === $blocked ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Is this IP allowed to register or sign in?
+	 *
+	 * The "Blocked IP addresses" setting only ever stopped POSTING. Its own error
+	 * string says so: "Posting from your network is not allowed." Neither
+	 * registration nor login consulted it — so a blocklisted IP could still create
+	 * an account and still sign in, which is emphatically not what an owner who
+	 * blocks an IP expects.
+	 *
+	 * @param string $ip Client IP.
+	 * @return true|WP_Error
+	 */
+	public function check_ip( string $ip ): bool|WP_Error {
+		if ( is_user_logged_in() && current_user_can( 'create_users' ) ) {
+			return true;
+		}
+
+		if ( $this->ip_blocked( $ip ) ) {
+			return new WP_Error(
+				'bn_reg_ip',
+				__( 'Access from your network is not allowed.', 'buddynext' )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Raw blocked-IP lookup.
+	 *
+	 * @param string $ip Client IP.
+	 * @return bool
+	 */
+	private function ip_blocked( string $ip ): bool {
+		if ( '' === $ip || ! function_exists( 'buddynext_service' ) ) {
+			return false;
+		}
+
+		$safeguards = buddynext_service( 'safeguard' );
+
+		return is_object( $safeguards )
+			&& method_exists( $safeguards, 'ip_is_blocked' )
+			&& $safeguards->ip_is_blocked( $ip );
 	}
 
 	/**

@@ -1652,6 +1652,14 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'hint'  => __( 'One domain per line. When set, only these domains can register.', 'buddynext' ),
 						)
 					),
+					new Field(
+						array(
+							'key'   => 'buddynext_blocked_email_domains',
+							'type'  => 'textarea',
+							'label' => __( 'Blocked email domains', 'buddynext' ),
+							'hint'  => __( 'One domain per line. Addresses from these domains cannot register.', 'buddynext' ),
+						)
+					),
 				)
 			),
 			new Section(
@@ -1862,14 +1870,26 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		if ( ! is_array( $raw ) ) {
 			return $out;
 		}
+
+		// The currently stored config, so a blank (write-only) secret field keeps
+		// the saved credential rather than wiping it.
+		$existing = (array) get_option( 'buddynext_social_login', array() );
+
 		// Iterate the same provider list the form renders (get_providers()) so a
 		// provider can never be dropped on save by drifting from a hardcoded list.
 		foreach ( array_keys( \BuddyNext\Auth\SocialLogin::get_providers() ) as $id ) {
-			$p          = isset( $raw[ $id ] ) && is_array( $raw[ $id ] ) ? $raw[ $id ] : array();
+			$p         = isset( $raw[ $id ] ) && is_array( $raw[ $id ] ) ? $raw[ $id ] : array();
+			$submitted = isset( $p['client_secret'] ) ? sanitize_text_field( (string) $p['client_secret'] ) : '';
+
+			// The field renders empty (write-only), so a blank submit means "leave it
+			// alone" — not "wipe my credentials". Only a non-empty value replaces it.
+			$stored = isset( $existing[ $id ]['client_secret'] ) ? (string) $existing[ $id ]['client_secret'] : '';
+			$secret = '' !== $submitted ? $submitted : $stored;
+
 			$out[ $id ] = array(
 				'enabled'       => ! empty( $p['enabled'] ),
 				'client_id'     => isset( $p['client_id'] ) ? sanitize_text_field( (string) $p['client_id'] ) : '',
-				'client_secret' => isset( $p['client_secret'] ) ? sanitize_text_field( (string) $p['client_secret'] ) : '',
+				'client_secret' => $secret,
 			);
 		}
 		return $out;
@@ -2408,6 +2428,21 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			400
 		);
 
+		// There was no email-domain BLOCKlist at all — only the allowlist above. An
+		// owner who wanted to shut out one abusive domain had to switch to an
+		// allowlist and enumerate every permitted domain on earth instead.
+		// Not to be confused with "Blocked link domains" on the Moderation tab,
+		// which is about links in post content and never touched registration — a
+		// name collision that actively misled people.
+		$this->render_textarea_row(
+			'buddynext_blocked_email_domains',
+			__( 'Blocked email domains', 'buddynext' ),
+			(string) get_option( 'buddynext_blocked_email_domains', '' ),
+			__( 'One domain per line. Addresses from these domains cannot register. Use this to shut out a single abusive domain without having to allow-list every other domain on earth.', 'buddynext' ),
+			4,
+			400
+		);
+
 		$invite_url = admin_url( 'admin.php?page=buddynext-members&tab=invites' );
 		?>
 		<div class="bn-field">
@@ -2514,10 +2549,18 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					</div>
 					<div class="bn-field">
 						<label for="<?php echo esc_attr( 'bn-sec-' . $pid ); ?>"><?php esc_html_e( 'Client Secret', 'buddynext' ); ?></label>
+						<?php
+						// WRITE-ONLY. The stored secret is never echoed back into the
+						// page. type="password" is not a secret store — the plaintext
+						// sat in the DOM and in View Source, exposed to any admin-side
+						// XSS or browser extension. A blank submit keeps the saved
+						// value (see sanitize_social_login), so the owner can edit
+						// everything else on this screen without retyping it.
+						?>
 						<input type="password" class="bn-input" id="<?php echo esc_attr( 'bn-sec-' . $pid ); ?>"
 							name="<?php echo esc_attr( 'buddynext_social_login[' . $pid . '][client_secret]' ); ?>"
-							value="<?php echo esc_attr( $secret ); ?>"
-							placeholder="<?php esc_attr_e( 'Paste the Client Secret here', 'buddynext' ); ?>"
+							value=""
+							placeholder="<?php echo '' !== $secret ? esc_attr__( 'Saved. Leave blank to keep it, or paste a new one to replace it.', 'buddynext' ) : esc_attr__( 'Paste the Client Secret here', 'buddynext' ); ?>"
 							autocomplete="off" spellcheck="false" />
 					</div>
 					<div class="bn-field">

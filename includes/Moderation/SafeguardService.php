@@ -402,16 +402,17 @@ class SafeguardService {
 			return false;
 		}
 
-		static $list = null;
-		if ( null === $list ) {
-			$raw   = (string) get_option( 'buddynext_blocked_ips', '' );
-			$parts = preg_split( '/[\r\n,]+/', $raw );
-			$list  = array_values( array_filter( array_map( 'trim', is_array( $parts ) ? $parts : array() ) ) );
-		}
-
-		if ( empty( $list ) ) {
+		// Deliberately NOT memoised in a function-level static. get_option() is
+		// already object-cached, so the static bought nothing — while making the
+		// setting stale for the rest of the request the moment anything read it
+		// once, and making it impossible to test.
+		$raw = (string) get_option( 'buddynext_blocked_ips', '' );
+		if ( '' === trim( $raw ) ) {
 			return false;
 		}
+
+		$parts = preg_split( '/[\r\n,]+/', $raw );
+		$list  = array_values( array_filter( array_map( 'trim', is_array( $parts ) ? $parts : array() ) ) );
 
 		return in_array( $ip, $list, true );
 	}
