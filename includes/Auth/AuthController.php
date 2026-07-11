@@ -582,7 +582,9 @@ class AuthController {
 	 * intentionally absent: it does not block sign-in (VerificationListener lets the
 	 * user in and the router lands them on /auth/verify/), so it never reaches here.
 	 *
-	 * @param WP_Error $error Error returned by wp_authenticate().
+	 * @param WP_Error $error      Error returned by wp_authenticate().
+	 * @param string   $user_input Submitted username or email, for the re-check below.
+	 * @param string   $password   Submitted password, for the re-check below.
 	 * @return WP_Error|null A 403 gate error to return to the client, or null when
 	 *                       the failure is a credential failure the caller should
 	 *                       answer with its generic 401.

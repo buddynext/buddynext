@@ -50,6 +50,11 @@ class RegistrationGuard {
 	private const RATE_MAX    = 5;
 
 	/**
+	 * Transient prefix marking a human-check token as already redeemed.
+	 */
+	private const SPENT_PREFIX = 'bn_reg_spent_';
+
+	/**
 	 * Lower bound of the time-trap: a form submitted in under this many seconds
 	 * was not filled in by a human. THIS is the actual bot signal — keep it.
 	 */
@@ -118,12 +123,21 @@ class RegistrationGuard {
 
 		// 2) Rate limit — hard stop on hammering. Admin-set in Settings →
 		// Registration; the filter still overrides for code-level control.
+		//
+		// The attempt is counted HERE, before any of the checks below can reject
+		// it. It used to be counted only at the very end, on the success path, so
+		// every early return skipped it: a bot that failed the human check, tripped
+		// the honeypot or used a throwaway address was never counted and could
+		// hammer the endpoint forever. The owner's "5 sign-ups per hour" throttled
+		// only the people who succeeded. The login limiter has always hit before
+		// auth for exactly this reason.
 		$max = (int) apply_filters( 'buddynext_register_rate_limit', (int) get_option( 'buddynext_reg_rate_limit', self::RATE_MAX ) );
 		if ( $max > 0 && '' !== $ip ) {
 			$key = self::RATE_PREFIX . md5( $ip );
 			if ( RateLimiter::count( $key ) >= $max ) {
 				return new WP_Error( 'bn_reg_rate', __( 'Too many sign-up attempts from your network. Please wait a few minutes and try again.', 'buddynext' ) );
 			}
+			RateLimiter::hit( $key, HOUR_IN_SECONDS );
 		}
 
 		// 3) Human check — in-house arithmetic challenge (opt-in). Form doors only.
@@ -171,10 +185,7 @@ class RegistrationGuard {
 			return new WP_Error( 'bn_reg_spam', __( 'Your sign-up looked automated and was blocked. If this is a mistake, please try again.', 'buddynext' ) );
 		}
 
-		// Passed — count this attempt toward the rate window (atomic incr).
-		if ( $max > 0 && '' !== $ip ) {
-			RateLimiter::hit( self::RATE_PREFIX . md5( $ip ), HOUR_IN_SECONDS );
-		}
+		// The attempt was already counted above, before any check could reject it.
 
 		return true;
 	}
@@ -400,31 +411,82 @@ class RegistrationGuard {
 	 */
 	public static function verify_challenge( string $token, string $answer ): bool {
 		$raw = base64_decode( $token, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
-		if ( false === $raw || false === strpos( $raw, '|' ) ) {
+		if ( false === $raw ) {
 			return false;
 		}
-		list( $ts, $sig ) = explode( '|', $raw, 2 );
+
+		$parts = explode( '|', $raw, 3 );
+		if ( 3 !== count( $parts ) ) {
+			return false;
+		}
+		list( $ts, $nonce, $sig ) = $parts;
+
 		if ( time() - (int) $ts > self::TOKEN_TTL ) {
+			return false;
+		}
+
+		// Single use. Without this a solved token stayed valid for its full TTL and
+		// could be replayed without limit: solve the question once, then register
+		// as many accounts as you like on the same answer for the next hour. The
+		// marker is a DB-backed transient on purpose — an object-cache flush must
+		// not hand an attacker a fresh replay window.
+		if ( self::challenge_is_spent( (string) $sig ) ) {
 			return false;
 		}
 
 		// Normalise to the bare integer the question asks for.
 		$normalised = (string) (int) preg_replace( '/[^0-9-]/', '', $answer );
-		$expected   = hash_hmac( 'sha256', $normalised . '|' . $ts, wp_salt( 'nonce' ) );
+		$expected   = hash_hmac( 'sha256', $normalised . '|' . $ts . '|' . $nonce, wp_salt( 'nonce' ) );
 
-		return hash_equals( $expected, (string) $sig );
+		if ( ! hash_equals( $expected, (string) $sig ) ) {
+			// A wrong answer does not spend the token: the member retypes and
+			// retries the same question, which is what they expect. Brute-forcing
+			// a single-digit sum is pointless anyway — the rate limiter counts
+			// every attempt now, so guessing costs the attacker their whole budget.
+			return false;
+		}
+
+		self::spend_challenge( (string) $sig );
+
+		return true;
 	}
 
 	/**
-	 * Sign an answer into a base64 `ts|hmac` token (the answer stays server-side).
+	 * Has this challenge token already been redeemed?
+	 *
+	 * @param string $sig Token signature.
+	 * @return bool
+	 */
+	private static function challenge_is_spent( string $sig ): bool {
+		return (bool) get_transient( self::SPENT_PREFIX . md5( $sig ) );
+	}
+
+	/**
+	 * Mark a challenge token as redeemed for the rest of its life.
+	 *
+	 * @param string $sig Token signature.
+	 * @return void
+	 */
+	private static function spend_challenge( string $sig ): void {
+		set_transient( self::SPENT_PREFIX . md5( $sig ), 1, self::TOKEN_TTL );
+	}
+
+	/**
+	 * Sign an answer into a base64 `ts|nonce|hmac` token.
+	 *
+	 * The answer never leaves the server — it is folded into the HMAC. The nonce
+	 * makes every issued token unique even when two people are asked the same
+	 * question in the same second, so redeeming one cannot invalidate the other.
 	 *
 	 * @param string $answer Canonical (integer-string) answer.
 	 * @return string
 	 */
 	private static function sign_answer( string $answer ): string {
-		$ts  = (string) time();
-		$sig = hash_hmac( 'sha256', $answer . '|' . $ts, wp_salt( 'nonce' ) );
-		return base64_encode( $ts . '|' . $sig ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+		$ts    = (string) time();
+		$nonce = bin2hex( random_bytes( 8 ) );
+		$sig   = hash_hmac( 'sha256', $answer . '|' . $ts . '|' . $nonce, wp_salt( 'nonce' ) );
+
+		return base64_encode( $ts . '|' . $nonce . '|' . $sig ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
 	}
 
 	/**
