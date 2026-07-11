@@ -131,6 +131,11 @@ class Plugin {
 			array( \BuddyNext\Spaces\SpaceService::class, 'bust_top_contributors' )
 		);
 
+		// bn_notifications and bn_email_log were append-only — nothing ever deleted from
+		// them, so they grew for the life of the site and bloated every backup. Daily,
+		// batched age-purge on the owner's retention window.
+		( new \BuddyNext\Core\LogRetentionService() )->register();
+
 		// Register the built-in per-space settings as core space fields (stored in
 		// bn_space_meta, rendered + saved + REST-exposed through the field engine).
 		( new \BuddyNext\Spaces\CoreSpaceFields() )->register();

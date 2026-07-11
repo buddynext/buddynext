@@ -1812,7 +1812,8 @@ class Installer {
 				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY  (id),
 				KEY          bell (recipient_id, is_read, created_at),
-				KEY          recipient_group (recipient_id, group_key)
+				KEY          recipient_group (recipient_id, group_key),
+				KEY          purge (is_read, created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_notification_prefs (
@@ -1844,7 +1845,8 @@ class Installer {
 				sent_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				KEY         user_type (user_id, type, digest_date),
-				KEY         type (type)
+				KEY         type (type),
+				KEY         purge (sent_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_verify_tokens (

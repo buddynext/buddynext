@@ -672,6 +672,28 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'hint'    => __( 'BuddyNext activity log entries older than this are purged automatically. Set to 0 to retain indefinitely.', 'buddynext' ),
 						)
 					),
+					new Field(
+						array(
+							'key'     => \BuddyNext\Core\LogRetentionService::OPTION,
+							'type'    => 'select',
+							'label'   => __( 'Notification and email log retention', 'buddynext' ),
+							'default' => (string) \BuddyNext\Core\LogRetentionService::DEFAULT_WINDOW,
+							'choices' => array(
+								'30' => __( '30 days', 'buddynext' ),
+								'60' => __( '60 days (recommended)', 'buddynext' ),
+								'90' => __( '90 days', 'buddynext' ),
+							),
+							// The hint has to say three things, because all three surprise people:
+							// that it DELETES, that unread is treated differently, and that it
+							// cannot be undone. There is deliberately no "keep forever" option —
+							// these two tables are append-only and are the largest on a big site.
+							'hint'    => sprintf(
+								/* translators: %d: the hard maximum, in days, that unread notifications are kept. */
+								__( 'Permanently deletes READ notifications and email-log entries older than this. Unread notifications are always kept for the full %d days, whatever you choose here, so nothing a member has not seen is removed early. Runs once a day in the background. This cannot be undone — these tables are a log, not member content.', 'buddynext' ),
+								\BuddyNext\Core\LogRetentionService::UNREAD_MAX_DAYS
+							),
+						)
+					),
 				)
 			),
 			new Section(
