@@ -232,17 +232,19 @@ class IconService {
 	/**
 	 * Allowlist (for wp_kses) covering an admin-supplied space-category icon_svg.
 	 *
-	 * A SUPERSET of allowed_tags(): it must accept everything
-	 * SpaceCategoryService::allowed_svg_tags() accepts on WRITE, or an icon the
-	 * admin legitimately saved (notably a <g> wrapper, and fill/stroke on
-	 * line/polyline) would be silently stripped on read and render wrong.
+	 * THE single allowlist for a category icon, used on BOTH write
+	 * (SpaceCategoryService::allowed_svg_tags) and render. It has to be one list:
+	 * when the two drifted apart they silently destroyed icons in both directions
+	 * — write accepted a <g> wrapper that render then stripped, and render accepted
+	 * a <polygon> that write had already stripped, so a star or triangle icon
+	 * (ordinary Lucide shapes) saved as an empty <svg>.
 	 *
-	 * This does not widen the trust boundary: the value in bn_space_categories.icon_svg
-	 * was already sanitized against that same allowlist when it was stored.
+	 * Keep it a superset of allowed_tags(), which covers only BuddyNext's own
+	 * bundled icons and needs no <g>.
 	 *
 	 * @return array<string, array<string, bool>>
 	 */
-	private static function category_icon_allowed_tags(): array {
+	public static function category_icon_allowed_tags(): array {
 		$shape = array(
 			'fill'            => true,
 			'stroke'          => true,
