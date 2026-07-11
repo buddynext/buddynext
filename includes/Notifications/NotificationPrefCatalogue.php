@@ -54,7 +54,7 @@ class NotificationPrefCatalogue {
 	public function all(): array {
 		$catalogue = array(
 			// Social graph.
-			'bn.new_follower'           => array(
+			'bn.new_follower'             => array(
 				'label'              => __( 'New follower', 'buddynext' ),
 				'description'        => __( 'Someone started following you.', 'buddynext' ),
 				'group'              => self::GROUP_SOCIAL,
@@ -62,7 +62,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.follow_requested'       => array(
+			'bn.follow_requested'         => array(
 				'label'              => __( 'Follow request', 'buddynext' ),
 				'description'        => __( 'Someone requested to follow you.', 'buddynext' ),
 				'group'              => self::GROUP_SOCIAL,
@@ -70,7 +70,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.connection_requested'   => array(
+			'bn.connection_requested'     => array(
 				'label'              => __( 'Connection request', 'buddynext' ),
 				'description'        => __( 'Someone sent you a connection request.', 'buddynext' ),
 				'group'              => self::GROUP_SOCIAL,
@@ -78,7 +78,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.connection_accepted'    => array(
+			'bn.connection_accepted'      => array(
 				'label'              => __( 'Connection accepted', 'buddynext' ),
 				'description'        => __( 'Someone accepted your connection request.', 'buddynext' ),
 				'group'              => self::GROUP_SOCIAL,
@@ -86,7 +86,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.connection_declined'    => array(
+			'bn.connection_declined'      => array(
 				'label'              => __( 'Connection declined', 'buddynext' ),
 				'description'        => __( 'Someone declined your connection request.', 'buddynext' ),
 				'group'              => self::GROUP_SOCIAL,
@@ -96,7 +96,7 @@ class NotificationPrefCatalogue {
 			),
 
 			// Feed activity.
-			'bn.post_reacted'           => array(
+			'bn.post_reacted'             => array(
 				'label'              => __( 'Reactions on your posts', 'buddynext' ),
 				'description'        => __( 'Someone reacted to a post you authored.', 'buddynext' ),
 				'group'              => self::GROUP_FEED,
@@ -104,7 +104,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'daily',
 				'can_email'          => true,
 			),
-			'bn.comment_reacted'        => array(
+			'bn.comment_reacted'          => array(
 				'label'              => __( 'Reactions on your comments', 'buddynext' ),
 				'description'        => __( 'Someone reacted to a comment you authored.', 'buddynext' ),
 				'group'              => self::GROUP_FEED,
@@ -112,7 +112,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'daily',
 				'can_email'          => true,
 			),
-			'bn.post_commented'         => array(
+			'bn.post_commented'           => array(
 				'label'              => __( 'Comments on your posts', 'buddynext' ),
 				'description'        => __( 'Someone commented on a post you authored.', 'buddynext' ),
 				'group'              => self::GROUP_FEED,
@@ -120,7 +120,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.comment_reply'          => array(
+			'bn.comment_reply'            => array(
 				'label'              => __( 'Replies to your comments', 'buddynext' ),
 				'description'        => __( 'Someone replied to one of your comments.', 'buddynext' ),
 				'group'              => self::GROUP_FEED,
@@ -128,7 +128,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.post_shared'            => array(
+			'bn.post_shared'              => array(
 				'label'              => __( 'Shares of your posts', 'buddynext' ),
 				'description'        => __( 'Someone shared a post you authored.', 'buddynext' ),
 				'group'              => self::GROUP_FEED,
@@ -136,7 +136,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'daily',
 				'can_email'          => true,
 			),
-			'bn.mention'                => array(
+			'bn.mention'                  => array(
 				'label'              => __( 'Mentions of you', 'buddynext' ),
 				'description'        => __( 'Someone mentioned you in a post or comment.', 'buddynext' ),
 				'group'              => self::GROUP_FEED,
@@ -144,7 +144,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.bookmark_milestone'     => array(
+			'bn.bookmark_milestone'       => array(
 				'label'              => __( 'Bookmark milestones', 'buddynext' ),
 				'description'        => __( 'Your post was bookmarked a notable number of times.', 'buddynext' ),
 				'group'              => self::GROUP_FEED,
@@ -154,7 +154,7 @@ class NotificationPrefCatalogue {
 			),
 
 			// Spaces.
-			'bn.space_join'             => array(
+			'bn.space_join'               => array(
 				'label'              => __( 'New members joining your space', 'buddynext' ),
 				'description'        => __( 'Someone joined a space you belong to.', 'buddynext' ),
 				'group'              => self::GROUP_SPACES,
@@ -162,7 +162,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'weekly',
 				'can_email'          => true,
 			),
-			'bn.space_invite'           => array(
+			'bn.space_invite'             => array(
 				'label'              => __( 'Space invites', 'buddynext' ),
 				'description'        => __( 'You were invited to join a space.', 'buddynext' ),
 				'group'              => self::GROUP_SPACES,
@@ -170,7 +170,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.space_join_requested'   => array(
+			'bn.space_join_requested'     => array(
 				'label'              => __( 'Space join requests', 'buddynext' ),
 				'description'        => __( 'Someone requested to join a space you moderate.', 'buddynext' ),
 				'group'              => self::GROUP_SPACES,
@@ -178,7 +178,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.space_request_approved' => array(
+			'bn.space_request_approved'   => array(
 				'label'              => __( 'Space request approved', 'buddynext' ),
 				'description'        => __( 'Your request to join a space was approved.', 'buddynext' ),
 				'group'              => self::GROUP_SPACES,
@@ -194,7 +194,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.space_join_declined'    => array(
+			'bn.space_join_declined'      => array(
 				'label'              => __( 'Space request declined', 'buddynext' ),
 				'description'        => __( 'Your request to join a space was declined.', 'buddynext' ),
 				'group'              => self::GROUP_SPACES,
@@ -202,7 +202,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.space_new_post'         => array(
+			'bn.space_new_post'           => array(
 				'label'              => __( 'New posts in your spaces', 'buddynext' ),
 				'description'        => __( 'Someone posted in a space you belong to.', 'buddynext' ),
 				'group'              => self::GROUP_SPACES,
@@ -210,7 +210,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'daily',
 				'can_email'          => true,
 			),
-			'bn.announcement'           => array(
+			'bn.announcement'             => array(
 				'label'              => __( 'Announcements', 'buddynext' ),
 				'description'        => __( 'An admin or space moderator posted an announcement.', 'buddynext' ),
 				'group'              => self::GROUP_FEED,
@@ -218,7 +218,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.space_role_changed'     => array(
+			'bn.space_role_changed'       => array(
 				'label'              => __( 'Space role changes', 'buddynext' ),
 				'description'        => __( 'Your role in a space changed.', 'buddynext' ),
 				'group'              => self::GROUP_SPACES,
@@ -226,7 +226,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.bulk_invite'            => array(
+			'bn.bulk_invite'              => array(
 				'label'              => __( 'Bulk space invites', 'buddynext' ),
 				'description'        => __( 'You were invited to several spaces at once.', 'buddynext' ),
 				'group'              => self::GROUP_SPACES,
@@ -236,7 +236,7 @@ class NotificationPrefCatalogue {
 			),
 
 			// Messages.
-			'bn.new_message'            => array(
+			'bn.new_message'              => array(
 				'label'              => __( 'Direct messages', 'buddynext' ),
 				'description'        => __( 'Someone sent you a direct message.', 'buddynext' ),
 				'group'              => self::GROUP_MESSAGES,
@@ -246,7 +246,7 @@ class NotificationPrefCatalogue {
 			),
 
 			// Moderation.
-			'bn.user_warned'            => array(
+			'bn.user_warned'              => array(
 				'label'              => __( 'Moderator warnings', 'buddynext' ),
 				'description'        => __( 'A moderator issued a warning about your activity.', 'buddynext' ),
 				'group'              => self::GROUP_MODERATION,
@@ -254,7 +254,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.strike_warning'         => array(
+			'bn.strike_warning'           => array(
 				'label'              => __( 'Strike warnings', 'buddynext' ),
 				'description'        => __( 'You are close to receiving an account strike.', 'buddynext' ),
 				'group'              => self::GROUP_MODERATION,
@@ -262,7 +262,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.strike_issued'          => array(
+			'bn.strike_issued'            => array(
 				'label'              => __( 'Strike issued', 'buddynext' ),
 				'description'        => __( 'Your account received a community-guideline strike.', 'buddynext' ),
 				'group'              => self::GROUP_MODERATION,
@@ -270,7 +270,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.member_suspended'       => array(
+			'bn.member_suspended'         => array(
 				'label'              => __( 'Account suspended', 'buddynext' ),
 				'description'        => __( 'Your account has been suspended.', 'buddynext' ),
 				'group'              => self::GROUP_MODERATION,
@@ -278,7 +278,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.user_unsuspended'       => array(
+			'bn.user_unsuspended'         => array(
 				'label'              => __( 'Account reinstated', 'buddynext' ),
 				'description'        => __( 'Your suspended account has been reinstated.', 'buddynext' ),
 				'group'              => self::GROUP_MODERATION,
@@ -286,7 +286,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.user_shadow_banned'     => array(
+			'bn.user_shadow_banned'       => array(
 				'label'              => __( 'Account under review', 'buddynext' ),
 				'description'        => __( 'Your account is under review; some actions may be limited.', 'buddynext' ),
 				'group'              => self::GROUP_MODERATION,
@@ -294,7 +294,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'off',
 				'can_email'          => false,
 			),
-			'bn.appeal_submitted'       => array(
+			'bn.appeal_submitted'         => array(
 				'label'              => __( 'Appeal received', 'buddynext' ),
 				'description'        => __( 'Your appeal was received and is under review.', 'buddynext' ),
 				'group'              => self::GROUP_MODERATION,
@@ -302,7 +302,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'off',
 				'can_email'          => false,
 			),
-			'bn.appeal_resolved'        => array(
+			'bn.appeal_resolved'          => array(
 				'label'              => __( 'Appeal resolved', 'buddynext' ),
 				'description'        => __( 'Your appeal was reviewed and resolved.', 'buddynext' ),
 				'group'              => self::GROUP_MODERATION,
@@ -310,7 +310,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.report_resolved'        => array(
+			'bn.report_resolved'          => array(
 				'label'              => __( 'Reports you submitted', 'buddynext' ),
 				'description'        => __( 'A report you submitted has been reviewed.', 'buddynext' ),
 				'group'              => self::GROUP_MODERATION,
@@ -318,7 +318,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'off',
 				'can_email'          => false,
 			),
-			'bn.new_report'             => array(
+			'bn.new_report'               => array(
 				'label'              => __( 'New reports to review', 'buddynext' ),
 				'description'        => __( 'New content was reported and is awaiting moderator review.', 'buddynext' ),
 				'group'              => self::GROUP_MODERATION,
@@ -326,7 +326,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.post_approved'          => array(
+			'bn.post_approved'            => array(
 				'label'              => __( 'Post approved', 'buddynext' ),
 				'description'        => __( 'Your post was approved and is now live.', 'buddynext' ),
 				'group'              => self::GROUP_MODERATION,
@@ -334,7 +334,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.post_rejected'          => array(
+			'bn.post_rejected'            => array(
 				'label'              => __( 'Post not approved', 'buddynext' ),
 				'description'        => __( 'A post you submitted was not approved by the moderators.', 'buddynext' ),
 				'group'              => self::GROUP_MODERATION,
@@ -344,7 +344,7 @@ class NotificationPrefCatalogue {
 			),
 
 			// Growth + system.
-			'bn.badge_awarded'          => array(
+			'bn.badge_awarded'            => array(
 				'label'              => __( 'Badges earned', 'buddynext' ),
 				'description'        => __( 'You earned a new badge.', 'buddynext' ),
 				'group'              => self::GROUP_GROWTH,
@@ -352,7 +352,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'weekly',
 				'can_email'          => true,
 			),
-			'bn.level_up'               => array(
+			'bn.level_up'                 => array(
 				'label'              => __( 'Level-ups', 'buddynext' ),
 				'description'        => __( 'You reached a new level.', 'buddynext' ),
 				'group'              => self::GROUP_GROWTH,
@@ -360,7 +360,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'weekly',
 				'can_email'          => true,
 			),
-			'bn.onboarding_nudge'       => array(
+			'bn.onboarding_nudge'         => array(
 				'label'              => __( 'Onboarding nudges', 'buddynext' ),
 				'description'        => __( 'Helpful reminders to finish setting up your profile.', 'buddynext' ),
 				'group'              => self::GROUP_GROWTH,
@@ -368,7 +368,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'weekly',
 				'can_email'          => true,
 			),
-			'bn.daily_digest'           => array(
+			'bn.daily_digest'             => array(
 				'label'              => __( 'Daily digest', 'buddynext' ),
 				'description'        => __( 'A single daily roundup of activity for you.', 'buddynext' ),
 				'group'              => self::GROUP_GROWTH,
@@ -376,7 +376,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'daily',
 				'can_email'          => true,
 			),
-			'bn.weekly_digest'          => array(
+			'bn.weekly_digest'            => array(
 				'label'              => __( 'Weekly digest', 'buddynext' ),
 				'description'        => __( 'A single weekly roundup of activity for you.', 'buddynext' ),
 				'group'              => self::GROUP_GROWTH,
@@ -384,7 +384,7 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'weekly',
 				'can_email'          => true,
 			),
-			'bn.media_favorited'        => array(
+			'bn.media_favorited'          => array(
 				'label'              => __( 'Media favourited', 'buddynext' ),
 				'description'        => __( 'Someone favourited media you posted.', 'buddynext' ),
 				'group'              => self::GROUP_GROWTH,

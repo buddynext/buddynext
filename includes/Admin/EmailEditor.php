@@ -178,7 +178,7 @@ class EmailEditor {
 				),
 			),
 			__( 'Spaces', 'buddynext' )       => array(
-				'bn.space_invite'           => array(
+				'bn.space_invite'             => array(
 					'name'    => __( 'Space Invite', 'buddynext' ),
 					'trigger' => __( 'When invited to join a space', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
@@ -186,7 +186,7 @@ class EmailEditor {
 					'preview' => "You've been invited to {{space_name}}!",
 					'body'    => "Hi {{recipient_name}},\n\n<strong>{{inviter_name}}</strong> has invited you to join <strong>{{space_name}}</strong> on {{site_name}}.\n\n<a href=\"{{space_url}}\">Accept invitation →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
 				),
-				'bn.space_join_requested'   => array(
+				'bn.space_join_requested'     => array(
 					'name'    => __( 'Space Join Requested', 'buddynext' ),
 					'trigger' => __( 'When a member requests to join your space', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
@@ -194,7 +194,7 @@ class EmailEditor {
 					'preview' => 'A member wants to join your space.',
 					'body'    => "Hi {{recipient_name}},\n\n<strong>{{requester_name}}</strong> has requested to join <strong>{{space_name}}</strong>.\n\n<a href=\"{{space_url}}\">Review the request →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
 				),
-				'bn.space_request_approved' => array(
+				'bn.space_request_approved'   => array(
 					'name'    => __( 'Space Request Approved', 'buddynext' ),
 					'trigger' => __( 'When a space join request is approved', 'buddynext' ),
 					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),

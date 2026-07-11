@@ -596,20 +596,20 @@ class CronService {
 	 */
 	private function build_notification_list_html( array $notifications ): string {
 		$labels = array(
-			'bn.new_follower'           => 'Someone followed you',
-			'bn.connection_requested'   => 'New connection request',
-			'bn.connection_accepted'    => 'A connection was accepted',
-			'bn.mention'                => 'You were mentioned in a post',
-			'bn.post_reacted'           => 'Someone reacted to your post',
-			'bn.post_commented'         => 'New comment on your post',
-			'bn.post_shared'            => 'Your post was shared',
-			'bn.space_invite'           => 'You were invited to a space',
-			'bn.space_join_requested'   => 'A member wants to join your space',
-			'bn.space_request_approved' => 'Your space join request was approved',
+			'bn.new_follower'             => 'Someone followed you',
+			'bn.connection_requested'     => 'New connection request',
+			'bn.connection_accepted'      => 'A connection was accepted',
+			'bn.mention'                  => 'You were mentioned in a post',
+			'bn.post_reacted'             => 'Someone reacted to your post',
+			'bn.post_commented'           => 'New comment on your post',
+			'bn.post_shared'              => 'Your post was shared',
+			'bn.space_invite'             => 'You were invited to a space',
+			'bn.space_join_requested'     => 'A member wants to join your space',
+			'bn.space_request_approved'   => 'Your space join request was approved',
 			'bn.space_ownership_received' => 'You became the owner of a space',
-			'bn.strike_issued'          => 'A moderation action was taken on your account',
-			'bn.badge_awarded'          => 'You earned a new badge',
-			'bn.level_up'               => 'You reached a new community level',
+			'bn.strike_issued'            => 'A moderation action was taken on your account',
+			'bn.badge_awarded'            => 'You earned a new badge',
+			'bn.level_up'                 => 'You reached a new community level',
 		);
 
 		$items = '';

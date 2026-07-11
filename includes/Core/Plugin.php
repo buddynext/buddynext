@@ -160,6 +160,9 @@ class Plugin {
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			\WP_CLI::add_command( 'buddynext demo', new \BuddyNext\Demo\DemoCommand() );
 			\WP_CLI::add_command( 'buddynext cert', new \BuddyNext\Cert\CertCommand() );
+			// Sweep spaces orphaned BEFORE succession shipped (owner_id pointing at
+			// a deleted user); succession only guards deletions from now on.
+			\WP_CLI::add_command( 'buddynext repair-space-owners', \BuddyNext\Spaces\SpaceOwnerRepairCommand::class );
 		}
 
 		// Record last-login time on every login. This MUST be wired
