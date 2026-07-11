@@ -186,6 +186,14 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
+			'bn.space_ownership_received' => array(
+				'label'              => __( 'Space ownership received', 'buddynext' ),
+				'description'        => __( 'You became the owner of a space.', 'buddynext' ),
+				'group'              => self::GROUP_SPACES,
+				'default_on_site'    => true,
+				'default_email_freq' => 'immediate',
+				'can_email'          => true,
+			),
 			'bn.space_join_declined'    => array(
 				'label'              => __( 'Space request declined', 'buddynext' ),
 				'description'        => __( 'Your request to join a space was declined.', 'buddynext' ),

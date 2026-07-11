@@ -251,6 +251,13 @@ class NotificationMessageService {
 					$this->resolve_space_name( $object_id )
 				);
 
+			case 'bn.space_ownership_received':
+				return sprintf(
+					/* translators: %s: space name. */
+					__( 'You are now the owner of %s.', 'buddynext' ),
+					$this->resolve_space_name( $object_id )
+				);
+
 			case 'bn.space_join_declined':
 				return sprintf(
 					/* translators: %s: space name. */
@@ -614,6 +621,11 @@ class NotificationMessageService {
 					'tone'  => 'success',
 					'label' => __( 'Space request approved', 'buddynext' ),
 				),
+				'bn.space_ownership_received' => array(
+					'icon'  => 'crown',
+					'tone'  => 'accent',
+					'label' => __( 'Space ownership', 'buddynext' ),
+				),
 				'bn.space_join_approved'    => array(
 					'icon'  => 'check-circle',
 					'tone'  => 'success',
@@ -869,6 +881,7 @@ class NotificationMessageService {
 			case 'bn.space_join_approved':
 			case 'bn.space_join_declined':
 			case 'bn.space_role_changed':
+			case 'bn.space_ownership_received':
 				return $object_id > 0 ? PageRouter::space_url( $object_id ) : PageRouter::spaces_url();
 
 			case 'bn.bulk_invite':

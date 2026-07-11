@@ -74,6 +74,7 @@ class NotificationListener implements ListenerInterface {
 		add_action( 'buddynext_space_join_approved', array( $this, 'on_space_join_approved' ), 10, 3 );
 		add_action( 'buddynext_space_join_declined', array( $this, 'on_space_join_declined' ), 10, 3 );
 		add_action( 'buddynext_space_member_invited', array( $this, 'on_space_member_invited' ), 10, 3 );
+		add_action( 'buddynext_space_ownership_transferred', array( $this, 'on_space_ownership_transferred' ), 10, 4 );
 
 		// Space posts.
 		add_action( 'buddynext_post_created', array( $this, 'on_post_created_in_space' ), 10, 3 );
@@ -512,6 +513,36 @@ class NotificationListener implements ListenerInterface {
 				'object_type'  => 'space',
 				'object_id'    => $space_id,
 				'group_key'    => 'space_approved_' . $space_id . '_' . $user_id,
+			)
+		);
+	}
+
+	/**
+	 * Notify the new owner that a space is now theirs.
+	 *
+	 * Fires for BOTH a deliberate transfer and an automatic succession (when the
+	 * previous owner was deleted), so the recipient is never surprised to find
+	 * they are running a space — one they cannot hand back by leaving.
+	 *
+	 * @param int      $space_id           Space whose ownership moved.
+	 * @param int      $new_owner_id       The new owner (notification recipient).
+	 * @param int|null $actor_id           Actor, or null for a system reassignment.
+	 * @param int      $_previous_owner_id Outgoing owner (unused — hook contract).
+	 * @return void
+	 */
+	public function on_space_ownership_transferred( int $space_id, int $new_owner_id, ?int $actor_id = null, int $_previous_owner_id = 0 ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_previous_owner_id required by hook contract.
+		if ( ! function_exists( 'buddynext_service' ) || $new_owner_id <= 0 ) {
+			return;
+		}
+
+		buddynext_service( 'notifications' )->create(
+			array(
+				'recipient_id' => $new_owner_id,
+				'sender_id'    => $actor_id,
+				'type'         => 'bn.space_ownership_received',
+				'object_type'  => 'space',
+				'object_id'    => $space_id,
+				'group_key'    => 'space_owner_' . $space_id . '_' . $new_owner_id,
 			)
 		);
 	}

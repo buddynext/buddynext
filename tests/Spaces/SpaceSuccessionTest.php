@@ -209,4 +209,27 @@ class SpaceSuccessionTest extends \WP_UnitTestCase {
 		$this->assertSame( $mod, (int) $this->spaces->get( $this->space_id )['owner_id'] );
 		$this->assertSame( $mod, (int) $this->spaces->get( $second )['owner_id'] );
 	}
+
+	/**
+	 * The heir must be told — succession hands them a space they cannot leave.
+	 *
+	 * @return void
+	 */
+	public function test_new_owner_is_notified(): void {
+		global $wpdb;
+		$mod = self::factory()->user->create();
+		$this->members->join( $this->space_id, $mod );
+		$this->members->change_role( $this->space_id, $mod, 'moderator', $this->owner_id );
+
+		wp_delete_user( $this->owner_id );
+
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND type = %s",
+				$mod,
+				'bn.space_ownership_received'
+			)
+		);
+		$this->assertSame( 1, $count );
+	}
 }

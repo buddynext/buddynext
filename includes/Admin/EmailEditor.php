@@ -202,6 +202,14 @@ class EmailEditor {
 					'preview' => 'Welcome to {{space_name}}!',
 					'body'    => "Hi {{recipient_name}},\n\nYour request to join <strong>{{space_name}}</strong> on {{site_name}} has been approved.\n\n<a href=\"{{space_url}}\">Visit the space →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
 				),
+				'bn.space_ownership_received' => array(
+					'name'    => __( 'Space Ownership Received', 'buddynext' ),
+					'trigger' => __( 'When a space is handed to a member (transfer, or succession after the owner is removed)', 'buddynext' ),
+					'tokens'  => array( '{{user_name}}', '{{actor_name}}', '{{action_url}}', '{{notification_message}}', '{{site_name}}', '{{site_url}}', '{{login_url}}', '{{unsubscribe_url}}' ),
+					'subject' => 'You are now the owner of {{space_name}}',
+					'preview' => 'You now own {{space_name}}.',
+					'body'    => "Hi {{recipient_name}},\n\nYou are now the owner of <strong>{{space_name}}</strong> on {{site_name}}. As the owner you manage its settings, members and moderation.\n\n<a href=\"{{space_url}}\">Open the space →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
+				),
 			),
 			__( 'Moderation', 'buddynext' )   => array(
 				'bn.strike_issued'             => array(

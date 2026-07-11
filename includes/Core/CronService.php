@@ -136,15 +136,17 @@ class CronService {
 	/**
 	 * Whether digest emails are switched off site-wide.
 	 *
-	 * The Settings → Notifications → "Digest frequency" master switch
-	 * (buddynext_digest_frequency). 'never' disables every digest run; any other
-	 * value leaves digests on, with each user's own email_freq deciding whether
-	 * they receive the daily or weekly digest.
+	 * Thin inverse of EmailSender::digests_enabled(), which owns the Settings →
+	 * Notifications → "Digest frequency" master switch (buddynext_digest_frequency).
+	 * 'never' disables every digest run; any other value leaves digests on, with
+	 * each user's own email_freq deciding whether they receive the daily or weekly
+	 * digest. Kept as one shared reader so the cron, the sender, and the member
+	 * preferences UI can never disagree about whether digests are live.
 	 *
-	 * @return bool
+	 * @return bool True when the owner has disabled digests.
 	 */
 	private function digests_disabled(): bool {
-		return 'never' === (string) get_option( 'buddynext_digest_frequency', 'weekly' );
+		return ! EmailSender::digests_enabled();
 	}
 
 	// ── Token cleanup ─────────────────────────────────────────────────────────
@@ -604,6 +606,7 @@ class CronService {
 			'bn.space_invite'           => 'You were invited to a space',
 			'bn.space_join_requested'   => 'A member wants to join your space',
 			'bn.space_request_approved' => 'Your space join request was approved',
+			'bn.space_ownership_received' => 'You became the owner of a space',
 			'bn.strike_issued'          => 'A moderation action was taken on your account',
 			'bn.badge_awarded'          => 'You earned a new badge',
 			'bn.level_up'               => 'You reached a new community level',

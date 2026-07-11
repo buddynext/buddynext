@@ -365,6 +365,7 @@ class Installer {
 			'bn.post_commented'            => array( "New comment on your post {$em} {{site_name}}", 'New comment on your {{site_name}} post' ),
 			'bn.space_join_requested'      => array( "New join request for your space {$em} {{site_name}}", 'New join request for your {{site_name}} space' ),
 			'bn.space_request_approved'    => array( "Your space join request was approved {$em} {{site_name}}", 'Your {{site_name}} space join request was approved' ),
+			'bn.space_ownership_received'  => array( "You are now the owner of a space {$em} {{site_name}}", 'You are now the owner of a space on {{site_name}}' ),
 			'bn.strike_issued'             => array( "A moderation action has been taken on your account {$em} {{site_name}}", 'A moderation action was taken on your {{site_name}} account' ),
 			'bn.strike_warning'            => array( "Warning: your account has received multiple strikes {$em} {{site_name}}", 'Your {{site_name}} account has received multiple strikes' ),
 			'bn.member_suspended'          => array( "Your account has been suspended {$em} {{site_name}}", 'Your {{site_name}} account has been suspended' ),
