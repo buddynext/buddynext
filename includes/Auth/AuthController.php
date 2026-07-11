@@ -534,9 +534,9 @@ class AuthController {
 	 *                       the failure is a credential failure the caller should
 	 *                       answer with its generic 401.
 	 */
-	private static function authenticate_gate_error( WP_Error $error ): ?WP_Error {
+	private static function authenticate_gate_error( WP_Error $error, string $user_input, string $password ): ?WP_Error {
 		$gate_codes = array(
-			// Credentials verified, but the account is held for admin approval.
+			// The account exists and is held for administrator approval.
 			'bn_pending_approval',
 		);
 
@@ -545,12 +545,27 @@ class AuthController {
 			return null;
 		}
 
+		// WordPress applies the `wp_authenticate_user` filter — where the approval
+		// gate lives — BEFORE it checks the password. So reaching this point proves
+		// only that the account is pending, not that the caller knows its password.
+		// Revealing the gate to someone who failed the password check would turn
+		// this endpoint into an enumeration oracle ("that address is a real, pending
+		// account"), which is exactly what the generic 401 below exists to prevent.
+		// So verify the password ourselves, and only then explain the real reason.
+		$user = is_email( $user_input )
+			? get_user_by( 'email', $user_input )
+			: get_user_by( 'login', $user_input );
+
+		if ( ! $user instanceof \WP_User || ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
+			return null; // Fall through to the generic credential failure.
+		}
+
 		$message = wp_strip_all_tags( (string) $error->get_error_message() );
 		if ( '' === $message ) {
 			$message = __( 'Your account is awaiting administrator approval.', 'buddynext' );
 		}
 
-		// 403, not 401: the credentials were accepted — access is what is refused.
+		// 403, not 401: the password was correct — access is what is refused.
 		return new WP_Error( $code, $message, array( 'status' => 403 ) );
 	}
 
@@ -586,7 +601,7 @@ class AuthController {
 		$user = wp_authenticate( $login, $password );
 
 		if ( is_wp_error( $user ) ) {
-			$gate = self::authenticate_gate_error( $user );
+			$gate = self::authenticate_gate_error( $user, $user_input, $password );
 			if ( $gate instanceof WP_Error ) {
 				return $gate;
 			}
