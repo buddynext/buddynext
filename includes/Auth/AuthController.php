@@ -99,28 +99,58 @@ class AuthController {
 				'callback'            => array( $this, 'register' ),
 				'permission_callback' => '__return_true',
 				'args'                => array(
-					'email'        => array(
+					'email'            => array(
 						'required' => true,
 						'type'     => 'string',
 					),
-					'user_login'   => array(
+					'user_login'       => array(
 						'required' => true,
 						'type'     => 'string',
 					),
-					'password'     => array(
+					'password'         => array(
 						'required' => true,
 						'type'     => 'string',
 					),
-					'terms_agreed' => array(
+					'terms_agreed'     => array(
 						'required' => false,
 						'type'     => 'boolean',
 						'default'  => false,
 					),
-					'invite'       => array(
+					'invite'           => array(
+						'required' => false,
+						'type'     => 'string',
+					),
+					// Guard bundle, obtained from GET /auth/register/config. Declared
+					// so OPTIONS discovery is honest: a native app can see what the
+					// spam gate expects instead of being rejected as a bot with no
+					// way to find out why.
+					'reg_token'        => array(
+						'required' => false,
+						'type'     => 'string',
+					),
+					'challenge_token'  => array(
+						'required' => false,
+						'type'     => 'string',
+					),
+					'challenge_answer' => array(
 						'required' => false,
 						'type'     => 'string',
 					),
 				),
+			)
+		);
+
+		// The signup contract + a fresh guard bundle. Without this a native app
+		// cannot register at all: the time-trap token, the human-check question and
+		// the honeypot field name are otherwise only minted inside the signup
+		// template, so the API scores an app's submission as a bot and rejects it.
+		register_rest_route(
+			'buddynext/v1',
+			'/auth/register/config',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'register_config' ),
+				'permission_callback' => '__return_true',
 			)
 		);
 
@@ -1049,6 +1079,60 @@ class AuthController {
 				'success'     => true,
 				'user_id'     => (int) $user_id,
 				'redirect_to' => esc_url_raw( self::post_register_redirect() ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * GET /auth/register/config — the signup contract plus a fresh guard bundle.
+	 *
+	 * A native app previously could not register at all. The time-trap token, the
+	 * human-check question and the honeypot field name are minted when the signup
+	 * template renders, so an app that posted straight to /auth/register scored as
+	 * a bot: the API answered "please solve the verification question" — a question
+	 * there was no endpoint to fetch. The only workaround was for the owner to turn
+	 * spam protection off entirely, which is not a workaround.
+	 *
+	 * This publishes exactly what the web form renders, so both surfaces read from
+	 * one contract.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function register_config(): WP_REST_Response {
+		$policy       = buddynext_service( 'registration_policy' );
+		$requirements = $policy->requirements();
+
+		$challenge = array();
+		if ( RegistrationGuard::challenge_enabled() ) {
+			$issued    = RegistrationGuard::issue_challenge();
+			$challenge = array(
+				'question' => $issued['question'],
+				'token'    => $issued['token'],
+			);
+		}
+
+		$fields = array();
+		foreach ( $requirements['fields'] as $field ) {
+			$fields[] = array(
+				'key'         => (string) $field['field_key'],
+				'label'       => (string) $field['label'],
+				'type'        => (string) $field['type'],
+				'required'    => ! empty( $field['is_required'] ),
+				'options'     => $field['options'] ?? array(),
+				'description' => (string) ( $field['description'] ?? '' ),
+			);
+		}
+
+		return new WP_REST_Response(
+			array(
+				'mode'           => $requirements['mode'],
+				'terms'          => $requirements['terms'],
+				'terms_url'      => $requirements['terms_url'],
+				'fields'         => $fields,
+				'reg_token'      => RegistrationGuard::issue_token(),
+				'honeypot_field' => RegistrationGuard::honeypot_field(),
+				'challenge'      => $challenge,
 			),
 			200
 		);
