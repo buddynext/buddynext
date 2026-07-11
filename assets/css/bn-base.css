@@ -3405,19 +3405,28 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	flex-shrink: 0;
 	border: 1px solid var(--bn-line);
 }
+/* Match both the reactive class form (data-wp-class--is-active, used by the
+   onboarding stepper) and the attribute form (data-state) so either highlights
+   the current step. Previously the CSS keyed only on [data-state], while the
+   onboarding stepper applies .is-active / .is-done classes, so the current step
+   was never highlighted. */
+.bn-stepper__item.is-active .bn-stepper__dot,
 .bn-stepper__item[data-state="active"] .bn-stepper__dot {
 	background: var(--bn-accent);
 	color: var(--bn-accent-fg);
 	border-color: transparent;
 }
+.bn-stepper__item.is-active,
 .bn-stepper__item[data-state="active"] {
 	color: var(--bn-ink);
 }
+.bn-stepper__item.is-done .bn-stepper__dot,
 .bn-stepper__item[data-state="done"] .bn-stepper__dot {
 	background: var(--bn-success);
 	color: var(--bn-accent-fg);
 	border-color: transparent;
 }
+.bn-stepper__item.is-done,
 .bn-stepper__item[data-state="done"] {
 	color: var(--bn-ink-2);
 }
