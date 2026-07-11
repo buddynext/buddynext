@@ -206,16 +206,39 @@ const signupStore = store( 'buddynext/auth-signup', {
 					regEls.forEach( function ( el ) {
 						const name = el.getAttribute( 'name' );
 						if ( ! name ) { return; }
+						// Checkbox GROUP (multiselect / category_multiselect render
+						// name="key[]"): collect the checked values as an array under
+						// the bare key. Mirrors the profile-edit collector. The old
+						// per-element assignment overwrote body[name] with whatever
+						// checkbox came last, so a multi-pick — and any REQUIRED
+						// multiselect — could never be submitted (permanent 422).
+						if ( 'checkbox' === el.type && /\[\]$/.test( name ) ) {
+							const groupKey = name.slice( 0, -2 );
+							if ( ! Array.isArray( body[ groupKey ] ) ) { body[ groupKey ] = []; }
+							if ( el.checked ) { body[ groupKey ].push( el.value ); }
+							return;
+						}
+						// Single checkbox (boolean field): the checked STATE is the value.
 						if ( 'checkbox' === el.type ) {
 							body[ name ] = el.checked ? ( el.value || '1' ) : '';
-						} else if ( el.multiple ) {
+							return;
+						}
+						// Radio group: only the checked option wins (default empty).
+						// Reading el.value per element made the LAST rendered option
+						// always win regardless of the user's pick (Zoho #40859).
+						if ( 'radio' === el.type ) {
+							if ( ! ( name in body ) ) { body[ name ] = ''; }
+							if ( el.checked ) { body[ name ] = el.value; }
+							return;
+						}
+						if ( el.multiple ) {
 							body[ name ] = Array.prototype.map.call(
 								el.selectedOptions || [],
 								function ( o ) { return o.value; }
 							);
-						} else {
-							body[ name ] = el.value || '';
+							return;
 						}
+						body[ name ] = el.value || '';
 					} );
 				}
 				const r = yield rest( c, 'auth/register', {
