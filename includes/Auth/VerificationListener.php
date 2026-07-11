@@ -46,6 +46,88 @@ class VerificationListener implements ListenerInterface {
 		add_action( 'init', array( $this, 'handle_email_change_verify_request' ) );
 		add_action( 'buddynext_send_verification_email', array( $this, 'send_verification_email' ), 10, 2 );
 		add_action( 'buddynext_email_change_requested', array( $this, 'on_email_change_requested' ), 10, 2 );
+
+		// The "full" enforcement level actually gates access. Runs late so the
+		// onboarding gate (priority 5) does not fight it.
+		add_action( 'template_redirect', array( $this, 'maybe_gate_unverified' ), 6 );
+	}
+
+	/**
+	 * How strictly the owner wants email verification enforced.
+	 *
+	 * Three levels, because across a fleet of owners both postures are legitimate.
+	 * A public community wants a new member browsing immediately — a hard gate
+	 * kills conversion, since email delivery is genuinely unreliable (spam folders,
+	 * corporate filters, typo'd addresses). A professional or paid community wants
+	 * nothing to happen until the address is confirmed.
+	 *
+	 *   off        — verification is not required at all.
+	 *   restricted — the member is in, but cannot post or comment. (DEFAULT.)
+	 *   full       — the member cannot use the community until they verify.
+	 *
+	 * `restricted` is what the code has always actually done, while the setting
+	 * text promised a full access gate. Rather than pick one and break the other
+	 * half of the fleet, the strictness is the owner's, with the safe middle as the
+	 * default.
+	 *
+	 * @return string One of: off, restricted, full.
+	 */
+	public static function enforcement(): string {
+		if ( ! self::feature_active() || ! get_option( 'buddynext_email_verify', false ) ) {
+			return 'off';
+		}
+
+		$level = (string) get_option( 'buddynext_verify_enforcement', 'restricted' );
+
+		return in_array( $level, array( 'restricted', 'full' ), true ) ? $level : 'restricted';
+	}
+
+	/**
+	 * Hold an unverified member on the verify screen when enforcement is "full".
+	 *
+	 * Deliberately NOT a login block: refusing the sign-in would leave the member
+	 * with no way to reach the "resend my link" button, which is exactly what they
+	 * need. They get a session, and every BuddyNext surface routes them to the one
+	 * page that can move them forward.
+	 *
+	 * @return void
+	 */
+	public function maybe_gate_unverified(): void {
+		if ( 'full' !== self::enforcement() || ! is_user_logged_in() ) {
+			return;
+		}
+
+		$user_id = get_current_user_id();
+
+		// Never trap an administrator out of their own site.
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return;
+		}
+
+		if ( buddynext_service( 'verification' )->is_verified( $user_id ) ) {
+			return;
+		}
+
+		$verify_url = \BuddyNext\Core\PageRouter::verify_url();
+
+		// Already on the verify screen — do not loop.
+		$current = (string) home_url( add_query_arg( array() ) );
+		if ( false !== strpos( $current, '/verify' ) ) {
+			return;
+		}
+
+		/**
+		 * Filter whether an unverified member is held on the verify screen.
+		 *
+		 * @param bool $gate    Whether to redirect.
+		 * @param int  $user_id Member being gated.
+		 */
+		if ( ! (bool) apply_filters( 'buddynext_gate_unverified', true, $user_id ) ) {
+			return;
+		}
+
+		wp_safe_redirect( $verify_url );
+		exit;
 	}
 
 	/**
@@ -59,7 +141,7 @@ class VerificationListener implements ListenerInterface {
 	 *
 	 * @return bool
 	 */
-	private function feature_active(): bool {
+	private static function feature_active(): bool {
 		return buddynext_feature_enabled( 'verification' );
 	}
 
@@ -72,7 +154,7 @@ class VerificationListener implements ListenerInterface {
 	 * @param int $user_id Newly registered WordPress user ID.
 	 */
 	public function on_user_register( int $user_id ): void {
-		if ( ! $this->feature_active() ) {
+		if ( ! self::feature_active() ) {
 			return;
 		}
 
@@ -96,7 +178,7 @@ class VerificationListener implements ListenerInterface {
 
 		// Feature off: no token should exist; ignore the request rather than
 		// processing it against a disabled subsystem.
-		if ( ! $this->feature_active() ) {
+		if ( ! self::feature_active() ) {
 			return;
 		}
 
@@ -137,7 +219,7 @@ class VerificationListener implements ListenerInterface {
 		global $wpdb;
 
 		// Feature off: never dispatch a verification email.
-		if ( ! $this->feature_active() ) {
+		if ( ! self::feature_active() ) {
 			return;
 		}
 

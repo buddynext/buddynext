@@ -306,6 +306,13 @@ class Plugin {
 		// owner re-enables it, the same policy and spam protection still apply.
 		( new \BuddyNext\Auth\CoreRegistration() )->register();
 
+		// Enforce 2FA enrolment for the roles the owner requires it of. The setting
+		// used to be read and then ignored — purely advisory, surfaced as a UI hint
+		// while nothing enforced it, so an owner could "require 2FA for
+		// administrators" and simply be wrong about it. Priority 7: after the
+		// verification gate (6), so a member confirms their address first.
+		add_action( 'template_redirect', array( \BuddyNext\Auth\TwoFactorService::class, 'enforce_enrolment' ), 7 );
+
 		// Approval-mode gate: block sign-in for accounts awaiting administrator
 		// approval (set during registration when buddynext_reg_mode = 'approval').
 		add_filter(

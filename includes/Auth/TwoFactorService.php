@@ -92,22 +92,111 @@ class TwoFactorService {
 	}
 
 	/**
-	 * Whether this user's role is expected to use 2FA.
+	 * Whether this user's role is required to use 2FA.
 	 *
-	 * 2FA is opt-in for everyone by default — this returns false unless a site
-	 * opts a role in via the `buddynext_2fa_required_roles` filter. It is purely
-	 * advisory (surfaced as a hint in the UI); BuddyNext never blocks sign-in for
-	 * not having 2FA on.
+	 * 2FA is opt-in for everyone by default. An owner turns it on for a role in
+	 * Settings → Registration & Login (buddynext_2fa_required_roles), and a
+	 * developer can still override with the filter of the same name.
+	 *
+	 * THIS IS NO LONGER ADVISORY. It used to be: the option was read, its value
+	 * was handed to the REST status payload as a display hint, and nothing
+	 * whatsoever enforced it. An owner could set "require 2FA for administrators",
+	 * reasonably believe admin 2FA was now mandatory on their community, and be
+	 * wrong. A lever that reads its own input and throws it away is worse than no
+	 * lever at all — the owner thinks they are protected. It is now enforced in
+	 * enforce_enrolment().
 	 *
 	 * @param WP_User $user User.
 	 * @return bool
 	 */
 	public static function is_required_for( WP_User $user ): bool {
-		$roles = (array) apply_filters( 'buddynext_2fa_required_roles', array() );
+		$roles = self::required_roles();
+
 		if ( empty( $roles ) ) {
 			return false;
 		}
+
+		if ( in_array( '*', $roles, true ) ) {
+			return true;
+		}
+
 		return (bool) array_intersect( (array) $user->roles, array_map( 'strval', $roles ) );
+	}
+
+	/**
+	 * Which roles the owner requires two-factor authentication of.
+	 *
+	 * The admin setting is a plain preset (nobody / admins / staff / everyone),
+	 * because that is the decision an owner is actually making. It resolves to role
+	 * slugs here, and the long-standing developer filter still has the last word.
+	 *
+	 * @return string[] Role slugs, or array( '*' ) for everyone.
+	 */
+	public static function required_roles(): array {
+		$preset = (string) get_option( 'buddynext_2fa_required', 'none' );
+
+		$map = array(
+			'none'   => array(),
+			'admins' => array( 'administrator' ),
+			'staff'  => array( 'administrator', 'editor' ),
+			'all'    => array( '*' ),
+		);
+
+		$roles = $map[ $preset ] ?? array();
+
+		/**
+		 * Filter the roles that must have two-factor authentication enabled.
+		 *
+		 * Return array( '*' ) to require it of everyone.
+		 *
+		 * @param string[] $roles Role slugs resolved from the admin setting.
+		 */
+		return (array) apply_filters( 'buddynext_2fa_required_roles', $roles );
+	}
+
+	/**
+	 * Hold a member on the 2FA setup screen when their role requires it.
+	 *
+	 * Deliberately not a login refusal: locking them out would leave them no way
+	 * to reach the enrolment screen, which is the only thing that can fix it. They
+	 * sign in, and every BuddyNext surface routes them to set 2FA up.
+	 *
+	 * @return void
+	 */
+	public static function enforce_enrolment(): void {
+		if ( ! is_user_logged_in() ) {
+			return;
+		}
+
+		$user = wp_get_current_user();
+		if ( ! $user instanceof WP_User || ! self::is_required_for( $user ) ) {
+			return;
+		}
+
+		if ( self::is_enabled( (int) $user->ID ) ) {
+			return;
+		}
+
+		$setup_url = \BuddyNext\Core\PageRouter::settings_url( 'account' );
+
+		// Already on the settings screen — do not loop.
+		$current = (string) home_url( add_query_arg( array() ) );
+		if ( false !== strpos( $current, '/settings' ) ) {
+			return;
+		}
+
+		/**
+		 * Filter whether a member whose role requires 2FA is held on the setup screen.
+		 *
+		 * @param bool $enforce Whether to redirect.
+		 * @param int  $user_id Member being held.
+		 */
+		if ( ! (bool) apply_filters( 'buddynext_enforce_2fa_enrolment', true, (int) $user->ID ) ) {
+			return;
+		}
+
+		wp_safe_redirect( $setup_url );
+		exit;
 	}
 
 	/* ─────────────────────────── Enrolment ─────────────────────────────── */
