@@ -152,6 +152,84 @@ class SpaceAssignOwnerTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * A Space whose pointer says "B owns this" while B holds NO owner row is
+	 * divergent — exactly the wreckage the old transfer_ownership() produced.
+	 * assign_owner() must REPAIR it, not certify it as healthy.
+	 *
+	 * @return void
+	 */
+	public function test_repairs_missing_owner_row_for_the_current_pointer(): void {
+		global $wpdb;
+
+		// Break the membership side only: the pointer still says $this->owner_id.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_space_members SET role = 'member' WHERE space_id = %d AND user_id = %d",
+				$this->space_id,
+				$this->owner_id
+			)
+		);
+		$this->members->flush_user_caches( $this->space_id, array( $this->owner_id ) );
+		$this->assertSame( 'member', $this->members->get_role( $this->space_id, $this->owner_id ), 'precondition: the owner row is gone' );
+
+		$this->assertTrue( $this->spaces->assign_owner( $this->space_id, $this->owner_id, null ) );
+
+		$this->assertSame( 'owner', $this->members->get_role( $this->space_id, $this->owner_id ), 'the missing owner row must be repaired' );
+		$this->assertSame( $this->owner_id, (int) $this->spaces->get( $this->space_id )['owner_id'] );
+		$this->assertSame( 1, $this->count_owner_rows(), 'exactly one owner row' );
+	}
+
+	/**
+	 * A Space carrying TWO role='owner' rows must collapse to exactly one when
+	 * assign_owner() names one of them — the primitive is self-healing.
+	 *
+	 * @return void
+	 */
+	public function test_collapses_duplicate_owner_rows(): void {
+		global $wpdb;
+
+		$stray = self::factory()->user->create();
+		$this->members->join( $this->space_id, $stray );
+
+		// A second owner row while the pointer still names $this->owner_id.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_space_members SET role = 'owner' WHERE space_id = %d AND user_id = %d",
+				$this->space_id,
+				$stray
+			)
+		);
+		$this->members->flush_user_caches( $this->space_id, array( $stray ) );
+		$this->assertSame( 2, $this->count_owner_rows(), 'precondition: two owner rows' );
+
+		$this->assertTrue( $this->spaces->assign_owner( $this->space_id, $this->owner_id, null ) );
+
+		$this->assertSame( 1, $this->count_owner_rows(), 'the stray owner row must be demoted' );
+		$this->assertSame( 'owner', $this->members->get_role( $this->space_id, $this->owner_id ) );
+		$this->assertSame( 'member', $this->members->get_role( $this->space_id, $stray ) );
+		$this->assertSame( $this->owner_id, (int) $this->spaces->get( $this->space_id )['owner_id'] );
+	}
+
+	/**
+	 * Count the space's `role = 'owner'` membership rows.
+	 *
+	 * @return int Number of owner rows for the space under test.
+	 */
+	private function count_owner_rows(): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND role = 'owner'",
+				$this->space_id
+			)
+		);
+	}
+
+	/**
 	 * A soft-banned member (bn_space_members.status = 'banned') must never be
 	 * promoted to owner: the upsert would silently flip them back to 'active'.
 	 */

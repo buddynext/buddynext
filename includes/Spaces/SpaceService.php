@@ -708,32 +708,55 @@ class SpaceService {
 	 * and this method exists to make divergence between them impossible.
 	 *
 	 * Three writes, in a fixed order: (W1) the heir is upserted to an active
-	 * owner, (W2) the previous owner is demoted, (W3) the denormalised pointer
-	 * moves last. WHAT IS ACTUALLY GUARANTEED, and how:
+	 * owner, (W2) EVERY owner row that is not the heir's is demoted, (W3) the
+	 * denormalised pointer moves last. WHAT IS ACTUALLY GUARANTEED, and how:
 	 *
-	 * 1. SHORT-CIRCUIT (always). Each write's return value is checked before the
+	 * 1. CONVERGENCE, NOT A MATCHING POINTER. The method returns success without
+	 *    writing only when the space is already converged on the heir: the
+	 *    pointer names them, they hold an ACTIVE OWNER row, and it is the ONLY
+	 *    owner row. A matching `owner_id` on its own is never enough — it is
+	 *    exactly what a space wrecked by the old transfer_ownership() looks
+	 *    like, and the CLI repair sweep TRUSTS this return value. Divergence
+	 *    falls through to the writes, which are idempotent (W1 upserts, W2 has
+	 *    nothing to demote on a clean space, W3 rewrites the same pointer), so
+	 *    the primitive repairs a broken space instead of certifying it.
+	 * 2. SHORT-CIRCUIT (always). Each write's return value is checked before the
 	 *    next one is issued. A failing W1 means W2 and W3 never run, so the
 	 *    method can never demote the incumbent and move the pointer to a user it
 	 *    failed to promote — the ownerless-space outcome.
-	 * 2. TRANSACTION (production). The three writes run inside a single
+	 * 3. ONE OWNER ROW, ALWAYS. W2 demotes every owner row other than the heir's,
+	 *    not just the user the pointer named. That self-heals a space that
+	 *    already carried a stray owner row, and it closes the concurrent-transfer
+	 *    race in which A->B and A->C both read "previous owner = A", one of them
+	 *    demotes A, the other matches nothing, and B and C both keep role='owner'.
+	 * 4. TRANSACTION (production). The three writes run inside a single
 	 *    `START TRANSACTION` / `COMMIT`, rolled back on any failure, so no
 	 *    concurrent reader observes a half-applied transfer. Skipped when the
 	 *    WordPress test suite is running (`WP_TESTS_DOMAIN`), because
 	 *    WP_UnitTestCase already wraps every test in its own transaction and
 	 *    MySQL implicitly COMMITs it on a nested `START TRANSACTION` — which
 	 *    would leak committed rows into the test database. Overridable via the
-	 *    `buddynext_space_use_db_transaction` filter.
-	 * 3. COMPENSATION (whenever the transaction is skipped). Because a skipped
-	 *    transaction means no rollback, a failing W2 explicitly undoes W1, and a
-	 *    failing W3 undoes W2 and W1 — restoring the heir's exact prior row (or
-	 *    deleting it, if they had none) and re-promoting the incumbent.
+	 *    `buddynext_space_use_db_transaction` filter. If `START TRANSACTION`
+	 *    itself fails, the method degrades to (5) rather than trusting a
+	 *    transaction that never opened — believing in it would disarm BOTH nets.
+	 * 5. COMPENSATION (whenever the transaction is skipped or failed to open).
+	 *    Because no transaction means no rollback, a failing W2 explicitly undoes
+	 *    W1, and a failing W3 undoes W2 and W1 — restoring the heir's exact prior
+	 *    row (or deleting it, if they had none) and re-promoting the incumbent.
+	 *    A stray owner row W2 swept up is NOT restored; see abort_owner_transfer().
 	 *
 	 * NOT guaranteed: on the non-transactional path the compensating undo is
 	 * itself a DB write, so a database that has stopped accepting writes
-	 * entirely can still leave a partially applied transfer. `wp buddynext
-	 * spaces repair-owners` remains the backstop for that. Every failure path,
-	 * compensated or not, busts the same caches the success path does, so a
-	 * stale role cache never outlives the rows it described.
+	 * entirely can still leave a partially applied transfer. Nor can a
+	 * transaction that MySQL only PRETENDS to run be detected here: on a
+	 * non-transactional storage engine (our tables carry no explicit ENGINE
+	 * clause) `START TRANSACTION` succeeds and `COMMIT` / `ROLLBACK` are silent
+	 * no-ops, so the rollback net is inert while the compensation net is off.
+	 * `wp buddynext spaces repair-owners` remains the backstop for both — and
+	 * repair works precisely because (1) makes this method fix a divergent space
+	 * rather than declare it healthy. Every failure path, compensated or not,
+	 * busts the same caches the success path does, so a stale role cache never
+	 * outlives the rows it described.
 	 *
 	 * Authorization lives HERE, not in the caller — the older
 	 * transfer_ownership() delegated it to callers and a moderator-gated
@@ -755,7 +778,9 @@ class SpaceService {
 	 *                               `buddynext-manage-space` on this space.
 	 *                               Pass null for SYSTEM context (succession /
 	 *                               CLI), which performs no capability check.
-	 * @return true|WP_Error True on success (including a no-op). WP_Error on a
+	 * @return true|WP_Error True on success — the space is converged on the new
+	 *                       owner in BOTH tables, whether that took writes or the
+	 *                       space was already converged. WP_Error on a
 	 *                       missing space (`space_not_found`), unknown user
 	 *                       (`invalid_owner`), unauthorised actor (`forbidden`),
 	 *                       banned heir (`heir_banned`), or a failed write
@@ -792,14 +817,11 @@ class SpaceService {
 		}
 
 		$previous_owner_id = (int) ( $space['owner_id'] ?? 0 );
-		if ( $previous_owner_id === $new_owner_id ) {
-			return true;
-		}
+		$spaces_table      = $wpdb->prefix . 'bn_spaces';
 
-		$spaces_table = $wpdb->prefix . 'bn_spaces';
-
-		// The heir's row BEFORE W1: it decides the member_count delta, and it is
-		// the undo state if a later write fails on the non-transactional path.
+		// The heir's row BEFORE W1: it decides the no-op test below, the
+		// member_count delta, and it is the undo state if a later write fails on
+		// the non-transactional path.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$heir_row = $wpdb->get_row(
 			$wpdb->prepare(
@@ -811,6 +833,30 @@ class SpaceService {
 		);
 
 		$heir_was_active = is_array( $heir_row ) && 'active' === $heir_row['status'];
+
+		// Every user holding an owner row BEFORE the writes. Its size decides the
+		// no-op test below; the users in it other than the heir are the ones W2
+		// demotes, so their role caches must be flushed too.
+		$owner_row_user_ids = $this->owner_row_user_ids( $space_id );
+		$owner_row_count    = count( $owner_row_user_ids );
+
+		// NO-OP — but only for a space that is genuinely CONVERGED on the heir.
+		// A matching owner_id alone proves nothing: the pointer can name a user
+		// who holds no owner row (the divergence the old transfer_ownership()
+		// produced), or a stray second owner row can survive alongside theirs.
+		// Certifying either of those as healthy would make the CLI repair sweep
+		// a no-op against exactly the spaces it exists to fix. So the fast path
+		// demands all three: the pointer names the heir, the heir holds an
+		// active owner row, and it is the ONLY owner row. Anything else falls
+		// through to the write path, which is idempotent (W1 upserts, W2 is a
+		// no-op when there is nothing to demote, W3 rewrites the same pointer).
+		if ( $previous_owner_id === $new_owner_id
+			&& is_array( $heir_row )
+			&& 'owner' === $heir_row['role']
+			&& 'active' === $heir_row['status']
+			&& 1 === $owner_row_count ) {
+			return true;
+		}
 
 		/**
 		 * Filters whether an ownership write runs inside an explicit SQL transaction.
@@ -826,9 +872,17 @@ class SpaceService {
 		 */
 		$use_txn = (bool) apply_filters( 'buddynext_space_use_db_transaction', ! defined( 'WP_TESTS_DOMAIN' ), 'assign_owner' );
 
-		if ( $use_txn ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->query( 'START TRANSACTION' );
+		// If the transaction cannot be opened, DO NOT keep believing in it: a
+		// $use_txn of true also disables the compensating-undo path, so trusting
+		// a transaction that never started would leave the writes with neither
+		// safety net. (MySQL also accepts START TRANSACTION / COMMIT / ROLLBACK
+		// as silent no-ops on a non-transactional storage engine, which our
+		// tables can land on — Installer::schema() specifies no ENGINE clause —
+		// but that failure is invisible here; the explicit false below is the
+		// case we CAN see, and degrading on it costs nothing.)
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $use_txn && false === $wpdb->query( 'START TRANSACTION' ) ) {
+			$use_txn = false;
 		}
 
 		// W1. The heir becomes an active owner (UPSERT — covers member, moderator, or non-member).
@@ -848,28 +902,34 @@ class SpaceService {
 		// bail NOW, before W2 demotes the incumbent and W3 points the space at a
 		// user who was never promoted.
 		if ( false === $promoted ) {
-			return $this->abort_owner_transfer( $space, $new_owner_id, $previous_owner_id, $use_txn, false, $heir_row, false );
+			return $this->abort_owner_transfer( $space, $new_owner_id, $previous_owner_id, $use_txn, false, $heir_row, false, $owner_row_user_ids );
 		}
 
-		// W2. The previous owner is demoted — their row may already be gone
-		// (deleted user), which is fine: zero rows affected is not a failure.
-		$demoted_rows = 0;
-		if ( $previous_owner_id > 0 ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$demoted = $wpdb->query(
-				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_space_members SET role = 'member' WHERE space_id = %d AND user_id = %d AND role = 'owner'",
-					$space_id,
-					$previous_owner_id
-				)
-			);
+		// W2. EVERY other owner row is demoted — not just the one the pointer
+		// named. Demoting only the believed incumbent leaves two owners whenever
+		// the space was already divergent (a stray owner row), and loses a race:
+		// two concurrent transfers A->B and A->C both read prev = A, T1 demotes
+		// A, T2 matches zero rows, and B and C both end up holding role='owner'.
+		// A `user_id <> heir` sweep is self-healing in both cases. Zero rows
+		// affected is not a failure — a solo owner's row may already be gone
+		// (deleted user), and the sweep is a no-op on an already-clean space.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$demoted = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_space_members SET role = 'member' WHERE space_id = %d AND role = 'owner' AND user_id <> %d",
+				$space_id,
+				$new_owner_id
+			)
+		);
 
-			if ( false === $demoted ) {
-				return $this->abort_owner_transfer( $space, $new_owner_id, $previous_owner_id, $use_txn, true, $heir_row, false );
-			}
-
-			$demoted_rows = (int) $wpdb->rows_affected;
+		if ( false === $demoted ) {
+			return $this->abort_owner_transfer( $space, $new_owner_id, $previous_owner_id, $use_txn, true, $heir_row, false, $owner_row_user_ids );
 		}
+
+		// $demoted IS the affected-row count wpdb::query() returned; reading
+		// $wpdb->rows_affected instead would break the moment another query slips
+		// in between.
+		$demoted_rows = (int) $demoted;
 
 		// W3. The denormalised pointer moves LAST.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -882,7 +942,7 @@ class SpaceService {
 		);
 
 		if ( false === $pointer ) {
-			return $this->abort_owner_transfer( $space, $new_owner_id, $previous_owner_id, $use_txn, true, $heir_row, $demoted_rows > 0 );
+			return $this->abort_owner_transfer( $space, $new_owner_id, $previous_owner_id, $use_txn, true, $heir_row, $demoted_rows > 0, $owner_row_user_ids );
 		}
 
 		if ( $use_txn ) {
@@ -894,7 +954,9 @@ class SpaceService {
 			( new SpaceMemberService() )->adjust_member_count( $space_id, 1 );
 		}
 
-		$this->flush_ownership_caches( $space, array( $new_owner_id, $previous_owner_id ) );
+		// W2 may have demoted owner rows beyond the incumbent, so every user who
+		// held one is flushed, not just the two the pointer knows about.
+		$this->flush_ownership_caches( $space, array_merge( array( $new_owner_id, $previous_owner_id ), $owner_row_user_ids ) );
 
 		/**
 		 * Fires after a space's ownership moves, however it moved.
@@ -919,24 +981,33 @@ class SpaceService {
 	 * re-promoted, then the heir's row is restored to exactly what it was — or
 	 * deleted outright, if they had no row before W1 inserted one.
 	 *
+	 * The hand-undo restores the INCUMBENT only. W2 sweeps away every owner row
+	 * that is not the heir's, so it can also have demoted a stray owner row —
+	 * one the space should never have had. Those are not resurrected: putting
+	 * known divergence back is not an undo worth having, and the caller sees a
+	 * WP_Error either way.
+	 *
 	 * Either way the caches are busted before returning, so a partial write can
 	 * never outlive itself in a stale role cache.
 	 *
-	 * @param array      $space             The space row as read before the writes.
-	 * @param int        $new_owner_id      The heir W1 tried to promote.
-	 * @param int        $previous_owner_id The incumbent W2 tried to demote (0 if none).
-	 * @param bool       $used_transaction  Whether the writes ran inside a transaction.
-	 * @param bool       $undo_promotion    Whether W1 actually landed. False when W1 is
-	 *                                      itself the write that failed — nothing was
-	 *                                      written, so the heir's row must be left alone.
-	 * @param array|null $heir_row          The heir's `role`/`status` as read BEFORE W1,
-	 *                                      or null when they had no membership row at all
-	 *                                      (so undoing W1 means deleting the row it
-	 *                                      inserted). Only consulted when $undo_promotion.
-	 * @param bool       $undo_demotion     Whether W2 actually demoted a row.
+	 * @param array      $space              The space row as read before the writes.
+	 * @param int        $new_owner_id       The heir W1 tried to promote.
+	 * @param int        $previous_owner_id  The incumbent W2 tried to demote (0 if none).
+	 * @param bool       $used_transaction   Whether the writes ran inside a transaction.
+	 * @param bool       $undo_promotion     Whether W1 actually landed. False when W1 is
+	 *                                       itself the write that failed — nothing was
+	 *                                       written, so the heir's row must be left alone.
+	 * @param array|null $heir_row           The heir's `role`/`status` as read BEFORE W1,
+	 *                                       or null when they had no membership row at all
+	 *                                       (so undoing W1 means deleting the row it
+	 *                                       inserted). Only consulted when $undo_promotion.
+	 * @param bool       $undo_demotion      Whether W2 actually demoted a row.
+	 * @param array      $owner_row_user_ids Users who held an owner row BEFORE the writes;
+	 *                                       flushed alongside the heir and the incumbent so
+	 *                                       a swept-away stray leaves no stale role cache.
 	 * @return WP_Error Always — this is the failure path.
 	 */
-	private function abort_owner_transfer( array $space, int $new_owner_id, int $previous_owner_id, bool $used_transaction, bool $undo_promotion, ?array $heir_row, bool $undo_demotion ): WP_Error {
+	private function abort_owner_transfer( array $space, int $new_owner_id, int $previous_owner_id, bool $used_transaction, bool $undo_promotion, ?array $heir_row, bool $undo_demotion, array $owner_row_user_ids = array() ): WP_Error {
 		global $wpdb;
 
 		$space_id      = (int) $space['id'];
@@ -948,7 +1019,7 @@ class SpaceService {
 			$wpdb->query( 'ROLLBACK' );
 		} else {
 			// No transaction to roll back: undo by hand, in reverse write order.
-			if ( $undo_demotion && $previous_owner_id > 0 ) {
+			if ( $undo_demotion && $previous_owner_id > 0 && $previous_owner_id !== $new_owner_id ) {
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$wpdb->query(
 					$wpdb->prepare(
@@ -991,7 +1062,7 @@ class SpaceService {
 			}
 		}
 
-		$this->flush_ownership_caches( $space, array( $new_owner_id, $previous_owner_id ) );
+		$this->flush_ownership_caches( $space, array_merge( array( $new_owner_id, $previous_owner_id ), $owner_row_user_ids ) );
 
 		return new WP_Error( 'assign_owner_failed', __( 'Could not transfer ownership.', 'buddynext' ), array( 'status' => 500 ) );
 	}
@@ -1012,12 +1083,43 @@ class SpaceService {
 	private function flush_ownership_caches( array $space, array $user_ids ): void {
 		$space_id = (int) $space['id'];
 
-		( new SpaceMemberService() )->flush_user_caches( $space_id, array_values( array_filter( array_map( 'intval', $user_ids ) ) ) );
+		( new SpaceMemberService() )->flush_user_caches( $space_id, array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) ) );
 
 		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
 		if ( ! empty( $space['slug'] ) ) {
 			wp_cache_delete( 'space_slug_' . $space['slug'], self::CACHE_GROUP );
 		}
+	}
+
+	/**
+	 * List every user currently holding a `role = 'owner'` row in a space.
+	 *
+	 * assign_owner() reads this BEFORE it writes, for two reasons: a healthy
+	 * space has exactly one such row (so anything else means the space is
+	 * divergent and the no-op fast path must not be taken), and every user in
+	 * the list other than the heir is one W2 demotes — so their role caches have
+	 * to be flushed. Deliberately unfiltered by status: a `banned` owner row is
+	 * divergence too, and it must be counted and swept like any other.
+	 *
+	 * Read uncached, straight from the table: it is the divergence check itself,
+	 * and a cached answer is exactly the thing it cannot trust.
+	 *
+	 * @param int $space_id Space to inspect.
+	 * @return int[] User ids holding an owner row, ascending. Empty when the
+	 *               space has no owner row at all.
+	 */
+	private function owner_row_user_ids( int $space_id ): array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND role = 'owner' ORDER BY user_id ASC",
+				$space_id
+			)
+		);
+
+		return array_map( 'intval', (array) $ids );
 	}
 
 	/**
