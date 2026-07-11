@@ -1080,11 +1080,13 @@ class PostService {
 	 * Update an existing post's content or privacy.
 	 *
 	 * Sets edited_at to the current UTC time. Only the post owner may update.
+	 * Non-admin authors are held to the buddynext_post_edit_window (minutes)
+	 * unless the post has not published yet (status = scheduled), which is exempt.
 	 *
 	 * @param int   $post_id  Post to update.
 	 * @param int   $user_id  Requesting user (must be owner).
-	 * @param array $data     Fields to change: content, privacy.
-	 * @return true|WP_Error
+	 * @param array $data     Fields to change: content, privacy, content_warning, content_warning_type.
+	 * @return true|WP_Error True on success, WP_Error on permission / edit-window / content-safeguard failure.
 	 */
 	public function update( int $post_id, int $user_id, array $data ): bool|WP_Error {
 		$ownership = $this->assert_owner( $post_id, $user_id );
@@ -1095,12 +1097,20 @@ class PostService {
 		// Enforce the post edit window (buddynext_post_edit_window, minutes): once
 		// a post is older than the window a non-admin can no longer edit it.
 		// 0 = unlimited.
+		//
+		// A post that has not published yet (status = scheduled) is exempt: the
+		// window exists so nobody rewrites history other members have already
+		// read, and nobody has read a scheduled post. Without the exemption a post
+		// scheduled for next week becomes uneditable an hour after it was drafted,
+		// leaving delete as the author's only way out.
 		$edit_window = (int) get_option( 'buddynext_post_edit_window', 60 );
 		if ( $edit_window > 0 && ! user_can( $user_id, 'manage_options' ) ) {
 			global $wpdb;
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$created_at = $wpdb->get_var( $wpdb->prepare( "SELECT created_at FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ) );
-			if ( $created_at && ( time() - strtotime( (string) $created_at . ' UTC' ) ) > $edit_window * MINUTE_IN_SECONDS ) {
+			$row        = $wpdb->get_row( $wpdb->prepare( "SELECT created_at, status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
+			$created_at = $row['created_at'] ?? '';
+			$is_pending = 'scheduled' === (string) ( $row['status'] ?? '' );
+			if ( ! $is_pending && $created_at && ( time() - strtotime( (string) $created_at . ' UTC' ) ) > $edit_window * MINUTE_IN_SECONDS ) {
 				return new WP_Error(
 					'edit_window_closed',
 					__( 'The time window for editing this post has passed.', 'buddynext' ),

@@ -202,8 +202,15 @@ $is_admin = ( $current_user_id > 0 && user_can( $current_user_id, 'manage_option
 // buddynext_post_edit_window minutes of posting. Hiding the menu item once the
 // window closes keeps the UI honest instead of showing Edit and failing with a
 // 403 on click. 0 = unlimited; admins are exempt (mirrors the server check).
+//
+// A post that has not published yet (status = scheduled) is exempt from the
+// window, exactly as PostService::update is: the window guards against rewriting
+// history members have already read, and nobody has read a scheduled post. Without
+// the exemption a post scheduled for next week loses its Edit control an hour
+// after it was drafted and can only be deleted.
+$bn_is_scheduled    = 'scheduled' === (string) ( $bn_post['status'] ?? '' );
 $within_edit_window = true;
-if ( ! $is_admin ) {
+if ( ! $is_admin && ! $bn_is_scheduled ) {
 	$edit_window = (int) get_option( 'buddynext_post_edit_window', 60 );
 	if ( $edit_window > 0 && '' !== (string) $created_at ) {
 		$created_ts         = (int) strtotime( (string) $created_at . ' UTC' );
@@ -522,9 +529,8 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 	// Scheduled posts (the owner's "Scheduled" profile tab) show WHEN they will
 	// publish — the byline timestamp is the creation time, not the useful figure
 	// here. scheduled_at is stored in UTC; wp_date() renders it in the site's zone.
-	$bn_pc_status       = (string) ( $bn_post['status'] ?? '' );
 	$bn_pc_scheduled_at = (string) ( $bn_post['scheduled_at'] ?? '' );
-	if ( 'scheduled' === $bn_pc_status && '' !== $bn_pc_scheduled_at ) {
+	if ( $bn_is_scheduled && '' !== $bn_pc_scheduled_at ) {
 		$bn_pc_sched_ts = strtotime( $bn_pc_scheduled_at . ' UTC' );
 		if ( $bn_pc_sched_ts ) {
 			$bn_pc_sched_fmt = wp_date(

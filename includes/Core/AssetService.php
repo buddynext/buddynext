@@ -600,6 +600,7 @@ class AssetService {
 		$this->i18n_members();
 		$this->i18n_spaces();
 		$this->i18n_messages();
+		$this->i18n_media();
 		$this->i18n_moderation();
 		$this->i18n_onboarding();
 		$this->i18n_notifications();
@@ -764,7 +765,10 @@ class AssetService {
 					'reportFailed'            => __( 'Could not submit report. Try again.', 'buddynext' ),
 					'saved'                   => __( 'Saved', 'buddynext' ),
 					'removedFromSaved'        => __( 'Removed from saved', 'buddynext' ),
+					'bookmarkAddFailed'       => __( 'Could not save this post. Try again.', 'buddynext' ),
+					'bookmarkRemoveFailed'    => __( 'Could not remove this post from saved. Try again.', 'buddynext' ),
 					'deletePostTitle'         => __( 'Delete this post?', 'buddynext' ),
+					'postDeleteFailed'        => __( 'Could not delete this post. Try again.', 'buddynext' ),
 					'postNotEditable'         => __( 'This post cannot be edited.', 'buddynext' ),
 					'editPostContent'         => __( 'Edit post content', 'buddynext' ),
 					'postContentEmpty'        => __( 'Post content cannot be empty.', 'buddynext' ),
@@ -775,6 +779,7 @@ class AssetService {
 					'postPinFailed'           => __( 'Could not pin this post. Try again.', 'buddynext' ),
 					'postUnpinFailed'         => __( 'Could not unpin this post. Try again.', 'buddynext' ),
 					'voteRecorded'            => __( 'Vote recorded', 'buddynext' ),
+					'voteFailed'              => __( 'Could not record your vote. Try again.', 'buddynext' ),
 					'announcementEnded'       => __( 'Announcement ended', 'buddynext' ),
 					'announcementEndFailed'   => __( 'Could not end the announcement. Try again.', 'buddynext' ),
 					'share'                   => __( 'Share', 'buddynext' ),
@@ -955,6 +960,10 @@ class AssetService {
 					'paywallBecomeMember'             => __( 'Become a Member', 'buddynext' ),
 					'paywallNotConfigured'            => __( 'Membership purchase is not configured yet. Please check back soon.', 'buddynext' ),
 					'couldNotJoin'                    => __( 'Could not join this space.', 'buddynext' ),
+					// requestJoin's failure branch. It suppresses the shared error
+					// toast, so without this a rejected request (a banned member, say)
+					// only flickered the button and said nothing.
+					'couldNotRequestJoin'             => __( 'Could not send your request.', 'buddynext' ),
 					'invitationAccepted'              => __( 'Invitation accepted.', 'buddynext' ),
 					'couldNotAcceptInvite'            => __( 'Could not accept the invitation.', 'buddynext' ),
 					'invitationDeclined'              => __( 'Invitation declined.', 'buddynext' ),
@@ -1108,6 +1117,32 @@ class AssetService {
 					'unsendMsgExpired'          => __( 'The time to unsend this message has passed. You can still delete it.', 'buddynext' ),
 					'unsendMsgNotSender'        => __( 'You can only unsend your own messages.', 'buddynext' ),
 					'unsendMsgFailed'           => __( 'Could not unsend the message. Try again.', 'buddynext' ),
+					// Conversation delete failed (403/500/offline). The store keeps the
+					// confirm modal open and toasts this instead of redirecting to the
+					// inbox, which used to make a failed delete look done.
+					'deleteConversationFailed'  => __( 'Could not delete this conversation. Try again.', 'buddynext' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * Media/albums store: strings the media-tab context does not carry because
+	 * they are rendered imperatively into the detail / picker grids (error and
+	 * retry copy, reorder rollback).
+	 *
+	 * @return void
+	 */
+	private function i18n_media(): void {
+		wp_interactivity_state(
+			'buddynext/media-albums',
+			array(
+				'i18n' => array(
+					'detailFailed'   => __( 'Could not load this album.', 'buddynext' ),
+					'pickerFailed'   => __( 'Could not load your media.', 'buddynext' ),
+					'loadFailedBody' => __( 'Something went wrong. Check your connection and try again.', 'buddynext' ),
+					'retry'          => __( 'Try again', 'buddynext' ),
+					'reorderFailed'  => __( 'Could not save the new order. Your photos were put back.', 'buddynext' ),
 				),
 			)
 		);
@@ -1288,6 +1323,18 @@ class AssetService {
 					'warnUserFailed'        => __( 'Could not warn the user.', 'buddynext' ),
 					'strikeIssued'          => __( 'Strike issued.', 'buddynext' ),
 					'strikeUserFailed'      => __( 'Could not issue a strike.', 'buddynext' ),
+					// Reverse strike — the counterpart to the above. The queue row's
+					// strike dots and count re-render from these after every strike or
+					// reversal, so the admin can see what they are undoing.
+					'strikeReversed'        => __( 'Strike reversed.', 'buddynext' ),
+					'reverseStrikeFailed'   => __( 'Could not reverse the strike. Try again.', 'buddynext' ),
+					'noActiveStrikes'       => __( 'This member has no active strikes.', 'buddynext' ),
+					/* translators: %d: number of active strikes. */
+					'strikeCountOne'        => __( '%d strike', 'buddynext' ),
+					/* translators: %d: number of active strikes. */
+					'strikeCountOther'      => __( '%d strikes', 'buddynext' ),
+					/* translators: %d: number of active strikes. */
+					'reverseStrikeAria'     => __( 'Reverse the most recent strike (%d active)', 'buddynext' ),
 					'suspendUserTitle'      => __( 'Suspend this user?', 'buddynext' ),
 					'suspendUserBody'       => __( 'They will be unable to post or interact for 7 days, and their posts will be hidden.', 'buddynext' ),
 					'suspendLabel'          => __( 'Suspend', 'buddynext' ),
@@ -1361,6 +1408,13 @@ class AssetService {
 					'toastFinishFailed'        => __( 'Could not finish onboarding. Please try again.', 'buddynext' ),
 					'toastInterestsSaveFailed' => __( 'Could not save your interests. Please try again.', 'buddynext' ),
 					'errorGeneric'             => __( 'Something went wrong. Please try again.', 'buddynext' ),
+					// Finish-step failures. The wizard used to fire the profile / handle /
+					// channel writes and forget them, so a rejected save still reached the
+					// success screen. Each failure now keeps the member on the wizard with
+					// the reason, so their data is never lost behind "You're all set".
+					'errorProfileSaveFailed'   => __( 'Your profile could not be saved. Please check your details and try again.', 'buddynext' ),
+					'errorHandleTaken'         => __( 'That username is already taken. Please choose another.', 'buddynext' ),
+					'errorChannelsSaveFailed'  => __( 'Your notification settings could not be saved. Please try again.', 'buddynext' ),
 				),
 			)
 		);
@@ -1415,6 +1469,11 @@ class AssetService {
 					'spacePrefSaveFailed'  => __( 'Could not save space preference.', 'buddynext' ),
 					'prefsSaveFailed'      => __( 'Could not save preferences.', 'buddynext' ),
 					'prefsSaved'           => __( 'Preferences saved.', 'buddynext' ),
+					// Global broadcast opt-out — Pro renders the control inside the
+					// Channels card, this store drives it (actions.setBroadcastOptOut).
+					'broadcastsOptedOut'   => __( 'You will no longer receive newsletters or announcements.', 'buddynext' ),
+					'broadcastsOptedIn'    => __( 'You will receive newsletters and announcements again.', 'buddynext' ),
+					'broadcastsFailed'     => __( 'Could not update your broadcast email preference.', 'buddynext' ),
 				),
 			)
 		);

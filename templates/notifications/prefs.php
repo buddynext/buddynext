@@ -22,6 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use BuddyNext\Core\PageRouter;
+use BuddyNext\Notifications\EmailSender;
 use BuddyNext\Notifications\NotificationPrefCatalogue;
 use BuddyNext\Notifications\NotificationPrefService;
 use BuddyNext\Profile\AvatarService;
@@ -74,6 +75,33 @@ $freq_options = array(
 	'off'       => __( 'Off', 'buddynext' ),
 );
 
+// The two frequencies that depend on the digest crons running.
+$digest_freqs = array( 'daily', 'weekly' );
+
+// Digest master switch (Settings → Notifications → "Digest frequency"). When the
+// owner sets it to "Disabled", CronService::handle_daily_digest/handle_weekly_digest
+// early-return, so a per-type "Daily"/"Weekly" choice delivers nothing — forever,
+// with no way for the member to know why. Rather than accept a dead choice we stop
+// offering those chips and say so out loud.
+$digests_enabled = EmailSender::digests_enabled();
+
+// Types the member (or a catalogue default) has parked on a digest frequency.
+// With digests off these send NO email at all, so they are named explicitly
+// instead of failing silently.
+$dormant_digest_types = array();
+if ( ! $digests_enabled ) {
+	$catalogue_entries = $catalogue_service->all();
+	foreach ( $resolved as $resolved_slug => $resolved_entry ) {
+		$entry_meta = $catalogue_entries[ $resolved_slug ] ?? array();
+		if ( ! (bool) ( $entry_meta['can_email'] ?? true ) ) {
+			continue;
+		}
+		if ( in_array( (string) ( $resolved_entry['email_freq'] ?? '' ), $digest_freqs, true ) ) {
+			$dormant_digest_types[] = (string) ( $entry_meta['label'] ?? $resolved_slug );
+		}
+	}
+}
+
 $space_pref_options = array(
 	'all'           => __( 'All activity', 'buddynext' ),
 	'mentions_only' => __( 'Mentions only', 'buddynext' ),
@@ -124,6 +152,7 @@ $initial_context = wp_json_encode(
 		'initialChannels'  => $channels,
 		'pushAvailable'    => $push_available,
 		'catalogue'        => $context_catalogue,
+		'digestsEnabled'   => $digests_enabled,
 		'isDirty'          => false,
 		'isSaving'         => false,
 		'savedAt'          => 0,
@@ -214,6 +243,24 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 					<span class="bn-prefs-channel__sub"><?php esc_html_e( 'Soft chime when a new notification arrives while this tab is open.', 'buddynext' ); ?></span>
 				</span>
 			</label>
+
+			<?php
+			/**
+			 * Fires inside the Channels card on the notification preferences page,
+			 * after the core channel toggles and INSIDE the
+			 * `buddynext/notification-prefs` Interactivity scope — so anything
+			 * rendered here can bind to that store's actions.
+			 *
+			 * BuddyNext Pro hooks this to surface the global "all broadcast emails"
+			 * opt-out (BroadcastUnsubscribe::render_prefs_optout), the escalation
+			 * from a single-campaign unsubscribe to every future newsletter.
+			 *
+			 * @since 1.0.0
+			 *
+			 * @param int $current_user_id Viewing member's user ID.
+			 */
+			do_action( 'buddynext_notification_prefs_channels_after', $current_user_id );
+			?>
 		</div>
 	</section>
 
@@ -221,8 +268,40 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 	<section class="bn-card bn-prefs-card" data-v2 aria-labelledby="bn-prefs-types-title">
 		<header class="bn-prefs-card__head">
 			<h2 class="bn-prefs-card__title" id="bn-prefs-types-title"><?php esc_html_e( 'Activity types', 'buddynext' ); ?></h2>
-			<p class="bn-prefs-card__sub"><?php esc_html_e( 'Tune in-app and email delivery per type. Email frequency aggregates into daily or weekly digests when you choose those.', 'buddynext' ); ?></p>
+			<?php if ( $digests_enabled ) : ?>
+				<p class="bn-prefs-card__sub"><?php esc_html_e( 'Tune in-app and email delivery per type. Email frequency aggregates into daily or weekly digests when you choose those.', 'buddynext' ); ?></p>
+			<?php else : ?>
+				<p class="bn-prefs-card__sub"><?php esc_html_e( 'Tune in-app and email delivery per type.', 'buddynext' ); ?></p>
+			<?php endif; ?>
 		</header>
+
+		<?php if ( ! $digests_enabled ) : ?>
+			<?php
+			// Honest state, not a silent no-op: with digests switched off site-wide
+			// the Daily/Weekly chips are disabled below, and any type already parked
+			// on one is named here so the member knows it is sending nothing.
+			?>
+			<div class="bn-prefs-notice" data-tone="info" role="status">
+				<span class="bn-prefs-notice__icon" aria-hidden="true"><?php buddynext_icon( 'info' ); ?></span>
+				<div class="bn-prefs-notice__body">
+					<p class="bn-prefs-notice__title"><?php esc_html_e( 'Daily and weekly digests are turned off for this community.', 'buddynext' ); ?></p>
+					<p class="bn-prefs-notice__text"><?php esc_html_e( 'Only Immediate and Off are available. Choose Immediate to get an email each time something happens, or Off for none.', 'buddynext' ); ?></p>
+					<?php if ( ! empty( $dormant_digest_types ) ) : ?>
+						<p class="bn-prefs-notice__text">
+							<?php
+							echo esc_html(
+								sprintf(
+									/* translators: %s: comma-separated list of notification type names currently set to Daily or Weekly. */
+									__( 'These types are still set to Daily or Weekly, so they are sending you no email at all right now: %s. Switch each one to Immediate or Off.', 'buddynext' ),
+									implode( ', ', $dormant_digest_types )
+								)
+							);
+							?>
+						</p>
+					<?php endif; ?>
+				</div>
+			</div>
+		<?php endif; ?>
 
 		<div class="bn-prefs-groups">
 			<?php
@@ -272,6 +351,9 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 											<?php
 											foreach ( $freq_options as $freq_value => $freq_label ) :
 												$is_active = ( $resolved_row['email_freq'] === $freq_value );
+												// Digests off site-wide → the chip cannot deliver anything, so it
+												// is disabled rather than left as a choice that sends nothing.
+												$freq_dead = ! $digests_enabled && in_array( $freq_value, $digest_freqs, true );
 												?>
 												<button type="button"
 													class="bn-prefs-chip"
@@ -280,11 +362,25 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 													data-wp-context="<?php echo esc_attr( (string) wp_json_encode( array( 'chipFreq' => $freq_value ) ) ); ?>"
 													aria-pressed="<?php echo $is_active ? 'true' : 'false'; ?>"
 													data-wp-bind--aria-pressed="state.rowFreqActive"
+													<?php
+													if ( $freq_dead ) :
+														?>
+														disabled
+														aria-disabled="true"
+														title="<?php esc_attr_e( 'Digest emails are turned off for this community.', 'buddynext' ); ?>"
+														<?php
+													endif;
+													?>
 													data-wp-on--click="actions.setEmailFreq">
 													<?php echo esc_html( $freq_label ); ?>
 												</button>
 											<?php endforeach; ?>
 										</div>
+										<?php if ( ! $digests_enabled && in_array( (string) $resolved_row['email_freq'], $digest_freqs, true ) ) : ?>
+											<p class="bn-prefs-row__warn">
+												<?php esc_html_e( 'Digests are off — this type is sending no email. Pick Immediate or Off.', 'buddynext' ); ?>
+											</p>
+										<?php endif; ?>
 									<?php else : ?>
 										<span class="bn-prefs-row__no-email"><?php esc_html_e( 'In-app only', 'buddynext' ); ?></span>
 									<?php endif; ?>

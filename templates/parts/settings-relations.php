@@ -107,9 +107,13 @@ if ( ! empty( $bn_blocked_ids ) || ! empty( $bn_muted_ids ) || ! empty( $bn_rest
 	$bn_relations_html = '<p class="bn-ep-relations__empty">' . esc_html__( "You haven't blocked, restricted, or muted anyone.", 'buddynext' ) . '</p>';
 }
 
+// `id` is the stable deep-link anchor (#bn-settings-relations) used by the
+// notifications "Manage muted" sidecard — keep it in sync if it ever moves.
 buddynext_get_template(
 	'parts/profile-edit-section.php',
 	array(
+		'id'        => 'bn-settings-relations',
+		'title_id'  => 'bn-settings-relations-title',
 		'title'     => __( 'Blocked, restricted & muted', 'buddynext' ),
 		'subtitle'  => __( 'Remove a relationship to clear it. Add new ones from each member\'s card menu.', 'buddynext' ),
 		'body_html' => $bn_relations_html,

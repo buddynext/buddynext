@@ -1372,10 +1372,26 @@ store( 'buddynext/post-card', {
 				if ( res.ok ) {
 					if ( window.bnToast ) { window.bnToast( ctx.bookmarked ? t( 'saved', 'Saved' ) : t( 'removedFromSaved', 'Removed from saved' ) ); }
 				} else {
+					// Reverting the optimistic star with no message looks like a
+					// stray click. Revert AND say why — the server's reason when it
+					// gives one (the attempted action decides the fallback wording).
+					const wanted = ! prev;
 					ctx.bookmarked = prev;
+					const data     = res.data || {};
+					const fallback = wanted
+						? t( 'bookmarkAddFailed', 'Could not save this post. Try again.' )
+						: t( 'bookmarkRemoveFailed', 'Could not remove this post from saved. Try again.' );
+					bnToast( data.message || fallback, { tone: 'danger' } );
 				}
 			} catch ( _e ) {
+				const wanted   = ! prev;
 				ctx.bookmarked = prev;
+				bnToast(
+					wanted
+						? t( 'bookmarkAddFailed', 'Could not save this post. Try again.' )
+						: t( 'bookmarkRemoveFailed', 'Could not remove this post from saved. Try again.' ),
+					{ tone: 'danger' }
+				);
 			}
 		},
 		revealContent() {
@@ -1526,8 +1542,19 @@ store( 'buddynext/post-card', {
 				} );
 				if ( res.ok ) {
 					document.querySelector( '[data-post-id="' + ctx.postId + '"]' )?.remove();
+				} else {
+					// The card stays put on failure, which reads as "nothing
+					// happened" — say why. Prefer the server's own reason (e.g. a
+					// permission or moderation-lock message) over the generic one.
+					const data = res.data || {};
+					bnToast(
+						data.message || t( 'postDeleteFailed', 'Could not delete this post. Try again.' ),
+						{ tone: 'danger' }
+					);
 				}
-			} catch ( _e ) {}
+			} catch ( _e ) {
+				bnToast( t( 'postDeleteFailed', 'Could not delete this post. Try again.' ), { tone: 'danger' } );
+			}
 		},
 		openShare( event ) {
 			const ctx       = getContext();
@@ -1936,8 +1963,19 @@ store( 'buddynext/post-card', {
 							pct:   total > 0 ? Math.round( ( r.vote_count / total ) * 100 ) : 0,
 						} ) );
 					}
+				} else {
+					// A closed / rejected poll answers with a real reason ("This
+					// poll has closed.", "You have already voted."). Dropping it
+					// left the option looking simply unclickable — surface it.
+					const data = res.data || {};
+					bnToast(
+						data.message || t( 'voteFailed', 'Could not record your vote. Try again.' ),
+						{ tone: 'danger' }
+					);
 				}
-			} catch ( _e ) {}
+			} catch ( _e ) {
+				bnToast( t( 'voteFailed', 'Could not record your vote. Try again.' ), { tone: 'danger' } );
+			}
 		},
 		* dismissAnnouncement() {
 			const ctx = getContext();

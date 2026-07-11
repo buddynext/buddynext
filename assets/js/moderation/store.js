@@ -19,6 +19,42 @@ function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
 function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
 
 const moderationStore = store( 'buddynext/moderation', {
+
+	/* ── Derived state: the offender's live strike standing ─────────────────
+	 *
+	 * Each queue row's context carries `strikes` — the offender's active
+	 * (non-reversed) strike count, seeded server-side by the queue's enrich pass.
+	 * strikeUser() and reverseStrike() write it back, so the strike dots, the
+	 * count label, and the Reverse control all track the real standing without a
+	 * reload. Interactivity directives cannot evaluate `!` or `>=` inline, so the
+	 * booleans are derived here; getContext() resolves to the row the directive
+	 * lives in. ────────────────────────────────────────────────────────────── */
+	state: {
+		get strikeCount() {
+			const ctx = getContext();
+			return Math.max( 0, parseInt( ( ctx && ctx.strikes ) || 0, 10 ) || 0 );
+		},
+		// Hides the strike dots, the count label and the Reverse control for a
+		// member with a clean record. `hidden` is a real DOM property, so a plain
+		// boolean is correct here.
+		get noStrikes() { return moderationStore.state.strikeCount < 1; },
+		/* The dot getters return true|null, NOT true|false. `data-active` is a
+		 * data-* attribute, and Preact only removes those when the bound value is
+		 * null/undefined — a literal `false` is written out as data-active="false",
+		 * which still matches the CSS [data-active] rule and would paint every dot
+		 * red. null is the only value that clears the attribute. */
+		get strikeDot1() { return moderationStore.state.strikeCount >= 1 || null; },
+		get strikeDot2() { return moderationStore.state.strikeCount >= 2 || null; },
+		get strikeDot3() { return moderationStore.state.strikeCount >= 3 || null; },
+		get strikeCountLabel() {
+			const n = moderationStore.state.strikeCount;
+			return fmt( 1 === n ? t( 'strikeCountOne', '%d strike' ) : t( 'strikeCountOther', '%d strikes' ), n );
+		},
+		get reverseStrikeAria() {
+			return fmt( t( 'reverseStrikeAria', 'Reverse the most recent strike (%d active)' ), moderationStore.state.strikeCount );
+		},
+	},
+
 	actions: {
 		/* ── Site-wide queue actions ────────────────────────────────── */
 
@@ -116,7 +152,70 @@ const moderationStore = store( 'buddynext/moderation', {
 				body: { reason: 'Strike issued for reported content' },
 				toastOnError: false,
 			} );
+			if ( res.ok ) {
+				// Reflect the new standing so the row's strike dots/count update and
+				// the Reverse control appears — the admin who just struck someone by
+				// mistake must be able to undo it without hunting for a reload.
+				ctx.strikes = ( parseInt( ctx.strikes || 0, 10 ) || 0 ) + 1;
+			}
 			bnToast( res.ok ? t( 'strikeIssued', 'Strike issued.' ) : t( 'strikeUserFailed', 'Could not issue a strike.' ), { tone: res.ok ? 'success' : 'danger' } );
+		},
+
+		/**
+		 * Reverse (undo) the offender's most recent active strike.
+		 *
+		 * The counterpart to strikeUser. Both the read and the write already exist
+		 * at the REST layer — nothing new is registered here:
+		 *   GET  /users/{id}/strikes               → { count, strikes[] }, newest first,
+		 *                                            non-reversed only (ModerationService::get_strikes)
+		 *   POST /users/{id}/strikes/{sid}/reverse → { reversed: true }
+		 * The list call is what resolves {sid}: the queue row knows the offender and
+		 * the count, not the individual strike IDs.
+		 *
+		 * No confirm dialog on purpose. This is a corrective, non-destructive action
+		 * (it clears a sanction) — gating it behind a scary "are you sure" would
+		 * misrepresent its weight. Both outcomes are toasted because this action
+		 * opts out of restFetch's shared error toast.
+		 */
+		* reverseStrike() {
+			const ctx = getContext();
+			if ( ! ctx.userId || ! ctx.restNonce ) { return; }
+
+			const list = yield restFetch( 'users/' + ctx.userId + '/strikes', {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				toastOnError: false,
+			} );
+
+			if ( ! list.ok ) {
+				const lmsg = ( list.data && list.data.message ) ? list.data.message : t( 'reverseStrikeFailed', 'Could not reverse the strike. Try again.' );
+				bnToast( lmsg, { tone: 'danger' } );
+				return;
+			}
+
+			const strikes = ( list.data && Array.isArray( list.data.strikes ) ) ? list.data.strikes : [];
+			if ( ! strikes.length ) {
+				// Someone else already cleared it. Re-sync the row rather than leave a
+				// Reverse control pointing at nothing.
+				ctx.strikes = 0;
+				bnToast( t( 'noActiveStrikes', 'This member has no active strikes.' ), { tone: 'info' } );
+				return;
+			}
+
+			const res = yield restFetch( 'users/' + ctx.userId + '/strikes/' + strikes[ 0 ].id + '/reverse', {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'POST',
+				toastOnError: false,
+			} );
+
+			if ( res.ok ) {
+				ctx.strikes = Math.max( 0, strikes.length - 1 );
+				bnToast( t( 'strikeReversed', 'Strike reversed.' ), { tone: 'success' } );
+			} else {
+				const emsg = ( res.data && res.data.message ) ? res.data.message : t( 'reverseStrikeFailed', 'Could not reverse the strike. Try again.' );
+				bnToast( emsg, { tone: 'danger' } );
+			}
 		},
 
 		* suspendUser() {

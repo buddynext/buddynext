@@ -895,7 +895,23 @@ class ProfileController extends BaseRestController {
 			}
 		}
 
-		$service->save_profile( $user_id, $data );
+		// save_profile() can REJECT the write (moderation safeguard, per-field
+		// sanitise/validate failures). Its return value used to be discarded here, so
+		// the member was told "Profile saved" while the server had thrown the write
+		// away. Mirror admin_update_profile(): a rejected save is a 422 carrying the
+		// field => message map the editor paints as inline errors — never a
+		// 200 {"saved":true}.
+		$result = $service->save_profile( $user_id, $data );
+		if ( is_wp_error( $result ) ) {
+			return new WP_REST_Response(
+				array(
+					'saved'   => false,
+					'errors'  => $this->map_save_error_to_fields( $result, $data, $user_id ),
+					'message' => $result->get_error_message(),
+				),
+				422
+			);
+		}
 
 		/**
 		 * Fire indexing as a pluggable action so Action Scheduler (Phase 6+)
@@ -1148,6 +1164,57 @@ class ProfileController extends BaseRestController {
 	}
 
 	/**
+	 * Turn a save_profile() rejection into a field => message map the editor can
+	 * paint as inline errors.
+	 *
+	 * ProfileService::save_profile() rejects a write in two shapes:
+	 *
+	 *   1. Per-field failures (required / sanitise / validate). The WP_Error data
+	 *      already carries a `fields` map — return it untouched.
+	 *   2. The moderation safeguard (banned word, blocked link, blocked hashtag).
+	 *      That check runs once over the JOINED text of every submitted value, so
+	 *      the WP_Error has no field attribution at all. An unattributed 422 leaves
+	 *      the member with a red toast and no idea WHICH field to fix — a different
+	 *      dead end. So the same safeguard is re-run per submitted value (only on
+	 *      this already-failing path) to name the offending field(s).
+	 *
+	 * An empty map is a valid outcome (the caller still returns the WP_Error's
+	 * message alongside it); it is never a claim that the save succeeded.
+	 *
+	 * @param \WP_Error            $error   The WP_Error returned by save_profile().
+	 * @param array<string, mixed> $data    The payload that was submitted (post-sanitisation).
+	 * @param int                  $user_id User whose profile was being saved.
+	 * @return array<string, string> Field-keyed error messages (possibly empty).
+	 */
+	private function map_save_error_to_fields( \WP_Error $error, array $data, int $user_id ): array {
+		$error_data = (array) $error->get_error_data();
+		$fields     = ( isset( $error_data['fields'] ) && is_array( $error_data['fields'] ) )
+			? array_map( 'strval', $error_data['fields'] )
+			: array();
+
+		if ( ! empty( $fields ) ) {
+			return $fields;
+		}
+
+		$guard = function_exists( 'buddynext_service' ) ? buddynext_service( 'safeguard' ) : null;
+		if ( ! is_object( $guard ) || ! method_exists( $guard, 'check_content' ) ) {
+			return array();
+		}
+
+		$message = (string) $error->get_error_message();
+		foreach ( $data as $key => $value ) {
+			if ( ! is_string( $value ) || '' === trim( $value ) ) {
+				continue;
+			}
+			if ( is_wp_error( $guard->check_content( $value, '', $user_id ) ) ) {
+				$fields[ (string) $key ] = $message;
+			}
+		}
+
+		return $fields;
+	}
+
+	/**
 	 * Update any user's profile (admin only).
 	 *
 	 * Body params: display_name + any field_key => value pairs (same format as PUT /me/profile).
@@ -1204,11 +1271,11 @@ class ProfileController extends BaseRestController {
 
 		$result = $service->save_profile( $user_id, $data );
 		if ( is_wp_error( $result ) ) {
-			$error_data = (array) $result->get_error_data();
 			return new WP_REST_Response(
 				array(
-					'saved'  => false,
-					'errors' => (array) ( $error_data['fields'] ?? array() ),
+					'saved'   => false,
+					'errors'  => $this->map_save_error_to_fields( $result, $data, $user_id ),
+					'message' => $result->get_error_message(),
 				),
 				422
 			);

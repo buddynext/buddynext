@@ -1069,15 +1069,29 @@ const messagesStore = store( 'buddynext/messages', {
 		*confirmDeleteConversation() {
 			const ctx    = getContext();
 			const convId = parseInt( ctx.activeConvId, 10 ) || 0;
-			if ( ! convId ) {
+			if ( ! convId || ctx.deleting ) {
 				return;
 			}
-			yield restFetch( '/conversations/' + convId, {
+			ctx.deleting = true;
+			const res = yield restFetch( '/conversations/' + convId, {
 				base: ctx.mvsRest,
 				nonce: ctx.nonce,
 				method: 'DELETE',
+				toastOnError: false,
 			} );
-			window.location.href = ctx.messagesUrl || '?';
+			ctx.deleting = false;
+			// Only leave the thread once the delete actually succeeded. Redirecting
+			// unconditionally landed the member on the inbox with the conversation
+			// still there — a delete that looked done but wasn't.
+			if ( res && res.ok ) {
+				window.location.href = ctx.messagesUrl || '?';
+				return;
+			}
+			// Keep the confirm modal open so Delete is one click away for a retry.
+			bnToast(
+				( res && res.data && res.data.message ) || t( 'deleteConversationFailed', 'Could not delete this conversation. Try again.' ),
+				{ tone: 'danger' }
+			);
 		},
 
 		// Mute / unmute this conversation. The engine's PATCH sets the participant's

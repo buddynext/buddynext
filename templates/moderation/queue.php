@@ -436,7 +436,7 @@ do_action( 'buddynext_moderation_queue_before' );
 					role="listitem"
 					data-severity="<?php echo esc_attr( $severity ); ?>"
 					data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
-					data-wp-context='{"reportId":<?php echo (int) $report_id; ?>,"userId":<?php echo (int) $offender_id; ?>,"spaceId":<?php echo (int) $report_space_id; ?>}'
+					data-wp-context='{"reportId":<?php echo (int) $report_id; ?>,"userId":<?php echo (int) $offender_id; ?>,"spaceId":<?php echo (int) $report_space_id; ?>,"strikes":<?php echo (int) $strikes_count; ?>}'
 					aria-label="<?php echo esc_attr( sprintf( /* translators: %s: offender name. */ __( 'Report against %s', 'buddynext' ), $offender_name ) ); ?>">
 
 					<div class="bn-report-row__avatar">
@@ -466,7 +466,20 @@ do_action( 'buddynext_moderation_queue_before' );
 							<?php endif; ?>
 						</div>
 
-						<?php if ( $joined_date || $strikes_count > 0 ) : ?>
+						<?php
+						// The strike standing is REACTIVE, not just server-rendered: the
+						// store writes context.strikes back after a strike is issued or
+						// reversed, and the dots + count below re-render from it. Without
+						// that, an admin who reverses a strike sees the old count sitting
+						// there and cannot tell whether anything happened.
+						//
+						// So the whole group is rendered whenever an offender exists (not
+						// only when they already have strikes) and starts out `hidden` at
+						// zero — that is what lets the just-issued strike, and its Reverse
+						// control, appear without a reload.
+						$bn_has_strikes = $strikes_count > 0;
+						?>
+						<?php if ( $joined_date || $offender_id > 0 ) : ?>
 							<div class="bn-report-row__meta">
 								<?php if ( $joined_date ) : ?>
 									<span>
@@ -481,21 +494,27 @@ do_action( 'buddynext_moderation_queue_before' );
 										?>
 									</span>
 								<?php endif; ?>
-								<?php if ( $strikes_count > 0 ) : ?>
+								<?php if ( $offender_id > 0 ) : ?>
 									<?php if ( $joined_date ) : ?>
-										<span class="bn-report-row__meta-dot" aria-hidden="true"></span>
+										<span class="bn-report-row__meta-dot" aria-hidden="true" data-wp-bind--hidden="state.noStrikes" <?php echo $bn_has_strikes ? '' : 'hidden'; ?>></span>
 									<?php endif; ?>
-									<span class="bn-strike-dots" aria-label="<?php echo esc_attr( sprintf( /* translators: %d: strike count. */ _n( '%d strike', '%d strikes', $strikes_count, 'buddynext' ), $strikes_count ) ); ?>">
+									<span class="bn-strike-dots"
+										data-wp-bind--hidden="state.noStrikes"
+										<?php echo $bn_has_strikes ? '' : 'hidden'; ?>
+										aria-hidden="true">
 										<?php for ( $i = 1; $i <= 3; $i++ ) : ?>
-											<span class="bn-strike-dots__dot"<?php echo $i <= $strikes_count ? ' data-active' : ''; ?> aria-hidden="true"></span>
+											<span class="bn-strike-dots__dot"
+												data-wp-bind--data-active="state.strikeDot<?php echo (int) $i; ?>"
+												<?php echo $i <= $strikes_count ? 'data-active' : ''; ?>
+												aria-hidden="true"></span>
 										<?php endfor; ?>
 									</span>
-									<span>
+									<span data-wp-bind--hidden="state.noStrikes" data-wp-text="state.strikeCountLabel" <?php echo $bn_has_strikes ? '' : 'hidden'; ?>>
 										<?php
 										echo esc_html(
 											sprintf(
 												/* translators: %d: strike count. */
-												_n( '%d strike', '%d strikes', $strikes_count, 'buddynext' ),
+												_n( '%d strike', '%d strikes', max( 1, $strikes_count ), 'buddynext' ),
 												$strikes_count
 											)
 										);
@@ -642,6 +661,34 @@ do_action( 'buddynext_moderation_queue_before' );
 										data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
 										<?php buddynext_icon( 'zap' ); ?>
 										<?php esc_html_e( 'Strike user', 'buddynext' ); ?>
+									</button>
+
+									<?php
+									// The counterpart to Strike. Issuing one was a single click;
+									// undoing a mis-issued one had no control anywhere in the
+									// product, even though ModerationService::reverse_strike and
+									// POST /users/{id}/strikes/{sid}/reverse have always existed.
+									// Gated on the same ability as Strike itself, and hidden while
+									// the member has a clean record (bound to state.noStrikes, so
+									// it appears the moment a strike is issued above).
+									//
+									// Reversing a strike CLEARS a sanction — it is corrective, not
+									// destructive — so it is a plain ghost button with no confirm
+									// dialog. The strike count beside it says what is being undone.
+									?>
+									<button type="button"
+										class="bn-btn"
+										data-variant="ghost"
+										data-size="sm"
+										data-wp-on--click="actions.reverseStrike"
+										data-wp-bind--hidden="state.noStrikes"
+										data-wp-bind--aria-label="state.reverseStrikeAria"
+										<?php echo $bn_has_strikes ? '' : 'hidden'; ?>
+										aria-label="<?php echo esc_attr( sprintf( /* translators: %d: number of active strikes. */ _n( 'Reverse the most recent strike (%d active)', 'Reverse the most recent strike (%d active)', max( 1, $strikes_count ), 'buddynext' ), $strikes_count ) ); ?>"
+										data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
+										data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
+										<?php buddynext_icon( 'user-check' ); ?>
+										<?php esc_html_e( 'Reverse strike', 'buddynext' ); ?>
 									</button>
 								<?php endif; ?>
 

@@ -64,6 +64,56 @@ if ( 'invite' === $bn_reg_mode ) {
 	$bn_invite_token = isset( $_GET['invite'] ) ? sanitize_text_field( wp_unslash( $_GET['invite'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	$bn_invite       = '' !== $bn_invite_token ? ( new \BuddyNext\Onboarding\InviteService() )->get_by_token( $bn_invite_token ) : null;
 	if ( null === $bn_invite ) {
+		// Dead end guard: the visitor has NO account (that's the whole point of this
+		// screen), so "Back to sign in" is not a way out — it is the exit door. Give
+		// them something they can actually do: ask for an invitation. The default is a
+		// mailto to the site's admin_email with the request pre-written; owners who run
+		// a waiting-list page or a form point the filter at it instead.
+		$bn_admin_email = sanitize_email( (string) get_option( 'admin_email', '' ) );
+		$bn_site_name   = wp_specialchars_decode( (string) get_option( 'blogname', '' ), ENT_QUOTES );
+
+		$bn_request_url = '';
+		if ( '' !== $bn_admin_email && is_email( $bn_admin_email ) ) {
+			$bn_request_url = 'mailto:' . $bn_admin_email . '?subject=' . rawurlencode(
+				sprintf(
+					/* translators: %s: community (site) name. */
+					__( 'Invitation request for %s', 'buddynext' ),
+					$bn_site_name
+				)
+			) . '&body=' . rawurlencode(
+				sprintf(
+					/* translators: %s: community (site) name. */
+					__( "Hello,\n\nI'd like to join %s but I don't have a valid invitation link. Could you send me one?\n\nThank you.", 'buddynext' ),
+					$bn_site_name
+				)
+			);
+		}
+
+		/**
+		 * Filter where the "Request an invitation" button on the invite-only signup
+		 * screen points.
+		 *
+		 * Defaults to a mailto: link to the site's admin_email with the request
+		 * pre-written. Return a page/form URL to route requests somewhere else, or an
+		 * empty string to hide the button entirely (the screen then falls back to the
+		 * contact line below, so the visitor is never left with nothing to do).
+		 *
+		 * @since 1.0.8
+		 *
+		 * @param string $bn_request_url  Default mailto URL ('' when the site has no valid admin email).
+		 * @param string $bn_invite_token The invitation token that failed, if any ('' when none was supplied).
+		 */
+		$bn_request_url = (string) apply_filters( 'buddynext_invite_request_url', $bn_request_url, $bn_invite_token );
+
+		// An expired / already-used / bogus link is a different situation from arriving
+		// with no link at all — say which one happened so the visitor knows whether to
+		// hunt for their email or ask for a first invite.
+		$bn_invite_title = '' !== $bn_invite_token
+			? __( 'This invitation link is no longer valid', 'buddynext' )
+			: __( 'Registration is invite-only', 'buddynext' );
+		$bn_invite_sub   = '' !== $bn_invite_token
+			? __( 'Invitation links expire and can only be used once. Ask for a fresh invitation and you can join right away.', 'buddynext' )
+			: __( 'This community is invite-only. You need a valid invitation link to create an account.', 'buddynext' );
 		?>
 		<div class="bn-auth-page">
 			<div class="bn-auth-shell" data-panel="<?php echo (bool) get_option( 'buddynext_auth_panel_show', true ) ? 'on' : 'off'; ?>">
@@ -71,9 +121,31 @@ if ( 'invite' === $bn_reg_mode ) {
 			<div class="bn-auth-card" data-variant="register">
 				<div class="bn-auth-body">
 					<section class="bn-auth-panel" data-active>
-						<h1 class="bn-auth-title"><?php esc_html_e( 'Registration is invite-only', 'buddynext' ); ?></h1>
-						<p class="bn-auth-sub"><?php esc_html_e( 'This community is invite-only. You need a valid invitation link to create an account.', 'buddynext' ); ?></p>
-						<a class="bn-btn" data-variant="primary" data-size="lg" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::auth_url() ); ?>">
+						<h1 class="bn-auth-title"><?php echo esc_html( $bn_invite_title ); ?></h1>
+						<p class="bn-auth-sub"><?php echo esc_html( $bn_invite_sub ); ?></p>
+
+						<?php if ( '' !== $bn_request_url ) : ?>
+							<a class="bn-btn" data-variant="primary" data-size="lg" href="<?php echo esc_url( $bn_request_url, array( 'http', 'https', 'mailto' ) ); ?>">
+								<?php buddynext_icon( 'mail' ); ?>
+								<?php esc_html_e( 'Request an invitation', 'buddynext' ); ?>
+							</a>
+						<?php endif; ?>
+
+						<?php if ( '' !== $bn_admin_email ) : ?>
+							<p class="bn-auth-sub">
+								<?php
+								printf(
+									/* translators: %s: linked admin email address of the community. */
+									esc_html__( 'Already know someone here? Ask them to invite you, or contact the community admin at %s.', 'buddynext' ),
+									'<a href="' . esc_url( 'mailto:' . $bn_admin_email, array( 'mailto' ) ) . '">' . esc_html( $bn_admin_email ) . '</a>'
+								);
+								?>
+							</p>
+						<?php else : ?>
+							<p class="bn-auth-sub"><?php esc_html_e( 'Ask a member of this community to send you an invitation.', 'buddynext' ); ?></p>
+						<?php endif; ?>
+
+						<a class="bn-btn" data-variant="ghost" data-size="lg" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::auth_url() ); ?>">
 							<?php esc_html_e( 'Back to sign in', 'buddynext' ); ?>
 						</a>
 					</section>

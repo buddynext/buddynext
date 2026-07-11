@@ -175,37 +175,67 @@ do_action( 'buddynext_part_space_settings_panel_danger_before', $args );
 				data-bn-modal-close
 			><?php buddynext_icon( 'x' ); ?></button>
 		</header>
-		<div class="bn-modal__body">
-			<p><?php esc_html_e( 'Pick the new space owner. You will be demoted to a regular member.', 'buddynext' ); ?></p>
-			<label class="bn-sr-only" for="bn_transfer_target">
-				<?php esc_html_e( 'New owner', 'buddynext' ); ?>
-			</label>
-			<select id="bn_transfer_target" class="bn-select" data-bn-transfer-target>
-				<option value=""><?php esc_html_e( '— Pick an active member —', 'buddynext' ); ?></option>
-				<?php foreach ( $bn_xfer_candidates as $bn_xc ) : ?>
-					<option value="<?php echo esc_attr( (string) $bn_xc->user_id ); ?>">
-						<?php echo esc_html( $bn_xc->display_name ); ?>
-					</option>
-				<?php endforeach; ?>
-			</select>
-			<p class="bn-modal__error" data-bn-transfer-error hidden></p>
-		</div>
-		<div class="bn-modal__foot">
-			<button
-				type="button"
-				class="bn-btn"
-				data-variant="ghost"
-				data-size="md"
-				data-bn-modal-close
-			><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
-			<button
-				type="button"
-				class="bn-btn"
-				data-variant="primary"
-				data-size="md"
-				data-wp-on--click="actions.transferOwnership"
-			><?php esc_html_e( 'Transfer', 'buddynext' ); ?></button>
-		</div>
+		<?php
+		/*
+		 * An owner who is the space's only member has nobody to transfer to. The
+		 * modal used to render the picker anyway — an empty dropdown that looked
+		 * normal, could never be satisfied, and answered "Transfer" with an error
+		 * that read as if the owner had done something wrong. When there are no
+		 * candidates, render the reason and the two real ways forward instead of a
+		 * control that cannot succeed.
+		 */
+		?>
+		<?php if ( empty( $bn_xfer_candidates ) ) : ?>
+			<div class="bn-modal__body">
+				<p>
+					<?php esc_html_e( 'There is nobody to transfer this space to — you are its only active member.', 'buddynext' ); ?>
+				</p>
+				<p>
+					<?php esc_html_e( 'Invite someone and wait for them to join, then transfer ownership to them. If you simply want to shut the space down, delete it instead.', 'buddynext' ); ?>
+				</p>
+			</div>
+			<div class="bn-modal__foot">
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="primary"
+					data-size="md"
+					data-bn-modal-close
+				><?php esc_html_e( 'Close', 'buddynext' ); ?></button>
+			</div>
+		<?php else : ?>
+			<div class="bn-modal__body">
+				<p><?php esc_html_e( 'Pick the new space owner. You will be demoted to a regular member.', 'buddynext' ); ?></p>
+				<label class="bn-sr-only" for="bn_transfer_target">
+					<?php esc_html_e( 'New owner', 'buddynext' ); ?>
+				</label>
+				<select id="bn_transfer_target" class="bn-select" data-bn-transfer-target>
+					<option value=""><?php esc_html_e( '— Pick an active member —', 'buddynext' ); ?></option>
+					<?php foreach ( $bn_xfer_candidates as $bn_xc ) : ?>
+						<option value="<?php echo esc_attr( (string) $bn_xc->user_id ); ?>">
+							<?php echo esc_html( $bn_xc->display_name ); ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+				<p class="bn-modal__error" data-bn-transfer-error hidden></p>
+			</div>
+			<div class="bn-modal__foot">
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="ghost"
+					data-size="md"
+					data-bn-modal-close
+				><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="primary"
+					data-size="md"
+					data-wp-on--click="actions.transferOwnership"
+				><?php esc_html_e( 'Transfer', 'buddynext' ); ?></button>
+			</div>
+		<?php endif; ?>
 	</div>
 </div>
 

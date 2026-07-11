@@ -5,8 +5,9 @@
  * Sidebar widget listing the people the viewing user has muted. Each row
  * shows avatar + display name + handle and a small "Unmute" button that
  * DELETEs /users/{id}/mute via the same data-bn-relation-remove handler
- * used on the Privacy section of profile-edit. A "Manage muted" link at
- * the foot deep-links to the full management list.
+ * used by the relations manager. A "Manage muted" link at the foot
+ * deep-links to that manager — Settings -> Privacy (#bn-settings-relations),
+ * which is where the blocked/restricted/muted lists now live.
  *
  * Renders nothing when the viewer has muted no one — keeps the sidebar
  * clean for the vast majority of users who never use mute.
@@ -67,7 +68,11 @@ $bn_class   = trim(
 	)
 );
 
-$bn_manage_url = PageRouter::edit_profile_url() . '#bn-ep-privacy-title';
+// Deep-link to where the blocked/restricted/muted manager ACTUALLY renders:
+// Settings -> Privacy (templates/settings/privacy.php -> parts/settings-relations.php).
+// It used to live on the profile editor, and this link still pointed there at an
+// anchor that no longer exists, dead-ending the member on the wrong page.
+$bn_manage_url = PageRouter::settings_url( 'privacy' ) . '#bn-settings-relations';
 $bn_rest_nonce = wp_create_nonce( 'wp_rest' );
 
 do_action( 'buddynext_part_notifications_sidecard_muted_before', $args );

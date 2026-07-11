@@ -810,6 +810,12 @@ var storeInstance = store( 'buddynext/spaces', {
 		/**
 		 * Request to join a private or invite-only space.
 		 * The endpoint returns { pending: true } on success.
+		 *
+		 * The failure branch MUST report itself: restFetch opts out of the shared
+		 * error toast here (toastOnError: false), so a rejected request \u2014 a banned
+		 * member, a space that stopped accepting requests \u2014 used to only revert the
+		 * button and say nothing at all. The member saw a flicker and no reason.
+		 * Mirrors joinSpace: surface data.message when the server sent one.
 		 */
 		requestJoin: async function ( event ) {
 			if ( routeMembership( event, 'request' ) ) { return; }
@@ -832,12 +838,18 @@ var storeInstance = store( 'buddynext/spaces', {
 					swapButtonState( btn, 'pending' );
 				} else if ( isGatedDenial( data ) ) {
 					surfacePaywall( btn, spaceId, data );
-				} else if ( btn ) {
-					btn.textContent = origText;
-					btn.disabled    = false;
+				} else {
+					if ( btn ) {
+						btn.textContent = origText;
+						btn.disabled    = false;
+					}
+					if ( window.bnToast ) {
+						window.bnToast( ( data && data.message ) || t( 'couldNotRequestJoin', 'Could not send your request.' ), 'danger' );
+					}
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
+				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
 			}
 		},
 

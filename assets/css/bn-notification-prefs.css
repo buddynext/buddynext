@@ -418,9 +418,73 @@
 	block-size: 16px;
 }
 
+/* ── Digests-disabled state ───────────────────────────────────────────────
+   Shown when the owner sets Settings -> Notifications -> Digest frequency to
+   "Disabled": the Daily/Weekly chips cannot deliver anything, so they are
+   disabled and the member is told why instead of picking a dead option. */
+.bn-prefs-notice {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-s3);
+	margin-block-end: var(--bn-s4);
+	padding: var(--bn-s3) var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-inline-start: 3px solid var(--bn-info);
+	border-radius: var(--bn-radius-md);
+	background: var(--bn-info-bg);
+}
+
+.bn-prefs-notice__icon {
+	display: inline-flex;
+	flex: 0 0 auto;
+	color: var(--bn-info);
+}
+
+.bn-prefs-notice__icon svg {
+	inline-size: 18px;
+	block-size: 18px;
+}
+
+.bn-prefs-notice__body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	min-inline-size: 0;
+}
+
+.bn-prefs-notice__title {
+	margin: 0;
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+}
+
+.bn-prefs-notice__text {
+	margin: 0;
+	font-size: var(--bn-text-xs);
+	line-height: var(--bn-lh-normal);
+	color: var(--bn-ink-2);
+}
+
+.bn-prefs-chip:disabled,
+.bn-prefs-chip[aria-disabled="true"] {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+.bn-prefs-row__warn {
+	margin: var(--bn-s1) 0 0;
+	inline-size: 100%;
+	text-align: end;
+	font-size: var(--bn-text-xs);
+	line-height: var(--bn-lh-normal);
+	color: var(--bn-warn);
+}
+
 @media (max-width: 640px) {
 	.bn-prefs-row { grid-template-columns: 1fr; }
 	.bn-prefs-row__controls { justify-content: flex-start; }
+	.bn-prefs-row__warn { text-align: start; }
 	.bn-prefs-space { flex-wrap: wrap; }
 	.bn-prefs-space__controls { inline-size: 100%; justify-content: flex-start; }
 }
