@@ -139,7 +139,16 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 
 		if ( 'integrations' === $bn_subtab ) {
 			update_space_meta( $space_id, 'push_to_feed', isset( $_POST['push_to_feed'] ) ? '1' : '0' );
-			update_space_meta( $space_id, 'mvs_media_tab', isset( $_POST['mvs_media_tab'] ) ? '1' : '0' );
+
+			// Only write the media toggle when its checkbox was actually rendered.
+			// The control only renders while WPMediaVerse is active, so an
+			// unconditional write silently zeroed the owner's setting whenever they
+			// saved this tab with the plugin deactivated (e.g. mid-update) — and the
+			// Media tab then stayed gone after reactivation, with nothing to explain
+			// why. Same guard the Discussion block below already uses.
+			if ( \BuddyNext\Media\MediaClient::available() ) {
+				update_space_meta( $space_id, 'mvs_media_tab', isset( $_POST['mvs_media_tab'] ) ? '1' : '0' );
+			}
 
 			// Discussion (powered by Jetonomy) is opt-in per Space and never
 			// mandatory. Each Space owns exactly ONE dedicated discussion for its
@@ -184,12 +193,27 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 			// Route through the service: validation, cache invalidation and the
 			// buddynext_space_updated hook all run here (the raw $wpdb->update
 			// path skipped every one of them).
-			$bn_space_service->update( $space_id, get_current_user_id(), $update_data );
+			//
+			// Report what ACTUALLY happened. This screen is reachable by a
+			// moderator (cap `buddynext-spaces/manage-settings`), but update()
+			// requires `buddynext-manage-space` (owner-only) — so a moderator was
+			// rejected by the service and still shown "Saved", with their edit
+			// silently discarded. A form that reports success on failure is worse
+			// than one that errors.
+			$bn_update_result = $bn_space_service->update( $space_id, get_current_user_id(), $update_data );
+
+			if ( is_wp_error( $bn_update_result ) ) {
+				$save_notice           = 'error';
+				$bn_save_error_message = $bn_update_result->get_error_message();
+			} else {
+				$save_notice = 'success';
+			}
+		} else {
+			$save_notice = 'success';
 		}
 
 		// Re-fetch fresh space data through the service (cache busted above).
-		$space       = $bn_load_space( $space_id );
-		$save_notice = 'success';
+		$space = $bn_load_space( $space_id );
 	}
 }
 
@@ -408,6 +432,11 @@ $builtin_tabs = array(
 		'slug'  => 'general',
 		'label' => __( 'General', 'buddynext' ),
 		'icon'  => 'info',
+	),
+	array(
+		'slug'  => 'privacy',
+		'label' => __( 'Privacy', 'buddynext' ),
+		'icon'  => 'eye',
 	),
 	array(
 		'slug'  => 'permissions',
