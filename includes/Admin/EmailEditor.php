@@ -288,13 +288,18 @@ class EmailEditor {
 					'preview' => "Get started with {{site_name}} — here's everything you need.",
 					'body'    => "Hi {{recipient_name}},\n\nWelcome to <strong>{{site_name}}</strong>! We're excited to have you.\n\n<a href=\"{{login_url}}\">Get started →</a>",
 				),
+				// Link-based, not OTP. VerificationService mints a one-time token and
+				// VerificationListener sends {{verify_url}} — there is no OTP
+				// registration flow anywhere in the product, so an {{otp_code}}
+				// token would render as a literal {{brace}} in a real send. This
+				// entry mirrors the seeded row (Installer::seed_email_templates).
 				'email_verify'         => array(
 					'name'    => __( 'Email Verification', 'buddynext' ),
-					'trigger' => __( 'Verify email address (OTP)', 'buddynext' ),
-					'tokens'  => array( '{{user_name}}', '{{verify_url}}', '{{action_url}}', '{{site_name}}', '{{site_url}}', '{{login_url}}' ),
-					'subject' => '{{otp_code}} is your {{site_name}} verification code',
-					'preview' => 'Enter this code to verify your email address.',
-					'body'    => "Hi {{recipient_name}},\n\nYour verification code for {{site_name}} is:\n\n<strong style=\"font-size:28px;letter-spacing:4px;\">{{otp_code}}</strong>\n\nThis code expires in 15 minutes.",
+					'trigger' => __( 'Verify email address (link)', 'buddynext' ),
+					'tokens'  => array( '{{user_name}}', '{{verify_url}}', '{{site_name}}', '{{site_url}}', '{{login_url}}' ),
+					'subject' => 'Verify your email address on {{site_name}}',
+					'preview' => 'Click the link to confirm your address.',
+					'body'    => "Hi {{user_name}},\n\nPlease verify your email address by clicking the link below:\n\n<a href=\"{{verify_url}}\">Verify my email →</a>\n\nThis link expires in 48 hours.",
 				),
 				'email_change_confirm' => array(
 					'name'    => __( 'Email Change Confirmation', 'buddynext' ),
@@ -464,7 +469,21 @@ class EmailEditor {
 	/**
 	 * Send a test email using the current template content.
 	 *
-	 * Replaces all tokens with placeholder values for preview purposes.
+	 * Every token a shipped template can carry is sampled here, so the owner
+	 * sees the template as a member would — never a literal {{brace}}. The map
+	 * is the union of two production sources, and nothing else: sampling a
+	 * token production never resolves would make the test send lie in the other
+	 * direction.
+	 *
+	 *   1. The fixed token set EmailSender::render() always resolves
+	 *      (site/user/actor/action/unsubscribe/…).
+	 *   2. The per-template tokens the sender for that template passes in — the
+	 *      $data keys render() folds in ({{recipient_name}} + {{onboarding_url}}
+	 *      from OnboardingListener, {{decision}} from ModerationQueue,
+	 *      {{verify_url}} from VerificationListener), plus the tokens the two
+	 *      templates with their own senders resolve themselves
+	 *      ({{first_name}} + {{invite_url}} in InviteService::send_invite_email,
+	 *      {{notification_list}} in CronService's digest builder).
 	 *
 	 * @param string $slug      Template slug.
 	 * @param string $recipient Optional recipient; falls back to the admin email.
@@ -489,21 +508,31 @@ class EmailEditor {
 		$subject = $saved ? $saved->subject : $defaults['subject'];
 		$body    = $saved ? $saved->body_html : $defaults['body'];
 
+		$bn_current   = wp_get_current_user();
+		$bn_first     = (string) get_user_meta( $bn_current->ID, 'first_name', true );
 		$placeholders = array(
-			// Mirrors EmailSender::render() exactly - sampling a token here that
-			// production does not resolve makes test sends lie (the old map sampled
-			// fictional tokens while real sends left them as literal {{braces}}).
-			'{{user_name}}'            => wp_get_current_user()->display_name,
-			'{{user_email}}'           => (string) wp_get_current_user()->user_email,
+			// (1) The fixed set EmailSender::render() always resolves.
+			'{{user_name}}'            => $bn_current->display_name,
+			'{{user_email}}'           => (string) $bn_current->user_email,
+			'{{first_name}}'           => '' !== $bn_first ? $bn_first : (string) $bn_current->display_name,
 			'{{actor_name}}'           => __( 'Test Member', 'buddynext' ),
 			'{{action_url}}'           => home_url( '/' ),
 			'{{notification_message}}' => __( 'This is a sample notification message.', 'buddynext' ),
-			'{{verify_url}}'           => home_url( '/' ),
 			'{{login_url}}'            => ( '' !== \BuddyNext\Core\PageRouter::auth_url() ? \BuddyNext\Core\PageRouter::auth_url() : wp_login_url() ),
 			'{{unsubscribe_url}}'      => \BuddyNext\Core\PageRouter::notification_prefs_url(),
 			'{{current_year}}'         => gmdate( 'Y' ),
 			'{{site_name}}'            => get_bloginfo( 'name' ),
 			'{{site_url}}'             => home_url(),
+
+			// (2) Per-template tokens the shipped templates carry and their
+			// senders resolve. Missing entries here emailed the owner literal
+			// {{braces}} on a test send, so the template read as broken.
+			'{{verify_url}}'           => home_url( '/' ),
+			'{{recipient_name}}'       => $bn_current->display_name,
+			'{{onboarding_url}}'       => \BuddyNext\Core\PageRouter::onboarding_url(),
+			'{{invite_url}}'           => \BuddyNext\Core\PageRouter::signup_url(),
+			'{{decision}}'             => __( 'upheld', 'buddynext' ),
+			'{{notification_list}}'    => '<ul><li>' . esc_html__( 'A sample notification from the past day.', 'buddynext' ) . '</li></ul>',
 		);
 
 		$subject = str_replace( array_keys( $placeholders ), array_values( $placeholders ), $subject );

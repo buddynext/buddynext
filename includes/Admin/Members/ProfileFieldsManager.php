@@ -351,6 +351,28 @@ class ProfileFieldsManager {
 	}
 
 	/**
+	 * Whether a profile group is a repeater (multi-entry) group.
+	 *
+	 * Reads the cached group list from the profiles service — no extra query.
+	 *
+	 * @param int $group_id Profile group ID.
+	 * @return bool True when the group exists and its type is 'repeater'.
+	 */
+	private function is_repeater_group( int $group_id ): bool {
+		if ( $group_id <= 0 ) {
+			return false;
+		}
+
+		foreach ( buddynext_service( 'profiles' )->get_groups() as $group ) {
+			if ( (int) ( $group['id'] ?? 0 ) === $group_id ) {
+				return 'repeater' === (string) ( $group['type'] ?? '' );
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Handle admin_post_bn_create_profile_field form submission.
 	 *
 	 * @return void
@@ -362,11 +384,17 @@ class ProfileFieldsManager {
 
 		check_admin_referer( 'bn_create_profile_field' );
 
-		$group_id         = absint( wp_unslash( $_POST['group_id'] ?? 0 ) );
-		$label            = sanitize_text_field( wp_unslash( $_POST['label'] ?? '' ) );
-		$type             = sanitize_key( wp_unslash( $_POST['type'] ?? 'text' ) );
-		$is_required      = absint( wp_unslash( $_POST['is_required'] ?? 0 ) );
-		$show_on_register = isset( $_POST['show_on_register'] ) ? 1 : 0;
+		$group_id    = absint( wp_unslash( $_POST['group_id'] ?? 0 ) );
+		$label       = sanitize_text_field( wp_unslash( $_POST['label'] ?? '' ) );
+		$type        = sanitize_key( wp_unslash( $_POST['type'] ?? 'text' ) );
+		$is_required = absint( wp_unslash( $_POST['is_required'] ?? 0 ) );
+
+		// show_on_register is inert inside a repeater group — a signup form is
+		// single-entry, so ProfileService::get_registration_fields() skips every
+		// repeater group. The add panel hides the checkbox there; this is the
+		// write-side guard, so the flag can never be persisted as a 1 that does
+		// nothing (which is what made the toggle look broken).
+		$show_on_register = ( isset( $_POST['show_on_register'] ) && ! $this->is_repeater_group( $group_id ) ) ? 1 : 0;
 		$visibility       = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
 		$description      = sanitize_text_field( wp_unslash( $_POST['description'] ?? '' ) );
 		$placeholder      = sanitize_text_field( wp_unslash( $_POST['placeholder'] ?? '' ) );
@@ -1831,10 +1859,13 @@ class ProfileFieldsManager {
 							<input type="checkbox" id="bn-af-search-c-<?php echo absint( $gid ); ?>" name="is_searchable" value="1">
 							<label for="bn-af-search-c-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Searchable in the member directory', 'buddynext' ); ?></label>
 						</div>
-						<div class="bn-pf-af-req-row">
-							<input type="checkbox" id="bn-af-reg-<?php echo absint( $gid ); ?>" name="show_on_register" value="1">
-							<label for="bn-af-reg-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Show on the registration form', 'buddynext' ); ?></label>
-						</div>
+						<?php // Registration form opt-in. Single-entry groups only — a signup form cannot collect repeating entries, and ProfileService::get_registration_fields() skips repeater groups, so offering the toggle here made it settable-but-inert. Mirrors the edit panel. ?>
+						<?php if ( 'repeater' !== $group['type'] ) : ?>
+							<div class="bn-pf-af-req-row">
+								<input type="checkbox" id="bn-af-reg-<?php echo absint( $gid ); ?>" name="show_on_register" value="1">
+								<label for="bn-af-reg-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Show on the registration form', 'buddynext' ); ?></label>
+							</div>
+						<?php endif; ?>
 						<div class="bn-pf-af-actions">
 							<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Field', 'buddynext' ); ?></button>
 							<button type="button" class="bn-btn" data-variant="secondary" data-bn-pf-toggle="<?php echo esc_attr( $panel_id ); ?>"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>

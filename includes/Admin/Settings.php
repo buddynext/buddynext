@@ -1679,7 +1679,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'   => 'buddynext_logout_redirect',
 							'type'  => 'url',
 							'label' => __( 'After logout', 'buddynext' ),
-							'hint'  => __( 'Where members go after logging out. Blank = site home.', 'buddynext' ),
+							'hint'  => __( 'Where members go after logging out. Blank = the login page.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -2481,7 +2481,9 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			\BuddyNext\Core\RedirectSettings::OPT_LOGOUT,
 			__( 'After logout', 'buddynext' ),
 			(string) get_option( \BuddyNext\Core\RedirectSettings::OPT_LOGOUT, '' ),
-			__( 'Where members go after logging out. Leave blank for the site home page (default).', 'buddynext' )
+			// RedirectSettings::filter_logout_redirect() defaults a blank value to
+			// PageRouter::auth_url() — the branded login screen, not the home page.
+			__( 'Where members go after logging out. Leave blank for the login page (default), ready to sign back in.', 'buddynext' )
 		);
 
 		$this->render_text_row(
