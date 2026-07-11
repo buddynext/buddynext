@@ -79,9 +79,19 @@ class FeatureRegistry {
 				'group'      => 'core',
 				'depends_on' => array(),
 			),
+			// Mandatory, not merely default-on: Spaces is load-bearing structure, not
+			// an add-on. Posts carry a space_id, the feed/moderation/notification
+			// paths all resolve spaces, and the hub owns its own routes — so there is
+			// no coherent "Spaces off" product to ship. It was previously DEFAULT_ON,
+			// which rendered an unlocked switch that saved to `buddynext_features` and
+			// was then never read by anything (`buddynext_feature_enabled('spaces')`
+			// has no call sites). A site owner could switch Spaces "off", see it save,
+			// and nothing changed. A control that silently does nothing is worse than
+			// no control, so it is locked to match reality — as `feed` and `profile`,
+			// the other structural features, already are.
 			'spaces'        => array(
 				'slug'       => 'spaces',
-				'tier'       => self::TIER_DEFAULT_ON,
+				'tier'       => self::TIER_MANDATORY,
 				'group'      => 'community',
 				'depends_on' => array(),
 			),
