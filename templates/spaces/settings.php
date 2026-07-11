@@ -46,6 +46,22 @@ if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/manage-settings',
 	return;
 }
 
+// This screen admits a MODERATOR. It does not follow that a moderator may change
+// everything on it — moderation settings are their job (who can post, who can
+// invite, join approval, banned words, the notification default); identity, reach
+// and structure are the owner's (name, description, type, rules, category, the
+// integrations, and who is auto-joined at signup).
+//
+// Every write below goes through SpaceFieldRegistry, which decides per FIELD via
+// can_write() — the same authority the REST route uses. Until this existed the two
+// disagreed: SpaceService::update() enforced owner-only while the update_space_meta()
+// calls on this very screen enforced nothing, so a moderator could not rename a space
+// but COULD rewrite who was allowed to post in it. That was not a policy, it was an
+// accident of which code path each field happened to take.
+$bn_field_registry = \BuddyNext\Spaces\SpaceFieldRegistry::instance();
+$bn_actor_id       = get_current_user_id();
+$bn_is_space_owner = buddynext_can( $bn_actor_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) );
+
 // Services own every read/write below; the template holds no SQL. The
 // settings parts expect `$space` as an object carrying the joined
 // `category_name`/`category_slug`, so each fresh load runs through this
@@ -137,8 +153,19 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		// each option to the sub-tab that actually owns and renders it.
 		$bn_subtab = isset( $_POST['bn_settings_subtab'] ) ? sanitize_key( wp_unslash( $_POST['bn_settings_subtab'] ) ) : 'general';
 
-		if ( 'integrations' === $bn_subtab ) {
-			update_space_meta( $space_id, 'push_to_feed', isset( $_POST['push_to_feed'] ) ? '1' : '0' );
+		// The Integrations panel is OWNER-only, and deliberately so. It decides
+		// whether the space has a discussion at all, whether its media tab exists,
+		// and — via push_to_feed — whether the space's content reaches the public
+		// feed. That last one is a privacy control: it is exactly what a private or
+		// secret space relies on to keep its content in. None of that is moderation;
+		// it is the shape and the reach of the space. A moderator gets no write here.
+		//
+		// The panel renders read-only for a moderator (see the integrations panel), so
+		// this is the crafted-POST backstop, not the primary UX.
+		if ( 'integrations' === $bn_subtab && $bn_is_space_owner ) {
+			$bn_integration_values = array(
+				'push_to_feed' => isset( $_POST['push_to_feed'] ) ? '1' : '0',
+			);
 
 			// Only write the media toggle when its checkbox was actually rendered.
 			// The control only renders while WPMediaVerse is active, so an
@@ -147,8 +174,10 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 			// Media tab then stayed gone after reactivation, with nothing to explain
 			// why. Same guard the Discussion block below already uses.
 			if ( \BuddyNext\Media\MediaClient::available() ) {
-				update_space_meta( $space_id, 'mvs_media_tab', isset( $_POST['mvs_media_tab'] ) ? '1' : '0' );
+				$bn_integration_values['mvs_media_tab'] = isset( $_POST['mvs_media_tab'] ) ? '1' : '0';
 			}
+
+			$bn_field_registry->save_for_space( $space_id, $bn_integration_values, $bn_actor_id );
 
 			// Discussion (powered by Jetonomy) is opt-in per Space and never
 			// mandatory. Each Space owns exactly ONE dedicated discussion for its
@@ -223,35 +252,43 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_permissions_nonce'] )
 	if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_space_permissions_nonce'] ) ), 'bn_space_permissions_' . $space_id ) ) {
 		$save_notice = 'error';
 	} else {
-		update_space_meta( $space_id, 'require_join_approval', isset( $_POST['require_join_approval'] ) ? '1' : '0' );
-		$bn_who_post = isset( $_POST['who_can_post'] ) ? sanitize_key( wp_unslash( $_POST['who_can_post'] ) ) : 'members';
-		if ( ! in_array( $bn_who_post, array( 'members', 'mods', 'owner' ), true ) ) {
-			$bn_who_post = 'members';
-		}
-		update_space_meta( $space_id, 'who_can_post', $bn_who_post );
+		// Moderation thresholds — a moderator's job, so they are in this set for
+		// everyone who can reach this screen. The registry sanitises each value
+		// against its registered type, so the hand-rolled allow-lists that used to
+		// live here (and silently coerced a bad value to a default) are gone.
+		$bn_perm_values = array(
+			'require_join_approval' => isset( $_POST['require_join_approval'] ) ? '1' : '0',
+			'who_can_post'          => isset( $_POST['who_can_post'] ) ? sanitize_key( wp_unslash( $_POST['who_can_post'] ) ) : 'members',
+			'who_can_invite'        => isset( $_POST['who_can_invite'] ) ? sanitize_key( wp_unslash( $_POST['who_can_invite'] ) ) : 'mods',
+		);
 
-		$bn_who_invite = isset( $_POST['who_can_invite'] ) ? sanitize_key( wp_unslash( $_POST['who_can_invite'] ) ) : 'mods';
-		if ( ! in_array( $bn_who_invite, array( 'members', 'mods', 'owner' ), true ) ) {
-			$bn_who_invite = 'mods';
-		}
-		update_space_meta( $space_id, 'who_can_invite', $bn_who_invite );
+		// Auto-join is OWNER-only: it decides who is pulled into this space
+		// automatically at signup, which is reach across the whole site's membership,
+		// not moderation of the people already here. A moderator must not be able to
+		// auto-enrol every new member of the site into the space they moderate.
+		//
+		// Added to the payload ONLY for an owner — so a moderator's save simply omits
+		// these keys and leaves them untouched. The old code wrote them
+		// unconditionally, so a moderator saving this panel silently ZEROED the
+		// owner's auto-join settings; can_write() rejects a forged POST regardless.
+		if ( $bn_is_space_owner ) {
+			$bn_perm_values['auto_join_on_signup'] = isset( $_POST['auto_join_on_signup'] ) ? '1' : '0';
 
-		// Auto-join: master toggle + member-type filter (validated against the live
-		// member-type slugs; the filter is only meaningful when the toggle is on).
-		update_space_meta( $space_id, 'auto_join_on_signup', isset( $_POST['auto_join_on_signup'] ) ? '1' : '0' );
-		$bn_valid_type_slugs = array();
-		foreach ( buddynext_service( 'member_types' )->get_all() as $bn_mt ) {
-			if ( isset( $bn_mt['slug'] ) ) {
-				$bn_valid_type_slugs[] = (string) $bn_mt['slug'];
-			}
+			// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized by the field engine (member_type_multiselect), which also drops any slug that is not a live member type.
+			$bn_perm_values['auto_join_member_types'] = isset( $_POST['auto_join_member_types'] )
+				? (array) wp_unslash( $_POST['auto_join_member_types'] )
+				: array();
+			// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		}
-		// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- each element sanitized via sanitize_key below, then intersected with the valid slug set.
-		$bn_aj_raw = isset( $_POST['auto_join_member_types'] ) ? (array) wp_unslash( $_POST['auto_join_member_types'] ) : array();
-		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-		$bn_aj_types = array_values( array_intersect( array_map( 'sanitize_key', $bn_aj_raw ), $bn_valid_type_slugs ) );
-		update_space_meta( $space_id, 'auto_join_member_types', implode( ',', $bn_aj_types ) );
 
-		$save_notice = 'success';
+		$bn_perm_result = $bn_field_registry->save_for_space( $space_id, $bn_perm_values, $bn_actor_id );
+
+		if ( empty( $bn_perm_result['errors'] ) ) {
+			$save_notice = 'success';
+		} else {
+			$save_notice           = 'error';
+			$bn_save_error_message = (string) reset( $bn_perm_result['errors'] );
+		}
 	}
 }
 
@@ -295,9 +332,19 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_moderation_nonce'] ) 
 		$save_notice = 'error';
 	} else {
 		// No post pre-approval: members post freely, moderation is reactive.
-		$raw_banned_words = isset( $_POST['banned_words'] ) ? sanitize_textarea_field( wp_unslash( $_POST['banned_words'] ) ) : '';
-		update_space_meta( $space_id, 'banned_words', $raw_banned_words );
-		$save_notice = 'success';
+		// Banned words are moderator-writable — this is the moderator's core job.
+		$bn_mod_result = $bn_field_registry->save_for_space(
+			$space_id,
+			array( 'banned_words' => isset( $_POST['banned_words'] ) ? sanitize_textarea_field( wp_unslash( $_POST['banned_words'] ) ) : '' ),
+			$bn_actor_id
+		);
+
+		if ( empty( $bn_mod_result['errors'] ) ) {
+			$save_notice = 'success';
+		} else {
+			$save_notice           = 'error';
+			$bn_save_error_message = (string) reset( $bn_mod_result['errors'] );
+		}
 	}
 }
 
@@ -307,15 +354,26 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_notifications_nonce']
 	if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_space_notifications_nonce'] ) ), 'bn_space_notifications_' . $space_id ) ) {
 		$save_notice = 'error';
 	} else {
-		$allowed_prefs = array( 'all', 'mentions_only', 'none' );
-		$pref_value    = isset( $_POST['default_notification_pref'] )
-			? sanitize_key( wp_unslash( $_POST['default_notification_pref'] ) )
-			: 'all';
-		if ( ! in_array( $pref_value, $allowed_prefs, true ) ) {
-			$pref_value = 'all';
+		// The default notification pref is moderator-writable: it shapes how noisy the
+		// space is for its members, which is the moderator's remit, and it takes
+		// nothing away from anyone (each member can still override it for themselves).
+		// The registry validates it against the field's registered options.
+		$bn_notif_result = $bn_field_registry->save_for_space(
+			$space_id,
+			array(
+				'default_notification_pref' => isset( $_POST['default_notification_pref'] )
+					? sanitize_key( wp_unslash( $_POST['default_notification_pref'] ) )
+					: 'all',
+			),
+			$bn_actor_id
+		);
+
+		if ( empty( $bn_notif_result['errors'] ) ) {
+			$save_notice = 'success';
+		} else {
+			$save_notice           = 'error';
+			$bn_save_error_message = (string) reset( $bn_notif_result['errors'] );
 		}
-		update_space_meta( $space_id, 'default_notification_pref', $pref_value );
-		$save_notice = 'success';
 	}
 }
 
@@ -653,6 +711,10 @@ foreach ( $builtin_tabs as $bn_t ) {
 						'discussion_status' => $bn_discussion_status,
 					),
 					'mvs_media_tab'         => $mvs_media_tab,
+					// Owner-only panel. Passed so it can render read-only for a
+					// moderator rather than show controls that would not save — a
+					// control that silently does nothing is worse than no control.
+					'is_space_owner'        => $bn_is_space_owner,
 				),
 			),
 			'permissions'   => array(
@@ -668,6 +730,10 @@ foreach ( $builtin_tabs as $bn_t ) {
 						'auto_join_on_signup'    => $auto_join_on_signup,
 						'auto_join_member_types' => $auto_join_member_types,
 					),
+					// The moderation thresholds on this panel are moderator-writable;
+					// the auto-join controls are owner-only and are hidden for a
+					// moderator instead of being shown and then rejected.
+					'is_space_owner'       => $bn_is_space_owner,
 				),
 			),
 			'moderation'    => array(

@@ -17,6 +17,15 @@
  *     The link picker is a REST typeahead (discussion-search), not a prefetched
  *     list — role-scoped server-side (site admin: all; space owner: their own).
  * @var bool   $mvs_media_tab         Required. Current value of the media-tab toggle.
+ * @var bool   $is_space_owner        Required. Whether the viewer owns the space. This
+ *                                    panel is owner-only (it decides whether the space
+ *                                    has a discussion, a media tab, and whether its
+ *                                    activity reaches the main feed — the last is a
+ *                                    privacy control). A moderator can reach the settings
+ *                                    screen, so the controls render DISABLED with an
+ *                                    explanation rather than appearing live and then
+ *                                    being rejected on save. Defaults to false: a caller
+ *                                    that forgets to pass it gets the safe, read-only view.
  * @var array  $classes               Optional. Extra CSS classes appended to `.bn-card`.
  *
  * Fires:
@@ -36,6 +45,7 @@ $args = array(
 	'space'                 => isset( $space ) ? $space : null,
 	'integrations_settings' => isset( $integrations_settings ) && is_array( $integrations_settings ) ? $integrations_settings : array(),
 	'mvs_media_tab'         => isset( $mvs_media_tab ) ? (bool) $mvs_media_tab : false,
+	'is_space_owner'        => isset( $is_space_owner ) ? (bool) $is_space_owner : false,
 	'classes'               => isset( $classes ) ? (array) $classes : array(),
 );
 
@@ -56,9 +66,15 @@ $bn_mvs_media_tab     = (bool) $args['mvs_media_tab'];
 // (create new / link existing); once it exists the panel shows WHICH discussion
 // is linked and the toggle only enables/disables it. BuddyNext always calls this
 // "Discussion" regardless of Jetonomy's own configurable label.
-$bn_disc_status = isset( $args['integrations_settings']['discussion_status'] ) && is_array( $args['integrations_settings']['discussion_status'] )
+$bn_disc_status   = isset( $args['integrations_settings']['discussion_status'] ) && is_array( $args['integrations_settings']['discussion_status'] )
 	? $args['integrations_settings']['discussion_status']
-	: array( 'has_discussion' => false, 'enabled' => false, 'forum_id' => 0, 'name' => '', 'url' => '' );
+	: array(
+		'has_discussion' => false,
+		'enabled'        => false,
+		'forum_id'       => 0,
+		'name'           => '',
+		'url'            => '',
+	);
 $bn_disc_has      = ! empty( $bn_disc_status['has_discussion'] );
 $bn_disc_enabled  = ! empty( $bn_disc_status['enabled'] );
 $bn_disc_url      = isset( $bn_disc_status['url'] ) ? (string) $bn_disc_status['url'] : '';
@@ -89,6 +105,18 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 		<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Integrations', 'buddynext' ); ?></h2>
 		<p class="bn-space-settings__panel-desc"><?php esc_html_e( 'Turn on optional features for this Space.', 'buddynext' ); ?></p>
 	</header>
+
+	<?php
+	// Owner-only panel: it decides whether the Space has a discussion at all, whether
+	// it has a media tab, and whether its content reaches the public feed. A moderator
+	// is told plainly that this is not theirs, instead of being shown live controls
+	// whose save would be rejected.
+	if ( ! $args['is_space_owner'] ) :
+		?>
+		<p class="bn-space-settings__hint bn-space-settings__hint--locked">
+			<?php esc_html_e( 'Only the space owner can change these. They decide whether this space has a discussion, a media tab, and whether its activity reaches the main feed.', 'buddynext' ); ?>
+		</p>
+	<?php endif; ?>
 
 	<div class="bn-toggle-row">
 		<div class="bn-toggle-row__copy">
@@ -157,7 +185,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 		</div>
 		<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) ) : ?>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable discussion', 'buddynext' ); ?>">
-				<input type="checkbox" class="bn-space-settings__toggle-input" name="bn_discussion_enabled" value="1" <?php checked( $bn_disc_enabled ); ?>>
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="bn_discussion_enabled" value="1" <?php checked( $bn_disc_enabled ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
 				<span class="bn-toggle" aria-hidden="true"></span>
 			</label>
 		<?php endif; ?>
@@ -169,7 +197,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 			<div class="bn-toggle-row__desc"><?php esc_html_e( 'When on, new posts and discussion topics from this Space also appear in the main activity feed. When off, they stay inside this Space.', 'buddynext' ); ?></div>
 		</div>
 		<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Share activity to the main feed', 'buddynext' ); ?>">
-			<input type="checkbox" class="bn-space-settings__toggle-input" name="push_to_feed" value="1" <?php checked( $bn_push_to_feed ); ?>>
+			<input type="checkbox" class="bn-space-settings__toggle-input" name="push_to_feed" value="1" <?php checked( $bn_push_to_feed ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
 			<span class="bn-toggle" aria-hidden="true"></span>
 		</label>
 	</div>
@@ -186,7 +214,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 		</div>
 		<?php if ( class_exists( 'WPMediaVerse\\Core\\Plugin' ) ) : ?>
 			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Media tab', 'buddynext' ); ?>">
-				<input type="checkbox" class="bn-space-settings__toggle-input" name="mvs_media_tab" value="1" <?php checked( $bn_mvs_media_tab ); ?>>
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="mvs_media_tab" value="1" <?php checked( $bn_mvs_media_tab ); ?> <?php disabled( ! $args['is_space_owner'] ); ?>>
 				<span class="bn-toggle" aria-hidden="true"></span>
 			</label>
 		<?php endif; ?>

@@ -1007,9 +1007,20 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
+		$user_id = get_current_user_id();
+
+		// The route admits anyone who manages the space at moderator level or above;
+		// WHICH fields they may actually write is then decided per field, inside
+		// save_for_space(), by SpaceFieldRegistry::can_write(). A moderator gets the
+		// moderation settings and a 422 on anything else.
+		//
+		// This used to demand `buddynext-manage-space` (owner-only) for every field,
+		// which was half of the split-brain: a moderator could rewrite who_can_post
+		// from the settings screen and got a 403 for the same field over REST. One
+		// authority now answers both, so the web UI and the app cannot disagree.
 		if ( ! buddynext_service( 'permissions' )->can(
-			get_current_user_id(),
-			'buddynext-manage-space',
+			$user_id,
+			'buddynext-moderate-space',
 			array( 'space_id' => $space_id )
 		) ) {
 			return new WP_Error(
@@ -1020,12 +1031,15 @@ class SpaceController extends BaseRestController {
 		}
 
 		$values = (array) $request->get_param( 'fields' );
-		$result = SpaceFieldRegistry::instance()->save_for_space( $space_id, $values );
+		$result = SpaceFieldRegistry::instance()->save_for_space( $space_id, $values, $user_id );
 
 		// Promotion of eligible fields to space tabs is presentation, not a field
 		// value — persisted only when the values validated, and only when the
 		// caller sent the `tabs` key (so a values-only save leaves tabs untouched).
-		if ( empty( $result['errors'] ) && null !== $request->get_param( 'tabs' ) ) {
+		// Owner-only: which fields become tabs is a structural decision about the
+		// space, not a moderation one.
+		if ( empty( $result['errors'] ) && null !== $request->get_param( 'tabs' )
+			&& buddynext_service( 'permissions' )->can( $user_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
 			$tabs = array_map( 'strval', (array) $request->get_param( 'tabs' ) );
 			SpaceFieldRegistry::instance()->set_promoted_tabs( $space_id, $tabs );
 		}

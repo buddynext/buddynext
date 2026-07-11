@@ -44,47 +44,50 @@ final class CoreSpaceFields {
 		$registry->register(
 			'require_join_approval',
 			array(
-				'label'      => __( 'Require approval to join', 'buddynext' ),
-				'type'       => 'boolean',
-				'default'    => '0',
-				'section'    => 'permissions',
-				'sort_order' => 10,
-				'visibility' => 'members',
-				'core'       => true,
+				'label'       => __( 'Require approval to join', 'buddynext' ),
+				'type'        => 'boolean',
+				'default'     => '0',
+				'section'     => 'permissions',
+				'sort_order'  => 10,
+				'visibility'  => 'members',
+				'writable_by' => 'moderator',
+				'core'        => true,
 			)
 		);
 		$registry->register(
 			'who_can_post',
 			array(
-				'label'      => __( 'Who can post', 'buddynext' ),
-				'type'       => 'select',
-				'default'    => 'members',
-				'options'    => array(
+				'label'       => __( 'Who can post', 'buddynext' ),
+				'type'        => 'select',
+				'default'     => 'members',
+				'options'     => array(
 					'members' => __( 'All members', 'buddynext' ),
 					'mods'    => __( 'Moderators and owner', 'buddynext' ),
 					'owner'   => __( 'Owner only', 'buddynext' ),
 				),
-				'section'    => 'permissions',
-				'sort_order' => 20,
-				'visibility' => 'members',
-				'core'       => true,
+				'section'     => 'permissions',
+				'sort_order'  => 20,
+				'visibility'  => 'members',
+				'writable_by' => 'moderator',
+				'core'        => true,
 			)
 		);
 		$registry->register(
 			'who_can_invite',
 			array(
-				'label'      => __( 'Who can invite new members', 'buddynext' ),
-				'type'       => 'select',
-				'default'    => 'mods',
-				'options'    => array(
+				'label'       => __( 'Who can invite new members', 'buddynext' ),
+				'type'        => 'select',
+				'default'     => 'mods',
+				'options'     => array(
 					'members' => __( 'All members', 'buddynext' ),
 					'mods'    => __( 'Moderators and owner', 'buddynext' ),
 					'owner'   => __( 'Owner only', 'buddynext' ),
 				),
-				'section'    => 'permissions',
-				'sort_order' => 30,
-				'visibility' => 'members',
-				'core'       => true,
+				'section'     => 'permissions',
+				'sort_order'  => 30,
+				'visibility'  => 'members',
+				'writable_by' => 'moderator',
+				'core'        => true,
 			)
 		);
 		$registry->register(
@@ -140,6 +143,7 @@ final class CoreSpaceFields {
 				'section'     => 'moderation',
 				'sort_order'  => 10,
 				'visibility'  => 'members',
+				'writable_by' => 'moderator',
 				'core'        => true,
 			)
 		);
@@ -148,18 +152,19 @@ final class CoreSpaceFields {
 		$registry->register(
 			'default_notification_pref',
 			array(
-				'label'      => __( 'Default notifications for new members', 'buddynext' ),
-				'type'       => 'select',
-				'default'    => 'all',
-				'options'    => array(
+				'label'       => __( 'Default notifications for new members', 'buddynext' ),
+				'type'        => 'select',
+				'default'     => 'all',
+				'options'     => array(
 					'all'           => __( 'All activity', 'buddynext' ),
 					'mentions_only' => __( 'Mentions only', 'buddynext' ),
 					'none'          => __( 'None', 'buddynext' ),
 				),
-				'section'    => 'notifications',
-				'sort_order' => 10,
-				'visibility' => 'members',
-				'core'       => true,
+				'section'     => 'notifications',
+				'sort_order'  => 10,
+				'visibility'  => 'members',
+				'writable_by' => 'moderator',
+				'core'        => true,
 			)
 		);
 

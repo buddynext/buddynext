@@ -1865,6 +1865,36 @@ a.bn-sh-statpill:focus-visible {
 	transform: translateX(18px);
 }
 
+/* Disabled toggle — a moderator sees the owner-only Integrations controls but may
+   not change them. Without this the disabled track renders identically to a live
+   one: same accent fill, same cursor, no hint that it will not respond. A control
+   that LOOKS interactive and silently is not is the same dead-control problem we
+   are removing, just wearing a different coat. Say it visually. */
+.bn-space-settings__toggle-input:disabled,
+.bn-space-settings__toggle-input:disabled + .bn-toggle {
+	cursor: not-allowed;
+}
+
+.bn-space-settings__toggle-input:disabled + .bn-toggle {
+	opacity: 0.45;
+}
+
+.bn-space-settings__toggle-shell:has( .bn-space-settings__toggle-input:disabled ) {
+	cursor: not-allowed;
+}
+
+/* The read-only explanation shown to a non-owner above a locked panel. */
+.bn-space-settings__hint--locked {
+	display: flex;
+	gap: var(--bn-space-2, 0.5rem);
+	margin-block-end: var(--bn-space-4, 1rem);
+	padding: var(--bn-space-3, 0.75rem);
+	border: 1px solid var(--bn-border);
+	border-radius: var(--bn-radius-md, 8px);
+	background: var(--bn-surface-2, transparent);
+	color: var(--bn-text-muted);
+}
+
 .bn-space-settings__save-row {
 	display: flex;
 	justify-content: flex-end;
