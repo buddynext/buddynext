@@ -1106,17 +1106,58 @@ class NavManager extends AdminPageBase {
 				<?php endforeach; ?>
 			</ul>
 
-			<div class="bn-nav-add-row">
-				<button type="button" class="bn-add-tab-btn"
-					data-scope="<?php echo esc_attr( $scope ); ?>"
-					data-action="bn-open-add-tab"
-					aria-label="<?php esc_attr_e( 'Add a custom tab to this scope', 'buddynext' ); ?>">
-					<span aria-hidden="true">+</span>
-					<?php esc_html_e( 'Add Custom Tab', 'buddynext' ); ?>
-				</button>
-			</div>
+			<?php
+			/*
+			 * "Add Custom Tab" is offered for the MAIN rail only.
+			 *
+			 * On the rail, a custom tab IS just a link — that is the whole shape of a
+			 * rail item, so the control delivers exactly what it appears to.
+			 *
+			 * On the SPACE and PROFILE surfaces it was a half-feature pretending to be
+			 * a real one: it could store a label + URL and nothing else, so it could
+			 * never render content. A site owner reasonably read "Add Custom Tab" as
+			 * "add a tab to my spaces" and got a bare link — which is what prompted the
+			 * customer request for "custom tabs with rich content per space".
+			 *
+			 * Those surfaces have a far more capable seam already, and it belongs to
+			 * developers: `buddynext_register_nav` / NavRegistry::register() takes a
+			 * `render` callable (real panel content), plus `condition`, `count`,
+			 * `parent`, before/after anchors and a capability gate. A code snippet does
+			 * everything this control could not, so offering the weaker control here
+			 * only misleads.
+			 *
+			 * Existing custom tabs already stored on a live site keep rendering —
+			 * NavOverrides still applies them (and now resolves their {space_url} /
+			 * {slug} tokens) — so removing the button breaks nothing on upgrade.
+			 */
+			if ( 'main' === $scope ) :
+				?>
+				<div class="bn-nav-add-row">
+					<button type="button" class="bn-add-tab-btn"
+						data-scope="<?php echo esc_attr( $scope ); ?>"
+						data-action="bn-open-add-tab"
+						aria-label="<?php esc_attr_e( 'Add a custom link to the main navigation', 'buddynext' ); ?>">
+						<span aria-hidden="true">+</span>
+						<?php esc_html_e( 'Add Custom Link', 'buddynext' ); ?>
+					</button>
+				</div>
 
-			<?php $this->render_add_tab_form( $scope ); ?>
+				<?php
+				$this->render_add_tab_form( $scope );
+			else :
+				?>
+				<p class="description bn-nav-add-row">
+					<?php
+					printf(
+						/* translators: %s: the buddynext_register_nav hook name, in code formatting. */
+						esc_html__( 'Tabs on this surface are added in code, with %s — which can render real content, show a count badge and gate itself by capability. See the developer guide.', 'buddynext' ),
+						'<code>buddynext_register_nav</code>'
+					);
+					?>
+				</p>
+				<?php
+			endif;
+			?>
 		</div>
 		<?php
 	}
