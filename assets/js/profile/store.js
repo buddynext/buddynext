@@ -658,6 +658,7 @@ var _pendingCover  = null; // { file, x, y, zoom }
    reuses the captured REST nonce (ctx.restNonce); failures surface a toast but
    don't fail the overall save (the field data is already persisted). */
 async function flushStagedMedia( ctx ) {
+	var allOk = true;
 	if ( _pendingAvatar ) {
 		var avFd = new FormData();
 		avFd.append( 'avatar', _pendingAvatar.blob, 'avatar.jpg' );
@@ -674,9 +675,11 @@ async function flushStagedMedia( ctx ) {
 				setAvatarPreview( avData.avatar_url );
 				toggleAvatarRemove( true );
 			} else {
+				allOk = false;
 				bnToast( ( avData && avData.message ) || t( 'avatarSaveFailed', 'Avatar could not be saved' ), { tone: 'danger' } );
 			}
 		} catch ( _e ) {
+			allOk = false;
 			bnToast( t( 'avatarSaveFailed', 'Avatar could not be saved' ), { tone: 'danger' } );
 		}
 		_pendingAvatar = null;
@@ -700,13 +703,16 @@ async function flushStagedMedia( ctx ) {
 				ctx.coverUrl = cvData.cover_url;
 				toggleCoverRemove( true );
 			} else {
+				allOk = false;
 				bnToast( ( cvData && cvData.message ) || t( 'coverSaveFailed', 'Cover could not be saved' ), { tone: 'danger' } );
 			}
 		} catch ( _e ) {
+			allOk = false;
 			bnToast( t( 'coverSaveFailed', 'Cover could not be saved' ), { tone: 'danger' } );
 		}
 		_pendingCover = null;
 	}
+	return allOk;
 }
 
 /* Master save flow - submits all fields, handles 200 / 422 / 5xx. */
@@ -736,7 +742,7 @@ async function doSave( ctx ) {
 		if ( res.ok ) {
 			// Persist staged avatar/cover now that the field save succeeded, so
 			// they survive reload — and a pre-save Cancel/Leave reverts them.
-			await flushStagedMedia( ctx );
+			var mediaOk = await flushStagedMedia( ctx );
 			ctx.saved   = true;
 			ctx.isDirty = false;
 			// Mirror the cleared dirty state onto the DOM attribute at the source —
@@ -744,7 +750,13 @@ async function doSave( ctx ) {
 			// saveProfile's .then() left a window where a re-render could surface
 			// the unsaved-changes prompt after a fully successful save.
 			syncDirtyAttr( false );
-			bnToast( ( window.bnI18n && window.bnI18n.profileSaved ) || t( 'profileSaved', 'Profile saved' ), { tone: 'success' } );
+			// Only announce a clean "Profile saved" when the staged media also
+			// uploaded. When a cover/avatar upload failed, flushStagedMedia already
+			// showed the specific danger toast — adding a success toast on top read
+			// as two conflicting messages for the same action.
+			if ( mediaOk ) {
+				bnToast( ( window.bnI18n && window.bnI18n.profileSaved ) || t( 'profileSaved', 'Profile saved' ), { tone: 'success' } );
+			}
 			setTimeout( function () { ctx.saved = false; }, 3000 );
 		} else if ( res.status === 422 && json && json.errors ) {
 			ctx.errors = json.errors;
