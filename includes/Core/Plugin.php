@@ -301,6 +301,11 @@ class Plugin {
 		// outside the BuddyNext REST login flow.
 		( new \BuddyNext\Auth\TwoFactorLoginGuard() )->register();
 
+		// Bring wp-login.php?action=register under the shared registration gate.
+		// It is redirected to the BuddyNext sign-up route by default, and when the
+		// owner re-enables it, the same policy and spam protection still apply.
+		( new \BuddyNext\Auth\CoreRegistration() )->register();
+
 		// Approval-mode gate: block sign-in for accounts awaiting administrator
 		// approval (set during registration when buddynext_reg_mode = 'approval').
 		add_filter(
@@ -745,6 +750,14 @@ class Plugin {
 		$container->bind( 'bookmarks', fn() => new BookmarkService() );
 		$container->bind( 'shares', fn() => new ShareService() );
 		$container->bind( 'profiles', fn() => new ProfileService() );
+
+		// The shared registration gate. Every signup door — the BuddyNext form,
+		// its REST endpoint, social login, and the WordPress core form — consumes
+		// these three, so an owner's policy binds on all of them equally.
+		$container->bind( 'registration_policy', fn() => new \BuddyNext\Auth\RegistrationPolicy() );
+		$container->bind( 'registration', fn() => new \BuddyNext\Auth\RegistrationService() );
+		$container->bind( 'session', fn() => new \BuddyNext\Auth\SessionIssuer() );
+
 		$container->bind( 'avatars', fn() => new AvatarService() );
 		$container->bind( 'search', fn() => new SearchService() );
 		$container->bind( 'search_index_listener', fn() => new SearchIndexListener() );

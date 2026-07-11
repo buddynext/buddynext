@@ -99,26 +99,79 @@ class AuthController {
 				'callback'            => array( $this, 'register' ),
 				'permission_callback' => '__return_true',
 				'args'                => array(
-					'email'        => array(
+					'email'            => array(
 						'required' => true,
 						'type'     => 'string',
 					),
-					'user_login'   => array(
+					'user_login'       => array(
 						'required' => true,
 						'type'     => 'string',
 					),
-					'password'     => array(
+					'password'         => array(
 						'required' => true,
 						'type'     => 'string',
 					),
-					'terms_agreed' => array(
+					'terms_agreed'     => array(
 						'required' => false,
 						'type'     => 'boolean',
 						'default'  => false,
 					),
-					'invite'       => array(
+					'invite'           => array(
 						'required' => false,
 						'type'     => 'string',
+					),
+					// Guard bundle, obtained from GET /auth/register/config. Declared
+					// so OPTIONS discovery is honest: a native app can see what the
+					// spam gate expects instead of being rejected as a bot with no
+					// way to find out why.
+					'reg_token'        => array(
+						'required' => false,
+						'type'     => 'string',
+					),
+					'challenge_token'  => array(
+						'required' => false,
+						'type'     => 'string',
+					),
+					'challenge_answer' => array(
+						'required' => false,
+						'type'     => 'string',
+					),
+				),
+			)
+		);
+
+		// The signup contract + a fresh guard bundle. Without this a native app
+		// cannot register at all: the time-trap token, the human-check question and
+		// the honeypot field name are otherwise only minted inside the signup
+		// template, so the API scores an app's submission as a bot and rejects it.
+		register_rest_route(
+			'buddynext/v1',
+			'/auth/register/config',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'register_config' ),
+				'permission_callback' => '__return_true',
+			)
+		);
+
+		// Finish a parked social sign-up: collect the things OAuth cannot supply
+		// (terms consent, required profile fields), then create the account.
+		register_rest_route(
+			'buddynext/v1',
+			'/auth/register/complete',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'register_complete' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'pending_token' => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+					'terms_agreed'  => array(
+						'required' => false,
+						'type'     => 'boolean',
+						'default'  => false,
 					),
 				),
 			)
@@ -906,43 +959,33 @@ class AuthController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function register( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		if ( ! (bool) get_option( 'users_can_register' ) ) {
-			return new WP_Error(
-				'rest_registration_closed',
-				__( 'Registration is currently closed.', 'buddynext' ),
-				array( 'status' => 403 )
+		$policy = buddynext_service( 'registration_policy' );
+
+		$token      = sanitize_text_field( (string) $request->get_param( 'invite' ) );
+		$email      = sanitize_email( (string) $request->get_param( 'email' ) );
+		$user_login = sanitize_user( (string) $request->get_param( 'user_login' ), true );
+		$password   = (string) $request->get_param( 'password' );
+
+		// 1) Access policy — registration mode (incl. closed), the invite
+		// requirement, and the allowed-domain allowlist. Shared with every other
+		// door, so what the owner configured here binds on all of them.
+		$access = $policy->check_access( $email, '' !== $token ? $token : null, RegistrationPolicy::SOURCE_FORM );
+		if ( is_wp_error( $access ) ) {
+			// Preserve the codes and statuses this endpoint already returned: a
+			// closed or invite-only community is a 403; a disallowed email domain
+			// came out of the guard and was a 422.
+			$map                        = array(
+				'bn_reg_closed' => array( 'rest_registration_closed', 403 ),
+				'bn_reg_invite' => array( 'rest_invite_required', 403 ),
+				'bn_reg_domain' => array( 'rest_registration_failed', 422 ),
 			);
+			list( $rest_code, $status ) = $map[ $access->get_error_code() ] ?? array( 'rest_registration_failed', 403 );
+
+			return new WP_Error( $rest_code, $access->get_error_message(), array( 'status' => $status ) );
 		}
 
-		// Registration policy: open | invite | approval (Settings → Registration).
-		$reg_mode = (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() );
-
-		// Resolve any invitation token up front, in every registration mode: an
-		// invite-only community requires it, but a space invitation link also
-		// carries one in open/approval mode so the new account can be dropped into
-		// the space it was invited to (see the space_id handling after creation).
-		$token  = sanitize_text_field( (string) $request->get_param( 'invite' ) );
-		$invite = '' !== $token ? ( new \BuddyNext\Onboarding\InviteService() )->get_by_token( $token ) : null;
-		if ( 'invite' === $reg_mode ) {
-			if ( null === $invite ) {
-				return new WP_Error(
-					'rest_invite_required',
-					__( 'This community is invite-only — a valid invitation is required to register.', 'buddynext' ),
-					array( 'status' => 403 )
-				);
-			}
-		}
-
-		$email        = sanitize_email( (string) $request->get_param( 'email' ) );
-		$user_login   = sanitize_user( (string) $request->get_param( 'user_login' ), true );
-		$password     = (string) $request->get_param( 'password' );
-		$terms_agreed = (bool) $request->get_param( 'terms_agreed' );
-
+		// 2) Core account fields.
 		$errors = array();
-
-		if ( ! $terms_agreed ) {
-			$errors['terms_agreed'] = __( 'You must accept the Terms of Service to continue.', 'buddynext' );
-		}
 
 		if ( '' === $email || ! is_email( $email ) ) {
 			$errors['email'] = __( 'Please enter a valid email address.', 'buddynext' );
@@ -962,43 +1005,28 @@ class AuthController {
 			$errors['password'] = __( 'Password must be at least 8 characters.', 'buddynext' );
 		}
 
-		// Custom profile fields the owner opted into the registration form. Each
-		// is sanitised through the field-type engine and required ones are
-		// enforced here, so their errors join the same inline envelope as the
-		// core fields (and the account is never created on a bad submission).
-		$reg_fields  = array();
-		$reg_values  = array();
-		$profile_svc = null;
-		try {
-			$profile_svc = buddynext_service( 'profiles' );
-		} catch ( \Throwable $e ) {
-			$profile_svc = null;
-		}
-		if ( is_object( $profile_svc ) && method_exists( $profile_svc, 'get_registration_fields' ) ) {
-			$reg_fields = $profile_svc->get_registration_fields();
-			foreach ( $reg_fields as $reg_field ) {
-				$field_key = (string) $reg_field['field_key'];
-				$raw       = $request->get_param( 'bn_field_' . $field_key );
-				$value     = \BuddyNext\Profile\FieldType::sanitize( $reg_field, null === $raw ? '' : $raw );
-
-				if ( is_wp_error( $value ) ) {
-					$errors[ 'bn_field_' . $field_key ] = $value->get_error_message();
-					continue;
-				}
-
-				$is_empty = ( '' === $value || null === $value || array() === $value );
-				if ( ! empty( $reg_field['is_required'] ) && $is_empty ) {
-					/* translators: %s: profile field label. */
-					$errors[ 'bn_field_' . $field_key ] = sprintf( __( '%s is required.', 'buddynext' ), $reg_field['label'] );
-					continue;
-				}
-
-				$reg_values[ $field_key ] = $value;
+		// 3) Everything the owner requires — terms consent and any profile field
+		// flagged "ask for this on the registration form". A door that renders a
+		// form must have collected them; social login, which cannot, parks a
+		// pending signup instead (see SocialLogin::resolve_user).
+		$params = $request->get_params();
+		foreach ( $policy->missing( $params ) as $requirement ) {
+			if ( 'terms' === $requirement ) {
+				$errors['terms_agreed'] = __( 'You must accept the Terms of Service to continue.', 'buddynext' );
+				continue;
 			}
+			/* translators: %s: profile field label. */
+			$errors[ $requirement ] = sprintf( __( '%s is required.', 'buddynext' ), $policy->label_for( $requirement ) );
+		}
+
+		// 4) Field-type validation (format, options, ranges).
+		$values = $policy->validate_data( $params );
+		if ( is_wp_error( $values ) ) {
+			$errors = array_merge( $errors, (array) ( $values->get_error_data()['fields'] ?? array() ) );
 		}
 
 		if ( ! empty( $errors ) ) {
-			$err = new WP_Error(
+			return new WP_Error(
 				'rest_registration_failed',
 				__( 'Please correct the errors below.', 'buddynext' ),
 				array(
@@ -1006,18 +1034,17 @@ class AuthController {
 					'fields' => $errors,
 				)
 			);
-			return $err;
 		}
 
-		// Spam / abuse gate (rate limit, honeypot, time-trap, human check).
+		// 5) Spam / abuse gate (rate limit, honeypot, time-trap, human check).
 		// Runs on well-formed input so humans see field validation first, then
 		// the guard only gates real attempts before we create the account.
-		$ip   = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) ) : '';
 		$gate = ( new RegistrationGuard() )->check(
 			array(
+				'source'           => RegistrationPolicy::SOURCE_FORM,
 				'email'            => $email,
 				'user_login'       => $user_login,
-				'ip'               => $ip,
+				'ip'               => self::client_ip(),
 				'honeypot'         => (string) $request->get_param( RegistrationGuard::honeypot_field() ),
 				'token'            => (string) $request->get_param( 'reg_token' ),
 				'challenge_token'  => (string) $request->get_param( 'challenge_token' ),
@@ -1042,8 +1069,20 @@ class AuthController {
 			);
 		}
 
-		$user_id = wp_create_user( $user_login, $password, $email );
-
+		// 6) Create. Every post-create step (invite redemption + space join,
+		// DM-privacy seed, profile fields, approval hold) lives in the one
+		// pipeline, so no door can forget one.
+		$user_id = buddynext_service( 'registration' )->create(
+			array_merge(
+				$params,
+				array(
+					'email'      => $email,
+					'user_login' => $user_login,
+					'password'   => $password,
+					'invite'     => $token,
+				)
+			)
+		);
 		if ( is_wp_error( $user_id ) ) {
 			return new WP_Error(
 				'rest_registration_failed',
@@ -1052,53 +1091,16 @@ class AuthController {
 			);
 		}
 
-		// Redeem the invitation now that the account exists.
-		if ( null !== $invite ) {
-			( new \BuddyNext\Onboarding\InviteService() )->mark_registered( (int) $invite['id'] );
-
-			// Space-linked invite: the person clicked "Accept invitation" in a
-			// space invite email, so drop the new account straight into that
-			// space as an active member — the link lands them inside it instead
-			// of on a generic feed.
-			$invite_space_id = isset( $invite['space_id'] ) ? (int) $invite['space_id'] : 0;
-			if ( $invite_space_id > 0 ) {
-				( new \BuddyNext\Spaces\SpaceMemberService() )->join( $invite_space_id, (int) $user_id );
-			}
-		}
-
-		// Seed the new member's DM-privacy preference from the site default
-		// (buddynext_default_dm_access). Members can change it later in their own
-		// privacy settings; we only set it here, when no explicit value exists,
-		// so the site owner's default applies to fresh accounts.
-		self::seed_default_dm_access( (int) $user_id );
-
-		// Persist any registration profile-field values collected + validated
-		// above. DB-backed fields go through save_profile (bn_profile_values +
-		// searchable usermeta); programmatic (virtual) fields with no row are
-		// stored to usermeta so their value is not lost.
-		self::save_registration_fields( (int) $user_id, $reg_fields, $reg_values, $profile_svc );
-
 		// Email verification is handled by VerificationListener::on_user_register,
-		// which wp_create_user() above already triggered via the user_register
-		// hook. That listener is gated on the buddynext_email_verify setting, so
-		// it sends the verification email only when verification is required.
-		// Do NOT create a token here as well: when the setting is OFF it would
-		// send an unwanted email, and when ON it would send a duplicate.
+		// which wp_create_user() inside the pipeline already triggered via the
+		// user_register hook. Do NOT create a token here as well.
 
-		// Approval mode: hold the account for an administrator. The login gate
-		// (wp_authenticate_user) blocks sign-in until the flag is cleared, so we
-		// do NOT auto-authenticate here.
-		if ( 'approval' === $reg_mode ) {
-			update_user_meta( (int) $user_id, 'bn_pending_approval', '1' );
+		// 7) Session. The admin-approval hold and two-factor both live on the core
+		// authenticate chain, and SessionIssuer is the only thing allowed to hand
+		// out a cookie — so neither can be skipped by any door.
+		$session = buddynext_service( 'session' )->start( (int) $user_id, false );
 
-			/**
-			 * Fires when a new registration is created but needs admin approval.
-			 *
-			 * @param int    $user_id New (pending) user ID.
-			 * @param string $email   Registered email.
-			 */
-			do_action( 'buddynext_registration_pending', (int) $user_id, $email );
-
+		if ( is_wp_error( $session ) && 'bn_pending_approval' === $session->get_error_code() ) {
 			return new WP_REST_Response(
 				array(
 					'success' => true,
@@ -1110,38 +1112,206 @@ class AuthController {
 			);
 		}
 
-		// Sign the user in immediately.
-		wp_set_current_user( (int) $user_id );
-		wp_set_auth_cookie( (int) $user_id, false, is_ssl() );
+		return new WP_REST_Response(
+			array(
+				'success'     => true,
+				'user_id'     => (int) $user_id,
+				'redirect_to' => esc_url_raw( self::post_register_redirect() ),
+			),
+			200
+		);
+	}
 
-		// Send the new member to the welcome wizard when onboarding is enabled
-		// (FeatureRegistry — the canonical toggle); otherwise land them on the
-		// activity feed. Email verification, when enabled, takes precedence so
-		// the account is confirmed before anything else. Members who arrive by
-		// other paths (admin-created, social login) are caught by the
-		// OnboardingListener template_redirect gate.
-		$onboarding_on = function_exists( 'buddynext_service' )
-			&& buddynext_service( 'features' )->is_enabled( 'onboarding' );
+	/**
+	 * GET /auth/register/config — the signup contract plus a fresh guard bundle.
+	 *
+	 * A native app previously could not register at all. The time-trap token, the
+	 * human-check question and the honeypot field name are minted when the signup
+	 * template renders, so an app that posted straight to /auth/register scored as
+	 * a bot: the API answered "please solve the verification question" — a question
+	 * there was no endpoint to fetch. The only workaround was for the owner to turn
+	 * spam protection off entirely, which is not a workaround.
+	 *
+	 * This publishes exactly what the web form renders, so both surfaces read from
+	 * one contract.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function register_config(): WP_REST_Response {
+		$policy       = buddynext_service( 'registration_policy' );
+		$requirements = $policy->requirements();
 
-		$redirect_to = $onboarding_on
-			? \BuddyNext\Core\PageRouter::onboarding_url()
-			: \BuddyNext\Core\PageRouter::activity_url();
+		$challenge = array();
+		if ( RegistrationGuard::challenge_enabled() ) {
+			$issued    = RegistrationGuard::issue_challenge();
+			$challenge = array(
+				'question' => $issued['question'],
+				'token'    => $issued['token'],
+			);
+		}
 
-		if ( get_option( 'buddynext_email_verify', false ) ) {
-			$redirect_to = \BuddyNext\Core\PageRouter::hub_url(
-				'buddynext_slug_auth',
-				'buddynext_page_auth'
-			) . 'verify/';
+		$fields = array();
+		foreach ( $requirements['fields'] as $field ) {
+			$fields[] = array(
+				'key'         => (string) $field['field_key'],
+				'label'       => (string) $field['label'],
+				'type'        => (string) $field['type'],
+				'required'    => ! empty( $field['is_required'] ),
+				'options'     => $field['options'] ?? array(),
+				'description' => (string) ( $field['description'] ?? '' ),
+			);
+		}
+
+		return new WP_REST_Response(
+			array(
+				'mode'           => $requirements['mode'],
+				'terms'          => $requirements['terms'],
+				'terms_url'      => $requirements['terms_url'],
+				'fields'         => $fields,
+				'reg_token'      => RegistrationGuard::issue_token(),
+				'honeypot_field' => RegistrationGuard::honeypot_field(),
+				'challenge'      => $challenge,
+			),
+			200
+		);
+	}
+
+	/**
+	 * POST /auth/register/complete — finish a parked social sign-up.
+	 *
+	 * OAuth gives us an email and a name. It cannot give us terms consent, or the
+	 * profile fields the owner marked required at registration. Rather than create
+	 * the account anyway and patch the gaps afterwards — the ordering that produced
+	 * the admin-approval bypass — the provider profile was parked and we collect
+	 * the rest here. Only now does the member get created.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function register_complete( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$token   = (string) $request->get_param( 'pending_token' );
+		$pending = PendingSignup::get( $token );
+
+		if ( null === $pending ) {
+			return new WP_Error(
+				'bn_pending_expired',
+				__( 'Your sign-up session expired. Please start again.', 'buddynext' ),
+				array( 'status' => 410 )
+			);
+		}
+
+		$policy = buddynext_service( 'registration_policy' );
+		$params = array_merge( $request->get_params(), array( 'email' => (string) $pending['email'] ) );
+
+		// Re-check the access policy: the community may have closed, or the owner
+		// may have tightened the allowlist, since the sign-up was parked.
+		$access = $policy->check_access( (string) $pending['email'], null, RegistrationPolicy::SOURCE_SOCIAL );
+		if ( is_wp_error( $access ) ) {
+			return new WP_Error(
+				$access->get_error_code(),
+				$access->get_error_message(),
+				array( 'status' => 403 )
+			);
+		}
+
+		$errors = array();
+		foreach ( $policy->missing( $params ) as $requirement ) {
+			if ( 'terms' === $requirement ) {
+				$errors['terms_agreed'] = __( 'You must accept the Terms of Service to continue.', 'buddynext' );
+				continue;
+			}
+			/* translators: %s: profile field label. */
+			$errors[ $requirement ] = sprintf( __( '%s is required.', 'buddynext' ), $policy->label_for( $requirement ) );
+		}
+
+		$values = $policy->validate_data( $params );
+		if ( is_wp_error( $values ) ) {
+			$errors = array_merge( $errors, (array) ( $values->get_error_data()['fields'] ?? array() ) );
+		}
+
+		if ( ! empty( $errors ) ) {
+			return new WP_Error(
+				'rest_registration_failed',
+				__( 'Please correct the errors below.', 'buddynext' ),
+				array(
+					'status' => 422,
+					'fields' => $errors,
+				)
+			);
+		}
+
+		// Spend the token before creating anything: a replayed submit must not be
+		// able to mint a second member from the same parked sign-up.
+		PendingSignup::consume( $token );
+
+		$user_id = ( new SocialLogin() )->create_member( $pending, $params );
+		if ( is_wp_error( $user_id ) ) {
+			return new WP_Error(
+				'rest_registration_failed',
+				$user_id->get_error_message(),
+				array( 'status' => 500 )
+			);
+		}
+
+		$session = buddynext_service( 'session' )->start( (int) $user_id, true );
+
+		if ( is_wp_error( $session ) && 'bn_pending_approval' === $session->get_error_code() ) {
+			return new WP_REST_Response(
+				array(
+					'success' => true,
+					'pending' => true,
+					'user_id' => (int) $user_id,
+					'message' => __( 'Your account was created and is awaiting administrator approval.', 'buddynext' ),
+				),
+				200
+			);
 		}
 
 		return new WP_REST_Response(
 			array(
 				'success'     => true,
 				'user_id'     => (int) $user_id,
-				'redirect_to' => esc_url_raw( $redirect_to ),
+				'redirect_to' => esc_url_raw( self::post_register_redirect() ),
 			),
 			200
 		);
+	}
+
+	/**
+	 * The caller's IP address, for the rate limiter.
+	 *
+	 * @return string
+	 */
+	public static function client_ip(): string {
+		return isset( $_SERVER['REMOTE_ADDR'] )
+			? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) )
+			: '';
+	}
+
+	/**
+	 * Where a freshly registered member lands.
+	 *
+	 * Email verification, when enabled, takes precedence so the account is
+	 * confirmed before anything else. Otherwise the welcome wizard when onboarding
+	 * is on, else the activity feed. Members who arrive by other paths (admin
+	 * created, social login) are caught by the OnboardingListener redirect gate.
+	 *
+	 * @return string
+	 */
+	public static function post_register_redirect(): string {
+		if ( get_option( 'buddynext_email_verify', false ) ) {
+			return \BuddyNext\Core\PageRouter::hub_url(
+				'buddynext_slug_auth',
+				'buddynext_page_auth'
+			) . 'verify/';
+		}
+
+		$onboarding_on = function_exists( 'buddynext_service' )
+			&& buddynext_service( 'features' )->is_enabled( 'onboarding' );
+
+		return $onboarding_on
+			? \BuddyNext\Core\PageRouter::onboarding_url()
+			: \BuddyNext\Core\PageRouter::activity_url();
 	}
 
 	/**
@@ -1440,7 +1610,7 @@ class AuthController {
 	 * @param object|null                     $profile_svc Resolved ProfileService (or null).
 	 * @return void
 	 */
-	private static function save_registration_fields( int $user_id, array $reg_fields, array $reg_values, $profile_svc ): void {
+	public static function save_registration_fields( int $user_id, array $reg_fields, array $reg_values, $profile_svc ): void {
 		if ( $user_id <= 0 || empty( $reg_fields ) ) {
 			return;
 		}

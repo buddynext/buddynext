@@ -87,10 +87,21 @@ class RegistrationGuard {
 		// with the spam-protection master switch off (previously the early
 		// return below silently bypassed a configured allowlist). Privileged
 		// creators (admin/import/CLI) are still exempt via the check below.
-		if ( ! ( is_user_logged_in() && current_user_can( 'create_users' ) )
-			&& ! $this->domain_allowed( (string) ( $ctx['email'] ?? '' ) ) ) {
-			return new WP_Error( 'bn_reg_domain', __( 'Only users from allowed email domains may register.', 'buddynext' ) );
+		$domain = $this->check_domain( (string) ( $ctx['email'] ?? '' ) );
+		if ( is_wp_error( $domain ) ) {
+			return $domain;
 		}
+
+		// Which door is this? Only doors that render a BuddyNext form can carry a
+		// honeypot, a time-trap token or a human-check answer. Social login has no
+		// form, so scoring it on their absence would reject every social sign-up.
+		// It is still subject to the allowlist above and to the rate limit and
+		// disposable-domain checks below — those need no form.
+		$has_form = in_array(
+			(string) ( $ctx['source'] ?? RegistrationPolicy::SOURCE_FORM ),
+			RegistrationPolicy::FORM_SOURCES,
+			true
+		);
 
 		// Master switch — default on, admin can disable in Settings → Registration.
 		$enabled = (bool) get_option( self::OPT_PROTECTION, true );
@@ -115,8 +126,8 @@ class RegistrationGuard {
 			}
 		}
 
-		// 3) Human check — in-house arithmetic challenge (opt-in).
-		if ( self::challenge_enabled() ) {
+		// 3) Human check — in-house arithmetic challenge (opt-in). Form doors only.
+		if ( $has_form && self::challenge_enabled() ) {
 			$ok = self::verify_challenge(
 				(string) ( $ctx['challenge_token'] ?? '' ),
 				(string) ( $ctx['challenge_answer'] ?? '' )
@@ -126,12 +137,14 @@ class RegistrationGuard {
 			}
 		}
 
-		// 4) Score-based signals.
+		// 4) Score-based signals. The honeypot and the time-trap are properties of
+		// a rendered form; the disposable-domain check is a property of the email
+		// and therefore applies to every door.
 		$score = 0;
-		if ( ! empty( $ctx['honeypot'] ) ) {
+		if ( $has_form && ! empty( $ctx['honeypot'] ) ) {
 			$score += 100; // Hidden field only a bot would fill.
 		}
-		if ( $this->too_fast( (string) ( $ctx['token'] ?? '' ) ) ) {
+		if ( $has_form && $this->too_fast( (string) ( $ctx['token'] ?? '' ) ) ) {
 			$score += 100; // Submitted implausibly fast, or a forged/expired form token.
 		}
 		if ( $this->is_disposable( (string) ( $ctx['email'] ?? '' ) ) ) {
@@ -207,6 +220,36 @@ class RegistrationGuard {
 		}
 		$elapsed = time() - (int) $ts;
 		return $elapsed < self::MIN_SECONDS || $elapsed > self::TOKEN_TTL;
+	}
+
+	/**
+	 * Public allowlist check — the owner's ACCESS policy, independent of spam scoring.
+	 *
+	 * Split out of check() so RegistrationPolicy can enforce the allowlist on
+	 * every door. Social login and the WordPress core registration form carry no
+	 * honeypot or time-trap token, so they cannot run the full guard — but an
+	 * allowlist is a decision the owner made about who may join, and it must bind
+	 * on them regardless. Previously it did not, and a site restricted to one
+	 * corporate domain was wide open to any Google account.
+	 *
+	 * Privileged creators (admin / import / CLI) stay exempt.
+	 *
+	 * @param string $email Candidate email address.
+	 * @return true|WP_Error True when allowed, WP_Error when the domain is not.
+	 */
+	public function check_domain( string $email ): bool|WP_Error {
+		if ( is_user_logged_in() && current_user_can( 'create_users' ) ) {
+			return true;
+		}
+
+		if ( ! $this->domain_allowed( $email ) ) {
+			return new WP_Error(
+				'bn_reg_domain',
+				__( 'Only users from allowed email domains may register.', 'buddynext' )
+			);
+		}
+
+		return true;
 	}
 
 	/**
