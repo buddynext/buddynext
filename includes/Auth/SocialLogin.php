@@ -439,18 +439,45 @@ class SocialLogin {
 			$this->bail( __( 'No email address was returned by the provider, so we could not sign you in.', 'buddynext' ) );
 		}
 
-		$user_id = $this->resolve_user( $id, $profile );
-		if ( is_wp_error( $user_id ) ) {
-			$this->bail( $user_id->get_error_message() );
+		$resolved = $this->resolve_user( $id, $profile );
+		if ( is_wp_error( $resolved ) ) {
+			$this->bail( $resolved->get_error_message() );
 		}
 
-		wp_set_current_user( (int) $user_id );
-		wp_set_auth_cookie( (int) $user_id, true, is_ssl() );
+		// A pending-signup token: the owner requires something OAuth cannot give
+		// us (terms consent, a required profile field). No account exists yet.
+		// Send them to finish on a real form.
+		if ( is_string( $resolved ) ) {
+			wp_safe_redirect(
+				add_query_arg(
+					'bn_pending',
+					rawurlencode( $resolved ),
+					\BuddyNext\Core\PageRouter::auth_url() . 'complete/'
+				)
+			);
+			exit;
+		}
 
-		$user = get_user_by( 'id', (int) $user_id );
-		if ( $user instanceof \WP_User ) {
-			/** This action is documented in wp-includes/user.php (wp_signon). */
-			do_action( 'wp_login', $user->user_login, $user );
+		// Session issuance goes through SessionIssuer — the ONLY thing allowed to
+		// hand out an auth cookie. This is what closes both critical bypasses:
+		// the admin-approval hold is a wp_authenticate_user filter and two-factor
+		// interposes on the authenticate chain, and setting the cookie by hand
+		// here (as this method used to) skipped both of them entirely.
+		$session = buddynext_service( 'session' )->start( (int) $resolved, true );
+
+		if ( is_wp_error( $session ) ) {
+			// Two-factor: the member must complete the challenge before any session
+			// exists. Hand the ticket to the auth hub rather than signing them in.
+			if ( 'bn_2fa_required' === $session->get_error_code() ) {
+				$ticket = (string) ( $session->get_error_data()['ticket'] ?? '' );
+				wp_safe_redirect(
+					add_query_arg( 'bn_2fa', rawurlencode( $ticket ), \BuddyNext\Core\PageRouter::auth_url() )
+				);
+				exit;
+			}
+
+			// Anything else (notably the admin-approval hold) is a refusal.
+			$this->bail( $session->get_error_message() );
 		}
 
 		$dest = ! empty( $stored['redirect_to'] ) ? (string) $stored['redirect_to'] : home_url( '/' );
@@ -670,42 +697,102 @@ class SocialLogin {
 			return (int) $existing->ID;
 		}
 
-		// 3) No existing account — create one, honouring the registration policy.
-		$reg_mode = (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() );
-		if ( 'invite' === $reg_mode ) {
-			return new \WP_Error( 'bn_reg_invite', __( 'This community is invite-only, so a new account could not be created.', 'buddynext' ) );
-		}
-		if ( ! (bool) get_option( 'users_can_register', true ) ) {
-			return new \WP_Error( 'bn_reg_closed', __( 'Registration is closed, so a new account could not be created.', 'buddynext' ) );
+		// 3) No existing account. From here the SHARED registration gate decides —
+		// the same one the BuddyNext form and the WordPress core form pass through
+		// — so the owner's policy binds on this door too. It previously did not:
+		// social login reimplemented registration and inherited none of it.
+		$policy = buddynext_service( 'registration_policy' );
+
+		// Access policy: registration mode (incl. closed), the invite requirement,
+		// and the allowed-domain allowlist. The allowlist in particular is an
+		// access decision the owner made about who may join — a community
+		// restricted to one corporate domain used to be wide open to any Google
+		// account, because this door never asked.
+		$access = $policy->check_access( (string) $profile['email'], null, RegistrationPolicy::SOURCE_SOCIAL );
+		if ( is_wp_error( $access ) ) {
+			return $access;
 		}
 
-		$login   = $this->unique_login( $profile['email'] );
-		$user_id = wp_create_user( $login, wp_generate_password( 24, true, true ), $profile['email'] );
+		// Spam signals that do not need a form: the rate limit and the
+		// disposable-domain list. (The honeypot, time-trap and human check are
+		// properties of a rendered form, so RegistrationGuard skips them for this
+		// source rather than failing a sign-in that could never carry them.)
+		$guard = ( new RegistrationGuard() )->check(
+			array(
+				'source' => RegistrationPolicy::SOURCE_SOCIAL,
+				'email'  => (string) $profile['email'],
+				'ip'     => AuthController::client_ip(),
+			)
+		);
+		if ( is_wp_error( $guard ) ) {
+			return $guard;
+		}
+
+		$pending = array(
+			'provider'       => $id,
+			'uid'            => (string) $profile['id'],
+			'email'          => (string) $profile['email'],
+			'email_verified' => (bool) $profile['email_verified'],
+			'name'           => (string) $profile['name'],
+			'picture'        => (string) $profile['picture'],
+		);
+
+		// The owner may require terms consent and/or profile fields that OAuth
+		// simply cannot supply. Park the signup and finish it on a real form —
+		// do NOT create an account we would then have to patch. Creating first and
+		// patching after is exactly what let a visitor defeat admin-approval mode
+		// by clicking the social button twice.
+		if ( ! empty( $policy->missing( array( 'email' => $profile['email'] ) ) ) ) {
+			return PendingSignup::park( $pending );
+		}
+
+		return $this->create_member( $pending );
+	}
+
+	/**
+	 * Create a member from a (complete) social signup.
+	 *
+	 * Goes through RegistrationService like every other door, so the new account
+	 * gets the DM-privacy seed, the profile fields, the approval hold and the
+	 * canonical hooks — all of which social login used to skip silently.
+	 *
+	 * @param array<string,mixed> $pending Parked/complete provider profile.
+	 * @param array<string,mixed> $extra   Additional signup data (terms, bn_field_*).
+	 * @return int|\WP_Error New user id, or an error.
+	 */
+	public function create_member( array $pending, array $extra = array() ) {
+		$user_id = buddynext_service( 'registration' )->create(
+			array_merge(
+				$extra,
+				array(
+					'email'      => (string) $pending['email'],
+					'user_login' => $this->unique_login( (string) $pending['email'] ),
+					'password'   => wp_generate_password( 24, true, true ),
+					'social'     => array(
+						'provider'       => (string) $pending['provider'],
+						'uid'            => (string) $pending['uid'],
+						'email_verified' => ! empty( $pending['email_verified'] ),
+					),
+				)
+			)
+		);
 		if ( is_wp_error( $user_id ) ) {
 			return $user_id;
 		}
 		$user_id = (int) $user_id;
 
-		if ( '' !== $profile['name'] ) {
+		if ( '' !== (string) $pending['name'] ) {
 			wp_update_user(
 				array(
 					'ID'           => $user_id,
-					'display_name' => $profile['name'],
+					'display_name' => (string) $pending['name'],
 				)
 			);
 		}
-		update_user_meta( $user_id, $meta_key, $profile['id'] );
-
-		// A verified provider email satisfies BuddyNext's own email check. Use the
-		// canonical key VerificationService reads/writes (buddynext_email_verified),
-		// so social-login members are recognised as verified everywhere.
-		if ( $profile['email_verified'] ) {
-			update_user_meta( $user_id, 'buddynext_email_verified', 1 );
-		}
 
 		// Adopt the provider avatar when the member has none yet.
-		if ( '' !== $profile['picture'] && '' === (string) get_user_meta( $user_id, 'bn_avatar', true ) ) {
-			update_user_meta( $user_id, 'bn_avatar', esc_url_raw( $profile['picture'] ) );
+		if ( '' !== (string) $pending['picture'] && '' === (string) get_user_meta( $user_id, 'bn_avatar', true ) ) {
+			update_user_meta( $user_id, 'bn_avatar', esc_url_raw( (string) $pending['picture'] ) );
 		}
 
 		/**
@@ -715,16 +802,7 @@ class SocialLogin {
 		 * @param string $provider Provider id.
 		 * @param array  $profile  Provider profile (id, email, name, picture).
 		 */
-		do_action( 'buddynext_social_user_created', $user_id, $id, $profile );
-
-		// Admin-approval mode: the account exists but stays pending — do not log
-		// the user in (mirrors the email/password registration flow).
-		if ( 'approval' === $reg_mode ) {
-			update_user_meta( $user_id, 'bn_pending_approval', '1' );
-			/** This action is documented in AuthController::register(). */
-			do_action( 'buddynext_registration_pending', $user_id, $profile['email'] );
-			return new \WP_Error( 'bn_social_pending', __( 'Your account was created and is awaiting administrator approval.', 'buddynext' ) );
-		}
+		do_action( 'buddynext_social_user_created', $user_id, (string) $pending['provider'], $pending );
 
 		return $user_id;
 	}
