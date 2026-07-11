@@ -519,6 +519,30 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		)
 	);
 
+	// Scheduled posts (the owner's "Scheduled" profile tab) show WHEN they will
+	// publish — the byline timestamp is the creation time, not the useful figure
+	// here. scheduled_at is stored in UTC; wp_date() renders it in the site's zone.
+	$bn_pc_status       = (string) ( $bn_post['status'] ?? '' );
+	$bn_pc_scheduled_at = (string) ( $bn_post['scheduled_at'] ?? '' );
+	if ( 'scheduled' === $bn_pc_status && '' !== $bn_pc_scheduled_at ) {
+		$bn_pc_sched_ts = strtotime( $bn_pc_scheduled_at . ' UTC' );
+		if ( $bn_pc_sched_ts ) {
+			$bn_pc_sched_fmt = wp_date(
+				(string) get_option( 'date_format', 'F j, Y' ) . ' ' . (string) get_option( 'time_format', 'g:i a' ),
+				$bn_pc_sched_ts
+			);
+			?>
+			<div class="bn-post-card__scheduled">
+				<?php buddynext_icon( 'clock' ); ?>
+				<span><?php
+					/* translators: %s: formatted scheduled publish date and time. */
+					echo esc_html( sprintf( __( 'Scheduled for %s', 'buddynext' ), (string) $bn_pc_sched_fmt ) );
+				?></span>
+			</div>
+			<?php
+		}
+	}
+
 	buddynext_get_template(
 		'parts/post-cw-overlay.php',
 		array(

@@ -408,6 +408,25 @@
 	color: var(--bn-ink);
 }
 
+/* "Scheduled for <date>" strip on a scheduled post (owner's Scheduled tab). */
+.bn-post-card__scheduled {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin-block-start: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
+	border-radius: var(--bn-r-md);
+	background: color-mix(in oklch, var(--bn-accent) 8%, var(--bn-surface));
+	color: color-mix(in oklch, var(--bn-ink) 78%, transparent);
+	font-size: var(--bn-text-sm);
+	font-weight: 500;
+}
+.bn-post-card__scheduled svg {
+	width: 16px;
+	height: 16px;
+	flex-shrink: 0;
+}
+
 .bn-post-card__body--blurred {
 	filter: blur(8px);
 	pointer-events: none;
