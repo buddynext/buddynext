@@ -13,6 +13,9 @@ import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '../shell/rest-client.js';
 import { onNavReady } from '../shell/nav-init.js';
 import { bnToast, bnConfirm } from '../shell/dialog.js';
+// The SAME upload path the composer uses. The picker must not grow a second way to
+// upload a file — one endpoint, one validation, one set of limits.
+import { uploadMedia, validateMedia } from './upload-core.js';
 
 let cfg = { nonce: '', owner: 0, t: {} };
 
@@ -231,6 +234,70 @@ const albumsStore = store( 'buddynext/media-albums', {
 			await loadPicker( ctx );
 		},
 		closeAddMedia() { clearPickerSel(); getContext().pickerOpen = false; },
+
+		/**
+		 * Upload straight from the device, from inside the picker.
+		 *
+		 * The picker used to show ONLY already-uploaded media, so a member adding a
+		 * photo to an album had to leave the album, upload it on the Media tab, come
+		 * back, reopen the picker and hunt for it. That is a dead end dressed up as a
+		 * workflow.
+		 *
+		 * Uploads go through the composer's uploadMedia() — the SAME endpoint, the same
+		 * validation, the same limits. The picker does not grow a second way to upload.
+		 *
+		 * Once the files are in, the grid is reloaded FROM THE SERVER rather than having
+		 * tiles built here: MediaRenderer emits a different tile per media type (image /
+		 * video / audio), and a hand-rolled client copy of that markup would drift the
+		 * first time the renderer changed. The newly uploaded ids are then pre-selected,
+		 * so "Add" includes them without the member having to find them again.
+		 *
+		 * Failures are per-file: one rejected file does not lose the rest of the batch.
+		 */
+		async uploadToPicker( event ) {
+			const ctx   = getContext();
+			const input = event && event.target;
+			const files = input && input.files ? Array.from( input.files ) : [];
+			if ( ! files.length ) { return; }
+
+			ctx.pickerUploading = true;
+
+			const uploaded = [];
+
+			for ( const file of files ) {
+				const invalid = validateMedia( file );
+				if ( invalid ) {
+					bnToast( invalid, { tone: 'danger' } );
+					continue;
+				}
+
+				const res = await uploadMedia( file, { nonce: ctx.restNonce } );
+				if ( ! res.ok || ! res.mediaId ) {
+					bnToast( res.message || t( 'uploadFailed', 'Could not upload that file.' ), { tone: 'danger' } );
+					continue;
+				}
+
+				uploaded.push( res.mediaId );
+			}
+
+			// Let the member choose the same file again after a failure — without this the
+			// input keeps its value and re-selecting it fires no change event at all.
+			if ( input ) { input.value = ''; }
+
+			if ( uploaded.length ) {
+				await loadPicker( ctx );
+				selectPickerIds( uploaded );
+				bnToast(
+					1 === uploaded.length
+						? t( 'uploadedOne', 'Uploaded and selected. Choose Add to put it in the album.' )
+						: t( 'uploadedMany', 'Uploaded and selected. Choose Add to put them in the album.' ),
+					{ tone: 'success' }
+				);
+			}
+
+			ctx.pickerUploading = false;
+		},
+
 		async confirmAddMedia() {
 			const ctx = getContext();
 			const ids = pickerSel.slice();
@@ -534,6 +601,30 @@ const pickerSel = [];
 
 function clearPickerSel() {
 	pickerSel.length = 0;
+	syncPickerCount();
+}
+
+/**
+ * Mark media as picked in the grid — used after an in-picker upload so the files the
+ * member just chose are already selected and "Add" simply works.
+ *
+ * Applies the same class + selection array the click handler does, so a pre-selected
+ * tile behaves exactly like a hand-picked one (clicking it deselects, the count is
+ * right, Add sends it).
+ *
+ * @param {number[]} ids Media ids to select.
+ */
+function selectPickerIds( ids ) {
+	const grid = pickerGridEl();
+	if ( ! grid ) { return; }
+
+	ids.forEach( ( id ) => {
+		const tile = grid.querySelector( '.bn-media-tile[data-bn-media-id="' + id + '"]' );
+		if ( ! tile ) { return; }
+		tile.classList.add( 'is-picked' );
+		if ( pickerSel.indexOf( id ) === -1 ) { pickerSel.push( id ); }
+	} );
+
 	syncPickerCount();
 }
 

@@ -45,6 +45,9 @@ $bn_mt_ctx = array(
 	'createDesc'         => '',
 	'createPrivacy'      => 'public',
 	'pickerOpen'         => false,
+	// True while an in-picker upload is in flight — disables the file input and shows
+	// the "Uploading…" note, so a member cannot fire a second batch mid-upload.
+	'pickerUploading'    => false,
 	't'                  => array(
 		'oneItem'                 => __( '1 item', 'buddynext' ),
 		/* translators: %d: number of items in an album. */
@@ -63,6 +66,9 @@ $bn_mt_ctx = array(
 		'coverFailed'             => __( 'Could not set the cover.', 'buddynext' ),
 		'added'                   => __( 'Added to album.', 'buddynext' ),
 		'addFailed'               => __( 'Could not add media.', 'buddynext' ),
+		'uploadFailed'            => __( 'Could not upload that file.', 'buddynext' ),
+		'uploadedOne'             => __( 'Uploaded and selected. Choose Add to put it in the album.', 'buddynext' ),
+		'uploadedMany'            => __( 'Uploaded and selected. Choose Add to put them in the album.', 'buddynext' ),
 		'emptyAlbum'              => __( 'This album is empty.', 'buddynext' ),
 		'removeFromAlbum'         => __( 'Remove from album', 'buddynext' ),
 		'confirmRemove'           => __( 'Remove this from the album?', 'buddynext' ),
@@ -233,7 +239,31 @@ $bn_mt_ctx = array(
 				<button type="button" class="bn-modal__close" aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>" data-wp-on--click="actions.closeAddMedia">&times;</button>
 			</div>
 			<div class="bn-modal__body bn-album-picker__body">
-				<p class="bn-album-picker__hint"><?php esc_html_e( 'Tap media to select.', 'buddynext' ); ?></p>
+				<?php
+				// Upload from the device, right here. The picker used to offer ONLY
+				// already-uploaded media, so a member adding a photo to an album had to
+				// leave, upload it on the Media tab, come back and find it — a dead end
+				// dressed up as a workflow. The file input goes through the SAME upload
+				// path as the composer; what lands is pre-selected, so "Add" just works.
+				?>
+				<div class="bn-album-picker__actions">
+					<label class="bn-btn bn-album-picker__upload" data-variant="secondary">
+						<?php buddynext_icon( 'upload', 'bn-album-picker__upload-icon' ); ?>
+						<span><?php esc_html_e( 'Upload from device', 'buddynext' ); ?></span>
+						<input
+							class="bn-album-picker__upload-input"
+							type="file"
+							accept="image/*,video/*,audio/*"
+							multiple
+							data-wp-on--change="actions.uploadToPicker"
+							data-wp-bind--disabled="context.pickerUploading"
+						>
+					</label>
+					<span class="bn-album-picker__uploading" data-wp-class--is-hidden="!context.pickerUploading">
+						<?php esc_html_e( 'Uploading…', 'buddynext' ); ?>
+					</span>
+				</div>
+				<p class="bn-album-picker__hint"><?php esc_html_e( 'Tap media to select, or upload something new.', 'buddynext' ); ?></p>
 				<div class="bn-album-picker__grid" data-bn-picker-grid></div>
 			</div>
 			<div class="bn-modal__foot">
