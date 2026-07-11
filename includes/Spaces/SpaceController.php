@@ -1059,6 +1059,22 @@ class SpaceController extends BaseRestController {
 			$data['parent_id'] = (int) $request->get_param( 'parent_id' );
 		}
 
+		// App parity: the service has always supported these three, and the front-end
+		// settings screen writes all of them — but the REST route never forwarded
+		// them, so a Space's category, slug and house rules were unreachable from the
+		// native app (and from any integration). SpaceService::update() does the
+		// validation (reserved + unique slug, category existence), so this only has
+		// to pass them through.
+		if ( null !== $request->get_param( 'category_id' ) ) {
+			$data['category_id'] = absint( $request->get_param( 'category_id' ) );
+		}
+		if ( null !== $request->get_param( 'slug' ) ) {
+			$data['slug'] = sanitize_title( (string) $request->get_param( 'slug' ) );
+		}
+		if ( null !== $request->get_param( 'rules' ) ) {
+			$data['rules'] = sanitize_textarea_field( (string) $request->get_param( 'rules' ) );
+		}
+
 		// Pro-gated field: the service only persists it when Pro validates the ability
 		// slug (buddynext_sanitize_space_required_ability); ignored on Free.
 		if ( null !== $request->get_param( 'required_ability' ) ) {

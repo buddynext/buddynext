@@ -1694,6 +1694,30 @@ class SpaceMemberService {
 			return false;
 		}
 
+		// Clear the SOFT ban too, or the unban does not actually unban.
+		//
+		// ban() writes to BOTH tables — it inserts the bn_space_bans row AND flips
+		// the member row to status='banned'. Unban only ever deleted the ban row, so
+		// the member row was left banned: is_space_banned() kept hard-denying every
+		// space capability and join() kept refusing them. The member stayed locked
+		// out of a space they had supposedly been unbanned from, with no way back and
+		// nothing in the UI to explain it.
+		//
+		// Delete the row rather than reviving it to 'active': being unbanned restores
+		// the right to ASK, not a membership they no longer hold. They can now join
+		// (or request to join) exactly like anyone else — which is what decline_request()
+		// does with the row it clears.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_space_members',
+			array(
+				'space_id' => $space_id,
+				'user_id'  => $user_id,
+				'status'   => 'banned',
+			),
+			array( '%d', '%d', '%s' )
+		);
+
 		$this->invalidate_cache( $space_id, $user_id );
 
 		/**

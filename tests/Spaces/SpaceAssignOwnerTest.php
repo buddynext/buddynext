@@ -234,13 +234,31 @@ class SpaceAssignOwnerTest extends \WP_UnitTestCase {
 	 * promoted to owner: the upsert would silently flip them back to 'active'.
 	 */
 	public function test_soft_banned_member_cannot_be_made_owner(): void {
+		global $wpdb;
+
 		$heir = self::factory()->user->create();
 		$this->members->join( $this->space_id, $heir );
 
-		// ban() writes BOTH surfaces; drop the hard-ban row so this test isolates
-		// the soft ban (status='banned' on the membership row).
+		// ban() writes BOTH surfaces. To isolate the SOFT ban (status='banned' on the
+		// membership row) drop the hard-ban row directly.
+		//
+		// This used to call unban_from_space() to do it — which only left the soft ban
+		// behind because unban_from_space() was BROKEN: it cleared bn_space_bans and
+		// forgot bn_space_members.status, so an "unbanned" member stayed locked out
+		// forever. That bug is fixed, so the setup can no longer lean on it.
 		$this->assertTrue( $this->members->ban( $this->space_id, $this->owner_id, $heir ) );
-		$this->assertTrue( $this->members->unban_from_space( $this->space_id, $heir ) );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_space_bans',
+			array(
+				'space_id' => $this->space_id,
+				'user_id'  => $heir,
+			),
+			array( '%d', '%d' )
+		);
+		wp_cache_flush();
+
 		$this->assertSame( 'banned', $this->members->get_status( $this->space_id, $heir ) );
 
 		$result = $this->spaces->assign_owner( $this->space_id, $heir );
