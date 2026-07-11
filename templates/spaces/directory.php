@@ -225,26 +225,6 @@ if ( ! function_exists( 'bn_space_cover_tone' ) ) {
 	}
 }
 
-if ( ! function_exists( 'bn_space_category_icon' ) ) {
-	/**
-	 * Template shim for the space-category emblem.
-	 *
-	 * The resolution logic (admin-editable icon_svg first, then the built-in
-	 * slug map, then the default glyph) lives in one place —
-	 * IconService::space_category_icon(). This shim only exists because the
-	 * space parts (space-directory-card, space-hero, space-about-panel,
-	 * space-settings-panel-general) call the helper by its global name.
-	 *
-	 * @param string|null $cat_slug Category slug.
-	 * @param string|null $icon_svg Optional pre-resolved icon_svg from a hydrated
-	 *                              category row. Null looks it up by slug.
-	 * @return string Sanitized SVG markup safe for inline output.
-	 */
-	function bn_space_category_icon( ?string $cat_slug, ?string $icon_svg = null ): string {
-		return \BuddyNext\Core\IconService::space_category_icon( $cat_slug, $icon_svg );
-	}
-}
-
 if ( ! function_exists( 'bn_space_side_emblem' ) ) {
 	/**
 	 * Sidebar space emblem: the real space avatar when set, else the category

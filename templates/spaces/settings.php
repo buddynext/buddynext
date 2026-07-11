@@ -23,26 +23,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-if ( ! function_exists( 'bn_space_category_icon' ) ) {
-	/**
-	 * Template shim for the space-category emblem.
-	 *
-	 * The resolution logic (admin-editable icon_svg first, then the built-in
-	 * slug map, then the default glyph) lives in one place —
-	 * IconService::space_category_icon(). This shim only exists because the
-	 * space parts (space-directory-card, space-hero, space-about-panel,
-	 * space-settings-panel-general) call the helper by its global name.
-	 *
-	 * @param string|null $cat_slug Category slug.
-	 * @param string|null $icon_svg Optional pre-resolved icon_svg from a hydrated
-	 *                              category row. Null looks it up by slug.
-	 * @return string Sanitized SVG markup safe for inline output.
-	 */
-	function bn_space_category_icon( ?string $cat_slug, ?string $icon_svg = null ): string {
-		return \BuddyNext\Core\IconService::space_category_icon( $cat_slug, $icon_svg );
-	}
-}
-
 // ── Resolve space ─────────────────────────────────────────────────────────────
 
 $space_id = isset( $space_id ) ? absint( $space_id ) : 0;
@@ -541,7 +521,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 				<?php if ( ! empty( $space->avatar_url ) ) : ?>
 					<img src="<?php echo esc_url( $space->avatar_url ); ?>" alt="">
 				<?php else : ?>
-					<?php echo wp_kses( bn_space_category_icon( $space->category_slug ?? '' ), \BuddyNext\Core\IconService::allowed_tags() ); ?>
+					<?php echo bn_space_category_icon( $space->category_slug ?? '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService::space_category_icon() returns wp_kses()-sanitized SVG. Re-running wp_kses() with the narrower allowed_tags() here would strip a stored icon's <g> wrapper. ?>
 				<?php endif; ?>
 			</div>
 

@@ -281,12 +281,17 @@ $mod_privacy = array(
 						>
 						<?php foreach ( $open_reports as $report ) : ?>
 							<?php
-							$reported_uid = (int) ( $report['object_id'] ?? 0 );
-							$is_user_rep  = 'user' === ( $report['object_type'] ?? '' );
-							$r_name       = ( $is_user_rep && ! empty( $report['offender_name'] ) )
+							// The member the row's user-level actions (Warn, Remove from
+							// space) act on: the report's OFFENDER, resolved by the
+							// service's enrich pass — the reported user for a 'user'
+							// report, the author/sender for reported content. Never
+							// object_id: on a post report that is the post's id, which
+							// would warn or eject whichever member happens to share it.
+							$reported_uid = (int) ( $report['offender_id'] ?? 0 );
+							$r_name       = ! empty( $report['offender_name'] )
 								? (string) $report['offender_name']
 								: __( 'Unknown', 'buddynext' );
-							$r_avatar_url = ( $is_user_rep && $reported_uid ) ? get_avatar_url( $reported_uid, array( 'size' => 80 ) ) : '';
+							$r_avatar_url = $reported_uid > 0 ? get_avatar_url( $reported_uid, array( 'size' => 80 ) ) : '';
 							$r_count      = (int) ( $report['reporter_count'] ?? 1 );
 							$r_strikes    = (int) ( $report['strikes_count'] ?? 0 );
 							$r_reason     = (string) ( $report['reason'] ?? '' );
@@ -396,15 +401,18 @@ $mod_privacy = array(
 											data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
 										><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Dismiss', 'buddynext' ); ?></button>
 
-										<button
-											type="button"
-											class="bn-btn"
-											data-variant="secondary"
-											data-size="sm"
-											data-wp-on--click="actions.warnMember"
-											data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
-											data-user-id="<?php echo esc_attr( (string) $reported_uid ); ?>"
-										><?php buddynext_icon( 'alert-triangle' ); ?> <?php esc_html_e( 'Warn', 'buddynext' ); ?></button>
+										<?php // Member-level actions only exist when the report has a resolvable offender — never render a button bound to user id 0, where the store's handlers early-return. ?>
+										<?php if ( $reported_uid > 0 ) : ?>
+											<button
+												type="button"
+												class="bn-btn"
+												data-variant="secondary"
+												data-size="sm"
+												data-wp-on--click="actions.warnMember"
+												data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
+												data-user-id="<?php echo esc_attr( (string) $reported_uid ); ?>"
+											><?php buddynext_icon( 'alert-triangle' ); ?> <?php esc_html_e( 'Warn', 'buddynext' ); ?></button>
+										<?php endif; ?>
 
 										<button
 											type="button"
@@ -416,17 +424,19 @@ $mod_privacy = array(
 											data-bn-confirm="<?php echo esc_attr( __( 'Remove this content? It will be hidden from the space.', 'buddynext' ) ); ?>"
 										><?php buddynext_icon( 'trash' ); ?> <?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
 
-										<button
-											type="button"
-											class="bn-btn"
-											data-variant="danger"
-											data-size="sm"
-											data-wp-on--click="actions.removeFromSpace"
-											data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
-											data-user-id="<?php echo esc_attr( (string) $reported_uid ); ?>"
-											data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
-											data-bn-confirm="<?php echo esc_attr( __( 'Remove this member from the space? This does not suspend their platform account.', 'buddynext' ) ); ?>"
-										><?php buddynext_icon( 'ban' ); ?> <?php esc_html_e( 'Remove from space', 'buddynext' ); ?></button>
+										<?php if ( $reported_uid > 0 ) : ?>
+											<button
+												type="button"
+												class="bn-btn"
+												data-variant="danger"
+												data-size="sm"
+												data-wp-on--click="actions.removeFromSpace"
+												data-report-id="<?php echo esc_attr( (string) $r_id ); ?>"
+												data-user-id="<?php echo esc_attr( (string) $reported_uid ); ?>"
+												data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
+												data-bn-confirm="<?php echo esc_attr( __( 'Remove this member from the space? This does not suspend their platform account.', 'buddynext' ) ); ?>"
+											><?php buddynext_icon( 'ban' ); ?> <?php esc_html_e( 'Remove from space', 'buddynext' ); ?></button>
+										<?php endif; ?>
 									</div>
 
 									<p class="bn-space-mod__report-note">

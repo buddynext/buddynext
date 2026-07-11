@@ -1007,37 +1007,57 @@ class ModerationService {
 	 *
 	 * Resolves the offender behind each report and, for that offender, their
 	 * active strike count, display name and registration date — all in bulk (one
-	 * query per concern for the whole page, never one per row):
-	 *   - 'user'    reports → the reported user (object_id).
-	 *   - 'message' reports → the DM's sender, batch-resolved from the messaging
-	 *                         store. Without this the queue emitted offender id 0
-	 *                         and every user-level action on a reported DM
-	 *                         silently no-opped.
-	 * Other types get offender_id 0, a 0 strike count and null name/joined so
-	 * every item carries a stable shape; the queue template fills in post/comment
-	 * authors from the excerpt map it already builds.
+	 * batched query per concern for the whole page, never one per row):
+	 *   - 'user'            → the reported user (object_id).
+	 *   - 'post'/'comment'  → the content's author.
+	 *   - 'message'         → the DM's sender, from the messaging store.
+	 * Anything else (e.g. a reported space) has no single offender and gets
+	 * offender_id 0, a 0 strike count and null name/joined, so every item still
+	 * carries a stable shape.
+	 *
+	 * offender_id is what every user-level action (warn / strike / suspend /
+	 * remove-from-space) binds to. Resolving it here — rather than in each
+	 * template — is what stops those actions from acting on the wrong user (or on
+	 * user id 0, where they silently no-op) and gives the REST queue the same
+	 * offender the server-rendered queue shows.
 	 *
 	 * @param array<int,array<string,mixed>> $items Hydrated queue items.
 	 * @return array<int,array<string,mixed>>
 	 */
 	private function enrich_queue_offenders( array $items ): array {
-		// Batch-resolve the sender of every reported DM on this page.
-		$message_ids = array();
+		// Group the object ids by type so each type costs one batched lookup.
+		$by_type = array(
+			'post'    => array(),
+			'comment' => array(),
+			'message' => array(),
+		);
 		foreach ( $items as $item ) {
-			if ( 'message' === ( $item['object_type'] ?? '' ) ) {
-				$message_ids[] = (int) $item['object_id'];
+			$type   = (string) ( $item['object_type'] ?? '' );
+			$obj_id = (int) ( $item['object_id'] ?? 0 );
+			if ( $obj_id > 0 && isset( $by_type[ $type ] ) ) {
+				$by_type[ $type ][] = $obj_id;
 			}
 		}
-		$message_senders = $this->get_message_sender_ids( $message_ids );
+
+		$authors = array(
+			'post'    => $this->get_authors_for( 'bn_posts', $by_type['post'] ),
+			'comment' => $this->get_authors_for( 'bn_comments', $by_type['comment'] ),
+			'message' => $this->get_message_sender_ids( $by_type['message'] ),
+		);
 
 		// The offender behind each row, keyed by item index.
 		$offender_ids = array();
 		foreach ( $items as $idx => $item ) {
-			$type                  = (string) ( $item['object_type'] ?? '' );
-			$obj_id                = (int) ( $item['object_id'] ?? 0 );
-			$offender_ids[ $idx ]  = 'user' === $type
-				? $obj_id
-				: ( 'message' === $type ? (int) ( $message_senders[ $obj_id ] ?? 0 ) : 0 );
+			$type   = (string) ( $item['object_type'] ?? '' );
+			$obj_id = (int) ( $item['object_id'] ?? 0 );
+
+			if ( 'user' === $type ) {
+				$offender_ids[ $idx ] = $obj_id;
+			} elseif ( isset( $authors[ $type ][ $obj_id ] ) ) {
+				$offender_ids[ $idx ] = (int) $authors[ $type ][ $obj_id ];
+			} else {
+				$offender_ids[ $idx ] = 0;
+			}
 		}
 
 		$user_ids = array();
@@ -1168,6 +1188,53 @@ class ModerationService {
 		}
 
 		return buddynext_can( $actor_id, 'buddynext-spaces/moderate', array( 'space_id' => $space_id ) );
+	}
+
+	/**
+	 * Batch-resolve the author of each reported post or comment.
+	 *
+	 * One query for the whole queue page, so the offender behind every content
+	 * report is known without a lookup inside the render loop.
+	 *
+	 * @param string $table  Unprefixed BuddyNext table — 'bn_posts' or 'bn_comments'.
+	 *                       Code-controlled: never accepts caller/user input.
+	 * @param int[]  $ids    Reported object IDs.
+	 * @return array<int,int> Map of object ID => author user ID (missing rows are omitted).
+	 */
+	private function get_authors_for( string $table, array $ids ): array {
+		if ( ! in_array( $table, array( 'bn_posts', 'bn_comments' ), true ) ) {
+			return array();
+		}
+
+		$ids = array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) );
+
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, user_id FROM {$wpdb->prefix}{$table} WHERE id IN ({$placeholders})",
+				...$ids
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$authors = array();
+		foreach ( (array) $rows as $row ) {
+			$author = (int) $row['user_id'];
+			if ( $author > 0 ) {
+				$authors[ (int) $row['id'] ] = $author;
+			}
+		}
+
+		return $authors;
 	}
 
 	/**

@@ -846,6 +846,23 @@ function buddynext_get_icon( string $name, string $css_class = '' ): string {
 }
 
 /**
+ * Icon markup for a space category.
+ *
+ * Prefers the category's admin-saved icon_svg and falls back to the built-in
+ * slug map, so a custom category shows the icon its owner chose instead of the
+ * generic default. Lives here, next to buddynext_get_icon(), because the space
+ * partials that call it are loaded under several different page templates.
+ *
+ * @param string|null $cat_slug Category slug, or null when the space has none.
+ * @param string|null $icon_svg The category's stored SVG, when the caller has
+ *                              the hydrated row to hand. Omit to look it up.
+ * @return string Sanitized SVG markup, safe to echo.
+ */
+function bn_space_category_icon( ?string $cat_slug, ?string $icon_svg = null ): string {
+	return \BuddyNext\Core\IconService::space_category_icon( $cat_slug, $icon_svg );
+}
+
+/**
  * Whether the site owner has the BuddyNext community navigation enabled.
  *
  * Controlled by the "Show community navigation" setting

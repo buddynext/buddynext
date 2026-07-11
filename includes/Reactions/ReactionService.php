@@ -234,7 +234,9 @@ class ReactionService {
 			return $emoji;
 		}
 
-		return (string) ( reset( $enabled ) ?: 'like' );
+		$first = reset( $enabled );
+
+		return ( false === $first || '' === $first ) ? 'like' : (string) $first;
 	}
 
 	/**

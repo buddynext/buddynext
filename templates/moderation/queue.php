@@ -119,8 +119,10 @@ if ( 'most_reported' === $sort_by ) {
 
 $urgent_count = count( array_filter( $reports, static fn( $r ) => (int) ( $r['report_count'] ?? 0 ) >= 3 ) );
 
-// Resolve display content (post/comment excerpts + author, space names) through
-// the owning services — both are cache-backed and capped at the 50-row queue.
+// Resolve display content (post/comment excerpts, space names) through the
+// owning services — both are cache-backed and capped at the 50-row queue. The
+// offender behind each report is NOT resolved here: the moderation service
+// batch-resolves it for every report type in one pass (see 'offender_id' below).
 $post_excerpts = array();
 $space_names   = array();
 foreach ( $reports as $rpt ) {
@@ -133,8 +135,7 @@ foreach ( $reports as $rpt ) {
 		$bn_mod_post = $bn_posts->get( $obj_id );
 		if ( null !== $bn_mod_post ) {
 			$post_excerpts[ $obj_id ] = array(
-				'content'   => (string) ( $bn_mod_post['content'] ?? '' ),
-				'author_id' => (int) ( $bn_mod_post['user_id'] ?? 0 ),
+				'content' => (string) ( $bn_mod_post['content'] ?? '' ),
 			);
 		}
 	} elseif ( 'space' === $obj_type && ! isset( $space_names[ $obj_id ] ) ) {
@@ -371,32 +372,33 @@ do_action( 'buddynext_moderation_queue_before' );
 				$severity = $severity_class( $report_count, $reason );
 				$rbadge   = $reason_badge( $reason );
 
-				// Determine offender identity — offender_name/offender_joined are
-				// supplied by the service's enrich pass for 'user' reports.
-				if ( 'user' === $obj_type ) {
-					$offender_name = (string) ( $report['offender_name'] ?? '' );
-					if ( '' === $offender_name ) {
-						$offender_name = __( 'Unknown user', 'buddynext' );
-					}
-					$offender_joined = (string) ( $report['offender_joined'] ?? '' );
-					$joined_date     = '' !== $offender_joined
-						? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( (int) strtotime( $offender_joined ), time() ) )
-						: '';
-				} else {
-					$offender_name = __( 'Reported content', 'buddynext' );
-					$joined_date   = '';
+				// Offender identity + the user ID the user-level actions (warn /
+				// strike / suspend) act on. All of it comes from the service's enrich
+				// pass, which batch-resolves the offender behind every report type —
+				// the reported user, a post/comment's author, or a DM's sender — so
+				// no lookup happens inside this loop and the name, the strike count
+				// and the action target always describe the same person.
+				// A report with no resolvable offender (e.g. a reported space) keeps
+				// offender_id 0, and its user-level buttons are not rendered at all.
+				$offender_id     = (int) ( $report['offender_id'] ?? 0 );
+				$offender_name   = (string) ( $report['offender_name'] ?? '' );
+				$offender_joined = (string) ( $report['offender_joined'] ?? '' );
+
+				if ( '' === $offender_name ) {
+					$offender_name = $offender_id > 0
+						? __( 'Unknown user', 'buddynext' )
+						: __( 'Reported content', 'buddynext' );
 				}
+
+				$joined_date = '' !== $offender_joined
+					? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( (int) strtotime( $offender_joined ), time() ) )
+					: '';
+
 				$offender_inits = AvatarService::initials_for( $offender_name );
 
-				// Offender user ID for user-level actions (warn / strike / suspend).
-				// user reports → the reported user; post/comment → content author.
-				if ( 'user' === $obj_type ) {
-					$offender_id = $obj_id;
-				} elseif ( isset( $post_excerpts[ $obj_id ]['author_id'] ) ) {
-					$offender_id = (int) $post_excerpts[ $obj_id ]['author_id'];
-				} else {
-					$offender_id = 0;
-				}
+				// The space the report came from. A site admin does not need it, but
+				// it is what authorises a space moderator to warn the offender.
+				$report_space_id = (int) ( $report['space_id'] ?? 0 );
 
 				// Verb describing what was reported.
 				$verb_map = array(
@@ -434,7 +436,7 @@ do_action( 'buddynext_moderation_queue_before' );
 					role="listitem"
 					data-severity="<?php echo esc_attr( $severity ); ?>"
 					data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
-					data-wp-context='{"reportId":<?php echo (int) $report_id; ?>,"userId":<?php echo (int) $offender_id; ?>}'
+					data-wp-context='{"reportId":<?php echo (int) $report_id; ?>,"userId":<?php echo (int) $offender_id; ?>,"spaceId":<?php echo (int) $report_space_id; ?>}'
 					aria-label="<?php echo esc_attr( sprintf( /* translators: %s: offender name. */ __( 'Report against %s', 'buddynext' ), $offender_name ) ); ?>">
 
 					<div class="bn-report-row__avatar">
@@ -611,41 +613,50 @@ do_action( 'buddynext_moderation_queue_before' );
 								</button>
 							<?php endif; ?>
 
-							<button type="button"
-								class="bn-btn"
-								data-variant="secondary"
-								data-size="sm"
-								data-wp-on--click="actions.warnUser"
-								data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
-								data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
-								<?php buddynext_icon( 'alert-triangle' ); ?>
-								<?php esc_html_e( 'Warn user', 'buddynext' ); ?>
-							</button>
-
-							<?php if ( buddynext_can( $current_user_id, 'buddynext-moderation/issue-strike' ) ) : ?>
+							<?php
+							// Warn / Strike / Suspend act on the OFFENDER, so they are
+							// only rendered when one was resolved. A row whose offender
+							// cannot be identified (a report on a deleted object, say)
+							// used to render all three bound to user id 0, where the
+							// store's handlers early-return — three dead buttons.
+							?>
+							<?php if ( $offender_id > 0 ) : ?>
 								<button type="button"
 									class="bn-btn"
 									data-variant="secondary"
 									data-size="sm"
-									data-wp-on--click="actions.strikeUser"
+									data-wp-on--click="actions.warnUser"
 									data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
 									data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
-									<?php buddynext_icon( 'zap' ); ?>
-									<?php esc_html_e( 'Strike user', 'buddynext' ); ?>
+									<?php buddynext_icon( 'alert-triangle' ); ?>
+									<?php esc_html_e( 'Warn user', 'buddynext' ); ?>
 								</button>
-							<?php endif; ?>
 
-							<?php if ( buddynext_can( $current_user_id, 'buddynext-moderation/suspend-user' ) ) : ?>
-								<button type="button"
-									class="bn-btn"
-									data-variant="danger"
-									data-size="sm"
-									data-wp-on--click="actions.suspendUser"
-									data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
-									data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
-									<?php buddynext_icon( 'ban' ); ?>
-									<?php esc_html_e( 'Suspend account', 'buddynext' ); ?>
-								</button>
+								<?php if ( buddynext_can( $current_user_id, 'buddynext-moderation/issue-strike' ) ) : ?>
+									<button type="button"
+										class="bn-btn"
+										data-variant="secondary"
+										data-size="sm"
+										data-wp-on--click="actions.strikeUser"
+										data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
+										data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
+										<?php buddynext_icon( 'zap' ); ?>
+										<?php esc_html_e( 'Strike user', 'buddynext' ); ?>
+									</button>
+								<?php endif; ?>
+
+								<?php if ( buddynext_can( $current_user_id, 'buddynext-moderation/suspend-user' ) ) : ?>
+									<button type="button"
+										class="bn-btn"
+										data-variant="danger"
+										data-size="sm"
+										data-wp-on--click="actions.suspendUser"
+										data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
+										data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
+										<?php buddynext_icon( 'ban' ); ?>
+										<?php esc_html_e( 'Suspend account', 'buddynext' ); ?>
+									</button>
+								<?php endif; ?>
 							<?php endif; ?>
 						</div>
 					</div>

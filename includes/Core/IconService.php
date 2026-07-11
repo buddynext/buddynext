@@ -223,10 +223,68 @@ class IconService {
 
 		$icon_svg = trim( (string) $icon_svg );
 		if ( '' !== $icon_svg ) {
-			return wp_kses( $icon_svg, self::allowed_tags() );
+			return wp_kses( $icon_svg, self::category_icon_allowed_tags() );
 		}
 
 		return self::render( self::CATEGORY_ICON_MAP[ $cat_slug ] ?? self::CATEGORY_ICON_DEFAULT );
+	}
+
+	/**
+	 * Allowlist (for wp_kses) covering an admin-supplied space-category icon_svg.
+	 *
+	 * A SUPERSET of allowed_tags(): it must accept everything
+	 * SpaceCategoryService::allowed_svg_tags() accepts on WRITE, or an icon the
+	 * admin legitimately saved (notably a <g> wrapper, and fill/stroke on
+	 * line/polyline) would be silently stripped on read and render wrong.
+	 *
+	 * This does not widen the trust boundary: the value in bn_space_categories.icon_svg
+	 * was already sanitized against that same allowlist when it was stored.
+	 *
+	 * @return array<string, array<string, bool>>
+	 */
+	private static function category_icon_allowed_tags(): array {
+		$shape = array(
+			'fill'            => true,
+			'stroke'          => true,
+			'stroke-width'    => true,
+			'stroke-linecap'  => true,
+			'stroke-linejoin' => true,
+			'class'           => true,
+		);
+
+		return array(
+			'svg'      => $shape + array(
+				'xmlns'       => true,
+				'viewbox'     => true,
+				'width'       => true,
+				'height'      => true,
+				'aria-hidden' => true,
+				'role'        => true,
+			),
+			'g'        => $shape,
+			'path'     => $shape + array( 'd' => true ),
+			'circle'   => $shape + array(
+				'cx' => true,
+				'cy' => true,
+				'r'  => true,
+			),
+			'rect'     => $shape + array(
+				'x'      => true,
+				'y'      => true,
+				'width'  => true,
+				'height' => true,
+				'rx'     => true,
+				'ry'     => true,
+			),
+			'line'     => $shape + array(
+				'x1' => true,
+				'y1' => true,
+				'x2' => true,
+				'y2' => true,
+			),
+			'polyline' => $shape + array( 'points' => true ),
+			'polygon'  => $shape + array( 'points' => true ),
+		);
 	}
 
 	/**
