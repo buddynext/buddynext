@@ -879,6 +879,61 @@ function buildEntryVisNode( group, index ) {
 	return field;
 }
 
+/* Build a blank entry for an admin-created (custom) repeater group by cloning the
+   server-rendered entry and resetting it. The server renders every repeater group
+   through the field-type engine and always emits at least one schema-bearing entry
+   (even when empty), so the clone reproduces the exact markup, styling and field
+   types with no hardcoded field map — this is what makes Add Entry work for groups
+   beyond the built-in Work Experience / Education. */
+function buildEntryNodeFromClone( group, index ) {
+	var container = document.getElementById( repeaterContainerId( group ) );
+	if ( ! container ) { return null; }
+	var seed = container.querySelector( '.bn-ep-repeater-entry' );
+	if ( ! seed ) { return null; }
+
+	var clone = seed.cloneNode( true );
+	clone.dataset.entryIndex = String( index );
+
+	var num = clone.querySelector( '.bn-ep-repeater-num' );
+	if ( num ) { num.textContent = String( index + 1 ); }
+
+	// Reindex control names group[old][key] -> group[index][key] so each entry is
+	// an independent checkbox/radio group, and clear the cloned values.
+	clone.querySelectorAll( 'input[name], textarea[name], select[name]' ).forEach( function ( el ) {
+		el.name = el.name.replace( /\[\d+\]/, '[' + index + ']' );
+		if ( 'checkbox' === el.type || 'radio' === el.type ) {
+			el.checked = false;
+		} else if ( 'SELECT' !== el.tagName ) {
+			el.value = '';
+		}
+		// The per-entry privacy <select> keeps its rendered default.
+	} );
+
+	// Keep ids/labels unique so a label click focuses THIS entry's control.
+	clone.querySelectorAll( '[id]' ).forEach( function ( el ) {
+		var newId = el.id.replace( /-\d+$/, '-' + index );
+		if ( newId === el.id ) { return; }
+		var lbl = clone.querySelector( 'label[for="' + el.id + '"]' );
+		el.id = newId;
+		if ( lbl ) { lbl.setAttribute( 'for', newId ); }
+	} );
+
+	// The server remove button binds via Interactivity (data-wp-on--click), which
+	// only hydrates initial HTML — a cloned button never fires it. Drop that
+	// attribute and wire an explicit handler, mirroring the built-in path.
+	var removeBtn = clone.querySelector( '.bn-ep-repeater-remove' );
+	if ( removeBtn ) {
+		removeBtn.removeAttribute( 'data-wp-on--click' );
+		removeBtn.dataset.entryIndex = String( index );
+		removeBtn.addEventListener( 'click', function () {
+			clone.remove();
+			renumberEntries( repeaterContainerId( group ) );
+		} );
+	}
+
+	return clone;
+}
+
 /* Build a blank repeater entry DOM node for a given group. */
 function buildEntryNode( group, index ) {
 	var groupConfig = {
@@ -912,7 +967,10 @@ function buildEntryNode( group, index ) {
 		},
 	};
 	var cfg = groupConfig[ group ];
-	if ( ! cfg ) { return null; }
+	// Custom (admin-created) repeater groups have no hardcoded config — build the
+	// blank entry from the server-rendered markup instead of giving up (which left
+	// Add Entry doing nothing for any group but Work Experience / Education).
+	if ( ! cfg ) { return buildEntryNodeFromClone( group, index ); }
 
 	// Required sub-field keys, read data-driven from the server-emitted
 	// data-bn-required-fields on the entries container, so a JS-added row shows
