@@ -139,9 +139,12 @@ class RegistrationService {
 			return;
 		}
 
-		update_user_meta(
+		// Writes BOTH the readable meta and the indexed lookup key. Writing the meta
+		// directly here would create an account that every future sign-in has to
+		// find by scanning, because it would carry no indexed key.
+		SocialLogin::link_identity(
 			$user_id,
-			'bn_social_' . sanitize_key( (string) $social['provider'] ) . '_id',
+			(string) $social['provider'],
 			(string) $social['uid']
 		);
 

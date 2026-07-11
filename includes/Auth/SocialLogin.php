@@ -239,8 +239,118 @@ class SocialLogin {
 			);
 		}
 
+		// Drop the indexed lookup key alongside the readable one. Leaving it behind
+		// would keep pointing this provider identity at a member who is no longer
+		// linked to it.
+		$identity = (string) get_user_meta( $user_id, 'bn_social_' . $provider . '_id', true );
+		$indexed  = self::identity_key( $provider, $identity );
+		if ( '' !== $indexed ) {
+			delete_user_meta( $user_id, $indexed );
+		}
+
 		delete_user_meta( $user_id, 'bn_social_' . $provider . '_id' );
 		return new \WP_REST_Response( array( 'unlinked' => true ), 200 );
+	}
+
+	/**
+	 * The INDEXED user-meta key for one provider identity.
+	 *
+	 * WordPress indexes usermeta.meta_key but NOT meta_value, so the natural lookup
+	 * ("find the row whose bn_social_google_id equals this id") narrows on the key
+	 * and then scans every row that carries it — every Google-linked member on the
+	 * site, on every single sign-in. At fleet scale (100k members, most on one
+	 * provider) that is a six-figure row scan per login.
+	 *
+	 * Putting the provider's id INTO the key makes the existing meta_key index do
+	 * the work: one indexed seek instead of a scan. Provider ids are far shorter
+	 * than the index's 191-character prefix, so the whole key is covered.
+	 *
+	 * The value-carrying `bn_social_{provider}_id` meta stays — unlink and the
+	 * linked-providers list read it, and it remains the human-readable record.
+	 *
+	 * @param string $provider    Provider id (e.g. 'google').
+	 * @param string $identity_id The provider's own user id.
+	 * @return string Meta key, or '' when the identity is empty.
+	 */
+	private static function identity_key( string $provider, string $identity_id ): string {
+		$provider    = sanitize_key( $provider );
+		$identity_id = trim( $identity_id );
+
+		if ( '' === $provider || '' === $identity_id ) {
+			return '';
+		}
+
+		// md5 keeps the key bounded and index-friendly whatever a provider emits.
+		// This is a lookup key, not a secret, so a fast digest is the right tool.
+		return 'bn_social_' . $provider . '_uid_' . md5( $identity_id );
+	}
+
+	/**
+	 * Which member owns this provider identity, if any?
+	 *
+	 * Tries the indexed key first. Falls back to the old unindexed scan for members
+	 * linked before the indexed key existed — and, on a hit, writes the indexed key
+	 * so that member is never scanned for again. The backfill is lazy and
+	 * self-healing: no migration, and the scan disappears as members sign in.
+	 *
+	 * @param string $provider    Provider id.
+	 * @param string $identity_id The provider's own user id.
+	 * @return int Owning user id, or 0 when nobody has linked this identity.
+	 */
+	private static function owner_of_identity( string $provider, string $identity_id ): int {
+		$indexed = self::identity_key( $provider, $identity_id );
+		if ( '' === $indexed ) {
+			return 0;
+		}
+
+		$hit = get_users(
+			array(
+				'meta_key' => $indexed, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- the point of this key is that it IS indexed.
+				'number'   => 1,
+				'fields'   => 'ID',
+			)
+		);
+
+		if ( ! empty( $hit ) ) {
+			return (int) $hit[0];
+		}
+
+		// Legacy row: linked before the indexed key existed.
+		$legacy = get_users(
+			array(
+				'meta_key'   => 'bn_social_' . sanitize_key( $provider ) . '_id', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_value' => $identity_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+				'number'     => 1,
+				'fields'     => 'ID',
+			)
+		);
+
+		if ( empty( $legacy ) ) {
+			return 0;
+		}
+
+		$owner = (int) $legacy[0];
+		update_user_meta( $owner, $indexed, 1 ); // Backfill, so this member is never scanned for again.
+
+		return $owner;
+	}
+
+	/**
+	 * Link a provider identity to a member — both the readable meta and the
+	 * indexed lookup key, so the two can never disagree.
+	 *
+	 * @param int    $user_id     Member.
+	 * @param string $provider    Provider id.
+	 * @param string $identity_id The provider's own user id.
+	 * @return void
+	 */
+	public static function link_identity( int $user_id, string $provider, string $identity_id ): void {
+		update_user_meta( $user_id, 'bn_social_' . sanitize_key( $provider ) . '_id', $identity_id );
+
+		$indexed = self::identity_key( $provider, $identity_id );
+		if ( '' !== $indexed ) {
+			update_user_meta( $user_id, $indexed, 1 );
+		}
 	}
 
 	/**
@@ -764,15 +874,7 @@ class SocialLogin {
 		// Who, if anyone, already owns this provider identity?
 		$owner = 0;
 		if ( '' !== $profile['id'] ) {
-			$linked = get_users(
-				array(
-					'meta_key'   => $meta_key, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
-					'meta_value' => $profile['id'], // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-					'number'     => 1,
-					'fields'     => 'ID',
-				)
-			);
-			$owner  = ! empty( $linked ) ? (int) $linked[0] : 0;
+			$owner = self::owner_of_identity( $id, (string) $profile['id'] );
 		}
 
 		// Connect flow — a logged-in member is linking this provider to their
@@ -783,7 +885,7 @@ class SocialLogin {
 			if ( $owner && $owner !== $current ) {
 				return new \WP_Error( 'bn_social_taken', __( 'That account is already linked to another member.', 'buddynext' ) );
 			}
-			update_user_meta( $current, $meta_key, $profile['id'] );
+			self::link_identity( (int) $current, $id, (string) $profile['id'] );
 			return $current;
 		}
 
