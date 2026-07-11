@@ -51,6 +51,59 @@ function rest( c, path, opts ) {
 	return restFetch( '/' + String( path ).replace( /^\//, '' ), init );
 }
 
+/**
+ * Fold the server-rendered custom registration fields into a REST body.
+ *
+ * Shared by the sign-up form and the finish-sign-up form (the social path, where
+ * the provider could not supply a field the owner marked required). Both render
+ * the same server-side markup, so both collect it the same way — the store never
+ * needs to know the fields up front.
+ *
+ * @param {HTMLFormElement|null} form The submitted form.
+ * @param {Object}               body REST body, mutated in place.
+ */
+function collectRegFields( form, body ) {
+	if ( ! form || ! form.querySelectorAll ) { return; }
+
+	form.querySelectorAll( '[data-bn-reg-field]' ).forEach( function ( el ) {
+		const name = el.getAttribute( 'name' );
+		if ( ! name ) { return; }
+
+		// Checkbox GROUP (multiselect / category_multiselect render name="key[]"):
+		// collect the checked values as an array under the bare key. Mirrors the
+		// profile-edit collector. A per-element assignment overwrote body[name]
+		// with whatever checkbox came last, so a multi-pick — and any REQUIRED
+		// multiselect — could never be submitted (permanent 422).
+		if ( 'checkbox' === el.type && /\[\]$/.test( name ) ) {
+			const groupKey = name.slice( 0, -2 );
+			if ( ! Array.isArray( body[ groupKey ] ) ) { body[ groupKey ] = []; }
+			if ( el.checked ) { body[ groupKey ].push( el.value ); }
+			return;
+		}
+		// Single checkbox (boolean field): the checked STATE is the value.
+		if ( 'checkbox' === el.type ) {
+			body[ name ] = el.checked ? ( el.value || '1' ) : '';
+			return;
+		}
+		// Radio group: only the checked option wins (default empty). Reading
+		// el.value per element made the LAST rendered option always win
+		// regardless of the user's pick (Zoho #40859).
+		if ( 'radio' === el.type ) {
+			if ( ! ( name in body ) ) { body[ name ] = ''; }
+			if ( el.checked ) { body[ name ] = el.value; }
+			return;
+		}
+		if ( el.multiple ) {
+			body[ name ] = Array.prototype.map.call(
+				el.selectedOptions || [],
+				function ( o ) { return o.value; }
+			);
+			return;
+		}
+		body[ name ] = el.value || '';
+	} );
+}
+
 function toast( message, tone ) {
 	if ( typeof window.bnToast === 'function' ) {
 		window.bnToast( message, tone || 'info' );
@@ -201,46 +254,8 @@ const signupStore = store( 'buddynext/auth-signup', {
 				// Forward any custom registration profile fields (rendered server-
 				// side, tagged data-bn-reg-field). Keeps the store generic: it does
 				// not need to know each field up front.
-				if ( regForm && regForm.querySelectorAll ) {
-					const regEls = regForm.querySelectorAll( '[data-bn-reg-field]' );
-					regEls.forEach( function ( el ) {
-						const name = el.getAttribute( 'name' );
-						if ( ! name ) { return; }
-						// Checkbox GROUP (multiselect / category_multiselect render
-						// name="key[]"): collect the checked values as an array under
-						// the bare key. Mirrors the profile-edit collector. The old
-						// per-element assignment overwrote body[name] with whatever
-						// checkbox came last, so a multi-pick — and any REQUIRED
-						// multiselect — could never be submitted (permanent 422).
-						if ( 'checkbox' === el.type && /\[\]$/.test( name ) ) {
-							const groupKey = name.slice( 0, -2 );
-							if ( ! Array.isArray( body[ groupKey ] ) ) { body[ groupKey ] = []; }
-							if ( el.checked ) { body[ groupKey ].push( el.value ); }
-							return;
-						}
-						// Single checkbox (boolean field): the checked STATE is the value.
-						if ( 'checkbox' === el.type ) {
-							body[ name ] = el.checked ? ( el.value || '1' ) : '';
-							return;
-						}
-						// Radio group: only the checked option wins (default empty).
-						// Reading el.value per element made the LAST rendered option
-						// always win regardless of the user's pick (Zoho #40859).
-						if ( 'radio' === el.type ) {
-							if ( ! ( name in body ) ) { body[ name ] = ''; }
-							if ( el.checked ) { body[ name ] = el.value; }
-							return;
-						}
-						if ( el.multiple ) {
-							body[ name ] = Array.prototype.map.call(
-								el.selectedOptions || [],
-								function ( o ) { return o.value; }
-							);
-							return;
-						}
-						body[ name ] = el.value || '';
-					} );
-				}
+				collectRegFields( regForm, body );
+
 				const r = yield rest( c, 'auth/register', {
 					method: 'POST',
 					body:   body,
@@ -254,6 +269,65 @@ const signupStore = store( 'buddynext/auth-signup', {
 					c.submitting = false;
 					return;
 				}
+				toast( t( 'accountCreated', 'Account created. Welcome aboard!' ), 'success' );
+				window.location.href = ( data && data.redirect_to ) || '/onboarding/';
+			} catch ( _e ) {
+				c.error = t( 'genericError', 'Something went wrong. Please try again.' );
+				c.submitting = false;
+			}
+		},
+
+		/**
+		 * Finish a parked social sign-up.
+		 *
+		 * The provider gave us an email; it could not give us terms consent or a
+		 * profile field the owner marked required. No account exists yet — it is
+		 * created only when this submits.
+		 *
+		 * @param {Event} event Submit event.
+		 */
+		* submitComplete( event ) {
+			if ( event && typeof event.preventDefault === 'function' ) {
+				event.preventDefault();
+			}
+			const regForm = event && event.target ? event.target : null;
+			const c = ctx();
+			if ( c.submitting ) { return; }
+
+			c.submitting = true;
+			c.error = '';
+			c.fieldErrors = {};
+
+			try {
+				const body = {
+					pending_token: c.pendingToken || '',
+					terms_agreed:  !! c.termsAgreed,
+				};
+				collectRegFields( regForm, body );
+
+				const r = yield rest( c, 'auth/register/complete', {
+					method: 'POST',
+					body:   body,
+				} );
+				const data = r.data;
+
+				if ( ! r.ok || ! ( data && data.success ) ) {
+					if ( data && data.data && data.data.fields ) {
+						c.fieldErrors = data.data.fields;
+					}
+					c.error = ( data && data.message ) || t( 'createFailed', 'Could not create your account.' );
+					c.submitting = false;
+					return;
+				}
+
+				// Admin-approval mode: the account exists but is held for review.
+				if ( data.pending ) {
+					c.submitting = false;
+					c.error = '';
+					toast( data.message || t( 'awaitingApproval', 'Your account is awaiting administrator approval.' ), 'success' );
+					return;
+				}
+
 				toast( t( 'accountCreated', 'Account created. Welcome aboard!' ), 'success' );
 				window.location.href = ( data && data.redirect_to ) || '/onboarding/';
 			} catch ( _e ) {

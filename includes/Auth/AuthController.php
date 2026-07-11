@@ -154,6 +154,29 @@ class AuthController {
 			)
 		);
 
+		// Finish a parked social sign-up: collect the things OAuth cannot supply
+		// (terms consent, required profile fields), then create the account.
+		register_rest_route(
+			'buddynext/v1',
+			'/auth/register/complete',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'register_complete' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'pending_token' => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+					'terms_agreed'  => array(
+						'required' => false,
+						'type'     => 'boolean',
+						'default'  => false,
+					),
+				),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/auth/lost-password',
@@ -1133,6 +1156,107 @@ class AuthController {
 				'reg_token'      => RegistrationGuard::issue_token(),
 				'honeypot_field' => RegistrationGuard::honeypot_field(),
 				'challenge'      => $challenge,
+			),
+			200
+		);
+	}
+
+	/**
+	 * POST /auth/register/complete — finish a parked social sign-up.
+	 *
+	 * OAuth gives us an email and a name. It cannot give us terms consent, or the
+	 * profile fields the owner marked required at registration. Rather than create
+	 * the account anyway and patch the gaps afterwards — the ordering that produced
+	 * the admin-approval bypass — the provider profile was parked and we collect
+	 * the rest here. Only now does the member get created.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function register_complete( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$token   = (string) $request->get_param( 'pending_token' );
+		$pending = PendingSignup::get( $token );
+
+		if ( null === $pending ) {
+			return new WP_Error(
+				'bn_pending_expired',
+				__( 'Your sign-up session expired. Please start again.', 'buddynext' ),
+				array( 'status' => 410 )
+			);
+		}
+
+		$policy = buddynext_service( 'registration_policy' );
+		$params = array_merge( $request->get_params(), array( 'email' => (string) $pending['email'] ) );
+
+		// Re-check the access policy: the community may have closed, or the owner
+		// may have tightened the allowlist, since the sign-up was parked.
+		$access = $policy->check_access( (string) $pending['email'], null, RegistrationPolicy::SOURCE_SOCIAL );
+		if ( is_wp_error( $access ) ) {
+			return new WP_Error(
+				$access->get_error_code(),
+				$access->get_error_message(),
+				array( 'status' => 403 )
+			);
+		}
+
+		$errors = array();
+		foreach ( $policy->missing( $params ) as $requirement ) {
+			if ( 'terms' === $requirement ) {
+				$errors['terms_agreed'] = __( 'You must accept the Terms of Service to continue.', 'buddynext' );
+				continue;
+			}
+			/* translators: %s: profile field label. */
+			$errors[ $requirement ] = sprintf( __( '%s is required.', 'buddynext' ), $policy->label_for( $requirement ) );
+		}
+
+		$values = $policy->validate_data( $params );
+		if ( is_wp_error( $values ) ) {
+			$errors = array_merge( $errors, (array) ( $values->get_error_data()['fields'] ?? array() ) );
+		}
+
+		if ( ! empty( $errors ) ) {
+			return new WP_Error(
+				'rest_registration_failed',
+				__( 'Please correct the errors below.', 'buddynext' ),
+				array(
+					'status' => 422,
+					'fields' => $errors,
+				)
+			);
+		}
+
+		// Spend the token before creating anything: a replayed submit must not be
+		// able to mint a second member from the same parked sign-up.
+		PendingSignup::consume( $token );
+
+		$user_id = ( new SocialLogin() )->create_member( $pending, $params );
+		if ( is_wp_error( $user_id ) ) {
+			return new WP_Error(
+				'rest_registration_failed',
+				$user_id->get_error_message(),
+				array( 'status' => 500 )
+			);
+		}
+
+		$session = buddynext_service( 'session' )->start( (int) $user_id, true );
+
+		if ( is_wp_error( $session ) && 'bn_pending_approval' === $session->get_error_code() ) {
+			return new WP_REST_Response(
+				array(
+					'success' => true,
+					'pending' => true,
+					'user_id' => (int) $user_id,
+					'message' => __( 'Your account was created and is awaiting administrator approval.', 'buddynext' ),
+				),
+				200
+			);
+		}
+
+		return new WP_REST_Response(
+			array(
+				'success'     => true,
+				'user_id'     => (int) $user_id,
+				'redirect_to' => esc_url_raw( self::post_register_redirect() ),
 			),
 			200
 		);

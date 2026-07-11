@@ -1312,6 +1312,9 @@ class PageRouter {
 				$auth_action = (string) get_query_var( 'bn_auth_action', '' );
 				switch ( $auth_action ) {
 					case 'signup':
+					case 'complete':
+						// The finish-signup form reuses the signup store: same field
+						// collection, same inline 422 handling, different endpoint.
 						wp_enqueue_script_module( '@buddynext/auth-signup' );
 						break;
 					case 'verify':
@@ -1555,6 +1558,8 @@ class PageRouter {
 				switch ( $auth_action ) {
 					case 'signup':
 						return 'auth/signup.php';
+					case 'complete':
+						return 'auth/complete.php';
 					case 'verify':
 						return 'auth/verify.php';
 					case 'reset':
@@ -1952,6 +1957,13 @@ class PageRouter {
 		add_rewrite_rule(
 			'^' . preg_quote( $a, '/' ) . '/verify/?$',
 			'index.php?bn_hub=auth&bn_auth_action=verify',
+			'top'
+		);
+		// Finish a social sign-up that the provider could not complete on its own
+		// (terms consent, required profile fields). No account exists yet.
+		add_rewrite_rule(
+			'^' . preg_quote( $a, '/' ) . '/complete/?$',
+			'index.php?bn_hub=auth&bn_auth_action=complete',
 			'top'
 		);
 		add_rewrite_rule(
