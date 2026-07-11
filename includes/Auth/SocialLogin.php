@@ -899,15 +899,38 @@ class SocialLogin {
 	 * @return string
 	 */
 	private function unique_login( string $email ): string {
-		$base  = sanitize_user( current( explode( '@', $email ) ), true );
-		$base  = '' !== $base ? $base : 'member';
-		$login = $base;
-		$n     = 1;
-		while ( username_exists( $login ) ) {
-			++$n;
-			$login = $base . $n;
+		global $wpdb;
+
+		$base = sanitize_user( current( explode( '@', $email ) ), true );
+		$base = '' !== $base ? $base : 'member';
+
+		if ( ! username_exists( $base ) ) {
+			return $base;
 		}
-		return $login;
+
+		// One query, not N. This used to be `while ( username_exists( $login ) )`
+		// with an incrementing suffix — a query per collision, unbounded, growing
+		// with the site. Corporate domains collide hard on the SAME local part
+		// (info@, admin@, contact@, hello@, sales@), so a community that has
+		// accumulated N members called info* paid N queries on the next info@
+		// sign-up.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$taken = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT user_login FROM {$wpdb->users} WHERE user_login LIKE %s",
+				$wpdb->esc_like( $base ) . '%'
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$taken = array_flip( array_map( 'strval', (array) $taken ) );
+
+		$n = 2;
+		while ( isset( $taken[ $base . $n ] ) ) {
+			++$n;
+		}
+
+		return $base . $n;
 	}
 
 	/**
