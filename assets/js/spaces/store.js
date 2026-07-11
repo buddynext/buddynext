@@ -1514,6 +1514,43 @@ var storeInstance = store( 'buddynext/spaces', {
 			}
 		},
 
+		/**
+		 * Restore an archived space — the way back out of Archive.
+		 *
+		 * The REST route (DELETE /spaces/{id}/archive) already existed; nothing in the
+		 * front end ever called it, so a member-owner who archived a space had no way
+		 * to reopen it. wp-admin's unarchive is gated on manage_options, which a
+		 * member-owner does not have, leaving permanent Delete as their only exit.
+		 *
+		 * No confirm modal: unlike Archive and Delete, restoring is not destructive.
+		 *
+		 * @param {Event} event Click event from the Restore button.
+		 */
+		unarchiveSpace: async function ( event ) {
+			var btn = event && event.target && event.target.closest( 'button' );
+			if ( ! btn ) { return; }
+			var spaceId = btn.getAttribute( 'data-space-id' );
+			if ( ! spaceId ) { return; }
+			btn.disabled = true;
+			try {
+				var res = await restFetch( '/spaces/' + spaceId + '/archive', {
+					method:  'DELETE',
+					nonce:   resolveNonce(),
+					toastOnError: false,
+				} );
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( t( 'spaceRestored', 'Space restored.' ), 'success' ); }
+					setTimeout( function () { window.location.reload(); }, 500 );
+				} else {
+					btn.disabled = false;
+					if ( window.bnToast ) { window.bnToast( t( 'couldNotRestore', 'Could not restore the space. Try again.' ), 'danger' ); }
+				}
+			} catch ( _e ) {
+				btn.disabled = false;
+				if ( window.bnToast ) { window.bnToast( t( 'couldNotRestore', 'Could not restore the space. Try again.' ), 'danger' ); }
+			}
+		},
+
 		/* ── Settings: reactive sticky savebar ─────────────────────────────
 		 *
 		 * Replaces the old imperative showState() dataset/.hidden paint loop.

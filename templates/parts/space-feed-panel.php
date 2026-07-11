@@ -101,8 +101,32 @@ if ( '' !== $bn_wrap_class ) {
 ?>
 
 <?php if ( $bn_is_archived ) : ?>
+	<?php
+	/*
+	 * Someone who can reopen the space should be told so here, at the point they
+	 * notice it is frozen — not left to hunt for it. Archive is reversible, and
+	 * the notice used to read like a dead end.
+	 */
+	$bn_can_restore = $bn_viewer_id > 0 && buddynext_can(
+		$bn_viewer_id,
+		'buddynext-spaces/manage-settings',
+		array( 'space_id' => $bn_space_id )
+	);
+	?>
 	<div class="bn-notice" role="status">
 		<?php esc_html_e( 'This space is archived. You can still read past activity, but new posts, comments, and joins are disabled.', 'buddynext' ); ?>
+		<?php if ( $bn_can_restore ) : ?>
+			<?php
+			$bn_space_slug = is_array( $args['space'] )
+				? (string) ( $args['space']['slug'] ?? '' )
+				: (string) ( $args['space']->slug ?? '' );
+			?>
+			<?php if ( '' !== $bn_space_slug ) : ?>
+				<a class="bn-notice__cta" href="<?php echo esc_url( buddynext_space_url( $bn_space_slug ) . 'settings/#danger' ); ?>">
+					<?php esc_html_e( 'Restore this space', 'buddynext' ); ?>
+				</a>
+			<?php endif; ?>
+		<?php endif; ?>
 	</div>
 <?php endif; ?>
 

@@ -994,6 +994,8 @@ class AssetService {
 					'couldNotSavePermissions'         => __( 'Could not save permissions.', 'buddynext' ),
 					'spaceArchived'                   => __( 'Space archived.', 'buddynext' ),
 					'couldNotArchive'                 => __( 'Could not archive the space. Try again.', 'buddynext' ),
+					'spaceRestored'                   => __( 'Space restored.', 'buddynext' ),
+					'couldNotRestore'                 => __( 'Could not restore the space. Try again.', 'buddynext' ),
 					'couldNotUpdateNotifPref'         => __( 'Could not update notification preference.', 'buddynext' ),
 					'notifPrefSaved'                  => __( 'Notification preference saved.', 'buddynext' ),
 					'enterUsernameOrEmail'            => __( 'Enter a username or email address.', 'buddynext' ),

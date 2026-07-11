@@ -46,6 +46,9 @@ if ( ! $bn_space ) {
 
 $bn_perms           = (array) $args['permissions'];
 $bn_space_id        = isset( $bn_perms['space_id'] ) ? (int) $bn_perms['space_id'] : 0;
+// Drives the Archive/Restore swap below — the space row is the authority here
+// (it may be an array or an object depending on the caller).
+$bn_is_archived     = ! empty( is_array( $bn_space ) ? ( $bn_space['is_archived'] ?? 0 ) : ( $bn_space->is_archived ?? 0 ) );
 $bn_space_name      = isset( $bn_perms['space_name'] ) ? (string) $bn_perms['space_name'] : '';
 $bn_xfer_candidates = isset( $bn_perms['xfer_candidates'] ) && is_array( $bn_perms['xfer_candidates'] )
 	? $bn_perms['xfer_candidates']
@@ -93,20 +96,45 @@ do_action( 'buddynext_part_space_settings_panel_danger_before', $args );
 			><?php esc_html_e( 'Transfer ownership', 'buddynext' ); ?></button>
 		</div>
 
-		<div class="bn-space-settings__danger-row">
-			<div>
-				<div class="bn-space-settings__danger-title"><?php esc_html_e( 'Archive space', 'buddynext' ); ?></div>
-				<div class="bn-space-settings__danger-desc"><?php esc_html_e( 'Make the space read-only. Members can still view posts but new activity is disabled.', 'buddynext' ); ?></div>
+		<?php
+		/*
+		 * Archive is reversible, so the control has to be. Rendering "Archive space"
+		 * unconditionally left a member-owner with no way back: archiving again is a
+		 * server-side no-op, wp-admin's unarchive is gated on manage_options, and the
+		 * only remaining button was the permanent Delete. Show Restore once archived.
+		 */
+		?>
+		<?php if ( $bn_is_archived ) : ?>
+			<div class="bn-space-settings__danger-row">
+				<div>
+					<div class="bn-space-settings__danger-title"><?php esc_html_e( 'Restore space', 'buddynext' ); ?></div>
+					<div class="bn-space-settings__danger-desc"><?php esc_html_e( 'Reopen the space. Members can post and join again.', 'buddynext' ); ?></div>
+				</div>
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="secondary"
+					data-size="md"
+					data-wp-on--click="actions.unarchiveSpace"
+					data-space-id="<?php echo esc_attr( (string) $bn_space_id ); ?>"
+				><?php esc_html_e( 'Restore space', 'buddynext' ); ?></button>
 			</div>
-			<button
-				type="button"
-				class="bn-btn"
-				data-variant="secondary"
-				data-size="md"
-				data-wp-on--click="actions.openArchiveSpaceModal"
-				data-space-id="<?php echo esc_attr( (string) $bn_space_id ); ?>"
-			><?php esc_html_e( 'Archive space', 'buddynext' ); ?></button>
-		</div>
+		<?php else : ?>
+			<div class="bn-space-settings__danger-row">
+				<div>
+					<div class="bn-space-settings__danger-title"><?php esc_html_e( 'Archive space', 'buddynext' ); ?></div>
+					<div class="bn-space-settings__danger-desc"><?php esc_html_e( 'Make the space read-only. Members can still view posts but new activity is disabled. You can restore it later.', 'buddynext' ); ?></div>
+				</div>
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="secondary"
+					data-size="md"
+					data-wp-on--click="actions.openArchiveSpaceModal"
+					data-space-id="<?php echo esc_attr( (string) $bn_space_id ); ?>"
+				><?php esc_html_e( 'Archive space', 'buddynext' ); ?></button>
+			</div>
+		<?php endif; ?>
 
 		<div class="bn-space-settings__danger-row">
 			<div>
