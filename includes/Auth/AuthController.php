@@ -255,9 +255,15 @@ class AuthController {
 				'callback'            => array( $this, 'change_password' ),
 				'permission_callback' => array( $this, 'require_auth' ),
 				'args'                => array(
+					// Not required at the route: a social-only member has never been
+					// given a password, so demanding the current one would make setting
+					// a first password impossible — the trap that let them delete their
+					// only way in. change_password() still requires it for everyone who
+					// actually has a password.
 					'current_password' => array(
-						'required' => true,
+						'required' => false,
 						'type'     => 'string',
+						'default'  => '',
 					),
 					'new_password'     => array(
 						'required' => true,
@@ -385,10 +391,21 @@ class AuthController {
 			);
 		}
 
-		if ( '' === trim( $current ) ) {
-			$errors['current_password'] = __( 'Enter your current password.', 'buddynext' );
-		} elseif ( ! wp_check_password( $current, $user->user_pass, $user_id ) ) {
-			$errors['current_password'] = __( 'Current password does not match.', 'buddynext' );
+		// A member who signed up through a social provider has never chosen a password
+		// — create_member() gives the account a random one and never shows it to them.
+		// Demanding the "current" password would make setting one impossible, which is
+		// exactly what left social-only members unable to ever leave their provider.
+		// With no password they know, this is a SET, not a CHANGE — and they are
+		// already authenticated, which is the same standing every other password change
+		// relies on.
+		$is_first_password = ! self::has_known_password( $user_id );
+
+		if ( ! $is_first_password ) {
+			if ( '' === trim( $current ) ) {
+				$errors['current_password'] = __( 'Enter your current password.', 'buddynext' );
+			} elseif ( ! wp_check_password( $current, $user->user_pass, $user_id ) ) {
+				$errors['current_password'] = __( 'Current password does not match.', 'buddynext' );
+			}
 		}
 
 		if ( '' === trim( $candidate ) ) {
@@ -410,6 +427,7 @@ class AuthController {
 		}
 
 		wp_set_password( $candidate, $user_id );
+		self::mark_password_known( $user_id );
 
 		// wp_set_password() destroys all session tokens — re-authenticate so the
 		// current request's cookie stays valid for the response/redirect chain.
@@ -589,6 +607,45 @@ class AuthController {
 	 *                       the failure is a credential failure the caller should
 	 *                       answer with its generic 401.
 	 */
+	/**
+	 * User meta recording that the member chose their own password.
+	 *
+	 * WordPress always stores a password hash, so the hash cannot tell us whether
+	 * the member has ever SEEN a password: a social sign-up is created with a
+	 * random one that is never shown to them. This marker is the only honest way to
+	 * answer "can this person actually sign in with a password?", which is what
+	 * stands between a social-only member and locking themselves out for good.
+	 */
+	private const META_PASSWORD_SET = 'bn_password_set';
+
+	/**
+	 * Whether the member has a password they actually know.
+	 *
+	 * False for an account created through a social provider that has never set
+	 * one. Also false for accounts that predate this marker — deliberately, and on
+	 * the safe side: the cost of a false negative is one extra "set a password"
+	 * step, while a false positive would let someone delete their last way in.
+	 *
+	 * @param int $user_id Member.
+	 * @return bool True when a password the member chose is on file.
+	 */
+	public static function has_known_password( int $user_id ): bool {
+		return (bool) get_user_meta( $user_id, self::META_PASSWORD_SET, true );
+	}
+
+	/**
+	 * Record that the member now has a password they chose themselves.
+	 *
+	 * Called from every path where a member sets one: signup, change-password, and
+	 * a reset. Once this is set, unlinking their last social provider is safe.
+	 *
+	 * @param int $user_id Member.
+	 * @return void
+	 */
+	public static function mark_password_known( int $user_id ): void {
+		update_user_meta( $user_id, self::META_PASSWORD_SET, 1 );
+	}
+
 	private static function authenticate_gate_error( WP_Error $error, string $user_input, string $password ): ?WP_Error {
 		$gate_codes = array(
 			// The account exists and is held for administrator approval.
@@ -1105,6 +1162,13 @@ class AuthController {
 			);
 		}
 
+		// This member typed their own password, so they can always get back in with
+		// it. Social sign-ups go through the same RegistrationService door but are
+		// handed a random password they never see — which is why the marker is set
+		// here, at the door where a password is actually chosen, and not inside the
+		// shared pipeline.
+		self::mark_password_known( (int) $user_id );
+
 		// Email verification is handled by VerificationListener::on_user_register,
 		// which wp_create_user() inside the pipeline already triggered via the
 		// user_register hook. Do NOT create a token here as well.
@@ -1498,6 +1562,7 @@ class AuthController {
 		}
 
 		reset_password( $user, $password );
+		self::mark_password_known( (int) $user->ID );
 
 		return new WP_REST_Response(
 			array(

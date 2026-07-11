@@ -220,8 +220,54 @@ class SocialLogin {
 	 */
 	public function rest_unlink( \WP_REST_Request $request ): \WP_REST_Response {
 		$provider = sanitize_key( (string) $request['provider'] );
-		delete_user_meta( get_current_user_id(), 'bn_social_' . $provider . '_id' );
+		$user_id  = get_current_user_id();
+
+		// Refuse to delete the member's LAST credential. A social sign-up is created
+		// with a random password it never shows anyone (see create_member), so a
+		// Google-only member who unlinks Google is left with no way in: they cannot
+		// sign in, and they cannot even change their password because they do not
+		// know the current one. They would have to guess that a "forgot password"
+		// flow exists for a password they never had.
+		if ( self::is_last_credential( $user_id, $provider ) ) {
+			return new \WP_REST_Response(
+				array(
+					'unlinked' => false,
+					'code'     => 'bn_last_credential',
+					'message'  => __( 'This is the only way you can sign in. Set a password first, then you can unlink it.', 'buddynext' ),
+				),
+				409
+			);
+		}
+
+		delete_user_meta( $user_id, 'bn_social_' . $provider . '_id' );
 		return new \WP_REST_Response( array( 'unlinked' => true ), 200 );
+	}
+
+	/**
+	 * Would unlinking this provider leave the member with no way to sign in?
+	 *
+	 * True when it is their last linked provider AND they have no password they
+	 * actually know. WordPress always stores a hash, so the hash cannot tell us
+	 * this — a social sign-up is given a random one it never reveals. The
+	 * `bn_password_set` marker records that the member chose the password
+	 * themselves (at signup, on change, or via a reset).
+	 *
+	 * @param int    $user_id  Member being changed.
+	 * @param string $provider Provider about to be unlinked.
+	 * @return bool True when the unlink would strand them.
+	 */
+	public static function is_last_credential( int $user_id, string $provider ): bool {
+		if ( \BuddyNext\Auth\AuthController::has_known_password( $user_id ) ) {
+			return false; // They can still sign in with a password.
+		}
+
+		foreach ( self::linked_for( $user_id ) as $id => $linked ) {
+			if ( $linked && $id !== $provider ) {
+				return false; // Another provider still gets them in.
+			}
+		}
+
+		return true;
 	}
 
 	/**
