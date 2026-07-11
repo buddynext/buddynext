@@ -1350,6 +1350,16 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
+	overflow: hidden;
+}
+
+/* When the commenter has a real avatar, the image fills the circle; the accent
+   background + initials remain the fallback when no image is rendered. */
+.bn-comment__avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
 }
 
 .bn-comment__body {

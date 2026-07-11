@@ -204,11 +204,30 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		wrap.classList.add( 'bn-comment-card--deleted' );
 	}
 
-	// Avatar initials.
+	// Avatar: the member's avatar image when the REST payload provides one
+	// (author_avatar_url, BN-managed via AvatarService), with the initials circle
+	// as the fallback — mirroring how post bylines render. Previously comments
+	// only ever showed initials, so a member's real avatar never appeared.
 	const avatar = document.createElement( 'div' );
 	avatar.className = 'bn-comment__avatar';
 	avatar.setAttribute( 'aria-hidden', 'true' );
-	avatar.textContent = ( comment.author_name || 'U' ).split( ' ' ).map( ( w ) => w[ 0 ] || '' ).join( '' ).slice( 0, 2 ).toUpperCase();
+	const initials = ( comment.author_name || 'U' ).split( ' ' ).map( ( w ) => w[ 0 ] || '' ).join( '' ).slice( 0, 2 ).toUpperCase();
+	if ( comment.author_avatar_url ) {
+		const img = document.createElement( 'img' );
+		img.src    = comment.author_avatar_url;
+		img.alt    = '';
+		img.width  = 32;
+		img.height = 32;
+		img.loading = 'lazy';
+		// Fall back to initials if the avatar URL fails to load.
+		img.addEventListener( 'error', function () {
+			img.remove();
+			avatar.textContent = initials;
+		} );
+		avatar.appendChild( img );
+	} else {
+		avatar.textContent = initials;
+	}
 	wrap.appendChild( avatar );
 
 	const body = document.createElement( 'div' );
