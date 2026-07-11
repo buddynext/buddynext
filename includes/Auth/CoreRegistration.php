@@ -40,6 +40,11 @@ class CoreRegistration {
 	public const OPT_ALLOW = 'buddynext_allow_core_registration';
 
 	/**
+	 * admin-post action that reconciles users_can_register to the BuddyNext mode.
+	 */
+	private const ACTION_RECONCILE = 'buddynext_reconcile_registration';
+
+	/**
 	 * Wire the hooks.
 	 *
 	 * @return void
@@ -53,6 +58,118 @@ class CoreRegistration {
 		// WP-CLI or by code never reached the core flag.
 		add_action( 'update_option_buddynext_reg_mode', array( $this, 'sync_core_registration' ), 10, 2 );
 		add_action( 'add_option_buddynext_reg_mode', array( $this, 'sync_core_registration' ), 10, 2 );
+
+		// The mirror only fires when the mode CHANGES, so the two can drift: another
+		// plugin (or Settings -> General) flips users_can_register and nothing ever
+		// reconciles it. reg_mode=open + users_can_register=0 means every signup is
+		// refused while the owner sees "Open" selected — silent lost registrations.
+		// Surface the mismatch and offer to fix it; do NOT force-write it back, which
+		// is the override this class exists to have stopped doing.
+		add_action( 'admin_notices', array( $this, 'render_desync_notice' ) );
+		add_action( 'admin_post_' . self::ACTION_RECONCILE, array( $this, 'handle_reconcile' ) );
+	}
+
+	/**
+	 * Whether BuddyNext's registration mode and WP's users_can_register disagree.
+	 *
+	 * They disagree when core would refuse a signup BuddyNext believes is open (or
+	 * the reverse). Either way the owner's stated intent is not what the site does.
+	 *
+	 * @return bool True when the two settings contradict each other.
+	 */
+	public static function is_desynced(): bool {
+		$mode     = (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() );
+		$expected = 'closed' === $mode ? '0' : '1';
+		$actual   = (string) get_option( 'users_can_register', '0' );
+
+		// Normalise: users_can_register is stored as '0'/'1' but can arrive as bool/int.
+		return $expected !== ( $actual ? '1' : '0' );
+	}
+
+	/**
+	 * Warn the owner when the two registration settings contradict each other.
+	 *
+	 * Rendered on every admin screen, not just BuddyNext's — a site silently
+	 * refusing every registration is worth interrupting whatever the owner is
+	 * doing, and they will not think to look at the Registration tab precisely
+	 * because it shows the mode they expect.
+	 *
+	 * @return void
+	 */
+	public function render_desync_notice(): void {
+		if ( ! current_user_can( 'manage_options' ) || ! self::is_desynced() ) {
+			return;
+		}
+
+		$mode         = (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() );
+		$core_open    = (bool) get_option( 'users_can_register', false );
+		$bn_wants_off = ( 'closed' === $mode );
+
+		$explain = $bn_wants_off
+			? __( 'BuddyNext registration is set to Closed, but WordPress still allows anyone to register. New accounts can still be created.', 'buddynext' )
+			: __( 'WordPress registration is switched off, so every signup is being refused — even though BuddyNext shows registration as open. Members trying to join are being turned away.', 'buddynext' );
+
+		$action = $bn_wants_off
+			? __( 'Turn WordPress registration off', 'buddynext' )
+			: __( 'Turn WordPress registration on', 'buddynext' );
+		?>
+		<div class="notice notice-error">
+			<p>
+				<strong><?php esc_html_e( 'BuddyNext: your registration settings disagree.', 'buddynext' ); ?></strong>
+				<?php echo esc_html( $explain ); ?>
+			</p>
+			<p>
+				<?php
+				printf(
+					/* translators: 1: BuddyNext registration mode, 2: WordPress "Anyone can register" state. */
+					esc_html__( 'BuddyNext mode: %1$s. WordPress "Anyone can register": %2$s.', 'buddynext' ),
+					'<code>' . esc_html( $mode ) . '</code>', // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
+					'<code>' . esc_html( $core_open ? __( 'on', 'buddynext' ) : __( 'off', 'buddynext' ) ) . '</code>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inline.
+				);
+				?>
+			</p>
+			<p>
+				<a class="button button-primary" href="<?php echo esc_url( self::reconcile_url() ); ?>">
+					<?php echo esc_html( $action ); ?>
+				</a>
+			</p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Nonce-protected URL that reconciles WP's flag to BuddyNext's mode.
+	 *
+	 * @return string
+	 */
+	private static function reconcile_url(): string {
+		return wp_nonce_url(
+			admin_url( 'admin-post.php?action=' . self::ACTION_RECONCILE ),
+			self::ACTION_RECONCILE
+		);
+	}
+
+	/**
+	 * Apply the owner's decision: set users_can_register to match the BN mode.
+	 *
+	 * Only ever runs from an explicit click on the notice — the owner is choosing
+	 * the reconciliation, which is why this is safe where the old unconditional
+	 * force-write was not.
+	 *
+	 * @return void
+	 */
+	public function handle_reconcile(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'buddynext' ), '', array( 'response' => 403 ) );
+		}
+
+		check_admin_referer( self::ACTION_RECONCILE );
+
+		$mode = (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() );
+		update_option( 'users_can_register', 'closed' === $mode ? '0' : '1' );
+
+		wp_safe_redirect( wp_get_referer() ? wp_get_referer() : admin_url() );
+		exit;
 	}
 
 	/**
