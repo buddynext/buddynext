@@ -503,6 +503,16 @@ function collectFlatData( wrap ) {
 			return;
 		}
 
+		// <select multiple> (Pro multi_select_advanced renders name="key[]"):
+		// el.value returns only the FIRST selected option, so 2+ picks collapsed
+		// to one and stored under the literal "key[]" the server never recognised.
+		// Collect ALL selected values as an array under the bare key.
+		if ( 'select-multiple' === el.type ) {
+			var selKey = /\[\]$/.test( el.name ) ? el.name.slice( 0, -2 ) : el.name;
+			data[ selKey ] = Array.prototype.slice.call( el.selectedOptions ).map( function ( o ) { return o.value; } );
+			return;
+		}
+
 		data[ el.name ] = el.value;
 	} );
 	return data;
