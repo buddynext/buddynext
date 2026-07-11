@@ -1473,7 +1473,7 @@ class PostService {
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 			if ( $pinned_count >= $pin_limit ) {
-				return new WP_Error(
+				$error = new WP_Error(
 					'pin_limit_reached',
 					sprintf(
 						/* translators: %d: the maximum number of pinned posts allowed in this scope. */
@@ -1486,6 +1486,27 @@ class PostService {
 						$pin_limit
 					)
 				);
+
+				/**
+				 * Filter the WP_Error returned when a member hits a plan-driven limit.
+				 *
+				 * Fired at every write path whose cap can be supplied by a membership
+				 * plan (currently pinned posts and spaces created). Free ships no plans,
+				 * so standalone behaviour is the unfiltered error — which already names
+				 * the limit. Pro hooks this to rewrite the message so it also names the
+				 * member's plan as the reason and attaches an `upgrade_url` to the error
+				 * data, turning a bare refusal into an actionable one.
+				 *
+				 * Listeners MUST return a WP_Error.
+				 *
+				 * @since 1.0.8
+				 *
+				 * @param WP_Error $error     The limit-reached error.
+				 * @param string   $limit_key Which limit was hit: 'pinned_posts' | 'spaces_created'.
+				 * @param int      $limit     The cap that was reached.
+				 * @param int      $user_id   The member who hit the cap.
+				 */
+				return apply_filters( 'buddynext_plan_limit_error', $error, 'pinned_posts', $pin_limit, $user_id );
 			}
 		}
 

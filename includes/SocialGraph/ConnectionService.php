@@ -56,11 +56,14 @@ class ConnectionService {
 		// canonical privacy gate — previously this preference was never consulted.
 		$privacy = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
 		if ( $privacy && method_exists( $privacy, 'can_connect' ) && ! $privacy->can_connect( $requester_id, $recipient_id ) ) {
-			return new WP_Error(
+			$error = new WP_Error(
 				'connect_not_allowed',
 				__( 'This member does not accept connection requests from you.', 'buddynext' ),
 				array( 'status' => 403 )
 			);
+
+			/** This filter is documented in includes/SocialGraph/FollowService.php. */
+			return apply_filters( 'buddynext_social_denied_error', $error, 'connect', $requester_id, $recipient_id );
 		}
 
 		// Hard-cap the note so a stray client can't overflow the column. Strip

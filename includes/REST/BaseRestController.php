@@ -84,14 +84,37 @@ abstract class BaseRestController {
 	 * @return true|WP_Error
 	 */
 	protected function require_cap( string $capability, array $context = array() ): bool|WP_Error {
-		if ( buddynext_can( get_current_user_id(), $capability, $context ) ) {
+		$user_id = get_current_user_id();
+
+		if ( buddynext_can( $user_id, $capability, $context ) ) {
 			return true;
 		}
 
-		return new WP_Error(
+		$error = new WP_Error(
 			'rest_forbidden',
 			__( 'Your role does not permit this action.', 'buddynext' ),
 			array( 'status' => current_user_can( 'read' ) ? 403 : 401 )
 		);
+
+		/**
+		 * Filter the WP_Error returned when a capability check denies a REST action.
+		 *
+		 * Free's default message attributes the refusal to the member's ROLE, which is
+		 * the only reason Free itself can deny for. A listener that denies the same
+		 * capability for a different reason must be able to say so — Pro answers
+		 * `buddynext_user_can` with the member's plan entitlements, and leaving the
+		 * default message would tell a member whose PLAN withheld a feature that their
+		 * role was at fault, sending them to the wrong place to fix it.
+		 *
+		 * Listeners MUST return a WP_Error.
+		 *
+		 * @since 1.0.8
+		 *
+		 * @param WP_Error             $error      The denial error.
+		 * @param string               $capability Capability slug that was denied.
+		 * @param int                  $user_id    The member denied.
+		 * @param array<string, mixed> $context    Capability context (e.g. space_id).
+		 */
+		return apply_filters( 'buddynext_capability_denied_error', $error, $capability, $user_id, $context );
 	}
 }

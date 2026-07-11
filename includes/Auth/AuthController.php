@@ -1194,7 +1194,7 @@ class AuthController {
 			array(
 				'success'     => true,
 				'user_id'     => (int) $user_id,
-				'redirect_to' => esc_url_raw( self::post_register_redirect() ),
+				'redirect_to' => esc_url_raw( self::post_register_redirect( (int) $user_id, $params ) ),
 			),
 			200
 		);
@@ -1349,7 +1349,7 @@ class AuthController {
 			array(
 				'success'     => true,
 				'user_id'     => (int) $user_id,
-				'redirect_to' => esc_url_raw( self::post_register_redirect() ),
+				'redirect_to' => esc_url_raw( self::post_register_redirect( (int) $user_id, $params ) ),
 			),
 			200
 		);
@@ -1374,22 +1374,42 @@ class AuthController {
 	 * is on, else the activity feed. Members who arrive by other paths (admin
 	 * created, social login) are caught by the OnboardingListener redirect gate.
 	 *
+	 * @param int                  $user_id The account that was just created (0 when unknown).
+	 * @param array<string, mixed> $params  The registration request parameters.
 	 * @return string
 	 */
-	public static function post_register_redirect(): string {
+	public static function post_register_redirect( int $user_id = 0, array $params = array() ): string {
 		if ( get_option( 'buddynext_email_verify', false ) ) {
-			return \BuddyNext\Core\PageRouter::hub_url(
+			$url = \BuddyNext\Core\PageRouter::hub_url(
 				'buddynext_slug_auth',
 				'buddynext_page_auth'
 			) . 'verify/';
+		} else {
+			$onboarding_on = function_exists( 'buddynext_service' )
+				&& buddynext_service( 'features' )->is_enabled( 'onboarding' );
+
+			$url = $onboarding_on
+				? \BuddyNext\Core\PageRouter::onboarding_url()
+				: \BuddyNext\Core\PageRouter::activity_url();
 		}
 
-		$onboarding_on = function_exists( 'buddynext_service' )
-			&& buddynext_service( 'features' )->is_enabled( 'onboarding' );
-
-		return $onboarding_on
-			? \BuddyNext\Core\PageRouter::onboarding_url()
-			: \BuddyNext\Core\PageRouter::activity_url();
+		/**
+		 * Filter where a freshly registered member is sent.
+		 *
+		 * Signup is otherwise blind to everything that happened before it. A visitor
+		 * who chose a paid plan and was bounced here to make an account must be able
+		 * to be handed straight back into that purchase — Pro's SignupPlanFlow uses
+		 * this seam to resume checkout instead of dropping them on the feed. The
+		 * registration params are passed so a listener can read whatever the door
+		 * collected (e.g. a signed plan intent) without a second source of truth.
+		 *
+		 * @since 1.0.8
+		 *
+		 * @param string               $url     Default destination.
+		 * @param int                  $user_id The account that was just created.
+		 * @param array<string, mixed> $params  The registration request parameters.
+		 */
+		return (string) apply_filters( 'buddynext_post_register_redirect', $url, $user_id, $params );
 	}
 
 	/**

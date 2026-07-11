@@ -245,7 +245,25 @@ class SpaceService {
 
 		// Per-member space cap (Settings → Spaces → "Max spaces per member").
 		// 0 = unlimited. Admins are exempt so site operators are never blocked.
-		$max_per_member = (int) get_option( 'buddynext_space_max_per_member', 0 );
+		/**
+		 * Filter the maximum number of spaces a single member may own.
+		 *
+		 * Default is the site-wide "Max spaces per member" setting; 0 = unlimited.
+		 * Pro hooks this to return the member's `limits.spaces_created` plan
+		 * entitlement, so the cap becomes per-plan rather than per-site. The count
+		 * below is a COUNT(*) over the indexed `owner_id` column, so a returned cap
+		 * is always enforced server-side before any INSERT.
+		 *
+		 * @since 1.0.8
+		 *
+		 * @param int $max_per_member Maximum owned, non-archived spaces. 0 = unlimited.
+		 * @param int $owner_id       The user attempting to create a space.
+		 */
+		$max_per_member = (int) apply_filters(
+			'buddynext_space_max_per_member',
+			(int) get_option( 'buddynext_space_max_per_member', 0 ),
+			$owner_id
+		);
 		if ( $max_per_member > 0 && ! user_can( $owner_id, 'manage_options' ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$owned = (int) $wpdb->get_var(
@@ -255,7 +273,7 @@ class SpaceService {
 				)
 			);
 			if ( $owned >= $max_per_member ) {
-				return new WP_Error(
+				$error = new WP_Error(
 					'max_spaces_per_member',
 					sprintf(
 						/* translators: %d: maximum number of spaces a member can create. */
@@ -264,6 +282,9 @@ class SpaceService {
 					),
 					array( 'status' => 422 )
 				);
+
+				/** This filter is documented in includes/Feed/PostService.php. */
+				return apply_filters( 'buddynext_plan_limit_error', $error, 'spaces_created', $max_per_member, $owner_id );
 			}
 		}
 

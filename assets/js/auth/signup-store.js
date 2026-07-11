@@ -104,6 +104,27 @@ function collectRegFields( form, body ) {
 	} );
 }
 
+/**
+ * Fold server-rendered extra signup inputs into a REST body.
+ *
+ * Anything hooked onto `buddynext_signup_form_fields` (Pro's plan-intent token,
+ * for one) can print an <input data-bn-signup-extra> and have it reach
+ * POST /auth/register untouched — no JavaScript of its own, and no field list
+ * hardcoded here. Values are opaque to the store; the server validates them.
+ *
+ * @param {HTMLFormElement|null} form The submitted form.
+ * @param {Object}               body REST body, mutated in place.
+ */
+function collectExtraFields( form, body ) {
+	if ( ! form || ! form.querySelectorAll ) { return; }
+
+	form.querySelectorAll( '[data-bn-signup-extra]' ).forEach( function ( el ) {
+		const name = el.getAttribute( 'name' );
+		if ( ! name ) { return; }
+		body[ name ] = el.value || '';
+	} );
+}
+
 function toast( message, tone ) {
 	if ( typeof window.bnToast === 'function' ) {
 		window.bnToast( message, tone || 'info' );
@@ -259,6 +280,9 @@ const signupStore = store( 'buddynext/auth-signup', {
 				// side, tagged data-bn-reg-field). Keeps the store generic: it does
 				// not need to know each field up front.
 				collectRegFields( regForm, body );
+				// Same idea for anything a listener added to the form (e.g. Pro's
+				// signed membership plan-intent token).
+				collectExtraFields( regForm, body );
 
 				const r = yield rest( c, 'auth/register', {
 					method: 'POST',

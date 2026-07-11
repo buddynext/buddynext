@@ -209,7 +209,27 @@ if ( 'invite' === $bn_reg_mode ) {
 			<section class="bn-auth-panel" data-active>
 				<?php buddynext_get_template( 'auth/parts/auth-form-logo.php', array() ); ?>
 				<h1 class="bn-auth-title"><?php esc_html_e( 'Join the community', 'buddynext' ); ?></h1>
-				<p class="bn-auth-sub"><?php esc_html_e( 'Free forever. No credit card required.', 'buddynext' ); ?></p>
+				<?php
+				/**
+				 * Filter the signup screen's sub-heading.
+				 *
+				 * "Free forever. No credit card required." is a promise, and it is a lie
+				 * on a site where the visitor arrived here by choosing a paid plan. Pro's
+				 * membership layer rewrites it when there is a paid plan intent, so the
+				 * screen never contradicts the plan summary printed a line below it.
+				 *
+				 * @since 1.0.8
+				 *
+				 * @param string $subtitle Default sub-heading.
+				 */
+				$bn_signup_sub = (string) apply_filters(
+					'buddynext_signup_subtitle',
+					__( 'Free forever. No credit card required.', 'buddynext' )
+				);
+				?>
+				<?php if ( '' !== $bn_signup_sub ) : ?>
+					<p class="bn-auth-sub"><?php echo esc_html( $bn_signup_sub ); ?></p>
+				<?php endif; ?>
 
 				<div class="bn-auth-field__msg" role="alert" aria-live="polite"
 					data-wp-bind--hidden="!state.error"
@@ -233,6 +253,27 @@ if ( 'invite' === $bn_reg_mode ) {
 					novalidate
 					data-wp-bind--hidden="state.pending"
 					data-wp-on--submit="actions.submitSignup">
+
+					<?php
+					/**
+					 * Fires at the top of the signup form, inside the <form>.
+					 *
+					 * The seam that lets signup know about anything that happened BEFORE
+					 * it. Pro's membership layer uses it to show the plan the visitor
+					 * picked on the pricing page and to carry a signed plan-intent token
+					 * through registration, so a visitor who clicked "Get Pro" while
+					 * logged out is handed back into that purchase afterwards instead
+					 * of being dumped on a pricing table to start again.
+					 *
+					 * Any <input> printed here that is tagged `data-bn-signup-extra` is
+					 * forwarded verbatim into the POST /auth/register body by the signup
+					 * store — a listener needs no JavaScript of its own. Everything it
+					 * sends must be validated server-side; nothing here is trusted.
+					 *
+					 * @since 1.0.8
+					 */
+					do_action( 'buddynext_signup_form_fields' );
+					?>
 
 					<div class="bn-auth-field">
 						<label class="bn-auth-label" for="bn-signup-email">
@@ -340,33 +381,57 @@ if ( 'invite' === $bn_reg_mode ) {
 					}
 					foreach ( $bn_reg_fields as $bn_reg_field ) :
 						$bn_rf_key   = (string) $bn_reg_field['field_key'];
-						$bn_rf_id    = 'bn-signup-field-' . sanitize_html_class( $bn_rf_key );
 						$bn_rf_name  = 'bn_field_' . $bn_rf_key;
 						$bn_rf_req   = ! empty( $bn_reg_field['is_required'] );
 						$bn_rf_input = \BuddyNext\Profile\FieldType::render_input( $bn_reg_field, '', $bn_rf_name );
-						// Tag the rendered control so the store can find + forward it,
-						// and carry id/required for label association + native validation.
+
+						// FieldType::render_input already gives every control its own id
+						// ('bn-field-{name}') and carries `required` from the field row, so
+						// the only thing to inject is the tag the signup store collects on.
+						// The old blanket id injection put ONE id on a radio / checkbox
+						// group's N inputs — duplicate ids and an ambiguous label-for.
+						$bn_rf_ctrl_id = 'bn-field-' . sanitize_html_class( $bn_rf_name );
+						$bn_rf_group   = ( false !== strpos( $bn_rf_input, '<fieldset' ) );
+						$bn_rf_label_id = 'bn-signup-field-' . sanitize_html_class( $bn_rf_key ) . '-label';
+
 						$bn_rf_input = str_replace(
-							'<input ',
-							'<input id="' . esc_attr( $bn_rf_id ) . '" data-bn-reg-field ' . ( $bn_rf_req ? 'required ' : '' ),
+							array( '<input ', '<select ', '<textarea ' ),
+							array( '<input data-bn-reg-field ', '<select data-bn-reg-field ', '<textarea data-bn-reg-field ' ),
 							$bn_rf_input
 						);
-						$bn_rf_input = str_replace(
-							array( '<select ', '<textarea ' ),
-							array(
-								'<select id="' . esc_attr( $bn_rf_id ) . '" data-bn-reg-field ' . ( $bn_rf_req ? 'required ' : '' ),
-								'<textarea id="' . esc_attr( $bn_rf_id ) . '" data-bn-reg-field ' . ( $bn_rf_req ? 'required ' : '' ),
-							),
-							$bn_rf_input
-						);
+
+						if ( $bn_rf_group ) {
+							// A group has no single labellable control — point the fieldset
+							// at the visible label instead of a broken <label for>.
+							$bn_rf_input = str_replace(
+								'<fieldset ',
+								'<fieldset aria-labelledby="' . esc_attr( $bn_rf_label_id ) . '" ',
+								$bn_rf_input
+							);
+							// Radios only: `required` on each radio of a group means "pick
+							// one" natively. On a checkbox group it would mean "tick them
+							// ALL", so multiselect is validated server-side instead.
+							if ( $bn_rf_req && false !== strpos( $bn_rf_input, 'bn-field-radio-group' ) ) {
+								$bn_rf_input = str_replace( '<input data-bn-reg-field ', '<input data-bn-reg-field required ', $bn_rf_input );
+							}
+						}
 						?>
 						<div class="bn-auth-field">
-							<label class="bn-auth-label" for="<?php echo esc_attr( $bn_rf_id ); ?>">
+							<?php if ( $bn_rf_group ) : ?>
+							<span class="bn-auth-label" id="<?php echo esc_attr( $bn_rf_label_id ); ?>">
+								<?php echo esc_html( (string) $bn_reg_field['label'] ); ?>
+								<?php if ( $bn_rf_req ) : ?>
+									<span class="bn-auth-required" aria-hidden="true">*</span>
+								<?php endif; ?>
+							</span>
+							<?php else : ?>
+							<label class="bn-auth-label" for="<?php echo esc_attr( $bn_rf_ctrl_id ); ?>">
 								<?php echo esc_html( (string) $bn_reg_field['label'] ); ?>
 								<?php if ( $bn_rf_req ) : ?>
 									<span class="bn-auth-required" aria-hidden="true">*</span>
 								<?php endif; ?>
 							</label>
+							<?php endif; ?>
 							<?php if ( ! empty( $bn_reg_field['description'] ) ) : ?>
 								<?php // G1: owner-authored help text; empty renders nothing. ?>
 								<p class="bn-auth-hint bn-auth-field-hint"><?php echo esc_html( (string) $bn_reg_field['description'] ); ?></p>

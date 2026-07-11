@@ -119,11 +119,32 @@ class FollowService {
 		// canonical privacy gate — previously this preference was never consulted.
 		$privacy = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
 		if ( $privacy && method_exists( $privacy, 'can_follow' ) && ! $privacy->can_follow( $follower_id, $following_id ) ) {
-			return new WP_Error(
+			$error = new WP_Error(
 				'follow_not_allowed',
 				__( 'This member does not allow follows from you.', 'buddynext' ),
 				array( 'status' => 403 )
 			);
+
+			/**
+			 * Filter the WP_Error returned when a follow or connection request is denied.
+			 *
+			 * Free's default message attributes the refusal to the TARGET's privacy
+			 * preference, which is the only reason Free itself can deny for. A listener
+			 * that denies for a different reason must be able to say so — Pro gates both
+			 * actions on the `social.follow_connect` plan entitlement, and leaving the
+			 * default message would tell a member their plan blocked them that the other
+			 * person had rejected them. That is a worse failure than a plain refusal.
+			 *
+			 * Listeners MUST return a WP_Error.
+			 *
+			 * @since 1.0.8
+			 *
+			 * @param WP_Error $error     The denial error.
+			 * @param string   $action    'follow' or 'connect'.
+			 * @param int      $actor_id  The member attempting the action.
+			 * @param int      $target_id The member on the receiving end.
+			 */
+			return apply_filters( 'buddynext_social_denied_error', $error, 'follow', $follower_id, $following_id );
 		}
 
 		// Service-layer block guard for direct callers (the controller checks
