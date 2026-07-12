@@ -177,7 +177,19 @@ class MemberDirectoryController extends BaseRestController {
 			update_meta_cache( 'user', $page_ids );
 
 			if ( $viewer_id > 0 ) {
-				$following_set  = array_fill_keys( buddynext_service( 'follows' )->following( $viewer_id ), true );
+				// Batched and page-scoped, like the two lines below it.
+				//
+				// This used to be array_fill_keys( follows->following( $viewer_id ), true ) — it
+				// pulled the viewer's ENTIRE follow set out of the database on every directory page
+				// view, to answer an isset() check for the 20 members actually on screen. Its two
+				// neighbours (statuses_for, blocking_either_map) were already batched against
+				// $page_ids; this line sat between them still loading everything.
+				//
+				// array_filter() is load-bearing: following_map() returns target_id => bool and
+				// KEEPS the false entries, so isset() alone would report every member on the page as
+				// followed. Filtering to the truthy keys preserves the isset() semantics shape_item()
+				// relies on.
+				$following_set  = array_filter( buddynext_service( 'follows' )->following_map( $viewer_id, $page_ids ) );
 				$connection_map = buddynext_service( 'connections' )->statuses_for( $viewer_id, $page_ids );
 				$blocked_either = buddynext_service( 'blocks' )->blocking_either_map( $viewer_id, $page_ids );
 			}

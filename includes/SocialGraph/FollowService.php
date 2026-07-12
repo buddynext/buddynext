@@ -650,6 +650,55 @@ class FollowService {
 	}
 
 	/**
+	 * One page of the people a user follows.
+	 *
+	 * The sibling of `paged_followers()`, and it should have been written at the same time.
+	 *
+	 * That method carries a comment explaining exactly why loading the whole set and slicing was
+	 * wrong ("On a popular account the old form scanned 100k+ rows to build a list it then threw
+	 * away") — and three lines below it, the `following` branch of ProfileNav went on doing
+	 * precisely that, because there was no paged read to call. The fix was written down next to
+	 * the bug and never applied sideways.
+	 *
+	 * LIMIT/OFFSET against the (follower_id, status, created_at) index, so the rows examined are
+	 * bounded by the page rather than by how many people the member follows.
+	 *
+	 * @since 1.0.8
+	 *
+	 * @param int $user_id  The user doing the following.
+	 * @param int $per_page Rows to return.
+	 * @param int $offset   Rows to skip.
+	 * @return int[] Followed user IDs, newest first.
+	 */
+	public function paged_following( int $user_id, int $per_page, int $offset = 0 ): array {
+		global $wpdb;
+
+		$user_id  = absint( $user_id );
+		$per_page = max( 1, min( 100, $per_page ) );
+		$offset   = max( 0, $offset );
+
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT following_id
+				 FROM {$wpdb->prefix}bn_follows
+				 WHERE follower_id = %d AND status = 'approved'
+				 ORDER BY created_at DESC, following_id DESC
+				 LIMIT %d OFFSET %d",
+				$user_id,
+				$per_page,
+				$offset
+			)
+		);
+
+		return array_map( 'intval', (array) $rows );
+	}
+
+	/**
 	 * How many approved followers a user has.
 	 *
 	 * A COUNT(*) — never count( followers() ), which builds the whole list to measure it.
@@ -684,21 +733,27 @@ class FollowService {
 	/**
 	 * Return the paginated list of user IDs that the given user follows.
 	 *
-	 * Spec-named alias for following(). Supports optional pagination/limit args:
+	 * Supports optional pagination args:
 	 *   'per_page' (int, default 20) — number of IDs to return.
 	 *   'page'     (int, default 1)  — 1-based page offset.
+	 *   'offset'   (int)             — explicit offset, overrides 'page'.
+	 *
+	 * This used to be `array_slice( $this->following( $user_id ), $offset, $per_page )` — it read
+	 * the member's ENTIRE follow set out of the database and threw nearly all of it away. Page 40
+	 * of a 5,000-follow list read all 5,000 rows to hand back 20. It now pages in SQL.
 	 *
 	 * @param int   $user_id The following user.
-	 * @param array $args    Optional query args (per_page, page).
+	 * @param array $args    Optional query args (per_page, page, offset).
 	 * @return int[]
 	 */
 	public function get_following( int $user_id, array $args = array() ): array {
-		$all      = $this->following( $user_id );
 		$per_page = isset( $args['per_page'] ) ? max( 1, (int) $args['per_page'] ) : 20;
 		$page     = isset( $args['page'] ) ? max( 1, (int) $args['page'] ) : 1;
-		$offset   = ( $page - 1 ) * $per_page;
+		$offset   = isset( $args['offset'] )
+			? max( 0, (int) $args['offset'] )
+			: ( $page - 1 ) * $per_page;
 
-		return array_values( array_slice( $all, $offset, $per_page ) );
+		return $this->paged_following( $user_id, $per_page, $offset );
 	}
 
 	/**

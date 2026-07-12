@@ -388,7 +388,10 @@ final class ProfileNav {
 				$pending = $this->ids_to_users( (array) $follow->pending_followers( $uid ) );
 			}
 		} elseif ( 'following' === $relation ) {
-			$members = $this->ids_to_users( array_slice( (array) $follow->following( $uid ), 0, 60 ) );
+			// Same reason as the followers branch above: ask the DB for 60 rather than loading the
+			// member's entire follow set and slicing 60 off the front. paged_following() did not
+			// exist when that fix landed, so this branch kept the bug the comment describes.
+			$members = $this->ids_to_users( $follow->paged_following( $uid, 60, 0 ) );
 		} else {
 			$members = $this->ids_to_users( (array) $conn->connections( $uid, 60, 0 ) );
 			if ( $is_owner ) {
