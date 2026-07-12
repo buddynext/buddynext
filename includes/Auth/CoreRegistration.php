@@ -67,6 +67,49 @@ class CoreRegistration {
 		// is the override this class exists to have stopped doing.
 		add_action( 'admin_notices', array( $this, 'render_desync_notice' ) );
 		add_action( 'admin_post_' . self::ACTION_RECONCILE, array( $this, 'handle_reconcile' ) );
+
+		// The other way registration config lies to the owner: terms consent switched on
+		// with no terms page behind it.
+		add_action( 'admin_notices', array( $this, 'render_terms_notice' ) );
+	}
+
+	/**
+	 * Warn when terms consent is required but there is no terms page to consent TO.
+	 *
+	 * This is the DEFAULT state of a fresh install: `buddynext_require_terms` defaults on
+	 * and `buddynext_terms_page_id` defaults to 0. Until this was fixed, every member was
+	 * made to tick "I agree to the Terms of Service" against a link that went nowhere.
+	 *
+	 * RegistrationPolicy now declines to enforce a gate with nothing behind it, so signups
+	 * are not blocked — but the owner MUST be told, or they believe they have a consent
+	 * record they do not have. Silently not-enforcing is the same trap as silently
+	 * enforcing; the only honest option is to say so.
+	 *
+	 * @since 1.0.8
+	 *
+	 * @return void
+	 */
+	public function render_terms_notice(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		// Only when the owner ASKED for consent and gave us nothing to point at.
+		if ( ! (bool) get_option( 'buddynext_require_terms', true ) ) {
+			return;
+		}
+
+		if ( (int) get_option( 'buddynext_terms_page_id', 0 ) > 0 ) {
+			return;
+		}
+		?>
+		<div class="notice notice-warning">
+			<p>
+				<strong><?php esc_html_e( 'BuddyNext: terms consent is switched on, but no Terms page is set.', 'buddynext' ); ?></strong>
+				<?php esc_html_e( 'Members would have been asked to agree to a document that does not exist, so consent is NOT being collected or enforced. Choose a Terms page to turn it back on.', 'buddynext' ); ?>
+			</p>
+		</div>
+		<?php
 	}
 
 	/**

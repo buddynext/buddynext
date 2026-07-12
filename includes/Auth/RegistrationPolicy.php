@@ -111,8 +111,27 @@ class RegistrationPolicy {
 	public function requirements(): array {
 		$terms_page = (int) get_option( 'buddynext_terms_page_id', 0 );
 
+		// A TERMS GATE WITH NO TERMS IS NOT A GATE.
+		//
+		// `buddynext_require_terms` defaults ON and `buddynext_terms_page_id` defaults to 0,
+		// so on a FRESH INSTALL — the default state of every new site — every member was
+		// made to tick "I agree to the Terms of Service" where the Terms of Service was a
+		// link to nothing. The template renders the checkbox with no href at all when no
+		// page is set. We were demanding consent to a document that did not exist: legally
+		// worthless, and insulting to the member being asked.
+		//
+		// So the requirement binds only when there is something to agree TO. This is the
+		// same rule this wave already settled for monetization — the entitlement gates bind
+		// only when a default plan exists, because an unconfigured system must not take
+		// anything away. An unconfigured terms gate must not either.
+		//
+		// The owner is not left guessing: TermsNotice puts an admin notice on screen when
+		// consent is switched on with no page behind it, so "we are not enforcing this" is
+		// stated out loud rather than discovered.
+		$require_terms = (bool) get_option( 'buddynext_require_terms', true ) && $terms_page > 0;
+
 		return array(
-			'terms'     => (bool) get_option( 'buddynext_require_terms', true ),
+			'terms'     => $require_terms,
 			'terms_url' => $terms_page > 0 ? (string) get_permalink( $terms_page ) : '',
 			'mode'      => (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() ),
 			'fields'    => buddynext_service( 'profiles' )->get_registration_fields(),
