@@ -754,6 +754,25 @@
 
 /* ── Split-panel shell responsive ──────────────────────────────────────
  * Tablet and down: stack the aside above the form as a compact brand band. */
+/* Below 860px the split collapses to a column — which is the exact point the brand aside
+ * stops being a side panel and becomes an obstacle.
+ *
+ * BESIDE the form (desktop) it earns its place: it fills a column the form does not need
+ * and costs the form nothing. ABOVE the form (stacked) it costs everything. It was ~320px
+ * of marketing quote sitting between the member and the fields they came to fill in:
+ * the Create-account button landed at 1048px on an 844px phone and at 1054px on a 1024px
+ * tablet. Somebody who had already decided to sign up had to scroll past a slogan to find
+ * the button.
+ *
+ * So the rule is not "hide it on phones" — it is "hide it wherever it is stacked", which is
+ * the same 860px boundary that stacks it. Hiding it only at 640px (the first attempt) left
+ * tablets in exactly the broken state, which is the kind of gap a phone-and-desktop-only
+ * check misses.
+ *
+ * The brand is not lost: the site header carries the logo at the top of every one of these
+ * pages, at every width. Same call Stripe, Linear and Notion make — the marketing panel is
+ * a wide-screen luxury; the task wins everywhere else.
+ */
 @media (max-width: 860px) {
 	.bn-auth-shell {
 		flex-direction: column;
@@ -761,18 +780,7 @@
 	}
 
 	.bn-auth-aside {
-		flex: 0 0 auto;
-		min-height: 36vh;
-		align-items: flex-end;
-		padding: var(--bn-s8) var(--bn-s6) var(--bn-s6);
-	}
-
-	.bn-auth-aside__heading {
-		font-size: var(--bn-text-2xl);
-	}
-
-	.bn-auth-aside__tagline {
-		max-width: none;
+		display: none;
 	}
 
 	.bn-auth-shell .bn-auth-body,
@@ -782,12 +790,6 @@
 	}
 }
 
-@media (max-width: 640px) {
-	.bn-auth-aside {
-		min-height: 28vh;
-		padding: var(--bn-s6);
-	}
-}
 
 /* ── Auth shell: slim centered column ──────────────────────────────────── */
 .bn-app--auth {
