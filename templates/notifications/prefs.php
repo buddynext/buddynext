@@ -447,8 +447,6 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 		<?php endif; ?>
 	</section>
 
-	<!-- Section 4: Quiet hours (coming soon) -->
-
 	<!-- Reset to defaults -->
 	<div class="bn-prefs-reset">
 		<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-wp-on--click="actions.openResetConfirm">
