@@ -13,7 +13,7 @@
 #
 # (4) is the one that matters. A cached read with no bust is invisible on a dev box —
 # wp_cache_* is request-local without Redis — and only breaks on production sites that
-# installed a persistent object cache. See docs/standards/CACHING.md sections 4b and 4c.
+# installed a persistent object cache. See the CACHING standard (buddynext-pro/free-internal/docs/standards/CACHING.md) sections 4b and 4c.
 #
 # Opt out of (4) at the cache site with:
 #   // cache-ttl-only: <reason>
@@ -83,7 +83,7 @@ if [[ "$FAIL" -eq 0 ]]; then
 	echo "✓ cache conformance clean"
 else
 	echo ""
-	echo "✗ cache drift — see docs/standards/CACHING.md (sections 4b + 4c)"
+	echo "✗ cache drift — see the CACHING standard (buddynext-pro/free-internal/docs/standards/CACHING.md) (sections 4b + 4c)"
 fi
 
 exit "$FAIL"

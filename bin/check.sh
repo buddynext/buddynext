@@ -118,6 +118,25 @@ else
 	note "bin/check-route-urls.sh missing"
 fi
 
+# 3c. Cache conformance — ADVISORY until the cache backlog is cleared, then make it blocking.
+#
+# This gate existed and was called by NOTHING, while a plan doc claimed it was wired. An
+# unwired gate is worse than no gate: it reads as coverage we do not have. It reports real
+# drift today (see the cache-uniformity audit), so it runs advisory rather than blocking —
+# a hard gate that fails on a known backlog just gets switched off.
+#
+# Flip to fail() once the cache backlog is clear. Do not let it rot back to unwired.
+section "Cache conformance (advisory)"
+if [ -x bin/check-cache.sh ]; then
+	if bin/check-cache.sh; then
+		:
+	else
+		note "cache drift reported — advisory, see the cache-uniformity audit"
+	fi
+else
+	note "bin/check-cache.sh missing"
+fi
+
 # 4. PHPStan
 section "PHPStan (level 5)"
 if [ -x vendor/bin/phpstan ]; then
