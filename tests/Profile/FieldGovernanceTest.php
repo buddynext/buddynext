@@ -76,9 +76,12 @@ class FieldGovernanceTest extends \WP_UnitTestCase {
 			"SELECT group_key FROM {$wpdb->prefix}bn_profile_groups WHERE is_system = 1 ORDER BY group_key ASC"
 		);
 
-		$this->assertSame( array( 'basic_info', 'interests', 'skills' ), $system_groups );
+		// Only basic_info (code-consumed spine fields) and interests (feeds the space
+		// suggestion engine) are load-bearing. Skills is a niche section an owner must
+		// be able to prune - SetupChecklist lists it with the other optional groups.
+		$this->assertSame( array( 'basic_info', 'interests' ), $system_groups );
 
-		foreach ( array( 'social_links', 'work_experience', 'education' ) as $ungated ) {
+		foreach ( array( 'social_links', 'work_experience', 'education', 'skills' ) as $ungated ) {
 			$row = $this->group_row( $ungated );
 			$this->assertNotNull( $row, "Seeded group {$ungated} missing." );
 			$this->assertSame( 0, (int) $row['is_system'], "Group {$ungated} must be deletable." );
