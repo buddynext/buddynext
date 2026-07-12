@@ -27,6 +27,14 @@ class FollowService {
 	private const CACHE_GROUP = 'buddynext_follows';
 
 	/**
+	 * Ceiling on a whole-relation list read (followers() / following()).
+	 *
+	 * Not a product limit — a memory guard. The paged reads are the correct answer for anything
+	 * user-facing. Filterable via `buddynext_relation_list_cap`.
+	 */
+	private const RELATION_LIST_CAP = 5000;
+
+	/**
 	 * Cache TTL in seconds (10 minutes).
 	 */
 	private const CACHE_TTL = 600;
@@ -465,18 +473,23 @@ class FollowService {
 		if ( false !== $cached ) {
 			$result = (array) $cached;
 		} else {
+			$cap = $this->relation_list_cap( 'followers', $user_id );
+
+			// Ask for one more than we can keep, so an overflow is detectable rather than assumed.
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$rows = $wpdb->get_col(
 				$wpdb->prepare(
 					"SELECT follower_id
 					 FROM {$wpdb->prefix}bn_follows
 					 WHERE following_id = %d AND status = 'approved'
-					 ORDER BY created_at DESC",
-					$user_id
+					 ORDER BY created_at DESC
+					 LIMIT %d",
+					$user_id,
+					$cap + 1
 				)
 			);
 
-			$result = array_map( 'intval', (array) $rows );
+			$result = $this->cap_relation_list( array_map( 'intval', (array) $rows ), $cap, __METHOD__, 'paged_followers()' );
 
 			wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
 		}
@@ -505,18 +518,23 @@ class FollowService {
 		if ( false !== $cached ) {
 			$result = (array) $cached;
 		} else {
+			$cap = $this->relation_list_cap( 'following', $user_id );
+
+			// Ask for one more than we can keep, so an overflow is detectable rather than assumed.
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$rows = $wpdb->get_col(
 				$wpdb->prepare(
 					"SELECT following_id
 					 FROM {$wpdb->prefix}bn_follows
 					 WHERE follower_id = %d AND status = 'approved'
-					 ORDER BY created_at DESC",
-					$user_id
+					 ORDER BY created_at DESC
+					 LIMIT %d",
+					$user_id,
+					$cap + 1
 				)
 			);
 
-			$result = array_map( 'intval', (array) $rows );
+			$result = $this->cap_relation_list( array_map( 'intval', (array) $rows ), $cap, __METHOD__, 'paged_following()' );
 
 			wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
 		}
@@ -647,6 +665,79 @@ class FollowService {
 		);
 
 		return array_map( 'intval', (array) $rows );
+	}
+
+	/**
+	 * The ceiling on a "give me every relation" read.
+	 *
+	 * `followers()` and `following()` return the whole list. `following()` is soft-bounded by the
+	 * WRITE cap (`buddynext_max_following`, default 5,000) — but that cap is filterable to 0, i.e.
+	 * unlimited, so it is not a ceiling on the READ.
+	 *
+	 * `followers()` has no write cap and cannot have one: **you do not control who follows you**. A
+	 * popular account genuinely has 100k+ followers, and this read would have pulled every one of
+	 * them into a PHP array.
+	 *
+	 * @since 1.0.8
+	 *
+	 * @param string $relation 'followers' or 'following'.
+	 * @param int    $user_id  The member whose list it is.
+	 * @return int Maximum ids to return.
+	 */
+	private function relation_list_cap( string $relation, int $user_id ): int {
+		/**
+		 * Filter the ceiling on a whole-relation list read.
+		 *
+		 * Raise it only if you know the memory is there. The paged reads
+		 * (`paged_followers()` / `paged_following()`) are the correct answer for anything
+		 * user-facing.
+		 *
+		 * @since 1.0.8
+		 *
+		 * @param int    $cap      Default RELATION_LIST_CAP.
+		 * @param string $relation 'followers' or 'following'.
+		 * @param int    $user_id  The member whose list it is.
+		 */
+		$cap = (int) apply_filters( 'buddynext_relation_list_cap', self::RELATION_LIST_CAP, $relation, $user_id );
+
+		return max( 1, $cap );
+	}
+
+	/**
+	 * Trim a relation list to the ceiling — and say so if it had to.
+	 *
+	 * A silent cap on a "give me everything" API is the worst outcome: the caller receives a
+	 * partial answer and has no way to know it is partial. So when the cap bites we say it, out
+	 * loud, and name the paged method that does not have this problem.
+	 *
+	 * `_doing_it_wrong()` only surfaces under WP_DEBUG, which is exactly right: it is a message for
+	 * the developer who called the wrong method, not a runtime error for the member.
+	 *
+	 * @since 1.0.8
+	 *
+	 * @param array<int,int> $ids         Rows fetched (cap + 1 of them, if the list overflowed).
+	 * @param int            $cap         The ceiling.
+	 * @param string         $method      Calling method, for the notice.
+	 * @param string         $alternative The paged method to use instead.
+	 * @return array<int,int> At most $cap ids.
+	 */
+	private function cap_relation_list( array $ids, int $cap, string $method, string $alternative ): array {
+		if ( count( $ids ) <= $cap ) {
+			return $ids;
+		}
+
+		_doing_it_wrong(
+			esc_html( $method ),
+			sprintf(
+				/* translators: 1: cap, 2: the paged method to use instead */
+				esc_html__( 'This member has more relations than the %1$d-row ceiling, so the list was truncated. Use %2$s for anything user-facing — it pages in SQL and does not load the whole set.', 'buddynext' ),
+				(int) $cap,
+				esc_html( $alternative )
+			),
+			'1.0.8'
+		);
+
+		return array_slice( $ids, 0, $cap );
 	}
 
 	/**
