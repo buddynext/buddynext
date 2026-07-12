@@ -2329,6 +2329,39 @@ a.bn-space-row:hover .bn-space-name {
 	color: var(--bn-ink-3);
 }
 
+/* ── Connected accounts ───────────────────────────────────────────────────
+ *
+ * These rows now ARE account rows. They used to borrow `.bn-social-link` — a class
+ * defined for the small inline provider CHIPS on a member's public profile — so a
+ * settings row rendered as a squashed pill with the button jammed against the label,
+ * sitting directly above an Account card that does it properly: description on the left,
+ * action pushed to the right edge, quiet dividers. Two patterns for the same job, on the
+ * same screen, three inches apart.
+ *
+ * Reusing .bn-ep-account-row rather than restyling the chip means this section cannot
+ * drift away from the card below it again: change the account rows and these follow. All
+ * that is added here is the provider icon. */
+.bn-social-row__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	inline-size: var(--bn-s6);
+	block-size: var(--bn-s6);
+	color: var(--bn-ink-2);
+}
+
+.bn-social-row__icon svg {
+	inline-size: 100%;
+	block-size: 100%;
+}
+
+/* The row is icon + copy + action. The copy takes the slack so the action stays pinned
+ * right, exactly as it does on every other account row. */
+.bn-social-row .bn-ep-account-copy {
+	flex: 1 1 auto;
+}
+
 /* ── Slug row ─────────────────────────────────────────────────────────── */
 .bn-ep-slug-row {
 	padding: var(--bn-s4) var(--bn-s5);
