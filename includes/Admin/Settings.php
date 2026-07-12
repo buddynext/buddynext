@@ -693,11 +693,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						array(
 							'key'     => 'buddynext_data_retention_days',
 							'type'    => 'number',
-							'label'   => __( 'Activity log retention (days)', 'buddynext' ),
+							'label'   => __( 'Data retention (days)', 'buddynext' ),
 							'default' => 365,
 							'min'     => 0,
 							'max'     => 3650,
-							'hint'    => __( 'BuddyNext activity log entries older than this are purged automatically. Set to 0 to retain indefinitely.', 'buddynext' ),
+							// Name every table this deletes. It previously said "activity log
+							// entries" while also purging read notifications, the email log,
+							// closed reports and (with Pro) analytics events — an owner cannot
+							// consent to a deletion they were never told about.
+							'hint'    => __( 'Automatically delete records older than this: activity log, read notifications, email log, closed moderation reports, and (with Pro) analytics events. Open reports and the moderation log are never deleted. Set to 0 to keep everything indefinitely.', 'buddynext' ),
 						)
 					),
 					new Field(

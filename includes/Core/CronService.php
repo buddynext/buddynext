@@ -359,6 +359,59 @@ class CronService {
 		} while ( $deleted > 0 && $max_batches > 0 );
 	}
 
+	// ── Moderation-report pruning ─────────────────────────────────────────────
+
+	/**
+	 * Delete CLOSED moderation reports older than the configured data-retention window.
+	 *
+	 * Free owns bn_reports, so Free prunes it. Pro used to reach in and DELETE from it
+	 * (and from bn_mod_log) out of its AI-moderation sweep — on every site that had Pro
+	 * installed, including the many that never enabled AI moderation at all. Retention for a
+	 * Free table belongs to Free, under Free's own option, with a label that says what it
+	 * deletes.
+	 *
+	 * Only `resolved` and `dismissed` rows are removed. A `pending` or `escalated` report is
+	 * an open case and is kept regardless of age — the same principle as unread notifications.
+	 *
+	 * bn_mod_log is deliberately NOT pruned here, by anyone. ModerationLogService states the
+	 * contract: "No update or delete operations are provided — moderation logs are append-only
+	 * by design." It is the record of who actioned whom, which an appeal reviewer or a legal /
+	 * GDPR request needs, and it grows by one narrow row per moderator action.
+	 *
+	 * Runs weekly. Driven by the Privacy → retention setting (buddynext_data_retention_days,
+	 * default 365); 0 (or less) disables pruning. Batched at 1,000 with a per-run cap so a
+	 * large table never locks or times the cron out.
+	 *
+	 * @since 1.0.8
+	 *
+	 * @return void
+	 */
+	public function handle_cleanup_reports(): void {
+		$retention_days = (int) get_option( 'buddynext_data_retention_days', 365 );
+		if ( $retention_days <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+
+		$cutoff      = gmdate( 'Y-m-d H:i:s', time() - ( $retention_days * DAY_IN_SECONDS ) );
+		$max_batches = 50; // up to 50k rows per weekly run.
+
+		do {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$deleted = $wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$wpdb->prefix}bn_reports
+					  WHERE status IN ( 'resolved', 'dismissed' )
+					    AND created_at < %s
+					  LIMIT 1000",
+					$cutoff
+				)
+			);
+			--$max_batches;
+		} while ( $deleted > 0 && $max_batches > 0 );
+	}
+
 	/**
 	 * Prune old bn_email_log rows (weekly).
 	 *
