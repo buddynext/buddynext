@@ -39,13 +39,39 @@ while IFS= read -r file; do
 
 	rel="${file#"$ROOT"/}"
 
-	group="$(grep -oE "CACHE_GROUP\s*=\s*'[^']+'" "$file" | head -1 | sed "s/.*'\(.*\)'/\1/")"
-	has_ttl="$(grep -cE "CACHE_TTL\s*=\s*[0-9]+|_TTL\s*=\s*[0-9]+" "$file")"
+	# ── Match against CODE, not comments ──────────────────────────────────────
+	#
+	# This gate used to grep the raw file, so a DOCBLOCK mentioning a function counted
+	# as a call to it. FeedCache was reported as a GROUP FLUSH offender because its
+	# docblock explains that it deliberately AVOIDS wp_cache_flush_group() and bumps a
+	# version instead — the gate flagged the file for saying so.
+	#
+	# That is the same failure that produced 8 phantom "contested tables" in the seam
+	# audit: grep finds strings, not code. A gate that cries wolf gets switched off by
+	# the first person it blocks, which is exactly why this one sat unwired.
+	#
+	# `php -w` strips comments and returns the code. Fall back to the raw file if PHP
+	# is unavailable, so the gate degrades to its old (noisier) behaviour rather than
+	# silently passing everything.
+	code="$(php -w "$file" 2>/dev/null)" || code=""
+	[[ -z "$code" ]] && code="$(cat "$file")"
 
-	# Any sanctioned invalidation mechanism (standard section 4b).
-	has_delete="$(grep -cE "wp_cache_delete\(" "$file")"
-	has_version="$(grep -cE "\{\\\$(gen|ver|version)\w*\}|_version\(" "$file")"
-	has_flushgroup="$(grep -cE "wp_cache_flush_group\(" "$file")"
+	group="$(printf '%s' "$code" | grep -oE "CACHE_GROUP\s*=\s*'[^']+'" | head -1 | sed "s/.*'\(.*\)'/\1/")"
+	has_ttl="$(printf '%s' "$code" | grep -cE "CACHE_TTL\s*=\s*[0-9]+|_TTL\s*=\s*[0-9]+")"
+
+	# Any sanctioned invalidation mechanism (standard §4b).
+	has_delete="$(printf '%s' "$code" | grep -cE "wp_cache_delete\(")"
+	has_version="$(printf '%s' "$code" | grep -cE "\{\\\$(gen|ver|version)\w*\}|_version\(|generation")"
+	has_flushgroup="$(printf '%s' "$code" | grep -cE "wp_cache_flush_group\(")"
+
+	# DELEGATED invalidation. A service may hand its busting to a collaborator rather
+	# than calling wp_cache_delete() itself — FeedService does exactly this
+	# (`$this->cache?->invalidate_writer( $user_id )`). The old per-file grep could not
+	# see it and reported the file as having NO invalidation at all, which is false.
+	has_delegate="$(printf '%s' "$code" | grep -cE "\->(invalidate|forget|bust|purge)[a-z_]*\(")"
+
+	# The opt-out marker is deliberately a COMMENT, so it must be read from the raw
+	# file — the stripped code no longer contains it.
 	has_optout="$(grep -cE "cache-ttl-only:" "$file")"
 
 	if [[ -z "$group" ]]; then
@@ -72,9 +98,10 @@ while IFS= read -r file; do
 		FAIL=1
 	fi
 
-	if [[ "$has_delete" -eq 0 && "$has_version" -eq 0 && "$has_optout" -eq 0 ]]; then
+	if [[ "$has_delete" -eq 0 && "$has_version" -eq 0 && "$has_delegate" -eq 0 && "$has_optout" -eq 0 ]]; then
 		echo "  NO INVALIDATION  $rel — cached read with no bust path."
-		echo "                   Use delete-by-key, a version key, or mark it:  // cache-ttl-only: <reason>"
+		echo "                   Use delete-by-key, a version key, delegate to a collaborator,"
+		echo "                   or mark it:  // cache-ttl-only: <reason>"
 		FAIL=1
 	fi
 done < <(find "$ROOT/includes" -name '*.php' -type f 2>/dev/null | sort)
