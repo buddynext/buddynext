@@ -128,7 +128,7 @@ class FollowingPaginationTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * paged_following() must exist — the sibling of paged_followers().
+	 * The paged_following() sibling of paged_followers() must exist.
 	 *
 	 * EXPECTED TO FAIL: it was never built.
 	 *
@@ -144,7 +144,7 @@ class FollowingPaginationTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * paged_following() returns the right window, and asks the DB for only that window.
+	 * The paged read returns the right window, and asks the DB for only that window.
 	 *
 	 * @return void
 	 */
@@ -197,7 +197,7 @@ class FollowingPaginationTest extends WP_UnitTestCase {
 	}
 
 	/**
-	 * get_following() must page in SQL, not fetch everything and array_slice it.
+	 * The get_following() alias must page in SQL, not fetch everything and array_slice it.
 	 *
 	 * It currently reads:
 	 *
