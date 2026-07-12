@@ -141,11 +141,19 @@ class PrivacyTools implements ListenerInterface {
 	/**
 	 * Export a user's BuddyNext data, paginated by the core contract.
 	 *
-	 * Page 1 carries the bounded, per-user sets (profile, meta, relational
-	 * graph, memberships) plus the first page of authored posts. Subsequent
-	 * pages stream the remaining authored posts and comments — the only
-	 * potentially large collections — so a prolific member never overruns a
-	 * single request.
+	 * Page 1 carries the genuinely bounded sets — the ones whose size is fixed by the site's
+	 * CONFIGURATION, not by the member's activity: their profile, their profile-field values, their
+	 * notification preferences. Everything that grows with a member is a STREAMED SECTION, and the
+	 * pages after that walk those sections in order.
+	 *
+	 * That distinction is the whole fix. Page 1 used to call itself "all the bounded sets in one
+	 * shot" and then load the member's entire social graph into it — every follow in both
+	 * directions, every connection, every block. None of those are bounded by anything: you do not
+	 * choose who follows you. A member with 100k followers OOM'd the export request.
+	 *
+	 * "Realistically small" is not bounded. It is the assumption that produced this bug, and the
+	 * line here is drawn on the only durable criterion: does this set grow when the member is
+	 * popular or busy? Then it streams.
 	 *
 	 * @param string $email_address Email of the user being exported.
 	 * @param int    $page          1-based page number.
@@ -163,51 +171,171 @@ class PrivacyTools implements ListenerInterface {
 		}
 
 		$user_id = (int) $user->ID;
+		$items   = array();
 
-		// Page 1: all the bounded sets in one shot.
+		// The config-bounded sets ride along on page 1: a member has as many profile-field values
+		// as the site has profile fields, and as many notification preferences as there are
+		// notification types. Neither grows with how much they use the community.
 		if ( 1 === $page ) {
 			$items = array_merge(
 				$this->export_profile_meta( $user_id ),
 				$this->export_profile_values( $user_id ),
-				$this->export_follows( $user_id ),
-				$this->export_connections( $user_id ),
-				$this->export_blocks( $user_id ),
-				$this->export_space_members( $user_id ),
-				$this->export_hashtag_follows( $user_id ),
-				$this->export_notification_prefs( $user_id ),
-				$this->export_notifications( $user_id ),
-				$this->export_posts( $user_id, 1 )
-			);
-
-			return array(
-				'data' => $items,
-				'done' => $this->is_posts_done( $user_id, 1 ) && ! $this->has_comments( $user_id ),
+				$this->export_notification_prefs( $user_id )
 			);
 		}
 
-		// Pages 2+: stream posts until exhausted, then comments.
-		$post_pages = $this->page_count( $this->count_posts( $user_id ) );
-
-		if ( $page <= $post_pages ) {
-			$items = $this->export_posts( $user_id, $page );
-			$done  = ( $page >= $post_pages ) && ! $this->has_comments( $user_id );
-
-			return array(
-				'data' => $items,
-				'done' => $done,
-			);
-		}
-
-		// Comments stream on the pages after the posts run out.
-		$comment_page  = $page - $post_pages;
-		$comment_pages = $this->page_count( $this->count_comments( $user_id ) );
-		$items         = $this->export_comments( $user_id, $comment_page );
-		$done          = $comment_page >= max( 1, $comment_pages );
+		$stream = $this->stream_page( $user_id, $page );
 
 		return array(
-			'data' => $items,
-			'done' => $done,
+			'data' => array_merge( $items, $stream['items'] ),
+			'done' => $stream['done'],
 		);
+	}
+
+	/**
+	 * THE EXPORT SECTION REGISTRY — everything that grows with the member.
+	 *
+	 * Each section knows how to count itself and how to fetch ONE page of itself. The exporter
+	 * concatenates them into a single stream and walks it, so no section can be "the one nobody
+	 * remembered to page". Adding a section here is what makes it exportable, countable, and
+	 * finishable, in one place.
+	 *
+	 * Order is stable and deliberate: the graph first (small pages, quick to produce), the member's
+	 * content last (the biggest sets, and the ones a member is most likely to abandon the download
+	 * over). It only matters in that it must not change mid-export.
+	 *
+	 * @return array<string, array{count: callable, fetch: callable}>
+	 */
+	private function sections(): array {
+		return array(
+			'following'       => array(
+				'count' => fn( int $u ): int => $this->count_rows( 'bn_follows', 'follower_id = %d', $u ),
+				'fetch' => fn( int $u, int $l, int $o ): array => $this->export_following( $u, $l, $o ),
+			),
+			'followers'       => array(
+				'count' => fn( int $u ): int => $this->count_rows( 'bn_follows', 'following_id = %d', $u ),
+				'fetch' => fn( int $u, int $l, int $o ): array => $this->export_followers( $u, $l, $o ),
+			),
+			'connections'     => array(
+				'count' => fn( int $u ): int => $this->count_rows( 'bn_connections', 'requester_id = %d OR recipient_id = %d', $u ),
+				'fetch' => fn( int $u, int $l, int $o ): array => $this->export_connections( $u, $l, $o ),
+			),
+			'blocks'          => array(
+				'count' => fn( int $u ): int => $this->count_rows( 'bn_blocks', 'blocker_id = %d', $u ),
+				'fetch' => fn( int $u, int $l, int $o ): array => $this->export_blocks( $u, $l, $o ),
+			),
+			'spaces'          => array(
+				'count' => fn( int $u ): int => $this->count_rows( 'bn_space_members', 'user_id = %d', $u ),
+				'fetch' => fn( int $u, int $l, int $o ): array => $this->export_space_members( $u, $l, $o ),
+			),
+			'hashtag_follows' => array(
+				'count' => fn( int $u ): int => $this->count_rows( 'bn_hashtag_follows', 'user_id = %d', $u ),
+				'fetch' => fn( int $u, int $l, int $o ): array => $this->export_hashtag_follows( $u, $l, $o ),
+			),
+			'notifications'   => array(
+				'count' => fn( int $u ): int => $this->count_rows( 'bn_notifications', 'recipient_id = %d', $u ),
+				'fetch' => fn( int $u, int $l, int $o ): array => $this->export_notifications( $u, $l, $o ),
+			),
+			'posts'           => array(
+				'count' => fn( int $u ): int => $this->count_posts( $u ),
+				'fetch' => fn( int $u, int $l, int $o ): array => $this->export_posts( $u, $l, $o ),
+			),
+			'comments'        => array(
+				'count' => fn( int $u ): int => $this->count_comments( $u ),
+				'fetch' => fn( int $u, int $l, int $o ): array => $this->export_comments( $u, $l, $o ),
+			),
+		);
+	}
+
+	/**
+	 * Serve page N of the concatenated section stream, and say whether that was the last one.
+	 *
+	 * `done` is computed from the counts, never assumed — the same rule the eraser had to learn.
+	 * Core takes it at its word: when we say done it zips the file and emails the member to tell
+	 * them this is everything we hold on them. Saying it early is how a partial export goes out
+	 * wearing the label of a complete one.
+	 *
+	 * @param int $user_id Member.
+	 * @param int $page    1-based page across the whole stream.
+	 * @return array{items: array<int,array<string,mixed>>, done: bool}
+	 */
+	private function stream_page( int $user_id, int $page ): array {
+		$per   = $this->per_page();
+		$plan  = array();
+		$total = 0;
+
+		foreach ( $this->sections() as $section ) {
+			$pages = (int) ceil( ( (int) ( $section['count'] )( $user_id ) ) / $per );
+			if ( $pages > 0 ) {
+				$plan[] = array(
+					'fetch' => $section['fetch'],
+					'pages' => $pages,
+				);
+				$total += $pages;
+			}
+		}
+
+		if ( 0 === $total || $page > $total ) {
+			return array(
+				'items' => array(),
+				'done'  => true,
+			);
+		}
+
+		$cursor = $page;
+		foreach ( $plan as $entry ) {
+			if ( $cursor <= $entry['pages'] ) {
+				return array(
+					'items' => (array) ( $entry['fetch'] )( $user_id, $per, ( $cursor - 1 ) * $per ),
+					'done'  => ( $page >= $total ),
+				);
+			}
+			$cursor -= $entry['pages'];
+		}
+
+		return array(
+			'items' => array(),
+			'done'  => true,
+		);
+	}
+
+	/**
+	 * Rows per export page.
+	 *
+	 * @return int
+	 */
+	private function per_page(): int {
+		/**
+		 * How many rows of one section to put in a single export page.
+		 *
+		 * @param int $per_page Default 100.
+		 */
+		return max( 1, (int) apply_filters( 'buddynext_export_per_page', self::PER_PAGE ) );
+	}
+
+	/**
+	 * COUNT(*) one section — never count( fetch_everything() ).
+	 *
+	 * @param string $table Unprefixed table.
+	 * @param string $where Predicate; each %d is bound to the user id.
+	 * @param int    $user_id Member.
+	 * @return int
+	 */
+	private function count_rows( string $table, string $where, int $user_id ): int {
+		global $wpdb;
+
+		$args = array_fill( 0, max( 1, substr_count( $where, '%d' ) ), $user_id );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $table and $where are registry-owned constants, never input; the id IS bound via prepare().
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}{$table} WHERE " . $where,
+				...$args
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+
+		return $count;
 	}
 
 	/**
@@ -326,27 +454,41 @@ class PrivacyTools implements ListenerInterface {
 	}
 
 	/**
-	 * Export the user's follow relationships (both directions).
+	 * Export one page of the members this user follows.
+	 *
+	 * Ordered by the primary key so the pages tile the set exactly once — an unordered LIMIT/OFFSET
+	 * is free to return the same row on two pages and skip another entirely, which on a
+	 * subject-access request means quietly handing the member someone else's absence.
 	 *
 	 * @param int $user_id User id.
+	 * @param int $limit   Rows per page.
+	 * @param int $offset  Rows to skip.
 	 * @return array<int,array<string,mixed>>
 	 */
-	private function export_follows( int $user_id ): array {
+	private function export_following( int $user_id, int $limit, int $offset ): array {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$following = $wpdb->get_results( $wpdb->prepare( "SELECT following_id, status, created_at FROM {$p}bn_follows WHERE follower_id = %d", $user_id ), ARRAY_A );
-		$followers = $wpdb->get_results( $wpdb->prepare( "SELECT follower_id, status, created_at FROM {$p}bn_follows WHERE following_id = %d", $user_id ), ARRAY_A );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT following_id, status, created_at FROM {$p}bn_follows WHERE follower_id = %d ORDER BY following_id ASC LIMIT %d OFFSET %d",
+				$user_id,
+				$limit,
+				$offset
+			),
+			ARRAY_A
+		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$items = array();
-
-		foreach ( $following as $i => $row ) {
+		foreach ( (array) $rows as $i => $row ) {
 			$items[] = array(
 				'group_id'    => 'buddynext_following',
 				'group_label' => __( 'BuddyNext Following', 'buddynext' ),
-				'item_id'     => 'buddynext-following-' . $user_id . '-' . $i,
+				// Keyed off the OFFSET, not the position within this page: $i restarts at 0 on
+				// every page, so page 2 would reissue page 1's item_ids.
+				'item_id'     => 'buddynext-following-' . $user_id . '-' . ( $offset + (int) $i ),
 				'data'        => array(
 					array(
 						'name'  => __( 'Following user', 'buddynext' ),
@@ -364,11 +506,42 @@ class PrivacyTools implements ListenerInterface {
 			);
 		}
 
-		foreach ( $followers as $i => $row ) {
+		return $items;
+	}
+
+	/**
+	 * Export one page of the members who follow this user.
+	 *
+	 * Followers are the relation with no ceiling — you do not choose who follows you — so this is
+	 * the section most likely to be enormous, and the one that used to be fetched whole.
+	 *
+	 * @param int $user_id User id.
+	 * @param int $limit   Rows per page.
+	 * @param int $offset  Rows to skip.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function export_followers( int $user_id, int $limit, int $offset ): array {
+		global $wpdb;
+		$p = $wpdb->prefix;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT follower_id, status, created_at FROM {$p}bn_follows WHERE following_id = %d ORDER BY follower_id ASC LIMIT %d OFFSET %d",
+				$user_id,
+				$limit,
+				$offset
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$items = array();
+		foreach ( (array) $rows as $i => $row ) {
 			$items[] = array(
 				'group_id'    => 'buddynext_followers',
 				'group_label' => __( 'BuddyNext Followers', 'buddynext' ),
-				'item_id'     => 'buddynext-follower-' . $user_id . '-' . $i,
+				'item_id'     => 'buddynext-follower-' . $user_id . '-' . ( $offset + (int) $i ),
 				'data'        => array(
 					array(
 						'name'  => __( 'Follower', 'buddynext' ),
@@ -393,18 +566,22 @@ class PrivacyTools implements ListenerInterface {
 	 * Export the user's connection requests (both directions).
 	 *
 	 * @param int $user_id User id.
+	 * @param int $limit   Rows per page.
+	 * @param int $offset  Rows to skip.
 	 * @return array<int,array<string,mixed>>
 	 */
-	private function export_connections( int $user_id ): array {
+	private function export_connections( int $user_id, int $limit, int $offset ): array {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT requester_id, recipient_id, status, note, created_at FROM {$p}bn_connections WHERE requester_id = %d OR recipient_id = %d",
+				"SELECT requester_id, recipient_id, status, note, created_at FROM {$p}bn_connections WHERE requester_id = %d OR recipient_id = %d ORDER BY id ASC LIMIT %d OFFSET %d",
 				$user_id,
-				$user_id
+				$user_id,
+				$limit,
+				$offset
 			),
 			ARRAY_A
 		);
@@ -418,7 +595,7 @@ class PrivacyTools implements ListenerInterface {
 			$items[] = array(
 				'group_id'    => 'buddynext_connections',
 				'group_label' => __( 'BuddyNext Connections', 'buddynext' ),
-				'item_id'     => 'buddynext-connection-' . $user_id . '-' . $i,
+				'item_id'     => 'buddynext-connection-' . $user_id . '-' . ( $offset + (int) $i ),
 				'data'        => array(
 					array(
 						'name'  => __( 'Member', 'buddynext' ),
@@ -451,17 +628,21 @@ class PrivacyTools implements ListenerInterface {
 	 * Export the user's blocks/mutes (the ones they created).
 	 *
 	 * @param int $user_id User id.
+	 * @param int $limit   Rows per page.
+	 * @param int $offset  Rows to skip.
 	 * @return array<int,array<string,mixed>>
 	 */
-	private function export_blocks( int $user_id ): array {
+	private function export_blocks( int $user_id, int $limit, int $offset ): array {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT blocked_id, type, created_at FROM {$p}bn_blocks WHERE blocker_id = %d",
-				$user_id
+				"SELECT blocked_id, type, created_at FROM {$p}bn_blocks WHERE blocker_id = %d ORDER BY blocked_id ASC LIMIT %d OFFSET %d",
+				$user_id,
+				$limit,
+				$offset
 			),
 			ARRAY_A
 		);
@@ -472,7 +653,7 @@ class PrivacyTools implements ListenerInterface {
 			$items[] = array(
 				'group_id'    => 'buddynext_blocks',
 				'group_label' => __( 'BuddyNext Blocked Members', 'buddynext' ),
-				'item_id'     => 'buddynext-block-' . $user_id . '-' . $i,
+				'item_id'     => 'buddynext-block-' . $user_id . '-' . ( $offset + (int) $i ),
 				'data'        => array(
 					array(
 						'name'  => __( 'Member', 'buddynext' ),
@@ -497,9 +678,11 @@ class PrivacyTools implements ListenerInterface {
 	 * Export the user's space memberships.
 	 *
 	 * @param int $user_id User id.
+	 * @param int $limit   Rows per page.
+	 * @param int $offset  Rows to skip.
 	 * @return array<int,array<string,mixed>>
 	 */
-	private function export_space_members( int $user_id ): array {
+	private function export_space_members( int $user_id, int $limit, int $offset ): array {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
@@ -509,8 +692,12 @@ class PrivacyTools implements ListenerInterface {
 				"SELECT m.space_id, m.role, m.status, m.joined_at, s.name
 				 FROM {$p}bn_space_members m
 				 LEFT JOIN {$p}bn_spaces s ON s.id = m.space_id
-				 WHERE m.user_id = %d",
-				$user_id
+				 WHERE m.user_id = %d
+				 ORDER BY m.space_id ASC
+				 LIMIT %d OFFSET %d",
+				$user_id,
+				$limit,
+				$offset
 			),
 			ARRAY_A
 		);
@@ -522,7 +709,7 @@ class PrivacyTools implements ListenerInterface {
 			$items[] = array(
 				'group_id'    => 'buddynext_spaces',
 				'group_label' => __( 'BuddyNext Space Memberships', 'buddynext' ),
-				'item_id'     => 'buddynext-space-' . $user_id . '-' . $i,
+				'item_id'     => 'buddynext-space-' . $user_id . '-' . ( $offset + (int) $i ),
 				'data'        => array(
 					array(
 						'name'  => __( 'Space', 'buddynext' ),
@@ -551,9 +738,11 @@ class PrivacyTools implements ListenerInterface {
 	 * Export the hashtags the user follows.
 	 *
 	 * @param int $user_id User id.
+	 * @param int $limit   Rows per page.
+	 * @param int $offset  Rows to skip.
 	 * @return array<int,array<string,mixed>>
 	 */
-	private function export_hashtag_follows( int $user_id ): array {
+	private function export_hashtag_follows( int $user_id, int $limit, int $offset ): array {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
@@ -563,8 +752,12 @@ class PrivacyTools implements ListenerInterface {
 				"SELECT h.name, hf.created_at
 				 FROM {$p}bn_hashtag_follows hf
 				 LEFT JOIN {$p}bn_hashtags h ON h.id = hf.hashtag_id
-				 WHERE hf.user_id = %d",
-				$user_id
+				 WHERE hf.user_id = %d
+				 ORDER BY hf.hashtag_id ASC
+				 LIMIT %d OFFSET %d",
+				$user_id,
+				$limit,
+				$offset
 			),
 			ARRAY_A
 		);
@@ -586,7 +779,7 @@ class PrivacyTools implements ListenerInterface {
 			array(
 				'group_id'    => 'buddynext_hashtag_follows',
 				'group_label' => __( 'BuddyNext Followed Hashtags', 'buddynext' ),
-				'item_id'     => 'buddynext-hashtag-follows-' . $user_id,
+				'item_id'     => 'buddynext-hashtag-follows-' . $user_id . '-' . $offset,
 				'data'        => $data,
 			),
 		);
@@ -647,18 +840,32 @@ class PrivacyTools implements ListenerInterface {
 	 * from the export to avoid leaking third-party recipients.
 	 *
 	 * @param int $user_id User id.
+	 * @param int $limit   Rows per page.
+	 * @param int $offset  Rows to skip.
 	 * @return array<int,array<string,mixed>>
 	 */
-	private function export_notifications( int $user_id ): array {
+	private function export_notifications( int $user_id, int $limit, int $offset ): array {
 		global $wpdb;
 		$p = $wpdb->prefix;
 
+		// This used to end in `ORDER BY created_at DESC LIMIT 500` — a hard cap, with no paging
+		// behind it and no disclosure in front of it. A member with 5,000 notifications was handed
+		// the most recent 500 and told the export was complete.
+		//
+		// A cap is the right instinct for a SCREEN. On a subject-access request it is the wrong
+		// one: the answer to "too much data to send at once" is to send it in PAGES, never to send
+		// less of it. Silently returning a subset of someone's data while calling it their data is
+		// the export-side twin of the eraser hard-coding `done => true`.
+		//
+		// Ordered by id, not created_at: two notifications can share a timestamp to the second, and
+		// an unstable sort makes LIMIT/OFFSET pages overlap and skip.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT type, object_type, object_id, is_read, created_at FROM {$p}bn_notifications WHERE recipient_id = %d ORDER BY created_at DESC LIMIT %d",
+				"SELECT type, object_type, object_id, is_read, created_at FROM {$p}bn_notifications WHERE recipient_id = %d ORDER BY id DESC LIMIT %d OFFSET %d",
 				$user_id,
-				500
+				$limit,
+				$offset
 			),
 			ARRAY_A
 		);
@@ -669,7 +876,7 @@ class PrivacyTools implements ListenerInterface {
 			$items[] = array(
 				'group_id'    => 'buddynext_notifications',
 				'group_label' => __( 'BuddyNext Notifications', 'buddynext' ),
-				'item_id'     => 'buddynext-notification-' . $user_id . '-' . $i,
+				'item_id'     => 'buddynext-notification-' . $user_id . '-' . ( $offset + (int) $i ),
 				'data'        => array(
 					array(
 						'name'  => __( 'Type', 'buddynext' ),
@@ -698,20 +905,20 @@ class PrivacyTools implements ListenerInterface {
 	 * Export one page of the user's authored posts.
 	 *
 	 * @param int $user_id User id.
-	 * @param int $page    1-based page number.
+	 * @param int $limit   Rows per page.
+	 * @param int $offset  Rows to skip.
 	 * @return array<int,array<string,mixed>>
 	 */
-	private function export_posts( int $user_id, int $page ): array {
+	private function export_posts( int $user_id, int $limit, int $offset ): array {
 		global $wpdb;
-		$p      = $wpdb->prefix;
-		$offset = ( max( 1, $page ) - 1 ) * self::PER_PAGE;
+		$p = $wpdb->prefix;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT id, type, content, link_url, privacy, status, created_at FROM {$p}bn_posts WHERE user_id = %d ORDER BY id ASC LIMIT %d OFFSET %d",
 				$user_id,
-				self::PER_PAGE,
+				$limit,
 				$offset
 			),
 			ARRAY_A
@@ -760,20 +967,20 @@ class PrivacyTools implements ListenerInterface {
 	 * Export one page of the user's authored comments.
 	 *
 	 * @param int $user_id User id.
-	 * @param int $page    1-based page number.
+	 * @param int $limit   Rows per page.
+	 * @param int $offset  Rows to skip.
 	 * @return array<int,array<string,mixed>>
 	 */
-	private function export_comments( int $user_id, int $page ): array {
+	private function export_comments( int $user_id, int $limit, int $offset ): array {
 		global $wpdb;
-		$p      = $wpdb->prefix;
-		$offset = ( max( 1, $page ) - 1 ) * self::PER_PAGE;
+		$p = $wpdb->prefix;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $p is $wpdb->prefix; all user input bound via prepare().
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT id, object_type, object_id, content, is_deleted, created_at FROM {$p}bn_comments WHERE user_id = %d ORDER BY id ASC LIMIT %d OFFSET %d",
 				$user_id,
-				self::PER_PAGE,
+				$limit,
 				$offset
 			),
 			ARRAY_A
@@ -900,37 +1107,6 @@ class PrivacyTools implements ListenerInterface {
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE user_id = %d", $user_id ) );
-	}
-
-	/**
-	 * Whether the user has any comments at all (export-loop guard).
-	 *
-	 * @param int $user_id User id.
-	 * @return bool
-	 */
-	private function has_comments( int $user_id ): bool {
-		return $this->count_comments( $user_id ) > 0;
-	}
-
-	/**
-	 * Whether the requested export page is the last page of posts.
-	 *
-	 * @param int $user_id User id.
-	 * @param int $page    1-based page number.
-	 * @return bool
-	 */
-	private function is_posts_done( int $user_id, int $page ): bool {
-		return $page >= $this->page_count( $this->count_posts( $user_id ) );
-	}
-
-	/**
-	 * Number of pages a row count spans (minimum 1).
-	 *
-	 * @param int $total Row count.
-	 * @return int
-	 */
-	private function page_count( int $total ): int {
-		return (int) max( 1, (int) ceil( $total / self::PER_PAGE ) );
 	}
 
 	/*
