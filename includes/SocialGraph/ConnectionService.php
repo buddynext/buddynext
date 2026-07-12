@@ -133,7 +133,7 @@ class ConnectionService {
 		}
 
 		$connection_id = (int) $wpdb->insert_id;
-		$this->invalidate_connection_cache();
+		$this->invalidate_connection_cache( $requester_id, $recipient_id );
 
 		/**
 		 * Fires after a connection request is sent.
@@ -178,7 +178,7 @@ class ConnectionService {
 			);
 		}
 
-		$this->invalidate_connection_cache();
+		$this->invalidate_connection_cache( $recipient_id, $requester_id );
 
 		// A pending request just became an accepted connection — count it for both
 		// peers (a connection is one shared row, counted from either side).
@@ -259,7 +259,7 @@ class ConnectionService {
 			);
 		}
 
-		$this->invalidate_connection_cache();
+		$this->invalidate_connection_cache( $recipient_id, $requester_id );
 
 		/**
 		 * Fires after a connection request is declined.
@@ -321,7 +321,7 @@ class ConnectionService {
 			);
 		}
 
-		$this->invalidate_connection_cache();
+		$this->invalidate_connection_cache( $requester_id, $recipient_id );
 
 		/**
 		 * Fires after a connection request is withdrawn.
@@ -369,7 +369,7 @@ class ConnectionService {
 			);
 		}
 
-		$this->invalidate_connection_cache();
+		$this->invalidate_connection_cache( $user_a, $user_b );
 
 		// The accepted connection is gone — decrement the counter for both peers.
 		$counters = buddynext_service( 'counters' );
@@ -528,7 +528,7 @@ class ConnectionService {
 	public function connections( int $user_id, int $limit = 20, int $offset = 0 ): array {
 		global $wpdb;
 
-		$cache_key = "connections_{$user_id}_{$limit}_{$offset}";
+		$cache_key = "connections_{$user_id}_{$limit}_{$offset}_v" . $this->version( $user_id );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
@@ -574,7 +574,7 @@ class ConnectionService {
 	public function pending_sent( int $user_id, int $limit = 20, int $offset = 0 ): array {
 		global $wpdb;
 
-		$cache_key = "pending_sent_{$user_id}_{$limit}_{$offset}";
+		$cache_key = "pending_sent_{$user_id}_{$limit}_{$offset}_v" . $this->version( $user_id );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
@@ -614,7 +614,7 @@ class ConnectionService {
 	public function pending_received( int $user_id, int $limit = 20, int $offset = 0 ): array {
 		global $wpdb;
 
-		$cache_key = "pending_received_{$user_id}_{$limit}_{$offset}";
+		$cache_key = "pending_received_{$user_id}_{$limit}_{$offset}_v" . $this->version( $user_id );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
@@ -666,7 +666,7 @@ class ConnectionService {
 
 		global $wpdb;
 
-		$cache_key = "mutual_{$user_a}_{$user_b}_{$limit}";
+		$cache_key = "mutual_{$user_a}_{$user_b}_{$limit}_v" . $this->version( $user_a ) . '_' . $this->version( $user_b );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
 			return (array) $cached;
@@ -844,14 +844,104 @@ class ConnectionService {
 	}
 
 	/**
-	 * Invalidate all connection cache entries.
+	 * The per-member cache version.
 	 *
-	 * The paginated list keys (connections, pending_sent, pending_received) embed
-	 * limit/offset in their cache key, making targeted deletion impractical. A full
-	 * group flush is the correct approach for WP 6.1+ (this plugin requires WP 6.9+).
-	 * Status and count keys are also covered by the group flush.
+	 * Every unbounded key set (the paged lists, and the pairwise `mutual_` keys) embeds the
+	 * version of the member(s) it depends on. Bumping the version makes every one of those keys
+	 * unreachable at once, without touching any other member's cache — which is what
+	 * delete-by-key cannot do for a key set whose offsets you cannot enumerate.
+	 *
+	 * Seeded from `time()`, not from 1, and deliberately. If the object cache evicts a version
+	 * key under memory pressure while data keyed on it is still cached, a re-seed must produce a
+	 * NEW value — never one that was used before, or the old entries become reachable again and
+	 * we would resurrect stale data. A monotonic seed makes that impossible.
+	 *
+	 * Stored with no expiry: the version must outlive the data it versions.
+	 *
+	 * @since 1.0.8
+	 *
+	 * @param int $uid Member ID.
+	 * @return int Current version.
 	 */
-	private function invalidate_connection_cache(): void {
-		wp_cache_flush_group( self::CACHE_GROUP );
+	private function version( int $uid ): int {
+		$key = "conn_ver_{$uid}";
+		$ver = wp_cache_get( $key, self::CACHE_GROUP );
+
+		if ( false === $ver ) {
+			$ver = time();
+			wp_cache_set( $key, $ver, self::CACHE_GROUP, 0 );
+		}
+
+		return (int) $ver;
+	}
+
+	/**
+	 * Bump a member's cache version, retiring every unbounded key that embeds it.
+	 *
+	 * @since 1.0.8
+	 *
+	 * @param int $uid Member ID.
+	 * @return void
+	 */
+	private function bump_version( int $uid ): void {
+		$key = "conn_ver_{$uid}";
+
+		if ( false === wp_cache_get( $key, self::CACHE_GROUP ) ) {
+			// Nothing cached under this version yet; seeding is enough.
+			wp_cache_set( $key, time(), self::CACHE_GROUP, 0 );
+
+			return;
+		}
+
+		wp_cache_incr( $key, 1, self::CACHE_GROUP );
+	}
+
+	/**
+	 * Invalidate the cache for the two members a write actually touched.
+	 *
+	 * This used to be `wp_cache_flush_group()`, and that was wrong twice over.
+	 *
+	 * It is a silent no-op on any persistent drop-in that does not implement `flush_group` (some
+	 * Memcached, older Redis). Core's default cache DOES implement it — so the bug was invisible
+	 * locally and only bit production sites that had installed the very thing that makes caching
+	 * work.
+	 *
+	 * And where it DID work it was a sledgehammer: one member accepting one connection request
+	 * destroyed the cached connection state of EVERY member on the site. On a busy 100k-member
+	 * graph, connections are accepted continuously — so the cache was wiped faster than it could
+	 * warm, every read fell through to the database anyway, and the cache was pure cost. That is
+	 * over-INVALIDATION, the twin of over-caching.
+	 *
+	 * Two mechanisms, chosen by key-set shape (CACHING.md §4b):
+	 *
+	 *   DELETE-BY-KEY — the write knows exactly which keys it changed:
+	 *     pair_row_{low}_{high}, connection_count_{a}, connection_count_{b}
+	 *
+	 *   VERSION KEY — the key set cannot be enumerated at write time:
+	 *     connections_{u}_{limit}_{offset}      (offsets unknowable)
+	 *     pending_sent_{u}_{limit}_{offset}
+	 *     pending_received_{u}_{limit}_{offset}
+	 *     mutual_{a}_{b}_{limit}                (PAIRWISE — see below)
+	 *
+	 * `mutual_` is the one that forces the design. When A's connections change, every
+	 * `mutual_{A}_{anyone}_{any_limit}` key is stale — and every `mutual_{anyone}_{A}_…` too. That
+	 * set is unbounded across the entire user base, which is exactly why someone reached for the
+	 * group flush in the first place. It was the wrong answer to a real problem. Because the key
+	 * embeds BOTH members' versions, bumping either one retires it.
+	 *
+	 * @param int $user_a One member in the write.
+	 * @param int $user_b The other.
+	 * @return void
+	 */
+	private function invalidate_connection_cache( int $user_a, int $user_b ): void {
+		$low  = min( $user_a, $user_b );
+		$high = max( $user_a, $user_b );
+
+		wp_cache_delete( "pair_row_{$low}_{$high}", self::CACHE_GROUP );
+		wp_cache_delete( "connection_count_{$user_a}", self::CACHE_GROUP );
+		wp_cache_delete( "connection_count_{$user_b}", self::CACHE_GROUP );
+
+		$this->bump_version( $user_a );
+		$this->bump_version( $user_b );
 	}
 }
