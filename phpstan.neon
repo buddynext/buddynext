@@ -8,6 +8,18 @@ parameters:
         - includes
     scanFiles:
         - buddynext.php
+        # Action Scheduler is BUNDLED (libs/action-scheduler) but sits outside the analysed
+        # `paths`, so PHPStan could not see the as_* functions. Every call site guards with
+        # function_exists(), and PHPStan understands that idiom when guard and call share a
+        # block — but ProfileService checks availability in the caller and passes it down as
+        # a bool, putting the guard out of sight and tripping function.notFound.
+        #
+        # Scanning the real source (rather than hand-writing a stub) is what keeps this
+        # honest: the signatures are the shipped ones and cannot drift. A stub written from
+        # memory here got as_enqueue_async_action's arity wrong on the first try — the real
+        # one takes ( $hook, $args, $group, $unique, $priority ), and OutboundWebhookService
+        # passes the 4th.
+        - libs/action-scheduler/functions.php
     bootstrapFiles:
         - vendor/szepeviktor/phpstan-wordpress/bootstrap.php
         - phpstan-bootstrap.php
