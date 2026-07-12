@@ -527,13 +527,41 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 * @return string Newline-separated list of valid IP addresses.
 	 */
 	public static function sanitize_ip_list( $value ): string {
-		$parts = preg_split( '/[\r\n,]+/', (string) $value );
-		$out   = array();
+		// The blocklist refuses sign-in (Auth\LoginGuard), and it does not exempt
+		// administrators — a blocklist with a hole for the most valuable accounts
+		// is not a blocklist. That makes one typo catastrophic: an owner who pastes
+		// their own address in locks themselves out of wp-login.php on their own
+		// site, with no way back through the browser. So the mistake is made
+		// impossible here rather than survivable later: the saving user's current
+		// address is dropped from the list, and they are told why.
+		$own = \BuddyNext\Moderation\SafeguardService::client_ip();
+
+		$parts   = preg_split( '/[\r\n,]+/', (string) $value );
+		$out     = array();
+		$refused = false;
 		foreach ( is_array( $parts ) ? $parts : array() as $line ) {
 			$ip = trim( (string) $line );
-			if ( '' !== $ip && false !== filter_var( $ip, FILTER_VALIDATE_IP ) && ! in_array( $ip, $out, true ) ) {
-				$out[] = $ip;
+			if ( '' === $ip || false === filter_var( $ip, FILTER_VALIDATE_IP ) || in_array( $ip, $out, true ) ) {
+				continue;
 			}
+			if ( '' !== $own && $ip === $own ) {
+				$refused = true;
+				continue;
+			}
+			$out[] = $ip;
+		}
+
+		if ( $refused ) {
+			add_settings_error(
+				'buddynext_blocked_ips',
+				'bn_blocked_ips_self',
+				sprintf(
+					/* translators: %s: the administrator's own IP address. */
+					__( 'Your own address (%s) was removed from the blocked list. Blocking it would have locked you out of your own site — the blocklist refuses sign-in, and it does not make an exception for administrators.', 'buddynext' ),
+					$own
+				),
+				'warning'
+			);
 		}
 
 		return implode( "\n", $out );
@@ -1294,7 +1322,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'     => 'textarea',
 							'label'    => __( 'Blocked IP addresses', 'buddynext' ),
 							'sanitize' => array( self::class, 'sanitize_ip_list' ),
-							'hint'     => __( 'One IP address per line (IPv4 or IPv6). Members posting or commenting from these addresses are blocked. Invalid entries are dropped on save.', 'buddynext' ),
+							'hint'     => __( 'One IP address per line (IPv4 or IPv6). These addresses cannot sign in, register, post, or comment - including on accounts they already hold. Your own address cannot be added. Invalid entries are dropped on save.', 'buddynext' ),
 						)
 					),
 					new Field(

@@ -335,6 +335,12 @@ class Plugin {
 		// verification gate (6), so a member confirms their address first.
 		add_action( 'template_redirect', array( \BuddyNext\Auth\TwoFactorService::class, 'enforce_enrolment' ), 7 );
 
+		// Blocked-IP gate on sign-in. The blocklist already gated posting,
+		// commenting and registration but not authentication, so a blocked address
+		// could still sign in and keep using the accounts it already held. Binds to
+		// both session-minting chains — see LoginGuard.
+		( new \BuddyNext\Auth\LoginGuard() )->register();
+
 		// Approval-mode gate: block sign-in for accounts awaiting administrator
 		// approval (set during registration when buddynext_reg_mode = 'approval').
 		add_filter(
