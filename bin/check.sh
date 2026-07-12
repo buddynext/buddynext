@@ -138,6 +138,27 @@ else
 	note "bin/check-hook-docs.py missing"
 fi
 
+# 3b-ii. Erasure completeness — BLOCKING, and green as of this commit.
+#
+# Every bn_* table with a user-bearing column must be on MemberCleanupService::erase_map()
+# (we delete it when a member is erased) or ::retain_map() (we keep it, with a stated legal
+# basis). A table on neither list is not a decision that was made and lost — it is a decision
+# nobody was ever asked to make.
+#
+# That is not hypothetical: DATA-LIFECYCLE.md §9 has required exactly this for as long as it
+# has existed, and bn_activity_log, bn_email_log and bn_webhook_log were still never purged,
+# because adding a table forced nobody to answer the question. This gate forces it.
+section "Erasure completeness"
+if [ -f bin/check-erasure.py ]; then
+	if python3 bin/check-erasure.py; then
+		:
+	else
+		fail "a user-keyed table is not registered for erasure or retention — see DATA-LIFECYCLE.md §9"
+	fi
+else
+	note "bin/check-erasure.py missing"
+fi
+
 # 3c. Cache conformance — ADVISORY until the cache backlog is cleared, then make it blocking.
 #
 # This gate existed and was called by NOTHING, while a plan doc claimed it was wired. An
