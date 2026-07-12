@@ -829,7 +829,7 @@ class PrivacyTools implements ListenerInterface {
 	 * @return array{items_removed:bool,items_retained:bool,messages:array<int,string>,done:bool}
 	 */
 	public function erase( string $email_address, int $page = 1 ): array {
-		unset( $page ); // Single-pass erase: the core pagination contract is satisfied in one call.
+		unset( $page ); // Progress is derived from what is left in the tables, not from a page number.
 		$user = get_user_by( 'email', $email_address );
 
 		if ( ! $user instanceof \WP_User ) {
@@ -841,38 +841,35 @@ class PrivacyTools implements ListenerInterface {
 			);
 		}
 
-		// Full GDPR erasure in a single pass: the canonical purge HARD-DELETES every
-		// user-keyed table INCLUDING the member's posts (cascading each post's child rows)
-		// and their comments. There is no anonymise/keep-the-thread path - deleting a
-		// member removes the person AND their content, the same policy account-delete uses.
-		$removed = $this->erase_relational( (int) $user->ID );
+		// Full GDPR erasure: the canonical purge HARD-DELETES every user-keyed table INCLUDING the
+		// member's posts (cascading each post's child rows) and their comments. There is no
+		// anonymise/keep-the-thread path — deleting a member removes the person AND their content,
+		// the same policy account-delete uses.
+		//
+		// CORE'S PAGING LOOP IS THE CHUNKING DRIVER, AND IT IS FREE.
+		//
+		// WP calls this method over and over — each call its own HTTP request, with a fresh time
+		// and memory budget — until we report done. Only then does it zip the export, or tell the
+		// member their data has been erased.
+		//
+		// This used to `unset( $page )` and hard-code `'done' => true`, attempting the entire
+		// erasure in one pass. On a large member that request dies; and if it dies, core has still
+		// been told nothing is left to do. Worse, when it did NOT die but ran out of time, core
+		// reported a completed erasure over data that was still in the database. For a compliance
+		// path that is the one lie you cannot tell.
+		//
+		// So `done` is now derived from the tables themselves — the purge's own verifier — and not
+		// asserted. If anything of the member remains, we say so and core calls us again.
+		$cleanup = new \BuddyNext\Profile\MemberCleanupService();
+		$removed = $cleanup->purge_user_relations( (int) $user->ID, 'gdpr-erase' );
+		$residue = array_filter( $cleanup->residue( (int) $user->ID ) );
 
 		return array(
 			'items_removed'  => $removed,
 			'items_retained' => false,
 			'messages'       => array(),
-			'done'           => true,
+			'done'           => array() === $residue,
 		);
-	}
-
-	/**
-	 * Erase the bounded per-user data (meta, relations, memberships).
-	 *
-	 * Hard-deletes in both directions for relational tables, mirroring
-	 * SocialGraph\UserCleanupListener, and corrects affected space member
-	 * counts so directory totals stay honest.
-	 *
-	 * @param int $user_id User id.
-	 * @return bool Whether anything was removed.
-	 */
-	private function erase_relational( int $user_id ): bool {
-		// Defer to the ONE canonical member-cleanup service (shared with the
-		// hard-delete path, SocialGraph\UserCleanupListener) so the eraser and the
-		// delete can never diverge or miss a table. Context 'gdpr-erase' runs the same
-		// full purge (every user-keyed table + member_count decrement + reaction
-		// recount + bn_* usermeta sweep) and fires buddynext_purge_user_data with that
-		// context so addons scrub their own per-user rows on the same signal.
-		return ( new \BuddyNext\Profile\MemberCleanupService() )->purge_user_relations( $user_id, 'gdpr-erase' );
 	}
 
 	/*
