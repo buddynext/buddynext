@@ -43,23 +43,34 @@ $bn_paged    = max( 1, absint( get_query_var( 'paged', 1 ) ) );
 $follow_svc = buddynext_service( 'follows' );
 $blocks_svc = buddynext_service( 'blocks' );
 
-$all_ids = $follow_svc->following( $user_id );
+// Page in SQL, and count with COUNT(*). This page used to load EVERY approved follow row,
+// filter it in PHP, count the array, and then array_slice() 24 rows out of it — on every view.
+//
+// The followers tab was fixed exactly this way, and its comment says exactly this. This tab,
+// its sibling, kept the bug. So did ProfileNav's `following` branch, three lines under the
+// `followers` branch that had already been fixed. Same fix, never applied sideways.
+$total       = $follow_svc->following_count( $user_id );
+$total_pages = $total > 0 ? (int) ceil( $total / $bn_per_page ) : 0;
+$offset      = ( $bn_paged - 1 ) * $bn_per_page;
 
+$page_ids = $follow_svc->paged_following( $user_id, $bn_per_page, $offset );
+
+// Filter out blocked relationships for the viewer (defensive — same rule as REST). Applied to
+// THIS PAGE, not to the whole follow list. A blocked member is still inside $total (it counts
+// follow rows, not viewer-visible ones), so a page can come back slightly short. That is the
+// deliberate trade, and it is the same one the followers tab makes: making the number agree with
+// a per-viewer filter means scanning every follow row on every page view, which is exactly what
+// this change exists to stop. Blocks are rare; full-table scans are not.
 if ( $current_user_id > 0 ) {
-	$all_ids = array_values(
+	$page_ids = array_values(
 		array_filter(
-			$all_ids,
+			$page_ids,
 			static function ( int $other_id ) use ( $blocks_svc, $current_user_id ): bool {
 				return $other_id === $current_user_id || ! $blocks_svc->is_blocking_either( $current_user_id, $other_id );
 			}
 		)
 	);
 }
-
-$total       = count( $all_ids );
-$total_pages = $total > 0 ? (int) ceil( $total / $bn_per_page ) : 0;
-$offset      = ( $bn_paged - 1 ) * $bn_per_page;
-$page_ids    = array_slice( $all_ids, $offset, $bn_per_page );
 
 $page_title = $is_own_profile
 	? __( 'You are following', 'buddynext' )
