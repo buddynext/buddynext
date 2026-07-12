@@ -188,7 +188,8 @@ class RegistrationPolicy {
 			$key   = 'bn_field_' . (string) $field['field_key'];
 			$value = $data[ $key ] ?? '';
 
-			if ( '' === $value || null === $value || array() === $value ) {
+			// No null branch: the ?? above already collapses a missing key to ''.
+			if ( '' === $value || array() === $value ) {
 				$missing[] = $key;
 			}
 		}

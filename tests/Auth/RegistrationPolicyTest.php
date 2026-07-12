@@ -102,6 +102,10 @@ class RegistrationPolicyTest extends \WP_UnitTestCase {
 			)
 		);
 		update_option( 'buddynext_require_terms', '1' );
+		// The consent gate binds only when there is a Terms page to consent TO —
+		// requiring agreement to a document that does not exist is unenforceable, so
+		// RegistrationPolicy stands the gate down without one. Seed the page.
+		update_option( 'buddynext_terms_page_id', self::factory()->post->create( array( 'post_type' => 'page', 'post_title' => 'Terms' ) ) );
 
 		$policy = new RegistrationPolicy();
 

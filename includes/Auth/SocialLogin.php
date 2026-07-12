@@ -1014,6 +1014,12 @@ class SocialLogin {
 		}
 		$user_id = (int) $user_id;
 
+		// We minted the password above and never showed it to them: this member has
+		// none they could type. This is the only place that is true, so it is the
+		// only place the marker is set — has_known_password() assumes every other
+		// account HAS a password and demands it before a change.
+		AuthController::mark_password_generated( $user_id );
+
 		if ( '' !== (string) $pending['name'] ) {
 			wp_update_user(
 				array(

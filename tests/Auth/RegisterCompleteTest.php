@@ -30,6 +30,10 @@ class RegisterCompleteTest extends \WP_Test_REST_TestCase {
 		update_option( 'users_can_register', '1' );
 		update_option( 'buddynext_reg_mode', 'open' );
 		update_option( 'buddynext_require_terms', '1' );
+		// The consent gate binds only when there is a Terms page to consent TO —
+		// requiring agreement to a document that does not exist is unenforceable, so
+		// RegistrationPolicy stands the gate down without one. Seed the page.
+		update_option( 'buddynext_terms_page_id', self::factory()->post->create( array( 'post_type' => 'page', 'post_title' => 'Terms' ) ) );
 	}
 
 	/**

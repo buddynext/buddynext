@@ -44,13 +44,11 @@ class ScaleTest extends \WP_UnitTestCase {
 			self::factory()->user->create( array( 'user_login' => 'info' . $i ) );
 		}
 
-		$social = new \BuddyNext\Auth\SocialLogin();
-
-		$method = new \ReflectionMethod( $social, 'unique_login' );
-		$method->setAccessible( true );
-
+		// unique_login() now lives on RegistrationService as a public static: it is
+		// the one derivation shared by social sign-up and the email form, so it is
+		// no longer a private of SocialLogin to be reflected into.
 		$before = $wpdb->num_queries;
-		$login  = $method->invoke( $social, 'info@acme.com' );
+		$login  = \BuddyNext\Auth\RegistrationService::unique_login( 'info@acme.com' );
 		$cost   = $wpdb->num_queries - $before;
 
 		$this->assertSame( 'info12', $login, 'it must still pick the next free suffix' );
@@ -67,12 +65,7 @@ class ScaleTest extends \WP_UnitTestCase {
 	 * A fresh local part still gets the bare username, no suffix.
 	 */
 	public function test_an_uncontested_login_is_used_as_is(): void {
-		$social = new \BuddyNext\Auth\SocialLogin();
-
-		$method = new \ReflectionMethod( $social, 'unique_login' );
-		$method->setAccessible( true );
-
-		$this->assertSame( 'brandnew', $method->invoke( $social, 'brandnew@acme.com' ) );
+		$this->assertSame( 'brandnew', \BuddyNext\Auth\RegistrationService::unique_login( 'brandnew@acme.com' ) );
 	}
 
 	/**
