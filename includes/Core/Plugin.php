@@ -454,6 +454,12 @@ class Plugin {
 		// the writer's first-page cache on post_created / post_deleted.
 		( new \BuddyNext\Feed\FeedListener( $container->get( 'feed_cache' ) ) )->register();
 
+		// Bust the cached streak summary when the member does one of the three things it
+		// counts (post / comment / reaction). It previously had a 300s TTL and no bust at
+		// all, so the member extended their streak and kept seeing the old number for five
+		// minutes — on a card whose only job is immediate feedback.
+		( new \BuddyNext\Engagement\StreakListener() )->register();
+
 		// Wire email dispatch to the notification created action.
 		( new EmailDispatchListener(
 			$container->get( 'email_sender' ),
