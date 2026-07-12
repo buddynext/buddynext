@@ -6,7 +6,6 @@
  *   1. Channels - master toggles (in-app / email / push).
  *   2. Activity types - accordion grouped by NotificationPrefCatalogue group.
  *   3. Spaces you are in - per-space all / mentions only / none chip-select.
- *   4. Quiet hours - coming-soon placeholder (REST not yet extended).
  *
  * Powered by the Interactivity API store `buddynext/notification-prefs`.
  *
@@ -449,29 +448,6 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 	</section>
 
 	<!-- Section 4: Quiet hours (coming soon) -->
-	<section class="bn-card bn-prefs-card bn-prefs-card--soon" data-v2 aria-labelledby="bn-prefs-quiet-title">
-		<header class="bn-prefs-card__head">
-			<h2 class="bn-prefs-card__title" id="bn-prefs-quiet-title">
-				<?php esc_html_e( 'Quiet hours', 'buddynext' ); ?>
-				<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Coming soon', 'buddynext' ); ?></span>
-			</h2>
-			<p class="bn-prefs-card__sub"><?php esc_html_e( 'Pause email and push during a daily quiet window. We will turn this on as soon as the dispatcher honours it.', 'buddynext' ); ?></p>
-		</header>
-		<div class="bn-prefs-quiet">
-			<div class="bn-prefs-quiet__field">
-				<label class="bn-prefs-quiet__label" for="bn-prefs-quiet-start"><?php esc_html_e( 'Start', 'buddynext' ); ?></label>
-				<input class="bn-input" id="bn-prefs-quiet-start" type="time" value="22:00" disabled>
-			</div>
-			<div class="bn-prefs-quiet__field">
-				<label class="bn-prefs-quiet__label" for="bn-prefs-quiet-end"><?php esc_html_e( 'End', 'buddynext' ); ?></label>
-				<input class="bn-input" id="bn-prefs-quiet-end" type="time" value="07:00" disabled>
-			</div>
-			<div class="bn-prefs-quiet__field">
-				<span class="bn-prefs-quiet__label"><?php esc_html_e( 'Timezone', 'buddynext' ); ?></span>
-				<span class="bn-prefs-quiet__tz"><?php echo esc_html( (string) wp_timezone_string() ); ?></span>
-			</div>
-		</div>
-	</section>
 
 	<!-- Reset to defaults -->
 	<div class="bn-prefs-reset">
