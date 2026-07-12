@@ -32,7 +32,7 @@ class PresenceServiceTest extends WP_UnitTestCase {
 		parent::set_up();
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$wpdb->query( "TRUNCATE TABLE {$wpdb->prefix}bn_presence" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_presence" );
 	}
 
 	/**

@@ -36,7 +36,7 @@ class EmailLogCleanupTest extends WP_UnitTestCase {
 		$this->cron = new CronService();
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$wpdb->query( "TRUNCATE TABLE {$wpdb->prefix}bn_email_log" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_email_log" );
 	}
 
 	/**
