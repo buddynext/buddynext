@@ -102,16 +102,24 @@ final class SpaceFieldRegistry {
 			return;
 		}
 
-		$type       = isset( $args['type'] ) ? sanitize_key( (string) $args['type'] ) : 'text';
-		$visibility = in_array( $args['visibility'] ?? 'public', array( 'public', 'members' ), true )
-			? (string) $args['visibility']
-			: 'public';
+		$type = isset( $args['type'] ) ? sanitize_key( (string) $args['type'] ) : 'text';
+
+		// Resolve the default FIRST, then validate it. Writing this as
+		// `in_array( $args['x'] ?? 'default', … ) ? (string) $args['x'] : 'default'` reads
+		// fine and is broken: when the key is absent the ?? satisfies in_array, and the
+		// TRUE branch then reads $args['x'] — which does not exist. Every caller that
+		// omitted the key emitted an "Undefined array key" warning.
+		$visibility = (string) ( $args['visibility'] ?? 'public' );
+		if ( ! in_array( $visibility, array( 'public', 'members' ), true ) ) {
+			$visibility = 'public';
+		}
 
 		// Who may WRITE this field. Owner is the default, deliberately: a field that
 		// forgets to declare this must not accidentally become moderator-writable.
-		$writable_by = in_array( $args['writable_by'] ?? 'owner', array( 'owner', 'moderator' ), true )
-			? (string) $args['writable_by']
-			: 'owner';
+		$writable_by = (string) ( $args['writable_by'] ?? 'owner' );
+		if ( ! in_array( $writable_by, array( 'owner', 'moderator' ), true ) ) {
+			$writable_by = 'owner';
+		}
 
 		$field = array(
 			'key'          => $key,
