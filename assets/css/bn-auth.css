@@ -424,9 +424,20 @@
 }
 
 /* Social-login row */
+/* The row fits however many providers the owner actually enabled.
+ *
+ * It was hardcoded to `repeat(3, 1fr)` — three columns whether or not three providers
+ * existed. A site with one provider (the common case: most owners turn on one, maybe two)
+ * got a stubby button occupying a third of the row with two empty columns beside it, which
+ * read as a secondary chip rather than the fastest way in. Now that the social buttons lead
+ * the form, that mattered even more.
+ *
+ * auto-fit gives one provider the full width, two a half each, three a third — the same
+ * layout the old rule produced when the assumption happened to hold, and a correct one when
+ * it does not. */
 .bn-auth-social {
 	display: grid;
-	grid-template-columns: repeat(3, 1fr);
+	grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
 	gap: var(--bn-s2);
 }
 

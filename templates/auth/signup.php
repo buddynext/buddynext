@@ -267,7 +267,6 @@ if ( 'invite' === $bn_reg_mode ) {
 				// reads as the alternative it has become rather than the main event.
 				?>
 				<?php if ( ! empty( $social_providers ) ) : ?>
-					<div class="bn-auth-divider"><?php esc_html_e( 'or sign up with your email', 'buddynext' ); ?></div>
 					<div class="bn-auth-social">
 						<?php
 						foreach ( $social_providers as $provider ) :
@@ -292,6 +291,13 @@ if ( 'invite' === $bn_reg_mode ) {
 							</a>
 						<?php endforeach; ?>
 					</div>
+
+					<?php
+					// The divider goes AFTER the buttons, because it is what separates them
+					// from the email form below. Above them it separated nothing and read as a
+					// heading for the social button itself.
+					?>
+					<div class="bn-auth-divider"><?php esc_html_e( 'or sign up with your email', 'buddynext' ); ?></div>
 				<?php endif; ?>
 
 				<form class="bn-auth-form"
