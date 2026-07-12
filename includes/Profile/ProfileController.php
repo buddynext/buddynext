@@ -803,7 +803,7 @@ class ProfileController extends BaseRestController {
 		// Handle privacy + notification preference keys — stored as usermeta,
 		// not profile-field rows. Audience enums are constrained to the
 		// canonical four values; boolean toggles are coerced.
-		$audience_keys = array( 'bn_privacy_see_email', 'bn_privacy_dm', 'bn_privacy_mention' );
+		$audience_keys = array( 'bn_privacy_dm', 'bn_privacy_mention' );
 		// Profile-view / follow / connect gates. Each meta key accepts only the
 		// vocabulary its PrivacyService gate honours (can_view_profile /
 		// can_follow / can_connect); the validator above rejects anything else.
@@ -856,7 +856,7 @@ class ProfileController extends BaseRestController {
 		}
 
 		foreach ( $search_vis_keys as $svk ) {
-			if ( $search_vis_before[ $svk ] !== (string) get_user_meta( $user_id, $svk, true ) ) {
+			if ( (string) get_user_meta( $user_id, $svk, true ) !== $search_vis_before[ $svk ] ) {
 				/**
 				 * An account-level setting governing whether a member's posts
 				 * appear in global search changed. Listeners (SearchIndexListener)
@@ -989,7 +989,7 @@ class ProfileController extends BaseRestController {
 
 		// Audience enums: must match the canonical four-value vocabulary.
 		$audiences     = array( 'everyone', 'members', 'connections', 'nobody' );
-		$audience_keys = array( 'bn_privacy_see_email', 'bn_privacy_dm', 'bn_privacy_mention' );
+		$audience_keys = array( 'bn_privacy_dm', 'bn_privacy_mention' );
 		foreach ( $audience_keys as $aud_key ) {
 			if ( ! array_key_exists( $aud_key, $data ) ) {
 				continue;
