@@ -197,6 +197,28 @@
 	line-height: 1.5;
 }
 
+/* The "Add a profile photo" call to action — a real button that looks like the link it
+ * always pretended to be. It used to be a <strong> inside an inert div: it read as the
+ * thing you press and did nothing when pressed. Same weight it had before, so nothing
+ * moves; it just works now, and it is keyboard-reachable, which the avatar-image-only
+ * version was not for anyone reading the words rather than looking at the picture. */
+.bn-ob-avatar-row__cta {
+	display: inline;
+	padding: 0;
+	border: 0;
+	background: none;
+	font: inherit;
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-accent);
+	cursor: pointer;
+	text-align: start;
+}
+
+.bn-ob-avatar-row__cta:hover,
+.bn-ob-avatar-row__cta:focus-visible {
+	text-decoration: underline;
+}
+
 /* ── Form fields ──────────────────────────────────────────────────────── */
 
 .bn-ob-field {
