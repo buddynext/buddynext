@@ -45,6 +45,10 @@ if ( '' === $privacy_url ) {
 // admin has enabled and configured at least one provider.
 $social_providers = (array) apply_filters( 'buddynext_auth_social_providers', array() );
 
+// What this owner's front door asks for. The same payload GET /auth/register/config serves,
+// so the native app renders exactly the form the web does instead of guessing.
+$bn_requirements = buddynext_service( 'registration_policy' )->requirements();
+
 $bn_honeypot_name = \BuddyNext\Auth\RegistrationGuard::honeypot_field();
 $bn_reg_token     = \BuddyNext\Auth\RegistrationGuard::issue_token();
 $bn_challenge_on  = \BuddyNext\Auth\RegistrationGuard::challenge_enabled();
@@ -249,6 +253,47 @@ if ( 'invite' === $bn_reg_mode ) {
 					<p class="bn-auth-notice__body"><?php esc_html_e( 'We will email you as soon as an administrator approves it. You do not need to do anything else.', 'buddynext' ); ?></p>
 				</div>
 
+				<?php
+				// The fastest way in goes FIRST.
+				//
+				// These buttons used to sit BELOW the form — after three fields, a human check
+				// and a consent box. Someone who would happily have clicked "Continue with
+				// GitHub" had to read past the entire thing they were trying to avoid before
+				// discovering they could skip it. Every mainstream signup (Google, Facebook,
+				// LinkedIn, Slack, Notion) leads with the one-click path, because the member's
+				// goal is to be inside the community, not to fill in a form.
+				//
+				// The divider below now reads "or sign up with your email", so the email form
+				// reads as the alternative it has become rather than the main event.
+				?>
+				<?php if ( ! empty( $social_providers ) ) : ?>
+					<div class="bn-auth-divider"><?php esc_html_e( 'or sign up with your email', 'buddynext' ); ?></div>
+					<div class="bn-auth-social">
+						<?php
+						foreach ( $social_providers as $provider ) :
+							$pid    = isset( $provider['id'] ) ? sanitize_key( $provider['id'] ) : '';
+							$plabel = isset( $provider['label'] ) ? (string) $provider['label'] : '';
+							$picon  = isset( $provider['icon'] ) ? sanitize_key( $provider['icon'] ) : 'globe';
+							$purl   = isset( $provider['url'] ) ? esc_url_raw( $provider['url'] ) : '';
+							if ( '' === $pid || '' === $purl ) {
+								continue;
+							}
+							?>
+							<a class="bn-btn" data-variant="secondary" data-size="lg"
+								href="<?php echo esc_url( $purl ); ?>"
+								aria-label="
+								<?php
+								/* translators: %s: provider name (e.g. Google). */
+								echo esc_attr( sprintf( __( 'Continue with %s', 'buddynext' ), $plabel ) );
+								?>
+								">
+								<?php buddynext_icon( $picon ); ?>
+								<span><?php echo esc_html( $plabel ); ?></span>
+							</a>
+						<?php endforeach; ?>
+					</div>
+				<?php endif; ?>
+
 				<form class="bn-auth-form"
 					novalidate
 					data-wp-bind--hidden="state.pending"
@@ -295,28 +340,66 @@ if ( 'invite' === $bn_reg_mode ) {
 							data-wp-text="state.emailError"></span>
 					</div>
 
-					<div class="bn-auth-field">
-						<label class="bn-auth-label" for="bn-signup-username">
-							<?php esc_html_e( 'Username', 'buddynext' ); ?>
-						</label>
-						<input class="bn-input"
-							type="text"
-							id="bn-signup-username"
-							name="user_login"
-							autocomplete="username"
-							placeholder="@username"
-							aria-describedby="bn-signup-username-hint"
-							required
-							data-wp-bind--disabled="state.submitting"
-							data-wp-bind--aria-invalid="state.usernameInvalid"
-							data-wp-on--input="actions.setUserLogin" />
-						<span class="bn-auth-hint" id="bn-signup-username-hint">
-							<?php esc_html_e( '3–24 characters: letters, numbers, underscore.', 'buddynext' ); ?>
-						</span>
-						<span class="bn-auth-field__msg"
-							data-wp-bind--hidden="!state.usernameError"
-							data-wp-text="state.usernameError"></span>
-					</div>
+					<?php
+					// NAME — what the community actually shows other people.
+					//
+					// This is the field Facebook and LinkedIn ask for, and the one we never
+					// did. Members were asked to invent a username instead, so they appeared
+					// to each other as @jsmith — unless they signed up with a social provider,
+					// which captured their real name and derived the handle silently. The
+					// slower door asked more and captured less.
+					if ( ! empty( $bn_requirements['ask_name'] ) ) :
+						?>
+						<div class="bn-auth-field">
+							<label class="bn-auth-label" for="bn-signup-name">
+								<?php esc_html_e( 'Your name', 'buddynext' ); ?>
+							</label>
+							<input class="bn-input"
+								type="text"
+								id="bn-signup-name"
+								name="name"
+								autocomplete="name"
+								placeholder="<?php esc_attr_e( 'Jane Doe', 'buddynext' ); ?>"
+								aria-describedby="bn-signup-name-hint"
+								data-wp-bind--disabled="state.submitting" />
+							<span class="bn-auth-hint" id="bn-signup-name-hint">
+								<?php esc_html_e( 'This is how other members will see you.', 'buddynext' ); ?>
+							</span>
+						</div>
+					<?php endif; ?>
+
+					<?php
+					// USERNAME — off by default.
+					//
+					// Nobody should have to invent a handle to join a community. When this is
+					// off we derive one from the email (the same unique_login() social signup
+					// has always used) and the member can change it later in settings. An
+					// owner whose community wants handles chosen at the door turns it on.
+					if ( ! empty( $bn_requirements['ask_username'] ) ) :
+						?>
+						<div class="bn-auth-field">
+							<label class="bn-auth-label" for="bn-signup-username">
+								<?php esc_html_e( 'Username', 'buddynext' ); ?>
+							</label>
+							<input class="bn-input"
+								type="text"
+								id="bn-signup-username"
+								name="user_login"
+								autocomplete="username"
+								placeholder="@username"
+								aria-describedby="bn-signup-username-hint"
+								required
+								data-wp-bind--disabled="state.submitting"
+								data-wp-bind--aria-invalid="state.usernameInvalid"
+								data-wp-on--input="actions.setUserLogin" />
+							<span class="bn-auth-hint" id="bn-signup-username-hint">
+								<?php esc_html_e( '3–24 characters: letters, numbers, underscore.', 'buddynext' ); ?>
+							</span>
+							<span class="bn-auth-field__msg"
+								data-wp-bind--hidden="!state.usernameError"
+								data-wp-text="state.usernameError"></span>
+						</div>
+					<?php endif; ?>
 
 					<div class="bn-auth-field">
 						<label class="bn-auth-label" for="bn-signup-password">
@@ -536,33 +619,6 @@ if ( 'invite' === $bn_reg_mode ) {
 					</button>
 				</form>
 
-				<?php if ( ! empty( $social_providers ) ) : ?>
-					<div class="bn-auth-divider"><?php esc_html_e( 'or sign up with', 'buddynext' ); ?></div>
-					<div class="bn-auth-social">
-						<?php
-						foreach ( $social_providers as $provider ) :
-							$pid    = isset( $provider['id'] ) ? sanitize_key( $provider['id'] ) : '';
-							$plabel = isset( $provider['label'] ) ? (string) $provider['label'] : '';
-							$picon  = isset( $provider['icon'] ) ? sanitize_key( $provider['icon'] ) : 'globe';
-							$purl   = isset( $provider['url'] ) ? esc_url_raw( $provider['url'] ) : '';
-							if ( '' === $pid || '' === $purl ) {
-								continue;
-							}
-							?>
-							<a class="bn-btn" data-variant="secondary" data-size="lg"
-								href="<?php echo esc_url( $purl ); ?>"
-								aria-label="
-								<?php
-								/* translators: %s: provider name (e.g. Google). */
-								echo esc_attr( sprintf( __( 'Continue with %s', 'buddynext' ), $plabel ) );
-								?>
-								">
-								<?php buddynext_icon( $picon ); ?>
-								<span><?php echo esc_html( $plabel ); ?></span>
-							</a>
-						<?php endforeach; ?>
-					</div>
-				<?php endif; ?>
 
 				<div class="bn-auth-foot">
 					<?php esc_html_e( 'Already have an account?', 'buddynext' ); ?>

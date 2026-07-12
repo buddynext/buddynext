@@ -27,20 +27,86 @@ defined( 'ABSPATH' ) || exit;
 class RegistrationService {
 
 	/**
+	 * A free, human-ish username derived from an email address.
+	 *
+	 * Shared by every door. Social signup has always used this — the member never sees a
+	 * username field and never has to invent one — while the email form made them think one
+	 * up, to rules ("3-24 characters: letters, numbers, underscore"), and let them fail on
+	 * "already taken". The same plugin asked more of the slower path and captured less. This
+	 * is the capability that closes that gap; it was here all along, just locked inside
+	 * SocialLogin.
+	 *
+	 * One query, not N. The naive `while ( username_exists( $login ) )` costs a query per
+	 * collision, and corporate domains collide hard on the same local part (info@, admin@,
+	 * contact@, hello@) — so a community with N members called info* paid N queries on the
+	 * next info@ signup.
+	 *
+	 * @since 1.0.8
+	 *
+	 * @param string $email Email address to derive from.
+	 * @return string A username not currently in use.
+	 */
+	public static function unique_login( string $email ): string {
+		global $wpdb;
+
+		$base = sanitize_user( current( explode( '@', $email ) ), true );
+		$base = '' !== $base ? $base : 'member';
+
+		if ( ! username_exists( $base ) ) {
+			return $base;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$taken = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT user_login FROM {$wpdb->users} WHERE user_login LIKE %s",
+				$wpdb->esc_like( $base ) . '%'
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$taken = array_flip( array_map( 'strval', (array) $taken ) );
+
+		$n = 2;
+		while ( isset( $taken[ $base . $n ] ) ) {
+			++$n;
+		}
+
+		return $base . $n;
+	}
+
+	/**
 	 * Create a member from validated signup data.
 	 *
-	 * Callers MUST have already cleared RegistrationPolicy::check_access(), and —
-	 * for doors that collect them — RegistrationPolicy::missing() must be empty.
-	 * This method does not re-run the access policy; it runs the creation.
+	 * Callers MUST have already cleared RegistrationPolicy::check_access(). The owner's
+	 * remaining requirements (terms consent, required profile fields) are enforced HERE, at
+	 * the door, so no caller can skip them.
 	 *
-	 * @param array<string,mixed> $data Signup data. Required: email, user_login,
-	 *                                  password. Optional: invite (token),
+	 * @param array<string,mixed> $data Signup data. Required: email, password. Optional:
+	 *                                  name (display name), user_login (derived from the
+	 *                                  email when absent), terms_agreed, invite (token),
 	 *                                  bn_field_* values, and social =>
 	 *                                  array{provider:string,uid:string,email_verified:bool}.
 	 * @return int|WP_Error New user id, or WP_Error on failure.
 	 */
 	public function create( array $data ): int|WP_Error {
 		$policy = new RegistrationPolicy();
+
+		// A member should not have to invent a username to join a community.
+		//
+		// Facebook and LinkedIn ask for your NAME — the thing other humans see — and have
+		// never once asked you to think up a handle. We did the inverse: demanded an
+		// invented identity before the member had seen a single post, and never learned what
+		// they were called. So members appeared to each other as @jsmith, while anyone who
+		// happened to sign up with GitHub got "John Smith", because the social path already
+		// derived the username silently and captured the name from the provider.
+		//
+		// Now every door behaves like the good one. When no username is supplied we derive
+		// it; the owner can still ask for one explicitly (buddynext_reg_ask_username) if
+		// their community wants handles chosen at the door.
+		if ( '' === trim( (string) ( $data['user_login'] ?? '' ) ) ) {
+			$data['user_login'] = self::unique_login( (string) ( $data['email'] ?? '' ) );
+		}
 
 		// The owner's requirements bind HERE, at the door itself — not only in the two
 		// callers that happen to remember to ask.
@@ -78,6 +144,20 @@ class RegistrationService {
 			return $user_id;
 		}
 		$user_id = (int) $user_id;
+
+		// The name is what a community actually shows. Set it when we were given one; the
+		// social path already did this from the provider profile, and the email path did
+		// not, so the same member looked like a person or like a handle depending on which
+		// button they happened to click.
+		$name = trim( (string) ( $data['name'] ?? '' ) );
+		if ( '' !== $name ) {
+			wp_update_user(
+				array(
+					'ID'           => $user_id,
+					'display_name' => sanitize_text_field( $name ),
+				)
+			);
+		}
 
 		$this->redeem_invite( $user_id, $data );
 

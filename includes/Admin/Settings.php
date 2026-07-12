@@ -1557,6 +1557,22 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					),
 					new Field(
 						array(
+							'key'   => 'buddynext_reg_ask_name',
+							'type'  => 'toggle',
+							'label' => __( 'Ask new members for their name', 'buddynext' ),
+							'hint'  => __( 'On by default. This is the name other members see. Turn it off only if your community wants handles rather than names.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_reg_ask_username',
+							'type'  => 'toggle',
+							'label' => __( 'Let members choose their own username', 'buddynext' ),
+							'hint'  => __( 'Off by default: a username is generated from their email so nobody has to invent one to join, and they can change it later in Settings. Turn this on to ask for one at sign-up.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
 							'key'   => 'buddynext_allow_core_registration',
 							'type'  => 'toggle',
 							'label' => __( 'Also allow the WordPress sign-up form', 'buddynext' ),
@@ -2252,6 +2268,24 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			__( 'Require members to accept your terms', 'buddynext' ),
 			__( 'Shows a consent checkbox on every sign-up route. On by default.', 'buddynext' ),
 			(bool) get_option( 'buddynext_require_terms', true )
+		);
+
+		// What the front door asks for. Two levers, deliberately: the owner decides what
+		// their sign-up form collects, and anything beyond these goes through the profile
+		// fields' "show on register" switch, which already exists. We are not building a
+		// second form builder alongside it.
+		$this->render_toggle_row(
+			'buddynext_reg_ask_name',
+			__( 'Ask new members for their name', 'buddynext' ),
+			__( 'On by default. This is the name other members see. Turn it off only if your community wants handles rather than names.', 'buddynext' ),
+			(bool) get_option( 'buddynext_reg_ask_name', true )
+		);
+
+		$this->render_toggle_row(
+			'buddynext_reg_ask_username',
+			__( 'Let members choose their own username', 'buddynext' ),
+			__( 'Off by default: a username is generated from their email so nobody has to invent one to join, and they can change it later in Settings. Turn this on to ask for one at sign-up.', 'buddynext' ),
+			(bool) get_option( 'buddynext_reg_ask_username', false )
 		);
 
 		$this->render_toggle_row(

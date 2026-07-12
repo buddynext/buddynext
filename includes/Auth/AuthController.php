@@ -103,8 +103,19 @@ class AuthController {
 						'required' => true,
 						'type'     => 'string',
 					),
+					// What the community DISPLAYS. Optional on the wire so an app or an
+					// owner who does not want to ask for it still registers cleanly.
+					'name'             => array(
+						'required' => false,
+						'type'     => 'string',
+					),
+					// No longer required. When it is absent we derive one from the email
+					// (RegistrationService::unique_login), exactly as social signup has
+					// always done — a member should not have to invent a handle to join a
+					// community. An owner whose community wants handles chosen at the door
+					// turns the field back on and the app can still send it.
 					'user_login'       => array(
-						'required' => true,
+						'required' => false,
 						'type'     => 'string',
 					),
 					'password'         => array(
