@@ -670,6 +670,10 @@ class CommentService {
 
 		$result = $this->list_for_object( $object_type, $object_id, $per_page, $page );
 
+		// Always present, so the response shape does not change depending on whether the thread
+		// happens to be empty.
+		$result['replies_truncated'] = false;
+
 		if ( empty( $result['items'] ) ) {
 			return $result;
 		}
@@ -719,24 +723,38 @@ class CommentService {
 			return $result;
 		}
 
-		global $wpdb;
-
-		// One query for the full descendant set of this object. Memory
-		// cost is O(thread length); for normal community sizes this is
-		// negligible. Viral threads (>1000 comments) would need
-		// per-branch pagination instead — that's a separate sprint.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$descendants = (array) $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_comments
-				 WHERE object_type = %s AND object_id = %d
-				   AND parent_id IS NOT NULL
-				 ORDER BY created_at ASC",
-				sanitize_key( $object_type ),
-				$object_id
-			),
-			ARRAY_A
+		// Fetch ONLY the descendants of the roots actually being rendered, level by level, and
+		// stop at a hard ceiling.
+		//
+		// This used to be a single object-wide query:
+		//
+		// SELECT * FROM bn_comments
+		// WHERE object_type = %s AND object_id = %d AND parent_id IS NOT NULL
+		//
+		// — every reply on the thread, at any depth, with `SELECT *` pulling the `content` TEXT
+		// column for each one, then discarding everything that did not hang off the 20 roots on
+		// this page. The old comment admitted the problem and deferred it: "Viral threads (>1000
+		// comments) would need per-branch pagination instead — that's a separate sprint." That
+		// sprint never came, and a 50k-reply thread is ~100MB in one PHP array, on a member-facing
+		// page, against a typical 256MB limit.
+		//
+		// The walk is one query per level instead of one for the whole object. That is a handful
+		// of bounded queries (depth is capped, and each is served by the
+		// `thread (object_type, object_id, parent_id, created_at)` index) in place of one query
+		// whose memory grew with the entire thread. Trading a few indexed reads for a bounded heap
+		// is the right side of that deal.
+		$truncated   = false;
+		$descendants = $this->fetch_descendants(
+			$object_type,
+			$object_id,
+			array_map( static fn( array $c ): int => (int) $c['id'], $result['items'] ),
+			$truncated
 		);
+
+		// Never truncate in silence. A capped thread that reports itself complete reads as "this is
+		// the whole conversation" when it is not — the member cannot tell replies are missing, and
+		// neither can the UI.
+		$result['replies_truncated'] = $truncated;
 
 		// Build a children-by-parent map once, then walk top-level items
 		// and attach their subtrees recursively up to the depth cap.
@@ -827,6 +845,120 @@ class CommentService {
 		}
 
 		return $result;
+	}
+
+	/**
+	 * The most descendant rows one page of a thread may load.
+	 *
+	 * A ceiling, not a target. Twenty roots each carrying a hundred replies is already a very busy
+	 * page; past this we stop and say so. Filterable via `buddynext_comment_descendant_cap` for
+	 * sites that genuinely want deeper threads and have the memory to hold them.
+	 */
+	private const DESCENDANT_CAP = 2000;
+
+	/**
+	 * How many levels of the reply tree the walk will descend.
+	 *
+	 * MAX_REPLY_DEPTH bounds what `create()` will accept, but legacy/imported rows can sit deeper,
+	 * and the fold-back still has to reach them. This is the backstop that keeps a cycle or a
+	 * pathological import from looping forever.
+	 */
+	private const MAX_LEVEL_WALKS = 25;
+
+	/**
+	 * Fetch the descendant rows for a set of root comments, breadth-first and bounded.
+	 *
+	 * One query per level, each `WHERE object_type = ? AND object_id = ? AND parent_id IN (…)`, so
+	 * every one is served by the `thread (object_type, object_id, parent_id, created_at)` index.
+	 * The walk stops when a level returns nothing, when the row ceiling is reached, or when the
+	 * level guard trips.
+	 *
+	 * @since 1.0.8
+	 *
+	 * @param string         $object_type Object type.
+	 * @param int            $object_id   Object ID.
+	 * @param array<int,int> $root_ids    The comment ids actually being rendered on this page.
+	 * @param bool           $truncated   Set to true when the ceiling or the level guard cut the walk short.
+	 * @return array<int,array<string,mixed>> Raw descendant rows, oldest first.
+	 */
+	private function fetch_descendants( string $object_type, int $object_id, array $root_ids, bool &$truncated ): array {
+		global $wpdb;
+
+		$truncated = false;
+		$root_ids  = array_values( array_filter( array_map( 'intval', $root_ids ) ) );
+		if ( empty( $root_ids ) ) {
+			return array();
+		}
+
+		/**
+		 * Filter the maximum number of descendant rows one page of a thread may load.
+		 *
+		 * @since 1.0.8
+		 *
+		 * @param int    $cap         Default DESCENDANT_CAP.
+		 * @param string $object_type Object type.
+		 * @param int    $object_id   Object ID.
+		 */
+		$cap = (int) apply_filters( 'buddynext_comment_descendant_cap', self::DESCENDANT_CAP, $object_type, $object_id );
+		$cap = max( 1, $cap );
+
+		$rows     = array();
+		$frontier = $root_ids;
+		$type     = sanitize_key( $object_type );
+
+		for ( $level = 0; $level < self::MAX_LEVEL_WALKS; $level++ ) {
+			if ( empty( $frontier ) ) {
+				return $rows;
+			}
+
+			$remaining = $cap - count( $rows );
+			if ( $remaining <= 0 ) {
+				$truncated = true;
+
+				return $rows;
+			}
+
+			$placeholders = implode( ',', array_fill( 0, count( $frontier ), '%d' ) );
+
+			// Ask for one more than we can keep, so an overflow is detectable rather than assumed.
+			$params = array_merge( array( $type, $object_id ), $frontier, array( $remaining + 1 ) );
+
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$level_rows = (array) $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT id, user_id, object_type, object_id, parent_id, content, created_at, updated_at, is_deleted, is_edited
+					   FROM {$wpdb->prefix}bn_comments
+					  WHERE object_type = %s AND object_id = %d
+					    AND parent_id IN ( {$placeholders} )
+					  ORDER BY created_at ASC
+					  LIMIT %d",
+					$params
+				),
+				ARRAY_A
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+			if ( empty( $level_rows ) ) {
+				return $rows;
+			}
+
+			if ( count( $level_rows ) > $remaining ) {
+				$truncated  = true;
+				$level_rows = array_slice( $level_rows, 0, $remaining );
+				$rows       = array_merge( $rows, $level_rows );
+
+				return $rows;
+			}
+
+			$rows     = array_merge( $rows, $level_rows );
+			$frontier = array_map( static fn( array $r ): int => (int) $r['id'], $level_rows );
+		}
+
+		// The level guard tripped with a frontier still to walk — the thread is deeper than we are
+		// willing to follow, so the caller must be told the tree is incomplete.
+		$truncated = true;
+
+		return $rows;
 	}
 
 	/**
