@@ -430,43 +430,75 @@ wp --path=/path/to/wordpress db tables --all-tables | grep bn_
 ## Key Integration Hooks (Cross-Plugin)
 
 ### BuddyNext fires → Addons listen
+
+> **These signatures are GENERATED from the real `do_action()` call sites. Do not hand-edit them.**
+>
+> The previous version of this table was hand-maintained and had rotted badly: **10 of 36 signatures
+> handed wrong values to any listener that trusted them, and 2 were fatal under PHP 8** (they
+> declared three arguments where only two are fired → `ArgumentCountError`). The in-code PHPDoc was
+> correct the whole time; only this table was wrong. Integrators — and AI agents — read this table.
+>
+> **If you change a `do_action()`, regenerate this block. Never edit it by hand.** Hand-maintenance
+> is precisely how it rotted, and a wrong signature here is a landmine in someone else's plugin.
+
 ```php
-do_action( 'buddynext_user_followed',          $follower_id, $following_id );
-do_action( 'buddynext_user_unfollowed',        $follower_id, $following_id );
-do_action( 'buddynext_connection_requested',   $connection_id, $requester_id, $requestee_id );
-do_action( 'buddynext_connection_accepted',    $connection_id, $requester_id, $requestee_id );
-do_action( 'buddynext_connection_declined',    $connection_id, $requester_id, $requestee_id );
-do_action( 'buddynext_connection_withdrawn',   $connection_id, $requester_id, $requestee_id );
-do_action( 'buddynext_block',                  $blocker_id, $blocked_id );
-do_action( 'buddynext_unblock',                $blocker_id, $blocked_id );
-do_action( 'buddynext_post_created',           $post_id, $user_id, $type );
-do_action( 'buddynext_post_deleted',           $post_id, $user_id );
-do_action( 'buddynext_reaction_added',         $reaction_id, $post_id, $user_id, $emoji );
-do_action( 'buddynext_reaction_removed',       $post_id, $user_id, $emoji );
-do_action( 'buddynext_comment_created',        $comment_id, $post_id, $user_id );
-do_action( 'buddynext_comment_updated',        $comment_id, $post_id, $user_id );
-do_action( 'buddynext_comment_deleted',        $comment_id, $post_id, $user_id );
-do_action( 'buddynext_space_created',          $space_id, $user_id );
-do_action( 'buddynext_space_member_joined',    $space_id, $user_id, $role );
-do_action( 'buddynext_space_member_left',      $space_id, $user_id );
-do_action( 'buddynext_space_member_removed',   $space_id, $user_id, $removed_by );
-do_action( 'buddynext_space_join_approved',    $space_id, $user_id, $approved_by );
-do_action( 'buddynext_member_type_assigned',   $user_id, $new_slug, $old_slug );
-do_action( 'buddynext_member_type_removed',    $user_id, $removed_slug );
-do_action( 'buddynext_member_type_created',    $type_id, $type_data );
-do_action( 'buddynext_member_type_deleted',    $type_id, $slug );
-do_action( 'buddynext_report_created',         $report_id, $reporter_id, $object_type, $object_id );
-do_action( 'buddynext_user_warned',            $user_id, $message, $warned_by );
-do_action( 'buddynext_user_suspended',         $user_id, $reason, $duration_days, $hide_content );
-do_action( 'buddynext_user_unsuspended',       $user_id );
-do_action( 'buddynext_user_shadow_banned',     $user_id );
-do_action( 'buddynext_user_shadow_ban_removed', $user_id );
-do_action( 'buddynext_appeal_submitted',       $user_id, $appeal_id );
-do_action( 'buddynext_appeal_resolved',        $appeal_id, $decision );
-do_action( 'buddynext_space_user_banned',      $space_id, $user_id, $banned_by );
-do_action( 'buddynext_space_user_unbanned',    $space_id, $user_id );
-do_action( 'buddynext_onboarding_completed',   $user_id );
-do_action( 'buddynext_notification_created',   $notification_id, $user_id, $type );
+// ── Social graph ──────────────────────────────────────────────────────────────────
+do_action( 'buddynext_user_followed',           $follower_id, $following_id );
+do_action( 'buddynext_user_unfollowed',         $follower_id, $following_id );
+do_action( 'buddynext_connection_requested',    $connection_id, $requester_id, $recipient_id, $note );
+do_action( 'buddynext_connection_accepted',     $connection_id, $requester_id, $recipient_id );
+do_action( 'buddynext_connection_declined',     $connection_id, $requester_id, $recipient_id );
+do_action( 'buddynext_connection_withdrawn',    $connection_id, $requester_id, $recipient_id );
+do_action( 'buddynext_block',                   $blocker_id, $blocked_id );
+do_action( 'buddynext_unblock',                 $blocker_id, $blocked_id );
+
+// ── Content ───────────────────────────────────────────────────────────────────────
+do_action( 'buddynext_post_created',            $post_id, $user_id, $type );
+do_action( 'buddynext_post_deleted',            $post_id, $user_id );
+
+// NOTE: reactions and comments are OBJECT-GENERIC. Arg 1 (reactions) / arg 2 (comments) is a
+// STRING object_type ('post', 'comment', …), NOT an id. The old table claimed a $reaction_id /
+// $post_id int there — a listener following it read a string as an id.
+do_action( 'buddynext_reaction_added',          $object_type, $object_id, $user_id, $emoji );
+do_action( 'buddynext_reaction_removed',        $object_type, $object_id, $user_id, $emoji );
+do_action( 'buddynext_comment_created',         $comment_id, $object_type, $object_id, $user_id );
+do_action( 'buddynext_comment_updated',         $comment_id, $user_id );   // 2 args, not 3
+do_action( 'buddynext_comment_deleted',         $comment_id, $user_id );   // 2 args, not 3
+
+// ── Spaces ────────────────────────────────────────────────────────────────────────
+do_action( 'buddynext_space_created',           $space_id, $owner_id );
+do_action( 'buddynext_space_member_joined',     $space_id, $user_id, $role );  // $role is always 'member' today
+do_action( 'buddynext_space_member_left',       $space_id, $user_id );
+do_action( 'buddynext_space_member_removed',    $space_id, $user_id, $actor_id );
+do_action( 'buddynext_space_join_approved',     $space_id, $user_id, $actor_id );
+do_action( 'buddynext_space_user_banned',       $space_id, $user_id, $actor_id );
+do_action( 'buddynext_space_user_unbanned',     $space_id, $user_id );
+
+// ── Member types ──────────────────────────────────────────────────────────────────
+do_action( 'buddynext_member_type_assigned',    $user_id, $type_slug, $old_slug );
+do_action( 'buddynext_member_type_removed',     $user_id, $type_slug );
+do_action( 'buddynext_member_type_created',     $type_id, $type_data );
+do_action( 'buddynext_member_type_deleted',     $type_id, $slug );
+
+// ── Moderation ────────────────────────────────────────────────────────────────────
+// NOTE: report_created's args 2-4 are NOT in the order the old table claimed. $reporter_id is
+// LAST. A doc-following listener received a string object_type where it expected an int id.
+do_action( 'buddynext_report_created',          $report_id, $object_type, $object_id, $reporter_id );
+do_action( 'buddynext_user_warned',             $user_id, $actor_id, $reason );
+do_action( 'buddynext_user_suspended',          $user_id, $actor_id, $reason, $expires_at );
+do_action( 'buddynext_user_unsuspended',        $user_id );
+do_action( 'buddynext_user_shadow_banned',      $user_id, $actor_id, $reason );
+do_action( 'buddynext_user_shadow_ban_removed', $user_id, $actor_id );
+do_action( 'buddynext_appeal_submitted',        $user_id, $appeal_id, $appeal_type, $suspension_id );  // $appeal_type is always 'suspension' today
+// NOTE: $decision is arg 3, not arg 2. A doc-following `if ( $decision === 'approved' )` was
+// comparing an int user id to a string and could NEVER match.
+do_action( 'buddynext_appeal_resolved',         $appeal_id, $user_id, $decision );
+
+// ── Onboarding / notifications ────────────────────────────────────────────────────
+do_action( 'buddynext_onboarding_completed',    $user_id );
+// NOTE: arg 3 is an associative ARRAY, not a scalar type string. A listener typed
+// `string $type` gets a TypeError; a `switch ( $type )` silently never matches.
+do_action( 'buddynext_notification_created',    $notification_id, $recipient_id, $data );
 ```
 
 ### Addons fire → BuddyNext listens

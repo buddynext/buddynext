@@ -118,6 +118,26 @@ else
 	note "bin/check-route-urls.sh missing"
 fi
 
+# 3bb. Hook-doc conformance — BLOCKING.
+#
+# The integration-hook table in CLAUDE.md is read by third-party integrators AND by AI agents.
+# It was hand-maintained and rotted: 10 of 36 signatures handed wrong values to any listener
+# that trusted them, and 2 were FATAL under PHP 8 (a doc-following listener with
+# accepted_args=3 gets ArgumentCountError where only 2 args are fired).
+#
+# This is blocking from day one, because the table is correct as of this commit. A gate that
+# starts green stays green. If you change a do_action(), regenerate the table - do not hand-edit.
+section "Hook-doc conformance"
+if [ -f bin/check-hook-docs.py ]; then
+	if python3 bin/check-hook-docs.py; then
+		:
+	else
+		fail "hook-doc drift — regenerate the table from the do_action() call sites"
+	fi
+else
+	note "bin/check-hook-docs.py missing"
+fi
+
 # 3c. Cache conformance — ADVISORY until the cache backlog is cleared, then make it blocking.
 #
 # This gate existed and was called by NOTHING, while a plan doc claimed it was wired. An
