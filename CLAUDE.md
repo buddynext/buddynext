@@ -1,243 +1,38 @@
 # CLAUDE.md — BuddyNext
 
-> **INTERNAL DEV DOCS LIVE IN THE PRIVATE `buddynext-pro` REPO** under `free-internal/` — plans, audit,
-> specs, standards, journeys, conformance, qa, v2 Plans, superpowers, and the loose top-level planning
-> `.md`s. The public `buddynext` repo keeps **customer-facing docs only** (`docs/website/`). `audit/` is
-> also kept **gitignored-locally** so tooling (CertRunner, flow-audit) still resolves the regenerated
-> `manifest.json` + baseline. Any `docs/...` / `audit/...` path named below resolves under
-> `../buddynext-pro/free-internal/` (or, for `audit/`, the local gitignored copy).
->
-> **RESUMING WORK?** Start with `free-internal/docs/qa/RESUME.md` (in `buddynext-pro`).
->
-> **READ FIRST:** `audit/manifest.json` (local gitignored / `free-internal/audit/manifest.json` in
-> `buddynext-pro`) is the canonical inventory — 192 REST routes, 42 tables, 18 blocks, 5 cron jobs,
-> 752 hook listeners, 188 templates (regenerated 2026-06-30 via the wp-plugin-qa scanner). Use this before
-> grepping. See also `FEATURE_AUDIT.md`, `CODE_FLOWS.md`, `ROLE_MATRIX.md` beside it. Refresh after
-> non-trivial changes.
+Engineering guidance for AI agents and contributors working in this repository.
+These are the rules the code in this repo is held to — read before changing anything.
+
+## Where things live
+
+| What | Where |
+|---|---|
+| Plugin code | `includes/` (PHP) · `templates/` · `assets/` · `blocks/` |
+| Public documentation — usage guides, developer guide, REST API | `docs/website/` |
+| Tests | `tests/` (mirrors `includes/`) |
+| Quality tooling | `bin/` · `.githooks/` |
+| Third-party runtime code (committed, ships in the zip) | `libs/` |
+
+`docs/website/` is the only documentation this repo carries; product planning, QA
+and audit material is maintained separately and is intentionally not part of the
+public repository.
+
+---
 
 ## What Is BuddyNext
 
 Enterprise-grade social community platform for WordPress (free + pro). Owned by Wbcom Designs.
 
-- **Site URL (local):** http://buddynext-dev.local
 - **Plugin path:** `wp-content/plugins/buddynext/`
 - **Namespace:** `BuddyNext\*` (free) / `BuddyNextPro\*` (pro)
 - **REST namespaces:** `buddynext/v1` (free) · `buddynext-pro/v1` (pro)
 - **Bootstrap hook:** `plugins_loaded:15` → `BuddyNext\Core\Plugin::init()` → fires `buddynext_loaded`
 - **PHP:** 8.1+ · **WP:** 6.9+ (Abilities API required)
 
----
-
-## Product Scope & Validity Bar — Judge Every Request Against This
-
-**Model = mainstream social: Facebook, X (Twitter), LinkedIn.** We are NOT building a complex or niche community. If a request adds complexity those platforms don't have, it is out of scope by default. (The UX-parity bar is separately noted under *Premium UX* and *Design System Tokens* — this section is about deciding what is a real defect / in-scope ask in the first place.)
-
-**Mission: a FAST, STABLE community — not a BuddyPress re-creation.** Speed and stability come first on every request. BuddyPress's failure mode is feature-sprawl — hundreds of niche options and hooks that make it slow, fragile, and hard to maintain. We do the opposite: a lean core that does the mainstream-social basics excellently and stays fast at 100k members. A request that adds an option/branch/feature BuddyPress has but FB/X/LinkedIn don't is out of scope by default — say no and keep the core lean.
-
-**QA agents pipe ALL customer feedback into cards indiscriminately — treat the board as a raw feed, not a task list.** Actioning every single card is exactly how a product bloats into BuddyPress. **Most cards are NOT tasks.** The default disposition of any card is *not a task* until it clears the bar below. Do not open code, branch, or "fix" a card before it passes. Batch-judge; reject the majority with a one-line reason (by-design / matches FB-X-LinkedIn / niche / duplicate / deferred-feature-not-a-bug).
-
-**The bar for whether a bug report, feature ask, or QA card is VALID is two questions — not what QA prefers:**
-
-1. Would a **mass end user (member)** genuinely expect this, or be broken/confused by the current behavior?
-2. Would the **typical site owner** — one of 1000s of installs — expect this fixed or changed?
-
-Those two expectations are the boundary. **QA / tester cards are suggestions to be checked, not verdicts.** A card may be:
-
-- **Invalid** — a subjective nitpick no real member or owner would notice, OR behavior that actually matches what Facebook/X/LinkedIn do (so the current behavior is already correct).
-- **Duplicate** — already filed or already covered by another card/fix.
-- **Not aligned with the plan** — asks for complexity beyond a mainstream-social product.
-
-Only what genuinely falls short of mass end-user / site-owner expectation becomes a real Bug.
-
-**When triaging Possible Bug → Bugs:** verify every code-claim card against the current code (don't trust the report); reject by-design / already-fixed / duplicate cards with concrete evidence (file:line or commit); label each valid bug with a `[Type]` prefix in the title (`[Functional]` / `[UI]` / `[Security]` / `[Data]` / `[Nav]` / `[Perf]` / `[A11y]` …); never over-build beyond what the model platforms do. See also the QA role + "cards are suggestive" guidance in the session memory.
-
-### Cards are entry points — verify the whole screen + flow, not the one line
-
-A QA/Basecamp card is a **random entry point**, not the scope. The real job is to open the screen the card points at and verify the **entire surface + its code flow end-to-end** — every state, the wiring behind each control, the language, the presentation, the empty/error/loading states — to **premium, Facebook/Instagram-grade quality**. We are building what a member expects a modern social community to be (own your community, but at the polish of FB/IG/X/LinkedIn): clean copy, proper spacing/alignment, real-time-feeling UX, and **fully-wired functionality that holds up at large-community scale**.
-
-Practical consequences:
-- **Build the complete flow, never a half page.** If a card names one field on a multi-step flow (e.g. an appeal form, onboarding step, checkout), wire the whole flow so it actually works — don't ship a fragment that looks done but dead-ends.
-- **While on a screen for one card, fix what's obviously substandard on it** (copy, alignment, missing wiring, dead links, broken states) even if the card didn't list it — that's the point of the entry-point model. (Stay within the mainstream-social scope above; don't invent niche features.)
-- **Verify behaviour, not just render:** click every control, confirm the server side fires, check 390px + dark + empty/error states on member-facing surfaces.
-
----
-
-## Developer-Friendly from Day 1 — Boundary Skills + Local Tooling
-
-BuddyNext leans on two canonical skills for engineering standards. They are the source of truth — this file mirrors them where useful but never duplicates their rules.
-
-| Skill | What it owns |
-|---|---|
-| `/wp-plugin-development` | Hook ownership, REST patterns, DB schema, security (nonces + caps), admin UI conventions, Lucide icon rule, escape/sanitize rules, enqueue + inline-style patterns, PHPDoc + WPCS sniff config. |
-| `/ux-audit` | Token + primitive compliance, cross-plugin duplication detection, the per-plugin audit script, the naming contract (`.bn-*` prefix + attribute API). |
-
-**Invoke them when relevant.** When writing a REST controller, ask the `/wp-plugin-development` skill what it requires. When adding a new component or CSS token, ask `/ux-audit`. The v2 design source (`docs/v2 Plans/`) is BuddyNext's specialisation on top of the `/ux-audit` foundation.
-
-**Public surface integrity (member-facing controls):** the normative standard lives at [`docs/standards/public-surface-integrity.md`](docs/standards/public-surface-integrity.md) (v1.0). One rule: **if it renders, it is real** — every control a member can see is *bound* to an action, *enforced* by code that reads its value, and *observable* by a second account. The middle test is the one that keeps failing: a lever that saves but never gates (`bn_privacy_see_email` saved a value nothing read, offering choice over an exposure that did not exist) is worse than no lever, because it buys false confidence. Half-cooked features — disabled mockup inputs, hardcoded sample values, `coming soon` copy *or HTML comments* — never go on a public surface; we ship a plugin to site owners, not a SaaS we can iterate behind. When a control fails the test there are two moves, wire it or remove it (template **and** REST write allow-list); "leave it and card it" is not one. Read it before adding any member-facing control, and run its audit recipe before any release.
-
-**Admin UI uniformity (options, nav icons, cards):** the normative standard lives at [`docs/standards/admin-ui-uniformity.md`](docs/standards/admin-ui-uniformity.md) (v1.0). One input look for every option (add fields via `AdminPageBase::render_*_row()`; the `.bn-admin-hub` baseline + `--bn-a-input-*` / `--bn-a-focus-ring` tokens converge any control); every nav section/tab carries a vendored Lucide icon via `IconService`; content cards share the kicker + clamped-title/snippet + footer anatomy with a `min-height` floor. Follow it and new admin screens are uniform by construction.
-
-**Internationalization (translation delivery):** the normative standard lives at [`docs/standards/i18n.md`](docs/standards/i18n.md) (v1.0). BuddyNext must be translation-ready from day one — every user-facing string needs a PHP `__()` home AND a render path that applies the translation. The recurring "frontend is not getting translated" reports all trace to the traps documented there: a store reading a `state.i18n.<key>` that `AssetService::inject_interactivity_i18n()` never injects (silently renders the English fallback), a JS-only literal the POT scanner never sees, a shared helper (dialog/toast) hardcoding defaults instead of reading `window.bnShellData.i18n`, or the Navigation admin persisting a default tab label that shadows `__()`. Read it before adding any frontend string or store.
-
-**Frontend interactivity & client-side navigation:** the normative standard lives at [`docs/standards/frontend-interactivity.md`](docs/standards/frontend-interactivity.md) (v1.0; reference impl Jetonomy 1.5.0). All frontend REST goes through the shared `restFetch` client (`assets/js/shell/rest-client.js`); imperative init is bound via `onNavReady()` (`assets/js/shell/nav-init.js`) so it survives a client-side swap; the router region + navigate action live in `assets/js/shell/navigate.js` and `templates/shell/hub-shell.php` behind the `buddynext_client_nav_enabled` filter (default off — staged activation per surface). See [`docs/plans/archive/frontend-interactivity-adoption.md`](docs/plans/archive/frontend-interactivity-adoption.md) for the full plan + status.
-
-**Scale, caching & REST boundary (free + pro):** three normative standards govern large-site readiness — [`docs/standards/CACHING.md`](docs/standards/CACHING.md) (per-service `CACHE_GROUP`/`CACHE_TTL` + key-based bust; **cache by access frequency, not by existence**; Pro converges on `buddynextpro_<domain>`), [`docs/standards/DATA-AT-SCALE.md`](docs/standards/DATA-AT-SCALE.md) (no autoload bloat, sargable filters, bounded reads, AS-batched high-volume writes, keyset pagination), and [`docs/standards/REST-API-BOUNDARY.md`](docs/standards/REST-API-BOUNDARY.md) (100% REST, CI-gated). The triaged, code-verified change list to bring both repos to standard is [`docs/plans/scale-readiness-change-index.md`](docs/plans/scale-readiness-change-index.md) (DO-NOW/DEFER/SKIP); rationale in [`docs/plans/scale-readiness-100k.md`](docs/plans/scale-readiness-100k.md). These are portable Wbcom standards — apply them uniformly across free and pro.
-
-### Local tooling (vendored in this repo — run from the repo root)
-
-| Command | Purpose |
-|---|---|
-| `bin/check.sh` | Full CI-parity gate: PHP lint, WPCS, PHPStan level 5, UX audit. Run before pushing. |
-| `bin/check.sh --staged` | Same gate scoped to staged files only — fast pre-commit signal. |
-| `bin/check.sh --skip-audit` | Skip the UX audit step (useful when iterating on PHP only). |
-| `bin/ux-audit.sh` | Standalone UX audit (token + primitive compliance, inline-style/script detection). Vendored from `/ux-audit`'s `templates/ux-audit.sh`. |
-
-### Pre-commit hook (one-time setup per clone)
-
-```bash
-git config core.hooksPath .githooks
-```
-
-`.githooks/pre-commit` runs `bin/check.sh --staged --skip-audit`. Use `git commit --no-verify` only in emergencies.
-
-### Quality gates anchored to skills
-
-| Gate | Source skill | How to run |
-|---|---|---|
-| WPCS clean | `/wp-plugin-development` Part 8 | `vendor/bin/phpcs` or `mcp__wpcs__wpcs_check_file` |
-| PHPStan level 5 | `/wp-plugin-development` | `vendor/bin/phpstan analyse` |
-| Token + primitive compliance | `/ux-audit` | `bin/ux-audit.sh` |
-| No raw hex / px / font-family outside `:root` | `/ux-audit` | `bin/ux-audit.sh` F3 rule |
-| No inline `<style>` / `<script>` in PHP | `/ux-audit` | `bin/ux-audit.sh` F1 + F2 rules |
-| No native `alert()` / `confirm()` | `/ux-audit` | `bin/ux-audit.sh` F8 rule |
-| v2 token + primitive vocabulary | This repo + `docs/v2 Plans/` | `bin/ux-audit.sh` + 6 uniformity gates in `docs/v2 Plans/PLAN.md` Part 4 |
-| 100% REST frontend (no admin-ajax) | This repo + `/wp-plugin-development` | `bin/check-rest-boundary.sh` — see `docs/specs/REST-FRONTEND-CONTRACT.md` |
-
-If a section below conflicts with one of the boundary skills, the skill wins — file an issue and the matching section here gets corrected.
-
----
-
-## Non-Negotiable Standards — Read Before Every Task
-
-### 1. Enterprise Code Quality — No Shortcuts
-
-- Every file must pass WPCS before committing. Run `mcp__wpcs__wpcs_check_file` on every PHP file you write or modify.
-- Every class must pass PHPStan level 5+. Run `mcp__wpcs__wpcs_phpstan_check` after writing new classes.
-- No `@todo`, no stub implementations, no `/* TODO */` — ship complete code or don't ship.
-- **Zero AI markers** — no `// Generated by`, no `// AI-assisted`, no `// Claude`, no `// This code was...`, no `@generated`. Code reads as if written by a senior WordPress engineer. No exceptions.
-- No `echo` in production paths — use `wp_send_json_*`, templates, or REST responses.
-- All DB queries use `$wpdb->prepare()`. Zero raw interpolation.
-- All nonces validated on every state-changing request.
-- Capabilities checked on every admin and REST endpoint.
-- Sanitize input at entry. Escape output at exit. Always.
-
-### 2. WPCS + PHPStan — how to run
-
-Commands live in the **Quality gates** table above (`mcp__wpcs__wpcs_check_file` / `vendor/bin/phpcs`, `vendor/bin/phpstan analyse`, `bin/check.sh --staged`). Run them on every PHP file you touch and before every commit; fix all errors and warnings before proceeding — it is part of Done. Full sniff config + REST/security patterns: `/wp-plugin-development` Part 8.
-
-### 3. Test-Driven Development — Mandatory
-
-Write the failing test FIRST. Then write the implementation. Then make it pass.
-
-```
-vendor/bin/phpunit tests/[Area]/[ClassTest].php --testdox
-```
-
-Never mark a task as complete unless tests pass.
-
-### 4. Premium UX — Non-Negotiable
-
-**v2 is the only design source.** Every template renders against the v2 prototypes in `docs/v2 Plans/v2/` and the canonical tokens + primitives in `docs/v2 Plans/tokens.css`. The previous brainstorm mockups have been deleted from the repo — do not reference them, do not extrapolate from them. See `docs/v2 Plans/PLAN.md` for the surface-to-prototype map + composition rules for surfaces v2 doesn't prototype.
-
-- Tokens (colour / type / spacing / dark mode): see the **Design System Tokens** section — author with `--bn-*` only, never raw hex/px.
-- Mobile: every member-facing layout ≤640px must be tested full-width, no horizontal scroll (the global CLAUDE.md 390px verify rule applies — verify in the same commit, not later).
-- Interactions: hover / focus rings / loading states all per the v2 prototype.
-
-### 5. No Emoji — Ever
-
-BuddyNext targets premium UX on par with Notion, Asana, LinkedIn, and Facebook. Emoji are a legacy pattern incompatible with that bar.
-
-**Rules:**
-- **Never** use Unicode emoji characters (😀 🔗 👤 ✅) anywhere — PHP, JS, CSS, HTML, or comments.
-- **Never** use HTML entities that render emoji (`&#128100;`, `&#x1F4BB;`, `&#x26A0;&#xFE0F;`).
-- **Always** use SVG icons from `assets/icons/` via:
-  - Templates: `buddynext_icon( 'icon-name' )` — echoes inline SVG
-  - PHP classes: `echo \BuddyNext\Core\IconService::render( 'icon-name' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped`
-  - JS status hints: use CSS class-based colored text — no emoji in `textContent`
-- **Adding new icons:** Drop a Lucide-style SVG (no width/height, `stroke="currentColor"`, `viewBox="0 0 24 24"`) into `assets/icons/<slug>.svg`.
-- **55+ icons already in `assets/icons/`** — check before creating a new one.
-- `IconService::render()` returns `wp_kses()`-sanitized markup — always safe to echo.
-
-### 6. Subsystem-First — Build the Inventory Matrix Before Coding
-
-Most "we missed it" bugs are not hard bugs — they are **cells in a grid nobody enumerated**. Before changing any subsystem (email, auth, notifications, settings, routing, any list/grid/data method), build the inventory FIRST, then write code that fills every cell. Symptom-by-symptom fixing across turns is patchwork; if you catch yourself touching the same subsystem a third time, stop and build the matrix.
-
-1. **Enumerate by grep, never from memory.** List every surface / entry point (rows) and every contract (columns). The miss is always the row or column nobody wrote down.
-   - *Rows* must include **every entry point for the same feature**, not just the obvious one — e.g. a password reset fires from the REST endpoint **and** `wp-login.php` **and** programmatic `retrieve_password()`; an email sends from a notification, a cron digest, an admin test, and a live trigger.
-   - *Columns* are the contracts each row must satisfy — e.g. for email: branded `brand_wrap` shell, From/Reply-To identity, links built via `PageRouter::*_url()` (not hand-rolled query args), the **setting read path** (empty-string option vs absent option), and **preview matches the real send**.
-2. **Trace each contract end-to-end, both directions.** Every setting: *set → stored → read → applied*. Every link: *builder → route → resolves?*. Run `/wp-contract-audit` — "read never applied", "saved but not used", "key mismatch" are exactly what it catches. This is also where the `audit/manifest.json` inventory pays off (reuse, don't re-grep).
-3. **Write "Definition of Done" as a checklist from the grid BEFORE coding.** Code fills cells; it does not chase whatever was last visible in the browser.
-4. **One verification pass hits every cell** — not just the happy path. Always include: the empty-option / fresh-install site, the **secondary** entry point, the admin preview, and a real end-to-end send (Mailpit at `http://localhost:10030/` for email). The big-site checklist in the user's global CLAUDE.md is the data-layer version of this same rule.
-
----
-
-## File Placement Rules — Where Every New File Goes
-
-These rules are enforced on every PR. When in doubt, follow the pattern already in the nearest domain folder.
-
-### Domain Principle
-
-Every feature domain owns its full stack in one folder:
-
-```
-includes/{Domain}/
-  {Domain}Service.php        ← business logic
-  {Domain}Controller.php     ← REST endpoints
-  {Domain}Listener.php       ← WordPress hooks (implements ListenerInterface)
-```
-
-If a new file's name starts with the domain prefix, it goes in that domain folder. If it doesn't, pick the domain whose description best matches the file's responsibility.
-
-### Mandatory Placement Rules
-
-| File type | Belongs in | Example |
-|---|---|---|
-| Outbound webhook service, controller, listener | `Outbound/` | `OutboundWebhookService` |
-| Content moderation logic (banned words, rate limits, safeguards) | `Moderation/` | `SafeguardService` |
-| REST controller for a domain | Same folder as its Service | `MemberTypeController` → `MemberTypes/` |
-| Bridge adapter classes | `Bridges/` with `Bridge` suffix | `JetonomyBridge.php` |
-| Bridge listener classes | `Bridges/` with `BridgeListener` suffix | `JetonomyBridgeListener.php` |
-| Admin-only UI helpers | `Admin/{SubPage}/` not `Admin/Helpers/` | `MemberDisplay` → `Admin/Members/` |
-| Directory/listing service | `Profile/` if it queries `WP_User_Query`; `Search/` only if it queries `bn_search_index` | `MemberDirectoryService` → `Profile/` |
-| Cron job runner | `Core/CronService.php` — no `Handlers` suffix | — |
-
-### Listener Convention
-
-Every class that ends in `Listener` **must**:
-
-1. `implement BuddyNext\Contracts\ListenerInterface`
-2. Expose `public function register(): void` (not `init()`)
-3. Be wired in `Plugin::init()` as `( new XxxListener() )->register()`
-
-Never use `init()` on a listener. The only classes that use `init()` are Services and Admin registrars.
-
-### Bridge Naming Convention
-
-```
-Bridges/JetonomyBridge.php          class JetonomyBridge          ← adapter (no alias needed in Plugin.php)
-Bridges/JetonomyBridgeListener.php  class JetonomyBridgeListener  ← hook registrar
-```
-
-Never name a bridge adapter `class Jetonomy` — it reads like the external plugin class.
-
-### Tests Mirror Source
-
-```
-includes/Feed/PostController.php           →  tests/Feed/PostControllerTest.php
-includes/SocialGraph/FollowController.php  →  tests/SocialGraph/FollowControllerTest.php
-```
-
-`tests/REST/` must stay empty. All controller tests live in the controller's domain folder.
+**Model = mainstream social: Facebook, X, LinkedIn.** A lean core that does the
+mainstream-social basics excellently and stays fast at 100k members. A request that
+adds an option, branch, or feature those platforms don't have is out of scope by
+default. Speed and stability come first on every change.
 
 ---
 
@@ -248,184 +43,42 @@ includes/SocialGraph/FollowController.php  →  tests/SocialGraph/FollowControll
 | PHP | 8.1+ strict types everywhere |
 | WordPress | 6.9+ |
 | Autoloader | Hand-written PSR-4 (`BuddyNext\` → `includes/`) in `buddynext.php`; runtime never touches Composer. `vendor/` is dev-only and gitignored. |
-| Architecture | DI Service Container (same pattern as WPMediaVerse) |
+| Architecture | DI Service Container |
 | Permissions | WordPress Abilities API — `buddynext_can( $user_id, 'ability-slug' )` |
 | Frontend reactivity | WordPress Interactivity API — no React, no build step |
-| Async jobs | Action Scheduler (bundled Phase 6+) |
+| Async jobs | Action Scheduler |
 | REST API | `buddynext/v1` (free) + `buddynext-pro/v1` (pro) |
 | Real-time (free) | REST polling — 5s active, adaptive |
-| Real-time (pro) | WebSocket via Soketi (Phase P3) |
 | Tests | PHPUnit 9 + WP test suite |
 | Code quality | WPCS (WordPress standard) + PHPStan level 5 |
 | Templates | PHP, theme-overridable via `{theme}/buddynext/` |
 | CSS | Custom properties (tokens) — no Tailwind, no Bootstrap |
-| Fonts | Inter (body) + Plus Jakarta Sans (display) — Google Fonts |
-
----
-
-## Design System Tokens
-
-CSS variables are the single source of truth — never hardcode px, hex, or font
-values. The system is **`--bn-*` prefixed and OKLCH-based**: a single `--bn-hue`
-cascades into the full accent ramp, so re-theming is one hue change. `TokenService`
-(`includes/Theme/TokenService.php`) injects the values inline on the `bn-base`
-handle. **Canonical definitions live in `assets/css/bn-base.css` and
-`docs/v2 Plans/tokens.css` — read those for exact values. Do NOT paste a token
-table here; it drifts out of sync (that drift is exactly why this section was
-rewritten).**
-
-Token families (all `--bn-` prefixed):
-- Surfaces: `--bn-bg`, `--bn-canvas`, `--bn-surface`, `--bn-sunken`, `--bn-raised`
-- Ink (text): `--bn-ink`, `--bn-ink-2`, `--bn-ink-3`, `--bn-ink-4`
-- Lines/focus: `--bn-line`, `--bn-line-faint`, `--bn-line-strong`, `--bn-ring`
-- Accent ramp (OKLCH from `--bn-hue`): `--bn-accent`, `--bn-accent-50…900`, `--bn-accent-fg`
-- Semantic: `--bn-success(-bg)`, `--bn-danger(-bg)`, `--bn-info(-bg)`
-- Integration accents: `--bn-jetonomy(-bg)`, `--bn-media(-bg)`, `--bn-paid(-bg)`, `--bn-events(-bg)`
-- Type: `--bn-font-{body,display,ui,mono}`, `--bn-text-{2xs…4xl,base,md}`, `--bn-fw-{normal…extrabold}`, `--bn-leading-{tight,snug,normal,body}`
-- Spacing (4px grid): `--bn-s1 … --bn-s16` · Radius: `--bn-r-{sm,md,lg,xl,full}` · Shadow: `--bn-shadow-{xs,sm,md,lg}`
-
-**Dark mode** flips tokens under `[data-bn-theme="dark"]`, `[data-theme="dark"]`,
-or `[data-bx-mode="dark"]` (the last bridges BuddyX/Reign's `.bx-color-mode`
-toggle so BN follows the host theme). Verify dark via the real theme toggle, not
-a hand-set attribute.
-
-Bare-named aliases (`--bg`, `--text-1`, `--s4`…) exist only for back-compat —
-always author with the `--bn-*` names. `bin/ux-audit.sh` (gate F3) rejects raw
-hex/px and non-`--bn-` token use. Full component library:
-`docs/v2 Plans/style-guide.html` (canonical).
-
----
-
-## CSS & JS Coding Standards — Non-Negotiable
-
-### CSS Token Rules
-
-**The golden rule: never write a hardcoded px, hex, or font-family value in any CSS file.**
-
-| What you need | How to write it |
-|---------------|-----------------|
-| Font size | `var(--text-sm)`, `var(--text-base)`, etc. |
-| Font weight | `var(--fw-semibold)`, `var(--fw-bold)`, etc. |
-| Line height | `var(--leading-body)`, `var(--leading-normal)`, etc. |
-| Letter spacing | `var(--ls-tight)`, `var(--ls-normal)`, etc. |
-| Colors | `var(--bg)`, `var(--text-1)`, `var(--brand)`, etc. |
-| Spacing | `var(--s1)` through `var(--s16)` (4px grid) |
-| Border radius | `var(--r-sm)` through `var(--r-full)` |
-| Font family | `var(--font-body)` or `var(--font-display)` |
-
-**Where tokens come from:**
-- `TokenService` (`includes/Theme/TokenService.php`) injects all `--text-*`, `--fw-*`, `--leading-*`, `--ls-*`, `--bg`, `--text-1`, `--brand`, `--s*`, `--r-*` tokens via `wp_add_inline_style('bn-base')`.
-- `theme.json` registers the preset slugs so block themes can override via child theme.
-- `bn-base.css` defines `--bn-text-*` as **aliases** to the global tokens: `--bn-text-base: var(--text-base)`.
-
-**CSS file `:root` blocks — allowed vs forbidden:**
-
-```css
-/* ✅ ALLOWED — component-specific tokens not in the global system */
-:root {
-  --bn-shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-  --bn-transition: 0.14s ease;
-}
-
-/* ✅ ALLOWED — aliasing global tokens for a local shorthand */
-:root {
-  --bn-text-base: var(--text-base); /* alias, not hardcode */
-}
-
-/* ❌ FORBIDDEN — hardcoded typography/color/spacing */
-:root {
-  --bn-text-base: 15px;   /* ← never do this */
-  --bn-bg: #ffffff;       /* ← never do this */
-  --bn-s4: 16px;          /* ← never do this */
-}
-```
-
-**Font loading** — Inter and Plus Jakarta Sans must be loaded in `AssetService`. Never import from Google Fonts in CSS files. The `--font-body` and `--font-display` tokens carry the full stack including system-font fallbacks.
-
-### CSS File Structure
-
-Every `assets/css/bn-{feature}.css` file must follow this order:
-
-```css
-/* 1. File header comment — describes what this file covers */
-
-/* 2. :root block — ONLY component-specific tokens (shadows, transitions)
-      and --bn-* aliases to global tokens. No hardcoded values. */
-:root { ... }
-
-/* 3. dark-mode overrides only — match the canonical triggers */
-[data-bn-theme="dark"], [data-theme="dark"], [data-bx-mode="dark"] { ... }
-
-/* 4. Component rules — desktop-first */
-.bn-component { ... }
-
-/* 5. Mobile at end — @media (max-width: 640px) for every layout section */
-@media (max-width: 640px) { ... }
-```
-
-### JavaScript / Interactivity API Rules
-
-- **All JS stores** use ES module syntax with `import { store, getContext } from '@wordpress/interactivity'`.
-- **Store namespace** always `buddynext/{feature-name}` — e.g. `buddynext/feed`, `buddynext/follow-button`.
-- **No window globals** — never `window.wp.interactivity.store(...)`.
-- **No inline `<script>` in templates** — all JS must be in `assets/js/{feature}/store.js` and loaded via `AssetService`.
-- **REST calls in stores** use `fetch()` with the `restUrl` and `restNonce` context values passed from PHP via `data-wp-context`.
-- **Computed state** for all class/text bindings — never inline ternaries in `data-wp-bind` attributes.
-- **No jQuery** — Interactivity API + vanilla fetch only.
-
-### Adding a New CSS/JS Bundle
-
-1. Create `assets/css/bn-{feature}.css` and `assets/js/{feature}/store.js`.
-2. Register both in `AssetService::register_assets()`.
-3. Enqueue in `PageRouter::enqueue_hub_assets()` for the relevant hub case.
-4. Store shares the `restNonce` and `restUrl` context — pass them from the template via `data-wp-context`.
-
----
-
-## UI Design References
-
-v2 prototypes in `docs/v2 Plans/v2/` are the only design source. Each surface below maps to its prototype; surfaces without a prototype are composed from v2 primitives per the rules in `docs/v2 Plans/PLAN.md` Part 3.
-
-| Surface | v2 prototype |
-|---|---|
-| `templates/feed/home.php` | `docs/v2 Plans/v2/home-feed.html` |
-| `templates/feed/explore.php` | `docs/v2 Plans/v2/explore-feed.html` |
-| `templates/profile/view.php` | `docs/v2 Plans/v2/user-profile.html` |
-| `templates/directory/members.php` | `docs/v2 Plans/v2/member-directory.html` |
-| `templates/spaces/directory.php` | `docs/v2 Plans/v2/spaces-directory.html` |
-| `templates/spaces/home.php` | `docs/v2 Plans/v2/space-home.html` |
-| `templates/messages/list.php` | `docs/v2 Plans/v2/dm-list.html` |
-| `templates/messages/thread.php` | `docs/v2 Plans/v2/dm-thread.html` |
-| `templates/notifications/index.php` | `docs/v2 Plans/v2/notifications.html` |
-| `templates/search/results.php` | `docs/v2 Plans/v2/search-results.html` |
-| `templates/onboarding/index.php` | `docs/v2 Plans/v2/onboarding.html` |
-| Admin chrome (every BN admin page) | `docs/v2 Plans/v2/admin.html` |
-| Hub navigation index | `docs/v2 Plans/v2/index.html` |
-| Mobile responsive shell | `docs/v2 Plans/v2/mobile.html` |
-| All other surfaces (profile edit, space settings, hashtag feed, auth, moderation queue, Pro admins, etc.) | Compose from `docs/v2 Plans/tokens.css` primitives — see `docs/v2 Plans/PLAN.md` Part 3 |
+| Fonts | Inter (body) + Plus Jakarta Sans (display) |
 
 ---
 
 ## Plugin Architecture
 
-### Routing surfaces — `/feed/` is NOT the activity feed (read before QA-ing feeds)
+### Routing surfaces — `/feed/` is NOT the activity feed
 
 Three things share the word "feed" — never conflate them:
 
-- **`/feed/`** = **WordPress core RSS** (`Content-Type: application/rss+xml`). Not ours. Never test the community activity stream here.
-- **`/activity/`** = the **community activity feed**; 302-redirects to **`/activity/explore/`** (the Explore deck is the default landing). Backed by `FeedService::home_feed()` (for-you / following) and `explore_feed()`.
-- **Internal hub key `'feed'`** — in `Core/PageRouter.php` the activity page is keyed `'feed'` (`buddynext_page_activity` + `buddynext_page_explore` → hub `'feed'`, label "Activity Feed") but its **public slug is `activity`** (`activity_url()`). The code says "feed"; the URL says `/activity/`.
+- **`/feed/`** = **WordPress core RSS** (`Content-Type: application/rss+xml`). Not ours.
+- **`/activity/`** = the **community activity feed**; 302-redirects to **`/activity/explore/`**. Backed by `FeedService::home_feed()` and `explore_feed()`.
+- **Internal hub key `'feed'`** — in `Core/PageRouter.php` the activity page is keyed `'feed'` but its **public slug is `activity`** (`activity_url()`). The code says "feed"; the URL says `/activity/`.
 
-QA / browser-test the activity feed, post & comment composers, mention-typeahead, and the "N new posts" pill at **`/activity/`** (or `/activity/explore/`) — never `/feed/`. Feed methods: `home_feed` (`/activity`), `explore_feed` (`/feed/explore` REST + `/activity/explore/` page), `profile_feed`, `space_feed`.
+Test the activity feed, composers, mention-typeahead and the "N new posts" pill at
+**`/activity/`** — never `/feed/`.
 
 ### WordPress core stays untouched (non-negotiable)
 
-BuddyNext **adds alongside** WordPress core — it never overrides, disables, shadows, or breaks core behaviour. Core must keep working exactly as a vanilla install.
+BuddyNext **adds alongside** WordPress core — it never overrides, disables, shadows,
+or breaks core behaviour. Core must keep working exactly as a vanilla install.
 
-- **Never claim a core URL.** `/feed/`, `/comments/feed/`, `/wp-json/wp/v2/*`, `/wp-login.php`, `/xmlrpc.php`, author/date/category archives, etc. stay core. BuddyNext uses its **own** slugs (`/activity/`, `/spaces/`, …) and its **own** REST namespace (`buddynext/v1`) — never `wp/v2`.
-- **Add rewrite rules and query vars additively.** Register new rules/`query_vars`; never remove or reorder core ones. Don't blanket-override `template_include`, `request`, `parse_query`, or `pre_get_posts` in a way that changes core queries outside our own surfaces.
+- **Never claim a core URL.** `/feed/`, `/comments/feed/`, `/wp-json/wp/v2/*`, `/wp-login.php`, `/xmlrpc.php`, author/date/category archives stay core. BuddyNext uses its **own** slugs (`/activity/`, `/spaces/`, …) and its **own** REST namespace — never `wp/v2`.
+- **Add rewrite rules and query vars additively.** Never remove or reorder core ones. Don't blanket-override `template_include`, `request`, `parse_query`, or `pre_get_posts` outside our own surfaces.
 - **Don't disarm core features.** No unconditional `remove_action`/`remove_filter` on core feeds, oEmbed, REST, cron, or the admin bar. Gate every hook to our own post types / pages / conditions.
-- **Verify after any routing/rewrite/feed/query-var change:** `/feed/` still returns `application/rss+xml`, a normal WP page/post still renders, and `/wp-json/wp/v2/posts` still responds. If a BuddyNext change alters any of those, it's a bug — fix the scope, don't ship it.
+- **Verify after any routing/rewrite/query-var change:** `/feed/` still returns `application/rss+xml`, a normal WP page still renders, and `/wp-json/wp/v2/posts` still responds.
 
 ### Bootstrap Chain
 ```
@@ -436,7 +89,6 @@ plugins_loaded (priority 20) → BuddyNext Pro hooks
 ```
 
 ### Service Container
-Same DI pattern as WPMediaVerse:
 ```php
 // Bind
 $container->bind( 'social_graph', fn() => new \BuddyNext\SocialGraph\FollowService() );
@@ -457,123 +109,96 @@ buddynext_can( $user_id, 'send-dm', [ 'recipient_id' => $recipient_id ] )
 ```
 
 ### Abilities Registration
-All abilities registered at boot via WordPress Abilities API:
+All abilities registered at boot via the WordPress Abilities API:
 ```php
 wp_register_ability( 'buddynext-view-space',   [ 'label' => 'View Space' ] );
 wp_register_ability( 'buddynext-post-in-feed', [ 'label' => 'Post in Feed' ] );
-// etc.
 ```
-
----
-
-## Licensing & Updates (EDD SL SDK)
-
-The EDD Software Licensing SDK is vendored at `libs/edd-sl-sdk/` (committed, ships in the zip). It is the **single source of truth for the whole product family**: Pro requires the same file from Free's path and registers its own product on the same `edd_sl_sdk_registry` hook. Never copy the SDK into Pro.
-
-| | Free | Pro |
-|---|---|---|
-| EDD store | https://wbcomdesigns.com | https://wbcomdesigns.com |
-| Item ID | **1664401** | **1664402** |
-| License key | Preset `buddynext9a3c7e1d5f2b8a4c6e0d9b7f1a2c8e55` (lifetime, unlimited activations) — auto-activated on `admin_init`, stored in `buddynext_license_key`; `buddynext_preset_activated` marks success | Customer's paid key — entered in Settings > License, stored in `buddynext-pro_license_key` |
-
-**Rules (owner decisions, 2026-06-12):**
-
-1. **License gates updates ONLY. Never gate functionality on license state.**
-2. Wiring lives at the bottom of `buddynext.php`: registry registration + SDK require + preset auto-activation. Pro's side lives in `buddynext-pro.php` + `includes/License/` in the Pro repo.
-3. The Settings > License tab (`includes/Admin/Settings.php::render_license_tab()`) registers only while Pro is active and fires `buddynext_admin_license_tab_content` for Pro's activate/deactivate form. It renders OUTSIDE the options.php form wrapper — the license form posts directly and is handled on `admin_init` by Pro.
-4. Option names follow the SDK convention `{registry id}_license_key` / `{registry id}_license` (`buddynext_*` for free, `buddynext-pro_*` for Pro).
-5. All runtime third-party code (Action Scheduler, EDD SL SDK) is committed under `libs/` and loaded by direct `require_once`; the plugin's own classes load via a hand-written PSR-4 autoloader in `buddynext.php`. `vendor/` holds dev tooling only and is gitignored. The repo is deps-complete on checkout, so customers never run a build command and the release build needs no `composer install`.
 
 ---
 
 ## Database Tables
 
-`bn_*` tables, all created in `Installer::run()` (Free) / Pro's installer via `dbDelta()`. **`audit/manifest.json` is the authoritative live inventory** — trust it over any count here. The lists below are the schema by phase.
+`bn_*` tables, all created in `Installer::run()` via `dbDelta()`.
 
-### Free Tables
-| Table | Phase |
+| Table | Domain |
 |-------|-------|
-| `bn_follows` | 2 — Social Graph |
-| `bn_connections` | 2 — Social Graph |
-| `bn_blocks` | 2 — Social Graph |
-| `bn_posts` | 3 — Activity Feed |
-| `bn_poll_options` | 3 — Activity Feed |
-| `bn_poll_votes` | 3 — Activity Feed |
-| `bn_bookmarks` | 3 — Activity Feed |
-| `bn_shares` | 3 — Activity Feed |
-| `bn_spaces` | 5 — Spaces |
-| `bn_space_members` | 5 — Spaces |
-| `bn_space_categories` | 5 — Spaces |
-| `bn_hashtags` | 7 — Hashtags |
-| `bn_post_hashtags` | 7 — Hashtags |
-| `bn_hashtag_follows` | 7 — Hashtags |
-| `bn_search_index` | 4 — Search |
-| `bn_profile_fields` | 4 — Profiles |
-| `bn_profile_values` | 4 — Profiles |
-| `bn_notifications` | 6 — Notifications |
-| `bn_notification_prefs` | 6 — Notifications |
-| `bn_email_templates` | 6 — Email |
-| `bn_email_log` | 6 — Email |
+| `bn_activity_log` | Core |
+| `bn_follows`, `bn_connections`, `bn_blocks` | Social Graph |
+| `bn_posts`, `bn_poll_options`, `bn_poll_votes`, `bn_bookmarks`, `bn_shares` | Activity Feed |
+| `bn_profile_fields`, `bn_profile_values` | Profiles |
+| `bn_search_index` | Search |
+| `bn_spaces`, `bn_space_members`, `bn_space_categories` | Spaces |
+| `bn_notifications`, `bn_notification_prefs` | Notifications |
+| `bn_email_templates`, `bn_email_log` | Email |
+| `bn_reactions`, `bn_comments` | Reactions + Comments |
+| `bn_hashtags`, `bn_post_hashtags`, `bn_hashtag_follows` | Hashtags |
+| `bn_reports`, `bn_mod_log`, `bn_user_strikes` | Moderation |
 | `bn_verify_tokens` | Auth |
-| `bn_reactions` | 7 — Reactions |
-| `bn_comments` | 7 — Comments |
-| `bn_reports` | 8 — Moderation |
-| `bn_mod_log` | 8 — Moderation |
-| `bn_user_strikes` | 8 — Moderation |
-| `bn_activity_log` | 1 — Core |
 
-DM tables live in WPMediaVerse (`mvs_conversations`, `mvs_messages`, etc.) — BuddyNext is UI layer only for DM.
-
-### Pro Tables
-`bn_membership_tiers`, `bn_subscriptions`, `bn_ai_signals`, `bn_analytics_events`, `bn_email_campaigns`, `bn_campaign_recipients`, `bn_drip_sequences`, `bn_drip_enrollments`, `bn_mod_rules`, `bn_mod_appeals`, `bn_member_labels`, `bn_member_label_assignments`
+DM tables live in WPMediaVerse (`mvs_conversations`, `mvs_messages`, …) — BuddyNext
+is the UI layer only for DM.
 
 ---
 
-## Development Phases
+## File Placement Rules
 
-| # | Phase | Key Deliverables |
-|---|-------|-----------------|
-| 1 | Core Foundation | Bootstrap, Container, 28 tables, `buddynext_can()`, Abilities API, webhook |
-| 2 | Social Graph | Follows, connections, blocks/mutes, privacy model |
-| 3 | Activity Feed | Posts, polls, reactions, shares, bookmarks, pagination |
-| 4 | Profiles + Search | Profile fields (repeaters), member directory, unified search index |
-| 5 | Spaces | Sub-spaces, roles, categories, settings, moderation |
-| 6 | Notifications + Email | In-app notifications, email system, digest, templates |
-| 7 | Reactions + Comments + Hashtags | Emoji reactions, threaded comments, hashtag registry |
-| 8 | Moderation | Report queue, strikes, admin review, appeal workflow |
-| 9 | Direct Messaging | BuddyNext UI → WPMediaVerse engine bridge |
-| 10 | Bridges | WPMediaVerse, Jetonomy, WBGamification, Career Board |
-| 11 | Gutenberg Blocks + Onboarding | All core blocks, setup wizard |
+### Domain Principle
 
-**Pro phases (run parallel after Phase 3):**
-- P1: Stripe Membership
-- P2: AI Engine
-- P3: WebSocket Real-time
-- P4: Mobile App
-- P5: Analytics
-- P6: White-label
+Every feature domain owns its full stack in one folder:
 
----
-
-## WP-CLI Commands
-
-```bash
-# Always use --path (this machine's local site)
-wp --path="/Users/vapvarun/Local Sites/buddynext-dev/app/public" <command>
-
-# Activate for dev
-wp --path="..." plugin activate buddynext
-
-# Run migrations manually
-wp --path="..." eval 'BuddyNext\Core\Installer::run(); echo "done\n";'
-
-# Check tables
-wp --path="..." db tables --all-tables | grep bn_
+```
+includes/{Domain}/
+  {Domain}Service.php        ← business logic
+  {Domain}Controller.php     ← REST endpoints
+  {Domain}Listener.php       ← WordPress hooks (implements ListenerInterface)
 ```
 
----
+If a new file's name starts with the domain prefix, it goes in that domain folder.
+Otherwise pick the domain whose responsibility best matches.
 
-## File Naming Conventions
+### Mandatory Placement Rules
+
+| File type | Belongs in | Example |
+|---|---|---|
+| Outbound webhook service, controller, listener | `Outbound/` | `OutboundWebhookService` |
+| Content moderation logic (banned words, rate limits, safeguards) | `Moderation/` | `SafeguardService` |
+| REST controller for a domain | Same folder as its Service | `MemberTypeController` → `MemberTypes/` |
+| Bridge adapter classes | `Bridges/` with `Bridge` suffix | `JetonomyBridge.php` |
+| Bridge listener classes | `Bridges/` with `BridgeListener` suffix | `JetonomyBridgeListener.php` |
+| Admin-only UI helpers | `Admin/{SubPage}/` not `Admin/Helpers/` | `MemberDisplay` → `Admin/Members/` |
+| Directory/listing service | `Profile/` if it queries `WP_User_Query`; `Search/` only if it queries `bn_search_index` | `MemberDirectoryService` → `Profile/` |
+| Cron job runner | `Core/CronService.php` — no `Handlers` suffix | — |
+
+### Listener Convention
+
+Every class ending in `Listener` **must**:
+
+1. `implement BuddyNext\Contracts\ListenerInterface`
+2. Expose `public function register(): void` (not `init()`)
+3. Be wired in `Plugin::init()` as `( new XxxListener() )->register()`
+
+Never use `init()` on a listener. Only Services and Admin registrars use `init()`.
+
+### Bridge Naming Convention
+
+```
+Bridges/JetonomyBridge.php          class JetonomyBridge          ← adapter
+Bridges/JetonomyBridgeListener.php  class JetonomyBridgeListener  ← hook registrar
+```
+
+Never name a bridge adapter `class Jetonomy` — it reads like the external plugin class.
+
+### Tests Mirror Source
+
+```
+includes/Feed/PostController.php           →  tests/Feed/PostControllerTest.php
+includes/SocialGraph/FollowController.php  →  tests/SocialGraph/FollowControllerTest.php
+```
+
+`tests/REST/` must stay empty. All controller tests live in the controller's domain folder.
+
+### File Naming Conventions
 
 | Type | Convention | Example |
 |------|-----------|---------|
@@ -583,6 +208,222 @@ wp --path="..." db tables --all-tables | grep bn_
 | Assets | kebab-case | `bn-feed.css`, `bn-feed.js` |
 | Tests | `ClassTest.php` | `FollowServiceTest.php` |
 | REST controllers | `[Feature]Controller.php` | `FeedController.php` |
+
+---
+
+## Design System Tokens
+
+CSS variables are the single source of truth — never hardcode px, hex, or font
+values. The system is **`--bn-*` prefixed and OKLCH-based**: a single `--bn-hue`
+cascades into the full accent ramp, so re-theming is one hue change. `TokenService`
+(`includes/Theme/TokenService.php`) injects the values inline on the `bn-base` handle.
+
+**Canonical definitions live in `assets/css/bn-base.css`** — read that for exact
+values. Do not paste a token table into docs; it drifts out of sync.
+
+Token families (all `--bn-` prefixed):
+- Surfaces: `--bn-bg`, `--bn-canvas`, `--bn-surface`, `--bn-sunken`, `--bn-raised`
+- Ink (text): `--bn-ink`, `--bn-ink-2`, `--bn-ink-3`, `--bn-ink-4`
+- Lines/focus: `--bn-line`, `--bn-line-faint`, `--bn-line-strong`, `--bn-ring`
+- Accent ramp (OKLCH from `--bn-hue`): `--bn-accent`, `--bn-accent-50…900`, `--bn-accent-fg`
+- Semantic: `--bn-success(-bg)`, `--bn-danger(-bg)`, `--bn-info(-bg)`
+- Integration accents: `--bn-jetonomy(-bg)`, `--bn-media(-bg)`, `--bn-paid(-bg)`, `--bn-events(-bg)`
+- Type: `--bn-font-{body,display,ui,mono}`, `--bn-text-{2xs…4xl,base,md}`, `--bn-fw-{normal…extrabold}`, `--bn-leading-{tight,snug,normal,body}`
+- Spacing (4px grid): `--bn-s1 … --bn-s16` · Radius: `--bn-r-{sm,md,lg,xl,full}` · Shadow: `--bn-shadow-{xs,sm,md,lg}`
+
+**Dark mode** flips tokens under `[data-bn-theme="dark"]`, `[data-theme="dark"]`,
+or `[data-bx-mode="dark"]` (the last bridges BuddyX/Reign's colour-mode toggle so
+BuddyNext follows the host theme). Verify dark via the real theme toggle, not a
+hand-set attribute.
+
+Bare-named aliases (`--bg`, `--text-1`, `--s4`…) exist only for back-compat —
+always author with the `--bn-*` names. `bin/ux-audit.sh` (gate F3) rejects raw
+hex/px and non-`--bn-` token use.
+
+---
+
+## CSS & JS Coding Standards — Non-Negotiable
+
+### CSS Token Rules
+
+**The golden rule: never write a hardcoded px, hex, or font-family value in any CSS file.**
+
+| What you need | How to write it |
+|---------------|-----------------|
+| Font size | `var(--text-sm)`, `var(--text-base)` |
+| Font weight | `var(--fw-semibold)`, `var(--fw-bold)` |
+| Line height | `var(--leading-body)`, `var(--leading-normal)` |
+| Letter spacing | `var(--ls-tight)`, `var(--ls-normal)` |
+| Colors | `var(--bg)`, `var(--text-1)`, `var(--brand)` |
+| Spacing | `var(--s1)` through `var(--s16)` (4px grid) |
+| Border radius | `var(--r-sm)` through `var(--r-full)` |
+| Font family | `var(--font-body)` or `var(--font-display)` |
+
+**Where tokens come from:**
+- `TokenService` (`includes/Theme/TokenService.php`) injects all `--text-*`, `--fw-*`, `--leading-*`, `--ls-*`, `--bg`, `--text-1`, `--brand`, `--s*`, `--r-*` tokens via `wp_add_inline_style('bn-base')`.
+- `theme.json` registers the preset slugs so block themes can override via child theme.
+- `bn-base.css` defines `--bn-text-*` as **aliases** to the global tokens: `--bn-text-base: var(--text-base)`.
+
+**CSS `:root` blocks — allowed vs forbidden:**
+
+```css
+/* ALLOWED — component-specific tokens not in the global system */
+:root {
+  --bn-shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+  --bn-transition: 0.14s ease;
+}
+
+/* ALLOWED — aliasing global tokens for a local shorthand */
+:root {
+  --bn-text-base: var(--text-base); /* alias, not hardcode */
+}
+
+/* FORBIDDEN — hardcoded typography/color/spacing */
+:root {
+  --bn-text-base: 15px;   /* never */
+  --bn-bg: #ffffff;       /* never */
+  --bn-s4: 16px;          /* never */
+}
+```
+
+**Font loading** — Inter and Plus Jakarta Sans are loaded in `AssetService`. Never
+import from Google Fonts inside a CSS file. The `--font-body` / `--font-display`
+tokens carry the full stack including system-font fallbacks.
+
+### CSS File Structure
+
+Every `assets/css/bn-{feature}.css` file follows this order:
+
+```css
+/* 1. File header comment — what this file covers */
+
+/* 2. :root — ONLY component-specific tokens (shadows, transitions)
+      and --bn-* aliases to global tokens. No hardcoded values. */
+:root { ... }
+
+/* 3. dark-mode overrides only — match the canonical triggers */
+[data-bn-theme="dark"], [data-theme="dark"], [data-bx-mode="dark"] { ... }
+
+/* 4. Component rules — desktop-first */
+.bn-component { ... }
+
+/* 5. Mobile at end — @media (max-width: 640px) for every layout section */
+@media (max-width: 640px) { ... }
+```
+
+### JavaScript / Interactivity API Rules
+
+- **All JS stores** use ES module syntax: `import { store, getContext } from '@wordpress/interactivity'`.
+- **Store namespace** always `buddynext/{feature-name}` — e.g. `buddynext/feed`.
+- **No window globals** — never `window.wp.interactivity.store(...)`.
+- **No inline `<script>` in templates** — JS lives in `assets/js/{feature}/store.js`, loaded via `AssetService`.
+- **REST calls in stores** use `fetch()` with the `restUrl` / `restNonce` context values passed from PHP via `data-wp-context`.
+- **Computed state** for all class/text bindings — never inline ternaries in `data-wp-bind`.
+- **No jQuery** — Interactivity API + vanilla fetch only.
+
+### Adding a New CSS/JS Bundle
+
+1. Create `assets/css/bn-{feature}.css` and `assets/js/{feature}/store.js`.
+2. Register both in `AssetService::register_assets()`.
+3. Enqueue in `PageRouter::enqueue_hub_assets()` for the relevant hub case.
+4. Pass `restNonce` + `restUrl` from the template via `data-wp-context`.
+
+---
+
+## Non-Negotiable Standards
+
+### 1. Enterprise Code Quality — No Shortcuts
+
+- Every file must pass WPCS before committing.
+- Every class must pass PHPStan level 5+.
+- No `@todo`, no stub implementations, no `/* TODO */` — ship complete code or don't ship.
+- **Zero AI markers** — no `// Generated by`, no `// AI-assisted`, no `// Claude`, no `@generated`. Code reads as if written by a senior WordPress engineer. No exceptions.
+- No `echo` in production paths — use `wp_send_json_*`, templates, or REST responses.
+- All DB queries use `$wpdb->prepare()`. Zero raw interpolation.
+- All nonces validated on every state-changing request.
+- Capabilities checked on every admin and REST endpoint.
+- Sanitize input at entry. Escape output at exit. Always.
+
+### 2. Test-Driven Development — Mandatory
+
+Write the failing test FIRST, then the implementation, then make it pass.
+
+```
+vendor/bin/phpunit tests/[Area]/[ClassTest].php --testdox
+```
+
+Never mark a task complete unless tests pass.
+
+### 3. Premium UX — Non-Negotiable
+
+The bar is Facebook / Instagram / LinkedIn polish: clean copy, correct spacing and
+alignment, real-time-feeling interactions, and fully-wired functionality that holds
+up at large-community scale.
+
+- **If it renders, it is real.** Every control a member can see is *bound* to an action, *enforced* by code that reads its value, and *observable* in its effect. A setting that saves but never gates anything is worse than no setting. Never ship a mockup, a disabled placeholder, or "coming soon" copy on a member-facing surface.
+- **Tokens only** — author with `--bn-*`, never raw hex/px (see Design System Tokens).
+- **Mobile is part of the same commit.** Every member-facing layout is verified at 390px — no horizontal scroll, no clipped controls. Not a follow-up.
+- **Dark mode** works on every new surface, via tokens.
+- **Every async surface** handles empty, error and loading states.
+
+### 4. No Emoji — Ever
+
+**Rules:**
+- **Never** use Unicode emoji characters anywhere — PHP, JS, CSS, HTML, or comments.
+- **Never** use HTML entities that render emoji (`&#128100;`, `&#x1F4BB;`).
+- **Always** use SVG icons from `assets/icons/` via:
+  - Templates: `buddynext_icon( 'icon-name' )` — echoes inline SVG
+  - PHP classes: `echo \BuddyNext\Core\IconService::render( 'icon-name' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped`
+  - JS status hints: CSS class-based coloured text — no emoji in `textContent`
+- **Adding new icons:** drop a Lucide-style SVG (no width/height, `stroke="currentColor"`, `viewBox="0 0 24 24"`) into `assets/icons/<slug>.svg`.
+- **55+ icons already exist** in `assets/icons/` — check before creating one.
+- `IconService::render()` returns `wp_kses()`-sanitized markup — always safe to echo.
+
+### 5. Translation-ready from day one
+
+Every user-facing string needs a PHP `__()` home **and** a render path that applies
+the translation. A JS-only string literal the POT scanner never sees is a bug, as is
+a store reading an i18n key that PHP never injects.
+
+---
+
+## Quality Gates — How to Run
+
+Run from the repo root. All of these must pass before a commit.
+
+| Gate | Command |
+|---|---|
+| Full CI-parity gate (lint + WPCS + PHPStan + UX audit) | `bin/check.sh` |
+| Same, staged files only (fast pre-commit signal) | `bin/check.sh --staged` |
+| WPCS | `vendor/bin/phpcs` |
+| PHPStan level 5 | `vendor/bin/phpstan analyse` |
+| Unit tests | `vendor/bin/phpunit` |
+| UX audit — token + primitive compliance, inline style/script, no `alert()`/`confirm()` | `bin/ux-audit.sh` |
+| REST boundary — 100% REST frontend, no admin-ajax | `bin/check-rest-boundary.sh` |
+
+**Pre-commit hook (one-time per clone):**
+
+```bash
+git config core.hooksPath .githooks
+```
+
+`.githooks/pre-commit` runs `bin/check.sh --staged --skip-audit`. Use
+`git commit --no-verify` only in emergencies.
+
+---
+
+## WP-CLI
+
+```bash
+# Point --path at your WordPress root
+wp --path=/path/to/wordpress plugin activate buddynext
+
+# Run the installer manually
+wp --path=/path/to/wordpress eval 'BuddyNext\Core\Installer::run(); echo "done\n";'
+
+# Check tables
+wp --path=/path/to/wordpress db tables --all-tables | grep bn_
+```
 
 ---
 
@@ -606,10 +447,10 @@ do_action( 'buddynext_comment_created',        $comment_id, $post_id, $user_id )
 do_action( 'buddynext_comment_updated',        $comment_id, $post_id, $user_id );
 do_action( 'buddynext_comment_deleted',        $comment_id, $post_id, $user_id );
 do_action( 'buddynext_space_created',          $space_id, $user_id );
-do_action( 'buddynext_space_member_joined',    $space_id, $user_id, $role );      // space-first
-do_action( 'buddynext_space_member_left',      $space_id, $user_id );             // space-first
-do_action( 'buddynext_space_member_removed',   $space_id, $user_id, $removed_by ); // space-first
-do_action( 'buddynext_space_join_approved',    $space_id, $user_id, $approved_by ); // space-first
+do_action( 'buddynext_space_member_joined',    $space_id, $user_id, $role );
+do_action( 'buddynext_space_member_left',      $space_id, $user_id );
+do_action( 'buddynext_space_member_removed',   $space_id, $user_id, $removed_by );
+do_action( 'buddynext_space_join_approved',    $space_id, $user_id, $approved_by );
 do_action( 'buddynext_member_type_assigned',   $user_id, $new_slug, $old_slug );
 do_action( 'buddynext_member_type_removed',    $user_id, $removed_slug );
 do_action( 'buddynext_member_type_created',    $type_id, $type_data );
@@ -648,49 +489,4 @@ wcb_job_created( $job_id, $request )
 wcb_application_submitted( $app_id, $job_id, $candidate_id )
 ```
 
----
-
-## Spec Files Reference
-
-All specs locked as of 2026-03-20. Source of truth for every feature decision.
-
-```
-docs/specs/features/
-├── 00-architecture.md       ← Bootstrap, data flow, hook names
-├── 01-social-graph.md
-├── 02-activity-feed.md
-├── 03-spaces.md
-├── 04-member-directory-search.md
-├── 05-user-profiles.md
-├── 06-notifications-email.md
-├── 07-direct-messaging.md   ← WPMediaVerse owns engine, BuddyNext is UI
-├── 08-reactions-comments.md
-├── 09-moderation.md
-├── 10-onboarding-setup-wizard.md
-├── 11-gutenberg-blocks.md
-├── 12-wbgamification-bridge.md
-├── 13-jetonomy-bridge.md
-├── 14-wpmediaverse-bridge.md
-├── 15-career-board-bridge.md
-├── 16-admin-settings.md
-├── 17-roles-permissions.md
-├── 18-hashtags.md
-├── 19-database-scale.md
-├── FREE-VS-PRO.md
-└── P1–P6 Pro specs
-```
-
----
-
-## Definition of Done (Per Phase)
-
-A phase is Done when ALL of:
-
-- [ ] All PHP files pass WPCS (`mcp__wpcs__wpcs_check_directory`)
-- [ ] PHPStan level 5 passes (`mcp__wpcs__wpcs_phpstan_check`)
-- [ ] All unit tests pass (`vendor/bin/phpunit`)
-- [ ] Templates match HTML mockups (verified in browser at `http://buddynext-dev.local`)
-- [ ] Dark mode works on all new templates
-- [ ] Mobile layout works at 390px viewport
-- [ ] `wp rewrite flush` runs clean after activation
-- [ ] DB tables created correctly (verified via `wp db tables`)
+Full REST route and hook reference: `docs/website/developer-guide/`.
