@@ -86,14 +86,6 @@ class NotificationPrefCatalogue {
 				'default_email_freq' => 'immediate',
 				'can_email'          => true,
 			),
-			'bn.connection_declined'      => array(
-				'label'              => __( 'Connection declined', 'buddynext' ),
-				'description'        => __( 'Someone declined your connection request.', 'buddynext' ),
-				'group'              => self::GROUP_SOCIAL,
-				'default_on_site'    => true,
-				'default_email_freq' => 'off',
-				'can_email'          => true,
-			),
 
 			// Feed activity.
 			'bn.post_reacted'             => array(

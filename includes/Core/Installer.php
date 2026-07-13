@@ -216,8 +216,13 @@ class Installer {
 	 *         and bn_email_log could silently fail to exist, and nothing reached any log. The two
 	 *         defects had to be fixed together: bumping the version re-runs the schema, and
 	 *         re-running a schema whose CREATE is a syntax error just fails again, quietly.
+	 *
+	 * v29: retire the bn.connection_declined notification type. It was never created by
+	 *      anything — no listener hooks buddynext_connection_declined — but it shipped a
+	 *      member preference toggle, a seeded email template and an Email Editor entry.
+	 *      Clears the seeded template row and any saved preference rows.
 	 */
-	private const SCHEMA_VERSION = 28;
+	private const SCHEMA_VERSION = 29;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -346,6 +351,19 @@ class Installer {
 		// through Action Scheduler (HashtagListener::resync_batch self-chains) so a
 		// 100k-post site never re-syncs inline. Enqueued once here; safe to resume.
 		self::schedule_hashtag_resync();
+
+		// v29: retire bn.connection_declined. Nothing ever created that notification —
+		// no listener hooked buddynext_connection_declined — yet it shipped a member
+		// preference toggle (default ON), a seeded email template, and an editable
+		// entry in the admin Email Editor. An owner could sit and customise the copy of
+		// an email that could never send. Facebook, X and LinkedIn all silently drop a
+		// declined request rather than announce the rejection, so the fix is to remove
+		// the dead plumbing, not to start firing it. Clear the residue from installs
+		// that already seeded it. Idempotent.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_email_templates WHERE type = 'bn.connection_declined'" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_notification_prefs WHERE type = 'bn.connection_declined'" );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
 	}
@@ -1237,12 +1255,6 @@ class Installer {
 				'subject'      => 'Connection accepted on {{site_name}}',
 				'preview_text' => 'You are now connected',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your connection request was accepted on {{site_name}}. <a href="{{action_url}}">View your connections.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
-			),
-			array(
-				'type'         => 'bn.connection_declined',
-				'subject'      => 'An update on your connection request on {{site_name}}',
-				'preview_text' => 'An update on your connection request',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your recent connection request on {{site_name}} was not accepted. There are plenty of other members to connect with. <a href="{{site_url}}">Explore the community.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.mention',

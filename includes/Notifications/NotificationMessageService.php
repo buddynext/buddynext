@@ -144,13 +144,6 @@ class NotificationMessageService {
 					$actor_name
 				);
 
-			case 'bn.connection_declined':
-				return sprintf(
-					/* translators: %s: actor display name. */
-					__( '%s declined your connection request.', 'buddynext' ),
-					$actor_name
-				);
-
 			case 'bn.post_reacted':
 				$emoji = isset( $data['emoji'] ) ? (string) $data['emoji'] : '';
 				if ( '' !== $emoji ) {
@@ -561,11 +554,6 @@ class NotificationMessageService {
 					'tone'  => 'success',
 					'label' => __( 'Connection accepted', 'buddynext' ),
 				),
-				'bn.connection_declined'      => array(
-					'icon'  => 'user-x',
-					'tone'  => 'info',
-					'label' => __( 'Connection declined', 'buddynext' ),
-				),
 				'bn.post_reacted'             => array(
 					'icon'  => 'heart',
 					'tone'  => 'warn',
@@ -828,7 +816,6 @@ class NotificationMessageService {
 			case 'bn.new_follower':
 			case 'bn.follow_requested':
 			case 'bn.connection_accepted':
-			case 'bn.connection_declined':
 				return $actor_id > 0 ? PageRouter::profile_url( $actor_id ) : '';
 
 			case 'bn.post_rejected':

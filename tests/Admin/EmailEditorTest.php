@@ -41,8 +41,12 @@ class EmailEditorTest extends \WP_UnitTestCase {
 		$this->editor = new EmailEditor();
 		$this->table  = $wpdb->prefix . 'bn_email_templates';
 
-		$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			"CREATE TABLE IF NOT EXISTS {$this->table} ( -- phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// The table name is built from $wpdb->prefix, not user input. A one-line ignore does
+		// not work here: it covers only the next line, and the violation is reported on the
+		// SQL string itself. An ignore placed INSIDE the SQL is just SQL, so PHPCS never sees it.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"CREATE TABLE IF NOT EXISTS {$this->table} (
 				id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 				type         VARCHAR(100) NOT NULL UNIQUE,
 				subject      TEXT NOT NULL,
@@ -50,8 +54,9 @@ class EmailEditorTest extends \WP_UnitTestCase {
 				body_html    LONGTEXT NOT NULL,
 				enabled      TINYINT(1) NOT NULL DEFAULT 1,
 				PRIMARY KEY (id)
-			) {$wpdb->get_charset_collate()}" // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			) {$wpdb->get_charset_collate()}"
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	/**
@@ -59,14 +64,14 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	 */
 	public function tear_down(): void {
 		global $wpdb;
-		$wpdb->query( "DROP TABLE IF EXISTS {$this->table}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query( "DROP TABLE IF EXISTS {$this->table}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		parent::tear_down();
 	}
 
 	// ── Catalogue ─────────────────────────────────────────────────────────────
 
 	/**
-	 * get_catalogue() returns the seven template categories. The Jetonomy "Forum
+	 * The catalogue returns the seven template categories. The Jetonomy "Forum
 	 * Reply" category was intentionally removed in the collect-only fix for bug
 	 * #10062150983 — BN no longer emails on a partner's behalf (Jetonomy owns it).
 	 */
@@ -76,7 +81,7 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * get_catalogue() includes the bn.new_follower template.
+	 * The catalogue includes the bn.new_follower template.
 	 */
 	public function test_catalogue_contains_new_follower(): void {
 		$catalogue = $this->editor->get_catalogue();
@@ -91,10 +96,11 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * get_catalogue() includes all 29 templates across the seven categories.
+	 * The catalogue includes all 28 templates across the seven categories.
 	 *
-	 * 29 since bn.space_ownership_received was added: succession hands a member a
-	 * space they did not ask for and cannot leave, so they get an email about it.
+	 * Was 29. bn.connection_declined was retired: nothing ever created that
+	 * notification, so the owner was being offered an email to customise that could
+	 * never send. An email in this catalogue must have a sender behind it.
 	 */
 	public function test_catalogue_has_all_templates(): void {
 		$catalogue = $this->editor->get_catalogue();
@@ -102,7 +108,7 @@ class EmailEditorTest extends \WP_UnitTestCase {
 		foreach ( $catalogue as $templates ) {
 			$total += count( $templates );
 		}
-		$this->assertSame( 29, $total );
+		$this->assertSame( 28, $total );
 	}
 
 	/**
@@ -124,7 +130,7 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	// ── save() + get_saved() ──────────────────────────────────────────────────
 
 	/**
-	 * save() inserts a new row and get_saved() retrieves it.
+	 * Save() inserts a new row and get_saved() retrieves it.
 	 */
 	public function test_save_inserts_and_get_saved_retrieves(): void {
 		$saved = $this->editor->save( 'new_follower', 'Subject test', 'Preview test', '<p>Body</p>', true );
@@ -139,7 +145,7 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * save() updates an existing row on second call.
+	 * Save() updates an existing row on the second call.
 	 */
 	public function test_save_updates_existing_row(): void {
 		$this->editor->save( 'new_follower', 'Original', 'Original preview', 'Original body', true );
@@ -151,7 +157,7 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * get_saved() returns null when no row exists for the slug.
+	 * Get_saved() returns null when no row exists for the slug.
 	 */
 	public function test_get_saved_returns_null_for_unknown_slug(): void {
 		$result = $this->editor->get_saved( 'nonexistent_slug' );
@@ -161,7 +167,7 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	// ── register() ───────────────────────────────────────────────────────────
 
 	/**
-	 * register() adds the admin_menu hook.
+	 * Register() adds the admin_menu hook.
 	 */
 	public function test_register_adds_admin_menu_hook(): void {
 		$this->editor->register();
@@ -171,7 +177,7 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * register() adds the admin_post_buddynext_email_save hook.
+	 * Register() adds the admin_post_buddynext_email_save hook.
 	 */
 	public function test_register_adds_save_hook(): void {
 		$this->editor->register();
@@ -179,7 +185,7 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * register() adds the admin_post_buddynext_email_test hook.
+	 * Register() adds the admin_post_buddynext_email_test hook.
 	 */
 	public function test_register_adds_test_hook(): void {
 		$this->editor->register();
@@ -187,7 +193,7 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * register() adds the admin_post_buddynext_email_reset hook.
+	 * Register() adds the admin_post_buddynext_email_reset hook.
 	 */
 	public function test_register_adds_reset_hook(): void {
 		$this->editor->register();

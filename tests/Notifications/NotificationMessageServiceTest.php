@@ -84,7 +84,8 @@ class NotificationMessageServiceTest extends \WP_UnitTestCase {
 			'new_follower'           => array( 'bn.new_follower', 'started following you' ),
 			'connection_requested'   => array( 'bn.connection_requested', 'connection request' ),
 			'connection_accepted'    => array( 'bn.connection_accepted', 'accepted your connection' ),
-			'connection_declined'    => array( 'bn.connection_declined', 'declined your connection' ),
+			// bn.connection_declined is deliberately absent — see
+			// test_the_declined_connection_type_is_retired() below.
 			'post_reacted'           => array( 'bn.post_reacted', 'reacted' ),
 			'post_commented'         => array( 'bn.post_commented', 'commented on your post' ),
 			'comment_reply'          => array( 'bn.comment_reply', 'replied to your comment' ),
@@ -326,5 +327,37 @@ class NotificationMessageServiceTest extends \WP_UnitTestCase {
 		$payload = $this->service->compose( $this->row( 'bn.bridge_custom' ) );
 
 		$this->assertSame( 'Bridge custom message.', $payload['message'] );
+	}
+
+	/**
+	 * The declined-connection notification type is retired, and stays retired.
+	 *
+	 * It was never created by anything — no listener hooks `buddynext_connection_declined`
+	 * — yet it shipped a member preference toggle (default ON), a seeded email template and
+	 * an editable entry in the admin Email Editor. An owner could customise the copy of an
+	 * email that could never send.
+	 *
+	 * The fix was to remove the plumbing, not to start firing it: Facebook, X and LinkedIn
+	 * all silently drop a declined request rather than announce the rejection, and telling a
+	 * member they were turned down — then linking them to the profile of the person who
+	 * turned them down, which is where the old URL branch sent them — is a hostile dead end.
+	 *
+	 * This pins that decision. Re-adding a preference or an email template for this type
+	 * without a listener that actually creates the notification fails here.
+	 *
+	 * @return void
+	 */
+	public function test_the_declined_connection_type_is_retired(): void {
+		$this->assertArrayNotHasKey(
+			'bn.connection_declined',
+			( new \BuddyNext\Notifications\NotificationPrefCatalogue() )->all(),
+			'A member must not be offered a preference toggle for a notification nothing can send.'
+		);
+
+		$this->assertFalse(
+			has_action( 'buddynext_connection_declined' ),
+			'If a listener is ever added here, the type must be un-retired deliberately — with a link '
+			. 'target that is not the profile of the person who declined the request.'
+		);
 	}
 }
