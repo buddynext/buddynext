@@ -95,6 +95,7 @@ class JetonomyBridge {
 		// toggle the Discussions tab + the discussion activity from BuddyNext →
 		// Integrations (default on). The nav/feed gating below reads those toggles.
 		add_filter( 'buddynext_integrations', array( $this, 'register_integration' ) );
+		add_action( 'buddynext_integration_search_disabled', array( $this, 'on_search_disabled' ) );
 
 		// On-demand space forum: provision + redirect when a member first opens a
 		// forumless space's Discussions tab (web).
@@ -187,8 +188,14 @@ class JetonomyBridge {
 		$title     = (string) $post->title;
 		$content   = (string) $post->content_plain;
 
-		// Always-on: index for BuddyNext unified search.
-		( new SearchService() )->index( 'discussion', $post_id, $title, $content, $author_id, 'public', $space_id );
+		// Gated on the owner's "Include in search" switch. This was unconditional, with a
+		// comment that said "Always-on" — so an owner who switched Jetonomy off still had
+		// every new discussion enter community search, complete with its own Discussions
+		// tab on the results page (the tab list is built from DISTINCT object_type in the
+		// index, so the rows generate the tab that displays them).
+		if ( buddynext_integration_enabled( 'jetonomy', 'search' ) ) {
+			( new SearchService() )->index( 'discussion', $post_id, $title, $content, $author_id, 'public', $space_id );
+		}
 
 		// Always-on: parse @username mentions from the discussion body. Collect the
 		// unique logins first, then resolve them all in ONE query — the previous
@@ -1410,12 +1417,35 @@ class JetonomyBridge {
 	public function register_integration( array $items ): array {
 		if ( class_exists( 'Jetonomy\Jetonomy' ) ) {
 			$items['jetonomy'] = array(
-				'label'    => __( 'Jetonomy', 'buddynext' ),
-				'has_nav'  => true,
-				'has_feed' => true,
+				'label'      => __( 'Jetonomy', 'buddynext' ),
+				'has_nav'    => true,
+				'has_feed'   => true,
+				'has_search' => true,
 			);
 		}
 		return $items;
+	}
+
+	/**
+	 * Purge Jetonomy discussions from the search index when the owner switches search off.
+	 *
+	 * Gating the write path only stops NEW content. Everything indexed while the
+	 * integration was enabled would otherwise keep surfacing in search forever, with no way
+	 * for the owner to reach it — which is the half of this bug that is actually visible to
+	 * members.
+	 *
+	 * The bridge owns the discussion <-> jetonomy mapping, not Free core: core fires the
+	 * action with the integration KEY and each bridge decides which object_type that means.
+	 *
+	 * @param string $key Integration key that was switched off.
+	 * @return void
+	 */
+	public function on_search_disabled( string $key ): void {
+		if ( 'jetonomy' !== $key ) {
+			return;
+		}
+
+		( new SearchService() )->deindex_type( 'discussion' );
 	}
 
 	/**

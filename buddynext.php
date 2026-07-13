@@ -453,15 +453,25 @@ function buddynext_integrations(): array {
 }
 
 /**
- * Whether an integration's nav and/or activity is enabled for this site.
+ * Whether an integration's nav, activity, and/or search indexing is enabled for this site.
  *
  * The ONLY read path for the per-integration owner toggles — bridges call this in
- * their nav `condition` and their activity handler; never the raw option (so keys
- * never drift). Default is ON: an ABSENT option means enabled, so a fresh install
- * and a newly added integration are on until the owner opts OUT.
+ * their nav `condition`, their activity handler, and before writing to the search
+ * index; never the raw option (so keys never drift). Default is ON: an ABSENT option
+ * means enabled, so a fresh install and a newly added integration are on until the
+ * owner opts OUT.
+ *
+ * Each aspect is resolved by an EXPLICIT branch. This used to be `if ( 'feed' ) … else …`,
+ * where the else was a catch-all onto the nav option — so any aspect that was not
+ * literally 'feed' silently read the nav toggle. Adding a 'search' aspect on top of that
+ * would have appeared to work in manual testing while binding search-indexing to the wrong
+ * control: switch nav off, and search rows stop; switch search off, and nothing happens.
+ * An unknown aspect is now a developer error that says so out loud instead of quietly
+ * resolving to something plausible.
  *
  * @param string $key    Integration key (e.g. 'jetonomy', 'careerboard').
- * @param string $aspect 'nav' (tab/sub-tab visibility) or 'feed' (activity posting).
+ * @param string $aspect 'nav' (tab/sub-tab visibility), 'feed' (activity posting), or
+ *                       'search' (whether this integration's content enters the search index).
  * @param string $sub    Optional sub-tab key — for `nav`, also requires that sub-tab's
  *                       toggle (and the parent integration's nav toggle) to be on.
  * @return bool
@@ -470,13 +480,39 @@ function buddynext_integration_enabled( string $key, string $aspect = 'nav', str
 	$key = sanitize_key( $key );
 	$sub = '' !== $sub ? sanitize_key( $sub ) : '';
 
-	if ( 'feed' === $aspect ) {
-		$on = '0' !== (string) get_option( "buddynext_integration_{$key}_feed", '1' );
-	} else {
-		$on = '0' !== (string) get_option( "buddynext_integration_{$key}_nav", '1' );
-		if ( $on && '' !== $sub ) {
-			$on = '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$sub}", '1' );
-		}
+	switch ( $aspect ) {
+		case 'feed':
+			$on = '0' !== (string) get_option( "buddynext_integration_{$key}_feed", '1' );
+			break;
+
+		case 'search':
+			$on = '0' !== (string) get_option( "buddynext_integration_{$key}_search", '1' );
+			break;
+
+		case 'nav':
+			$on = '0' !== (string) get_option( "buddynext_integration_{$key}_nav", '1' );
+			if ( $on && '' !== $sub ) {
+				$on = '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$sub}", '1' );
+			}
+			break;
+
+		default:
+			_doing_it_wrong(
+				__FUNCTION__,
+				esc_html(
+					sprintf(
+						/* translators: %s: the unrecognised aspect string. */
+						__( 'Unknown integration aspect "%s". Expected nav, feed, or search.', 'buddynext' ),
+						$aspect
+					)
+				),
+				'1.0.8'
+			);
+			// Fail OPEN. A typo'd aspect is a bug in the caller, not an owner's choice, and
+			// failing closed would hide a working integration's content from members on the
+			// strength of a typo — silent breakage, which is the thing being fixed here.
+			$on = true;
+			break;
 	}
 
 	/**
@@ -485,7 +521,7 @@ function buddynext_integration_enabled( string $key, string $aspect = 'nav', str
 	 *
 	 * @param bool   $on     Resolved enabled state.
 	 * @param string $key    Integration key.
-	 * @param string $aspect 'nav' | 'feed'.
+	 * @param string $aspect 'nav' | 'feed' | 'search'.
 	 * @param string $sub    Sub-tab key ('' when none).
 	 */
 	return (bool) apply_filters( 'buddynext_integration_enabled', $on, $key, $aspect, $sub );

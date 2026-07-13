@@ -35,6 +35,12 @@ class SearchService {
 	private const MAX_RESULTS = 1000;
 
 	/**
+	 * Rows removed per statement by deindex_type(). Small enough that the lock on the
+	 * search index is never held long on a shared host.
+	 */
+	private const DEINDEX_BATCH = 2000;
+
+	/**
 	 * Upsert an object into the search index.
 	 *
 	 * @param string $object_type Type identifier (e.g. 'post', 'user', 'space').
@@ -265,6 +271,52 @@ class SearchService {
 				sprintf( 'BuddyNext: search deindex failed for %s#%d: %s', $object_type, $object_id, $wpdb->last_error )
 			);
 		}
+	}
+
+	/**
+	 * Remove EVERY row of one object type from the search index.
+	 *
+	 * The bulk counterpart to deindex(), for when an owner switches an integration's
+	 * search off. Gating the write path alone is not enough: everything indexed while the
+	 * integration was on would keep surfacing forever, and the owner has no way to reach it.
+	 *
+	 * The cache flush is load-bearing, not hygiene. available_types() is `SELECT DISTINCT
+	 * object_type FROM bn_search_index`, cached for 5 minutes, and the results template
+	 * builds its type tabs from it. Delete the rows without flushing and the disabled
+	 * integration keeps its own search tab — now an empty one — for up to five minutes.
+	 *
+	 * Deleted in batches: a site that has indexed a million job listings would otherwise
+	 * hold a long table lock on the search index, which on shared hosting is an outage.
+	 *
+	 * @param string $object_type Type identifier (e.g. 'job', 'listing', 'discussion').
+	 * @return int Rows removed.
+	 */
+	public function deindex_type( string $object_type ): int {
+		global $wpdb;
+
+		$object_type = sanitize_key( $object_type );
+		if ( '' === $object_type ) {
+			return 0;
+		}
+
+		$total = 0;
+
+		do {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$rows = (int) $wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$wpdb->prefix}bn_search_index WHERE object_type = %s LIMIT %d",
+					$object_type,
+					self::DEINDEX_BATCH
+				)
+			);
+
+			$total += $rows;
+		} while ( $rows >= self::DEINDEX_BATCH );
+
+		wp_cache_delete( 'search_object_types', 'buddynext' );
+
+		return $total;
 	}
 
 	/**
