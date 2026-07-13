@@ -266,25 +266,46 @@ class ExportCompletenessTest extends WP_UnitTestCase {
 	// ── 3. done still means done ───────────────────────────────────────────────────
 
 	/**
-	 * An ordinary member still exports in a single page.
+	 * An ordinary member still exports in a handful of pages, not dozens.
 	 *
 	 * Streaming the big sections must not turn a member with three follows into a ten-request
-	 * export. The common case stays one page.
+	 * export.
+	 *
+	 * This asserted "done on page 1" and went red when the export was completed. That was the
+	 * test being RIGHT about the mechanism and WRONG about the premise: the member did not
+	 * have "2 follows and nothing else". They also had a row in bn_email_log — the welcome
+	 * mail we sent them — which is a record about them that the export simply never returned.
+	 * It takes one extra page now because it finally contains something it always should have.
+	 *
+	 * So the bound is what is worth guarding, not the exact number: a trivial member must not
+	 * need a double-digit number of round trips.
 	 *
 	 * @return void
 	 */
-	public function test_an_ordinary_member_still_exports_in_one_page(): void {
+	public function test_an_ordinary_member_still_exports_in_a_few_pages(): void {
 		$this->give_followers( 2 );
 
-		$result = $this->privacy->export( $this->email, 1 );
+		$pages = 0;
+		$data  = array();
 
-		$this->assertTrue(
-			$result['done'],
-			'a member with 2 follows and nothing else must be finished on page 1'
+		for ( $page = 1; $page <= 20; $page++ ) {
+			$result = $this->privacy->export( $this->email, $page );
+			++$pages;
+			$data = array_merge( $data, (array) $result['data'] );
+
+			if ( ! empty( $result['done'] ) ) {
+				break;
+			}
+		}
+
+		$this->assertLessThanOrEqual(
+			5,
+			$pages,
+			'a member with almost nothing must not need a double-digit number of export round trips'
 		);
 		$this->assertSame(
 			2,
-			$this->count_group( $result['data'], 'buddynext_followers' ),
+			$this->count_group( $data, 'buddynext_followers' ),
 			'and their followers are in it'
 		);
 	}

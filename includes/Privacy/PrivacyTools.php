@@ -259,12 +259,226 @@ class PrivacyTools implements ListenerInterface {
 	 * @param int $page    1-based page across the whole stream.
 	 * @return array{items: array<int,array<string,mixed>>, done: bool}
 	 */
+	/**
+	 * Tables we erase but deliberately do NOT hand back, each with its reason.
+	 *
+	 * A table on this list is a judgement that was MADE. A table on neither this list nor the
+	 * export stream is a judgement that was never made — which is the entire condition the
+	 * erasure gate exists to fail the build on, and it now checks export too.
+	 *
+	 * Keep this list short and keep the reasons real. "It felt like a lot of work" is not a
+	 * reason; Article 15 does not have a convenience exemption.
+	 *
+	 * @return array<string,string> Unprefixed table => why it is not exported.
+	 */
+	public static function export_exclusions(): array {
+		$exclusions = array(
+			// Live credentials. A valid token sitting in a ZIP the member emails to themselves
+			// is an account-takeover vector, and it tells them nothing about themselves that
+			// the account itself does not. Excluding a secret is not withholding personal data.
+			'bn_verify_tokens' => 'Live security tokens. Exporting a valid credential into a downloadable archive is a takeover vector, and it carries no information about the member.',
+
+			// A derived mirror of content that IS exported (posts, comments, profile values).
+			// Handing back the index as well would duplicate every row under a second heading
+			// and tell the member nothing new.
+			'bn_search_index'  => 'Derived search mirror of content already exported in full (posts, comments, profile values). Exporting it would duplicate every row, not add one.',
+		);
+
+		/**
+		 * Filter the tables that are erased but deliberately not exported.
+		 *
+		 * Pro adds its own. Each entry MUST carry a human reason: the export gate fails the
+		 * build on a table that is on neither the export stream nor this list, and a blank
+		 * reason is how "nobody decided" gets dressed up as "we decided not to".
+		 *
+		 * @since 1.0.8
+		 *
+		 * @param array<string,string> $exclusions Unprefixed table => reason.
+		 */
+		return (array) apply_filters( 'buddynext_privacy_export_exclusions', $exclusions );
+	}
+
+	/**
+	 * Columns that are never emitted, even from a table we do export.
+	 *
+	 * The row is personal data; the secret inside it is not something to hand back. A push
+	 * token says "this member registered an Android device on this date", which they have a
+	 * right to know — the token VALUE is a credential for pushing to that device, which they
+	 * do not need and nobody else should have.
+	 *
+	 * @return array<string,string[]> Unprefixed table => column names to omit.
+	 */
+	public static function export_redactions(): array {
+		$redactions = array(
+			'bn_push_tokens' => array( 'token' ),
+		);
+
+		/**
+		 * Filter the columns omitted from an otherwise-exported table.
+		 *
+		 * @since 1.0.8
+		 *
+		 * @param array<string,string[]> $redactions Unprefixed table => columns to omit.
+		 */
+		return (array) apply_filters( 'buddynext_privacy_export_redactions', $redactions );
+	}
+
+	/**
+	 * Sections generated from the erase registry — everything not exported by hand.
+	 *
+	 * THE POINT: export coverage is now DERIVED from the same registry that drives erasure,
+	 * instead of being a second hand-written list that has to be remembered. It was a second
+	 * hand-written list, and it was 25 tables behind — every one of them a table we happily
+	 * DELETE on request while being unable to SHOW it on request. Erasure (Art. 17) was
+	 * complete and access (Art. 15) was not, which is a strange pair of failures to have: we
+	 * knew exactly where the member's data was, and used that knowledge only to destroy it.
+	 *
+	 * Adding a table to erase_map() now makes it exportable automatically. Nothing to
+	 * remember, so nothing to forget.
+	 *
+	 * @return array<string, array{count: callable, fetch: callable}>
+	 */
+	private function derived_sections(): array {
+		$handled    = $this->tables_exported_by_hand();
+		$exclusions = self::export_exclusions();
+		$sections   = array();
+
+		foreach ( \BuddyNext\Profile\MemberCleanupService::erase_map() as $table => $spec ) {
+			if ( isset( $handled[ $table ] ) || isset( $exclusions[ $table ] ) ) {
+				continue;
+			}
+
+			$where = (string) ( $spec['where'] ?? '' );
+			if ( '' === $where ) {
+				continue;
+			}
+
+			$sections[ $table ] = array(
+				'count' => fn( int $u ): int => $this->count_rows( $table, $where, $u ),
+				'fetch' => fn( int $u, int $l, int $o ): array => $this->export_table( $table, $where, $u, $l, $o ),
+			);
+		}
+
+		return $sections;
+	}
+
+	/**
+	 * Tables covered by the hand-written sections (and the page-1 items).
+	 *
+	 * These predate the derived stream and produce nicer, human-labelled output, so they are
+	 * kept. This list is what stops a table being exported twice.
+	 *
+	 * @return array<string,true>
+	 */
+	private function tables_exported_by_hand(): array {
+		return array(
+			'bn_follows'            => true,
+			'bn_connections'        => true,
+			'bn_blocks'             => true,
+			'bn_space_members'      => true,
+			'bn_hashtag_follows'    => true,
+			'bn_notifications'      => true,
+			'bn_posts'              => true,
+			'bn_comments'           => true,
+			'bn_profile_values'     => true,
+			'bn_notification_prefs' => true,
+		);
+	}
+
+	/**
+	 * Fetch one page of a table generically, as export items.
+	 *
+	 * @param string $table   Unprefixed table (registry-owned, never input).
+	 * @param string $where   Predicate; each %d is bound to the user id.
+	 * @param int    $user_id Member.
+	 * @param int    $limit   Page size.
+	 * @param int    $offset  Page offset.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function export_table( string $table, string $where, int $user_id, int $limit, int $offset ): array {
+		global $wpdb;
+
+		$args = array_fill( 0, max( 1, substr_count( $where, '%d' ) ), $user_id );
+		$args = array_merge( $args, array( $limit, $offset ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $table and $where are registry-owned constants, never input; every value IS bound via prepare().
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}{$table} WHERE " . $where . ' LIMIT %d OFFSET %d',
+				...$args
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+
+		$redact = (array) ( self::export_redactions()[ $table ] ?? array() );
+		$items  = array();
+
+		foreach ( (array) $rows as $row ) {
+			$data = array();
+
+			foreach ( (array) $row as $column => $value ) {
+				if ( in_array( $column, $redact, true ) ) {
+					continue;
+				}
+
+				$data[] = array(
+					'name'  => ucwords( str_replace( '_', ' ', (string) $column ) ),
+					'value' => is_scalar( $value ) || null === $value ? (string) $value : wp_json_encode( $value ),
+				);
+			}
+
+			$items[] = array(
+				'group_id'    => $table,
+				'group_label' => $this->table_label( $table ),
+				'item_id'     => $table . '-' . ( isset( $row['id'] ) ? (int) $row['id'] : md5( (string) wp_json_encode( $row ) ) ),
+				'data'        => $data,
+			);
+		}
+
+		return $items;
+	}
+
+	/**
+	 * A human label for a derived table's export group.
+	 *
+	 * @param string $table Unprefixed table.
+	 * @return string
+	 */
+	private function table_label( string $table ): string {
+		$label = ucwords( str_replace( '_', ' ', preg_replace( '/^bn_/', '', $table ) ?? $table ) );
+
+		/**
+		 * Filter the export group label for a derived table.
+		 *
+		 * Pro's tables get their names through this, so Free never has to know them.
+		 *
+		 * @since 1.0.8
+		 *
+		 * @param string $label Human label.
+		 * @param string $table Unprefixed table name.
+		 */
+		return (string) apply_filters( 'buddynext_privacy_export_table_label', $label, $table );
+	}
+
+	/**
+	 * Walk one page across the whole concatenated section stream.
+	 *
+	 * @param int $user_id Member.
+	 * @param int $page    1-based page across the whole stream.
+	 * @return array{items: array<int,array<string,mixed>>, done: bool}
+	 */
 	private function stream_page( int $user_id, int $page ): array {
 		$per   = $this->per_page();
 		$plan  = array();
 		$total = 0;
 
-		foreach ( $this->sections() as $section ) {
+		// The hand-written sections first, then everything derived from the erase registry.
+		// A table added to erase_map() joins the stream automatically — it cannot be
+		// forgotten, because nobody has to remember it.
+		$all_sections = array_merge( $this->sections(), $this->derived_sections() );
+
+		foreach ( $all_sections as $section ) {
 			$pages = (int) ceil( ( (int) ( $section['count'] )( $user_id ) ) / $per );
 			if ( $pages > 0 ) {
 				$plan[] = array(
