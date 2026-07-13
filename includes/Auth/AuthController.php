@@ -1132,12 +1132,28 @@ class AuthController {
 			$errors['email'] = __( 'An account already exists with this email address.', 'buddynext' );
 		}
 
-		if ( '' === $user_login || strlen( $user_login ) < 3 ) {
-			$errors['user_login'] = __( 'Username must be at least 3 characters.', 'buddynext' );
-		} elseif ( ! validate_username( $user_login ) ) {
-			$errors['user_login'] = __( 'Username contains invalid characters.', 'buddynext' );
-		} elseif ( username_exists( $user_login ) ) {
-			$errors['user_login'] = __( 'This username is already taken.', 'buddynext' );
+		// An ABSENT username is not an invalid one.
+		//
+		// The username field is OFF BY DEFAULT — a member should not have to invent a
+		// handle to join — and RegistrationService::create() derives one from the email
+		// via unique_login(), exactly as social signup does. This route's own arg spec
+		// says so ('user_login' => required: false) and the docblock above promises it.
+		//
+		// But this check rejected the empty string outright, so the promise was never
+		// kept: on a DEFAULT install the form sent no username, the request was refused
+		// with "Username must be at least 3 characters" — naming a field the visitor
+		// could not even see — and NOBODY COULD REGISTER through the web form at all.
+		//
+		// So: validate the handle only when one was actually supplied. When it is
+		// absent, let the service derive it.
+		if ( '' !== $user_login ) {
+			if ( strlen( $user_login ) < 3 ) {
+				$errors['user_login'] = __( 'Username must be at least 3 characters.', 'buddynext' );
+			} elseif ( ! validate_username( $user_login ) ) {
+				$errors['user_login'] = __( 'Username contains invalid characters.', 'buddynext' );
+			} elseif ( username_exists( $user_login ) ) {
+				$errors['user_login'] = __( 'This username is already taken.', 'buddynext' );
+			}
 		}
 
 		if ( strlen( $password ) < 8 ) {

@@ -151,6 +151,58 @@ class InviteBindingTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * The other half: the INVITED person must actually land in the space.
+	 *
+	 * `wp_create_user()` fires `user_register`, and OnboardingListener reconciles
+	 * invites BY EMAIL at priority 16 — flipping the row to `registered` before
+	 * redeem_invite() could look it up by `status = 'pending'`. So the invitee joined
+	 * the community but never the space their invitation named, and it was invisible
+	 * because the invite still ended up `registered`, just written by the wrong party.
+	 *
+	 * @return void
+	 */
+	public function test_the_invited_member_is_joined_to_the_space_they_were_invited_to(): void {
+		global $wpdb;
+
+		update_option( 'buddynext_reg_mode', 'invite' );
+		update_option( 'users_can_register', 1 );
+
+		$owner    = self::factory()->user->create();
+		$space_id = ( new SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Invited Member Lands Here',
+				'slug' => 'invited-member-lands-here',
+				'type' => 'private',
+			)
+		);
+		$this->assertIsInt( $space_id );
+
+		list( $token ) = $this->issue_invite( $space_id );
+
+		$created = ( new RegistrationService() )->create(
+			array(
+				'email'        => self::INVITED,
+				'password'     => wp_generate_password( 16 ),
+				'invite'       => $token,
+				'display_name' => 'Alice',
+			)
+		);
+		$this->assertNotWPError( $created );
+
+		$user_id = (int) ( is_array( $created ) ? ( $created['user_id'] ?? 0 ) : $created );
+		$joined  = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND user_id = %d",
+				$space_id,
+				$user_id
+			)
+		);
+
+		$this->assertSame( 1, $joined, 'The invited member must land in the space their invitation named.' );
+	}
+
+	/**
 	 * The second vector: on an OPEN site the policy gate never inspects the invite,
 	 * so a leaked space-scoped token must be stopped at redemption instead — or a
 	 * stranger silently lands inside a PRIVATE space.

@@ -135,6 +135,22 @@ class RegistrationService {
 			return $values;
 		}
 
+		// RESOLVE THE INVITE BEFORE THE ACCOUNT EXISTS.
+		//
+		// wp_create_user() fires `user_register`, and OnboardingListener hooks it at
+		// priority 16 to reconcile invites BY EMAIL — flipping the invitee's invite to
+		// `registered`. redeem_invite() then looked the token up with
+		// InviteService::get_by_token(), whose SQL requires status = 'pending', got
+		// null, and returned silently WITHOUT joining the member to the space their
+		// invitation named.
+		//
+		// So a legitimate invitee joined the community but never landed in the space
+		// they were invited to — and it was invisible, because the invite still ended
+		// up `registered`, just written by the wrong party.
+		//
+		// Read it here, while it is still pending. Nothing downstream can race us.
+		$invite = $this->find_invite( $data );
+
 		$user_id = wp_create_user(
 			(string) $data['user_login'],
 			(string) $data['password'],
@@ -159,7 +175,7 @@ class RegistrationService {
 			);
 		}
 
-		$this->redeem_invite( $user_id, $data );
+		$this->redeem_invite( $user_id, $invite );
 
 		// Reuse the canonical seeder rather than duplicating the audience list.
 		AuthController::seed_default_dm_access( $user_id );
@@ -242,23 +258,41 @@ class RegistrationService {
 	}
 
 	/**
-	 * Redeem an invite and join the inviting space, when one was presented.
+	 * Resolve the presented invitation, if any.
 	 *
-	 * @param int                 $user_id New user id.
-	 * @param array<string,mixed> $data    Signup data.
-	 * @return void
+	 * Called BEFORE wp_create_user() — see create(). Once the account exists, the
+	 * `user_register` email-reconcile listener has already flipped the row out of
+	 * `pending` and this lookup would find nothing.
+	 *
+	 * @param array<string,mixed> $data Signup data.
+	 * @return array<string,mixed>|null Invite row, or null when none was presented.
 	 */
-	private function redeem_invite( int $user_id, array $data ): void {
+	private function find_invite( array $data ): ?array {
 		$token = (string) ( $data['invite'] ?? '' );
 		if ( '' === $token ) {
+			return null;
+		}
+
+		return ( new InviteService() )->get_by_token( $token );
+	}
+
+	/**
+	 * Spend the invitation: mark it registered, and join the member to the space it names.
+	 *
+	 * Takes the invite row RESOLVED BEFORE the account existed (see create()), because
+	 * `user_register` fires an email-reconcile listener that flips the row to
+	 * `registered` — so re-reading it here by token would find nothing.
+	 *
+	 * @param int                      $user_id New member id.
+	 * @param array<string,mixed>|null $invite  Invite row captured before wp_create_user(), or null.
+	 * @return void
+	 */
+	private function redeem_invite( int $user_id, ?array $invite ): void {
+		if ( null === $invite ) {
 			return;
 		}
 
 		$invites = new InviteService();
-		$invite  = $invites->get_by_token( $token );
-		if ( ! $invite ) {
-			return;
-		}
 
 		// BIND THE INVITE HERE TOO, not only in RegistrationPolicy.
 		//
@@ -278,7 +312,14 @@ class RegistrationService {
 		$invites->mark_registered( (int) $invite['id'] );
 
 		if ( ! empty( $invite['space_id'] ) ) {
-			( new SpaceMemberService() )->join( (int) $invite['space_id'], $user_id );
+			$joined = ( new SpaceMemberService() )->join( (int) $invite['space_id'], $user_id );
+
+			// Do not swallow the failure. This return value used to be discarded, which
+			// is why a member silently failing to land in the space they were invited to
+			// produced no error anywhere for an entire release.
+			if ( is_wp_error( $joined ) ) {
+				do_action( 'buddynext_invite_space_join_failed', $user_id, (int) $invite['space_id'], $joined );
+			}
 		}
 	}
 

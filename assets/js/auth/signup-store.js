@@ -247,8 +247,19 @@ const signupStore = store( 'buddynext/auth-signup', {
 			const c = ctx();
 			if ( c.submitting ) { return; }
 			// Validate on click rather than disabling the button up front.
-			if ( ! ( c.email || '' ).trim() || ! ( c.userLogin || '' ).trim() || ! ( c.password || '' ) ) {
-				c.error = t( 'fillRequired', 'Please fill in your email, username, and password.' );
+			//
+			// Only demand a username when the form actually ASKS for one. The username
+			// field is OFF BY DEFAULT (the server derives a handle from the email), so
+			// this guard used to require a value that nothing on the page could ever
+			// set: `userLogin` stayed empty, every submit was refused with "Please fill
+			// in your email, username, and password" — naming a field that was not
+			// there — and web signup was impossible on a DEFAULT install.
+			if ( ! ( c.email || '' ).trim() || ! ( c.password || '' ) ) {
+				c.error = t( 'fillRequired', 'Please fill in your email and password.' );
+				return;
+			}
+			if ( c.askUsername && ! ( c.userLogin || '' ).trim() ) {
+				c.error = t( 'fillUsername', 'Please choose a username.' );
 				return;
 			}
 			if ( ! c.termsAgreed ) {
@@ -271,6 +282,11 @@ const signupStore = store( 'buddynext/auth-signup', {
 					reg_token:       c.regToken || '',
 					challenge_token: c.challengeToken || '',
 					challenge_answer: c.challengeAnswer || '',
+					// The invitation, when the visitor arrived from an invite link. The
+					// form used to send NOTHING here, so an invite-only community refused
+					// its own invited members ("This community is invite-only") and a
+					// space-bound invite never joined them to the space it named.
+					invite:          c.invite || '',
 				};
 				// Honeypot under its server-issued (rotatable) field name.
 				if ( c.honeypotName ) {

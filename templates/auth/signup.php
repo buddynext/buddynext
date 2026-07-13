@@ -59,14 +59,24 @@ $bn_challenge     = $bn_challenge_on
 		'token'    => '',
 	);
 
+// Read the invitation BEFORE the mode check, and in EVERY mode.
+//
+// It used to be read only inside the invite-only branch, which had two costs:
+// 1. The token never reached the store (see the context below), so the form
+// submitted without it and the invited member was refused by their OWN
+// invitation — invite-only signup was a dead end through the web form.
+// 2. A space-bound invitation is legitimate on an OPEN site too ("join us in
+// this private space"). Reading the token only in invite mode meant that
+// link silently lost its space on any open community.
+$bn_invite_token = isset( $_GET['invite'] ) ? sanitize_text_field( wp_unslash( $_GET['invite'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_invite       = '' !== $bn_invite_token ? ( new \BuddyNext\Onboarding\InviteService() )->get_by_token( $bn_invite_token ) : null;
+
 // Invite-only mode: the REST submit already 403s without a valid invite, but
 // the form should not even render — show an invite-required notice unless the
 // visitor arrived with a valid, unconsumed invitation token. Mirrors the
 // AuthController::register() gate so the two never disagree.
 $bn_reg_mode = (string) get_option( 'buddynext_reg_mode', 'open' );
 if ( 'invite' === $bn_reg_mode ) {
-	$bn_invite_token = isset( $_GET['invite'] ) ? sanitize_text_field( wp_unslash( $_GET['invite'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-	$bn_invite       = '' !== $bn_invite_token ? ( new \BuddyNext\Onboarding\InviteService() )->get_by_token( $bn_invite_token ) : null;
 	if ( null === $bn_invite ) {
 		// Dead end guard: the visitor has NO account (that's the whole point of this
 		// screen), so "Back to sign in" is not a way out — it is the exit door. Give
@@ -182,7 +192,19 @@ if ( 'invite' === $bn_reg_mode ) {
 		echo wp_interactivity_data_wp_context(
 			array(
 				'email'            => $bn_prefill_email,
+				// The invitation token, carried into POST /auth/register by the store.
+				// Without this the form submitted no token at all, so an invited member
+				// arriving from their own invitation link was refused by the invite gate
+				// ("This community is invite-only") — the invite-only web-signup door was
+				// shut to the very people it was built for. It is a server-issued token
+				// for this signup, exactly like regToken and challengeToken beside it.
+				'invite'           => $bn_invite_token,
 				'userLogin'        => '',
+				// Does the form actually ASK for a username? It is off by default (the
+				// server derives a handle from the email). The store must not demand a
+				// value that no rendered field can supply — that made signup impossible
+				// on a default install.
+				'askUsername'      => ! empty( $bn_requirements['ask_username'] ),
 				'password'         => '',
 				'termsAgreed'      => false,
 				'passwordStrength' => 0,
