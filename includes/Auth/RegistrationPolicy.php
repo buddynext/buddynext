@@ -84,14 +84,27 @@ class RegistrationPolicy {
 		}
 
 		if ( 'invite' === $mode ) {
-			$invite = ( null !== $invite_token && '' !== $invite_token )
-				? ( new InviteService() )->get_by_token( $invite_token )
+			$invites = new InviteService();
+			$invite  = ( null !== $invite_token && '' !== $invite_token )
+				? $invites->get_by_token( $invite_token )
 				: null;
 
 			if ( ! $invite ) {
 				return new WP_Error(
 					'bn_reg_invite',
 					__( 'This community is invite-only. You need an invitation to join.', 'buddynext' )
+				);
+			}
+
+			// AN INVITE IS BOUND TO THE ADDRESS IT WAS SENT TO (owner decision,
+			// 2026-07-13). Refuse here, BEFORE the account exists, so a mismatch
+			// leaves the invite `pending` and the real invitee can still use it.
+			// Burning someone else's invite is the half of this bug that locked
+			// the invitee out permanently.
+			if ( ! $invites->is_for_email( $invite, $email ) ) {
+				return new WP_Error(
+					'bn_reg_invite_email',
+					__( 'This invitation was sent to a different email address. Sign up with the address it was sent to, or ask for a new invitation.', 'buddynext' )
 				);
 			}
 		}

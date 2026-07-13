@@ -260,6 +260,21 @@ class RegistrationService {
 			return;
 		}
 
+		// BIND THE INVITE HERE TOO, not only in RegistrationPolicy.
+		//
+		// The policy gate only inspects the invite when the site is in `invite`
+		// mode. This method runs in EVERY mode — so on an OPEN-registration site a
+		// stranger holding a leaked space-scoped token was silently joined to the
+		// space it points at, which may be PRIVATE. That is a privacy breach with
+		// no invite-only mode involved, and the policy gate cannot see it.
+		//
+		// Checking the redeemed identity against the invited address closes both
+		// doors from one place: the invite is spent only by the person it names.
+		$user = get_userdata( $user_id );
+		if ( ! $user instanceof \WP_User || ! $invites->is_for_email( $invite, (string) $user->user_email ) ) {
+			return;
+		}
+
 		$invites->mark_registered( (int) $invite['id'] );
 
 		if ( ! empty( $invite['space_id'] ) ) {
