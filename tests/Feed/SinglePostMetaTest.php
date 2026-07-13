@@ -38,7 +38,10 @@ class SinglePostMetaTest extends \WP_UnitTestCase {
 
 	public function test_build_description_falls_back_to_site_description_when_empty(): void {
 		update_option( 'blogdescription', 'A test site.' );
-		$post = array( 'id' => 1, 'content' => '' );
+		$post = array(
+			'id'      => 1,
+			'content' => '',
+		);
 
 		$out = SinglePostMeta::build_description( $post );
 

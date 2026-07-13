@@ -337,12 +337,13 @@ class MessagesData {
 	 *
 	 * @param int    $viewer Viewing user ID.
 	 * @param string $tab    Tab filter (all|unread|requests).
+	 * @param int    $limit  Conversations to fetch (clamped to 50-500).
 	 * @return array{pinned:array,recent:array,unread:int,requests:int}
 	 */
 	public static function conversations( int $viewer, string $tab = 'all', int $limit = 50 ): array {
-		$limit  = max( 50, min( 500, $limit ) );
-		$svc    = self::svc();
-		$rows   = $svc ? (array) $svc->get_conversations( $viewer, $tab, $limit, 1 ) : array();
+		$limit = max( 50, min( 500, $limit ) );
+		$svc   = self::svc();
+		$rows  = $svc ? (array) $svc->get_conversations( $viewer, $tab, $limit, 1 ) : array();
 		// A full page means the inbox is larger than the current cap — the rail
 		// offers a "Load more" that re-renders with a higher cap (server-side, so no
 		// rail-item template is duplicated in JS).

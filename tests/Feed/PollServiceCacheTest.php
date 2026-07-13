@@ -63,7 +63,7 @@ class PollServiceCacheTest extends WP_UnitTestCase {
 		$author        = self::factory()->user->create();
 		$this->voter   = self::factory()->user->create();
 
-		$this->poll_id = $posts->create(
+		$this->poll_id  = $posts->create(
 			$author,
 			array(
 				'type'    => 'poll',

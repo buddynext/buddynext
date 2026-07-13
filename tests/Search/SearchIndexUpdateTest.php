@@ -89,7 +89,14 @@ class SearchIndexUpdateTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'ORIGINALTEXT', (string) $this->index_row( $post )['content'] );
 
 		// Edit content + flip privacy to private, then re-index.
-		$wpdb->update( $wpdb->prefix . 'bn_posts', array( 'content' => 'EDITEDTEXT banana', 'privacy' => 'private' ), array( 'id' => $post ) );
+		$wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'content' => 'EDITEDTEXT banana',
+				'privacy' => 'private',
+			),
+			array( 'id' => $post )
+		);
 		$this->listener->async_index_post( $post, $author );
 
 		$row = $this->index_row( $post );

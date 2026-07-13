@@ -52,7 +52,11 @@ class NotificationPrefServiceChannelsTest extends \WP_UnitTestCase {
 		$member   = self::factory()->user->create();
 		$space_id = (int) ( new SpaceService() )->create(
 			$owner,
-			array( 'name' => 'Notify Space', 'slug' => 'notify-space', 'type' => 'open' )
+			array(
+				'name' => 'Notify Space',
+				'slug' => 'notify-space',
+				'type' => 'open',
+			)
 		);
 		( new SpaceMemberService() )->join( $space_id, $member );
 

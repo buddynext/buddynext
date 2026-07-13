@@ -29,7 +29,12 @@ class SpaceRestGapsTest extends \WP_Test_REST_TestCase {
 		global $wpdb;
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_space_categories',
-			array( 'name' => 'Old Name', 'slug' => 'old-name', 'description' => '', 'sort_order' => 0 ),
+			array(
+				'name'        => 'Old Name',
+				'slug'        => 'old-name',
+				'description' => '',
+				'sort_order'  => 0,
+			),
 			array( '%s', '%s', '%s', '%d' )
 		);
 		return (int) $wpdb->insert_id;
@@ -41,7 +46,12 @@ class SpaceRestGapsTest extends \WP_Test_REST_TestCase {
 		wp_set_current_user( $admin );
 
 		$request = new WP_REST_Request( 'PUT', "/buddynext/v1/space-categories/{$id}" );
-		$request->set_body_params( array( 'name' => 'New Name', 'sort_order' => 5 ) );
+		$request->set_body_params(
+			array(
+				'name'       => 'New Name',
+				'sort_order' => 5,
+			)
+		);
 		$response = rest_do_request( $request );
 
 		$this->assertSame( 200, $response->get_status() );
@@ -63,7 +73,11 @@ class SpaceRestGapsTest extends \WP_Test_REST_TestCase {
 
 		$space_id = (int) ( new SpaceService() )->create(
 			$owner,
-			array( 'name' => 'Private', 'slug' => 'private-cancel', 'type' => 'private' )
+			array(
+				'name' => 'Private',
+				'slug' => 'private-cancel',
+				'type' => 'private',
+			)
 		);
 
 		$members = new SpaceMemberService();

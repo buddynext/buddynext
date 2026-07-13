@@ -58,7 +58,12 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 	 * add_custom_schedules() returns the input array unmodified.
 	 */
 	public function test_add_custom_schedules_returns_input_unchanged(): void {
-		$input  = array( 'daily' => array( 'interval' => DAY_IN_SECONDS, 'display' => 'Once Daily' ) );
+		$input  = array(
+			'daily' => array(
+				'interval' => DAY_IN_SECONDS,
+				'display'  => 'Once Daily',
+			),
+		);
 		$result = $this->scheduler->add_custom_schedules( $input );
 		$this->assertSame( $input, $result );
 	}
@@ -137,7 +142,10 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 		add_filter(
 			'cron_schedules',
 			static function ( array $s ): array {
-				$s['buddynext_5min'] = array( 'interval' => 300, 'display' => 'Test 5min' );
+				$s['buddynext_5min'] = array(
+					'interval' => 300,
+					'display'  => 'Test 5min',
+				);
 				return $s;
 			}
 		);

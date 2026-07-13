@@ -540,10 +540,12 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			?>
 			<div class="bn-post-card__scheduled">
 				<?php buddynext_icon( 'clock' ); ?>
-				<span><?php
+				<span>
+				<?php
 					/* translators: %s: formatted scheduled publish date and time. */
 					echo esc_html( sprintf( __( 'Scheduled for %s', 'buddynext' ), (string) $bn_pc_sched_fmt ) );
-				?></span>
+				?>
+				</span>
 			</div>
 			<?php
 		}

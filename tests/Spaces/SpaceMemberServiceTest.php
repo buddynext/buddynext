@@ -179,8 +179,8 @@ class SpaceMemberServiceTest extends \WP_UnitTestCase {
 	// ── invite ──────────────────────────────────────────────────────────────
 
 	public function test_invite_creates_invited_status(): void {
-		$user_id    = self::factory()->user->create();
-		$secret_id  = $this->spaces->create(
+		$user_id   = self::factory()->user->create();
+		$secret_id = $this->spaces->create(
 			$this->owner_id,
 			array(
 				'name' => 'Secret Space',

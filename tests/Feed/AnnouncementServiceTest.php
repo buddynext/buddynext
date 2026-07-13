@@ -50,7 +50,11 @@ class AnnouncementServiceTest extends \WP_UnitTestCase {
 		global $wpdb;
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_posts',
-			array( 'user_id' => self::factory()->user->create(), 'content' => 'x', 'status' => 'published' )
+			array(
+				'user_id' => self::factory()->user->create(),
+				'content' => 'x',
+				'status'  => 'published',
+			)
 		);
 		$plain = (int) $wpdb->insert_id;
 		$this->assertNull( $this->service->get_announcement( $plain ) );

@@ -183,7 +183,7 @@ class BookmarkService {
 		$found = array_flip( array_map( 'intval', (array) $rows ) );
 
 		foreach ( $missing as $pid ) {
-			$hit                             = isset( $found[ $pid ] );
+			$hit                           = isset( $found[ $pid ] );
 			$memo[ $user_id . ':' . $pid ] = $hit;
 			if ( $hit ) {
 				$out[ $pid ] = true;

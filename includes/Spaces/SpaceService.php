@@ -867,11 +867,11 @@ class SpaceService {
 		// If the transaction cannot be opened, DO NOT keep believing in it: a
 		// $use_txn of true also disables the compensating-undo path, so trusting
 		// a transaction that never started would leave the writes with neither
-		// safety net. (MySQL also accepts START TRANSACTION / COMMIT / ROLLBACK
+		// safety net. MySQL also accepts START TRANSACTION / COMMIT / ROLLBACK
 		// as silent no-ops on a non-transactional storage engine, which our
 		// tables can land on — Installer::schema() specifies no ENGINE clause —
 		// but that failure is invisible here; the explicit false below is the
-		// case we CAN see, and degrading on it costs nothing.)
+		// case we CAN see, and degrading on it costs nothing.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		if ( $use_txn && false === $wpdb->query( 'START TRANSACTION' ) ) {
 			$use_txn = false;
@@ -1086,7 +1086,7 @@ class SpaceService {
 	/**
 	 * List every user currently holding a `role = 'owner'` row in a space.
 	 *
-	 * assign_owner() reads this BEFORE it writes, for two reasons: a healthy
+	 * The assign_owner() path reads this BEFORE it writes, for two reasons: a healthy
 	 * space has exactly one such row (so anything else means the space is
 	 * divergent and the no-op fast path must not be taken), and every user in
 	 * the list other than the heir is one W2 demotes — so their role caches have

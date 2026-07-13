@@ -122,8 +122,22 @@ class AccessWebhookTest extends \WP_Test_REST_TestCase {
 	}
 
 	public function test_set_credits(): void {
-		$this->call( array( 'user_id' => $this->user_id, 'action' => 'add_credits', 'amount' => 100, 'source' => 'phpunit' ) );
-		$this->call( array( 'user_id' => $this->user_id, 'action' => 'set_credits', 'amount' => 25,  'source' => 'phpunit' ) );
+		$this->call(
+			array(
+				'user_id' => $this->user_id,
+				'action'  => 'add_credits',
+				'amount'  => 100,
+				'source'  => 'phpunit',
+			)
+		);
+		$this->call(
+			array(
+				'user_id' => $this->user_id,
+				'action'  => 'set_credits',
+				'amount'  => 25,
+				'source'  => 'phpunit',
+			)
+		);
 
 		$balance = (int) get_user_meta( $this->user_id, 'bn_credits', true );
 

@@ -65,8 +65,18 @@ final class ScheduledPostsPublisher {
 	public static function register(): void {
 		// Wrapped so the action callbacks return void; publish_due() itself returns
 		// the published count for direct callers, which an action must not forward.
-		add_action( self::HOOK, static function (): void { self::publish_due(); } );
-		add_action( self::SWEEP_HOOK, static function (): void { self::publish_due(); } );
+		add_action(
+			self::HOOK,
+			static function (): void {
+				self::publish_due();
+			}
+		);
+		add_action(
+			self::SWEEP_HOOK,
+			static function (): void {
+				self::publish_due();
+			}
+		);
 
 		if ( ! wp_next_scheduled( self::SWEEP_HOOK ) ) {
 			wp_schedule_event( time() + HOUR_IN_SECONDS, 'hourly', self::SWEEP_HOOK );

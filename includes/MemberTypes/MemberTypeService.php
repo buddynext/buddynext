@@ -761,7 +761,7 @@ class MemberTypeService {
 	/**
 	 * Cascade a member-type slug rename into bn_profile_groups.type_restriction.
 	 *
-	 * type_restriction stores the member-type SLUG, not its id (see Installer's
+	 * The type_restriction column stores the member-type SLUG, not its id (see Installer's
 	 * schema + ProfileFieldsManager, which saves sanitize_key( $slug )). The
 	 * profile group gate compares it against the viewer/owner's CURRENT type slug
 	 * (ProfileService::get_profile / get_registration_fields), so a renamed type

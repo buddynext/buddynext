@@ -350,7 +350,7 @@ class CommentController extends BaseRestController {
 		// Recurse through the full reply tree (N-deep up to the
 		// CommentService::MAX_REPLY_DEPTH cap) so every node — including
 		// the cap-level flattened leaves — gets the same enrichment.
-		$walk            = function ( array $comment ) use ( $enrich, &$walk ): array {
+		$walk = function ( array $comment ) use ( $enrich, &$walk ): array {
 			$comment = $enrich( $comment );
 			if ( ! empty( $comment['replies'] ) ) {
 				$comment['replies'] = array_map( $walk, $comment['replies'] );

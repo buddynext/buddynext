@@ -86,7 +86,7 @@ class SpacesTest extends \WP_UnitTestCase {
 		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			$wpdb->prefix . 'bn_spaces',
 			array(
-				'name'       => 'Test Space',
+				'name'     => 'Test Space',
 				'owner_id' => 1,
 			)
 		);
@@ -101,7 +101,7 @@ class SpacesTest extends \WP_UnitTestCase {
 		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			$wpdb->prefix . 'bn_spaces',
 			array(
-				'name'       => 'To Delete',
+				'name'     => 'To Delete',
 				'owner_id' => 1,
 			)
 		);
@@ -123,7 +123,7 @@ class SpacesTest extends \WP_UnitTestCase {
 		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			$wpdb->prefix . 'bn_spaces',
 			array(
-				'name'       => 'Action Space',
+				'name'     => 'Action Space',
 				'owner_id' => 1,
 			)
 		);
@@ -152,7 +152,7 @@ class SpacesTest extends \WP_UnitTestCase {
 			$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 				$wpdb->prefix . 'bn_spaces',
 				array(
-					'name'       => "Space {$i}",
+					'name'     => "Space {$i}",
 					'owner_id' => 1,
 				)
 			);

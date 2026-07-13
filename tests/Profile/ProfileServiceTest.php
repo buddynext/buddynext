@@ -161,8 +161,8 @@ class ProfileServiceTest extends \WP_UnitTestCase {
 
 		$this->service->save_profile( $this->user_id, array( 'private_note' => 'secret' ) );
 
-		$profile     = $this->service->get_profile( $this->user_id, $this->user_id );
-		$field_keys  = array_column( $profile['fields'], 'field_key' );
+		$profile    = $this->service->get_profile( $this->user_id, $this->user_id );
+		$field_keys = array_column( $profile['fields'], 'field_key' );
 		$this->assertContains( 'private_note', $field_keys );
 	}
 

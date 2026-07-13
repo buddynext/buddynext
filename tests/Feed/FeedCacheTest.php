@@ -32,10 +32,13 @@ class FeedCacheTest extends \WP_UnitTestCase {
 	}
 
 	public function test_get_calls_miss_callback_only_once(): void {
-		$calls = 0;
-		$miss  = function () use ( &$calls ) {
-			$calls++;
-			return array( 'items' => array( 'a', 'b' ), 'next_cursor' => null );
+		$calls  = 0;
+		$miss   = function () use ( &$calls ) {
+			++$calls;
+			return array(
+				'items'       => array( 'a', 'b' ),
+				'next_cursor' => null,
+			);
 		};
 		$first  = $this->cache->get( 'home:p1:42:20', FeedCache::GROUP_USER, FeedCache::TTL_HOME_PAGE_1, $miss );
 		$second = $this->cache->get( 'home:p1:42:20', FeedCache::GROUP_USER, FeedCache::TTL_HOME_PAGE_1, $miss );
@@ -50,7 +53,10 @@ class FeedCacheTest extends \WP_UnitTestCase {
 			$this->cache->home_page_1_key( $user_id, 20 ),
 			FeedCache::GROUP_USER,
 			FeedCache::TTL_HOME_PAGE_1,
-			static fn() => array( 'items' => array(), 'next_cursor' => null )
+			static fn() => array(
+				'items'       => array(),
+				'next_cursor' => null,
+			)
 		);
 		$this->cache->invalidate_writer( $user_id );
 
@@ -72,7 +78,10 @@ class FeedCacheTest extends \WP_UnitTestCase {
 			$this->cache->home_page_1_key( $user_id, 20 ),
 			FeedCache::GROUP_USER,
 			FeedCache::TTL_HOME_PAGE_1,
-			static fn() => array( 'items' => array(), 'next_cursor' => null )
+			static fn() => array(
+				'items'       => array(),
+				'next_cursor' => null,
+			)
 		);
 
 		( new FeedListener( $this->cache ) )->register();

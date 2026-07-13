@@ -20,10 +20,10 @@ use BuddyNext\SocialGraph\PrivacyService;
  */
 class PrivacyServiceTest extends \WP_UnitTestCase {
 
-	private PrivacyService    $service;
-	private FollowService     $follows;
+	private PrivacyService $service;
+	private FollowService $follows;
 	private ConnectionService $connections;
-	private BlockService      $blocks;
+	private BlockService $blocks;
 	private int $alice;
 	private int $bob;
 	private int $carol;

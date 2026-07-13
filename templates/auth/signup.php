@@ -479,8 +479,8 @@ if ( 'invite' === $bn_reg_mode ) {
 						// the only thing to inject is the tag the signup store collects on.
 						// The old blanket id injection put ONE id on a radio / checkbox
 						// group's N inputs — duplicate ids and an ambiguous label-for.
-						$bn_rf_ctrl_id = 'bn-field-' . sanitize_html_class( $bn_rf_name );
-						$bn_rf_group   = ( false !== strpos( $bn_rf_input, '<fieldset' ) );
+						$bn_rf_ctrl_id  = 'bn-field-' . sanitize_html_class( $bn_rf_name );
+						$bn_rf_group    = ( false !== strpos( $bn_rf_input, '<fieldset' ) );
 						$bn_rf_label_id = 'bn-signup-field-' . sanitize_html_class( $bn_rf_key ) . '-label';
 
 						$bn_rf_input = str_replace(

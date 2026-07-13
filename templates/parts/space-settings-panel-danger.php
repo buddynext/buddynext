@@ -44,8 +44,8 @@ if ( ! $bn_space ) {
 	return;
 }
 
-$bn_perms           = (array) $args['permissions'];
-$bn_space_id        = isset( $bn_perms['space_id'] ) ? (int) $bn_perms['space_id'] : 0;
+$bn_perms    = (array) $args['permissions'];
+$bn_space_id = isset( $bn_perms['space_id'] ) ? (int) $bn_perms['space_id'] : 0;
 // Drives the Archive/Restore swap below — the space row is the authority here
 // (it may be an array or an object depending on the caller).
 $bn_is_archived     = ! empty( is_array( $bn_space ) ? ( $bn_space['is_archived'] ?? 0 ) : ( $bn_space->is_archived ?? 0 ) );

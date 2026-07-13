@@ -81,7 +81,16 @@ class GamificationAchievementsTest extends \WP_UnitTestCase {
 	 * site opts the tab-count back on.
 	 */
 	public function test_tab_added_when_member_has_badges(): void {
-		$this->set_badges( array( array( 'id' => 'champ', 'name' => 'Champion', 'is_credential' => 1, 'earned_at' => '2026-01-01' ) ) );
+		$this->set_badges(
+			array(
+				array(
+					'id'            => 'champ',
+					'name'          => 'Champion',
+					'is_credential' => 1,
+					'earned_at'     => '2026-01-01',
+				),
+			)
+		);
 
 		$item = $this->achievements_item();
 		$this->assertNotNull( $item );
@@ -114,8 +123,18 @@ class GamificationAchievementsTest extends \WP_UnitTestCase {
 	public function test_panel_lists_badges_credential_first(): void {
 		$this->set_badges(
 			array(
-				array( 'id' => 'participant', 'name' => 'Participant', 'is_credential' => 0, 'earned_at' => '2026-02-01' ),
-				array( 'id' => 'champ', 'name' => 'Champion', 'is_credential' => 1, 'earned_at' => '2026-01-01' ),
+				array(
+					'id'            => 'participant',
+					'name'          => 'Participant',
+					'is_credential' => 0,
+					'earned_at'     => '2026-02-01',
+				),
+				array(
+					'id'            => 'champ',
+					'name'          => 'Champion',
+					'is_credential' => 1,
+					'earned_at'     => '2026-01-01',
+				),
 			)
 		);
 
@@ -133,17 +152,43 @@ class GamificationAchievementsTest extends \WP_UnitTestCase {
 	}
 
 	public function test_badge_links_to_public_share_url(): void {
-		$this->set_badges( array( array( 'id' => 'champ', 'name' => 'Champion', 'is_credential' => 1, 'earned_at' => '2026-01-01' ) ) );
+		$this->set_badges(
+			array(
+				array(
+					'id'            => 'champ',
+					'name'          => 'Champion',
+					'is_credential' => 1,
+					'earned_at'     => '2026-01-01',
+				),
+			)
+		);
 
 		$expected = home_url( 'gamification/badge/champ/' . $this->member_id . '/share/' );
 		$this->assertStringContainsString( esc_url( $expected ), $this->render() );
 	}
 
 	public function test_panel_shows_standing_strip(): void {
-		$this->set_badges( array( array( 'id' => 'champ', 'name' => 'Champion', 'is_credential' => 1, 'earned_at' => '2026-01-01' ) ) );
+		$this->set_badges(
+			array(
+				array(
+					'id'            => 'champ',
+					'name'          => 'Champion',
+					'is_credential' => 1,
+					'earned_at'     => '2026-01-01',
+				),
+			)
+		);
 		$GLOBALS['wb_gam_test']['points'][ $this->member_id ] = 340;
-		$GLOBALS['wb_gam_test']['level'][ $this->member_id ]  = array( 'id' => 3, 'name' => 'Trailblazer', 'min_points' => 300 );
-		$GLOBALS['wb_gam_test']['streak'][ $this->member_id ] = array( 'current_streak' => 7, 'longest_streak' => 9, 'last_active' => '2026-06-14' );
+		$GLOBALS['wb_gam_test']['level'][ $this->member_id ]  = array(
+			'id'         => 3,
+			'name'       => 'Trailblazer',
+			'min_points' => 300,
+		);
+		$GLOBALS['wb_gam_test']['streak'][ $this->member_id ] = array(
+			'current_streak' => 7,
+			'longest_streak' => 9,
+			'last_active'    => '2026-06-14',
+		);
 		$GLOBALS['wb_gam_test']['rank'][ $this->member_id ]   = 4;
 
 		$html = $this->render();
@@ -154,7 +199,16 @@ class GamificationAchievementsTest extends \WP_UnitTestCase {
 	}
 
 	public function test_rank_omitted_when_unranked(): void {
-		$this->set_badges( array( array( 'id' => 'champ', 'name' => 'Champion', 'is_credential' => 1, 'earned_at' => '2026-01-01' ) ) );
+		$this->set_badges(
+			array(
+				array(
+					'id'            => 'champ',
+					'name'          => 'Champion',
+					'is_credential' => 1,
+					'earned_at'     => '2026-01-01',
+				),
+			)
+		);
 		// No rank set → engine stub returns 0 → no Rank tile.
 
 		$this->assertStringNotContainsString( 'Rank', $this->render() );
@@ -179,7 +233,11 @@ if ( ! class_exists( 'WBGam\\Engine\\LeaderboardEngine' ) ) {
 		 */
 		public static function get_user_rank( int $user_id, string $period = 'all', string $scope_type = '', int $scope_id = 0, string $point_type = '' ): array {
 			$rank = (int) ( $GLOBALS['wb_gam_test']['rank'][ $user_id ] ?? 0 );
-			return array( 'rank' => $rank, 'points' => 0, 'points_to_next' => null );
+			return array(
+				'rank'           => $rank,
+				'points'         => 0,
+				'points_to_next' => null,
+			);
 		}
 	}
 }

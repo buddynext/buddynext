@@ -209,8 +209,26 @@ class NotificationServiceTest extends \WP_UnitTestCase {
 	 * @covers \BuddyNext\Notifications\NotificationService::list_for_user
 	 */
 	public function test_list_for_user_filter_partitions_read_state(): void {
-		$a = $this->service->create( array( 'recipient_id' => $this->recipient_id, 'sender_id' => $this->sender_id, 'type' => 'bn.new_follower', 'object_type' => 'user', 'object_id' => 1, 'group_key' => 'k_a' ) );
-		$this->service->create( array( 'recipient_id' => $this->recipient_id, 'sender_id' => $this->sender_id, 'type' => 'bn.new_follower', 'object_type' => 'user', 'object_id' => 2, 'group_key' => 'k_b' ) );
+		$a = $this->service->create(
+			array(
+				'recipient_id' => $this->recipient_id,
+				'sender_id'    => $this->sender_id,
+				'type'         => 'bn.new_follower',
+				'object_type'  => 'user',
+				'object_id'    => 1,
+				'group_key'    => 'k_a',
+			)
+		);
+		$this->service->create(
+			array(
+				'recipient_id' => $this->recipient_id,
+				'sender_id'    => $this->sender_id,
+				'type'         => 'bn.new_follower',
+				'object_type'  => 'user',
+				'object_id'    => 2,
+				'group_key'    => 'k_b',
+			)
+		);
 		$this->service->mark_read( $a, $this->recipient_id );
 
 		$unread = $this->service->list_for_user( $this->recipient_id, null, 20, 'unread' )['items'];

@@ -39,7 +39,11 @@ class CommentTreeRenderTest extends \WP_UnitTestCase {
 		$author_id = self::factory()->user->create( array( 'display_name' => 'Tree Author' ) );
 		$post_id   = ( new PostService() )->create(
 			$author_id,
-			array( 'content' => 'parent', 'privacy' => 'public', 'type' => 'text' )
+			array(
+				'content' => 'parent',
+				'privacy' => 'public',
+				'type'    => 'text',
+			)
 		);
 		$this->assertIsInt( $post_id );
 
@@ -68,7 +72,11 @@ class CommentTreeRenderTest extends \WP_UnitTestCase {
 
 		$post_id = ( new PostService() )->create(
 			$author_id,
-			array( 'content' => 'parent', 'privacy' => 'public', 'type' => 'text' )
+			array(
+				'content' => 'parent',
+				'privacy' => 'public',
+				'type'    => 'text',
+			)
 		);
 
 		$svc        = new CommentService();
@@ -102,14 +110,18 @@ class CommentTreeRenderTest extends \WP_UnitTestCase {
 	}
 
 	public function test_other_user_cannot_edit_or_pin_comment(): void {
-		$author_id     = self::factory()->user->create();
-		$commenter_id  = self::factory()->user->create();
-		$stranger_id   = self::factory()->user->create();
+		$author_id    = self::factory()->user->create();
+		$commenter_id = self::factory()->user->create();
+		$stranger_id  = self::factory()->user->create();
 		wp_set_current_user( $stranger_id );
 
 		$post_id = ( new PostService() )->create(
 			$author_id,
-			array( 'content' => 'parent', 'privacy' => 'public', 'type' => 'text' )
+			array(
+				'content' => 'parent',
+				'privacy' => 'public',
+				'type'    => 'text',
+			)
 		);
 
 		$svc = new CommentService();

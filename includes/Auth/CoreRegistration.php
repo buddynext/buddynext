@@ -40,7 +40,7 @@ class CoreRegistration {
 	public const OPT_ALLOW = 'buddynext_allow_core_registration';
 
 	/**
-	 * admin-post action that reconciles users_can_register to the BuddyNext mode.
+	 * Admin-post action that reconciles users_can_register to the BuddyNext mode.
 	 */
 	private const ACTION_RECONCILE = 'buddynext_reconcile_registration';
 
@@ -126,7 +126,7 @@ class CoreRegistration {
 		$actual   = (string) get_option( 'users_can_register', '0' );
 
 		// Normalise: users_can_register is stored as '0'/'1' but can arrive as bool/int.
-		return $expected !== ( $actual ? '1' : '0' );
+		return ( $actual ? '1' : '0' ) !== $expected;
 	}
 
 	/**

@@ -65,7 +65,11 @@ class InfiniteScrollPageTest extends \WP_UnitTestCase {
 		for ( $i = 0; $i < 25; $i++ ) {
 			$posts->create(
 				$this->alice,
-				array( 'type' => 'text', 'content' => "Seed post {$i}", 'privacy' => 'public' )
+				array(
+					'type'    => 'text',
+					'content' => "Seed post {$i}",
+					'privacy' => 'public',
+				)
 			);
 		}
 
@@ -101,7 +105,14 @@ class InfiniteScrollPageTest extends \WP_UnitTestCase {
 
 	public function test_explore_page_endpoint_is_public(): void {
 		$posts = new PostService();
-		$posts->create( $this->alice, array( 'type' => 'text', 'content' => 'Public', 'privacy' => 'public' ) );
+		$posts->create(
+			$this->alice,
+			array(
+				'type'    => 'text',
+				'content' => 'Public',
+				'privacy' => 'public',
+			)
+		);
 
 		wp_set_current_user( 0 );
 
@@ -119,7 +130,11 @@ class InfiniteScrollPageTest extends \WP_UnitTestCase {
 		for ( $i = 0; $i < 35; $i++ ) {
 			$posts->create(
 				$this->alice,
-				array( 'type' => 'text', 'content' => "Post {$i}", 'privacy' => 'public' )
+				array(
+					'type'    => 'text',
+					'content' => "Post {$i}",
+					'privacy' => 'public',
+				)
 			);
 		}
 

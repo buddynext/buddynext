@@ -93,10 +93,10 @@ class AnnouncementsAdmin {
 	 * @return void
 	 */
 	public function render_page(): void {
-		$service      = function_exists( 'buddynext_service' ) ? buddynext_service( 'feed' ) : null;
-		$rows         = is_object( $service ) ? $service->list_all_announcements( 200 ) : array();
-		$featured_id  = (int) get_option( self::FEATURED_OPTION, 0 );
-		$now          = time();
+		$service     = function_exists( 'buddynext_service' ) ? buddynext_service( 'feed' ) : null;
+		$rows        = is_object( $service ) ? $service->list_all_announcements( 200 ) : array();
+		$featured_id = (int) get_option( self::FEATURED_OPTION, 0 );
+		$now         = time();
 		?>
 		<div class="bn-settings-section">
 			<div class="bn-ss-header">
@@ -120,12 +120,12 @@ class AnnouncementsAdmin {
 					<tbody>
 						<?php
 						foreach ( $rows as $row ) :
-							$id         = (int) ( $row['id'] ?? 0 );
-							$space_id   = (int) ( $row['space_id'] ?? 0 );
-							$status     = $this->compute_status( $row, $now );
-							$is_feat    = ( $id === $featured_id );
-							$excerpt    = wp_trim_words( wp_strip_all_tags( (string) ( $row['content'] ?? '' ) ), 14, '…' );
-							$is_site    = ( 0 === $space_id );
+							$id       = (int) ( $row['id'] ?? 0 );
+							$space_id = (int) ( $row['space_id'] ?? 0 );
+							$status   = $this->compute_status( $row, $now );
+							$is_feat  = ( $id === $featured_id );
+							$excerpt  = wp_trim_words( wp_strip_all_tags( (string) ( $row['content'] ?? '' ) ), 14, '…' );
+							$is_site  = ( 0 === $space_id );
 							?>
 							<tr>
 								<td>

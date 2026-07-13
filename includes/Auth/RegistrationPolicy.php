@@ -131,10 +131,10 @@ class RegistrationPolicy {
 		$require_terms = (bool) get_option( 'buddynext_require_terms', true ) && $terms_page > 0;
 
 		return array(
-			'terms'         => $require_terms,
-			'terms_url'     => $terms_page > 0 ? (string) get_permalink( $terms_page ) : '',
-			'mode'          => (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() ),
-			'fields'        => buddynext_service( 'profiles' )->get_registration_fields(),
+			'terms'        => $require_terms,
+			'terms_url'    => $terms_page > 0 ? (string) get_permalink( $terms_page ) : '',
+			'mode'         => (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() ),
+			'fields'       => buddynext_service( 'profiles' )->get_registration_fields(),
 
 			// ── What the signup form asks for ────────────────────────────────────────
 			//
@@ -145,19 +145,19 @@ class RegistrationPolicy {
 			// The defaults are the fast door, because the member's goal is to get INTO the
 			// community, not to fill in a form:
 			//
-			//   ask_name     ON  — a community shows people's names. Facebook and LinkedIn
-			//                      ask for this and nothing else identity-shaped.
-			//   ask_username OFF — nobody should have to invent a handle to join. It is
-			//                      derived from the email, exactly as social signup already
-			//                      does, and can be changed later in settings.
+			// ask_name     ON  — a community shows people's names. Facebook and LinkedIn
+			// ask for this and nothing else identity-shaped.
+			// ask_username OFF — nobody should have to invent a handle to join. It is
+			// derived from the email, exactly as social signup already
+			// does, and can be changed later in settings.
 			//
 			// An owner who wants the classic WordPress-shaped form (pick a username, no
 			// name) turns one off and the other on. Anything BEYOND these two — extra
 			// fields the owner's community actually needs — goes through the profile-field
 			// system's `show_on_register`, which already works and is where that
 			// flexibility belongs. We are not building a second form builder next to it.
-			'ask_name'      => (bool) get_option( 'buddynext_reg_ask_name', true ),
-			'ask_username'  => (bool) get_option( 'buddynext_reg_ask_username', false ),
+			'ask_name'     => (bool) get_option( 'buddynext_reg_ask_name', true ),
+			'ask_username' => (bool) get_option( 'buddynext_reg_ask_username', false ),
 		);
 	}
 

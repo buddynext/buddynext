@@ -102,8 +102,8 @@ class MembersTest extends \WP_UnitTestCase {
 	 * suspend_member() fires the buddynext_member_suspended action.
 	 */
 	public function test_suspend_fires_action(): void {
-		$fired    = false;
-		$user_id  = $this->factory->user->create();
+		$fired   = false;
+		$user_id = $this->factory->user->create();
 		add_action(
 			'buddynext_member_suspended',
 			function ( $id ) use ( &$fired, $user_id ) {

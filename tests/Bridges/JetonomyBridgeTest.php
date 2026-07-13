@@ -53,7 +53,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		// Plugin class stub is registered in tests/bootstrap.php.
-		$this->bridge    = new JetonomyBridge();
+		$this->bridge = new JetonomyBridge();
 		$this->bridge->init();
 		$this->user_id   = self::factory()->user->create();
 		$this->author_id = self::factory()->user->create();
@@ -186,7 +186,13 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 
 	public function test_provision_space_forum_is_idempotent_and_links(): void {
 		$owner    = self::factory()->user->create();
-		$space_id = ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Design', 'slug' => 'design' ) );
+		$space_id = ( new \BuddyNext\Spaces\SpaceService() )->create(
+			$owner,
+			array(
+				'name' => 'Design',
+				'slug' => 'design',
+			)
+		);
 		$this->assertIsInt( $space_id );
 
 		$forum_id = $this->bridge->provision_space_forum( $space_id );

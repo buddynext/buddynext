@@ -1595,13 +1595,13 @@ class ProfileService {
 		// site owners rename labels, delete the preset groups, and build custom
 		// schemas, so tasks derive from what the schema actually contains.
 		// Granularity comes from schema FLAGS only:
-		//   - SYSTEM flat groups (the code-consumed spine: basics, skills,
-		//     interests) -> one task per field, labelled from the field's live
-		//     admin-set label.
-		//   - NON-SYSTEM flat groups (social links and any custom cluster) ->
-		//     one rollup task per group, done when any field in it is filled.
-		//   - Repeater groups (work experience, education, customs) -> one task
-		//     per group, done when it has at least one non-empty entry.
+		// - SYSTEM flat groups (the code-consumed spine: basics, skills,
+		// interests) -> one task per field, labelled from the field's live
+		// admin-set label.
+		// - NON-SYSTEM flat groups (social links and any custom cluster) ->
+		// one rollup task per group, done when any field in it is filled.
+		// - Repeater groups (work experience, education, customs) -> one task
+		// per group, done when it has at least one non-empty entry.
 		$filled = static fn( $value ): bool => '' !== trim(
 			is_array( $value ) ? implode( '', array_map( 'strval', $value ) ) : (string) $value
 		);

@@ -198,7 +198,7 @@ class SpaceSuccessionTest extends \WP_UnitTestCase {
 				'type' => 'open',
 			)
 		);
-		$mod = self::factory()->user->create();
+		$mod    = self::factory()->user->create();
 		foreach ( array( $this->space_id, $second ) as $sid ) {
 			$this->members->join( $sid, $mod );
 			$this->members->change_role( $sid, $mod, 'moderator', $this->owner_id );

@@ -67,7 +67,12 @@ class PostControllerTest extends \WP_UnitTestCase {
 		wp_set_current_user( 0 );
 
 		$request = new WP_REST_Request( 'POST', '/buddynext/v1/posts' );
-		$request->set_body_params( array( 'type' => 'text', 'content' => 'No auth' ) );
+		$request->set_body_params(
+			array(
+				'type'    => 'text',
+				'content' => 'No auth',
+			)
+		);
 
 		$response = self::$server->dispatch( $request );
 
@@ -79,7 +84,13 @@ class PostControllerTest extends \WP_UnitTestCase {
 
 		// Create via REST.
 		$create = new WP_REST_Request( 'POST', '/buddynext/v1/posts' );
-		$create->set_body_params( array( 'type' => 'text', 'content' => 'Readable', 'privacy' => 'public' ) );
+		$create->set_body_params(
+			array(
+				'type'    => 'text',
+				'content' => 'Readable',
+				'privacy' => 'public',
+			)
+		);
 		$post_id = self::$server->dispatch( $create )->get_data()['id'];
 
 		wp_set_current_user( 0 );
@@ -94,7 +105,13 @@ class PostControllerTest extends \WP_UnitTestCase {
 		wp_set_current_user( $this->alice );
 
 		$create = new WP_REST_Request( 'POST', '/buddynext/v1/posts' );
-		$create->set_body_params( array( 'type' => 'text', 'content' => 'Private', 'privacy' => 'private' ) );
+		$create->set_body_params(
+			array(
+				'type'    => 'text',
+				'content' => 'Private',
+				'privacy' => 'private',
+			)
+		);
 		$post_id = self::$server->dispatch( $create )->get_data()['id'];
 
 		wp_set_current_user( $this->bob );
@@ -108,7 +125,13 @@ class PostControllerTest extends \WP_UnitTestCase {
 		wp_set_current_user( $this->alice );
 
 		$create = new WP_REST_Request( 'POST', '/buddynext/v1/posts' );
-		$create->set_body_params( array( 'type' => 'text', 'content' => 'Before', 'privacy' => 'public' ) );
+		$create->set_body_params(
+			array(
+				'type'    => 'text',
+				'content' => 'Before',
+				'privacy' => 'public',
+			)
+		);
 		$post_id = self::$server->dispatch( $create )->get_data()['id'];
 
 		$update = new WP_REST_Request( 'PUT', "/buddynext/v1/posts/{$post_id}" );
@@ -122,7 +145,13 @@ class PostControllerTest extends \WP_UnitTestCase {
 	public function test_update_post_as_non_owner_returns_403(): void {
 		wp_set_current_user( $this->alice );
 		$create = new WP_REST_Request( 'POST', '/buddynext/v1/posts' );
-		$create->set_body_params( array( 'type' => 'text', 'content' => 'Alice post', 'privacy' => 'public' ) );
+		$create->set_body_params(
+			array(
+				'type'    => 'text',
+				'content' => 'Alice post',
+				'privacy' => 'public',
+			)
+		);
 		$post_id = self::$server->dispatch( $create )->get_data()['id'];
 
 		wp_set_current_user( $this->bob );
@@ -137,7 +166,13 @@ class PostControllerTest extends \WP_UnitTestCase {
 		wp_set_current_user( $this->alice );
 
 		$create = new WP_REST_Request( 'POST', '/buddynext/v1/posts' );
-		$create->set_body_params( array( 'type' => 'text', 'content' => 'Delete me', 'privacy' => 'public' ) );
+		$create->set_body_params(
+			array(
+				'type'    => 'text',
+				'content' => 'Delete me',
+				'privacy' => 'public',
+			)
+		);
 		$post_id = self::$server->dispatch( $create )->get_data()['id'];
 
 		$delete   = new WP_REST_Request( 'DELETE', "/buddynext/v1/posts/{$post_id}" );
@@ -149,7 +184,13 @@ class PostControllerTest extends \WP_UnitTestCase {
 	public function test_delete_post_as_non_owner_returns_403(): void {
 		wp_set_current_user( $this->alice );
 		$create = new WP_REST_Request( 'POST', '/buddynext/v1/posts' );
-		$create->set_body_params( array( 'type' => 'text', 'content' => 'Alice post', 'privacy' => 'public' ) );
+		$create->set_body_params(
+			array(
+				'type'    => 'text',
+				'content' => 'Alice post',
+				'privacy' => 'public',
+			)
+		);
 		$post_id = self::$server->dispatch( $create )->get_data()['id'];
 
 		wp_set_current_user( $this->bob );

@@ -71,67 +71,67 @@ class FieldType {
 	 */
 	private static function builtin_types(): array {
 		return array(
-			'text'                 => array(
+			'text'                    => array(
 				'label'                 => __( 'Text', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 			),
-			'textarea'             => array(
+			'textarea'                => array(
 				'label'                 => __( 'Paragraph', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 			),
-			'url'                  => array(
+			'url'                     => array(
 				'label'                 => __( 'URL', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 			),
-			'email'                => array(
+			'email'                   => array(
 				'label'                 => __( 'Email', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 			),
-			'phone'                => array(
+			'phone'                   => array(
 				'label'                 => __( 'Phone', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 			),
-			'number'               => array(
+			'number'                  => array(
 				'label'                 => __( 'Number', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => false,
 			),
-			'date'                 => array(
+			'date'                    => array(
 				'label'                 => __( 'Date', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => false,
 			),
-			'boolean'              => array(
+			'boolean'                 => array(
 				'label'                 => __( 'Yes / No', 'buddynext' ),
 				'value_kind'            => 'bool',
 				'is_choice'             => false,
 				'is_searchable_capable' => false,
 			),
-			'select'               => array(
+			'select'                  => array(
 				'label'                 => __( 'Dropdown', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => true,
 				'is_searchable_capable' => true,
 			),
-			'radio'                => array(
+			'radio'                   => array(
 				'label'                 => __( 'Radio', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => true,
 				'is_searchable_capable' => true,
 			),
-			'multiselect'          => array(
+			'multiselect'             => array(
 				'label'                 => __( 'Multi-select', 'buddynext' ),
 				'value_kind'            => 'multi',
 				'is_choice'             => true,
@@ -141,7 +141,7 @@ class FieldType {
 			// admin-authored options list — hence is_choice = false (no options
 			// editor). Values are category IDs, stored one bn_profile_values row
 			// per pick (see ProfileService::save_multi_entry_value()).
-			'category_multiselect' => array(
+			'category_multiselect'    => array(
 				'label'                 => __( 'Space Categories', 'buddynext' ),
 				'value_kind'            => 'multi',
 				'is_choice'             => false,
@@ -158,7 +158,7 @@ class FieldType {
 				'is_choice'             => false,
 				'is_searchable_capable' => false,
 			),
-			'color'                => array(
+			'color'                   => array(
 				'label'                 => __( 'Colour', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,

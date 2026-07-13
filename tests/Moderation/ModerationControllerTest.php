@@ -71,7 +71,7 @@ class ModerationControllerTest extends \WP_UnitTestCase {
 	public function test_suspend_requires_admin(): void {
 		wp_set_current_user( $this->user_id );
 
-		$request = new WP_REST_Request( 'POST', "/buddynext/v1/users/{$this->user_id}/suspend" );
+		$request  = new WP_REST_Request( 'POST', "/buddynext/v1/users/{$this->user_id}/suspend" );
 		$response = rest_do_request( $request );
 
 		$this->assertSame( 403, $response->get_status() );
@@ -164,7 +164,7 @@ class ModerationControllerTest extends \WP_UnitTestCase {
 		$appeal_id     = $this->service->submit_appeal( $this->user_id, $suspension_id, 'test' );
 		wp_set_current_user( $this->user_id );
 
-		$request  = new WP_REST_Request( 'POST', "/buddynext/v1/appeals/{$appeal_id}/resolve" );
+		$request = new WP_REST_Request( 'POST', "/buddynext/v1/appeals/{$appeal_id}/resolve" );
 		$request->set_param( 'decision', 'denied' );
 		$response = rest_do_request( $request );
 
