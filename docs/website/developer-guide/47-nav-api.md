@@ -12,12 +12,13 @@ How to add a menu item or a tab to BuddyNext from an addon or a theme. BuddyNext
 
 ## Overview / Contract
 
-There are two navigation systems. Use the right one for the surface you are extending.
+There are three navigation systems. Use the right one for the surface you are extending.
 
 | System | Surfaces it owns | The seam | Where it renders |
 | --- | --- | --- | --- |
 | Nav registry (declarative, gated) | member-profile tabs, space tabs | `buddynext_register_nav` action -> `$registry->register([...])` | `templates/profile/view.php`, `templates/spaces/home.php`, `templates/parts/space-header.php` |
 | Left rail (plain array) | the persistent global left-rail column | `buddynext_rail_items` filter | `templates/shell/rail.php` |
+| User links catalogue | the header account dropdown (top-right avatar menu), and the `#bn-*` tokens in Appearance -> Menus | `buddynext_user_links` / `buddynext_header_user_menu_links` filters | `includes/Header/HeaderUserSection.php` |
 
 The registry is the modern, gated, ordered system: every item declares a capability and condition, the registry validates and orders it, and one renderer draws it. It is defined in `includes/Nav/` (`NavRegistry.php`, `NavItem.php`, `NavContext.php`, `ResolvedNav.php`, `PanelRenderer.php`, plus the core providers in `includes/Nav/Providers/`). A template resolves a surface with `buddynext_nav()` (defined in `buddynext.php:437`):
 
@@ -62,6 +63,92 @@ add_filter( 'buddynext_rail_items', static function ( array $items ): array {
 ```
 
 The filter passes a second argument, the current hub slug: `apply_filters( 'buddynext_rail_items', $items, $hub )`. The admin Navigation overrides (hide / relabel / reorder / capability-gate, plus admin-created custom tabs) are applied by `BuddyNext\Nav\NavOverrides::apply_rail()`, hooked at **priority 20** - so register your item at the default priority and the site owner's overrides still win. `JetonomyBridge::inject_discussions_nav_item()` is a working reference for a rail item that also sets `active`, `group`, and `order`.
+
+### The "You" section, and one thing the admin screen cannot do
+
+The rail is split into two groups by a **"You"** heading: community links (Feed, Explore, Members, Spaces...) above it, personal links (Profile, Edit Profile, Bookmarks, Settings) below it. Which side an item lands on is decided by ONE key:
+
+```php
+'group' => 'you',   // BELOW the "You" heading (personal). Order 200+.
+                    // Omit the key entirely => ABOVE it (community).
+```
+
+`order` sorts **within** a group; it does not move an item between groups.
+
+> **Known limitation — the admin Navigation screen cannot set `group`.**
+>
+> `Settings -> Navigation` can hide, relabel, reorder and capability-gate a rail item, and it can add a custom link. What it **cannot** do is choose which side of the "You" heading that item sits on: it does not persist `group`, so an admin-added tab always lands in the community group **regardless of the position number you give it**.
+>
+> This surprises people, because raising the order number looks like it should push the item down past "You" — it does not, and never will, because the split is by group and not by order.
+>
+> If you need an item below "You", use the `buddynext_rail_items` filter with `'group' => 'you'`. There is no admin equivalent today.
+
+## Recipe: change the header account dropdown (top-right avatar menu)
+
+The dropdown under the member's avatar — My Profile, Edit Profile, Messages, Settings, Log Out — is neither the rail nor the tab registry. It is the **user links catalogue**, and it has **no admin UI**: it is filter-only. That is deliberate (it is a small, stable list), but it means the only way to change it is a snippet.
+
+There are two seams, and which one you want depends on how far the change should reach.
+
+### `buddynext_header_user_menu_links` — change ONLY the dropdown
+
+The narrow one. Rows are `[ 'label' => string, 'url' => string, 'icon' => string ]` (icon optional — a BuddyNext icon slug from `assets/icons/`, not a raw `<svg>`). **Log Out is always appended after your rows**, so you never have to re-add it and you cannot accidentally remove it.
+
+```php
+add_filter( 'buddynext_header_user_menu_links', static function ( array $links, int $user_id ): array {
+    // Remove one.
+    $links = array_values( array_filter( $links, static fn( $l ) => 'Bookmarks' !== $l['label'] ) );
+
+    // Add one.
+    $links[] = array(
+        'label' => __( 'My Courses', 'my-addon' ),
+        'url'   => home_url( '/courses/' ),
+        'icon'  => 'book',
+    );
+
+    return $links;
+}, 10, 2 );
+```
+
+Any `#bn-*` token you put in `url` is resolved to the CURRENT member's URL before rendering, so the same row works for everybody.
+
+### `buddynext_user_links` — change the whole catalogue
+
+The broad one. This is the source list, so an item added here appears in the dropdown **and** in the `#bn-*` token list that Appearance -> Menus offers. Rows are:
+
+| Key | Type | Purpose |
+| --- | --- | --- |
+| `token` | `string` | The `#bn-*` token. Required, and it is the item's identity. |
+| `label` | `string` | Already-translated. Required. |
+| `icon` | `string` | BuddyNext icon slug. |
+| `visibility` | `string` | `UserLinks::LOGGEDIN` (`'loggedin'`) or `UserLinks::LOGGEDOUT` (`'loggedout'`). |
+| `callback` | `callable(int $user_id): string` | Resolve the URL per-member. Use this, not a hardcoded `url`, for anything member-specific. |
+| `url` | `string` | A static URL, when the destination is the same for everyone. |
+
+```php
+add_filter( 'buddynext_user_links', static function ( array $items ): array {
+    $items[] = array(
+        'token'      => '#bn-courses',
+        'label'      => __( 'My Courses', 'my-addon' ),
+        'icon'       => 'book',
+        'visibility' => \BuddyNext\Nav\UserLinks::LOGGEDIN,
+        'callback'   => static fn( int $user_id ): string => home_url( '/courses/' . $user_id . '/' ),
+    );
+
+    return $items;
+} );
+```
+
+The new item now appears in the Appearance -> Menus metabox, in the header dropdown, and resolves per-member in every menu — no core change needed.
+
+### `buddynext_user_link_url` — retarget an existing token
+
+Rewrite where a `#bn-*` token points, without touching the catalogue:
+
+```php
+add_filter( 'buddynext_user_link_url', static function ( string $url, string $token, int $user_id ): string {
+    return '#bn-settings' === $token ? home_url( '/my-account/' ) : $url;
+}, 10, 3 );
+```
 
 ## Recipe: add a member-profile tab
 
