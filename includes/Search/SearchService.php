@@ -622,6 +622,15 @@ class SearchService {
 				)
 			);
 
+			// The WHERE reuses $search_condition — the SAME string the COUNT above used. It used to
+			// rebuild `MATCH(si.title, si.content)` inline here instead, which meant the count and
+			// the rows could disagree: once the members tier was OR'd into $search_condition, the
+			// COUNT found the member and this query did not, so search reported a total and
+			// returned nothing. Two copies of one condition will always drift; there is now one.
+			//
+			// `relevance` stays scored on the public columns only. A members-tier hit still ranks
+			// (it falls to the bottom on relevance and is ordered by the name boost / recency),
+			// and scoring it would mean a second AGAINST on every row for a rare case.
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT si.object_type, si.object_id, si.title, si.content, si.author_id, si.visibility, si.created_at,
@@ -629,7 +638,7 @@ class SearchService {
 					 FROM {$wpdb->prefix}bn_search_index si
 					 {$media_join}
 					 WHERE {$visibility_where}
-					   AND MATCH(si.title, si.content) AGAINST(%s IN BOOLEAN MODE)
+					   AND {$search_condition}
 					   {$type_where}
 					   {$media_where}
 					   {$block_where}
@@ -638,7 +647,7 @@ class SearchService {
 					   {$date_where}
 					 ORDER BY {$order_clause}
 					 LIMIT %d OFFSET %d",
-					...array_merge( array( $safe_query . '*', $safe_query . '*' ), $type_params, $block_params, $advanced_params, array( $row_limit, $offset ) )
+					...array_merge( array( $safe_query . '*' ), $type_params, $block_params, $advanced_params, array( $row_limit, $offset ) )
 				),
 				ARRAY_A
 			);

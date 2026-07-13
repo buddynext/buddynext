@@ -244,4 +244,34 @@ class SearchableVisibilityTest extends WP_UnitTestCase {
 		$this->assertSame( 1, $this->hits( 'zzuniquepublicvalue', 0 ), 'public search must not regress for guests' );
 		$this->assertSame( 1, $this->hits( 'zzuniquepublicvalue', $this->viewer ), 'nor for members' );
 	}
+
+	/**
+	 * The COUNT and the ROWS must ask the same question.
+	 *
+	 * THIS SUITE CANNOT SEE THE PATH THAT BROKE. The Installer DROPs the FULLTEXT index under
+	 * PHPUnit (InnoDB FULLTEXT cannot see rows inside the transaction each test is wrapped in), so
+	 * every test here runs the LIKE fallback — and the FULLTEXT branch, which is what production
+	 * actually runs, is exercised by nothing.
+	 *
+	 * It duly broke. The COUNT query used the shared $search_condition (with the members tier OR'd
+	 * in) while the rows query rebuilt `MATCH(si.title, si.content)` inline. So the count found the
+	 * member and the fetch did not: search reported a total and returned an empty list. Green suite,
+	 * broken feature. It surfaced only by seeding a real member on a real site and searching.
+	 *
+	 * The structural fix was to delete the second copy — one condition, used by both queries. This
+	 * test guards the invariant that the copy cannot come back: whatever the total says it found,
+	 * that many rows must come back.
+	 *
+	 * @return void
+	 */
+	public function test_the_total_and_the_returned_rows_agree(): void {
+		$res = $this->search->search( 'zzuniquemembersvalue', 'user', 10, 1, $this->viewer );
+
+		$this->assertSame(
+			(int) ( $res['total'] ?? 0 ),
+			count( (array) ( $res['items'] ?? array() ) ),
+			'The COUNT and the ROWS disagreed — search reported a total it then failed to return. '
+			. 'That is what happens when one condition is written out twice.'
+		);
+	}
 }
