@@ -3931,6 +3931,12 @@ onNavReady( initComposerEnhancements );
    ---------------------------------------------------------------- */
 const POLL_INTERVAL = 60000;
 
+// Ceiling for the pill label. Mirrors FeedService::NEW_COUNT_CAP, which bounds the
+// server-side count to CAP + 1 rows — so a value above this means "at least this
+// many", and printing the raw number would be both meaningless and a lie about
+// precision we deliberately stopped paying for.
+const BN_PILL_CAP = 99;
+
 // Per-page state for the pill. Re-seeded on every (re-)init so the once-bound
 // document listeners always read the freshly-swapped feed / watermark / nonce.
 const bnPill = {
@@ -3965,10 +3971,22 @@ function bnPillRender() {
 		bnPill.feed.parentElement.insertBefore( pill, bnPill.feed );
 		bnPill.pill = pill;
 	}
-	const n = bnPill.pendingIds.size;
-	bnPill.pill.textContent = n === 1
-		? t( 'oneNewPost', '1 new post — refresh to view' )
-		: fmt( t( 'manyNewPosts', '%d new posts — refresh to view' ), n );
+	// Cap the label. Nobody acts on "3,412 new posts" differently than on "99+" —
+	// a raw four-digit count is noise, and it makes a healthy community read as
+	// overwhelming rather than alive. Every mainstream platform caps this (X:
+	// "Show N posts"; Facebook / LinkedIn: just "New posts"). The server counts a
+	// bounded window (FeedService::NEW_COUNT_CAP + 1) so anything at or above the
+	// ceiling means "at least this many", not "exactly this many".
+	const n      = bnPill.pendingIds.size;
+	const capped = n > BN_PILL_CAP;
+
+	if ( capped ) {
+		bnPill.pill.textContent = fmt( t( 'manyNewPostsCapped', '%d+ new posts — refresh to view' ), BN_PILL_CAP );
+	} else if ( n === 1 ) {
+		bnPill.pill.textContent = t( 'oneNewPost', '1 new post — refresh to view' );
+	} else {
+		bnPill.pill.textContent = fmt( t( 'manyNewPosts', '%d new posts — refresh to view' ), n );
+	}
 }
 
 async function bnPillPoll() {

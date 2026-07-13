@@ -47,6 +47,26 @@ class FeedService {
 	private const NEW_COUNT_TTL = 30;
 
 	/**
+	 * Ceiling for the "N new posts" pill.
+	 *
+	 * Two jobs, one number.
+	 *
+	 * DISPLAY: nobody acts on "3,412 new posts" differently than on "99+". A raw
+	 * four-digit count is noise, and it makes a healthy community read as
+	 * overwhelming. Every mainstream platform caps this (X: "Show N posts";
+	 * Facebook / LinkedIn: just "New posts").
+	 *
+	 * SCALE: the count query used to be an unbounded COUNT(*) over every post newer
+	 * than the member's watermark — so the further behind a member was, the more
+	 * rows it scanned, and the cost fell on exactly the members we most want back:
+	 * the ones returning after time away. Counting a bounded window instead means
+	 * the work is the same whether they missed 50 posts or 50,000.
+	 *
+	 * We count up to CAP + 1 so the caller can tell "exactly 99" from "99 or more".
+	 */
+	private const NEW_COUNT_CAP = 99;
+
+	/**
 	 * TTL (seconds) for the home-tab count memo. The four per-tab COUNT(*) are
 	 * heavy on a large bn_posts, so collapse the repeat loads (nav re-render,
 	 * poll, multiple tabs) onto one set of counts. A nav badge tolerates this much
@@ -668,9 +688,16 @@ class FeedService {
 	 * published, non-scheduled posts in the viewer's source blend (reusing
 	 * {@see self::home_source_clause()}) whose id is greater than $after_id, and
 	 * always excludes the viewer's own posts so the pill never fires on the
-	 * member's own submission (the composer already inserts those locally). The
-	 * count is clamped so the pill copy stays meaningful. Also returns the newest
-	 * visible id so the poll can advance its watermark without a second query.
+	 * member's own submission (the composer already inserts those locally).
+	 *
+	 * The count is CLAMPED to {@see self::NEW_COUNT_CAP} + 1 — a bound that is
+	 * enforced in the SQL, not merely applied to the result. (This docblock claimed
+	 * the clamp long before any code did it: the query was an unbounded COUNT(*)
+	 * over the member's whole backlog, so the pill printed things like "5250 new
+	 * posts" and the scan grew with every post the member missed.)
+	 *
+	 * Also returns the newest visible id so the poll can advance its watermark
+	 * without a second query.
 	 *
 	 * Degrades to a zero count for logged-out callers (no source blend).
 	 *
@@ -711,18 +738,38 @@ class FeedService {
 		[ $source_where, $source_params ]         = $this->home_source_clause( $filter, $user_id );
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
+		// COUNT A BOUNDED WINDOW, NOT THE WHOLE TAIL.
+		//
+		// This was a plain COUNT(*) over every post newer than $after_id. The further
+		// behind a member's watermark was, the more rows it examined — measured at
+		// rows_examined=3025 on a 6k-post site, and it grows linearly with the gap.
+		// So a member returning after a week on a busy community paid for a scan of
+		// everything they missed, on a POLLING path, and the memo below cannot save
+		// them: its key includes $after_id, so every returning member has their own.
+		//
+		// The inner LIMIT stops the scan at CAP + 1 rows. We only need to know
+		// "how many, up to 99+" — so counting past that is work nobody reads.
+		// MAX(id) over the same bounded window is still the true newest id, because
+		// the window is ordered by id DESC.
+		$limit = self::NEW_COUNT_CAP + 1;
+
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
 				"SELECT COUNT(*) AS new_count, COALESCE(MAX(id), %d) AS newest_id
-				 FROM {$wpdb->prefix}bn_posts
-				 WHERE status = 'published'
-				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
-				   AND id > %d
-				   AND user_id <> %d
-				   AND ({$source_where})
-				   {$excluded_where}
-				   {$block_mute_where}", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-				...array_merge( array( $after_id, $after_id, $user_id ), $source_params, $block_mute_params )
+				 FROM (
+				     SELECT id
+				     FROM {$wpdb->prefix}bn_posts
+				     WHERE status = 'published'
+				       AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+				       AND id > %d
+				       AND user_id <> %d
+				       AND ({$source_where})
+				       {$excluded_where}
+				       {$block_mute_where}
+				     ORDER BY id DESC
+				     LIMIT %d
+				 ) AS bounded", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+				...array_merge( array( $after_id, $after_id, $user_id ), $source_params, $block_mute_params, array( $limit ) )
 			),
 			ARRAY_A
 		);

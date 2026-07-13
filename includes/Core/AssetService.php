@@ -831,6 +831,8 @@ class AssetService {
 					'oneNewPost'              => __( '1 new post — refresh to view', 'buddynext' ),
 					/* translators: %d: number of new posts */
 					'manyNewPosts'            => __( '%d new posts — refresh to view', 'buddynext' ),
+					/* translators: %d: the display ceiling for the new-posts pill (e.g. "99+ new posts"). */
+					'manyNewPostsCapped'      => __( '%d+ new posts — refresh to view', 'buddynext' ),
 					'oneNewComment'           => __( '1 new comment — show', 'buddynext' ),
 					/* translators: %d: number of new comments */
 					'manyNewComments'         => __( '%d new comments — show', 'buddynext' ),
