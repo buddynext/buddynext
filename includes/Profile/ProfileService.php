@@ -781,6 +781,22 @@ class ProfileService {
 			// removes the spurious 422 without changing what lands in the database.
 			$field_active = (bool) apply_filters( 'buddynext_profile_field_is_active', true, $field, $data, $user_id );
 
+			// A field belonging to a group locked to a member type this member does not hold is not
+			// theirs to fill — it is never rendered for them — so it cannot be required OF them.
+			//
+			// Zoho #40859: set a field required, restrict its group to one member type, and every
+			// member of every other type was told "Birthday is required." for a field that was not
+			// on their screen and never would be. No action available to them cleared it. They
+			// could not save their profile again, ever.
+			//
+			// The REST controller already asked this question. The PERSISTENCE layer — the one the
+			// admin member editor and onboarding call directly — never did, so the same bug was
+			// fixed on one entry point while still shipping on the other two. Both now call the one
+			// predicate.
+			if ( ! $this->field_applies_to_user( $field, $user_id ) ) {
+				$field_active = false;
+			}
+
 			// G3: enforce is_required at the persistence layer (Bugs card
 			// 10055873101). Submitting an empty value for a required field is
 			// rejected — the stored value is never cleared and the caller gets a
@@ -966,6 +982,61 @@ class ProfileService {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Does this field apply to this member at all?
+	 *
+	 * A profile group can be restricted to a single member type. A member who does not hold that
+	 * type never sees the group, so none of its fields exist for them — and a field that does not
+	 * exist for you cannot be REQUIRED of you.
+	 *
+	 * That was the bug (Zoho #40859): set a field required, restrict its group to one member type,
+	 * and every member of every OTHER type is told "Birthday is required." for a field that is not
+	 * on their screen and never will be. There is no action available to them that clears it. They
+	 * cannot save their profile again — ever. It is the worst shape a validation bug can take,
+	 * because the member cannot even see what they are being blamed for.
+	 *
+	 * This predicate is the single answer to that question, deliberately. The REST controller had
+	 * grown its own copy of the check while the persistence layer — the one the ADMIN member editor
+	 * and onboarding actually call — had none, so the same bug was fixed on one entry point and
+	 * still shipping on the other two. One predicate, three callers, no drift.
+	 *
+	 * An empty restriction means "applies to everyone", which is the default and the common case.
+	 *
+	 * @param array<string, mixed> $field_def Flat field definition (must carry group_type_restriction).
+	 * @param int                  $user_id   Member whose profile is being saved.
+	 * @return bool False when the field belongs to a member type this member does not hold.
+	 */
+	public function field_applies_to_user( array $field_def, int $user_id ): bool {
+		$restriction = (string) ( $field_def['group_type_restriction'] ?? '' );
+
+		if ( '' === $restriction ) {
+			return true;
+		}
+
+		return $restriction === $this->member_type_slug( $user_id );
+	}
+
+	/**
+	 * A member's member-type slug, or '' when they hold none.
+	 *
+	 * @param int $user_id Member.
+	 * @return string
+	 */
+	public function member_type_slug( int $user_id ): string {
+		if ( $user_id <= 0 || ! function_exists( 'buddynext_service' ) ) {
+			return '';
+		}
+
+		$member_types = buddynext_service( 'member_types' );
+		if ( ! is_object( $member_types ) || ! method_exists( $member_types, 'get_user_type' ) ) {
+			return '';
+		}
+
+		$type = $member_types->get_user_type( $user_id );
+
+		return is_array( $type ) ? (string) ( $type['slug'] ?? '' ) : '';
 	}
 
 	/**

@@ -1025,32 +1025,20 @@ class ProfileController extends BaseRestController {
 		$profiles    = function_exists( 'buddynext_service' ) ? buddynext_service( 'profiles' ) : null;
 		$flat_fields = ( $profiles instanceof \BuddyNext\Profile\ProfileService ) ? $profiles->get_flat_fields() : array();
 
-		// Resolve the target user's member-type slug so member-type-restricted
-		// groups are enforced only against members who actually hold that type —
-		// the same G2 rule the display path uses (ProfileService::get_profile).
-		// Without this, a required field in a Staff-only group blocks a
-		// Contributor's save with a phantom "required" 422 for a field they never
-		// see. Empty restriction = applies to everyone (unchanged default).
-		$target_type_slug = '';
-		if ( $target_user_id > 0 && function_exists( 'buddynext_service' ) ) {
-			$member_types = buddynext_service( 'member_types' );
-			if ( is_object( $member_types ) && method_exists( $member_types, 'get_user_type' ) ) {
-				$owner_type       = $member_types->get_user_type( $target_user_id );
-				$target_type_slug = is_array( $owner_type ) ? (string) ( $owner_type['slug'] ?? '' ) : '';
-			}
-		}
-
 		foreach ( $flat_fields as $field_def ) {
 			$fkey = (string) ( $field_def['field_key'] ?? '' );
 			if ( '' === $fkey || isset( $errors[ $fkey ] ) ) {
 				continue;
 			}
 
-			// Skip fields whose group is restricted to a member type the target
-			// user does not hold — the field is invisible to them, so neither
-			// required-enforcement nor field validation applies.
-			$g_restriction = (string) ( $field_def['group_type_restriction'] ?? '' );
-			if ( '' !== $g_restriction && $g_restriction !== $target_type_slug ) {
+			// Skip fields whose group is restricted to a member type the target user does not hold —
+			// the field is invisible to them, so neither required-enforcement nor field validation
+			// applies. Delegated to ProfileService so this and the persistence layer cannot answer
+			// the question differently: the same bug (Zoho #40859) was fixed here and left live in
+			// save_profile(), which is what the admin member editor and onboarding actually call.
+			if ( $profiles instanceof \BuddyNext\Profile\ProfileService
+				&& ! $profiles->field_applies_to_user( $field_def, $target_user_id )
+			) {
 				continue;
 			}
 
