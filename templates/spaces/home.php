@@ -131,21 +131,36 @@ $bn_space_ctx  = new \BuddyNext\Nav\NavContext( 'space', (int) $space_id, (int) 
 $bn_space_nav  = buddynext_nav( $bn_space_ctx );
 $bn_nav_items  = $bn_space_nav->layer( 'primary' );
 
-// Normalize the active tab to a panel the registry can actually render. Every
-// in-hub tab (feed/about/media/discussions) carries a render; a tab that is hidden
-// for this viewer/space (e.g. Media when the option is off, Discussions when
+// Normalize the active tab to a panel the registry can actually render. A tab that
+// is hidden for this viewer/space (Media when the option is off, Discussions when
 // Jetonomy is inactive) is absent from the resolved nav, and an unknown/stale URL
-// matches nothing — both fall back to Feed, the space's home panel. This also sets
-// the header's active-tab highlight (rendered just below), so the two agree.
+// matches nothing — both need a fallback.
+//
+// The fallback USED TO BE the literal 'feed'. That bricked the space whenever the
+// owner hid the Feed tab in Settings → Navigation: 'feed' is then not in the
+// resolved nav either, so render_panels() matched nothing and the body painted
+// ZERO BYTES. A documented, supported setting blanked every space on the site.
+//
+// Fall back to the first tab that can ACTUALLY render, whatever it is. Feed is
+// normally first, so the common path is unchanged — but when it is hidden the space
+// now opens on About (or Media, or whatever the owner left enabled) instead of
+// nothing. This also drives the header's active-tab highlight, so the two agree.
 $bn_active_renderable = false;
+$bn_first_renderable  = '';
 foreach ( $bn_nav_items as $bn_pi ) {
-	if ( $bn_pi->id === $active_tab && $bn_pi->has_render() ) {
+	if ( ! $bn_pi->has_render() ) {
+		continue;
+	}
+	if ( '' === $bn_first_renderable ) {
+		$bn_first_renderable = (string) $bn_pi->id;
+	}
+	if ( $bn_pi->id === $active_tab ) {
 		$bn_active_renderable = true;
 		break;
 	}
 }
 if ( ! $bn_active_renderable ) {
-	$active_tab = 'feed';
+	$active_tab = '' !== $bn_first_renderable ? $bn_first_renderable : 'feed';
 }
 ?>
 <div class="bn-sh-stack"

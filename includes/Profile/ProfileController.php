@@ -982,7 +982,34 @@ class ProfileController extends BaseRestController {
 				continue;
 			}
 			$candidate = preg_match( '#^https?://#i', $value ) ? $value : 'https://' . ltrim( $value, '/' );
-			if ( ! wp_http_validate_url( $candidate ) ) {
+
+			// Validate the URL's FORM, not whether our server may fetch it.
+			//
+			// This was wp_http_validate_url(), which is WordPress's SSRF guard: it
+			// exists to answer "is it safe for THIS SERVER to make a request to that
+			// address", so it rejects private hosts, loopback, non-standard ports and
+			// unusual TLDs. None of that is a statement about whether a member may
+			// PUT the link on their profile — we never fetch it, we render it.
+			//
+			// The damage was not limited to the odd URL. The edit form submits EVERY
+			// field, so one stale link anywhere in the payload 422'd the ENTIRE
+			// profile save, and the error did not name the URL field — so the member
+			// saw an unrelated change (a radio, a bio) refuse to stick, with no clue
+			// why. Our own demo seeder shipped a value its own validator rejected
+			// (a .example TLD), which means a fresh demo install had a member who
+			// could not save his own profile.
+			//
+			// wp_http_validate_url() stays where the server genuinely does the
+			// fetching (outbound webhooks, avatar-by-URL). Not here.
+			$parts  = wp_parse_url( $candidate );
+			$scheme = is_array( $parts ) ? strtolower( (string) ( $parts['scheme'] ?? '' ) ) : '';
+			$host   = is_array( $parts ) ? (string) ( $parts['host'] ?? '' ) : '';
+
+			if ( ! filter_var( $candidate, FILTER_VALIDATE_URL )
+				|| ! in_array( $scheme, array( 'http', 'https' ), true )
+				|| '' === $host
+				|| ! str_contains( $host, '.' )
+			) {
 				$errors[ $url_key ] = __( 'Enter a valid URL (https://example.com).', 'buddynext' );
 			}
 		}

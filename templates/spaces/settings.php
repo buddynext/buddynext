@@ -710,6 +710,13 @@ foreach ( $builtin_tabs as $bn_t ) {
 				'parts/space-settings-panel-general.php',
 				array(
 					'space'            => $space,
+					// A moderator can open this panel but cannot save it — the identity
+					// fields are owner-only at the service layer. Without this flag the
+					// panel rendered them fully editable, so a moderator could retype the
+					// space name, hit Save, and collect "You do not have permission to
+					// update this space." The Integrations panel already took this flag
+					// and disabled its controls; General simply never got it.
+					'is_space_owner'   => $bn_is_space_owner,
 					'settings_general' => array(
 						'categories'       => $categories,
 						// The parent picker. eligible_parents() mirrors the service's own

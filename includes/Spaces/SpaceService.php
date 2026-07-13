@@ -314,14 +314,36 @@ class SpaceService {
 				);
 			}
 
+			// The parent must EXIST before we reason about its depth.
+			//
+			// This used to go straight to the grandparent lookup below, and read a
+			// missing parent as a passing depth check: get_var() returns NULL for a
+			// row that does not exist, which is indistinguishable from a real parent
+			// whose own parent_id is NULL — and `null !== $grandparent` treats both as
+			// "no grandparent, therefore fine". So a create() with a nonexistent
+			// parent_id produced an ORPHAN sub-space: a row pointing at nothing,
+			// invisible under any parent, unreachable in the tree.
+			//
+			// validate_parent_move() has always guarded this correctly (it returns
+			// parent_not_found). Same rule, two code paths, one of them wrong.
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$grandparent = $wpdb->get_var(
+			$parent_row = $wpdb->get_row(
 				$wpdb->prepare(
-					"SELECT parent_id FROM {$wpdb->prefix}bn_spaces WHERE id = %d",
+					"SELECT id, parent_id FROM {$wpdb->prefix}bn_spaces WHERE id = %d",
 					$parent_id
-				)
+				),
+				ARRAY_A
 			);
-			if ( null !== $grandparent && $grandparent > 0 ) {
+			if ( ! $parent_row ) {
+				return new WP_Error(
+					'parent_not_found',
+					__( 'The selected parent space does not exist.', 'buddynext' ),
+					array( 'status' => 422 )
+				);
+			}
+
+			$grandparent = $parent_row['parent_id'];
+			if ( null !== $grandparent && (int) $grandparent > 0 ) {
 				return new WP_Error(
 					'max_depth_exceeded',
 					__( 'Spaces may only be nested two levels deep.', 'buddynext' )

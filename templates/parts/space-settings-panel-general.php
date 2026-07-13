@@ -8,6 +8,10 @@
  * @since   1.1.0
  *
  * @var object $space            Required. Space row (from `bn_spaces`).
+ * @var bool   $is_space_owner   Required. Whether the viewer owns the space. The
+ *                               identity fields (name/description/rules) are
+ *                               owner-only at the service layer, so a non-owner gets
+ *                               them read-only. Omitted = false (fails closed).
  * @var array  $settings_general Optional. Bundle:
  *   - `categories`       (array) Category rows for the category select.
  *   - `eligible_parents` (array) Spaces this one may be moved under, from
@@ -34,6 +38,13 @@ defined( 'ABSPATH' ) || exit;
 
 $args = array(
 	'space'            => isset( $space ) ? $space : null,
+	// A moderator may OPEN this panel but may not SAVE it — the space's identity
+	// (name, description, house rules) is owner-only at the service layer. Rendering
+	// the inputs live for them was an invitation to do something the server would
+	// then refuse: retype the name, press Save, receive "You do not have permission
+	// to update this space." Defaults to false so a caller that forgets the flag
+	// fails CLOSED (read-only) rather than open. Mirrors the Integrations panel.
+	'is_space_owner'   => isset( $is_space_owner ) ? (bool) $is_space_owner : false,
 	'settings_general' => isset( $settings_general ) && is_array( $settings_general ) ? $settings_general : array(),
 	'classes'          => isset( $classes ) ? (array) $classes : array(),
 );
@@ -167,6 +178,12 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 		<p class="bn-space-settings__hint"><?php esc_html_e( 'Recommended 1500×500. Falls back to a gradient when empty.', 'buddynext' ); ?></p>
 	</div>
 
+	<?php if ( ! $args['is_space_owner'] ) : ?>
+		<p class="bn-space-settings__hint bn-space-settings__hint--locked">
+			<?php esc_html_e( 'Only the space owner can change the name, description and house rules.', 'buddynext' ); ?>
+		</p>
+	<?php endif; ?>
+
 	<div class="bn-space-settings__field">
 		<label for="space_name"><?php esc_html_e( 'Space name', 'buddynext' ); ?> <span aria-hidden="true">*</span></label>
 		<input
@@ -177,6 +194,7 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 			value="<?php echo esc_attr( $bn_space->name ?? '' ); ?>"
 			required
 			maxlength="100"
+			<?php disabled( ! $args['is_space_owner'] ); ?>
 		>
 	</div>
 
@@ -188,6 +206,7 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 			class="bn-textarea"
 			maxlength="160"
 			rows="3"
+			<?php disabled( ! $args['is_space_owner'] ); ?>
 		><?php echo esc_textarea( $bn_space->description ?? '' ); ?></textarea>
 		<p class="bn-space-settings__hint"><?php esc_html_e( '160 characters max. Shown in the spaces directory.', 'buddynext' ); ?></p>
 	</div>
@@ -200,6 +219,7 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 			class="bn-textarea"
 			rows="6"
 			placeholder="<?php esc_attr_e( "Be kind\nNo spam\nStay on topic", 'buddynext' ); ?>"
+			<?php disabled( ! $args['is_space_owner'] ); ?>
 		><?php echo esc_textarea( $bn_space->rules ?? '' ); ?></textarea>
 		<p class="bn-space-settings__hint"><?php esc_html_e( 'One rule per line. Renders as a numbered list on the About tab.', 'buddynext' ); ?></p>
 	</div>

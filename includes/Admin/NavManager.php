@@ -809,6 +809,19 @@ class NavManager extends AdminPageBase {
 				'description' => __( 'Members of this space', 'buddynext' ),
 				'capability'  => 'read',
 			),
+			// Sub-spaces was registered in the nav registry (Nav\Providers\SpaceNav)
+			// but never listed here, so it rendered on the front end while being
+			// invisible to Settings → Navigation: the owner could not hide it,
+			// rename it or reorder it. A tab you ship but cannot manage is the same
+			// defect class as a setting that does nothing.
+			array(
+				'slug'        => 'subspaces',
+				'label'       => __( 'Sub-spaces', 'buddynext' ),
+				'order'       => 25,
+				'icon'        => 'tab-spaces',
+				'description' => __( 'Spaces nested inside this space', 'buddynext' ),
+				'capability'  => 'read',
+			),
 			array(
 				'slug'        => 'media',
 				'label'       => __( 'Media', 'buddynext' ),
@@ -825,6 +838,12 @@ class NavManager extends AdminPageBase {
 				'description' => __( 'Space description and details', 'buddynext' ),
 				'capability'  => 'read',
 			),
+			// Moderation is deliberately NOT listed. It is a capability-gated STAFF
+			// surface (moderator+), not an owner-facing content tab — exposing it here
+			// would let an owner hide the queue out from under their own moderators.
+			// SpaceNav also registers dynamic `field-*` tabs from the space field
+			// registry; those are owned by the field that creates them, not by this
+			// static list.
 		);
 	}
 
