@@ -121,8 +121,29 @@ class Installer {
 	 *      preset library now declares registry types only, with field keys
 	 *      converged to the Installer seed (one canonical schema from either
 	 *      provisioning path).
+	 *
+	 * v28: THE BUMP ITSELF IS THE FIX.
+	 *
+	 *      maybe_upgrade() returns early when the stored option already equals this constant, so
+	 *      the constant IS the switch that lets any schema change reach a site that UPDATES rather
+	 *      than installs fresh. It sat at 27 for 142 commits, which means every schema change
+	 *      merged into 1.0.8 shipped only to new installs and was dead on every existing site:
+	 *      the wp-admin Spaces indexes (admin_type / admin_recent / admin_active), the
+	 *      bn_reports.reason ENUM -> VARCHAR widening, the 100k-scale perf indexes, and the
+	 *      members-tier search column added alongside this bump. All fixed in code. None of them
+	 *      present in a single upgraded database.
+	 *
+	 *      Two lessons worth leaving here, because both were invisible:
+	 *
+	 *      1. A schema change without a version bump is not a schema change. It is a comment.
+	 *      2. `KEY purge (...)` — renamed in this same commit — is a MySQL RESERVED WORD.
+	 *         Unquoted it is a syntax error that fails the ENTIRE CREATE TABLE, not just the
+	 *         index, and dbDelta reports "Created table" while swallowing it. So bn_notifications
+	 *         and bn_email_log could silently fail to exist, and nothing reached any log. The two
+	 *         defects had to be fixed together: bumping the version re-runs the schema, and
+	 *         re-running a schema whose CREATE is a syntax error just fails again, quietly.
 	 */
-	private const SCHEMA_VERSION = 27;
+	private const SCHEMA_VERSION = 28;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -1838,7 +1859,7 @@ class Installer {
 				PRIMARY KEY  (id),
 				KEY          bell (recipient_id, is_read, created_at),
 				KEY          recipient_group (recipient_id, group_key),
-				KEY          purge (is_read, created_at)
+				KEY          purge_window (is_read, created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_notification_prefs (
@@ -1871,7 +1892,7 @@ class Installer {
 				PRIMARY KEY (id),
 				KEY         user_type (user_id, type, digest_date),
 				KEY         type (type),
-				KEY         purge (sent_at)
+				KEY         purge_window (sent_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_verify_tokens (
