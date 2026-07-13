@@ -282,11 +282,27 @@ class MemberCleanupService {
 	 * @return array<string, string> Table (unprefixed) => why it is kept.
 	 */
 	public static function retain_map(): array {
-		return array(
+		$map = array(
 			'bn_reports' => 'A report is a case FILED BY someone else about content. Deleting it would let a member erase the complaints against them. (Closed reports age out on their own retention schedule; a report the erased member FILED keeps their reporter_id until then — bn_reports has UNIQUE KEY one_per_reporter, so anonymising to 0 would collide the moment two erased members had reported the same post.)',
 			'bn_mod_log' => 'The moderator audit trail — a record of what a MODERATOR did. Append-only by design (ModerationLogService).',
 			'bn_spaces'  => 'A space is a community asset, not the member\'s data. SpaceSuccession reassigns owner_id to the longest-serving moderator (or a site admin) on the same purge signal, so the space outlives its founder rather than being deleted with them.',
 		);
+
+		/**
+		 * Filters the tables deliberately KEPT when a member is erased.
+		 *
+		 * The companion door to `buddynext_member_erase_map`. Both halves have to be
+		 * extensible or an add-on cannot fully participate in the registry: Pro's 18
+		 * tables were on NEITHER list, which is precisely the state the erasure gate
+		 * exists to fail the build on — so the gate was green because it could not
+		 * see them, not because they were clean. "Did not look" is not "is clean".
+		 *
+		 * An add-on must land every user-keyed table it owns on exactly one of the
+		 * two maps. Silence is not a third option.
+		 *
+		 * @param array<string, string> $map Table (unprefixed) => WHY it is retained.
+		 */
+		return (array) apply_filters( 'buddynext_member_retain_map', $map );
 	}
 
 	/**

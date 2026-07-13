@@ -27,6 +27,7 @@ Usage:  python3 bin/check-erasure.py       (exit 1 on an unregistered table)
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -34,6 +35,28 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 INSTALLER = ROOT / "includes" / "Core" / "Installer.php"
 CLEANUP = ROOT / "includes" / "Profile" / "MemberCleanupService.php"
+
+# ── The Pro half ─────────────────────────────────────────────────────────────────
+#
+# This gate used to read the FREE repo only. Pro prefixes its tables `bn_` too and
+# keeps per-user data in them, so all of Pro's user-keyed tables were on NEITHER the
+# erase list nor the retain list — which is precisely the condition this script exists
+# to fail the build on. It passed anyway, because it could not see them.
+#
+# A green gate meant "did not look", not "is clean". That is the worst possible state
+# for a compliance check: it is not merely absent, it is actively reassuring.
+#
+# It is the same structural cause as two other P0s in this release — Free's uninstall
+# wildcard-dropping Pro's tables, and Pro's suite passing only on a dirty DB. Every
+# gate scanned one repo. So this one now scans both.
+#
+# Pro is optional: a Free-only checkout still passes. Override with BN_PRO_PATH.
+PRO_ROOT = Path(os.environ.get("BN_PRO_PATH", ROOT.parent / "buddynext-pro"))
+PRO_INSTALLER = PRO_ROOT / "includes" / "Core" / "Installer.php"
+# Pro declares its tables into Free's registry through the
+# buddynext_member_erase_map / _retain_map filters, rather than keeping a second
+# registry — a second registry is the drift this gate exists to catch.
+PRO_CLEANUP = PRO_ROOT / "includes" / "Core" / "UserCleanupListener.php"
 
 # A column that names a person. If a table has one of these, deleting that person has to
 # mean something for this table — even if the answer turns out to be "we keep it".
@@ -45,9 +68,12 @@ USER_COLUMNS = {
 }
 
 
-def user_keyed_tables() -> dict[str, list[str]]:
-    """Every bn_* table in the schema that names a person, and the columns that do it."""
-    src = INSTALLER.read_text()
+def _tables_in(installer: Path) -> dict[str, list[str]]:
+    """User-keyed bn_* tables declared by one installer."""
+    if not installer.exists():
+        return {}
+
+    src = installer.read_text()
     out: dict[str, list[str]] = {}
 
     for table, body in re.findall(r"CREATE TABLE \{\$p\}(bn_\w+) \((.*?)\) \{\$cs\}", src, re.S):
@@ -62,18 +88,38 @@ def user_keyed_tables() -> dict[str, list[str]]:
     return out
 
 
-def registered() -> tuple[set[str], set[str]]:
-    """Tables on the ERASE registry, and tables on the RETAIN list."""
-    src = CLEANUP.read_text()
+def user_keyed_tables() -> dict[str, list[str]]:
+    """Every bn_* table that names a person — across BOTH repos, not just this one."""
+    tables = _tables_in(INSTALLER)
+    tables.update(_tables_in(PRO_INSTALLER))  # Pro's tables are bn_* too.
+    return tables
 
-    def keys_in(func: str) -> set[str]:
+
+def registered() -> tuple[set[str], set[str]]:
+    """Tables on the ERASE registry, and tables on the RETAIN list — from BOTH repos.
+
+    Free declares its own in erase_map() / retain_map(). Pro declares its own into the
+    SAME registry through the buddynext_member_erase_map / _retain_map filters, so its
+    declarations live in the methods that back those filters.
+    """
+
+    def keys_in(src: str, func: str) -> set[str]:
         # Slice out the function body, then take its bn_* array keys.
-        m = re.search(rf"function {func}\(\).*?\n\t}}", src, re.S)
+        m = re.search(rf"function {func}\(.*?\).*?\n\t}}", src, re.S)
         if not m:
             return set()
-        return set(re.findall(r"'(bn_\w+)'\s*=>", m.group(0)))
+        return set(re.findall(r"'(bn_\w+)'", m.group(0)))
 
-    return keys_in("erase_map"), keys_in("retain_map")
+    free_src = CLEANUP.read_text()
+    erase = keys_in(free_src, "erase_map")
+    retain = keys_in(free_src, "retain_map")
+
+    if PRO_CLEANUP.exists():
+        pro_src = PRO_CLEANUP.read_text()
+        erase |= keys_in(pro_src, "declare_erase_map")
+        retain |= keys_in(pro_src, "declare_retain_map")
+
+    return erase, retain
 
 
 def main() -> int:
@@ -91,8 +137,12 @@ def main() -> int:
     unregistered = {t: c for t, c in tables.items() if t not in erase and t not in retain}
 
     # A table on the registry that no longer exists in the schema is dead weight, and it
-    # makes residue() query a table that isn't there.
-    schema = set(tables) | set(re.findall(r"CREATE TABLE \{\$p\}(bn_\w+) \(", INSTALLER.read_text()))
+    # makes residue() query a table that isn't there. Read BOTH schemas, or every Pro
+    # table Pro correctly registered would be reported as a phantom.
+    schema = set(tables)
+    for installer in (INSTALLER, PRO_INSTALLER):
+        if installer.exists():
+            schema |= set(re.findall(r"CREATE TABLE \{\$p\}(bn_\w+) \(", installer.read_text()))
     phantom = sorted((erase | retain) - schema)
 
     print(f"user-keyed tables: {len(tables)}   erase: {len(erase)}   retain: {len(retain)}")
