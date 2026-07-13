@@ -55,6 +55,22 @@ final class QaFixturesCommand {
 	/** Slug prefix for fixture spaces. */
 	private const SLUG_PREFIX = 'qa-fx-';
 
+	/**
+	 * Community sizes — the shape of a REAL community, not a demo.
+	 *
+	 * The bar is what a site owner running a live community expects, not what our
+	 * 12-member demo happens to contain. On 12 members every list looks instant,
+	 * every N+1 is invisible, and a missing index costs nothing — so a fixture that
+	 * small does not test the product, it flatters it. These numbers are chosen so
+	 * an unbounded query, a missing LIMIT, or a per-row lookup shows up in ordinary
+	 * browsing rather than only under a synthetic 100k benchmark.
+	 */
+	private const COMMUNITY_MEMBERS  = 1200;
+	private const COMMUNITY_SPACES   = 40;
+	private const COMMUNITY_POSTS    = 6000;
+	private const COMMUNITY_COMMENTS = 18000;
+	private const COMMUNITY_FOLLOWS  = 25000;
+
 	/** Scale sizes. Big enough to expose an unbounded query, small enough to seed fast. */
 	private const SCALE_FOLLOWERS = 6000;
 	private const SCALE_REPLIES   = 6000;
@@ -74,6 +90,7 @@ final class QaFixturesCommand {
 	 * default: edge
 	 * options:
 	 *   - edge
+	 *   - community
 	 *   - scale
 	 *   - all
 	 * ---
@@ -81,6 +98,7 @@ final class QaFixturesCommand {
 	 * ## EXAMPLES
 	 *
 	 *     wp buddynext qa-fixtures seed
+	 *     wp buddynext qa-fixtures seed --profile=community
 	 *     wp buddynext qa-fixtures seed --profile=all
 	 *
 	 * @param array<int,string>    $args       Positional args.
@@ -91,6 +109,9 @@ final class QaFixturesCommand {
 		$profile = (string) ( $assoc_args['profile'] ?? 'edge' );
 		$m       = $this->manifest();
 
+		if ( 'community' === $profile || 'all' === $profile ) {
+			$this->seed_community( $m );
+		}
 		if ( 'edge' === $profile || 'all' === $profile ) {
 			$this->seed_edge( $m );
 		}
@@ -208,6 +229,248 @@ final class QaFixturesCommand {
 		foreach ( $rows as $row ) {
 			\WP_CLI::log( sprintf( '  %-22s %s', (string) $row[0], (string) $row[1] ) );
 		}
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Community profile — a real community, at the size owners actually run
+	// ─────────────────────────────────────────────────────────────────────────
+
+	/**
+	 * Seed a realistic mid-size community.
+	 *
+	 * Users are written straight into wp_users/wp_usermeta rather than through
+	 * wp_insert_user(): 1,200 accounts through the full hook chain takes minutes
+	 * and proves nothing a batch insert does not. Capabilities meta is written so
+	 * WP_User_Query and the member directory see them as real members.
+	 *
+	 * @param array<string,mixed> $m Manifest.
+	 * @return void
+	 */
+	private function seed_community( array &$m ): void {
+		global $wpdb;
+		$p   = $wpdb->prefix;
+		$now = gmdate( 'Y-m-d H:i:s' );
+
+		\WP_CLI::log( 'Community fixtures — this is the size an owner actually runs…' );
+
+		// ── Members ──────────────────────────────────────────────────────────
+		$caps = $wpdb->prefix . 'capabilities';
+		$uids = array();
+		for ( $b = 0; $b < self::COMMUNITY_MEMBERS; $b += 200 ) {
+			$end  = min( $b + 200, self::COMMUNITY_MEMBERS );
+			$vals = array();
+			for ( $i = $b; $i < $end; $i++ ) {
+				$login  = self::USER_PREFIX . 'm' . $i;
+				$vals[] = $wpdb->prepare(
+					'(%s,%s,%s,%s,%s)',
+					$login,
+					wp_hash_password( 'qa-fixture' ),
+					$login . '@example.test',
+					self::community_name( $i ),
+					gmdate( 'Y-m-d H:i:s', time() - wp_rand( 1, 700 ) * DAY_IN_SECONDS )
+				);
+			}
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "INSERT INTO {$wpdb->users} (user_login, user_pass, user_email, display_name, user_registered) VALUES " . implode( ',', $vals ) );
+			$first = (int) $wpdb->insert_id;
+			for ( $k = 0; $k < ( $end - $b ); $k++ ) {
+				$uids[] = $first + $k;
+			}
+		}
+		$m['community_users'] = $uids;
+
+		foreach ( array_chunk( $uids, 300 ) as $chunk ) {
+			$vals = array();
+			foreach ( $chunk as $uid ) {
+				$vals[] = $wpdb->prepare( '(%d,%s,%s)', $uid, $caps, 'a:1:{s:10:"subscriber";b:1;}' );
+				$vals[] = $wpdb->prepare( '(%d,%s,%s)', $uid, $wpdb->prefix . 'user_level', '0' );
+			}
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "INSERT INTO {$wpdb->usermeta} (user_id, meta_key, meta_value) VALUES " . implode( ',', $vals ) );
+		}
+		\WP_CLI::log( '  ' . count( $uids ) . ' members' );
+
+		// ── Spaces ───────────────────────────────────────────────────────────
+		// A real community is not all-public: owners run private and secret spaces,
+		// sub-spaces, and archived ones. Every list/gate is exercised by default.
+		$spaces = new SpaceService();
+		$sids   = array();
+		for ( $i = 0; $i < self::COMMUNITY_SPACES; $i++ ) {
+			$type = 0 === $i % 7 ? 'private' : ( 0 === $i % 13 ? 'secret' : 'open' );
+			$sid  = $spaces->create(
+				$uids[ $i % count( $uids ) ],
+				array(
+					'name' => 'Community Space ' . ( $i + 1 ),
+					'slug' => self::SLUG_PREFIX . 'c' . $i,
+					'type' => $type,
+				)
+			);
+			if ( is_int( $sid ) && $sid > 0 ) {
+				$sids[] = $sid;
+			}
+		}
+		// Sub-spaces under the first few roots, and a few archived.
+		for ( $i = 0; $i < 8; $i++ ) {
+			$sid = $spaces->create(
+				$uids[ $i ],
+				array(
+					'name'      => 'Sub-space ' . ( $i + 1 ),
+					'slug'      => self::SLUG_PREFIX . 'sub' . $i,
+					'type'      => 'open',
+					'parent_id' => $sids[ $i % 5 ],
+				)
+			);
+			if ( is_int( $sid ) && $sid > 0 ) {
+				$sids[] = $sid;
+			}
+		}
+		foreach ( array_slice( $sids, 0, 3 ) as $sid ) {
+			$spaces->archive( $sid, 1 );
+		}
+		$m['spaces'] = array_merge( (array) ( $m['spaces'] ?? array() ), $sids );
+		\WP_CLI::log( '  ' . count( $sids ) . ' spaces (open/private/secret + 8 sub-spaces + 3 archived)' );
+
+		// ── Memberships ──────────────────────────────────────────────────────
+		$rows = array();
+		foreach ( $uids as $idx => $uid ) {
+			$joins = 1 + ( $idx % 4 );
+			for ( $j = 0; $j < $joins; $j++ ) {
+				$sid    = $sids[ ( $idx + $j * 7 ) % count( $sids ) ];
+				$rows[] = $wpdb->prepare( '(%d,%d,%s,%s,%s)', $sid, $uid, 'member', 'active', $now );
+			}
+		}
+		foreach ( array_chunk( $rows, 500 ) as $chunk ) {
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "INSERT IGNORE INTO {$p}bn_space_members (space_id, user_id, role, status, created_at) VALUES " . implode( ',', $chunk ) );
+		}
+		\WP_CLI::log( '  ' . count( $rows ) . ' space memberships' );
+
+		// ── Posts ────────────────────────────────────────────────────────────
+		$post_ids = array();
+		for ( $b = 0; $b < self::COMMUNITY_POSTS; $b += 500 ) {
+			$end  = min( $b + 500, self::COMMUNITY_POSTS );
+			$vals = array();
+			for ( $i = $b; $i < $end; $i++ ) {
+				$in_space = 0 !== $i % 3;
+				$vals[]   = $wpdb->prepare(
+					'(%d,%s,%s,%s,%s,%s,%s)',
+					$uids[ $i % count( $uids ) ],
+					$in_space ? (string) $sids[ $i % count( $sids ) ] : null,
+					'text',
+					self::community_post( $i ),
+					'public',
+					'published',
+					gmdate( 'Y-m-d H:i:s', time() - wp_rand( 1, 400 ) * DAY_IN_SECONDS )
+				);
+			}
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "INSERT INTO {$p}bn_posts (user_id, space_id, type, content, privacy, status, created_at) VALUES " . implode( ',', $vals ) );
+			$first = (int) $wpdb->insert_id;
+			for ( $k = 0; $k < ( $end - $b ); $k++ ) {
+				$post_ids[] = $first + $k;
+			}
+		}
+		$m['posts'] = array_merge( (array) ( $m['posts'] ?? array() ), $post_ids );
+		\WP_CLI::log( '  ' . count( $post_ids ) . ' posts (2/3 in spaces, 1/3 on the global feed)' );
+
+		// ── Comments ─────────────────────────────────────────────────────────
+		for ( $b = 0; $b < self::COMMUNITY_COMMENTS; $b += 500 ) {
+			$end  = min( $b + 500, self::COMMUNITY_COMMENTS );
+			$vals = array();
+			for ( $i = $b; $i < $end; $i++ ) {
+				$vals[] = $wpdb->prepare(
+					'(%d,%s,%d,%s,%s)',
+					$uids[ $i % count( $uids ) ],
+					'post',
+					$post_ids[ $i % count( $post_ids ) ],
+					'Community comment ' . $i,
+					$now
+				);
+			}
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "INSERT INTO {$p}bn_comments (user_id, object_type, object_id, content, created_at) VALUES " . implode( ',', $vals ) );
+		}
+		\WP_CLI::log( '  ' . self::COMMUNITY_COMMENTS . ' comments' );
+
+		// ── Social graph ─────────────────────────────────────────────────────
+		$count = count( $uids );
+		for ( $b = 0; $b < self::COMMUNITY_FOLLOWS; $b += 500 ) {
+			$end  = min( $b + 500, self::COMMUNITY_FOLLOWS );
+			$vals = array();
+			for ( $i = $b; $i < $end; $i++ ) {
+				$a = $uids[ $i % $count ];
+				// Skewed, not uniform: real communities have a few hubs everyone
+				// follows, which is what makes a per-row lookup hurt.
+				$bx = $uids[ ( $i * 7 + ( $i % 11 ) ) % $count ];
+				if ( $a !== $bx ) {
+					$vals[] = $wpdb->prepare( '(%d,%d,%s,%s)', $a, $bx, 'active', $now );
+				}
+			}
+			if ( $vals ) {
+				// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$wpdb->query( "INSERT IGNORE INTO {$p}bn_follows (follower_id, following_id, status, created_at) VALUES " . implode( ',', $vals ) );
+			}
+		}
+		\WP_CLI::log( '  ~' . self::COMMUNITY_FOLLOWS . ' follow edges (skewed toward hubs)' );
+
+		// ── Denormalised counters ────────────────────────────────────────────
+		// CounterService keeps bn_follower_count / bn_following_count in usermeta on
+		// every follow. A bulk INSERT bypasses that, leaving every member in a state
+		// no live site is in: counters unseeded.
+		//
+		// That matters more than it sounds. MemberDirectoryService recounts any member
+		// whose counter is missing (a deliberate, page-bounded self-heal for sites
+		// upgrading to 1.0.8). With 1,200 unseeded members the directory's FIRST paint
+		// costs ~46 queries instead of 6 — and a fixture that manufactures that state
+		// invents an N+1 that the product does not have. A fixture must reproduce the
+		// site an owner actually runs, not a state only a broken importer could create.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table names
+		// only, from $wpdb->prefix and never from input; a table name cannot be a
+		// prepare() placeholder.
+		$wpdb->query(
+			"INSERT INTO {$wpdb->usermeta} (user_id, meta_key, meta_value)
+			 SELECT u.ID, 'bn_follower_count',
+			        (SELECT COUNT(*) FROM {$p}bn_follows f WHERE f.following_id = u.ID AND f.status = 'active')
+			 FROM {$wpdb->users} u WHERE u.user_login LIKE 'qa\\_fx\\_m%'"
+		);
+		$wpdb->query(
+			"INSERT INTO {$wpdb->usermeta} (user_id, meta_key, meta_value)
+			 SELECT u.ID, 'bn_following_count',
+			        (SELECT COUNT(*) FROM {$p}bn_follows f WHERE f.follower_id = u.ID AND f.status = 'active')
+			 FROM {$wpdb->users} u WHERE u.user_login LIKE 'qa\\_fx\\_m%'"
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		\WP_CLI::log( '  follower/following counters backfilled (as CounterService would keep them)' );
+	}
+
+	/**
+	 * A plausible member name, so the directory does not read as "user 417".
+	 *
+	 * @param int $i Index.
+	 * @return string
+	 */
+	private static function community_name( int $i ): string {
+		$first = array( 'Alex', 'Sara', 'Marcus', 'Amina', 'Lucia', 'Yuki', 'Diego', 'Fatima', 'Noah', 'Priya', 'Omar', 'Hana', 'Theo', 'Lena', 'Jamal', 'Grace' );
+		$last  = array( 'Rivera', 'Lindqvist', "O'Brien", 'Diallo', 'Ferrari', 'Tanaka', 'Morales', 'Zahra', 'Bergman', 'Nair', 'Haddad', 'Kim', 'Novak', 'Fischer', 'Okafor', 'Bennett' );
+		return $first[ $i % 16 ] . ' ' . $last[ ( $i / 16 ) % 16 ] . ( $i > 255 ? ' ' . (int) ( $i / 256 ) : '' );
+	}
+
+	/**
+	 * A plausible post body.
+	 *
+	 * @param int $i Index.
+	 * @return string
+	 */
+	private static function community_post( int $i ): string {
+		$bodies = array(
+			'Shipped the new onboarding flow today. Drop-off is down noticeably.',
+			'Does anyone have a good reference for container queries in production?',
+			'Reminder: community call moves to Thursday this week.',
+			'Just crossed 500 members. Thanks for making this place worth showing up to.',
+			'Long-form write-up of how we cut our build from 9 minutes to 90 seconds.',
+			'What are people using for accessibility audits these days?',
+		);
+		return $bodies[ $i % 6 ] . ' (#' . $i . ')';
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
