@@ -6,6 +6,10 @@
 	<file>includes/</file>
 	<file>templates/</file>
 	<file>tests/</file>
+	<!-- Dev-only tooling (QA fixtures). Never packaged — dev/ is not on
+	     build-release.sh's RUNTIME allowlist — but it is committed, so it is held
+	     to the same standard as the rest of the tree. -->
+	<file>dev/</file>
 
 	<!-- Exclude generated/third-party paths -->
 	<exclude-pattern>vendor/</exclude-pattern>

@@ -176,6 +176,17 @@ class Plugin {
 			// Sweep spaces orphaned BEFORE succession shipped (owner_id pointing at
 			// a deleted user); succession only guards deletions from now on.
 			\WP_CLI::add_command( 'buddynext repair-space-owners', \BuddyNext\Spaces\SpaceOwnerRepairCommand::class );
+
+			// QA fixtures — the ugly states the customer demo must never contain
+			// (expired invites, orphaned space owners, cancelled subscriptions,
+			// rows backdated past the retention windows) plus the big-site scale
+			// data. dev/ is NOT on build-release.sh's RUNTIME allowlist, so the
+			// file is absent from a packaged install and this never registers.
+			$bn_qa_fixtures = BUDDYNEXT_DIR . 'dev/QaFixturesCommand.php';
+			if ( is_readable( $bn_qa_fixtures ) ) {
+				require_once $bn_qa_fixtures;
+				\WP_CLI::add_command( 'buddynext qa-fixtures', new \BuddyNext\Dev\QaFixturesCommand() );
+			}
 		}
 
 		// Record last-login time on every login. This MUST be wired

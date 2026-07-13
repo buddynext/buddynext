@@ -6,6 +6,10 @@ parameters:
     level: 5
     paths:
         - includes
+        # Dev-only tooling (QA fixtures). Not packaged — dev/ is off
+        # build-release.sh's RUNTIME allowlist — but Plugin.php references the
+        # class, so it must be analysed or that reference reads as class.notFound.
+        - dev
     scanFiles:
         - buddynext.php
         # Action Scheduler is BUNDLED (libs/action-scheduler) but sits outside the analysed
