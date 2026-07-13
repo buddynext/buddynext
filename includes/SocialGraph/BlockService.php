@@ -619,6 +619,54 @@ class BlockService {
 	}
 
 	/**
+	 * Resolve, in one query, which of the given peers the viewer has MUTED.
+	 *
+	 * Page-scoped on purpose. The two alternatives are both wrong here:
+	 * is_muted() per row is an N+1, and muted_users() is UNBOUNDED — it loads the
+	 * viewer's entire mute history to answer a question about 20 rows.
+	 *
+	 * Mirrors blocking_either_map() below; a mute is one-directional, so there is
+	 * no reverse leg.
+	 *
+	 * @param int   $viewer_id Viewer user ID.
+	 * @param int[] $peer_ids  Peer user IDs on the current page.
+	 * @return array<int, true> Peer-ID keyed map of peers the viewer has muted.
+	 */
+	public function muted_map( int $viewer_id, array $peer_ids ): array {
+		$peer_ids = array_values( array_unique( array_filter( array_map( 'intval', $peer_ids ) ) ) );
+		if ( $viewer_id <= 0 || ! $peer_ids ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ', ', array_fill( 0, count( $peer_ids ), '%d' ) );
+		$params       = array_merge( array( $viewer_id ), $peer_ids );
+
+		// $placeholders is a generated list of %d for an int array; every value is
+		// bound through $wpdb->prepare() below, so the interpolation is safe.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- $placeholders is a generated %d list; $params binds viewer_id + all peer IDs.
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT blocked_id
+				 FROM {$wpdb->prefix}bn_blocks
+				 WHERE type = 'mute'
+				   AND blocker_id = %d
+				   AND blocked_id IN ( {$placeholders} )",
+				$params
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		$map = array();
+		foreach ( (array) $rows as $peer ) {
+			$map[ (int) $peer ] = true;
+		}
+
+		return $map;
+	}
+
+	/**
 	 * Resolve, in one query, which of the given peers are in a block
 	 * relationship with the viewer (in either direction).
 	 *

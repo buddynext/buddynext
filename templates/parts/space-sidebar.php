@@ -356,11 +356,32 @@ add_action(
 				<?php
 				$bn_mods_html = (string) ob_get_clean();
 
+				// The card holds owners AND moderators (see the role filter above), so
+				// titling it "Moderators" mislabels the owner sitting inside it — the
+				// rows even badge them "Admin". Title from the roles ACTUALLY present,
+				// never assumed: sidebar_members is a LIMIT-10 set, so an owner is not
+				// guaranteed to be in it, and hardcoding "Owner & Moderators" would then
+				// promise an owner the list does not show.
+				$bn_has_owner = (bool) array_filter(
+					$bn_mods,
+					static fn( $m ): bool => 'owner' === ( $m->role ?? '' )
+				);
+				$bn_mod_count = count( $bn_mods );
+
+				if ( $bn_has_owner ) {
+					// One owner alone, or the owner plus moderators.
+					$bn_mods_title = $bn_mod_count > 1
+						? __( 'Owner & Moderators', 'buddynext' )
+						: __( 'Owner', 'buddynext' );
+				} else {
+					$bn_mods_title = _n( 'Moderator', 'Moderators', $bn_mod_count, 'buddynext' );
+				}
+
 				buddynext_get_template(
 					'parts/sidebar-card.php',
 					array(
 						'id'         => 'space-moderators',
-						'title'      => _n( 'Moderator', 'Moderators', count( $bn_mods ), 'buddynext' ),
+						'title'      => $bn_mods_title,
 						'title_icon' => 'shield',
 						'body_html'  => $bn_mods_html,
 					)

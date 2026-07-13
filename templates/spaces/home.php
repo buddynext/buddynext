@@ -82,10 +82,15 @@ if ( ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $bn_space_row, $curren
 	exit;
 }
 
-// Access gate: private + secret feeds. Open spaces never gate the feed, but
-// guests still see a "Join to participate" CTA instead of the composer. The feed
-// data itself is fetched by the feed panel's render (SpaceNav::render_feed_panel),
-// so it runs only when the Feed tab is the active panel — never when viewing About.
+// Access gate: private + secret CONTENT (posts, members, media). Open spaces never
+// gate, but guests still see a "Join to participate" CTA instead of the composer.
+// The feed data itself is fetched by the feed panel's render
+// (SpaceNav::render_feed_panel), so it runs only when the Feed tab is active.
+//
+// This flag says "may this viewer read the space's CONTENT", NOT "may this viewer
+// see the space at all" — a private space's identity (name, description, house
+// rules, moderators) stays public by contract. Which tabs that exempts is decided
+// at the tab body below; do not reintroduce a blanket gate around the whole body.
 $gate_feed = ! \BuddyNext\Spaces\SpaceVisibility::can_view_content( $bn_space_row, $current_user_id );
 
 // Clean-URL active tab: /spaces/{slug}/{tab}/ → bn_space_action. Defaults to feed.
@@ -197,7 +202,26 @@ if ( ! $bn_active_renderable ) {
 
 	<!-- Tab body -->
 	<div class="bn-sh-body">
-		<?php if ( $gate_feed ) : ?>
+		<?php
+		// The gate is about CONTENT — posts, members, media. It is not about the
+		// space's IDENTITY. SpaceVisibility's own contract (see its class docblock)
+		// says a private space keeps its name, description, house rules, avatar,
+		// cover, category and moderator list PUBLIC, because a stranger legitimately
+		// needs to know who is in charge and what the rules are BEFORE deciding to
+		// request to join. The About panel is precisely that surface.
+		//
+		// This used to gate the WHOLE body, so a non-member got the lock card on
+		// every tab including About — contradicting both that contract and the
+		// comment ~100 lines above, which claims the feed query "runs only when the
+		// Feed tab is the active panel, never when viewing About". It never got the
+		// chance to: About never rendered at all.
+		//
+		// Safe to paint for a non-member: SpaceNav::render_about_panel() already
+		// visibility-filters its custom fields against $see_member.
+		$bn_public_tabs = (array) apply_filters( 'buddynext_space_public_tabs', array( 'about' ), $bn_space_row );
+		$bn_show_gate   = $gate_feed && ! in_array( $active_tab, $bn_public_tabs, true );
+		?>
+		<?php if ( $bn_show_gate ) : ?>
 
 			<div class="bn-card bn-sh-gate">
 				<div class="bn-sh-gate__icon" aria-hidden="true"><?php buddynext_icon( 'lock' ); ?></div>

@@ -306,6 +306,13 @@ $bn_directory_context = wp_json_encode(
 		'sort'             => $bn_initial_sort,
 		'relation'         => $bn_relation,
 		'memberType'       => $type_slug_filter,
+		// Seed the online filter from the request, exactly like the other filters
+		// above. The store reads ctx.onlineOnly when it builds the REST query and
+		// when it rewrites the URL — so omitting it here did not merely fail to
+		// apply the filter: the first sort/relation click DROPPED it and syncUrl()
+		// then stripped `online=1` from the address bar, so even a reload could not
+		// bring it back. The checkbox stayed ticked while the results ignored it.
+		'onlineOnly'       => $bn_online_only,
 		'restNonce'        => $bn_rest_nonce,
 		'restUrl'          => esc_url_raw( rest_url( 'buddynext/v1' ) ),
 		'loading'          => false,
