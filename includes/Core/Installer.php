@@ -262,7 +262,7 @@ class Installer {
 	 *      member preference toggle, a seeded email template and an Email Editor entry.
 	 *      Clears the seeded template row and any saved preference rows.
 	 */
-	private const SCHEMA_VERSION = 30;
+	private const SCHEMA_VERSION = 31;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.

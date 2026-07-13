@@ -55,7 +55,7 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * add_custom_schedules() returns the input array unmodified.
+	 * The add_custom_schedules() filter returns the input array unmodified.
 	 */
 	public function test_add_custom_schedules_returns_input_unchanged(): void {
 		$input  = array(
@@ -93,15 +93,23 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Calling schedule_events() registers the notifications cleanup event.
+	 * The retired log-retention jobs are NOT scheduled any more.
+	 *
+	 * This assertion used to be the exact inverse — it required the scheduler to register
+	 * `buddynext_cleanup_notifications`. That job pruned bn_notifications and bn_email_log
+	 * weekly on `buddynext_data_retention_days`, while LogRetentionService pruned the SAME
+	 * two tables daily on a different option. Two owners, and the daily sweep always won,
+	 * so the setting the admin could actually see did nothing. LogRetentionService is now
+	 * the sole owner; scheduling these again would restore the duplicate.
 	 */
-	public function test_schedule_events_registers_cleanup_notifications(): void {
+	public function test_retired_log_retention_jobs_are_not_scheduled(): void {
 		$this->scheduler->schedule_events();
-		$this->assertTrue( as_has_scheduled_action( 'buddynext_cleanup_notifications', array(), CronScheduler::GROUP ) );
+		$this->assertFalse( as_has_scheduled_action( 'buddynext_cleanup_notifications', array(), CronScheduler::GROUP ) );
+		$this->assertFalse( as_has_scheduled_action( 'buddynext_cleanup_email_log', array(), CronScheduler::GROUP ) );
 	}
 
 	/**
-	 * recount_stats is registered as a recurring Action Scheduler action (the
+	 * The recount_stats job is a recurring Action Scheduler action (the
 	 * scheduler migrated off native WP-Cron / the old buddynext_5min recurrence).
 	 */
 	public function test_recount_stats_is_scheduled_daily(): void {
@@ -119,23 +127,30 @@ class CronSchedulerTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * run_cron_migration() clears the removed events.
+	 * The run_cron_migration() upgrade routine clears the removed events.
 	 */
 	public function test_run_cron_migration_clears_removed_events(): void {
 		// Manually seed the legacy events to simulate an existing install.
 		wp_schedule_event( time(), 'daily', 'buddynext_publish_scheduled' );
 		wp_schedule_event( time(), 'daily', 'buddynext_trending_hashtags' );
 		wp_schedule_event( time(), 'daily', 'buddynext_webhook_retry' );
+		// The retired duplicate-retention jobs. An existing install already has these
+		// armed, so deleting the handlers is not enough — an unhandled job would just
+		// fire into nothing forever. The migration has to unschedule them.
+		wp_schedule_event( time(), 'daily', 'buddynext_cleanup_notifications' );
+		wp_schedule_event( time(), 'daily', 'buddynext_cleanup_email_log' );
 
 		CronScheduler::run_cron_migration();
 
 		$this->assertFalse( wp_next_scheduled( 'buddynext_publish_scheduled' ) );
 		$this->assertFalse( wp_next_scheduled( 'buddynext_trending_hashtags' ) );
 		$this->assertFalse( wp_next_scheduled( 'buddynext_webhook_retry' ) );
+		$this->assertFalse( wp_next_scheduled( 'buddynext_cleanup_notifications' ), 'The retired notifications-cleanup job is still armed on an upgraded install.' );
+		$this->assertFalse( wp_next_scheduled( 'buddynext_cleanup_email_log' ), 'The retired email-log-cleanup job is still armed on an upgraded install.' );
 	}
 
 	/**
-	 * run_cron_migration() migrates recount_stats off a non-daily recurrence.
+	 * The run_cron_migration() upgrade routine migrates recount_stats off a non-daily recurrence.
 	 */
 	public function test_run_cron_migration_reschedules_recount_stats(): void {
 		// Simulate a legacy install: recount_stats is on a fake 5-min interval.

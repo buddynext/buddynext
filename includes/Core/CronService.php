@@ -290,38 +290,11 @@ class CronService {
 		return $count > 0;
 	}
 
-	// ── Notification pruning ──────────────────────────────────────────────────
-
-	/**
-	 * Delete read notifications older than the configured data-retention window.
-	 *
-	 * Runs weekly. The window is the Privacy → "Data Retention Days" setting
-	 * (buddynext_data_retention_days, default 365). A value of 0 (or less)
-	 * disables pruning so read notifications are kept indefinitely. Only rows
-	 * where is_read = 1 are removed; unread notifications are preserved
-	 * regardless of age.
-	 *
-	 * @return void
-	 */
-	public function handle_cleanup_notifications(): void {
-		$retention_days = (int) get_option( 'buddynext_data_retention_days', 365 );
-		if ( $retention_days <= 0 ) {
-			return;
-		}
-
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
-			$wpdb->prepare(
-				"DELETE FROM {$wpdb->prefix}bn_notifications
-				  WHERE is_read = 1
-				    AND created_at < DATE_SUB( NOW(), INTERVAL %d DAY )",
-				$retention_days
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	}
+	// Notification pruning moved to LogRetentionService — see the note further down,
+	// above "Stats recount". This method also ran an UNBOUNDED `DELETE ... WHERE
+	// created_at < x` with no LIMIT and no batch loop, while all three of its siblings
+	// in this file batched: on a large table that takes a long lock, and on shared
+	// hosting that is an outage. Deleting it resolves that too.
 
 	// ── Activity-log pruning ──────────────────────────────────────────────────
 
@@ -412,39 +385,25 @@ class CronService {
 		} while ( $deleted > 0 && $max_batches > 0 );
 	}
 
-	/**
-	 * Prune old bn_email_log rows (weekly).
-	 *
-	 * The bn_email_log table grows one row per email sent (digests + identity
-	 * sends) and had no retention — the fastest-growing table at scale. Mirrors
-	 * the activity-log
-	 * prune: honours buddynext_data_retention_days (default 365; 0 disables),
-	 * batched 1,000/iteration up to 50k/run, keyed on sent_at.
-	 *
-	 * @return void
-	 */
-	public function handle_cleanup_email_log(): void {
-		$retention_days = (int) get_option( 'buddynext_data_retention_days', 365 );
-		if ( $retention_days <= 0 ) {
-			return;
-		}
-
-		global $wpdb;
-
-		$cutoff      = gmdate( 'Y-m-d H:i:s', time() - ( $retention_days * DAY_IN_SECONDS ) );
-		$max_batches = 50; // up to 50k rows per weekly run.
-
-		do {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$deleted = $wpdb->query(
-				$wpdb->prepare(
-					"DELETE FROM {$wpdb->prefix}bn_email_log WHERE sent_at < %s LIMIT 1000",
-					$cutoff
-				)
-			);
-			--$max_batches;
-		} while ( $deleted > 0 && $max_batches > 0 );
-	}
+	// bn_notifications and bn_email_log are NOT pruned here any more.
+	//
+	// handle_cleanup_notifications() and handle_cleanup_email_log() used to live here,
+	// pruning both tables weekly on buddynext_data_retention_days. LogRetentionService
+	// prunes the SAME two tables daily on its own window — so two systems purged the
+	// same rows on different schedules under different options, and the daily 60-day
+	// sweep always reached a row before the weekly 365-day one did.
+	//
+	// The owner's visible "Data retention (days)" setting was therefore DEAD for these
+	// two tables: they could set 365, save it, and notifications still vanished at 60.
+	//
+	// LogRetentionService is the better implementation and is now the sole owner: daily
+	// rather than weekly, batched, and it keeps UNREAD notifications to a separate hard
+	// max so nothing a member has not seen is dropped on a short window. Its option is
+	// now exposed in Settings, so the control the owner sees is the control that runs.
+	//
+	// buddynext_data_retention_days SURVIVES — handle_cleanup_activity_log() and
+	// handle_cleanup_reports() above still honour it. It just no longer claims to
+	// govern the two log tables it never actually governed.
 
 	// ── Stats recount ─────────────────────────────────────────────────────────
 

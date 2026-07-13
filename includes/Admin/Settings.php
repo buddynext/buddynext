@@ -697,11 +697,35 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'default' => 365,
 							'min'     => 0,
 							'max'     => 3650,
-							// Name every table this deletes. It previously said "activity log
-							// entries" while also purging read notifications, the email log,
-							// closed reports and (with Pro) analytics events — an owner cannot
-							// consent to a deletion they were never told about.
-							'hint'    => __( 'Automatically delete records older than this: activity log, read notifications, email log, closed moderation reports, and (with Pro) analytics events. Open reports and the moderation log are never deleted. Set to 0 to keep everything indefinitely.', 'buddynext' ),
+							// Name every table this deletes, and ONLY the ones it actually
+							// deletes. It used to promise "read notifications, email log" as
+							// well — and it never governed them: LogRetentionService pruned
+							// both on its own, shorter window, so an owner could set 365 here
+							// and still lose notifications at 60. Those two tables now have
+							// their own setting, below, and this hint no longer claims them.
+							//
+							// An owner cannot consent to a deletion they were never told about,
+							// and they cannot rely on a promise the code does not keep.
+							'hint'    => __( 'Automatically delete records older than this: activity log, closed moderation reports, and (with Pro) analytics events. Open reports and the moderation log are never deleted. Set to 0 to keep them indefinitely.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_log_retention_days',
+							'type'    => 'select',
+							'label'   => __( 'Notification & email log retention', 'buddynext' ),
+							'default' => 60,
+							'choices' => array(
+								30 => __( '30 days', 'buddynext' ),
+								60 => __( '60 days', 'buddynext' ),
+								90 => __( '90 days', 'buddynext' ),
+							),
+							// This option already existed and already ran — it simply had NO UI,
+							// so the owner had no way to see or change the window that actually
+							// governed these two tables. It is the fastest-growing pair on a big
+							// install (one row per notification, one per email), and it was being
+							// pruned on a value nobody could reach.
+							'hint'    => __( 'How long to keep read notifications and the email log. These are the fastest-growing tables on a busy community, so they are kept on a shorter window than the rest. Unread notifications are kept longer, so nothing a member has not seen is deleted early.', 'buddynext' ),
 						)
 					),
 					new Field(

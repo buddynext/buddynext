@@ -2,11 +2,22 @@
 /**
  * Log retention — age-purge for bn_notifications and bn_email_log.
  *
- * Both tables were append-only. Nothing ever deleted from them, so they grew forever:
- * one row per notification and one per email, for the life of the site. At 100k members
- * they become the largest tables on the install and they bloat every nightly backup,
- * which is the part that actually hurts — the site stays up, the backups get slower and
- * fatter until someone notices.
+ * THE SOLE OWNER of these two tables' retention. It was not always: CronService also
+ * pruned both, weekly, under the separate `buddynext_data_retention_days` option — the
+ * ONLY retention setting the owner could actually see in the admin. Two systems purging
+ * the same two tables on different schedules under different options, and the daily
+ * 60-day sweep here always reached a row before the weekly 365-day one did.
+ *
+ * So the owner's visible setting was DEAD for these tables. They could set "Data
+ * retention: 365 days", save it, and notifications would still vanish at 60 — governed by
+ * an option with no UI at all. Those CronService handlers are now deleted, and this
+ * service's own option is exposed in Settings, so the control the owner sees is the
+ * control that runs.
+ *
+ * (This class's docblock previously claimed "Both tables were append-only. Nothing ever
+ * deleted from them, so they grew forever." That was untrue on the day it was written —
+ * CronService had been deleting from both for months. A file that lies about itself gets
+ * believed by the next reader, and this one did.)
  *
  * The owner picks a window (30 / 60 / 90 days, default 60). Read notifications and
  * email-log rows older than the window are deleted.
