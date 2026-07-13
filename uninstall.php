@@ -3,9 +3,17 @@
  * BuddyNext uninstall routine.
  *
  * Runs when the plugin is deleted from the WordPress admin (or via WP-CLI).
- * Drops every BuddyNext database table and removes BuddyNext options and user
- * meta so a delete leaves nothing behind. WordPress executes this file
- * automatically on uninstall — no register_uninstall_hook() is required.
+ * Removes everything BuddyNext owns — and nothing else. WordPress executes this
+ * file automatically on uninstall; no register_uninstall_hook() is required.
+ *
+ * A plugin may only delete what it owns. BuddyNext Pro names its 18 tables with
+ * the same `bn_` prefix and keeps options under `buddynext_pro_`, so the previous
+ * wildcard sweeps here (`SHOW TABLES LIKE '{prefix}bn_%'` and
+ * `option_name LIKE 'buddynext_%'`) reached across the seam: deleting Free
+ * dropped Pro's invoices, subscriptions and membership tiers, and wiped Pro's
+ * page mapping — on every site running both. Free now names its own tables
+ * explicitly (Installer::OWNED_TABLES) and skips the Pro option namespace. Pro
+ * cleans up after itself in its own uninstall.php.
  *
  * @package BuddyNext
  */
@@ -17,20 +25,30 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 
 global $wpdb;
 
+// The plugin is not booted during uninstall, so there is no autoloader. Load the
+// installer directly for its OWNED_TABLES list — the same class that creates the
+// tables names them, so the two cannot drift apart.
+require_once __DIR__ . '/includes/Core/Installer.php';
+
 /**
- * Drop every {$prefix}bn_* table for a single site's table prefix.
+ * Drop the tables BuddyNext owns for a single site's table prefix.
+ *
+ * Named explicitly, never discovered by prefix match — see the file header.
  *
  * @param string $prefix Table prefix for the site being cleaned.
  * @return void
  */
 $bn_drop_tables = static function ( $prefix ) use ( $wpdb ) {
-	$like   = $wpdb->esc_like( $prefix . 'bn_' ) . '%';
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$tables = $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $like ) );
-	foreach ( (array) $tables as $table ) {
-		// Table names come straight from SHOW TABLES, so they are safe to interpolate.
+	$bn_tables = array_merge(
+		\BuddyNext\Core\Installer::OWNED_TABLES,
+		\BuddyNext\Core\Installer::LEGACY_TABLES
+	);
+
+	foreach ( $bn_tables as $bn_table ) {
+		$bn_full = $prefix . $bn_table;
+		// The name is a constant from our own class, not user input.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$wpdb->query( "DROP TABLE IF EXISTS `{$table}`" );
+		$wpdb->query( "DROP TABLE IF EXISTS `{$bn_full}`" );
 	}
 };
 
@@ -40,13 +58,21 @@ $bn_drop_tables = static function ( $prefix ) use ( $wpdb ) {
  * @return void
  */
 $bn_purge_meta = static function () use ( $wpdb ) {
-	// Options: buddynext_* (settings, versions, flags).
+	// Options: buddynext_* (settings, versions, flags) — but NOT buddynext_pro_*,
+	// which belongs to Pro (its page mapping and rewrite version live there).
+	// Pro's licence options use the `buddynext-pro_` prefix and never matched.
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	$wpdb->query(
-		$wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( 'buddynext_' ) . '%' )
+		$wpdb->prepare(
+			"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s AND option_name NOT LIKE %s",
+			$wpdb->esc_like( 'buddynext_' ) . '%',
+			$wpdb->esc_like( 'buddynext_pro_' ) . '%'
+		)
 	);
 
 	// User meta: bn_* and buddynext_* (last-login, onboarding, privacy, etc.).
+	// Pro writes no user meta under either prefix — it keeps per-user state in its
+	// own tables, which its own uninstall handles.
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	$wpdb->query(
 		$wpdb->prepare(

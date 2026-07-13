@@ -18,6 +18,80 @@ namespace BuddyNext\Core;
 class Installer {
 
 	/**
+	 * Every table this plugin owns, unprefixed. The authoritative list.
+	 *
+	 * `uninstall.php` drops exactly these and nothing else. It used to discover
+	 * tables with `SHOW TABLES LIKE '{prefix}bn_%'`, which is not the same set:
+	 * BuddyNext Pro also names its 18 tables `bn_*` (bn_invoices, bn_subscriptions,
+	 * bn_membership_tiers …), so deleting Free destroyed Pro's financial records on
+	 * every site running both. A plugin may only delete what it owns — see
+	 * DATA-LIFECYCLE.md.
+	 *
+	 * Keep this in step with install_schema(): a table created there but missing
+	 * here leaks on uninstall. InstallerOwnedTablesTest asserts the two agree.
+	 *
+	 * @var string[]
+	 */
+	public const OWNED_TABLES = array(
+		'bn_activity_log',
+		'bn_appeals',
+		'bn_blocks',
+		'bn_bookmarks',
+		'bn_comments',
+		'bn_connections',
+		'bn_email_log',
+		'bn_email_templates',
+		'bn_follows',
+		'bn_hashtag_follows',
+		'bn_hashtags',
+		'bn_invites',
+		'bn_member_type_assignments',
+		'bn_member_types',
+		'bn_mod_log',
+		'bn_notification_prefs',
+		'bn_notifications',
+		'bn_outbound_webhook_log',
+		'bn_outbound_webhooks',
+		'bn_poll_options',
+		'bn_poll_votes',
+		'bn_post_hashtags',
+		'bn_posts',
+		'bn_presence',
+		'bn_profile_fields',
+		'bn_profile_groups',
+		'bn_profile_values',
+		'bn_reactions',
+		'bn_reports',
+		'bn_search_index',
+		'bn_shares',
+		'bn_space_bans',
+		'bn_space_categories',
+		'bn_space_members',
+		'bn_space_meta',
+		'bn_spaces',
+		'bn_user_strikes',
+		'bn_user_suspensions',
+		'bn_verify_tokens',
+		'bn_webhook_log',
+	);
+
+	/**
+	 * Tables Free created in an earlier version and no longer creates.
+	 *
+	 * We still own them, so uninstall still drops them — otherwise a table left on
+	 * every install that ever ran the older version would survive a delete forever.
+	 * Retiring a table means removing it from install_schema() AND listing it here;
+	 * dropping it from the code alone only stops NEW installs from getting it.
+	 *
+	 * bn_feed_items — dead fan-out table, removed from the schema in 85b20825.
+	 *
+	 * @var string[]
+	 */
+	public const LEGACY_TABLES = array(
+		'bn_feed_items',
+	);
+
+	/**
 	 * Filename for the mu-plugin that provides front-end plugin isolation.
 	 */
 	private const MU_PLUGIN_SLUG = 'buddynext-isolation.php';
