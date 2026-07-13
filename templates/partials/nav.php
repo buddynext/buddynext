@@ -66,10 +66,6 @@ $bn_nav_current_user = get_current_user_id();
 $bn_unread_notifs    = $bn_nav_current_user
 	? (int) buddynext_service( 'notifications' )->unread_count( $bn_nav_current_user )
 	: 0;
-$bn_unread_messages  = $bn_nav_current_user && class_exists( '\BuddyNext\Messages\MessagesData' )
-	? (int) \BuddyNext\Messages\MessagesData::unread_count( $bn_nav_current_user )
-	: 0;
-$bn_messages_on      = class_exists( '\BuddyNext\Messages\MessagesData' ) && \BuddyNext\Messages\MessagesData::entry_enabled();
 
 /**
  * Level 2 Context Nav — per-section sub-navigation.
@@ -110,6 +106,15 @@ if ( $bn_nav_current_user ) :
 	// Hide the Spaces slot when the feature is off (the Spaces page itself is
 	// already guarded by PageRouter), so the bottom bar never links to a
 	// disabled surface.
+	//
+	// EXACTLY FIVE SLOTS — do not add a sixth. Create is centred by arithmetic,
+	// not by a CSS offset: it is `flex: 0 0 44px` between two `flex: 1` items on
+	// each side, so with 5 slots it lands on the viewport centre on its own. A
+	// sixth slot silently breaks that — Messages was previously a 6th item, which
+	// pushed Create 35px left of centre at 390px and squeezed every label to 69px.
+	// Messages is NOT in the bar: it is reachable from the theme header (Reign's
+	// Mobile Header Icons expose Message + Notification) and from the rail at
+	// >= 640px. If a slot must be added, one has to come out.
 	$bn_spaces_enabled = ! function_exists( 'buddynext_service' )
 		|| ! is_object( buddynext_service( 'features' ) )
 		|| buddynext_service( 'features' )->is_enabled( 'spaces' );
@@ -145,15 +150,6 @@ if ( $bn_nav_current_user ) :
 			'show'        => true,
 			'badge'       => true,
 			'badge_count' => $bn_unread_notifs,
-		),
-		array(
-			'key'         => 'messages',
-			'url'         => $bn_nav_urls['messages'],
-			'icon'        => 'message-circle',
-			'label'       => __( 'Messages', 'buddynext' ),
-			'show'        => (bool) $bn_nav_current_user && $bn_messages_on,
-			'badge'       => true,
-			'badge_count' => $bn_unread_messages,
 		),
 		array(
 			'key'   => 'profile',

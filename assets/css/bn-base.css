@@ -980,19 +980,35 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	}
 	.bn-mobile-nav__item[aria-current="page"] { color: var(--brand); }
 	.bn-mobile-nav__item[aria-current="page"] svg { stroke: var(--brand); }
+	/* Centred by arithmetic, not by an offset: a fixed-width slot between two
+	   flex:1 items on each side lands on the viewport centre only while the bar
+	   has exactly 5 slots. See templates/partials/nav.php — do not add a 6th. */
 	.bn-mobile-nav__item--create {
 		background: var(--brand);
 		color: var(--text-on-brand);
-		width: 44px;
-		height: 44px;
+		width: 52px;
+		height: 52px;
 		border-radius: 50%;
-		margin-top: -12px;
-		box-shadow: 0 2px 12px rgba(0, 115, 170, 0.3);
+		/* Lift the disc clear of the bar so it reads as the primary action rather
+		   than a sixth tab, without leaving the row (no notch/overlap needed). */
+		margin-top: -16px;
+		box-shadow:
+			0 6px 16px color-mix(in srgb, var(--brand) 36%, transparent),
+			0 2px 4px color-mix(in srgb, var(--brand) 24%, transparent);
 		padding: 0;
 		flex: 0 0 auto;
 		justify-content: center;
+		transition: transform 0.15s ease, box-shadow 0.15s ease;
 	}
-	.bn-mobile-nav__item--create svg { stroke: var(--text-on-brand); }
+	.bn-mobile-nav__item--create:active {
+		transform: scale(0.94);
+		box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 30%, transparent);
+	}
+	.bn-mobile-nav__item--create svg {
+		stroke: var(--text-on-brand);
+		width: 24px;
+		height: 24px;
+	}
 	.bn-mobile-nav__item--create span { display: none; }
 	.bn-mobile-nav__badge {
 		position: absolute;
