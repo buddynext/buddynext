@@ -44,40 +44,6 @@ class PwaService {
 	}
 
 	/**
-	 * Resolve the manifest theme colour used for the generated app icon.
-	 *
-	 * Reads the colour from the (filtered) manifest so the icon stays in
-	 * sync with whatever a site sets via `buddynext_pwa_manifest`. Falls
-	 * back to the default brand blue and rejects anything that is not a
-	 * 3/6-digit hex so the generated SVG can never be malformed.
-	 *
-	 * @param array<string, mixed> $manifest Manifest data.
-	 * @return string A safe `#rrggbb`/`#rgb` hex colour.
-	 */
-	private function icon_color( array $manifest ): string {
-		$color = isset( $manifest['theme_color'] ) ? (string) $manifest['theme_color'] : '#0073aa';
-		if ( ! preg_match( '/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $color ) ) {
-			$color = '#0073aa';
-		}
-		return $color;
-	}
-
-	/**
-	 * Derive the single-letter brand glyph for the generated app icon.
-	 *
-	 * Uses the first character of the site name (uppercased) so the
-	 * home-screen icon reads as the community's own mark. Defaults to
-	 * `B` (BuddyNext) when the site name is empty.
-	 *
-	 * @return string A single, escaped uppercase character.
-	 */
-	private function icon_glyph(): string {
-		$name  = trim( (string) get_bloginfo( 'name' ) );
-		$glyph = '' !== $name ? mb_strtoupper( mb_substr( $name, 0, 1 ) ) : 'B';
-		return $glyph;
-	}
-
-	/**
 	 * Enqueue the client bootstrap that registers the service worker.
 	 *
 	 * The behaviour lives in assets/js/pwa/sw-register.js (no inline script —
@@ -195,39 +161,6 @@ class PwaService {
 		);
 	}
 
-	/**
-	 * Return the generated app-icon SVG markup.
-	 *
-	 * Produces an opaque, square, maskable icon: a solid brand-coloured
-	 * rounded tile carrying the site's initial. Built entirely from the
-	 * manifest values (theme colour + site name) so it tracks any site
-	 * customisation made through `buddynext_pwa_manifest`. Self-contained
-	 * with literal colours — CSS `--bn-*` tokens are intentionally NOT used
-	 * here because the icon is fetched standalone by the browser, outside
-	 * any stylesheet context, where custom properties do not resolve.
-	 *
-	 * Drawn on a 512×512 canvas with the glyph kept inside the central
-	 * ~80% "safe zone" so the maskable purpose survives aggressive
-	 * platform cropping.
-	 *
-	 * @return string SVG source.
-	 */
-	public function get_app_icon_svg(): string {
-		$manifest = $this->get_manifest();
-		$color    = $this->icon_color( $manifest );
-		$glyph    = $this->icon_glyph();
-
-		$safe_glyph = htmlspecialchars( $glyph, ENT_QUOTES | ENT_XML1, 'UTF-8' );
-		$safe_color = htmlspecialchars( $color, ENT_QUOTES | ENT_XML1, 'UTF-8' );
-
-		return <<<SVG
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="App icon">
-  <rect width="512" height="512" rx="96" ry="96" fill="{$safe_color}"/>
-  <text x="256" y="256" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="288" font-weight="700">{$safe_glyph}</text>
-</svg>
-SVG;
-	}
-
 	// ── Service worker ────────────────────────────────────────────────────────
 
 	/**
@@ -320,15 +253,15 @@ JS;
 			)
 		);
 
-		register_rest_route(
-			self::REST_NAMESPACE,
-			'/pwa/icon',
-			array(
-				'methods'             => \WP_REST_Server::READABLE,
-				'callback'            => array( $this, 'rest_app_icon' ),
-				'permission_callback' => '__return_true',
-			)
-		);
+		// There is deliberately NO /pwa/icon route.
+		//
+		// It existed, it was broken in the same way the service worker was (the REST
+		// server JSON-encoded the SVG body), and NOTHING consumed it — get_manifest()
+		// points its icons at real PNG files, because Chromium rejects REST-served SVG
+		// manifest icons ("isn't a valid image"). So it was a broken, unreachable route
+		// that looked like a working icon endpoint: the next person needing an icon URL
+		// would have reached for it and shipped a broken image. Removed rather than
+		// repaired.
 	}
 
 	/**
@@ -346,28 +279,60 @@ JS;
 	/**
 	 * REST callback — serve the service worker JavaScript.
 	 *
-	 * @return \WP_HTTP_Response
+	 * @param \WP_REST_Request $request Incoming request (used to scope the raw serve).
+	 * @return \WP_REST_Response
 	 */
-	public function rest_service_worker(): \WP_HTTP_Response {
-		$response = new \WP_HTTP_Response( $this->get_service_worker_script(), 200 );
-		$response->header( 'Content-Type', 'application/javascript' );
-		$response->header( 'Service-Worker-Allowed', '/' );
-		$response->header( 'Cache-Control', 'no-cache' );
-		return $response;
-	}
+	public function rest_service_worker( \WP_REST_Request $request ): \WP_REST_Response {
+		$script = $this->get_service_worker_script();
+		$route  = (string) $request->get_route();
 
-	/**
-	 * REST callback — serve the generated app-icon SVG.
-	 *
-	 * Referenced by the manifest `icons` entries. Served as image/svg+xml
-	 * so Chromium treats it as a valid installable icon.
-	 *
-	 * @return \WP_HTTP_Response
-	 */
-	public function rest_app_icon(): \WP_HTTP_Response {
-		$response = new \WP_HTTP_Response( $this->get_app_icon_svg(), 200 );
-		$response->header( 'Content-Type', 'image/svg+xml' );
-		$response->header( 'Cache-Control', 'public, max-age=86400' );
-		return $response;
+		// SERVE THE SCRIPT RAW. A service worker is JavaScript, not an API resource.
+		//
+		// Returning a WP_HTTP_Response whose body is a string does NOT serve that
+		// string: the REST server runs the response data through wp_json_encode()
+		// regardless of the Content-Type header you set on it. Setting the header
+		// changes the header, not the serializer. So the browser received
+		//
+		// "'use strict';\n\nconst CACHE_NAME = 'buddynext-v1.0.7';\n…"
+		//
+		// — a JSON string literal, quoted and escaped.
+		//
+		// And that is WORSE than a broken script, because it is VALID JavaScript: a
+		// string expression that evaluates to a string and does nothing. It does not
+		// throw. So navigator.serviceWorker.register() SUCCEEDED, the browser installed
+		// the worker, and the worker had ZERO event listeners — every
+		// self.addEventListener() was trapped inside the string. The .catch() on the
+		// register call never fired, because nothing failed.
+		//
+		// Result: every customer had a service worker that was installed, "active", and
+		// completely inert — no offline cache, no precache, no push handling — with no
+		// console error, no failed request, and nothing in any log to reveal it.
+		//
+		// rest_pre_serve_request is the supported way out: echo the bytes ourselves and
+		// tell the REST server we already served the response.
+		add_filter(
+			'rest_pre_serve_request',
+			static function ( bool $served, $result, \WP_REST_Request $req ) use ( $script, $route ): bool {
+				if ( (string) $req->get_route() !== $route ) {
+					return $served;
+				}
+
+				if ( ! headers_sent() ) {
+					header( 'Content-Type: application/javascript; charset=utf-8' );
+					// The worker is served from /wp-json/…, but it must control the whole
+					// site, so it has to be allowed a scope above its own path.
+					header( 'Service-Worker-Allowed: /' );
+					header( 'Cache-Control: no-cache' );
+				}
+
+				echo $script; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JavaScript source, not HTML; escaping it is what broke this in the first place.
+
+				return true;
+			},
+			10,
+			3
+		);
+
+		return new \WP_REST_Response( null, 200 );
 	}
 }
