@@ -1884,6 +1884,72 @@ class PostService {
 	}
 
 	/**
+	 * Publish a SCHEDULED post immediately, at now.
+	 *
+	 * Free owned every other publish transition and this one was missing, so Pro's "Publish
+	 * Now" button hand-rolled a raw UPDATE — and hand-rolled it differently. It set status and
+	 * cleared scheduled_at, and never touched created_at. Feeds order by `created_at DESC`, so
+	 * the post went live at the moment it was COMPOSED: schedule something on the 1st for the
+	 * 20th, hit Publish Now on the 5th, and it appears buried under four days of feed. The
+	 * author pressed a button called Publish Now and nobody saw the post.
+	 *
+	 * Every other publish path already bumps the timestamp for exactly this reason —
+	 * mark_published() (the cron), approve_pending() (moderation). The convention was
+	 * established everywhere except the one button whose name promises it.
+	 *
+	 * Clearing scheduled_at is load-bearing, not tidiness: a post left with a future
+	 * scheduled_at is a post the scheduling layer still believes is pending.
+	 *
+	 * @param int $post_id Post to publish.
+	 * @return bool True when the row was updated.
+	 */
+	public function publish_scheduled_now( int $post_id ): bool {
+		if ( $post_id <= 0 ) {
+			return false;
+		}
+
+		$now = current_time( 'mysql', true );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'status'           => 'published',
+				'scheduled_at'     => null,
+				'created_at'       => $now,
+				'last_activity_at' => $now,
+			),
+			array( 'id' => $post_id ),
+			array( '%s', '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( false === $updated ) {
+			return false;
+		}
+
+		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+
+		// Re-arm: the cron event may still be pointing at a post that is no longer scheduled.
+		// set_schedule() and clear_schedule() both re-arm; this is the third transition and
+		// must too.
+		ScheduledPostsPublisher::arm();
+
+		/**
+		 * Fires when a scheduled post is published ahead of its schedule.
+		 *
+		 * @since 1.0.8
+		 *
+		 * @param int $post_id The post that went live.
+		 */
+		do_action( 'buddynext_scheduled_post_published', $post_id );
+
+		return true;
+	}
+
+	/**
 	 * Approve a held ('pending') post: publish it now and run the live
 	 * side-effects (feed fan-out, notifications, indexing, mentions) that were
 	 * deferred at creation. The post is timestamped to the approval moment so it
