@@ -988,6 +988,28 @@ class MemberDirectoryService {
 	}
 
 	/**
+	 * Per-request memo of the searchable mirror keys.
+	 *
+	 * Was a `static $keys` INSIDE the method, which nothing could reach — so the wp_cache key was
+	 * invalidated when a field changed and this memo was not. Anything that had already asked in
+	 * the same request went on indexing with the pre-edit key list, and a newly-searchable field
+	 * silently missed the index. A cache you cannot invalidate is not a cache, it is a bug with a
+	 * speed benefit.
+	 *
+	 * @var array<int,string>|null
+	 */
+	private static ?array $mirror_keys_memo = null;
+
+	/**
+	 * Drop the per-request memo. Call wherever the mirror-key cache is invalidated.
+	 *
+	 * @return void
+	 */
+	public static function flush_mirror_keys_memo(): void {
+		self::$mirror_keys_memo = null;
+	}
+
+	/**
 	 * Build the list of `bn_field_{key}` usermeta keys whose mirrors are
 	 * eligible for free-text directory search.
 	 *
@@ -1003,16 +1025,15 @@ class MemberDirectoryService {
 	 * @return string[] Usermeta keys, e.g. array( 'bn_field_skills', 'bn_field_role' ).
 	 */
 	public function searchable_mirror_keys(): array {
-		static $keys = null;
-
-		if ( null !== $keys ) {
-			return $keys;
+		if ( null !== self::$mirror_keys_memo ) {
+			return self::$mirror_keys_memo;
 		}
 
 		$cached = wp_cache_get( 'bn_dir_searchable_mirrors', 'buddynext' );
 		if ( is_array( $cached ) ) {
-			$keys = $cached;
-			return $keys;
+			self::$mirror_keys_memo = $cached;
+
+			return self::$mirror_keys_memo;
 		}
 
 		$keys     = array();
@@ -1058,6 +1079,7 @@ class MemberDirectoryService {
 		}
 
 		wp_cache_set( 'bn_dir_searchable_mirrors', $keys, 'buddynext', 300 );
+		self::$mirror_keys_memo = $keys;
 
 		return $keys;
 	}

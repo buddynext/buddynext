@@ -33,6 +33,17 @@ class ProfileService {
 	private const CACHE_GROUP = 'buddynext_profiles';
 
 	/**
+	 * Usermeta prefix for the MEMBERS-tier search mirror.
+	 *
+	 * Deliberately a different key from the public `bn_field_` mirror rather than a flag on the
+	 * same one: the anonymous search path never reads this prefix, so a value visible only to
+	 * members cannot leak into a public result by getting a boolean check wrong somewhere.
+	 *
+	 * @var string
+	 */
+	public const MEMBERS_MIRROR_PREFIX = 'bn_mfield_';
+
+	/**
 	 * Cache TTL in seconds (10 minutes).
 	 */
 	private const CACHE_TTL = 600;
@@ -1837,16 +1848,31 @@ class ProfileService {
 		if ( '' !== $bio ) {
 			$parts[] = $bio;
 		}
-		$directory = buddynext_service( 'member_directory' );
+		// PUBLIC searchable field values → content (matched for everyone, including strangers).
+		// MEMBERS-tier values            → content_members (matched only for a logged-in viewer).
+		//
+		// Two columns, not one column plus a filter, because the anonymous query then never even
+		// NAMES content_members — the privacy boundary is structural instead of conditional, and
+		// there is no flag left to get wrong.
+		$member_parts = array();
+		$directory    = buddynext_service( 'member_directory' );
 		if ( is_object( $directory ) && method_exists( $directory, 'searchable_mirror_keys' ) ) {
 			foreach ( $directory->searchable_mirror_keys() as $mirror_key ) {
 				$mirror_val = (string) get_user_meta( $user_id, (string) $mirror_key, true );
 				if ( '' !== $mirror_val ) {
 					$parts[] = $mirror_val;
 				}
+
+				// Same field, members-tier mirror.
+				$members_key = self::MEMBERS_MIRROR_PREFIX . substr( (string) $mirror_key, strlen( 'bn_field_' ) );
+				$members_val = (string) get_user_meta( $user_id, $members_key, true );
+				if ( '' !== $members_val ) {
+					$member_parts[] = $members_val;
+				}
 			}
 		}
-		$content = trim( implode( ' ', array_values( array_unique( $parts ) ) ) );
+		$content         = trim( implode( ' ', array_values( array_unique( $parts ) ) ) );
+		$content_members = trim( implode( ' ', array_values( array_unique( $member_parts ) ) ) );
 
 		global $wpdb;
 
@@ -1854,12 +1880,13 @@ class ProfileService {
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT INTO {$wpdb->prefix}bn_search_index
-				    (object_type, object_id, title, content, author_id, visibility)
-				 VALUES ('user', %d, %s, %s, %d, 'public')
-				 ON DUPLICATE KEY UPDATE title = VALUES(title), content = VALUES(content), updated_at = NOW()",
+				    (object_type, object_id, title, content, content_members, author_id, visibility)
+				 VALUES ('user', %d, %s, %s, %s, %d, 'public')
+				 ON DUPLICATE KEY UPDATE title = VALUES(title), content = VALUES(content), content_members = VALUES(content_members), updated_at = NOW()",
 				$user_id,
 				$wp_user->display_name,
 				$content,
+				$content_members,
 				$user_id
 			)
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2590,23 +2617,57 @@ class ProfileService {
 	 * @return void
 	 */
 	private function sync_search_mirror( int $user_id, array $field, string $stored_value, ?string $entry_visibility ): void {
-		$meta_key   = 'bn_field_' . $field['field_key'];
-		$type       = isset( $field['type'] ) ? (string) $field['type'] : 'text';
-		$searchable = ! empty( $field['is_searchable'] )
+		$public_key  = 'bn_field_' . $field['field_key'];
+		$members_key = self::MEMBERS_MIRROR_PREFIX . $field['field_key'];
+		$type        = isset( $field['type'] ) ? (string) $field['type'] : 'text';
+
+		$indexable = ! empty( $field['is_searchable'] )
 			&& \BuddyNext\Profile\FieldType::is_text_searchable( $type )
-			&& 'public' === $this->effective_visibility( $field, $entry_visibility )
 			&& '' !== $stored_value;
 
-		if ( ! $searchable ) {
+		$visibility = $this->effective_visibility( $field, $entry_visibility );
+
+		// The mirror a value lands in is decided by WHO MAY SEE IT, and nothing else.
+		//
+		// `public`  → bn_field_{key}   → indexed into search_index.content         → anyone.
+		// `members` → bn_mfield_{key}  → indexed into search_index.content_members → logged in.
+		// anything else (followers / connections / private) → NO mirror at all.
+		//
+		// Before this, only `public` was ever mirrored, so a field marked searchable but visible
+		// to members was silently un-searchable: the owner ticked the box, saved, and nothing told
+		// them it could not work (Zoho #40859). Ticking "searchable" on a members-visible field now
+		// means what an owner would assume it means — a logged-in member can find it, a stranger
+		// cannot.
+		//
+		// followers / connections stay unindexed on purpose: answering them means resolving the
+		// searcher's relationship to every candidate at query time, which is a different (and much
+		// heavier) feature. What matters is that we no longer PRETEND to index them — the admin
+		// says so instead of the box quietly doing nothing.
+		$public_value  = ( $indexable && 'public' === $visibility ) ? $this->mirror_value( $field, $stored_value ) : '';
+		$members_value = ( $indexable && 'members' === $visibility ) ? $this->mirror_value( $field, $stored_value ) : '';
+
+		$this->write_mirror( $user_id, $public_key, $public_value );
+		$this->write_mirror( $user_id, $members_key, $members_value );
+	}
+
+	/**
+	 * Write or delete one search-mirror usermeta row.
+	 *
+	 * @param int    $user_id  Member.
+	 * @param string $meta_key Mirror key.
+	 * @param string $value    Value; '' deletes the mirror.
+	 * @return void
+	 */
+	private function write_mirror( int $user_id, string $meta_key, string $value ): void {
+		if ( '' === $value ) {
 			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 			delete_user_meta( $user_id, $meta_key );
+
 			return;
 		}
 
-		$mirror_value = $this->mirror_value( $field, $stored_value );
-
 		// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-		update_user_meta( $user_id, $meta_key, $mirror_value );
+		update_user_meta( $user_id, $meta_key, $value );
 	}
 
 	/**
@@ -2648,6 +2709,9 @@ class ProfileService {
 		// rebuild the index with the OLD searchable key list.
 		self::flush_definition_cache();
 		wp_cache_delete( 'bn_dir_searchable_mirrors', 'buddynext' );
+		// The wp_cache key was being cleared while a per-request memo of the SAME list was not, so
+		// anything that had already asked in this request kept indexing with the pre-edit key list.
+		MemberDirectoryService::flush_mirror_keys_memo();
 
 		global $wpdb;
 

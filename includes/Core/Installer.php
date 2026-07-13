@@ -737,8 +737,13 @@ class Installer {
 			// that already has it from an earlier run still routes through the
 			// transaction-safe LIKE path. DROP is a harmless no-op when absent.
 			$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index DROP INDEX ft_search" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index DROP INDEX ft_search_members" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 		} else {
 			$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index ADD FULLTEXT KEY ft_search (title, content)" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			// MATCH() must name exactly one FULLTEXT index's column list, so the members tier
+			// gets its own. This is what lets the logged-in query OR a second MATCH in without
+			// the anonymous query ever naming the column.
+			$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index ADD FULLTEXT KEY ft_search_members (content_members)" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 		}
 		$wpdb->suppress_errors( false );
 	}
@@ -785,6 +790,22 @@ class Installer {
 				// edit + signup) and input placeholder. Empty = render nothing.
 				'description'      => 'ADD COLUMN description VARCHAR(255) DEFAULT NULL',
 				'placeholder'      => 'ADD COLUMN placeholder VARCHAR(255) DEFAULT NULL',
+			),
+
+			// Members-tier searchable content, kept in its OWN column so it can never be
+			// matched for a visitor who is not logged in.
+			//
+			// A member row carries a single `visibility`, and it is 'public' — so anything
+			// written into `content` is matchable by an anonymous searcher. A profile field
+			// marked searchable but visible only to MEMBERS therefore could not be indexed at
+			// all, and was silently dropped: the owner ticked "searchable", saved, and nothing
+			// ever told them the box could not work (Zoho #40859).
+			//
+			// Splitting the tiers by COLUMN rather than by row keeps the privacy boundary
+			// structural: the anonymous query never names this column, so there is no filter
+			// to get wrong. `content` stays exactly what it was — public values only.
+			'bn_search_index'     => array(
+				'content_members' => 'ADD COLUMN content_members LONGTEXT DEFAULT NULL',
 			),
 		);
 
@@ -1985,6 +2006,7 @@ class Installer {
 				object_id BIGINT(20) UNSIGNED NOT NULL,
 				title VARCHAR(500) NOT NULL DEFAULT '',
 				content LONGTEXT DEFAULT NULL,
+				content_members LONGTEXT DEFAULT NULL,
 				author_id BIGINT(20) UNSIGNED DEFAULT NULL,
 				space_id BIGINT(20) UNSIGNED DEFAULT NULL,
 				visibility ENUM('public','private') NOT NULL DEFAULT 'public',

@@ -567,6 +567,20 @@ class SearchService {
 				$safe_query . '*'
 			);
 
+			// Members-tier profile values live in their own column with their own FULLTEXT index,
+			// and this is the ONLY place that names it. An anonymous searcher never reaches this
+			// branch, so a field a member chose to show only to other members cannot surface to a
+			// stranger — the boundary is structural, not a flag someone can get wrong later.
+			//
+			// MATCH() must name exactly one index's column list, which is why this is a second
+			// MATCH OR'd in rather than three columns in one.
+			if ( $viewer_id > 0 ) {
+				$search_condition = '( ' . $search_condition . ' OR ' . $wpdb->prepare(
+					'MATCH(si.content_members) AGAINST(%s IN BOOLEAN MODE)',
+					$safe_query . '*'
+				) . ' )';
+			}
+
 			// Exact/prefix name boost: FULLTEXT BOOLEAN MODE ranks title + content
 			// equally, and member rows store the name in content with an empty title,
 			// so an exact-name query was not surfaced first. This pre-prepared
@@ -647,6 +661,15 @@ class SearchService {
 			} else {
 				$like_match  = '( si.title LIKE %s OR si.content LIKE %s )';
 				$like_params = array( $like, $like );
+			}
+
+			// The members tier, on the fallback path too — and ONLY for a logged-in viewer. The
+			// FULLTEXT branch is the production path, but this is the one that runs on short
+			// queries, on a fuzzy retry, and on any host without a FULLTEXT index. Fixing privacy
+			// on one path and not the other would leave the hole open exactly where nobody looks.
+			if ( $viewer_id > 0 ) {
+				$like_match    = '( ' . $like_match . ' OR si.content_members LIKE %s )';
+				$like_params[] = $like;
 			}
 
 			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
