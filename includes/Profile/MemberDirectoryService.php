@@ -433,43 +433,48 @@ class MemberDirectoryService {
 		// Compute mutual connection counts post-query in a single batch to avoid
 		// the MySQL 5.7 "Can't reopen table" error that would occur if bn_connections
 		// were referenced twice in correlated SELECT-list subqueries.
+		// The viewer's peer set stays in SQL as a derived table. It used to be SELECTed into
+		// a PHP array and then interpolated back as an IN(...) list: for a member with 10k
+		// connections that is 10,000 ints round-tripped and a ~80KB SQL string, rebuilt
+		// uncached on every directory page view. The cost is O(viewer's degree), so it is
+		// the hubs — community managers, the people with the biggest graphs — who melt, on
+		// the surface every member loads.
+		//
+		// NOT paginated, deliberately. The card asks for a LIMIT on this query; a truncated
+		// peer set silently produces WRONG mutual counts, which is worse than a slow correct
+		// one. The fix is to stop materialising the set, not to cut it short.
 		$mutual_counts = array();
 		if ( $viewer_id_safe > 0 && ! empty( $user_ids ) ) {
+			$uid_in = implode( ',', array_map( 'intval', $user_ids ) );
+
 			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$viewer_peer_ids = $wpdb->get_col(
+			$m_rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT CASE WHEN c.requester_id = %d THEN c.recipient_id ELSE c.requester_id END
-					 FROM {$wpdb->prefix}bn_connections c
-					 WHERE c.status = 'accepted'
-					   AND ( c.requester_id = %d OR c.recipient_id = %d )",
+					"SELECT t.target_id, COUNT(*) AS cnt
+					   FROM (
+					       SELECT CASE WHEN c.requester_id IN ({$uid_in}) THEN c.requester_id ELSE c.recipient_id END AS target_id,
+					              CASE WHEN c.requester_id IN ({$uid_in}) THEN c.recipient_id ELSE c.requester_id END AS peer_id
+					         FROM {$wpdb->prefix}bn_connections c
+					        WHERE c.status = 'accepted'
+					          AND ( c.requester_id IN ({$uid_in}) OR c.recipient_id IN ({$uid_in}) )
+					   ) t
+					   INNER JOIN (
+					       SELECT CASE WHEN v.requester_id = %d THEN v.recipient_id ELSE v.requester_id END AS uid
+					         FROM {$wpdb->prefix}bn_connections v
+					        WHERE v.status = 'accepted'
+					          AND ( v.requester_id = %d OR v.recipient_id = %d )
+					   ) vp ON vp.uid = t.peer_id
+					  GROUP BY t.target_id",
 					$viewer_id_safe,
 					$viewer_id_safe,
 					$viewer_id_safe
-				)
+				),
+				ARRAY_A
 			);
 			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-			if ( ! empty( $viewer_peer_ids ) ) {
-				$uid_in  = implode( ',', array_map( 'intval', $user_ids ) );
-				$peer_in = implode( ',', array_map( 'intval', $viewer_peer_ids ) );
-				// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$m_rows = $wpdb->get_results(
-					"SELECT CASE WHEN c.requester_id IN ({$uid_in}) THEN c.requester_id
-					            ELSE c.recipient_id END AS target_id,
-					        COUNT(*) AS cnt
-					 FROM {$wpdb->prefix}bn_connections c
-					 WHERE c.status = 'accepted'
-					   AND ( c.requester_id IN ({$uid_in}) OR c.recipient_id IN ({$uid_in}) )
-					   AND ( CASE WHEN c.requester_id IN ({$uid_in})
-					             THEN c.recipient_id
-					             ELSE c.requester_id END ) IN ({$peer_in})
-					 GROUP BY target_id",
-					ARRAY_A
-				);
-				// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				foreach ( (array) $m_rows as $mr ) {
-					$mutual_counts[ (int) $mr['target_id'] ] = (int) $mr['cnt'];
-				}
+			foreach ( (array) $m_rows as $mr ) {
+				$mutual_counts[ (int) $mr['target_id'] ] = (int) $mr['cnt'];
 			}
 		}
 
@@ -859,35 +864,32 @@ class MemberDirectoryService {
 			return array();
 		}
 
+		$uid_in = implode( ',', $member_ids );
+
+		// The viewer's peer set stays in SQL as a derived table, rather than being SELECTed
+		// into PHP and interpolated back as an IN(...) list. Same reason as list_members():
+		// a 10k-connection member produced a ~80KB SQL string, rebuilt on every page view.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$viewer_peer_ids = $wpdb->get_col(
+		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT CASE WHEN c.requester_id = %d THEN c.recipient_id ELSE c.requester_id END
-				 FROM {$wpdb->prefix}bn_connections c
-				 WHERE c.status = 'accepted' AND ( c.requester_id = %d OR c.recipient_id = %d )",
+				"SELECT t.target_id, t.peer_id
+				   FROM (
+				       SELECT CASE WHEN c.requester_id IN ({$uid_in}) THEN c.requester_id ELSE c.recipient_id END AS target_id,
+				              CASE WHEN c.requester_id IN ({$uid_in}) THEN c.recipient_id ELSE c.requester_id END AS peer_id
+				         FROM {$wpdb->prefix}bn_connections c
+				        WHERE c.status = 'accepted'
+				          AND ( c.requester_id IN ({$uid_in}) OR c.recipient_id IN ({$uid_in}) )
+				   ) t
+				   INNER JOIN (
+				       SELECT CASE WHEN v.requester_id = %d THEN v.recipient_id ELSE v.requester_id END AS uid
+				         FROM {$wpdb->prefix}bn_connections v
+				        WHERE v.status = 'accepted'
+				          AND ( v.requester_id = %d OR v.recipient_id = %d )
+				   ) vp ON vp.uid = t.peer_id",
 				$viewer_id,
 				$viewer_id,
 				$viewer_id
-			)
-		);
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		$viewer_peer_ids = array_values( array_unique( array_map( 'intval', (array) $viewer_peer_ids ) ) );
-		if ( empty( $viewer_peer_ids ) ) {
-			return array();
-		}
-
-		$uid_in  = implode( ',', $member_ids );
-		$peer_in = implode( ',', $viewer_peer_ids );
-
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			"SELECT CASE WHEN c.requester_id IN ({$uid_in}) THEN c.requester_id ELSE c.recipient_id END AS target_id,
-			        CASE WHEN c.requester_id IN ({$uid_in}) THEN c.recipient_id ELSE c.requester_id END AS peer_id
-			 FROM {$wpdb->prefix}bn_connections c
-			 WHERE c.status = 'accepted'
-			   AND ( c.requester_id IN ({$uid_in}) OR c.recipient_id IN ({$uid_in}) )
-			   AND ( CASE WHEN c.requester_id IN ({$uid_in}) THEN c.recipient_id ELSE c.requester_id END ) IN ({$peer_in})",
+			),
 			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

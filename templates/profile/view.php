@@ -105,7 +105,7 @@ if ( ! $is_own_profile && $current_user_id ) {
 	$degree_badge = 1 === $degree ? '1st' : ( 2 === $degree ? '2nd' : '3rd+' );
 }
 
-$mutual_count = ( ! $is_own_profile && $current_user_id ) ? count( buddynext_service( 'connections' )->mutual_connections( $current_user_id, $user_id ) ) : 0;
+$mutual_count = ( ! $is_own_profile && $current_user_id ) ? buddynext_service( 'connections' )->mutual_count( $current_user_id, $user_id ) : 0;
 $member_type  = buddynext_service( 'member_types' )->get_user_type( $user_id );
 
 // --- Profile field data via ProfileService -------------------------------

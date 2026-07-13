@@ -26,6 +26,29 @@ class ConnectionService {
 	/**
 	 * Cache group for all connection data.
 	 */
+	/**
+	 * Default ceiling on a member's accepted connections.
+	 *
+	 * FollowService has had `buddynext_max_following` since day one; the connection graph
+	 * had no write cap at all, so a single account could accumulate rows without limit and
+	 * make every surface that touches its peer set expensive for everyone.
+	 *
+	 * Enforced on ACCEPT, not on request. A connection is bilateral: capping only the
+	 * requester would let the recipient's side grow unbounded, which is the same bug with
+	 * an extra step.
+	 */
+	private const MAX_CONNECTIONS = 5000;
+
+	/**
+	 * Ceiling on how many mutual IDs a single call will materialise.
+	 *
+	 * The mutual_connections() method took `$limit = 0` to mean "no LIMIT clause at all", and both of
+	 * its real callers used that default — one of them purely to call count() on the
+	 * result. Two hub accounts could pull tens of thousands of IDs into PHP to render one
+	 * integer.
+	 */
+	private const MUTUAL_LIST_CAP = 500;
+
 	private const CACHE_GROUP = 'buddynext_connections';
 
 	/**
@@ -157,6 +180,28 @@ class ConnectionService {
 	 */
 	public function accept_request( int $recipient_id, int $requester_id ): bool|WP_Error {
 		global $wpdb;
+
+		// Enforce the cap HERE rather than on send_request(), because a connection is
+		// bilateral: it lands on both members' graphs. Capping only the requester would let
+		// the recipient's side grow without limit. Both sides are checked.
+		//
+		// connection_count() reads a denormalised counter, so this guard is effectively
+		// free — it is not a COUNT(*) per accept.
+		$cap = (int) apply_filters( 'buddynext_max_connections', self::MAX_CONNECTIONS, $recipient_id );
+		if ( $cap > 0 ) {
+			foreach ( array( $recipient_id, $requester_id ) as $party_id ) {
+				if ( $this->connection_count( $party_id ) >= $cap ) {
+					return new WP_Error(
+						'connection_limit_reached',
+						sprintf(
+							/* translators: %s: the maximum number of connections. */
+							__( 'This connection cannot be accepted: one of the two members has reached the limit of %s connections.', 'buddynext' ),
+							number_format_i18n( $cap )
+						)
+					);
+				}
+			}
+		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $wpdb->update(
@@ -644,6 +689,66 @@ class ConnectionService {
 	}
 
 	/**
+	 * How many connections $user_a and $user_b have in common.
+	 *
+	 * The profile header renders a single "N mutual connections" number, and it used to get
+	 * it with `count( mutual_connections( $a, $b ) )` — materialising the ENTIRE mutual set
+	 * into a PHP array to produce one integer. Between two hub accounts that is tens of
+	 * thousands of IDs loaded, counted, and thrown away, on a page every member opens.
+	 *
+	 * A count is a COUNT(*). It reuses the same derived-table self-join, so it stays correct
+	 * as the graph shape changes, and it rides the existing per-member version keys — no new
+	 * invalidation path to keep in sync (which is its own class of bug).
+	 *
+	 * @param int $user_a First user.
+	 * @param int $user_b Second user.
+	 * @return int
+	 */
+	public function mutual_count( int $user_a, int $user_b ): int {
+		if ( $user_a <= 0 || $user_b <= 0 || $user_a === $user_b ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		$cache_key = "mutual_count_{$user_a}_{$user_b}_v" . $this->version( $user_a ) . '_' . $this->version( $user_b );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM (
+				     SELECT CASE WHEN requester_id = %d THEN recipient_id ELSE requester_id END AS uid
+				       FROM {$wpdb->prefix}bn_connections
+				      WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted'
+				 ) ca
+				 INNER JOIN (
+				     SELECT CASE WHEN requester_id = %d THEN recipient_id ELSE requester_id END AS uid
+				       FROM {$wpdb->prefix}bn_connections
+				      WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted'
+				 ) cb ON cb.uid = ca.uid
+				 WHERE ca.uid NOT IN ( %d, %d )",
+				$user_a,
+				$user_a,
+				$user_a,
+				$user_b,
+				$user_b,
+				$user_b,
+				$user_a,
+				$user_b
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $count;
+	}
+
+	/**
 	 * Return user IDs that both $user_a and $user_b are each accepted-connected to.
 	 *
 	 * The bn_connections table is directional (one row per pair; either
@@ -665,6 +770,14 @@ class ConnectionService {
 		}
 
 		global $wpdb;
+
+		// `0` used to mean "no LIMIT clause at all", and every caller took the default. Two
+		// hub accounts would materialise their whole mutual set into PHP. It now means
+		// "the site's ceiling", so there is no way to ask for an unbounded list by accident.
+		// A caller that genuinely needs one row (connection_degree passes 1) is unaffected.
+		if ( $limit <= 0 ) {
+			$limit = (int) apply_filters( 'buddynext_mutual_list_cap', self::MUTUAL_LIST_CAP, $user_a, $user_b );
+		}
 
 		$cache_key = "mutual_{$user_a}_{$user_b}_{$limit}_v" . $this->version( $user_a ) . '_' . $this->version( $user_b );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );

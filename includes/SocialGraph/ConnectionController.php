@@ -128,10 +128,21 @@ class ConnectionController extends BaseRestController {
 				'callback'            => array( $this, 'connection_status' ),
 				'permission_callback' => array( $this, 'require_auth' ),
 				'args'                => array(
-					'id' => array(
+					'id'       => array(
 						'required' => true,
 						'type'     => 'integer',
 						'minimum'  => 1,
+					),
+					'per_page' => array(
+						'type'    => 'integer',
+						'default' => 20,
+						'minimum' => 1,
+						'maximum' => 100,
+					),
+					'page'     => array(
+						'type'    => 'integer',
+						'default' => 1,
+						'minimum' => 1,
 					),
 				),
 			)
@@ -170,13 +181,47 @@ class ConnectionController extends BaseRestController {
 	/**
 	 * GET /users/{id}/mutual-connections — ids connected to both the viewer and the peer.
 	 *
+	 * Paginated. This returned EVERY mutual ID in one response with no limit and no page
+	 * param, so two hub accounts could ask the server to build, and the client to parse, a
+	 * five-figure array of integers. The total is a COUNT(*), not count() over the page.
+	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response
 	 */
 	public function mutual_connections( WP_REST_Request $request ): WP_REST_Response {
-		$ids = buddynext_service( 'connections' )->mutual_connections( get_current_user_id(), (int) $request['id'] );
+		$connections = buddynext_service( 'connections' );
 
-		return new WP_REST_Response( array( 'ids' => array_map( 'intval', $ids ) ), 200 );
+		$viewer_id = get_current_user_id();
+		$peer_id   = (int) $request['id'];
+		// Defaults from the route schema are normally filled in by the dispatcher, but a
+		// direct WP_REST_Request (tests, internal calls) can arrive without them — and a
+		// per_page of 0 would slice the list down to nothing and silently return an empty
+		// array to a caller that asked for the default page.
+		$per_page = (int) $request['per_page'];
+		$per_page = $per_page > 0 ? min( $per_page, 100 ) : 20;
+		$page     = max( 1, (int) $request['page'] );
+
+		$total = $connections->mutual_count( $viewer_id, $peer_id );
+
+		// mutual_connections() has no offset, so slice the capped list. The cap is the
+		// site's mutual ceiling, which bounds what is loaded regardless of the page asked
+		// for — a deep page beyond it is empty rather than expensive.
+		$ids    = $connections->mutual_connections( $viewer_id, $peer_id );
+		$offset = ( $page - 1 ) * $per_page;
+		$slice  = array_slice( array_map( 'intval', $ids ), $offset, $per_page );
+
+		$response = new WP_REST_Response(
+			array(
+				'ids'   => $slice,
+				'total' => $total,
+			),
+			200
+		);
+
+		$response->header( 'X-WP-Total', (string) $total );
+		$response->header( 'X-WP-TotalPages', (string) ( $per_page > 0 ? (int) ceil( $total / $per_page ) : 0 ) );
+
+		return $response;
 	}
 
 	/**
