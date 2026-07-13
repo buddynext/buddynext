@@ -238,6 +238,63 @@ class ModerationService {
 						do_action( 'buddynext_user_warned', (int) $auto_action['user_id'], 0, (string) ( $auto_action['reason'] ?? '' ) );
 					}
 					break;
+
+				case 'suspend':
+					// This case did not exist. Pro's RulesService has always been able to
+					// emit a `suspend` action (THRESHOLD_ACTIONS = ['remove','suspend'],
+					// and its config validation accepts it) — and this switch had no
+					// `suspend` case and no `default`, so the action fell straight through
+					// in silence. An owner could configure an auto-suspend rule, save it,
+					// see it listed, and it would never once fire. No error, no log entry.
+					//
+					// Free's own docblock four lines above this method already documented
+					// the payload it was ignoring.
+					if ( ! empty( $auto_action['user_id'] ) ) {
+						// suspend_user(), NOT suspend(). The bare suspend() primitive
+						// inserts the row and fires NOTHING — so the member would be
+						// suspended with no notification, no outbound webhook and no
+						// analytics event (three listeners hang off
+						// buddynext_user_suspended). suspend_user() is the wired path,
+						// and it is what the moderation queue itself calls.
+						//
+						// duration_days is load-bearing: 0 (or absent) means PERMANENT.
+						// Pro sends an explicit length and warns about exactly this
+						// ("without duration_days Free's ModerationService creates a
+						// permanent ban that only a manual unsuspend can lift"), so a rule
+						// the owner configured as "7 days" must never become a lifetime
+						// ban because a key went missing in transit. Default to Pro's own
+						// 7 rather than to permanent.
+						$bn_duration = isset( $auto_action['duration_days'] )
+							? max( 1, (int) $auto_action['duration_days'] )
+							: 7;
+
+						$this->suspend_user(
+							(int) $auto_action['user_id'],
+							0, // System actor — same convention as `warn` above.
+							(string) ( $auto_action['reason'] ?? '' ),
+							array( 'duration_days' => $bn_duration )
+						);
+					}
+					break;
+
+				default:
+					// The missing default is the real defect class here, not the missing
+					// `suspend` case: an unrecognised action was swallowed without a
+					// sound, which is why an entire configurable feature could be dead
+					// for months with nobody noticing. The next action type Pro adds
+					// would have been swallowed the same way.
+					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+						_doing_it_wrong(
+							__METHOD__,
+							sprintf(
+								/* translators: %s: the unhandled moderation action slug. */
+								esc_html__( 'Unhandled automated moderation action "%s" — it was configured, and nothing ran.', 'buddynext' ),
+								esc_html( $action_slug )
+							),
+							'1.0.8'
+						);
+					}
+					break;
 			}
 		}
 
@@ -1315,7 +1372,20 @@ class ModerationService {
 	 * @return int|WP_Error Suspension ID or WP_Error on permission failure.
 	 */
 	public function suspend_user( int $user_id, int $actor_id, string $reason = '', array $opts = array() ): int|WP_Error {
-		if ( ! user_can( $actor_id, 'manage_options' ) ) {
+		// actor_id 0 is the SYSTEM actor — an automated moderation rule, not a person.
+		// It is the same convention apply_auto_actions() already uses for `warn`
+		// (do_action( 'buddynext_user_warned', $uid, 0, ... )).
+		//
+		// This guard has to skip it, because user_can( 0, 'manage_options' ) is ALWAYS
+		// false: without this, an auto-suspend rule would fail the permission check and
+		// silently do nothing — which is precisely the bug the `suspend` case below
+		// exists to fix, reintroduced one layer down.
+		//
+		// It is not a capability hole. actor_id is never caller-supplied: every human
+		// path resolves it from get_current_user_id() (ModerationController:1266,
+		// behind require_admin) or from the admin queue's own actor. A 0 can only be
+		// passed by server code.
+		if ( $actor_id > 0 && ! user_can( $actor_id, 'manage_options' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend users.', 'buddynext' ) );
 		}
 
