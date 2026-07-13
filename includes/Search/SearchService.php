@@ -434,77 +434,82 @@ class SearchService {
 		}
 		$sort_recent = isset( $search_args['sort'] ) && 'recent' === sanitize_key( (string) $search_args['sort'] );
 
-		// ------------------------------------------------------------------ //
-		// Advanced member-search WHERE clauses contributed by Pro via the
-		// buddynext_search_query_args filter. Each clause is only appended
-		// when the corresponding arg is present, non-empty, and the search
-		// type targets users / members.
-		//
-		// All referenced tables (bn_subscriptions, bn_membership_tiers,
-		// bn_space_members, bn_member_label_assignments, bn_member_labels,
-		// bn_analytics_events) are owned by buddynext-pro. When Pro is
-		// inactive, no caller populates these args so no clause is emitted
-		// and the missing tables are never referenced.
-		// ------------------------------------------------------------------ //
+		/*
+		 * Advanced member-search WHERE clauses — contributed by whoever OWNS the tables.
+		 *
+		 * Free used to build these itself: EXISTS subqueries against bn_subscriptions,
+		 * bn_membership_tiers, bn_member_label_assignments, bn_member_labels and
+		 * bn_analytics_events. Every one of those tables is created by buddynext-PRO, and on a
+		 * Free-only site none of them exist.
+		 *
+		 * The comment that used to sit here said: "When Pro is inactive, no caller populates these
+		 * args so no clause is emitted and the missing tables are never referenced."
+		 *
+		 * It was false, and FREE was what made it false. SearchController::collect_advanced_args()
+		 * reads tier_slug / member_label / active_within_days straight off the REST request — a
+		 * route whose permission_callback is __return_true — and merges them into this very args
+		 * array at priority 5. Free populated the args, then Free consumed them. Pro was never in
+		 * the loop.
+		 *
+		 * So on a Free-only site, ?q=a&type=user&member_label=vip emitted SQL against a table that
+		 * does not exist: MySQL 1146, get_results() returns null, (array) null is [], and search
+		 * returned ZERO results with HTTP 200 — silently, to anonymous visitors, with a database
+		 * error in the log on every request. The comment then guaranteed nobody grepping for the
+		 * cause would find it, because it asserted the exact opposite of what the code did.
+		 *
+		 * FREE-PRO-SEAM.md §7: Free must NEVER reference a Pro-owned table. So Free no longer
+		 * knows how to filter by any of them. It offers a seam and applies whatever comes back;
+		 * with nothing listening, an unserveable filter is simply ignored rather than poisoning the
+		 * whole query. Refusing to answer a filter is a fine outcome. Silently answering "nothing
+		 * matched" is not — the caller cannot tell it apart from an empty community.
+		 */
 		$advanced_where  = '';
 		$advanced_params = array();
-		$user_scope      = in_array( $type, array( 'user', 'member' ), true );
 
-		if ( $user_scope ) {
-			if ( isset( $search_args['tier_slug'] ) && '' !== $search_args['tier_slug'] ) {
-				$advanced_where   .= " AND EXISTS (
-					SELECT 1
-					FROM {$wpdb->prefix}bn_subscriptions sub
-					INNER JOIN {$wpdb->prefix}bn_membership_tiers tier
-					        ON sub.tier_id = tier.id
-					WHERE sub.user_id = si.object_id
-					  AND sub.status  = 'active'
-					  AND tier.slug   = %s
-				)";
-				$advanced_params[] = (string) $search_args['tier_slug'];
+		if ( in_array( $type, array( 'user', 'member' ), true ) ) {
+			/**
+			 * Contribute an advanced member-search WHERE clause.
+			 *
+			 * The clause is appended to the member-search query and its params bound in order, so
+			 * every value MUST be a `%s`/`%d` placeholder — never an interpolated value.
+			 *
+			 * This is the seam that keeps Free out of Pro's tables: an extension that owns a table
+			 * answers here, and Free never learns the table's name.
+			 *
+			 * @param array{where: string, params: array<int, mixed>} $clause      Clause so far.
+			 * @param array<string, mixed>                            $search_args Search args (incl. any advanced keys).
+			 * @param string                                          $type        Search type ('user'|'member').
+			 * @param int                                             $viewer_id   Viewer, 0 when anonymous.
+			 */
+			$clause = apply_filters(
+				'buddynext_search_advanced_where',
+				array(
+					'where'  => '',
+					'params' => array(),
+				),
+				$search_args,
+				$type,
+				$viewer_id
+			);
+
+			if ( is_array( $clause ) ) {
+				$advanced_where  = (string) ( $clause['where'] ?? '' );
+				$advanced_params = array_values( (array) ( $clause['params'] ?? array() ) );
 			}
 
-			if ( isset( $search_args['space_id'] ) && (int) $search_args['space_id'] > 0 ) {
-				$advanced_where   .= " AND EXISTS (
-					SELECT 1
-					FROM {$wpdb->prefix}bn_space_members sm
-					WHERE sm.user_id  = si.object_id
-					  AND sm.space_id = %d
-					  AND sm.status   = 'active'
-				)";
-				$advanced_params[] = (int) $search_args['space_id'];
-			}
-
-			if ( isset( $search_args['member_label'] ) && '' !== $search_args['member_label'] ) {
-				$advanced_where   .= " AND EXISTS (
-					SELECT 1
-					FROM {$wpdb->prefix}bn_member_label_assignments la
-					INNER JOIN {$wpdb->prefix}bn_member_labels lbl
-					        ON la.label_id = lbl.id
-					WHERE la.user_id = si.object_id
-					  AND lbl.slug   = %s
-				)";
-				$advanced_params[] = (string) $search_args['member_label'];
-			}
-
-			if ( isset( $search_args['joined_after'] ) && '' !== $search_args['joined_after'] ) {
-				$advanced_where   .= " AND EXISTS (
-					SELECT 1
-					FROM {$wpdb->users} wpu
-					WHERE wpu.ID = si.object_id
-					  AND wpu.user_registered >= %s
-				)";
-				$advanced_params[] = (string) $search_args['joined_after'];
-			}
-
-			if ( isset( $search_args['active_within_days'] ) && (int) $search_args['active_within_days'] > 0 ) {
-				$advanced_where   .= " AND EXISTS (
-					SELECT 1
-					FROM {$wpdb->prefix}bn_analytics_events ae
-					WHERE ae.actor_id    = si.object_id
-					  AND ae.created_at >= DATE_SUB(NOW(), INTERVAL %d DAY)
-				)";
-				$advanced_params[] = (int) $search_args['active_within_days'];
+			// A clause whose placeholders and params disagree would shift every later binding in
+			// the query. Drop the contribution rather than corrupt the search.
+			if ( substr_count( $advanced_where, '%' ) !== count( $advanced_params ) ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				error_log(
+					sprintf(
+						'BuddyNext search: a buddynext_search_advanced_where contributor returned %d placeholder(s) but %d param(s). Clause discarded.',
+						substr_count( $advanced_where, '%' ),
+						count( $advanced_params )
+					)
+				);
+				$advanced_where  = '';
+				$advanced_params = array();
 			}
 		}
 
