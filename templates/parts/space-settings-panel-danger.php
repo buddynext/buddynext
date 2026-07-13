@@ -152,7 +152,7 @@ do_action( 'buddynext_part_space_settings_panel_danger_before', $args );
 	</div>
 </div>
 
-<!-- Transfer-ownership modal — REACTIVE: hidden bound to context.modalTransfer
+<!-- Transfer-ownership modal — REACTIVE: hidden bound to the store's state.modalTransferHidden (global modalTransferOpen)
 	via the buddynext/spaces state getter; the opener action flips the flag, and
 	data-bn-modal-close / Escape clear it. No imperative .hidden toggle. -->
 <div
@@ -250,7 +250,7 @@ buddynext_get_template(
 );
 ?>
 
-<!-- Archive-space confirm modal — REACTIVE: hidden bound to context.modalArchive. -->
+<!-- Archive-space confirm modal — REACTIVE: hidden bound to the store's state.modalArchiveHidden (global modalArchiveOpen). -->
 <div
 	class="bn-modal-backdrop"
 	role="dialog"
