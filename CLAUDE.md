@@ -70,6 +70,33 @@ Three things share the word "feed" — never conflate them:
 Test the activity feed, composers, mention-typeahead and the "N new posts" pill at
 **`/activity/`** — never `/feed/`.
 
+#### Resolve routes from the page mapping — never guess a URL
+
+Every BuddyNext surface is a **mapped WordPress page**. The slugs are site-configurable
+(`buddynext_slug_*`), so a URL that is right on one site is wrong on the next. **Never hardcode
+or guess a path — resolve it from the mapping on the site under test:**
+
+```bash
+wp eval 'foreach (["activity","people","spaces","messages","notifications","auth"] as $k) {
+  $pid = (int) get_option("buddynext_page_$k");
+  printf("%-14s %s\n", $k, $pid ? get_permalink($pid) : "(unmapped)");
+}'
+```
+
+| Hub key (internal) | Option pair | Default slug | URL |
+|---|---|---|---|
+| `activity` (a.k.a. `'feed'` in `PageRouter`) | `buddynext_page_activity` / `buddynext_slug_activity` | `activity` | `/activity/` |
+| `people` | `buddynext_page_people` / `buddynext_slug_people` | `members` | `/members/` |
+| `spaces` | `buddynext_page_spaces` / `buddynext_slug_spaces` | `spaces` | `/spaces/` |
+| `messages` | `buddynext_page_messages` / `buddynext_slug_messages` | `messages` | `/messages/` |
+| `notifications` | `buddynext_page_notifications` / `buddynext_slug_notifications` | `notifications` | `/notifications/` |
+| `auth` | `buddynext_page_auth` / `buddynext_slug_auth` | `login` | `/login/` |
+| PRO `membership` | `buddynext_pro_page_membership` / `buddynext_pro_slug_membership` | `membership-plans` | `/membership-plans/` |
+| PRO `my_membership` | `buddynext_pro_page_my_membership` / `buddynext_pro_slug_my_membership` | `my-membership` | `/my-membership/` |
+
+Note the trap in the first row: the internal key is `feed`, the public slug is `activity`,
+and `/feed/` belongs to WordPress core. Three different things, one word.
+
 ### WordPress core stays untouched (non-negotiable)
 
 BuddyNext **adds alongside** WordPress core — it never overrides, disables, shadows,
