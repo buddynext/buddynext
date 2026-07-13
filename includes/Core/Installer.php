@@ -262,7 +262,7 @@ class Installer {
 	 *      member preference toggle, a seeded email template and an Email Editor entry.
 	 *      Clears the seeded template row and any saved preference rows.
 	 */
-	private const SCHEMA_VERSION = 31;
+	private const SCHEMA_VERSION = 32;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -1821,8 +1821,9 @@ class Installer {
 				status ENUM('approved','pending') NOT NULL DEFAULT 'approved',
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY  (follower_id, following_id),
-				KEY          following (following_id, status),
-				KEY          pending_inbox (following_id, status, created_at)
+				KEY          pending_inbox (following_id, status, created_at),
+				KEY          follower_recent (following_id, created_at),
+				KEY          follow_created (created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_connections (
@@ -1882,7 +1883,8 @@ class Installer {
 				KEY                 announcement_feed (is_announcement, status, created_at),
 				KEY                 explore (privacy, created_at),
 				KEY                 active_feed (privacy, status, last_activity_at),
-				KEY                 scheduled (scheduled_at),
+				KEY                 status_scheduled (status, scheduled_at),
+				KEY                 post_created (created_at),
 				KEY                 shared_post (shared_post_id)
 			) {$cs};",
 
@@ -2048,7 +2050,8 @@ class Installer {
 				type VARCHAR(64) NOT NULL,
 				on_site TINYINT(1) NOT NULL DEFAULT 1,
 				email_freq ENUM('immediate','daily','weekly','off') NOT NULL DEFAULT 'immediate',
-				PRIMARY KEY (user_id, type)
+				PRIMARY KEY (user_id, type),
+				KEY         digest_scan (email_freq, user_id)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_email_templates (
@@ -2097,7 +2100,8 @@ class Installer {
 				emoji VARCHAR(32) NOT NULL DEFAULT 'like',
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (user_id, object_type, object_id),
-				KEY         object_reactions (object_type, object_id)
+				KEY         object_recent (object_type, object_id, created_at),
+				KEY         reaction_created (created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_comments (
