@@ -70,17 +70,38 @@ $bn_purge_meta = static function () use ( $wpdb ) {
 		)
 	);
 
-	// User meta: bn_* and buddynext_* (last-login, onboarding, privacy, etc.).
-	// Pro writes no user meta under either prefix — it keeps per-user state in its
-	// own tables, which its own uninstall handles.
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$wpdb->query(
-		$wpdb->prepare(
-			"DELETE FROM {$wpdb->usermeta} WHERE meta_key LIKE %s OR meta_key LIKE %s",
-			$wpdb->esc_like( 'bn_' ) . '%',
-			$wpdb->esc_like( 'buddynext_' ) . '%'
-		)
+	// User meta: bn_* and buddynext_* (last-login, onboarding, privacy, etc.) —
+	// EXCEPT the keys Pro owns.
+	//
+	// This used to be an unqualified `LIKE 'bn\_%'` wildcard, under a comment stating
+	// that "Pro writes no user meta under either prefix". That was false. Pro writes
+	// bn_ability_* (paid entitlement grants) and bn_email_unsubscribed_* /
+	// bn_email_suppressed (email opt-outs) — so deleting the FREE plugin revoked
+	// access members had paid for, and erased the record that a member had
+	// unsubscribed, which silently re-subscribes them to the next broadcast.
+	//
+	// Same failure as the table drop that preceded it: discover-by-prefix cannot tell
+	// "mine" from "the family's". Name what we own, exclude what we do not.
+	$bn_meta_params = array(
+		$wpdb->esc_like( 'bn_' ) . '%',
+		$wpdb->esc_like( 'buddynext_' ) . '%',
 	);
+
+	// One ` AND meta_key NOT LIKE %s` per Pro-owned namespace. The clauses are built
+	// from our own class constant and contain only the literal placeholder %s — every
+	// value still travels through prepare(). Nothing here is caller input.
+	$bn_meta_exclude_sql = '';
+	foreach ( \BuddyNext\Core\Installer::PRO_OWNED_USER_META as $bn_pro_key ) {
+		$bn_meta_exclude_sql .= ' AND meta_key NOT LIKE %s';
+		$bn_meta_params[]     = $wpdb->esc_like( $bn_pro_key ) . '%';
+	}
+
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+	$bn_meta_sql = "DELETE FROM {$wpdb->usermeta}
+		 WHERE ( meta_key LIKE %s OR meta_key LIKE %s )" . $bn_meta_exclude_sql;
+
+	$wpdb->query( $wpdb->prepare( $bn_meta_sql, $bn_meta_params ) );
+	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 };
 
 if ( is_multisite() ) {

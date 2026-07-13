@@ -118,6 +118,74 @@ class InstallerOwnedTablesTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Free's uninstall must not delete a bn_* user-meta key that Pro writes.
+	 *
+	 * This is the SECOND half of the uninstall bug. The table drop was fixed by
+	 * naming OWNED_TABLES, but the user-meta sweep stayed an unqualified
+	 * `LIKE 'bn\_%'` wildcard, defended by a comment claiming Pro wrote no user meta.
+	 * It writes six keys. Deleting the free plugin therefore revoked members' PAID
+	 * entitlements (`bn_ability_*`) and erased their email OPT-OUTS
+	 * (`bn_email_unsubscribed_*`, `bn_email_suppressed`) — the latter silently
+	 * re-subscribing people who had explicitly unsubscribed.
+	 *
+	 * This test reads BOTH repos on purpose. Every previous instance of this bug got
+	 * through because the gate only ever scanned one of them.
+	 *
+	 * @return void
+	 */
+	public function test_pro_user_meta_is_never_deleted_by_free_uninstall(): void {
+		$pro_meta_keys = array(
+			'bn_ability_tier_supporter',            // Paid entitlement grant.
+			'bn_push_pref_bn_new_follower',         // Pro push preference.
+			'bn_email_unsubscribed_all_broadcasts', // Global email opt-out.
+			'bn_email_unsubscribed_campaigns',
+			'bn_email_unsubscribed_sequences',
+			'bn_email_suppressed',                  // Hard suppression list.
+		);
+
+		foreach ( $pro_meta_keys as $key ) {
+			$covered = false;
+			foreach ( Installer::PRO_OWNED_USER_META as $prefix ) {
+				if ( str_starts_with( $key, $prefix ) ) {
+					$covered = true;
+					break;
+				}
+			}
+
+			$this->assertTrue(
+				$covered,
+				sprintf(
+					'Free\'s uninstall would DELETE the Pro user-meta key "%s". '
+					. 'That revokes a paid entitlement or erases an email opt-out. '
+					. 'Add its namespace to Installer::PRO_OWNED_USER_META.',
+					$key
+				)
+			);
+		}
+	}
+
+	/**
+	 * A Free key that Pro does not own must still be cleaned up.
+	 *
+	 * The exclusion list is a scalpel, not a blanket: if it ever grew wide enough to
+	 * spare Free's own rows, uninstall would leak the member's whole profile.
+	 *
+	 * @return void
+	 */
+	public function test_free_user_meta_is_still_cleaned_up(): void {
+		$free_meta_keys = array( 'bn_headline', 'bn_avatar', 'bn_profile_slug', 'buddynext_email_verified' );
+
+		foreach ( $free_meta_keys as $key ) {
+			foreach ( Installer::PRO_OWNED_USER_META as $prefix ) {
+				$this->assertFalse(
+					str_starts_with( $key, $prefix ),
+					sprintf( 'Free\'s own key "%s" is being spared by the Pro exclusion list — uninstall would leak it.', $key )
+				);
+			}
+		}
+	}
+
+	/**
 	 * Read the bn_* tables that actually exist for this site's prefix.
 	 *
 	 * @return string[] Unprefixed table names, sorted.

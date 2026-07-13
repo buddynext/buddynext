@@ -2869,48 +2869,33 @@ class ProfileService {
 	/**
 	 * Map a stored value to its human-readable mirror representation.
 	 *
-	 * Multi types store comma-joined option slugs; the mirror records the
-	 * comma-joined option LABELS so directory search matches what users see.
+	 * Choice types (select, radio, and the multiselect family) store option
+	 * SLUGS; the mirror must record the option LABELS, because the mirror is what
+	 * directory search matches against and members search for what they can see.
+	 *
+	 * A slug is not a quiet variation on its label — sanitize_title() runs
+	 * remove_accents(), which is locale-dependent and lossy in both directions:
+	 *
+	 *   - German (de_DE): 'Flügelhorn' slugs to 'fluegelhorn' (ü -> ue), while the
+	 *     search term 'Flügelhorn' collates to 'flugelhorn' under utf8mb4_*_ci
+	 *     (ü -> u). Mirroring the slug made the member PERMANENTLY unfindable.
+	 *     On an English site the same code is harmless (ü -> u on both sides),
+	 *     which is exactly why this was reported as "cannot reproduce".
+	 *   - Any locale: 'French Horn' slugs to 'french-horn', so every multi-word
+	 *     label was unfindable on every site.
+	 *
+	 * FieldType::searchable_text() already resolves every type to its label text,
+	 * so this delegates rather than keeping a second, subtly-wrong copy of that
+	 * mapping. The caller has already established is_text_searchable() (see the
+	 * $indexable gate in write_search_mirrors()), so the type gate inside
+	 * searchable_text() is a no-op here.
 	 *
 	 * @param array  $field        Flat field definition (with decoded options).
-	 * @param string $stored_value Stored value.
-	 * @return string Mirror value.
+	 * @param string $stored_value Stored value (option slug for choice types).
+	 * @return string Mirror text — option LABELS for choice types, value otherwise.
 	 */
 	private function mirror_value( array $field, string $stored_value ): string {
-		$type = isset( $field['type'] ) ? (string) $field['type'] : 'text';
-
-		// Live-optioned set types (category_multiselect) mirror the option
-		// LABELS resolved by the engine — the stored IDs would be meaningless
-		// to a directory keyword search.
-		if ( \BuddyNext\Profile\FieldType::is_multi_entry( $type ) ) {
-			return \BuddyNext\Profile\FieldType::searchable_text( $field, $stored_value );
-		}
-
-		if ( 'multiselect' !== $type ) {
-			return $stored_value;
-		}
-
-		$options = is_array( $field['options'] ?? null ) ? $field['options'] : array();
-
-		// Build slug => label map; options may be [ slug => label ] or a list of
-		// [ 'value' => slug, 'label' => label ] pairs.
-		$labels = array();
-		foreach ( $options as $opt_key => $opt_val ) {
-			if ( is_array( $opt_val ) ) {
-				$slug            = (string) ( $opt_val['value'] ?? $opt_val['slug'] ?? $opt_key );
-				$labels[ $slug ] = (string) ( $opt_val['label'] ?? $opt_val['value'] ?? $slug );
-			} else {
-				$labels[ (string) $opt_key ] = (string) $opt_val;
-			}
-		}
-
-		$slugs  = array_filter( array_map( 'trim', explode( ',', $stored_value ) ) );
-		$mapped = array();
-		foreach ( $slugs as $slug ) {
-			$mapped[] = $labels[ $slug ] ?? $slug;
-		}
-
-		return implode( ', ', $mapped );
+		return \BuddyNext\Profile\FieldType::searchable_text( $field, $stored_value );
 	}
 
 	/**

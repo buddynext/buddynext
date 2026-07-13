@@ -237,6 +237,36 @@ class FieldType {
 	}
 
 	/**
+	 * Whether a placeholder can actually render inside this type's control.
+	 *
+	 * A placeholder is an attribute of a free-text input. The browser IGNORES it on
+	 * `<input type="date">`, on `<input type="checkbox">`, on `<input type="color">`
+	 * and on every `<select>` — HTML has no placeholder attribute for a select at all.
+	 *
+	 * This exists so the owner is never offered a setting that cannot work. The admin
+	 * used to collect and store a placeholder for EVERY field type while several
+	 * renderers never emitted one, which is the "an option that lies" defect: the
+	 * owner configures it, believes it, and is wrong.
+	 *
+	 * A type may declare `supports_placeholder` in its type meta to override the
+	 * default (Pro's advanced types do this for their free-text controls). The
+	 * default below covers the built-in types without repeating the flag 14 times.
+	 *
+	 * @param string $type Field type slug.
+	 * @return bool True when a placeholder attribute would actually be honoured.
+	 */
+	public static function supports_placeholder( string $type ): bool {
+		$types = self::types();
+		$type  = self::resolve_type( $type );
+
+		if ( isset( $types[ $type ]['supports_placeholder'] ) ) {
+			return (bool) $types[ $type ]['supports_placeholder'];
+		}
+
+		return in_array( $type, array( 'text', 'textarea', 'url', 'email', 'phone', 'number' ), true );
+	}
+
+	/**
 	 * Normalise a field definition's options into slug => label pairs.
 	 *
 	 * Options are stored as a flat list of human-readable strings. Each option's

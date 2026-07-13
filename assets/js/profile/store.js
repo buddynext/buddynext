@@ -468,6 +468,65 @@ function renderCoverReposModal( url, resolve ) {
 	document.body.appendChild( overlay );
 }
 
+/* Strip a trailing "[]" from a control name to get the key the server expects.
+   Checkbox groups and <select multiple> render name="key[]"; the payload key is
+   the bare `key`. */
+function controlKey( name ) {
+	return /\[\]$/.test( name ) ? name.slice( 0, -2 ) : name;
+}
+
+/* Read ONE form control into `bag` under `key`, honouring the control's type.
+   This is the single definition of "what is this control's value", shared by BOTH
+   collectors below.
+
+   It is shared deliberately. Every one of the bugs the branches below guard against
+   was first fixed in the FLAT collector and silently left broken in the REPEATER
+   one, because the two kept their own copies of this logic:
+
+     - a radio group in a repeater saved the LAST option regardless of which the
+       member picked (each option overwrote the entry via `el.value`), so a customer
+       reported "whichever I choose, it shows the last one";
+     - a <select multiple> / checkbox group in a repeater was dropped from the
+       payload entirely — saved with a success toast, data gone.
+
+   One collector cannot now be fixed without the other. Do not re-inline this. */
+function assignControlValue( bag, key, el ) {
+	// Checkbox GROUP (multiselect / category_multiselect render name="key[]"):
+	// the checked values are an ARRAY under the bare key. Reading el.value stored a
+	// literal "key[]" entry holding whatever checkbox came last, checked or not —
+	// a key the server never recognised, so the field silently never saved.
+	if ( 'checkbox' === el.type && /\[\]$/.test( el.name ) ) {
+		if ( ! Array.isArray( bag[ key ] ) ) { bag[ key ] = []; }
+		if ( el.checked ) { bag[ key ].push( el.value ); }
+		return;
+	}
+
+	// Single checkbox (boolean field): the checked STATE is the value — reading
+	// el.value sends "1" even when unchecked.
+	if ( 'checkbox' === el.type ) {
+		bag[ key ] = el.checked ? '1' : '';
+		return;
+	}
+
+	// Radio group: ONLY the checked option wins (default empty). Every option in the
+	// group carries the same key, so reading el.value lets the LAST rendered option
+	// overwrite the member's actual choice.
+	if ( 'radio' === el.type ) {
+		if ( ! ( key in bag ) ) { bag[ key ] = ''; }
+		if ( el.checked ) { bag[ key ] = el.value; }
+		return;
+	}
+
+	// <select multiple> (Pro multi_select_advanced): el.value returns only the FIRST
+	// selected option, so 2+ picks collapsed to one. Collect them all.
+	if ( 'select-multiple' === el.type ) {
+		bag[ key ] = Array.prototype.slice.call( el.selectedOptions ).map( function ( o ) { return o.value; } );
+		return;
+	}
+
+	bag[ key ] = el.value;
+}
+
 /* Collect all named flat inputs/textareas (excluding the slug input). */
 function collectFlatData( wrap ) {
 	var data = {};
@@ -476,44 +535,7 @@ function collectFlatData( wrap ) {
 		if ( el.id === 'bn-ep-slug' ) { return; }
 		if ( /\[\d+\]\[/.test( el.name ) ) { return; }
 
-		// Checkbox GROUP (multiselect / category_multiselect render name="key[]"):
-		// send the checked values as an array under the bare key. The old
-		// `data[el.name] = el.value` path stored a literal "key[]" entry with
-		// whatever checkbox came last, checked or not — the server never
-		// recognised the key, so these fields silently never saved.
-		if ( 'checkbox' === el.type && /\[\]$/.test( el.name ) ) {
-			var groupKey = el.name.slice( 0, -2 );
-			if ( ! Array.isArray( data[ groupKey ] ) ) { data[ groupKey ] = []; }
-			if ( el.checked ) { data[ groupKey ].push( el.value ); }
-			return;
-		}
-
-		// Single checkbox (boolean field): the checked STATE is the value —
-		// reading el.value sent "1" even when unchecked.
-		if ( 'checkbox' === el.type ) {
-			data[ el.name ] = el.checked ? '1' : '';
-			return;
-		}
-
-		// Radio group: only the checked option wins (default empty) — reading
-		// el.value made the LAST rendered option win regardless of selection.
-		if ( 'radio' === el.type ) {
-			if ( ! ( el.name in data ) ) { data[ el.name ] = ''; }
-			if ( el.checked ) { data[ el.name ] = el.value; }
-			return;
-		}
-
-		// <select multiple> (Pro multi_select_advanced renders name="key[]"):
-		// el.value returns only the FIRST selected option, so 2+ picks collapsed
-		// to one and stored under the literal "key[]" the server never recognised.
-		// Collect ALL selected values as an array under the bare key.
-		if ( 'select-multiple' === el.type ) {
-			var selKey = /\[\]$/.test( el.name ) ? el.name.slice( 0, -2 ) : el.name;
-			data[ selKey ] = Array.prototype.slice.call( el.selectedOptions ).map( function ( o ) { return o.value; } );
-			return;
-		}
-
-		data[ el.name ] = el.value;
+		assignControlValue( data, controlKey( el.name ), el );
 	} );
 	return data;
 }
@@ -528,7 +550,18 @@ function repeaterContainerId( group ) {
 	return 'bn-ep-' + String( group ).replace( /_/g, '-' ) + '-entries';
 }
 
-/* Collect repeater entries from a container by data-entry-index children. */
+/* Collect repeater entries from a container by data-entry-index children.
+
+   Entry controls are named `group[index][key]`, and multi-value ones (checkbox
+   group, <select multiple>) add a trailing `[]` -> `group[index][key][]`. The
+   trailing `[]` is optional in the pattern below: when it was not, the regex was
+   $-anchored on `]` and never matched a multi-value control, so a multiselect
+   inside a repeater was silently dropped from the payload — the member saw a
+   success toast and lost the data.
+
+   Value semantics are delegated to assignControlValue(), the same function the flat
+   collector uses, so a control type can never again be handled correctly in one
+   collector and wrongly in the other. */
 function collectRepeaterEntries( containerId ) {
 	var container = document.getElementById( containerId );
 	if ( ! container ) { return []; }
@@ -540,11 +573,9 @@ function collectRepeaterEntries( containerId ) {
 		// choice on Work Experience / Education rows was never sent and reset to
 		// the default on reload.
 		row.querySelectorAll( 'input[name], textarea[name], select[name]' ).forEach( function ( el ) {
-			var m = el.name.match( /\[\d+\]\[([^\]]+)\]$/ );
+			var m = el.name.match( /\[\d+\]\[([^\]]+)\](\[\])?$/ );
 			if ( ! m ) { return; }
-			// Checkboxes (e.g. work_current) store "1" when ticked, "" otherwise —
-			// reading .value alone would always yield "1" regardless of state.
-			entry[ m[1] ] = ( 'checkbox' === el.type ) ? ( el.checked ? '1' : '' ) : el.value;
+			assignControlValue( entry, m[1], el );
 		} );
 		entries.push( entry );
 	} );

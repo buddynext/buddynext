@@ -32,6 +32,46 @@ class Installer {
 	 *
 	 * @var string[]
 	 */
+	/**
+	 * User-meta keys BuddyNext must NEVER delete on uninstall — Pro owns them.
+	 *
+	 * The same lesson as OWNED_TABLES, one layer down. Pro prefixes its user meta
+	 * `bn_` too, so Free's uninstall used to run
+	 * `DELETE FROM wp_usermeta WHERE meta_key LIKE 'bn\_%'` and take Pro's rows with
+	 * it — under a comment asserting "Pro writes no user meta under either prefix",
+	 * which was simply false. Deleting the FREE plugin therefore destroyed, on a site
+	 * where Pro was still installed and running:
+	 *
+	 *   - `bn_ability_*`          the member's PAID entitlement grants; and
+	 *   - `bn_email_unsubscribed_*` / `bn_email_suppressed`  the member's email OPT-OUT.
+	 *
+	 * The second is the serious one. An opt-out is a record of consent withdrawn:
+	 * deleting it does not merely lose data, it silently re-subscribes a member who
+	 * explicitly unsubscribed, and the next broadcast mails them. That is a
+	 * compliance failure, not an inconvenience.
+	 *
+	 * Entries are matched as PREFIXES, so a namespace covers its dynamic keys
+	 * (`bn_ability_tier_supporter`, `bn_push_pref_bn.new_follower`, …).
+	 *
+	 * `bn_ability_` is deliberately listed even though Free writes it too
+	 * (AccessWebhookController grants abilities from an outbound webhook): Free and
+	 * Pro grants are indistinguishable once stored, and leaving a stale grant behind
+	 * is strictly better than revoking access somebody paid for. Residue is
+	 * recoverable; a destroyed entitlement is not.
+	 *
+	 * InstallerOwnedTablesTest asserts this list still covers every `bn_*` user-meta
+	 * key Pro writes — a gate that reads BOTH repos, because a gate that only ever
+	 * scans one repo is the root cause this whole class of bug keeps coming from.
+	 *
+	 * @var string[]
+	 */
+	public const PRO_OWNED_USER_META = array(
+		'bn_ability_',              // Paid entitlement grants (Stripe/PayPal → SubscriptionService).
+		'bn_push_pref_',            // Per-type push preferences (Pro PushPrefService).
+		'bn_email_unsubscribed_',   // Broadcast/sequence/campaign opt-outs (Pro BroadcastUnsubscribe).
+		'bn_email_suppressed',      // Hard suppression list (Pro BroadcastUnsubscribe).
+	);
+
 	public const OWNED_TABLES = array(
 		'bn_activity_log',
 		'bn_appeals',
@@ -222,7 +262,7 @@ class Installer {
 	 *      member preference toggle, a seeded email template and an Email Editor entry.
 	 *      Clears the seeded template row and any saved preference rows.
 	 */
-	private const SCHEMA_VERSION = 29;
+	private const SCHEMA_VERSION = 30;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -365,7 +405,62 @@ class Installer {
 		$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_notification_prefs WHERE type = 'bn.connection_declined'" );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
+		// v30: re-mirror every searchable CHOICE field. The search mirror used to
+		// record a select/radio value's sanitize_title() SLUG instead of its option
+		// LABEL, and a slug is lossy in a locale-dependent way (remove_accents()):
+		// on a German site 'Flügelhorn' mirrored as 'fluegelhorn' (ü -> ue) while the
+		// search term collates to 'flugelhorn' (ü -> u), so the member was
+		// PERMANENTLY unfindable; and on every locale a multi-word label like
+		// 'French Horn' mirrored as 'french-horn' and never matched either.
+		// Reported by a customer whose members could not find each other by instrument.
+		//
+		// A reindex alone would NOT fix this: index_user() COPIES the bn_field_{key}
+		// mirror into the FULLTEXT column, so re-running it just re-copies the stale
+		// slug. The mirror itself has to be rebuilt from bn_profile_values — which is
+		// exactly what rebuild_field_mirror() does (it moves the usermeta mirror AND
+		// the search index together, in keyset batches via Action Scheduler, so a
+		// 100k-member field never rebuilds inline in this admin request).
+		//
+		// Scoped to choice types: scalar fields (text/textarea/url/email) always
+		// mirrored their raw value and were never affected.
+		self::schedule_choice_field_remirror();
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * Queue a mirror rebuild for every searchable choice-type profile field (v30).
+	 *
+	 * Choice types (select, radio, and the multiselect family) are the only types
+	 * whose mirror was written as an option slug rather than an option label, so
+	 * they are the only ones that need re-mirroring. Each field is handed to
+	 * ProfileService::rebuild_field_mirror(), which walks its value rows in keyset
+	 * batches and queues the per-user reindex — nothing runs inline here.
+	 *
+	 * Idempotent: rebuilding a mirror that is already correct rewrites the same
+	 * bytes, so a repeated maybe_upgrade() pass is harmless.
+	 *
+	 * @return void
+	 */
+	private static function schedule_choice_field_remirror(): void {
+		global $wpdb;
+
+		$profiles = buddynext_service( 'profiles' );
+		if ( ! is_object( $profiles ) || ! method_exists( $profiles, 'rebuild_field_mirror' ) ) {
+			return;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$field_ids = $wpdb->get_col(
+			"SELECT id FROM {$wpdb->prefix}bn_profile_fields
+			  WHERE is_searchable = 1
+			    AND type IN ( 'select', 'radio', 'multiselect', 'category_multiselect', 'member_type_multiselect' )"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		foreach ( (array) $field_ids as $field_id ) {
+			$profiles->rebuild_field_mirror( (int) $field_id );
+		}
 	}
 
 	/**
