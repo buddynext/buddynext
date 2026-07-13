@@ -74,10 +74,33 @@ class MemberDisplay {
 			),
 		);
 		$map    = $labels[ $role ] ?? array(
-			'label' => ucfirst( $role ),
+			'label' => self::role_label( $role ),
 			'class' => 'bn-badge-role-member',
 		);
 		echo '<span class="bn-badge ' . esc_attr( $map['class'] ) . '">' . esc_html( $map['label'] ) . '</span>';
+	}
+
+	/**
+	 * Human label for a role BuddyNext does not name itself.
+	 *
+	 * The five roles above get a BuddyNext-specific label ("Member", not
+	 * "Subscriber"). Everything else belongs to WordPress or another plugin, and
+	 * WordPress already knows its display name — so ask, rather than guess. The
+	 * previous ucfirst() on the slug printed Learnomy's roles as
+	 * "Learnomy_instructor" in the Role column.
+	 *
+	 * @param string $role Role slug.
+	 * @return string Translated role name, or a humanised slug if the role is no
+	 *                longer registered (its plugin was deactivated).
+	 */
+	private static function role_label( string $role ): string {
+		$names = wp_roles()->get_names();
+
+		if ( isset( $names[ $role ] ) ) {
+			return translate_user_role( $names[ $role ] );
+		}
+
+		return ucwords( str_replace( array( '_', '-' ), ' ', $role ) );
 	}
 
 	/**
