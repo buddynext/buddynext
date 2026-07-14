@@ -1800,6 +1800,23 @@ class PostService {
 			return false;
 		}
 
+		// A PUBLISHED post is not schedulable, and this guard is the fix for a LIVE bug.
+		//
+		// This wrote status='scheduled' unconditionally. The route that reaches it
+		// (POST /posts/{id}/schedule) is guarded only by post_owner_permission, and its caller
+		// checks ownership and that the datetime is in the future — neither checks what the post
+		// currently IS. So any post owner could take a post that is already live, "schedule" it,
+		// and have it silently pulled OUT of the feed. Not a future trap: a shipped route
+		// anyone can hit today.
+		//
+		// Scheduling is a transition from not-yet-public. Draft and scheduled qualify;
+		// published does not.
+		$current = $this->get( $post_id );
+
+		if ( null === $current || ! in_array( (string) ( $current['status'] ?? '' ), array( 'draft', 'scheduled' ), true ) ) {
+			return false;
+		}
+
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $wpdb->update(
