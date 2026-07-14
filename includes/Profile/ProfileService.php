@@ -995,6 +995,14 @@ class ProfileService {
 	private function bust_profile_cache( int $user_id ): void {
 		wp_cache_delete( "profile_{$user_id}_viewer_owner", self::CACHE_GROUP );
 
+		// A member's INTERESTS are profile field values, cached by OnboardingService and
+		// used to shape their for-you feed, Explore and suggestions. Onboarding is not
+		// their only writer — this service writes the same rows whenever a member edits
+		// their profile — so the bust belongs at this choke point too. Busting only in the
+		// onboarding save would leave a member who changed their interests on the profile
+		// screen with the OLD ones still choosing what they get shown.
+		\BuddyNext\Onboarding\OnboardingService::flush_interests( $user_id );
+
 		// Must match every dimension of the read cache key (member + follower +
 		// connection) — the read gate keys on _m%d_f%d_c%d, so an update has to bust
 		// all member×follower×connection buckets or a members-tier field goes stale.

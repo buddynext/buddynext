@@ -67,6 +67,11 @@ class FeedService {
 	private const ANNOUNCEMENT_VERSION_KEY = 'announcement_ids_version';
 
 	/**
+	 * Version counter for the cached pinned-post lists.
+	 */
+	private const PINNED_VERSION_KEY = 'pinned_ids_version';
+
+	/**
 	 * Ceiling for the "N new posts" pill.
 	 *
 	 * Two jobs, one number.
@@ -1777,23 +1782,85 @@ class FeedService {
 
 		$limit = max( 1, min( $limit, 20 ) );
 
-		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_posts
-				 WHERE space_id = %d AND is_pinned = 1 AND status = 'published'
-				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
-				 ORDER BY created_at DESC
-				 LIMIT %d",
-				$space_id,
-				$limit
-			),
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// Runs on every space page paint. Unlike the feed, this one is NOT viewer-scoped —
+		// the pinned strip is the same for everybody who can see the space — so a single
+		// key per space is safe.
+		//
+		// Only the IDS are cached, and each is re-read through PostService::get() (cached,
+		// and busted on every post write). So an unpinned, deleted, unpublished or
+		// moderated post drops out immediately however stale the list is: the worst a
+		// stale list can do is miss a NEWLY pinned post, which the bust on pin prevents.
+		// Same argument as the announcements, and for the same reason — a pinned post that
+		// will not go away is worse than one that arrives a moment late.
+		$cache_key = 'pinned_ids_v' . self::pinned_version() . "_{$space_id}_{$limit}";
+		$ids       = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
-		return array_map( fn( $row ) => $this->post_service->hydrate( $row ), (array) $rows );
+		if ( ! is_array( $ids ) ) {
+			global $wpdb;
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$ids = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT id FROM {$wpdb->prefix}bn_posts
+					 WHERE space_id = %d AND is_pinned = 1 AND status = 'published'
+					   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+					 ORDER BY created_at DESC
+					 LIMIT %d",
+					$space_id,
+					$limit
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			$ids = array_map( 'intval', (array) $ids );
+
+			wp_cache_set( $cache_key, $ids, self::CACHE_GROUP, self::ANNOUNCEMENT_TTL );
+		}
+
+		$posts = array();
+
+		foreach ( $ids as $id ) {
+			$row = $this->post_service->get( (int) $id );
+
+			if ( ! is_array( $row )
+				|| empty( $row['is_pinned'] )
+				|| 'published' !== (string) ( $row['status'] ?? '' )
+				|| ! empty( $row['is_deleted'] )
+			) {
+				continue;
+			}
+
+			$posts[] = $this->post_service->hydrate( $row );
+		}
+
+		return $posts;
+	}
+
+	/**
+	 * Current version of the cached pinned-post lists.
+	 *
+	 * @return int
+	 */
+	private static function pinned_version(): int {
+		$version = wp_cache_get( self::PINNED_VERSION_KEY, self::CACHE_GROUP );
+
+		if ( false === $version ) {
+			$version = 1;
+			wp_cache_set( self::PINNED_VERSION_KEY, $version, self::CACHE_GROUP );
+		}
+
+		return (int) $version;
+	}
+
+	/**
+	 * Invalidate every cached pinned-post list.
+	 *
+	 * Called whenever a post is pinned or unpinned. The writer knows the post, not
+	 * necessarily the space, and a pin is rare — so one bump beats guessing a key.
+	 *
+	 * @return void
+	 */
+	public static function flush_pinned_posts(): void {
+		wp_cache_set( self::PINNED_VERSION_KEY, self::pinned_version() + 1, self::CACHE_GROUP );
 	}
 
 	/**

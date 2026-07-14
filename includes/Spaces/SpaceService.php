@@ -1912,6 +1912,23 @@ class SpaceService {
 		$params[]               = $limit;
 		$params[]               = $offset;
 
+		// Runs on every space page (the sub-spaces rail and the tab panel). Like the
+		// directory, it is VISIBILITY-SCOPED — a secret child is dropped unless the viewer
+		// owns it, belongs to it, or is an admin — so the key is built from the resolved
+		// WHERE and its bound params, not from the arguments. Same reasoning as
+		// list_cache_key(): the key IS the query, so it cannot be shared between two
+		// viewers who would not see the same children.
+		//
+		// It reuses the spaces LIST version, so every write that already invalidates the
+		// directory (create, update, archive, delete, ownership, member count) invalidates
+		// the sub-space rails too — which is correct, because a sub-space IS a space.
+		$cache_key = 'subspaces_v' . self::list_version() . '_' . md5( (string) wp_json_encode( array( $where_sql, $params ) ) );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( is_array( $cached ) ) {
+			return array_map( array( $this, 'hydrate' ), $cached );
+		}
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
@@ -1922,7 +1939,11 @@ class SpaceService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
-		return array_map( array( $this, 'hydrate' ), (array) $rows );
+		$rows = (array) $rows;
+
+		wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return array_map( array( $this, 'hydrate' ), $rows );
 	}
 
 	/**

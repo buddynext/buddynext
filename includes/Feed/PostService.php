@@ -1631,11 +1631,16 @@ class PostService {
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
 
 		// A pin change alters what a cached feed shows for this post, so refresh the
-		// author's feed cache (the space pinned strip queries live, home no longer
-		// floats pins — this covers any other cached surface carrying is_pinned).
+		// author's feed cache.
 		if ( function_exists( 'buddynext_service' ) ) {
 			buddynext_service( 'feed_cache' )->invalidate_writer( (int) $post['user_id'] );
 		}
+
+		// The space's pinned strip is cached now — it used to query live, which is what the
+		// comment above used to say. A newly pinned post cannot heal into a stale id list
+		// on its own: its id is not in the list, so nothing ever re-reads it and discovers
+		// it is pinned. Without this bump, pinning something simply would not pin it.
+		FeedService::flush_pinned_posts();
 
 		return true;
 	}
@@ -1676,6 +1681,11 @@ class PostService {
 		if ( $bn_unpinned && function_exists( 'buddynext_service' ) ) {
 			buddynext_service( 'feed_cache' )->invalidate_writer( (int) ( $bn_unpinned['user_id'] ?? 0 ) );
 		}
+
+		// And the space's cached pinned strip. This direction matters more than pin(): a
+		// post that stays pinned after being UNPINNED is content an owner has explicitly
+		// tried to take down from the top of their space and failed.
+		FeedService::flush_pinned_posts();
 
 		return true;
 	}
