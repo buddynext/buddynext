@@ -95,6 +95,31 @@ $bn_lb_can_interact = is_user_logged_in();
 					<a class="bn-lightbox__action" data-bn-lb-download download target="_blank" rel="noopener">
 						<?php buddynext_icon( 'download' ); ?><span><?php esc_html_e( 'Download', 'buddynext' ); ?></span>
 					</a>
+
+					<?php
+					/*
+					 * Abuse controls. With BuddyNext active, /media/{slug}/ redirects to the source
+					 * activity by design, so WPMediaVerse's own media-single template — the one that
+					 * carries Report and Block — never renders. This lightbox IS the media viewer on
+					 * a BuddyNext site, and it offered Favorite / Share / Download and nothing else:
+					 * a UGC community with no in-UI way to report a piece of media at all.
+					 *
+					 * Report posts to WPMediaVerse's existing queue (mvs/v1/media/{id}/report); we do
+					 * not keep a second one. Block is BuddyNext's own (users/{id}/block) — it is the
+					 * member being blocked, not the file.
+					 *
+					 * Hidden for the author's own media (nobody reports themselves) — the JS toggles
+					 * these off once the media meta says the viewer is the uploader.
+					 */
+					?>
+					<?php if ( $bn_lb_can_interact ) : ?>
+					<button type="button" class="bn-lightbox__action bn-lightbox__action--danger" data-bn-lb-report hidden>
+						<?php buddynext_icon( 'flag' ); ?><span><?php esc_html_e( 'Report', 'buddynext' ); ?></span>
+					</button>
+					<button type="button" class="bn-lightbox__action bn-lightbox__action--danger" data-bn-lb-block hidden>
+						<?php buddynext_icon( 'ban' ); ?><span><?php esc_html_e( 'Block', 'buddynext' ); ?></span>
+					</button>
+					<?php endif; ?>
 				</div>
 
 				<?php if ( $bn_lb_can_interact ) : ?>

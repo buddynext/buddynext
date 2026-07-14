@@ -38,6 +38,8 @@
 			views:    overlay.querySelector( '[data-bn-lb-views]' ),
 			comments: overlay.querySelector( '[data-bn-lb-comments]' ),
 			favorite: overlay.querySelector( '[data-bn-lb-favorite]' ),
+			report:   overlay.querySelector( '[data-bn-lb-report]' ),
+			block:    overlay.querySelector( '[data-bn-lb-block]' ),
 			download: overlay.querySelector( '[data-bn-lb-download]' ),
 			form:     overlay.querySelector( '[data-bn-lb-comment-form]' ),
 			input:    overlay.querySelector( '[data-bn-lb-comment-input]' ),
@@ -62,6 +64,12 @@
 		} );
 		// Favorite + share.
 		if ( panel.favorite ) { panel.favorite.addEventListener( 'click', favorite ); }
+		// Only wire Report if the shared dialog is actually on the page. The button stays
+		// hidden otherwise — a missing control beats one that does nothing when clicked.
+		if ( panel.report && typeof window.bnReportDialog === 'function' ) {
+			panel.report.addEventListener( 'click', report );
+		}
+		if ( panel.block ) { panel.block.addEventListener( 'click', blockAuthor ); }
 		var shareBtn = overlay.querySelector( '[data-bn-lb-share]' );
 		if ( shareBtn ) { shareBtn.addEventListener( 'click', share ); }
 		// Comment submit.
@@ -152,6 +160,7 @@
 		api( '/media/' + id ).then( function ( m ) {
 			if ( current !== id ) { return; }
 			renderAuthor( m, isDM ? panel.dmAuthor : panel.author );
+			applyAbuseControls( m );
 			if ( ! isDM ) {
 				var views = ( m.stats && m.stats.views ) || 0;
 				if ( panel.views ) {
@@ -202,6 +211,23 @@
 
 		// View tracking (best-effort; logged-in or not).
 		api( '/media/' + id + '/view', { method: 'POST' } ).catch( function () {} );
+	}
+
+	// The uploader of the media currently open. Needed for Block (which blocks the MEMBER, not
+	// the file) and to hide both controls on your own media — nobody reports themselves.
+	var currentAuthorId = 0;
+
+	function applyAbuseControls( m ) {
+		currentAuthorId = parseInt( ( m && m.author_id ) || 0, 10 ) || 0;
+
+		var mine = ! currentAuthorId || currentAuthorId === ( parseInt( cfg.userId, 10 ) || 0 );
+		// cfg.canReport mirrors WPMediaVerse's `mvs_reports_enabled` filter. If a site turns
+		// reporting off, the endpoint answers 403 — so the button must not be there at all.
+		var canReport = LOGGED_IN && ! mine && !! cfg.canReport && typeof window.bnReportDialog === 'function';
+		var canBlock  = LOGGED_IN && ! mine && currentAuthorId > 0;
+
+		if ( panel.report ) { panel.report.hidden = ! canReport; }
+		if ( panel.block ) { panel.block.hidden = ! canBlock; }
 	}
 
 	function renderAuthor( m, target ) {
@@ -284,6 +310,88 @@
 				? ( I18N.favorited || 'Favorited' )
 				: ( I18N.favorite || 'Favorite' );
 		}
+	}
+
+	/*
+	 * Report a piece of media.
+	 *
+	 * Posts to WPMediaVerse's OWN queue (mvs/v1/media/{id}/report) — the same queue its native
+	 * media page reports into, and the one moderators already work. BuddyNext does not keep a
+	 * second media-report store; the engine owns media.
+	 *
+	 * The reason list is MVS's enum, not BuddyNext's: MVS accepts nudity / violence / copyright
+	 * and has no inappropriate / impersonation, so posting our own set would be rejected as an
+	 * invalid reason.
+	 */
+	function report() {
+		if ( ! requireLogin() || ! current ) { return; }
+
+		var reasons = [
+			[ 'spam',           __( 'Spam', 'buddynext' ) ],
+			[ 'harassment',     __( 'Harassment or hate speech', 'buddynext' ) ],
+			[ 'nudity',         __( 'Nudity or sexual content', 'buddynext' ) ],
+			[ 'violence',       __( 'Violence or graphic content', 'buddynext' ) ],
+			[ 'copyright',      __( 'Copyright infringement', 'buddynext' ) ],
+			[ 'misinformation', __( 'Misinformation', 'buddynext' ) ],
+			[ 'other',          __( 'Something else', 'buddynext' ) ],
+		];
+
+		window.bnReportDialog( {
+			title: __( 'Report this media', 'buddynext' ),
+			reasons: reasons,
+		} ).then( function ( result ) {
+			if ( ! result ) { return; }
+
+			var mediaId = current;
+
+			return api( '/media/' + mediaId + '/report', {
+				method: 'POST',
+				json: { reason: result.reason, details: result.notes || '' },
+			} ).then( function () {
+				notify( __( 'Thanks — this has been sent to the moderators.', 'buddynext' ), 'success' );
+			} ).catch( function () {
+				notify( __( 'Could not send that report. Try again.', 'buddynext' ), 'error' );
+			} );
+		} );
+	}
+
+	/*
+	 * Block the member who uploaded this media — BuddyNext's own social-graph block
+	 * (buddynext/v1 users/{id}/block), not an MVS concept. It is the person being blocked, not
+	 * the file, so it goes to our namespace rather than the engine's.
+	 */
+	function blockAuthor() {
+		if ( ! requireLogin() || ! currentAuthorId ) { return; }
+
+		var authorId = currentAuthorId;
+		var confirmFn = window.bnConfirm;
+
+		var proceed = typeof confirmFn === 'function'
+			? confirmFn( {
+				title: __( 'Block this member?', 'buddynext' ),
+				body: __( 'You will not see their posts or media, and they cannot message you. You can undo this from your settings.', 'buddynext' ),
+				confirmLabel: __( 'Block', 'buddynext' ),
+				tone: 'danger',
+			} )
+			: Promise.resolve( window.confirm( __( 'Block this member?', 'buddynext' ) ) );
+
+		Promise.resolve( proceed ).then( function ( ok ) {
+			if ( ! ok ) { return; }
+
+			// BuddyNext's namespace, not the media engine's — so it cannot go through api(),
+			// which is bound to the mvs/v1 base.
+			return window.buddynextRest.restFetch( '/users/' + authorId + '/block', {
+				method: 'POST',
+				nonce: cfg.nonce || '', // wp_rest — valid for buddynext/v1 and mvs/v1 alike.
+				toastOnError: false,
+			} ).then( function ( res ) {
+				if ( ! res.ok ) { throw res; }
+				notify( __( 'Blocked. You will not see their content.', 'buddynext' ), 'success' );
+				close();
+			} ).catch( function () {
+				notify( __( 'Could not block that member. Try again.', 'buddynext' ), 'error' );
+			} );
+		} );
 	}
 
 	function favorite() {

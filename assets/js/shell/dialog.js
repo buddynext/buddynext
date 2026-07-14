@@ -305,6 +305,8 @@ export function bnPrompt( opts ) {
  * @param {string} [opts.title] Dialog title.
  * @param {string} [opts.body]  Helper paragraph below the title.
  * @param {string} [opts.confirmLabel] Submit-button label.
+ * @param {Array<[string,string]>} [opts.reasons] Reason pairs [value, label]. Defaults to
+ *        BuddyNext's own set. Pass the target queue's enum when reporting somewhere else.
  * @return {Promise<{reason:string, notes:string}|null>}
  */
 export function bnReportDialog( opts ) {
@@ -316,14 +318,21 @@ export function bnReportDialog( opts ) {
 		tone:         'default',
 	}, opts || {} );
 
-	const REASONS = [
-		[ 'spam',           si( 'reasonSpam', 'Spam' ) ],
-		[ 'harassment',     si( 'reasonHarassment', 'Harassment or hate speech' ) ],
-		[ 'misinformation', si( 'reasonMisinformation', 'Misinformation' ) ],
-		[ 'inappropriate',  si( 'reasonInappropriate', 'Inappropriate content' ) ],
-		[ 'impersonation',  si( 'reasonImpersonation', 'Impersonation' ) ],
-		[ 'other',          si( 'reasonOther', 'Something else' ) ],
-	];
+	// The default reason set is BuddyNext's own (it must match the buddynext_report_reasons
+	// filter, which is what /reports validates against). A caller reporting to a DIFFERENT
+	// moderation queue has to pass that queue's reasons — WPMediaVerse's media report endpoint
+	// validates against its own enum (it has nudity / violence / copyright, and no
+	// inappropriate / impersonation), so sending ours would be rejected as an invalid reason.
+	const REASONS = ( Array.isArray( cfg.reasons ) && cfg.reasons.length )
+		? cfg.reasons
+		: [
+			[ 'spam',           si( 'reasonSpam', 'Spam' ) ],
+			[ 'harassment',     si( 'reasonHarassment', 'Harassment or hate speech' ) ],
+			[ 'misinformation', si( 'reasonMisinformation', 'Misinformation' ) ],
+			[ 'inappropriate',  si( 'reasonInappropriate', 'Inappropriate content' ) ],
+			[ 'impersonation',  si( 'reasonImpersonation', 'Impersonation' ) ],
+			[ 'other',          si( 'reasonOther', 'Something else' ) ],
+		];
 
 	const wrap = document.createElement( 'div' );
 	wrap.style.display = 'flex';
@@ -645,4 +654,15 @@ export function bnToast( message, opts ) {
 
 	toast.addEventListener( 'click', dismiss );
 	removeTimer = window.setTimeout( dismiss, timeout );
+}
+
+/*
+ * The media lightbox is a classic script (it predates the module graph and is enqueued with
+ * only wp-i18n), so it cannot import from here. Expose the report dialog on the window so it
+ * can offer the SAME reason picker as every other Report in the product rather than growing a
+ * second one. The lightbox checks for it and simply does not wire its Report button if the
+ * dialog is absent — a missing control beats a control that does nothing.
+ */
+if ( typeof window !== 'undefined' ) {
+	window.bnReportDialog = bnReportDialog;
 }
