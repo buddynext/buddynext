@@ -102,12 +102,25 @@ $bn_ss_meta = \BuddyNext\Spaces\SpaceService::display_meta( $bn_ss_space );
 // the community-level allow-sub toggle, mirroring validate_parent_move().
 $bn_ss_is_root     = empty( $bn_ss_space->parent_id );
 $bn_ss_sub_allowed = '0' !== (string) get_option( 'buddynext_space_allow_sub', '1' );
+
+/*
+ * Two rights, and BOTH are required - the button used to check only the first.
+ *
+ *   buddynext-manage-space   per-space: are you this space's owner or a moderator?
+ *   buddynext-spaces/create  site-wide capability: are you allowed to create a space AT ALL?
+ *
+ * SpaceController's create route enforces the SECOND one (require_cap( 'buddynext-spaces/create' )),
+ * and an owner can restrict that capability to admins in Settings -> Roles. On such a site a space
+ * owner who is not a site admin still saw "Add sub-space", clicked it, and got a 403 from the API.
+ * The button promised something the endpoint refuses.
+ */
 $bn_ss_can_manage  = $bn_ss_is_root && $bn_ss_sub_allowed && $bn_ss_viewer > 0
 	&& buddynext_service( 'permissions' )->can(
 		$bn_ss_viewer,
 		'buddynext-manage-space',
 		array( 'space_id' => $bn_ss_space_id )
-	);
+	)
+	&& buddynext_can( $bn_ss_viewer, 'buddynext-spaces/create' );
 // A gated (private/secret) parent's structure is content: a non-member does not
 // get its child list, on the page or from GET /spaces/{id}/subspaces. Same
 // resolver, same answer.

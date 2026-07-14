@@ -356,11 +356,24 @@ final class SpaceNav {
 			return false;
 		}
 
-		return $context->viewer_id > 0 && buddynext_can(
-			$context->viewer_id,
-			'buddynext-manage-space',
-			array( 'space_id' => $context->subject_id )
-		);
+		/*
+		 * BOTH rights are required, and this checked only the first.
+		 *
+		 *   buddynext-manage-space   per-space: are you this space's owner or a moderator?
+		 *   buddynext-spaces/create  site-wide: are you allowed to create a space at all?
+		 *
+		 * The create route enforces the SECOND (SpaceController: require_cap( 'buddynext-spaces/create' )),
+		 * and an owner can restrict that capability to admins in Settings -> Roles. On such a site a
+		 * space owner who is not a site admin was shown "Add sub-space", clicked it, and got a 403.
+		 * The UI promised what the endpoint refuses.
+		 */
+		return $context->viewer_id > 0
+			&& buddynext_can(
+				$context->viewer_id,
+				'buddynext-manage-space',
+				array( 'space_id' => $context->subject_id )
+			)
+			&& buddynext_can( $context->viewer_id, 'buddynext-spaces/create' );
 	}
 
 	/**
