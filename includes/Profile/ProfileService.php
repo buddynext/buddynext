@@ -581,13 +581,22 @@ class ProfileService {
 		// can't be planted in a bio or custom field. Posts and comments run the same
 		// safeguard; profile fields previously did not. One check over the joined text
 		// keeps it to a single evaluation before any DB write.
+		$bn_flag_reason = '';
+
 		if ( function_exists( 'buddynext_service' ) ) {
 			$profile_text = self::collect_text_values( $data );
 			if ( '' !== $profile_text ) {
 				$guard = buddynext_service( 'safeguard' );
 				if ( is_object( $guard ) && method_exists( $guard, 'check_content' ) ) {
 					$verdict = $guard->check_content( $profile_text, '', $user_id, 0, 'create' );
-					if ( is_wp_error( $verdict ) ) {
+
+					// A flag saves the profile and reports the member for review; only
+					// a hard block refuses the save. This returned the WP_Error for both
+					// outcomes, so a severity=flag rule locked the member out of editing
+					// their own profile with no way to see why.
+					if ( \BuddyNext\Moderation\SafeguardService::is_flag_verdict( $verdict ) ) {
+						$bn_flag_reason = (string) $verdict->get_error_message();
+					} elseif ( is_wp_error( $verdict ) ) {
 						return $verdict;
 					}
 				}
@@ -938,6 +947,12 @@ class ProfileService {
 
 		$this->bust_profile_cache( $user_id );
 		wp_cache_delete( "completion_{$user_id}", self::CACHE_GROUP );
+
+		// Auto-moderation flag: the profile saved, and the member surfaces in the
+		// moderation queue so a human reviews the flagged field afterwards.
+		if ( '' !== $bn_flag_reason ) {
+			\BuddyNext\Moderation\ModerationService::auto_flag( 'user', $user_id, $bn_flag_reason );
+		}
 
 		// Honest result: any rejected field returns a WP_Error carrying the
 		// field => message map (HTTP 422) so the admin editor can show inline

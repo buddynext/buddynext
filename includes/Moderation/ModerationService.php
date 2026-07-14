@@ -90,6 +90,42 @@ class ModerationService {
 	private const NOTE_MAX_LENGTH = 500;
 
 	/**
+	 * File a system-generated report against auto-flagged content.
+	 *
+	 * This is what a severity=flag rule DOES: the content publishes, and a report
+	 * lands in the moderation queue so a human reviews it after the fact. Reporter
+	 * id 0 marks the report as system-generated; 'inappropriate' is the closest
+	 * valid reason for an automated flag, and the rule's own message is preserved
+	 * as free-text notes so the reviewer can see which rule fired and why.
+	 *
+	 * Static, because all five content surfaces (posts, post edits, comments,
+	 * direct messages, profile fields) need it and each previously resolved the
+	 * service by hand - or, in four cases out of five, did not report at all and
+	 * rejected the content instead.
+	 *
+	 * @param string $object_type Object type ('post', 'comment', 'user', 'message').
+	 * @param int    $object_id   Object that was flagged.
+	 * @param string $reason      Human-readable flag message, stored as notes.
+	 * @param int    $space_id    Space context (0 = none).
+	 * @return void
+	 */
+	public static function auto_flag( string $object_type, int $object_id, string $reason, int $space_id = 0 ): void {
+		if ( $object_id <= 0 || '' === trim( $reason ) ) {
+			return;
+		}
+
+		$moderation = function_exists( 'buddynext_service' )
+			? buddynext_service( 'moderation' )
+			: new self();
+
+		if ( ! $moderation instanceof self ) {
+			return;
+		}
+
+		$moderation->report( 0, $object_type, $object_id, 'inappropriate', $space_id, $reason );
+	}
+
+	/**
 	 * Submit a report on an object.
 	 *
 	 * Each user may only report a given object once (UNIQUE KEY enforced at DB).

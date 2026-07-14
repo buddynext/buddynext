@@ -20,6 +20,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
+use BuddyNext\Moderation\ModerationService;
+use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Notifications\NotificationService;
 use BuddyNext\Media\MediaClient;
 use BuddyNext\Feed\PostService;
@@ -38,6 +40,18 @@ class WPMediaVerseBridge {
 	 * @var bool
 	 */
 	private bool $mirroring_follow = false;
+
+	/**
+	 * Flag reason carried from the pre-send content gate to the post-send report.
+	 *
+	 * A DM is checked before it is written (mvs_message_content_check), so at flag
+	 * time there is no message ID to report against. The reason is parked here and
+	 * consumed by on_message_sent(), which runs once the row exists. Cleared on
+	 * consumption so it cannot leak onto a later message in the same request.
+	 *
+	 * @var string
+	 */
+	private string $pending_dm_flag = '';
 
 	/**
 	 * Object-cache group + TTL for the media -> source-activity lookup. The lookup
@@ -634,7 +648,14 @@ class WPMediaVerseBridge {
 		$guard = buddynext_service( 'safeguard' );
 		if ( is_object( $guard ) && method_exists( $guard, 'check_content' ) ) {
 			$verdict = $guard->check_content( $content, '', $sender_id, 0, 'create' );
-			if ( is_wp_error( $verdict ) ) {
+
+			// A flag lets the message send and files a report once it has an ID (see
+			// on_message_sent) — the reactive model, same as posts and comments. Only
+			// a hard block stops the send. This used to reject on both, so a
+			// severity=flag rule silently refused the DM.
+			if ( SafeguardService::is_flag_verdict( $verdict ) ) {
+				$this->pending_dm_flag = (string) $verdict->get_error_message();
+			} elseif ( is_wp_error( $verdict ) ) {
 				return $verdict;
 			}
 		}
@@ -922,6 +943,15 @@ class WPMediaVerseBridge {
 	 * @param int[] $recipient_ids   Users who should receive the notification.
 	 */
 	public function on_message_sent( int $message_id, int $conversation_id, int $sender_id, array $recipient_ids ): void {
+		// The pre-send gate (moderate_dm_content) let a flagged message through and
+		// left its reason here; now that the message exists and has an ID, file the
+		// system report so it reaches the moderation queue. Cleared either way, so a
+		// flag can never leak onto the next message sent in the same request.
+		if ( '' !== $this->pending_dm_flag ) {
+			ModerationService::auto_flag( 'message', $message_id, $this->pending_dm_flag );
+			$this->pending_dm_flag = '';
+		}
+
 		$service = new NotificationService();
 
 		// Normalise recipient ids — strip sender, ints only.

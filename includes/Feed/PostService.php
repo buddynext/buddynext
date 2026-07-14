@@ -176,7 +176,7 @@ class PostService {
 		);
 		$flag_reason      = '';
 		if ( is_wp_error( $safeguard_result ) ) {
-			if ( 'pending_review' === $safeguard_result->get_error_code() || $this->is_flag_error( $safeguard_result ) ) {
+			if ( SafeguardService::is_flag_verdict( $safeguard_result ) ) {
 				// Reactive moderation (FB / LinkedIn model — members post freely, no
 				// pre-publish approval queue). The new-member gate and duplicate-
 				// content holds (pending_review) are treated exactly like a
@@ -440,7 +440,7 @@ class PostService {
 		// ModerationService::report() also fans out buddynext_moderation_auto_actions,
 		// so threshold-based auto-actions can still fire on the auto-flag.
 		if ( '' !== $flag_reason ) {
-			$this->report_flagged_post( $post_id, $flag_reason, (int) ( $data['space_id'] ?? 0 ) );
+			ModerationService::auto_flag( 'post', $post_id, $flag_reason, (int) ( $data['space_id'] ?? 0 ) );
 		}
 
 		// Parse @username mentions and fire buddynext_user_mentioned for each.
@@ -509,7 +509,7 @@ class PostService {
 		// retroactively block a post that was authored and scheduled earlier.
 		$flag_reason = '';
 		$result      = $this->get_safeguard()->check( $user_id, $data['content'], $data['link_url'], $data['space_id'] );
-		if ( is_wp_error( $result ) && ( 'pending_review' === $result->get_error_code() || $this->is_flag_error( $result ) ) ) {
+		if ( SafeguardService::is_flag_verdict( $result ) ) {
 			$flag_reason = (string) $result->get_error_message();
 			$flag_data   = $result->get_error_data();
 			if ( is_array( $flag_data ) ) {
@@ -1147,6 +1147,9 @@ class PostService {
 		// suite; update() previously ran none, so an edit could slip banned words
 		// or a blocked link past moderation. Only the content checks apply here —
 		// rate-limit / duplicate / new-member gates are create-time concerns.
+		$edit_flag_reason = '';
+		$edit_space_id    = 0;
+
 		if ( isset( $data['content'] ) || isset( $data['link_url'] ) ) {
 			// Resolve the post's space so the per-space banned-word list is enforced
 			// on edits too (get() is cache-backed, so this is cheap).
@@ -1159,7 +1162,14 @@ class PostService {
 				$user_id,
 				$edit_space_id
 			);
-			if ( is_wp_error( $edit_scan ) ) {
+
+			// A flag is not a rejection. The edit saves and a system report is filed
+			// below, exactly as create() does — an edit that trips a severity=flag
+			// rule must not be silently refused, because a flag rule that blocks is
+			// editorial pre-approval. Only a hard block (422) rejects the edit.
+			if ( SafeguardService::is_flag_verdict( $edit_scan ) ) {
+				$edit_flag_reason = (string) $edit_scan->get_error_message();
+			} elseif ( is_wp_error( $edit_scan ) ) {
 				return $edit_scan;
 			}
 		}
@@ -1268,6 +1278,13 @@ class PostService {
 		// armed for the old, later time and the post silently misses its slot.
 		if ( isset( $fields['scheduled_at'] ) ) {
 			ScheduledPostsPublisher::arm();
+		}
+
+		// The edit tripped a severity=flag rule: it saved (above), and now surfaces
+		// in the moderation queue for after-the-fact review — the same reactive
+		// treatment create() gives a flagged post.
+		if ( '' !== $edit_flag_reason ) {
+			ModerationService::auto_flag( 'post', $post_id, $edit_flag_reason, $edit_space_id );
 		}
 
 		/**
@@ -2363,56 +2380,6 @@ class PostService {
 		}
 
 		return new SafeguardService();
-	}
-
-	/**
-	 * Whether a safeguard WP_Error represents a non-blocking "flag" outcome.
-	 *
-	 * A flag means the post is allowed through but must be reported for review.
-	 * Recognised by either the conventional error code suffix `_flagged`
-	 * (e.g. bnpro_keyword_flagged, bnpro_link_flagged) or an HTTP 202 status in
-	 * the error data — the same "accepted, held for review" semantics the
-	 * new-member gate uses. Hard blocks (status 422) are deliberately excluded.
-	 *
-	 * @param WP_Error $error Safeguard result.
-	 * @return bool
-	 */
-	private function is_flag_error( WP_Error $error ): bool {
-		$code = (string) $error->get_error_code();
-		if ( '' !== $code && str_ends_with( $code, '_flagged' ) ) {
-			return true;
-		}
-
-		$data = $error->get_error_data();
-		return is_array( $data ) && isset( $data['status'] ) && 202 === (int) $data['status'];
-	}
-
-	/**
-	 * File a system-generated report against an auto-flagged post.
-	 *
-	 * Resolves the moderation service from the container when available and
-	 * falls back to a fresh instance otherwise (e.g. unit-test contexts). Any
-	 * failure to resolve degrades silently so the post path never fatals when
-	 * moderation is unavailable.
-	 *
-	 * @param int    $post_id  The post that was flagged.
-	 * @param string $reason   Human-readable flag message (stored as report notes).
-	 * @param int    $space_id Space context (0 = none).
-	 * @return void
-	 */
-	private function report_flagged_post( int $post_id, string $reason, int $space_id = 0 ): void {
-		$moderation = function_exists( 'buddynext_service' )
-			? buddynext_service( 'moderation' )
-			: new ModerationService();
-
-		if ( ! $moderation instanceof ModerationService ) {
-			return;
-		}
-
-		// reporter_id 0 = system; 'inappropriate' is the closest valid report
-		// reason for an automated content flag, with the rule's message kept as
-		// free-text notes so reviewers see why it was flagged.
-		$moderation->report( 0, 'post', $post_id, 'inappropriate', $space_id, $reason );
 	}
 
 	/**

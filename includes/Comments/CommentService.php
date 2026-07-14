@@ -16,6 +16,7 @@ namespace BuddyNext\Comments;
 use WP_Error;
 use BuddyNext\Core\RateLimiter;
 use BuddyNext\Moderation\InteractionGuard;
+use BuddyNext\Moderation\ModerationService;
 use BuddyNext\Moderation\SafeguardService;
 
 /**
@@ -116,7 +117,15 @@ class CommentService {
 		// the buddynext_safeguard_check filter). Posts run the full safeguard suite;
 		// comments previously ran none of it, so banned words slipped through.
 		$bn_comment_scan = buddynext_service( 'safeguard' )->check_content( $content, '', $user_id, 0, 'create' );
-		if ( is_wp_error( $bn_comment_scan ) ) {
+		$bn_flag_reason  = '';
+
+		// A flag publishes and reports; only a hard block rejects. This branch used
+		// to return the WP_Error unconditionally, so a severity=flag rule refused
+		// the comment outright — pre-approval by another name, and inconsistent with
+		// posts, which published the same content and filed a report.
+		if ( SafeguardService::is_flag_verdict( $bn_comment_scan ) ) {
+			$bn_flag_reason = (string) $bn_comment_scan->get_error_message();
+		} elseif ( is_wp_error( $bn_comment_scan ) ) {
 			return $bn_comment_scan;
 		}
 
@@ -227,6 +236,12 @@ class CommentService {
 		);
 
 		$comment_id = (int) $wpdb->insert_id;
+
+		// Auto-moderation flag: the comment is live, and a system report puts it in
+		// the moderation queue for review after the fact.
+		if ( '' !== $bn_flag_reason ) {
+			ModerationService::auto_flag( 'comment', $comment_id, $bn_flag_reason );
+		}
 
 		$this->bust_cache( $object_type, $object_id );
 
