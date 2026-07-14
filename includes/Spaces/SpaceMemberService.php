@@ -1337,6 +1337,16 @@ class SpaceMemberService {
 		}
 		$limit = max( 1, min( 50, $limit ) );
 
+		// The "My spaces" rail flyout runs this on EVERY hub page a logged-in member
+		// loads, alongside its count. Two queries on every page of the site, for a list
+		// that only changes when the member joins or leaves something.
+		$cache_key = 'membership_rows_v' . self::membership_summary_version( $user_id ) . "_{$user_id}_{$limit}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1354,7 +1364,11 @@ class SpaceMemberService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return is_array( $rows ) ? $rows : array();
+		$rows = is_array( $rows ) ? $rows : array();
+
+		wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $rows;
 	}
 
 	/**
@@ -1374,16 +1388,27 @@ class SpaceMemberService {
 			return 0;
 		}
 
+		$cache_key = 'membership_count_v' . self::membership_summary_version( $user_id ) . "_{$user_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		return (int) $wpdb->get_var(
+		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active'",
 				$user_id
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $count;
 	}
 
 	/**
@@ -1575,6 +1600,49 @@ class SpaceMemberService {
 		wp_cache_delete( "role_{$space_id}_{$user_id}", self::CACHE_GROUP );
 		wp_cache_delete( "status_{$space_id}_{$user_id}", self::CACHE_GROUP );
 		wp_cache_delete( "members_{$space_id}", self::CACHE_GROUP );
+
+		// The member's own "My spaces" rail. It is rebuilt from these same rows, so it
+		// goes stale on exactly the events this method already handles — joining, leaving,
+		// being removed, a role change. Busting it here rather than at the call sites
+		// means a new membership path cannot forget it: everything that changes a
+		// membership already comes through this choke point.
+		self::invalidate_membership_summary( $user_id );
+	}
+
+	/**
+	 * Version of one member's cached "My spaces" summary.
+	 *
+	 * @param int $user_id Member.
+	 * @return int
+	 */
+	private static function membership_summary_version( int $user_id ): int {
+		$version = wp_cache_get( "membership_ver_{$user_id}", self::CACHE_GROUP );
+
+		if ( false === $version ) {
+			$version = 1;
+			wp_cache_set( "membership_ver_{$user_id}", $version, self::CACHE_GROUP );
+		}
+
+		return (int) $version;
+	}
+
+	/**
+	 * Drop the cached "My spaces" rail summary for one member.
+	 *
+	 * A version bump rather than keyed deletes, because membership_rows() takes an
+	 * arbitrary limit (1-50) and is therefore cached under an arbitrary number of keys.
+	 * Deleting a fixed list of them would quietly miss whichever limit a caller picked
+	 * next, and the rail would keep showing a space the member had left.
+	 *
+	 * @param int $user_id Member.
+	 * @return void
+	 */
+	private static function invalidate_membership_summary( int $user_id ): void {
+		wp_cache_set(
+			"membership_ver_{$user_id}",
+			self::membership_summary_version( $user_id ) + 1,
+			self::CACHE_GROUP
+		);
 	}
 
 	/**
