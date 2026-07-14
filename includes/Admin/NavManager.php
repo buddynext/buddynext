@@ -1203,7 +1203,7 @@ class NavManager extends AdminPageBase {
 		$requires    = (string) ( $tab['requires_plugin'] ?? '' );
 		$dep_missing = '' !== $requires && ! \BuddyNext\Messages\MessagesData::available();
 		?>
-		<li class="bn-drag-row"
+		<li class="bn-drag-row<?php echo ( 'mobile' === $scope && in_array( $slug, array( 'create', 'profile' ), true ) ) ? ' bn-drag-row--pinned' : ''; ?>"
 			data-slug="<?php echo esc_attr( $slug ); ?>"
 			data-scope="<?php echo esc_attr( $scope ); ?>"
 			id="<?php echo esc_attr( $row_id ); ?>"
@@ -1211,7 +1211,31 @@ class NavManager extends AdminPageBase {
 			<?php echo $locked ? ' data-row-locked' : ''; ?>
 			<?php echo $dep_missing ? ' data-row-dependency' : ''; ?>>
 
-			<?php if ( 'mobile' !== $scope ) : ?>
+			<?php
+			/*
+			 * Two mobile slots genuinely cannot move. Create is
+			 * centred by arithmetic (`flex: 0 0 44px` between two `flex: 1` groups), so it only
+			 * lands on the viewport centre while it has the same number of slots either side;
+			 * drag it and the bar goes visibly lopsided. Profile is the fixed last slot and the
+			 * anchor the "More" sheet folds into. nav.php states both: they are not nav tabs and
+			 * are never overridable — which is also why neither has a config panel, and so
+			 * neither can carry a saved order. A handle on them would write nowhere.
+			 *
+			 * The real tabs (feed / spaces / notifications) ARE draggable now, and the front end
+			 * honours the order (NavOverrides::apply_mobile_items). Previously the whole mobile
+			 * scope had its handles suppressed, which left an admin looking at a reorderable-
+			 * looking list — in a screen whose other three scopes all reorder — with no way to
+			 * tell why this one did not, and no explanation on the page.
+			 */
+			$bn_pinned = ( 'mobile' === $scope && in_array( $slug, array( 'create', 'profile' ), true ) );
+			?>
+			<?php if ( $bn_pinned ) : ?>
+			<span class="bn-drag-row__handle bn-drag-row__handle--pinned"
+					aria-hidden="true"
+					title="<?php esc_attr_e( 'Always centred', 'buddynext' ); ?>">
+				<span></span>
+			</span>
+			<?php else : ?>
 			<button type="button"
 					class="bn-drag-row__handle"
 					aria-label="<?php esc_attr_e( 'Drag to reorder', 'buddynext' ); ?>"
@@ -1433,7 +1457,19 @@ class NavManager extends AdminPageBase {
 				</select>
 			</div>
 
-			<?php if ( 'mobile' !== $scope ) : ?>
+			<?php
+			/*
+			 * Position. The mobile scope gets a real field now that the bar honours the order —
+			 * it used to be a hidden input, and the drag JS writes into `input[type="number"]`,
+			 * so a mobile drag had nowhere to land even once the renderer could have used it.
+			 *
+			 * The exception is the mobile Create slot: it is centred by arithmetic and always
+			 * re-centred on render, so a Position box for it would be a number the product
+			 * ignores. It keeps a hidden input to preserve the posted value shape.
+			 */
+			$bn_position_fixed = ( 'mobile' === $scope && in_array( $slug, array( 'create', 'profile' ), true ) );
+			?>
+			<?php if ( ! $bn_position_fixed ) : ?>
 			<div class="bn-cf">
 				<label for="bn-cfg-order-<?php echo esc_attr( $slug ); ?>">
 					<?php esc_html_e( 'Position', 'buddynext' ); ?>
@@ -1445,6 +1481,11 @@ class NavManager extends AdminPageBase {
 						min="1"
 						max="999"
 						class="bn-cf-position-input">
+				<?php if ( 'mobile' === $scope ) : ?>
+				<span class="bn-cf-hint">
+					<?php esc_html_e( 'The Create button always sits in the centre of the bar; the other slots arrange around it.', 'buddynext' ); ?>
+				</span>
+				<?php endif; ?>
 			</div>
 			<?php else : ?>
 			<input type="hidden"

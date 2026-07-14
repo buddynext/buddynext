@@ -3374,6 +3374,14 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	align-items: center;
 	justify-content: center;
 }
+/* The mobile bar's Create slot is centred by arithmetic, so it cannot be dragged. It keeps a
+   handle-shaped placeholder — removing it would misalign the row against its siblings — but it
+   reads as fixed, not as a grab target that silently refuses to move. */
+.bn-drag-row__handle--pinned {
+	cursor: default;
+	opacity: 0.35;
+}
+
 .bn-drag-row__handle::before,
 .bn-drag-row__handle::after,
 .bn-drag-row__handle span {

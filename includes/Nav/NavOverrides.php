@@ -428,15 +428,89 @@ final class NavOverrides {
 		}
 		unset( $item );
 
+		// ORDER. The admin can drag the mobile tabs, so the bar has to honour it — a drag
+		// handle whose result is discarded is worse than no handle at all.
+		//
+		// The one thing that cannot move is Create. It is centred by ARITHMETIC, not by a CSS
+		// offset: it is `flex: 0 0 44px` between two `flex: 1` groups, so it lands on the
+		// viewport centre only while it has the same number of slots on each side. Let it be
+		// dragged and the bar goes visibly lopsided (Messages once did this as a 6th slot and
+		// pushed Create 35px off-centre at 390px).
+		//
+		// So: sort every OTHER slot by the saved order, then put Create back in the middle. Two
+		// each side, still centred, and the four tabs around it are the admin's to arrange.
+		// Two slots are not nav tabs and are never overridable (nav.php says so, and neither has
+		// a config panel in the Navigation screen, so neither can carry a saved order):
+		// - create  : centred by arithmetic. Must keep equal slots either side.
+		// - profile : the fixed last slot, and the anchor the "More" sheet folds into.
+		// They are lifted out, the real tabs are sorted, and then they go back where they belong.
+		$create  = null;
+		$profile = null;
+		$rest    = array();
+
+		foreach ( $items as $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+			$item_key = sanitize_key( (string) ( $item['key'] ?? '' ) );
+			if ( 'create' === $item_key ) {
+				$create = $item;
+				continue;
+			}
+			if ( 'profile' === $item_key ) {
+				$profile = $item;
+				continue;
+			}
+			$rest[] = $item;
+		}
+
+		$position = 0;
+		foreach ( $rest as $index => $item ) {
+			$key   = sanitize_key( (string) ( $item['key'] ?? '' ) );
+			$ov    = isset( $overrides[ $key ] ) ? (array) $overrides[ $key ] : array();
+			$order = isset( $ov['order'] ) ? max( 1, (int) $ov['order'] ) : ( ( $index + 1 ) * 10 );
+
+			// A stable tiebreak, so two slots sharing an order keep their declared sequence
+			// instead of flipping between page loads.
+			$rest[ $index ]['order'] = $order;
+			$rest[ $index ]['_seq']  = $position++;
+		}
+
+		usort(
+			$rest,
+			static function ( array $a, array $b ): int {
+				$cmp = ( (int) ( $a['order'] ?? 0 ) ) <=> ( (int) ( $b['order'] ?? 0 ) );
+
+				return 0 !== $cmp ? $cmp : ( ( (int) ( $a['_seq'] ?? 0 ) ) <=> ( (int) ( $b['_seq'] ?? 0 ) ) );
+			}
+		);
+
+		foreach ( $rest as $index => $item ) {
+			unset( $rest[ $index ]['_seq'] );
+		}
+
+		if ( null !== $profile ) {
+			$rest[] = $profile;
+		}
+
+		if ( null !== $create ) {
+			// Back to the middle of whatever is left. intdiv() on the count keeps it centred even
+			// when a slot is hidden (Spaces off) and the bar is shorter than five.
+			$middle = intdiv( count( $rest ), 2 );
+			array_splice( $rest, $middle, 0, array( $create ) );
+		}
+
+		$items = $rest;
+
 		// Append admin-created custom tabs as overflow entries. The bottom bar is
 		// a fixed 5-slot strip (centre Create must stay centred), so custom tabs do
 		// not get their own slot — nav.php surfaces them, with Profile, in a "More"
 		// sheet opened from the 5th slot. Each carries overflow => true.
+		// No is_array() guard needed: the ordering pass above rebuilds $items from entries it
+		// already filtered, so every element here is an array.
 		$existing_keys = array();
 		foreach ( $items as $existing_item ) {
-			if ( is_array( $existing_item ) ) {
-				$existing_keys[ sanitize_key( (string) ( $existing_item['key'] ?? '' ) ) ] = true;
-			}
+			$existing_keys[ sanitize_key( (string) ( $existing_item['key'] ?? '' ) ) ] = true;
 		}
 		foreach ( $overrides as $slug => $ov ) {
 			$ov   = (array) $ov;

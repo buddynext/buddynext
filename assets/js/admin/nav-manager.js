@@ -179,15 +179,21 @@
 
 	if ( window.jQuery && window.jQuery.fn.sortable ) {
 		var $ = window.jQuery;
-		// Mobile is omitted: its bottom bar is a fixed 5-slot strip (centre
-		// Create stays centred), so order is never applied — a drag handle
-		// there would be a no-op. See NavOverrides::apply_mobile_items().
-		var scopes = [ 'main', 'profile', 'space' ];
+		// Mobile is included: the bar now honours the saved order
+		// (NavOverrides::apply_mobile_items). Its Create slot is the one exception —
+		// it is centred by arithmetic, so it must keep the same number of slots on
+		// each side. It renders with a pinned, non-draggable handle and is excluded
+		// from the sortable below, rather than being draggable into a position the
+		// renderer would silently undo.
+		var scopes = [ 'main', 'profile', 'space', 'mobile' ];
 		scopes.forEach( function ( sc ) {
 			var listId = '#bn-nav-sortable-' + sc;
 			if ( $( listId ).length ) {
 				$( listId ).sortable( {
 					handle: '.bn-drag-row__handle',
+					// The pinned Create row cannot be picked up, and nothing can be
+					// dropped onto its index — it stays in the middle.
+					items: '> .bn-drag-row:not(.bn-drag-row--pinned)',
 					// The handle is a <button>, which is in jQuery UI Sortable's
 					// default cancel list ("input,textarea,button,select,option,a"),
 					// so a mousedown on it aborts the drag and the row never moves.
