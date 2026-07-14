@@ -163,19 +163,23 @@ fi
 #
 # This gate existed and was called by NOTHING, while a plan doc claimed it was wired. An
 # unwired gate is worse than no gate: it reads as coverage we do not have. It reports real
-# drift today (see the cache-uniformity audit), so it runs advisory rather than blocking —
-# a hard gate that fails on a known backlog just gets switched off.
+# BLOCKING as of the cache-conformance sweep. The backlog is clear (0 findings), so the reason
+# for running it advisory — "a hard gate that fails on a known backlog just gets switched off" —
+# no longer applies.
 #
-# Flip to fail() once the cache backlog is clear. Do not let it rot back to unwired.
-section "Cache conformance (advisory)"
+# It stays honest because the CHECKER was fixed too: it used to flag correct code (a const named
+# GROUP rather than CACHE_GROUP, a TTL that is a constant expression rather than digits, anything
+# inside a trait), and 32 of its 42 findings were noise. A gate that cries wolf gets ignored, and
+# this one was. Now it only reports real drift — so it can afford to block.
+section "Cache conformance"
 if [ -x bin/check-cache.sh ]; then
 	if bin/check-cache.sh; then
 		:
 	else
-		note "cache drift reported — advisory, see the cache-uniformity audit"
+		fail "cache drift — see the CACHING standard"
 	fi
 else
-	note "bin/check-cache.sh missing"
+	fail "bin/check-cache.sh missing"
 fi
 
 # 4. PHPStan
