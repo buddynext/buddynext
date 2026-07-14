@@ -927,6 +927,28 @@ table.bn-table tr:hover td {
    Badges
    -------------------------------------------------------------------------- */
 
+/* Row-action cluster for a list table's Actions column.
+   A shared admin primitive, like .bn-btn and .bn-badge: Pro's screens consume it.
+
+   The controls in an Actions cell are a mix of <form>-wrapped buttons (they need the
+   nonce + hidden inputs) and bare <a>s. Dropped loose into the <td> they are separate
+   inline boxes, so the moment the column narrows they stack on their own lines flush
+   against one another with no vertical gap, each keeping whatever spacing its element
+   happened to have. A flex row gives them one consistent gap in both axes. */
+.bn-row-actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+}
+
+/* The <form> is a carrier for the nonce, not a layout box. Without this it forms its own
+   line box and the gap applies to the wrapper rather than to the button inside it. */
+.bn-row-actions__form {
+	display: inline-flex;
+	margin: 0;
+}
+
 .bn-badge {
 	display: inline-block;
 	padding: 2px var(--bn-a-s2);
@@ -1283,6 +1305,11 @@ table.bn-table tr:hover td {
 .bn-btn {
 	display: inline-flex;
 	align-items: center;
+	/* WP's admin reset gives <button> border-box but leaves <a> at content-box, so an
+	   <a class="bn-btn"> came out 2px taller than the <button class="bn-btn"> beside it —
+	   the border was added to the height instead of absorbed. Any Actions cell mixing a
+	   link and a form button showed it. State it here, once, for both. */
+	box-sizing: border-box;
 	gap: var(--bn-a-s2);
 	padding: var(--bn-a-s2) var(--bn-a-s4);
 	border-radius: var(--bn-a-r-md);
