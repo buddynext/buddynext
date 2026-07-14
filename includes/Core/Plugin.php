@@ -461,6 +461,10 @@ class Plugin {
 			( new \BuddyNext\Sidebar\WidgetListener( $container->get( 'sidebar_cache' ) ) )->register();
 		}
 
+		// Member-directory facet counts — busted whenever a member enters or leaves the
+		// groups the counts exclude (suspended / shadow-banned / directory opt-out).
+		( new \BuddyNext\Profile\MemberDirectoryListener() )->register();
+
 		// Feed cache — always bound (feed is mandatory). Listener busts
 		// the writer's first-page cache on post_created / post_deleted.
 		( new \BuddyNext\Feed\FeedListener( $container->get( 'feed_cache' ) ) )->register();

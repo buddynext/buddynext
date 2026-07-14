@@ -222,7 +222,20 @@ class NotificationPrefService {
 			)
 		);
 
+		// Both cached reads of this table have to go, not just the per-type one.
+		//
+		// set_pref() is the ONLY writer of bn_notification_prefs, and it busted only
+		// pref_{uid}_{type} while get_all_prefs() keeps its own cached copy of the whole
+		// set under all_prefs_{uid}. The bulk setter happened to bust that key after its
+		// loop, so changing prefs from the settings screen looked fine — but a SINGLE
+		// change did not, and that is the path an email-unsubscribe link takes. The
+		// member turned an email off, the write succeeded, and the mailer went on reading
+		// the old preference set until the TTL expired.
+		//
+		// Busting both here, at the one place that writes the table, means a writer
+		// cannot forget: there is nowhere else to forget it from.
 		wp_cache_delete( "pref_{$user_id}_{$type}", self::CACHE_GROUP );
+		wp_cache_delete( "all_prefs_{$user_id}", self::CACHE_GROUP );
 	}
 
 	/**
@@ -303,7 +316,9 @@ class NotificationPrefService {
 			$this->set_pref( $user_id, sanitize_text_field( (string) $type ), $data );
 		}
 
-		wp_cache_delete( "all_prefs_{$user_id}", self::CACHE_GROUP );
+		// No bust needed here any more — set_pref() now clears all_prefs_{uid} itself,
+		// so the bulk path is covered by the same guarantee as the single path rather
+		// than by its own separate line that only this method remembered to write.
 	}
 
 	/**

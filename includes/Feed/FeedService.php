@@ -983,6 +983,14 @@ class FeedService {
 			delete_option( 'buddynext_featured_announcement' );
 		}
 
+		// Ending an announcement changes what every home feed shows, so the cached feeds
+		// have to go — exactly as they do when an announcement is PUBLISHED. Without this
+		// the announcement stays pinned to the top of the community's feed after the owner
+		// has ended it, which is the one moment they most need it gone (they usually end
+		// an announcement because it is wrong or no longer true). Busted here, at the
+		// write, so both callers — the admin screen and the REST route — are covered.
+		$this->flush_all_home_caches();
+
 		return false !== $updated;
 	}
 
