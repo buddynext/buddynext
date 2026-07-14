@@ -1090,7 +1090,9 @@ class SearchService {
 				'id'           => $uid,
 				'name'         => $name,
 				'initials'     => \BuddyNext\Profile\AvatarService::initials_for( $name ),
-				'bio'          => (string) get_user_meta( $uid, 'bn_field_bio', true ),
+				// Read never written: see ProfileService::bios_for(). Members were never indexed by
+				// their bio, so nobody could be found by what they wrote about themselves.
+				'bio'          => buddynext_service( 'profiles' )->bio_for( $uid ),
 				'profile_url'  => (string) \BuddyNext\Core\PageRouter::profile_url( $uid ),
 				'is_self'      => ( $uid === $viewer_id ),
 				'is_following' => ! empty( $following[ $uid ] ),

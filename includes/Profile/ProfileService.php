@@ -1901,7 +1901,8 @@ class ProfileService {
 		if ( '' !== $headline ) {
 			$parts[] = $headline;
 		}
-		$bio = (string) get_user_meta( $user_id, 'bn_field_bio', true );
+		// Read never written - the bio lives in bn_profile_values. See bios_for().
+		$bio = $this->bio_for( $user_id );
 		if ( '' !== $bio ) {
 			$parts[] = $bio;
 		}
@@ -3191,5 +3192,81 @@ class ProfileService {
 				$user_id
 			)
 		);
+	}
+
+	/**
+	 * Bio text for a batch of members, read from where the bio actually lives.
+	 *
+	 * `bio` is a real bn_profile_fields row, so its value is in bn_profile_values. Four call
+	 * sites used to read get_user_meta( $uid, 'bn_field_bio' ) instead - a key nothing writes for
+	 * it. The bn_field_* usermeta is only written as a side effect of the search mirror, and the
+	 * mirror only runs for fields flagged is_searchable; the stock bio is is_searchable = 0. So
+	 * the key was never written and every one of those four surfaces showed an empty bio.
+	 * (Measured on a seeded site: 12 members with a bio in the table, 0 with the usermeta.)
+	 *
+	 * Whether a bio is SEARCHABLE and whether it is READABLE are two different questions. This is
+	 * the one reader they all share now, so they cannot drift apart again.
+	 *
+	 * The usermeta mirror is still honoured where a site has one - a virtual, code-registered bio
+	 * lives only in usermeta.
+	 *
+	 * @param array<int, int> $user_ids Members to resolve.
+	 * @return array<int, string> user_id => bio text.
+	 */
+	public function bios_for( array $user_ids ): array {
+		$user_ids = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
+
+		if ( empty( $user_ids ) ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $user_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT v.user_id, v.value
+				   FROM {$wpdb->prefix}bn_profile_values v
+				   JOIN {$wpdb->prefix}bn_profile_fields f ON f.id = v.field_id
+				  WHERE f.field_key = 'bio'
+				    AND v.entry_index = 0
+				    AND v.user_id IN ({$placeholders})",
+				...$user_ids
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$out = array();
+
+		foreach ( (array) $rows as $row ) {
+			$out[ (int) $row['user_id'] ] = (string) $row['value'];
+		}
+
+		// One query primes every member's meta; without it the loop below is an N+1.
+		cache_users( $user_ids );
+
+		foreach ( $user_ids as $uid ) {
+			if ( '' === ( $out[ $uid ] ?? '' ) ) {
+				$mirror = get_user_meta( $uid, 'bn_field_bio', true );
+				if ( is_string( $mirror ) && '' !== $mirror ) {
+					$out[ $uid ] = $mirror;
+				}
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Bio text for one member.
+	 *
+	 * @param int $user_id Member id.
+	 * @return string
+	 */
+	public function bio_for( int $user_id ): string {
+		return (string) ( $this->bios_for( array( $user_id ) )[ $user_id ] ?? '' );
 	}
 }

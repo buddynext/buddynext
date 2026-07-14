@@ -542,7 +542,8 @@ class MemberDirectoryService {
 		 *
 		 * One query for the whole page, not one per member - this list renders 20+ cards.
 		 */
-		$bios = $this->bios_for( $row_ids );
+		// One reader for the whole product - ProfileService owns bn_profile_values.
+		$bios = buddynext_service( 'profiles' )->bios_for( $row_ids );
 
 		$items = array_map(
 			static function ( $r ) use ( $mutual_counts, $follower_counts, $viewer_id, $blocks, $bios ) {
@@ -1280,69 +1281,5 @@ class MemberDirectoryService {
 	public function register(): void {
 		add_action( 'buddynext_block', array( __CLASS__, 'on_block_change' ), 10, 2 );
 		add_action( 'buddynext_unblock', array( __CLASS__, 'on_block_change' ), 10, 2 );
-	}
-
-	/**
-	 * Bio text for a batch of members, read from bn_profile_values.
-	 *
-	 * One query for the page. Falls back to the bn_field_bio usermeta mirror when a site has
-	 * flagged the bio searchable (the mirror is then authoritative and already denormalised),
-	 * so both configurations resolve.
-	 *
-	 * @param array<int, int> $user_ids Member ids on this page.
-	 * @return array<int, string> user_id => bio text.
-	 */
-	private function bios_for( array $user_ids ): array {
-		$user_ids = array_values( array_unique( array_map( 'intval', $user_ids ) ) );
-
-		if ( empty( $user_ids ) ) {
-			return array();
-		}
-
-		global $wpdb;
-
-		$placeholders = implode( ',', array_fill( 0, count( $user_ids ), '%d' ) );
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT v.user_id, v.value
-				   FROM {$wpdb->prefix}bn_profile_values v
-				   JOIN {$wpdb->prefix}bn_profile_fields f ON f.id = v.field_id
-				  WHERE f.field_key = 'bio'
-				    AND v.entry_index = 0
-				    AND v.user_id IN ({$placeholders})",
-				...$user_ids
-			),
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-		$out = array();
-
-		foreach ( (array) $rows as $row ) {
-			$out[ (int) $row['user_id'] ] = (string) $row['value'];
-		}
-
-		/*
-		 * Sites that flagged the bio searchable also keep a usermeta mirror; honour it where the
-		 * table gave us nothing (a virtual/code-registered bio lives only in usermeta).
-		 *
-		 * cache_users() primes every member's meta in ONE query. Without it the loop below issues
-		 * a get_user_meta() per member - I measured 21 queries for a 20-card page, which is an N+1
-		 * I would have added while fixing a bug. It is 1 now.
-		 */
-		cache_users( $user_ids );
-
-		foreach ( $user_ids as $uid ) {
-			if ( '' === ( $out[ $uid ] ?? '' ) ) {
-				$mirror = get_user_meta( $uid, 'bn_field_bio', true );
-				if ( is_string( $mirror ) && '' !== $mirror ) {
-					$out[ $uid ] = $mirror;
-				}
-			}
-		}
-
-		return $out;
 	}
 }
