@@ -75,7 +75,11 @@ These are read-only list views of the caller's own social-graph state. The write
 | POST | `/me/onboarding/step` | require_auth | Persist progress for one onboarding step |
 | POST | `/me/onboarding/skip` | require_auth | Skip the onboarding wizard |
 | POST | `/me/onboarding/complete` | require_auth | Mark onboarding complete (fires `buddynext_onboarding_completed`) |
+| GET | `/me/interests` | require_auth | Read the caller's picked interest categories as `{ interests: [ { id, name }, ... ] }` (deleted categories drop out) |
+| POST | `/me/interests` | require_auth | Persist the caller's interest categories. Body: `interests` (array of category IDs). Returns `{ saved: true, interests: [...] }` |
 | POST | `/me/presence/heartbeat` | require_auth | Refresh the caller's `bn_last_active` stamp for online/presence |
+
+> **`/me/interests` writes through the profile store, not user meta.** The picks land in the system `interests` profile field (a `category_multiselect`, one `bn_profile_values` row per pick) - `POST /me/interests` is a thin alias over the canonical profile-save path, so a pick made here is the same value `PUT /me/profile` would write.
 
 ### Social login providers
 
@@ -138,6 +142,16 @@ Two-factor lives under `/account/2fa/*`; password, email, and session controls l
 | POST | `/users/{id}/cover` | require_edit_any_profile | Admin upload of a user's cover image |
 | DELETE | `/users/{id}/cover` | require_edit_any_profile | Admin removal of a user's cover image |
 | GET | `/users/{id}/feed` | public | A user's own post timeline (gated by `buddynext_public_explore`) |
+
+### Companion-gated member routes
+
+Registered by `JetonomyBridge` and present **only when the Jetonomy companion is active**. Note the `/members/` prefix (not `/users/`) - this route mirrors the SSR profile Discussions tab so the native app renders the same panel.
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/members/{id}/discussions` | public | A member's Discussions credential panel: `{ accepted_answers, reputation, trust_level, discussion_count, discussions: [ { id, title, url, reply_count, vote_score, space_name, created_at }, ... ] }` (up to 20 recent). Returns `404` when the member does not exist. |
+
+The space-scoped Jetonomy bridge routes (`POST /spaces/{id}/forum`, `GET /spaces/{id}/discussion-search`) are documented on the REST: Spaces page.
 
 ### Moderation actions targeting a user
 

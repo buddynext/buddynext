@@ -110,6 +110,7 @@ Reactions attach to any object identified by `object_type` + `object_id` (for ex
 | POST | `/reactions/toggle` | auth | Toggle the current user's reaction on an object. Body: `object_type` (required), `object_id` (required), `emoji` (default `like`). Returns `403 reactions_disabled` when the Reactions feature is off. |
 | GET | `/reactions` | public | Reaction count for an object, plus the current user's state when authenticated. Query: `object_type`, `object_id`. |
 | GET | `/reactions/list` | public | The list of reactors (user, emoji, hydrated name + avatar). Query: `object_type`, `object_id`, optional `limit` (1-100, default 100). |
+| GET | `/reactions/types` | public | The owner-enabled reaction set - each with `label`, emoji char, colour, and icon URL. Returns `{ reactions: [...] }`. Lets a native app render the exact picker the web shows (including Pro custom reactions) instead of hardcoding the six defaults. |
 
 ## Comment routes
 

@@ -100,7 +100,41 @@ Served by `FeedController`.
 |---|---|---|---|
 | GET | `/spaces/{id}/feed` | Public | Return the activity feed for a space. |
 
-> A space forum is not a separate Free REST route. Discussions surface through the activity feed and through the Jetonomy bridge (discussion-type items) when that companion is active; there is no dedicated `/spaces/{id}/forum` endpoint in Free.
+## Discovery, pinned, and structure
+
+Served by `SpaceController`. These read routes power the directory's suggested-spaces rail, the space-home pinned strip, and sub-space navigation.
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/spaces/suggestions` | Auth | Ranked suggested spaces for the current viewer. Query: `limit` (default 6, capped at 24). Returns directory-shaped rows (category, membership state, sub-space count, cover tone) - the same card the directory renders. |
+| GET | `/spaces/{id}/pinned` | Public | The space's pinned posts (up to 10), each with a hydrated `author`. Content-gated: a private/secret space returns `403` (`forbidden`) to non-members, `404` (`space_not_found`) when the space does not exist. |
+| GET | `/spaces/{id}/subspaces` | Public | Visibility-scoped child spaces of a parent. Query: `page` (default 1), `per_page` (default 24, capped at 50). Returns `{ subspaces, total, page, per_page }`. A secret parent returns `404`; a private parent returns `403` to non-members. |
+
+> `/spaces/suggestions` and `/spaces/fields` are registered **before** the `/spaces/{id}` route so their literal path segments are matched unambiguously; because the `{id}` pattern is `[\d]+`, the words `suggestions` and `fields` can never collide with it.
+
+The viewer's per-post reaction/bookmark/vote state for the pinned set is fetched separately through `GET /feed/viewer-state?post_ids=` (see REST: Feed and Posts) rather than being inlined here.
+
+## Custom fields
+
+Served by `SpaceController`. Space custom fields are defined by a site-wide registry (`SpaceFieldRegistry`); the definitions are the form schema the app and web both render from, and values are stored per space.
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/spaces/fields` | Public | The registered field definitions (form schema, no values): `key`, `label`, `description`, `type`, `options`, `section`, `sort_order`, `visibility`, `is_required`. Returns `{ fields: [...] }`. |
+| POST | `/spaces/{id}/fields` | Auth (owner/mod) | Save field values for a space. Body: `fields` (object of `key => value`); optional `tabs` (array of field keys to promote to space tabs - owner-only, ignored for moderators). |
+
+The `POST` route's gate is `require_auth`; the real authority is per field inside `SpaceFieldRegistry::save_for_space()`. A space **moderator** (`buddynext-moderate-space`) may write the moderation-scoped fields; anything else returns `403`. The whole submit is atomic: a required-field failure rejects it with `422` and a per-field message map, otherwise all values save and the route returns `200`. The `tabs` promotion only applies when the values validated **and** the caller holds `buddynext-manage-space` (owner-level).
+
+## Jetonomy bridge routes (companion-gated)
+
+Registered by `JetonomyBridge` and present **only when the Jetonomy companion is active**. They are still part of the Free plugin's `buddynext/v1` namespace - the space forum is Jetonomy's discussion surface, wired into a BuddyNext space.
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/spaces/{id}/forum` | Auth (can-provision) | Provision (or fetch) the space's forum and return `{ forum_id, forum_url }`. Requires login (`401` otherwise) and the space-forum provision permission (`403` otherwise). |
+| GET | `/spaces/{id}/discussion-search` | Auth (can-provision) | Typeahead for the "link an existing discussion" picker. Query: `q` (optional). Returns `{ results: [...] }`. Scope is **derived server-side from the caller's role** - a site admin searches all discussions, any other manager only the space owner's own; the client cannot widen it. |
+
+The member-scoped counterpart, `GET /members/{id}/discussions`, is documented on the REST: Members and Profiles page.
 
 ## Space categories
 
