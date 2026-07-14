@@ -241,8 +241,31 @@ class MemberDirectoryController extends BaseRestController {
 		$uid          = (int) ( $row['user_id'] ?? 0 );
 		$display_name = (string) ( $row['display_name'] ?? '' );
 		$user         = get_user_by( 'id', $uid );
-		$login        = $user instanceof \WP_User ? (string) $user->user_login : '';
 		$bio          = (string) ( $row['bio'] ?? '' );
+
+		/*
+		 * The PUBLIC handle, and it must be the slug the profile URL actually resolves on.
+		 *
+		 * This used to publish `user_login`. Two problems with that, and the second is a real bug:
+		 *
+		 *   1. user_login is a CREDENTIAL. user_nicename is WordPress's designated public slug -
+		 *      it is what core itself exposes (author archives, wp/v2/users). Publishing the login
+		 *      hands out half of every member's sign-in on an endpoint whose permission callback
+		 *      is __return_true.
+		 *
+		 *   2. It does not even resolve. PageRouter::profile_url() builds /members/{slug}/ from
+		 *      bn_profile_slug ?: user_nicename, and PageRouter::resolve_user() looks the member up
+		 *      with get_user_by( 'slug', ... ) - nicename ONLY, never login. The two coincide on a
+		 *      fresh install, so nothing looks wrong. Change a member's slug (an ordinary admin
+		 *      action) and they diverge: a client that builds a profile link from `handle` - which
+		 *      is exactly what the app does - now requests /members/{login}/ and gets a 404.
+		 *
+		 * So handle is derived the same way profile_url() derives it. One source of truth.
+		 */
+		$custom_slug = (string) get_user_meta( $uid, 'bn_profile_slug', true );
+		$handle      = '' !== $custom_slug
+			? $custom_slug
+			: ( $user instanceof \WP_User ? (string) $user->user_nicename : '' );
 
 		$type_slug = (string) get_user_meta( $uid, 'bn_member_type', true );
 		$type_name = '';
@@ -303,7 +326,7 @@ class MemberDirectoryController extends BaseRestController {
 		$item = array(
 			'user_id'        => $uid,
 			'display_name'   => $display_name,
-			'handle'         => $login,
+			'handle'         => $handle,
 			// Profession tagline for the card (matches member-card.php). The member
 			// IDs' usermeta is cache-warmed earlier in the request, so this is a
 			// cache hit, not an N+1.
