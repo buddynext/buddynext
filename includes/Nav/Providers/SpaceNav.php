@@ -278,18 +278,23 @@ final class SpaceNav {
 
 		$feed = buddynext_service( 'feed' );
 
-		// Pinned posts (up to the per-space cap). The part renders each as an object
-		// and shows the author name, which hydrate() does not carry, so enrich here.
-		// Pro allows up to 10 pins per space; the panel bounds how many show at once.
-		$pinned_posts = array();
-		foreach ( $feed->space_pinned_posts( $space_id, 10 ) as $pinned_arr ) {
-			if ( ! is_array( $pinned_arr ) ) {
-				continue;
-			}
-			$author                    = get_userdata( (int) ( $pinned_arr['user_id'] ?? 0 ) );
-			$pinned_arr['author_name'] = $author ? $author->display_name : __( 'Admin', 'buddynext' );
-			$pinned_posts[]            = (object) $pinned_arr;
-		}
+		/*
+		 * Pinned posts, as hydrated ARRAYS - the shape partials/post-card.php consumes.
+		 *
+		 * They used to be cast to objects and enriched with author_name for a hand-rolled stub
+		 * card that carried no React / Comment / Share / Save. Since the pinned post is also
+		 * dropped from the chronological list below, that stub was the ONLY place it appeared -
+		 * so pinning a post silently removed every way to engage with it. The panel now renders
+		 * the real post card, which needs the array and does its own author lookup.
+		 *
+		 * Pro allows up to 10 pins per space; the panel bounds how many show at once.
+		 */
+		$pinned_posts = array_values(
+			array_filter(
+				(array) $feed->space_pinned_posts( $space_id, 10 ),
+				'is_array'
+			)
+		);
 
 		// Regular feed (hydrated arrays). The pinned post leads as its own card, so
 		// drop it from the list to avoid showing it twice.
