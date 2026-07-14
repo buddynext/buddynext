@@ -227,6 +227,10 @@ class FollowService {
 			$counters->adjust_user_counter( $following_id, 'bn_follower_count', 1 );
 			$counters->adjust_user_counter( $follower_id, 'bn_following_count', 1 );
 
+			// Re-bust AFTER the counters are written — the bust above ran before them,
+			// so a racing reader could have re-cached the pre-increment count.
+			$this->invalidate_follow_counts( $follower_id, $following_id );
+
 			/**
 			 * Fires after a new follow relationship is created.
 			 *
@@ -321,6 +325,9 @@ class FollowService {
 				$counters = buddynext_service( 'counters' );
 				$counters->adjust_user_counter( $following_id, 'bn_follower_count', -1 );
 				$counters->adjust_user_counter( $follower_id, 'bn_following_count', -1 );
+
+				// Re-bust AFTER the counters are written — see invalidate_follow_counts().
+				$this->invalidate_follow_counts( $follower_id, $following_id );
 			}
 
 			/**
@@ -1324,6 +1331,9 @@ class FollowService {
 		$counters->adjust_user_counter( $owner_id, 'bn_follower_count', 1 );
 		$counters->adjust_user_counter( $follower_id, 'bn_following_count', 1 );
 
+		// Re-bust AFTER the counters are written — see invalidate_follow_counts().
+		$this->invalidate_follow_counts( $follower_id, $owner_id );
+
 		/** Mirrors the same hooks the public follow() path fires. */
 		do_action( 'buddynext_user_followed', $follower_id, $owner_id );
 		do_action( 'buddynext_follower_gained', $owner_id, $follower_id );
@@ -1389,12 +1399,45 @@ class FollowService {
 		wp_cache_delete( "is_following_{$follower_id}_{$following_id}", self::CACHE_GROUP );
 		wp_cache_delete( "followers_{$following_id}", self::CACHE_GROUP );
 		wp_cache_delete( "following_{$follower_id}", self::CACHE_GROUP );
-		wp_cache_delete( "follower_count_{$following_id}", self::CACHE_GROUP );
-		wp_cache_delete( "following_count_{$follower_id}", self::CACHE_GROUP );
+
+		$this->invalidate_follow_counts( $follower_id, $following_id );
 
 		// The follower's ranked suggestion candidates depend on their follow
 		// set — bust so a just-followed account drops out immediately instead
 		// of lingering for the cache TTL.
 		$this->flush_suggestions_for( $follower_id );
+	}
+
+	/**
+	 * Bust ONLY the denormalised follow-count keys.
+	 *
+	 * Separate from invalidate_follow_cache() because it has to run at a different
+	 * moment. The edge caches (is_following / followers / following) are correct the
+	 * instant the bn_follows row is written, so they are busted right after the write.
+	 * The COUNT keys are not: they are backed by the bn_follower_count / bn_following_count
+	 * usermeta counters, which CounterService::adjust_user_counter() writes a few lines
+	 * LATER.
+	 *
+	 * Busting the count keys before that counter write opens a race. follower_count()
+	 * falls back to the usermeta value on a cache miss, so a concurrent request landing
+	 * in the window reads the PRE-increment counter and re-caches the old number — and
+	 * nothing busts it again, so the wrong follower count sticks for the whole TTL.
+	 * adjust_user_counter() cannot save us: it only busts WP's 'user_meta' cache, never
+	 * this service's own group.
+	 *
+	 * So the write paths call this a SECOND time, after the counters are written. The
+	 * pre-write bust clears any already-stale entry; this post-write bust closes the
+	 * race window. Deleting an absent key is a no-op, so the double bust costs nothing.
+	 *
+	 * It is deliberately NOT solved by moving the invalidate_follow_cache() call after
+	 * the counters: the pending-follow-request branch returns early, before any counter
+	 * runs, and would then never bust its edge caches at all.
+	 *
+	 * @param int $follower_id  The follower.
+	 * @param int $following_id The followee.
+	 */
+	private function invalidate_follow_counts( int $follower_id, int $following_id ): void {
+		wp_cache_delete( "follower_count_{$following_id}", self::CACHE_GROUP );
+		wp_cache_delete( "following_count_{$follower_id}", self::CACHE_GROUP );
 	}
 }

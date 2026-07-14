@@ -231,6 +231,9 @@ class ConnectionService {
 		$counters->adjust_user_counter( $requester_id, 'bn_connection_count', 1 );
 		$counters->adjust_user_counter( $recipient_id, 'bn_connection_count', 1 );
 
+		// Re-bust AFTER the counters are written — see invalidate_connection_counts().
+		$this->invalidate_connection_counts( $requester_id, $recipient_id );
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$connection_id = (int) $wpdb->get_var(
 			$wpdb->prepare(
@@ -420,6 +423,9 @@ class ConnectionService {
 		$counters = buddynext_service( 'counters' );
 		$counters->adjust_user_counter( $user_a, 'bn_connection_count', -1 );
 		$counters->adjust_user_counter( $user_b, 'bn_connection_count', -1 );
+
+		// Re-bust AFTER the counters are written — see invalidate_connection_counts().
+		$this->invalidate_connection_counts( $user_a, $user_b );
 
 		/**
 		 * Fires after a connection is removed.
@@ -1051,10 +1057,34 @@ class ConnectionService {
 		$high = max( $user_a, $user_b );
 
 		wp_cache_delete( "pair_row_{$low}_{$high}", self::CACHE_GROUP );
-		wp_cache_delete( "connection_count_{$user_a}", self::CACHE_GROUP );
-		wp_cache_delete( "connection_count_{$user_b}", self::CACHE_GROUP );
+
+		$this->invalidate_connection_counts( $user_a, $user_b );
 
 		$this->bump_version( $user_a );
 		$this->bump_version( $user_b );
+	}
+
+	/**
+	 * Bust ONLY the denormalised connection-count keys.
+	 *
+	 * Same reason as FollowService::invalidate_follow_counts(). The pair row and the
+	 * list versions are correct the moment the bn_connections row is written, but the
+	 * COUNT keys are backed by the bn_connection_count usermeta counter, which
+	 * CounterService::adjust_user_counter() writes a few lines LATER.
+	 *
+	 * Busting the count keys before that write opens a race: connection_count() falls
+	 * back to usermeta on a miss, so a concurrent request landing in the window reads
+	 * the pre-change counter and re-caches the wrong number for the whole TTL.
+	 * adjust_user_counter() only busts WP's 'user_meta' cache, never this group.
+	 *
+	 * The counter-changing write paths therefore call this AGAIN after the counters
+	 * are written. Deleting an absent key is a no-op, so the double bust is free.
+	 *
+	 * @param int $user_a One side of the pair.
+	 * @param int $user_b The other side.
+	 */
+	private function invalidate_connection_counts( int $user_a, int $user_b ): void {
+		wp_cache_delete( "connection_count_{$user_a}", self::CACHE_GROUP );
+		wp_cache_delete( "connection_count_{$user_b}", self::CACHE_GROUP );
 	}
 }
