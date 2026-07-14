@@ -42,6 +42,21 @@ class ExploreService {
 	public const FILTERS = array( 'all', 'members', 'spaces', 'posts', 'discussions', 'media' );
 
 	/**
+	 * Object-cache group for the Explore decks.
+	 */
+	private const CACHE_GROUP = 'buddynext_explore';
+
+	/**
+	 * Deck TTL. A backstop — the events that matter (a block, a new post) bust explicitly.
+	 */
+	private const CACHE_TTL = 300;
+
+	/**
+	 * Version counter for every cached deck.
+	 */
+	private const DECK_VERSION_KEY = 'explore_deck_version';
+
+	/**
 	 * How many new members to weave into the blended "all" first page.
 	 */
 	private const DISCOVERY_MEMBERS = 4;
@@ -94,6 +109,28 @@ class ExploreService {
 		$filter   = in_array( $filter, self::FILTERS, true ) ? $filter : 'all';
 		$per_page = max( 1, min( $per_page, 50 ) );
 
+		// The deck IS viewer-dependent, even though nothing in the signature says so: it
+		// drops users the viewer has blocked (in either direction) and it garnishes the
+		// "all" deck with spaces picked from the viewer's own interests. A cache key
+		// without the viewer in it would show a member the content of somebody they
+		// blocked — the one thing a block is for. Logged-out viewers all share key 0,
+		// which is correct: no blocks, no interests, one identical deck.
+		$viewer    = get_current_user_id();
+		$cache_key = sprintf(
+			'deck_v%d_%s_%s_%d_u%d',
+			self::deck_version(),
+			$filter,
+			null === $cursor ? '' : md5( $cursor ),
+			$per_page,
+			$viewer
+		);
+
+		$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
 		switch ( $filter ) {
 			case 'members':
 				$result = $this->members_deck( $cursor, $per_page );
@@ -112,7 +149,47 @@ class ExploreService {
 		}
 
 		$result['filter'] = $filter;
+
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
+
 		return $result;
+	}
+
+	/**
+	 * Current version of the Explore decks.
+	 *
+	 * @return int
+	 */
+	private static function deck_version(): int {
+		$version = wp_cache_get( self::DECK_VERSION_KEY, self::CACHE_GROUP );
+
+		if ( false === $version ) {
+			$version = 1;
+			wp_cache_set( self::DECK_VERSION_KEY, $version, self::CACHE_GROUP );
+		}
+
+		return (int) $version;
+	}
+
+	/**
+	 * Invalidate every cached Explore deck, for every viewer, in O(1).
+	 *
+	 * Explore is a discovery surface, so a short TTL would mostly do — but not for the two
+	 * things that must never lag:
+	 *
+	 *   - a BLOCK. Blocking someone and still being shown their posts for the next five
+	 *     minutes is the block failing at the only job it has.
+	 *   - a member's OWN new post. Posting and not seeing it on the landing surface reads
+	 *     as the post having been lost.
+	 *
+	 * So the deck is busted on those events rather than left to expire. It is a global
+	 * bump (every viewer's decks) rather than a per-viewer one: blocks are rare, and a
+	 * bump costs one cache write.
+	 *
+	 * @return void
+	 */
+	public static function flush_decks(): void {
+		wp_cache_set( self::DECK_VERSION_KEY, self::deck_version() + 1, self::CACHE_GROUP );
 	}
 
 	/**
@@ -478,13 +555,30 @@ class ExploreService {
 			return array();
 		}
 
-		$ids = array();
+		$ids     = array();
+		$authors = array();
+
 		foreach ( $posts as $post ) {
 			$pid = (int) ( $post['id'] ?? 0 );
 			if ( $pid > 0 ) {
 				$ids[] = $pid;
 			}
+
+			$author = (int) ( $post['user_id'] ?? 0 );
+			if ( $author > 0 ) {
+				$authors[] = $author;
+			}
 		}
+
+		// Prime the author users in ONE query. Each card renders its author's avatar, and
+		// get_avatar_url() resolves the user behind the id — so a 12-card deck was up to 12
+		// separate user lookups on the busiest discovery surface on the site. This is the
+		// same batch-prime the comment and reaction lists already do.
+		$authors = array_values( array_unique( $authors ) );
+		if ( ! empty( $authors ) ) {
+			cache_users( $authors );
+		}
+
 		$hashtags = $this->first_hashtags_map( $ids );
 
 		$cards = array();

@@ -465,6 +465,10 @@ class Plugin {
 		// groups the counts exclude (suspended / shadow-banned / directory opt-out).
 		( new \BuddyNext\Profile\MemberDirectoryListener() )->register();
 
+		// Explore decks — busted on a block (the deck hides blocked members, and a block
+		// must bite immediately) and on new content.
+		( new \BuddyNext\Feed\ExploreListener() )->register();
+
 		// Feed cache — always bound (feed is mandatory). Listener busts
 		// the writer's first-page cache on post_created / post_deleted.
 		( new \BuddyNext\Feed\FeedListener( $container->get( 'feed_cache' ) ) )->register();
