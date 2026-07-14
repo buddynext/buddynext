@@ -425,6 +425,7 @@ final class SpaceNav {
 	 */
 	private function render_subspaces_panel( int $space_id, int $viewer_id ): void {
 		$context = new NavContext( 'space', $space_id, $viewer_id );
+		$sub_max = (int) get_option( 'buddynext_space_max_sub_spaces', 0 );
 
 		buddynext_get_template(
 			'parts/space-subspaces-panel.php',
@@ -439,6 +440,14 @@ final class SpaceNav {
 					user_can( $viewer_id, 'manage_options' )
 				),
 				'can_manage' => $this->can_add_subspace( $context ),
+				// The per-parent cap, so the panel can say "2 of 3 used" and disable the
+				// button AT the limit instead of letting the manager fill in the whole
+				// modal and then be refused by the server. Counted with count_subspaces()
+				// (every child), never the visibility-scoped list, so a secret child the
+				// viewer cannot see still counts against the cap - exactly as the create
+				// path enforces it.
+				'sub_max'    => $sub_max,
+				'sub_used'   => $sub_max > 0 ? ( new SpaceService() )->count_subspaces( $space_id ) : 0,
 			)
 		);
 	}

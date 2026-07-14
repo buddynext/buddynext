@@ -1280,6 +1280,22 @@ a.bn-sh-statpill:focus-visible {
 	margin-block-start: var(--bn-s2);
 }
 
+/* Sub-space capacity. The button used to render regardless of the cap, so the only
+   way to find the limit was to fill in the modal and be refused by the server. */
+.bn-sh-side-spaces__capacity,
+.bn-space-subspaces__capacity {
+	margin: 0 0 var(--bn-s1);
+	color: var(--bn-ink-3, #64748b);
+	font-size: var(--bn-fs-xs, 12px);
+}
+
+.bn-sh-side-spaces__full,
+.bn-space-subspaces__full {
+	margin: var(--bn-s1) 0 0;
+	color: var(--bn-ink-3, #64748b);
+	font-size: var(--bn-fs-xs, 12px);
+}
+
 .bn-sh-side-spaces__add {
 	width: 100%;
 	justify-content: center;
@@ -3360,6 +3376,8 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-space-subspaces__cta {
 	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
 	margin-block-start: var(--bn-s4);
 }
 

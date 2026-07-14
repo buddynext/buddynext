@@ -2164,7 +2164,42 @@ button.bn-btn-danger:hover {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 6px;
+	gap: 10px;
+}
+
+/* Each action form is a row of its own controls (e.g. Import: a file picker and
+   the button that submits it), so they line up beside each other rather than the
+   button dropping below the picker. */
+.bn-mod-actions form {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+/* A file picker is not a text field. It used to wear .bn-input, which meant
+   width:100% and height:36px -- so it stretched the full width of the panel and
+   shoved the button that submits it onto its own line. It sizes to its content
+   and sits beside its button. */
+.bn-file-input {
+	max-inline-size: 100%;
+	color: var(--bn-ink, #1e293b);
+	font-size: 13px;
+}
+
+.bn-file-input::file-selector-button {
+	margin-inline-end: 8px;
+	padding: 5px 10px;
+	border: 1px solid var(--bn-a-border, #d1d5db);
+	border-radius: 6px;
+	background: var(--bn-a-surface, #fff);
+	color: var(--bn-ink, #1e293b);
+	font-size: 13px;
+	cursor: pointer;
+}
+
+.bn-file-input::file-selector-button:hover {
+	border-color: var(--bn-brand, #0073aa);
 }
 .bn-mod-action-form {
 	display: inline-block;

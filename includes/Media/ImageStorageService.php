@@ -164,7 +164,25 @@ class ImageStorageService {
 			$path = trailingslashit( $dir ) . $variation . '.' . $ext;
 			if ( file_exists( $path ) ) {
 				$url = (string) apply_filters( 'buddynext_stored_image_url', $this->url_for_path( $path ), $kind, $owner, $id );
-				return $url;
+
+				/*
+				 * Cache-bust with the file's mtime.
+				 *
+				 * store() already returns a versioned URL, but this method - which is what
+				 * every RENDERED surface uses (the space header, directory cards, the rails)
+				 * - returned a bare one. Filenames are stable by design (full.webp), so the
+				 * browser had a cached copy under exactly that URL and kept showing the OLD
+				 * image after a re-upload, even through a full page reload. That is the
+				 * "avatar does not update" report: the upload succeeded, the file changed,
+				 * the URL did not.
+				 *
+				 * mtime, not time(): the URL must stay STABLE between requests or every page
+				 * load would miss the cache and re-download every avatar on the page. It
+				 * changes exactly when the image does, which is the whole point.
+				 */
+				$mtime = @filemtime( $path ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- a race with delete() must not warn; false is handled below.
+
+				return $mtime ? add_query_arg( 'v', (string) $mtime, $url ) : $url;
 			}
 		}
 		return '';
