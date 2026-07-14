@@ -29,6 +29,11 @@ class BookmarkService {
 	private const CACHE_TTL = 600;
 
 	/**
+	 * Ceiling on the full "every id I ever saved" list. Filterable.
+	 */
+	private const LIST_CAP = 1000;
+
+	/**
 	 * Save a post to the user's bookmarks.
 	 *
 	 * Silently ignores duplicate bookmarks (INSERT IGNORE).
@@ -286,14 +291,41 @@ class BookmarkService {
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// Capped. This is the native app's "all my saved ids" shape, so it is self-scoped and
+		// not on any render path (render uses bookmarked_among() / paged_bookmarks()) — but an
+		// unbounded SELECT is still an unbounded SELECT, and a member who has been saving posts
+		// for five years is the one who gets to find out.
+		//
+		// The cap is filterable rather than paginated, deliberately: the contract of this
+		// method is "the whole set", and paginating it would silently change that into "some of
+		// the set" for every caller. A ceiling with a loud _doing_it_wrong() is honest; a quiet
+		// truncation is the bug this exists to avoid.
+		$cap = (int) apply_filters( 'buddynext_bookmark_list_cap', self::LIST_CAP, $user_id );
+
 		$rows = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT post_id FROM {$wpdb->prefix}bn_bookmarks
 				 WHERE user_id = %d
-				 ORDER BY created_at DESC, post_id DESC",
-				$user_id
+				 ORDER BY created_at DESC, post_id DESC
+				 LIMIT %d",
+				$user_id,
+				$cap
 			)
 		);
+
+		if ( count( (array) $rows ) === $cap ) {
+			_doing_it_wrong(
+				__METHOD__,
+				esc_html(
+					sprintf(
+						/* translators: %d: the bookmark list cap. */
+						__( 'A member has hit the %d-bookmark ceiling for the full-list shape. Use paged_bookmarks() for anything that renders.', 'buddynext' ),
+						$cap
+					)
+				),
+				'1.0.8'
+			);
+		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$result = array_map( 'intval', (array) $rows );

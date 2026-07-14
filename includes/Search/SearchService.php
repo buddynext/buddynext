@@ -41,6 +41,17 @@ class SearchService {
 	private const DEINDEX_BATCH = 2000;
 
 	/**
+	 * Shortest term the fuzzy fallback will run for. Below this, LIKE '%a%' matches
+	 * nearly every row and SOUNDEX is noise.
+	 */
+	private const FUZZY_MIN_TERM_LENGTH = 3;
+
+	/**
+	 * Largest index on which the fuzzy full scan is still an acceptable trade.
+	 */
+	private const FUZZY_MAX_INDEX_ROWS = 50000;
+
+	/**
 	 * Upsert an object into the search index.
 	 *
 	 * @param string $object_type Type identifier (e.g. 'post', 'user', 'space').
@@ -244,6 +255,70 @@ class SearchService {
 				$permalink = get_permalink( $object_id );
 				return false !== $permalink ? (string) $permalink : '';
 		}
+	}
+
+	/**
+	 * Whether the fuzzy fallback is affordable on this index.
+	 *
+	 * The fuzzy path is LIKE '%term%' plus SOUNDEX() — both non-sargable, so it is a FULL SCAN
+	 * of bn_search_index. It fires whenever FULLTEXT matched nothing, i.e. on any typo, from an
+	 * endpoint that does not require login. A stranger could scan the whole index by asking for
+	 * gibberish, repeatedly. That is not a slow query; it is a denial-of-service surface.
+	 *
+	 * So it is bounded twice:
+	 *
+	 *   - Not on a large index. Full-scanning a million rows to be kind about a typo is not a
+	 *     trade worth making; on a big community FULLTEXT is good enough on its own.
+	 *   - Not on a 1-2 character term, where LIKE '%a%' matches nearly everything and SOUNDEX
+	 *     is noise anyway.
+	 *
+	 * A site that wants it back can raise the ceiling with buddynext_search_fuzzy_max_rows.
+	 *
+	 * @param string $query The sanitised search term.
+	 * @return bool
+	 */
+	private function fuzzy_is_affordable( string $query ): bool {
+		if ( mb_strlen( $query ) < self::FUZZY_MIN_TERM_LENGTH ) {
+			return false;
+		}
+
+		/**
+		 * Largest search index on which the fuzzy fallback still runs.
+		 *
+		 * @since 1.0.8
+		 *
+		 * @param int $max_rows Row ceiling. 0 disables fuzzy entirely.
+		 */
+		$max_rows = (int) apply_filters( 'buddynext_search_fuzzy_max_rows', self::FUZZY_MAX_INDEX_ROWS );
+
+		if ( $max_rows <= 0 ) {
+			return false;
+		}
+
+		return $this->index_row_count() <= $max_rows;
+	}
+
+	/**
+	 * Approximate size of the search index, cached — this must not itself be a cost.
+	 *
+	 * @return int
+	 */
+	private function index_row_count(): int {
+		$cached = wp_cache_get( 'bn_search_index_rows', 'buddynext' );
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index" );
+
+		// cache-ttl-only: an approximate index size is all this needs; being 5 minutes stale
+		// cannot change the answer near the ceiling in any way that matters.
+		wp_cache_set( 'bn_search_index_rows', $count, 'buddynext', 300 );
+
+		return $count;
 	}
 
 	/**
@@ -712,13 +787,21 @@ class SearchService {
 		// returns results instead of an empty page. When acting as the fuzzy
 		// fallback, SOUNDEX (phonetic) matching is added so a misspelled name
 		// ("jhon" → "John") still surfaces.
-		$fuzzy = $use_fulltext && 0 === $total;
+		$fuzzy = $use_fulltext && 0 === $total && $this->fuzzy_is_affordable( $safe_query );
 		if ( ! $use_fulltext || $fuzzy ) {
 			$like = '%' . $wpdb->esc_like( $safe_query ) . '%';
 
 			if ( $fuzzy ) {
-				$like_match  = '( si.title LIKE %s OR si.content LIKE %s OR SOUNDEX(si.title) = SOUNDEX(%s) OR SOUNDEX(si.content) = SOUNDEX(%s) )';
-				$like_params = array( $like, $like, $safe_query, $safe_query );
+				// SOUNDEX on si.CONTENT is gone, and not only because it is slow.
+				//
+				// SOUNDEX() encodes the first letter plus a few consonants of the WHOLE string
+				// into a 4-character code. On a document body that is, in effect,
+				// SOUNDEX(first word) — comparing it to SOUNDEX('jhon') is meaningless. It was
+				// a non-sargable full scan of bn_search_index computing an answer that was also
+				// wrong. Phonetic matching only makes sense on a short field, so it stays on
+				// the title.
+				$like_match  = '( si.title LIKE %s OR si.content LIKE %s OR SOUNDEX(si.title) = SOUNDEX(%s) )';
+				$like_params = array( $like, $like, $safe_query );
 			} else {
 				$like_match  = '( si.title LIKE %s OR si.content LIKE %s )';
 				$like_params = array( $like, $like );

@@ -19,6 +19,13 @@ namespace BuddyNext\Notifications;
 class EmailSender {
 
 	/**
+	 * Template rows already fetched during this send run, keyed by type.
+	 *
+	 * @var array<string, object|null>
+	 */
+	private array $template_memo = array();
+
+	/**
 	 * Notification preference service.
 	 *
 	 * @var NotificationPrefService
@@ -763,6 +770,18 @@ class EmailSender {
 	 * @return object|null DB row object or null.
 	 */
 	private function get_template( string $type ): ?object {
+		// Memoised PER INSTANCE. send_now() calls this on EVERY send, so a 10,000-recipient
+		// broadcast issued 10,000 IDENTICAL queries for the same template row — the template
+		// does not vary by recipient, which is the whole point of a template.
+		//
+		// Instance-scoped, NOT static: a static would survive wp_cache_flush() and outlive the
+		// send, so an admin editing a template mid-request would keep sending the old one. The
+		// broadcast loop holds one EmailSender, so an instance memo collapses exactly the
+		// repetition that was there and nothing more.
+		if ( array_key_exists( $type, $this->template_memo ) ) {
+			return $this->template_memo[ $type ];
+		}
+
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -773,7 +792,9 @@ class EmailSender {
 			)
 		);
 
-		return ( null !== $row ) ? $row : null;
+		$this->template_memo[ $type ] = ( null !== $row ) ? $row : null;
+
+		return $this->template_memo[ $type ];
 	}
 
 	/**

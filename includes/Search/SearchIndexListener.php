@@ -22,6 +22,11 @@ use BuddyNext\Spaces\SpaceFieldRegistry;
 class SearchIndexListener implements ListenerInterface {
 
 	/**
+	 * Rows per keyset page when re-dispatching a member's own posts.
+	 */
+	private const REINDEX_BATCH = 200;
+
+	/**
 	 * Register all action hooks for index maintenance.
 	 *
 	 * Also registers the synchronous fallback handlers that run when Action
@@ -154,17 +159,33 @@ class SearchIndexListener implements ListenerInterface {
 
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$post_ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'published'",
-				$user_id
-			)
-		);
+		// Keyset-paged, not one unbounded SELECT. A member who flips their search visibility
+		// used to load EVERY id they have ever published into PHP at once, then fan out a
+		// dispatch per post. A prolific author with 50k posts did that inline, on a settings
+		// save.
+		$after = 0;
 
-		foreach ( $post_ids as $post_id ) {
-			$this->dispatch( 'buddynext_async_index_post', array( (int) $post_id, $user_id ) );
-		}
+		do {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$post_ids = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT id FROM {$wpdb->prefix}bn_posts
+					  WHERE user_id = %d AND status = 'published' AND id > %d
+					  ORDER BY id ASC
+					  LIMIT %d",
+					$user_id,
+					$after,
+					self::REINDEX_BATCH
+				)
+			);
+
+			$fetched = count( (array) $post_ids );
+
+			foreach ( $post_ids as $post_id ) {
+				$after = (int) $post_id;
+				$this->dispatch( 'buddynext_async_index_post', array( (int) $post_id, $user_id ) );
+			}
+		} while ( self::REINDEX_BATCH === $fetched );
 	}
 
 	/**
@@ -356,18 +377,25 @@ class SearchIndexListener implements ListenerInterface {
 		$search_service = buddynext_service( 'search' );
 		$batch_size     = 100;
 
-		// Index posts.
-		$offset = 0;
+		// Index posts. KEYSET, not OFFSET.
+		//
+		// This walked the table with LIMIT/OFFSET, which MySQL satisfies by counting rows it
+		// then throws away: at 1M posts the last batch is OFFSET 999,900, so the job is
+		// O(n^2/batch) and gets slower the further it gets. It is a background job, so nobody
+		// waits on it — it just quietly takes hours instead of minutes, and can time out before
+		// the tail is ever indexed. Keyset makes every batch cost the same.
+		$after_post = 0;
 		do {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT id, user_id, content, privacy, status, space_id
 					 FROM {$wpdb->prefix}bn_posts
-					 WHERE status = 'published'
-					 LIMIT %d OFFSET %d",
-					$batch_size,
-					$offset
+					 WHERE status = 'published' AND id > %d
+					 ORDER BY id ASC
+					 LIMIT %d",
+					$after_post,
+					$batch_size
 				),
 				ARRAY_A
 			);
@@ -387,41 +415,47 @@ class SearchIndexListener implements ListenerInterface {
 				);
 			}
 
-			$offset += $batch_size;
-		} while ( ! empty( $rows ) );
+			$fetched_posts = count( (array) $rows );
+
+			if ( ! empty( $rows ) ) {
+				$after_post = (int) end( $rows )['id'];
+			}
+		} while ( $fetched_posts === $batch_size );
 
 		// Index users.
 		$profiles_service = buddynext_service( 'profiles' );
-		$offset           = 0;
+		$after_user       = 0;
 		do {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 			$user_ids = $wpdb->get_col(
 				$wpdb->prepare(
-					"SELECT ID FROM {$wpdb->users} LIMIT %d OFFSET %d",
-					$batch_size,
-					$offset
+					"SELECT ID FROM {$wpdb->users} WHERE ID > %d ORDER BY ID ASC LIMIT %d",
+					$after_user,
+					$batch_size
 				)
 			);
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 
 			foreach ( (array) $user_ids as $uid ) {
+				$after_user = (int) $uid;
 				$profiles_service->index_user( (int) $uid );
 			}
+			$fetched_users = count( (array) $user_ids );
+		} while ( $fetched_users === $batch_size );
 
-			$offset += $batch_size;
-		} while ( ! empty( $user_ids ) );
-
-		// Index spaces.
-		$offset = 0;
+		// Index spaces. Keyset, same reason.
+		$after_space = 0;
 		do {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 			$space_rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT id, name, description, type, owner_id, is_archived
 					 FROM {$wpdb->prefix}bn_spaces
-					 LIMIT %d OFFSET %d",
-					$batch_size,
-					$offset
+					 WHERE id > %d
+					 ORDER BY id ASC
+					 LIMIT %d",
+					$after_space,
+					$batch_size
 				),
 				ARRAY_A
 			);
@@ -445,8 +479,12 @@ class SearchIndexListener implements ListenerInterface {
 				);
 			}
 
-			$offset += $batch_size;
-		} while ( ! empty( $space_rows ) );
+			$fetched_spaces = count( (array) $space_rows );
+
+			if ( ! empty( $space_rows ) ) {
+				$after_space = (int) end( $space_rows )['id'];
+			}
+		} while ( $fetched_spaces === $batch_size );
 
 		// Record completion so the admin Tools screen can show when the index was
 		// last fully rebuilt (SearchService::index_stats()).

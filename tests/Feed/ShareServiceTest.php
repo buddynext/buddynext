@@ -18,6 +18,27 @@ use BuddyNext\Feed\ShareService;
  */
 class ShareServiceTest extends \WP_UnitTestCase {
 
+	/**
+	 * The post ids this user has shared.
+	 *
+	 * These three tests were the ONLY callers of ShareService::user_shares() — an unbounded
+	 * "every id you ever shared" method with zero production callers. Deleting it without
+	 * repointing them would have red-ed the suite, which is exactly the trap that keeps dead
+	 * code alive: it looks load-bearing because something calls it, and the only thing calling
+	 * it is the test written to prove it works.
+	 *
+	 * @param int $user_id Sharer.
+	 * @return int[]
+	 */
+	private function shared_post_ids( int $user_id ): array {
+		$page = $this->service->user_shares_paginated( $user_id, 100, 1 );
+
+		return array_map(
+			static fn( array $row ): int => (int) $row['post_id'],
+			(array) $page['items']
+		);
+	}
+
 	private ShareService $service;
 	private PostService $posts;
 	private int $alice;
@@ -49,7 +70,7 @@ class ShareServiceTest extends \WP_UnitTestCase {
 
 	public function test_share_with_note(): void {
 		$share_id = $this->service->share( $this->bob, $this->post_id, 'Great post!' );
-		$shares   = $this->service->user_shares( $this->bob );
+		$shares   = $this->shared_post_ids( $this->bob );
 
 		$this->assertContains( $this->post_id, $shares );
 	}
@@ -65,7 +86,7 @@ class ShareServiceTest extends \WP_UnitTestCase {
 		$this->service->share( $this->bob, $this->post_id, '' );
 		$this->service->unshare( $this->bob, $this->post_id );
 
-		$shares = $this->service->user_shares( $this->bob );
+		$shares = $this->shared_post_ids( $this->bob );
 		$this->assertNotContains( $this->post_id, $shares );
 	}
 
@@ -88,7 +109,7 @@ class ShareServiceTest extends \WP_UnitTestCase {
 		$this->service->share( $this->bob, $this->post_id, '' );
 		$this->service->share( $this->bob, $post2, '' );
 
-		$shares = $this->service->user_shares( $this->bob );
+		$shares = $this->shared_post_ids( $this->bob );
 
 		$this->assertContains( $this->post_id, $shares );
 		$this->assertContains( $post2, $shares );

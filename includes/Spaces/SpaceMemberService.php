@@ -1150,6 +1150,8 @@ class SpaceMemberService {
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
+		$this->prime_roster_users( (array) $rows );
+
 		return array_map(
 			fn( $r ) => array(
 				'user_id'       => (int) $r['user_id'],
@@ -1163,6 +1165,31 @@ class SpaceMemberService {
 			),
 			(array) $rows
 		);
+	}
+
+	/**
+	 * Prime the user cache for a roster page.
+	 *
+	 * get_avatar_url() resolves the user behind each id, so mapping it over a page of members
+	 * was one user lookup PER ROW. Bounded (MAX_MEMBERS_PER_QUERY caps the page), so it never
+	 * ran away — it was just up to 200 avoidable queries per roster page. One batched fetch,
+	 * and every get_avatar_url() below is served from cache.
+	 *
+	 * @param array<int,array<string,mixed>> $rows Roster rows carrying user_id.
+	 * @return void
+	 */
+	private function prime_roster_users( array $rows ): void {
+		$ids = array_values(
+			array_unique(
+				array_filter(
+					array_map( static fn( $r ): int => (int) ( $r['user_id'] ?? 0 ), $rows )
+				)
+			)
+		);
+
+		if ( ! empty( $ids ) ) {
+			cache_users( $ids );
+		}
 	}
 
 	/**

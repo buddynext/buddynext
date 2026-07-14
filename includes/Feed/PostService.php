@@ -666,9 +666,18 @@ class PostService {
 		if ( 'poll' !== ( $post['type'] ?? '' ) || ! empty( $post['poll_options'] ) ) {
 			return $post;
 		}
-		$full = ( new self() )->get( (int) ( $post['id'] ?? 0 ) );
-		if ( null !== $full && ! empty( $full['poll_options'] ) ) {
-			$post['poll_options'] = $full['poll_options'];
+
+		// Fetch the OPTIONS, not the whole post.
+		//
+		// This called get(), which hydrates an entire post row (author, counts, reactions,
+		// everything) purely to read one nested array off it — once per poll on the page. The
+		// guard above keeps it to polls that arrived without their options, so it was never the
+		// 20-queries-per-feed the card implies, but it was still a full post hydration bought
+		// to answer a question one small indexed query already answers.
+		$options = ( new self() )->fetch_poll_options( (int) ( $post['id'] ?? 0 ) );
+
+		if ( ! empty( $options ) ) {
+			$post['poll_options'] = $options;
 		}
 		return $post;
 	}
