@@ -414,8 +414,17 @@ class ModerationQueue {
 						esc_html( _n( 'Reported by %d user', 'Reported by %d users', $bn_report_count, 'buddynext' ) ),
 						(int) $bn_report_count
 					);
+				} elseif ( $reporter ) {
+					echo esc_html( $reporter->display_name );
+				} elseif ( 0 === (int) ( $report['reporter_id'] ?? 0 ) ) {
+					// reporter_id 0 is the system: an auto-moderation rule flagged this,
+					// nobody reported it. Rendering that as "(unknown)" told the moderator
+					// the reporter had been deleted, which is a different and worrying
+					// story. Auto-flags now reach the queue from five surfaces, not one,
+					// so this is the common case rather than a curiosity.
+					echo esc_html__( 'System (auto-flagged)', 'buddynext' );
 				} else {
-					echo esc_html( $reporter ? $reporter->display_name : __( '(unknown)', 'buddynext' ) );
+					echo esc_html__( '(deleted user)', 'buddynext' );
 				}
 				?>
 			</td>
