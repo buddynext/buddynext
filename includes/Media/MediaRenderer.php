@@ -23,6 +23,20 @@ use BuddyNext\Core\PageRouter;
 class MediaRenderer {
 
 	/**
+	 * Object-cache group.
+	 *
+	 * Was the string 'bn_media' — the ONLY cache group in either repo not namespaced
+	 * buddynext_*. A group name is a namespace; one that does not match the others is one
+	 * nobody will think to flush.
+	 */
+	private const CACHE_GROUP = 'buddynext_media';
+
+	/**
+	 * Cache lifetime. A media->post attachment does not change once made.
+	 */
+	private const CACHE_TTL = HOUR_IN_SECONDS;
+
+	/**
 	 * Render a count-based media grid for a set of media ids.
 	 *
 	 * @param int[] $media_ids      Ordered media ids.
@@ -130,9 +144,8 @@ class MediaRenderer {
 		$scope_user  = isset( $scope['user_id'] ) ? absint( $scope['user_id'] ) : 0;
 		$scope_space = isset( $scope['space_id'] ) ? absint( $scope['space_id'] ) : 0;
 
-		$cache_key   = 'src_post:' . md5( $scope_user . ':' . $scope_space . ':' . implode( ',', $ids ) );
-		$cache_group = 'bn_media';
-		$cached      = wp_cache_get( $cache_key, $cache_group );
+		$cache_key = 'src_post:' . md5( $scope_user . ':' . $scope_space . ':' . implode( ',', $ids ) );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( is_array( $cached ) ) {
 			return $cached;
 		}
@@ -186,7 +199,8 @@ class MediaRenderer {
 
 		// Media->post is effectively immutable once attached, so a short cache
 		// is safe; each distinct gallery page keys its own entry.
-		wp_cache_set( $cache_key, $map, $cache_group, HOUR_IN_SECONDS );
+		// cache-ttl-only: a media->post attachment is immutable once made, so there is nothing to bust.
+		wp_cache_set( $cache_key, $map, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $map;
 	}

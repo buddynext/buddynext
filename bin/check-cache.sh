@@ -56,8 +56,42 @@ while IFS= read -r file; do
 	code="$(php -w "$file" 2>/dev/null)" || code=""
 	[[ -z "$code" ]] && code="$(cat "$file")"
 
-	group="$(printf '%s' "$code" | grep -oE "CACHE_GROUP\s*=\s*'[^']+'" | head -1 | sed "s/.*'\(.*\)'/\1/")"
-	has_ttl="$(printf '%s' "$code" | grep -cE "CACHE_TTL\s*=\s*[0-9]+|_TTL\s*=\s*[0-9]+")"
+	# A TRAIT declares neither — its consts come from the consuming class. A per-file grep
+	# cannot see across that boundary, so it reported CachesAggregates (the trait that EXISTS to
+	# do caching correctly) as having no group and no TTL. A gate that fails the reference
+	# implementation of the thing it is checking is not measuring anything.
+	is_trait="$(printf '%s' "$code" | grep -cE "^\s*trait\s+[A-Za-z_]")"
+
+	# ANY const whose name ends in GROUP — not only one literally called CACHE_GROUP.
+	# CacheService uses GROUP, FeedCache uses GROUP_GLOBAL/GROUP_USER, PresenceService uses
+	# THROTTLE_GROUP. All three declare a group. All three were reported as MISSING GROUP.
+	group="$(printf '%s' "$code" | grep -oE "[A-Z_]*GROUP[A-Z_]*\s*=\s*'[^']+'" | head -1 | sed "s/.*'\(.*\)'/\1/")"
+
+	# A file may legitimately use a group const declared by a COLLABORATOR — WidgetService
+	# passes WidgetCache::GROUP_GLOBAL, which is the group being owned in one place, exactly as
+	# the standard asks. Treat that as having a group.
+	if [[ -z "$group" ]] && printf '%s' "$code" | grep -qE "wp_cache_(get|set|delete)\([^;]*[A-Za-z_]+::[A-Z_]*GROUP"; then
+		group="${WANT_PREFIX}_delegated"
+	fi
+
+	# BARE TTL is a property of the CALL SITE, not of whether a const exists somewhere in the
+	# file. The old check grepped for a const declaration, so it flagged CacheService and
+	# RateLimiter — which take the TTL as a PARAMETER (`wp_cache_set( $key, $value, self::GROUP,
+	# $ttl )`), the most correct shape there is — while a file with an unused const and a magic
+	# number at the call site passed.
+	#
+	# So: count wp_cache_set() calls whose 4th argument is a bare number. Anything else — a
+	# variable, self::CONST, or a named constant like HOUR_IN_SECONDS — is fine.
+	# [^()]* — the call must contain no NESTED call. Without that anchor this regex matched the
+	# closing paren of an inner wp_rand( 1, 99999 ) and reported FollowService and
+	# SpaceSuggestionService, both of which pass self::CACHE_TTL correctly. Conservative on
+	# purpose: a gate that cries wolf is a gate that gets switched off.
+	#
+	# A TTL of literal 0 is exempt — it means "no expiry", which is the right thing for a
+	# version key and is not a magic number.
+	bare_ttl_calls="$(printf '%s' "$code" | grep -cE "wp_cache_set\([^()]*,\s*[1-9][0-9]*\s*\)")"
+	has_ttl=1
+	[[ "$bare_ttl_calls" -gt 0 ]] && has_ttl=0
 
 	# Any sanctioned invalidation mechanism (standard §4b).
 	has_delete="$(printf '%s' "$code" | grep -cE "wp_cache_delete\(")"
@@ -74,11 +108,17 @@ while IFS= read -r file; do
 	# file — the stripped code no longer contains it.
 	has_optout="$(grep -cE "cache-ttl-only:" "$file")"
 
-	if [[ -z "$group" ]]; then
-		echo "  MISSING GROUP    $rel — wp_cache_set() with no CACHE_GROUP const"
+	if [[ "$is_trait" -gt 0 ]]; then
+		# The consuming class owns the consts. Nothing to check here.
+		:
+	elif [[ -z "$group" ]]; then
+		echo "  MISSING GROUP    $rel — wp_cache_set() with no *GROUP const"
 		FAIL=1
-	elif [[ "$group" != ${WANT_PREFIX}* ]]; then
-		echo "  BAD GROUP        $rel — '$group' must start with '${WANT_PREFIX}'"
+	elif [[ "$group" != "${WANT_PREFIX%_}" && "$group" != ${WANT_PREFIX}* ]]; then
+		# The bare prefix itself is the SHARED group (CacheService uses it), and it is
+		# namespaced by definition. What is not allowed is a group that does not start with the
+		# prefix at all — like the 'bn_media' MediaRenderer used to use.
+		echo "  BAD GROUP        $rel — '$group' must be '${WANT_PREFIX%_}' or '${WANT_PREFIX}<domain>'"
 		FAIL=1
 	fi
 

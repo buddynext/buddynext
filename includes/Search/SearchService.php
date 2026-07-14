@@ -38,6 +38,16 @@ class SearchService {
 	 * Rows removed per statement by deindex_type(). Small enough that the lock on the
 	 * search index is never held long on a shared host.
 	 */
+	/**
+	 * Object-cache group.
+	 */
+	private const CACHE_GROUP = 'buddynext_search';
+
+	/**
+	 * Cache lifetime, in seconds.
+	 */
+	private const CACHE_TTL = 300;
+
 	private const DEINDEX_BATCH = 2000;
 
 	/**
@@ -132,11 +142,13 @@ class SearchService {
 		// Discover active object types from the index — adapts to addon content.
 		// Cached for 5 minutes: the type list is stable between deploys and does
 		// not need to reflect brand-new addon registrations immediately.
-		$types = wp_cache_get( 'search_object_types', 'buddynext' );
+		$types = wp_cache_get( 'search_object_types', self::CACHE_GROUP );
 		if ( false === $types ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$types = $wpdb->get_col( "SELECT DISTINCT object_type FROM {$wpdb->prefix}bn_search_index" );
-			wp_cache_set( 'search_object_types', $types, 'buddynext', 300 );
+			// cache-ttl-only: the type list is derived from the index itself and is flushed by
+			// deindex_type(); a 5-minute window on a newly-appearing type is not a defect.
+			wp_cache_set( 'search_object_types', $types, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
 		$type_groups = array();
@@ -180,11 +192,13 @@ class SearchService {
 	public function available_types(): array {
 		global $wpdb;
 
-		$types = wp_cache_get( 'search_object_types', 'buddynext' );
+		$types = wp_cache_get( 'search_object_types', self::CACHE_GROUP );
 		if ( false === $types ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$types = $wpdb->get_col( "SELECT DISTINCT object_type FROM {$wpdb->prefix}bn_search_index" );
-			wp_cache_set( 'search_object_types', $types, 'buddynext', 300 );
+			// cache-ttl-only: the type list is derived from the index itself and is flushed by
+			// deindex_type(); a 5-minute window on a newly-appearing type is not a defect.
+			wp_cache_set( 'search_object_types', $types, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
 		return array_values(
@@ -304,7 +318,7 @@ class SearchService {
 	 * @return int
 	 */
 	private function index_row_count(): int {
-		$cached = wp_cache_get( 'bn_search_index_rows', 'buddynext' );
+		$cached = wp_cache_get( 'bn_search_index_rows', self::CACHE_GROUP );
 		if ( false !== $cached ) {
 			return (int) $cached;
 		}
@@ -316,7 +330,7 @@ class SearchService {
 
 		// cache-ttl-only: an approximate index size is all this needs; being 5 minutes stale
 		// cannot change the answer near the ceiling in any way that matters.
-		wp_cache_set( 'bn_search_index_rows', $count, 'buddynext', 300 );
+		wp_cache_set( 'bn_search_index_rows', $count, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $count;
 	}
@@ -389,7 +403,7 @@ class SearchService {
 			$total += $rows;
 		} while ( $rows >= self::DEINDEX_BATCH );
 
-		wp_cache_delete( 'search_object_types', 'buddynext' );
+		wp_cache_delete( 'search_object_types', self::CACHE_GROUP );
 
 		return $total;
 	}

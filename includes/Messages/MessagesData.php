@@ -28,6 +28,16 @@ defined( 'ABSPATH' ) || exit;
 class MessagesData {
 
 	/**
+	 * Object-cache group.
+	 */
+	private const CACHE_GROUP = 'buddynext_nav';
+
+	/**
+	 * Cache lifetime, in seconds.
+	 */
+	private const CACHE_TTL = 60;
+
+	/**
 	 * Whether the messaging engine is available.
 	 *
 	 * @return bool
@@ -309,7 +319,7 @@ class MessagesData {
 		}
 
 		$cache_key = "bn_unread_msgs_{$uid}";
-		$cached    = wp_cache_get( $cache_key, 'buddynext_nav' );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
 			return (int) $cached;
 		}
@@ -327,7 +337,8 @@ class MessagesData {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		wp_cache_set( $cache_key, $count, 'buddynext_nav', 60 );
+		// cache-ttl-only: the viewer's OWN unread count, 60s. Deliberate per this class's docblock — your badge may lag a minute; it is never another member's number.
+		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $count;
 	}

@@ -41,6 +41,16 @@ class MemberDirectoryService {
 	 * by MemberTypeService on the same events as its own counts cache (type
 	 * create/update/delete, member assign/remove).
 	 */
+	/**
+	 * Object-cache group.
+	 */
+	private const CACHE_GROUP = 'buddynext_directory';
+
+	/**
+	 * Directory-page cache lifetime, in seconds.
+	 */
+	private const CACHE_TTL = 60;
+
 	public const TYPE_COUNTS_CACHE_KEY = 'bn_dir_type_counts';
 
 	/**
@@ -130,9 +140,9 @@ class MemberDirectoryService {
 		// invalidates a blocker's cached pages the instant their block list changes
 		// — without enumerating every cursor/filter key, and works with or without a
 		// persistent object cache. 60-second TTL otherwise balances freshness vs load.
-		$cache_ver     = (int) wp_cache_get( self::cache_version_key( $viewer_id ), 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		$cache_ver     = (int) wp_cache_get( self::cache_version_key( $viewer_id ), self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 		$cache_key     = 'bn_dir_' . md5( (string) wp_json_encode( array( $viewer_id, $cursor, $per_page, $filters, $cache_ver ) ) );
-		$cached_result = wp_cache_get( $cache_key, 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		$cached_result = wp_cache_get( $cache_key, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 		if ( false !== $cached_result ) {
 			return (array) $cached_result;
 		}
@@ -569,7 +579,7 @@ class MemberDirectoryService {
 			'total'       => $total,
 		);
 
-		wp_cache_set( $cache_key, $result, 'buddynext', 60 ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return $result;
 	}
@@ -666,7 +676,7 @@ class MemberDirectoryService {
 	 * @return array<int,int> type_id => gated member count (types with no gated members are absent).
 	 */
 	private function gated_type_member_counts(): array {
-		$cached = wp_cache_get( self::TYPE_COUNTS_CACHE_KEY, 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		$cached = wp_cache_get( self::TYPE_COUNTS_CACHE_KEY, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 		if ( is_array( $cached ) ) {
 			return $cached;
 		}
@@ -693,7 +703,7 @@ class MemberDirectoryService {
 			$counts[ (int) $row['type_id'] ] = (int) $row['member_count'];
 		}
 
-		wp_cache_set( self::TYPE_COUNTS_CACHE_KEY, $counts, 'buddynext', self::TYPE_COUNTS_TTL ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		wp_cache_set( self::TYPE_COUNTS_CACHE_KEY, $counts, self::CACHE_GROUP, self::TYPE_COUNTS_TTL ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return $counts;
 	}
@@ -1022,7 +1032,7 @@ class MemberDirectoryService {
 	 * @return void
 	 */
 	public static function flush_type_counts(): void {
-		wp_cache_delete( self::TYPE_COUNTS_CACHE_KEY, 'buddynext' );
+		wp_cache_delete( self::TYPE_COUNTS_CACHE_KEY, self::CACHE_GROUP );
 	}
 
 	/**
@@ -1226,10 +1236,10 @@ class MemberDirectoryService {
 		}
 		$key = self::cache_version_key( $viewer_id );
 		// wp_cache_incr seeds nothing when the key is absent, so set a baseline first.
-		if ( false === wp_cache_get( $key, 'buddynext' ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
-			wp_cache_set( $key, 0, 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( false === wp_cache_get( $key, self::CACHE_GROUP ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+			wp_cache_set( $key, 0, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 		}
-		wp_cache_incr( $key, 1, 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		wp_cache_incr( $key, 1, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**

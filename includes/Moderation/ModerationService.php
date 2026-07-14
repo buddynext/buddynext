@@ -27,6 +27,16 @@ use WP_Error;
 class ModerationService {
 
 	/**
+	 * Object-cache group.
+	 */
+	private const CACHE_GROUP = 'buddynext_moderation';
+
+	/**
+	 * Cache lifetime, in seconds.
+	 */
+	private const CACHE_TTL = 300;
+
+	/**
 	 * Valid report reasons.
 	 */
 	private const REASONS = array(
@@ -151,7 +161,7 @@ class ModerationService {
 
 		// Bust the per-viewer report-state cache so the action menu flips to
 		// "Reported" immediately on the next render.
-		wp_cache_delete( "reported_{$reporter_id}_" . sanitize_key( $object_type ) . "_{$object_id}", 'buddynext_moderation' );
+		wp_cache_delete( "reported_{$reporter_id}_" . sanitize_key( $object_type ) . "_{$object_id}", self::CACHE_GROUP );
 
 		$report_row = array(
 			'report_id'   => $report_id,
@@ -327,7 +337,7 @@ class ModerationService {
 		// SSR feed does not run one report-state seek per card, and busted in
 		// report() when this viewer files a report on the object.
 		$key    = "reported_{$reporter_id}_{$object_type}_{$object_id}";
-		$cached = wp_cache_get( $key, 'buddynext_moderation' );
+		$cached = wp_cache_get( $key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
 			return '1' === (string) $cached;
 		}
@@ -348,7 +358,7 @@ class ModerationService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$has = null !== $existing;
-		wp_cache_set( $key, $has ? '1' : '0', 'buddynext_moderation', 300 );
+		wp_cache_set( $key, $has ? '1' : '0', self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $has;
 	}
@@ -399,7 +409,7 @@ class ModerationService {
 		}
 
 		foreach ( $map as $id => $reported ) {
-			wp_cache_set( "reported_{$reporter_id}_{$object_type}_{$id}", $reported ? '1' : '0', 'buddynext_moderation', 300 );
+			wp_cache_set( "reported_{$reporter_id}_{$object_type}_{$id}", $reported ? '1' : '0', self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
 		return $map;

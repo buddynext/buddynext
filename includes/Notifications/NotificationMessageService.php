@@ -30,6 +30,16 @@ use BuddyNext\Core\PageRouter;
 class NotificationMessageService {
 
 	/**
+	 * Object-cache group.
+	 */
+	private const CACHE_GROUP = 'buddynext_space_names';
+
+	/**
+	 * Cache lifetime, in seconds.
+	 */
+	private const CACHE_TTL = 300;
+
+	/**
 	 * Compose the full presentation payload for a single notification row.
 	 *
 	 * Accepts an associative array with keys: id, type, sender_id, object_id,
@@ -1011,7 +1021,7 @@ class NotificationMessageService {
 		}
 
 		$cache_key = "name_{$space_id}";
-		$cached    = wp_cache_get( $cache_key, 'buddynext_space_names' );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
 			return (string) $cached;
 		}
@@ -1028,7 +1038,8 @@ class NotificationMessageService {
 			$name = __( 'a space', 'buddynext' );
 		}
 
-		wp_cache_set( $cache_key, $name, 'buddynext_space_names', 300 );
+		// cache-ttl-only: a space NAME. A rename shows the old label for up to 5 minutes; wiring a bust path across the space service for that is more moving parts than the problem.
+		wp_cache_set( $cache_key, $name, self::CACHE_GROUP, self::CACHE_TTL );
 		return $name;
 	}
 

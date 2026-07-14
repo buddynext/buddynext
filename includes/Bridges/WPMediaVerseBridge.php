@@ -408,6 +408,7 @@ class WPMediaVerseBridge {
 			)
 		);
 
+		// cache-ttl-only: a media->post attachment is immutable once made. There is no event that could invalidate it, because there is no change that can happen.
 		wp_cache_set( $cache_key, $post_id, self::CACHE_GROUP, self::CACHE_TTL );
 		return $post_id;
 	}
