@@ -39,6 +39,7 @@ class NavManager extends AdminPageBase {
 		'profile' => 'buddynext_nav_overrides_profile',
 		'space'   => 'buddynext_nav_overrides_space',
 		'mobile'  => 'buddynext_nav_overrides_mobile',
+		'account' => 'buddynext_nav_overrides_account',
 	);
 
 	/**
@@ -608,6 +609,9 @@ class NavManager extends AdminPageBase {
 			case 'mobile':
 				$defaults = $this->default_mobile_tabs();
 				break;
+			case 'account':
+				$defaults = $this->default_account_tabs();
+				break;
 			default:
 				$defaults = $this->default_tabs();
 				break;
@@ -641,6 +645,9 @@ class NavManager extends AdminPageBase {
 				break;
 			case 'mobile':
 				$defaults = $this->default_mobile_tabs();
+				break;
+			case 'account':
+				$defaults = $this->default_account_tabs();
 				break;
 			default:
 				$defaults = $this->default_tabs();
@@ -863,6 +870,60 @@ class NavManager extends AdminPageBase {
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
+	/**
+	 * Rows for the header account dropdown (the avatar menu).
+	 *
+	 * Derived from UserLinks::catalogue() rather than restated here, so a link a bridge adds
+	 * (Learnomy's Courses, for example) shows up in the manager on its own — a second hardcoded
+	 * copy would silently drift the moment anything was added on either side.
+	 *
+	 * The slug is the catalogue token minus its `#bn-` prefix (`#bn-edit-profile` ->
+	 * `edit-profile`), which is what Nav\NavOverrides::apply_user_links() keys the saved
+	 * overrides on.
+	 *
+	 * Log out is `locked`: an owner who hides it strands every member on the site with no way
+	 * to sign out. Relabel it, reorder it, but it does not get a hide toggle.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function default_account_tabs(): array {
+		$rows  = array();
+		$order = 0;
+
+		foreach ( \BuddyNext\Nav\UserLinks::catalogue() as $item ) {
+			$token = (string) ( $item['token'] ?? '' );
+			$slug  = sanitize_key( ltrim( str_replace( '#bn-', '', $token ), '-' ) );
+
+			// The logged-out items (Log in / Register) are not part of the account dropdown —
+			// they are the signed-out header, and an owner hiding them locks people out.
+			if ( '' === $slug || \BuddyNext\Nav\UserLinks::LOGGEDIN !== ( $item['visibility'] ?? '' ) ) {
+				continue;
+			}
+
+			$order += 10;
+
+			$rows[] = array(
+				'slug'        => $slug,
+				'label'       => (string) ( $item['label'] ?? $slug ),
+				'order'       => $order,
+				'icon'        => 'tab-feed',
+				'description' => __( 'Header account dropdown link', 'buddynext' ),
+				'capability'  => 'read',
+				'locked'      => ( 'logout' === $slug ),
+			);
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Rows for the mobile bottom bar.
+	 *
+	 * Slugs MUST match the keys nav.php gives the bar's five slots, so the front-end applier
+	 * (Nav\NavOverrides::apply_mobile_items) can map saved overrides onto real items.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
 	private function default_mobile_tabs(): array {
 		return array(
 			array(
@@ -954,6 +1015,7 @@ class NavManager extends AdminPageBase {
 		$profile_tabs = $this->get_tabs_for_scope( 'profile' );
 		$space_tabs   = $this->get_tabs_for_scope( 'space' );
 		$mobile_tabs  = $this->get_tabs_for_scope( 'mobile' );
+		$account_tabs = $this->get_tabs_for_scope( 'account' );
 		$first_slug   = ! empty( $main_tabs ) ? sanitize_key( (string) ( $main_tabs[0]['slug'] ?? '' ) ) : '';
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -999,6 +1061,11 @@ class NavManager extends AdminPageBase {
 						<?php $this->render_mobile_note(); ?>
 					</div>
 
+					<!-- Account Dropdown scope panel (the header avatar menu) -->
+					<div class="bn-scope-panel" data-scope-panel="account" hidden>
+						<?php $this->render_nav_section( 'account', $account_tabs, __( 'Account Dropdown', 'buddynext' ), __( '— The header avatar menu', 'buddynext' ) ); ?>
+					</div>
+
 				</div><!-- /.bn-nav-main-panel -->
 
 				<div class="bn-nav-config-panel">
@@ -1021,6 +1088,16 @@ class NavManager extends AdminPageBase {
 						<?php
 						$mob_first = ! empty( $mobile_tabs ) ? sanitize_key( (string) ( $mobile_tabs[0]['slug'] ?? '' ) ) : '';
 						$this->render_all_config_panels( 'mobile', $mobile_tabs, $mob_first );
+						?>
+					</div>
+					<div data-config-scope="account" hidden>
+						<?php
+						// The config panels are what actually POST bn_nav_config[<scope>][<slug>],
+						// and the save handler builds its override rows from exactly that. A scope
+						// with rows but no config panels renders a list you can toggle and drag,
+						// saves nothing, and reports success.
+						$acct_first = ! empty( $account_tabs ) ? sanitize_key( (string) ( $account_tabs[0]['slug'] ?? '' ) ) : '';
+						$this->render_all_config_panels( 'account', $account_tabs, $acct_first );
 						?>
 					</div>
 				</div>
@@ -1065,6 +1142,12 @@ class NavManager extends AdminPageBase {
 				echo $this->svg( 'scope-mobile' );
 				?>
 				<?php esc_html_e( 'Mobile Bottom Nav', 'buddynext' ); ?>
+			</div>
+			<div class="bn-scope-item" data-scope="account" role="button" tabindex="0">
+				<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG read from plugin file.
+				echo $this->svg( 'scope-profile' );
+				?>
+				<?php esc_html_e( 'Account Dropdown', 'buddynext' ); ?>
 			</div>
 			<div class="bn-scope-tip">
 				<p class="bn-scope-tip__intro"><?php esc_html_e( 'Compatible plugins can add their own links to these menus automatically.', 'buddynext' ); ?></p>

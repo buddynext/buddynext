@@ -37,6 +37,7 @@ final class NavOverrides {
 		'profile' => 'buddynext_nav_overrides_profile',
 		'space'   => 'buddynext_nav_overrides_space',
 		'mobile'  => 'buddynext_nav_overrides_mobile',
+		'account' => 'buddynext_nav_overrides_account',
 	);
 
 	/**
@@ -51,12 +52,13 @@ final class NavOverrides {
 		// apply to the resolved registry items (id-keyed), per surface.
 		add_filter( 'buddynext_nav_items', array( $this, 'apply_nav_items' ), 20, 2 );
 		add_filter( 'buddynext_mobile_nav_items', array( $this, 'apply_mobile_items' ), 20, 2 );
+		add_filter( 'buddynext_user_links', array( $this, 'apply_user_links' ), 20 );
 	}
 
 	/**
 	 * Read a scope's stored overrides (slug => {hidden,label,order,…}).
 	 *
-	 * @param string $scope One of: main, profile, space, mobile.
+	 * @param string $scope One of: main, profile, space, mobile, account.
 	 * @return array<string,array<string,mixed>>
 	 */
 	private function overrides( string $scope ): array {
@@ -533,5 +535,102 @@ final class NavOverrides {
 		}
 
 		return $items;
+	}
+
+	/**
+	 * Apply the admin's Account Dropdown overrides to the header avatar menu.
+	 *
+	 * The dropdown was the one navigation surface with no admin control at all: its catalogue
+	 * was hardcoded and the only lever was this very filter, so an owner who wanted to hide
+	 * Bookmarks or add a Help link had to write PHP. It is now the `account` scope in
+	 * Settings -> Navigation, sharing the toggles, drag-reorder, relabelling and custom links
+	 * the other four scopes already use — rather than growing a second navigation manager
+	 * beside the one we have.
+	 *
+	 * Keyed on the catalogue token minus its `#bn-` prefix, which is the slug NavManager stores.
+	 *
+	 * Runs at priority 20 so a site's own `buddynext_user_links` callback at the default 10 is
+	 * still the developer-level override, and still wins on anything it sets.
+	 *
+	 * @param array<int,array<string,mixed>> $items Catalogue rows.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function apply_user_links( $items ): array {
+		$items     = (array) $items;
+		$overrides = $this->overrides( 'account' );
+
+		if ( empty( $overrides ) ) {
+			return $items;
+		}
+
+		$slug_of = static function ( array $item ): string {
+			return sanitize_key( ltrim( str_replace( '#bn-', '', (string) ( $item['token'] ?? '' ) ), '-' ) );
+		};
+
+		$kept  = array();
+		$index = 0;
+
+		foreach ( $items as $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+
+			++$index;
+			$slug = $slug_of( $item );
+			$ov   = isset( $overrides[ $slug ] ) ? (array) $overrides[ $slug ] : array();
+
+			// Hidden, or denied by the item's capability/login gate. Log out is locked in the
+			// admin (no hide toggle), so a member can always sign out.
+			if ( 'logout' !== $slug && ( ! empty( $ov['hidden'] ) || $this->tab_denied( $ov ) ) ) {
+				continue;
+			}
+
+			if ( isset( $ov['label'] ) && '' !== (string) $ov['label'] ) {
+				$item['label'] = sanitize_text_field( (string) $ov['label'] );
+			}
+
+			$item['order'] = isset( $ov['order'] ) ? max( 1, (int) $ov['order'] ) : ( $index * 10 );
+
+			$kept[] = $item;
+		}
+
+		// Custom links the owner added (label + URL + icon), stored in the same option with
+		// custom => true, exactly as the other scopes store theirs.
+		$existing = array();
+		foreach ( $kept as $item ) {
+			$existing[ $slug_of( $item ) ] = true;
+		}
+
+		$fallback = ( count( $kept ) + 1 ) * 10;
+
+		foreach ( $overrides as $slug => $ov ) {
+			$ov   = (array) $ov;
+			$slug = sanitize_key( (string) $slug );
+			$url  = isset( $ov['url'] ) ? esc_url_raw( (string) $ov['url'] ) : '';
+
+			if ( '' === $slug || empty( $ov['custom'] ) || ! empty( $ov['hidden'] ) || isset( $existing[ $slug ] ) || '' === $url || $this->tab_denied( $ov ) ) {
+				continue;
+			}
+
+			$fallback += 10;
+
+			$kept[] = array(
+				'token'      => '#bn-' . $slug,
+				'label'      => sanitize_text_field( (string) ( $ov['label'] ?? $slug ) ),
+				'icon'       => sanitize_key( (string) ( $ov['icon'] ?? 'link' ) ),
+				'visibility' => UserLinks::LOGGEDIN,
+				'url'        => $url,
+				'order'      => isset( $ov['order'] ) ? max( 1, (int) $ov['order'] ) : $fallback,
+			);
+		}
+
+		usort(
+			$kept,
+			static function ( array $a, array $b ): int {
+				return ( (int) ( $a['order'] ?? 0 ) ) <=> ( (int) ( $b['order'] ?? 0 ) );
+			}
+		);
+
+		return $kept;
 	}
 }

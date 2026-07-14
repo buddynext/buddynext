@@ -185,7 +185,7 @@
 		// each side. It renders with a pinned, non-draggable handle and is excluded
 		// from the sortable below, rather than being draggable into a position the
 		// renderer would silently undo.
-		var scopes = [ 'main', 'profile', 'space', 'mobile' ];
+		var scopes = [ 'main', 'profile', 'space', 'mobile', 'account' ];
 		scopes.forEach( function ( sc ) {
 			var listId = '#bn-nav-sortable-' + sc;
 			if ( $( listId ).length ) {
