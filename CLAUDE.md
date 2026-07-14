@@ -414,6 +414,46 @@ a store reading an i18n key that PHP never injects.
 
 ---
 
+## QA cards are a SUGGESTION, not a specification
+
+QA is not deeply experienced with this codebase, and their cards are written from CI output
+and static analysis rather than from reproducing the bug. **Treat every card as a lead to
+investigate, never as an instruction to execute.**
+
+The rule:
+
+> **Reproduce it first. If you cannot reproduce it, it is not a bug yet.**
+> Only after you have seen the failure — in code you have read, or in the browser — do you
+> plan the fix. If the card turns out to be invalid, close it with the evidence.
+
+This is not pedantry. On the 1.0.8 board, verifying first repeatedly changed the outcome:
+
+- A card's prescribed fix was a **no-op for its own scenario**. The form posted a *valid*
+  type, so the guard it asked for never executed. Applying the card and closing it would have
+  shipped nothing while the data destruction continued.
+- A card's prescribed fix was **actively harmful**: "paginate the peer-id query" would have
+  produced silently WRONG mutual counts. A slow correct number beats a fast wrong one.
+- A card asked us to **delete code that was itself a deliberate fix** for a real bug, because
+  the deletion looked like tidying.
+- A card's own correction comment was **refuted by the code** it described.
+- Cards carried **stale line numbers, the wrong class, and undercounts** (15 tables where the
+  code said 25; 2 couplings where the code said 16).
+
+So, on every card:
+
+1. **Read the code the card names.** Line numbers rot; find the real thing.
+2. **Try to REFUTE the card.** Assume it is wrong and look for the reason. If it survives,
+   it is real.
+3. **Reproduce** — a test that fails, or the behaviour in the browser.
+4. **Then** fix the cause, not the symptom the card described.
+5. **Mutation-test the guard**: break what it protects and watch it fail by name. A check
+   that cannot fail is not a check.
+6. Comment the card with what you actually found — including where the card was wrong, and
+   say so plainly, so the next person does not re-derive it.
+
+An invalid card is a perfectly good outcome. Close it with proof. Never "fix" a correct guard
+or weaken a test to make a card go away.
+
 ## Quality Gates — How to Run
 
 Run from the repo root. All of these must pass before a commit.
