@@ -391,9 +391,17 @@ class Members extends AdminPageBase {
 		/**
 		 * Legacy hook — kept for backwards compatibility with third-party listeners.
 		 *
-		 * @param int $user_id Unsuspended user ID.
+		 * Fires with BOTH arguments. ModerationService fires this with ( $user_id, $actor_id );
+		 * this site used to pass $user_id alone. WordPress gives a callback only as many
+		 * arguments as the firing site supplied, so a listener registered with the documented 2
+		 * args and a typed signature took an ArgumentCountError — a fatal — whenever a
+		 * suspension was lifted from wp-admin rather than through moderation. The arity is part
+		 * of the contract and must not vary by call site.
+		 *
+		 * @param int $user_id  Unsuspended user ID.
+		 * @param int $actor_id User who lifted the suspension.
 		 */
-		do_action( 'buddynext_member_unsuspended', $user_id );
+		do_action( 'buddynext_member_unsuspended', $user_id, get_current_user_id() );
 	}
 
 	/**

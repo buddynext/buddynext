@@ -115,7 +115,7 @@ class CommentService {
 		// Scan the comment body for banned words (and Pro keyword/ML blocklists via
 		// the buddynext_safeguard_check filter). Posts run the full safeguard suite;
 		// comments previously ran none of it, so banned words slipped through.
-		$bn_comment_scan = buddynext_service( 'safeguard' )->check_content( $content, '', $user_id );
+		$bn_comment_scan = buddynext_service( 'safeguard' )->check_content( $content, '', $user_id, 0, 'create' );
 		if ( is_wp_error( $bn_comment_scan ) ) {
 			return $bn_comment_scan;
 		}

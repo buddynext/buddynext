@@ -633,7 +633,7 @@ class WPMediaVerseBridge {
 
 		$guard = buddynext_service( 'safeguard' );
 		if ( is_object( $guard ) && method_exists( $guard, 'check_content' ) ) {
-			$verdict = $guard->check_content( $content, '', $sender_id );
+			$verdict = $guard->check_content( $content, '', $sender_id, 0, 'create' );
 			if ( is_wp_error( $verdict ) ) {
 				return $verdict;
 			}

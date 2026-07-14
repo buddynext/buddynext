@@ -88,27 +88,43 @@ class InstallerOwnedTablesTest extends WP_UnitTestCase {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Tables BuddyNext Pro owns. Pro prefixes its tables `bn_` too, and Free dropping any of
+	 * these on uninstall is how a customer lost their invoices by deleting the free plugin.
+	 *
+	 * @var array<int, string>
+	 */
+	private const PRO_OWNED_TABLES = array(
+		'bn_invoices',
+		'bn_subscriptions',
+		'bn_membership_tiers',
+		'bn_coupons',
+		'bn_tax_rules',
+		'bn_plan_gateway_map',
+		'bn_analytics_events',
+		'bn_email_campaigns',
+		'bn_campaign_recipients',
+		'bn_drip_sequences',
+		'bn_drip_enrollments',
+		'bn_saved_searches',
+		'bn_member_labels',
+		'bn_member_label_assignments',
+		'bn_mod_rules',
+		'bn_push_tokens',
+		'bn_ai_signals',
+		'bn_ai_embeddings',
+	);
+
+	/**
+	 * Free must never claim a table Pro owns.
+	 *
+	 * Pro prefixes its tables `bn_` too. Free dropping any of these on uninstall is how a
+	 * customer lost their invoices by deleting the free plugin.
+	 *
+	 * @return void
+	 */
 	public function test_pro_owned_tables_are_never_claimed(): void {
-		$pro_tables = array(
-			'bn_invoices',
-			'bn_subscriptions',
-			'bn_membership_tiers',
-			'bn_coupons',
-			'bn_tax_rules',
-			'bn_plan_gateway_map',
-			'bn_analytics_events',
-			'bn_email_campaigns',
-			'bn_campaign_recipients',
-			'bn_drip_sequences',
-			'bn_drip_enrollments',
-			'bn_saved_searches',
-			'bn_member_labels',
-			'bn_member_label_assignments',
-			'bn_mod_rules',
-			'bn_push_tokens',
-			'bn_ai_signals',
-			'bn_ai_embeddings',
-		);
+		$pro_tables = self::PRO_OWNED_TABLES;
 
 		$this->assertSame(
 			array(),
@@ -201,6 +217,26 @@ class InstallerOwnedTablesTest extends WP_UnitTestCase {
 			static fn( $table ) => substr( (string) $table, strlen( $wpdb->prefix ) ),
 			(array) $found
 		);
+
+		/*
+		 * Drop Pro's tables before comparing.
+		 *
+		 * The class docblock used to reason that "Free's suite runs without Pro loaded, so every
+		 * bn_* table present is by definition Free's own". That is true of the PLUGIN and false of
+		 * the DATABASE: the test database is shared and persistent, and CREATE TABLE is not rolled
+		 * back with the per-test transaction. So the moment anyone runs Pro's suite against the
+		 * same database, Pro's 18 tables sit there forever and this test fails for a reason that
+		 * has nothing to do with Free's code. It cost two false alarms during the 1.0.8 release.
+		 *
+		 * Pro prefixes its tables `bn_` too, and Free must never claim them (that is the whole
+		 * point of test_pro_owned_tables_are_never_claimed, and of the bug where deleting Free
+		 * destroyed a customer's invoices). So they are not Free's to declare, and their presence
+		 * says nothing about Free's OWNED_TABLES.
+		 *
+		 * This does NOT weaken the check: the exclusion list is the same EXPLICIT set of names the
+		 * test below asserts Free can never claim. A genuinely new Free table still fails here.
+		 */
+		$names = array_values( array_diff( $names, self::PRO_OWNED_TABLES ) );
 
 		sort( $names );
 

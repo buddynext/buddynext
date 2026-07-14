@@ -4,8 +4,8 @@
  *
  * Enforces automated content rules before a post is saved:
  *   1. Blocked IP filter     — admin IP blocklist in option buddynext_blocked_ips.
- *   2. Banned word filter    — newline-separated list in option bn_banned_words.
- *   3. Blocked domain filter — newline-separated list in option bn_blocked_domains.
+ *   2. Banned word filter    — newline-separated list in option buddynext_banned_words.
+ *   3. Blocked domain filter — newline-separated list in option buddynext_blocked_domains.
  *   4. Post rate limit       — max posts per minute per user via DB count.
  *   5. Duplicate content     — holds repeated identical posts within a window.
  *   6. New-member gate       — holds posts for review until user reaches threshold.
@@ -117,9 +117,17 @@ class SafeguardService {
 	 * @param string $url      Optional attached URL.
 	 * @param int    $user_id  Author user ID (passed to the filter).
 	 * @param int    $space_id Target space ID (0 = site feed) for the per-space banned-word list.
+	 * @param string $context  'edit' (the default - this method's original caller is a post EDIT)
+	 *                         or 'create'. This method is ALSO the content-scan path for a new
+	 *                         comment, a new DM and a profile save, none of which are edits. It
+	 *                         used to hardcode 'edit' for all of them, telling an extension that a
+	 *                         brand-new comment was an edit. Inert today, because the only
+	 *                         create-time rule counts bn_posts rows - but it would silently exempt
+	 *                         those three surfaces from any future create-time rule. The caller
+	 *                         knows which it is, so the caller says so.
 	 * @return true|WP_Error
 	 */
-	public function check_content( string $content, string $url = '', int $user_id = 0, int $space_id = 0 ): bool|WP_Error {
+	public function check_content( string $content, string $url = '', int $user_id = 0, int $space_id = 0, string $context = 'edit' ): bool|WP_Error {
 		$banned = $this->check_banned_words( $content, $space_id );
 		if ( is_wp_error( $banned ) ) {
 			return $banned;
@@ -136,7 +144,7 @@ class SafeguardService {
 		}
 
 		/** This filter is documented in includes/Moderation/SafeguardService.php */
-		return apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url, 'edit' );
+		return apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url, $context );
 	}
 
 	/**

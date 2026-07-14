@@ -559,10 +559,17 @@ final class SpaceFieldRegistry {
 		}
 
 		// When a searchable + public field changed, re-index the space so its value
-		// becomes discoverable (the search content build folds it in). Consumed
-		// only by SearchIndexListener::on_space_updated.
+		// becomes discoverable (the search content build folds it in).
+		//
+		// FIRE THE FULL ARGUMENT SET. This site used to pass $space_id alone, while the two
+		// sites in SpaceService pass ( $space_id, $user_id, $fields ). WordPress hands a callback
+		// only as many arguments as the FIRING site supplied, so a listener registered with the
+		// documented 3 args and a typed signature died here with an ArgumentCountError — a fatal,
+		// in a third-party integration, triggered by nothing more exotic than saving a searchable
+		// public space field. A hook's arity is part of its contract; it cannot vary by call site.
 		if ( ! empty( $saved ) && $this->any_searchable_public( array_keys( $saved ) ) ) {
-			do_action( 'buddynext_space_updated', $space_id );
+			/** This action is documented in includes/Spaces/SpaceService.php */
+			do_action( 'buddynext_space_updated', $space_id, get_current_user_id(), $saved );
 		}
 
 		return array(

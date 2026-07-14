@@ -1227,7 +1227,7 @@ class ProfileController extends BaseRestController {
 			if ( ! is_string( $value ) || '' === trim( $value ) ) {
 				continue;
 			}
-			if ( is_wp_error( $guard->check_content( $value, '', $user_id ) ) ) {
+			if ( is_wp_error( $guard->check_content( $value, '', $user_id, 0, 'create' ) ) ) {
 				$fields[ (string) $key ] = $message;
 			}
 		}
