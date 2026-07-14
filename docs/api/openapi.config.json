@@ -1,0 +1,97 @@
+{
+  "namespace": "buddynext/v1",
+  "output": "docs/api/openapi.json",
+  "info": {
+    "title": "BuddyNext REST API",
+    "description": "The public REST surface of the BuddyNext community plugin (Free), under the `buddynext/v1` namespace. This file is generated from the live route registry by `bin/gen-openapi.php`; do not hand-edit it. The hand-written narrative reference lives in `docs/website/developer-guide/` (pages 14-24). Pro adds its own `buddynext-pro/v1` namespace, which this document intentionally excludes.",
+    "version": "1.0.8",
+    "contact": {
+      "name": "Wbcom Designs",
+      "url": "https://wbcomdesigns.com"
+    },
+    "license": {
+      "name": "GPL-2.0-or-later"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://example.com/wp-json/buddynext/v1",
+      "description": "Replace example.com with the site host. The base path is the site's REST root plus the buddynext/v1 namespace."
+    }
+  ],
+  "securitySchemes": {
+    "cookieAuth": {
+      "type": "apiKey",
+      "in": "header",
+      "name": "X-WP-Nonce",
+      "description": "Logged-in browser clients send the WordPress auth cookies plus an X-WP-Nonce header (nonce for the wp_rest action)."
+    },
+    "appPassword": {
+      "type": "http",
+      "scheme": "basic",
+      "description": "Non-browser clients (the native app, integrations) authenticate with a WordPress Application Password over HTTP Basic."
+    }
+  },
+  "tagRules": [
+    { "prefix": "/auth", "tag": "Auth" },
+    { "prefix": "/account", "tag": "Auth" },
+    { "prefix": "/feed", "tag": "Feed and Posts" },
+    { "prefix": "/posts", "tag": "Feed and Posts" },
+    { "prefix": "/comments", "tag": "Feed and Posts" },
+    { "prefix": "/reactions", "tag": "Feed and Posts" },
+    { "prefix": "/polls", "tag": "Feed and Posts" },
+    { "prefix": "/spaces", "tag": "Spaces" },
+    { "prefix": "/space-categories", "tag": "Spaces" },
+    { "prefix": "/media", "tag": "Media and Albums" },
+    { "prefix": "/albums", "tag": "Media and Albums" },
+    { "prefix": "/me/media", "tag": "Media and Albums" },
+    { "prefix": "/me/albums", "tag": "Media and Albums" },
+    { "prefix": "/members", "tag": "Members and Profiles" },
+    { "prefix": "/users", "tag": "Members and Profiles" },
+    { "prefix": "/me/interests", "tag": "Members and Profiles" },
+    { "prefix": "/me/onboarding", "tag": "Members and Profiles" },
+    { "prefix": "/me/profile", "tag": "Members and Profiles" },
+    { "prefix": "/me/avatar", "tag": "Members and Profiles" },
+    { "prefix": "/me/cover", "tag": "Members and Profiles" },
+    { "prefix": "/me/drafts", "tag": "Members and Profiles" },
+    { "prefix": "/me/bookmarks", "tag": "Members and Profiles" },
+    { "prefix": "/me/shares", "tag": "Members and Profiles" },
+    { "prefix": "/me/presence", "tag": "Members and Profiles" },
+    { "prefix": "/me/data-export", "tag": "Members and Profiles" },
+    { "prefix": "/me/account", "tag": "Members and Profiles" },
+    { "prefix": "/profile-fields", "tag": "Members and Profiles" },
+    { "prefix": "/profile-groups", "tag": "Members and Profiles" },
+    { "prefix": "/member-types", "tag": "Members and Profiles" },
+    { "prefix": "/follow-suggestions", "tag": "Social Graph" },
+    { "prefix": "/kudos", "tag": "Social Graph" },
+    { "prefix": "/me/connections", "tag": "Social Graph" },
+    { "prefix": "/me/connection-requests", "tag": "Social Graph" },
+    { "prefix": "/me/follow-requests", "tag": "Social Graph" },
+    { "prefix": "/me/blocked", "tag": "Social Graph" },
+    { "prefix": "/me/muted", "tag": "Social Graph" },
+    { "prefix": "/me/restricted", "tag": "Social Graph" },
+    { "prefix": "/me/social", "tag": "Social Graph" },
+    { "prefix": "/me/notifications", "tag": "Notifications" },
+    { "prefix": "/me/notification-prefs", "tag": "Notifications" },
+    { "prefix": "/me/notification-channels", "tag": "Notifications" },
+    { "prefix": "/me/space-notification-prefs", "tag": "Notifications" },
+    { "prefix": "/me/appeals", "tag": "Moderation and Trust" },
+    { "prefix": "/appeals", "tag": "Moderation and Trust" },
+    { "prefix": "/me/pending-posts", "tag": "Moderation and Trust" },
+    { "prefix": "/reports", "tag": "Moderation and Trust" },
+    { "prefix": "/moderation", "tag": "Moderation and Trust" },
+    { "prefix": "/search", "tag": "Search and Hashtags" },
+    { "prefix": "/hashtags", "tag": "Search and Hashtags" },
+    { "prefix": "/me/hashtags", "tag": "Search and Hashtags" },
+    { "prefix": "/link-preview", "tag": "Feed and Posts" },
+    { "prefix": "/profile-slug", "tag": "Members and Profiles" },
+    { "prefix": "/invites", "tag": "Members and Profiles" },
+    { "prefix": "/webhooks", "tag": "Webhooks" },
+    { "prefix": "/webhook", "tag": "Webhooks" },
+    { "prefix": "/companions", "tag": "Admin" },
+    { "prefix": "/admin", "tag": "Admin" },
+    { "prefix": "/pwa", "tag": "App Shell" },
+    { "prefix": "/shell-nav", "tag": "App Shell" }
+  ],
+  "fallbackTag": "Misc"
+}
