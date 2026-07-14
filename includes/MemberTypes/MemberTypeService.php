@@ -219,7 +219,7 @@ class MemberTypeService {
 		$this->cache->delete( self::COUNTS_CACHE_KEY );
 		// Keep the directory's discovery-gated per-type counts (the "By type" / "By
 		// role" facets) in lockstep with this cache — same invalidation events.
-		$this->cache->delete( \BuddyNext\Profile\MemberDirectoryService::TYPE_COUNTS_CACHE_KEY );
+		\BuddyNext\Profile\MemberDirectoryService::flush_type_counts();
 
 		$type_data       = $validated;
 		$type_data['id'] = $new_id;
@@ -297,7 +297,7 @@ class MemberTypeService {
 		$this->cache->delete( self::COUNTS_CACHE_KEY );
 		// Keep the directory's discovery-gated per-type counts (the "By type" / "By
 		// role" facets) in lockstep with this cache — same invalidation events.
-		$this->cache->delete( \BuddyNext\Profile\MemberDirectoryService::TYPE_COUNTS_CACHE_KEY );
+		\BuddyNext\Profile\MemberDirectoryService::flush_type_counts();
 
 		return true;
 	}
@@ -364,7 +364,7 @@ class MemberTypeService {
 		$this->cache->delete( self::COUNTS_CACHE_KEY );
 		// Keep the directory's discovery-gated per-type counts (the "By type" / "By
 		// role" facets) in lockstep with this cache — same invalidation events.
-		$this->cache->delete( \BuddyNext\Profile\MemberDirectoryService::TYPE_COUNTS_CACHE_KEY );
+		\BuddyNext\Profile\MemberDirectoryService::flush_type_counts();
 		$this->cache->delete( 'bn_member_type_count_' . $id );
 
 		do_action( 'buddynext_member_type_deleted', $id, $type['slug'] );
@@ -495,7 +495,7 @@ class MemberTypeService {
 		$this->cache->delete( self::COUNTS_CACHE_KEY );
 		// Keep the directory's discovery-gated per-type counts (the "By type" / "By
 		// role" facets) in lockstep with this cache — same invalidation events.
-		$this->cache->delete( \BuddyNext\Profile\MemberDirectoryService::TYPE_COUNTS_CACHE_KEY );
+		\BuddyNext\Profile\MemberDirectoryService::flush_type_counts();
 		if ( $previous ) {
 			$this->cache->delete( 'bn_member_type_count_' . $previous['id'] );
 		}
@@ -527,7 +527,7 @@ class MemberTypeService {
 		$this->cache->delete( self::COUNTS_CACHE_KEY );
 		// Keep the directory's discovery-gated per-type counts (the "By type" / "By
 		// role" facets) in lockstep with this cache — same invalidation events.
-		$this->cache->delete( \BuddyNext\Profile\MemberDirectoryService::TYPE_COUNTS_CACHE_KEY );
+		\BuddyNext\Profile\MemberDirectoryService::flush_type_counts();
 		if ( $existing ) {
 			$this->cache->delete( 'bn_member_type_count_' . $existing['id'] );
 			do_action( 'buddynext_member_type_removed', $user_id, (string) $existing['slug'] );

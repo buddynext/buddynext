@@ -1007,6 +1007,29 @@ class MemberDirectoryService {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Drop the members-per-type counts. Called by whoever changes a member's type.
+	 *
+	 * MemberTypeService used to do `$this->cache->delete( MemberDirectoryService::TYPE_COUNTS_CACHE_KEY )`
+	 * from five separate call-sites — one class reaching for another class's key name AND its
+	 * cache group. The key is a public const, so it was a declared contract rather than a
+	 * private poke, but it still meant this class could not change how it caches its own
+	 * counts without breaking a class that does not own them.
+	 *
+	 * The owner exposes the flush; the caller asks for it. Five call-sites now depend on a
+	 * method name instead of a storage detail.
+	 *
+	 * @return void
+	 */
+	public static function flush_type_counts(): void {
+		wp_cache_delete( self::TYPE_COUNTS_CACHE_KEY, 'buddynext' );
+	}
+
+	/**
+	 * Drop the per-request mirror-key memo. Call wherever a field definition changes.
+	 *
+	 * @return void
+	 */
 	public static function flush_mirror_keys_memo(): void {
 		self::$mirror_keys_memo = null;
 	}
@@ -1021,20 +1044,22 @@ class MemberDirectoryService {
 	 * whose effective visibility resolves to public (searchable_mirror contract),
 	 * so matching them carries no privacy risk and needs no per-row checks.
 	 *
-	 * The list is memoised per request and cached for 5 minutes to avoid a field
-	 * definition lookup on every directory query.
+	 * Memoised per request. The 5-minute wp_cache layer that used to sit under this memo is
+	 * GONE: it wrapped get_fields(), which is ALREADY object-cached for 600 seconds, so it
+	 * saved no query at all. It filtered an already-cached array in PHP and charged a whole
+	 * staleness class for it.
+	 *
+	 * The per-request memo STAYS, and deliberately. It is not the over-engineering — it is a
+	 * FIX. See $mirror_keys_memo: the original memo was a `static $keys` inside the method
+	 * that nothing could reach, so when a field changed, the wp_cache key was invalidated and
+	 * the memo was not, and anything that had already asked in the same request went on
+	 * indexing with the pre-edit key list. A newly-searchable field silently missed the index.
+	 * Deleting this memo would reintroduce that bug.
 	 *
 	 * @return string[] Usermeta keys, e.g. array( 'bn_field_skills', 'bn_field_role' ).
 	 */
 	public function searchable_mirror_keys(): array {
 		if ( null !== self::$mirror_keys_memo ) {
-			return self::$mirror_keys_memo;
-		}
-
-		$cached = wp_cache_get( 'bn_dir_searchable_mirrors', 'buddynext' );
-		if ( is_array( $cached ) ) {
-			self::$mirror_keys_memo = $cached;
-
 			return self::$mirror_keys_memo;
 		}
 
@@ -1080,7 +1105,6 @@ class MemberDirectoryService {
 			$keys = array_values( array_unique( $keys ) );
 		}
 
-		wp_cache_set( 'bn_dir_searchable_mirrors', $keys, 'buddynext', 300 );
 		self::$mirror_keys_memo = $keys;
 
 		return $keys;

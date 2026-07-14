@@ -2708,7 +2708,6 @@ class ProfileService {
 		// without this the reindex would read the pre-edit field definitions and
 		// rebuild the index with the OLD searchable key list.
 		self::flush_definition_cache();
-		wp_cache_delete( 'bn_dir_searchable_mirrors', 'buddynext' );
 		// The wp_cache key was being cleared while a per-request memo of the SAME list was not, so
 		// anything that had already asked in this request kept indexing with the pre-edit key list.
 		MemberDirectoryService::flush_mirror_keys_memo();
