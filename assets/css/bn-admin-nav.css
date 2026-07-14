@@ -502,7 +502,8 @@
 .bn-cf input[type="number"]:focus,
 .bn-cf input[type="url"]:focus,
 .bn-cf select:focus {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	border-color: var(--bn-a-brand);
 	box-shadow: var(--bn-a-focus-ring);
 }

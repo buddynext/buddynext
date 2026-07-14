@@ -17,15 +17,16 @@ This page covers the contract. Canonical token values live in `assets/css/bn-bas
 
 ## The three-layer token model
 
-A single `--bn-hue` cascades through an OKLCH accent ramp, so the whole product re-tints from one hue change. `TokenService` (`includes/Theme/TokenService.php`) injects the resolved values inline on the `bn-base` style handle. Values resolve through three layers, in order:
+A single `--bn-hue` cascades through an OKLCH accent ramp, so the whole product re-tints from one hue change. `TokenService` (`includes/Theme/TokenService.php`) injects the resolved values inline on the `bn-base` style handle. Values resolve through two layers, in order:
 
 | Layer | Source | Wins when |
 | --- | --- | --- |
 | 1. Your theme's preset | `theme.json` `--wp--preset--color--*`, `--wp--preset--font-size--*`, etc. | The preset slug is defined - the host theme always wins. |
-| 2. BuddyNext OKLCH default | The `--bn-*` ramp in `assets/css/bn-base.css`, driven by `--bn-hue` / `--bn-chroma`. | No matching theme preset is set. |
-| 3. Plugin `theme.json` fallback | BuddyNext's own `theme.json` palette and presets. | Merged by WordPress as the baseline; the active theme overrides it. |
+| 2. BuddyNext OKLCH default | The `--bn-*` ramp in `assets/css/bn-base.css`, driven by `--bn-hue` / `--bn-chroma`. | No matching theme preset is set. This is the baseline. |
 
 Concretely, each legacy alias resolves to `var(--wp--preset--*, var(--bn-*))`. For example `--brand` is `var(--wp--preset--color--primary, var(--bn-accent))`: if your `theme.json` defines a `primary` color it wins; otherwise the OKLCH accent is used. Nothing in this chain pins a hex value.
+
+> **There is no plugin `theme.json` layer.** WordPress only reads `theme.json` from core, the active theme (parent + child) and Global Styles - never from a plugin directory. BuddyNext used to ship a root `theme.json` that an earlier version of this table described as a merged "layer 3" baseline; it was inert, and it could not have worked as described anyway. Had it been merged, `--wp--preset--color--primary` would always have been defined, so layer 1 would always resolve and the OKLCH accent in layer 2 would have been permanently unreachable. The OKLCH ramp is the baseline; there is nothing beneath it.
 
 ### Token families
 

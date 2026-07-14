@@ -130,7 +130,8 @@
 
 .bn-dialog__cancel:focus-visible,
 .bn-dialog__ok:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 35%, transparent);
 }
 
@@ -139,7 +140,7 @@
 .bn-toast-root {
 	position: fixed;
 	bottom: 24px;
-	right: 24px;
+	inset-inline-end: 24px;
 	display: flex;
 	flex-direction: column-reverse;
 	gap: 8px;
@@ -159,7 +160,7 @@
 	background: var(--bn-surface, #fff);
 	color: var(--bn-ink, #1f2937);
 	border: 1px solid var(--bn-line, #e5e7eb);
-	border-left: 4px solid var(--bn-ink-3, #6b7280);
+	border-inline-start: 4px solid var(--bn-ink-3, #6b7280);
 	border-radius: var(--bn-r-md, 6px);
 	box-shadow: var(--bn-shadow-md, 0 4px 12px rgba(0,0,0,0.1));
 	font-size: var(--bn-text-sm, 13px);
@@ -173,10 +174,10 @@
 	opacity: 1;
 }
 
-.bn-toast--success { border-left-color: var(--bn-success, oklch(55% 0.15 145)); }
-.bn-toast--error   { border-left-color: var(--bn-danger,  oklch(58% 0.20 25)); }
-.bn-toast--warning { border-left-color: var(--bn-warn,    oklch(70% 0.18 75)); }
-.bn-toast--info    { border-left-color: var(--bn-accent); }
+.bn-toast--success { border-inline-start-color: var(--bn-success, oklch(55% 0.15 145)); }
+.bn-toast--error   { border-inline-start-color: var(--bn-danger,  oklch(58% 0.20 25)); }
+.bn-toast--warning { border-inline-start-color: var(--bn-warn,    oklch(70% 0.18 75)); }
+.bn-toast--info    { border-inline-start-color: var(--bn-accent); }
 
 @media (prefers-reduced-motion: reduce) {
 	.bn-dialog-backdrop,

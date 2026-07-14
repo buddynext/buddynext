@@ -84,7 +84,8 @@
 	color: var(--bn-ink);
 }
 .bn-admin-hub__tab:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: 0 0 0 2px color-mix(in oklch, var(--bn-accent) 45%, transparent);
 	border-radius: var(--bn-r-sm, 4px);
 	color: var(--bn-ink);
@@ -226,7 +227,8 @@
 	background: var(--bn-surface);
 }
 .bn-segment__item:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: 0 0 0 2px color-mix(in oklch, var(--bn-accent) 45%, transparent);
 }
 .bn-segment__item.is-active,
@@ -548,15 +550,24 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--bn-s2, 8px);
-	padding: var(--bn-s3, 12px) var(--bn-s4, 16px) var(--bn-s1, 4px);
+	/* Symmetric vertical padding, on the same 8px/16px rhythm as .bn-hub-nav-link
+	   below. This was 12px top / 4px bottom, which left the label's own hover +
+	   focus-visible pill (it has a background and a radius) sitting off-centre on
+	   its content - the one element in the rail whose highlight didn't line up with
+	   its text. Section separation is the group's margin-bottom, not a lopsided pad. */
+	padding: var(--bn-s2, 8px) var(--bn-s4, 16px);
 	border-radius: var(--bn-r-md, 8px);
 	cursor: pointer;
 	/* Kicker treatment (main level): sections and tabs used to share the same
 	   size/weight, so the rail read as one flat list with no main-vs-sub
 	   hierarchy (owner). Uppercase small muted = unmistakably a header; tabs
-	   below keep full-size labels + a deeper indent (sub level). */
+	   below keep full-size labels + a deeper indent (sub level).
+	   The step is --bn-text-xs, the admin's small-label size: at --bn-text-2xs this
+	   header was the only 11px text in the hub chrome and read undersized next to
+	   its own 15px icon + chevron. Uppercase + semibold + tracking still carry the
+	   hierarchy against the 14px (--bn-text-sm) tab labels. */
 	color: var(--bn-ink-3);
-	font-size: var(--bn-text-2xs, 11px);
+	font-size: var(--bn-text-xs, 12px);
 	font-weight: var(--bn-fw-semibold, 600);
 	text-transform: uppercase;
 	letter-spacing: 0.06em;
@@ -568,7 +579,8 @@
 .bn-hub-nav-group__label::marker { content: ''; }
 .bn-hub-nav-group__label:hover { background: var(--bn-sunken); color: var(--bn-ink); }
 .bn-hub-nav-group__label:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: 0 0 0 2px color-mix( in oklch, var(--bn-accent) 45%, transparent );
 }
 .bn-hub-nav-group.is-current > .bn-hub-nav-group__label { color: var(--bn-ink); }
@@ -615,7 +627,8 @@
 }
 .bn-hub-nav-link:hover { background: var(--bn-sunken); color: var(--bn-ink); }
 .bn-hub-nav-link:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: 0 0 0 2px color-mix( in oklch, var(--bn-accent) 45%, transparent );
 }
 .bn-hub-nav-link.is-active {
@@ -641,7 +654,7 @@
 
 /* Below the iPad floor (out of admin scope, kept usable): stack, with the
    nav sections all collapsed so content stays within one swipe. */
-@media ( max-width: 767px ) {
+@media ( max-width: 768px ) {
 	.bn-admin-hub--paneled .bn-admin-hub__shell { grid-template-columns: 1fr; }
 	.bn-admin-hub__panel { position: static; max-height: none; }
 }

@@ -39,7 +39,14 @@ $bn_lb_reactions = class_exists( '\\BuddyNext\\Reactions\\ReactionService' )
 $bn_lb_can_interact = is_user_logged_in();
 ?>
 <div class="bn-lightbox" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e( 'Media viewer', 'buddynext' ); ?>" hidden>
-	<button type="button" class="bn-lightbox__backdrop" data-bn-lb-close aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"></button>
+	<?php
+	// The backdrop is a click-to-dismiss affordance for POINTER users only. It is
+	// kept out of the tab order (tabindex="-1"): keyboard users already get the
+	// real Close button (focused on open) and Escape, and a focusable, invisible,
+	// viewport-sized button would otherwise be a tab stop with nowhere to draw a
+	// focus ring. That is why its focus styles stay flat.
+	?>
+	<button type="button" class="bn-lightbox__backdrop" data-bn-lb-close tabindex="-1" aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"></button>
 	<div class="bn-lightbox__dialog">
 
 		<div class="bn-lightbox__stage">
@@ -129,7 +136,8 @@ $bn_lb_can_interact = is_user_logged_in();
 
 			<?php if ( $bn_lb_can_interact ) : ?>
 			<form class="bn-lightbox__comment-form" data-bn-lb-comment-form>
-				<input type="text" class="bn-lightbox__comment-input" data-bn-lb-comment-input placeholder="<?php esc_attr_e( 'Add a comment…', 'buddynext' ); ?>" autocomplete="off">
+				<?php // A placeholder is not an accessible name - screen readers announce the input as unlabelled once the user types. aria-label carries the name. ?>
+				<input type="text" class="bn-lightbox__comment-input" data-bn-lb-comment-input aria-label="<?php esc_attr_e( 'Add a comment', 'buddynext' ); ?>" placeholder="<?php esc_attr_e( 'Add a comment…', 'buddynext' ); ?>" autocomplete="off">
 				<button type="submit" class="bn-btn" data-variant="primary" data-size="sm"><?php esc_html_e( 'Post', 'buddynext' ); ?></button>
 			</form>
 			<?php endif; ?>

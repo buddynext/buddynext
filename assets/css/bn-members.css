@@ -205,8 +205,9 @@
 		oklch(var(--bn-tone-l-start) var(--bn-tone-c-start) var(--bn-tone-h, 240)) 0%,
 		oklch(var(--bn-tone-l-end) var(--bn-tone-c-end) var(--bn-tone-h, 240)) 100%);
 }
+[data-bn-theme="dark"] .bn-md-card__cover,
 [data-theme="dark"] .bn-md-card__cover,
-[data-bn-theme="dark"] .bn-md-card__cover {
+[data-bx-mode="dark"] .bn-md-card__cover {
 	/* Recede in dark: drop lightness AND chroma so covers read as quiet
 		tinted bands behind the avatar, not glowing colour blocks. */
 	--bn-tone-l-start: 42%;
@@ -307,7 +308,8 @@
 }
 
 .bn-md-card__name a:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 	border-radius: var(--bn-r-sm);
 }
@@ -446,7 +448,8 @@
 }
 
 .bn-md-sidebar-item__link:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 }
 
@@ -495,7 +498,8 @@
 }
 
 .bn-md-sidebar-row__link:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 }
 
@@ -642,7 +646,8 @@
 .bn-md-strip__search-clear:focus-visible {
 	background: var(--bn-sunken);
 	color: var(--bn-ink);
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 .bn-md-strip__search-clear svg {
 	inline-size: 15px;
@@ -706,7 +711,8 @@
 }
 
 .bn-md-strip__online-input:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 	border-radius: var(--bn-r-sm);
 }
@@ -841,7 +847,8 @@
 }
 
 .bn-md-card__menu:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 }
 
@@ -891,7 +898,8 @@
 }
 
 .bn-md-card__menu-pop .bn-md-card__menu-item:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 }
 

@@ -100,7 +100,7 @@
 .bn-header-msg .bn-header-msg__badge {
 	position: absolute;
 	top: 1px;
-	right: 1px;
+	inset-inline-end: 1px;
 	min-width: 18px;
 	height: 18px;
 	padding: 0 5px;
@@ -155,7 +155,7 @@
 	justify-content: center;
 	width: 22px;
 	height: 22px;
-	margin-left: 2px;
+	margin-inline-start: 2px;
 	padding: 0;
 	border: 0;
 	border-radius: var(--bn-r-full, 999px);
@@ -175,7 +175,7 @@
 .bn-header-user__dropdown {
 	position: absolute;
 	top: calc(100% + var(--bn-s2, 0.5rem));
-	right: 0;
+	inset-inline-end: 0;
 	z-index: 1000;
 	min-width: 224px;
 	padding: var(--bn-s2, 0.5rem);
@@ -281,7 +281,7 @@
 	/* Hover-open is unreliable on touch; the dropdown opens via focus-within
 	   (tapping the caret). Anchor it to the screen edge so it never overflows. */
 	.bn-header-user__dropdown {
-		right: 0;
+		inset-inline-end: 0;
 		min-width: min(260px, calc(100vw - 1.5rem));
 	}
 }

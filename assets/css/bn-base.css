@@ -127,6 +127,14 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	--bn-s12: calc(48px * var(--bn-density));
 	--bn-s16: calc(64px * var(--bn-density));
 
+	/* Minimum touch-target edge for member-facing interactive controls.
+	 * Nine rules across bn-feed.css / bn-spaces.css already read this token as
+	 * `var(--bn-tap, 40px)` but it was never declared, so every one of them was
+	 * silently living on its fallback. Declaring it here makes the floor real
+	 * and gives one knob for the whole UI. Touch viewports raise it to 44px in
+	 * the tap-target block near the end of this file. */
+	--bn-tap: 40px;
+
 	/* Radius — single source */
 	--bn-radius-base: calc(10px * var(--bn-radius-scale, 1));
 	--bn-r-sm:   calc(var(--bn-radius-base) * 0.5);
@@ -539,7 +547,8 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 		--bn-ring:        0 0 0 3px oklch(20% 0 0);
 	}
 	[data-bn-theme="dark"],
-	[data-theme="dark"] {
+	[data-theme="dark"],
+	[data-bx-mode="dark"] {
 		--bn-line:        oklch(70% 0 0);
 		--bn-line-strong: oklch(85% 0 0);
 		--bn-line-faint:  oklch(60% 0 0);
@@ -622,7 +631,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	justify-content: center;
 	width: 48px;
 	height: 48px;
-	margin-bottom: var(--s2);
+	margin-bottom: var(--bn-s2);
 	opacity: 0.35;
 }
 
@@ -638,21 +647,21 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 /* ── Toast notifications ─────────────────────────────────────────────────── */
 .bn-toast-container {
 	position: fixed;
-	bottom: var(--s6);
+	bottom: var(--bn-s6);
 	left: 50%;
 	transform: translateX(-50%);
 	z-index: 9999;
 	display: flex;
 	flex-direction: column;
-	gap: var(--s2);
+	gap: var(--bn-s2);
 	align-items: center;
 	pointer-events: none;
 }
 .bn-toast {
 	background: var(--text-1);
 	color: var(--bg);
-	padding: var(--s2) var(--s5);
-	border-radius: var(--r-full);
+	padding: var(--bn-s2) var(--bn-s5);
+	border-radius: var(--bn-r-full);
 	font-size: var(--text-sm);
 	font-weight: var(--fw-medium);
 	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
@@ -670,7 +679,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
    the same sentence out once per copy — every toast is an assertive alert). The
    repeat is now collapsed onto the existing toast and counted here. */
 .bn-toast__count {
-	margin-inline-start: var(--s2);
+	margin-inline-start: var(--bn-s2);
 	opacity: 0.7;
 	font-variant-numeric: tabular-nums;
 }
@@ -682,7 +691,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 /* ── Empty states (global) ─────────────────────────────────────────────── */
 .bn-empty-state {
 	text-align: center;
-	padding: var(--s12) var(--s6);
+	padding: var(--bn-s12) var(--bn-s6);
 	color: var(--text-3);
 }
 /* Only the empty-state's own illustrative icon (a direct child) is the big,
@@ -691,7 +700,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 .bn-empty-state > svg {
 	width: 56px;
 	height: 56px;
-	margin: 0 auto var(--s4);
+	margin: 0 auto var(--bn-s4);
 	opacity: 0.3;
 	display: block;
 }
@@ -699,15 +708,14 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	font-size: var(--text-lg);
 	font-weight: var(--fw-semibold);
 	color: var(--text-2);
-	margin: 0 0 var(--s2);
+	margin: 0 0 var(--bn-s2);
 }
 .bn-empty-state p {
 	font-size: var(--text-sm);
 	color: var(--text-3);
 	margin: 0;
 	max-width: 320px;
-	margin-left: auto;
-	margin-right: auto;
+	margin-inline: auto;
 	line-height: var(--leading-normal);
 }
 
@@ -791,7 +799,8 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 }
 
 .bn-btn-message:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 }
 
@@ -829,7 +838,8 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 }
 
 .bn-page-btn:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 }
 
@@ -950,12 +960,11 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 		display: flex;
 		position: fixed;
 		bottom: 0;
-		left: 0;
-		right: 0;
+		inset-inline: 0;
 		z-index: 9500;
 		background: var(--bg);
 		border-top: 1px solid var(--border);
-		padding: var(--s1) 0 calc(var(--s1) + env(safe-area-inset-bottom, 0px));
+		padding: var(--bn-s1) 0 calc(var(--bn-s1) + env(safe-area-inset-bottom, 0px));
 		box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
 	}
 	.bn-mobile-nav__item {
@@ -968,7 +977,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 		   before). This also lifts the bar to ~52px, the platform-standard height. */
 		min-height: 44px;
 		gap: 2px;
-		padding: var(--s1) 0;
+		padding: var(--bn-s1) 0;
 		font-size: 10px;
 		color: var(--text-3);
 		text-decoration: none;
@@ -1013,7 +1022,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	.bn-mobile-nav__badge {
 		position: absolute;
 		top: 0;
-		right: calc(50% - 16px);
+		inset-inline-end: calc(50% - 16px);
 		background: var(--red);
 		color: var(--text-on-brand);
 		font-size: 9px;
@@ -1040,15 +1049,14 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	.bn-mobile-more-backdrop[hidden] { display: none; }
 	.bn-mobile-more {
 		position: fixed;
-		left: 0;
-		right: 0;
+		inset-inline: 0;
 		bottom: 0;
 		z-index: 9700;
 		background: var(--surface);
-		border-top-left-radius: var(--r-lg);
-		border-top-right-radius: var(--r-lg);
+		border-top-left-radius: var(--bn-r-lg);
+		border-top-right-radius: var(--bn-r-lg);
 		box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.18);
-		padding: var(--s2) var(--s4) calc(var(--s4) + env(safe-area-inset-bottom, 0px));
+		padding: var(--bn-s2) var(--bn-s4) calc(var(--bn-s4) + env(safe-area-inset-bottom, 0px));
 		animation: bn-more-slide-up 0.22s ease;
 	}
 	.bn-mobile-more[hidden] { display: none; }
@@ -1056,8 +1064,8 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--s2) 0 var(--s3);
-		border-bottom: 1px solid var(--border-soft);
+		padding: var(--bn-s2) 0 var(--bn-s3);
+		border-bottom: 1px solid var(--bn-line-faint);
 	}
 	.bn-mobile-more__title {
 		font-family: var(--font-display);
@@ -1072,7 +1080,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 		width: 32px;
 		height: 32px;
 		border: none;
-		border-radius: var(--r-full);
+		border-radius: var(--bn-r-full);
 		background: var(--bg-subtle);
 		color: var(--text-2);
 		cursor: pointer;
@@ -1081,17 +1089,17 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	.bn-mobile-more__list {
 		list-style: none;
 		margin: 0;
-		padding: var(--s2) 0 0;
+		padding: var(--bn-s2) 0 0;
 	}
 	.bn-mobile-more__link {
 		display: flex;
 		align-items: center;
-		gap: var(--s3);
-		padding: var(--s3) var(--s1);
+		gap: var(--bn-s3);
+		padding: var(--bn-s3) var(--bn-s1);
 		font-size: var(--text-md);
 		color: var(--text-1);
 		text-decoration: none;
-		border-radius: var(--r-md);
+		border-radius: var(--bn-r-md);
 	}
 	.bn-mobile-more__link:hover,
 	.bn-mobile-more__link:focus { background: var(--bg-hover); }
@@ -1131,7 +1139,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	width: 100%;
 	max-width: 580px;
 	background: var(--bg);
-	border-radius: var(--r-xl);
+	border-radius: var(--bn-r-xl);
 	box-shadow: 0 16px 64px rgba(0, 0, 0, 0.2);
 	overflow: hidden;
 	animation: bn-dropdown-in 0.2s ease;
@@ -1139,9 +1147,9 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 .bn-search-overlay__input-wrap {
 	display: flex;
 	align-items: center;
-	gap: var(--s3);
-	padding: var(--s4) var(--s5);
-	border-bottom: 1px solid var(--border-soft);
+	gap: var(--bn-s3);
+	padding: var(--bn-s4) var(--bn-s5);
+	border-bottom: 1px solid var(--bn-line-faint);
 }
 .bn-search-overlay__icon {
 	font-size: 20px;
@@ -1172,14 +1180,14 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 }
 .bn-search-overlay__loading,
 .bn-search-overlay__empty {
-	padding: var(--s6);
+	padding: var(--bn-s6);
 	text-align: center;
 	color: var(--text-3);
 	font-size: var(--text-sm);
 }
 .bn-search-overlay__result {
 	display: block;
-	padding: var(--s3) var(--s5);
+	padding: var(--bn-s3) var(--bn-s5);
 	text-decoration: none;
 	transition: background 0.1s;
 }
@@ -1198,8 +1206,8 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	margin-top: 2px;
 }
 @media (max-width: 640px) {
-	.bn-search-overlay { padding-top: var(--s4); }
-	.bn-search-overlay__inner { max-width: calc(100vw - 16px); border-radius: var(--r-lg); }
+	.bn-search-overlay { padding-top: var(--bn-s4); }
+	.bn-search-overlay__inner { max-width: calc(100vw - 16px); border-radius: var(--bn-r-lg); }
 }
 
 /* ── User hover card ──────────────────────────────────────────────────── */
@@ -1209,13 +1217,13 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	width: 280px;
 	background: var(--surface);
 	border: 1px solid var(--border);
-	border-radius: var(--r-lg);
+	border-radius: var(--bn-r-lg);
 	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-	padding: var(--s4);
+	padding: var(--bn-s4);
 	pointer-events: auto;
 	animation: bn-dropdown-in 0.15s ease;
 }
-.bn-hover-card__header { display: flex; gap: var(--s3); align-items: flex-start; margin-bottom: var(--s3); }
+.bn-hover-card__header { display: flex; gap: var(--bn-s3); align-items: flex-start; margin-bottom: var(--bn-s3); }
 .bn-hover-card__avatar {
 	width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
 	background: var(--brand-light); color: var(--brand); font-size: 18px; font-weight: 700;
@@ -1231,12 +1239,12 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 .bn-hover-card__name:hover { text-decoration: underline; }
 .bn-hover-card__handle { display: block; font-size: var(--text-xs); color: var(--text-3); text-decoration: none; }
 .bn-hover-card__handle:hover { color: var(--text-2); }
-.bn-hover-card__bio { font-size: var(--text-sm); color: var(--text-2); margin-bottom: var(--s3); line-height: 1.4; }
-.bn-hover-card__stats { display: flex; gap: var(--s4); font-size: var(--text-xs); color: var(--text-2); text-decoration: none; }
+.bn-hover-card__bio { font-size: var(--text-sm); color: var(--text-2); margin-bottom: var(--bn-s3); line-height: 1.4; }
+.bn-hover-card__stats { display: flex; gap: var(--bn-s4); font-size: var(--text-xs); color: var(--text-2); text-decoration: none; }
 .bn-hover-card__stat-num { font-weight: var(--fw-bold); color: var(--text-1); }
 .bn-hover-card__follow {
-	margin-top: var(--s3); width: 100%; padding: var(--s2); border: 1px solid var(--brand);
-	border-radius: var(--r-full); background: transparent; color: var(--brand);
+	margin-top: var(--bn-s3); width: 100%; padding: var(--bn-s2); border: 1px solid var(--brand);
+	border-radius: var(--bn-r-full); background: transparent; color: var(--brand);
 	font-size: var(--text-sm); font-weight: var(--fw-semibold); cursor: pointer;
 	transition: all 0.15s ease;
 }
@@ -1297,7 +1305,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	height: 18px;
 	border: 2px solid var(--border);
 	border-top-color: var(--brand);
-	border-radius: var(--r-full);
+	border-radius: var(--bn-r-full);
 	animation: bn-spin 0.6s linear infinite;
 }
 
@@ -1310,10 +1318,10 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 .bn-btn {
 	display: inline-flex;
 	align-items: center;
-	gap: var(--s2);
-	padding: var(--s2) var(--s4);
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s4);
 	border: 1px solid transparent;
-	border-radius: var(--r-md);
+	border-radius: var(--bn-r-md);
 	font-family: var(--font-body);
 	font-size: var(--text-sm);
 	font-weight: var(--fw-medium);
@@ -1362,7 +1370,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 }
 
 .bn-btn-danger:hover {
-	background: var(--red-bg);
+	background: var(--bn-danger-bg);
 }
 
 /* ── Avatar ─────────────────────────────────────────────────────────────── */
@@ -1371,7 +1379,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	border-radius: var(--r-full);
+	border-radius: var(--bn-r-full);
 	overflow: hidden;
 	flex-shrink: 0;
 	background: var(--brand-light);
@@ -1391,7 +1399,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	space avatar rendered through .bn-avatar uses this, rather than each widget
 	redefining its own radius. The image inherits the container radius so it
 	never reverts to a circle under another sheet's `.bn-avatar img` rule. */
-.bn-avatar[data-shape="rounded"] { border-radius: var(--r-md); }
+.bn-avatar[data-shape="rounded"] { border-radius: var(--bn-r-md); }
 .bn-avatar[data-shape="rounded"] img { border-radius: inherit; }
 
 .bn-avatar-xs { width: 24px; height: 24px; font-size: var(--text-xs); }
@@ -1405,16 +1413,16 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 .bn-card {
 	background: var(--surface);
 	border: 1px solid var(--border);
-	border-radius: var(--r-lg);
-	padding: var(--s6);
+	border-radius: var(--bn-r-lg);
+	padding: var(--bn-s6);
 }
 
 /* ── Divider ────────────────────────────────────────────────────────────── */
 
 .bn-divider {
 	border: none;
-	border-top: 1px solid var(--border-soft);
-	margin: var(--s4) 0;
+	border-top: 1px solid var(--bn-line-faint);
+	margin: var(--bn-s4) 0;
 }
 
 /* ── Empty state ────────────────────────────────────────────────────────── */
@@ -1424,10 +1432,10 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	padding: var(--s12) var(--s6);
+	padding: var(--bn-s12) var(--bn-s6);
 	color: var(--text-3);
 	text-align: center;
-	gap: var(--s3);
+	gap: var(--bn-s3);
 }
 
 /* ── Tag / pill ─────────────────────────────────────────────────────────── */
@@ -1435,9 +1443,9 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 .bn-pill {
 	display: inline-flex;
 	align-items: center;
-	padding: var(--s1) var(--s3);
+	padding: var(--bn-s1) var(--bn-s3);
 	border: 1px solid var(--border);
-	border-radius: var(--r-full);
+	border-radius: var(--bn-r-full);
 	font-size: var(--text-xs);
 	font-weight: var(--fw-medium);
 	color: var(--text-2);
@@ -1458,12 +1466,12 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 
 @media (max-width: 640px) {
 	.bn-card {
-		padding: var(--s4);
-		border-radius: var(--r-md);
+		padding: var(--bn-s4);
+		border-radius: var(--bn-r-md);
 	}
 
 	.bn-btn {
-		padding: var(--s2) var(--s3);
+		padding: var(--bn-s2) var(--bn-s3);
 	}
 }
 
@@ -1486,13 +1494,13 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 .bn-context-nav__inner {
 	max-width: var(--bn-container);
 	margin: 0 auto;
-	padding: 0 var(--s8);
+	padding: 0 var(--bn-s8);
 	display: flex;
-	gap: var(--s1);
+	gap: var(--bn-s1);
 	overflow-x: auto;
 }
 .bn-context-nav__item {
-	padding: var(--s2) var(--s4);
+	padding: var(--bn-s2) var(--bn-s4);
 	font-size: var(--text-sm);
 	font-weight: var(--fw-medium);
 	color: var(--text-2);
@@ -1507,8 +1515,8 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	border-bottom-color: var(--brand);
 }
 @media (max-width: 640px) {
-	.bn-context-nav__inner { padding: 0 var(--s3); }
-	.bn-context-nav__item { padding: var(--s2) var(--s3); font-size: var(--text-xs); }
+	.bn-context-nav__inner { padding: 0 var(--bn-s3); }
+	.bn-context-nav__item { padding: var(--bn-s2) var(--bn-s3); font-size: var(--text-xs); }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -1520,10 +1528,10 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 .bn-hub-shell {
 	max-width: var(--bn-container);
 	margin: 0 auto;
-	padding: var(--s6) var(--s8);
+	padding: var(--bn-s6) var(--bn-s8);
 	display: grid;
 	grid-template-columns: 1fr 300px;
-	gap: var(--s6);
+	gap: var(--bn-s6);
 	align-items: start;
 }
 
@@ -1582,10 +1590,10 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 .bn-profile-container {
 	max-width: var(--bn-container);
 	margin: 0 auto;
-	padding: var(--s6) var(--s8);
+	padding: var(--bn-s6) var(--bn-s8);
 }
 @media (max-width: 640px) {
-	.bn-profile-container { padding: 0 var(--s3) var(--s8); }
+	.bn-profile-container { padding: 0 var(--bn-s3) var(--bn-s8); }
 }
 
 /* Space-home keeps internal two-column layout inside hub shell. */
@@ -1598,7 +1606,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	BuddyNext only injects the nav bar above. Add top spacing so content
 	doesn't sit flush against the nav. */
 .bn-jt-content {
-	padding-top: var(--s6, 24px);
+	padding-top: var(--bn-s6, 24px);
 }
 /* Constrain Jetonomy + WPMediaVerse containers to match BuddyNext width. */
 .bn-jt-content .jt-container,
@@ -1622,13 +1630,13 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 .bn-hub-sidebar {
 	display: flex;
 	flex-direction: column;
-	gap: var(--s5);
+	gap: var(--bn-s5);
 }
 
 .bn-sidebar-card {
 	background: var(--surface);
-	border: 1px solid var(--border-soft);
-	border-radius: var(--r-lg);
+	border: 1px solid var(--bn-line-faint);
+	border-radius: var(--bn-r-lg);
 	overflow: hidden;
 	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 	transition: box-shadow 0.2s ease;
@@ -1638,8 +1646,8 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 }
 
 .bn-sidebar-card__header {
-	padding: var(--s3) var(--s4);
-	border-bottom: 1px solid var(--border-soft);
+	padding: var(--bn-s3) var(--bn-s4);
+	border-bottom: 1px solid var(--bn-line-faint);
 	font-size: var(--text-xs);
 	font-weight: 700;
 	text-transform: uppercase;
@@ -1648,7 +1656,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 }
 
 .bn-sidebar-card__body {
-	padding: var(--s3) var(--s4);
+	padding: var(--bn-s3) var(--bn-s4);
 }
 
 /* ── Reusable sidebar row base ──────────────────────────────────────────
@@ -1657,8 +1665,8 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 .bn-sbar-row {
 	display: flex;
 	align-items: center;
-	padding: var(--s2) 0;
-	border-bottom: 1px solid var(--border-soft);
+	padding: var(--bn-s2) 0;
+	border-bottom: 1px solid var(--bn-line-faint);
 }
 .bn-sbar-row:last-child { border-bottom: none; }
 .bn-sbar-row__name {
@@ -1675,7 +1683,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 .bn-sbar-row__avatar {
 	width: 36px;
 	height: 36px;
-	border-radius: var(--r-full);
+	border-radius: var(--bn-r-full);
 	overflow: hidden;
 	flex-shrink: 0;
 	display: flex;
@@ -1690,7 +1698,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 .bn-sbar-row__icon {
 	width: 32px;
 	height: 32px;
-	border-radius: var(--r-md);
+	border-radius: var(--bn-r-md);
 	background: var(--brand-light);
 	color: var(--brand);
 	display: flex;
@@ -1705,7 +1713,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 .bn-sbar-row__action {
 	flex-shrink: 0;
 	padding: 3px 11px;
-	border-radius: var(--r-full);
+	border-radius: var(--bn-r-full);
 	border: 1.5px solid var(--brand);
 	color: var(--brand);
 	font-size: var(--text-xs);
@@ -1721,7 +1729,7 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 /* See-all link */
 .bn-sidebar-see-all {
 	display: block;
-	margin-top: var(--s3);
+	margin-top: var(--bn-s3);
 	font-size: var(--text-sm);
 	font-weight: 600;
 	color: var(--brand);
@@ -1729,10 +1737,23 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 }
 .bn-sidebar-see-all:hover { text-decoration: underline; }
 
-/* Dark mode */
-[data-theme="dark"] .bn-sidebar-card { background: var(--surface); border-color: var(--border); }
-[data-theme="dark"] .bn-sbar-row__action { background: transparent; }
-[data-theme="dark"] .bn-sbar-row__icon { background: var(--brand-light); }
+/* Dark mode — canonical trio ([data-bn-theme], [data-theme], [data-bx-mode]). */
+[data-bn-theme="dark"] .bn-sidebar-card,
+[data-theme="dark"] .bn-sidebar-card,
+[data-bx-mode="dark"] .bn-sidebar-card {
+	background: var(--surface);
+	border-color: var(--border);
+}
+[data-bn-theme="dark"] .bn-sbar-row__action,
+[data-theme="dark"] .bn-sbar-row__action,
+[data-bx-mode="dark"] .bn-sbar-row__action {
+	background: transparent;
+}
+[data-bn-theme="dark"] .bn-sbar-row__icon,
+[data-theme="dark"] .bn-sbar-row__icon,
+[data-bx-mode="dark"] .bn-sbar-row__icon {
+	background: var(--brand-light);
+}
 
 /* ── Personalized sidebar widgets (greeting · events · roles · stats) ─────
 	Cross-surface: greeting + events render in the feed sidebar, this-week-
@@ -1944,8 +1965,8 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 @media ( max-width: 640px ) {
 	.bn-hub-shell {
 		grid-template-columns: 1fr;
-		padding: 0 var(--s3) var(--s8);
-		gap: var(--s4);
+		padding: 0 var(--bn-s3) var(--bn-s8);
+		gap: var(--bn-s4);
 	}
 	.bn-hub-sidebar { display: none; }
 }
@@ -2077,8 +2098,22 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
  * Components must NOT roll their own outline — they inherit this. The only
  * intentional exceptions are surfaces inside an overflow-scroll container
  * that would clip an outset ring (e.g. .bn-tab), which use an inset ring,
- * and dark media surfaces that need a high-contrast white ring. */
-.bn-app :focus-visible {
+ * and dark media surfaces that need a high-contrast white ring.
+ *
+ * SCOPE — every BuddyNext root, not just the app shell.
+ * .bn-app covers the routed hub surfaces, but four BuddyNext surfaces render
+ * OUTSIDE it and were therefore inheriting no ring at all:
+ *   .bn-lightbox        — printed in wp_footer, a direct child of <body>
+ *   .bn-search-overlay  — built by shell/extras.js and appended to <body>
+ *   .bn-ob-wrap         — the onboarding wizard, its own full-page root
+ *   wp-block-buddynext-* — the 17 Gutenberg blocks, rendered in theme content
+ * bn-base.css is enqueued globally on the front end (AssetService::
+ * enqueue_global_tokens), so listing them here is enough — no per-file rules. */
+.bn-app :focus-visible,
+.bn-lightbox :focus-visible,
+.bn-search-overlay :focus-visible,
+.bn-ob-wrap :focus-visible,
+[class*="wp-block-buddynext-"] :focus-visible {
 	outline: 2px solid transparent;
 	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
@@ -2266,7 +2301,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	content: '';
 	position: absolute;
 	bottom: 0;
-	right: 0;
+	inset-inline-end: 0;
 	width: 28%;
 	height: 28%;
 	min-width: 8px;
@@ -2286,7 +2321,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	[data-presence] rule outranks .bn-md-card__avatar and, by source order,
 	.bn-avatar[data-size]. */
 .bn-avatar[data-presence] { overflow: visible; }
-.bn-avatar[data-presence] img { border-radius: var(--r-full); }
+.bn-avatar[data-presence] img { border-radius: var(--bn-r-full); }
 
 /* ── Avatar — deterministic monogram tones ──────────────────────────────
 	Initials-only avatars (no image) get a stable colour keyed off the
@@ -2408,6 +2443,13 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	transition: background var(--bn-dur) var(--bn-ease);
 	border: none;
 	padding: 0;
+
+	/* Knob travel distance, read by the checked-state transform below. Held as a
+		token (not a literal) so each size variant only restates the distance, and
+		so the RTL rule can negate ONE value instead of mirroring every size rule.
+		The knob is pinned with inset-inline-start, so under RTL it starts at the
+		right edge and must travel the other way — hence the negated travel. */
+	--bn-toggle-travel: 18px;
 }
 
 /* Background-bleed defense for the toggle: pinned to its TRACK fill, not
@@ -2424,7 +2466,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	content: '';
 	position: absolute;
 	top: 3px;
-	left: 3px;
+	inset-inline-start: 3px;
 	width: 16px;
 	height: 16px;
 	border-radius: 50%;
@@ -2436,11 +2478,15 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	background: var(--bn-accent);
 }
 .bn-toggle[aria-checked="true"]::before {
-	transform: translateX(18px);
+	transform: translateX(var(--bn-toggle-travel));
+}
+[dir="rtl"] .bn-toggle[aria-checked="true"]::before {
+	transform: translateX(calc(-1 * var(--bn-toggle-travel)));
 }
 .bn-toggle:focus-visible {
 	box-shadow: var(--bn-ring);
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 .bn-toggle[disabled],
 .bn-toggle[aria-disabled="true"] {
@@ -2450,24 +2496,20 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-toggle[data-size="sm"] {
 	width: 32px;
 	height: 18px;
+	--bn-toggle-travel: 14px;
 }
 .bn-toggle[data-size="sm"]::before {
 	width: 12px;
 	height: 12px;
 }
-.bn-toggle[data-size="sm"][aria-checked="true"]::before {
-	transform: translateX(14px);
-}
 .bn-toggle[data-size="lg"] {
 	width: 48px;
 	height: 28px;
+	--bn-toggle-travel: 20px;
 }
 .bn-toggle[data-size="lg"]::before {
 	width: 22px;
 	height: 22px;
-}
-.bn-toggle[data-size="lg"][aria-checked="true"]::before {
-	transform: translateX(20px);
 }
 
 /* Toggle group — label + description + switch in one row. */
@@ -2797,7 +2839,8 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-navgroup__nav:hover,
 .bn-navgroup__nav:active { background: var(--bn-ink); }
 .bn-navgroup__nav:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 }
 .bn-navgroup__nav--start {
@@ -2863,7 +2906,8 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	border: 0;
 }
 .bn-app .bn-subnav__item:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 	border-radius: var(--bn-r-sm);
 }
@@ -2921,7 +2965,8 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 .bn-app a.bn-nav-metric:focus-visible,
 .bn-app button.bn-nav-metric:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 	border-radius: var(--bn-r-sm);
 }
@@ -3112,8 +3157,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 .bn-app .bn-tab {
 	border-top: 0;
-	border-right: 0;
-	border-left: 0;
+	border-inline: 0;
 	/* Pin the underline edge's width + style (not colour — the active tab sets
 		border-bottom-color) so a themed border can't reflow the tab row. */
 	border-bottom-width: 2px;
@@ -3156,8 +3200,14 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 .bn-tooltip-trigger > .bn-tooltip[data-pos="top"]    { bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%) translateY(2px); }
 .bn-tooltip-trigger > .bn-tooltip[data-pos="bottom"] { top:    calc(100% + 4px); left: 50%; transform: translateX(-50%) translateY(-2px); }
-.bn-tooltip-trigger > .bn-tooltip[data-pos="left"]   { right:  calc(100% + 4px); top: 50%; transform: translateY(-50%) translateX(2px); }
-.bn-tooltip-trigger > .bn-tooltip[data-pos="right"]  { left:   calc(100% + 4px); top: 50%; transform: translateY(-50%) translateX(-2px); }
+/* Side-anchored variants are inline-relative: "left" means the inline-start side
+   of the trigger, so under RTL both the anchor edge AND the settle nudge mirror.
+   (data-pos top/bottom above stay on left:50% + translateX(-50%) — that pair is
+   a centering idiom, not a direction, and centres identically in RTL.) */
+.bn-tooltip-trigger > .bn-tooltip[data-pos="left"]   { inset-inline-end:   calc(100% + 4px); top: 50%; transform: translateY(-50%) translateX(2px); }
+.bn-tooltip-trigger > .bn-tooltip[data-pos="right"]  { inset-inline-start: calc(100% + 4px); top: 50%; transform: translateY(-50%) translateX(-2px); }
+[dir="rtl"] .bn-tooltip-trigger > .bn-tooltip[data-pos="left"]  { transform: translateY(-50%) translateX(-2px); }
+[dir="rtl"] .bn-tooltip-trigger > .bn-tooltip[data-pos="right"] { transform: translateY(-50%) translateX(2px); }
 .bn-tooltip-trigger:hover  > .bn-tooltip[data-pos="top"],
 .bn-tooltip-trigger:focus-visible > .bn-tooltip[data-pos="top"]    { transform: translateX(-50%) translateY(0); }
 .bn-tooltip-trigger:hover  > .bn-tooltip[data-pos="bottom"],
@@ -3605,14 +3655,69 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 		min-height: 44px;
 	}
 	.bn-tab { min-height: 44px; }
+
+	/* Standalone icon buttons — the control's own box grows to the touch floor.
+	 * These sit in toolbars, card headers and sheet headers where there is room
+	 * to grow, so the box IS the target. The four originally listed here were
+	 * the only ones covered; every icon-only control below was shipping at
+	 * 26-36px on touch (UI-006). */
 	.bn-modal__close,
 	.bn-composer__tool,
 	.bn-composer__footer-btn,
-	.bn-post-card__menu {
+	.bn-post-card__menu,
+	.bn-mobile-more__close,
+	.bn-navgroup__nav,
+	.bn-md-card__menu,
+	.bn-pf-avatar-edit,
+	.bn-ep-avatar-btn,
+	.bn-ep-avatar-remove,
+	.bn-ep-cover-remove,
+	.bn-ep-repeater-remove,
+	.bn-dm-msg__action,
+	.bn-dm-emoji-pop__close,
+	.bn-emoji-popover__option,
+	.bn-lightbox__close,
+	.bn-lightbox__dm-btn,
+	.bn-lightbox__action {
 		min-width: 44px;
 		min-height: 44px;
 	}
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Tap-target expansion for the small overlay "remove" badges
+ *
+ * Two controls are DELIBERATELY tiny: the "x" pinned to the corner of an 80px
+ * composer thumbnail (20px) and the dismiss on the composer link-preview card
+ * (24px). Growing their painted box to 40px would swamp the thing they sit on,
+ * so we grow only the TARGET with a transparent pseudo-element. WCAG 2.5.8
+ * measures the target area, not the painted pixels, so both become tappable
+ * with zero visual change.
+ *
+ * The hit box is anchored to the corner the badge already occupies and grows
+ * INWARD (toward the inline start and downward), never outward. Both parents
+ * (.bn-composer__media-thumb, .bn-composer__link-preview) set `overflow:
+ * hidden`, and a pseudo that escaped the clip would also lose its pointer
+ * events — anchoring it this way keeps all 40px inside the clipping parent.
+ *
+ * NOT applied to .bn-dm-compose__chip-x / .bn-ep-tag-remove: those sit in
+ * wrapping chip rows, where a 40px hit box would overhang the neighbouring
+ * chip and steal its taps. Those need the CHIP to grow on touch, which is a
+ * visual-design change, so they are left alone and reported instead.
+ * ════════════════════════════════════════════════════════════════════════ */
+.bn-composer__media-remove::after,
+.bn-composer__link-remove::after {
+	content: '';
+	position: absolute;
+	inset-block-start: 0;
+	inset-inline-end: 0;
+	min-width: var(--bn-tap);
+	min-height: var(--bn-tap);
+}
+/* .bn-composer__link-remove is statically positioned, so it needs to become a
+   containing block for the pseudo. .bn-composer__media-remove already is one
+   (position: absolute in bn-feed.css). */
+.bn-composer__link-remove { position: relative; }
 
 /* ── Cookie consent banner (Privacy → Cookie Consent) ─────────────────────── */
 .bn-cookie-consent {

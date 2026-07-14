@@ -57,6 +57,18 @@ $bn_card_cat      = $bn_card_cat_id && isset( $bn_dc_cat_by_id[ $bn_card_cat_id 
 $bn_card_cat_name = $bn_card_cat ? (string) $bn_card_cat['name'] : '';
 $bn_card_cat_slug = $bn_card_cat ? (string) $bn_card_cat['slug'] : '';
 
+// The category's own colour pair (bn_space_categories.color / .text_color, both
+// sanitize_hex_color()'d on write by SpaceCategoryService and defaulted there, so the
+// pair is always a legible background/foreground combination whatever the owner picks).
+// Same treatment the admin category list and the member-type badges already give it;
+// the directory card was the one surface that dropped the owner's colour on the floor.
+// Both halves come from the row, so the badge is self-contained in light AND dark.
+$bn_card_cat_bg    = $bn_card_cat ? (string) ( $bn_card_cat['color'] ?? '' ) : '';
+$bn_card_cat_fg    = $bn_card_cat ? (string) ( $bn_card_cat['text_color'] ?? '' ) : '';
+$bn_card_cat_style = ( '' !== $bn_card_cat_bg && '' !== $bn_card_cat_fg )
+	? sprintf( 'background:%1$s;color:%2$s;', $bn_card_cat_bg, $bn_card_cat_fg )
+	: '';
+
 $cover_tone   = bn_space_cover_tone( $space_id );
 $cat_icon     = bn_space_category_icon( $bn_card_cat_slug );
 $space_url    = buddynext_space_url( $space_slug );
@@ -99,9 +111,19 @@ $bn_dc_join_method = SpaceTypeRegistry::instance()->join_method( (string) $space
 		</a>
 
 		<?php if ( '' !== $bn_card_cat_name ) : ?>
+			<?php
+			// The category name, and only the name. This used to be prefixed with a
+			// generic Lucide `hash` glyph, so the SAME category read "#General" on a card
+			// but "General" in the directory's filter chips. The `#` is not part of the
+			// stored name (bn_space_categories.name holds "General") and it is not the
+			// category's own icon either (categories carry icon_svg / CATEGORY_ICON_MAP,
+			// which this card already renders as the cover emblem). It was decoration
+			// that contradicted both. The colour pair below is the category signal.
+			?>
 			<div class="bn-sd-card__category">
-				<?php buddynext_icon( 'hash' ); ?>
-				<?php echo esc_html( $bn_card_cat_name ); ?>
+				<span class="bn-badge bn-sd-card__cat" data-tone="neutral"
+					<?php echo '' !== $bn_card_cat_style ? 'style="' . esc_attr( $bn_card_cat_style ) . '"' : ''; ?>
+				><?php echo esc_html( $bn_card_cat_name ); ?></span>
 			</div>
 		<?php endif; ?>
 

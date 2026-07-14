@@ -131,7 +131,7 @@
 	content: "\201C";
 	position: absolute;
 	top: -0.15em;
-	left: -0.04em;
+	inset-inline-start: -0.04em;
 	font-size: 4.5rem;
 	line-height: 1;
 	opacity: 0.35;
@@ -352,7 +352,7 @@
 	color: var(--bn-success);
 	background: var(--bn-success-bg, rgba(22, 163, 74, 0.08));
 	border: 1px solid var(--bn-success);
-	border-radius: var(--bn-radius-md, 8px);
+	border-radius: var(--bn-r-md);
 	padding: var(--bn-s3, 12px) var(--bn-s4, 16px);
 	margin-block-end: var(--bn-s4, 16px);
 }
@@ -741,8 +741,7 @@
 	.bn-verify-card {
 		max-width: 100%;
 		border-radius: 0;
-		border-left: none;
-		border-right: none;
+		border-inline: none;
 		min-height: 100vh;
 	}
 
@@ -757,8 +756,7 @@
 	.bn-block-login-form,
 	.bn-block-registration-form {
 		border-radius: 0;
-		border-left: none;
-		border-right: none;
+		border-inline: none;
 		max-width: 100%;
 	}
 }
@@ -911,6 +909,7 @@ body.bn-hub-auth .bn-auth-page {
 	text-decoration: underline;
 }
 .bn-auth-pw__toggle:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 }
