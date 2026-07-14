@@ -665,4 +665,11 @@ export function bnToast( message, opts ) {
  */
 if ( typeof window !== 'undefined' ) {
 	window.bnReportDialog = bnReportDialog;
+	// Same reason as the report dialog above: the media lightbox is a classic
+	// script that cannot import this module, but a member-facing surface must
+	// use the accessible confirm/prompt, never a native window.confirm. Expose
+	// them so the lightbox (and any other classic script) can reach the real
+	// dialog instead of falling back to the browser primitive.
+	window.bnConfirm = bnConfirm;
+	window.bnPrompt  = bnPrompt;
 }

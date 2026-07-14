@@ -382,7 +382,11 @@
 				confirmLabel: __( 'Block', 'buddynext' ),
 				tone: 'danger',
 			} )
-			: Promise.resolve( window.confirm( __( 'Block this member?', 'buddynext' ) ) );
+			// The accessible bnConfirm is exposed on window by shell/dialog.js.
+			// If it is somehow not loaded we do NOT fall back to a native
+			// window.confirm on a member-facing surface - skip the action, the
+			// same way the Report button no-ops when its dialog is absent.
+			: Promise.resolve( false );
 
 		Promise.resolve( proceed ).then( function ( ok ) {
 			if ( ! ok ) { return; }
