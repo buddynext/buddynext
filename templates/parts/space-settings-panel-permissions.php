@@ -61,6 +61,19 @@ $bn_space_url             = isset( $bn_settings['space_url'] ) ? (string) $bn_se
 $bn_who_can_post          = isset( $bn_settings['who_can_post'] ) ? (string) $bn_settings['who_can_post'] : 'members';
 $bn_who_can_invite        = isset( $bn_settings['who_can_invite'] ) ? (string) $bn_settings['who_can_invite'] : 'mods';
 $bn_require_join_approval = ! empty( $bn_settings['require_join_approval'] );
+
+/*
+ * "Require approval to join" only does anything on a type whose join method is `direct`
+ * (stock: Open). SpaceController::join() reads the flag ONLY inside a `'direct' === $join_method`
+ * branch — a private space already routes joins through a request queue, and a secret space is
+ * invite-only, so on those two the toggle was read, ignored, and still shown. An owner could
+ * switch it on, see it persist, and reasonably conclude approvals were now on. It changed nothing.
+ *
+ * Asked of the registry rather than compared against 'open', so a custom type that registers with
+ * join => 'direct' gets the toggle too, and one that does not, does not.
+ */
+$bn_join_method      = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) ( $bn_space->type ?? 'open' ) );
+$bn_approval_is_live = 'direct' === $bn_join_method;
 $bn_auto_join_on_signup   = ! empty( $bn_settings['auto_join_on_signup'] );
 $bn_auto_join_types       = isset( $bn_settings['auto_join_member_types'] ) ? (array) $bn_settings['auto_join_member_types'] : array();
 // Member types are resolved here (settings render only), never in the always-on
@@ -140,16 +153,39 @@ do_action( 'buddynext_part_space_settings_panel_permissions_before', $args );
 			</select>
 		</div>
 
-		<div class="bn-toggle-row">
-			<div class="bn-toggle-row__copy">
-				<div class="bn-toggle-row__label"><?php esc_html_e( 'Require approval to join', 'buddynext' ); ?></div>
-				<div class="bn-toggle-row__desc"><?php esc_html_e( 'New join requests go to the owner/mod queue.', 'buddynext' ); ?></div>
+		<?php
+		/*
+		 * Shown only where it acts. This is NOT a fourth space type: it is a property of an open
+		 * space, and "anyone can read us, but we vet who joins" is a real and common way to run a
+		 * community — so the capability stays. What goes is showing the control on the two types
+		 * where it was decorative.
+		 */
+		?>
+		<?php if ( $bn_approval_is_live ) : ?>
+			<div class="bn-toggle-row">
+				<div class="bn-toggle-row__copy">
+					<div class="bn-toggle-row__label"><?php esc_html_e( 'Require approval to join', 'buddynext' ); ?></div>
+					<div class="bn-toggle-row__desc"><?php esc_html_e( 'Anyone can read this space, but new members must be approved by the owner or a moderator.', 'buddynext' ); ?></div>
+				</div>
+				<label class="bn-space-settings__toggle-shell">
+					<input type="checkbox" class="bn-space-settings__toggle-input" name="require_join_approval" value="1" <?php checked( $bn_require_join_approval ); ?>>
+					<span class="bn-toggle" aria-hidden="true"></span>
+				</label>
 			</div>
-			<label class="bn-space-settings__toggle-shell">
-				<input type="checkbox" class="bn-space-settings__toggle-input" name="require_join_approval" value="1" <?php checked( $bn_require_join_approval ); ?>>
-				<span class="bn-toggle" aria-hidden="true"></span>
-			</label>
-		</div>
+		<?php else : ?>
+			<?php
+			// Say why it is absent, rather than leaving a silent hole where a control used to be.
+			?>
+			<p class="bn-space-settings__hint">
+				<?php
+				if ( 'request' === $bn_join_method ) {
+					esc_html_e( 'This space type already sends every join through the approval queue.', 'buddynext' );
+				} else {
+					esc_html_e( 'This space type is invite only, so there are no join requests to approve.', 'buddynext' );
+				}
+				?>
+			</p>
+		<?php endif; ?>
 
 		<?php // Auto-join is owner-only: it reaches across the whole site's membership, not just this space. A moderator never sees these controls, rather than seeing them and having the save rejected. ?>
 		<?php if ( $bn_is_space_owner ) : ?>
