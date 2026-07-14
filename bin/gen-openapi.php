@@ -3,8 +3,10 @@
  * OpenAPI generator for the BuddyNext REST API.
  *
  * Introspects the LIVE WordPress route registry (so it can never drift from the
- * code) and emits an OpenAPI 3.1 document for the `buddynext/v1` namespace only.
- * Pro's `buddynext-pro/v1` namespace is intentionally excluded.
+ * code) and emits an OpenAPI 3.1 document for the namespace(s) named in the config.
+ * The default config (docs/api/openapi.config.json) covers `buddynext/v1` (Free)
+ * only; a config listing `namespaces` can include Pro's `buddynext-pro/v1` too
+ * (see docs/api/openapi.combined.config.json, used for the buddynext.com reference).
  *
  * Run it against a WordPress install with BuddyNext active. Load it with
  * `wp eval "require '…';"` rather than `wp eval-file`: eval-file wraps the file
@@ -16,8 +18,10 @@
  *
  *     bin/sync-api-docs.sh
  *
- * Config: docs/api/openapi.config.json (namespace, info block, servers, tag rules).
- * Output: docs/api/openapi.json (overwritten each run - do not hand-edit).
+ * Config: openapi.config.json by default; override with the BN_OPENAPI_CONFIG env
+ * var. Keys: namespace | namespaces[], tagPrefixes, tagRules, info, servers.
+ * Output: docs/api/openapi.json by default; override with BN_OPENAPI_OUT.
+ * Overwritten each run - do not hand-edit.
  *
  * @package BuddyNext
  */
@@ -36,7 +40,8 @@ if ( ! function_exists( 'rest_get_server' ) ) {
 }
 
 $bn_plugin_dir  = dirname( __DIR__ );
-$bn_config_path = $bn_plugin_dir . '/docs/api/openapi.config.json';
+$bn_env_config  = getenv( 'BN_OPENAPI_CONFIG' );
+$bn_config_path = ( is_string( $bn_env_config ) && '' !== $bn_env_config ) ? $bn_env_config : $bn_plugin_dir . '/docs/api/openapi.config.json';
 
 if ( ! is_readable( $bn_config_path ) ) {
 	fwrite( STDERR, "gen-openapi: config not found at {$bn_config_path}\n" );
@@ -49,10 +54,16 @@ if ( ! is_array( $bn_config ) ) {
 	exit( 1 );
 }
 
-$bn_namespace = (string) ( $bn_config['namespace'] ?? 'buddynext/v1' );
-$bn_prefix    = '/' . trim( $bn_namespace, '/' );
-$bn_tag_rules = (array) ( $bn_config['tagRules'] ?? array() );
-$bn_fallb_tag = (string) ( $bn_config['fallbackTag'] ?? 'Misc' );
+// One or more namespaces. `namespaces` (array) takes precedence; `namespace`
+// (string) is the single-namespace fallback, kept for backward compatibility.
+$bn_namespaces = ( isset( $bn_config['namespaces'] ) && is_array( $bn_config['namespaces'] ) )
+	? array_values( array_map( 'strval', $bn_config['namespaces'] ) )
+	: array( (string) ( $bn_config['namespace'] ?? 'buddynext/v1' ) );
+// Optional per-namespace tag prefix, e.g. { "buddynext-pro/v1": "Pro: " } so Pro
+// operations group under their own headings in the reference.
+$bn_tag_prefixes = (array) ( $bn_config['tagPrefixes'] ?? array() );
+$bn_tag_rules    = (array) ( $bn_config['tagRules'] ?? array() );
+$bn_fallb_tag    = (string) ( $bn_config['fallbackTag'] ?? 'Misc' );
 
 /**
  * Map a route path to a tag from the configured prefix rules (longest match wins).
@@ -145,118 +156,123 @@ $bn_tags_seen    = array();
 $bn_route_count  = 0;
 $bn_op_count     = 0;
 
-foreach ( $bn_routes as $bn_route => $bn_endpoints ) {
-	if ( $bn_route !== $bn_prefix && ! str_starts_with( $bn_route, $bn_prefix . '/' ) ) {
-		continue;
-	}
+foreach ( $bn_namespaces as $bn_namespace ) {
+	$bn_prefix  = '/' . trim( $bn_namespace, '/' );
+	$bn_tag_pre = (string) ( $bn_tag_prefixes[ $bn_namespace ] ?? '' );
 
-	// Namespace-relative path, e.g. '/spaces/(?P<id>\d+)/members'.
-	$bn_rel = substr( $bn_route, strlen( $bn_prefix ) );
-	if ( '' === $bn_rel ) {
-		continue; // The namespace index route itself.
-	}
-
-	$bn_tpl                  = $bn_templatize( $bn_rel );
-	$bn_oa_path              = $bn_tpl['path'];
-	$bn_path_par             = $bn_tpl['params'];
-	$bn_tag                  = $bn_tag_for( $bn_rel, $bn_tag_rules, $bn_fallb_tag );
-	$bn_tags_seen[ $bn_tag ] = true;
-
-	if ( ! isset( $bn_paths[ $bn_oa_path ] ) ) {
-		$bn_paths[ $bn_oa_path ] = array();
-		++$bn_route_count;
-	}
-
-	foreach ( (array) $bn_endpoints as $bn_ep ) {
-		if ( ! is_array( $bn_ep ) || empty( $bn_ep['methods'] ) ) {
+	foreach ( $bn_routes as $bn_route => $bn_endpoints ) {
+		if ( $bn_route !== $bn_prefix && ! str_starts_with( $bn_route, $bn_prefix . '/' ) ) {
 			continue;
 		}
-		$bn_methods = is_array( $bn_ep['methods'] ) ? array_keys( array_filter( $bn_ep['methods'] ) ) : array();
-		$bn_args    = isset( $bn_ep['args'] ) && is_array( $bn_ep['args'] ) ? $bn_ep['args'] : array();
 
-		// Public when the permission callback is core's __return_true; otherwise
-		// authenticated (cookie+nonce or application password).
-		$bn_perm   = $bn_ep['permission_callback'] ?? null;
-		$bn_public = ( '__return_true' === $bn_perm );
+		// Namespace-relative path, e.g. '/spaces/(?P<id>\d+)/members'.
+		$bn_rel = substr( $bn_route, strlen( $bn_prefix ) );
+		if ( '' === $bn_rel ) {
+			continue; // The namespace index route itself.
+		}
 
-		foreach ( $bn_methods as $bn_method ) {
-			$bn_method = strtoupper( (string) $bn_method );
-			if ( ! in_array( $bn_method, $bn_http_methods, true ) ) {
+		$bn_tpl                  = $bn_templatize( $bn_rel );
+		$bn_oa_path              = $bn_tpl['path'];
+		$bn_path_par             = $bn_tpl['params'];
+		$bn_tag                  = $bn_tag_pre . $bn_tag_for( $bn_rel, $bn_tag_rules, $bn_fallb_tag );
+		$bn_tags_seen[ $bn_tag ] = true;
+
+		if ( ! isset( $bn_paths[ $bn_oa_path ] ) ) {
+			$bn_paths[ $bn_oa_path ] = array();
+			++$bn_route_count;
+		}
+
+		foreach ( (array) $bn_endpoints as $bn_ep ) {
+			if ( ! is_array( $bn_ep ) || empty( $bn_ep['methods'] ) ) {
 				continue;
 			}
+			$bn_methods = is_array( $bn_ep['methods'] ) ? array_keys( array_filter( $bn_ep['methods'] ) ) : array();
+			$bn_args    = isset( $bn_ep['args'] ) && is_array( $bn_ep['args'] ) ? $bn_ep['args'] : array();
 
-			$bn_op = array(
-				'tags'        => array( $bn_tag ),
-				'operationId' => strtolower( $bn_method ) . preg_replace( '/[^A-Za-z0-9]+/', '_', $bn_oa_path ),
-				'summary'     => $bn_method . ' ' . $bn_prefix . $bn_oa_path,
-				'parameters'  => $bn_path_par,
-				'responses'   => array(
-					'200' => array( 'description' => 'Success.' ),
-				),
-			);
+			// Public when the permission callback is core's __return_true; otherwise
+			// authenticated (cookie+nonce or application password).
+			$bn_perm   = $bn_ep['permission_callback'] ?? null;
+			$bn_public = ( '__return_true' === $bn_perm );
 
-			if ( ! $bn_public ) {
-				$bn_op['security']         = array( array( 'cookieAuth' => array() ), array( 'appPassword' => array() ) );
-				$bn_op['responses']['401'] = array( 'description' => 'Not authenticated.' );
-				$bn_op['responses']['403'] = array( 'description' => 'Authenticated but not permitted.' );
-			}
-
-			if ( 'GET' === $bn_method || 'DELETE' === $bn_method ) {
-				// Non-path args become query parameters.
-				foreach ( $bn_args as $bn_name => $bn_arg ) {
-					$bn_has_path_param = (bool) array_filter( $bn_path_par, static fn( $p ) => $p['name'] === $bn_name );
-					if ( $bn_has_path_param ) {
-						continue;
-					}
-					$bn_arg                = is_array( $bn_arg ) ? $bn_arg : array();
-					$bn_op['parameters'][] = array(
-						'name'        => (string) $bn_name,
-						'in'          => 'query',
-						'required'    => (bool) ( $bn_arg['required'] ?? false ),
-						'description' => (string) ( $bn_arg['description'] ?? '' ),
-						'schema'      => $bn_arg_schema( $bn_arg ),
-					);
+			foreach ( $bn_methods as $bn_method ) {
+				$bn_method = strtoupper( (string) $bn_method );
+				if ( ! in_array( $bn_method, $bn_http_methods, true ) ) {
+					continue;
 				}
-			} else {
-				// POST/PUT/PATCH: non-path args become a JSON request body.
-				$bn_props    = array();
-				$bn_required = array();
-				foreach ( $bn_args as $bn_name => $bn_arg ) {
-					if ( array_filter( $bn_path_par, static fn( $p ) => $p['name'] === $bn_name ) ) {
-						continue;
+
+				$bn_op = array(
+					'tags'        => array( $bn_tag ),
+					'operationId' => strtolower( $bn_method ) . preg_replace( '/[^A-Za-z0-9]+/', '_', $bn_oa_path ),
+					'summary'     => $bn_method . ' ' . $bn_prefix . $bn_oa_path,
+					'parameters'  => $bn_path_par,
+					'responses'   => array(
+						'200' => array( 'description' => 'Success.' ),
+					),
+				);
+
+				if ( ! $bn_public ) {
+					$bn_op['security']         = array( array( 'cookieAuth' => array() ), array( 'appPassword' => array() ) );
+					$bn_op['responses']['401'] = array( 'description' => 'Not authenticated.' );
+					$bn_op['responses']['403'] = array( 'description' => 'Authenticated but not permitted.' );
+				}
+
+				if ( 'GET' === $bn_method || 'DELETE' === $bn_method ) {
+					// Non-path args become query parameters.
+					foreach ( $bn_args as $bn_name => $bn_arg ) {
+						$bn_has_path_param = (bool) array_filter( $bn_path_par, static fn( $p ) => $p['name'] === $bn_name );
+						if ( $bn_has_path_param ) {
+							continue;
+						}
+						$bn_arg                = is_array( $bn_arg ) ? $bn_arg : array();
+						$bn_op['parameters'][] = array(
+							'name'        => (string) $bn_name,
+							'in'          => 'query',
+							'required'    => (bool) ( $bn_arg['required'] ?? false ),
+							'description' => (string) ( $bn_arg['description'] ?? '' ),
+							'schema'      => $bn_arg_schema( $bn_arg ),
+						);
 					}
-					$bn_arg               = is_array( $bn_arg ) ? $bn_arg : array();
-					$bn_props[ $bn_name ] = $bn_arg_schema( $bn_arg );
-					if ( ! empty( $bn_arg['description'] ) ) {
-						$bn_props[ $bn_name ]['description'] = (string) $bn_arg['description'];
+				} else {
+					// POST/PUT/PATCH: non-path args become a JSON request body.
+					$bn_props    = array();
+					$bn_required = array();
+					foreach ( $bn_args as $bn_name => $bn_arg ) {
+						if ( array_filter( $bn_path_par, static fn( $p ) => $p['name'] === $bn_name ) ) {
+							continue;
+						}
+						$bn_arg               = is_array( $bn_arg ) ? $bn_arg : array();
+						$bn_props[ $bn_name ] = $bn_arg_schema( $bn_arg );
+						if ( ! empty( $bn_arg['description'] ) ) {
+							$bn_props[ $bn_name ]['description'] = (string) $bn_arg['description'];
+						}
+						if ( ! empty( $bn_arg['required'] ) ) {
+							$bn_required[] = (string) $bn_name;
+						}
 					}
-					if ( ! empty( $bn_arg['required'] ) ) {
-						$bn_required[] = (string) $bn_name;
+					if ( ! empty( $bn_props ) ) {
+						$bn_schema = array(
+							'type'       => 'object',
+							'properties' => $bn_props,
+						);
+						if ( ! empty( $bn_required ) ) {
+							$bn_schema['required'] = $bn_required;
+						}
+						$bn_op['requestBody'] = array(
+							'content' => array(
+								'application/json' => array( 'schema' => $bn_schema ),
+							),
+						);
 					}
 				}
-				if ( ! empty( $bn_props ) ) {
-					$bn_schema = array(
-						'type'       => 'object',
-						'properties' => $bn_props,
-					);
-					if ( ! empty( $bn_required ) ) {
-						$bn_schema['required'] = $bn_required;
-					}
-					$bn_op['requestBody'] = array(
-						'content' => array(
-							'application/json' => array( 'schema' => $bn_schema ),
-						),
-					);
+
+				// De-dupe empty parameter arrays for cleanliness.
+				if ( empty( $bn_op['parameters'] ) ) {
+					unset( $bn_op['parameters'] );
 				}
-			}
 
-			// De-dupe empty parameter arrays for cleanliness.
-			if ( empty( $bn_op['parameters'] ) ) {
-				unset( $bn_op['parameters'] );
+				$bn_paths[ $bn_oa_path ][ strtolower( $bn_method ) ] = $bn_op;
+				++$bn_op_count;
 			}
-
-			$bn_paths[ $bn_oa_path ][ strtolower( $bn_method ) ] = $bn_op;
-			++$bn_op_count;
 		}
 	}
 }
@@ -283,8 +299,9 @@ $bn_doc = array(
 	),
 );
 
+$bn_env_out  = getenv( 'BN_OPENAPI_OUT' );
 $bn_out_rel  = (string) ( $bn_config['output'] ?? 'docs/api/openapi.json' );
-$bn_out_path = $bn_plugin_dir . '/' . ltrim( $bn_out_rel, '/' );
+$bn_out_path = ( is_string( $bn_env_out ) && '' !== $bn_env_out ) ? $bn_env_out : $bn_plugin_dir . '/' . ltrim( $bn_out_rel, '/' );
 
 $bn_json = wp_json_encode( $bn_doc, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 if ( false === $bn_json ) {
@@ -300,11 +317,11 @@ if ( false === file_put_contents( $bn_out_path, $bn_json . "\n" ) ) {
 fwrite(
 	STDOUT,
 	sprintf(
-		"gen-openapi: wrote %s\n  %d paths, %d operations, %d tags, namespace %s\n",
-		$bn_out_rel,
+		"gen-openapi: wrote %s\n  %d paths, %d operations, %d tags, namespaces %s\n",
+		$bn_out_path,
 		$bn_route_count,
 		$bn_op_count,
 		count( $bn_tag_list ),
-		$bn_namespace
+		implode( ', ', $bn_namespaces )
 	)
 );
