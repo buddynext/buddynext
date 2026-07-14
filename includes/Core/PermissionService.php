@@ -40,6 +40,14 @@ class PermissionService {
 		'buddynext-profile/edit-any'        => 'admin',
 		'buddynext-profile/view'            => null,
 		'buddynext-feed/create-post'        => 'member',
+		// There was no comment capability at all. Pro's AI reply checked buddynext_can( $u,
+		// 'comment' ) — an unmapped slug, so passes_role_check() returned false for every
+		// member and the feature was dead for exactly the people it was for. It is NOT a
+		// typo to be corrected to an existing cap: there was nothing to correct it to, and
+		// mapping it to create-post would tie replying to POST-creation rights (and drag in
+		// unrelated plan gating). So Free builds the door rather than Pro reaching through a
+		// wall.
+		'buddynext-comments/create'         => 'member',
 		'buddynext-feed/delete-own-post'    => 'member',
 		'buddynext-feed/delete-any-post'    => 'moderator',
 		'buddynext-feed/pin-post'           => 'moderator',

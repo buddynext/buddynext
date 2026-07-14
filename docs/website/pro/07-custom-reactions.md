@@ -25,7 +25,7 @@ Members do not configure anything. Once you add a custom reaction, it shows up a
 2. The picker shows the enabled default reactions plus every custom reaction you have added, each rendered as a Fluent emoji with its label.
 3. The member selects a reaction, and the count for that reaction increments. Selecting a different one switches their reaction.
 
-Custom reactions behave exactly like the built-in ones for counting, switching, and removal. They also work the same way in connected apps, so a member reacting from a mobile app gets the same custom set.
+Custom reactions behave exactly like the built-in ones for counting, switching, and removal. They are served through the same API the website uses, so any connected client sees the same custom set.
 
 ## Setting it up (for owners)
 
@@ -74,3 +74,4 @@ The Add a reaction form has these inputs:
 The six default reactions, the reaction picker, and reaction counting are all part of BuddyNext Free. Enabling or disabling the defaults is also handled in Free under Engagement - Social.
 
 Custom Reactions - adding emoji beyond the default six - is a Pro feature. Pro adds your custom reactions to Free's reaction list, so everything stays consistent across the website and any connected app.
+> **Note:** If you have turned Memberships on **and** chosen a default plan, this becomes a plan perk: members only get it if their plan grants it. With Memberships off (the default), it works for every member. See Membership Tiers.

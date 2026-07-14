@@ -18,6 +18,61 @@ function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl 
 
 /* ── Comment helpers (vanilla DOM — outside WP Interactivity API scope) ── */
 
+/**
+ * The owner-enabled reaction set for the comment picker.
+ *
+ * Mirrors the post-card picker (templates/parts/post-actions.php), which renders
+ * from ReactionService::reaction_types(). The set is serialised server-side onto
+ * .bn-comment-list[data-reactions] (templates/parts/post-comments-list.php) as
+ * [{ slug, label, char, color, emoji_url }] — the owner-chosen subset plus any Pro
+ * custom slugs. Hardcoding the six built-ins here meant a reaction the owner
+ * disabled still rendered (and the server silently coerced the click), and Pro
+ * custom reactions never appeared.
+ *
+ * The six built-ins remain as a fallback only for when the attribute is absent or
+ * unparseable (e.g. a stale cached template), so the picker never renders empty.
+ *
+ * @param {Element|null} list The .bn-comment-list container for this post.
+ * @return {Array<{slug: string, label: string, char: string, color: string, emoji_url: string}>} Reaction set.
+ */
+function resolveReactionSet( list ) {
+	const raw = list ? list.dataset.reactions : '';
+
+	if ( raw ) {
+		try {
+			const parsed = JSON.parse( raw );
+			if ( Array.isArray( parsed ) && parsed.length ) {
+				return parsed
+					.filter( ( r ) => r && r.slug )
+					.map( ( r ) => ( {
+						slug:      String( r.slug ),
+						label:     String( r.label || r.slug ),
+						char:      String( r.char || '' ),
+						color:     String( r.color || '' ),
+						emoji_url: String( r.emoji_url || '' ),
+					} ) );
+			}
+		} catch ( _e ) {
+			// Fall through to the built-in set below.
+		}
+	}
+
+	const base = list && list.dataset.emojiBase ? list.dataset.emojiBase : '';
+	return [
+		{ slug: 'like',  label: t( 'reactionLike',  'Like' ) },
+		{ slug: 'love',  label: t( 'reactionLove',  'Love' ) },
+		{ slug: 'haha',  label: t( 'reactionHaha',  'Haha' ) },
+		{ slug: 'wow',   label: t( 'reactionWow',   'Wow' ) },
+		{ slug: 'sad',   label: t( 'reactionSad',   'Sad' ) },
+		{ slug: 'angry', label: t( 'reactionAngry', 'Angry' ) },
+	].map( ( r ) => ( {
+		...r,
+		char:      '',
+		color:     '',
+		emoji_url: base ? base + r.slug + '.svg' : '',
+	} ) );
+}
+
 function timeAgo( dateStr ) {
 	// The API returns a naive MySQL UTC datetime ("YYYY-MM-DD HH:MM:SS", no zone).
 	// `new Date()` parses a space-separated, zoneless string as LOCAL time, which
@@ -204,11 +259,30 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		wrap.classList.add( 'bn-comment-card--deleted' );
 	}
 
-	// Avatar initials.
+	// Avatar: the member's avatar image when the REST payload provides one
+	// (author_avatar_url, BN-managed via AvatarService), with the initials circle
+	// as the fallback — mirroring how post bylines render. Previously comments
+	// only ever showed initials, so a member's real avatar never appeared.
 	const avatar = document.createElement( 'div' );
 	avatar.className = 'bn-comment__avatar';
 	avatar.setAttribute( 'aria-hidden', 'true' );
-	avatar.textContent = ( comment.author_name || 'U' ).split( ' ' ).map( ( w ) => w[ 0 ] || '' ).join( '' ).slice( 0, 2 ).toUpperCase();
+	const initials = ( comment.author_name || 'U' ).split( ' ' ).map( ( w ) => w[ 0 ] || '' ).join( '' ).slice( 0, 2 ).toUpperCase();
+	if ( comment.author_avatar_url ) {
+		const img = document.createElement( 'img' );
+		img.src    = comment.author_avatar_url;
+		img.alt    = '';
+		img.width  = 32;
+		img.height = 32;
+		img.loading = 'lazy';
+		// Fall back to initials if the avatar URL fails to load.
+		img.addEventListener( 'error', function () {
+			img.remove();
+			avatar.textContent = initials;
+		} );
+		avatar.appendChild( img );
+	} else {
+		avatar.textContent = initials;
+	}
 	wrap.appendChild( avatar );
 
 	const body = document.createElement( 'div' );
@@ -293,33 +367,47 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 	const bnReactList    = document.querySelector( `.bn-comment-list[data-comment-list="${ postId }"]` );
 	const bnReactionsOn  = ! bnReactList || bnReactList.dataset.reactionsEnabled !== '0';
 	if ( ! comment.is_deleted && bnReactionsOn ) {
-		// Resolve the colored Fluent Emoji vendor base via the comment-list
-		// container keyed by postId. wrap.closest() can't be used here
-		// because the wrap is not yet attached to the DOM at this point.
+		// Resolve the owner-enabled reaction set (and each slug's label/glyph) via
+		// the comment-list container keyed by postId. wrap.closest() can't be used
+		// here because the wrap is not yet attached to the DOM at this point.
 		const list      = document.querySelector( `.bn-comment-list[data-comment-list="${ postId }"]` );
-		const emojiBase = list ? list.dataset.emojiBase : '';
-		const REACTIONS = [ 'like', 'love', 'haha', 'wow', 'sad', 'angry' ];
-		const REACTION_LABELS = {
-			like:  t( 'reactionLike', 'Like' ),
-			love:  t( 'reactionLove', 'Love' ),
-			haha:  t( 'reactionHaha', 'Haha' ),
-			wow:   t( 'reactionWow', 'Wow' ),
-			sad:   t( 'reactionSad', 'Sad' ),
-			angry: t( 'reactionAngry', 'Angry' ),
-		};
+		const REACTIONS = resolveReactionSet( list );
+		const REACTION_META   = Object.fromEntries( REACTIONS.map( ( r ) => [ r.slug, r ] ) );
+		const REACTION_LABELS = Object.fromEntries( REACTIONS.map( ( r ) => [ r.slug, r.label ] ) );
 
-		const setReactionIcon = ( parent, type ) => {
+		// Render one reaction glyph into `parent`. Prefers the bundled Fluent SVG;
+		// Pro custom slugs have none, so they fall back to a colour-tinted text
+		// glyph (char, else the label's initial) exactly like the post card.
+		const setReactionIcon = ( parent, type, size ) => {
 			parent.replaceChildren();
-			if ( type && emojiBase ) {
-				const img = document.createElement( 'img' );
-				img.src = emojiBase + type + '.svg';
-				img.alt = REACTION_LABELS[ type ] || '';
-				img.width = 16;
-				img.height = 16;
-				parent.appendChild( img );
-			} else {
+			const meta = type ? REACTION_META[ type ] : null;
+			if ( ! meta ) {
 				parent.textContent = '♡';
+				return;
 			}
+			const px = size || 16;
+			if ( meta.emoji_url ) {
+				const img  = document.createElement( 'img' );
+				img.src    = meta.emoji_url;
+				img.alt    = meta.label || '';
+				img.width  = px;
+				img.height = px;
+				parent.appendChild( img );
+				return;
+			}
+			// .bn-reaction-glyph sizes itself to 100% of its parent, which works on
+			// the post card (the parent .bn-reaction-icon is a fixed box) but not
+			// here — neither .bn-comment__like-icon nor .bn-comment__react-option is
+			// sized. Give it an explicit box so it fills the same slot as the emoji.
+			const glyph = document.createElement( 'span' );
+			glyph.className   = 'bn-reaction-glyph';
+			glyph.textContent = meta.char || ( meta.label || meta.slug ).charAt( 0 ).toUpperCase();
+			glyph.style.width  = px + 'px';
+			glyph.style.height = px + 'px';
+			if ( /^#[0-9a-fA-F]{6}$/.test( meta.color ) ) {
+				glyph.style.color = meta.color;
+			}
+			parent.appendChild( glyph );
 		};
 
 		const wrapBtn = document.createElement( 'span' );
@@ -328,7 +416,10 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		reactBtn = document.createElement( 'button' );
 		reactBtn.type = 'button';
 		reactBtn.className = 'bn-comment__like-btn';
-		reactBtn.dataset.reaction = comment.viewer_liked ? ( comment.viewer_reaction || 'like' ) : '';
+		// Default to the first ENABLED slug, not a hardcoded 'like' — the owner can
+		// disable 'like', in which case it has no glyph or label to render.
+		const defaultReaction = REACTIONS.length ? REACTIONS[ 0 ].slug : 'like';
+		reactBtn.dataset.reaction = comment.viewer_liked ? ( comment.viewer_reaction || defaultReaction ) : '';
 		// Explicit binary state hook ("0"/"1") — distinct from aria-pressed so the
 		// liked state is always a defined attribute, never an empty string.
 		reactBtn.dataset.liked = comment.viewer_liked ? '1' : '0';
@@ -354,29 +445,21 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		reactBtn.appendChild( document.createTextNode( ' ' ) );
 		reactBtn.appendChild( reactCount );
 
-		// 6-emoji picker dropdown.
+		// Reaction picker dropdown — one option per owner-enabled reaction.
 		const picker = document.createElement( 'div' );
 		picker.className = 'bn-comment__react-picker';
 		picker.hidden = true;
 		picker.setAttribute( 'role', 'toolbar' );
 		picker.setAttribute( 'aria-label', t( 'chooseReaction', 'Choose reaction' ) );
-		REACTIONS.forEach( ( type ) => {
+		REACTIONS.forEach( ( reaction ) => {
+			const type = reaction.slug;
 			const opt = document.createElement( 'button' );
 			opt.type = 'button';
 			opt.className = 'bn-comment__react-option';
-			opt.setAttribute( 'aria-label', REACTION_LABELS[ type ] );
-			opt.title = REACTION_LABELS[ type ];
+			opt.setAttribute( 'aria-label', reaction.label );
+			opt.title = reaction.label;
 			opt.dataset.reaction = type;
-			if ( emojiBase ) {
-				const img = document.createElement( 'img' );
-				img.src = emojiBase + type + '.svg';
-				img.alt = REACTION_LABELS[ type ];
-				img.width = 28;
-				img.height = 28;
-				opt.appendChild( img );
-			} else {
-				opt.textContent = REACTION_LABELS[ type ];
-			}
+			setReactionIcon( opt, type, 28 );
 			// Keyboard activation only: mouse/touch selection is handled by the
 			// picker-level 'pointerdown' listener below (so the choice lands before
 			// any blur-driven close). `e.detail === 0` distinguishes a keyboard
@@ -412,13 +495,17 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			e.preventDefault();
 			if ( picker.hidden ) {
 				if ( currentUserId <= 0 ) {
-					sendReaction( 'like' ); // surfaces the sign-in toast.
+					sendReaction( defaultReaction ); // surfaces the sign-in toast.
 					return;
 				}
 				openPicker();
 				return;
 			}
-			sendReaction( reactBtn.dataset.reaction ? null : 'like' );
+			// The first ENABLED reaction, never a hardcoded 'like'. The server's
+			// coerce_to_enabled() would store the right slug anyway, so this was only
+			// ever cosmetic — but on a site where the owner has disabled Like, the
+			// button painted the generic glyph for a beat before the response landed.
+			sendReaction( reactBtn.dataset.reaction ? null : defaultReaction );
 		} );
 
 		// Selecting an emoji must fire even if a blur/leave would otherwise hide the
@@ -1289,10 +1376,26 @@ store( 'buddynext/post-card', {
 				if ( res.ok ) {
 					if ( window.bnToast ) { window.bnToast( ctx.bookmarked ? t( 'saved', 'Saved' ) : t( 'removedFromSaved', 'Removed from saved' ) ); }
 				} else {
+					// Reverting the optimistic star with no message looks like a
+					// stray click. Revert AND say why — the server's reason when it
+					// gives one (the attempted action decides the fallback wording).
+					const wanted = ! prev;
 					ctx.bookmarked = prev;
+					const data     = res.data || {};
+					const fallback = wanted
+						? t( 'bookmarkAddFailed', 'Could not save this post. Try again.' )
+						: t( 'bookmarkRemoveFailed', 'Could not remove this post from saved. Try again.' );
+					bnToast( data.message || fallback, { tone: 'danger' } );
 				}
 			} catch ( _e ) {
+				const wanted   = ! prev;
 				ctx.bookmarked = prev;
+				bnToast(
+					wanted
+						? t( 'bookmarkAddFailed', 'Could not save this post. Try again.' )
+						: t( 'bookmarkRemoveFailed', 'Could not remove this post from saved. Try again.' ),
+					{ tone: 'danger' }
+				);
 			}
 		},
 		revealContent() {
@@ -1443,8 +1546,19 @@ store( 'buddynext/post-card', {
 				} );
 				if ( res.ok ) {
 					document.querySelector( '[data-post-id="' + ctx.postId + '"]' )?.remove();
+				} else {
+					// The card stays put on failure, which reads as "nothing
+					// happened" — say why. Prefer the server's own reason (e.g. a
+					// permission or moderation-lock message) over the generic one.
+					const data = res.data || {};
+					bnToast(
+						data.message || t( 'postDeleteFailed', 'Could not delete this post. Try again.' ),
+						{ tone: 'danger' }
+					);
 				}
-			} catch ( _e ) {}
+			} catch ( _e ) {
+				bnToast( t( 'postDeleteFailed', 'Could not delete this post. Try again.' ), { tone: 'danger' } );
+			}
 		},
 		openShare( event ) {
 			const ctx       = getContext();
@@ -1584,7 +1698,9 @@ store( 'buddynext/post-card', {
 
 			// Pull the raw (unformatted) content so the editor shows exactly what the
 			// author typed — the rendered node has nl2br/mention/hashtag markup baked in.
-			let rawContent = '';
+			let rawContent  = '';
+			let isScheduled = false;
+			let schedUtc    = '';
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId, {
 					nonce: ctx.reactNonce,
@@ -1593,6 +1709,10 @@ store( 'buddynext/post-card', {
 				if ( res.ok ) {
 					const data = res.data;
 					rawContent = ( data && typeof data.content === 'string' ) ? data.content : '';
+					// The same GET already carries the row's status + slot, so the reschedule
+					// control costs no extra request.
+					isScheduled = !! data && 'scheduled' === data.status;
+					schedUtc    = ( data && data.scheduled_at ) ? String( data.scheduled_at ) : '';
 				}
 			} catch ( _e ) {
 				// Fall back to the visible text if the fetch fails.
@@ -1609,6 +1729,35 @@ store( 'buddynext/post-card', {
 			ta.rows = 3;
 			ta.value = rawContent;
 			ta.setAttribute( 'aria-label', t( 'editPostContent', 'Edit post content' ) );
+			form.appendChild( ta );
+
+			// Reschedule. A scheduled post's date was previously final: the author could
+			// rewrite the words but never move the slot, with no way to reach it short of
+			// deleting the post and writing it again.
+			let schedInput = null;
+			if ( isScheduled ) {
+				const schedRow = document.createElement( 'div' );
+				schedRow.className = 'bn-post-card__edit-schedule';
+
+				const schedLabel = document.createElement( 'label' );
+				schedLabel.className = 'bn-post-card__edit-schedule-label';
+				const tzLabel = ( feedStore.state && feedStore.state.tz && feedStore.state.tz.label ) || '';
+				schedLabel.textContent = tzLabel
+					? fmt( t( 'scheduledForTz', 'Scheduled for (%s)' ), tzLabel )
+					: t( 'scheduledFor', 'Scheduled for' );
+				schedLabel.htmlFor = 'bn-resched-' + ctx.postId;
+
+				schedInput = document.createElement( 'input' );
+				schedInput.type = 'datetime-local';
+				schedInput.id = 'bn-resched-' + ctx.postId;
+				schedInput.className = 'bn-post-card__edit-schedule-input';
+				schedInput.value = toSiteInputValue( schedUtc );
+				schedInput.min = siteNowInputValue();
+
+				schedRow.appendChild( schedLabel );
+				schedRow.appendChild( schedInput );
+				form.appendChild( schedRow );
+			}
 
 			const bar = document.createElement( 'div' );
 			bar.className = 'bn-post-card__edit-actions';
@@ -1629,7 +1778,6 @@ store( 'buddynext/post-card', {
 
 			bar.appendChild( saveBtn );
 			bar.appendChild( cancelBtn );
-			form.appendChild( ta );
 			form.appendChild( bar );
 
 			contentEl.hidden = true;
@@ -1648,13 +1796,27 @@ store( 'buddynext/post-card', {
 					bnToast( t( 'postContentEmpty', 'Post content cannot be empty.' ), { tone: 'info' } );
 					return;
 				}
+				const payload = { content: next };
+				if ( schedInput ) {
+					const when = toUtcSqlDatetime( schedInput.value );
+					if ( ! when ) {
+						bnToast( t( 'scheduleInvalid', 'Pick a valid date and time.' ), { tone: 'info' } );
+						return;
+					}
+					// `when` is already UTC, so compare instants — not the browser's wall clock.
+					if ( new Date( when.replace( ' ', 'T' ) + 'Z' ).getTime() <= Date.now() ) {
+						bnToast( t( 'schedulePast', 'Pick a time in the future.' ), { tone: 'info' } );
+						return;
+					}
+					payload.scheduled_at = when;
+				}
 				saveBtn.disabled = true;
 				try {
 					const res = await restFetch( '/posts/' + ctx.postId, {
 						method:  'PUT',
 						nonce:   ctx.reactNonce,
 						toastOnError: false,
-						body:    { content: next },
+						body:    payload,
 					} );
 					if ( ! res.ok ) {
 						throw new Error( 'update failed' );
@@ -1853,8 +2015,19 @@ store( 'buddynext/post-card', {
 							pct:   total > 0 ? Math.round( ( r.vote_count / total ) * 100 ) : 0,
 						} ) );
 					}
+				} else {
+					// A closed / rejected poll answers with a real reason ("This
+					// poll has closed.", "You have already voted."). Dropping it
+					// left the option looking simply unclickable — surface it.
+					const data = res.data || {};
+					bnToast(
+						data.message || t( 'voteFailed', 'Could not record your vote. Try again.' ),
+						{ tone: 'danger' }
+					);
 				}
-			} catch ( _e ) {}
+			} catch ( _e ) {
+				bnToast( t( 'voteFailed', 'Could not record your vote. Try again.' ), { tone: 'danger' } );
+			}
 		},
 		* dismissAnnouncement() {
 			const ctx = getContext();
@@ -1985,13 +2158,70 @@ function privacyLabels() {
  * @param {string} localValue Raw datetime-local input value.
  * @return {string} UTC datetime ("Y-m-d H:i:s") or ''.
  */
+/**
+ * The site's UTC offset, in seconds, from the server (WP's timezone setting).
+ *
+ * @return {number} Offset in seconds; 0 if the state is unavailable.
+ */
+function siteTzOffset() {
+	const tz = feedStore && feedStore.state && feedStore.state.tz;
+	return tz && 'number' === typeof tz.offset ? tz.offset : 0;
+}
+
+/**
+ * A datetime-local value -> the UTC "Y-m-d H:i:s" string the REST layer stores.
+ *
+ * The control's value is read as SITE time, not browser time. A <input
+ * type="datetime-local"> carries no zone, so the wall-clock digits the author typed are
+ * the digits we honour — interpreted in the site's zone, which is the zone the post card
+ * (wp_date) and the admin screens already display. Treating them as browser-local made an
+ * author in IST type "12:50" and the card answer "7:20 am": the same instant, but two
+ * different numbers, which reads as a bug.
+ *
+ * @param {string} localValue "YYYY-MM-DDTHH:MM" as typed in the control.
+ * @return {string} "Y-m-d H:i:s" in UTC, or '' if unparseable.
+ */
 function toUtcSqlDatetime( localValue ) {
 	if ( ! localValue ) { return ''; }
-	const d = new Date( localValue );
-	if ( isNaN( d.getTime() ) ) { return ''; }
+	// Parse the digits as if they were UTC, then subtract the site's offset. This never
+	// consults the browser's own zone, so the result does not change with who is looking.
+	const asIfUtc = new Date( String( localValue ).replace( ' ', 'T' ) + 'Z' );
+	if ( isNaN( asIfUtc.getTime() ) ) { return ''; }
+	const d = new Date( asIfUtc.getTime() - siteTzOffset() * 1000 );
 	const pad = ( n ) => String( n ).padStart( 2, '0' );
 	return d.getUTCFullYear() + '-' + pad( d.getUTCMonth() + 1 ) + '-' + pad( d.getUTCDate() ) +
 		' ' + pad( d.getUTCHours() ) + ':' + pad( d.getUTCMinutes() ) + ':' + pad( d.getUTCSeconds() );
+}
+
+/**
+ * The inverse: a stored UTC "Y-m-d H:i:s" -> a datetime-local value in SITE time.
+ *
+ * Used to prefill the reschedule control so the number it shows is the number the post
+ * card shows.
+ *
+ * @param {string} sqlUtc UTC datetime, "Y-m-d H:i:s".
+ * @return {string} "YYYY-MM-DDTHH:MM" in site time, or '' if unparseable.
+ */
+function toSiteInputValue( sqlUtc ) {
+	if ( ! sqlUtc ) { return ''; }
+	const d = new Date( String( sqlUtc ).replace( ' ', 'T' ) + 'Z' );
+	if ( isNaN( d.getTime() ) ) { return ''; }
+	const site = new Date( d.getTime() + siteTzOffset() * 1000 );
+	const pad = ( n ) => String( n ).padStart( 2, '0' );
+	// Read back with getUTC* — `site` is deliberately shifted so its UTC face IS site time.
+	return site.getUTCFullYear() + '-' + pad( site.getUTCMonth() + 1 ) + '-' + pad( site.getUTCDate() ) +
+		'T' + pad( site.getUTCHours() ) + ':' + pad( site.getUTCMinutes() );
+}
+
+/**
+ * "Now" as a datetime-local string in SITE time — the floor for any schedule control.
+ *
+ * @return {string} "YYYY-MM-DDTHH:MM" in site time.
+ */
+function siteNowInputValue() {
+	return toSiteInputValue(
+		new Date().toISOString().slice( 0, 19 ).replace( 'T', ' ' )
+	);
 }
 
 /* ── Composer drafts (localStorage-backed) ───────────────────────────────
@@ -2726,6 +2956,14 @@ store( 'buddynext/post-composer', {
 						area.hidden = true;
 						area.querySelectorAll( '.bn-composer__media-thumb' ).forEach( function ( el ) { el.remove(); } );
 					} );
+
+					// Reset the schedule sub-form too. Without this a scheduled post left
+					// the schedule panel open with the chosen date still in the field, so
+					// the next post silently inherited the old publish time (and re-typing
+					// felt broken). Close the panel, clear the state and the input.
+					ctx.scheduleOpen = false;
+					ctx.scheduledAt  = '';
+					document.querySelectorAll( '#bn-composer-schedule-at' ).forEach( function ( el ) { el.value = ''; } );
 
 					const created     = res.data || {};
 					const isScheduled = !! body.scheduled_at || 'scheduled' === created.status;
@@ -3798,6 +4036,12 @@ onNavReady( initComposerEnhancements );
    ---------------------------------------------------------------- */
 const POLL_INTERVAL = 60000;
 
+// Ceiling for the pill label. Mirrors FeedService::NEW_COUNT_CAP, which bounds the
+// server-side count to CAP + 1 rows — so a value above this means "at least this
+// many", and printing the raw number would be both meaningless and a lie about
+// precision we deliberately stopped paying for.
+const BN_PILL_CAP = 99;
+
 // Per-page state for the pill. Re-seeded on every (re-)init so the once-bound
 // document listeners always read the freshly-swapped feed / watermark / nonce.
 const bnPill = {
@@ -3832,10 +4076,22 @@ function bnPillRender() {
 		bnPill.feed.parentElement.insertBefore( pill, bnPill.feed );
 		bnPill.pill = pill;
 	}
-	const n = bnPill.pendingIds.size;
-	bnPill.pill.textContent = n === 1
-		? t( 'oneNewPost', '1 new post — refresh to view' )
-		: fmt( t( 'manyNewPosts', '%d new posts — refresh to view' ), n );
+	// Cap the label. Nobody acts on "3,412 new posts" differently than on "99+" —
+	// a raw four-digit count is noise, and it makes a healthy community read as
+	// overwhelming rather than alive. Every mainstream platform caps this (X:
+	// "Show N posts"; Facebook / LinkedIn: just "New posts"). The server counts a
+	// bounded window (FeedService::NEW_COUNT_CAP + 1) so anything at or above the
+	// ceiling means "at least this many", not "exactly this many".
+	const n      = bnPill.pendingIds.size;
+	const capped = n > BN_PILL_CAP;
+
+	if ( capped ) {
+		bnPill.pill.textContent = fmt( t( 'manyNewPostsCapped', '%d+ new posts — refresh to view' ), BN_PILL_CAP );
+	} else if ( n === 1 ) {
+		bnPill.pill.textContent = t( 'oneNewPost', '1 new post — refresh to view' );
+	} else {
+		bnPill.pill.textContent = fmt( t( 'manyNewPosts', '%d new posts — refresh to view' ), n );
+	}
 }
 
 async function bnPillPoll() {

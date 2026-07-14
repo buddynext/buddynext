@@ -41,9 +41,19 @@ When a job posting expires, its feed activity is removed automatically, so the f
 2. Install and activate Career Board alongside BuddyNext.
 3. Set up your job board in Career Board as usual - the job submission, application, and resume settings live there.
 
-There is nothing to configure on the BuddyNext side. As soon as both plugins are active, jobs and public resumes start appearing in the feed, search, and the notification center.
+As soon as both plugins are active, jobs and public resumes start appearing in the feed, search, and the notification center. There is nothing you have to fill in.
 
-This integration has no settings of its own in BuddyNext. The job board's behavior - who can post, application rules, resume options - is configured in Career Board.
+### Display settings
+
+Career Board gets a card on the **Platform > Integration Display** tab, with the same switches every integration has:
+
+| Setting | What it does | Default |
+|---|---|---|
+| Show in navigation | Whether Career Board's tabs appear in member navigation. Career Board adds more than one (Jobs and Resume), so each sub-tab can be switched individually. | On |
+| Post to the activity feed | Whether a published job and a public "open to work" resume post a feed activity. | On |
+| Include in search | Whether published jobs are found in community search. Switching it off also removes the jobs already in the search index. | On |
+
+The job board's own behavior - who can post, application rules, resume options - is configured in Career Board, not here. These switches only decide where the results show up inside your community.
 
 ## Good to know
 

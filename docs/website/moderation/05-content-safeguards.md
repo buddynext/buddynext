@@ -33,7 +33,7 @@ Members never configure safeguards - they experience them. When a member writes 
 5. **Duplicate content** - if the member just posted the exact same content inside the duplicate window, the repeat is flagged for review (it still posts, but a report is filed).
 6. **New-member gate** - if the member has not yet reached the post threshold for established members, their post publishes but is flagged for a moderator to review.
 
-The banned-word and blocked-link checks also run when a member **edits** existing content, so editing cannot be used to sneak a banned word past the first check. The rate-limit, duplicate, and new-member gates only apply at the moment of creation, not on edits.
+The banned-word and blocked-link checks also run when a member **edits** existing content, so editing cannot be used to sneak a banned word past the first check. The rate-limit, duplicate, and new-member gates only apply at the moment of creation, not on edits - a member who has hit the cap can still go back and fix a typo in a post they already published. (If you run Pro, its rules follow the same line. See Auto-Moderation Rules.)
 
 A flagged post is not blocked. It publishes normally, and a report is filed to the moderation queue so a moderator can review it - and remove it if needed. A rejected post (banned word, blocked link, blocked IP, or one over the rate limit) is stopped outright, and the member sees why. This keeps moderation reactive: members post freely and nothing waits invisibly in an approval queue.
 
@@ -65,10 +65,11 @@ All safeguards live under **BuddyNext > Moderation > Controls**. Each one is a s
 
 - **A threshold of 0 means off.** Every numeric guard treats 0 as "disabled," not "block everything." A rate limit of 0 allows unlimited posting; a new-member threshold of 0 lets new members post freely; a permanent-ban threshold of 0 means strikes never auto-ban.
 - **An empty list means off.** Leaving banned words, banned hashtags, blocked domains, or blocked IPs empty turns that filter off entirely - it does not block all content.
-- **Banned words run through the moderation rules pipeline.** The site-wide banned-word list is the free, built-in keyword filter. It runs inside the same safeguard check that Pro keyword rules and AI moderation hook into, so your simple word list and any advanced rules are evaluated together on every post and every edit.
+- **Banned words run through the moderation rules pipeline.** The site-wide banned-word list is the free, built-in keyword filter. It runs inside the same safeguard check that Pro keyword rules and AI moderation hook into, so your simple word list and any advanced rules are evaluated together on every post.
+- **Content checks run on edits; counting checks do not.** Anything that inspects *what was written* is re-run when a member edits: banned words, blocked link domains, and (with Pro) keyword rules, blocked-link rules, and AI moderation. Anything that counts *how much someone posted* is not: the rate limit, the duplicate-content window, the new-member gate, and Pro's Anti-flood rule only apply at the moment of creation. This is the right line in both directions. If content checks skipped edits, a member could post something clean and edit a banned word in afterwards. If the rate limit applied to edits, a member who hit the cap could not fix a typo in a post they had already published.
 - **Spaces can extend the banned-word list.** A space can keep its own banned-word list on top of the site-wide one, so a space about, say, finance can ban terms that the rest of the community allows. The space list is checked alongside the global list for posts in that space.
 - **Flagged vs rejected.** The new-member gate and the duplicate-content guard *flag* a post - it still publishes, but a report is filed to the moderation queue for review. Banned words, blocked links, blocked IPs, and the rate limit *reject* the post outright, so it is never saved. Auto-hide *hides* content that has already been posted once it crosses the report threshold.
-- **Edits are re-checked.** Banned words and blocked link domains are re-scanned when a member edits content, closing the loophole where someone posts clean content and edits in something banned afterward.
+- **Moderators and admins are exempt from the rate limit.** Site admins and anyone who can review the moderation queue can post announcements and bulk content without tripping the per-minute cap.
 
 ## Free vs Pro
 

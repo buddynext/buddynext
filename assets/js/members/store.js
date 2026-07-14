@@ -217,7 +217,11 @@ function buildCard( item ) {
 	article.dataset.displayName = item.display_name || '';
 	article.dataset.following   = item.is_following ? '1' : '0';
 	article.dataset.connection  = ( item.connection && item.connection.state ) || 'none';
-	article.dataset.muted       = '0';
+	// Was hardcoded '0'. The REST payload now carries is_muted (it did not before),
+	// and the kebab label 380 lines down already read item.is_muted — so the two
+	// disagreed inside this same file: the menu could say "Unmute" while the card
+	// claimed it was not muted. SSR (member-card.php) had it right all along.
+	article.dataset.muted       = item.is_muted ? '1' : '0';
 
 	// Kebab (secondary actions) — pinned top-right, over the cover. Built first
 	// so it overlays the cover; mirrors templates/parts/member-card.php.

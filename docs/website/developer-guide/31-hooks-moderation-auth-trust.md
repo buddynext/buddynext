@@ -10,26 +10,34 @@ The action and filter seams for content moderation (reports, removals, strikes, 
 - **The safeguard pipeline is a single filter.** Every automated content rule - banned words, blocked links, rate limits, duplicate holds, the new-member gate, and Pro's keyword/ML blocklists - resolves through one filter, `buddynext_safeguard_check`. It runs on create and on edit. Return a `WP_Error` to block, or pass the value through to allow.
 - **Registration filters are gates or scores.** `buddynext_spam_protection_enabled` and `buddynext_registration_challenge_enabled` return booleans; `buddynext_registration_spam_score` returns an integer score; the domain-list filters return arrays. BuddyNext never blocks a sign-up by calling addon code directly - it reads these values.
 - **Two-factor is advisory, never a hard block.** `buddynext_2fa_required_roles` surfaces a UI hint for the listed roles; BuddyNext does not refuse sign-in for a member who has not enabled 2FA.
-- **The fired moderation events match the canonical integration contract** in the Free plugin's `docs/specs/HOOKS.md` (status: Locked). Where a signature below differs from an older listing, the live code wins.
+- **The code is the contract.** Free ships no `docs/specs/HOOKS.md`; an earlier revision of this page cited one as a "locked" source of truth, and it does not exist. Where a signature below differs from the live `do_action()` / `apply_filters()` call site, the live code wins.
 
 ## The safeguard pipeline: `buddynext_safeguard_check`
 
 This is the single most important seam on this page. Every post (and every edit) runs through `SafeguardService`, which executes the built-in automated checks in order and then applies `buddynext_safeguard_check` as the final gate. This is the extension point BuddyNext Pro's Moderation Rules engine hooks to add keyword blocklists and ML scoring, and the same seam your own anti-spam logic plugs into.
 
-The built-in checks that run before the filter, in order:
+The built-in checks that run before the filter, in order (`SafeguardService::check()`):
 
 1. Blocked IP (option `buddynext_blocked_ips`)
-2. Banned words, site-wide and per-space (options `buddynext_banned_words` and `bn_space_{id}_banned_words`)
-3. Blocked link domains (option `bn_blocked_domains`)
-4. Post rate limit per user per minute
-5. Duplicate-content hold
-6. New-member review gate
+2. Banned words, site-wide (option `buddynext_banned_words`) and per-space (the space's own `banned_words` field, read through `buddynext_get_space_field()`)
+3. Blocked link domains (option `buddynext_blocked_domains`)
+4. Post rate limit per user (option `buddynext_post_rate_limit`)
+5. Banned hashtags (resolved through `HashtagService::first_banned_in_text()`)
 
-On a create, all six run. On an edit, only the content-based checks (banned words, blocked domains) re-run, because the rate-limit, duplicate, and new-member gates are create-time concerns. Either way, `buddynext_safeguard_check` runs last, so your filter applies to both create and edit.
+The filter runs here. Two gates run *after* it, and both return a hold-for-review verdict rather than a rejection:
+
+6. Duplicate-content hold (option `buddynext_duplicate_post_window`)
+7. New-member review gate (option `buddynext_new_member_post_threshold`)
+
+The filter is deliberately placed before 6 and 7: a hold must never outrank a hard block, so a Pro severity=block rule wins over a new-member hold.
+
+On a create, all of the above run. On an edit, `SafeguardService::check_content()` re-runs only the content-based checks (banned words, blocked domains, banned hashtags), because the rate-limit, duplicate, and new-member gates are create-time concerns. Either way, `buddynext_safeguard_check` runs, so your filter applies to both create and edit.
+
+Because it runs on both, the filter is passed a final `$context` argument - `'create'` or `'edit'` - so your callback can draw the same line the built-ins do. **If your rule is a "how many/how often" rule, check it.** Anything counting an author's recent activity (rate limits, flood control, cooldowns) must skip `'edit'`: an edit is not a new post, and re-asking the question there means an author who has hit your cap can no longer edit the posts they already published. Content rules (banned words, links, ML scoring) should keep running on edits, or editing becomes a way to smuggle content past you.
 
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
-| `buddynext_safeguard_check` | filter | A post is about to be saved (create or edit), after the built-in automated checks pass | `true\|WP_Error $result, int $user_id, string $content, string $link_url` |
+| `buddynext_safeguard_check` | filter | A post is about to be saved (create or edit), after the built-in automated checks pass | `true\|WP_Error $result, int $user_id, string $content, string $link_url, string $context` |
 | `buddynext_client_ip` | filter | The safeguard service resolves the request IP for the blocked-IP check | `string $ip` |
 | `buddynext_report_reasons` | filter | The report reason list is built (default: `spam, harassment, misinformation, inappropriate, fake, impersonation, other`) | `string[] $reasons` |
 | `buddynext_moderation_auto_actions` | filter | A report has just been inserted, deciding which automated actions to apply (Free returns empty; Pro stacks actions here) | `array $actions, array $report` |
@@ -59,7 +67,7 @@ These fire after a moderator (or an auto-action) acts on content or a member. Tr
 | `buddynext_user_suspended` | action | A member is suspended | `int $user_id, int $actor_id, string $reason, ?string $expires_at` |
 | `buddynext_user_unsuspended` | action | A suspension is lifted | `int $user_id` |
 | `buddynext_member_suspended` | action | Member-domain mirror of a suspension | `int $user_id, int $by_user_id` |
-| `buddynext_member_unsuspended` | action | Member-domain mirror of an unsuspension | `int $user_id, int $by_user_id` |
+| `buddynext_member_unsuspended` | action | Member-domain mirror of an unsuspension | `int $user_id, int $by_user_id`. **Arity warning: the wp-admin Members screen fires this with `$user_id` only** (`includes/Admin/Members.php:396`, marked in source as a legacy call). `ModerationService` passes both. Give your callback a default for `$by_user_id` or a typed 2-parameter listener will raise an `ArgumentCountError` when an admin lifts a suspension from that screen. |
 | `buddynext_user_shadow_banned` | action | A member is shadow-banned (their content stays visible only to themselves) | `int $user_id, int $actor_id, string $reason` |
 | `buddynext_user_shadow_ban_removed` | action | A shadow ban is lifted | `int $user_id, int $actor_id` |
 | `buddynext_appeal_submitted` | action | A member appeals a moderation decision | `int $user_id, int $appeal_id, string $type, int $suspension_id` |

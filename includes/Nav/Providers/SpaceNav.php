@@ -184,6 +184,28 @@ final class SpaceNav {
 				'lightweight_count' => true,
 				'count'             => static fn( NavContext $c ): int => (int) ( ( new SpaceService() )->get( $c->subject_id )['member_count'] ?? 0 ),
 			),
+			// Sub-spaces got a first-class tab because their ONLY navigation used to be
+			// a card in the right sidebar — and the sidebar is `display: none` below
+			// 1024px. On every phone AND every tablet a parent space therefore offered
+			// no path at all to its own children, and a manager could not even create
+			// one (the "Add sub-space" CTA lives in that same hidden card). The
+			// directory does not rescue it either: it is roots-only by default.
+			array(
+				'id'                => 'subspaces',
+				'surface'           => 'space',
+				'layer'             => 'primary',
+				'label'             => __( 'Sub-spaces', 'buddynext' ),
+				'priority'          => 25,
+				'url'               => fn( NavContext $c ): string => $this->tab_url( $c->subject_id, 'subspaces' ),
+				// Shown when there is something to see, or someone able to add the
+				// first one. A leaf space (depth is capped at 2) never shows it.
+				'condition'         => fn( NavContext $c ): bool => $this->shows_subspaces( $c ),
+				'lightweight_count' => true,
+				'count'             => fn( NavContext $c ): int => $this->subspace_count( $c ),
+				'render'            => function ( NavContext $c ): void {
+					$this->render_subspaces_panel( $c->subject_id, $c->viewer_id );
+				},
+			),
 			array(
 				'id'        => 'media',
 				'surface'   => 'space',
@@ -309,6 +331,96 @@ final class SpaceNav {
 				'posts'        => $posts,
 				'pinned_posts' => $pinned_posts,
 				'current_user' => $viewer_id > 0 ? get_userdata( $viewer_id ) : null,
+			)
+		);
+	}
+
+	/**
+	 * Whether a manager may add a sub-space to this space.
+	 *
+	 * Mirrors the sidebar CTA gate: only a ROOT space can hold children (depth is
+	 * capped at two levels), the community-level toggle must allow them, and the
+	 * viewer must hold manage rights on the parent.
+	 *
+	 * @param NavContext $context Nav context for the space being viewed.
+	 * @return bool True when the viewer may add a sub-space here.
+	 */
+	private function can_add_subspace( NavContext $context ): bool {
+		$space = ( new SpaceService() )->get( $context->subject_id );
+
+		if ( null === $space || ! empty( $space['parent_id'] ) ) {
+			return false;
+		}
+
+		if ( '0' === (string) get_option( 'buddynext_space_allow_sub', '1' ) ) {
+			return false;
+		}
+
+		return $context->viewer_id > 0 && buddynext_can(
+			$context->viewer_id,
+			'buddynext-manage-space',
+			array( 'space_id' => $context->subject_id )
+		);
+	}
+
+	/**
+	 * Number of sub-spaces this viewer may actually see.
+	 *
+	 * Visibility-scoped, so a secret child never shows up in the badge for someone
+	 * who cannot see it.
+	 *
+	 * @param NavContext $context Nav context for the space being viewed.
+	 * @return int Count of visible children.
+	 */
+	private function subspace_count( NavContext $context ): int {
+		return ( new SpaceService() )->count_visible_subspaces(
+			$context->subject_id,
+			$context->viewer_id,
+			user_can( $context->viewer_id, 'manage_options' )
+		);
+	}
+
+	/**
+	 * Whether the Sub-spaces tab should appear at all.
+	 *
+	 * Visible when the viewer can see at least one child, or when they are able to
+	 * create the first one — so a childless space does not show an empty tab to an
+	 * ordinary member, but its manager can still find the entry point.
+	 *
+	 * @param NavContext $context Nav context for the space being viewed.
+	 * @return bool True when the tab should render.
+	 */
+	private function shows_subspaces( NavContext $context ): bool {
+		return $this->subspace_count( $context ) > 0 || $this->can_add_subspace( $context );
+	}
+
+	/**
+	 * Render the Sub-spaces panel.
+	 *
+	 * The viewport-independent home for a space's children. The sidebar card that
+	 * used to be their only entry point is hidden below 1024px, which made
+	 * sub-spaces unreachable — and uncreatable — on phones and tablets.
+	 *
+	 * @param int $space_id Parent space id.
+	 * @param int $viewer_id Viewer user id (0 = logged out).
+	 * @return void
+	 */
+	private function render_subspaces_panel( int $space_id, int $viewer_id ): void {
+		$context = new NavContext( 'space', $space_id, $viewer_id );
+
+		buddynext_get_template(
+			'parts/space-subspaces-panel.php',
+			array(
+				'space_id'   => $space_id,
+				'viewer_id'  => $viewer_id,
+				'subspaces'  => ( new SpaceService() )->get_subspaces(
+					$space_id,
+					24,
+					0,
+					$viewer_id,
+					user_can( $viewer_id, 'manage_options' )
+				),
+				'can_manage' => $this->can_add_subspace( $context ),
 			)
 		);
 	}

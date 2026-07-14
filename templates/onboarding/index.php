@@ -262,8 +262,27 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 						accept="image/jpeg,image/png"
 						hidden
 						data-wp-on--change="actions.handleAvatarUpload" />
+					<?php
+					// "Add a profile photo" has to BE the button, not describe one.
+					//
+					// The avatar image was the only thing wired to the file picker. The words
+					// next to it — the words that literally say "Add a profile photo" — were an
+					// inert <div> with cursor:auto. So the one element on the row that reads
+					// like the thing you click did nothing when you clicked it, and the member
+					// had to guess that the picture itself was the control. A dead affordance is
+					// worse than no affordance: it teaches people the screen is broken.
+					//
+					// It is a <button> and not a <label for>, because the file input is driven
+					// by the Interactivity store (actions.triggerAvatarUpload), the same action
+					// the avatar fires. One control, two ways to hit it. The size hint stays
+					// plain text — that is genuinely a description and should not look clickable.
+					?>
 					<div class="bn-ob-avatar-row__hint">
-						<strong><?php esc_html_e( 'Add a profile photo', 'buddynext' ); ?></strong>
+						<button type="button"
+							class="bn-ob-avatar-row__cta"
+							data-wp-on--click="actions.triggerAvatarUpload">
+							<?php esc_html_e( 'Add a profile photo', 'buddynext' ); ?>
+						</button>
 						<span><?php esc_html_e( 'JPG or PNG, max 4MB, up to 1024×1024px.', 'buddynext' ); ?></span>
 					</div>
 				</div>

@@ -219,7 +219,7 @@ class MemberTypeService {
 		$this->cache->delete( self::COUNTS_CACHE_KEY );
 		// Keep the directory's discovery-gated per-type counts (the "By type" / "By
 		// role" facets) in lockstep with this cache — same invalidation events.
-		$this->cache->delete( \BuddyNext\Profile\MemberDirectoryService::TYPE_COUNTS_CACHE_KEY );
+		\BuddyNext\Profile\MemberDirectoryService::flush_type_counts();
 
 		$type_data       = $validated;
 		$type_data['id'] = $new_id;
@@ -280,16 +280,24 @@ class MemberTypeService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		// When slug changes, update the usermeta read cache for all assigned users.
+		// When slug changes, update the usermeta read cache for all assigned users
+		// AND cascade the rename into every table that stores the SLUG (not the
+		// id) as a foreign key. bn_profile_groups.type_restriction is such a
+		// column (Installer: VARCHAR(100), written as sanitize_key of the slug),
+		// and ProfileService gates a restricted group with
+		// `$g_restriction !== $owner_type_slug` — so leaving the OLD slug behind
+		// orphans the restricted section for every assigned member. delete()
+		// already maintains this column on type removal; rename must too.
 		if ( $validated['slug'] !== $existing['slug'] ) {
 			$this->rewrite_usermeta_slug( $id, $validated['slug'] );
+			$this->rewrite_profile_group_restrictions( (string) $existing['slug'], (string) $validated['slug'] );
 		}
 
 		$this->cache->delete( 'bn_member_types_all' );
 		$this->cache->delete( self::COUNTS_CACHE_KEY );
 		// Keep the directory's discovery-gated per-type counts (the "By type" / "By
 		// role" facets) in lockstep with this cache — same invalidation events.
-		$this->cache->delete( \BuddyNext\Profile\MemberDirectoryService::TYPE_COUNTS_CACHE_KEY );
+		\BuddyNext\Profile\MemberDirectoryService::flush_type_counts();
 
 		return true;
 	}
@@ -347,11 +355,16 @@ class MemberTypeService {
 		$wpdb->delete( $wpdb->prefix . 'bn_member_types', array( 'id' => $id ), array( '%d' ) );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
+		// The cached group/field definitions carry the type_restriction column we
+		// just cleared — flush them or the groups stay restricted to a type that
+		// no longer exists until the caches expire.
+		\BuddyNext\Profile\ProfileService::flush_definition_cache();
+
 		$this->cache->delete( 'bn_member_types_all' );
 		$this->cache->delete( self::COUNTS_CACHE_KEY );
 		// Keep the directory's discovery-gated per-type counts (the "By type" / "By
 		// role" facets) in lockstep with this cache — same invalidation events.
-		$this->cache->delete( \BuddyNext\Profile\MemberDirectoryService::TYPE_COUNTS_CACHE_KEY );
+		\BuddyNext\Profile\MemberDirectoryService::flush_type_counts();
 		$this->cache->delete( 'bn_member_type_count_' . $id );
 
 		do_action( 'buddynext_member_type_deleted', $id, $type['slug'] );
@@ -482,7 +495,7 @@ class MemberTypeService {
 		$this->cache->delete( self::COUNTS_CACHE_KEY );
 		// Keep the directory's discovery-gated per-type counts (the "By type" / "By
 		// role" facets) in lockstep with this cache — same invalidation events.
-		$this->cache->delete( \BuddyNext\Profile\MemberDirectoryService::TYPE_COUNTS_CACHE_KEY );
+		\BuddyNext\Profile\MemberDirectoryService::flush_type_counts();
 		if ( $previous ) {
 			$this->cache->delete( 'bn_member_type_count_' . $previous['id'] );
 		}
@@ -514,7 +527,7 @@ class MemberTypeService {
 		$this->cache->delete( self::COUNTS_CACHE_KEY );
 		// Keep the directory's discovery-gated per-type counts (the "By type" / "By
 		// role" facets) in lockstep with this cache — same invalidation events.
-		$this->cache->delete( \BuddyNext\Profile\MemberDirectoryService::TYPE_COUNTS_CACHE_KEY );
+		\BuddyNext\Profile\MemberDirectoryService::flush_type_counts();
 		if ( $existing ) {
 			$this->cache->delete( 'bn_member_type_count_' . $existing['id'] );
 			do_action( 'buddynext_member_type_removed', $user_id, (string) $existing['slug'] );
@@ -743,5 +756,42 @@ class MemberTypeService {
 			}
 			$offset += $batch;
 		} while ( $found === $batch );
+	}
+
+	/**
+	 * Cascade a member-type slug rename into bn_profile_groups.type_restriction.
+	 *
+	 * The type_restriction column stores the member-type SLUG, not its id (see Installer's
+	 * schema + ProfileFieldsManager, which saves sanitize_key( $slug )). The
+	 * profile group gate compares it against the viewer/owner's CURRENT type slug
+	 * (ProfileService::get_profile / get_registration_fields), so a renamed type
+	 * whose groups still carry the OLD slug matches nobody — the restricted
+	 * section silently disappears for every assigned member. One bounded UPDATE
+	 * keeps the two in step; the group/field definition caches are then flushed so
+	 * the change is visible on the next request.
+	 *
+	 * @param string $old_slug Slug the groups are currently restricted to.
+	 * @param string $new_slug Slug the type was renamed to.
+	 * @return void
+	 */
+	private function rewrite_profile_group_restrictions( string $old_slug, string $new_slug ): void {
+		if ( '' === $old_slug || '' === $new_slug || $old_slug === $new_slug ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_profile_groups',
+			array( 'type_restriction' => $new_slug ),
+			array( 'type_restriction' => $old_slug ),
+			array( '%s' ),
+			array( '%s' )
+		);
+
+		// The cached group/field definitions carry type_restriction — flush them or
+		// the rename stays invisible until the caches expire.
+		\BuddyNext\Profile\ProfileService::flush_definition_cache();
 	}
 }

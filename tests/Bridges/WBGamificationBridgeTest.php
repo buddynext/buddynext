@@ -116,13 +116,29 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 	/**
 	 * Daily/weekly cap skip toasts are informative (a real limit that resets) and pass through.
 	 */
-	public function test_cap_skip_toast_passes_through(): void {
+	public function test_cap_skip_toast_is_suppressed(): void {
 		$cap = array(
 			'type'    => 'skip',
 			'reason'  => 'daily_cap',
 			'message' => 'daily limit',
 		);
-		$this->assertSame( $cap, apply_filters( 'wb_gam_toast_data', $cap, 123 ), 'only the cooldown nag is silenced; cap notices are kept' );
+		$this->assertSame(
+			array(),
+			apply_filters( 'wb_gam_toast_data', $cap, 123 ),
+			'a capped member successfully performed the action; the only thing that did not happen is an invisible points increment, so there is nothing to interrupt them about'
+		);
+	}
+
+	/**
+	 * The weekly cap is silenced on the same reasoning as the daily one.
+	 */
+	public function test_weekly_cap_skip_toast_is_suppressed(): void {
+		$cap = array(
+			'type'    => 'skip',
+			'reason'  => 'weekly_cap',
+			'message' => 'weekly limit',
+		);
+		$this->assertSame( array(), apply_filters( 'wb_gam_toast_data', $cap, 123 ) );
 	}
 
 	/**
@@ -137,16 +153,28 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Owners can opt the cooldown toast back on via the public filter.
+	 * Silent is the default, not the law. An owner whose community genuinely wants
+	 * cap feedback can switch a specific reason back on — and the filter carries the
+	 * reason so they can re-enable one without re-enabling all three.
 	 */
-	public function test_cooldown_toast_can_be_reenabled_by_filter(): void {
-		add_filter( 'buddynext_gamification_show_cooldown_toast', '__return_true' );
-		$event = array(
+	public function test_skip_toast_can_be_reenabled_by_filter(): void {
+		$only_caps = static fn( $show, $event, $user_id, $reason ) => 'daily_cap' === $reason;
+		add_filter( 'buddynext_gamification_show_skip_toast', $only_caps, 10, 4 );
+
+		$cap = array(
+			'type'    => 'skip',
+			'reason'  => 'daily_cap',
+			'message' => 'daily limit',
+		);
+		$this->assertSame( $cap, apply_filters( 'wb_gam_toast_data', $cap, 123 ), 'the owner switched the daily cap notice back on' );
+
+		$cooldown = array(
 			'type'    => 'skip',
 			'reason'  => 'cooldown',
 			'message' => 'cooldown',
 		);
-		$this->assertSame( $event, apply_filters( 'wb_gam_toast_data', $event, 123 ), 'owners can opt the cooldown toast back on' );
-		remove_filter( 'buddynext_gamification_show_cooldown_toast', '__return_true' );
+		$this->assertSame( array(), apply_filters( 'wb_gam_toast_data', $cooldown, 123 ), 'the other reasons stay silent — the filter is per-reason' );
+
+		remove_filter( 'buddynext_gamification_show_skip_toast', $only_caps, 10 );
 	}
 }

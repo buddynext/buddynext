@@ -4,7 +4,7 @@ Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.7
+Stable tag: 1.0.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,6 +55,40 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.0.8 - July 2026 =
+
+Abuse reporting for media, a manageable header menu, and a large pass over scale, moderation and privacy.
+
+* New      - Report media and block its uploader directly from the media lightbox. Reports go to the media moderation queue.
+* New      - Manage the header account dropdown from Settings - Navigation: hide, rename, reorder, and add your own links.
+* New      - Reorder the mobile bottom navigation tabs by drag and drop. The centre Create button stays centred.
+* New      - Reschedule a scheduled post. Editing it now lets you move its date instead of deleting and reposting.
+* New      - wp buddynext qa-fixtures generates deterministic edge-case and scale data for testing.
+* Improve  - Scheduling now reads and writes in the site's timezone (Settings - General), and the control names the zone.
+* Improve  - "Require approval to join" is shown only on Open spaces, where it has an effect. Private and secret spaces explain their own join rules.
+* Improve  - Search, directories, connections and the activity feed are indexed and paginated for large communities.
+* Improve  - Outbound webhooks deliver one job per endpoint instead of one long blocking run.
+* Improve  - Disabling an integration now removes its content from search instead of leaving it indexed.
+* Improve  - Deleting a custom reaction no longer locks the reactions table.
+* Fix      - A member at the hourly post limit could not edit any of their existing posts. Content rules still apply to edits.
+* Fix      - Publish Now published at the time the post was composed rather than the moment you pressed it.
+* Fix      - A published post could be pulled back out of the feed by rescheduling it.
+* Fix      - The profile REST payload still returned a full date of birth when the field was set to show only an age or a year.
+* Fix      - Nobody could register through the web signup form on a default install.
+* Fix      - The Integrations tab reported "Changes saved successfully" when it had saved nothing.
+* Fix      - Editing a profile field while its add-on was inactive destroyed the field's type.
+* Fix      - The new-posts pill counted a member's entire backlog and printed an uncapped number.
+* Fix      - The PWA service worker installed, reported active, and did nothing.
+* Fix      - A member whose name contained non-ASCII characters could not be found in search.
+* Fix      - An auto-suspend rule the owner had configured never fired.
+* Fix      - Search reported a total it could not actually return.
+* Security - Deleting the free plugin destroyed the customer's invoices and other paid records.
+* Security - An invitation is now bound to the address it was sent to and is no longer usable as a bearer token.
+* Security - Hardened the outbound request guard that could abort an entire profile save.
+* Dev      - The buddynext_safeguard_check filter now receives a $context argument ("create" or "edit") so create-time rules can skip edits.
+* Dev      - The GDPR export is derived from the erasure registry, so a table that is erased is also exported.
+* Compat   - Ships in lockstep with BuddyNext Pro 1.0.8. Install and test both together.
 
 = 1.0.7 - July 2026 =
 

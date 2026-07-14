@@ -29,12 +29,14 @@ Members do not configure the email system. They receive the transactional emails
 
 Members control which emails they get, and how often, from their notification preferences. See Notification Preferences and Email Digests.
 
+> **Note:** A transactional unsubscribe link turns off *that one type* of email. That is the right scope for a notification, but it is the wrong scope for a newsletter - a member who unsubscribes from one campaign has not asked to keep receiving the next one. Pro's broadcast emails therefore carry two links: unsubscribe from this campaign, and unsubscribe from all broadcast email. The second one is a real stop-everything switch, and the member can also reach it from Settings > Notifications. See Broadcast Email.
+
 ## Editing the emails (for owners)
 
 The built-in emails live under BuddyNext > Notifications > Email Templates. BuddyNext ships a catalogue of transactional templates grouped by area:
 
-- **Social** - new follower, connection requested, connection accepted, connection declined, mention, post reacted, post commented, post shared, new message, media favorited.
-- **Spaces** - space invite, join requested, join request approved.
+- **Social** - new follower, connection requested, connection accepted, mention, post reacted, post commented, post shared, new message, media favorited.
+- **Spaces** - space invite, join requested, join request approved, space ownership received.
 - **Moderation** - strike issued, warning, member suspended, appeal resolved, unsuspension confirmation, new report (to the team).
 - **Gamification** - badge awarded, level up.
 - **Auth** - account and sign-in lifecycle emails.

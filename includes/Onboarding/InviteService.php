@@ -127,6 +127,38 @@ class InviteService {
 	}
 
 	/**
+	 * Is this invite addressed to that email?
+	 *
+	 * AN INVITE IS BOUND TO THE ADDRESS IT WAS SENT TO. It is not a bearer token.
+	 * (Owner decision, 2026-07-13.)
+	 *
+	 * Until this existed, `bn_invites.email` was written at issue time and read in
+	 * exactly one place — to address the outgoing mail. Nothing compared it to the
+	 * person actually redeeming. So anyone holding the token (a forwarded mail, a
+	 * referrer leak, a shared screenshot) could register ANY address on an
+	 * invite-only site — and doing so BURNED the invite, locking the real invitee
+	 * out permanently with no error and no way to reissue from their side.
+	 *
+	 * Case- and whitespace-insensitive: mail addresses are compared the way people
+	 * type them, not the way they were stored. An invite with no email is never a
+	 * match — an unaddressed invite would otherwise become a skeleton key.
+	 *
+	 * @param array<string,mixed> $invite Invite row from get_by_token().
+	 * @param string              $email  The address actually being registered.
+	 * @return bool
+	 */
+	public function is_for_email( array $invite, string $email ): bool {
+		$invited = strtolower( trim( (string) ( $invite['email'] ?? '' ) ) );
+		$actual  = strtolower( trim( $email ) );
+
+		if ( '' === $invited || '' === $actual ) {
+			return false;
+		}
+
+		return $invited === $actual;
+	}
+
+	/**
 	 * Mark an invite as registered (invited user signed up).
 	 *
 	 * @param int $invite_id Invite record ID.

@@ -1499,6 +1499,17 @@ a.bn-sh-statpill:focus-visible {
 .bn-space-members__empty-desc {
 	font-size: var(--bn-text-sm);
 	margin: 0;
+	max-inline-size: 46ch;
+}
+
+/* Locked-roster state (private/secret space, non-member): the CTA back to the
+   space, where the Join / Request to join action lives. */
+.bn-space-members__empty-actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--bn-s2);
+	margin-block-start: var(--bn-s2);
 }
 
 .bn-space-members__pagination {
@@ -1852,6 +1863,36 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-space-settings__toggle-input:checked + .bn-toggle::before {
 	transform: translateX(18px);
+}
+
+/* Disabled toggle — a moderator sees the owner-only Integrations controls but may
+   not change them. Without this the disabled track renders identically to a live
+   one: same accent fill, same cursor, no hint that it will not respond. A control
+   that LOOKS interactive and silently is not is the same dead-control problem we
+   are removing, just wearing a different coat. Say it visually. */
+.bn-space-settings__toggle-input:disabled,
+.bn-space-settings__toggle-input:disabled + .bn-toggle {
+	cursor: not-allowed;
+}
+
+.bn-space-settings__toggle-input:disabled + .bn-toggle {
+	opacity: 0.45;
+}
+
+.bn-space-settings__toggle-shell:has( .bn-space-settings__toggle-input:disabled ) {
+	cursor: not-allowed;
+}
+
+/* The read-only explanation shown to a non-owner above a locked panel. */
+.bn-space-settings__hint--locked {
+	display: flex;
+	gap: var(--bn-space-2, 0.5rem);
+	margin-block-end: var(--bn-space-4, 1rem);
+	padding: var(--bn-space-3, 0.75rem);
+	border: 1px solid var(--bn-border);
+	border-radius: var(--bn-radius-md, 8px);
+	background: var(--bn-surface-2, transparent);
+	color: var(--bn-text-muted);
 }
 
 .bn-space-settings__save-row {
@@ -3221,5 +3262,98 @@ a.bn-sh-statpill:focus-visible {
 @media (max-width: 640px) {
 	.bn-space-admin__stats {
 		grid-template-columns: 1fr;
+	}
+}
+
+/* ── Sub-spaces panel (space tab) ─────────────────────────────────────────────
+   The viewport-independent home for a space's children. Their only entry point
+   used to be the right-sidebar card, which is display:none below 1024px — so on
+   phones and tablets sub-spaces were unreachable, and uncreatable. Token-driven
+   throughout, so dark mode and RTL come for free.
+   ------------------------------------------------------------------------- */
+
+.bn-space-subspaces__list {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--bn-s3);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.bn-space-subspaces__item {
+	padding: 0;
+	overflow: hidden;
+}
+
+.bn-space-subspaces__link {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-s3);
+	min-width: 0;
+	padding: var(--bn-s3);
+	border-radius: var(--bn-r-md);
+	text-decoration: none;
+	color: inherit;
+	transition: background-color 0.14s ease;
+}
+
+.bn-space-subspaces__link:hover,
+.bn-space-subspaces__link:focus-visible {
+	background: var(--bn-sunken);
+	text-decoration: none;
+	color: inherit;
+}
+
+.bn-space-subspaces__emblem {
+	flex-shrink: 0;
+	border-radius: var(--bn-r-md);
+	color: var( --bn-accent-fg, #fff );
+	font-weight: var(--bn-fw-bold);
+}
+
+.bn-space-subspaces__body {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	gap: var(--bn-s1);
+}
+
+.bn-space-subspaces__name {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+}
+
+.bn-space-subspaces__desc {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-2);
+	overflow-wrap: anywhere;
+}
+
+.bn-space-subspaces__meta {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+
+.bn-space-subspaces__cta {
+	display: flex;
+	margin-block-start: var(--bn-s4);
+}
+
+.bn-space-subspaces__add {
+	min-height: var(--bn-tap, 40px);
+}
+
+/* Phones: one column, and the CTA goes full width so it clears the 40px tap
+   target comfortably. This tab is the ONLY sub-space entry point at this width. */
+@media (max-width: 640px) {
+	.bn-space-subspaces__list {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.bn-space-subspaces__cta,
+	.bn-space-subspaces__add {
+		width: 100%;
 	}
 }

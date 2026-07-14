@@ -20,6 +20,8 @@ Because each tool solves a different problem, members can pick the lightest acti
 
 All three actions start from the other person's profile. Open their profile, open the more-menu (the "..." menu near their name), and choose Mute, Restrict, or Block.
 
+Mute and Block are also reachable from a member's card in the directory (the kebab menu), and since 1.0.8 **Block** is available directly in the photo lightbox, so a member who runs into an upsetting image can block its uploader without first hunting down their profile. See Profile Media and Albums.
+
 ### Block
 
 Blocking is the strongest action. When you block someone:

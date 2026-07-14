@@ -25,6 +25,7 @@ use BuddyNext\Core\PageRouter;
 use BuddyNext\Profile\AvatarService;
 use BuddyNext\Spaces\SpaceMemberService;
 use BuddyNext\Spaces\SpaceService;
+use BuddyNext\Spaces\SpaceVisibility;
 
 // ── Context ─────────────────────────────────────────────────────────────────────
 $space_id = isset( $space_id ) ? absint( $space_id ) : 0;
@@ -41,6 +42,21 @@ if ( null === $space ) {
 	wp_die( esc_html__( 'Space not found.', 'buddynext' ) );
 }
 
+// ── Current viewer ──────────────────────────────────────────────────────────────
+$current_user_id = get_current_user_id();
+
+// ── Roster gate (the ONE resolver, shared with GET /spaces/{id}/members) ─────────
+// A private or secret space's roster belongs to the people in the room: its
+// members, moderators, owner, and site admins. A non-member — logged out OR
+// logged in — sees the space (name, description, member count: it is listed, not
+// hidden) but not WHO is in it. A site owner re-opens private rosters
+// Facebook-style with one add_filter( 'buddynext_space_can_view_roster', … ),
+// which moves this page and the REST route together.
+//
+// The gate runs BEFORE any member row is fetched: on a 100k-member space we
+// never load the roster only to refuse it.
+$bn_can_view_roster = SpaceVisibility::can_view_roster( $space, $current_user_id );
+
 // ── Filters ─────────────────────────────────────────────────────────────────────
 $bn_sm_search = isset( $_GET['bn_sm_q'] ) ? sanitize_text_field( wp_unslash( $_GET['bn_sm_q'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_sm_role   = isset( $_GET['bn_sm_role'] ) ? sanitize_key( wp_unslash( $_GET['bn_sm_role'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -53,20 +69,20 @@ $bn_per_page = 24;
 $bn_paged    = max( 1, absint( get_query_var( 'paged', 1 ) ) );
 $bn_offset   = ( $bn_paged - 1 ) * $bn_per_page;
 
-// ── Current viewer ──────────────────────────────────────────────────────────────
-$current_user_id = get_current_user_id();
-
 // ── Fetch members via the service (search / role / suspension via args) ──────────
 // The list AND the total honour the SAME filters so pagination never drifts:
 // get_members() + count_members() share the args array (exclude_suspended folds
 // in ModerationService::moderation_exclude_sql() — no inline NOT EXISTS SQL here).
+// Both queries are skipped entirely when the roster is gated.
 $bn_member_args = array(
 	'search'            => $bn_sm_search,
 	'role'              => $bn_sm_role,
 	'exclude_suspended' => true,
 );
 
-$bn_member_rows = $bn_member_svc->get_members( $space_id, $current_user_id, $bn_per_page, $bn_offset, $bn_member_args );
+$bn_member_rows = $bn_can_view_roster
+	? $bn_member_svc->get_members( $space_id, $current_user_id, $bn_per_page, $bn_offset, $bn_member_args )
+	: array();
 
 // get_members() orders by join date; re-group owner → moderator → member in PHP to
 // preserve the previous visual order without a FIELD() sort in the service.
@@ -88,7 +104,9 @@ usort(
 );
 
 // Filtered total — matches the listed rows so the page count is correct.
-$total_members = $bn_member_svc->count_members( $space_id, $current_user_id, $bn_member_args );
+$total_members = $bn_can_view_roster
+	? $bn_member_svc->count_members( $space_id, $current_user_id, $bn_member_args )
+	: 0;
 $total_pages   = (int) ceil( $total_members / $bn_per_page );
 
 // ── Viewer management capability (mirrors SpaceController permissions) ────────────
@@ -184,6 +202,30 @@ $mem_privacy = array(
 		)
 	);
 	?>
+
+	<?php if ( ! $bn_can_view_roster ) : ?>
+		<!--
+		Roster gated: the space itself stays public (header above shows its name,
+		description, avatar, cover, privacy badge and member COUNT) — only WHO is
+		in the room is withheld. The rail still shows the owner + moderators, so a
+		visitor can see who runs the space before requesting to join.
+		-->
+		<div class="bn-card bn-space-members__empty">
+			<span class="bn-space-members__empty-icon" aria-hidden="true"><?php buddynext_icon( 'lock' ); ?></span>
+			<div class="bn-space-members__empty-title"><?php esc_html_e( 'Members are private', 'buddynext' ); ?></div>
+			<p class="bn-space-members__empty-desc">
+				<?php esc_html_e( 'Only members of this space can see who else is in it. Join the space to see the full member list.', 'buddynext' ); ?>
+			</p>
+			<div class="bn-space-members__empty-actions">
+				<a
+					href="<?php echo esc_url( buddynext_space_url( (string) ( $space['slug'] ?? '' ) ) ); ?>"
+					class="bn-btn"
+					data-variant="primary"
+					data-size="md"
+				><?php esc_html_e( 'Back to space', 'buddynext' ); ?></a>
+			</div>
+		</div>
+	<?php else : ?>
 
 	<!-- Filter bar -->
 	<div class="bn-card bn-space-members__filter">
@@ -377,7 +419,7 @@ $mem_privacy = array(
 		<?php endif; ?>
 	</div>
 
-	<?php if ( $total_pages > 1 ) : ?>
+		<?php if ( $total_pages > 1 ) : ?>
 		<nav class="bn-space-members__pagination" aria-label="<?php esc_attr_e( 'Members page navigation', 'buddynext' ); ?>">
 			<?php if ( $bn_paged > 1 ) : ?>
 				<a
@@ -417,5 +459,7 @@ $mem_privacy = array(
 			<?php endif; ?>
 		</nav>
 	<?php endif; ?>
+
+	<?php endif; /* $bn_can_view_roster */ ?>
 
 </div><!-- .bn-space-members -->

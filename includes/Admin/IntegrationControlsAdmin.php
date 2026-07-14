@@ -124,6 +124,23 @@ class IntegrationControlsAdmin {
 									</label>
 								</div>
 							<?php endif; ?>
+							<?php if ( ! empty( $entry['has_search'] ) ) : ?>
+								<div class="bn-toggle-row">
+									<div class="bn-toggle-row__copy">
+										<span class="bn-toggle-row__label"><?php esc_html_e( 'Include in search', 'buddynext' ); ?></span>
+										<p class="bn-field-hint">
+											<?php
+											/* translators: %s: integration name. */
+											printf( esc_html__( 'Members can find %s content in community search. Switching this off also removes what has already been indexed.', 'buddynext' ), esc_html( $bn_label ) );
+											?>
+										</p>
+									</div>
+									<label class="bn-toggle-label">
+										<input type="checkbox" name="search[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( buddynext_integration_enabled( $key, 'search' ) ); ?> role="switch" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: integration name. */ __( 'Include %s content in community search', 'buddynext' ), $bn_label ) ); ?>">
+										<span class="bn-toggle--inline"></span>
+									</label>
+								</div>
+							<?php endif; ?>
 							<?php if ( ! empty( $bn_subtabs ) ) : ?>
 								<div class="bn-int-subtab-group">
 									<span class="bn-int-subtab-group__kicker"><?php esc_html_e( 'Navigation sub-tabs', 'buddynext' ); ?></span>
@@ -171,6 +188,8 @@ class IntegrationControlsAdmin {
 		$feed = isset( $_POST['feed'] ) && is_array( $_POST['feed'] ) ? wp_unslash( $_POST['feed'] ) : array();
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
 		$subtab = isset( $_POST['subtab'] ) && is_array( $_POST['subtab'] ) ? wp_unslash( $_POST['subtab'] ) : array();
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+		$search = isset( $_POST['search'] ) && is_array( $_POST['search'] ) ? wp_unslash( $_POST['search'] ) : array();
 
 		$ok = true;
 		foreach ( buddynext_integrations() as $key => $entry ) {
@@ -181,6 +200,46 @@ class IntegrationControlsAdmin {
 			}
 			if ( ! empty( $entry['has_feed'] ) ) {
 				$ok = $this->write_flag( "buddynext_integration_{$key}_feed", ! empty( $feed[ $key ] ) ) && $ok;
+			}
+			if ( ! empty( $entry['has_search'] ) ) {
+				$was = buddynext_integration_enabled( $key, 'search' );
+				$now = ! empty( $search[ $key ] );
+
+				$ok = $this->write_flag( "buddynext_integration_{$key}_search", $now ) && $ok;
+
+				// Only on an actual transition — re-saving the settings page must not purge
+				// and rebuild the index of every integration that was already switched off.
+				if ( $was !== $now ) {
+					if ( $now ) {
+						/**
+						 * An integration's search indexing was switched ON.
+						 *
+						 * The integration's own bridge listens for its key and backfills
+						 * its content, because only the bridge knows which object_type it
+						 * owns. Free deliberately does not: it must never learn that
+						 * 'careerboard' means 'job'.
+						 *
+						 * @since 1.0.8
+						 *
+						 * @param string $key Integration key.
+						 */
+						do_action( 'buddynext_integration_search_enabled', $key );
+					} else {
+						/**
+						 * An integration's search indexing was switched OFF.
+						 *
+						 * The bridge listens for its key and calls
+						 * SearchService::deindex_type() for the type it owns. Gating new
+						 * writes is not enough on its own — everything indexed while the
+						 * integration was on would otherwise keep surfacing forever.
+						 *
+						 * @since 1.0.8
+						 *
+						 * @param string $key Integration key.
+						 */
+						do_action( 'buddynext_integration_search_disabled', $key );
+					}
+				}
 			}
 			foreach ( (array) ( $entry['subtabs'] ?? array() ) as $sub => $unused_label ) {
 				$sub = sanitize_key( (string) $sub );

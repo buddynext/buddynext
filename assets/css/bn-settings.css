@@ -51,3 +51,49 @@
 		font-size: var(--bn-text-xl, 1.25rem);
 	}
 }
+
+/* ── Tap targets ──────────────────────────────────────────────────────────
+ *
+ * Every interactive control on a settings screen gets a 40px hit area — WITHOUT changing
+ * how any of them look.
+ *
+ * Measured across the four tabs, almost nothing met it: the row actions (Change, Manage,
+ * Connect, Unlink) are 28px, the notification frequency chips 29px, and a handful of
+ * privacy controls only 22px — under even WCAG 2.5.8's 24px floor. These are small targets
+ * on the one screen a member visits to change something precise, and on a phone a 28px
+ * button is a coin-flip between the row above and the row below.
+ *
+ * The hit area is expanded with a transparent ::after rather than by growing the buttons,
+ * for two reasons. It preserves the design exactly — a settings row is meant to read as a
+ * quiet line of text with a small action, not a wall of chunky buttons. And growing
+ * `.bn-btn[data-size="sm"]` globally would have reached 78 other templates: feed actions,
+ * toolbars, cards. The size token is shared; the accessibility problem is local to the
+ * dense settings rows, so the fix is too.
+ *
+ * Checkboxes are deliberately NOT touched: each is wrapped in a label that is the real
+ * control (the notification channel labels are 143px tall), so the finger target is already
+ * the whole card. Measuring the 18px input rather than the label it lives in would have
+ * "fixed" something that was never broken.
+ */
+.bn-settings :is(button, a.bn-btn, .bn-prefs-chip) {
+	position: relative;
+}
+
+.bn-settings :is(button, a.bn-btn, .bn-prefs-chip)::after {
+	content: "";
+	position: absolute;
+	inset-block-start: 50%;
+	inset-inline-start: 50%;
+	translate: -50% -50%;
+	inline-size: max(100%, 40px);
+	block-size: max(100%, 40px);
+	/* Invisible, and purely a target — it must never paint or catch a screen reader. */
+	background: none;
+	pointer-events: auto;
+}
+
+/* A select cannot carry a pseudo-element, so it grows. 36px -> 40px is imperceptible next
+ * to a full-width control and costs nothing. */
+.bn-settings select.bn-input {
+	min-block-size: 40px;
+}

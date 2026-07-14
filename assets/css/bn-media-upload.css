@@ -444,6 +444,63 @@
 }
 
 /* ── Add-media picker ──────────────────────────────────────────────────────── */
+
+/* Upload-from-device row, above the grid. The picker used to offer only media the
+   member had already uploaded, which meant leaving the album to add a photo to it. */
+.bn-album-picker__actions {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	flex-wrap: wrap;
+	margin-block-end: var(--bn-s3);
+}
+
+/* The control is a <label> wrapping a real <input type="file">: the input stays in
+   the accessibility tree and is keyboard-reachable (clip, never display:none), while
+   the label carries the button styling. */
+.bn-album-picker__upload {
+	position: relative;
+	cursor: pointer;
+}
+
+.bn-album-picker__upload-input {
+	position: absolute;
+	inset-inline-start: 0;
+	inset-block-start: 0;
+	inline-size: 100%;
+	block-size: 100%;
+	opacity: 0;
+	cursor: pointer;
+}
+
+/* Keyboard focus lands on the hidden input, so paint the ring on the label. */
+.bn-album-picker__upload:focus-within {
+	box-shadow: var(--bn-ring);
+}
+
+.bn-album-picker__upload-input:disabled {
+	cursor: not-allowed;
+}
+
+.bn-album-picker__upload:has( .bn-album-picker__upload-input:disabled ) {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+.bn-album-picker__upload-icon {
+	inline-size: 1em;
+	block-size: 1em;
+}
+
+.bn-album-picker__uploading {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+
+.bn-album-picker__uploading.is-hidden {
+	display: none;
+}
+
 .bn-album-picker__hint {
 	margin: 0 0 var(--bn-s3);
 	font-size: var(--bn-text-sm);

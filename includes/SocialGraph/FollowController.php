@@ -325,8 +325,8 @@ class FollowController extends BaseRestController {
 			return $this->connections_hidden_error();
 		}
 
-		$per_page  = max( 1, min( 50, (int) $request->get_param( 'per_page' ) ) );
-		$page      = max( 1, (int) $request->get_param( 'page' ) );
+		$per_page = max( 1, min( 50, (int) $request->get_param( 'per_page' ) ) );
+		$page     = max( 1, (int) $request->get_param( 'page' ) );
 
 		$service   = buddynext_service( 'follows' );
 		$followers = $service->get_followers(
@@ -364,8 +364,8 @@ class FollowController extends BaseRestController {
 			return $this->connections_hidden_error();
 		}
 
-		$per_page  = max( 1, min( 50, (int) $request->get_param( 'per_page' ) ) );
-		$page      = max( 1, (int) $request->get_param( 'page' ) );
+		$per_page = max( 1, min( 50, (int) $request->get_param( 'per_page' ) ) );
+		$page     = max( 1, (int) $request->get_param( 'page' ) );
 
 		$service   = buddynext_service( 'follows' );
 		$following = $service->get_following(

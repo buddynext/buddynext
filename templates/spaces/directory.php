@@ -225,32 +225,6 @@ if ( ! function_exists( 'bn_space_cover_tone' ) ) {
 	}
 }
 
-if ( ! function_exists( 'bn_space_category_icon' ) ) {
-	/**
-	 * Returns an SVG icon for a space category slug.
-	 *
-	 * @param string|null $cat_slug Category slug.
-	 * @return string SVG markup.
-	 */
-	function bn_space_category_icon( ?string $cat_slug ): string {
-		$map  = array(
-			'technology'  => 'cpu',
-			'design'      => 'image',
-			'marketing'   => 'megaphone',
-			'startups'    => 'rocket',
-			'ai-ml'       => 'cpu',
-			'data'        => 'bar-chart',
-			'product'     => 'target',
-			'writing'     => 'edit',
-			'open-source' => 'globe',
-			'business'    => 'briefcase',
-			'creative'    => 'star',
-		);
-		$slug = $map[ (string) $cat_slug ] ?? 'home';
-		return buddynext_get_icon( $slug );
-	}
-}
-
 if ( ! function_exists( 'bn_space_side_emblem' ) ) {
 	/**
 	 * Sidebar space emblem: the real space avatar when set, else the category

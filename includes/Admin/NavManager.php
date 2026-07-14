@@ -39,6 +39,7 @@ class NavManager extends AdminPageBase {
 		'profile' => 'buddynext_nav_overrides_profile',
 		'space'   => 'buddynext_nav_overrides_space',
 		'mobile'  => 'buddynext_nav_overrides_mobile',
+		'account' => 'buddynext_nav_overrides_account',
 	);
 
 	/**
@@ -608,6 +609,9 @@ class NavManager extends AdminPageBase {
 			case 'mobile':
 				$defaults = $this->default_mobile_tabs();
 				break;
+			case 'account':
+				$defaults = $this->default_account_tabs();
+				break;
 			default:
 				$defaults = $this->default_tabs();
 				break;
@@ -641,6 +645,9 @@ class NavManager extends AdminPageBase {
 				break;
 			case 'mobile':
 				$defaults = $this->default_mobile_tabs();
+				break;
+			case 'account':
+				$defaults = $this->default_account_tabs();
 				break;
 			default:
 				$defaults = $this->default_tabs();
@@ -701,7 +708,7 @@ class NavManager extends AdminPageBase {
 				'icon'        => '' !== (string) ( $ov['icon'] ?? '' ) ? sanitize_key( (string) $ov['icon'] ) : 'tab-custom',
 				'description' => sanitize_text_field( (string) ( $ov['description'] ?? '' ) ),
 				'capability'  => sanitize_text_field( (string) ( $ov['capability'] ?? 'read' ) ),
-				'url'         => esc_url_raw( (string) ( $ov['url'] ?? '' ) ),
+				'url'         => self::sanitize_tab_url( (string) ( $ov['url'] ?? '' ) ),
 				'hidden'      => (bool) ( $ov['hidden'] ?? false ),
 				'custom'      => true,
 			);
@@ -809,6 +816,19 @@ class NavManager extends AdminPageBase {
 				'description' => __( 'Members of this space', 'buddynext' ),
 				'capability'  => 'read',
 			),
+			// Sub-spaces was registered in the nav registry (Nav\Providers\SpaceNav)
+			// but never listed here, so it rendered on the front end while being
+			// invisible to Settings → Navigation: the owner could not hide it,
+			// rename it or reorder it. A tab you ship but cannot manage is the same
+			// defect class as a setting that does nothing.
+			array(
+				'slug'        => 'subspaces',
+				'label'       => __( 'Sub-spaces', 'buddynext' ),
+				'order'       => 25,
+				'icon'        => 'tab-spaces',
+				'description' => __( 'Spaces nested inside this space', 'buddynext' ),
+				'capability'  => 'read',
+			),
 			array(
 				'slug'        => 'media',
 				'label'       => __( 'Media', 'buddynext' ),
@@ -825,6 +845,12 @@ class NavManager extends AdminPageBase {
 				'description' => __( 'Space description and details', 'buddynext' ),
 				'capability'  => 'read',
 			),
+			// Moderation is deliberately NOT listed. It is a capability-gated STAFF
+			// surface (moderator+), not an owner-facing content tab — exposing it here
+			// would let an owner hide the queue out from under their own moderators.
+			// SpaceNav also registers dynamic `field-*` tabs from the space field
+			// registry; those are owned by the field that creates them, not by this
+			// static list.
 		);
 	}
 
@@ -841,6 +867,60 @@ class NavManager extends AdminPageBase {
 	 * hides the Position field for this scope.
 	 *
 	 * Slugs are shared with the main nav so page assignments are inherited.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	/**
+	 * Rows for the header account dropdown (the avatar menu).
+	 *
+	 * Derived from UserLinks::catalogue() rather than restated here, so a link a bridge adds
+	 * (Learnomy's Courses, for example) shows up in the manager on its own — a second hardcoded
+	 * copy would silently drift the moment anything was added on either side.
+	 *
+	 * The slug is the catalogue token minus its `#bn-` prefix (`#bn-edit-profile` ->
+	 * `edit-profile`), which is what Nav\NavOverrides::apply_user_links() keys the saved
+	 * overrides on.
+	 *
+	 * Log out is `locked`: an owner who hides it strands every member on the site with no way
+	 * to sign out. Relabel it, reorder it, but it does not get a hide toggle.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function default_account_tabs(): array {
+		$rows  = array();
+		$order = 0;
+
+		foreach ( \BuddyNext\Nav\UserLinks::catalogue() as $item ) {
+			$token = (string) ( $item['token'] ?? '' );
+			$slug  = sanitize_key( ltrim( str_replace( '#bn-', '', $token ), '-' ) );
+
+			// The logged-out items (Log in / Register) are not part of the account dropdown —
+			// they are the signed-out header, and an owner hiding them locks people out.
+			if ( '' === $slug || \BuddyNext\Nav\UserLinks::LOGGEDIN !== ( $item['visibility'] ?? '' ) ) {
+				continue;
+			}
+
+			$order += 10;
+
+			$rows[] = array(
+				'slug'        => $slug,
+				'label'       => (string) ( $item['label'] ?? $slug ),
+				'order'       => $order,
+				'icon'        => 'tab-feed',
+				'description' => __( 'Header account dropdown link', 'buddynext' ),
+				'capability'  => 'read',
+				'locked'      => ( 'logout' === $slug ),
+			);
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Rows for the mobile bottom bar.
+	 *
+	 * Slugs MUST match the keys nav.php gives the bar's five slots, so the front-end applier
+	 * (Nav\NavOverrides::apply_mobile_items) can map saved overrides onto real items.
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
@@ -935,6 +1015,7 @@ class NavManager extends AdminPageBase {
 		$profile_tabs = $this->get_tabs_for_scope( 'profile' );
 		$space_tabs   = $this->get_tabs_for_scope( 'space' );
 		$mobile_tabs  = $this->get_tabs_for_scope( 'mobile' );
+		$account_tabs = $this->get_tabs_for_scope( 'account' );
 		$first_slug   = ! empty( $main_tabs ) ? sanitize_key( (string) ( $main_tabs[0]['slug'] ?? '' ) ) : '';
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -980,6 +1061,11 @@ class NavManager extends AdminPageBase {
 						<?php $this->render_mobile_note(); ?>
 					</div>
 
+					<!-- Account Dropdown scope panel (the header avatar menu) -->
+					<div class="bn-scope-panel" data-scope-panel="account" hidden>
+						<?php $this->render_nav_section( 'account', $account_tabs, __( 'Account Dropdown', 'buddynext' ), __( '— The header avatar menu', 'buddynext' ) ); ?>
+					</div>
+
 				</div><!-- /.bn-nav-main-panel -->
 
 				<div class="bn-nav-config-panel">
@@ -1002,6 +1088,16 @@ class NavManager extends AdminPageBase {
 						<?php
 						$mob_first = ! empty( $mobile_tabs ) ? sanitize_key( (string) ( $mobile_tabs[0]['slug'] ?? '' ) ) : '';
 						$this->render_all_config_panels( 'mobile', $mobile_tabs, $mob_first );
+						?>
+					</div>
+					<div data-config-scope="account" hidden>
+						<?php
+						// The config panels are what actually POST bn_nav_config[<scope>][<slug>],
+						// and the save handler builds its override rows from exactly that. A scope
+						// with rows but no config panels renders a list you can toggle and drag,
+						// saves nothing, and reports success.
+						$acct_first = ! empty( $account_tabs ) ? sanitize_key( (string) ( $account_tabs[0]['slug'] ?? '' ) ) : '';
+						$this->render_all_config_panels( 'account', $account_tabs, $acct_first );
 						?>
 					</div>
 				</div>
@@ -1046,6 +1142,12 @@ class NavManager extends AdminPageBase {
 				echo $this->svg( 'scope-mobile' );
 				?>
 				<?php esc_html_e( 'Mobile Bottom Nav', 'buddynext' ); ?>
+			</div>
+			<div class="bn-scope-item" data-scope="account" role="button" tabindex="0">
+				<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG read from plugin file.
+				echo $this->svg( 'scope-profile' );
+				?>
+				<?php esc_html_e( 'Account Dropdown', 'buddynext' ); ?>
 			</div>
 			<div class="bn-scope-tip">
 				<p class="bn-scope-tip__intro"><?php esc_html_e( 'Compatible plugins can add their own links to these menus automatically.', 'buddynext' ); ?></p>
@@ -1106,17 +1208,58 @@ class NavManager extends AdminPageBase {
 				<?php endforeach; ?>
 			</ul>
 
-			<div class="bn-nav-add-row">
-				<button type="button" class="bn-add-tab-btn"
-					data-scope="<?php echo esc_attr( $scope ); ?>"
-					data-action="bn-open-add-tab"
-					aria-label="<?php esc_attr_e( 'Add a custom tab to this scope', 'buddynext' ); ?>">
-					<span aria-hidden="true">+</span>
-					<?php esc_html_e( 'Add Custom Tab', 'buddynext' ); ?>
-				</button>
-			</div>
+			<?php
+			/*
+			 * "Add Custom Tab" is offered for the MAIN rail only.
+			 *
+			 * On the rail, a custom tab IS just a link — that is the whole shape of a
+			 * rail item, so the control delivers exactly what it appears to.
+			 *
+			 * On the SPACE and PROFILE surfaces it was a half-feature pretending to be
+			 * a real one: it could store a label + URL and nothing else, so it could
+			 * never render content. A site owner reasonably read "Add Custom Tab" as
+			 * "add a tab to my spaces" and got a bare link — which is what prompted the
+			 * customer request for "custom tabs with rich content per space".
+			 *
+			 * Those surfaces have a far more capable seam already, and it belongs to
+			 * developers: `buddynext_register_nav` / NavRegistry::register() takes a
+			 * `render` callable (real panel content), plus `condition`, `count`,
+			 * `parent`, before/after anchors and a capability gate. A code snippet does
+			 * everything this control could not, so offering the weaker control here
+			 * only misleads.
+			 *
+			 * Existing custom tabs already stored on a live site keep rendering —
+			 * NavOverrides still applies them (and now resolves their {space_url} /
+			 * {slug} tokens) — so removing the button breaks nothing on upgrade.
+			 */
+			if ( in_array( $scope, array( 'main', 'account' ), true ) ) :
+				?>
+				<div class="bn-nav-add-row">
+					<button type="button" class="bn-add-tab-btn"
+						data-scope="<?php echo esc_attr( $scope ); ?>"
+						data-action="bn-open-add-tab"
+						aria-label="<?php echo esc_attr( 'account' === $scope ? __( 'Add a custom link to the account dropdown', 'buddynext' ) : __( 'Add a custom link to the main navigation', 'buddynext' ) ); ?>">
+						<span aria-hidden="true">+</span>
+						<?php esc_html_e( 'Add Custom Link', 'buddynext' ); ?>
+					</button>
+				</div>
 
-			<?php $this->render_add_tab_form( $scope ); ?>
+				<?php
+				$this->render_add_tab_form( $scope );
+			else :
+				?>
+				<p class="description bn-nav-add-row">
+					<?php
+					printf(
+						/* translators: %s: the buddynext_register_nav hook name, in code formatting. */
+						esc_html__( 'Tabs on this surface are added in code, with %s — which can render real content, show a count badge and gate itself by capability. See the developer guide.', 'buddynext' ),
+						'<code>buddynext_register_nav</code>'
+					);
+					?>
+				</p>
+				<?php
+			endif;
+			?>
 		</div>
 		<?php
 	}
@@ -1143,7 +1286,7 @@ class NavManager extends AdminPageBase {
 		$requires    = (string) ( $tab['requires_plugin'] ?? '' );
 		$dep_missing = '' !== $requires && ! \BuddyNext\Messages\MessagesData::available();
 		?>
-		<li class="bn-drag-row"
+		<li class="bn-drag-row<?php echo ( 'mobile' === $scope && in_array( $slug, array( 'create', 'profile' ), true ) ) ? ' bn-drag-row--pinned' : ''; ?>"
 			data-slug="<?php echo esc_attr( $slug ); ?>"
 			data-scope="<?php echo esc_attr( $scope ); ?>"
 			id="<?php echo esc_attr( $row_id ); ?>"
@@ -1151,7 +1294,40 @@ class NavManager extends AdminPageBase {
 			<?php echo $locked ? ' data-row-locked' : ''; ?>
 			<?php echo $dep_missing ? ' data-row-dependency' : ''; ?>>
 
-			<?php if ( 'mobile' !== $scope ) : ?>
+			<?php
+			/*
+			 * Two mobile slots genuinely cannot move. Create is
+			 * centred by arithmetic (`flex: 0 0 44px` between two `flex: 1` groups), so it only
+			 * lands on the viewport centre while it has the same number of slots either side;
+			 * drag it and the bar goes visibly lopsided. Profile is the fixed last slot and the
+			 * anchor the "More" sheet folds into. nav.php states both: they are not nav tabs and
+			 * are never overridable — which is also why neither has a config panel, and so
+			 * neither can carry a saved order. A handle on them would write nowhere.
+			 *
+			 * The real tabs (feed / spaces / notifications) ARE draggable now, and the front end
+			 * honours the order (NavOverrides::apply_mobile_items). Previously the whole mobile
+			 * scope had its handles suppressed, which left an admin looking at a reorderable-
+			 * looking list — in a screen whose other three scopes all reorder — with no way to
+			 * tell why this one did not, and no explanation on the page.
+			 *
+			 * A LOCKED row likewise gets no config panel (render_all_config_panels() skips it), which means
+			 * it has no `input[type=number]` — and that input is exactly where the drag JS writes
+			 * the new position. So a handle on a locked row is a control that moves the row on
+			 * screen and saves nothing. Log Out is locked, and it shipped with a live handle.
+			 *
+			 * Pin every locked row, not just the two mobile slots I special-cased. Same defect the
+			 * mobile scope was fixed for one commit earlier; I reintroduced it the next commit by
+			 * naming the slots instead of naming the CONDITION.
+			 */
+			$bn_pinned = $locked || ( 'mobile' === $scope && in_array( $slug, array( 'create', 'profile' ), true ) );
+			?>
+			<?php if ( $bn_pinned ) : ?>
+			<span class="bn-drag-row__handle bn-drag-row__handle--pinned"
+					aria-hidden="true"
+					title="<?php esc_attr_e( 'Always centred', 'buddynext' ); ?>">
+				<span></span>
+			</span>
+			<?php else : ?>
 			<button type="button"
 					class="bn-drag-row__handle"
 					aria-label="<?php esc_attr_e( 'Drag to reorder', 'buddynext' ); ?>"
@@ -1373,7 +1549,21 @@ class NavManager extends AdminPageBase {
 				</select>
 			</div>
 
-			<?php if ( 'mobile' !== $scope ) : ?>
+			<?php
+			/*
+			 * Position. The mobile scope gets a real field now that the bar honours the order —
+			 * it used to be a hidden input, and the drag JS writes into `input[type="number"]`,
+			 * so a mobile drag had nowhere to land even once the renderer could have used it.
+			 *
+			 * The exception is the mobile Create slot: it is centred by arithmetic and always
+			 * re-centred on render, so a Position box for it would be a number the product
+			 * ignores. It keeps a hidden input to preserve the posted value shape.
+			 */
+			// A locked tab never reaches this method at all — render_all_config_panels() skips it —
+			// so the only fixed positions left to guard are the mobile pins.
+			$bn_position_fixed = ( 'mobile' === $scope && in_array( $slug, array( 'create', 'profile' ), true ) );
+			?>
+			<?php if ( ! $bn_position_fixed ) : ?>
 			<div class="bn-cf">
 				<label for="bn-cfg-order-<?php echo esc_attr( $slug ); ?>">
 					<?php esc_html_e( 'Position', 'buddynext' ); ?>
@@ -1385,6 +1575,11 @@ class NavManager extends AdminPageBase {
 						min="1"
 						max="999"
 						class="bn-cf-position-input">
+				<?php if ( 'mobile' === $scope ) : ?>
+				<span class="bn-cf-hint">
+					<?php esc_html_e( 'The Create button always sits in the centre of the bar; the other slots arrange around it.', 'buddynext' ); ?>
+				</span>
+				<?php endif; ?>
 			</div>
 			<?php else : ?>
 			<input type="hidden"
@@ -1526,6 +1721,42 @@ class NavManager extends AdminPageBase {
 	}
 
 	/**
+	 * Sanitize a custom nav tab URL without destroying its subject tokens.
+	 *
+	 * A custom tab is defined once, site-wide, and rendered on EVERY space (or
+	 * profile), so its URL carries a placeholder — `{space_url}handbook/` — that is
+	 * resolved per subject at render time by NavOverrides::resolve_tokens().
+	 *
+	 * esc_url_raw() cannot be used on a value in that state: braces are not legal
+	 * URL characters, so it silently mangles `{space_url}handbook/` into
+	 * `http://space_urlhandbook/` and the tab is dead on arrival. Token-bearing
+	 * values are therefore kept as text here (minus any dangerous scheme) and
+	 * escaped with esc_url_raw() once resolved. A plain URL with no tokens is
+	 * escaped exactly as before.
+	 *
+	 * @param string $url Raw URL submitted by the site owner.
+	 * @return string Stored URL, or empty string when unusable.
+	 */
+	private static function sanitize_tab_url( string $url ): string {
+		$url = trim( wp_strip_all_tags( $url ) );
+
+		if ( '' === $url ) {
+			return '';
+		}
+
+		if ( preg_match( '/\{(space_url|space_id|profile_url|user_id|slug)\}/', $url ) ) {
+			// Never let a token-bearing value smuggle an executable scheme through.
+			if ( preg_match( '#^\s*(javascript|data|vbscript):#i', $url ) ) {
+				return '';
+			}
+
+			return sanitize_text_field( $url );
+		}
+
+		return esc_url_raw( $url );
+	}
+
+	/**
 	 * Render the hidden inline "Add Custom Tab" form for a scope.
 	 *
 	 * Shown/hidden by JS; submitted with the main form so PHP reads
@@ -1553,10 +1784,36 @@ class NavManager extends AdminPageBase {
 					<label for="bn-new-tab-url-<?php echo esc_attr( $scope ); ?>">
 						<?php esc_html_e( 'URL', 'buddynext' ); ?>
 					</label>
-					<input type="url"
+					<?php
+					// Deliberately type="text", not type="url": a tokenised value such as
+					// {space_url}handbook/ is not a valid URL, so the browser's native url
+					// validation would reject it and the tokens below would be unusable.
+					?>
+					<input type="text"
 						id="bn-new-tab-url-<?php echo esc_attr( $scope ); ?>"
 						name="bn_new_tab[<?php echo esc_attr( $scope ); ?>][url]"
-						placeholder="<?php esc_attr_e( 'https://...', 'buddynext' ); ?>">
+						placeholder="<?php echo 'space' === $scope ? esc_attr__( '{space_url}handbook/', 'buddynext' ) : esc_attr__( 'https://...', 'buddynext' ); ?>">
+					<p class="description">
+						<?php
+						if ( 'space' === $scope ) {
+							esc_html_e( 'This tab is added to EVERY space, so the link must point at whichever space the member is viewing. Use a placeholder and it is filled in per space:', 'buddynext' );
+							?>
+							<br>
+							<code>{space_url}</code> — <?php esc_html_e( 'that space\'s address, e.g. /spaces/design-critique/', 'buddynext' ); ?><br>
+							<code>{slug}</code> — <?php esc_html_e( 'that space\'s slug, e.g. design-critique', 'buddynext' ); ?><br>
+							<code>{space_id}</code> — <?php esc_html_e( 'that space\'s numeric ID', 'buddynext' ); ?>
+							<?php
+						} else {
+							esc_html_e( 'This tab is added to EVERY profile. Use a placeholder and it is filled in per member:', 'buddynext' );
+							?>
+							<br>
+							<code>{profile_url}</code> — <?php esc_html_e( 'that member\'s profile address', 'buddynext' ); ?><br>
+							<code>{slug}</code> — <?php esc_html_e( 'that member\'s username', 'buddynext' ); ?><br>
+							<code>{user_id}</code> — <?php esc_html_e( 'that member\'s numeric ID', 'buddynext' ); ?>
+							<?php
+						}
+						?>
+					</p>
 				</div>
 				<div class="bn-add-tab-inline-actions">
 					<button type="submit" class="bn-btn" data-variant="primary" data-size="sm">
@@ -1676,14 +1933,14 @@ class NavManager extends AdminPageBase {
 				// the config row does not resubmit, so re-saving keeps the tab.
 				if ( ! empty( $existing[ $slug ]['custom'] ) ) {
 					$overrides[ $slug ]['custom'] = true;
-					$overrides[ $slug ]['url']    = esc_url_raw( (string) ( $cfg['url'] ?? $existing[ $slug ]['url'] ?? '' ) );
+					$overrides[ $slug ]['url']    = self::sanitize_tab_url( (string) ( $cfg['url'] ?? $existing[ $slug ]['url'] ?? '' ) );
 				}
 			}
 
 			// Merge in any new custom tab submitted for this scope.
 			$new_tab   = (array) ( $raw_new_tabs[ $scope ] ?? array() );
 			$new_label = sanitize_text_field( (string) ( $new_tab['label'] ?? '' ) );
-			$new_url   = esc_url_raw( (string) ( $new_tab['url'] ?? '' ) );
+			$new_url   = self::sanitize_tab_url( (string) ( $new_tab['url'] ?? '' ) );
 
 			if ( '' !== $new_label ) {
 				$new_slug = sanitize_key( $new_label );

@@ -13,15 +13,41 @@ import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '../shell/rest-client.js';
 import { onNavReady } from '../shell/nav-init.js';
 import { bnToast, bnConfirm } from '../shell/dialog.js';
+// The SAME upload path the composer uses. The picker must not grow a second way to
+// upload a file — one endpoint, one validation, one set of limits.
+import { uploadMedia, validateMedia } from './upload-core.js';
 
 let cfg = { nonce: '', owner: 0, t: {} };
+
+/* Server-injected dictionary (AssetService::i18n_media) for the strings this
+ * store renders imperatively but the template's data-wp-context does not carry.
+ * Populated at the bottom of the module from the store's own state. */
+let I18N = {};
 
 /* The currently-open album id, mirrored for document-delegated handlers
  * (cover/reorder) that run outside the island context. */
 let currentAlbumId = 0;
 
 function t( key, fallback ) {
-	return cfg.t && Object.prototype.hasOwnProperty.call( cfg.t, key ) ? cfg.t[ key ] : fallback;
+	if ( cfg.t && Object.prototype.hasOwnProperty.call( cfg.t, key ) ) {
+		return cfg.t[ key ];
+	}
+	if ( I18N && I18N[ key ] ) {
+		return I18N[ key ];
+	}
+	return fallback;
+}
+
+/**
+ * Escape a plain string for safe interpolation into an innerHTML template.
+ *
+ * @param {string} value Raw text.
+ * @return {string} HTML-escaped text.
+ */
+function escHtml( value ) {
+	const span = document.createElement( 'span' );
+	span.textContent = String( value == null ? '' : value );
+	return span.innerHTML;
 }
 
 /* Map an API album summary to a display row (per-item display strings, since
@@ -208,6 +234,70 @@ const albumsStore = store( 'buddynext/media-albums', {
 			await loadPicker( ctx );
 		},
 		closeAddMedia() { clearPickerSel(); getContext().pickerOpen = false; },
+
+		/**
+		 * Upload straight from the device, from inside the picker.
+		 *
+		 * The picker used to show ONLY already-uploaded media, so a member adding a
+		 * photo to an album had to leave the album, upload it on the Media tab, come
+		 * back, reopen the picker and hunt for it. That is a dead end dressed up as a
+		 * workflow.
+		 *
+		 * Uploads go through the composer's uploadMedia() — the SAME endpoint, the same
+		 * validation, the same limits. The picker does not grow a second way to upload.
+		 *
+		 * Once the files are in, the grid is reloaded FROM THE SERVER rather than having
+		 * tiles built here: MediaRenderer emits a different tile per media type (image /
+		 * video / audio), and a hand-rolled client copy of that markup would drift the
+		 * first time the renderer changed. The newly uploaded ids are then pre-selected,
+		 * so "Add" includes them without the member having to find them again.
+		 *
+		 * Failures are per-file: one rejected file does not lose the rest of the batch.
+		 */
+		async uploadToPicker( event ) {
+			const ctx   = getContext();
+			const input = event && event.target;
+			const files = input && input.files ? Array.from( input.files ) : [];
+			if ( ! files.length ) { return; }
+
+			ctx.pickerUploading = true;
+
+			const uploaded = [];
+
+			for ( const file of files ) {
+				const invalid = validateMedia( file );
+				if ( invalid ) {
+					bnToast( invalid, { tone: 'danger' } );
+					continue;
+				}
+
+				const res = await uploadMedia( file, { nonce: ctx.restNonce } );
+				if ( ! res.ok || ! res.mediaId ) {
+					bnToast( res.message || t( 'uploadFailed', 'Could not upload that file.' ), { tone: 'danger' } );
+					continue;
+				}
+
+				uploaded.push( res.mediaId );
+			}
+
+			// Let the member choose the same file again after a failure — without this the
+			// input keeps its value and re-selecting it fires no change event at all.
+			if ( input ) { input.value = ''; }
+
+			if ( uploaded.length ) {
+				await loadPicker( ctx );
+				selectPickerIds( uploaded );
+				bnToast(
+					1 === uploaded.length
+						? t( 'uploadedOne', 'Uploaded and selected. Choose Add to put it in the album.' )
+						: t( 'uploadedMany', 'Uploaded and selected. Choose Add to put them in the album.' ),
+					{ tone: 'success' }
+				);
+			}
+
+			ctx.pickerUploading = false;
+		},
+
 		async confirmAddMedia() {
 			const ctx = getContext();
 			const ids = pickerSel.slice();
@@ -242,7 +332,7 @@ const albumsStore = store( 'buddynext/media-albums', {
 			ctx.createOpen = false;
 			ctx.pickerOpen = false;
 			cfg = { nonce: ctx.restNonce, owner: Number( ctx.ownerId ) || 0, t: ctx.t || {} };
-			onNavReady( () => { bindDetailDelete( ctx ); bindDetailCover( ctx ); bindPicker(); } );
+			onNavReady( () => { bindDetailDelete( ctx ); bindDetailCover( ctx ); bindDetailRetry( ctx ); bindPicker(); } );
 		},
 	},
 } );
@@ -264,16 +354,59 @@ async function loadAlbumDetail( ctx ) {
 			// Server-rendered, pre-escaped MediaRenderer markup (same as the gallery).
 			grid.innerHTML = res.data.html || emptyAlbum();
 			if ( res.data.is_owner ) { enhanceDetailTiles( grid ); }
+		} else {
+			// restFetch resolves { ok:false } on 403/500/offline — it never throws —
+			// so without this branch the loading spinner was the terminal state and
+			// the member waited on a load that had already failed.
+			grid.innerHTML = errorState( 'detail', ( res.data && res.data.message ) || '' );
 		}
 	} catch ( e ) {
-		grid.innerHTML = emptyAlbum();
+		grid.innerHTML = errorState( 'detail', '' );
 	}
 }
 
 function emptyAlbum() {
-	const span = document.createElement( 'span' );
-	span.textContent = t( 'emptyAlbum', 'This album is empty.' );
-	return '<div class="bn-empty-state"><div class="bn-empty-title">' + span.innerHTML + '</div></div>';
+	return '<div class="bn-empty-state"><div class="bn-empty-title">' + escHtml( t( 'emptyAlbum', 'This album is empty.' ) ) + '</div></div>';
+}
+
+/**
+ * Error state for the album detail grid / the add-media picker grid, with a
+ * retry button so a transient failure is recoverable in place.
+ *
+ * @param {string} scope   'detail' or 'picker' — which loader the retry re-runs.
+ * @param {string} message Optional server-supplied reason.
+ * @return {string} Markup.
+ */
+function errorState( scope, message ) {
+	const title = 'picker' === scope
+		? t( 'pickerFailed', 'Could not load your media.' )
+		: t( 'detailFailed', 'Could not load this album.' );
+	const body = message || t( 'loadFailedBody', 'Something went wrong. Check your connection and try again.' );
+	return '<div class="bn-empty-state">' +
+		'<div class="bn-empty-title">' + escHtml( title ) + '</div>' +
+		'<p class="bn-empty-text">' + escHtml( body ) + '</p>' +
+		'<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-album-retry="' + escHtml( scope ) + '">' +
+		escHtml( t( 'retry', 'Try again' ) ) +
+		'</button></div>';
+}
+
+/* Retry affordance inside the detail / picker error states. Delegated on the
+ * document because both grids are re-rendered imperatively. */
+let detailRetryBound = false;
+function bindDetailRetry( ctx ) {
+	if ( detailRetryBound ) { return; }
+	detailRetryBound = true;
+	document.addEventListener( 'click', ( e ) => {
+		const btn = e.target.closest( '[data-bn-album-retry]' );
+		if ( ! btn ) { return; }
+		e.preventDefault();
+		e.stopPropagation();
+		if ( 'picker' === btn.getAttribute( 'data-bn-album-retry' ) ) {
+			loadPicker( ctx );
+		} else {
+			loadAlbumDetail( ctx );
+		}
+	} );
 }
 
 /* Owner detail tiles get hover controls (set-cover + remove) and become
@@ -311,6 +444,9 @@ function enhanceDetailTiles( grid ) {
  * dragend. Bound once on the persistent grid element. */
 let detailDnDBound = false;
 let dragCell = null;
+/* Order captured at dragstart — the truth to roll back to when the server
+ * rejects the reorder. */
+let orderBeforeDrag = [];
 function bindDetailDnD( grid ) {
 	if ( detailDnDBound ) { return; }
 	detailDnDBound = true;
@@ -318,6 +454,7 @@ function bindDetailDnD( grid ) {
 		const cell = e.target.closest( '.bn-media-cell' );
 		if ( ! cell ) { return; }
 		dragCell = cell;
+		orderBeforeDrag = currentOrder( grid );
 		cell.classList.add( 'is-dragging' );
 		try {
 			e.dataTransfer.effectAllowed = 'move';
@@ -343,14 +480,43 @@ function bindDetailDnD( grid ) {
 	} );
 }
 
-function persistOrder( grid ) {
-	const ids = Array.from( grid.querySelectorAll( '.bn-media-cell[data-bn-cell-media]' ) )
+/* The tile ids in their current DOM order. */
+function currentOrder( grid ) {
+	return Array.from( grid.querySelectorAll( '.bn-media-cell[data-bn-cell-media]' ) )
 		.map( ( c ) => parseInt( c.getAttribute( 'data-bn-cell-media' ), 10 ) || 0 )
 		.filter( Boolean );
+}
+
+/* Put the tiles back in `ids` order — the DOM must never keep showing an order
+ * the server refused. */
+function restoreOrder( grid, ids ) {
+	const cells = new Map();
+	grid.querySelectorAll( '.bn-media-cell[data-bn-cell-media]' ).forEach( ( c ) => {
+		cells.set( parseInt( c.getAttribute( 'data-bn-cell-media' ), 10 ) || 0, c );
+	} );
+	ids.forEach( ( id ) => {
+		const cell = cells.get( id );
+		if ( cell && cell.parentNode ) { cell.parentNode.appendChild( cell ); }
+	} );
+}
+
+function persistOrder( grid ) {
+	const ids = currentOrder( grid );
+	const previous = orderBeforeDrag.slice();
 	if ( ! ids.length || ! currentAlbumId ) { return; }
+	// Nothing actually moved — don't spend a request (or risk a false failure).
+	if ( previous.length === ids.length && previous.every( ( id, i ) => id === ids[ i ] ) ) { return; }
+	const failed = () => {
+		restoreOrder( grid, previous );
+		bnToast( t( 'reorderFailed', 'Could not save the new order. Your photos were put back.' ), { tone: 'danger' } );
+	};
 	restFetch( '/me/albums/' + currentAlbumId + '/reorder', {
 		method: 'PUT', nonce: cfg.nonce, toastOnError: false, body: { order: ids },
-	} ).catch( () => {} );
+	} ).then( ( res ) => {
+		// restFetch never throws on an HTTP error — an unchecked result meant the
+		// member kept seeing an order the server had rejected.
+		if ( ! res || ! res.ok ) { failed(); }
+	} ).catch( failed );
 }
 
 let detailDeleteBound = false;
@@ -438,6 +604,30 @@ function clearPickerSel() {
 	syncPickerCount();
 }
 
+/**
+ * Mark media as picked in the grid — used after an in-picker upload so the files the
+ * member just chose are already selected and "Add" simply works.
+ *
+ * Applies the same class + selection array the click handler does, so a pre-selected
+ * tile behaves exactly like a hand-picked one (clicking it deselects, the count is
+ * right, Add sends it).
+ *
+ * @param {number[]} ids Media ids to select.
+ */
+function selectPickerIds( ids ) {
+	const grid = pickerGridEl();
+	if ( ! grid ) { return; }
+
+	ids.forEach( ( id ) => {
+		const tile = grid.querySelector( '.bn-media-tile[data-bn-media-id="' + id + '"]' );
+		if ( ! tile ) { return; }
+		tile.classList.add( 'is-picked' );
+		if ( pickerSel.indexOf( id ) === -1 ) { pickerSel.push( id ); }
+	} );
+
+	syncPickerCount();
+}
+
 async function loadPicker( ctx ) {
 	const grid = pickerGridEl();
 	if ( ! grid ) { return; }
@@ -446,9 +636,14 @@ async function loadPicker( ctx ) {
 		const res = await restFetch( '/users/' + ( Number( ctx.ownerId ) || 0 ) + '/media?per_page=48', {
 			method: 'GET', nonce: ctx.restNonce, toastOnError: false,
 		} );
-		grid.innerHTML = ( res.ok && res.data && res.data.html ) ? res.data.html : emptyAlbum();
+		if ( ! res.ok ) {
+			// A failed load is not an empty library — say so, and offer the retry.
+			grid.innerHTML = errorState( 'picker', ( res.data && res.data.message ) || '' );
+			return;
+		}
+		grid.innerHTML = ( res.data && res.data.html ) ? res.data.html : emptyAlbum();
 	} catch ( e ) {
-		grid.innerHTML = emptyAlbum();
+		grid.innerHTML = errorState( 'picker', '' );
 	}
 }
 
@@ -490,5 +685,10 @@ function syncPickerCount() {
 		if ( label ) { label.textContent = pickerSel.length ? ' (' + pickerSel.length + ')' : ''; }
 	}
 }
+
+/* Strings the template's data-wp-context does not carry (imperative error/retry
+ * copy) come from the server-injected state dictionary. Read once, after the
+ * store is created; t() prefers the context dictionary and falls back to this. */
+I18N = ( albumsStore.state && albumsStore.state.i18n ) || {};
 
 export default albumsStore;

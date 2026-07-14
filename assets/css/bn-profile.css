@@ -734,6 +734,11 @@
 	height: 200px;
 	position: relative;
 	overflow: hidden;
+	/* Match the hero card's rounded top corners (.bn-card uses --r-lg). The hero
+	   itself can't use overflow:hidden (it would clip the More-Options dropdown),
+	   so the square-cornered cover otherwise spilled over the card's rounded
+	   corners — most visible at 390px. */
+	border-radius: var(--r-lg) var(--r-lg) 0 0;
 	/* Default cover — a tonal wash of BuddyNext's own accent. Was mixing the
 	   Jetonomy (purple) + MediaVerse (teal) brand accents, which read as a
 	   generic purple/teal "AI" gradient rather than on-brand BuddyNext. */
@@ -1683,7 +1688,9 @@ a.bn-space-row:hover .bn-space-name {
 
 @media (max-width: 640px) {
 	.bn-pf-stack { gap: var(--bn-s3); }
-	.bn-pf-cover { height: 140px; }
+	/* Match .bn-card's mobile radius (--r-md at <=640px) so the cover's rounded
+	   top corners still align with the hero card. */
+	.bn-pf-cover { height: 140px; border-radius: var(--r-md) var(--r-md) 0 0; }
 	.bn-pf-avatar-wrap { margin-block-start: calc(var(--bn-s8) * -1); }
 	.bn-pf-avatar-wrap .bn-avatar[data-size="2xl"] {
 		width: 80px;
@@ -2320,6 +2327,39 @@ a.bn-space-row:hover .bn-space-name {
 .bn-ep-account-value {
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
+}
+
+/* ── Connected accounts ───────────────────────────────────────────────────
+ *
+ * These rows now ARE account rows. They used to borrow `.bn-social-link` — a class
+ * defined for the small inline provider CHIPS on a member's public profile — so a
+ * settings row rendered as a squashed pill with the button jammed against the label,
+ * sitting directly above an Account card that does it properly: description on the left,
+ * action pushed to the right edge, quiet dividers. Two patterns for the same job, on the
+ * same screen, three inches apart.
+ *
+ * Reusing .bn-ep-account-row rather than restyling the chip means this section cannot
+ * drift away from the card below it again: change the account rows and these follow. All
+ * that is added here is the provider icon. */
+.bn-social-row__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	inline-size: var(--bn-s6);
+	block-size: var(--bn-s6);
+	color: var(--bn-ink-2);
+}
+
+.bn-social-row__icon svg {
+	inline-size: 100%;
+	block-size: 100%;
+}
+
+/* The row is icon + copy + action. The copy takes the slack so the action stays pinned
+ * right, exactly as it does on every other account row. */
+.bn-social-row .bn-ep-account-copy {
+	flex: 1 1 auto;
 }
 
 /* ── Slug row ─────────────────────────────────────────────────────────── */

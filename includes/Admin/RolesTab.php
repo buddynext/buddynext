@@ -44,6 +44,7 @@ class RolesTab {
 		return array(
 			__( 'Posts & activity', 'buddynext' ) => array(
 				'buddynext-feed/create-post'     => __( 'Create posts', 'buddynext' ),
+				'buddynext-comments/create'      => __( 'Comment on posts', 'buddynext' ),
 				'buddynext-feed/schedule-post'   => __( 'Schedule posts', 'buddynext' ),
 				'buddynext-feed/pin-post'        => __( 'Pin posts', 'buddynext' ),
 				'buddynext-feed/delete-any-post' => __( "Delete anyone's post", 'buddynext' ),

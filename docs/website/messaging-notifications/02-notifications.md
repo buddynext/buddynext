@@ -2,7 +2,7 @@
 
 Notifications are the in-app activity feed that tells a member when someone interacts with them or with content they care about: new followers, connection requests, reactions, comments, mentions, space activity, and more. They appear behind the bell icon in the header and on the full Notifications page, with a live unread count.
 
-![BuddyNext notifications page — grouped, filterable list of follows, connections, reactions, comments, mentions and space activity, each row with the actor and a dismiss control.](../images/notifications.webp)
+![BuddyNext notifications page - grouped, filterable list of follows, connections, reactions, comments, mentions and space activity, each row with the actor and a dismiss control.](../images/notifications.webp)
 
 ## Why use it
 
@@ -22,7 +22,6 @@ BuddyNext creates a notification when another member does something that involve
 | Follow request | Someone requests to follow your private account |
 | Connection request | Someone sends you a connection request |
 | Connection accepted | Someone accepts your connection request |
-| Connection declined | Someone declines your connection request |
 | Reaction on your post | Someone reacts to a post you authored |
 | Comment on your post | Someone comments on a post you authored |
 | Reply to your comment | Someone replies to one of your comments |
@@ -86,6 +85,7 @@ You can also add the bell to your header in the block editor by inserting the No
 - The bell badge counts unread notifications only; reading or dismissing them brings the count down.
 - Grouped rows count as one notification toward the unread badge, no matter how many events they represent.
 - Notifications between blocked members are never created, so neither side can use them to reach the other.
+- **Declining a connection request is silent.** A member is told when their request is accepted, and told nothing when it is not. There is no "your request was declined" notification, by design: turning someone down should not cost them a notification, and it should not put the person who declined on the spot. The request simply goes away.
 
 ## Free vs Pro
 

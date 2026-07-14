@@ -27,7 +27,14 @@ Every broadcast carries a one-click unsubscribe link unique to that member. Clic
 
 ### Managing email preferences
 
-Members can also set an all-broadcasts opt-out from their account, which turns off every future broadcast at once rather than unsubscribing campaign by campaign. When a member has opted out, the system skips them when a campaign is dispatched, so they are never emailed against their preference.
+Members can also stop **every** broadcast at once, rather than unsubscribing campaign by campaign. There are two ways to the same switch:
+
+- **From any broadcast email.** The footer carries two links: unsubscribe from this campaign, and unsubscribe from all broadcast email. Neither needs a login.
+- **From their account.** **Settings > Notifications**, in the Channels card, has a **Newsletters and announcements** switch. Turning it off stops all broadcast email.
+
+When a member has opted out, they are skipped when a campaign is dispatched, so they are never emailed against their preference. This also applies to drip sequences - a member who has opted out of all broadcast email stops receiving drip steps too.
+
+> **Tip:** Give members the all-broadcasts option and take it seriously. A per-campaign unsubscribe that keeps sending the next newsletter is the fastest way to get marked as spam, which damages delivery for every email your site sends, including password resets.
 
 > **Note:** The unsubscribe link in a sent email is signed with a secure token tied to that member and campaign. The link only works with its token attached - that is what proves the request is genuinely from the recipient and lets the unsubscribe happen without a login.
 
@@ -54,7 +61,7 @@ A segment decides which members a campaign goes to. Pick one of these:
 |---|---|
 | All users | Every registered member. |
 | By space | Members of one or more spaces you choose. |
-| By tag | Members carrying a tag you choose. |
+| By tag | Members carrying a tag you choose. Enter several tags and a member matches if they carry **any** of them, not all of them. |
 | By activity level | Members active within a number of days you set. |
 | By join date | Members who joined within a date range you set. |
 | By member label | Members carrying a Pro member label you choose (for example, Verified or Staff). |

@@ -56,7 +56,13 @@ class CronScheduler {
 	public const JOB_CLEANUP_TOKENS = 'buddynext_cleanup_tokens';
 
 	/**
-	 * Weekly notification pruning job hook.
+	 * RETIRED — no longer registered or scheduled.
+	 *
+	 * LogRetentionService owns bn_notifications retention now (daily, batched, with a
+	 * separate hard max for unread). This hook is kept ONLY so clear_events() and the
+	 * upgrade migration can unschedule it on installs where it is still armed: a
+	 * recurring event whose hook has no listener never fires, but it stays in the cron
+	 * array forever, which is how a "retired" job quietly becomes permanent litter.
 	 */
 	public const JOB_CLEANUP_NOTIFICATIONS = 'buddynext_cleanup_notifications';
 
@@ -66,11 +72,28 @@ class CronScheduler {
 	public const JOB_CLEANUP_ACTIVITY_LOG = 'buddynext_cleanup_activity_log';
 
 	/**
-	 * Weekly prune of old bn_email_log rows (honours the data-retention window).
+	 * RETIRED — no longer registered or scheduled.
+	 *
+	 * LogRetentionService owns bn_email_log retention now. Kept only so clear_events()
+	 * and the upgrade migration can unschedule it where it is still armed. See
+	 * JOB_CLEANUP_NOTIFICATIONS above.
 	 *
 	 * @var string
 	 */
 	public const JOB_CLEANUP_EMAIL_LOG = 'buddynext_cleanup_email_log';
+
+	/**
+	 * Weekly prune of CLOSED bn_reports rows (honours the data-retention window).
+	 *
+	 * Free owns bn_reports, so Free prunes it. Pro used to DELETE from this table (and from
+	 * the append-only bn_mod_log) out of its AI-moderation sweep, on every site that had Pro
+	 * installed — including sites that never enabled AI moderation.
+	 *
+	 * @since 1.0.8
+	 *
+	 * @var string
+	 */
+	public const JOB_CLEANUP_REPORTS = 'buddynext_cleanup_reports';
 
 	/**
 	 * Counter recount job hook. Runs daily — counters are maintained
@@ -113,9 +136,8 @@ class CronScheduler {
 		add_action( self::JOB_DAILY_DIGEST, array( $handlers, 'handle_daily_digest' ) );
 		add_action( self::JOB_WEEKLY_DIGEST, array( $handlers, 'handle_weekly_digest' ) );
 		add_action( self::JOB_CLEANUP_TOKENS, array( $handlers, 'handle_cleanup_tokens' ) );
-		add_action( self::JOB_CLEANUP_NOTIFICATIONS, array( $handlers, 'handle_cleanup_notifications' ) );
 		add_action( self::JOB_CLEANUP_ACTIVITY_LOG, array( $handlers, 'handle_cleanup_activity_log' ) );
-		add_action( self::JOB_CLEANUP_EMAIL_LOG, array( $handlers, 'handle_cleanup_email_log' ) );
+		add_action( self::JOB_CLEANUP_REPORTS, array( $handlers, 'handle_cleanup_reports' ) );
 		add_action( self::JOB_RECOUNT_STATS, array( $handlers, 'handle_recount_stats' ) );
 	}
 
@@ -151,9 +173,8 @@ class CronScheduler {
 		$this->maybe_schedule( self::JOB_DAILY_DIGEST, 'daily' );
 		$this->maybe_schedule( self::JOB_WEEKLY_DIGEST, 'weekly' );
 		$this->maybe_schedule( self::JOB_CLEANUP_TOKENS, 'daily' );
-		$this->maybe_schedule( self::JOB_CLEANUP_NOTIFICATIONS, 'weekly' );
 		$this->maybe_schedule( self::JOB_CLEANUP_ACTIVITY_LOG, 'weekly' );
-		$this->maybe_schedule( self::JOB_CLEANUP_EMAIL_LOG, 'weekly' );
+		$this->maybe_schedule( self::JOB_CLEANUP_REPORTS, 'weekly' );
 		$this->maybe_schedule( self::JOB_RECOUNT_STATS, 'daily' );
 	}
 
@@ -172,6 +193,8 @@ class CronScheduler {
 			self::JOB_CLEANUP_TOKENS,
 			self::JOB_CLEANUP_NOTIFICATIONS,
 			self::JOB_CLEANUP_ACTIVITY_LOG,
+			self::JOB_CLEANUP_EMAIL_LOG,
+			self::JOB_CLEANUP_REPORTS,
 			self::JOB_RECOUNT_STATS,
 			// Legacy hooks — may still be scheduled on older installs; clear them too.
 			'buddynext_trending_hashtags',
@@ -222,7 +245,26 @@ class CronScheduler {
 			wp_clear_scheduled_hook( self::JOB_RECOUNT_STATS );
 		}
 
-		// 5. The remaining recurring jobs migrate from native WP-Cron to Action
+		// 5. Retire the two duplicate log-retention jobs.
+		//
+		// CronService used to prune bn_notifications and bn_email_log weekly, while
+		// LogRetentionService pruned the SAME two tables daily — two systems, two
+		// options, one set of rows, and the daily sweep always won. Those handlers are
+		// gone and the hooks are no longer registered.
+		//
+		// Unregistering is not enough on an EXISTING install. The events are already
+		// armed there, and a recurring event whose hook has no listener does not error —
+		// it simply fires into nothing, forever, staying in the cron array (and in
+		// Action Scheduler's tables) as permanent litter that every future debugger has
+		// to explain. Clear both explicitly, on both schedulers.
+		foreach ( array( self::JOB_CLEANUP_NOTIFICATIONS, self::JOB_CLEANUP_EMAIL_LOG ) as $bn_retired ) {
+			if ( function_exists( 'as_unschedule_all_actions' ) ) {
+				as_unschedule_all_actions( $bn_retired, array(), self::GROUP );
+			}
+			wp_clear_scheduled_hook( $bn_retired );
+		}
+
+		// 6. The remaining recurring jobs migrate from native WP-Cron to Action
 		// Scheduler automatically: schedule_events() -> maybe_schedule() clears each
 		// legacy WP-Cron event and registers the AS action on the next wp_loaded.
 	}

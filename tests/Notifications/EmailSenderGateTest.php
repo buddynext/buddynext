@@ -56,7 +56,10 @@ class EmailSenderGateTest extends \WP_UnitTestCase {
 			}
 		);
 
-		$data = array( 'type' => 'x.collect_only', 'message' => 'hi' );
+		$data = array(
+			'type'    => 'x.collect_only',
+			'message' => 'hi',
+		);
 		$this->sender()->send( $this->user_id, 'x.collect_only', $data );
 		$this->sender()->send_now( $this->user_id, 'x.collect_only', $data );
 

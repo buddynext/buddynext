@@ -46,9 +46,9 @@ Every field carries the following controls.
 |---|---|---|
 | Label | The field name members see on the form and the profile. | (required, no default) |
 | Field type | How the field is captured and displayed - see the type table below. | Text |
-| Visibility | Who can see the value: Public, Followers, Connections, or Private. A member may tighten this further per field, never loosen it. | Public |
+| Visibility | Who can see the value: Public, Members only, Followers only, Connections only, or Only me. A member may tighten this further per field, never loosen it. | Public |
 | Required | Marks the field as expected. The member is nudged to complete it (it counts against their profile completion score). | Off |
-| Searchable | Mirrors the value into search so members can find each other by this field in the directory and search. Available on text-style fields only. | Off |
+| Searchable | Mirrors the value into search so members can find each other by this field in the directory and search. Available on text-style fields only. How far it reaches depends on the field's visibility - see below. | Off |
 | Show on registration | Adds the field to the sign-up form so you collect it before the member reaches their profile. Fields in a repeating group cannot be added to sign-up. | Off |
 | Sort order | The position of the field within its group. Lower numbers appear first. | Appended last |
 
@@ -58,7 +58,7 @@ Every field carries the following controls.
 |---|---|---|
 | Label | The section heading shown on the profile and edit form. | (required, no default) |
 | Type | Flat (single set of fields) or Repeater (members can add multiple entries). | Flat |
-| Visibility | Section-level visibility applied on top of each field's own visibility. The most restrictive of the two wins. | Public |
+| Visibility | Section-level visibility applied on top of each field's own visibility (same five levels). The most restrictive of the two wins. | Public |
 | Sort order | The position of the group on the profile. Lower numbers appear first. | Appended last |
 
 ### Field types (free tier)
@@ -81,6 +81,35 @@ The free tier covers the everyday field types most communities need.
 | Colour | A colour value. |
 
 > **Tip:** Mark the one or two fields your directory should filter on (such as Skills or Department) as searchable, and the rest as not searchable. Only searchable fields can be used to find members.
+
+### How far a searchable field reaches (1.0.8)
+
+Ticking **Searchable** does not override the field's visibility - it works inside it. What "searchable" gets you therefore depends on which visibility the field carries:
+
+| Field visibility | Ticking Searchable means... |
+|---|---|
+| Public | Anyone can find the member by this value, including a logged-out visitor. |
+| Members only | Only a signed-in member can find them by it. A logged-out visitor never matches it. |
+| Followers only, Connections only, Only me | The value is not put into the search index at all, so it never matches for anyone. Searchable has no effect on these. |
+
+Before 1.0.8, ticking Searchable on anything other than a Public field silently did nothing: no index entry, no warning. If you ticked it on a Members-only field and wondered why nobody could be found by it, that is why - and it now works as you would expect.
+
+> **Tip:** If a field exists to help members find each other, set it to Public or Members only. Setting it to Followers only and ticking Searchable is a contradiction: you cannot be found by something only your existing followers can see.
+
+### Displaying a date without exposing it (Date fields)
+
+A Date field carries a **Display as** control with four choices:
+
+| Display as | What other members see |
+|---|---|
+| Full date | Jan 15, 1990 |
+| Month + Year | Jan 1990 |
+| Year only | 1990 |
+| Calculated age | 34 years old |
+
+This matters most on a **birthday** field. Choosing Year only or Calculated age means the member's full date of birth is never published - the profile, the member card, and the app all receive only the reduced form. The exact date stays in the member's own record.
+
+> **Warning:** In releases before 1.0.8 this control was saved but never applied - every date rendered as the full stored date regardless of what you picked. If you set a birthday field to Year only or Calculated age on an earlier version, check it now: it is finally doing what it said.
 
 ### Showing a group on a page with the block
 
@@ -108,6 +137,8 @@ Since 1.0.4 the profile form is fully yours to shape:
 - **Visibility is enforced by relationship, not by hiding in the page.** When a profile is read, BuddyNext checks the viewer's relationship to the owner (logged-out, follower, connection, or the owner themselves) and drops any field the viewer is not allowed to see before the value ever leaves the server. A Private field never appears for anyone but the owner.
 - **Most restrictive wins.** A value's effective visibility is the strictest of the group setting, the field setting, and the member's own per-field choice. Tightening any one of them tightens the result.
 - **Required is enforced.** Since 1.0.4, saving a profile with a required field left empty is rejected with a clear message next to that field. Required fields also count against the member's profile completion score.
+- **Required only applies where the field is actually shown.** If you limit a group to one member type and mark a field in it required, members of every other type are not asked for it and are not blocked by it. (Before 1.0.8 they were told a field was missing that they could not see and could never fill in, which left them unable to save their profile at all.)
+- **A field's type survives an edit made while Pro is inactive.** Editing a field whose type is provided by an add-on (a Pro type such as Location or Conditional) no longer silently resets it to Text when that add-on happens to be switched off. Deactivate Pro, edit a field's label, reactivate Pro, and the field is still the type you built.
 - **Bad values are skipped, not rejected.** If a member enters a value that does not fit the field type (for example letters in a Number field), that one value is not stored and the rest of the profile still saves. The member is not shown an inline error for the skipped field today.
 - **Empty profiles hide the feature.** A field with no value does not render on the profile view. A brand-new community with empty profiles will look sparse until members fill fields in, which is why setting a few fields to show on registration is worth doing.
 - **The starter set is yours to keep or change.** BuddyNext seeds a few groups (Basic Info, Social Links, Work Experience, Education, Skills, and Interests) so you are not starting from a blank slate. You can edit, reorder, or extend them - see [Member Interests](11-interests.md) for the one field with a system role.

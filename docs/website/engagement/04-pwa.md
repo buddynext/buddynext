@@ -18,7 +18,7 @@ The PWA experience is driven by the browser. There is nothing for a member to do
 
 ### Installing to a home screen
 
-When a member visits the community in a supported browser (Chrome, Edge, Safari, and other modern browsers), the browser offers to install it. On a phone this is "Add to Home Screen"; on desktop Chrome or Edge it is an install icon in the address bar. After installing, the community gets its own home-screen or app-launcher icon. The icon is generated from your site: a brand-coloured tile carrying the first letter of the site name.
+When a member visits the community in a supported browser (Chrome, Edge, Safari, and other modern browsers), the browser offers to install it. On a phone this is "Add to Home Screen"; on desktop Chrome or Edge it is an install icon in the address bar. After installing, the community gets its own home-screen or app-launcher icon.
 
 ### App-like navigation
 
@@ -35,16 +35,18 @@ The app experience is active by default on the front end and needs no admin acti
 | What it covers | What it does | Default |
 |---|---|---|
 | App name and details | The name, description, and colours members see when they install and launch the app. | Your site name, your site tagline, and your brand colour |
-| App icon | The home-screen icon members tap to open the community. | A brand-coloured tile showing your site's initial |
+| App icon | The home-screen icon members tap to open the community. | A BuddyNext app icon shipped with the plugin |
 | Launch window | How the app opens once installed. | Its own full-screen window, in portrait |
 | Offline shell | Whether the app opens to a cached home screen when there is no connection. | On |
 
-The defaults are ready to go: the app name is your site name, the icon uses your site's initial on a brand-coloured tile, and the app launches in its own portrait window. If you want a custom name, colour, or icon, or you want to turn off the offline behaviour, your developer can adjust those from your site's code. No technical setup is needed for the default installable experience to work.
+The defaults are ready to go: the app name is your site name, the app uses your brand colour, and it launches in its own portrait window. The icon is a real image file shipped with BuddyNext, at the two sizes phones and desktops ask for.
+
+**Replacing the app icon with your own** is worth doing before you tell members to install the community, because it is the icon they will see on their home screen every day. It is not a settings field - your developer swaps it from your site's code, and the same goes for a custom app name or colour, or turning the offline behaviour off. No technical setup is needed for the default installable experience to work; this is polish, not plumbing.
 
 ## Good to know
 
 - The install prompt and offline behaviour are evaluated by the browser, not by BuddyNext. Browsers require the site to be served over HTTPS (or localhost during development) before they offer to install. The PWA is intended for the front-end community surface and does not apply in the WordPress admin.
-- The generated app icon is a single scalable image marked as maskable, so it crops cleanly into the rounded or circular shapes different phones use.
+- The app icon ships at 192 and 512 pixels, and the larger one is also marked "maskable", so it crops cleanly into the rounded or circular shapes different phones use. If you replace the icon, supply both sizes and leave a little padding around your mark, or a phone that crops to a circle will clip its edges.
 - Offline coverage is the home shell plus pages a member has already visited. A first-time, fully-offline visit to a deep page will not have cached content to show.
 - Installability depends on the member's browser and device. Some browsers show the prompt automatically; others require the member to choose "Install" or "Add to Home Screen" from a menu.
 

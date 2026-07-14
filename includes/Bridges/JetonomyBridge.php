@@ -95,6 +95,7 @@ class JetonomyBridge {
 		// toggle the Discussions tab + the discussion activity from BuddyNext →
 		// Integrations (default on). The nav/feed gating below reads those toggles.
 		add_filter( 'buddynext_integrations', array( $this, 'register_integration' ) );
+		add_action( 'buddynext_integration_search_disabled', array( $this, 'on_search_disabled' ) );
 
 		// On-demand space forum: provision + redirect when a member first opens a
 		// forumless space's Discussions tab (web).
@@ -187,8 +188,14 @@ class JetonomyBridge {
 		$title     = (string) $post->title;
 		$content   = (string) $post->content_plain;
 
-		// Always-on: index for BuddyNext unified search.
-		( new SearchService() )->index( 'discussion', $post_id, $title, $content, $author_id, 'public', $space_id );
+		// Gated on the owner's "Include in search" switch. This was unconditional, with a
+		// comment that said "Always-on" — so an owner who switched Jetonomy off still had
+		// every new discussion enter community search, complete with its own Discussions
+		// tab on the results page (the tab list is built from DISTINCT object_type in the
+		// index, so the rows generate the tab that displays them).
+		if ( buddynext_integration_enabled( 'jetonomy', 'search' ) ) {
+			( new SearchService() )->index( 'discussion', $post_id, $title, $content, $author_id, 'public', $space_id );
+		}
 
 		// Always-on: parse @username mentions from the discussion body. Collect the
 		// unique logins first, then resolve them all in ONE query — the previous
@@ -246,7 +253,24 @@ class JetonomyBridge {
 			$url = $this->discussion_url( $post_id, $space_id );
 			if ( '' !== $url ) {
 				$excerpt = wp_trim_words( wp_strip_all_tags( $content ), 30, '…' );
-				IntegrationActivity::publish( $author_id, __( 'started a discussion', 'buddynext' ), $url, $title, 'discussion', $excerpt );
+
+				// Stamp the BuddyNext space this discussion belongs to. $space_id here
+				// is a Jetonomy FORUM id, which no BuddyNext surface understands — so
+				// it has to be mapped back to the bn_spaces row the forum is linked to.
+				// Without it the activity lands with space_id = NULL, which means the
+				// space's "Share activity to the main feed" toggle cannot suppress it
+				// (FeedService lets a NULL space through) and the space's own feed
+				// cannot show it (it queries WHERE space_id = %d). Both surfaces are
+				// fixed by this one value.
+				IntegrationActivity::publish(
+					$author_id,
+					__( 'started a discussion', 'buddynext' ),
+					$url,
+					$title,
+					'discussion',
+					$excerpt,
+					$this->space_id_for_forum( $space_id )
+				);
 			}
 		}
 
@@ -1393,12 +1417,35 @@ class JetonomyBridge {
 	public function register_integration( array $items ): array {
 		if ( class_exists( 'Jetonomy\Jetonomy' ) ) {
 			$items['jetonomy'] = array(
-				'label'    => __( 'Jetonomy', 'buddynext' ),
-				'has_nav'  => true,
-				'has_feed' => true,
+				'label'      => __( 'Jetonomy', 'buddynext' ),
+				'has_nav'    => true,
+				'has_feed'   => true,
+				'has_search' => true,
 			);
 		}
 		return $items;
+	}
+
+	/**
+	 * Purge Jetonomy discussions from the search index when the owner switches search off.
+	 *
+	 * Gating the write path only stops NEW content. Everything indexed while the
+	 * integration was enabled would otherwise keep surfacing in search forever, with no way
+	 * for the owner to reach it — which is the half of this bug that is actually visible to
+	 * members.
+	 *
+	 * The bridge owns the discussion <-> jetonomy mapping, not Free core: core fires the
+	 * action with the integration KEY and each bridge decides which object_type that means.
+	 *
+	 * @param string $key Integration key that was switched off.
+	 * @return void
+	 */
+	public function on_search_disabled( string $key ): void {
+		if ( 'jetonomy' !== $key ) {
+			return;
+		}
+
+		( new SearchService() )->deindex_type( 'discussion' );
 	}
 
 	/**
@@ -1670,6 +1717,54 @@ class JetonomyBridge {
 			return 0;
 		}
 		return (int) buddynext_get_space_field( $space_id, 'jetonomy_forum_id' );
+	}
+
+	/**
+	 * Resolve the BuddyNext space a Jetonomy forum is linked to — the inverse of
+	 * forum_id_for_space().
+	 *
+	 * Needed because every Jetonomy hook hands us a `jt_spaces.id` (a forum id),
+	 * while every BuddyNext feed/privacy surface keys on a `bn_spaces.id`. Without
+	 * this mapping a discussion activity is written with no space at all, and the
+	 * space's own "Share activity to the main feed" toggle can never suppress it —
+	 * FeedService excludes by `space_id` and lets a NULL space through.
+	 *
+	 * Memoized per request: one discussion hook can fan out to several callers.
+	 *
+	 * @param int $forum_id Jetonomy forum id (jt_spaces.id).
+	 * @return int BuddyNext space id, or 0 when the forum is not linked to a space.
+	 */
+	private function space_id_for_forum( int $forum_id ): int {
+		static $memo = array();
+
+		$forum_id = absint( $forum_id );
+		if ( $forum_id <= 0 ) {
+			return 0;
+		}
+
+		if ( isset( $memo[ $forum_id ] ) ) {
+			return $memo[ $forum_id ];
+		}
+
+		global $wpdb;
+
+		// Space meta has no lookup-by-VALUE accessor, so this reverse resolution has
+		// to be a direct query. Memoized above, so it runs at most once per forum
+		// per request.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$space_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT bn_space_id FROM {$wpdb->bn_spacemeta}
+				 WHERE meta_key = 'jetonomy_forum_id' AND meta_value = %s
+				 LIMIT 1",
+				(string) $forum_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$memo[ $forum_id ] = $space_id;
+
+		return $space_id;
 	}
 
 	/**

@@ -38,6 +38,8 @@ Use the filter tabs to focus the list, and the sort control to order it:
 
 These let a moderator triage a large queue by going after the most-reported items first, or by handling the freshest reports as they arrive.
 
+> **Note:** There is no Media tab, and that is on purpose. Reported photos and videos do not come here. They go to the media plugin's own review queue, under **WPMediaVerse > Media Moderation** in the WordPress admin, because that plugin owns the media. If your community allows photo and video uploads, put both queues on your moderators' rounds.
+
 ### Acting on a report
 
 Each row has an action cluster. The actions available from the queue page are:

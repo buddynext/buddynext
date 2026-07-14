@@ -359,6 +359,7 @@ class WidgetService {
 							"SHOW COLUMNS FROM {$wpdb->prefix}bn_space_members LIKE 'unread_count'"
 						);
 						$has_unread = null !== $row ? 1 : 0;
+						// cache-ttl-only: caches whether a COLUMN exists (SHOW COLUMNS). Schema introspection, correctly global, and it changes only on upgrade.
 						wp_cache_set( $columns_cache_key, $has_unread, WidgetCache::GROUP_GLOBAL, HOUR_IN_SECONDS );
 					}
 					$has_unread = (bool) $has_unread;

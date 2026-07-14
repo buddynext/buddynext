@@ -206,6 +206,7 @@ class PresenceService {
 	private function mark_throttled( int $user_id ): void {
 		$key = 'throttle_' . $user_id;
 		if ( wp_using_ext_object_cache() ) {
+			// cache-ttl-only: this is a WRITE THROTTLE ('already recorded activity this minute'), not a read cache. The TTL IS the mechanism — there is nothing to invalidate.
 			wp_cache_set( $key, 1, self::THROTTLE_GROUP, self::THROTTLE_SECONDS );
 			return;
 		}

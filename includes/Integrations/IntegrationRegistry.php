@@ -82,11 +82,15 @@ final class IntegrationRegistry {
 				}
 			}
 			$out[ $key ] = array(
-				'key'      => $key,
-				'label'    => isset( $entry['label'] ) && '' !== (string) $entry['label'] ? (string) $entry['label'] : ucfirst( $key ),
-				'has_nav'  => ! empty( $entry['has_nav'] ),
-				'has_feed' => ! empty( $entry['has_feed'] ),
-				'subtabs'  => $subtabs,
+				'key'        => $key,
+				'label'      => isset( $entry['label'] ) && '' !== (string) $entry['label'] ? (string) $entry['label'] : ucfirst( $key ),
+				'has_nav'    => ! empty( $entry['has_nav'] ),
+				'has_feed'   => ! empty( $entry['has_feed'] ),
+				// Whether this integration writes into the search index. Only integrations
+				// that declare it get the "Include in search" switch — otherwise the owner
+				// is offered a control that governs nothing.
+				'has_search' => ! empty( $entry['has_search'] ),
+				'subtabs'    => $subtabs,
 			);
 		}
 

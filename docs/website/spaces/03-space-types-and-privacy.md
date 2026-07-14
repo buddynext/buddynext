@@ -24,16 +24,20 @@ Choosing the right type is the single most important decision when starting a sp
 |---|---|---|---|
 | Visibility | Public | Listed | Hidden |
 | Listed in the directory | Yes | Yes | No |
-| Join method | Join instantly | Request to join (owner approves) | Invite only |
+| Join method | Join instantly (or request, if the owner requires approval) | Request to join (owner approves) | Invite only |
 | Content visible to non-members | Yes | No (gated) | No (hidden entirely) |
 
 ### Open
 
 Anyone can find the space in the directory, read its feed, and join with a single click. There is no approval step. Use Open for general-interest spaces, public announcements, and anything you want to grow as large as possible.
 
+An open space can optionally vet who joins. Switch on **Require approval to join** in the space's Permissions settings and the space stays fully readable to everyone, but a Join click becomes a request that the owner or a moderator approves. This toggle is offered on Open spaces only, because it is the only type where it does anything: private spaces already queue every join, and secret spaces are invite only. See Managing Space Members.
+
 ### Private
 
-The space is listed in the directory so members can find it and see who runs it, but the feed and member content are gated. Clicking join sends a request that the owner or a moderator approves or declines; the member can cancel a pending request while they wait. Use Private when membership should be vetted but the group's existence is not a secret - paid cohorts (in Pro), regional chapters, or topic groups that want quality over quantity.
+The space is listed in the directory so members can find it and see who runs it, but the feed and member content are gated. A non-member can still open the space's **About** tab and read its name, description, house rules, and moderator list, so they know who is in charge and what the rules are before deciding to ask for a place. The feed stays locked until they are approved.
+
+Clicking join sends a request that the owner or a moderator approves or declines; the member can cancel a pending request while they wait. Use Private when membership should be vetted but the group's existence is not a secret - paid cohorts (in Pro), regional chapters, or topic groups that want quality over quantity.
 
 ### Secret
 
@@ -43,7 +47,7 @@ The space does not appear in the directory or in any public space list, so non-m
 
 ## How a member joins each type
 
-- **Open** - the member sees a Join button and clicks it. They become an active member immediately and can post right away.
+- **Open** - the member sees a Join button and clicks it. They become an active member immediately and can post right away. If the owner has switched on Require approval to join, the click files a request instead and the member waits for a decision.
 - **Private** - the member sees a Request to join button. After requesting, they appear in the owner's pending list and wait for approval. They can withdraw the request before it is answered.
 - **Secret** - the member cannot reach the space on their own. The owner sends an invite, and the member accepts it to join.
 
@@ -63,7 +67,8 @@ The privacy type is set per space on the space's own settings page (Privacy pane
 
 - **Changing type after creation is allowed.** An owner can switch a space between types from its Privacy settings. Moving a space to Secret removes it from the directory; moving it back to Open or Private lists it again.
 - **Secret spaces stay out of every listing.** They are excluded from the directory, public space queries, and search results for people who are not members.
-- **Private content is genuinely gated.** Non-members of a private space see the space's name and owner but cannot read its feed until they are approved.
+- **Private content is genuinely gated - but its identity is not.** A non-member of a private space can read the About tab (name, description, house rules, moderators) so they can judge whether to ask for a place. The feed and the member content stay locked until they are approved. The gate is about content, not about who runs the space.
+- **Require approval to join is an Open-space setting.** It is shown only on Open spaces, where it turns instant joins into reviewed requests. Private and secret spaces do not offer it because their type already answers the question.
 - **The owner is always a member.** Whoever creates a space is its owner and first member, regardless of type.
 
 ## Free vs Pro

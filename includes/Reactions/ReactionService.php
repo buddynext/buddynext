@@ -28,6 +28,14 @@ class ReactionService {
 	private const CACHE_GROUP = 'buddynext_reactions';
 
 	/**
+	 * Rows purged per statement when removing a custom reaction.
+	 *
+	 * Small enough that the lock on bn_reactions — the hottest write path in the product — is
+	 * never held long on a shared host.
+	 */
+	private const PURGE_BATCH = 500;
+
+	/**
 	 * Cache TTL in seconds.
 	 */
 	private const CACHE_TTL = 300;
@@ -53,12 +61,10 @@ class ReactionService {
 		}
 
 		// Validate the emoji against the allow-list (the owner-enabled, Pro-filterable
-		// reaction types). An unknown slug falls back to the default 'like' so a stray
-		// or disabled type never lands in the table.
-		$emoji = sanitize_key( $emoji );
-		if ( ! in_array( $emoji, self::reaction_types(), true ) ) {
-			$emoji = 'like';
-		}
+		// reaction types). An unknown slug falls back to the first ENABLED type so a
+		// stray or disabled type never lands in the table — hardcoding 'like' here
+		// broke that guarantee precisely when the owner had disabled 'like'.
+		$emoji = self::coerce_to_enabled( $emoji );
 
 		global $wpdb;
 
@@ -212,6 +218,36 @@ class ReactionService {
 	}
 
 	/**
+	 * Normalise an incoming reaction slug to one the owner actually has enabled.
+	 *
+	 * Single guard used by both write paths (react() and the toggle() replace
+	 * branch), so a slug the owner disabled — or a stray/legacy one a client
+	 * sends — can never land in bn_reactions. Out-of-set slugs coerce to the
+	 * FIRST enabled type rather than the literal 'like': the settings sanitizer
+	 * only enforces a non-empty set, so 'like' itself may be disabled, and
+	 * coercing to it would write exactly the slug the owner turned off.
+	 *
+	 * reaction_types() is guaranteed non-empty (it falls back to the canonical
+	 * six when the option is empty); 'like' remains only as a defensive default
+	 * if a filter returns an empty list.
+	 *
+	 * @param string $emoji Raw reaction slug from the client.
+	 * @return string A slug guaranteed to be in the owner-enabled set.
+	 */
+	private static function coerce_to_enabled( string $emoji ): string {
+		$emoji   = sanitize_key( $emoji );
+		$enabled = self::reaction_types();
+
+		if ( in_array( $emoji, $enabled, true ) ) {
+			return $emoji;
+		}
+
+		$first = reset( $enabled );
+
+		return ( false === $first || '' === $first ) ? 'like' : (string) $first;
+	}
+
+	/**
 	 * The owner-enabled reaction set with full render metadata.
 	 *
 	 * Single source the app can read to render the reaction picker without
@@ -360,11 +396,9 @@ class ReactionService {
 		}
 
 		// Replace the existing emoji with the new one. Validate against the
-		// allow-list (mirrors react()) so a switch never writes an unknown slug.
-		$emoji = sanitize_key( $emoji );
-		if ( ! in_array( $emoji, self::reaction_types(), true ) ) {
-			$emoji = 'like';
-		}
+		// allow-list (mirrors react()) so a switch never writes an unknown or
+		// owner-disabled slug.
+		$emoji = self::coerce_to_enabled( $emoji );
 
 		global $wpdb;
 
@@ -773,34 +807,82 @@ class ReactionService {
 
 		global $wpdb;
 
-		// Affected objects + how many rows each loses, so counts + caches reconcile.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$affected = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT object_type, object_id, COUNT(*) AS n
-				 FROM {$wpdb->prefix}bn_reactions
-				 WHERE emoji = %s
-				 GROUP BY object_type, object_id",
-				$emoji
-			),
-			ARRAY_A
-		);
+		// BATCHED, and deliberately WITHOUT an index on `emoji`.
+		//
+		// This was: a GROUP BY over the whole table to find the affected objects, then a single
+		// unbounded DELETE. `emoji` is in no index — bn_reactions has PRIMARY (user_id,
+		// object_type, object_id), object_recent and reaction_created — so the read is a full
+		// scan of the LARGEST TABLE IN THE PRODUCT (one row per like), and the DELETE takes a
+		// long table lock on the hottest write path there is. On shared hosting that is an
+		// outage, not a slow admin action.
+		//
+		// The obvious fix is KEY emoji (emoji). It is the WRONG trade: every like pays an extra
+		// index write, forever, to speed up something an owner does a handful of times in the
+		// life of a site. Say no to it here so the next reader does not "helpfully" add it.
+		//
+		// So the scan stays (it is rare) and the LOCK goes: read a page, delete exactly those
+		// rows by primary key, tally what each object lost, repeat. Every statement is short.
+		$affected_map = array();
+		$deleted      = 0;
 
-		if ( empty( $affected ) ) {
+		do {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$page = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT user_id, object_type, object_id
+					 FROM {$wpdb->prefix}bn_reactions
+					 WHERE emoji = %s
+					 LIMIT %d",
+					$emoji,
+					self::PURGE_BATCH
+				),
+				ARRAY_A
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			$found = count( (array) $page );
+
+			foreach ( (array) $page as $row ) {
+				$key = (string) $row['object_type'] . ':' . (int) $row['object_id'];
+
+				$affected_map[ $key ] = ( $affected_map[ $key ] ?? 0 ) + 1;
+
+				// Delete by PRIMARY KEY — a point delete, no scan, no lock worth the name.
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$deleted += (int) $wpdb->delete(
+					$wpdb->prefix . 'bn_reactions',
+					array(
+						'user_id'     => (int) $row['user_id'],
+						'object_type' => (string) $row['object_type'],
+						'object_id'   => (int) $row['object_id'],
+					),
+					array( '%d', '%s', '%d' )
+				);
+			}
+		} while ( self::PURGE_BATCH === $found );
+
+		if ( empty( $affected_map ) ) {
 			return 0;
 		}
 
-		$deleted = (int) $wpdb->query(
-			$wpdb->prepare( "DELETE FROM {$wpdb->prefix}bn_reactions WHERE emoji = %s", $emoji )
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$affected = array();
+		foreach ( $affected_map as $key => $lost ) {
+			list( $o_type, $o_id ) = explode( ':', (string) $key, 2 );
+
+			$affected[] = array(
+				'object_type' => $o_type,
+				'object_id'   => $o_id,
+				'n'           => $lost,
+			);
+		}
 
 		foreach ( (array) $affected as $row ) {
 			$object_type = (string) $row['object_type'];
 			$object_id   = (int) $row['object_id'];
 			$lost        = (int) $row['n'];
 
-			if ( 'post' === $object_type && $object_id > 0 && $lost > 0 ) {
+			// $lost is always >= 1: the map is built by counting rows we actually deleted.
+			if ( 'post' === $object_type && $object_id > 0 ) {
 				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$wpdb->query(
 					$wpdb->prepare(

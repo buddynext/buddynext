@@ -664,7 +664,10 @@ class FeedServiceTest extends \WP_UnitTestCase {
 			)
 		);
 		$space_id = (int) $wpdb->insert_id;
-		foreach ( array( $this->bob => 'owner', $this->carol => 'member' ) as $uid => $role ) {
+		foreach ( array(
+			$this->bob   => 'owner',
+			$this->carol => 'member',
+		) as $uid => $role ) {
 			$wpdb->insert(
 				$wpdb->prefix . 'bn_space_members',
 				array(
@@ -678,15 +681,51 @@ class FeedServiceTest extends \WP_UnitTestCase {
 		}
 
 		// Hashtag that Alice (a non-member) follows.
-		$wpdb->insert( $wpdb->prefix . 'bn_hashtags', array( 'name' => 'leaktag', 'slug' => 'leaktag', 'created_at' => current_time( 'mysql', 1 ) ) );
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_hashtags',
+			array(
+				'name'       => 'leaktag',
+				'slug'       => 'leaktag',
+				'created_at' => current_time( 'mysql', 1 ),
+			)
+		);
 		$hid = (int) $wpdb->insert_id;
-		$wpdb->insert( $wpdb->prefix . 'bn_hashtag_follows', array( 'user_id' => $this->alice, 'hashtag_id' => $hid ) );
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_hashtag_follows',
+			array(
+				'user_id'    => $this->alice,
+				'hashtag_id' => $hid,
+			)
+		);
 
 		// P: public post INSIDE the private space, tagged. Q: public control, no space, tagged.
-		$secret_post = $this->posts->create( $this->bob, array( 'type' => 'text', 'content' => 'secret #leaktag', 'privacy' => 'public', 'space_id' => $space_id ) );
-		$public_post = $this->posts->create( $this->bob, array( 'type' => 'text', 'content' => 'open #leaktag', 'privacy' => 'public' ) );
+		$secret_post = $this->posts->create(
+			$this->bob,
+			array(
+				'type'     => 'text',
+				'content'  => 'secret #leaktag',
+				'privacy'  => 'public',
+				'space_id' => $space_id,
+			)
+		);
+		$public_post = $this->posts->create(
+			$this->bob,
+			array(
+				'type'    => 'text',
+				'content' => 'open #leaktag',
+				'privacy' => 'public',
+			)
+		);
 		foreach ( array( $secret_post, $public_post ) as $pid ) {
-			$wpdb->insert( $wpdb->prefix . 'bn_post_hashtags', array( 'post_id' => $pid, 'object_type' => 'post', 'hashtag_id' => $hid, 'created_at' => current_time( 'mysql', 1 ) ) );
+			$wpdb->insert(
+				$wpdb->prefix . 'bn_post_hashtags',
+				array(
+					'post_id'     => $pid,
+					'object_type' => 'post',
+					'hashtag_id'  => $hid,
+					'created_at'  => current_time( 'mysql', 1 ),
+				)
+			);
 		}
 
 		$alice_ids = array_column( $this->feed->home_feed( $this->alice )['items'], 'id' );

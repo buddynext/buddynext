@@ -89,9 +89,23 @@ class JetonomyBridgeListenerTest extends \WP_UnitTestCase {
 		global $wpdb;
 		// The reply (object_id 9) is authored by the actor we will block.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->insert( $wpdb->prefix . 'jt_replies', array( 'id' => 9, 'author_id' => $this->actor_id ), array( '%d', '%d' ) );
+		$wpdb->insert(
+			$wpdb->prefix . 'jt_replies',
+			array(
+				'id'        => 9,
+				'author_id' => $this->actor_id,
+			),
+			array( '%d', '%d' )
+		);
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->insert( $wpdb->prefix . 'bn_blocks', array( 'blocker_id' => $this->author_id, 'blocked_id' => $this->actor_id ), array( '%d', '%d' ) );
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_blocks',
+			array(
+				'blocker_id' => $this->author_id,
+				'blocked_id' => $this->actor_id,
+			),
+			array( '%d', '%d' )
+		);
 
 		do_action( 'jetonomy_notification_created', 0, $this->author_id, 'reply', 'reply', 9, 'Blocked user replied.', 'http://x/' );
 
@@ -99,7 +113,10 @@ class JetonomyBridgeListenerTest extends \WP_UnitTestCase {
 	}
 
 	public function test_render_seams_return_stored_message_and_url(): void {
-		$data    = array( 'message' => 'Mention from Sam.', 'url' => 'http://x/m/1' );
+		$data    = array(
+			'message' => 'Mention from Sam.',
+			'url'     => 'http://x/m/1',
+		);
 		$message = apply_filters( 'buddynext_notification_message', '', 'jt.notification', '', 0, $data );
 		$url     = apply_filters( 'buddynext_notification_url', '', 'jt.notification', 0, 0, $data );
 		$this->assertSame( 'Mention from Sam.', $message );

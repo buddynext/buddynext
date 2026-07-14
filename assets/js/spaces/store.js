@@ -575,6 +575,87 @@ function routeMembership( event, ownState ) {
 	return false;
 }
 
+/* ── Membership DOM read-back helpers ──────────────────────────────────
+ *
+ * Every space card — the SSR directory card (templates/parts/space-directory-card.php),
+ * the block card (templates/blocks/space-card.php), and buildSpaceCard() below —
+ * uses the `bn-sd-card` namespace. The membership actions used to read back
+ * `.bn-space-card*` selectors, which exist nowhere in the markup, so every lookup
+ * returned null: the member count never moved and leaving a private space always
+ * showed "Join" instead of "Request to join". */
+
+/**
+ * The space card that owns a membership button.
+ *
+ * Note the button itself carries data-space-id, so `closest('[data-space-id]')`
+ * would return the BUTTON, not its card.
+ *
+ * @param {Element|null} btn Membership button.
+ * @return {Element|null} The .bn-sd-card element, or null outside a card (e.g. the space hero).
+ */
+function spaceCardFor( btn ) {
+	return btn ? btn.closest( '.bn-sd-card' ) : null;
+}
+
+/**
+ * Whether joining this space needs approval (request/invite) rather than a direct join.
+ *
+ * Preferred signal is an explicit data-join-method on the card. Otherwise it is
+ * read from the privacy badge's tone, which SpaceTypeRegistry assigns per type:
+ * open -> 'success' (the ONLY direct-join built-in), private -> 'warn',
+ * secret -> 'danger', custom types -> 'info' by default. So only 'success' means
+ * a plain "Join"; every other tone means "Request to join".
+ *
+ * The badge is found by walking up from the button to the nearest ancestor whose
+ * subtree contains one — that is the card on a directory/block card and the hero
+ * root on a space page, and it can never match a sibling card's badge.
+ *
+ * @param {Element|null} btn Membership button.
+ * @return {boolean} True when the space requires a join request.
+ */
+function spaceNeedsRequest( btn ) {
+	var card = spaceCardFor( btn );
+	if ( card && card.dataset.joinMethod ) {
+		return 'direct' !== card.dataset.joinMethod;
+	}
+
+	var node  = btn;
+	var badge = null;
+	while ( node && node !== document.body && ! badge ) {
+		badge = node.querySelector ? node.querySelector( '.bn-badge[data-tone]' ) : null;
+		node  = node.parentElement;
+	}
+	if ( ! badge ) { return false; }
+
+	var tone = badge.getAttribute( 'data-tone' );
+	if ( tone ) { return 'success' !== tone; }
+
+	// Legacy markup with no tone: fall back to the label text.
+	return badge.textContent.toLowerCase().indexOf( 'open' ) === -1;
+}
+
+/**
+ * Nudge a card's member-count stat by `delta` without a reload.
+ *
+ * The first .bn-sd-card__stat span is the member count. No-ops when the button is
+ * not inside a card (the space hero renders its counts elsewhere).
+ *
+ * @param {Element|null} card  The .bn-sd-card element.
+ * @param {number}       delta +1 on join, -1 on leave.
+ * @return {void}
+ */
+function bumpMemberCount( card, delta ) {
+	var countEl = card ? card.querySelector( '.bn-sd-card__stats span' ) : null;
+	if ( ! countEl ) { return; }
+
+	var match = countEl.textContent.match( /(\d[\d,]*)/ );
+	if ( ! match ) { return; }
+
+	var curr = parseInt( match[1].replace( /,/g, '' ), 10 );
+	var next = Math.max( 0, curr + delta );
+	countEl.textContent = countEl.textContent.replace( /\d[\d,]*/, next.toLocaleString() );
+}
+
 /* ── Store ─────────────────────────────────────────────────────────── */
 
 var storeInstance = store( 'buddynext/spaces', {
@@ -633,17 +714,15 @@ var storeInstance = store( 'buddynext/spaces', {
 
 				if ( res.ok && data.joined ) {
 					swapButtonState( btn, 'joined' );
-					// Update member count label if present in the same card.
-					var card = btn ? btn.closest( '[data-space-id]' ) || btn.closest( '.bn-space-card' ) : null;
-					if ( card ) {
-						var countEl = card.querySelector( '.bn-space-card__stats span' );
-						if ( countEl ) {
-							var match = countEl.textContent.match( /(\d[\d,]*)/ );
-							if ( match ) {
-								var next = parseInt( match[1].replace( /,/g, '' ), 10 ) + 1;
-								countEl.textContent = countEl.textContent.replace( /\d[\d,]*/, next.toLocaleString() );
-							}
-						}
+					// Update the member count in the same card (no-op off-card).
+					bumpMemberCount( spaceCardFor( btn ), 1 );
+				} else if ( res.ok && ( data.requested || data.pending ) ) {
+					// Open space with "require approval to join": the server accepted
+					// the join REQUEST and returns 200 {requested:true} (not joined).
+					// Reflect a pending state instead of falsely erroring.
+					swapButtonState( btn, 'pending' );
+					if ( window.bnToast ) {
+						window.bnToast( ( data && data.message ) || t( 'joinRequested', 'Request sent — you’ll be notified when it’s approved.' ), 'success' );
 					}
 				} else if ( isGatedDenial( data ) ) {
 					surfacePaywall( btn, spaceId, data );
@@ -731,6 +810,12 @@ var storeInstance = store( 'buddynext/spaces', {
 		/**
 		 * Request to join a private or invite-only space.
 		 * The endpoint returns { pending: true } on success.
+		 *
+		 * The failure branch MUST report itself: restFetch opts out of the shared
+		 * error toast here (toastOnError: false), so a rejected request \u2014 a banned
+		 * member, a space that stopped accepting requests \u2014 used to only revert the
+		 * button and say nothing at all. The member saw a flicker and no reason.
+		 * Mirrors joinSpace: surface data.message when the server sent one.
 		 */
 		requestJoin: async function ( event ) {
 			if ( routeMembership( event, 'request' ) ) { return; }
@@ -753,12 +838,18 @@ var storeInstance = store( 'buddynext/spaces', {
 					swapButtonState( btn, 'pending' );
 				} else if ( isGatedDenial( data ) ) {
 					surfacePaywall( btn, spaceId, data );
-				} else if ( btn ) {
-					btn.textContent = origText;
-					btn.disabled    = false;
+				} else {
+					if ( btn ) {
+						btn.textContent = origText;
+						btn.disabled    = false;
+					}
+					if ( window.bnToast ) {
+						window.bnToast( ( data && data.message ) || t( 'couldNotRequestJoin', 'Could not send your request.' ), 'danger' );
+					}
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
+				if ( window.bnToast ) { window.bnToast( t( 'networkError', 'Network error.' ), 'danger' ); }
 			}
 		},
 
@@ -843,34 +934,11 @@ var storeInstance = store( 'buddynext/spaces', {
 				var data = res.data || {};
 
 				if ( res.ok && data.left ) {
-					// Decide button to show based on card privacy badge.
-					// v2: badge carries data-tone="info" for open / "warn"|"danger" for private/secret.
-					// Legacy: text match on i18n label.
-					var card = btn ? btn.closest( '.bn-space-card__footer' ) || btn.closest( '.bn-space-card' ) : null;
-					var privacyEl = card ? card.querySelector( '.bn-space-card__privacy' ) : null;
-					var tone = privacyEl ? privacyEl.getAttribute( 'data-tone' ) : null;
-					var isPrivate;
-					if ( tone ) {
-						isPrivate = ( tone !== 'info' );
-					} else if ( privacyEl ) {
-						isPrivate = ( privacyEl.textContent.toLowerCase().indexOf( 'public' ) === -1 );
-					} else {
-						isPrivate = false;
-					}
-					swapButtonState( btn, isPrivate ? 'request' : 'join' );
+					// Re-offer the correct entry route: a plain "Join" only for an
+					// open (direct-join) space, "Request to join" for private/secret.
+					swapButtonState( btn, spaceNeedsRequest( btn ) ? 'request' : 'join' );
 
-					// Decrement member count.
-					if ( card ) {
-						var countEl = card.querySelector( '.bn-space-card__stats span' );
-						if ( countEl ) {
-							var match = countEl.textContent.match( /(\d[\d,]*)/ );
-							if ( match ) {
-								var curr = parseInt( match[1].replace( /,/g, '' ), 10 );
-								var next = Math.max( 0, curr - 1 );
-								countEl.textContent = countEl.textContent.replace( /\d[\d,]*/, next.toLocaleString() );
-							}
-						}
-					}
+					bumpMemberCount( spaceCardFor( btn ), -1 );
 				} else if ( btn ) {
 					btn.textContent = origText;
 					btn.disabled    = false;
@@ -1458,6 +1526,43 @@ var storeInstance = store( 'buddynext/spaces', {
 			}
 		},
 
+		/**
+		 * Restore an archived space — the way back out of Archive.
+		 *
+		 * The REST route (DELETE /spaces/{id}/archive) already existed; nothing in the
+		 * front end ever called it, so a member-owner who archived a space had no way
+		 * to reopen it. wp-admin's unarchive is gated on manage_options, which a
+		 * member-owner does not have, leaving permanent Delete as their only exit.
+		 *
+		 * No confirm modal: unlike Archive and Delete, restoring is not destructive.
+		 *
+		 * @param {Event} event Click event from the Restore button.
+		 */
+		unarchiveSpace: async function ( event ) {
+			var btn = event && event.target && event.target.closest( 'button' );
+			if ( ! btn ) { return; }
+			var spaceId = btn.getAttribute( 'data-space-id' );
+			if ( ! spaceId ) { return; }
+			btn.disabled = true;
+			try {
+				var res = await restFetch( '/spaces/' + spaceId + '/archive', {
+					method:  'DELETE',
+					nonce:   resolveNonce(),
+					toastOnError: false,
+				} );
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( t( 'spaceRestored', 'Space restored.' ), 'success' ); }
+					setTimeout( function () { window.location.reload(); }, 500 );
+				} else {
+					btn.disabled = false;
+					if ( window.bnToast ) { window.bnToast( t( 'couldNotRestore', 'Could not restore the space. Try again.' ), 'danger' ); }
+				}
+			} catch ( _e ) {
+				btn.disabled = false;
+				if ( window.bnToast ) { window.bnToast( t( 'couldNotRestore', 'Could not restore the space. Try again.' ), 'danger' ); }
+			}
+		},
+
 		/* ── Settings: reactive sticky savebar ─────────────────────────────
 		 *
 		 * Replaces the old imperative showState() dataset/.hidden paint loop.
@@ -1946,8 +2051,15 @@ function buildSpaceCard( row ) {
 
 	// Privacy label/tone come from the server (type_label/type_tone) so the
 	// reactive card matches the SSR card exactly, including custom space types.
+	// Fallback tones mirror SpaceTypeRegistry::defaults(): open=success,
+	// private=warn, secret=danger.
 	var privacyLabel = row.type_label || t( 'labelPublic', 'Public' );
-	var privacyTone  = row.type_tone || ( 'open' === type ? 'info' : ( 'private' === type ? 'warn' : 'danger' ) );
+	var privacyTone  = row.type_tone || ( 'open' === type ? 'success' : ( 'private' === type ? 'warn' : 'danger' ) );
+
+	// Authoritative join route for this card. Published on the card so the
+	// membership actions can re-offer the right CTA after a leave without
+	// inferring it from the badge tone (which custom space types can override).
+	var cardJoinMethod = row.join_method || ( 'open' === type ? 'direct' : 'request' );
 
 	var coverTone = row.cover_tone || 'sky';
 
@@ -1960,6 +2072,7 @@ function buildSpaceCard( row ) {
 	article.setAttribute( 'role', 'listitem' );
 	article.setAttribute( 'aria-label', name + ' (' + privacyLabel + ')' );
 	article.dataset.spaceId     = String( spaceId );
+	article.dataset.joinMethod  = cardJoinMethod;
 	article.dataset.interactive = '';
 
 	// ── Cover (+ optional image) + emblem ──────────────────────────────
@@ -2062,7 +2175,7 @@ function buildSpaceCard( row ) {
 	var isAdminMod  = ( 'active' === status ) && ( 'owner' === role || 'moderator' === role );
 	var isMember    = ( 'active' === status );
 	var isPending   = ( 'pending' === status );
-	var joinMethod  = row.join_method || ( 'open' === type ? 'direct' : 'request' );
+	var joinMethod  = cardJoinMethod;
 
 	var foot = document.createElement( 'div' );
 	foot.className = 'bn-sd-card__foot';

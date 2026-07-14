@@ -844,15 +844,14 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
-		if ( SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) $space['type'] ) ) {
-			$viewer_id = get_current_user_id();
-			if ( 0 === $viewer_id || ! ( new SpaceMemberService() )->is_member( $space['id'], $viewer_id ) ) {
-				return new WP_Error(
-					'rest_forbidden',
-					__( 'Space not found.', 'buddynext' ),
-					array( 'status' => 404 )
-				);
-			}
+		// Existence gate — the canonical resolver, the same one the server-rendered
+		// space page consults, so the app and the page can never disagree.
+		if ( ! SpaceVisibility::can_view_space( $space, get_current_user_id() ) ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
 		}
 
 		// Attach registered space fields with their values. Members-only fields are
@@ -897,14 +896,23 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
-		// A secret parent's children are only listable by its members / admins.
+		// A hidden (secret) parent must not confirm it exists — 404. A listed but
+		// gated (private) parent exists publicly, but its structure is content:
+		// only its members / owner / moderators / site admins may list its
+		// children. Both answers come from the canonical resolver.
 		$viewer_id = get_current_user_id();
-		if ( SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) $parent['type'] )
-			&& ( 0 === $viewer_id || ! ( new SpaceMemberService() )->is_member( (int) $parent['id'], $viewer_id ) ) ) {
+		if ( ! SpaceVisibility::can_view_space( $parent, $viewer_id ) ) {
 			return new WP_Error(
 				'rest_forbidden',
 				__( 'Space not found.', 'buddynext' ),
 				array( 'status' => 404 )
+			);
+		}
+		if ( ! SpaceVisibility::can_view_content( $parent, $viewer_id ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'You do not have access to this space.', 'buddynext' ),
+				array( 'status' => 403 )
 			);
 		}
 
@@ -964,7 +972,10 @@ class SpaceController extends BaseRestController {
 				'label'       => $field['label'],
 				'description' => $field['description'],
 				'type'        => $field['type'],
-				'options'     => $field['options'],
+				// Through the engine, never $field['options'] directly — a live-optioned
+				// type stores no options at registration and would advertise an empty
+				// pick list. See FieldType::choices().
+				'options'     => \BuddyNext\Profile\FieldType::choices( $field ),
 				'section'     => $field['section'],
 				'sort_order'  => $field['sort_order'],
 				'visibility'  => $field['visibility'],
@@ -996,9 +1007,20 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
+		$user_id = get_current_user_id();
+
+		// The route admits anyone who manages the space at moderator level or above;
+		// WHICH fields they may actually write is then decided per field, inside
+		// save_for_space(), by SpaceFieldRegistry::can_write(). A moderator gets the
+		// moderation settings and a 422 on anything else.
+		//
+		// This used to demand `buddynext-manage-space` (owner-only) for every field,
+		// which was half of the split-brain: a moderator could rewrite who_can_post
+		// from the settings screen and got a 403 for the same field over REST. One
+		// authority now answers both, so the web UI and the app cannot disagree.
 		if ( ! buddynext_service( 'permissions' )->can(
-			get_current_user_id(),
-			'buddynext-manage-space',
+			$user_id,
+			'buddynext-moderate-space',
 			array( 'space_id' => $space_id )
 		) ) {
 			return new WP_Error(
@@ -1009,12 +1031,15 @@ class SpaceController extends BaseRestController {
 		}
 
 		$values = (array) $request->get_param( 'fields' );
-		$result = SpaceFieldRegistry::instance()->save_for_space( $space_id, $values );
+		$result = SpaceFieldRegistry::instance()->save_for_space( $space_id, $values, $user_id );
 
 		// Promotion of eligible fields to space tabs is presentation, not a field
 		// value — persisted only when the values validated, and only when the
 		// caller sent the `tabs` key (so a values-only save leaves tabs untouched).
-		if ( empty( $result['errors'] ) && null !== $request->get_param( 'tabs' ) ) {
+		// Owner-only: which fields become tabs is a structural decision about the
+		// space, not a moderation one.
+		if ( empty( $result['errors'] ) && null !== $request->get_param( 'tabs' )
+			&& buddynext_service( 'permissions' )->can( $user_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
 			$tabs = array_map( 'strval', (array) $request->get_param( 'tabs' ) );
 			SpaceFieldRegistry::instance()->set_promoted_tabs( $space_id, $tabs );
 		}
@@ -1049,6 +1074,22 @@ class SpaceController extends BaseRestController {
 		// validates depth, cycles, the per-parent cap, and manage permission.
 		if ( null !== $request->get_param( 'parent_id' ) ) {
 			$data['parent_id'] = (int) $request->get_param( 'parent_id' );
+		}
+
+		// App parity: the service has always supported these three, and the front-end
+		// settings screen writes all of them — but the REST route never forwarded
+		// them, so a Space's category, slug and house rules were unreachable from the
+		// native app (and from any integration). SpaceService::update() does the
+		// validation (reserved + unique slug, category existence), so this only has
+		// to pass them through.
+		if ( null !== $request->get_param( 'category_id' ) ) {
+			$data['category_id'] = absint( $request->get_param( 'category_id' ) );
+		}
+		if ( null !== $request->get_param( 'slug' ) ) {
+			$data['slug'] = sanitize_title( (string) $request->get_param( 'slug' ) );
+		}
+		if ( null !== $request->get_param( 'rules' ) ) {
+			$data['rules'] = sanitize_textarea_field( (string) $request->get_param( 'rules' ) );
 		}
 
 		// Pro-gated field: the service only persists it when Pro validates the ability
@@ -1159,12 +1200,11 @@ class SpaceController extends BaseRestController {
 			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		// Same visibility guard as the roster: a hidden space's pins are for members
-		// and admins only.
-		if ( SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) $space['type'] ) && ! user_can( $viewer_id, 'manage_options' ) ) {
-			if ( 'active' !== ( new SpaceMemberService() )->get_status( $space_id, $viewer_id ) ) {
-				return new WP_Error( 'forbidden', __( 'You do not have access to this space.', 'buddynext' ), array( 'status' => 403 ) );
-			}
+		// Pinned posts are CONTENT: gated on a private space exactly as on a secret
+		// one (the space feed already was). Canonical resolver — one answer for the
+		// page and the app.
+		if ( ! SpaceVisibility::can_view_content( $space, $viewer_id ) ) {
+			return new WP_Error( 'forbidden', __( 'You do not have access to this space.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		// The pinned set the space feed strip shows, exposed for the app. Author is
@@ -1207,17 +1247,18 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
-		// Hidden (secret-equivalent) spaces: only active members and site admins may see the roster.
-		// Pagination args are declared via member_pagination_args() on the routes.
-		if ( SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) $space['type'] ) && ! user_can( $viewer_id, 'manage_options' ) ) {
-			$member_service = new SpaceMemberService();
-			if ( 'active' !== $member_service->get_status( $space_id, $viewer_id ) ) {
-				return new WP_Error(
-					'forbidden',
-					__( 'You do not have access to this space.', 'buddynext' ),
-					array( 'status' => 403 )
-				);
-			}
+		// Roster gate — the canonical resolver, the SAME call the server-rendered
+		// members page makes. Private and secret rosters are members-only (owner,
+		// moderators, active members, site admins); a site owner re-opens them with
+		// one `buddynext_space_can_view_roster` filter that moves both surfaces.
+		// The gate runs BEFORE any roster row is fetched — never fetch 100k rows to
+		// then refuse them. Pagination args are declared via member_pagination_args().
+		if ( ! SpaceVisibility::can_view_roster( $space, $viewer_id ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'You do not have access to this space.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
 		}
 
 		// Pagination is opt-in: with no per_page the full roster is returned
@@ -1710,7 +1751,14 @@ class SpaceController extends BaseRestController {
 			return new WP_Error( 'not_a_member', __( 'The new owner must be an active member of the space.', 'buddynext' ), array( 'status' => 422 ) );
 		}
 
-		( new SpaceService() )->transfer_ownership( $space_id, $new_owner_id, $current_user );
+		// assign_owner() is the ownership primitive: it re-checks the capability,
+		// moves bn_spaces.owner_id and the role='owner' row together, and reports
+		// a real failure instead of returning a 200 over a half-applied write.
+		$transferred = ( new SpaceService() )->assign_owner( $space_id, $new_owner_id, $current_user );
+
+		if ( is_wp_error( $transferred ) ) {
+			return $transferred;
+		}
 
 		return new WP_REST_Response(
 			array(

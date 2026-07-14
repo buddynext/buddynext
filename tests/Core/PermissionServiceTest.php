@@ -29,7 +29,7 @@ class PermissionServiceTest extends \WP_UnitTestCase {
 		$this->admin_id  = self::factory()->user->create( array( 'role' => 'administrator' ) );
 		$this->member_id = self::factory()->user->create( array( 'role' => 'subscriber' ) );
 
-		update_user_meta( $this->admin_id,  'bn_community_role', 'admin' );
+		update_user_meta( $this->admin_id, 'bn_community_role', 'admin' );
 		update_user_meta( $this->member_id, 'bn_community_role', 'member' );
 	}
 

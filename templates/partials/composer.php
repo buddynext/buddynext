@@ -263,6 +263,9 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			<input type="text" class="bn-composer__poll-option"
 				placeholder="<?php esc_attr_e( 'Option 4 (optional)', 'buddynext' ); ?>"
 				aria-label="<?php esc_attr_e( 'Poll option 4', 'buddynext' ); ?>">
+			<input type="text" class="bn-composer__poll-option"
+				placeholder="<?php esc_attr_e( 'Option 5 (optional)', 'buddynext' ); ?>"
+				aria-label="<?php esc_attr_e( 'Poll option 5', 'buddynext' ); ?>">
 			<label class="bn-composer__poll-end-label" for="bn-composer-poll-end">
 				<?php esc_html_e( 'Poll ends (optional)', 'buddynext' ); ?>
 			</label>
@@ -277,7 +280,18 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			data-wp-bind--hidden="state.isNotScheduled">
 			<label class="bn-composer__schedule-label" for="bn-composer-schedule-at">
 				<?php buddynext_icon( 'clock' ); ?>
-				<span><?php esc_html_e( 'Publish at', 'buddynext' ); ?></span>
+				<span>
+					<?php
+					// Name the zone. The control is read as SITE time (WP's timezone setting) —
+					// the same zone the post card renders with wp_date() — so an author in a
+					// different zone is not left guessing whose clock the digits belong to.
+					printf(
+						/* translators: %s: the site's timezone, e.g. "Asia/Kolkata" or "+00:00". */
+						esc_html__( 'Publish at (%s)', 'buddynext' ),
+						esc_html( wp_timezone()->getName() )
+					);
+					?>
+				</span>
 			</label>
 			<input
 				type="datetime-local"

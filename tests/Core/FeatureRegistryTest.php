@@ -48,7 +48,13 @@ class FeatureRegistryTest extends \WP_UnitTestCase {
 	}
 
 	public function test_mandatory_features_are_always_enabled_regardless_of_option(): void {
-		update_option( 'buddynext_features', array( 'feed' => false, 'profile' => false ) );
+		update_option(
+			'buddynext_features',
+			array(
+				'feed'    => false,
+				'profile' => false,
+			)
+		);
 		$this->assertTrue( $this->registry->is_enabled( 'feed' ) );
 		$this->assertTrue( $this->registry->is_enabled( 'profile' ) );
 	}
@@ -89,7 +95,13 @@ class FeatureRegistryTest extends \WP_UnitTestCase {
 	}
 
 	public function test_persist_strips_mandatory_features(): void {
-		$this->registry->persist( array( 'feed' => false, 'sidebar' => false, 'gamification' => true ) );
+		$this->registry->persist(
+			array(
+				'feed'         => false,
+				'sidebar'      => false,
+				'gamification' => true,
+			)
+		);
 		$stored = get_option( 'buddynext_features' );
 		$this->assertIsArray( $stored );
 		$this->assertArrayNotHasKey( 'feed', $stored, 'Mandatory features should not be stored.' );

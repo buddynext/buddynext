@@ -120,7 +120,7 @@ class SpaceServiceTest extends \WP_UnitTestCase {
 	}
 
 	public function test_update_by_non_owner_returns_error(): void {
-		$space_id  = $this->service->create(
+		$space_id   = $this->service->create(
 			$this->owner_id,
 			array(
 				'name' => 'Owner Space',
@@ -178,7 +178,7 @@ class SpaceServiceTest extends \WP_UnitTestCase {
 	}
 
 	public function test_delete_by_non_owner_returns_error(): void {
-		$space_id  = $this->service->create(
+		$space_id   = $this->service->create(
 			$this->owner_id,
 			array(
 				'name' => 'Protected Space',
@@ -355,9 +355,9 @@ class SpaceServiceTest extends \WP_UnitTestCase {
 	}
 
 	public function test_type_constants_match_db_enum_values(): void {
-		$this->assertSame( 'open',    SpaceService::TYPE_OPEN );
+		$this->assertSame( 'open', SpaceService::TYPE_OPEN );
 		$this->assertSame( 'private', SpaceService::TYPE_PRIVATE );
-		$this->assertSame( 'secret',  SpaceService::TYPE_SECRET );
+		$this->assertSame( 'secret', SpaceService::TYPE_SECRET );
 	}
 
 	/* ── get_by_slug() ──────────────────────────────────────────────── */

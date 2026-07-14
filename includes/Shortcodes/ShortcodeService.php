@@ -244,25 +244,61 @@ class ShortcodeService {
 	 * Render the Auth hub shortcode.
 	 *
 	 * Logged-in users are redirected to the Activity hub immediately.
-	 * Guests are shown auth/login.php which handles both login and registration.
 	 *
-	 * @param array<string, mixed>|string $_atts Shortcode attributes (unused).
+	 * Guests get one of two surfaces — they are separate templates, not one
+	 * combined form: auth/login.php is sign-in only (it merely LINKS to
+	 * /signup/), auth/signup.php is the create-account form. `view` picks:
+	 *
+	 *   [buddynext_auth]               → sign-in form (default)
+	 *   [buddynext_auth view="signup"] → create-account form
+	 *
+	 * With no `view`, the routed hub's own action is honoured, so the shortcode
+	 * still renders the right surface when it backs the /{auth}/… pages.
+	 * `view="signup"` falls back to sign-in when WP registration is closed —
+	 * the same gate PageRouter applies to /{auth}/signup/, so the shortcode
+	 * cannot become a back door into a closed signup form.
+	 *
+	 * @param array<string, mixed>|string $atts Shortcode attributes. Accepts
+	 *                                          'view' => 'login' | 'signup'.
 	 * @return string HTML output.
 	 */
-	public function render_auth( $_atts ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+	public function render_auth( $atts ): string {
 		if ( is_user_logged_in() ) {
 			wp_safe_redirect( PageRouter::activity_url() );
 			exit;
 		}
 
-		// Enqueue the auth stylesheet + Interactivity modules. On the hub route
-		// PageRouter does this; off-hub (inside [buddynext_auth] on an arbitrary
-		// page) nothing did, so the login/register forms rendered unstyled and
-		// inert. Both auth-login and auth-signup load because the template carries
-		// the sign-in and create-account forms.
+		$atts = shortcode_atts( array( 'view' => '' ), $atts, 'buddynext_auth' );
+		$view = (string) $atts['view'];
+
+		// No explicit view: on the routed auth hub follow the current action,
+		// off-hub default to sign-in.
+		if ( '' === $view ) {
+			$view = (string) get_query_var( 'bn_auth_action', '' );
+		}
+
+		if ( 'signup' !== $view ) {
+			$view = 'login';
+		}
+
+		// Mirrors PageRouter::dispatch_hub_template()'s /signup/ gate.
+		if ( 'signup' === $view && ! (bool) get_option( 'users_can_register' ) ) {
+			$view = 'login';
+		}
+
+		// Enqueue the auth stylesheet + the Interactivity module the rendered
+		// template actually binds to. On the hub route PageRouter does this;
+		// off-hub (inside [buddynext_auth] on an arbitrary page) nothing did, so
+		// the form rendered unstyled and inert. One module per surface, matching
+		// PageRouter — auth-signup on the login template was dead weight.
 		$this->enqueue_shell( 'auth' );
+
+		if ( 'signup' === $view ) {
+			wp_enqueue_script_module( '@buddynext/auth-signup' );
+			return $this->capture( 'auth/signup.php', array(), false );
+		}
+
 		wp_enqueue_script_module( '@buddynext/auth-login' );
-		wp_enqueue_script_module( '@buddynext/auth-signup' );
 
 		return $this->capture( 'auth/login.php', array(), false );
 	}

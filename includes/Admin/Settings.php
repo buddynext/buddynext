@@ -76,14 +76,9 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		add_action( 'admin_post_buddynext_apply_recommended', array( $this, 'handle_apply_recommended' ) );
 		add_action( 'admin_post_buddynext_dismiss_recommended', array( $this, 'handle_dismiss_recommended' ) );
 
-		// Keep WP core's users_can_register in lockstep with BuddyNext's
-		// registration policy. BN owns the registration UX, but its /auth/register
-		// endpoint and wp_registration_url() both gate on the core option — so if
-		// an admin sets reg mode to open/invite/approval without separately ticking
-		// Settings -> General -> "Anyone can register", registration is rejected as
-		// "not allowed". Mirror the BN setting onto the core flag on save.
-		add_action( 'update_option_buddynext_reg_mode', array( $this, 'sync_core_registration' ), 10, 2 );
-		add_action( 'add_option_buddynext_reg_mode', array( $this, 'sync_core_registration' ), 10, 2 );
+		// The users_can_register mirror lives in Auth\CoreRegistration, which boots
+		// on every request. Hooking it here meant it only ran in wp-admin, so a mode
+		// set by WP-CLI or by code never reached the core flag.
 
 		// Each settings panel registers as its own Hub tab. The labels here are
 		// the canonical wording; AdminHub's central placement map owns which
@@ -295,24 +290,6 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		exit;
 	}
 
-	/**
-	 * Mirror the BuddyNext registration mode onto WP core's users_can_register.
-	 *
-	 * Fired from both update_option_ and add_option_ for buddynext_reg_mode, whose
-	 * second argument is the new value in either case. Every UI mode
-	 * (open|invite|approval) permits registration — only an explicit 'closed'
-	 * value (none in the UI today, reserved for future) disables it. Without this
-	 * sync, BN's /auth/register gate and wp_registration_url() see registration as
-	 * off until the admin also ticks Settings -> General.
-	 *
-	 * @param mixed $unused_or_old First hook arg (old value on update, option name on add) — unused.
-	 * @param mixed $value         The saved registration mode.
-	 * @return void
-	 */
-	public function sync_core_registration( $unused_or_old, $value ): void {
-		unset( $unused_or_old );
-		update_option( 'users_can_register', 'closed' === (string) $value ? '0' : '1' );
-	}
 
 	/**
 	 * Render the "Recommended for new communities" prompt at the top of the
@@ -550,13 +527,41 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 	 * @return string Newline-separated list of valid IP addresses.
 	 */
 	public static function sanitize_ip_list( $value ): string {
-		$parts = preg_split( '/[\r\n,]+/', (string) $value );
-		$out   = array();
+		// The blocklist refuses sign-in (Auth\LoginGuard), and it does not exempt
+		// administrators — a blocklist with a hole for the most valuable accounts
+		// is not a blocklist. That makes one typo catastrophic: an owner who pastes
+		// their own address in locks themselves out of wp-login.php on their own
+		// site, with no way back through the browser. So the mistake is made
+		// impossible here rather than survivable later: the saving user's current
+		// address is dropped from the list, and they are told why.
+		$own = \BuddyNext\Moderation\SafeguardService::client_ip();
+
+		$parts   = preg_split( '/[\r\n,]+/', (string) $value );
+		$out     = array();
+		$refused = false;
 		foreach ( is_array( $parts ) ? $parts : array() as $line ) {
 			$ip = trim( (string) $line );
-			if ( '' !== $ip && false !== filter_var( $ip, FILTER_VALIDATE_IP ) && ! in_array( $ip, $out, true ) ) {
-				$out[] = $ip;
+			if ( '' === $ip || false === filter_var( $ip, FILTER_VALIDATE_IP ) || in_array( $ip, $out, true ) ) {
+				continue;
 			}
+			if ( '' !== $own && $ip === $own ) {
+				$refused = true;
+				continue;
+			}
+			$out[] = $ip;
+		}
+
+		if ( $refused ) {
+			add_settings_error(
+				'buddynext_blocked_ips',
+				'bn_blocked_ips_self',
+				sprintf(
+					/* translators: %s: the administrator's own IP address. */
+					__( 'Your own address (%s) was removed from the blocked list. Blocking it would have locked you out of your own site — the blocklist refuses sign-in, and it does not make an exception for administrators.', 'buddynext' ),
+					$own
+				),
+				'warning'
+			);
 		}
 
 		return implode( "\n", $out );
@@ -688,11 +693,61 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 						array(
 							'key'     => 'buddynext_data_retention_days',
 							'type'    => 'number',
-							'label'   => __( 'Activity log retention (days)', 'buddynext' ),
+							'label'   => __( 'Data retention (days)', 'buddynext' ),
 							'default' => 365,
 							'min'     => 0,
 							'max'     => 3650,
-							'hint'    => __( 'BuddyNext activity log entries older than this are purged automatically. Set to 0 to retain indefinitely.', 'buddynext' ),
+							// Name every table this deletes, and ONLY the ones it actually
+							// deletes. It used to promise "read notifications, email log" as
+							// well — and it never governed them: LogRetentionService pruned
+							// both on its own, shorter window, so an owner could set 365 here
+							// and still lose notifications at 60. Those two tables now have
+							// their own setting, below, and this hint no longer claims them.
+							//
+							// An owner cannot consent to a deletion they were never told about,
+							// and they cannot rely on a promise the code does not keep.
+							'hint'    => __( 'Automatically delete records older than this: activity log, closed moderation reports, and (with Pro) analytics events. Open reports and the moderation log are never deleted. Set to 0 to keep them indefinitely.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => 'buddynext_log_retention_days',
+							'type'    => 'select',
+							'label'   => __( 'Notification & email log retention', 'buddynext' ),
+							'default' => 60,
+							'choices' => array(
+								30 => __( '30 days', 'buddynext' ),
+								60 => __( '60 days', 'buddynext' ),
+								90 => __( '90 days', 'buddynext' ),
+							),
+							// This option already existed and already ran — it simply had NO UI,
+							// so the owner had no way to see or change the window that actually
+							// governed these two tables. It is the fastest-growing pair on a big
+							// install (one row per notification, one per email), and it was being
+							// pruned on a value nobody could reach.
+							'hint'    => __( 'How long to keep read notifications and the email log. These are the fastest-growing tables on a busy community, so they are kept on a shorter window than the rest. Unread notifications are kept longer, so nothing a member has not seen is deleted early.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'     => \BuddyNext\Core\LogRetentionService::OPTION,
+							'type'    => 'select',
+							'label'   => __( 'Notification and email log retention', 'buddynext' ),
+							'default' => (string) \BuddyNext\Core\LogRetentionService::DEFAULT_WINDOW,
+							'choices' => array(
+								'30' => __( '30 days', 'buddynext' ),
+								'60' => __( '60 days (recommended)', 'buddynext' ),
+								'90' => __( '90 days', 'buddynext' ),
+							),
+							// The hint has to say three things, because all three surprise people:
+							// that it DELETES, that unread is treated differently, and that it
+							// cannot be undone. There is deliberately no "keep forever" option —
+							// these two tables are append-only and are the largest on a big site.
+							'hint'    => sprintf(
+								/* translators: %d: the hard maximum, in days, that unread notifications are kept. */
+								__( 'Permanently deletes READ notifications and email-log entries older than this. Unread notifications are always kept for the full %d days, whatever you choose here, so nothing a member has not seen is removed early. Runs once a day in the background. This cannot be undone — these tables are a log, not member content.', 'buddynext' ),
+								\BuddyNext\Core\LogRetentionService::UNREAD_MAX_DAYS
+							),
 						)
 					),
 				)
@@ -1295,7 +1350,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'type'     => 'textarea',
 							'label'    => __( 'Blocked IP addresses', 'buddynext' ),
 							'sanitize' => array( self::class, 'sanitize_ip_list' ),
-							'hint'     => __( 'One IP address per line (IPv4 or IPv6). Members posting or commenting from these addresses are blocked. Invalid entries are dropped on save.', 'buddynext' ),
+							'hint'     => __( 'One IP address per line (IPv4 or IPv6). These addresses cannot sign in, register, post, or comment - including on accounts they already hold. Your own address cannot be added. Invalid entries are dropped on save.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1537,7 +1592,47 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'   => 'buddynext_email_verify',
 							'type'  => 'toggle',
 							'label' => __( 'Require email verification', 'buddynext' ),
-							'hint'  => __( 'New registrations must verify their email before accessing the community.', 'buddynext' ),
+							'hint'  => __( 'Ask new members to confirm their email address. Choose how strictly it is enforced below.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_verify_enforcement',
+							'type'  => 'select',
+							'label' => __( 'How strictly to enforce verification', 'buddynext' ),
+							'hint'  => __( 'Restricted (recommended): members can look around but cannot post or comment until they confirm. Full: they cannot use the community at all until they confirm.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_require_terms',
+							'type'  => 'toggle',
+							'label' => __( 'Require members to accept your terms', 'buddynext' ),
+							'hint'  => __( 'Shows a consent checkbox on every sign-up route. On by default.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_reg_ask_name',
+							'type'  => 'toggle',
+							'label' => __( 'Ask new members for their name', 'buddynext' ),
+							'hint'  => __( 'On by default. This is the name other members see. Turn it off only if your community wants handles rather than names.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_reg_ask_username',
+							'type'  => 'toggle',
+							'label' => __( 'Let members choose their own username', 'buddynext' ),
+							'hint'  => __( 'Off by default: a username is generated from their email so nobody has to invent one to join, and they can change it later in Settings. Turn this on to ask for one at sign-up.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
+							'key'   => 'buddynext_allow_core_registration',
+							'type'  => 'toggle',
+							'label' => __( 'Also allow the WordPress sign-up form', 'buddynext' ),
+							'hint'  => __( 'Off by default: wp-login.php sign-ups are sent to your BuddyNext sign-up page instead. Turn this on if another plugin relies on the WordPress form. It is protected by your settings either way.', 'buddynext' ),
 						)
 					),
 				)
@@ -1605,6 +1700,14 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				array(
 					new Field(
 						array(
+							'key'   => 'buddynext_2fa_required',
+							'type'  => 'select',
+							'label' => __( 'Require two-factor authentication', 'buddynext' ),
+							'hint'  => __( 'Members are always free to switch two-factor on themselves. This makes it mandatory for the roles you choose.', 'buddynext' ),
+						)
+					),
+					new Field(
+						array(
 							'key'   => 'buddynext_reg_spam_protection',
 							'type'  => 'toggle',
 							'label' => __( 'Protect the sign-up form', 'buddynext' ),
@@ -1643,6 +1746,14 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'hint'  => __( 'One domain per line. When set, only these domains can register.', 'buddynext' ),
 						)
 					),
+					new Field(
+						array(
+							'key'   => 'buddynext_blocked_email_domains',
+							'type'  => 'textarea',
+							'label' => __( 'Blocked email domains', 'buddynext' ),
+							'hint'  => __( 'One domain per line. Addresses from these domains cannot register.', 'buddynext' ),
+						)
+					),
 				)
 			),
 			new Section(
@@ -1662,7 +1773,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 							'key'   => 'buddynext_logout_redirect',
 							'type'  => 'url',
 							'label' => __( 'After logout', 'buddynext' ),
-							'hint'  => __( 'Where members go after logging out. Blank = site home.', 'buddynext' ),
+							'hint'  => __( 'Where members go after logging out. Blank = the login page.', 'buddynext' ),
 						)
 					),
 					new Field(
@@ -1853,14 +1964,26 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		if ( ! is_array( $raw ) ) {
 			return $out;
 		}
+
+		// The currently stored config, so a blank (write-only) secret field keeps
+		// the saved credential rather than wiping it.
+		$existing = (array) get_option( 'buddynext_social_login', array() );
+
 		// Iterate the same provider list the form renders (get_providers()) so a
 		// provider can never be dropped on save by drifting from a hardcoded list.
 		foreach ( array_keys( \BuddyNext\Auth\SocialLogin::get_providers() ) as $id ) {
-			$p          = isset( $raw[ $id ] ) && is_array( $raw[ $id ] ) ? $raw[ $id ] : array();
+			$p         = isset( $raw[ $id ] ) && is_array( $raw[ $id ] ) ? $raw[ $id ] : array();
+			$submitted = isset( $p['client_secret'] ) ? sanitize_text_field( (string) $p['client_secret'] ) : '';
+
+			// The field renders empty (write-only), so a blank submit means "leave it
+			// alone" — not "wipe my credentials". Only a non-empty value replaces it.
+			$stored = isset( $existing[ $id ]['client_secret'] ) ? (string) $existing[ $id ]['client_secret'] : '';
+			$secret = '' !== $submitted ? $submitted : $stored;
+
 			$out[ $id ] = array(
 				'enabled'       => ! empty( $p['enabled'] ),
 				'client_id'     => isset( $p['client_id'] ) ? sanitize_text_field( (string) $p['client_id'] ) : '',
-				'client_secret' => isset( $p['client_secret'] ) ? sanitize_text_field( (string) $p['client_secret'] ) : '',
+				'client_secret' => $secret,
 			);
 		}
 		return $out;
@@ -2187,6 +2310,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				'open'     => __( 'Open — anyone can register', 'buddynext' ),
 				'invite'   => __( 'Invite Only — requires an invitation', 'buddynext' ),
 				'approval' => __( 'Admin Approval — admin reviews each request', 'buddynext' ),
+				'closed'   => __( 'Closed — nobody can create an account', 'buddynext' ),
 			),
 			__( 'Controls who can create a new account on your community.', 'buddynext' )
 		);
@@ -2195,13 +2319,60 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		// Email Verification feature is enabled on the Features tab. When the
 		// feature is off, hide the toggle (it would be saved but silently ignored)
 		// and point the admin to where the master switch lives.
+		$this->render_toggle_row(
+			'buddynext_require_terms',
+			__( 'Require members to accept your terms', 'buddynext' ),
+			__( 'Shows a consent checkbox on every sign-up route. On by default.', 'buddynext' ),
+			(bool) get_option( 'buddynext_require_terms', true )
+		);
+
+		// What the front door asks for. Two levers, deliberately: the owner decides what
+		// their sign-up form collects, and anything beyond these goes through the profile
+		// fields' "show on register" switch, which already exists. We are not building a
+		// second form builder alongside it.
+		$this->render_toggle_row(
+			'buddynext_reg_ask_name',
+			__( 'Ask new members for their name', 'buddynext' ),
+			__( 'On by default. This is the name other members see. Turn it off only if your community wants handles rather than names.', 'buddynext' ),
+			(bool) get_option( 'buddynext_reg_ask_name', true )
+		);
+
+		$this->render_toggle_row(
+			'buddynext_reg_ask_username',
+			__( 'Let members choose their own username', 'buddynext' ),
+			__( 'Off by default: a username is generated from their email so nobody has to invent one to join, and they can change it later in Settings. Turn this on to ask for one at sign-up.', 'buddynext' ),
+			(bool) get_option( 'buddynext_reg_ask_username', false )
+		);
+
+		$this->render_toggle_row(
+			\BuddyNext\Auth\CoreRegistration::OPT_ALLOW,
+			__( 'Also allow the WordPress sign-up form', 'buddynext' ),
+			__( 'Off by default: wp-login.php sign-ups are sent to your BuddyNext sign-up page instead. Turn this on if another plugin relies on the WordPress form. It is protected by your settings either way.', 'buddynext' ),
+			\BuddyNext\Auth\CoreRegistration::is_allowed()
+		);
+
 		$bn_verification_on = buddynext_feature_enabled( 'verification' );
 		if ( $bn_verification_on ) {
 			$this->render_toggle_row(
 				'buddynext_email_verify',
 				__( 'Require email verification', 'buddynext' ),
-				__( 'New registrations must verify their email before accessing the community.', 'buddynext' ),
+				__( 'Ask new members to confirm their email address.', 'buddynext' ),
 				(bool) get_option( 'buddynext_email_verify', false )
+			);
+
+			// How strictly. The old copy promised members "must verify before
+			// accessing the community" while the code only ever blocked posting and
+			// commenting. Rather than pick one behaviour and break half the fleet,
+			// the strictness is the owner's — with the safe middle as the default.
+			$this->render_select_row(
+				'buddynext_verify_enforcement',
+				__( 'How strictly to enforce verification', 'buddynext' ),
+				\BuddyNext\Auth\VerificationListener::enforcement(),
+				array(
+					'restricted' => __( 'Restricted — they can look around, but cannot post or comment until they confirm', 'buddynext' ),
+					'full'       => __( 'Full — they cannot use the community at all until they confirm', 'buddynext' ),
+				),
+				__( 'Restricted is recommended: a hard gate costs you sign-ups, because confirmation emails land in spam folders more often than you would like.', 'buddynext' )
 			);
 		} else {
 			$bn_features_url = add_query_arg(
@@ -2315,6 +2486,24 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 
 		$this->open_section( __( 'Spam &amp; Abuse Protection', 'buddynext' ) );
 
+		// Two-factor had NO admin surface at all — grep for '2fa' in includes/Admin
+		// returned nothing. The only control was a developer filter that was read
+		// and then ignored, so an owner could "require 2FA for administrators" and
+		// simply be wrong. Default is none: forcing an authenticator app on owners
+		// during an update would be a lockout event across the fleet.
+		$this->render_select_row(
+			'buddynext_2fa_required',
+			__( 'Require two-factor authentication', 'buddynext' ),
+			(string) get_option( 'buddynext_2fa_required', 'none' ),
+			array(
+				'none'   => __( 'Nobody — members can still switch it on themselves', 'buddynext' ),
+				'admins' => __( 'Administrators', 'buddynext' ),
+				'staff'  => __( 'Administrators and editors', 'buddynext' ),
+				'all'    => __( 'Everyone', 'buddynext' ),
+			),
+			__( 'Anyone in a required role is asked to set two-factor up the next time they sign in, and cannot use the community until they do.', 'buddynext' )
+		);
+
 		$this->render_toggle_row(
 			'buddynext_reg_spam_protection',
 			__( 'Protect the sign-up form', 'buddynext' ),
@@ -2347,6 +2536,21 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			__( 'Allowed email domains', 'buddynext' ),
 			(string) get_option( 'buddynext_allowed_domains', '' ),
 			__( 'One domain per line (e.g. mycompany.com). When set, only addresses from these domains can register. Leave blank to allow all domains.', 'buddynext' ),
+			4,
+			400
+		);
+
+		// There was no email-domain BLOCKlist at all — only the allowlist above. An
+		// owner who wanted to shut out one abusive domain had to switch to an
+		// allowlist and enumerate every permitted domain on earth instead.
+		// Not to be confused with "Blocked link domains" on the Moderation tab,
+		// which is about links in post content and never touched registration — a
+		// name collision that actively misled people.
+		$this->render_textarea_row(
+			'buddynext_blocked_email_domains',
+			__( 'Blocked email domains', 'buddynext' ),
+			(string) get_option( 'buddynext_blocked_email_domains', '' ),
+			__( 'One domain per line. Addresses from these domains cannot register. Use this to shut out a single abusive domain without having to allow-list every other domain on earth.', 'buddynext' ),
 			4,
 			400
 		);
@@ -2389,7 +2593,9 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			\BuddyNext\Core\RedirectSettings::OPT_LOGOUT,
 			__( 'After logout', 'buddynext' ),
 			(string) get_option( \BuddyNext\Core\RedirectSettings::OPT_LOGOUT, '' ),
-			__( 'Where members go after logging out. Leave blank for the site home page (default).', 'buddynext' )
+			// RedirectSettings::filter_logout_redirect() defaults a blank value to
+			// PageRouter::auth_url() — the branded login screen, not the home page.
+			__( 'Where members go after logging out. Leave blank for the login page (default), ready to sign back in.', 'buddynext' )
 		);
 
 		$this->render_text_row(
@@ -2457,10 +2663,18 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 					</div>
 					<div class="bn-field">
 						<label for="<?php echo esc_attr( 'bn-sec-' . $pid ); ?>"><?php esc_html_e( 'Client Secret', 'buddynext' ); ?></label>
+						<?php
+						// WRITE-ONLY. The stored secret is never echoed back into the
+						// page. type="password" is not a secret store — the plaintext
+						// sat in the DOM and in View Source, exposed to any admin-side
+						// XSS or browser extension. A blank submit keeps the saved
+						// value (see sanitize_social_login), so the owner can edit
+						// everything else on this screen without retyping it.
+						?>
 						<input type="password" class="bn-input" id="<?php echo esc_attr( 'bn-sec-' . $pid ); ?>"
 							name="<?php echo esc_attr( 'buddynext_social_login[' . $pid . '][client_secret]' ); ?>"
-							value="<?php echo esc_attr( $secret ); ?>"
-							placeholder="<?php esc_attr_e( 'Paste the Client Secret here', 'buddynext' ); ?>"
+							value=""
+							placeholder="<?php echo '' !== $secret ? esc_attr__( 'Saved. Leave blank to keep it, or paste a new one to replace it.', 'buddynext' ) : esc_attr__( 'Paste the Client Secret here', 'buddynext' ); ?>"
 							autocomplete="off" spellcheck="false" />
 					</div>
 					<div class="bn-field">

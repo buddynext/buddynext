@@ -13,6 +13,7 @@
 namespace BuddyNext\Admin;
 
 use BuddyNext\Core\IconService;
+use BuddyNext\Core\PageRouter;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -117,7 +118,7 @@ final class SetupChecklist {
 				'label'     => __( 'Create your first space', 'buddynext' ),
 				'desc'      => __( 'Give members somewhere to gather. Create a space from the community front end.', 'buddynext' ),
 				'done'      => self::has_space(),
-				'cta'       => home_url( '/spaces/' ),
+				'cta'       => PageRouter::spaces_url(),
 				'cta_label' => __( 'Create a space', 'buddynext' ),
 				'icon'      => 'users',
 			),

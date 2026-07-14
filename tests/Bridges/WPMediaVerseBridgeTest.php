@@ -25,7 +25,7 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		parent::set_up();
 		Installer::run();
 		// Plugin class stub is registered in tests/bootstrap.php.
-		$this->bridge       = new WPMediaVerseBridge();
+		$this->bridge = new WPMediaVerseBridge();
 		$this->bridge->init();
 		$this->sender_id    = self::factory()->user->create();
 		$this->recipient_id = self::factory()->user->create();

@@ -49,7 +49,14 @@ class BookmarkControllerExpandTest extends \WP_UnitTestCase {
 		$posts = new PostService();
 		$bm    = new BookmarkService();
 
-		$pid = $posts->create( $this->bob, array( 'type' => 'text', 'content' => 'B', 'privacy' => 'public' ) );
+		$pid = $posts->create(
+			$this->bob,
+			array(
+				'type'    => 'text',
+				'content' => 'B',
+				'privacy' => 'public',
+			)
+		);
 		$bm->bookmark( $this->alice, $pid );
 
 		wp_set_current_user( $this->alice );
@@ -66,8 +73,22 @@ class BookmarkControllerExpandTest extends \WP_UnitTestCase {
 		$posts = new PostService();
 		$bm    = new BookmarkService();
 
-		$pid_1 = $posts->create( $this->bob, array( 'type' => 'text', 'content' => 'First', 'privacy' => 'public' ) );
-		$pid_2 = $posts->create( $this->bob, array( 'type' => 'text', 'content' => 'Second', 'privacy' => 'public' ) );
+		$pid_1 = $posts->create(
+			$this->bob,
+			array(
+				'type'    => 'text',
+				'content' => 'First',
+				'privacy' => 'public',
+			)
+		);
+		$pid_2 = $posts->create(
+			$this->bob,
+			array(
+				'type'    => 'text',
+				'content' => 'Second',
+				'privacy' => 'public',
+			)
+		);
 
 		$bm->bookmark( $this->alice, $pid_1 );
 		$bm->bookmark( $this->alice, $pid_2 );
@@ -95,7 +116,14 @@ class BookmarkControllerExpandTest extends \WP_UnitTestCase {
 		$bm    = new BookmarkService();
 
 		// Alice bookmarks one of Bob's posts. Bob later marks it private.
-		$pid = $posts->create( $this->bob, array( 'type' => 'text', 'content' => 'Initially public', 'privacy' => 'public' ) );
+		$pid = $posts->create(
+			$this->bob,
+			array(
+				'type'    => 'text',
+				'content' => 'Initially public',
+				'privacy' => 'public',
+			)
+		);
 		$bm->bookmark( $this->alice, $pid );
 
 		// Switch to private — alice should no longer see it in expanded results.
@@ -131,7 +159,14 @@ class BookmarkControllerExpandTest extends \WP_UnitTestCase {
 
 		$created_ids = array();
 		for ( $i = 0; $i < 5; $i++ ) {
-			$pid = $posts->create( $this->bob, array( 'type' => 'text', 'content' => "P{$i}", 'privacy' => 'public' ) );
+			$pid = $posts->create(
+				$this->bob,
+				array(
+					'type'    => 'text',
+					'content' => "P{$i}",
+					'privacy' => 'public',
+				)
+			);
 			$bm->bookmark( $this->alice, $pid );
 			$created_ids[] = $pid;
 		}

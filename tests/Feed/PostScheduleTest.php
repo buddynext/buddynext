@@ -31,7 +31,11 @@ class PostScheduleTest extends \WP_UnitTestCase {
 		global $wpdb;
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_posts',
-			array( 'user_id' => self::factory()->user->create(), 'content' => 'x', 'status' => 'draft' )
+			array(
+				'user_id' => self::factory()->user->create(),
+				'content' => 'x',
+				'status'  => 'draft',
+			)
 		);
 		$this->post_id = (int) $wpdb->insert_id;
 	}

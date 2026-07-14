@@ -45,13 +45,15 @@
 	line-height: var(--bn-lh-normal);
 }
 
-.bn-prefs-card--soon { opacity: 0.78; }
-
 /* ── Section 1: Channels ──────────────────────────────────────────────── */
+/* Five channels in a grid whose tracks were 240px wide fit FOUR across, which left the
+ * fifth card alone on a second row with three dead columns beside it. A narrower minimum
+ * lets all five sit on one row on a desktop and still reflow cleanly to two, then one. */
 .bn-prefs-channels {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
 	gap: var(--bn-s3);
+	align-items: stretch;
 }
 
 .bn-prefs-channel {
@@ -63,6 +65,12 @@
 		"icon  check"
 		"body  body";
 	align-items: start;
+	/* The cards stretch to the tallest sibling (the Newsletters copy is long), and auto grid
+	 * rows stretch with them — which floated the title and description into the middle of
+	 * the card, away from the icon they belong to. Pin the rows to their natural height and
+	 * let the slack collect at the BOTTOM, so every card reads top-down: icon, switch, name,
+	 * explanation. */
+	align-content: start;
 	gap: var(--bn-s3);
 	padding: var(--bn-s4);
 	border: 1px solid var(--bn-line);
@@ -81,12 +89,72 @@
 	background: var(--bn-accent-50, var(--bn-surface));
 }
 
-.bn-prefs-channel input[type="checkbox"] {
-	grid-area: check;
+/* THE CONTROL IS A SWITCH, NOT A CHECKBOX.
+ *
+ * This was a raw OS checkbox — `appearance: auto` with an accent-color, which is the only
+ * native widget left on the page. Next to a product built entirely from its own components
+ * it reads as something a different person built, and it is the first thing the eye lands
+ * on because the browser draws it in its own idiom, not ours.
+ *
+ * It is also the wrong control. The section calls these "Master switches" and the copy says
+ * "Turning a channel off mutes every type" — an immediate, self-applying on/off. That is a
+ * switch. A checkbox says "this will be true when you submit"; a switch says "this is true
+ * now". There is no submit here.
+ *
+ * Styled to match .bn-toggle exactly (40x22 track, same tokens, same motion) rather than
+ * swapping the element for one: the input stays an input, so the Interactivity binding
+ * (actions.setChannel), the label-click target, and keyboard/space activation all keep
+ * working untouched. The design changes; the machinery does not. */
+.bn-prefs-channel input[type="checkbox"],
+.bn-prefs-toggle input[type="checkbox"] {
+	appearance: none;
+	-webkit-appearance: none;
+	position: relative;
+	flex-shrink: 0;
+	inline-size: 40px;
+	block-size: 22px;
+	margin: 0;
+	border: none;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-line-strong);
+	cursor: pointer;
+	transition: background var(--bn-dur) var(--bn-ease);
+}
+
+/* The knob. */
+.bn-prefs-channel input[type="checkbox"]::before,
+.bn-prefs-toggle input[type="checkbox"]::before {
+	content: "";
+	position: absolute;
+	inset-block-start: 2px;
+	inset-inline-start: 2px;
 	inline-size: 18px;
 	block-size: 18px;
-	accent-color: var(--bn-accent);
-	cursor: pointer;
+	border-radius: 50%;
+	background: var(--bn-surface);
+	box-shadow: var(--bn-shadow-sm, 0 1px 2px rgb(0 0 0 / 0.2));
+	transition: translate var(--bn-dur) var(--bn-ease);
+}
+
+.bn-prefs-channel input[type="checkbox"]:checked,
+.bn-prefs-toggle input[type="checkbox"]:checked {
+	background: var(--bn-accent);
+}
+
+.bn-prefs-channel input[type="checkbox"]:checked::before,
+.bn-prefs-toggle input[type="checkbox"]:checked::before {
+	translate: 18px 0;
+}
+
+.bn-prefs-channel input[type="checkbox"]:focus-visible,
+.bn-prefs-toggle input[type="checkbox"]:focus-visible {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: 2px;
+}
+
+/* The channel card places its switch in the top-right cell. */
+.bn-prefs-channel input[type="checkbox"] {
+	grid-area: check;
 }
 
 .bn-prefs-channel__icon {
@@ -94,8 +162,6 @@
 	color: var(--bn-accent);
 	inline-size: 36px;
 	block-size: 36px;
-	border-radius: var(--bn-radius-md);
-	background: var(--bn-accent-50, var(--bn-sunken));
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -227,11 +293,10 @@
 	cursor: pointer;
 }
 
-.bn-prefs-toggle input[type="checkbox"] {
-	inline-size: 18px;
-	block-size: 18px;
-	accent-color: var(--bn-accent);
-}
+/* The old 18px native checkbox rule lived here and, being LATER in the file at the same
+ * specificity, quietly beat the switch styling above — the control lost its square look but
+ * kept a checkbox's dimensions. Deleted rather than overridden: two rules fighting over one
+ * control is how it drifts back. */
 
 .bn-prefs-toggle__label {
 	font-size: var(--bn-text-xs);
@@ -351,30 +416,6 @@
 	white-space: nowrap;
 }
 
-/* ── Section 4: Quiet hours ───────────────────────────────────────────── */
-.bn-prefs-quiet {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-	gap: var(--bn-s3);
-}
-
-.bn-prefs-quiet__field {
-	display: flex;
-	flex-direction: column;
-	gap: var(--bn-s1);
-}
-
-.bn-prefs-quiet__label {
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-3);
-	font-weight: var(--bn-fw-medium);
-}
-
-.bn-prefs-quiet__tz {
-	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-2);
-}
-
 /* ── Empty state ──────────────────────────────────────────────────────── */
 .bn-prefs-empty {
 	display: flex;
@@ -418,9 +459,73 @@
 	block-size: 16px;
 }
 
+/* ── Digests-disabled state ───────────────────────────────────────────────
+   Shown when the owner sets Settings -> Notifications -> Digest frequency to
+   "Disabled": the Daily/Weekly chips cannot deliver anything, so they are
+   disabled and the member is told why instead of picking a dead option. */
+.bn-prefs-notice {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-s3);
+	margin-block-end: var(--bn-s4);
+	padding: var(--bn-s3) var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-inline-start: 3px solid var(--bn-info);
+	border-radius: var(--bn-radius-md);
+	background: var(--bn-info-bg);
+}
+
+.bn-prefs-notice__icon {
+	display: inline-flex;
+	flex: 0 0 auto;
+	color: var(--bn-info);
+}
+
+.bn-prefs-notice__icon svg {
+	inline-size: 18px;
+	block-size: 18px;
+}
+
+.bn-prefs-notice__body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	min-inline-size: 0;
+}
+
+.bn-prefs-notice__title {
+	margin: 0;
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+}
+
+.bn-prefs-notice__text {
+	margin: 0;
+	font-size: var(--bn-text-xs);
+	line-height: var(--bn-lh-normal);
+	color: var(--bn-ink-2);
+}
+
+.bn-prefs-chip:disabled,
+.bn-prefs-chip[aria-disabled="true"] {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+.bn-prefs-row__warn {
+	margin: var(--bn-s1) 0 0;
+	inline-size: 100%;
+	text-align: end;
+	font-size: var(--bn-text-xs);
+	line-height: var(--bn-lh-normal);
+	color: var(--bn-warn);
+}
+
 @media (max-width: 640px) {
 	.bn-prefs-row { grid-template-columns: 1fr; }
 	.bn-prefs-row__controls { justify-content: flex-start; }
+	.bn-prefs-row__warn { text-align: start; }
 	.bn-prefs-space { flex-wrap: wrap; }
 	.bn-prefs-space__controls { inline-size: 100%; justify-content: flex-start; }
 }

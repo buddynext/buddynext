@@ -395,6 +395,20 @@ class PostService {
 				array( '%d' )
 			);
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			/**
+			 * Fires when a space's post set changes — a post created in it, or removed
+			 * from it. Carries the SPACE, which `buddynext_post_created` /
+			 * `buddynext_post_deleted` deliberately do not: they carry the post, and by
+			 * the time the delete hook fires the row (and its space_id) is already gone.
+			 *
+			 * Anything caching a per-space aggregate over posts listens here.
+			 *
+			 * @since 1.0.8
+			 *
+			 * @param int $space_id The space whose post set changed.
+			 */
+			do_action( 'buddynext_space_posts_changed', $bn_space_id );
 		}
 
 		/**
@@ -652,9 +666,18 @@ class PostService {
 		if ( 'poll' !== ( $post['type'] ?? '' ) || ! empty( $post['poll_options'] ) ) {
 			return $post;
 		}
-		$full = ( new self() )->get( (int) ( $post['id'] ?? 0 ) );
-		if ( null !== $full && ! empty( $full['poll_options'] ) ) {
-			$post['poll_options'] = $full['poll_options'];
+
+		// Fetch the OPTIONS, not the whole post.
+		//
+		// This called get(), which hydrates an entire post row (author, counts, reactions,
+		// everything) purely to read one nested array off it — once per poll on the page. The
+		// guard above keeps it to polls that arrived without their options, so it was never the
+		// 20-queries-per-feed the card implies, but it was still a full post hydration bought
+		// to answer a question one small indexed query already answers.
+		$options = ( new self() )->fetch_poll_options( (int) ( $post['id'] ?? 0 ) );
+
+		if ( ! empty( $options ) ) {
+			$post['poll_options'] = $options;
 		}
 		return $post;
 	}
@@ -1080,11 +1103,13 @@ class PostService {
 	 * Update an existing post's content or privacy.
 	 *
 	 * Sets edited_at to the current UTC time. Only the post owner may update.
+	 * Non-admin authors are held to the buddynext_post_edit_window (minutes)
+	 * unless the post has not published yet (status = scheduled), which is exempt.
 	 *
 	 * @param int   $post_id  Post to update.
 	 * @param int   $user_id  Requesting user (must be owner).
-	 * @param array $data     Fields to change: content, privacy.
-	 * @return true|WP_Error
+	 * @param array $data     Fields to change: content, privacy, content_warning, content_warning_type.
+	 * @return true|WP_Error True on success, WP_Error on permission / edit-window / content-safeguard failure.
 	 */
 	public function update( int $post_id, int $user_id, array $data ): bool|WP_Error {
 		$ownership = $this->assert_owner( $post_id, $user_id );
@@ -1095,12 +1120,20 @@ class PostService {
 		// Enforce the post edit window (buddynext_post_edit_window, minutes): once
 		// a post is older than the window a non-admin can no longer edit it.
 		// 0 = unlimited.
+		//
+		// A post that has not published yet (status = scheduled) is exempt: the
+		// window exists so nobody rewrites history other members have already
+		// read, and nobody has read a scheduled post. Without the exemption a post
+		// scheduled for next week becomes uneditable an hour after it was drafted,
+		// leaving delete as the author's only way out.
 		$edit_window = (int) get_option( 'buddynext_post_edit_window', 60 );
 		if ( $edit_window > 0 && ! user_can( $user_id, 'manage_options' ) ) {
 			global $wpdb;
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$created_at = $wpdb->get_var( $wpdb->prepare( "SELECT created_at FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ) );
-			if ( $created_at && ( time() - strtotime( (string) $created_at . ' UTC' ) ) > $edit_window * MINUTE_IN_SECONDS ) {
+			$row        = $wpdb->get_row( $wpdb->prepare( "SELECT created_at, status FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ), ARRAY_A );
+			$created_at = $row['created_at'] ?? '';
+			$is_pending = 'scheduled' === (string) ( $row['status'] ?? '' );
+			if ( ! $is_pending && $created_at && ( time() - strtotime( (string) $created_at . ' UTC' ) ) > $edit_window * MINUTE_IN_SECONDS ) {
 				return new WP_Error(
 					'edit_window_closed',
 					__( 'The time window for editing this post has passed.', 'buddynext' ),
@@ -1156,6 +1189,47 @@ class PostService {
 			$fields['content'] = $data['content'];
 			$formats[]         = '%s';
 		}
+		// RESCHEDULE. The author could edit a scheduled post's words and nothing else — the date
+		// they first picked was final, on every layer: update() never persisted scheduled_at,
+		// the REST route never read it, and the edit UI never offered it.
+		//
+		// Only for a post that is actually still scheduled. set_schedule()'s guard exists
+		// because POST /posts/{id}/schedule could otherwise drag a PUBLISHED post back out of
+		// the feed; the same rule has to hold here, or the edit form becomes the second way in.
+		if ( array_key_exists( 'scheduled_at', $data ) ) {
+			$current = $this->get( $post_id );
+			$status  = (string) ( $current['status'] ?? '' );
+
+			if ( 'scheduled' !== $status ) {
+				return new WP_Error(
+					'not_scheduled',
+					__( 'Only a scheduled post can be rescheduled.', 'buddynext' ),
+					array( 'status' => 409 )
+				);
+			}
+
+			$when = trim( (string) $data['scheduled_at'] );
+			$ts   = '' === $when ? false : strtotime( $when );
+
+			if ( false === $ts ) {
+				return new WP_Error(
+					'invalid_schedule',
+					__( 'That is not a valid date and time.', 'buddynext' ),
+					array( 'status' => 400 )
+				);
+			}
+
+			if ( $ts <= time() ) {
+				return new WP_Error(
+					'schedule_in_past',
+					__( 'Pick a time in the future. To publish it now, use Publish Now.', 'buddynext' ),
+					array( 'status' => 400 )
+				);
+			}
+
+			$fields['scheduled_at'] = gmdate( 'Y-m-d H:i:s', $ts );
+		}
+
 		if ( isset( $data['privacy'] ) ) {
 			$fields['privacy'] = $data['privacy'];
 			$formats[]         = '%s';
@@ -1189,12 +1263,19 @@ class PostService {
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
 
+		// Re-arm on a reschedule. set_schedule() and clear_schedule() both do this, and this is
+		// the third way scheduled_at changes: without it, moving a post EARLIER leaves the cron
+		// armed for the old, later time and the post silently misses its slot.
+		if ( isset( $fields['scheduled_at'] ) ) {
+			ScheduledPostsPublisher::arm();
+		}
+
 		/**
 		 * Fires after a post is updated.
 		 *
 		 * @param int   $post_id Post ID.
 		 * @param int   $user_id User who updated the post.
-		 * @param array $fields  Columns written this update (edited_at plus any of content, privacy, content_warning, content_warning_type).
+		 * @param array $fields  Columns written this update (edited_at plus any of content, privacy, scheduled_at, content_warning, content_warning_type).
 		 */
 		do_action( 'buddynext_post_updated', $post_id, $user_id, $fields );
 
@@ -1222,6 +1303,15 @@ class PostService {
 		}
 
 		global $wpdb;
+
+		// Read the space BEFORE the row is destroyed. Nothing downstream can recover it
+		// afterwards — buddynext_post_deleted carries only the post id, and by then the
+		// row that knew its space_id is gone. Anything caching a per-space aggregate
+		// over posts needs this to invalidate.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$bn_deleted_space_id = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id )
+		);
 
 		// Cascade-delete all child rows before removing the post.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1289,6 +1379,11 @@ class PostService {
 		 * @param int $user_id User who deleted the post.
 		 */
 		do_action( 'buddynext_post_deleted', $post_id, $user_id );
+
+		if ( $bn_deleted_space_id > 0 ) {
+			/** Documented in create(). */
+			do_action( 'buddynext_space_posts_changed', $bn_deleted_space_id );
+		}
 
 		return true;
 	}
@@ -1463,7 +1558,7 @@ class PostService {
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 			if ( $pinned_count >= $pin_limit ) {
-				return new WP_Error(
+				$error = new WP_Error(
 					'pin_limit_reached',
 					sprintf(
 						/* translators: %d: the maximum number of pinned posts allowed in this scope. */
@@ -1476,6 +1571,27 @@ class PostService {
 						$pin_limit
 					)
 				);
+
+				/**
+				 * Filter the WP_Error returned when a member hits a plan-driven limit.
+				 *
+				 * Fired at every write path whose cap can be supplied by a membership
+				 * plan (currently pinned posts and spaces created). Free ships no plans,
+				 * so standalone behaviour is the unfiltered error — which already names
+				 * the limit. Pro hooks this to rewrite the message so it also names the
+				 * member's plan as the reason and attaches an `upgrade_url` to the error
+				 * data, turning a bare refusal into an actionable one.
+				 *
+				 * Listeners MUST return a WP_Error.
+				 *
+				 * @since 1.0.8
+				 *
+				 * @param WP_Error $error     The limit-reached error.
+				 * @param string   $limit_key Which limit was hit: 'pinned_posts' | 'spaces_created'.
+				 * @param int      $limit     The cap that was reached.
+				 * @param int      $user_id   The member who hit the cap.
+				 */
+				return apply_filters( 'buddynext_plan_limit_error', $error, 'pinned_posts', $pin_limit, $user_id );
 			}
 		}
 
@@ -1732,6 +1848,23 @@ class PostService {
 			return false;
 		}
 
+		// A PUBLISHED post is not schedulable, and this guard is the fix for a LIVE bug.
+		//
+		// This wrote status='scheduled' unconditionally. The route that reaches it
+		// (POST /posts/{id}/schedule) is guarded only by post_owner_permission, and its caller
+		// checks ownership and that the datetime is in the future — neither checks what the post
+		// currently IS. So any post owner could take a post that is already live, "schedule" it,
+		// and have it silently pulled OUT of the feed. Not a future trap: a shipped route
+		// anyone can hit today.
+		//
+		// Scheduling is a transition from not-yet-public. Draft and scheduled qualify;
+		// published does not.
+		$current = $this->get( $post_id );
+
+		if ( null === $current || ! in_array( (string) ( $current['status'] ?? '' ), array( 'draft', 'scheduled' ), true ) ) {
+			return false;
+		}
+
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $wpdb->update(
@@ -1822,6 +1955,72 @@ class PostService {
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
 
 		return false !== $updated;
+	}
+
+	/**
+	 * Publish a SCHEDULED post immediately, at now.
+	 *
+	 * Free owned every other publish transition and this one was missing, so Pro's "Publish
+	 * Now" button hand-rolled a raw UPDATE — and hand-rolled it differently. It set status and
+	 * cleared scheduled_at, and never touched created_at. Feeds order by `created_at DESC`, so
+	 * the post went live at the moment it was COMPOSED: schedule something on the 1st for the
+	 * 20th, hit Publish Now on the 5th, and it appears buried under four days of feed. The
+	 * author pressed a button called Publish Now and nobody saw the post.
+	 *
+	 * Every other publish path already bumps the timestamp for exactly this reason —
+	 * mark_published() (the cron), approve_pending() (moderation). The convention was
+	 * established everywhere except the one button whose name promises it.
+	 *
+	 * Clearing scheduled_at is load-bearing, not tidiness: a post left with a future
+	 * scheduled_at is a post the scheduling layer still believes is pending.
+	 *
+	 * @param int $post_id Post to publish.
+	 * @return bool True when the row was updated.
+	 */
+	public function publish_scheduled_now( int $post_id ): bool {
+		if ( $post_id <= 0 ) {
+			return false;
+		}
+
+		$now = current_time( 'mysql', true );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'status'           => 'published',
+				'scheduled_at'     => null,
+				'created_at'       => $now,
+				'last_activity_at' => $now,
+			),
+			array( 'id' => $post_id ),
+			array( '%s', '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( false === $updated ) {
+			return false;
+		}
+
+		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+
+		// Re-arm: the cron event may still be pointing at a post that is no longer scheduled.
+		// set_schedule() and clear_schedule() both re-arm; this is the third transition and
+		// must too.
+		ScheduledPostsPublisher::arm();
+
+		/**
+		 * Fires when a scheduled post is published ahead of its schedule.
+		 *
+		 * @since 1.0.8
+		 *
+		 * @param int $post_id The post that went live.
+		 */
+		do_action( 'buddynext_scheduled_post_published', $post_id );
+
+		return true;
 	}
 
 	/**

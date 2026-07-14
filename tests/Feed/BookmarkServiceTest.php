@@ -33,7 +33,10 @@ class BookmarkServiceTest extends \WP_UnitTestCase {
 		$this->bob     = self::factory()->user->create();
 		$this->post_id = $this->posts->create(
 			$this->alice,
-			array( 'type' => 'text', 'content' => 'Bookmarkable post' )
+			array(
+				'type'    => 'text',
+				'content' => 'Bookmarkable post',
+			)
 		);
 	}
 
@@ -65,7 +68,10 @@ class BookmarkServiceTest extends \WP_UnitTestCase {
 	public function test_user_bookmarks_returns_list(): void {
 		$post2 = $this->posts->create(
 			$this->alice,
-			array( 'type' => 'text', 'content' => 'Another post' )
+			array(
+				'type'    => 'text',
+				'content' => 'Another post',
+			)
 		);
 
 		$this->service->bookmark( $this->bob, $this->post_id );

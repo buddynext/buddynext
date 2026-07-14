@@ -71,7 +71,10 @@ class PostServiceTest extends \WP_UnitTestCase {
 
 		$id = $this->service->create(
 			$this->alice,
-			array( 'type' => 'text', 'content' => 'Fire test' )
+			array(
+				'type'    => 'text',
+				'content' => 'Fire test',
+			)
 		);
 
 		$this->assertCount( 1, $fired );
@@ -83,7 +86,11 @@ class PostServiceTest extends \WP_UnitTestCase {
 	public function test_get_returns_post_data(): void {
 		$id   = $this->service->create(
 			$this->alice,
-			array( 'type' => 'text', 'content' => 'Readable post', 'privacy' => 'public' )
+			array(
+				'type'    => 'text',
+				'content' => 'Readable post',
+				'privacy' => 'public',
+			)
 		);
 		$post = $this->service->get( $id );
 
@@ -119,7 +126,10 @@ class PostServiceTest extends \WP_UnitTestCase {
 	public function test_update_changes_content(): void {
 		$id = $this->service->create(
 			$this->alice,
-			array( 'type' => 'text', 'content' => 'Original' )
+			array(
+				'type'    => 'text',
+				'content' => 'Original',
+			)
 		);
 
 		$result = $this->service->update( $id, $this->alice, array( 'content' => 'Updated' ) );
@@ -131,7 +141,10 @@ class PostServiceTest extends \WP_UnitTestCase {
 	public function test_update_sets_edited_at(): void {
 		$id = $this->service->create(
 			$this->alice,
-			array( 'type' => 'text', 'content' => 'Before edit' )
+			array(
+				'type'    => 'text',
+				'content' => 'Before edit',
+			)
 		);
 
 		$this->service->update( $id, $this->alice, array( 'content' => 'After edit' ) );
@@ -143,7 +156,10 @@ class PostServiceTest extends \WP_UnitTestCase {
 	public function test_update_requires_owner(): void {
 		$id = $this->service->create(
 			$this->alice,
-			array( 'type' => 'text', 'content' => 'Alice post' )
+			array(
+				'type'    => 'text',
+				'content' => 'Alice post',
+			)
 		);
 
 		$result = $this->service->update( $id, $this->bob, array( 'content' => 'Bob changes' ) );
@@ -155,7 +171,10 @@ class PostServiceTest extends \WP_UnitTestCase {
 	public function test_delete_removes_post(): void {
 		$id = $this->service->create(
 			$this->alice,
-			array( 'type' => 'text', 'content' => 'Delete me' )
+			array(
+				'type'    => 'text',
+				'content' => 'Delete me',
+			)
 		);
 
 		$this->service->delete( $id, $this->alice );
@@ -166,7 +185,10 @@ class PostServiceTest extends \WP_UnitTestCase {
 	public function test_delete_requires_owner(): void {
 		$id = $this->service->create(
 			$this->alice,
-			array( 'type' => 'text', 'content' => 'Alice post' )
+			array(
+				'type'    => 'text',
+				'content' => 'Alice post',
+			)
 		);
 
 		$result = $this->service->delete( $id, $this->bob );
@@ -179,7 +201,10 @@ class PostServiceTest extends \WP_UnitTestCase {
 	public function test_pin_sets_flag(): void {
 		$id = $this->service->create(
 			$this->alice,
-			array( 'type' => 'text', 'content' => 'Pin me' )
+			array(
+				'type'    => 'text',
+				'content' => 'Pin me',
+			)
 		);
 
 		$this->service->pin( $id, $this->alice );
@@ -190,7 +215,10 @@ class PostServiceTest extends \WP_UnitTestCase {
 	public function test_unpin_clears_flag(): void {
 		$id = $this->service->create(
 			$this->alice,
-			array( 'type' => 'text', 'content' => 'Pinned' )
+			array(
+				'type'    => 'text',
+				'content' => 'Pinned',
+			)
 		);
 		$this->service->pin( $id, $this->alice );
 

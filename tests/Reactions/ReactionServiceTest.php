@@ -182,7 +182,13 @@ class ReactionServiceTest extends \WP_UnitTestCase {
 	public function test_get_user_emoji_map_empty_for_guest_or_no_ids(): void {
 		// A guest has no reactions, but the map keeps a consistent shape: every
 		// requested id present with a null value (callers read $map[$id] directly).
-		$this->assertSame( array( 1 => null, 2 => null ), $this->service->get_user_emoji_map( 0, 'post', array( 1, 2 ) ) );
+		$this->assertSame(
+			array(
+				1 => null,
+				2 => null,
+			),
+			$this->service->get_user_emoji_map( 0, 'post', array( 1, 2 ) )
+		);
 		// No ids -> genuinely empty map.
 		$this->assertSame( array(), $this->service->get_user_emoji_map( $this->user_id, 'post', array() ) );
 	}

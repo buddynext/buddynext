@@ -172,14 +172,33 @@ class MemberDirectoryController extends BaseRestController {
 		$following_set  = array();
 		$connection_map = array();
 		$blocked_either = array();
+		$muted_set      = array();
 		if ( $page_ids ) {
 			cache_users( $page_ids );
 			update_meta_cache( 'user', $page_ids );
 
 			if ( $viewer_id > 0 ) {
-				$following_set  = array_fill_keys( buddynext_service( 'follows' )->following( $viewer_id ), true );
+				// Batched and page-scoped, like the two lines below it.
+				//
+				// This used to be array_fill_keys( follows->following( $viewer_id ), true ) — it
+				// pulled the viewer's ENTIRE follow set out of the database on every directory page
+				// view, to answer an isset() check for the 20 members actually on screen. Its two
+				// neighbours (statuses_for, blocking_either_map) were already batched against
+				// $page_ids; this line sat between them still loading everything.
+				//
+				// array_filter() is load-bearing: following_map() returns target_id => bool and
+				// KEEPS the false entries, so isset() alone would report every member on the page as
+				// followed. Filtering to the truthy keys preserves the isset() semantics shape_item()
+				// relies on.
+				$following_set  = array_filter( buddynext_service( 'follows' )->following_map( $viewer_id, $page_ids ) );
 				$connection_map = buddynext_service( 'connections' )->statuses_for( $viewer_id, $page_ids );
 				$blocked_either = buddynext_service( 'blocks' )->blocking_either_map( $viewer_id, $page_ids );
+				// SSR reads the mute state (member-card.php) and the JS reads
+				// item.is_muted for the kebab label — but the REST payload never
+				// carried it, so a reactive card always rendered "Mute", even for a
+				// member the viewer had already muted, and the action then un-muted
+				// somebody it had just offered to mute. Page-scoped, one query.
+				$muted_set = buddynext_service( 'blocks' )->muted_map( $viewer_id, $page_ids );
 			}
 
 			/**
@@ -194,7 +213,7 @@ class MemberDirectoryController extends BaseRestController {
 		}
 
 		$items = array_map(
-			fn( $row ) => $this->shape_item( $row, $viewer_id, $following_set, $connection_map, $blocked_either ),
+			fn( $row ) => $this->shape_item( $row, $viewer_id, $following_set, $connection_map, $blocked_either, $muted_set ),
 			$rows
 		);
 
@@ -215,9 +234,10 @@ class MemberDirectoryController extends BaseRestController {
 	 * @param array<int, true>     $following_set  Viewer→followed lookup (uid keyed).
 	 * @param array<int, string>   $connection_map Viewer↔peer status, peer-uid keyed.
 	 * @param array<int, true>     $blocked_either Peers in a block relationship with the viewer.
+	 * @param array<int, true>     $muted_set      Peers the viewer has muted (uid keyed).
 	 * @return array<string, mixed>
 	 */
-	private function shape_item( array $row, int $viewer_id, array $following_set = array(), array $connection_map = array(), array $blocked_either = array() ): array {
+	private function shape_item( array $row, int $viewer_id, array $following_set = array(), array $connection_map = array(), array $blocked_either = array(), array $muted_set = array() ): array {
 		$uid          = (int) ( $row['user_id'] ?? 0 );
 		$display_name = (string) ( $row['display_name'] ?? '' );
 		$user         = get_user_by( 'id', $uid );
@@ -305,6 +325,11 @@ class MemberDirectoryController extends BaseRestController {
 			'can_follow'     => $can_follow,
 			'can_connect'    => $can_connect,
 			'is_following'   => $is_following,
+			// Parity with SSR (member-card.php). Without it the reactive card fell
+			// back to "not muted" for everyone: dataset.muted was hardcoded '0' and
+			// the kebab always read "Mute" — so muting a member you had already muted
+			// silently UN-muted them.
+			'is_muted'       => isset( $muted_set[ $uid ] ),
 			'connection'     => $this->shape_connection_state( $conn_status ),
 		);
 

@@ -1,6 +1,6 @@
 # The Free/Pro Contract
 
-This page documents how BuddyNext Free and BuddyNext Pro couple: the service-container keys Pro consumes and rebinds, the Free filter and action seams Pro hooks, the `consumed_by` field that records the cross-plugin hook contract, and the shared-table ownership rule. If you are building a Pro module, a vertical pack, or a third-party addon that sits on top of the free/pro pair, this is the contract you must respect so an update to either plugin does not break your code.
+This page documents how BuddyNext Free and BuddyNext Pro couple: the service-container keys Pro consumes and rebinds, the Free filter and action seams Pro hooks, which cross-plugin hooks are frozen, and the shared-table ownership rule. Every list here is derived from the code and is verified by a test (`FreeProContractTest`) that fails when the code and this page drift apart. If you are building a Pro module, a vertical pack, or a third-party addon that sits on top of the free/pro pair, this is the contract you must respect so an update to either plugin does not break your code.
 
 ![The Pro admin settings that sit on the Free/Pro container and hook contract documented here](../images/admin-settings.webp)
 
@@ -24,10 +24,26 @@ Boot order is fixed and load-bearing: Free boots at `plugins_loaded:15` (firing 
 
 Pro reads existing Free services out of the container by key rather than instantiating Free classes itself. These are the keys Pro depends on; renaming or removing one in Free breaks Pro.
 
+**All 16 of them.** This list is derived from code (every `buddynext_service( '…' )` call and every `$c->get( '…' )` inside a Pro bind closure), not from a manifest field. If you rename a Free container key, every row here is a break.
+
 | Key | Free class | Consumed by (Pro) | Purpose |
 |---|---|---|---|
-| `follows` | `BuddyNext\SocialGraph\FollowService` | `AI\AiRankedFeedService` | Read follow relationships for affinity-weighted feed ranking. |
-| `post_service` | `BuddyNext\Feed\PostService` | `AI\AiRankedFeedService`, `Analytics\AnalyticsCollector` | Read posts for AI ranking and analytics tracking. |
+| `assets` | `AssetService` | `Membership\MembershipHub` | Enqueue shared styles/scripts on the membership hub. |
+| `email_sender` | `EmailSender` | `Email\DripService`, `Email\BroadcastService`, `Membership\SubscriptionEmailListener` | Send Pro campaign, drip, and subscription mail through Free's sender (so Free's per-type prefs and suppression still apply). |
+| `feed_cache` | `Feed\FeedCache` | `Core\Plugin` (feed rebind) | Passed to the AI feed subclass so the page-1 feed cache still engages. |
+| `follows` | `SocialGraph\FollowService` | `Core\Plugin` (feed rebind) | Follow graph for affinity-weighted ranking. |
+| `moderation` | `Moderation\ModerationService` | `Admin\BulkModAdmin`, `Moderation\BulkModService` | Route Pro bulk actions through Free's moderation pipeline. |
+| `notification_message` | `Notifications\NotificationMessageService` | `Push\PushDispatcher` | Render the notification body for a push payload. |
+| `notification_prefs` | `Notifications\NotificationPrefService` | `Push\PushDispatcher` | Master per-channel gate before a push is sent. |
+| `notifications` | `Notifications\NotificationService` | `Push\PushDispatcher` | Read the notification being mirrored to push. |
+| `permissions` | `PermissionService` | `Integrations\Learnomy\LearnomyLinkController`, `Analytics\Controllers\AnalyticsController` | Capability checks on Pro REST routes. |
+| `post_service` | `Feed\PostService` | `Core\Plugin`, `Admin\ScheduledPostsAdmin`, `Feed\ScheduledPostsService`, `Feed\ScheduledPostsIntegration`, `Feed\Controllers\ScheduledPostsController` | Create/read posts for scheduling and AI ranking. |
+| `privacy` | `PrivacyService` | `Suite\Controllers\PortfolioController` | Visibility checks before exposing portfolio panels. |
+| `profiles` | `Profile\ProfileService` | `Profile\AdvancedFieldRenderer` | Read profile field values for the Pro field types. |
+| `reactions` | `Reactions\ReactionService` | `Reactions\CustomReactionsService` | Extend Free's reaction set. |
+| `search` | `Search\SearchService` | `Search\SavedSearchService` | Run a saved search through the live search service. |
+| `spaces` | `Spaces\SpaceService` | `Admin\BroadcastAdmin`, `Admin\MembershipAdmin`, `Search\AdvancedSearchFilters`, `Realtime\RealtimeAssets` | Resolve spaces for targeting, filtering, and realtime channels. |
+| `webhooks` | `Outbound\OutboundWebhookService` | `Membership\MembershipWebhookListener` | Fire outbound webhooks on membership events. |
 
 Resolve a Free service from a Pro (or addon) class through the container, never with `new`:
 
@@ -39,11 +55,20 @@ $posts   = $container->get( 'post_service' );
 
 ## Container keys Pro rebinds
 
-When a Pro feature toggle is on, Pro rebinds a Free key to a subclass. The subclass keeps Free's exact constructor signature so the container can construct it with the same dependencies. Every consumer that resolves the key gets the Pro behaviour with no further change.
+When a Pro feature toggle is on, Pro rebinds a Free key to a subclass. Every consumer that resolves the key gets the Pro behaviour with no further change.
 
-| Key | Rebound to | Gate (option) | Behaviour |
+Pro rebinds **two** Free keys. Both rebinds are behind a toggle and are skipped entirely when it is off, so on a default Pro install the container still hands you Free's class.
+
+| Key | Rebound to | Gate | Behaviour |
 |---|---|---|---|
-| `feed` | `BuddyNextPro\AI\AiRankedFeedService extends BuddyNext\Feed\FeedService` | `buddynextpro_ai_feed_enabled` (default false) | Overrides `home_feed()`: calls `parent::home_feed()`, then re-ranks the hydrated result by `engagement_score + affinity_score`. When the toggle is off, the override short-circuits to the parent (chronological). |
+| `feed` | `BuddyNextPro\AI\AiRankedFeedService extends BuddyNext\Feed\FeedService` | `AiRankedFeedService::is_enabled()` (default off) | Overrides `home_feed()`: calls `parent::home_feed()`, then re-ranks the hydrated result by `engagement_score + affinity_score`. |
+| `search` | `BuddyNextPro\AI\SemanticSearchService extends BuddyNext\Search\SearchService` | `SemanticSearchService::is_enabled()` (default off) | Embedding-boosted search. Bails internally when no embedding provider is configured, so a misconfigured site still gets FULLTEXT results. |
+
+A rebind changes what **every** caller of that key receives, including Free's own callers and yours. That is the point of the seam, and it is also the risk: `buddynext_service( 'search' )` does not return `SearchService` on an AI-search site.
+
+The subclass does **not** have to keep Free's constructor signature — the bind closure constructs it explicitly, so it can take different dependencies. `AiRankedFeedService` happens to mirror Free's three (`follows`, `post_service`, `feed_cache`); `SemanticSearchService` takes a single `embedding_provider` that Free knows nothing about. What the subclass must keep is Free's **public method contract**, since existing callers keep calling it.
+
+Pro also binds its own new keys (`pro_*`, `embedding_provider`). Those are additions, not rebinds — they overwrite nothing.
 
 ```php
 // Pro's bind, run only when the AI-feed toggle is on. The Pro service
@@ -60,7 +85,7 @@ $container->bind( 'feed', fn( $c ) => new \BuddyNextPro\AI\AiRankedFeedService(
 
 ## Free filter and action seams Pro hooks
 
-These are the Free-defined extension points Pro attaches to. They are public seams: your addon can hook the same ones. The table reproduces Pro's `free_filters_hooked` manifest entry - the canonical list of what Pro relies on Free to fire.
+These are the Free-defined extension points Pro attaches to. They are public seams: your addon can hook the same ones.
 
 | Free seam | Type | Pro behaviour |
 |---|---|---|
@@ -89,28 +114,24 @@ add_action( 'buddynext_post_created', static function ( int $post_id, int $user_
 }, 10, 3 );
 ```
 
-## The `consumed_by` contract on Pro-emitted hooks
+## Which cross-plugin hooks are frozen
 
-Every hook Pro fires is recorded in `buddynext-pro/audit/manifest.json` under `hooks_fired`, and each entry carries a `consumed_by` array. That array is the documented promise about who listens:
+Some hooks are load-bearing for the free<->pro pair: a real listener in the *other* plugin depends on them, so renaming or removing one breaks the pair silently. Others are fired with no first-party listener at all — those are stable extension seams for your addon, and "no first-party consumer" is not the same as "private."
 
-- `consumed_by: ["buddynext", "buddynext-pro"]` - part of the live free<->pro wiring. A real listener in the paired plugin depends on it. Treat it as frozen; renaming or removing it breaks the pair.
-- `consumed_by: ["buddynext-pro"]` - Pro fires and Pro consumes it (internal to the Pro layer), but it is still a public seam you may hook.
-- `consumed_by: []` - Pro fires it but no first-party listener is attached. It is a stable extension seam for your addon (gamification, CRM, analytics). Empty means "no first-party consumer," not "private."
+The hooks that carry a first-party listener today, with who actually listens:
 
-The eight hooks Pro fires that carry a non-empty `consumed_by`:
-
-| Hook | Type | consumed_by |
+| Hook | Type | Listened to by |
 |---|---|---|
-| `buddynext_post_created` | action | `buddynext`, `buddynext-pro` |
-| `buddynext_comment_created` | action | `buddynext`, `buddynext-pro` |
-| `buddynext_reaction_added` | action | `buddynext`, `buddynext-pro` |
-| `buddynext_user_followed` | action | `buddynext`, `buddynext-pro` |
-| `buddynext_ability_granted` | action | `buddynext`, `buddynext-pro` |
-| `buddynext_ability_revoked` | action | `buddynext` |
-| `buddynext_search_query_args` | filter | `buddynext`, `buddynext-pro` |
-| `buddynext_profile_field_render` | filter | `buddynext-pro` |
+| `buddynext_post_created` | action | Free, Pro |
+| `buddynext_comment_created` | action | Free, Pro |
+| `buddynext_reaction_added` | action | Free, Pro |
+| `buddynext_user_followed` | action | Free, Pro |
+| `buddynext_ability_granted` | action | Free, Pro |
+| `buddynext_ability_revoked` | action | Free |
+| `buddynext_search_query_args` | filter | Free, Pro |
+| `buddynext_profile_field_render` | filter | Pro |
 
-> **Note:** `consumed_by` names first-party listeners only (the two BuddyNext plugins). Your own `add_action()`/`add_filter()` callbacks never appear in it. Read the manifest entry before hooking - it gives the firing site (`where`), the argument count, and who else is on the wire.
+Treat every row above as frozen. Your own `add_action()` / `add_filter()` callbacks are never counted in that column — it names first-party listeners only, so a hook listed as "Pro" may still have any number of addon listeners.
 
 ## Shared-table ownership rule
 
@@ -162,4 +183,4 @@ add_action( 'buddynext_user_followed', static function ( int $follower_id, int $
 - **Licensing never gates features.** An invalid or expired Pro license blocks update downloads only. Every Pro feature keeps working. Do not call a license check to gate behaviour in an addon that builds on Pro.
 - **Argument-count drift.** `buddynext_ability_granted` is fired with two arguments by Pro's Stripe webhook and three (an extra `$source`) by Free's access webhook. Register for the lowest count you need (`add_action( ..., 10, 2 )`) so your callback works regardless of producer.
 - **REST namespaces are separate.** Free uses `buddynext/v1`, Pro uses `buddynext-pro/v1`. Do not mix them.
-- **The manifest is the source of truth.** `free_services_consumed`, `free_filters_hooked`, and `hooks_fired[*].consumed_by` in `buddynext-pro/audit/manifest.json` are refreshed with each change. Read them before extending the pair; this page summarizes the current state of those fields.
+- **This page is the contract; the code is the source of truth.** An earlier version of this page told you to read `free_services_consumed`, `free_filters_hooked`, and `hooks_fired[*].consumed_by` in `buddynext-pro/audit/manifest.json`. **Those fields have never existed in that file.** The manifest is machine-generated and does not emit them, so anyone following that instruction opened the manifest and found nothing. The tables above are generated from the code instead, and `FreeProContractTest` fails if a Free key is renamed or a new coupling appears without this page being updated.

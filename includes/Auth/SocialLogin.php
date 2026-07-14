@@ -220,8 +220,164 @@ class SocialLogin {
 	 */
 	public function rest_unlink( \WP_REST_Request $request ): \WP_REST_Response {
 		$provider = sanitize_key( (string) $request['provider'] );
-		delete_user_meta( get_current_user_id(), 'bn_social_' . $provider . '_id' );
+		$user_id  = get_current_user_id();
+
+		// Refuse to delete the member's LAST credential. A social sign-up is created
+		// with a random password it never shows anyone (see create_member), so a
+		// Google-only member who unlinks Google is left with no way in: they cannot
+		// sign in, and they cannot even change their password because they do not
+		// know the current one. They would have to guess that a "forgot password"
+		// flow exists for a password they never had.
+		if ( self::is_last_credential( $user_id, $provider ) ) {
+			return new \WP_REST_Response(
+				array(
+					'unlinked' => false,
+					'code'     => 'bn_last_credential',
+					'message'  => __( 'This is the only way you can sign in. Set a password first, then you can unlink it.', 'buddynext' ),
+				),
+				409
+			);
+		}
+
+		// Drop the indexed lookup key alongside the readable one. Leaving it behind
+		// would keep pointing this provider identity at a member who is no longer
+		// linked to it.
+		$identity = (string) get_user_meta( $user_id, 'bn_social_' . $provider . '_id', true );
+		$indexed  = self::identity_key( $provider, $identity );
+		if ( '' !== $indexed ) {
+			delete_user_meta( $user_id, $indexed );
+		}
+
+		delete_user_meta( $user_id, 'bn_social_' . $provider . '_id' );
 		return new \WP_REST_Response( array( 'unlinked' => true ), 200 );
+	}
+
+	/**
+	 * The INDEXED user-meta key for one provider identity.
+	 *
+	 * WordPress indexes usermeta.meta_key but NOT meta_value, so the natural lookup
+	 * ("find the row whose bn_social_google_id equals this id") narrows on the key
+	 * and then scans every row that carries it — every Google-linked member on the
+	 * site, on every single sign-in. At fleet scale (100k members, most on one
+	 * provider) that is a six-figure row scan per login.
+	 *
+	 * Putting the provider's id INTO the key makes the existing meta_key index do
+	 * the work: one indexed seek instead of a scan. Provider ids are far shorter
+	 * than the index's 191-character prefix, so the whole key is covered.
+	 *
+	 * The value-carrying `bn_social_{provider}_id` meta stays — unlink and the
+	 * linked-providers list read it, and it remains the human-readable record.
+	 *
+	 * @param string $provider    Provider id (e.g. 'google').
+	 * @param string $identity_id The provider's own user id.
+	 * @return string Meta key, or '' when the identity is empty.
+	 */
+	private static function identity_key( string $provider, string $identity_id ): string {
+		$provider    = sanitize_key( $provider );
+		$identity_id = trim( $identity_id );
+
+		if ( '' === $provider || '' === $identity_id ) {
+			return '';
+		}
+
+		// md5 keeps the key bounded and index-friendly whatever a provider emits.
+		// This is a lookup key, not a secret, so a fast digest is the right tool.
+		return 'bn_social_' . $provider . '_uid_' . md5( $identity_id );
+	}
+
+	/**
+	 * Which member owns this provider identity, if any?
+	 *
+	 * Tries the indexed key first. Falls back to the old unindexed scan for members
+	 * linked before the indexed key existed — and, on a hit, writes the indexed key
+	 * so that member is never scanned for again. The backfill is lazy and
+	 * self-healing: no migration, and the scan disappears as members sign in.
+	 *
+	 * @param string $provider    Provider id.
+	 * @param string $identity_id The provider's own user id.
+	 * @return int Owning user id, or 0 when nobody has linked this identity.
+	 */
+	private static function owner_of_identity( string $provider, string $identity_id ): int {
+		$indexed = self::identity_key( $provider, $identity_id );
+		if ( '' === $indexed ) {
+			return 0;
+		}
+
+		$hit = get_users(
+			array(
+				'meta_key' => $indexed, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- the point of this key is that it IS indexed.
+				'number'   => 1,
+				'fields'   => 'ID',
+			)
+		);
+
+		if ( ! empty( $hit ) ) {
+			return (int) $hit[0];
+		}
+
+		// Legacy row: linked before the indexed key existed.
+		$legacy = get_users(
+			array(
+				'meta_key'   => 'bn_social_' . sanitize_key( $provider ) . '_id', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_value' => $identity_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+				'number'     => 1,
+				'fields'     => 'ID',
+			)
+		);
+
+		if ( empty( $legacy ) ) {
+			return 0;
+		}
+
+		$owner = (int) $legacy[0];
+		update_user_meta( $owner, $indexed, 1 ); // Backfill, so this member is never scanned for again.
+
+		return $owner;
+	}
+
+	/**
+	 * Link a provider identity to a member — both the readable meta and the
+	 * indexed lookup key, so the two can never disagree.
+	 *
+	 * @param int    $user_id     Member.
+	 * @param string $provider    Provider id.
+	 * @param string $identity_id The provider's own user id.
+	 * @return void
+	 */
+	public static function link_identity( int $user_id, string $provider, string $identity_id ): void {
+		update_user_meta( $user_id, 'bn_social_' . sanitize_key( $provider ) . '_id', $identity_id );
+
+		$indexed = self::identity_key( $provider, $identity_id );
+		if ( '' !== $indexed ) {
+			update_user_meta( $user_id, $indexed, 1 );
+		}
+	}
+
+	/**
+	 * Would unlinking this provider leave the member with no way to sign in?
+	 *
+	 * True when it is their last linked provider AND they have no password they
+	 * actually know. WordPress always stores a hash, so the hash cannot tell us
+	 * this — a social sign-up is given a random one it never reveals. The
+	 * `bn_password_set` marker records that the member chose the password
+	 * themselves (at signup, on change, or via a reset).
+	 *
+	 * @param int    $user_id  Member being changed.
+	 * @param string $provider Provider about to be unlinked.
+	 * @return bool True when the unlink would strand them.
+	 */
+	public static function is_last_credential( int $user_id, string $provider ): bool {
+		if ( \BuddyNext\Auth\AuthController::has_known_password( $user_id ) ) {
+			return false; // They can still sign in with a password.
+		}
+
+		foreach ( self::linked_for( $user_id ) as $id => $linked ) {
+			if ( $linked && $id !== $provider ) {
+				return false; // Another provider still gets them in.
+			}
+		}
+
+		return true;
 	}
 
 	/**
@@ -309,17 +465,32 @@ class SocialLogin {
 	 */
 	public function expose_providers( $providers ) {
 		$providers = is_array( $providers ) ? $providers : array();
+
+		// Carry an invitation token onto the social buttons. Someone who opened
+		// /signup/?invite=TOKEN and then clicked "Continue with Google" used to lose
+		// the invitation on the redirect, so on an invite-only community the button
+		// rejected them — despite them holding a valid invite.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$invite = isset( $_GET['invite'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['invite'] ) ) : '';
+
 		foreach ( self::get_providers() as $id => $def ) {
 			if ( ! self::is_ready( $id ) ) {
 				continue;
 			}
+
+			$url = home_url( '/oauth/' . rawurlencode( $id ) . '/' ); // bn-route-ok: plugin-registered fixed /oauth/ rewrite.
+			if ( '' !== $invite ) {
+				$url = add_query_arg( 'invite', rawurlencode( $invite ), $url );
+			}
+
 			$providers[] = array(
 				'id'    => $id,
 				'label' => (string) $def['label'],
 				'icon'  => (string) apply_filters( 'buddynext_social_icon', (string) $def['icon'], $id ),
-				'url'   => home_url( '/oauth/' . rawurlencode( $id ) . '/' ), // bn-route-ok: plugin-registered fixed /oauth/ rewrite.
+				'url'   => $url,
 			);
 		}
+
 		return $providers;
 	}
 
@@ -348,9 +519,17 @@ class SocialLogin {
 	 * @return void
 	 */
 	private function start( string $id ): void {
+		// Throttle the START of the flow, not just the callback. This route is an
+		// unauthenticated GET that unconditionally writes a 10-minute transient on
+		// every single hit — with an attacker-controlled redirect_to payload inside
+		// it. Unthrottled, hammering /oauth/google/ filled wp_options with unbounded
+		// _transient_bn_social_state_* rows (the default path with no persistent
+		// object cache): storage exhaustion, no auth, no cost to the attacker.
+		$this->rate_limit();
+
 		$defs = self::get_providers();
 		if ( ! isset( $defs[ $id ] ) || ! self::is_ready( $id ) ) {
-			$this->bail( __( 'That sign-in method is not available.', 'buddynext' ) );
+			$this->bail( 'unavailable' );
 		}
 
 		$s     = self::settings()[ $id ];
@@ -358,11 +537,21 @@ class SocialLogin {
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$redirect_to = isset( $_GET['redirect_to'] ) ? esc_url_raw( wp_unslash( (string) $_GET['redirect_to'] ) ) : '';
+
+		// Carry the invitation token through the round-trip. Without this the state
+		// transient held only redirect_to, so an invite could never be redeemed via
+		// OAuth — and on an invite-only community the social buttons rejected
+		// EVERYONE, including people holding a perfectly valid invitation. Respected
+		// is not the same as usable.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$invite = isset( $_GET['invite'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['invite'] ) ) : '';
+
 		set_transient(
 			self::STATE_PREFIX . $state,
 			array(
 				'provider'    => $id,
 				'redirect_to' => $redirect_to,
+				'invite'      => $invite,
 			),
 			10 * MINUTE_IN_SECONDS
 		);
@@ -413,44 +602,72 @@ class SocialLogin {
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		if ( ! isset( $defs[ $id ] ) || ! self::is_ready( $id ) || '' === $code || '' === $state ) {
-			$this->bail( __( 'Sign-in was cancelled or failed.', 'buddynext' ) );
+			$this->bail( 'cancelled' );
 		}
 
 		// Same-browser check: the state cookie set at start must match.
 		$cookie_state = isset( $_COOKIE[ self::STATE_COOKIE ] ) ? sanitize_text_field( wp_unslash( (string) $_COOKIE[ self::STATE_COOKIE ] ) ) : '';
 		$this->clear_state_cookie();
 		if ( ! hash_equals( $cookie_state, $state ) ) {
-			$this->bail( __( 'Sign-in could not be verified for this browser. Please try again.', 'buddynext' ) );
+			$this->bail( 'bad_browser' );
 		}
 
 		$stored = get_transient( self::STATE_PREFIX . $state );
 		delete_transient( self::STATE_PREFIX . $state );
 		if ( ! is_array( $stored ) || ( $stored['provider'] ?? '' ) !== $id ) {
-			$this->bail( __( 'Sign-in session expired. Please try again.', 'buddynext' ) );
+			$this->bail( 'expired' );
 		}
 
 		$token = $this->exchange_code( $id, $code );
 		if ( '' === $token ) {
-			$this->bail( __( 'Could not verify your account with the provider.', 'buddynext' ) );
+			$this->bail( 'provider_failed' );
 		}
 
 		$profile = $this->fetch_profile( $id, $token );
 		if ( empty( $profile['email'] ) ) {
-			$this->bail( __( 'No email address was returned by the provider, so we could not sign you in.', 'buddynext' ) );
+			$this->bail( 'no_email' );
 		}
 
-		$user_id = $this->resolve_user( $id, $profile );
-		if ( is_wp_error( $user_id ) ) {
-			$this->bail( $user_id->get_error_message() );
+		$invite   = (string) ( $stored['invite'] ?? '' );
+		$resolved = $this->resolve_user( $id, $profile, $invite );
+		if ( is_wp_error( $resolved ) ) {
+			$this->bail( $this->code_for( $resolved ) );
 		}
 
-		wp_set_current_user( (int) $user_id );
-		wp_set_auth_cookie( (int) $user_id, true, is_ssl() );
+		// A pending-signup token: the owner requires something OAuth cannot give
+		// us (terms consent, a required profile field). No account exists yet.
+		// Send them to finish on a real form.
+		if ( is_string( $resolved ) ) {
+			wp_safe_redirect(
+				add_query_arg(
+					'bn_pending',
+					rawurlencode( $resolved ),
+					\BuddyNext\Core\PageRouter::auth_url() . 'complete/'
+				)
+			);
+			exit;
+		}
 
-		$user = get_user_by( 'id', (int) $user_id );
-		if ( $user instanceof \WP_User ) {
-			/** This action is documented in wp-includes/user.php (wp_signon). */
-			do_action( 'wp_login', $user->user_login, $user );
+		// Session issuance goes through SessionIssuer — the ONLY thing allowed to
+		// hand out an auth cookie. This is what closes both critical bypasses:
+		// the admin-approval hold is a wp_authenticate_user filter and two-factor
+		// interposes on the authenticate chain, and setting the cookie by hand
+		// here (as this method used to) skipped both of them entirely.
+		$session = buddynext_service( 'session' )->start( (int) $resolved, true );
+
+		if ( is_wp_error( $session ) ) {
+			// Two-factor: the member must complete the challenge before any session
+			// exists. Hand the ticket to the auth hub rather than signing them in.
+			if ( 'bn_2fa_required' === $session->get_error_code() ) {
+				$ticket = (string) ( $session->get_error_data()['ticket'] ?? '' );
+				wp_safe_redirect(
+					add_query_arg( 'bn_2fa', rawurlencode( $ticket ), \BuddyNext\Core\PageRouter::auth_url() )
+				);
+				exit;
+			}
+
+			// Anything else (notably the admin-approval hold) is a refusal.
+			$this->bail( $this->code_for( $session ) );
 		}
 
 		$dest = ! empty( $stored['redirect_to'] ) ? (string) $stored['redirect_to'] : home_url( '/' );
@@ -523,9 +740,20 @@ class SocialLogin {
 		$email    = sanitize_email( (string) $this->claim( $d, (string) ( $map['email'] ?? '' ) ) );
 		$verified = false;
 
-		// GitHub keeps email on a separate endpoint and only there reports which
+		// GitHub keeps email on a separate endpoint and ONLY there reports which
 		// address is primary AND verified — read it from the horse's mouth.
-		if ( '' === $email && ! empty( $def['email_endpoint'] ) ) {
+		//
+		// This used to run only when /user returned no email at all. But GitHub's
+		// /user DOES return `email` whenever the member has set a public profile
+		// email, so for those members the lookup was skipped — and since GitHub has
+		// no inline `verified` claim and no trust_email, they came out UNVERIFIED.
+		// Same site, same provider: one member auto-linked, the next hit the "sign
+		// in with your password first" wall, depending on a setting on THEIR GitHub
+		// profile that neither they nor the admin would ever connect to the
+		// failure. With email verification on, those accounts were stuck unverified
+		// forever. If the provider has an email endpoint, it is authoritative:
+		// always ask.
+		if ( ! empty( $def['email_endpoint'] ) ) {
 			$emails = $this->api_get_json( (string) $def['email_endpoint'], $token );
 			if ( is_array( $emails ) ) {
 				foreach ( $emails as $row ) {
@@ -548,6 +776,21 @@ class SocialLogin {
 				$verified = true;
 			}
 		}
+
+		/**
+		 * Filter whether a provider's email address may be treated as verified.
+		 *
+		 * This one boolean decides whether an OAuth identity may be merged into an
+		 * EXISTING local account, so it is the most security-sensitive value in the
+		 * flow. Facebook ships trusted on the platform's own assurance; an owner who
+		 * is not comfortable with that assumption can revoke it here rather than
+		 * having to disable the provider outright.
+		 *
+		 * @param bool                 $verified Whether the provider asserts the address is verified.
+		 * @param string               $id       Provider id (google, facebook, github, discord…).
+		 * @param array<string, mixed> $d        Raw provider profile payload.
+		 */
+		$verified = (bool) apply_filters( 'buddynext_social_email_verified', (bool) $verified, $id, (array) $d );
 
 		return array(
 			'id'             => (string) $this->claim( $d, (string) ( $map['id'] ?? '' ) ),
@@ -615,28 +858,23 @@ class SocialLogin {
 	 * account only when the provider asserts the email is verified — otherwise an
 	 * attacker who registered a provider account under someone else's address
 	 * could take over that local account (the classic social-login takeover, e.g.
-	 * Nextend CVE-2024-9893). Unverified emails can still create a brand-new
-	 * account (nothing to take over), but never silently adopt an existing one.
+	 * Nextend CVE-2024-9893). An unverified address can no longer create a new
+	 * account either — it used to be allowed on the reasoning that there was
+	 * nothing to take over, but it let an attacker squat someone else's email and
+	 * permanently block the real owner from ever registering.
 	 *
 	 * @param string                                                                       $id      Provider id.
 	 * @param array{id:string,email:string,name:string,picture:string,email_verified:bool} $profile Provider profile.
-	 * @return int|\WP_Error User id, or error (closed / pending / takeover-guard).
+	 * @param string                                                                       $invite  Invitation token carried through the OAuth round-trip.
+	 * @return int|string|\WP_Error User id, a pending-signup token, or an error.
 	 */
-	private function resolve_user( string $id, array $profile ) {
+	private function resolve_user( string $id, array $profile, string $invite = '' ) {
 		$meta_key = 'bn_social_' . $id . '_id';
 
 		// Who, if anyone, already owns this provider identity?
 		$owner = 0;
 		if ( '' !== $profile['id'] ) {
-			$linked = get_users(
-				array(
-					'meta_key'   => $meta_key, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
-					'meta_value' => $profile['id'], // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-					'number'     => 1,
-					'fields'     => 'ID',
-				)
-			);
-			$owner  = ! empty( $linked ) ? (int) $linked[0] : 0;
+			$owner = self::owner_of_identity( $id, (string) $profile['id'] );
 		}
 
 		// Connect flow — a logged-in member is linking this provider to their
@@ -647,7 +885,7 @@ class SocialLogin {
 			if ( $owner && $owner !== $current ) {
 				return new \WP_Error( 'bn_social_taken', __( 'That account is already linked to another member.', 'buddynext' ) );
 			}
-			update_user_meta( $current, $meta_key, $profile['id'] );
+			self::link_identity( (int) $current, $id, (string) $profile['id'] );
 			return $current;
 		}
 
@@ -670,42 +908,130 @@ class SocialLogin {
 			return (int) $existing->ID;
 		}
 
-		// 3) No existing account — create one, honouring the registration policy.
-		$reg_mode = (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() );
-		if ( 'invite' === $reg_mode ) {
-			return new \WP_Error( 'bn_reg_invite', __( 'This community is invite-only, so a new account could not be created.', 'buddynext' ) );
-		}
-		if ( ! (bool) get_option( 'users_can_register', true ) ) {
-			return new \WP_Error( 'bn_reg_closed', __( 'Registration is closed, so a new account could not be created.', 'buddynext' ) );
+		// 3) No existing account. From here the SHARED registration gate decides —
+		// the same one the BuddyNext form and the WordPress core form pass through
+		// — so the owner's policy binds on this door too. It previously did not:
+		// social login reimplemented registration and inherited none of it.
+
+		// A provider-verified address is required to CREATE an account, not just to
+		// link into an existing one. It used to be required only for linking, so an
+		// unverified address could still mint a brand-new account under someone
+		// else's email — squatting it, because the real owner is then permanently
+		// blocked from registering ("an account already exists with this email").
+		// Registration denial-of-service, and a ready-made phishing surface.
+		if ( ! $profile['email_verified'] ) {
+			return new \WP_Error(
+				'bn_social_unverified_new',
+				__( 'Your provider did not confirm that this email address belongs to you, so we could not create an account. Please sign up with your email instead.', 'buddynext' )
+			);
 		}
 
-		$login   = $this->unique_login( $profile['email'] );
-		$user_id = wp_create_user( $login, wp_generate_password( 24, true, true ), $profile['email'] );
+		$policy = buddynext_service( 'registration_policy' );
+
+		// Access policy: registration mode (incl. closed), the invite requirement,
+		// and the allowed-domain allowlist. The allowlist in particular is an
+		// access decision the owner made about who may join — a community
+		// restricted to one corporate domain used to be wide open to any Google
+		// account, because this door never asked.
+		$access = $policy->check_access(
+			(string) $profile['email'],
+			'' !== $invite ? $invite : null,
+			RegistrationPolicy::SOURCE_SOCIAL
+		);
+		if ( is_wp_error( $access ) ) {
+			return $access;
+		}
+
+		// Spam signals that do not need a form: the rate limit and the
+		// disposable-domain list. The honeypot, time-trap and human check are
+		// properties of a rendered form, so RegistrationGuard skips them for this
+		// source rather than failing a sign-in that could never carry them.
+		$guard = ( new RegistrationGuard() )->check(
+			array(
+				'source' => RegistrationPolicy::SOURCE_SOCIAL,
+				'email'  => (string) $profile['email'],
+				'ip'     => AuthController::client_ip(),
+			)
+		);
+		if ( is_wp_error( $guard ) ) {
+			return $guard;
+		}
+
+		$pending = array(
+			'provider'       => $id,
+			'uid'            => (string) $profile['id'],
+			'email'          => (string) $profile['email'],
+			'email_verified' => (bool) $profile['email_verified'],
+			'name'           => (string) $profile['name'],
+			'picture'        => (string) $profile['picture'],
+			// The invite must survive the finish-signup step, or a social sign-up
+			// that needs terms consent would silently lose its invitation.
+			'invite'         => $invite,
+		);
+
+		// The owner may require terms consent and/or profile fields that OAuth
+		// simply cannot supply. Park the signup and finish it on a real form —
+		// do NOT create an account we would then have to patch. Creating first and
+		// patching after is exactly what let a visitor defeat admin-approval mode
+		// by clicking the social button twice.
+		if ( ! empty( $policy->missing( array( 'email' => $profile['email'] ) ) ) ) {
+			return PendingSignup::park( $pending );
+		}
+
+		return $this->create_member( $pending );
+	}
+
+	/**
+	 * Create a member from a (complete) social signup.
+	 *
+	 * Goes through RegistrationService like every other door, so the new account
+	 * gets the DM-privacy seed, the profile fields, the approval hold and the
+	 * canonical hooks — all of which social login used to skip silently.
+	 *
+	 * @param array<string,mixed> $pending Parked/complete provider profile.
+	 * @param array<string,mixed> $extra   Additional signup data (terms, bn_field_*).
+	 * @return int|\WP_Error New user id, or an error.
+	 */
+	public function create_member( array $pending, array $extra = array() ) {
+		$user_id = buddynext_service( 'registration' )->create(
+			array_merge(
+				$extra,
+				array(
+					'email'      => (string) $pending['email'],
+					'user_login' => RegistrationService::unique_login( (string) $pending['email'] ),
+					'password'   => wp_generate_password( 24, true, true ),
+					'invite'     => (string) ( $pending['invite'] ?? '' ),
+					'social'     => array(
+						'provider'       => (string) $pending['provider'],
+						'uid'            => (string) $pending['uid'],
+						'email_verified' => ! empty( $pending['email_verified'] ),
+					),
+				)
+			)
+		);
 		if ( is_wp_error( $user_id ) ) {
 			return $user_id;
 		}
 		$user_id = (int) $user_id;
 
-		if ( '' !== $profile['name'] ) {
+		// We minted the password above and never showed it to them: this member has
+		// none they could type. This is the only place that is true, so it is the
+		// only place the marker is set — has_known_password() assumes every other
+		// account HAS a password and demands it before a change.
+		AuthController::mark_password_generated( $user_id );
+
+		if ( '' !== (string) $pending['name'] ) {
 			wp_update_user(
 				array(
 					'ID'           => $user_id,
-					'display_name' => $profile['name'],
+					'display_name' => (string) $pending['name'],
 				)
 			);
 		}
-		update_user_meta( $user_id, $meta_key, $profile['id'] );
-
-		// A verified provider email satisfies BuddyNext's own email check. Use the
-		// canonical key VerificationService reads/writes (buddynext_email_verified),
-		// so social-login members are recognised as verified everywhere.
-		if ( $profile['email_verified'] ) {
-			update_user_meta( $user_id, 'buddynext_email_verified', 1 );
-		}
 
 		// Adopt the provider avatar when the member has none yet.
-		if ( '' !== $profile['picture'] && '' === (string) get_user_meta( $user_id, 'bn_avatar', true ) ) {
-			update_user_meta( $user_id, 'bn_avatar', esc_url_raw( $profile['picture'] ) );
+		if ( '' !== (string) $pending['picture'] && '' === (string) get_user_meta( $user_id, 'bn_avatar', true ) ) {
+			update_user_meta( $user_id, 'bn_avatar', esc_url_raw( (string) $pending['picture'] ) );
 		}
 
 		/**
@@ -715,50 +1041,89 @@ class SocialLogin {
 		 * @param string $provider Provider id.
 		 * @param array  $profile  Provider profile (id, email, name, picture).
 		 */
-		do_action( 'buddynext_social_user_created', $user_id, $id, $profile );
-
-		// Admin-approval mode: the account exists but stays pending — do not log
-		// the user in (mirrors the email/password registration flow).
-		if ( 'approval' === $reg_mode ) {
-			update_user_meta( $user_id, 'bn_pending_approval', '1' );
-			/** This action is documented in AuthController::register(). */
-			do_action( 'buddynext_registration_pending', $user_id, $profile['email'] );
-			return new \WP_Error( 'bn_social_pending', __( 'Your account was created and is awaiting administrator approval.', 'buddynext' ) );
-		}
+		do_action( 'buddynext_social_user_created', $user_id, (string) $pending['provider'], $pending );
 
 		return $user_id;
 	}
 
-	/**
-	 * Derive a unique login from an email local-part.
-	 *
-	 * @param string $email Email.
-	 * @return string
-	 */
-	private function unique_login( string $email ): string {
-		$base  = sanitize_user( current( explode( '@', $email ) ), true );
-		$base  = '' !== $base ? $base : 'member';
-		$login = $base;
-		$n     = 1;
-		while ( username_exists( $login ) ) {
-			++$n;
-			$login = $base . $n;
-		}
-		return $login;
-	}
 
 	/**
-	 * Redirect back to login with an error message.
+	 * Redirect back to the login screen with an error CODE.
 	 *
-	 * @param string $message Error text.
+	 * @param string $code Error code from the error_message() allowlist.
 	 * @return void
 	 */
-	private function bail( string $message ): void {
+	private function bail( string $code ): void {
+		// A CODE, never a message. This used to redirect with the human-readable
+		// error text in the query string, and templates/auth/login.php rendered
+		// whatever it found there into a role="alert" banner. Anyone could hand out
+		// a link like ?bn_social_error=Your+account+is+locked.+Call+1-800-... and
+		// have that sentence appear on the real, TLS-valid login page of the real
+		// domain. Not XSS — the output was escaped — but a first-class phishing
+		// primitive on the most trust-sensitive page in the product.
+		//
 		// PageRouter::auth_url() reads the canonical buddynext_slug_auth option;
 		// this previously read a never-written buddynext_slug_login key, so the
 		// error redirect broke the moment the auth slug was renamed.
-		wp_safe_redirect( add_query_arg( 'bn_social_error', rawurlencode( $message ), \BuddyNext\Core\PageRouter::auth_url() ) );
+		wp_safe_redirect(
+			add_query_arg( 'bn_social_error', rawurlencode( sanitize_key( $code ) ), \BuddyNext\Core\PageRouter::auth_url() )
+		);
 		exit;
+	}
+
+	/**
+	 * Resolve a social sign-in error code to its message.
+	 *
+	 * The map is the allowlist: an unknown code (i.e. anything an attacker put in
+	 * the URL) collapses to one generic sentence, so the query string cannot be
+	 * used to put words on our login screen.
+	 *
+	 * @param string $code Error code from bail().
+	 * @return string Translated, safe-to-display message.
+	 */
+	public static function error_message( string $code ): string {
+		$messages = array(
+			'unavailable'      => __( 'That sign-in method is not available.', 'buddynext' ),
+			'cancelled'        => __( 'Sign-in was cancelled or failed.', 'buddynext' ),
+			'bad_browser'      => __( 'Sign-in could not be verified for this browser. Please try again.', 'buddynext' ),
+			'expired'          => __( 'Sign-in session expired. Please try again.', 'buddynext' ),
+			'provider_failed'  => __( 'Could not verify your account with the provider.', 'buddynext' ),
+			'no_email'         => __( 'No email address was returned by the provider, so we could not sign you in.', 'buddynext' ),
+			'rate_limited'     => __( 'Too many sign-in attempts. Please wait a minute and try again.', 'buddynext' ),
+			'taken'            => __( 'That account is already linked to another member.', 'buddynext' ),
+			'unverified'       => __( 'An account already uses this email. Please sign in with your password, then link this account from your profile settings.', 'buddynext' ),
+			'unverified_new'   => __( 'Your provider did not confirm that this email address belongs to you, so we could not create an account. Please sign up with your email instead.', 'buddynext' ),
+			'pending_approval' => __( 'Your account is awaiting administrator approval.', 'buddynext' ),
+			'reg_closed'       => __( 'Registration is closed on this community.', 'buddynext' ),
+			'reg_invite'       => __( 'This community is invite-only. You need an invitation to join.', 'buddynext' ),
+			'reg_domain'       => __( 'Only users from allowed email domains may register.', 'buddynext' ),
+		);
+
+		$code = sanitize_key( $code );
+
+		return $messages[ $code ] ?? __( 'Sign-in failed. Please try again.', 'buddynext' );
+	}
+
+	/**
+	 * Map a WP_Error from the resolve/session steps onto a bail() code.
+	 *
+	 * @param \WP_Error $error Error to translate.
+	 * @return string Bail code.
+	 */
+	private function code_for( \WP_Error $error ): string {
+		$map = array(
+			'bn_social_taken'          => 'taken',
+			'bn_social_unverified'     => 'unverified',
+			'bn_social_unverified_new' => 'unverified_new',
+			'bn_social_no_id'          => 'provider_failed',
+			'bn_pending_approval'      => 'pending_approval',
+			'bn_reg_closed'            => 'reg_closed',
+			'bn_reg_invite'            => 'reg_invite',
+			'bn_reg_domain'            => 'reg_domain',
+			'bn_reg_rate'              => 'rate_limited',
+		);
+
+		return $map[ $error->get_error_code() ] ?? 'cancelled';
 	}
 
 	/**
@@ -770,7 +1135,7 @@ class SocialLogin {
 		$ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) ) : '';
 		$key = 'bn_oauth_rl_' . md5( $ip );
 		if ( RateLimiter::count( $key ) >= self::RATE_MAX ) {
-			$this->bail( __( 'Too many sign-in attempts. Please wait a minute and try again.', 'buddynext' ) );
+			$this->bail( 'rate_limited' );
 		}
 		RateLimiter::hit( $key, MINUTE_IN_SECONDS );
 	}

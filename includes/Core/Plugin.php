@@ -113,9 +113,28 @@ class Plugin {
 		// changes, so a just-blocked member disappears immediately (not after TTL).
 		$container->get( 'member_directory' )->register();
 
+		// Hand every space owned by a removed member to an heir (longest-serving
+		// moderator, else a site admin). Without this, deleting a user leaves
+		// bn_spaces.owner_id pointing at a ghost while their owner row is purged:
+		// the space ends up with zero owners and no UI to recover it.
+		( new \BuddyNext\Spaces\SpaceSuccession() )->register();
+
 		// Enforce per-space "who can post" + "require approval" at post-save time
 		// (the composer gate alone is bypassable via REST).
 		( new \BuddyNext\Spaces\SpacePostGuard() )->register();
+
+		// A space's top-contributor list is a GROUP BY over every published post in the
+		// space. It is cached (persistently — the target has no object cache), so it has
+		// to be dropped when the space's post set changes, or the sidebar goes stale.
+		add_action(
+			'buddynext_space_posts_changed',
+			array( \BuddyNext\Spaces\SpaceService::class, 'bust_top_contributors' )
+		);
+
+		// bn_notifications and bn_email_log were append-only — nothing ever deleted from
+		// them, so they grew for the life of the site and bloated every backup. Daily,
+		// batched age-purge on the owner's retention window.
+		( new \BuddyNext\Core\LogRetentionService() )->register();
 
 		// Register the built-in per-space settings as core space fields (stored in
 		// bn_space_meta, rendered + saved + REST-exposed through the field engine).
@@ -154,6 +173,20 @@ class Plugin {
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			\WP_CLI::add_command( 'buddynext demo', new \BuddyNext\Demo\DemoCommand() );
 			\WP_CLI::add_command( 'buddynext cert', new \BuddyNext\Cert\CertCommand() );
+			// Sweep spaces orphaned BEFORE succession shipped (owner_id pointing at
+			// a deleted user); succession only guards deletions from now on.
+			\WP_CLI::add_command( 'buddynext repair-space-owners', \BuddyNext\Spaces\SpaceOwnerRepairCommand::class );
+
+			// QA fixtures — the ugly states the customer demo must never contain
+			// (expired invites, orphaned space owners, cancelled subscriptions,
+			// rows backdated past the retention windows) plus the big-site scale
+			// data. dev/ is NOT on build-release.sh's RUNTIME allowlist, so the
+			// file is absent from a packaged install and this never registers.
+			$bn_qa_fixtures = BUDDYNEXT_DIR . 'dev/QaFixturesCommand.php';
+			if ( is_readable( $bn_qa_fixtures ) ) {
+				require_once $bn_qa_fixtures;
+				\WP_CLI::add_command( 'buddynext qa-fixtures', new \BuddyNext\Dev\QaFixturesCommand() );
+			}
 		}
 
 		// Record last-login time on every login. This MUST be wired
@@ -301,6 +334,24 @@ class Plugin {
 		// outside the BuddyNext REST login flow.
 		( new \BuddyNext\Auth\TwoFactorLoginGuard() )->register();
 
+		// Bring wp-login.php?action=register under the shared registration gate.
+		// It is redirected to the BuddyNext sign-up route by default, and when the
+		// owner re-enables it, the same policy and spam protection still apply.
+		( new \BuddyNext\Auth\CoreRegistration() )->register();
+
+		// Enforce 2FA enrolment for the roles the owner requires it of. The setting
+		// used to be read and then ignored — purely advisory, surfaced as a UI hint
+		// while nothing enforced it, so an owner could "require 2FA for
+		// administrators" and simply be wrong about it. Priority 7: after the
+		// verification gate (6), so a member confirms their address first.
+		add_action( 'template_redirect', array( \BuddyNext\Auth\TwoFactorService::class, 'enforce_enrolment' ), 7 );
+
+		// Blocked-IP gate on sign-in. The blocklist already gated posting,
+		// commenting and registration but not authentication, so a blocked address
+		// could still sign in and keep using the accounts it already held. Binds to
+		// both session-minting chains — see LoginGuard.
+		( new \BuddyNext\Auth\LoginGuard() )->register();
+
 		// Approval-mode gate: block sign-in for accounts awaiting administrator
 		// approval (set during registration when buddynext_reg_mode = 'approval').
 		add_filter(
@@ -413,6 +464,12 @@ class Plugin {
 		// Feed cache — always bound (feed is mandatory). Listener busts
 		// the writer's first-page cache on post_created / post_deleted.
 		( new \BuddyNext\Feed\FeedListener( $container->get( 'feed_cache' ) ) )->register();
+
+		// Bust the cached streak summary when the member does one of the three things it
+		// counts (post / comment / reaction). It previously had a 300s TTL and no bust at
+		// all, so the member extended their streak and kept seeing the old number for five
+		// minutes — on a card whose only job is immediate feedback.
+		( new \BuddyNext\Engagement\StreakListener() )->register();
 
 		// Wire email dispatch to the notification created action.
 		( new EmailDispatchListener(
@@ -745,6 +802,14 @@ class Plugin {
 		$container->bind( 'bookmarks', fn() => new BookmarkService() );
 		$container->bind( 'shares', fn() => new ShareService() );
 		$container->bind( 'profiles', fn() => new ProfileService() );
+
+		// The shared registration gate. Every signup door — the BuddyNext form,
+		// its REST endpoint, social login, and the WordPress core form — consumes
+		// these three, so an owner's policy binds on all of them equally.
+		$container->bind( 'registration_policy', fn() => new \BuddyNext\Auth\RegistrationPolicy() );
+		$container->bind( 'registration', fn() => new \BuddyNext\Auth\RegistrationService() );
+		$container->bind( 'session', fn() => new \BuddyNext\Auth\SessionIssuer() );
+
 		$container->bind( 'avatars', fn() => new AvatarService() );
 		$container->bind( 'search', fn() => new SearchService() );
 		$container->bind( 'search_index_listener', fn() => new SearchIndexListener() );

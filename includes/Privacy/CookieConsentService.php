@@ -83,11 +83,11 @@ class CookieConsentService {
 			return;
 		}
 
-		$privacy_url  = (int) get_option( 'wp_page_for_privacy_policy' ) > 0
+		$privacy_url = (int) get_option( 'wp_page_for_privacy_policy' ) > 0
 			? get_privacy_policy_url()
 			: '';
-		$custom       = trim( (string) get_option( 'buddynext_cookie_consent_text', '' ) );
-		$message      = '' !== $custom ? $custom : self::default_message();
+		$custom      = trim( (string) get_option( 'buddynext_cookie_consent_text', '' ) );
+		$message     = '' !== $custom ? $custom : self::default_message();
 
 		// Accept + policy-link labels are owner-editable (blank = the default).
 		$custom_accept = trim( (string) get_option( 'buddynext_cookie_consent_accept_label', '' ) );

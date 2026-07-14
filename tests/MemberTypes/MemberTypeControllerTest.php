@@ -27,8 +27,8 @@ class MemberTypeControllerTest extends \WP_Test_REST_TestCase {
 		parent::set_up();
 		Installer::run();
 
-		$this->service        = new MemberTypeService( new CacheService() );
-		$this->admin_id       = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$this->service         = new MemberTypeService( new CacheService() );
+		$this->admin_id        = self::factory()->user->create( array( 'role' => 'administrator' ) );
 		$this->regular_user_id = self::factory()->user->create( array( 'role' => 'subscriber' ) );
 	}
 
@@ -60,8 +60,18 @@ class MemberTypeControllerTest extends \WP_Test_REST_TestCase {
 	public function test_list_types_returns_created_types(): void {
 		wp_set_current_user( $this->admin_id );
 
-		$this->service->create( array( 'slug' => 'bronze', 'name' => 'Bronze' ) );
-		$this->service->create( array( 'slug' => 'silver', 'name' => 'Silver' ) );
+		$this->service->create(
+			array(
+				'slug' => 'bronze',
+				'name' => 'Bronze',
+			)
+		);
+		$this->service->create(
+			array(
+				'slug' => 'silver',
+				'name' => 'Silver',
+			)
+		);
 
 		$request  = new WP_REST_Request( 'GET', '/buddynext/v1/member-types' );
 		$response = rest_do_request( $request );
@@ -81,7 +91,12 @@ class MemberTypeControllerTest extends \WP_Test_REST_TestCase {
 		wp_set_current_user( $this->regular_user_id );
 
 		$request = new WP_REST_Request( 'POST', '/buddynext/v1/member-types' );
-		$request->set_body_params( array( 'slug' => 'gold', 'name' => 'Gold' ) );
+		$request->set_body_params(
+			array(
+				'slug' => 'gold',
+				'name' => 'Gold',
+			)
+		);
 		$response = rest_do_request( $request );
 
 		$this->assertSame( 403, $response->get_status() );
@@ -91,7 +106,12 @@ class MemberTypeControllerTest extends \WP_Test_REST_TestCase {
 		wp_set_current_user( 0 );
 
 		$request = new WP_REST_Request( 'POST', '/buddynext/v1/member-types' );
-		$request->set_body_params( array( 'slug' => 'gold', 'name' => 'Gold' ) );
+		$request->set_body_params(
+			array(
+				'slug' => 'gold',
+				'name' => 'Gold',
+			)
+		);
 		$response = rest_do_request( $request );
 
 		// Unauthenticated → 401 or 403 depending on WP version.
@@ -120,10 +140,20 @@ class MemberTypeControllerTest extends \WP_Test_REST_TestCase {
 	public function test_create_type_returns_error_for_duplicate_slug(): void {
 		wp_set_current_user( $this->admin_id );
 
-		$this->service->create( array( 'slug' => 'platinum', 'name' => 'Platinum' ) );
+		$this->service->create(
+			array(
+				'slug' => 'platinum',
+				'name' => 'Platinum',
+			)
+		);
 
 		$request = new WP_REST_Request( 'POST', '/buddynext/v1/member-types' );
-		$request->set_body_params( array( 'slug' => 'platinum', 'name' => 'Duplicate' ) );
+		$request->set_body_params(
+			array(
+				'slug' => 'platinum',
+				'name' => 'Duplicate',
+			)
+		);
 		$response = rest_do_request( $request );
 
 		$this->assertGreaterThanOrEqual( 400, $response->get_status() );
@@ -132,7 +162,12 @@ class MemberTypeControllerTest extends \WP_Test_REST_TestCase {
 	// ── DELETE /member-types/{slug} (admin only) ──────────────────────────────
 
 	public function test_delete_type_requires_admin(): void {
-		$this->service->create( array( 'slug' => 'diamond', 'name' => 'Diamond' ) );
+		$this->service->create(
+			array(
+				'slug' => 'diamond',
+				'name' => 'Diamond',
+			)
+		);
 
 		wp_set_current_user( $this->regular_user_id );
 
@@ -143,7 +178,12 @@ class MemberTypeControllerTest extends \WP_Test_REST_TestCase {
 	}
 
 	public function test_delete_type_returns_200_for_admin(): void {
-		$this->service->create( array( 'slug' => 'emerald', 'name' => 'Emerald' ) );
+		$this->service->create(
+			array(
+				'slug' => 'emerald',
+				'name' => 'Emerald',
+			)
+		);
 
 		wp_set_current_user( $this->admin_id );
 
@@ -170,7 +210,7 @@ class MemberTypeControllerTest extends \WP_Test_REST_TestCase {
 	public function test_get_user_type_returns_200_when_no_type_assigned(): void {
 		wp_set_current_user( 0 );
 
-		$request = new WP_REST_Request( 'GET', '/buddynext/v1/users/' . $this->regular_user_id . '/member-type' );
+		$request  = new WP_REST_Request( 'GET', '/buddynext/v1/users/' . $this->regular_user_id . '/member-type' );
 		$response = rest_do_request( $request );
 
 		$this->assertSame( 200, $response->get_status() );

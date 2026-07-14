@@ -47,9 +47,10 @@ includes/
 templates/         theme-overridable PHP - hubs, parts/, shell/ (override via {theme}/buddynext/)
 assets/            css/bn-{feature}.css (token-only) + js/{feature}/store.js (Interactivity API)
 blocks/            16 registered Gutenberg blocks (bn-activity-feed, bn-member-directory, ...)
-audit/manifest.json  the canonical inventory - read before grepping
-docs/specs/        feature specs, HOOKS.md, the modular-architecture and REST/scale contracts
+docs/website/       this developer guide
 ```
+
+> **There is no machine-readable manifest in Free.** Earlier revisions of this guide pointed at `audit/manifest.json` and `docs/specs/HOOKS.md` as "the canonical inventory - read before grepping". Neither file exists in this plugin. Grep the source: `register_rest_route(` for routes, `do_action(` / `apply_filters(` for hooks, `FeatureRegistry::catalog()` for features. (The **Pro** plugin does ship `audit/manifest.json` and `docs/specs/HOOKS.md`; references to those are still good.)
 
 The rules that hold this together: Core never imports from a feature, a Service never echoes template output, and a template never runs `$wpdb` directly. Features talk to each other only through hooks, filters, or container lookups. See the Developer Overview for the contract-first philosophy and the seven extension surfaces.
 

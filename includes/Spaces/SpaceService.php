@@ -45,6 +45,15 @@ class SpaceService {
 	private const RESERVED_SLUGS = array( 'mine', 'managed', 'joined' );
 
 	/**
+	 * How many top contributors are computed and cached per space.
+	 *
+	 * One cached list per space, sliced in PHP for whatever the caller asked for. This
+	 * is the cap on that list, and it matches top_contributors()'s own limit ceiling —
+	 * so no caller can ask for more than we cache and silently get a truncated answer.
+	 */
+	private const MAX_TOP_CONTRIBUTORS = 50;
+
+	/**
 	 * Space type — listed in directory; anyone can join.
 	 */
 	public const TYPE_OPEN = 'open';
@@ -245,7 +254,25 @@ class SpaceService {
 
 		// Per-member space cap (Settings → Spaces → "Max spaces per member").
 		// 0 = unlimited. Admins are exempt so site operators are never blocked.
-		$max_per_member = (int) get_option( 'buddynext_space_max_per_member', 0 );
+		/**
+		 * Filter the maximum number of spaces a single member may own.
+		 *
+		 * Default is the site-wide "Max spaces per member" setting; 0 = unlimited.
+		 * Pro hooks this to return the member's `limits.spaces_created` plan
+		 * entitlement, so the cap becomes per-plan rather than per-site. The count
+		 * below is a COUNT(*) over the indexed `owner_id` column, so a returned cap
+		 * is always enforced server-side before any INSERT.
+		 *
+		 * @since 1.0.8
+		 *
+		 * @param int $max_per_member Maximum owned, non-archived spaces. 0 = unlimited.
+		 * @param int $owner_id       The user attempting to create a space.
+		 */
+		$max_per_member = (int) apply_filters(
+			'buddynext_space_max_per_member',
+			(int) get_option( 'buddynext_space_max_per_member', 0 ),
+			$owner_id
+		);
 		if ( $max_per_member > 0 && ! user_can( $owner_id, 'manage_options' ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$owned = (int) $wpdb->get_var(
@@ -255,7 +282,7 @@ class SpaceService {
 				)
 			);
 			if ( $owned >= $max_per_member ) {
-				return new WP_Error(
+				$error = new WP_Error(
 					'max_spaces_per_member',
 					sprintf(
 						/* translators: %d: maximum number of spaces a member can create. */
@@ -264,6 +291,9 @@ class SpaceService {
 					),
 					array( 'status' => 422 )
 				);
+
+				/** This filter is documented in includes/Feed/PostService.php. */
+				return apply_filters( 'buddynext_plan_limit_error', $error, 'spaces_created', $max_per_member, $owner_id );
 			}
 		}
 
@@ -284,14 +314,36 @@ class SpaceService {
 				);
 			}
 
+			// The parent must EXIST before we reason about its depth.
+			//
+			// This used to go straight to the grandparent lookup below, and read a
+			// missing parent as a passing depth check: get_var() returns NULL for a
+			// row that does not exist, which is indistinguishable from a real parent
+			// whose own parent_id is NULL — and `null !== $grandparent` treats both as
+			// "no grandparent, therefore fine". So a create() with a nonexistent
+			// parent_id produced an ORPHAN sub-space: a row pointing at nothing,
+			// invisible under any parent, unreachable in the tree.
+			//
+			// validate_parent_move() has always guarded this correctly (it returns
+			// parent_not_found). Same rule, two code paths, one of them wrong.
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$grandparent = $wpdb->get_var(
+			$parent_row = $wpdb->get_row(
 				$wpdb->prepare(
-					"SELECT parent_id FROM {$wpdb->prefix}bn_spaces WHERE id = %d",
+					"SELECT id, parent_id FROM {$wpdb->prefix}bn_spaces WHERE id = %d",
 					$parent_id
-				)
+				),
+				ARRAY_A
 			);
-			if ( null !== $grandparent && $grandparent > 0 ) {
+			if ( ! $parent_row ) {
+				return new WP_Error(
+					'parent_not_found',
+					__( 'The selected parent space does not exist.', 'buddynext' ),
+					array( 'status' => 422 )
+				);
+			}
+
+			$grandparent = $parent_row['parent_id'];
+			if ( null !== $grandparent && (int) $grandparent > 0 ) {
 				return new WP_Error(
 					'max_depth_exceeded',
 					__( 'Spaces may only be nested two levels deep.', 'buddynext' )
@@ -641,50 +693,447 @@ class SpaceService {
 	}
 
 	/**
-	 * Transfer space ownership to an existing member.
+	 * Move a space's ownership.
 	 *
-	 * Owns the bn_spaces.owner_id write (change_role alone does not touch it) so
-	 * the REST controller does not query the table directly. Callers validate
-	 * permission and that the new owner is a member before calling.
+	 * @deprecated 1.0.8 Use assign_owner(), which is atomic and enforces its own
+	 *             authorization. This wrapper had no capability check (so a
+	 *             moderator on the moderator-gated settings screen could seize the
+	 *             space), demoted the actor instead of the owner, and wrote
+	 *             owner_id even when the role changes failed.
 	 *
 	 * @param int $space_id     Space id.
 	 * @param int $new_owner_id Member who becomes the owner.
-	 * @param int $actor_id     Current owner performing the transfer.
-	 * @return void
+	 * @param int $actor_id     User performing the transfer.
+	 * @return bool|WP_Error True on success, WP_Error otherwise.
 	 */
-	public function transfer_ownership( int $space_id, int $new_owner_id, int $actor_id ): void {
-		$members = new SpaceMemberService();
+	public function transfer_ownership( int $space_id, int $new_owner_id, int $actor_id ): bool|WP_Error {
+		_deprecated_function( __METHOD__, '1.0.8', 'SpaceService::assign_owner()' );
 
-		// Demote the current owner, promote the new owner (same order the
-		// controller used previously).
-		$members->change_role( $space_id, $actor_id, 'member', $actor_id );
-		$members->change_role( $space_id, $new_owner_id, 'owner', $actor_id );
+		return $this->assign_owner( $space_id, $new_owner_id, $actor_id );
+	}
 
+	/**
+	 * Move a space's ownership across BOTH tables, or change nothing.
+	 *
+	 * The single primitive for every ownership change: the settings-screen
+	 * transfer, automatic succession when an owner is deleted, and the CLI
+	 * repair sweep. Ownership is denormalised across two places that must agree —
+	 * `bn_spaces.owner_id` and the `role = 'owner'` row in `bn_space_members` —
+	 * and this method exists to make divergence between them impossible.
+	 *
+	 * Three writes, in a fixed order: (W1) the heir is upserted to an active
+	 * owner, (W2) EVERY owner row that is not the heir's is demoted, (W3) the
+	 * denormalised pointer moves last. WHAT IS ACTUALLY GUARANTEED, and how:
+	 *
+	 * 1. CONVERGENCE, NOT A MATCHING POINTER. The method returns success without
+	 *    writing only when the space is already converged on the heir: the
+	 *    pointer names them, they hold an ACTIVE OWNER row, and it is the ONLY
+	 *    owner row. A matching `owner_id` on its own is never enough — it is
+	 *    exactly what a space wrecked by the old transfer_ownership() looks
+	 *    like, and the CLI repair sweep TRUSTS this return value. Divergence
+	 *    falls through to the writes, which are idempotent (W1 upserts, W2 has
+	 *    nothing to demote on a clean space, W3 rewrites the same pointer), so
+	 *    the primitive repairs a broken space instead of certifying it.
+	 * 2. SHORT-CIRCUIT (always). Each write's return value is checked before the
+	 *    next one is issued. A failing W1 means W2 and W3 never run, so the
+	 *    method can never demote the incumbent and move the pointer to a user it
+	 *    failed to promote — the ownerless-space outcome.
+	 * 3. ONE OWNER ROW, ALWAYS. W2 demotes every owner row other than the heir's,
+	 *    not just the user the pointer named. That self-heals a space that
+	 *    already carried a stray owner row, and it closes the concurrent-transfer
+	 *    race in which A->B and A->C both read "previous owner = A", one of them
+	 *    demotes A, the other matches nothing, and B and C both keep role='owner'.
+	 * 4. TRANSACTION (production). The three writes run inside a single
+	 *    `START TRANSACTION` / `COMMIT`, rolled back on any failure, so no
+	 *    concurrent reader observes a half-applied transfer. Skipped when the
+	 *    WordPress test suite is running (`WP_TESTS_DOMAIN`), because
+	 *    WP_UnitTestCase already wraps every test in its own transaction and
+	 *    MySQL implicitly COMMITs it on a nested `START TRANSACTION` — which
+	 *    would leak committed rows into the test database. Overridable via the
+	 *    `buddynext_space_use_db_transaction` filter. If `START TRANSACTION`
+	 *    itself fails, the method degrades to (5) rather than trusting a
+	 *    transaction that never opened — believing in it would disarm BOTH nets.
+	 * 5. COMPENSATION (whenever the transaction is skipped or failed to open).
+	 *    Because no transaction means no rollback, a failing W2 explicitly undoes
+	 *    W1, and a failing W3 undoes W2 and W1 — restoring the heir's exact prior
+	 *    row (or deleting it, if they had none) and re-promoting the incumbent.
+	 *    A stray owner row W2 swept up is NOT restored; see abort_owner_transfer().
+	 *
+	 * NOT guaranteed: on the non-transactional path the compensating undo is
+	 * itself a DB write, so a database that has stopped accepting writes
+	 * entirely can still leave a partially applied transfer. Nor can a
+	 * transaction that MySQL only PRETENDS to run be detected here: on a
+	 * non-transactional storage engine (our tables carry no explicit ENGINE
+	 * clause) `START TRANSACTION` succeeds and `COMMIT` / `ROLLBACK` are silent
+	 * no-ops, so the rollback net is inert while the compensation net is off.
+	 * `wp buddynext spaces repair-owners` remains the backstop for both — and
+	 * repair works precisely because (1) makes this method fix a divergent space
+	 * rather than declare it healthy. Every failure path, compensated or not,
+	 * busts the same caches the success path does, so a stale role cache never
+	 * outlives the rows it described.
+	 *
+	 * Authorization lives HERE, not in the caller — the older
+	 * transfer_ownership() delegated it to callers and a moderator-gated
+	 * template was able to rewrite owner_id. A banned user is rejected outright:
+	 * only `status = 'active'` members are ever eligible for anything.
+	 *
+	 * The native return type stays `bool|WP_Error` rather than `true|WP_Error`
+	 * because the standalone `true` type is PHP 8.2+ and this plugin supports
+	 * 8.1 (see "Requires PHP" and the CI matrix). Callers should treat the
+	 * success value as `true` — the @return annotation below is what static
+	 * analysis reads.
+	 *
+	 * @param int      $space_id     Space whose ownership moves.
+	 * @param int      $new_owner_id User who becomes the owner. Joined as an
+	 *                               active member (with role promoted to
+	 *                               'owner') if not one already. Must not be
+	 *                               banned from the space.
+	 * @param int|null $actor_id     User performing the change; requires
+	 *                               `buddynext-manage-space` on this space.
+	 *                               Pass null for SYSTEM context (succession /
+	 *                               CLI), which performs no capability check.
+	 * @return true|WP_Error True on success — the space is converged on the new
+	 *                       owner in BOTH tables, whether that took writes or the
+	 *                       space was already converged. WP_Error on a
+	 *                       missing space (`space_not_found`), unknown user
+	 *                       (`invalid_owner`), unauthorised actor (`forbidden`),
+	 *                       banned heir (`heir_banned`), or a failed write
+	 *                       (`assign_owner_failed`).
+	 */
+	public function assign_owner( int $space_id, int $new_owner_id, ?int $actor_id = null ): bool|WP_Error {
 		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->update(
-			$wpdb->prefix . 'bn_spaces',
+
+		$space = $this->get( $space_id );
+		if ( null === $space ) {
+			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		if ( $new_owner_id <= 0 || ! get_userdata( $new_owner_id ) ) {
+			return new WP_Error( 'invalid_owner', __( 'That user does not exist.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		// User context: owner-only (or manage_options, via PermissionService's
+		// admin bypass). System context (actor null) intentionally skips this —
+		// used by succession and the CLI repair sweep.
+		if ( null !== $actor_id && ! buddynext_service( 'permissions' )->can( $actor_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
+			return new WP_Error( 'forbidden', __( 'Only the space owner can transfer ownership.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		// A banned user is never eligible. Without this the W1 upsert's
+		// `status = 'active'` clause would silently resurrect a soft-banned
+		// member as the owner; and a hard ban (a bn_space_bans row) would make
+		// PermissionService::is_space_banned() hard-deny every space capability
+		// to the person who now nominally owns the space — a fresh divergence.
+		// is_space_banned() covers BOTH surfaces (bn_space_bans + the
+		// status = 'banned' membership row), so it is the single check here.
+		if ( buddynext_service( 'permissions' )->is_space_banned( $new_owner_id, $space_id ) ) {
+			return new WP_Error( 'heir_banned', __( 'A banned user cannot be made the owner of this space.', 'buddynext' ), array( 'status' => 409 ) );
+		}
+
+		$previous_owner_id = (int) ( $space['owner_id'] ?? 0 );
+		$spaces_table      = $wpdb->prefix . 'bn_spaces';
+
+		// The heir's row BEFORE W1: it decides the no-op test below, the
+		// member_count delta, and it is the undo state if a later write fails on
+		// the non-transactional path.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$heir_row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT role, status FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND user_id = %d",
+				$space_id,
+				$new_owner_id
+			),
+			ARRAY_A
+		);
+
+		$heir_was_active = is_array( $heir_row ) && 'active' === $heir_row['status'];
+
+		// Every user holding an owner row BEFORE the writes. Its size decides the
+		// no-op test below; the users in it other than the heir are the ones W2
+		// demotes, so their role caches must be flushed too.
+		$owner_row_user_ids = $this->owner_row_user_ids( $space_id );
+		$owner_row_count    = count( $owner_row_user_ids );
+
+		// NO-OP — but only for a space that is genuinely CONVERGED on the heir.
+		// A matching owner_id alone proves nothing: the pointer can name a user
+		// who holds no owner row (the divergence the old transfer_ownership()
+		// produced), or a stray second owner row can survive alongside theirs.
+		// Certifying either of those as healthy would make the CLI repair sweep
+		// a no-op against exactly the spaces it exists to fix. So the fast path
+		// demands all three: the pointer names the heir, the heir holds an
+		// active owner row, and it is the ONLY owner row. Anything else falls
+		// through to the write path, which is idempotent (W1 upserts, W2 is a
+		// no-op when there is nothing to demote, W3 rewrites the same pointer).
+		if ( $previous_owner_id === $new_owner_id
+			&& is_array( $heir_row )
+			&& 'owner' === $heir_row['role']
+			&& 'active' === $heir_row['status']
+			&& 1 === $owner_row_count ) {
+			return true;
+		}
+
+		/**
+		 * Filters whether an ownership write runs inside an explicit SQL transaction.
+		 *
+		 * Defaults to true everywhere EXCEPT the WordPress test suite, which
+		 * already wraps each test in its own transaction that a nested
+		 * `START TRANSACTION` would implicitly COMMIT — leaking the test's rows
+		 * into the database. When this returns false the method falls back to
+		 * short-circuiting plus compensating undo (see the method docblock).
+		 *
+		 * @param bool   $use_transaction Whether to open a transaction.
+		 * @param string $operation       The ownership operation being performed.
+		 */
+		$use_txn = (bool) apply_filters( 'buddynext_space_use_db_transaction', ! defined( 'WP_TESTS_DOMAIN' ), 'assign_owner' );
+
+		// If the transaction cannot be opened, DO NOT keep believing in it: a
+		// $use_txn of true also disables the compensating-undo path, so trusting
+		// a transaction that never started would leave the writes with neither
+		// safety net. MySQL also accepts START TRANSACTION / COMMIT / ROLLBACK
+		// as silent no-ops on a non-transactional storage engine, which our
+		// tables can land on — Installer::schema() specifies no ENGINE clause —
+		// but that failure is invisible here; the explicit false below is the
+		// case we CAN see, and degrading on it costs nothing.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $use_txn && false === $wpdb->query( 'START TRANSACTION' ) ) {
+			$use_txn = false;
+		}
+
+		// W1. The heir becomes an active owner (UPSERT — covers member, moderator, or non-member).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$promoted = $wpdb->query(
+			$wpdb->prepare(
+				"INSERT INTO {$wpdb->prefix}bn_space_members ( space_id, user_id, role, status, joined_at )
+				 VALUES ( %d, %d, 'owner', 'active', %s )
+				 ON DUPLICATE KEY UPDATE role = 'owner', status = 'active'",
+				$space_id,
+				$new_owner_id,
+				current_time( 'mysql' )
+			)
+		);
+
+		// Nothing else has been written yet, so there is nothing to undo — but
+		// bail NOW, before W2 demotes the incumbent and W3 points the space at a
+		// user who was never promoted.
+		if ( false === $promoted ) {
+			return $this->abort_owner_transfer( $space, $new_owner_id, $previous_owner_id, $use_txn, false, $heir_row, false, $owner_row_user_ids );
+		}
+
+		// W2. EVERY other owner row is demoted — not just the one the pointer
+		// named. Demoting only the believed incumbent leaves two owners whenever
+		// the space was already divergent (a stray owner row), and loses a race:
+		// two concurrent transfers A->B and A->C both read prev = A, T1 demotes
+		// A, T2 matches zero rows, and B and C both end up holding role='owner'.
+		// A `user_id <> heir` sweep is self-healing in both cases. Zero rows
+		// affected is not a failure — a solo owner's row may already be gone
+		// (deleted user), and the sweep is a no-op on an already-clean space.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$demoted = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_space_members SET role = 'member' WHERE space_id = %d AND role = 'owner' AND user_id <> %d",
+				$space_id,
+				$new_owner_id
+			)
+		);
+
+		if ( false === $demoted ) {
+			return $this->abort_owner_transfer( $space, $new_owner_id, $previous_owner_id, $use_txn, true, $heir_row, false, $owner_row_user_ids );
+		}
+
+		// $demoted IS the affected-row count wpdb::query() returned; reading
+		// $wpdb->rows_affected instead would break the moment another query slips
+		// in between.
+		$demoted_rows = (int) $demoted;
+
+		// W3. The denormalised pointer moves LAST.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$pointer = $wpdb->update(
+			$spaces_table,
 			array( 'owner_id' => $new_owner_id ),
 			array( 'id' => $space_id ),
 			array( '%d' ),
 			array( '%d' )
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+		if ( false === $pointer ) {
+			return $this->abort_owner_transfer( $space, $new_owner_id, $previous_owner_id, $use_txn, true, $heir_row, $demoted_rows > 0, $owner_row_user_ids );
+		}
+
+		if ( $use_txn ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query( 'COMMIT' );
+		}
+
+		if ( ! $heir_was_active ) {
+			( new SpaceMemberService() )->adjust_member_count( $space_id, 1 );
+		}
+
+		// W2 may have demoted owner rows beyond the incumbent, so every user who
+		// held one is flushed, not just the two the pointer knows about.
+		$this->flush_ownership_caches( $space, array_merge( array( $new_owner_id, $previous_owner_id ), $owner_row_user_ids ) );
 
 		/**
-		 * Fires after a space's ownership is transferred.
+		 * Fires after a space's ownership moves, however it moved.
 		 *
-		 * The whole transfer chain was previously silent (change_role fired no
-		 * hook either), so no webhook / notification could observe this major
-		 * domain event.
-		 *
-		 * @param int $space_id     Space whose ownership moved.
-		 * @param int $new_owner_id The new owner.
-		 * @param int $actor_id     User who performed the transfer.
+		 * @param int      $space_id          Space whose ownership moved.
+		 * @param int      $new_owner_id      The new owner.
+		 * @param int|null $actor_id          Actor, or null for a system reassignment.
+		 * @param int      $previous_owner_id The outgoing owner (0 if none).
 		 */
-		do_action( 'buddynext_space_ownership_transferred', $space_id, $new_owner_id, $actor_id );
+		do_action( 'buddynext_space_ownership_transferred', $space_id, $new_owner_id, $actor_id, $previous_owner_id );
+
+		return true;
+	}
+
+	/**
+	 * Unwind a failed ownership transfer and report it.
+	 *
+	 * On the transactional path a single ROLLBACK discards whatever W1..W3
+	 * managed to write. When the transaction was skipped (the test suite, or a
+	 * site that filtered it off) there is nothing to roll back, so each write
+	 * that DID land is undone by hand, in reverse order: the incumbent is
+	 * re-promoted, then the heir's row is restored to exactly what it was — or
+	 * deleted outright, if they had no row before W1 inserted one.
+	 *
+	 * The hand-undo restores the INCUMBENT only. W2 sweeps away every owner row
+	 * that is not the heir's, so it can also have demoted a stray owner row —
+	 * one the space should never have had. Those are not resurrected: putting
+	 * known divergence back is not an undo worth having, and the caller sees a
+	 * WP_Error either way.
+	 *
+	 * Either way the caches are busted before returning, so a partial write can
+	 * never outlive itself in a stale role cache.
+	 *
+	 * @param array      $space              The space row as read before the writes.
+	 * @param int        $new_owner_id       The heir W1 tried to promote.
+	 * @param int        $previous_owner_id  The incumbent W2 tried to demote (0 if none).
+	 * @param bool       $used_transaction   Whether the writes ran inside a transaction.
+	 * @param bool       $undo_promotion     Whether W1 actually landed. False when W1 is
+	 *                                       itself the write that failed — nothing was
+	 *                                       written, so the heir's row must be left alone.
+	 * @param array|null $heir_row           The heir's `role`/`status` as read BEFORE W1,
+	 *                                       or null when they had no membership row at all
+	 *                                       (so undoing W1 means deleting the row it
+	 *                                       inserted). Only consulted when $undo_promotion.
+	 * @param bool       $undo_demotion      Whether W2 actually demoted a row.
+	 * @param array      $owner_row_user_ids Users who held an owner row BEFORE the writes;
+	 *                                       flushed alongside the heir and the incumbent so
+	 *                                       a swept-away stray leaves no stale role cache.
+	 * @return WP_Error Always — this is the failure path.
+	 */
+	private function abort_owner_transfer( array $space, int $new_owner_id, int $previous_owner_id, bool $used_transaction, bool $undo_promotion, ?array $heir_row, bool $undo_demotion, array $owner_row_user_ids = array() ): WP_Error {
+		global $wpdb;
+
+		$space_id      = (int) $space['id'];
+		$members_table = $wpdb->prefix . 'bn_space_members';
+
+		if ( $used_transaction ) {
+			// One ROLLBACK discards whatever W1..W3 managed to write.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query( 'ROLLBACK' );
+		} else {
+			// No transaction to roll back: undo by hand, in reverse write order.
+			if ( $undo_demotion && $previous_owner_id > 0 && $previous_owner_id !== $new_owner_id ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->query(
+					$wpdb->prepare(
+						"UPDATE {$wpdb->prefix}bn_space_members SET role = 'owner' WHERE space_id = %d AND user_id = %d",
+						$space_id,
+						$previous_owner_id
+					)
+				);
+			}
+
+			if ( $undo_promotion ) {
+				if ( is_array( $heir_row ) ) {
+					// The heir already had a row: put its role and status back exactly.
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					$wpdb->update(
+						$members_table,
+						array(
+							'role'   => (string) $heir_row['role'],
+							'status' => (string) $heir_row['status'],
+						),
+						array(
+							'space_id' => $space_id,
+							'user_id'  => $new_owner_id,
+						),
+						array( '%s', '%s' ),
+						array( '%d', '%d' )
+					);
+				} else {
+					// The heir had no row at all — W1's INSERT is undone by deleting it.
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					$wpdb->delete(
+						$members_table,
+						array(
+							'space_id' => $space_id,
+							'user_id'  => $new_owner_id,
+						),
+						array( '%d', '%d' )
+					);
+				}
+			}
+		}
+
+		$this->flush_ownership_caches( $space, array_merge( array( $new_owner_id, $previous_owner_id ), $owner_row_user_ids ) );
+
+		return new WP_Error( 'assign_owner_failed', __( 'Could not transfer ownership.', 'buddynext' ), array( 'status' => 500 ) );
+	}
+
+	/**
+	 * Bust every cache an ownership write invalidates.
+	 *
+	 * Ownership writes hit bn_space_members directly rather than going through
+	 * SpaceMemberService's mutators, so that service's per-user role/status
+	 * caches must be flushed by hand — otherwise a later get_role() for either
+	 * user returns a stale value. Called on the success path AND on every
+	 * failure path, since a failed-and-compensated write still touched rows.
+	 *
+	 * @param array $space    The space row (needs `id`, and `slug` if cached).
+	 * @param array $user_ids Users whose membership caches to flush; zeroes are ignored.
+	 * @return void
+	 */
+	private function flush_ownership_caches( array $space, array $user_ids ): void {
+		$space_id = (int) $space['id'];
+
+		( new SpaceMemberService() )->flush_user_caches( $space_id, array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) ) );
+
+		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+		if ( ! empty( $space['slug'] ) ) {
+			wp_cache_delete( 'space_slug_' . $space['slug'], self::CACHE_GROUP );
+		}
+	}
+
+	/**
+	 * List every user currently holding a `role = 'owner'` row in a space.
+	 *
+	 * The assign_owner() path reads this BEFORE it writes, for two reasons: a healthy
+	 * space has exactly one such row (so anything else means the space is
+	 * divergent and the no-op fast path must not be taken), and every user in
+	 * the list other than the heir is one W2 demotes — so their role caches have
+	 * to be flushed. Deliberately unfiltered by status: a `banned` owner row is
+	 * divergence too, and it must be counted and swept like any other.
+	 *
+	 * Read uncached, straight from the table: it is the divergence check itself,
+	 * and a cached answer is exactly the thing it cannot trust.
+	 *
+	 * @param int $space_id Space to inspect.
+	 * @return int[] User ids holding an owner row, ascending. Empty when the
+	 *               space has no owner row at all.
+	 */
+	private function owner_row_user_ids( int $space_id ): array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND role = 'owner' ORDER BY user_id ASC",
+				$space_id
+			)
+		);
+
+		return array_map( 'intval', (array) $ids );
 	}
 
 	/**
@@ -857,6 +1306,11 @@ class SpaceService {
 	 *                       secret spaces.
 	 *   orderby     string  'member_count' | 'name' | 'created_at'. Default 'member_count'.
 	 *   order       string  'ASC' | 'DESC'. Default 'DESC'.
+	 *   viewer      int     Viewer user ID (0 = logged out). Drives secret + archived scope.
+	 *   is_admin    bool    Site admin — sees secret and archived spaces.
+	 *
+	 * Archived spaces are excluded for everyone except the space's owner and site
+	 * admins (see archive_scope()).
 	 *
 	 * @param array<string, mixed> $args Query arguments.
 	 * @return array[]
@@ -1045,6 +1499,20 @@ class SpaceService {
 			}
 		}
 
+		// Archived spaces leave every listing. Archive is the ONLY non-destructive
+		// way to retire a space; while archived rows kept showing in the directory,
+		// owners concluded archive was broken and reached for Delete — a hard
+		// cascade that destroys every post in the space. The predicate lives IN THE
+		// QUERY (never a post-fetch PHP filter) and mirrors subspace_visibility_filter(),
+		// which already excluded archived children.
+		list( $archive_where, $archive_params ) = $this->archive_scope( $viewer_id, $is_admin );
+		foreach ( $archive_where as $archive_clause ) {
+			$where[] = $archive_clause;
+		}
+		foreach ( $archive_params as $archive_param ) {
+			$params[] = $archive_param;
+		}
+
 		if ( $category_id > 0 ) {
 			$where[]  = 'category_id = %d';
 			$params[] = $category_id;
@@ -1090,6 +1558,8 @@ class SpaceService {
 	 *
 	 * Secret spaces are excluded from search results, EXCEPT the viewer's own
 	 * (owned or active membership). Site admins (is_admin arg) see all matches.
+	 * Archived spaces are excluded for everyone except their owner and site admins,
+	 * so a retired space cannot be found here after it left the directory.
 	 *
 	 * @param string               $term Search term.
 	 * @param array<string, mixed> $args Optional per_page / page / viewer / is_admin.
@@ -1136,7 +1606,15 @@ class SpaceService {
 			}
 		}
 
-		// Mine-scope placeholders follow the exclude-scope ones, before the LIKEs.
+		// Archived spaces are retired — they leave search exactly as they leave the
+		// directory (owner + site admin excepted). Same predicate, one definition.
+		list( $archive_where, $archive_params ) = $this->archive_scope( $viewer_id, $is_admin );
+		$archive_sql                            = $archive_where ? implode( ' AND ', $archive_where ) : '1=1';
+		foreach ( $archive_params as $archive_param ) {
+			$params[] = $archive_param;
+		}
+
+		// Mine-scope placeholders follow the exclude- and archive-scope ones, before the LIKEs.
 		if ( $member_id > 0 ) {
 			$params[] = $member_id;
 			$params[] = $member_id;
@@ -1147,14 +1625,15 @@ class SpaceService {
 		$params[] = $per_page;
 		$params[] = $offset;
 
-		// $exclude_sql / $mine_sql hold only literal SQL plus %d placeholders bound
-		// through $params; their placeholder count is dynamic, so the analyser
-		// reports ReplacementsWrongNumber here even though the binding is correct.
+		// $exclude_sql / $archive_sql / $mine_sql hold only literal SQL plus %d
+		// placeholders bound through $params; their placeholder count is dynamic, so
+		// the analyser reports ReplacementsWrongNumber here even though the binding
+		// is correct.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}bn_spaces
-				 WHERE {$exclude_sql} AND {$mine_sql} AND (name LIKE %s OR description LIKE %s)
+				 WHERE {$exclude_sql} AND {$archive_sql} AND {$mine_sql} AND (name LIKE %s OR description LIKE %s)
 				 ORDER BY member_count DESC
 				 LIMIT %d OFFSET %d",
 				...$params
@@ -1179,36 +1658,88 @@ class SpaceService {
 	 * @return array[] Each item: user_id, display_name, post_count.
 	 */
 	public function top_contributors( int $space_id, int $limit = 3 ): array {
-		global $wpdb;
+		$space_id = absint( $space_id );
+		$limit    = max( 1, min( 50, $limit ) );
 
-		$limit = max( 1, min( 50, $limit ) );
+		if ( $space_id <= 0 ) {
+			return array();
+		}
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT p.user_id, u.display_name, COUNT(*) AS post_count
-				 FROM {$wpdb->prefix}bn_posts p
-				 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
-				 WHERE p.space_id = %d AND p.status = 'published'
-				   AND ( p.scheduled_at IS NULL OR p.scheduled_at <= UTC_TIMESTAMP() )
-				 GROUP BY p.user_id, u.display_name
-				 ORDER BY post_count DESC
-				 LIMIT %d",
-				$space_id,
-				$limit
-			),
-			ARRAY_A
+		// This is a GROUP BY over EVERY published post in the space, and it ran on every
+		// single render of the space home sidebar — uncached, to show three names. At
+		// 100k it is a table scan per page view.
+		//
+		// remember_persistent(), not remember(): the target deployment has no persistent
+		// object cache, so a plain wp_cache would be discarded at the end of the request
+		// and the scan would still run every time. See CacheService::remember_persistent.
+		//
+		// ONE key per space, holding the top MAX_TOP_CONTRIBUTORS, sliced in PHP for the
+		// caller's limit. Keying by limit as well would mean invalidation had to delete
+		// every limit that might exist — 50 transient DELETEs on every post created in
+		// the space, which trades a read problem for a write problem.
+		$all = (array) buddynext_service( 'cache' )->remember_persistent(
+			self::top_contributors_key( $space_id ),
+			15 * MINUTE_IN_SECONDS,
+			static function () use ( $space_id ) {
+				global $wpdb;
+
+				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$rows = $wpdb->get_results(
+					$wpdb->prepare(
+						"SELECT p.user_id, u.display_name, COUNT(*) AS post_count
+						 FROM {$wpdb->prefix}bn_posts p
+						 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
+						 WHERE p.space_id = %d AND p.status = 'published'
+						   AND ( p.scheduled_at IS NULL OR p.scheduled_at <= UTC_TIMESTAMP() )
+						 GROUP BY p.user_id, u.display_name
+						 ORDER BY post_count DESC
+						 LIMIT %d",
+						$space_id,
+						self::MAX_TOP_CONTRIBUTORS
+					),
+					ARRAY_A
+				);
+				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+				return array_map(
+					static fn( $r ) => array(
+						'user_id'      => (int) $r['user_id'],
+						'display_name' => (string) $r['display_name'],
+						'post_count'   => (int) $r['post_count'],
+					),
+					(array) $rows
+				);
+			}
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return array_map(
-			static fn( $r ) => array(
-				'user_id'      => (int) $r['user_id'],
-				'display_name' => (string) $r['display_name'],
-				'post_count'   => (int) $r['post_count'],
-			),
-			(array) $rows
-		);
+		return array_slice( $all, 0, $limit );
+	}
+
+	/**
+	 * Cache key for a space's top-contributor list. One key per space — see the note in
+	 * top_contributors() on why it is NOT keyed by limit.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return string
+	 */
+	private static function top_contributors_key( int $space_id ): string {
+		return "space_topcontrib_{$space_id}";
+	}
+
+	/**
+	 * Drop a space's cached top-contributor list.
+	 *
+	 * Called when a post is created or removed in the space — the only two events that
+	 * can change who is on the list, or in what order.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return void
+	 */
+	public static function bust_top_contributors( int $space_id ): void {
+		$space_id = absint( $space_id );
+		if ( $space_id > 0 ) {
+			buddynext_service( 'cache' )->forget_persistent( self::top_contributors_key( $space_id ) );
+		}
 	}
 
 	/**
@@ -1303,6 +1834,35 @@ class SpaceService {
 	 */
 	private function owned_or_member_subquery( string $members_table ): string {
 		return "owner_id = %d OR id IN ( SELECT space_id FROM {$members_table} WHERE user_id = %d AND status = 'active' )";
+	}
+
+	/**
+	 * Build the shared "archived spaces are retired" predicate for the listings.
+	 *
+	 * An archived space drops out of the directory, the search results, and the
+	 * suggestion engine — that is what archiving MEANS. The two people who must
+	 * still find it are the ones who can bring it back: its owner (who archived
+	 * it) and a site admin. Everyone else, including its members, sees a retired
+	 * space only by URL.
+	 *
+	 * One definition, used by list_query_scope() (directory list + total) and
+	 * search(), so the grid, its count, and search can never drift apart. Returns
+	 * SQL fragments carrying %d placeholders; callers append the params in order.
+	 *
+	 * @param int  $viewer_id Viewer ID (0 = logged out).
+	 * @param bool $is_admin  Site admin sees archived spaces everywhere.
+	 * @return array{0: string[], 1: array<int, mixed>} [ where-clauses, prepared params ].
+	 */
+	private function archive_scope( int $viewer_id, bool $is_admin ): array {
+		if ( $is_admin ) {
+			return array( array(), array() );
+		}
+
+		if ( $viewer_id > 0 ) {
+			return array( array( '( is_archived = 0 OR owner_id = %d )' ), array( $viewer_id ) );
+		}
+
+		return array( array( 'is_archived = 0' ), array() );
 	}
 
 	/**
@@ -1514,6 +2074,87 @@ class SpaceService {
 			'name' => (string) $parent['name'],
 			'slug' => (string) $parent['slug'],
 		);
+	}
+
+	/**
+	 * The spaces a given space may be moved UNDER, for the actor.
+	 *
+	 * The move itself has been fully implemented and validated over REST for a while
+	 * (depth, cycles, per-parent cap, manage permission) — there was simply no UI, so
+	 * an owner could not promote a sub-space to the top level or re-parent it without
+	 * making an API call. This is the list that control needs.
+	 *
+	 * Mirrors validate_parent_move() exactly, and deliberately so: the picker must not
+	 * be able to offer a move the service would then reject. A candidate must be
+	 *   - a ROOT space (nesting under a sub-space would be three levels deep),
+	 *   - not the space itself,
+	 *   - not archived,
+	 *   - manageable by the actor (owner-only; a site admin manages everything),
+	 *   - and below the per-parent cap, when one is set.
+	 *
+	 * Returns an empty list when sub-spaces are switched off for the community, or
+	 * when the space has children of its own (it cannot be nested at all then — its
+	 * children would end up three deep). Callers should read that empty list as
+	 * "no move is possible", and say why.
+	 *
+	 * @param int $space_id The space being moved.
+	 * @param int $user_id  Acting user.
+	 * @return array<int,array{id:int,name:string}> Candidate parents, by name.
+	 */
+	public function eligible_parents( int $space_id, int $user_id ): array {
+		$space_id = absint( $space_id );
+		$user_id  = absint( $user_id );
+
+		if ( $space_id <= 0 || $user_id <= 0 ) {
+			return array();
+		}
+
+		if ( '0' === (string) get_option( 'buddynext_space_allow_sub', '1' ) ) {
+			return array();
+		}
+
+		// A space that already has sub-spaces can only ever be a root.
+		if ( $this->count_subspaces( $space_id ) > 0 ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Bounded owner-scoped read on an indexed column, for one settings screen.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, name FROM {$wpdb->prefix}bn_spaces
+				 WHERE ( parent_id IS NULL OR parent_id = 0 )
+				   AND id <> %d
+				   AND is_archived = 0
+				 ORDER BY name ASC",
+				$space_id
+			),
+			ARRAY_A
+		);
+
+		$max_sub = (int) get_option( 'buddynext_space_max_sub_spaces', 0 );
+		$out     = array();
+
+		foreach ( (array) $rows as $row ) {
+			$candidate = (int) $row['id'];
+
+			// Owner-only, exactly as the service enforces on save.
+			if ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-manage-space', array( 'space_id' => $candidate ) ) ) {
+				continue;
+			}
+
+			if ( $max_sub > 0 && $this->count_subspaces( $candidate ) >= $max_sub ) {
+				continue;
+			}
+
+			$out[] = array(
+				'id'   => $candidate,
+				'name' => (string) $row['name'],
+			);
+		}
+
+		return $out;
 	}
 
 	/**
@@ -1752,25 +2393,34 @@ class SpaceService {
 	 */
 	private function hydrate( array $row ): array {
 		$space = array(
-			'id'              => (int) ( $row['id'] ?? 0 ),
-			'name'            => $row['name'] ?? '',
-			'slug'            => $row['slug'] ?? '',
-			'description'     => $row['description'] ?? '',
-			'category_id'     => isset( $row['category_id'] ) ? (int) $row['category_id'] : null,
-			'parent_id'       => isset( $row['parent_id'] ) ? (int) $row['parent_id'] : null,
-			'type'            => $row['type'] ?? 'open',
-			'owner_id'        => (int) ( $row['owner_id'] ?? 0 ),
-			'member_count'    => (int) ( $row['member_count'] ?? 0 ),
-			'avatar_url'      => $row['avatar_url'] ?? null,
-			'cover_image_url' => $row['cover_image_url'] ?? null,
-			'rules'           => $row['rules'] ?? null,
-			'is_archived'     => ! empty( $row['is_archived'] ),
-			'archived_at'     => $row['archived_at'] ?? null,
-			'created_at'      => $row['created_at'] ?? '',
+			'id'               => (int) ( $row['id'] ?? 0 ),
+			'name'             => $row['name'] ?? '',
+			'slug'             => $row['slug'] ?? '',
+			'description'      => $row['description'] ?? '',
+			'category_id'      => isset( $row['category_id'] ) ? (int) $row['category_id'] : null,
+			'parent_id'        => isset( $row['parent_id'] ) ? (int) $row['parent_id'] : null,
+			'type'             => $row['type'] ?? 'open',
+			'owner_id'         => (int) ( $row['owner_id'] ?? 0 ),
+			'member_count'     => (int) ( $row['member_count'] ?? 0 ),
+			'avatar_url'       => $row['avatar_url'] ?? null,
+			'cover_image_url'  => $row['cover_image_url'] ?? null,
+			'rules'            => $row['rules'] ?? null,
+			// The Pro entitlement gate on the space (`tier:<slug>`), or null when the
+			// space is ungated. REST already ACCEPTS this on PUT, and Pro admin writes
+			// it — but it was never returned, so no client could tell a space was
+			// paywalled. The native app cannot render a gated space if it cannot see
+			// that the space is gated. It is not a secret: the whole point of a paywall
+			// is that the person outside it is told what would let them in.
+			'required_ability' => isset( $row['required_ability'] ) && '' !== (string) $row['required_ability']
+				? (string) $row['required_ability']
+				: null,
+			'is_archived'      => ! empty( $row['is_archived'] ),
+			'archived_at'      => $row['archived_at'] ?? null,
+			'created_at'       => $row['created_at'] ?? '',
 			// Present only on member-scoped lists (the viewer's role in the space:
 			// owner | moderator | member). Null elsewhere. Lets clients group
 			// "spaces you manage" vs "spaces you've joined" without a second query.
-			'viewer_role'     => $row['viewer_role'] ?? null,
+			'viewer_role'      => $row['viewer_role'] ?? null,
 		);
 
 		/**

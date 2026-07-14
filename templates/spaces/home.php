@@ -25,32 +25,6 @@ declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
-if ( ! function_exists( 'bn_space_category_icon' ) ) {
-	/**
-	 * Return inline SVG for a space category slug.
-	 *
-	 * @param string|null $cat_slug Category slug.
-	 * @return string SVG markup.
-	 */
-	function bn_space_category_icon( ?string $cat_slug ): string {
-		$map  = array(
-			'technology'  => 'cpu',
-			'design'      => 'image',
-			'marketing'   => 'megaphone',
-			'startups'    => 'rocket',
-			'ai-ml'       => 'cpu',
-			'data'        => 'bar-chart',
-			'product'     => 'target',
-			'writing'     => 'edit',
-			'open-source' => 'globe',
-			'business'    => 'briefcase',
-			'creative'    => 'star',
-		);
-		$slug = $map[ (string) $cat_slug ] ?? 'home';
-		return buddynext_get_icon( $slug );
-	}
-}
-
 // ── Services ──────────────────────────────────────────────────────────────────
 
 $bn_space_service  = new \BuddyNext\Spaces\SpaceService();
@@ -92,10 +66,14 @@ $is_member  = $membership && 'active' === $membership->status;
 $is_invited = $membership && 'invited' === $membership->status;
 
 // Secret spaces are leak-proof: a logged-out visitor (or any non-member who
-// isn't a site admin) reaches the canonical 404 surface so we never confirm
-// the slug exists. Mirrors the visibility gate enforced by
-// SpaceService::search() and the directory's `type != 'secret'` filter.
-if ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) $space->type ) && ! $is_member && ! current_user_can( 'manage_options' ) ) {
+// isn't a site admin) never confirms the slug exists. PageRouter::dispatch_hub_template()
+// enforces this at template_redirect — the ONLY place a real 404 status header can
+// still be sent (this template runs after get_header() has flushed the document, so
+// a status_header() call here arrives too late and yields a soft "200 OK" 404 page).
+// This is the belt-and-braces guard for a direct template include, and it asks the
+// SAME canonical resolver, so the two can never drift.
+$bn_space_row = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+if ( ! \BuddyNext\Spaces\SpaceVisibility::can_view_space( $bn_space_row, $current_user_id ) ) {
 	global $wp_query;
 	$wp_query->set_404();
 	status_header( 404 );
@@ -104,11 +82,16 @@ if ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_hidden_from_non_members
 	exit;
 }
 
-// Access gate: private + secret feeds. Open spaces never gate the feed, but
-// guests still see a "Join to participate" CTA instead of the composer. The feed
-// data itself is fetched by the feed panel's render (SpaceNav::render_feed_panel),
-// so it runs only when the Feed tab is the active panel — never when viewing About.
-$gate_feed = ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->content_requires_membership( (string) $space->type ) && ! $is_member && ! current_user_can( 'manage_options' ) );
+// Access gate: private + secret CONTENT (posts, members, media). Open spaces never
+// gate, but guests still see a "Join to participate" CTA instead of the composer.
+// The feed data itself is fetched by the feed panel's render
+// (SpaceNav::render_feed_panel), so it runs only when the Feed tab is active.
+//
+// This flag says "may this viewer read the space's CONTENT", NOT "may this viewer
+// see the space at all" — a private space's identity (name, description, house
+// rules, moderators) stays public by contract. Which tabs that exempts is decided
+// at the tab body below; do not reintroduce a blanket gate around the whole body.
+$gate_feed = ! \BuddyNext\Spaces\SpaceVisibility::can_view_content( $bn_space_row, $current_user_id );
 
 // Clean-URL active tab: /spaces/{slug}/{tab}/ → bn_space_action. Defaults to feed.
 $active_tab = (string) get_query_var( 'bn_space_action', '' );
@@ -148,21 +131,36 @@ $bn_space_ctx  = new \BuddyNext\Nav\NavContext( 'space', (int) $space_id, (int) 
 $bn_space_nav  = buddynext_nav( $bn_space_ctx );
 $bn_nav_items  = $bn_space_nav->layer( 'primary' );
 
-// Normalize the active tab to a panel the registry can actually render. Every
-// in-hub tab (feed/about/media/discussions) carries a render; a tab that is hidden
-// for this viewer/space (e.g. Media when the option is off, Discussions when
+// Normalize the active tab to a panel the registry can actually render. A tab that
+// is hidden for this viewer/space (Media when the option is off, Discussions when
 // Jetonomy is inactive) is absent from the resolved nav, and an unknown/stale URL
-// matches nothing — both fall back to Feed, the space's home panel. This also sets
-// the header's active-tab highlight (rendered just below), so the two agree.
+// matches nothing — both need a fallback.
+//
+// The fallback USED TO BE the literal 'feed'. That bricked the space whenever the
+// owner hid the Feed tab in Settings → Navigation: 'feed' is then not in the
+// resolved nav either, so render_panels() matched nothing and the body painted
+// ZERO BYTES. A documented, supported setting blanked every space on the site.
+//
+// Fall back to the first tab that can ACTUALLY render, whatever it is. Feed is
+// normally first, so the common path is unchanged — but when it is hidden the space
+// now opens on About (or Media, or whatever the owner left enabled) instead of
+// nothing. This also drives the header's active-tab highlight, so the two agree.
 $bn_active_renderable = false;
+$bn_first_renderable  = '';
 foreach ( $bn_nav_items as $bn_pi ) {
-	if ( $bn_pi->id === $active_tab && $bn_pi->has_render() ) {
+	if ( ! $bn_pi->has_render() ) {
+		continue;
+	}
+	if ( '' === $bn_first_renderable ) {
+		$bn_first_renderable = (string) $bn_pi->id;
+	}
+	if ( $bn_pi->id === $active_tab ) {
 		$bn_active_renderable = true;
 		break;
 	}
 }
 if ( ! $bn_active_renderable ) {
-	$active_tab = 'feed';
+	$active_tab = '' !== $bn_first_renderable ? $bn_first_renderable : 'feed';
 }
 ?>
 <div class="bn-sh-stack"
@@ -219,7 +217,26 @@ if ( ! $bn_active_renderable ) {
 
 	<!-- Tab body -->
 	<div class="bn-sh-body">
-		<?php if ( $gate_feed ) : ?>
+		<?php
+		// The gate is about CONTENT — posts, members, media. It is not about the
+		// space's IDENTITY. SpaceVisibility's own contract (see its class docblock)
+		// says a private space keeps its name, description, house rules, avatar,
+		// cover, category and moderator list PUBLIC, because a stranger legitimately
+		// needs to know who is in charge and what the rules are BEFORE deciding to
+		// request to join. The About panel is precisely that surface.
+		//
+		// This used to gate the WHOLE body, so a non-member got the lock card on
+		// every tab including About — contradicting both that contract and the
+		// comment ~100 lines above, which claims the feed query "runs only when the
+		// Feed tab is the active panel, never when viewing About". It never got the
+		// chance to: About never rendered at all.
+		//
+		// Safe to paint for a non-member: SpaceNav::render_about_panel() already
+		// visibility-filters its custom fields against $see_member.
+		$bn_public_tabs = (array) apply_filters( 'buddynext_space_public_tabs', array( 'about' ), $bn_space_row );
+		$bn_show_gate   = $gate_feed && ! in_array( $active_tab, $bn_public_tabs, true );
+		?>
+		<?php if ( $bn_show_gate ) : ?>
 
 			<div class="bn-card bn-sh-gate">
 				<div class="bn-sh-gate__icon" aria-hidden="true"><?php buddynext_icon( 'lock' ); ?></div>

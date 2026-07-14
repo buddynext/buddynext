@@ -30,6 +30,11 @@ class Abilities {
 		'buddynext-feed/delete-any-post',
 		'buddynext-feed/pin-post',
 		'buddynext-feed/schedule-post',
+		// Enforced by PermissionService::ROLE_MAP but registered nowhere, so it could not be
+		// granted or revoked through the Abilities API or the Roles tab, and RolesTab::handle_save()
+		// silently dropped it if it was ever submitted. The only lever was the buddynext_role_map
+		// filter. A capability the product enforces must be a capability the owner can see.
+		'buddynext-comments/create',
 		'buddynext-spaces/create',
 		'buddynext-spaces/join',
 		'buddynext-spaces/join-gated',

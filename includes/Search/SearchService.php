@@ -35,6 +35,33 @@ class SearchService {
 	private const MAX_RESULTS = 1000;
 
 	/**
+	 * Rows removed per statement by deindex_type(). Small enough that the lock on the
+	 * search index is never held long on a shared host.
+	 */
+	/**
+	 * Object-cache group.
+	 */
+	private const CACHE_GROUP = 'buddynext_search';
+
+	/**
+	 * Cache lifetime, in seconds.
+	 */
+	private const CACHE_TTL = 300;
+
+	private const DEINDEX_BATCH = 2000;
+
+	/**
+	 * Shortest term the fuzzy fallback will run for. Below this, LIKE '%a%' matches
+	 * nearly every row and SOUNDEX is noise.
+	 */
+	private const FUZZY_MIN_TERM_LENGTH = 3;
+
+	/**
+	 * Largest index on which the fuzzy full scan is still an acceptable trade.
+	 */
+	private const FUZZY_MAX_INDEX_ROWS = 50000;
+
+	/**
 	 * Upsert an object into the search index.
 	 *
 	 * @param string $object_type Type identifier (e.g. 'post', 'user', 'space').
@@ -115,11 +142,13 @@ class SearchService {
 		// Discover active object types from the index — adapts to addon content.
 		// Cached for 5 minutes: the type list is stable between deploys and does
 		// not need to reflect brand-new addon registrations immediately.
-		$types = wp_cache_get( 'search_object_types', 'buddynext' );
+		$types = wp_cache_get( 'search_object_types', self::CACHE_GROUP );
 		if ( false === $types ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$types = $wpdb->get_col( "SELECT DISTINCT object_type FROM {$wpdb->prefix}bn_search_index" );
-			wp_cache_set( 'search_object_types', $types, 'buddynext', 300 );
+			// cache-ttl-only: the type list is derived from the index itself and is flushed by
+			// deindex_type(); a 5-minute window on a newly-appearing type is not a defect.
+			wp_cache_set( 'search_object_types', $types, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
 		$type_groups = array();
@@ -163,11 +192,13 @@ class SearchService {
 	public function available_types(): array {
 		global $wpdb;
 
-		$types = wp_cache_get( 'search_object_types', 'buddynext' );
+		$types = wp_cache_get( 'search_object_types', self::CACHE_GROUP );
 		if ( false === $types ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$types = $wpdb->get_col( "SELECT DISTINCT object_type FROM {$wpdb->prefix}bn_search_index" );
-			wp_cache_set( 'search_object_types', $types, 'buddynext', 300 );
+			// cache-ttl-only: the type list is derived from the index itself and is flushed by
+			// deindex_type(); a 5-minute window on a newly-appearing type is not a defect.
+			wp_cache_set( 'search_object_types', $types, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
 		return array_values(
@@ -241,6 +272,70 @@ class SearchService {
 	}
 
 	/**
+	 * Whether the fuzzy fallback is affordable on this index.
+	 *
+	 * The fuzzy path is LIKE '%term%' plus SOUNDEX() — both non-sargable, so it is a FULL SCAN
+	 * of bn_search_index. It fires whenever FULLTEXT matched nothing, i.e. on any typo, from an
+	 * endpoint that does not require login. A stranger could scan the whole index by asking for
+	 * gibberish, repeatedly. That is not a slow query; it is a denial-of-service surface.
+	 *
+	 * So it is bounded twice:
+	 *
+	 *   - Not on a large index. Full-scanning a million rows to be kind about a typo is not a
+	 *     trade worth making; on a big community FULLTEXT is good enough on its own.
+	 *   - Not on a 1-2 character term, where LIKE '%a%' matches nearly everything and SOUNDEX
+	 *     is noise anyway.
+	 *
+	 * A site that wants it back can raise the ceiling with buddynext_search_fuzzy_max_rows.
+	 *
+	 * @param string $query The sanitised search term.
+	 * @return bool
+	 */
+	private function fuzzy_is_affordable( string $query ): bool {
+		if ( mb_strlen( $query ) < self::FUZZY_MIN_TERM_LENGTH ) {
+			return false;
+		}
+
+		/**
+		 * Largest search index on which the fuzzy fallback still runs.
+		 *
+		 * @since 1.0.8
+		 *
+		 * @param int $max_rows Row ceiling. 0 disables fuzzy entirely.
+		 */
+		$max_rows = (int) apply_filters( 'buddynext_search_fuzzy_max_rows', self::FUZZY_MAX_INDEX_ROWS );
+
+		if ( $max_rows <= 0 ) {
+			return false;
+		}
+
+		return $this->index_row_count() <= $max_rows;
+	}
+
+	/**
+	 * Approximate size of the search index, cached — this must not itself be a cost.
+	 *
+	 * @return int
+	 */
+	private function index_row_count(): int {
+		$cached = wp_cache_get( 'bn_search_index_rows', self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index" );
+
+		// cache-ttl-only: an approximate index size is all this needs; being 5 minutes stale
+		// cannot change the answer near the ceiling in any way that matters.
+		wp_cache_set( 'bn_search_index_rows', $count, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $count;
+	}
+
+	/**
 	 * Remove an object from the search index.
 	 *
 	 * @param string $object_type Type identifier.
@@ -265,6 +360,52 @@ class SearchService {
 				sprintf( 'BuddyNext: search deindex failed for %s#%d: %s', $object_type, $object_id, $wpdb->last_error )
 			);
 		}
+	}
+
+	/**
+	 * Remove EVERY row of one object type from the search index.
+	 *
+	 * The bulk counterpart to deindex(), for when an owner switches an integration's
+	 * search off. Gating the write path alone is not enough: everything indexed while the
+	 * integration was on would keep surfacing forever, and the owner has no way to reach it.
+	 *
+	 * The cache flush is load-bearing, not hygiene. available_types() is `SELECT DISTINCT
+	 * object_type FROM bn_search_index`, cached for 5 minutes, and the results template
+	 * builds its type tabs from it. Delete the rows without flushing and the disabled
+	 * integration keeps its own search tab — now an empty one — for up to five minutes.
+	 *
+	 * Deleted in batches: a site that has indexed a million job listings would otherwise
+	 * hold a long table lock on the search index, which on shared hosting is an outage.
+	 *
+	 * @param string $object_type Type identifier (e.g. 'job', 'listing', 'discussion').
+	 * @return int Rows removed.
+	 */
+	public function deindex_type( string $object_type ): int {
+		global $wpdb;
+
+		$object_type = sanitize_key( $object_type );
+		if ( '' === $object_type ) {
+			return 0;
+		}
+
+		$total = 0;
+
+		do {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$rows = (int) $wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$wpdb->prefix}bn_search_index WHERE object_type = %s LIMIT %d",
+					$object_type,
+					self::DEINDEX_BATCH
+				)
+			);
+
+			$total += $rows;
+		} while ( $rows >= self::DEINDEX_BATCH );
+
+		wp_cache_delete( 'search_object_types', self::CACHE_GROUP );
+
+		return $total;
 	}
 
 	/**
@@ -434,77 +575,82 @@ class SearchService {
 		}
 		$sort_recent = isset( $search_args['sort'] ) && 'recent' === sanitize_key( (string) $search_args['sort'] );
 
-		// ------------------------------------------------------------------ //
-		// Advanced member-search WHERE clauses contributed by Pro via the
-		// buddynext_search_query_args filter. Each clause is only appended
-		// when the corresponding arg is present, non-empty, and the search
-		// type targets users / members.
-		//
-		// All referenced tables (bn_subscriptions, bn_membership_tiers,
-		// bn_space_members, bn_member_label_assignments, bn_member_labels,
-		// bn_analytics_events) are owned by buddynext-pro. When Pro is
-		// inactive, no caller populates these args so no clause is emitted
-		// and the missing tables are never referenced.
-		// ------------------------------------------------------------------ //
+		/*
+		 * Advanced member-search WHERE clauses — contributed by whoever OWNS the tables.
+		 *
+		 * Free used to build these itself: EXISTS subqueries against bn_subscriptions,
+		 * bn_membership_tiers, bn_member_label_assignments, bn_member_labels and
+		 * bn_analytics_events. Every one of those tables is created by buddynext-PRO, and on a
+		 * Free-only site none of them exist.
+		 *
+		 * The comment that used to sit here said: "When Pro is inactive, no caller populates these
+		 * args so no clause is emitted and the missing tables are never referenced."
+		 *
+		 * It was false, and FREE was what made it false. SearchController::collect_advanced_args()
+		 * reads tier_slug / member_label / active_within_days straight off the REST request — a
+		 * route whose permission_callback is __return_true — and merges them into this very args
+		 * array at priority 5. Free populated the args, then Free consumed them. Pro was never in
+		 * the loop.
+		 *
+		 * So on a Free-only site, ?q=a&type=user&member_label=vip emitted SQL against a table that
+		 * does not exist: MySQL 1146, get_results() returns null, (array) null is [], and search
+		 * returned ZERO results with HTTP 200 — silently, to anonymous visitors, with a database
+		 * error in the log on every request. The comment then guaranteed nobody grepping for the
+		 * cause would find it, because it asserted the exact opposite of what the code did.
+		 *
+		 * FREE-PRO-SEAM.md §7: Free must NEVER reference a Pro-owned table. So Free no longer
+		 * knows how to filter by any of them. It offers a seam and applies whatever comes back;
+		 * with nothing listening, an unserveable filter is simply ignored rather than poisoning the
+		 * whole query. Refusing to answer a filter is a fine outcome. Silently answering "nothing
+		 * matched" is not — the caller cannot tell it apart from an empty community.
+		 */
 		$advanced_where  = '';
 		$advanced_params = array();
-		$user_scope      = in_array( $type, array( 'user', 'member' ), true );
 
-		if ( $user_scope ) {
-			if ( isset( $search_args['tier_slug'] ) && '' !== $search_args['tier_slug'] ) {
-				$advanced_where   .= " AND EXISTS (
-					SELECT 1
-					FROM {$wpdb->prefix}bn_subscriptions sub
-					INNER JOIN {$wpdb->prefix}bn_membership_tiers tier
-					        ON sub.tier_id = tier.id
-					WHERE sub.user_id = si.object_id
-					  AND sub.status  = 'active'
-					  AND tier.slug   = %s
-				)";
-				$advanced_params[] = (string) $search_args['tier_slug'];
+		if ( in_array( $type, array( 'user', 'member' ), true ) ) {
+			/**
+			 * Contribute an advanced member-search WHERE clause.
+			 *
+			 * The clause is appended to the member-search query and its params bound in order, so
+			 * every value MUST be a `%s`/`%d` placeholder — never an interpolated value.
+			 *
+			 * This is the seam that keeps Free out of Pro's tables: an extension that owns a table
+			 * answers here, and Free never learns the table's name.
+			 *
+			 * @param array{where: string, params: array<int, mixed>} $clause      Clause so far.
+			 * @param array<string, mixed>                            $search_args Search args (incl. any advanced keys).
+			 * @param string                                          $type        Search type ('user'|'member').
+			 * @param int                                             $viewer_id   Viewer, 0 when anonymous.
+			 */
+			$clause = apply_filters(
+				'buddynext_search_advanced_where',
+				array(
+					'where'  => '',
+					'params' => array(),
+				),
+				$search_args,
+				$type,
+				$viewer_id
+			);
+
+			if ( is_array( $clause ) ) {
+				$advanced_where  = (string) ( $clause['where'] ?? '' );
+				$advanced_params = array_values( (array) ( $clause['params'] ?? array() ) );
 			}
 
-			if ( isset( $search_args['space_id'] ) && (int) $search_args['space_id'] > 0 ) {
-				$advanced_where   .= " AND EXISTS (
-					SELECT 1
-					FROM {$wpdb->prefix}bn_space_members sm
-					WHERE sm.user_id  = si.object_id
-					  AND sm.space_id = %d
-					  AND sm.status   = 'active'
-				)";
-				$advanced_params[] = (int) $search_args['space_id'];
-			}
-
-			if ( isset( $search_args['member_label'] ) && '' !== $search_args['member_label'] ) {
-				$advanced_where   .= " AND EXISTS (
-					SELECT 1
-					FROM {$wpdb->prefix}bn_member_label_assignments la
-					INNER JOIN {$wpdb->prefix}bn_member_labels lbl
-					        ON la.label_id = lbl.id
-					WHERE la.user_id = si.object_id
-					  AND lbl.slug   = %s
-				)";
-				$advanced_params[] = (string) $search_args['member_label'];
-			}
-
-			if ( isset( $search_args['joined_after'] ) && '' !== $search_args['joined_after'] ) {
-				$advanced_where   .= " AND EXISTS (
-					SELECT 1
-					FROM {$wpdb->users} wpu
-					WHERE wpu.ID = si.object_id
-					  AND wpu.user_registered >= %s
-				)";
-				$advanced_params[] = (string) $search_args['joined_after'];
-			}
-
-			if ( isset( $search_args['active_within_days'] ) && (int) $search_args['active_within_days'] > 0 ) {
-				$advanced_where   .= " AND EXISTS (
-					SELECT 1
-					FROM {$wpdb->prefix}bn_analytics_events ae
-					WHERE ae.actor_id    = si.object_id
-					  AND ae.created_at >= DATE_SUB(NOW(), INTERVAL %d DAY)
-				)";
-				$advanced_params[] = (int) $search_args['active_within_days'];
+			// A clause whose placeholders and params disagree would shift every later binding in
+			// the query. Drop the contribution rather than corrupt the search.
+			if ( substr_count( $advanced_where, '%' ) !== count( $advanced_params ) ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				error_log(
+					sprintf(
+						'BuddyNext search: a buddynext_search_advanced_where contributor returned %d placeholder(s) but %d param(s). Clause discarded.',
+						substr_count( $advanced_where, '%' ),
+						count( $advanced_params )
+					)
+				);
+				$advanced_where  = '';
+				$advanced_params = array();
 			}
 		}
 
@@ -562,6 +708,20 @@ class SearchService {
 				$safe_query . '*'
 			);
 
+			// Members-tier profile values live in their own column with their own FULLTEXT index,
+			// and this is the ONLY place that names it. An anonymous searcher never reaches this
+			// branch, so a field a member chose to show only to other members cannot surface to a
+			// stranger — the boundary is structural, not a flag someone can get wrong later.
+			//
+			// MATCH() must name exactly one index's column list, which is why this is a second
+			// MATCH OR'd in rather than three columns in one.
+			if ( $viewer_id > 0 ) {
+				$search_condition = '( ' . $search_condition . ' OR ' . $wpdb->prepare(
+					'MATCH(si.content_members) AGAINST(%s IN BOOLEAN MODE)',
+					$safe_query . '*'
+				) . ' )';
+			}
+
 			// Exact/prefix name boost: FULLTEXT BOOLEAN MODE ranks title + content
 			// equally, and member rows store the name in content with an empty title,
 			// so an exact-name query was not surfaced first. This pre-prepared
@@ -603,6 +763,15 @@ class SearchService {
 				)
 			);
 
+			// The WHERE reuses $search_condition — the SAME string the COUNT above used. It used to
+			// rebuild `MATCH(si.title, si.content)` inline here instead, which meant the count and
+			// the rows could disagree: once the members tier was OR'd into $search_condition, the
+			// COUNT found the member and this query did not, so search reported a total and
+			// returned nothing. Two copies of one condition will always drift; there is now one.
+			//
+			// `relevance` stays scored on the public columns only. A members-tier hit still ranks
+			// (it falls to the bottom on relevance and is ordered by the name boost / recency),
+			// and scoring it would mean a second AGAINST on every row for a rare case.
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT si.object_type, si.object_id, si.title, si.content, si.author_id, si.visibility, si.created_at,
@@ -610,7 +779,7 @@ class SearchService {
 					 FROM {$wpdb->prefix}bn_search_index si
 					 {$media_join}
 					 WHERE {$visibility_where}
-					   AND MATCH(si.title, si.content) AGAINST(%s IN BOOLEAN MODE)
+					   AND {$search_condition}
 					   {$type_where}
 					   {$media_where}
 					   {$block_where}
@@ -619,7 +788,7 @@ class SearchService {
 					   {$date_where}
 					 ORDER BY {$order_clause}
 					 LIMIT %d OFFSET %d",
-					...array_merge( array( $safe_query . '*', $safe_query . '*' ), $type_params, $block_params, $advanced_params, array( $row_limit, $offset ) )
+					...array_merge( array( $safe_query . '*' ), $type_params, $block_params, $advanced_params, array( $row_limit, $offset ) )
 				),
 				ARRAY_A
 			);
@@ -632,16 +801,33 @@ class SearchService {
 		// returns results instead of an empty page. When acting as the fuzzy
 		// fallback, SOUNDEX (phonetic) matching is added so a misspelled name
 		// ("jhon" → "John") still surfaces.
-		$fuzzy = $use_fulltext && 0 === $total;
+		$fuzzy = $use_fulltext && 0 === $total && $this->fuzzy_is_affordable( $safe_query );
 		if ( ! $use_fulltext || $fuzzy ) {
 			$like = '%' . $wpdb->esc_like( $safe_query ) . '%';
 
 			if ( $fuzzy ) {
-				$like_match  = '( si.title LIKE %s OR si.content LIKE %s OR SOUNDEX(si.title) = SOUNDEX(%s) OR SOUNDEX(si.content) = SOUNDEX(%s) )';
-				$like_params = array( $like, $like, $safe_query, $safe_query );
+				// SOUNDEX on si.CONTENT is gone, and not only because it is slow.
+				//
+				// SOUNDEX() encodes the first letter plus a few consonants of the WHOLE string
+				// into a 4-character code. On a document body that is, in effect,
+				// SOUNDEX(first word) — comparing it to SOUNDEX('jhon') is meaningless. It was
+				// a non-sargable full scan of bn_search_index computing an answer that was also
+				// wrong. Phonetic matching only makes sense on a short field, so it stays on
+				// the title.
+				$like_match  = '( si.title LIKE %s OR si.content LIKE %s OR SOUNDEX(si.title) = SOUNDEX(%s) )';
+				$like_params = array( $like, $like, $safe_query );
 			} else {
 				$like_match  = '( si.title LIKE %s OR si.content LIKE %s )';
 				$like_params = array( $like, $like );
+			}
+
+			// The members tier, on the fallback path too — and ONLY for a logged-in viewer. The
+			// FULLTEXT branch is the production path, but this is the one that runs on short
+			// queries, on a fuzzy retry, and on any host without a FULLTEXT index. Fixing privacy
+			// on one path and not the other would leave the hole open exactly where nobody looks.
+			if ( $viewer_id > 0 ) {
+				$like_match    = '( ' . $like_match . ' OR si.content_members LIKE %s )';
+				$like_params[] = $like;
 			}
 
 			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

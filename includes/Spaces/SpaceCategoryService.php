@@ -364,64 +364,16 @@ class SpaceCategoryService {
 	/**
 	 * Allowed HTML tags for SVG icon sanitisation.
 	 *
+	 * Delegates to IconService, which owns THE one allowlist a category icon is
+	 * measured against. Keeping a second copy here is what let the two drift: this
+	 * list permitted <g> but not <polygon>, while the render side permitted
+	 * <polygon> but not <g>, so an ordinary star or triangle icon was silently
+	 * stripped to an empty <svg> on save and a <g>-wrapped one lost its grouping on
+	 * render. One list, both directions.
+	 *
 	 * @return array<string, array<string, bool>>
 	 */
 	private function allowed_svg_tags(): array {
-		return array(
-			'svg'      => array(
-				'xmlns'           => true,
-				'viewbox'         => true,
-				'width'           => true,
-				'height'          => true,
-				'fill'            => true,
-				'stroke'          => true,
-				'stroke-width'    => true,
-				'stroke-linecap'  => true,
-				'stroke-linejoin' => true,
-				'aria-hidden'     => true,
-			),
-			'path'     => array(
-				'd'               => true,
-				'fill'            => true,
-				'stroke'          => true,
-				'stroke-width'    => true,
-				'stroke-linecap'  => true,
-				'stroke-linejoin' => true,
-			),
-			'circle'   => array(
-				'cx'           => true,
-				'cy'           => true,
-				'r'            => true,
-				'fill'         => true,
-				'stroke'       => true,
-				'stroke-width' => true,
-			),
-			'rect'     => array(
-				'x'      => true,
-				'y'      => true,
-				'width'  => true,
-				'height' => true,
-				'rx'     => true,
-				'fill'   => true,
-			),
-			'polyline' => array(
-				'points'       => true,
-				'fill'         => true,
-				'stroke'       => true,
-				'stroke-width' => true,
-			),
-			'line'     => array(
-				'x1'           => true,
-				'y1'           => true,
-				'x2'           => true,
-				'y2'           => true,
-				'stroke'       => true,
-				'stroke-width' => true,
-			),
-			'g'        => array(
-				'fill'   => true,
-				'stroke' => true,
-			),
-		);
+		return \BuddyNext\Core\IconService::category_icon_allowed_tags();
 	}
 }

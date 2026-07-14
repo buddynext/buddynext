@@ -55,13 +55,33 @@ class GamificationBridge {
 	}
 
 	/**
-	 * Suppress wb-gamification's transient "cooldown" skip toast (silent background points).
+	 * Suppress EVERY gamification "skip" toast. Members are never told they earned
+	 * no points.
 	 *
-	 * The engine calls `wb_gam_toast_data` for every toast before it is queued and
-	 * treats an empty array as "do not show". We only ever drop the `skip` toast
-	 * whose reason is `cooldown`; positive toasts and the informative daily/weekly
-	 * cap notices pass through untouched. Owners who want the cooldown notice back
-	 * can opt in via the `buddynext_gamification_show_cooldown_toast` filter.
+	 * A skip is the engine saying "this action did not award points" — a cooldown, a
+	 * daily cap, a weekly cap. In every one of those cases the member's ACTION
+	 * SUCCEEDED. They posted, they reacted, they commented. The only thing that did
+	 * not happen is an invisible points increment they never asked about.
+	 *
+	 * Interrupting them to say "You've hit your daily limit for this action. Resets
+	 * tomorrow." tells them nothing they can act on, reads like their action FAILED
+	 * when it did not, and — because a capped member keeps acting — it fires again and
+	 * again. QA saw it stacked dozens deep across every page. A points cap is an
+	 * anti-farming guard; it is our business, not the member's.
+	 *
+	 * This used to drop ONLY the `cooldown` reason, and deliberately let the daily and
+	 * weekly cap notices through as "informative". They are not informative. They are
+	 * nagging, and there is nothing the member can do about them. All three are now
+	 * silent. (Varun, 2026-07-11: "we should not display any stale or hit limit message
+	 * in the first place".)
+	 *
+	 * The engine calls `wb_gam_toast_data` for every toast before queueing and treats
+	 * an empty array as "do not show". POSITIVE toasts — points earned, badge awarded,
+	 * level up — pass through untouched: those are the ones worth interrupting for.
+	 *
+	 * Note this is enforced HERE rather than relying on wb-gamification's own
+	 * `wb_gam_award_skip_toast_reasons` default: BuddyNext owns the member's UX, and it
+	 * must not depend on a partner plugin's default staying the way we like it.
 	 *
 	 * @param array $event   Toast event data (type, reason, message, …).
 	 * @param int   $user_id Member who would see the toast.
@@ -70,19 +90,31 @@ class GamificationBridge {
 	public function suppress_cooldown_toast( $event, $user_id ): array {
 		$event = is_array( $event ) ? $event : array();
 
-		$is_cooldown = 'skip' === ( $event['type'] ?? '' ) && 'cooldown' === ( $event['reason'] ?? '' );
-		if ( ! $is_cooldown ) {
+		if ( 'skip' !== ( $event['type'] ?? '' ) ) {
 			return $event;
 		}
 
 		/**
-		 * Allow re-enabling the gamification cooldown skip toast.
+		 * Allow re-enabling a gamification skip toast (cooldown / daily cap / weekly cap).
 		 *
-		 * @param bool  $show    Whether to show the cooldown toast (default false — silent).
-		 * @param array $event   The toast event.
-		 * @param int   $user_id Member who would see the toast.
+		 * Default false: a member is never told that an action they successfully
+		 * performed earned them no points. An owner whose community genuinely wants
+		 * cap feedback can switch a specific reason back on.
+		 *
+		 * @since 1.0.8
+		 *
+		 * @param bool   $show    Whether to show the skip toast (default false — silent).
+		 * @param array  $event   The toast event.
+		 * @param int    $user_id Member who would see the toast.
+		 * @param string $reason  Skip reason: cooldown | daily_cap | weekly_cap.
 		 */
-		$show = (bool) apply_filters( 'buddynext_gamification_show_cooldown_toast', false, $event, (int) $user_id );
+		$show = (bool) apply_filters(
+			'buddynext_gamification_show_skip_toast',
+			false,
+			$event,
+			(int) $user_id,
+			(string) ( $event['reason'] ?? '' )
+		);
 
 		return $show ? $event : array();
 	}

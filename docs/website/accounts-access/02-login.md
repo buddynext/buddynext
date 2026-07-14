@@ -11,7 +11,8 @@ Login is how returning members sign back in to your community. Like the sign-up 
 - **On-brand sign-in.** The login form picks up your community's colors, fonts, and spacing automatically, and on BuddyNext Pro it carries your white-label branding. It can sit beside the same welcome panel as the sign-up form.
 - **Lands members in the community.** After signing in, members go to the activity feed by default, or to a destination you set - never to a WordPress dashboard. Signing out sends them back to your branded login page, not the plain WordPress login screen, so they can sign back in without ever seeing the WordPress admin.
 - **Everything in one place.** Remember-me, the forgot-password link, and any social sign-in buttons all live on the one form, so members never hunt for an option.
-- **Secure by default.** Sign-in runs through WordPress's own trusted authentication, so password rules, the pending-approval gate, and (on accounts that enable it) two-factor verification all apply.
+- **Secure by default.** Sign-in runs through WordPress's own trusted authentication, so password rules, the pending-approval gate, and two-factor verification (where a member has enabled it, or where you require it) all apply.
+- **Your blocked-IP list applies at the door.** An address on your blocked-IP list is refused at sign-in, not just when it tries to post. Someone on that list cannot get into the community at all, including into accounts they already hold. See Content Safeguards for where the list lives.
 
 
 ## How it works for members

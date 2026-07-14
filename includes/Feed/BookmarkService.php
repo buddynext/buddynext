@@ -29,6 +29,11 @@ class BookmarkService {
 	private const CACHE_TTL = 600;
 
 	/**
+	 * Ceiling on the full "every id I ever saved" list. Filterable.
+	 */
+	private const LIST_CAP = 1000;
+
+	/**
 	 * Save a post to the user's bookmarks.
 	 *
 	 * Silently ignores duplicate bookmarks (INSERT IGNORE).
@@ -112,11 +117,165 @@ class BookmarkService {
 	 * @return bool
 	 */
 	public function is_bookmarked( int $user_id, int $post_id ): bool {
-		return in_array( $post_id, $this->user_bookmarks( $user_id ), true );
+		// A one-row PK lookup, not "load every bookmark this member has ever made and
+		// then in_array() through it" — which is what asking user_bookmarks() meant.
+		return ! empty( $this->bookmarked_among( $user_id, array( $post_id ) ) );
 	}
 
 	/**
-	 * Return the list of post IDs bookmarked by the user (newest first).
+	 * Which of THESE posts has the user bookmarked?
+	 *
+	 * The only question the feed ever needs to answer, and the only one that scales.
+	 * It is bounded by the page (20-50 ids), and it is a straight index range scan on
+	 * the PRIMARY KEY (user_id, post_id) — no ORDER BY, so no filesort, and the row
+	 * count is independent of how many bookmarks the member has.
+	 *
+	 * The feed used to answer it by loading the member's ENTIRE bookmark history
+	 * (`SELECT post_id … ORDER BY created_at DESC`, no LIMIT) and doing the matching
+	 * in PHP. That query filesorts — bn_bookmarks has no created_at index, its PK is
+	 * (user_id, post_id) — and it ran on EVERY feed paint. A member with years of
+	 * saved posts paid for all of them to render twenty.
+	 *
+	 * Memoised per request, so several enrichment passes over the same page cost one
+	 * query. (wp_cache alone is not enough: the target deployment has no persistent
+	 * object cache, so wp_cache_get is a no-op across requests.)
+	 *
+	 * @param int   $user_id  Viewer.
+	 * @param int[] $post_ids The posts on this page.
+	 * @return array<int,bool> post_id => true, for the bookmarked ones only. O(1) lookup.
+	 */
+	public function bookmarked_among( int $user_id, array $post_ids ): array {
+		static $memo = array();
+
+		$user_id  = absint( $user_id );
+		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
+
+		if ( $user_id <= 0 || empty( $post_ids ) ) {
+			return array();
+		}
+
+		$out     = array();
+		$missing = array();
+		foreach ( $post_ids as $pid ) {
+			$k = $user_id . ':' . $pid;
+			if ( isset( $memo[ $k ] ) ) {
+				if ( $memo[ $k ] ) {
+					$out[ $pid ] = true;
+				}
+			} else {
+				$missing[] = $pid;
+			}
+		}
+
+		if ( empty( $missing ) ) {
+			return $out;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $missing ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT post_id FROM {$wpdb->prefix}bn_bookmarks
+				 WHERE user_id = %d AND post_id IN ( {$placeholders} )",
+				array_merge( array( $user_id ), $missing )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$found = array_flip( array_map( 'intval', (array) $rows ) );
+
+		foreach ( $missing as $pid ) {
+			$hit                           = isset( $found[ $pid ] );
+			$memo[ $user_id . ':' . $pid ] = $hit;
+			if ( $hit ) {
+				$out[ $pid ] = true;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * One page of the member's bookmarks, newest first, paged IN SQL.
+	 *
+	 * For the bookmarks hub — the one surface that genuinely wants them in order.
+	 * LIMIT/OFFSET on an index (user_id, created_at); the caller gets a total from
+	 * count_bookmarks() rather than by measuring an array it had to build first.
+	 *
+	 * The controller used to fetch every id and `array_slice()` page 1 out of it,
+	 * which is the same unbounded read wearing a pagination costume.
+	 *
+	 * @param int $user_id  Owner (bookmarks are private).
+	 * @param int $per_page Rows to return.
+	 * @param int $offset   Rows to skip.
+	 * @return int[] Post IDs, newest-bookmarked first.
+	 */
+	public function paged_bookmarks( int $user_id, int $per_page, int $offset = 0 ): array {
+		global $wpdb;
+
+		$user_id  = absint( $user_id );
+		$per_page = max( 1, min( 100, $per_page ) );
+		$offset   = max( 0, $offset );
+
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT post_id FROM {$wpdb->prefix}bn_bookmarks
+				 WHERE user_id = %d
+				 ORDER BY created_at DESC, post_id DESC
+				 LIMIT %d OFFSET %d",
+				$user_id,
+				$per_page,
+				$offset
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( 'intval', (array) $rows );
+	}
+
+	/**
+	 * How many posts the member has bookmarked.
+	 *
+	 * A COUNT(*), not count( user_bookmarks() ) — never build a list to measure it.
+	 *
+	 * @param int $user_id Owner.
+	 * @return int
+	 */
+	public function count_bookmarks( int $user_id ): int {
+		global $wpdb;
+
+		$user_id = absint( $user_id );
+		if ( $user_id <= 0 ) {
+			return 0;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_bookmarks WHERE user_id = %d",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Every post ID the user has bookmarked, newest first.
+	 *
+	 * UNBOUNDED — it loads the member's whole bookmark history and filesorts it. Do
+	 * NOT call this on a render path. It exists for the native app's "give me all my
+	 * saved ids" REST shape and for callers that genuinely need the full set.
+	 *
+	 * If you want to know whether the posts ON THIS PAGE are bookmarked, use
+	 * bookmarked_among(). If you want to show them in order, use paged_bookmarks().
 	 *
 	 * @param int $user_id User whose bookmarks to retrieve.
 	 * @return int[]
@@ -132,14 +291,41 @@ class BookmarkService {
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// Capped. This is the native app's "all my saved ids" shape, so it is self-scoped and
+		// not on any render path (render uses bookmarked_among() / paged_bookmarks()) — but an
+		// unbounded SELECT is still an unbounded SELECT, and a member who has been saving posts
+		// for five years is the one who gets to find out.
+		//
+		// The cap is filterable rather than paginated, deliberately: the contract of this
+		// method is "the whole set", and paginating it would silently change that into "some of
+		// the set" for every caller. A ceiling with a loud _doing_it_wrong() is honest; a quiet
+		// truncation is the bug this exists to avoid.
+		$cap = (int) apply_filters( 'buddynext_bookmark_list_cap', self::LIST_CAP, $user_id );
+
 		$rows = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT post_id FROM {$wpdb->prefix}bn_bookmarks
 				 WHERE user_id = %d
-				 ORDER BY created_at DESC",
-				$user_id
+				 ORDER BY created_at DESC, post_id DESC
+				 LIMIT %d",
+				$user_id,
+				$cap
 			)
 		);
+
+		if ( count( (array) $rows ) === $cap ) {
+			_doing_it_wrong(
+				__METHOD__,
+				esc_html(
+					sprintf(
+						/* translators: %d: the bookmark list cap. */
+						__( 'A member has hit the %d-bookmark ceiling for the full-list shape. Use paged_bookmarks() for anything that renders.', 'buddynext' ),
+						$cap
+					)
+				),
+				'1.0.8'
+			);
+		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$result = array_map( 'intval', (array) $rows );

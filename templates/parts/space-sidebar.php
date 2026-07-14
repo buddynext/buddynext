@@ -70,13 +70,28 @@ $bn_ss_to_objects = static function ( array $rows ): array {
 	);
 };
 
+// Roster gate — the ONE canonical resolver, the same call the members page and
+// GET /spaces/{id}/members make. On a private or secret space, a non-member sees
+// WHO IS IN CHARGE (owner + moderators: they need that to decide whether to
+// request to join) but never WHO IS IN THE ROOM. So the moderator list is always
+// fetched; the regular-member preview and the top-contributor list — both of
+// which name ordinary members — are fetched only when the roster is visible.
+$bn_ss_can_view_roster = \BuddyNext\Spaces\SpaceVisibility::can_view_roster(
+	( new \BuddyNext\Spaces\SpaceService() )->get( $bn_ss_space_id ),
+	$bn_ss_viewer
+);
+
 $bn_ss_mods            = array_merge(
 	$bn_ss_member_svc->get_members( $bn_ss_space_id, $bn_ss_viewer, 0, 0, array( 'role' => 'owner' ) ),
 	$bn_ss_member_svc->get_members( $bn_ss_space_id, $bn_ss_viewer, 0, 0, array( 'role' => 'moderator' ) )
 );
-$bn_ss_regulars        = $bn_ss_member_svc->get_members( $bn_ss_space_id, $bn_ss_viewer, 10, 0, array( 'role' => 'member' ) );
+$bn_ss_regulars        = $bn_ss_can_view_roster
+	? $bn_ss_member_svc->get_members( $bn_ss_space_id, $bn_ss_viewer, 10, 0, array( 'role' => 'member' ) )
+	: array();
 $bn_ss_sidebar_members = $bn_ss_to_objects( array_merge( $bn_ss_mods, $bn_ss_regulars ) );
-$bn_ss_contributors    = $bn_ss_to_objects( ( new \BuddyNext\Spaces\SpaceService() )->top_contributors( $bn_ss_space_id, 3 ) );
+$bn_ss_contributors    = $bn_ss_can_view_roster
+	? $bn_ss_to_objects( ( new \BuddyNext\Spaces\SpaceService() )->top_contributors( $bn_ss_space_id, 3 ) )
+	: array();
 
 $bn_ss_meta = \BuddyNext\Spaces\SpaceService::display_meta( $bn_ss_space );
 
@@ -93,7 +108,14 @@ $bn_ss_can_manage  = $bn_ss_is_root && $bn_ss_sub_allowed && $bn_ss_viewer > 0
 		'buddynext-manage-space',
 		array( 'space_id' => $bn_ss_space_id )
 	);
-$bn_ss_subspaces   = $bn_ss_is_root
+// A gated (private/secret) parent's structure is content: a non-member does not
+// get its child list, on the page or from GET /spaces/{id}/subspaces. Same
+// resolver, same answer.
+$bn_ss_can_view_content = \BuddyNext\Spaces\SpaceVisibility::can_view_content(
+	( new \BuddyNext\Spaces\SpaceService() )->get( $bn_ss_space_id ),
+	$bn_ss_viewer
+);
+$bn_ss_subspaces        = ( $bn_ss_is_root && $bn_ss_can_view_content )
 	? ( new \BuddyNext\Spaces\SpaceService() )->get_subspaces( $bn_ss_space_id, 24, 0, $bn_ss_viewer, current_user_can( 'manage_options' ) )
 	: array();
 // Categories for the create-sub-space modal — only fetched for a manager who
@@ -334,11 +356,32 @@ add_action(
 				<?php
 				$bn_mods_html = (string) ob_get_clean();
 
+				// The card holds owners AND moderators (see the role filter above), so
+				// titling it "Moderators" mislabels the owner sitting inside it — the
+				// rows even badge them "Admin". Title from the roles ACTUALLY present,
+				// never assumed: sidebar_members is a LIMIT-10 set, so an owner is not
+				// guaranteed to be in it, and hardcoding "Owner & Moderators" would then
+				// promise an owner the list does not show.
+				$bn_has_owner = (bool) array_filter(
+					$bn_mods,
+					static fn( $m ): bool => 'owner' === ( $m->role ?? '' )
+				);
+				$bn_mod_count = count( $bn_mods );
+
+				if ( $bn_has_owner ) {
+					// One owner alone, or the owner plus moderators.
+					$bn_mods_title = $bn_mod_count > 1
+						? __( 'Owner & Moderators', 'buddynext' )
+						: __( 'Owner', 'buddynext' );
+				} else {
+					$bn_mods_title = _n( 'Moderator', 'Moderators', $bn_mod_count, 'buddynext' );
+				}
+
 				buddynext_get_template(
 					'parts/sidebar-card.php',
 					array(
 						'id'         => 'space-moderators',
-						'title'      => _n( 'Moderator', 'Moderators', count( $bn_mods ), 'buddynext' ),
+						'title'      => $bn_mods_title,
 						'title_icon' => 'shield',
 						'body_html'  => $bn_mods_html,
 					)

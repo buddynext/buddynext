@@ -54,6 +54,46 @@ The Appearance tab controls your community's brand color, and dark mode rides al
 
 1.0.7 extends dark mode to reach the corners it used to miss: native form controls (inputs, dropdowns, checkboxes), skill chips on profiles, and leaderboard badges all now follow the theme instead of staying light in a dark layout.
 
+## Shaping the menus: Settings > Navigation
+
+**Settings > Navigation** is where you shape every menu BuddyNext puts on the front end. It covers five surfaces, and each one works the same way:
+
+| Surface | What it is |
+|---------|------------|
+| Main Navigation | The community nav bar. |
+| Profile Tabs | The tabs on a member's profile. |
+| Space Tabs | The tabs on a space page. |
+| Mobile Bottom Nav | The bar pinned to the bottom of the screen on phones. |
+| Account Dropdown | The menu behind the avatar in the header. |
+
+For each item on a surface you can:
+
+- **Hide or show it** with the toggle on its row.
+- **Rename it** - type the label your community actually uses.
+- **Reorder it** by dragging its handle.
+- **Choose who sees it** - all members, logged-in only, admins only, or anyone holding a capability you name.
+
+Custom links can be added to the Main Navigation. The other four surfaces list the items that exist; they are extended in code rather than from this screen.
+
+### The Account Dropdown (1.0.8)
+
+The header avatar menu is new to this screen in 1.0.8. Previously it was the one navigation surface with no admin control at all - hiding Bookmarks, renaming a link, or reordering the menu meant writing code. It is now a scope like any other, so it hides, renames, reorders, and gates by capability from the same panel as everything else.
+
+Links that companion plugins add to the menu (for example Courses, when Learnomy is connected) appear in the manager on their own, so you can hide or rename those too.
+
+> **Note:** **Log Out** is marked *Fixed* and is always shown. An owner who could hide it would strand every member on the site with no way to sign out, so it does not carry a hide toggle.
+
+### Reordering the mobile bottom bar (1.0.8)
+
+The Mobile Bottom Nav is the five-slot bar members see on a phone. Its tabs can now be dragged into the order you want, the same as every other scope - previously it was the only scope whose rows looked reorderable but were not.
+
+Two slots stay pinned and show a fixed handle instead of a draggable one:
+
+- The centre **Create** button, which is only dead-centre while it has the same number of tabs on each side of it.
+- **Profile**, the fixed last slot.
+
+Everything else in the bar (Feed, Spaces, Alerts, and any tab a plugin adds) reorders freely around them, and the front-end bar honours the order you save.
+
 ## Jump to any setting with the command palette
 
 You do not have to remember which section a setting lives in. BuddyNext registers every one of its settings with WordPress core's built-in **Command Palette**.

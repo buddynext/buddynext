@@ -34,20 +34,57 @@ class ApprovalManager {
 	}
 
 	/**
-	 * Users awaiting approval.
+	 * How many pending members to show per page.
+	 */
+	private const PER_PAGE = 50;
+
+	/**
+	 * Users awaiting approval, one page at a time.
 	 *
+	 * This used to be a hard `'number' => 200` with no pagination, no total, and no
+	 * way to reach member 201. On a large community — especially one under a spam
+	 * wave, which the rate limiter used to let through unthrottled — the owner
+	 * could see 200 of an unknown number, with no count and no way to work the
+	 * queue down. That is an owner who cannot run their own community.
+	 *
+	 * @param int $page Page number, 1-based.
 	 * @return \WP_User[]
 	 */
-	private function pending_users(): array {
+	private function pending_users( int $page = 1 ): array {
+		$page = max( 1, $page );
+
 		return get_users(
 			array(
 				'meta_key'   => self::META, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 				'meta_value' => '1',         // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 				'orderby'    => 'registered',
 				'order'      => 'DESC',
-				'number'     => 200,
+				'number'     => self::PER_PAGE,
+				'offset'     => ( $page - 1 ) * self::PER_PAGE,
 			)
 		);
+	}
+
+	/**
+	 * How many members are awaiting approval in total.
+	 *
+	 * A dedicated count, not count( pending_users() ) — the whole point is that the
+	 * owner needs to know the size of a queue they cannot fit on one page.
+	 *
+	 * @return int
+	 */
+	private function pending_count(): int {
+		$query = new \WP_User_Query(
+			array(
+				'meta_key'    => self::META, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_value'  => '1',        // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+				'count_total' => true,
+				'number'      => 1,
+				'fields'      => 'ID',
+			)
+		);
+
+		return (int) $query->get_total();
 	}
 
 	/**
@@ -128,12 +165,38 @@ class ApprovalManager {
 	 * @return void
 	 */
 	public function render_pending_tab(): void {
-		$pending = $this->pending_users();
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$page = isset( $_GET['bn_page'] ) ? absint( wp_unslash( $_GET['bn_page'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$page = max( 1, $page );
+
+		$total   = $this->pending_count();
+		$pages   = (int) ceil( $total / self::PER_PAGE );
+		$pending = $this->pending_users( $page );
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$notice = sanitize_key( wp_unslash( $_GET['bn_notice'] ?? '' ) );
+
+		$base_url = add_query_arg(
+			array(
+				'page' => 'buddynext-members',
+				'tab'  => 'pending',
+			),
+			admin_url( 'admin.php' )
+		);
 		?>
 		<div class="bn-admin-section">
+
+		<?php if ( $total > 0 ) : ?>
+			<p class="bn-field-hint">
+				<?php
+				printf(
+					/* translators: %s: number of members awaiting approval. */
+					esc_html( _n( '%s member is waiting for you.', '%s members are waiting for you.', $total, 'buddynext' ) ),
+					esc_html( number_format_i18n( $total ) )
+				);
+				?>
+			</p>
+		<?php endif; ?>
 
 		<?php if ( '' !== $notice ) : ?>
 			<div class="notice <?php echo in_array( $notice, array( 'approved', 'rejected' ), true ) ? 'notice-success' : 'notice-error'; ?> is-dismissible">
@@ -209,6 +272,33 @@ class ApprovalManager {
 					<?php endforeach; ?>
 					</tbody>
 				</table>
+
+				<?php if ( $pages > 1 ) : ?>
+					<nav class="bn-pagination" aria-label="<?php esc_attr_e( 'Pending members pages', 'buddynext' ); ?>">
+						<?php if ( $page > 1 ) : ?>
+							<a class="bn-btn bn-btn--ghost" href="<?php echo esc_url( add_query_arg( 'bn_page', $page - 1, $base_url ) ); ?>">
+								<?php esc_html_e( 'Previous', 'buddynext' ); ?>
+							</a>
+						<?php endif; ?>
+
+						<span class="bn-field-hint">
+							<?php
+							printf(
+								/* translators: 1: current page number, 2: total number of pages. */
+								esc_html__( 'Page %1$s of %2$s', 'buddynext' ),
+								esc_html( number_format_i18n( $page ) ),
+								esc_html( number_format_i18n( $pages ) )
+							);
+							?>
+						</span>
+
+						<?php if ( $page < $pages ) : ?>
+							<a class="bn-btn bn-btn--ghost" href="<?php echo esc_url( add_query_arg( 'bn_page', $page + 1, $base_url ) ); ?>">
+								<?php esc_html_e( 'Next', 'buddynext' ); ?>
+							</a>
+						<?php endif; ?>
+					</nav>
+				<?php endif; ?>
 			<?php endif; ?>
 
 		</div>

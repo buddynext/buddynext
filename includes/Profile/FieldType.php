@@ -28,13 +28,21 @@
  * itself. multi (multiselect) values are stored as a comma-joined list of
  * option SLUGS.
  *
- * One deliberate exception to the "no DB access" purity rule:
- * category_multiselect resolves its choices LIVE from SpaceCategoryService
- * (see category_options()) so the pick list can never drift from the owner's
- * category taxonomy — a stored options snapshot would go stale on every
- * category rename/delete. The service call is object-cached, and an
- * unavailable Spaces schema degrades to an empty choice list (renderers show
- * nothing; nothing errors).
+ * Two deliberate exceptions to the "no DB access" purity rule — the LIVE-OPTIONED
+ * types. Their choices are resolved on every call rather than read from a stored
+ * options snapshot, so the pick list can never drift from the owner's own data (a
+ * snapshot goes stale on every rename/delete):
+ *
+ *   - category_multiselect     → SpaceCategoryService (see category_options()).
+ *                                Values are category IDs; multi-entry storage.
+ *   - member_type_multiselect  → MemberTypeService (see member_type_options()).
+ *                                Values are member-type SLUGS; stored as one
+ *                                comma-joined string (NOT multi-entry).
+ *
+ * Both service calls are object-cached, and an unavailable schema degrades to an
+ * empty choice list (renderers show an empty state; sanitisation accepts nothing;
+ * nothing errors). Resolving choices at USE time is also what lets a field offer
+ * live choices without putting a query in the always-on registration hook.
  *
  * @package BuddyNext\Profile
  */
@@ -63,67 +71,67 @@ class FieldType {
 	 */
 	private static function builtin_types(): array {
 		return array(
-			'text'                 => array(
+			'text'                    => array(
 				'label'                 => __( 'Text', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 			),
-			'textarea'             => array(
+			'textarea'                => array(
 				'label'                 => __( 'Paragraph', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 			),
-			'url'                  => array(
+			'url'                     => array(
 				'label'                 => __( 'URL', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 			),
-			'email'                => array(
+			'email'                   => array(
 				'label'                 => __( 'Email', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 			),
-			'phone'                => array(
+			'phone'                   => array(
 				'label'                 => __( 'Phone', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 			),
-			'number'               => array(
+			'number'                  => array(
 				'label'                 => __( 'Number', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => false,
 			),
-			'date'                 => array(
+			'date'                    => array(
 				'label'                 => __( 'Date', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
 				'is_searchable_capable' => false,
 			),
-			'boolean'              => array(
+			'boolean'                 => array(
 				'label'                 => __( 'Yes / No', 'buddynext' ),
 				'value_kind'            => 'bool',
 				'is_choice'             => false,
 				'is_searchable_capable' => false,
 			),
-			'select'               => array(
+			'select'                  => array(
 				'label'                 => __( 'Dropdown', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => true,
 				'is_searchable_capable' => true,
 			),
-			'radio'                => array(
+			'radio'                   => array(
 				'label'                 => __( 'Radio', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => true,
 				'is_searchable_capable' => true,
 			),
-			'multiselect'          => array(
+			'multiselect'             => array(
 				'label'                 => __( 'Multi-select', 'buddynext' ),
 				'value_kind'            => 'multi',
 				'is_choice'             => true,
@@ -133,13 +141,24 @@ class FieldType {
 			// admin-authored options list — hence is_choice = false (no options
 			// editor). Values are category IDs, stored one bn_profile_values row
 			// per pick (see ProfileService::save_multi_entry_value()).
-			'category_multiselect' => array(
+			'category_multiselect'    => array(
 				'label'                 => __( 'Space Categories', 'buddynext' ),
 				'value_kind'            => 'multi',
 				'is_choice'             => false,
 				'is_searchable_capable' => true,
 			),
-			'color'                => array(
+			// Choices come LIVE from the owner's member types. Same live-options
+			// contract as category_multiselect, but the values are member-type SLUGS
+			// (not IDs) and they are stored as one comma-joined space-meta string, so
+			// this is NOT multi-entry. Exists so a space field can offer member types
+			// without baking a per-request query into the always-on registration hook.
+			'member_type_multiselect' => array(
+				'label'                 => __( 'Member Types', 'buddynext' ),
+				'value_kind'            => 'multi',
+				'is_choice'             => false,
+				'is_searchable_capable' => false,
+			),
+			'color'                   => array(
 				'label'                 => __( 'Colour', 'buddynext' ),
 				'value_kind'            => 'scalar',
 				'is_choice'             => false,
@@ -218,6 +237,36 @@ class FieldType {
 	}
 
 	/**
+	 * Whether a placeholder can actually render inside this type's control.
+	 *
+	 * A placeholder is an attribute of a free-text input. The browser IGNORES it on
+	 * `<input type="date">`, on `<input type="checkbox">`, on `<input type="color">`
+	 * and on every `<select>` — HTML has no placeholder attribute for a select at all.
+	 *
+	 * This exists so the owner is never offered a setting that cannot work. The admin
+	 * used to collect and store a placeholder for EVERY field type while several
+	 * renderers never emitted one, which is the "an option that lies" defect: the
+	 * owner configures it, believes it, and is wrong.
+	 *
+	 * A type may declare `supports_placeholder` in its type meta to override the
+	 * default (Pro's advanced types do this for their free-text controls). The
+	 * default below covers the built-in types without repeating the flag 14 times.
+	 *
+	 * @param string $type Field type slug.
+	 * @return bool True when a placeholder attribute would actually be honoured.
+	 */
+	public static function supports_placeholder( string $type ): bool {
+		$types = self::types();
+		$type  = self::resolve_type( $type );
+
+		if ( isset( $types[ $type ]['supports_placeholder'] ) ) {
+			return (bool) $types[ $type ]['supports_placeholder'];
+		}
+
+		return in_array( $type, array( 'text', 'textarea', 'url', 'email', 'phone', 'number' ), true );
+	}
+
+	/**
 	 * Normalise a field definition's options into slug => label pairs.
 	 *
 	 * Options are stored as a flat list of human-readable strings. Each option's
@@ -228,10 +277,17 @@ class FieldType {
 	 * @return array<string,string> slug => label.
 	 */
 	private static function options( array $field ): array {
-		// Live-optioned type: the choice list is the owner's category taxonomy,
-		// resolved fresh on every call — never the stored options JSON.
-		if ( 'category_multiselect' === (string) ( $field['type'] ?? '' ) ) {
+		// Live-optioned types: the choice list is the owner's own taxonomy, resolved
+		// fresh on every call — never the stored options JSON. This is what lets a
+		// field offer live choices without a query in the registration hook.
+		$field_type = (string) ( $field['type'] ?? '' );
+
+		if ( 'category_multiselect' === $field_type ) {
 			return self::category_options();
+		}
+
+		if ( 'member_type_multiselect' === $field_type ) {
+			return self::member_type_options();
 		}
 
 		$raw = $field['options'] ?? null;
@@ -289,6 +345,56 @@ class FieldType {
 	}
 
 	/**
+	 * The choice list a client should render for this field.
+	 *
+	 * Public accessor for options(). Payload builders MUST come through here rather
+	 * than reading $field['options'] directly: a live-optioned type stores no options
+	 * at registration (that is the whole point — no query in the registration hook),
+	 * so the raw definition advertises an EMPTY pick list. Reading it directly hands
+	 * the app a picker with nothing in it.
+	 *
+	 * @param array $field Field definition.
+	 * @return array<string,string> slug => label.
+	 */
+	public static function choices( array $field ): array {
+		return self::options( $field );
+	}
+
+	/**
+	 * Live member-type choices for member_type_multiselect fields.
+	 *
+	 * Keyed by member-type SLUG (that is what the value stores, and what
+	 * AutoJoinService matches on), value = the type's display name. Resolved from
+	 * MemberTypeService on every call — get_all() is object-cached, so this stays
+	 * cheap. Returns an empty list when the member-types layer is unavailable or the
+	 * owner has defined no types: renderers then show an empty state and
+	 * sanitisation accepts nothing — never an error.
+	 *
+	 * @return array<string,string> Member-type slug => name.
+	 */
+	public static function member_type_options(): array {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return array();
+		}
+
+		$service = buddynext_service( 'member_types' );
+		if ( ! is_object( $service ) || ! method_exists( $service, 'get_all' ) ) {
+			return array();
+		}
+
+		$pairs = array();
+		foreach ( (array) $service->get_all() as $type ) {
+			$slug = isset( $type['slug'] ) ? (string) $type['slug'] : '';
+			if ( '' === $slug ) {
+				continue;
+			}
+			$pairs[ $slug ] = (string) ( $type['name'] ?? $slug );
+		}
+
+		return $pairs;
+	}
+
+	/**
 	 * Whether a type stores ONE bn_profile_values row per selected value
 	 * (entry_index 0..n) instead of a single scalar row.
 	 *
@@ -302,6 +408,22 @@ class FieldType {
 	 */
 	public static function is_multi_entry( string $type ): bool {
 		return 'category_multiselect' === $type;
+	}
+
+	/**
+	 * Whether a type holds a SET of values (chips, comma-joined transport).
+	 *
+	 * The three multiselect types differ in where their choices come from and in
+	 * how they are stored, but every "render as chips / label as a list / expose as
+	 * an array" decision is the same for all of them. One predicate so a new
+	 * set-valued type cannot be added to some of those branches and forgotten in
+	 * the others.
+	 *
+	 * @param string $type Field type slug.
+	 * @return bool
+	 */
+	public static function is_multiselect_family( string $type ): bool {
+		return in_array( $type, array( 'multiselect', 'category_multiselect', 'member_type_multiselect' ), true );
 	}
 
 	/**
@@ -384,6 +506,14 @@ class FieldType {
 				// a bare fieldset with an orphaned label.
 				if ( array() === self::options( $field ) ) {
 					return '<span class="bn-field-value">' . esc_html__( 'No categories are available yet.', 'buddynext' ) . '</span>';
+				}
+				return self::render_multiselect_input( $field, $value, $name, $id );
+
+			case 'member_type_multiselect':
+				// Same checkbox grid, live member-type choices. An owner who has
+				// defined no member types gets an empty state, not an orphaned label.
+				if ( array() === self::options( $field ) ) {
+					return '<span class="bn-field-value">' . esc_html__( 'No member types have been created yet.', 'buddynext' ) . '</span>';
 				}
 				return self::render_multiselect_input( $field, $value, $name, $id );
 
@@ -584,7 +714,7 @@ class FieldType {
 			return '<span class="bn-field-value bn-field-bool">' . esc_html__( 'Yes', 'buddynext' ) . '</span>';
 		}
 
-		if ( 'multiselect' === $type || 'category_multiselect' === $type ) {
+		if ( self::is_multiselect_family( $type ) ) {
 			return self::render_chips( $field, $value );
 		}
 
@@ -875,6 +1005,23 @@ class FieldType {
 				}
 				return implode( ',', $valid );
 
+			case 'member_type_multiselect':
+				// Values are member-type SLUGS, kept only when the type still exists.
+				// Unlike the plain multiselect branch this validates against the LIVE
+				// list rather than a stored options JSON — which is exactly why the
+				// field could not simply be registered as a multiselect: with no baked
+				// options, that sanitizer drops every submitted slug and saves ''.
+				$live     = self::options( $field );
+				$incoming = is_array( $raw ) ? $raw : explode( ',', (string) $raw );
+				$valid    = array();
+				foreach ( $incoming as $one ) {
+					$slug = is_scalar( $one ) ? sanitize_key( (string) $one ) : '';
+					if ( '' !== $slug && isset( $live[ $slug ] ) && ! in_array( $slug, $valid, true ) ) {
+						$valid[] = $slug;
+					}
+				}
+				return implode( ',', $valid );
+
 			case 'text':
 			default:
 				return sanitize_text_field( (string) ( is_array( $raw ) ? '' : $raw ) );
@@ -898,7 +1045,7 @@ class FieldType {
 			return '';
 		}
 
-		if ( 'multiselect' === $type || 'category_multiselect' === $type ) {
+		if ( self::is_multiselect_family( $type ) ) {
 			$options = self::options( $field );
 			$drop    = self::is_multi_entry( $type );
 			$labels  = array();
@@ -917,7 +1064,97 @@ class FieldType {
 			return $options[ $slug ] ?? (string) $value;
 		}
 
+		// The SEARCH MIRROR must not hold the raw date either. If the owner reduced a birthday
+		// to age-only, indexing the exact Y-m-d would let anyone find a member by searching
+		// their date of birth — the profile hides it and the search box gives it back.
+		if ( self::is_date_type( $type ) ) {
+			return self::format_date( $field, (string) $value );
+		}
+
 		return (string) $value;
+	}
+
+	/**
+	 * Whether a field type stores a date.
+	 *
+	 * @param string $type Resolved field type.
+	 * @return bool
+	 */
+	private static function is_date_type( string $type ): bool {
+		return in_array( $type, array( 'date', 'date_extended' ), true );
+	}
+
+	/**
+	 * The owner's chosen display mode for a date field.
+	 *
+	 * @param array<string,mixed> $field Field definition.
+	 * @return string One of: date | month_year | year | age.
+	 */
+	public static function date_display_mode( array $field ): string {
+		$options = isset( $field['options'] ) && is_array( $field['options'] ) ? $field['options'] : array();
+		$mode    = (string) ( $options['display'] ?? 'date' );
+
+		return in_array( $mode, array( 'date', 'month_year', 'year', 'age' ), true ) ? $mode : 'date';
+	}
+
+	/**
+	 * Render a stored date according to the owner's "Display as" choice.
+	 *
+	 * THIS SETTING DID NOTHING. The admin offered date | month_year | year | age, validated
+	 * it, and saved it into options['display'] — and not one line of code ever read it back.
+	 * Every date rendered as the raw stored Y-m-d.
+	 *
+	 * That is not a cosmetic gap. The obvious use of this control is a BIRTHDAY field, and an
+	 * owner who picks "Age only" (or "Year only") is deliberately choosing NOT to expose a
+	 * member's full date of birth. The product accepted that choice, told them it was saved,
+	 * and published the full DOB anyway — with no way for them to notice, because the admin
+	 * screen shows exactly what they picked.
+	 *
+	 * A date of birth is among the most sensitive things a community holds. This was an option
+	 * that lied, in the one place where lying about it actually harms someone.
+	 *
+	 * @param array<string,mixed> $field Field definition.
+	 * @param string              $value Stored date (Y-m-d).
+	 * @return string
+	 */
+	public static function format_date( array $field, string $value ): string {
+		$value = trim( $value );
+
+		if ( '' === $value ) {
+			return '';
+		}
+
+		$ts = strtotime( $value );
+
+		if ( false === $ts ) {
+			return $value;
+		}
+
+		switch ( self::date_display_mode( $field ) ) {
+			case 'age':
+				$birth = new \DateTimeImmutable( '@' . $ts );
+				$now   = new \DateTimeImmutable( 'now' );
+
+				// A future date has no age. Show nothing rather than a negative number.
+				if ( $birth > $now ) {
+					return '';
+				}
+
+				$years = (int) $birth->diff( $now )->y;
+
+				/* translators: %d: the member's age in years. */
+				return sprintf( _n( '%d year old', '%d years old', $years, 'buddynext' ), $years );
+
+			case 'year':
+				return gmdate( 'Y', $ts );
+
+			case 'month_year':
+				return wp_date( 'F Y', $ts );
+
+			case 'date':
+			default:
+				return wp_date( (string) get_option( 'date_format', 'F j, Y' ), $ts );
+		}
 	}
 
 	/**
@@ -938,7 +1175,7 @@ class FieldType {
 			return self::truthy( $value ) ? __( 'Yes', 'buddynext' ) : __( 'No', 'buddynext' );
 		}
 
-		if ( 'multiselect' === $type || 'category_multiselect' === $type ) {
+		if ( self::is_multiselect_family( $type ) ) {
 			$options = self::options( $field );
 			$drop    = self::is_multi_entry( $type );
 			$labels  = array();
@@ -957,6 +1194,9 @@ class FieldType {
 			return $options[ $slug ] ?? (string) $value;
 		}
 
+		if ( self::is_date_type( $type ) ) {
+			return self::format_date( $field, (string) $value );
+		}
 		return (string) $value;
 	}
 
@@ -977,6 +1217,19 @@ class FieldType {
 			return self::truthy( $value );
 		}
 
+		// A date in a REDUCED display mode must not leave the server as a raw date.
+		//
+		// This is the half that would have made the fix worthless. Formatting the profile while
+		// the REST payload still carried the exact Y-m-d means the app renders "34 years old"
+		// and the API hands out the date of birth to anyone who reads the response. The leak
+		// survives the fix, in the surface the owner is least likely to look at.
+		//
+		// 'date' mode is unchanged: the owner asked for the full date, so the client gets it
+		// and can format it however it likes.
+		if ( self::is_date_type( $type ) && 'date' !== self::date_display_mode( $field ) ) {
+			return self::format_date( $field, (string) $value );
+		}
+
 		if ( 'number' === $type ) {
 			$string = (string) $value;
 			if ( '' === $string ) {
@@ -987,7 +1240,10 @@ class FieldType {
 			return ( is_finite( $number ) && floor( $number ) === $number ) ? (int) $number : $number;
 		}
 
-		if ( 'multiselect' === $type ) {
+		// Slug-valued sets: hand the client an array of slugs, never a comma string
+		// it would have to re-parse. member_type_multiselect belongs here (its values
+		// are slugs), not with category_multiselect (whose values are ints).
+		if ( 'multiselect' === $type || 'member_type_multiselect' === $type ) {
 			return self::multi_values( $value );
 		}
 

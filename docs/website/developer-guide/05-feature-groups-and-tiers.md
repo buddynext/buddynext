@@ -121,4 +121,4 @@ Third-party plugins register their own features under the same contract via the 
 ## Notes
 
 - The Pro plugin (`BuddyNextPro`) layers its own modules on top of these free features - Membership, AI, Realtime, Push, Analytics, White-label, and enhancements to Reactions/Feed/Moderation/Members/Profile/Search. Pro modules are not part of the free `FeatureRegistry` catalog; they boot at `plugins_loaded:20` and extend free through the documented hooks and container rebinding rather than appearing as free feature toggles.
-- Read tiers from `FeatureRegistry::catalog()`, and read the per-feature route/template/option/admin-page inventory from `audit/manifest.json` -> `features.featureGroups`. Keep both in sync when adding a feature.
+- Read tiers from `FeatureRegistry::catalog()` - it is the only inventory. Free ships no `audit/manifest.json`; an earlier revision of this page pointed at `features.featureGroups` in that file, and it does not exist.

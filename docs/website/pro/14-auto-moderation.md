@@ -18,25 +18,33 @@ Members never see the rules screen. They feel the rules only when something they
 
 - **Blocked content is rejected.** When a member tries to post something a block-level rule matches (a prohibited word, a banned link), the post is refused with a message and never goes live.
 - **Flagged content still posts, quietly.** When content matches a flag-level rule, it is published normally, but a report is filed in the background for a moderator to review. The member is not stopped.
-- **Posting too fast is throttled.** If a rate-limit rule is in place and a member exceeds the hourly cap, further posts are refused until enough time passes.
+- **Posting too fast is throttled.** If a rate-limit rule is in place and a member exceeds the hourly cap, further **new** posts are refused until enough time passes. They can still edit posts they have already published - see below.
 - **Heavily reported content can be auto-removed.** If a piece of content collects enough reports within a set window, a threshold rule can remove it (or suspend its author for a set number of days) without waiting for a moderator.
 
 The community sees the effect - less spam, fewer abusive posts - without any visible machinery.
 
 ## Setting it up (for owners)
 
-Auto-moderation rules are managed under the BuddyNext admin menu, on the Moderation Rules page. BuddyNext ships a set of built-in default rules so the screen is never blank and sensible protection is in place from day one. You can toggle the defaults on or off, adjust their settings, and add your own rules alongside them.
+Auto-moderation rules are managed at **BuddyNext > Auto-Moderation > Rules**. BuddyNext ships a set of built-in default rules so the screen is never blank and sensible protection is in place from day one. You can toggle the defaults on or off, adjust their settings, and add your own rules alongside them.
 
 ### Rule types
 
 Every rule has a type that decides what it inspects and how it acts.
 
-| Rule type | What it does | Acts by |
-|---|---|---|
-| Keyword block | Scans content for any of a list of words or phrases. | Severity (warn / flag / block) |
-| Link block | Inspects links in a post against a list of domains (for example, link shorteners used by spam). | Action (flag / block) |
-| Rate limit | Caps how many posts one member may publish per hour. | Refusing posts over the cap |
-| Threshold remove | Watches how many reports a piece of content collects in a time window. | Removing the content, or suspending its author |
+| Rule type | What it does | Acts by | Runs on |
+|---|---|---|---|
+| Keyword block | Scans content for any of a list of words or phrases. | Severity (warn / flag / block) | New posts and edits |
+| Link block | Inspects links in a post against a list of domains (for example, link shorteners used by spam). | Action (flag / block) | New posts and edits |
+| Rate limit | Caps how many **new** posts one member may publish per hour. | Refusing posts over the cap | New posts only |
+| Threshold remove | Watches how many reports a piece of content collects in a time window. | Removing the content, or suspending its author | Report counts, not submission |
+
+### What happens when a member edits a post
+
+The two kinds of rule behave differently on an edit, and the difference is deliberate.
+
+**Rules that inspect what was written keep running.** Keyword block, link block, and AI moderation all re-check an edited post. If they did not, editing would become a way around moderation: post something harmless, then quietly edit the banned word back in.
+
+**Rules that count how much someone posted do not run.** The rate limit is a question about *new* posts in the last hour. An edit is not a new post. So a member who has hit the hourly cap can still go back and fix a typo, correct a link, or improve the wording of something they already published - they simply cannot publish anything new until the hour rolls over. Applying the cap to edits would have meant a member who tripped the limit could not even edit the posts that tripped it, which is a punishment nobody intended and no owner would have predicted from a setting called "posts per hour."
 
 ### Severity and actions
 
@@ -100,6 +108,7 @@ These ship ready to use. Toggle them on or off and adjust their settings like an
 - **Block stops, flag reviews.** Block-level matches refuse the submission; flag-level matches let it through and file a report. Choose block for content that should never appear and flag for borderline cases you want a human to judge.
 - **Suspensions are temporary by default.** A threshold rule set to suspend uses a set number of days (7 unless you change it), so an auto-suspension lifts on its own rather than becoming a permanent ban.
 - **Rules layer on top of free safeguards.** Pro rules run alongside BuddyNext's built-in content checks, not instead of them.
+- **The rate limit never blocks an edit.** A member at or over the hourly cap can still edit their existing posts. Only new posts are refused. Content rules (keyword, link, AI) still apply to the edit, so this is not a loophole.
 
 ## Free vs Pro
 

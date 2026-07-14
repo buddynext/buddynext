@@ -37,6 +37,7 @@ final class NavOverrides {
 		'profile' => 'buddynext_nav_overrides_profile',
 		'space'   => 'buddynext_nav_overrides_space',
 		'mobile'  => 'buddynext_nav_overrides_mobile',
+		'account' => 'buddynext_nav_overrides_account',
 	);
 
 	/**
@@ -51,12 +52,13 @@ final class NavOverrides {
 		// apply to the resolved registry items (id-keyed), per surface.
 		add_filter( 'buddynext_nav_items', array( $this, 'apply_nav_items' ), 20, 2 );
 		add_filter( 'buddynext_mobile_nav_items', array( $this, 'apply_mobile_items' ), 20, 2 );
+		add_filter( 'buddynext_user_links', array( $this, 'apply_user_links' ), 20 );
 	}
 
 	/**
 	 * Read a scope's stored overrides (slug => {hidden,label,order,…}).
 	 *
-	 * @param string $scope One of: main, profile, space, mobile.
+	 * @param string $scope One of: main, profile, space, mobile, account.
 	 * @return array<string,array<string,mixed>>
 	 */
 	private function overrides( string $scope ): array {
@@ -306,7 +308,7 @@ final class NavOverrides {
 			if ( '' === $slug || empty( $ov['custom'] ) || ! empty( $ov['hidden'] ) || isset( $existing[ $slug ] ) ) {
 				continue;
 			}
-			$url = esc_url_raw( (string) ( $ov['url'] ?? '' ) );
+			$url = $this->resolve_tokens( (string) ( $ov['url'] ?? '' ), $ctx );
 			if ( '' === $url ) {
 				continue;
 			}
@@ -326,6 +328,63 @@ final class NavOverrides {
 		}
 
 		return $kept;
+	}
+
+	/**
+	 * Resolve subject tokens in an admin-authored custom tab URL.
+	 *
+	 * A custom tab is defined ONCE, site-wide, and appears on EVERY space (or every
+	 * profile) — that uniformity is deliberate: a member who joins five spaces must
+	 * not meet five different navigations, and the native app has to be able to
+	 * render the tab bar. But the stored URL was a single literal href, so a tab
+	 * meant for "this space" pointed at the SAME space from every space on the site.
+	 *
+	 * Tokens make one definition resolve into the subject actually being viewed:
+	 *
+	 *   Space surface   — {space_id}, {slug}, {space_url}
+	 *   Profile surface — {user_id}, {slug} (user_nicename), {profile_url}
+	 *
+	 * e.g. `{space_url}resources/` or `https://example.com/handbook/?space={slug}`.
+	 * A URL with no tokens keeps working exactly as before.
+	 *
+	 * @param string                         $url Raw URL as stored by NavManager.
+	 * @param \BuddyNext\Nav\NavContext|null $ctx Resolution context.
+	 * @return string Escaped URL with tokens resolved, or '' when unusable.
+	 */
+	private function resolve_tokens( string $url, $ctx = null ): string {
+		$url = trim( $url );
+
+		if ( '' === $url || ! ( $ctx instanceof \BuddyNext\Nav\NavContext ) || $ctx->subject_id <= 0 ) {
+			return esc_url_raw( $url );
+		}
+
+		if ( 'space' === $ctx->surface ) {
+			$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $ctx->subject_id );
+
+			if ( null === $space ) {
+				return esc_url_raw( $url );
+			}
+
+			$replacements = array(
+				'{space_id}'  => (string) $ctx->subject_id,
+				'{slug}'      => (string) ( $space['slug'] ?? '' ),
+				'{space_url}' => trailingslashit( \BuddyNext\Core\PageRouter::space_url( $ctx->subject_id ) ),
+			);
+		} else {
+			$user = get_userdata( $ctx->subject_id );
+
+			if ( ! $user ) {
+				return esc_url_raw( $url );
+			}
+
+			$replacements = array(
+				'{user_id}'     => (string) $ctx->subject_id,
+				'{slug}'        => (string) $user->user_nicename,
+				'{profile_url}' => trailingslashit( \BuddyNext\Core\PageRouter::profile_url( $ctx->subject_id ) ),
+			);
+		}
+
+		return esc_url_raw( strtr( $url, $replacements ) );
 	}
 
 	// (Removed) apply_space_tabs — the space tab bar now flows through the unified
@@ -371,15 +430,89 @@ final class NavOverrides {
 		}
 		unset( $item );
 
+		// ORDER. The admin can drag the mobile tabs, so the bar has to honour it — a drag
+		// handle whose result is discarded is worse than no handle at all.
+		//
+		// The one thing that cannot move is Create. It is centred by ARITHMETIC, not by a CSS
+		// offset: it is `flex: 0 0 44px` between two `flex: 1` groups, so it lands on the
+		// viewport centre only while it has the same number of slots on each side. Let it be
+		// dragged and the bar goes visibly lopsided (Messages once did this as a 6th slot and
+		// pushed Create 35px off-centre at 390px).
+		//
+		// So: sort every OTHER slot by the saved order, then put Create back in the middle. Two
+		// each side, still centred, and the four tabs around it are the admin's to arrange.
+		// Two slots are not nav tabs and are never overridable (nav.php says so, and neither has
+		// a config panel in the Navigation screen, so neither can carry a saved order):
+		// - create  : centred by arithmetic. Must keep equal slots either side.
+		// - profile : the fixed last slot, and the anchor the "More" sheet folds into.
+		// They are lifted out, the real tabs are sorted, and then they go back where they belong.
+		$create  = null;
+		$profile = null;
+		$rest    = array();
+
+		foreach ( $items as $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+			$item_key = sanitize_key( (string) ( $item['key'] ?? '' ) );
+			if ( 'create' === $item_key ) {
+				$create = $item;
+				continue;
+			}
+			if ( 'profile' === $item_key ) {
+				$profile = $item;
+				continue;
+			}
+			$rest[] = $item;
+		}
+
+		$position = 0;
+		foreach ( $rest as $index => $item ) {
+			$key   = sanitize_key( (string) ( $item['key'] ?? '' ) );
+			$ov    = isset( $overrides[ $key ] ) ? (array) $overrides[ $key ] : array();
+			$order = isset( $ov['order'] ) ? max( 1, (int) $ov['order'] ) : ( ( $index + 1 ) * 10 );
+
+			// A stable tiebreak, so two slots sharing an order keep their declared sequence
+			// instead of flipping between page loads.
+			$rest[ $index ]['order'] = $order;
+			$rest[ $index ]['_seq']  = $position++;
+		}
+
+		usort(
+			$rest,
+			static function ( array $a, array $b ): int {
+				$cmp = ( (int) ( $a['order'] ?? 0 ) ) <=> ( (int) ( $b['order'] ?? 0 ) );
+
+				return 0 !== $cmp ? $cmp : ( ( (int) ( $a['_seq'] ?? 0 ) ) <=> ( (int) ( $b['_seq'] ?? 0 ) ) );
+			}
+		);
+
+		foreach ( $rest as $index => $item ) {
+			unset( $rest[ $index ]['_seq'] );
+		}
+
+		if ( null !== $profile ) {
+			$rest[] = $profile;
+		}
+
+		if ( null !== $create ) {
+			// Back to the middle of whatever is left. intdiv() on the count keeps it centred even
+			// when a slot is hidden (Spaces off) and the bar is shorter than five.
+			$middle = intdiv( count( $rest ), 2 );
+			array_splice( $rest, $middle, 0, array( $create ) );
+		}
+
+		$items = $rest;
+
 		// Append admin-created custom tabs as overflow entries. The bottom bar is
 		// a fixed 5-slot strip (centre Create must stay centred), so custom tabs do
 		// not get their own slot — nav.php surfaces them, with Profile, in a "More"
 		// sheet opened from the 5th slot. Each carries overflow => true.
+		// No is_array() guard needed: the ordering pass above rebuilds $items from entries it
+		// already filtered, so every element here is an array.
 		$existing_keys = array();
 		foreach ( $items as $existing_item ) {
-			if ( is_array( $existing_item ) ) {
-				$existing_keys[ sanitize_key( (string) ( $existing_item['key'] ?? '' ) ) ] = true;
-			}
+			$existing_keys[ sanitize_key( (string) ( $existing_item['key'] ?? '' ) ) ] = true;
 		}
 		foreach ( $overrides as $slug => $ov ) {
 			$ov   = (array) $ov;
@@ -402,5 +535,102 @@ final class NavOverrides {
 		}
 
 		return $items;
+	}
+
+	/**
+	 * Apply the admin's Account Dropdown overrides to the header avatar menu.
+	 *
+	 * The dropdown was the one navigation surface with no admin control at all: its catalogue
+	 * was hardcoded and the only lever was this very filter, so an owner who wanted to hide
+	 * Bookmarks or add a Help link had to write PHP. It is now the `account` scope in
+	 * Settings -> Navigation, sharing the toggles, drag-reorder, relabelling and custom links
+	 * the other four scopes already use — rather than growing a second navigation manager
+	 * beside the one we have.
+	 *
+	 * Keyed on the catalogue token minus its `#bn-` prefix, which is the slug NavManager stores.
+	 *
+	 * Runs at priority 20 so a site's own `buddynext_user_links` callback at the default 10 is
+	 * still the developer-level override, and still wins on anything it sets.
+	 *
+	 * @param array<int,array<string,mixed>> $items Catalogue rows.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function apply_user_links( $items ): array {
+		$items     = (array) $items;
+		$overrides = $this->overrides( 'account' );
+
+		if ( empty( $overrides ) ) {
+			return $items;
+		}
+
+		$slug_of = static function ( array $item ): string {
+			return sanitize_key( ltrim( str_replace( '#bn-', '', (string) ( $item['token'] ?? '' ) ), '-' ) );
+		};
+
+		$kept  = array();
+		$index = 0;
+
+		foreach ( $items as $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+
+			++$index;
+			$slug = $slug_of( $item );
+			$ov   = isset( $overrides[ $slug ] ) ? (array) $overrides[ $slug ] : array();
+
+			// Hidden, or denied by the item's capability/login gate. Log out is locked in the
+			// admin (no hide toggle), so a member can always sign out.
+			if ( 'logout' !== $slug && ( ! empty( $ov['hidden'] ) || $this->tab_denied( $ov ) ) ) {
+				continue;
+			}
+
+			if ( isset( $ov['label'] ) && '' !== (string) $ov['label'] ) {
+				$item['label'] = sanitize_text_field( (string) $ov['label'] );
+			}
+
+			$item['order'] = isset( $ov['order'] ) ? max( 1, (int) $ov['order'] ) : ( $index * 10 );
+
+			$kept[] = $item;
+		}
+
+		// Custom links the owner added (label + URL + icon), stored in the same option with
+		// custom => true, exactly as the other scopes store theirs.
+		$existing = array();
+		foreach ( $kept as $item ) {
+			$existing[ $slug_of( $item ) ] = true;
+		}
+
+		$fallback = ( count( $kept ) + 1 ) * 10;
+
+		foreach ( $overrides as $slug => $ov ) {
+			$ov   = (array) $ov;
+			$slug = sanitize_key( (string) $slug );
+			$url  = isset( $ov['url'] ) ? esc_url_raw( (string) $ov['url'] ) : '';
+
+			if ( '' === $slug || empty( $ov['custom'] ) || ! empty( $ov['hidden'] ) || isset( $existing[ $slug ] ) || '' === $url || $this->tab_denied( $ov ) ) {
+				continue;
+			}
+
+			$fallback += 10;
+
+			$kept[] = array(
+				'token'      => '#bn-' . $slug,
+				'label'      => sanitize_text_field( (string) ( $ov['label'] ?? $slug ) ),
+				'icon'       => sanitize_key( (string) ( $ov['icon'] ?? 'link' ) ),
+				'visibility' => UserLinks::LOGGEDIN,
+				'url'        => $url,
+				'order'      => isset( $ov['order'] ) ? max( 1, (int) $ov['order'] ) : $fallback,
+			);
+		}
+
+		usort(
+			$kept,
+			static function ( array $a, array $b ): int {
+				return ( (int) ( $a['order'] ?? 0 ) ) <=> ( (int) ( $b['order'] ?? 0 ) );
+			}
+		);
+
+		return $kept;
 	}
 }

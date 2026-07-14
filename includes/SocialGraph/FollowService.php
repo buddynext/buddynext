@@ -27,6 +27,14 @@ class FollowService {
 	private const CACHE_GROUP = 'buddynext_follows';
 
 	/**
+	 * Ceiling on a whole-relation list read (followers() / following()).
+	 *
+	 * Not a product limit — a memory guard. The paged reads are the correct answer for anything
+	 * user-facing. Filterable via `buddynext_relation_list_cap`.
+	 */
+	private const RELATION_LIST_CAP = 5000;
+
+	/**
 	 * Cache TTL in seconds (10 minutes).
 	 */
 	private const CACHE_TTL = 600;
@@ -119,11 +127,32 @@ class FollowService {
 		// canonical privacy gate — previously this preference was never consulted.
 		$privacy = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
 		if ( $privacy && method_exists( $privacy, 'can_follow' ) && ! $privacy->can_follow( $follower_id, $following_id ) ) {
-			return new WP_Error(
+			$error = new WP_Error(
 				'follow_not_allowed',
 				__( 'This member does not allow follows from you.', 'buddynext' ),
 				array( 'status' => 403 )
 			);
+
+			/**
+			 * Filter the WP_Error returned when a follow or connection request is denied.
+			 *
+			 * Free's default message attributes the refusal to the TARGET's privacy
+			 * preference, which is the only reason Free itself can deny for. A listener
+			 * that denies for a different reason must be able to say so — Pro gates both
+			 * actions on the `social.follow_connect` plan entitlement, and leaving the
+			 * default message would tell a member their plan blocked them that the other
+			 * person had rejected them. That is a worse failure than a plain refusal.
+			 *
+			 * Listeners MUST return a WP_Error.
+			 *
+			 * @since 1.0.8
+			 *
+			 * @param WP_Error $error     The denial error.
+			 * @param string   $action    'follow' or 'connect'.
+			 * @param int      $actor_id  The member attempting the action.
+			 * @param int      $target_id The member on the receiving end.
+			 */
+			return apply_filters( 'buddynext_social_denied_error', $error, 'follow', $follower_id, $following_id );
 		}
 
 		// Service-layer block guard for direct callers (the controller checks
@@ -444,18 +473,23 @@ class FollowService {
 		if ( false !== $cached ) {
 			$result = (array) $cached;
 		} else {
+			$cap = $this->relation_list_cap( 'followers', $user_id );
+
+			// Ask for one more than we can keep, so an overflow is detectable rather than assumed.
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$rows = $wpdb->get_col(
 				$wpdb->prepare(
 					"SELECT follower_id
 					 FROM {$wpdb->prefix}bn_follows
 					 WHERE following_id = %d AND status = 'approved'
-					 ORDER BY created_at DESC",
-					$user_id
+					 ORDER BY created_at DESC
+					 LIMIT %d",
+					$user_id,
+					$cap + 1
 				)
 			);
 
-			$result = array_map( 'intval', (array) $rows );
+			$result = $this->cap_relation_list( array_map( 'intval', (array) $rows ), $cap, __METHOD__, 'paged_followers()' );
 
 			wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
 		}
@@ -484,18 +518,23 @@ class FollowService {
 		if ( false !== $cached ) {
 			$result = (array) $cached;
 		} else {
+			$cap = $this->relation_list_cap( 'following', $user_id );
+
+			// Ask for one more than we can keep, so an overflow is detectable rather than assumed.
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$rows = $wpdb->get_col(
 				$wpdb->prepare(
 					"SELECT following_id
 					 FROM {$wpdb->prefix}bn_follows
 					 WHERE follower_id = %d AND status = 'approved'
-					 ORDER BY created_at DESC",
-					$user_id
+					 ORDER BY created_at DESC
+					 LIMIT %d",
+					$user_id,
+					$cap + 1
 				)
 			);
 
-			$result = array_map( 'intval', (array) $rows );
+			$result = $this->cap_relation_list( array_map( 'intval', (array) $rows ), $cap, __METHOD__, 'paged_following()' );
 
 			wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
 		}
@@ -578,32 +617,234 @@ class FollowService {
 	 * @return int[]
 	 */
 	public function get_followers( int $user_id, array $args = array() ): array {
-		$all      = $this->followers( $user_id );
 		$per_page = isset( $args['per_page'] ) ? max( 1, (int) $args['per_page'] ) : 20;
 		$page     = isset( $args['page'] ) ? max( 1, (int) $args['page'] ) : 1;
-		$offset   = ( $page - 1 ) * $per_page;
 
-		return array_values( array_slice( $all, $offset, $per_page ) );
+		// Page IN SQL. This used to call followers(), which materialises EVERY approved
+		// follower row, and then array_slice() twenty of them out in PHP. On a popular
+		// account that is a full index scan of 100k+ rows to render one page — and it
+		// ran on every view of the followers tab.
+		return $this->paged_followers( $user_id, $per_page, ( $page - 1 ) * $per_page );
+	}
+
+	/**
+	 * One page of a user's followers, newest first, paged IN SQL.
+	 *
+	 * LIMIT/OFFSET against the (following_id, status, created_at) index, so the rows
+	 * examined are bounded by the page — not by how popular the account is. The index
+	 * already existed; nothing was using it for this read.
+	 *
+	 * @param int $user_id  The user being followed.
+	 * @param int $per_page Rows to return.
+	 * @param int $offset   Rows to skip.
+	 * @return int[] Follower user IDs, newest first.
+	 */
+	public function paged_followers( int $user_id, int $per_page, int $offset = 0 ): array {
+		global $wpdb;
+
+		$user_id  = absint( $user_id );
+		$per_page = max( 1, min( 100, $per_page ) );
+		$offset   = max( 0, $offset );
+
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT follower_id
+				 FROM {$wpdb->prefix}bn_follows
+				 WHERE following_id = %d AND status = 'approved'
+				 ORDER BY created_at DESC, follower_id DESC
+				 LIMIT %d OFFSET %d",
+				$user_id,
+				$per_page,
+				$offset
+			)
+		);
+
+		return array_map( 'intval', (array) $rows );
+	}
+
+	/**
+	 * The ceiling on a "give me every relation" read.
+	 *
+	 * `followers()` and `following()` return the whole list. `following()` is soft-bounded by the
+	 * WRITE cap (`buddynext_max_following`, default 5,000) — but that cap is filterable to 0, i.e.
+	 * unlimited, so it is not a ceiling on the READ.
+	 *
+	 * `followers()` has no write cap and cannot have one: **you do not control who follows you**. A
+	 * popular account genuinely has 100k+ followers, and this read would have pulled every one of
+	 * them into a PHP array.
+	 *
+	 * @since 1.0.8
+	 *
+	 * @param string $relation 'followers' or 'following'.
+	 * @param int    $user_id  The member whose list it is.
+	 * @return int Maximum ids to return.
+	 */
+	private function relation_list_cap( string $relation, int $user_id ): int {
+		/**
+		 * Filter the ceiling on a whole-relation list read.
+		 *
+		 * Raise it only if you know the memory is there. The paged reads
+		 * (`paged_followers()` / `paged_following()`) are the correct answer for anything
+		 * user-facing.
+		 *
+		 * @since 1.0.8
+		 *
+		 * @param int    $cap      Default RELATION_LIST_CAP.
+		 * @param string $relation 'followers' or 'following'.
+		 * @param int    $user_id  The member whose list it is.
+		 */
+		$cap = (int) apply_filters( 'buddynext_relation_list_cap', self::RELATION_LIST_CAP, $relation, $user_id );
+
+		return max( 1, $cap );
+	}
+
+	/**
+	 * Trim a relation list to the ceiling — and say so if it had to.
+	 *
+	 * A silent cap on a "give me everything" API is the worst outcome: the caller receives a
+	 * partial answer and has no way to know it is partial. So when the cap bites we say it, out
+	 * loud, and name the paged method that does not have this problem.
+	 *
+	 * `_doing_it_wrong()` only surfaces under WP_DEBUG, which is exactly right: it is a message for
+	 * the developer who called the wrong method, not a runtime error for the member.
+	 *
+	 * @since 1.0.8
+	 *
+	 * @param array<int,int> $ids         Rows fetched (cap + 1 of them, if the list overflowed).
+	 * @param int            $cap         The ceiling.
+	 * @param string         $method      Calling method, for the notice.
+	 * @param string         $alternative The paged method to use instead.
+	 * @return array<int,int> At most $cap ids.
+	 */
+	private function cap_relation_list( array $ids, int $cap, string $method, string $alternative ): array {
+		if ( count( $ids ) <= $cap ) {
+			return $ids;
+		}
+
+		_doing_it_wrong(
+			esc_html( $method ),
+			sprintf(
+				/* translators: 1: cap, 2: the paged method to use instead */
+				esc_html__( 'This member has more relations than the %1$d-row ceiling, so the list was truncated. Use %2$s for anything user-facing — it pages in SQL and does not load the whole set.', 'buddynext' ),
+				(int) $cap,
+				esc_html( $alternative )
+			),
+			'1.0.8'
+		);
+
+		return array_slice( $ids, 0, $cap );
+	}
+
+	/**
+	 * One page of the people a user follows.
+	 *
+	 * The sibling of `paged_followers()`, and it should have been written at the same time.
+	 *
+	 * That method carries a comment explaining exactly why loading the whole set and slicing was
+	 * wrong ("On a popular account the old form scanned 100k+ rows to build a list it then threw
+	 * away") — and three lines below it, the `following` branch of ProfileNav went on doing
+	 * precisely that, because there was no paged read to call. The fix was written down next to
+	 * the bug and never applied sideways.
+	 *
+	 * LIMIT/OFFSET against the (follower_id, status, created_at) index, so the rows examined are
+	 * bounded by the page rather than by how many people the member follows.
+	 *
+	 * @since 1.0.8
+	 *
+	 * @param int $user_id  The user doing the following.
+	 * @param int $per_page Rows to return.
+	 * @param int $offset   Rows to skip.
+	 * @return int[] Followed user IDs, newest first.
+	 */
+	public function paged_following( int $user_id, int $per_page, int $offset = 0 ): array {
+		global $wpdb;
+
+		$user_id  = absint( $user_id );
+		$per_page = max( 1, min( 100, $per_page ) );
+		$offset   = max( 0, $offset );
+
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT following_id
+				 FROM {$wpdb->prefix}bn_follows
+				 WHERE follower_id = %d AND status = 'approved'
+				 ORDER BY created_at DESC, following_id DESC
+				 LIMIT %d OFFSET %d",
+				$user_id,
+				$per_page,
+				$offset
+			)
+		);
+
+		return array_map( 'intval', (array) $rows );
+	}
+
+	/**
+	 * How many approved followers a user has.
+	 *
+	 * A COUNT(*) — never count( followers() ), which builds the whole list to measure it.
+	 *
+	 * Note: this counts follow rows, so a follower the VIEWER has blocked is still in
+	 * the total even though they are filtered out of the rendered page. That is the
+	 * deliberate trade: the alternative is scanning every follower row on every page
+	 * view to make the number agree with a per-viewer filter. Blocks are rare; an
+	 * unbounded scan on a 100k-follower account is not.
+	 *
+	 * @param int $user_id The user being followed.
+	 * @return int
+	 */
+	public function count_followers( int $user_id ): int {
+		global $wpdb;
+
+		$user_id = absint( $user_id );
+		if ( $user_id <= 0 ) {
+			return 0;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows
+				 WHERE following_id = %d AND status = 'approved'",
+				$user_id
+			)
+		);
 	}
 
 	/**
 	 * Return the paginated list of user IDs that the given user follows.
 	 *
-	 * Spec-named alias for following(). Supports optional pagination/limit args:
+	 * Supports optional pagination args:
 	 *   'per_page' (int, default 20) — number of IDs to return.
 	 *   'page'     (int, default 1)  — 1-based page offset.
+	 *   'offset'   (int)             — explicit offset, overrides 'page'.
+	 *
+	 * This used to be `array_slice( $this->following( $user_id ), $offset, $per_page )` — it read
+	 * the member's ENTIRE follow set out of the database and threw nearly all of it away. Page 40
+	 * of a 5,000-follow list read all 5,000 rows to hand back 20. It now pages in SQL.
 	 *
 	 * @param int   $user_id The following user.
-	 * @param array $args    Optional query args (per_page, page).
+	 * @param array $args    Optional query args (per_page, page, offset).
 	 * @return int[]
 	 */
 	public function get_following( int $user_id, array $args = array() ): array {
-		$all      = $this->following( $user_id );
 		$per_page = isset( $args['per_page'] ) ? max( 1, (int) $args['per_page'] ) : 20;
 		$page     = isset( $args['page'] ) ? max( 1, (int) $args['page'] ) : 1;
-		$offset   = ( $page - 1 ) * $per_page;
+		$offset   = isset( $args['offset'] )
+			? max( 0, (int) $args['offset'] )
+			: ( $page - 1 ) * $per_page;
 
-		return array_values( array_slice( $all, $offset, $per_page ) );
+		return $this->paged_following( $user_id, $per_page, $offset );
 	}
 
 	/**

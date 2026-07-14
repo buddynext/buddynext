@@ -2,9 +2,9 @@
 
 Your account settings are where you control how you sign in and who you have shut out of your experience. This is the security and access side of your profile: your password, your email address, your active sign-in sessions, two-factor authentication, and the people you have blocked, muted, or restricted.
 
-![The Edit Profile screen — change cover photo and avatar, display name, headline, bio and profile fields, with a live preview](../images/profile-edit.webp)
+![The Edit Profile screen - change cover photo and avatar, display name, headline, bio and profile fields, with a live preview](../images/profile-edit.webp)
 
-![The account security panel — vanity profile URL, change email, change password, two-factor authentication, and sign out everywhere](../images/account-security.webp)
+![The account security panel - vanity profile URL, change email, change password, two-factor authentication, and sign out everywhere](../images/account-security.webp)
 
 ![Members - Privacy & Data admin tab with the account-related privacy and data controls](../images/admin-privacy.webp)
 
@@ -25,6 +25,8 @@ A fresh password closes the door on anyone who may have learned your old one.
 4. Save.
 
 > **Note:** Changing your password does not sign you out of your other devices on its own. If you are rotating your password because you think your account was accessed, also use Sign out of all devices below.
+
+> **Note:** If you joined with Google, Facebook, X, or LinkedIn and have never had a password, there is nothing to enter as your "current" password - you are setting a first one, not changing one, so that field is not asked for. Setting a password is worth doing: until you have one, your social provider is your only way in, and you will not be able to disconnect it.
 
 ## Change your email address
 

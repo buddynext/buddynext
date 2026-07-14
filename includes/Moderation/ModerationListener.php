@@ -33,7 +33,12 @@ class ModerationListener implements ListenerInterface {
 		add_action( 'buddynext_user_suspended', array( $this, 'on_user_suspended' ), 10, 4 );
 		add_action( 'buddynext_appeal_resolved', array( $this, 'on_appeal_resolved' ), 10, 3 );
 		add_action( 'buddynext_user_warned', array( $this, 'on_user_warned' ), 10, 3 );
-		add_action( 'buddynext_content_removed', array( $this, 'on_content_removed' ), 10, 3 );
+		// The takedown runs on the buddynext_content_removal_handled FILTER (not
+		// the buddynext_content_removed action) so ModerationService can tell
+		// whether anything actually removed the content before it marks the
+		// report resolved. buddynext_content_removed still fires right after, as
+		// the public side-effect hook for notification/analytics listeners.
+		add_filter( 'buddynext_content_removal_handled', array( $this, 'on_content_removed' ), 10, 4 );
 		add_action( 'buddynext_user_unsuspended', array( $this, 'on_user_unsuspended' ), 10, 1 );
 		add_action( 'buddynext_appeal_submitted', array( $this, 'on_appeal_submitted' ), 10, 2 );
 		add_action( 'buddynext_report_created', array( $this, 'on_report_created' ), 10, 4 );
@@ -344,19 +349,27 @@ class ModerationListener implements ListenerInterface {
 	/**
 	 * Take reported content down when a moderator removes it.
 	 *
+	 * Answers the buddynext_content_removal_handled filter: returns true only
+	 * when the content was really taken down, so ModerationService::remove_content()
+	 * can refuse to mark a report 'resolved' for content that is still live.
+	 *
 	 * Soft-removes the target by flipping its status away from 'published'
 	 * (all feed/profile/space read queries filter status = 'published', so the
 	 * row vanishes from public view while staying in the table for audit and
 	 * potential restore). Posts → status 'deleted' (the bn_posts status enum's
-	 * soft-removed value); comments → is_deleted flag so threads keep shape.
+	 * soft-removed value); comments → is_deleted flag so threads keep shape;
+	 * direct messages → tombstoned through the WPMediaVerse messaging engine
+	 * (see remove_message()).
 	 *
+	 * @param bool   $handled     Whether an earlier handler already removed the content.
 	 * @param string $object_type Content type being removed.
 	 * @param int    $object_id   Content ID.
 	 * @param int    $actor_id    Moderator who removed it (0 = automated).
+	 * @return bool True when the content was taken down.
 	 */
-	public function on_content_removed( string $object_type, int $object_id, int $actor_id ): void {
-		if ( $object_id <= 0 ) {
-			return;
+	public function on_content_removed( bool $handled, string $object_type, int $object_id, int $actor_id ): bool {
+		if ( $handled || $object_id <= 0 ) {
+			return $handled;
 		}
 
 		global $wpdb;
@@ -372,7 +385,11 @@ class ModerationListener implements ListenerInterface {
 			);
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			wp_cache_delete( "post_{$object_id}", 'buddynext_posts' );
-		} elseif ( 'comment' === $object_type ) {
+
+			return true;
+		}
+
+		if ( 'comment' === $object_type ) {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->update(
 				$wpdb->prefix . 'bn_comments',
@@ -382,7 +399,70 @@ class ModerationListener implements ListenerInterface {
 				array( '%d' )
 			);
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			return true;
 		}
+
+		if ( 'message' === $object_type ) {
+			return $this->remove_message( $object_id );
+		}
+
+		return false;
+	}
+
+	/**
+	 * Tombstone a reported direct message through the WPMediaVerse engine.
+	 *
+	 * DMs live in the WPMediaVerse messaging store, not in a BuddyNext table, so
+	 * the takedown is delegated to MessagingService::delete_message() — the exact
+	 * "Delete for everyone" path the message's own author uses. That leaves the
+	 * standard "This message was deleted" tombstone for every participant and
+	 * runs the engine's bookkeeping (conversation last-message preview refresh,
+	 * mvs_message_deleted event). Never write to the messaging tables directly:
+	 * a raw UPDATE would skip all of it.
+	 *
+	 * delete_message() is sender-scoped, so the moderator's takedown is addressed
+	 * as the sender's own delete-for-everyone. The moderator remains the actor of
+	 * record in bn_mod_log (written by the REST controller / wp-admin queue).
+	 *
+	 * @param int $message_id Reported message ID.
+	 * @return bool True when the message was tombstoned.
+	 */
+	private function remove_message( int $message_id ): bool {
+		$messaging = \BuddyNext\Media\MediaClient::messaging();
+
+		if ( ! is_object( $messaging ) || ! method_exists( $messaging, 'delete_message' ) ) {
+			// The DM engine is gone but its reports remain in the queue. Say so
+			// rather than reporting a removal that never happened.
+			error_log( sprintf( 'BuddyNext moderation: cannot remove reported message %d — the WPMediaVerse messaging engine is unavailable.', $message_id ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+
+			return false;
+		}
+
+		$senders   = ( new ModerationService() )->get_message_sender_ids( array( $message_id ) );
+		$sender_id = (int) ( $senders[ $message_id ] ?? 0 );
+
+		if ( $sender_id <= 0 ) {
+			error_log( sprintf( 'BuddyNext moderation: cannot remove reported message %d — its sender could not be resolved (message deleted already?).', $message_id ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+
+			return false;
+		}
+
+		$result = $messaging->delete_message( $message_id, $sender_id );
+
+		if ( empty( $result['success'] ) ) {
+			error_log( // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				sprintf(
+					'BuddyNext moderation: the messaging engine refused to remove reported message %d (%s).',
+					$message_id,
+					isset( $result['error'] ) ? (string) $result['error'] : 'unknown_error'
+				)
+			);
+
+			return false;
+		}
+
+		return true;
 	}
 
 	/**

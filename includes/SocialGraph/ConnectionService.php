@@ -26,6 +26,29 @@ class ConnectionService {
 	/**
 	 * Cache group for all connection data.
 	 */
+	/**
+	 * Default ceiling on a member's accepted connections.
+	 *
+	 * FollowService has had `buddynext_max_following` since day one; the connection graph
+	 * had no write cap at all, so a single account could accumulate rows without limit and
+	 * make every surface that touches its peer set expensive for everyone.
+	 *
+	 * Enforced on ACCEPT, not on request. A connection is bilateral: capping only the
+	 * requester would let the recipient's side grow unbounded, which is the same bug with
+	 * an extra step.
+	 */
+	private const MAX_CONNECTIONS = 5000;
+
+	/**
+	 * Ceiling on how many mutual IDs a single call will materialise.
+	 *
+	 * The mutual_connections() method took `$limit = 0` to mean "no LIMIT clause at all", and both of
+	 * its real callers used that default — one of them purely to call count() on the
+	 * result. Two hub accounts could pull tens of thousands of IDs into PHP to render one
+	 * integer.
+	 */
+	private const MUTUAL_LIST_CAP = 500;
+
 	private const CACHE_GROUP = 'buddynext_connections';
 
 	/**
@@ -56,11 +79,14 @@ class ConnectionService {
 		// canonical privacy gate — previously this preference was never consulted.
 		$privacy = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
 		if ( $privacy && method_exists( $privacy, 'can_connect' ) && ! $privacy->can_connect( $requester_id, $recipient_id ) ) {
-			return new WP_Error(
+			$error = new WP_Error(
 				'connect_not_allowed',
 				__( 'This member does not accept connection requests from you.', 'buddynext' ),
 				array( 'status' => 403 )
 			);
+
+			/** This filter is documented in includes/SocialGraph/FollowService.php. */
+			return apply_filters( 'buddynext_social_denied_error', $error, 'connect', $requester_id, $recipient_id );
 		}
 
 		// Hard-cap the note so a stray client can't overflow the column. Strip
@@ -130,7 +156,7 @@ class ConnectionService {
 		}
 
 		$connection_id = (int) $wpdb->insert_id;
-		$this->invalidate_connection_cache();
+		$this->invalidate_connection_cache( $requester_id, $recipient_id );
 
 		/**
 		 * Fires after a connection request is sent.
@@ -155,6 +181,28 @@ class ConnectionService {
 	public function accept_request( int $recipient_id, int $requester_id ): bool|WP_Error {
 		global $wpdb;
 
+		// Enforce the cap HERE rather than on send_request(), because a connection is
+		// bilateral: it lands on both members' graphs. Capping only the requester would let
+		// the recipient's side grow without limit. Both sides are checked.
+		//
+		// connection_count() reads a denormalised counter, so this guard is effectively
+		// free — it is not a COUNT(*) per accept.
+		$cap = (int) apply_filters( 'buddynext_max_connections', self::MAX_CONNECTIONS, $recipient_id );
+		if ( $cap > 0 ) {
+			foreach ( array( $recipient_id, $requester_id ) as $party_id ) {
+				if ( $this->connection_count( $party_id ) >= $cap ) {
+					return new WP_Error(
+						'connection_limit_reached',
+						sprintf(
+							/* translators: %s: the maximum number of connections. */
+							__( 'This connection cannot be accepted: one of the two members has reached the limit of %s connections.', 'buddynext' ),
+							number_format_i18n( $cap )
+						)
+					);
+				}
+			}
+		}
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_connections',
@@ -175,7 +223,7 @@ class ConnectionService {
 			);
 		}
 
-		$this->invalidate_connection_cache();
+		$this->invalidate_connection_cache( $recipient_id, $requester_id );
 
 		// A pending request just became an accepted connection — count it for both
 		// peers (a connection is one shared row, counted from either side).
@@ -256,7 +304,7 @@ class ConnectionService {
 			);
 		}
 
-		$this->invalidate_connection_cache();
+		$this->invalidate_connection_cache( $recipient_id, $requester_id );
 
 		/**
 		 * Fires after a connection request is declined.
@@ -318,7 +366,7 @@ class ConnectionService {
 			);
 		}
 
-		$this->invalidate_connection_cache();
+		$this->invalidate_connection_cache( $requester_id, $recipient_id );
 
 		/**
 		 * Fires after a connection request is withdrawn.
@@ -366,7 +414,7 @@ class ConnectionService {
 			);
 		}
 
-		$this->invalidate_connection_cache();
+		$this->invalidate_connection_cache( $user_a, $user_b );
 
 		// The accepted connection is gone — decrement the counter for both peers.
 		$counters = buddynext_service( 'counters' );
@@ -525,7 +573,7 @@ class ConnectionService {
 	public function connections( int $user_id, int $limit = 20, int $offset = 0 ): array {
 		global $wpdb;
 
-		$cache_key = "connections_{$user_id}_{$limit}_{$offset}";
+		$cache_key = "connections_{$user_id}_{$limit}_{$offset}_v" . $this->version( $user_id );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
@@ -571,7 +619,7 @@ class ConnectionService {
 	public function pending_sent( int $user_id, int $limit = 20, int $offset = 0 ): array {
 		global $wpdb;
 
-		$cache_key = "pending_sent_{$user_id}_{$limit}_{$offset}";
+		$cache_key = "pending_sent_{$user_id}_{$limit}_{$offset}_v" . $this->version( $user_id );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
@@ -611,7 +659,7 @@ class ConnectionService {
 	public function pending_received( int $user_id, int $limit = 20, int $offset = 0 ): array {
 		global $wpdb;
 
-		$cache_key = "pending_received_{$user_id}_{$limit}_{$offset}";
+		$cache_key = "pending_received_{$user_id}_{$limit}_{$offset}_v" . $this->version( $user_id );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
@@ -641,6 +689,66 @@ class ConnectionService {
 	}
 
 	/**
+	 * How many connections $user_a and $user_b have in common.
+	 *
+	 * The profile header renders a single "N mutual connections" number, and it used to get
+	 * it with `count( mutual_connections( $a, $b ) )` — materialising the ENTIRE mutual set
+	 * into a PHP array to produce one integer. Between two hub accounts that is tens of
+	 * thousands of IDs loaded, counted, and thrown away, on a page every member opens.
+	 *
+	 * A count is a COUNT(*). It reuses the same derived-table self-join, so it stays correct
+	 * as the graph shape changes, and it rides the existing per-member version keys — no new
+	 * invalidation path to keep in sync (which is its own class of bug).
+	 *
+	 * @param int $user_a First user.
+	 * @param int $user_b Second user.
+	 * @return int
+	 */
+	public function mutual_count( int $user_a, int $user_b ): int {
+		if ( $user_a <= 0 || $user_b <= 0 || $user_a === $user_b ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		$cache_key = "mutual_count_{$user_a}_{$user_b}_v" . $this->version( $user_a ) . '_' . $this->version( $user_b );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM (
+				     SELECT CASE WHEN requester_id = %d THEN recipient_id ELSE requester_id END AS uid
+				       FROM {$wpdb->prefix}bn_connections
+				      WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted'
+				 ) ca
+				 INNER JOIN (
+				     SELECT CASE WHEN requester_id = %d THEN recipient_id ELSE requester_id END AS uid
+				       FROM {$wpdb->prefix}bn_connections
+				      WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted'
+				 ) cb ON cb.uid = ca.uid
+				 WHERE ca.uid NOT IN ( %d, %d )",
+				$user_a,
+				$user_a,
+				$user_a,
+				$user_b,
+				$user_b,
+				$user_b,
+				$user_a,
+				$user_b
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $count;
+	}
+
+	/**
 	 * Return user IDs that both $user_a and $user_b are each accepted-connected to.
 	 *
 	 * The bn_connections table is directional (one row per pair; either
@@ -663,7 +771,15 @@ class ConnectionService {
 
 		global $wpdb;
 
-		$cache_key = "mutual_{$user_a}_{$user_b}_{$limit}";
+		// `0` used to mean "no LIMIT clause at all", and every caller took the default. Two
+		// hub accounts would materialise their whole mutual set into PHP. It now means
+		// "the site's ceiling", so there is no way to ask for an unbounded list by accident.
+		// A caller that genuinely needs one row (connection_degree passes 1) is unaffected.
+		if ( $limit <= 0 ) {
+			$limit = (int) apply_filters( 'buddynext_mutual_list_cap', self::MUTUAL_LIST_CAP, $user_a, $user_b );
+		}
+
+		$cache_key = "mutual_{$user_a}_{$user_b}_{$limit}_v" . $this->version( $user_a ) . '_' . $this->version( $user_b );
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
 			return (array) $cached;
@@ -841,14 +957,104 @@ class ConnectionService {
 	}
 
 	/**
-	 * Invalidate all connection cache entries.
+	 * The per-member cache version.
 	 *
-	 * The paginated list keys (connections, pending_sent, pending_received) embed
-	 * limit/offset in their cache key, making targeted deletion impractical. A full
-	 * group flush is the correct approach for WP 6.1+ (this plugin requires WP 6.9+).
-	 * Status and count keys are also covered by the group flush.
+	 * Every unbounded key set (the paged lists, and the pairwise `mutual_` keys) embeds the
+	 * version of the member(s) it depends on. Bumping the version makes every one of those keys
+	 * unreachable at once, without touching any other member's cache — which is what
+	 * delete-by-key cannot do for a key set whose offsets you cannot enumerate.
+	 *
+	 * Seeded from `time()`, not from 1, and deliberately. If the object cache evicts a version
+	 * key under memory pressure while data keyed on it is still cached, a re-seed must produce a
+	 * NEW value — never one that was used before, or the old entries become reachable again and
+	 * we would resurrect stale data. A monotonic seed makes that impossible.
+	 *
+	 * Stored with no expiry: the version must outlive the data it versions.
+	 *
+	 * @since 1.0.8
+	 *
+	 * @param int $uid Member ID.
+	 * @return int Current version.
 	 */
-	private function invalidate_connection_cache(): void {
-		wp_cache_flush_group( self::CACHE_GROUP );
+	private function version( int $uid ): int {
+		$key = "conn_ver_{$uid}";
+		$ver = wp_cache_get( $key, self::CACHE_GROUP );
+
+		if ( false === $ver ) {
+			$ver = time();
+			wp_cache_set( $key, $ver, self::CACHE_GROUP, 0 );
+		}
+
+		return (int) $ver;
+	}
+
+	/**
+	 * Bump a member's cache version, retiring every unbounded key that embeds it.
+	 *
+	 * @since 1.0.8
+	 *
+	 * @param int $uid Member ID.
+	 * @return void
+	 */
+	private function bump_version( int $uid ): void {
+		$key = "conn_ver_{$uid}";
+
+		if ( false === wp_cache_get( $key, self::CACHE_GROUP ) ) {
+			// Nothing cached under this version yet; seeding is enough.
+			wp_cache_set( $key, time(), self::CACHE_GROUP, 0 );
+
+			return;
+		}
+
+		wp_cache_incr( $key, 1, self::CACHE_GROUP );
+	}
+
+	/**
+	 * Invalidate the cache for the two members a write actually touched.
+	 *
+	 * This used to be `wp_cache_flush_group()`, and that was wrong twice over.
+	 *
+	 * It is a silent no-op on any persistent drop-in that does not implement `flush_group` (some
+	 * Memcached, older Redis). Core's default cache DOES implement it — so the bug was invisible
+	 * locally and only bit production sites that had installed the very thing that makes caching
+	 * work.
+	 *
+	 * And where it DID work it was a sledgehammer: one member accepting one connection request
+	 * destroyed the cached connection state of EVERY member on the site. On a busy 100k-member
+	 * graph, connections are accepted continuously — so the cache was wiped faster than it could
+	 * warm, every read fell through to the database anyway, and the cache was pure cost. That is
+	 * over-INVALIDATION, the twin of over-caching.
+	 *
+	 * Two mechanisms, chosen by key-set shape (CACHING.md §4b):
+	 *
+	 *   DELETE-BY-KEY — the write knows exactly which keys it changed:
+	 *     pair_row_{low}_{high}, connection_count_{a}, connection_count_{b}
+	 *
+	 *   VERSION KEY — the key set cannot be enumerated at write time:
+	 *     connections_{u}_{limit}_{offset}      (offsets unknowable)
+	 *     pending_sent_{u}_{limit}_{offset}
+	 *     pending_received_{u}_{limit}_{offset}
+	 *     mutual_{a}_{b}_{limit}                (PAIRWISE — see below)
+	 *
+	 * `mutual_` is the one that forces the design. When A's connections change, every
+	 * `mutual_{A}_{anyone}_{any_limit}` key is stale — and every `mutual_{anyone}_{A}_…` too. That
+	 * set is unbounded across the entire user base, which is exactly why someone reached for the
+	 * group flush in the first place. It was the wrong answer to a real problem. Because the key
+	 * embeds BOTH members' versions, bumping either one retires it.
+	 *
+	 * @param int $user_a One member in the write.
+	 * @param int $user_b The other.
+	 * @return void
+	 */
+	private function invalidate_connection_cache( int $user_a, int $user_b ): void {
+		$low  = min( $user_a, $user_b );
+		$high = max( $user_a, $user_b );
+
+		wp_cache_delete( "pair_row_{$low}_{$high}", self::CACHE_GROUP );
+		wp_cache_delete( "connection_count_{$user_a}", self::CACHE_GROUP );
+		wp_cache_delete( "connection_count_{$user_b}", self::CACHE_GROUP );
+
+		$this->bump_version( $user_a );
+		$this->bump_version( $user_b );
 	}
 }

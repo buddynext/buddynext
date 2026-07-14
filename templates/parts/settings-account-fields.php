@@ -35,6 +35,14 @@ $rest_nonce        = wp_create_nonce( 'wp_rest' );
 $people_url_base   = rtrim( \BuddyNext\Core\PageRouter::people_url(), '/' );
 $prefs_url         = \BuddyNext\Core\PageRouter::notification_prefs_url();
 $profile_email_raw = wp_get_current_user()->user_email;
+
+// Setup-wizard re-entry. Skipping the wizard toasts "you can complete
+// onboarding any time from settings" — this row is that entry point, and the
+// only one. PageRouter bounces a member who already finished (or skipped)
+// onboarding away from the wizard unless `redo=1` is present, so the link
+// carries it. The wizard resumes at the member's saved step.
+$onboarding_url      = add_query_arg( 'redo', '1', \BuddyNext\Core\PageRouter::onboarding_url() );
+$onboarding_complete = buddynext_service( 'onboarding' )->is_complete( $user_id );
 ?>
 
 <!-- Section: Account -->
@@ -231,8 +239,20 @@ $profile_email_raw = wp_get_current_user()->user_email;
 			)
 		);
 
-		// Notification digest cross-link row (anchor CTA) + Sign-out row.
+		// Setup-wizard row (anchor CTA) + Notification digest cross-link row
+		// (anchor CTA) + Sign-out row.
 		$account_rows_tail = array(
+			array(
+				'onboarding',
+				__( 'Profile setup', 'buddynext' ),
+				$onboarding_complete
+					? __( 'Run the setup wizard again — profile, interests, spaces to join, people to follow, and notification channels.', 'buddynext' )
+					: __( 'Finish the setup wizard — profile, interests, spaces to join, people to follow, and notification channels.', 'buddynext' ),
+				$onboarding_complete ? __( 'Run setup again', 'buddynext' ) : __( 'Finish setting up', 'buddynext' ),
+				'',
+				$onboarding_url,
+				'',
+			),
 			array( 'notif_digest', __( 'Notification email schedule', 'buddynext' ), __( 'Configure how often we email you.', 'buddynext' ), __( 'Open notification preferences', 'buddynext' ), '', $prefs_url, '' ),
 			array( 'sign_out', __( 'Active sessions', 'buddynext' ), __( 'Sign out of every browser and device this account is signed in on.', 'buddynext' ), __( 'Sign out everywhere', 'buddynext' ), 'actions.signOutEverywhere', '', 'context.signOutSubmitting' ),
 		);

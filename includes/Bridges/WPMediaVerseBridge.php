@@ -69,6 +69,23 @@ class WPMediaVerseBridge {
 		// floating chat panel, standalone messages page, and notifications.
 		add_filter( 'mvs_buddynext_active', '__return_true' );
 
+		/*
+		 * Turn media reporting ON.
+		 *
+		 * WPMediaVerse ships `mvs_reports_enabled` defaulting to FALSE — sensible for a
+		 * standalone media plugin on a site that may have no moderators. BuddyNext is not that:
+		 * it is a UGC community, and a community with no way to report a piece of media has no
+		 * abuse path at all.
+		 *
+		 * It matters doubly here because this same bridge redirects /media/{slug}/ to the source
+		 * activity, so MVS's own media page — the one carrying its Report button — never renders
+		 * on a BuddyNext site. We take that page away, so we owe the member the control back: the
+		 * lightbox now offers Report, and it posts into MVS's existing queue.
+		 *
+		 * Priority 5, so a site that genuinely wants it off can still say so at the default 10.
+		 */
+		add_filter( 'mvs_reports_enabled', '__return_true', 5 );
+
 		// Gate DMs on bn_blocks + the recipient's DM-privacy preference.
 		add_filter( 'mvs_can_send_message', array( $this, 'check_block' ), 10, 3 );
 
@@ -408,6 +425,7 @@ class WPMediaVerseBridge {
 			)
 		);
 
+		// cache-ttl-only: a media->post attachment is immutable once made. There is no event that could invalidate it, because there is no change that can happen.
 		wp_cache_set( $cache_key, $post_id, self::CACHE_GROUP, self::CACHE_TTL );
 		return $post_id;
 	}
@@ -615,7 +633,7 @@ class WPMediaVerseBridge {
 
 		$guard = buddynext_service( 'safeguard' );
 		if ( is_object( $guard ) && method_exists( $guard, 'check_content' ) ) {
-			$verdict = $guard->check_content( $content, '', $sender_id );
+			$verdict = $guard->check_content( $content, '', $sender_id, 0, 'create' );
 			if ( is_wp_error( $verdict ) ) {
 				return $verdict;
 			}

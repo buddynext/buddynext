@@ -58,13 +58,18 @@ class OnboardingService {
 	/**
 	 * Get the current wizard step for a user (1-based).
 	 *
+	 * Clamped to the number of steps this SITE renders (step_list(), which drops
+	 * the Interests step when the owner has no space categories) — not to the
+	 * TOTAL_STEPS ceiling, which would let the pointer report a step that does
+	 * not exist on a four-step site.
+	 *
 	 * @param int $user_id WordPress user ID.
 	 * @return int
 	 */
 	public function get_step( int $user_id ): int {
 		$raw  = get_user_meta( $user_id, self::META_STEP, true );
 		$step = '' === $raw ? 1 : (int) $raw;
-		return max( 1, min( self::TOTAL_STEPS, $step ) );
+		return max( 1, min( count( $this->step_list() ), $step ) );
 	}
 
 	/**
@@ -133,7 +138,9 @@ class OnboardingService {
 		if ( 1 === $step ) {
 			$this->save_profile( $user_id, $data );
 		}
-		$next = min( self::TOTAL_STEPS, $step + 1 );
+		// Clamp to this site's real step count (see get_step()), so the saved
+		// pointer can never exceed the number of steps the wizard renders.
+		$next = min( count( $this->step_list() ), $step + 1 );
 		update_user_meta( $user_id, self::META_STEP, $next );
 	}
 

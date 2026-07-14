@@ -54,6 +54,7 @@ class OnlineMembersWidget extends \WP_Widget {
 		$ids       = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false === $ids ) {
 			$ids = \BuddyNext\Realtime\PresenceService::recent_online_ids( $limit );
+			// cache-ttl-only: who is online RIGHT NOW is time-decaying by definition. Nothing to bust; the TTL is the freshness contract.
 			wp_cache_set( $cache_key, $ids, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 

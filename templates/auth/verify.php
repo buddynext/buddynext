@@ -188,7 +188,7 @@ wp_enqueue_style( 'bn-auth' );
 				</div>
 				<h1 class="bn-auth-title"><?php esc_html_e( 'This link expired or is invalid', 'buddynext' ); ?></h1>
 				<p class="bn-auth-sub">
-					<?php esc_html_e( 'Verification links expire after 24 hours. Request a fresh link below.', 'buddynext' ); ?>
+					<?php esc_html_e( 'Verification links expire after 48 hours. Request a fresh link below.', 'buddynext' ); ?>
 				</p>
 
 				<div class="bn-badge bn-verify-feedback" role="status" aria-live="polite"
@@ -269,7 +269,7 @@ wp_enqueue_style( 'bn-auth' );
 				<?php endif; ?>
 
 				<p class="bn-auth-sub">
-					<?php esc_html_e( 'Click the link in the email to verify your address. The link expires in 24 hours.', 'buddynext' ); ?>
+					<?php esc_html_e( 'Click the link in the email to verify your address. The link expires in 48 hours.', 'buddynext' ); ?>
 				</p>
 
 				<div class="bn-badge bn-verify-feedback" role="status" aria-live="polite"

@@ -3,8 +3,14 @@
  * Moderation service.
  *
  * Manages user-submitted reports, moderation actions (dismiss, escalate,
- * resolve), and user strikes. All state-changing actions that modify
- * content visibility or user standing require manage_options capability.
+ * resolve, remove), and user strikes.
+ *
+ * Authority model for the state-changing actions:
+ *   - Site admins (manage_options) may action anything.
+ *   - A space owner/moderator may action the reports raised inside a space they
+ *     moderate, and warn a member in that space's context — the scope the space
+ *     Moderation tab already advertises to them. Everything platform-wide
+ *     (strikes, suspensions, shadow bans, appeals) stays manage_options-only.
  *
  * @package BuddyNext\Moderation
  */
@@ -19,6 +25,16 @@ use WP_Error;
  * Handles reports, strikes, and moderation queue actions.
  */
 class ModerationService {
+
+	/**
+	 * Object-cache group.
+	 */
+	private const CACHE_GROUP = 'buddynext_moderation';
+
+	/**
+	 * Cache lifetime, in seconds.
+	 */
+	private const CACHE_TTL = 300;
 
 	/**
 	 * Valid report reasons.
@@ -67,6 +83,13 @@ class ModerationService {
 	private const APPEAL_DECISIONS = array( 'approved', 'denied' );
 
 	/**
+	 * Maximum stored length of a report's free-text notes. Mirrors the report
+	 * modal's maxlength=500 and is enforced server-side so a direct API caller
+	 * cannot exceed it.
+	 */
+	private const NOTE_MAX_LENGTH = 500;
+
+	/**
 	 * Submit a report on an object.
 	 *
 	 * Each user may only report a given object once (UNIQUE KEY enforced at DB).
@@ -85,6 +108,11 @@ class ModerationService {
 		if ( ! in_array( $reason, self::reasons(), true ) ) {
 			$reason = 'other';
 		}
+
+		// Enforce the notes length server-side. The modal caps input at 500 via
+		// maxlength, but a direct REST/API caller bypasses that; truncate once so
+		// the stored row and the returned row agree.
+		$notes = mb_substr( sanitize_textarea_field( $notes ), 0, self::NOTE_MAX_LENGTH );
 
 		global $wpdb;
 
@@ -117,7 +145,7 @@ class ModerationService {
 				'object_id'   => $object_id,
 				'reason'      => $reason,
 				'space_id'    => $space_id > 0 ? $space_id : null,
-				'notes'       => sanitize_textarea_field( $notes ),
+				'notes'       => $notes,
 				// Store UTC explicitly. The column default is MySQL
 				// CURRENT_TIMESTAMP, which records the DB server's local time —
 				// on a non-UTC server that mismatches resolved_at (written by
@@ -133,7 +161,7 @@ class ModerationService {
 
 		// Bust the per-viewer report-state cache so the action menu flips to
 		// "Reported" immediately on the next render.
-		wp_cache_delete( "reported_{$reporter_id}_" . sanitize_key( $object_type ) . "_{$object_id}", 'buddynext_moderation' );
+		wp_cache_delete( "reported_{$reporter_id}_" . sanitize_key( $object_type ) . "_{$object_id}", self::CACHE_GROUP );
 
 		$report_row = array(
 			'report_id'   => $report_id,
@@ -201,14 +229,10 @@ class ModerationService {
 
 			switch ( $action_slug ) {
 				case 'remove':
-					/**
-					 * Fires when an automated moderation action removes content.
-					 *
-					 * @param string $object_type Content type being removed.
-					 * @param int    $object_id   Content ID.
-					 * @param int    $actor_id    System actor (0 = automated).
-					 */
-					do_action( 'buddynext_content_removed', sanitize_key( $object_type ), $object_id, 0 );
+					// Same takedown pipeline the moderator-driven remove_content()
+					// uses, so an automated removal and a manual one behave
+					// identically (and both fire buddynext_content_removed).
+					$this->remove_object( sanitize_key( $object_type ), $object_id, 0 );
 					break;
 
 				case 'warn':
@@ -222,6 +246,63 @@ class ModerationService {
 						 * @param string $reason     Warning message/reason.
 						 */
 						do_action( 'buddynext_user_warned', (int) $auto_action['user_id'], 0, (string) ( $auto_action['reason'] ?? '' ) );
+					}
+					break;
+
+				case 'suspend':
+					// This case did not exist. Pro's RulesService has always been able to
+					// emit a `suspend` action (THRESHOLD_ACTIONS = ['remove','suspend'],
+					// and its config validation accepts it) — and this switch had no
+					// `suspend` case and no `default`, so the action fell straight through
+					// in silence. An owner could configure an auto-suspend rule, save it,
+					// see it listed, and it would never once fire. No error, no log entry.
+					//
+					// Free's own docblock four lines above this method already documented
+					// the payload it was ignoring.
+					if ( ! empty( $auto_action['user_id'] ) ) {
+						// suspend_user(), NOT suspend(). The bare suspend() primitive
+						// inserts the row and fires NOTHING — so the member would be
+						// suspended with no notification, no outbound webhook and no
+						// analytics event (three listeners hang off
+						// buddynext_user_suspended). suspend_user() is the wired path,
+						// and it is what the moderation queue itself calls.
+						//
+						// duration_days is load-bearing: 0 (or absent) means PERMANENT.
+						// Pro sends an explicit length and warns about exactly this
+						// ("without duration_days Free's ModerationService creates a
+						// permanent ban that only a manual unsuspend can lift"), so a rule
+						// the owner configured as "7 days" must never become a lifetime
+						// ban because a key went missing in transit. Default to Pro's own
+						// 7 rather than to permanent.
+						$bn_duration = isset( $auto_action['duration_days'] )
+							? max( 1, (int) $auto_action['duration_days'] )
+							: 7;
+
+						$this->suspend_user(
+							(int) $auto_action['user_id'],
+							0, // System actor — same convention as `warn` above.
+							(string) ( $auto_action['reason'] ?? '' ),
+							array( 'duration_days' => $bn_duration )
+						);
+					}
+					break;
+
+				default:
+					// The missing default is the real defect class here, not the missing
+					// `suspend` case: an unrecognised action was swallowed without a
+					// sound, which is why an entire configurable feature could be dead
+					// for months with nobody noticing. The next action type Pro adds
+					// would have been swallowed the same way.
+					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+						_doing_it_wrong(
+							__METHOD__,
+							sprintf(
+								/* translators: %s: the unhandled moderation action slug. */
+								esc_html__( 'Unhandled automated moderation action "%s" — it was configured, and nothing ran.', 'buddynext' ),
+								esc_html( $action_slug )
+							),
+							'1.0.8'
+						);
 					}
 					break;
 			}
@@ -256,7 +337,7 @@ class ModerationService {
 		// SSR feed does not run one report-state seek per card, and busted in
 		// report() when this viewer files a report on the object.
 		$key    = "reported_{$reporter_id}_{$object_type}_{$object_id}";
-		$cached = wp_cache_get( $key, 'buddynext_moderation' );
+		$cached = wp_cache_get( $key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
 			return '1' === (string) $cached;
 		}
@@ -277,7 +358,7 @@ class ModerationService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$has = null !== $existing;
-		wp_cache_set( $key, $has ? '1' : '0', 'buddynext_moderation', 300 );
+		wp_cache_set( $key, $has ? '1' : '0', self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $has;
 	}
@@ -328,7 +409,7 @@ class ModerationService {
 		}
 
 		foreach ( $map as $id => $reported ) {
-			wp_cache_set( "reported_{$reporter_id}_{$object_type}_{$id}", $reported ? '1' : '0', 'buddynext_moderation', 300 );
+			wp_cache_set( "reported_{$reporter_id}_{$object_type}_{$id}", $reported ? '1' : '0', self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
 		return $map;
@@ -401,52 +482,101 @@ class ModerationService {
 	/**
 	 * Resolve a report AND take the reported content down.
 	 *
-	 * Looks up the report's target, fires buddynext_content_removed (the
-	 * ModerationListener handler soft-removes posts/comments from public view),
-	 * then marks the report resolved. Unlike PostService::delete this does not
-	 * require content ownership and does not hard-delete — the row is retained
-	 * so the action is auditable and reversible.
+	 * Looks up the report's target, runs the takedown pipeline (posts/comments
+	 * are soft-removed from public view, DMs are tombstoned through the
+	 * WPMediaVerse messaging engine), and only marks the report resolved once a
+	 * handler confirms it actually acted. Unlike PostService::delete this does
+	 * not require content ownership and does not hard-delete — the row is
+	 * retained so the action is auditable and reversible.
+	 *
+	 * When no handler claims the object type (or the takedown fails), the report
+	 * is left open and a WP_Error is returned: reporting "resolved" for content
+	 * that is still live is worse than reporting the failure.
 	 *
 	 * @param int $report_id Report whose content to remove.
-	 * @param int $actor_id  Admin acting on the report.
+	 * @param int $actor_id  Admin or space moderator acting on the report.
 	 * @return true|WP_Error
 	 */
 	public function remove_content( int $report_id, int $actor_id ): bool|WP_Error {
-		if ( ! user_can( $actor_id, 'manage_options' ) ) {
+		if ( ! $this->can_action_report( $actor_id, $report_id ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to remove content.', 'buddynext' ) );
 		}
 
-		global $wpdb;
+		$report = $this->get_report( $report_id );
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$report = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT object_type, object_id FROM {$wpdb->prefix}bn_reports WHERE id = %d",
-				$report_id
-			),
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		if ( ! $report ) {
+		if ( null === $report ) {
 			return new WP_Error( 'not_found', __( 'Report not found.', 'buddynext' ) );
 		}
 
 		$object_type = sanitize_key( (string) ( $report['object_type'] ?? '' ) );
 		$object_id   = (int) ( $report['object_id'] ?? 0 );
 
-		if ( '' !== $object_type && $object_id > 0 ) {
-			/**
-			 * Fires when a moderator removes reported content from public view.
-			 *
-			 * @param string $object_type Content type ('post', 'comment', …).
-			 * @param int    $object_id   Content ID.
-			 * @param int    $actor_id    Moderator who removed it.
-			 */
-			do_action( 'buddynext_content_removed', $object_type, $object_id, $actor_id );
+		if ( '' === $object_type || $object_id <= 0 ) {
+			return new WP_Error( 'not_found', __( 'The reported content no longer exists.', 'buddynext' ) );
+		}
+
+		if ( ! $this->remove_object( $object_type, $object_id, $actor_id ) ) {
+			return new WP_Error(
+				'bn_removal_unsupported',
+				__( 'This content could not be removed automatically. Resolve the report manually after taking it down.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
 		}
 
 		return $this->set_status( $report_id, $actor_id, 'resolved' );
+	}
+
+	/**
+	 * Take one piece of reported content down and announce the removal.
+	 *
+	 * The takedown itself runs through the buddynext_content_removal_handled
+	 * filter — ModerationListener answers it for post / comment / message and
+	 * returns true only when the content was really taken down — so callers can
+	 * tell an actual removal apart from an unhandled object type. The public
+	 * buddynext_content_removed action then fires for side-effect listeners
+	 * (notifications, analytics, audit).
+	 *
+	 * @param string $object_type Content type being removed ('post', 'comment', 'message', …).
+	 * @param int    $object_id   Content ID.
+	 * @param int    $actor_id    Moderator who removed it (0 = automated).
+	 * @return bool True when a handler confirmed the content was taken down.
+	 */
+	private function remove_object( string $object_type, int $object_id, int $actor_id ): bool {
+		if ( '' === $object_type || $object_id <= 0 ) {
+			return false;
+		}
+
+		/**
+		 * Filters whether the reported content was actually taken down.
+		 *
+		 * Core answers this for 'post', 'comment' and 'message'
+		 * (ModerationListener::on_content_removed). Return true from an
+		 * extension to claim an object type of your own — a false return means
+		 * nothing removed the content and the report is kept open with an error
+		 * instead of being falsely marked resolved.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param bool   $handled     Whether a handler has taken the content down. Default false.
+		 * @param string $object_type Content type being removed.
+		 * @param int    $object_id   Content ID.
+		 * @param int    $actor_id    Moderator who removed it (0 = automated).
+		 */
+		$handled = (bool) apply_filters( 'buddynext_content_removal_handled', false, $object_type, $object_id, $actor_id );
+
+		/**
+		 * Fires when a moderator removes reported content from public view.
+		 *
+		 * Side-effect hook only — the takedown itself happens on the
+		 * buddynext_content_removal_handled filter above.
+		 *
+		 * @param string $object_type Content type ('post', 'comment', 'message', …).
+		 * @param int    $object_id   Content ID.
+		 * @param int    $actor_id    Moderator who removed it (0 = automated).
+		 */
+		do_action( 'buddynext_content_removed', $object_type, $object_id, $actor_id );
+
+		return $handled;
 	}
 
 	/**
@@ -615,13 +745,21 @@ class ModerationService {
 	 * buddynext_user_warned so listeners can dispatch
 	 * the in-app notification and warning email.
 	 *
+	 * Site admins may warn anyone. A space owner/moderator may warn a member in
+	 * the context of a space they moderate — the caller passes that space in
+	 * $space_id (the space Moderation tab and the site queue's space-scoped rows
+	 * both know which space the report came from). A warning is a log entry plus
+	 * a notification, not a platform sanction, so it stays inside the space
+	 * moderator's stated scope ("Warn or remove members from this space").
+	 *
 	 * @param int    $user_id  User being warned.
 	 * @param int    $actor_id Admin or moderator issuing the warning.
 	 * @param string $reason   Human-readable warning reason.
+	 * @param int    $space_id Space the warning is issued from (0 = site-level, admin only).
 	 * @return true|WP_Error
 	 */
-	public function warn( int $user_id, int $actor_id, string $reason = '' ): bool|WP_Error {
-		if ( ! user_can( $actor_id, 'manage_options' ) ) {
+	public function warn( int $user_id, int $actor_id, string $reason = '', int $space_id = 0 ): bool|WP_Error {
+		if ( ! user_can( $actor_id, 'manage_options' ) && ! $this->actor_moderates_space( $actor_id, $space_id ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to issue warnings.', 'buddynext' ) );
 		}
 
@@ -805,11 +943,13 @@ class ModerationService {
 	 *                       this list. Used by space-scoped moderators who must only see reports
 	 *                       originating from spaces they manage. An empty array means no filter
 	 *                       (site admins see everything).
-	 *   enrich      bool    When true, each queue item gains offender enrichment for
-	 *                       'user' reports: 'strikes_count' (active strikes against the
-	 *                       reported user), 'offender_name', and 'offender_joined'
-	 *                       (registration date). Non-user items get null offender
-	 *                       fields and a 0 strike count. Default false (unenriched).
+	 *   enrich      bool    When true, each queue item gains offender enrichment:
+	 *                       'offender_id' (the reported user for 'user' reports, the
+	 *                       sender for 'message' reports, 0 otherwise), 'strikes_count'
+	 *                       (active strikes against that offender), 'offender_name', and
+	 *                       'offender_joined' (registration date). Items with no
+	 *                       resolvable offender get offender_id 0, a 0 strike count and
+	 *                       null name/joined. Default false (unenriched).
 	 *
 	 * @internal Performs NO capability check. Callers MUST gate first; the REST
 	 *           caller is behind ModerationController::require_queue_access, which
@@ -932,23 +1072,65 @@ class ModerationService {
 	/**
 	 * Attach offender enrichment to a list of hydrated queue items.
 	 *
-	 * For each 'user' report, resolves the reported user's active strike count
-	 * (bulk, one query for all user-type object IDs), display name, and
-	 * registration date. Non-user items get a 0 strike count and null name/joined
-	 * so every item carries a stable shape. Used by the moderation queue to show
-	 * "repeat offender" signals without the template assembling its own SQL.
+	 * Resolves the offender behind each report and, for that offender, their
+	 * active strike count, display name and registration date — all in bulk (one
+	 * batched query per concern for the whole page, never one per row):
+	 *   - 'user'            → the reported user (object_id).
+	 *   - 'post'/'comment'  → the content's author.
+	 *   - 'message'         → the DM's sender, from the messaging store.
+	 * Anything else (e.g. a reported space) has no single offender and gets
+	 * offender_id 0, a 0 strike count and null name/joined, so every item still
+	 * carries a stable shape.
+	 *
+	 * offender_id is what every user-level action (warn / strike / suspend /
+	 * remove-from-space) binds to. Resolving it here — rather than in each
+	 * template — is what stops those actions from acting on the wrong user (or on
+	 * user id 0, where they silently no-op) and gives the REST queue the same
+	 * offender the server-rendered queue shows.
 	 *
 	 * @param array<int,array<string,mixed>> $items Hydrated queue items.
 	 * @return array<int,array<string,mixed>>
 	 */
 	private function enrich_queue_offenders( array $items ): array {
-		$user_ids = array();
+		// Group the object ids by type so each type costs one batched lookup.
+		$by_type = array(
+			'post'    => array(),
+			'comment' => array(),
+			'message' => array(),
+		);
 		foreach ( $items as $item ) {
-			if ( 'user' === ( $item['object_type'] ?? '' ) ) {
-				$uid = (int) $item['object_id'];
-				if ( $uid > 0 ) {
-					$user_ids[ $uid ] = true;
-				}
+			$type   = (string) ( $item['object_type'] ?? '' );
+			$obj_id = (int) ( $item['object_id'] ?? 0 );
+			if ( $obj_id > 0 && isset( $by_type[ $type ] ) ) {
+				$by_type[ $type ][] = $obj_id;
+			}
+		}
+
+		$authors = array(
+			'post'    => $this->get_authors_for( 'bn_posts', $by_type['post'] ),
+			'comment' => $this->get_authors_for( 'bn_comments', $by_type['comment'] ),
+			'message' => $this->get_message_sender_ids( $by_type['message'] ),
+		);
+
+		// The offender behind each row, keyed by item index.
+		$offender_ids = array();
+		foreach ( $items as $idx => $item ) {
+			$type   = (string) ( $item['object_type'] ?? '' );
+			$obj_id = (int) ( $item['object_id'] ?? 0 );
+
+			if ( 'user' === $type ) {
+				$offender_ids[ $idx ] = $obj_id;
+			} elseif ( isset( $authors[ $type ][ $obj_id ] ) ) {
+				$offender_ids[ $idx ] = (int) $authors[ $type ][ $obj_id ];
+			} else {
+				$offender_ids[ $idx ] = 0;
+			}
+		}
+
+		$user_ids = array();
+		foreach ( $offender_ids as $uid ) {
+			if ( $uid > 0 ) {
+				$user_ids[ $uid ] = true;
 			}
 		}
 		$user_ids = array_keys( $user_ids );
@@ -993,12 +1175,12 @@ class ModerationService {
 			}
 		}
 
-		foreach ( $items as &$item ) {
-			$is_user                 = 'user' === ( $item['object_type'] ?? '' );
-			$uid                     = $is_user ? (int) $item['object_id'] : 0;
-			$item['strikes_count']   = $is_user ? ( $strike_counts[ $uid ] ?? 0 ) : 0;
-			$item['offender_name']   = $is_user && isset( $user_meta[ $uid ] ) ? $user_meta[ $uid ]['name'] : null;
-			$item['offender_joined'] = $is_user && isset( $user_meta[ $uid ] ) ? $user_meta[ $uid ]['joined'] : null;
+		foreach ( $items as $idx => &$item ) {
+			$uid                     = (int) ( $offender_ids[ $idx ] ?? 0 );
+			$item['offender_id']     = $uid;
+			$item['strikes_count']   = $uid > 0 ? ( $strike_counts[ $uid ] ?? 0 ) : 0;
+			$item['offender_name']   = $uid > 0 && isset( $user_meta[ $uid ] ) ? $user_meta[ $uid ]['name'] : null;
+			$item['offender_joined'] = $uid > 0 && isset( $user_meta[ $uid ] ) ? $user_meta[ $uid ]['joined'] : null;
 		}
 		unset( $item );
 
@@ -1030,6 +1212,159 @@ class ModerationService {
 	}
 
 	/**
+	 * Whether an actor may act on a specific report.
+	 *
+	 * Site admins (manage_options) may action every report. Everyone else may
+	 * only action reports raised inside a space they own or moderate — the same
+	 * scope get_queue() uses to decide which reports they are shown, so the
+	 * buttons a moderator sees and the actions they may perform never diverge.
+	 *
+	 * @param int $actor_id  User acting on the report.
+	 * @param int $report_id Report being actioned.
+	 * @return bool
+	 */
+	private function can_action_report( int $actor_id, int $report_id ): bool {
+		if ( user_can( $actor_id, 'manage_options' ) ) {
+			return true;
+		}
+
+		$report = $this->get_report( $report_id );
+
+		if ( null === $report ) {
+			return false;
+		}
+
+		return $this->actor_moderates_space( $actor_id, (int) ( $report['space_id'] ?? 0 ) );
+	}
+
+	/**
+	 * Whether an actor owns or moderates a given space.
+	 *
+	 * Routed through buddynext_can() (the canonical 4-layer permission entry
+	 * point) rather than a direct role lookup, so a site that regrades the
+	 * 'buddynext-spaces/moderate' ability — via the role map, an explicit grant,
+	 * or the buddynext_user_can filter — is honoured here too.
+	 *
+	 * @param int $actor_id User to check.
+	 * @param int $space_id Space to check them against (0 = not space-scoped).
+	 * @return bool
+	 */
+	private function actor_moderates_space( int $actor_id, int $space_id ): bool {
+		if ( $actor_id <= 0 || $space_id <= 0 || ! function_exists( 'buddynext_can' ) ) {
+			return false;
+		}
+
+		return buddynext_can( $actor_id, 'buddynext-spaces/moderate', array( 'space_id' => $space_id ) );
+	}
+
+	/**
+	 * Batch-resolve the author of each reported post or comment.
+	 *
+	 * One query for the whole queue page, so the offender behind every content
+	 * report is known without a lookup inside the render loop.
+	 *
+	 * @param string $table  Unprefixed BuddyNext table — 'bn_posts' or 'bn_comments'.
+	 *                       Code-controlled: never accepts caller/user input.
+	 * @param int[]  $ids    Reported object IDs.
+	 * @return array<int,int> Map of object ID => author user ID (missing rows are omitted).
+	 */
+	private function get_authors_for( string $table, array $ids ): array {
+		if ( ! in_array( $table, array( 'bn_posts', 'bn_comments' ), true ) ) {
+			return array();
+		}
+
+		$ids = array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) );
+
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, user_id FROM {$wpdb->prefix}{$table} WHERE id IN ({$placeholders})",
+				...$ids
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$authors = array();
+		foreach ( (array) $rows as $row ) {
+			$author = (int) $row['user_id'];
+			if ( $author > 0 ) {
+				$authors[ (int) $row['id'] ] = $author;
+			}
+		}
+
+		return $authors;
+	}
+
+	/**
+	 * Resolve the sender of each reported direct message.
+	 *
+	 * One batched read for the whole queue page — never a lookup per row — so
+	 * message reports can carry a real offender id for the Warn / Strike /
+	 * Suspend actions and the "Remove content" takedown can address the DM to
+	 * its author. Returns an empty map when the WPMediaVerse engine (which owns
+	 * the DM store) is absent; without it, no DM can exist to be reported.
+	 *
+	 * @internal Read-only. The engine exposes no accessor for a message's sender
+	 *           id, so this reads the messaging store directly — mirroring
+	 *           MessagesData::unread_count(). Every WRITE to a message still
+	 *           goes through MessagingService (see ModerationListener) so the
+	 *           tombstone, unread and conversation-preview bookkeeping runs.
+	 *
+	 * @param int[] $message_ids Reported message IDs.
+	 * @return array<int,int> Map of message ID => sender user ID (missing rows are omitted).
+	 */
+	public function get_message_sender_ids( array $message_ids ): array {
+		$ids = array();
+		foreach ( $message_ids as $mid ) {
+			$mid = absint( $mid );
+			if ( $mid > 0 ) {
+				$ids[ $mid ] = true;
+			}
+		}
+		$ids = array_keys( $ids );
+
+		if ( empty( $ids ) || ! \BuddyNext\Media\MediaClient::available() ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		// $placeholders is a "%d,…" string bound through ...$ids; the literal
+		// placeholders live inside it, so the analyser reports UnfinishedPrepare
+		// even though the binding is correct.
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, sender_id FROM {$wpdb->prefix}mvs_messages WHERE id IN ({$placeholders})",
+				...$ids
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$senders = array();
+		foreach ( (array) $rows as $row ) {
+			$sender = (int) $row['sender_id'];
+			if ( $sender > 0 ) {
+				$senders[ (int) $row['id'] ] = $sender;
+			}
+		}
+
+		return $senders;
+	}
+
+	/**
 	 * Suspend a user.
 	 *
 	 * Creates a row in bn_user_suspensions. A user may have multiple historical
@@ -1047,7 +1382,20 @@ class ModerationService {
 	 * @return int|WP_Error Suspension ID or WP_Error on permission failure.
 	 */
 	public function suspend_user( int $user_id, int $actor_id, string $reason = '', array $opts = array() ): int|WP_Error {
-		if ( ! user_can( $actor_id, 'manage_options' ) ) {
+		// actor_id 0 is the SYSTEM actor — an automated moderation rule, not a person.
+		// It is the same convention apply_auto_actions() already uses for `warn`
+		// (do_action( 'buddynext_user_warned', $uid, 0, ... )).
+		//
+		// This guard has to skip it, because user_can( 0, 'manage_options' ) is ALWAYS
+		// false: without this, an auto-suspend rule would fail the permission check and
+		// silently do nothing — which is precisely the bug the `suspend` case below
+		// exists to fix, reintroduced one layer down.
+		//
+		// It is not a capability hole. actor_id is never caller-supplied: every human
+		// path resolves it from get_current_user_id() (ModerationController:1266,
+		// behind require_admin) or from the admin queue's own actor. A 0 can only be
+		// passed by server code.
+		if ( $actor_id > 0 && ! user_can( $actor_id, 'manage_options' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend users.', 'buddynext' ) );
 		}
 
@@ -1799,13 +2147,17 @@ class ModerationService {
 	/**
 	 * Update report status (internal helper).
 	 *
+	 * Site admins may action any report; a space owner/moderator may action the
+	 * reports raised inside a space they moderate (the space Moderation tab and
+	 * the space-scoped site queue both show them exactly those reports).
+	 *
 	 * @param int    $report_id Report ID.
-	 * @param int    $actor_id  Admin acting.
+	 * @param int    $actor_id  Admin or space moderator acting.
 	 * @param string $status    New status.
 	 * @return true|WP_Error
 	 */
 	private function set_status( int $report_id, int $actor_id, string $status ): bool|WP_Error {
-		if ( ! user_can( $actor_id, 'manage_options' ) ) {
+		if ( ! $this->can_action_report( $actor_id, $report_id ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to action reports.', 'buddynext' ) );
 		}
 
@@ -1982,6 +2334,7 @@ class ModerationService {
 			'reporter_id'    => (int) $row['reporter_id'],
 			'object_type'    => $row['object_type'],
 			'object_id'      => (int) $row['object_id'],
+			'space_id'       => isset( $row['space_id'] ) ? (int) $row['space_id'] : 0,
 			'reason'         => $row['reason'],
 			'reasons'        => array_values( $reasons ),
 			'report_count'   => $report_count,
@@ -2482,11 +2835,12 @@ class ModerationService {
 	 * Return the moderation-queue summary counters in one pass.
 	 *
 	 * Replaces the in-template stats SQL: pending reports (raw rows), reports
-	 * resolved/dismissed today, all-time report total, at-risk accounts (users
-	 * with 3+ active strikes), and the urgent count (distinct content groups
-	 * with 3+ reports). The figures back the queue's stat strip.
+	 * resolved/dismissed today, all-time report total, currently-suspended
+	 * accounts (active, un-lifted, un-expired suspensions — the same predicate
+	 * as is_suspended()), and the urgent count (distinct content groups with 3+
+	 * reports). The figures back the queue's stat strip.
 	 *
-	 * @return array{pending:int, resolved_today:int, total_all_time:int, at_risk:int, urgent:int}
+	 * @return array{pending:int, resolved_today:int, total_all_time:int, suspended:int, urgent:int}
 	 */
 	public function queue_stats(): array {
 		global $wpdb;
@@ -2501,12 +2855,12 @@ class ModerationService {
 			ARRAY_A
 		);
 
-		$at_risk = (int) $wpdb->get_var(
-			"SELECT COUNT(*) FROM (
-				SELECT user_id FROM {$wpdb->prefix}bn_user_strikes
-				WHERE is_reversed = 0
-				GROUP BY user_id HAVING COUNT(*) >= 3
-			 ) AS at_risk"
+		// Currently-suspended accounts: active, un-lifted, un-expired suspensions.
+		// Mirrors is_suspended()'s predicate so the tile matches per-user state.
+		$suspended = (int) $wpdb->get_var(
+			"SELECT COUNT(DISTINCT user_id) FROM {$wpdb->prefix}bn_user_suspensions
+				WHERE lifted_at IS NULL
+				  AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())"
 		);
 
 		$urgent = (int) $wpdb->get_var(
@@ -2523,7 +2877,7 @@ class ModerationService {
 			'pending'        => (int) ( $stats['pending'] ?? 0 ),
 			'resolved_today' => (int) ( $stats['resolved_today'] ?? 0 ),
 			'total_all_time' => (int) ( $stats['total_all_time'] ?? 0 ),
-			'at_risk'        => $at_risk,
+			'suspended'      => $suspended,
 			'urgent'         => $urgent,
 		);
 	}

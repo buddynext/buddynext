@@ -44,7 +44,7 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 	}
 
 	public function test_publish_is_idempotent(): void {
-		$url = 'https://example.test/discussions/56/';
+		$url    = 'https://example.test/discussions/56/';
 		$first  = IntegrationActivity::publish( $this->member_id, 'started a discussion', $url );
 		$second = IntegrationActivity::publish( $this->member_id, 'started a discussion', $url );
 

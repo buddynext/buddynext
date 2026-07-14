@@ -4,37 +4,51 @@ BuddyNext is built to be extended through WordPress actions and filters. This pa
 
 ![The admin dashboard assembled across the hook domains this overview routes you to](../images/admin-overview.webp)
 
-The canonical, locked contract for the cross-plugin integration actions is `docs/specs/HOOKS.md` in the Free plugin (status: Locked). Treat that file as the source of truth for the integration event signatures (the events addons like WBGamification, Jetonomy, and WPMediaVerse hook). The pages in this guide document the full surface and stay grounded in the live `audit/manifest.json` inventory.
-
 ## Overview / Contract
 
-### Counts
+### The source of truth is the code
 
-The Free plugin fires 1055 own hooks (from `audit/manifest.json` -> `hooks_fired`). The split is:
+**Grep the source before you rely on a signature.** The hook surface is large and it moves; these pages document it, but the `do_action()` / `apply_filters()` call site is what actually runs. Where a page here and the live code disagree, the code wins - and please file it, because the doc is then a bug.
 
-| Type | Count |
-|---|---|
-| Actions (`do_action`) | 557 |
-| Filters (`apply_filters`) | 498 |
-| Total | 1055 |
-
-This count is the hooks BuddyNext fires itself. It does not include core WordPress hooks BuddyNext listens to, or the actions/filters published by sibling plugins (Jetonomy, WPMediaVerse, Career Board, WBGamification) that BuddyNext consumes through its Bridges. Pro adds its own surface on top, documented in the Pro plugin's `docs/specs/HOOKS.md`.
+This guide documents the hooks BuddyNext fires **itself**. It does not cover core WordPress hooks BuddyNext listens to, nor the actions and filters published by sibling plugins (Jetonomy, WPMediaVerse, Career Board, WBGamification) that BuddyNext consumes through its Bridges - those belong to those plugins' contracts. Pro adds its own surface on top, documented on the Pro and Integration Hooks page.
 
 ### Naming
 
 Two prefixes are in use, and they mean different things:
 
-| Prefix | Scope | Count | Where it lives |
-|---|---|---|---|
-| `buddynext_*` | Public extension surface - the seams third parties hook | 1037 | Services, listeners, controllers, and templates |
-| `bn_*` | Internal plumbing - not part of the public contract | 2 | A small number of admin-internal hooks (e.g. `bn_admin_hub_sections`) |
+| Prefix | Scope | Where it lives |
+|---|---|---|
+| `buddynext_*` | Public extension surface - the seams third parties hook | Services, listeners, controllers, and templates |
+| `bn_*` | Internal plumbing - not part of the public contract | A small number of admin-internal hooks (`bn_admin_hub_sections`, `bn_admin_hub_tab_placement`, `bn_admin_hub_default_icon_map`, `bn_admin_hub_pages`) |
 
-Author your integrations against `buddynext_*` hooks. The `bn_*` prefix matches the database table prefix and the CSS prefix, but as a hook prefix it marks internal admin wiring that may change without notice. The handful of `other:*` hooks the manifest reports (for example `wb_*`, `jetonomy_*`, `edd_*`) are hooks owned by other plugins that BuddyNext fires or re-fires from a bridge; they belong to those plugins' contracts, not BuddyNext's.
+Author your integrations against `buddynext_*` hooks. The `bn_*` prefix matches the database table prefix and the CSS prefix, but as a hook prefix it marks internal admin wiring that may change without notice.
 
 Within `buddynext_*`, the surface divides into two families:
 
-- `buddynext_part_*` - the template-part theming seam. This is the dominant family by count (705 of the 1055 hooks). It is documented in full on its own page (see Hooks: Template Parts).
-- Everything else under `buddynext_*` (332 hooks) - the domain event and data-shaping hooks: social graph, feed, spaces, profiles, members, notifications, moderation, search, and so on. These are split across the per-domain pages described below.
+- `buddynext_part_*` - the template-part theming seam, and the largest family by a wide margin. It is documented in full on its own page (see Hooks: Template Parts).
+- Everything else under `buddynext_*` - the domain event and data-shaping hooks: social graph, feed, spaces, profiles, members, notifications, moderation, search, and so on. These are split across the per-domain pages described below.
+
+> **These pages are a guide, not an exhaustive index.** The per-domain pages cover the hooks an integrator actually reaches for. A number of narrower seams are fired but not listed - navigation (`buddynext_rail_items`, `buddynext_nav_items`, `buddynext_mobile_nav_items`, `buddynext_user_links`, documented instead on the Navigation API page), the template loader (`buddynext_template_locations`, `buddynext_before_template`, `buddynext_after_template`), the theme tokens (`buddynext_css_vars`, `buddynext_css_vars_dark`), and per-template `_before` / `_after` actions. If you need a seam that is not on these pages, grep for it: it very likely exists.
+
+### One hazard worth knowing before you hook anything
+
+A handful of BuddyNext actions are fired from **more than one call site**, and two of them are currently fired with **fewer arguments** from one of those sites than the documented signature. WordPress passes a listener only the arguments the *firing* site supplied, so a typed callback registered for the full signature raises an `ArgumentCountError` when the short call site fires.
+
+Defend against it by giving your callback defaults rather than trusting `accepted_args`:
+
+```php
+// Safe: survives a call site that supplies fewer arguments than documented.
+add_action(
+    'buddynext_space_updated',
+    static function ( int $space_id, int $user_id = 0, array $fields = array() ): void {
+        // ...
+    },
+    10,
+    3
+);
+```
+
+The two affected actions are called out on their own pages: `buddynext_space_updated` (Hooks: Spaces) and `buddynext_member_unsuspended` (Hooks: Moderation, Auth, Trust).
 
 ### Actions vs filters - the practical distinction
 
@@ -78,7 +92,7 @@ The `buddynext_*` domain hooks (everything except the template-part family) are 
 |---|---|---|
 | 27 | Feed, posts, reactions, comments | `buddynext_post_created`, `buddynext_post_updated`, `buddynext_post_deleted`, `buddynext_post_shared`, `buddynext_reaction_added`, `buddynext_comment_created`, `buddynext_feed_order_by` |
 | 28 | Members, profiles, fields, social graph | `buddynext_user_followed`, `buddynext_user_unfollowed`, `buddynext_connection_requested`, `buddynext_connection_accepted`, `buddynext_member_approved`, `buddynext_member_type_assigned`, `buddynext_profile_field_render` |
-| 29 | Spaces | `buddynext_space_created`, `buddynext_space_member_joined`, `buddynext_space_member_left`, `buddynext_space_member_removed`, `buddynext_space_join_approved`, `buddynext_can_join_space` |
+| 29 | Spaces | `buddynext_space_created`, `buddynext_space_member_joined`, `buddynext_space_member_left`, `buddynext_space_member_removed`, `buddynext_space_join_approved`, `buddynext_can_join_space`, `buddynext_space_can_view_roster` |
 | 30 | Notifications and email | `buddynext_notification_created`, `buddynext_notification_prefs_*`, the email-template and digest seams |
 | 31 | Moderation, auth, trust | `buddynext_report_created`, `buddynext_user_warned`, `buddynext_user_suspended`, `buddynext_appeal_submitted`, `buddynext_safeguard_check`, `buddynext_registration_pending` |
 | 32 | Search, hashtags, sidebar, admin | `buddynext_search_query_args`, `buddynext_hashtag_*`, the sidebar-widget and admin-hub filters |

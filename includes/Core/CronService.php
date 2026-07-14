@@ -136,15 +136,17 @@ class CronService {
 	/**
 	 * Whether digest emails are switched off site-wide.
 	 *
-	 * The Settings → Notifications → "Digest frequency" master switch
-	 * (buddynext_digest_frequency). 'never' disables every digest run; any other
-	 * value leaves digests on, with each user's own email_freq deciding whether
-	 * they receive the daily or weekly digest.
+	 * Thin inverse of EmailSender::digests_enabled(), which owns the Settings →
+	 * Notifications → "Digest frequency" master switch (buddynext_digest_frequency).
+	 * 'never' disables every digest run; any other value leaves digests on, with
+	 * each user's own email_freq deciding whether they receive the daily or weekly
+	 * digest. Kept as one shared reader so the cron, the sender, and the member
+	 * preferences UI can never disagree about whether digests are live.
 	 *
-	 * @return bool
+	 * @return bool True when the owner has disabled digests.
 	 */
 	private function digests_disabled(): bool {
-		return 'never' === (string) get_option( 'buddynext_digest_frequency', 'weekly' );
+		return ! EmailSender::digests_enabled();
 	}
 
 	// ── Token cleanup ─────────────────────────────────────────────────────────
@@ -153,7 +155,7 @@ class CronService {
 	 * Delete all expired rows from bn_verify_tokens.
 	 *
 	 * Runs daily. Tokens expire based on the expires_at column set when the
-	 * token was created (24 hours by default for email verification).
+	 * token was created (48 hours by default for email verification).
 	 *
 	 * @return void
 	 */
@@ -288,38 +290,11 @@ class CronService {
 		return $count > 0;
 	}
 
-	// ── Notification pruning ──────────────────────────────────────────────────
-
-	/**
-	 * Delete read notifications older than the configured data-retention window.
-	 *
-	 * Runs weekly. The window is the Privacy → "Data Retention Days" setting
-	 * (buddynext_data_retention_days, default 365). A value of 0 (or less)
-	 * disables pruning so read notifications are kept indefinitely. Only rows
-	 * where is_read = 1 are removed; unread notifications are preserved
-	 * regardless of age.
-	 *
-	 * @return void
-	 */
-	public function handle_cleanup_notifications(): void {
-		$retention_days = (int) get_option( 'buddynext_data_retention_days', 365 );
-		if ( $retention_days <= 0 ) {
-			return;
-		}
-
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
-			$wpdb->prepare(
-				"DELETE FROM {$wpdb->prefix}bn_notifications
-				  WHERE is_read = 1
-				    AND created_at < DATE_SUB( NOW(), INTERVAL %d DAY )",
-				$retention_days
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	}
+	// Notification pruning moved to LogRetentionService — see the note further down,
+	// above "Stats recount". This method also ran an UNBOUNDED `DELETE ... WHERE
+	// created_at < x` with no LIMIT and no batch loop, while all three of its siblings
+	// in this file batched: on a large table that takes a long lock, and on shared
+	// hosting that is an outage. Deleting it resolves that too.
 
 	// ── Activity-log pruning ──────────────────────────────────────────────────
 
@@ -357,18 +332,34 @@ class CronService {
 		} while ( $deleted > 0 && $max_batches > 0 );
 	}
 
+	// ── Moderation-report pruning ─────────────────────────────────────────────
+
 	/**
-	 * Prune old bn_email_log rows (weekly).
+	 * Delete CLOSED moderation reports older than the configured data-retention window.
 	 *
-	 * The bn_email_log table grows one row per email sent (digests + identity
-	 * sends) and had no retention — the fastest-growing table at scale. Mirrors
-	 * the activity-log
-	 * prune: honours buddynext_data_retention_days (default 365; 0 disables),
-	 * batched 1,000/iteration up to 50k/run, keyed on sent_at.
+	 * Free owns bn_reports, so Free prunes it. Pro used to reach in and DELETE from it
+	 * (and from bn_mod_log) out of its AI-moderation sweep — on every site that had Pro
+	 * installed, including the many that never enabled AI moderation at all. Retention for a
+	 * Free table belongs to Free, under Free's own option, with a label that says what it
+	 * deletes.
+	 *
+	 * Only `resolved` and `dismissed` rows are removed. A `pending` or `escalated` report is
+	 * an open case and is kept regardless of age — the same principle as unread notifications.
+	 *
+	 * bn_mod_log is deliberately NOT pruned here, by anyone. ModerationLogService states the
+	 * contract: "No update or delete operations are provided — moderation logs are append-only
+	 * by design." It is the record of who actioned whom, which an appeal reviewer or a legal /
+	 * GDPR request needs, and it grows by one narrow row per moderator action.
+	 *
+	 * Runs weekly. Driven by the Privacy → retention setting (buddynext_data_retention_days,
+	 * default 365); 0 (or less) disables pruning. Batched at 1,000 with a per-run cap so a
+	 * large table never locks or times the cron out.
+	 *
+	 * @since 1.0.8
 	 *
 	 * @return void
 	 */
-	public function handle_cleanup_email_log(): void {
+	public function handle_cleanup_reports(): void {
 		$retention_days = (int) get_option( 'buddynext_data_retention_days', 365 );
 		if ( $retention_days <= 0 ) {
 			return;
@@ -383,13 +374,36 @@ class CronService {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$deleted = $wpdb->query(
 				$wpdb->prepare(
-					"DELETE FROM {$wpdb->prefix}bn_email_log WHERE sent_at < %s LIMIT 1000",
+					"DELETE FROM {$wpdb->prefix}bn_reports
+					  WHERE status IN ( 'resolved', 'dismissed' )
+					    AND created_at < %s
+					  LIMIT 1000",
 					$cutoff
 				)
 			);
 			--$max_batches;
 		} while ( $deleted > 0 && $max_batches > 0 );
 	}
+
+	// bn_notifications and bn_email_log are NOT pruned here any more.
+	//
+	// handle_cleanup_notifications() and handle_cleanup_email_log() used to live here,
+	// pruning both tables weekly on buddynext_data_retention_days. LogRetentionService
+	// prunes the SAME two tables daily on its own window — so two systems purged the
+	// same rows on different schedules under different options, and the daily 60-day
+	// sweep always reached a row before the weekly 365-day one did.
+	//
+	// The owner's visible "Data retention (days)" setting was therefore DEAD for these
+	// two tables: they could set 365, save it, and notifications still vanished at 60.
+	//
+	// LogRetentionService is the better implementation and is now the sole owner: daily
+	// rather than weekly, batched, and it keeps UNREAD notifications to a separate hard
+	// max so nothing a member has not seen is dropped on a short window. Its option is
+	// now exposed in Settings, so the control the owner sees is the control that runs.
+	//
+	// buddynext_data_retention_days SURVIVES — handle_cleanup_activity_log() and
+	// handle_cleanup_reports() above still honour it. It just no longer claims to
+	// govern the two log tables it never actually governed.
 
 	// ── Stats recount ─────────────────────────────────────────────────────────
 
@@ -594,19 +608,20 @@ class CronService {
 	 */
 	private function build_notification_list_html( array $notifications ): string {
 		$labels = array(
-			'bn.new_follower'           => 'Someone followed you',
-			'bn.connection_requested'   => 'New connection request',
-			'bn.connection_accepted'    => 'A connection was accepted',
-			'bn.mention'                => 'You were mentioned in a post',
-			'bn.post_reacted'           => 'Someone reacted to your post',
-			'bn.post_commented'         => 'New comment on your post',
-			'bn.post_shared'            => 'Your post was shared',
-			'bn.space_invite'           => 'You were invited to a space',
-			'bn.space_join_requested'   => 'A member wants to join your space',
-			'bn.space_request_approved' => 'Your space join request was approved',
-			'bn.strike_issued'          => 'A moderation action was taken on your account',
-			'bn.badge_awarded'          => 'You earned a new badge',
-			'bn.level_up'               => 'You reached a new community level',
+			'bn.new_follower'             => 'Someone followed you',
+			'bn.connection_requested'     => 'New connection request',
+			'bn.connection_accepted'      => 'A connection was accepted',
+			'bn.mention'                  => 'You were mentioned in a post',
+			'bn.post_reacted'             => 'Someone reacted to your post',
+			'bn.post_commented'           => 'New comment on your post',
+			'bn.post_shared'              => 'Your post was shared',
+			'bn.space_invite'             => 'You were invited to a space',
+			'bn.space_join_requested'     => 'A member wants to join your space',
+			'bn.space_request_approved'   => 'Your space join request was approved',
+			'bn.space_ownership_received' => 'You became the owner of a space',
+			'bn.strike_issued'            => 'A moderation action was taken on your account',
+			'bn.badge_awarded'            => 'You earned a new badge',
+			'bn.level_up'                 => 'You reached a new community level',
 		);
 
 		$items = '';

@@ -59,6 +59,17 @@ class SpaceCategoryController extends BaseRestController {
 							'type'              => 'string',
 							'sanitize_callback' => 'sanitize_hex_color',
 						),
+						// A param not declared here never reaches payload(), which is why
+						// icon_svg could only ever be set from wp-admin. The SERVICE was
+						// always ready for it (validate() runs it through wp_kses with the
+						// SVG allowlist, and hydrate() already RETURNS it) — the controller
+						// was the whole gap. No sanitize_callback: the service owns SVG
+						// sanitisation, and a REST-layer sanitizer would strip the markup
+						// before it ever got there.
+						'icon_svg'    => array(
+							'required' => false,
+							'type'     => 'string',
+						),
 						'text_color'  => array(
 							'required'          => false,
 							'type'              => 'string',
@@ -107,6 +118,17 @@ class SpaceCategoryController extends BaseRestController {
 							'required'          => false,
 							'type'              => 'string',
 							'sanitize_callback' => 'sanitize_hex_color',
+						),
+						// A param not declared here never reaches payload(), which is why
+						// icon_svg could only ever be set from wp-admin. The SERVICE was
+						// always ready for it (validate() runs it through wp_kses with the
+						// SVG allowlist, and hydrate() already RETURNS it) — the controller
+						// was the whole gap. No sanitize_callback: the service owns SVG
+						// sanitisation, and a REST-layer sanitizer would strip the markup
+						// before it ever got there.
+						'icon_svg'    => array(
+							'required' => false,
+							'type'     => 'string',
 						),
 						'text_color'  => array(
 							'required'          => false,
@@ -185,7 +207,7 @@ class SpaceCategoryController extends BaseRestController {
 		// Only override fields actually present on the request so partial
 		// updates keep their existing values.
 		$data = array();
-		foreach ( array( 'name', 'description', 'color', 'text_color', 'sort_order', 'show_in_dir' ) as $field ) {
+		foreach ( array( 'name', 'description', 'color', 'text_color', 'sort_order', 'show_in_dir', 'icon_svg' ) as $field ) {
 			if ( null !== $request->get_param( $field ) ) {
 				$data[ $field ] = $request->get_param( $field );
 			}
@@ -254,7 +276,7 @@ class SpaceCategoryController extends BaseRestController {
 			'sort_order'  => (int) $request->get_param( 'sort_order' ),
 		);
 
-		foreach ( array( 'color', 'text_color', 'show_in_dir' ) as $field ) {
+		foreach ( array( 'color', 'text_color', 'show_in_dir', 'icon_svg' ) as $field ) {
 			if ( null !== $request->get_param( $field ) ) {
 				$data[ $field ] = $request->get_param( $field );
 			}

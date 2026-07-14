@@ -33,13 +33,24 @@ The directory itself - submitting a listing, browsing the directory, editing or 
 2. Install and activate Listora alongside BuddyNext.
 3. Set up your directory in Listora as usual - the listing form, categories, and submission rules live there.
 
-There is nothing to configure on the BuddyNext side. As soon as both plugins are active, the integration is on and published listings start appearing in the feed and community search.
+As soon as both plugins are active, the integration is on and published listings start appearing in the feed and community search. There is nothing you have to fill in.
 
-This integration has no settings of its own in BuddyNext. The directory's behavior - who can list, the categories, the listing fields - is configured in Listora.
+### Display settings
+
+Listora gets a card on the **Platform > Integration Display** tab, with the same switches every integration has:
+
+| Setting | What it does | Default |
+|---|---|---|
+| Show in navigation | Whether Listora's tab appears in member navigation. | On |
+| Post to the activity feed | Whether a published listing posts a feed activity. | On |
+| Include in search | Whether published listings are found in community search. Switching it off also removes the listings already in the search index. | On |
+
+The directory's own behavior - who can list, the categories, the listing fields - is configured in Listora, not here. These switches only decide where the results show up inside your community.
 
 ## Good to know
 
 - **Listings appear and disappear with their public status.** BuddyNext keys off the listing's WordPress publish status: a listing becomes a feed and search entry when it goes public, and that entry is removed when the listing leaves public view or is deleted. There is no separate approval step to wire - public status is the signal.
+- **Turning search off clears the index.** Switching **Include in search** off does not only stop new listings being indexed - it also removes the ones already there. Nothing is deleted from Listora itself; only the community search index is cleared. Switch it back on and listings are indexed again as they are published or updated.
 - **The published link is reconstructed so removal matches.** When a listing comes down, BuddyNext rebuilds the same published URL it surfaced, so the right feed and search entry is removed cleanly with nothing left behind.
 - **Listora keeps its own notifications for now.** This integration surfaces listings in the feed and search; Listora's own notifications continue to work as they do on their own.
 - **Inert when Listora is not installed.** Without the Listora plugin, the integration does nothing - no feed activity and no search entries. BuddyNext checks for Listora before wiring anything in, so a site without it sees no errors and no empty surfaces.

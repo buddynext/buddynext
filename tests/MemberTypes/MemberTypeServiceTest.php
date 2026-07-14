@@ -36,7 +36,12 @@ class MemberTypeServiceTest extends \WP_UnitTestCase {
 	 * @return int
 	 */
 	private function make_type( string $slug, string $name = 'Test Type' ): int {
-		$id = $this->service->create( array( 'slug' => $slug, 'name' => $name ) );
+		$id = $this->service->create(
+			array(
+				'slug' => $slug,
+				'name' => $name,
+			)
+		);
 		$this->assertIsInt( $id, 'make_type() expects create() to return an int.' );
 		return $id;
 	}
@@ -256,7 +261,11 @@ class MemberTypeServiceTest extends \WP_UnitTestCase {
 		add_action(
 			'buddynext_member_type_assigned',
 			static function ( int $uid, string $new_slug, string $old_slug ) use ( &$captured ): void {
-				$captured = array( 'user_id' => $uid, 'new' => $new_slug, 'old' => $old_slug );
+				$captured = array(
+					'user_id' => $uid,
+					'new'     => $new_slug,
+					'old'     => $old_slug,
+				);
 			},
 			10,
 			3
@@ -346,7 +355,10 @@ class MemberTypeServiceTest extends \WP_UnitTestCase {
 		add_action(
 			'buddynext_member_type_removed',
 			static function ( int $uid, string $slug ) use ( &$captured ): void {
-				$captured = array( 'user_id' => $uid, 'slug' => $slug );
+				$captured = array(
+					'user_id' => $uid,
+					'slug'    => $slug,
+				);
 			},
 			10,
 			2
@@ -430,7 +442,10 @@ class MemberTypeServiceTest extends \WP_UnitTestCase {
 		add_action(
 			'buddynext_member_type_deleted',
 			static function ( int $id, string $slug ) use ( &$captured ): void {
-				$captured = array( 'id' => $id, 'slug' => $slug );
+				$captured = array(
+					'id'   => $id,
+					'slug' => $slug,
+				);
 			},
 			10,
 			2

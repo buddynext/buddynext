@@ -42,7 +42,7 @@ The table lists every hook Pro fires. Names are exact. The `consumed_by` column 
 | `buddynext_pro_bulk_action_executed` | action | A moderator runs a Pro bulk moderation operation. | `string $action, int[] $ids, int $actor_id, array $summary` | (none) |
 | `buddynext_pro_loaded` | action | End of Pro's `Plugin::init()` - the Pro equivalent of Free's `buddynext_loaded`, for binding vertical modules. | (none) | (none) |
 | `buddynext_pro_bind_services` | action | During Pro service-container binding, for registering custom service bindings. | `object $container` | (none) |
-| `buddynext_profile_field_render` | filter | A Pro advanced profile field type is rendered. | `string $html, string $type, array $field, mixed $value` | `buddynext-pro` |
+| `buddynext_profile_field_render` | filter | A Pro advanced profile field type is rendered. | `string $html, string $type, array $field, mixed $value, int $user_id` | `buddynext-pro` |
 | `buddynext_search_query_args` | filter | Pro injects advanced search filter args before the SQL is built. | `array $args, string $query, int $viewer_id` | `buddynext`, `buddynext-pro` |
 
 > **Note:** `buddynext_ability_granted` is fired with two arguments by Pro's Stripe `WebhookController` and with three (the extra `$source`) by Free's `AccessWebhookController`. Always register your callback for the lowest arg count you need (`add_action( 'buddynext_ability_granted', $cb, 10, 2 )`) so it works regardless of which producer fires.
@@ -227,10 +227,79 @@ add_action(
 );
 ```
 
+## Branding the invoice (Pro)
+
+The membership invoice (`templates/membership/invoice.php`) is a **standalone document**: it renders outside the app shell, with its own `<head>`, and loads none of the site's stylesheets. That is deliberate - it means an invoice prints the same on every theme. It also never follows dark mode, because its destination is a printer or a PDF and a dark invoice is a black page.
+
+It is branded through filters rather than through settings fields. A business needs its company name, registered address, and VAT/GST number on an invoice, and every business needs a slightly different set - growing a settings screen one field at a time to chase that is how you end up with a settings maze. So the seams are filters, and if a field turns out to be near-universal we can promote it to an option later.
+
+| Filter | Signature | What it controls |
+|---|---|---|
+| `buddynextpro_invoice_logo_url` | `string $url, array $invoice` | The mark at the top. Defaults to the Appearance logo (`buddynext_logo_url`) - the same setting the HTML emails use - and falls back to the seller name as a wordmark when no logo is set. |
+| `buddynextpro_invoice_seller` | `array $seller` | `name`, `email`, `address`. |
+| `buddynextpro_invoice_footer` | `string $html, array $invoice, array $seller` | The footer block. Accepts markup (`wp_kses_post`) - this is where VAT/GST numbers, company registration and payment terms go. |
+| `buddynextpro_invoice_palette` | `array $palette, array $invoice` | `brand`, `page`, `surface`, `text`, `muted`, `border`, `paid_bg`, `paid_text`, `on_brand` (hex) plus `font` (a CSS font stack). `brand` is seeded from `buddynext_brand_color`. |
+| `buddynextpro_invoice_title` | `string $title, array $invoice` | The document `<title>`. |
+
+A colour that does not survive `sanitize_hex_color()` falls back to its default, so a bad value degrades the invoice rather than breaking it.
+
+### Snippet: company details, registered address, and a VAT/GST number
+
+Drop this in a site plugin (or your child theme's `functions.php`).
+
+```php
+// Who the invoice is FROM.
+add_filter(
+	'buddynextpro_invoice_seller',
+	function ( array $seller ): array {
+		$seller['name']    = 'Acme Communities Ltd.';
+		$seller['email']   = 'billing@acme.example';
+		$seller['address'] = "Unit 4, 12 Example Street\nBengaluru 560001\nIndia";
+
+		return $seller;
+	}
+);
+
+// The legal footer: registration number, tax id, payment terms.
+add_filter(
+	'buddynextpro_invoice_footer',
+	function ( string $html, array $invoice, array $seller ): string {
+		unset( $html, $invoice );
+
+		return sprintf(
+			'<p><strong>%s</strong></p><p>GSTIN: 29ABCDE1234F1Z5 &middot; CIN: U72900KA2020PTC000000</p><p>Payment due on receipt. Thank you for your business.</p>',
+			esc_html( (string) $seller['name'] )
+		);
+	},
+	10,
+	3
+);
+
+// A print-specific logo (e.g. a dark mark that reads on white paper).
+add_filter(
+	'buddynextpro_invoice_logo_url',
+	fn(): string => 'https://acme.example/brand/invoice-mark.png'
+);
+```
+
+### Snippet: match the invoice to your brand
+
+```php
+add_filter(
+	'buddynextpro_invoice_palette',
+	function ( array $palette ): array {
+		$palette['brand'] = '#0f766e';                       // accent (the Print button)
+		$palette['text']  = '#111827';
+		$palette['font']  = 'Georgia, "Times New Roman", serif';
+
+		return $palette;
+	}
+);
+```
+
 ## Notes and gotchas
 
 - **Boot order.** Pro boots at `plugins_loaded:20` (Free at `:15`, bridges at `:25`). Register Pro-dependent listeners on `buddynext_pro_loaded`, not on an arbitrary `plugins_loaded` priority.
 - **REST namespaces are separate.** Pro routes live under `buddynext-pro/v1`; Free under `buddynext/v1`. The PWA manifest and service worker are served from Free's `buddynext/v1` namespace.
 - **An empty `consumed_by` is stable, not private.** Hooks like `buddynext_pro_subscription_created` and `buddynext_pro_broadcast_dispatched` have no first-party listener but are the documented contract for gamification/CRM integrations.
 - **`buddynext_ability_granted` arg count differs by producer.** Free passes three args (`$source` last), Pro passes two. Register for two to stay compatible with both.
-- **Future events.** Pro documents presence and voice-room events (`buddynext_pro_presence_online`, `buddynext_pro_voice_call_started`, `buddynext_pro_voice_call_joined`) as the contract for services that have not shipped yet. Do not rely on them firing until the corresponding Pro service exists.

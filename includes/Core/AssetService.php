@@ -600,6 +600,7 @@ class AssetService {
 		$this->i18n_members();
 		$this->i18n_spaces();
 		$this->i18n_messages();
+		$this->i18n_media();
 		$this->i18n_moderation();
 		$this->i18n_onboarding();
 		$this->i18n_notifications();
@@ -695,7 +696,25 @@ class AssetService {
 					'people'      => \BuddyNext\Core\PageRouter::people_url(),
 					'spaces'      => \BuddyNext\Core\PageRouter::spaces_url(),
 				),
+				// Scheduling speaks the SITE's timezone, not the browser's. A <input
+				// type="datetime-local"> is browser-local by nature, so the store needs the
+				// site's offset to translate both ways. Without it an author in IST picks
+				// "12:50" and the post card — which renders with wp_date() in the site zone —
+				// reports "7:20 am". Same instant, two numbers, and it reads as a bug.
+				//
+				// Seconds offset for the target instant, so DST is handled: a fixed offset
+				// would drift by an hour for any site scheduling across a DST boundary.
+				'tz'   => array(
+					'offset' => (int) ( timezone_offset_get( wp_timezone(), new \DateTime( 'now', new \DateTimeZone( 'UTC' ) ) ) ),
+					'label'  => wp_timezone()->getName(),
+				),
 				'i18n' => array(
+					// Reschedule control on the post-card edit form.
+					'scheduledFor'            => __( 'Scheduled for', 'buddynext' ),
+					/* translators: %s: the site's timezone, e.g. "Asia/Kolkata" or "+00:00". */
+					'scheduledForTz'          => __( 'Scheduled for (%s)', 'buddynext' ),
+					'scheduleInvalid'         => __( 'Pick a valid date and time.', 'buddynext' ),
+					'schedulePast'            => __( 'Pick a time in the future.', 'buddynext' ),
 					'timeJustNow'             => __( 'just now', 'buddynext' ),
 					/* translators: %d: number of minutes */
 					'timeMinutesAgo'          => __( '%dm ago', 'buddynext' ),
@@ -764,7 +783,10 @@ class AssetService {
 					'reportFailed'            => __( 'Could not submit report. Try again.', 'buddynext' ),
 					'saved'                   => __( 'Saved', 'buddynext' ),
 					'removedFromSaved'        => __( 'Removed from saved', 'buddynext' ),
+					'bookmarkAddFailed'       => __( 'Could not save this post. Try again.', 'buddynext' ),
+					'bookmarkRemoveFailed'    => __( 'Could not remove this post from saved. Try again.', 'buddynext' ),
 					'deletePostTitle'         => __( 'Delete this post?', 'buddynext' ),
+					'postDeleteFailed'        => __( 'Could not delete this post. Try again.', 'buddynext' ),
 					'postNotEditable'         => __( 'This post cannot be edited.', 'buddynext' ),
 					'editPostContent'         => __( 'Edit post content', 'buddynext' ),
 					'postContentEmpty'        => __( 'Post content cannot be empty.', 'buddynext' ),
@@ -775,6 +797,7 @@ class AssetService {
 					'postPinFailed'           => __( 'Could not pin this post. Try again.', 'buddynext' ),
 					'postUnpinFailed'         => __( 'Could not unpin this post. Try again.', 'buddynext' ),
 					'voteRecorded'            => __( 'Vote recorded', 'buddynext' ),
+					'voteFailed'              => __( 'Could not record your vote. Try again.', 'buddynext' ),
 					'announcementEnded'       => __( 'Announcement ended', 'buddynext' ),
 					'announcementEndFailed'   => __( 'Could not end the announcement. Try again.', 'buddynext' ),
 					'share'                   => __( 'Share', 'buddynext' ),
@@ -826,6 +849,8 @@ class AssetService {
 					'oneNewPost'              => __( '1 new post — refresh to view', 'buddynext' ),
 					/* translators: %d: number of new posts */
 					'manyNewPosts'            => __( '%d new posts — refresh to view', 'buddynext' ),
+					/* translators: %d: the display ceiling for the new-posts pill (e.g. "99+ new posts"). */
+					'manyNewPostsCapped'      => __( '%d+ new posts — refresh to view', 'buddynext' ),
 					'oneNewComment'           => __( '1 new comment — show', 'buddynext' ),
 					/* translators: %d: number of new comments */
 					'manyNewComments'         => __( '%d new comments — show', 'buddynext' ),
@@ -955,6 +980,10 @@ class AssetService {
 					'paywallBecomeMember'             => __( 'Become a Member', 'buddynext' ),
 					'paywallNotConfigured'            => __( 'Membership purchase is not configured yet. Please check back soon.', 'buddynext' ),
 					'couldNotJoin'                    => __( 'Could not join this space.', 'buddynext' ),
+					// requestJoin's failure branch. It suppresses the shared error
+					// toast, so without this a rejected request (a banned member, say)
+					// only flickered the button and said nothing.
+					'couldNotRequestJoin'             => __( 'Could not send your request.', 'buddynext' ),
 					'invitationAccepted'              => __( 'Invitation accepted.', 'buddynext' ),
 					'couldNotAcceptInvite'            => __( 'Could not accept the invitation.', 'buddynext' ),
 					'invitationDeclined'              => __( 'Invitation declined.', 'buddynext' ),
@@ -994,6 +1023,8 @@ class AssetService {
 					'couldNotSavePermissions'         => __( 'Could not save permissions.', 'buddynext' ),
 					'spaceArchived'                   => __( 'Space archived.', 'buddynext' ),
 					'couldNotArchive'                 => __( 'Could not archive the space. Try again.', 'buddynext' ),
+					'spaceRestored'                   => __( 'Space restored.', 'buddynext' ),
+					'couldNotRestore'                 => __( 'Could not restore the space. Try again.', 'buddynext' ),
 					'couldNotUpdateNotifPref'         => __( 'Could not update notification preference.', 'buddynext' ),
 					'notifPrefSaved'                  => __( 'Notification preference saved.', 'buddynext' ),
 					'enterUsernameOrEmail'            => __( 'Enter a username or email address.', 'buddynext' ),
@@ -1046,6 +1077,10 @@ class AssetService {
 					'composeNewMessage'         => __( 'New message', 'buddynext' ),
 					'composeHint'               => __( 'Search for a person to message.', 'buddynext' ),
 					'composeNone'               => __( 'No people found.', 'buddynext' ),
+					// Recipient search failed (403/429/500/offline). Rendered as an
+					// in-list hint inside the open dropdown, not a toast, so the
+					// picker never keeps showing the previous query's stale rows.
+					'composeError'              => __( 'Could not search right now. Try again.', 'buddynext' ),
 					'memberCountSingular'       => __( '1 member', 'buddynext' ),
 					/* translators: %d: number of members */
 					'memberCountPlural'         => __( '%d members', 'buddynext' ),
@@ -1060,6 +1095,9 @@ class AssetService {
 					'groupLeaveBody'            => __( 'You will stop receiving messages from this conversation.', 'buddynext' ),
 					'groupLeaveOk'              => __( 'Leave', 'buddynext' ),
 					'attachment'                => __( 'Attachment', 'buddynext' ),
+					// DM attachment upload failed (too large, disallowed type, quota).
+					// Fallback only — the server's own reason is preferred when present.
+					'attachmentUploadFailed'    => __( 'Could not attach that file. Try a different one.', 'buddynext' ),
 					'noPhotosShared'            => __( 'No photos shared yet.', 'buddynext' ),
 					'mediaEmpty'                => __( 'No photos to share yet.', 'buddynext' ),
 					'emojiPickerClose'          => __( 'Close emoji picker', 'buddynext' ),
@@ -1099,6 +1137,32 @@ class AssetService {
 					'unsendMsgExpired'          => __( 'The time to unsend this message has passed. You can still delete it.', 'buddynext' ),
 					'unsendMsgNotSender'        => __( 'You can only unsend your own messages.', 'buddynext' ),
 					'unsendMsgFailed'           => __( 'Could not unsend the message. Try again.', 'buddynext' ),
+					// Conversation delete failed (403/500/offline). The store keeps the
+					// confirm modal open and toasts this instead of redirecting to the
+					// inbox, which used to make a failed delete look done.
+					'deleteConversationFailed'  => __( 'Could not delete this conversation. Try again.', 'buddynext' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * Media/albums store: strings the media-tab context does not carry because
+	 * they are rendered imperatively into the detail / picker grids (error and
+	 * retry copy, reorder rollback).
+	 *
+	 * @return void
+	 */
+	private function i18n_media(): void {
+		wp_interactivity_state(
+			'buddynext/media-albums',
+			array(
+				'i18n' => array(
+					'detailFailed'   => __( 'Could not load this album.', 'buddynext' ),
+					'pickerFailed'   => __( 'Could not load your media.', 'buddynext' ),
+					'loadFailedBody' => __( 'Something went wrong. Check your connection and try again.', 'buddynext' ),
+					'retry'          => __( 'Try again', 'buddynext' ),
+					'reorderFailed'  => __( 'Could not save the new order. Your photos were put back.', 'buddynext' ),
 				),
 			)
 		);
@@ -1269,36 +1333,57 @@ class AssetService {
 			'buddynext/moderation',
 			array(
 				'i18n' => array(
-					'dismissFailed'        => __( 'Could not dismiss the report. Try again.', 'buddynext' ),
-					'removeContentTitle'   => __( 'Remove this content?', 'buddynext' ),
-					'removeContentBody'    => __( 'The reported item will be taken down from public view and the report marked resolved.', 'buddynext' ),
-					'removeLabel'          => __( 'Remove', 'buddynext' ),
-					'contentRemoved'       => __( 'Content removed.', 'buddynext' ),
-					'removeContentFailed'  => __( 'Could not remove the content. Try again.', 'buddynext' ),
-					'warningSent'          => __( 'Warning sent.', 'buddynext' ),
-					'warnUserFailed'       => __( 'Could not warn the user.', 'buddynext' ),
-					'strikeIssued'         => __( 'Strike issued.', 'buddynext' ),
-					'strikeUserFailed'     => __( 'Could not issue a strike.', 'buddynext' ),
-					'suspendUserTitle'     => __( 'Suspend this user?', 'buddynext' ),
-					'suspendUserBody'      => __( 'They will be unable to post or interact for 7 days, and their posts will be hidden.', 'buddynext' ),
-					'suspendLabel'         => __( 'Suspend', 'buddynext' ),
-					'userSuspended'        => __( 'User suspended for 7 days.', 'buddynext' ),
-					'suspendUserFailed'    => __( 'Could not suspend the user.', 'buddynext' ),
-					'appealTooShort'       => __( 'Please describe why you are appealing (at least 10 characters).', 'buddynext' ),
-					'appealSubmitted'      => __( 'Your appeal has been submitted.', 'buddynext' ),
-					'appealSubmitFailed'   => __( 'Could not submit your appeal. Try again.', 'buddynext' ),
-					'approveAppealTitle'   => __( 'Approve this appeal?', 'buddynext' ),
-					'approveAppealBody'    => __( 'The member’s suspension will be lifted and they will be notified.', 'buddynext' ),
-					'approveLabel'         => __( 'Approve', 'buddynext' ),
-					'appealApproved'       => __( 'Appeal approved — suspension lifted.', 'buddynext' ),
-					'approveAppealFailed'  => __( 'Could not approve the appeal. Try again.', 'buddynext' ),
-					'denyAppealTitle'      => __( 'Deny this appeal?', 'buddynext' ),
-					'denyAppealBody'       => __( 'The suspension stays in place. The member will be notified of the decision.', 'buddynext' ),
-					'denyLabel'            => __( 'Deny', 'buddynext' ),
-					'appealDenied'         => __( 'Appeal denied.', 'buddynext' ),
-					'denyAppealFailed'     => __( 'Could not deny the appeal. Try again.', 'buddynext' ),
-					'removeFromSpaceTitle' => __( 'Remove this member from the space?', 'buddynext' ),
-					'removeFromSpaceBody'  => __( 'They will lose access to this space immediately.', 'buddynext' ),
+					'dismissFailed'         => __( 'Could not dismiss the report. Try again.', 'buddynext' ),
+					'removeContentTitle'    => __( 'Remove this content?', 'buddynext' ),
+					'removeContentBody'     => __( 'The reported item will be taken down from public view and the report marked resolved.', 'buddynext' ),
+					'removeLabel'           => __( 'Remove', 'buddynext' ),
+					'contentRemoved'        => __( 'Content removed.', 'buddynext' ),
+					'removeContentFailed'   => __( 'Could not remove the content. Try again.', 'buddynext' ),
+					'warningSent'           => __( 'Warning sent.', 'buddynext' ),
+					'warnUserFailed'        => __( 'Could not warn the user.', 'buddynext' ),
+					'strikeIssued'          => __( 'Strike issued.', 'buddynext' ),
+					'strikeUserFailed'      => __( 'Could not issue a strike.', 'buddynext' ),
+					// Reverse strike — the counterpart to the above. The queue row's
+					// strike dots and count re-render from these after every strike or
+					// reversal, so the admin can see what they are undoing.
+					'strikeReversed'        => __( 'Strike reversed.', 'buddynext' ),
+					'reverseStrikeFailed'   => __( 'Could not reverse the strike. Try again.', 'buddynext' ),
+					'noActiveStrikes'       => __( 'This member has no active strikes.', 'buddynext' ),
+					/* translators: %d: number of active strikes. */
+					'strikeCountOne'        => __( '%d strike', 'buddynext' ),
+					/* translators: %d: number of active strikes. */
+					'strikeCountOther'      => __( '%d strikes', 'buddynext' ),
+					/* translators: %d: number of active strikes. */
+					'reverseStrikeAria'     => __( 'Reverse the most recent strike (%d active)', 'buddynext' ),
+					'suspendUserTitle'      => __( 'Suspend this user?', 'buddynext' ),
+					'suspendUserBody'       => __( 'They will be unable to post or interact for 7 days, and their posts will be hidden.', 'buddynext' ),
+					'suspendLabel'          => __( 'Suspend', 'buddynext' ),
+					'userSuspended'         => __( 'User suspended for 7 days.', 'buddynext' ),
+					'suspendUserFailed'     => __( 'Could not suspend the user.', 'buddynext' ),
+					'appealTooShort'        => __( 'Please describe why you are appealing (at least 10 characters).', 'buddynext' ),
+					'appealSubmitted'       => __( 'Your appeal has been submitted.', 'buddynext' ),
+					'appealSubmitFailed'    => __( 'Could not submit your appeal. Try again.', 'buddynext' ),
+					'approveAppealTitle'    => __( 'Approve this appeal?', 'buddynext' ),
+					'approveAppealBody'     => __( 'The member’s suspension will be lifted and they will be notified.', 'buddynext' ),
+					'approveLabel'          => __( 'Approve', 'buddynext' ),
+					'appealApproved'        => __( 'Appeal approved — suspension lifted.', 'buddynext' ),
+					'approveAppealFailed'   => __( 'Could not approve the appeal. Try again.', 'buddynext' ),
+					'denyAppealTitle'       => __( 'Deny this appeal?', 'buddynext' ),
+					'denyAppealBody'        => __( 'The suspension stays in place. The member will be notified of the decision.', 'buddynext' ),
+					'denyLabel'             => __( 'Deny', 'buddynext' ),
+					'appealDenied'          => __( 'Appeal denied.', 'buddynext' ),
+					'denyAppealFailed'      => __( 'Could not deny the appeal. Try again.', 'buddynext' ),
+					'removeFromSpaceTitle'  => __( 'Remove this member from the space?', 'buddynext' ),
+					'removeFromSpaceBody'   => __( 'They will lose access to this space immediately.', 'buddynext' ),
+					// Space moderation panel. These actions suppress the shared
+					// error toast because they own their feedback, so every
+					// outcome needs a string here or a failure (a 403, say) is
+					// silent.
+					'memberWarned'          => __( 'Warning sent.', 'buddynext' ),
+					'warnMemberFailed'      => __( 'Could not warn the member.', 'buddynext' ),
+					'removeFromSpaceFailed' => __( 'Could not remove the member from this space. Try again.', 'buddynext' ),
+					'approveRequestFailed'  => __( 'Could not approve the join request. Try again.', 'buddynext' ),
+					'declineRequestFailed'  => __( 'Could not decline the join request. Try again.', 'buddynext' ),
 				),
 			)
 		);
@@ -1328,7 +1413,7 @@ class AssetService {
 					'btnJoined'                => __( 'Joined', 'buddynext' ),
 					'btnFollow'                => __( 'Follow', 'buddynext' ),
 					'btnFollowing'             => __( 'Following', 'buddynext' ),
-					'toastCompleteLater'       => __( 'You can complete onboarding any time from settings.', 'buddynext' ),
+					'toastSkipped'             => __( 'Skipped. You can fill in your profile any time.', 'buddynext' ),
 					'toastJoinedSpace'         => __( 'Joined the space.', 'buddynext' ),
 					'toastLeftSpace'           => __( 'Left the space.', 'buddynext' ),
 					'toastSpaceUpdateFailed'   => __( 'Could not update space. Please try again.', 'buddynext' ),
@@ -1343,6 +1428,13 @@ class AssetService {
 					'toastFinishFailed'        => __( 'Could not finish onboarding. Please try again.', 'buddynext' ),
 					'toastInterestsSaveFailed' => __( 'Could not save your interests. Please try again.', 'buddynext' ),
 					'errorGeneric'             => __( 'Something went wrong. Please try again.', 'buddynext' ),
+					// Finish-step failures. The wizard used to fire the profile / handle /
+					// channel writes and forget them, so a rejected save still reached the
+					// success screen. Each failure now keeps the member on the wizard with
+					// the reason, so their data is never lost behind "You're all set".
+					'errorProfileSaveFailed'   => __( 'Your profile could not be saved. Please check your details and try again.', 'buddynext' ),
+					'errorHandleTaken'         => __( 'That username is already taken. Please choose another.', 'buddynext' ),
+					'errorChannelsSaveFailed'  => __( 'Your notification settings could not be saved. Please try again.', 'buddynext' ),
 				),
 			)
 		);
@@ -1397,6 +1489,11 @@ class AssetService {
 					'spacePrefSaveFailed'  => __( 'Could not save space preference.', 'buddynext' ),
 					'prefsSaveFailed'      => __( 'Could not save preferences.', 'buddynext' ),
 					'prefsSaved'           => __( 'Preferences saved.', 'buddynext' ),
+					// Global broadcast opt-out — Pro renders the control inside the
+					// Channels card, this store drives it (actions.setBroadcastOptOut).
+					'broadcastsOptedOut'   => __( 'You will no longer receive newsletters or announcements.', 'buddynext' ),
+					'broadcastsOptedIn'    => __( 'You will receive newsletters and announcements again.', 'buddynext' ),
+					'broadcastsFailed'     => __( 'Could not update your broadcast email preference.', 'buddynext' ),
 				),
 			)
 		);

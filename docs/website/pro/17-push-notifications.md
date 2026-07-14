@@ -1,6 +1,8 @@
 # Push Notifications
 
-Push Notifications (Pro) delivers your community's notifications to a member's browser or mobile device through Firebase Cloud Messaging, so a member sees a banner even when they are not on the site. It covers web push (desktop and mobile browsers) and native iOS and Android push from a single Firebase project.
+Push Notifications (Pro) delivers your community's notifications to a member's browser through Firebase Cloud Messaging, so a member sees a banner even when they are not on the site. This is **web push**, and it reaches desktop browsers and mobile browsers alike - including a member who has installed your community to their phone's home screen as an app (see the PWA page).
+
+> **About the native mobile app:** BuddyNext's native iOS and Android app is **planned, not yet released**. The push system on this page is built on Firebase Cloud Messaging, which is the same delivery service the app will use when it arrives, so the Firebase project you set up now will carry over and there is nothing to redo. But today there is no BuddyNext app in the App Store or Play Store, and nothing on this page requires one. Everything described here works in the browser.
 
 ![Community notifications that can be delivered as push banners](../images/notifications.webp)
 
@@ -48,7 +50,7 @@ Push settings live under the BuddyNext admin, on the Push tab (Advanced section)
 
 ### Requirements
 
-- A Firebase project. Firebase Cloud Messaging is free, and one project covers web, Android, and iOS.
+- A Firebase project. Firebase Cloud Messaging is free, and one project will cover web push today and the native app when it is released.
 
 ### Firebase setup steps
 
@@ -57,9 +59,7 @@ Push settings live under the BuddyNext admin, on the Push tab (Advanced section)
 3. In Project Settings, Service accounts, generate a new private key and download the JSON file.
 4. Paste the Project ID and the full JSON into the fields described below, then save.
 
-That is all that native app push needs. iOS delivery works automatically once you upload an APNs key inside the Firebase console - there is no separate APNs configuration in BuddyNext.
-
-To also enable push in members' browsers, fill in the Web push fields. Copy the web app values from Firebase console, Project Settings, General, under "Your apps" (the web app config), and copy the VAPID key pair from Cloud Messaging, under Web Push certificates.
+Those two fields connect your site to Firebase. **To deliver push to your members, you also need the Web push fields** - that is the part that actually reaches a browser today. Copy the web app values from Firebase console, Project Settings, General, under "Your apps" (the web app config), and copy the VAPID key pair from Cloud Messaging, under Web Push certificates.
 
 ### Settings
 
@@ -73,7 +73,7 @@ To also enable push in members' browsers, fill in the Web push fields. Copy the 
 | Web app ID | Your web app's app ID, from the same Firebase web app config. | Empty |
 | VAPID key pair (public) | The public Web Push (VAPID) key pair from Firebase Cloud Messaging, under Web Push certificates. Required for browser push. | Empty |
 
-> **Note:** The Web API key, sender ID, web app ID, and VAPID key are public values meant for the browser - they are not secrets. The service account JSON is a secret and is never sent to the browser. Leave the four web fields blank to disable browser push; native-app push still works.
+> **Note:** The Web API key, sender ID, web app ID, and VAPID key are public values meant for the browser - they are not secrets. The service account JSON is a secret and is never sent to the browser. Leaving the four web fields blank disables browser push, which today means disabling push altogether.
 
 ### The self-test
 

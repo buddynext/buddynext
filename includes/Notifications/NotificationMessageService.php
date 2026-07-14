@@ -30,6 +30,16 @@ use BuddyNext\Core\PageRouter;
 class NotificationMessageService {
 
 	/**
+	 * Object-cache group.
+	 */
+	private const CACHE_GROUP = 'buddynext_space_names';
+
+	/**
+	 * Cache lifetime, in seconds.
+	 */
+	private const CACHE_TTL = 300;
+
+	/**
 	 * Compose the full presentation payload for a single notification row.
 	 *
 	 * Accepts an associative array with keys: id, type, sender_id, object_id,
@@ -144,13 +154,6 @@ class NotificationMessageService {
 					$actor_name
 				);
 
-			case 'bn.connection_declined':
-				return sprintf(
-					/* translators: %s: actor display name. */
-					__( '%s declined your connection request.', 'buddynext' ),
-					$actor_name
-				);
-
 			case 'bn.post_reacted':
 				$emoji = isset( $data['emoji'] ) ? (string) $data['emoji'] : '';
 				if ( '' !== $emoji ) {
@@ -248,6 +251,13 @@ class NotificationMessageService {
 				return sprintf(
 					/* translators: %s: space name. */
 					__( 'Your request to join %s was approved.', 'buddynext' ),
+					$this->resolve_space_name( $object_id )
+				);
+
+			case 'bn.space_ownership_received':
+				return sprintf(
+					/* translators: %s: space name. */
+					__( 'You are now the owner of %s.', 'buddynext' ),
 					$this->resolve_space_name( $object_id )
 				);
 
@@ -534,197 +544,197 @@ class NotificationMessageService {
 		static $map = null;
 		if ( null === $map ) {
 			$map = array(
-				'bn.new_follower'           => array(
+				'bn.new_follower'             => array(
 					'icon'  => 'user-plus',
 					'tone'  => 'info',
 					'label' => __( 'New follower', 'buddynext' ),
 				),
-				'bn.follow_requested'       => array(
+				'bn.follow_requested'         => array(
 					'icon'  => 'user-plus',
 					'tone'  => 'info',
 					'label' => __( 'Follow request', 'buddynext' ),
 				),
-				'bn.connection_requested'   => array(
+				'bn.connection_requested'     => array(
 					'icon'  => 'user-check',
 					'tone'  => 'info',
 					'label' => __( 'Connection request', 'buddynext' ),
 				),
-				'bn.connection_accepted'    => array(
+				'bn.connection_accepted'      => array(
 					'icon'  => 'users',
 					'tone'  => 'success',
 					'label' => __( 'Connection accepted', 'buddynext' ),
 				),
-				'bn.connection_declined'    => array(
-					'icon'  => 'user-x',
-					'tone'  => 'info',
-					'label' => __( 'Connection declined', 'buddynext' ),
-				),
-				'bn.post_reacted'           => array(
+				'bn.post_reacted'             => array(
 					'icon'  => 'heart',
 					'tone'  => 'warn',
 					'label' => __( 'Reaction', 'buddynext' ),
 				),
-				'bn.comment_reacted'        => array(
+				'bn.comment_reacted'          => array(
 					'icon'  => 'heart',
 					'tone'  => 'warn',
 					'label' => __( 'Reaction', 'buddynext' ),
 				),
-				'bn.post_commented'         => array(
+				'bn.post_commented'           => array(
 					'icon'  => 'message-circle',
 					'tone'  => 'accent',
 					'label' => __( 'Comment', 'buddynext' ),
 				),
-				'bn.comment_reply'          => array(
+				'bn.comment_reply'            => array(
 					'icon'  => 'corner-down-right',
 					'tone'  => 'accent',
 					'label' => __( 'Reply', 'buddynext' ),
 				),
-				'bn.post_shared'            => array(
+				'bn.post_shared'              => array(
 					'icon'  => 'repeat-2',
 					'tone'  => 'info',
 					'label' => __( 'Share', 'buddynext' ),
 				),
-				'bn.mention'                => array(
+				'bn.mention'                  => array(
 					'icon'  => 'at-sign',
 					'tone'  => 'accent',
 					'label' => __( 'Mention', 'buddynext' ),
 				),
-				'bn.bookmark_milestone'     => array(
+				'bn.bookmark_milestone'       => array(
 					'icon'  => 'bookmark',
 					'tone'  => 'info',
 					'label' => __( 'Bookmark milestone', 'buddynext' ),
 				),
-				'bn.space_join'             => array(
+				'bn.space_join'               => array(
 					'icon'  => 'users',
 					'tone'  => 'info',
 					'label' => __( 'New space member', 'buddynext' ),
 				),
-				'bn.space_invite'           => array(
+				'bn.space_invite'             => array(
 					'icon'  => 'mail-plus',
 					'tone'  => 'accent',
 					'label' => __( 'Space invite', 'buddynext' ),
 				),
-				'bn.space_join_requested'   => array(
+				'bn.space_join_requested'     => array(
 					'icon'  => 'door-open',
 					'tone'  => 'accent',
 					'label' => __( 'Space join request', 'buddynext' ),
 				),
-				'bn.space_request_approved' => array(
+				'bn.space_request_approved'   => array(
 					'icon'  => 'check-circle',
 					'tone'  => 'success',
 					'label' => __( 'Space request approved', 'buddynext' ),
 				),
-				'bn.space_join_approved'    => array(
+				'bn.space_ownership_received' => array(
+					'icon'  => 'crown',
+					'tone'  => 'accent',
+					'label' => __( 'Space ownership', 'buddynext' ),
+				),
+				'bn.space_join_approved'      => array(
 					'icon'  => 'check-circle',
 					'tone'  => 'success',
 					'label' => __( 'Space request approved', 'buddynext' ),
 				),
-				'bn.space_join_declined'    => array(
+				'bn.space_join_declined'      => array(
 					'icon'  => 'x-circle',
 					'tone'  => 'info',
 					'label' => __( 'Space request declined', 'buddynext' ),
 				),
-				'bn.space_new_post'         => array(
+				'bn.space_new_post'           => array(
 					'icon'  => 'home',
 					'tone'  => 'accent',
 					'label' => __( 'New post in space', 'buddynext' ),
 				),
-				'bn.space_role_changed'     => array(
+				'bn.space_role_changed'       => array(
 					'icon'  => 'shield',
 					'tone'  => 'info',
 					'label' => __( 'Role updated', 'buddynext' ),
 				),
-				'bn.bulk_invite'            => array(
+				'bn.bulk_invite'              => array(
 					'icon'  => 'mail-plus',
 					'tone'  => 'accent',
 					'label' => __( 'Space invites', 'buddynext' ),
 				),
-				'bn.new_message'            => array(
+				'bn.new_message'              => array(
 					'icon'  => 'mail',
 					'tone'  => 'info',
 					'label' => __( 'Message', 'buddynext' ),
 				),
-				'bn.user_warned'            => array(
+				'bn.user_warned'              => array(
 					'icon'  => 'alert-triangle',
 					'tone'  => 'warn',
 					'label' => __( 'Warning', 'buddynext' ),
 				),
-				'bn.strike_warning'         => array(
+				'bn.strike_warning'           => array(
 					'icon'  => 'alert-triangle',
 					'tone'  => 'warn',
 					'label' => __( 'Strike warning', 'buddynext' ),
 				),
-				'bn.strike_issued'          => array(
+				'bn.strike_issued'            => array(
 					'icon'  => 'alert-triangle',
 					'tone'  => 'danger',
 					'label' => __( 'Strike', 'buddynext' ),
 				),
-				'bn.member_suspended'       => array(
+				'bn.member_suspended'         => array(
 					'icon'  => 'lock',
 					'tone'  => 'danger',
 					'label' => __( 'Suspension', 'buddynext' ),
 				),
-				'bn.user_unsuspended'       => array(
+				'bn.user_unsuspended'         => array(
 					'icon'  => 'unlock',
 					'tone'  => 'success',
 					'label' => __( 'Reinstated', 'buddynext' ),
 				),
-				'bn.user_shadow_banned'     => array(
+				'bn.user_shadow_banned'       => array(
 					'icon'  => 'eye-off',
 					'tone'  => 'danger',
 					'label' => __( 'Under review', 'buddynext' ),
 				),
-				'bn.appeal_submitted'       => array(
+				'bn.appeal_submitted'         => array(
 					'icon'  => 'mail',
 					'tone'  => 'info',
 					'label' => __( 'Appeal received', 'buddynext' ),
 				),
-				'bn.appeal_resolved'        => array(
+				'bn.appeal_resolved'          => array(
 					'icon'  => 'check-circle',
 					'tone'  => 'success',
 					'label' => __( 'Appeal resolved', 'buddynext' ),
 				),
-				'bn.report_resolved'        => array(
+				'bn.report_resolved'          => array(
 					'icon'  => 'shield-check',
 					'tone'  => 'success',
 					'label' => __( 'Report resolved', 'buddynext' ),
 				),
-				'bn.new_report'             => array(
+				'bn.new_report'               => array(
 					'icon'  => 'flag',
 					'tone'  => 'warning',
 					'label' => __( 'New report', 'buddynext' ),
 				),
-				'bn.badge_awarded'          => array(
+				'bn.badge_awarded'            => array(
 					'icon'  => 'award',
 					'tone'  => 'warn',
 					'label' => __( 'Badge', 'buddynext' ),
 				),
-				'bn.level_up'               => array(
+				'bn.level_up'                 => array(
 					'icon'  => 'trending-up',
 					'tone'  => 'success',
 					'label' => __( 'Level up', 'buddynext' ),
 				),
-				'bn.onboarding_nudge'       => array(
+				'bn.onboarding_nudge'         => array(
 					'icon'  => 'sparkles',
 					'tone'  => 'accent',
 					'label' => __( 'Finish onboarding', 'buddynext' ),
 				),
-				'bn.daily_digest'           => array(
+				'bn.daily_digest'             => array(
 					'icon'  => 'inbox',
 					'tone'  => 'info',
 					'label' => __( 'Daily digest', 'buddynext' ),
 				),
-				'bn.weekly_digest'          => array(
+				'bn.weekly_digest'            => array(
 					'icon'  => 'inbox',
 					'tone'  => 'info',
 					'label' => __( 'Weekly digest', 'buddynext' ),
 				),
-				'bn.media_favorited'        => array(
+				'bn.media_favorited'          => array(
 					'icon'  => 'heart',
 					'tone'  => 'warn',
 					'label' => __( 'Media favourite', 'buddynext' ),
 				),
-				'bn.test'                   => array(
+				'bn.test'                     => array(
 					'icon'  => 'bell',
 					'tone'  => 'info',
 					'label' => __( 'Test', 'buddynext' ),
@@ -816,7 +826,6 @@ class NotificationMessageService {
 			case 'bn.new_follower':
 			case 'bn.follow_requested':
 			case 'bn.connection_accepted':
-			case 'bn.connection_declined':
 				return $actor_id > 0 ? PageRouter::profile_url( $actor_id ) : '';
 
 			case 'bn.post_rejected':
@@ -869,6 +878,7 @@ class NotificationMessageService {
 			case 'bn.space_join_approved':
 			case 'bn.space_join_declined':
 			case 'bn.space_role_changed':
+			case 'bn.space_ownership_received':
 				return $object_id > 0 ? PageRouter::space_url( $object_id ) : PageRouter::spaces_url();
 
 			case 'bn.bulk_invite':
@@ -1011,7 +1021,7 @@ class NotificationMessageService {
 		}
 
 		$cache_key = "name_{$space_id}";
-		$cached    = wp_cache_get( $cache_key, 'buddynext_space_names' );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
 			return (string) $cached;
 		}
@@ -1028,7 +1038,8 @@ class NotificationMessageService {
 			$name = __( 'a space', 'buddynext' );
 		}
 
-		wp_cache_set( $cache_key, $name, 'buddynext_space_names', 300 );
+		// cache-ttl-only: a space NAME. A rename shows the old label for up to 5 minutes; wiring a bust path across the space service for that is more moving parts than the problem.
+		wp_cache_set( $cache_key, $name, self::CACHE_GROUP, self::CACHE_TTL );
 		return $name;
 	}
 

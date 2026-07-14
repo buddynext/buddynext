@@ -179,8 +179,8 @@ class SpaceMemberServiceTest extends \WP_UnitTestCase {
 	// ── invite ──────────────────────────────────────────────────────────────
 
 	public function test_invite_creates_invited_status(): void {
-		$user_id    = self::factory()->user->create();
-		$secret_id  = $this->spaces->create(
+		$user_id   = self::factory()->user->create();
+		$secret_id = $this->spaces->create(
 			$this->owner_id,
 			array(
 				'name' => 'Secret Space',
@@ -496,5 +496,43 @@ class SpaceMemberServiceTest extends \WP_UnitTestCase {
 		$role_key = "role_{$this->space_id}_{$user_id}";
 		$this->assertFalse( wp_cache_get( $role_key, 'buddynext_space_members' ) );
 		$this->assertSame( 'moderator', $this->service->get_role( $this->space_id, $user_id ) );
+	}
+
+	/**
+	 * Unbanning must clear BOTH surfaces, or it does not actually unban.
+	 *
+	 * ban() writes the bn_space_bans row AND flips the membership row to
+	 * status='banned'. unban_from_space() used to delete only the ban row, leaving
+	 * the member soft-banned: is_space_banned() kept hard-denying every space
+	 * capability and join() kept refusing them. The member stayed locked out of a
+	 * space they had supposedly been unbanned from, with nothing to explain why.
+	 */
+	public function test_unban_clears_soft_ban_and_member_can_rejoin(): void {
+		global $wpdb;
+
+		$user_id = self::factory()->user->create();
+		$this->service->join( $this->space_id, $user_id );
+
+		$this->assertTrue( $this->service->ban( $this->space_id, $this->owner_id, $user_id ) );
+		$this->assertSame( 'banned', $this->service->get_status( $this->space_id, $user_id ) );
+
+		$this->assertTrue( $this->service->unban_from_space( $this->space_id, $user_id, $this->owner_id ) );
+
+		// Hard ban gone...
+		$bans = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_bans WHERE space_id = %d AND user_id = %d",
+				$this->space_id,
+				$user_id
+			)
+		);
+		$this->assertSame( 0, $bans );
+
+		// ...and the soft ban with it.
+		$this->assertNotSame( 'banned', (string) $this->service->get_status( $this->space_id, $user_id ) );
+
+		// The whole point: they can come back.
+		$this->assertTrue( $this->service->join( $this->space_id, $user_id ) );
+		$this->assertSame( 'member', $this->service->get_role( $this->space_id, $user_id ) );
 	}
 }

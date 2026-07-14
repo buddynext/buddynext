@@ -665,6 +665,15 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
    class to fade it out. It must NOT auto-play on a fixed delay — that hid error
    toasts before they could be read. */
 .bn-toast--leaving { animation: bn-toast-out 0.25s ease forwards; }
+/* Repeat counter. An action the server keeps refusing used to emit one toast PER
+   attempt and they piled up until they filled the screen (and a screen reader read
+   the same sentence out once per copy — every toast is an assertive alert). The
+   repeat is now collapsed onto the existing toast and counted here. */
+.bn-toast__count {
+	margin-inline-start: var(--s2);
+	opacity: 0.7;
+	font-variant-numeric: tabular-nums;
+}
 .bn-toast--success { background: var(--green); color: var(--text-on-brand); }
 .bn-toast--error   { background: var(--red); color: var(--text-on-brand); }
 @keyframes bn-toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -971,19 +980,35 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	}
 	.bn-mobile-nav__item[aria-current="page"] { color: var(--brand); }
 	.bn-mobile-nav__item[aria-current="page"] svg { stroke: var(--brand); }
+	/* Centred by arithmetic, not by an offset: a fixed-width slot between two
+	   flex:1 items on each side lands on the viewport centre only while the bar
+	   has exactly 5 slots. See templates/partials/nav.php — do not add a 6th. */
 	.bn-mobile-nav__item--create {
 		background: var(--brand);
 		color: var(--text-on-brand);
-		width: 44px;
-		height: 44px;
+		width: 52px;
+		height: 52px;
 		border-radius: 50%;
-		margin-top: -12px;
-		box-shadow: 0 2px 12px rgba(0, 115, 170, 0.3);
+		/* Lift the disc clear of the bar so it reads as the primary action rather
+		   than a sixth tab, without leaving the row (no notch/overlap needed). */
+		margin-top: -16px;
+		box-shadow:
+			0 6px 16px color-mix(in srgb, var(--brand) 36%, transparent),
+			0 2px 4px color-mix(in srgb, var(--brand) 24%, transparent);
 		padding: 0;
 		flex: 0 0 auto;
 		justify-content: center;
+		transition: transform 0.15s ease, box-shadow 0.15s ease;
 	}
-	.bn-mobile-nav__item--create svg { stroke: var(--text-on-brand); }
+	.bn-mobile-nav__item--create:active {
+		transform: scale(0.94);
+		box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 30%, transparent);
+	}
+	.bn-mobile-nav__item--create svg {
+		stroke: var(--text-on-brand);
+		width: 24px;
+		height: 24px;
+	}
 	.bn-mobile-nav__item--create span { display: none; }
 	.bn-mobile-nav__badge {
 		position: absolute;
@@ -2964,20 +2989,96 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	}
 }
 
-/* ── Theme-proof interactive controls ───────────────────────────────────────
-	Host themes (Reign, etc.) style bare <button>/<a> with their own padding +
-	borders at the BASE level (Reign gives every button 10px 20px). That bleeds
-	into BuddyNext's icon buttons / card actions because a bare `.bn-composer__tool`
-	loses specificity to `.theme-wrap button`. The earlier per-component fix only
-	reset padding on :hover, so the base kept the theme's 10px 20px and the icon
-	*shrank* on hover — the "jumpy controls" glitch. The real fix is to own the
-	geometry at the BASE under .bn-app (class+context out-specifies the theme),
-	so base == hover and nothing moves. This is the single place that locks
-	control geometry; add new bare-button controls here rather than re-patching
-	each component's :hover. Colour/background and focus rings stay with the
-	components. (The host theme defines no button:hover transform, so no
-	per-state override is needed — base alone is sufficient and dup-free.) */
-.bn-app .bn-composer__tool {
+/* ══ Theme-proof interactive controls — THE single defensive layer ══════════
+	Host themes style bare <button>/<a> with their own geometry (Reign gives every
+	button 10px 20px; BuddyX paints its own fills). A bare `.bn-composer__tool`
+	(0,1,0) loses to `.theme-wrap button` (0,1,1), so the theme's padding lands on
+	our icon button and the control reflows.
+
+	HOW THIS LAYER WORKS, and the mistake it exists to prevent
+	----------------------------------------------------------
+	Two rules, and they are not optional:
+
+	1. A primitive OWNS its geometry at the BASE, under `.bn-app` (0,2,0 —
+	   class+context out-specifies the theme's element selector). Base == hover, so
+	   nothing moves. The original per-component fix reset padding on :hover ONLY,
+	   which left the theme's 10px 20px on the base and made the icon *shrink* on
+	   hover — the "jumpy controls" glitch.
+
+	2. The defense NEVER hard-codes a value for a shared primitive. It re-applies a
+	   TOKEN, and each variant sets that token on itself. This is the important one.
+	   The old lock pinned `.bn-app .bn-tab:hover` to .bn-tab's NARROW padding — and
+	   that out-specified `.bn-sd-chip`'s wider pill padding (0,3,0 beats 0,2,0), so
+	   the Spaces filter pills snapped 16px → 12px on hover and appeared to shrink
+	   and vibrate. The defense was fighting our own variant. A token cannot do that:
+	   `.bn-sd-chip { --bn-tab-px: var(--bn-s4) }` changes the value the lock itself
+	   reads, at rest AND on every state, with no specificity war and no per-variant
+	   re-lock.
+
+	   => Add a new bare-button control by giving it a token here. NEVER by writing
+	      another `:hover` patch in its component file. That is how we got here.
+
+	State coverage: every entry below locks base AND :hover/:focus/:active/
+	:focus-visible. Base alone is only sufficient while no theme sets geometry on an
+	interactive state — which is true of Reign/BuddyX/BuddyX Pro *today* (measured,
+	zero reflow) and is not a property we control. A theme that adds
+	`button:hover { padding: … }` (0,1,1) tomorrow is out-specified by the 0,3,0
+	selectors below and cannot reflow us.
+
+	Colour, background and focus rings stay with the components — this layer owns
+	GEOMETRY only.
+
+	SCOPE OF THIS LAYER — and why `.bn-btn` is deliberately NOT in it yet
+	---------------------------------------------------------------------
+	Everything locked below has ONE geometry: it has no size or shape variants, so
+	the lock cannot collide with our own CSS. That is the only safe thing to lock
+	with a literal value.
+
+	`.bn-btn` is NOT locked here, on purpose. It carries about ten geometry
+	overrides across four stylesheets — [data-size="sm"], [data-size="lg"],
+	[data-variant], the feed follow button, the comment submit, the auth social
+	button, .bn-btn-message, and a responsive @media — most of them at 0,2,0. A
+	central `.bn-app .bn-btn:hover` lock is 0,3,0 and would out-specify EVERY one of
+	them on hover: a small button would jump from `0 12px` to `8px 16px` the moment
+	the pointer touched it. That is the pill bug again, with a bigger blast radius.
+
+	Locking .bn-btn therefore requires tokenising it FIRST (base declares
+	--bn-btn-px/--bn-btn-py; each variant sets the token instead of `padding`), and
+	that is a subsystem change with its own verification. Tracked separately — do not
+	shortcut it by adding a literal lock here.
+
+	Also note `.bn-btn[data-variant]:active { transform: scale(0.98) }` — BuddyNext
+	INTENTIONALLY scales a button on press. A blanket `transform: none` on interactive
+	states would silently delete that press feedback across the whole product. Any
+	future neutraliser must opt that back in, not assume "no transform" is safe.
+
+	Fixed-geometry controls: no size/shape variants exist, so a literal lock is safe
+   and cannot fight our own CSS. Base AND every interactive state, so a theme rule on
+   :hover (0,1,1) cannot out-specify us (0,3,0) and reflow the control. */
+.bn-app .bn-modal__close,
+.bn-app .bn-modal__close:hover,
+.bn-app .bn-modal__close:focus,
+.bn-app .bn-modal__close:active,
+.bn-app .bn-modal__close:focus-visible {
+	padding: 0;
+	margin: 0;
+	border: 0;
+}
+
+.bn-app .bn-nav-metric,
+.bn-app .bn-nav-metric:hover,
+.bn-app .bn-nav-metric:focus,
+.bn-app .bn-nav-metric:active,
+.bn-app .bn-nav-metric:focus-visible {
+	padding: 0;
+	margin: 0;
+	border: 0;
+}
+.bn-app .bn-composer__tool,
+.bn-app .bn-composer__tool:hover,
+.bn-app .bn-composer__tool:focus,
+.bn-app .bn-composer__tool:active,
+.bn-app .bn-composer__tool:focus-visible {
 	box-sizing: border-box;
 	width: 32px;
 	height: 32px;
@@ -2987,7 +3088,11 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	margin: 0;
 	border: 0;
 }
-.bn-app .bn-post-card__action-btn {
+.bn-app .bn-post-card__action-btn,
+.bn-app .bn-post-card__action-btn:hover,
+.bn-app .bn-post-card__action-btn:focus,
+.bn-app .bn-post-card__action-btn:active,
+.bn-app .bn-post-card__action-btn:focus-visible {
 	padding: 6px 14px;
 	margin: 0;
 	border: 0;
@@ -3269,6 +3374,14 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	align-items: center;
 	justify-content: center;
 }
+/* The mobile bar's Create slot is centred by arithmetic, so it cannot be dragged. It keeps a
+   handle-shaped placeholder — removing it would misalign the row against its siblings — but it
+   reads as fixed, not as a grab target that silently refuses to move. */
+.bn-drag-row__handle--pinned {
+	cursor: default;
+	opacity: 0.35;
+}
+
 .bn-drag-row__handle::before,
 .bn-drag-row__handle::after,
 .bn-drag-row__handle span {
@@ -3405,19 +3518,28 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	flex-shrink: 0;
 	border: 1px solid var(--bn-line);
 }
+/* Match both the reactive class form (data-wp-class--is-active, used by the
+   onboarding stepper) and the attribute form (data-state) so either highlights
+   the current step. Previously the CSS keyed only on [data-state], while the
+   onboarding stepper applies .is-active / .is-done classes, so the current step
+   was never highlighted. */
+.bn-stepper__item.is-active .bn-stepper__dot,
 .bn-stepper__item[data-state="active"] .bn-stepper__dot {
 	background: var(--bn-accent);
 	color: var(--bn-accent-fg);
 	border-color: transparent;
 }
+.bn-stepper__item.is-active,
 .bn-stepper__item[data-state="active"] {
 	color: var(--bn-ink);
 }
+.bn-stepper__item.is-done .bn-stepper__dot,
 .bn-stepper__item[data-state="done"] .bn-stepper__dot {
 	background: var(--bn-success);
 	color: var(--bn-accent-fg);
 	border-color: transparent;
 }
+.bn-stepper__item.is-done,
 .bn-stepper__item[data-state="done"] {
 	color: var(--bn-ink-2);
 }

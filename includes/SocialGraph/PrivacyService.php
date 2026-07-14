@@ -173,17 +173,32 @@ class PrivacyService {
 		$preference = $this->get_preference( $target_id, 'who_can_connect' );
 
 		if ( 'everyone' === $preference ) {
-			return true;
-		}
-
-		if ( 'followers' === $preference ) {
+			$can = true;
+		} elseif ( 'followers' === $preference ) {
 			// "followers" means: only people who follow the target may connect, so
 			// the actor must already follow the target. is_following($follower,
 			// $following) is true when arg1 follows arg2 → ($actor_id, $target_id).
-			return $this->follows->is_following( $actor_id, $target_id );
+			$can = $this->follows->is_following( $actor_id, $target_id );
+		} else {
+			$can = false;
 		}
 
-		return false;
+		/**
+		 * Filter whether an actor may send a connection request to a target.
+		 *
+		 * Default is the target's who_can_connect preference. Mirrors the
+		 * `buddynext_can_follow` seam fired by can_follow() so both halves of the
+		 * social graph can be gated the same way — Pro hooks this to enforce the
+		 * `social.follow_connect` plan entitlement. Free ships no plans, so
+		 * standalone behaviour is the unfiltered preference.
+		 *
+		 * @since 1.0.8
+		 *
+		 * @param bool $can       Whether the connection request is allowed by default.
+		 * @param int  $target_id The user receiving the request.
+		 * @param int  $actor_id  The user attempting to connect.
+		 */
+		return (bool) apply_filters( 'buddynext_can_connect', $can, $target_id, $actor_id );
 	}
 
 	/**

@@ -23,32 +23,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-if ( ! function_exists( 'bn_space_category_icon' ) ) {
-	/**
-	 * Return inline SVG for a space category slug.
-	 *
-	 * @param string|null $cat_slug Category slug.
-	 * @return string SVG markup.
-	 */
-	function bn_space_category_icon( ?string $cat_slug ): string {
-		$map  = array(
-			'technology'  => 'cpu',
-			'design'      => 'image',
-			'marketing'   => 'megaphone',
-			'startups'    => 'rocket',
-			'ai-ml'       => 'cpu',
-			'data'        => 'bar-chart',
-			'product'     => 'target',
-			'writing'     => 'edit',
-			'open-source' => 'globe',
-			'business'    => 'briefcase',
-			'creative'    => 'star',
-		);
-		$slug = $map[ (string) $cat_slug ] ?? 'home';
-		return buddynext_get_icon( $slug );
-	}
-}
-
 // ── Resolve space ─────────────────────────────────────────────────────────────
 
 $space_id = isset( $space_id ) ? absint( $space_id ) : 0;
@@ -71,6 +45,22 @@ if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/manage-settings',
 	);
 	return;
 }
+
+// This screen admits a MODERATOR. It does not follow that a moderator may change
+// everything on it — moderation settings are their job (who can post, who can
+// invite, join approval, banned words, the notification default); identity, reach
+// and structure are the owner's (name, description, type, rules, category, the
+// integrations, and who is auto-joined at signup).
+//
+// Every write below goes through SpaceFieldRegistry, which decides per FIELD via
+// can_write() — the same authority the REST route uses. Until this existed the two
+// disagreed: SpaceService::update() enforced owner-only while the update_space_meta()
+// calls on this very screen enforced nothing, so a moderator could not rename a space
+// but COULD rewrite who was allowed to post in it. That was not a policy, it was an
+// accident of which code path each field happened to take.
+$bn_field_registry = \BuddyNext\Spaces\SpaceFieldRegistry::instance();
+$bn_actor_id       = get_current_user_id();
+$bn_is_space_owner = buddynext_can( $bn_actor_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) );
 
 // Services own every read/write below; the template holds no SQL. The
 // settings parts expect `$space` as an object carrying the joined
@@ -124,6 +114,10 @@ $settings_tab = isset( $_GET['bn_stab'] ) ? sanitize_key( wp_unslash( $_GET['bn_
 
 $save_notice = '';
 
+// Specific failure text, when a handler has one worth showing (an ownership
+// transfer refused by the primitive, say). Empty = show the generic message.
+$bn_save_error_message = '';
+
 // sanitize_key() lowercases, so uppercase the result before comparing against
 // 'POST' — otherwise every POST handler below is skipped and saves are dropped.
 $request_method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : '';
@@ -149,6 +143,13 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		if ( isset( $_POST['space_category_id'] ) ) {
 			$update_data['category_id'] = absint( $_POST['space_category_id'] );
 		}
+		// Move under a new parent, or detach to the top level (0). SpaceService::update()
+		// does the real work — depth, cycles, the per-parent cap and manage permission on
+		// the TARGET — and it is owner-gated, so a moderator is rejected there. All of
+		// that already existed and was reachable only over REST; this is the control.
+		if ( isset( $_POST['space_parent_id'] ) ) {
+			$update_data['parent_id'] = absint( $_POST['space_parent_id'] );
+		}
 		if ( isset( $_POST['space_type'] ) && \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_valid( sanitize_key( (string) wp_unslash( $_POST['space_type'] ) ) ) ) {
 			$update_data['type'] = sanitize_key( wp_unslash( $_POST['space_type'] ) );
 		}
@@ -159,59 +160,133 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		// each option to the sub-tab that actually owns and renders it.
 		$bn_subtab = isset( $_POST['bn_settings_subtab'] ) ? sanitize_key( wp_unslash( $_POST['bn_settings_subtab'] ) ) : 'general';
 
+		// The Integrations panel is OWNER-only, and deliberately so. It decides
+		// whether the space has a discussion at all, whether its media tab exists,
+		// and — via push_to_feed — whether the space's content reaches the public
+		// feed. That last one is a privacy control: it is exactly what a private or
+		// secret space relies on to keep its content in. None of that is moderation;
+		// it is the shape and the reach of the space. A moderator gets no write here.
+		//
+		// The panel renders read-only for a moderator (see the integrations panel), so
+		// this is the crafted-POST backstop, not the primary UX.
+		// Did this request actually write anything? The Integrations panel posts none of
+		// the general fields, so $update_data is ALWAYS empty on that sub-tab — and the
+		// old blanket `else { success }` below therefore reported "Changes saved
+		// successfully" for every Integrations save, including the ones that wrote
+		// nothing at all. A form that reports success on failure is worse than one that
+		// errors: the owner walks away believing a privacy control is set.
+		$bn_wrote_something = false;
+
 		if ( 'integrations' === $bn_subtab ) {
-			update_space_meta( $space_id, 'push_to_feed', isset( $_POST['push_to_feed'] ) ? '1' : '0' );
-			update_space_meta( $space_id, 'mvs_media_tab', isset( $_POST['mvs_media_tab'] ) ? '1' : '0' );
+			if ( ! $bn_is_space_owner ) {
+				// The panel renders read-only for a moderator, so reaching here means a
+				// crafted POST or a stale form. Either way nothing is written — say so,
+				// rather than congratulate them on a save that did not happen.
+				$save_notice           = 'error';
+				$bn_save_error_message = __( 'Only the space owner can change these integrations.', 'buddynext' );
+			} else {
+				$bn_integration_values = array(
+					'push_to_feed' => isset( $_POST['push_to_feed'] ) ? '1' : '0',
+				);
 
-			// Discussion (powered by Jetonomy) is opt-in per Space and never
-			// mandatory. Each Space owns exactly ONE dedicated discussion for its
-			// lifetime: it is created (or linked) the first time the owner turns it
-			// on, and after that the toggle only shows/hides it — the discussion and
-			// its content are never discarded or duplicated.
-			// - first enable : create a new dedicated discussion, OR (initial
-			// setup only) link one the caller is allowed to.
-			// - later on/off : just flip the enabled flag; same discussion.
-			if ( class_exists( 'Jetonomy\\Jetonomy' ) ) {
-				$bn_disc_bridge  = new \BuddyNext\Bridges\JetonomyBridge();
-				$bn_disc_on      = isset( $_POST['bn_discussion_enabled'] );
-				$bn_disc_link_id = isset( $_POST['bn_discussion_link_id'] ) ? absint( wp_unslash( $_POST['bn_discussion_link_id'] ) ) : 0;
+				// Only write the media toggle when its checkbox was actually rendered.
+				// The control only renders while WPMediaVerse is active, so an
+				// unconditional write silently zeroed the owner's setting whenever they
+				// saved this tab with the plugin deactivated (e.g. mid-update) — and the
+				// Media tab then stayed gone after reactivation, with nothing to explain
+				// why. Same guard the Discussion block below already uses.
+				if ( \BuddyNext\Media\MediaClient::available() ) {
+					$bn_integration_values['mvs_media_tab'] = isset( $_POST['mvs_media_tab'] ) ? '1' : '0';
+				}
 
-				if ( $bn_disc_on ) {
-					// Establish the dedicated discussion once, if it has none yet.
-					if ( ! $bn_disc_bridge->space_has_discussion( $space_id ) ) {
-						// Initial-setup link is role-aware: a SITE ADMIN may adopt any
-						// existing discussion; a space owner may only adopt one THEY
-						// authored. Re-validated here so a crafted POST cannot widen it.
-						$bn_disc_owner    = (int) ( $space->owner_id ?? 0 );
-						$bn_disc_is_admin = current_user_can( 'manage_options' );
-						$bn_disc_may_link = $bn_disc_link_id > 0 && (
-							$bn_disc_is_admin
-								? $bn_disc_bridge->discussion_exists( $bn_disc_link_id )
-								: $bn_disc_bridge->discussion_owned_by( $bn_disc_link_id, $bn_disc_owner )
-						);
-						if ( $bn_disc_may_link ) {
-							update_space_meta( $space_id, 'jetonomy_forum_id', $bn_disc_link_id );
-						} else {
-							$bn_disc_bridge->provision_space_forum( $space_id );
-						}
-					}
-					$bn_disc_bridge->set_discussion_enabled( $space_id, true );
+				// Report what the registry actually did. Discarding this result is how a
+				// rejected write — can_write(), or a value a sanitiser refused — still
+				// rendered "Saved". The permissions panel below already reads it; this
+				// one threw it away.
+				$bn_int_result = $bn_field_registry->save_for_space( $space_id, $bn_integration_values, $bn_actor_id );
+
+				if ( empty( $bn_int_result['errors'] ) ) {
+					$bn_wrote_something = true;
 				} else {
-					$bn_disc_bridge->set_discussion_enabled( $space_id, false );
+					$save_notice           = 'error';
+					$bn_save_error_message = (string) reset( $bn_int_result['errors'] );
+				}
+
+				// Discussion (powered by Jetonomy) is opt-in per Space and never
+				// mandatory. Each Space owns exactly ONE dedicated discussion for its
+				// lifetime: it is created (or linked) the first time the owner turns it
+				// on, and after that the toggle only shows/hides it — the discussion and
+				// its content are never discarded or duplicated.
+				// - first enable : create a new dedicated discussion, OR (initial
+				// setup only) link one the caller is allowed to.
+				// - later on/off : just flip the enabled flag; same discussion.
+				if ( class_exists( 'Jetonomy\\Jetonomy' ) && 'error' !== $save_notice ) {
+					$bn_disc_bridge  = new \BuddyNext\Bridges\JetonomyBridge();
+					$bn_disc_on      = isset( $_POST['bn_discussion_enabled'] );
+					$bn_disc_link_id = isset( $_POST['bn_discussion_link_id'] ) ? absint( wp_unslash( $_POST['bn_discussion_link_id'] ) ) : 0;
+
+					if ( $bn_disc_on ) {
+						// Establish the dedicated discussion once, if it has none yet.
+						if ( ! $bn_disc_bridge->space_has_discussion( $space_id ) ) {
+							// Initial-setup link is role-aware: a SITE ADMIN may adopt any
+							// existing discussion; a space owner may only adopt one THEY
+							// authored. Re-validated here so a crafted POST cannot widen it.
+							$bn_disc_owner    = (int) ( $space->owner_id ?? 0 );
+							$bn_disc_is_admin = current_user_can( 'manage_options' );
+							$bn_disc_may_link = $bn_disc_link_id > 0 && (
+								$bn_disc_is_admin
+									? $bn_disc_bridge->discussion_exists( $bn_disc_link_id )
+									: $bn_disc_bridge->discussion_owned_by( $bn_disc_link_id, $bn_disc_owner )
+							);
+							if ( $bn_disc_may_link ) {
+								update_space_meta( $space_id, 'jetonomy_forum_id', $bn_disc_link_id );
+							} elseif ( $bn_disc_bridge->provision_space_forum( $space_id ) <= 0 ) {
+								// Provisioning failed. Leaving the toggle on would give
+								// every member a Discussion tab with no discussion behind
+								// it — so refuse to enable, and say why.
+								$save_notice           = 'error';
+								$bn_save_error_message = __( 'The discussion could not be created, so it was not enabled. Your other changes were saved.', 'buddynext' );
+							}
+						}
+
+						if ( 'error' !== $save_notice ) {
+							$bn_disc_bridge->set_discussion_enabled( $space_id, true );
+						}
+					} else {
+						$bn_disc_bridge->set_discussion_enabled( $space_id, false );
+					}
 				}
 			}
 		}
 
-		if ( ! empty( $update_data ) ) {
-			// Route through the service: validation, cache invalidation and the
-			// buddynext_space_updated hook all run here (the raw $wpdb->update
-			// path skipped every one of them).
-			$bn_space_service->update( $space_id, get_current_user_id(), $update_data );
+		if ( 'error' !== $save_notice ) {
+			if ( ! empty( $update_data ) ) {
+				// Route through the service: validation, cache invalidation and the
+				// buddynext_space_updated hook all run here (the raw $wpdb->update
+				// path skipped every one of them).
+				//
+				// Report what ACTUALLY happened. This screen is reachable by a
+				// moderator (cap `buddynext-spaces/manage-settings`), but update()
+				// requires `buddynext-manage-space` (owner-only) — so a moderator was
+				// rejected by the service and still shown "Saved", with their edit
+				// silently discarded.
+				$bn_update_result = $bn_space_service->update( $space_id, get_current_user_id(), $update_data );
+
+				if ( is_wp_error( $bn_update_result ) ) {
+					$save_notice           = 'error';
+					$bn_save_error_message = $bn_update_result->get_error_message();
+				} else {
+					$save_notice = 'success';
+				}
+			} elseif ( $bn_wrote_something ) {
+				$save_notice = 'success';
+			}
+
+			// Nothing posted and nothing written: stay silent rather than claim a save.
 		}
 
 		// Re-fetch fresh space data through the service (cache busted above).
-		$space       = $bn_load_space( $space_id );
-		$save_notice = 'success';
+		$space = $bn_load_space( $space_id );
 	}
 }
 
@@ -221,62 +296,54 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_permissions_nonce'] )
 	if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_space_permissions_nonce'] ) ), 'bn_space_permissions_' . $space_id ) ) {
 		$save_notice = 'error';
 	} else {
-		update_space_meta( $space_id, 'require_join_approval', isset( $_POST['require_join_approval'] ) ? '1' : '0' );
-		$bn_who_post = isset( $_POST['who_can_post'] ) ? sanitize_key( wp_unslash( $_POST['who_can_post'] ) ) : 'members';
-		if ( ! in_array( $bn_who_post, array( 'members', 'mods', 'owner' ), true ) ) {
-			$bn_who_post = 'members';
+		// Moderation thresholds — a moderator's job, so they are in this set for
+		// everyone who can reach this screen. The registry sanitises each value
+		// against its registered type, so the hand-rolled allow-lists that used to
+		// live here (and silently coerced a bad value to a default) are gone.
+		$bn_perm_values = array(
+			'require_join_approval' => isset( $_POST['require_join_approval'] ) ? '1' : '0',
+			'who_can_post'          => isset( $_POST['who_can_post'] ) ? sanitize_key( wp_unslash( $_POST['who_can_post'] ) ) : 'members',
+			'who_can_invite'        => isset( $_POST['who_can_invite'] ) ? sanitize_key( wp_unslash( $_POST['who_can_invite'] ) ) : 'mods',
+		);
+
+		// Auto-join is OWNER-only: it decides who is pulled into this space
+		// automatically at signup, which is reach across the whole site's membership,
+		// not moderation of the people already here. A moderator must not be able to
+		// auto-enrol every new member of the site into the space they moderate.
+		//
+		// Added to the payload ONLY for an owner — so a moderator's save simply omits
+		// these keys and leaves them untouched. The old code wrote them
+		// unconditionally, so a moderator saving this panel silently ZEROED the
+		// owner's auto-join settings; can_write() rejects a forged POST regardless.
+		if ( $bn_is_space_owner ) {
+			$bn_perm_values['auto_join_on_signup'] = isset( $_POST['auto_join_on_signup'] ) ? '1' : '0';
+
+			// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized by the field engine (member_type_multiselect), which also drops any slug that is not a live member type.
+			$bn_perm_values['auto_join_member_types'] = isset( $_POST['auto_join_member_types'] )
+				? (array) wp_unslash( $_POST['auto_join_member_types'] )
+				: array();
+			// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		}
-		update_space_meta( $space_id, 'who_can_post', $bn_who_post );
 
-		$bn_who_invite = isset( $_POST['who_can_invite'] ) ? sanitize_key( wp_unslash( $_POST['who_can_invite'] ) ) : 'mods';
-		if ( ! in_array( $bn_who_invite, array( 'members', 'mods', 'owner' ), true ) ) {
-			$bn_who_invite = 'mods';
-		}
-		update_space_meta( $space_id, 'who_can_invite', $bn_who_invite );
+		$bn_perm_result = $bn_field_registry->save_for_space( $space_id, $bn_perm_values, $bn_actor_id );
 
-		// Auto-join: master toggle + member-type filter (validated against the live
-		// member-type slugs; the filter is only meaningful when the toggle is on).
-		update_space_meta( $space_id, 'auto_join_on_signup', isset( $_POST['auto_join_on_signup'] ) ? '1' : '0' );
-		$bn_valid_type_slugs = array();
-		foreach ( buddynext_service( 'member_types' )->get_all() as $bn_mt ) {
-			if ( isset( $bn_mt['slug'] ) ) {
-				$bn_valid_type_slugs[] = (string) $bn_mt['slug'];
-			}
-		}
-		// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- each element sanitized via sanitize_key below, then intersected with the valid slug set.
-		$bn_aj_raw = isset( $_POST['auto_join_member_types'] ) ? (array) wp_unslash( $_POST['auto_join_member_types'] ) : array();
-		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-		$bn_aj_types = array_values( array_intersect( array_map( 'sanitize_key', $bn_aj_raw ), $bn_valid_type_slugs ) );
-		update_space_meta( $space_id, 'auto_join_member_types', implode( ',', $bn_aj_types ) );
-
-		$save_notice = 'success';
-	}
-}
-
-// ── Handle transfer-ownership POST ───────────────────────────────────────────
-
-if ( 'POST' === $request_method && isset( $_POST['bn_space_transfer_nonce'] ) ) {
-	if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_space_transfer_nonce'] ) ), 'bn_space_transfer_' . $space_id ) ) {
-		$save_notice = 'error';
-	} else {
-		$bn_new_owner = absint( $_POST['new_owner_id'] ?? 0 );
-		if ( $bn_new_owner > 0 && $bn_new_owner !== (int) $space->owner_id ) {
-			$bn_xfer_service = new \BuddyNext\Spaces\SpaceMemberService();
-			if ( $bn_xfer_service->is_member( $space_id, $bn_new_owner ) ) {
-				// Single service call: it demotes the current owner, promotes the
-				// new owner (both via change_role), updates bn_spaces.owner_id,
-				// busts the cache and fires buddynext_space_ownership_transferred.
-				$bn_space_service->transfer_ownership( $space_id, $bn_new_owner, get_current_user_id() );
-				$save_notice = 'success';
-				$space       = $bn_load_space( $space_id );
-			} else {
-				$save_notice = 'error';
-			}
+		if ( empty( $bn_perm_result['errors'] ) ) {
+			$save_notice = 'success';
 		} else {
-			$save_notice = 'error';
+			$save_notice           = 'error';
+			$bn_save_error_message = (string) reset( $bn_perm_result['errors'] );
 		}
 	}
 }
+
+// Ownership transfer is a REST action, not a form POST. The modal in
+// templates/parts/space-settings-panel-danger.php has no <form> and no nonce field —
+// its button calls actions.transferOwnership, which PUTs to the REST route (see
+// assets/js/spaces/store.js). The form handler that used to live here read a
+// `bn_space_transfer_nonce` that nothing on any surface emitted, so it could never
+// run; its error branches were the only "transfer failed" UX in this file and never
+// fired once. Removed rather than left as a second, unreachable door onto
+// SpaceService::assign_owner().
 
 // ── Handle moderation settings POST ─────────────────────────────────────────
 
@@ -285,9 +352,19 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_moderation_nonce'] ) 
 		$save_notice = 'error';
 	} else {
 		// No post pre-approval: members post freely, moderation is reactive.
-		$raw_banned_words = isset( $_POST['banned_words'] ) ? sanitize_textarea_field( wp_unslash( $_POST['banned_words'] ) ) : '';
-		update_space_meta( $space_id, 'banned_words', $raw_banned_words );
-		$save_notice = 'success';
+		// Banned words are moderator-writable — this is the moderator's core job.
+		$bn_mod_result = $bn_field_registry->save_for_space(
+			$space_id,
+			array( 'banned_words' => isset( $_POST['banned_words'] ) ? sanitize_textarea_field( wp_unslash( $_POST['banned_words'] ) ) : '' ),
+			$bn_actor_id
+		);
+
+		if ( empty( $bn_mod_result['errors'] ) ) {
+			$save_notice = 'success';
+		} else {
+			$save_notice           = 'error';
+			$bn_save_error_message = (string) reset( $bn_mod_result['errors'] );
+		}
 	}
 }
 
@@ -297,15 +374,26 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_notifications_nonce']
 	if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_space_notifications_nonce'] ) ), 'bn_space_notifications_' . $space_id ) ) {
 		$save_notice = 'error';
 	} else {
-		$allowed_prefs = array( 'all', 'mentions_only', 'none' );
-		$pref_value    = isset( $_POST['default_notification_pref'] )
-			? sanitize_key( wp_unslash( $_POST['default_notification_pref'] ) )
-			: 'all';
-		if ( ! in_array( $pref_value, $allowed_prefs, true ) ) {
-			$pref_value = 'all';
+		// The default notification pref is moderator-writable: it shapes how noisy the
+		// space is for its members, which is the moderator's remit, and it takes
+		// nothing away from anyone (each member can still override it for themselves).
+		// The registry validates it against the field's registered options.
+		$bn_notif_result = $bn_field_registry->save_for_space(
+			$space_id,
+			array(
+				'default_notification_pref' => isset( $_POST['default_notification_pref'] )
+					? sanitize_key( wp_unslash( $_POST['default_notification_pref'] ) )
+					: 'all',
+			),
+			$bn_actor_id
+		);
+
+		if ( empty( $bn_notif_result['errors'] ) ) {
+			$save_notice = 'success';
+		} else {
+			$save_notice           = 'error';
+			$bn_save_error_message = (string) reset( $bn_notif_result['errors'] );
 		}
-		update_space_meta( $space_id, 'default_notification_pref', $pref_value );
-		$save_notice = 'success';
 	}
 }
 
@@ -424,6 +512,11 @@ $builtin_tabs = array(
 		'icon'  => 'info',
 	),
 	array(
+		'slug'  => 'privacy',
+		'label' => __( 'Privacy', 'buddynext' ),
+		'icon'  => 'eye',
+	),
+	array(
 		'slug'  => 'permissions',
 		'label' => __( 'Permissions', 'buddynext' ),
 		'icon'  => 'lock',
@@ -511,18 +604,17 @@ foreach ( $builtin_tabs as $bn_t ) {
 	data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
 	data-wp-context='
 	<?php
+	// The savebar and the danger modals are driven by GLOBAL store state
+	// (savebarPhase, modalTransferOpen, modalArchiveOpen — see assets/js/spaces/store.js),
+	// not by context. This context used to also ship `savebarState`, `modalTransfer`,
+	// `modalDelete`, `modalArchive` and `restUrl`; the store reads none of them, and
+	// `modalDelete` never had a counterpart at all. They were emitted on every render and
+	// consumed by nothing, while the comments here described bindings that did not exist —
+	// which is worse than no comment, because the next person trusts them.
 	echo esc_attr(
 		wp_json_encode(
 			array(
-				'restNonce'     => wp_create_nonce( 'wp_rest' ),
-				'restUrl'       => rest_url( 'buddynext/v1' ),
-				// Reactive savebar + danger-modal state (single source). The
-				// savebar binds its hidden states off `savebarState`; each
-				// danger modal binds its `hidden` off its own boolean flag.
-				'savebarState'  => 'idle',
-				'modalTransfer' => false,
-				'modalDelete'   => false,
-				'modalArchive'  => false,
+				'restNonce' => wp_create_nonce( 'wp_rest' ),
 			)
 		)
 	);
@@ -547,7 +639,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 				<?php if ( ! empty( $space->avatar_url ) ) : ?>
 					<img src="<?php echo esc_url( $space->avatar_url ); ?>" alt="">
 				<?php else : ?>
-					<?php echo wp_kses( bn_space_category_icon( $space->category_slug ?? '' ), \BuddyNext\Core\IconService::allowed_tags() ); ?>
+					<?php echo bn_space_category_icon( $space->category_slug ?? '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService::space_category_icon() returns wp_kses()-sanitized SVG. Re-running wp_kses() with the narrower allowed_tags() here would strip a stored icon's <g> wrapper. ?>
 				<?php endif; ?>
 			</div>
 
@@ -598,7 +690,13 @@ foreach ( $builtin_tabs as $bn_t ) {
 		<?php elseif ( 'error' === $save_notice ) : ?>
 			<div class="bn-card bn-space-settings__notice" data-tone="danger" role="alert">
 				<span class="bn-space-settings__notice-icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
-				<?php esc_html_e( 'Could not save your changes. Please check the form and try again.', 'buddynext' ); ?>
+				<?php
+				if ( '' !== $bn_save_error_message ) {
+					echo esc_html( $bn_save_error_message );
+				} else {
+					esc_html_e( 'Could not save your changes. Please check the form and try again.', 'buddynext' );
+				}
+				?>
 			</div>
 		<?php endif; ?>
 
@@ -612,7 +710,31 @@ foreach ( $builtin_tabs as $bn_t ) {
 				'parts/space-settings-panel-general.php',
 				array(
 					'space'            => $space,
-					'settings_general' => array( 'categories' => $categories ),
+					// A moderator can open this panel but cannot save it — the identity
+					// fields are owner-only at the service layer. Without this flag the
+					// panel rendered them fully editable, so a moderator could retype the
+					// space name, hit Save, and collect "You do not have permission to
+					// update this space." The Integrations panel already took this flag
+					// and disabled its controls; General simply never got it.
+					'is_space_owner'   => $bn_is_space_owner,
+					'settings_general' => array(
+						'categories'       => $categories,
+						// The parent picker. eligible_parents() mirrors the service's own
+						// validation, so the control can never offer a move that the save
+						// would reject. Empty is meaningful — the panel explains why
+						// (children of its own, or no other root the actor manages).
+						'eligible_parents' => $bn_space_service->eligible_parents( $space_id, $bn_actor_id ),
+						'has_subspaces'    => $bn_space_service->count_subspaces( $space_id ) > 0,
+						'sub_spaces_on'    => '0' !== (string) get_option( 'buddynext_space_allow_sub', '1' ),
+						// The CURRENT parent, passed separately and always — it is not
+						// necessarily an "eligible parent". A space can sit under a parent
+						// the actor does not manage (someone else's root), and that parent
+						// is correctly absent from the move candidates. Without this the
+						// select would not contain the current value, would fall back to
+						// the first option ("Top level"), and an owner who saved the General
+						// tab for an unrelated reason would SILENTLY DETACH their space.
+						'current_parent'   => $bn_space_service->parent_summary( (int) ( $space->parent_id ?? 0 ), $bn_actor_id ),
+					),
 				),
 			),
 			'privacy'       => array(
@@ -632,6 +754,10 @@ foreach ( $builtin_tabs as $bn_t ) {
 						'discussion_status' => $bn_discussion_status,
 					),
 					'mvs_media_tab'         => $mvs_media_tab,
+					// Owner-only panel. Passed so it can render read-only for a
+					// moderator rather than show controls that would not save — a
+					// control that silently does nothing is worse than no control.
+					'is_space_owner'        => $bn_is_space_owner,
 				),
 			),
 			'permissions'   => array(
@@ -647,6 +773,10 @@ foreach ( $builtin_tabs as $bn_t ) {
 						'auto_join_on_signup'    => $auto_join_on_signup,
 						'auto_join_member_types' => $auto_join_member_types,
 					),
+					// The moderation thresholds on this panel are moderator-writable;
+					// the auto-join controls are owner-only and are hidden for a
+					// moderator instead of being shown and then rejected.
+					'is_space_owner'       => $bn_is_space_owner,
 				),
 			),
 			'moderation'    => array(
@@ -756,11 +886,12 @@ foreach ( $builtin_tabs as $bn_t ) {
 	</div>
 
 	<!-- Sticky save bar — matches Profile edit + Notification prefs pattern.
-		REACTIVE: visibility is driven by `context.savebarState` (idle | dirty |
-		saving | saved) via data-wp-bind--hidden + state getters; no imperative
-		.hidden/dataset paint loop. assets/js/spaces/store.js owns the
-		dirty-tracking (delegated input/change) + rollback + form submit and
-		mutates `savebarState`; the markup never sets .hidden itself. -->
+		REACTIVE: visibility is driven by the store's global `savebarPhase`
+		(idle | dirty | saving | saved) via data-wp-bind--hidden + state getters; no
+		imperative .hidden/dataset paint loop. assets/js/spaces/store.js owns the
+		dirty-tracking (delegated input/change) + rollback + form submit and mutates
+		`savebarPhase`; the markup never sets .hidden itself. Note `saved` is set only
+		after the server rendered a success notice — it is never asserted optimistically. -->
 	<div
 		class="bn-space-settings__savebar"
 		role="region"

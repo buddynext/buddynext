@@ -295,6 +295,19 @@ class AuthControllerTest extends \WP_Test_REST_TestCase {
 		wp_set_current_user( 0 );
 		update_option( 'users_can_register', 1 );
 
+		// The consent gate binds only when there is a Terms page to consent TO, so
+		// terms_agreed is only a required field once one exists.
+		update_option( 'buddynext_require_terms', '1' );
+		update_option(
+			'buddynext_terms_page_id',
+			self::factory()->post->create(
+				array(
+					'post_type'  => 'page',
+					'post_title' => 'Terms',
+				)
+			)
+		);
+
 		$request = new WP_REST_Request( 'POST', '/buddynext/v1/auth/register' );
 		$request->set_param( 'email', 'not-an-email' );
 		// Too short.

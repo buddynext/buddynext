@@ -212,28 +212,6 @@ class ShareService {
 		}
 	}
 
-	/**
-	 * Return the list of post IDs the user has shared (newest first).
-	 *
-	 * @param int $user_id User whose shares to list.
-	 * @return int[]
-	 */
-	public function user_shares( int $user_id ): array {
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT post_id FROM {$wpdb->prefix}bn_shares
-				 WHERE user_id = %d
-				 ORDER BY created_at DESC",
-				$user_id
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		return array_map( 'intval', (array) $rows );
-	}
 
 	/**
 	 * Return a paginated share history for a user.

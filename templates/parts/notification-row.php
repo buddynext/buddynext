@@ -157,6 +157,23 @@ do_action( 'buddynext_part_notification_row_before', $args );
 
 		<?php if ( 'bn.space_invite' === $notif_type ) : ?>
 			<div class="bn-notif-row__actions">
+				<?php if ( '' !== $link_url ) : ?>
+					<?php
+					// Being asked to join a space you cannot look at first is a bad ask.
+					//
+					// The row itself navigates on click (notifications/store.js), so a
+					// MOUSE user could always reach the space — but the row is a
+					// <div role="listitem"> with no tabindex, and the "Open" anchor lives
+					// only in the unread branch below, which an invite never takes. So a
+					// KEYBOARD user had no way to preview the space at all: the only
+					// focusable controls were Accept and Decline. Reported as "the
+					// notification has no link"; it is really an a11y gap.
+					?>
+					<a class="bn-btn" data-variant="ghost" data-size="sm"
+						href="<?php echo esc_url( $link_url ); ?>">
+						<?php esc_html_e( 'View space', 'buddynext' ); ?>
+					</a>
+				<?php endif; ?>
 				<button class="bn-btn" data-variant="primary" data-size="sm"
 					data-wp-on--click="actions.acceptSpaceInvite"
 					data-object-id="<?php echo esc_attr( (string) $bn_row->object_id ); ?>"

@@ -29,12 +29,24 @@ class StreakService {
 
 	/**
 	 * Cache group for per-user streak summaries.
+	 *
+	 * NOTE: this group is SHARED with Sidebar\WidgetCache::GROUP_USER. Invalidation here must
+	 * therefore be delete-by-key — a group flush would also destroy the widget cache, and at
+	 * scale would destroy every member's on one member's write.
 	 */
 	private const CACHE_GROUP = 'buddynext_user_meta';
 
 	/**
-	 * Summary TTL in seconds. Streaks turn over at most once per day, but a
-	 * short TTL keeps the strip honest as the user is active mid-session.
+	 * Summary TTL in seconds.
+	 *
+	 * The TTL is a BACKSTOP, not the freshness mechanism. It used to be the only thing here,
+	 * with no bust at all, and the comment claimed "a short TTL keeps the strip honest as the
+	 * user is active mid-session." It did not: the member posted, extended their streak,
+	 * refreshed, and saw the old number for up to five minutes — on a surface whose entire job
+	 * is immediate feedback. That was caching by hope.
+	 *
+	 * StreakListener now busts this on the three signals the summary is actually built from
+	 * (posts, comments, reactions). The TTL only catches the day rollover.
 	 */
 	private const CACHE_TTL = 300;
 
@@ -60,7 +72,7 @@ class StreakService {
 			);
 		}
 
-		$cache_key = 'streak-summary:' . $uid;
+		$cache_key = self::cache_key( $uid );
 		$found     = false;
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP, false, $found );
 		if ( true === $found ) {
@@ -79,6 +91,33 @@ class StreakService {
 		wp_cache_set( $cache_key, $summary, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $summary;
+	}
+
+	/**
+	 * The cache key for a member's summary.
+	 *
+	 * @param int $uid User ID.
+	 * @return string
+	 */
+	public static function cache_key( int $uid ): string {
+		return 'streak-summary:' . $uid;
+	}
+
+	/**
+	 * Forget a member's cached summary.
+	 *
+	 * Delete-by-key, deliberately — see CACHE_GROUP. StreakListener calls this whenever the
+	 * member does one of the three things the summary counts.
+	 *
+	 * @since 1.0.8
+	 *
+	 * @param int $uid User ID.
+	 * @return void
+	 */
+	public static function forget( int $uid ): void {
+		if ( $uid > 0 ) {
+			wp_cache_delete( self::cache_key( $uid ), self::CACHE_GROUP );
+		}
 	}
 
 	/**

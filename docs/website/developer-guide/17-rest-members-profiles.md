@@ -54,6 +54,7 @@ Every route below operates on `get_current_user_id()` and requires a logged-in c
 |---|---|---|---|
 | GET | `/me/drafts` | require_auth | List the caller's saved composer drafts |
 | POST | `/me/drafts` | require_auth | Save a new composer draft |
+| DELETE | `/me/drafts` | require_auth | Clear the caller's composer draft |
 | GET | `/me/bookmarks` | require_auth | List the caller's bookmarked posts (gated by `buddynext_allow_bookmarks`) |
 | GET | `/me/shares` | require_auth | List posts the caller has shared |
 
@@ -140,18 +141,20 @@ Two-factor lives under `/account/2fa/*`; password, email, and session controls l
 
 ### Moderation actions targeting a user
 
-These are administrative moderation routes (permission resolves through the moderation capability). The member-facing counterpart is `POST /me/appeals` above.
+These are administrative moderation routes. The member-facing counterpart is `POST /me/appeals` above.
+
+Every route below except `warn` uses the `require_admin` permission callback - **site admin (`manage_options`), not the community `moderator` role.** The one exception is `POST /users/{id}/warn`, which is authenticated at the route and authorized inside the handler, so a space owner or moderator may warn a member within a space they moderate. See REST: Moderation and Trust for the full authorization model.
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/users/{id}/strikes` | moderator | List a user's strikes |
-| POST | `/users/{id}/strikes/{sid}/reverse` | moderator | Reverse a specific strike |
-| POST | `/users/{id}/suspend` | moderator | Suspend a user (reason, duration, content visibility) |
-| GET | `/users/{id}/suspension` | moderator | Read a user's active suspension |
-| GET | `/users/{id}/suspensions` | moderator | List a user's suspension history |
-| POST | `/users/{id}/warn` | moderator | Issue a warning (fires `buddynext_user_warned`) |
-| GET | `/users/{id}/warnings` | moderator | List a user's warnings |
-| POST | `/users/{id}/shadow-ban` | moderator | Shadow-ban a user |
+| GET | `/users/{id}/strikes` | admin | List a user's strikes |
+| POST | `/users/{id}/strikes/{sid}/reverse` | admin | Reverse a specific strike |
+| POST | `/users/{id}/suspend` | admin | Suspend a user (reason, duration, content visibility) |
+| GET | `/users/{id}/suspension` | admin | Read a user's active suspension |
+| GET | `/users/{id}/suspensions` | admin | List a user's suspension history |
+| POST | `/users/{id}/warn` | auth + space scope | Issue a warning (fires `buddynext_user_warned`). Site admins may warn anyone; a space owner/moderator only within a space they moderate (pass `space_id`). |
+| GET | `/users/{id}/warnings` | admin | List a user's warnings |
+| POST | `/users/{id}/shadow-ban` | admin | Shadow-ban a user |
 
 > **Note:** The relationship and trust actions that also live on `/users/{id}/*` - `block`, `mute`, `restrict`, `connect` (+ accept/decline), `follow`, `followers`, `following`, `connection/status`, `mutual-connections`, `account-type` - are member-driven social-graph routes, not moderation. They are documented in full on the REST: Social Graph page.
 

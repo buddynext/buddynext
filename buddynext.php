@@ -3,7 +3,7 @@
  * Plugin Name: BuddyNext
  * Plugin URI:  https://buddynext.com/
  * Description: The social layer for WordPress.
- * Version:     1.0.7
+ * Version:     1.0.8
  * Author:      Wbcom Designs
  * Author URI:  https://wbcomdesigns.com
  * License:     GPLv2 or later
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BUDDYNEXT_VERSION', '1.0.7' );
+define( 'BUDDYNEXT_VERSION', '1.0.8' );
 define( 'BUDDYNEXT_FILE', __FILE__ );
 define( 'BUDDYNEXT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BUDDYNEXT_URL', plugin_dir_url( __FILE__ ) );
@@ -453,15 +453,25 @@ function buddynext_integrations(): array {
 }
 
 /**
- * Whether an integration's nav and/or activity is enabled for this site.
+ * Whether an integration's nav, activity, and/or search indexing is enabled for this site.
  *
  * The ONLY read path for the per-integration owner toggles — bridges call this in
- * their nav `condition` and their activity handler; never the raw option (so keys
- * never drift). Default is ON: an ABSENT option means enabled, so a fresh install
- * and a newly added integration are on until the owner opts OUT.
+ * their nav `condition`, their activity handler, and before writing to the search
+ * index; never the raw option (so keys never drift). Default is ON: an ABSENT option
+ * means enabled, so a fresh install and a newly added integration are on until the
+ * owner opts OUT.
+ *
+ * Each aspect is resolved by an EXPLICIT branch. This used to be `if ( 'feed' ) … else …`,
+ * where the else was a catch-all onto the nav option — so any aspect that was not
+ * literally 'feed' silently read the nav toggle. Adding a 'search' aspect on top of that
+ * would have appeared to work in manual testing while binding search-indexing to the wrong
+ * control: switch nav off, and search rows stop; switch search off, and nothing happens.
+ * An unknown aspect is now a developer error that says so out loud instead of quietly
+ * resolving to something plausible.
  *
  * @param string $key    Integration key (e.g. 'jetonomy', 'careerboard').
- * @param string $aspect 'nav' (tab/sub-tab visibility) or 'feed' (activity posting).
+ * @param string $aspect 'nav' (tab/sub-tab visibility), 'feed' (activity posting), or
+ *                       'search' (whether this integration's content enters the search index).
  * @param string $sub    Optional sub-tab key — for `nav`, also requires that sub-tab's
  *                       toggle (and the parent integration's nav toggle) to be on.
  * @return bool
@@ -470,13 +480,39 @@ function buddynext_integration_enabled( string $key, string $aspect = 'nav', str
 	$key = sanitize_key( $key );
 	$sub = '' !== $sub ? sanitize_key( $sub ) : '';
 
-	if ( 'feed' === $aspect ) {
-		$on = '0' !== (string) get_option( "buddynext_integration_{$key}_feed", '1' );
-	} else {
-		$on = '0' !== (string) get_option( "buddynext_integration_{$key}_nav", '1' );
-		if ( $on && '' !== $sub ) {
-			$on = '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$sub}", '1' );
-		}
+	switch ( $aspect ) {
+		case 'feed':
+			$on = '0' !== (string) get_option( "buddynext_integration_{$key}_feed", '1' );
+			break;
+
+		case 'search':
+			$on = '0' !== (string) get_option( "buddynext_integration_{$key}_search", '1' );
+			break;
+
+		case 'nav':
+			$on = '0' !== (string) get_option( "buddynext_integration_{$key}_nav", '1' );
+			if ( $on && '' !== $sub ) {
+				$on = '0' !== (string) get_option( "buddynext_integration_{$key}_subtab_{$sub}", '1' );
+			}
+			break;
+
+		default:
+			_doing_it_wrong(
+				__FUNCTION__,
+				esc_html(
+					sprintf(
+						/* translators: %s: the unrecognised aspect string. */
+						__( 'Unknown integration aspect "%s". Expected nav, feed, or search.', 'buddynext' ),
+						$aspect
+					)
+				),
+				'1.0.8'
+			);
+			// Fail OPEN. A typo'd aspect is a bug in the caller, not an owner's choice, and
+			// failing closed would hide a working integration's content from members on the
+			// strength of a typo — silent breakage, which is the thing being fixed here.
+			$on = true;
+			break;
 	}
 
 	/**
@@ -485,7 +521,7 @@ function buddynext_integration_enabled( string $key, string $aspect = 'nav', str
 	 *
 	 * @param bool   $on     Resolved enabled state.
 	 * @param string $key    Integration key.
-	 * @param string $aspect 'nav' | 'feed'.
+	 * @param string $aspect 'nav' | 'feed' | 'search'.
 	 * @param string $sub    Sub-tab key ('' when none).
 	 */
 	return (bool) apply_filters( 'buddynext_integration_enabled', $on, $key, $aspect, $sub );
@@ -843,6 +879,23 @@ function buddynext_icon( string $name, string $css_class = '' ): void {
  */
 function buddynext_get_icon( string $name, string $css_class = '' ): string {
 	return \BuddyNext\Core\IconService::render( $name, $css_class );
+}
+
+/**
+ * Icon markup for a space category.
+ *
+ * Prefers the category's admin-saved icon_svg and falls back to the built-in
+ * slug map, so a custom category shows the icon its owner chose instead of the
+ * generic default. Lives here, next to buddynext_get_icon(), because the space
+ * partials that call it are loaded under several different page templates.
+ *
+ * @param string|null $cat_slug Category slug, or null when the space has none.
+ * @param string|null $icon_svg The category's stored SVG, when the caller has
+ *                              the hydrated row to hand. Omit to look it up.
+ * @return string Sanitized SVG markup, safe to echo.
+ */
+function bn_space_category_icon( ?string $cat_slug, ?string $icon_svg = null ): string {
+	return \BuddyNext\Core\IconService::space_category_icon( $cat_slug, $icon_svg );
 }
 
 /**

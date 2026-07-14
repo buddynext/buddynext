@@ -22,7 +22,9 @@ All paths below are prefixed with `/wp-json/buddynext/v1`.
 | POST | `/auth/login` | Public | Log a user in by email/username + password. Returns a 2FA challenge token instead of a session when 2FA is enabled. |
 | POST | `/auth/2fa` | Public | Complete a 2FA challenge with `twofa_token` + `code`, finishing the login. |
 | POST | `/auth/2fa/email-code` | Public | Send a one-time 2FA code by email for the pending challenge (`twofa_token`). |
+| GET | `/auth/register/config` | Public | The signup contract plus a fresh guard bundle. **Call this before `/auth/register`.** See below. |
 | POST | `/auth/register` | Public | Create a new user account (`email`, `user_login`, `password`, optional `terms_agreed`, `invite`). |
+| POST | `/auth/register/complete` | Public | Finish a parked social sign-up: supply `pending_token` plus the things OAuth cannot (`terms_agreed`, required profile fields), then the account is created. |
 | POST | `/auth/lost-password` | Public | Start a password reset for `user_login` (email or username). |
 | POST | `/auth/reset-password` | Public | Complete a reset with `key` + `login` + new `password`. |
 | POST | `/auth/approve/{id}` | Admin | Approve a pending member (manual-approval registration mode). |
@@ -36,7 +38,29 @@ All paths below are prefixed with `/wp-json/buddynext/v1`.
 | DELETE | `/auth/app-password/{uuid}` | Logged in | Revoke one of the current user's Application Passwords. |
 | GET | `/auth/nonce` | Public | Mint a fresh `wp_rest` nonce for the current session (stale-nonce recovery). |
 
-> The login, register, 2FA, lost-password, and reset-password routes register with `permission_callback => __return_true`. They are reachable by anyone, by design, because the caller is pre-session. The manifest records a `users_can_register` note against the auth group; that is the registration setting these flows respect at the handler level, not a route-level permission gate. `/auth/approve/{id}` checks an admin capability in its own callback; the verify/change/sign-out routes check `require_auth` (logged in).
+> The login, register, 2FA, lost-password, and reset-password routes register with `permission_callback => __return_true`. They are reachable by anyone, by design, because the caller is pre-session. `/auth/approve/{id}` checks an admin capability in its own callback; the verify/change/sign-out routes check `require_auth` (logged in).
+
+### `GET /auth/register/config` - read this before you register
+
+A non-browser client (a native app, a headless front end) **cannot register without calling this first.** The anti-bot guard bundle - the time-trap token, the human-check question, the honeypot field name - is otherwise only minted inside the signup template. A client that posts straight to `/auth/register` without those values is scored as a bot and rejected.
+
+The route is public and returns the signup contract plus a freshly minted guard bundle:
+
+| Key | Type | Meaning |
+|---|---|---|
+| `mode` | `string` | The site's registration mode. |
+| `terms` | `bool` | Whether terms consent is required. |
+| `terms_url` | `string` | Where the terms document lives. |
+| `fields` | `array` | The required profile fields, each `{ key, label, type, required, options, description }`. |
+| `reg_token` | `string` | The time-trap token. Post it back on `/auth/register`. |
+| `honeypot_field` | `string` | The name of the honeypot input. Send it **empty**. |
+| `challenge` | `array` | `{ question, token }` when the human check is enabled; an empty array when it is not. |
+
+Mint the bundle fresh per signup attempt - the tokens are single-use.
+
+### `POST /auth/register/complete` - finish a parked social sign-up
+
+An OAuth provider can hand back an identity but not terms consent, and not the site's required profile fields. When that happens the sign-up is **parked** rather than failed, and the client is given a `pending_token`. Post it back here with `terms_agreed` and the outstanding fields, and the account is created.
 
 ## Account (2FA) routes
 

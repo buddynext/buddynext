@@ -397,6 +397,18 @@ class PostController extends BaseRestController {
 		if ( null !== $request->get_param( 'privacy' ) ) {
 			$data['privacy'] = sanitize_key( $request->get_param( 'privacy' ) );
 		}
+		// A reschedule. Same capability as setting a schedule in the first place — otherwise
+		// this is a back door into scheduling for anyone who can edit. PostService::update()
+		// then rejects it on anything that is not still `scheduled`, so the edit form cannot
+		// become a second route for dragging a PUBLISHED post back out of the feed.
+		if ( null !== $request->get_param( 'scheduled_at' ) ) {
+			$sched_gate = $this->require_cap( 'buddynext-feed/schedule-post' );
+			if ( is_wp_error( $sched_gate ) ) {
+				return $sched_gate;
+			}
+			$data['scheduled_at'] = sanitize_text_field( (string) $request->get_param( 'scheduled_at' ) );
+		}
+
 		if ( null !== $request->get_param( 'content_warning' ) ) {
 			$data['content_warning'] = (bool) $request->get_param( 'content_warning' );
 		}

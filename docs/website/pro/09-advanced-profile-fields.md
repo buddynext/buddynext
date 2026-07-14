@@ -30,9 +30,11 @@ Renders a native date picker. The member picks a day from the calendar control i
 
 ### Location (map)
 
-Renders an address box with a map below it. As the member types an address and confirms it, the field looks the place up and stores the address text together with its latitude and longitude. The member sees the resolved location; the stored value keeps the coordinates so the data is usable for distance or directory work later.
+Renders an address box with a map below it. Whatever the member types is what gets saved - they do not have to pick a suggestion from the lookup for their address to stick. If the lookup does recognise the place, its latitude and longitude are stored alongside the address, so the data is usable for distance or directory work later. If it does not, the address is still saved as the member wrote it.
 
-> **Note:** The map uses OpenStreetMap for its address lookup, loaded from a fast public source by default. If scripts are blocked for any reason, the address still saves as plain text, so nobody is ever stuck.
+A set location can be cleared. The **Remove** control next to the field empties it, in the same way the avatar and cover image can be removed.
+
+> **Note:** The map uses OpenStreetMap for its address lookup, loaded from a fast public source by default. If scripts are blocked, or the lookup service is unreachable, the field still works: the address saves as plain text and can still be cleared. Nobody is ever stuck with a location they cannot change.
 
 ### File upload
 
@@ -102,7 +104,7 @@ Pro field types appear in the same field builder you use for free fields, under 
 
 - Pro field types are built on the free field engine, so visibility, required, and ordering work the same as any free field. See Profile Fields for those base behaviours.
 - The location map, file-name preview, and conditional show/hide are progressive enhancements layered on the saved value. If scripts do not load, members still get a working text or file input and the value still saves - the picker UX is the enhancement, not the storage.
-- Connected apps save through the same checks as the website, so a value entered in a mobile app is validated and stored exactly like one entered on the site.
+- Connected clients save through the same checks as the website, so a value entered through the API is validated and stored exactly like one entered on the site.
 - Empty profiles show nothing for a field a member has not filled in. To preview a field type end to end, fill it in and reopen the profile view.
 - A conditional field watches another field by its field ID. If you delete the watched field, or want it to react to a different field, update the conditional field's Trigger field ID so it keeps reacting to the right field.
 
@@ -111,3 +113,4 @@ Pro field types appear in the same field builder you use for free fields, under 
 The free plugin ships the core field types (text, textarea, select, checkbox, and the other standard inputs) and the whole field builder, member edit form, and profile view. See Profile Fields for that baseline.
 
 Pro adds the six field types documented here - extended date, location, file upload, advanced multi-select, advanced number, and conditional - by extending the free field engine. No free field type changes; Pro only adds to the type list and the per-type options.
+> **Note:** If you have turned Memberships on **and** chosen a default plan, this becomes a plan perk: members only get it if their plan grants it. With Memberships off (the default), it works for every member. See Membership Tiers.

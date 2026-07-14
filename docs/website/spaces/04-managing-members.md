@@ -30,7 +30,7 @@ Open a space and go to its Members tab to see the roster. Each member shows thei
 
 How you get in depends on the space type:
 
-- **Open space:** Joining is immediate. You become an active member as soon as you click Join.
+- **Open space:** Joining is immediate. You become an active member as soon as you click Join. (If the space owner has switched on "Require approval to join", your click becomes a request instead, and you wait for approval.)
 - **Private space:** Clicking Join sends a request. You stay in a pending state until an owner or moderator approves you.
 - **Secret space:** You cannot find or request a secret space on your own. The only way in is to be invited by an owner or moderator.
 
@@ -58,14 +58,26 @@ Owners and moderators can remove a member from the roster. Removal takes the per
 
 ## Setting it up (for owners)
 
-The settings that shape member management live on the space's Permissions settings panel.
+The settings that shape member management live on the space's own settings screen, under the **Permissions** panel.
 
 | Setting | What it controls | Default |
 |---|---|---|
+| Who can post | Whether all members, only moderators and the owner, or the owner alone can post in the space | All members |
 | Who can invite new members | Whether all members, only moderators and the owner, or the owner alone can send invites | Moderators and owner |
-| Require approval for new members | When on, every join becomes a request that an owner or moderator must approve before the person is added | Off (open spaces); private spaces always require approval by type |
+| Require approval to join | When on, a click on Join becomes a request that an owner or moderator must approve before the person is added. **This control appears on Open spaces only** - see below. | Off |
+| Auto-join new members | Adds every new member of the site to this space automatically. They can leave at any time. Owner-only; a moderator does not see it. | Off |
+| Limit auto-join to member types | When auto-join is on, restricts it to the member types you tick. Leave all unticked to auto-join every new member. | None ticked (all members) |
 
-> **Tip:** Turning on Require approval for new members gives an otherwise open space a review step without making it fully private. Use it when you want anyone to be able to find and ask, but you still want the final say on who gets in.
+### Require approval to join appears on Open spaces only
+
+The approval toggle is a property of an **Open** space: "anyone can read us, but we vet who joins". It is the way to give an otherwise open space a review step without making it fully private - people can find the space and read it, and you still have the final say on who gets in.
+
+On the other two types the toggle is not shown, because it would have nothing to do:
+
+- **Private spaces** already send every join through the approval queue by type. The panel says so instead of showing a switch.
+- **Secret spaces** are invite only, so there are no join requests to approve. The panel says so instead of showing a switch.
+
+> **Note:** Before 1.0.8 the toggle was drawn on all three types, but it only ever acted on Open spaces. If you turned it on for a private or secret space, it never changed anything. Nothing about how those spaces behave has changed - only the control that misrepresented them is gone.
 
 ## The admin spaces list (1.0.4)
 

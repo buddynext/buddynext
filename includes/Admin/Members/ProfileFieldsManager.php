@@ -351,6 +351,28 @@ class ProfileFieldsManager {
 	}
 
 	/**
+	 * Whether a profile group is a repeater (multi-entry) group.
+	 *
+	 * Reads the cached group list from the profiles service — no extra query.
+	 *
+	 * @param int $group_id Profile group ID.
+	 * @return bool True when the group exists and its type is 'repeater'.
+	 */
+	private function is_repeater_group( int $group_id ): bool {
+		if ( $group_id <= 0 ) {
+			return false;
+		}
+
+		foreach ( buddynext_service( 'profiles' )->get_groups() as $group ) {
+			if ( (int) ( $group['id'] ?? 0 ) === $group_id ) {
+				return 'repeater' === (string) ( $group['type'] ?? '' );
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Handle admin_post_bn_create_profile_field form submission.
 	 *
 	 * @return void
@@ -362,11 +384,17 @@ class ProfileFieldsManager {
 
 		check_admin_referer( 'bn_create_profile_field' );
 
-		$group_id         = absint( wp_unslash( $_POST['group_id'] ?? 0 ) );
-		$label            = sanitize_text_field( wp_unslash( $_POST['label'] ?? '' ) );
-		$type             = sanitize_key( wp_unslash( $_POST['type'] ?? 'text' ) );
-		$is_required      = absint( wp_unslash( $_POST['is_required'] ?? 0 ) );
-		$show_on_register = isset( $_POST['show_on_register'] ) ? 1 : 0;
+		$group_id    = absint( wp_unslash( $_POST['group_id'] ?? 0 ) );
+		$label       = sanitize_text_field( wp_unslash( $_POST['label'] ?? '' ) );
+		$type        = sanitize_key( wp_unslash( $_POST['type'] ?? 'text' ) );
+		$is_required = absint( wp_unslash( $_POST['is_required'] ?? 0 ) );
+
+		// show_on_register is inert inside a repeater group — a signup form is
+		// single-entry, so ProfileService::get_registration_fields() skips every
+		// repeater group. The add panel hides the checkbox there; this is the
+		// write-side guard, so the flag can never be persisted as a 1 that does
+		// nothing (which is what made the toggle look broken).
+		$show_on_register = ( isset( $_POST['show_on_register'] ) && ! $this->is_repeater_group( $group_id ) ) ? 1 : 0;
 		$visibility       = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
 		$description      = sanitize_text_field( wp_unslash( $_POST['description'] ?? '' ) );
 		$placeholder      = sanitize_text_field( wp_unslash( $_POST['placeholder'] ?? '' ) );
@@ -926,14 +954,51 @@ class ProfileFieldsManager {
 			exit;
 		}
 
+		global $wpdb;
+
+		// The type this field ALREADY is. Read before anything can overwrite it, because it
+		// is the only place the truth is recorded — nothing else remembers a field's previous
+		// type, so a bad write here is unrecoverable even after the add-on comes back.
+		$stored_type = (string) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->prepare( "SELECT type FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $field_id )
+		);
+
 		$label       = sanitize_text_field( wp_unslash( $_POST['label'] ?? '' ) );
-		$type        = sanitize_key( wp_unslash( $_POST['type'] ?? 'text' ) );
+		$type        = sanitize_key( wp_unslash( $_POST['type'] ?? $stored_type ) );
 		$visibility  = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
 		$description = sanitize_text_field( wp_unslash( $_POST['description'] ?? '' ) );
 		$placeholder = sanitize_text_field( wp_unslash( $_POST['placeholder'] ?? '' ) );
 
+		// An unrecognised submitted type falls back to the type the field ALREADY HAS — never
+		// to 'text'. Coercing to text turned "I do not know this type" into "so I will
+		// silently replace it".
 		if ( ! in_array( $type, self::field_types(), true ) ) {
-			$type = 'text';
+			$type = ( '' !== $stored_type ) ? $stored_type : 'text';
+		}
+
+		// THE ACTUAL FIX, and it has to be this strong.
+		//
+		// If this install does not understand the type the field CURRENTLY IS, its owning
+		// add-on is inactive — and then the type column is not ours to touch, no matter what
+		// was submitted. Free cannot render that type's option inputs, cannot validate its
+		// values, and cannot show the admin what they are changing away from. A write here is
+		// not an edit; it is a blind overwrite of a definition nobody in this request can see.
+		//
+		// This is what makes the guard REAL rather than decorative. The card asks only for
+		// "preserve an unknown type instead of coercing to text" — but in the reported
+		// scenario the browser submits type=text, which IS a known type, so that check passes
+		// and the destruction happens anyway. A fix that stops at the whitelist ships nothing.
+		//
+		// Cost of being this strict: an admin genuinely wanting to convert a location field
+		// into a text field must reactivate the add-on first (or delete the field). That is
+		// the right trade. The reverse mistake is unrecoverable — nothing anywhere records
+		// what a field's type used to be.
+		$stored_type_is_known = '' !== $stored_type && in_array( $stored_type, self::field_types(), true );
+		$type_is_known        = in_array( $type, self::field_types(), true );
+
+		if ( '' !== $stored_type && ! $stored_type_is_known ) {
+			$type          = $stored_type;
+			$type_is_known = false;
 		}
 
 		if ( ! in_array( $visibility, self::VISIBILITY_VALUES, true ) ) {
@@ -981,23 +1046,32 @@ class ProfileFieldsManager {
 			exit;
 		}
 
-		global $wpdb;
+		$data = array(
+			'label'            => $label,
+			'type'             => $type,
+			'description'      => $description,
+			'placeholder'      => $placeholder,
+			'is_required'      => $is_required,
+			'is_searchable'    => $is_searchable,
+			'show_on_register' => $show_on_register,
+			'visibility'       => $visibility,
+		);
+		$format = array( '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s' );
+
+		// Only write `options` when this install understands the type. With the owning add-on
+		// inactive, Free renders none of that type's option inputs — so $parsed_opts is null,
+		// and writing it would blank the field's entire per-type configuration on a label
+		// edit. Omitting the column leaves the config intact for when the add-on returns.
+		if ( $type_is_known ) {
+			$data['options'] = null !== $parsed_opts ? wp_json_encode( $parsed_opts ) : null;
+			$format[]        = '%s';
+		}
 
 		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->prefix . 'bn_profile_fields',
-			array(
-				'label'            => $label,
-				'type'             => $type,
-				'options'          => null !== $parsed_opts ? wp_json_encode( $parsed_opts ) : null,
-				'description'      => $description,
-				'placeholder'      => $placeholder,
-				'is_required'      => $is_required,
-				'is_searchable'    => $is_searchable,
-				'show_on_register' => $show_on_register,
-				'visibility'       => $visibility,
-			),
+			$data,
 			array( 'id' => $field_id ),
-			array( '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s' ),
+			$format,
 			array( '%d' )
 		);
 
@@ -1597,6 +1671,33 @@ class ProfileFieldsManager {
 														data-bn-pf-opts-wrap="bn-ef-opts-<?php echo absint( $fid ); ?>"
 														data-bn-pf-date-wrap="bn-ef-date-<?php echo absint( $fid ); ?>"
 														data-bn-pf-search-wrap="bn-ef-search-<?php echo absint( $fid ); ?>">
+														<?php
+														// ROUND-TRIP an unrecognised type.
+														//
+														// Pro's advanced types (location, date_extended, …) enter this list through a
+														// filter. Deactivate Pro — or let a licence lapse, or switch the feature off —
+														// and the list no longer contains the type this field IS. `selected()` then
+														// never fires, so the browser preselects option #1, which is `text`. The form
+														// POSTs type=text, which is a PERFECTLY VALID type, sails through the
+														// whitelist, and the UPDATE overwrites the real type and nulls its options.
+														// One label edit, and the field definition is destroyed with no way back:
+														// nothing anywhere records what the type used to be.
+														//
+														// So the select carries the stored type as its own option and hands it back
+														// untouched. Same pattern Pro already uses on the member side for a withheld
+														// type: round-trip the value so saving does not clear it.
+														if ( ! array_key_exists( (string) $field['type'], $field_type_labels ) ) :
+															?>
+															<option value="<?php echo esc_attr( (string) $field['type'] ); ?>" data-is-choice="0" data-is-searchable-capable="0" selected>
+																<?php
+																printf(
+																	/* translators: %s: the stored field-type slug, e.g. "location". */
+																	esc_html__( '%s (provided by an add-on that is not active)', 'buddynext' ),
+																	esc_html( (string) $field['type'] )
+																);
+																?>
+															</option>
+														<?php endif; ?>
 														<?php foreach ( $field_type_labels as $ft_val => $ft_lbl ) : ?>
 														<option value="<?php echo esc_attr( $ft_val ); ?>"
 															data-is-choice="<?php echo in_array( (string) $ft_val, $choice_type_slugs, true ) ? '1' : '0'; ?>"
@@ -1831,10 +1932,13 @@ class ProfileFieldsManager {
 							<input type="checkbox" id="bn-af-search-c-<?php echo absint( $gid ); ?>" name="is_searchable" value="1">
 							<label for="bn-af-search-c-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Searchable in the member directory', 'buddynext' ); ?></label>
 						</div>
-						<div class="bn-pf-af-req-row">
-							<input type="checkbox" id="bn-af-reg-<?php echo absint( $gid ); ?>" name="show_on_register" value="1">
-							<label for="bn-af-reg-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Show on the registration form', 'buddynext' ); ?></label>
-						</div>
+						<?php // Registration form opt-in. Single-entry groups only — a signup form cannot collect repeating entries, and ProfileService::get_registration_fields() skips repeater groups, so offering the toggle here made it settable-but-inert. Mirrors the edit panel. ?>
+						<?php if ( 'repeater' !== $group['type'] ) : ?>
+							<div class="bn-pf-af-req-row">
+								<input type="checkbox" id="bn-af-reg-<?php echo absint( $gid ); ?>" name="show_on_register" value="1">
+								<label for="bn-af-reg-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Show on the registration form', 'buddynext' ); ?></label>
+							</div>
+						<?php endif; ?>
 						<div class="bn-pf-af-actions">
 							<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Field', 'buddynext' ); ?></button>
 							<button type="button" class="bn-btn" data-variant="secondary" data-bn-pf-toggle="<?php echo esc_attr( $panel_id ); ?>"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>

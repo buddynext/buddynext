@@ -76,12 +76,38 @@ $bn_emoji_base = plugins_url( 'assets/emoji/', dirname( __DIR__, 1 ) );
 $bn_reactions_enabled = ! function_exists( 'buddynext_service' )
 	|| ! is_object( buddynext_service( 'features' ) )
 	|| buddynext_service( 'features' )->is_enabled( 'reactions' );
+
+// The comment reaction picker is data-driven, exactly like the post-card picker
+// (parts/post-actions.php): the owner-enabled reaction subset plus any Pro custom
+// slugs, each with its translated label and display meta. Hardcoding the six
+// built-ins in JS meant an owner-disabled reaction still rendered on comments (the
+// server then silently coerced the click) and Pro custom reactions never appeared.
+// emoji_url is '' for slugs with no bundled Fluent SVG (Pro customs) — the JS then
+// falls back to the char/colour glyph, mirroring the post card.
+$bn_reactions = array();
+if ( $bn_reactions_enabled && class_exists( '\BuddyNext\Reactions\ReactionService' ) ) {
+	foreach ( \BuddyNext\Reactions\ReactionService::enabled_reactions() as $bn_reaction ) {
+		$bn_slug = (string) ( $bn_reaction['slug'] ?? '' );
+		if ( '' === $bn_slug ) {
+			continue;
+		}
+
+		$bn_reactions[] = array(
+			'slug'      => $bn_slug,
+			'label'     => (string) ( $bn_reaction['label'] ?? $bn_slug ),
+			'char'      => (string) ( $bn_reaction['char'] ?? '' ),
+			'color'     => (string) ( $bn_reaction['color'] ?? '' ),
+			'emoji_url' => \BuddyNext\Core\IconService::emoji_url( $bn_slug ),
+		);
+	}
+}
 ?>
 <div
 	class="<?php echo esc_attr( $bn_class ); ?>"
 	data-comment-list="<?php echo absint( $args['bn_post_id'] ); ?>"
 	data-emoji-base="<?php echo esc_attr( trailingslashit( $bn_emoji_base ) ); ?>"
 	data-reactions-enabled="<?php echo $bn_reactions_enabled ? '1' : '0'; ?>"
+	data-reactions="<?php echo esc_attr( (string) wp_json_encode( $bn_reactions ) ); ?>"
 ></div>
 <?php
 do_action( 'buddynext_part_post_comments_list_after', $args );

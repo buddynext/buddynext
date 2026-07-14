@@ -50,8 +50,8 @@ The free plugin covers everything a community needs to launch and run. Pro adds 
 | | Pin 1 post per space or profile | Free | Free |
 | | Edit and delete your own posts | Free | Free |
 | | Admin site-wide announcement | Free | Free |
-| | Scheduled posts (future publish date) | - | Pro |
-| | Recurring scheduled posts | - | Pro |
+| | Schedule a post for a future date, and reschedule it later | Free | Free |
+| | Scheduled-posts queue and the admin screen that manages every scheduled post | - | Pro |
 | | Multiple pinned posts (up to 10) | - | Pro |
 | | Custom reaction emoji set | - | Pro |
 | | Post reach stats for authors | - | Pro |

@@ -122,6 +122,29 @@ Three options carry custom array sanitizers and are registered with explicit sta
 
 > An option whose key matches no descriptor field falls back to the `buddynext` group. Add new settings as `Field` descriptors in the relevant `Settings::fields_*()` method so they are registered under the right group and sanitize on save.
 
+### Two Settings tabs do not use `SettingsDriver` at all
+
+`includes/Admin/NavManager.php` registers two tabs in the Settings section (both in the **Advanced** group, both `layout => 'wide'`) that save through `admin_post` handlers rather than the Settings API. Their options therefore appear in **no** tab group above, and the per-tab save-scope rule does not apply to them.
+
+| Tab | Save action | What it writes |
+|---|---|---|
+| **Navigation** | `admin_post_bn_save_nav` -> `NavManager::handle_save_nav()` | The five nav-override options below. |
+| **Pages & URLs** | `admin_post_bn_save_hub_pages` -> `NavManager::handle_save_hub_pages()` | The `buddynext_page_*` slug/page assignments. |
+
+The **Navigation** tab edits five **scopes**, one option each (`NavManager::SCOPE_OPTION_MAP`, mirrored by `Nav\NavOverrides::SCOPE_OPTION`):
+
+| Scope | Option | The surface it controls |
+|---|---|---|
+| `main` | `buddynext_nav_overrides` | The left rail. |
+| `profile` | `buddynext_nav_overrides_profile` | Member-profile tabs. |
+| `space` | `buddynext_nav_overrides_space` | Space tabs. |
+| `mobile` | `buddynext_nav_overrides_mobile` | The mobile bottom bar. |
+| `account` | `buddynext_nav_overrides_account` | The header avatar dropdown. |
+
+Each scope stores the owner's hide / relabel / reorder / capability-gate choices plus any custom links, and `Nav\NavOverrides` applies them on that surface's own filter at priority 20. See the Navigation API page for the full model and for how a developer-registered item interacts with these overrides.
+
+The page assignments are kept out of the nav-override options on purpose: `handle_save_nav()` only writes display overrides, so `PageRouter` and other services can read a hub's slug without knowing anything about the nav system.
+
 ## Examples
 
 ### Relocate or hide a tab from a mu-plugin
@@ -177,6 +200,38 @@ add_action( 'init', function () {
 ```
 
 Build the link to it with `AdminHub::tab_url( 'marketplace', 'listings' )` rather than hand-assembling `?page=...&tab=...`, so a future placement move never breaks the URL.
+
+## Admin CSS primitives
+
+Admin styles live in one stylesheet, `assets/css/bn-admin.css`, enqueued by `AssetService::enqueue_admin_assets()` on BuddyNext admin screens. Addon and Pro screens **consume** these primitives rather than shipping their own - a second copy is how two screens drift apart.
+
+| Primitive | Class | Purpose |
+|---|---|---|
+| Button | `.bn-btn` | The admin button, on `<button>` and `<a>` alike. Sets `box-sizing: border-box` itself: WP's admin reset gives `<button>` border-box but leaves `<a>` at content-box, so without it an `<a class="bn-btn">` came out 2px taller than the `<button class="bn-btn">` beside it. Any Actions cell mixing a link and a form button showed it. |
+| Badge | `.bn-badge` | Status pill. |
+| Row actions | `.bn-row-actions` | The action cluster in a list table's Actions column. |
+| Row action form | `.bn-row-actions__form` | Wrap a nonce-carrying `<form>` inside `.bn-row-actions`. |
+
+`.bn-row-actions` exists because an Actions cell is a mix of `<form>`-wrapped buttons (they need the nonce plus hidden inputs) and bare `<a>`s. Dropped loose into the `<td>` they are separate inline boxes, so as soon as the column narrows they stack on their own lines flush against one another with no vertical gap. `.bn-row-actions` is a wrapping flex row that gives them one consistent gap in both axes; `.bn-row-actions__form` makes the carrier `<form>` an `inline-flex` with no margin so the gap applies to the button rather than to the wrapper.
+
+```php
+<td>
+    <div class="bn-row-actions">
+        <a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $edit_url ); ?>">
+            <?php esc_html_e( 'Edit', 'my-addon' ); ?>
+        </a>
+        <form class="bn-row-actions__form" method="post">
+            <?php wp_nonce_field( 'my_addon_delete' ); ?>
+            <input type="hidden" name="id" value="<?php echo (int) $row_id; ?>" />
+            <button class="bn-btn" data-variant="danger" data-size="sm" type="submit">
+                <?php esc_html_e( 'Delete', 'my-addon' ); ?>
+            </button>
+        </form>
+    </div>
+</td>
+```
+
+Core consumers to copy from: `includes/Admin/Spaces.php`, `includes/Admin/Members.php`, `includes/Admin/Members/MemberTypesManager.php`.
 
 ## Notes / gotchas
 

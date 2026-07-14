@@ -33,6 +33,17 @@ class ProfileService {
 	private const CACHE_GROUP = 'buddynext_profiles';
 
 	/**
+	 * Usermeta prefix for the MEMBERS-tier search mirror.
+	 *
+	 * Deliberately a different key from the public `bn_field_` mirror rather than a flag on the
+	 * same one: the anonymous search path never reads this prefix, so a value visible only to
+	 * members cannot leak into a public result by getting a boolean check wrong somewhere.
+	 *
+	 * @var string
+	 */
+	public const MEMBERS_MIRROR_PREFIX = 'bn_mfield_';
+
+	/**
 	 * Cache TTL in seconds (10 minutes).
 	 */
 	private const CACHE_TTL = 600;
@@ -49,6 +60,24 @@ class ProfileService {
 	 * that never stalls concurrent profile saves at 100k members.
 	 */
 	private const VALUE_PURGE_BATCH = 500;
+
+	/**
+	 * Members processed per search-mirror rebuild batch.
+	 *
+	 * A field's searchable/visibility flip has to touch every member who holds a
+	 * value for it — usermeta mirror write + bn_search_index rebuild. At 100k
+	 * members that is not a single-request job, so rebuild_field_mirror() walks
+	 * the value rows in keyset batches of this size and re-enqueues itself.
+	 */
+	private const MIRROR_REBUILD_BATCH = 200;
+
+	/**
+	 * Option key prefix for the rebuild_field_mirror() keyset cursor.
+	 *
+	 * Stores the last user_id processed for a field so the next batch resumes
+	 * where the previous one stopped. Deleted when the rebuild completes.
+	 */
+	private const MIRROR_CURSOR_OPTION = 'bn_field_mirror_cursor_';
 
 	/**
 	 * Return all profile groups with their nested field definitions.
@@ -332,6 +361,24 @@ class ProfileService {
 	}
 
 	/**
+	 * Flush the cached profile GROUP + FIELD definitions.
+	 *
+	 * The `all_groups` / `all_fields` entries cache the definition rows (label,
+	 * visibility, type_restriction, …). Any service that mutates those rows from
+	 * outside this class — e.g. MemberTypeService rewriting
+	 * bn_profile_groups.type_restriction when a member type is renamed or deleted
+	 * — must call this, or the definitions stay stale until the TTL expires and
+	 * the change is invisible to every read path (get_groups / get_fields /
+	 * get_profile / get_registration_fields).
+	 *
+	 * @return void
+	 */
+	public static function flush_definition_cache(): void {
+		wp_cache_delete( 'all_groups', self::CACHE_GROUP );
+		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
+	}
+
+	/**
 	 * Resolve a field's key by its numeric id. Empty string when not found.
 	 *
 	 * Lets extensions (e.g. Pro advanced field types) map a field id to its key
@@ -539,7 +586,7 @@ class ProfileService {
 			if ( '' !== $profile_text ) {
 				$guard = buddynext_service( 'safeguard' );
 				if ( is_object( $guard ) && method_exists( $guard, 'check_content' ) ) {
-					$verdict = $guard->check_content( $profile_text, '', $user_id );
+					$verdict = $guard->check_content( $profile_text, '', $user_id, 0, 'create' );
 					if ( is_wp_error( $verdict ) ) {
 						return $verdict;
 					}
@@ -726,13 +773,48 @@ class ProfileService {
 
 			$sanitized_val = (string) $sanitized_val;
 
+			// A field that is not ACTIVE for this submission is invisible to whoever is
+			// filling the form, so required-enforcement cannot apply to it. Pro's
+			// `conditional` field type is the canonical case: its wrapper is hidden by
+			// JS but its inner input still posts an empty string.
+			//
+			// ProfileController already asked this question — but only on the REST
+			// self-edit path. The enforcement below runs at the PERSISTENCE layer, which
+			// every entry point shares, so the admin member-editor (which calls
+			// save_profile() directly, bypassing the controller) had no skip at all: an
+			// admin editing a member who has a JS-hidden required conditional field was
+			// blocked with a 422 and no way through. Asking here means all three entry
+			// points — REST self-edit, admin editor, onboarding — get the same answer.
+			//
+			// Note this gates the required CHECK only, not the write. An inactive field's
+			// value still persists exactly as it does today on the self-edit path (where
+			// the controller skips validation and save_profile then writes it), so this
+			// removes the spurious 422 without changing what lands in the database.
+			$field_active = (bool) apply_filters( 'buddynext_profile_field_is_active', true, $field, $data, $user_id );
+
+			// A field belonging to a group locked to a member type this member does not hold is not
+			// theirs to fill — it is never rendered for them — so it cannot be required OF them.
+			//
+			// Zoho #40859: set a field required, restrict its group to one member type, and every
+			// member of every other type was told "Birthday is required." for a field that was not
+			// on their screen and never would be. No action available to them cleared it. They
+			// could not save their profile again, ever.
+			//
+			// The REST controller already asked this question. The PERSISTENCE layer — the one the
+			// admin member editor and onboarding call directly — never did, so the same bug was
+			// fixed on one entry point while still shipping on the other two. Both now call the one
+			// predicate.
+			if ( ! $this->field_applies_to_user( $field, $user_id ) ) {
+				$field_active = false;
+			}
+
 			// G3: enforce is_required at the persistence layer (Bugs card
 			// 10055873101). Submitting an empty value for a required field is
 			// rejected — the stored value is never cleared and the caller gets a
 			// per-field error. An OMITTED key is a partial update and stays legal,
 			// so the registration path (which only submits its own opted-in
 			// fields) is unchanged.
-			if ( ! empty( $field['is_required'] ) && '' === $sanitized_val ) {
+			if ( $field_active && ! empty( $field['is_required'] ) && '' === $sanitized_val ) {
 				$field_errors[ (string) $key ] = sprintf(
 					/* translators: %s: profile field label. */
 					__( '%s is required.', 'buddynext' ),
@@ -911,6 +993,100 @@ class ProfileService {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Does this field apply to this member at all?
+	 *
+	 * A profile group can be restricted to a single member type. A member who does not hold that
+	 * type never sees the group, so none of its fields exist for them — and a field that does not
+	 * exist for you cannot be REQUIRED of you.
+	 *
+	 * That was the bug (Zoho #40859): set a field required, restrict its group to one member type,
+	 * and every member of every OTHER type is told "Birthday is required." for a field that is not
+	 * on their screen and never will be. There is no action available to them that clears it. They
+	 * cannot save their profile again — ever. It is the worst shape a validation bug can take,
+	 * because the member cannot even see what they are being blamed for.
+	 *
+	 * This predicate is the single answer to that question, deliberately. The REST controller had
+	 * grown its own copy of the check while the persistence layer — the one the ADMIN member editor
+	 * and onboarding actually call — had none, so the same bug was fixed on one entry point and
+	 * still shipping on the other two. One predicate, three callers, no drift.
+	 *
+	 * An empty restriction means "applies to everyone", which is the default and the common case.
+	 *
+	 * @param array<string, mixed> $field_def Flat field definition (must carry group_type_restriction).
+	 * @param int                  $user_id   Member whose profile is being saved.
+	 * @return bool False when the field belongs to a member type this member does not hold.
+	 */
+	public function field_applies_to_user( array $field_def, int $user_id ): bool {
+		$restriction = (string) ( $field_def['group_type_restriction'] ?? '' );
+
+		if ( '' === $restriction ) {
+			return true;
+		}
+
+		return $restriction === $this->member_type_slug( $user_id );
+	}
+
+	/**
+	 * A member's member-type slug, or '' when they hold none.
+	 *
+	 * @param int $user_id Member.
+	 * @return string
+	 */
+	public function member_type_slug( int $user_id ): string {
+		if ( $user_id <= 0 || ! function_exists( 'buddynext_service' ) ) {
+			return '';
+		}
+
+		$member_types = buddynext_service( 'member_types' );
+		if ( ! is_object( $member_types ) || ! method_exists( $member_types, 'get_user_type' ) ) {
+			return '';
+		}
+
+		$type = $member_types->get_user_type( $user_id );
+
+		return is_array( $type ) ? (string) ( $type['slug'] ?? '' ) : '';
+	}
+
+	/**
+	 * The value a VIEWER may see, honouring a date field's "Display as" setting.
+	 *
+	 * THE BROWSER CAUGHT THIS, AND THE UNIT TESTS DID NOT.
+	 *
+	 * FieldType::display_text() and ::rest_value() were taught to reduce a date — "36 years
+	 * old" instead of 1990-03-14 — and both were tested directly, and both passed. But
+	 * get_profile() emits `value` STRAIGHT FROM THE ROW, and templates/profile/view.php:128
+	 * prints exactly that. So the profile page and every REST consumer went on serving the raw
+	 * date of birth, while the tests that were supposed to prove otherwise were green.
+	 *
+	 * A formatter nothing calls is not a fix. The reduction has to happen where the value
+	 * ENTERS the payload, which is here.
+	 *
+	 * The owner still gets the real date, via `value_raw` — the edit form has to prefill its
+	 * date input with something, and it is their own birthday. Nobody else receives it in any
+	 * form.
+	 *
+	 * @param array<string,mixed> $field Minimal field shape (type + options).
+	 * @param mixed               $value Stored value.
+	 * @return mixed
+	 */
+	private static function view_value( array $field, $value ) {
+
+		$type = (string) ( $field['type'] ?? '' );
+
+		if ( ! in_array( $type, array( 'date', 'date_extended' ), true ) ) {
+			return $value;
+		}
+
+		if ( 'date' === FieldType::date_display_mode( $field ) ) {
+			return $value;
+		}
+
+		// Reduced mode: the raw date must not leave the server, not even to the owner's own
+		// view payload — they get it back through value_raw for editing.
+		return FieldType::format_date( $field, (string) $value );
 	}
 
 	/**
@@ -1117,7 +1293,16 @@ class ProfileService {
 				'placeholder'      => (string) ( $row['placeholder'] ?? '' ),
 				'is_required'      => (bool) ( $row['field_is_required'] ?? false ),
 				'sort_order'       => (int) $row['field_sort_order'],
-				'value'            => $row['value'],
+				'value'            => self::view_value(
+					array(
+						'type'    => $row['field_type'],
+						'options' => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
+					),
+					$row['value']
+				),
+				// The RAW stored value, and ONLY for the owner. The edit form needs the real
+				// date to prefill its input; nobody else has any business receiving it.
+				'value_raw'        => ( $viewer_id === $profile_user_id ) ? $row['value'] : null,
 				// Visibility surfaced so the edit-form privacy selector can show
 				// the admin default (field_visibility, falling back to the group)
 				// and the member's saved choice (entry_visibility). See workstream D.
@@ -1311,7 +1496,16 @@ class ProfileService {
 					'options'          => $vf['options'] ?? null,
 					'is_required'      => (bool) ( $vf['is_required'] ?? false ),
 					'sort_order'       => (int) ( $vf['sort_order'] ?? 99 ),
-					'value'            => get_user_meta( $profile_user_id, 'bn_field_' . $fkey, true ),
+					'value'            => self::view_value(
+						array(
+							'type'    => (string) ( $vf['type'] ?? 'text' ),
+							'options' => $vf['options'] ?? null,
+						),
+						get_user_meta( $profile_user_id, 'bn_field_' . $fkey, true )
+					),
+					'value_raw'        => $is_owner
+						? get_user_meta( $profile_user_id, 'bn_field_' . $fkey, true )
+						: null,
 					'field_visibility' => $fvis,
 					'group_visibility' => 'public',
 					'entry_visibility' => null,
@@ -1540,13 +1734,13 @@ class ProfileService {
 		// site owners rename labels, delete the preset groups, and build custom
 		// schemas, so tasks derive from what the schema actually contains.
 		// Granularity comes from schema FLAGS only:
-		//   - SYSTEM flat groups (the code-consumed spine: basics, skills,
-		//     interests) -> one task per field, labelled from the field's live
-		//     admin-set label.
-		//   - NON-SYSTEM flat groups (social links and any custom cluster) ->
-		//     one rollup task per group, done when any field in it is filled.
-		//   - Repeater groups (work experience, education, customs) -> one task
-		//     per group, done when it has at least one non-empty entry.
+		// - SYSTEM flat groups (the code-consumed spine: basics, skills,
+		// interests) -> one task per field, labelled from the field's live
+		// admin-set label.
+		// - NON-SYSTEM flat groups (social links and any custom cluster) ->
+		// one rollup task per group, done when any field in it is filled.
+		// - Repeater groups (work experience, education, customs) -> one task
+		// per group, done when it has at least one non-empty entry.
 		$filled = static fn( $value ): bool => '' !== trim(
 			is_array( $value ) ? implode( '', array_map( 'strval', $value ) ) : (string) $value
 		);
@@ -1711,16 +1905,31 @@ class ProfileService {
 		if ( '' !== $bio ) {
 			$parts[] = $bio;
 		}
-		$directory = buddynext_service( 'member_directory' );
+		// PUBLIC searchable field values → content (matched for everyone, including strangers).
+		// MEMBERS-tier values            → content_members (matched only for a logged-in viewer).
+		//
+		// Two columns, not one column plus a filter, because the anonymous query then never even
+		// NAMES content_members — the privacy boundary is structural instead of conditional, and
+		// there is no flag left to get wrong.
+		$member_parts = array();
+		$directory    = buddynext_service( 'member_directory' );
 		if ( is_object( $directory ) && method_exists( $directory, 'searchable_mirror_keys' ) ) {
 			foreach ( $directory->searchable_mirror_keys() as $mirror_key ) {
 				$mirror_val = (string) get_user_meta( $user_id, (string) $mirror_key, true );
 				if ( '' !== $mirror_val ) {
 					$parts[] = $mirror_val;
 				}
+
+				// Same field, members-tier mirror.
+				$members_key = self::MEMBERS_MIRROR_PREFIX . substr( (string) $mirror_key, strlen( 'bn_field_' ) );
+				$members_val = (string) get_user_meta( $user_id, $members_key, true );
+				if ( '' !== $members_val ) {
+					$member_parts[] = $members_val;
+				}
 			}
 		}
-		$content = trim( implode( ' ', array_values( array_unique( $parts ) ) ) );
+		$content         = trim( implode( ' ', array_values( array_unique( $parts ) ) ) );
+		$content_members = trim( implode( ' ', array_values( array_unique( $member_parts ) ) ) );
 
 		global $wpdb;
 
@@ -1728,12 +1937,13 @@ class ProfileService {
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT INTO {$wpdb->prefix}bn_search_index
-				    (object_type, object_id, title, content, author_id, visibility)
-				 VALUES ('user', %d, %s, %s, %d, 'public')
-				 ON DUPLICATE KEY UPDATE title = VALUES(title), content = VALUES(content), updated_at = NOW()",
+				    (object_type, object_id, title, content, content_members, author_id, visibility)
+				 VALUES ('user', %d, %s, %s, %s, %d, 'public')
+				 ON DUPLICATE KEY UPDATE title = VALUES(title), content = VALUES(content), content_members = VALUES(content_members), updated_at = NOW()",
 				$user_id,
 				$wp_user->display_name,
 				$content,
+				$content_members,
 				$user_id
 			)
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -2311,6 +2521,7 @@ class ProfileService {
 			"SELECT
 				f.id,
 				f.group_id,
+				g.group_key  AS group_key,
 				g.type       AS group_type,
 				g.visibility AS group_visibility,
 				g.type_restriction AS group_type_restriction,
@@ -2337,6 +2548,7 @@ class ProfileService {
 				return array(
 					'id'                     => (int) $row['id'],
 					'group_id'               => (int) $row['group_id'],
+					'group_key'              => (string) ( $row['group_key'] ?? '' ),
 					'group_type'             => $row['group_type'],
 					'group_visibility'       => $row['group_visibility'] ?? 'public',
 					'group_type_restriction' => (string) ( $row['group_type_restriction'] ?? '' ),
@@ -2462,30 +2674,80 @@ class ProfileService {
 	 * @return void
 	 */
 	private function sync_search_mirror( int $user_id, array $field, string $stored_value, ?string $entry_visibility ): void {
-		$meta_key   = 'bn_field_' . $field['field_key'];
-		$type       = isset( $field['type'] ) ? (string) $field['type'] : 'text';
-		$searchable = ! empty( $field['is_searchable'] )
+		$public_key  = 'bn_field_' . $field['field_key'];
+		$members_key = self::MEMBERS_MIRROR_PREFIX . $field['field_key'];
+		$type        = isset( $field['type'] ) ? (string) $field['type'] : 'text';
+
+		$indexable = ! empty( $field['is_searchable'] )
 			&& \BuddyNext\Profile\FieldType::is_text_searchable( $type )
-			&& 'public' === $this->effective_visibility( $field, $entry_visibility )
 			&& '' !== $stored_value;
 
-		if ( ! $searchable ) {
-			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
-			delete_user_meta( $user_id, $meta_key );
-			return;
-		}
+		$visibility = $this->effective_visibility( $field, $entry_visibility );
 
-		$mirror_value = $this->mirror_value( $field, $stored_value );
+		// The mirror a value lands in is decided by WHO MAY SEE IT, and nothing else.
+		//
+		// `public`  → bn_field_{key}   → indexed into search_index.content         → anyone.
+		// `members` → bn_mfield_{key}  → indexed into search_index.content_members → logged in.
+		// anything else (followers / connections / private) → NO mirror at all.
+		//
+		// Before this, only `public` was ever mirrored, so a field marked searchable but visible
+		// to members was silently un-searchable: the owner ticked the box, saved, and nothing told
+		// them it could not work (Zoho #40859). Ticking "searchable" on a members-visible field now
+		// means what an owner would assume it means — a logged-in member can find it, a stranger
+		// cannot.
+		//
+		// followers / connections stay unindexed on purpose: answering them means resolving the
+		// searcher's relationship to every candidate at query time, which is a different (and much
+		// heavier) feature. What matters is that we no longer PRETEND to index them — the admin
+		// says so instead of the box quietly doing nothing.
+		$public_value  = ( $indexable && 'public' === $visibility ) ? $this->mirror_value( $field, $stored_value ) : '';
+		$members_value = ( $indexable && 'members' === $visibility ) ? $this->mirror_value( $field, $stored_value ) : '';
 
-		// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-		update_user_meta( $user_id, $meta_key, $mirror_value );
+		$this->write_mirror( $user_id, $public_key, $public_value );
+		$this->write_mirror( $user_id, $members_key, $members_value );
 	}
 
 	/**
-	 * Recompute the search mirror for every member who has a value for a field
-	 * after its definition changes (is_searchable toggled, default visibility
-	 * changed). Hooked to buddynext_profile_field_updated so an admin edit
-	 * backfills existing members' mirrors instead of waiting for each to re-save.
+	 * Write or delete one search-mirror usermeta row.
+	 *
+	 * @param int    $user_id  Member.
+	 * @param string $meta_key Mirror key.
+	 * @param string $value    Value; '' deletes the mirror.
+	 * @return void
+	 */
+	private function write_mirror( int $user_id, string $meta_key, string $value ): void {
+		if ( '' === $value ) {
+			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+			delete_user_meta( $user_id, $meta_key );
+
+			return;
+		}
+
+		// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+		update_user_meta( $user_id, $meta_key, $value );
+	}
+
+	/**
+	 * Recompute the search mirror AND the FULLTEXT search index for every member
+	 * who has a value for a field after its definition changes (is_searchable
+	 * toggled, default visibility changed). Hooked to
+	 * buddynext_profile_field_updated so an admin edit backfills existing members
+	 * instead of waiting for each of them to re-save their profile.
+	 *
+	 * Two stores must move together:
+	 *   1. the bn_field_{key} usermeta mirror (sync_search_mirror), and
+	 *   2. the bn_search_index.content FULLTEXT column (index_user), which is what
+	 *      BOTH the members directory and unified search actually read.
+	 * Backfilling only (1) — the previous behaviour — left existing members
+	 * unfindable by the newly-searchable field until each re-saved their profile.
+	 *
+	 * Big-site shape: the value rows are walked in keyset batches of
+	 * MIRROR_REBUILD_BATCH (cursor persisted per field) and each batch re-enqueues
+	 * itself on its own hook via Action Scheduler, so a 100k-member field flip
+	 * never runs inline in the admin request. The per-user reindex is likewise
+	 * queued (buddynext_async_index_user), which also dodges the per-request
+	 * static memo in MemberDirectoryService::searchable_mirror_keys() — each queued
+	 * run resolves a fresh key list.
 	 *
 	 * Flat fields only — the bn_field_{key} mirror is single-valued per user.
 	 *
@@ -2496,6 +2758,16 @@ class ProfileService {
 		if ( $field_id <= 0 ) {
 			return;
 		}
+
+		// Bust the definition caches BEFORE any indexing runs. ProfileFieldsManager
+		// fires buddynext_profile_field_updated *before* it clears 'all_fields', and
+		// searchable_mirror_keys() derives its key list from get_fields() — so
+		// without this the reindex would read the pre-edit field definitions and
+		// rebuild the index with the OLD searchable key list.
+		self::flush_definition_cache();
+		// The wp_cache key was being cleared while a per-request memo of the SAME list was not, so
+		// anything that had already asked in this request kept indexing with the pre-edit key list.
+		MemberDirectoryService::flush_mirror_keys_memo();
 
 		global $wpdb;
 
@@ -2511,10 +2783,11 @@ class ProfileService {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( ! $def || 'flat' !== $def['group_type'] ) {
 			// Repeater fields have no single-valued mirror; nothing to backfill.
-			wp_cache_delete( 'bn_dir_searchable_mirrors', 'buddynext' );
+			delete_option( self::MIRROR_CURSOR_OPTION . $field_id );
 			return;
 		}
 
@@ -2527,18 +2800,68 @@ class ProfileService {
 			'group_visibility' => (string) $def['group_visibility'],
 		);
 
-		if ( \BuddyNext\Profile\FieldType::is_multi_entry( (string) $def['type'] ) ) {
-			// Set-valued field: one row per pick — rejoin every user's picks so
-			// the rebuilt mirror covers the full selection, not just entry 0.
+		$is_multi   = \BuddyNext\Profile\FieldType::is_multi_entry( (string) $def['type'] );
+		$queued     = function_exists( 'as_enqueue_async_action' );
+		$cursor     = (int) get_option( self::MIRROR_CURSOR_OPTION . $field_id, 0 );
+		$batch_size = self::MIRROR_REBUILD_BATCH;
+
+		do {
+			$rows   = $this->field_value_batch( $field_id, $is_multi, $cursor, $batch_size );
+			$found  = count( $rows );
+			$cursor = $this->rebuild_mirror_batch( $rows, $field, $queued );
+
+			if ( $found < $batch_size ) {
+				// Last batch — the rebuild is complete.
+				delete_option( self::MIRROR_CURSOR_OPTION . $field_id );
+				return;
+			}
+
+			if ( $queued ) {
+				// Park the cursor and hand the next batch to Action Scheduler. The
+				// only listener on this hook is rebuild_field_mirror() itself
+				// (Plugin.php), so re-firing it resumes exactly here.
+				update_option( self::MIRROR_CURSOR_OPTION . $field_id, $cursor, false );
+				as_enqueue_async_action( 'buddynext_profile_field_updated', array( $field_id ), 'buddynext' );
+				return;
+			}
+
+			// No Action Scheduler on this host: finish inline, batch by batch, so a
+			// searchable flip is never silently left half-applied.
+		} while ( true );
+	}
+
+	/**
+	 * Fetch one keyset batch of a field's stored values, ordered by user_id.
+	 *
+	 * Keyset (user_id > cursor) rather than OFFSET so the walk stays index-backed
+	 * and cannot skip or repeat rows when members save concurrently.
+	 *
+	 * @param int  $field_id Field whose values to read.
+	 * @param bool $is_multi Whether the field is multi-entry (one row per pick).
+	 * @param int  $cursor   Last user_id processed (0 = start).
+	 * @param int  $limit    Maximum rows to return.
+	 * @return array<int, array<string, mixed>> Rows of user_id, value, entry_visibility.
+	 */
+	private function field_value_batch( int $field_id, bool $is_multi, int $cursor, int $limit ): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $is_multi ) {
+			// Set-valued field: one row per pick — rejoin every user's picks so the
+			// rebuilt mirror covers the full selection, not just entry 0.
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT user_id,
 					        GROUP_CONCAT(value ORDER BY entry_index SEPARATOR ',') AS value,
 					        MIN(entry_visibility) AS entry_visibility
 					 FROM {$wpdb->prefix}bn_profile_values
-					 WHERE field_id = %d
-					 GROUP BY user_id",
-					$field_id
+					 WHERE field_id = %d AND user_id > %d
+					 GROUP BY user_id
+					 ORDER BY user_id ASC
+					 LIMIT %d",
+					$field_id,
+					$cursor,
+					$limit
 				),
 				ARRAY_A
 			);
@@ -2547,72 +2870,88 @@ class ProfileService {
 				$wpdb->prepare(
 					"SELECT user_id, value, entry_visibility
 					 FROM {$wpdb->prefix}bn_profile_values
-					 WHERE field_id = %d AND entry_index = 0",
-					$field_id
+					 WHERE field_id = %d AND entry_index = 0 AND user_id > %d
+					 ORDER BY user_id ASC
+					 LIMIT %d",
+					$field_id,
+					$cursor,
+					$limit
 				),
 				ARRAY_A
 			);
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		foreach ( (array) $rows as $row ) {
+		return (array) $rows;
+	}
+
+	/**
+	 * Rewrite the usermeta mirror + reindex each member in one rebuild batch.
+	 *
+	 * @param array<int, array<string, mixed>> $rows   Value rows (user_id ASC).
+	 * @param array<string, mixed>             $field  Flat field definition.
+	 * @param bool                             $queued Whether Action Scheduler is available.
+	 * @return int The highest user_id processed (the next keyset cursor).
+	 */
+	private function rebuild_mirror_batch( array $rows, array $field, bool $queued ): int {
+		$cursor = 0;
+
+		foreach ( $rows as $row ) {
+			$user_id = (int) $row['user_id'];
+
 			$this->sync_search_mirror(
-				(int) $row['user_id'],
+				$user_id,
 				$field,
 				(string) $row['value'],
-				isset( $row['entry_visibility'] ) ? $row['entry_visibility'] : null
+				$row['entry_visibility'] ?? null
 			);
+
+			// Rebuild bn_search_index.content for this member. Queued when possible:
+			// buddynext_index_user runs index_user() INLINE by design
+			// (SearchIndexListener), which would mean one FULLTEXT upsert per member
+			// inside the admin request.
+			if ( $queued ) {
+				as_enqueue_async_action( 'buddynext_async_index_user', array( $user_id ), 'buddynext' );
+			} else {
+				do_action( 'buddynext_index_user', $user_id );
+			}
+
+			$cursor = max( $cursor, $user_id );
 		}
 
-		// The directory's searchable-mirror key list may have changed.
-		wp_cache_delete( 'bn_dir_searchable_mirrors', 'buddynext' );
+		return $cursor;
 	}
 
 	/**
 	 * Map a stored value to its human-readable mirror representation.
 	 *
-	 * Multi types store comma-joined option slugs; the mirror records the
-	 * comma-joined option LABELS so directory search matches what users see.
+	 * Choice types (select, radio, and the multiselect family) store option
+	 * SLUGS; the mirror must record the option LABELS, because the mirror is what
+	 * directory search matches against and members search for what they can see.
+	 *
+	 * A slug is not a quiet variation on its label — sanitize_title() runs
+	 * remove_accents(), which is locale-dependent and lossy in both directions:
+	 *
+	 *   - German (de_DE): 'Flügelhorn' slugs to 'fluegelhorn' (ü -> ue), while the
+	 *     search term 'Flügelhorn' collates to 'flugelhorn' under utf8mb4_*_ci
+	 *     (ü -> u). Mirroring the slug made the member PERMANENTLY unfindable.
+	 *     On an English site the same code is harmless (ü -> u on both sides),
+	 *     which is exactly why this was reported as "cannot reproduce".
+	 *   - Any locale: 'French Horn' slugs to 'french-horn', so every multi-word
+	 *     label was unfindable on every site.
+	 *
+	 * FieldType::searchable_text() already resolves every type to its label text,
+	 * so this delegates rather than keeping a second, subtly-wrong copy of that
+	 * mapping. The caller has already established is_text_searchable() (see the
+	 * $indexable gate in write_search_mirrors()), so the type gate inside
+	 * searchable_text() is a no-op here.
 	 *
 	 * @param array  $field        Flat field definition (with decoded options).
-	 * @param string $stored_value Stored value.
-	 * @return string Mirror value.
+	 * @param string $stored_value Stored value (option slug for choice types).
+	 * @return string Mirror text — option LABELS for choice types, value otherwise.
 	 */
 	private function mirror_value( array $field, string $stored_value ): string {
-		$type = isset( $field['type'] ) ? (string) $field['type'] : 'text';
-
-		// Live-optioned set types (category_multiselect) mirror the option
-		// LABELS resolved by the engine — the stored IDs would be meaningless
-		// to a directory keyword search.
-		if ( \BuddyNext\Profile\FieldType::is_multi_entry( $type ) ) {
-			return \BuddyNext\Profile\FieldType::searchable_text( $field, $stored_value );
-		}
-
-		if ( 'multiselect' !== $type ) {
-			return $stored_value;
-		}
-
-		$options = is_array( $field['options'] ?? null ) ? $field['options'] : array();
-
-		// Build slug => label map; options may be [ slug => label ] or a list of
-		// [ 'value' => slug, 'label' => label ] pairs.
-		$labels = array();
-		foreach ( $options as $opt_key => $opt_val ) {
-			if ( is_array( $opt_val ) ) {
-				$slug            = (string) ( $opt_val['value'] ?? $opt_val['slug'] ?? $opt_key );
-				$labels[ $slug ] = (string) ( $opt_val['label'] ?? $opt_val['value'] ?? $slug );
-			} else {
-				$labels[ (string) $opt_key ] = (string) $opt_val;
-			}
-		}
-
-		$slugs  = array_filter( array_map( 'trim', explode( ',', $stored_value ) ) );
-		$mapped = array();
-		foreach ( $slugs as $slug ) {
-			$mapped[] = $labels[ $slug ] ?? $slug;
-		}
-
-		return implode( ', ', $mapped );
+		return \BuddyNext\Profile\FieldType::searchable_text( $field, $stored_value );
 	}
 
 	/**

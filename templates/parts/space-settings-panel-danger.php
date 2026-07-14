@@ -44,8 +44,11 @@ if ( ! $bn_space ) {
 	return;
 }
 
-$bn_perms           = (array) $args['permissions'];
-$bn_space_id        = isset( $bn_perms['space_id'] ) ? (int) $bn_perms['space_id'] : 0;
+$bn_perms    = (array) $args['permissions'];
+$bn_space_id = isset( $bn_perms['space_id'] ) ? (int) $bn_perms['space_id'] : 0;
+// Drives the Archive/Restore swap below — the space row is the authority here
+// (it may be an array or an object depending on the caller).
+$bn_is_archived     = ! empty( is_array( $bn_space ) ? ( $bn_space['is_archived'] ?? 0 ) : ( $bn_space->is_archived ?? 0 ) );
 $bn_space_name      = isset( $bn_perms['space_name'] ) ? (string) $bn_perms['space_name'] : '';
 $bn_xfer_candidates = isset( $bn_perms['xfer_candidates'] ) && is_array( $bn_perms['xfer_candidates'] )
 	? $bn_perms['xfer_candidates']
@@ -93,20 +96,45 @@ do_action( 'buddynext_part_space_settings_panel_danger_before', $args );
 			><?php esc_html_e( 'Transfer ownership', 'buddynext' ); ?></button>
 		</div>
 
-		<div class="bn-space-settings__danger-row">
-			<div>
-				<div class="bn-space-settings__danger-title"><?php esc_html_e( 'Archive space', 'buddynext' ); ?></div>
-				<div class="bn-space-settings__danger-desc"><?php esc_html_e( 'Make the space read-only. Members can still view posts but new activity is disabled.', 'buddynext' ); ?></div>
+		<?php
+		/*
+		 * Archive is reversible, so the control has to be. Rendering "Archive space"
+		 * unconditionally left a member-owner with no way back: archiving again is a
+		 * server-side no-op, wp-admin's unarchive is gated on manage_options, and the
+		 * only remaining button was the permanent Delete. Show Restore once archived.
+		 */
+		?>
+		<?php if ( $bn_is_archived ) : ?>
+			<div class="bn-space-settings__danger-row">
+				<div>
+					<div class="bn-space-settings__danger-title"><?php esc_html_e( 'Restore space', 'buddynext' ); ?></div>
+					<div class="bn-space-settings__danger-desc"><?php esc_html_e( 'Reopen the space. Members can post and join again.', 'buddynext' ); ?></div>
+				</div>
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="secondary"
+					data-size="md"
+					data-wp-on--click="actions.unarchiveSpace"
+					data-space-id="<?php echo esc_attr( (string) $bn_space_id ); ?>"
+				><?php esc_html_e( 'Restore space', 'buddynext' ); ?></button>
 			</div>
-			<button
-				type="button"
-				class="bn-btn"
-				data-variant="secondary"
-				data-size="md"
-				data-wp-on--click="actions.openArchiveSpaceModal"
-				data-space-id="<?php echo esc_attr( (string) $bn_space_id ); ?>"
-			><?php esc_html_e( 'Archive space', 'buddynext' ); ?></button>
-		</div>
+		<?php else : ?>
+			<div class="bn-space-settings__danger-row">
+				<div>
+					<div class="bn-space-settings__danger-title"><?php esc_html_e( 'Archive space', 'buddynext' ); ?></div>
+					<div class="bn-space-settings__danger-desc"><?php esc_html_e( 'Make the space read-only. Members can still view posts but new activity is disabled. You can restore it later.', 'buddynext' ); ?></div>
+				</div>
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="secondary"
+					data-size="md"
+					data-wp-on--click="actions.openArchiveSpaceModal"
+					data-space-id="<?php echo esc_attr( (string) $bn_space_id ); ?>"
+				><?php esc_html_e( 'Archive space', 'buddynext' ); ?></button>
+			</div>
+		<?php endif; ?>
 
 		<div class="bn-space-settings__danger-row">
 			<div>
@@ -124,7 +152,7 @@ do_action( 'buddynext_part_space_settings_panel_danger_before', $args );
 	</div>
 </div>
 
-<!-- Transfer-ownership modal — REACTIVE: hidden bound to context.modalTransfer
+<!-- Transfer-ownership modal — REACTIVE: hidden bound to the store's state.modalTransferHidden (global modalTransferOpen)
 	via the buddynext/spaces state getter; the opener action flips the flag, and
 	data-bn-modal-close / Escape clear it. No imperative .hidden toggle. -->
 <div
@@ -147,37 +175,67 @@ do_action( 'buddynext_part_space_settings_panel_danger_before', $args );
 				data-bn-modal-close
 			><?php buddynext_icon( 'x' ); ?></button>
 		</header>
-		<div class="bn-modal__body">
-			<p><?php esc_html_e( 'Pick the new space owner. You will be demoted to a regular member.', 'buddynext' ); ?></p>
-			<label class="bn-sr-only" for="bn_transfer_target">
-				<?php esc_html_e( 'New owner', 'buddynext' ); ?>
-			</label>
-			<select id="bn_transfer_target" class="bn-select" data-bn-transfer-target>
-				<option value=""><?php esc_html_e( '— Pick an active member —', 'buddynext' ); ?></option>
-				<?php foreach ( $bn_xfer_candidates as $bn_xc ) : ?>
-					<option value="<?php echo esc_attr( (string) $bn_xc->user_id ); ?>">
-						<?php echo esc_html( $bn_xc->display_name ); ?>
-					</option>
-				<?php endforeach; ?>
-			</select>
-			<p class="bn-modal__error" data-bn-transfer-error hidden></p>
-		</div>
-		<div class="bn-modal__foot">
-			<button
-				type="button"
-				class="bn-btn"
-				data-variant="ghost"
-				data-size="md"
-				data-bn-modal-close
-			><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
-			<button
-				type="button"
-				class="bn-btn"
-				data-variant="primary"
-				data-size="md"
-				data-wp-on--click="actions.transferOwnership"
-			><?php esc_html_e( 'Transfer', 'buddynext' ); ?></button>
-		</div>
+		<?php
+		/*
+		 * An owner who is the space's only member has nobody to transfer to. The
+		 * modal used to render the picker anyway — an empty dropdown that looked
+		 * normal, could never be satisfied, and answered "Transfer" with an error
+		 * that read as if the owner had done something wrong. When there are no
+		 * candidates, render the reason and the two real ways forward instead of a
+		 * control that cannot succeed.
+		 */
+		?>
+		<?php if ( empty( $bn_xfer_candidates ) ) : ?>
+			<div class="bn-modal__body">
+				<p>
+					<?php esc_html_e( 'There is nobody to transfer this space to — you are its only active member.', 'buddynext' ); ?>
+				</p>
+				<p>
+					<?php esc_html_e( 'Invite someone and wait for them to join, then transfer ownership to them. If you simply want to shut the space down, delete it instead.', 'buddynext' ); ?>
+				</p>
+			</div>
+			<div class="bn-modal__foot">
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="primary"
+					data-size="md"
+					data-bn-modal-close
+				><?php esc_html_e( 'Close', 'buddynext' ); ?></button>
+			</div>
+		<?php else : ?>
+			<div class="bn-modal__body">
+				<p><?php esc_html_e( 'Pick the new space owner. You will be demoted to a regular member.', 'buddynext' ); ?></p>
+				<label class="bn-sr-only" for="bn_transfer_target">
+					<?php esc_html_e( 'New owner', 'buddynext' ); ?>
+				</label>
+				<select id="bn_transfer_target" class="bn-select" data-bn-transfer-target>
+					<option value=""><?php esc_html_e( '— Pick an active member —', 'buddynext' ); ?></option>
+					<?php foreach ( $bn_xfer_candidates as $bn_xc ) : ?>
+						<option value="<?php echo esc_attr( (string) $bn_xc->user_id ); ?>">
+							<?php echo esc_html( $bn_xc->display_name ); ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+				<p class="bn-modal__error" data-bn-transfer-error hidden></p>
+			</div>
+			<div class="bn-modal__foot">
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="ghost"
+					data-size="md"
+					data-bn-modal-close
+				><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="primary"
+					data-size="md"
+					data-wp-on--click="actions.transferOwnership"
+				><?php esc_html_e( 'Transfer', 'buddynext' ); ?></button>
+			</div>
+		<?php endif; ?>
 	</div>
 </div>
 
@@ -192,7 +250,7 @@ buddynext_get_template(
 );
 ?>
 
-<!-- Archive-space confirm modal — REACTIVE: hidden bound to context.modalArchive. -->
+<!-- Archive-space confirm modal — REACTIVE: hidden bound to the store's state.modalArchiveHidden (global modalArchiveOpen). -->
 <div
 	class="bn-modal-backdrop"
 	role="dialog"

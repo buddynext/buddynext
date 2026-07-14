@@ -19,6 +19,13 @@ namespace BuddyNext\Notifications;
 class EmailSender {
 
 	/**
+	 * Template rows already fetched during this send run, keyed by type.
+	 *
+	 * @var array<string, object|null>
+	 */
+	private array $template_memo = array();
+
+	/**
 	 * Notification preference service.
 	 *
 	 * @var NotificationPrefService
@@ -71,6 +78,25 @@ class EmailSender {
 	}
 
 	/**
+	 * Whether digest emails are switched on site-wide.
+	 *
+	 * THE single source of truth for the Settings → Notifications → "Digest
+	 * frequency" master switch (option `buddynext_digest_frequency`). 'never'
+	 * means the owner has turned every digest run off: the daily/weekly digest
+	 * crons early-return, so a member's per-type "Daily"/"Weekly" choice cannot
+	 * deliver anything. The notification-preferences UI reads this to stop
+	 * offering those chips (and to explain why an already-stored Daily/Weekly
+	 * value is dormant) instead of silently accepting a dead choice.
+	 *
+	 * Consumed by CronService::digests_disabled() and templates/notifications/prefs.php.
+	 *
+	 * @return bool True when digests may be sent, false when the owner disabled them.
+	 */
+	public static function digests_enabled(): bool {
+		return 'never' !== (string) get_option( 'buddynext_digest_frequency', 'weekly' );
+	}
+
+	/**
 	 * Send an email for a notification type to a user, respecting preferences.
 	 *
 	 * Checks the user's email_freq preference before dispatching:
@@ -78,6 +104,10 @@ class EmailSender {
 	 * - 'daily'|'weekly'  → no immediate send; the digest cron builds + sends from the
 	 *                       recorded notifications. Fires buddynext_queue_email_digest
 	 *                       as an addon extension point only (core keeps no queue).
+	 *                       When the owner has disabled digests (digests_enabled()
+	 *                       is false) NOTHING is delivered for these frequencies —
+	 *                       the prefs UI surfaces that state rather than letting the
+	 *                       member pick an option that quietly sends nothing.
 	 * - 'immediate'       → fetches template, renders, and sends
 	 *
 	 * @param int    $user_id           Recipient user ID.
@@ -135,6 +165,14 @@ class EmailSender {
 			// builds + sends the batched digest from there + bn_notification_prefs,
 			// logging to bn_email_log. Core keeps NO per-user queue — a dead,
 			// never-read buddynext_digest_queue_* usermeta accumulator was removed.
+			//
+			// When the owner has set Digest frequency = "Disabled" the crons
+			// early-return, so this branch delivers nothing at all. We do NOT
+			// silently promote it to an immediate send: the owner switched digest
+			// mail off and the member asked for batched mail, so sending one email
+			// per event would defy both. The prefs UI instead stops offering
+			// Daily/Weekly and flags any stored Daily/Weekly type as dormant, so
+			// the member can see the state and choose Immediate or Off.
 			/**
 			 * Extension point: a notification was routed to digest delivery. Core needs
 			 * no queue (the digest cron reads bn_notifications); an addon may hook this
@@ -732,6 +770,18 @@ class EmailSender {
 	 * @return object|null DB row object or null.
 	 */
 	private function get_template( string $type ): ?object {
+		// Memoised PER INSTANCE. send_now() calls this on EVERY send, so a 10,000-recipient
+		// broadcast issued 10,000 IDENTICAL queries for the same template row — the template
+		// does not vary by recipient, which is the whole point of a template.
+		//
+		// Instance-scoped, NOT static: a static would survive wp_cache_flush() and outlive the
+		// send, so an admin editing a template mid-request would keep sending the old one. The
+		// broadcast loop holds one EmailSender, so an instance memo collapses exactly the
+		// repetition that was there and nothing more.
+		if ( array_key_exists( $type, $this->template_memo ) ) {
+			return $this->template_memo[ $type ];
+		}
+
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -742,7 +792,9 @@ class EmailSender {
 			)
 		);
 
-		return ( null !== $row ) ? $row : null;
+		$this->template_memo[ $type ] = ( null !== $row ) ? $row : null;
+
+		return $this->template_memo[ $type ];
 	}
 
 	/**

@@ -13,6 +13,8 @@
  *   channels        map     { in_app, email, push }
  *   pushAvailable   bool
  *   catalogue       array   per-type defaults for resetToDefaults
+ *   digestsEnabled  bool    false when the owner disabled digest emails site-wide
+ *                           (Daily/Weekly then deliver nothing and are refused)
  *   isDirty         bool    seeded false
  *   isSaving        bool    seeded false
  *   savedAt         number  unix seconds of last successful save (0 = never)
@@ -38,6 +40,13 @@ function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }
 function fmt( tpl, ...vals ) { let i = 0; return String( null == tpl ? '' : tpl ).replace( /%(?:(\d+)\$)?[sd]/g, ( m, pos ) => String( vals[ pos ? pos - 1 : i++ ] ?? '' ) ); }
 
 const VALID_FREQ = [ 'immediate', 'daily', 'weekly', 'off' ];
+
+/* Frequencies that only deliver when the daily/weekly digest crons run. When the
+ * owner sets Settings -> Notifications -> Digest frequency to "Disabled" these
+ * send nothing at all, so the template disables the chips and the store refuses
+ * them too (belt + braces, and it stops "Reset to defaults" from re-seeding a
+ * catalogue default of daily/weekly into a dead state). */
+const DIGEST_FREQ = [ 'daily', 'weekly' ];
 
 /**
  * Toast helper - delegates to the shell-provided bnToast when available.
@@ -197,6 +206,8 @@ const prefsStore = store( 'buddynext/notification-prefs', {
 			var type = btn.dataset.type;
 			var freq = btn.dataset.freq;
 			if ( VALID_FREQ.indexOf( freq ) === -1 ) { return; }
+			// Digests off site-wide: never stage a choice that delivers nothing.
+			if ( ctx.digestsEnabled === false && DIGEST_FREQ.indexOf( freq ) !== -1 ) { return; }
 			var prefs = Object.assign( {}, ctx.prefs || {} );
 			var entry = Object.assign( {}, prefs[ type ] || {} );
 			entry.email_freq = freq;
@@ -209,6 +220,54 @@ const prefsStore = store( 'buddynext/notification-prefs', {
 			// for save. Interactivity bindings re-evaluate on context change
 			// but the chips read their pressed state from data-freq matching
 			// ctx.prefs[type].email_freq so we let the bindings do the work.
+		},
+
+		/**
+		 * Toggle the GLOBAL "all broadcast emails" opt-out.
+		 *
+		 * Bound by the Pro-rendered channel row (BroadcastUnsubscribe::render_prefs_optout)
+		 * which carries the endpoint on data-rest-url. Wires the EXISTING
+		 * POST buddynext-pro/v1/me/email-preferences endpoint — the same flag the
+		 * broadcast sender already checks — so a member can stop every future
+		 * newsletter, not just the one campaign the email footer covers.
+		 *
+		 * The checkbox is framed positively (checked = still receiving), matching the
+		 * other channel rows, so the payload is the inverse of its checked state.
+		 * Saves immediately (an unsubscribe must not wait on a Save button) and
+		 * reverts the checkbox if the request fails.
+		 *
+		 * @param {Event} event change event from the opt-out checkbox.
+		 */
+		async setBroadcastOptOut( event ) {
+			var ctx = getContext();
+			var el  = event.target.closest( '[data-bn-broadcast-optout]' );
+			if ( ! ctx || ! el ) { return; }
+			var url = el.dataset.restUrl || '';
+			if ( ! url ) { return; }
+
+			var optOut = ! el.checked;
+
+			try {
+				var res = await restFetch( '', {
+					base: url,
+					nonce: ctx.nonce,
+					method: 'POST',
+					body: { unsubscribed_all_broadcasts: optOut },
+					toastOnError: false,
+				} );
+				if ( ! res.ok ) {
+					throw new Error( 'http_' + res.status );
+				}
+				toast(
+					optOut
+						? t( 'broadcastsOptedOut', 'You will no longer receive newsletters or announcements.' )
+						: t( 'broadcastsOptedIn', 'You will receive newsletters and announcements again.' ),
+					'success'
+				);
+			} catch ( _e ) {
+				el.checked = ! el.checked;
+				toast( t( 'broadcastsFailed', 'Could not update your broadcast email preference.' ), 'error' );
+			}
 		},
 
 		async setSpacePref( event ) {
@@ -330,11 +389,18 @@ const prefsStore = store( 'buddynext/notification-prefs', {
 			var ctx = getContext();
 			if ( ! ctx ) { return; }
 
+			var digestsOff = ctx.digestsEnabled === false;
 			var next = {};
 			( ctx.catalogue || [] ).forEach( function ( entry ) {
+				var freq = entry.default_email_freq || 'immediate';
+				// Several catalogue defaults are daily/weekly. With digests disabled
+				// those would restore a pref that emails nothing, so they land on
+				// 'off' instead — visible in the chips right away, never silent. The
+				// member can still pick Immediate if they want mail for that type.
+				if ( digestsOff && DIGEST_FREQ.indexOf( freq ) !== -1 ) { freq = 'off'; }
 				next[ entry.slug ] = {
 					on_site:    !! entry.default_on_site,
-					email_freq: entry.default_email_freq || 'immediate',
+					email_freq: freq,
 				};
 			} );
 			ctx.prefs = next;

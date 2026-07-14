@@ -60,6 +60,7 @@ Connections work out of the box with no required configuration. The connect flow
 - **Blocking closes the connection path.** If you or the other member has a block in place, a connection request cannot be sent, and the privacy gate treats you as unconnected.
 - **Incoming requests are handled from the requester's profile and from notifications.** The notification you receive links straight to the requester's profile, where the Accept and Decline buttons appear. An empty account with no pending requests simply shows the Connect button and an empty connections list - that is the expected empty state.
 - **Connecting is not following.** A connection is mutual and both members must agree; following is one-way and instant on public accounts. See Following.
+- **A member can hold up to 5,000 connections.** Because a connection lands on both people's graphs, the limit is checked when a request is *accepted*, and it is checked on both members. If either side is already at the ceiling, the acceptance is refused with a message saying so. The same 5,000 ceiling applies to following - see Following.
 
 ## The Connect Button block
 

@@ -267,6 +267,12 @@ class ProfileController extends BaseRestController {
 							'type'              => 'string',
 							'default'           => 'text',
 							'sanitize_callback' => 'sanitize_key',
+							// Whitelisted at the edge. create_field() writes $data['type'] straight
+							// into the INSERT, so without this an admin-authenticated client could
+							// create a field of a WITHHELD type (one with no render or save
+							// pipeline) or of an arbitrary garbage slug — a field nobody can fill
+							// in and nothing knows how to display.
+							'validate_callback' => static fn( $value ): bool => array_key_exists( (string) $value, \BuddyNext\Profile\FieldType::types() ),
 						),
 						'is_required' => array(
 							'required' => false,
@@ -775,7 +781,7 @@ class ProfileController extends BaseRestController {
 
 		// Validate input before any persistence. Field-level errors are
 		// returned as a 422 payload the JS store can map to inline errors.
-		$errors = $this->validate_profile_payload( $data, $full_write );
+		$errors = $this->validate_profile_payload( $data, $full_write, $user_id );
 		if ( ! empty( $errors ) ) {
 			return new WP_REST_Response(
 				array(
@@ -803,7 +809,7 @@ class ProfileController extends BaseRestController {
 		// Handle privacy + notification preference keys — stored as usermeta,
 		// not profile-field rows. Audience enums are constrained to the
 		// canonical four values; boolean toggles are coerced.
-		$audience_keys = array( 'bn_privacy_see_email', 'bn_privacy_dm', 'bn_privacy_mention' );
+		$audience_keys = array( 'bn_privacy_dm', 'bn_privacy_mention' );
 		// Profile-view / follow / connect gates. Each meta key accepts only the
 		// vocabulary its PrivacyService gate honours (can_view_profile /
 		// can_follow / can_connect); the validator above rejects anything else.
@@ -856,7 +862,7 @@ class ProfileController extends BaseRestController {
 		}
 
 		foreach ( $search_vis_keys as $svk ) {
-			if ( $search_vis_before[ $svk ] !== (string) get_user_meta( $user_id, $svk, true ) ) {
+			if ( (string) get_user_meta( $user_id, $svk, true ) !== $search_vis_before[ $svk ] ) {
 				/**
 				 * An account-level setting governing whether a member's posts
 				 * appear in global search changed. Listeners (SearchIndexListener)
@@ -895,7 +901,23 @@ class ProfileController extends BaseRestController {
 			}
 		}
 
-		$service->save_profile( $user_id, $data );
+		// save_profile() can REJECT the write (moderation safeguard, per-field
+		// sanitise/validate failures). Its return value used to be discarded here, so
+		// the member was told "Profile saved" while the server had thrown the write
+		// away. Mirror admin_update_profile(): a rejected save is a 422 carrying the
+		// field => message map the editor paints as inline errors — never a
+		// 200 {"saved":true}.
+		$result = $service->save_profile( $user_id, $data );
+		if ( is_wp_error( $result ) ) {
+			return new WP_REST_Response(
+				array(
+					'saved'   => false,
+					'errors'  => $this->map_save_error_to_fields( $result, $data, $user_id ),
+					'message' => $result->get_error_message(),
+				),
+				422
+			);
+		}
 
 		/**
 		 * Fire indexing as a pluggable action so Action Scheduler (Phase 6+)
@@ -934,14 +956,19 @@ class ProfileController extends BaseRestController {
 	 * submitted-empty required value is flagged, so a partial save never demands
 	 * every field.
 	 *
-	 * @param array<string, mixed> $data       Raw request payload.
-	 * @param bool                 $full_write  Whether this is a full profile write
-	 *                                          (create / complete-editor save). When
-	 *                                          true, absent required fields also fail.
-	 *                                          Defaults to false (partial update).
+	 * @param array<string, mixed> $data           Raw request payload.
+	 * @param bool                 $full_write     Whether this is a full profile write
+	 *                                             (create / complete-editor save). When
+	 *                                             true, absent required fields also fail.
+	 *                                             Defaults to false (partial update).
+	 * @param int                  $target_user_id User whose profile is being saved. Used
+	 *                                             to resolve their member type so
+	 *                                             type-restricted groups are only enforced
+	 *                                             against members who hold that type.
+	 *                                             0 = unknown (no type resolution).
 	 * @return array<string, string> Field-keyed error messages (possibly empty).
 	 */
-	private function validate_profile_payload( array $data, bool $full_write = false ): array {
+	private function validate_profile_payload( array $data, bool $full_write = false, int $target_user_id = 0 ): array {
 		$errors = array();
 
 		if ( array_key_exists( 'display_name', $data ) ) {
@@ -961,14 +988,41 @@ class ProfileController extends BaseRestController {
 				continue;
 			}
 			$candidate = preg_match( '#^https?://#i', $value ) ? $value : 'https://' . ltrim( $value, '/' );
-			if ( ! wp_http_validate_url( $candidate ) ) {
+
+			// Validate the URL's FORM, not whether our server may fetch it.
+			//
+			// This was wp_http_validate_url(), which is WordPress's SSRF guard: it
+			// exists to answer "is it safe for THIS SERVER to make a request to that
+			// address", so it rejects private hosts, loopback, non-standard ports and
+			// unusual TLDs. None of that is a statement about whether a member may
+			// PUT the link on their profile — we never fetch it, we render it.
+			//
+			// The damage was not limited to the odd URL. The edit form submits EVERY
+			// field, so one stale link anywhere in the payload 422'd the ENTIRE
+			// profile save, and the error did not name the URL field — so the member
+			// saw an unrelated change (a radio, a bio) refuse to stick, with no clue
+			// why. Our own demo seeder shipped a value its own validator rejected
+			// (a .example TLD), which means a fresh demo install had a member who
+			// could not save his own profile.
+			//
+			// wp_http_validate_url() stays where the server genuinely does the
+			// fetching (outbound webhooks, avatar-by-URL). Not here.
+			$parts  = wp_parse_url( $candidate );
+			$scheme = is_array( $parts ) ? strtolower( (string) ( $parts['scheme'] ?? '' ) ) : '';
+			$host   = is_array( $parts ) ? (string) ( $parts['host'] ?? '' ) : '';
+
+			if ( ! filter_var( $candidate, FILTER_VALIDATE_URL )
+				|| ! in_array( $scheme, array( 'http', 'https' ), true )
+				|| '' === $host
+				|| ! str_contains( $host, '.' )
+			) {
 				$errors[ $url_key ] = __( 'Enter a valid URL (https://example.com).', 'buddynext' );
 			}
 		}
 
 		// Audience enums: must match the canonical four-value vocabulary.
 		$audiences     = array( 'everyone', 'members', 'connections', 'nobody' );
-		$audience_keys = array( 'bn_privacy_see_email', 'bn_privacy_dm', 'bn_privacy_mention' );
+		$audience_keys = array( 'bn_privacy_dm', 'bn_privacy_mention' );
 		foreach ( $audience_keys as $aud_key ) {
 			if ( ! array_key_exists( $aud_key, $data ) ) {
 				continue;
@@ -1003,9 +1057,86 @@ class ProfileController extends BaseRestController {
 		// bare `continue` and still returned 200 {"saved":true}.
 		$profiles    = function_exists( 'buddynext_service' ) ? buddynext_service( 'profiles' ) : null;
 		$flat_fields = ( $profiles instanceof \BuddyNext\Profile\ProfileService ) ? $profiles->get_flat_fields() : array();
+
 		foreach ( $flat_fields as $field_def ) {
 			$fkey = (string) ( $field_def['field_key'] ?? '' );
 			if ( '' === $fkey || isset( $errors[ $fkey ] ) ) {
+				continue;
+			}
+
+			// Skip fields whose group is restricted to a member type the target user does not hold —
+			// the field is invisible to them, so neither required-enforcement nor field validation
+			// applies. Delegated to ProfileService so this and the persistence layer cannot answer
+			// the question differently: the same bug (Zoho #40859) was fixed here and left live in
+			// save_profile(), which is what the admin member editor and onboarding actually call.
+			if ( $profiles instanceof \BuddyNext\Profile\ProfileService
+				&& ! $profiles->field_applies_to_user( $field_def, $target_user_id )
+			) {
+				continue;
+			}
+
+			/**
+			 * Filter whether a profile field is ACTIVE for this submission.
+			 *
+			 * A field that is not active is invisible to the member for this save,
+			 * so neither is_required enforcement nor field validation may apply to
+			 * it — exactly like the member-type skip above. Returning false is the
+			 * only way an add-on can stop a field it hides client-side from 422-ing
+			 * the whole profile save when it submits empty (Pro's `conditional`
+			 * field type is the canonical case: its wrapper is hidden by JS but its
+			 * inner input still posts an empty string).
+			 *
+			 * @since 1.0.8
+			 *
+			 * @param bool                 $active         Whether the field applies to this submission.
+			 * @param array<string, mixed> $field_def      Flat field definition (type, options, is_required, …).
+			 * @param array<string, mixed> $data           The full submitted payload.
+			 * @param int                  $target_user_id User whose profile is being saved (0 when unknown).
+			 */
+			$field_active = apply_filters( 'buddynext_profile_field_is_active', true, $field_def, $data, $target_user_id );
+			if ( false === $field_active ) {
+				continue;
+			}
+
+			// A repeater sub-field's value is NEVER a top-level payload key: it lives
+			// inside its group's entries (data[group_key][i][field_key], written by
+			// collectRepeaterEntries in the profile store). Measuring it against the
+			// flat payload therefore reports it as absent on EVERY save — so a single
+			// owner toggling Required on any repeater sub-field 422'd every member's
+			// profile, including members who had filled it in and members with no
+			// entries at all. Enforce it per entry instead.
+			if ( 'repeater' === (string) ( $field_def['group_type'] ?? '' ) ) {
+				$gkey = (string) ( $field_def['group_key'] ?? '' );
+
+				// Group not submitted at all -> nothing to validate. A partial update
+				// leaves it untouched; a full write with no entries is a member who
+				// legitimately has none, and a required SUB-field must not force them
+				// to invent one.
+				if ( '' === $gkey || ! array_key_exists( $gkey, $data ) || ! is_array( $data[ $gkey ] ) ) {
+					continue;
+				}
+
+				if ( empty( $field_def['is_required'] ) ) {
+					continue;
+				}
+
+				foreach ( $data[ $gkey ] as $entry_index => $entry ) {
+					$entry_val   = is_array( $entry ) && array_key_exists( $fkey, $entry ) ? $entry[ $fkey ] : null;
+					$entry_empty = ( null === $entry_val
+						|| ( is_string( $entry_val ) && '' === trim( $entry_val ) )
+						|| ( is_array( $entry_val ) && array() === $entry_val ) );
+
+					if ( $entry_empty ) {
+						// Key the error to the entry so the editor can highlight the
+						// offending row instead of showing an unattributable toast.
+						$errors[ $gkey . '.' . (int) $entry_index . '.' . $fkey ] = sprintf(
+							/* translators: %s: profile field label. */
+							__( '%s is required.', 'buddynext' ),
+							(string) ( $field_def['label'] ?? $fkey )
+						);
+					}
+				}
+
 				continue;
 			}
 
@@ -1054,6 +1185,57 @@ class ProfileController extends BaseRestController {
 	}
 
 	/**
+	 * Turn a save_profile() rejection into a field => message map the editor can
+	 * paint as inline errors.
+	 *
+	 * ProfileService::save_profile() rejects a write in two shapes:
+	 *
+	 *   1. Per-field failures (required / sanitise / validate). The WP_Error data
+	 *      already carries a `fields` map — return it untouched.
+	 *   2. The moderation safeguard (banned word, blocked link, blocked hashtag).
+	 *      That check runs once over the JOINED text of every submitted value, so
+	 *      the WP_Error has no field attribution at all. An unattributed 422 leaves
+	 *      the member with a red toast and no idea WHICH field to fix — a different
+	 *      dead end. So the same safeguard is re-run per submitted value (only on
+	 *      this already-failing path) to name the offending field(s).
+	 *
+	 * An empty map is a valid outcome (the caller still returns the WP_Error's
+	 * message alongside it); it is never a claim that the save succeeded.
+	 *
+	 * @param \WP_Error            $error   The WP_Error returned by save_profile().
+	 * @param array<string, mixed> $data    The payload that was submitted (post-sanitisation).
+	 * @param int                  $user_id User whose profile was being saved.
+	 * @return array<string, string> Field-keyed error messages (possibly empty).
+	 */
+	private function map_save_error_to_fields( \WP_Error $error, array $data, int $user_id ): array {
+		$error_data = (array) $error->get_error_data();
+		$fields     = ( isset( $error_data['fields'] ) && is_array( $error_data['fields'] ) )
+			? array_map( 'strval', $error_data['fields'] )
+			: array();
+
+		if ( ! empty( $fields ) ) {
+			return $fields;
+		}
+
+		$guard = function_exists( 'buddynext_service' ) ? buddynext_service( 'safeguard' ) : null;
+		if ( ! is_object( $guard ) || ! method_exists( $guard, 'check_content' ) ) {
+			return array();
+		}
+
+		$message = (string) $error->get_error_message();
+		foreach ( $data as $key => $value ) {
+			if ( ! is_string( $value ) || '' === trim( $value ) ) {
+				continue;
+			}
+			if ( is_wp_error( $guard->check_content( $value, '', $user_id, 0, 'create' ) ) ) {
+				$fields[ (string) $key ] = $message;
+			}
+		}
+
+		return $fields;
+	}
+
+	/**
 	 * Update any user's profile (admin only).
 	 *
 	 * Body params: display_name + any field_key => value pairs (same format as PUT /me/profile).
@@ -1083,7 +1265,7 @@ class ProfileController extends BaseRestController {
 		$full_write = ! empty( $data['full_write'] ) && rest_sanitize_boolean( (string) $data['full_write'] );
 		unset( $data['full_write'] );
 
-		$errors = $this->validate_profile_payload( $data, $full_write );
+		$errors = $this->validate_profile_payload( $data, $full_write, $user_id );
 		if ( ! empty( $errors ) ) {
 			return new WP_REST_Response(
 				array(
@@ -1110,11 +1292,11 @@ class ProfileController extends BaseRestController {
 
 		$result = $service->save_profile( $user_id, $data );
 		if ( is_wp_error( $result ) ) {
-			$error_data = (array) $result->get_error_data();
 			return new WP_REST_Response(
 				array(
-					'saved'  => false,
-					'errors' => (array) ( $error_data['fields'] ?? array() ),
+					'saved'   => false,
+					'errors'  => $this->map_save_error_to_fields( $result, $data, $user_id ),
+					'message' => $result->get_error_message(),
 				),
 				422
 			);

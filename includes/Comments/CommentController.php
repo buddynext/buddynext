@@ -130,6 +130,13 @@ class CommentController extends BaseRestController {
 			)
 		);
 
+		// Pin/unpin: login is the only route-level gate. Fine-grained authorization
+		// is the service's job — CommentService::can_pin_comment() grants pin rights
+		// to site admins AND to moderators of the post's space, and pin()/unpin()
+		// below turn a denial into a 403 (404-before-403 for a missing comment).
+		// require_moderator() here would be require_admin() (manage_options), which
+		// 403'd space moderators at the permission callback even though the service
+		// — and the can_pin flag that renders their pin button — allow them.
 		register_rest_route(
 			'buddynext/v1',
 			'/comments/(?P<id>[\d]+)/pin',
@@ -137,7 +144,7 @@ class CommentController extends BaseRestController {
 				array(
 					'methods'             => WP_REST_Server::CREATABLE,
 					'callback'            => array( $this, 'pin' ),
-					'permission_callback' => array( $this, 'require_moderator' ),
+					'permission_callback' => array( $this, 'require_auth' ),
 					'args'                => array(
 						'id' => array(
 							'required' => true,
@@ -149,7 +156,7 @@ class CommentController extends BaseRestController {
 				array(
 					'methods'             => WP_REST_Server::DELETABLE,
 					'callback'            => array( $this, 'unpin' ),
-					'permission_callback' => array( $this, 'require_moderator' ),
+					'permission_callback' => array( $this, 'require_auth' ),
 					'args'                => array(
 						'id' => array(
 							'required' => true,
@@ -343,7 +350,7 @@ class CommentController extends BaseRestController {
 		// Recurse through the full reply tree (N-deep up to the
 		// CommentService::MAX_REPLY_DEPTH cap) so every node — including
 		// the cap-level flattened leaves — gets the same enrichment.
-		$walk            = function ( array $comment ) use ( $enrich, &$walk ): array {
+		$walk = function ( array $comment ) use ( $enrich, &$walk ): array {
 			$comment = $enrich( $comment );
 			if ( ! empty( $comment['replies'] ) ) {
 				$comment['replies'] = array_map( $walk, $comment['replies'] );

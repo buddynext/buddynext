@@ -15,6 +15,16 @@ namespace BuddyNext\Widgets;
 class RecentActivityWidget extends \WP_Widget {
 
 	/**
+	 * Object-cache group.
+	 */
+	private const CACHE_GROUP = 'buddynext_widgets';
+
+	/**
+	 * Cache lifetime, in seconds.
+	 */
+	private const CACHE_TTL = 60;
+
+	/**
 	 * Constructor — register the widget with WordPress.
 	 */
 	public function __construct() {
@@ -50,7 +60,7 @@ class RecentActivityWidget extends \WP_Widget {
 		// Short-TTL cache so a busy sidebar does not re-query bn_posts on every
 		// render; the recent-activity list tolerates ~60s staleness.
 		$cache_key = 'recent_activity_' . $limit;
-		$rows      = wp_cache_get( $cache_key, 'buddynext_widgets' );
+		$rows      = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false === $rows ) {
 			$table = $wpdb->prefix . 'bn_posts';
 			$rows  = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -59,7 +69,8 @@ class RecentActivityWidget extends \WP_Widget {
 					$limit
 				)
 			);
-			wp_cache_set( $cache_key, $rows, 'buddynext_widgets', 60 );
+			// cache-ttl-only: a rolling recent-activity list. New activity appears within the TTL; a bust path per write would invalidate it constantly for no gain.
+			wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
 		// Prime the author cache in one query so the loop's get_userdata() below

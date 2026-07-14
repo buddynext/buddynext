@@ -74,6 +74,7 @@ class NotificationListener implements ListenerInterface {
 		add_action( 'buddynext_space_join_approved', array( $this, 'on_space_join_approved' ), 10, 3 );
 		add_action( 'buddynext_space_join_declined', array( $this, 'on_space_join_declined' ), 10, 3 );
 		add_action( 'buddynext_space_member_invited', array( $this, 'on_space_member_invited' ), 10, 3 );
+		add_action( 'buddynext_space_ownership_transferred', array( $this, 'on_space_ownership_transferred' ), 10, 4 );
 
 		// Space posts.
 		add_action( 'buddynext_post_created', array( $this, 'on_post_created_in_space' ), 10, 3 );
@@ -517,6 +518,36 @@ class NotificationListener implements ListenerInterface {
 	}
 
 	/**
+	 * Notify the new owner that a space is now theirs.
+	 *
+	 * Fires for BOTH a deliberate transfer and an automatic succession (when the
+	 * previous owner was deleted), so the recipient is never surprised to find
+	 * they are running a space — one they cannot hand back by leaving.
+	 *
+	 * @param int      $space_id           Space whose ownership moved.
+	 * @param int      $new_owner_id       The new owner (notification recipient).
+	 * @param int|null $actor_id           Actor, or null for a system reassignment.
+	 * @param int      $_previous_owner_id Outgoing owner (unused — hook contract).
+	 * @return void
+	 */
+	public function on_space_ownership_transferred( int $space_id, int $new_owner_id, ?int $actor_id = null, int $_previous_owner_id = 0 ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_previous_owner_id required by hook contract.
+		if ( ! function_exists( 'buddynext_service' ) || $new_owner_id <= 0 ) {
+			return;
+		}
+
+		buddynext_service( 'notifications' )->create(
+			array(
+				'recipient_id' => $new_owner_id,
+				'sender_id'    => $actor_id,
+				'type'         => 'bn.space_ownership_received',
+				'object_type'  => 'space',
+				'object_id'    => $space_id,
+				'group_key'    => 'space_owner_' . $space_id . '_' . $new_owner_id,
+			)
+		);
+	}
+
+	/**
 	 * Notify a user when their request to join a space is declined.
 	 *
 	 * SpaceMemberService::decline_request fired buddynext_space_join_declined but
@@ -904,13 +935,17 @@ class NotificationListener implements ListenerInterface {
 		$last_row      = end( $rows );
 		$last_user_id  = (int) $last_row['user_id'];
 
-		// Space-pref gate: only 'none' suppresses a space new-post (null/'' = 'all').
+		// Space-pref gate. The per-space pref has three values (SpaceMemberService::
+		// NOTIFICATION_PREFS): 'all' | 'mentions_only' | 'none'. A new post is not a
+		// mention, so ONLY 'all' receives this fan-out — 'mentions_only' members are
+		// suppressed here and still get their @-mentions via the separate bn.mention
+		// path. Legacy rows with null/'' normalise to 'all'.
 		$candidates = array();
 		foreach ( $rows as $row ) {
 			$pref = ( null === $row['notification_pref'] || '' === $row['notification_pref'] )
 				? 'all'
 				: (string) $row['notification_pref'];
-			if ( 'none' !== $pref ) {
+			if ( 'all' === $pref ) {
 				$candidates[] = (int) $row['user_id'];
 			}
 		}

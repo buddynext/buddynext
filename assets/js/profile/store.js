@@ -468,6 +468,65 @@ function renderCoverReposModal( url, resolve ) {
 	document.body.appendChild( overlay );
 }
 
+/* Strip a trailing "[]" from a control name to get the key the server expects.
+   Checkbox groups and <select multiple> render name="key[]"; the payload key is
+   the bare `key`. */
+function controlKey( name ) {
+	return /\[\]$/.test( name ) ? name.slice( 0, -2 ) : name;
+}
+
+/* Read ONE form control into `bag` under `key`, honouring the control's type.
+   This is the single definition of "what is this control's value", shared by BOTH
+   collectors below.
+
+   It is shared deliberately. Every one of the bugs the branches below guard against
+   was first fixed in the FLAT collector and silently left broken in the REPEATER
+   one, because the two kept their own copies of this logic:
+
+     - a radio group in a repeater saved the LAST option regardless of which the
+       member picked (each option overwrote the entry via `el.value`), so a customer
+       reported "whichever I choose, it shows the last one";
+     - a <select multiple> / checkbox group in a repeater was dropped from the
+       payload entirely — saved with a success toast, data gone.
+
+   One collector cannot now be fixed without the other. Do not re-inline this. */
+function assignControlValue( bag, key, el ) {
+	// Checkbox GROUP (multiselect / category_multiselect render name="key[]"):
+	// the checked values are an ARRAY under the bare key. Reading el.value stored a
+	// literal "key[]" entry holding whatever checkbox came last, checked or not —
+	// a key the server never recognised, so the field silently never saved.
+	if ( 'checkbox' === el.type && /\[\]$/.test( el.name ) ) {
+		if ( ! Array.isArray( bag[ key ] ) ) { bag[ key ] = []; }
+		if ( el.checked ) { bag[ key ].push( el.value ); }
+		return;
+	}
+
+	// Single checkbox (boolean field): the checked STATE is the value — reading
+	// el.value sends "1" even when unchecked.
+	if ( 'checkbox' === el.type ) {
+		bag[ key ] = el.checked ? '1' : '';
+		return;
+	}
+
+	// Radio group: ONLY the checked option wins (default empty). Every option in the
+	// group carries the same key, so reading el.value lets the LAST rendered option
+	// overwrite the member's actual choice.
+	if ( 'radio' === el.type ) {
+		if ( ! ( key in bag ) ) { bag[ key ] = ''; }
+		if ( el.checked ) { bag[ key ] = el.value; }
+		return;
+	}
+
+	// <select multiple> (Pro multi_select_advanced): el.value returns only the FIRST
+	// selected option, so 2+ picks collapsed to one. Collect them all.
+	if ( 'select-multiple' === el.type ) {
+		bag[ key ] = Array.prototype.slice.call( el.selectedOptions ).map( function ( o ) { return o.value; } );
+		return;
+	}
+
+	bag[ key ] = el.value;
+}
+
 /* Collect all named flat inputs/textareas (excluding the slug input). */
 function collectFlatData( wrap ) {
 	var data = {};
@@ -476,34 +535,7 @@ function collectFlatData( wrap ) {
 		if ( el.id === 'bn-ep-slug' ) { return; }
 		if ( /\[\d+\]\[/.test( el.name ) ) { return; }
 
-		// Checkbox GROUP (multiselect / category_multiselect render name="key[]"):
-		// send the checked values as an array under the bare key. The old
-		// `data[el.name] = el.value` path stored a literal "key[]" entry with
-		// whatever checkbox came last, checked or not — the server never
-		// recognised the key, so these fields silently never saved.
-		if ( 'checkbox' === el.type && /\[\]$/.test( el.name ) ) {
-			var groupKey = el.name.slice( 0, -2 );
-			if ( ! Array.isArray( data[ groupKey ] ) ) { data[ groupKey ] = []; }
-			if ( el.checked ) { data[ groupKey ].push( el.value ); }
-			return;
-		}
-
-		// Single checkbox (boolean field): the checked STATE is the value —
-		// reading el.value sent "1" even when unchecked.
-		if ( 'checkbox' === el.type ) {
-			data[ el.name ] = el.checked ? '1' : '';
-			return;
-		}
-
-		// Radio group: only the checked option wins (default empty) — reading
-		// el.value made the LAST rendered option win regardless of selection.
-		if ( 'radio' === el.type ) {
-			if ( ! ( el.name in data ) ) { data[ el.name ] = ''; }
-			if ( el.checked ) { data[ el.name ] = el.value; }
-			return;
-		}
-
-		data[ el.name ] = el.value;
+		assignControlValue( data, controlKey( el.name ), el );
 	} );
 	return data;
 }
@@ -518,7 +550,18 @@ function repeaterContainerId( group ) {
 	return 'bn-ep-' + String( group ).replace( /_/g, '-' ) + '-entries';
 }
 
-/* Collect repeater entries from a container by data-entry-index children. */
+/* Collect repeater entries from a container by data-entry-index children.
+
+   Entry controls are named `group[index][key]`, and multi-value ones (checkbox
+   group, <select multiple>) add a trailing `[]` -> `group[index][key][]`. The
+   trailing `[]` is optional in the pattern below: when it was not, the regex was
+   $-anchored on `]` and never matched a multi-value control, so a multiselect
+   inside a repeater was silently dropped from the payload — the member saw a
+   success toast and lost the data.
+
+   Value semantics are delegated to assignControlValue(), the same function the flat
+   collector uses, so a control type can never again be handled correctly in one
+   collector and wrongly in the other. */
 function collectRepeaterEntries( containerId ) {
 	var container = document.getElementById( containerId );
 	if ( ! container ) { return []; }
@@ -530,11 +573,9 @@ function collectRepeaterEntries( containerId ) {
 		// choice on Work Experience / Education rows was never sent and reset to
 		// the default on reload.
 		row.querySelectorAll( 'input[name], textarea[name], select[name]' ).forEach( function ( el ) {
-			var m = el.name.match( /\[\d+\]\[([^\]]+)\]$/ );
+			var m = el.name.match( /\[\d+\]\[([^\]]+)\](\[\])?$/ );
 			if ( ! m ) { return; }
-			// Checkboxes (e.g. work_current) store "1" when ticked, "" otherwise —
-			// reading .value alone would always yield "1" regardless of state.
-			entry[ m[1] ] = ( 'checkbox' === el.type ) ? ( el.checked ? '1' : '' ) : el.value;
+			assignControlValue( entry, m[1], el );
 		} );
 		entries.push( entry );
 	} );
@@ -658,8 +699,10 @@ var _pendingCover  = null; // { file, x, y, zoom }
    reuses the captured REST nonce (ctx.restNonce); failures surface a toast but
    don't fail the overall save (the field data is already persisted). */
 async function flushStagedMedia( ctx ) {
+	var allOk = true;
 	if ( _pendingAvatar ) {
-		var avFd = new FormData();
+		var avatarOk = false;
+		var avFd     = new FormData();
 		avFd.append( 'avatar', _pendingAvatar.blob, 'avatar.jpg' );
 		try {
 			var avRes = await restFetch( profileResourcePath( 'avatar' ), {
@@ -670,20 +713,29 @@ async function flushStagedMedia( ctx ) {
 			} );
 			var avData = avRes.data || {};
 			if ( avRes.ok && avData.avatar_url ) {
+				avatarOk      = true;
 				ctx.avatarUrl = avData.avatar_url;
 				setAvatarPreview( avData.avatar_url );
 				toggleAvatarRemove( true );
 			} else {
+				allOk = false;
 				bnToast( ( avData && avData.message ) || t( 'avatarSaveFailed', 'Avatar could not be saved' ), { tone: 'danger' } );
 			}
 		} catch ( _e ) {
+			allOk = false;
 			bnToast( t( 'avatarSaveFailed', 'Avatar could not be saved' ), { tone: 'danger' } );
 		}
-		_pendingAvatar = null;
+		// Only drop the staged image once it is actually stored. Clearing it on
+		// failure threw away the member's chosen file while the save bar told them
+		// everything had saved — so pressing Save again silently uploaded nothing.
+		if ( avatarOk ) {
+			_pendingAvatar = null;
+		}
 	}
 
 	if ( _pendingCover ) {
-		var cvFd = new FormData();
+		var coverOk = false;
+		var cvFd    = new FormData();
 		cvFd.append( 'avatar', _pendingCover.file );
 		cvFd.append( 'focal_x', String( _pendingCover.x ) );
 		cvFd.append( 'focal_y', String( _pendingCover.y ) );
@@ -697,16 +749,23 @@ async function flushStagedMedia( ctx ) {
 			} );
 			var cvData = cvRes.data || {};
 			if ( cvRes.ok && cvData.cover_url ) {
+				coverOk      = true;
 				ctx.coverUrl = cvData.cover_url;
 				toggleCoverRemove( true );
 			} else {
+				allOk = false;
 				bnToast( ( cvData && cvData.message ) || t( 'coverSaveFailed', 'Cover could not be saved' ), { tone: 'danger' } );
 			}
 		} catch ( _e ) {
+			allOk = false;
 			bnToast( t( 'coverSaveFailed', 'Cover could not be saved' ), { tone: 'danger' } );
 		}
-		_pendingCover = null;
+		// Retain a rejected cover so Save retries it (see the avatar note above).
+		if ( coverOk ) {
+			_pendingCover = null;
+		}
 	}
+	return allOk;
 }
 
 /* Master save flow - submits all fields, handles 200 / 422 / 5xx. */
@@ -736,7 +795,29 @@ async function doSave( ctx ) {
 		if ( res.ok ) {
 			// Persist staged avatar/cover now that the field save succeeded, so
 			// they survive reload — and a pre-save Cancel/Leave reverts them.
-			await flushStagedMedia( ctx );
+			var mediaOk = await flushStagedMedia( ctx );
+
+			// The field data IS persisted at this point, but the save as a whole only
+			// succeeded if the staged avatar/cover uploaded too. Claiming otherwise is
+			// what produced the conflicting messages: the save bar showed a green
+			// "All changes saved" check at the same moment a danger toast said the
+			// cover could not be saved. So the completed state — the tick, the cleared
+			// dirty flag, and the success toast — is announced only when the media
+			// actually landed. On failure the bar stays "Unsaved changes", the staged
+			// image is retained (see flushStagedMedia), and pressing Save retries it.
+			if ( ! mediaOk ) {
+				// flushStagedMedia already toasted the specific reason (too large,
+				// wrong type, …). Do not stack a second message on top of it.
+				//
+				// Keep the bar on "Unsaved changes": the staged image is still
+				// pending, so that is the truth, and it gives the member something to
+				// press to retry after picking a different file. Reporting nothing at
+				// all would leave them with a dismissed toast and no state.
+				ctx.isDirty = true;
+				syncDirtyAttr( true );
+				return;
+			}
+
 			ctx.saved   = true;
 			ctx.isDirty = false;
 			// Mirror the cleared dirty state onto the DOM attribute at the source —
@@ -879,6 +960,61 @@ function buildEntryVisNode( group, index ) {
 	return field;
 }
 
+/* Build a blank entry for an admin-created (custom) repeater group by cloning the
+   server-rendered entry and resetting it. The server renders every repeater group
+   through the field-type engine and always emits at least one schema-bearing entry
+   (even when empty), so the clone reproduces the exact markup, styling and field
+   types with no hardcoded field map — this is what makes Add Entry work for groups
+   beyond the built-in Work Experience / Education. */
+function buildEntryNodeFromClone( group, index ) {
+	var container = document.getElementById( repeaterContainerId( group ) );
+	if ( ! container ) { return null; }
+	var seed = container.querySelector( '.bn-ep-repeater-entry' );
+	if ( ! seed ) { return null; }
+
+	var clone = seed.cloneNode( true );
+	clone.dataset.entryIndex = String( index );
+
+	var num = clone.querySelector( '.bn-ep-repeater-num' );
+	if ( num ) { num.textContent = String( index + 1 ); }
+
+	// Reindex control names group[old][key] -> group[index][key] so each entry is
+	// an independent checkbox/radio group, and clear the cloned values.
+	clone.querySelectorAll( 'input[name], textarea[name], select[name]' ).forEach( function ( el ) {
+		el.name = el.name.replace( /\[\d+\]/, '[' + index + ']' );
+		if ( 'checkbox' === el.type || 'radio' === el.type ) {
+			el.checked = false;
+		} else if ( 'SELECT' !== el.tagName ) {
+			el.value = '';
+		}
+		// The per-entry privacy <select> keeps its rendered default.
+	} );
+
+	// Keep ids/labels unique so a label click focuses THIS entry's control.
+	clone.querySelectorAll( '[id]' ).forEach( function ( el ) {
+		var newId = el.id.replace( /-\d+$/, '-' + index );
+		if ( newId === el.id ) { return; }
+		var lbl = clone.querySelector( 'label[for="' + el.id + '"]' );
+		el.id = newId;
+		if ( lbl ) { lbl.setAttribute( 'for', newId ); }
+	} );
+
+	// The server remove button binds via Interactivity (data-wp-on--click), which
+	// only hydrates initial HTML — a cloned button never fires it. Drop that
+	// attribute and wire an explicit handler, mirroring the built-in path.
+	var removeBtn = clone.querySelector( '.bn-ep-repeater-remove' );
+	if ( removeBtn ) {
+		removeBtn.removeAttribute( 'data-wp-on--click' );
+		removeBtn.dataset.entryIndex = String( index );
+		removeBtn.addEventListener( 'click', function () {
+			clone.remove();
+			renumberEntries( repeaterContainerId( group ) );
+		} );
+	}
+
+	return clone;
+}
+
 /* Build a blank repeater entry DOM node for a given group. */
 function buildEntryNode( group, index ) {
 	var groupConfig = {
@@ -912,7 +1048,10 @@ function buildEntryNode( group, index ) {
 		},
 	};
 	var cfg = groupConfig[ group ];
-	if ( ! cfg ) { return null; }
+	// Custom (admin-created) repeater groups have no hardcoded config — build the
+	// blank entry from the server-rendered markup instead of giving up (which left
+	// Add Entry doing nothing for any group but Work Experience / Education).
+	if ( ! cfg ) { return buildEntryNodeFromClone( group, index ); }
 
 	// Required sub-field keys, read data-driven from the server-emitted
 	// data-bn-required-fields on the entries container, so a JS-added row shows

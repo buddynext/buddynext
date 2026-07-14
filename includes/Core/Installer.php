@@ -18,6 +18,120 @@ namespace BuddyNext\Core;
 class Installer {
 
 	/**
+	 * Every table this plugin owns, unprefixed. The authoritative list.
+	 *
+	 * `uninstall.php` drops exactly these and nothing else. It used to discover
+	 * tables with `SHOW TABLES LIKE '{prefix}bn_%'`, which is not the same set:
+	 * BuddyNext Pro also names its 18 tables `bn_*` (bn_invoices, bn_subscriptions,
+	 * bn_membership_tiers …), so deleting Free destroyed Pro's financial records on
+	 * every site running both. A plugin may only delete what it owns — see
+	 * DATA-LIFECYCLE.md.
+	 *
+	 * Keep this in step with install_schema(): a table created there but missing
+	 * here leaks on uninstall. InstallerOwnedTablesTest asserts the two agree.
+	 *
+	 * @var string[]
+	 */
+	/**
+	 * User-meta keys BuddyNext must NEVER delete on uninstall — Pro owns them.
+	 *
+	 * The same lesson as OWNED_TABLES, one layer down. Pro prefixes its user meta
+	 * `bn_` too, so Free's uninstall used to run
+	 * `DELETE FROM wp_usermeta WHERE meta_key LIKE 'bn\_%'` and take Pro's rows with
+	 * it — under a comment asserting "Pro writes no user meta under either prefix",
+	 * which was simply false. Deleting the FREE plugin therefore destroyed, on a site
+	 * where Pro was still installed and running:
+	 *
+	 *   - `bn_ability_*`          the member's PAID entitlement grants; and
+	 *   - `bn_email_unsubscribed_*` / `bn_email_suppressed`  the member's email OPT-OUT.
+	 *
+	 * The second is the serious one. An opt-out is a record of consent withdrawn:
+	 * deleting it does not merely lose data, it silently re-subscribes a member who
+	 * explicitly unsubscribed, and the next broadcast mails them. That is a
+	 * compliance failure, not an inconvenience.
+	 *
+	 * Entries are matched as PREFIXES, so a namespace covers its dynamic keys
+	 * (`bn_ability_tier_supporter`, `bn_push_pref_bn.new_follower`, …).
+	 *
+	 * `bn_ability_` is deliberately listed even though Free writes it too
+	 * (AccessWebhookController grants abilities from an outbound webhook): Free and
+	 * Pro grants are indistinguishable once stored, and leaving a stale grant behind
+	 * is strictly better than revoking access somebody paid for. Residue is
+	 * recoverable; a destroyed entitlement is not.
+	 *
+	 * InstallerOwnedTablesTest asserts this list still covers every `bn_*` user-meta
+	 * key Pro writes — a gate that reads BOTH repos, because a gate that only ever
+	 * scans one repo is the root cause this whole class of bug keeps coming from.
+	 *
+	 * @var string[]
+	 */
+	public const PRO_OWNED_USER_META = array(
+		'bn_ability_',              // Paid entitlement grants (Stripe/PayPal → SubscriptionService).
+		'bn_push_pref_',            // Per-type push preferences (Pro PushPrefService).
+		'bn_email_unsubscribed_',   // Broadcast/sequence/campaign opt-outs (Pro BroadcastUnsubscribe).
+		'bn_email_suppressed',      // Hard suppression list (Pro BroadcastUnsubscribe).
+	);
+
+	public const OWNED_TABLES = array(
+		'bn_activity_log',
+		'bn_appeals',
+		'bn_blocks',
+		'bn_bookmarks',
+		'bn_comments',
+		'bn_connections',
+		'bn_email_log',
+		'bn_email_templates',
+		'bn_follows',
+		'bn_hashtag_follows',
+		'bn_hashtags',
+		'bn_invites',
+		'bn_member_type_assignments',
+		'bn_member_types',
+		'bn_mod_log',
+		'bn_notification_prefs',
+		'bn_notifications',
+		'bn_outbound_webhook_log',
+		'bn_outbound_webhooks',
+		'bn_poll_options',
+		'bn_poll_votes',
+		'bn_post_hashtags',
+		'bn_posts',
+		'bn_presence',
+		'bn_profile_fields',
+		'bn_profile_groups',
+		'bn_profile_values',
+		'bn_reactions',
+		'bn_reports',
+		'bn_search_index',
+		'bn_shares',
+		'bn_space_bans',
+		'bn_space_categories',
+		'bn_space_members',
+		'bn_space_meta',
+		'bn_spaces',
+		'bn_user_strikes',
+		'bn_user_suspensions',
+		'bn_verify_tokens',
+		'bn_webhook_log',
+	);
+
+	/**
+	 * Tables Free created in an earlier version and no longer creates.
+	 *
+	 * We still own them, so uninstall still drops them — otherwise a table left on
+	 * every install that ever ran the older version would survive a delete forever.
+	 * Retiring a table means removing it from install_schema() AND listing it here;
+	 * dropping it from the code alone only stops NEW installs from getting it.
+	 *
+	 * bn_feed_items — dead fan-out table, removed from the schema in 85b20825.
+	 *
+	 * @var string[]
+	 */
+	public const LEGACY_TABLES = array(
+		'bn_feed_items',
+	);
+
+	/**
 	 * Filename for the mu-plugin that provides front-end plugin isolation.
 	 */
 	private const MU_PLUGIN_SLUG = 'buddynext-isolation.php';
@@ -105,8 +219,12 @@ class Installer {
 	 *      UPDATE inside seed_default_profile_groups_and_fields() for existing
 	 *      installs) so owners can prune sections that do not fit their niche —
 	 *      display templates already self-hide when a group is gone. Only
-	 *      basic_info, skills and interests remain system groups (basic_info carries
-	 *      the code-consumed spine fields; interests feeds the suggestion engines).
+	 *      basic_info and interests remain system groups (basic_info carries the
+	 *      code-consumed spine fields; interests feeds the suggestion engines).
+	 *      Skills is NOT a system group — it is a niche section a book club or a
+	 *      photography community has no use for, and SetupChecklist lists it with
+	 *      the other prunable groups. The search facet degrades to empty when it is
+	 *      gone, which is the correct behaviour for an optional section.
 	 *      (b) Added bn_profile_fields.description + placeholder (help text under the
 	 *      label, placeholder inside the input) so owners can hint every custom
 	 *      field — guarded ALTERs for existing installs, inline in CREATE TABLE for
@@ -117,8 +235,34 @@ class Installer {
 	 *      preset library now declares registry types only, with field keys
 	 *      converged to the Installer seed (one canonical schema from either
 	 *      provisioning path).
+	 *
+	 * v28: THE BUMP ITSELF IS THE FIX.
+	 *
+	 *      maybe_upgrade() returns early when the stored option already equals this constant, so
+	 *      the constant IS the switch that lets any schema change reach a site that UPDATES rather
+	 *      than installs fresh. It sat at 27 for 142 commits, which means every schema change
+	 *      merged into 1.0.8 shipped only to new installs and was dead on every existing site:
+	 *      the wp-admin Spaces indexes (admin_type / admin_recent / admin_active), the
+	 *      bn_reports.reason ENUM -> VARCHAR widening, the 100k-scale perf indexes, and the
+	 *      members-tier search column added alongside this bump. All fixed in code. None of them
+	 *      present in a single upgraded database.
+	 *
+	 *      Two lessons worth leaving here, because both were invisible:
+	 *
+	 *      1. A schema change without a version bump is not a schema change. It is a comment.
+	 *      2. `KEY purge (...)` — renamed in this same commit — is a MySQL RESERVED WORD.
+	 *         Unquoted it is a syntax error that fails the ENTIRE CREATE TABLE, not just the
+	 *         index, and dbDelta reports "Created table" while swallowing it. So bn_notifications
+	 *         and bn_email_log could silently fail to exist, and nothing reached any log. The two
+	 *         defects had to be fixed together: bumping the version re-runs the schema, and
+	 *         re-running a schema whose CREATE is a syntax error just fails again, quietly.
+	 *
+	 * v29: retire the bn.connection_declined notification type. It was never created by
+	 *      anything — no listener hooks buddynext_connection_declined — but it shipped a
+	 *      member preference toggle, a seeded email template and an Email Editor entry.
+	 *      Clears the seeded template row and any saved preference rows.
 	 */
-	private const SCHEMA_VERSION = 27;
+	private const SCHEMA_VERSION = 32;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -248,7 +392,75 @@ class Installer {
 		// 100k-post site never re-syncs inline. Enqueued once here; safe to resume.
 		self::schedule_hashtag_resync();
 
+		// v29: retire bn.connection_declined. Nothing ever created that notification —
+		// no listener hooked buddynext_connection_declined — yet it shipped a member
+		// preference toggle (default ON), a seeded email template, and an editable
+		// entry in the admin Email Editor. An owner could sit and customise the copy of
+		// an email that could never send. Facebook, X and LinkedIn all silently drop a
+		// declined request rather than announce the rejection, so the fix is to remove
+		// the dead plumbing, not to start firing it. Clear the residue from installs
+		// that already seeded it. Idempotent.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_email_templates WHERE type = 'bn.connection_declined'" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_notification_prefs WHERE type = 'bn.connection_declined'" );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// v30: re-mirror every searchable CHOICE field. The search mirror used to
+		// record a select/radio value's sanitize_title() SLUG instead of its option
+		// LABEL, and a slug is lossy in a locale-dependent way (remove_accents()):
+		// on a German site 'Flügelhorn' mirrored as 'fluegelhorn' (ü -> ue) while the
+		// search term collates to 'flugelhorn' (ü -> u), so the member was
+		// PERMANENTLY unfindable; and on every locale a multi-word label like
+		// 'French Horn' mirrored as 'french-horn' and never matched either.
+		// Reported by a customer whose members could not find each other by instrument.
+		//
+		// A reindex alone would NOT fix this: index_user() COPIES the bn_field_{key}
+		// mirror into the FULLTEXT column, so re-running it just re-copies the stale
+		// slug. The mirror itself has to be rebuilt from bn_profile_values — which is
+		// exactly what rebuild_field_mirror() does (it moves the usermeta mirror AND
+		// the search index together, in keyset batches via Action Scheduler, so a
+		// 100k-member field never rebuilds inline in this admin request).
+		//
+		// Scoped to choice types: scalar fields (text/textarea/url/email) always
+		// mirrored their raw value and were never affected.
+		self::schedule_choice_field_remirror();
+
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
+	 * Queue a mirror rebuild for every searchable choice-type profile field (v30).
+	 *
+	 * Choice types (select, radio, and the multiselect family) are the only types
+	 * whose mirror was written as an option slug rather than an option label, so
+	 * they are the only ones that need re-mirroring. Each field is handed to
+	 * ProfileService::rebuild_field_mirror(), which walks its value rows in keyset
+	 * batches and queues the per-user reindex — nothing runs inline here.
+	 *
+	 * Idempotent: rebuilding a mirror that is already correct rewrites the same
+	 * bytes, so a repeated maybe_upgrade() pass is harmless.
+	 *
+	 * @return void
+	 */
+	private static function schedule_choice_field_remirror(): void {
+		global $wpdb;
+
+		$profiles = buddynext_service( 'profiles' );
+		if ( ! is_object( $profiles ) || ! method_exists( $profiles, 'rebuild_field_mirror' ) ) {
+			return;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$field_ids = $wpdb->get_col(
+			"SELECT id FROM {$wpdb->prefix}bn_profile_fields
+			  WHERE is_searchable = 1
+			    AND type IN ( 'select', 'radio', 'multiselect', 'category_multiselect', 'member_type_multiselect' )"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		foreach ( (array) $field_ids as $field_id ) {
+			$profiles->rebuild_field_mirror( (int) $field_id );
+		}
 	}
 
 	/**
@@ -365,6 +577,7 @@ class Installer {
 			'bn.post_commented'            => array( "New comment on your post {$em} {{site_name}}", 'New comment on your {{site_name}} post' ),
 			'bn.space_join_requested'      => array( "New join request for your space {$em} {{site_name}}", 'New join request for your {{site_name}} space' ),
 			'bn.space_request_approved'    => array( "Your space join request was approved {$em} {{site_name}}", 'Your {{site_name}} space join request was approved' ),
+			'bn.space_ownership_received'  => array( "You are now the owner of a space {$em} {{site_name}}", 'You are now the owner of a space on {{site_name}}' ),
 			'bn.strike_issued'             => array( "A moderation action has been taken on your account {$em} {{site_name}}", 'A moderation action was taken on your {{site_name}} account' ),
 			'bn.strike_warning'            => array( "Warning: your account has received multiple strikes {$em} {{site_name}}", 'Your {{site_name}} account has received multiple strikes' ),
 			'bn.member_suspended'          => array( "Your account has been suspended {$em} {{site_name}}", 'Your {{site_name}} account has been suspended' ),
@@ -732,8 +945,13 @@ class Installer {
 			// that already has it from an earlier run still routes through the
 			// transaction-safe LIKE path. DROP is a harmless no-op when absent.
 			$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index DROP INDEX ft_search" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index DROP INDEX ft_search_members" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 		} else {
 			$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index ADD FULLTEXT KEY ft_search (title, content)" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			// MATCH() must name exactly one FULLTEXT index's column list, so the members tier
+			// gets its own. This is what lets the logged-in query OR a second MATCH in without
+			// the anonymous query ever naming the column.
+			$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index ADD FULLTEXT KEY ft_search_members (content_members)" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 		}
 		$wpdb->suppress_errors( false );
 	}
@@ -781,6 +999,22 @@ class Installer {
 				'description'      => 'ADD COLUMN description VARCHAR(255) DEFAULT NULL',
 				'placeholder'      => 'ADD COLUMN placeholder VARCHAR(255) DEFAULT NULL',
 			),
+
+			// Members-tier searchable content, kept in its OWN column so it can never be
+			// matched for a visitor who is not logged in.
+			//
+			// A member row carries a single `visibility`, and it is 'public' — so anything
+			// written into `content` is matchable by an anonymous searcher. A profile field
+			// marked searchable but visible only to MEMBERS therefore could not be indexed at
+			// all, and was silently dropped: the owner ticked "searchable", saved, and nothing
+			// ever told them the box could not work (Zoho #40859).
+			//
+			// Splitting the tiers by COLUMN rather than by row keeps the privacy boundary
+			// structural: the anonymous query never names this column, so there is no filter
+			// to get wrong. `content` stays exactly what it was — public values only.
+			'bn_search_index'     => array(
+				'content_members' => 'ADD COLUMN content_members LONGTEXT DEFAULT NULL',
+			),
 		);
 
 		// Per-table additive index back-fills. dbDelta cannot reliably add a KEY
@@ -792,7 +1026,7 @@ class Installer {
 			// pagination (WHERE space_id = ? AND status = ? ORDER BY joined_at) so
 			// neither scans/filesorts at 50k members.
 			'bn_spaces'         => array(
-				'parent'      => 'ADD KEY parent (parent_id)',
+				'parent'       => 'ADD KEY parent (parent_id)',
 				// v12: the directory browses ROOTS ordered by one of a few sorts
 				// (WHERE parent_id IS NULL ORDER BY <col>). Without a (parent_id,<col>)
 				// composite each sort filesorts every load — fatal at 20-30k
@@ -801,12 +1035,25 @@ class Installer {
 				// "Recently active" sort is intentionally NOT built (it would need a
 				// denormalized activity column maintained on every space post — an
 				// ongoing background cost we chose to skip).
-				'dir_popular' => 'ADD KEY dir_popular (parent_id, member_count)',
-				'dir_name'    => 'ADD KEY dir_name (parent_id, name)',
+				'dir_popular'  => 'ADD KEY dir_popular (parent_id, member_count)',
+				'dir_name'     => 'ADD KEY dir_name (parent_id, name)',
 				// v13: the "Newest" sort (parent_id IS NULL ORDER BY created_at DESC).
 				// created_at is immutable after insert, so this index is write-once —
 				// a pure read win with no ongoing maintenance.
-				'dir_recent'  => 'ADD KEY dir_recent (parent_id, created_at)',
+				'dir_recent'   => 'ADD KEY dir_recent (parent_id, created_at)',
+				// The wp-admin Spaces list is a DIFFERENT access pattern from the
+				// front-end directory above: it does not scope by parent_id, so none
+				// of the (parent_id, …) composites can serve it. Its leading column
+				// is `type` (the filter segments) and it orders by created_at or
+				// last_active_at — all three unindexed, so every admin page load
+				// filesorted the whole table. Fine at 10k spaces, not at 100k.
+				//
+				// (type, created_at) serves the filtered list AND its ORDER BY from
+				// one index; admin_recent serves the unfiltered default sort;
+				// admin_active serves the "Recently active" sort.
+				'admin_type'   => 'ADD KEY admin_type (type, created_at)',
+				'admin_recent' => 'ADD KEY admin_recent (created_at)',
+				'admin_active' => 'ADD KEY admin_active (last_active_at)',
 			),
 			'bn_space_members'  => array(
 				'space_status' => 'ADD KEY space_status (space_id, status, joined_at)',
@@ -1072,7 +1319,7 @@ class Installer {
 				'type'         => 'email_verify',
 				'subject'      => 'Verify your email address on {{site_name}}',
 				'preview_text' => 'Click the link to confirm your address',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Please verify your email address by clicking the link below:</p><p><a href="{{verify_url}}">Verify my email</a></p><p>This link expires in 24 hours.</p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Please verify your email address by clicking the link below:</p><p><a href="{{verify_url}}">Verify my email</a></p><p>This link expires in 48 hours.</p>',
 			),
 			array(
 				'type'         => 'email_change_confirm',
@@ -1103,12 +1350,6 @@ class Installer {
 				'subject'      => 'Connection accepted on {{site_name}}',
 				'preview_text' => 'You are now connected',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your connection request was accepted on {{site_name}}. <a href="{{action_url}}">View your connections.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
-			),
-			array(
-				'type'         => 'bn.connection_declined',
-				'subject'      => 'An update on your connection request on {{site_name}}',
-				'preview_text' => 'An update on your connection request',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your recent connection request on {{site_name}} was not accepted. There are plenty of other members to connect with. <a href="{{site_url}}">Explore the community.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.mention',
@@ -1575,22 +1816,23 @@ class Installer {
 			// ── Social Graph ───────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_follows (
-				follower_id  BIGINT(20) UNSIGNED NOT NULL,
+				follower_id BIGINT(20) UNSIGNED NOT NULL,
 				following_id BIGINT(20) UNSIGNED NOT NULL,
-				status       ENUM('approved','pending') NOT NULL DEFAULT 'approved',
-				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				status ENUM('approved','pending') NOT NULL DEFAULT 'approved',
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY  (follower_id, following_id),
-				KEY          following (following_id, status),
-				KEY          pending_inbox (following_id, status, created_at)
+				KEY          pending_inbox (following_id, status, created_at),
+				KEY          follower_recent (following_id, created_at),
+				KEY          follow_created (created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_connections (
-				id           BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 				requester_id BIGINT(20) UNSIGNED NOT NULL,
 				recipient_id BIGINT(20) UNSIGNED NOT NULL,
-				status       ENUM('pending','accepted','declined','withdrawn') NOT NULL DEFAULT 'pending',
-				note         VARCHAR(280) NOT NULL DEFAULT '',
-				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				status ENUM('pending','accepted','declined','withdrawn') NOT NULL DEFAULT 'pending',
+				note VARCHAR(280) NOT NULL DEFAULT '',
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY  (id),
 				UNIQUE KEY   pair (requester_id, recipient_id),
 				KEY          recipient_lookup (recipient_id),
@@ -1601,7 +1843,7 @@ class Installer {
 			"CREATE TABLE {$p}bn_blocks (
 				blocker_id BIGINT(20) UNSIGNED NOT NULL,
 				blocked_id BIGINT(20) UNSIGNED NOT NULL,
-				type       ENUM('block','mute','restrict') NOT NULL DEFAULT 'block',
+				type ENUM('block','mute','restrict') NOT NULL DEFAULT 'block',
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (blocker_id, blocked_id),
 				KEY         blocked_type (blocked_id, type),
@@ -1611,52 +1853,62 @@ class Installer {
 			// ── Activity Feed ──────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_posts (
-				id                  BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				user_id             BIGINT(20) UNSIGNED NOT NULL,
-				space_id            BIGINT(20) UNSIGNED DEFAULT NULL,
-				shared_post_id      BIGINT(20) UNSIGNED DEFAULT NULL,
-				type                VARCHAR(32) NOT NULL DEFAULT 'text',
-				content             LONGTEXT DEFAULT NULL,
-				media_ids           JSON DEFAULT NULL,
-				link_url            VARCHAR(2083) DEFAULT NULL,
-				link_meta           JSON DEFAULT NULL,
-				privacy             ENUM('public','followers','connections','space_members','private') NOT NULL DEFAULT 'public',
-				status              ENUM('published','draft','pending','scheduled','deleted') NOT NULL DEFAULT 'published',
-				reaction_count      INT UNSIGNED NOT NULL DEFAULT 0,
-				comment_count       INT UNSIGNED NOT NULL DEFAULT 0,
-				share_count         INT UNSIGNED NOT NULL DEFAULT 0,
-				is_pinned            TINYINT(1) NOT NULL DEFAULT 0,
-				is_announcement      TINYINT(1) NOT NULL DEFAULT 0,
-				content_warning      TINYINT(1) NOT NULL DEFAULT 0,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
+				space_id BIGINT(20) UNSIGNED DEFAULT NULL,
+				shared_post_id BIGINT(20) UNSIGNED DEFAULT NULL,
+				type VARCHAR(32) NOT NULL DEFAULT 'text',
+				content LONGTEXT DEFAULT NULL,
+				media_ids JSON DEFAULT NULL,
+				link_url VARCHAR(2083) DEFAULT NULL,
+				link_meta JSON DEFAULT NULL,
+				privacy ENUM('public','followers','connections','space_members','private') NOT NULL DEFAULT 'public',
+				status ENUM('published','draft','pending','scheduled','deleted') NOT NULL DEFAULT 'published',
+				reaction_count INT UNSIGNED NOT NULL DEFAULT 0,
+				comment_count INT UNSIGNED NOT NULL DEFAULT 0,
+				share_count INT UNSIGNED NOT NULL DEFAULT 0,
+				is_pinned TINYINT(1) NOT NULL DEFAULT 0,
+				is_announcement TINYINT(1) NOT NULL DEFAULT 0,
+				content_warning TINYINT(1) NOT NULL DEFAULT 0,
 				content_warning_type VARCHAR(32) DEFAULT NULL,
-				site_pin_expires_at  DATETIME DEFAULT NULL,
-				edited_at           DATETIME DEFAULT NULL,
-				scheduled_at        DATETIME DEFAULT NULL,
-				last_activity_at    DATETIME DEFAULT NULL,
-				created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				site_pin_expires_at DATETIME DEFAULT NULL,
+				edited_at DATETIME DEFAULT NULL,
+				scheduled_at DATETIME DEFAULT NULL,
+				last_activity_at DATETIME DEFAULT NULL,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				PRIMARY KEY         (id),
 				KEY                 user_feed (user_id, status, created_at),
 				KEY                 space_feed (space_id, status, created_at),
 				KEY                 announcement_feed (is_announcement, status, created_at),
 				KEY                 explore (privacy, created_at),
 				KEY                 active_feed (privacy, status, last_activity_at),
-				KEY                 scheduled (scheduled_at),
+				KEY                 status_scheduled (status, scheduled_at),
+				KEY                 post_created (created_at),
 				KEY                 shared_post (shared_post_id)
 			) {$cs};",
 
+			/*
+			 * bn_bookmarks. The PRIMARY KEY answers the feed's only question — "is THIS
+			 * post bookmarked" (BookmarkService::bookmarked_among). It cannot answer "my
+			 * bookmarks, newest first": ORDER BY created_at against a (user_id, post_id)
+			 * PK filesorts the member's entire history. user_recent is what makes the
+			 * paged bookmarks hub sargable. (Kept as a PHP comment, not an SQL one —
+			 * dbDelta parses CREATE TABLE with regexes and inline SQL comments break it.)
+			 */
 			"CREATE TABLE {$p}bn_bookmarks (
-				user_id    BIGINT(20) UNSIGNED NOT NULL,
-				post_id    BIGINT(20) UNSIGNED NOT NULL,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
+				post_id BIGINT(20) UNSIGNED NOT NULL,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				PRIMARY KEY (user_id, post_id)
+				PRIMARY KEY (user_id, post_id),
+				KEY         user_recent (user_id, created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_shares (
-				id         BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				user_id    BIGINT(20) UNSIGNED NOT NULL,
-				post_id    BIGINT(20) UNSIGNED NOT NULL,
-				content    TEXT DEFAULT NULL,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
+				post_id BIGINT(20) UNSIGNED NOT NULL,
+				content TEXT DEFAULT NULL,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				UNIQUE KEY  user_post (user_id, post_id),
@@ -1668,29 +1920,29 @@ class Installer {
 			// directory online filter / sort and the online-count surfaces stay fast at
 			// scale. last_active is a UNIX timestamp; the KEY makes range scans sargable.
 			"CREATE TABLE {$p}bn_presence (
-				user_id     BIGINT(20) UNSIGNED NOT NULL,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
 				last_active INT(10) UNSIGNED NOT NULL DEFAULT 0,
 				PRIMARY KEY (user_id),
 				KEY         last_active (last_active)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_poll_options (
-				id            BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				post_id       BIGINT(20) UNSIGNED NOT NULL,
-				option_text   VARCHAR(500) NOT NULL,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				post_id BIGINT(20) UNSIGNED NOT NULL,
+				option_text VARCHAR(500) NOT NULL,
 				display_order TINYINT UNSIGNED NOT NULL DEFAULT 0,
-				vote_count    INT UNSIGNED NOT NULL DEFAULT 0,
-				end_date      DATETIME DEFAULT NULL,
+				vote_count INT UNSIGNED NOT NULL DEFAULT 0,
+				end_date DATETIME DEFAULT NULL,
 				PRIMARY KEY   (id),
 				KEY           post_options (post_id, display_order)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_poll_votes (
-				id         BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				post_id    BIGINT(20) UNSIGNED NOT NULL,
-				option_id  BIGINT(20) UNSIGNED NOT NULL,
-				user_id    BIGINT(20) UNSIGNED NOT NULL,
-				voted_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				post_id BIGINT(20) UNSIGNED NOT NULL,
+				option_id BIGINT(20) UNSIGNED NOT NULL,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
+				voted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				UNIQUE KEY  one_vote_per_user (post_id, user_id),
 				KEY         option_votes (option_id)
@@ -1699,25 +1951,23 @@ class Installer {
 			// ── Spaces ─────────────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_spaces (
-				id                 BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				name               VARCHAR(255) NOT NULL,
-				slug               VARCHAR(200) NOT NULL,
-				description        TEXT DEFAULT NULL,
-				category_id        BIGINT(20) UNSIGNED DEFAULT NULL,
-				parent_id          BIGINT(20) UNSIGNED DEFAULT NULL,
-				type               ENUM('open','private','secret') NOT NULL DEFAULT 'open',
-				owner_id           BIGINT(20) UNSIGNED NOT NULL,
-				member_count       INT UNSIGNED NOT NULL DEFAULT 0,
-				last_active_at     DATETIME NULL DEFAULT NULL,
-				cover_image_url    VARCHAR(500) DEFAULT NULL,
-				avatar_url         VARCHAR(500) DEFAULT NULL,
-				rules              TEXT NULL DEFAULT NULL,
-				required_ability   VARCHAR(64) NULL DEFAULT NULL,
-				accent_color       VARCHAR(16) NULL DEFAULT NULL,
-				description_layout VARCHAR(32) NULL DEFAULT 'standard',
-				is_archived        TINYINT(1) NOT NULL DEFAULT 0,
-				archived_at        DATETIME NULL DEFAULT NULL,
-				created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				name VARCHAR(255) NOT NULL,
+				slug VARCHAR(200) NOT NULL,
+				description TEXT DEFAULT NULL,
+				category_id BIGINT(20) UNSIGNED DEFAULT NULL,
+				parent_id BIGINT(20) UNSIGNED DEFAULT NULL,
+				type ENUM('open','private','secret') NOT NULL DEFAULT 'open',
+				owner_id BIGINT(20) UNSIGNED NOT NULL,
+				member_count INT UNSIGNED NOT NULL DEFAULT 0,
+				last_active_at DATETIME NULL DEFAULT NULL,
+				cover_image_url VARCHAR(500) DEFAULT NULL,
+				avatar_url VARCHAR(500) DEFAULT NULL,
+				rules TEXT NULL DEFAULT NULL,
+				required_ability VARCHAR(64) NULL DEFAULT NULL,
+				is_archived TINYINT(1) NOT NULL DEFAULT 0,
+				archived_at DATETIME NULL DEFAULT NULL,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY        (id),
 				UNIQUE KEY         slug (slug),
 				KEY                owner (owner_id),
@@ -1726,16 +1976,19 @@ class Installer {
 				KEY                is_archived (is_archived),
 				KEY                dir_popular (parent_id, member_count),
 				KEY                dir_name (parent_id, name),
-				KEY                dir_recent (parent_id, created_at)
+				KEY                dir_recent (parent_id, created_at),
+				KEY                admin_type (type, created_at),
+				KEY                admin_recent (created_at),
+				KEY                admin_active (last_active_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_space_members (
-				space_id          BIGINT(20) UNSIGNED NOT NULL,
-				user_id           BIGINT(20) UNSIGNED NOT NULL,
-				role              ENUM('owner','moderator','member') NOT NULL DEFAULT 'member',
-				status            ENUM('active','pending','invited','banned') NOT NULL DEFAULT 'active',
+				space_id BIGINT(20) UNSIGNED NOT NULL,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
+				role ENUM('owner','moderator','member') NOT NULL DEFAULT 'member',
+				status ENUM('active','pending','invited','banned') NOT NULL DEFAULT 'active',
 				notification_pref ENUM('all','mentions_only','none') NOT NULL DEFAULT 'all',
-				joined_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY       (space_id, user_id),
 				KEY               user_role (user_id, role),
 				KEY               user_status (user_id, status),
@@ -1743,15 +1996,15 @@ class Installer {
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_space_categories (
-				id          BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				name        VARCHAR(100) NOT NULL,
-				slug        VARCHAR(100) NOT NULL,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				name VARCHAR(100) NOT NULL,
+				slug VARCHAR(100) NOT NULL,
 				description TEXT DEFAULT NULL,
-				color       VARCHAR(7) NOT NULL DEFAULT '#0073aa',
-				text_color  VARCHAR(7) NOT NULL DEFAULT '#ffffff',
-				icon_svg    MEDIUMTEXT NULL,
+				color VARCHAR(7) NOT NULL DEFAULT '#0073aa',
+				text_color VARCHAR(7) NOT NULL DEFAULT '#ffffff',
+				icon_svg MEDIUMTEXT NULL,
 				show_in_dir TINYINT(1) NOT NULL DEFAULT 1,
-				sort_order  INT NOT NULL DEFAULT 0,
+				sort_order INT NOT NULL DEFAULT 0,
 				PRIMARY KEY (id),
 				UNIQUE KEY  slug (slug)
 			) {$cs};",
@@ -1763,10 +2016,10 @@ class Installer {
 			// extensibility substrate: every new per-space attribute is a meta row,
 			// never a new column or an autoloaded option.
 			"CREATE TABLE {$p}bn_space_meta (
-				meta_id     BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				meta_id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 				bn_space_id BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
-				meta_key    VARCHAR(255) DEFAULT NULL,
-				meta_value  LONGTEXT DEFAULT NULL,
+				meta_key VARCHAR(255) DEFAULT NULL,
+				meta_value LONGTEXT DEFAULT NULL,
 				PRIMARY KEY (meta_id),
 				KEY         bn_space_id (bn_space_id),
 				KEY         meta_key (meta_key(191))
@@ -1775,59 +2028,62 @@ class Installer {
 			// ── Notifications + Email ──────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_notifications (
-				id           BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 				recipient_id BIGINT(20) UNSIGNED NOT NULL,
-				sender_id    BIGINT(20) UNSIGNED DEFAULT NULL,
-				type         VARCHAR(64) NOT NULL,
-				object_type  VARCHAR(32) DEFAULT NULL,
-				object_id    BIGINT(20) UNSIGNED DEFAULT NULL,
-				group_key    VARCHAR(128) DEFAULT NULL,
-				group_count  INT UNSIGNED NOT NULL DEFAULT 1,
-				data         JSON DEFAULT NULL,
-				is_read      TINYINT(1) NOT NULL DEFAULT 0,
-				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				sender_id BIGINT(20) UNSIGNED DEFAULT NULL,
+				type VARCHAR(64) NOT NULL,
+				object_type VARCHAR(32) DEFAULT NULL,
+				object_id BIGINT(20) UNSIGNED DEFAULT NULL,
+				group_key VARCHAR(128) DEFAULT NULL,
+				group_count INT UNSIGNED NOT NULL DEFAULT 1,
+				data JSON DEFAULT NULL,
+				is_read TINYINT(1) NOT NULL DEFAULT 0,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY  (id),
 				KEY          bell (recipient_id, is_read, created_at),
-				KEY          recipient_group (recipient_id, group_key)
+				KEY          recipient_group (recipient_id, group_key),
+				KEY          purge_window (is_read, created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_notification_prefs (
-				user_id    BIGINT(20) UNSIGNED NOT NULL,
-				type       VARCHAR(64) NOT NULL,
-				on_site    TINYINT(1) NOT NULL DEFAULT 1,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
+				type VARCHAR(64) NOT NULL,
+				on_site TINYINT(1) NOT NULL DEFAULT 1,
 				email_freq ENUM('immediate','daily','weekly','off') NOT NULL DEFAULT 'immediate',
-				PRIMARY KEY (user_id, type)
+				PRIMARY KEY (user_id, type),
+				KEY         digest_scan (email_freq, user_id)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_email_templates (
-				id           BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				type         VARCHAR(64) NOT NULL,
-				subject      VARCHAR(255) NOT NULL,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				type VARCHAR(64) NOT NULL,
+				subject VARCHAR(255) NOT NULL,
 				preview_text VARCHAR(255) DEFAULT NULL,
-				body_html    LONGTEXT NOT NULL,
-				enabled      TINYINT(1) NOT NULL DEFAULT 1,
-				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				body_html LONGTEXT NOT NULL,
+				enabled TINYINT(1) NOT NULL DEFAULT 1,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				UNIQUE KEY  type (type)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_email_log (
-				id          BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				user_id     BIGINT(20) UNSIGNED NOT NULL,
-				type        VARCHAR(64) NOT NULL,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
+				type VARCHAR(64) NOT NULL,
 				digest_date DATE DEFAULT NULL,
-				sent_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				KEY         user_type (user_id, type, digest_date),
-				KEY         type (type)
+				KEY         type (type),
+				KEY         purge_window (sent_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_verify_tokens (
-				id         BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				user_id    BIGINT(20) UNSIGNED NOT NULL,
-				token      VARCHAR(64) NOT NULL,
-				type       VARCHAR(32) NOT NULL DEFAULT 'email_verify',
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
+				token VARCHAR(64) NOT NULL,
+				type VARCHAR(32) NOT NULL DEFAULT 'email_verify',
 				expires_at DATETIME NOT NULL,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
@@ -1838,27 +2094,28 @@ class Installer {
 			// ── Reactions + Comments ───────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_reactions (
-				user_id     BIGINT(20) UNSIGNED NOT NULL,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
 				object_type VARCHAR(32) NOT NULL,
-				object_id   BIGINT(20) UNSIGNED NOT NULL,
-				emoji       VARCHAR(32) NOT NULL DEFAULT 'like',
-				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				object_id BIGINT(20) UNSIGNED NOT NULL,
+				emoji VARCHAR(32) NOT NULL DEFAULT 'like',
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (user_id, object_type, object_id),
-				KEY         object_reactions (object_type, object_id)
+				KEY         object_recent (object_type, object_id, created_at),
+				KEY         reaction_created (created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_comments (
-				id          BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				user_id     BIGINT(20) UNSIGNED NOT NULL,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
 				object_type VARCHAR(32) NOT NULL,
-				object_id   BIGINT(20) UNSIGNED NOT NULL,
-				parent_id   BIGINT(20) UNSIGNED DEFAULT NULL,
-				content     TEXT NOT NULL,
-				is_edited   TINYINT(1) NOT NULL DEFAULT 0,
-				is_deleted  TINYINT(1) NOT NULL DEFAULT 0,
+				object_id BIGINT(20) UNSIGNED NOT NULL,
+				parent_id BIGINT(20) UNSIGNED DEFAULT NULL,
+				content TEXT NOT NULL,
+				is_edited TINYINT(1) NOT NULL DEFAULT 0,
+				is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 				sync_reply_id BIGINT(20) UNSIGNED DEFAULT NULL,
-				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				KEY         thread (object_type, object_id, parent_id, created_at),
 				KEY         user (user_id),
@@ -1869,28 +2126,28 @@ class Installer {
 			// ── Hashtags ───────────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_hashtags (
-				id             BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				name           VARCHAR(100) NOT NULL,
-				slug           VARCHAR(100) NOT NULL,
-				post_count     INT UNSIGNED NOT NULL DEFAULT 0,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				name VARCHAR(100) NOT NULL,
+				slug VARCHAR(100) NOT NULL,
+				post_count INT UNSIGNED NOT NULL DEFAULT 0,
 				follower_count INT UNSIGNED NOT NULL DEFAULT 0,
-				created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY    (id),
 				UNIQUE KEY     slug (slug)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_post_hashtags (
-				post_id     BIGINT(20) UNSIGNED NOT NULL,
+				post_id BIGINT(20) UNSIGNED NOT NULL,
 				object_type VARCHAR(32) NOT NULL DEFAULT 'post',
-				hashtag_id  BIGINT(20) UNSIGNED NOT NULL,
-				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				hashtag_id BIGINT(20) UNSIGNED NOT NULL,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (post_id, object_type, hashtag_id),
 				KEY         hashtag_feed (hashtag_id, created_at),
 				KEY         trending_window (created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_hashtag_follows (
-				user_id    BIGINT(20) UNSIGNED NOT NULL,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
 				hashtag_id BIGINT(20) UNSIGNED NOT NULL,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (user_id, hashtag_id),
@@ -1900,13 +2157,13 @@ class Installer {
 			// ── Profiles ───────────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_profile_groups (
-				id               BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				group_key        VARCHAR(100) NOT NULL,
-				label            VARCHAR(255) NOT NULL,
-				type             ENUM('flat','repeater') NOT NULL DEFAULT 'flat',
-				visibility       ENUM('public','members','followers','connections','private') NOT NULL DEFAULT 'public',
-				is_system        TINYINT(1) NOT NULL DEFAULT 0,
-				sort_order       INT NOT NULL DEFAULT 0,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				group_key VARCHAR(100) NOT NULL,
+				label VARCHAR(255) NOT NULL,
+				type ENUM('flat','repeater') NOT NULL DEFAULT 'flat',
+				visibility ENUM('public','members','followers','connections','private') NOT NULL DEFAULT 'public',
+				is_system TINYINT(1) NOT NULL DEFAULT 0,
+				sort_order INT NOT NULL DEFAULT 0,
 				type_restriction VARCHAR(100) DEFAULT NULL,
 				PRIMARY KEY (id),
 				UNIQUE KEY  group_key (group_key),
@@ -1914,31 +2171,31 @@ class Installer {
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_profile_fields (
-				id            BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				group_id      BIGINT(20) UNSIGNED NOT NULL,
-				field_key     VARCHAR(100) NOT NULL,
-				label         VARCHAR(255) NOT NULL,
-				type          VARCHAR(32) NOT NULL DEFAULT 'text',
-				options       JSON DEFAULT NULL,
-				description   VARCHAR(255) DEFAULT NULL,
-				placeholder   VARCHAR(255) DEFAULT NULL,
-				is_required   TINYINT(1) NOT NULL DEFAULT 0,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				group_id BIGINT(20) UNSIGNED NOT NULL,
+				field_key VARCHAR(100) NOT NULL,
+				label VARCHAR(255) NOT NULL,
+				type VARCHAR(32) NOT NULL DEFAULT 'text',
+				options JSON DEFAULT NULL,
+				description VARCHAR(255) DEFAULT NULL,
+				placeholder VARCHAR(255) DEFAULT NULL,
+				is_required TINYINT(1) NOT NULL DEFAULT 0,
 				is_searchable TINYINT(1) NOT NULL DEFAULT 0,
 				show_on_register TINYINT(1) NOT NULL DEFAULT 0,
-				is_system     TINYINT(1) NOT NULL DEFAULT 0,
-				visibility    ENUM('public','members','followers','connections','private') NOT NULL DEFAULT 'public',
-				sort_order    INT NOT NULL DEFAULT 0,
+				is_system TINYINT(1) NOT NULL DEFAULT 0,
+				visibility ENUM('public','members','followers','connections','private') NOT NULL DEFAULT 'public',
+				sort_order INT NOT NULL DEFAULT 0,
 				PRIMARY KEY   (id),
 				UNIQUE KEY    field_key (field_key),
 				KEY           group_idx (group_id)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_profile_values (
-				id               BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				user_id          BIGINT(20) UNSIGNED NOT NULL,
-				field_id         BIGINT(20) UNSIGNED NOT NULL,
-				entry_index      SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-				value            LONGTEXT DEFAULT NULL,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
+				field_id BIGINT(20) UNSIGNED NOT NULL,
+				entry_index SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+				value LONGTEXT DEFAULT NULL,
 				entry_visibility ENUM('public','members','followers','connections','private') DEFAULT NULL,
 				PRIMARY KEY      (id),
 				UNIQUE KEY       user_field_entry (user_id, field_id, entry_index),
@@ -1950,16 +2207,17 @@ class Installer {
 			// ── Search Index ───────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_search_index (
-				id          BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 				object_type VARCHAR(32) NOT NULL,
-				object_id   BIGINT(20) UNSIGNED NOT NULL,
-				title       VARCHAR(500) NOT NULL DEFAULT '',
-				content     LONGTEXT DEFAULT NULL,
-				author_id   BIGINT(20) UNSIGNED DEFAULT NULL,
-				space_id    BIGINT(20) UNSIGNED DEFAULT NULL,
-				visibility  ENUM('public','private') NOT NULL DEFAULT 'public',
-				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				object_id BIGINT(20) UNSIGNED NOT NULL,
+				title VARCHAR(500) NOT NULL DEFAULT '',
+				content LONGTEXT DEFAULT NULL,
+				content_members LONGTEXT DEFAULT NULL,
+				author_id BIGINT(20) UNSIGNED DEFAULT NULL,
+				space_id BIGINT(20) UNSIGNED DEFAULT NULL,
+				visibility ENUM('public','private') NOT NULL DEFAULT 'public',
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				UNIQUE KEY  object (object_type, object_id),
 				KEY         visibility_type (visibility, object_type),
@@ -1971,12 +2229,12 @@ class Installer {
 			// ── Webhooks ────────────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_webhook_log (
-				id         BIGINT(20) NOT NULL AUTO_INCREMENT,
-				source     VARCHAR(100) NOT NULL DEFAULT '',
-				action     VARCHAR(100) NOT NULL DEFAULT '',
-				user_id    BIGINT(20) NOT NULL DEFAULT 0,
-				payload    LONGTEXT NOT NULL,
-				status     VARCHAR(20) NOT NULL DEFAULT 'success',
+				id BIGINT(20) NOT NULL AUTO_INCREMENT,
+				source VARCHAR(100) NOT NULL DEFAULT '',
+				action VARCHAR(100) NOT NULL DEFAULT '',
+				user_id BIGINT(20) NOT NULL DEFAULT 0,
+				payload LONGTEXT NOT NULL,
+				status VARCHAR(20) NOT NULL DEFAULT 'success',
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				KEY action (action),
@@ -1987,12 +2245,12 @@ class Installer {
 			// ── Activity Log ───────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_activity_log (
-				id          BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				user_id     BIGINT(20) UNSIGNED NOT NULL,
-				action      VARCHAR(64) NOT NULL,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
+				action VARCHAR(64) NOT NULL,
 				object_type VARCHAR(32) DEFAULT NULL,
-				object_id   BIGINT(20) UNSIGNED DEFAULT NULL,
-				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				object_id BIGINT(20) UNSIGNED DEFAULT NULL,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				KEY         user_action (user_id, action, created_at),
 				KEY         created_at (created_at)
@@ -2001,17 +2259,17 @@ class Installer {
 			// ── Moderation ─────────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_reports (
-				id          BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 				reporter_id BIGINT(20) UNSIGNED NOT NULL,
 				object_type VARCHAR(32) NOT NULL,
-				object_id   BIGINT(20) UNSIGNED NOT NULL,
-				reason      ENUM('spam','harassment','misinformation','inappropriate','fake','impersonation','other') NOT NULL DEFAULT 'other',
-				notes       TEXT DEFAULT NULL,
-				status      ENUM('pending','dismissed','escalated','resolved') NOT NULL DEFAULT 'pending',
+				object_id BIGINT(20) UNSIGNED NOT NULL,
+				reason VARCHAR(32) NOT NULL DEFAULT 'other',
+				notes TEXT DEFAULT NULL,
+				status ENUM('pending','dismissed','escalated','resolved') NOT NULL DEFAULT 'pending',
 				resolved_by BIGINT(20) UNSIGNED DEFAULT NULL,
 				resolved_at DATETIME DEFAULT NULL,
-				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				space_id    BIGINT(20) UNSIGNED DEFAULT NULL,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				space_id BIGINT(20) UNSIGNED DEFAULT NULL,
 				PRIMARY KEY (id),
 				UNIQUE KEY  one_per_reporter (reporter_id, object_type, object_id),
 				KEY         object_status (object_type, object_id, status),
@@ -2020,15 +2278,15 @@ class Installer {
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_mod_log (
-				id             BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				actor_id       BIGINT(20) UNSIGNED NOT NULL,
-				action         VARCHAR(64) NOT NULL,
-				object_type    VARCHAR(32) DEFAULT NULL,
-				object_id      BIGINT(20) UNSIGNED DEFAULT NULL,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				actor_id BIGINT(20) UNSIGNED NOT NULL,
+				action VARCHAR(64) NOT NULL,
+				object_type VARCHAR(32) DEFAULT NULL,
+				object_id BIGINT(20) UNSIGNED DEFAULT NULL,
 				target_user_id BIGINT(20) UNSIGNED DEFAULT NULL,
-				note           TEXT DEFAULT NULL,
-				space_id       BIGINT(20) UNSIGNED DEFAULT NULL,
-				created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				note TEXT DEFAULT NULL,
+				space_id BIGINT(20) UNSIGNED DEFAULT NULL,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY    (id),
 				KEY            actor (actor_id),
 				KEY            target_user (target_user_id),
@@ -2038,14 +2296,14 @@ class Installer {
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_user_strikes (
-				id          BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				user_id     BIGINT(20) UNSIGNED NOT NULL,
-				issued_by   BIGINT(20) UNSIGNED NOT NULL,
-				reason      TEXT DEFAULT NULL,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
+				issued_by BIGINT(20) UNSIGNED NOT NULL,
+				reason TEXT DEFAULT NULL,
 				is_reversed TINYINT(1) NOT NULL DEFAULT 0,
 				reversed_by BIGINT(20) UNSIGNED DEFAULT NULL,
 				reversed_at DATETIME DEFAULT NULL,
-				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				KEY         user_active (user_id, is_reversed),
 				KEY         issued_by (issued_by)
@@ -2054,12 +2312,12 @@ class Installer {
 			// ── Onboarding + Invites ───────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_invites (
-				id         BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				email      VARCHAR(200) NOT NULL,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				email VARCHAR(200) NOT NULL,
 				first_name VARCHAR(100) DEFAULT NULL,
-				space_id   BIGINT(20) UNSIGNED NULL DEFAULT NULL,
-				token      VARCHAR(64) NOT NULL,
-				status     ENUM('pending','registered','bounced') NOT NULL DEFAULT 'pending',
+				space_id BIGINT(20) UNSIGNED NULL DEFAULT NULL,
+				token VARCHAR(64) NOT NULL,
+				status ENUM('pending','registered','bounced') NOT NULL DEFAULT 'pending',
 				expires_at DATETIME NOT NULL,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
@@ -2071,16 +2329,16 @@ class Installer {
 			// ── Moderation — Suspensions + Appeals + Space Bans ──────────────────
 
 			"CREATE TABLE {$p}bn_user_suspensions (
-				id           BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				user_id      BIGINT(20) UNSIGNED NOT NULL,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
 				suspended_by BIGINT(20) UNSIGNED NOT NULL,
-				reason       TEXT DEFAULT NULL,
+				reason TEXT DEFAULT NULL,
 				duration_days INT UNSIGNED DEFAULT NULL,
-				hide_posts   TINYINT(1) NOT NULL DEFAULT 0,
-				expires_at   DATETIME DEFAULT NULL,
-				lifted_at    DATETIME DEFAULT NULL,
-				lifted_by    BIGINT(20) UNSIGNED DEFAULT NULL,
-				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				hide_posts TINYINT(1) NOT NULL DEFAULT 0,
+				expires_at DATETIME DEFAULT NULL,
+				lifted_at DATETIME DEFAULT NULL,
+				lifted_by BIGINT(20) UNSIGNED DEFAULT NULL,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY  (id),
 				KEY          user_active (user_id, expires_at),
 				KEY          active_check (lifted_at, expires_at, user_id),
@@ -2088,29 +2346,29 @@ class Installer {
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_appeals (
-				id            BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 				suspension_id BIGINT(20) UNSIGNED NOT NULL,
-				strike_id     BIGINT(20) DEFAULT NULL,
-				user_id       BIGINT(20) UNSIGNED NOT NULL,
-				message       TEXT NOT NULL,
-				status        ENUM('pending','approved','denied') NOT NULL DEFAULT 'pending',
-				reviewed_by   BIGINT(20) UNSIGNED DEFAULT NULL,
+				strike_id BIGINT(20) DEFAULT NULL,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
+				message TEXT NOT NULL,
+				status ENUM('pending','approved','denied') NOT NULL DEFAULT 'pending',
+				reviewed_by BIGINT(20) UNSIGNED DEFAULT NULL,
 				reviewer_note TEXT DEFAULT NULL,
-				reviewed_at   DATETIME DEFAULT NULL,
-				admin_note    TEXT DEFAULT NULL,
-				resolved_by   BIGINT(20) UNSIGNED DEFAULT NULL,
-				resolved_at   DATETIME DEFAULT NULL,
-				created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				reviewed_at DATETIME DEFAULT NULL,
+				admin_note TEXT DEFAULT NULL,
+				resolved_by BIGINT(20) UNSIGNED DEFAULT NULL,
+				resolved_at DATETIME DEFAULT NULL,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY   (id),
 				KEY           user_status (user_id, status),
 				KEY           suspension (suspension_id)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_space_bans (
-				space_id   BIGINT(20) UNSIGNED NOT NULL,
-				user_id    BIGINT(20) UNSIGNED NOT NULL,
-				banned_by  BIGINT(20) UNSIGNED NOT NULL,
-				reason     TEXT DEFAULT NULL,
+				space_id BIGINT(20) UNSIGNED NOT NULL,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
+				banned_by BIGINT(20) UNSIGNED NOT NULL,
+				reason TEXT DEFAULT NULL,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (space_id, user_id),
 				KEY         user_bans (user_id)
@@ -2121,26 +2379,26 @@ class Installer {
 			// ── Member Types ───────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_member_types (
-				id          INT UNSIGNED    NOT NULL AUTO_INCREMENT,
-				slug        VARCHAR(100)    NOT NULL,
-				name        VARCHAR(100)    NOT NULL,
+				id INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+				slug VARCHAR(100)    NOT NULL,
+				name VARCHAR(100)    NOT NULL,
 				description TEXT            DEFAULT NULL,
-				color       VARCHAR(7)      NOT NULL DEFAULT '#0073aa',
-				text_color  VARCHAR(7)      NOT NULL DEFAULT '#ffffff',
-				icon_svg    MEDIUMTEXT      DEFAULT NULL,
-				sort_order  SMALLINT        NOT NULL DEFAULT 0,
+				color VARCHAR(7)      NOT NULL DEFAULT '#0073aa',
+				text_color VARCHAR(7)      NOT NULL DEFAULT '#ffffff',
+				icon_svg MEDIUMTEXT      DEFAULT NULL,
+				sort_order SMALLINT        NOT NULL DEFAULT 0,
 				show_in_dir TINYINT(1)      NOT NULL DEFAULT 1,
 				self_select TINYINT(1)      NOT NULL DEFAULT 0,
-				created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				created_at DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				UNIQUE KEY  uq_slug (slug),
 				KEY         idx_sort (sort_order)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_member_type_assignments (
-				id          INT UNSIGNED     NOT NULL AUTO_INCREMENT,
-				user_id     BIGINT(20) UNSIGNED NOT NULL,
-				type_id     INT UNSIGNED     NOT NULL,
+				id INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+				user_id BIGINT(20) UNSIGNED NOT NULL,
+				type_id INT UNSIGNED     NOT NULL,
 				assigned_by BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
 				assigned_at DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
@@ -2150,27 +2408,27 @@ class Installer {
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_outbound_webhooks (
-				id         BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				label      VARCHAR(100) NOT NULL,
-				url        VARCHAR(2083) NOT NULL,
-				secret     VARCHAR(64) DEFAULT NULL,
-				events     JSON DEFAULT NULL,
-				is_active  TINYINT(1) NOT NULL DEFAULT 1,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				label VARCHAR(100) NOT NULL,
+				url VARCHAR(2083) NOT NULL,
+				secret VARCHAR(64) DEFAULT NULL,
+				events JSON DEFAULT NULL,
+				is_active TINYINT(1) NOT NULL DEFAULT 1,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				PRIMARY KEY (id)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_outbound_webhook_log (
-				id            BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				webhook_id    BIGINT(20) UNSIGNED NOT NULL,
-				event         VARCHAR(64) NOT NULL,
-				payload       JSON DEFAULT NULL,
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				webhook_id BIGINT(20) UNSIGNED NOT NULL,
+				event VARCHAR(64) NOT NULL,
+				payload JSON DEFAULT NULL,
 				response_code SMALLINT UNSIGNED DEFAULT NULL,
 				response_body TEXT DEFAULT NULL,
-				status        ENUM('success','error') NOT NULL DEFAULT 'success',
-				attempt       TINYINT UNSIGNED NOT NULL DEFAULT 1,
-				created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				status ENUM('success','error') NOT NULL DEFAULT 'success',
+				attempt TINYINT UNSIGNED NOT NULL DEFAULT 1,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY   (id),
 				KEY           webhook_event (webhook_id, event, created_at),
 				KEY           status_date (status, created_at)

@@ -295,7 +295,9 @@ class FeedController extends BaseRestController {
 		if ( $viewer > 0 ) {
 			$reactions = buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids );
 			$votes     = buddynext_service( 'polls' )->user_votes_map( $viewer, $poll_ids );
-			$bookmarks = array_flip( buddynext_service( 'bookmarks' )->user_bookmarks( $viewer ) );
+			// Only the posts ON THIS PAGE — bounded, PK-indexed, no filesort. Loading the
+			// viewer's entire bookmark history to render twenty posts is what this replaces.
+			$bookmarks = buddynext_service( 'bookmarks' )->bookmarked_among( $viewer, $post_ids );
 		}
 
 		$format = function_exists( 'buddynext_format_content' );
@@ -433,7 +435,8 @@ class FeedController extends BaseRestController {
 
 		$reactions = buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids );
 		$votes     = buddynext_service( 'polls' )->user_votes_map( $viewer, $post_ids );
-		$bookmarks = array_flip( buddynext_service( 'bookmarks' )->user_bookmarks( $viewer ) );
+		// Only the posts ON THIS PAGE — bounded, PK-indexed, no filesort.
+		$bookmarks = buddynext_service( 'bookmarks' )->bookmarked_among( $viewer, $post_ids );
 
 		$states = array();
 		foreach ( $post_ids as $pid ) {

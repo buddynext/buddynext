@@ -46,10 +46,36 @@ defined( 'ABSPATH' ) || exit;
  */
 class RegistrationGuard {
 
-	private const RATE_PREFIX    = 'bn_reg_rl_';
-	private const RATE_MAX       = 5;
-	private const MIN_SECONDS    = 2;
-	private const TOKEN_TTL      = 3600;
+	private const RATE_PREFIX = 'bn_reg_rl_';
+	private const RATE_MAX    = 5;
+
+	/**
+	 * Transient prefix marking a human-check token as already redeemed.
+	 */
+	private const SPENT_PREFIX = 'bn_reg_spent_';
+
+	/**
+	 * Lower bound of the time-trap: a form submitted in under this many seconds
+	 * was not filled in by a human. THIS is the actual bot signal — keep it.
+	 */
+	private const MIN_SECONDS = 2;
+
+	/**
+	 * Upper bound (max age) of the form tokens — both the time-trap token
+	 * (too_fast()) and the human-check challenge token (verify_challenge()) read
+	 * this one constant, so the two stay in lockstep.
+	 *
+	 * Deliberately generous (a day, matching WP's nonce life) rather than tight:
+	 * an expired upper bound is NOT a bot signal, it just means the form HTML was
+	 * old. It went stale for two entirely human reasons — a full-page cache
+	 * serving a copy minted hours ago (see PageRouter's DONOTCACHEPAGE guard on
+	 * the auth hub, which is the real fix for that), or a person who left the tab
+	 * open while doing something else. Both used to score +100 ("looked
+	 * automated") and be rejected. Tightening this back down does not buy any
+	 * protection: a bot can always mint a fresh token by re-fetching the page.
+	 */
+	private const TOKEN_TTL = DAY_IN_SECONDS;
+
 	private const OPT_PROTECTION = 'buddynext_reg_spam_protection';
 	private const OPT_CHALLENGE  = 'buddynext_reg_challenge';
 
@@ -66,10 +92,21 @@ class RegistrationGuard {
 		// with the spam-protection master switch off (previously the early
 		// return below silently bypassed a configured allowlist). Privileged
 		// creators (admin/import/CLI) are still exempt via the check below.
-		if ( ! ( is_user_logged_in() && current_user_can( 'create_users' ) )
-			&& ! $this->domain_allowed( (string) ( $ctx['email'] ?? '' ) ) ) {
-			return new WP_Error( 'bn_reg_domain', __( 'Only users from allowed email domains may register.', 'buddynext' ) );
+		$domain = $this->check_domain( (string) ( $ctx['email'] ?? '' ) );
+		if ( is_wp_error( $domain ) ) {
+			return $domain;
 		}
+
+		// Which door is this? Only doors that render a BuddyNext form can carry a
+		// honeypot, a time-trap token or a human-check answer. Social login has no
+		// form, so scoring it on their absence would reject every social sign-up.
+		// It is still subject to the allowlist above and to the rate limit and
+		// disposable-domain checks below — those need no form.
+		$has_form = in_array(
+			(string) ( $ctx['source'] ?? RegistrationPolicy::SOURCE_FORM ),
+			RegistrationPolicy::FORM_SOURCES,
+			true
+		);
 
 		// Master switch — default on, admin can disable in Settings → Registration.
 		$enabled = (bool) get_option( self::OPT_PROTECTION, true );
@@ -84,18 +121,38 @@ class RegistrationGuard {
 
 		$ip = isset( $ctx['ip'] ) ? (string) $ctx['ip'] : '';
 
+		// 1a) The owner's blocked-IP list. It used to govern POSTING only — its own
+		// error string reads "Posting from your network is not allowed." — so a
+		// blocklisted IP could still register and still sign in. An owner who blocks
+		// an IP expects it to stop exactly this.
+		if ( $this->ip_blocked( $ip ) ) {
+			return new WP_Error(
+				'bn_reg_ip',
+				__( 'Sign-ups from your network are not allowed.', 'buddynext' )
+			);
+		}
+
 		// 2) Rate limit — hard stop on hammering. Admin-set in Settings →
 		// Registration; the filter still overrides for code-level control.
+		//
+		// The attempt is counted HERE, before any of the checks below can reject
+		// it. It used to be counted only at the very end, on the success path, so
+		// every early return skipped it: a bot that failed the human check, tripped
+		// the honeypot or used a throwaway address was never counted and could
+		// hammer the endpoint forever. The owner's "5 sign-ups per hour" throttled
+		// only the people who succeeded. The login limiter has always hit before
+		// auth for exactly this reason.
 		$max = (int) apply_filters( 'buddynext_register_rate_limit', (int) get_option( 'buddynext_reg_rate_limit', self::RATE_MAX ) );
 		if ( $max > 0 && '' !== $ip ) {
 			$key = self::RATE_PREFIX . md5( $ip );
 			if ( RateLimiter::count( $key ) >= $max ) {
 				return new WP_Error( 'bn_reg_rate', __( 'Too many sign-up attempts from your network. Please wait a few minutes and try again.', 'buddynext' ) );
 			}
+			RateLimiter::hit( $key, HOUR_IN_SECONDS );
 		}
 
-		// 3) Human check — in-house arithmetic challenge (opt-in).
-		if ( self::challenge_enabled() ) {
+		// 3) Human check — in-house arithmetic challenge (opt-in). Form doors only.
+		if ( $has_form && self::challenge_enabled() ) {
 			$ok = self::verify_challenge(
 				(string) ( $ctx['challenge_token'] ?? '' ),
 				(string) ( $ctx['challenge_answer'] ?? '' )
@@ -105,12 +162,14 @@ class RegistrationGuard {
 			}
 		}
 
-		// 4) Score-based signals.
+		// 4) Score-based signals. The honeypot and the time-trap are properties of
+		// a rendered form; the disposable-domain check is a property of the email
+		// and therefore applies to every door.
 		$score = 0;
-		if ( ! empty( $ctx['honeypot'] ) ) {
+		if ( $has_form && ! empty( $ctx['honeypot'] ) ) {
 			$score += 100; // Hidden field only a bot would fill.
 		}
-		if ( $this->too_fast( (string) ( $ctx['token'] ?? '' ) ) ) {
+		if ( $has_form && $this->too_fast( (string) ( $ctx['token'] ?? '' ) ) ) {
 			$score += 100; // Submitted implausibly fast, or a forged/expired form token.
 		}
 		if ( $this->is_disposable( (string) ( $ctx['email'] ?? '' ) ) ) {
@@ -137,10 +196,7 @@ class RegistrationGuard {
 			return new WP_Error( 'bn_reg_spam', __( 'Your sign-up looked automated and was blocked. If this is a mistake, please try again.', 'buddynext' ) );
 		}
 
-		// Passed — count this attempt toward the rate window (atomic incr).
-		if ( $max > 0 && '' !== $ip ) {
-			RateLimiter::hit( self::RATE_PREFIX . md5( $ip ), HOUR_IN_SECONDS );
-		}
+		// The attempt was already counted above, before any check could reject it.
 
 		return true;
 	}
@@ -186,6 +242,128 @@ class RegistrationGuard {
 		}
 		$elapsed = time() - (int) $ts;
 		return $elapsed < self::MIN_SECONDS || $elapsed > self::TOKEN_TTL;
+	}
+
+	/**
+	 * Public allowlist check — the owner's ACCESS policy, independent of spam scoring.
+	 *
+	 * Split out of check() so RegistrationPolicy can enforce the allowlist on
+	 * every door. Social login and the WordPress core registration form carry no
+	 * honeypot or time-trap token, so they cannot run the full guard — but an
+	 * allowlist is a decision the owner made about who may join, and it must bind
+	 * on them regardless. Previously it did not, and a site restricted to one
+	 * corporate domain was wide open to any Google account.
+	 *
+	 * Privileged creators (admin / import / CLI) stay exempt.
+	 *
+	 * @param string $email Candidate email address.
+	 * @return true|WP_Error True when allowed, WP_Error when the domain is not.
+	 */
+	public function check_domain( string $email ): bool|WP_Error {
+		if ( is_user_logged_in() && current_user_can( 'create_users' ) ) {
+			return true;
+		}
+
+		if ( ! $this->domain_allowed( $email ) ) {
+			return new WP_Error(
+				'bn_reg_domain',
+				__( 'Only users from allowed email domains may register.', 'buddynext' )
+			);
+		}
+
+		if ( $this->domain_blocked( $email ) ) {
+			return new WP_Error(
+				'bn_reg_domain',
+				__( 'Sign-ups from that email domain are not accepted.', 'buddynext' )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Is the email's domain on the owner's block list?
+	 *
+	 * There was no email-domain BLOCKlist at all — only an allowlist. An owner who
+	 * wanted to shut out one abusive domain had to switch to an allowlist and
+	 * enumerate every permitted domain on earth instead, which nobody will do.
+	 *
+	 * (Note this is NOT `buddynext_blocked_domains`, which despite the name is a
+	 * blocklist for LINKS in post content and is never consulted at registration.
+	 * The name collision actively misled owners, so this option is deliberately
+	 * called buddynext_blocked_email_domains.)
+	 *
+	 * @param string $email Candidate email address.
+	 * @return bool True when the domain is blocked.
+	 */
+	private function domain_blocked( string $email ): bool {
+		$raw = trim( (string) get_option( 'buddynext_blocked_email_domains', '' ) );
+		if ( '' === $raw ) {
+			return false;
+		}
+
+		$at = strrpos( $email, '@' );
+		if ( false === $at ) {
+			return false;
+		}
+
+		$domain = strtolower( substr( $email, $at + 1 ) );
+		$parts  = preg_split( '/[\r\n,]+/', $raw );
+		$list   = array_filter( array_map( 'trim', is_array( $parts ) ? $parts : array() ) );
+
+		foreach ( $list as $blocked ) {
+			$blocked = strtolower( ltrim( (string) $blocked, '@' ) );
+			if ( '' !== $blocked && $domain === $blocked ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Is this IP allowed to register or sign in?
+	 *
+	 * The "Blocked IP addresses" setting only ever stopped POSTING. Its own error
+	 * string says so: "Posting from your network is not allowed." Neither
+	 * registration nor login consulted it — so a blocklisted IP could still create
+	 * an account and still sign in, which is emphatically not what an owner who
+	 * blocks an IP expects.
+	 *
+	 * @param string $ip Client IP.
+	 * @return true|WP_Error
+	 */
+	public function check_ip( string $ip ): bool|WP_Error {
+		if ( is_user_logged_in() && current_user_can( 'create_users' ) ) {
+			return true;
+		}
+
+		if ( $this->ip_blocked( $ip ) ) {
+			return new WP_Error(
+				'bn_reg_ip',
+				__( 'Access from your network is not allowed.', 'buddynext' )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Raw blocked-IP lookup.
+	 *
+	 * @param string $ip Client IP.
+	 * @return bool
+	 */
+	private function ip_blocked( string $ip ): bool {
+		if ( '' === $ip || ! function_exists( 'buddynext_service' ) ) {
+			return false;
+		}
+
+		$safeguards = buddynext_service( 'safeguard' );
+
+		return is_object( $safeguards )
+			&& method_exists( $safeguards, 'ip_is_blocked' )
+			&& $safeguards->ip_is_blocked( $ip );
 	}
 
 	/**
@@ -336,31 +514,82 @@ class RegistrationGuard {
 	 */
 	public static function verify_challenge( string $token, string $answer ): bool {
 		$raw = base64_decode( $token, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
-		if ( false === $raw || false === strpos( $raw, '|' ) ) {
+		if ( false === $raw ) {
 			return false;
 		}
-		list( $ts, $sig ) = explode( '|', $raw, 2 );
+
+		$parts = explode( '|', $raw, 3 );
+		if ( 3 !== count( $parts ) ) {
+			return false;
+		}
+		list( $ts, $nonce, $sig ) = $parts;
+
 		if ( time() - (int) $ts > self::TOKEN_TTL ) {
+			return false;
+		}
+
+		// Single use. Without this a solved token stayed valid for its full TTL and
+		// could be replayed without limit: solve the question once, then register
+		// as many accounts as you like on the same answer for the next hour. The
+		// marker is a DB-backed transient on purpose — an object-cache flush must
+		// not hand an attacker a fresh replay window.
+		if ( self::challenge_is_spent( (string) $sig ) ) {
 			return false;
 		}
 
 		// Normalise to the bare integer the question asks for.
 		$normalised = (string) (int) preg_replace( '/[^0-9-]/', '', $answer );
-		$expected   = hash_hmac( 'sha256', $normalised . '|' . $ts, wp_salt( 'nonce' ) );
+		$expected   = hash_hmac( 'sha256', $normalised . '|' . $ts . '|' . $nonce, wp_salt( 'nonce' ) );
 
-		return hash_equals( $expected, (string) $sig );
+		if ( ! hash_equals( $expected, (string) $sig ) ) {
+			// A wrong answer does not spend the token: the member retypes and
+			// retries the same question, which is what they expect. Brute-forcing
+			// a single-digit sum is pointless anyway — the rate limiter counts
+			// every attempt now, so guessing costs the attacker their whole budget.
+			return false;
+		}
+
+		self::spend_challenge( (string) $sig );
+
+		return true;
 	}
 
 	/**
-	 * Sign an answer into a base64 `ts|hmac` token (the answer stays server-side).
+	 * Has this challenge token already been redeemed?
+	 *
+	 * @param string $sig Token signature.
+	 * @return bool
+	 */
+	private static function challenge_is_spent( string $sig ): bool {
+		return (bool) get_transient( self::SPENT_PREFIX . md5( $sig ) );
+	}
+
+	/**
+	 * Mark a challenge token as redeemed for the rest of its life.
+	 *
+	 * @param string $sig Token signature.
+	 * @return void
+	 */
+	private static function spend_challenge( string $sig ): void {
+		set_transient( self::SPENT_PREFIX . md5( $sig ), 1, self::TOKEN_TTL );
+	}
+
+	/**
+	 * Sign an answer into a base64 `ts|nonce|hmac` token.
+	 *
+	 * The answer never leaves the server — it is folded into the HMAC. The nonce
+	 * makes every issued token unique even when two people are asked the same
+	 * question in the same second, so redeeming one cannot invalidate the other.
 	 *
 	 * @param string $answer Canonical (integer-string) answer.
 	 * @return string
 	 */
 	private static function sign_answer( string $answer ): string {
-		$ts  = (string) time();
-		$sig = hash_hmac( 'sha256', $answer . '|' . $ts, wp_salt( 'nonce' ) );
-		return base64_encode( $ts . '|' . $sig ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+		$ts    = (string) time();
+		$nonce = bin2hex( random_bytes( 8 ) );
+		$sig   = hash_hmac( 'sha256', $answer . '|' . $ts . '|' . $nonce, wp_salt( 'nonce' ) );
+
+		return base64_encode( $ts . '|' . $nonce . '|' . $sig ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
 	}
 
 	/**

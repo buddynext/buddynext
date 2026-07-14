@@ -22,6 +22,28 @@ class Spaces extends AdminPageBase {
 	 */
 	private const DEFAULT_PER_PAGE = 20;
 
+	/**
+	 * Object-cache group for the by-type counts.
+	 *
+	 * Deliberately the SAME group SpaceService already uses for space data, rather
+	 * than a new admin-only group: one cache group for spaces, not two. Nothing is
+	 * double-cached — SpaceService caches individual space OBJECTS (`space_{id}`)
+	 * and never a count, so this key is the only copy of the counts.
+	 */
+	private const CACHE_GROUP = 'buddynext_spaces';
+
+	/**
+	 * Cache key for the by-type space counts (stat tiles + filter segments).
+	 */
+	private const COUNTS_CACHE_KEY = 'space_type_counts';
+
+	/**
+	 * TTL for the cached counts. A backstop only — the counts are busted on every
+	 * space create/update/delete, so this just bounds staleness if a write path is
+	 * ever added that forgets to fire the canonical hooks.
+	 */
+	private const COUNTS_CACHE_TTL = 300;
+
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
 	/**
@@ -36,6 +58,14 @@ class Spaces extends AdminPageBase {
 		add_action( 'admin_post_bn_save_space_category', array( $this, 'handle_save_category' ) );
 		add_action( 'admin_post_bn_delete_space_category', array( $this, 'handle_delete_category' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+
+		// Bust the cached type counts whenever the space set changes. Registered on
+		// the canonical domain events (not just the admin handlers) so a space
+		// created from the front end, over REST or by an integration invalidates the
+		// tiles too — a cache that only some write paths bust is worse than none.
+		foreach ( array( 'buddynext_space_created', 'buddynext_space_updated', 'buddynext_space_deleted' ) as $bn_count_event ) {
+			add_action( $bn_count_event, array( self::class, 'flush_counts_cache' ) );
+		}
 
 		AdminHub::register_tab(
 			'spaces',
@@ -325,7 +355,7 @@ class Spaces extends AdminPageBase {
 					<tbody>
 						<?php if ( empty( $spaces ) ) : ?>
 							<tr>
-								<td colspan="7">
+								<td colspan="8">
 									<p class="description"><?php esc_html_e( 'No spaces found.', 'buddynext' ); ?></p>
 								</td>
 							</tr>
@@ -878,6 +908,22 @@ class Spaces extends AdminPageBase {
 				$s['parent_name']   = $s['parent_id'] > 0 ? ( $parent_names[ $s['parent_id'] ] ?? '' ) : '';
 			}
 			unset( $s );
+
+			// Prime every owner in ONE query. The render loop calls get_userdata()
+			// per row for the Owner column; uncached that is a query per row (20 per
+			// page), which was the last N+1 left on this screen. cache_users() fetches
+			// them all at once and warms the same cache get_userdata() reads, so the
+			// loop below stays unchanged and simply stops hitting the database.
+			$owner_ids = array_values(
+				array_unique(
+					array_filter(
+						array_map( static fn( array $s ): int => $s['owner_id'], $spaces )
+					)
+				)
+			);
+			if ( $owner_ids ) {
+				cache_users( $owner_ids );
+			}
 		}
 
 		$pages = $per_page > 0 ? (int) ceil( $total / $per_page ) : 1;
@@ -1030,10 +1076,24 @@ class Spaces extends AdminPageBase {
 	/**
 	 * Return space counts grouped by type.
 	 *
+	 * Feeds the stat tiles and the type-filter segment counts, so it runs on EVERY
+	 * render of this screen — and a `GROUP BY type` over bn_spaces is a full-table
+	 * scan (there is no index on `type`). Uncached, that was a second full scan per
+	 * page load on top of the list's own COUNT(*).
+	 *
+	 * Cached in the object cache and busted whenever a space is created, updated or
+	 * deleted (see flush_counts_cache()), so a site with 100k spaces pays for the
+	 * scan once rather than on every admin page view.
+	 *
 	 * @return array{ total: int, open: int, private: int, secret: int }
 	 */
 	private function get_type_counts(): array {
 		global $wpdb;
+
+		$cached = wp_cache_get( self::COUNTS_CACHE_KEY, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
 
 		$table = $wpdb->prefix . 'bn_spaces';
 		$rows  = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1057,6 +1117,20 @@ class Spaces extends AdminPageBase {
 			$counts['total'] += $cnt;
 		}
 
+		wp_cache_set( self::COUNTS_CACHE_KEY, $counts, self::CACHE_GROUP, self::COUNTS_CACHE_TTL );
+
 		return $counts;
+	}
+
+	/**
+	 * Drop the cached type counts.
+	 *
+	 * Hooked to every event that changes the number or type of spaces, so the stat
+	 * tiles can never go stale. Cheap: one cache delete.
+	 *
+	 * @return void
+	 */
+	public static function flush_counts_cache(): void {
+		wp_cache_delete( self::COUNTS_CACHE_KEY, self::CACHE_GROUP );
 	}
 }

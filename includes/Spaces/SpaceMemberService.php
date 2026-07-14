@@ -1150,6 +1150,8 @@ class SpaceMemberService {
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
+		$this->prime_roster_users( (array) $rows );
+
 		return array_map(
 			fn( $r ) => array(
 				'user_id'       => (int) $r['user_id'],
@@ -1163,6 +1165,31 @@ class SpaceMemberService {
 			),
 			(array) $rows
 		);
+	}
+
+	/**
+	 * Prime the user cache for a roster page.
+	 *
+	 * get_avatar_url() resolves the user behind each id, so mapping it over a page of members
+	 * was one user lookup PER ROW. Bounded (MAX_MEMBERS_PER_QUERY caps the page), so it never
+	 * ran away — it was just up to 200 avoidable queries per roster page. One batched fetch,
+	 * and every get_avatar_url() below is served from cache.
+	 *
+	 * @param array<int,array<string,mixed>> $rows Roster rows carrying user_id.
+	 * @return void
+	 */
+	private function prime_roster_users( array $rows ): void {
+		$ids = array_values(
+			array_unique(
+				array_filter(
+					array_map( static fn( $r ): int => (int) ( $r['user_id'] ?? 0 ), $rows )
+				)
+			)
+		);
+
+		if ( ! empty( $ids ) ) {
+			cache_users( $ids );
+		}
 	}
 
 	/**
@@ -1494,14 +1521,21 @@ class SpaceMemberService {
 	/**
 	 * Increment or decrement the member_count on the space row.
 	 *
+	 * The canonical member_count mutator — the only place that writes
+	 * bn_spaces.member_count. Public so other services (e.g. SpaceService's
+	 * assign_owner(), which upserts bn_space_members directly and therefore
+	 * bypasses join()/leave()) can keep the denormalised count correct
+	 * instead of duplicating this SQL.
+	 *
 	 * Uses GREATEST(1, member_count) - 1 to floor at zero WITHOUT underflowing
 	 * the UNSIGNED column (member_count - 1 on a 0 value would wrap to ~1.8e19
 	 * before GREATEST sees it).
 	 *
 	 * @param int $space_id Space ID.
 	 * @param int $delta    +1 to increment, -1 to decrement.
+	 * @return void
 	 */
-	private function adjust_member_count( int $space_id, int $delta ): void {
+	public function adjust_member_count( int $space_id, int $delta ): void {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1686,6 +1720,30 @@ class SpaceMemberService {
 		if ( empty( $deleted ) ) {
 			return false;
 		}
+
+		// Clear the SOFT ban too, or the unban does not actually unban.
+		//
+		// ban() writes to BOTH tables — it inserts the bn_space_bans row AND flips
+		// the member row to status='banned'. Unban only ever deleted the ban row, so
+		// the member row was left banned: is_space_banned() kept hard-denying every
+		// space capability and join() kept refusing them. The member stayed locked
+		// out of a space they had supposedly been unbanned from, with no way back and
+		// nothing in the UI to explain it.
+		//
+		// Delete the row rather than reviving it to 'active': being unbanned restores
+		// the right to ASK, not a membership they no longer hold. They can now join
+		// (or request to join) exactly like anyone else — which is what decline_request()
+		// does with the row it clears.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_space_members',
+			array(
+				'space_id' => $space_id,
+				'user_id'  => $user_id,
+				'status'   => 'banned',
+			),
+			array( '%d', '%d', '%s' )
+		);
 
 		$this->invalidate_cache( $space_id, $user_id );
 

@@ -20,6 +20,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Spaces;
 
+use BuddyNext\Feed\IntegrationActivity;
 use WP_Error;
 
 /**
@@ -56,6 +57,20 @@ class SpacePostGuard {
 
 		// Only gate creation; edits keep their existing status.
 		if ( null !== $post_id ) {
+			return $data;
+		}
+
+		// A bridge mirroring partner content into the feed is not a member composing
+		// into this space. The Jetonomy discussion was created in the PARTNER's forum,
+		// which ran its own permission check, and its author is very often not a member
+		// of the linked BuddyNext space at all — so who_can_post, which exists to govern
+		// composition INTO a space, does not apply and would reject the mirror outright.
+		// (It did: once the activity started carrying a space_id, every discussion
+		// activity began failing here with a 403 and the feed silently lost them.)
+		//
+		// Read from the system flag, never from $data — a request-supplied key could be
+		// smuggled through a create path and would turn this into a who_can_post bypass.
+		if ( IntegrationActivity::is_system_publish() ) {
 			return $data;
 		}
 

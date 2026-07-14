@@ -30,7 +30,7 @@ Spaces can be grouped into categories (for example "Teams", "Regions", "Hobbies"
 
 ### View a space
 
-Selecting a space opens its home page: the space header, an about panel, a member list, and the space feed. For an open space, anyone can read the feed. For a private space, non-members see the space exists and who runs it, but the feed is gated until they are approved.
+Selecting a space opens its home page: the space header, an about panel, a member list, and the space feed. For an open space, anyone can read the feed. For a private space, non-members can still open the About tab and read the space's description, house rules, and moderator list - enough to decide whether to request a place - but the feed itself is gated until they are approved.
 
 
 ### My Spaces
@@ -41,7 +41,7 @@ Every member has a "My Spaces" view listing the spaces they belong to, so their 
 
 How a member joins depends on the space type:
 
-- **Open space** - one click joins instantly. The member becomes a member right away and can post.
+- **Open space** - one click joins instantly. The member becomes a member right away and can post. An open space can optionally require approval, in which case the click files a request; that toggle is offered on open spaces only.
 - **Private space** - clicking sends a join request. The space owner or a moderator approves or declines it. A member can cancel a pending request before it is answered.
 - **Secret space** - there is no join button, because the space is hidden. A member can only get in through an invite from the owner.
 

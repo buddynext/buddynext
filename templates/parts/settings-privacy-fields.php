@@ -53,10 +53,20 @@ $privacy_connect_options    = array(
 	'nobody'    => __( 'Nobody', 'buddynext' ),
 );
 
-$privacy_see_email = (string) get_user_meta( $user_id, 'bn_privacy_see_email', true );
-if ( '' === $privacy_see_email ) {
-	$privacy_see_email = 'connections';
-}
+// NOTE: there is deliberately no "Who can see my email" control here.
+//
+// It used to exist, and it was a lie. bn_privacy_see_email was rendered, validated and
+// SAVED — and then consulted by nothing. Worse, it governed an exposure that does not
+// exist: BuddyNext never shows a member's email address to another member. The only place
+// user_email appears is the member's own GDPR data export, which is self-only.
+//
+// So a member who set it to "only my connections" believed their address was visible to
+// their connections. It is visible to nobody. The control did not protect them; it just
+// told them a story about a risk they did not have. A lever that reads but does not enforce
+// is worse than no lever, because it buys false confidence.
+//
+// If a future feature ever surfaces member emails, the control comes back WITH its gate —
+// see the Basecamp card. Not before.
 $privacy_dm = (string) get_user_meta( $user_id, 'bn_privacy_dm', true );
 if ( '' === $privacy_dm ) {
 	$privacy_dm = 'members';
@@ -107,7 +117,6 @@ $privacy_rows = array(
 	array( 'select', 'bn_privacy_profile_visibility', __( 'Who can see my profile', 'buddynext' ), $privacy_profile_visibility, 'bn-ep-privacy-visibility', '', $privacy_visibility_options ),
 	array( 'select', 'bn_privacy_who_can_follow', __( 'Who can follow me', 'buddynext' ), $privacy_who_can_follow, 'bn-ep-privacy-follow', '', $privacy_follow_options ),
 	array( 'select', 'bn_privacy_who_can_connect', __( 'Who can send me connection requests', 'buddynext' ), $privacy_who_can_connect, 'bn-ep-privacy-connect', '', $privacy_connect_options ),
-	array( 'select', 'bn_privacy_see_email', __( 'Who can see my email', 'buddynext' ), $privacy_see_email, 'bn-ep-privacy-email', '', $privacy_audiences ),
 	array( 'select', 'bn_privacy_dm', __( 'Who can direct-message me', 'buddynext' ), $privacy_dm, 'bn-ep-privacy-dm', '', $privacy_audiences ),
 	array( 'select', 'bn_privacy_mention', __( 'Who can @mention me in posts', 'buddynext' ), $privacy_mention, 'bn-ep-privacy-mention', '', $privacy_audiences ),
 	array( 'toggle', 'bn_account_private', __( 'Private account', 'buddynext' ), $privacy_account_private, 'bn-ep-privacy-private-lbl', __( 'Only approved followers see your posts. New follows arrive as requests you can accept or decline.', 'buddynext' ), array() ),

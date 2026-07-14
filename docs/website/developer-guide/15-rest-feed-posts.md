@@ -47,12 +47,24 @@ Post create/read/update/delete plus pin and the link-preview helper.
 |---|---|---|---|
 | POST | `/posts` | auth | Create a post. Role-mapped: a feed post needs `buddynext-feed/create-post`; a space post needs `buddynext-spaces/post` (with `space_id` context); scheduling additionally needs `buddynext-feed/schedule-post`. |
 | GET | `/posts/(?P<id>[\d]+)` | public | Read a single post (visibility enforced server-side). |
-| PUT | `/posts/(?P<id>[\d]+)` | auth | Update a post (owner only, enforced in the handler). |
+| PUT | `/posts/(?P<id>[\d]+)` | auth | Update a post (owner only, enforced in the handler). Body: any of `content`, `privacy`, `content_warning`, `content_warning_type`, `scheduled_at`. Passing `scheduled_at` is a **reschedule** and additionally requires `buddynext-feed/schedule-post` - see below. |
 | DELETE | `/posts/(?P<id>[\d]+)` | auth | Delete a post (owner only, enforced in the handler). |
 | POST | `/posts/(?P<id>[\d]+)/pin` | auth | Pin a post (owner action). |
 | DELETE | `/posts/(?P<id>[\d]+)/pin` | auth | Unpin a post (owner action). |
 | GET | `/me/pending-posts` | auth | The current member's own posts held for approval. Accepts `?per_page=` (1-100). |
 | GET | `/link-preview` | auth | Resolve link-preview metadata for a `?url=`. Gated by the `buddynext_enable_link_preview` setting. |
+
+### Scheduling and rescheduling
+
+`scheduled_at` is accepted on **both** `POST /posts` (schedule at creation) and `PUT /posts/{id}` (reschedule an existing scheduled post). Both require the `buddynext-feed/schedule-post` capability, on top of the normal create/edit gate - otherwise `PUT` would be a back door into scheduling for anyone who can edit.
+
+- **Format: UTC, `Y-m-d H:i:s`.** The column `bn_posts.scheduled_at` is stored in UTC and the API speaks UTC. The **UI** is what speaks site time: the composer and the edit control render a `datetime-local` in the site's timezone (WP's Settings -> General zone), name the zone in their label, and convert to UTC before they call the API. Clients doing their own conversion should use the site offset the feed state exposes rather than the browser's, or an author in IST picks `12:50` and the card answers `7:20 am` - the same instant, two numbers, which reads as a bug.
+- A `POST /posts` carrying a future `scheduled_at` is saved with `status = 'scheduled'` (not live), and the response omits the rendered `html` card.
+- A **reschedule** only applies to a post whose status is still `scheduled`. `PostService::update()` refuses anything else with `409 not_scheduled`, so the edit form cannot drag an already-published post back out of the feed.
+- A past or unparseable time is refused with `400 schedule_in_past` / `400 invalid_schedule`.
+- A successful reschedule re-arms the publisher cron (`buddynext_publish_scheduled`). This matters when a post is moved **earlier**: without the re-arm the cron would still be sitting on the old, later time and the post would miss its slot.
+
+The related service seams - `PostService::set_schedule()`, `clear_schedule()`, `publish_scheduled_now()` - own the `status` / `scheduled_at` write so a scheduled-posts UI does not have to touch the table directly. They are PHP-level; Free exposes no separate REST route for them.
 
 ### Poll routes
 

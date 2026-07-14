@@ -39,6 +39,19 @@ class UserCleanupListener {
 		// Priority 5 so we run before WordPress finishes tearing the user down,
 		// while their id is still meaningful for our lookups.
 		add_action( 'deleted_user', array( $this, 'on_deleted_user' ), 5, 1 );
+
+		// A member too large to erase inside the delete request continues here. The delete path
+		// has no driver of its own (unlike the GDPR eraser, which core re-calls page by page), so
+		// without this an oversized member would simply be left half-erased — account gone, data
+		// behind, and no account left to find it by.
+		add_action(
+			\BuddyNext\Profile\MemberCleanupService::CONTINUE_HOOK,
+			static function ( $user_id, $context = 'delete' ): void {
+				( new \BuddyNext\Profile\MemberCleanupService() )->continue_purge( (int) $user_id, (string) $context );
+			},
+			10,
+			2
+		);
 	}
 
 	/**

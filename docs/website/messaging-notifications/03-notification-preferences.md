@@ -31,8 +31,11 @@ Notifications can reach a member through more than one channel, and each is cont
 | Email | A transactional email for the event, at the member's chosen frequency | On |
 | Push (Pro) | A web push alert to the browser, even when the tab is closed | On when Pro push is active |
 | Sound | A short sound when a new notification arrives while the member is on the site | Off |
+| Newsletters and announcements (Pro) | Broadcast emails sent to the whole community | On |
 
 The Push channel only appears when the Pro push module is installed and active. See Push Notifications.
+
+**Newsletters and announcements** is the master switch for broadcast email. It is a different thing from the other channels: the rest of this page is about notifications, which are things that happened *to* the member. A broadcast is a newsletter or announcement sent to everyone. Turning this off stops all of them - not just the last campaign the member unsubscribed from. A member can also reach the same switch from the unsubscribe link at the bottom of any broadcast, without logging in. It appears only when Pro is active. See Broadcast Email.
 
 ### Email frequency
 

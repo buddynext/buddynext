@@ -133,7 +133,7 @@ class SpaceControllerTest extends \WP_Test_REST_TestCase {
 	}
 
 	public function test_join_space_returns_200(): void {
-		$user_id  = self::factory()->user->create();
+		$user_id = self::factory()->user->create();
 		wp_set_current_user( $user_id );
 
 		$space_id = $this->space_service->create(
@@ -153,7 +153,7 @@ class SpaceControllerTest extends \WP_Test_REST_TestCase {
 	}
 
 	public function test_join_private_space_returns_requested(): void {
-		$user_id  = self::factory()->user->create();
+		$user_id = self::factory()->user->create();
 		wp_set_current_user( $user_id );
 
 		$space_id = $this->space_service->create(
@@ -173,7 +173,7 @@ class SpaceControllerTest extends \WP_Test_REST_TestCase {
 	}
 
 	public function test_join_secret_space_without_invite_returns_403(): void {
-		$user_id  = self::factory()->user->create();
+		$user_id = self::factory()->user->create();
 		wp_set_current_user( $user_id );
 
 		$space_id = $this->space_service->create(

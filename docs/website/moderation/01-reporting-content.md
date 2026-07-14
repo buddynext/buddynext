@@ -1,10 +1,10 @@
 # Reporting Content
 
-Reporting lets any member flag a post, comment, or member profile for a moderator to review. A report records what was flagged, the reason, and any optional details, then sends it to the moderation queue without notifying the person who was reported.
+Reporting lets any member flag a post, comment, direct message, media item, or member profile for a moderator to review. A report records what was flagged, the reason, and any optional details, then sends it to the moderation queue without notifying the person who was reported.
 
 ![A BuddyNext post where a member can report the content for review](../images/post-detail.webp)
 
-![The report dialog — choose a reason and add optional details; reports go to moderators and the person is not notified](../images/report-modal.webp)
+![The report dialog - choose a reason and add optional details; reports go to moderators and the person is not notified](../images/report-modal.webp)
 
 ![The BuddyNext admin moderation queue receiving reported content](../images/moderation-queue.webp)
 
@@ -20,9 +20,9 @@ Reporting does not remove anything on its own. It opens a case. A moderator stil
 
 ## How it works (for members)
 
-A member can report a post, a comment, or another member's profile.
+A member can report a post, a comment, a direct message, a media item, or another member's profile.
 
-1. Open the actions menu on the item you want to report. On a post or comment this is the menu on the post card; on a member, it is the menu on their profile card in the member directory.
+1. Open the actions menu on the item you want to report. On a post or comment this is the menu on the post card; on a member, it is the menu on their profile card in the member directory; on a photo or video, it is in the media lightbox (the full-screen viewer you get when you click the media).
 2. Choose Report. A report dialog opens.
 3. Pick a reason from the list. The reason is required.
 4. Optionally add details in the notes field to explain what you saw. Notes are limited to 500 characters and are optional.
@@ -30,21 +30,33 @@ A member can report a post, a comment, or another member's profile.
 
 That is the whole flow. The dialog confirms the report was sent, and the person you reported is not notified.
 
+### Reporting a photo or video
+
+Media is reported from the lightbox, not from the post card. Click a photo or video to open it full-screen, and the viewer offers **Report** alongside Favorite, Share, and Download. Next to it is **Block**, which blocks the member who uploaded the media, not the file itself.
+
+Two things behave differently here, and both are deliberate:
+
+- Report and Block are hidden on your own media. Nobody needs to report themselves.
+- Media reports go to the **Media Moderation** queue rather than the BuddyNext moderation queue. That queue is owned by WPMediaVerse, the plugin that stores your community's photos and videos. Moderators find them under **WPMediaVerse > Media Moderation** in the WordPress admin. See the note for owners below.
+
 ### Choosing a reason
 
-Every report needs one reason. BuddyNext ships a fixed set so moderators see consistent, comparable labels in the queue:
+Every report needs one reason. BuddyNext offers a fixed set so moderators see consistent, comparable labels in the queue. The exact list depends on what you are reporting, because a photo raises different questions than a profile does:
 
-| Reason | Use it for |
-|---|---|
-| Spam | Repetitive, promotional, or junk content. |
-| Harassment or hate speech | Targeted abuse, threats, or hateful content. |
-| Misinformation | False or misleading claims. |
-| Inappropriate content | Content that does not belong in the community. |
-| Fake account | An account that looks automated or fraudulent. |
-| Impersonation | An account pretending to be someone else. |
-| Something else | Anything not covered above. Use the notes field to explain. |
+| Reason | Use it for | Offered on |
+|---|---|---|
+| Spam | Repetitive, promotional, or junk content. | Everything |
+| Harassment or hate speech | Targeted abuse, threats, or hateful content. | Everything |
+| Misinformation | False or misleading claims. | Everything |
+| Something else | Anything not covered above. Use the notes field to explain. | Everything |
+| Inappropriate content | Content that does not belong in the community. | Posts, comments, messages, profiles |
+| Impersonation | An account pretending to be someone else. | Posts, comments, messages, profiles |
+| Fake account | An account that looks automated or fraudulent. | Member profiles |
+| Nudity or sexual content | Explicit imagery. | Media |
+| Violence or graphic content | Graphic or violent imagery. | Media |
+| Copyright infringement | Media published without the right to publish it. | Media |
 
-> **Note:** When you report a member's profile, the reason list reflects member-level problems (fake account, impersonation) as well as the shared reasons. Use the notes field whenever the reason alone does not tell the full story.
+> **Note:** Use the notes field whenever the reason alone does not tell the full story. A moderator reads it before deciding.
 
 
 ### What happens after a report
@@ -59,6 +71,8 @@ Every report needs one reason. BuddyNext ships a fixed set so moderators see con
 - **Duplicate reports are prevented.** Each member can report a given item once. If you try to report the same post, comment, or profile a second time, BuddyNext blocks it and tells you that you have already reported this content (or this member). This stops one person from inflating the report count and keeps the queue honest. Where a post card knows you have already reported an item, it shows a Reported state instead of offering Report again.
 - **Many members can report the same item.** The one-per-member limit applies per reporter, not per item. When several different members report the same post, those reports are grouped together for the moderator and the combined count raises the item's urgency in the queue.
 - **Private messages.** A reported direct message is handled with privacy in mind: its content is not shown in the queue, so a moderator can act on the report without reading the private exchange.
+- **Media reporting is on by default.** Installed on its own, WPMediaVerse ships with member reporting turned off, which suits a media library on a site with no moderators. A community is not that, so BuddyNext turns media reporting on for you. There is nothing to configure. If you deliberately want it off, a developer can switch it back off with a one-line filter, and the Report button then disappears from the lightbox rather than sitting there and failing. Block is unaffected either way, because blocking a member is BuddyNext's own feature.
+- **Two queues, one job.** Reports on posts, comments, messages, and profiles land in **BuddyNext > Moderation > Reports**. Reports on photos and videos land in **WPMediaVerse > Media Moderation**. Both are report queues a moderator works through; they are separate because the media plugin owns the media. If you moderate media, check both.
 
 ## Free vs Pro
 

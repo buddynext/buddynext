@@ -31,7 +31,7 @@ if ( ! $wp_tests_dir ) {
 }
 
 if ( ! is_dir( $wp_tests_dir ) ) {
-	echo sprintf(
+	printf(
 		'WordPress test suite not found at %s. Run bin/install-wp-tests.sh first.' . PHP_EOL,
 		$wp_tests_dir
 	);

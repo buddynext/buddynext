@@ -41,6 +41,16 @@ class MemberDirectoryService {
 	 * by MemberTypeService on the same events as its own counts cache (type
 	 * create/update/delete, member assign/remove).
 	 */
+	/**
+	 * Object-cache group.
+	 */
+	private const CACHE_GROUP = 'buddynext_directory';
+
+	/**
+	 * Directory-page cache lifetime, in seconds.
+	 */
+	private const CACHE_TTL = 60;
+
 	public const TYPE_COUNTS_CACHE_KEY = 'bn_dir_type_counts';
 
 	/**
@@ -130,9 +140,9 @@ class MemberDirectoryService {
 		// invalidates a blocker's cached pages the instant their block list changes
 		// — without enumerating every cursor/filter key, and works with or without a
 		// persistent object cache. 60-second TTL otherwise balances freshness vs load.
-		$cache_ver     = (int) wp_cache_get( self::cache_version_key( $viewer_id ), 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		$cache_ver     = (int) wp_cache_get( self::cache_version_key( $viewer_id ), self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 		$cache_key     = 'bn_dir_' . md5( (string) wp_json_encode( array( $viewer_id, $cursor, $per_page, $filters, $cache_ver ) ) );
-		$cached_result = wp_cache_get( $cache_key, 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		$cached_result = wp_cache_get( $cache_key, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 		if ( false !== $cached_result ) {
 			return (array) $cached_result;
 		}
@@ -194,9 +204,13 @@ class MemberDirectoryService {
 		// a native JOIN (not a post-query filter) so the COUNT/total and cursor
 		// reflect only followed users.
 		if ( 'following' === $relation && $viewer_id > 0 ) {
+			// Only ACCEPTED follows (status='approved'). A request to follow a
+			// private account is stored status='pending' until approved; without
+			// this filter the directory "Following" tab listed those pending
+			// accounts, diverging from every other following surface.
 			$joins[] = $wpdb->prepare(
 				"INNER JOIN {$wpdb->prefix}bn_follows bfol
-				 ON bfol.follower_id = %d AND bfol.following_id = u.ID",
+				 ON bfol.follower_id = %d AND bfol.following_id = u.ID AND bfol.status = 'approved'",
 				$viewer_id
 			);
 		}
@@ -429,43 +443,48 @@ class MemberDirectoryService {
 		// Compute mutual connection counts post-query in a single batch to avoid
 		// the MySQL 5.7 "Can't reopen table" error that would occur if bn_connections
 		// were referenced twice in correlated SELECT-list subqueries.
+		// The viewer's peer set stays in SQL as a derived table. It used to be SELECTed into
+		// a PHP array and then interpolated back as an IN(...) list: for a member with 10k
+		// connections that is 10,000 ints round-tripped and a ~80KB SQL string, rebuilt
+		// uncached on every directory page view. The cost is O(viewer's degree), so it is
+		// the hubs — community managers, the people with the biggest graphs — who melt, on
+		// the surface every member loads.
+		//
+		// NOT paginated, deliberately. The card asks for a LIMIT on this query; a truncated
+		// peer set silently produces WRONG mutual counts, which is worse than a slow correct
+		// one. The fix is to stop materialising the set, not to cut it short.
 		$mutual_counts = array();
 		if ( $viewer_id_safe > 0 && ! empty( $user_ids ) ) {
+			$uid_in = implode( ',', array_map( 'intval', $user_ids ) );
+
 			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$viewer_peer_ids = $wpdb->get_col(
+			$m_rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT CASE WHEN c.requester_id = %d THEN c.recipient_id ELSE c.requester_id END
-					 FROM {$wpdb->prefix}bn_connections c
-					 WHERE c.status = 'accepted'
-					   AND ( c.requester_id = %d OR c.recipient_id = %d )",
+					"SELECT t.target_id, COUNT(*) AS cnt
+					   FROM (
+					       SELECT CASE WHEN c.requester_id IN ({$uid_in}) THEN c.requester_id ELSE c.recipient_id END AS target_id,
+					              CASE WHEN c.requester_id IN ({$uid_in}) THEN c.recipient_id ELSE c.requester_id END AS peer_id
+					         FROM {$wpdb->prefix}bn_connections c
+					        WHERE c.status = 'accepted'
+					          AND ( c.requester_id IN ({$uid_in}) OR c.recipient_id IN ({$uid_in}) )
+					   ) t
+					   INNER JOIN (
+					       SELECT CASE WHEN v.requester_id = %d THEN v.recipient_id ELSE v.requester_id END AS uid
+					         FROM {$wpdb->prefix}bn_connections v
+					        WHERE v.status = 'accepted'
+					          AND ( v.requester_id = %d OR v.recipient_id = %d )
+					   ) vp ON vp.uid = t.peer_id
+					  GROUP BY t.target_id",
 					$viewer_id_safe,
 					$viewer_id_safe,
 					$viewer_id_safe
-				)
+				),
+				ARRAY_A
 			);
 			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-			if ( ! empty( $viewer_peer_ids ) ) {
-				$uid_in  = implode( ',', array_map( 'intval', $user_ids ) );
-				$peer_in = implode( ',', array_map( 'intval', $viewer_peer_ids ) );
-				// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$m_rows = $wpdb->get_results(
-					"SELECT CASE WHEN c.requester_id IN ({$uid_in}) THEN c.requester_id
-					            ELSE c.recipient_id END AS target_id,
-					        COUNT(*) AS cnt
-					 FROM {$wpdb->prefix}bn_connections c
-					 WHERE c.status = 'accepted'
-					   AND ( c.requester_id IN ({$uid_in}) OR c.recipient_id IN ({$uid_in}) )
-					   AND ( CASE WHEN c.requester_id IN ({$uid_in})
-					             THEN c.recipient_id
-					             ELSE c.requester_id END ) IN ({$peer_in})
-					 GROUP BY target_id",
-					ARRAY_A
-				);
-				// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				foreach ( (array) $m_rows as $mr ) {
-					$mutual_counts[ (int) $mr['target_id'] ] = (int) $mr['cnt'];
-				}
+			foreach ( (array) $m_rows as $mr ) {
+				$mutual_counts[ (int) $mr['target_id'] ] = (int) $mr['cnt'];
 			}
 		}
 
@@ -560,7 +579,7 @@ class MemberDirectoryService {
 			'total'       => $total,
 		);
 
-		wp_cache_set( $cache_key, $result, 'buddynext', 60 ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return $result;
 	}
@@ -657,7 +676,7 @@ class MemberDirectoryService {
 	 * @return array<int,int> type_id => gated member count (types with no gated members are absent).
 	 */
 	private function gated_type_member_counts(): array {
-		$cached = wp_cache_get( self::TYPE_COUNTS_CACHE_KEY, 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		$cached = wp_cache_get( self::TYPE_COUNTS_CACHE_KEY, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 		if ( is_array( $cached ) ) {
 			return $cached;
 		}
@@ -684,7 +703,7 @@ class MemberDirectoryService {
 			$counts[ (int) $row['type_id'] ] = (int) $row['member_count'];
 		}
 
-		wp_cache_set( self::TYPE_COUNTS_CACHE_KEY, $counts, 'buddynext', self::TYPE_COUNTS_TTL ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		wp_cache_set( self::TYPE_COUNTS_CACHE_KEY, $counts, self::CACHE_GROUP, self::TYPE_COUNTS_TTL ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return $counts;
 	}
@@ -855,35 +874,32 @@ class MemberDirectoryService {
 			return array();
 		}
 
+		$uid_in = implode( ',', $member_ids );
+
+		// The viewer's peer set stays in SQL as a derived table, rather than being SELECTed
+		// into PHP and interpolated back as an IN(...) list. Same reason as list_members():
+		// a 10k-connection member produced a ~80KB SQL string, rebuilt on every page view.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$viewer_peer_ids = $wpdb->get_col(
+		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT CASE WHEN c.requester_id = %d THEN c.recipient_id ELSE c.requester_id END
-				 FROM {$wpdb->prefix}bn_connections c
-				 WHERE c.status = 'accepted' AND ( c.requester_id = %d OR c.recipient_id = %d )",
+				"SELECT t.target_id, t.peer_id
+				   FROM (
+				       SELECT CASE WHEN c.requester_id IN ({$uid_in}) THEN c.requester_id ELSE c.recipient_id END AS target_id,
+				              CASE WHEN c.requester_id IN ({$uid_in}) THEN c.recipient_id ELSE c.requester_id END AS peer_id
+				         FROM {$wpdb->prefix}bn_connections c
+				        WHERE c.status = 'accepted'
+				          AND ( c.requester_id IN ({$uid_in}) OR c.recipient_id IN ({$uid_in}) )
+				   ) t
+				   INNER JOIN (
+				       SELECT CASE WHEN v.requester_id = %d THEN v.recipient_id ELSE v.requester_id END AS uid
+				         FROM {$wpdb->prefix}bn_connections v
+				        WHERE v.status = 'accepted'
+				          AND ( v.requester_id = %d OR v.recipient_id = %d )
+				   ) vp ON vp.uid = t.peer_id",
 				$viewer_id,
 				$viewer_id,
 				$viewer_id
-			)
-		);
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		$viewer_peer_ids = array_values( array_unique( array_map( 'intval', (array) $viewer_peer_ids ) ) );
-		if ( empty( $viewer_peer_ids ) ) {
-			return array();
-		}
-
-		$uid_in  = implode( ',', $member_ids );
-		$peer_in = implode( ',', $viewer_peer_ids );
-
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			"SELECT CASE WHEN c.requester_id IN ({$uid_in}) THEN c.requester_id ELSE c.recipient_id END AS target_id,
-			        CASE WHEN c.requester_id IN ({$uid_in}) THEN c.recipient_id ELSE c.requester_id END AS peer_id
-			 FROM {$wpdb->prefix}bn_connections c
-			 WHERE c.status = 'accepted'
-			   AND ( c.requester_id IN ({$uid_in}) OR c.recipient_id IN ({$uid_in}) )
-			   AND ( CASE WHEN c.requester_id IN ({$uid_in}) THEN c.recipient_id ELSE c.requester_id END ) IN ({$peer_in})",
+			),
 			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -984,6 +1000,51 @@ class MemberDirectoryService {
 	}
 
 	/**
+	 * Per-request memo of the searchable mirror keys.
+	 *
+	 * Was a `static $keys` INSIDE the method, which nothing could reach — so the wp_cache key was
+	 * invalidated when a field changed and this memo was not. Anything that had already asked in
+	 * the same request went on indexing with the pre-edit key list, and a newly-searchable field
+	 * silently missed the index. A cache you cannot invalidate is not a cache, it is a bug with a
+	 * speed benefit.
+	 *
+	 * @var array<int,string>|null
+	 */
+	private static ?array $mirror_keys_memo = null;
+
+	/**
+	 * Drop the per-request memo. Call wherever the mirror-key cache is invalidated.
+	 *
+	 * @return void
+	 */
+	/**
+	 * Drop the members-per-type counts. Called by whoever changes a member's type.
+	 *
+	 * MemberTypeService used to do `$this->cache->delete( MemberDirectoryService::TYPE_COUNTS_CACHE_KEY )`
+	 * from five separate call-sites — one class reaching for another class's key name AND its
+	 * cache group. The key is a public const, so it was a declared contract rather than a
+	 * private poke, but it still meant this class could not change how it caches its own
+	 * counts without breaking a class that does not own them.
+	 *
+	 * The owner exposes the flush; the caller asks for it. Five call-sites now depend on a
+	 * method name instead of a storage detail.
+	 *
+	 * @return void
+	 */
+	public static function flush_type_counts(): void {
+		wp_cache_delete( self::TYPE_COUNTS_CACHE_KEY, self::CACHE_GROUP );
+	}
+
+	/**
+	 * Drop the per-request mirror-key memo. Call wherever a field definition changes.
+	 *
+	 * @return void
+	 */
+	public static function flush_mirror_keys_memo(): void {
+		self::$mirror_keys_memo = null;
+	}
+
+	/**
 	 * Build the list of `bn_field_{key}` usermeta keys whose mirrors are
 	 * eligible for free-text directory search.
 	 *
@@ -993,22 +1054,23 @@ class MemberDirectoryService {
 	 * whose effective visibility resolves to public (searchable_mirror contract),
 	 * so matching them carries no privacy risk and needs no per-row checks.
 	 *
-	 * The list is memoised per request and cached for 5 minutes to avoid a field
-	 * definition lookup on every directory query.
+	 * Memoised per request. The 5-minute wp_cache layer that used to sit under this memo is
+	 * GONE: it wrapped get_fields(), which is ALREADY object-cached for 600 seconds, so it
+	 * saved no query at all. It filtered an already-cached array in PHP and charged a whole
+	 * staleness class for it.
+	 *
+	 * The per-request memo STAYS, and deliberately. It is not the over-engineering — it is a
+	 * FIX. See $mirror_keys_memo: the original memo was a `static $keys` inside the method
+	 * that nothing could reach, so when a field changed, the wp_cache key was invalidated and
+	 * the memo was not, and anything that had already asked in the same request went on
+	 * indexing with the pre-edit key list. A newly-searchable field silently missed the index.
+	 * Deleting this memo would reintroduce that bug.
 	 *
 	 * @return string[] Usermeta keys, e.g. array( 'bn_field_skills', 'bn_field_role' ).
 	 */
 	public function searchable_mirror_keys(): array {
-		static $keys = null;
-
-		if ( null !== $keys ) {
-			return $keys;
-		}
-
-		$cached = wp_cache_get( 'bn_dir_searchable_mirrors', 'buddynext' );
-		if ( is_array( $cached ) ) {
-			$keys = $cached;
-			return $keys;
+		if ( null !== self::$mirror_keys_memo ) {
+			return self::$mirror_keys_memo;
 		}
 
 		$keys     = array();
@@ -1053,7 +1115,7 @@ class MemberDirectoryService {
 			$keys = array_values( array_unique( $keys ) );
 		}
 
-		wp_cache_set( 'bn_dir_searchable_mirrors', $keys, 'buddynext', 300 );
+		self::$mirror_keys_memo = $keys;
 
 		return $keys;
 	}
@@ -1174,10 +1236,10 @@ class MemberDirectoryService {
 		}
 		$key = self::cache_version_key( $viewer_id );
 		// wp_cache_incr seeds nothing when the key is absent, so set a baseline first.
-		if ( false === wp_cache_get( $key, 'buddynext' ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
-			wp_cache_set( $key, 0, 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( false === wp_cache_get( $key, self::CACHE_GROUP ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+			wp_cache_set( $key, 0, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 		}
-		wp_cache_incr( $key, 1, 'buddynext' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		wp_cache_incr( $key, 1, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**

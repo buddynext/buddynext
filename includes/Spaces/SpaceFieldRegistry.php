@@ -102,10 +102,24 @@ final class SpaceFieldRegistry {
 			return;
 		}
 
-		$type       = isset( $args['type'] ) ? sanitize_key( (string) $args['type'] ) : 'text';
-		$visibility = in_array( $args['visibility'] ?? 'public', array( 'public', 'members' ), true )
-			? (string) $args['visibility']
-			: 'public';
+		$type = isset( $args['type'] ) ? sanitize_key( (string) $args['type'] ) : 'text';
+
+		// Resolve the default FIRST, then validate it. Writing this as
+		// `in_array( $args['x'] ?? 'default', … ) ? (string) $args['x'] : 'default'` reads
+		// fine and is broken: when the key is absent the ?? satisfies in_array, and the
+		// TRUE branch then reads $args['x'] — which does not exist. Every caller that
+		// omitted the key emitted an "Undefined array key" warning.
+		$visibility = (string) ( $args['visibility'] ?? 'public' );
+		if ( ! in_array( $visibility, array( 'public', 'members' ), true ) ) {
+			$visibility = 'public';
+		}
+
+		// Who may WRITE this field. Owner is the default, deliberately: a field that
+		// forgets to declare this must not accidentally become moderator-writable.
+		$writable_by = (string) ( $args['writable_by'] ?? 'owner' );
+		if ( ! in_array( $writable_by, array( 'owner', 'moderator' ), true ) ) {
+			$writable_by = 'owner';
+		}
 
 		$field = array(
 			'key'          => $key,
@@ -117,6 +131,12 @@ final class SpaceFieldRegistry {
 			// Only text-capable types can back a searchable mirror.
 			'searchable'   => ! empty( $args['searchable'] ) && FieldType::is_text_searchable( $type ),
 			'visibility'   => $visibility,
+			// owner | moderator. The authority is a property of the FIELD, not of the
+			// surface writing it — that is the whole point. The settings screen and the
+			// REST route both consult can_write(), so they cannot drift apart and
+			// produce the split-brain this replaces (a moderator who could rewrite
+			// who_can_post from the template but got a 403 for the same field over REST).
+			'writable_by'  => $writable_by,
 			'section'      => isset( $args['section'] ) ? sanitize_key( (string) $args['section'] ) : 'general',
 			'sort_order'   => isset( $args['sort_order'] ) ? (int) $args['sort_order'] : 10,
 			'options'      => isset( $args['options'] ) && is_array( $args['options'] ) ? $args['options'] : array(),
@@ -391,7 +411,10 @@ final class SpaceFieldRegistry {
 				'label'       => $field['label'],
 				'description' => $field['description'],
 				'type'        => $field['type'],
-				'options'     => $field['options'],
+				// Through the engine, never $field['options'] directly: a live-optioned
+				// type (member_type_multiselect) stores no options at registration, so
+				// the raw definition would advertise an empty pick list to the client.
+				'options'     => FieldType::choices( $field ),
 				'section'     => $field['section'],
 				'sort_order'  => $field['sort_order'],
 				'visibility'  => $field['visibility'],
@@ -406,17 +429,69 @@ final class SpaceFieldRegistry {
 	}
 
 	/**
+	 * Whether an actor may write a given space field.
+	 *
+	 * THE single authority on space-settings write permission. Every surface that
+	 * writes a space field must come through here — the settings template, the REST
+	 * route, anything added later.
+	 *
+	 * This exists because the two surfaces had drifted into a split-brain that was
+	 * nobody's decision, just an accident of which code path each field happened to
+	 * use: `SpaceService::update()` enforced owner-only, while the `update_space_meta()`
+	 * calls on the SAME screen enforced nothing at all. The result was a moderator who
+	 * could not rename a space but COULD rewrite who is allowed to post in it.
+	 *
+	 * The rule now: moderation is the moderator's job (who_can_post, who_can_invite,
+	 * require_join_approval, banned_words, the notification default). Identity, reach
+	 * and structure are the owner's (name, description, type, rules, category, the
+	 * integrations, and who is auto-joined at signup). A field declares which it is;
+	 * the surface does not get to decide.
+	 *
+	 * Site admins pass everything (PermissionService short-circuits `manage_options`).
+	 *
+	 * @param string $key      Field key.
+	 * @param int    $space_id Space ID.
+	 * @param int    $user_id  Actor.
+	 * @return bool
+	 */
+	public function can_write( string $key, int $space_id, int $user_id ): bool {
+		$field = $this->get_field( sanitize_key( $key ) );
+
+		// An unregistered key is not writable through the field system at all.
+		if ( null === $field ) {
+			return false;
+		}
+
+		// The owner (and a site admin) may write anything.
+		if ( buddynext_can( $user_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
+			return true;
+		}
+
+		if ( 'moderator' !== ( $field['writable_by'] ?? 'owner' ) ) {
+			return false;
+		}
+
+		return buddynext_can( $user_id, 'buddynext-moderate-space', array( 'space_id' => $space_id ) );
+	}
+
+	/**
 	 * Validate and persist submitted field values for a space.
 	 *
-	 * Atomic: if any submitted field fails validation nothing is written, so a
-	 * form never half-saves. Unknown keys are ignored. Each value is sanitised
-	 * through the FieldType engine before storage in bn_space_meta.
+	 * Atomic: if any submitted field fails validation — or the actor may not write it
+	 * — nothing is written, so a form never half-saves. Unknown keys are ignored. Each
+	 * value is sanitised through the FieldType engine before storage in bn_space_meta.
 	 *
 	 * @param int                 $space_id Space ID.
 	 * @param array<string,mixed> $values   key => raw submitted value.
+	 * @param int|null            $actor_id Actor whose write permission is checked per
+	 *                                      field via can_write(). Null is SYSTEM context
+	 *                                      (CLI, migration, installer) and skips the
+	 *                                      check — the same convention
+	 *                                      SpaceService::assign_owner() uses. Callers
+	 *                                      serving a request must always pass the user.
 	 * @return array{saved:array<string,mixed>,errors:array<string,string>}
 	 */
-	public function save_for_space( int $space_id, array $values ): array {
+	public function save_for_space( int $space_id, array $values, ?int $actor_id = null ): array {
 		$errors    = array();
 		$validated = array();
 
@@ -424,6 +499,17 @@ final class SpaceFieldRegistry {
 			$field = $this->get_field( (string) $key );
 			if ( null === $field ) {
 				continue; // Ignore keys that are not registered fields.
+			}
+
+			// Per-FIELD authority. A moderator may write the moderation settings and
+			// nothing else; the owner may write everything. Enforced here, inside the
+			// write path, so no caller can forget it — the previous arrangement left
+			// the check to the callers and the settings template simply did not do one.
+			// $actor_id === null is system context (CLI, migration, installer), the same
+			// convention SpaceService::assign_owner() uses.
+			if ( null !== $actor_id && ! $this->can_write( (string) $field['key'], $space_id, $actor_id ) ) {
+				$errors[ $field['key'] ] = __( 'You do not have permission to change this setting.', 'buddynext' );
+				continue;
 			}
 
 			$clean = FieldType::sanitize( $field, $raw );
@@ -473,10 +559,17 @@ final class SpaceFieldRegistry {
 		}
 
 		// When a searchable + public field changed, re-index the space so its value
-		// becomes discoverable (the search content build folds it in). Consumed
-		// only by SearchIndexListener::on_space_updated.
+		// becomes discoverable (the search content build folds it in).
+		//
+		// FIRE THE FULL ARGUMENT SET. This site used to pass $space_id alone, while the two
+		// sites in SpaceService pass ( $space_id, $user_id, $fields ). WordPress hands a callback
+		// only as many arguments as the FIRING site supplied, so a listener registered with the
+		// documented 3 args and a typed signature died here with an ArgumentCountError — a fatal,
+		// in a third-party integration, triggered by nothing more exotic than saving a searchable
+		// public space field. A hook's arity is part of its contract; it cannot vary by call site.
 		if ( ! empty( $saved ) && $this->any_searchable_public( array_keys( $saved ) ) ) {
-			do_action( 'buddynext_space_updated', $space_id );
+			/** This action is documented in includes/Spaces/SpaceService.php */
+			do_action( 'buddynext_space_updated', $space_id, get_current_user_id(), $saved );
 		}
 
 		return array(

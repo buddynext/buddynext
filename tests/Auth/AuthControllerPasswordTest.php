@@ -71,6 +71,30 @@ class AuthControllerPasswordTest extends \WP_Test_REST_TestCase {
 		$this->assertArrayHasKey( 'current_password', $body['errors'] );
 	}
 
+	/**
+	 * A social-only member never saw their password (we generated it), so setting a
+	 * first one must not demand a "current" they cannot possibly supply. This is the
+	 * ONLY case where the current-password check stands down, and it stands down on
+	 * positive evidence — the bn_password_generated marker — not on the absence of a
+	 * flag. test_wrong_current_password_returns_422() is the other half of the pair:
+	 * an account with no marker at all (a user who predates the plugin, an
+	 * admin-created user, a BuddyPress migration) must still prove its password.
+	 *
+	 * @return void
+	 */
+	public function test_generated_password_member_can_set_a_first_password(): void {
+		\BuddyNext\Auth\AuthController::mark_password_generated( $this->user_id );
+
+		$response = $this->post( array( 'new_password' => 'NewP@ssw0rd!' ) );
+
+		$this->assertSame( 200, $response->get_status() );
+		$body = $response->get_data();
+		$this->assertTrue( $body['saved'] );
+
+		$fresh = get_userdata( $this->user_id );
+		$this->assertTrue( wp_check_password( 'NewP@ssw0rd!', $fresh->user_pass, $this->user_id ) );
+	}
+
 	public function test_same_as_current_password_returns_422(): void {
 		$response = $this->post(
 			array(

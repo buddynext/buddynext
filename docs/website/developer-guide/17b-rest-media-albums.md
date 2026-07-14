@@ -2,7 +2,9 @@
 
 This page documents the member-facing media and album REST surface that powers the profile Media tab: per-member photo and video uploads, owner gallery reads, and the full album lifecycle (create, list, detail, add and remove items, update, delete, reorder). All routes live under the `buddynext/v1` namespace and are registered by `MediaController` in `includes/Media/`. Read the REST Contract page first; everything here assumes its namespace, nonce auth, envelope, and pagination rules.
 
-The feature is a thin BuddyNext layer over the **WPMediaVerse** companion engine. BuddyNext never calls the engine's own REST and never loads its CSS or JS - it consumes WPMediaVerse server-side through the `BuddyNext\Media\MediaClient` service seam, and applies its own ownership gate (logged in, acting on own media) as the authority. When the engine is absent, write routes return `503` with `bn_media_unavailable` rather than fataling.
+The feature is a thin BuddyNext layer over the **WPMediaVerse** companion engine. The `buddynext/v1` routes on this page never call the engine's own REST and never load its CSS or JS - they consume WPMediaVerse server-side through the `BuddyNext\Media\MediaClient` service seam, and apply BuddyNext's own ownership gate (logged in, acting on own media) as the authority. When the engine is absent, write routes return `503` with `bn_media_unavailable` rather than fataling.
+
+The **media lightbox** is the one exception, and it is deliberate: it is a browser-side client of the engine's `mvs/v1` namespace (reactions, comments, report), because those objects belong to the engine and BuddyNext keeps no second store for them. See "The media lightbox" below.
 
 ![A member profile whose Media tab is driven by the media and album REST routes documented here](../images/member-profile.webp)
 
@@ -238,9 +240,45 @@ Sets the item order. Owner-only. Body carries `order`, an array of media IDs in 
 
 > **Note:** `bn_album_not_found` is deliberately reused for "private album the viewer may not see" so the API never discloses that a hidden album exists. The 403-vs-401 split on the forbidden codes follows `current_user_can( 'read' )` - a readable session gets 403 (authenticated but not allowed), otherwise 401.
 
+## The media lightbox: reactions, comments, Report, and Block
+
+The lightbox (`assets/js/media/lightbox.js`, configured by `includes/Media/MediaAssets.php`) is the one BuddyNext surface that talks to the engine **from the browser**. It is a client of `mvs/v1`, not of the `buddynext/v1` routes above. Its config object is localized as `bnMedia`:
+
+| Key | Value |
+|---|---|
+| `mvsRest` | `rest_url( 'mvs/v1' )` - the base the lightbox's own `api()` helper is bound to |
+| `nonce` | `wp_create_nonce( 'wp_rest' )` - one nonce, valid for `buddynext/v1` and `mvs/v1` alike |
+| `userId` | The current member, or 0 |
+| `canReport` | `apply_filters( 'mvs_reports_enabled', false )` - whether to draw the Report control at all |
+| `reactionTypes` | `like`, `love`, `haha`, `wow`, `sad`, `angry` - mirrors BuddyNext's feed reactions |
+
+### Report goes to the engine's queue
+
+**Route: `POST mvs/v1/media/{id}/report`.** Body: `reason` (string) and `details` (string).
+
+BuddyNext keeps **no second media-report store** - the engine owns media, so a media report lands in the same queue its moderators already work.
+
+Two consequences worth knowing before you extend this:
+
+- **The reason vocabulary is MVS's, not BuddyNext's.** The lightbox offers `spam`, `harassment`, `nudity`, `violence`, `copyright`, `misinformation`, `other`. That is deliberately *not* the `buddynext_report_reasons` list (which has `inappropriate` and `impersonation`, and no `nudity` / `violence` / `copyright`). Posting BuddyNext's set here would be rejected as an invalid reason. Filtering `buddynext_report_reasons` does **not** change the media lightbox.
+- **Reporting is behind the engine's own switch.** `mvs_reports_enabled` ships from WPMediaVerse defaulting to **false** - reasonable for a standalone media plugin on a site with no moderators. `WPMediaVerseBridge` turns it **on** at priority 5, because a UGC community with no way to report media has no abuse path at all. It matters doubly because the same bridge redirects `/media/{slug}/` to the source activity, so MVS's own media page - the one carrying its Report button - never renders on a BuddyNext site. Priority 5 leaves the default 10 free, so a site that genuinely wants it off can still say so:
+
+```php
+// Turn media reporting back off on this site.
+add_filter( 'mvs_reports_enabled', '__return_false' );
+```
+
+The lightbox asks the filter rather than assuming, so an owner who switches it off gets **no** Report button - not a button that answers 403.
+
+### Block is BuddyNext's, not the engine's
+
+**Route: `POST buddynext/v1/users/{id}/block`.**
+
+The lightbox also offers Block on the media's uploader. This is BuddyNext's own social-graph block (see REST: Social Graph), not an MVS concept: it is the *person* being blocked, not the file, so it goes to the BuddyNext namespace. It cannot go through the lightbox's `api()` helper, which is bound to the `mvs/v1` base - it calls `window.buddynextRest.restFetch()` instead, reusing the same `wp_rest` nonce.
+
 ## Notes / gotchas
 
-- **Engine seam only.** All engine access funnels through `MediaClient` (`repo()`, `upload()`, `albums()`, `privacy()`). BuddyNext does not call WPMediaVerse REST and does not enqueue its assets on BuddyNext screens. Every accessor degrades to null/empty when the engine is absent, which is why write routes can return `bn_media_unavailable` instead of fataling.
+- **Server-side seam for the routes on this page.** All engine access from the `buddynext/v1` media routes funnels through `MediaClient` (`repo()`, `upload()`, `albums()`, `privacy()`), and BuddyNext does not enqueue WPMediaVerse's assets on BuddyNext screens. Every accessor degrades to null/empty when the engine is absent, which is why write routes can return `bn_media_unavailable` instead of fataling. The media lightbox is the documented exception: it calls `mvs/v1` from the browser (see above).
 - **HTML is server-rendered.** `GET /users/{id}/media` and `GET /albums/{id}` return ready-to-insert `MediaRenderer::gallery()` markup so the client never re-implements tile rendering. Privacy is already applied to the IDs behind that HTML.
 - **Privacy is enforced on read.** Owner gallery reads, album lists, and album detail all filter by the engine privacy seam before serializing, so private media and private albums cannot leak into another viewer's response.
 - **Free vs Pro.** Every route on this page is Free (`buddynext/v1`), gated only by the WPMediaVerse companion being active. There is no Pro counterpart that re-registers these routes.

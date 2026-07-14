@@ -164,7 +164,15 @@ const onboardingStore = store( 'buddynext/onboarding', {
 			// Last-step skip — finalize skip.
 			rest( c, 'me/onboarding/skip', { method: 'POST' } )
 				.then( () => {
-					toast( t( 'toastCompleteLater', 'You can complete onboarding any time from settings.' ), 'info' );
+					// Says what is true. This used to promise "you can complete
+					// onboarding any time from settings" — there is no settings entry
+					// point back into the wizard. skip() marks it complete and
+					// PageRouter bounces anyone who tries; the only way back in is an
+					// undocumented ?redo=1 that appears in no UI. Members can still
+					// fill their profile in normally, which is what they actually care
+					// about, so say that instead of pointing them at a door that is
+					// not there.
+					toast( t( 'toastSkipped', 'Skipped. You can fill in your profile any time.' ), 'info' );
 					window.location.href = c.redirectUrl || '/activity/';
 				} )
 				.catch( () => {
@@ -460,67 +468,118 @@ const onboardingStore = store( 'buddynext/onboarding', {
 			};
 			probe.src = objectUrl;
 		},
-		finish() {
+		/* Finish the wizard.
+		 *
+		 * Every save is AWAITED and its result inspected before the member is told
+		 * they are done. The previous fire-and-forget version dispatched the profile,
+		 * handle and channel writes with `.catch(() => {})` and then declared success
+		 * off the completion call alone — so a handle collision (a race the live
+		 * availability badge cannot close) or a server-rejected display name lost the
+		 * member's data behind a "You are all set" toast and a redirect.
+		 *
+		 * On any failure the wizard STAYS on the wizard: it hops back to the step that
+		 * owns the rejected data, paints the server's own reason in the step error
+		 * region (state.error, role="alert"), and does not mark onboarding complete —
+		 * so the member can fix it and press Finish again.
+		 */
+		async finish() {
 			const c = ctx();
 			if ( c.saving ) { return; }
 			c.saving = true;
 			c.error  = '';
-			// Persist step 1 fields first (display_name + bio) via service.
-			rest( c, 'me/profile', {
-				method: 'PUT',
-				body:   {
-					display_name: c.displayName || '',
-					bio:          c.bio || '',
-				},
-			} ).catch( () => {} );
 
-			// Persist the chosen handle if the user changed it. Server-
-			// side check_slug_availability rejects collisions; we fire and
-			// forget — the live badge already showed any conflict before
-			// the user could reach the Continue button.
-			const slug = String( c.userLogin || '' ).trim();
-			if ( slug.length >= 3 ) {
-				rest( c, 'me/profile-slug', {
+			// Keep the member on the wizard with a real, fixable reason.
+			const stop = ( step, message ) => {
+				c.saving = false;
+				if ( step ) { c.step = step; }
+				c.error = message;
+				toast( message, 'danger' );
+			};
+
+			// Pull the most specific reason the server gave us: a field error map
+			// (422 from PUT /me/profile), then the WP_Error/REST message, then a
+			// caller-supplied fallback.
+			const reason = ( res, fallback ) => {
+				const d = ( res && res.data ) || {};
+				if ( d.errors && typeof d.errors === 'object' ) {
+					const first = Object.keys( d.errors )[ 0 ];
+					if ( first && d.errors[ first ] ) { return String( d.errors[ first ] ); }
+				}
+				return d.message ? String( d.message ) : fallback;
+			};
+
+			try {
+				// 1. Step-1 profile fields (display_name + bio). A rejected display name
+				//    (empty, moderated) comes back 422 with a field error map.
+				const profileRes = await rest( c, 'me/profile', {
 					method: 'PUT',
-					body:   { slug },
-				} ).catch( () => {} );
-			}
-
-			// Persist channel preferences (email / in-app / push). The
-			// per-event toggles inside each channel stay at their server
-			// defaults — the user can refine those from /notifications/
-			// preferences/.
-			rest( c, 'me/notification-channels', {
-				method: 'PUT',
-				body:   {
-					email:  !! c.channelEmail,
-					in_app: !! c.channelInApp,
-					push:   !! c.channelPush,
-					sound:  !! c.channelSound,
-				},
-			} ).catch( () => {} );
-
-			rest( c, 'me/onboarding/complete', {
-				method: 'POST',
-				body:   {
-					spaces:   c.joinedSpaces || [],
-					user_ids: c.followingUsers || [],
-				},
-			} )
-				.then( ( r ) => {
-					if ( ! r.ok ) { throw new Error( 'Failed' ); }
-					return r.data;
-				} )
-				.then( ( data ) => {
-					c.saving = false;
-					toast( t( 'toastAllSet', 'You are all set. Welcome aboard!' ), 'success' );
-					window.location.href = ( data && data.redirect_to ) || c.redirectUrl || '/activity/';
-				} )
-				.catch( () => {
-					c.saving = false;
-					c.error  = t( 'errorGeneric', 'Something went wrong. Please try again.' );
-					toast( t( 'toastFinishFailed', 'Could not finish onboarding. Please try again.' ), 'danger' );
+					body:   {
+						display_name: c.displayName || '',
+						bio:          c.bio || '',
+					},
 				} );
+				if ( ! profileRes.ok ) {
+					stop( 1, reason( profileRes, t( 'errorProfileSaveFailed', 'Your profile could not be saved. Please check your details and try again.' ) ) );
+					return;
+				}
+
+				// 2. The chosen handle. The live availability badge is a hint, not a
+				//    reservation — someone can claim the same handle between the check
+				//    and this write, and the server 409s. That must not be swallowed.
+				const slug = String( c.userLogin || '' ).trim();
+				if ( slug.length >= 3 ) {
+					const slugRes = await rest( c, 'me/profile-slug', {
+						method: 'PUT',
+						body:   { slug },
+					} );
+					if ( ! slugRes.ok ) {
+						c.usernameAvailable   = false;
+						c.usernameStatusLabel = t( 'usernameTaken', 'Taken' );
+						stop( 1, reason( slugRes, t( 'errorHandleTaken', 'That username is already taken. Please choose another.' ) ) );
+						return;
+					}
+				}
+
+				// 3. Channel preferences (email / in-app / push / sound). The per-event
+				//    toggles inside each channel stay at their server defaults — the
+				//    member refines those from /notifications/preferences/.
+				const channelRes = await rest( c, 'me/notification-channels', {
+					method: 'PUT',
+					body:   {
+						email:  !! c.channelEmail,
+						in_app: !! c.channelInApp,
+						push:   !! c.channelPush,
+						sound:  !! c.channelSound,
+					},
+				} );
+				if ( ! channelRes.ok ) {
+					// Channel prefs live on the last step — leave the member where they
+					// are rather than bouncing them backwards for an unrelated failure.
+					stop( 0, reason( channelRes, t( 'errorChannelsSaveFailed', 'Your notification settings could not be saved. Please try again.' ) ) );
+					return;
+				}
+
+				// 4. Only now is it true that everything landed — mark onboarding complete.
+				const doneRes = await rest( c, 'me/onboarding/complete', {
+					method: 'POST',
+					body:   {
+						spaces:   c.joinedSpaces || [],
+						user_ids: c.followingUsers || [],
+					},
+				} );
+				if ( ! doneRes.ok ) {
+					stop( 0, reason( doneRes, t( 'toastFinishFailed', 'Could not finish onboarding. Please try again.' ) ) );
+					return;
+				}
+
+				c.saving = false;
+				toast( t( 'toastAllSet', 'You are all set. Welcome aboard!' ), 'success' );
+				window.location.href = ( doneRes.data && doneRes.data.redirect_to ) || c.redirectUrl || '/activity/';
+			} catch ( _e ) {
+				// Network/transport failure — restFetch resolves rather than throws, so
+				// this is the truly unexpected path.
+				stop( 0, t( 'errorGeneric', 'Something went wrong. Please try again.' ) );
+			}
 		},
 	},
 } );

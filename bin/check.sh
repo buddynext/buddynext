@@ -118,6 +118,70 @@ else
 	note "bin/check-route-urls.sh missing"
 fi
 
+# 3bb. Hook-doc conformance — BLOCKING.
+#
+# The integration-hook table in CLAUDE.md is read by third-party integrators AND by AI agents.
+# It was hand-maintained and rotted: 10 of 36 signatures handed wrong values to any listener
+# that trusted them, and 2 were FATAL under PHP 8 (a doc-following listener with
+# accepted_args=3 gets ArgumentCountError where only 2 args are fired).
+#
+# This is blocking from day one, because the table is correct as of this commit. A gate that
+# starts green stays green. If you change a do_action(), regenerate the table - do not hand-edit.
+section "Hook-doc conformance"
+if [ -f bin/check-hook-docs.py ]; then
+	if python3 bin/check-hook-docs.py; then
+		:
+	else
+		fail "hook-doc drift — regenerate the table from the do_action() call sites"
+	fi
+else
+	note "bin/check-hook-docs.py missing"
+fi
+
+# 3b-ii. Erasure completeness — BLOCKING, and green as of this commit.
+#
+# Every bn_* table with a user-bearing column must be on MemberCleanupService::erase_map()
+# (we delete it when a member is erased) or ::retain_map() (we keep it, with a stated legal
+# basis). A table on neither list is not a decision that was made and lost — it is a decision
+# nobody was ever asked to make.
+#
+# That is not hypothetical: DATA-LIFECYCLE.md §9 has required exactly this for as long as it
+# has existed, and bn_activity_log, bn_email_log and bn_webhook_log were still never purged,
+# because adding a table forced nobody to answer the question. This gate forces it.
+section "Erasure completeness"
+if [ -f bin/check-erasure.py ]; then
+	if python3 bin/check-erasure.py; then
+		:
+	else
+		fail "a user-keyed table is not registered for erasure or retention — see DATA-LIFECYCLE.md §9"
+	fi
+else
+	note "bin/check-erasure.py missing"
+fi
+
+# 3c. Cache conformance — ADVISORY until the cache backlog is cleared, then make it blocking.
+#
+# This gate existed and was called by NOTHING, while a plan doc claimed it was wired. An
+# unwired gate is worse than no gate: it reads as coverage we do not have. It reports real
+# BLOCKING as of the cache-conformance sweep. The backlog is clear (0 findings), so the reason
+# for running it advisory — "a hard gate that fails on a known backlog just gets switched off" —
+# no longer applies.
+#
+# It stays honest because the CHECKER was fixed too: it used to flag correct code (a const named
+# GROUP rather than CACHE_GROUP, a TTL that is a constant expression rather than digits, anything
+# inside a trait), and 32 of its 42 findings were noise. A gate that cries wolf gets ignored, and
+# this one was. Now it only reports real drift — so it can afford to block.
+section "Cache conformance"
+if [ -x bin/check-cache.sh ]; then
+	if bin/check-cache.sh; then
+		:
+	else
+		fail "cache drift — see the CACHING standard"
+	fi
+else
+	fail "bin/check-cache.sh missing"
+fi
+
 # 4. PHPStan
 section "PHPStan (level 5)"
 if [ -x vendor/bin/phpstan ]; then
