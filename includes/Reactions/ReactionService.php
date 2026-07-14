@@ -859,7 +859,7 @@ class ReactionService {
 					array( '%d', '%s', '%d' )
 				);
 			}
-		} while ( $found === self::PURGE_BATCH );
+		} while ( self::PURGE_BATCH === $found );
 
 		if ( empty( $affected_map ) ) {
 			return 0;
@@ -881,7 +881,8 @@ class ReactionService {
 			$object_id   = (int) $row['object_id'];
 			$lost        = (int) $row['n'];
 
-			if ( 'post' === $object_type && $object_id > 0 && $lost > 0 ) {
+			// $lost is always >= 1: the map is built by counting rows we actually deleted.
+			if ( 'post' === $object_type && $object_id > 0 ) {
 				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$wpdb->query(
 					$wpdb->prepare(
