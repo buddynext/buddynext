@@ -218,7 +218,16 @@
 	var currentAuthorId = 0;
 
 	function applyAbuseControls( m ) {
-		currentAuthorId = parseInt( ( m && m.author_id ) || 0, 10 ) || 0;
+		// WPMediaVerse's media payload carries the uploader's numeric id as `author`
+		// (MediaController: `'author' => $author_id_raw`, and its own code reads it back as
+		// `$author_id = $data['author']`). Read THAT field — do not invent an alias for it.
+		//
+		// This first shipped keyed on `m.author_id`, which no released WPMediaVerse emits: the
+		// id came back undefined, currentAuthorId fell to 0, `mine` was therefore true, and BOTH
+		// controls stayed hidden on every site. It passed my own browser check only because the
+		// plugin dir here is a symlink to a working copy in which I had added the alias — the
+		// one environment on earth where it worked. QA caught it by reading the INSTALLED code.
+		currentAuthorId = parseInt( ( m && m.author ) || 0, 10 ) || 0;
 
 		var mine = ! currentAuthorId || currentAuthorId === ( parseInt( cfg.userId, 10 ) || 0 );
 		// cfg.canReport mirrors WPMediaVerse's `mvs_reports_enabled` filter. If a site turns
