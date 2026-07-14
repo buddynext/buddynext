@@ -280,7 +280,18 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			data-wp-bind--hidden="state.isNotScheduled">
 			<label class="bn-composer__schedule-label" for="bn-composer-schedule-at">
 				<?php buddynext_icon( 'clock' ); ?>
-				<span><?php esc_html_e( 'Publish at', 'buddynext' ); ?></span>
+				<span>
+					<?php
+					// Name the zone. The control is read as SITE time (WP's timezone setting) —
+					// the same zone the post card renders with wp_date() — so an author in a
+					// different zone is not left guessing whose clock the digits belong to.
+					printf(
+						/* translators: %s: the site's timezone, e.g. "Asia/Kolkata" or "+00:00". */
+						esc_html__( 'Publish at (%s)', 'buddynext' ),
+						esc_html( wp_timezone()->getName() )
+					);
+					?>
+				</span>
 			</label>
 			<input
 				type="datetime-local"

@@ -85,8 +85,10 @@ class SafeguardService {
 		 * @param int           $user_id  Author user ID.
 		 * @param string        $content  Post content to inspect.
 		 * @param string        $link_url Optional URL attached to the post.
+		 * @param string        $context  'create' or 'edit'. Create-time-only gates (rate limit,
+		 *                                duplicate content, new-member) must not fire on 'edit'.
 		 */
-		$pro = apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url );
+		$pro = apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url, 'create' );
 		if ( is_wp_error( $pro ) ) {
 			return $pro;
 		}
@@ -106,7 +108,10 @@ class SafeguardService {
 	 * new-member gates in check() are create-time concerns that must not fire on
 	 * an edit, but banned words and blocked links must still be caught — otherwise
 	 * editing is a blind spot. The buddynext_safeguard_check filter still runs so
-	 * Pro keyword/ML blocklists apply to edits too.
+	 * Pro keyword/ML blocklists apply to edits too — and it is passed $context = 'edit'
+	 * so an extension can honour the same create-vs-edit line Free draws here. Without
+	 * that argument Pro could not tell the two apart and ran its own rate limit on every
+	 * edit, so a member at the hourly cap could not edit their existing posts at all.
 	 *
 	 * @param string $content  Content to inspect.
 	 * @param string $url      Optional attached URL.
@@ -130,7 +135,8 @@ class SafeguardService {
 			return $tag;
 		}
 
-		return apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url );
+		/** This filter is documented in includes/Moderation/SafeguardService.php */
+		return apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url, 'edit' );
 	}
 
 	/**

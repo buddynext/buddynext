@@ -696,7 +696,25 @@ class AssetService {
 					'people'      => \BuddyNext\Core\PageRouter::people_url(),
 					'spaces'      => \BuddyNext\Core\PageRouter::spaces_url(),
 				),
+				// Scheduling speaks the SITE's timezone, not the browser's. A <input
+				// type="datetime-local"> is browser-local by nature, so the store needs the
+				// site's offset to translate both ways. Without it an author in IST picks
+				// "12:50" and the post card — which renders with wp_date() in the site zone —
+				// reports "7:20 am". Same instant, two numbers, and it reads as a bug.
+				//
+				// Seconds offset for the target instant, so DST is handled: a fixed offset
+				// would drift by an hour for any site scheduling across a DST boundary.
+				'tz'   => array(
+					'offset' => (int) ( timezone_offset_get( wp_timezone(), new \DateTime( 'now', new \DateTimeZone( 'UTC' ) ) ) ),
+					'label'  => wp_timezone()->getName(),
+				),
 				'i18n' => array(
+					// Reschedule control on the post-card edit form.
+					'scheduledFor'            => __( 'Scheduled for', 'buddynext' ),
+					/* translators: %s: the site's timezone, e.g. "Asia/Kolkata" or "+00:00". */
+					'scheduledForTz'          => __( 'Scheduled for (%s)', 'buddynext' ),
+					'scheduleInvalid'         => __( 'Pick a valid date and time.', 'buddynext' ),
+					'schedulePast'            => __( 'Pick a time in the future.', 'buddynext' ),
 					'timeJustNow'             => __( 'just now', 'buddynext' ),
 					/* translators: %d: number of minutes */
 					'timeMinutesAgo'          => __( '%dm ago', 'buddynext' ),

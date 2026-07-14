@@ -1698,7 +1698,9 @@ store( 'buddynext/post-card', {
 
 			// Pull the raw (unformatted) content so the editor shows exactly what the
 			// author typed — the rendered node has nl2br/mention/hashtag markup baked in.
-			let rawContent = '';
+			let rawContent  = '';
+			let isScheduled = false;
+			let schedUtc    = '';
 			try {
 				const res = yield restFetch( '/posts/' + ctx.postId, {
 					nonce: ctx.reactNonce,
@@ -1707,6 +1709,10 @@ store( 'buddynext/post-card', {
 				if ( res.ok ) {
 					const data = res.data;
 					rawContent = ( data && typeof data.content === 'string' ) ? data.content : '';
+					// The same GET already carries the row's status + slot, so the reschedule
+					// control costs no extra request.
+					isScheduled = !! data && 'scheduled' === data.status;
+					schedUtc    = ( data && data.scheduled_at ) ? String( data.scheduled_at ) : '';
 				}
 			} catch ( _e ) {
 				// Fall back to the visible text if the fetch fails.
@@ -1723,6 +1729,35 @@ store( 'buddynext/post-card', {
 			ta.rows = 3;
 			ta.value = rawContent;
 			ta.setAttribute( 'aria-label', t( 'editPostContent', 'Edit post content' ) );
+			form.appendChild( ta );
+
+			// Reschedule. A scheduled post's date was previously final: the author could
+			// rewrite the words but never move the slot, with no way to reach it short of
+			// deleting the post and writing it again.
+			let schedInput = null;
+			if ( isScheduled ) {
+				const schedRow = document.createElement( 'div' );
+				schedRow.className = 'bn-post-card__edit-schedule';
+
+				const schedLabel = document.createElement( 'label' );
+				schedLabel.className = 'bn-post-card__edit-schedule-label';
+				const tzLabel = ( feedStore.state && feedStore.state.tz && feedStore.state.tz.label ) || '';
+				schedLabel.textContent = tzLabel
+					? fmt( t( 'scheduledForTz', 'Scheduled for (%s)' ), tzLabel )
+					: t( 'scheduledFor', 'Scheduled for' );
+				schedLabel.htmlFor = 'bn-resched-' + ctx.postId;
+
+				schedInput = document.createElement( 'input' );
+				schedInput.type = 'datetime-local';
+				schedInput.id = 'bn-resched-' + ctx.postId;
+				schedInput.className = 'bn-post-card__edit-schedule-input';
+				schedInput.value = toSiteInputValue( schedUtc );
+				schedInput.min = siteNowInputValue();
+
+				schedRow.appendChild( schedLabel );
+				schedRow.appendChild( schedInput );
+				form.appendChild( schedRow );
+			}
 
 			const bar = document.createElement( 'div' );
 			bar.className = 'bn-post-card__edit-actions';
@@ -1743,7 +1778,6 @@ store( 'buddynext/post-card', {
 
 			bar.appendChild( saveBtn );
 			bar.appendChild( cancelBtn );
-			form.appendChild( ta );
 			form.appendChild( bar );
 
 			contentEl.hidden = true;
@@ -1762,13 +1796,27 @@ store( 'buddynext/post-card', {
 					bnToast( t( 'postContentEmpty', 'Post content cannot be empty.' ), { tone: 'info' } );
 					return;
 				}
+				const payload = { content: next };
+				if ( schedInput ) {
+					const when = toUtcSqlDatetime( schedInput.value );
+					if ( ! when ) {
+						bnToast( t( 'scheduleInvalid', 'Pick a valid date and time.' ), { tone: 'info' } );
+						return;
+					}
+					// `when` is already UTC, so compare instants — not the browser's wall clock.
+					if ( new Date( when.replace( ' ', 'T' ) + 'Z' ).getTime() <= Date.now() ) {
+						bnToast( t( 'schedulePast', 'Pick a time in the future.' ), { tone: 'info' } );
+						return;
+					}
+					payload.scheduled_at = when;
+				}
 				saveBtn.disabled = true;
 				try {
 					const res = await restFetch( '/posts/' + ctx.postId, {
 						method:  'PUT',
 						nonce:   ctx.reactNonce,
 						toastOnError: false,
-						body:    { content: next },
+						body:    payload,
 					} );
 					if ( ! res.ok ) {
 						throw new Error( 'update failed' );
@@ -2110,13 +2158,70 @@ function privacyLabels() {
  * @param {string} localValue Raw datetime-local input value.
  * @return {string} UTC datetime ("Y-m-d H:i:s") or ''.
  */
+/**
+ * The site's UTC offset, in seconds, from the server (WP's timezone setting).
+ *
+ * @return {number} Offset in seconds; 0 if the state is unavailable.
+ */
+function siteTzOffset() {
+	const tz = feedStore && feedStore.state && feedStore.state.tz;
+	return tz && 'number' === typeof tz.offset ? tz.offset : 0;
+}
+
+/**
+ * A datetime-local value -> the UTC "Y-m-d H:i:s" string the REST layer stores.
+ *
+ * The control's value is read as SITE time, not browser time. A <input
+ * type="datetime-local"> carries no zone, so the wall-clock digits the author typed are
+ * the digits we honour — interpreted in the site's zone, which is the zone the post card
+ * (wp_date) and the admin screens already display. Treating them as browser-local made an
+ * author in IST type "12:50" and the card answer "7:20 am": the same instant, but two
+ * different numbers, which reads as a bug.
+ *
+ * @param {string} localValue "YYYY-MM-DDTHH:MM" as typed in the control.
+ * @return {string} "Y-m-d H:i:s" in UTC, or '' if unparseable.
+ */
 function toUtcSqlDatetime( localValue ) {
 	if ( ! localValue ) { return ''; }
-	const d = new Date( localValue );
-	if ( isNaN( d.getTime() ) ) { return ''; }
+	// Parse the digits as if they were UTC, then subtract the site's offset. This never
+	// consults the browser's own zone, so the result does not change with who is looking.
+	const asIfUtc = new Date( String( localValue ).replace( ' ', 'T' ) + 'Z' );
+	if ( isNaN( asIfUtc.getTime() ) ) { return ''; }
+	const d = new Date( asIfUtc.getTime() - siteTzOffset() * 1000 );
 	const pad = ( n ) => String( n ).padStart( 2, '0' );
 	return d.getUTCFullYear() + '-' + pad( d.getUTCMonth() + 1 ) + '-' + pad( d.getUTCDate() ) +
 		' ' + pad( d.getUTCHours() ) + ':' + pad( d.getUTCMinutes() ) + ':' + pad( d.getUTCSeconds() );
+}
+
+/**
+ * The inverse: a stored UTC "Y-m-d H:i:s" -> a datetime-local value in SITE time.
+ *
+ * Used to prefill the reschedule control so the number it shows is the number the post
+ * card shows.
+ *
+ * @param {string} sqlUtc UTC datetime, "Y-m-d H:i:s".
+ * @return {string} "YYYY-MM-DDTHH:MM" in site time, or '' if unparseable.
+ */
+function toSiteInputValue( sqlUtc ) {
+	if ( ! sqlUtc ) { return ''; }
+	const d = new Date( String( sqlUtc ).replace( ' ', 'T' ) + 'Z' );
+	if ( isNaN( d.getTime() ) ) { return ''; }
+	const site = new Date( d.getTime() + siteTzOffset() * 1000 );
+	const pad = ( n ) => String( n ).padStart( 2, '0' );
+	// Read back with getUTC* — `site` is deliberately shifted so its UTC face IS site time.
+	return site.getUTCFullYear() + '-' + pad( site.getUTCMonth() + 1 ) + '-' + pad( site.getUTCDate() ) +
+		'T' + pad( site.getUTCHours() ) + ':' + pad( site.getUTCMinutes() );
+}
+
+/**
+ * "Now" as a datetime-local string in SITE time — the floor for any schedule control.
+ *
+ * @return {string} "YYYY-MM-DDTHH:MM" in site time.
+ */
+function siteNowInputValue() {
+	return toSiteInputValue(
+		new Date().toISOString().slice( 0, 19 ).replace( 'T', ' ' )
+	);
 }
 
 /* ── Composer drafts (localStorage-backed) ───────────────────────────────

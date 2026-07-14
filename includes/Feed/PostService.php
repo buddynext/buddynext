@@ -1189,6 +1189,47 @@ class PostService {
 			$fields['content'] = $data['content'];
 			$formats[]         = '%s';
 		}
+		// RESCHEDULE. The author could edit a scheduled post's words and nothing else — the date
+		// they first picked was final, on every layer: update() never persisted scheduled_at,
+		// the REST route never read it, and the edit UI never offered it.
+		//
+		// Only for a post that is actually still scheduled. set_schedule()'s guard exists
+		// because POST /posts/{id}/schedule could otherwise drag a PUBLISHED post back out of
+		// the feed; the same rule has to hold here, or the edit form becomes the second way in.
+		if ( array_key_exists( 'scheduled_at', $data ) ) {
+			$current = $this->get( $post_id );
+			$status  = (string) ( $current['status'] ?? '' );
+
+			if ( 'scheduled' !== $status ) {
+				return new WP_Error(
+					'not_scheduled',
+					__( 'Only a scheduled post can be rescheduled.', 'buddynext' ),
+					array( 'status' => 409 )
+				);
+			}
+
+			$when = trim( (string) $data['scheduled_at'] );
+			$ts   = '' === $when ? false : strtotime( $when );
+
+			if ( false === $ts ) {
+				return new WP_Error(
+					'invalid_schedule',
+					__( 'That is not a valid date and time.', 'buddynext' ),
+					array( 'status' => 400 )
+				);
+			}
+
+			if ( $ts <= time() ) {
+				return new WP_Error(
+					'schedule_in_past',
+					__( 'Pick a time in the future. To publish it now, use Publish Now.', 'buddynext' ),
+					array( 'status' => 400 )
+				);
+			}
+
+			$fields['scheduled_at'] = gmdate( 'Y-m-d H:i:s', $ts );
+		}
+
 		if ( isset( $data['privacy'] ) ) {
 			$fields['privacy'] = $data['privacy'];
 			$formats[]         = '%s';
@@ -1222,12 +1263,19 @@ class PostService {
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
 
+		// Re-arm on a reschedule. set_schedule() and clear_schedule() both do this, and this is
+		// the third way scheduled_at changes: without it, moving a post EARLIER leaves the cron
+		// armed for the old, later time and the post silently misses its slot.
+		if ( isset( $fields['scheduled_at'] ) ) {
+			ScheduledPostsPublisher::arm();
+		}
+
 		/**
 		 * Fires after a post is updated.
 		 *
 		 * @param int   $post_id Post ID.
 		 * @param int   $user_id User who updated the post.
-		 * @param array $fields  Columns written this update (edited_at plus any of content, privacy, content_warning, content_warning_type).
+		 * @param array $fields  Columns written this update (edited_at plus any of content, privacy, scheduled_at, content_warning, content_warning_type).
 		 */
 		do_action( 'buddynext_post_updated', $post_id, $user_id, $fields );
 

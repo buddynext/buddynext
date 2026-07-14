@@ -1745,6 +1745,52 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	flex-wrap: wrap;
 }
 
+/* Reschedule control — only rendered while the post is still `scheduled`.
+   Mirrors .bn-composer__schedule-input so the edit form and the composer offer the
+   same control; theme-mapped tokens, not raw hex. */
+.bn-post-card__edit-schedule {
+	display: flex;
+	align-items: center;
+	gap: var(--s2);
+	flex-wrap: wrap;
+	margin-block: var(--s2);
+}
+
+.bn-post-card__edit-schedule-label {
+	font-family: var(--font-body);
+	font-size: var(--text-sm);
+	color: var(--text-2);
+}
+
+.bn-post-card__edit-schedule-input {
+	flex: 1 1 auto;
+	min-width: 0;
+	background: var(--bg-subtle);
+	border: 1px solid var(--border);
+	border-radius: var(--r-md);
+	padding: var(--s2) var(--s3);
+	font-family: var(--font-body);
+	font-size: var(--text-sm);
+	color: var(--text-1);
+}
+
+.bn-post-card__edit-schedule-input:focus {
+	outline: none;
+	border-color: var(--brand);
+}
+
+@media (max-width: 480px) {
+	.bn-post-card__edit-schedule {
+		align-items: stretch;
+		flex-direction: column;
+		gap: var(--s1);
+	}
+
+	.bn-post-card__edit-schedule-input {
+		width: 100%;
+	}
+}
+
 .bn-post-card__edited {
 	color: var(--bn-text-subtle, var(--bn-muted, inherit));
 	font-size: 0.85em;

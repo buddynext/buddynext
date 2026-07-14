@@ -27,9 +27,11 @@ The built-in checks that run before the filter, in order:
 
 On a create, all six run. On an edit, only the content-based checks (banned words, blocked domains) re-run, because the rate-limit, duplicate, and new-member gates are create-time concerns. Either way, `buddynext_safeguard_check` runs last, so your filter applies to both create and edit.
 
+Because it runs on both, the filter is passed a final `$context` argument - `'create'` or `'edit'` - so your callback can draw the same line the built-ins do. **If your rule is a "how many/how often" rule, check it.** Anything counting an author's recent activity (rate limits, flood control, cooldowns) must skip `'edit'`: an edit is not a new post, and re-asking the question there means an author who has hit your cap can no longer edit the posts they already published. Content rules (banned words, links, ML scoring) should keep running on edits, or editing becomes a way to smuggle content past you.
+
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
-| `buddynext_safeguard_check` | filter | A post is about to be saved (create or edit), after the built-in automated checks pass | `true\|WP_Error $result, int $user_id, string $content, string $link_url` |
+| `buddynext_safeguard_check` | filter | A post is about to be saved (create or edit), after the built-in automated checks pass | `true\|WP_Error $result, int $user_id, string $content, string $link_url, string $context` |
 | `buddynext_client_ip` | filter | The safeguard service resolves the request IP for the blocked-IP check | `string $ip` |
 | `buddynext_report_reasons` | filter | The report reason list is built (default: `spam, harassment, misinformation, inappropriate, fake, impersonation, other`) | `string[] $reasons` |
 | `buddynext_moderation_auto_actions` | filter | A report has just been inserted, deciding which automated actions to apply (Free returns empty; Pro stacks actions here) | `array $actions, array $report` |
