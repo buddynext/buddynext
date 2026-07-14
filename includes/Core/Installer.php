@@ -262,7 +262,7 @@ class Installer {
 	 *      member preference toggle, a seeded email template and an Email Editor entry.
 	 *      Clears the seeded template row and any saved preference rows.
 	 */
-	private const SCHEMA_VERSION = 32;
+	private const SCHEMA_VERSION = 33;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -424,6 +424,17 @@ class Installer {
 		// Scoped to choice types: scalar fields (text/textarea/url/email) always
 		// mirrored their raw value and were never affected.
 		self::schedule_choice_field_remirror();
+
+		// v33: sites that already required email verification before this release
+		// carry no enable-time stamp, so is_verified() cannot tell which members
+		// predate the feature - and every one of them is blocked from posting (the
+		// BuddyBoss/BuddyPress migration report: ~800 imported members locked out).
+		// Stamp the enable time ONCE here so every currently-registered member is
+		// grandfathered; sign-ups after this upgrade still verify normally. No
+		// per-user meta is written, so this is O(1) regardless of member count.
+		if ( (bool) get_option( 'buddynext_email_verify', false ) ) {
+			\BuddyNext\Auth\VerificationService::mark_verification_enabled();
+		}
 
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
 	}

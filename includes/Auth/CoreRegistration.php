@@ -103,10 +103,22 @@ class CoreRegistration {
 			return;
 		}
 		?>
+		<?php
+		// The notice told the owner to "choose a Terms page" and then gave them nowhere to do it.
+		// A warning about consent not being collected is precisely the one an owner needs to act
+		// on immediately; making them hunt for the setting is how it gets dismissed instead.
+		// Same URL the Setup Checklist already uses for this setting.
+		$bn_terms_url = admin_url( 'admin.php?page=buddynext-members&tab=registration' );
+		?>
 		<div class="notice notice-warning">
 			<p>
 				<strong><?php esc_html_e( 'BuddyNext: terms consent is switched on, but no Terms page is set.', 'buddynext' ); ?></strong>
-				<?php esc_html_e( 'Members would have been asked to agree to a document that does not exist, so consent is NOT being collected or enforced. Choose a Terms page to turn it back on.', 'buddynext' ); ?>
+				<?php esc_html_e( 'Members would have been asked to agree to a document that does not exist, so consent is NOT being collected or enforced.', 'buddynext' ); ?>
+			</p>
+			<p>
+				<a href="<?php echo esc_url( $bn_terms_url ); ?>" class="button button-primary">
+					<?php esc_html_e( 'Choose a Terms page', 'buddynext' ); ?>
+				</a>
 			</p>
 		</div>
 		<?php

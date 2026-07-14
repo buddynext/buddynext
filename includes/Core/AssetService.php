@@ -821,6 +821,7 @@ class AssetService {
 					'noPermissionToPost'      => __( 'You don’t have permission to post here.', 'buddynext' ),
 					'verifyResent'            => __( 'Verification email sent. Check your inbox.', 'buddynext' ),
 					'verifyResendFailed'      => __( 'Could not resend the verification email. Try again.', 'buddynext' ),
+					'resendVerification'      => __( 'Resend verification email', 'buddynext' ),
 					'pollMinOptions'          => __( 'Add at least two poll options.', 'buddynext' ),
 					'savingDraft'             => __( 'Saving draft…', 'buddynext' ),
 					'draftSaved'              => __( 'Draft saved', 'buddynext' ),

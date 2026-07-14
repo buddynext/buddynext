@@ -152,7 +152,52 @@ class VerificationService {
 			return true;
 		}
 
-		return (bool) get_user_meta( $user_id, 'buddynext_email_verified', true );
+		// Explicitly verified (clicked the link, or verified during registration).
+		if ( (bool) get_user_meta( $user_id, 'buddynext_email_verified', true ) ) {
+			return true;
+		}
+
+		// Grandfather accounts that predate email verification being required.
+		// A member who registered BEFORE the admin turned this setting on never
+		// had the chance to verify and must not be retroactively locked out of
+		// posting (the exact failure a BuddyBoss/BuddyPress migration hits: turn
+		// the option on and every one of the imported members is blocked).
+		//
+		// We compare WordPress's own `user_registered` date against the moment
+		// verification was enabled (buddynext_email_verify_enabled_at). Using the
+		// native registration date means there is NO per-user meta to backfill,
+		// so this scales to a site with any number of existing members - a
+		// single O(1) option read, no mass write, no batched job.
+		$enabled_at = (int) get_option( 'buddynext_email_verify_enabled_at', 0 );
+		if ( $enabled_at > 0 ) {
+			$user = get_userdata( $user_id );
+			if ( $user instanceof \WP_User && '' !== (string) $user->user_registered ) {
+				$registered = (int) strtotime( $user->user_registered . ' UTC' );
+				if ( $registered > 0 && $registered < $enabled_at ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Record the moment email verification was switched on.
+	 *
+	 * Stamps buddynext_email_verify_enabled_at once (first-write-wins) so
+	 * is_verified() can grandfather every member who registered before this
+	 * point. Called when the option transitions off->on and, for sites that
+	 * already had it on before this release, once from Installer::maybe_upgrade().
+	 *
+	 * @return void
+	 */
+	public static function mark_verification_enabled(): void {
+		if ( (int) get_option( 'buddynext_email_verify_enabled_at', 0 ) > 0 ) {
+			return;
+		}
+		// Non-autoloaded: read only inside is_verified(), not on every request.
+		update_option( 'buddynext_email_verify_enabled_at', time(), false );
 	}
 
 	/**

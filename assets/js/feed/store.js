@@ -236,6 +236,42 @@ function bnApplyFilters( hook, value, ...args ) {
 	return value;
 }
 
+/**
+ * Append a "Resend verification email" control to a comment/reply error box.
+ *
+ * Mirrors the composer's resend affordance: when a comment or reply is refused
+ * with an email_unverified 403, the member can request a fresh verification
+ * link inline instead of hunting for it in the composer. Same endpoint the
+ * composer uses (POST /auth/verify/resend).
+ *
+ * @param {HTMLElement} container Error element to append the button to.
+ * @param {string}      nonce     REST nonce.
+ * @return {void}
+ */
+function appendResendVerifyButton( container, nonce ) {
+	const btn = document.createElement( 'button' );
+	btn.type = 'button';
+	btn.className = 'bn-comment-submit-error__retry';
+	btn.textContent = t( 'resendVerification', 'Resend verification email' );
+	btn.addEventListener( 'click', async () => {
+		btn.disabled = true;
+		try {
+			const res = await restFetch( '/auth/verify/resend', { method: 'POST', nonce, toastOnError: false } );
+			if ( res.ok ) {
+				bnToast( t( 'verifyResent', 'Verification email sent. Check your inbox.' ), { tone: 'success' } );
+			} else {
+				const data = res.data || {};
+				bnToast( data.message || t( 'verifyResendFailed', 'Could not resend the verification email. Try again.' ), { tone: 'danger' } );
+			}
+		} catch ( _e ) {
+			bnToast( t( 'verifyResendFailed', 'Could not resend the verification email. Try again.' ), { tone: 'danger' } );
+		} finally {
+			btn.disabled = false;
+		}
+	} );
+	container.appendChild( btn );
+}
+
 function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth ) {
 	if ( typeof depth !== 'number' ) {
 		// Back-compat: callers that still pass a boolean isReply.
@@ -879,7 +915,26 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 					replyForm.hidden    = true;
 					adjustCommentCount( postId, 1 );
 				} else {
-					bnToast( t( 'replyFailed', 'Could not post reply. Try again.' ), { tone: 'danger' } );
+					const data = res.data || {};
+					if ( 'email_unverified' === data.code ) {
+						// Blocked because the member has not verified their email.
+						// Show the reason inline with a Resend link (mirrors the
+						// composer) so they can fix it without leaving the thread.
+						let errEl = replyForm.querySelector( '.bn-comment-submit-error' );
+						if ( ! errEl ) {
+							errEl = document.createElement( 'div' );
+							errEl.className = 'bn-comment-submit-error';
+							errEl.setAttribute( 'role', 'alert' );
+							replyForm.insertBefore( errEl, replyForm.firstChild );
+						}
+						while ( errEl.firstChild ) { errEl.removeChild( errEl.firstChild ); }
+						const span = document.createElement( 'span' );
+						span.textContent = data.message || t( 'replyFailed', 'Could not post reply. Try again.' );
+						errEl.appendChild( span );
+						appendResendVerifyButton( errEl, nonce );
+					} else {
+						bnToast( data.message || t( 'replyFailed', 'Could not post reply. Try again.' ), { tone: 'danger' } );
+					}
 				}
 			} catch ( _e ) {
 				bnToast( t( 'replyFailed', 'Could not post reply. Try again.' ), { tone: 'danger' } );
@@ -1918,7 +1973,7 @@ store( 'buddynext/post-card', {
 			}
 
 			// Helper: render an inline alert above the comment textarea.
-			const showInlineError = ( msg ) => {
+			const showInlineError = ( msg, code ) => {
 				if ( ! inputEl ) {
 					return;
 				}
@@ -1950,7 +2005,14 @@ store( 'buddynext/post-card', {
 					submitBtn?.click();
 				} );
 				alertEl.appendChild( msgSpan );
-				alertEl.appendChild( retry );
+				// A verification block (403 email_unverified) cannot succeed on
+				// retry until the member verifies, so offer a Resend link instead
+				// of a dead Retry - mirroring the composer's affordance.
+				if ( 'email_unverified' === code ) {
+					appendResendVerifyButton( alertEl, ctx.reactNonce );
+				} else {
+					alertEl.appendChild( retry );
+				}
 			};
 
 			try {
@@ -1981,7 +2043,8 @@ store( 'buddynext/post-card', {
 					// instead of flattening to a generic 400. Fall back only when
 					// the response carries no message.
 					showInlineError(
-						( res.data && res.data.message ) ? String( res.data.message ) : t( 'commentPostFailed', 'Could not post your comment. Try again.' )
+						( res.data && res.data.message ) ? String( res.data.message ) : t( 'commentPostFailed', 'Could not post your comment. Try again.' ),
+						res.data && res.data.code
 					);
 				}
 			} catch ( _e ) {
