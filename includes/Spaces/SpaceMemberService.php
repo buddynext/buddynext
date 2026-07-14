@@ -1557,6 +1557,12 @@ class SpaceMemberService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		wp_cache_delete( "space_{$space_id}", 'buddynext_spaces' );
+
+		// A join or leave changes the member_count, and the directory's DEFAULT sort is
+		// by member_count - so a join reorders the grid for everyone, not just for the
+		// member who joined. Routed through the owning service rather than deleting its
+		// keys with a literal group from over here.
+		SpaceService::flush_space_lists();
 	}
 
 	/**

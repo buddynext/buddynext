@@ -34,6 +34,11 @@ class SpaceService {
 	private const CACHE_TTL = 600;
 
 	/**
+	 * Version counter for every cached spaces-directory listing.
+	 */
+	private const LIST_VERSION_KEY = 'spaces_list_version';
+
+	/**
 	 * Slugs reserved for spaces-hub routes — a member must never create a space
 	 * whose slug shadows a real route (e.g. `mine` would collide with the
 	 * /spaces/mine/ "My Spaces" view). Defence-in-depth alongside rewrite-rule
@@ -421,6 +426,13 @@ class SpaceService {
 		 * @param int $space_id  Newly created space ID.
 		 * @param int $owner_id  ID of the space owner.
 		 */
+		// A brand-new space has no space_{id} key to delete — nothing to invalidate, and
+		// therefore nothing that would have told the directory it exists. Every other
+		// write busts the listings as a side effect of busting its own row; create is the
+		// one that has to say so explicitly, and it is also the one an owner is most
+		// likely to notice: they make a space and it is not in the directory.
+		self::flush_space_lists();
+
 		do_action( 'buddynext_space_created', $space_id, $owner_id );
 
 		return $space_id;
@@ -585,6 +597,7 @@ class SpaceService {
 		}
 
 		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+		self::flush_space_lists();
 		if ( isset( $space['slug'] ) && '' !== $space['slug'] ) {
 			wp_cache_delete( "space_slug_{$space['slug']}", self::CACHE_GROUP );
 		}
@@ -660,6 +673,7 @@ class SpaceService {
 		);
 
 		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+		self::flush_space_lists();
 		if ( isset( $space['slug'] ) && '' !== $space['slug'] ) {
 			wp_cache_delete( "space_slug_{$space['slug']}", self::CACHE_GROUP );
 		}
@@ -1100,6 +1114,7 @@ class SpaceService {
 		( new SpaceMemberService() )->flush_user_caches( $space_id, array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) ) );
 
 		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+		self::flush_space_lists();
 		if ( ! empty( $space['slug'] ) ) {
 			wp_cache_delete( 'space_slug_' . $space['slug'], self::CACHE_GROUP );
 		}
@@ -1261,6 +1276,7 @@ class SpaceService {
 		}
 
 		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+		self::flush_space_lists();
 		if ( isset( $space['slug'] ) && '' !== $space['slug'] ) {
 			wp_cache_delete( "space_slug_{$space['slug']}", self::CACHE_GROUP );
 		}
@@ -1327,6 +1343,13 @@ class SpaceService {
 		$per_page        = $scope['per_page'];
 		$offset          = $scope['offset'];
 
+		$cache_key = self::list_cache_key( 'rows', $scope );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( is_array( $cached ) ) {
+			return array_map( array( $this, 'hydrate' ), $cached );
+		}
+
 		$params   = $scope['params'];
 		$params[] = $per_page;
 		$params[] = $offset;
@@ -1356,7 +1379,72 @@ class SpaceService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
-		return array_map( array( $this, 'hydrate' ), (array) $rows );
+		$rows = (array) $rows;
+
+		// The RAW rows are cached, never the hydrated ones. hydrate() can fold in
+		// per-request and per-viewer presentation, so caching its output under a key that
+		// is shared between viewers is how a cache starts telling one member about
+		// another's spaces.
+		wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return array_map( array( $this, 'hydrate' ), $rows );
+	}
+
+	/**
+	 * Cache key for a spaces-directory listing.
+	 *
+	 * The key is derived from the RESOLVED SCOPE, not from the caller's $args. That is
+	 * deliberate and it is the whole safety argument for caching this query.
+	 *
+	 * The directory is visibility-scoped: which secret spaces a viewer may see depends on
+	 * the viewer id and whether they are an admin, and that logic ends up inside
+	 * $scope['where_sql'] and $scope['params']. A key hand-built from a list of args is a
+	 * key someone eventually forgets to extend when a new filter is added — and the
+	 * failure mode is not a stale count, it is one member being served another member's
+	 * secret spaces. Hashing the resolved scope means the key IS the query: two calls
+	 * share a cache entry only when they would run character-for-character the same SQL
+	 * with the same bound values.
+	 *
+	 * @param string               $kind  'rows' or 'total' — the two things cached per scope.
+	 * @param array<string, mixed> $scope Resolved query scope from list_query_scope().
+	 * @return string
+	 */
+	private static function list_cache_key( string $kind, array $scope ): string {
+		return 'spaces_' . $kind . '_v' . self::list_version() . '_' . md5( (string) wp_json_encode( $scope ) );
+	}
+
+	/**
+	 * Current version of the spaces-directory listings.
+	 *
+	 * @return int
+	 */
+	private static function list_version(): int {
+		$version = wp_cache_get( self::LIST_VERSION_KEY, self::CACHE_GROUP );
+
+		if ( false === $version ) {
+			$version = 1;
+			wp_cache_set( self::LIST_VERSION_KEY, $version, self::CACHE_GROUP );
+		}
+
+		return (int) $version;
+	}
+
+	/**
+	 * Invalidate EVERY cached spaces listing, for every viewer and every filter, in O(1).
+	 *
+	 * Any write that can change which spaces appear, in what order, or how many there are
+	 * — create, update, archive, delete, an ownership change, or a member joining or
+	 * leaving (the default sort is by member_count, so a join reorders the directory) —
+	 * bumps this.
+	 *
+	 * A version bump rather than keyed deletes because the listings are keyed by a hash of
+	 * the query scope: a writer cannot know which of the thousands of viewer/filter/page
+	 * combinations its change affected, and any attempt to work it out would be wrong.
+	 *
+	 * @return void
+	 */
+	public static function flush_space_lists(): void {
+		wp_cache_set( self::LIST_VERSION_KEY, self::list_version() + 1, self::CACHE_GROUP );
 	}
 
 	/**
@@ -1377,6 +1465,22 @@ class SpaceService {
 		$member_id       = $scope['member_id'];
 		$member_role_sql = $scope['member_role_sql'];
 		$where_sql       = $scope['where_sql'];
+
+		// The COUNT is keyed on the same resolved scope as the rows, minus the paging —
+		// the total is the same for every page of one filter, so caching it per page would
+		// re-run the COUNT on page 2 for no reason.
+		$count_scope = $scope;
+		unset( $count_scope['offset'], $count_scope['per_page'] );
+
+		$total_key    = self::list_cache_key( 'total', $count_scope );
+		$cached_total = wp_cache_get( $total_key, self::CACHE_GROUP );
+
+		if ( false !== $cached_total ) {
+			return array(
+				'items' => $this->list_spaces( $args ),
+				'total' => (int) $cached_total,
+			);
+		}
 
 		// $where_sql contains only hardcoded strings or validated enum values; the
 		// embedded placeholders are bound through prepare() with $scope['params'].
@@ -1408,6 +1512,8 @@ class SpaceService {
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		wp_cache_set( $total_key, $total, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return array(
 			'items' => $this->list_spaces( $args ),
