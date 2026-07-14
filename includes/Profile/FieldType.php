@@ -1064,7 +1064,97 @@ class FieldType {
 			return $options[ $slug ] ?? (string) $value;
 		}
 
+		// The SEARCH MIRROR must not hold the raw date either. If the owner reduced a birthday
+		// to age-only, indexing the exact Y-m-d would let anyone find a member by searching
+		// their date of birth — the profile hides it and the search box gives it back.
+		if ( self::is_date_type( $type ) ) {
+			return self::format_date( $field, (string) $value );
+		}
+
 		return (string) $value;
+	}
+
+	/**
+	 * Whether a field type stores a date.
+	 *
+	 * @param string $type Resolved field type.
+	 * @return bool
+	 */
+	private static function is_date_type( string $type ): bool {
+		return in_array( $type, array( 'date', 'date_extended' ), true );
+	}
+
+	/**
+	 * The owner's chosen display mode for a date field.
+	 *
+	 * @param array<string,mixed> $field Field definition.
+	 * @return string One of: date | month_year | year | age.
+	 */
+	public static function date_display_mode( array $field ): string {
+		$options = isset( $field['options'] ) && is_array( $field['options'] ) ? $field['options'] : array();
+		$mode    = (string) ( $options['display'] ?? 'date' );
+
+		return in_array( $mode, array( 'date', 'month_year', 'year', 'age' ), true ) ? $mode : 'date';
+	}
+
+	/**
+	 * Render a stored date according to the owner's "Display as" choice.
+	 *
+	 * THIS SETTING DID NOTHING. The admin offered date | month_year | year | age, validated
+	 * it, and saved it into options['display'] — and not one line of code ever read it back.
+	 * Every date rendered as the raw stored Y-m-d.
+	 *
+	 * That is not a cosmetic gap. The obvious use of this control is a BIRTHDAY field, and an
+	 * owner who picks "Age only" (or "Year only") is deliberately choosing NOT to expose a
+	 * member's full date of birth. The product accepted that choice, told them it was saved,
+	 * and published the full DOB anyway — with no way for them to notice, because the admin
+	 * screen shows exactly what they picked.
+	 *
+	 * A date of birth is among the most sensitive things a community holds. This was an option
+	 * that lied, in the one place where lying about it actually harms someone.
+	 *
+	 * @param array<string,mixed> $field Field definition.
+	 * @param string              $value Stored date (Y-m-d).
+	 * @return string
+	 */
+	public static function format_date( array $field, string $value ): string {
+		$value = trim( $value );
+
+		if ( '' === $value ) {
+			return '';
+		}
+
+		$ts = strtotime( $value );
+
+		if ( false === $ts ) {
+			return $value;
+		}
+
+		switch ( self::date_display_mode( $field ) ) {
+			case 'age':
+				$birth = new \DateTimeImmutable( '@' . $ts );
+				$now   = new \DateTimeImmutable( 'now' );
+
+				// A future date has no age. Show nothing rather than a negative number.
+				if ( $birth > $now ) {
+					return '';
+				}
+
+				$years = (int) $birth->diff( $now )->y;
+
+				/* translators: %d: the member's age in years. */
+				return sprintf( _n( '%d year old', '%d years old', $years, 'buddynext' ), $years );
+
+			case 'year':
+				return gmdate( 'Y', $ts );
+
+			case 'month_year':
+				return wp_date( 'F Y', $ts );
+
+			case 'date':
+			default:
+				return wp_date( (string) get_option( 'date_format', 'F j, Y' ), $ts );
+		}
 	}
 
 	/**
@@ -1104,6 +1194,9 @@ class FieldType {
 			return $options[ $slug ] ?? (string) $value;
 		}
 
+		if ( self::is_date_type( $type ) ) {
+			return self::format_date( $field, (string) $value );
+		}
 		return (string) $value;
 	}
 
@@ -1122,6 +1215,19 @@ class FieldType {
 
 		if ( 'boolean' === $type ) {
 			return self::truthy( $value );
+		}
+
+		// A date in a REDUCED display mode must not leave the server as a raw date.
+		//
+		// This is the half that would have made the fix worthless. Formatting the profile while
+		// the REST payload still carried the exact Y-m-d means the app renders "34 years old"
+		// and the API hands out the date of birth to anyone who reads the response. The leak
+		// survives the fix, in the surface the owner is least likely to look at.
+		//
+		// 'date' mode is unchanged: the owner asked for the full date, so the client gets it
+		// and can format it however it likes.
+		if ( self::is_date_type( $type ) && 'date' !== self::date_display_mode( $field ) ) {
+			return self::format_date( $field, (string) $value );
 		}
 
 		if ( 'number' === $type ) {
