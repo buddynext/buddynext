@@ -1232,13 +1232,13 @@ class NavManager extends AdminPageBase {
 			 * NavOverrides still applies them (and now resolves their {space_url} /
 			 * {slug} tokens) — so removing the button breaks nothing on upgrade.
 			 */
-			if ( 'main' === $scope ) :
+			if ( in_array( $scope, array( 'main', 'account' ), true ) ) :
 				?>
 				<div class="bn-nav-add-row">
 					<button type="button" class="bn-add-tab-btn"
 						data-scope="<?php echo esc_attr( $scope ); ?>"
 						data-action="bn-open-add-tab"
-						aria-label="<?php esc_attr_e( 'Add a custom link to the main navigation', 'buddynext' ); ?>">
+						aria-label="<?php echo esc_attr( 'account' === $scope ? __( 'Add a custom link to the account dropdown', 'buddynext' ) : __( 'Add a custom link to the main navigation', 'buddynext' ) ); ?>">
 						<span aria-hidden="true">+</span>
 						<?php esc_html_e( 'Add Custom Link', 'buddynext' ); ?>
 					</button>
@@ -1309,8 +1309,17 @@ class NavManager extends AdminPageBase {
 			 * scope had its handles suppressed, which left an admin looking at a reorderable-
 			 * looking list — in a screen whose other three scopes all reorder — with no way to
 			 * tell why this one did not, and no explanation on the page.
+			 *
+			 * A LOCKED row likewise gets no config panel (render_all_config_panels() skips it), which means
+			 * it has no `input[type=number]` — and that input is exactly where the drag JS writes
+			 * the new position. So a handle on a locked row is a control that moves the row on
+			 * screen and saves nothing. Log Out is locked, and it shipped with a live handle.
+			 *
+			 * Pin every locked row, not just the two mobile slots I special-cased. Same defect the
+			 * mobile scope was fixed for one commit earlier; I reintroduced it the next commit by
+			 * naming the slots instead of naming the CONDITION.
 			 */
-			$bn_pinned = ( 'mobile' === $scope && in_array( $slug, array( 'create', 'profile' ), true ) );
+			$bn_pinned = $locked || ( 'mobile' === $scope && in_array( $slug, array( 'create', 'profile' ), true ) );
 			?>
 			<?php if ( $bn_pinned ) : ?>
 			<span class="bn-drag-row__handle bn-drag-row__handle--pinned"
@@ -1550,6 +1559,8 @@ class NavManager extends AdminPageBase {
 			 * re-centred on render, so a Position box for it would be a number the product
 			 * ignores. It keeps a hidden input to preserve the posted value shape.
 			 */
+			// A locked tab never reaches this method at all — render_all_config_panels() skips it —
+			// so the only fixed positions left to guard are the mobile pins.
 			$bn_position_fixed = ( 'mobile' === $scope && in_array( $slug, array( 'create', 'profile' ), true ) );
 			?>
 			<?php if ( ! $bn_position_fixed ) : ?>
