@@ -122,7 +122,13 @@ if ( '' !== $bn_wrap_class ) {
 				: (string) ( $args['space']->slug ?? '' );
 			?>
 			<?php if ( '' !== $bn_space_slug ) : ?>
-				<a class="bn-notice__cta" href="<?php echo esc_url( buddynext_space_url( $bn_space_slug ) . 'settings/#danger' ); ?>">
+				<?php
+				// The settings screen picks its tab from the `bn_stab` QUERY PARAM (settings.php:111),
+				// not from a hash. `settings/#danger` therefore selected nothing and dropped the owner
+				// on the General tab, with no Restore button anywhere in sight - on the one CTA whose
+				// entire job is to get them to it. Same helper + param every other tab link uses.
+				?>
+				<a class="bn-notice__cta" href="<?php echo esc_url( buddynext_space_settings_url( $bn_space_slug ) . '?bn_stab=danger' ); ?>">
 					<?php esc_html_e( 'Restore this space', 'buddynext' ); ?>
 				</a>
 			<?php endif; ?>
