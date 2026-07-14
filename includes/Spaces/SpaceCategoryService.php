@@ -49,10 +49,15 @@ class SpaceCategoryService {
 	 *
 	 * Cached: a global list rendered on the spaces directory + explore aside.
 	 *
+	 * @param bool $visible_only Only categories flagged show_in_dir (member-facing callers).
 	 * @return array<int, array<string, mixed>>
 	 */
-	public function get_all(): array {
-		$hit = wp_cache_get( 'all', self::CACHE_GROUP );
+	public function get_all( bool $visible_only = false ): array {
+		// See get_all_with_counts(): show_in_dir was never filtered on anywhere. Member-facing
+		// callers pass true; the admin and IconService need every category and pass nothing.
+		$cache_key = $visible_only ? 'visible' : 'all';
+
+		$hit = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $hit ) {
 			return (array) $hit;
 		}
@@ -60,15 +65,17 @@ class SpaceCategoryService {
 		global $wpdb;
 		$table = $wpdb->prefix . 'bn_space_categories';
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $visible_only selects between two LITERAL queries; no value is interpolated into the SQL.
 		$rows = $wpdb->get_results(
-			"SELECT * FROM {$table} ORDER BY sort_order ASC, name ASC",
+			$visible_only
+				? "SELECT * FROM {$table} WHERE show_in_dir = 1 ORDER BY sort_order ASC, name ASC"
+				: "SELECT * FROM {$table} ORDER BY sort_order ASC, name ASC",
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 
 		$out = array_map( array( $this, 'hydrate' ), (array) ( $rows ?? array() ) );
-		wp_cache_set( 'all', $out, self::CACHE_GROUP, self::CACHE_TTL );
+		wp_cache_set( $cache_key, $out, self::CACHE_GROUP, self::CACHE_TTL );
 		return $out;
 	}
 
@@ -79,10 +86,24 @@ class SpaceCategoryService {
 	 * spaces directory and the explore aside on every visit, but the count moves on
 	 * space-category reassignment, so the TTL caps that staleness.
 	 *
+	 * @param bool $visible_only Only categories flagged show_in_dir (member-facing callers).
 	 * @return array<int, array<string, mixed>>
 	 */
-	public function get_all_with_counts(): array {
-		$hit = wp_cache_get( 'all_counts', self::CACHE_GROUP );
+	public function get_all_with_counts( bool $visible_only = false ): array {
+		/*
+		 * `show_in_dir` was stored, shaped and returned - and never filtered on. Every listing
+		 * did SELECT * with no WHERE, so a category the owner had switched OFF still appeared in
+		 * the directory chips and the public REST list. The toggle saved, persisted, and did
+		 * nothing.
+		 *
+		 * The ADMIN still needs every category (you cannot manage a category you cannot see), and
+		 * so does IconService (a hidden category still needs its icon wherever it IS shown). So
+		 * this is a parameter, not a blanket WHERE - and it carries its own cache key, or the two
+		 * callers would poison each other's cached list.
+		 */
+		$cache_key = $visible_only ? 'visible_counts' : 'all_counts';
+
+		$hit = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $hit ) {
 			return (array) $hit;
 		}
@@ -91,14 +112,19 @@ class SpaceCategoryService {
 		$cats   = $wpdb->prefix . 'bn_space_categories';
 		$spaces = $wpdb->prefix . 'bn_spaces';
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $visible_only selects between two LITERAL queries; no value is interpolated into the SQL.
 		$rows = $wpdb->get_results(
-			"SELECT c.*, ( SELECT COUNT(*) FROM {$spaces} s WHERE s.category_id = c.id ) AS space_count
-			   FROM {$cats} c
-			  ORDER BY c.sort_order ASC, c.name ASC",
+			$visible_only
+				? "SELECT c.*, ( SELECT COUNT(*) FROM {$spaces} s WHERE s.category_id = c.id ) AS space_count
+					 FROM {$cats} c
+					WHERE c.show_in_dir = 1
+					ORDER BY c.sort_order ASC, c.name ASC"
+				: "SELECT c.*, ( SELECT COUNT(*) FROM {$spaces} s WHERE s.category_id = c.id ) AS space_count
+					 FROM {$cats} c
+					ORDER BY c.sort_order ASC, c.name ASC",
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 
 		$out = array_map(
 			function ( array $row ): array {
@@ -108,7 +134,7 @@ class SpaceCategoryService {
 			},
 			(array) ( $rows ?? array() )
 		);
-		wp_cache_set( 'all_counts', $out, self::CACHE_GROUP, self::CACHE_TTL_COUNTS );
+		wp_cache_set( $cache_key, $out, self::CACHE_GROUP, self::CACHE_TTL_COUNTS );
 		return $out;
 	}
 
@@ -119,7 +145,12 @@ class SpaceCategoryService {
 	 */
 	private function invalidate(): void {
 		wp_cache_delete( 'all', self::CACHE_GROUP );
+		wp_cache_delete( 'visible', self::CACHE_GROUP );
 		wp_cache_delete( 'all_counts', self::CACHE_GROUP );
+		// The directory's visible-only list is a SEPARATE cache key. Miss it here and switching
+		// show_in_dir off leaves the category sitting in the directory until the TTL expires -
+		// the toggle would look like it still does nothing.
+		wp_cache_delete( 'visible_counts', self::CACHE_GROUP );
 	}
 
 	/**
@@ -132,12 +163,12 @@ class SpaceCategoryService {
 		global $wpdb;
 		$table = $wpdb->prefix . 'bn_space_categories';
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $visible_only selects between two LITERAL queries; no value is interpolated into the SQL.
 		$row = $wpdb->get_row(
 			$wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d LIMIT 1", $id ),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 
 		return is_array( $row ) ? $this->hydrate( $row ) : null;
 	}
@@ -167,11 +198,11 @@ class SpaceCategoryService {
 		global $wpdb;
 		$table = $wpdb->prefix . 'bn_space_categories';
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $visible_only selects between two LITERAL queries; no value is interpolated into the SQL.
 		$exists = $wpdb->get_var(
 			$wpdb->prepare( "SELECT id FROM {$table} WHERE slug = %s LIMIT 1", $clean['slug'] )
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 		if ( null !== $exists ) {
 			return new WP_Error( 'slug_conflict', __( 'A category with that slug already exists.', 'buddynext' ), array( 'status' => 409 ) );
 		}
@@ -223,11 +254,11 @@ class SpaceCategoryService {
 		$table = $wpdb->prefix . 'bn_space_categories';
 
 		if ( $clean['slug'] !== $existing['slug'] ) {
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- $visible_only selects between two LITERAL queries; no value is interpolated into the SQL.
 			$clash = $wpdb->get_var(
 				$wpdb->prepare( "SELECT id FROM {$table} WHERE slug = %s AND id <> %d LIMIT 1", $clean['slug'], $id )
 			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 			if ( null !== $clash ) {
 				return new WP_Error( 'slug_conflict', __( 'A category with that slug already exists.', 'buddynext' ), array( 'status' => 409 ) );
 			}

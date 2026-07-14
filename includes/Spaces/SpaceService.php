@@ -2236,11 +2236,12 @@ class SpaceService {
 	 * which joins a per-row COUNT of spaces in each category. Pass $limit > 0 to
 	 * cap the directory chip row.
 	 *
-	 * @param int $limit Max categories to return; 0 = no limit.
+	 * @param int  $limit        Max categories to return; 0 = no limit.
+	 * @param bool $visible_only Only categories flagged show_in_dir (member-facing callers).
 	 * @return array<int, array<string, mixed>> Hydrated category rows + space_count.
 	 */
-	public function categories_with_counts( int $limit = 0 ): array {
-		$rows = ( new SpaceCategoryService() )->get_all_with_counts();
+	public function categories_with_counts( int $limit = 0, bool $visible_only = false ): array {
+		$rows = ( new SpaceCategoryService() )->get_all_with_counts( $visible_only );
 
 		if ( $limit > 0 && count( $rows ) > $limit ) {
 			$rows = array_slice( $rows, 0, $limit );

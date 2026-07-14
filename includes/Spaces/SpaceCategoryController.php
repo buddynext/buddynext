@@ -168,7 +168,18 @@ class SpaceCategoryController extends BaseRestController {
 	 * @return WP_REST_Response
 	 */
 	public function list_categories(): WP_REST_Response {
-		return new WP_REST_Response( $this->service()->get_all(), 200 );
+		/*
+		 * This route is public ( permission_callback => __return_true ) and it is what the space
+		 * directory's category chips read. A category the owner switched OFF (show_in_dir) must
+		 * not come back from it - that setting saved and changed nothing, because no listing ever
+		 * filtered on it.
+		 *
+		 * Someone who can manage the site still gets the full list, so the admin screens keep
+		 * working through the same route.
+		 */
+		$visible_only = ! current_user_can( 'manage_options' );
+
+		return new WP_REST_Response( $this->service()->get_all( $visible_only ), 200 );
 	}
 
 	/**
