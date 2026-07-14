@@ -42,6 +42,11 @@ class VerificationListener implements ListenerInterface {
 	 */
 	public function register(): void {
 		add_action( 'user_register', array( $this, 'on_user_register' ) );
+
+		// Stamp the moment verification is switched on so is_verified() can
+		// grandfather members who registered before it (VerificationService).
+		add_action( 'update_option_buddynext_email_verify', array( $this, 'on_verify_option_set' ), 10, 2 );
+		add_action( 'add_option_buddynext_email_verify', array( $this, 'on_verify_option_added' ), 10, 2 );
 		add_action( 'init', array( $this, 'handle_verify_request' ) );
 		add_action( 'init', array( $this, 'handle_email_change_verify_request' ) );
 		add_action( 'buddynext_send_verification_email', array( $this, 'send_verification_email' ), 10, 2 );
@@ -50,6 +55,35 @@ class VerificationListener implements ListenerInterface {
 		// The "full" enforcement level actually gates access. Runs late so the
 		// onboarding gate (priority 5) does not fight it.
 		add_action( 'template_redirect', array( $this, 'maybe_gate_unverified' ), 6 );
+	}
+
+	/**
+	 * On the buddynext_email_verify option being updated: stamp the enable time
+	 * when it is switched on, so members who predate it are grandfathered.
+	 *
+	 * @param mixed $old_value Previous option value.
+	 * @param mixed $new_value New option value.
+	 * @return void
+	 */
+	public function on_verify_option_set( $old_value, $new_value ): void {
+		unset( $old_value );
+		if ( (bool) $new_value ) {
+			VerificationService::mark_verification_enabled();
+		}
+	}
+
+	/**
+	 * On the buddynext_email_verify option being added on: stamp the enable time.
+	 *
+	 * @param string $option Option name.
+	 * @param mixed  $value  Option value.
+	 * @return void
+	 */
+	public function on_verify_option_added( $option, $value ): void {
+		unset( $option );
+		if ( (bool) $value ) {
+			VerificationService::mark_verification_enabled();
+		}
 	}
 
 	/**
