@@ -52,6 +52,39 @@ class GamificationBridge {
 		// even when a site is still on an older wb-gamification build. Daily/weekly
 		// cap notices are informative (a real limit that resets) and are left alone.
 		add_filter( 'wb_gam_toast_data', array( $this, 'suppress_cooldown_toast' ), 10, 2 );
+
+		// wb-gamification is the canonical source for streaks. Without this, a member
+		// sees TWO different streaks with the same label: the sidebar greeting reads
+		// BuddyNext's own StreakService (which infers a streak from post dates) while
+		// the leaderboard widget reads wb_gam_get_user_streak() -- "7 days" in one
+		// place and "3" in the other. StreakService exposes this filter for exactly
+		// this purpose and nothing was hooking it, so BN was answering a question it
+		// should have been forwarding.
+		add_filter( 'buddynext_user_activity_streak', array( $this, 'canonical_streak' ), 10, 2 );
+	}
+
+	/**
+	 * Defer the member's current streak to wb-gamification.
+	 *
+	 * Only the CURRENT streak is mapped. wb-gamification's `longest_streak` is an
+	 * all-time record, which is not what `buddynext_user_activity_best_month_streak`
+	 * asks for (the best run within a month) -- mapping it would trade one wrong
+	 * number for another, so that filter is deliberately left alone.
+	 *
+	 * @param int $streak  BuddyNext's inline-computed streak.
+	 * @param int $user_id Member whose streak is being resolved.
+	 * @return int Canonical current streak in days.
+	 */
+	public function canonical_streak( int $streak, int $user_id ): int {
+		if ( $user_id <= 0 || ! function_exists( 'wb_gam_get_user_streak' ) ) {
+			return $streak;
+		}
+
+		$data = wb_gam_get_user_streak( $user_id );
+
+		// Fall back to BN's own figure if the engine has no row for this member yet,
+		// rather than showing a hard 0 to someone who has been posting all week.
+		return isset( $data['current_streak'] ) ? (int) $data['current_streak'] : $streak;
 	}
 
 	/**
