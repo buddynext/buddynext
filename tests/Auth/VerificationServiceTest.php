@@ -38,6 +38,7 @@ class VerificationServiceTest extends \WP_UnitTestCase {
 
 	public function tear_down(): void {
 		delete_option( 'buddynext_email_verify' );
+		delete_option( 'buddynext_email_verify_enabled_at' );
 		parent::tear_down();
 	}
 
@@ -203,6 +204,62 @@ class VerificationServiceTest extends \WP_UnitTestCase {
 		update_option( 'buddynext_email_verify', false );
 
 		$this->assertTrue( $this->service->is_verified( $this->user_id ) );
+	}
+
+	// ── is_verified grandfathering (legacy members must not be locked out) ──────
+
+	/**
+	 * A member who registered before verification was enabled is grandfathered.
+	 *
+	 * @return void
+	 */
+	public function test_is_verified_grandfathers_member_registered_before_verification_was_enabled(): void {
+		// The member exists and was never verified (no meta). Verification is
+		// turned on AFTER they registered - stamp the enable time in the future
+		// relative to the factory user's registration so they predate it.
+		delete_user_meta( $this->user_id, 'buddynext_email_verified' );
+		update_option( 'buddynext_email_verify_enabled_at', time() + 100 );
+
+		$this->assertTrue(
+			$this->service->is_verified( $this->user_id ),
+			'A member who registered before verification was enabled must be grandfathered, not blocked.'
+		);
+	}
+
+	/**
+	 * A member who signed up after verification was required must still verify.
+	 *
+	 * @return void
+	 */
+	public function test_is_verified_still_requires_verification_for_signups_after_enable(): void {
+		// Verification was enabled BEFORE this member registered, so they must verify.
+		delete_user_meta( $this->user_id, 'buddynext_email_verified' );
+		update_option( 'buddynext_email_verify_enabled_at', time() - 100 );
+
+		$this->assertFalse(
+			$this->service->is_verified( $this->user_id ),
+			'A member who signed up after verification was required must still verify.'
+		);
+	}
+
+	/**
+	 * mark_verification_enabled() stamps once and never overwrites.
+	 *
+	 * @return void
+	 */
+	public function test_mark_verification_enabled_stamps_once_and_does_not_overwrite(): void {
+		delete_option( 'buddynext_email_verify_enabled_at' );
+
+		VerificationService::mark_verification_enabled();
+		$first = (int) get_option( 'buddynext_email_verify_enabled_at', 0 );
+		$this->assertGreaterThan( 0, $first, 'First enable stamps a timestamp.' );
+
+		VerificationService::mark_verification_enabled();
+		$this->assertSame(
+			$first,
+			(int) get_option( 'buddynext_email_verify_enabled_at', 0 ),
+			'The enable time is first-write-wins so a later toggle does not re-grandfather.'
+		);
 	}
 
 	// ── hooks ─────────────────────────────────────────────────────────────────
