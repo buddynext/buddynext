@@ -431,6 +431,12 @@ class PostService {
 			 * @param int $user_id  Author.
 			 * @param int $space_id Target space (0 = site-wide).
 			 */
+			// A brand-new announcement is the ONE thing a stale candidate list cannot
+			// self-heal from: every other transition (ended, expired, unpublished,
+			// deleted) is re-checked per id on read, but an id that is not in the list
+			// yet is simply never looked at. So the list has to be rebuilt here.
+			FeedService::flush_announcement_ids();
+
 			do_action( 'buddynext_announcement_published', $post_id, $user_id, (int) ( $data['space_id'] ?? 0 ) );
 		}
 
@@ -2361,6 +2367,11 @@ class PostService {
 
 		if ( $updated ) {
 			wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+
+			// The announcement candidate lists are cached per scope, and this writer only
+			// has a post id — it does not know which space the announcement belonged to.
+			// A version bump invalidates every scope at once rather than guessing a key.
+			FeedService::flush_announcement_ids();
 		}
 
 		return (bool) $updated;
