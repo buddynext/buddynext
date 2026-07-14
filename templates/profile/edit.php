@@ -85,7 +85,10 @@ $fv = array();
 foreach ( $bn_groups as $grp ) {
 	if ( 'flat' === ( $grp['type'] ?? '' ) && ! empty( $grp['fields'] ) ) {
 		foreach ( $grp['fields'] as $f ) {
-			$fv[ $f['field_key'] ] = $f['value'] ?? '';
+			// value_raw: the owner's real stored value. `value` is display-reduced for
+			// date fields (age/year/month_year), and an edit input must prefill with the
+			// actual date, not '36 years old'.
+			$fv[ $f['field_key'] ] = $f['value_raw'] ?? ( $f['value'] ?? '' );
 		}
 	}
 }
@@ -364,7 +367,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 							$bn_ftype = isset( $bn_field['type'] ) ? (string) $bn_field['type'] : 'text';
 							$bn_name  = $bn_gkey . '[' . $bn_idx_int . '][' . $bn_fkey . ']';
 							$bn_label = isset( $bn_field['label'] ) ? (string) $bn_field['label'] : ucwords( str_replace( '_', ' ', $bn_fkey ) );
-							$bn_ctrl  = \BuddyNext\Profile\FieldType::render_input( $bn_field, $bn_field['value'] ?? '', $bn_name );
+							$bn_ctrl  = \BuddyNext\Profile\FieldType::render_input( $bn_field, $bn_field['value_raw'] ?? ( $bn_field['value'] ?? '' ), $bn_name );
 
 							// Visible required marker, mirroring the flat-field branch so
 							// repeater sub-fields show the same asterisk (the control already
@@ -452,7 +455,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					}
 
 					// Field value control via the engine.
-					$bn_control = \BuddyNext\Profile\FieldType::render_input( $bn_field, $bn_field['value'] ?? '', $bn_fkey );
+					$bn_control = \BuddyNext\Profile\FieldType::render_input( $bn_field, $bn_field['value_raw'] ?? ( $bn_field['value'] ?? '' ), $bn_fkey );
 
 					// Admin default = field's own visibility (falls back to the
 					// group default, then public). Current = member's effective

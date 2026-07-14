@@ -154,4 +154,107 @@ class DateDisplayModeTest extends WP_UnitTestCase {
 
 		$this->assertSame( '', FieldType::display_text( $this->date_field( 'age' ), $future ) );
 	}
+
+	/**
+	 * THE TEST THE BROWSER FORCED. The PAYLOAD must not carry the date, not just the formatter.
+	 *
+	 * Every other test in this file calls FieldType directly, and they all passed — while the
+	 * live profile went on serving the raw date of birth. get_profile() emitted `value` straight
+	 * from the row and templates/profile/view.php printed exactly that, so display_text() was
+	 * never on the path. A formatter nothing calls is not a fix.
+	 *
+	 * Only a browser check caught it. This is that check, in a test.
+	 *
+	 * @return void
+	 */
+	public function test_the_profile_payload_never_carries_the_date_for_a_stranger(): void {
+		global $wpdb;
+
+		\BuddyNext\Core\Installer::install_schema();
+
+		$owner    = self::factory()->user->create();
+		$stranger = self::factory()->user->create();
+		$dob      = '1990-03-14';
+
+		$group_id = (int) $wpdb->get_var( "SELECT id FROM {$wpdb->prefix}bn_profile_groups ORDER BY id ASC LIMIT 1" );
+
+		if ( $group_id <= 0 ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->insert(
+				$wpdb->prefix . 'bn_profile_groups',
+				array(
+					'group_key'  => 'about-probe',
+					'label'      => 'About',
+					'type'       => 'flat',
+					'visibility' => 'public',
+				)
+			);
+			$group_id = (int) $wpdb->insert_id;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_profile_fields',
+			array(
+				'group_id'   => $group_id,
+				'field_key'  => 'dob_probe',
+				'label'      => 'Birthday',
+				'type'       => 'date',
+				'options'    => wp_json_encode( array( 'display' => 'age' ) ),
+				'visibility' => 'public',
+			)
+		);
+		$field_id = (int) $wpdb->insert_id;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_profile_values',
+			array(
+				'user_id'  => $owner,
+				'field_id' => $field_id,
+				'value'    => $dob,
+			)
+		);
+		update_user_meta( $owner, 'bn_field_dob_probe', $dob );
+
+		wp_cache_flush();
+
+		$service = new \BuddyNext\Profile\ProfileService();
+
+		$seen = static function ( array $profile, string $key ): ?array {
+			foreach ( (array) ( $profile['groups'] ?? array() ) as $group ) {
+				foreach ( (array) ( $group['fields'] ?? array() ) as $field ) {
+					if ( ( $field['field_key'] ?? '' ) === $key ) {
+						return $field;
+					}
+				}
+			}
+
+			return null;
+		};
+
+		$as_stranger = $seen( $service->get_profile( $owner, $stranger ), 'dob_probe' );
+
+		$this->assertNotNull( $as_stranger, 'precondition: the field must be in the payload at all' );
+
+		$this->assertNotSame(
+			$dob,
+			(string) $as_stranger['value'],
+			'The profile PAYLOAD still carries the raw date of birth. The owner asked for AGE ONLY; every consumer that prints `value` — including templates/profile/view.php — publishes the DOB.'
+		);
+		$this->assertStringContainsString( '36 years old', (string) $as_stranger['value'] );
+		$this->assertNull(
+			$as_stranger['value_raw'] ?? null,
+			'A stranger was handed value_raw. The raw date must reach nobody but the owner.'
+		);
+
+		// And the owner still gets the real date, or they cannot edit their own birthday.
+		$as_owner = $seen( $service->get_profile( $owner, $owner ), 'dob_probe' );
+
+		$this->assertSame(
+			$dob,
+			(string) ( $as_owner['value_raw'] ?? '' ),
+			'The owner lost the raw date, so the edit form cannot prefill and they can never correct their own birthday.'
+		);
+	}
 }

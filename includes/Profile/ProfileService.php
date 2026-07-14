@@ -1051,6 +1051,45 @@ class ProfileService {
 	}
 
 	/**
+	 * The value a VIEWER may see, honouring a date field's "Display as" setting.
+	 *
+	 * THE BROWSER CAUGHT THIS, AND THE UNIT TESTS DID NOT.
+	 *
+	 * FieldType::display_text() and ::rest_value() were taught to reduce a date — "36 years
+	 * old" instead of 1990-03-14 — and both were tested directly, and both passed. But
+	 * get_profile() emits `value` STRAIGHT FROM THE ROW, and templates/profile/view.php:128
+	 * prints exactly that. So the profile page and every REST consumer went on serving the raw
+	 * date of birth, while the tests that were supposed to prove otherwise were green.
+	 *
+	 * A formatter nothing calls is not a fix. The reduction has to happen where the value
+	 * ENTERS the payload, which is here.
+	 *
+	 * The owner still gets the real date, via `value_raw` — the edit form has to prefill its
+	 * date input with something, and it is their own birthday. Nobody else receives it in any
+	 * form.
+	 *
+	 * @param array<string,mixed> $field Minimal field shape (type + options).
+	 * @param mixed               $value Stored value.
+	 * @return mixed
+	 */
+	private static function view_value( array $field, $value ) {
+
+		$type = (string) ( $field['type'] ?? '' );
+
+		if ( ! in_array( $type, array( 'date', 'date_extended' ), true ) ) {
+			return $value;
+		}
+
+		if ( 'date' === FieldType::date_display_mode( $field ) ) {
+			return $value;
+		}
+
+		// Reduced mode: the raw date must not leave the server, not even to the owner's own
+		// view payload — they get it back through value_raw for editing.
+		return FieldType::format_date( $field, (string) $value );
+	}
+
+	/**
 	 * Return the full profile for a user as seen by the given viewer.
 	 *
 	 * Includes WordPress core fields (display_name, avatar_url) plus all
@@ -1254,7 +1293,16 @@ class ProfileService {
 				'placeholder'      => (string) ( $row['placeholder'] ?? '' ),
 				'is_required'      => (bool) ( $row['field_is_required'] ?? false ),
 				'sort_order'       => (int) $row['field_sort_order'],
-				'value'            => $row['value'],
+				'value'            => self::view_value(
+					array(
+						'type'    => $row['field_type'],
+						'options' => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
+					),
+					$row['value']
+				),
+				// The RAW stored value, and ONLY for the owner. The edit form needs the real
+				// date to prefill its input; nobody else has any business receiving it.
+				'value_raw'        => ( $viewer_id === $profile_user_id ) ? $row['value'] : null,
 				// Visibility surfaced so the edit-form privacy selector can show
 				// the admin default (field_visibility, falling back to the group)
 				// and the member's saved choice (entry_visibility). See workstream D.
@@ -1448,7 +1496,16 @@ class ProfileService {
 					'options'          => $vf['options'] ?? null,
 					'is_required'      => (bool) ( $vf['is_required'] ?? false ),
 					'sort_order'       => (int) ( $vf['sort_order'] ?? 99 ),
-					'value'            => get_user_meta( $profile_user_id, 'bn_field_' . $fkey, true ),
+					'value'            => self::view_value(
+						array(
+							'type'    => (string) ( $vf['type'] ?? 'text' ),
+							'options' => $vf['options'] ?? null,
+						),
+						get_user_meta( $profile_user_id, 'bn_field_' . $fkey, true )
+					),
+					'value_raw'        => $is_owner
+						? get_user_meta( $profile_user_id, 'bn_field_' . $fkey, true )
+						: null,
 					'field_visibility' => $fvis,
 					'group_visibility' => 'public',
 					'entry_visibility' => null,
