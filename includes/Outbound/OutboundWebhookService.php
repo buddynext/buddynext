@@ -68,6 +68,24 @@ class OutboundWebhookService {
 	 * MAX_RETRY_ATTEMPTS times) with exponential backoff so failed deliveries
 	 * are retried without a perpetual polling cron.
 	 */
+	/**
+	 * Per-endpoint delivery hook.
+	 *
+	 * The run_delivery() worker used to POST to EVERY subscribed endpoint itself, sequentially, inside a
+	 * single Action Scheduler job — each send blocking with a 5-second timeout. Free caps
+	 * registrations at 1, so it never showed. Pro removes the cap entirely, which is the
+	 * feature: an owner with 50 endpoints turned one job into up to 50 x 5s = 250 seconds of
+	 * serial blocking HTTP.
+	 *
+	 * That is not merely slow. One endpoint that hangs delays delivery to every OTHER endpoint
+	 * behind it in the same job, and a job that runs long enough to be killed takes the
+	 * undelivered remainder with it. The endpoints are independent; the job made them a queue.
+	 *
+	 * So delivery FANS OUT: one job per endpoint. Each endpoint's latency and failure is its
+	 * own, and Action Scheduler runs them concurrently.
+	 */
+	private const DELIVER_ONE_HOOK = 'buddynext_webhook_deliver_one';
+
 	private const RETRY_HOOK = 'buddynext_webhook_retry_single';
 
 	/**
@@ -93,6 +111,7 @@ class OutboundWebhookService {
 		add_action( self::DELIVER_HOOK, array( $this, 'run_delivery' ), 10, 2 );
 
 		// Single-event retry worker: fired with backoff after each failed delivery.
+		add_action( self::DELIVER_ONE_HOOK, array( $this, 'run_delivery_one' ), 10, 3 );
 		add_action( self::RETRY_HOOK, array( $this, 'run_retry' ), 10, 4 );
 	}
 
@@ -464,20 +483,64 @@ class OutboundWebhookService {
 				continue;
 			}
 
-			$webhook_id = (int) $webhook['id'];
-			$code       = $this->deliver(
-				$webhook_id,
-				(string) $webhook['url'],
-				(string) $webhook['secret'],
-				$event_slug,
-				$payload
-			);
+			// Fan out: one job per endpoint. Delivering them all here means N sequential
+			// BLOCKING sends in one job, so one hanging endpoint delays every endpoint behind
+			// it, and a job killed for running long drops the undelivered remainder. The
+			// endpoints are independent — the loop was what made them a queue.
+			$args = array( (int) $webhook['id'], $event_slug, $payload );
 
-			// On failure, schedule the first single-event retry (attempt 1).
-			// Subsequent retries are chained inside run_retry().
-			if ( ! ( $code >= 200 && $code < 300 ) ) {
-				$this->schedule_single_retry( $webhook_id, $event_slug, $payload, 1 );
+			if ( function_exists( 'as_enqueue_async_action' ) ) {
+				as_enqueue_async_action( self::DELIVER_ONE_HOOK, $args, self::AS_GROUP );
+			} else {
+				// No Action Scheduler: deliver inline rather than silently dropping the event.
+				$this->run_delivery_one( (int) $webhook['id'], $event_slug, $payload );
 			}
+		}
+	}
+
+	/**
+	 * Deliver ONE queued event to ONE endpoint.
+	 *
+	 * The blocking HTTP send lives here, in a job of its own, so an endpoint that is slow or
+	 * hanging costs only itself.
+	 *
+	 * The row is re-read rather than passed in: between fan-out and execution the owner may
+	 * have deactivated or deleted the endpoint, and delivering to an endpoint that has just
+	 * been switched off is exactly the kind of thing an owner reports as a bug.
+	 *
+	 * @param int                 $webhook_id Endpoint id.
+	 * @param string              $event_slug Event slug.
+	 * @param array<string,mixed> $payload    Event-specific data.
+	 * @return void
+	 */
+	public function run_delivery_one( int $webhook_id, string $event_slug, array $payload ): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$webhook = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, url, secret FROM {$wpdb->prefix}bn_outbound_webhooks WHERE id = %d AND is_active = 1",
+				$webhook_id
+			),
+			ARRAY_A
+		);
+
+		if ( ! is_array( $webhook ) ) {
+			return;
+		}
+
+		$code = $this->deliver(
+			$webhook_id,
+			(string) $webhook['url'],
+			(string) $webhook['secret'],
+			$event_slug,
+			$payload
+		);
+
+		// On failure, schedule the first single-event retry (attempt 1).
+		// Subsequent retries are chained inside run_retry().
+		if ( ! ( $code >= 200 && $code < 300 ) ) {
+			$this->schedule_single_retry( $webhook_id, $event_slug, $payload, 1 );
 		}
 	}
 
