@@ -18,21 +18,26 @@ Registration is how people create an account and join your community. BuddyNext 
 ## How it works for members
 
 1. **Open the sign-up page.** A member visits your sign-up page - your community's built-in login and sign-up hub, or any page where you added the `[buddynext_auth]` shortcode.
-2. **Fill in the form.** The form asks for an email address, a username, and a password. It also shows any profile fields you chose to collect at sign-up, plus a Terms of Service checkbox.
-3. **Submit.** BuddyNext validates everything inline before creating the account. Errors (for example, a taken username or a weak password) show next to the field they belong to, so nothing is created on a bad submission.
+2. **Fill in the form.** By default the form asks for an email address, a name, and a password. It also shows any profile fields you chose to collect at sign-up, plus a Terms of Service checkbox. It does **not** ask for a username unless you switch that on - see below.
+3. **Submit.** BuddyNext validates everything inline before creating the account. Errors (for example, a weak password) show next to the field they belong to, so nothing is created on a bad submission.
 4. **Arrive in the community.** What happens next depends on your registration mode and whether email verification is on - see the states below.
 
 ### Field rules members see
 
-| Field | Requirement |
-|---|---|
-| Email | A valid address that is not already in use. |
-| Username | At least 3 characters, valid characters only, not already taken. |
-| Password | At least 8 characters. |
-| Terms of Service | Must be checked to continue. |
-| Profile fields | Any field you marked to show at registration. Required ones must be filled. |
+| Field | Requirement | Shown by default? |
+|---|---|---|
+| Email | A valid address that is not already in use. | Always |
+| Password | At least 8 characters. | Always |
+| Name | The name other members see. | Yes - you can turn it off |
+| Username | At least 3 characters, valid characters only, not already taken. | **No** - off by default |
+| Terms of Service | Must be checked to continue. | Yes, when you have set a Terms page |
+| Profile fields | Any field you marked to show at registration. Required ones must be filled. | Only the ones you chose |
+
+> **Note on usernames:** BuddyNext does not ask a new member to invent a username. It generates a unique one from their email address, and the member can change it later in their settings. This is deliberate: "that username is taken" is one of the most common reasons someone abandons a sign-up form, and most people do not care what their handle is at the moment they join. If your community *is* about handles, switch **Let members choose their own username** on and the field appears.
 
 > **Note:** If you restrict registration to certain email domains, an address outside those domains is rejected at sign-up.
+
+> **Note:** The Terms of Service checkbox only appears if you have both switched **Require members to accept your terms** on (it is on by default) **and** chosen a Terms page. BuddyNext will not ask a member to agree to a document that does not exist.
 
 ## What happens after submit
 
@@ -41,7 +46,10 @@ The new member's path depends on two settings: your **Registration Mode** and wh
 - **Instant access (Open mode, verification off).** The account is created and the member is signed in immediately. They land on the onboarding wizard if onboarding is enabled, otherwise on the activity feed.
 - **Verification required.** The account is created and the member is sent to a verification screen. They must click the link in the confirmation email before getting full access. (See the Email Verification page for the full flow.)
 - **Admin approval (Approval mode).** The account is created but held. The member sees a message that their account is awaiting administrator approval, and they cannot sign in until an admin approves them.
-- **Invite only (Invite mode).** A valid invitation is required. Without one, sign-up is refused with a message that the community is invite-only. When someone opens their invitation link, the sign-up form already has their email address filled in, so they only need to choose a username and password. An invitation link can also drop the new member straight into the space they were invited to.
+- **Invite only (Invite mode).** A valid invitation is required. Without one, sign-up is refused with a message that the community is invite-only. When someone opens their invitation link, the sign-up form already has their email address filled in, so they only need to choose a password. An invitation link can also drop the new member straight into the space they were invited to.
+- **Closed.** Nobody can create an account, invitation or not. Use this to pause sign-ups entirely.
+
+> **Important:** WordPress has its own "Anyone can register" setting, under Settings > General, and another plugin (or a hosting default) can flip it behind your back. If it disagrees with your BuddyNext registration mode, sign-ups break silently: BuddyNext can show registration as open while WordPress refuses every single person who tries to join, and you would never know unless someone told you. BuddyNext watches for this and shows an admin notice with a one-click fix when the two disagree. If you see that notice, act on it - it means people are being turned away right now.
 
 ## Setting it up (for owners)
 
@@ -60,8 +68,14 @@ These live under **BuddyNext > Members > Registration & Login**.
 
 | Setting | What it does | Default |
 |---|---|---|
-| Registration Mode | Chooses who can create an account: **Open** (anyone), **Invite Only** (a valid invitation is required), or **Admin Approval** (an admin reviews each request). | Follows WordPress: Open when "Anyone can register" is on, otherwise closed |
-| Require email verification | New members must confirm their email before getting full access. Only appears when the Email Verification feature is enabled under Features. | Off |
+| Registration Mode | Chooses who can create an account: **Open** (anyone), **Invite Only** (a valid invitation is required), **Admin Approval** (an admin reviews each request), or **Closed** (nobody can create an account). | Follows WordPress: Open when "Anyone can register" is on, otherwise closed |
+| Require members to accept your terms | Shows a consent checkbox on every sign-up route. Only takes effect once you have chosen a Terms page. | On |
+| Ask new members for their name | Collects the name other members will see. Turn it off only if your community wants handles rather than names. | On |
+| Let members choose their own username | Adds a username field to the sign-up form. With this off, a username is generated from the member's email and they can change it later in their settings. | Off |
+| Also allow the WordPress sign-up form | With this off, anyone landing on the WordPress `wp-login.php` sign-up form is sent to your BuddyNext sign-up page instead. Turn it on only if another plugin depends on the WordPress form. Your registration rules apply either way. | Off |
+| Require email verification | New members must confirm their email. How strictly is a separate setting - see below. Only appears when the Email Verification feature is enabled under Features. | Off |
+| How strictly to enforce verification | **Restricted** (recommended): unverified members can look around but cannot post or comment. **Full**: they cannot use the community at all until they confirm. Only appears when verification is on. | Restricted |
+| Require two-factor authentication | Who must use 2FA: Nobody, Administrators, Administrators and editors, or Everyone. See Two-Factor Authentication. | Nobody |
 | Show the branding panel | Shows a branded side panel next to the login and sign-up forms. Turn off for a centered form only. | On |
 | Panel heading | Large heading on the branding panel. | Your site title |
 | Panel tagline | A short line beneath the heading. | Your site tagline |

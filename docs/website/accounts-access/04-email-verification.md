@@ -19,35 +19,45 @@ Verification is optional. When it is turned off, every account is treated as ver
 
 When verification is required, here is what a new member experiences.
 
-1. **Sign up as usual.** After creating the account, the member lands on a verification screen instead of the main feed.
+1. **Sign up as usual.** The account is created and BuddyNext asks the member to confirm their address.
 2. **Open the email.** BuddyNext sends a message with a confirmation link to the address used at sign-up. The email matches the rest of your community's branded emails.
 3. **Click the link.** The link opens a confirmation page. Once it loads, the address is verified and the member can use the community normally.
-4. **Resend if needed.** If the email did not arrive, the member can use the **Resend** button on the verification screen to send a fresh link. They should also check spam or promotions folders first.
+4. **Resend if needed.** If the email did not arrive, the member can use the **Resend** button to send a fresh link. They should also check spam or promotions folders first.
 
 ### What members can do before verifying
 
-A member with an unverified address can sign in and reach the verification screen, but full community access is held until they confirm. The verification step is meant to come first, so encourage new members to complete it before doing anything else.
+This depends entirely on **how strictly** you choose to enforce verification, and the two settings feel very different to a new member. You pick the level (see below).
 
-If an unverified member tries to post anyway - for example from the post composer on the feed - BuddyNext blocks the post and shows a **Resend verification email** action right there, so they can request a fresh link without leaving what they were doing.
+**Restricted (the default).** The member is signed in and can look around - read the feed, browse spaces, see who is in the community - but cannot **post or comment** until they confirm. If they try to post anyway, BuddyNext blocks the post and shows a **Resend verification email** action right there, so they can request a fresh link without losing what they were doing.
+
+**Full.** The member cannot use the community at all. They land on a verification screen instead of the feed and stay there until they confirm.
 
 > **Note:** The confirmation link is single-use. Once it has been clicked successfully, clicking it again does nothing - the account is already verified, and that state stays set.
 
 ## Setting it up (for owners)
 
-Email verification is controlled in two places in the admin: a master feature switch, and a sub-toggle that requires it for new sign-ups.
+Email verification is controlled in three places in the admin: a master feature switch, a toggle that requires it for new sign-ups, and a setting for how strictly to enforce it.
 
 ### Step 1 - Turn on the feature
 
-Go to **BuddyNext > Platform > Features** and enable **Email Verification**. This makes the verification system available. Until this is on, the require toggle below is hidden, because it would have no effect.
+Go to **BuddyNext > Platform > Features** and enable **Email Verification**. This makes the verification system available. Until this is on, the settings below are hidden, because they would have no effect.
 
-### Step 2 - Require it for new registrations
+### Step 2 - Require it, and choose how strict to be
 
-Go to **BuddyNext > Members > Registration & Login**. With the feature enabled, you will see the require toggle.
+Go to **BuddyNext > Members > Registration & Login**. With the feature enabled, you will see both settings.
 
 | Setting | What it does | Default |
 |---|---|---|
-| Registration Mode | Chooses who can create an account: **Open** (anyone), **Invite Only** (needs an invitation), or **Admin Approval** (an admin reviews each request). | Open |
-| Require email verification | New registrations must verify their email before accessing the community. Only shown when the Email Verification feature is enabled. | Off |
+| Require email verification | Asks new members to confirm their email address. | Off |
+| How strictly to enforce verification | **Restricted** (recommended): members can look around but cannot post or comment until they confirm. **Full**: they cannot use the community at all until they confirm. | Restricted |
+
+### Which level should you pick?
+
+**Restricted** is the recommendation, and it is the default for a reason. A new member who has just signed up and is stuck on a blank "check your email" screen has nothing to look at and no reason to wait. If the email is slow, or lands in spam, or they simply mistyped their address, you have lost them. Letting them read the community while the email arrives means they are getting value from your site in the exact minutes they are deciding whether to stay - and they still cannot post spam, which is the thing verification is actually protecting you from.
+
+**Full** is the stricter choice. Pick it when your community must not be readable by an unconfirmed address at all - a private, paid, or professional community where the content itself is the thing being protected, not just the ability to post into it. Be aware of what you are trading: some genuine new members will not make it past the screen.
+
+> **Tip:** Whichever you pick, make sure your site can actually send email before you switch verification on. Verification is the one feature that turns a broken mail setup into a locked front door - every new member gets stuck, and none of them can tell you, because telling you would require an account.
 
 
 ### Admin Approval mode

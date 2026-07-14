@@ -32,6 +32,8 @@ Each tab carries a live count so members can see where new activity is. Switchin
 
 While a member is reading, the feed quietly checks for new activity in the background (about once a minute, and only while the browser tab is in view to avoid wasted requests). When new posts have arrived above the current scroll position, a "N new posts" pill appears at the top. Clicking it loads the new posts into view. Members are never interrupted mid-read; they choose when to pull in what is new.
 
+The count is capped at **99+**, the way every mainstream feed caps it. A busy community reads as alive rather than overwhelming, and nobody acts on "3,412 new posts" differently than on "99+".
+
 ### Infinite scroll
 
 The feed loads a page of posts at a time. As a member scrolls toward the bottom, the next page loads and appends automatically, so reading is continuous without a "next page" click. This keeps the feed fast even in a large community because only what is on screen is ever loaded.

@@ -52,9 +52,19 @@ A capability mapped to `null` in the role map has no role gate - it can only be 
 
 ## The capability catalog
 
-Capabilities are dot-namespaced slugs (`buddynext-{domain}/{action}`). The free catalog is defined in `BuddyNext\Core\Abilities::CATALOG` and registered with the WordPress Abilities API (WP 6.9+) so each one appears in the admin Abilities UI and can be granted or revoked through that API. On WordPress below 6.9 the registration no-ops silently and `PermissionService` still enforces the gate.
+Capabilities are dot-namespaced slugs (`buddynext-{domain}/{action}`).
 
-The free catalog holds 21 capabilities:
+There are **three** lists in code and they are not the same list. Know which one you are looking at:
+
+| List | Where | What it decides |
+|---|---|---|
+| `PermissionService::ROLE_MAP` | `includes/Core/PermissionService.php` | **Enforcement.** The default role each capability requires. This is the authority - if a slug is here, it is gated. |
+| `Abilities::CATALOG` | `includes/Core/Abilities.php` | **Registration** with the WordPress Abilities API (WP 6.9+), so the capability appears in the admin Abilities UI and can be granted or revoked through that API. On WordPress below 6.9 this no-ops silently and `PermissionService` still enforces the gate. |
+| `RolesTab::catalog()` | `includes/Admin/RolesTab.php` | **The admin Roles tab.** A deliberate subset - the capabilities a site owner is offered a UI control for. `handle_save()` drops any submitted slug that is not in it. |
+
+Enforcement is the list that matters for `buddynext_can()`. The other two only decide whether an owner gets a control for it.
+
+The role map holds 22 generic capabilities:
 
 | Capability | Default required role |
 |------------|----------------------|
@@ -66,7 +76,8 @@ The free catalog holds 21 capabilities:
 | `buddynext-feed/delete-any-post` | `moderator` |
 | `buddynext-feed/pin-post` | `moderator` |
 | `buddynext-feed/schedule-post` | `member` |
-| `buddynext-spaces/create` | `member` |
+| `buddynext-comments/create` | `member` |
+| `buddynext-spaces/create` | `member` (see note) |
 | `buddynext-spaces/join` | `member` |
 | `buddynext-spaces/join-gated` | none |
 | `buddynext-spaces/post` | `member` |
@@ -79,6 +90,17 @@ The free catalog holds 21 capabilities:
 | `buddynext-moderation/review-queue` | `moderator` |
 | `buddynext-moderation/issue-strike` | `moderator` |
 | `buddynext-moderation/suspend-user` | `admin` |
+
+> **`buddynext-spaces/create` has one option that overrides its default.** The legacy Spaces-tab "who can create spaces" setting is folded into the role map: when `get_option( 'buddynext_space_creation_role' )` is `'admin'`, the map default flips from `member` to `admin`. The default (`'member'`) leaves the map untouched. It is applied inside `role_map()` so it composes with the Roles and Capabilities tab instead of fighting it.
+
+> **`buddynext-comments/create` is enforced, but it is not currently grantable through a UI.** It is present in `PermissionService::ROLE_MAP` (so `buddynext_can()` gates on it), but it is absent from both `Abilities::CATALOG` and `RolesTab::catalog()`. That means it is not registered with the WordPress Abilities API, it renders no row in the admin Roles tab, and `RolesTab::handle_save()` drops it if submitted (it writes nothing outside its own catalog). Today the only way to change its required role is the `buddynext_role_map` filter:
+>
+> ```php
+> add_filter( 'buddynext_role_map', static function ( array $map ): array {
+>     $map['buddynext-comments/create'] = 'moderator';
+>     return $map;
+> } );
+> ```
 
 Two additional space-scoped capabilities - `buddynext-moderate-space` and `buddynext-manage-space` - are resolved by dedicated per-space methods (`can_moderate_space()` / `can_manage_space()`) and are not part of the generic role map. `buddynext-moderate-space` is granted to a space `owner` or `moderator`; `buddynext-manage-space` only to the space `owner`.
 

@@ -30,6 +30,17 @@ With the companion active, members can attach photos and other media to their ac
 
 As of BuddyNext 1.0.1, a standalone upload made directly in WPMediaVerse also posts a shared-media card to the activity feed. It is deferred by a couple of minutes and de-duplicated, so a photo added through the BuddyNext composer never posts twice.
 
+### Reporting media, and blocking an uploader
+
+The media viewer (the full-screen lightbox a member gets when they click a photo or video) carries two safety controls alongside Favorite, Share, and Download:
+
+- **Report** - sends the media to moderators for review.
+- **Block** - blocks the member who uploaded it. This blocks the *person*, not the file, and it is BuddyNext's own block, exactly the same as blocking someone from their profile.
+
+Both are hidden on your own media.
+
+This matters more than it looks. The bridge sends the standalone media page back to the post the media came from, which is what keeps a member inside the community rather than bouncing them into a separate media plugin's page. That page happened to be the one carrying WPMediaVerse's own Report button - so without these controls, a BuddyNext community would have had no way at all for a member to report a photo. The lightbox is the media viewer on a BuddyNext site, so the controls belong there.
+
 ### Media link in the sidebar
 
 A **Media** link appears in the BuddyNext left navigation rail, pointing to the community's media landing page so members can browse shared media in one place.
@@ -53,7 +64,15 @@ If the plugin is already installed but switched off, the same row shows an **Act
 
 The moment WPMediaVerse is active alongside BuddyNext, the bridge between them attaches automatically. There is nothing further to configure for basic messaging - the engine's own chat panel, standalone messages page, and notifications step aside so BuddyNext owns the experience. Members get direct messaging, media in posts, and the Media sidebar link with no extra setup.
 
-There are no BuddyNext settings specific to this companion. Who can message whom is controlled by your existing BuddyNext privacy and moderation rules (see Direct Messaging and Blocking and Muting), not by a separate WPMediaVerse panel.
+There are no BuddyNext settings to fill in for this companion. Who can message whom is controlled by your existing BuddyNext privacy and moderation rules (see Direct Messaging and Blocking and Muting), not by a separate WPMediaVerse panel.
+
+One default is changed for you, and it is worth knowing about:
+
+**Media reporting is turned on.** Installed on its own, WPMediaVerse ships with member reporting switched off. That is a reasonable default for a media library on a site that may have no moderators at all. A community is the opposite case: a site where members upload photos and videos and *nobody* can report one has no abuse path. So when BuddyNext is active, media reporting is on. You do not have to do anything.
+
+**Where media reports go.** They land in WPMediaVerse's own review queue, at **WPMediaVerse > Media Moderation** in the WordPress admin - not in BuddyNext's moderation queue. The media plugin owns the media, so it owns the queue. If your community allows uploads, add that screen to your moderators' rounds alongside **BuddyNext > Moderation > Reports**.
+
+If you genuinely want media reporting off, a developer can switch it back off in one line, and the Report button then disappears from the viewer rather than sitting there and failing when a member taps it. Blocking an uploader is unaffected either way, because that is BuddyNext's own feature.
 
 ## Good to know
 

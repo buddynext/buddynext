@@ -42,13 +42,37 @@ add_filter( 'buddynext_space_can_view_roster', function ( bool $can_view, int $s
 | Hook | Type | Fired when | Parameters |
 |---|---|---|---|
 | `buddynext_space_created` | action | A new space is created | `int $space_id, int $owner_id` |
-| `buddynext_space_updated` | action | A space's fields are edited | `int $space_id, int $user_id, array $fields` (columns written this update) |
+| `buddynext_space_updated` | action | A space's fields are edited | `int $space_id, int $user_id, array $fields` (columns written this update). **See the arity warning below - one call site passes only `$space_id`.** |
 | `buddynext_space_archived` | action | A space is archived | `int $space_id, int $actor_id` |
 | `buddynext_space_unarchived` | action | A space is unarchived | `int $space_id, int $actor_id` |
-| `buddynext_space_ownership_transferred` | action | A space's ownership moves to a new owner | `int $space_id, int $new_owner_id, int $actor_id` |
+| `buddynext_space_ownership_transferred` | action | A space's ownership moves to a new owner | `int $space_id, int $new_owner_id, int $actor_id, int $previous_owner_id` |
 | `buddynext_space_deleted` | action | A space is deleted | `int $space_id, int $user_id` |
 
 `buddynext_space_archived` and `buddynext_space_unarchived` are dispatched from a single call site that selects the hook name by state, so a listener only fires on the transition it registered for.
+
+> **Arity warning: `buddynext_space_updated` is fired from three call sites and one of them is short.**
+>
+> | Call site | Arguments passed |
+> |---|---|
+> | `SpaceService::update()` (`includes/Spaces/SpaceService.php:599`) | 3 - `$space_id, $user_id, $fields` |
+> | `SpaceService` sub-space detach (`includes/Spaces/SpaceService.php:1188`) | 3 - `$space_id, $user_id, $fields` |
+> | `SpaceFieldRegistry::save()` (`includes/Spaces/SpaceFieldRegistry.php:565`) | **1 - `$space_id` only** |
+>
+> The third fires when a searchable, public space field is saved (it exists to trigger a search re-index). WordPress passes a listener only the arguments the *firing* site supplied, so a typed 3-parameter callback raises an `ArgumentCountError` on that path even though it was registered exactly as documented.
+>
+> Until the call sites converge, **give your callback defaults** rather than relying on `accepted_args`:
+>
+> ```php
+> add_action(
+>     'buddynext_space_updated',
+>     static function ( int $space_id, int $user_id = 0, array $fields = array() ): void {
+>         // $user_id === 0 and $fields === [] means the short call site fired:
+>         // a searchable space field changed. Re-fetch the space if you need more.
+>     },
+>     10,
+>     3
+> );
+> ```
 
 ## Membership: join, request, invite
 

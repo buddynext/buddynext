@@ -68,9 +68,12 @@ Enabling an integration decides *that* it runs; **Platform > Integration Display
 
 - **Show in navigation** - adds (or removes) the integration's tab in member navigation.
 - **Post to the activity feed** - whether that integration's events (new discussions, new listings, new media, and so on) appear in the community feed.
+- **Include in search** - whether members can find that integration's content in community search. Offered by the integrations that have content worth searching (discussions, jobs, listings).
 - **Navigation sub-tabs** - integrations that add several member tabs (for example Career Board's Jobs and Resume) let you switch each sub-tab individually.
 
-This is the screen to visit when you want a companion's data without its menu clutter - for example, keeping forum posts in the feed while hiding the Discussions tab from navigation. Turning a navigation switch off never deletes anything; it only hides the surface.
+This is the screen to visit when you want a companion's data without its menu clutter - for example, keeping forum posts in the feed while hiding the Discussions tab from navigation. Turning a navigation or feed switch off never deletes anything; it only hides the surface.
+
+> **Note:** **Include in search** behaves differently from the other two, and the difference matters. Switching it off does not just stop *new* content being indexed - it also removes the content already in the search index. That is the honest behaviour: a search switch that left old results behind would be a switch that does not work. Switch it back on and the content is indexed again as members create or update it. Nothing is deleted from the companion plugin itself; only the search index is affected.
 
 ![Platform - Integration Display, one card per connected integration with navigation and feed switches](../images/admin-integration-display.webp)
 

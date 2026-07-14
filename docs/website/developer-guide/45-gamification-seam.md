@@ -73,7 +73,7 @@ if ( $user_id > 0 && function_exists( 'wb_gam_submit_event' ) ) {
 }
 ```
 
-> **Note:** An engine can also hook the raw `buddynext_*` producer actions directly (see `docs/specs/HOOKS.md`) instead of relying on the manifest catalogue path - for example `buddynext_post_created`, `buddynext_user_followed`, `buddynext_reaction_added`, `buddynext_space_member_joined`. The manifest catalogue path exists so admins get a configurable point catalogue out of the box.
+> **Note:** An engine can also hook the raw `buddynext_*` producer actions directly instead of relying on the catalogue path - for example `buddynext_post_created`, `buddynext_user_followed`, `buddynext_reaction_added`, `buddynext_space_member_joined`. (Grep the source for the signature; Free ships no `docs/specs/HOOKS.md`, despite what an earlier revision of this page said.) The catalogue path exists so admins get a configurable point catalogue out of the box.
 
 ## Session / streak / daily-login pulses
 

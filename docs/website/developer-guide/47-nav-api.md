@@ -1,6 +1,6 @@
 # Navigation API: add menus and tabs
 
-How to add a menu item or a tab to BuddyNext from an addon or a theme. BuddyNext has two distinct navigation systems and they take different APIs: the declarative Nav registry that owns member-profile and space tabs, and the global left-rail filter. This page covers both, names the seams, and gives a working recipe for each.
+How to add a menu item or a tab to BuddyNext from an addon or a theme. BuddyNext has four distinct navigation surfaces and they take different APIs: the declarative Nav registry that owns member-profile and space tabs, the global left-rail filter, the mobile bottom bar, and the header account dropdown. This page covers all four, names the seams, and gives a working recipe for each. Every one of them is also a scope the site owner can override in Settings -> Navigation, so the precedence rules matter as much as the registration API.
 
 ![A member profile whose primary tabs are resolved through the Nav registry documented here](../images/member-profile.webp)
 
@@ -12,13 +12,28 @@ How to add a menu item or a tab to BuddyNext from an addon or a theme. BuddyNext
 
 ## Overview / Contract
 
-There are three navigation systems. Use the right one for the surface you are extending.
+There are four navigation systems. Use the right one for the surface you are extending.
 
 | System | Surfaces it owns | The seam | Where it renders |
 | --- | --- | --- | --- |
 | Nav registry (declarative, gated) | member-profile tabs, space tabs | `buddynext_register_nav` action -> `$registry->register([...])` | `templates/profile/view.php`, `templates/spaces/home.php`, `templates/parts/space-header.php` |
 | Left rail (plain array) | the persistent global left-rail column | `buddynext_rail_items` filter | `templates/shell/rail.php` |
+| Mobile bottom bar (plain array) | the fixed five-slot bar below 640px | `buddynext_mobile_nav_items` filter | `templates/partials/nav.php` |
 | User links catalogue | the header account dropdown (top-right avatar menu), and the `#bn-*` tokens in Appearance -> Menus | `buddynext_user_links` / `buddynext_header_user_menu_links` filters | `includes/Header/HeaderUserSection.php` |
+
+### The admin overrides sit on top of all four
+
+Every one of these surfaces is also a **scope** in Settings -> Navigation, where the site owner can hide, relabel, reorder, capability-gate, and add custom links. `BuddyNext\Nav\NavOverrides` applies the saved settings on each surface's own seam, always at **priority 20**:
+
+| Scope | Option | Applied by | On the filter |
+| --- | --- | --- | --- |
+| `main` | `buddynext_nav_overrides` | `apply_rail()` | `buddynext_rail_items` |
+| `profile` | `buddynext_nav_overrides_profile` | `apply_nav_items()` | `buddynext_nav_items` |
+| `space` | `buddynext_nav_overrides_space` | `apply_nav_items()` | `buddynext_nav_items` |
+| `mobile` | `buddynext_nav_overrides_mobile` | `apply_mobile_items()` | `buddynext_mobile_nav_items` |
+| `account` | `buddynext_nav_overrides_account` | `apply_user_links()` | `buddynext_user_links` |
+
+Register your own items at the default priority 10 and the owner's overrides still win, which is the intended precedence. The scope list is `NavManager::SCOPE_OPTION_MAP` (`includes/Admin/NavManager.php`), mirrored by `NavOverrides::SCOPE_OPTION` (`includes/Nav/NavOverrides.php`).
 
 The registry is the modern, gated, ordered system: every item declares a capability and condition, the registry validates and orders it, and one renderer draws it. It is defined in `includes/Nav/` (`NavRegistry.php`, `NavItem.php`, `NavContext.php`, `ResolvedNav.php`, `PanelRenderer.php`, plus the core providers in `includes/Nav/Providers/`). A template resolves a surface with `buddynext_nav()` (defined in `buddynext.php:437`):
 
@@ -83,11 +98,42 @@ The rail is split into two groups by a **"You"** heading: community links (Feed,
 >
 > If you need an item below "You", use the `buddynext_rail_items` filter with `'group' => 'you'`. There is no admin equivalent today.
 
+## Recipe: change the mobile bottom bar
+
+Below 640px the rail is replaced by a fixed **five-slot** bottom bar (`templates/partials/nav.php`). Its seam is the `buddynext_mobile_nav_items` filter:
+
+```php
+apply_filters( 'buddynext_mobile_nav_items', array $items, string $active );
+```
+
+`$active` is the active **mobile-bar** key (`feed`, `spaces`, `notifications`, `profile`, or `''`) - note the bar has its own key space, which is not the main-nav key space. Item keys are the same plain-array shape as the rail (`key`, `url`, `icon`, `label`, `show`), plus `badge` / `badge_count` on the notifications slot and `type => 'create'` on the compose button.
+
+The core slots are `feed`, `spaces`, `create`, `notifications`, `profile`.
+
+> **The bar is exactly five slots. Do not add a sixth.**
+>
+> `create` is centred by **arithmetic**, not by a CSS offset: it is `flex: 0 0 44px` between two `flex: 1` groups, so it lands on the viewport centre only while it has the same number of slots on each side. A sixth slot silently breaks that (Messages once was a 6th slot and pushed Create 35px off-centre at 390px). If a slot must go in, one has to come out.
+
+**The bar honours the site owner's saved order.** `BuddyNext\Nav\NavOverrides::apply_mobile_items()` hooks the filter at **priority 20** and applies the `mobile` scope of Settings -> Navigation: hide, relabel, capability-gate, drag-reorder, and admin-created custom tabs. Two slots are exempt from the reorder and always land where they belong:
+
+- **`create`** is put back in the centre after every other slot is sorted, so the arithmetic above still holds even when a slot is hidden (Spaces off) and the bar is shorter than five.
+- **`profile`** is pinned last. It is the anchor the "More" sheet folds into.
+
+Custom tabs the owner adds never get their own slot: when any are present, the Profile slot folds into a **"More"** sheet and a "More" toggle takes the fifth slot. With no custom tabs the bar is unchanged.
+
 ## Recipe: change the header account dropdown (top-right avatar menu)
 
-The dropdown under the member's avatar — My Profile, Edit Profile, Messages, Settings, Log Out — is neither the rail nor the tab registry. It is the **user links catalogue**, and it has **no admin UI**: it is filter-only. That is deliberate (it is a small, stable list), but it means the only way to change it is a snippet.
+The dropdown under the member's avatar - My Profile, Edit Profile, Messages, Settings, Log Out - is neither the rail nor the tab registry. It is the **user links catalogue**, drawn by `includes/Header/HeaderUserSection.php`.
 
-There are two seams, and which one you want depends on how far the change should reach.
+> **It now has an admin UI.** The dropdown is the `account` scope in **Settings -> Navigation** ("Account Dropdown - the header avatar menu"), alongside `main`, `profile`, `space` and `mobile`. The site owner can hide, relabel, reorder, capability-gate, and add custom links to it, exactly as on the other four scopes. The saved overrides live in the option `buddynext_nav_overrides_account` and are applied by `BuddyNext\Nav\NavOverrides::apply_user_links()`, hooked on `buddynext_user_links` at **priority 20**.
+>
+> The manager's rows are derived from `UserLinks::catalogue()`, not restated - so a link your addon adds through `buddynext_user_links` (at the default priority 10) shows up in the admin screen on its own, and the owner can then reorder or relabel it without touching your code. Overrides are keyed on the catalogue token minus its `#bn-` prefix (`#bn-edit-profile` -> `edit-profile`).
+>
+> Two rules the admin screen enforces: **Log out is locked** (relabel and reorder it, but there is no hide toggle - hiding it would strand every member with no way to sign out), and the logged-out items (Log in / Register) are not part of the scope at all.
+
+So the filters below remain the developer-level seam, and they still run first - the owner's saved overrides are layered on top at priority 20. That is the intended precedence, and it is the same rule the rail and the tab registry follow: **a `buddynext_user_links` change that "does nothing" almost always means the owner has already pinned that row in the admin.**
+
+There are two filter seams, and which one you want depends on how far the change should reach.
 
 ### `buddynext_header_user_menu_links` — change ONLY the dropdown
 

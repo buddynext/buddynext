@@ -4,7 +4,7 @@ Stripe is the payment gateway BuddyNext Pro uses to take real payments for membe
 
 ![The Monetization Payments admin tab where you connect your Stripe API keys and webhook](../images/admin-stripe.webp)
 
-![What members see — the pricing page where they pick a plan and check out via Stripe](../images/membership-pricing.webp)
+![What members see - the pricing page where they pick a plan and check out via Stripe](../images/membership-pricing.webp)
 
 > **Before you start:** BuddyNext is built to work with whichever gateway you connect. Alongside Stripe it ships a PayPal gateway, a Points gateway, and a Test sandbox so you can try the checkout flow without real money - all configured on the same Payments tab. This page covers Stripe.
 
@@ -48,13 +48,26 @@ Open BuddyNext settings and go to the Monetization section, Payments tab. Find t
 
 > **Note:** Stripe reads whether it is in test or live mode from your secret key prefix - an `sk_live_` key is live, an `sk_test_` key is test. The Payments tab also carries an explicit Test mode toggle you set yourself, and shows a Test mode / Live mode badge. If your declared mode and your key disagree - for example, test mode is on but a live key is saved - BuddyNext shows a mismatch warning so you never take real payments by mistake.
 
+### The gateway status badge
+
+The Payments tab shows a status badge for each gateway. It is not just checking that you typed something into the key fields - it actually asks the payment provider whether the credentials work. The badge reads:
+
+| Badge | What it means |
+|---|---|
+| Connected | The keys work. The provider answered. |
+| Not working | The keys are filled in but the provider rejected them. The reason is shown next to the field that is wrong. |
+| Needs setup | Required fields are still empty. |
+| Off | The gateway is switched off. |
+
+If it says **Connected** but you have not finished the webhook step, the badge tells you that too. Trust the badge over the fact that the fields look full - a typo in a secret key looks exactly like a correct one.
+
 ### Step 2: Add the webhook in Stripe
 
 A webhook is how Stripe tells your site when a payment succeeds, renews, or fails, so access stays in sync. The Stripe tab shows a webhook address for you to copy. In your Stripe dashboard, under Developers then Webhooks, add a new endpoint and paste in that address.
 
 When Stripe asks which events to send, choose the subscription and invoice events. After Stripe creates the endpoint, it shows you a signing secret - copy that back into the Webhook signing secret field on the Stripe tab and save.
 
-> **Warning:** Until the webhook is set up and its signing secret is saved, payments will go through in Stripe but access will not reach your members. Always finish the webhook step before going live.
+> **Warning:** Set the webhook up before you go live. The webhook is how Stripe tells your site about renewals, cancellations, and failed payments - without it, those never reach your members and subscriptions drift out of sync with what Stripe thinks. BuddyNext does have a safety net for the moment of purchase (when a buyer returns from Stripe, the site checks the payment directly rather than waiting for a webhook that may never arrive, so a first purchase is not lost), but that net only covers that one moment. It is not a substitute for the webhook.
 
 ### Step 3: Price your tiers
 

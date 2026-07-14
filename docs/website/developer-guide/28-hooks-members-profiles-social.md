@@ -21,7 +21,7 @@ The action and filter seams for user lifecycle, member profiles, profile fields,
 | `buddynext_user_verified` | action | A member completes email verification | `int $user_id` |
 | `buddynext_onboarding_completed` | action | A member finishes the onboarding wizard | `int $user_id` |
 | `buddynext_member_suspended` | action | A member is suspended (member-domain mirror) | `int $user_id, int $by_user_id` |
-| `buddynext_member_unsuspended` | action | A suspension is lifted | `int $user_id, int $by_user_id` |
+| `buddynext_member_unsuspended` | action | A suspension is lifted | `int $user_id, int $by_user_id`. **Arity warning: the wp-admin Members screen fires this with `$user_id` only** - see Hooks: Moderation, Auth, Trust. Default the second parameter. |
 | `buddynext_member_approved` | action | A pending registration is approved | `int $user_id` |
 | `buddynext_member_rejected` | action | A pending registration is rejected | `int $user_id` |
 | `buddynext_purge_user_data` | action | A member is deleted and their relations are purged | `int $user_id, string $context` |

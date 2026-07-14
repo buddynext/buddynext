@@ -32,7 +32,7 @@ A member runs a normal search, then opens the advanced member filters on the res
 - Joined after - pick a date to see only members who registered on or after it.
 - Active within - set a number of days to see only members active in that window.
 
-Connected apps offer the same five filters, so a search built in a mobile app narrows results the same way the website does.
+The same five filters are available through the API the website uses, so any connected client narrows results the same way.
 
 > **Note:** The advanced member filters apply on the search results page when a search term is present. They refine an active member search rather than the empty-query directory browse.
 
@@ -67,3 +67,4 @@ If a data source is empty - no tiers, no labels - that filter's dropdown simply 
 Free search covers the unified search across members, posts, spaces, and hashtags, and the member directory browse. See Search for that baseline.
 
 Pro adds the five member filters (tier, space, label, joined after, active within) by extending the free search, plus per-member saved searches. The filters draw their options from your community's real tiers, spaces, and labels, so what you can filter by always matches what your site has.
+> **Note:** If you have turned Memberships on **and** chosen a default plan, this becomes a plan perk: members only get it if their plan grants it. With Memberships off (the default), it works for every member. See Membership Tiers.

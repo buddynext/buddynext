@@ -36,11 +36,11 @@ The type sets who can see the space and how people join it.
 
 | Type | Who can see it | How people join |
 |------|----------------|-----------------|
-| Open | Anyone, listed in the directory | Join instantly |
+| Open | Anyone, listed in the directory | Join instantly, or by request if the owner requires approval |
 | Private | Anyone, listed in the directory | Request to join, owner or moderator approves |
 | Secret | Hidden from the directory and non-members | Invite only |
 
-A member joining an open space becomes active immediately. Joining a private space creates a pending request the owner or a moderator approves or declines. A secret space does not appear in the directory at all and can only be joined through an invite.
+A member joining an open space becomes active immediately, unless the owner has switched on "Require approval to join" in the space's Permissions settings - a control offered on open spaces only. Joining a private space always creates a pending request the owner or a moderator approves or declines. A secret space does not appear in the directory at all and can only be joined through an invite.
 
 ### Avatar and cover
 
@@ -53,7 +53,7 @@ Both replace the previous image when re-uploaded.
 
 ### Editing a space
 
-The owner (and site admins) edit a space from its own settings screen. Settings are grouped into general, privacy, members, moderation, notifications, integrations, and a danger zone. From here you can rename the space, change its description, change its type, move it to a different category, swap the avatar or cover, set who can post, and reach the ownership transfer and delete actions.
+The owner (and site admins) edit a space from its own settings screen. Settings are grouped into panels: General, Privacy, Permissions, Members, Fields, Moderation, Notifications, Integrations, and a danger zone. From here you can rename the space, change its description, change its type, move it to a different category, swap the avatar or cover, set who can post and who can invite, and reach the ownership transfer and delete actions.
 
 ### Archiving and restoring
 

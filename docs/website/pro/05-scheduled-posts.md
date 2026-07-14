@@ -27,9 +27,16 @@ The time you pick is the moment it publishes. Until then, nobody sees the post i
 
 At the scheduled time, the post publishes on its own and behaves like any post made at that moment: it appears in the feed, counts toward the author, and triggers the normal new-post notifications. No further action is needed from the member.
 
-### Review and cancel your scheduled posts
+### Change the time, or cancel
 
-A member can see their own queued posts and cancel any that are still waiting. Cancelling a scheduled post does not delete it - it reverts the post to a draft and clears its scheduled time, so the content is preserved and can be rescheduled or edited later. Only the author of a scheduled post can cancel it.
+A member can see their own queued posts, move them to a different time, or cancel any that are still waiting.
+
+- **Reschedule.** Edit a post that is still waiting and the edit form offers a date and time control, prefilled with the slot it currently holds. Pick a new one and save. The post keeps its place in the queue at the new time. You can only move a post that has not published yet; once it is live, it is a normal post and the control is gone.
+- **Cancel.** Cancelling a scheduled post does not delete it. It reverts the post to a draft and clears its scheduled time, so the content is preserved and can be scheduled again or edited later.
+
+Only the author of a scheduled post can reschedule or cancel it.
+
+> **Note:** Times are shown and entered in **your site's timezone**, not the timezone of whoever happens to be looking. The schedule controls name the zone in their label, so the time an author types is the time the post card shows back to them - no mental arithmetic, wherever in the world they are.
 
 ## Setting it up (for owners)
 
@@ -47,6 +54,10 @@ The queue gives owners three actions.
 | Publish Overdue Posts Now | Publishes every post whose scheduled time has already passed, in one click. Useful if you want to flush anything that is due right away rather than wait for the next automatic run. |
 
 There are no settings to configure for scheduling - the queue and its actions are available as soon as Pro is active. The schedule clock in the composer is part of free BuddyNext and is on for members by default.
+
+The queue is **paginated at 50 posts a page**, with a prev/next pager and the full count in the heading, so the screen stays usable on a community with thousands of posts waiting.
+
+> **Note:** Scheduling is a plan perk. If you have turned Memberships on **and** chosen a default plan, a member can schedule a post only if their plan grants Scheduled Posts (the shipped Free plan does not). With Memberships off (the default), every member can schedule. See Membership Tiers.
 
 ### How posts publish on time
 
@@ -67,6 +78,6 @@ The schedule clock in the post composer is part of free BuddyNext: a member can 
 
 Pro adds the management layer around that clock:
 
-- Owner-validated scheduling and cancelling, with clear errors for a past date, a non-owner cancel, or a post that is not actually scheduled.
-- A member-facing list of their own scheduled posts, with cancel.
-- The admin **Scheduled Posts** queue listing every waiting post community-wide, with Publish Now, Cancel, and Publish Overdue Posts Now.
+- Owner-validated scheduling, rescheduling, and cancelling, with clear errors for a past date, a non-owner cancel, or a post that is not actually scheduled.
+- A member-facing list of their own scheduled posts, with reschedule and cancel.
+- The admin **Scheduled Posts** queue listing every waiting post community-wide, paginated, with Publish Now, Cancel, and Publish Overdue Posts Now.

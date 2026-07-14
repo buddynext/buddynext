@@ -29,7 +29,7 @@ We have kept this honest. Where something is provided by a companion plugin or i
 | Moderation | Free | Report button on all content, an admin review queue and moderation log, and actions to dismiss, remove, warn, strike, and suspend, including space-scoped moderation for space admins. Keyword blocklists, auto-action rules, spam scoring, bulk actions, blocklists, and an appeal system are Pro. |
 | Memberships and monetization | Pro | Membership tiers, a paywall experience, and gated or tiered space access. |
 | Gamification | Companion | Points, badges, and levels are provided by the free WB Gamification companion plugin. |
-| Push and mobile | Pro | A native mobile app ships with Pro, and web push notifications are part of Pro. |
+| Push and mobile | Pro, plus one coming soon | Web push notifications (desktop and mobile browsers) are Pro and available today. Members can also install the community to a phone home screen as an app-like experience, which is free (see the PWA page). A **native iOS and Android app is planned for a future release and does not ship yet** - do not switch on the strength of it. |
 | Real-time updates | Free and Pro | The free plugin keeps feeds and counts current with regular background refreshes. Instant real-time delivery and typing indicators in messaging are Pro. |
 | Analytics | Free and Pro | The free plugin shows basic admin counts. A full analytics dashboard (daily, weekly, and monthly active members, churn), space-level analytics, member self-analytics, and CSV export are Pro. |
 | White-label | Pro | Available on the Unlimited (Agency) license tier of Pro. |
@@ -40,7 +40,8 @@ We have kept this honest. Where something is provided by a companion plugin or i
 - **The free plugin is a complete community platform**, not a limited trial. Most of what a community needs to launch is in the Free column.
 - **Companion plugins are free and optional.** Messaging, media, discussions, and gamification each come from a companion you add only when you want that capability. This keeps your core install lean.
 - **Pro is additive.** Turning on Pro never removes or changes a free feature you already use - it only adds new capabilities.
-- **License tier affects the number of sites, not the feature set**, with two exceptions: white-label is Unlimited-tier only, and the native mobile app ships with Pro.
+- **License tier affects the number of sites, not the feature set**, with one exception: white-label is Unlimited-tier only.
+- **The native mobile app is not shipped yet.** It is a planned Pro deliverable for a future release. If a native app is the reason you are considering a move, wait for it to be released rather than buying on the promise. What exists today is web push and an installable, app-like PWA - both real, both documented, neither a native app.
 
 ## What's next
 

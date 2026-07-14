@@ -4,7 +4,7 @@ BuddyNext renders its frontend from small, reusable template parts under `templa
 
 ![A feed view built from the template parts whose three-hook convention this page documents](../images/community-activity-feed.webp)
 
-This is the dominant hook family in BuddyNext. Of the 1055 hooks the Free plugin fires, 705 are `buddynext_part_*` hooks - it is the primary theming seam, and the one you will reach for most when adjusting presentation.
+This is the dominant hook family in BuddyNext, by a wide margin. It is the primary theming seam, and the one you will reach for most when adjusting presentation.
 
 ## Overview / Contract
 
@@ -16,7 +16,9 @@ Each template part fires a consistent set of hooks named after the part. For a p
 | `buddynext_part_{part}_before` | action | Just before the part's root markup is output | `array $args` |
 | `buddynext_part_{part}_after` | action | Just after the part's root markup is output | `array $args` |
 
-Across all parts this produces 177 `_args` filters, 174 `_before` actions, and 174 `_after` actions. The counts differ slightly because a few parts have additional, part-specific seams (described below) and a small number of parts predate or omit one of the three.
+Most parts fire all three. A small number omit one, and a few add part-specific seams (described below), so the three families are not exactly equal in size. Do not assume a given part fires all three - open the part's PHP header, which lists the hooks it actually offers.
+
+> **Careful with grep here.** Every part's file header docblock *quotes* its own hook names in prose (`apply_filters( 'buddynext_part_x_args', ... )`). A naive `grep -c` counts those comment lines as call sites and roughly doubles the real number. Strip comments before counting, or read the header rather than counting at all.
 
 Many parts also expose a `buddynext_part_{part}_classes` filter (and occasionally `_tabs` or `_extras`) so you can add CSS classes to a part's root element or extend a specific region. These are part-specific - check the part's PHP header to see which it offers.
 

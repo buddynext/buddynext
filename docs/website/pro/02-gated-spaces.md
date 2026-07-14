@@ -35,7 +35,7 @@ The Gated Space Access perk is the all-access pass. A plan that grants it lets i
 
 ### What a blocked member sees
 
-When a logged-in member who lacks access opens a gated space, BuddyNext shows the paywall in place of the space content: a heading ("This space is available to members only."), your description, and an upgrade button. The button either starts checkout (when a gateway price is linked to the required tier) or points to the call-to-action link you set. The same paywall content is also sent to connected apps when a join is declined, so a mobile or headless front end can show its own version.
+When a logged-in member who lacks access opens a gated space, BuddyNext shows the paywall in place of the space content: a heading ("This space is available to members only."), your description, and an upgrade button. The button either starts checkout (when a gateway price is linked to the required tier) or points to the call-to-action link you set. The same paywall content is also returned through the API when a join is declined, so a headless or third-party front end can show its own version.
 
 
 ## Setting it up (for owners)
@@ -45,6 +45,8 @@ Gating a space is a two-part setup: mark the space as gated, then configure the 
 ### Step 1: Mark the space as gated
 
 Open BuddyNext in wp-admin, go to the Monetization section, and choose the Paywall tab. Below the paywall prompt settings you'll find the **Gate a Space Behind a Plan** control: pick a space, choose the plan a member needs to join it, and select **Apply gate**. To open a space back up, choose **No gate (open)** and apply. Spaces that are already gated are marked in the picker.
+
+The space picker shows 50 spaces at a time and has a **search box** next to it - type part of a space name to find the one you want. On a community with hundreds or thousands of spaces, search rather than scroll. The table of already-gated spaces below is paginated too, showing the page you are on and the total number of gated spaces.
 
 Once a space is linked to the tier you want (for example, the Premium plan), everything else - the join check, the paywall, and the per-space settings row on the Paywall tab - works automatically.
 

@@ -57,6 +57,7 @@ The one owner-facing control that touches following is the notification default 
 - **Follower and following lists respect blocks.** Members you have blocked, and members who have blocked you, are removed from these lists, so a block stays a clean break in both directions.
 - **Unfollowing is private.** The member you unfollow is not told. Following and unfollowing are low-stakes by design.
 - **Following is not the same as connecting.** Following is one-way and instant on public accounts; a connection is a two-way relationship that both members agree to. See Connections.
+- **There is a ceiling on how many accounts one member may follow.** A member can follow up to 5,000 accounts; past that, the Follow button tells them to unfollow someone first. This matches the limit mainstream social networks apply, and it keeps a member's home feed fast. There is no limit on how many *followers* a member can have - a popular account can be followed by as many people as want to follow it.
 
 ## The Follow Button block
 

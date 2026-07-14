@@ -20,7 +20,7 @@ The action and filter seams for unified search, the hashtag system, the search i
 | `buddynext_search_item` | filter | Once per result row on the built-in SQL path (mutate-only; does not run when a driver short-circuits) | `array $item, string $query, string $type, int $viewer_id, array $args` |
 | `buddynext_search_results` (results side) | filter | After items are built, to post-process the result set | `array $results, ...` |
 | `buddynext_search_performed` | action | A search has completed and the result set is finalised | `string $query, int $viewer_id, array $args, array $results` |
-| `buddynext_search_filter_options` | filter | The advanced member-search controls are populated (Pro supplies tier / space / member-label option lists; empty groups hide their control) | `array $options` |
+| `buddynext_search_filter_options` | filter | The advanced member-search controls are populated (Pro supplies tier / space / member-label option lists; empty groups hide their control) | `array $options, int $viewer_id` |
 | `buddynext_search_member_meta_html` | filter | A member row in the results renders its meta line | `string $html, ...` |
 | `buddynext_search_before` / `buddynext_search_after` | action | Around the search results page body | - |
 

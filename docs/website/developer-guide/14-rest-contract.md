@@ -20,7 +20,7 @@ The BuddyNext frontend is 100% REST. Every data interaction from templates, fron
 | Pagination | Cursor-based (`next_cursor`) for timelines/directories; page-numbered for bounded admin/search lists |
 | `per_page` max | 50 on collection reads; webhook delivery log allows up to 100 |
 
-The Free surface registers routes under `buddynext/v1` (168 endpoints in the manifest); Pro registers its own routes under `buddynext-pro/v1`. Pro never registers into the Free namespace, so a future `buddynext/v2` can ship without breaking integrations.
+The Free surface registers its routes under `buddynext/v1`; Pro registers its own under `buddynext-pro/v1`. Pro never registers into the Free namespace, so a future `buddynext/v2` can ship without breaking integrations. The route pages that follow are the reference; to enumerate the live surface on a given install, read `/wp-json/buddynext/v1` rather than trusting a count in prose.
 
 ## Authentication: the X-WP-Nonce header
 

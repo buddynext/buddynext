@@ -25,6 +25,8 @@ Most of the dashboard is admin-only, but one piece is member-facing: profile vie
 
 When Pro is active, a "who viewed your profile" panel appears on a member's own profile page. It is visible only to the profile owner - other people viewing the profile never see it.
 
+> **Note:** This member-facing panel is a plan perk (Personal Analytics). If you have turned Memberships on **and** chosen a default plan, a member sees it only if their plan grants it. With Memberships off (the default), every member gets it. The admin analytics dashboard below is unaffected either way - it is yours, not a member perk. See Membership Tiers.
+
 The panel shows:
 
 - A count of views in the last 7 days.

@@ -2,7 +2,7 @@
 
 Two-factor authentication (2FA) adds a second step to signing in. After a member enters their password, they also enter a short one-time code. Even if someone learns the password, they still cannot get in without that code - which gives members real peace of mind that their account is theirs alone.
 
-![Two-factor setup — add the setup key to an authenticator app, then confirm with a 6-digit code](../images/twofa-setup.webp)
+![Two-factor setup - add the setup key to an authenticator app, then confirm with a 6-digit code](../images/twofa-setup.webp)
 
 ![Members - Registration & Login admin tab with the two-factor authentication controls](../images/admin-registration.webp)
 
@@ -62,16 +62,25 @@ Both of these ask for your account password again before they take effect, so th
 
 ## Setting it up (for owners)
 
-There is no admin screen to switch 2FA on or off for the whole site, and BuddyNext never blocks anyone from signing in for not having it. By default it is purely opt-in: each member decides for their own account.
+By default 2FA is opt-in: each member decides for their own account, and nobody is forced. If that is what you want, there is nothing to do.
 
-A site can fine-tune two things (these are advanced options a developer sets up for you):
+You can also **require** it. Go to **BuddyNext > Members > Registration & Login**, find the **Spam & Abuse Protection** section, and set **Require two-factor authentication**:
 
 | Setting | What it does | Default |
 |---|---|---|
-| Suggested roles | Marks chosen roles as expected to use 2FA. This only adds a friendly prompt in those members' account area encouraging them to turn it on. It never stops anyone signing in. | None (no role marked) |
-| Community name in the app | The community name shown next to the account inside the authenticator app, so members can tell your account apart from others. | Your site name |
+| Require two-factor authentication | Who must use 2FA. Choose **Nobody** (members can still switch it on themselves), **Administrators**, **Administrators and editors**, or **Everyone**. | Nobody |
+| Community name in the app | The community name shown next to the account inside the authenticator app, so members can tell your account apart from others. This one is a developer option, not a settings field. | Your site name |
 
-> **Note:** Marking a role does not lock anyone out. The bar for signing in stays exactly the same - the setting only nudges members in those roles to turn 2FA on. To protect every administrator or moderator, encourage them directly; their sign-in works either way.
+### What "required" actually does
+
+This is a real requirement, not a nudge. A member in a required role who has not set 2FA up is sent to **Settings > Account** the next time they use the community, and cannot go anywhere else until they finish the setup. Their sign-in itself still works - they are not locked out of their account, they are held at the door until they add the second factor.
+
+Choose the level deliberately:
+
+- **Administrators** is the setting most communities want. Your admin accounts are the ones worth attacking, and there are few enough of them that you can tell them in advance.
+- **Everyone** is a serious commitment. Every member, including the ones who signed up five minutes ago, will hit the setup screen before they can use your community. Some of them will leave rather than install an authenticator app. Pick this only if your community genuinely warrants it.
+
+> **Tip:** Before you switch this on, tell the people it will affect. Someone who lands on a mandatory setup screen with no warning reads it as your site being broken. Give them a heads-up and a link to this page, and it reads as your site being careful.
 
 ## Good to know
 

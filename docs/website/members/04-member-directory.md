@@ -63,7 +63,8 @@ You do not manage the directory roster from a settings screen. Who shows up is d
 
 - **The directory is viewer-aware.** What each person sees is filtered to them. Members who are suspended, shadow-banned, or who have opted out of the directory are excluded for everyone. People you have blocked (or who have blocked you) do not appear in your view of the directory, and you do not appear in theirs. This keeps the directory clean and safe without the owner curating it by hand.
 - **Badges and counts only appear once there is data to show.** A brand-new member with no member type assigned shows no type badge; mutual-connection counts appear once connections exist. On a fresh site the directory can look sparse until members join, set up profiles, and connect.
-- **Search is privacy-safe.** It matches names, usernames, bios, headlines, and the profile fields a member has made searchable - it never surfaces fields a member has kept private.
+- **Search is privacy-safe.** It matches names, usernames, bios, headlines, and the profile fields marked searchable - and it honours each field's visibility while doing so. A Public searchable field is matched for anyone; a Members-only one is matched only for signed-in members; fields limited to followers, connections, or the member alone are never matched by anyone. See Custom Profile Fields.
+- **The online filter survives your other choices.** Ticking "online only" and then sorting or switching a filter keeps the online filter applied, and it stays in the page address so a reload or a shared link keeps it too. (Before 1.0.8 the first sort or filter click quietly dropped it while the checkbox stayed ticked.)
 - **First paint is server-rendered.** The grid is drawn on the server on the first load, so it is visible immediately and to search engines, and the live search/filter/sort behavior layers on top once the page is interactive.
 
 ## Free vs Pro

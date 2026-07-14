@@ -4,7 +4,7 @@ Membership tiers are the plans, free or paid, that you offer your community. Eac
 
 ![The Monetization Tiers admin tab where you define membership tiers, pricing, and perks](../images/admin-tiers.webp)
 
-![The member-facing pricing page — each tier with its price, perks and a subscribe button](../images/membership-pricing.webp)
+![The member-facing pricing page - each tier with its price, perks and a subscribe button](../images/membership-pricing.webp)
 
 ![The Monetization → Subscriptions admin tab listing active member subscriptions](../images/admin-subscriptions.webp)
 
@@ -48,7 +48,7 @@ To show the pricing table somewhere else as well - a marketing landing page, for
 
 The member's billing area shows their current plan, price and interval, status, and renewal date - plus, since 1.0.4:
 
-- **Payment history** with a **downloadable invoice** for every charge.
+- **Payment history** with a **downloadable invoice** for every charge, showing the 24 most recent.
 - **Cancel** - protected by a proper confirmation dialog. Cancelling keeps access until the paid period ends; the plan shows as cancelling until then, and afterwards the member lands in a lapsed state (free plan) rather than being cut off mid-period.
 
 To surface a compact version of this plan summary on another page, the shortcode remains available:
@@ -104,7 +104,6 @@ The full list of perks:
 
 | Group | Perk | Type | Default |
 |---|---|---|---|
-| Social | Activity Feed | Toggle | On |
 | Social | Follow & Connect | Toggle | On |
 | Social | Direct Messages | Toggle | On |
 | Social | Join Open Spaces | Toggle | On |
@@ -120,13 +119,15 @@ The full list of perks:
 | Spaces | Gated Space Access | Toggle | Off |
 | Messaging | Group Direct Messages | Toggle | Off |
 | Messaging | Real-time Messaging | Toggle | Off |
-| Messaging | Message Anyone | Toggle | Off |
+| Messaging | Message Anyone (bypass relationship policy) | Toggle | Off |
 | Profile | Advanced Profile Fields | Toggle | Off |
 | Search | Saved & Advanced Searches | Toggle | Off |
 | Analytics | Personal Analytics | Toggle | Off |
 | Discovery | AI Discovery | Toggle | Off |
 
 > **Note:** The Gated Space Access perk lets a subscriber into any gated space in one purchase, regardless of which specific tier each space requires. See Gating Spaces.
+
+> **Note:** There is no perk for the activity feed itself, and there will not be one. The feed is the community: a member on a plan with the feed switched off would land on the home page of your site with nothing to read and no way to fix it. That is a dead end, not a paywall. Every perk above leaves the member with the community still in front of them and a clear upgrade path. If an old plan of yours still has a saved Activity Feed value from an earlier release, it is simply ignored - nobody's feed is broken by it and there is nothing for you to clean up.
 
 ### Activate, edit, and remove a tier
 
@@ -157,6 +158,40 @@ There is no single "extend" button in the Subscriptions table. A subscription's 
 - Manual access can be extended by granting it again the same way you first granted it, which issues a fresh subscription period.
 
 So extending access is a matter of the next successful payment or a renewed grant, not a date you edit by hand in this table.
+
+### The printable invoice
+
+Every charge in a member's payment history has a printable invoice behind it. The member opens it from Settings > Membership and prints it or saves it as a PDF.
+
+The invoice brands itself from settings you have probably already filled in:
+
+- **Your logo.** It uses the logo from **Settings > Appearance** - the same one your community's HTML emails use. Set it once and it appears on both. If you have not set a logo, the invoice prints your site name as a wordmark instead, so it never looks unfinished.
+- **Your brand colour.** The accent on the invoice is your site's brand colour, also from Settings > Appearance.
+
+Two things about the invoice are worth knowing up front:
+
+- **It does not follow dark mode, on purpose.** An invoice is a document headed for a printer or a PDF, not a screen you scroll. A dark invoice prints as a black page and wastes a cartridge. It is a deliberately light document on every theme, which is also why it looks identical no matter which theme your site runs.
+- **Company details are added by a developer, not in a settings field.** Businesses need very different things on an invoice - a registered company address, a VAT or GST number, payment terms, a legal footer - and no two countries agree on the set. Rather than grow a settings screen full of fields most owners would leave blank, BuddyNext exposes the invoice's logo, seller details, footer, colours, and title as filters your developer can set in a few lines. Copy-and-paste snippets for all five are in the developer guide, under [Pro and Integration Hooks](../developer-guide/33-hooks-pro-and-integration.md). Hand that page to whoever maintains your site and the job takes a couple of minutes.
+
+### How plans decide who gets which Pro features
+
+This is the part owners most often get surprised by, so it is worth reading once carefully.
+
+Perks are not only about *paid* plans. Once you pick a **default plan** - the plan a member is on when they have not bought anything - that plan decides what a non-paying member gets. Any Pro perk the default plan does not grant becomes a paid perk.
+
+That is the whole point of a membership system, but it has a consequence worth stating plainly: **turning memberships on can take Pro features away from members who had them.** Scheduled posts, advanced profile fields, saved searches, personal analytics, extra profile pins, and custom reactions are all perks. If your default plan does not include them, your free members no longer have them.
+
+The three states, in plain terms:
+
+| Your setup | What members get |
+|---|---|
+| Memberships off (the default) | Every Pro feature works for every member. No plan, no perks, no gates. |
+| Memberships on, but you have not chosen a default plan | Still nothing is enforced. Plans exist but do not gate anything yet, and an admin notice tells you so. Nothing is taken away from anyone. |
+| Memberships on, and you have chosen a default plan | The default plan is now the floor. Members with no subscription get exactly what it grants, and nothing else. |
+
+The shipped **Free** plan is a starting point, not a neutral one. It grants the social basics and modest limits (3 spaces, 5 custom profile fields, 1 pinned post, 6 reactions), and it deliberately does *not* grant the premium perks. That is a sensible free tier if you are selling upgrades. It is the wrong choice if you only turned memberships on to gate one space and did not intend to take anything else away.
+
+> **Tip:** Before you choose a default plan, open its perk list and read it as your free members will experience it. If you want memberships purely to sell access to one thing, edit your default plan to grant everything *except* that thing, rather than accepting a free tier that quietly withdraws five features nobody asked you to withdraw. Site administrators are exempt from all of this, which is exactly why it is easy to miss - it will look perfect while you test it and be wrong for everyone else.
 
 ### Settings reference
 

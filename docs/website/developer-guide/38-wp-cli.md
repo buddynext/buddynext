@@ -1,6 +1,6 @@
 # WP-CLI Commands
 
-BuddyNext registers two WP-CLI command namespaces in Free: `wp buddynext demo` (the demo-data seeder) and `wp buddynext cert` (the functional-certification harness). Both are registered in `Plugin::init()` and load only when WP-CLI is running. This page documents their subcommands, what they seed or verify, and example invocations.
+BuddyNext registers up to four WP-CLI command namespaces in Free: `wp buddynext demo` (the demo-data seeder), `wp buddynext cert` (the functional-certification harness), `wp buddynext repair-space-owners` (a one-off orphan sweep), and `wp buddynext qa-fixtures` (deterministic QA data - **development trees only**). All are registered in `Plugin::init()` and load only when WP-CLI is running. This page documents their subcommands, what they seed or verify, and example invocations.
 
 ![The Platform > Tools admin tab for maintenance and CLI-adjacent operations](../images/admin-tools.webp)
 
@@ -13,10 +13,20 @@ BuddyNext registers two WP-CLI command namespaces in Free: `wp buddynext demo` (
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
     \WP_CLI::add_command( 'buddynext demo', new \BuddyNext\Demo\DemoCommand() );
     \WP_CLI::add_command( 'buddynext cert', new \BuddyNext\Cert\CertCommand() );
+    \WP_CLI::add_command( 'buddynext repair-space-owners', \BuddyNext\Spaces\SpaceOwnerRepairCommand::class );
+
+    // Registered only when dev/QaFixturesCommand.php is present.
+    $bn_qa_fixtures = BUDDYNEXT_DIR . 'dev/QaFixturesCommand.php';
+    if ( is_readable( $bn_qa_fixtures ) ) {
+        require_once $bn_qa_fixtures;
+        \WP_CLI::add_command( 'buddynext qa-fixtures', new \BuddyNext\Dev\QaFixturesCommand() );
+    }
 }
 ```
 
 The demo command is a thin wrapper over `DemoDataService`, so the CLI and the admin "Demo Data" button share one engine. The cert command wraps `CertRunner`, the same gate that `bin/check.sh` and CI run.
+
+> **`qa-fixtures` does not exist in a packaged install.** It lives in `dev/`, which is not on `bin/build-release.sh`'s runtime allowlist, so the file is absent from the shipped zip and the `is_readable()` guard above never fires. It is a development-tree command. Do not write docs, support replies, or tooling that tells a customer to run it.
 
 ## wp buddynext demo
 
@@ -140,9 +150,61 @@ Sample human output:
 Error: Functional certification FAILED - 2 passed, 1 failed, 1 holes (uncovered)
 ```
 
+## wp buddynext repair-space-owners
+
+A one-off sweep for spaces whose `owner_id` points at a user who no longer exists.
+
+Space succession (auto-promoting an heir when an owner is deleted or erased) guards deletions **from now on**. It cannot retroactively fix a space orphaned before it shipped. This command finds those spaces and runs them through the same `SpaceSuccession` path, chunked 200 rows at a time so it survives a large install.
+
+It takes no subcommand - invoke it directly. One flag:
+
+| Flag | What it does |
+|---|---|
+| `--dry-run` | Report what would change without writing anything. |
+
+```bash
+# See what it would do first.
+wp buddynext repair-space-owners --dry-run
+
+# Then let it write.
+wp buddynext repair-space-owners
+```
+
+## wp buddynext qa-fixtures
+
+Deterministic QA data: the ugly states a customer demo must never contain (expired invites, orphaned space owners, cancelled subscriptions, rows backdated past the retention windows) plus big-site scale data.
+
+This is **not** the demo seeder. `demo` builds a community that looks good; `qa-fixtures` builds the states that break things, so QA stops guessing at them.
+
+> **Development trees only.** As above, `dev/` is not shipped, so this command does not exist in a packaged install.
+
+### Subcommands
+
+| Subcommand | What it does |
+|---|---|
+| `seed` | Creates the fixtures for the chosen profile. |
+| `cleanup` | Removes what `seed` created. |
+| `status` | Prints what is currently installed. |
+
+`seed` takes one flag:
+
+| Flag | Default | Options |
+|---|---|---|
+| `--profile=<profile>` | `edge` | `edge`, `community`, `scale`, `all` |
+
+```bash
+wp buddynext qa-fixtures seed                      # edge cases (the default)
+wp buddynext qa-fixtures seed --profile=community  # a populated community
+wp buddynext qa-fixtures seed --profile=scale      # big-site scale data
+wp buddynext qa-fixtures seed --profile=all        # everything
+
+wp buddynext qa-fixtures status
+wp buddynext qa-fixtures cleanup
+```
+
 ## Notes / gotchas
 
-- Both commands declare `@when after_wp_load`, so WordPress is fully loaded before they run - they have access to services, settings, and the REST router.
+- `demo` and `cert` declare `@when after_wp_load`, so WordPress is fully loaded before they run - they have access to services, settings, and the REST router.
 - `cert` writes a ledger as a side effect of every run, so CI and the MCP can read the last result without re-running the gate.
 - `demo` and `cert` are Free commands. Pro registers one WP-CLI command of its own - `wp buddynext-pro cert` (`\BuddyNextPro\Cert\CertCommand`, added in the Pro `Plugin::init()`) - the same functional-certification harness scoped to Pro's gated features. It takes the same optional `contract` / `boot` positional and `--porcelain` flag. Free's `cert` oracle covers gated features in Free.
 

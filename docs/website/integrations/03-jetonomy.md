@@ -55,15 +55,16 @@ If Jetonomy is already installed but switched off, the same row shows an **Activ
 > **Note:** The 1-click install needs a site administrator with permission to install and activate plugins.
 
 
-### Feed-sync setting
+### Display settings
 
-Once Jetonomy is active, it gets a card on the **Platform > Integration Display** tab, where a **Post to the activity feed** switch controls whether new discussions are mirrored into the activity feed. (This is the same per-integration screen that also controls the Discussions navigation tab.)
+Once Jetonomy is active, it gets a card on the **Platform > Integration Display** tab, alongside every other integration. (This is the same per-integration screen that also controls the Discussions navigation tab.)
 
 | Setting | What it does | Default |
 |---|---|---|
 | Post to the activity feed (Jetonomy card) | When on, a new discussion started in a public space appears as a card in the BuddyNext activity feed, linking back to the full thread. Only public discussions in public, published topics are surfaced; private spaces and private topics are never mirrored. | On |
+| Include in search (Jetonomy card) | When on, discussions are indexed for BuddyNext's community search, so members find them alongside posts, members, and spaces. Switching it off also removes the discussions already in the search index. | On |
 
-This switch is on by default - when Jetonomy is active, new public discussions flow into the feed automatically, and you turn it off only if you would rather keep the forum and the feed separate. The mirror can also be overridden per space.
+Both switches are on by default - when Jetonomy is active, new public discussions flow into the feed and into search automatically. The two are independent: you can keep discussions searchable while keeping them out of the feed, or the reverse. The feed mirror can also be overridden per space.
 
 ### Per-space forum
 
@@ -73,7 +74,7 @@ There is nothing to pre-build for space forums. A space's forum is created the f
 
 - **Forums never leak private content into the feed.** Only public, published discussions in public spaces become feed cards. A discussion in a private or secret space, or a topic marked private, stays out of the public feed and Explore even when feed sync is on.
 - **Deleting a discussion cleans up after itself.** When a discussion is removed, its feed card and its search entry are removed too, so the feed never points at a thread that no longer exists.
-- **Discussions are searchable.** New discussions are indexed for BuddyNext's unified search, so members find them alongside posts, members, and spaces - this happens whether or not feed sync is on.
+- **Discussions are searchable.** New discussions are indexed for BuddyNext's unified search, so members find them alongside posts, members, and spaces. This is independent of feed sync - each has its own switch on the Jetonomy card. If you turn search indexing off, the discussions already indexed are removed too, so search does not keep answering with results you have just switched off.
 - **The feed card and the forum topic never drift apart.** Every comment or reply, and every edit or delete of one, is mirrored to the other side automatically - there is nothing to re-post by hand.
 - **Inert when not installed.** With Jetonomy inactive, BuddyNext has no Discussions link, no space forum tab, and no feed sync - there are no errors or broken links. Installing the companion is what turns them on.
 

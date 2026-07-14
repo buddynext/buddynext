@@ -26,12 +26,19 @@ A report is filed by a member against an object (post, reply, user, etc.). Admin
 | POST | `/reports` | Auth | File a report. Body: `object_type`, `object_id`, `reason`, optional `notes`, `space_id`. |
 | GET | `/reports` | Admin | List reports for a given `object_type` + `object_id`. |
 | GET | `/reports/queue` | Queue | Paginated moderation queue (pending + escalated). Space mods see only their spaces. |
-| POST | `/reports/{id}/dismiss` | Admin | Dismiss the report (no action warranted). |
-| PUT | `/reports/{id}/escalate` | Admin | Escalate the report to site-admin review. |
-| PUT | `/reports/{id}/resolve` | Admin | Resolve the report (handled). |
-| POST | `/reports/{id}/remove` | Admin | Remove the reported content. |
+| POST | `/reports/{id}/dismiss` | Auth + report scope | Dismiss the report (no action warranted). |
+| PUT | `/reports/{id}/escalate` | Auth + report scope | Escalate the report to site-admin review. |
+| PUT | `/reports/{id}/resolve` | Auth + report scope | Resolve the report (handled). |
+| POST | `/reports/{id}/remove` | Auth + report scope | Remove the reported content. |
 
 > **Note:** `dismiss`, `escalate`, `resolve`, and `queue` are the report dispositions referenced across the moderation UI. `escalate` and `resolve` use `EDITABLE` (PUT/PATCH); `dismiss` and `remove` use `CREATABLE` (POST).
+
+> **"Auth + report scope" is not "Admin".** The four report-action routes carry `require_auth` as their `permission_callback` - the route only checks that you are logged in. Authorization is per-report, inside the handler, via `guard_report_scope()`:
+>
+> - a caller with `manage_options` may action **any** report;
+> - otherwise the report must carry a `space_id` the caller **owns or moderates** (`ModerationService::get_moderated_space_ids()`), or the call returns `403 bn_forbidden`.
+>
+> This is deliberate, and it is the reason a `manage_options` permission callback would be wrong here: a space owner or moderator has to be able to action the reports their own space Moderation tab shows them, and a site-admin-only gate would 403 them on their own queue. Do not "tighten" these callbacks to `require_admin` - you would break space moderation. The same pattern applies to `POST /users/{id}/warn` (authorized in `warn_user()`: site admins may warn anyone; a space owner/moderator may warn a member in the context of a space they moderate, passed as `space_id`).
 
 ### Related queue surfaces
 
@@ -60,12 +67,12 @@ A member appeals a moderation action against them. Admins approve or deny.
 
 ## User trust routes
 
-Per-user trust actions. All are site-admin only. Reads (warnings, suspension state, shadow-ban state, strikes) share paths with their write counterparts.
+Per-user trust actions. All are site-admin only **except `POST /users/{id}/warn`**, which a space owner or moderator may also call in the context of a space they moderate (see the note above). Reads (warnings, suspension state, shadow-ban state, strikes) share paths with their write counterparts.
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | GET | `/users/{id}/warnings` | Admin | List warnings issued to the user. |
-| POST | `/users/{id}/warn` | Admin | Issue a warning to the user. |
+| POST | `/users/{id}/warn` | Auth + space scope | Issue a warning to the user. Site admins may warn anyone; a space owner/moderator only within a space they moderate (pass `space_id`). |
 | GET | `/users/{id}/strikes` | Admin | List the user's strikes. |
 | POST | `/users/{id}/strikes` | Admin | Add a strike to the user. |
 | POST | `/users/{id}/strikes/{sid}/reverse` | Admin | Reverse a specific strike. |

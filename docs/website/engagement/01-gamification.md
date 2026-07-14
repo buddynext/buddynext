@@ -63,11 +63,12 @@ WB Gamification publishes a hub page that hosts the leaderboard and badge views.
 |---|---|---|
 | Gamification hub page | The page BuddyNext links to for the leaderboard and badge views. Set this to the page WB Gamification creates so the profile "View leaderboard" link resolves. | None set until you choose a page |
 
-> **Tip:** Point values, badge rules, levels, and streaks all live in WB Gamification, not in BuddyNext. After installing the companion, open its settings to tune how generous each action is and which badges exist. BuddyNext only decides which member actions are reported and where the results show.
+> **Tip:** Point values, badge rules, and levels all live in WB Gamification, not in BuddyNext. After installing the companion, open its settings to tune how generous each action is and which badges exist. BuddyNext only decides which member actions are reported and where the results show.
 
 ## Good to know
 
-- **Inert without the companion.** If WB Gamification is not installed or not active, gamification does nothing and no errors appear. The profile tiles, badge grid, and leaderboard hide themselves, and member actions are simply not reported. Installing the companion later turns everything on with no further setup on the BuddyNext side.
+- **The activity streak is BuddyNext's own.** The "N days in a row" card in the sidebar is the one exception to everything above: BuddyNext works it out itself, from the member's own posts, comments, and reactions. It keeps working whether or not WB Gamification is installed. (Point values, badges, and levels do come from the companion.)
+- **Inert without the companion.** If WB Gamification is not installed or not active, points, badges, and levels do nothing and no errors appear. The profile tiles, badge grid, and leaderboard hide themselves, and member actions are simply not reported. Installing the companion later turns everything on with no further setup on the BuddyNext side.
 - **Self-reactions do not earn points.** Reacting to your own content awards nothing, so members cannot farm points by reacting to themselves.
 - **The owner controls the numbers.** The point values above are BuddyNext's defaults. Every value, badge, and level threshold is editable in WB Gamification, so your community's economy is yours to balance.
 - **Nothing to back-fill.** Points accrue from the moment the companion is active. Actions taken before install are not retroactively scored.

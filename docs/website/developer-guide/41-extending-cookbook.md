@@ -110,19 +110,22 @@ Endpoints that subscribe to *all* events (an empty event list) receive your slug
 
 **Goal:** block a post (or comment, or any user-submitted text) at submit time based on your own rule.
 
-**Seam:** `buddynext_safeguard_check`. It runs last in `SafeguardService::check()`, after the built-in IP, banned-word, blocked-domain, rate-limit, duplicate, and new-member gates. Return `true` to allow, or a `WP_Error` to reject - the `WP_Error` message is shown to the user. The same filter runs on edits via `check_content()`, so your rule covers edited content too.
+**Seam:** `buddynext_safeguard_check`. In `SafeguardService::check()` it runs after the built-in IP, banned-word, blocked-domain, rate-limit, and banned-hashtag gates, and **before** the duplicate-content and new-member gates - those two return a hold-for-review verdict, and a hold must never outrank a hard block. Return `true` to allow, or a `WP_Error` to reject - the `WP_Error` message is shown to the user. The same filter runs on edits via `check_content()`, so your rule covers edited content too.
 
 This is the seam the Pro Moderation Rules engine attaches its keyword blocklists and ML scoring to. Banned-word lists are configured through that rules engine, not by adding `check_*()` methods to `SafeguardService`.
+
+The filter takes **five** arguments. The fifth, `$context`, is `'create'` or `'edit'`, and it is the one you have to think about: if your rule counts an author's recent activity (a rate limit, flood control, a cooldown), it must skip `'edit'`. An edit is not a new post, and re-asking the question there locks an author who has hit your cap out of editing the posts they already published. Content rules - banned words, links, ML scoring - should keep running on edits, or editing becomes a way to smuggle content past you.
 
 ```php
 add_filter(
     'buddynext_safeguard_check',
-    static function ( $result, int $user_id, string $content, string $link_url ) {
+    static function ( $result, int $user_id, string $content, string $link_url, string $context ) {
         // Respect an upstream block - never override another guard's WP_Error.
         if ( is_wp_error( $result ) ) {
             return $result;
         }
 
+        // A CONTENT rule: it must keep running on edits too, so do not gate it on $context.
         if ( false !== stripos( $content, 'buy-now-cheap.example' ) ) {
             return new WP_Error(
                 'my_addon_spam',
@@ -130,14 +133,24 @@ add_filter(
             );
         }
 
+        // A "how often" rule: create-time only. On an edit, stand down.
+        if ( 'create' === $context && my_addon_over_hourly_cap( $user_id ) ) {
+            return new WP_Error(
+                'my_addon_flood',
+                __( 'You are posting too quickly. Try again shortly.', 'my-addon' )
+            );
+        }
+
         return true;
     },
     10,
-    4
+    5
 );
 ```
 
 > **Warning:** Check `is_wp_error( $result )` first and pass an existing error through unchanged. If you always return `true` you silently re-allow content another safeguard already blocked.
+>
+> **Warning:** Declare `5` accepted args, not `4`. A callback registered with `4` never sees `$context`, so a rate-limit-shaped rule fires on every edit - which is exactly the bug this argument was added to fix.
 
 ---
 

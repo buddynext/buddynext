@@ -44,3 +44,5 @@ The cap applies per scope. Each profile can hold up to 10 pinned posts, and each
 Pinning itself - the Pin and Unpin actions, the top-of-feed placement, and the pinned marker on a card - is part of free BuddyNext, which allows one pinned post per profile and one per space.
 
 Pro's addition here is the higher cap: up to 10 pinned posts per profile and per space. Nothing else about pinning changes, so the workflow members already know stays the same; there is simply room for more highlights.
+
+> **Note:** The **profile** pin cap is a plan perk. If you have turned Memberships on **and** chosen a default plan, each member gets the number of profile pins their plan grants (the shipped Free plan grants 1). With Memberships off (the default), every member gets the full 10. The **space** pin cap is not plan-based - it is a flat 10 per space with Pro, whatever plan the pinner is on. See Membership Tiers.
