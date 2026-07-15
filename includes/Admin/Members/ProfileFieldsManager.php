@@ -436,8 +436,29 @@ class ProfileFieldsManager {
 		// Auto-generate field_key from label — no technical input required from admins.
 		$field_key = sanitize_key( str_replace( '-', '_', sanitize_title( $label ) ) );
 
+		$created_id = 0;
 		if ( $group_id > 0 && '' !== $field_key && '' !== $label ) {
 			global $wpdb;
+
+			// The key derives from the label and is table-wide UNIQUE, but the
+			// LABEL may repeat (e.g. a "Level" field in several groups). Uniquify
+			// the key instead of letting create_field()'s INSERT IGNORE silently
+			// no-op while this screen still reported "saved" — the trap that
+			// taught owners the create-then-rename workaround.
+			$bn_pf_base_key   = $field_key;
+			$bn_pf_key_suffix = 2;
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			while ( (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT id FROM {$wpdb->prefix}bn_profile_fields WHERE field_key = %s",
+					$field_key
+				)
+			) > 0 ) {
+				$field_key = $bn_pf_base_key . '_' . $bn_pf_key_suffix;
+				++$bn_pf_key_suffix;
+			}
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
 			// Append at end: fetch current max sort_order for this group.
 			$max_order  = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$wpdb->prepare(
@@ -447,7 +468,7 @@ class ProfileFieldsManager {
 			);
 			$sort_order = $max_order + 1;
 
-			buddynext_service( 'profiles' )->create_field(
+			$created_id = (int) buddynext_service( 'profiles' )->create_field(
 				array(
 					'group_id'         => $group_id,
 					'field_key'        => $field_key,
@@ -470,7 +491,9 @@ class ProfileFieldsManager {
 				array(
 					'page'         => 'buddynext-members',
 					'tab'          => 'profile-fields',
-					'bn_pf_notice' => 'saved',
+					// Honest feedback: only report "saved" when a field row was
+					// actually created; a swallowed insert surfaces as an error.
+					'bn_pf_notice' => $created_id > 0 ? 'saved' : 'error',
 				),
 				admin_url( 'admin.php' )
 			)
