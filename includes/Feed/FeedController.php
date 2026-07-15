@@ -33,6 +33,18 @@ use BuddyNext\REST\BaseRestController;
 class FeedController extends BaseRestController {
 
 	/**
+	 * Ceiling on the ids GET /feed/viewer-state will answer for in one call.
+	 *
+	 * Public because the app has to chunk on this number, and the only way it can
+	 * is if /app/config tells it — a client that guesses high gets a silently short
+	 * answer and renders those cards as un-reacted. AppConfigController emits it
+	 * from here rather than restating the literal, so the two cannot drift.
+	 *
+	 * @var int
+	 */
+	public const VIEWER_STATE_MAX_IDS = 100;
+
+	/**
 	 * Register the controller's routes.
 	 */
 	public function register_routes(): void {
@@ -237,8 +249,29 @@ class FeedController extends BaseRestController {
 
 		$result = $this->feed_service()->home_feed( $user_id, $cursor, $per_page, $filter );
 
+		return $this->enriched_response( $result, $user_id );
+	}
+
+	/**
+	 * Enrich a feed result and respond.
+	 *
+	 * Every feed surface returns through here, deliberately. Enrichment used to be
+	 * an inline step in home_feed() only, so explore, profile and space feeds each
+	 * shipped raw hydrate() rows — three of the four surfaces a native client
+	 * actually reads. Nothing said so; each handler simply ended with
+	 * `return new WP_REST_Response( $result, 200 )` and looked complete.
+	 *
+	 * Routing every handler through one door makes the omission structurally
+	 * impossible rather than a thing to remember: a handler cannot return a feed
+	 * without enriching it, because returning a feed IS this method.
+	 *
+	 * @param array $result Feed result from FeedService ({items, next_cursor, …}).
+	 * @param int   $viewer Current user ID (0 when logged out).
+	 * @return WP_REST_Response
+	 */
+	private function enriched_response( array $result, int $viewer ): WP_REST_Response {
 		if ( ! empty( $result['items'] ) && is_array( $result['items'] ) ) {
-			$result['items'] = $this->enrich_items_for_rest( (array) $result['items'], $user_id );
+			$result['items'] = $this->enrich_items_for_rest( (array) $result['items'], $viewer );
 		}
 
 		return new WP_REST_Response( $result, 200 );
@@ -258,7 +291,13 @@ class FeedController extends BaseRestController {
 	 * the already-cached user_bookmarks() — so enrichment adds a constant handful
 	 * of queries, not four per card.
 	 *
-	 * @param array $items  Raw feed rows from FeedService::home_feed().
+	 * Reached from every feed surface via enriched_response(). It was written for
+	 * home_feed() and, for a while, only home_feed() called it — so explore,
+	 * profile and space feeds went on returning exactly the raw rows this
+	 * describes replacing. Call it through enriched_response(), never inline, or
+	 * the next surface repeats that.
+	 *
+	 * @param array $items  Raw feed rows from a FeedService feed method.
 	 * @param int   $viewer Current user ID (0 when logged out).
 	 * @return array Enriched items.
 	 */
@@ -427,10 +466,28 @@ class FeedController extends BaseRestController {
 		$viewer   = get_current_user_id();
 		$raw      = (string) $request->get_param( 'post_ids' );
 		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', explode( ',', $raw ) ) ) ) );
-		$post_ids = array_slice( $post_ids, 0, 100 ); // bound the batch.
+
+		// Bound the batch — but say so. This used to slice in silence, which is the
+		// worst shape for the caller: a client that sent 150 ids got 100 answers and
+		// no indication, so fifty cards rendered as un-reacted and un-bookmarked and
+		// looked like real state. A wrong answer that admits nothing is worse than an
+		// error. Report the ceiling and whether it bit, so the app can chunk instead
+		// of quietly mis-rendering.
+		$requested = count( $post_ids );
+		$post_ids  = array_slice( $post_ids, 0, self::VIEWER_STATE_MAX_IDS );
+		$truncated = $requested > count( $post_ids );
 
 		if ( empty( $post_ids ) ) {
-			return new WP_REST_Response( array( 'states' => (object) array() ), 200 );
+			return new WP_REST_Response(
+				array(
+					'states'    => (object) array(),
+					'requested' => $requested,
+					'returned'  => 0,
+					'truncated' => false,
+					'max_ids'   => self::VIEWER_STATE_MAX_IDS,
+				),
+				200
+			);
 		}
 
 		$reactions = buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids );
@@ -447,7 +504,16 @@ class FeedController extends BaseRestController {
 			);
 		}
 
-		return new WP_REST_Response( array( 'states' => $states ), 200 );
+		return new WP_REST_Response(
+			array(
+				'states'    => $states,
+				'requested' => $requested,
+				'returned'  => count( $states ),
+				'truncated' => $truncated,
+				'max_ids'   => self::VIEWER_STATE_MAX_IDS,
+			),
+			200
+		);
 	}
 
 	/**
@@ -489,7 +555,7 @@ class FeedController extends BaseRestController {
 
 		$result = $this->feed_service()->explore_feed( $cursor, $per_page );
 
-		return new WP_REST_Response( $result, 200 );
+		return $this->enriched_response( $result, get_current_user_id() );
 	}
 
 	/**
@@ -506,7 +572,7 @@ class FeedController extends BaseRestController {
 
 		$result = $this->feed_service()->profile_feed( $profile_user_id, $viewer_id, $cursor, $per_page );
 
-		return new WP_REST_Response( $result, 200 );
+		return $this->enriched_response( $result, $viewer_id );
 	}
 
 	/**
@@ -561,7 +627,7 @@ class FeedController extends BaseRestController {
 
 		$result = $this->feed_service()->space_feed( $space_id, $viewer_id, $cursor, $per_page );
 
-		return new WP_REST_Response( $result, 200 );
+		return $this->enriched_response( $result, $viewer_id );
 	}
 
 	/**

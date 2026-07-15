@@ -207,10 +207,10 @@ class AppConfigController {
 			'connect_note_max_length' => (int) apply_filters( 'buddynext_connect_note_max_length', 500 ),
 			'max_connections'         => (int) apply_filters( 'buddynext_max_connections', 5000 ),
 			'max_following'           => (int) apply_filters( 'buddynext_max_following', 7500 ),
-			// The batch ceiling on GET /feed/viewer-state. The app chunks on this;
-			// over-sending is silently truncated server-side, so the number has to
-			// be knowable rather than guessed.
-			'viewer_state_max_ids'    => 100,
+			// The batch ceiling on GET /feed/viewer-state. The app chunks on this, so
+			// it reads from the route's own constant — restating the literal here is
+			// how the two drift and the app starts chunking at the wrong size.
+			'viewer_state_max_ids'    => \BuddyNext\Feed\FeedController::VIEWER_STATE_MAX_IDS,
 		);
 	}
 
