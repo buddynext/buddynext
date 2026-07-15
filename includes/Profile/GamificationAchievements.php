@@ -427,6 +427,31 @@ class GamificationAchievements {
 	}
 
 	/**
+	 * Whether the current viewer may see this member's profile at all.
+	 *
+	 * Fails CLOSED. If the privacy service cannot be resolved there is no honest
+	 * answer available, and the safe direction for a visibility check is to refuse:
+	 * a boot-order regression must not silently turn a gated route back into an
+	 * open one. (PortfolioController's equivalent fails open — worth aligning, but
+	 * not by copying the weaker half.)
+	 *
+	 * @param int $member_id The profile being read.
+	 * @return bool
+	 */
+	private function viewer_can_see( int $member_id ): bool {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return false;
+		}
+
+		$privacy = buddynext_service( 'privacy' );
+		if ( ! $privacy instanceof \BuddyNext\SocialGraph\PrivacyService ) {
+			return false;
+		}
+
+		return $privacy->can_view_profile( get_current_user_id(), $member_id );
+	}
+
+	/**
 	 * REST: a member's badges + standing — the same data the SSR Achievements tab
 	 * renders, so the native app can draw the badge grid and standing strip.
 	 *
@@ -437,6 +462,29 @@ class GamificationAchievements {
 		$member_id = absint( $request['id'] );
 		if ( $member_id <= 0 || ! get_userdata( $member_id ) ) {
 			return new \WP_Error( 'not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		// SECURITY: gate the read with the canonical profile-visibility check (block +
+		// public/followers/connections) — the same gate the web Achievements tab
+		// honours, and the same one PortfolioController applies to its own public
+		// route. Without it this route handed a member's standing, level, rank and
+		// badge history to a viewer they had blocked, and to any stranger looking at
+		// a private account: the permission_callback is __return_true because the tab
+		// is public for viewers who may see the profile at all, which is a different
+		// question from "public to everyone".
+		//
+		// Return the neutral empty shape rather than a 403, so the answer for "you
+		// may not see this" is identical to the answer for "there is nothing here" —
+		// a 403 would confirm the member exists and has standing worth hiding.
+		if ( ! $this->viewer_can_see( $member_id ) ) {
+			return new \WP_REST_Response(
+				array(
+					'has_standing' => false,
+					'standing'     => array(),
+					'badges'       => array(),
+				),
+				200
+			);
 		}
 
 		$badges = array_map(
