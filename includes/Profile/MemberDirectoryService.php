@@ -406,11 +406,28 @@ class MemberDirectoryService {
 
 		switch ( $sort ) {
 			case 'alphabetical':
+				// Opt-in, non-default sort. wp_users has no index on display_name (core
+				// indexes ID / user_login / user_nicename / user_email only), and it is a
+				// CORE table we do not ALTER, so this filesorts the filtered candidate set.
+				// Accepted at current scale per the directory-UX ruling: the DEFAULT sort
+				// (newest) is filesort-free, and A-Z browsing is a deliberate minority
+				// action over a set already narrowed by search/type/location filters. If
+				// A-Z ever becomes a primary entry point, denormalise a sort_name column
+				// into an own table and key it — do NOT index wp_users.
 				$order_sql = 'ORDER BY u.display_name ASC, u.ID ASC';
 				break;
 
 			case 'most_active':
 			case 'online':
+				// Opt-in, non-default sort. last_active lives in the LEFT-JOINed
+				// bn_presence, and the COALESCE (required so never-present users don't
+				// break the keyset — see the cursor comment above) makes any index on
+				// pres.last_active unusable for this ORDER BY, so it filesorts the filtered
+				// set. Accepted at current scale per the same ruling: default is
+				// filesort-free, this is a minority sort, and the alternative — driving the
+				// query INNER from bn_presence(last_active) — would trade the correctness of
+				// the NULL-safe keyset for speed on a non-primary path. Denormalise a
+				// last_active column onto the directory row if this becomes primary.
 				$order_sql = 'ORDER BY COALESCE(pres.last_active, 0) DESC, u.ID DESC';
 				break;
 
@@ -418,7 +435,8 @@ class MemberDirectoryService {
 			default:
 				// ID DESC == newest-first on an AUTO_INCREMENT users table, and ID is
 				// the PRIMARY KEY — a pure backward index scan, no filesort (wp_users
-				// has no index on user_registered).
+				// has no index on user_registered). This is the DEFAULT, so the hot path
+				// is filesort-free; the two opt-in sorts above accept a bounded filesort.
 				$order_sql = 'ORDER BY u.ID DESC';
 				break;
 		}
