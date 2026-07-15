@@ -37,7 +37,7 @@ spl_autoload_register(
 		}
 		$file = BUDDYNEXT_DIR . 'includes/' . str_replace( '\\', '/', substr( $class_name, $len ) ) . '.php';
 		if ( is_readable( $file ) ) {
-			require $file;
+			require_once $file;
 		}
 	}
 );
