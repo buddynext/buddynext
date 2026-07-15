@@ -354,20 +354,9 @@ class Plugin {
 
 		// Approval-mode gate: block sign-in for accounts awaiting administrator
 		// approval (set during registration when buddynext_reg_mode = 'approval').
-		add_filter(
-			'wp_authenticate_user',
-			static function ( $user ) {
-				if ( $user instanceof \WP_User && get_user_meta( $user->ID, 'bn_pending_approval', true ) ) {
-					return new \WP_Error(
-						'bn_pending_approval',
-						__( 'Your account is awaiting administrator approval.', 'buddynext' )
-					);
-				}
-				return $user;
-			},
-			10,
-			1
-		);
+		// Binds to the password chain AND to application passwords, which reach
+		// neither `authenticate` nor `wp_authenticate_user` — see ApprovalGuard.
+		( new \BuddyNext\Auth\ApprovalGuard() )->register();
 
 		// Wire search index lifecycle hooks — handles async dispatch via Action
 		// Scheduler when available, or falls back to synchronous inline indexing.
