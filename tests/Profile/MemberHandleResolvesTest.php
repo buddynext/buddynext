@@ -12,6 +12,7 @@ namespace BuddyNext\Tests\Profile;
 use BuddyNext\Core\Installer;
 use BuddyNext\Core\PageRouter;
 use BuddyNext\Profile\MemberDirectoryController;
+use BuddyNext\Profile\MemberDirectoryService;
 use ReflectionMethod;
 use WP_UnitTestCase;
 
@@ -154,6 +155,62 @@ class MemberHandleResolvesTest extends WP_UnitTestCase {
 			'/' . $handle . '/',
 			$url,
 			"The handle we publish ({$handle}) is not the slug the profile URL uses ({$url}). One of them is wrong, and a client cannot tell which."
+		);
+	}
+
+	/**
+	 * The "Online now" sidebar (SSR) publishes the public slug, never user_login.
+	 *
+	 * The REST directory was already fixed to publish the nicename-derived handle;
+	 * this pins the SSR twin (MemberDirectoryService::online_now()) so the credential
+	 * can never leak back onto the public members-directory sidebar. Reverting the
+	 * query/row back to user_login fails this test by name.
+	 *
+	 * @covers \BuddyNext\Profile\MemberDirectoryService::online_now
+	 * @return void
+	 */
+	public function test_online_now_publishes_the_public_handle_not_user_login(): void {
+		global $wpdb;
+
+		$user_id = self::factory()->user->create(
+			array(
+				'user_login'   => 'secret_login_name',
+				'display_name' => 'Priya Nair',
+			)
+		);
+		wp_update_user(
+			array(
+				'ID'            => $user_id,
+				'user_nicename' => 'priya-nair',
+			)
+		);
+		clean_user_cache( $user_id );
+
+		// Mark the member active inside the online window.
+		$wpdb->replace(
+			$wpdb->prefix . 'bn_presence',
+			array(
+				'user_id'     => $user_id,
+				'last_active' => time(),
+			),
+			array( '%d', '%d' )
+		);
+
+		$mine = null;
+		foreach ( ( new MemberDirectoryService() )->online_now( 0, 6 ) as $row ) {
+			if ( (int) $row['ID'] === $user_id ) {
+				$mine = $row;
+				break;
+			}
+		}
+
+		$this->assertNotNull( $mine, 'The active member did not appear in the Online now sidebar.' );
+		$this->assertSame( 'priya-nair', $mine['handle'], 'The Online now sidebar published the wrong handle - it must be user_nicename, not user_login.' );
+		$this->assertArrayNotHasKey( 'user_login', $mine, 'The Online now sidebar row still carries a user_login key.' );
+		$this->assertStringNotContainsString(
+			'secret_login_name',
+			(string) wp_json_encode( $mine ),
+			'The credential user_login leaked into the Online now sidebar row.'
 		);
 	}
 }

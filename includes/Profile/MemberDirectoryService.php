@@ -466,7 +466,7 @@ class MemberDirectoryService {
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT u.ID, u.display_name, u.user_login, u.user_registered{$presence_select}
+				"SELECT u.ID, u.display_name, u.user_registered{$presence_select}
 				 FROM {$wpdb->users} u
 				 {$join_sql}
 				 WHERE {$where_sql}
@@ -1002,14 +1002,21 @@ class MemberDirectoryService {
 	/**
 	 * Most-recently-active members for the "Online now" sidebar widget.
 	 *
-	 * Returns lightweight rows (ID, display_name, user_login) for users active
+	 * Returns lightweight rows (ID, display_name, handle) for users active
 	 * within the online window, newest-active first, capped at $limit. The block
 	 * restrict gate is applied so the viewer never sees a member who blocked
 	 * them. Replaces the raw widget query the directory template carried inline.
 	 *
+	 * The handle is the member's PUBLIC slug — bn_profile_slug ?: user_nicename —
+	 * never user_login. user_login is a credential; publishing it on this public
+	 * sidebar aids username enumeration (WP accepts login by username), and WP core
+	 * itself never exposes it. This matches MemberDirectoryController::shape_item()
+	 * and PageRouter::resolve_user(), so the SSR sidebar and the REST payload
+	 * resolve the same handle for a member.
+	 *
 	 * @param int $viewer_id Viewing user (block restrict applied for them).
 	 * @param int $limit     Max rows to return.
-	 * @return array<int,array{ID:int,display_name:string,user_login:string}>
+	 * @return array<int,array{ID:int,display_name:string,handle:string}>
 	 */
 	public function online_now( int $viewer_id = 0, int $limit = 6 ): array {
 		global $wpdb;
@@ -1028,7 +1035,7 @@ class MemberDirectoryService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT u.ID, u.display_name, u.user_login
+				"SELECT u.ID, u.display_name, u.user_nicename
 				   FROM {$wpdb->users} u
 				   JOIN {$wpdb->prefix}bn_presence pres ON pres.user_id = u.ID
 				  WHERE pres.last_active >= %d
@@ -1041,6 +1048,13 @@ class MemberDirectoryService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
+		// Prime the usermeta cache for the whole fetched set so the per-row
+		// bn_profile_slug lookup below is a cache hit, not a query each (no N+1).
+		$fetched_ids = array_map( static fn ( $r ) => (int) $r->ID, (array) $rows );
+		if ( array() !== $fetched_ids ) {
+			update_meta_cache( 'user', $fetched_ids );
+		}
+
 		$blocks = buddynext_service( 'blocks' );
 		$out    = array();
 
@@ -1049,10 +1063,16 @@ class MemberDirectoryService {
 			if ( $viewer_id > 0 && method_exists( $blocks, 'is_restricted' ) && $blocks->is_restricted( $viewer_id, $uid ) ) {
 				continue;
 			}
+
+			// Public handle: the member's custom slug if set, else user_nicename
+			// (WP's public author slug). NEVER user_login — see the method docblock.
+			$custom_slug = (string) get_user_meta( $uid, 'bn_profile_slug', true );
+			$handle      = '' !== $custom_slug ? $custom_slug : (string) $row->user_nicename;
+
 			$out[] = array(
 				'ID'           => $uid,
 				'display_name' => (string) $row->display_name,
-				'user_login'   => (string) $row->user_login,
+				'handle'       => $handle,
 			);
 			if ( count( $out ) >= $limit ) {
 				break;

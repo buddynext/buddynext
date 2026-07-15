@@ -369,12 +369,12 @@ if ( ! empty( $bn_online_rows ) ) {
 			<ul class="bn-md-sidebar-list">
 				<?php foreach ( $bn_online_rows as $bn_row ) : ?>
 					<?php
-					$bn_row_id    = (int) $bn_row['ID'];
-					$bn_row_name  = (string) $bn_row['display_name'];
-					$bn_row_login = (string) $bn_row['user_login'];
-					$bn_row_url   = PageRouter::profile_url( $bn_row_id );
-					$bn_row_av    = (string) get_avatar_url( $bn_row_id, array( 'size' => 56 ) );
-					$bn_row_tone  = $bn_avatar_tones[ $bn_row_id % count( $bn_avatar_tones ) ];
+					$bn_row_id     = (int) $bn_row['ID'];
+					$bn_row_name   = (string) $bn_row['display_name'];
+					$bn_row_handle = (string) ( $bn_row['handle'] ?? '' );
+					$bn_row_url    = PageRouter::profile_url( $bn_row_id );
+					$bn_row_av     = (string) get_avatar_url( $bn_row_id, array( 'size' => 56 ) );
+					$bn_row_tone   = $bn_avatar_tones[ $bn_row_id % count( $bn_avatar_tones ) ];
 					?>
 					<li class="bn-md-sidebar-item">
 						<a class="bn-md-sidebar-item__link" href="<?php echo esc_url( $bn_row_url ); ?>">
@@ -399,7 +399,7 @@ if ( ! empty( $bn_online_rows ) ) {
 							</span>
 							<span class="bn-md-sidebar-item__text">
 								<span class="bn-md-sidebar-item__name"><?php echo esc_html( $bn_row_name ); ?></span>
-								<span class="bn-md-sidebar-item__handle">@<?php echo esc_html( $bn_row_login ); ?></span>
+								<span class="bn-md-sidebar-item__handle">@<?php echo esc_html( $bn_row_handle ); ?></span>
 							</span>
 						</a>
 					</li>
