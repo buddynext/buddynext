@@ -393,6 +393,35 @@ class BlockService {
 	public function restricted_users( int $user_id, int $limit = 0, int $offset = 0 ): array {
 		global $wpdb;
 
+		// A PAGED caller (the admin list) gets its slice from SQL, so the query reads at
+		// most one page. The full-set read below stays for the feed-exclusion consumer
+		// ($limit = 0), which genuinely needs every id to build its NOT-IN filter and
+		// caches the whole set for that; slicing that cached array in PHP was fine for
+		// the feed but meant an admin listing page 1 still loaded every restriction a
+		// user ever made.
+		if ( $limit > 0 ) {
+			// blocked_id DESC is the tie-break, not decoration: bn_blocks has no auto-inc
+			// id (PK is (blocker_id, blocked_id)) and created_at is the only sort column,
+			// so a bulk block / import that lands many rows in the same second makes
+			// created_at a non-total order and OFFSET paging would duplicate a row on one
+			// admin page and drop it on another. blocked_id is unique per blocker, so
+			// (created_at, blocked_id) is a stable total order. Same class as the S6 fix.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$paged = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT blocked_id FROM {$wpdb->prefix}bn_blocks
+					 WHERE blocker_id = %d AND type = 'restrict'
+					 ORDER BY created_at DESC, blocked_id DESC
+					 LIMIT %d OFFSET %d",
+					$user_id,
+					$limit,
+					max( 0, $offset )
+				)
+			);
+
+			return array_map( 'intval', (array) $paged );
+		}
+
 		$cache_key = "restricted_users_{$user_id}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
@@ -415,7 +444,8 @@ class BlockService {
 			wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
-		return $limit > 0 ? array_slice( $result, max( 0, $offset ), $limit ) : $result;
+		// Only the full-set (feed-exclusion) path reaches here; the paged branch returned above.
+		return $result;
 	}
 
 	/**
@@ -784,6 +814,28 @@ class BlockService {
 	public function muted_users( int $user_id, int $limit = 0, int $offset = 0 ): array {
 		global $wpdb;
 
+		// Paged caller: slice in SQL (see restricted_users). Full read below is the
+		// feed-exclusion consumer's.
+		if ( $limit > 0 ) {
+			// (created_at, blocked_id) total order — see the tie-break note in
+			// restricted_users(); blocked_id is unique per blocker, created_at alone is not,
+			// so paged mute lists stay disjoint under same-second bulk mutes.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$paged = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT blocked_id FROM {$wpdb->prefix}bn_blocks
+					 WHERE blocker_id = %d AND type = 'mute'
+					 ORDER BY created_at DESC, blocked_id DESC
+					 LIMIT %d OFFSET %d",
+					$user_id,
+					$limit,
+					max( 0, $offset )
+				)
+			);
+
+			return array_map( 'intval', (array) $paged );
+		}
+
 		$cache_key = "muted_users_{$user_id}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
@@ -808,7 +860,8 @@ class BlockService {
 
 		// The full list stays cached (feed exclusion needs all of it); a bounded
 		// caller gets a slice without re-querying.
-		return $limit > 0 ? array_slice( $result, max( 0, $offset ), $limit ) : $result;
+		// Only the full-set (feed-exclusion) path reaches here; the paged branch returned above.
+		return $result;
 	}
 
 	/**
@@ -821,6 +874,28 @@ class BlockService {
 	 */
 	public function blocked_users( int $user_id, int $limit = 0, int $offset = 0 ): array {
 		global $wpdb;
+
+		// Paged caller: slice in SQL (see restricted_users). Full read below is the
+		// feed-exclusion consumer's.
+		if ( $limit > 0 ) {
+			// (created_at, blocked_id) total order — see the tie-break note in
+			// restricted_users(); blocked_id is unique per blocker, created_at alone is not,
+			// so paged block lists stay disjoint under same-second bulk blocks / imports.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$paged = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT blocked_id FROM {$wpdb->prefix}bn_blocks
+					 WHERE blocker_id = %d AND type = 'block'
+					 ORDER BY created_at DESC, blocked_id DESC
+					 LIMIT %d OFFSET %d",
+					$user_id,
+					$limit,
+					max( 0, $offset )
+				)
+			);
+
+			return array_map( 'intval', (array) $paged );
+		}
 
 		$cache_key = "blocked_users_{$user_id}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
@@ -844,7 +919,8 @@ class BlockService {
 			wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
-		return $limit > 0 ? array_slice( $result, max( 0, $offset ), $limit ) : $result;
+		// Only the full-set (feed-exclusion) path reaches here; the paged branch returned above.
+		return $result;
 	}
 
 	/**

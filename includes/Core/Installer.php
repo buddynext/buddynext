@@ -261,8 +261,15 @@ class Installer {
 	 *      anything — no listener hooks buddynext_connection_declined — but it shipped a
 	 *      member preference toggle, a seeded email template and an Email Editor entry.
 	 *      Clears the seeded template row and any saved preference rows.
+	 *
+	 * v35: bn_reports gains KEY object_reported (object_type, object_id, created_at) so the
+	 *      per-object report list (get_reports_for_object) is a range scan instead of a
+	 *      filesort at report-storm scale. Paired with a (created_at, id) total order in that
+	 *      query — created_at alone is not unique, so OFFSET paging over same-second reports
+	 *      overlapped pages until the PK tie-break was added. dbDelta ALTER-adds the KEY on
+	 *      upgrade; no data migration.
 	 */
-	private const SCHEMA_VERSION = 33;
+	private const SCHEMA_VERSION = 35;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -1834,7 +1841,8 @@ class Installer {
 				PRIMARY KEY  (follower_id, following_id),
 				KEY          pending_inbox (following_id, status, created_at),
 				KEY          follower_recent (following_id, created_at),
-				KEY          follow_created (created_at)
+				KEY          follow_created (created_at),
+				KEY          following_recent (follower_id, status, created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_connections (
@@ -1848,7 +1856,9 @@ class Installer {
 				UNIQUE KEY   pair (requester_id, recipient_id),
 				KEY          recipient_lookup (recipient_id),
 				KEY          recipient_status (recipient_id, status),
-				KEY          requester_status (requester_id, status)
+				KEY          requester_status (requester_id, status),
+				KEY          requester_recent (requester_id, status, created_at),
+				KEY          recipient_recent (recipient_id, status, created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_blocks (
@@ -1896,7 +1906,8 @@ class Installer {
 				KEY                 active_feed (privacy, status, last_activity_at),
 				KEY                 status_scheduled (status, scheduled_at),
 				KEY                 post_created (created_at),
-				KEY                 shared_post (shared_post_id)
+				KEY                 shared_post (shared_post_id),
+				KEY                 link_lookup (type, link_url(191))
 			) {$cs};",
 
 			/*
@@ -1923,7 +1934,8 @@ class Installer {
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				UNIQUE KEY  user_post (user_id, post_id),
-				KEY         post_shares (post_id)
+				KEY         post_shares (post_id),
+				KEY         user_recent (user_id, created_at)
 			) {$cs};",
 
 			// Online presence. Replaces the non-sargable CAST(meta_value) scans over
@@ -2003,7 +2015,8 @@ class Installer {
 				PRIMARY KEY       (space_id, user_id),
 				KEY               user_role (user_id, role),
 				KEY               user_status (user_id, status),
-				KEY               space_status (space_id, status, joined_at)
+				KEY               space_status (space_id, status, joined_at),
+				KEY               pending_all (status, joined_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_space_categories (
@@ -2087,7 +2100,8 @@ class Installer {
 				PRIMARY KEY (id),
 				KEY         user_type (user_id, type, digest_date),
 				KEY         type (type),
-				KEY         purge_window (sent_at)
+				KEY         purge_window (sent_at),
+				KEY         type_id (type, id)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_verify_tokens (
@@ -2112,7 +2126,8 @@ class Installer {
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (user_id, object_type, object_id),
 				KEY         object_recent (object_type, object_id, created_at),
-				KEY         reaction_created (created_at)
+				KEY         reaction_created (created_at),
+				KEY         user_recent (user_id, created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_comments (
@@ -2131,7 +2146,9 @@ class Installer {
 				KEY         thread (object_type, object_id, parent_id, created_at),
 				KEY         user (user_id),
 				KEY         deleted (is_deleted),
-				KEY         sync_reply (sync_reply_id)
+				KEY         sync_reply (sync_reply_id),
+				KEY         reply_lookup (parent_id, is_deleted),
+				KEY         user_recent (user_id, created_at)
 			) {$cs};",
 
 			// ── Hashtags ───────────────────────────────────────────────────────
@@ -2284,6 +2301,7 @@ class Installer {
 				PRIMARY KEY (id),
 				UNIQUE KEY  one_per_reporter (reporter_id, object_type, object_id),
 				KEY         object_status (object_type, object_id, status),
+				KEY         object_reported (object_type, object_id, created_at),
 				KEY         status_date (status, created_at),
 				KEY         space (space_id)
 			) {$cs};",

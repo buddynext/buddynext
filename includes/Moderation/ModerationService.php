@@ -90,6 +90,42 @@ class ModerationService {
 	private const NOTE_MAX_LENGTH = 500;
 
 	/**
+	 * File a system-generated report against auto-flagged content.
+	 *
+	 * This is what a severity=flag rule DOES: the content publishes, and a report
+	 * lands in the moderation queue so a human reviews it after the fact. Reporter
+	 * id 0 marks the report as system-generated; 'inappropriate' is the closest
+	 * valid reason for an automated flag, and the rule's own message is preserved
+	 * as free-text notes so the reviewer can see which rule fired and why.
+	 *
+	 * Static, because all five content surfaces (posts, post edits, comments,
+	 * direct messages, profile fields) need it and each previously resolved the
+	 * service by hand - or, in four cases out of five, did not report at all and
+	 * rejected the content instead.
+	 *
+	 * @param string $object_type Object type ('post', 'comment', 'user', 'message').
+	 * @param int    $object_id   Object that was flagged.
+	 * @param string $reason      Human-readable flag message, stored as notes.
+	 * @param int    $space_id    Space context (0 = none).
+	 * @return void
+	 */
+	public static function auto_flag( string $object_type, int $object_id, string $reason, int $space_id = 0 ): void {
+		if ( $object_id <= 0 || '' === trim( $reason ) ) {
+			return;
+		}
+
+		$moderation = function_exists( 'buddynext_service' )
+			? buddynext_service( 'moderation' )
+			: new self();
+
+		if ( ! $moderation instanceof self ) {
+			return;
+		}
+
+		$moderation->report( 0, $object_type, $object_id, 'inappropriate', $space_id, $reason );
+	}
+
+	/**
 	 * Submit a report on an object.
 	 *
 	 * Each user may only report a given object once (UNIQUE KEY enforced at DB).
@@ -588,19 +624,39 @@ class ModerationService {
 	 *
 	 * @param string $object_type Object type.
 	 * @param int    $object_id   Object ID.
+	 * @param int    $per_page    Reports per page (1-100). Default 50.
+	 * @param int    $page        1-indexed page. Default 1.
 	 * @return array[]
 	 */
-	public function get_reports_for_object( string $object_type, int $object_id ): array {
+	public function get_reports_for_object( string $object_type, int $object_id, int $per_page = 50, int $page = 1 ): array {
 		global $wpdb;
+
+		// A viral post can gather thousands of reports. This once returned SELECT * with no
+		// LIMIT -- every report ever filed on the object, hydrated -- and the REST route
+		// declared per_page/page but never passed them here. Now they reach the query, so
+		// the report-storm case is paged instead of loaded whole.
+		$per_page = max( 1, min( 100, $per_page ) );
+		$page     = max( 1, $page );
+		$offset   = ( $page - 1 ) * $per_page;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
+				// id DESC is the tie-breaker, not decoration: a viral post gathers many
+				// reports in the SAME second, and created_at alone is not a total order, so
+				// OFFSET paging over tied timestamps reorders rows between page queries and
+				// the same report shows on two pages (and another on none). id is the PK —
+				// unique — so (created_at, id) is a stable total order and pages stay disjoint.
+				// The object_reported KEY (object_type, object_id, created_at [+ PK id]) serves
+				// both the WHERE and this ORDER BY, so it is a range scan, not a filesort.
 				"SELECT * FROM {$wpdb->prefix}bn_reports
 				 WHERE object_type = %s AND object_id = %d
-				 ORDER BY created_at DESC",
+				 ORDER BY created_at DESC, id DESC
+				 LIMIT %d OFFSET %d",
 				sanitize_key( $object_type ),
-				$object_id
+				$object_id,
+				$per_page,
+				$offset
 			),
 			ARRAY_A
 		);

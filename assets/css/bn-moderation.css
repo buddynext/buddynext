@@ -265,7 +265,8 @@
 }
 
 .bn-report-row__context-link:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 	border-radius: var(--bn-r-sm);
 }

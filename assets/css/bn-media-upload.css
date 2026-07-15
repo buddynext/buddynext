@@ -33,7 +33,8 @@
 .bn-mu__dropzone:focus-visible {
 	border-color: var(--bn-accent);
 	color: var(--bn-ink-2);
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 .bn-mu__dropzone--drag {
@@ -252,7 +253,8 @@
 .bn-media-cell:hover .bn-media-cell__delete,
 .bn-media-cell__delete:focus-visible {
 	opacity: 1;
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 .bn-media-cell__delete:hover {
@@ -585,7 +587,8 @@
 .bn-media-cell:hover .bn-media-cell__cover,
 .bn-media-cell__cover:focus-visible {
 	opacity: 1;
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 .bn-media-cell__cover:hover {

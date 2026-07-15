@@ -220,7 +220,9 @@
 	--bn-tone-l-start: 80%;
 	--bn-tone-l-end:   55%;
 }
-[data-bn-theme="dark"] .bn-sd-card__cover {
+[data-bn-theme="dark"] .bn-sd-card__cover,
+[data-theme="dark"] .bn-sd-card__cover,
+[data-bx-mode="dark"] .bn-sd-card__cover {
 	--bn-tone-l-start: 45%;
 	--bn-tone-l-end:   30%;
 }
@@ -284,15 +286,25 @@
 .bn-sd-card__emblem-letter { font-size: 24px; line-height: 1; }
 .bn-sh-hero__emblem-letter { font-size: 32px; line-height: 1; }
 
-/* Category chip — small "# {category-name}" row under the directory
-   card title. Matches the space-hero handle row visually. */
+/* Category row under the directory card title. Holds one .bn-badge carrying the
+   category's own colour pair (bn_space_categories.color / .text_color, applied inline
+   from the row) - the same badge treatment the admin category list gives it. The label
+   is the bare category name, so a card and the directory's filter chips print the same
+   string for the same category. */
 .bn-sd-card__category {
-	display: inline-flex;
+	display: flex;
 	align-items: center;
 	gap: var(--bn-s1);
 	margin-block-start: 4px;
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-3);
+}
+/* Both halves of the colour pair arrive together on the inline style, so the badge is
+   self-contained and needs no per-mode override; the tokened .bn-badge[data-tone] base
+   (dark-mode aware) is the fallback when a category has no colour stored. */
+.bn-sd-card__cat {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 .bn-sd-card__category svg { width: 12px; height: 12px; }
 
@@ -667,7 +679,8 @@ a.bn-sh-hero__crumb:focus-visible {
 /* Only the genuinely-linked stats get an interactive cue (underline on hover). */
 a.bn-sh-statpill:hover,
 a.bn-sh-statpill:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	text-decoration: underline;
 	text-underline-offset: 2px;
 }
@@ -1267,6 +1280,22 @@ a.bn-sh-statpill:focus-visible {
 	margin-block-start: var(--bn-s2);
 }
 
+/* Sub-space capacity. The button used to render regardless of the cap, so the only
+   way to find the limit was to fill in the modal and be refused by the server. */
+.bn-sh-side-spaces__capacity,
+.bn-space-subspaces__capacity {
+	margin: 0 0 var(--bn-s1);
+	color: var(--bn-ink-3, #64748b);
+	font-size: var(--bn-fs-xs, 12px);
+}
+
+.bn-sh-side-spaces__full,
+.bn-space-subspaces__full {
+	margin: var(--bn-s1) 0 0;
+	color: var(--bn-ink-3, #64748b);
+	font-size: var(--bn-fs-xs, 12px);
+}
+
 .bn-sh-side-spaces__add {
 	width: 100%;
 	justify-content: center;
@@ -1734,7 +1763,8 @@ a.bn-sh-statpill:focus-visible {
 .bn-space-settings__cover:focus-visible {
 	border-color: var(--bn-accent);
 	color: var(--bn-accent);
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 .bn-space-settings__cover.has-image {
@@ -1832,7 +1862,8 @@ a.bn-sh-statpill:focus-visible {
 .bn-space-settings__discussion-result:hover,
 .bn-space-settings__discussion-result:focus {
 	background: var(--bn-accent-100);
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 /* Toggle shell — checkbox-input bridged to a .bn-toggle visual track. */
@@ -1862,7 +1893,11 @@ a.bn-sh-statpill:focus-visible {
 }
 
 .bn-space-settings__toggle-input:checked + .bn-toggle::before {
-	transform: translateX(18px);
+	transform: translateX(var(--bn-toggle-travel, 18px));
+}
+
+[dir="rtl"] .bn-space-settings__toggle-input:checked + .bn-toggle::before {
+	transform: translateX(calc(-1 * var(--bn-toggle-travel, 18px)));
 }
 
 /* Disabled toggle — a moderator sees the owner-only Integrations controls but may
@@ -1890,7 +1925,7 @@ a.bn-sh-statpill:focus-visible {
 	margin-block-end: var(--bn-space-4, 1rem);
 	padding: var(--bn-space-3, 0.75rem);
 	border: 1px solid var(--bn-border);
-	border-radius: var(--bn-radius-md, 8px);
+	border-radius: var(--bn-r-md);
 	background: var(--bn-surface-2, transparent);
 	color: var(--bn-text-muted);
 }
@@ -2322,7 +2357,8 @@ a.bn-sh-statpill:focus-visible {
 .bn-space-mod__scope-link:hover,
 .bn-space-mod__scope-link:focus-visible {
 	text-decoration: underline;
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 .bn-space-mod__scope-link svg {
@@ -2519,12 +2555,12 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-sd-sort__list {
 	position: absolute;
-	right: 0;
+	inset-inline-end: 0;
 	top: calc(100% + var(--bn-s1));
 	min-width: 220px;
 	background: var(--bn-surface, #fff);
 	border: 1px solid var(--bn-border, #e5e7eb);
-	border-radius: var(--bn-radius-md, 8px);
+	border-radius: var(--bn-r-md);
 	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 	padding: var(--bn-s1) 0;
 	margin: 0;
@@ -2535,7 +2571,7 @@ a.bn-sh-statpill:focus-visible {
 .bn-sd-sort__option {
 	display: block;
 	width: 100%;
-	text-align: left;
+	text-align: start;
 	background: none;
 	border: 0;
 	padding: var(--bn-s2) var(--bn-s3);
@@ -2547,7 +2583,8 @@ a.bn-sh-statpill:focus-visible {
 .bn-sd-sort__option:hover,
 .bn-sd-sort__option:focus-visible {
 	background: var(--bn-surface-soft, #f3f4f6);
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 .bn-sd-sort__option[aria-selected="true"] {
@@ -2565,7 +2602,7 @@ a.bn-sh-statpill:focus-visible {
 .bn-sd-skeleton {
 	background: var(--bn-surface, #fff);
 	border: 1px solid var(--bn-border, #e5e7eb);
-	border-radius: var(--bn-radius-md, 12px);
+	border-radius: var(--bn-r-md);
 	overflow: hidden;
 	padding-bottom: var(--bn-s3);
 }
@@ -2603,7 +2640,7 @@ a.bn-sh-statpill:focus-visible {
 	padding: var(--bn-s5);
 	border: 1px solid var(--bn-danger-border, #fecaca);
 	background: var(--bn-danger-bg, #fef2f2);
-	border-radius: var(--bn-radius-md, 12px);
+	border-radius: var(--bn-r-md);
 }
 
 .bn-sd-empty {
@@ -2679,7 +2716,7 @@ a.bn-sh-statpill:focus-visible {
 	padding: var(--bn-s2) var(--bn-s3);
 	background: var(--bn-danger-bg, #fef2f2);
 	border: 1px solid var(--bn-danger-border, #fecaca);
-	border-radius: var(--bn-radius-sm, 6px);
+	border-radius: var(--bn-r-sm);
 }
 
 /* ── Space home: notif popover, members grid, moderation ─────────────── */
@@ -2690,12 +2727,12 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-sh-notif__list {
 	position: absolute;
-	right: 0;
+	inset-inline-end: 0;
 	top: calc(100% + var(--bn-s1));
 	min-width: 200px;
 	background: var(--bn-surface, #fff);
 	border: 1px solid var(--bn-border, #e5e7eb);
-	border-radius: var(--bn-radius-md, 8px);
+	border-radius: var(--bn-r-md);
 	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 	padding: var(--bn-s1) 0;
 	margin: 0;
@@ -2706,7 +2743,7 @@ a.bn-sh-statpill:focus-visible {
 .bn-sh-notif__option {
 	display: block;
 	width: 100%;
-	text-align: left;
+	text-align: start;
 	background: none;
 	border: 0;
 	padding: var(--bn-s2) var(--bn-s3);
@@ -2718,7 +2755,8 @@ a.bn-sh-statpill:focus-visible {
 .bn-sh-notif__option:hover,
 .bn-sh-notif__option:focus-visible {
 	background: var(--bn-surface-soft, #f3f4f6);
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 .bn-sh-notif__option[aria-selected="true"] {
@@ -2759,7 +2797,7 @@ a.bn-sh-statpill:focus-visible {
 	gap: var(--bn-s2);
 	padding: var(--bn-s3);
 	border: 1px solid var(--bn-border, #e5e7eb);
-	border-radius: var(--bn-radius-md, 12px);
+	border-radius: var(--bn-r-md);
 	background: var(--bn-surface, #fff);
 }
 
@@ -2802,7 +2840,7 @@ a.bn-sh-statpill:focus-visible {
 	gap: var(--bn-s1);
 	padding: var(--bn-s3) var(--bn-s4);
 	border: 1px solid var(--bn-border, #e5e7eb);
-	border-radius: var(--bn-radius-md, 12px);
+	border-radius: var(--bn-r-md);
 	background: var(--bn-surface-soft, #f9fafb);
 	text-decoration: none;
 	transition: border-color 0.15s ease, background 0.15s ease;
@@ -2843,7 +2881,7 @@ a.bn-sh-statpill:focus-visible {
 	gap: var(--bn-s3);
 	align-items: flex-start;
 	padding: var(--bn-s4);
-	border-radius: var(--bn-radius-md, 12px);
+	border-radius: var(--bn-r-md);
 	background: color-mix(in oklab, var(--bn-accent) 6%, transparent);
 	border: 1px solid var(--bn-border, #e5e7eb);
 }
@@ -3044,7 +3082,7 @@ a.bn-sh-statpill:focus-visible {
 	font-size: 0.875rem;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
 	.bn-paywall { padding: var(--bn-s6) var(--bn-s4); }
 
 	.bn-space-settings__savebar { padding-inline: var(--bn-s4); }
@@ -3338,6 +3376,8 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-space-subspaces__cta {
 	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
 	margin-block-start: var(--bn-s4);
 }
 

@@ -82,6 +82,90 @@ class FeedCache {
 	}
 
 	/**
+	 * Build the cache key for the first page of a SPACE feed, as seen by one viewer.
+	 *
+	 * THE VIEWER IS IN THE KEY, and that is the whole safety argument. A space feed is
+	 * viewer-scoped: it drops posts from members this viewer has blocked or muted. Two
+	 * viewers of the same space do not see the same feed, so they must not share a cache
+	 * entry -- a viewer-blind key would serve one member the posts of someone they blocked,
+	 * which is the one thing a block is for. Logged-out viewers all key on 0, which is
+	 * correct: no blocks, one identical public feed.
+	 *
+	 * The per-SPACE version busts when anything is posted to or deleted from the space
+	 * (buddynext_space_posts_changed), so a new post shows for every viewer at once; the
+	 * global version handles bulk moderation. A block is bounded by the short TTL rather
+	 * than busted instantly -- exactly as the home feed handles it -- and because the
+	 * viewer is in the key it is never a leak, only a <=TTL self-staleness.
+	 *
+	 * @param int $space_id  Space.
+	 * @param int $viewer_id Viewer (0 = logged out).
+	 * @param int $per_page  Page size.
+	 * @return string
+	 */
+	public function space_page_1_key( int $space_id, int $viewer_id, int $per_page ): string {
+		return 'space:p1:' . $space_id . ':' . $viewer_id . ':' . $per_page
+			. ':s' . $this->space_version( $space_id )
+			. ':g' . $this->global_version();
+	}
+
+	/**
+	 * Build the cache key for the first page of a PROFILE feed, as seen by one viewer.
+	 *
+	 * Viewer in the key for the same reason as the space feed (block/mute scoping), plus
+	 * profile_feed() runs a privacy gate BEFORE it reaches this cache -- a viewer who may
+	 * not see the profile's activity never gets here, and if the owner flips to private
+	 * later the gate denies on the next request, so a stale "allowed" cache is never
+	 * served.
+	 *
+	 * Keyed on the profile OWNER's user version, which invalidate_writer() already bumps
+	 * on the owner's post create/delete -- so the owner's new post shows on their profile
+	 * for every viewer at once, with no new hook.
+	 *
+	 * @param int $profile_id Profile owner.
+	 * @param int $viewer_id  Viewer (0 = logged out).
+	 * @param int $per_page   Page size.
+	 * @return string
+	 */
+	public function profile_page_1_key( int $profile_id, int $viewer_id, int $per_page ): string {
+		return 'prof:p1:' . $profile_id . ':' . $viewer_id . ':' . $per_page
+			. ':o' . $this->user_version( $profile_id )
+			. ':g' . $this->global_version();
+	}
+
+	/**
+	 * Per-space feed cache version (defaults to 1, lazily seeded).
+	 *
+	 * @param int $space_id Space.
+	 * @return int
+	 */
+	private function space_version( int $space_id ): int {
+		$key   = 'space:ver:' . $space_id;
+		$value = wp_cache_get( $key, self::GROUP_GLOBAL );
+		if ( false === $value ) {
+			$value = 1;
+			wp_cache_set( $key, $value, self::GROUP_GLOBAL );
+		}
+		return (int) $value;
+	}
+
+	/**
+	 * Invalidate every cached page-1 feed for a space, for every viewer, in O(1).
+	 *
+	 * Called from buddynext_space_posts_changed (a post created in or deleted from the
+	 * space). A single bump orphans every viewer's cached view of that space's feed.
+	 *
+	 * @param int $space_id Space whose post set changed.
+	 * @return void
+	 */
+	public function invalidate_space( int $space_id ): void {
+		if ( $space_id <= 0 ) {
+			return;
+		}
+		$key = 'space:ver:' . $space_id;
+		wp_cache_set( $key, ( (int) wp_cache_get( $key, self::GROUP_GLOBAL ) ) + 1, self::GROUP_GLOBAL );
+	}
+
+	/**
 	 * Per-user feed cache version (defaults to 1, lazily seeded).
 	 *
 	 * @param int $user_id Viewer.

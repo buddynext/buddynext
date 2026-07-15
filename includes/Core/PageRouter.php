@@ -2364,6 +2364,39 @@ class PageRouter {
 	}
 
 	/**
+	 * The member's public @handle — the single source of truth for the mention.
+	 *
+	 * Returns bn_profile_slug ?: user_nicename, never user_login. user_login is a
+	 * CREDENTIAL: WordPress accepts login by username, publishing a confirmed-valid
+	 * username on a public surface aids enumeration, and WP core itself never exposes
+	 * it (its REST API returns the nicename as `slug`). This is the same value
+	 * profile_url()/resolve_user() build the profile URL from, so the @handle a
+	 * member sees always resolves to that member's profile.
+	 *
+	 * Every surface that renders an "@handle" (member cards, space member lists, the
+	 * profile hero, the "online now" sidebar) must resolve it here, so the credential
+	 * can never leak and the two never drift. Prime the usermeta cache
+	 * (`cache_users()` / `update_meta_cache( 'user', $ids )`) before a loop of these.
+	 *
+	 * @param int $user_id User ID.
+	 * @return string Public handle without the leading '@', or '' for an invalid user.
+	 */
+	public static function member_handle( int $user_id ): string {
+		if ( $user_id <= 0 ) {
+			return '';
+		}
+
+		$custom_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
+		if ( '' !== $custom_slug ) {
+			return $custom_slug;
+		}
+
+		$user = get_userdata( $user_id );
+
+		return $user instanceof WP_User ? (string) $user->user_nicename : '';
+	}
+
+	/**
 	 * Return the member directory URL filtered to a specific member type.
 	 *
 	 * Uses the `?type=` query argument — the single member-type filter contract

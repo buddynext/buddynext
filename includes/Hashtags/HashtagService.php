@@ -41,6 +41,17 @@ class HashtagService {
 	private const TRENDING_TRANSIENT_TTL = 30 * MINUTE_IN_SECONDS;
 
 	/**
+	 * How far back related() looks for co-occurring tags.
+	 *
+	 * "Related" means "tags that recently appeared alongside this one", not "ever". A
+	 * window keeps the signal current AND bounds the self-join: without it, an old tag
+	 * scans every post it has ever appeared on. 90 days is wide enough to stay meaningful
+	 * for a quiet tag and narrow enough to cap the scan on a busy one; the
+	 * hashtag_feed (hashtag_id, created_at) key makes it a range scan either way.
+	 */
+	private const RELATED_WINDOW_DAYS = 90;
+
+	/**
 	 * The single hashtag detection pattern, shared by extraction, the banned-tag
 	 * scan, and the content linkifier (buddynext_format_content) so all three
 	 * agree on what a tag is: a letter-first slug of up to 50 letters/numbers/
@@ -792,6 +803,27 @@ class HashtagService {
 		}
 		$limit = max( 1, min( 20, $limit ) );
 
+		// This runs on the public REST route /hashtags/{slug}/related -- an anonymous,
+		// cacheable surface -- and it is a self-join over bn_post_hashtags. It was
+		// completely uncached and unbounded (every post the tag ever appeared on). The
+		// result is pure tag metadata, not viewer-scoped, so it caches globally by
+		// (slug, limit). Same two-layer shape as get_trending(): wp_cache within the
+		// request, a transient across requests. No explicit bust: "related tags" is a soft
+		// discovery signal where ~30 min of staleness is invisible, and per-slug keys
+		// cannot be cleanly enumerated to bust on a tag write anyway.
+		$cache_key = 'related_' . $slug . '_' . $limit;
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		$transient_key  = 'bn_related_' . md5( $slug . '_' . $limit );
+		$from_transient = get_transient( $transient_key ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_get_transient -- transient is the cache layer, not a DB query.
+		if ( false !== $from_transient && is_array( $from_transient ) ) {
+			wp_cache_set( $cache_key, $from_transient, self::CACHE_GROUP, self::CACHE_TTL );
+			return $from_transient;
+		}
+
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
@@ -805,17 +837,19 @@ class HashtagService {
 				        AND other.hashtag_id <> seed.hashtag_id
 				 INNER JOIN {$wpdb->prefix}bn_hashtags h ON h.id = other.hashtag_id
 				 WHERE seed.hashtag_id = %d AND seed.object_type = 'post'
+				   AND seed.created_at >= DATE_SUB( UTC_TIMESTAMP(), INTERVAL %d DAY )
 				 GROUP BY h.id
 				 ORDER BY co_occurrence DESC, h.post_count DESC
 				 LIMIT %d",
 				$hashtag['id'],
+				self::RELATED_WINDOW_DAYS,
 				$limit
 			),
 			ARRAY_A
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-		return array_map(
+		$result = array_map(
 			function ( array $row ): array {
 				$out                  = $this->hydrate( $row );
 				$out['co_occurrence'] = isset( $row['co_occurrence'] ) ? (int) $row['co_occurrence'] : 0;
@@ -823,6 +857,11 @@ class HashtagService {
 			},
 			(array) $rows
 		);
+
+		set_transient( $transient_key, $result, self::TRENDING_TRANSIENT_TTL );
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $result;
 	}
 
 	/**

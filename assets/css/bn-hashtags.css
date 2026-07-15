@@ -109,7 +109,8 @@ a.bn-hashtag:hover {
 }
 
 .bn-hashtag-link:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 }
 
@@ -641,7 +642,8 @@ a.bn-hashtag:hover {
 }
 
 .bn-hashtag-contributors__link:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 }
 

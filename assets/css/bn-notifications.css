@@ -85,7 +85,8 @@
 
 .bn-notif-row:focus-within {
 	box-shadow: var(--bn-ring);
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 /* Unread state is conveyed by the subtle background tint + the pulse dot in the
@@ -330,7 +331,8 @@
 .bn-notif-sidecard__row:hover { background: var(--bn-sunken); }
 
 .bn-notif-sidecard__row:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 }
 
@@ -384,7 +386,8 @@
 .bn-notif-sidecard__actor:hover { transform: translateY(-1px); }
 
 .bn-notif-sidecard__actor:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 }
 

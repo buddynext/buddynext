@@ -688,7 +688,10 @@ class ProfileController extends BaseRestController {
 		}
 		$profile['post_count'] = $this->user_post_count( $profile_user_id );
 		if ( ! isset( $profile['bio'] ) ) {
-			$profile['bio'] = (string) get_user_meta( $profile_user_id, 'bn_field_bio', true );
+			// The bio lives in bn_profile_values; the bn_field_bio usermeta is written by nothing
+			// (see ProfileService::bios_for). Reading it here handed the app an empty bio for
+			// every member - and BuddyNext is REST-first, so the app renders from exactly this.
+			$profile['bio'] = buddynext_service( 'profiles' )->bio_for( $profile_user_id );
 		}
 
 		/**

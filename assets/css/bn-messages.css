@@ -566,11 +566,11 @@
 }
 
 .bn-dm-msg:not(.is-mine) .bn-dm-msg__meta {
-	left: 4px;
+	inset-inline-start: 4px;
 }
 
 .bn-dm-msg.is-mine .bn-dm-msg__meta {
-	right: 4px;
+	inset-inline-end: 4px;
 	flex-direction: row-reverse;
 }
 
@@ -687,7 +687,7 @@
 }
 
 /*
- * Gapless hover-bridge. The bar abuts the bubble edge (left/right: 100%) and
+ * Gapless hover-bridge. The bar abuts the bubble edge (inset-inline-*: 100%) and
  * fills the gutter offset with transparent padding instead of a margin gap, so
  * the pointer travels bubble → padding → buttons over one continuous hoverable
  * surface. With a real gap the cursor crossed a dead zone where neither the
@@ -695,12 +695,12 @@
  * clicked (the "no hover-bridge" defect, worst on own/right-aligned messages).
  */
 .bn-dm-msg:not(.is-mine) .bn-dm-msg__actions {
-	left: 100%;
+	inset-inline-start: 100%;
 	padding-inline-start: var(--bn-s2);
 }
 
 .bn-dm-msg.is-mine .bn-dm-msg__actions {
-	right: 100%;
+	inset-inline-end: 100%;
 	padding-inline-end: var(--bn-s2);
 	justify-content: flex-end;
 }
@@ -807,8 +807,7 @@
 		pointer-events: auto;
 		top: auto;
 		bottom: 100%;
-		left: auto;
-		right: auto;
+		inset-inline: auto;
 		transform: none;
 		padding: 0;
 		margin-bottom: var(--bn-s1);
@@ -1025,7 +1024,8 @@
 .bn-dm-compose__result:hover,
 .bn-dm-compose__result:focus-visible {
 	background: var(--bn-sunken);
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 .bn-dm-compose__result-meta {
@@ -1097,7 +1097,8 @@
 .bn-dm-media__tile:hover,
 .bn-dm-media__tile:focus-visible {
 	border-color: var(--bn-accent);
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 .bn-dm-media__tile img {

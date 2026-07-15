@@ -28,7 +28,7 @@
 	gap: 0.3rem;
 	padding: 1rem;
 	border: 1px solid var(--bn-border);
-	border-radius: var(--bn-radius-md);
+	border-radius: var(--bn-r-md);
 	background: var(--bn-surface);
 }
 
@@ -134,7 +134,7 @@
 	gap: 0.4rem;
 	padding: 0.85rem 0.5rem;
 	border: 1px solid var(--bn-border);
-	border-radius: var(--bn-radius-md);
+	border-radius: var(--bn-r-md);
 	text-decoration: none;
 	color: inherit;
 	text-align: center;
@@ -149,7 +149,8 @@ a.bn-achievements__badge-link:hover,
 a.bn-achievements__badge-link:focus-visible {
 	border-color: var(--bn-accent);
 	transform: translateY(-2px);
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 /* Credential badges get a subtle accent ring — they are the real achievements. */

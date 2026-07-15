@@ -840,7 +840,9 @@ class ModerationController extends BaseRestController {
 	public function list_reports( WP_REST_Request $request ): WP_REST_Response {
 		$reports = ( new ModerationService() )->get_reports_for_object(
 			(string) ( $request->get_param( 'object_type' ) ?? '' ),
-			(int) $request->get_param( 'object_id' )
+			(int) $request->get_param( 'object_id' ),
+			(int) ( $request->get_param( 'per_page' ) ?: 50 ),
+			(int) ( $request->get_param( 'page' ) ?: 1 )
 		);
 
 		return new WP_REST_Response(

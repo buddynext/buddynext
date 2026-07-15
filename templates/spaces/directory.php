@@ -56,7 +56,9 @@ $bn_space_service = new \BuddyNext\Spaces\SpaceService();
 // Single source: the same service the category controller uses. Each row carries
 // id / name / slug; we build an id→row map so per-card category_name/slug are
 // resolved in PHP without a join (list_spaces() rows expose category_id only).
-$bn_categories  = $bn_space_service->categories_with_counts();
+// visible_only: a category the owner switched OFF must not appear in the member-facing chip
+// row. The admin category screen still lists every category - it passes no flag.
+$bn_categories  = $bn_space_service->categories_with_counts( 0, true );
 $bn_cat_by_id   = array();
 $bn_cat_by_slug = array();
 foreach ( $bn_categories as $bn_cat_row ) {

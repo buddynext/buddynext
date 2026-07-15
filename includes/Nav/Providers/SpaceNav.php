@@ -278,18 +278,23 @@ final class SpaceNav {
 
 		$feed = buddynext_service( 'feed' );
 
-		// Pinned posts (up to the per-space cap). The part renders each as an object
-		// and shows the author name, which hydrate() does not carry, so enrich here.
-		// Pro allows up to 10 pins per space; the panel bounds how many show at once.
-		$pinned_posts = array();
-		foreach ( $feed->space_pinned_posts( $space_id, 10 ) as $pinned_arr ) {
-			if ( ! is_array( $pinned_arr ) ) {
-				continue;
-			}
-			$author                    = get_userdata( (int) ( $pinned_arr['user_id'] ?? 0 ) );
-			$pinned_arr['author_name'] = $author ? $author->display_name : __( 'Admin', 'buddynext' );
-			$pinned_posts[]            = (object) $pinned_arr;
-		}
+		/*
+		 * Pinned posts, as hydrated ARRAYS - the shape partials/post-card.php consumes.
+		 *
+		 * They used to be cast to objects and enriched with author_name for a hand-rolled stub
+		 * card that carried no React / Comment / Share / Save. Since the pinned post is also
+		 * dropped from the chronological list below, that stub was the ONLY place it appeared -
+		 * so pinning a post silently removed every way to engage with it. The panel now renders
+		 * the real post card, which needs the array and does its own author lookup.
+		 *
+		 * Pro allows up to 10 pins per space; the panel bounds how many show at once.
+		 */
+		$pinned_posts = array_values(
+			array_filter(
+				(array) $feed->space_pinned_posts( $space_id, 10 ),
+				'is_array'
+			)
+		);
 
 		// Regular feed (hydrated arrays). The pinned post leads as its own card, so
 		// drop it from the list to avoid showing it twice.
@@ -356,11 +361,24 @@ final class SpaceNav {
 			return false;
 		}
 
-		return $context->viewer_id > 0 && buddynext_can(
-			$context->viewer_id,
-			'buddynext-manage-space',
-			array( 'space_id' => $context->subject_id )
-		);
+		/*
+		 * BOTH rights are required, and this checked only the first.
+		 *
+		 *   buddynext-manage-space   per-space: are you this space's owner or a moderator?
+		 *   buddynext-spaces/create  site-wide: are you allowed to create a space at all?
+		 *
+		 * The create route enforces the SECOND (SpaceController: require_cap( 'buddynext-spaces/create' )),
+		 * and an owner can restrict that capability to admins in Settings -> Roles. On such a site a
+		 * space owner who is not a site admin was shown "Add sub-space", clicked it, and got a 403.
+		 * The UI promised what the endpoint refuses.
+		 */
+		return $context->viewer_id > 0
+			&& buddynext_can(
+				$context->viewer_id,
+				'buddynext-manage-space',
+				array( 'space_id' => $context->subject_id )
+			)
+			&& buddynext_can( $context->viewer_id, 'buddynext-spaces/create' );
 	}
 
 	/**
@@ -407,6 +425,7 @@ final class SpaceNav {
 	 */
 	private function render_subspaces_panel( int $space_id, int $viewer_id ): void {
 		$context = new NavContext( 'space', $space_id, $viewer_id );
+		$sub_max = (int) get_option( 'buddynext_space_max_sub_spaces', 0 );
 
 		buddynext_get_template(
 			'parts/space-subspaces-panel.php',
@@ -421,6 +440,14 @@ final class SpaceNav {
 					user_can( $viewer_id, 'manage_options' )
 				),
 				'can_manage' => $this->can_add_subspace( $context ),
+				// The per-parent cap, so the panel can say "2 of 3 used" and disable the
+				// button AT the limit instead of letting the manager fill in the whole
+				// modal and then be refused by the server. Counted with count_subspaces()
+				// (every child), never the visibility-scoped list, so a secret child the
+				// viewer cannot see still counts against the cap - exactly as the create
+				// path enforces it.
+				'sub_max'    => $sub_max,
+				'sub_used'   => $sub_max > 0 ? ( new SpaceService() )->count_subspaces( $space_id ) : 0,
 			)
 		);
 	}

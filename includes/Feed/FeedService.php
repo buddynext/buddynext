@@ -47,6 +47,31 @@ class FeedService {
 	private const NEW_COUNT_TTL = 30;
 
 	/**
+	 * TTL for the cached announcement id lists. A backstop only — every write that can
+	 * add an announcement bumps the version below, so this never has to be short.
+	 */
+	private const ANNOUNCEMENT_TTL = HOUR_IN_SECONDS;
+
+	/**
+	 * How many recent announcements are considered per scope.
+	 *
+	 * Announcements are a handful per space at most, so this is not a real limit — but
+	 * it is a stated one rather than an unbounded read. If a scope somehow holds more
+	 * than this many LIVE announcements at once, only the newest 20 are candidates.
+	 */
+	private const ANNOUNCEMENT_CANDIDATES = 20;
+
+	/**
+	 * Version counter for every cached announcement id list.
+	 */
+	private const ANNOUNCEMENT_VERSION_KEY = 'announcement_ids_version';
+
+	/**
+	 * Version counter for the cached pinned-post lists.
+	 */
+	private const PINNED_VERSION_KEY = 'pinned_ids_version';
+
+	/**
 	 * Ceiling for the "N new posts" pill.
 	 *
 	 * Two jobs, one number.
@@ -662,13 +687,22 @@ class FeedService {
 					// with no recent-but-existing content (Following / Spaces /
 					// Network) showed no badge while the tab still rendered older
 					// posts — the count must match what the feed shows.
-					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
-					 WHERE status = 'published'
-					   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
-					   AND ({$source_where})
-					   {$excluded_where}
-					   {$block_mute_where}", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-					...array_merge( $source_params, $block_mute_params )
+					//
+					// CAPPED at NEW_COUNT_CAP + 1. This is a nav-tab badge: nobody reads
+					// "3,412" on it differently than "99+", but an uncapped COUNT(*) scans
+					// the whole match set on every cache-miss, four times over. The inner
+					// SELECT stops at CAP + 1, so the scan is bounded and the caller can
+					// still tell an exact 99 from "99 or more".
+					"SELECT COUNT(*) FROM (
+					    SELECT 1 FROM {$wpdb->prefix}bn_posts
+					    WHERE status = 'published'
+					      AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+					      AND ({$source_where})
+					      {$excluded_where}
+					      {$block_mute_where}
+					    LIMIT %d
+					 ) _capped", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+					...array_merge( $source_params, $block_mute_params, array( self::NEW_COUNT_CAP + 1 ) )
 				)
 			);
 			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
@@ -803,78 +837,33 @@ class FeedService {
 			return null;
 		}
 
-		global $wpdb;
-
 		$dismissed = self::dismissed_announcement_ids( $user_id );
+		$ids       = $this->announcement_ids( null );
 
 		// Priority: if the owner has featured a specific announcement (via the
 		// Announcements admin), it leads the home feed as long as it is still a live
 		// site-wide announcement the viewer hasn't dismissed. This is what stops a
 		// newer announcement from silently displacing the one the owner wants on top;
 		// with nothing featured we fall through to "newest active wins".
+		//
+		// The featured id is looked for in the candidate list rather than fetched with
+		// its own query: being in that list IS the "still a live site-wide announcement"
+		// test the separate query was doing, and live_announcement_row() re-checks the
+		// rest. One less query on the busiest page on the site.
 		$featured_id = (int) get_option( 'buddynext_featured_announcement', 0 );
-		if ( $featured_id > 0 && ! in_array( $featured_id, $dismissed, true ) ) {
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$featured = $wpdb->get_row(
-				$wpdb->prepare(
-					"SELECT p.* FROM {$wpdb->prefix}bn_posts p
-					 WHERE p.id = %d
-					   AND p.is_announcement = 1
-					   AND p.type = 'announcement'
-					   AND p.status = 'published'
-					   AND p.space_id IS NULL
-					   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > UTC_TIMESTAMP())
-					 LIMIT 1",
-					$featured_id
-				),
-				ARRAY_A
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			if ( is_array( $featured ) ) {
+
+		if ( $featured_id > 0
+			&& ! in_array( $featured_id, $dismissed, true )
+			&& in_array( $featured_id, $ids, true )
+		) {
+			$featured = $this->live_announcement_row( $featured_id );
+
+			if ( null !== $featured ) {
 				return $this->post_service->hydrate( $featured );
 			}
 		}
 
-		$exclude_sql = '';
-		$params      = array();
-		if ( ! empty( $dismissed ) ) {
-			$placeholders = implode( ',', array_fill( 0, count( $dismissed ), '%d' ) );
-			$exclude_sql  = " AND p.id NOT IN ({$placeholders})";
-			$params       = $dismissed;
-		}
-
-		// The branch with no dismissed IDs is a fully static query (only $wpdb->prefix interpolated); the other branch uses $wpdb->prepare() with an internally-built %d placeholder string. phpcs cannot follow the ternary inside get_row().
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-		$row = $wpdb->get_row(
-			empty( $params )
-				? "SELECT p.* FROM {$wpdb->prefix}bn_posts p
-				 WHERE p.is_announcement = 1
-				   AND p.type = 'announcement'
-				   AND p.status = 'published'
-				   AND p.space_id IS NULL
-				   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > UTC_TIMESTAMP())
-				 ORDER BY p.created_at DESC
-				 LIMIT 1"
-				: $wpdb->prepare(
-					"SELECT p.* FROM {$wpdb->prefix}bn_posts p
-				 WHERE p.is_announcement = 1
-				   AND p.type = 'announcement'
-				   AND p.status = 'published'
-				   AND p.space_id IS NULL
-				   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > UTC_TIMESTAMP()){$exclude_sql}
-				 ORDER BY p.created_at DESC
-				 LIMIT 1",
-					$params
-				),
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-
-		if ( null === $row ) {
-			return null;
-		}
-
-		return $this->post_service->hydrate( $row );
+		return $this->first_visible_announcement( $ids, $dismissed );
 	}
 
 	/**
@@ -893,31 +882,171 @@ class FeedService {
 			return null;
 		}
 
+		return $this->first_visible_announcement(
+			$this->announcement_ids( $space_id ),
+			self::dismissed_announcement_ids( $user_id )
+		);
+	}
+
+	/**
+	 * Current version of the announcement id lists.
+	 *
+	 * @return int
+	 */
+	private static function announcement_version(): int {
+		$version = wp_cache_get( self::ANNOUNCEMENT_VERSION_KEY, self::CACHE_GROUP );
+
+		if ( false === $version ) {
+			$version = 1;
+			wp_cache_set( self::ANNOUNCEMENT_VERSION_KEY, $version, self::CACHE_GROUP );
+		}
+
+		return (int) $version;
+	}
+
+	/**
+	 * Invalidate EVERY cached announcement id list, site-wide and per space, in O(1).
+	 *
+	 * Called from every write that can add or remove an announcement. A version bump is
+	 * used rather than deleting individual keys because the writer usually does not know
+	 * which scope it touched — PostService::end_announcement() has a post id and nothing
+	 * else — and a bust that depends on the writer knowing the right key is a bust that
+	 * eventually targets the wrong one.
+	 *
+	 * @return void
+	 */
+	public static function flush_announcement_ids(): void {
+		wp_cache_set( self::ANNOUNCEMENT_VERSION_KEY, self::announcement_version() + 1, self::CACHE_GROUP );
+	}
+
+	/**
+	 * Ids of the announcements that could currently show in a scope, newest first.
+	 *
+	 * Only IDS are cached, never the rows. Everything that decides whether an
+	 * announcement is still showable — status, is_announcement, expiry, deletion — is
+	 * re-read per id through PostService::get(), which has its own cache and is busted on
+	 * every post write. So a stale id list can only ever MISS a brand-new announcement
+	 * (which the version bump on create prevents); it can never resurrect one that was
+	 * ended, expired, or deleted. Caching the rows would have been able to do exactly
+	 * that, and an announcement that will not go away is worse than one that arrives a
+	 * moment late.
+	 *
+	 * @param int|null $space_id Space scope, or null for the site-wide announcements.
+	 * @return array<int, int>
+	 */
+	private function announcement_ids( ?int $space_id ): array {
+		$scope     = null === $space_id ? 'site' : 'space_' . $space_id;
+		$cache_key = 'ann_ids_v' . self::announcement_version() . '_' . $scope;
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
 		global $wpdb;
 
-		$dismissed    = self::dismissed_announcement_ids( $user_id );
-		$placeholders = empty( $dismissed ) ? '' : implode( ',', array_fill( 0, count( $dismissed ), '%d' ) );
-		$exclude_sql  = '' === $placeholders ? '' : " AND p.id NOT IN ({$placeholders})";
-		$params       = array_merge( array( $space_id ), $dismissed );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( null === $space_id ) {
+			$ids = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT id FROM {$wpdb->prefix}bn_posts
+					 WHERE is_announcement = 1
+					   AND type = 'announcement'
+					   AND status = 'published'
+					   AND space_id IS NULL
+					 ORDER BY created_at DESC
+					 LIMIT %d",
+					self::ANNOUNCEMENT_CANDIDATES
+				)
+			);
+		} else {
+			$ids = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT id FROM {$wpdb->prefix}bn_posts
+					 WHERE is_announcement = 1
+					   AND type = 'announcement'
+					   AND status = 'published'
+					   AND space_id = %d
+					 ORDER BY created_at DESC
+					 LIMIT %d",
+					$space_id,
+					self::ANNOUNCEMENT_CANDIDATES
+				)
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-		$row = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT p.* FROM {$wpdb->prefix}bn_posts p
-				 WHERE p.is_announcement = 1
-				   AND p.type = 'announcement'
-				   AND p.status = 'published'
-				   AND p.space_id = %d
-				   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > UTC_TIMESTAMP()){$exclude_sql}
-				 ORDER BY p.created_at DESC
-				 LIMIT 1",
-				$params
-			),
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$ids = array_map( 'intval', (array) $ids );
 
-		return null === $row ? null : $this->post_service->hydrate( $row );
+		wp_cache_set( $cache_key, $ids, self::CACHE_GROUP, self::ANNOUNCEMENT_TTL );
+
+		return $ids;
+	}
+
+	/**
+	 * The newest announcement in the list that this viewer should actually see.
+	 *
+	 * The dismissal filter used to live INSIDE the SQL, under a LIMIT 1 — which means it
+	 * was never "show the newest announcement unless dismissed", it was "show the newest
+	 * announcement the viewer has not dismissed". Those differ: a member who dismissed
+	 * the newest one is supposed to fall through to the one below it, not to nothing. So
+	 * the candidates are walked here in the same order, and the first survivor wins.
+	 *
+	 * Expiry is re-checked here rather than in SQL, so an announcement that expires while
+	 * the id list is cached disappears at the correct moment instead of at the TTL.
+	 *
+	 * @param array<int, int> $ids       Candidate announcement ids, newest first.
+	 * @param array<int, int> $dismissed Announcement ids this viewer dismissed.
+	 * @return array<string, mixed>|null
+	 */
+	private function first_visible_announcement( array $ids, array $dismissed ): ?array {
+		foreach ( $ids as $id ) {
+			if ( in_array( (int) $id, $dismissed, true ) ) {
+				continue;
+			}
+
+			$row = $this->live_announcement_row( (int) $id );
+
+			if ( null !== $row ) {
+				return $this->post_service->hydrate( $row );
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Re-read one announcement and say whether it is still live.
+	 *
+	 * Read through PostService::get() (cached, and busted on every post write) so an
+	 * ended, unpublished, deleted or expired announcement is filtered out immediately,
+	 * however stale the id list is.
+	 *
+	 * @param int $post_id Announcement post id.
+	 * @return array<string, mixed>|null Row when it is still showable, null otherwise.
+	 */
+	private function live_announcement_row( int $post_id ): ?array {
+		$row = $this->post_service->get( $post_id );
+
+		if ( ! is_array( $row ) ) {
+			return null;
+		}
+
+		if ( 1 !== (int) ( $row['is_announcement'] ?? 0 )
+			|| 'announcement' !== (string) ( $row['type'] ?? '' )
+			|| 'published' !== (string) ( $row['status'] ?? '' )
+			|| ! empty( $row['is_deleted'] )
+		) {
+			return null;
+		}
+
+		$expires = (string) ( $row['site_pin_expires_at'] ?? '' );
+
+		if ( '' !== $expires && strtotime( $expires . ' UTC' ) <= time() ) {
+			return null;
+		}
+
+		return $row;
 	}
 
 	/**
@@ -982,6 +1111,23 @@ class FeedService {
 		if ( (int) get_option( 'buddynext_featured_announcement', 0 ) === $post_id ) {
 			delete_option( 'buddynext_featured_announcement' );
 		}
+
+		// Ending an announcement changes what every home feed shows, so the cached feeds
+		// have to go — exactly as they do when an announcement is PUBLISHED. Without this
+		// the announcement stays pinned to the top of the community's feed after the owner
+		// has ended it, which is the one moment they most need it gone (they usually end
+		// an announcement because it is wrong or no longer true). Busted here, at the
+		// write, so both callers — the admin screen and the REST route — are covered.
+		$this->flush_all_home_caches();
+		self::flush_announcement_ids();
+
+		// And the post's own cached row. This method writes bn_posts DIRECTLY, so the
+		// copy PostService is holding still says the announcement has no expiry — and
+		// every reader that goes through PostService::get() (which is now how the
+		// announcement surfaces re-check whether one is still live) would keep being told
+		// it is. The sibling end path in PostService busts this; this one never did,
+		// because until now nothing read the announcement through that cache.
+		PostService::flush_cache( $post_id );
 
 		return false !== $updated;
 	}
@@ -1068,14 +1214,14 @@ class FeedService {
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
 	public function profile_feed( int $profile_user_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
-		global $wpdb;
-
 		$per_page = min( $per_page, 50 );
 
-		// Private-account gate. The owner sees themselves; admins see
-		// everything; otherwise only approved followers see posts. Returns
-		// an empty payload so the profile activity tab shows its existing
-		// empty-state copy without leaking that the account has any posts.
+		// Private-account gate FIRST, and deliberately OUTSIDE the cache. The owner sees
+		// themselves; admins see everything; otherwise only approved followers see posts.
+		// Running it on every request -- never from a cached value -- is what makes a
+		// privacy flip take effect immediately: the moment the owner goes private (or drops
+		// a follower), the very next request is denied here and never reaches the cached
+		// feed. A denied viewer returns the empty payload and touches no cache at all.
 		if ( $viewer_id !== $profile_user_id
 			&& ! user_can( $viewer_id, 'manage_options' )
 			&& ! buddynext_service( 'privacy' )->can_view_activity( $viewer_id, $profile_user_id )
@@ -1086,6 +1232,41 @@ class FeedService {
 				'private'     => true,
 			);
 		}
+
+		// Page-1 cache wrap (A9). First page only; the viewer is in the key so block/mute
+		// scoping never leaks across viewers. The owner's post create/delete busts this via
+		// invalidate_writer (the profile version salt), so a new post shows for every
+		// allowed viewer at once. Same no-live-Pro-filter caveat as the space feed.
+		if ( null !== $this->cache && null === $cursor && $profile_user_id > 0 ) {
+			$key   = $this->cache->profile_page_1_key( $profile_user_id, $viewer_id, $per_page );
+			$cache = $this->cache;
+			return (array) $cache->get(
+				$key,
+				FeedCache::GROUP_USER,
+				FeedCache::TTL_HOME_PAGE_1,
+				fn() => $this->profile_feed_uncached( $profile_user_id, $viewer_id, null, $per_page )
+			);
+		}
+
+		return $this->profile_feed_uncached( $profile_user_id, $viewer_id, $cursor, $per_page );
+	}
+
+	/**
+	 * Uncached profile feed query — internal callee of profile_feed().
+	 *
+	 * The privacy gate lives in the public wrapper, not here: this is only ever reached
+	 * once the viewer is already allowed to see the profile's activity.
+	 *
+	 * @param int         $profile_user_id Profile owner.
+	 * @param int         $viewer_id       Viewer.
+	 * @param string|null $cursor          Pagination cursor.
+	 * @param int         $per_page        Page size.
+	 * @return array{items: array[], next_cursor: string|null}
+	 */
+	private function profile_feed_uncached( int $profile_user_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
+		global $wpdb;
+
+		$per_page = min( $per_page, 50 );
 
 		/**
 		 * Filter the query args before SQL is built for the profile feed.
@@ -1222,6 +1403,40 @@ class FeedService {
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
 	public function space_feed( int $space_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
+		// Page-1 cache wrap (A9). Only the first page is cached (cursor null); deeper pages
+		// are keyset-paginated and each cursor is a unique position, so caching them buys
+		// nothing. The key carries the VIEWER, so one member's block/mute scoping never
+		// leaks into another's feed. See FeedCache::space_page_1_key.
+		//
+		// Nothing in Pro currently hooks buddynext_feed_query_args / buddynext_feed_items,
+		// so the result is a pure function of (space, viewer, page) plus content. If a
+		// future Pro filter makes it depend on the viewer's ENTITLEMENTS, it must bump a
+		// version on entitlement change (or accept the <=TTL lag), because the key cannot
+		// see inside an arbitrary filter.
+		if ( null !== $this->cache && null === $cursor && $space_id > 0 ) {
+			$key   = $this->cache->space_page_1_key( $space_id, $viewer_id, $per_page );
+			$cache = $this->cache;
+			return (array) $cache->get(
+				$key,
+				FeedCache::GROUP_USER,
+				FeedCache::TTL_HOME_PAGE_1,
+				fn() => $this->space_feed_uncached( $space_id, $viewer_id, null, $per_page )
+			);
+		}
+
+		return $this->space_feed_uncached( $space_id, $viewer_id, $cursor, $per_page );
+	}
+
+	/**
+	 * Uncached space feed query — internal callee of space_feed().
+	 *
+	 * @param int         $space_id  Space.
+	 * @param int         $viewer_id Viewer.
+	 * @param string|null $cursor    Pagination cursor.
+	 * @param int         $per_page  Page size.
+	 * @return array{items: array[], next_cursor: string|null}
+	 */
+	private function space_feed_uncached( int $space_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
 		global $wpdb;
 
 		$per_page       = min( $per_page, 50 );
@@ -1645,23 +1860,85 @@ class FeedService {
 
 		$limit = max( 1, min( $limit, 20 ) );
 
-		global $wpdb;
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_posts
-				 WHERE space_id = %d AND is_pinned = 1 AND status = 'published'
-				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
-				 ORDER BY created_at DESC
-				 LIMIT %d",
-				$space_id,
-				$limit
-			),
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// Runs on every space page paint. Unlike the feed, this one is NOT viewer-scoped —
+		// the pinned strip is the same for everybody who can see the space — so a single
+		// key per space is safe.
+		//
+		// Only the IDS are cached, and each is re-read through PostService::get() (cached,
+		// and busted on every post write). So an unpinned, deleted, unpublished or
+		// moderated post drops out immediately however stale the list is: the worst a
+		// stale list can do is miss a NEWLY pinned post, which the bust on pin prevents.
+		// Same argument as the announcements, and for the same reason — a pinned post that
+		// will not go away is worse than one that arrives a moment late.
+		$cache_key = 'pinned_ids_v' . self::pinned_version() . "_{$space_id}_{$limit}";
+		$ids       = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
-		return array_map( fn( $row ) => $this->post_service->hydrate( $row ), (array) $rows );
+		if ( ! is_array( $ids ) ) {
+			global $wpdb;
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$ids = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT id FROM {$wpdb->prefix}bn_posts
+					 WHERE space_id = %d AND is_pinned = 1 AND status = 'published'
+					   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+					 ORDER BY created_at DESC
+					 LIMIT %d",
+					$space_id,
+					$limit
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			$ids = array_map( 'intval', (array) $ids );
+
+			wp_cache_set( $cache_key, $ids, self::CACHE_GROUP, self::ANNOUNCEMENT_TTL );
+		}
+
+		$posts = array();
+
+		foreach ( $ids as $id ) {
+			$row = $this->post_service->get( (int) $id );
+
+			if ( ! is_array( $row )
+				|| empty( $row['is_pinned'] )
+				|| 'published' !== (string) ( $row['status'] ?? '' )
+				|| ! empty( $row['is_deleted'] )
+			) {
+				continue;
+			}
+
+			$posts[] = $this->post_service->hydrate( $row );
+		}
+
+		return $posts;
+	}
+
+	/**
+	 * Current version of the cached pinned-post lists.
+	 *
+	 * @return int
+	 */
+	private static function pinned_version(): int {
+		$version = wp_cache_get( self::PINNED_VERSION_KEY, self::CACHE_GROUP );
+
+		if ( false === $version ) {
+			$version = 1;
+			wp_cache_set( self::PINNED_VERSION_KEY, $version, self::CACHE_GROUP );
+		}
+
+		return (int) $version;
+	}
+
+	/**
+	 * Invalidate every cached pinned-post list.
+	 *
+	 * Called whenever a post is pinned or unpinned. The writer knows the post, not
+	 * necessarily the space, and a pin is rare — so one bump beats guessing a key.
+	 *
+	 * @return void
+	 */
+	public static function flush_pinned_posts(): void {
+		wp_cache_set( self::PINNED_VERSION_KEY, self::pinned_version() + 1, self::CACHE_GROUP );
 	}
 
 	/**

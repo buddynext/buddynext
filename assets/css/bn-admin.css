@@ -221,7 +221,7 @@
 	border-collapse: collapse;
 }
 .bn-pages-table th {
-	text-align: left;
+	text-align: start;
 	font-size: var(--bn-a-text-xs);
 	font-weight: var(--bn-a-fw-semibold);
 	letter-spacing: 0.04em;
@@ -509,7 +509,7 @@
 .bn-btn .bn-btn__icon {
 	width: 14px;
 	height: 14px;
-	margin-left: var(--bn-a-s1);
+	margin-inline-start: var(--bn-a-s1);
 }
 
 .bn-field-hint {
@@ -582,7 +582,10 @@ select.bn-select-input:focus,
 .bn-select:focus {
 	border-color: var(--bn-a-brand) !important;
 	box-shadow: var(--bn-a-focus-ring) !important;
-	outline: none !important;
+	/* A transparent outline (never `none`) so Windows High-Contrast / forced-colors
+	   mode — which drops box-shadow — still paints a focus ring. */
+	outline: 2px solid transparent !important;
+	outline-offset: 2px;
 }
 
 select.bn-select-input {
@@ -644,7 +647,8 @@ select.bn-text-input {
 .bn-admin-hub input[type="datetime-local"]:focus {
 	border-color: var(--bn-a-brand);
 	box-shadow: var(--bn-a-focus-ring);
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 /* Edit member form rows (used by MemberEditForm) */
@@ -725,6 +729,31 @@ select.bn-text-input {
 	border-bottom: none;
 }
 
+/* Descriptor-driven option rows (AdminPageBase::render_sections) wrap EVERY row in a
+   `<div class="bn-opt" id="…">` anchor so the command palette can deep-link a single
+   control. That wrapper is the row's only child, which means the row above always
+   matched `.bn-toggle-row:last-child` / `.bn-field:last-child` - not just the last one.
+   Every toggle lost its divider and every field lost its bottom margin, so the hint of
+   one field ran straight into the next field's label.
+   The wrapper is a layout-transparent anchor, so the "last row" reset belongs to IT:
+   restore the row chrome inside a wrapper, and reset only on the wrapper that really is
+   last in the section card. */
+.bn-opt > .bn-toggle-row:last-child {
+	border-bottom: 1px solid var(--bn-a-border-soft);
+}
+
+.bn-opt:last-child > .bn-toggle-row:last-child {
+	border-bottom: none;
+}
+
+.bn-opt > .bn-field:last-child {
+	margin-bottom: var(--bn-a-s4);
+}
+
+.bn-opt:last-child > .bn-field:last-child {
+	margin-bottom: 0;
+}
+
 /* A toggle disabled because a required plugin is inactive — reads as unavailable. */
 .bn-toggle-row.is-disabled .bn-tl-title,
 .bn-toggle-row.is-disabled .bn-toggle {
@@ -770,7 +799,9 @@ select.bn-text-input {
 .bn-toggle.on,
 .bn-toggle:has( input[type="checkbox"]:checked ) { background: var(--bn-accent); }
 .bn-toggle.on::before,
-.bn-toggle:has( input[type="checkbox"]:checked )::before { transform: translateX(18px); }
+.bn-toggle:has( input[type="checkbox"]:checked )::before { transform: translateX(var(--bn-toggle-travel, 18px)); }
+[dir="rtl"] .bn-toggle.on::before,
+[dir="rtl"] .bn-toggle:has( input[type="checkbox"]:checked )::before { transform: translateX(calc(-1 * var(--bn-toggle-travel, 18px))); }
 
 /* Make sure the hidden checkbox inside the label stays clipped. */
 .bn-toggle .screen-reader-text {
@@ -807,7 +838,7 @@ select.bn-text-input {
 	font-size: var(--bn-a-text-xs);
 	color: var(--bn-a-green);
 	font-weight: var(--bn-a-fw-semibold);
-	margin-right: auto;
+	margin-inline-end: auto;
 }
 
 /* --------------------------------------------------------------------------
@@ -887,7 +918,10 @@ input.bn-table-search {
 input.bn-table-search:focus {
 	border-color: var(--bn-a-brand) !important;
 	box-shadow: var(--bn-a-focus-ring) !important;
-	outline: none !important;
+	/* A transparent outline (never `none`) so Windows High-Contrast / forced-colors
+	   mode — which drops box-shadow — still paints a focus ring. */
+	outline: 2px solid transparent !important;
+	outline-offset: 2px;
 }
 
 table.bn-table {
@@ -897,7 +931,7 @@ table.bn-table {
 
 table.bn-table th {
 	padding: var(--bn-a-s2) var(--bn-a-s4);
-	text-align: left;
+	text-align: start;
 	font-size: var(--bn-a-text-xs);
 	font-weight: var(--bn-a-fw-bold);
 	text-transform: uppercase;
@@ -947,6 +981,16 @@ table.bn-table tr:hover td {
 .bn-row-actions__form {
 	display: inline-flex;
 	margin: 0;
+}
+
+/* A control's own label never breaks mid-phrase - the CLUSTER wraps (flex-wrap above),
+   the buttons don't. This used to be a blanket `white-space: nowrap` on .bn-row-actions,
+   which inherited into every descendant and would force a wrapping status/hint sentence
+   onto one overflowing line. Scope it to the controls that actually need it. */
+.bn-row-actions > .bn-btn,
+.bn-row-actions > .bn-action-link,
+.bn-row-actions__form > .bn-btn {
+	white-space: nowrap;
 }
 
 .bn-badge {
@@ -1069,6 +1113,29 @@ table.bn-table tr:hover td {
 .bn-addon-row__action:focus-visible {
 	outline: 2px solid var(--bn-a-brand);
 	outline-offset: var(--bn-a-outline-offset);
+}
+
+/* Ghost variant - the companion card's "Learn more".
+   The base .bn-addon-row__action is a LIST-ROW control: a 40px tap-target box with
+   inline padding, sized to sit at the end of an addon row next to its copy. Inside a
+   companion CARD the same box renders as a 48px band of empty space and pushes the
+   label 8px out of the card's own text column, so the link reads as an oversized,
+   mis-indented button rather than as a link under the card's copy. The ghost variant
+   drops the box and matches the card body (.bn-companion-card__why): same size, same
+   leading, same left edge. Buttons in the row ("Activate" / "Install free") keep the
+   base treatment and their tap target. Colours stay tokened, so dark mode follows. */
+.bn-addon-row__action--ghost {
+	min-height: 0;
+	padding: 0;
+	font-size: var(--bn-a-text-sm);
+	font-weight: var(--bn-a-fw-medium);
+	line-height: 1.5;
+}
+
+.bn-addon-row__action--ghost:hover,
+.bn-addon-row__action--ghost:focus {
+	background: none;
+	text-decoration: underline;
 }
 
 /* --------------------------------------------------------------------------
@@ -1292,7 +1359,7 @@ table.bn-table tr:hover td {
 	font-weight: var(--bn-a-fw-bold);
 	padding: var(--bn-a-row-badge-py) var(--bn-a-row-badge-px);
 	border-radius: var(--bn-a-r-lg);
-	margin-left: var(--bn-a-s2);
+	margin-inline-start: var(--bn-a-s2);
 	background: var(--bn-a-brand);
 	color: var(--bn-a-bg);
 	vertical-align: middle;
@@ -1328,7 +1395,8 @@ table.bn-table tr:hover td {
 }
 
 .bn-btn:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 25%, transparent);
 }
 
@@ -1547,7 +1615,10 @@ button.bn-btn-danger:hover {
 .bn-search-input:focus {
 	border-color: var(--bn-a-brand) !important;
 	box-shadow: var(--bn-a-focus-ring) !important;
-	outline: none !important;
+	/* A transparent outline (never `none`) so Windows High-Contrast / forced-colors
+	   mode — which drops box-shadow — still paints a focus ring. */
+	outline: 2px solid transparent !important;
+	outline-offset: 2px;
 }
 
 .bn-filter-select {
@@ -1611,14 +1682,13 @@ button.bn-btn-danger:hover {
 
 /* --------------------------------------------------------------------------
    Row actions
+   The .bn-row-actions cluster itself is defined ONCE, further up this file
+   (next to .bn-row-actions__form). A second definition lived here and silently
+   re-declared the primitive - same gap, but it also forced `white-space: nowrap`
+   on the whole cluster, so any consumer that put wrapping text (a live status
+   line) beside its buttons got one overflowing line. Only the link variant
+   belongs here.
    -------------------------------------------------------------------------- */
-
-.bn-row-actions {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-a-s2);
-	white-space: nowrap;
-}
 
 .bn-action-link {
 	font-size: var(--bn-a-text-sm);
@@ -1666,7 +1736,7 @@ button.bn-btn-danger:hover {
 .bn-more-dropdown {
 	display: none;
 	position: absolute;
-	right: 0;
+	inset-inline-end: 0;
 	top: calc(100% + var(--bn-a-s1));
 	background: var(--bn-a-bg);
 	border: 1px solid var(--bn-a-border);
@@ -1684,7 +1754,7 @@ button.bn-btn-danger:hover {
 .bn-dropdown-item {
 	display: block;
 	width: 100%;
-	text-align: left;
+	text-align: start;
 	padding: var(--bn-a-s2) var(--bn-a-s4);
 	font-size: var(--bn-a-text-sm);
 	font-weight: var(--bn-a-fw-medium);
@@ -1739,7 +1809,7 @@ button.bn-btn-danger:hover {
 	}
 
 	.bn-atab {
-		border-right: none;
+		border-inline-end: none;
 		border-bottom: 1px solid var(--bn-a-border);
 		flex: 1 1 auto;
 		text-align: center;
@@ -1781,7 +1851,7 @@ button.bn-btn-danger:hover {
 	}
 
 	.bn-save-msg {
-		margin-right: 0;
+		margin-inline-end: 0;
 		text-align: center;
 	}
 }
@@ -2000,7 +2070,7 @@ button.bn-btn-danger:hover {
 	content: '';
 	position: absolute;
 	top: 3px;
-	left: 3px;
+	inset-inline-start: 3px;
 	width: 16px;
 	height: 16px;
 	border-radius: 50%;
@@ -2009,7 +2079,8 @@ button.bn-btn-danger:hover {
 	transition: transform var(--bn-dur) var(--bn-ease);
 }
 .bn-toggle-label input[type="checkbox"]:checked + .bn-toggle--inline { background: var(--bn-accent); }
-.bn-toggle-label input[type="checkbox"]:checked + .bn-toggle--inline::after { transform: translateX(18px); }
+.bn-toggle-label input[type="checkbox"]:checked + .bn-toggle--inline::after { transform: translateX(var(--bn-toggle-travel, 18px)); }
+[dir="rtl"] .bn-toggle-label input[type="checkbox"]:checked + .bn-toggle--inline::after { transform: translateX(calc(-1 * var(--bn-toggle-travel, 18px))); }
 .bn-toggle-label input[type="checkbox"]:focus-visible + .bn-toggle--inline {
 	outline: 2px solid var(--bn-accent);
 	outline-offset: 2px;
@@ -2093,7 +2164,42 @@ button.bn-btn-danger:hover {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 6px;
+	gap: 10px;
+}
+
+/* Each action form is a row of its own controls (e.g. Import: a file picker and
+   the button that submits it), so they line up beside each other rather than the
+   button dropping below the picker. */
+.bn-mod-actions form {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+/* A file picker is not a text field. It used to wear .bn-input, which meant
+   width:100% and height:36px -- so it stretched the full width of the panel and
+   shoved the button that submits it onto its own line. It sizes to its content
+   and sits beside its button. */
+.bn-file-input {
+	max-inline-size: 100%;
+	color: var(--bn-ink, #1e293b);
+	font-size: 13px;
+}
+
+.bn-file-input::file-selector-button {
+	margin-inline-end: 8px;
+	padding: 5px 10px;
+	border: 1px solid var(--bn-a-border, #d1d5db);
+	border-radius: 6px;
+	background: var(--bn-a-surface, #fff);
+	color: var(--bn-ink, #1e293b);
+	font-size: 13px;
+	cursor: pointer;
+}
+
+.bn-file-input::file-selector-button:hover {
+	border-color: var(--bn-brand, #0073aa);
 }
 .bn-mod-action-form {
 	display: inline-block;
@@ -2371,7 +2477,7 @@ button.bn-btn-danger:hover {
 .bn-social-card__status.is-empty  { background: var(--bn-a-bg-hover); color: var(--bn-a-text-3); }
 
 .bn-social-card__toggle {
-	margin-left: auto;
+	margin-inline-start: auto;
 	white-space: nowrap;
 }
 
@@ -2406,24 +2512,29 @@ button.bn-btn-danger:hover {
 	list-style: none;
 }
 .bn-social-help > summary::-webkit-details-marker { display: none; }
-/* Disclosure caret drawn in CSS (no glyph character) — a right-pointing
-   triangle that rotates to point down when the details is open. */
+/* Disclosure caret drawn in CSS (no glyph character) — a triangle pointing along
+   the inline direction (right under LTR) that rotates to point down when the
+   details is open. The solid edge is border-inline-start, so under RTL the
+   triangle mirrors to point left on its own. The open-state rotation must then
+   flip too: rotating a left-pointing triangle +90deg would aim it UP, so RTL
+   rotates the other way to land on the same downward caret. */
 .bn-social-help > summary::before {
 	content: "";
 	display: inline-block;
 	width: 0;
 	height: 0;
-	margin-right: var(--bn-a-s2, 6px);
-	border-left: 5px solid currentColor;
+	margin-inline-end: var(--bn-a-s2, 6px);
+	border-inline-start: 5px solid currentColor;
 	border-top: 4px solid transparent;
 	border-bottom: 4px solid transparent;
 	vertical-align: middle;
 	transition: transform 0.15s ease;
 }
 .bn-social-help[open] > summary::before { transform: rotate(90deg); }
+[dir="rtl"] .bn-social-help[open] > summary::before { transform: rotate(-90deg); }
 .bn-social-help__steps {
 	margin: var(--bn-a-s3) 0;
-	padding-left: var(--bn-a-s5);
+	padding-inline-start: var(--bn-a-s5);
 	color: var(--bn-a-text-2);
 	line-height: 1.6;
 }
@@ -2431,7 +2542,7 @@ button.bn-btn-danger:hover {
 
 @media ( max-width: 640px ) {
 	.bn-social-card__head { flex-wrap: wrap; }
-	.bn-social-card__toggle { margin-left: 0; width: 100%; }
+	.bn-social-card__toggle { margin-inline-start: 0; width: 100%; }
 	.bn-copy-row { flex-direction: column; }
 	.bn-media-controls { flex-direction: column; align-items: stretch; }
 }

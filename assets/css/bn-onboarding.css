@@ -74,7 +74,7 @@
 	.bn-ob-shell { grid-template-columns: 1fr; }
 	.bn-ob-canvas { display: none; }
 }
-@media (max-width: 720px) {
+@media (max-width: 768px) {
 	.bn-ob-form { padding: var(--bn-s5) var(--bn-s4); }
 }
 
@@ -299,7 +299,7 @@
 }
 .bn-ob-input-prefix__prefix {
 	background: var(--bn-sunken);
-	border-right: 1px solid var(--bn-line);
+	border-inline-end: 1px solid var(--bn-line);
 	font-family: var(--bn-font-mono, var(--bn-font-ui));
 	font-size: 13px;
 	color: var(--bn-ink-3);
@@ -455,7 +455,7 @@
 	align-self: flex-start;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
 	.bn-ob-spaces { grid-template-columns: 1fr; }
 }
 
@@ -527,7 +527,7 @@
 	content: '';
 	position: absolute;
 	top: 2px;
-	left: 2px;
+	inset-inline-start: 2px;
 	width: 16px;
 	height: 16px;
 	background: var(--bn-surface);
@@ -539,7 +539,8 @@
 	background: var(--bn-accent);
 	border-color: var(--bn-accent);
 }
-.bn-ob-channel__toggle:checked::before { transform: translateX(16px); }
+.bn-ob-channel__toggle:checked::before { transform: translateX(var(--bn-toggle-travel, 16px)); }
+[dir="rtl"] .bn-ob-channel__toggle:checked::before { transform: translateX(calc(-1 * var(--bn-toggle-travel, 16px))); }
 .bn-ob-channel__toggle:focus-visible {
 	outline: 2px solid color-mix(in oklch, var(--bn-accent) 50%, transparent);
 	outline-offset: 2px;
@@ -709,8 +710,9 @@
  * with ≥ 8px gap from its neighbour.
  * ═══════════════════════════════════════════════════════════════════════ */
 
-/* Cancel WP's #wpcontent padding so the wizard owns the full surface. */
-#wpcontent { padding-left: 0 !important; }
+/* Cancel WP's #wpcontent padding so the wizard owns the full surface. Logical so
+   it also cancels the padding-right that wp-admin's RTL sheet sets instead. */
+#wpcontent { padding-inline-start: 0 !important; }
 #wpfooter { display: none !important; }
 .bn-wizard-wrap {
 	/* No negative horizontal margins: the wrap already fills #wpbody-content
@@ -805,7 +807,8 @@
 .bn-wizard__exit:focus-visible {
 	color: var(--bn-ink);
 	background: var(--bn-sunken);
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 /* ── Step indicator row ──────────────────────────────────────────────── */
@@ -839,7 +842,7 @@
 	width: 14px;
 	height: 1px;
 	background: var(--bn-line);
-	margin-right: 6px;
+	margin-inline-end: 6px;
 }
 .bn-wizard__step-marker {
 	width: 22px;
@@ -962,7 +965,8 @@
 	transition: border-color var(--bn-dur) var(--bn-ease), box-shadow var(--bn-dur) var(--bn-ease);
 }
 .bn-wizard__input:focus {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	border-color: var(--bn-accent);
 	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 18%, transparent);
 }
@@ -1065,14 +1069,27 @@
 }
 .bn-wizard__option[data-selected="false"] { opacity: 0.6; }
 .bn-wizard__option[data-selected="false"]:hover { opacity: 0.9; }
-.bn-wizard__option-input {
+/* The real input is suppressed; .bn-wizard__option-mark is the only indicator.
+   The selector has to carry the type, not just the class: wp-admin's forms.css styles
+   `input[type="checkbox"]` (specificity 0,1,1) and `input[type="checkbox"]:disabled`
+   (0,2,1), and BOTH out-specify a bare `.bn-wizard__option-input` (0,1,0). Core
+   therefore won the width/height back to its own 16px box, and on a DISABLED input it
+   won the opacity too (core sets .7), so every already-created page in the Pages step
+   painted the native checkbox NEXT TO the custom mark: two checkboxes per row. Anchoring
+   the rule on the type selector puts it back above core. */
+.bn-wizard input[type="checkbox"].bn-wizard__option-input,
+.bn-wizard input[type="radio"].bn-wizard__option-input {
 	position: absolute;
 	opacity: 0;
 	width: 1px;
 	height: 1px;
+	min-width: 0;
+	min-height: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	box-shadow: none;
 	pointer-events: none;
-	/* Suppress the native checkbox box entirely so it can't paint through the
-	   circular/square .bn-wizard__option-mark in the Pages list. */
 	-webkit-appearance: none;
 	appearance: none;
 }
@@ -1234,7 +1251,7 @@
 	content: '';
 	position: absolute;
 	top: 2px;
-	left: 2px;
+	inset-inline-start: 2px;
 	width: 18px;
 	height: 18px;
 	background: var(--bn-surface);
@@ -1246,7 +1263,8 @@
 	background: var(--bn-accent);
 	border-color: var(--bn-accent);
 }
-.bn-wizard__switch-input:checked ~ .bn-wizard__switch-track::after { transform: translateX(16px); }
+.bn-wizard__switch-input:checked ~ .bn-wizard__switch-track::after { transform: translateX(var(--bn-toggle-travel, 16px)); }
+[dir="rtl"] .bn-wizard__switch-input:checked ~ .bn-wizard__switch-track::after { transform: translateX(calc(-1 * var(--bn-toggle-travel, 16px))); }
 
 /* ── Pages list ──────────────────────────────────────────────────────── */
 
@@ -1344,7 +1362,8 @@
 	box-shadow: none;
 }
 .bn-wizard__slug-input:focus {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	background: var(--bn-surface);
 	border-radius: 3px;
 }
@@ -1501,7 +1520,8 @@ label.bn-wizard__addon-info[for] { cursor: pointer; }
 .bn-wizard__btn-back:focus-visible,
 .bn-wizard__btn-skip:focus-visible,
 .bn-wizard__btn-secondary:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 35%, transparent);
 }
 .bn-wizard__btn-secondary {
@@ -1576,7 +1596,7 @@ label.bn-wizard__addon-info[for] { cursor: pointer; }
 
 /* ── Mobile ──────────────────────────────────────────────────────────── */
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
 	.bn-wizard-wrap { padding: var(--bn-s3) var(--bn-s2); margin: 0; }
 	.bn-wizard { border-radius: var(--bn-r-md); }
 	.bn-wizard__header {
@@ -1601,7 +1621,7 @@ label.bn-wizard__addon-info[for] { cursor: pointer; }
 	}
 	.bn-wizard__page-slug {
 		grid-column: 1 / -1;
-		padding-left: 30px;
+		padding-inline-start: 30px;
 	}
 	.bn-wizard__footer {
 		flex-direction: column-reverse;

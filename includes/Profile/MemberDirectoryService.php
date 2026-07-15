@@ -28,12 +28,68 @@ class MemberDirectoryService {
 	private const DEFAULT_LIMIT = 20;
 
 	/**
-	 * Cap on the directory total — the COUNT subquery stops here so it never scans
-	 * the full match set at 50k members; the directory shows/pages a bounded count
-	 * (an exact total is noise on a list people browse a few pages of). Kept in sync
-	 * with the server-rendered directory's $bn_count_cap.
+	 * Cached, EXACT directory total for a viewer + filter set.
+	 *
+	 * The server-rendered directory used to compute this itself, by running a SECOND
+	 * WP_User_Query purely to count -- uncached, on every directory page load. That is
+	 * what A5 is: the SSR directory building its own uncached copy of a number the cached
+	 * service should own.
+	 *
+	 * It also CAPPED that count at 1,000 and rendered the capped figure flat, so a
+	 * 100k-member community announced "1,000 members in the community". WordPress itself
+	 * counts users without flinching -- the Users screen shows the real figure on a site of
+	 * any size -- and the measured reality here agrees: the exact filtered count over
+	 * 100k members is ~70ms cold (an unfiltered COUNT is instant, on the PK), and this is
+	 * cached for a minute, so it amortises to nothing. A cap that trades a truthful number
+	 * for a saving that small is not worth the lie. The count is exact now, like core's.
+	 *
+	 * Cached under the SAME per-viewer version salt as the list pages, so a block, an
+	 * unblock, or any membership change that busts the directory busts this total too.
+	 *
+	 * @param int                  $viewer_id Current viewer (0 = logged out).
+	 * @param array<string, mixed> $filters   Same filter keys the directory pages use
+	 *                                         (member_type, online_only).
+	 * @return int Exact number of members the directory would show this viewer.
 	 */
-	private const DIRECTORY_COUNT_CAP = 1000;
+	public function directory_total( int $viewer_id, array $filters = array() ): int {
+		global $wpdb;
+
+		$cache_ver = (int) wp_cache_get( self::cache_version_key( $viewer_id ), self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		$cache_key = 'bn_dir_total_' . md5( (string) wp_json_encode( array( $viewer_id, $filters, $cache_ver ) ) );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
+		$user_col = $wpdb->users . '.ID';
+
+		// Same exclusion set the GRID uses, or the number will not match what it shows.
+		// directory_exclusion_subqueries() drops suspended / shadow-banned / directory
+		// opt-out members (param-free NOT EXISTS strings); directory_filter_sql() adds the
+		// viewer-self, block, member_type and online_only clauses. list_members() combines
+		// exactly these two for its own count -- reusing both here is what keeps the header
+		// total and the grid honest with each other.
+		$clauses = $this->directory_exclusion_subqueries( $user_col );
+
+		list( $frag, $frag_params ) = $this->directory_filter_sql( $viewer_id, $filters, $user_col );
+		if ( '' !== trim( (string) $frag ) ) {
+			$clauses[] = ! empty( $frag_params )
+				// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+				? $wpdb->prepare( $frag, ...$frag_params )
+				: $frag;
+		}
+
+		$where = empty( $clauses ) ? '1=1' : implode( "\n   AND ", $clauses );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->users} WHERE {$where}" );
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_set( $cache_key, $total, self::CACHE_GROUP, self::CACHE_TTL ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $total;
+	}
 
 	/**
 	 * Object-cache key for the viewer-independent, discovery-gated per-type member
@@ -350,11 +406,28 @@ class MemberDirectoryService {
 
 		switch ( $sort ) {
 			case 'alphabetical':
+				// Opt-in, non-default sort. wp_users has no index on display_name (core
+				// indexes ID / user_login / user_nicename / user_email only), and it is a
+				// CORE table we do not ALTER, so this filesorts the filtered candidate set.
+				// Accepted at current scale per the directory-UX ruling: the DEFAULT sort
+				// (newest) is filesort-free, and A-Z browsing is a deliberate minority
+				// action over a set already narrowed by search/type/location filters. If
+				// A-Z ever becomes a primary entry point, denormalise a sort_name column
+				// into an own table and key it — do NOT index wp_users.
 				$order_sql = 'ORDER BY u.display_name ASC, u.ID ASC';
 				break;
 
 			case 'most_active':
 			case 'online':
+				// Opt-in, non-default sort. last_active lives in the LEFT-JOINed
+				// bn_presence, and the COALESCE (required so never-present users don't
+				// break the keyset — see the cursor comment above) makes any index on
+				// pres.last_active unusable for this ORDER BY, so it filesorts the filtered
+				// set. Accepted at current scale per the same ruling: default is
+				// filesort-free, this is a minority sort, and the alternative — driving the
+				// query INNER from bn_presence(last_active) — would trade the correctness of
+				// the NULL-safe keyset for speed on a non-primary path. Denormalise a
+				// last_active column onto the directory row if this becomes primary.
 				$order_sql = 'ORDER BY COALESCE(pres.last_active, 0) DESC, u.ID DESC';
 				break;
 
@@ -362,7 +435,8 @@ class MemberDirectoryService {
 			default:
 				// ID DESC == newest-first on an AUTO_INCREMENT users table, and ID is
 				// the PRIMARY KEY — a pure backward index scan, no filesort (wp_users
-				// has no index on user_registered).
+				// has no index on user_registered). This is the DEFAULT, so the hot path
+				// is filesort-free; the two opt-in sorts above accept a bounded filesort.
 				$order_sql = 'ORDER BY u.ID DESC';
 				break;
 		}
@@ -392,7 +466,7 @@ class MemberDirectoryService {
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT u.ID, u.display_name, u.user_login, u.user_registered{$presence_select}
+				"SELECT u.ID, u.display_name, u.user_registered{$presence_select}
 				 FROM {$wpdb->users} u
 				 {$join_sql}
 				 WHERE {$where_sql}
@@ -404,24 +478,19 @@ class MemberDirectoryService {
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
-		// Bounded total for the same filter set — the inner SELECT stops at the cap, so
-		// COUNT never scans the full 50k match set. The directory shows/pages a capped
-		// total (an exact "47,213" is noise; people browse a few pages, not page 2500).
-		// Matches the server-rendered directory's cap so the two surfaces agree.
-		// Use the pre-cursor snapshot (A6e) so the total is stable across pages, and the
-		// same cap as the page query so the two surfaces agree.
+		// EXACT total for the same filter set — no cap. This once stopped at 1,000 to avoid
+		// scanning the match set, and the server-rendered directory matched it, so a
+		// 100k community reported "1,000 members". WordPress counts users exactly on a site
+		// of any size; measured here the filtered count over 100k members is ~70ms cold and
+		// this whole method is cached, so it runs at most once per cache window. Use the
+		// pre-cursor snapshot (A6e) so the total is stable across pages.
+		// $count_params always carries at least the viewer id (the self-exclusion's %d), so
+		// the prepare() path is always the right one -- there is no param-free case here.
 		$count_where_sql = implode( "\n   AND ", $count_clauses );
-		$count_params[]  = self::DIRECTORY_COUNT_CAP;
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$total = (int) $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM (
-				    SELECT u.ID
-				    FROM {$wpdb->users} u
-				    {$join_sql}
-				    WHERE {$count_where_sql}
-				    LIMIT %d
-				 ) AS _ct",
+				"SELECT COUNT(*) FROM {$wpdb->users} u {$join_sql} WHERE {$count_where_sql}",
 				...$count_params
 			)
 		);
@@ -526,10 +595,29 @@ class MemberDirectoryService {
 			}
 		}
 
+		/*
+		 * Bios, batched, from where they ACTUALLY live.
+		 *
+		 * This read get_user_meta( $uid, 'bn_field_bio' ). Nothing in the product writes that key
+		 * for the bio: it is a real bn_profile_fields row (field_key = 'bio'), so its value goes
+		 * to bn_profile_values, and the bn_field_* usermeta is only written as a SIDE EFFECT of
+		 * the search mirror - which only runs for fields flagged is_searchable. The stock bio is
+		 * is_searchable = 0. So the mirror never ran, the key was never written, and the directory
+		 * showed an empty bio for every member who had one. (Measured on a seeded site: 12 members
+		 * with a bio in bn_profile_values, 0 with the usermeta.)
+		 *
+		 * Whether a bio is SEARCHABLE and whether it is VISIBLE in the directory are two different
+		 * questions. Reading the value directly decouples them.
+		 *
+		 * One query for the whole page, not one per member - this list renders 20+ cards.
+		 */
+		// One reader for the whole product - ProfileService owns bn_profile_values.
+		$bios = buddynext_service( 'profiles' )->bios_for( $row_ids );
+
 		$items = array_map(
-			static function ( $r ) use ( $mutual_counts, $follower_counts, $viewer_id, $blocks ) {
+			static function ( $r ) use ( $mutual_counts, $follower_counts, $viewer_id, $blocks, $bios ) {
 				$uid = (int) $r['ID'];
-				$bio = get_user_meta( $uid, 'bn_field_bio', true );
+				$bio = $bios[ $uid ] ?? '';
 				return array(
 					'user_id'                 => $uid,
 					'display_name'            => $r['display_name'],
@@ -914,14 +1002,21 @@ class MemberDirectoryService {
 	/**
 	 * Most-recently-active members for the "Online now" sidebar widget.
 	 *
-	 * Returns lightweight rows (ID, display_name, user_login) for users active
+	 * Returns lightweight rows (ID, display_name, handle) for users active
 	 * within the online window, newest-active first, capped at $limit. The block
 	 * restrict gate is applied so the viewer never sees a member who blocked
 	 * them. Replaces the raw widget query the directory template carried inline.
 	 *
+	 * The handle is the member's PUBLIC slug — bn_profile_slug ?: user_nicename —
+	 * never user_login. user_login is a credential; publishing it on this public
+	 * sidebar aids username enumeration (WP accepts login by username), and WP core
+	 * itself never exposes it. This matches MemberDirectoryController::shape_item()
+	 * and PageRouter::resolve_user(), so the SSR sidebar and the REST payload
+	 * resolve the same handle for a member.
+	 *
 	 * @param int $viewer_id Viewing user (block restrict applied for them).
 	 * @param int $limit     Max rows to return.
-	 * @return array<int,array{ID:int,display_name:string,user_login:string}>
+	 * @return array<int,array{ID:int,display_name:string,handle:string}>
 	 */
 	public function online_now( int $viewer_id = 0, int $limit = 6 ): array {
 		global $wpdb;
@@ -940,7 +1035,7 @@ class MemberDirectoryService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT u.ID, u.display_name, u.user_login
+				"SELECT u.ID, u.display_name, u.user_nicename
 				   FROM {$wpdb->users} u
 				   JOIN {$wpdb->prefix}bn_presence pres ON pres.user_id = u.ID
 				  WHERE pres.last_active >= %d
@@ -953,6 +1048,13 @@ class MemberDirectoryService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
+		// Prime the usermeta cache for the whole fetched set so the per-row
+		// bn_profile_slug lookup below is a cache hit, not a query each (no N+1).
+		$fetched_ids = array_map( static fn ( $r ) => (int) $r->ID, (array) $rows );
+		if ( array() !== $fetched_ids ) {
+			update_meta_cache( 'user', $fetched_ids );
+		}
+
 		$blocks = buddynext_service( 'blocks' );
 		$out    = array();
 
@@ -961,10 +1063,16 @@ class MemberDirectoryService {
 			if ( $viewer_id > 0 && method_exists( $blocks, 'is_restricted' ) && $blocks->is_restricted( $viewer_id, $uid ) ) {
 				continue;
 			}
+
+			// Public handle: the member's custom slug if set, else user_nicename
+			// (WP's public author slug). NEVER user_login — see the method docblock.
+			$custom_slug = (string) get_user_meta( $uid, 'bn_profile_slug', true );
+			$handle      = '' !== $custom_slug ? $custom_slug : (string) $row->user_nicename;
+
 			$out[] = array(
 				'ID'           => $uid,
 				'display_name' => (string) $row->display_name,
-				'user_login'   => (string) $row->user_login,
+				'handle'       => $handle,
 			);
 			if ( count( $out ) >= $limit ) {
 				break;

@@ -112,7 +112,8 @@
 .bn-search-hero__input.bn-input:focus-visible {
 	border-color: var(--bn-accent);
 	box-shadow: var(--bn-ring);
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 .bn-search-hero__submit.bn-btn {
@@ -245,7 +246,8 @@
 .bn-search-section__seeall:hover,
 .bn-search-section__seeall:focus-visible {
 	text-decoration: underline;
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 .bn-search-section__seeall svg {
@@ -281,7 +283,8 @@
 }
 
 .bn-search-row__link:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 	border-radius: var(--bn-r-md);
 }
@@ -472,7 +475,8 @@
 }
 
 .bn-search-aside__opt input:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 	border-radius: var(--bn-r-full);
 }

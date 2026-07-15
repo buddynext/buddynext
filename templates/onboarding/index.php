@@ -134,7 +134,8 @@ foreach ( $bn_ob_suggested_ids as $sug_uid ) {
 	$suggested_users[] = array(
 		'id'             => $sug_uid,
 		'display_name'   => $sug_wp_user->display_name,
-		'user_login'     => $sug_wp_user->user_login,
+		// Public handle (bn_profile_slug ?: user_nicename), never user_login.
+		'handle'         => \BuddyNext\Core\PageRouter::member_handle( $sug_uid ),
 		'headline'       => (string) get_user_meta( $sug_uid, 'bn_headline', true ),
 		'follower_count' => $bn_ob_follows->follower_count( $sug_uid ),
 	);
@@ -547,7 +548,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 							<?php
 							$sug_id           = (int) $sug_user['id'];
 							$sug_name         = (string) $sug_user['display_name'];
-							$sug_login        = (string) $sug_user['user_login'];
+							$sug_handle       = (string) $sug_user['handle'];
 							$sug_headline     = ! empty( $sug_user['headline'] ) ? (string) $sug_user['headline'] : '';
 							$sug_followers    = (int) $sug_user['follower_count'];
 							$sug_avatar_url   = get_avatar_url( $sug_id, array( 'size' => 72 ) );
@@ -569,7 +570,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 										<?php if ( $sug_headline ) : ?>
 											<?php echo esc_html( $sug_headline ); ?>
 										<?php else : ?>
-											@<?php echo esc_html( $sug_login ); ?>
+											@<?php echo esc_html( $sug_handle ); ?>
 											·
 											<?php
 											echo esc_html(

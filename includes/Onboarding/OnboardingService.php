@@ -36,6 +36,21 @@ class OnboardingService {
 	public const TOTAL_STEPS = 5;
 
 	/**
+	 * Object-cache group for onboarding reads.
+	 */
+	private const CACHE_GROUP = 'buddynext_onboarding';
+
+	/**
+	 * TTL for a member's cached interest ids. A backstop — every write busts explicitly.
+	 */
+	private const CACHE_TTL = HOUR_IN_SECONDS;
+
+	/**
+	 * Cache-key prefix for a member's interest ids.
+	 */
+	private const INTERESTS_KEY_PREFIX = 'interests_';
+
+	/**
 	 * User meta key for the current step.
 	 */
 	private const META_STEP = 'bn_onboarding_step';
@@ -165,6 +180,8 @@ class OnboardingService {
 			array( 'interests' => implode( ',', $clean ) )
 		);
 
+		self::flush_interests( $user_id );
+
 		return $this->get_interest_ids( $user_id );
 	}
 
@@ -176,6 +193,20 @@ class OnboardingService {
 	 *               field is absent or nothing is picked.
 	 */
 	public function get_interest_ids( int $user_id ): array {
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+
+		// A two-table join, run on the for-you feed, on Explore, and on the suggestion
+		// rails — several times per page for a value that changes when a member edits
+		// their interests, which is roughly never.
+		$cache_key = self::INTERESTS_KEY_PREFIX . $user_id;
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -193,7 +224,29 @@ class OnboardingService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-		return array_values( array_filter( array_map( 'absint', (array) $ids ) ) );
+		$ids = array_values( array_filter( array_map( 'absint', (array) $ids ) ) );
+
+		wp_cache_set( $cache_key, $ids, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $ids;
+	}
+
+	/**
+	 * Drop a member's cached interest ids.
+	 *
+	 * Interests live in bn_profile_values, which the onboarding step is NOT the only
+	 * writer of — ProfileService writes the same rows whenever a member edits their
+	 * profile. So this is called from the profile-cache choke point as well as from the
+	 * onboarding save: busting only in save_interest_ids() would leave a member who
+	 * changed their interests on the profile screen with the old ones shaping their feed.
+	 *
+	 * @param int $user_id Member.
+	 * @return void
+	 */
+	public static function flush_interests( int $user_id ): void {
+		if ( $user_id > 0 ) {
+			wp_cache_delete( self::INTERESTS_KEY_PREFIX . $user_id, self::CACHE_GROUP );
+		}
 	}
 
 	/**

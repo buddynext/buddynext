@@ -16,7 +16,7 @@
  * @var int    $profile_user_id Required. ID of the profile being edited.
  * @var string $display_name    Required. Current display-name value.
  * @var string $headline        Optional. Current headline value.
- * @var string $username        Required. WP user_login string used in the @handle badge.
+ * @var string $username        Required. The member's public handle (bn_profile_slug ?: user_nicename) for the @handle badge - never user_login.
  * @var string $avatar_url      Optional. Resolved avatar URL.
  * @var string $cover_url       Optional. Resolved cover URL.
  * @var string $initials        Optional. Fallback initials shown when no avatar URL.

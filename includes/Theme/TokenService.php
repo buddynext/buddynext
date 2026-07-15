@@ -256,43 +256,7 @@ class TokenService {
 	 */
 	private function theme_token_maps(): array {
 		return array(
-			// Reign 8.0.0 — the primary WBcom theme. Colour source of truth is
-			// the --reign-* vars (they flip under [data-bx-mode="dark"]).
-			'reign-theme' => array(
-				// Brand / accent.
-				'--bn-accent'     => 'var(--reign-accent-color, var(--bn-accent-500))',
-				'--bn-accent-700' => 'var(--reign-accent-hover-color, oklch(42% calc(var(--bn-chroma) * 0.9) var(--bn-hue)))',
-				// Brand accent SCALE — derive every step from the theme accent
-				// (--bn-accent-500 → --reign-accent-color) mixed with the
-				// theme-following surface (lighter steps) / ink (darker steps).
-				// Previously these were left to BuddyNext's internal --bn-hue, so
-				// the scale stayed blue when the Reign accent was changed and did
-				// not follow the host palette. --bn-accent-500 references Reign with
-				// a literal fallback so there is no var() cycle with --bn-accent.
-				'--bn-accent-500' => 'var(--reign-accent-color, oklch(58% var(--bn-chroma) var(--bn-hue)))',
-				'--bn-accent-50'  => 'color-mix(in oklch, var(--bn-accent-500) 6%, var(--bn-surface))',
-				'--bn-accent-100' => 'color-mix(in oklch, var(--bn-accent-500) 12%, var(--bn-surface))',
-				'--bn-accent-200' => 'color-mix(in oklch, var(--bn-accent-500) 24%, var(--bn-surface))',
-				'--bn-accent-300' => 'color-mix(in oklch, var(--bn-accent-500) 40%, var(--bn-surface))',
-				'--bn-accent-400' => 'color-mix(in oklch, var(--bn-accent-500) 65%, var(--bn-surface))',
-				'--bn-accent-600' => 'color-mix(in oklch, var(--bn-accent-500) 85%, var(--bn-ink))',
-				'--bn-accent-800' => 'color-mix(in oklch, var(--bn-accent-500) 68%, var(--bn-ink))',
-				'--bn-accent-900' => 'color-mix(in oklch, var(--bn-accent-500) 52%, var(--bn-ink))',
-				// Surfaces.
-				'--bn-canvas'     => 'var(--reign-site-body-bg-color, oklch(99% 0.002 var(--bn-hue)))',
-				'--bn-surface'    => 'var(--reign-site-sections-bg-color, oklch(100% 0 0))',
-				'--bn-sunken'     => 'var(--reign-site-secondary-bg-color, oklch(97% 0.004 var(--bn-hue)))',
-				// Elevated surface — derive from the theme surface so it tracks the
-				// host palette and mode instead of BuddyNext's internal tint.
-				'--bn-raised'     => 'color-mix(in oklch, var(--bn-surface) 94%, var(--bn-ink))',
-				// Borders.
-				'--bn-line'       => 'var(--reign-site-border-color, oklch(92% 0.005 var(--bn-hue)))',
-				'--bn-line-faint' => 'var(--reign-site-hr-color, oklch(95% 0.003 var(--bn-hue)))',
-				// Text.
-				'--bn-ink'        => 'var(--reign-site-headings-color, oklch(20% 0.01 var(--bn-hue)))',
-				'--bn-ink-2'      => 'var(--reign-site-body-text-color, oklch(40% 0.01 var(--bn-hue)))',
-				'--bn-ink-3'      => 'var(--reign-site-alternate-text-color, oklch(58% 0.008 var(--bn-hue)))',
-			),
+			'reign-theme' => $this->reign_map(),
 			// BuddyX 5.x + BuddyX Pro. Colour source of truth is the theme's own
 			// customizer CSS variables (--color-theme-* / --global-*), emitted at
 			// runtime as :root vars (Kirki was removed in 5.1.x). Both themes share
@@ -300,6 +264,59 @@ class TokenService {
 			'buddyx'      => $this->buddyx_map(),
 			'buddyx-pro'  => $this->buddyx_map(),
 		);
+	}
+
+	/**
+	 * Reign token map — BuddyNext base token => Reign CSS var, with a literal
+	 * fallback so an unconfigured value never breaks the cascade.
+	 *
+	 * Reign 8.0.0 — the primary WBcom theme. Colour source of truth is the
+	 * --reign-* vars (they flip under [data-bx-mode="dark"]).
+	 *
+	 * @return array<string,string>
+	 */
+	private function reign_map(): array {
+		$map = array(
+			// Brand / accent.
+			'--bn-accent'     => 'var(--reign-accent-color, var(--bn-accent-500))',
+			'--bn-accent-700' => 'var(--reign-accent-hover-color, oklch(42% calc(var(--bn-chroma) * 0.9) var(--bn-hue)))',
+			// Brand accent SCALE — derive every step from the theme accent
+			// (--bn-accent-500 → --reign-accent-color) mixed with the
+			// theme-following surface (lighter steps) / ink (darker steps).
+			// Previously these were left to BuddyNext's internal --bn-hue, so
+			// the scale stayed blue when the Reign accent was changed and did
+			// not follow the host palette. --bn-accent-500 references Reign with
+			// a literal fallback so there is no var() cycle with --bn-accent.
+			'--bn-accent-500' => 'var(--reign-accent-color, oklch(58% var(--bn-chroma) var(--bn-hue)))',
+			'--bn-accent-50'  => 'color-mix(in oklch, var(--bn-accent-500) 6%, var(--bn-surface))',
+			'--bn-accent-100' => 'color-mix(in oklch, var(--bn-accent-500) 12%, var(--bn-surface))',
+			'--bn-accent-200' => 'color-mix(in oklch, var(--bn-accent-500) 24%, var(--bn-surface))',
+			'--bn-accent-300' => 'color-mix(in oklch, var(--bn-accent-500) 40%, var(--bn-surface))',
+			'--bn-accent-400' => 'color-mix(in oklch, var(--bn-accent-500) 65%, var(--bn-surface))',
+			'--bn-accent-600' => 'color-mix(in oklch, var(--bn-accent-500) 85%, var(--bn-ink))',
+			'--bn-accent-800' => 'color-mix(in oklch, var(--bn-accent-500) 68%, var(--bn-ink))',
+			'--bn-accent-900' => 'color-mix(in oklch, var(--bn-accent-500) 52%, var(--bn-ink))',
+			// Surfaces.
+			'--bn-canvas'     => 'var(--reign-site-body-bg-color, oklch(99% 0.002 var(--bn-hue)))',
+			'--bn-surface'    => 'var(--reign-site-sections-bg-color, oklch(100% 0 0))',
+			'--bn-sunken'     => 'var(--reign-site-secondary-bg-color, oklch(97% 0.004 var(--bn-hue)))',
+			// Elevated surface — derive from the theme surface so it tracks the
+			// host palette and mode instead of BuddyNext's internal tint.
+			'--bn-raised'     => 'color-mix(in oklch, var(--bn-surface) 94%, var(--bn-ink))',
+			// Borders.
+			'--bn-line'       => 'var(--reign-site-border-color, oklch(92% 0.005 var(--bn-hue)))',
+			'--bn-line-faint' => 'var(--reign-site-hr-color, oklch(95% 0.003 var(--bn-hue)))',
+			// Text.
+			'--bn-ink'        => 'var(--reign-site-headings-color, oklch(20% 0.01 var(--bn-hue)))',
+			'--bn-ink-2'      => 'var(--reign-site-body-text-color, oklch(40% 0.01 var(--bn-hue)))',
+			'--bn-ink-3'      => 'var(--reign-site-alternate-text-color, oklch(58% 0.008 var(--bn-hue)))',
+		);
+
+		// Reign stores typography per element in the customizer, in the same array
+		// shape BuddyX uses ( 'font-family' => …, 'font-size' => …, … ). Body is
+		// `reign_body_typography`; headings are `reign_h1..h6_typography` and we
+		// take h2 as the representative display face, mirroring the BuddyX map.
+		return $this->with_theme_fonts( $map, 'reign_body_typography', 'reign_h2_typography' );
 	}
 
 	/**
@@ -341,16 +358,37 @@ class TokenService {
 			'--bn-ink-3'      => 'color-mix(in oklch, var(--bn-ink-2) 70%, var(--bn-surface))',
 		);
 
-		// Font family — adopt the theme's chosen font so BuddyNext reads as part of
-		// the same site. Theme compatibility here is scoped on purpose to the
-		// colour scheme (above) and the font FAMILY only: BuddyNext keeps its own
-		// type scale, weights, and spacing so its design stays intact. BuddyX
-		// stores typography (family + size) per element in the customizer; we take
-		// ONLY the family. --bn-theme-font / --bn-theme-heading-font are the hooks
-		// bn-base.css chains --bn-font-ui / --bn-font-display through, so emitting
-		// them here adopts the font at the CSS level — no first-paint font flash.
-		$bn_body_font    = $this->theme_font_family( 'typography_option' );
-		$bn_heading_font = $this->theme_font_family( 'h2_typography_option' );
+		// BuddyX stores typography per element in the customizer: `typography_option`
+		// is the body face, `h2_typography_option` the representative heading face.
+		return $this->with_theme_fonts( $map, 'typography_option', 'h2_typography_option' );
+	}
+
+	/**
+	 * Layer the host theme's chosen font FAMILY onto a colour token map.
+	 *
+	 * Shared by every supported theme. Adopting the theme's font makes BuddyNext
+	 * read as part of the same site. Theme compatibility is scoped on purpose to
+	 * the colour scheme and the font FAMILY only: BuddyNext keeps its own type
+	 * scale, weights and spacing so its design stays intact.
+	 *
+	 * `--bn-theme-font` / `--bn-theme-heading-font` are the hooks bn-base.css
+	 * chains `--bn-font-ui` / `--bn-font-display` through, so emitting them here
+	 * adopts the font at the CSS level — no first-paint font flash.
+	 *
+	 * This used to be inlined in the BuddyX map only, which meant Reign sites
+	 * adopted the theme's COLOURS but kept BuddyNext's own Inter/Plus Jakarta
+	 * type — the two halves of theme adoption disagreed. Both themes store
+	 * typography theme-mods in the same array shape, so one helper serves both.
+	 *
+	 * @param array<string,string> $map         Colour token map to extend.
+	 * @param string               $body_mod    Theme-mod key for the body face.
+	 * @param string               $heading_mod Theme-mod key for the heading face.
+	 * @return array<string,string> The map, with font tokens added when configured.
+	 */
+	private function with_theme_fonts( array $map, string $body_mod, string $heading_mod ): array {
+		$bn_body_font    = $this->theme_font_family( $body_mod );
+		$bn_heading_font = $this->theme_font_family( $heading_mod );
+
 		if ( '' !== $bn_body_font ) {
 			$map['--bn-theme-font'] = $bn_body_font;
 		}
@@ -362,14 +400,15 @@ class TokenService {
 	}
 
 	/**
-	 * Read a BuddyX / BuddyX Pro typography customizer setting and return ONLY its
-	 * font-family — never the size or weight — so BuddyNext adopts the theme's font
-	 * while keeping its own type scale. BuddyX stores each typography control as an
+	 * Read a theme typography customizer setting and return ONLY its font-family —
+	 * never the size or weight — so BuddyNext adopts the theme's font while keeping
+	 * its own type scale. BuddyX and Reign both store each typography control as an
 	 * array like `array( 'font-family' => '"DM Sans", system-ui, sans-serif',
-	 * 'font-size' => '16px', … )`.
+	 * 'font-size' => '16px', … )`, so one reader serves both.
 	 *
-	 * @param string $mod_key Theme-mod key, e.g. 'typography_option' (body) or
-	 *                        'h2_typography_option' (headings).
+	 * @param string $mod_key Theme-mod key: 'typography_option' / 'h2_typography_option'
+	 *                        (BuddyX), 'reign_body_typography' / 'reign_h2_typography'
+	 *                        (Reign).
 	 * @return string Sanitised font-family stack, or '' when not configured.
 	 */
 	private function theme_font_family( string $mod_key ): string {

@@ -149,7 +149,8 @@
 .bn-table .bn-dropdown-item:focus-visible {
 	background: var(--bn-sunken);
 	color: var(--bn-ink);
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 }
 
 .bn-table .bn-dropdown-danger {
@@ -877,7 +878,7 @@
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 	color: var(--bn-a-text-3);
-	text-align: left;
+	text-align: start;
 	background: var(--bn-a-bg-subtle);
 	border-bottom: 1px solid var(--bn-a-border-soft);
 }
@@ -965,7 +966,8 @@
 }
 
 .bn-pf-vis-field:focus {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	border-color: var(--bn-a-brand);
 }
 
@@ -1141,7 +1143,8 @@
 }
 
 .bn-pf-opts-textarea:focus {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	border-color: var(--bn-a-brand);
 	box-shadow: var(--bn-a-focus-ring);
 }
@@ -1222,7 +1225,8 @@
 
 .bn-pf-af-row .bn-pf-af-field input:focus,
 .bn-pf-af-row .bn-pf-af-field select:focus {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	border-color: var(--bn-a-brand);
 	box-shadow: var(--bn-a-focus-ring);
 }
@@ -1331,7 +1335,8 @@
 
 .bn-pf-ag-row .bn-pf-ag-field input:focus,
 .bn-pf-ag-row .bn-pf-ag-field select:focus {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	border-color: var(--bn-a-brand);
 	box-shadow: 0 0 0 2px var(--bn-a-career-bg);
 }
@@ -1534,7 +1539,8 @@
 }
 
 .bn-image-picker-controls input[type="text"]:focus {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	border-color: var(--bn-a-brand);
 	box-shadow: 0 0 0 2px var(--bn-a-career-bg);
 }

@@ -3081,6 +3081,48 @@ document.addEventListener( 'keydown', function ( event ) {
 		} );
 	}
 
+	/**
+	 * Repaint the space header that sits at the top of the settings page.
+	 *
+	 * The upload handlers only ever refreshed the little preview inside the form,
+	 * so the header kept the image it was rendered with and the change looked like
+	 * it had not taken until you reloaded. The header is the thing the eye actually
+	 * checks, so it is the thing that has to move.
+	 *
+	 * @param {string}       kind     'avatar' or 'cover'.
+	 * @param {string}       url      New image URL (already cache-busted by the server),
+	 *                                or '' when the image was removed.
+	 * @param {HTMLElement=} fallback Optional <template> holding the markup to show when
+	 *                                there is no image (the space's category icon). Without
+	 *                                it a removal would leave the header an empty box until
+	 *                                the next reload - swapping one stale-header bug for another.
+	 */
+	function paintSpaceHeader( kind, url, fallback ) {
+		var host = document.querySelector( 'avatar' === kind ? '.bn-sh-avatar' : '.bn-sh-cover' );
+		if ( ! host ) { return; }
+
+		if ( ! url ) {
+			host.innerHTML = '';
+			if ( fallback && fallback.content ) {
+				host.appendChild( fallback.content.cloneNode( true ) );
+			}
+			host.classList.remove( 'has-image' );
+			return;
+		}
+
+		var img = host.querySelector( 'img' );
+
+		if ( ! img ) {
+			host.innerHTML = '';
+			img     = document.createElement( 'img' );
+			img.alt = '';
+			host.appendChild( img );
+		}
+
+		img.src = url;
+		host.classList.add( 'has-image' );
+	}
+
 	/* ── Cover ──────────────────────────────────────────────────────────── */
 	(function () {
 		var field = document.querySelector( '[data-bn-cover-field]' );
@@ -3141,6 +3183,7 @@ document.addEventListener( 'keydown', function ( event ) {
 					return res.data;
 				} ).then( function ( data ) {
 					paint( data.cover_image_url || '' );
+					paintSpaceHeader( 'cover', data.cover_image_url || '' );
 					if ( window.bnToast ) { window.bnToast( t( 'coverUpdated', 'Cover updated.' ), 'success' ); }
 				} ).catch( function ( err ) {
 					if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : t( 'couldNotUploadCover', 'Could not upload cover.' ), 'danger' ); }
@@ -3165,6 +3208,7 @@ document.addEventListener( 'keydown', function ( event ) {
 						return Promise.reject( new Error( msg ) );
 					}
 					paint( '' );
+					paintSpaceHeader( 'cover', '' );
 					if ( window.bnToast ) { window.bnToast( t( 'coverRemoved', 'Cover removed.' ), 'success' ); }
 				} ).catch( function ( err ) {
 					if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : t( 'couldNotRemoveCover', 'Could not remove cover.' ), 'danger' ); }
@@ -3203,6 +3247,8 @@ document.addEventListener( 'keydown', function ( event ) {
 						img.alt = '';
 						current.appendChild( img );
 					}
+					// The header, not just the form preview — that is where the change is looked for.
+					if ( data.avatar_url ) { paintSpaceHeader( 'avatar', data.avatar_url ); }
 					if ( removeBtn ) { removeBtn.hidden = false; }
 					if ( window.bnToast ) { window.bnToast( t( 'iconUpdated', 'Icon updated.' ), 'success' ); }
 				} ).catch( function ( err ) {
@@ -3231,6 +3277,9 @@ document.addEventListener( 'keydown', function ( event ) {
 						}
 					}
 					removeBtn.hidden = true;
+					// Pass the fallback so the header shows the category icon again rather
+					// than an empty box.
+					paintSpaceHeader( 'avatar', '', fallback );
 					if ( window.bnToast ) { window.bnToast( t( 'iconRemoved', 'Icon removed.' ), 'success' ); }
 				} ).catch( function ( err ) {
 					if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : t( 'couldNotRemoveIcon', 'Could not remove icon.' ), 'danger' ); }

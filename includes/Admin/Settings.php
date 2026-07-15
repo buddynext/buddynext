@@ -3107,7 +3107,15 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				<?php endforeach; ?>
 			</fieldset>
 
-			<div class="bn-field">
+			<?php
+			// The button + its live status are an action cluster, not a form field:
+			// .bn-field is the label/input/hint wrapper (it stacks its children and
+			// carries a field's bottom margin), so the button and the status text
+			// sat in the same box with no defined gap and no wrap rule. Use the
+			// shared .bn-row-actions primitive (bn-admin.css) that every other admin
+			// action cluster consumes: one flex row, one gap, wraps as a unit.
+			?>
+			<div class="bn-row-actions bn-a-gap-top">
 				<button type="button"
 					class="bn-btn"
 					data-variant="primary"

@@ -42,8 +42,7 @@
 .wp-block-buddynext-member-directory.alignfull,
 .wp-block-buddynext-space-directory.alignfull {
 	max-width: 100%;
-	padding-left: var(--s4);
-	padding-right: var(--s4);
+	padding-inline: var(--bn-s4);
 }
 
 /* ── Activity feed block ────────────────────────────────────────────── */
@@ -56,7 +55,7 @@
 .bn-feed-list {
 	display: flex;
 	flex-direction: column;
-	gap: var(--s3);
+	gap: var(--bn-s3);
 }
 
 /* .bn-post-card (base container) is defined ONCE in bn-feed.css (canonical,
@@ -65,8 +64,8 @@
 .bn-post-card__header {
 	display: flex;
 	align-items: flex-start;
-	gap: var(--s3);
-	margin-bottom: var(--s3);
+	gap: var(--bn-s3);
+	margin-bottom: var(--bn-s3);
 }
 
 .bn-post-card__meta {
@@ -90,28 +89,28 @@
 	font-size: var(--text-sm);
 	color: var(--text-1);
 	line-height: var(--leading-body);
-	margin-bottom: var(--s3);
+	margin-bottom: var(--bn-s3);
 }
 
 .bn-post-card__actions {
 	display: flex;
 	align-items: center;
-	gap: var(--s3);
-	padding-top: var(--s3);
-	border-top: 1px solid var(--border-soft);
+	gap: var(--bn-s3);
+	padding-top: var(--bn-s3);
+	border-top: 1px solid var(--bn-line-faint);
 }
 
 .bn-post-card__action {
 	display: inline-flex;
 	align-items: center;
-	gap: var(--s1);
+	gap: var(--bn-s1);
 	font-size: var(--text-xs);
 	color: var(--text-3);
 	background: none;
 	border: none;
 	cursor: pointer;
-	padding: var(--s1) var(--s2);
-	border-radius: var(--r-md);
+	padding: var(--bn-s1) var(--bn-s2);
+	border-radius: var(--bn-r-md);
 	transition: background 0.1s, color 0.1s;
 }
 
@@ -127,26 +126,26 @@
 .bn-feed-load-more {
 	display: flex;
 	justify-content: center;
-	padding: var(--s4) 0;
+	padding: var(--bn-s4) 0;
 }
 
 /* ── Post composer block ────────────────────────────────────────────── */
 
 .wp-block-buddynext-post-composer {
 	max-width: 720px;
-	margin: 0 auto var(--s4);
+	margin: 0 auto var(--bn-s4);
 }
 
 .bn-composer {
 	background: var(--surface);
 	border: 1px solid var(--border);
-	border-radius: var(--r-lg);
-	padding: var(--s4);
+	border-radius: var(--bn-r-lg);
+	padding: var(--bn-s4);
 }
 
 .bn-composer__row {
 	display: flex;
-	gap: var(--s3);
+	gap: var(--bn-s3);
 	align-items: flex-start;
 }
 
@@ -154,9 +153,9 @@
 	flex: 1;
 	min-height: 80px;
 	resize: vertical;
-	padding: var(--s3);
+	padding: var(--bn-s3);
 	border: 1px solid var(--border);
-	border-radius: var(--r-md);
+	border-radius: var(--bn-r-md);
 	font-family: var(--font-body);
 	font-size: var(--text-sm);
 	color: var(--text-1);
@@ -179,8 +178,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--s3);
-	margin-top: var(--s3);
+	gap: var(--bn-s3);
+	margin-top: var(--bn-s3);
 }
 
 /* .bn-composer__tools / .bn-composer__tool are defined ONCE in bn-feed.css
@@ -198,7 +197,7 @@
 	gap: 0;
 	background: var(--surface);
 	border: 1px solid var(--border);
-	border-radius: var(--r-lg);
+	border-radius: var(--bn-r-lg);
 	overflow: hidden;
 }
 
@@ -206,8 +205,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: var(--s3) var(--s4);
-	border-bottom: 1px solid var(--border-soft);
+	padding: var(--bn-s3) var(--bn-s4);
+	border-bottom: 1px solid var(--bn-line-faint);
 	text-decoration: none;
 	transition: background 0.1s;
 }
@@ -240,8 +239,8 @@
 
 .bn-dir-filters {
 	display: flex;
-	gap: var(--s2);
-	margin-bottom: var(--s4);
+	gap: var(--bn-s2);
+	margin-bottom: var(--bn-s4);
 	flex-wrap: wrap;
 	align-items: center;
 }
@@ -249,7 +248,7 @@
 .bn-dir-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-	gap: var(--s4);
+	gap: var(--bn-s4);
 }
 
 /* Member card block — .bn-member-card is defined ONCE in bn-members.css
@@ -264,9 +263,9 @@
 .bn-follow-btn {
 	display: inline-flex;
 	align-items: center;
-	gap: var(--s1);
-	padding: var(--s2) var(--s4);
-	border-radius: var(--r-md);
+	gap: var(--bn-s1);
+	padding: var(--bn-s2) var(--bn-s4);
+	border-radius: var(--bn-r-md);
 	font-family: var(--font-body);
 	font-size: var(--text-sm);
 	font-weight: var(--fw-semibold);
@@ -293,7 +292,7 @@
 }
 
 .bn-follow-btn--following:hover {
-	background: var(--red-bg);
+	background: var(--bn-danger-bg);
 	color: var(--red);
 	border-color: var(--red);
 }
@@ -314,9 +313,9 @@
 .bn-connect-btn {
 	display: inline-flex;
 	align-items: center;
-	gap: var(--s1);
-	padding: var(--s2) var(--s4);
-	border-radius: var(--r-full);
+	gap: var(--bn-s1);
+	padding: var(--bn-s2) var(--bn-s4);
+	border-radius: var(--bn-r-full);
 	font-family: var(--font-body);
 	font-size: var(--text-sm);
 	font-weight: var(--fw-semibold);
@@ -371,15 +370,15 @@
 .bn-my-spaces-list {
 	display: flex;
 	flex-direction: column;
-	gap: var(--s2);
+	gap: var(--bn-s2);
 }
 
 .bn-my-spaces-item {
 	display: flex;
 	align-items: center;
-	gap: var(--s3);
-	padding: var(--s2) var(--s3);
-	border-radius: var(--r-md);
+	gap: var(--bn-s3);
+	padding: var(--bn-s2) var(--bn-s3);
+	border-radius: var(--bn-r-md);
 	text-decoration: none;
 	transition: background 0.1s;
 }
@@ -408,12 +407,12 @@
 /* ── Profile header block ───────────────────────────────────────────── */
 
 .wp-block-buddynext-profile-header {
-	margin-bottom: var(--s6);
+	margin-bottom: var(--bn-s6);
 }
 
 .bn-profile-header {
 	position: relative;
-	border-radius: var(--r-lg);
+	border-radius: var(--bn-r-lg);
 	overflow: hidden;
 }
 
@@ -428,15 +427,15 @@
 .bn-profile-header__body {
 	display: flex;
 	align-items: flex-end;
-	gap: var(--s4);
-	padding: 0 var(--s6) var(--s4);
+	gap: var(--bn-s4);
+	padding: 0 var(--bn-s6) var(--bn-s4);
 	margin-top: -40px;
 }
 
 .bn-profile-header__avatar {
 	width: 80px;
 	height: 80px;
-	border-radius: var(--r-full);
+	border-radius: var(--bn-r-full);
 	border: 3px solid var(--surface);
 	overflow: hidden;
 	flex-shrink: 0;
@@ -459,12 +458,12 @@
 	font-weight: var(--fw-bold);
 	font-family: var(--font-display);
 	color: var(--text-1);
-	margin: 0 0 var(--s1);
+	margin: 0 0 var(--bn-s1);
 }
 
 .bn-profile-header__stats {
 	display: flex;
-	gap: var(--s4);
+	gap: var(--bn-s4);
 	font-size: var(--text-xs);
 	color: var(--text-3);
 }
@@ -479,19 +478,19 @@
 .wp-block-buddynext-profile-fields {
 	background: var(--surface);
 	border: 1px solid var(--border);
-	border-radius: var(--r-lg);
-	padding: var(--s4);
+	border-radius: var(--bn-r-lg);
+	padding: var(--bn-s4);
 }
 
 .bn-profile-fields-list {
 	display: flex;
 	flex-direction: column;
-	gap: var(--s3);
+	gap: var(--bn-s3);
 }
 
 .bn-profile-field {
 	display: flex;
-	gap: var(--s4);
+	gap: var(--bn-s4);
 }
 
 .bn-profile-field__label {
@@ -517,15 +516,15 @@
 .wp-block-buddynext-profile-completion-bar {
 	background: var(--surface);
 	border: 1px solid var(--border);
-	border-radius: var(--r-lg);
-	padding: var(--s4);
+	border-radius: var(--bn-r-lg);
+	padding: var(--bn-s4);
 }
 
 .bn-completion-header {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	margin-bottom: var(--s3);
+	margin-bottom: var(--bn-s3);
 }
 
 .bn-completion-title {
@@ -547,14 +546,14 @@
 .bn-completion-steps {
 	display: flex;
 	flex-direction: column;
-	gap: var(--s2);
-	margin-top: var(--s3);
+	gap: var(--bn-s2);
+	margin-top: var(--bn-s3);
 }
 
 .bn-completion-step {
 	display: flex;
 	align-items: center;
-	gap: var(--s2);
+	gap: var(--bn-s2);
 	font-size: var(--text-xs);
 	color: var(--text-2);
 }
@@ -577,8 +576,8 @@
 .bn-auth-card {
 	background: var(--surface);
 	border: 1px solid var(--border);
-	border-radius: var(--r-xl);
-	padding: var(--s8);
+	border-radius: var(--bn-r-xl);
+	padding: var(--bn-s8);
 }
 
 .bn-auth-card__title {
@@ -586,7 +585,7 @@
 	font-weight: var(--fw-bold);
 	font-family: var(--font-display);
 	color: var(--text-1);
-	margin: 0 0 var(--s1);
+	margin: 0 0 var(--bn-s1);
 	text-align: center;
 }
 
@@ -594,11 +593,11 @@
 	font-size: var(--text-sm);
 	color: var(--text-3);
 	text-align: center;
-	margin-bottom: var(--s6);
+	margin-bottom: var(--bn-s6);
 }
 
 .bn-form-group {
-	margin-bottom: var(--s4);
+	margin-bottom: var(--bn-s4);
 }
 
 .bn-form-label {
@@ -606,14 +605,14 @@
 	font-size: var(--text-xs);
 	font-weight: var(--fw-semibold);
 	color: var(--text-2);
-	margin-bottom: var(--s1);
+	margin-bottom: var(--bn-s1);
 }
 
 .bn-form-input {
 	width: 100%;
-	padding: var(--s3) var(--s4);
+	padding: var(--bn-s3) var(--bn-s4);
 	border: 1px solid var(--border);
-	border-radius: var(--r-md);
+	border-radius: var(--bn-r-md);
 	font-family: var(--font-body);
 	font-size: var(--text-sm);
 	color: var(--text-1);
@@ -629,17 +628,17 @@
 
 .bn-form-submit {
 	width: 100%;
-	padding: var(--s3) var(--s4);
+	padding: var(--bn-s3) var(--bn-s4);
 	background: var(--brand);
 	color: var(--text-on-brand);
 	border: none;
-	border-radius: var(--r-md);
+	border-radius: var(--bn-r-md);
 	font-family: var(--font-body);
 	font-size: var(--text-sm);
 	font-weight: var(--fw-semibold);
 	cursor: pointer;
 	transition: background 0.15s;
-	margin-top: var(--s2);
+	margin-top: var(--bn-s2);
 }
 
 .bn-form-submit:hover {
@@ -653,7 +652,7 @@
 
 .bn-auth-links {
 	text-align: center;
-	margin-top: var(--s4);
+	margin-top: var(--bn-s4);
 	font-size: var(--text-xs);
 	color: var(--text-3);
 }
@@ -675,23 +674,23 @@
 .bn-form-row {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
-	gap: var(--s3);
+	gap: var(--bn-s3);
 }
 
 .bn-password-strength {
-	margin-top: var(--s1);
+	margin-top: var(--bn-s1);
 }
 
 .bn-password-strength__bar {
 	height: 4px;
 	background: var(--border);
-	border-radius: var(--r-full);
+	border-radius: var(--bn-r-full);
 	overflow: hidden;
 }
 
 .bn-password-strength__fill {
 	height: 100%;
-	border-radius: var(--r-full);
+	border-radius: var(--bn-r-full);
 	transition: width 0.3s, background 0.3s;
 }
 
@@ -742,31 +741,52 @@
 	color: var(--text-3);
 	text-transform: uppercase;
 	letter-spacing: var(--ls-wider);
-	margin: 0 0 var(--s3);
+	margin: 0 0 var(--bn-s3);
 }
 
-/* ── Dark mode ──────────────────────────────────────────────────────── */
+/* ── Dark mode ────────────────────────────────────────────────────────
+   Dark rules must list the canonical trio: [data-bn-theme="dark"] (BN toggle),
+   [data-theme="dark"] (legacy alias) and [data-bx-mode="dark"] (bridges the
+   BuddyX / Reign colour-mode toggle). See bn-base.css. */
 
+[data-bn-theme="dark"] .bn-post-card,
 [data-theme="dark"] .bn-post-card,
+[data-bx-mode="dark"] .bn-post-card,
+[data-bn-theme="dark"] .bn-composer,
 [data-theme="dark"] .bn-composer,
+[data-bx-mode="dark"] .bn-composer,
+[data-bn-theme="dark"] .bn-auth-card,
 [data-theme="dark"] .bn-auth-card,
+[data-bx-mode="dark"] .bn-auth-card,
+[data-bn-theme="dark"] .wp-block-buddynext-profile-fields,
 [data-theme="dark"] .wp-block-buddynext-profile-fields,
-[data-theme="dark"] .wp-block-buddynext-profile-completion-bar {
+[data-bx-mode="dark"] .wp-block-buddynext-profile-fields,
+[data-bn-theme="dark"] .wp-block-buddynext-profile-completion-bar,
+[data-theme="dark"] .wp-block-buddynext-profile-completion-bar,
+[data-bx-mode="dark"] .wp-block-buddynext-profile-completion-bar {
 	background: var(--surface);
 	border-color: var(--border);
 }
 
-[data-theme="dark"] .bn-post-card:hover {
+[data-bn-theme="dark"] .bn-post-card:hover,
+[data-theme="dark"] .bn-post-card:hover,
+[data-bx-mode="dark"] .bn-post-card:hover {
 	background: var(--bg-hover);
 }
 
+[data-bn-theme="dark"] .bn-composer__textarea,
 [data-theme="dark"] .bn-composer__textarea,
-[data-theme="dark"] .bn-form-input {
+[data-bx-mode="dark"] .bn-composer__textarea,
+[data-bn-theme="dark"] .bn-form-input,
+[data-theme="dark"] .bn-form-input,
+[data-bx-mode="dark"] .bn-form-input {
 	background: var(--bg-subtle);
 	color: var(--text-1);
 }
 
-[data-theme="dark"] .bn-profile-header__avatar {
+[data-bn-theme="dark"] .bn-profile-header__avatar,
+[data-theme="dark"] .bn-profile-header__avatar,
+[data-bx-mode="dark"] .bn-profile-header__avatar {
 	border-color: var(--surface);
 }
 
@@ -785,12 +805,12 @@
 	}
 
 	.bn-post-card__actions {
-		gap: var(--s2);
+		gap: var(--bn-s2);
 	}
 
 	.bn-post-card__action {
 		font-size: var(--text-xs);
-		padding: var(--s1);
+		padding: var(--bn-s1);
 	}
 
 	.bn-profile-header__cover {
@@ -798,7 +818,7 @@
 	}
 
 	.bn-profile-header__body {
-		padding: 0 var(--s4) var(--s3);
+		padding: 0 var(--bn-s4) var(--bn-s3);
 		margin-top: -28px;
 	}
 
@@ -812,12 +832,12 @@
 	}
 
 	.bn-profile-header__stats {
-		gap: var(--s3);
+		gap: var(--bn-s3);
 	}
 
 	.bn-profile-field {
 		flex-direction: column;
-		gap: var(--s1);
+		gap: var(--bn-s1);
 	}
 
 	.bn-profile-field__label {
@@ -829,7 +849,7 @@
 	}
 
 	.bn-auth-card {
-		padding: var(--s6) var(--s4);
+		padding: var(--bn-s6) var(--bn-s4);
 	}
 
 	.bn-composer__footer {

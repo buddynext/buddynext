@@ -102,12 +102,45 @@ $bn_ss_meta = \BuddyNext\Spaces\SpaceService::display_meta( $bn_ss_space );
 // the community-level allow-sub toggle, mirroring validate_parent_move().
 $bn_ss_is_root     = empty( $bn_ss_space->parent_id );
 $bn_ss_sub_allowed = '0' !== (string) get_option( 'buddynext_space_allow_sub', '1' );
+
+/*
+ * Two rights, and BOTH are required - the button used to check only the first.
+ *
+ *   buddynext-manage-space   per-space: are you this space's owner or a moderator?
+ *   buddynext-spaces/create  site-wide capability: are you allowed to create a space AT ALL?
+ *
+ * SpaceController's create route enforces the SECOND one (require_cap( 'buddynext-spaces/create' )),
+ * and an owner can restrict that capability to admins in Settings -> Roles. On such a site a space
+ * owner who is not a site admin still saw "Add sub-space", clicked it, and got a 403 from the API.
+ * The button promised something the endpoint refuses.
+ */
 $bn_ss_can_manage  = $bn_ss_is_root && $bn_ss_sub_allowed && $bn_ss_viewer > 0
 	&& buddynext_service( 'permissions' )->can(
 		$bn_ss_viewer,
 		'buddynext-manage-space',
 		array( 'space_id' => $bn_ss_space_id )
-	);
+	)
+	&& buddynext_can( $bn_ss_viewer, 'buddynext-spaces/create' );
+
+/*
+ * The per-parent cap (Settings -> Spaces -> "Max Sub-Spaces", 0 = unlimited).
+ *
+ * The button used to render regardless, so the only way to discover the limit was to
+ * fill in the whole create-sub-space modal and submit it, at which point the server
+ * returned max_sub_spaces_exceeded. The directory already gets this right - its parent
+ * dropdown drops full parents via eligible_parents() - but the sidebar bypassed that
+ * because the parent is fixed to the current space.
+ *
+ * Counted with count_subspaces(), NOT with the $bn_ss_subspaces list below: that list is
+ * visibility-scoped and drops secret children the viewer cannot see, so counting it would
+ * UNDERCOUNT and tell a manager there is room when the server will refuse. This is the
+ * same total the create path enforces against.
+ */
+$bn_ss_max_sub  = (int) get_option( 'buddynext_space_max_sub_spaces', 0 );
+$bn_ss_sub_used = ( $bn_ss_can_manage && $bn_ss_max_sub > 0 )
+	? ( new \BuddyNext\Spaces\SpaceService() )->count_subspaces( $bn_ss_space_id )
+	: 0;
+$bn_ss_sub_full = $bn_ss_max_sub > 0 && $bn_ss_sub_used >= $bn_ss_max_sub;
 // A gated (private/secret) parent's structure is content: a non-member does not
 // get its child list, on the page or from GET /spaces/{id}/subspaces. Same
 // resolver, same answer.
@@ -143,6 +176,9 @@ $bn_ss_args = array(
 	'subspaces'        => $bn_ss_subspaces,
 	'can_manage_sub'   => $bn_ss_can_manage,
 	'sub_categories'   => $bn_ss_sub_categories,
+	'sub_max'          => $bn_ss_max_sub,
+	'sub_used'         => $bn_ss_sub_used,
+	'sub_full'         => $bn_ss_sub_full,
 );
 
 add_action(
@@ -235,19 +271,52 @@ add_action(
 			endif;
 
 			if ( ! empty( $bn_s['can_manage_sub'] ) ) :
+				$bn_sub_max  = (int) ( $bn_s['sub_max'] ?? 0 );
+				$bn_sub_used = (int) ( $bn_s['sub_used'] ?? 0 );
+				$bn_sub_full = ! empty( $bn_s['sub_full'] );
 				?>
 				<div class="bn-sh-side-spaces__cta" data-wp-interactive="buddynext/spaces">
-					<button
-						type="button"
-						class="bn-btn bn-sh-side-spaces__add"
-						data-variant="ghost"
-						data-size="sm"
-						data-wp-on--click="actions.openCreate"
-						data-bn-create-space-trigger
-					>
-						<?php buddynext_icon( 'plus' ); ?>
-						<?php esc_html_e( 'Add sub-space', 'buddynext' ); ?>
-					</button>
+					<?php if ( $bn_sub_max > 0 ) : ?>
+						<p class="bn-sh-side-spaces__capacity">
+							<?php
+							printf(
+								/* translators: 1: sub-spaces already created, 2: maximum allowed. */
+								esc_html__( '%1$d of %2$d sub-spaces used', 'buddynext' ),
+								(int) $bn_sub_used,
+								(int) $bn_sub_max
+							);
+							?>
+						</p>
+					<?php endif; ?>
+
+					<?php if ( $bn_sub_full ) : ?>
+						<button
+							type="button"
+							class="bn-btn bn-sh-side-spaces__add"
+							data-variant="ghost"
+							data-size="sm"
+							disabled
+							aria-describedby="bn-sub-full-<?php echo (int) $bn_s['space_id']; ?>"
+						>
+							<?php buddynext_icon( 'plus' ); ?>
+							<?php esc_html_e( 'Add sub-space', 'buddynext' ); ?>
+						</button>
+						<p class="bn-sh-side-spaces__full" id="bn-sub-full-<?php echo (int) $bn_s['space_id']; ?>">
+							<?php esc_html_e( 'This space has reached its sub-space limit.', 'buddynext' ); ?>
+						</p>
+					<?php else : ?>
+						<button
+							type="button"
+							class="bn-btn bn-sh-side-spaces__add"
+							data-variant="ghost"
+							data-size="sm"
+							data-wp-on--click="actions.openCreate"
+							data-bn-create-space-trigger
+						>
+							<?php buddynext_icon( 'plus' ); ?>
+							<?php esc_html_e( 'Add sub-space', 'buddynext' ); ?>
+						</button>
+					<?php endif; ?>
 				</div>
 				<?php
 			endif;

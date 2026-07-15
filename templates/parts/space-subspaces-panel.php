@@ -16,6 +16,8 @@
  *   $viewer_id  (int)   — viewer user id (0 = logged out).
  *   $subspaces  (array) — visible children.
  *   $can_manage (bool)  — viewer may add a sub-space here.
+ *   $sub_max    (int)   — per-parent sub-space cap (0 = unlimited).
+ *   $sub_used   (int)   — children already created, counted against the cap.
  *
  * Overridable: copy to {theme}/buddynext/parts/space-subspaces-panel.php
  *
@@ -30,6 +32,14 @@ defined( 'ABSPATH' ) || exit;
 $bn_sp_space_id   = isset( $space_id ) ? absint( $space_id ) : 0;
 $bn_sp_subspaces  = isset( $subspaces ) && is_array( $subspaces ) ? $subspaces : array();
 $bn_sp_can_manage = ! empty( $can_manage );
+
+// Per-parent cap (Settings -> Spaces -> "Max Sub-Spaces"). 0 = unlimited. $sub_used is
+// counted with count_subspaces() upstream - every child, including ones this viewer
+// cannot see - because that is the total the create path enforces against. Counting the
+// visible list here would tell a manager there is room when the server will refuse.
+$bn_sp_sub_max  = isset( $sub_max ) ? absint( $sub_max ) : 0;
+$bn_sp_sub_used = isset( $sub_used ) ? absint( $sub_used ) : 0;
+$bn_sp_sub_full = $bn_sp_sub_max > 0 && $bn_sp_sub_used >= $bn_sp_sub_max;
 
 if ( $bn_sp_space_id <= 0 ) {
 	return;
@@ -95,16 +105,45 @@ if ( $bn_sp_space_id <= 0 ) {
 
 	<?php if ( $bn_sp_can_manage ) : ?>
 		<div class="bn-space-subspaces__cta" data-wp-interactive="buddynext/spaces">
-			<button
-				type="button"
-				class="bn-btn bn-space-subspaces__add"
-				data-variant="primary"
-				data-wp-on--click="actions.openCreate"
-				data-bn-create-space-trigger
-			>
-				<?php buddynext_icon( 'plus' ); ?>
-				<?php esc_html_e( 'Add sub-space', 'buddynext' ); ?>
-			</button>
+			<?php if ( $bn_sp_sub_max > 0 ) : ?>
+				<p class="bn-space-subspaces__capacity">
+					<?php
+					printf(
+						/* translators: 1: sub-spaces already created, 2: maximum allowed. */
+						esc_html__( '%1$d of %2$d sub-spaces used', 'buddynext' ),
+						(int) $bn_sp_sub_used,
+						(int) $bn_sp_sub_max
+					);
+					?>
+				</p>
+			<?php endif; ?>
+
+			<?php if ( $bn_sp_sub_full ) : ?>
+				<button
+					type="button"
+					class="bn-btn bn-space-subspaces__add"
+					data-variant="primary"
+					disabled
+					aria-describedby="bn-sp-sub-full"
+				>
+					<?php buddynext_icon( 'plus' ); ?>
+					<?php esc_html_e( 'Add sub-space', 'buddynext' ); ?>
+				</button>
+				<p class="bn-space-subspaces__full" id="bn-sp-sub-full">
+					<?php esc_html_e( 'This space has reached its sub-space limit.', 'buddynext' ); ?>
+				</p>
+			<?php else : ?>
+				<button
+					type="button"
+					class="bn-btn bn-space-subspaces__add"
+					data-variant="primary"
+					data-wp-on--click="actions.openCreate"
+					data-bn-create-space-trigger
+				>
+					<?php buddynext_icon( 'plus' ); ?>
+					<?php esc_html_e( 'Add sub-space', 'buddynext' ); ?>
+				</button>
+			<?php endif; ?>
 		</div>
 	<?php endif; ?>
 

@@ -75,9 +75,18 @@ class WidgetService {
 	 * Up to N suggested users to follow for a given viewer.
 	 *
 	 * Excludes the viewer + already-followed users + blocked-either-direction
-	 * pairs. ORDER BY RAND() is expensive at scale; the cache absorbs the
-	 * worst case. P2.1 (AI signals) will replace this with a precomputed
-	 * affinity-ranked candidate pool when AI Feed is enabled.
+	 * pairs. The discovery backfill samples the primary key from a random entry point
+	 * (see random_discovery_fill()) rather than sorting the community by RAND().
+	 *
+	 * This docblock used to say "ORDER BY RAND() is expensive at scale; the cache absorbs
+	 * the worst case", and that sentence is why the query survived as long as it did. The
+	 * cache does not absorb it: a cold cache is the normal state for the first viewer of
+	 * every TTL window, and the project's own standard is that everything must hold up
+	 * with the object cache OFF. A cache is not a fix for a full scan, it is a place for
+	 * the full scan to hide.
+	 *
+	 * P2.1 (AI signals) will replace this with a precomputed affinity-ranked candidate
+	 * pool when AI Feed is enabled.
 	 *
 	 * @param int $user_id Viewer user ID. 0 returns empty.
 	 * @param int $limit   Max rows.
@@ -110,35 +119,12 @@ class WidgetService {
 				}
 
 				if ( count( $candidate_ids ) < $limit ) {
-					$need    = $limit - count( $candidate_ids );
-					$exclude = array_merge( array( $user_id ), $candidate_ids );
-					// $exclude_ph is a "%d,..." string from array_fill( count( $exclude ) );
-					// every value (the exclude list plus the four trailing %d) is bound via
-					// the merged array, so the dynamic placeholder count trips
-					// ReplacementsWrongNumber even though the binding is correct.
-					$exclude_ph = implode( ',', array_fill( 0, count( $exclude ), '%d' ) );
-					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-					$fill_ids = $wpdb->get_col(
-						$wpdb->prepare(
-							'SELECT u.ID
-							 FROM ' . $wpdb->users . ' u
-							 WHERE u.ID NOT IN (' . $exclude_ph . ')
-							   AND NOT EXISTS (
-								   SELECT 1 FROM ' . $wpdb->prefix . 'bn_follows f
-								   WHERE f.follower_id = %d AND f.following_id = u.ID
-							   )
-							   AND NOT EXISTS (
-								   SELECT 1 FROM ' . $wpdb->prefix . 'bn_blocks bl
-								   WHERE ( bl.blocker_id = %d AND bl.blocked_id = u.ID )
-									  OR ( bl.blocker_id = u.ID AND bl.blocked_id = %d )
-							   )
-							 ORDER BY RAND()
-							 LIMIT %d',
-							array_merge( $exclude, array( $user_id, $user_id, $user_id, $need ) )
-						)
+					$need          = $limit - count( $candidate_ids );
+					$exclude       = array_merge( array( $user_id ), $candidate_ids );
+					$candidate_ids = array_merge(
+						$candidate_ids,
+						self::random_discovery_fill( $user_id, $need, $exclude )
 					);
-					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-					$candidate_ids = array_merge( $candidate_ids, array_map( 'intval', (array) $fill_ids ) );
 				}
 
 				if ( empty( $candidate_ids ) ) {
@@ -412,5 +398,99 @@ class WidgetService {
 				return is_array( $rows ) ? $rows : array();
 			}
 		);
+	}
+
+	/**
+	 * Fill the "people to follow" slots with a random-ish sample of members.
+	 *
+	 * This used to be `ORDER BY RAND()` over wp_users with two correlated NOT EXISTS
+	 * subqueries — on the sidebar, which renders on EVERY logged-in page. RAND() cannot use
+	 * an index: MySQL materialises the whole filtered set, stamps a random number on every
+	 * row and filesorts the lot, in order to keep three of them. On a 100k-member community
+	 * that is a full scan plus a filesort on the hottest path on the site, and it was masked
+	 * only by a wp_cache the project explicitly forbids depending on — the standard is that
+	 * everything must hold up with the object cache OFF.
+	 *
+	 * Instead: jump to a random point in the PRIMARY KEY and read forward. Both the range
+	 * and the order come from the PK, so there is no filesort and the rows examined are
+	 * bounded by the LIMIT rather than by the size of the community. When the random entry
+	 * point lands near the end of the table — or in a run of members who are all excluded —
+	 * it wraps to the start, so a member does not get an empty widget because of where the
+	 * dice fell.
+	 *
+	 * This is a SAMPLE, not a shuffle. Two members can be offered the same faces, and the
+	 * spread is only as even as the id space is dense. That is the right trade for a
+	 * discovery widget: nobody can tell, and nobody should pay for a filesort of the whole
+	 * community to make "people you might like" statistically pure.
+	 *
+	 * @param int             $user_id Viewer.
+	 * @param int             $need    How many ids are still needed.
+	 * @param array<int, int> $exclude Ids already spoken for (self + the FoF suggestions).
+	 * @return array<int, int>
+	 */
+	private static function random_discovery_fill( int $user_id, int $need, array $exclude ): array {
+		global $wpdb;
+
+		if ( $need < 1 ) {
+			return array();
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$max_id = (int) $wpdb->get_var( "SELECT MAX(ID) FROM {$wpdb->users}" );
+
+		if ( $max_id < 1 ) {
+			return array();
+		}
+
+		$start = wp_rand( 1, $max_id );
+		$found = array();
+
+		// Pass 1 reads forward from the random point; pass 2 wraps around to the start and
+		// picks up whatever is still missing.
+		foreach ( array( array( '>=', $start ), array( '<', $start ) ) as $pass ) {
+			$still_need = $need - count( $found );
+
+			if ( $still_need < 1 ) {
+				break;
+			}
+
+			list( $op, $boundary ) = $pass;
+
+			$skip    = array_values( array_unique( array_merge( $exclude, $found ) ) );
+			$skip_ph = implode( ',', array_fill( 0, count( $skip ), '%d' ) );
+
+			// $skip_ph is a counted "%d,..." list and $op is one of two literals chosen
+			// here, never user input; every value is bound through the merged array.
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+			$ids = $wpdb->get_col(
+				$wpdb->prepare(
+					'SELECT u.ID
+					 FROM ' . $wpdb->users . ' u
+					 WHERE u.ID ' . $op . ' %d
+					   AND u.ID NOT IN (' . $skip_ph . ')
+					   AND NOT EXISTS (
+						   SELECT 1 FROM ' . $wpdb->prefix . 'bn_follows f
+						   WHERE f.follower_id = %d AND f.following_id = u.ID
+					   )
+					   AND NOT EXISTS (
+						   SELECT 1 FROM ' . $wpdb->prefix . 'bn_blocks bl
+						   WHERE ( bl.blocker_id = %d AND bl.blocked_id = u.ID )
+							  OR ( bl.blocker_id = u.ID AND bl.blocked_id = %d )
+					   )
+					 ORDER BY u.ID ASC
+					 LIMIT %d',
+					array_merge(
+						array( $boundary ),
+						$skip,
+						array( $user_id, $user_id, $user_id, $still_need )
+					)
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+			$found = array_merge( $found, array_map( 'intval', (array) $ids ) );
+		}
+
+		return $found;
 	}
 }

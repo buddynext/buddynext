@@ -142,7 +142,7 @@ do_action( 'buddynext_part_space_members_panel_before', $args );
 			<?php foreach ( $bn_filtered as $bn_fm ) : ?>
 				<?php
 				$bn_fm_uid    = (int) $bn_fm->user_id;
-				$bn_fm_name   = ! empty( $bn_fm->display_name ) ? $bn_fm->display_name : $bn_fm->user_login;
+				$bn_fm_name   = ! empty( $bn_fm->display_name ) ? $bn_fm->display_name : \BuddyNext\Core\PageRouter::member_handle( $bn_fm_uid );
 				$bn_fm_avatar = get_avatar_url( $bn_fm_uid, array( 'size' => 80 ) );
 				$bn_fm_role   = in_array( $bn_fm->role, array( 'owner', 'moderator', 'member' ), true ) ? $bn_fm->role : 'member';
 				$bn_role_tone = match ( $bn_fm_role ) {

@@ -495,4 +495,40 @@ class SafeguardService {
 
 		return true;
 	}
+
+	/**
+	 * Whether a safeguard verdict is a FLAG rather than a hard block.
+	 *
+	 * A flag means "let this through, but surface it for review": the content is
+	 * published and a system report is filed against it. A hard block (422) is a
+	 * genuine rejection. Three shapes count as a flag - an explicit HTTP 202, a
+	 * `*_flagged` error code (Pro's rules engine emits `bnpro_keyword_flagged`),
+	 * and the `pending_review` holds the new-member and duplicate gates raise.
+	 *
+	 * This predicate lives on the service that PRODUCES the verdict because every
+	 * caller of check()/check_content() has to draw the same line. It was private
+	 * to PostService, so post-create published a flagged item and reported it while
+	 * comments, direct messages, profile saves and post EDITS returned the WP_Error
+	 * verbatim - turning a severity=flag rule into a silent hard block on four of
+	 * the five surfaces the rules admin advertises. A flag that blocks IS editorial
+	 * pre-approval, which is the one moderation model this product does not have.
+	 *
+	 * @param mixed $result Verdict from check() or check_content().
+	 * @return bool True when the content should publish and be reported for review.
+	 */
+	public static function is_flag_verdict( $result ): bool {
+		if ( ! is_wp_error( $result ) ) {
+			return false;
+		}
+
+		$code = (string) $result->get_error_code();
+
+		if ( 'pending_review' === $code || ( '' !== $code && str_ends_with( $code, '_flagged' ) ) ) {
+			return true;
+		}
+
+		$data = $result->get_error_data();
+
+		return is_array( $data ) && isset( $data['status'] ) && 202 === (int) $data['status'];
+	}
 }

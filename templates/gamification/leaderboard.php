@@ -359,14 +359,26 @@ $updated_iso = gmdate( 'c' );
 		<ol class="bn-lb-list" aria-label="<?php esc_attr_e( 'Ranked members', 'buddynext' ); ?>">
 			<?php
 			foreach ( $leaderboard as $idx => $row ) :
-				$uid           = (int) ( $row['user_id'] ?? 0 );
-				$rank          = (int) ( $row['rank'] ?? ( $idx + 1 ) );
-				$is_self       = ( $current_user_id && $uid === $current_user_id );
-				$user_data     = $uid ? get_userdata( $uid ) : false;
-				$display       = '' !== (string) ( $row['display_name'] ?? '' )
+				$uid       = (int) ( $row['user_id'] ?? 0 );
+				$rank      = (int) ( $row['rank'] ?? ( $idx + 1 ) );
+				$is_self   = ( $current_user_id && $uid === $current_user_id );
+				$user_data = $uid ? get_userdata( $uid ) : false;
+				$display   = '' !== (string) ( $row['display_name'] ?? '' )
 					? (string) $row['display_name']
 					: ( $user_data ? $user_data->display_name : __( 'Unknown member', 'buddynext' ) );
-				$handle        = $user_data && ! empty( $user_data->user_login ) ? '@' . $user_data->user_login : '';
+
+				/*
+				 * The @handle must be the slug the profile URL actually resolves on - the same one
+				 * PageRouter::profile_url() uses (bn_profile_slug, else user_nicename). This printed
+				 * user_login, which is a different field: it only LOOKS right because the two match
+				 * on a fresh install. Change a member's profile slug and the leaderboard shows an
+				 * @handle that does not resolve, next to a link that does.
+				 */
+				$bn_lb_slug = $user_data ? (string) get_user_meta( $uid, 'bn_profile_slug', true ) : '';
+				if ( '' === $bn_lb_slug && $user_data ) {
+					$bn_lb_slug = (string) $user_data->user_nicename;
+				}
+				$handle        = '' !== $bn_lb_slug ? '@' . $bn_lb_slug : '';
 				$avatar_url    = (string) ( $row['avatar_url'] ?? '' );
 				$pts_formatted = number_format_i18n( (int) ( $row['points'] ?? 0 ) );
 				$profile_url   = $user_data ? \BuddyNext\Core\PageRouter::profile_url( $uid ) : '#';

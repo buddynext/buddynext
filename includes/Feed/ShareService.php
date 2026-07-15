@@ -21,6 +21,16 @@ use WP_Error;
 class ShareService {
 
 	/**
+	 * Object-cache group for a member's reshare list.
+	 */
+	private const CACHE_GROUP = 'buddynext_shares';
+
+	/**
+	 * TTL. A backstop — share() and unshare() bust explicitly.
+	 */
+	private const CACHE_TTL = 600;
+
+	/**
 	 * Share a post.
 	 *
 	 * @param int    $user_id User sharing the post.
@@ -174,6 +184,8 @@ class ShareService {
 		 * @param int $original_post_id Original post that was shared.
 		 * @param int $user_id          User who shared the post.
 		 */
+		self::flush_shares( $user_id );
+
 		do_action( 'buddynext_post_shared', $share_id, $post_id, $user_id );
 
 		// Return the new share ACTIVITY post id (bn_posts), NOT the bn_shares
@@ -209,6 +221,7 @@ class ShareService {
 
 		if ( $deleted ) {
 			( new PostService() )->adjust_share_count( $post_id, -1 );
+			self::flush_shares( $user_id );
 		}
 	}
 
@@ -230,6 +243,16 @@ class ShareService {
 		$per_page = max( 1, min( 100, $per_page ) );
 		$page     = max( 1, $page );
 		$offset   = ( $page - 1 ) * $per_page;
+
+		// Two queries (rows + COUNT) on the profile Reshares tab. Cached per member and
+		// per page, and busted whenever that member shares or unshares — the only two
+		// things that can change the answer.
+		$cache_key = 'shares_v' . self::shares_version( $user_id ) . "_{$user_id}_{$per_page}_{$page}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
@@ -266,9 +289,46 @@ class ShareService {
 			(array) $rows
 		);
 
-		return array(
+		$result = array(
 			'items' => $items,
 			'total' => $total,
 		);
+
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $result;
+	}
+
+	/**
+	 * Version of one member's cached reshare pages.
+	 *
+	 * @param int $user_id Member.
+	 * @return int
+	 */
+	private static function shares_version( int $user_id ): int {
+		$version = wp_cache_get( "shares_ver_{$user_id}", self::CACHE_GROUP );
+
+		if ( false === $version ) {
+			$version = 1;
+			wp_cache_set( "shares_ver_{$user_id}", $version, self::CACHE_GROUP );
+		}
+
+		return (int) $version;
+	}
+
+	/**
+	 * Invalidate every cached reshare page for one member.
+	 *
+	 * A version bump, because the list is cached per page AND per page size: a share
+	 * pushes every later page along by one, so a keyed delete would have to clear every
+	 * page the member has ever been served, and it cannot know how many that is.
+	 *
+	 * @param int $user_id Member.
+	 * @return void
+	 */
+	private static function flush_shares( int $user_id ): void {
+		if ( $user_id > 0 ) {
+			wp_cache_set( "shares_ver_{$user_id}", self::shares_version( $user_id ) + 1, self::CACHE_GROUP );
+		}
 	}
 }

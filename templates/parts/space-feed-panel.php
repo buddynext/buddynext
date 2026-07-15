@@ -20,7 +20,7 @@
  * @var bool        $is_pending     Optional. Viewer has pending join request. Default false.
  * @var bool        $is_archived    Optional. Space is archived (read-only) — shows a notice. Default false.
  * @var array       $posts          Optional. List of post arrays for the feed. Default [].
- * @var array        $pinned_posts   Optional. Pinned post rows (objects), newest first.
+ * @var array        $pinned_posts   Optional. Hydrated pinned post rows (arrays), newest first.
  * @var WP_User|null $current_user  Optional. Current WP_User object (for composer guard).
  * @var array       $classes        Optional. Extra CSS classes appended to the wrapper.
  *
@@ -122,7 +122,13 @@ if ( '' !== $bn_wrap_class ) {
 				: (string) ( $args['space']->slug ?? '' );
 			?>
 			<?php if ( '' !== $bn_space_slug ) : ?>
-				<a class="bn-notice__cta" href="<?php echo esc_url( buddynext_space_url( $bn_space_slug ) . 'settings/#danger' ); ?>">
+				<?php
+				// The settings screen picks its tab from the `bn_stab` QUERY PARAM (settings.php:111),
+				// not from a hash. `settings/#danger` therefore selected nothing and dropped the owner
+				// on the General tab, with no Restore button anywhere in sight - on the one CTA whose
+				// entire job is to get them to it. Same helper + param every other tab link uses.
+				?>
+				<a class="bn-notice__cta" href="<?php echo esc_url( buddynext_space_settings_url( $bn_space_slug ) . '?bn_stab=danger' ); ?>">
 					<?php esc_html_e( 'Restore this space', 'buddynext' ); ?>
 				</a>
 			<?php endif; ?>
@@ -192,56 +198,41 @@ if ( ! empty( $bn_pinned_posts ) ) :
 	// normal card, which carries the kebab Unpin, never rendered) and the compact
 	// card had no controls, leaving no way to unpin from the UI.
 	$bn_pin_viewer   = get_current_user_id();
-	$bn_pin_is_admin = $bn_pin_viewer > 0 && user_can( $bn_pin_viewer, 'manage_options' );
-	$bn_pin_nonce    = $bn_pin_viewer > 0 ? wp_create_nonce( 'wp_rest' ) : '';
 
 	/**
-	 * Render one compact pinned-post card.
+	 * Render one pinned post - as a REAL post card.
 	 *
-	 * @param object $bn_pinned Hydrated pinned post (with author_name).
+	 * This used to hand-roll a compact stub: the content trimmed to 24 words, a "Pinned by X"
+	 * line, and an unpin button. Nothing else. No React, no Comment, no Share, no Save - because
+	 * none of that markup lives here, it lives in partials/post-card.php.
+	 *
+	 * And the pinned post is DROPPED from the chronological list right below (so it is not shown
+	 * twice), so the stub was the ONLY place it appeared. Pinning a post therefore stripped every
+	 * form of engagement from it: an owner pins the announcement they most want people to respond
+	 * to, and nobody can react or comment on it anywhere in the space.
+	 *
+	 * space_pinned_posts() already returns rows through PostService::hydrate(), i.e. exactly the
+	 * shape post-card.php consumes, and post-card.php already understands is_pinned (it adds the
+	 * bn-post-card--pinned class). It was built for this. So render the real card and inherit the
+	 * toolbar, the kebab (which carries Unpin), comments and reactions for free - rather than
+	 * maintaining a second, poorer copy of a post card.
+	 *
+	 * @param array<string,mixed> $bn_pinned Hydrated pinned post.
 	 * @return void
 	 */
-	$bn_render_pinned = static function ( $bn_pinned ) use ( $bn_pin_viewer, $bn_pin_is_admin, $bn_pin_nonce ): void {
-		$bn_pid       = (int) ( $bn_pinned->id ?? 0 );
-		$bn_can_unpin = $bn_pin_viewer > 0 && $bn_pid > 0
-			&& ( (int) ( $bn_pinned->user_id ?? 0 ) === $bn_pin_viewer || $bn_pin_is_admin );
-		// The unpin button reuses the post-card store's REST unpin + reloads so the
-		// card leaves the strip and reappears in the feed. Each eligible card is its
-		// own Interactivity island carrying the post id + REST nonce.
-		$bn_pin_ctx = (string) wp_json_encode(
+	$bn_render_pinned = static function ( array $bn_pinned ) use ( $bn_pin_viewer ): void {
+		if ( isset( $bn_pinned['media_ids'] ) && is_string( $bn_pinned['media_ids'] ) ) {
+			$bn_pinned['media_ids'] = json_decode( $bn_pinned['media_ids'], true );
+		}
+
+		buddynext_get_template(
+			'partials/post-card.php',
 			array(
-				'postId'     => $bn_pid,
-				'reactNonce' => $bn_pin_nonce,
+				'post'            => $bn_pinned,
+				'current_user_id' => $bn_pin_viewer,
+				'context'         => 'space',
 			)
 		);
-		?>
-		<div class="bn-card bn-sh-pinned"
-			<?php if ( $bn_can_unpin ) : ?>
-			data-wp-interactive="buddynext/post-card" data-wp-context='<?php echo esc_attr( $bn_pin_ctx ); ?>'
-			<?php endif; ?>
-		>
-			<div class="bn-sh-pinned__label">
-				<?php buddynext_icon( 'bookmark' ); ?>
-				<?php esc_html_e( 'Pinned', 'buddynext' ); ?>
-				<?php if ( $bn_can_unpin ) : ?>
-					<button type="button" class="bn-sh-pinned__unpin" data-wp-on--click="actions.unpinPinnedFromStrip" aria-label="<?php esc_attr_e( 'Unpin this post', 'buddynext' ); ?>">
-						<?php buddynext_icon( 'x' ); ?><span><?php esc_html_e( 'Unpin', 'buddynext' ); ?></span>
-					</button>
-				<?php endif; ?>
-			</div>
-			<p class="bn-sh-pinned__title"><?php echo esc_html( wp_trim_words( $bn_pinned->content ?? '', 24 ) ); ?></p>
-			<p class="bn-sh-pinned__meta">
-				<?php
-				printf(
-					/* translators: 1: author display name, 2: time ago label. */
-					esc_html__( 'Pinned by %1$s · %2$s', 'buddynext' ),
-					esc_html( $bn_pinned->author_name ?? __( 'Admin', 'buddynext' ) ),
-					esc_html( buddynext_time_ago( (string) $bn_pinned->created_at ) )
-				);
-				?>
-			</p>
-		</div>
-		<?php
 	};
 	?>
 	<div class="bn-sh-pinned-strip" aria-label="<?php esc_attr_e( 'Pinned posts', 'buddynext' ); ?>">

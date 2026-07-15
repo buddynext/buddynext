@@ -165,12 +165,32 @@
 			return;
 		}
 
+		/*
+		 * This dialog's contract is `data-bn-confirm="<the message>"` - the attribute VALUE is
+		 * the text we show. A screen with a richer dialog of its own uses the attribute as a
+		 * FLAG instead (data-bn-confirm="1") and puts the real content in -title / -body /
+		 * -label, sometimes with extra fields (the Members screen collects a suspension reason).
+		 *
+		 * We delegate on CLICK; those screens bind on SUBMIT. Click wins. So this handler was
+		 * intercepting their forms, calling stopImmediatePropagation(), and rendering the flag
+		 * itself as the message - the admin got a generic "Confirm action / Are you sure?" (or a
+		 * bare "1") and never saw WHICH MEMBER they were about to suspend. Their own modal, with
+		 * the member's name already in it, never opened.
+		 *
+		 * A bare flag is not a message. If there is no message here, this element is not ours -
+		 * leave it for the dialog that owns it.
+		 */
+		var message = target.dataset.bnConfirm;
+		if ( ! message || message === '1' || message === 'true' ) {
+			return;
+		}
+
 		e.preventDefault();
 		e.stopImmediatePropagation();
 
 		bnConfirm( {
 			title:       target.dataset.bnConfirmTitle  || __( 'Confirm action', 'buddynext' ),
-			message:     target.dataset.bnConfirm,
+			message:     message,
 			tone:        target.dataset.bnConfirmTone   || 'neutral',
 			okLabel:     target.dataset.bnConfirmOk     || __( 'Confirm', 'buddynext' ),
 			cancelLabel: target.dataset.bnConfirmCancel || __( 'Cancel', 'buddynext' ),

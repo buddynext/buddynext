@@ -403,7 +403,7 @@ up at large-community scale.
   - PHP classes: `echo \BuddyNext\Core\IconService::render( 'icon-name' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped`
   - JS status hints: CSS class-based coloured text — no emoji in `textContent`
 - **Adding new icons:** drop a Lucide-style SVG (no width/height, `stroke="currentColor"`, `viewBox="0 0 24 24"`) into `assets/icons/<slug>.svg`.
-- **55+ icons already exist** in `assets/icons/` — check before creating one.
+- **102 icons already exist** in `assets/icons/` — check before creating one.
 - `IconService::render()` returns `wp_kses()`-sanitized markup — always safe to echo.
 
 ### 5. Translation-ready from day one
