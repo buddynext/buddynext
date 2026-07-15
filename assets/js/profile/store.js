@@ -652,6 +652,38 @@ function isValidUrlClient( raw ) {
 /* Reset errors object (Interactivity state cannot mutate keys via delete). */
 function clearErrors( ctx ) {
 	ctx.errors = {};
+	document.querySelectorAll( '.bn-ep-injected-error' ).forEach( function ( el ) {
+		el.remove();
+	} );
+}
+
+/* Surface a 422's per-field errors on their controls and bring the first
+   failing control into view. The server-rendered Interactivity error slots
+   exist only for FLAT engine fields — a rejection keyed to a repeater
+   sub-field (e.g. work_experience[0][team_size]) rendered nowhere, so beyond
+   the generic toast the save read as silent, with the member left staring at
+   an "Unsaved changes" bar and no visible reason. Keys that have a slot keep
+   using it (context.errors drives them); everything else gets an injected
+   error span in its field wrapper, removed again on the next save attempt. */
+function surfaceFieldErrors( errors ) {
+	var firstControl = null;
+	Object.keys( errors || {} ).forEach( function ( key ) {
+		var control = document.querySelector( '[name="' + key + '"], [name="' + key + '[]"]' );
+		if ( ! control ) { return; }
+		if ( ! firstControl ) { firstControl = control; }
+		if ( document.getElementById( 'bn-ep-error-' + key ) ) {
+			return; // The server-rendered slot renders this one reactively.
+		}
+		var span = document.createElement( 'span' );
+		span.className = 'bn-ep-field-error bn-ep-injected-error';
+		span.setAttribute( 'role', 'alert' );
+		span.textContent = String( errors[ key ] );
+		var wrap = control.closest( '.bn-ep-field, .bn-ep-hero-field' ) || control.parentElement;
+		wrap.appendChild( span );
+	} );
+	if ( firstControl ) {
+		firstControl.scrollIntoView( { block: 'center', behavior: 'smooth' } );
+	}
 }
 
 /* Resolve the profile-save endpoint. When the edit surface is editing another
@@ -829,6 +861,7 @@ async function doSave( ctx ) {
 			setTimeout( function () { ctx.saved = false; }, 3000 );
 		} else if ( res.status === 422 && json && json.errors ) {
 			ctx.errors = json.errors;
+			surfaceFieldErrors( json.errors );
 			bnToast( ( window.bnI18n && window.bnI18n.fieldsNeedAttention ) || t( 'fieldsNeedAttention', 'Some fields need attention' ), { tone: 'danger' } );
 		} else {
 			bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || t( 'saveFailed', 'Could not save. Please try again.' ), { tone: 'danger' } );
