@@ -115,6 +115,20 @@ $headline = $fv['headline'] ?? '';
 $bio      = $fv['bio'] ?? '';
 $location = $fv['location'] ?? '';
 
+// The hero card owns the headline control, so it must render the field's
+// admin-configured label / placeholder / description — the field manager
+// persists edits to bn_profile_fields, but the hero hardcoded its strings and
+// renames never showed anywhere (Zoho #40911).
+$headline_field = array();
+foreach ( $bn_groups as $bn_hf_group ) {
+	foreach ( (array) ( $bn_hf_group['fields'] ?? array() ) as $bn_hf_field ) {
+		if ( 'headline' === (string) ( $bn_hf_field['field_key'] ?? '' ) ) {
+			$headline_field = $bn_hf_field;
+			break 2;
+		}
+	}
+}
+
 /*
  * ── Field-level privacy helpers ────────────────────────────────────────────
  *
@@ -299,14 +313,17 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 			buddynext_get_template(
 				'parts/profile-edit-hero.php',
 				array(
-					'profile_user_id'   => $user_id,
-					'display_name'      => $display_name,
-					'headline'          => $headline,
-					'username'          => $user_login_str,
-					'avatar_url'        => $avatar_url,
-					'cover_url'         => $cover_url,
-					'initials'          => $initials,
-					'has_custom_avatar' => $has_custom_avatar,
+					'profile_user_id'      => $user_id,
+					'display_name'         => $display_name,
+					'headline'             => $headline,
+					'headline_label'       => (string) ( $headline_field['label'] ?? '' ),
+					'headline_placeholder' => (string) ( $headline_field['placeholder'] ?? '' ),
+					'headline_hint'        => (string) ( $headline_field['description'] ?? '' ),
+					'username'             => $user_login_str,
+					'avatar_url'           => $avatar_url,
+					'cover_url'            => $cover_url,
+					'initials'             => $initials,
+					'has_custom_avatar'    => $has_custom_avatar,
 				)
 			);
 

@@ -36,15 +36,21 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 $args = array(
-	'profile_user_id'   => isset( $profile_user_id ) ? (int) $profile_user_id : 0,
-	'display_name'      => isset( $display_name ) ? (string) $display_name : '',
-	'headline'          => isset( $headline ) ? (string) $headline : '',
-	'username'          => isset( $username ) ? (string) $username : '',
-	'avatar_url'        => isset( $avatar_url ) ? (string) $avatar_url : '',
-	'cover_url'         => isset( $cover_url ) ? (string) $cover_url : '',
-	'initials'          => isset( $initials ) ? (string) $initials : '',
-	'has_custom_avatar' => isset( $has_custom_avatar ) ? (bool) $has_custom_avatar : false,
-	'classes'           => isset( $classes ) ? (array) $classes : array(),
+	'profile_user_id'      => isset( $profile_user_id ) ? (int) $profile_user_id : 0,
+	'display_name'         => isset( $display_name ) ? (string) $display_name : '',
+	'headline'             => isset( $headline ) ? (string) $headline : '',
+	// Admin-configured headline field strings (bn_profile_fields row). Empty
+	// values fall back to the translated defaults at render time — so renames
+	// in the field manager show here, and a fresh install stays translatable.
+	'headline_label'       => isset( $headline_label ) ? (string) $headline_label : '',
+	'headline_placeholder' => isset( $headline_placeholder ) ? (string) $headline_placeholder : '',
+	'headline_hint'        => isset( $headline_hint ) ? (string) $headline_hint : '',
+	'username'             => isset( $username ) ? (string) $username : '',
+	'avatar_url'           => isset( $avatar_url ) ? (string) $avatar_url : '',
+	'cover_url'            => isset( $cover_url ) ? (string) $cover_url : '',
+	'initials'             => isset( $initials ) ? (string) $initials : '',
+	'has_custom_avatar'    => isset( $has_custom_avatar ) ? (bool) $has_custom_avatar : false,
+	'classes'              => isset( $classes ) ? (array) $classes : array(),
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -73,6 +79,9 @@ $bn_class   = trim(
 
 $bn_ep_name       = (string) $args['display_name'];
 $bn_ep_headline   = (string) $args['headline'];
+$bn_ep_hl_label   = '' !== (string) $args['headline_label'] ? (string) $args['headline_label'] : __( 'Headline', 'buddynext' );
+$bn_ep_hl_ph      = '' !== (string) $args['headline_placeholder'] ? (string) $args['headline_placeholder'] : __( 'e.g. Software Engineer at Acme Co.', 'buddynext' );
+$bn_ep_hl_hint    = '' !== (string) $args['headline_hint'] ? (string) $args['headline_hint'] : __( 'Shown under your name across the community.', 'buddynext' );
 $bn_ep_login      = (string) $args['username'];
 $bn_ep_avatar     = (string) $args['avatar_url'];
 $bn_ep_cover      = (string) $args['cover_url'];
@@ -182,18 +191,18 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 			</div>
 			<div class="bn-ep-hero-field">
 				<label class="bn-ep-hero-label" for="bn-ep-headline">
-					<?php esc_html_e( 'Headline', 'buddynext' ); ?>
+					<?php echo esc_html( $bn_ep_hl_label ); ?>
 				</label>
 				<input class="bn-input bn-ep-hero-headline"
 					type="text"
 					id="bn-ep-headline"
 					name="headline"
 					value="<?php echo esc_attr( $bn_ep_headline ); ?>"
-					placeholder="<?php esc_attr_e( 'e.g. Software Engineer at Acme Co.', 'buddynext' ); ?>"
+					placeholder="<?php echo esc_attr( $bn_ep_hl_ph ); ?>"
 					aria-describedby="bn-ep-headline-hint"
 					data-wp-on--blur="actions.autosave" />
 				<span class="bn-ep-hint" id="bn-ep-headline-hint">
-					<?php esc_html_e( 'Shown under your name across the community.', 'buddynext' ); ?>
+					<?php echo esc_html( $bn_ep_hl_hint ); ?>
 				</span>
 			</div>
 			<div class="bn-ep-hero-handle">
