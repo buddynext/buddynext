@@ -687,13 +687,22 @@ class FeedService {
 					// with no recent-but-existing content (Following / Spaces /
 					// Network) showed no badge while the tab still rendered older
 					// posts — the count must match what the feed shows.
-					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
-					 WHERE status = 'published'
-					   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
-					   AND ({$source_where})
-					   {$excluded_where}
-					   {$block_mute_where}", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-					...array_merge( $source_params, $block_mute_params )
+					//
+					// CAPPED at NEW_COUNT_CAP + 1. This is a nav-tab badge: nobody reads
+					// "3,412" on it differently than "99+", but an uncapped COUNT(*) scans
+					// the whole match set on every cache-miss, four times over. The inner
+					// SELECT stops at CAP + 1, so the scan is bounded and the caller can
+					// still tell an exact 99 from "99 or more".
+					"SELECT COUNT(*) FROM (
+					    SELECT 1 FROM {$wpdb->prefix}bn_posts
+					    WHERE status = 'published'
+					      AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
+					      AND ({$source_where})
+					      {$excluded_where}
+					      {$block_mute_where}
+					    LIMIT %d
+					 ) _capped", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+					...array_merge( $source_params, $block_mute_params, array( self::NEW_COUNT_CAP + 1 ) )
 				)
 			);
 			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared

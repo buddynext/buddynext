@@ -624,19 +624,32 @@ class ModerationService {
 	 *
 	 * @param string $object_type Object type.
 	 * @param int    $object_id   Object ID.
+	 * @param int    $per_page    Reports per page (1-100). Default 50.
+	 * @param int    $page        1-indexed page. Default 1.
 	 * @return array[]
 	 */
-	public function get_reports_for_object( string $object_type, int $object_id ): array {
+	public function get_reports_for_object( string $object_type, int $object_id, int $per_page = 50, int $page = 1 ): array {
 		global $wpdb;
+
+		// A viral post can gather thousands of reports. This once returned SELECT * with no
+		// LIMIT -- every report ever filed on the object, hydrated -- and the REST route
+		// declared per_page/page but never passed them here. Now they reach the query, so
+		// the report-storm case is paged instead of loaded whole.
+		$per_page = max( 1, min( 100, $per_page ) );
+		$page     = max( 1, $page );
+		$offset   = ( $page - 1 ) * $per_page;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}bn_reports
 				 WHERE object_type = %s AND object_id = %d
-				 ORDER BY created_at DESC",
+				 ORDER BY created_at DESC
+				 LIMIT %d OFFSET %d",
 				sanitize_key( $object_type ),
-				$object_id
+				$object_id,
+				$per_page,
+				$offset
 			),
 			ARRAY_A
 		);

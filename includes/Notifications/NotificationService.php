@@ -41,6 +41,22 @@ class NotificationService {
 	private const DEFAULT_LIMIT = 20;
 
 	/**
+	 * Drop a user's cached notification counts.
+	 *
+	 * Called from every write that changes read state or adds a notification, so the bell
+	 * and its per-type badges refresh together. The recent-actors avatar stack is a soft
+	 * display element carrying a per-limit suffix, so it is left to its 30s TTL rather than
+	 * enumerating every limit variant to delete.
+	 *
+	 * @param int $user_id Recipient whose counts to forget.
+	 * @return void
+	 */
+	private function forget_counts( int $user_id ): void {
+		wp_cache_delete( "unread_{$user_id}", self::CACHE_GROUP );
+		wp_cache_delete( "unread_by_type_{$user_id}", self::CACHE_GROUP );
+	}
+
+	/**
 	 * Create a notification.
 	 *
 	 * If $data contains a non-empty group_key and an unread notification with
@@ -155,7 +171,7 @@ class NotificationService {
 					return 0;
 				}
 
-				wp_cache_delete( "unread_{$recipient_id}", self::CACHE_GROUP );
+				$this->forget_counts( $recipient_id );
 
 				/** This action is documented in includes/Notifications/NotificationService.php */
 				do_action( 'buddynext_notification_created', (int) $existing_id, $recipient_id, $data );
@@ -191,7 +207,7 @@ class NotificationService {
 			return 0;
 		}
 
-		wp_cache_delete( "unread_{$recipient_id}", self::CACHE_GROUP );
+		$this->forget_counts( $recipient_id );
 
 		$notif_id = (int) $wpdb->insert_id;
 
@@ -247,7 +263,7 @@ class NotificationService {
 			array( '%d' )
 		);
 
-		wp_cache_delete( "unread_{$user_id}", self::CACHE_GROUP );
+		$this->forget_counts( $user_id );
 
 		return true;
 	}
@@ -291,7 +307,7 @@ class NotificationService {
 			array( '%d' )
 		);
 
-		wp_cache_delete( "unread_{$user_id}", self::CACHE_GROUP );
+		$this->forget_counts( $user_id );
 
 		return true;
 	}
@@ -332,7 +348,7 @@ class NotificationService {
 			array( '%d' )
 		);
 
-		wp_cache_delete( "unread_{$user_id}", self::CACHE_GROUP );
+		$this->forget_counts( $user_id );
 
 		return true;
 	}
@@ -357,7 +373,7 @@ class NotificationService {
 			array( '%d', '%d' )
 		);
 
-		wp_cache_delete( "unread_{$user_id}", self::CACHE_GROUP );
+		$this->forget_counts( $user_id );
 	}
 
 	/**
@@ -594,6 +610,15 @@ class NotificationService {
 	 * @return array<string,int> type => unread count.
 	 */
 	public function unread_counts_by_type( int $user_id ): array {
+		// Per-type grouped scan on the notification bell, uncached and re-run on every
+		// bell render. Memo it under the same 30s TTL as unread_count, and bust it at the
+		// same choke points (see forget_counts).
+		$cache_key = "unread_by_type_{$user_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -613,6 +638,8 @@ class NotificationService {
 			$counts[ (string) $row['type'] ] = (int) $row['cnt'];
 		}
 
+		wp_cache_set( $cache_key, $counts, self::CACHE_GROUP, self::CACHE_TTL );
+
 		return $counts;
 	}
 
@@ -627,6 +654,15 @@ class NotificationService {
 	 */
 	public function recent_actor_ids( int $user_id, int $limit = 5 ): array {
 		$limit = max( 1, min( 50, $limit ) );
+
+		// The "recent actors" avatar stack, a grouped scan re-run on every notifications
+		// render. Memo under the 30s TTL. It is a soft display element, so it rides the TTL
+		// (and the forget_counts bust) rather than needing anything sharper.
+		$cache_key = "recent_actors_{$user_id}_{$limit}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
 
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -643,7 +679,11 @@ class NotificationService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return array_map( 'intval', (array) $rows );
+		$ids = array_map( 'intval', (array) $rows );
+
+		wp_cache_set( $cache_key, $ids, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $ids;
 	}
 
 	/**
