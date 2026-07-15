@@ -400,12 +400,18 @@ class BlockService {
 		// the feed but meant an admin listing page 1 still loaded every restriction a
 		// user ever made.
 		if ( $limit > 0 ) {
+			// blocked_id DESC is the tie-break, not decoration: bn_blocks has no auto-inc
+			// id (PK is (blocker_id, blocked_id)) and created_at is the only sort column,
+			// so a bulk block / import that lands many rows in the same second makes
+			// created_at a non-total order and OFFSET paging would duplicate a row on one
+			// admin page and drop it on another. blocked_id is unique per blocker, so
+			// (created_at, blocked_id) is a stable total order. Same class as the S6 fix.
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$paged = $wpdb->get_col(
 				$wpdb->prepare(
 					"SELECT blocked_id FROM {$wpdb->prefix}bn_blocks
 					 WHERE blocker_id = %d AND type = 'restrict'
-					 ORDER BY created_at DESC
+					 ORDER BY created_at DESC, blocked_id DESC
 					 LIMIT %d OFFSET %d",
 					$user_id,
 					$limit,
@@ -811,12 +817,15 @@ class BlockService {
 		// Paged caller: slice in SQL (see restricted_users). Full read below is the
 		// feed-exclusion consumer's.
 		if ( $limit > 0 ) {
+			// (created_at, blocked_id) total order — see the tie-break note in
+			// restricted_users(); blocked_id is unique per blocker, created_at alone is not,
+			// so paged mute lists stay disjoint under same-second bulk mutes.
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$paged = $wpdb->get_col(
 				$wpdb->prepare(
 					"SELECT blocked_id FROM {$wpdb->prefix}bn_blocks
 					 WHERE blocker_id = %d AND type = 'mute'
-					 ORDER BY created_at DESC
+					 ORDER BY created_at DESC, blocked_id DESC
 					 LIMIT %d OFFSET %d",
 					$user_id,
 					$limit,
@@ -869,12 +878,15 @@ class BlockService {
 		// Paged caller: slice in SQL (see restricted_users). Full read below is the
 		// feed-exclusion consumer's.
 		if ( $limit > 0 ) {
+			// (created_at, blocked_id) total order — see the tie-break note in
+			// restricted_users(); blocked_id is unique per blocker, created_at alone is not,
+			// so paged block lists stay disjoint under same-second bulk blocks / imports.
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$paged = $wpdb->get_col(
 				$wpdb->prepare(
 					"SELECT blocked_id FROM {$wpdb->prefix}bn_blocks
 					 WHERE blocker_id = %d AND type = 'block'
-					 ORDER BY created_at DESC
+					 ORDER BY created_at DESC, blocked_id DESC
 					 LIMIT %d OFFSET %d",
 					$user_id,
 					$limit,

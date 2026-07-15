@@ -72,6 +72,57 @@ class UnboundedReadsTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Paged block lists stay disjoint even when every block shares one created_at.
+	 *
+	 * bn_blocks has no auto-inc id (PK is (blocker_id, blocked_id)) and created_at is the
+	 * only sort column, so a bulk block / import that writes many rows in the same second
+	 * makes `ORDER BY created_at DESC` a non-total order: OFFSET paging then duplicates a
+	 * row on one admin page and drops another. blocked_id (unique per blocker) is the
+	 * tie-break that restores a total order. Proven at scale: without it, page 1 and page 2
+	 * of a 30-same-second-block set shared 5 ids on the 100k box.
+	 *
+	 * @return void
+	 */
+	public function test_paged_blocks_are_disjoint_under_same_timestamp(): void {
+		global $wpdb;
+
+		$blocker = self::factory()->user->create();
+		$targets = self::factory()->user->create_many( 12 );
+
+		// Identical created_at for every row — the bulk-import condition.
+		$same_time = gmdate( 'Y-m-d H:i:s', time() );
+		foreach ( $targets as $t ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->insert(
+				$wpdb->prefix . 'bn_blocks',
+				array(
+					'blocker_id' => $blocker,
+					'blocked_id' => $t,
+					'type'       => 'block',
+					'created_at' => $same_time,
+				),
+				array( '%d', '%d', '%s', '%s' )
+			);
+		}
+
+		$blocks = buddynext_service( 'blocks' );
+
+		$p1 = $blocks->blocked_users( $blocker, 5, 0 );
+		$p2 = $blocks->blocked_users( $blocker, 5, 5 );
+		$p3 = $blocks->blocked_users( $blocker, 5, 10 );
+
+		$this->assertCount( 5, $p1, 'Page 1 must return the page size.' );
+		$this->assertCount( 5, $p2, 'Page 2 must return the page size.' );
+		$this->assertCount( 2, $p3, 'Page 3 must return the remainder.' );
+		$this->assertCount(
+			12,
+			array_unique( array_merge( $p1, $p2, $p3 ) ),
+			'Paged block lists must cover all 12 blocks exactly once. An overlap means the '
+			. 'ORDER BY lost its unique (created_at, blocked_id) tie-break under same-second blocks.'
+		);
+	}
+
+	/**
 	 * S5 — a home-feed tab count is capped, not a full scan.
 	 *
 	 * @return void
