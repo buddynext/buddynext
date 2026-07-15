@@ -1174,6 +1174,14 @@
 	display: block;
 }
 
+/* Group rename panel: same reveal chrome as the add-field panel, with the input + save button on one compact row. */
+.bn-pf-rename-panel .bn-pf-inline-form {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-a-s2);
+}
+
+
 .bn-pf-af-title {
 	font-size: var(--bn-a-text-sm);
 	font-weight: var(--bn-a-fw-bold);
