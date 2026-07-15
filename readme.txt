@@ -83,6 +83,7 @@ Abuse reporting for media, a manageable header menu, and a large pass over scale
 * Fix      - A member whose name contained non-ASCII characters could not be found in search.
 * Fix      - An auto-suspend rule the owner had configured never fired.
 * Fix      - Search reported a total it could not actually return.
+* Security - The members directory no longer prints a member's WordPress username on the public "online now" list; it shows the public profile slug instead.
 * Security - Deleting the free plugin destroyed the customer's invoices and other paid records.
 * Security - An invitation is now bound to the address it was sent to and is no longer usable as a bearer token.
 * Security - Hardened the outbound request guard that could abort an entire profile save.
