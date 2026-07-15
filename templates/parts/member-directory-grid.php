@@ -95,6 +95,13 @@ foreach ( $bn_members as $bn_m ) {
 }
 $bn_member_ids = array_values( array_unique( array_filter( $bn_member_ids ) ) );
 
+// Prime the usermeta cache once for the whole page so each card's public @handle
+// lookup (PageRouter::member_handle -> bn_profile_slug) is a cache hit, not a
+// query per card (no N+1 across the grid).
+if ( ! empty( $bn_member_ids ) ) {
+	update_meta_cache( 'user', $bn_member_ids );
+}
+
 $bn_status_map    = array();
 $bn_following_map = array();
 $bn_mutual_map    = array();

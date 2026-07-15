@@ -159,6 +159,40 @@ class MemberHandleResolvesTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * PageRouter::member_handle is the one public-handle source: nicename, never login.
+	 *
+	 * Every @handle surface (member cards, space member lists, the profile hero, the
+	 * online-now sidebar) resolves through this. Pointing any of them back at
+	 * user_login re-opens the credential leak.
+	 *
+	 * @covers \BuddyNext\Core\PageRouter::member_handle
+	 * @return void
+	 */
+	public function test_member_handle_is_the_public_slug_never_the_login(): void {
+		$user_id = self::factory()->user->create(
+			array(
+				'user_login'   => 'raw_login_value',
+				'display_name' => 'Nadia Rahman',
+			)
+		);
+		wp_update_user(
+			array(
+				'ID'            => $user_id,
+				'user_nicename' => 'nadia-rahman',
+			)
+		);
+		clean_user_cache( $user_id );
+
+		$this->assertSame( 'nadia-rahman', PageRouter::member_handle( $user_id ), 'member_handle must return user_nicename, never user_login.' );
+		$this->assertNotSame( 'raw_login_value', PageRouter::member_handle( $user_id ), 'member_handle leaked user_login.' );
+
+		update_user_meta( $user_id, 'bn_profile_slug', 'nadia' );
+		$this->assertSame( 'nadia', PageRouter::member_handle( $user_id ), 'A custom bn_profile_slug must win over the nicename.' );
+
+		$this->assertSame( '', PageRouter::member_handle( 0 ), 'An invalid user id must yield an empty handle.' );
+	}
+
+	/**
 	 * The "Online now" sidebar (SSR) publishes the public slug, never user_login.
 	 *
 	 * The REST directory was already fixed to publish the nicename-derived handle;

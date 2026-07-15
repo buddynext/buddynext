@@ -49,7 +49,9 @@ if ( ! $profile_user ) {
 
 $display_name      = $profile_user->display_name;
 $profile_email_raw = $profile_user->user_email;
-$user_login_str    = $profile_user->user_login;
+// The @handle badge shows the member's PUBLIC handle (bn_profile_slug ?: user_nicename) -
+// the same mention others resolve them by - never user_login (a credential).
+$user_login_str    = \BuddyNext\Core\PageRouter::member_handle( (int) $profile_user->ID );
 
 // Avatar initials.
 $name_parts = explode( ' ', $display_name );

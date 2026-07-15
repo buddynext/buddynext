@@ -94,7 +94,8 @@ $bn_class   = trim(
 $bn_member        = $args['member'];
 $bn_member_id     = (int) $bn_member->ID;
 $bn_display_name  = (string) $bn_member->display_name;
-$bn_member_login  = (string) $bn_member->user_login;
+// Public @handle: bn_profile_slug ?: user_nicename. NEVER user_login (a credential).
+$bn_member_handle = \BuddyNext\Core\PageRouter::member_handle( $bn_member_id );
 $bn_viewer_id     = (int) $args['viewer_id'];
 $bn_is_following  = (bool) $args['is_following'];
 $bn_conn_state    = (string) $args['connection_state'];
@@ -270,7 +271,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 			<?php endif; ?>
 		</h3>
 
-		<p class="bn-md-card__handle">@<?php echo esc_html( $bn_member_login ); ?></p>
+		<p class="bn-md-card__handle">@<?php echo esc_html( $bn_member_handle ); ?></p>
 
 		<?php
 		// Profession/headline tagline — the single most identifying line on a
