@@ -482,8 +482,12 @@ class FieldType {
 
 		switch ( $type ) {
 			case 'textarea':
+				// .bn-textarea, not .bn-input: the design system pins .bn-input to a
+				// fixed 36px height (which beats the rows attribute), while
+				// .bn-textarea is the multi-line control (auto height, min 80px,
+				// vertical resize). With .bn-input the field rendered one line tall.
 				return sprintf(
-					'<textarea class="bn-input bn-field-textarea" id="%1$s" name="%2$s" rows="4"%4$s%5$s>%3$s</textarea>',
+					'<textarea class="bn-textarea bn-field-textarea" id="%1$s" name="%2$s" rows="4"%4$s%5$s>%3$s</textarea>',
 					esc_attr( $id ),
 					esc_attr( $name ),
 					esc_textarea( (string) $value ),
