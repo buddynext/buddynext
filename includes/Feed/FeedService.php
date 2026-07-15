@@ -1205,14 +1205,14 @@ class FeedService {
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
 	public function profile_feed( int $profile_user_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
-		global $wpdb;
-
 		$per_page = min( $per_page, 50 );
 
-		// Private-account gate. The owner sees themselves; admins see
-		// everything; otherwise only approved followers see posts. Returns
-		// an empty payload so the profile activity tab shows its existing
-		// empty-state copy without leaking that the account has any posts.
+		// Private-account gate FIRST, and deliberately OUTSIDE the cache. The owner sees
+		// themselves; admins see everything; otherwise only approved followers see posts.
+		// Running it on every request -- never from a cached value -- is what makes a
+		// privacy flip take effect immediately: the moment the owner goes private (or drops
+		// a follower), the very next request is denied here and never reaches the cached
+		// feed. A denied viewer returns the empty payload and touches no cache at all.
 		if ( $viewer_id !== $profile_user_id
 			&& ! user_can( $viewer_id, 'manage_options' )
 			&& ! buddynext_service( 'privacy' )->can_view_activity( $viewer_id, $profile_user_id )
@@ -1223,6 +1223,41 @@ class FeedService {
 				'private'     => true,
 			);
 		}
+
+		// Page-1 cache wrap (A9). First page only; the viewer is in the key so block/mute
+		// scoping never leaks across viewers. The owner's post create/delete busts this via
+		// invalidate_writer (the profile version salt), so a new post shows for every
+		// allowed viewer at once. Same no-live-Pro-filter caveat as the space feed.
+		if ( null !== $this->cache && null === $cursor && $profile_user_id > 0 ) {
+			$key   = $this->cache->profile_page_1_key( $profile_user_id, $viewer_id, $per_page );
+			$cache = $this->cache;
+			return (array) $cache->get(
+				$key,
+				FeedCache::GROUP_USER,
+				FeedCache::TTL_HOME_PAGE_1,
+				fn() => $this->profile_feed_uncached( $profile_user_id, $viewer_id, null, $per_page )
+			);
+		}
+
+		return $this->profile_feed_uncached( $profile_user_id, $viewer_id, $cursor, $per_page );
+	}
+
+	/**
+	 * Uncached profile feed query — internal callee of profile_feed().
+	 *
+	 * The privacy gate lives in the public wrapper, not here: this is only ever reached
+	 * once the viewer is already allowed to see the profile's activity.
+	 *
+	 * @param int         $profile_user_id Profile owner.
+	 * @param int         $viewer_id       Viewer.
+	 * @param string|null $cursor          Pagination cursor.
+	 * @param int         $per_page        Page size.
+	 * @return array{items: array[], next_cursor: string|null}
+	 */
+	private function profile_feed_uncached( int $profile_user_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
+		global $wpdb;
+
+		$per_page = min( $per_page, 50 );
 
 		/**
 		 * Filter the query args before SQL is built for the profile feed.
@@ -1359,6 +1394,40 @@ class FeedService {
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
 	public function space_feed( int $space_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
+		// Page-1 cache wrap (A9). Only the first page is cached (cursor null); deeper pages
+		// are keyset-paginated and each cursor is a unique position, so caching them buys
+		// nothing. The key carries the VIEWER, so one member's block/mute scoping never
+		// leaks into another's feed. See FeedCache::space_page_1_key.
+		//
+		// Nothing in Pro currently hooks buddynext_feed_query_args / buddynext_feed_items,
+		// so the result is a pure function of (space, viewer, page) plus content. If a
+		// future Pro filter makes it depend on the viewer's ENTITLEMENTS, it must bump a
+		// version on entitlement change (or accept the <=TTL lag), because the key cannot
+		// see inside an arbitrary filter.
+		if ( null !== $this->cache && null === $cursor && $space_id > 0 ) {
+			$key   = $this->cache->space_page_1_key( $space_id, $viewer_id, $per_page );
+			$cache = $this->cache;
+			return (array) $cache->get(
+				$key,
+				FeedCache::GROUP_USER,
+				FeedCache::TTL_HOME_PAGE_1,
+				fn() => $this->space_feed_uncached( $space_id, $viewer_id, null, $per_page )
+			);
+		}
+
+		return $this->space_feed_uncached( $space_id, $viewer_id, $cursor, $per_page );
+	}
+
+	/**
+	 * Uncached space feed query — internal callee of space_feed().
+	 *
+	 * @param int         $space_id  Space.
+	 * @param int         $viewer_id Viewer.
+	 * @param string|null $cursor    Pagination cursor.
+	 * @param int         $per_page  Page size.
+	 * @return array{items: array[], next_cursor: string|null}
+	 */
+	private function space_feed_uncached( int $space_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
 		global $wpdb;
 
 		$per_page       = min( $per_page, 50 );
