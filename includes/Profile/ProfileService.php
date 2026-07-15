@@ -754,6 +754,76 @@ class ProfileService {
 					}
 				}
 
+				// Prune rows for entries the member removed. The client renumbers
+				// surviving entries to 0..n-1 and always submits the group key when
+				// its UI is on the page — an emptied group arrives as an empty
+				// array — so any stored entry_index outside the submitted set
+				// belongs to a deleted entry. Without this delete the removed
+				// entry's rows survive the save: the entry reappears on reload,
+				// and a middle delete leaves a stale duplicate at the top index.
+				$submitted_indexes = array();
+				foreach ( $value as $entry_index => $entry_data ) {
+					if ( is_array( $entry_data ) ) {
+						$submitted_indexes[] = (int) $entry_index;
+					}
+				}
+
+				$group_field_ids = array();
+				foreach ( $field_by_key as $group_field_def ) {
+					if ( (int) $group_field_def['group_id'] === (int) $group['id'] && ! empty( $group_field_def['id'] ) ) {
+						$group_field_ids[] = (int) $group_field_def['id'];
+					}
+				}
+
+				if ( ! empty( $group_field_ids ) ) {
+					$id_marks = implode( ', ', array_fill( 0, count( $group_field_ids ), '%d' ) );
+
+					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					if ( empty( $submitted_indexes ) ) {
+						$wpdb->query(
+							$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+								// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+								"DELETE FROM {$wpdb->prefix}bn_profile_values WHERE user_id = %d AND field_id IN ({$id_marks})",
+								...array_merge( array( $user_id ), $group_field_ids )
+							)
+						);
+					} else {
+						$ix_marks = implode( ', ', array_fill( 0, count( $submitted_indexes ), '%d' ) );
+						$wpdb->query(
+							$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+								// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+								"DELETE FROM {$wpdb->prefix}bn_profile_values WHERE user_id = %d AND field_id IN ({$id_marks}) AND entry_index NOT IN ({$ix_marks})",
+								...array_merge( array( $user_id ), $group_field_ids, $submitted_indexes )
+							)
+						);
+					}
+					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				}
+
+				// A group emptied of every entry never enters the sub-field loop
+				// above, so its aggregated search mirrors would go stale. Seed the
+				// mirror map with an empty value list for each searchable text
+				// sub-field so the flush below deletes the stale bn_field_{key}.
+				if ( empty( $submitted_indexes ) ) {
+					foreach ( $field_by_key as $group_field_def ) {
+						if ( (int) $group_field_def['group_id'] !== (int) $group['id'] ) {
+							continue;
+						}
+						$group_field_key  = (string) $group_field_def['field_key'];
+						$group_field_type = isset( $group_field_def['type'] ) ? (string) $group_field_def['type'] : 'text';
+						if (
+							! empty( $group_field_def['is_searchable'] )
+							&& \BuddyNext\Profile\FieldType::is_text_searchable( $group_field_type )
+							&& ! isset( $repeater_mirror[ $group_field_key ] )
+						) {
+							$repeater_mirror[ $group_field_key ] = array(
+								'field'  => $group_field_def,
+								'values' => array(),
+							);
+						}
+					}
+				}
+
 				continue;
 			}
 
