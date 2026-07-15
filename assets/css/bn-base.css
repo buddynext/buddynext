@@ -2268,6 +2268,27 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-badge[data-tone="jetonomy"] { background: var(--bn-jetonomy-bg); color: var(--bn-jetonomy); border-color: transparent; }
 .bn-badge[data-tone="media"]    { background: var(--bn-media-bg); color: var(--bn-media); border-color: transparent; }
 .bn-badge[data-tone="events"]   { background: var(--bn-events-bg); color: var(--bn-events); border-color: transparent; }
+
+/* Field-value chips — FieldType::render_chips() (multiselect and other
+   set-valued profile fields). The markup shipped with no CSS at all, so
+   selected values ran together as one unstyled string (Value1Value2Value3). */
+.bn-field-chips {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s1);
+}
+.bn-field-chip {
+	display: inline-flex;
+	align-items: center;
+	padding: 0 var(--bn-s2);
+	height: var(--bn-s5);
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-medium-semibold);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-2);
+	border: 1px solid var(--bn-line);
+}
 .bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: var(--bn-paid); border-color: transparent; }
 
 /* Member-type badge icon (admin-supplied SVG) — inherits the badge's currentColor
