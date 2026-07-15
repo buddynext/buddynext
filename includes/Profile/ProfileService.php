@@ -1423,9 +1423,36 @@ class ProfileService {
 			);
 
 			if ( 'repeater' === $group['type'] ) {
+				// Merge the group's FULL field schema into every entry. Entries are
+				// built purely from value rows, and a field only has rows at the
+				// indexes where it was saved — so a newly added field (whose single
+				// LEFT-JOIN NULL row lands at index 0) rendered its input only in
+				// the first entry, and any sub-field left empty in an entry lost
+				// its input there on the edit form. Every entry gets a blank
+				// definition for each group field it has no value row for.
+				$schema = array();
+				foreach ( $entries as $entry_fields ) {
+					foreach ( $entry_fields as $schema_fid => $schema_field ) {
+						if ( isset( $schema[ $schema_fid ] ) ) {
+							continue;
+						}
+						$schema_field['value']            = self::view_value(
+							array(
+								'type'    => $schema_field['type'],
+								'options' => $schema_field['options'],
+							),
+							null
+						);
+						$schema_field['value_raw']        = ( $viewer_id === $profile_user_id ) ? '' : null;
+						$schema_field['entry_visibility'] = null;
+						$schema[ $schema_fid ]            = $schema_field;
+					}
+				}
+
 				$out['entries'] = array();
 				foreach ( $entries as $entry_fields ) {
-					$sorted = array_values( $entry_fields );
+					$entry_fields += $schema;
+					$sorted        = array_values( $entry_fields );
 					usort( $sorted, static fn( $a, $b ) => $a['sort_order'] <=> $b['sort_order'] );
 
 					// Surface the entry's saved privacy as `_visibility` so the edit
