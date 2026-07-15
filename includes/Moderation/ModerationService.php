@@ -642,9 +642,16 @@ class ModerationService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
+				// id DESC is the tie-breaker, not decoration: a viral post gathers many
+				// reports in the SAME second, and created_at alone is not a total order, so
+				// OFFSET paging over tied timestamps reorders rows between page queries and
+				// the same report shows on two pages (and another on none). id is the PK —
+				// unique — so (created_at, id) is a stable total order and pages stay disjoint.
+				// The object_reported KEY (object_type, object_id, created_at [+ PK id]) serves
+				// both the WHERE and this ORDER BY, so it is a range scan, not a filesort.
 				"SELECT * FROM {$wpdb->prefix}bn_reports
 				 WHERE object_type = %s AND object_id = %d
-				 ORDER BY created_at DESC
+				 ORDER BY created_at DESC, id DESC
 				 LIMIT %d OFFSET %d",
 				sanitize_key( $object_type ),
 				$object_id,

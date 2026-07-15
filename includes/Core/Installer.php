@@ -261,8 +261,15 @@ class Installer {
 	 *      anything — no listener hooks buddynext_connection_declined — but it shipped a
 	 *      member preference toggle, a seeded email template and an Email Editor entry.
 	 *      Clears the seeded template row and any saved preference rows.
+	 *
+	 * v35: bn_reports gains KEY object_reported (object_type, object_id, created_at) so the
+	 *      per-object report list (get_reports_for_object) is a range scan instead of a
+	 *      filesort at report-storm scale. Paired with a (created_at, id) total order in that
+	 *      query — created_at alone is not unique, so OFFSET paging over same-second reports
+	 *      overlapped pages until the PK tie-break was added. dbDelta ALTER-adds the KEY on
+	 *      upgrade; no data migration.
 	 */
-	private const SCHEMA_VERSION = 34;
+	private const SCHEMA_VERSION = 35;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -2294,6 +2301,7 @@ class Installer {
 				PRIMARY KEY (id),
 				UNIQUE KEY  one_per_reporter (reporter_id, object_type, object_id),
 				KEY         object_status (object_type, object_id, status),
+				KEY         object_reported (object_type, object_id, created_at),
 				KEY         status_date (status, created_at),
 				KEY         space (space_id)
 			) {$cs};",

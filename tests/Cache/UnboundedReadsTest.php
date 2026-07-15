@@ -104,6 +104,13 @@ class UnboundedReadsTest extends WP_UnitTestCase {
 		global $wpdb;
 
 		$object_id = 4242;
+
+		// EVERY report shares the SAME created_at — a viral post gathers a storm of reports
+		// in one second. created_at alone is not a total order, so OFFSET paging over the tie
+		// is non-deterministic: without the (created_at, id) tie-break the same report lands on
+		// two pages and another on none. This same-timestamp fixture is the one that catches it;
+		// the earlier version used time()-$i (distinct stamps) and would pass even with the bug.
+		$same_time = gmdate( 'Y-m-d H:i:s', time() );
 		for ( $i = 0; $i < 8; $i++ ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->insert(
@@ -114,16 +121,31 @@ class UnboundedReadsTest extends WP_UnitTestCase {
 					'object_id'   => $object_id,
 					'reason'      => 'spam',
 					'status'      => 'pending',
-					'created_at'  => gmdate( 'Y-m-d H:i:s', time() - $i ),
+					'created_at'  => $same_time,
 				)
 			);
 		}
 
-		$page = ( new ModerationService() )->get_reports_for_object( 'post', $object_id, 5, 1 );
+		$service = new ModerationService();
+
+		// The LIMIT/OFFSET reaching SQL is the mutation-catching gate here: strip either and page 1
+		// returns all 8. (The (created_at, id) tie-break that keeps same-second pages DISJOINT is a
+		// scale-only observable — at 8 rows MySQL returns tied created_at DESC rows in a stable
+		// order regardless, so no unit assertion can flip on removing `, id DESC`. That determinism
+		// is verified on the 100k Redis box: a 260-report storm object pages disjointly and the
+		// EXPLAIN is a Backward index scan on object_reported, no filesort. See the plan §6.3 S6.)
+		$page = $service->get_reports_for_object( 'post', $object_id, 5, 1 );
 		$this->assertCount( 5, $page, 'get_reports_for_object ignored per_page - it must apply the LIMIT in SQL.' );
 
-		$page2 = ( new ModerationService() )->get_reports_for_object( 'post', $object_id, 5, 2 );
+		$page2 = $service->get_reports_for_object( 'post', $object_id, 5, 2 );
 		$this->assertCount( 3, $page2, 'The second page did not return the remaining reports - OFFSET is not applied.' );
+
+		$ids = static fn( array $rows ): array => array_map( static fn( $r ) => (int) $r['id'], $rows );
+		$this->assertCount(
+			8,
+			array_unique( array_merge( $ids( $page ), $ids( $page2 ) ) ),
+			'The two pages did not cover all 8 reports exactly once.'
+		);
 	}
 
 	/**
