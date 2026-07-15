@@ -565,8 +565,20 @@ class Plugin {
 				// partner plugin is absent), so turning a bridge off actually
 				// disables it. CareerBoardBridge lives in Pro and gates itself on
 				// the 'career_board' feature on this same seam.
+				$wpmediaverse = new WPMediaVerseBridge();
+
+				// The DM safety gates are not part of that toggle, because the surface
+				// they guard is not either. BuddyNext's own /messages/ hub reaches the
+				// engine through MessagesData -> MediaClient -> the engine's container,
+				// never through this bridge, so DM stays live on the Features toggle's
+				// off setting. Wiring the gates behind it disabled the checks and not
+				// the messaging: bn_blocks and DM-privacy stopped applying while members
+				// kept sending. Register them whenever the engine is present; the owner's
+				// real DM switch is Settings -> General -> Direct Messaging.
+				$wpmediaverse->init_dm_gates();
+
 				if ( buddynext_feature_enabled( 'wpmediaverse' ) ) {
-					( new WPMediaVerseBridge() )->init();
+					$wpmediaverse->init();
 				}
 				if ( buddynext_feature_enabled( 'gamification' ) ) {
 					( new GamificationBridge() )->init();
