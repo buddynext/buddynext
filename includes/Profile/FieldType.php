@@ -690,6 +690,54 @@ class FieldType {
 	}
 
 	/**
+	 * Compose the display date range for a Work Experience / Education entry.
+	 *
+	 * The predefined repeater groups store real sub-field keys
+	 * (work_start_date/work_end_date, edu_start_year/edu_end_year) — no
+	 * "daterange" field exists. Both profile display surfaces (the About
+	 * timeline cards and the right sidebar) compose the range through this
+	 * single helper so the format cannot drift between them.
+	 *
+	 * @param array  $entry_fields Template-shaped entry field list (each item an
+	 *                             array carrying field_key + value; the string
+	 *                             `_visibility` companion is skipped).
+	 * @param string $prefix       'work' or 'edu'.
+	 * @return string "start – end", "start – Present", a single side, "Current"
+	 *                (ongoing with no dates), or '' when nothing is set.
+	 */
+	public static function entry_daterange( array $entry_fields, string $prefix ): string {
+		$value_of = static function ( string $key ) use ( $entry_fields ): string {
+			foreach ( $entry_fields as $entry_field ) {
+				if ( is_array( $entry_field ) && ( $entry_field['field_key'] ?? '' ) === $key ) {
+					$entry_value = $entry_field['value'] ?? '';
+					return is_scalar( $entry_value ) ? (string) $entry_value : '';
+				}
+			}
+			return '';
+		};
+
+		$start   = 'edu' === $prefix ? $value_of( 'edu_start_year' ) : $value_of( $prefix . '_start_date' );
+		$end     = 'edu' === $prefix ? $value_of( 'edu_end_year' ) : $value_of( $prefix . '_end_date' );
+		$current = $value_of( $prefix . '_current' );
+
+		if ( '' === $start && '' === $end ) {
+			return '1' === $current ? __( 'Current', 'buddynext' ) : '';
+		}
+		if ( '1' === $current ) {
+			$end = __( 'Present', 'buddynext' );
+		}
+		if ( '' !== $start && '' !== $end ) {
+			return sprintf(
+				/* translators: 1: start date/year, 2: end date/year or "Present". */
+				_x( '%1$s – %2$s', 'profile entry date range', 'buddynext' ),
+				$start,
+				$end
+			);
+		}
+		return '' !== $start ? $start : $end;
+	}
+
+	/**
 	 * Render the profile-view display for a field. Always escaped.
 	 *
 	 * @param array $field Field definition.

@@ -200,17 +200,14 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 		$we_company     = $bn_pf_entryfv( $entry_fields, 'work_company' );
 		$we_title       = $bn_pf_entryfv( $entry_fields, 'work_title' );
 		$we_location    = $bn_pf_entryfv( $entry_fields, 'work_location' );
-		$we_daterange   = $bn_pf_entryfv( $entry_fields, 'work_daterange' );
-		$we_current     = $bn_pf_entryfv( $entry_fields, 'work_current' );
 		$we_description = $bn_pf_entryfv( $entry_fields, 'work_description' );
 		if ( '' === $we_company && '' === $we_title ) {
 			continue;
 		}
-		$we_date_display = '' !== $we_daterange
-			? ( '1' === $we_current
-				? $we_daterange . ' &ndash; ' . esc_html__( 'Present', 'buddynext' )
-				: $we_daterange )
-			: ( '1' === $we_current ? esc_html__( 'Current', 'buddynext' ) : '' );
+		// Composed from the real work_start_date / work_end_date / work_current
+		// sub-fields — the old read targeted a work_daterange key no field ever
+		// wrote, so the sidebar never showed dates.
+		$we_date_display = \BuddyNext\Profile\FieldType::entry_daterange( $entry_fields, 'work' );
 		?>
 		<div class="bn-repeater-entry">
 			<?php if ( $we_title ) : ?>
@@ -241,17 +238,14 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 		$edu_institution = $bn_pf_entryfv( $entry_fields, 'edu_institution' );
 		$edu_degree      = $bn_pf_entryfv( $entry_fields, 'edu_degree' );
 		$edu_field_study = $bn_pf_entryfv( $entry_fields, 'edu_field' );
-		$edu_daterange   = $bn_pf_entryfv( $entry_fields, 'edu_daterange' );
-		$edu_current     = $bn_pf_entryfv( $entry_fields, 'edu_current' );
 		if ( '' === $edu_institution ) {
 			continue;
 		}
-		$edu_degree_line  = implode( ', ', array_filter( array( $edu_degree, $edu_field_study ) ) );
-		$edu_date_display = '' !== $edu_daterange
-			? ( '1' === $edu_current
-				? $edu_daterange . ' &ndash; ' . esc_html__( 'Present', 'buddynext' )
-				: $edu_daterange )
-			: ( '1' === $edu_current ? esc_html__( 'Current', 'buddynext' ) : '' );
+		$edu_degree_line = implode( ', ', array_filter( array( $edu_degree, $edu_field_study ) ) );
+		// Composed from the real edu_start_year / edu_end_year / edu_current
+		// sub-fields — the old read targeted an edu_daterange key no field ever
+		// wrote, so the sidebar never showed dates.
+		$edu_date_display = \BuddyNext\Profile\FieldType::entry_daterange( $entry_fields, 'edu' );
 		?>
 		<div class="bn-repeater-entry">
 			<div class="bn-repeater-entry__title"><?php echo esc_html( $edu_institution ); ?></div>

@@ -55,16 +55,32 @@ $bn_ap_get_fv = static function ( string $gkey, string $fkey ) use ( $bn_ap_grou
 	return '';
 };
 
+// Keep every entry that holds ANY visible value — filtering on company/title
+// (or institution/degree) alone dropped entries whose only content was a
+// custom sub-field an admin added to the predefined group.
+$bn_ap_entry_has_value = static function ( array $e ): bool {
+	foreach ( $e as $bn_ap_ek => $bn_ap_ef ) {
+		if ( '_visibility' === $bn_ap_ek || ! is_array( $bn_ap_ef ) ) {
+			continue;
+		}
+		$bn_ap_ev = $bn_ap_ef['value'] ?? '';
+		if ( is_array( $bn_ap_ev ) ? array() !== $bn_ap_ev : '' !== (string) $bn_ap_ev ) {
+			return true;
+		}
+	}
+	return false;
+};
+
 $bn_ap_work = array_values(
 	array_filter(
 		isset( $bn_ap_groups['work_experience']['entries'] ) ? $bn_ap_groups['work_experience']['entries'] : array(),
-		static fn( array $e ): bool => '' !== $bn_ap_entry_fv( $e, 'work_company' ) || '' !== $bn_ap_entry_fv( $e, 'work_title' )
+		$bn_ap_entry_has_value
 	)
 );
 $bn_ap_edu  = array_values(
 	array_filter(
 		isset( $bn_ap_groups['education']['entries'] ) ? $bn_ap_groups['education']['entries'] : array(),
-		static fn( array $e ): bool => '' !== $bn_ap_entry_fv( $e, 'edu_institution' ) || '' !== $bn_ap_entry_fv( $e, 'edu_degree' )
+		$bn_ap_entry_has_value
 	)
 );
 // Interests — the member's picked space categories (system category_multiselect

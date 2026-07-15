@@ -2821,6 +2821,33 @@ a.bn-space-row:hover .bn-space-name {
 	line-height: var(--bn-leading-normal);
 }
 
+/* Label/value detail rows — the generic About-tab field renderer and the
+   non-curated (admin-added) sub-fields inside Work/Education timeline items.
+   The markup shipped long before any styling existed, so these rendered as
+   browser-default <dl> lists. */
+.bn-pf-detail-list {
+	display: grid;
+	gap: var(--bn-s1);
+	margin: var(--bn-s2) 0 0;
+}
+.bn-pf-detail {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+}
+.bn-pf-detail__label {
+	margin: 0;
+	font-weight: 600;
+	color: var(--bn-ink-2);
+}
+.bn-pf-detail__label::after { content: ":"; }
+.bn-pf-detail__value {
+	margin: 0;
+	color: var(--bn-ink-1);
+	overflow-wrap: anywhere;
+}
+
 .bn-pf-tag-cloud {
 	display: flex;
 	flex-wrap: wrap;
