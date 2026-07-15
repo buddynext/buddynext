@@ -214,24 +214,24 @@ $bn_pre_user_query = static function ( $bn_q ) use ( $bn_dir_filter ) {
 	$bn_q->query_where .= ' AND ' . $bn_clause; // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 };
 
-// Bounded directory total — fetch at most CAP ids once (the count query stops at
-// CAP, never scanning the full 50k set), so the displayed total + the page-number
-// pager saturate at CAP instead of growing unbounded. An exact "47,213" is noise;
-// a capped count is honest enough for a directory people browse a few pages of.
-$bn_count_cap                 = 1000;
-$bn_count_args                = $user_query_args;
-$bn_count_args['number']      = $bn_count_cap;
-$bn_count_args['fields']      = 'ID';
-$bn_count_args['count_total'] = false;
-unset( $bn_count_args['paged'] ); // Count the whole (capped) set, not one page.
+// Bounded directory total — the cached service owns this number now (A5). The template
+// used to run a SECOND WP_User_Query purely to count, uncached, on every directory page
+// load; that is the bypass A5 was about. directory_total() runs the capped COUNT once and
+// caches it under the same per-viewer salt as the list pages, so the two surfaces share
+// one number and a block/membership change busts both together.
+$total_users = $bn_directory_service->directory_total(
+	$current_user_id,
+	array(
+		'member_type' => $type_slug_filter,
+		'online_only' => $bn_online_only,
+	)
+);
 
 add_action( 'pre_user_query', $bn_pre_user_query );
-$bn_count_query = new WP_User_Query( $bn_count_args );
-$user_query     = new WP_User_Query( $user_query_args );
+$user_query = new WP_User_Query( $user_query_args );
 remove_action( 'pre_user_query', $bn_pre_user_query );
 
 $members     = $user_query->get_results();
-$total_users = count( (array) $bn_count_query->get_results() ); // <= $bn_count_cap
 $total_pages = (int) ceil( $total_users / max( 1, $bn_per_page ) );
 
 // ── Batch-prime per-page member state (no per-card N+1) ───────────────────
@@ -350,15 +350,14 @@ $bn_online_rows = $bn_directory_service->online_now( $current_user_id, 6 );
 // member-types. Pattern D-4 from the v2 prototype member-directory
 // sidebar. Renders independently of the online-now / member-type-rows
 // callbacks below.
-add_action(
-	'buddynext_right_sidebar',
-	static function () use ( $total_users ): void {
-		// Pass the directory's filtered total so the sidebar's "Members" row
-		// matches the header count (both exclude suspended/shadow-banned),
-		// instead of diverging from raw count_users().
-		buddynext_get_template( 'parts/sidebar-by-role.php', array( 'directory_total' => $total_users ) );
-	}
-);
+// The "By role" panel (Members / Moderators / Admins) is removed. WordPress roles are an
+// admin concept, not a member-facing one -- a community browsing the directory does not
+// care how many editors the site has -- and it is not free: the per-role breakdown comes
+// from count_users(), whose GROUP BY over the capabilities meta measured ~134ms at 100k
+// members and ran UNCACHED on every directory load. Core itself hides these counts once a
+// site passes wp_is_large_user_count() (10k users) for exactly this reason. The headline
+// member total lives in the hero now (directory_total(), exact + cached), which is the
+// only count on this screen that earns its place.
 
 if ( ! empty( $bn_online_rows ) ) {
 	$bn_online_count = (int) count( $bn_online_rows );

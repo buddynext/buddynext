@@ -28,12 +28,68 @@ class MemberDirectoryService {
 	private const DEFAULT_LIMIT = 20;
 
 	/**
-	 * Cap on the directory total — the COUNT subquery stops here so it never scans
-	 * the full match set at 50k members; the directory shows/pages a bounded count
-	 * (an exact total is noise on a list people browse a few pages of). Kept in sync
-	 * with the server-rendered directory's $bn_count_cap.
+	 * Cached, EXACT directory total for a viewer + filter set.
+	 *
+	 * The server-rendered directory used to compute this itself, by running a SECOND
+	 * WP_User_Query purely to count -- uncached, on every directory page load. That is
+	 * what A5 is: the SSR directory building its own uncached copy of a number the cached
+	 * service should own.
+	 *
+	 * It also CAPPED that count at 1,000 and rendered the capped figure flat, so a
+	 * 100k-member community announced "1,000 members in the community". WordPress itself
+	 * counts users without flinching -- the Users screen shows the real figure on a site of
+	 * any size -- and the measured reality here agrees: the exact filtered count over
+	 * 100k members is ~70ms cold (an unfiltered COUNT is instant, on the PK), and this is
+	 * cached for a minute, so it amortises to nothing. A cap that trades a truthful number
+	 * for a saving that small is not worth the lie. The count is exact now, like core's.
+	 *
+	 * Cached under the SAME per-viewer version salt as the list pages, so a block, an
+	 * unblock, or any membership change that busts the directory busts this total too.
+	 *
+	 * @param int                  $viewer_id Current viewer (0 = logged out).
+	 * @param array<string, mixed> $filters   Same filter keys the directory pages use
+	 *                                         (member_type, online_only).
+	 * @return int Exact number of members the directory would show this viewer.
 	 */
-	private const DIRECTORY_COUNT_CAP = 1000;
+	public function directory_total( int $viewer_id, array $filters = array() ): int {
+		global $wpdb;
+
+		$cache_ver = (int) wp_cache_get( self::cache_version_key( $viewer_id ), self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+		$cache_key = 'bn_dir_total_' . md5( (string) wp_json_encode( array( $viewer_id, $filters, $cache_ver ) ) );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
+		$user_col = $wpdb->users . '.ID';
+
+		// Same exclusion set the GRID uses, or the number will not match what it shows.
+		// directory_exclusion_subqueries() drops suspended / shadow-banned / directory
+		// opt-out members (param-free NOT EXISTS strings); directory_filter_sql() adds the
+		// viewer-self, block, member_type and online_only clauses. list_members() combines
+		// exactly these two for its own count -- reusing both here is what keeps the header
+		// total and the grid honest with each other.
+		$clauses = $this->directory_exclusion_subqueries( $user_col );
+
+		list( $frag, $frag_params ) = $this->directory_filter_sql( $viewer_id, $filters, $user_col );
+		if ( '' !== trim( (string) $frag ) ) {
+			$clauses[] = ! empty( $frag_params )
+				// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+				? $wpdb->prepare( $frag, ...$frag_params )
+				: $frag;
+		}
+
+		$where = empty( $clauses ) ? '1=1' : implode( "\n   AND ", $clauses );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->users} WHERE {$where}" );
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_set( $cache_key, $total, self::CACHE_GROUP, self::CACHE_TTL ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $total;
+	}
 
 	/**
 	 * Object-cache key for the viewer-independent, discovery-gated per-type member
@@ -404,24 +460,19 @@ class MemberDirectoryService {
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
-		// Bounded total for the same filter set — the inner SELECT stops at the cap, so
-		// COUNT never scans the full 50k match set. The directory shows/pages a capped
-		// total (an exact "47,213" is noise; people browse a few pages, not page 2500).
-		// Matches the server-rendered directory's cap so the two surfaces agree.
-		// Use the pre-cursor snapshot (A6e) so the total is stable across pages, and the
-		// same cap as the page query so the two surfaces agree.
+		// EXACT total for the same filter set — no cap. This once stopped at 1,000 to avoid
+		// scanning the match set, and the server-rendered directory matched it, so a
+		// 100k community reported "1,000 members". WordPress counts users exactly on a site
+		// of any size; measured here the filtered count over 100k members is ~70ms cold and
+		// this whole method is cached, so it runs at most once per cache window. Use the
+		// pre-cursor snapshot (A6e) so the total is stable across pages.
+		// $count_params always carries at least the viewer id (the self-exclusion's %d), so
+		// the prepare() path is always the right one -- there is no param-free case here.
 		$count_where_sql = implode( "\n   AND ", $count_clauses );
-		$count_params[]  = self::DIRECTORY_COUNT_CAP;
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$total = (int) $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM (
-				    SELECT u.ID
-				    FROM {$wpdb->users} u
-				    {$join_sql}
-				    WHERE {$count_where_sql}
-				    LIMIT %d
-				 ) AS _ct",
+				"SELECT COUNT(*) FROM {$wpdb->users} u {$join_sql} WHERE {$count_where_sql}",
 				...$count_params
 			)
 		);
