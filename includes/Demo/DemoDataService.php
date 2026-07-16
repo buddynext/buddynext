@@ -548,10 +548,14 @@ class DemoDataService {
 			$this->store_bundled( $storage, 'cover', 'user', $user_id, 'covers/cover-' . sprintf( '%02d', ( $i % 8 ) + 1 ) . '.png' );
 
 			// Fill BN's real starter fields so the About section reads complete.
+			// Compose the bio from job/location so it COMPLEMENTS the headline
+			// shown above it rather than repeating it (prepending the headline
+			// made every card render the tagline twice). Empty when we have
+			// nothing to add - the card then simply shows the headline alone.
 			$bn_handle = str_replace( '_', '', $member['login'] );
-			$bn_bio    = rtrim( $member['headline'], '.' ) . '.';
+			$bn_bio    = '';
 			if ( '' !== $member['job'] && '' !== $member['location'] ) {
-				$bn_bio .= ' ' . $member['job'] . ' based in ' . $member['location'] . '.';
+				$bn_bio = $member['job'] . ' based in ' . $member['location'] . '.';
 			}
 			$profiles->save_profile(
 				$user_id,
@@ -1194,11 +1198,13 @@ class DemoDataService {
 		}
 		$email = $member['login'] . '@buddynext-demo.invalid';
 
-		// A fuller bio than the one-line headline so the profile header does not
-		// read as empty. Composed from the roster fields (no new data needed).
-		$bio = rtrim( $member['headline'], '.' ) . '.';
+		// A bio that COMPLEMENTS the one-line headline instead of repeating it:
+		// composed from the roster's job/location (no new data needed), so the
+		// member card never renders the headline twice. Empty when there is
+		// nothing to add - the header then shows the headline alone.
+		$bio = '';
 		if ( '' !== $member['job'] && '' !== $member['location'] ) {
-			$bio .= ' ' . $member['job'] . ' based in ' . $member['location'] . '.';
+			$bio = $member['job'] . ' based in ' . $member['location'] . '.';
 		}
 
 		$user_id = wp_insert_user(
