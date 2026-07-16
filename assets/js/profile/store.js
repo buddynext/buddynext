@@ -918,6 +918,33 @@ function renumberEntries( containerId ) {
 	} );
 }
 
+/* Pristine first-entry clone per repeater container, captured at edit-page
+   init BEFORE the member touches anything. buildEntryNodeFromClone() needs a
+   seed row to clone; once the member removes the LAST entry of a group the
+   live DOM has none, and without this snapshot Add Entry became a silent dead
+   button until reload. Keyed by container id. */
+var pristineSeeds = {};
+
+function snapshotRepeaterSeeds() {
+	var containers = document.querySelectorAll( '[data-bn-repeater-group]' );
+	var i;
+	for ( i = 0; i < containers.length; i++ ) {
+		if ( containers[ i ].id && ! pristineSeeds[ containers[ i ].id ] ) {
+			var entry = containers[ i ].querySelector( '.bn-ep-repeater-entry' );
+			if ( entry ) { pristineSeeds[ containers[ i ].id ] = entry.cloneNode( true ); }
+		}
+	}
+	var legacy = [ 'work_experience', 'education' ];
+	for ( i = 0; i < legacy.length; i++ ) {
+		var cid = repeaterContainerId( legacy[ i ] );
+		var c   = document.getElementById( cid );
+		if ( c && ! pristineSeeds[ cid ] ) {
+			var seed = c.querySelector( '.bn-ep-repeater-entry' );
+			if ( seed ) { pristineSeeds[ cid ] = seed.cloneNode( true ); }
+		}
+	}
+}
+
 /* Build a blank repeater entry by cloning the server-rendered entry and
    resetting it — for EVERY group, built-in and admin-created alike. The server
    renders every repeater group through the field-type engine and always emits at
@@ -925,11 +952,15 @@ function renumberEntries( containerId ) {
    exact markup, current labels, placeholders, descriptions and field set with no
    hardcoded field map. The old hardcoded Work Experience / Education map is gone
    on purpose: it froze the groups' original field definitions into JS, so admin
-   renames and added fields never reached an Add Entry row. */
+   renames and added fields never reached an Add Entry row.
+
+   When the live DOM has no entry left to clone (the member removed every row),
+   the pristine snapshot taken at page init is the seed — Add Entry keeps
+   working on an emptied group instead of silently doing nothing. */
 function buildEntryNodeFromClone( group, index ) {
 	var container = document.getElementById( repeaterContainerId( group ) );
 	if ( ! container ) { return null; }
-	var seed = container.querySelector( '.bn-ep-repeater-entry' );
+	var seed = container.querySelector( '.bn-ep-repeater-entry' ) || pristineSeeds[ container.id ];
 	if ( ! seed ) { return null; }
 
 	var clone = seed.cloneNode( true );
@@ -944,7 +975,13 @@ function buildEntryNodeFromClone( group, index ) {
 		el.name = el.name.replace( /\[\d+\]/, '[' + index + ']' );
 		if ( 'checkbox' === el.type || 'radio' === el.type ) {
 			el.checked = false;
-		} else if ( 'SELECT' !== el.tagName ) {
+		} else if ( 'SELECT' === el.tagName ) {
+			// Every <select> resets to its FIRST option: for the per-entry
+			// privacy lock that is the admin default (its options are
+			// rank-ordered and filtered), and for a dropdown sub-field it is
+			// the placeholder/first choice — never the seed row's picked value.
+			if ( el.options.length ) { el.selectedIndex = 0; }
+		} else {
 			el.value = '';
 		}
 		// A seed entry with "currently working/attending" checked has its paired
@@ -954,7 +991,6 @@ function buildEntryNodeFromClone( group, index ) {
 		if ( el.getAttribute( 'placeholder' ) === t( 'present', 'Present' ) ) {
 			el.removeAttribute( 'placeholder' );
 		}
-		// The per-entry privacy <select> keeps its rendered default.
 	} );
 
 	// Keep ids/labels unique so a label click focuses THIS entry's control.
@@ -1088,6 +1124,9 @@ const profileStore = store( 'buddynext/profile', {
 		initEditGuard() {
 			ensureUnloadGuard();
 			wireCurrentToggles();
+			// Snapshot each repeater's pristine first entry before any edit, so
+			// Add Entry can still build a row after the member empties a group.
+			snapshotRepeaterSeeds();
 			// Honour a #avatar / #cover deep-link (the view-hero "Edit avatar" /
 			// "Edit cover" links land here) by opening the matching file picker, so
 			// the anchor isn't a dead scroll-to-nothing. A short defer lets the
