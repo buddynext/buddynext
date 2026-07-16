@@ -251,8 +251,10 @@ $updated_iso = gmdate( 'c' );
 					<span class="bn-stat__delta" data-trend="up">
 						<?php buddynext_icon( 'arrow-up' ); ?>
 						<?php
-						// translators: %s: human-readable period label, e.g. "This month".
-						echo esc_html( sprintf( __( 'Earned %s', 'buddynext' ), $period_tabs[ $period ] ?? '' ) );
+						// $current_user_pts is the member's lifetime total (not the
+						// selected period), so the delta must read "All-time" - the old
+						// "Earned {period}" label wrongly implied the tab's period value.
+						esc_html_e( 'All-time', 'buddynext' );
 						?>
 					</span>
 				</div>
