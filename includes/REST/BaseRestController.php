@@ -26,6 +26,39 @@ abstract class BaseRestController {
 	abstract public function register_routes(): void;
 
 	/**
+	 * Stamp an HTTP status on a service error WITHOUT destroying one it already set.
+	 *
+	 * `WP_Error::add_data()` REPLACES the data array for a code — it does not merge
+	 * (wp-includes/class-wp-error.php: `$this->error_data[ $code ] = $data`). So the
+	 * natural-looking line
+	 *
+	 *     $result->add_data( array( 'status' => 400 ) );
+	 *
+	 * silently overwrites whatever the service decided. Services here do decide:
+	 * SafeguardService returns 403 for a suspension or a blocked IP and 429 for a
+	 * rate limit; SpaceMemberService returns 403 for an archived space and 404 for a
+	 * missing one. Every one of those arrived at the client as a flat 400, so a
+	 * caller could not tell "you are suspended" from "your input was malformed" —
+	 * and a native client cannot show the right thing, or back off on a 429, without
+	 * that distinction.
+	 *
+	 * The default applies only when the service expressed no opinion.
+	 *
+	 * @param WP_Error $error    The service's error.
+	 * @param int      $fallback Status to apply when the service set none.
+	 * @return WP_Error The same error, with a status guaranteed.
+	 */
+	protected function preserve_status( WP_Error $error, int $fallback ): WP_Error {
+		$data = $error->get_error_data();
+
+		if ( ! is_array( $data ) || empty( $data['status'] ) ) {
+			$error->add_data( array( 'status' => $fallback ) );
+		}
+
+		return $error;
+	}
+
+	/**
 	 * Require an authenticated user.
 	 *
 	 * @return true|WP_Error

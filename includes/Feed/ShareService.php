@@ -79,7 +79,11 @@ class ShareService {
 		if ( null !== $existing ) {
 			return new WP_Error(
 				'already_shared',
-				__( 'You have already shared this post.', 'buddynext' )
+				__( 'You have already shared this post.', 'buddynext' ),
+				// A duplicate share is a conflict, not a bad request. The feed store
+				// already branches on 409 (assets/js/feed/store.js); the status simply
+				// never came from here, so it depended on a controller that stamped it.
+				array( 'status' => 409 )
 			);
 		}
 
@@ -126,7 +130,11 @@ class ShareService {
 		if ( $wpdb->rows_affected < 1 ) {
 			return new WP_Error(
 				'already_shared',
-				__( 'You have already shared this post.', 'buddynext' )
+				__( 'You have already shared this post.', 'buddynext' ),
+				// A duplicate share is a conflict, not a bad request. The feed store
+				// already branches on 409 (assets/js/feed/store.js); the status simply
+				// never came from here, so it depended on a controller that stamped it.
+				array( 'status' => 409 )
 			);
 		}
 

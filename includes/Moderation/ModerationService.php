@@ -169,7 +169,12 @@ class ModerationService {
 			$already_message = 'user' === sanitize_key( $object_type )
 				? __( 'You have already reported this member.', 'buddynext' )
 				: __( 'You have already reported this content.', 'buddynext' );
-			return new WP_Error( 'already_reported', $already_message );
+			// 409: a duplicate report is a conflict, not a malformed request. The
+			// status belongs HERE and not only on the REST controller — report() is
+			// also reached from wp-cli and from internal callers, and an error with
+			// no status becomes a 500 for any of them. Mirrors already_resolved
+			// below, which has carried its own 409 since it was written.
+			return new WP_Error( 'already_reported', $already_message, array( 'status' => 409 ) );
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

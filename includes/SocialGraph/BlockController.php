@@ -134,8 +134,7 @@ class BlockController extends BaseRestController {
 		$result = buddynext_service( 'blocks' )->block( $current_id, $target_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		return new WP_REST_Response( array( 'blocked' => true ), 200 );
@@ -176,8 +175,7 @@ class BlockController extends BaseRestController {
 		$result = buddynext_service( 'blocks' )->mute( $current_id, $target_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		return new WP_REST_Response( array( 'muted' => true ), 200 );
@@ -265,8 +263,7 @@ class BlockController extends BaseRestController {
 		$result = buddynext_service( 'blocks' )->restrict( $current_id, $target_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		return new WP_REST_Response( array( 'restricted' => true ), 200 );

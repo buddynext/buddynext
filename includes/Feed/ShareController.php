@@ -86,8 +86,7 @@ class ShareController extends BaseRestController {
 		$result = ( new ShareService() )->share( $user_id, $post_id, $content );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		// Return the hydrated repost + its server-rendered card so the client can

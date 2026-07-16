@@ -89,6 +89,11 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 
 		$this->assertWPError( $result );
 		$this->assertSame( 'already_reported', $result->get_error_code() );
+		$this->assertSame(
+			409,
+			$result->get_error_data()['status'] ?? 0,
+			'A duplicate report is a conflict. The status belongs on the service, not only on the controller: the controller used to stamp 409 UNCONDITIONALLY, so every other failure of report() -- an invalid object_type, a suspended reporter -- arrived as "you already reported this".'
+		);
 	}
 
 	public function test_dismiss_changes_status(): void {

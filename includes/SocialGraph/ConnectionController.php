@@ -261,8 +261,7 @@ class ConnectionController extends BaseRestController {
 		$result = buddynext_service( 'connections' )->send_request( $current_id, $target_id, $note );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		return new WP_REST_Response( array( 'status' => 'pending' ), 200 );
@@ -328,8 +327,7 @@ class ConnectionController extends BaseRestController {
 		}
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		return new WP_REST_Response( array( 'success' => true ), 200 );

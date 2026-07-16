@@ -1378,8 +1378,7 @@ class SpaceController extends BaseRestController {
 		if ( 'invited' === $members->get_status( $space_id, $user_id ) ) {
 			$result = $members->join( $space_id, $user_id );
 			if ( is_wp_error( $result ) ) {
-				$result->add_data( array( 'status' => 400 ) );
-				return $result;
+				return $this->preserve_status( $result, 400 );
 			}
 			return new WP_REST_Response( array( 'joined' => true ), 200 );
 		}
@@ -1432,8 +1431,7 @@ class SpaceController extends BaseRestController {
 			$result = $members->request_join( $space_id, $user_id );
 
 			if ( is_wp_error( $result ) ) {
-				$result->add_data( array( 'status' => 400 ) );
-				return $result;
+				return $this->preserve_status( $result, 400 );
 			}
 
 			return new WP_REST_Response( array( 'requested' => true ), 200 );
@@ -1443,8 +1441,7 @@ class SpaceController extends BaseRestController {
 		$result = $members->join( $space_id, $user_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		return new WP_REST_Response( array( 'joined' => true ), 200 );
@@ -1462,8 +1459,7 @@ class SpaceController extends BaseRestController {
 		$result   = ( new SpaceMemberService() )->leave( $space_id, $user_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		return new WP_REST_Response(
@@ -1486,8 +1482,7 @@ class SpaceController extends BaseRestController {
 		$result   = ( new SpaceMemberService() )->cancel_request( $space_id, get_current_user_id() );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		return new WP_REST_Response( array( 'cancelled' => true ), 200 );

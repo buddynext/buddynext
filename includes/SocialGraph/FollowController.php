@@ -261,8 +261,7 @@ class FollowController extends BaseRestController {
 		$result  = $follows->follow( $current_id, $target_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		// Surface the resolved state so the UI can distinguish a normal
