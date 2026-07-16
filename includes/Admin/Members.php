@@ -1047,43 +1047,49 @@ class Members extends AdminPageBase {
 				<span class="bn-ss-title"><?php esc_html_e( 'Members', 'buddynext' ); ?></span>
 			</div>
 			<div class="bn-ss-body">
-			<form method="get"
-				action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>"
-				class="bn-members-filter bn-admin-hub__form-bare"
-				role="search">
-				<input type="hidden" name="page" value="buddynext-members">
-				<?php if ( 'all' !== $status ) : ?>
-					<input type="hidden" name="status" value="<?php echo esc_attr( $status ); ?>">
-				<?php endif; ?>
-				<label for="bn-members-search" class="screen-reader-text"><?php esc_html_e( 'Search members', 'buddynext' ); ?></label>
-				<input type="search"
-					id="bn-members-search"
-					name="s"
-					class="bn-input"
-					placeholder="<?php esc_attr_e( 'Search by name, email or username...', 'buddynext' ); ?>"
-					value="<?php echo esc_attr( $search ); ?>">
-				<label for="bn-members-role" class="screen-reader-text"><?php esc_html_e( 'Filter by role', 'buddynext' ); ?></label>
-				<select id="bn-members-role" name="role" class="bn-select">
-					<option value=""><?php esc_html_e( 'All Roles', 'buddynext' ); ?></option>
-					<?php foreach ( wp_roles()->get_names() as $rk => $rl ) : ?>
-						<option value="<?php echo esc_attr( $rk ); ?>" <?php selected( $role_filter, $rk ); ?>>
-							<?php echo esc_html( translate_user_role( $rl ) ); ?>
-						</option>
-					<?php endforeach; ?>
-				</select>
-				<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm">
-					<?php esc_html_e( 'Filter', 'buddynext' ); ?>
-				</button>
-			</form>
+			<?php
+			// One toolbar row: the search/filter form and the bulk-action form are
+			// SIBLINGS in a single flex container. They used to live in different
+			// parts of the DOM (the bulk form even sat inside the table's scroll
+			// container), so they stacked as two misaligned rows with independent
+			// sizing and the bulk bar scrolled sideways with the table.
+			?>
+			<div class="bn-members-toolbar">
+				<form method="get"
+					action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>"
+					class="bn-members-filter bn-admin-hub__form-bare"
+					role="search">
+					<input type="hidden" name="page" value="buddynext-members">
+					<?php if ( 'all' !== $status ) : ?>
+						<input type="hidden" name="status" value="<?php echo esc_attr( $status ); ?>">
+					<?php endif; ?>
+					<label for="bn-members-search" class="screen-reader-text"><?php esc_html_e( 'Search members', 'buddynext' ); ?></label>
+					<input type="search"
+						id="bn-members-search"
+						name="s"
+						class="bn-input"
+						placeholder="<?php esc_attr_e( 'Search by name, email or username...', 'buddynext' ); ?>"
+						value="<?php echo esc_attr( $search ); ?>">
+					<label for="bn-members-role" class="screen-reader-text"><?php esc_html_e( 'Filter by role', 'buddynext' ); ?></label>
+					<select id="bn-members-role" name="role" class="bn-select">
+						<option value=""><?php esc_html_e( 'All Roles', 'buddynext' ); ?></option>
+						<?php foreach ( wp_roles()->get_names() as $rk => $rl ) : ?>
+							<option value="<?php echo esc_attr( $rk ); ?>" <?php selected( $role_filter, $rk ); ?>>
+								<?php echo esc_html( translate_user_role( $rl ) ); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+					<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm">
+						<?php esc_html_e( 'Filter', 'buddynext' ); ?>
+					</button>
+				</form>
 
-			<div class="bn-table-wrap__scroll">
-				<?php if ( empty( $members ) ) : ?>
-					<p class="bn-members-empty"><?php esc_html_e( 'No members found.', 'buddynext' ); ?></p>
-				<?php else : ?>
+				<?php if ( ! empty( $members ) ) : ?>
 					<?php
 					// Bulk-action form. The per-row checkboxes associate with it via
 					// the form="bn-members-bulk" attribute, so they are NOT nested
-					// inside the existing per-row action forms (invalid HTML).
+					// inside the existing per-row action forms (invalid HTML) — which
+					// also lets this form live in the toolbar, outside the scroll wrap.
 					?>
 					<form id="bn-members-bulk" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-bulk-bar">
 						<input type="hidden" name="action" value="bn_bulk_members">
@@ -1096,6 +1102,13 @@ class Members extends AdminPageBase {
 						</select>
 						<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm"><?php esc_html_e( 'Apply', 'buddynext' ); ?></button>
 					</form>
+				<?php endif; ?>
+			</div>
+
+			<div class="bn-table-wrap__scroll">
+				<?php if ( empty( $members ) ) : ?>
+					<p class="bn-members-empty"><?php esc_html_e( 'No members found.', 'buddynext' ); ?></p>
+				<?php else : ?>
 					<table class="bn-table" data-bn-bulk="bn-members-bulk">
 						<thead>
 							<tr>
