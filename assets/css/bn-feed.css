@@ -907,6 +907,13 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 .bn-post-card__action-btn.is-bookmarked { color: var(--bn-warn); }
 .bn-post-card__action-btn.is-shared { color: var(--bn-accent); }
 
+/* Bookmarked = the Lucide bookmark filled solid, not just recoloured. The icon
+   ships fill="none"; painting the path with currentColor (the amber above)
+   gives the standard filled-bookmark affordance without a second SVG asset. */
+.bn-post-card__action-btn.is-bookmarked svg {
+	fill: currentColor;
+}
+
 /* Count beside the Comment / Share icon. Distinct from __action-label, so it
    stays visible in the icon-only narrow layout (explore grid / mobile). */
 .bn-post-card__action-count { font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-ink-2); }
