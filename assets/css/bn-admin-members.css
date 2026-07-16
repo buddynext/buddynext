@@ -765,7 +765,7 @@
 	padding: 3px var(--bn-a-s2);
 	border-radius: var(--bn-a-r-full);
 	font-size: var(--bn-a-text-2xs);
-	font-weight: var(--bn-a-fw-bold);
+	font-weight: var(--bn-a-fw-semibold);
 	white-space: nowrap;
 }
 
@@ -916,6 +916,39 @@
 .bn-pf-del-group-btn:focus-visible {
 	outline: 2px solid var(--bn-a-red);
 	outline-offset: var(--bn-a-outline-offset);
+}
+
+/* Enforce the single 28px control height the header row promises above.
+   Without this, each control derived its own height from its own padding
+   (select 25 / icon 29 / add 28 / delete 20px) and never lined up on the
+   flex baseline. One shared box height makes align-items:center exact. */
+.bn-admin-hub .bn-pf-head-actions .bn-pf-head-select,
+.bn-admin-hub .bn-pf-head-actions .bn-pf-icon-btn,
+.bn-admin-hub .bn-pf-head-actions .bn-pf-add-btn,
+.bn-admin-hub .bn-pf-head-actions .bn-pf-del-group-btn {
+	height: 28px;
+	min-height: 28px;
+	box-sizing: border-box;
+}
+
+/* Each control is wrapped in an inline <form>; those forms are the row's flex
+   items. Center every item on the cross axis so the reorder/delete buttons
+   line up with the selects. (The block margin that used to push them 3px high
+   is removed at its source — the button-form rule in bn-admin-hub.css now
+   excludes .bn-pf-head-actions form.) */
+.bn-admin-hub .bn-pf-head-actions > * {
+	align-self: center;
+}
+
+.bn-admin-hub .bn-pf-head-actions .bn-pf-inline-form {
+	display: inline-flex;
+	align-items: center;
+}
+
+.bn-admin-hub .bn-pf-head-actions .bn-pf-icon-btn,
+.bn-admin-hub .bn-pf-head-actions .bn-pf-del-group-btn {
+	display: inline-flex;
+	align-items: center;
 }
 
 .bn-pf-table {
