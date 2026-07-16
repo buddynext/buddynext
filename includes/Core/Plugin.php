@@ -339,6 +339,13 @@ class Plugin {
 		// owner re-enables it, the same policy and spam protection still apply.
 		( new \BuddyNext\Auth\CoreRegistration() )->register();
 
+		// The REST mirror of both account holds below. Verification's "full" tier and
+		// forced 2FA enrolment hang off template_redirect, which never fires on a REST
+		// request -- so over REST neither hold was weaker, it was absent. See
+		// RestHoldGate; it runs at rest_pre_dispatch:11, behind PrivateCommunity's
+		// anonymous gate at 10.
+		( new \BuddyNext\Auth\RestHoldGate() )->register();
+
 		// Enforce 2FA enrolment for the roles the owner requires it of. The setting
 		// used to be read and then ignored — purely advisory, surfaced as a UI hint
 		// while nothing enforced it, so an owner could "require 2FA for
