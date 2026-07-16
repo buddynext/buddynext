@@ -45,6 +45,47 @@ class FeedController extends BaseRestController {
 	public const VIEWER_STATE_MAX_IDS = 100;
 
 	/**
+	 * The pagination contract every feed surface shares.
+	 *
+	 * Declared, not just read. Each feed route used to read cursor and per_page in
+	 * its handler while declaring no args at all, which has three costs: the params
+	 * are invisible in openapi.json (generated from the route registry, so an app
+	 * team reading route truth concludes the feeds are unpaginated), nothing
+	 * sanitises or validates them, and per_page reached FeedService unbounded below
+	 * — min($per_page, 50) has no floor, so a negative arrived at the SQL as a
+	 * negative LIMIT.
+	 *
+	 * validate_callback is set EXPLICITLY and must stay that way. Core only runs
+	 * validation when the arg carries one — WP_REST_Request::has_valid_params() gates
+	 * on `! empty( $arg['validate_callback'] )`, and register_rest_route() defaults it
+	 * only for schema-derived args, never for a hand-written block like this. Without
+	 * it, minimum/maximum/enum are documentation: they appear in the spec, they read
+	 * as enforcement, and nothing checks them.
+	 *
+	 * @return array<string,array<string,mixed>>
+	 */
+	private function feed_pagination_args(): array {
+		return array(
+			'cursor'   => array(
+				'type'              => 'string',
+				'required'          => false,
+				'description'       => 'Opaque keyset cursor from a previous response.',
+				'validate_callback' => 'rest_validate_request_arg',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'per_page' => array(
+				'type'              => 'integer',
+				'default'           => 20,
+				'minimum'           => 1,
+				'maximum'           => 50,
+				'description'       => 'Items per page (1-50).',
+				'validate_callback' => 'rest_validate_request_arg',
+				'sanitize_callback' => 'absint',
+			),
+		);
+	}
+
+	/**
 	 * Register the controller's routes.
 	 */
 	public function register_routes(): void {
@@ -55,7 +96,7 @@ class FeedController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'home_feed' ),
 				'permission_callback' => array( $this, 'require_auth' ),
-				'args'                => array(
+				'args'                => $this->feed_pagination_args() + array(
 					'filter' => array(
 						'type'              => 'string',
 						'default'           => 'for-you',
@@ -123,6 +164,7 @@ class FeedController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'explore_feed' ),
 				'permission_callback' => array( $this, 'require_public_explore' ),
+				'args'                => $this->feed_pagination_args(),
 			)
 		);
 
@@ -133,6 +175,7 @@ class FeedController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'profile_feed' ),
 				'permission_callback' => '__return_true',
+				'args'                => $this->feed_pagination_args(),
 			)
 		);
 
@@ -143,6 +186,7 @@ class FeedController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_space_feed' ),
 				'permission_callback' => '__return_true',
+				'args'                => $this->feed_pagination_args(),
 			)
 		);
 
@@ -253,6 +297,65 @@ class FeedController extends BaseRestController {
 	}
 
 	/**
+	 * Batch-prime the viewer-relative maps for a page of posts.
+	 *
+	 * One place, so the feed and the refresh route cannot answer differently. Every
+	 * map is a single bounded query keyed on the ids of THIS page.
+	 *
+	 * @param int   $viewer   Current user ID (0 when logged out).
+	 * @param int[] $post_ids Posts on this page.
+	 * @param int[] $poll_ids The subset that are polls.
+	 * @return array{reactions:array,votes:array,bookmarks:array,shares:array}
+	 */
+	private function prime_viewer_maps( int $viewer, array $post_ids, array $poll_ids = array() ): array {
+		if ( $viewer <= 0 || empty( $post_ids ) ) {
+			return array(
+				'reactions' => array(),
+				'votes'     => array(),
+				'bookmarks' => array(),
+				'shares'    => array(),
+			);
+		}
+
+		return array(
+			'reactions' => buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids ),
+			'votes'     => buddynext_service( 'polls' )->user_votes_map( $viewer, $poll_ids ),
+			// Only the posts ON THIS PAGE — bounded, PK-indexed, no filesort. Loading the
+			// viewer's entire bookmark/share history to render twenty posts is what these
+			// replace.
+			'bookmarks' => buddynext_service( 'bookmarks' )->bookmarked_among( $viewer, $post_ids ),
+			'shares'    => buddynext_service( 'shares' )->shared_among( $viewer, $post_ids ),
+		);
+	}
+
+	/**
+	 * The viewer-relative block for one post.
+	 *
+	 * Built here for both the feed and GET /feed/viewer-state, because the two used
+	 * to construct it independently and had already drifted: the refresh route never
+	 * carried my_share, so an app that re-polled state lost the un-share affordance
+	 * on every card it refreshed.
+	 *
+	 * Everything here is VOLATILE — it can change without the post changing, which is
+	 * what makes it worth re-polling. can_edit is deliberately NOT here: authorship
+	 * does not change between two polls of the same post, so it belongs with the
+	 * initial shape (see enrich_items_for_rest) and re-sending it on every refresh
+	 * would be waste.
+	 *
+	 * @param int   $post_id Post.
+	 * @param array $maps    Output of prime_viewer_maps().
+	 * @return array<string,mixed>
+	 */
+	private function viewer_state_for( int $post_id, array $maps ): array {
+		return array(
+			'my_reaction'        => $maps['reactions'][ $post_id ] ?? null,
+			'is_bookmarked'      => isset( $maps['bookmarks'][ $post_id ] ),
+			'my_voted_option_id' => isset( $maps['votes'][ $post_id ] ) ? (int) $maps['votes'][ $post_id ] : 0,
+			'my_share'           => isset( $maps['shares'][ $post_id ] ),
+		);
+	}
+
+	/**
 	 * Enrich a feed result and respond.
 	 *
 	 * Every feed surface returns through here, deliberately. Enrichment used to be
@@ -328,16 +431,7 @@ class FeedController extends BaseRestController {
 			cache_users( array_values( array_unique( $author_ids ) ) );
 		}
 
-		$reactions = array();
-		$votes     = array();
-		$bookmarks = array();
-		if ( $viewer > 0 ) {
-			$reactions = buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids );
-			$votes     = buddynext_service( 'polls' )->user_votes_map( $viewer, $poll_ids );
-			// Only the posts ON THIS PAGE — bounded, PK-indexed, no filesort. Loading the
-			// viewer's entire bookmark history to render twenty posts is what this replaces.
-			$bookmarks = buddynext_service( 'bookmarks' )->bookmarked_among( $viewer, $post_ids );
-		}
+		$maps = $this->prime_viewer_maps( $viewer, $post_ids, $poll_ids );
 
 		$format = function_exists( 'buddynext_format_content' );
 
@@ -356,13 +450,11 @@ class FeedController extends BaseRestController {
 				? buddynext_format_content( (string) ( $item['content'] ?? '' ) )
 				: (string) ( $item['content'] ?? '' );
 
-			$item['viewer_state'] = array(
-				'my_reaction'        => $reactions[ $pid ] ?? null,
-				'is_bookmarked'      => isset( $bookmarks[ $pid ] ),
-				'my_voted_option_id' => isset( $votes[ $pid ] ) ? (int) $votes[ $pid ] : 0,
+			$item['viewer_state'] = $this->viewer_state_for( $pid, $maps ) + array(
+				// Stable, so it rides the initial shape only and not the refresh route.
 				// Baseline: author or admin. Under-reports for space moderators
 				// (safe direction — never shows an edit affordance the API rejects).
-				'can_edit'           => $viewer > 0 && ( $viewer === $aid || user_can( $viewer, 'manage_options' ) ),
+				'can_edit' => $viewer > 0 && ( $viewer === $aid || user_can( $viewer, 'manage_options' ) ),
 			);
 		}
 		unset( $item );
@@ -490,18 +582,13 @@ class FeedController extends BaseRestController {
 			);
 		}
 
-		$reactions = buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids );
-		$votes     = buddynext_service( 'polls' )->user_votes_map( $viewer, $post_ids );
-		// Only the posts ON THIS PAGE — bounded, PK-indexed, no filesort.
-		$bookmarks = buddynext_service( 'bookmarks' )->bookmarked_among( $viewer, $post_ids );
+		// Poll votes are keyed by post id here too: the caller holds a mixed page and
+		// does not tell us which of them are polls.
+		$maps = $this->prime_viewer_maps( $viewer, $post_ids, $post_ids );
 
 		$states = array();
 		foreach ( $post_ids as $pid ) {
-			$states[ $pid ] = array(
-				'my_reaction'        => $reactions[ $pid ] ?? null,
-				'is_bookmarked'      => isset( $bookmarks[ $pid ] ),
-				'my_voted_option_id' => isset( $votes[ $pid ] ) ? (int) $votes[ $pid ] : 0,
-			);
+			$states[ $pid ] = $this->viewer_state_for( $pid, $maps );
 		}
 
 		return new WP_REST_Response(

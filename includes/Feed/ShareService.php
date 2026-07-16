@@ -227,6 +227,82 @@ class ShareService {
 
 
 	/**
+	 * Which of these posts has the viewer already shared?
+	 *
+	 * The feed's question, and the only shape of it that scales: bounded by the page
+	 * (20-50 ids) and a straight index-range scan on the UNIQUE KEY
+	 * user_post (user_id, post_id) — no ORDER BY, so no filesort, and the row count
+	 * is independent of how many posts the member has ever shared.
+	 *
+	 * Mirrors BookmarkService::bookmarked_among() deliberately, down to the
+	 * memoisation: it answers the same class of question against the same access
+	 * pattern, and the alternative — user_shares_paginated() and match in PHP — is
+	 * exactly the "load the member's entire history to render twenty rows" mistake
+	 * that method's docblock records paying for on every feed paint.
+	 *
+	 * Memoised per request, because several enrichment passes over one page (feed
+	 * plus a viewer-state refresh) must not cost two queries. wp_cache alone will
+	 * not do: the target deployment has no persistent object cache.
+	 *
+	 * @param int   $user_id  Viewer.
+	 * @param int[] $post_ids The posts on this page.
+	 * @return array<int,bool> post_id => true, for the shared ones only. O(1) lookup.
+	 */
+	public function shared_among( int $user_id, array $post_ids ): array {
+		static $memo = array();
+
+		$user_id  = absint( $user_id );
+		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
+
+		if ( $user_id <= 0 || empty( $post_ids ) ) {
+			return array();
+		}
+
+		$out     = array();
+		$missing = array();
+		foreach ( $post_ids as $pid ) {
+			$k = $user_id . ':' . $pid;
+			if ( isset( $memo[ $k ] ) ) {
+				if ( $memo[ $k ] ) {
+					$out[ $pid ] = true;
+				}
+			} else {
+				$missing[] = $pid;
+			}
+		}
+
+		if ( empty( $missing ) ) {
+			return $out;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ',', array_fill( 0, count( $missing ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT post_id FROM {$wpdb->prefix}bn_shares
+				 WHERE user_id = %d AND post_id IN ( {$placeholders} )",
+				array_merge( array( $user_id ), $missing )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$found = array_flip( array_map( 'intval', (array) $rows ) );
+
+		foreach ( $missing as $pid ) {
+			$hit                           = isset( $found[ $pid ] );
+			$memo[ $user_id . ':' . $pid ] = $hit;
+			if ( $hit ) {
+				$out[ $pid ] = true;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
 	 * Return a paginated share history for a user.
 	 *
 	 * Each item includes the share ID, post ID, optional note content, and the

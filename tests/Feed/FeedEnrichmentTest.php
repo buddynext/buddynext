@@ -276,6 +276,134 @@ class FeedEnrichmentTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The my_share field rides both the feed and the refresh route.
+	 *
+	 * The drift this pins: enrich and the batch route built viewer_state
+	 * independently, and the batch route never carried my_share — so an app that
+	 * re-polled state lost the un-share affordance on every card it refreshed. They
+	 * now share one builder and cannot answer differently.
+	 *
+	 * @return void
+	 */
+	public function test_my_share_is_present_on_every_surface(): void {
+		foreach (
+			array(
+				'/buddynext/v1/feed/home',
+				'/buddynext/v1/feed/explore',
+				'/buddynext/v1/users/' . $this->author . '/feed',
+				'/buddynext/v1/spaces/' . $this->space_id . '/feed',
+			) as $route
+		) {
+			$this->assertArrayHasKey(
+				'my_share',
+				$this->items( $route )[0]['viewer_state'],
+				$route . ' must report whether the viewer shared the post, or the app cannot render un-share.'
+			);
+		}
+
+		$state = (array) $this->server->dispatch( $this->viewer_state_request( array( 1 ) ) )->get_data();
+		$this->assertArrayHasKey( 'my_share', $state['states'][1] ?? array(), 'The refresh route must carry my_share too.' );
+	}
+
+	/**
+	 * The two builders agree field-for-field on the volatile block.
+	 *
+	 * The can_edit field is the deliberate exception: it is stable, so it rides the initial
+	 * shape only and is not re-sent on every poll.
+	 *
+	 * @return void
+	 */
+	public function test_feed_and_refresh_agree_on_the_volatile_block(): void {
+		$item      = $this->items( '/buddynext/v1/feed/home' )[0];
+		$post_id   = (int) $item['id'];
+		$refresh   = (array) $this->server->dispatch( $this->viewer_state_request( array( $post_id ) ) )->get_data();
+		$refreshed = (array) ( $refresh['states'][ $post_id ] ?? array() );
+
+		$volatile = $item['viewer_state'];
+		unset( $volatile['can_edit'] );
+
+		$this->assertSame(
+			$volatile,
+			$refreshed,
+			'The feed and the refresh route must produce an identical volatile block; drift here silently changes a card on refresh.'
+		);
+	}
+
+	/**
+	 * The my_share field is true once the viewer actually shares.
+	 *
+	 * Guards against a field that is present but always false — the shape
+	 * assertions above would pass on a hardcoded default.
+	 *
+	 * @return void
+	 */
+	public function test_my_share_becomes_true_after_sharing(): void {
+		$post_id = (int) $this->items( '/buddynext/v1/feed/home' )[0]['id'];
+
+		$sharer = self::factory()->user->create();
+		wp_set_current_user( $sharer );
+		( new \BuddyNext\Feed\ShareService() )->share( $sharer, $post_id );
+
+		$state = (array) $this->server->dispatch( $this->viewer_state_request( array( $post_id ) ) )->get_data();
+
+		$this->assertTrue( $state['states'][ $post_id ]['my_share'], 'A shared post must report my_share true.' );
+	}
+
+	/**
+	 * Pagination is DECLARED, not just read.
+	 *
+	 * The openapi.json document is generated from the route registry, so undeclared args are
+	 * invisible: the feeds read cursor/per_page in their handlers while advertising
+	 * nothing, and an app team reading route truth concludes they are unpaginated.
+	 *
+	 * @return void
+	 */
+	public function test_feed_routes_declare_their_pagination(): void {
+		$routes = $this->server->get_routes( 'buddynext/v1' );
+
+		foreach (
+			array(
+				'/buddynext/v1/feed/home',
+				'/buddynext/v1/feed/explore',
+				'/buddynext/v1/users/(?P<id>[\\d]+)/feed',
+				'/buddynext/v1/spaces/(?P<id>[\\d]+)/feed',
+			) as $route
+		) {
+			$this->assertArrayHasKey( $route, $routes, $route . ' must exist.' );
+			$args = $routes[ $route ][0]['args'] ?? array();
+			$this->assertArrayHasKey( 'cursor', $args, $route . ' must declare cursor, or the spec says it is unpaginated.' );
+			$this->assertArrayHasKey( 'per_page', $args, $route . ' must declare per_page.' );
+		}
+	}
+
+	/**
+	 * A negative per_page is refused at the route, not passed to SQL.
+	 *
+	 * The min($per_page, 50) clamp had no floor, so a negative arrived at the query as a
+	 * negative LIMIT.
+	 *
+	 * @return void
+	 */
+	public function test_negative_per_page_is_rejected(): void {
+		$request = new WP_REST_Request( 'GET', '/buddynext/v1/feed/home' );
+		$request->set_param( 'per_page', -5 );
+
+		$this->assertSame( 400, $this->server->dispatch( $request )->get_status(), 'A negative per_page must be refused.' );
+	}
+
+	/**
+	 * An over-large per_page is refused rather than silently reshaped.
+	 *
+	 * @return void
+	 */
+	public function test_oversized_per_page_is_rejected(): void {
+		$request = new WP_REST_Request( 'GET', '/buddynext/v1/feed/home' );
+		$request->set_param( 'per_page', 5000 );
+
+		$this->assertSame( 400, $this->server->dispatch( $request )->get_status() );
+	}
+
+	/**
 	 * The author object is real, not a placeholder.
 	 *
 	 * Guards against an enrichment that runs but resolves nothing — the shape

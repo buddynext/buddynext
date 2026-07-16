@@ -329,7 +329,7 @@ class FeedService {
 		);
 
 		$per_page = (int) ( $query_args['per_page'] ?? $per_page );
-		$per_page = min( $per_page, 50 );
+		$per_page = max( 1, min( $per_page, 50 ) );
 
 		/**
 		 * Filter the ORDER BY clause used by the home feed SQL.
@@ -1214,7 +1214,7 @@ class FeedService {
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
 	public function profile_feed( int $profile_user_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
-		$per_page = min( $per_page, 50 );
+		$per_page = max( 1, min( $per_page, 50 ) );
 
 		// Private-account gate FIRST, and deliberately OUTSIDE the cache. The owner sees
 		// themselves; admins see everything; otherwise only approved followers see posts.
@@ -1266,7 +1266,7 @@ class FeedService {
 	private function profile_feed_uncached( int $profile_user_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
 		global $wpdb;
 
-		$per_page = min( $per_page, 50 );
+		$per_page = max( 1, min( $per_page, 50 ) );
 
 		/**
 		 * Filter the query args before SQL is built for the profile feed.
@@ -1291,7 +1291,7 @@ class FeedService {
 			$viewer_id
 		);
 
-		$per_page = min( (int) ( $query_args['per_page'] ?? $per_page ), 50 );
+		$per_page = max( 1, min( (int) ( $query_args['per_page'] ?? $per_page ), 50 ) );
 
 		if ( $viewer_id === $profile_user_id ) {
 			// Owner sees everything — but suspended/shadow-banned posts are still hidden.
@@ -1471,7 +1471,7 @@ class FeedService {
 			$viewer_id
 		);
 
-		$per_page = min( (int) ( $query_args['per_page'] ?? $per_page ), 50 );
+		$per_page = max( 1, min( (int) ( $query_args['per_page'] ?? $per_page ), 50 ) );
 
 		// $cursor_where and $excluded_where contain only table/column names — no user data, safe.
 		// $block_mute_where is the canonical block-exclusion fragment; its params are bound below.
