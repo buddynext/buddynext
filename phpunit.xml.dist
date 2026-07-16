@@ -10,4 +10,21 @@
       <directory>tests/</directory>
     </testsuite>
   </testsuites>
+  <php>
+    <!--
+      Point the bootstrap at the test suite bin/install-wp-tests.sh actually creates.
+
+      Without this, tests/bootstrap.php falls back to sys_get_temp_dir(), which on
+      macOS is a per-user /var/folders/.../T path — NOT /tmp, where the suite is
+      installed. So the documented `vendor/bin/phpunit` exits 1 with "WordPress test
+      suite not found" on every Mac, and the whole suite only runs for someone who
+      already knows to export WP_TESTS_DIR by hand.
+
+      Pro has carried this same line (pointing at its own isolated
+      /tmp/wordpress-tests-lib-pro) since its suite was stood up; Free never got it.
+      An <env> here does not override an existing WP_TESTS_DIR, so a CI box or a
+      contributor with a different layout is unaffected.
+    -->
+    <env name="WP_TESTS_DIR" value="/tmp/wordpress-tests-lib"/>
+  </php>
 </phpunit>
