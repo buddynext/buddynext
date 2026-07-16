@@ -135,8 +135,11 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	 * the tap-target block near the end of this file. */
 	--bn-tap: 40px;
 
-	/* Radius — single source */
-	--bn-radius-base: calc(10px * var(--bn-radius-scale, 1));
+	/* Radius — single source. Adopt the host theme's global corner radius
+	   (BuddyX/BuddyX Pro/Reign expose --global-border-radius via the Customizer)
+	   so BN cards/buttons match the site's chosen roundness; fall back to 10px
+	   when the theme sets nothing. --bn-radius-scale still scales the whole set. */
+	--bn-radius-base: calc(var(--global-border-radius, 10px) * var(--bn-radius-scale, 1));
 	--bn-r-sm:   calc(var(--bn-radius-base) * 0.5);
 	--bn-r-md:   var(--bn-radius-base);
 	--bn-r-lg:   calc(var(--bn-radius-base) * 1.4);
