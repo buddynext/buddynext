@@ -154,17 +154,18 @@
 	outline-offset: 2px;
 }
 
+/* position:fixed (placed by admin/members.js) so the menu escapes the
+   overflow:hidden on .bn-table / .bn-settings-section that clipped it on the
+   bottom rows. JS sets top/left on open; no static offsets here. */
 .bn-table .bn-more-dropdown {
-	position: absolute;
-	inset-inline-end: 0;
-	top: calc(100% + 4px);
+	position: fixed;
 	min-width: 160px;
 	background: var(--bn-surface);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-md);
 	box-shadow: var(--bn-shadow-md);
 	padding: var(--bn-s1);
-	z-index: 20;
+	z-index: 1000;
 	display: none;
 }
 
