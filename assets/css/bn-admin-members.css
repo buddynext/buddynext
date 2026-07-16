@@ -132,6 +132,19 @@
 	display: block;
 }
 
+/*
+ * Each row action in the dropdown is a single-button <form>. Nothing styled
+ * those forms, so they kept the hub's button-only-form inline-block box with
+ * stray margins - the button resolved its width:100% against an ~83px form
+ * inside a 160px menu and left dead space under itself. The form must be an
+ * inert full-width block so the .bn-dropdown-item button fills the menu row.
+ */
+.bn-table .bn-more-dropdown form {
+	display: block;
+	width: 100%;
+	margin: 0;
+}
+
 .bn-table .bn-dropdown-item {
 	display: block;
 	width: 100%;
