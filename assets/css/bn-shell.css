@@ -704,9 +704,21 @@ body.admin-bar .bn-app__rail {
 }
 
 .bn-rail__spaces-count {
+	/* A count pill, not ghost text: the old rule only faded the number with
+	   opacity against whatever sat behind it, so it was barely readable.
+	   Mirrors the neutral .bn-badge recipe so the rail count matches every
+	   other count badge in the shell. */
+	display: inline-flex;
+	align-items: center;
 	margin-inline-start: auto;
+	padding: 0 var(--bn-s2, 8px);
+	min-height: 18px;
 	font-size: var(--bn-text-xs, 0.6875rem);
-	opacity: 0.7;
+	font-weight: 600;
+	line-height: 1;
+	border-radius: var(--bn-r-full, 999px);
+	background: var(--bn-sunken, rgba(0, 0, 0, 0.06));
+	color: var(--bn-ink-2, inherit);
 }
 
 .bn-rail__spaces-chevron {
