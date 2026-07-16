@@ -230,6 +230,52 @@ class GamificationAchievements {
 		echo '<div class="bn-achievements">';
 		$this->render_standing( $member_id );
 		$this->render_badges( $member_id );
+		$this->render_points_history( $member_id );
+		echo '</div>';
+	}
+
+	/**
+	 * Render the member's recent points ledger below the badge grid.
+	 *
+	 * On a standalone BuddyPress site wb-gamification's own profile
+	 * integration ships a Points sub-tab (its points-history block); on a
+	 * BuddyNext stack that sub-nav is shadowed because BN owns the profile —
+	 * so without this section the ledger existed nowhere on the profile.
+	 * Read-only parity via the plugin's own [wb_gam_points_history]
+	 * shortcode (block SSR — wb-gamification owns markup, escaping and any
+	 * per-member privacy rules), scoped to the displayed member.
+	 *
+	 * @param int $member_id Profile being viewed.
+	 * @return void
+	 */
+	private function render_points_history( int $member_id ): void {
+		if ( ! shortcode_exists( 'wb_gam_points_history' ) ) {
+			return;
+		}
+
+		// Owner (and site admins) only. Visitors get credentials and standing —
+		// badges, level, rank — never the per-action churn of another member's
+		// ledger; the history answers the OWNER's "where did my points come
+		// from", which is who the shadowed wb-gam Points sub-tab served best.
+		if ( get_current_user_id() !== $member_id && ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		$history = do_shortcode( sprintf( '[wb_gam_points_history user_id="%d" limit="10"]', $member_id ) );
+		if ( '' === trim( wp_strip_all_tags( $history ) ) ) {
+			return; // No entries yet — no empty shell.
+		}
+
+		echo '<div class="bn-card bn-achievements__panel bn-achievements__history">';
+		echo '<header class="bn-achievements__head">';
+		echo '<h3 class="bn-achievements__title">';
+		if ( function_exists( 'buddynext_icon' ) ) {
+			buddynext_icon( 'trending-up' );
+		}
+		echo ' ' . esc_html__( 'Points history', 'buddynext' );
+		echo '</h3>';
+		echo '</header>';
+		echo $history; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wb-gamification block SSR, escaped at source.
 		echo '</div>';
 	}
 
