@@ -311,7 +311,7 @@ class InviteManager {
 				</div>
 			</div>
 
-			<div class="bn-settings-section">
+			<div class="bn-settings-section bn-a-narrow-form">
 				<div class="bn-ss-header">
 					<span class="bn-ss-title"><?php esc_html_e( 'Invitations', 'buddynext' ); ?></span>
 					<span class="bn-ss-count"><?php echo esc_html( (string) $total ); ?></span>
