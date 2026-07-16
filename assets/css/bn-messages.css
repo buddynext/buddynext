@@ -797,26 +797,30 @@
 
 /*
  * Touch devices never fire :hover, so the gutter hover-bar would be unreachable.
- * Pin it permanently visible just above the bubble (near the sender edge) so a
- * tap on react/reply always works; positioning above the bubble keeps it from
- * being pushed off a narrow viewport by the desktop gutter offset.
+ * Make it permanently visible AND drop it back into normal flow (a row directly
+ * under its own bubble). The old touch rule kept it position:absolute at
+ * bottom:100% — floating in the ~8px inter-message gap, so a ~28px bar overlapped
+ * the previous bubble. In-flow it reserves its own space and can never overlap a
+ * neighbour; block-level flex + justify-content aligns it to the sender's side.
  */
 @media (hover: none) {
 	.bn-dm-msg__actions {
+		position: static;
+		display: flex;
 		opacity: 1;
 		pointer-events: auto;
 		top: auto;
-		bottom: 100%;
+		bottom: auto;
 		inset-inline: auto;
 		transform: none;
 		padding: 0;
-		margin-bottom: var(--bn-s1);
+		margin-top: var(--bn-s1);
 	}
 	.bn-dm-msg:not(.is-mine) .bn-dm-msg__actions {
-		inset-inline-start: var(--bn-s2);
+		justify-content: flex-start;
 	}
 	.bn-dm-msg.is-mine .bn-dm-msg__actions {
-		inset-inline-end: var(--bn-s2);
+		justify-content: flex-end;
 	}
 }
 
