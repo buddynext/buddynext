@@ -449,13 +449,19 @@ function buildMessageNode( msg, viewer ) {
 }
 
 /**
- * Append a message node and scroll the log to the bottom (skipping duplicates).
+ * Append a message node (skipping duplicates), keeping the reader's place.
  *
- * @param {Object} msg    Message row.
- * @param {number} viewer Viewing user ID.
+ * Auto-scroll to the bottom only when forced (the reader's own send) or when
+ * they were already at the bottom before the append. A polled incoming message
+ * must never yank a reader who has scrolled up to reread history back down —
+ * the same "only if at bottom" rule the typing pip uses (< 80px threshold).
+ *
+ * @param {Object}  msg    Message row.
+ * @param {number}  viewer Viewing user ID.
+ * @param {boolean} [force] Force scroll to bottom (use for the reader's own send).
  * @return {void}
  */
-function appendMessage( msg, viewer ) {
+function appendMessage( msg, viewer, force ) {
 	const log = logEl();
 	if ( ! log ) {
 		return;
@@ -463,8 +469,11 @@ function appendMessage( msg, viewer ) {
 	if ( log.querySelector( '.bn-dm-msg[data-msg-id="' + ( msg.id || 0 ) + '"]' ) ) {
 		return; // already rendered (e.g. our own send echoed back by the poll)
 	}
+	const atBottom = ( log.scrollHeight - log.scrollTop - log.clientHeight ) < 80;
 	log.appendChild( buildMessageNode( msg, viewer ) );
-	log.scrollTop = log.scrollHeight;
+	if ( force || atBottom ) {
+		log.scrollTop = log.scrollHeight;
+	}
 }
 
 /**
@@ -728,7 +737,8 @@ const messagesStore = store( 'buddynext/messages', {
 				if ( pendingMedia && ! msg.media && ! msg.media_share ) {
 					msg.media = pendingMedia;
 				}
-				appendMessage( msg, ctx.userId );
+				// Force scroll: the reader just sent this, so jump them to it.
+					appendMessage( msg, ctx.userId, true );
 			}
 
 			if ( ! ok ) {
