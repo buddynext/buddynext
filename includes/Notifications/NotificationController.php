@@ -44,15 +44,32 @@ class NotificationController extends BaseRestController {
 				'callback'            => array( $this, 'list_notifications' ),
 				'permission_callback' => array( $this, 'require_auth' ),
 				'args'                => array(
-					'filter' => array(
+					'filter'   => array(
 						'type'              => 'string',
 						'enum'              => array( 'all', 'unread', 'read' ),
 						'default'           => 'all',
 						'sanitize_callback' => 'sanitize_key',
 					),
-					'offset' => array(
-						'type'    => 'integer',
-						'minimum' => 0,
+					// The handler reads cursor and per_page too, and declared neither.
+					// openapi.json is generated from this registry, so the spec offered
+					// only `offset` and steered every client onto O(n) OFFSET paging
+					// while the keyset cursor -- the reason the cursor exists -- sat
+					// undiscoverable. Prefer cursor; offset stays for existing callers.
+					'cursor'   => array(
+						'type'              => 'string',
+						'description'       => 'Keyset cursor from a previous response. Preferred over offset: it does not degrade as the list grows, and it cannot skip or repeat a row when new notifications arrive mid-page.',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'per_page' => array(
+						'type'              => 'integer',
+						'default'           => 20,
+						'description'       => 'Notifications per page.',
+						'sanitize_callback' => 'absint',
+					),
+					'offset'   => array(
+						'type'        => 'integer',
+						'minimum'     => 0,
+						'description' => 'Row offset. Superseded by cursor for new clients.',
 					),
 				),
 			)

@@ -128,21 +128,10 @@ class ConnectionController extends BaseRestController {
 				'callback'            => array( $this, 'connection_status' ),
 				'permission_callback' => array( $this, 'require_auth' ),
 				'args'                => array(
-					'id'       => array(
+					'id' => array(
 						'required' => true,
 						'type'     => 'integer',
 						'minimum'  => 1,
-					),
-					'per_page' => array(
-						'type'    => 'integer',
-						'default' => 20,
-						'minimum' => 1,
-						'maximum' => 100,
-					),
-					'page'     => array(
-						'type'    => 'integer',
-						'default' => 1,
-						'minimum' => 1,
 					),
 				),
 			)
@@ -156,10 +145,32 @@ class ConnectionController extends BaseRestController {
 				'callback'            => array( $this, 'mutual_connections' ),
 				'permission_callback' => array( $this, 'require_auth' ),
 				'args'                => array(
-					'id' => array(
+					'id'       => array(
 						'required' => true,
 						'type'     => 'integer',
 						'minimum'  => 1,
+					),
+					// These were declared on /connection/status, which does not read
+					// them, while THIS route read them and declared nothing. So the
+					// dispatcher never filled the default: $request['per_page'] arrived
+					// null, (int) null is 0, and a per_page of 0 slices the list to
+					// empty. mutual_connections() carries a defensive fallback for that
+					// and blames "a direct WP_REST_Request (tests, internal calls)" --
+					// but the real cause was the declaration being on the wrong route,
+					// so the default never fired for anyone. The fallback stays; it is
+					// still correct for genuine internal callers.
+					'per_page' => array(
+						'type'        => 'integer',
+						'default'     => 20,
+						'minimum'     => 1,
+						'maximum'     => 100,
+						'description' => 'Mutual connections per page.',
+					),
+					'page'     => array(
+						'type'        => 'integer',
+						'default'     => 1,
+						'minimum'     => 1,
+						'description' => '1-based page number.',
 					),
 				),
 			)
