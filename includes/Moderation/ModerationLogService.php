@@ -71,21 +71,34 @@ class ModerationLogService {
 	}
 
 	/**
-	 * Return all log entries targeting a specific user.
+	 * Return log entries targeting a specific user, newest first.
 	 *
-	 * @param int $user_id Target user ID.
+	 * Bounded + uniquely ordered (S6 class, the same hardening report
+	 * pagination received in 1f93fb8a): the unbounded ORDER BY created_at
+	 * version loaded the FULL log for a heavily-actioned user, and same-second
+	 * entries had no stable order, so OFFSET paging overlapped between pages.
+	 *
+	 * @param int $user_id  Target user ID.
+	 * @param int $per_page Rows per page (1-100, default 50).
+	 * @param int $page     1-based page number (default 1).
 	 * @return array[]
 	 */
-	public function get_log_for_user( int $user_id ): array {
+	public function get_log_for_user( int $user_id, int $per_page = 50, int $page = 1 ): array {
 		global $wpdb;
+
+		$per_page = max( 1, min( 100, $per_page ) );
+		$offset   = ( max( 1, $page ) - 1 ) * $per_page;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}bn_mod_log
 				 WHERE target_user_id = %d
-				 ORDER BY created_at DESC",
-				$user_id
+				 ORDER BY created_at DESC, id DESC
+				 LIMIT %d OFFSET %d",
+				$user_id,
+				$per_page,
+				$offset
 			),
 			ARRAY_A
 		);
@@ -94,23 +107,33 @@ class ModerationLogService {
 	}
 
 	/**
-	 * Return all log entries for a specific object.
+	 * Return log entries for a specific object, newest first.
+	 *
+	 * Bounded + uniquely ordered — see get_log_for_user() for why.
 	 *
 	 * @param string $object_type Object type.
 	 * @param int    $object_id   Object ID.
+	 * @param int    $per_page    Rows per page (1-100, default 50).
+	 * @param int    $page        1-based page number (default 1).
 	 * @return array[]
 	 */
-	public function get_log_for_object( string $object_type, int $object_id ): array {
+	public function get_log_for_object( string $object_type, int $object_id, int $per_page = 50, int $page = 1 ): array {
 		global $wpdb;
+
+		$per_page = max( 1, min( 100, $per_page ) );
+		$offset   = ( max( 1, $page ) - 1 ) * $per_page;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}bn_mod_log
 				 WHERE object_type = %s AND object_id = %d
-				 ORDER BY created_at DESC",
+				 ORDER BY created_at DESC, id DESC
+				 LIMIT %d OFFSET %d",
 				sanitize_key( $object_type ),
-				$object_id
+				$object_id,
+				$per_page,
+				$offset
 			),
 			ARRAY_A
 		);
