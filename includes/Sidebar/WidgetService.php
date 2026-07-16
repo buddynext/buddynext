@@ -160,23 +160,36 @@ class WidgetService {
 				// Since we just filtered out current follows, "following" can still
 				// occur if the cache populated mid-cycle. "requested" reads any
 				// pending connection request the viewer sent to that user.
+				// Both reads are constrained to the handful of candidate rows —
+				// the unconstrained versions loaded the viewer's ENTIRE
+				// following / pending sets on every logged-in sidebar render,
+				// growing with their follow count, only to in_array() them
+				// against these few candidates.
 				if ( ! empty( $rows ) ) {
+					$row_ids = array_map( static fn( $r ) => (int) ( $r->ID ?? 0 ), $rows );
+					$row_ph  = implode( ',', array_fill( 0, count( $row_ids ), '%d' ) );
+
+					// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $row_ph is a counted "%d,..." list; every value is bound.
 					$pending = $wpdb->get_col(
 						$wpdb->prepare(
 							"SELECT recipient_id FROM {$wpdb->prefix}bn_connections
-							 WHERE requester_id = %d AND status = 'pending'",
-							$user_id
+							 WHERE requester_id = %d AND status = 'pending'
+							   AND recipient_id IN ( {$row_ph} )",
+							array_merge( array( $user_id ), $row_ids )
 						)
 					);
 					$pending = array_map( 'intval', (array) $pending );
 
 					$following = $wpdb->get_col(
 						$wpdb->prepare(
-							"SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d",
-							$user_id
+							"SELECT following_id FROM {$wpdb->prefix}bn_follows
+							 WHERE follower_id = %d
+							   AND following_id IN ( {$row_ph} )",
+							array_merge( array( $user_id ), $row_ids )
 						)
 					);
 					$following = array_map( 'intval', (array) $following );
+					// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 					foreach ( $rows as &$row ) {
 						$row_id             = (int) ( $row->ID ?? 0 );
@@ -477,8 +490,20 @@ class WidgetService {
 						   WHERE ( bl.blocker_id = %d AND bl.blocked_id = u.ID )
 							  OR ( bl.blocker_id = u.ID AND bl.blocked_id = %d )
 					   )
+					   AND NOT EXISTS (
+						   SELECT 1 FROM ' . $wpdb->prefix . 'bn_user_suspensions s_ex
+						   WHERE s_ex.user_id = u.ID
+							 AND s_ex.lifted_at IS NULL
+							 AND ( s_ex.expires_at IS NULL OR s_ex.expires_at > UTC_TIMESTAMP() )
+					   )
+					   AND NOT EXISTS (
+						   SELECT 1 FROM ' . $wpdb->usermeta . " um_ban
+						   WHERE um_ban.user_id = u.ID
+							 AND um_ban.meta_key = 'bn_shadow_banned'
+							 AND um_ban.meta_value = '1'
+					   )
 					 ORDER BY u.ID ASC
-					 LIMIT %d',
+					 LIMIT %d",
 					array_merge(
 						array( $boundary ),
 						$skip,
