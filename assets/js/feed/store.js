@@ -2151,6 +2151,22 @@ function detectFirstUrl( text ) {
 	return m[ 1 ].replace( /[.,;:!?)\]]+$/, '' );
 }
 
+/**
+ * Grow the composer textarea to fit its content.
+ *
+ * Reset to auto first so the field can also shrink when text is deleted, then
+ * set the height to the content's scrollHeight. The CSS max-height caps growth
+ * (the field scrolls internally past that), so no JS ceiling is needed here.
+ *
+ * @param {HTMLTextAreaElement|null} el The composer textarea.
+ * @return {void}
+ */
+function autoResizeTextarea( el ) {
+	if ( ! el ) { return; }
+	el.style.height = 'auto';
+	el.style.height = el.scrollHeight + 'px';
+}
+
 function maybeDetectLink( ctx ) {
 	// Respect the site-owner toggle exposed on the composer context.
 	if ( ! ctx.linkPreviewEnabled ) { return; }
@@ -2839,6 +2855,7 @@ store( 'buddynext/post-composer', {
 		onInput( event ) {
 			const ctx     = getContext();
 			ctx.content   = event.target.value;
+			autoResizeTextarea( event.target );
 			scheduleDraftSave( ctx );
 			maybeDetectLink( ctx );
 		},
@@ -2865,6 +2882,7 @@ store( 'buddynext/post-composer', {
 			const textarea = document.querySelector( '[data-wp-interactive="buddynext/post-composer"] .bn-composer__prompt' );
 			if ( textarea ) {
 				textarea.value = '';
+				autoResizeTextarea( textarea );
 			}
 		},
 		* submit() {
@@ -3007,7 +3025,7 @@ store( 'buddynext/post-composer', {
 					ctx.content     = '';
 					ctx.hasDraft    = false;
 					setDraftStatus( ctx, '', false );
-					document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"] .bn-composer__prompt' ).forEach( function ( ta ) { ta.value = ''; } );
+					document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"] .bn-composer__prompt' ).forEach( function ( ta ) { ta.value = ''; autoResizeTextarea( ta ); } );
 
 					// The media was consumed into the post — clear the staged set and its
 					// previews WITHOUT deleting from the server (the post now owns them).
@@ -3791,6 +3809,10 @@ function initComposerEnhancements() {
 		attachCharCounter( textarea );
 		attachImageDragDrop( textarea, el );
 		attachMentionHashtagTypeahead( textarea );
+
+		// Size the field to any content already present (a restored draft or a
+		// share/@mention prefill lands without firing an input event).
+		autoResizeTextarea( textarea );
 	} );
 
 	// Comment forms — pick up the @ / # typeahead and char counter

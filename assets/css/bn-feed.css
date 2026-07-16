@@ -2152,6 +2152,14 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	padding: 6px var(--bn-s4);
 	line-height: 1.5;
 	outline: none;
+	/* Auto-grow: JS (feed/store.js autoResizeTextarea) sets height to the
+	   content's scrollHeight on input; box-sizing keeps that math correct, the
+	   min holds a ~2-row floor, and the max caps growth so a long draft scrolls
+	   inside the field instead of pushing the whole composer down the page. */
+	box-sizing: border-box;
+	min-height: 48px;
+	max-height: 40vh;
+	overflow-y: auto;
 }
 .bn-composer__prompt::placeholder { color: var(--text-3); }
 .bn-composer__prompt:focus-visible { outline: 2px solid transparent; outline-offset: 2px; }
