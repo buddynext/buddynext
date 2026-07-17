@@ -965,6 +965,14 @@ class SpaceController extends BaseRestController {
 		// open — never leak a total that includes secret/unlisted sub-spaces.
 		$space['subspace_count'] = ( new SpaceService() )->count_visible_subspaces( (int) $space['id'], $viewer_id, current_user_can( 'manage_options' ) );
 
+		// Viewer-relative membership — the SAME block list_spaces() attaches, so the space
+		// header and the directory row can never disagree on join state (member / pending /
+		// none). Without this the app's detail fetch overwrites the optimistic "Requested".
+		$space['join_method']       = SpaceTypeRegistry::instance()->join_method( (string) ( $space['type'] ?? 'open' ) );
+		$membership                 = ( new SpaceMemberService() )->membership_map( $viewer_id, array( (int) $space['id'] ) )[ (int) $space['id'] ] ?? null;
+		$space['membership_role']   = $membership['role'] ?? '';
+		$space['membership_status'] = $membership['status'] ?? '';
+
 		return new WP_REST_Response( $space, 200 );
 	}
 
