@@ -412,6 +412,7 @@ class FeedController extends BaseRestController {
 		$post_ids   = array();
 		$author_ids = array();
 		$poll_ids   = array();
+		$media_ids  = array();
 		foreach ( $items as $item ) {
 			$pid = absint( $item['id'] ?? 0 );
 			$aid = absint( $item['user_id'] ?? 0 );
@@ -424,11 +425,19 @@ class FeedController extends BaseRestController {
 			if ( $pid && 'poll' === ( $item['type'] ?? '' ) ) {
 				$poll_ids[] = $pid;
 			}
+			foreach ( self::normalize_media_ids( $item['media_ids'] ?? null ) as $mid ) {
+				$media_ids[] = $mid;
+			}
 		}
 
 		// Prime once for the whole page (no per-card lookups below).
 		if ( ! empty( $author_ids ) ) {
 			cache_users( array_values( array_unique( $author_ids ) ) );
+		}
+		// Warm attachment post + meta caches for every image on the page in one pass, so
+		// the per-item media resolve below is O(1) — no N+1 at 20 photo cards.
+		if ( ! empty( $media_ids ) ) {
+			_prime_post_caches( array_values( array_unique( $media_ids ) ), false, true );
 		}
 
 		$maps = $this->prime_viewer_maps( $viewer, $post_ids, $poll_ids );
@@ -456,10 +465,73 @@ class FeedController extends BaseRestController {
 				// (safe direction — never shows an edit affordance the API rejects).
 				'can_edit' => $viewer > 0 && ( $viewer === $aid || user_can( $viewer, 'manage_options' ) ),
 			);
+
+			// Resolve attachment IDs to real URLs so a client can render the image. Without
+			// this a photo post carries only `media_ids` (bare ints) and the app has nothing
+			// to load. `media_ids` is kept for back-compat; `media` is the render source.
+			$item['media'] = self::resolve_media( $item['media_ids'] ?? null );
 		}
 		unset( $item );
 
 		return $items;
+	}
+
+	/**
+	 * Normalize a post's media_ids field to an array of positive ints.
+	 *
+	 * The hydrate() path usually decodes the JSON column to an array, but a raw row can still
+	 * carry the JSON string (or an empty '[]'), so tolerate both shapes.
+	 *
+	 * @param mixed $raw The media_ids value from a post row (array | JSON string | null).
+	 * @return int[] Attachment IDs, de-duplicated of zeros.
+	 */
+	private static function normalize_media_ids( $raw ): array {
+		if ( is_string( $raw ) ) {
+			$decoded = json_decode( $raw, true );
+			$raw     = is_array( $decoded ) ? $decoded : array();
+		}
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+		return array_values( array_filter( array_map( 'absint', $raw ) ) );
+	}
+
+	/**
+	 * Resolve a post's media_ids to renderable image objects.
+	 *
+	 * Each entry: { id, url (large), thumb_url (medium), width, height, mime }. Non-image
+	 * attachments (a stray upload) are skipped rather than returned as an unrenderable box.
+	 * Attachment caches are primed by the caller, so this is O(1) per id.
+	 *
+	 * @param mixed $raw The post's media_ids value.
+	 * @return array<int,array<string,mixed>> Ordered media objects; empty for a text post.
+	 */
+	private static function resolve_media( $raw ): array {
+		$media = array();
+		foreach ( self::normalize_media_ids( $raw ) as $id ) {
+			if ( 'attachment' !== get_post_type( $id ) ) {
+				continue;
+			}
+			$mime = (string) get_post_mime_type( $id );
+			if ( 0 !== strpos( $mime, 'image/' ) ) {
+				continue;
+			}
+			$full  = wp_get_attachment_image_src( $id, 'large' );
+			$thumb = wp_get_attachment_image_src( $id, 'medium' );
+			if ( ! $full ) {
+				continue;
+			}
+			$media[] = array(
+				'id'        => $id,
+				'url'       => $full[0],
+				'thumb_url' => $thumb ? $thumb[0] : $full[0],
+				'width'     => (int) $full[1],
+				'height'    => (int) $full[2],
+				'mime'      => $mime,
+				'alt'       => (string) get_post_meta( $id, '_wp_attachment_image_alt', true ),
+			);
+		}
+		return $media;
 	}
 
 	/**
