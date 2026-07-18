@@ -374,6 +374,11 @@ class NotificationService {
 			array( '%d', '%d' )
 		);
 
+		// Marking everything read is a stronger engagement than merely viewing, so
+		// it also clears the "unseen" badge — advance last-seen alongside is_read so
+		// the bell drops to 0 (viewing alone only marks seen; this does both).
+		update_user_meta( $user_id, self::LAST_SEEN_META, current_time( 'mysql', true ) );
+
 		$this->forget_counts( $user_id );
 	}
 
