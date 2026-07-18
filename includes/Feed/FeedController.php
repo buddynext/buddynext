@@ -414,11 +414,13 @@ class FeedController extends BaseRestController {
 	 * describes replacing. Call it through enriched_response(), never inline, or
 	 * the next surface repeats that.
 	 *
-	 * @param array $items  Raw feed rows from a FeedService feed method.
-	 * @param int   $viewer Current user ID (0 when logged out).
+	 * @param array $items         Raw feed rows from a FeedService feed method.
+	 * @param int   $viewer        Current user ID (0 when logged out).
+	 * @param bool  $embed_shared  Embed each re-share's original post; false when enriching
+	 *                             those originals so a share of a share does not recurse.
 	 * @return array Enriched items.
 	 */
-	private function enrich_items_for_rest( array $items, int $viewer ): array {
+	private function enrich_items_for_rest( array $items, int $viewer, bool $embed_shared = true ): array {
 		if ( empty( $items ) ) {
 			return $items;
 		}
@@ -487,7 +489,62 @@ class FeedController extends BaseRestController {
 		}
 		unset( $item );
 
+		// Embed the ORIGINAL post inside a re-share, enriched the same way, so a client can
+		// render the quoted card (author + body + media) instead of a dangling shared_post_id.
+		// One level only — a share of a share does not recurse ($embed_shared = false below).
+		if ( $embed_shared ) {
+			$this->embed_shared_posts( $items, $viewer );
+		}
+
 		return $items;
+	}
+
+	/**
+	 * Attach an enriched `shared_post` to every re-share item, honouring the viewer's
+	 * visibility gates (a private / blocked / secret-space original is embedded as null so a
+	 * client shows "post unavailable", never the content). Originals are enriched one level
+	 * deep — a share of a share does not recurse.
+	 *
+	 * @param array<int,array<string,mixed>> $items  Enriched items, edited in place.
+	 * @param int                            $viewer Current user ID.
+	 * @return void
+	 */
+	private function embed_shared_posts( array &$items, int $viewer ): void {
+		$shared_ids = array();
+		foreach ( $items as $item ) {
+			$sid = absint( $item['shared_post_id'] ?? 0 );
+			if ( $sid ) {
+				$shared_ids[ $sid ] = true;
+			}
+		}
+		if ( empty( $shared_ids ) ) {
+			return;
+		}
+
+		$service   = new PostService();
+		$originals = array();
+		foreach ( array_keys( $shared_ids ) as $sid ) {
+			$orig = $service->get( (int) $sid );
+			if ( ! is_array( $orig ) || empty( $orig ) ) {
+				continue;
+			}
+			// Never embed content the viewer could not open directly.
+			if ( $service->visibility_error( (int) $sid, $viewer ) instanceof WP_Error ) {
+				continue;
+			}
+			$originals[] = $orig;
+		}
+
+		$by_id = array();
+		foreach ( $this->enrich_items_for_rest( $originals, $viewer, false ) as $enriched_original ) {
+			$by_id[ absint( $enriched_original['id'] ?? 0 ) ] = $enriched_original;
+		}
+
+		foreach ( $items as &$item ) {
+			$sid                 = absint( $item['shared_post_id'] ?? 0 );
+			$item['shared_post'] = ( $sid && isset( $by_id[ $sid ] ) ) ? $by_id[ $sid ] : null;
+		}
+		unset( $item );
 	}
 
 	/**
