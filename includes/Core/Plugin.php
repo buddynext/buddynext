@@ -203,6 +203,13 @@ class Plugin {
 		);
 
 		if ( is_admin() ) {
+			// Keep the generated isolation mu-plugin in lockstep with this plugin.
+			// It is stamped with BUDDYNEXT_VERSION, so a cheap Version-header compare
+			// on admin loads rewrites it whenever the on-disk copy is missing, from an
+			// older release, or its integration list drifted — no manual mu-plugin
+			// edits and no separate version to keep in sync.
+			add_action( 'admin_init', array( Installer::class, 'maybe_refresh_mu_plugin' ) );
+
 			// AdminHub owns the BuddyNext top-level menu and dispatches every
 			// section page to its registered tabs. Boot first so feature
 			// classes that call AdminHub::register_tab() in their register()
