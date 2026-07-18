@@ -559,7 +559,12 @@ class FollowController extends BaseRestController {
 		// FollowService::suggestions() already excludes blocked users (either
 		// direction), moderation-hidden users, self, and already-followed, so the
 		// discovery surface is filtered at the source for every caller.
-		$suggestions = buddynext_service( 'follows' )->suggestions( $current_id );
+		$pool = (array) buddynext_service( 'follows' )->suggestions( $current_id );
+		// Rotate the app's who-to-follow the same way the web widget does: sample a
+		// varied display set from the top of the ranked pool each load, rather than
+		// returning the identical top-N every time. Bounded so the discovery surface
+		// stays a suggestion list, not the whole pool.
+		$suggestions = buddynext_sample_ranked( $pool, 24 );
 
 		return new WP_REST_Response( array( 'ids' => $suggestions ), 200 );
 	}

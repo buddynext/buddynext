@@ -899,6 +899,41 @@ function buddynext_site_name(): string {
 }
 
 /**
+ * Pick a per-load display set from the TOP of a ranked candidate pool.
+ *
+ * Suggestion widgets (who-to-follow, space suggestions) rank a bounded, cached
+ * candidate pool and used to show the deterministic top-N — so a well-connected
+ * member saw the SAME picks on every page load. This samples the display set
+ * from the top slice of that already-fetched pool: quality stays high (still the
+ * best candidates), but which of them show rotates each load. Zero extra query
+ * cost (the pool is cached by the caller) and it never reintroduces ORDER BY
+ * RAND(). Works on any ranked array — id lists or hydrated rows.
+ *
+ * @param array<int,mixed> $ranked            Candidates in rank order (best first).
+ * @param int              $limit             How many to display.
+ * @param int              $window_multiplier Draw from the top limit*multiplier candidates.
+ * @return array<int,mixed> Up to $limit candidates, sampled from the top window.
+ */
+function buddynext_sample_ranked( array $ranked, int $limit, int $window_multiplier = 4 ): array {
+	$ranked = array_values( $ranked );
+	$total  = count( $ranked );
+	$limit  = max( 1, $limit );
+
+	// Nothing to rotate — fewer candidates than we want to show.
+	if ( $total <= $limit ) {
+		return $ranked;
+	}
+
+	// The window is a few times the display count (so there is genuine variety)
+	// but clamped to the pool, keeping the sample among the strongest candidates.
+	$window = min( $total, max( $limit * $window_multiplier, $limit + 6 ) );
+	$head   = array_slice( $ranked, 0, $window );
+	shuffle( $head );
+
+	return array_slice( $head, 0, $limit );
+}
+
+/**
  * Icon markup for a space category.
  *
  * Prefers the category's admin-saved icon_svg and falls back to the built-in

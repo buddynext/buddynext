@@ -115,7 +115,10 @@ class WidgetService {
 				$candidate_ids = array();
 				$follow_svc    = buddynext_service( 'follows' );
 				if ( is_object( $follow_svc ) && method_exists( $follow_svc, 'suggestions' ) ) {
-					$candidate_ids = array_slice( array_map( 'intval', (array) $follow_svc->suggestions( $user_id ) ), 0, $limit );
+					// Sample the display set from the top of the ranked pool so the
+					// widget rotates each load instead of showing the identical top-N
+					// (same cached pool, no extra query).
+					$candidate_ids = buddynext_sample_ranked( array_map( 'intval', (array) $follow_svc->suggestions( $user_id ) ), $limit );
 				}
 
 				if ( count( $candidate_ids ) < $limit ) {
