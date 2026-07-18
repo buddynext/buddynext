@@ -381,6 +381,20 @@ class FeedController extends BaseRestController {
 	}
 
 	/**
+	 * Public entry point so the single-post read and the bookmark `expand=posts` read share
+	 * the feed's EXACT enrichment (author, content_html, viewer_state, media). One builder,
+	 * so a post opened cold via deeplink looks identical to the same card in the feed
+	 * (#10104866988 - three post-returning surfaces had drifted to raw rows).
+	 *
+	 * @param array<int,array<string,mixed>> $items  Hydrated post arrays.
+	 * @param int                            $viewer Current user ID.
+	 * @return array<int,array<string,mixed>> Enriched items.
+	 */
+	public function enrich_for_rest( array $items, int $viewer ): array {
+		return $this->enrich_items_for_rest( $items, $viewer );
+	}
+
+	/**
 	 * Enrich raw feed rows into an app-renderable shape.
 	 *
 	 * The JSON feed previously returned raw hydrate() rows (author as a bare

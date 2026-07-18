@@ -171,6 +171,9 @@ class BookmarkController extends BaseRestController {
 		}
 
 		$items = $this->hydrate_visible_posts( $page_ids, $user_id );
+		// Enrich through the feed's builder so a saved post renders exactly like its feed
+		// card (author + content_html + viewer_state + media), not a raw row (#10104866988).
+		$items = ( new FeedController() )->enrich_for_rest( $items, $user_id );
 
 		return new WP_REST_Response(
 			array(
