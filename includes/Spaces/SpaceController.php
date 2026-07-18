@@ -1433,6 +1433,24 @@ class SpaceController extends BaseRestController {
 			$total    = count( $requests );
 		}
 
+		// Enrich each request with the requester's name + avatar so an owner can recognise
+		// who is asking to join — the raw rows carry only user_id. Bounded by per_page and
+		// primed in one pass (cache_users), so no per-row user lookup.
+		$user_ids = array_values( array_filter( array_map( static fn( $r ) => (int) ( $r['user_id'] ?? 0 ), $requests ) ) );
+		if ( ! empty( $user_ids ) ) {
+			cache_users( $user_ids );
+		}
+		$requests = array_map(
+			static function ( $r ) {
+				$uid               = (int) ( $r['user_id'] ?? 0 );
+				$user              = $uid ? get_userdata( $uid ) : null;
+				$r['display_name'] = $user ? $user->display_name : __( 'Member', 'buddynext' );
+				$r['avatar_url']   = $uid ? get_avatar_url( $uid, array( 'size' => 96 ) ) : '';
+				return $r;
+			},
+			$requests
+		);
+
 		return new WP_REST_Response(
 			array(
 				'items' => $requests,
