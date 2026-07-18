@@ -98,12 +98,19 @@ class WidgetService {
 		if ( 0 === $user_id ) {
 			return array();
 		}
-		// Cache key bumped to v2 to invalidate after the follow_status payload change.
-		return (array) $this->cache->get(
-			'suggested-v2:' . $user_id . ':' . $limit,
+		// Over-fetch a ranked, hydrated candidate POOL and cache THAT — then draw the
+		// per-load display sample from the cached pool OUTSIDE the cache below. A
+		// sample taken inside the cache closure would be frozen for the whole TTL on
+		// a persistent-object-cache site (Redis/Memcached), showing the same picks on
+		// every reload; sampling on each render keeps the widget rotating regardless
+		// of the object cache — matching the uncached space-suggestion sidebar.
+		$pool_size = max( $limit * 4, $limit + 6 );
+		// v3 key: caches the POOL (not the display sample).
+		$pool = (array) $this->cache->get(
+			'suggested-pool-v3:' . $user_id . ':' . $pool_size,
 			WidgetCache::GROUP_USER,
 			WidgetCache::TTL_USER,
-			static function () use ( $user_id, $limit ): array {
+			static function () use ( $user_id, $pool_size ): array {
 				global $wpdb;
 
 				// Prefer the friends-of-friends suggestions — the same algorithm the
@@ -115,14 +122,14 @@ class WidgetService {
 				$candidate_ids = array();
 				$follow_svc    = buddynext_service( 'follows' );
 				if ( is_object( $follow_svc ) && method_exists( $follow_svc, 'suggestions' ) ) {
-					// Sample the display set from the top of the ranked pool so the
-					// widget rotates each load instead of showing the identical top-N
-					// (same cached pool, no extra query).
-					$candidate_ids = buddynext_sample_ranked( array_map( 'intval', (array) $follow_svc->suggestions( $user_id ) ), $limit );
+					// Take the TOP of the ranked pool (deterministic here) — the
+					// per-load rotation happens when suggested_follows() samples this
+					// cached pool on each render, not inside the cache.
+					$candidate_ids = array_slice( array_map( 'intval', (array) $follow_svc->suggestions( $user_id ) ), 0, $pool_size );
 				}
 
-				if ( count( $candidate_ids ) < $limit ) {
-					$need          = $limit - count( $candidate_ids );
+				if ( count( $candidate_ids ) < $pool_size ) {
+					$need          = $pool_size - count( $candidate_ids );
 					$exclude       = array_merge( array( $user_id ), $candidate_ids );
 					$candidate_ids = array_merge(
 						$candidate_ids,
@@ -206,6 +213,11 @@ class WidgetService {
 				return $rows;
 			}
 		);
+
+		// Per-load rotation: sample the display set from the top of the cached POOL
+		// on every render, so the widget varies each load even when the pool is
+		// served from a persistent object cache (the sample is never itself cached).
+		return buddynext_sample_ranked( $pool, $limit );
 	}
 
 	/**

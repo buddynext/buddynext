@@ -488,15 +488,21 @@ class FollowController extends BaseRestController {
 		$ids   = $follows->pending_followers( $owner_id, $per_page, ( $page - 1 ) * $per_page );
 		$total = $follows->pending_followers_count( $owner_id );
 
-		return new WP_REST_Response(
-			array(
-				'ids'         => $ids,
-				'total'       => $total,
-				'page'        => $page,
-				'total_pages' => (int) ceil( $total / $per_page ),
-			),
-			200
+		$body = array(
+			'total'       => $total,
+			'page'        => $page,
+			'total_pages' => (int) ceil( $total / $per_page ),
 		);
+		// expand=members hydrates the request inbox into enriched member cards in one
+		// batch (no N+1), the same shared path the followers/connections lists use.
+		$expanded = $this->maybe_expand_members( $request, $ids, $owner_id );
+		if ( null !== $expanded ) {
+			$body['items'] = $expanded;
+		} else {
+			$body['ids'] = $ids;
+		}
+
+		return new WP_REST_Response( $body, 200 );
 	}
 
 	/**

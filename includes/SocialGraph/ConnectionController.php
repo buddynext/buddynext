@@ -390,14 +390,20 @@ class ConnectionController extends BaseRestController {
 
 		$pending = buddynext_service( 'connections' )->pending_received( $current_id, $per_page, ( $page - 1 ) * $per_page );
 
-		return new WP_REST_Response(
-			array(
-				'ids'      => $pending,
-				'page'     => $page,
-				'per_page' => $per_page,
-				'has_more' => count( $pending ) === $per_page,
-			),
-			200
+		$body = array(
+			'page'     => $page,
+			'per_page' => $per_page,
+			'has_more' => count( $pending ) === $per_page,
 		);
+		// expand=members hydrates the request inbox into enriched member cards in one
+		// batch (no N+1), the same shared path the followers/connections lists use.
+		$expanded = $this->maybe_expand_members( $request, $pending, $current_id );
+		if ( null !== $expanded ) {
+			$body['items'] = $expanded;
+		} else {
+			$body['ids'] = $pending;
+		}
+
+		return new WP_REST_Response( $body, 200 );
 	}
 }
