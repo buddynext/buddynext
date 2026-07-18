@@ -56,6 +56,61 @@ class DemoCommand {
 	}
 
 	/**
+	 * Build a fresh MICRO community of synthetic members with a realistic social
+	 * graph — for repeatable local/Docker testing (suggestions, request inboxes,
+	 * populated feed). Layered on the same bn_demo flag, so `demo cleanup` removes
+	 * it. Idempotent per member, so re-running tops up to --members.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--members=<count>]
+	 * : How many scale members to ensure exist. Default 500.
+	 *
+	 * [--fresh]
+	 * : Wipe ALL existing demo data first (curated + scale) for a clean rebuild.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp buddynext demo scale --members=500
+	 *     wp buddynext demo scale --members=500 --fresh
+	 *
+	 * @when after_wp_load
+	 *
+	 * @param array $args       Positional args (unused).
+	 * @param array $assoc_args Associative args (members, fresh).
+	 * @return void
+	 */
+	public function scale( array $args, array $assoc_args ): void {
+		$members = max( 1, (int) ( $assoc_args['members'] ?? 500 ) );
+		$fresh   = isset( $assoc_args['fresh'] );
+		$service = new DemoDataService();
+		$log     = static function ( string $message ): void {
+			\WP_CLI::log( $message );
+		};
+
+		if ( $fresh && $service->is_seeded() ) {
+			\WP_CLI::log( 'Wiping existing demo data (--fresh) …' );
+			$service->cleanup( $log );
+		}
+
+		$t = microtime( true );
+		$summary = $service->scale( $members, $log );
+		\WP_CLI::success(
+			sprintf(
+				'Scaled to %d members in %.1fs — %d follow edges, %d accepted + %d pending connections, %d typed, %d space joins, %d posts.',
+				$summary['members'] ?? 0,
+				microtime( true ) - $t,
+				$summary['follows'] ?? 0,
+				$summary['connections_accepted'] ?? 0,
+				$summary['connections_pending'] ?? 0,
+				$summary['member_types'] ?? 0,
+				$summary['space_joins'] ?? 0,
+				$summary['posts'] ?? 0
+			)
+		);
+	}
+
+	/**
 	 * Remove everything the demo seeder created.
 	 *
 	 * ## EXAMPLES

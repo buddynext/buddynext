@@ -1007,6 +1007,191 @@ class DemoDataService {
 	}
 
 	/**
+	 * Generate (or top up to) a fresh MICRO community of synthetic members with a
+	 * realistic social graph — built for repeatable local/Docker testing, not for
+	 * the polished customer demo.
+	 *
+	 * Every member it creates carries the same `bn_demo` flag seed() uses, so the
+	 * existing `demo cleanup` removes scale data too. What it wires:
+	 *   - N synthetic members (login `bn_demo_scale_{n}`, default avatars).
+	 *   - A clustered follow graph (ring neighbours + cross-links) so
+	 *     friends-of-friends "who to follow" suggestions actually surface.
+	 *   - Accepted AND pending connections, so the connection/follow request
+	 *     inboxes have data to test against.
+	 *   - Member-type assignments on a slice, space memberships on any existing
+	 *     demo spaces, and a light scatter of posts so the feed is alive.
+	 * Finally it flushes the suggestion + object caches. Idempotent per login, so
+	 * re-running tops up to $target rather than duplicating.
+	 *
+	 * @param int           $target Total scale members to ensure exist (1..5000).
+	 * @param callable|null  $log   Optional progress callback( string $message ).
+	 * @return array<string,int> Counts created.
+	 */
+	public function scale( int $target, ?callable $log = null ): array {
+		$say    = $log ?? static function (): void {};
+		$target = max( 1, min( 5000, $target ) );
+
+		$follows       = buddynext_service( 'follows' );
+		$connections   = buddynext_service( 'connections' );
+		$space_members = buddynext_service( 'space_members' );
+		$member_types  = buddynext_service( 'member_types' );
+
+		$firsts = array( 'Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Jamie', 'Avery', 'Quinn', 'Devon', 'Rowan', 'Noor', 'Kai', 'Luca', 'Mira', 'Ivo', 'Zara', 'Theo', 'Nadia', 'Omar', 'Lena', 'Diego', 'Yara', 'Finn' );
+		$lasts  = array( 'Rivera', 'Chen', 'Kobayashi', 'Okafor', 'Silva', 'Nguyen', 'Patel', 'Larsson', 'Haddad', 'Ross', 'Bauer', 'Costa', 'Mensah', 'Reyes', 'Vidal', 'Kaur', 'Osei', 'Marin', 'Blum', 'Ferrari' );
+		$roles  = array( 'Community builder', 'Indie maker', 'Frontend developer', 'Product designer', 'Writer', 'Photographer', 'Runner', 'Open-source contributor', 'Data nerd', 'Musician' );
+		$cities = array( 'Berlin', 'Lisbon', 'Austin', 'Toronto', 'Nairobi', 'Manila', 'Delhi', 'Osaka', 'Amsterdam', 'Bogota' );
+
+		// 1) Members ---------------------------------------------------------
+		$ids     = array();
+		$created = 0;
+		for ( $n = 1; $n <= $target; $n++ ) {
+			$existing = get_user_by( 'login', 'bn_demo_scale_' . $n );
+			if ( $existing ) {
+				$ids[] = (int) $existing->ID;
+				continue;
+			}
+			$uid = $this->create_member(
+				array(
+					'login'    => 'scale_' . $n,
+					'name'     => $firsts[ $n % count( $firsts ) ] . ' ' . $lasts[ intdiv( $n, count( $firsts ) ) % count( $lasts ) ],
+					'headline' => $roles[ $n % count( $roles ) ],
+					'job'      => $roles[ $n % count( $roles ) ],
+					'location' => $cities[ $n % count( $cities ) ],
+				)
+			);
+			if ( $uid > 0 ) {
+				$ids[]    = $uid;
+				++$created;
+				if ( 0 === $created % 100 ) {
+					$say( sprintf( '  … %d members created', $created ) );
+				}
+			}
+		}
+		$count = count( $ids );
+		if ( $count < 2 ) {
+			$say( 'Not enough members to build a graph.' );
+			return array( 'members' => $count );
+		}
+		$say( sprintf( 'Members: %d (new: %d)', $count, $created ) );
+
+		// 2) Clustered follow graph (ring neighbours + two cross-links) so the
+		//    friends-of-friends signal has second-degree overlap to work with.
+		$follow_edges = 0;
+		foreach ( $ids as $i => $uid ) {
+			$targets = array(
+				$ids[ ( $i + 1 ) % $count ],
+				$ids[ ( $i + 2 ) % $count ],
+				$ids[ ( $i + 3 ) % $count ],
+				$ids[ ( $i * 7 + 3 ) % $count ],
+				$ids[ ( $i * 13 + 5 ) % $count ],
+			);
+			foreach ( array_unique( $targets ) as $t ) {
+				if ( (int) $t !== (int) $uid && ! is_wp_error( $follows->follow( (int) $uid, (int) $t ) ) ) {
+					++$follow_edges;
+				}
+			}
+		}
+		$say( sprintf( 'Follows: %d edges', $follow_edges ) );
+
+		// 3) Connections — accepted (for the connections list) + pending (for the
+		//    request inbox). send_request() returns true on a fresh pending row.
+		$accepted = 0;
+		$pending  = 0;
+		foreach ( $ids as $i => $uid ) {
+			$peer = $ids[ ( $i + 8 ) % $count ];
+			if ( (int) $peer !== (int) $uid && true === $connections->send_request( (int) $uid, (int) $peer ) ) {
+				if ( true === $connections->accept_request( (int) $peer, (int) $uid ) ) {
+					++$accepted;
+				}
+			}
+			$pend = $ids[ ( $i * 5 + 9 ) % $count ];
+			if ( (int) $pend !== (int) $uid && ! $connections->are_connected( (int) $uid, (int) $pend )
+				&& true === $connections->send_request( (int) $uid, (int) $pend ) ) {
+				++$pending;
+			}
+		}
+		$say( sprintf( 'Connections: %d accepted, %d pending', $accepted, $pending ) );
+
+		// 4) Member types on ~1 in 6; space memberships on existing demo spaces.
+		$type_rows = is_object( $member_types ) && method_exists( $member_types, 'get_all' ) ? (array) $member_types->get_all() : array();
+		$type_ids  = array_values( array_filter( array_map( static fn( $t ) => (int) ( $t['id'] ?? 0 ), $type_rows ) ) );
+		$typed     = 0;
+		if ( $type_ids ) {
+			foreach ( $ids as $i => $uid ) {
+				if ( 0 === $i % 6 ) {
+					$member_types->assign_type( (int) $uid, $type_ids[ $i % count( $type_ids ) ], 1 );
+					++$typed;
+				}
+			}
+		}
+		$manifest   = get_option( self::MANIFEST_OPTION, array() );
+		$space_ids  = is_array( $manifest ) ? array_map( 'absint', (array) ( $manifest['spaces'] ?? array() ) ) : array();
+		$space_joins = 0;
+		if ( $space_ids && is_object( $space_members ) && method_exists( $space_members, 'join' ) ) {
+			foreach ( $ids as $i => $uid ) {
+				$sid = $space_ids[ $i % count( $space_ids ) ];
+				if ( ! is_wp_error( $space_members->join( (int) $sid, (int) $uid ) ) ) {
+					++$space_joins;
+				}
+			}
+		}
+		$say( sprintf( 'Member types: %d assigned. Space joins: %d.', $typed, $space_joins ) );
+
+		// 5) A light scatter of posts so the feed is not empty.
+		$posts        = new PostService();
+		$created_posts = array();
+		$snippets     = array( 'Just joined — excited to be here!', 'Anyone else testing at scale today?', 'Sharing a quick note with the community.', 'Loving the new activity feed.', 'What is everyone working on this week?' );
+		foreach ( $ids as $i => $uid ) {
+			if ( 0 !== $i % 4 ) {
+				continue;
+			}
+			$res = $posts->create(
+				(int) $uid,
+				array(
+					'type'    => 'text',
+					'content' => $snippets[ $i % count( $snippets ) ],
+				)
+			);
+			if ( ! is_wp_error( $res ) ) {
+				$created_posts[] = array(
+					'id'     => (int) $res,
+					'author' => (int) $uid,
+				);
+			}
+		}
+		$post_ids = count( $created_posts );
+		$say( sprintf( 'Posts: %d', $post_ids ) );
+
+		// Record what we made in the SAME manifest seed() uses, so `demo cleanup`
+		// replays and removes scale data too (the bn_demo flag alone is only the
+		// safety net — cleanup iterates the manifest).
+		$manifest          = is_array( $manifest ) ? $manifest : array();
+		$manifest['users'] = array_values( array_unique( array_merge( (array) ( $manifest['users'] ?? array() ), array_map( 'intval', $ids ) ) ) );
+		$manifest['posts'] = array_merge( (array) ( $manifest['posts'] ?? array() ), $created_posts );
+		update_option( self::MANIFEST_OPTION, $manifest, false );
+
+		// 6) Bust the per-viewer suggestion caches + object cache so the fresh
+		//    graph is reflected immediately.
+		if ( is_object( $follows ) && method_exists( $follows, 'flush_suggestions_for' ) ) {
+			foreach ( $ids as $uid ) {
+				$follows->flush_suggestions_for( (int) $uid );
+			}
+		}
+		wp_cache_flush();
+
+		return array(
+			'members'              => $count,
+			'members_created'      => $created,
+			'follows'              => $follow_edges,
+			'connections_accepted' => $accepted,
+			'connections_pending'  => $pending,
+			'member_types'         => $typed,
+			'space_joins'          => $space_joins,
+			'posts'                => $post_ids,
+		);
+	}
+
+	/**
 	 * Remove everything the seeder created, in reverse order, then drop the
 	 * manifest. Safe to call when nothing is installed.
 	 *
