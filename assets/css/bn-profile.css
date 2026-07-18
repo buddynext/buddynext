@@ -2985,3 +2985,54 @@ a.bn-space-row:hover .bn-space-name {
 		width: 100%;
 	}
 }
+
+/* ── Account standing banner (strikes / suspension / shadow-ban) ──────────────
+ * Privileged notice shown on a profile to its owner (their own sanctions) or a
+ * moderator. Danger-accented via theme tokens (no raw hex), so it inherits dark
+ * mode; margin-inline + border-inline keep it RTL-correct. */
+.bn-pf-standing {
+	display: flex;
+	gap: var(--bn-s3);
+	align-items: flex-start;
+	margin-block-end: var(--bn-s4);
+	padding: var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-inline-start: 3px solid var(--bn-danger);
+	border-radius: var(--bn-r-md);
+	background: color-mix(in oklab, var(--bn-danger) 7%, var(--bn-surface));
+}
+
+.bn-pf-standing__icon {
+	flex-shrink: 0;
+	display: inline-flex;
+	color: var(--bn-danger);
+}
+
+.bn-pf-standing__icon svg {
+	width: 20px;
+	height: 20px;
+}
+
+.bn-pf-standing__title {
+	margin: 0 0 var(--bn-s1);
+	font-size: var(--bn-text-sm);
+	font-weight: 600;
+	color: var(--bn-ink);
+}
+
+.bn-pf-standing__list {
+	margin: 0;
+	padding-inline-start: var(--bn-s4);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-pf-standing__item {
+	margin-block: var(--bn-s1);
+}
+
+.bn-pf-standing__note {
+	margin: var(--bn-s2) 0 0;
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}

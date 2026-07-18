@@ -1423,6 +1423,38 @@
 	}
 
 	/*
+	 * Quick-react picker must stay inside the thread pane on narrow screens. The
+	 * message log scrolls vertically (overflow-y: auto), which also clips anything
+	 * spilling sideways — so a picker wider than the pane, or anchored near an
+	 * edge, had its right/left-most reactions cut off (worse once 7+ reactions are
+	 * enabled). Cap it to the viewport and let extra reactions wrap to a second
+	 * row instead of running off the edge, so every reaction stays tappable.
+	 */
+	.bn-dm-msg__react-pop {
+		/* width:max-content lays the reactions out in a single row at their natural
+		   width; max-width then caps that so 7+ reactions wrap to a second row
+		   rather than collapsing to a 1-wide vertical strip (shrink-to-fit) or
+		   running off the pane edge. */
+		flex-wrap: wrap;
+		justify-content: center;
+		width: max-content;
+		max-width: min(232px, calc(100vw - 2 * var(--bn-s4)));
+	}
+
+	/* Received bubbles sit on the left — open the picker rightward; sent bubbles
+	   sit on the right — open it leftward. Combined with the width cap + wrap
+	   above, neither direction can overflow the pane. */
+	.bn-dm-msg:not(.is-mine) .bn-dm-msg__react-pop {
+		inset-inline-start: 0;
+		inset-inline-end: auto;
+	}
+
+	.bn-dm-msg.is-mine .bn-dm-msg__react-pop {
+		inset-inline-start: auto;
+		inset-inline-end: 0;
+	}
+
+	/*
 	 * Tighten the thread header on mobile so the contact name actually has room.
 	 * At full padding/gap the three action buttons + back + avatar consumed the
 	 * whole 312px width, squeezing the name to a single clipped letter.

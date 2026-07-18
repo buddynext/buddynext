@@ -336,15 +336,22 @@ class FollowController extends BaseRestController {
 			)
 		);
 
-		return new WP_REST_Response(
-			array(
-				'ids'      => $this->filter_blocked( $followers, $viewer_id ),
-				'total'    => $service->follower_count( $user_id ),
-				'page'     => $page,
-				'per_page' => $per_page,
-			),
-			200
+		$ids  = $this->filter_blocked( $followers, $viewer_id );
+		$body = array(
+			'total'    => $service->follower_count( $user_id ),
+			'page'     => $page,
+			'per_page' => $per_page,
 		);
+		// expand=members hydrates the page into enriched member cards in one batch
+		// (no N+1); otherwise the endpoint keeps its ids-only default.
+		$expanded = $this->maybe_expand_members( $request, $ids, $viewer_id );
+		if ( null !== $expanded ) {
+			$body['items'] = $expanded;
+		} else {
+			$body['ids'] = $ids;
+		}
+
+		return new WP_REST_Response( $body, 200 );
 	}
 
 	/**
@@ -375,15 +382,20 @@ class FollowController extends BaseRestController {
 			)
 		);
 
-		return new WP_REST_Response(
-			array(
-				'ids'      => $this->filter_blocked( $following, $viewer_id ),
-				'total'    => $service->following_count( $user_id ),
-				'page'     => $page,
-				'per_page' => $per_page,
-			),
-			200
+		$ids  = $this->filter_blocked( $following, $viewer_id );
+		$body = array(
+			'total'    => $service->following_count( $user_id ),
+			'page'     => $page,
+			'per_page' => $per_page,
 		);
+		$expanded = $this->maybe_expand_members( $request, $ids, $viewer_id );
+		if ( null !== $expanded ) {
+			$body['items'] = $expanded;
+		} else {
+			$body['ids'] = $ids;
+		}
+
+		return new WP_REST_Response( $body, 200 );
 	}
 
 	/**

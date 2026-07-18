@@ -79,8 +79,8 @@ $bn_order         = ( 'display_name' === $bn_query_orderby ) ? 'ASC' : 'DESC';
 $allowed_relations = array( 'all', 'following', 'connections' );
 $bn_relation       = in_array( $relation_raw, $allowed_relations, true ) ? $relation_raw : 'all';
 
-// Site title for the document title override.
-$bn_site_name = (string) get_bloginfo( 'name' );
+// Community name for the document title override.
+$bn_site_name = buddynext_site_name();
 add_filter(
 	'document_title_parts',
 	static function ( array $parts ) use ( $bn_site_name ): array {

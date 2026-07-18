@@ -9,8 +9,8 @@
  * Companion service: includes/Notifications/NotificationMessageService.php.
  */
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '../shell/rest-client.js';
-import { onNavReady } from '../shell/nav-init.js';
+import { restFetch } from '@buddynext/rest-client';
+import { onNavReady } from '@buddynext/nav-init';
 
 // Relation-removal handler for the Muted-list sidecard's Unmute button
 // (Pattern D-15). Side-effect import — installs a single document-level

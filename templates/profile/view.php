@@ -351,6 +351,24 @@ $bn_pf_ctx = array(
 		)
 	);
 
+	// Account standing banner — strikes / suspension (+ shadow-ban for moderators).
+	// Privileged: only the owner (their own sanctions) or a moderator sees it, via
+	// the single ModerationService::account_status_for() source shared with the REST
+	// profile response. The partial renders nothing for a clean account.
+	$bn_mod_service    = buddynext_service( 'moderation' );
+	$bn_account_status = ( $bn_mod_service instanceof \BuddyNext\Moderation\ModerationService )
+		? $bn_mod_service->account_status_for( (int) $user_id, (int) $current_user_id )
+		: null;
+	if ( is_array( $bn_account_status ) ) {
+		buddynext_get_template(
+			'parts/profile-account-status.php',
+			array(
+				'status'  => $bn_account_status,
+				'is_self' => (bool) $is_own_profile,
+			)
+		);
+	}
+
 	// Primary tab bar (+ one-level sub-nav) via the shared Nav renderer — the
 	// same component the space surface uses, fed by the resolved registry.
 	buddynext_get_template(

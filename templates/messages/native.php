@@ -85,12 +85,21 @@ $helpers = MessagesData::helpers( $viewer );
 $bn_convs_cap = isset( $_GET['convs'] ) ? absint( wp_unslash( $_GET['convs'] ) ) : 50; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $convs        = MessagesData::conversations( $viewer, $active_tab, $bn_convs_cap );
 
+// Whether THIS request explicitly asked for a conversation (?conversation / ?to).
+// The mobile single-pane view keys off this: only an explicit open switches the
+// pane to the thread (is-thread-open). An auto-opened default must NOT, or the
+// back button — which navigates to /messages/ with no conversation — would land
+// on the auto-reopened newest thread and trap the member away from the rail.
+$bn_explicit_conv = ( $active_conv_id > 0 );
+
 // When the inbox is opened with no explicit conversation (and the member is not
 // trying to reach a blocked/unreachable recipient), auto-open the most recent
 // conversation instead of showing the empty "Your messages" placeholder. The
 // rail is already ordered by last activity, so the first pinned (or, failing
 // that, the first recent) row is the newest thread. With zero conversations
 // both lists are empty, $active_conv_id stays 0, and the empty state still shows.
+// On DESKTOP this fills the right pane; on MOBILE the rail still shows first
+// (is-thread-open is withheld below because this open was not explicit).
 if ( $active_conv_id <= 0 && 0 === $bn_blocked_recipient ) {
 	$bn_default_conv = (int) ( $convs['pinned'][0]['id'] ?? ( $convs['recent'][0]['id'] ?? 0 ) );
 	if ( $bn_default_conv > 0 ) {
@@ -160,7 +169,7 @@ $bn_ctx = wp_json_encode(
 );
 ?>
 <div
-	class="bn-messages-content bn-split bn-dm<?php echo $thread ? ' is-thread-open' : ''; ?>"
+	class="bn-messages-content bn-split bn-dm<?php echo ( $thread && $bn_explicit_conv ) ? ' is-thread-open' : ''; ?>"
 	data-bn-main-edge="true"
 	data-wp-interactive="buddynext/messages"
 	data-wp-context='<?php echo esc_attr( (string) $bn_ctx ); ?>'

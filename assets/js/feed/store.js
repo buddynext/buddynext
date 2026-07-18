@@ -1,9 +1,9 @@
 /* BuddyNext — Feed Interactivity API store. */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnConfirm, bnPrompt, bnReportDialog, bnToast } from '../shell/dialog.js';
-import { restFetch } from '../shell/rest-client.js';
-import { onNavReady } from '../shell/nav-init.js';
-import { makeThumb, uploadMedia, deleteMedia } from '../media/upload-core.js';
+import { bnConfirm, bnPrompt, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
+import { restFetch } from '@buddynext/rest-client';
+import { onNavReady } from '@buddynext/nav-init';
+import { makeThumb, uploadMedia, deleteMedia, validateMedia } from '../media/upload-core.js';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -1702,27 +1702,44 @@ store( 'buddynext/post-card', {
 						space_id:    parseInt( ctx.spaceId, 10 ) || 0,
 					},
 				} );
-				if ( res.ok || res.status === 201 ) {
+				// A 409 (already reported) is an expected outcome, not a failure — the
+				// server already holds this user's report, so the post is "reported"
+				// either way. Treat success and already-reported identically.
+				const alreadyReported = res.status === 409;
+				if ( res.ok || res.status === 201 || alreadyReported ) {
 					// Reflect the reported state immediately so the action menu
 					// swaps Report for a disabled "Reported" item without a reload.
 					ctx.hasReported = true;
 					ctx.optionsOpen = false;
-					bnToast( t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
-				} else {
-					// Surface the server's reason (e.g. the 409 "already reported"
-					// message) instead of a generic failure. A 409 means the server
-					// already has this user's report, so reflect that in the UI too.
-					// An already-reported response is an expected outcome, not an
-					// error, so it reads as an info toast; genuine failures stay danger.
-					const alreadyReported = res.status === 409;
-					if ( alreadyReported ) {
-						ctx.hasReported = true;
-						ctx.optionsOpen = false;
+
+					// Drop the post out of the reporter's own feed straight away —
+					// what a member reports, they expect to stop seeing (the norm on
+					// Facebook, X, Instagram). Collapse with a short fade so the removal
+					// reads as intentional rather than a glitch.
+					const card = document.querySelector( '[data-post-id="' + ctx.postId + '"]' );
+					if ( card ) {
+						card.style.transition = 'opacity 0.2s ease, max-height 0.3s ease';
+						card.style.overflow   = 'hidden';
+						card.style.maxHeight  = card.offsetHeight + 'px';
+						requestAnimationFrame( () => {
+							card.style.opacity   = '0';
+							card.style.maxHeight = '0';
+						} );
+						setTimeout( () => card.remove(), 350 );
 					}
+
+					bnToast(
+						alreadyReported
+							? ( ( res.data && res.data.message ) || t( 'reportAlready', 'You already reported this post.' ) )
+							: t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ),
+						{ tone: alreadyReported ? 'info' : 'success' }
+					);
+				} else {
+					// Surface the server's reason instead of a generic failure.
 					const data = res.data || {};
 					bnToast(
 						data.message || t( 'reportFailed', 'Could not submit report. Try again.' ),
-						{ tone: alreadyReported ? 'info' : 'danger' }
+						{ tone: 'danger' }
 					);
 				}
 			} catch ( _e ) {
@@ -2723,6 +2740,19 @@ store( 'buddynext/post-composer', {
 					const uploadCount = Math.min( files.length, remaining );
 					for ( let i = 0; i < uploadCount; i++ ) {
 						const file = files[ i ];
+
+						// Validate type + size client-side BEFORE the upload — the same
+						// guard the media-gallery and album pickers already run. Without
+						// it the composer streamed oversized/wrong-type files all the way
+						// to the server before rejection (wasted bandwidth, no feedback).
+						const invalid = validateMedia( file, {
+							badTypeMsg:  t( 'mediaBadType', 'Only images, video and audio can be attached.' ),
+							tooLargeMsg: t( 'mediaTooLarge', 'That file is too large to upload.' ),
+						} );
+						if ( invalid ) {
+							bnToast( invalid, { tone: 'danger' } );
+							continue;
+						}
 
 						// Shared upload core: one BuddyNext-owned, owner-gated path
 						// (buddynext/v1/me/media) for every surface, plus a fast small

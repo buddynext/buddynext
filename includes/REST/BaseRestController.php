@@ -14,6 +14,7 @@ declare( strict_types=1 );
 namespace BuddyNext\REST;
 
 use WP_Error;
+use WP_REST_Request;
 
 /**
  * Permission helpers shared across REST controllers.
@@ -149,5 +150,29 @@ abstract class BaseRestController {
 		 * @param array<string, mixed> $context    Capability context (e.g. space_id).
 		 */
 		return apply_filters( 'buddynext_capability_denied_error', $error, $capability, $user_id, $context );
+	}
+
+	/**
+	 * Hydrate a page of member IDs into enriched member cards when the caller asks
+	 * for it via expand=members.
+	 *
+	 * Lets a social-graph list endpoint (followers / following / connections /
+	 * mutual) return the same enriched member objects the /members directory does,
+	 * in ONE batched request, so a client never has to fetch one profile per row.
+	 * Returns null when expansion was not requested, so the endpoint keeps its
+	 * ids-only default and existing consumers are unaffected.
+	 *
+	 * @param WP_REST_Request $request   Incoming request (reads the `expand` param).
+	 * @param int[]           $ids       Member IDs for this page, in output order.
+	 * @param int             $viewer_id Current viewer (0 = logged out).
+	 * @return array<int, array<string, mixed>>|null Enriched members, or null when not expanded.
+	 */
+	protected function maybe_expand_members( WP_REST_Request $request, array $ids, int $viewer_id ): ?array {
+		$expand = $request->get_param( 'expand' );
+		$tokens = is_string( $expand ) ? array_map( 'trim', explode( ',', $expand ) ) : array();
+		if ( ! in_array( 'members', $tokens, true ) ) {
+			return null;
+		}
+		return ( new \BuddyNext\Profile\MemberDirectoryController() )->hydrate_members( $ids, $viewer_id );
 	}
 }

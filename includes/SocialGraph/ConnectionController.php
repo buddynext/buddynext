@@ -221,13 +221,16 @@ class ConnectionController extends BaseRestController {
 		$offset = ( $page - 1 ) * $per_page;
 		$slice  = array_slice( array_map( 'intval', $ids ), $offset, $per_page );
 
-		$response = new WP_REST_Response(
-			array(
-				'ids'   => $slice,
-				'total' => $total,
-			),
-			200
-		);
+		$body = array( 'total' => $total );
+		// expand=members hydrates the page into enriched member cards in one batch.
+		$expanded = $this->maybe_expand_members( $request, $slice, $viewer_id );
+		if ( null !== $expanded ) {
+			$body['items'] = $expanded;
+		} else {
+			$body['ids'] = $slice;
+		}
+
+		$response = new WP_REST_Response( $body, 200 );
 
 		$response->header( 'X-WP-Total', (string) $total );
 		$response->header( 'X-WP-TotalPages', (string) ( $per_page > 0 ? (int) ceil( $total / $per_page ) : 0 ) );
@@ -358,15 +361,20 @@ class ConnectionController extends BaseRestController {
 		$service     = buddynext_service( 'connections' );
 		$connections = $service->connections( $current_id, $per_page, ( $page - 1 ) * $per_page );
 
-		return new WP_REST_Response(
-			array(
-				'ids'      => $connections,
-				'total'    => $service->connection_count( $current_id ),
-				'page'     => $page,
-				'per_page' => $per_page,
-			),
-			200
+		$body = array(
+			'total'    => $service->connection_count( $current_id ),
+			'page'     => $page,
+			'per_page' => $per_page,
 		);
+		// expand=members hydrates the page into enriched member cards in one batch.
+		$expanded = $this->maybe_expand_members( $request, $connections, $current_id );
+		if ( null !== $expanded ) {
+			$body['items'] = $expanded;
+		} else {
+			$body['ids'] = $connections;
+		}
+
+		return new WP_REST_Response( $body, 200 );
 	}
 
 	/**

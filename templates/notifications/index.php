@@ -114,6 +114,10 @@ $sum_types   = static function ( array $types ) use ( $type_unread ): int {
 };
 
 $total_unread    = array_sum( array_map( 'intval', $type_unread ) );
+// Badge (bell / nav) = UNSEEN, distinct from the Unread TAB count above. By the
+// time this hub renders, the list has been marked seen (PageRouter), so this is
+// 0 here — keeping the mobile badge consistent with every other surface.
+$badge_unseen    = (int) $notification_service->unseen_count( $current_user_id );
 $reaction_unread = $sum_types( $filter_type_map['reaction'] );
 $comment_unread  = $sum_types( $filter_type_map['comment'] );
 $mention_unread  = $sum_types( $filter_type_map['mention'] );
@@ -440,7 +444,7 @@ $initial_context = wp_json_encode(
 		'activeFilter' => $active_filter,
 		'nonce'        => $mark_all_nonce,
 		'restUrl'      => rest_url( 'buddynext/v1/me/notifications' ),
-		'unreadCount'  => $total_unread,
+		'unreadCount'  => $badge_unseen,
 		'hasError'     => false,
 		// Per-filter unread counts power the reactive tab + sidebar badges
 		// (data-wp-text). markRead/markAllRead mutate these in place so the

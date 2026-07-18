@@ -882,6 +882,23 @@ function buddynext_get_icon( string $name, string $css_class = '' ): string {
 }
 
 /**
+ * Return the community's display name.
+ *
+ * Single source of truth for the name shown in the app header, community-admin
+ * subheader, member-directory title, and auth-page logo. Prefers the owner-set
+ * "Community Name" (Settings → General → Community Identity, stored as the
+ * `buddynext_site_name` option) and falls back to the WordPress site title when
+ * that option is empty — so changing Community Name is reflected everywhere the
+ * community is named, not just on the Explore page.
+ *
+ * @return string The community name, unescaped. Escape at the point of output.
+ */
+function buddynext_site_name(): string {
+	$name = trim( (string) get_option( 'buddynext_site_name', '' ) );
+	return '' !== $name ? $name : (string) get_bloginfo( 'name' );
+}
+
+/**
  * Icon markup for a space category.
  *
  * Prefers the category's admin-saved icon_svg and falls back to the built-in

@@ -16,8 +16,8 @@
  */
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnConfirm, bnReportDialog, bnToast } from '../shell/dialog.js';
-import { restFetch } from '../shell/rest-client.js';
+import { bnConfirm, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
+import { restFetch } from '@buddynext/rest-client';
 // Shared client-side thumbnail only — DM upload stays on MediaVerse's own
 // conversation-scoped (privacy:'dm') endpoint; this just unifies the fast
 // small preview so a large attachment doesn't decode full-res into the chip.
@@ -824,6 +824,26 @@ const messagesStore = store( 'buddynext/messages', {
 						const need = pop.offsetHeight + 8;
 						const room = trigger.getBoundingClientRect().top - log.getBoundingClientRect().top;
 						wrap.classList.toggle( 'is-down', room < need );
+
+						// Horizontal clamp. The CSS anchors the picker to the sender's
+						// edge (leftward for sent bubbles, rightward for received) and
+						// caps its width so extra reactions wrap. But a bubble near the
+						// far edge can still push the picker past the log, whose
+						// overflow clips it — so nudge it back inside if either edge
+						// spills. Guarantees every reaction stays visible + tappable
+						// regardless of bubble position or how many reactions exist.
+						pop.style.transform = '';
+						const logRect = log.getBoundingClientRect();
+						const popRect = pop.getBoundingClientRect();
+						let shift = 0;
+						if ( popRect.left < logRect.left + 4 ) {
+							shift = ( logRect.left + 4 ) - popRect.left;
+						} else if ( popRect.right > logRect.right - 4 ) {
+							shift = ( logRect.right - 4 ) - popRect.right;
+						}
+						if ( shift ) {
+							pop.style.transform = 'translateX(' + Math.round( shift ) + 'px)';
+						}
 					}
 				}
 			} else if ( 'react-pick' === action ) {

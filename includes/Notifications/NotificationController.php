@@ -103,6 +103,27 @@ class NotificationController extends BaseRestController {
 			)
 		);
 
+		// Mark the list SEEN — clears the badge without marking rows read. The web
+		// does this automatically on list render (PageRouter); the native app calls
+		// this when the member opens their notifications screen so its bell badge
+		// clears the same way, while the Unread tab stays intact.
+		register_rest_route(
+			'buddynext/v1',
+			'/me/notifications/seen',
+			array(
+				array(
+					'methods'             => 'PUT',
+					'callback'            => array( $this, 'mark_seen' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'mark_seen' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/me/notifications/(?P<id>[\d]+)/read',
@@ -250,7 +271,11 @@ class NotificationController extends BaseRestController {
 	 */
 	public function unread_count( WP_REST_Request $request ): WP_REST_Response { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
 		$user_id = get_current_user_id();
-		$count   = ( new NotificationService() )->unread_count( $user_id );
+		// The app's bell badge = UNSEEN count (created since the list was last
+		// viewed). Viewing the list (mark_seen) clears it without marking items
+		// read, so the Unread tab stays intact. The route name is kept for
+		// backward compatibility.
+		$count = ( new NotificationService() )->unseen_count( $user_id );
 
 		return new WP_REST_Response( array( 'count' => $count ), 200 );
 	}
@@ -302,6 +327,24 @@ class NotificationController extends BaseRestController {
 		( new NotificationService() )->mark_all_read( $user_id );
 
 		return new WP_REST_Response( array( 'read' => true ), 200 );
+	}
+
+	/**
+	 * Mark the notifications list as SEEN for the current user.
+	 *
+	 * Clears the bell/nav badge (unseen count → 0) without marking any row read,
+	 * so the Unread tab and Mark-unread stay intact. Used by the native app when
+	 * the member opens their notifications screen; the web does the equivalent on
+	 * list render.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function mark_seen( WP_REST_Request $request ): WP_REST_Response { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		$user_id = get_current_user_id();
+		( new NotificationService() )->mark_seen( $user_id );
+
+		return new WP_REST_Response( array( 'seen' => true ), 200 );
 	}
 
 	/**

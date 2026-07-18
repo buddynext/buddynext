@@ -1,7 +1,7 @@
 /* BuddyNext - Profile Interactivity API store. */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnConfirm, bnResolveConnectNote } from '../shell/dialog.js';
-import { restFetch } from '../shell/rest-client.js';
+import { bnToast, bnConfirm, bnResolveConnectNote } from '@buddynext/shell-dialog';
+import { restFetch } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -1179,7 +1179,7 @@ const profileStore = store( 'buddynext/profile', {
 
 			var ok = await bnConfirm( {
 				title:        t( 'deleteAccountTitle', 'Delete your account?' ),
-				message:      t( 'deleteAccountMessage', 'This permanently deletes your account and removes your data. This cannot be undone.' ),
+				body:         t( 'deleteAccountMessage', 'This permanently deletes your account and removes your data. This cannot be undone.' ),
 				confirmLabel: t( 'deleteAccountConfirm', 'Delete my account' ),
 				tone:         'danger',
 			} );

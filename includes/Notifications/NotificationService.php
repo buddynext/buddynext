@@ -54,6 +54,7 @@ class NotificationService {
 	private function forget_counts( int $user_id ): void {
 		wp_cache_delete( "unread_{$user_id}", self::CACHE_GROUP );
 		wp_cache_delete( "unread_by_type_{$user_id}", self::CACHE_GROUP );
+		wp_cache_delete( "unseen_{$user_id}", self::CACHE_GROUP );
 	}
 
 	/**
@@ -398,6 +399,73 @@ class NotificationService {
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications
 				 WHERE recipient_id = %d AND is_read = 0",
 				$user_id
+			)
+		);
+
+		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $count;
+	}
+
+	/**
+	 * Usermeta key holding the GMT timestamp a user last VIEWED their
+	 * notifications list. Drives the "seen" badge (distinct from per-item read).
+	 */
+	private const LAST_SEEN_META = 'bn_notifications_last_seen';
+
+	/**
+	 * Mark the whole notifications list as SEEN for a user.
+	 *
+	 * "Seen" is deliberately separate from "read": viewing the list clears the
+	 * bell/nav badge (every mainstream app does this) but must NOT flip rows to
+	 * is_read=1 — that would empty the Unread tab the instant the page opens and
+	 * defeat Mark-unread. So this only advances a per-user "last seen" timestamp;
+	 * per-item read state stays driven by an explicit click (mark_read) or the
+	 * explicit "Mark all read" button.
+	 *
+	 * @param int $user_id User who viewed their notifications list.
+	 * @return void
+	 */
+	public function mark_seen( int $user_id ): void {
+		update_user_meta( $user_id, self::LAST_SEEN_META, current_time( 'mysql', true ) );
+		$this->forget_counts( $user_id );
+	}
+
+	/**
+	 * Return the UNSEEN notification count for a user — the badge number.
+	 *
+	 * Counts notifications created after the user last viewed the list
+	 * (mark_seen). This is what the bell / nav / app badge shows: it drops to 0
+	 * when the member opens notifications and climbs again as new ones arrive,
+	 * WITHOUT marking anything read. The Unread tab keeps using unread_count()
+	 * (is_read = 0), so the two are intentionally independent.
+	 *
+	 * @param int $user_id User to query.
+	 * @return int
+	 */
+	public function unseen_count( int $user_id ): int {
+		$cache_key = "unseen_{$user_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
+		$last_seen = (string) get_user_meta( $user_id, self::LAST_SEEN_META, true );
+		if ( '' === $last_seen ) {
+			// Never opened the list — everything is unseen.
+			$last_seen = '1970-01-01 00:00:00';
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications
+				 WHERE recipient_id = %d AND created_at > %s",
+				$user_id,
+				$last_seen
 			)
 		);
 

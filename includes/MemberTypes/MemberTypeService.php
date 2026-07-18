@@ -439,6 +439,33 @@ class MemberTypeService {
 	}
 
 	/**
+	 * Build the public "badge" representation of a user's member type.
+	 *
+	 * Single source of truth for the { slug, name, icon_svg, color, text_color }
+	 * shape consumed by BOTH the member directory and the profile response, so
+	 * the two can never drift. Returns null for an unassigned member — a present
+	 * key with a null value at the API boundary — never a half-populated object.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @return array{slug:string,name:string,icon_svg:string,color:string,text_color:string}|null
+	 */
+	public function badge_for( int $user_id ): ?array {
+		$type = $this->get_user_type( $user_id );
+		if ( ! is_array( $type ) || empty( $type['slug'] ) ) {
+			return null;
+		}
+		return array(
+			'slug'       => (string) $type['slug'],
+			'name'       => (string) ( $type['name'] ?? '' ),
+			// Re-sanitised on output so clients can render the badge icon inline
+			// exactly like the server member-card.
+			'icon_svg'   => self::render_icon_svg( (string) ( $type['icon_svg'] ?? '' ) ),
+			'color'      => (string) ( $type['color'] ?? '' ),
+			'text_color' => (string) ( $type['text_color'] ?? '' ),
+		);
+	}
+
+	/**
 	 * Assign a member type to a user.
 	 *
 	 * Free tier: removes any existing type before assigning (single-type enforcement).

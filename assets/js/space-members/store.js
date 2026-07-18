@@ -1,7 +1,7 @@
 /* BuddyNext — Space Members Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
-import { bnConfirm, bnToast } from '../shell/dialog.js';
-import { restFetch } from '../shell/rest-client.js';
+import { bnConfirm, bnToast } from '@buddynext/shell-dialog';
+import { restFetch } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
