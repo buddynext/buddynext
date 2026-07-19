@@ -44,6 +44,7 @@ class PostService {
 		'media',
 		'discussion',
 		'job',
+		'event',
 	);
 
 	/**

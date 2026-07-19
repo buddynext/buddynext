@@ -43,6 +43,43 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 		$this->assertSame( $url, $row['link_url'] );
 	}
 
+	public function test_publish_accepts_a_typed_type_and_merges_meta_into_link_meta(): void {
+		global $wpdb;
+
+		$url = 'https://example.test/event/88/';
+		$id  = IntegrationActivity::publish(
+			$this->member_id,
+			'is attending',
+			$url,
+			'Scale Test Event',
+			'event',
+			'',
+			0,
+			array(
+				'image'    => 'https://example.test/cover.jpg',
+				'event_id' => 88,
+				'city'     => 'Lagos',
+				'relation' => 'attending',
+			)
+		);
+
+		$this->assertIsInt( $id );
+		$this->assertGreaterThan( 0, $id );
+
+		$row = $wpdb->get_row(
+			$wpdb->prepare( "SELECT type, link_meta FROM {$wpdb->prefix}bn_posts WHERE id = %d", $id ),
+			ARRAY_A
+		);
+		$this->assertSame( 'event', $row['type'], 'the event type is accepted (was rejected as invalid_post_type before)' );
+
+		$meta = json_decode( (string) $row['link_meta'], true );
+		$this->assertSame( 'Scale Test Event', $meta['title'], 'defaults preserved' );
+		$this->assertSame( 'https://example.test/cover.jpg', $meta['image'], 'meta overrides the default image' );
+		$this->assertSame( 88, $meta['event_id'], 'typed payload carried' );
+		$this->assertSame( 'Lagos', $meta['city'] );
+		$this->assertSame( 'attending', $meta['relation'] );
+	}
+
 	public function test_publish_is_idempotent(): void {
 		$url    = 'https://example.test/discussions/56/';
 		$first  = IntegrationActivity::publish( $this->member_id, 'started a discussion', $url );

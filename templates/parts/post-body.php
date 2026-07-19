@@ -17,8 +17,11 @@
  * @var string      $post_content         Decoded post content (pre-format).
  * @var array       $link_preview         Pre-resolved link-preview fields:
  *                                        { url, title, desc, thumb, domain }.
- * @var array       $link_meta            Decoded link_meta JSON (used by the event
- *                                        branch: { title, location, event_at }).
+ * @var array       $link_meta            Decoded link_meta JSON. Carries a typed
+ *                                        card's structured payload (e.g. an event's
+ *                                        cover / start / location / source id) for
+ *                                        the `buddynext_render_post_body_{type}`
+ *                                        renderer seam in the default branch.
  * @var array       $poll_data            Pre-resolved poll fields:
  *                                        { options, total_votes, my_voted_option_id }.
  * @var array       $media_attachments    Pre-resolved media attachment ids.
@@ -393,7 +396,28 @@ do_action( 'buddynext_part_post_body_before', $args );
 		<?php endif; ?>
 
 	<?php else : ?>
-		<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $bn_body_content ) ) ); ?></div>
+		<?php
+		/**
+		 * Typed integration-card seam. A bridge registers
+		 * `buddynext_render_post_body_{$type}` returning the card's inner HTML
+		 * (already escaped) so an add-on can render a premium typed card — event,
+		 * and later course / media / achievement — through the feed without forking
+		 * this template. Existing types keep their own branches above; only unknown
+		 * types reach here. An empty return falls through to the plain-text body, so
+		 * a registered-but-declining renderer degrades gracefully.
+		 *
+		 * @param string $html The card HTML to output (default '').
+		 * @param array  $args The full post-body args (post, id, link_meta, content).
+		 */
+		$bn_typed_html = (string) apply_filters( 'buddynext_render_post_body_' . $bn_body_post_type, '', $args );
+		if ( '' !== $bn_typed_html ) {
+			echo $bn_typed_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- renderer returns pre-escaped HTML.
+		} else {
+			?>
+			<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $bn_body_content ) ) ); ?></div>
+			<?php
+		}
+		?>
 	<?php endif; ?>
 
 </div><!-- .bn-post-card__body -->

@@ -75,9 +75,15 @@ class IntegrationActivity {
 	 *                           never be suppressed — and never appears in the
 	 *                           space's own feed either. Pass 0 for content that
 	 *                           genuinely has no space (a badge, a resume).
+	 * @param array  $meta       Optional extra fields merged into `link_meta`, so a
+	 *                           typed card (event, course, …) can carry its structured
+	 *                           payload (cover, start time, location, source id) for a
+	 *                           `buddynext_render_post_body_{type}` renderer and the
+	 *                           REST/app surfaces. Overrides the defaults it shares a
+	 *                           key with (e.g. pass 'image' to set the card cover).
 	 * @return int|\WP_Error Post id (0 when an identical card already exists), or WP_Error.
 	 */
-	public static function publish( int $member_id, string $content, string $link_url, string $link_title = '', string $type = 'link', string $excerpt = '', int $space_id = 0 ) {
+	public static function publish( int $member_id, string $content, string $link_url, string $link_title = '', string $type = 'link', string $excerpt = '', int $space_id = 0, array $meta = array() ) {
 		if ( $member_id <= 0 || '' === $link_url ) {
 			return new \WP_Error( 'invalid_activity', 'member id and link url are required' );
 		}
@@ -106,11 +112,14 @@ class IntegrationActivity {
 					// site's default-post-privacy option, which may be blank.
 					'privacy'   => 'public',
 					'link_url'  => $link_url,
-					'link_meta' => array(
-						'title'       => $link_title,
-						'description' => $excerpt,
-						'image'       => '',
-						'url'         => $link_url,
+					'link_meta' => array_merge(
+						array(
+							'title'       => $link_title,
+							'description' => $excerpt,
+							'image'       => '',
+							'url'         => $link_url,
+						),
+						$meta
 					),
 				)
 			);
