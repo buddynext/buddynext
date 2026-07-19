@@ -80,6 +80,31 @@ class AppConfigControllerTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * The config exposes the site's time contract so the app can render
+	 * timestamps in the owner's WordPress timezone (self-hosted, not per-device).
+	 *
+	 * @return void
+	 */
+	public function test_config_exposes_the_site_time_contract(): void {
+		update_option( 'timezone_string', 'Asia/Kolkata' );
+		update_option( 'gmt_offset', 5.5 );
+
+		$time = $this->get_config()['time'] ?? null;
+
+		$this->assertIsArray( $time );
+		$this->assertSame( 'Asia/Kolkata', $time['site_timezone'] );
+		$this->assertSame( 5.5, $time['gmt_offset'] );
+		// server_utc is UTC ISO-8601 with a Z suffix (the transport format).
+		$this->assertMatchesRegularExpression(
+			'/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/',
+			(string) $time['server_utc']
+		);
+
+		delete_option( 'timezone_string' );
+		delete_option( 'gmt_offset' );
+	}
+
+	/**
 	 * Readable with no session at all.
 	 *
 	 * The app reads this before it has credentials — to theme the sign-in screen,

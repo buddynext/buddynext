@@ -105,6 +105,7 @@ class AppConfigController {
 			'branding'         => $this->branding(),
 			'features'         => $this->features(),
 			'limits'           => $this->limits(),
+			'time'             => $this->time(),
 
 			'legal'            => $this->legal(),
 		);
@@ -236,6 +237,32 @@ class AppConfigController {
 			'eula_url'       => '',
 			'guidelines_url' => '',
 			'abuse_contact'  => '',
+		);
+	}
+
+	/**
+	 * The site's time contract for the app.
+	 *
+	 * We are self-hosted, not SaaS: the app renders timestamps in the SITE OWNER's
+	 * WordPress timezone (Settings → General), not each viewer's device — so the
+	 * app's times match what the web shows for the same content. The server is the
+	 * source of the absolute instant (UTC), the app formats relative-then-absolute
+	 * in this timezone.
+	 *
+	 *  - site_timezone : the WP `timezone_string` (e.g. "Asia/Kolkata"). May be ''
+	 *    when the owner configured a raw UTC offset instead — the app then falls
+	 *    back to gmt_offset.
+	 *  - gmt_offset    : the WP `gmt_offset` in hours (float, e.g. 5.5), always set.
+	 *  - server_utc    : the server's current instant as UTC ISO-8601 with Z, so
+	 *    the app can correct for device-clock skew when computing "x minutes ago".
+	 *
+	 * @return array{site_timezone:string,gmt_offset:float,server_utc:string}
+	 */
+	private function time(): array {
+		return array(
+			'site_timezone' => (string) get_option( 'timezone_string', '' ),
+			'gmt_offset'    => (float) get_option( 'gmt_offset', 0 ),
+			'server_utc'    => gmdate( 'Y-m-d\TH:i:s\Z' ),
 		);
 	}
 
