@@ -506,6 +506,14 @@ class Plugin {
 		// templates/parts/space-sidebar.php on every space sub-page.
 		( new \BuddyNext\Sidebar\Providers\SpaceSidebarProvider() )->register();
 
+		// Member-profile sidebar widgets (profile strength, connect, work
+		// experience, education, interests, skills, member-of spaces) —
+		// self-chromed descriptors registered on the buddynext_sidebar_widgets
+		// filter above, scoped to the single `profile` surface. Profile
+		// Strength is own-profile-only. Formerly a single buddynext_right_sidebar
+		// add_action() callback registered inline by templates/profile/view.php.
+		( new \BuddyNext\Sidebar\Providers\ProfileSidebarProvider() )->register();
+
 		// Member-directory facet counts — busted whenever a member enters or leaves the
 		// groups the counts exclude (suspended / shadow-banned / directory opt-out).
 		( new \BuddyNext\Profile\MemberDirectoryListener() )->register();

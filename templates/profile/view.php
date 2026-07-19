@@ -226,14 +226,12 @@ $bn_pf_strength_pct   = (int) $bn_pf_strength['percent'];
 $strength_tasks       = $bn_pf_strength_tasks;
 $is_online            = buddynext_service( 'blocks' )->is_user_online( $current_user_id, $user_id );
 
-// --- Sidebar widget hook (partial holds the markup) -----------------------
+// --- Sidebar widget surface (ProfileSidebarProvider reads this context) ---
+// Set BEFORE the shell renders the right column (see templates/shell/right-sidebar.php),
+// same pattern as every other surface (feed/space/search/etc.) — the registry
+// reads it via Surface::current() and ProfileSidebarProvider via Surface::context().
 $bn_pf_sidebar_args = compact( 'is_own_profile', 'completion', 'social_links', 'work_entries', 'edu_entries', 'skills', 'interest_chips', 'member_spaces', 'get_fv', 'entry_fv', 'strength_tasks' );
-add_action(
-	'buddynext_right_sidebar',
-	static function () use ( $bn_pf_sidebar_args ): void {
-		buddynext_get_template( 'partials/profile-right-sidebar.php', $bn_pf_sidebar_args );
-	}
-);
+\BuddyNext\Sidebar\Surface::set( 'profile', $bn_pf_sidebar_args );
 
 /**
  * Fires before the profile main content.
