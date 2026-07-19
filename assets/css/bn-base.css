@@ -1668,11 +1668,22 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 .bn-sbar-row {
 	display: flex;
 	align-items: center;
+	gap: var(--bn-s2);
 	padding: var(--bn-s2) 0;
 	border-bottom: 1px solid var(--bn-line-faint);
 }
 .bn-sbar-row:last-child { border-bottom: none; }
+/* Name/meta column takes the free space and CLIPS, so a long name ellipsizes
+   instead of shoving the action button off the row (or overlapping it). */
+.bn-sbar-row__info {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+}
 .bn-sbar-row__name {
+	display: block;
 	font-size: var(--text-sm);
 	font-weight: 600;
 	color: var(--text-1);
@@ -1682,6 +1693,15 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	text-overflow: ellipsis;
 }
 .bn-sbar-row__name:hover { color: var(--brand); }
+/* The action (Follow button — partials/follow-button.php, a .bn-btn) must never
+   shrink or grow; it sits compact at the row end after the name column. */
+.bn-sbar-row > .bn-btn,
+.bn-sbar-row__action { flex: 0 0 auto; }
+.bn-sbar-row > .bn-btn {
+	padding-block: 4px;
+	padding-inline: var(--bn-s3);
+	font-size: var(--text-xs);
+}
 .bn-sbar-row__meta { font-size: var(--text-xs); color: var(--text-3); }
 .bn-sbar-row__avatar {
 	width: 36px;
@@ -1729,16 +1749,23 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 }
 .bn-sbar-row__action:hover { background: var(--brand); color: var(--text-on-brand); }
 
-/* See-all link */
+/* See-all link. Scoped under the card + explicit accent so a host theme's own
+   anchor colour (BuddyX renders bare links crimson) can't win the cascade and
+   turn this brand-blue link red. */
+.bn-sidebar-card .bn-sidebar-see-all,
 .bn-sidebar-see-all {
 	display: block;
 	margin-top: var(--bn-s3);
 	font-size: var(--text-sm);
 	font-weight: 600;
-	color: var(--brand);
+	color: var(--bn-accent);
 	text-decoration: none;
 }
-.bn-sidebar-see-all:hover { text-decoration: underline; }
+.bn-sidebar-card .bn-sidebar-see-all:hover,
+.bn-sidebar-see-all:hover {
+	color: var(--bn-accent);
+	text-decoration: underline;
+}
 
 /* Dark mode — canonical trio ([data-bn-theme], [data-theme], [data-bx-mode]). */
 [data-bn-theme="dark"] .bn-sidebar-card,
