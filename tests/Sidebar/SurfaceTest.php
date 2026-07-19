@@ -19,4 +19,25 @@ class SurfaceTest extends WP_UnitTestCase {
 		Surface::reset();
 		$this->assertSame( 'profile', Surface::current( 'profile' ) );
 	}
+
+	public function test_context_defaults_to_empty_array(): void {
+		$this->assertSame( array(), Surface::context() );
+	}
+
+	public function test_set_stores_context_alongside_slug(): void {
+		Surface::set( 'space', array( 'space_id' => 7 ) );
+		$this->assertSame( 'space', Surface::current() );
+		$this->assertSame( array( 'space_id' => 7 ), Surface::context() );
+	}
+
+	public function test_set_without_context_defaults_to_empty_array(): void {
+		Surface::set( 'explore' );
+		$this->assertSame( array(), Surface::context() );
+	}
+
+	public function test_reset_clears_context(): void {
+		Surface::set( 'space', array( 'space_id' => 7 ) );
+		Surface::reset();
+		$this->assertSame( array(), Surface::context() );
+	}
 }

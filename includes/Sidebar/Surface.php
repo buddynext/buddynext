@@ -22,13 +22,22 @@ final class Surface {
 	private static string $current = '';
 
 	/**
-	 * Set the current surface slug.
+	 * Context payload for the current surface (e.g. space_id/viewer_id/active_tab).
 	 *
-	 * @param string $slug Surface identifier (sanitized).
+	 * @var array<string,mixed>
+	 */
+	private static array $context = array();
+
+	/**
+	 * Set the current surface slug, with an optional context payload.
+	 *
+	 * @param string              $slug    Surface identifier (sanitized).
+	 * @param array<string,mixed> $context Optional context data a provider reads via context().
 	 * @return void
 	 */
-	public static function set( string $slug ): void {
+	public static function set( string $slug, array $context = array() ): void {
 		self::$current = sanitize_key( $slug );
+		self::$context = $context;
 	}
 
 	/**
@@ -42,11 +51,21 @@ final class Surface {
 	}
 
 	/**
-	 * Reset the current surface to unset.
+	 * Get the context payload set alongside the current surface.
+	 *
+	 * @return array<string,mixed> Empty array when no context was set.
+	 */
+	public static function context(): array {
+		return self::$context;
+	}
+
+	/**
+	 * Reset the current surface and its context to unset.
 	 *
 	 * @return void
 	 */
 	public static function reset(): void {
 		self::$current = '';
+		self::$context = array();
 	}
 }

@@ -498,6 +498,14 @@ class Plugin {
 		// inline in templates/spaces/directory.php.
 		( new \BuddyNext\Sidebar\Providers\SpacesDirectorySidebarProvider() )->register();
 
+		// Single-space sidebar widgets (about, sub-spaces, owner/moderators,
+		// members preview, top contributors) — titled cards using the registry's
+		// default chrome, scoped to the single `space` surface. The
+		// members-preview card is skipped on the Members tab. Formerly a single
+		// buddynext_right_sidebar add_action() callback registered inline by
+		// templates/parts/space-sidebar.php on every space sub-page.
+		( new \BuddyNext\Sidebar\Providers\SpaceSidebarProvider() )->register();
+
 		// Member-directory facet counts — busted whenever a member enters or leaves the
 		// groups the counts exclude (suspended / shadow-banned / directory opt-out).
 		( new \BuddyNext\Profile\MemberDirectoryListener() )->register();

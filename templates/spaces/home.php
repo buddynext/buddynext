@@ -100,12 +100,12 @@ $active_tab = '' !== $active_tab ? sanitize_key( $active_tab ) : 'feed';
 $rest_nonce = wp_create_nonce( 'wp_rest' );
 
 // ── Right sidebar (uniform across every space tab) ─────────────────────────────
-// The shared part registers the space rail cards on buddynext_right_sidebar; the
-// hub shell renders the right column when anything is hooked there. Every space
-// template (home + members + moderation) calls this same part, so switching tabs
-// keeps the same rail instead of dropping it on the dedicated pages.
-buddynext_get_template(
-	'parts/space-sidebar.php',
+// SpaceSidebarProvider registers the space rail cards on buddynext_sidebar_widgets
+// for the `space` surface; the registry renders them on buddynext_right_sidebar.
+// Every space template (home + members + moderation) sets this same context, so
+// switching tabs keeps the same rail instead of dropping it on the dedicated pages.
+\BuddyNext\Sidebar\Surface::set(
+	'space',
 	array(
 		'space_id'   => $space_id,
 		'viewer_id'  => $current_user_id,
