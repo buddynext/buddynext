@@ -490,6 +490,14 @@ class Plugin {
 		// callbacks inline in templates/directory/members.php.
 		( new \BuddyNext\Sidebar\Providers\MembersSidebarProvider() )->register();
 
+		// Spaces-directory sidebar widgets (suggested, your spaces, popular) —
+		// titled cards using the registry's default chrome, scoped to the
+		// single `spaces` surface. Suggested and popular are mutually
+		// exclusive (popular is the fallback when suggested has no content).
+		// Formerly a single buddynext_right_sidebar add_action() callback
+		// inline in templates/spaces/directory.php.
+		( new \BuddyNext\Sidebar\Providers\SpacesDirectorySidebarProvider() )->register();
+
 		// Member-directory facet counts — busted whenever a member enters or leaves the
 		// groups the counts exclude (suspended / shadow-banned / directory opt-out).
 		( new \BuddyNext\Profile\MemberDirectoryListener() )->register();

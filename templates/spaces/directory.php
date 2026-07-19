@@ -5,9 +5,11 @@
  * Renders the spaces directory inside the shell main column
  * (`<main class="bn-app__main">` — see templates/shell/hub-shell.php).
  * This inner template does NOT own the rail or the
- * 2-column page grid. Sidebar widgets (categories, your spaces,
- * featured) are registered on the `buddynext_right_sidebar` action;
- * the shell auto-renders the right column when callbacks are present.
+ * 2-column page grid. Sidebar widgets (suggested, your spaces, popular)
+ * are registered via SpacesDirectorySidebarProvider on the
+ * `buddynext_sidebar_widgets` filter, scoped to the `spaces` surface
+ * (Surface::set() below); the shell auto-renders the right column when
+ * descriptors are present.
  *
  * v2 prototype: docs/v2 Plans/v2/spaces-directory.html.
  *
@@ -27,6 +29,13 @@
 declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
+
+use BuddyNext\Sidebar\Surface;
+
+// Fine-grained sidebar surface for the registry (SpacesDirectorySidebarProvider)
+// — the shell's bn_hub is too coarse to distinguish this directory from other
+// surfaces that might share a hub.
+Surface::set( 'spaces' );
 
 // ── Query parameters ─────────────────────────────────────────────────────────
 
@@ -227,212 +236,10 @@ if ( ! function_exists( 'bn_space_cover_tone' ) ) {
 	}
 }
 
-if ( ! function_exists( 'bn_space_side_emblem' ) ) {
-	/**
-	 * Sidebar space emblem: the real space avatar when set, else the category
-	 * glyph. Keeps the spaces-directory sidebar consistent with the activity
-	 * sidebar (which shows the real avatar); the category icon is the fallback so
-	 * a row is never empty. Single helper used by every directory sidebar list.
-	 *
-	 * @param array<string, mixed> $space Hydrated space row (avatar_url, category_slug).
-	 * @return string Safe markup (escaped img, or wp_kses-sanitized SVG).
-	 */
-	function bn_space_side_emblem( array $space ): string {
-		$avatar = isset( $space['avatar_url'] ) ? (string) $space['avatar_url'] : '';
-		if ( '' !== $avatar ) {
-			return '<img src="' . esc_url( $avatar ) . '" alt="" width="28" height="28" loading="lazy">';
-		}
-		return bn_space_category_icon( isset( $space['category_slug'] ) ? (string) $space['category_slug'] : '' );
-	}
-}
-
-// ── Right sidebar widgets ────────────────────────────────────────────────────
-// Registered on the shared hub-shell action. The shell detects via
-// has_action() after the inner buffer flushes and renders the right column.
-add_action(
-	'buddynext_right_sidebar',
-	static function () use ( $current_user_id, $bn_space_service, $bn_cat_by_id ) {
-		// Categories are filtered from the primary chip row at the top of the
-		// directory now (single-select scope + category), so the old sidebar
-		// "Categories" card was removed to avoid two places doing the same job.
-
-		// Resolve the category slug for a hydrated space row (rows carry
-		// category_id; the emblem helper wants the slug) so a row is never empty.
-		$bn_resolve_slug = static function ( array $space ) use ( $bn_cat_by_id ): array {
-			$cid                    = isset( $space['category_id'] ) ? (int) $space['category_id'] : 0;
-			$space['category_slug'] = $cid && isset( $bn_cat_by_id[ $cid ] )
-				? (string) $bn_cat_by_id[ $cid ]['slug']
-				: '';
-			return $space;
-		};
-
-		// Card: Suggested for you (members only) — personalized discovery (social proof +
-		// category affinity + popularity). Lives in the sidebar as a discovery aside (it
-		// used to sit between the filters and the grid). Empty (member already in
-		// everything / nothing fits) -> the card is not rendered, and "Popular this week"
-		// below shows as the fallback. Logged-out visitors get "Popular this week" only.
-		$bn_suggested_shown = false;
-		if ( $current_user_id ) {
-			$bn_suggested = ( new \BuddyNext\Spaces\SpaceSuggestionService() )->suggest( $current_user_id, 5 );
-			if ( ! empty( $bn_suggested ) ) {
-				$bn_suggested_shown = true;
-				ob_start();
-				?>
-				<ul class="bn-sd-side-list">
-					<?php
-					foreach ( $bn_suggested as $bn_sug ) :
-						$bn_sug = $bn_resolve_slug( $bn_sug );
-						?>
-						<li>
-							<a href="<?php echo esc_url( buddynext_space_url( $bn_sug['slug'] ) ); ?>" class="bn-sd-side-row">
-								<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo bn_space_side_emblem( $bn_sug ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
-								<span class="bn-sd-side-row__main">
-									<span><?php echo esc_html( $bn_sug['name'] ); ?></span>
-									<span class="bn-sd-side-row__meta">
-									<?php
-									$bn_sug_mc = (int) $bn_sug['member_count'];
-									/* translators: %s: formatted member count */ printf( esc_html( _n( '%s member', '%s members', $bn_sug_mc, 'buddynext' ) ), esc_html( number_format_i18n( $bn_sug_mc ) ) );
-									?>
-									</span>
-								</span>
-							</a>
-						</li>
-					<?php endforeach; ?>
-				</ul>
-				<?php
-				buddynext_get_template(
-					'parts/sidebar-card.php',
-					array(
-						'id'         => 'spaces-suggested',
-						'title'      => __( 'Suggested for you', 'buddynext' ),
-						'title_icon' => 'sparkles',
-						'body_html'  => (string) ob_get_clean(),
-					)
-				);
-			}
-		}
-
-		// Card: Your spaces (members only) — split into "You manage" (owner/mod) and
-		// "You joined" (member) via the same member_role filter the directory uses,
-		// so the spaces a member is responsible for are easy to find.
-		if ( $current_user_id ) {
-			$bn_my_managed = $bn_space_service->list_spaces(
-				array(
-					'member'      => $current_user_id,
-					'viewer'      => $current_user_id,
-					'member_role' => 'manage',
-					'per_page'    => 5,
-				)
-			);
-			$bn_my_joined  = $bn_space_service->list_spaces(
-				array(
-					'member'      => $current_user_id,
-					'viewer'      => $current_user_id,
-					'member_role' => 'joined',
-					'per_page'    => 5,
-				)
-			);
-
-			if ( ! empty( $bn_my_managed ) || ! empty( $bn_my_joined ) ) {
-				$bn_my_groups = array(
-					array(
-						'label'  => __( 'You manage', 'buddynext' ),
-						'spaces' => $bn_my_managed,
-					),
-					array(
-						'label'  => __( 'You joined', 'buddynext' ),
-						'spaces' => $bn_my_joined,
-					),
-				);
-				ob_start();
-				foreach ( $bn_my_groups as $bn_grp ) :
-					if ( empty( $bn_grp['spaces'] ) ) {
-						continue;
-					}
-					?>
-					<p class="bn-sd-side-grouplabel"><?php echo esc_html( (string) $bn_grp['label'] ); ?></p>
-					<ul class="bn-sd-side-list">
-						<?php
-						foreach ( $bn_grp['spaces'] as $bn_ms ) :
-							$bn_ms = $bn_resolve_slug( $bn_ms );
-							?>
-							<li>
-								<a href="<?php echo esc_url( buddynext_space_url( $bn_ms['slug'] ) ); ?>" class="bn-sd-side-row">
-									<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo bn_space_side_emblem( $bn_ms ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
-									<span><?php echo esc_html( $bn_ms['name'] ); ?></span>
-								</a>
-							</li>
-						<?php endforeach; ?>
-					</ul>
-					<?php
-				endforeach;
-				$bn_my_html = (string) ob_get_clean();
-
-				buddynext_get_template(
-					'parts/sidebar-card.php',
-					array(
-						'id'         => 'spaces-yours',
-						'title'      => __( 'Your spaces', 'buddynext' ),
-						'title_icon' => 'users',
-						'body_html'  => $bn_my_html,
-					)
-				);
-			}
-		}
-
-		// Card: Popular this week — shown to logged-out visitors (who can't get
-		// suggestions) and as the fallback for a logged-in member with no suggestions.
-		// Suppressed when "Suggested for you" rendered, so the two don't overlap.
-		$bn_featured = $bn_suggested_shown ? array() : $bn_space_service->list_spaces(
-			array(
-				'type'     => 'open',
-				'orderby'  => 'member_count',
-				'order'    => 'DESC',
-				'per_page' => 5,
-				'viewer'   => $current_user_id,
-				'is_admin' => current_user_can( 'manage_options' ),
-			)
-		);
-
-		if ( ! empty( $bn_featured ) ) {
-			ob_start();
-			?>
-			<ul class="bn-sd-side-list">
-				<?php
-				foreach ( $bn_featured as $bn_f ) :
-					$bn_f = $bn_resolve_slug( $bn_f );
-					?>
-					<li>
-						<a href="<?php echo esc_url( buddynext_space_url( $bn_f['slug'] ) ); ?>" class="bn-sd-side-row">
-							<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo bn_space_side_emblem( $bn_f ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
-							<span class="bn-sd-side-row__main">
-								<span><?php echo esc_html( $bn_f['name'] ); ?></span>
-								<span class="bn-sd-side-row__meta">
-								<?php
-								$bn_sd_mc = (int) $bn_f['member_count'];
-								/* translators: %s: formatted member count */ printf( esc_html( _n( '%s member', '%s members', $bn_sd_mc, 'buddynext' ) ), esc_html( number_format_i18n( $bn_sd_mc ) ) );
-								?>
-								</span>
-							</span>
-						</a>
-					</li>
-				<?php endforeach; ?>
-			</ul>
-			<?php
-			$bn_feat_html = (string) ob_get_clean();
-
-			buddynext_get_template(
-				'parts/sidebar-card.php',
-				array(
-					'id'         => 'spaces-featured',
-					'title'      => __( 'Popular this week', 'buddynext' ),
-					'title_icon' => 'star',
-					'body_html'  => $bn_feat_html,
-				)
-			);
-		}
-	}
-);
+// bn_space_side_emblem() (avatar-or-category-icon row glyph) formerly lived
+// here; the spaces-directory sidebar it served now renders via
+// SpacesDirectorySidebarProvider, which carries its own private copy
+// (side_emblem()) — this template no longer needs the helper.
 
 /**
  * Fires before the spaces-directory inner content.
@@ -633,7 +440,7 @@ $bn_subtitle = sprintf(
 		><?php esc_html_e( 'Retry', 'buddynext' ); ?></button>
 	</div>
 
-	<?php // "Suggested for you" now lives in the right sidebar (a discovery aside, not between the filters and the grid) — see the buddynext_right_sidebar registration above. ?>
+	<?php // "Suggested for you" now lives in the right sidebar (a discovery aside, not between the filters and the grid) — see SpacesDirectorySidebarProvider. ?>
 	<div class="bn-sd-results" data-bn-sd-results>
 
 	<?php
