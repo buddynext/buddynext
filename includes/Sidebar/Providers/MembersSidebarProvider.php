@@ -127,70 +127,14 @@ class MembersSidebarProvider {
 			);
 		}
 
-		// By-type: member types with directory-accurate counts, filtered against
-		// the active `?member_type` / `?type` request filter — same active-filter
-		// resolution members.php performs before rendering the sidebar.
-		$type_slug_filter = sanitize_key( (string) get_query_var( 'bn_member_type', '' ) );
-		if ( '' === $type_slug_filter ) {
-			$type_slug_filter = sanitize_key( wp_unslash( $_GET['type'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		}
+		// NOTE: no "By type" widget — the directory toolbar already has an "All
+		// member types" dropdown facet, so a sidebar type list would duplicate the
+		// same filter. Type filtering lives in the toolbar; the sidebar carries
+		// presence (online-now) + discovery (below) instead.
 
-		$dir_types = $this->dir_types( $current_user_id );
-
-		if ( ! empty( $dir_types ) ) {
-			$descriptors[] = array(
-				'id'       => 'members-by-type',
-				'priority' => 30,
-				'surfaces' => self::SURFACES,
-				'title'    => __( 'By type', 'buddynext' ),
-				'icon'     => 'tag',
-				'render'   => static function () use ( $dir_types, $type_slug_filter ): void {
-					?>
-					<ul class="bn-md-sidebar-list bn-md-sidebar-list--rows">
-						<?php
-						// "All" row.
-						$all_url    = PageRouter::people_url();
-						$all_active = ( '' === $type_slug_filter );
-						?>
-						<li class="bn-md-sidebar-row">
-							<a
-								class="bn-md-sidebar-row__link<?php echo $all_active ? ' is-active' : ''; ?>"
-								href="<?php echo esc_url( $all_url ); ?>"
-								<?php echo $all_active ? 'aria-current="page"' : ''; ?>
-							>
-								<span class="bn-md-sidebar-row__label"><?php esc_html_e( 'All members', 'buddynext' ); ?></span>
-							</a>
-						</li>
-						<?php foreach ( $dir_types as $type ) : ?>
-							<?php
-							$type_slug   = (string) $type['slug'];
-							$type_name   = (string) $type['name'];
-							$type_count  = isset( $type['member_count'] ) ? (int) $type['member_count'] : ( isset( $type['count'] ) ? (int) $type['count'] : 0 );
-							$type_url    = PageRouter::member_type_url( $type_slug );
-							$type_active = ( $type_slug === $type_slug_filter );
-							?>
-							<li class="bn-md-sidebar-row">
-								<a
-									class="bn-md-sidebar-row__link<?php echo $type_active ? ' is-active' : ''; ?>"
-									href="<?php echo esc_url( $type_url ); ?>"
-									<?php echo $type_active ? 'aria-current="page"' : ''; ?>
-								>
-									<span class="bn-md-sidebar-row__label"><?php echo esc_html( $type_name ); ?></span>
-									<?php if ( $type_count > 0 ) : ?>
-										<span class="bn-md-sidebar-row__count"><?php echo esc_html( number_format_i18n( $type_count ) ); ?></span>
-									<?php endif; ?>
-								</a>
-							</li>
-						<?php endforeach; ?>
-					</ul>
-					<?php
-				},
-			);
-		}
-
-		// Discovery widgets fill the directory sidebar below the facets (the
-		// online-now + by-type cards are short, so the column had dead space).
-		// Viewer-centric + self-chromed, reusing the shared feed partials/service.
+		// Discovery widgets fill the directory sidebar below online-now (a short
+		// card, so the column had dead space). Viewer-centric + self-chromed,
+		// reusing the shared feed partials/service.
 		$service = ( function_exists( 'buddynext_service' ) && Container::instance()->has( 'sidebar_widgets' ) )
 			? buddynext_service( 'sidebar_widgets' )
 			: null;
@@ -242,44 +186,5 @@ class MembersSidebarProvider {
 		}
 
 		return $descriptors;
-	}
-
-	/**
-	 * Directory-visible member types with directory-accurate member counts.
-	 *
-	 * Mirrors the computation in templates/directory/members.php (~95-133):
-	 * `member_types`'s `get_all_with_counts()` filtered to `show_in_dir`
-	 * rows, then each row's `member_count` overridden with
-	 * `MemberDirectoryService::type_member_counts()` so a facet count always
-	 * matches exactly who the member-directory list shows for that type
-	 * (list_members() excludes the viewer + applies the discovery gate,
-	 * which the raw assignment-row count does not).
-	 *
-	 * @param int $viewer_id Viewing user ID (excluded from directory-accurate counts).
-	 * @return array<int,array<string,mixed>>
-	 */
-	private function dir_types( int $viewer_id ): array {
-		if ( ! function_exists( 'buddynext_service' ) ) {
-			return array();
-		}
-
-		$member_types = buddynext_service( 'member_types' );
-		if ( ! is_object( $member_types ) ) {
-			return array();
-		}
-
-		$all_types_raw = $member_types->get_all_with_counts();
-		$dir_types     = array_values( array_filter( $all_types_raw, static fn( $t ) => ! empty( $t['show_in_dir'] ) ) );
-
-		$directory_service = buddynext_service( 'member_directory' );
-		if ( is_object( $directory_service ) && method_exists( $directory_service, 'type_member_counts' ) ) {
-			$type_counts = $directory_service->type_member_counts( $viewer_id );
-			foreach ( $dir_types as &$type ) {
-				$type['member_count'] = (int) ( $type_counts[ (int) ( $type['id'] ?? 0 ) ] ?? 0 );
-			}
-			unset( $type );
-		}
-
-		return $dir_types;
 	}
 }

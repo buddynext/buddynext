@@ -8,9 +8,6 @@
 declare( strict_types=1 );
 namespace BuddyNext\Tests\Sidebar;
 
-use BuddyNext\Core\CacheService;
-use BuddyNext\Core\Installer;
-use BuddyNext\MemberTypes\MemberTypeService;
 use BuddyNext\Realtime\PresenceService;
 use BuddyNext\Sidebar\Providers\MembersSidebarProvider;
 use WP_UnitTestCase;
@@ -22,7 +19,6 @@ class MembersSidebarProviderTest extends WP_UnitTestCase {
 
 	public function set_up(): void {
 		parent::set_up();
-		Installer::run();
 		wp_cache_flush();
 	}
 
@@ -30,59 +26,44 @@ class MembersSidebarProviderTest extends WP_UnitTestCase {
 		$this->assertSame( array(), ( new MembersSidebarProvider() )->widgets( array(), 'feed' ) );
 	}
 
-	public function test_members_surface_with_no_online_users_omits_online_now_card(): void {
-		// Installer::run() always seeds two starter member types (contributor, staff)
-		// with show_in_dir=1, so the "By type" card is present even with zero
-		// assignments — matches templates/directory/members.php's `$dir_types` gate,
-		// which never checked member_count, only `show_in_dir`. Online-now's guard
-		// (`! empty( $bn_online_rows )`) DOES depend on presence data, so with no
-		// bn_presence rows written, only the by-type descriptor should appear.
-		$widgets = ( new MembersSidebarProvider() )->widgets( array(), 'members' );
-
-		$this->assertSame( array( 'members-by-type' ), wp_list_pluck( $widgets, 'id' ) );
+	public function test_no_by_type_widget_it_duplicates_the_toolbar_filter(): void {
+		// The directory toolbar already has an "All member types" dropdown, so a
+		// "By type" sidebar card would duplicate that facet — the provider must
+		// never register one.
+		$ids = wp_list_pluck( ( new MembersSidebarProvider() )->widgets( array(), 'members' ), 'id' );
+		$this->assertNotContains( 'members-by-type', $ids );
 	}
 
-	public function test_members_surface_with_seeded_data_returns_both_descriptors(): void {
-		// Online-now: a user with a fresh presence heartbeat.
+	public function test_online_now_is_a_titled_card_when_a_member_is_present(): void {
 		$online_user = self::factory()->user->create( array( 'display_name' => 'Online Olive' ) );
 		PresenceService::write( $online_user, time() );
 
-		// By-type: one directory-visible member type with an assigned member.
-		$type_service = new MemberTypeService( new CacheService() );
-		$type_id      = $type_service->create(
-			array(
-				'slug' => 'mentor',
-				'name' => 'Mentor',
-			)
-		);
-		$this->assertIsInt( $type_id, 'Fixture member type must be created.' );
-		$type_service->assign_type( $online_user, $type_id );
-
 		$widgets = ( new MembersSidebarProvider() )->widgets( array(), 'members' );
-
-		$this->assertCount( 2, $widgets );
-		$this->assertSame(
-			array( 'members-online-now', 'members-by-type' ),
-			wp_list_pluck( $widgets, 'id' )
-		);
 
 		$by_id = array();
 		foreach ( $widgets as $widget ) {
 			$by_id[ $widget['id'] ] = $widget;
 		}
 
+		$this->assertArrayHasKey( 'members-online-now', $by_id, 'A present member yields the online-now card.' );
 		$this->assertStringStartsWith( 'Online now (', (string) $by_id['members-online-now']['title'] );
 		$this->assertSame( 'users', $by_id['members-online-now']['icon'] );
+		// Titled card — uses the registry default chrome (parts/sidebar-card.php).
 		$this->assertArrayNotHasKey( 'chrome', $by_id['members-online-now'] );
+	}
 
-		$this->assertSame( 'By type', $by_id['members-by-type']['title'] );
-		$this->assertSame( 'tag', $by_id['members-by-type']['icon'] );
-		$this->assertArrayNotHasKey( 'chrome', $by_id['members-by-type'] );
-
-		// Neither descriptor sets chrome => false — these are titled cards that
-		// use the registry's default chrome (parts/sidebar-card.php wraps them).
+	public function test_discovery_widgets_are_self_chromed_when_present(): void {
+		// People-to-follow / what's-happening are self-chromed (chrome => false).
+		// Their data comes from the sidebar_widgets service, which may be empty in
+		// the harness — so assert the contract only for any that DO appear.
+		$widgets = ( new MembersSidebarProvider() )->widgets( array(), 'members' );
 		foreach ( $widgets as $widget ) {
-			$this->assertArrayNotHasKey( 'chrome', $widget );
+			if ( in_array( $widget['id'], array( 'members-people-to-follow', 'members-whats-happening' ), true ) ) {
+				$this->assertArrayHasKey( 'chrome', $widget );
+				$this->assertFalse( $widget['chrome'] );
+				$this->assertSame( array( 'members' ), $widget['surfaces'] );
+			}
 		}
+		$this->assertTrue( true );
 	}
 }
