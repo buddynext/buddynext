@@ -1662,6 +1662,67 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	padding: var(--bn-s3) var(--bn-s4);
 }
 
+/* ── Canonical member row (parts/sidebar-member-row.php) ─────────────────
+	ONE shared row for every people-listing sidebar widget (People to Follow,
+	People to discover, Online now). Global (bn-base.css) so it renders the
+	same on every surface — the old per-widget classes carried the good look
+	only on one surface each. Avatar + name/@handle column that CLIPS, and a
+	compact, non-shrinking trailing action so a long name never overlaps or
+	pushes out the Follow button. */
+.bn-member-row-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.bn-member-row {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) 0;
+	border-bottom: 1px solid var(--bn-line-faint);
+}
+.bn-member-row:last-child { border-bottom: none; }
+.bn-member-row__link {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	flex: 1 1 auto;
+	min-width: 0;
+	text-decoration: none;
+	color: inherit;
+}
+.bn-member-row__text {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+.bn-member-row__name {
+	font-size: var(--text-sm);
+	font-weight: var(--fw-medium, 500);
+	color: var(--text-1);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.bn-member-row__link:hover .bn-member-row__name { color: var(--brand); }
+.bn-member-row__meta {
+	font-family: var(--bn-font-mono, ui-monospace, monospace);
+	font-size: var(--text-xs);
+	color: var(--text-3);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+/* Compact, fixed action so the name column keeps the width. follow-button.php
+   wraps its .bn-btn in .bn-follow-btn-wrap, so pin both. */
+.bn-member-row > .bn-follow-btn-wrap,
+.bn-member-row > .bn-btn { flex: 0 0 auto; }
+.bn-member-row .bn-btn {
+	padding-block: 4px;
+	padding-inline: var(--bn-s3);
+	font-size: var(--text-xs);
+}
+
 /* ── Reusable sidebar row base ──────────────────────────────────────────
 	Apply .bn-sbar-row to any list item inside bn-sidebar-card__body.
 	Each widget adds its own flex layout on top of this base. */

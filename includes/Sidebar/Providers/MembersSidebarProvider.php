@@ -18,7 +18,6 @@ namespace BuddyNext\Sidebar\Providers;
 
 use BuddyNext\Core\PageRouter;
 use BuddyNext\Core\Container;
-use BuddyNext\Profile\AvatarService;
 
 /**
  * Member-directory sidebar widget descriptors.
@@ -82,47 +81,26 @@ class MembersSidebarProvider {
 				),
 				'icon'     => 'users',
 				'render'   => static function () use ( $online_rows ): void {
-					?>
-					<ul class="bn-md-sidebar-list">
-						<?php foreach ( $online_rows as $row ) : ?>
-							<?php
-							$row_id     = (int) $row['ID'];
-							$row_name   = (string) $row['display_name'];
-							$row_handle = (string) ( $row['handle'] ?? '' );
-							$row_url    = PageRouter::profile_url( $row_id );
-							$row_av     = (string) get_avatar_url( $row_id, array( 'size' => 56 ) );
-							$row_tone   = self::AVATAR_TONES[ $row_id % count( self::AVATAR_TONES ) ];
-							?>
-							<li class="bn-md-sidebar-item">
-								<a class="bn-md-sidebar-item__link" href="<?php echo esc_url( $row_url ); ?>">
-									<span
-										class="bn-avatar"
-										data-size="sm"
-										data-presence="online"
-										data-tone="<?php echo esc_attr( $row_tone ); ?>"
-									>
-										<?php if ( '' !== $row_av ) : ?>
-											<img
-												src="<?php echo esc_url( $row_av ); ?>"
-												alt=""
-												width="28"
-												height="28"
-												loading="lazy"
-												decoding="async"
-											>
-										<?php else : ?>
-											<?php echo esc_html( AvatarService::initials_for( $row_name ) ); ?>
-										<?php endif; ?>
-									</span>
-									<span class="bn-md-sidebar-item__text">
-										<span class="bn-md-sidebar-item__name"><?php echo esc_html( $row_name ); ?></span>
-										<span class="bn-md-sidebar-item__handle">@<?php echo esc_html( $row_handle ); ?></span>
-									</span>
-								</a>
-							</li>
-						<?php endforeach; ?>
-					</ul>
-					<?php
+					if ( ! function_exists( 'buddynext_get_template' ) ) {
+						return;
+					}
+					echo '<ul class="bn-member-row-list">';
+					foreach ( $online_rows as $row ) {
+						$row_id = (int) $row['ID'];
+						buddynext_get_template(
+							'parts/sidebar-member-row.php',
+							array(
+								'row_user_id' => $row_id,
+								'row_name'    => (string) $row['display_name'],
+								'row_handle'  => (string) ( $row['handle'] ?? '' ),
+								'row_url'     => PageRouter::profile_url( $row_id ),
+								'row_avatar'  => (string) get_avatar_url( $row_id, array( 'size' => 40 ) ),
+								'row_tone'    => self::AVATAR_TONES[ $row_id % count( self::AVATAR_TONES ) ],
+								'row_online'  => true,
+							)
+						);
+					}
+					echo '</ul>';
 				},
 			);
 		}
