@@ -161,7 +161,8 @@ function buildMediaTile( media ) {
 /**
  * Fill the conversation info panel's "Shared photos" grid from the image media
  * already rendered in the thread — no extra request, just reads the loaded
- * `.bn-dm-bubble__media` thumbnails. Covers media in messages loaded so far.
+ * `.bn-dm-msg__media` thumbnails. Covers media in messages loaded so far. For
+ * the full conversation history (and the app) use GET /conversations/{id}/media.
  *
  * @return {void}
  */
@@ -171,7 +172,7 @@ function collectSharedMedia() {
 		return;
 	}
 
-	const imgs = document.querySelectorAll( '.bn-dm-bubble__media[data-type="image"] img' );
+	const imgs = document.querySelectorAll( '.bn-dm-msg__media[data-type="image"] .bn-media-tile__img' );
 	grid.textContent = '';
 
 	if ( ! imgs.length ) {
@@ -1205,7 +1206,18 @@ const messagesStore = store( 'buddynext/messages', {
 						const btn = document.createElement( 'button' );
 						btn.type      = 'button';
 						btn.className = 'bn-dm-search__result';
-						btn.textContent = m.content || '';
+						// Show who said it — a bare snippet is ambiguous in group
+						// threads. sender_name comes from the enriched REST result.
+						if ( m.sender_name ) {
+							const who = document.createElement( 'span' );
+							who.className = 'bn-dm-search__sender';
+							who.textContent = m.sender_name;
+							btn.appendChild( who );
+						}
+						const snippet = document.createElement( 'span' );
+						snippet.className = 'bn-dm-search__snippet';
+						snippet.textContent = m.content || '';
+						btn.appendChild( snippet );
 						btn.addEventListener( 'click', () => {
 							const node = document.querySelector( '.bn-dm-msg[data-msg-id="' + ( m.id || 0 ) + '"]' );
 							if ( node ) {
