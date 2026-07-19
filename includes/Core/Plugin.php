@@ -514,6 +514,15 @@ class Plugin {
 		// add_action() callback registered inline by templates/profile/view.php.
 		( new \BuddyNext\Sidebar\Providers\ProfileSidebarProvider() )->register();
 
+		// Notifications sidebar widgets (quick filters, per-type breakdown,
+		// recent actors, preferences link, "this week" stats, muted list) —
+		// self-chromed descriptors registered on the buddynext_sidebar_widgets
+		// filter above, scoped to the single `notifications` surface. "This
+		// week" stats and muted list are logged-in-only. Formerly a single
+		// buddynext_right_sidebar add_action() callback registered inline by
+		// templates/notifications/index.php.
+		( new \BuddyNext\Sidebar\Providers\NotificationsSidebarProvider() )->register();
+
 		// Member-directory facet counts — busted whenever a member enters or leaves the
 		// groups the counts exclude (suspended / shadow-banned / directory opt-out).
 		( new \BuddyNext\Profile\MemberDirectoryListener() )->register();
