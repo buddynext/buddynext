@@ -85,6 +85,12 @@ class SidebarRegistry {
 			if ( '' === $body ) {
 				continue; // Self-hiding.
 			}
+			if ( isset( $widget['chrome'] ) && false === $widget['chrome'] ) {
+				// Self-chromed widget: it renders its own .bn-sidebar-card, so echo
+				// the (already-escaped) body raw instead of double-wrapping it.
+				echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render callback outputs escaped markup.
+				continue;
+			}
 			$this->render_card( $widget, $body );
 		}
 	}

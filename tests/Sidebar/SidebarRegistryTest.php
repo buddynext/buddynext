@@ -36,6 +36,14 @@ class SidebarRegistryTest extends WP_UnitTestCase {
 		$this->add( array( 'id' => 'blank', 'title' => 'Blank', 'render' => static fn() => null ) );
 		$this->assertSame( '', trim( $this->render_for( 'feed' ) ) );
 	}
+	public function test_chrome_false_echoes_body_raw(): void {
+		// Self-chromed widget: renders its own card, no sidebar-card wrapper, no title needed.
+		$this->add( array( 'id' => 'selfchromed', 'chrome' => false, 'render' => static fn() => print( '<div class="bn-sidebar-card"><span class="raw">own</span></div>' ) ) );
+		$html = $this->render_for( 'feed' );
+		$this->assertStringContainsString( 'class="raw"', $html );
+		// Only ONE .bn-sidebar-card (the widget's own), not a wrapping one too.
+		$this->assertSame( 1, substr_count( $html, 'bn-sidebar-card' ) );
+	}
 	public function test_surfaces_scope(): void {
 		$this->add( array( 'id' => 'p', 'title' => 'P', 'surfaces' => array( 'profile' ), 'render' => static fn() => print( '<i class="p">x</i>' ) ) );
 		$this->assertStringNotContainsString( 'class="p"', $this->render_for( 'feed' ) );
