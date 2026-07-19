@@ -17,6 +17,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Sidebar\Providers;
 
 use BuddyNext\Core\PageRouter;
+use BuddyNext\Core\Container;
 use BuddyNext\Profile\AvatarService;
 
 /**
@@ -185,6 +186,59 @@ class MembersSidebarProvider {
 					<?php
 				},
 			);
+		}
+
+		// Discovery widgets fill the directory sidebar below the facets (the
+		// online-now + by-type cards are short, so the column had dead space).
+		// Viewer-centric + self-chromed, reusing the shared feed partials/service.
+		$service = ( function_exists( 'buddynext_service' ) && Container::instance()->has( 'sidebar_widgets' ) )
+			? buddynext_service( 'sidebar_widgets' )
+			: null;
+
+		if ( is_object( $service ) && $current_user_id > 0 && method_exists( $service, 'suggested_follows' ) ) {
+			$suggested = (array) $service->suggested_follows( $current_user_id, 3 );
+			if ( ! empty( $suggested ) ) {
+				$members_url   = PageRouter::people_url();
+				$descriptors[] = array(
+					'id'       => 'members-people-to-follow',
+					'priority' => 40,
+					'surfaces' => self::SURFACES,
+					'chrome'   => false,
+					'render'   => static function () use ( $suggested, $members_url ): void {
+						if ( ! function_exists( 'buddynext_get_template' ) ) {
+							return;
+						}
+						buddynext_get_template(
+							'parts/sidebar-people-to-follow.php',
+							array(
+								'sbar_suggested'   => $suggested,
+								'sbar_members_url' => $members_url,
+							)
+						);
+					},
+				);
+			}
+		}
+
+		if ( is_object( $service ) && method_exists( $service, 'trending_hashtags' ) ) {
+			$trending = (array) $service->trending_hashtags( 5 );
+			if ( ! empty( $trending ) ) {
+				$descriptors[] = array(
+					'id'       => 'members-whats-happening',
+					'priority' => 50,
+					'surfaces' => self::SURFACES,
+					'chrome'   => false,
+					'render'   => static function () use ( $trending ): void {
+						if ( ! function_exists( 'buddynext_get_template' ) ) {
+							return;
+						}
+						buddynext_get_template(
+							'parts/sidebar-trending-topics.php',
+							array( 'sbar_trending' => $trending )
+						);
+					},
+				);
+			}
 		}
 
 		return $descriptors;
