@@ -464,6 +464,13 @@ class Plugin {
 			( new \BuddyNext\Sidebar\WidgetListener( $container->get( 'sidebar_cache' ) ) )->register();
 		}
 
+		// Surface-scoped right-sidebar widget registry — the single renderer
+		// for the whole suite. Free's own widgets and every Pro bridge
+		// register a descriptor via buddynext_sidebar_widgets; this renders
+		// them. Unconditional (not gated behind the sidebar_widgets cache
+		// feature above, which only covers the legacy widget-cache path).
+		( new \BuddyNext\Sidebar\SidebarRegistry() )->register();
+
 		// Member-directory facet counts — busted whenever a member enters or leaves the
 		// groups the counts exclude (suspended / shadow-banned / directory opt-out).
 		( new \BuddyNext\Profile\MemberDirectoryListener() )->register();
