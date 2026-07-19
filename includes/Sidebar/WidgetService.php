@@ -149,7 +149,7 @@ class WidgetService {
 				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 				$hydrated = $wpdb->get_results(
 					$wpdb->prepare(
-						'SELECT u.ID, u.display_name, u.user_login FROM ' . $wpdb->users . ' u WHERE u.ID IN (' . $ids_ph . ')',
+						'SELECT u.ID, u.display_name, u.user_login, u.user_nicename FROM ' . $wpdb->users . ' u WHERE u.ID IN (' . $ids_ph . ')',
 						$candidate_ids
 					)
 				);

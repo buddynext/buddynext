@@ -1702,7 +1702,14 @@ html:has( .bn-app__main ) { scrollbar-gutter: stable; }
 	padding-inline: var(--bn-s3);
 	font-size: var(--text-xs);
 }
-.bn-sbar-row__meta { font-size: var(--text-xs); color: var(--text-3); }
+.bn-sbar-row__meta {
+	display: block;
+	font-size: var(--text-xs);
+	color: var(--text-3);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
 .bn-sbar-row__avatar {
 	width: 36px;
 	height: 36px;

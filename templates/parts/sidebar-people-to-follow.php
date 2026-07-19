@@ -48,8 +48,17 @@ $sbar_members_url = isset( $sbar_members_url ) ? (string) $sbar_members_url : ''
 						<a href="<?php echo esc_url( $sbar_sug_url ); ?>" class="bn-sbar-row__name">
 							<?php echo esc_html( $sbar_sug->display_name ); ?>
 						</a>
+						<?php
+						// Secondary line — the @handle (or "Request sent" when a
+						// connection request is pending), matching the two-line member
+						// row the "Online now" widget uses, so the card reads premium
+						// rather than a bare name + button.
+						$sbar_sug_handle = (string) ( $sbar_sug->user_nicename ?? ( $sbar_sug->user_login ?? '' ) );
+						?>
 						<?php if ( 'requested' === $sbar_sug_status ) : ?>
 							<span class="bn-sbar-row__meta"><?php esc_html_e( 'Request sent', 'buddynext' ); ?></span>
+						<?php elseif ( '' !== $sbar_sug_handle ) : ?>
+							<span class="bn-sbar-row__meta">@<?php echo esc_html( $sbar_sug_handle ); ?></span>
 						<?php endif; ?>
 					</span>
 					<?php
