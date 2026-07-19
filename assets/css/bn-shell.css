@@ -295,10 +295,22 @@ body.admin-bar .bn-app__rail {
 }
 
 .bn-rail__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 	width: var(--bn-rail-icon-size);
 	height: var(--bn-rail-icon-size);
 	flex-shrink: 0;
 	stroke: currentColor;
+}
+
+/* Center the SVG in its box: as an inline element the icon sat on the text
+   baseline (~3px low), so it read misaligned against the label. Block removes
+   the baseline/vertical-align offset; the flex box above centers it. */
+.bn-rail__icon svg {
+	display: block;
+	width: 100%;
+	height: 100%;
 }
 
 .bn-rail__label {
