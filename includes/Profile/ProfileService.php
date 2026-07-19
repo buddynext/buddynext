@@ -1853,12 +1853,10 @@ class ProfileService {
 		// SCHEMA-DRIVEN, never keyed on seeded field/group keys or English names:
 		// site owners rename labels, delete the preset groups, and build custom
 		// schemas, so tasks derive from what the schema actually contains.
-		// Granularity comes from schema FLAGS only:
-		// - SYSTEM flat groups (the code-consumed spine: basics, skills,
-		// interests) -> one task per field, labelled from the field's live
-		// admin-set label.
-		// - NON-SYSTEM flat groups (social links and any custom cluster) ->
-		// one rollup task per group, done when any field in it is filled.
+		// GROUP-BASED granularity — one task per GROUP, so the checklist stays
+		// scannable regardless of how many fields a group holds:
+		// - Flat groups (basics, skills, interests, social links, any custom
+		// cluster) -> one rollup task per group, done when any field is filled.
 		// - Repeater groups (work experience, education, customs) -> one task
 		// per group, done when it has at least one non-empty entry.
 		$filled = static fn( $value ): bool => '' !== trim(
@@ -1896,20 +1894,13 @@ class ProfileService {
 				continue;
 			}
 
-			if ( ! empty( $group['is_system'] ) ) {
-				foreach ( $fields as $f ) {
-					$tasks[] = array(
-						'label' => sprintf(
-							/* translators: %s: profile field name (owner-defined, e.g. "Bio") */
-							__( 'Add %s', 'buddynext' ),
-							(string) ( $f['label'] ?? '' )
-						),
-						'done'  => $filled( $f['value'] ?? '' ),
-					);
-				}
-				continue;
-			}
-
+			// GROUP-BASED: one rollup task per flat group (system or not), done when
+			// any field in the group is filled. System flat groups previously emitted
+			// one task PER FIELD, which flooded the checklist with per-field noise
+			// ("Add Bio", "Add Headline", a duplicated "Add Genres", "Add Seed
+			// Public/Members/…" — screenshot 2026-07-19). One task per GROUP keeps the
+			// checklist scannable and still surfaces which SECTIONS are unfilled, which
+			// is what a member acts on. Repeater groups already roll up per group above.
 			$any_filled = false;
 			foreach ( $fields as $f ) {
 				if ( $filled( $f['value'] ?? '' ) ) {
@@ -1919,7 +1910,7 @@ class ProfileService {
 			}
 			$tasks[] = array(
 				'label' => sprintf(
-					/* translators: %s: profile section name (owner-defined, e.g. "Social Links") */
+					/* translators: %s: profile section name (owner-defined, e.g. "Basic Info") */
 					__( 'Add %s', 'buddynext' ),
 					$group_label
 				),
