@@ -484,6 +484,12 @@ class Plugin {
 		// above, scoped to the single `explore` surface.
 		( new \BuddyNext\Sidebar\Providers\ExploreSidebarProvider() )->register();
 
+		// Member-directory sidebar widgets (online-now, by-type) — titled
+		// cards using the registry's default chrome, scoped to the single
+		// `members` surface. Formerly two buddynext_right_sidebar add_action()
+		// callbacks inline in templates/directory/members.php.
+		( new \BuddyNext\Sidebar\Providers\MembersSidebarProvider() )->register();
+
 		// Member-directory facet counts — busted whenever a member enters or leaves the
 		// groups the counts exclude (suspended / shadow-banned / directory opt-out).
 		( new \BuddyNext\Profile\MemberDirectoryListener() )->register();
