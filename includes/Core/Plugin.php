@@ -478,6 +478,16 @@ class Plugin {
 		// leaderboard, hashtag).
 		( new \BuddyNext\Sidebar\Providers\FeedSidebarProvider() )->register();
 
+		// Hashtag-page sidebar widgets (about this hashtag, related hashtags,
+		// top contributors) — self-chromed descriptors registered on the
+		// buddynext_sidebar_widgets filter above, scoped to the single
+		// `hashtag` surface. Interleaves with FeedSidebarProvider's
+		// feed-discovery set (which also covers `hashtag`) by priority.
+		// Formerly a bespoke in-body <aside class="bn-hashtag-sidebar">
+		// rendered inline by templates/hashtags/feed.php, separate from the
+		// shell right sidebar.
+		( new \BuddyNext\Sidebar\Providers\HashtagSidebarProvider() )->register();
+
 		// Explore-aside sidebar widgets (community-pulse Pro seat, trending
 		// tags, people to discover, browse-by-category) — self-chromed
 		// descriptors registered on the buddynext_sidebar_widgets filter
