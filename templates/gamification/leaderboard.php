@@ -33,6 +33,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// Declares this fine-grained surface for the sidebar registry (SidebarRegistry
+// reads it via Surface::current()) before the shell renders the right column.
+\BuddyNext\Sidebar\Surface::set( 'leaderboard' );
+
 // Guard: wb-gamification must be active (public API present).
 if ( ! function_exists( 'wb_gam_get_leaderboard' ) ) {
 	?>
@@ -163,18 +167,6 @@ $rank_tone = static function ( int $rank ): string {
 	}
 	return 'ink';
 };
-
-add_action(
-	'buddynext_right_sidebar',
-	static function () {
-		buddynext_get_template(
-			'partials/sidebar.php',
-			array(
-				'sidebar_user_id' => get_current_user_id(),
-			)
-		);
-	}
-);
 
 /**
  * Fires before the leaderboard inner content.

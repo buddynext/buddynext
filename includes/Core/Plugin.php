@@ -471,6 +471,13 @@ class Plugin {
 		// feature above, which only covers the legacy widget-cache path).
 		( new \BuddyNext\Sidebar\SidebarRegistry() )->register();
 
+		// Feed-discovery sidebar widgets (greeting/streak, trending topics,
+		// people to follow, your/discover spaces) — self-chromed descriptors
+		// registered on the buddynext_sidebar_widgets filter above, scoped to
+		// the six feed-shaped surfaces (feed, bookmarks, single-post, search,
+		// leaderboard, hashtag).
+		( new \BuddyNext\Sidebar\Providers\FeedSidebarProvider() )->register();
+
 		// Member-directory facet counts — busted whenever a member enters or leaves the
 		// groups the counts exclude (suspended / shadow-banned / directory opt-out).
 		( new \BuddyNext\Profile\MemberDirectoryListener() )->register();

@@ -26,6 +26,10 @@ declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
+// Declares this fine-grained surface for the sidebar registry (SidebarRegistry
+// reads it via Surface::current()) before the shell renders the right column.
+\BuddyNext\Sidebar\Surface::set( 'hashtag' );
+
 // ── Resolve hashtag slug ───────────────────────────────────────────────────
 $hashtag_slug = isset( $args['hashtag_slug'] )
 	? sanitize_title( $args['hashtag_slug'] )
@@ -103,20 +107,6 @@ if ( ! $hashtag_not_found ) {
 		? $bn_hashtag_service->following_map( $current_user_id, wp_list_pluck( $related_tags, 'slug' ) )
 		: array();
 }
-
-// Hook the right sidebar widgets onto the shell. has_action() detects
-// this registration and the shell auto-renders the right column.
-add_action(
-	'buddynext_right_sidebar',
-	static function () {
-		buddynext_get_template(
-			'partials/sidebar.php',
-			array(
-				'sidebar_user_id' => get_current_user_id(),
-			)
-		);
-	}
-);
 
 /**
  * Fires before the hashtag feed inner content.
