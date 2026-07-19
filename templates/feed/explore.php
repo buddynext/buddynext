@@ -52,15 +52,7 @@ $bn_pulse            = $bn_explore_service->pulse();
 $rest_nonce = wp_create_nonce( 'wp_rest' );
 
 // ── Right sidebar: the explore-specific "heartbeat" aside ──────────────────
-add_action(
-	'buddynext_right_sidebar',
-	static function () use ( $current_user_id ) {
-		buddynext_get_template(
-			'feed/parts/explore-aside.php',
-			array( 'current_user_id' => $current_user_id )
-		);
-	}
-);
+\BuddyNext\Sidebar\Surface::set( 'explore' );
 
 /**
  * Fires before the explore feed inner content.

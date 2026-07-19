@@ -478,6 +478,12 @@ class Plugin {
 		// leaderboard, hashtag).
 		( new \BuddyNext\Sidebar\Providers\FeedSidebarProvider() )->register();
 
+		// Explore-aside sidebar widgets (community-pulse Pro seat, trending
+		// tags, people to discover, browse-by-category) — self-chromed
+		// descriptors registered on the buddynext_sidebar_widgets filter
+		// above, scoped to the single `explore` surface.
+		( new \BuddyNext\Sidebar\Providers\ExploreSidebarProvider() )->register();
+
 		// Member-directory facet counts — busted whenever a member enters or leaves the
 		// groups the counts exclude (suspended / shadow-banned / directory opt-out).
 		( new \BuddyNext\Profile\MemberDirectoryListener() )->register();
