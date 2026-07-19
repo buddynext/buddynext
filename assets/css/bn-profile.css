@@ -2923,6 +2923,31 @@ a.bn-space-row:hover .bn-space-name {
 	border-bottom: none;
 	padding: var(--bn-s1) 0;
 }
+/* Entry hierarchy: a prominent title, a muted meta line (company · location ·
+   date range), and a description block — the LinkedIn/Facebook entry shape,
+   produced from field types, not group names. */
+.bn-pf-entry__title {
+	margin: 0;
+	font-size: var(--bn-text-md, 1.05rem);
+	font-weight: var(--bn-fw-semibold, 600);
+	color: var(--bn-ink-1);
+	line-height: 1.3;
+}
+.bn-pf-entry__meta {
+	margin: 2px 0 0;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+.bn-pf-entry__desc {
+	margin-top: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	line-height: var(--bn-leading-normal, 1.6);
+}
+.bn-pf-entry__desc p { margin: 0 0 var(--bn-s2); }
+.bn-pf-entry__desc p:last-child { margin-bottom: 0; }
+/* Any leftover typed rows below the description sit tighter. */
+.bn-pf-entry__desc + .bn-pf-detail-list { margin-top: var(--bn-s2); }
 
 .bn-pf-tag-cloud {
 	display: flex;
