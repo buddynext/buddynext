@@ -2827,25 +2827,101 @@ a.bn-space-row:hover .bn-space-name {
    browser-default <dl> lists. */
 .bn-pf-detail-list {
 	display: grid;
-	gap: var(--bn-s1);
+	gap: 0;
 	margin: var(--bn-s2) 0 0;
 }
+/* Inline rows: a muted, fixed-width label column so values align into a clean
+   vertical column (a profile "About", not a bold label:value form dump), with a
+   hairline divider for rhythm. */
 .bn-pf-detail {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--bn-s2);
+	display: grid;
+	grid-template-columns: minmax(96px, 168px) 1fr;
+	gap: var(--bn-s2) var(--bn-s4);
+	align-items: baseline;
+	padding: var(--bn-s2) 0;
 	font-size: var(--bn-text-sm);
+	border-bottom: 1px solid var(--bn-line-faint);
 }
+.bn-pf-detail:last-child { border-bottom: none; }
 .bn-pf-detail__label {
 	margin: 0;
-	font-weight: 600;
-	color: var(--bn-ink-2);
+	font-weight: var(--bn-fw-medium, 500);
+	color: var(--bn-ink-3);
 }
-.bn-pf-detail__label::after { content: ":"; }
 .bn-pf-detail__value {
 	margin: 0;
 	color: var(--bn-ink-1);
+	font-weight: var(--bn-fw-medium, 500);
 	overflow-wrap: anywhere;
+}
+/* Block (paragraph) + chips span the full width with the label as a caption
+   above, not squeezed into the label column. */
+.bn-pf-detail--block,
+.bn-pf-detail--chips {
+	grid-template-columns: 1fr;
+	gap: var(--bn-s1);
+}
+.bn-pf-detail--block .bn-pf-detail__value,
+.bn-pf-detail--chips .bn-pf-detail__value {
+	width: 100%;
+}
+/* Colour swatch (bn-admin.css isn't enqueued on the profile, so define it here). */
+.bn-field-color { display: inline-flex; align-items: center; gap: var(--bn-s2); }
+.bn-field-color .bn-color-swatch {
+	width: 1rem;
+	height: 1rem;
+	border-radius: var(--bn-r-sm);
+	border: 1px solid var(--bn-line);
+	flex-shrink: 0;
+}
+.bn-field-color code {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+@media (max-width: 480px) {
+	.bn-pf-detail { grid-template-columns: 1fr; gap: 2px; }
+	.bn-pf-detail__label { font-size: var(--bn-text-xs); }
+}
+
+/* ── Presentation modes (FieldType::presentation_for) ─────────────────────
+	The About tab renders every field by TYPE, tagging each row with its mode
+	so the layout adapts without knowing the field's identity:
+	 - inline / link : label + value on one row (the .bn-pf-detail default).
+	 - block         : a paragraph — label above, full-width value below.
+	 - chips         : a tag row — label above, chips wrapping below. */
+.bn-pf-detail--block,
+.bn-pf-detail--chips {
+	flex-direction: column;
+	gap: var(--bn-s1);
+}
+.bn-pf-detail--block .bn-pf-detail__value,
+.bn-pf-detail--chips .bn-pf-detail__value {
+	width: 100%;
+}
+/* Paragraph (textarea) value: readable line-height + spacing between blocks. */
+.bn-field-paragraphs {
+	line-height: var(--bn-leading-normal, 1.6);
+}
+.bn-field-paragraphs p { margin: 0 0 var(--bn-s2); }
+.bn-field-paragraphs p:last-child { margin-bottom: 0; }
+
+/* ── Repeater entry cards ─────────────────────────────────────────────────
+	Each entry (a work role, a degree, a custom repeater item) is a visually
+	separated block so multiple entries read as distinct records, not one run
+	of rows. Accent rail + subtle surface, tightened detail rows inside. */
+.bn-pf-detail-entry {
+	margin-top: var(--bn-s3);
+	padding: var(--bn-s3) var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+}
+.bn-pf-detail-entry:first-child { margin-top: var(--bn-s2); }
+/* Inside an entry the rows are tighter and drop their dividers — the card edge
+   already separates entries. */
+.bn-pf-detail-entry .bn-pf-detail {
+	border-bottom: none;
+	padding: var(--bn-s1) 0;
 }
 
 .bn-pf-tag-cloud {
