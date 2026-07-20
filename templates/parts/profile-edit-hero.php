@@ -98,12 +98,13 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 	$bn_ep_fy    = isset( $bn_ep_focal['y'] ) ? max( 0.0, min( 100.0, (float) $bn_ep_focal['y'] ) ) : 50.0;
 	$bn_ep_zoom  = isset( $bn_ep_focal['zoom'] ) ? max( 1.0, min( 3.0, (float) $bn_ep_focal['zoom'] ) ) : 1.0;
 	?>
-	<div class="bn-pf-cover<?php echo '' !== $bn_ep_cover ? ' bn-pf-cover--has-image' : ''; ?>">
+	<div class="bn-pf-cover<?php echo '' !== $bn_ep_cover ? ' bn-pf-cover--has-image' : ''; ?>" data-wp-bind--aria-busy="context.coverUploading">
 		<img class="bn-pf-cover__img"
 			data-bn-cover-preview
 			src="<?php echo esc_url( $bn_ep_cover ); ?>"
 			alt=""
 			style="object-position:<?php echo esc_attr( (string) $bn_ep_fx ); ?>% <?php echo esc_attr( (string) $bn_ep_fy ); ?>%;transform:scale(<?php echo esc_attr( (string) $bn_ep_zoom ); ?>);<?php echo '' === $bn_ep_cover ? 'display:none;' : ''; ?>" />
+		<span class="bn-pf-cover__spinner" aria-hidden="true" data-wp-bind--hidden="!context.coverUploading"></span>
 		<div class="bn-pf-cover__actions">
 			<button class="bn-pf-cover__remove bn-ep-cover-remove"
 				type="button"
@@ -116,6 +117,7 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 			</button>
 			<button class="bn-pf-cover__edit bn-ep-cover-btn"
 				type="button"
+				data-wp-bind--disabled="context.coverUploading"
 				data-wp-on--click="actions.triggerCoverUpload">
 				<?php buddynext_icon( 'camera' ); ?>
 				<span><?php esc_html_e( 'Change cover', 'buddynext' ); ?></span>
@@ -124,7 +126,7 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 	</div>
 
 	<div class="bn-pf-head bn-ep-hero-head">
-		<div class="bn-pf-avatar-wrap bn-ep-avatar-wrap">
+		<div class="bn-pf-avatar-wrap bn-ep-avatar-wrap" data-wp-bind--aria-busy="context.avatarUploading">
 			<span class="bn-avatar bn-ep-avatar-preview" data-size="2xl" data-bn-initials="<?php echo esc_attr( $bn_ep_init ); ?>">
 				<?php if ( '' !== $bn_ep_avatar ) : ?>
 					<img src="<?php echo esc_url( $bn_ep_avatar ); ?>"
@@ -132,10 +134,12 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 				<?php else : ?>
 					<?php echo esc_html( $bn_ep_init ); ?>
 				<?php endif; ?>
+				<span class="bn-ep-avatar-spinner" aria-hidden="true" data-wp-bind--hidden="!context.avatarUploading"></span>
 			</span>
 			<button class="bn-ep-avatar-btn"
 				type="button"
 				aria-label="<?php esc_attr_e( 'Change profile photo', 'buddynext' ); ?>"
+				data-wp-bind--disabled="context.avatarUploading"
 				data-wp-on--click="actions.triggerAvatarUpload">
 				<?php buddynext_icon( 'edit' ); ?>
 			</button>

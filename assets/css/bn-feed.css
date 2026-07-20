@@ -2576,6 +2576,29 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	border: 1px solid var(--border);
 }
 .bn-composer__media-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+/*
+ * Per-tile upload spinner. The composer builds media tiles imperatively; while a
+ * file is in flight the tile carries .is-uploading and a centered spinner over
+ * the dimmed local thumbnail, so each image reads as "uploading" until its id
+ * lands (the remove button is withheld until then). Reuses the global bn-spin
+ * keyframes from bn-base.css.
+ */
+.bn-composer__media-thumb.is-uploading img { opacity: 0.5; }
+.bn-composer__media-spinner {
+	position: absolute;
+	inset: 0;
+	margin: auto;
+	width: 22px;
+	height: 22px;
+	border: 2px solid var(--bn-line);
+	border-top-color: var(--bn-accent);
+	border-radius: var(--bn-r-full);
+	animation: bn-spin 0.6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+	.bn-composer__media-spinner { animation: none; }
+}
 .bn-composer__media-remove {
 	position: absolute;
 	top: 2px;

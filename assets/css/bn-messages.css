@@ -1114,6 +1114,7 @@
 
 /* ── Composer pending-attachment chip ────────────────────────────────────── */
 .bn-dm-composer__attachment {
+	position: relative;
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s2);
@@ -1123,6 +1124,40 @@
 
 .bn-dm-composer__attachment.is-hidden {
 	display: none;
+}
+
+/*
+ * Attachment upload in flight. onFileSelected sets context.attachmentUploading
+ * while the media POST runs; this spinner overlays the 40x40 thumb slot (and
+ * still shows for non-image files whose preview thumb is hidden), so the chip no
+ * longer looks identical whether the file is still uploading or already landed.
+ * The remove (x) hides and Send disables while this is set. Reuses bn-spin.
+ */
+.bn-dm-composer__attachment-spinner {
+	position: absolute;
+	inset-block-start: var(--bn-s2);
+	inset-inline-start: var(--bn-s3);
+	width: 40px;
+	height: 40px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--bn-r-md);
+	background: color-mix(in srgb, var(--bn-sunken) 60%, transparent);
+}
+
+.bn-dm-composer__attachment-spinner::before {
+	content: "";
+	width: 18px;
+	height: 18px;
+	border: 2px solid var(--bn-line);
+	border-top-color: var(--bn-accent);
+	border-radius: var(--bn-r-full);
+	animation: bn-spin 0.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bn-dm-composer__attachment-spinner::before { animation: none; }
 }
 
 .bn-dm-composer__attachment-thumb {

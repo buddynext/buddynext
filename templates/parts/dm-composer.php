@@ -78,8 +78,9 @@ do_action( 'buddynext_part_dm_composer_before', $args );
 		</button>
 	</div>
 
-	<div class="bn-card bn-dm-composer__attachment" data-wp-class--is-hidden="!context.attachmentVisible">
+	<div class="bn-card bn-dm-composer__attachment" data-wp-class--is-hidden="!context.attachmentVisible" data-wp-bind--aria-busy="context.attachmentUploading">
 		<img class="bn-dm-composer__attachment-thumb" data-wp-bind--src="context.attachmentPreview" alt="">
+		<span class="bn-dm-composer__attachment-spinner" aria-hidden="true" data-wp-bind--hidden="!context.attachmentUploading"></span>
 		<span class="bn-dm-composer__attachment-name" data-wp-text="context.attachmentName"></span>
 		<button
 			type="button"
@@ -87,6 +88,7 @@ do_action( 'buddynext_part_dm_composer_before', $args );
 			data-variant="ghost"
 			data-size="sm"
 			aria-label="<?php esc_attr_e( 'Remove attachment', 'buddynext' ); ?>"
+			data-wp-bind--hidden="context.attachmentUploading"
 			data-wp-on--click="actions.clearAttachment"
 		>
 			<?php buddynext_icon( 'x' ); ?>
@@ -138,6 +140,7 @@ do_action( 'buddynext_part_dm_composer_before', $args );
 			data-size="md"
 			aria-label="<?php esc_attr_e( 'Send message', 'buddynext' ); ?>"
 			data-conv-id="<?php echo esc_attr( (string) $conv_id ); ?>"
+			data-wp-bind--disabled="context.attachmentUploading"
 			data-wp-on--click="actions.sendMessage"
 		>
 			<?php buddynext_icon( 'send' ); ?>

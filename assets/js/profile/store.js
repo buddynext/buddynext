@@ -734,6 +734,10 @@ async function flushStagedMedia( ctx ) {
 	var allOk = true;
 	if ( _pendingAvatar ) {
 		var avatarOk = false;
+		// Reactive busy flag: drives the spinner overlay on the avatar while its
+		// deferred upload runs on Save (the local preview already swapped on select,
+		// but nothing signalled the actual network write).
+		ctx.avatarUploading = true;
 		var avFd     = new FormData();
 		avFd.append( 'avatar', _pendingAvatar.blob, 'avatar.jpg' );
 		try {
@@ -763,10 +767,13 @@ async function flushStagedMedia( ctx ) {
 		if ( avatarOk ) {
 			_pendingAvatar = null;
 		}
+		ctx.avatarUploading = false;
 	}
 
 	if ( _pendingCover ) {
 		var coverOk = false;
+		// Reactive busy flag for the cover's deferred upload (see avatar note).
+		ctx.coverUploading = true;
 		var cvFd    = new FormData();
 		cvFd.append( 'avatar', _pendingCover.file );
 		cvFd.append( 'focal_x', String( _pendingCover.x ) );
@@ -796,6 +803,7 @@ async function flushStagedMedia( ctx ) {
 		if ( coverOk ) {
 			_pendingCover = null;
 		}
+		ctx.coverUploading = false;
 	}
 	return allOk;
 }

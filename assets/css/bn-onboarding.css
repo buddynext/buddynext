@@ -168,6 +168,7 @@
 	gap: var(--bn-s4);
 }
 .bn-ob-avatar {
+	position: relative;
 	width: 72px;
 	height: 72px;
 	border-radius: 50%;
@@ -190,6 +191,34 @@
 	object-fit: cover;
 	border-radius: 50%;
 }
+
+/*
+ * Avatar upload in flight. handleAvatarUpload sets context.avatarUploading for
+ * the duration of the POST /me/avatar; this scrim + spinner replaces the old
+ * fire-and-forget picker that showed nothing until the success toast. Reuses the
+ * global bn-spin keyframes (bn-base.css).
+ */
+.bn-ob-avatar__spinner {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: color-mix(in srgb, var(--bn-sunken) 65%, transparent);
+}
+.bn-ob-avatar__spinner::before {
+	content: "";
+	width: 24px;
+	height: 24px;
+	border: 2px solid var(--bn-line);
+	border-top-color: var(--bn-accent);
+	border-radius: 50%;
+	animation: bn-spin 0.6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+	.bn-ob-avatar__spinner::before { animation: none; }
+}
+
 .bn-ob-avatar-input { display: none; }
 .bn-ob-avatar-row__hint {
 	font-size: var(--bn-text-sm);

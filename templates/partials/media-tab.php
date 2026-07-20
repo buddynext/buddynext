@@ -260,6 +260,7 @@ $bn_mt_ctx = array(
 						>
 					</label>
 					<span class="bn-album-picker__uploading" data-wp-class--is-hidden="!context.pickerUploading">
+						<span class="bn-album-picker__spinner" aria-hidden="true"></span>
 						<?php esc_html_e( 'Uploading…', 'buddynext' ); ?>
 					</span>
 				</div>

@@ -1388,6 +1388,11 @@ const messagesStore = store( 'buddynext/messages', {
 				preview = yield makeThumb( file );
 			}
 			ctx.attachmentPreview = preview;
+			// In flight: drives the chip spinner and disables Send so the member can
+			// neither send the message before the media id lands nor double-submit
+			// the attachment. Cleared on both terminal paths below (and by
+			// clearAttachment on the early failure return).
+			ctx.attachmentUploading = true;
 
 			const fd = new FormData();
 			fd.append( 'file', file );
@@ -1431,14 +1436,16 @@ const messagesStore = store( 'buddynext/messages', {
 			} catch ( _e ) {
 				failAttachment( '' );
 			}
+			ctx.attachmentUploading = false;
 			input.value = '';
 		},
 		clearAttachment() {
 			const ctx = getContext();
-			ctx.attachmentId      = 0;
-			ctx.attachmentName    = '';
-			ctx.attachmentPreview = '';
-			ctx.attachmentVisible = false;
+			ctx.attachmentId        = 0;
+			ctx.attachmentName      = '';
+			ctx.attachmentPreview   = '';
+			ctx.attachmentVisible   = false;
+			ctx.attachmentUploading = false;
 			const f = document.getElementById( 'bn-dm-file' );
 			if ( f ) {
 				f.value = '';

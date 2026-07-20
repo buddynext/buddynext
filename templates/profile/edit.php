@@ -51,7 +51,7 @@ $display_name      = $profile_user->display_name;
 $profile_email_raw = $profile_user->user_email;
 // The @handle badge shows the member's PUBLIC handle (bn_profile_slug ?: user_nicename) -
 // the same mention others resolve them by - never user_login (a credential).
-$user_login_str    = \BuddyNext\Core\PageRouter::member_handle( (int) $profile_user->ID );
+$user_login_str = \BuddyNext\Core\PageRouter::member_handle( (int) $profile_user->ID );
 
 // Avatar initials.
 $name_parts = explode( ' ', $display_name );
@@ -262,15 +262,19 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 			// the Settings hub. saveProfile reads the work/edu repeaters (guarded
 			// in store.js) and the flat field inputs that are on the page (every
 			// dynamic profile field, including Skills / Interests, is a flat input).
-			'userId'      => $user_id,
-			'restNonce'   => $rest_nonce,
-			'saved'       => false,
-			'saving'      => false,
-			'isDirty'     => false,
-			'errors'      => (object) array(),
-			'profileUrl'  => $profile_url,
-			'workEntries' => array_values( $work_entries ),
-			'eduEntries'  => array_values( $edu_entries ),
+			'userId'          => $user_id,
+			'restNonce'       => $rest_nonce,
+			'saved'           => false,
+			'saving'          => false,
+			// Per-media upload flags: drive the spinner overlays on the avatar/cover
+			// while their deferred uploads run on Save (flushStagedMedia).
+			'avatarUploading' => false,
+			'coverUploading'  => false,
+			'isDirty'         => false,
+			'errors'          => (object) array(),
+			'profileUrl'      => $profile_url,
+			'workEntries'     => array_values( $work_entries ),
+			'eduEntries'      => array_values( $edu_entries ),
 		)
 	);
 	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped

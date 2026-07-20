@@ -2759,7 +2759,41 @@ store( 'buddynext/post-composer', {
 						// client thumbnail so a large file never blanks the tile. The
 						// engine REST is never called directly from the client.
 						const thumbUrl = await makeThumb( file );
-						const out      = await uploadMedia( file, { nonce } );
+
+						// Show the tile IMMEDIATELY with a spinner overlay, using the
+						// local thumbnail — the member sees the image the instant they
+						// pick it, with a clear in-flight state, instead of a blank gap
+						// until the upload round-trip returns (the old code appended the
+						// tile only AFTER the await). The tile is finalized (spinner
+						// cleared, remove wired) on success, or removed on failure. Built
+						// via DOM (not innerHTML) so a URL/id can never break out of an
+						// attribute.
+						let thumb       = null;
+						let thumbRemove = null;
+						if ( previewArea ) {
+							thumb = document.createElement( 'div' );
+							thumb.className = 'bn-composer__media-thumb is-uploading';
+							const thumbImg = document.createElement( 'img' );
+							thumbImg.src = thumbUrl || '';
+							thumbImg.alt = '';
+							thumbImg.width = 80;
+							thumbImg.height = 80;
+							thumbImg.loading = 'lazy';
+							thumbImg.decoding = 'async';
+							const spinner = document.createElement( 'span' );
+							spinner.className = 'bn-composer__media-spinner';
+							spinner.setAttribute( 'aria-hidden', 'true' );
+							thumbRemove = document.createElement( 'button' );
+							thumbRemove.className = 'bn-composer__media-remove';
+							thumbRemove.type = 'button';
+							thumbRemove.textContent = '×';
+							// No removing until the upload lands and has a real media id.
+							thumbRemove.hidden = true;
+							thumb.append( thumbImg, spinner, thumbRemove );
+							previewArea.appendChild( thumb );
+						}
+
+						const out = await uploadMedia( file, { nonce } );
 
 						if ( out.ok ) {
 							const mediaId = out.mediaId;
@@ -2768,41 +2802,38 @@ store( 'buddynext/post-composer', {
 							_mediaState.ids.push( mediaId );
 							_mediaState.previews.push( { id: mediaId, url: preview, name: file.name } );
 
-							// Append preview thumbnail to DOM.
-							if ( previewArea ) {
-								const thumb = document.createElement( 'div' );
-								thumb.className = 'bn-composer__media-thumb';
+							// Finalize the tile: clear the uploading state and wire the
+							// remove button now that a real media id exists.
+							if ( thumb ) {
+								thumb.classList.remove( 'is-uploading' );
 								thumb.dataset.mediaId = mediaId;
-								// Build the preview via DOM rather than string-concatenated
-								// innerHTML: setting .src assigns the URL as data (never parsed
-								// as markup), so a URL/id can't break out of the attribute.
-								const thumbImg = document.createElement( 'img' );
-								thumbImg.src = preview;
-								thumbImg.alt = '';
-								thumbImg.width = 80;
-								thumbImg.height = 80;
-								thumbImg.loading = 'lazy';
-								thumbImg.decoding = 'async';
-								const thumbRemove = document.createElement( 'button' );
-								thumbRemove.className = 'bn-composer__media-remove';
-								thumbRemove.type = 'button';
-								thumbRemove.dataset.mediaId = mediaId;
-								thumbRemove.textContent = '×';
-								thumb.append( thumbImg, thumbRemove );
-								thumbRemove.addEventListener( 'click', function () {
-									_mediaState.ids = _mediaState.ids.filter( ( id ) => id !== mediaId );
-									_mediaState.previews = _mediaState.previews.filter( ( p ) => p.id !== mediaId );
-									thumb.remove();
-									if ( ! _mediaState.ids.length && previewArea ) {
-										previewArea.hidden = true;
-									}
-									// Delete the already-uploaded file so removing the preview
-									// doesn't orphan it on the server (best-effort).
-									deleteMedia( mediaId, nonce );
-								} );
-								previewArea.appendChild( thumb );
+								const spin = thumb.querySelector( '.bn-composer__media-spinner' );
+								if ( spin ) { spin.remove(); }
+								if ( thumbRemove ) {
+									thumbRemove.hidden = false;
+									thumbRemove.dataset.mediaId = mediaId;
+									thumbRemove.addEventListener( 'click', function () {
+										_mediaState.ids = _mediaState.ids.filter( ( id ) => id !== mediaId );
+										_mediaState.previews = _mediaState.previews.filter( ( p ) => p.id !== mediaId );
+										thumb.remove();
+										if ( ! _mediaState.ids.length && previewArea ) {
+											previewArea.hidden = true;
+										}
+										// Delete the already-uploaded file so removing the preview
+										// doesn't orphan it on the server (best-effort).
+										deleteMedia( mediaId, nonce );
+									} );
+								}
 							}
 						} else {
+							// Upload failed: drop the placeholder tile so a broken image
+							// is not left behind, then surface why.
+							if ( thumb ) {
+								thumb.remove();
+								if ( previewArea && ! _mediaState.ids.length ) {
+									previewArea.hidden = true;
+								}
+							}
 							// Surface the real status. 404 = media engine inactive.
 							// eslint-disable-next-line no-console
 							console.error( '[BuddyNext] Media upload failed:', out.status );

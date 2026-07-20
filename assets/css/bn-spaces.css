@@ -1744,6 +1744,7 @@ a.bn-sh-statpill:focus-visible {
 }
 
 .bn-space-settings__cover {
+	position: relative;
 	block-size: 96px;
 	border-radius: var(--bn-r-md);
 	border: 2px dashed var(--bn-line);
@@ -1757,6 +1758,43 @@ a.bn-sh-statpill:focus-visible {
 	font-weight: var(--bn-fw-semibold);
 	cursor: pointer;
 	transition: border-color var(--bn-dur-fast) var(--bn-ease), color var(--bn-dur-fast) var(--bn-ease);
+}
+
+/*
+ * Cover upload in flight. spaces/store.js toggles aria-busy on this drop-zone
+ * while the POST /spaces/{id}/cover runs, but there was no rule targeting it —
+ * so the busy state was announced to assistive tech yet invisible to sighted
+ * users (no spinner, no dim). Render a centered spinner over a dim scrim and
+ * block re-clicks (pointer-events) so the upload cannot be double-submitted.
+ * Reuses the global bn-spin keyframes from bn-base.css.
+ */
+.bn-space-settings__cover[aria-busy="true"] {
+	pointer-events: none;
+}
+
+.bn-space-settings__cover[aria-busy="true"]::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: color-mix(in srgb, var(--bn-sunken) 70%, transparent);
+}
+
+.bn-space-settings__cover[aria-busy="true"]::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	margin: auto;
+	inline-size: var(--bn-s6);
+	block-size: var(--bn-s6);
+	border: 2px solid var(--bn-line);
+	border-top-color: var(--bn-accent);
+	border-radius: var(--bn-r-full);
+	animation: bn-spin 0.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bn-space-settings__cover[aria-busy="true"]::after { animation: none; }
 }
 
 .bn-space-settings__cover:hover,
