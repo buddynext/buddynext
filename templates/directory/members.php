@@ -194,20 +194,9 @@ if ( null !== $bn_search_ids ) {
 	}
 }
 
-// Exclusions (suspended / shadow-banned / dir-opt-out / bidirectional blocks),
-// the member-type filter (indexed bn_member_type_assignments), and the online-only
-// filter (indexed bn_presence) are injected as correlated subqueries via
-// pre_user_query — never as a materialised IN / NOT IN id list — so this query AND
-// its SQL_CALC_FOUND_ROWS count stay bounded at 50k members. Identical SQL to the
-// REST list_members(), so the server render and the live pipeline agree exactly.
-// The service owns all SQL preparation (the template never touches $wpdb); it
-// returns a ready pre_user_query callback we wire around the WP_User_Query below.
-$bn_pre_user_query = $bn_directory_service->pre_user_query_callback(
-	$current_user_id,
-	array(
-		'member_type' => $type_slug_filter,
-		'online_only' => $bn_online_only,
-	)
+$bn_directory_filters = array(
+	'member_type' => $type_slug_filter,
+	'online_only' => $bn_online_only,
 );
 
 // Bounded directory total — the cached service owns this number now (A5). The template
@@ -215,19 +204,19 @@ $bn_pre_user_query = $bn_directory_service->pre_user_query_callback(
 // load; that is the bypass A5 was about. directory_total() runs the capped COUNT once and
 // caches it under the same per-viewer salt as the list pages, so the two surfaces share
 // one number and a block/membership change busts both together.
-$total_users = $bn_directory_service->directory_total(
-	$current_user_id,
-	array(
-		'member_type' => $type_slug_filter,
-		'online_only' => $bn_online_only,
-	)
-);
+$total_users = $bn_directory_service->directory_total( $current_user_id, $bn_directory_filters );
 
-add_action( 'pre_user_query', $bn_pre_user_query );
-$user_query = new WP_User_Query( $user_query_args );
-remove_action( 'pre_user_query', $bn_pre_user_query );
-
-$members     = $user_query->get_results();
+// Member ROWS for first paint. Exclusions (suspended / shadow-banned / dir-opt-out /
+// bidirectional blocks), the member-type filter, and the online-only filter are injected
+// as correlated subqueries via pre_user_query — never a materialised IN / NOT IN list — so
+// the query stays bounded at 50k members. The service owns the query + caching (the
+// template never touches $wpdb or WP_User_Query): it returns the ordered id list from the
+// SAME versioned bn_dir_ cache as the REST list_members(), so the landing is not an
+// uncached query on every load and both surfaces invalidate together. We hydrate the
+// WP_User objects the grid needs from the primed user cache.
+$bn_page_ids = $bn_directory_service->ssr_page_user_ids( $current_user_id, $user_query_args, $bn_directory_filters );
+cache_users( $bn_page_ids );
+$members     = array_values( array_filter( array_map( 'get_userdata', $bn_page_ids ) ) );
 $total_pages = (int) ceil( $total_users / max( 1, $bn_per_page ) );
 
 // ── Batch-prime per-page member state (no per-card N+1) ───────────────────

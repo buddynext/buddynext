@@ -925,6 +925,54 @@ class MemberDirectoryService {
 	}
 
 	/**
+	 * Ordered member IDs for the server-rendered directory landing page, cached
+	 * under the SAME versioned `bn_dir_` salt as the REST list_members().
+	 *
+	 * The landing's first paint ran an uncached WP_User_Query on every load while
+	 * only the REST re-fetches were cached. This runs that query (with the same
+	 * pre_user_query filter injection) once behind the per-viewer cache_version
+	 * salt, so a block / membership / directory-opt-out change busts BOTH surfaces
+	 * together. Returns IDs only (count_total off — the total comes from the
+	 * already-cached directory_total()); the caller hydrates WP_User objects from
+	 * the primed user cache.
+	 *
+	 * @param int                 $viewer_id  Viewing user.
+	 * @param array<string,mixed> $query_args The WP_User_Query args (orderby, paged, number, include, …).
+	 * @param array<string,mixed> $filter_args { member_type?: string, online_only?: bool } for the WHERE injection.
+	 * @return int[] Ordered member IDs for the page.
+	 */
+	public function ssr_page_user_ids( int $viewer_id, array $query_args, array $filter_args ): array {
+		$cache_ver = wp_cache_get( self::cache_version_key( $viewer_id ), self::CACHE_GROUP );
+		if ( false === $cache_ver ) {
+			$cache_ver = 0;
+		}
+		$cache_key = 'bn_dir_ssr_' . md5( (string) wp_json_encode( array( $viewer_id, $query_args, $filter_args, $cache_ver ) ) );
+
+		$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		$callback = $this->pre_user_query_callback( $viewer_id, $filter_args );
+		add_action( 'pre_user_query', $callback );
+		$query = new \WP_User_Query(
+			array_merge(
+				$query_args,
+				array(
+					'fields'      => 'ID',
+					'count_total' => false,
+				)
+			)
+		);
+		remove_action( 'pre_user_query', $callback );
+
+		$ids = array_map( 'intval', (array) $query->get_results() );
+		wp_cache_set( $cache_key, $ids, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $ids;
+	}
+
+	/**
 	 * User IDs active within the online window (last 5 minutes).
 	 *
 	 * Used to apply the "Online only" filter to the server-rendered first page's
