@@ -4,7 +4,7 @@ Tags: community, social network, activity feed, groups, members
 Requires at least: 6.9
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.8
+Stable tag: 1.0.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,6 +55,29 @@ Yes. BuddyNext Pro adds the application layer - memberships and on-site checkout
 Direct messaging and media are powered by the WPMediaVerse companion plugin. BuddyNext gates those surfaces until it is active.
 
 == Changelog ==
+
+= 1.0.9 - July 2026 =
+
+Sidebar widgets curated per surface, a profile About tab that renders any field, uniform integration cards, and the mobile app bootstrap endpoint.
+
+* New      - The profile About tab renders any field group by its type, so custom groups and fields lay out cleanly without per-field code.
+* New      - Every member upload now creates a feed post, so photos from the composer, the Media tab, or an album all appear on your feed.
+* New      - GET /buddynext/v1/app/config gives the mobile app a single bootstrap handshake for site identity, feature flags, and the time contract.
+* Improve  - Sidebar widgets are organised per surface (feed, explore, members, spaces, profile, notifications, hashtags), each column curated for its page.
+* Improve  - Upload progress spinners were added across every upload point: composer, DM attachment, avatar, cover, album picker, and onboarding.
+* Improve  - Integration activity renders as a consistent, typed card in the feed for events, badges, and other connected apps.
+* Improve  - Badge and level-up notifications from integrations are collected for display in one place and never send a duplicate email.
+* Improve  - Member directories, the space roster, and the discovery asides are cached per viewer for large communities.
+* Improve  - Profile fields render true to their type: paragraphs are multi-line, multiselect values are separate chips, and Work and Education show dates and admin-added sub-fields.
+* Fix      - Profile Replies and Likes tabs could show a private post's content to anyone.
+* Fix      - A media item added to an album from the picker had no source post, so its single-media link bounced to the Media tab instead of the post.
+* Fix      - A feed card was left behind after its source media or its event was deleted.
+* Fix      - A profile field could not be created when its name matched an existing one, and renaming a field group from wp-admin did not stick.
+* Fix      - GET /spaces/{id} now returns the viewer's membership block, and provisioning a space forum surfaces the Discussions tab.
+* Fix      - The People to Follow widget overlapped names, and several wp-admin toolbars and row-action menus were misaligned.
+* Dev      - App-facing REST timestamps carry a UTC ISO *_gmt sibling via one dispatch seam, filterable per namespace.
+* Dev      - The members directory query is prepared in the model instead of the template.
+* Compat   - Ships in lockstep with BuddyNext Pro 1.0.9. Install and test both together.
 
 = 1.0.8 - July 2026 =
 
