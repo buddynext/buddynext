@@ -35,7 +35,9 @@ class ShellNavService {
 		$messages      = 0;
 
 		if ( $user_id > 0 && function_exists( 'buddynext_service' ) ) {
-			$notifications = (int) buddynext_service( 'notifications' )->unread_count( $user_id );
+			// Badge = UNSEEN count (created since the list was last viewed), not raw
+			// unread: viewing the list clears the badge without marking items read.
+			$notifications = (int) buddynext_service( 'notifications' )->unseen_count( $user_id );
 			if ( class_exists( '\BuddyNext\Messages\MessagesData' ) ) {
 				$messages = (int) MessagesData::unread_count( $user_id );
 			}

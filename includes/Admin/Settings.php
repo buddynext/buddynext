@@ -2161,10 +2161,11 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		$state    = (array) get_option( 'buddynext_features', array() );
 		$groups   = $registry->by_group();
 
+		// Integration bridges are configured on the Integrations tab (per-aspect
+		// toggles), not here — the Features tab has no 'bridges' group.
 		$group_labels = array(
 			'core'         => __( 'Core (always on)', 'buddynext' ),
 			'community'    => __( 'Community features', 'buddynext' ),
-			'bridges'      => __( 'Integration bridges', 'buddynext' ),
 			'integrations' => __( 'Power-user integrations', 'buddynext' ),
 		);
 

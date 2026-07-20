@@ -18,7 +18,7 @@ use WP_UnitTestCase;
 /**
  * A1 — the Explore deck was uncached on the busiest discovery surface on the site.
  *
- * deck() takes a filter, a cursor and a page size. Nothing in that signature says
+ * The deck() method takes a filter, a cursor and a page size. Nothing in that signature says
  * "viewer" — but the deck IS viewer-dependent: it drops users the viewer has blocked (in
  * either direction) and garnishes the "all" deck with spaces from the viewer's own
  * interests. A cache key without the viewer in it would show a member the content of
@@ -95,7 +95,7 @@ class ExploreDeckCacheTest extends WP_UnitTestCase {
 	 * @return void
 	 */
 	public function test_blocking_someone_removes_their_posts_from_the_deck_immediately(): void {
-		$viewer  = self::factory()->user->create();
+		$viewer   = self::factory()->user->create();
 		$nuisance = self::factory()->user->create();
 
 		$post_id = ( new PostService() )->create( $nuisance, array( 'content' => 'Content you do not want' ) );
@@ -118,6 +118,47 @@ class ExploreDeckCacheTest extends WP_UnitTestCase {
 			$this->post_ids( $explore->deck( 'posts' ) ),
 			'A BLOCKED member\'s post is still on the deck. Blocking someone and still being shown their content is the block failing at the only job it has - it cannot wait out a cache TTL.'
 		);
+	}
+
+	/**
+	 * The "people to discover" aside rotates its picks instead of showing the
+	 * same static faces on every load.
+	 *
+	 * The pool (the newest limit*4 members) is cached, but the display slice is
+	 * sampled OUTSIDE the cache each call, so within one TTL the viewer still sees
+	 * variety. The bug was a deterministic top-N that never changed.
+	 *
+	 * @covers \BuddyNext\Feed\ExploreService::suggested_member_ids
+	 * @return void
+	 */
+	public function test_discover_aside_rotates_within_the_newest_pool(): void {
+		// More members than the sampling pool (limit*4 = 12) so it can rotate.
+		for ( $i = 0; $i < 20; $i++ ) {
+			self::factory()->user->create();
+		}
+
+		$explore = new ExploreService();
+		$limit   = 3;
+
+		$seen = array();
+		for ( $i = 0; $i < 25; $i++ ) {
+			$picks = $explore->suggested_member_ids( $limit );
+			$this->assertCount( $limit, $picks, 'the aside shows exactly the display limit' );
+			foreach ( $picks as $id ) {
+				$seen[ (int) $id ] = true;
+			}
+		}
+
+		// Rotation: across many loads the aside surfaces MORE than one static set of
+		// `limit` faces (the bug showed identical picks every load).
+		$this->assertGreaterThan(
+			$limit,
+			count( $seen ),
+			'The discover aside showed the same members on every load — no rotation within the pool.'
+		);
+
+		// Quality: every surfaced member stays within the newest pool (limit*4).
+		$this->assertLessThanOrEqual( $limit * 4, count( $seen ) );
 	}
 
 	/**

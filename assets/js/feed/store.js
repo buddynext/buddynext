@@ -1,9 +1,9 @@
 /* BuddyNext — Feed Interactivity API store. */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnConfirm, bnPrompt, bnReportDialog, bnToast } from '../shell/dialog.js';
-import { restFetch } from '../shell/rest-client.js';
-import { onNavReady } from '../shell/nav-init.js';
-import { makeThumb, uploadMedia, deleteMedia } from '../media/upload-core.js';
+import { bnConfirm, bnPrompt, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
+import { restFetch } from '@buddynext/rest-client';
+import { onNavReady } from '@buddynext/nav-init';
+import { makeThumb, uploadMedia, deleteMedia, validateMedia } from '../media/upload-core.js';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -1702,27 +1702,44 @@ store( 'buddynext/post-card', {
 						space_id:    parseInt( ctx.spaceId, 10 ) || 0,
 					},
 				} );
-				if ( res.ok || res.status === 201 ) {
+				// A 409 (already reported) is an expected outcome, not a failure — the
+				// server already holds this user's report, so the post is "reported"
+				// either way. Treat success and already-reported identically.
+				const alreadyReported = res.status === 409;
+				if ( res.ok || res.status === 201 || alreadyReported ) {
 					// Reflect the reported state immediately so the action menu
 					// swaps Report for a disabled "Reported" item without a reload.
 					ctx.hasReported = true;
 					ctx.optionsOpen = false;
-					bnToast( t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ), { tone: 'success' } );
-				} else {
-					// Surface the server's reason (e.g. the 409 "already reported"
-					// message) instead of a generic failure. A 409 means the server
-					// already has this user's report, so reflect that in the UI too.
-					// An already-reported response is an expected outcome, not an
-					// error, so it reads as an info toast; genuine failures stay danger.
-					const alreadyReported = res.status === 409;
-					if ( alreadyReported ) {
-						ctx.hasReported = true;
-						ctx.optionsOpen = false;
+
+					// Drop the post out of the reporter's own feed straight away —
+					// what a member reports, they expect to stop seeing (the norm on
+					// Facebook, X, Instagram). Collapse with a short fade so the removal
+					// reads as intentional rather than a glitch.
+					const card = document.querySelector( '[data-post-id="' + ctx.postId + '"]' );
+					if ( card ) {
+						card.style.transition = 'opacity 0.2s ease, max-height 0.3s ease';
+						card.style.overflow   = 'hidden';
+						card.style.maxHeight  = card.offsetHeight + 'px';
+						requestAnimationFrame( () => {
+							card.style.opacity   = '0';
+							card.style.maxHeight = '0';
+						} );
+						setTimeout( () => card.remove(), 350 );
 					}
+
+					bnToast(
+						alreadyReported
+							? ( ( res.data && res.data.message ) || t( 'reportAlready', 'You already reported this post.' ) )
+							: t( 'reportSubmitted', 'Report submitted. Thanks for keeping the community safe.' ),
+						{ tone: alreadyReported ? 'info' : 'success' }
+					);
+				} else {
+					// Surface the server's reason instead of a generic failure.
 					const data = res.data || {};
 					bnToast(
 						data.message || t( 'reportFailed', 'Could not submit report. Try again.' ),
-						{ tone: alreadyReported ? 'info' : 'danger' }
+						{ tone: 'danger' }
 					);
 				}
 			} catch ( _e ) {
@@ -2149,6 +2166,22 @@ function detectFirstUrl( text ) {
 	if ( ! m ) { return ''; }
 	// Trim trailing punctuation that is unlikely to be part of the URL.
 	return m[ 1 ].replace( /[.,;:!?)\]]+$/, '' );
+}
+
+/**
+ * Grow the composer textarea to fit its content.
+ *
+ * Reset to auto first so the field can also shrink when text is deleted, then
+ * set the height to the content's scrollHeight. The CSS max-height caps growth
+ * (the field scrolls internally past that), so no JS ceiling is needed here.
+ *
+ * @param {HTMLTextAreaElement|null} el The composer textarea.
+ * @return {void}
+ */
+function autoResizeTextarea( el ) {
+	if ( ! el ) { return; }
+	el.style.height = 'auto';
+	el.style.height = el.scrollHeight + 'px';
 }
 
 function maybeDetectLink( ctx ) {
@@ -2708,12 +2741,59 @@ store( 'buddynext/post-composer', {
 					for ( let i = 0; i < uploadCount; i++ ) {
 						const file = files[ i ];
 
+						// Validate type + size client-side BEFORE the upload — the same
+						// guard the media-gallery and album pickers already run. Without
+						// it the composer streamed oversized/wrong-type files all the way
+						// to the server before rejection (wasted bandwidth, no feedback).
+						const invalid = validateMedia( file, {
+							badTypeMsg:  t( 'mediaBadType', 'Only images, video and audio can be attached.' ),
+							tooLargeMsg: t( 'mediaTooLarge', 'That file is too large to upload.' ),
+						} );
+						if ( invalid ) {
+							bnToast( invalid, { tone: 'danger' } );
+							continue;
+						}
+
 						// Shared upload core: one BuddyNext-owned, owner-gated path
 						// (buddynext/v1/me/media) for every surface, plus a fast small
 						// client thumbnail so a large file never blanks the tile. The
 						// engine REST is never called directly from the client.
 						const thumbUrl = await makeThumb( file );
-						const out      = await uploadMedia( file, { nonce } );
+
+						// Show the tile IMMEDIATELY with a spinner overlay, using the
+						// local thumbnail — the member sees the image the instant they
+						// pick it, with a clear in-flight state, instead of a blank gap
+						// until the upload round-trip returns (the old code appended the
+						// tile only AFTER the await). The tile is finalized (spinner
+						// cleared, remove wired) on success, or removed on failure. Built
+						// via DOM (not innerHTML) so a URL/id can never break out of an
+						// attribute.
+						let thumb       = null;
+						let thumbRemove = null;
+						if ( previewArea ) {
+							thumb = document.createElement( 'div' );
+							thumb.className = 'bn-composer__media-thumb is-uploading';
+							const thumbImg = document.createElement( 'img' );
+							thumbImg.src = thumbUrl || '';
+							thumbImg.alt = '';
+							thumbImg.width = 80;
+							thumbImg.height = 80;
+							thumbImg.loading = 'lazy';
+							thumbImg.decoding = 'async';
+							const spinner = document.createElement( 'span' );
+							spinner.className = 'bn-composer__media-spinner';
+							spinner.setAttribute( 'aria-hidden', 'true' );
+							thumbRemove = document.createElement( 'button' );
+							thumbRemove.className = 'bn-composer__media-remove';
+							thumbRemove.type = 'button';
+							thumbRemove.textContent = '×';
+							// No removing until the upload lands and has a real media id.
+							thumbRemove.hidden = true;
+							thumb.append( thumbImg, spinner, thumbRemove );
+							previewArea.appendChild( thumb );
+						}
+
+						const out = await uploadMedia( file, { nonce } );
 
 						if ( out.ok ) {
 							const mediaId = out.mediaId;
@@ -2722,41 +2802,38 @@ store( 'buddynext/post-composer', {
 							_mediaState.ids.push( mediaId );
 							_mediaState.previews.push( { id: mediaId, url: preview, name: file.name } );
 
-							// Append preview thumbnail to DOM.
-							if ( previewArea ) {
-								const thumb = document.createElement( 'div' );
-								thumb.className = 'bn-composer__media-thumb';
+							// Finalize the tile: clear the uploading state and wire the
+							// remove button now that a real media id exists.
+							if ( thumb ) {
+								thumb.classList.remove( 'is-uploading' );
 								thumb.dataset.mediaId = mediaId;
-								// Build the preview via DOM rather than string-concatenated
-								// innerHTML: setting .src assigns the URL as data (never parsed
-								// as markup), so a URL/id can't break out of the attribute.
-								const thumbImg = document.createElement( 'img' );
-								thumbImg.src = preview;
-								thumbImg.alt = '';
-								thumbImg.width = 80;
-								thumbImg.height = 80;
-								thumbImg.loading = 'lazy';
-								thumbImg.decoding = 'async';
-								const thumbRemove = document.createElement( 'button' );
-								thumbRemove.className = 'bn-composer__media-remove';
-								thumbRemove.type = 'button';
-								thumbRemove.dataset.mediaId = mediaId;
-								thumbRemove.textContent = '×';
-								thumb.append( thumbImg, thumbRemove );
-								thumbRemove.addEventListener( 'click', function () {
-									_mediaState.ids = _mediaState.ids.filter( ( id ) => id !== mediaId );
-									_mediaState.previews = _mediaState.previews.filter( ( p ) => p.id !== mediaId );
-									thumb.remove();
-									if ( ! _mediaState.ids.length && previewArea ) {
-										previewArea.hidden = true;
-									}
-									// Delete the already-uploaded file so removing the preview
-									// doesn't orphan it on the server (best-effort).
-									deleteMedia( mediaId, nonce );
-								} );
-								previewArea.appendChild( thumb );
+								const spin = thumb.querySelector( '.bn-composer__media-spinner' );
+								if ( spin ) { spin.remove(); }
+								if ( thumbRemove ) {
+									thumbRemove.hidden = false;
+									thumbRemove.dataset.mediaId = mediaId;
+									thumbRemove.addEventListener( 'click', function () {
+										_mediaState.ids = _mediaState.ids.filter( ( id ) => id !== mediaId );
+										_mediaState.previews = _mediaState.previews.filter( ( p ) => p.id !== mediaId );
+										thumb.remove();
+										if ( ! _mediaState.ids.length && previewArea ) {
+											previewArea.hidden = true;
+										}
+										// Delete the already-uploaded file so removing the preview
+										// doesn't orphan it on the server (best-effort).
+										deleteMedia( mediaId, nonce );
+									} );
+								}
 							}
 						} else {
+							// Upload failed: drop the placeholder tile so a broken image
+							// is not left behind, then surface why.
+							if ( thumb ) {
+								thumb.remove();
+								if ( previewArea && ! _mediaState.ids.length ) {
+									previewArea.hidden = true;
+								}
+							}
 							// Surface the real status. 404 = media engine inactive.
 							// eslint-disable-next-line no-console
 							console.error( '[BuddyNext] Media upload failed:', out.status );
@@ -2839,6 +2916,7 @@ store( 'buddynext/post-composer', {
 		onInput( event ) {
 			const ctx     = getContext();
 			ctx.content   = event.target.value;
+			autoResizeTextarea( event.target );
 			scheduleDraftSave( ctx );
 			maybeDetectLink( ctx );
 		},
@@ -2865,6 +2943,7 @@ store( 'buddynext/post-composer', {
 			const textarea = document.querySelector( '[data-wp-interactive="buddynext/post-composer"] .bn-composer__prompt' );
 			if ( textarea ) {
 				textarea.value = '';
+				autoResizeTextarea( textarea );
 			}
 		},
 		* submit() {
@@ -3007,7 +3086,7 @@ store( 'buddynext/post-composer', {
 					ctx.content     = '';
 					ctx.hasDraft    = false;
 					setDraftStatus( ctx, '', false );
-					document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"] .bn-composer__prompt' ).forEach( function ( ta ) { ta.value = ''; } );
+					document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"] .bn-composer__prompt' ).forEach( function ( ta ) { ta.value = ''; autoResizeTextarea( ta ); } );
 
 					// The media was consumed into the post — clear the staged set and its
 					// previews WITHOUT deleting from the server (the post now owns them).
@@ -3791,6 +3870,10 @@ function initComposerEnhancements() {
 		attachCharCounter( textarea );
 		attachImageDragDrop( textarea, el );
 		attachMentionHashtagTypeahead( textarea );
+
+		// Size the field to any content already present (a restored draft or a
+		// share/@mention prefill lands without firing an input event).
+		autoResizeTextarea( textarea );
 	} );
 
 	// Comment forms — pick up the @ / # typeahead and char counter

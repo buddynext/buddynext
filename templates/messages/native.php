@@ -85,12 +85,21 @@ $helpers = MessagesData::helpers( $viewer );
 $bn_convs_cap = isset( $_GET['convs'] ) ? absint( wp_unslash( $_GET['convs'] ) ) : 50; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $convs        = MessagesData::conversations( $viewer, $active_tab, $bn_convs_cap );
 
+// Whether THIS request explicitly asked for a conversation (?conversation / ?to).
+// The mobile single-pane view keys off this: only an explicit open switches the
+// pane to the thread (is-thread-open). An auto-opened default must NOT, or the
+// back button — which navigates to /messages/ with no conversation — would land
+// on the auto-reopened newest thread and trap the member away from the rail.
+$bn_explicit_conv = ( $active_conv_id > 0 );
+
 // When the inbox is opened with no explicit conversation (and the member is not
 // trying to reach a blocked/unreachable recipient), auto-open the most recent
 // conversation instead of showing the empty "Your messages" placeholder. The
 // rail is already ordered by last activity, so the first pinned (or, failing
 // that, the first recent) row is the newest thread. With zero conversations
 // both lists are empty, $active_conv_id stays 0, and the empty state still shows.
+// On DESKTOP this fills the right pane; on MOBILE the rail still shows first
+// (is-thread-open is withheld below because this open was not explicit).
 if ( $active_conv_id <= 0 && 0 === $bn_blocked_recipient ) {
 	$bn_default_conv = (int) ( $convs['pinned'][0]['id'] ?? ( $convs['recent'][0]['id'] ?? 0 ) );
 	if ( $bn_default_conv > 0 ) {
@@ -103,43 +112,44 @@ $messages_url = PageRouter::messages_url();
 
 $bn_ctx = wp_json_encode(
 	array(
-		'mvsRest'           => esc_url_raw( rest_url( 'mvs/v1' ) ),
-		'mvsProRest'        => esc_url_raw( rest_url( 'mvs-pro/v1' ) ),
-		'groupsEnabled'     => MessagesData::groups_enabled(),
-		'bnRest'            => esc_url_raw( rest_url( 'buddynext/v1' ) ),
-		'nonce'             => wp_create_nonce( 'wp_rest' ),
-		'userId'            => $viewer,
-		'composeOpen'       => false,
-		'composeMode'       => 'dm',
-		'groupName'         => '',
-		'groupMembers'      => array(),
-		'groupBusy'         => false,
-		'activeConvId'      => $thread ? (int) $thread['conversation_id'] : 0,
-		'isMuted'           => $thread ? ! empty( $thread['is_muted'] ) : false,
-		'searchOpen'        => false,
-		'activeIsGroup'     => $thread ? ! empty( $thread['is_group'] ) : false,
-		'activeIsAdmin'     => $thread ? ! empty( $thread['is_admin'] ) : false,
-		'activeGroupName'   => $thread ? (string) $thread['display_name'] : '',
-		'activeMembers'     => ( $thread && ! empty( $thread['is_group'] ) ) ? $thread['participants'] : array(),
-		'memberCount'       => $thread ? (int) ( $thread['member_count'] ?? 0 ) : 0,
-		'groupPanelOpen'    => false,
-		'groupAddOpen'      => false,
+		'mvsRest'             => esc_url_raw( rest_url( 'mvs/v1' ) ),
+		'mvsProRest'          => esc_url_raw( rest_url( 'mvs-pro/v1' ) ),
+		'groupsEnabled'       => MessagesData::groups_enabled(),
+		'bnRest'              => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+		'nonce'               => wp_create_nonce( 'wp_rest' ),
+		'userId'              => $viewer,
+		'composeOpen'         => false,
+		'composeMode'         => 'dm',
+		'groupName'           => '',
+		'groupMembers'        => array(),
+		'groupBusy'           => false,
+		'activeConvId'        => $thread ? (int) $thread['conversation_id'] : 0,
+		'isMuted'             => $thread ? ! empty( $thread['is_muted'] ) : false,
+		'searchOpen'          => false,
+		'activeIsGroup'       => $thread ? ! empty( $thread['is_group'] ) : false,
+		'activeIsAdmin'       => $thread ? ! empty( $thread['is_admin'] ) : false,
+		'activeGroupName'     => $thread ? (string) $thread['display_name'] : '',
+		'activeMembers'       => ( $thread && ! empty( $thread['is_group'] ) ) ? $thread['participants'] : array(),
+		'memberCount'         => $thread ? (int) ( $thread['member_count'] ?? 0 ) : 0,
+		'groupPanelOpen'      => false,
+		'groupAddOpen'        => false,
 		// Conversation info panel (1:1) — recipient identity + safety actions.
-		'infoPanelOpen'     => false,
-		'recipientId'       => ( $thread && empty( $thread['is_group'] ) ) ? (int) $thread['other_user_id'] : 0,
-		'recipientName'     => $thread ? (string) $thread['display_name'] : '',
-		'recipientUrl'      => ( $thread && ! empty( $thread['other_user_id'] ) ) ? esc_url_raw( PageRouter::profile_url( (int) $thread['other_user_id'] ) ) : '',
-		'infoBusy'          => false,
-		'replyToId'         => 0,
-		'replyToText'       => '',
-		'confirmOpen'       => false,
-		'attachmentVisible' => false,
-		'mediaPickerOpen'   => false,
-		'attachmentId'      => 0,
-		'attachmentName'    => '',
-		'attachmentPreview' => '',
-		'messagesUrl'       => $messages_url,
-		'i18n'              => array(
+		'infoPanelOpen'       => false,
+		'recipientId'         => ( $thread && empty( $thread['is_group'] ) ) ? (int) $thread['other_user_id'] : 0,
+		'recipientName'       => $thread ? (string) $thread['display_name'] : '',
+		'recipientUrl'        => ( $thread && ! empty( $thread['other_user_id'] ) ) ? esc_url_raw( PageRouter::profile_url( (int) $thread['other_user_id'] ) ) : '',
+		'infoBusy'            => false,
+		'replyToId'           => 0,
+		'replyToText'         => '',
+		'confirmOpen'         => false,
+		'attachmentVisible'   => false,
+		'attachmentUploading' => false,
+		'mediaPickerOpen'     => false,
+		'attachmentId'        => 0,
+		'attachmentName'      => '',
+		'attachmentPreview'   => '',
+		'messagesUrl'         => $messages_url,
+		'i18n'                => array(
 			'composeHint'       => __( 'Type a name to find someone to message.', 'buddynext' ),
 			'composeNone'       => __( 'No members found.', 'buddynext' ),
 			'mediaEmpty'        => __( 'No photos yet — upload one to share.', 'buddynext' ),
@@ -160,7 +170,7 @@ $bn_ctx = wp_json_encode(
 );
 ?>
 <div
-	class="bn-messages-content bn-split bn-dm<?php echo $thread ? ' is-thread-open' : ''; ?>"
+	class="bn-messages-content bn-split bn-dm<?php echo ( $thread && $bn_explicit_conv ) ? ' is-thread-open' : ''; ?>"
 	data-bn-main-edge="true"
 	data-wp-interactive="buddynext/messages"
 	data-wp-context='<?php echo esc_attr( (string) $bn_ctx ); ?>'

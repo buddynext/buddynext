@@ -51,14 +51,21 @@ final class SpaceSuggestionService {
 			return array();
 		}
 
-		$cache_key = $user_id . ':' . $limit . ':' . $this->cache_version( $user_id );
-		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
-		if ( is_array( $cached ) ) {
-			return $this->apply_suggestions_filter( $cached, $user_id, $limit );
+		// Cache an over-fetched ranked POOL (not just the display count) so the
+		// display set can be sampled from the top for per-load variety without a
+		// re-query. The pool is keyed independently of $limit, so widgets asking
+		// for different counts share one cached pool.
+		$pool_size = min( 24, max( $limit * 4, 12 ) );
+		$cache_key = $user_id . ':pool' . $pool_size . ':' . $this->cache_version( $user_id );
+		$pool      = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( ! is_array( $pool ) ) {
+			$pool = $this->rank( $user_id, $pool_size );
+			wp_cache_set( $cache_key, $pool, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
-		$rows = $this->rank( $user_id, $limit );
-		wp_cache_set( $cache_key, $rows, self::CACHE_GROUP, self::CACHE_TTL );
+		// Sample the display set from the top of the ranked pool so the suggestion
+		// widget rotates each load instead of showing the identical top-N.
+		$rows = buddynext_sample_ranked( $pool, $limit );
 		return $this->apply_suggestions_filter( $rows, $user_id, $limit );
 	}
 

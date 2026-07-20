@@ -868,6 +868,41 @@
 	z-index: 1;
 }
 
+/*
+ * Avatar / cover deferred-upload spinners. The profile editor stages the chosen
+ * image on select (local preview swaps immediately) and only writes it to the
+ * server on Save, via flushStagedMedia — which sets context.avatarUploading /
+ * context.coverUploading around each POST. These overlay a spinner on a dim
+ * scrim so the actual network write is visible (the change buttons disable while
+ * set). Reuses the global bn-spin keyframes from bn-base.css.
+ */
+.bn-ep-avatar-preview { position: relative; }
+.bn-ep-avatar-spinner,
+.bn-pf-cover__spinner {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: color-mix(in srgb, var(--bn-sunken) 55%, transparent);
+	z-index: 2;
+}
+.bn-ep-avatar-spinner { border-radius: 50%; }
+.bn-ep-avatar-spinner::before,
+.bn-pf-cover__spinner::before {
+	content: "";
+	width: 24px;
+	height: 24px;
+	border: 2px solid var(--bn-line);
+	border-top-color: var(--bn-accent);
+	border-radius: var(--bn-r-full);
+	animation: bn-spin 0.6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+	.bn-ep-avatar-spinner::before,
+	.bn-pf-cover__spinner::before { animation: none; }
+}
+
 /* Owner "Edit avatar" badge — a pencil chip on the avatar (bottom-right),
    replacing the old standalone Edit-Avatar toolbar button. Mirrors the
    edit-page avatar button so the affordance feels identical across view +
@@ -2821,6 +2856,134 @@ a.bn-space-row:hover .bn-space-name {
 	line-height: var(--bn-leading-normal);
 }
 
+/* Label/value detail rows — the generic About-tab field renderer and the
+   non-curated (admin-added) sub-fields inside Work/Education timeline items.
+   The markup shipped long before any styling existed, so these rendered as
+   browser-default <dl> lists. */
+.bn-pf-detail-list {
+	display: grid;
+	gap: 0;
+	margin: var(--bn-s2) 0 0;
+}
+/* Inline rows: a muted, fixed-width label column so values align into a clean
+   vertical column (a profile "About", not a bold label:value form dump), with a
+   hairline divider for rhythm. */
+.bn-pf-detail {
+	display: grid;
+	grid-template-columns: minmax(96px, 168px) 1fr;
+	gap: var(--bn-s2) var(--bn-s4);
+	align-items: baseline;
+	padding: var(--bn-s2) 0;
+	font-size: var(--bn-text-sm);
+	border-bottom: 1px solid var(--bn-line-faint);
+}
+.bn-pf-detail:last-child { border-bottom: none; }
+.bn-pf-detail__label {
+	margin: 0;
+	font-weight: var(--bn-fw-medium, 500);
+	color: var(--bn-ink-3);
+}
+.bn-pf-detail__value {
+	margin: 0;
+	color: var(--bn-ink-1);
+	font-weight: var(--bn-fw-medium, 500);
+	overflow-wrap: anywhere;
+}
+/* Block (paragraph) + chips span the full width with the label as a caption
+   above, not squeezed into the label column. */
+.bn-pf-detail--block,
+.bn-pf-detail--chips {
+	grid-template-columns: 1fr;
+	gap: var(--bn-s1);
+}
+.bn-pf-detail--block .bn-pf-detail__value,
+.bn-pf-detail--chips .bn-pf-detail__value {
+	width: 100%;
+}
+/* Colour swatch (bn-admin.css isn't enqueued on the profile, so define it here). */
+.bn-field-color { display: inline-flex; align-items: center; gap: var(--bn-s2); }
+.bn-field-color .bn-color-swatch {
+	width: 1rem;
+	height: 1rem;
+	border-radius: var(--bn-r-sm);
+	border: 1px solid var(--bn-line);
+	flex-shrink: 0;
+}
+.bn-field-color code {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+@media (max-width: 480px) {
+	.bn-pf-detail { grid-template-columns: 1fr; gap: 2px; }
+	.bn-pf-detail__label { font-size: var(--bn-text-xs); }
+}
+
+/* ── Presentation modes (FieldType::presentation_for) ─────────────────────
+	The About tab renders every field by TYPE, tagging each row with its mode
+	so the layout adapts without knowing the field's identity:
+	 - inline / link : label + value on one row (the .bn-pf-detail default).
+	 - block         : a paragraph — label above, full-width value below.
+	 - chips         : a tag row — label above, chips wrapping below. */
+.bn-pf-detail--block,
+.bn-pf-detail--chips {
+	flex-direction: column;
+	gap: var(--bn-s1);
+}
+.bn-pf-detail--block .bn-pf-detail__value,
+.bn-pf-detail--chips .bn-pf-detail__value {
+	width: 100%;
+}
+/* Paragraph (textarea) value: readable line-height + spacing between blocks. */
+.bn-field-paragraphs {
+	line-height: var(--bn-leading-normal, 1.6);
+}
+.bn-field-paragraphs p { margin: 0 0 var(--bn-s2); }
+.bn-field-paragraphs p:last-child { margin-bottom: 0; }
+
+/* ── Repeater entry cards ─────────────────────────────────────────────────
+	Each entry (a work role, a degree, a custom repeater item) is a visually
+	separated block so multiple entries read as distinct records, not one run
+	of rows. Accent rail + subtle surface, tightened detail rows inside. */
+.bn-pf-detail-entry {
+	margin-top: var(--bn-s3);
+	padding: var(--bn-s3) var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+}
+.bn-pf-detail-entry:first-child { margin-top: var(--bn-s2); }
+/* Inside an entry the rows are tighter and drop their dividers — the card edge
+   already separates entries. */
+.bn-pf-detail-entry .bn-pf-detail {
+	border-bottom: none;
+	padding: var(--bn-s1) 0;
+}
+/* Entry hierarchy: a prominent title, a muted meta line (company · location ·
+   date range), and a description block — the LinkedIn/Facebook entry shape,
+   produced from field types, not group names. */
+.bn-pf-entry__title {
+	margin: 0;
+	font-size: var(--bn-text-md, 1.05rem);
+	font-weight: var(--bn-fw-semibold, 600);
+	color: var(--bn-ink-1);
+	line-height: 1.3;
+}
+.bn-pf-entry__meta {
+	margin: 2px 0 0;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+.bn-pf-entry__desc {
+	margin-top: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	line-height: var(--bn-leading-normal, 1.6);
+}
+.bn-pf-entry__desc p { margin: 0 0 var(--bn-s2); }
+.bn-pf-entry__desc p:last-child { margin-bottom: 0; }
+/* Any leftover typed rows below the description sit tighter. */
+.bn-pf-entry__desc + .bn-pf-detail-list { margin-top: var(--bn-s2); }
+
 .bn-pf-tag-cloud {
 	display: flex;
 	flex-wrap: wrap;
@@ -2957,4 +3120,55 @@ a.bn-space-row:hover .bn-space-name {
 	.bn-ep-data-row .bn-btn {
 		width: 100%;
 	}
+}
+
+/* ── Account standing banner (strikes / suspension / shadow-ban) ──────────────
+ * Privileged notice shown on a profile to its owner (their own sanctions) or a
+ * moderator. Danger-accented via theme tokens (no raw hex), so it inherits dark
+ * mode; margin-inline + border-inline keep it RTL-correct. */
+.bn-pf-standing {
+	display: flex;
+	gap: var(--bn-s3);
+	align-items: flex-start;
+	margin-block-end: var(--bn-s4);
+	padding: var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-inline-start: 3px solid var(--bn-danger);
+	border-radius: var(--bn-r-md);
+	background: color-mix(in oklab, var(--bn-danger) 7%, var(--bn-surface));
+}
+
+.bn-pf-standing__icon {
+	flex-shrink: 0;
+	display: inline-flex;
+	color: var(--bn-danger);
+}
+
+.bn-pf-standing__icon svg {
+	width: 20px;
+	height: 20px;
+}
+
+.bn-pf-standing__title {
+	margin: 0 0 var(--bn-s1);
+	font-size: var(--bn-text-sm);
+	font-weight: 600;
+	color: var(--bn-ink);
+}
+
+.bn-pf-standing__list {
+	margin: 0;
+	padding-inline-start: var(--bn-s4);
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+}
+
+.bn-pf-standing__item {
+	margin-block: var(--bn-s1);
+}
+
+.bn-pf-standing__note {
+	margin: var(--bn-s2) 0 0;
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
 }

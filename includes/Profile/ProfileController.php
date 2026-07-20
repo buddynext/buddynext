@@ -694,6 +694,22 @@ class ProfileController extends BaseRestController {
 			$profile['bio'] = buddynext_service( 'profiles' )->bio_for( $profile_user_id );
 		}
 
+		// Member type — a member's identity (Staff, Contributor, …) belongs on the
+		// profile header. Built from the SAME MemberTypeService::badge_for() the
+		// directory uses, so the two responses cannot drift. Null (present key,
+		// null value) when the member has no type — never absent, never a
+		// half-populated object.
+		$member_types             = buddynext_service( 'member_types' );
+		$profile['member_type']   = ( $member_types instanceof \BuddyNext\MemberTypes\MemberTypeService )
+			? $member_types->badge_for( $profile_user_id )
+			: null;
+
+		// Account moderation status (strikes / suspension / shadow-ban). PRIVILEGED:
+		// present only for the profile owner (their own sanctions) or a viewer who
+		// can moderate; a present key with a null value for everyone else, so a
+		// regular member's client never even learns the field exists.
+		$profile['account_status'] = $this->build_account_status( $profile_user_id, $viewer_id );
+
 		/**
 		 * Fires after a user's profile is loaded and the response is built.
 		 *
@@ -710,6 +726,31 @@ class ProfileController extends BaseRestController {
 		}
 
 		return new WP_REST_Response( $profile, 200 );
+	}
+
+	/**
+	 * Build the privileged account-moderation status for a profile.
+	 *
+	 * Surfaces active strikes, an active suspension (reason + expiry), and — for
+	 * moderators only — shadow-ban state, so admins/moderators can see an account's
+	 * standing on the profile and the owner sees their own sanctions. Returns null
+	 * for anyone who is neither the owner nor a moderator, and (for the owner) when
+	 * there is nothing to report, so a clean profile carries no banner.
+	 *
+	 * Shadow-ban is deliberately withheld from the owner: telling a shadow-banned
+	 * member they are shadow-banned defeats the mechanism. It is only ever included
+	 * for a moderator viewer.
+	 *
+	 * @param int $profile_user_id The profile being viewed.
+	 * @param int $viewer_id       The viewer (0 = anonymous).
+	 * @return array<string, mixed>|null Status payload, or null when not disclosable.
+	 */
+	private function build_account_status( int $profile_user_id, int $viewer_id ): ?array {
+		$mod = buddynext_service( 'moderation' );
+		if ( ! $mod instanceof \BuddyNext\Moderation\ModerationService ) {
+			return null;
+		}
+		return $mod->account_status_for( $profile_user_id, $viewer_id );
 	}
 
 	/**

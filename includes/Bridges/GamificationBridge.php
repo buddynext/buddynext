@@ -42,6 +42,11 @@ class GamificationBridge {
 		// participation badges never spam the feed.
 		add_action( 'wb_gam_badge_awarded', array( $this, 'on_badge_awarded_activity' ), 10, 3 );
 
+		// Render the badge feed card through Free's typed-card seam, so it shows the
+		// uniform integration bridge card (icon + "Badge" + linked name) instead of
+		// the plain-text fallback — the same one job/listing/course use.
+		add_filter( 'buddynext_render_post_body_badge', array( $this, 'render_feed_card' ), 10, 2 );
+
 		// Points are a SILENT background reward in BuddyNext. wb-gamification's
 		// per-action cooldown is a transient anti-burst limit; surfacing it to the
 		// member as a toast ("You're on cooldown for this action - try again in a
@@ -183,7 +188,23 @@ class GamificationBridge {
 			/* translators: %s: badge name. */
 			sprintf( __( 'earned the %s badge', 'buddynext' ), $name ),
 			$this->badge_share_url( $badge_id, $user_id ),
-			$name
+			$name,
+			'badge'
+		);
+	}
+
+	/**
+	 * Render the 'badge' feed card via Free's typed-card seam.
+	 *
+	 * @param string              $html Default HTML ('' — the helper builds it).
+	 * @param array<string,mixed> $args Post-body args ({ link_preview, post_content }).
+	 * @return string Pre-escaped card HTML, or '' to fall back to plain text.
+	 */
+	public function render_feed_card( $html, $args ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+		return IntegrationActivity::render_bridge_card(
+			is_array( $args ) ? $args : array(),
+			'award',
+			__( 'Badge', 'buddynext' )
 		);
 	}
 

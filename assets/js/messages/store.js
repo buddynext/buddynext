@@ -16,8 +16,8 @@
  */
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnConfirm, bnReportDialog, bnToast } from '../shell/dialog.js';
-import { restFetch } from '../shell/rest-client.js';
+import { bnConfirm, bnReportDialog, bnToast } from '@buddynext/shell-dialog';
+import { restFetch } from '@buddynext/rest-client';
 // Shared client-side thumbnail only — DM upload stays on MediaVerse's own
 // conversation-scoped (privacy:'dm') endpoint; this just unifies the fast
 // small preview so a large attachment doesn't decode full-res into the chip.
@@ -161,7 +161,8 @@ function buildMediaTile( media ) {
 /**
  * Fill the conversation info panel's "Shared photos" grid from the image media
  * already rendered in the thread — no extra request, just reads the loaded
- * `.bn-dm-bubble__media` thumbnails. Covers media in messages loaded so far.
+ * `.bn-dm-msg__media` thumbnails. Covers media in messages loaded so far. For
+ * the full conversation history (and the app) use GET /conversations/{id}/media.
  *
  * @return {void}
  */
@@ -171,7 +172,7 @@ function collectSharedMedia() {
 		return;
 	}
 
-	const imgs = document.querySelectorAll( '.bn-dm-bubble__media[data-type="image"] img' );
+	const imgs = document.querySelectorAll( '.bn-dm-msg__media[data-type="image"] .bn-media-tile__img' );
 	grid.textContent = '';
 
 	if ( ! imgs.length ) {
@@ -449,13 +450,19 @@ function buildMessageNode( msg, viewer ) {
 }
 
 /**
- * Append a message node and scroll the log to the bottom (skipping duplicates).
+ * Append a message node (skipping duplicates), keeping the reader's place.
  *
- * @param {Object} msg    Message row.
- * @param {number} viewer Viewing user ID.
+ * Auto-scroll to the bottom only when forced (the reader's own send) or when
+ * they were already at the bottom before the append. A polled incoming message
+ * must never yank a reader who has scrolled up to reread history back down —
+ * the same "only if at bottom" rule the typing pip uses (< 80px threshold).
+ *
+ * @param {Object}  msg    Message row.
+ * @param {number}  viewer Viewing user ID.
+ * @param {boolean} [force] Force scroll to bottom (use for the reader's own send).
  * @return {void}
  */
-function appendMessage( msg, viewer ) {
+function appendMessage( msg, viewer, force ) {
 	const log = logEl();
 	if ( ! log ) {
 		return;
@@ -463,8 +470,11 @@ function appendMessage( msg, viewer ) {
 	if ( log.querySelector( '.bn-dm-msg[data-msg-id="' + ( msg.id || 0 ) + '"]' ) ) {
 		return; // already rendered (e.g. our own send echoed back by the poll)
 	}
+	const atBottom = ( log.scrollHeight - log.scrollTop - log.clientHeight ) < 80;
 	log.appendChild( buildMessageNode( msg, viewer ) );
-	log.scrollTop = log.scrollHeight;
+	if ( force || atBottom ) {
+		log.scrollTop = log.scrollHeight;
+	}
 }
 
 /**
@@ -728,7 +738,8 @@ const messagesStore = store( 'buddynext/messages', {
 				if ( pendingMedia && ! msg.media && ! msg.media_share ) {
 					msg.media = pendingMedia;
 				}
-				appendMessage( msg, ctx.userId );
+				// Force scroll: the reader just sent this, so jump them to it.
+					appendMessage( msg, ctx.userId, true );
 			}
 
 			if ( ! ok ) {
@@ -814,6 +825,26 @@ const messagesStore = store( 'buddynext/messages', {
 						const need = pop.offsetHeight + 8;
 						const room = trigger.getBoundingClientRect().top - log.getBoundingClientRect().top;
 						wrap.classList.toggle( 'is-down', room < need );
+
+						// Horizontal clamp. The CSS anchors the picker to the sender's
+						// edge (leftward for sent bubbles, rightward for received) and
+						// caps its width so extra reactions wrap. But a bubble near the
+						// far edge can still push the picker past the log, whose
+						// overflow clips it — so nudge it back inside if either edge
+						// spills. Guarantees every reaction stays visible + tappable
+						// regardless of bubble position or how many reactions exist.
+						pop.style.transform = '';
+						const logRect = log.getBoundingClientRect();
+						const popRect = pop.getBoundingClientRect();
+						let shift = 0;
+						if ( popRect.left < logRect.left + 4 ) {
+							shift = ( logRect.left + 4 ) - popRect.left;
+						} else if ( popRect.right > logRect.right - 4 ) {
+							shift = ( logRect.right - 4 ) - popRect.right;
+						}
+						if ( shift ) {
+							pop.style.transform = 'translateX(' + Math.round( shift ) + 'px)';
+						}
 					}
 				}
 			} else if ( 'react-pick' === action ) {
@@ -1175,7 +1206,18 @@ const messagesStore = store( 'buddynext/messages', {
 						const btn = document.createElement( 'button' );
 						btn.type      = 'button';
 						btn.className = 'bn-dm-search__result';
-						btn.textContent = m.content || '';
+						// Show who said it — a bare snippet is ambiguous in group
+						// threads. sender_name comes from the enriched REST result.
+						if ( m.sender_name ) {
+							const who = document.createElement( 'span' );
+							who.className = 'bn-dm-search__sender';
+							who.textContent = m.sender_name;
+							btn.appendChild( who );
+						}
+						const snippet = document.createElement( 'span' );
+						snippet.className = 'bn-dm-search__snippet';
+						snippet.textContent = m.content || '';
+						btn.appendChild( snippet );
 						btn.addEventListener( 'click', () => {
 							const node = document.querySelector( '.bn-dm-msg[data-msg-id="' + ( m.id || 0 ) + '"]' );
 							if ( node ) {
@@ -1346,6 +1388,11 @@ const messagesStore = store( 'buddynext/messages', {
 				preview = yield makeThumb( file );
 			}
 			ctx.attachmentPreview = preview;
+			// In flight: drives the chip spinner and disables Send so the member can
+			// neither send the message before the media id lands nor double-submit
+			// the attachment. Cleared on both terminal paths below (and by
+			// clearAttachment on the early failure return).
+			ctx.attachmentUploading = true;
 
 			const fd = new FormData();
 			fd.append( 'file', file );
@@ -1389,14 +1436,16 @@ const messagesStore = store( 'buddynext/messages', {
 			} catch ( _e ) {
 				failAttachment( '' );
 			}
+			ctx.attachmentUploading = false;
 			input.value = '';
 		},
 		clearAttachment() {
 			const ctx = getContext();
-			ctx.attachmentId      = 0;
-			ctx.attachmentName    = '';
-			ctx.attachmentPreview = '';
-			ctx.attachmentVisible = false;
+			ctx.attachmentId        = 0;
+			ctx.attachmentName      = '';
+			ctx.attachmentPreview   = '';
+			ctx.attachmentVisible   = false;
+			ctx.attachmentUploading = false;
 			const f = document.getElementById( 'bn-dm-file' );
 			if ( f ) {
 				f.value = '';

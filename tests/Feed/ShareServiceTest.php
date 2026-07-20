@@ -121,6 +121,11 @@ class ShareServiceTest extends \WP_UnitTestCase {
 
 		$this->assertWPError( $result );
 		$this->assertSame( 'already_shared', $result->get_error_code() );
+		$this->assertSame(
+			409,
+			$result->get_error_data()['status'] ?? 0,
+			'A duplicate share is a conflict, not a bad request. The status must come from the service: share() is reached from wp-cli and internal callers too, and an error with no status becomes a 500 for them. The feed store already branches on 409.'
+		);
 	}
 
 	public function test_share_count_does_not_go_negative(): void {

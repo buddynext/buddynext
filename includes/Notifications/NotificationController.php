@@ -44,15 +44,32 @@ class NotificationController extends BaseRestController {
 				'callback'            => array( $this, 'list_notifications' ),
 				'permission_callback' => array( $this, 'require_auth' ),
 				'args'                => array(
-					'filter' => array(
+					'filter'   => array(
 						'type'              => 'string',
 						'enum'              => array( 'all', 'unread', 'read' ),
 						'default'           => 'all',
 						'sanitize_callback' => 'sanitize_key',
 					),
-					'offset' => array(
-						'type'    => 'integer',
-						'minimum' => 0,
+					// The handler reads cursor and per_page too, and declared neither.
+					// openapi.json is generated from this registry, so the spec offered
+					// only `offset` and steered every client onto O(n) OFFSET paging
+					// while the keyset cursor -- the reason the cursor exists -- sat
+					// undiscoverable. Prefer cursor; offset stays for existing callers.
+					'cursor'   => array(
+						'type'              => 'string',
+						'description'       => 'Keyset cursor from a previous response. Preferred over offset: it does not degrade as the list grows, and it cannot skip or repeat a row when new notifications arrive mid-page.',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'per_page' => array(
+						'type'              => 'integer',
+						'default'           => 20,
+						'description'       => 'Notifications per page.',
+						'sanitize_callback' => 'absint',
+					),
+					'offset'   => array(
+						'type'        => 'integer',
+						'minimum'     => 0,
+						'description' => 'Row offset. Superseded by cursor for new clients.',
 					),
 				),
 			)
@@ -81,6 +98,27 @@ class NotificationController extends BaseRestController {
 				array(
 					'methods'             => 'POST',
 					'callback'            => array( $this, 'mark_all_read' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+			)
+		);
+
+		// Mark the list SEEN — clears the badge without marking rows read. The web
+		// does this automatically on list render (PageRouter); the native app calls
+		// this when the member opens their notifications screen so its bell badge
+		// clears the same way, while the Unread tab stays intact.
+		register_rest_route(
+			'buddynext/v1',
+			'/me/notifications/seen',
+			array(
+				array(
+					'methods'             => 'PUT',
+					'callback'            => array( $this, 'mark_seen' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'mark_seen' ),
 					'permission_callback' => array( $this, 'require_auth' ),
 				),
 			)
@@ -233,7 +271,11 @@ class NotificationController extends BaseRestController {
 	 */
 	public function unread_count( WP_REST_Request $request ): WP_REST_Response { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
 		$user_id = get_current_user_id();
-		$count   = ( new NotificationService() )->unread_count( $user_id );
+		// The app's bell badge = UNSEEN count (created since the list was last
+		// viewed). Viewing the list (mark_seen) clears it without marking items
+		// read, so the Unread tab stays intact. The route name is kept for
+		// backward compatibility.
+		$count = ( new NotificationService() )->unseen_count( $user_id );
 
 		return new WP_REST_Response( array( 'count' => $count ), 200 );
 	}
@@ -285,6 +327,24 @@ class NotificationController extends BaseRestController {
 		( new NotificationService() )->mark_all_read( $user_id );
 
 		return new WP_REST_Response( array( 'read' => true ), 200 );
+	}
+
+	/**
+	 * Mark the notifications list as SEEN for the current user.
+	 *
+	 * Clears the bell/nav badge (unseen count → 0) without marking any row read,
+	 * so the Unread tab and Mark-unread stay intact. Used by the native app when
+	 * the member opens their notifications screen; the web does the equivalent on
+	 * list render.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function mark_seen( WP_REST_Request $request ): WP_REST_Response { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		$user_id = get_current_user_id();
+		( new NotificationService() )->mark_seen( $user_id );
+
+		return new WP_REST_Response( array( 'seen' => true ), 200 );
 	}
 
 	/**

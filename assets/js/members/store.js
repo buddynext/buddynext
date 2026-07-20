@@ -14,9 +14,9 @@
  */
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnResolveConnectNote } from '../shell/dialog.js';
-import { restFetch } from '../shell/rest-client.js';
-import { onNavReady } from '../shell/nav-init.js';
+import { bnToast, bnResolveConnectNote } from '@buddynext/shell-dialog';
+import { restFetch } from '@buddynext/rest-client';
+import { onNavReady } from '@buddynext/nav-init';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state

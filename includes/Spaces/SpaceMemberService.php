@@ -1094,6 +1094,23 @@ class SpaceMemberService {
 	 * @return array[] Each item: user_id, role, joined_at, display_name, user_nicename.
 	 */
 	public function get_members( int $space_id, int $viewer_id = 0, int $limit = 0, int $offset = 0, array $args = array() ): array {
+		// Always bounded — $limit <= 0 (the historic "all") clamps to the cap, a larger
+		// ask clamps down, so a full 50k roster is never loaded in one read.
+		$limit = ( $limit <= 0 ) ? self::MAX_MEMBERS_PER_QUERY : min( $limit, self::MAX_MEMBERS_PER_QUERY );
+
+		// Cache the roster page under a per-space version salt (the membership_rows()
+		// idiom): invalidate_cache() bumps that salt on every join / leave / role
+		// change, retiring all variants at once. Keyed on the full arg set (viewer +
+		// role/search filters + limit + offset) so no two shapes collide. Finishes a
+		// previously half-wired cache — invalidate_cache() already dropped a members_*
+		// key, but nothing ever wrote it, so every space-page roster read hit the DB.
+		$cache_key = 'members_v' . self::cache_version( "members_ver_{$space_id}" ) . '_'
+			. md5( (string) wp_json_encode( array( $space_id, $viewer_id, $limit, max( 0, $offset ), $args ) ) );
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
 		global $wpdb;
 
 		$block_where = $this->member_block_where( $viewer_id );
@@ -1128,9 +1145,7 @@ class SpaceMemberService {
 			$moderation_where = ' ' . buddynext_service( 'moderation' )->moderation_exclude_sql( 'sm.user_id' );
 		}
 
-		// Always bounded — $limit <= 0 (the historic "all") clamps to the cap, a larger
-		// ask clamps down, so a full 50k roster is never loaded in one read.
-		$limit = ( $limit <= 0 ) ? self::MAX_MEMBERS_PER_QUERY : min( $limit, self::MAX_MEMBERS_PER_QUERY );
+		// $limit was clamped to the cap at the top (before the cache key was built).
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$limit_sql = $wpdb->prepare( ' LIMIT %d OFFSET %d', $limit, max( 0, $offset ) );
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -1152,7 +1167,7 @@ class SpaceMemberService {
 
 		$this->prime_roster_users( (array) $rows );
 
-		return array_map(
+		$members = array_map(
 			fn( $r ) => array(
 				'user_id'       => (int) $r['user_id'],
 				'role'          => $r['role'],
@@ -1165,13 +1180,19 @@ class SpaceMemberService {
 			),
 			(array) $rows
 		);
+
+		// The mapped rows carry display_name + avatar_url, so a hit needs no
+		// re-priming — the whole page is self-contained.
+		wp_cache_set( $cache_key, $members, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $members;
 	}
 
 	/**
 	 * Prime the user cache for a roster page.
 	 *
-	 * get_avatar_url() resolves the user behind each id, so mapping it over a page of members
-	 * was one user lookup PER ROW. Bounded (MAX_MEMBERS_PER_QUERY caps the page), so it never
+	 * The get_avatar_url() call resolves the user behind each id, so mapping it over a page of
+	 * members was one user lookup PER ROW. Bounded (MAX_MEMBERS_PER_QUERY caps the page), so it never
 	 * ran away — it was just up to 200 avoidable queries per roster page. One batched fetch,
 	 * and every get_avatar_url() below is served from cache.
 	 *
@@ -1599,7 +1620,10 @@ class SpaceMemberService {
 	private function invalidate_cache( int $space_id, int $user_id ): void {
 		wp_cache_delete( "role_{$space_id}_{$user_id}", self::CACHE_GROUP );
 		wp_cache_delete( "status_{$space_id}_{$user_id}", self::CACHE_GROUP );
-		wp_cache_delete( "members_{$space_id}", self::CACHE_GROUP );
+		// Roster list: bump the per-space version salt (not a single fixed-key
+		// delete) — get_members() is parameterised by viewer/role/limit/offset, so
+		// it lives under many keys; one bump retires them all.
+		self::bump_cache_version( "members_ver_{$space_id}" );
 
 		// The member's own "My spaces" rail. It is rebuilt from these same rows, so it
 		// goes stale on exactly the events this method already handles — joining, leaving,
@@ -1616,14 +1640,40 @@ class SpaceMemberService {
 	 * @return int
 	 */
 	private static function membership_summary_version( int $user_id ): int {
-		$version = wp_cache_get( "membership_ver_{$user_id}", self::CACHE_GROUP );
+		return self::cache_version( "membership_ver_{$user_id}" );
+	}
+
+	/**
+	 * Read a version salt for a parameterised cache (seeding it to 1 when absent).
+	 *
+	 * The shared primitive behind every versioned cache in this service — the
+	 * per-user "My spaces" summary and the per-space members roster both embed a
+	 * salt from here in their keys, so a single bump retires every variant at once
+	 * (the object-cache-safe substitute for a wildcard delete).
+	 *
+	 * @param string $key Salt cache key (e.g. "membership_ver_{uid}", "members_ver_{space}").
+	 * @return int
+	 */
+	private static function cache_version( string $key ): int {
+		$version = wp_cache_get( $key, self::CACHE_GROUP );
 
 		if ( false === $version ) {
 			$version = 1;
-			wp_cache_set( "membership_ver_{$user_id}", $version, self::CACHE_GROUP );
+			wp_cache_set( $key, $version, self::CACHE_GROUP );
 		}
 
 		return (int) $version;
+	}
+
+	/**
+	 * Bump a version salt, retiring every cache entry keyed on it. Call AFTER the
+	 * DB write it invalidates, never before.
+	 *
+	 * @param string $key Salt cache key.
+	 * @return void
+	 */
+	private static function bump_cache_version( string $key ): void {
+		wp_cache_set( $key, self::cache_version( $key ) + 1, self::CACHE_GROUP );
 	}
 
 	/**
@@ -1638,11 +1688,7 @@ class SpaceMemberService {
 	 * @return void
 	 */
 	private static function invalidate_membership_summary( int $user_id ): void {
-		wp_cache_set(
-			"membership_ver_{$user_id}",
-			self::membership_summary_version( $user_id ) + 1,
-			self::CACHE_GROUP
-		);
+		self::bump_cache_version( "membership_ver_{$user_id}" );
 	}
 
 	/**

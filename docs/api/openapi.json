@@ -38,6 +38,9 @@
             "name": "Members and Profiles"
         },
         {
+            "name": "Misc"
+        },
+        {
             "name": "Moderation and Trust"
         },
         {
@@ -353,6 +356,20 @@
                         "appPassword": []
                     }
                 ]
+            }
+        },
+        "/app/config": {
+            "get": {
+                "tags": [
+                    "Misc"
+                ],
+                "operationId": "get_app_config",
+                "summary": "GET /buddynext/v1/app/config",
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    }
+                }
             }
         },
         "/appeals": {
@@ -1991,6 +2008,27 @@
                 ],
                 "operationId": "get_feed_explore",
                 "summary": "GET /buddynext/v1/feed/explore",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "description": "Opaque keyset cursor from a previous response.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "description": "Items per page (1-50).",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Success."
@@ -2048,6 +2086,25 @@
                 "operationId": "get_feed_home",
                 "summary": "GET /buddynext/v1/feed/home",
                 "parameters": [
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "description": "Opaque keyset cursor from a previous response.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "description": "Items per page (1-50).",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    },
                     {
                         "name": "filter",
                         "in": "query",
@@ -3951,10 +4008,29 @@
                         }
                     },
                     {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "description": "Keyset cursor from a previous response. Preferred over offset: it does not degrade as the list grows, and it cannot skip or repeat a row when new notifications arrive mid-page.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "description": "Notifications per page.",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    },
+                    {
                         "name": "offset",
                         "in": "query",
                         "required": false,
-                        "description": "",
+                        "description": "Row offset. Superseded by cursor for new clients.",
                         "schema": {
                             "type": "integer"
                         }
@@ -4014,6 +4090,60 @@
                 ],
                 "operationId": "post_me_notifications_read_all",
                 "summary": "POST /buddynext/v1/me/notifications/read-all",
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            }
+        },
+        "/me/notifications/seen": {
+            "put": {
+                "tags": [
+                    "Notifications"
+                ],
+                "operationId": "put_me_notifications_seen",
+                "summary": "PUT /buddynext/v1/me/notifications/seen",
+                "responses": {
+                    "200": {
+                        "description": "Success."
+                    },
+                    "401": {
+                        "description": "Not authenticated."
+                    },
+                    "403": {
+                        "description": "Authenticated but not permitted."
+                    }
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {
+                        "appPassword": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Notifications"
+                ],
+                "operationId": "post_me_notifications_seen",
+                "summary": "POST /buddynext/v1/me/notifications/seen",
                 "responses": {
                     "200": {
                         "description": "Success."
@@ -7640,6 +7770,118 @@
                 ],
                 "operationId": "get_spaces",
                 "summary": "GET /buddynext/v1/spaces",
+                "parameters": [
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "description": "Spaces per page.",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "description": "1-based page number.",
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "paginate",
+                        "in": "query",
+                        "required": false,
+                        "description": "Set to 1/true/yes to wrap rows with total + total_pages. Ignored on the search path -- see list_spaces().",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "orderby",
+                        "in": "query",
+                        "required": false,
+                        "description": "member_count | name | created_at, or an alias: popular, active, newest, alphabetical. NOTE: active is an alias for member_count, not recency.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "order",
+                        "in": "query",
+                        "required": false,
+                        "description": "ASC or DESC.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "required": false,
+                        "description": "Space type slug. Registry-driven, so custom types are accepted.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "category_id",
+                        "in": "query",
+                        "required": false,
+                        "description": "Filter by space category.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "description": "Free-text search. Takes precedence over q.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "required": false,
+                        "description": "Alias for search.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "mine",
+                        "in": "query",
+                        "required": false,
+                        "description": "1/true/yes to scope to spaces the viewer belongs to.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "membership",
+                        "in": "query",
+                        "required": false,
+                        "description": "manage = owned/moderated, joined = plain membership. Implies the member scope.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "include_subspaces",
+                        "in": "query",
+                        "required": false,
+                        "description": "1/true/yes to include sub-spaces in the listing.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Success."
@@ -8285,6 +8527,25 @@
                         "required": true,
                         "schema": {
                             "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "description": "Opaque keyset cursor from a previous response.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "description": "Items per page (1-50).",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
                         }
                     }
                 ],
@@ -9527,26 +9788,6 @@
                         "schema": {
                             "type": "integer"
                         }
-                    },
-                    {
-                        "name": "per_page",
-                        "in": "query",
-                        "required": false,
-                        "description": "",
-                        "schema": {
-                            "type": "integer",
-                            "default": 20
-                        }
-                    },
-                    {
-                        "name": "page",
-                        "in": "query",
-                        "required": false,
-                        "description": "",
-                        "schema": {
-                            "type": "integer",
-                            "default": 1
-                        }
                     }
                 ],
                 "responses": {
@@ -9658,6 +9899,25 @@
                         "required": true,
                         "schema": {
                             "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "required": false,
+                        "description": "Opaque keyset cursor from a previous response.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "description": "Items per page (1-50).",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
                         }
                     }
                 ],
@@ -10127,6 +10387,26 @@
                         "required": true,
                         "schema": {
                             "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "description": "Mutual connections per page.",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "description": "1-based page number.",
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
                         }
                     }
                 ],

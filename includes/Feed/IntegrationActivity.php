@@ -75,9 +75,15 @@ class IntegrationActivity {
 	 *                           never be suppressed — and never appears in the
 	 *                           space's own feed either. Pass 0 for content that
 	 *                           genuinely has no space (a badge, a resume).
+	 * @param array  $meta       Optional extra fields merged into `link_meta`, so a
+	 *                           typed card (event, course, …) can carry its structured
+	 *                           payload (cover, start time, location, source id) for a
+	 *                           `buddynext_render_post_body_{type}` renderer and the
+	 *                           REST/app surfaces. Overrides the defaults it shares a
+	 *                           key with (e.g. pass 'image' to set the card cover).
 	 * @return int|\WP_Error Post id (0 when an identical card already exists), or WP_Error.
 	 */
-	public static function publish( int $member_id, string $content, string $link_url, string $link_title = '', string $type = 'link', string $excerpt = '', int $space_id = 0 ) {
+	public static function publish( int $member_id, string $content, string $link_url, string $link_title = '', string $type = 'link', string $excerpt = '', int $space_id = 0, array $meta = array() ) {
 		if ( $member_id <= 0 || '' === $link_url ) {
 			return new \WP_Error( 'invalid_activity', 'member id and link url are required' );
 		}
@@ -106,11 +112,14 @@ class IntegrationActivity {
 					// site's default-post-privacy option, which may be blank.
 					'privacy'   => 'public',
 					'link_url'  => $link_url,
-					'link_meta' => array(
-						'title'       => $link_title,
-						'description' => $excerpt,
-						'image'       => '',
-						'url'         => $link_url,
+					'link_meta' => array_merge(
+						array(
+							'title'       => $link_title,
+							'description' => $excerpt,
+							'image'       => '',
+							'url'         => $link_url,
+						),
+						$meta
 					),
 				)
 			);
@@ -164,5 +173,73 @@ class IntegrationActivity {
 			return 0;
 		}
 		return ( new PostService() )->delete_by_link( '' !== $type ? $type : 'link', $link_url );
+	}
+
+	/**
+	 * Remove EVERY card of a type that a bridge stamped with a partner id in its
+	 * link_meta — e.g. all of an event's cards (the organizer card + each
+	 * attendee's) by their shared event_id.
+	 *
+	 * Use this when a partner entity is deleted and the per-card URLs can't be
+	 * reconstructed (the source rows are already gone) or a URL match would be
+	 * unsafe: the id the bridge stored at publish time is the stable, exact key.
+	 *
+	 * @param string $type     Card post type (e.g. 'event').
+	 * @param string $meta_key link_meta field the id was stored under (e.g. 'event_id').
+	 * @param int    $value    The partner id whose cards to remove.
+	 * @return int Rows removed.
+	 */
+	public static function remove_by_meta( string $type, string $meta_key, int $value ): int {
+		if ( '' === $type || '' === $meta_key || $value <= 0 ) {
+			return 0;
+		}
+		return ( new PostService() )->delete_by_link_meta_int( $type, $meta_key, $value );
+	}
+
+	/**
+	 * Render the uniform integration feed card for a typed bridge post.
+	 *
+	 * The single card style every bridge shares: an icon + a source label + the
+	 * linked content title + an optional preview line — the same
+	 * `.bn-post-card__bridge-card` markup the inline discussion card uses, so a
+	 * job, listing, course, or badge card looks identical across integrations.
+	 * Bridges call this from their `buddynext_render_post_body_{type}` renderer so
+	 * the card links OUT to the partner page (never the plain-text fallback, which
+	 * would drop the link). Returns pre-escaped HTML for the seam to echo.
+	 *
+	 * @param array<string,mixed> $args  Post-body args ({ link_preview, post_content, bn_post_type }).
+	 * @param string              $icon  Lucide icon slug for the card (e.g. 'graduation-cap').
+	 * @param string              $label Source label shown above the title (e.g. "Course").
+	 * @return string Card HTML, or '' when there is no link to render (text fallback).
+	 */
+	public static function render_bridge_card( array $args, string $icon, string $label ): string {
+		$link  = isset( $args['link_preview'] ) && is_array( $args['link_preview'] ) ? $args['link_preview'] : array();
+		$url   = isset( $link['url'] ) ? (string) $link['url'] : '';
+		$title = isset( $link['title'] ) ? (string) $link['title'] : '';
+		$desc  = isset( $link['desc'] ) ? (string) $link['desc'] : '';
+		$type  = isset( $args['bn_post_type'] ) ? (string) $args['bn_post_type'] : 'link';
+
+		// No link to point at → let the caller fall back to the plain-text body.
+		if ( '' === $url ) {
+			return '';
+		}
+		// The linked line is the content's own title; fall back to a trimmed verb.
+		if ( '' === $title ) {
+			$title = wp_trim_words( wp_strip_all_tags( (string) ( $args['post_content'] ?? '' ) ), 14 );
+		}
+
+		$html  = '<div class="bn-post-card__bridge-card bn-post-card__bridge-card--' . esc_attr( sanitize_html_class( $type ) ) . '">';
+		$html .= '<span class="bn-post-card__bridge-icon" aria-hidden="true">' . buddynext_get_icon( $icon ) . '</span>';
+		$html .= '<div class="bn-post-card__bridge-content">';
+		if ( '' !== $label ) {
+			$html .= '<span class="bn-post-card__bridge-source">' . esc_html( $label ) . '</span>';
+		}
+		$html .= '<a class="bn-post-card__bridge-title" href="' . esc_url( $url ) . '">' . esc_html( $title ) . '</a>';
+		if ( '' !== $desc ) {
+			$html .= '<p class="bn-post-card__bridge-text">' . esc_html( $desc ) . '</p>';
+		}
+		$html .= '</div></div>';
+
+		return $html;
 	}
 }

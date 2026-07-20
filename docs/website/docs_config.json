@@ -14,6 +14,7 @@
         "getting-started/06-whats-new-in-1-0-4.md",
         "getting-started/07-whats-new-in-1-0-7.md",
         "getting-started/08-whats-new-in-1-0-8.md",
+        "getting-started/09-whats-new-in-1-0-9.md",
         "getting-started/06-shortcodes-and-placement.md"
       ]
     },
@@ -76,7 +77,8 @@
         "members/08-blocking-and-muting.md",
         "members/09-presence-online.md",
         "members/10-profile-media-and-albums.md",
-        "members/11-interests.md"
+        "members/11-interests.md",
+        "members/13-about-tab.md"
       ]
     },
     {
@@ -207,6 +209,7 @@
         "developer-guide/30-hooks-notifications-email.md",
         "developer-guide/31-hooks-moderation-auth-trust.md",
         "developer-guide/32-hooks-search-hashtags-sidebar-admin.md",
+        "developer-guide/32b-sidebar-widget-registry.md",
         "developer-guide/33-hooks-pro-and-integration.md",
         "developer-guide/34-blocks-reference.md",
         "developer-guide/35-block-patterns.md",

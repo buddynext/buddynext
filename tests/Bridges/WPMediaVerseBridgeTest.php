@@ -26,6 +26,10 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		Installer::run();
 		// Plugin class stub is registered in tests/bootstrap.php.
 		$this->bridge = new WPMediaVerseBridge();
+		// Mirror Plugin::init(): the DM safety gates are wired independently of
+		// the display half, so a test that only called init() would no longer see
+		// mvs_can_send_message and would be asserting against the wrong wiring.
+		$this->bridge->init_dm_gates();
 		$this->bridge->init();
 		$this->sender_id    = self::factory()->user->create();
 		$this->recipient_id = self::factory()->user->create();
@@ -35,6 +39,77 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		$result = apply_filters( 'mvs_buddynext_active', false );
 
 		$this->assertTrue( $result );
+	}
+
+	/**
+	 * The Features toggle must not be able to un-gate DM.
+	 *
+	 * BuddyNext's /messages/ hub reaches the engine through MessagesData ->
+	 * MediaClient -> the engine's own container, never through this bridge. So
+	 * when an owner switches Platform -> Features -> WPMediaVerse off, messaging
+	 * carries on: the hub renders, shell-nav still emits the item, and the store
+	 * still posts to mvs/v1. Wiring check_block() behind that toggle therefore
+	 * disabled the check and not the messaging — a member who had blocked someone
+	 * kept receiving their DMs while the Block control went on claiming otherwise.
+	 *
+	 * This asserts the gates hold with the display half never initialised.
+	 */
+	public function test_dm_gates_hold_when_the_integration_display_is_toggled_off(): void {
+		// A bridge whose display half is never wired — i.e. init() is not called,
+		// exactly as Plugin::init() leaves it when the Features toggle is off.
+		$display_off = new WPMediaVerseBridge();
+		$display_off->init_dm_gates();
+
+		$this->assertNotFalse(
+			has_filter( 'mvs_can_send_message', array( $display_off, 'check_block' ) ),
+			'bn_blocks must gate DM with the integration display off; BuddyNext still serves /messages/.'
+		);
+		$this->assertNotFalse(
+			has_filter( 'mvs_message_content_check', array( $display_off, 'moderate_dm_content' ) ),
+			'DM auto-moderation must survive the display toggle.'
+		);
+		$this->assertNotFalse(
+			has_filter( 'mvs_dm_denial_reason', array( $display_off, 'dm_denial_reason' ) ),
+			'The denial reason must survive the display toggle, or a denial reads as a generic error.'
+		);
+	}
+
+	/**
+	 * Prove the gate actually refuses, not merely that a filter is attached.
+	 *
+	 * Attachment alone is a weak assertion — it would still pass if check_block()
+	 * were gutted to `return $allowed`. This drives a real block all the way
+	 * through the display-off wiring, and pins the regression the Features toggle
+	 * used to cause: engine default allows, so only the gate can produce false.
+	 */
+	public function test_display_off_bridge_still_refuses_a_blocked_sender(): void {
+		global $wpdb;
+
+		// Recipient has blocked sender.
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_blocks',
+			array(
+				'blocker_id' => $this->recipient_id,
+				'blocked_id' => $this->sender_id,
+			),
+			array( '%d', '%d' )
+		);
+
+		// The un-gated engine default: without BuddyNext's filter, the send is
+		// allowed. That is precisely what the site was left with when the owner
+		// switched the integration display off, and it is what makes the
+		// assertion below meaningful rather than vacuous.
+		$this->assertTrue(
+			apply_filters( 'mvs_can_send_message_unbridged', true, $this->sender_id, $this->recipient_id ),
+			'Fixture check: an unhooked filter must pass the engine default through.'
+		);
+
+		$result = apply_filters( 'mvs_can_send_message', true, $this->sender_id, $this->recipient_id );
+
+		$this->assertFalse(
+			$result,
+			'A blocked sender must still be refused when only init_dm_gates() has run.'
+		);
 	}
 
 	public function test_can_send_message_allows_when_not_blocked(): void {
@@ -112,5 +187,31 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		);
 
 		$this->assertSame( 0, $count );
+	}
+
+	public function test_media_delete_withdraws_the_feed_card(): void {
+		global $wpdb;
+		$url = home_url( '/media/my-clip/' );
+
+		// A media card as on_media_uploaded would publish it (non-photo media).
+		\BuddyNext\Feed\IntegrationActivity::publish( $this->sender_id, 'shared a video', $url, '', 'media', '' );
+		$before = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE type = 'media' AND link_url = %s", $url )
+		);
+		$this->assertSame( 1, $before, 'the media card is published' );
+
+		// Source media deleted → mvs_media_deleted carries the pre-delete permalink.
+		do_action( 'mvs_media_deleted', 55, $this->sender_id, $url );
+
+		$after = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE type = 'media' AND link_url = %s", $url )
+		);
+		$this->assertSame( 0, $after, 'the card is withdrawn with its source' );
+	}
+
+	public function test_media_delete_without_permalink_is_a_noop(): void {
+		// A legacy 2-arg dispatch (no permalink) must not throw or wipe anything.
+		$this->bridge->on_media_deleted( 55, $this->sender_id, '' );
+		$this->assertTrue( true );
 	}
 }

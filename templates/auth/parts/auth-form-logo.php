@@ -51,5 +51,5 @@ if ( '' === trim( $bn_form_logo ) ) {
 }
 ?>
 <div class="bn-auth-formlogo">
-	<img src="<?php echo esc_url( $bn_form_logo ); ?>" alt="<?php echo esc_attr( wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ) ); ?>" />
+	<img src="<?php echo esc_url( $bn_form_logo ); ?>" alt="<?php echo esc_attr( wp_specialchars_decode( buddynext_site_name(), ENT_QUOTES ) ); ?>" />
 </div>

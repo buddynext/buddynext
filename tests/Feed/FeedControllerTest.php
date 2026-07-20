@@ -143,17 +143,46 @@ class FeedControllerTest extends \WP_UnitTestCase {
 		$this->assertSame( 200, $response->get_status() );
 	}
 
-	public function test_home_feed_rejects_unknown_filter_via_enum(): void {
+	/**
+	 * An unknown filter never reaches the query — it falls back to the default.
+	 *
+	 * Renamed and tightened. This was test_home_feed_rejects_unknown_filter_via_enum
+	 * and accepted EITHER 200 or 400, on the reasoning that "REST enum validation
+	 * kicks in as 400; OR the controller's allowlist fallback returns 200". Both
+	 * halves cannot be true at once, and only one of them is: the declared `enum`
+	 * does nothing, because WP_REST_Request::has_valid_params() only validates an
+	 * arg that carries an explicit validate_callback, and register_rest_route()
+	 * defaults one only for schema-derived args. What actually protects this route
+	 * is home_feed()'s in_array() reset.
+	 *
+	 * A test that accepts both answers cannot fail if either mechanism breaks, and it
+	 * named the one that was never running.
+	 *
+	 * The route is in fact triple-defended: the inert enum, home_feed()'s in_array
+	 * reset, and FeedService's own reset (three sites). So asserting a status alone
+	 * still could not fail. Assert the contract instead — an unknown filter must
+	 * produce exactly what the default produces, which is what "falls back" means
+	 * and what a client depends on.
+	 *
+	 * @return void
+	 */
+	public function test_home_feed_treats_an_unknown_filter_as_the_default(): void {
 		wp_set_current_user( $this->alice );
 
-		$request = new WP_REST_Request( 'GET', '/buddynext/v1/feed/home' );
-		$request->set_query_params( array( 'filter' => 'garbage-filter' ) );
-		$response = self::$server->dispatch( $request );
+		$unknown = new WP_REST_Request( 'GET', '/buddynext/v1/feed/home' );
+		$unknown->set_query_params( array( 'filter' => 'garbage-filter' ) );
+		$unknown_response = self::$server->dispatch( $unknown );
 
-		// REST enum validation kicks in as 400; OR the controller's allowlist
-		// fallback returns 200 with default filter. Either is acceptable as
-		// long as the request never executes against an arbitrary value.
-		$this->assertContains( $response->get_status(), array( 200, 400 ) );
+		$default = new WP_REST_Request( 'GET', '/buddynext/v1/feed/home' );
+		$default->set_query_params( array( 'filter' => 'for-you' ) );
+		$default_response = self::$server->dispatch( $default );
+
+		$this->assertSame( 200, $unknown_response->get_status(), 'An unknown filter is reset, not rejected.' );
+		$this->assertSame(
+			$default_response->get_data(),
+			$unknown_response->get_data(),
+			'An unknown filter must return exactly the default feed; anything else means it reached the query.'
+		);
 	}
 
 	public function test_feed_counts_requires_auth(): void {

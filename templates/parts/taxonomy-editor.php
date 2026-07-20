@@ -136,14 +136,30 @@ $preview_fg = '' !== $val_text_color ? $val_text_color : '#ffffff';
 							<label class="bn-label" for="<?php echo esc_attr( $id_prefix . '-text-color' ); ?>">
 								<?php esc_html_e( 'Text colour', 'buddynext' ); ?>
 							</label>
-							<input type="text"
-								id="<?php echo esc_attr( $id_prefix . '-text-color' ); ?>"
-								name="text_color"
-								class="bn-text-input"
-								value="<?php echo esc_attr( $val_text_color ); ?>"
-								data-bn-tax-text-color
-								pattern="#?[A-Fa-f0-9]{6}"
-								placeholder="<?php esc_attr_e( 'auto for contrast', 'buddynext' ); ?>">
+							<div class="bn-tax-colour-row">
+								<?php
+								/*
+								 * The swatch is an entry affordance only - it has no name and is
+								 * never persisted. text_color (the hex field) stays the source of
+								 * truth so a blank value still means "auto-derive for contrast".
+								 * The swatch shows the effective colour and, when picked, writes
+								 * its hex into the field; clearing the field returns to auto.
+								 */
+								?>
+								<input type="color"
+									class="bn-tax-swatch"
+									value="<?php echo esc_attr( '' !== $val_text_color ? $val_text_color : $preview_fg ); ?>"
+									data-bn-tax-text-swatch
+									aria-label="<?php esc_attr_e( 'Pick text colour', 'buddynext' ); ?>">
+								<input type="text"
+									id="<?php echo esc_attr( $id_prefix . '-text-color' ); ?>"
+									name="text_color"
+									class="bn-text-input"
+									value="<?php echo esc_attr( $val_text_color ); ?>"
+									data-bn-tax-text-color
+									pattern="#?[A-Fa-f0-9]{6}"
+									placeholder="<?php esc_attr_e( 'auto for contrast', 'buddynext' ); ?>">
+							</div>
 							<span class="bn-field-hint"><?php esc_html_e( 'Leave blank to auto-derive a readable colour from the background.', 'buddynext' ); ?></span>
 						</div>
 

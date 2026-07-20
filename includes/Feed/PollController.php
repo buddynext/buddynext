@@ -83,8 +83,7 @@ class PollController extends BaseRestController {
 		$result = ( new PollService() )->vote( $user_id, $post_id, $option_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		$results = ( new PollService() )->results( $post_id );

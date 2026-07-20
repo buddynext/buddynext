@@ -5,8 +5,8 @@
  * (non-core) space fields via FieldType::render_input(); this store collects the
  * inputs, posts them, and surfaces the server's per-field 422 errors inline. */
 import { store, getContext } from '@wordpress/interactivity';
-import { bnToast } from '../shell/dialog.js';
-import { restFetch } from '../shell/rest-client.js';
+import { bnToast } from '@buddynext/shell-dialog';
+import { restFetch } from '@buddynext/rest-client';
 
 let I18N = {};
 function t( k, fb ) { return ( I18N && I18N[ k ] ) || fb; }

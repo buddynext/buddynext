@@ -17,6 +17,7 @@ use BuddyNext\Realtime\RealtimeController;
 use BuddyNext\Outbound\AccessWebhookController;
 use BuddyNext\Auth\AuthController;
 use BuddyNext\Auth\TwoFactorController;
+use BuddyNext\App\AppConfigController;
 use BuddyNext\Onboarding\InviteController;
 use BuddyNext\Onboarding\OnboardingController;
 use BuddyNext\SocialGraph\BlockController;
@@ -75,6 +76,7 @@ class Router {
 		( new OnboardingController() )->register_routes();
 		( new FollowController() )->register_routes();
 		( new ShellNavController() )->register_routes();
+		( new AppConfigController() )->register_routes();
 		( new ConnectionController() )->register_routes();
 		( new BlockController() )->register_routes();
 		( new PostController() )->register_routes();

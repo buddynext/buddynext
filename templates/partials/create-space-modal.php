@@ -19,6 +19,15 @@
  * (Escape, backdrop click, close button) is shared with other Spaces
  * modals via the delegated handler in assets/js/spaces/store.js.
  *
+ * AT MOST ONE INSTANCE PER PAGE. This partial hardcodes its DOM ids
+ * (bn-create-space-*), so rendering it twice on one page duplicates ids and
+ * label/for + getElementById resolve to the FIRST (hidden) instance — the
+ * visible modal's Name field becomes unfocusable and unlabelled (card
+ * 10095124460, observed during 1.0.8 QA when the directory and the space
+ * sidebar both rendered it). The two current render sites (spaces
+ * directory / space sidebar sub-space CTA) are on different pages; keep it
+ * that way, or make the ids instance-suffixed before adding a third site.
+ *
  * Variables:
  *   array<object> $categories Optional. List of category rows (id, name, slug).
  *

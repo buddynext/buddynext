@@ -28,6 +28,10 @@ defined( 'ABSPATH' ) || exit;
 use BuddyNext\Core\PageRouter;
 use BuddyNext\Feed\FeedService;
 
+// Declares this fine-grained surface for the sidebar registry (SidebarRegistry
+// reads it via Surface::current()) before the shell renders the right column.
+\BuddyNext\Sidebar\Surface::set( 'feed' );
+
 // Guest gate is enforced upstream in PageRouter::dispatch_hub_template().
 $current_user_id = get_current_user_id();
 
@@ -95,23 +99,6 @@ $rest_nonce = wp_create_nonce( 'wp_rest' );
 $bn_new_pill_ms = (bool) get_option( 'buddynext_feed_new_posts_indicator', true )
 	? max( 0, (int) apply_filters( 'buddynext_feed_new_count_interval', 60 ) ) * 1000
 	: -1;
-
-// ── Right sidebar widgets ────────────────────────────────────────────────
-// Register sidebar widget callbacks on the shared hub-shell action. The shell
-// detects via has_action() (after this template's output buffer flushes) and
-// renders the right column automatically. The action is registered before any
-// output, so the detection in templates/shell/hub-shell.php sees it.
-add_action(
-	'buddynext_right_sidebar',
-	static function () use ( $current_user_id ) {
-		buddynext_get_template(
-			'partials/sidebar.php',
-			array(
-				'sidebar_user_id' => $current_user_id,
-			)
-		);
-	}
-);
 
 /**
  * Fires before the home feed inner content.

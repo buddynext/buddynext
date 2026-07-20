@@ -162,6 +162,13 @@ class Plugin {
 		// settings take effect.
 		( new \BuddyNext\Nav\NavOverrides() )->register();
 
+		// App-parity: add an ISO-8601 UTC `<key>_gmt` sibling to every whitelisted
+		// timestamp in buddynext/v1 responses, from one dispatch-time seam rather
+		// than per-controller *_gmt patches. Covers feed, comments, spaces,
+		// notifications, the member directory and integration-bridge rows, and any
+		// future endpoint under the namespace.
+		\BuddyNext\Core\Dates::register();
+
 		// Front-end cookie-consent banner (no-op unless the Privacy setting is on).
 		( new \BuddyNext\Privacy\CookieConsentService() )->register();
 
@@ -203,6 +210,13 @@ class Plugin {
 		);
 
 		if ( is_admin() ) {
+			// Keep the generated isolation mu-plugin in lockstep with this plugin.
+			// It is stamped with BUDDYNEXT_VERSION, so a cheap Version-header compare
+			// on admin loads rewrites it whenever the on-disk copy is missing, from an
+			// older release, or its integration list drifted — no manual mu-plugin
+			// edits and no separate version to keep in sync.
+			add_action( 'admin_init', array( Installer::class, 'maybe_refresh_mu_plugin' ) );
+
 			// AdminHub owns the BuddyNext top-level menu and dispatches every
 			// section page to its registered tabs. Boot first so feature
 			// classes that call AdminHub::register_tab() in their register()
@@ -292,7 +306,7 @@ class Plugin {
 					}
 					$wizard_url = admin_url( 'admin.php?page=buddynext-setup' );
 					printf(
-						'<div class="notice notice-info"><p><strong>%s</strong> — <a href="%s">%s</a></p></div>',
+						'<div class="notice notice-info is-dismissible"><p><strong>%s</strong> — <a href="%s">%s</a></p></div>',
 						esc_html__( 'BuddyNext setup is not complete.', 'buddynext' ),
 						esc_url( $wizard_url ),
 						esc_html__( 'Run the setup wizard', 'buddynext' )
@@ -339,6 +353,13 @@ class Plugin {
 		// owner re-enables it, the same policy and spam protection still apply.
 		( new \BuddyNext\Auth\CoreRegistration() )->register();
 
+		// The REST mirror of both account holds below. Verification's "full" tier and
+		// forced 2FA enrolment hang off template_redirect, which never fires on a REST
+		// request -- so over REST neither hold was weaker, it was absent. See
+		// RestHoldGate; it runs at rest_pre_dispatch:11, behind PrivateCommunity's
+		// anonymous gate at 10.
+		( new \BuddyNext\Auth\RestHoldGate() )->register();
+
 		// Enforce 2FA enrolment for the roles the owner requires it of. The setting
 		// used to be read and then ignored — purely advisory, surfaced as a UI hint
 		// while nothing enforced it, so an owner could "require 2FA for
@@ -354,20 +375,9 @@ class Plugin {
 
 		// Approval-mode gate: block sign-in for accounts awaiting administrator
 		// approval (set during registration when buddynext_reg_mode = 'approval').
-		add_filter(
-			'wp_authenticate_user',
-			static function ( $user ) {
-				if ( $user instanceof \WP_User && get_user_meta( $user->ID, 'bn_pending_approval', true ) ) {
-					return new \WP_Error(
-						'bn_pending_approval',
-						__( 'Your account is awaiting administrator approval.', 'buddynext' )
-					);
-				}
-				return $user;
-			},
-			10,
-			1
-		);
+		// Binds to the password chain AND to application passwords, which reach
+		// neither `authenticate` nor `wp_authenticate_user` — see ApprovalGuard.
+		( new \BuddyNext\Auth\ApprovalGuard() )->register();
 
 		// Wire search index lifecycle hooks — handles async dispatch via Action
 		// Scheduler when available, or falls back to synchronous inline indexing.
@@ -460,6 +470,75 @@ class Plugin {
 		if ( $container->has( 'sidebar_widgets' ) ) {
 			( new \BuddyNext\Sidebar\WidgetListener( $container->get( 'sidebar_cache' ) ) )->register();
 		}
+
+		// Surface-scoped right-sidebar widget registry — the single renderer
+		// for the whole suite. Free's own widgets and every Pro bridge
+		// register a descriptor via buddynext_sidebar_widgets; this renders
+		// them. Unconditional (not gated behind the sidebar_widgets cache
+		// feature above, which only covers the legacy widget-cache path).
+		( new \BuddyNext\Sidebar\SidebarRegistry() )->register();
+
+		// Feed-discovery sidebar widgets (greeting/streak, trending topics,
+		// people to follow, your/discover spaces) — self-chromed descriptors
+		// registered on the buddynext_sidebar_widgets filter above, scoped to
+		// the six feed-shaped surfaces (feed, bookmarks, single-post, search,
+		// leaderboard, hashtag).
+		( new \BuddyNext\Sidebar\Providers\FeedSidebarProvider() )->register();
+
+		// Hashtag-page sidebar widgets (about this hashtag, related hashtags,
+		// top contributors) — self-chromed descriptors registered on the
+		// buddynext_sidebar_widgets filter above, scoped to the single
+		// `hashtag` surface. Interleaves with FeedSidebarProvider's
+		// feed-discovery set (which also covers `hashtag`) by priority.
+		// Formerly a bespoke in-body <aside class="bn-hashtag-sidebar">
+		// rendered inline by templates/hashtags/feed.php, separate from the
+		// shell right sidebar.
+		( new \BuddyNext\Sidebar\Providers\HashtagSidebarProvider() )->register();
+
+		// Explore-aside sidebar widgets (community-pulse Pro seat, trending
+		// tags, people to discover, browse-by-category) — self-chromed
+		// descriptors registered on the buddynext_sidebar_widgets filter
+		// above, scoped to the single `explore` surface.
+		( new \BuddyNext\Sidebar\Providers\ExploreSidebarProvider() )->register();
+
+		// Member-directory sidebar widgets (online-now, by-type) — titled
+		// cards using the registry's default chrome, scoped to the single
+		// `members` surface. Formerly two buddynext_right_sidebar add_action()
+		// callbacks inline in templates/directory/members.php.
+		( new \BuddyNext\Sidebar\Providers\MembersSidebarProvider() )->register();
+
+		// Spaces-directory sidebar widgets (suggested, your spaces, popular) —
+		// titled cards using the registry's default chrome, scoped to the
+		// single `spaces` surface. Suggested and popular are mutually
+		// exclusive (popular is the fallback when suggested has no content).
+		// Formerly a single buddynext_right_sidebar add_action() callback
+		// inline in templates/spaces/directory.php.
+		( new \BuddyNext\Sidebar\Providers\SpacesDirectorySidebarProvider() )->register();
+
+		// Single-space sidebar widgets (about, sub-spaces, owner/moderators,
+		// members preview, top contributors) — titled cards using the registry's
+		// default chrome, scoped to the single `space` surface. The
+		// members-preview card is skipped on the Members tab. Formerly a single
+		// buddynext_right_sidebar add_action() callback registered inline by
+		// templates/parts/space-sidebar.php on every space sub-page.
+		( new \BuddyNext\Sidebar\Providers\SpaceSidebarProvider() )->register();
+
+		// Member-profile sidebar widgets (profile strength, connect, work
+		// experience, education, interests, skills, member-of spaces) —
+		// self-chromed descriptors registered on the buddynext_sidebar_widgets
+		// filter above, scoped to the single `profile` surface. Profile
+		// Strength is own-profile-only. Formerly a single buddynext_right_sidebar
+		// add_action() callback registered inline by templates/profile/view.php.
+		( new \BuddyNext\Sidebar\Providers\ProfileSidebarProvider() )->register();
+
+		// Notifications sidebar widgets (quick filters, per-type breakdown,
+		// recent actors, preferences link, "this week" stats, muted list) —
+		// self-chromed descriptors registered on the buddynext_sidebar_widgets
+		// filter above, scoped to the single `notifications` surface. "This
+		// week" stats and muted list are logged-in-only. Formerly a single
+		// buddynext_right_sidebar add_action() callback registered inline by
+		// templates/notifications/index.php.
+		( new \BuddyNext\Sidebar\Providers\NotificationsSidebarProvider() )->register();
 
 		// Member-directory facet counts — busted whenever a member enters or leaves the
 		// groups the counts exclude (suspended / shadow-banned / directory opt-out).
@@ -560,28 +639,36 @@ class Plugin {
 				// BuddyX is a theme bridge, not a togglable feature — always wire it.
 				( new BuddyXBridge() )->init();
 
-				// Each integration bridge is gated on its Platform → Features toggle
-				// (default-on; the bridge still self-guards via class_exists when the
-				// partner plugin is absent), so turning a bridge off actually
-				// disables it. CareerBoardBridge lives in Pro and gates itself on
-				// the 'career_board' feature on this same seam.
-				if ( buddynext_feature_enabled( 'wpmediaverse' ) ) {
-					( new WPMediaVerseBridge() )->init();
-				}
-				if ( buddynext_feature_enabled( 'gamification' ) ) {
-					( new GamificationBridge() )->init();
-					( new GamificationBridgeListener() )->register();
-					// Gamification's Achievements profile tab (badge grid + standing).
-					( new \BuddyNext\Profile\GamificationAchievements() )->register();
-					// Gamification's Points tab (recent ledger + how-to-earn guide).
-					( new \BuddyNext\Profile\GamificationPoints() )->register();
-					// Gamification's Kudos tab (peer recognition: give + received).
-					( new \BuddyNext\Profile\GamificationKudos() )->register();
-				}
-				if ( buddynext_feature_enabled( 'jetonomy' ) ) {
-					( new JetonomyBridge() )->init();
-					( new JetonomyBridgeListener() )->register();
-				}
+				// Integration bridges are wired unconditionally; each self-guards via
+				// class_exists/function_exists when its partner plugin is absent, and
+				// its surfaces gate on the per-aspect Integrations toggle
+				// (buddynext_integration_enabled). That per-aspect toggle is the SINGLE
+				// source of truth for turning an integration on/off — there is no
+				// separate Features-tab master switch for bridges (Free and Pro gate
+				// identically). CareerBoardBridge follows the same rule in Pro.
+				$wpmediaverse = new WPMediaVerseBridge();
+
+				// The DM safety gates are wired whenever the engine is present, never
+				// behind an integration toggle: BuddyNext's own /messages/ hub reaches
+				// the engine through MessagesData -> MediaClient -> the engine's
+				// container, never through this bridge, so gating the checks would
+				// disable bn_blocks and DM-privacy while members kept sending. The
+				// owner's real DM switch is Settings -> General -> Direct Messaging.
+				$wpmediaverse->init_dm_gates();
+
+				$wpmediaverse->init();
+
+				( new GamificationBridge() )->init();
+				( new GamificationBridgeListener() )->register();
+				// Gamification's Achievements profile tab (badge grid + standing).
+				( new \BuddyNext\Profile\GamificationAchievements() )->register();
+				// Gamification's Points tab (recent ledger + how-to-earn guide).
+				( new \BuddyNext\Profile\GamificationPoints() )->register();
+				// Gamification's Kudos tab (peer recognition: give + received).
+				( new \BuddyNext\Profile\GamificationKudos() )->register();
+
+				( new JetonomyBridge() )->init();
+				( new JetonomyBridgeListener() )->register();
 			}
 		);
 

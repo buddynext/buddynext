@@ -1,7 +1,7 @@
 /* BuddyNext — Search Results Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '../shell/rest-client.js';
-import { onNavReady } from '../shell/nav-init.js';
+import { restFetch } from '@buddynext/rest-client';
+import { onNavReady } from '@buddynext/nav-init';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state

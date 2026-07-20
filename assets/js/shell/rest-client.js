@@ -27,7 +27,7 @@
  *     plus their own toast must opt out to avoid double-toasting).
  */
 
-import { bnToast } from './dialog.js';
+import { bnToast } from '@buddynext/shell-dialog';
 
 const DEFAULT_BASE = '/wp-json/buddynext/v1';
 

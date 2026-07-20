@@ -810,6 +810,14 @@ class JetonomyBridge {
 
 		if ( $forum_id > 0 ) {
 			update_space_meta( $space_id, 'jetonomy_forum_id', $forum_id );
+
+			// Provisioning a forum IS the intent to use it: the Discussions tab
+			// only renders when BOTH a linked forum exists AND the
+			// discussion_enabled flag is set (space_discussion_enabled()), so a
+			// programmatic provision used to create a working forum members
+			// could never see until someone separately called
+			// set_discussion_enabled(). One call now yields a visible tab.
+			$this->set_discussion_enabled( $space_id, true );
 		}
 
 		return $forum_id;

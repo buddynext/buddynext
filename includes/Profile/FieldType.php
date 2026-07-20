@@ -237,6 +237,51 @@ class FieldType {
 	}
 
 	/**
+	 * The display PRESENTATION mode for a field type — how its label + value are
+	 * laid out on the profile About tab. This is the whole "we can't predict the
+	 * groups or fields, so render by TYPE" contract: the About renderer never
+	 * knows a field's identity, only its type, and this maps every type (built-in
+	 * or add-on) to one of four layouts. The VALUE itself is still produced by
+	 * render_display(); this only picks the wrapper.
+	 *
+	 *  - `block`  full-width block (a paragraph) — textarea / long prose.
+	 *  - `chips`  a row of chips — any multi-value type (multiselect, category /
+	 *             member-type multiselect, and future `value_kind === 'multi'`).
+	 *  - `link`   a standalone external link affordance — url.
+	 *  - `inline` label + value on one line (the default) — every scalar/bool
+	 *             type: text, number, date, email, phone, select, radio, boolean,
+	 *             color, and any unknown type (degrades safely).
+	 *
+	 * Add-ons override a type's mode via the `buddynext_field_presentation` filter.
+	 *
+	 * @param string $type Field type slug.
+	 * @return string One of: block | chips | link | inline.
+	 */
+	public static function presentation_for( string $type ): string {
+		$type = self::resolve_type( $type );
+
+		if ( 'textarea' === $type ) {
+			$mode = 'block';
+		} elseif ( 'url' === $type ) {
+			$mode = 'link';
+		} elseif ( 'multi' === ( self::types()[ $type ]['value_kind'] ?? 'scalar' ) ) {
+			$mode = 'chips';
+		} else {
+			$mode = 'inline';
+		}
+
+		/**
+		 * Filter the About-tab presentation mode for a field type.
+		 *
+		 * @param string $mode One of block|chips|link|inline.
+		 * @param string $type Resolved field type slug.
+		 */
+		$mode = (string) apply_filters( 'buddynext_field_presentation', $mode, $type );
+
+		return in_array( $mode, array( 'block', 'chips', 'link', 'inline' ), true ) ? $mode : 'inline';
+	}
+
+	/**
 	 * Whether a placeholder can actually render inside this type's control.
 	 *
 	 * A placeholder is an attribute of a free-text input. The browser IGNORES it on
@@ -482,8 +527,12 @@ class FieldType {
 
 		switch ( $type ) {
 			case 'textarea':
+				// .bn-textarea, not .bn-input: the design system pins .bn-input to a
+				// fixed 36px height (which beats the rows attribute), while
+				// .bn-textarea is the multi-line control (auto height, min 80px,
+				// vertical resize). With .bn-input the field rendered one line tall.
 				return sprintf(
-					'<textarea class="bn-input bn-field-textarea" id="%1$s" name="%2$s" rows="4"%4$s%5$s>%3$s</textarea>',
+					'<textarea class="bn-textarea bn-field-textarea" id="%1$s" name="%2$s" rows="4"%4$s%5$s>%3$s</textarea>',
 					esc_attr( $id ),
 					esc_attr( $name ),
 					esc_textarea( (string) $value ),
@@ -687,6 +736,54 @@ class FieldType {
 		$html .= '</fieldset>';
 
 		return $html;
+	}
+
+	/**
+	 * Compose the display date range for a Work Experience / Education entry.
+	 *
+	 * The predefined repeater groups store real sub-field keys
+	 * (work_start_date/work_end_date, edu_start_year/edu_end_year) — no
+	 * "daterange" field exists. Both profile display surfaces (the About
+	 * timeline cards and the right sidebar) compose the range through this
+	 * single helper so the format cannot drift between them.
+	 *
+	 * @param array  $entry_fields Template-shaped entry field list (each item an
+	 *                             array carrying field_key + value; the string
+	 *                             `_visibility` companion is skipped).
+	 * @param string $prefix       'work' or 'edu'.
+	 * @return string "start – end", "start – Present", a single side, "Current"
+	 *                (ongoing with no dates), or '' when nothing is set.
+	 */
+	public static function entry_daterange( array $entry_fields, string $prefix ): string {
+		$value_of = static function ( string $key ) use ( $entry_fields ): string {
+			foreach ( $entry_fields as $entry_field ) {
+				if ( is_array( $entry_field ) && ( $entry_field['field_key'] ?? '' ) === $key ) {
+					$entry_value = $entry_field['value'] ?? '';
+					return is_scalar( $entry_value ) ? (string) $entry_value : '';
+				}
+			}
+			return '';
+		};
+
+		$start   = 'edu' === $prefix ? $value_of( 'edu_start_year' ) : $value_of( $prefix . '_start_date' );
+		$end     = 'edu' === $prefix ? $value_of( 'edu_end_year' ) : $value_of( $prefix . '_end_date' );
+		$current = $value_of( $prefix . '_current' );
+
+		if ( '' === $start && '' === $end ) {
+			return '1' === $current ? __( 'Current', 'buddynext' ) : '';
+		}
+		if ( '1' === $current ) {
+			$end = __( 'Present', 'buddynext' );
+		}
+		if ( '' !== $start && '' !== $end ) {
+			return sprintf(
+				/* translators: 1: start date/year, 2: end date/year or "Present". */
+				_x( '%1$s – %2$s', 'profile entry date range', 'buddynext' ),
+				$start,
+				$end
+			);
+		}
+		return '' !== $start ? $start : $end;
 	}
 
 	/**

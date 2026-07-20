@@ -70,7 +70,58 @@ class WPMediaVerseBridge {
 	private const CACHE_TTL = 3600;
 
 	/**
-	 * Attach all hooks.
+	 * Attach the DM safety gates.
+	 *
+	 * Registered independently of the Platform → Features toggle, and of this
+	 * bridge's display half, because BuddyNext's DM surface does not depend on
+	 * either. `MessagesData::available()` asks `MediaClient`, which resolves the
+	 * engine's own container directly — so `/messages/`, the shell-nav item and
+	 * the messages store stay live whenever the engine is present and
+	 * `buddynext_enable_dm` is on, regardless of this bridge.
+	 *
+	 * Gating these three filters on the Features toggle therefore did not disable
+	 * DM; it disabled only the checks on it. Turning the integration off left
+	 * BuddyNext serving its own DM UI while `bn_blocks` and the recipient's
+	 * DM-privacy preference silently stopped applying — a member who had blocked
+	 * someone still received their messages, and the Block control went on
+	 * promising otherwise.
+	 *
+	 * The owner keeps both switches that mean something: Features → WPMediaVerse
+	 * still controls the integration's display, and Settings → General → Direct
+	 * Messaging (`buddynext_enable_dm`) still turns DM off outright. What an owner
+	 * cannot do is leave DM on while its safety gates are off, because that is not
+	 * a preference — it is the Block button lying.
+	 *
+	 * Called from Plugin::init() via buddynext_load_bridges, before init().
+	 */
+	public function init_dm_gates(): void {
+		if ( ! class_exists( 'WPMediaVerse\Core\Plugin' ) ) {
+			return;
+		}
+
+		// Gate DMs on bn_blocks + the recipient's DM-privacy preference.
+		add_filter( 'mvs_can_send_message', array( $this, 'check_block' ), 10, 3 );
+
+		// Run DM text through auto-moderation (banned words + Pro rules) so a member
+		// can't plant blocked content in a direct message — posts/comments/profile
+		// are guarded; DMs were not.
+		add_filter( 'mvs_message_content_check', array( $this, 'moderate_dm_content' ), 10, 3 );
+
+		// When that gate denies, report WHY (block vs privacy preference) so the
+		// sender sees an accurate notice instead of a generic "blocked".
+		add_filter( 'mvs_dm_denial_reason', array( $this, 'dm_denial_reason' ), 10, 3 );
+	}
+
+	/**
+	 * Attach the integration's display hooks.
+	 *
+	 * Everything here is the site owner's call, gated on Platform → Features →
+	 * WPMediaVerse: the media nav item and tab, follow mirroring, DM
+	 * notifications, lightbox comment sync, media activity, and the
+	 * single-media redirect. Switching the integration off removes all of it and
+	 * WPMediaVerse behaves standalone again.
+	 *
+	 * The DM safety gates deliberately do not live here — see init_dm_gates().
 	 *
 	 * Called from Plugin::init() via buddynext_load_bridges action.
 	 */
@@ -96,21 +147,14 @@ class WPMediaVerseBridge {
 		 * on a BuddyNext site. We take that page away, so we owe the member the control back: the
 		 * lightbox now offers Report, and it posts into MVS's existing queue.
 		 *
+		 * This one stays with the display half deliberately: the page it compensates for is
+		 * restored by the same toggle. With the integration off, `redirect_single_media()` is
+		 * not registered either, so MVS's own media page — and its own Report button — render
+		 * again and the abuse path is intact.
+		 *
 		 * Priority 5, so a site that genuinely wants it off can still say so at the default 10.
 		 */
 		add_filter( 'mvs_reports_enabled', '__return_true', 5 );
-
-		// Gate DMs on bn_blocks + the recipient's DM-privacy preference.
-		add_filter( 'mvs_can_send_message', array( $this, 'check_block' ), 10, 3 );
-
-		// Run DM text through auto-moderation (banned words + Pro rules) so a member
-		// can't plant blocked content in a direct message — posts/comments/profile
-		// are guarded; DMs were not.
-		add_filter( 'mvs_message_content_check', array( $this, 'moderate_dm_content' ), 10, 3 );
-
-		// When that gate denies, report WHY (block vs privacy preference) so the
-		// sender sees an accurate notice instead of a generic "blocked".
-		add_filter( 'mvs_dm_denial_reason', array( $this, 'dm_denial_reason' ), 10, 3 );
 
 		// Point WPMediaVerse user-profile links (media grid, lightbox author,
 		// REST author_url) at the BuddyNext member profile. Without this, MVS
@@ -184,6 +228,13 @@ class WPMediaVerseBridge {
 		// never duplicated.
 		add_action( 'mvs_media_uploaded', array( $this, 'on_media_uploaded' ), 10, 4 );
 		add_action( 'buddynext_mvs_media_activity', array( $this, 'publish_media_activity' ), 10, 3 );
+
+		// Withdraw the media feed card when its source is deleted, so the feed
+		// never points at dead content — mirroring what JetonomyBridge and
+		// CareerBoardBridge already do on delete. WPMediaVerse's mvs_media_deleted
+		// hook carries the pre-delete permalink (the slug row is already gone by
+		// the time it fires), which is the exact link_url the card was keyed on.
+		add_action( 'mvs_media_deleted', array( $this, 'on_media_deleted' ), 10, 3 );
 
 		// Media links resolve to the activity the item was posted in, not a
 		// dedicated /media/{slug}/ page — every upload already becomes an activity
@@ -322,6 +373,29 @@ class WPMediaVerseBridge {
 		}
 
 		IntegrationActivity::publish( $user_id, self::media_activity_verb( (string) $media_type ), $url, '', 'media', '' );
+	}
+
+	/**
+	 * Withdraw the media feed card when the source media is deleted.
+	 *
+	 * The 'media' card published on upload is keyed on the media permalink
+	 * (`IntegrationActivity` dedups + removes by link_url + type). WPMediaVerse's
+	 * `mvs_media_deleted` fires after the slug row is gone, so it passes the
+	 * pre-delete permalink — the exact URL the card was stored under. Photo-type
+	 * uploads become native `photo` posts (not 'media' cards), so nothing matches
+	 * for them here and the call is a no-op; those are the member's own posts.
+	 *
+	 * @param int    $media_id  Deleted media ID (unused; the URL is the key).
+	 * @param int    $author_id Author (unused).
+	 * @param string $permalink The media's pre-delete public permalink.
+	 * @return void
+	 */
+	public function on_media_deleted( $media_id, $author_id = 0, $permalink = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+		$permalink = (string) $permalink;
+		if ( '' === $permalink ) {
+			return;
+		}
+		IntegrationActivity::remove( $permalink, 'media' );
 	}
 
 	/**

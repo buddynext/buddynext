@@ -98,12 +98,19 @@ class WidgetService {
 		if ( 0 === $user_id ) {
 			return array();
 		}
-		// Cache key bumped to v2 to invalidate after the follow_status payload change.
-		return (array) $this->cache->get(
-			'suggested-v2:' . $user_id . ':' . $limit,
+		// Over-fetch a ranked, hydrated candidate POOL and cache THAT — then draw the
+		// per-load display sample from the cached pool OUTSIDE the cache below. A
+		// sample taken inside the cache closure would be frozen for the whole TTL on
+		// a persistent-object-cache site (Redis/Memcached), showing the same picks on
+		// every reload; sampling on each render keeps the widget rotating regardless
+		// of the object cache — matching the uncached space-suggestion sidebar.
+		$pool_size = max( $limit * 4, $limit + 6 );
+		// v3 key: caches the POOL (not the display sample).
+		$pool = (array) $this->cache->get(
+			'suggested-pool-v3:' . $user_id . ':' . $pool_size,
 			WidgetCache::GROUP_USER,
 			WidgetCache::TTL_USER,
-			static function () use ( $user_id, $limit ): array {
+			static function () use ( $user_id, $pool_size ): array {
 				global $wpdb;
 
 				// Prefer the friends-of-friends suggestions — the same algorithm the
@@ -115,11 +122,14 @@ class WidgetService {
 				$candidate_ids = array();
 				$follow_svc    = buddynext_service( 'follows' );
 				if ( is_object( $follow_svc ) && method_exists( $follow_svc, 'suggestions' ) ) {
-					$candidate_ids = array_slice( array_map( 'intval', (array) $follow_svc->suggestions( $user_id ) ), 0, $limit );
+					// Take the TOP of the ranked pool (deterministic here) — the
+					// per-load rotation happens when suggested_follows() samples this
+					// cached pool on each render, not inside the cache.
+					$candidate_ids = array_slice( array_map( 'intval', (array) $follow_svc->suggestions( $user_id ) ), 0, $pool_size );
 				}
 
-				if ( count( $candidate_ids ) < $limit ) {
-					$need          = $limit - count( $candidate_ids );
+				if ( count( $candidate_ids ) < $pool_size ) {
+					$need          = $pool_size - count( $candidate_ids );
 					$exclude       = array_merge( array( $user_id ), $candidate_ids );
 					$candidate_ids = array_merge(
 						$candidate_ids,
@@ -139,7 +149,7 @@ class WidgetService {
 				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 				$hydrated = $wpdb->get_results(
 					$wpdb->prepare(
-						'SELECT u.ID, u.display_name, u.user_login FROM ' . $wpdb->users . ' u WHERE u.ID IN (' . $ids_ph . ')',
+						'SELECT u.ID, u.display_name, u.user_login, u.user_nicename FROM ' . $wpdb->users . ' u WHERE u.ID IN (' . $ids_ph . ')',
 						$candidate_ids
 					)
 				);
@@ -160,23 +170,36 @@ class WidgetService {
 				// Since we just filtered out current follows, "following" can still
 				// occur if the cache populated mid-cycle. "requested" reads any
 				// pending connection request the viewer sent to that user.
+				// Both reads are constrained to the handful of candidate rows —
+				// the unconstrained versions loaded the viewer's ENTIRE
+				// following / pending sets on every logged-in sidebar render,
+				// growing with their follow count, only to in_array() them
+				// against these few candidates.
 				if ( ! empty( $rows ) ) {
+					$row_ids = array_map( static fn( $r ) => (int) ( $r->ID ?? 0 ), $rows );
+					$row_ph  = implode( ',', array_fill( 0, count( $row_ids ), '%d' ) );
+
+					// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $row_ph is a counted "%d,..." list; every value is bound.
 					$pending = $wpdb->get_col(
 						$wpdb->prepare(
 							"SELECT recipient_id FROM {$wpdb->prefix}bn_connections
-							 WHERE requester_id = %d AND status = 'pending'",
-							$user_id
+							 WHERE requester_id = %d AND status = 'pending'
+							   AND recipient_id IN ( {$row_ph} )",
+							array_merge( array( $user_id ), $row_ids )
 						)
 					);
 					$pending = array_map( 'intval', (array) $pending );
 
 					$following = $wpdb->get_col(
 						$wpdb->prepare(
-							"SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d",
-							$user_id
+							"SELECT following_id FROM {$wpdb->prefix}bn_follows
+							 WHERE follower_id = %d
+							   AND following_id IN ( {$row_ph} )",
+							array_merge( array( $user_id ), $row_ids )
 						)
 					);
 					$following = array_map( 'intval', (array) $following );
+					// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 					foreach ( $rows as &$row ) {
 						$row_id             = (int) ( $row->ID ?? 0 );
@@ -190,6 +213,11 @@ class WidgetService {
 				return $rows;
 			}
 		);
+
+		// Per-load rotation: sample the display set from the top of the cached POOL
+		// on every render, so the widget varies each load even when the pool is
+		// served from a persistent object cache (the sample is never itself cached).
+		return buddynext_sample_ranked( $pool, $limit );
 	}
 
 	/**
@@ -477,8 +505,20 @@ class WidgetService {
 						   WHERE ( bl.blocker_id = %d AND bl.blocked_id = u.ID )
 							  OR ( bl.blocker_id = u.ID AND bl.blocked_id = %d )
 					   )
+					   AND NOT EXISTS (
+						   SELECT 1 FROM ' . $wpdb->prefix . 'bn_user_suspensions s_ex
+						   WHERE s_ex.user_id = u.ID
+							 AND s_ex.lifted_at IS NULL
+							 AND ( s_ex.expires_at IS NULL OR s_ex.expires_at > UTC_TIMESTAMP() )
+					   )
+					   AND NOT EXISTS (
+						   SELECT 1 FROM ' . $wpdb->usermeta . " um_ban
+						   WHERE um_ban.user_id = u.ID
+							 AND um_ban.meta_key = 'bn_shadow_banned'
+							 AND um_ban.meta_value = '1'
+					   )
 					 ORDER BY u.ID ASC
-					 LIMIT %d',
+					 LIMIT %d",
 					array_merge(
 						array( $boundary ),
 						$skip,

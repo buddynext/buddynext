@@ -230,6 +230,52 @@ class GamificationAchievements {
 		echo '<div class="bn-achievements">';
 		$this->render_standing( $member_id );
 		$this->render_badges( $member_id );
+		$this->render_points_history( $member_id );
+		echo '</div>';
+	}
+
+	/**
+	 * Render the member's recent points ledger below the badge grid.
+	 *
+	 * On a standalone BuddyPress site wb-gamification's own profile
+	 * integration ships a Points sub-tab (its points-history block); on a
+	 * BuddyNext stack that sub-nav is shadowed because BN owns the profile —
+	 * so without this section the ledger existed nowhere on the profile.
+	 * Read-only parity via the plugin's own [wb_gam_points_history]
+	 * shortcode (block SSR — wb-gamification owns markup, escaping and any
+	 * per-member privacy rules), scoped to the displayed member.
+	 *
+	 * @param int $member_id Profile being viewed.
+	 * @return void
+	 */
+	private function render_points_history( int $member_id ): void {
+		if ( ! shortcode_exists( 'wb_gam_points_history' ) ) {
+			return;
+		}
+
+		// Owner (and site admins) only. Visitors get credentials and standing —
+		// badges, level, rank — never the per-action churn of another member's
+		// ledger; the history answers the OWNER's "where did my points come
+		// from", which is who the shadowed wb-gam Points sub-tab served best.
+		if ( get_current_user_id() !== $member_id && ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		$history = do_shortcode( sprintf( '[wb_gam_points_history user_id="%d" limit="10"]', $member_id ) );
+		if ( '' === trim( wp_strip_all_tags( $history ) ) ) {
+			return; // No entries yet — no empty shell.
+		}
+
+		echo '<div class="bn-card bn-achievements__panel bn-achievements__history">';
+		echo '<header class="bn-achievements__head">';
+		echo '<h3 class="bn-achievements__title">';
+		if ( function_exists( 'buddynext_icon' ) ) {
+			buddynext_icon( 'trending-up' );
+		}
+		echo ' ' . esc_html__( 'Points history', 'buddynext' );
+		echo '</h3>';
+		echo '</header>';
+		echo $history; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wb-gamification block SSR, escaped at source.
 		echo '</div>';
 	}
 
@@ -427,6 +473,31 @@ class GamificationAchievements {
 	}
 
 	/**
+	 * Whether the current viewer may see this member's profile at all.
+	 *
+	 * Fails CLOSED. If the privacy service cannot be resolved there is no honest
+	 * answer available, and the safe direction for a visibility check is to refuse:
+	 * a boot-order regression must not silently turn a gated route back into an
+	 * open one. (PortfolioController's equivalent fails open — worth aligning, but
+	 * not by copying the weaker half.)
+	 *
+	 * @param int $member_id The profile being read.
+	 * @return bool
+	 */
+	private function viewer_can_see( int $member_id ): bool {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return false;
+		}
+
+		$privacy = buddynext_service( 'privacy' );
+		if ( ! $privacy instanceof \BuddyNext\SocialGraph\PrivacyService ) {
+			return false;
+		}
+
+		return $privacy->can_view_profile( get_current_user_id(), $member_id );
+	}
+
+	/**
 	 * REST: a member's badges + standing — the same data the SSR Achievements tab
 	 * renders, so the native app can draw the badge grid and standing strip.
 	 *
@@ -437,6 +508,29 @@ class GamificationAchievements {
 		$member_id = absint( $request['id'] );
 		if ( $member_id <= 0 || ! get_userdata( $member_id ) ) {
 			return new \WP_Error( 'not_found', __( 'Member not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		// SECURITY: gate the read with the canonical profile-visibility check (block +
+		// public/followers/connections) — the same gate the web Achievements tab
+		// honours, and the same one PortfolioController applies to its own public
+		// route. Without it this route handed a member's standing, level, rank and
+		// badge history to a viewer they had blocked, and to any stranger looking at
+		// a private account: the permission_callback is __return_true because the tab
+		// is public for viewers who may see the profile at all, which is a different
+		// question from "public to everyone".
+		//
+		// Return the neutral empty shape rather than a 403, so the answer for "you
+		// may not see this" is identical to the answer for "there is nothing here" —
+		// a 403 would confirm the member exists and has standing worth hiding.
+		if ( ! $this->viewer_can_see( $member_id ) ) {
+			return new \WP_REST_Response(
+				array(
+					'has_standing' => false,
+					'standing'     => array(),
+					'badges'       => array(),
+				),
+				200
+			);
 		}
 
 		$badges = array_map(

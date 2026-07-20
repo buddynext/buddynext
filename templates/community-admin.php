@@ -188,7 +188,7 @@ $posts_pct_abs = abs( $posts_pct );
 			printf(
 				/* translators: %s: site name. */
 				esc_html__( 'Managing: %s community', 'buddynext' ),
-				esc_html( get_bloginfo( 'name' ) )
+				esc_html( buddynext_site_name() )
 			);
 			?>
 		</span>

@@ -33,6 +33,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// Declares this fine-grained surface for the sidebar registry (SidebarRegistry
+// reads it via Surface::current()) before the shell renders the right column.
+\BuddyNext\Sidebar\Surface::set( 'leaderboard' );
+
 // Guard: wb-gamification must be active (public API present).
 if ( ! function_exists( 'wb_gam_get_leaderboard' ) ) {
 	?>
@@ -164,18 +168,6 @@ $rank_tone = static function ( int $rank ): string {
 	return 'ink';
 };
 
-add_action(
-	'buddynext_right_sidebar',
-	static function () {
-		buddynext_get_template(
-			'partials/sidebar.php',
-			array(
-				'sidebar_user_id' => get_current_user_id(),
-			)
-		);
-	}
-);
-
 /**
  * Fires before the leaderboard inner content.
  */
@@ -251,8 +243,10 @@ $updated_iso = gmdate( 'c' );
 					<span class="bn-stat__delta" data-trend="up">
 						<?php buddynext_icon( 'arrow-up' ); ?>
 						<?php
-						// translators: %s: human-readable period label, e.g. "This month".
-						echo esc_html( sprintf( __( 'Earned %s', 'buddynext' ), $period_tabs[ $period ] ?? '' ) );
+						// $current_user_pts is the member's lifetime total (not the
+						// selected period), so the delta must read "All-time" - the old
+						// "Earned {period}" label wrongly implied the tab's period value.
+						esc_html_e( 'All-time', 'buddynext' );
 						?>
 					</span>
 				</div>

@@ -1,7 +1,7 @@
 /* BuddyNext - Profile Interactivity API store. */
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast, bnConfirm, bnResolveConnectNote } from '../shell/dialog.js';
-import { restFetch } from '../shell/rest-client.js';
+import { bnToast, bnConfirm, bnResolveConnectNote } from '@buddynext/shell-dialog';
+import { restFetch } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -652,6 +652,38 @@ function isValidUrlClient( raw ) {
 /* Reset errors object (Interactivity state cannot mutate keys via delete). */
 function clearErrors( ctx ) {
 	ctx.errors = {};
+	document.querySelectorAll( '.bn-ep-injected-error' ).forEach( function ( el ) {
+		el.remove();
+	} );
+}
+
+/* Surface a 422's per-field errors on their controls and bring the first
+   failing control into view. The server-rendered Interactivity error slots
+   exist only for FLAT engine fields — a rejection keyed to a repeater
+   sub-field (e.g. work_experience[0][team_size]) rendered nowhere, so beyond
+   the generic toast the save read as silent, with the member left staring at
+   an "Unsaved changes" bar and no visible reason. Keys that have a slot keep
+   using it (context.errors drives them); everything else gets an injected
+   error span in its field wrapper, removed again on the next save attempt. */
+function surfaceFieldErrors( errors ) {
+	var firstControl = null;
+	Object.keys( errors || {} ).forEach( function ( key ) {
+		var control = document.querySelector( '[name="' + key + '"], [name="' + key + '[]"]' );
+		if ( ! control ) { return; }
+		if ( ! firstControl ) { firstControl = control; }
+		if ( document.getElementById( 'bn-ep-error-' + key ) ) {
+			return; // The server-rendered slot renders this one reactively.
+		}
+		var span = document.createElement( 'span' );
+		span.className = 'bn-ep-field-error bn-ep-injected-error';
+		span.setAttribute( 'role', 'alert' );
+		span.textContent = String( errors[ key ] );
+		var wrap = control.closest( '.bn-ep-field, .bn-ep-hero-field' ) || control.parentElement;
+		wrap.appendChild( span );
+	} );
+	if ( firstControl ) {
+		firstControl.scrollIntoView( { block: 'center', behavior: 'smooth' } );
+	}
 }
 
 /* Resolve the profile-save endpoint. When the edit surface is editing another
@@ -702,6 +734,10 @@ async function flushStagedMedia( ctx ) {
 	var allOk = true;
 	if ( _pendingAvatar ) {
 		var avatarOk = false;
+		// Reactive busy flag: drives the spinner overlay on the avatar while its
+		// deferred upload runs on Save (the local preview already swapped on select,
+		// but nothing signalled the actual network write).
+		ctx.avatarUploading = true;
 		var avFd     = new FormData();
 		avFd.append( 'avatar', _pendingAvatar.blob, 'avatar.jpg' );
 		try {
@@ -731,10 +767,13 @@ async function flushStagedMedia( ctx ) {
 		if ( avatarOk ) {
 			_pendingAvatar = null;
 		}
+		ctx.avatarUploading = false;
 	}
 
 	if ( _pendingCover ) {
 		var coverOk = false;
+		// Reactive busy flag for the cover's deferred upload (see avatar note).
+		ctx.coverUploading = true;
 		var cvFd    = new FormData();
 		cvFd.append( 'avatar', _pendingCover.file );
 		cvFd.append( 'focal_x', String( _pendingCover.x ) );
@@ -764,6 +803,7 @@ async function flushStagedMedia( ctx ) {
 		if ( coverOk ) {
 			_pendingCover = null;
 		}
+		ctx.coverUploading = false;
 	}
 	return allOk;
 }
@@ -829,6 +869,7 @@ async function doSave( ctx ) {
 			setTimeout( function () { ctx.saved = false; }, 3000 );
 		} else if ( res.status === 422 && json && json.errors ) {
 			ctx.errors = json.errors;
+			surfaceFieldErrors( json.errors );
 			bnToast( ( window.bnI18n && window.bnI18n.fieldsNeedAttention ) || t( 'fieldsNeedAttention', 'Some fields need attention' ), { tone: 'danger' } );
 		} else {
 			bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || t( 'saveFailed', 'Could not save. Please try again.' ), { tone: 'danger' } );
@@ -885,91 +926,49 @@ function renumberEntries( containerId ) {
 	} );
 }
 
-/* Build the per-entry privacy lock, mirroring the SERVER markup in
-   templates/profile/edit.php ($bn_privacy_select + the .bn-ep-repeater-vis
-   wrapper). A JS-added entry MUST carry this control or its privacy choice can
-   never be set — and the option set must never be looser than the group's admin
-   default (members may only tighten). Preferred path: clone an existing
-   server-rendered `.bn-ep-field-vis` from the SAME container, which reuses the
-   lock icon, labels, and the exact admin-default-filtered option set verbatim
-   (zero drift), then reset to the first offered option — the admin default,
-   matching a freshly server-rendered entry. Fallback (empty repeater, nothing to
-   clone): build the full public→private ladder from $bn_vis_labels, defaulting to
-   "public"; the server re-clamps up to the admin default on save, so this is safe. */
-function buildEntryVisNode( group, index ) {
-	var field = document.createElement( 'div' );
-	field.className = 'bn-ep-field bn-ep-field--full bn-ep-repeater-vis';
+/* Pristine first-entry clone per repeater container, captured at edit-page
+   init BEFORE the member touches anything. buildEntryNodeFromClone() needs a
+   seed row to clone; once the member removes the LAST entry of a group the
+   live DOM has none, and without this snapshot Add Entry became a silent dead
+   button until reload. Keyed by container id. */
+var pristineSeeds = {};
 
-	var selectId   = 'bn-ep-' + String( group ).replace( /_/g, '-' ) + '-vis-' + index;
-	var selectName = group + '[' + index + '][_visibility]';
-
-	var container = document.getElementById( repeaterContainerId( group ) );
-	var template  = container ? container.querySelector( '.bn-ep-field-vis' ) : null;
-	if ( template ) {
-		var visClone = template.cloneNode( true );
-		var selClone = visClone.querySelector( '.bn-ep-field-vis__select' );
-		var lblClone = visClone.querySelector( '.bn-ep-field-vis__label' );
-		if ( selClone ) {
-			selClone.id   = selectId;
-			selClone.name = selectName;
-			// First offered option = the admin default (options are rank-ordered
-			// and filtered to >= the admin default), so a new entry starts there.
-			if ( selClone.options.length ) { selClone.selectedIndex = 0; }
+function snapshotRepeaterSeeds() {
+	var containers = document.querySelectorAll( '[data-bn-repeater-group]' );
+	var i;
+	for ( i = 0; i < containers.length; i++ ) {
+		if ( containers[ i ].id && ! pristineSeeds[ containers[ i ].id ] ) {
+			var entry = containers[ i ].querySelector( '.bn-ep-repeater-entry' );
+			if ( entry ) { pristineSeeds[ containers[ i ].id ] = entry.cloneNode( true ); }
 		}
-		if ( lblClone ) { lblClone.setAttribute( 'for', selectId ); }
-		field.appendChild( visClone );
-		return field;
 	}
-
-	var vis = document.createElement( 'span' );
-	vis.className = 'bn-ep-field-vis';
-	vis.setAttribute( 'data-bn-vis', '' );
-
-	var label = document.createElement( 'label' );
-	label.className = 'bn-ep-field-vis__label';
-	label.setAttribute( 'for', selectId );
-	// Vendored Lucide lock, mirroring IconService::render( 'lock', 'bn-ep-vis-lock' ).
-	label.innerHTML = '<svg class="bn-icon bn-ep-vis-lock" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
-	var sr = document.createElement( 'span' );
-	sr.className   = 'screen-reader-text';
-	sr.textContent = t( 'visWhoCanSee', 'Who can see this field' );
-	label.appendChild( sr );
-
-	var select = document.createElement( 'select' );
-	select.className = 'bn-input bn-ep-field-vis__select';
-	select.id        = selectId;
-	select.name      = selectName;
-	select.setAttribute( 'data-wp-on--change', 'actions.markDirty' );
-	// Same slugs + labels as the server's $bn_vis_labels — never a new set.
-	[
-		[ 'public',      t( 'visPublic', 'Public' ) ],
-		[ 'members',     t( 'visMembers', 'Members' ) ],
-		[ 'followers',   t( 'visFollowers', 'Followers' ) ],
-		[ 'connections', t( 'visConnections', 'Connections' ) ],
-		[ 'private',     t( 'visPrivate', 'Only me' ) ],
-	].forEach( function ( pair ) {
-		var opt = document.createElement( 'option' );
-		opt.value       = pair[0];
-		opt.textContent = pair[1];
-		select.appendChild( opt );
-	} );
-
-	vis.appendChild( label );
-	vis.appendChild( select );
-	field.appendChild( vis );
-	return field;
+	var legacy = [ 'work_experience', 'education' ];
+	for ( i = 0; i < legacy.length; i++ ) {
+		var cid = repeaterContainerId( legacy[ i ] );
+		var c   = document.getElementById( cid );
+		if ( c && ! pristineSeeds[ cid ] ) {
+			var seed = c.querySelector( '.bn-ep-repeater-entry' );
+			if ( seed ) { pristineSeeds[ cid ] = seed.cloneNode( true ); }
+		}
+	}
 }
 
-/* Build a blank entry for an admin-created (custom) repeater group by cloning the
-   server-rendered entry and resetting it. The server renders every repeater group
-   through the field-type engine and always emits at least one schema-bearing entry
-   (even when empty), so the clone reproduces the exact markup, styling and field
-   types with no hardcoded field map — this is what makes Add Entry work for groups
-   beyond the built-in Work Experience / Education. */
+/* Build a blank repeater entry by cloning the server-rendered entry and
+   resetting it — for EVERY group, built-in and admin-created alike. The server
+   renders every repeater group through the field-type engine and always emits at
+   least one schema-bearing entry (even when empty), so the clone reproduces the
+   exact markup, current labels, placeholders, descriptions and field set with no
+   hardcoded field map. The old hardcoded Work Experience / Education map is gone
+   on purpose: it froze the groups' original field definitions into JS, so admin
+   renames and added fields never reached an Add Entry row.
+
+   When the live DOM has no entry left to clone (the member removed every row),
+   the pristine snapshot taken at page init is the seed — Add Entry keeps
+   working on an emptied group instead of silently doing nothing. */
 function buildEntryNodeFromClone( group, index ) {
 	var container = document.getElementById( repeaterContainerId( group ) );
 	if ( ! container ) { return null; }
-	var seed = container.querySelector( '.bn-ep-repeater-entry' );
+	var seed = container.querySelector( '.bn-ep-repeater-entry' ) || pristineSeeds[ container.id ];
 	if ( ! seed ) { return null; }
 
 	var clone = seed.cloneNode( true );
@@ -984,10 +983,22 @@ function buildEntryNodeFromClone( group, index ) {
 		el.name = el.name.replace( /\[\d+\]/, '[' + index + ']' );
 		if ( 'checkbox' === el.type || 'radio' === el.type ) {
 			el.checked = false;
-		} else if ( 'SELECT' !== el.tagName ) {
+		} else if ( 'SELECT' === el.tagName ) {
+			// Every <select> resets to its FIRST option: for the per-entry
+			// privacy lock that is the admin default (its options are
+			// rank-ordered and filtered), and for a dropdown sub-field it is
+			// the placeholder/first choice — never the seed row's picked value.
+			if ( el.options.length ) { el.selectedIndex = 0; }
+		} else {
 			el.value = '';
 		}
-		// The per-entry privacy <select> keeps its rendered default.
+		// A seed entry with "currently working/attending" checked has its paired
+		// end field disabled with an injected "Present" placeholder — the fresh
+		// row's checkbox starts unchecked, so release that state on the clone.
+		el.disabled = false;
+		if ( el.getAttribute( 'placeholder' ) === t( 'present', 'Present' ) ) {
+			el.removeAttribute( 'placeholder' );
+		}
 	} );
 
 	// Keep ids/labels unique so a label click focuses THIS entry's control.
@@ -1015,168 +1026,6 @@ function buildEntryNodeFromClone( group, index ) {
 	return clone;
 }
 
-/* Build a blank repeater entry DOM node for a given group. */
-function buildEntryNode( group, index ) {
-	var groupConfig = {
-		work_experience: {
-			containerId: repeaterContainerId( 'work_experience' ),
-			removeLabel: t( 'removeThisPosition', 'Remove this position' ),
-			/* Field keys MUST match the bn_profile_fields definitions for this
-			   group, or the server (ProfileService) silently ignores values for
-			   unknown keys — the same class of bug that dropped whole sections. */
-			fields: [
-				{ key: 'work_company',     label: t( 'workCompany', 'Company' ),              type: 'text',     placeholder: t( 'workCompanyPlaceholder', 'Company name' ) },
-				{ key: 'work_title',       label: t( 'workTitle', 'Job Title' ),              type: 'text',     placeholder: t( 'workTitlePlaceholder', 'Your role' ) },
-				{ key: 'work_location',    label: t( 'workLocation', 'Location' ),            type: 'text',     placeholder: t( 'workLocationPlaceholder', 'City or Remote' ) },
-				{ key: 'work_start_date',  label: t( 'workStartDate', 'Start Date' ),         type: 'date' },
-				{ key: 'work_end_date',    label: t( 'workEndDate', 'End Date' ),             type: 'date',     endControl: true },
-				{ key: 'work_current',     label: t( 'workCurrent', 'Currently Working' ),    type: 'boolean',  currentToggle: 'work_end_date' },
-				{ key: 'work_description', label: t( 'workDescription', 'Description' ),       type: 'textarea', placeholder: t( 'workDescriptionPlaceholder', 'Brief description of your role' ), fullWidth: true },
-			],
-		},
-		education: {
-			containerId: repeaterContainerId( 'education' ),
-			removeLabel: t( 'removeThisEntry', 'Remove this entry' ),
-			fields: [
-				{ key: 'edu_institution', label: t( 'eduInstitution', 'Institution' ),          type: 'text',    placeholder: t( 'eduInstitutionPlaceholder', 'School or University' ) },
-				{ key: 'edu_degree',      label: t( 'eduDegree', 'Degree' ),                    type: 'text',    placeholder: t( 'eduDegreePlaceholder', 'e.g. Bachelor of Science' ) },
-				{ key: 'edu_field',       label: t( 'eduField', 'Field of Study' ),             type: 'text',    placeholder: t( 'eduFieldPlaceholder', 'e.g. Computer Science' ) },
-				{ key: 'edu_start_year',  label: t( 'eduStartYear', 'Start Year' ),             type: 'number',  placeholder: t( 'eduStartYearPlaceholder', 'e.g. 2016' ) },
-				{ key: 'edu_end_year',    label: t( 'eduEndYear', 'End Year' ),                 type: 'number',  placeholder: t( 'eduEndYearPlaceholder', 'e.g. 2020' ), endControl: true },
-				{ key: 'edu_current',     label: t( 'eduCurrent', 'Currently Attending' ),      type: 'boolean', currentToggle: 'edu_end_year' },
-			],
-		},
-	};
-	var cfg = groupConfig[ group ];
-	// Custom (admin-created) repeater groups have no hardcoded config — build the
-	// blank entry from the server-rendered markup instead of giving up (which left
-	// Add Entry doing nothing for any group but Work Experience / Education).
-	if ( ! cfg ) { return buildEntryNodeFromClone( group, index ); }
-
-	// Required sub-field keys, read data-driven from the server-emitted
-	// data-bn-required-fields on the entries container, so a JS-added row shows
-	// the same asterisk the server renders (never hardcoded — admins can change
-	// is_required and this stays in sync).
-	var requiredSet = {};
-	var reqContainer = document.getElementById( cfg.containerId );
-	var reqAttr = reqContainer ? reqContainer.getAttribute( 'data-bn-required-fields' ) : '';
-	if ( reqAttr ) {
-		reqAttr.split( ',' ).forEach( function ( k ) {
-			k = k.trim();
-			if ( k ) { requiredSet[ k ] = true; }
-		} );
-	}
-	function markRequired( labelEl, key, controlEl ) {
-		if ( ! requiredSet[ key ] ) { return; }
-		var req = document.createElement( 'span' );
-		req.className = 'bn-ep-required';
-		req.setAttribute( 'aria-hidden', 'true' );
-		req.textContent = '*';
-		labelEl.appendChild( document.createTextNode( ' ' ) );
-		labelEl.appendChild( req );
-		if ( controlEl ) { controlEl.required = true; }
-	}
-
-	var entry = document.createElement( 'div' );
-	entry.className          = 'bn-ep-repeater-entry';
-	entry.dataset.entryIndex = String( index );
-
-	var header = document.createElement( 'div' );
-	header.className = 'bn-ep-repeater-header';
-	var num = document.createElement( 'span' );
-	num.className   = 'bn-ep-repeater-num';
-	num.textContent = String( index + 1 );
-	var removeBtn = document.createElement( 'button' );
-	// Mirror the SERVER remove button (templates/profile/edit.php:355) exactly so a
-	// dynamically-added entry's control is the themed ghost button, not a bare
-	// native button with a text "×" (which read unstyled, worst in dark mode).
-	removeBtn.className              = 'bn-btn bn-ep-repeater-remove';
-	removeBtn.type                   = 'button';
-	removeBtn.dataset.variant        = 'ghost';
-	removeBtn.dataset.size           = 'sm';
-	removeBtn.dataset.group          = group;
-	removeBtn.dataset.entryIndex     = String( index );
-	removeBtn.setAttribute( 'aria-label', cfg.removeLabel );
-	// Use the same x-icon the server emits: clone an existing rendered icon when
-	// present, else build it via the SVG namespace (no innerHTML — the markup is
-	// identical to IconService 'x', which injects the bn-icon class).
-	var bnExistingX = document.querySelector( '.bn-ep-repeater-remove .bn-icon' );
-	if ( bnExistingX ) {
-		removeBtn.appendChild( bnExistingX.cloneNode( true ) );
-	} else {
-		removeBtn.appendChild( buildXIcon() );
-	}
-	removeBtn.addEventListener( 'click', function () {
-		entry.remove();
-		renumberEntries( cfg.containerId );
-	} );
-	header.appendChild( num );
-	header.appendChild( removeBtn );
-	entry.appendChild( header );
-
-	// Mirror the SERVER repeater markup (templates/profile/edit.php) exactly so a
-	// dynamically-added entry is styled identically: a single `.bn-ep-grid`
-	// holding `.bn-ep-field` cells, each with a `.bn-ep-label` and a control classed
-	// `bn-input bn-field-{type}` (matching FieldType::render_input). Boolean is
-	// self-labelling and spans a full-width cell; a textarea field also spans full
-	// width. The old bn-ep-group / bn-ep-input / bn-ep-repeater-row classes had NO
-	// CSS, so cloned entries fell back to unstyled browser defaults.
-	var grid = document.createElement( 'div' );
-	grid.className = 'bn-ep-grid';
-	entry.appendChild( grid );
-
-	cfg.fields.forEach( function ( fieldDef ) {
-		var isBoolean  = ( 'boolean' === fieldDef.type || 'checkbox' === fieldDef.type );
-		var isTextarea = ( !! fieldDef.fullWidth || 'textarea' === fieldDef.type );
-		var field      = document.createElement( 'div' );
-		field.className = 'bn-ep-field' + ( ( isBoolean || isTextarea ) ? ' bn-ep-field--full' : '' );
-
-		if ( isBoolean ) {
-			var blabel = document.createElement( 'label' );
-			blabel.className = 'bn-field-checkbox';
-			var cb = document.createElement( 'input' );
-			cb.type  = 'checkbox';
-			cb.name  = group + '[' + index + '][' + fieldDef.key + ']';
-			cb.value = '1';
-			var span = document.createElement( 'span' );
-			span.textContent = fieldDef.label;
-			blabel.appendChild( cb );
-			blabel.appendChild( span );
-			field.appendChild( blabel );
-			grid.appendChild( field );
-			return;
-		}
-
-		var lbl = document.createElement( 'label' );
-		lbl.className   = 'bn-ep-label';
-		lbl.textContent = fieldDef.label;
-
-		var control;
-		if ( isTextarea ) {
-			control = document.createElement( 'textarea' );
-			control.rows = 3;
-			control.className = 'bn-input bn-field-textarea';
-		} else {
-			control = document.createElement( 'input' );
-			control.type = fieldDef.type || 'text';
-			control.className = 'bn-input bn-field-' + ( fieldDef.type || 'text' );
-		}
-		control.name        = group + '[' + index + '][' + fieldDef.key + ']';
-		control.placeholder = fieldDef.placeholder || '';
-		markRequired( lbl, fieldDef.key, control );
-
-		field.appendChild( lbl );
-		field.appendChild( control );
-		grid.appendChild( field );
-	} );
-
-	// Per-entry privacy lock (the `group[index][_visibility]` control), appended
-	// after the field grid to match the server-rendered entry order in
-	// templates/profile/edit.php.
-	entry.appendChild( buildEntryVisNode( group, index ) );
-
-	return entry;
-}
 
 /* Pair each "currently here / attending" boolean to the end date/year it
    supersedes. Checking the box marks the role/study as ongoing, so the paired
@@ -1283,6 +1132,9 @@ const profileStore = store( 'buddynext/profile', {
 		initEditGuard() {
 			ensureUnloadGuard();
 			wireCurrentToggles();
+			// Snapshot each repeater's pristine first entry before any edit, so
+			// Add Entry can still build a row after the member empties a group.
+			snapshotRepeaterSeeds();
 			// Honour a #avatar / #cover deep-link (the view-hero "Edit avatar" /
 			// "Edit cover" links land here) by opening the matching file picker, so
 			// the anchor isn't a dead scroll-to-nothing. A short defer lets the
@@ -1335,7 +1187,7 @@ const profileStore = store( 'buddynext/profile', {
 
 			var ok = await bnConfirm( {
 				title:        t( 'deleteAccountTitle', 'Delete your account?' ),
-				message:      t( 'deleteAccountMessage', 'This permanently deletes your account and removes your data. This cannot be undone.' ),
+				body:         t( 'deleteAccountMessage', 'This permanently deletes your account and removes your data. This cannot be undone.' ),
 				confirmLabel: t( 'deleteAccountConfirm', 'Delete my account' ),
 				tone:         'danger',
 			} );
@@ -1697,7 +1549,7 @@ const profileStore = store( 'buddynext/profile', {
 			if ( ! container ) { return; }
 
 			var index = container.querySelectorAll( '.bn-ep-repeater-entry' ).length;
-			var node  = buildEntryNode( group, index );
+			var node  = buildEntryNodeFromClone( group, index );
 			if ( node ) { container.appendChild( node ); }
 			// Adding a row counts as a dirty edit.
 			getContext().isDirty = true;

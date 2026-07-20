@@ -104,20 +104,6 @@ if ( ! $hashtag_not_found ) {
 		: array();
 }
 
-// Hook the right sidebar widgets onto the shell. has_action() detects
-// this registration and the shell auto-renders the right column.
-add_action(
-	'buddynext_right_sidebar',
-	static function () {
-		buddynext_get_template(
-			'partials/sidebar.php',
-			array(
-				'sidebar_user_id' => get_current_user_id(),
-			)
-		);
-	}
-);
-
 /**
  * Fires before the hashtag feed inner content.
  */
@@ -153,6 +139,26 @@ else :
 	}
 
 	$post_count_total = absint( $hashtag['post_count'] ?? 0 );
+
+	// Declares this fine-grained surface for the sidebar registry
+	// (SidebarRegistry reads it via Surface::current()) with the hashtag-page
+	// context the registry's HashtagSidebarProvider reads back via
+	// Surface::context() — replaces the bare Surface::set('hashtag') that used
+	// to run before this data existed.
+	\BuddyNext\Sidebar\Surface::set(
+		'hashtag',
+		array(
+			'hashtag_slug'     => $hashtag_slug,
+			'post_count_total' => $post_count_total,
+			'first_used_label' => $first_used_label,
+			'follows_hashtag'  => $follows_hashtag,
+			'is_logged_in'     => $is_logged_in,
+			'related_tags'     => $related_tags,
+			'current_user_id'  => $current_user_id,
+			'following_map'    => isset( $bn_related_following ) ? $bn_related_following : array(),
+			'top_contributors' => $top_contributors,
+		)
+	);
 	?>
 <div
 	class="bn-hashtag-feed"
@@ -272,37 +278,6 @@ else :
 			endif;
 			?>
 		</main>
-
-		<!-- ── Sidebar (hashtag-specific) ── -->
-		<aside class="bn-hashtag-sidebar" aria-label="<?php esc_attr_e( 'Hashtag details sidebar', 'buddynext' ); ?>">
-			<?php
-			buddynext_get_template(
-				'parts/hashtag-sidebar-about.php',
-				array(
-					'hashtag_slug'     => $hashtag_slug,
-					'post_count_total' => $post_count_total,
-					'first_used_label' => $first_used_label,
-					'follows_hashtag'  => $follows_hashtag,
-					'is_logged_in'     => $is_logged_in,
-				)
-			);
-			buddynext_get_template(
-				'parts/hashtag-sidebar-related.php',
-				array(
-					'related_tags'    => $related_tags,
-					'is_logged_in'    => $is_logged_in,
-					'current_user_id' => $current_user_id,
-					'following_map'   => isset( $bn_related_following ) ? $bn_related_following : array(),
-				)
-			);
-			buddynext_get_template(
-				'parts/hashtag-sidebar-top-contributors.php',
-				array(
-					'top_contributors' => $top_contributors,
-				)
-			);
-			?>
-		</aside>
 	</div>
 
 </div><!-- /.bn-hashtag-feed -->

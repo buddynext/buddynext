@@ -6,7 +6,7 @@
  * under the same namespace — WP Interactivity API merges the two calls.
  */
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '../shell/rest-client.js';
+import { restFetch } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state

@@ -170,33 +170,12 @@ class FeatureRegistry {
 				'depends_on' => array( 'feed' ),
 			),
 
-			// ── Bridges — default-on so an installed integration works out of the
-			// box (each bridge still self-guards via class_exists when its partner
-			// plugin is absent); toggling the feature off now actually disables it.
-			'gamification'  => array(
-				'slug'       => 'gamification',
-				'tier'       => self::TIER_DEFAULT_ON,
-				'group'      => 'bridges',
-				'depends_on' => array(),
-			),
-			'jetonomy'      => array(
-				'slug'       => 'jetonomy',
-				'tier'       => self::TIER_DEFAULT_ON,
-				'group'      => 'bridges',
-				'depends_on' => array( 'feed' ),
-			),
-			'wpmediaverse'  => array(
-				'slug'       => 'wpmediaverse',
-				'tier'       => self::TIER_DEFAULT_ON,
-				'group'      => 'bridges',
-				'depends_on' => array(),
-			),
-			'career_board'  => array(
-				'slug'       => 'career_board',
-				'tier'       => self::TIER_DEFAULT_ON,
-				'group'      => 'bridges',
-				'depends_on' => array( 'feed' ),
-			),
+			// Integration bridges are NOT features. They gate solely on the
+			// per-aspect Integrations toggle (buddynext_integration_enabled), which
+			// is the single source of truth — there is no Features-tab master switch
+			// for them (a bridge here would be an orphan toggle: it self-guards on
+			// its partner constant and wires unconditionally at boot).
+
 			// ── OPT-IN — off by default ───────────────────────────────────
 			'webhooks'      => array(
 				'slug'       => 'webhooks',
@@ -281,47 +260,34 @@ class FeatureRegistry {
 	}
 
 	/**
-	 * Whether the external plugin a bridge feature wraps is active.
+	 * Whether the external plugin a feature depends on is active.
 	 *
-	 * Bridge features (group 'bridges') depend on a third-party plugin; the
-	 * toggle is meaningless and the feature inoperable when that plugin is
-	 * absent. Returns true for every feature without an external dependency, so
-	 * only the four bridges are gated. The checks mirror the bridge classes'
-	 * own class_exists/function_exists/defined guards.
+	 * The seam that forces a feature off (and renders its toggle "unavailable")
+	 * when a third-party plugin it wraps is absent. No CURRENT feature has an
+	 * external dependency — integration bridges are gated by the Integrations
+	 * toggle, not the Features tab — so this returns true for every feature
+	 * today. A future feature that wraps a third-party plugin adds its
+	 * class_exists/defined check here.
 	 *
 	 * @param string $slug Feature slug.
 	 * @return bool
 	 */
 	public function presence_met( string $slug ): bool {
-		switch ( $slug ) {
-			case 'wpmediaverse':
-				return class_exists( 'WPMediaVerse\\Core\\Plugin' );
-			case 'jetonomy':
-				return class_exists( 'Jetonomy\\Jetonomy' );
-			case 'gamification':
-				return function_exists( 'wb_gam_submit_event' );
-			case 'career_board':
-				return defined( 'WCB_VERSION' );
-			default:
-				return true;
-		}
+		unset( $slug );
+		return true;
 	}
 
 	/**
-	 * Human-readable name of the plugin a bridge feature requires, for the
-	 * "Requires the X plugin" notice. Empty string for non-bridge features.
+	 * Human-readable name of the plugin a feature requires, for the "Requires the
+	 * X plugin" notice. Empty for every current feature (none has an external
+	 * dependency); a future external-dependency feature maps its slug here.
 	 *
 	 * @param string $slug Feature slug.
 	 * @return string
 	 */
 	public function required_plugin_name( string $slug ): string {
-		$names = array(
-			'wpmediaverse' => 'WPMediaVerse',
-			'jetonomy'     => 'Jetonomy',
-			'gamification' => 'WBGamification',
-			'career_board' => 'Career Board',
-		);
-		return $names[ $slug ] ?? '';
+		unset( $slug );
+		return '';
 	}
 
 	/**
@@ -461,22 +427,6 @@ class FeatureRegistry {
 			'announcements' => array(
 				'label'       => __( 'Site announcements', 'buddynext' ),
 				'description' => __( 'Pin an announcement to the top of every member\'s feed.', 'buddynext' ),
-			),
-			'gamification'  => array(
-				'label'       => __( 'Gamification (badges, points, leaderboard)', 'buddynext' ),
-				'description' => __( 'Bridges WBGamification: earn points, unlock badges, climb the leaderboard. Requires the WBGamification plugin.', 'buddynext' ),
-			),
-			'jetonomy'      => array(
-				'label'       => __( 'Jetonomy forums bridge', 'buddynext' ),
-				'description' => __( 'Show Jetonomy forum activity in BuddyNext feeds. Requires the Jetonomy plugin.', 'buddynext' ),
-			),
-			'wpmediaverse'  => array(
-				'label'       => __( 'WPMediaVerse direct messages', 'buddynext' ),
-				'description' => __( 'Bridge WPMediaVerse for member-to-member DMs inside BuddyNext. Requires the WPMediaVerse plugin.', 'buddynext' ),
-			),
-			'career_board'  => array(
-				'label'       => __( 'Career Board jobs bridge', 'buddynext' ),
-				'description' => __( 'Surface Career Board job posts as activity. Requires Career Board.', 'buddynext' ),
 			),
 			'webhooks'      => array(
 				'label'       => __( 'Outbound webhooks', 'buddynext' ),

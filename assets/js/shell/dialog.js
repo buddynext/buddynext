@@ -41,7 +41,9 @@ function si( key, fallback ) {
  *
  * @param {Object} opts
  * @param {string} opts.title         Modal title (required).
- * @param {string} [opts.body]        Optional body copy.
+ * @param {string} [opts.body]        Optional body copy. `message` is accepted as an alias.
+ * @param {string} [opts.message]     Alias for `body` — tolerated so a caller that passes the
+ *                                    common `{ message }` shape can never render an empty modal.
  * @param {string} [opts.tone]        'danger' | 'default'.
  * @param {string} [opts.confirmLabel]
  * @param {string} [opts.cancelLabel]
@@ -90,9 +92,13 @@ function buildModalFrame( opts ) {
 	const body = document.createElement( 'div' );
 	body.className = 'bn-modal__body';
 
-	if ( opts.body ) {
+	// `message` is a tolerated alias for `body`: several callers historically pass
+	// `{ message }` (the natural word for confirm copy), which would otherwise render
+	// a contentless dialog. Prefer `body`, fall back to `message`.
+	const bodyText = opts.body || opts.message;
+	if ( bodyText ) {
 		const para = document.createElement( 'p' );
-		para.textContent = opts.body;
+		para.textContent = bodyText;
 		para.style.margin = '0';
 		body.appendChild( para );
 	}

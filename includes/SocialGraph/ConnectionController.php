@@ -128,21 +128,10 @@ class ConnectionController extends BaseRestController {
 				'callback'            => array( $this, 'connection_status' ),
 				'permission_callback' => array( $this, 'require_auth' ),
 				'args'                => array(
-					'id'       => array(
+					'id' => array(
 						'required' => true,
 						'type'     => 'integer',
 						'minimum'  => 1,
-					),
-					'per_page' => array(
-						'type'    => 'integer',
-						'default' => 20,
-						'minimum' => 1,
-						'maximum' => 100,
-					),
-					'page'     => array(
-						'type'    => 'integer',
-						'default' => 1,
-						'minimum' => 1,
 					),
 				),
 			)
@@ -156,10 +145,32 @@ class ConnectionController extends BaseRestController {
 				'callback'            => array( $this, 'mutual_connections' ),
 				'permission_callback' => array( $this, 'require_auth' ),
 				'args'                => array(
-					'id' => array(
+					'id'       => array(
 						'required' => true,
 						'type'     => 'integer',
 						'minimum'  => 1,
+					),
+					// These were declared on /connection/status, which does not read
+					// them, while THIS route read them and declared nothing. So the
+					// dispatcher never filled the default: $request['per_page'] arrived
+					// null, (int) null is 0, and a per_page of 0 slices the list to
+					// empty. mutual_connections() carries a defensive fallback for that
+					// and blames "a direct WP_REST_Request (tests, internal calls)" --
+					// but the real cause was the declaration being on the wrong route,
+					// so the default never fired for anyone. The fallback stays; it is
+					// still correct for genuine internal callers.
+					'per_page' => array(
+						'type'        => 'integer',
+						'default'     => 20,
+						'minimum'     => 1,
+						'maximum'     => 100,
+						'description' => 'Mutual connections per page.',
+					),
+					'page'     => array(
+						'type'        => 'integer',
+						'default'     => 1,
+						'minimum'     => 1,
+						'description' => '1-based page number.',
 					),
 				),
 			)
@@ -210,13 +221,16 @@ class ConnectionController extends BaseRestController {
 		$offset = ( $page - 1 ) * $per_page;
 		$slice  = array_slice( array_map( 'intval', $ids ), $offset, $per_page );
 
-		$response = new WP_REST_Response(
-			array(
-				'ids'   => $slice,
-				'total' => $total,
-			),
-			200
-		);
+		$body = array( 'total' => $total );
+		// expand=members hydrates the page into enriched member cards in one batch.
+		$expanded = $this->maybe_expand_members( $request, $slice, $viewer_id );
+		if ( null !== $expanded ) {
+			$body['items'] = $expanded;
+		} else {
+			$body['ids'] = $slice;
+		}
+
+		$response = new WP_REST_Response( $body, 200 );
 
 		$response->header( 'X-WP-Total', (string) $total );
 		$response->header( 'X-WP-TotalPages', (string) ( $per_page > 0 ? (int) ceil( $total / $per_page ) : 0 ) );
@@ -261,8 +275,7 @@ class ConnectionController extends BaseRestController {
 		$result = buddynext_service( 'connections' )->send_request( $current_id, $target_id, $note );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		return new WP_REST_Response( array( 'status' => 'pending' ), 200 );
@@ -328,8 +341,7 @@ class ConnectionController extends BaseRestController {
 		}
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		return new WP_REST_Response( array( 'success' => true ), 200 );
@@ -349,15 +361,20 @@ class ConnectionController extends BaseRestController {
 		$service     = buddynext_service( 'connections' );
 		$connections = $service->connections( $current_id, $per_page, ( $page - 1 ) * $per_page );
 
-		return new WP_REST_Response(
-			array(
-				'ids'      => $connections,
-				'total'    => $service->connection_count( $current_id ),
-				'page'     => $page,
-				'per_page' => $per_page,
-			),
-			200
+		$body = array(
+			'total'    => $service->connection_count( $current_id ),
+			'page'     => $page,
+			'per_page' => $per_page,
 		);
+		// expand=members hydrates the page into enriched member cards in one batch.
+		$expanded = $this->maybe_expand_members( $request, $connections, $current_id );
+		if ( null !== $expanded ) {
+			$body['items'] = $expanded;
+		} else {
+			$body['ids'] = $connections;
+		}
+
+		return new WP_REST_Response( $body, 200 );
 	}
 
 	/**
@@ -373,14 +390,20 @@ class ConnectionController extends BaseRestController {
 
 		$pending = buddynext_service( 'connections' )->pending_received( $current_id, $per_page, ( $page - 1 ) * $per_page );
 
-		return new WP_REST_Response(
-			array(
-				'ids'      => $pending,
-				'page'     => $page,
-				'per_page' => $per_page,
-				'has_more' => count( $pending ) === $per_page,
-			),
-			200
+		$body = array(
+			'page'     => $page,
+			'per_page' => $per_page,
+			'has_more' => count( $pending ) === $per_page,
 		);
+		// expand=members hydrates the request inbox into enriched member cards in one
+		// batch (no N+1), the same shared path the followers/connections lists use.
+		$expanded = $this->maybe_expand_members( $request, $pending, $current_id );
+		if ( null !== $expanded ) {
+			$body['items'] = $expanded;
+		} else {
+			$body['ids'] = $pending;
+		}
+
+		return new WP_REST_Response( $body, 200 );
 	}
 }

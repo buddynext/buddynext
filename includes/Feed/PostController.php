@@ -376,7 +376,12 @@ class PostController extends BaseRestController {
 			return $denied;
 		}
 
-		return new WP_REST_Response( $post, 200 );
+		// Enrich through the SAME builder the feed uses, so a post opened cold (deeplink,
+		// notification) carries author + content_html + viewer_state + media - identical to
+		// its feed card. Without this the single-post read returned a raw row (#10104866988).
+		$enriched = ( new FeedController() )->enrich_for_rest( array( $post ), get_current_user_id() );
+
+		return new WP_REST_Response( $enriched[0] ?? $post, 200 );
 	}
 
 	/**

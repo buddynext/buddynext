@@ -80,6 +80,7 @@
 	--bn-a-r-sm:              var(--bn-r-sm);
 	--bn-a-r-md:              var(--bn-r-md);
 	--bn-a-r-lg:              var(--bn-r-lg);
+	--bn-a-r-full:            999px;                   /* pill: badges, chips, status dots */
 
 	/* -- Typography ------------------------------------------------------- */
 	--bn-a-font-body:         var(--bn-font-ui);
@@ -1733,17 +1734,19 @@ button.bn-btn-danger:hover {
 	border-color: var(--bn-a-text-3);
 }
 
+/* Positioned with position:fixed and placed by JS (admin/members.js) so the
+   menu escapes the overflow:hidden on the rounded card/table ancestors that
+   used to clip it on the bottom rows. JS sets top/left on open; the static
+   offsets are gone so left+right are never both constrained. */
 .bn-more-dropdown {
 	display: none;
-	position: absolute;
-	inset-inline-end: 0;
-	top: calc(100% + var(--bn-a-s1));
+	position: fixed;
 	background: var(--bn-a-bg);
 	border: 1px solid var(--bn-a-border);
 	border-radius: var(--bn-a-r-md);
 	box-shadow: var(--bn-a-shadow-md);
 	min-width: var(--bn-a-dropdown-min-w);
-	z-index: 100;
+	z-index: 1000;
 	overflow: hidden;
 }
 

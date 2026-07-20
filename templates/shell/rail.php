@@ -153,8 +153,8 @@ foreach ( $bn_rail_items as $bn_item ) {
 	?>
 	<div class="bn-rail__head">
 		<?php if ( '' !== $bn_rail_logo ) : ?>
-			<a class="bn-rail__logo" href="<?php echo esc_url( PageRouter::activity_url() ); ?>" aria-label="<?php echo esc_attr( get_bloginfo( 'name' ) ); ?>">
-				<img src="<?php echo esc_url( $bn_rail_logo ); ?>" alt="<?php echo esc_attr( get_bloginfo( 'name' ) ); ?>">
+			<a class="bn-rail__logo" href="<?php echo esc_url( PageRouter::activity_url() ); ?>" aria-label="<?php echo esc_attr( buddynext_site_name() ); ?>">
+				<img src="<?php echo esc_url( $bn_rail_logo ); ?>" alt="<?php echo esc_attr( buddynext_site_name() ); ?>">
 			</a>
 		<?php endif; ?>
 		<button

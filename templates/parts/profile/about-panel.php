@@ -1,14 +1,21 @@
 <?php
 /**
- * BuddyNext template part: profile About panel.
+ * BuddyNext template part: profile About panel (schema-driven).
  *
- * The registry content seam for the profile About tab. Self-contained: resolves
- * the viewer-gated profile field data via ProfileService (the same path the hero
- * and the REST controller use), renders the curated about-cards (work / education
- * / interests) and then every other admin-defined field through the single
- * field-type engine. Rendered by ProfileNav's About `render` callable (which only
- * registers the tab when there is content). Returns nothing when empty so the
- * callable can decide visibility.
+ * Renders EVERY admin-defined profile field group through one type-driven
+ * engine — no hardcoded group or sub-field keys. We cannot predict the owner's
+ * schema (they add / rename / delete groups and fields), so we never render by
+ * identity: we render by TYPE. Each group is dispatched by its group type
+ * (flat vs repeater); each field by its field type's presentation mode
+ * (FieldType::presentation_for → block | chips | link | inline), with the value
+ * produced by FieldType::render_display(). A custom group or a renamed field
+ * flows through unchanged; a deleted one simply isn't there.
+ *
+ * Basic Info's spine fields (headline / bio / pronouns / location / website) are
+ * skipped here — the profile hero surfaces them — to avoid duplication.
+ *
+ * Rendered by ProfileNav's About `render` callable (which only registers the tab
+ * when there is content). Returns nothing when empty.
  *
  * @package BuddyNext
  *
@@ -20,6 +27,8 @@ declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
+use BuddyNext\Profile\FieldType;
+
 $bn_ap_uid    = isset( $profile_user_id ) ? (int) $profile_user_id : 0;
 $bn_ap_viewer = isset( $viewer_id ) ? (int) $viewer_id : 0;
 if ( $bn_ap_uid <= 0 ) {
@@ -27,151 +36,280 @@ if ( $bn_ap_uid <= 0 ) {
 }
 
 $bn_ap_profile = buddynext_service( 'profiles' )->get_profile( $bn_ap_uid, $bn_ap_viewer );
-$bn_ap_groups  = array();
-if ( is_array( $bn_ap_profile ) ) {
-	foreach ( (array) ( $bn_ap_profile['groups'] ?? array() ) as $bn_ap_group ) {
-		$bn_ap_groups[ $bn_ap_group['group_key'] ] = $bn_ap_group;
-	}
+if ( ! is_array( $bn_ap_profile ) ) {
+	return;
 }
 
-$bn_ap_entry_fv = static function ( array $entry_fields, string $fkey ): string {
-	foreach ( $entry_fields as $f ) {
-		if ( ( $f['field_key'] ?? '' ) === $fkey ) {
-			return (string) ( $f['value'] ?? '' );
-		}
-	}
-	return '';
+/**
+ * Fires before the About tab's field-group cards. Admins can echo extra
+ * content (an integration panel, a custom section) at the top of the tab.
+ *
+ * @param int   $profile_user_id Profile being viewed.
+ * @param int   $viewer_id       Current viewer.
+ * @param array $profile         The hydrated, viewer-gated profile.
+ */
+do_action( 'buddynext_profile_about_before', $bn_ap_uid, $bn_ap_viewer, $bn_ap_profile );
+
+// Spine fields the hero already shows — skipped only within basic_info.
+$bn_ap_hero_keys = array( 'headline', 'bio', 'pronouns', 'location', 'website' );
+
+/**
+ * Whether a stored value is empty (works for scalar + array/multi values).
+ *
+ * @param mixed $value Stored field value.
+ * @return bool
+ */
+$bn_ap_is_empty = static function ( $value ): bool {
+	return is_array( $value ) ? array() === $value : '' === trim( (string) $value );
 };
 
-$bn_ap_get_fv = static function ( string $gkey, string $fkey ) use ( $bn_ap_groups ): string {
-	if ( ! isset( $bn_ap_groups[ $gkey ]['fields'] ) ) {
+/**
+ * Render one field as a presentation-mode-tagged detail row: the label + the
+ * type-rendered value, wrapped in a `.bn-pf-detail--{mode}` block so the CSS can
+ * lay out each mode (block / chips / link / inline) appropriately.
+ *
+ * @param array<string,mixed> $field Hydrated field { type, label, value, field_key }.
+ * @return string HTML ('' when the field has no displayable value).
+ */
+$bn_ap_render_field = static function ( array $field ) use ( $bn_ap_is_empty ): string {
+	$value = $field['value'] ?? '';
+	if ( $bn_ap_is_empty( $value ) ) {
 		return '';
 	}
-	foreach ( $bn_ap_groups[ $gkey ]['fields'] as $f ) {
-		if ( ( $f['field_key'] ?? '' ) === $fkey ) {
-			return (string) ( $f['value'] ?? '' );
-		}
+	$display = FieldType::render_display( $field, $value );
+	if ( '' === trim( $display ) ) {
+		return '';
 	}
-	return '';
+	$type  = isset( $field['type'] ) ? (string) $field['type'] : 'text';
+	$mode  = FieldType::presentation_for( $type );
+	$label = isset( $field['label'] ) && '' !== (string) $field['label']
+		? (string) $field['label']
+		: ucwords( str_replace( '_', ' ', (string) ( $field['field_key'] ?? '' ) ) );
+
+	return sprintf(
+		'<div class="bn-pf-detail bn-pf-detail--%1$s"><dt class="bn-pf-detail__label">%2$s</dt><dd class="bn-pf-detail__value">%3$s</dd></div>',
+		esc_attr( $mode ),
+		esc_html( $label ),
+		// $display is escaped per the FieldType engine contract.
+		$display
+	);
 };
 
-$bn_ap_work = array_values(
-	array_filter(
-		isset( $bn_ap_groups['work_experience']['entries'] ) ? $bn_ap_groups['work_experience']['entries'] : array(),
-		static fn( array $e ): bool => '' !== $bn_ap_entry_fv( $e, 'work_company' ) || '' !== $bn_ap_entry_fv( $e, 'work_title' )
-	)
-);
-$bn_ap_edu  = array_values(
-	array_filter(
-		isset( $bn_ap_groups['education']['entries'] ) ? $bn_ap_groups['education']['entries'] : array(),
-		static fn( array $e ): bool => '' !== $bn_ap_entry_fv( $e, 'edu_institution' ) || '' !== $bn_ap_entry_fv( $e, 'edu_degree' )
-	)
-);
-// Interests — the member's picked space categories (system category_multiselect
-// field). get_profile() has already applied per-entry visibility, so an empty
-// list here means "nothing visible to this viewer" and the card is skipped.
-// Chips deep-link to the spaces directory filtered to the category.
-$bn_ap_interest_ids = array();
-foreach ( (array) ( $bn_ap_groups['interests']['fields'] ?? array() ) as $bn_ap_int_field ) {
-	if ( is_array( $bn_ap_int_field ) && 'interests' === (string) ( $bn_ap_int_field['field_key'] ?? '' ) ) {
-		$bn_ap_interest_ids = array_values( array_filter( array_map( 'absint', (array) ( $bn_ap_int_field['value'] ?? array() ) ) ) );
-		break;
-	}
-}
-$bn_ap_interest_chips = array();
-if ( ! empty( $bn_ap_interest_ids ) ) {
-	$bn_ap_cat_names = \BuddyNext\Profile\FieldType::category_options();
-	$bn_ap_cat_links = \BuddyNext\Profile\FieldType::category_directory_links();
-	foreach ( $bn_ap_interest_ids as $bn_ap_cat_id ) {
-		if ( ! isset( $bn_ap_cat_names[ (string) $bn_ap_cat_id ] ) ) {
+/**
+ * Render one repeater ENTRY as a premium card — a prominent heading, a muted
+ * meta line (short scalars + a collapsed date range), a description block, and
+ * any remaining fields as labelled rows. All schema-driven: the heading is the
+ * entry's first plain-text value, the date range is detected by the
+ * `{prefix}_start_(date|year)` / `_end_` / `_current` SUFFIX pattern (never a
+ * group name), and everything else falls back to typed detail rows. A custom
+ * repeater with unconventional fields still renders — it just leans on the row
+ * fallback.
+ *
+ * @param array<string,mixed> $entry Hydrated entry (field_key => field, + _visibility).
+ * @return string HTML ('' when the entry has no displayable value).
+ */
+$bn_ap_render_entry = static function ( array $entry ) use ( $bn_ap_is_empty, $bn_ap_render_field ): string {
+	// Ordered, non-empty, real fields keyed by field_key.
+	$fields = array();
+	foreach ( $entry as $ek => $ef ) {
+		if ( '_visibility' === $ek || ! is_array( $ef ) || empty( $ef['field_key'] ) ) {
 			continue;
 		}
-		$bn_ap_interest_chips[] = array(
-			'name' => (string) $bn_ap_cat_names[ (string) $bn_ap_cat_id ],
-			'url'  => (string) ( $bn_ap_cat_links[ (string) $bn_ap_cat_id ] ?? '' ),
-		);
+		if ( $bn_ap_is_empty( $ef['value'] ?? '' ) ) {
+			continue;
+		}
+		$fields[ (string) $ef['field_key'] ] = $ef;
 	}
-}
+	if ( empty( $fields ) ) {
+		return '';
+	}
 
-buddynext_get_template(
-	'partials/profile-about-cards.php',
-	array(
-		'work_entries'   => $bn_ap_work,
-		'edu_entries'    => $bn_ap_edu,
-		'interest_chips' => $bn_ap_interest_chips,
-		'entry_fv'       => $bn_ap_entry_fv,
-	)
+	// 1. Collapse a date triple (start / end / current) to one "A – B" range.
+	$consumed = array();
+	$range    = '';
+	foreach ( array_keys( $fields ) as $bn_ap_k ) {
+		if ( ! preg_match( '/^(.+)_start_(date|year)$/', $bn_ap_k, $bn_ap_m ) ) {
+			continue;
+		}
+		$bn_ap_prefix  = $bn_ap_m[1];
+		$bn_ap_unit    = $bn_ap_m[2];
+		$bn_ap_fmt     = static function ( string $key ) use ( $fields, $bn_ap_unit ): string {
+			$v = isset( $fields[ $key ] ) ? (string) ( $fields[ $key ]['value'] ?? '' ) : '';
+			if ( '' === $v ) {
+				return '';
+			}
+			if ( 'date' === $bn_ap_unit ) {
+				$ts = strtotime( $v );
+				return false !== $ts ? date_i18n( 'M Y', $ts ) : $v;
+			}
+			return $v;
+		};
+		$bn_ap_start   = $bn_ap_fmt( $bn_ap_prefix . '_start_' . $bn_ap_unit );
+		$bn_ap_end     = $bn_ap_fmt( $bn_ap_prefix . '_end_' . $bn_ap_unit );
+		$bn_ap_current = isset( $fields[ $bn_ap_prefix . '_current' ] )
+			&& '1' === (string) ( $fields[ $bn_ap_prefix . '_current' ]['value'] ?? '' );
+		if ( $bn_ap_current ) {
+			$bn_ap_end = __( 'Present', 'buddynext' );
+		}
+		if ( '' !== $bn_ap_start || '' !== $bn_ap_end ) {
+			$range = ( '' !== $bn_ap_start && '' !== $bn_ap_end )
+				? $bn_ap_start . ' – ' . $bn_ap_end
+				: ( '' !== $bn_ap_start ? $bn_ap_start : $bn_ap_end );
+		}
+		$consumed[ $bn_ap_prefix . '_start_' . $bn_ap_unit ] = true;
+		$consumed[ $bn_ap_prefix . '_end_' . $bn_ap_unit ]   = true;
+		$consumed[ $bn_ap_prefix . '_current' ]              = true;
+		break;
+	}
+
+	// 2. Partition the rest: first text → heading, further texts → meta, textarea
+	// → description, everything else → labelled rows.
+	$heading   = '';
+	$meta      = array();
+	$desc      = '';
+	$rows      = '';
+	$has_title = false;
+	foreach ( $fields as $bn_ap_fk => $bn_ap_f ) {
+		if ( isset( $consumed[ $bn_ap_fk ] ) ) {
+			continue;
+		}
+		$bn_ap_type = (string) ( $bn_ap_f['type'] ?? 'text' );
+		$bn_ap_val  = $bn_ap_f['value'] ?? '';
+		if ( 'textarea' === $bn_ap_type ) {
+			$desc .= FieldType::render_display( $bn_ap_f, $bn_ap_val );
+			continue;
+		}
+		if ( 'text' === $bn_ap_type && ! is_array( $bn_ap_val ) ) {
+			if ( ! $has_title ) {
+				$heading   = (string) $bn_ap_val;
+				$has_title = true;
+			} else {
+				$meta[] = (string) $bn_ap_val;
+			}
+			continue;
+		}
+		$rows .= $bn_ap_render_field( $bn_ap_f );
+	}
+	if ( '' !== $range ) {
+		$meta[] = $range;
+	}
+
+	$html = '';
+	if ( '' !== $heading ) {
+		$html .= '<h3 class="bn-pf-entry__title">' . esc_html( $heading ) . '</h3>';
+	}
+	if ( ! empty( $meta ) ) {
+		$html .= '<p class="bn-pf-entry__meta">' . esc_html( implode( ' · ', $meta ) ) . '</p>';
+	}
+	if ( '' !== $desc ) {
+		// render_display() output is escaped per the field engine contract.
+		$html .= '<div class="bn-pf-entry__desc">' . $desc . '</div>';
+	}
+	if ( '' !== $rows ) {
+		$html .= '<dl class="bn-pf-detail-list">' . $rows . '</dl>';
+	}
+
+	return '' === $html ? '' : '<div class="bn-pf-detail-entry">' . $html . '</div>';
+};
+
+/**
+ * Filter the group list the About tab renders — reorder, add a synthetic group,
+ * or drop one, without knowing which fields the owner created.
+ *
+ * @param array $groups          Ordered group list from get_profile().
+ * @param int   $profile_user_id Profile being viewed.
+ * @param int   $viewer_id       Current viewer.
+ */
+$bn_ap_groups = (array) apply_filters(
+	'buddynext_profile_about_groups',
+	(array) ( $bn_ap_profile['groups'] ?? array() ),
+	$bn_ap_uid,
+	$bn_ap_viewer
 );
 
-// Every other admin-defined field — including custom types the curated cards
-// above don't know — renders through the single field-type engine. get_profile()
-// has already applied per-field visibility, so anything present is allowed. Keys
-// the hero + about-cards surface prominently are skipped to avoid duplication
-// (the interests group has its curated card above).
-$bn_ap_hero_keys   = array( 'headline', 'bio', 'pronouns', 'location', 'website' );
-$bn_ap_skip_groups = array( 'work_experience', 'education', 'social_links', 'interests' );
-
-foreach ( (array) ( $bn_ap_profile['groups'] ?? array() ) as $bn_ap_g ) {
+foreach ( $bn_ap_groups as $bn_ap_g ) {
+	if ( ! is_array( $bn_ap_g ) ) {
+		continue;
+	}
 	$bn_ap_gkey  = isset( $bn_ap_g['group_key'] ) ? (string) $bn_ap_g['group_key'] : '';
 	$bn_ap_gtype = isset( $bn_ap_g['type'] ) ? (string) $bn_ap_g['type'] : 'flat';
-	if ( '' === $bn_ap_gkey || in_array( $bn_ap_gkey, $bn_ap_skip_groups, true ) ) {
+	if ( '' === $bn_ap_gkey ) {
 		continue;
 	}
 
-	$bn_ap_rows = '';
+	$bn_ap_body = '';
+
 	if ( 'repeater' === $bn_ap_gtype ) {
-		foreach ( ( isset( $bn_ap_g['entries'] ) && is_array( $bn_ap_g['entries'] ) ? $bn_ap_g['entries'] : array() ) as $bn_ap_entry ) {
-			if ( ! is_array( $bn_ap_entry ) ) {
-				continue;
-			}
-			$bn_ap_entry_rows = '';
-			foreach ( $bn_ap_entry as $bn_ap_f ) {
-				if ( ! is_array( $bn_ap_f ) || empty( $bn_ap_f['field_key'] ) || '' === (string) ( $bn_ap_f['value'] ?? '' ) ) {
-					continue;
-				}
-				$bn_ap_entry_rows .= '<div class="bn-pf-detail"><dt class="bn-pf-detail__label">' . esc_html( (string) ( $bn_ap_f['label'] ?? '' ) ) . '</dt><dd class="bn-pf-detail__value">' . \BuddyNext\Profile\FieldType::render_display( $bn_ap_f, $bn_ap_f['value'] ?? '' ) . '</dd></div>';
-			}
-			if ( '' !== $bn_ap_entry_rows ) {
-				$bn_ap_rows .= '<dl class="bn-pf-detail-list bn-pf-detail-entry">' . $bn_ap_entry_rows . '</dl>';
+		// Each entry → a premium entry-card (heading + meta + description + rows).
+		foreach ( ( is_array( $bn_ap_g['entries'] ?? null ) ? $bn_ap_g['entries'] : array() ) as $bn_ap_entry ) {
+			if ( is_array( $bn_ap_entry ) ) {
+				$bn_ap_body .= $bn_ap_render_entry( $bn_ap_entry );
 			}
 		}
 	} else {
-		foreach ( ( isset( $bn_ap_g['fields'] ) && is_array( $bn_ap_g['fields'] ) ? $bn_ap_g['fields'] : array() ) as $bn_ap_f ) {
+		$bn_ap_rows = '';
+		foreach ( ( is_array( $bn_ap_g['fields'] ?? null ) ? $bn_ap_g['fields'] : array() ) as $bn_ap_f ) {
 			if ( ! is_array( $bn_ap_f ) || empty( $bn_ap_f['field_key'] ) ) {
 				continue;
 			}
-			$bn_ap_fkey = (string) $bn_ap_f['field_key'];
-			if ( 'basic_info' === $bn_ap_gkey && in_array( $bn_ap_fkey, $bn_ap_hero_keys, true ) ) {
+			// The hero already shows basic_info's spine fields.
+			if ( 'basic_info' === $bn_ap_gkey && in_array( (string) $bn_ap_f['field_key'], $bn_ap_hero_keys, true ) ) {
 				continue;
 			}
-			// Set-valued fields (category_multiselect) carry an ARRAY value —
-			// never string-cast an array (PHP warning); empty either way = skip.
-			$bn_ap_fval = $bn_ap_f['value'] ?? '';
-			if ( is_array( $bn_ap_fval ) ? array() === $bn_ap_fval : '' === (string) $bn_ap_fval ) {
-				continue;
-			}
-			$bn_ap_label = isset( $bn_ap_f['label'] ) ? (string) $bn_ap_f['label'] : ucwords( str_replace( '_', ' ', $bn_ap_fkey ) );
-			$bn_ap_rows .= '<div class="bn-pf-detail"><dt class="bn-pf-detail__label">' . esc_html( $bn_ap_label ) . '</dt><dd class="bn-pf-detail__value">' . \BuddyNext\Profile\FieldType::render_display( $bn_ap_f, $bn_ap_f['value'] ?? '' ) . '</dd></div>';
+			$bn_ap_rows .= $bn_ap_render_field( $bn_ap_f );
 		}
 		if ( '' !== $bn_ap_rows ) {
-			$bn_ap_rows = '<dl class="bn-pf-detail-list">' . $bn_ap_rows . '</dl>';
+			$bn_ap_body = '<dl class="bn-pf-detail-list">' . $bn_ap_rows . '</dl>';
 		}
 	}
 
-	if ( '' === $bn_ap_rows ) {
-		continue;
+	if ( '' === $bn_ap_body ) {
+		continue; // Self-hide a group with no displayable content.
 	}
-	$bn_ap_glabel = isset( $bn_ap_g['label'] ) ? (string) $bn_ap_g['label'] : ucwords( str_replace( '_', ' ', $bn_ap_gkey ) );
+
+	$bn_ap_glabel = isset( $bn_ap_g['label'] ) && '' !== (string) $bn_ap_g['label']
+		? (string) $bn_ap_g['label']
+		: ucwords( str_replace( '_', ' ', $bn_ap_gkey ) );
+
+	/**
+	 * Fires before a rendered About group card. `$bn_ap_gkey` identifies the
+	 * group so an admin can inject content for a specific one.
+	 *
+	 * @param string $group_key       Group key.
+	 * @param array  $group           The hydrated group.
+	 * @param int    $profile_user_id Profile being viewed.
+	 */
+	do_action( 'buddynext_profile_about_group_before', $bn_ap_gkey, $bn_ap_g, $bn_ap_uid );
 	?>
-	<section class="bn-card bn-pf-about-card bn-pf-detail-card">
+	<section class="bn-card bn-pf-about-card bn-pf-detail-card" data-group="<?php echo esc_attr( $bn_ap_gkey ); ?>">
 		<header class="bn-pf-about-card__header">
 			<h2 class="bn-pf-about-card__title"><?php echo esc_html( $bn_ap_glabel ); ?></h2>
 		</header>
 		<?php
-		// Detail rows are FieldType::render_display output (escaped per the
-		// field_type_engine contract) plus esc_html() labels.
-		echo $bn_ap_rows; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		// Body is FieldType::render_display() output (escaped per the engine
+		// contract) + esc_html() labels + esc_attr() mode classes.
+		echo $bn_ap_body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+
+		/**
+		 * Fires inside an About group card, after its rendered rows — for an
+		 * admin to append content within the same card.
+		 *
+		 * @param string $group_key       Group key.
+		 * @param array  $group           The hydrated group.
+		 * @param int    $profile_user_id Profile being viewed.
+		 */
+		do_action( 'buddynext_profile_about_group_after', $bn_ap_gkey, $bn_ap_g, $bn_ap_uid );
 		?>
 	</section>
 	<?php
 }
+
+/**
+ * Fires after all About field-group cards — for an admin to append a custom
+ * section at the bottom of the tab.
+ *
+ * @param int   $profile_user_id Profile being viewed.
+ * @param int   $viewer_id       Current viewer.
+ * @param array $profile         The hydrated, viewer-gated profile.
+ */
+do_action( 'buddynext_profile_about_after', $bn_ap_uid, $bn_ap_viewer, $bn_ap_profile );

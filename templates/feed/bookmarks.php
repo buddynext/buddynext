@@ -24,6 +24,10 @@ defined( 'ABSPATH' ) || exit;
 use BuddyNext\Core\PageRouter;
 use BuddyNext\Feed\BookmarkService;
 
+// Declares this fine-grained surface for the sidebar registry (SidebarRegistry
+// reads it via Surface::current()) before the shell renders the right column.
+\BuddyNext\Sidebar\Surface::set( 'bookmarks' );
+
 // Guest gate is enforced upstream in PageRouter::dispatch_hub_template().
 $current_user_id = get_current_user_id();
 
@@ -52,17 +56,6 @@ if ( function_exists( 'buddynext_service' ) ) {
 	buddynext_service( 'feed' )->prime_viewer_state( $bn_visible_posts, $current_user_id );
 }
 $bn_bm_has_more = '' !== $bn_bm_next_cursor;
-
-// ── Sidebar — same as home feed ────────────────────────────────────────────
-add_action(
-	'buddynext_right_sidebar',
-	static function () use ( $current_user_id ) {
-		buddynext_get_template(
-			'partials/sidebar.php',
-			array( 'sidebar_user_id' => $current_user_id )
-		);
-	}
-);
 
 /**
  * Fires before the bookmarks hub renders.

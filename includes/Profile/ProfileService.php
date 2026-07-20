@@ -754,6 +754,76 @@ class ProfileService {
 					}
 				}
 
+				// Prune rows for entries the member removed. The client renumbers
+				// surviving entries to 0..n-1 and always submits the group key when
+				// its UI is on the page — an emptied group arrives as an empty
+				// array — so any stored entry_index outside the submitted set
+				// belongs to a deleted entry. Without this delete the removed
+				// entry's rows survive the save: the entry reappears on reload,
+				// and a middle delete leaves a stale duplicate at the top index.
+				$submitted_indexes = array();
+				foreach ( $value as $entry_index => $entry_data ) {
+					if ( is_array( $entry_data ) ) {
+						$submitted_indexes[] = (int) $entry_index;
+					}
+				}
+
+				$group_field_ids = array();
+				foreach ( $field_by_key as $group_field_def ) {
+					if ( (int) $group_field_def['group_id'] === (int) $group['id'] && ! empty( $group_field_def['id'] ) ) {
+						$group_field_ids[] = (int) $group_field_def['id'];
+					}
+				}
+
+				if ( ! empty( $group_field_ids ) ) {
+					$id_marks = implode( ', ', array_fill( 0, count( $group_field_ids ), '%d' ) );
+
+					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					if ( empty( $submitted_indexes ) ) {
+						$wpdb->query(
+							$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+								// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+								"DELETE FROM {$wpdb->prefix}bn_profile_values WHERE user_id = %d AND field_id IN ({$id_marks})",
+								...array_merge( array( $user_id ), $group_field_ids )
+							)
+						);
+					} else {
+						$ix_marks = implode( ', ', array_fill( 0, count( $submitted_indexes ), '%d' ) );
+						$wpdb->query(
+							$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+								// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+								"DELETE FROM {$wpdb->prefix}bn_profile_values WHERE user_id = %d AND field_id IN ({$id_marks}) AND entry_index NOT IN ({$ix_marks})",
+								...array_merge( array( $user_id ), $group_field_ids, $submitted_indexes )
+							)
+						);
+					}
+					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				}
+
+				// A group emptied of every entry never enters the sub-field loop
+				// above, so its aggregated search mirrors would go stale. Seed the
+				// mirror map with an empty value list for each searchable text
+				// sub-field so the flush below deletes the stale bn_field_{key}.
+				if ( empty( $submitted_indexes ) ) {
+					foreach ( $field_by_key as $group_field_def ) {
+						if ( (int) $group_field_def['group_id'] !== (int) $group['id'] ) {
+							continue;
+						}
+						$group_field_key  = (string) $group_field_def['field_key'];
+						$group_field_type = isset( $group_field_def['type'] ) ? (string) $group_field_def['type'] : 'text';
+						if (
+							! empty( $group_field_def['is_searchable'] )
+							&& \BuddyNext\Profile\FieldType::is_text_searchable( $group_field_type )
+							&& ! isset( $repeater_mirror[ $group_field_key ] )
+						) {
+							$repeater_mirror[ $group_field_key ] = array(
+								'field'  => $group_field_def,
+								'values' => array(),
+							);
+						}
+					}
+				}
+
 				continue;
 			}
 
@@ -1353,9 +1423,36 @@ class ProfileService {
 			);
 
 			if ( 'repeater' === $group['type'] ) {
+				// Merge the group's FULL field schema into every entry. Entries are
+				// built purely from value rows, and a field only has rows at the
+				// indexes where it was saved — so a newly added field (whose single
+				// LEFT-JOIN NULL row lands at index 0) rendered its input only in
+				// the first entry, and any sub-field left empty in an entry lost
+				// its input there on the edit form. Every entry gets a blank
+				// definition for each group field it has no value row for.
+				$schema = array();
+				foreach ( $entries as $entry_fields ) {
+					foreach ( $entry_fields as $schema_fid => $schema_field ) {
+						if ( isset( $schema[ $schema_fid ] ) ) {
+							continue;
+						}
+						$schema_field['value']            = self::view_value(
+							array(
+								'type'    => $schema_field['type'],
+								'options' => $schema_field['options'],
+							),
+							null
+						);
+						$schema_field['value_raw']        = ( $viewer_id === $profile_user_id ) ? '' : null;
+						$schema_field['entry_visibility'] = null;
+						$schema[ $schema_fid ]            = $schema_field;
+					}
+				}
+
 				$out['entries'] = array();
 				foreach ( $entries as $entry_fields ) {
-					$sorted = array_values( $entry_fields );
+					$entry_fields += $schema;
+					$sorted        = array_values( $entry_fields );
 					usort( $sorted, static fn( $a, $b ) => $a['sort_order'] <=> $b['sort_order'] );
 
 					// Surface the entry's saved privacy as `_visibility` so the edit
@@ -1756,12 +1853,10 @@ class ProfileService {
 		// SCHEMA-DRIVEN, never keyed on seeded field/group keys or English names:
 		// site owners rename labels, delete the preset groups, and build custom
 		// schemas, so tasks derive from what the schema actually contains.
-		// Granularity comes from schema FLAGS only:
-		// - SYSTEM flat groups (the code-consumed spine: basics, skills,
-		// interests) -> one task per field, labelled from the field's live
-		// admin-set label.
-		// - NON-SYSTEM flat groups (social links and any custom cluster) ->
-		// one rollup task per group, done when any field in it is filled.
+		// GROUP-BASED granularity — one task per GROUP, so the checklist stays
+		// scannable regardless of how many fields a group holds:
+		// - Flat groups (basics, skills, interests, social links, any custom
+		// cluster) -> one rollup task per group, done when any field is filled.
 		// - Repeater groups (work experience, education, customs) -> one task
 		// per group, done when it has at least one non-empty entry.
 		$filled = static fn( $value ): bool => '' !== trim(
@@ -1799,20 +1894,13 @@ class ProfileService {
 				continue;
 			}
 
-			if ( ! empty( $group['is_system'] ) ) {
-				foreach ( $fields as $f ) {
-					$tasks[] = array(
-						'label' => sprintf(
-							/* translators: %s: profile field name (owner-defined, e.g. "Bio") */
-							__( 'Add %s', 'buddynext' ),
-							(string) ( $f['label'] ?? '' )
-						),
-						'done'  => $filled( $f['value'] ?? '' ),
-					);
-				}
-				continue;
-			}
-
+			// GROUP-BASED: one rollup task per flat group (system or not), done when
+			// any field in the group is filled. System flat groups previously emitted
+			// one task PER FIELD, which flooded the checklist with per-field noise
+			// ("Add Bio", "Add Headline", a duplicated "Add Genres", "Add Seed
+			// Public/Members/…" — screenshot 2026-07-19). One task per GROUP keeps the
+			// checklist scannable and still surfaces which SECTIONS are unfilled, which
+			// is what a member acts on. Repeater groups already roll up per group above.
 			$any_filled = false;
 			foreach ( $fields as $f ) {
 				if ( $filled( $f['value'] ?? '' ) ) {
@@ -1822,7 +1910,7 @@ class ProfileService {
 			}
 			$tasks[] = array(
 				'label' => sprintf(
-					/* translators: %s: profile section name (owner-defined, e.g. "Social Links") */
+					/* translators: %s: profile section name (owner-defined, e.g. "Basic Info") */
 					__( 'Add %s', 'buddynext' ),
 					$group_label
 				),

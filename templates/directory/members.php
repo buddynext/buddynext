@@ -5,9 +5,10 @@
  * Renders inside the shell main column (`<main class="bn-app__main">`,
  * see `templates/shell/hub-shell.php`). This inner template does NOT
  * own the rail, the page chrome, or the 2-column grid —
- * the shell handles all of that. Sidebar widgets (online-now, role
- * counts) are registered on the `buddynext_right_sidebar` action; the
- * shell auto-renders the right column when callbacks are present.
+ * the shell handles all of that. Sidebar widgets (online-now, by-type)
+ * are registered via MembersSidebarProvider on the `buddynext_sidebar_widgets`
+ * filter, scoped to the `members` surface (Surface::set() below); the
+ * shell auto-renders the right column when descriptors are present.
  *
  * Canonical layout: `docs/v2 Plans/v2/member-directory.html` plus the
  * 9-rule contract in `docs/v2 Plans/TEMPLATE-REFACTOR-PLAN.md`.
@@ -46,6 +47,12 @@ defined( 'ABSPATH' ) || exit;
 
 use BuddyNext\Core\PageRouter;
 use BuddyNext\Profile\AvatarService;
+use BuddyNext\Sidebar\Surface;
+
+// Fine-grained sidebar surface for the registry (MembersSidebarProvider) —
+// the shell's bn_hub is too coarse to distinguish this directory from other
+// surfaces that might share a hub.
+Surface::set( 'members' );
 
 // ── Query parameters ──────────────────────────────────────────────────────
 $bn_current_page = max( 1, absint( get_query_var( 'paged', 1 ) ) );
@@ -79,8 +86,8 @@ $bn_order         = ( 'display_name' === $bn_query_orderby ) ? 'ASC' : 'DESC';
 $allowed_relations = array( 'all', 'following', 'connections' );
 $bn_relation       = in_array( $relation_raw, $allowed_relations, true ) ? $relation_raw : 'all';
 
-// Site title for the document title override.
-$bn_site_name = (string) get_bloginfo( 'name' );
+// Community name for the document title override.
+$bn_site_name = buddynext_site_name();
 add_filter(
 	'document_title_parts',
 	static function ( array $parts ) use ( $bn_site_name ): array {
@@ -187,51 +194,29 @@ if ( null !== $bn_search_ids ) {
 	}
 }
 
-// Exclusions (suspended / shadow-banned / dir-opt-out / bidirectional blocks),
-// the member-type filter (indexed bn_member_type_assignments), and the online-only
-// filter (indexed bn_presence) are injected as correlated subqueries via
-// pre_user_query — never as a materialised IN / NOT IN id list — so this query AND
-// its SQL_CALC_FOUND_ROWS count stay bounded at 50k members. Identical SQL to the
-// REST list_members(), so the server render and the live pipeline agree exactly.
-$bn_dir_filter = $bn_directory_service->directory_filter_sql(
-	$current_user_id,
-	array(
-		'member_type' => $type_slug_filter,
-		'online_only' => $bn_online_only,
-	),
-	$GLOBALS['wpdb']->users . '.ID'
+$bn_directory_filters = array(
+	'member_type' => $type_slug_filter,
+	'online_only' => $bn_online_only,
 );
-
-$bn_pre_user_query = static function ( $bn_q ) use ( $bn_dir_filter ) {
-	global $wpdb;
-	[ $bn_frag, $bn_frag_params ] = $bn_dir_filter;
-	if ( '' === trim( (string) $bn_frag ) ) {
-		return;
-	}
-	$bn_clause          = ! empty( $bn_frag_params )
-		? $wpdb->prepare( $bn_frag, ...$bn_frag_params ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-		: $bn_frag;
-	$bn_q->query_where .= ' AND ' . $bn_clause; // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-};
 
 // Bounded directory total — the cached service owns this number now (A5). The template
 // used to run a SECOND WP_User_Query purely to count, uncached, on every directory page
 // load; that is the bypass A5 was about. directory_total() runs the capped COUNT once and
 // caches it under the same per-viewer salt as the list pages, so the two surfaces share
 // one number and a block/membership change busts both together.
-$total_users = $bn_directory_service->directory_total(
-	$current_user_id,
-	array(
-		'member_type' => $type_slug_filter,
-		'online_only' => $bn_online_only,
-	)
-);
+$total_users = $bn_directory_service->directory_total( $current_user_id, $bn_directory_filters );
 
-add_action( 'pre_user_query', $bn_pre_user_query );
-$user_query = new WP_User_Query( $user_query_args );
-remove_action( 'pre_user_query', $bn_pre_user_query );
-
-$members     = $user_query->get_results();
+// Member ROWS for first paint. Exclusions (suspended / shadow-banned / dir-opt-out /
+// bidirectional blocks), the member-type filter, and the online-only filter are injected
+// as correlated subqueries via pre_user_query — never a materialised IN / NOT IN list — so
+// the query stays bounded at 50k members. The service owns the query + caching (the
+// template never touches $wpdb or WP_User_Query): it returns the ordered id list from the
+// SAME versioned bn_dir_ cache as the REST list_members(), so the landing is not an
+// uncached query on every load and both surfaces invalidate together. We hydrate the
+// WP_User objects the grid needs from the primed user cache.
+$bn_page_ids = $bn_directory_service->ssr_page_user_ids( $current_user_id, $user_query_args, $bn_directory_filters );
+cache_users( $bn_page_ids );
+$members     = array_values( array_filter( array_map( 'get_userdata', $bn_page_ids ) ) );
 $total_pages = (int) ceil( $total_users / max( 1, $bn_per_page ) );
 
 // ── Batch-prime per-page member state (no per-card N+1) ───────────────────
@@ -339,148 +324,6 @@ $bn_directory_context = wp_json_encode(
 );
 if ( false === $bn_directory_context ) {
 	$bn_directory_context = '{}';
-}
-
-// ── Sidebar widgets — hooked into the shell's right-sidebar slot ──────────
-// Online-now widget: most-recently-active members within the online window,
-// via the directory service (block-restrict aware) — no inline SQL.
-$bn_online_rows = $bn_directory_service->online_now( $current_user_id, 6 );
-
-// "By role" member-summary card — total + admin + moderator + top
-// member-types. Pattern D-4 from the v2 prototype member-directory
-// sidebar. Renders independently of the online-now / member-type-rows
-// callbacks below.
-// The "By role" panel (Members / Moderators / Admins) is removed. WordPress roles are an
-// admin concept, not a member-facing one -- a community browsing the directory does not
-// care how many editors the site has -- and it is not free: the per-role breakdown comes
-// from count_users(), whose GROUP BY over the capabilities meta measured ~134ms at 100k
-// members and ran UNCACHED on every directory load. Core itself hides these counts once a
-// site passes wp_is_large_user_count() (10k users) for exactly this reason. The headline
-// member total lives in the hero now (directory_total(), exact + cached), which is the
-// only count on this screen that earns its place.
-
-if ( ! empty( $bn_online_rows ) ) {
-	$bn_online_count = (int) count( $bn_online_rows );
-	add_action(
-		'buddynext_right_sidebar',
-		static function () use ( $bn_online_rows, $bn_avatar_tones, $bn_online_count ) {
-			ob_start();
-			?>
-			<ul class="bn-md-sidebar-list">
-				<?php foreach ( $bn_online_rows as $bn_row ) : ?>
-					<?php
-					$bn_row_id     = (int) $bn_row['ID'];
-					$bn_row_name   = (string) $bn_row['display_name'];
-					$bn_row_handle = (string) ( $bn_row['handle'] ?? '' );
-					$bn_row_url    = PageRouter::profile_url( $bn_row_id );
-					$bn_row_av     = (string) get_avatar_url( $bn_row_id, array( 'size' => 56 ) );
-					$bn_row_tone   = $bn_avatar_tones[ $bn_row_id % count( $bn_avatar_tones ) ];
-					?>
-					<li class="bn-md-sidebar-item">
-						<a class="bn-md-sidebar-item__link" href="<?php echo esc_url( $bn_row_url ); ?>">
-							<span
-								class="bn-avatar"
-								data-size="sm"
-								data-presence="online"
-								data-tone="<?php echo esc_attr( $bn_row_tone ); ?>"
-							>
-								<?php if ( '' !== $bn_row_av ) : ?>
-									<img
-										src="<?php echo esc_url( $bn_row_av ); ?>"
-										alt=""
-										width="28"
-										height="28"
-										loading="lazy"
-										decoding="async"
-									>
-								<?php else : ?>
-									<?php echo esc_html( AvatarService::initials_for( $bn_row_name ) ); ?>
-								<?php endif; ?>
-							</span>
-							<span class="bn-md-sidebar-item__text">
-								<span class="bn-md-sidebar-item__name"><?php echo esc_html( $bn_row_name ); ?></span>
-								<span class="bn-md-sidebar-item__handle">@<?php echo esc_html( $bn_row_handle ); ?></span>
-							</span>
-						</a>
-					</li>
-				<?php endforeach; ?>
-			</ul>
-			<?php
-			$bn_body = (string) ob_get_clean();
-			buddynext_get_template(
-				'parts/sidebar-card.php',
-				array(
-					'id'         => 'online-now',
-					'title'      => sprintf(
-						/* translators: %s: number of online members */
-						__( 'Online now (%s)', 'buddynext' ),
-						number_format_i18n( $bn_online_count )
-					),
-					'title_icon' => 'users',
-					'body_html'  => $bn_body,
-				)
-			);
-		}
-	);
-}
-
-// Member-type counts widget.
-if ( ! empty( $dir_types ) ) {
-	add_action(
-		'buddynext_right_sidebar',
-		static function () use ( $dir_types, $type_slug_filter ) {
-			ob_start();
-			?>
-			<ul class="bn-md-sidebar-list bn-md-sidebar-list--rows">
-				<?php
-				// "All" row.
-				$bn_all_url    = PageRouter::people_url();
-				$bn_all_active = ( '' === $type_slug_filter );
-				?>
-				<li class="bn-md-sidebar-row">
-					<a
-						class="bn-md-sidebar-row__link<?php echo $bn_all_active ? ' is-active' : ''; ?>"
-						href="<?php echo esc_url( $bn_all_url ); ?>"
-						<?php echo $bn_all_active ? 'aria-current="page"' : ''; ?>
-					>
-						<span class="bn-md-sidebar-row__label"><?php esc_html_e( 'All members', 'buddynext' ); ?></span>
-					</a>
-				</li>
-				<?php foreach ( $dir_types as $bn_type ) : ?>
-					<?php
-					$bn_type_slug   = (string) $bn_type['slug'];
-					$bn_type_name   = (string) $bn_type['name'];
-					$bn_type_count  = isset( $bn_type['member_count'] ) ? (int) $bn_type['member_count'] : ( isset( $bn_type['count'] ) ? (int) $bn_type['count'] : 0 );
-					$bn_type_url    = PageRouter::member_type_url( $bn_type_slug );
-					$bn_type_active = ( $bn_type_slug === $type_slug_filter );
-					?>
-					<li class="bn-md-sidebar-row">
-						<a
-							class="bn-md-sidebar-row__link<?php echo $bn_type_active ? ' is-active' : ''; ?>"
-							href="<?php echo esc_url( $bn_type_url ); ?>"
-							<?php echo $bn_type_active ? 'aria-current="page"' : ''; ?>
-						>
-							<span class="bn-md-sidebar-row__label"><?php echo esc_html( $bn_type_name ); ?></span>
-							<?php if ( $bn_type_count > 0 ) : ?>
-								<span class="bn-md-sidebar-row__count"><?php echo esc_html( number_format_i18n( $bn_type_count ) ); ?></span>
-							<?php endif; ?>
-						</a>
-					</li>
-				<?php endforeach; ?>
-			</ul>
-			<?php
-			$bn_body = (string) ob_get_clean();
-			buddynext_get_template(
-				'parts/sidebar-card.php',
-				array(
-					'id'         => 'by-role',
-					'title'      => __( 'By type', 'buddynext' ),
-					'title_icon' => 'tag',
-					'body_html'  => $bn_body,
-				)
-			);
-		}
-	);
 }
 
 /**

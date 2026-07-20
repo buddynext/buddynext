@@ -824,8 +824,12 @@ class ModerationController extends BaseRestController {
 		);
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 409 ) );
-			return $result;
+			// The inverse of the flatten bug: this used to stamp 409 unconditionally,
+			// so EVERY failure from report() -- an invalid object_type, a suspended
+			// reporter -- arrived as "you already reported this". already_reported now
+			// carries its own 409 from the service, so preserve it and default the
+			// rest to 400.
+			return $this->preserve_status( $result, 400 );
 		}
 
 		return new WP_REST_Response( array( 'id' => $result ), 201 );
@@ -1311,8 +1315,7 @@ class ModerationController extends BaseRestController {
 		$result = ( new ModerationService() )->submit_appeal( $user_id, $suspension_id, $message );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		return new WP_REST_Response( array( 'appeal_id' => $result ), 201 );
@@ -1483,8 +1486,7 @@ class ModerationController extends BaseRestController {
 		$result = ( new ModerationService() )->warn( $user_id, $actor_id, $message, $space_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		// ModerationService::warn() already writes the canonical bn_mod_log row
@@ -1612,8 +1614,7 @@ class ModerationController extends BaseRestController {
 		$result = ( new ModerationService() )->create_appeal( $user_id, $message );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		return new WP_REST_Response( array( 'appeal_id' => $result ), 201 );
@@ -1712,8 +1713,7 @@ class ModerationController extends BaseRestController {
 		$result = ( new ModerationService() )->decide_appeal( $appeal_id, 'approved', $note, $actor_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		( new ModerationLogService() )->log(
@@ -1748,8 +1748,7 @@ class ModerationController extends BaseRestController {
 		$result = ( new ModerationService() )->decide_appeal( $appeal_id, 'denied', $note, $actor_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		( new ModerationLogService() )->log(
@@ -1799,8 +1798,7 @@ class ModerationController extends BaseRestController {
 		$result = ( new SpaceMemberService() )->ban_from_space( $space_id, $user_id, $actor_id, $reason );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		( new ModerationLogService() )->log(

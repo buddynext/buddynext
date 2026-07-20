@@ -29,9 +29,9 @@ use WP_User;
  *
  *   `authenticate` (priority 30)
  *       Every caller of wp_authenticate(): wp-login.php, BuddyNext's REST
- *       /auth/login, XML-RPC, and application passwords. Core resolves an
- *       application password on this same filter at priority 20, so 30 runs
- *       after it and refuses the resolved user.
+ *       /auth/login, and XML-RPC. Core resolves an application password on this
+ *       same filter at priority 20, so 30 runs after it — but see the third
+ *       binding: that is NOT the path a REST client takes.
  *
  *   `wp_authenticate_user` (priority 5)
  *       SessionIssuer does NOT run the `authenticate` chain — it replays only
@@ -42,6 +42,30 @@ use WP_User;
  *       Priority 5 puts the network refusal ahead of the approval hold at 10 — a
  *       blocked IP is not something a member can resolve by waiting to be
  *       approved, so it should not be told to wait.
+ *
+ *   `wp_authenticate_application_password_errors`
+ *       An earlier revision of this docblock claimed the `authenticate` binding
+ *       covered application passwords. It does not, and the mistake left the
+ *       blocklist off the one door a mobile app uses.
+ *
+ *       Core registers `wp_authenticate_application_password()` on `authenticate`
+ *       at 20, which is where that claim came from. But a REST client sending
+ *       `Authorization: Basic` never reaches it: core resolves the credential on
+ *       `determine_current_user` via `wp_validate_application_password()`
+ *       (wp-includes/user.php), and that function calls
+ *       `wp_authenticate_application_password()` DIRECTLY rather than running the
+ *       `authenticate` chain. So `authenticate` — and every filter on it —
+ *       simply does not fire for REST.
+ *
+ *       This action is core's own extension point for exactly this ("allows for
+ *       plugins to add additional constraints to prevent an application password
+ *       from being used"). It fires on both paths, so it is the only binding that
+ *       actually covers a mobile client. Adding to the passed WP_Error refuses the
+ *       credential.
+ *
+ * The third binding is the "secondary entry point" rule again, one layer down: an
+ * app password is a fourth door to a session, and it was the only one nothing
+ * watched.
  *
  * Admins are deliberately NOT exempt: a blocklist with a hole for the most
  * valuable accounts is not a blocklist. The self-lockout risk that creates is
@@ -62,6 +86,29 @@ final class LoginGuard implements ListenerInterface {
 	public function register(): void {
 		add_filter( 'authenticate', array( $this, 'refuse_blocked_ip' ), 30, 1 );
 		add_filter( 'wp_authenticate_user', array( $this, 'refuse_blocked_ip' ), 5, 1 );
+		add_action( 'wp_authenticate_application_password_errors', array( $this, 'refuse_blocked_ip_app_password' ), 10, 2 );
+	}
+
+	/**
+	 * Refuse an application password when the client IP is on the blocklist.
+	 *
+	 * Core hands this action a WP_Error to add to; adding refuses the credential.
+	 * It is a separate callback from refuse_blocked_ip() only because the shape
+	 * differs — the decision is the same one, taken through ip_is_blocked(), so
+	 * there is a single blocklist rule and not two that can drift.
+	 *
+	 * @param WP_Error $error Error object to add to.
+	 * @param WP_User  $user  The user the credential resolved to.
+	 * @return void
+	 */
+	public function refuse_blocked_ip_app_password( WP_Error $error, WP_User $user ): void {
+		if ( $this->refuse_blocked_ip( $user ) instanceof WP_Error ) {
+			$error->add(
+				'bn_blocked_ip',
+				__( 'Sign-in from your network is not allowed.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
 	}
 
 	/**

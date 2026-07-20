@@ -15,9 +15,9 @@
  */
 
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '../shell/rest-client.js';
-import { onNavReady } from '../shell/nav-init.js';
-import { bnToast, bnConfirm } from '../shell/dialog.js';
+import { restFetch } from '@buddynext/rest-client';
+import { onNavReady } from '@buddynext/nav-init';
+import { bnToast, bnConfirm } from '@buddynext/shell-dialog';
 import { validateMedia, makeThumb, uploadMedia, deleteMedia } from './upload-core.js';
 
 /* Staged File objects are not reactive state (only their display metadata is),

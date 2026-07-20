@@ -226,14 +226,12 @@ $bn_pf_strength_pct   = (int) $bn_pf_strength['percent'];
 $strength_tasks       = $bn_pf_strength_tasks;
 $is_online            = buddynext_service( 'blocks' )->is_user_online( $current_user_id, $user_id );
 
-// --- Sidebar widget hook (partial holds the markup) -----------------------
+// --- Sidebar widget surface (ProfileSidebarProvider reads this context) ---
+// Set BEFORE the shell renders the right column (see templates/shell/right-sidebar.php),
+// same pattern as every other surface (feed/space/search/etc.) — the registry
+// reads it via Surface::current() and ProfileSidebarProvider via Surface::context().
 $bn_pf_sidebar_args = compact( 'is_own_profile', 'completion', 'social_links', 'work_entries', 'edu_entries', 'skills', 'interest_chips', 'member_spaces', 'get_fv', 'entry_fv', 'strength_tasks' );
-add_action(
-	'buddynext_right_sidebar',
-	static function () use ( $bn_pf_sidebar_args ): void {
-		buddynext_get_template( 'partials/profile-right-sidebar.php', $bn_pf_sidebar_args );
-	}
-);
+\BuddyNext\Sidebar\Surface::set( 'profile', $bn_pf_sidebar_args );
 
 /**
  * Fires before the profile main content.
@@ -350,6 +348,24 @@ $bn_pf_ctx = array(
 			'metric_items'        => $bn_pf_metrics,
 		)
 	);
+
+	// Account standing banner — strikes / suspension (+ shadow-ban for moderators).
+	// Privileged: only the owner (their own sanctions) or a moderator sees it, via
+	// the single ModerationService::account_status_for() source shared with the REST
+	// profile response. The partial renders nothing for a clean account.
+	$bn_mod_service    = buddynext_service( 'moderation' );
+	$bn_account_status = ( $bn_mod_service instanceof \BuddyNext\Moderation\ModerationService )
+		? $bn_mod_service->account_status_for( (int) $user_id, (int) $current_user_id )
+		: null;
+	if ( is_array( $bn_account_status ) ) {
+		buddynext_get_template(
+			'parts/profile-account-status.php',
+			array(
+				'status'  => $bn_account_status,
+				'is_self' => (bool) $is_own_profile,
+			)
+		);
+	}
 
 	// Primary tab bar (+ one-level sub-nav) via the shared Nav renderer — the
 	// same component the space surface uses, fed by the resolved registry.

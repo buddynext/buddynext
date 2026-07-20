@@ -51,7 +51,7 @@ $display_name      = $profile_user->display_name;
 $profile_email_raw = $profile_user->user_email;
 // The @handle badge shows the member's PUBLIC handle (bn_profile_slug ?: user_nicename) -
 // the same mention others resolve them by - never user_login (a credential).
-$user_login_str    = \BuddyNext\Core\PageRouter::member_handle( (int) $profile_user->ID );
+$user_login_str = \BuddyNext\Core\PageRouter::member_handle( (int) $profile_user->ID );
 
 // Avatar initials.
 $name_parts = explode( ' ', $display_name );
@@ -114,6 +114,20 @@ foreach ( $bn_groups as $grp ) {
 $headline = $fv['headline'] ?? '';
 $bio      = $fv['bio'] ?? '';
 $location = $fv['location'] ?? '';
+
+// The hero card owns the headline control, so it must render the field's
+// admin-configured label / placeholder / description — the field manager
+// persists edits to bn_profile_fields, but the hero hardcoded its strings and
+// renames never showed anywhere (Zoho #40911).
+$headline_field = array();
+foreach ( $bn_groups as $bn_hf_group ) {
+	foreach ( (array) ( $bn_hf_group['fields'] ?? array() ) as $bn_hf_field ) {
+		if ( 'headline' === (string) ( $bn_hf_field['field_key'] ?? '' ) ) {
+			$headline_field = $bn_hf_field;
+			break 2;
+		}
+	}
+}
 
 /*
  * ── Field-level privacy helpers ────────────────────────────────────────────
@@ -248,15 +262,19 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 			// the Settings hub. saveProfile reads the work/edu repeaters (guarded
 			// in store.js) and the flat field inputs that are on the page (every
 			// dynamic profile field, including Skills / Interests, is a flat input).
-			'userId'      => $user_id,
-			'restNonce'   => $rest_nonce,
-			'saved'       => false,
-			'saving'      => false,
-			'isDirty'     => false,
-			'errors'      => (object) array(),
-			'profileUrl'  => $profile_url,
-			'workEntries' => array_values( $work_entries ),
-			'eduEntries'  => array_values( $edu_entries ),
+			'userId'          => $user_id,
+			'restNonce'       => $rest_nonce,
+			'saved'           => false,
+			'saving'          => false,
+			// Per-media upload flags: drive the spinner overlays on the avatar/cover
+			// while their deferred uploads run on Save (flushStagedMedia).
+			'avatarUploading' => false,
+			'coverUploading'  => false,
+			'isDirty'         => false,
+			'errors'          => (object) array(),
+			'profileUrl'      => $profile_url,
+			'workEntries'     => array_values( $work_entries ),
+			'eduEntries'      => array_values( $edu_entries ),
 		)
 	);
 	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -299,14 +317,17 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 			buddynext_get_template(
 				'parts/profile-edit-hero.php',
 				array(
-					'profile_user_id'   => $user_id,
-					'display_name'      => $display_name,
-					'headline'          => $headline,
-					'username'          => $user_login_str,
-					'avatar_url'        => $avatar_url,
-					'cover_url'         => $cover_url,
-					'initials'          => $initials,
-					'has_custom_avatar' => $has_custom_avatar,
+					'profile_user_id'      => $user_id,
+					'display_name'         => $display_name,
+					'headline'             => $headline,
+					'headline_label'       => (string) ( $headline_field['label'] ?? '' ),
+					'headline_placeholder' => (string) ( $headline_field['placeholder'] ?? '' ),
+					'headline_hint'        => (string) ( $headline_field['description'] ?? '' ),
+					'username'             => $user_login_str,
+					'avatar_url'           => $avatar_url,
+					'cover_url'            => $cover_url,
+					'initials'             => $initials,
+					'has_custom_avatar'    => $has_custom_avatar,
 				)
 			);
 

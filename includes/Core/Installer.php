@@ -2502,10 +2502,28 @@ class Installer {
 	 * @return void
 	 */
 	public static function maybe_refresh_mu_plugin(): void {
-		if ( get_option( self::MU_PLUGIN_SIG_OPTION ) === md5( self::mu_plugin_content() ) ) {
+		$dest = WP_CONTENT_DIR . '/mu-plugins/' . self::MU_PLUGIN_SLUG;
+
+		// Primary check: version match. The generated mu-plugin is stamped with
+		// BUDDYNEXT_VERSION, so a missing file or a Version header that differs from
+		// the running plugin means the on-disk copy is stale (older release, deleted,
+		// or hand-edited) — rewrite it. One cheap header read, admin-only.
+		if ( ! file_exists( $dest ) ) {
+			self::install_mu_plugin();
 			return;
 		}
-		self::install_mu_plugin();
+		$on_disk = get_file_data( $dest, array( 'version' => 'Version' ) );
+		if ( (string) ( $on_disk['version'] ?? '' ) !== (string) BUDDYNEXT_VERSION ) {
+			self::install_mu_plugin();
+			return;
+		}
+
+		// Secondary check: same-version content drift (e.g. the integration family
+		// list changed within a release). The stored signature catches that without
+		// a second file read.
+		if ( get_option( self::MU_PLUGIN_SIG_OPTION ) !== md5( self::mu_plugin_content() ) ) {
+			self::install_mu_plugin();
+		}
 	}
 
 	/**
@@ -2531,12 +2549,12 @@ class Installer {
 	 */
 	private static function mu_plugin_content(): string {
 		// phpcs:disable Squiz.Strings.DoubleQuoteUsage.NotRequired
-		return <<<'MUPLUGIN'
+		$content = <<<'MUPLUGIN'
 <?php
 /**
  * Plugin Name: BuddyNext Isolation
  * Description: Strips non-essential plugins on BuddyNext front-end routes to save 20-40 MB per request.
- * Version:     1.0.0
+ * Version:     @@BN_MU_VERSION@@
  * Author:      Wbcom Designs
  *
  * @package BuddyNext
@@ -2651,9 +2669,14 @@ if ( buddynext_mu_is_bn_request() ) {
 				'wb-gamification/wb-gamification.php',
 				// Pro application-layer integrations (Portfolio panels).
 				'wp-career-board/wp-career-board.php',
+				'wp-career-board-pro/wp-career-board-pro.php',
 				'wb-listora/wb-listora.php',
+				'wb-listora-pro/wb-listora-pro.php',
 				'learnomy/learnomy.php',
 				'learnomy-pro/learnomy-pro.php',
+				// Events (Eventonomy) — BuddyNext bridge integration.
+				'eventonomy/eventonomy.php',
+				'eventonomy-pro/eventonomy-pro.php',
 				// Operational.
 				'redis-cache/redis-cache.php',
 				'query-monitor/query-monitor.php',
@@ -2681,6 +2704,12 @@ if ( buddynext_mu_is_bn_request() ) {
 }
 MUPLUGIN;
 		// phpcs:enable Squiz.Strings.DoubleQuoteUsage.NotRequired
+
+		// Stamp the generated mu-plugin with the LIVE BuddyNext version so it always
+		// matches the plugin. maybe_refresh_mu_plugin() then detects a stale on-disk
+		// copy simply by comparing its Version header to BUDDYNEXT_VERSION and
+		// rewrites it — no manual mu-plugin edits, no version bump to remember.
+		return str_replace( '@@BN_MU_VERSION@@', (string) BUDDYNEXT_VERSION, $content );
 	}
 
 	/**

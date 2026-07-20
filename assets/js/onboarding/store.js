@@ -8,7 +8,7 @@
  * 4 or 5 and every getter works off the context, never a hardcoded map.
  */
 import { store, getContext } from '@wordpress/interactivity';
-import { restFetch } from '../shell/rest-client.js';
+import { restFetch } from '@buddynext/rest-client';
 
 /* -- i18n -------------------------------------------------------------- */
 /* Translated strings are injected server-side into the Interactivity state
@@ -414,6 +414,10 @@ const onboardingStore = store( 'buddynext/onboarding', {
 			// Send the file once dimensions are known — runs only after the pixel
 			// pre-check below passes.
 			const doUpload = () => {
+				// Reactive busy flag: drives the spinner overlay on the avatar and
+				// disables both upload triggers so the fire-and-forget picker can no
+				// longer be double-submitted while the POST is in flight.
+				c.avatarUploading = true;
 				const form = new FormData();
 				form.append( 'avatar', file );
 				restFetch( '/me/avatar', {
@@ -444,6 +448,9 @@ const onboardingStore = store( 'buddynext/onboarding', {
 					} )
 					.catch( ( err ) => {
 						toast( err && err.message ? err.message : t( 'toastPhotoUploadFailed', 'Could not upload photo. Please try again.' ), 'danger' );
+					} )
+					.finally( () => {
+						c.avatarUploading = false;
 					} );
 			};
 

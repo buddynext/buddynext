@@ -243,13 +243,28 @@ class ExploreService {
 	 * @return array<int,int>
 	 */
 	public function suggested_member_ids( int $limit = 3 ): array {
-		$ids = array();
-		foreach ( $this->newest_members( max( 1, $limit ), null )['items'] as $card ) {
-			if ( ! empty( $card['user_id'] ) ) {
-				$ids[] = (int) $card['user_id'];
+		$limit     = max( 1, $limit );
+		$pool_size = $limit * 4;
+
+		// Cache the wider newest-members POOL (not the display slice) and rotate the
+		// shown set each load via buddynext_sample_ranked — the aside stays "newest"
+		// but never shows identical faces on every page view within the TTL. The
+		// sample runs OUTSIDE the cache, so the pool query runs at most once per TTL
+		// yet the display still rotates on every load (matches the who-to-follow and
+		// suggested-spaces asides). Without this the viewer saw a static list.
+		$cache_key = 'discover-pool-v1:' . $pool_size;
+		$pool      = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( ! is_array( $pool ) ) {
+			$pool = array();
+			foreach ( $this->newest_members( $pool_size, null )['items'] as $card ) {
+				if ( ! empty( $card['user_id'] ) ) {
+					$pool[] = (int) $card['user_id'];
+				}
 			}
+			wp_cache_set( $cache_key, $pool, self::CACHE_GROUP, self::CACHE_TTL );
 		}
-		return $ids;
+
+		return buddynext_sample_ranked( $pool, $limit );
 	}
 
 	/**

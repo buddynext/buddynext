@@ -21,8 +21,8 @@
  * because the event listener is attached on a guard flag.
  */
 
-import { restFetch } from '../shell/rest-client.js';
-import { onNavReady } from '../shell/nav-init.js';
+import { restFetch } from '@buddynext/rest-client';
+import { onNavReady } from '@buddynext/nav-init';
 
 const INSTALLED = '__bnRelationRemoveInstalled';
 

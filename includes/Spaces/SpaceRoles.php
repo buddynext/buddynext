@@ -75,11 +75,13 @@ class SpaceRoles {
 	 * byte-equivalent to that original predicate, including its short-circuit
 	 * order (role check first, capability check only if the role check fails).
 	 *
-	 * @param string $role    The actor's role in the space (owner|moderator|member).
-	 * @param int    $user_id The actor's user ID (for the manage_options fallback).
+	 * @param string|null $role    The actor's role in the space, or null when they are not a
+	 *                             member (get_role() returns null). A null role is simply not
+	 *                             a moderator, so it falls through to the manage_options check.
+	 * @param int         $user_id The actor's user ID (for the manage_options fallback).
 	 * @return bool
 	 */
-	public static function can_moderate( string $role, int $user_id ): bool {
+	public static function can_moderate( ?string $role, int $user_id ): bool {
 		return in_array( $role, array( 'owner', 'moderator' ), true ) || user_can( $user_id, 'manage_options' );
 	}
 }

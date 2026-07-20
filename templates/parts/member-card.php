@@ -308,8 +308,9 @@ do_action( 'buddynext_part_member_card_before', $args );
 	// Show the bio only when it adds something the headline didn't already say —
 	// when a member's bio and headline are identical (or the bio is empty), a
 	// second line would just repeat the tagline. Compared case-insensitively on
-	// the trimmed source values so trivial whitespace/case differences still dedupe.
-	if ( '' !== $bn_bio && 0 !== strcasecmp( trim( $bn_bio ), trim( $bn_md_headline ) ) ) :
+	// the trimmed source values, with HTML entities decoded first so an encoded
+	// ampersand on one side ("&amp;" vs "&amp;amp;") doesn't defeat the dedupe.
+	if ( '' !== $bn_bio && 0 !== strcasecmp( trim( html_entity_decode( $bn_bio, ENT_QUOTES ) ), trim( html_entity_decode( $bn_md_headline, ENT_QUOTES ) ) ) ) :
 		?>
 		<p class="bn-md-card__bio"><?php echo esc_html( wp_trim_words( $bn_bio, 18 ) ); ?></p>
 	<?php endif; ?>

@@ -169,7 +169,12 @@ class ModerationService {
 			$already_message = 'user' === sanitize_key( $object_type )
 				? __( 'You have already reported this member.', 'buddynext' )
 				: __( 'You have already reported this content.', 'buddynext' );
-			return new WP_Error( 'already_reported', $already_message );
+			// 409: a duplicate report is a conflict, not a malformed request. The
+			// status belongs HERE and not only on the REST controller — report() is
+			// also reached from wp-cli and from internal callers, and an error with
+			// no status becomes a 500 for any of them. Mirrors already_resolved
+			// below, which has carried its own 409 since it was written.
+			return new WP_Error( 'already_reported', $already_message, array( 'status' => 409 ) );
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1778,6 +1783,61 @@ class ModerationService {
 	 * Get the active suspension record for a user.
 	 *
 	 * Returns the full suspension row so callers can read the reason,
+	 * Build the privileged account-moderation status for a profile.
+	 *
+	 * Single source of truth for the profile "account standing" surface, shared by
+	 * the profile REST response and the server-rendered profile banner so they can
+	 * never drift. Discloses active strikes and an active suspension (reason +
+	 * expiry) to the profile OWNER (their own sanctions) and to a viewer who can
+	 * MODERATE; shadow-ban state is added for moderators ONLY (never the owner —
+	 * revealing it would defeat the mechanism). Returns null for anyone else, and
+	 * for a clean owner profile (nothing to warn about), so a spotless account
+	 * shows no banner.
+	 *
+	 * @param int $profile_user_id The profile being viewed.
+	 * @param int $viewer_id       The viewer (0 = anonymous).
+	 * @return array<string, mixed>|null Status payload, or null when not disclosable.
+	 */
+	public function account_status_for( int $profile_user_id, int $viewer_id ): ?array {
+		$is_self      = ( $viewer_id > 0 && $viewer_id === $profile_user_id );
+		$can_moderate = current_user_can( 'manage_options' )
+			|| ! empty( $this->get_moderated_space_ids( $viewer_id ) );
+
+		// Privileged — regular members never receive it.
+		if ( ! $is_self && ! $can_moderate ) {
+			return null;
+		}
+
+		$strikes      = $this->get_active_strike_count( $profile_user_id );
+		$suspension   = $this->get_active_suspension( $profile_user_id );
+		$is_suspended = is_array( $suspension );
+
+		// A clean owner sees no banner; moderators always get the field (including
+		// the clean state) so they can confirm standing at a glance.
+		if ( $is_self && ! $can_moderate && 0 === $strikes && ! $is_suspended ) {
+			return null;
+		}
+
+		$status = array(
+			'scope'        => $can_moderate ? 'moderator' : 'self',
+			'strikes'      => $strikes,
+			'is_suspended' => $is_suspended,
+			'suspension'   => $is_suspended ? array(
+				'reason'        => (string) ( $suspension['reason'] ?? '' ),
+				'expires_at'    => $suspension['expires_at'] ?? null,
+				'duration_days' => $suspension['duration_days'] ?? null,
+			) : null,
+		);
+
+		// Shadow-ban: moderators only, never the owner.
+		if ( $can_moderate ) {
+			$status['is_shadow_banned'] = $this->is_shadow_banned( $profile_user_id );
+		}
+
+		return $status;
+	}
+
+	/**
 	 * expiry date, and hide_posts flag in one query. Returns null if
 	 * the user has no active suspension.
 	 *

@@ -160,3 +160,64 @@ A forbidden request (authenticated user without the required capability) returns
 - A `WP_Error` with `data.status` and a bare `false` from a permission callback both produce the same `rest_forbidden` envelope on the wire - clients should not depend on a specific message string, only on `code` and `data.status`.
 - Counts are denormalized. Do not expect a route to compute `COUNT(*)` on demand; counts come from cached columns and are eventually consistent within the cache TTL.
 - The feature surface is split Free/Pro by namespace. A route documented as Pro lives under `buddynext-pro/v1` and is only present when BuddyNext Pro is active.
+
+## Timestamp contract: *_gmt siblings
+
+Every BuddyNext REST timestamp is stored as a bare `Y-m-d H:i:s` MySQL string with no timezone marker, which is ambiguous for a native client. Rather than each controller emitting a `_gmt` field by hand - partial, drift-prone, and forgotten on every new endpoint - one dispatch seam (`BuddyNext\Core\Dates`) adds a `<key>_gmt` UTC ISO-8601 sibling (for example `created_at_gmt` => `2026-07-20T12:08:45Z`) next to every whitelisted timestamp key it finds in the response. Web and app therefore share one contract, and future endpoints - including integration-bridge rows served under the namespace - inherit it for free.
+
+The seam runs on the `rest_request_after_callbacks` filter, not `rest_post_dispatch`. The former fires inside `WP_REST_Server::dispatch()`, so it covers both real HTTP requests and internal `rest_do_request()` calls; the latter only fires in `serve_request()` and would silently miss every internally-dispatched route. The transform is idempotent (a key that already has a `_gmt` sibling is left alone) and only touches strings shaped like a MySQL datetime - ints, nulls, and already-ISO values pass through untouched.
+
+Two filters control what gets normalized:
+
+| Filter | Purpose | Default |
+|---|---|---|
+| `buddynext_rest_timestamp_namespaces` | Route prefixes whose responses receive `<key>_gmt` siblings | `array( '/buddynext/v1/' )` |
+| `buddynext_rest_timestamp_keys` | Response keys known to hold a UTC datetime, each of which gets an ISO-8601 `<key>_gmt` sibling | `created_at`, `updated_at`, `edited_at`, `scheduled_at`, `expires_at`, `registered_at`, `joined_at`, `archived_at`, `last_activity_at`, `last_active_at`, `last_message_at`, `sent_at`, `reacted_at` |
+
+Pro and add-ons that register their own namespace opt every one of their endpoints in with a one-liner instead of shipping a second copy of the seam:
+
+```php
+add_filter(
+    'buddynext_rest_timestamp_namespaces',
+    function ( array $namespaces ): array {
+        $namespaces[] = '/buddynext-pro/v1/';
+        return $namespaces;
+    }
+);
+```
+
+Never add a key to `buddynext_rest_timestamp_keys` that can carry site-local time - every listed key is written with `current_time( 'mysql', true )` / `gmdate()` or read from a UTC column, so the `_gmt` sibling is always a true UTC instant.
+
+## App bootstrap: GET /app/config
+
+`GET /buddynext/v1/app/config` is the single handshake the native app calls first, before it does anything else - and before it authenticates. It answers three questions in one round trip: whether the app may run on this site, how to theme its pre-auth screens, and which features exist. It is public on purpose (`permission_callback` is `'__return_true'`): the app has to theme the connect and sign-in screens in the site's colours, and it has to be able to say "this site does not have the app" without asking for credentials first. There is nothing here a logged-out visitor cannot already read off the page.
+
+Answering `200` with `app_enabled: false` is deliberate. A Pro-only route would 404 on a free-only site, indistinguishable from a wrong URL, a firewall, or a site that is not BuddyNext at all. Serving the handshake from Free lets the app tell "this community does not have the app" apart from "something is broken", so it never has to infer a capability from a probe.
+
+| Property | Value |
+|---|---|
+| Method | `GET` |
+| Path | `/wp-json/buddynext/v1/app/config` |
+| Auth | Public - `permission_callback` is `'__return_true'`; read before login |
+| Extension | `apply_filters( 'buddynext_app_config', $data, $request )` - Pro flips `app_enabled` on a valid licence, fills `legal`, and may override `branding` |
+
+Top-level response keys:
+
+| Key | Type | Meaning |
+|---|---|---|
+| `contract_version` | int | Payload shape version. Bumped only when a field's meaning changes, never for additive fields; the app refuses a contract it does not understand. |
+| `app_enabled` | bool | Whether the app may run here. Fails closed - unlocks on `=== true` and nothing else. Pro flips it on a valid licence. |
+| `pro_active` | bool | Whether BuddyNext Pro is active on the site. |
+| `min_app_version` | string | Lowest app version this site will serve. Fails open - empty (the default) or unparseable means "no floor". |
+| `branding` | object | Pre-auth theming: `app_name`, `accent_color`, `logo_url`, `login_bg_url`, `color_scheme_default` (`auto`/`light`/`dark`). Empty values mean "use your own default". |
+| `features` | object | Feature flags keyed by slug, resolved through `FeatureRegistry` so the app sees the same answer the site does (mandatory tiers, unmet dependencies, and absent partner plugins already folded in). |
+| `limits` | object | Server-side limits the app enforces locally: `connect_note_max_length`, `max_connections`, `max_following`, `viewer_state_max_ids`. |
+| `time` | object | The site's time contract: `site_timezone` (WP `timezone_string`), `gmt_offset` (hours, float), `server_utc` (UTC ISO-8601 with `Z`). The app renders in the site owner's WordPress timezone. |
+| `legal` | object | Links required for App Store review: `privacy_url`, `terms_url`, `eula_url`, `guidelines_url`, `abuse_contact`. Emitted empty rather than invented when the site has not set one. |
+
+```bash
+curl 'https://example.com/wp-json/buddynext/v1/app/config' \
+  -H 'Accept: application/json'
+```
+
+The `time.server_utc` field pairs with the timestamp contract above: the seam gives every row an absolute UTC instant, and `time` tells the app which timezone to format it in.

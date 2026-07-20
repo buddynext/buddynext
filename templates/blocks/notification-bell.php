@@ -16,11 +16,14 @@ if ( ! is_user_logged_in() ) {
 	return;
 }
 
-$user_id      = get_current_user_id();
-$unread_count = (int) buddynext_service( 'notifications' )->unread_count( $user_id );
+$user_id = get_current_user_id();
+// Badge = UNSEEN count (notifications since the list was last viewed), not raw
+// unread. Opening the list clears the bell without marking items read, so the
+// Unread tab stays populated — matching GitHub / Slack / X.
+$unread_count = (int) buddynext_service( 'notifications' )->unseen_count( $user_id );
 $aria_label   = sprintf(
-	/* translators: %d: unread notification count */
-	_n( '%d unread notification', '%d unread notifications', $unread_count, 'buddynext' ),
+	/* translators: %d: new (unseen) notification count */
+	_n( '%d new notification', '%d new notifications', $unread_count, 'buddynext' ),
 	absint( $unread_count )
 );
 ?>

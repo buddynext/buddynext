@@ -694,13 +694,13 @@
 	gap: var(--bn-s3);
 	align-items: flex-start;
 	border: 1px solid var(--bn-line);
+	/* One uniform integration card: every bridge (discussion, job, listing,
+	   course, badge, …) shares the same accent stripe from the shared BN token,
+	   never a per-integration colour. */
+	border-inline-start: 3px solid var(--bn-accent);
 	border-radius: var(--bn-r-md);
 	padding: var(--bn-s3);
 	background: var(--bn-sunken);
-}
-
-.bn-post-card__bridge-card--job {
-	border-inline-start: 3px solid var(--bn-accent);
 }
 
 .bn-post-card__bridge-icon {
@@ -906,6 +906,13 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 .bn-post-card__action-btn.is-reacted { color: var(--bn-danger); }
 .bn-post-card__action-btn.is-bookmarked { color: var(--bn-warn); }
 .bn-post-card__action-btn.is-shared { color: var(--bn-accent); }
+
+/* Bookmarked = the Lucide bookmark filled solid, not just recoloured. The icon
+   ships fill="none"; painting the path with currentColor (the amber above)
+   gives the standard filled-bookmark affordance without a second SVG asset. */
+.bn-post-card__action-btn.is-bookmarked svg {
+	fill: currentColor;
+}
 
 /* Count beside the Comment / Share icon. Distinct from __action-label, so it
    stays visible in the icon-only narrow layout (explore grid / mobile). */
@@ -2152,6 +2159,14 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	padding: 6px var(--bn-s4);
 	line-height: 1.5;
 	outline: none;
+	/* Auto-grow: JS (feed/store.js autoResizeTextarea) sets height to the
+	   content's scrollHeight on input; box-sizing keeps that math correct, the
+	   min holds a ~2-row floor, and the max caps growth so a long draft scrolls
+	   inside the field instead of pushing the whole composer down the page. */
+	box-sizing: border-box;
+	min-height: 48px;
+	max-height: 40vh;
+	overflow-y: auto;
 }
 .bn-composer__prompt::placeholder { color: var(--text-3); }
 .bn-composer__prompt:focus-visible { outline: 2px solid transparent; outline-offset: 2px; }
@@ -2561,6 +2576,29 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	border: 1px solid var(--border);
 }
 .bn-composer__media-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+/*
+ * Per-tile upload spinner. The composer builds media tiles imperatively; while a
+ * file is in flight the tile carries .is-uploading and a centered spinner over
+ * the dimmed local thumbnail, so each image reads as "uploading" until its id
+ * lands (the remove button is withheld until then). Reuses the global bn-spin
+ * keyframes from bn-base.css.
+ */
+.bn-composer__media-thumb.is-uploading img { opacity: 0.5; }
+.bn-composer__media-spinner {
+	position: absolute;
+	inset: 0;
+	margin: auto;
+	width: 22px;
+	height: 22px;
+	border: 2px solid var(--bn-line);
+	border-top-color: var(--bn-accent);
+	border-radius: var(--bn-r-full);
+	animation: bn-spin 0.6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+	.bn-composer__media-spinner { animation: none; }
+}
 .bn-composer__media-remove {
 	position: absolute;
 	top: 2px;

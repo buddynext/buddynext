@@ -44,6 +44,10 @@ class PostService {
 		'media',
 		'discussion',
 		'job',
+		'event',
+		'listing',
+		'course',
+		'badge',
 	);
 
 	/**
@@ -768,11 +772,28 @@ class PostService {
 	 * Deliberately uncached: the profile view runs this once per page and the
 	 * query is an indexed join capped at $limit rows.
 	 *
-	 * @param int $user_id Comment author user ID.
-	 * @param int $limit   Max rows (1-50). Default 20.
+	 * Rows are limited to parent posts the VIEWER may see, and that is a security
+	 * filter, not a nicety: this query selects `p.content AS post_content` and the
+	 * template renders it as the reply's context. Unfiltered, replying to a private
+	 * post published that post's opening words to anyone who opened the replier's
+	 * profile — verified against a logged-out read before this was added.
+	 *
+	 * It is also the better answer for the member. A row whose parent the viewer
+	 * cannot see is a dead end: the card links to that post, which would refuse them.
+	 * Dropping the row loses nothing they could have reached anyway.
+	 *
+	 * KNOWN LIMIT: the predicate is `public OR mine`, so a followers-only or in-space
+	 * reply is hidden even from someone entitled to see it. That under-reports, which
+	 * is the safe direction; a fully viewer-aware version needs FeedService's
+	 * relationship clauses (follow / connection / space membership) rather than a flat
+	 * predicate.
+	 *
+	 * @param int $user_id   Comment author user ID.
+	 * @param int $limit     Max rows (1-50). Default 20.
+	 * @param int $viewer_id Who is looking (0 = logged out). Gates the PARENT post.
 	 * @return array<int,array<string,mixed>>
 	 */
-	public function user_replies( int $user_id, int $limit = 20 ): array {
+	public function user_replies( int $user_id, int $limit = 20, int $viewer_id = 0 ): array {
 		if ( $user_id <= 0 ) {
 			return array();
 		}
@@ -789,9 +810,12 @@ class PostService {
 				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id AND c.object_type = 'post'
 				 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
 				 WHERE c.user_id = %d
+				   AND p.status = 'published'
+				   AND ( p.privacy = 'public' OR p.user_id = %d )
 				 ORDER BY c.created_at DESC
 				 LIMIT %d",
 				$user_id,
+				$viewer_id,
 				$limit
 			),
 			ARRAY_A
@@ -805,11 +829,17 @@ class PostService {
 	 * List the published posts a user has reacted to, newest reaction first,
 	 * hydrated through the canonical mapper. Powers the profile "Likes" tab.
 	 *
-	 * @param int $user_id Reacting user ID.
-	 * @param int $limit   Max rows (1-50). Default 20.
+	 * Rows are limited to posts the VIEWER may see. Without that filter this leaked:
+	 * the Likes tab renders the liked post's own content, so liking a private post
+	 * published its text to anyone who opened your profile. See user_replies() for
+	 * the full note.
+	 *
+	 * @param int $user_id   Reacting user ID.
+	 * @param int $limit     Max rows (1-50). Default 20.
+	 * @param int $viewer_id Who is looking (0 = logged out). Gates the LIKED post.
 	 * @return array<int,array<string,mixed>>
 	 */
-	public function user_liked_posts( int $user_id, int $limit = 20 ): array {
+	public function user_liked_posts( int $user_id, int $limit = 20, int $viewer_id = 0 ): array {
 		if ( $user_id <= 0 ) {
 			return array();
 		}
@@ -822,10 +852,13 @@ class PostService {
 				"SELECT p.*
 				 FROM {$wpdb->prefix}bn_reactions r
 				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id AND r.object_type = 'post'
-				 WHERE r.user_id = %d AND p.status = 'published'
+				 WHERE r.user_id = %d
+				   AND p.status = 'published'
+				   AND ( p.privacy = 'public' OR p.user_id = %d )
 				 ORDER BY r.created_at DESC
 				 LIMIT %d",
 				$user_id,
+				$viewer_id,
 				$limit
 			),
 			ARRAY_A
@@ -1500,6 +1533,48 @@ class PostService {
 			array( '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $deleted;
+	}
+
+	/**
+	 * Delete every post of a type whose `link_meta` carries an integer field equal
+	 * to a value — e.g. remove all of an integration's cards for one source entity
+	 * by the id it stamped on them.
+	 *
+	 * A bridge stores the partner id in link_meta at publish (an event_id, a
+	 * course_id). When that entity is deleted, matching by the id is exact and
+	 * safe, where a link_url prefix match is not (query-string permalinks collide).
+	 * JSON_UNQUOTE(JSON_EXTRACT) reads the field whether it was stored numeric or
+	 * quoted; scoped to a bounded, indexed `type` so the JSON read never scans the
+	 * whole table.
+	 *
+	 * @param string $type     Post type to scope to (e.g. 'event').
+	 * @param string $meta_key link_meta field name (e.g. 'event_id').
+	 * @param int    $value    Value to match.
+	 * @return int Rows removed.
+	 */
+	public function delete_by_link_meta_int( string $type, string $meta_key, int $value ): int {
+		if ( '' === $type || '' === $meta_key ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$deleted = (int) $wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->prefix}bn_posts
+				 WHERE type = %s
+				   AND link_meta IS NOT NULL
+				   AND JSON_VALID( link_meta )
+				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d",
+				$type,
+				'$.' . $meta_key,
+				$value
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		return $deleted;
 	}

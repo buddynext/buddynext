@@ -227,6 +227,76 @@ class MemberDirectoryController extends BaseRestController {
 	}
 
 	/**
+	 * Hydrate a set of member IDs into enriched member cards (the /members item
+	 * shape), batch-primed so there is no N+1.
+	 *
+	 * Shared with the social-graph list endpoints (followers / following /
+	 * connections / mutual) when they are called with expand=members, so a client
+	 * renders a relationship list in ONE request instead of one profile fetch per
+	 * row. Unlike the directory listing this applies NO directory-visibility
+	 * filter: a member who hid from the directory still appears in their own
+	 * follower / following / connection lists. Query cost is O(1) per page (a fixed
+	 * set of batch primes), not O(n).
+	 *
+	 * @param int[] $user_ids  Member IDs to hydrate, in the desired output order.
+	 * @param int   $viewer_id Current viewer (0 = logged out).
+	 * @return array<int, array<string, mixed>> Enriched member cards, in $user_ids order.
+	 */
+	public function hydrate_members( array $user_ids, int $viewer_id ): array {
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		// Batch-prime the same lookups the directory listing primes, so shape_item()
+		// resolves from cache instead of issuing a query per row.
+		cache_users( $ids );
+		update_meta_cache( 'user', $ids );
+
+		$following_set  = array();
+		$connection_map = array();
+		$blocked_either = array();
+		$muted_set      = array();
+		if ( $viewer_id > 0 ) {
+			$following_set  = array_filter( buddynext_service( 'follows' )->following_map( $viewer_id, $ids ) );
+			$connection_map = buddynext_service( 'connections' )->statuses_for( $viewer_id, $ids );
+			$blocked_either = buddynext_service( 'blocks' )->blocking_either_map( $viewer_id, $ids );
+			$muted_set      = buddynext_service( 'blocks' )->muted_map( $viewer_id, $ids );
+		}
+
+		/** Mirror the directory prime hook so Pro add-ons batch their per-member data. */
+		do_action( 'buddynext_directory_members_primed', $ids, $viewer_id );
+
+		$directory = buddynext_service( 'member_directory' );
+		$online    = is_object( $directory ) && method_exists( $directory, 'online_among' )
+			? $directory->online_among( $ids ) : array();
+		$mutual    = is_object( $directory ) && method_exists( $directory, 'mutual_peers_for_page' )
+			? $directory->mutual_peers_for_page( $viewer_id, $ids ) : array();
+		$bios      = buddynext_service( 'profiles' )->bios_for( $ids );
+
+		$items = array();
+		foreach ( $ids as $uid ) {
+			$user = get_user_by( 'id', $uid );
+			if ( ! $user instanceof \WP_User ) {
+				continue;
+			}
+			$follower_meta = get_user_meta( $uid, 'bn_follower_count', true );
+			$row           = array(
+				'user_id'                 => $uid,
+				'display_name'            => (string) $user->display_name,
+				'avatar_url'              => get_avatar_url( $uid, array( 'size' => 96 ) ),
+				'bio'                     => (string) ( $bios[ $uid ] ?? '' ),
+				'is_online'               => isset( $online[ $uid ] ),
+				'follower_count'          => '' === $follower_meta ? 0 : (int) $follower_meta,
+				'mutual_connection_count' => count( (array) ( $mutual[ $uid ] ?? array() ) ),
+			);
+			$items[] = $this->shape_item( $row, $viewer_id, $following_set, $connection_map, $blocked_either, $muted_set );
+		}
+
+		return $items;
+	}
+
+	/**
 	 * Shape a service item into the client-facing payload.
 	 *
 	 * @param array<string, mixed> $row            Raw service row.
@@ -267,20 +337,12 @@ class MemberDirectoryController extends BaseRestController {
 			? $custom_slug
 			: ( $user instanceof \WP_User ? (string) $user->user_nicename : '' );
 
-		$type_slug = (string) get_user_meta( $uid, 'bn_member_type', true );
-		$type_name = '';
-		$type_icon = '';
-		if ( '' !== $type_slug ) {
-			$types = buddynext_service( 'member_types' );
-			$type  = $types->get_by_slug( $type_slug );
-			if ( null !== $type ) {
-				$type_name = (string) $type['name'];
-				// Re-sanitised on output so the JS card can render the badge icon
-				// (the directory grid re-renders client-side) exactly like the
-				// server member-card.php.
-				$type_icon = MemberTypeService::render_icon_svg( (string) ( $type['icon_svg'] ?? '' ) );
-			}
-		}
+		// Member-type badge — built from the shared MemberTypeService::badge_for()
+		// so the directory and the profile response cannot drift. badge_for() reads
+		// the page-warmed bn_member_type usermeta (no N+1). Directory cards expect a
+		// non-null object, so an unassigned member maps to empty strings below.
+		$mt_service   = buddynext_service( 'member_types' );
+		$member_badge = ( $mt_service instanceof MemberTypeService ) ? $mt_service->badge_for( $uid ) : null;
 
 		// Follow / connection state — read from the page-level maps primed in
 		// list_members(), so no per-row query is issued here.
@@ -338,10 +400,12 @@ class MemberDirectoryController extends BaseRestController {
 			'is_online'      => (bool) ( $row['is_online'] ?? false ),
 			'follower_count' => (int) ( $row['follower_count'] ?? 0 ),
 			'mutual_count'   => (int) ( $row['mutual_connection_count'] ?? 0 ),
-			'member_type'    => array(
-				'slug'     => $type_slug,
-				'name'     => $type_name,
-				'icon_svg' => $type_icon,
+			'member_type'    => $member_badge ?? array(
+				'slug'       => '',
+				'name'       => '',
+				'icon_svg'   => '',
+				'color'      => '',
+				'text_color' => '',
 			),
 			'is_self'        => $is_self,
 			'can_interact'   => $can_interact,

@@ -58,6 +58,7 @@
 		var slugInput = form.querySelector( '[data-bn-tax-slug]' );
 		var colorInput = form.querySelector( '[data-bn-tax-color]' );
 		var textColorInput = form.querySelector( '[data-bn-tax-text-color]' );
+		var textSwatch = form.querySelector( '[data-bn-tax-text-swatch]' );
 		var preview = form.querySelector( '[data-bn-tax-preview]' );
 		var previewLabel = form.querySelector( '[data-bn-tax-preview-label]' );
 
@@ -91,6 +92,16 @@
 				preview.style.color = fg;
 			}
 
+			// Keep the (unpersisted) swatch showing the EFFECTIVE text colour:
+			// the custom value when set, else the auto-derived contrast colour.
+			// A native colour input only accepts a full 6-digit hex.
+			if ( textSwatch ) {
+				var effective = fg !== '' ? fg : ( bg ? readableTextColor( bg ) : '#ffffff' );
+				if ( /^#[0-9a-fA-F]{6}$/.test( effective ) ) {
+					textSwatch.value = effective;
+				}
+			}
+
 			if ( previewLabel && nameInput ) {
 				previewLabel.textContent = nameInput.value || previewLabel.dataset.bnPreviewFallback || previewLabel.textContent;
 			}
@@ -113,6 +124,14 @@
 		}
 		if ( textColorInput ) {
 			textColorInput.addEventListener( 'input', updatePreview );
+		}
+		// Picking from the swatch writes a custom hex into the field (the
+		// persisted source of truth); the user can still clear it for auto.
+		if ( textSwatch && textColorInput ) {
+			textSwatch.addEventListener( 'input', function () {
+				textColorInput.value = textSwatch.value;
+				updatePreview();
+			} );
 		}
 
 		updatePreview();

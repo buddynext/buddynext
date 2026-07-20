@@ -38,6 +38,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// Declares this fine-grained surface for the sidebar registry (SidebarRegistry
+// reads it via Surface::current()) before the shell renders the right column.
+\BuddyNext\Sidebar\Surface::set( 'search' );
+
 // Sanitize query input.
 $raw_query = isset( $_GET['q'] ) ? sanitize_text_field( wp_unslash( $_GET['q'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
@@ -325,18 +329,6 @@ $highlight = static function ( string $text, string $query ): string {
 };
 
 $current_user_id = get_current_user_id();
-
-add_action(
-	'buddynext_right_sidebar',
-	static function () use ( $current_user_id ) {
-		buddynext_get_template(
-			'partials/sidebar.php',
-			array(
-				'sidebar_user_id' => $current_user_id,
-			)
-		);
-	}
-);
 
 /**
  * Fires before the search results inner content.

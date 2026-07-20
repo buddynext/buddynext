@@ -436,8 +436,29 @@ class ProfileFieldsManager {
 		// Auto-generate field_key from label — no technical input required from admins.
 		$field_key = sanitize_key( str_replace( '-', '_', sanitize_title( $label ) ) );
 
+		$created_id = 0;
 		if ( $group_id > 0 && '' !== $field_key && '' !== $label ) {
 			global $wpdb;
+
+			// The key derives from the label and is table-wide UNIQUE, but the
+			// LABEL may repeat (e.g. a "Level" field in several groups). Uniquify
+			// the key instead of letting create_field()'s INSERT IGNORE silently
+			// no-op while this screen still reported "saved" — the trap that
+			// taught owners the create-then-rename workaround.
+			$bn_pf_base_key   = $field_key;
+			$bn_pf_key_suffix = 2;
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			while ( (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT id FROM {$wpdb->prefix}bn_profile_fields WHERE field_key = %s",
+					$field_key
+				)
+			) > 0 ) {
+				$field_key = $bn_pf_base_key . '_' . $bn_pf_key_suffix;
+				++$bn_pf_key_suffix;
+			}
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
 			// Append at end: fetch current max sort_order for this group.
 			$max_order  = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$wpdb->prepare(
@@ -447,7 +468,7 @@ class ProfileFieldsManager {
 			);
 			$sort_order = $max_order + 1;
 
-			buddynext_service( 'profiles' )->create_field(
+			$created_id = (int) buddynext_service( 'profiles' )->create_field(
 				array(
 					'group_id'         => $group_id,
 					'field_key'        => $field_key,
@@ -470,7 +491,9 @@ class ProfileFieldsManager {
 				array(
 					'page'         => 'buddynext-members',
 					'tab'          => 'profile-fields',
-					'bn_pf_notice' => 'saved',
+					// Honest feedback: only report "saved" when a field row was
+					// actually created; a swallowed insert surfaces as an error.
+					'bn_pf_notice' => $created_id > 0 ? 'saved' : 'error',
 				),
 				admin_url( 'admin.php' )
 			)
@@ -802,6 +825,17 @@ class ProfileFieldsManager {
 		$update = array();
 		$format = array();
 
+		// Rename (the pencil control next to the group name). The group's TYPE
+		// (single vs multiple entries) is deliberately not updatable — converting
+		// a repeater with stored entries would orphan entry-indexed values.
+		if ( isset( $_POST['label'] ) ) {
+			$new_label = sanitize_text_field( wp_unslash( $_POST['label'] ) );
+			if ( '' !== $new_label ) {
+				$update['label'] = $new_label;
+				$format[]        = '%s';
+			}
+		}
+
 		if ( isset( $_POST['visibility'] ) ) {
 			$visibility = sanitize_key( wp_unslash( $_POST['visibility'] ) );
 			if ( ! in_array( $visibility, self::VISIBILITY_VALUES, true ) ) {
@@ -1046,7 +1080,7 @@ class ProfileFieldsManager {
 			exit;
 		}
 
-		$data = array(
+		$data   = array(
 			'label'            => $label,
 			'type'             => $type,
 			'description'      => $description,
@@ -1354,11 +1388,16 @@ class ProfileFieldsManager {
 					<div class="bn-pf-head-id">
 						<span class="bn-ss-title bn-pf-group-name"><?php echo esc_html( $group['label'] ); ?></span>
 
+						<button type="button" class="bn-pf-icon-btn bn-pf-group-rename"
+							data-bn-pf-toggle="bn-pf-rename-<?php echo absint( $gid ); ?>"
+							title="<?php esc_attr_e( 'Rename group', 'buddynext' ); ?>"><?php buddynext_icon( 'edit' ); ?></button>
+
 						<?php if ( $is_system ) : ?>
 							<span class="bn-pf-badge bn-pf-b-system"><?php esc_html_e( 'System', 'buddynext' ); ?></span>
 						<?php endif; ?>
 
-						<span class="bn-pf-badge <?php echo 'repeater' === $group['type'] ? 'bn-pf-b-repeater' : 'bn-pf-b-flat'; ?>">
+						<span class="bn-pf-badge <?php echo 'repeater' === $group['type'] ? 'bn-pf-b-repeater' : 'bn-pf-b-flat'; ?>"
+							title="<?php esc_attr_e( 'Whether a group holds one value per field or multiple entries is set when the group is created and cannot be changed afterwards.', 'buddynext' ); ?>">
 							<?php echo 'repeater' === $group['type'] ? esc_html__( 'Multiple entries', 'buddynext' ) : esc_html__( 'Single entry', 'buddynext' ); ?>
 						</span>
 
@@ -1494,6 +1533,22 @@ class ProfileFieldsManager {
 						<?php endif; ?>
 					</div><!-- .bn-pf-head-actions -->
 				</div><!-- .bn-ss-header / .bn-pf-card-head -->
+
+				<!-- Inline rename panel — toggled by the pencil next to the group name.
+					The service and REST always supported updating the label; this was
+					the missing wp-admin control (owners could not rename a group). -->
+				<div id="bn-pf-rename-<?php echo absint( $gid ); ?>" class="bn-pf-af-panel bn-pf-rename-panel">
+					<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form">
+						<input type="hidden" name="action" value="bn_update_profile_group">
+						<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
+						<?php wp_nonce_field( 'bn_update_profile_group_' . $gid ); ?>
+						<label class="screen-reader-text" for="bn-pf-rename-input-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Group name', 'buddynext' ); ?></label>
+						<input type="text" id="bn-pf-rename-input-<?php echo absint( $gid ); ?>"
+							name="label" class="regular-text"
+							value="<?php echo esc_attr( $group['label'] ); ?>" required>
+						<button type="submit" class="button button-primary"><?php esc_html_e( 'Save Name', 'buddynext' ); ?></button>
+					</form>
+				</div>
 
 				<div class="bn-ss-body bn-pf-card-body">
 				<!-- Fields table -->

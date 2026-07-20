@@ -10,7 +10,7 @@
  * call these helpers so behaviour, gating and performance stay identical.
  */
 
-import { restFetch } from '../shell/rest-client.js';
+import { restFetch } from '@buddynext/rest-client';
 
 /**
  * Validate a File against the shared media limits.

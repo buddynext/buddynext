@@ -300,7 +300,7 @@ final class ProfileNav {
 	private function render_replies( NavContext $c ): void {
 		$replies = array_map(
 			static fn( array $r ): object => (object) $r,
-			(array) buddynext_service( 'post_service' )->user_replies( $c->subject_id, 20 )
+			(array) buddynext_service( 'post_service' )->user_replies( $c->subject_id, 20, $c->viewer_id )
 		);
 		buddynext_get_template( 'parts/profile/replies-panel.php', array( 'replies' => $replies ) );
 	}
@@ -316,7 +316,7 @@ final class ProfileNav {
 			'parts/profile/posts-panel.php',
 			array(
 				'kind'         => 'likes',
-				'posts'        => (array) buddynext_service( 'post_service' )->user_liked_posts( $c->subject_id, 20 ),
+				'posts'        => (array) buddynext_service( 'post_service' )->user_liked_posts( $c->subject_id, 20, $c->viewer_id ),
 				'viewer_id'    => $c->viewer_id,
 				'is_owner'     => $c->is_self(),
 				'display_name' => $this->display_name( $c->subject_id ),

@@ -604,15 +604,17 @@ class PageRouter {
 
 		// Viewing your notifications list clears the badge — the count is expected
 		// to reset when you look at them (every mainstream app does this). Done
-		// before the title + rail render (both read unread_count), so the tab title,
-		// rail badge, and mobile-bar badge all show 0 on this same page load;
-		// mark_all_read busts the unread cache. Only the list view marks read, not
-		// the preferences sub-page.
+		// before the title + rail render (both read the badge count) so the tab
+		// title, rail badge, and mobile-bar badge all show 0 on this same page
+		// load. This marks the list SEEN (advances a last-seen timestamp and busts
+		// the badge cache) — it does NOT mark rows read: the items stay unread/bold
+		// and the Unread tab stays populated until an explicit click or "Mark all
+		// read", exactly like GitHub / Slack / X. Not on the preferences sub-page.
 		if ( 'notifications' === $hub
 			&& is_user_logged_in()
 			&& 'prefs' !== (string) get_query_var( 'bn_notif_section', '' )
 			&& function_exists( 'buddynext_service' ) ) {
-			buddynext_service( 'notifications' )->mark_all_read( get_current_user_id() );
+			buddynext_service( 'notifications' )->mark_seen( get_current_user_id() );
 		}
 
 		// Specialise the Notifications hub title:
@@ -628,7 +630,10 @@ class PageRouter {
 				$hub_title = __( 'Notification preferences', 'buddynext' );
 			} elseif ( is_user_logged_in() ) {
 				$notif_user_id    = get_current_user_id();
-				$unread_for_title = ( new \BuddyNext\Notifications\NotificationService() )->unread_count( $notif_user_id );
+				// Badge-family count (unseen), consistent with the bell/rail badges —
+				// this is 0 right after the list is marked seen above, not the raw
+				// unread total (which now persists in the Unread tab).
+				$unread_for_title = ( new \BuddyNext\Notifications\NotificationService() )->unseen_count( $notif_user_id );
 				if ( $unread_for_title > 0 ) {
 					$unread_display = $unread_for_title > 99 ? '99+' : (string) $unread_for_title;
 					$hub_title      = sprintf(

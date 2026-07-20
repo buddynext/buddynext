@@ -205,8 +205,8 @@ $mod_privacy = array(
 		)
 	);
 	// Uniform right rail (same cards as every other space tab).
-	buddynext_get_template(
-		'parts/space-sidebar.php',
+	\BuddyNext\Sidebar\Surface::set(
+		'space',
 		array(
 			'space_id'   => $space_id,
 			'viewer_id'  => $current_uid,

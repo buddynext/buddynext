@@ -46,6 +46,100 @@ class SpaceController extends BaseRestController {
 	/**
 	 * Register the controller's routes.
 	 */
+	/**
+	 * The directory's query contract.
+	 *
+	 * GET /spaces read TWELVE parameters while declaring none, so openapi.json --
+	 * which is generated from the route registry -- advertised the whole spaces
+	 * directory as unpaginated and unfilterable. A client reading route truth had no
+	 * way to discover per_page, page, orderby, type, category_id or paginate, and
+	 * nothing sanitised any of them.
+	 *
+	 * Two deliberate omissions:
+	 *
+	 * No `enum` on `type`. Space types are registry-driven and custom types are
+	 * registrable over REST, so a fixed list here would reject a type the site
+	 * legitimately has.
+	 *
+	 * No `enum` on `orderby`/`order` either, and no validate_callback anywhere in
+	 * this block -- which is the honest choice rather than a lazy one. Core validates
+	 * an arg only when it carries an explicit validate_callback
+	 * (WP_REST_Request::has_valid_params()), and adding one here would turn today's
+	 * silent fallback into a 400 for existing callers. SpaceService already
+	 * allow-lists orderby before it reaches ORDER BY and falls back to member_count,
+	 * so the value is defended; declaring an enum we do not enforce would just be
+	 * documentation that reads as a guarantee. Describe what is accepted; do not
+	 * claim to reject.
+	 *
+	 * @return array<string,array<string,mixed>>
+	 */
+	private function directory_args(): array {
+		return array(
+			'per_page'          => array(
+				'type'              => 'integer',
+				'default'           => 20,
+				'description'       => 'Spaces per page.',
+				'sanitize_callback' => 'absint',
+			),
+			'page'              => array(
+				'type'              => 'integer',
+				'default'           => 1,
+				'description'       => '1-based page number.',
+				'sanitize_callback' => 'absint',
+			),
+			'paginate'          => array(
+				'type'        => 'string',
+				'description' => 'Set to 1/true/yes to wrap rows with total + total_pages. Ignored on the search path -- see list_spaces().',
+			),
+			'orderby'           => array(
+				'type'              => 'string',
+				'description'       => 'member_count | name | created_at, or an alias: popular, active, newest, alphabetical. NOTE: active is an alias for member_count, not recency.',
+				'sanitize_callback' => 'sanitize_key',
+			),
+			'order'             => array(
+				'type'              => 'string',
+				'description'       => 'ASC or DESC.',
+				'sanitize_callback' => 'sanitize_key',
+			),
+			'type'              => array(
+				'type'              => 'string',
+				'description'       => 'Space type slug. Registry-driven, so custom types are accepted.',
+				'sanitize_callback' => 'sanitize_key',
+			),
+			'category_id'       => array(
+				'type'              => 'integer',
+				'description'       => 'Filter by space category.',
+				'sanitize_callback' => 'absint',
+			),
+			'search'            => array(
+				'type'              => 'string',
+				'description'       => 'Free-text search. Takes precedence over q.',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'q'                 => array(
+				'type'              => 'string',
+				'description'       => 'Alias for search.',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'mine'              => array(
+				'type'        => 'string',
+				'description' => '1/true/yes to scope to spaces the viewer belongs to.',
+			),
+			'membership'        => array(
+				'type'              => 'string',
+				'description'       => 'manage = owned/moderated, joined = plain membership. Implies the member scope.',
+				'sanitize_callback' => 'sanitize_key',
+			),
+			'include_subspaces' => array(
+				'type'        => 'string',
+				'description' => '1/true/yes to include sub-spaces in the listing.',
+			),
+		);
+	}
+
+	/**
+	 * Register the controller's routes.
+	 */
 	public function register_routes(): void {
 		register_rest_route(
 			'buddynext/v1',
@@ -55,6 +149,7 @@ class SpaceController extends BaseRestController {
 					'methods'             => 'GET',
 					'callback'            => array( $this, 'list_spaces' ),
 					'permission_callback' => '__return_true',
+					'args'                => $this->directory_args(),
 				),
 				array(
 					'methods'             => 'POST',
@@ -870,6 +965,14 @@ class SpaceController extends BaseRestController {
 		// open — never leak a total that includes secret/unlisted sub-spaces.
 		$space['subspace_count'] = ( new SpaceService() )->count_visible_subspaces( (int) $space['id'], $viewer_id, current_user_can( 'manage_options' ) );
 
+		// Viewer-relative membership — the SAME block list_spaces() attaches, so the space
+		// header and the directory row can never disagree on join state (member / pending /
+		// none). Without this the app's detail fetch overwrites the optimistic "Requested".
+		$space['join_method']       = SpaceTypeRegistry::instance()->join_method( (string) ( $space['type'] ?? 'open' ) );
+		$membership                 = ( new SpaceMemberService() )->membership_map( $viewer_id, array( (int) $space['id'] ) )[ (int) $space['id'] ] ?? null;
+		$space['membership_role']   = $membership['role'] ?? '';
+		$space['membership_status'] = $membership['status'] ?? '';
+
 		return new WP_REST_Response( $space, 200 );
 	}
 
@@ -1330,6 +1433,24 @@ class SpaceController extends BaseRestController {
 			$total    = count( $requests );
 		}
 
+		// Enrich each request with the requester's name + avatar so an owner can recognise
+		// who is asking to join — the raw rows carry only user_id. Bounded by per_page and
+		// primed in one pass (cache_users), so no per-row user lookup.
+		$user_ids = array_values( array_filter( array_map( static fn( $r ) => (int) ( $r['user_id'] ?? 0 ), $requests ) ) );
+		if ( ! empty( $user_ids ) ) {
+			cache_users( $user_ids );
+		}
+		$requests = array_map(
+			static function ( $r ) {
+				$uid               = (int) ( $r['user_id'] ?? 0 );
+				$user              = $uid ? get_userdata( $uid ) : null;
+				$r['display_name'] = $user ? $user->display_name : __( 'Member', 'buddynext' );
+				$r['avatar_url']   = $uid ? get_avatar_url( $uid, array( 'size' => 96 ) ) : '';
+				return $r;
+			},
+			$requests
+		);
+
 		return new WP_REST_Response(
 			array(
 				'items' => $requests,
@@ -1378,8 +1499,7 @@ class SpaceController extends BaseRestController {
 		if ( 'invited' === $members->get_status( $space_id, $user_id ) ) {
 			$result = $members->join( $space_id, $user_id );
 			if ( is_wp_error( $result ) ) {
-				$result->add_data( array( 'status' => 400 ) );
-				return $result;
+				return $this->preserve_status( $result, 400 );
 			}
 			return new WP_REST_Response( array( 'joined' => true ), 200 );
 		}
@@ -1432,8 +1552,7 @@ class SpaceController extends BaseRestController {
 			$result = $members->request_join( $space_id, $user_id );
 
 			if ( is_wp_error( $result ) ) {
-				$result->add_data( array( 'status' => 400 ) );
-				return $result;
+				return $this->preserve_status( $result, 400 );
 			}
 
 			return new WP_REST_Response( array( 'requested' => true ), 200 );
@@ -1443,8 +1562,7 @@ class SpaceController extends BaseRestController {
 		$result = $members->join( $space_id, $user_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		return new WP_REST_Response( array( 'joined' => true ), 200 );
@@ -1462,8 +1580,7 @@ class SpaceController extends BaseRestController {
 		$result   = ( new SpaceMemberService() )->leave( $space_id, $user_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		return new WP_REST_Response(
@@ -1486,8 +1603,7 @@ class SpaceController extends BaseRestController {
 		$result   = ( new SpaceMemberService() )->cancel_request( $space_id, get_current_user_id() );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		return new WP_REST_Response( array( 'cancelled' => true ), 200 );

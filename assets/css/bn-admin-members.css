@@ -22,23 +22,63 @@
 	color: inherit;
 }
 
-/* Filter form inside the table wrap. */
+/*
+ * Members toolbar: the search/filter form and the bulk-action form as ONE
+ * flex row. They used to be two structurally separate blocks (the bulk form
+ * even lived inside the table's scroll container), so they stacked as two
+ * misaligned rows, each with its own unbounded sizing.
+ */
+.bn-members-toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	flex-wrap: wrap;
+	padding: var(--bn-s3) var(--bn-s4);
+	border-bottom: 1px solid var(--bn-line-faint);
+}
+
 .bn-members-filter {
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s2);
-	padding: var(--bn-s3) var(--bn-s4);
-	border-bottom: 1px solid var(--bn-line-faint);
-	flex-wrap: wrap;
+	flex: 1 1 420px;
+	min-width: 0;
 }
 
 .bn-members-filter .bn-input {
-	flex: 1 1 240px;
-	min-width: 200px;
+	flex: 1 1 220px;
+	min-width: 160px;
 }
 
-.bn-members-filter .bn-select {
-	min-width: 160px;
+/*
+ * Extra .bn-settings-section level: the generic bn-admin.css control cap
+ * (.bn-settings-section .bn-ss-body select -> max-width 560px) is more
+ * specific than a bare two-class rule and re-widened this select.
+ */
+.bn-settings-section .bn-members-filter .bn-select {
+	flex: 0 1 auto;
+	width: auto;
+	min-width: 130px;
+	max-width: 180px;
+}
+
+/*
+ * Scoped to the toolbar: the shared .bn-bulk-bar (bn-admin-hub.css) keeps its
+ * bottom margin for surfaces that still render it above their table.
+ */
+.bn-members-toolbar .bn-bulk-bar {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	flex: 0 0 auto;
+	margin: 0;
+}
+
+.bn-members-toolbar .bn-bulk-bar .bn-select {
+	width: auto;
+	min-width: 150px;
+	max-width: 200px;
 }
 
 /* Empty-state message inside the table wrap. */
@@ -114,22 +154,36 @@
 	outline-offset: 2px;
 }
 
+/* position:fixed (placed by admin/members.js) so the menu escapes the
+   overflow:hidden on .bn-table / .bn-settings-section that clipped it on the
+   bottom rows. JS sets top/left on open; no static offsets here. */
 .bn-table .bn-more-dropdown {
-	position: absolute;
-	inset-inline-end: 0;
-	top: calc(100% + 4px);
+	position: fixed;
 	min-width: 160px;
 	background: var(--bn-surface);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-md);
 	box-shadow: var(--bn-shadow-md);
 	padding: var(--bn-s1);
-	z-index: 20;
+	z-index: 1000;
 	display: none;
 }
 
 .bn-table .bn-more-menu.open .bn-more-dropdown {
 	display: block;
+}
+
+/*
+ * Each row action in the dropdown is a single-button <form>. Nothing styled
+ * those forms, so they kept the hub's button-only-form inline-block box with
+ * stray margins - the button resolved its width:100% against an ~83px form
+ * inside a 160px menu and left dead space under itself. The form must be an
+ * inert full-width block so the .bn-dropdown-item button fills the menu row.
+ */
+.bn-table .bn-more-dropdown form {
+	display: block;
+	width: 100%;
+	margin: 0;
 }
 
 .bn-table .bn-dropdown-item {
@@ -712,7 +766,7 @@
 	padding: 3px var(--bn-a-s2);
 	border-radius: var(--bn-a-r-full);
 	font-size: var(--bn-a-text-2xs);
-	font-weight: var(--bn-a-fw-bold);
+	font-weight: var(--bn-a-fw-semibold);
 	white-space: nowrap;
 }
 
@@ -863,6 +917,39 @@
 .bn-pf-del-group-btn:focus-visible {
 	outline: 2px solid var(--bn-a-red);
 	outline-offset: var(--bn-a-outline-offset);
+}
+
+/* Enforce the single 28px control height the header row promises above.
+   Without this, each control derived its own height from its own padding
+   (select 25 / icon 29 / add 28 / delete 20px) and never lined up on the
+   flex baseline. One shared box height makes align-items:center exact. */
+.bn-admin-hub .bn-pf-head-actions .bn-pf-head-select,
+.bn-admin-hub .bn-pf-head-actions .bn-pf-icon-btn,
+.bn-admin-hub .bn-pf-head-actions .bn-pf-add-btn,
+.bn-admin-hub .bn-pf-head-actions .bn-pf-del-group-btn {
+	height: 28px;
+	min-height: 28px;
+	box-sizing: border-box;
+}
+
+/* Each control is wrapped in an inline <form>; those forms are the row's flex
+   items. Center every item on the cross axis so the reorder/delete buttons
+   line up with the selects. (The block margin that used to push them 3px high
+   is removed at its source — the button-form rule in bn-admin-hub.css now
+   excludes .bn-pf-head-actions form.) */
+.bn-admin-hub .bn-pf-head-actions > * {
+	align-self: center;
+}
+
+.bn-admin-hub .bn-pf-head-actions .bn-pf-inline-form {
+	display: inline-flex;
+	align-items: center;
+}
+
+.bn-admin-hub .bn-pf-head-actions .bn-pf-icon-btn,
+.bn-admin-hub .bn-pf-head-actions .bn-pf-del-group-btn {
+	display: inline-flex;
+	align-items: center;
 }
 
 .bn-pf-table {
@@ -1173,6 +1260,14 @@
 .bn-pf-af-panel.bn-open {
 	display: block;
 }
+
+/* Group rename panel: same reveal chrome as the add-field panel, with the input + save button on one compact row. */
+.bn-pf-rename-panel .bn-pf-inline-form {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-a-s2);
+}
+
 
 .bn-pf-af-title {
 	font-size: var(--bn-a-text-sm);

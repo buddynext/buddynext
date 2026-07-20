@@ -66,7 +66,7 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 		$url      = home_url( 'gamification/badge/top-contributor/' . $user . '/share/' );
 		$activity = (int) $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'link' AND link_url = %s",
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'badge' AND link_url = %s",
 				$user,
 				$url
 			)
@@ -92,7 +92,7 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 		);
 
 		$count = (int) $wpdb->get_var(
-			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'link'", $user )
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'badge'", $user )
 		);
 		$this->assertSame( 0, $count, 'only credential badges broadcast to the feed' );
 	}

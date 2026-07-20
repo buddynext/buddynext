@@ -261,8 +261,7 @@ class FollowController extends BaseRestController {
 		$result  = $follows->follow( $current_id, $target_id );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
-			return $result;
+			return $this->preserve_status( $result, 400 );
 		}
 
 		// Surface the resolved state so the UI can distinguish a normal
@@ -337,15 +336,22 @@ class FollowController extends BaseRestController {
 			)
 		);
 
-		return new WP_REST_Response(
-			array(
-				'ids'      => $this->filter_blocked( $followers, $viewer_id ),
-				'total'    => $service->follower_count( $user_id ),
-				'page'     => $page,
-				'per_page' => $per_page,
-			),
-			200
+		$ids  = $this->filter_blocked( $followers, $viewer_id );
+		$body = array(
+			'total'    => $service->follower_count( $user_id ),
+			'page'     => $page,
+			'per_page' => $per_page,
 		);
+		// expand=members hydrates the page into enriched member cards in one batch
+		// (no N+1); otherwise the endpoint keeps its ids-only default.
+		$expanded = $this->maybe_expand_members( $request, $ids, $viewer_id );
+		if ( null !== $expanded ) {
+			$body['items'] = $expanded;
+		} else {
+			$body['ids'] = $ids;
+		}
+
+		return new WP_REST_Response( $body, 200 );
 	}
 
 	/**
@@ -376,15 +382,20 @@ class FollowController extends BaseRestController {
 			)
 		);
 
-		return new WP_REST_Response(
-			array(
-				'ids'      => $this->filter_blocked( $following, $viewer_id ),
-				'total'    => $service->following_count( $user_id ),
-				'page'     => $page,
-				'per_page' => $per_page,
-			),
-			200
+		$ids  = $this->filter_blocked( $following, $viewer_id );
+		$body = array(
+			'total'    => $service->following_count( $user_id ),
+			'page'     => $page,
+			'per_page' => $per_page,
 		);
+		$expanded = $this->maybe_expand_members( $request, $ids, $viewer_id );
+		if ( null !== $expanded ) {
+			$body['items'] = $expanded;
+		} else {
+			$body['ids'] = $ids;
+		}
+
+		return new WP_REST_Response( $body, 200 );
 	}
 
 	/**
@@ -477,15 +488,21 @@ class FollowController extends BaseRestController {
 		$ids   = $follows->pending_followers( $owner_id, $per_page, ( $page - 1 ) * $per_page );
 		$total = $follows->pending_followers_count( $owner_id );
 
-		return new WP_REST_Response(
-			array(
-				'ids'         => $ids,
-				'total'       => $total,
-				'page'        => $page,
-				'total_pages' => (int) ceil( $total / $per_page ),
-			),
-			200
+		$body = array(
+			'total'       => $total,
+			'page'        => $page,
+			'total_pages' => (int) ceil( $total / $per_page ),
 		);
+		// expand=members hydrates the request inbox into enriched member cards in one
+		// batch (no N+1), the same shared path the followers/connections lists use.
+		$expanded = $this->maybe_expand_members( $request, $ids, $owner_id );
+		if ( null !== $expanded ) {
+			$body['items'] = $expanded;
+		} else {
+			$body['ids'] = $ids;
+		}
+
+		return new WP_REST_Response( $body, 200 );
 	}
 
 	/**
@@ -548,7 +565,12 @@ class FollowController extends BaseRestController {
 		// FollowService::suggestions() already excludes blocked users (either
 		// direction), moderation-hidden users, self, and already-followed, so the
 		// discovery surface is filtered at the source for every caller.
-		$suggestions = buddynext_service( 'follows' )->suggestions( $current_id );
+		$pool = (array) buddynext_service( 'follows' )->suggestions( $current_id );
+		// Rotate the app's who-to-follow the same way the web widget does: sample a
+		// varied display set from the top of the ranked pool each load, rather than
+		// returning the identical top-N every time. Bounded so the discovery surface
+		// stays a suggestion list, not the whole pool.
+		$suggestions = buddynext_sample_ranked( $pool, 24 );
 
 		return new WP_REST_Response( array( 'ids' => $suggestions ), 200 );
 	}

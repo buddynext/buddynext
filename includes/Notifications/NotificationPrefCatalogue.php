@@ -336,21 +336,26 @@ class NotificationPrefCatalogue {
 			),
 
 			// Growth + system.
+			// Badges + level-ups originate in wb-gamification (a partner plugin), so
+			// BN mirrors them in the notification center for display only and never
+			// emails them: the integration owns its own email templates, and BN
+			// emailing too would double up. can_email=false — the collect-only rule
+			// for all partner-sourced notifications (matches the Jetonomy listener).
 			'bn.badge_awarded'            => array(
 				'label'              => __( 'Badges earned', 'buddynext' ),
 				'description'        => __( 'You earned a new badge.', 'buddynext' ),
 				'group'              => self::GROUP_GROWTH,
 				'default_on_site'    => true,
-				'default_email_freq' => 'weekly',
-				'can_email'          => true,
+				'default_email_freq' => 'off',
+				'can_email'          => false,
 			),
 			'bn.level_up'                 => array(
 				'label'              => __( 'Level-ups', 'buddynext' ),
 				'description'        => __( 'You reached a new level.', 'buddynext' ),
 				'group'              => self::GROUP_GROWTH,
 				'default_on_site'    => true,
-				'default_email_freq' => 'weekly',
-				'can_email'          => true,
+				'default_email_freq' => 'off',
+				'can_email'          => false,
 			),
 			'bn.onboarding_nudge'         => array(
 				'label'              => __( 'Onboarding nudges', 'buddynext' ),

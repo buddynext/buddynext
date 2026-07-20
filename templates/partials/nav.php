@@ -63,8 +63,10 @@ if ( empty( $bn_nav_active ) ) {
 // COUNT under a separate cache key (buddynext_nav), so the unread count was
 // queried twice on every hub render.
 $bn_nav_current_user = get_current_user_id();
+// Badge = UNSEEN (since the list was last viewed), not raw unread: viewing the
+// list clears the badge without marking rows read.
 $bn_unread_notifs    = $bn_nav_current_user
-	? (int) buddynext_service( 'notifications' )->unread_count( $bn_nav_current_user )
+	? (int) buddynext_service( 'notifications' )->unseen_count( $bn_nav_current_user )
 	: 0;
 
 /**

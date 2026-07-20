@@ -33,6 +33,59 @@ use BuddyNext\REST\BaseRestController;
 class FeedController extends BaseRestController {
 
 	/**
+	 * Ceiling on the ids GET /feed/viewer-state will answer for in one call.
+	 *
+	 * Public because the app has to chunk on this number, and the only way it can
+	 * is if /app/config tells it — a client that guesses high gets a silently short
+	 * answer and renders those cards as un-reacted. AppConfigController emits it
+	 * from here rather than restating the literal, so the two cannot drift.
+	 *
+	 * @var int
+	 */
+	public const VIEWER_STATE_MAX_IDS = 100;
+
+	/**
+	 * The pagination contract every feed surface shares.
+	 *
+	 * Declared, not just read. Each feed route used to read cursor and per_page in
+	 * its handler while declaring no args at all, which has three costs: the params
+	 * are invisible in openapi.json (generated from the route registry, so an app
+	 * team reading route truth concludes the feeds are unpaginated), nothing
+	 * sanitises or validates them, and per_page reached FeedService unbounded below
+	 * — min($per_page, 50) has no floor, so a negative arrived at the SQL as a
+	 * negative LIMIT.
+	 *
+	 * validate_callback is set EXPLICITLY and must stay that way. Core only runs
+	 * validation when the arg carries one — WP_REST_Request::has_valid_params() gates
+	 * on `! empty( $arg['validate_callback'] )`, and register_rest_route() defaults it
+	 * only for schema-derived args, never for a hand-written block like this. Without
+	 * it, minimum/maximum/enum are documentation: they appear in the spec, they read
+	 * as enforcement, and nothing checks them.
+	 *
+	 * @return array<string,array<string,mixed>>
+	 */
+	private function feed_pagination_args(): array {
+		return array(
+			'cursor'   => array(
+				'type'              => 'string',
+				'required'          => false,
+				'description'       => 'Opaque keyset cursor from a previous response.',
+				'validate_callback' => 'rest_validate_request_arg',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'per_page' => array(
+				'type'              => 'integer',
+				'default'           => 20,
+				'minimum'           => 1,
+				'maximum'           => 50,
+				'description'       => 'Items per page (1-50).',
+				'validate_callback' => 'rest_validate_request_arg',
+				'sanitize_callback' => 'absint',
+			),
+		);
+	}
+
+	/**
 	 * Register the controller's routes.
 	 */
 	public function register_routes(): void {
@@ -43,7 +96,7 @@ class FeedController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'home_feed' ),
 				'permission_callback' => array( $this, 'require_auth' ),
-				'args'                => array(
+				'args'                => $this->feed_pagination_args() + array(
 					'filter' => array(
 						'type'              => 'string',
 						'default'           => 'for-you',
@@ -111,6 +164,7 @@ class FeedController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'explore_feed' ),
 				'permission_callback' => array( $this, 'require_public_explore' ),
+				'args'                => $this->feed_pagination_args(),
 			)
 		);
 
@@ -121,6 +175,7 @@ class FeedController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'profile_feed' ),
 				'permission_callback' => '__return_true',
+				'args'                => $this->feed_pagination_args(),
 			)
 		);
 
@@ -131,6 +186,7 @@ class FeedController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_space_feed' ),
 				'permission_callback' => '__return_true',
+				'args'                => $this->feed_pagination_args(),
 			)
 		);
 
@@ -237,11 +293,105 @@ class FeedController extends BaseRestController {
 
 		$result = $this->feed_service()->home_feed( $user_id, $cursor, $per_page, $filter );
 
+		return $this->enriched_response( $result, $user_id );
+	}
+
+	/**
+	 * Batch-prime the viewer-relative maps for a page of posts.
+	 *
+	 * One place, so the feed and the refresh route cannot answer differently. Every
+	 * map is a single bounded query keyed on the ids of THIS page.
+	 *
+	 * @param int   $viewer   Current user ID (0 when logged out).
+	 * @param int[] $post_ids Posts on this page.
+	 * @param int[] $poll_ids The subset that are polls.
+	 * @return array{reactions:array,votes:array,bookmarks:array,shares:array}
+	 */
+	private function prime_viewer_maps( int $viewer, array $post_ids, array $poll_ids = array() ): array {
+		if ( $viewer <= 0 || empty( $post_ids ) ) {
+			return array(
+				'reactions' => array(),
+				'votes'     => array(),
+				'bookmarks' => array(),
+				'shares'    => array(),
+			);
+		}
+
+		return array(
+			'reactions' => buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids ),
+			'votes'     => buddynext_service( 'polls' )->user_votes_map( $viewer, $poll_ids ),
+			// Only the posts ON THIS PAGE — bounded, PK-indexed, no filesort. Loading the
+			// viewer's entire bookmark/share history to render twenty posts is what these
+			// replace.
+			'bookmarks' => buddynext_service( 'bookmarks' )->bookmarked_among( $viewer, $post_ids ),
+			'shares'    => buddynext_service( 'shares' )->shared_among( $viewer, $post_ids ),
+		);
+	}
+
+	/**
+	 * The viewer-relative block for one post.
+	 *
+	 * Built here for both the feed and GET /feed/viewer-state, because the two used
+	 * to construct it independently and had already drifted: the refresh route never
+	 * carried my_share, so an app that re-polled state lost the un-share affordance
+	 * on every card it refreshed.
+	 *
+	 * Everything here is VOLATILE — it can change without the post changing, which is
+	 * what makes it worth re-polling. can_edit is deliberately NOT here: authorship
+	 * does not change between two polls of the same post, so it belongs with the
+	 * initial shape (see enrich_items_for_rest) and re-sending it on every refresh
+	 * would be waste.
+	 *
+	 * @param int   $post_id Post.
+	 * @param array $maps    Output of prime_viewer_maps().
+	 * @return array<string,mixed>
+	 */
+	private function viewer_state_for( int $post_id, array $maps ): array {
+		return array(
+			'my_reaction'        => $maps['reactions'][ $post_id ] ?? null,
+			'is_bookmarked'      => isset( $maps['bookmarks'][ $post_id ] ),
+			'my_voted_option_id' => isset( $maps['votes'][ $post_id ] ) ? (int) $maps['votes'][ $post_id ] : 0,
+			'my_share'           => isset( $maps['shares'][ $post_id ] ),
+		);
+	}
+
+	/**
+	 * Enrich a feed result and respond.
+	 *
+	 * Every feed surface returns through here, deliberately. Enrichment used to be
+	 * an inline step in home_feed() only, so explore, profile and space feeds each
+	 * shipped raw hydrate() rows — three of the four surfaces a native client
+	 * actually reads. Nothing said so; each handler simply ended with
+	 * `return new WP_REST_Response( $result, 200 )` and looked complete.
+	 *
+	 * Routing every handler through one door makes the omission structurally
+	 * impossible rather than a thing to remember: a handler cannot return a feed
+	 * without enriching it, because returning a feed IS this method.
+	 *
+	 * @param array $result Feed result from FeedService ({items, next_cursor, …}).
+	 * @param int   $viewer Current user ID (0 when logged out).
+	 * @return WP_REST_Response
+	 */
+	private function enriched_response( array $result, int $viewer ): WP_REST_Response {
 		if ( ! empty( $result['items'] ) && is_array( $result['items'] ) ) {
-			$result['items'] = $this->enrich_items_for_rest( (array) $result['items'], $user_id );
+			$result['items'] = $this->enrich_items_for_rest( (array) $result['items'], $viewer );
 		}
 
 		return new WP_REST_Response( $result, 200 );
+	}
+
+	/**
+	 * Public entry point so the single-post read and the bookmark `expand=posts` read share
+	 * the feed's EXACT enrichment (author, content_html, viewer_state, media). One builder,
+	 * so a post opened cold via deeplink looks identical to the same card in the feed
+	 * (#10104866988 - three post-returning surfaces had drifted to raw rows).
+	 *
+	 * @param array<int,array<string,mixed>> $items  Hydrated post arrays.
+	 * @param int                            $viewer Current user ID.
+	 * @return array<int,array<string,mixed>> Enriched items.
+	 */
+	public function enrich_for_rest( array $items, int $viewer ): array {
+		return $this->enrich_items_for_rest( $items, $viewer );
 	}
 
 	/**
@@ -258,11 +408,19 @@ class FeedController extends BaseRestController {
 	 * the already-cached user_bookmarks() — so enrichment adds a constant handful
 	 * of queries, not four per card.
 	 *
-	 * @param array $items  Raw feed rows from FeedService::home_feed().
-	 * @param int   $viewer Current user ID (0 when logged out).
+	 * Reached from every feed surface via enriched_response(). It was written for
+	 * home_feed() and, for a while, only home_feed() called it — so explore,
+	 * profile and space feeds went on returning exactly the raw rows this
+	 * describes replacing. Call it through enriched_response(), never inline, or
+	 * the next surface repeats that.
+	 *
+	 * @param array $items         Raw feed rows from a FeedService feed method.
+	 * @param int   $viewer        Current user ID (0 when logged out).
+	 * @param bool  $embed_shared  Embed each re-share's original post; false when enriching
+	 *                             those originals so a share of a share does not recurse.
 	 * @return array Enriched items.
 	 */
-	private function enrich_items_for_rest( array $items, int $viewer ): array {
+	private function enrich_items_for_rest( array $items, int $viewer, bool $embed_shared = true ): array {
 		if ( empty( $items ) ) {
 			return $items;
 		}
@@ -270,6 +428,7 @@ class FeedController extends BaseRestController {
 		$post_ids   = array();
 		$author_ids = array();
 		$poll_ids   = array();
+		$media_ids  = array();
 		foreach ( $items as $item ) {
 			$pid = absint( $item['id'] ?? 0 );
 			$aid = absint( $item['user_id'] ?? 0 );
@@ -282,23 +441,22 @@ class FeedController extends BaseRestController {
 			if ( $pid && 'poll' === ( $item['type'] ?? '' ) ) {
 				$poll_ids[] = $pid;
 			}
+			foreach ( self::normalize_media_ids( $item['media_ids'] ?? null ) as $mid ) {
+				$media_ids[] = $mid;
+			}
 		}
 
 		// Prime once for the whole page (no per-card lookups below).
 		if ( ! empty( $author_ids ) ) {
 			cache_users( array_values( array_unique( $author_ids ) ) );
 		}
-
-		$reactions = array();
-		$votes     = array();
-		$bookmarks = array();
-		if ( $viewer > 0 ) {
-			$reactions = buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids );
-			$votes     = buddynext_service( 'polls' )->user_votes_map( $viewer, $poll_ids );
-			// Only the posts ON THIS PAGE — bounded, PK-indexed, no filesort. Loading the
-			// viewer's entire bookmark history to render twenty posts is what this replaces.
-			$bookmarks = buddynext_service( 'bookmarks' )->bookmarked_among( $viewer, $post_ids );
+		// Warm attachment post + meta caches for every image on the page in one pass, so
+		// the per-item media resolve below is O(1) — no N+1 at 20 photo cards.
+		if ( ! empty( $media_ids ) ) {
+			_prime_post_caches( array_values( array_unique( $media_ids ) ), false, true );
 		}
+
+		$maps = $this->prime_viewer_maps( $viewer, $post_ids, $poll_ids );
 
 		$format = function_exists( 'buddynext_format_content' );
 
@@ -317,18 +475,134 @@ class FeedController extends BaseRestController {
 				? buddynext_format_content( (string) ( $item['content'] ?? '' ) )
 				: (string) ( $item['content'] ?? '' );
 
-			$item['viewer_state'] = array(
-				'my_reaction'        => $reactions[ $pid ] ?? null,
-				'is_bookmarked'      => isset( $bookmarks[ $pid ] ),
-				'my_voted_option_id' => isset( $votes[ $pid ] ) ? (int) $votes[ $pid ] : 0,
+			$item['viewer_state'] = $this->viewer_state_for( $pid, $maps ) + array(
+				// Stable, so it rides the initial shape only and not the refresh route.
 				// Baseline: author or admin. Under-reports for space moderators
 				// (safe direction — never shows an edit affordance the API rejects).
-				'can_edit'           => $viewer > 0 && ( $viewer === $aid || user_can( $viewer, 'manage_options' ) ),
+				'can_edit' => $viewer > 0 && ( $viewer === $aid || user_can( $viewer, 'manage_options' ) ),
 			);
+
+			// Resolve attachment IDs to real URLs so a client can render the image. Without
+			// this a photo post carries only `media_ids` (bare ints) and the app has nothing
+			// to load. `media_ids` is kept for back-compat; `media` is the render source.
+			$item['media'] = self::resolve_media( $item['media_ids'] ?? null );
 		}
 		unset( $item );
 
+		// Embed the ORIGINAL post inside a re-share, enriched the same way, so a client can
+		// render the quoted card (author + body + media) instead of a dangling shared_post_id.
+		// One level only — a share of a share does not recurse ($embed_shared = false below).
+		if ( $embed_shared ) {
+			$this->embed_shared_posts( $items, $viewer );
+		}
+
 		return $items;
+	}
+
+	/**
+	 * Attach an enriched `shared_post` to every re-share item, honouring the viewer's
+	 * visibility gates (a private / blocked / secret-space original is embedded as null so a
+	 * client shows "post unavailable", never the content). Originals are enriched one level
+	 * deep — a share of a share does not recurse.
+	 *
+	 * @param array<int,array<string,mixed>> $items  Enriched items, edited in place.
+	 * @param int                            $viewer Current user ID.
+	 * @return void
+	 */
+	private function embed_shared_posts( array &$items, int $viewer ): void {
+		$shared_ids = array();
+		foreach ( $items as $item ) {
+			$sid = absint( $item['shared_post_id'] ?? 0 );
+			if ( $sid ) {
+				$shared_ids[ $sid ] = true;
+			}
+		}
+		if ( empty( $shared_ids ) ) {
+			return;
+		}
+
+		$service   = new PostService();
+		$originals = array();
+		foreach ( array_keys( $shared_ids ) as $sid ) {
+			$orig = $service->get( (int) $sid );
+			if ( ! is_array( $orig ) || empty( $orig ) ) {
+				continue;
+			}
+			// Never embed content the viewer could not open directly.
+			if ( $service->visibility_error( (int) $sid, $viewer ) instanceof WP_Error ) {
+				continue;
+			}
+			$originals[] = $orig;
+		}
+
+		$by_id = array();
+		foreach ( $this->enrich_items_for_rest( $originals, $viewer, false ) as $enriched_original ) {
+			$by_id[ absint( $enriched_original['id'] ?? 0 ) ] = $enriched_original;
+		}
+
+		foreach ( $items as &$item ) {
+			$sid                 = absint( $item['shared_post_id'] ?? 0 );
+			$item['shared_post'] = ( $sid && isset( $by_id[ $sid ] ) ) ? $by_id[ $sid ] : null;
+		}
+		unset( $item );
+	}
+
+	/**
+	 * Normalize a post's media_ids field to an array of positive ints.
+	 *
+	 * The hydrate() path usually decodes the JSON column to an array, but a raw row can still
+	 * carry the JSON string (or an empty '[]'), so tolerate both shapes.
+	 *
+	 * @param mixed $raw The media_ids value from a post row (array | JSON string | null).
+	 * @return int[] Attachment IDs, de-duplicated of zeros.
+	 */
+	private static function normalize_media_ids( $raw ): array {
+		if ( is_string( $raw ) ) {
+			$decoded = json_decode( $raw, true );
+			$raw     = is_array( $decoded ) ? $decoded : array();
+		}
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+		return array_values( array_filter( array_map( 'absint', $raw ) ) );
+	}
+
+	/**
+	 * Resolve a post's media_ids to renderable image objects.
+	 *
+	 * Each entry: { id, url (large), thumb_url (medium), width, height, mime }. Non-image
+	 * attachments (a stray upload) are skipped rather than returned as an unrenderable box.
+	 * Attachment caches are primed by the caller, so this is O(1) per id.
+	 *
+	 * @param mixed $raw The post's media_ids value.
+	 * @return array<int,array<string,mixed>> Ordered media objects; empty for a text post.
+	 */
+	private static function resolve_media( $raw ): array {
+		$media = array();
+		foreach ( self::normalize_media_ids( $raw ) as $id ) {
+			if ( 'attachment' !== get_post_type( $id ) ) {
+				continue;
+			}
+			$mime = (string) get_post_mime_type( $id );
+			if ( 0 !== strpos( $mime, 'image/' ) ) {
+				continue;
+			}
+			$full  = wp_get_attachment_image_src( $id, 'large' );
+			$thumb = wp_get_attachment_image_src( $id, 'medium' );
+			if ( ! $full ) {
+				continue;
+			}
+			$media[] = array(
+				'id'        => $id,
+				'url'       => $full[0],
+				'thumb_url' => $thumb ? $thumb[0] : $full[0],
+				'width'     => (int) $full[1],
+				'height'    => (int) $full[2],
+				'mime'      => $mime,
+				'alt'       => (string) get_post_meta( $id, '_wp_attachment_image_alt', true ),
+			);
+		}
+		return $media;
 	}
 
 	/**
@@ -427,27 +701,49 @@ class FeedController extends BaseRestController {
 		$viewer   = get_current_user_id();
 		$raw      = (string) $request->get_param( 'post_ids' );
 		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', explode( ',', $raw ) ) ) ) );
-		$post_ids = array_slice( $post_ids, 0, 100 ); // bound the batch.
+
+		// Bound the batch — but say so. This used to slice in silence, which is the
+		// worst shape for the caller: a client that sent 150 ids got 100 answers and
+		// no indication, so fifty cards rendered as un-reacted and un-bookmarked and
+		// looked like real state. A wrong answer that admits nothing is worse than an
+		// error. Report the ceiling and whether it bit, so the app can chunk instead
+		// of quietly mis-rendering.
+		$requested = count( $post_ids );
+		$post_ids  = array_slice( $post_ids, 0, self::VIEWER_STATE_MAX_IDS );
+		$truncated = $requested > count( $post_ids );
 
 		if ( empty( $post_ids ) ) {
-			return new WP_REST_Response( array( 'states' => (object) array() ), 200 );
-		}
-
-		$reactions = buddynext_service( 'reactions' )->get_user_emoji_map( $viewer, 'post', $post_ids );
-		$votes     = buddynext_service( 'polls' )->user_votes_map( $viewer, $post_ids );
-		// Only the posts ON THIS PAGE — bounded, PK-indexed, no filesort.
-		$bookmarks = buddynext_service( 'bookmarks' )->bookmarked_among( $viewer, $post_ids );
-
-		$states = array();
-		foreach ( $post_ids as $pid ) {
-			$states[ $pid ] = array(
-				'my_reaction'        => $reactions[ $pid ] ?? null,
-				'is_bookmarked'      => isset( $bookmarks[ $pid ] ),
-				'my_voted_option_id' => isset( $votes[ $pid ] ) ? (int) $votes[ $pid ] : 0,
+			return new WP_REST_Response(
+				array(
+					'states'    => (object) array(),
+					'requested' => $requested,
+					'returned'  => 0,
+					'truncated' => false,
+					'max_ids'   => self::VIEWER_STATE_MAX_IDS,
+				),
+				200
 			);
 		}
 
-		return new WP_REST_Response( array( 'states' => $states ), 200 );
+		// Poll votes are keyed by post id here too: the caller holds a mixed page and
+		// does not tell us which of them are polls.
+		$maps = $this->prime_viewer_maps( $viewer, $post_ids, $post_ids );
+
+		$states = array();
+		foreach ( $post_ids as $pid ) {
+			$states[ $pid ] = $this->viewer_state_for( $pid, $maps );
+		}
+
+		return new WP_REST_Response(
+			array(
+				'states'    => $states,
+				'requested' => $requested,
+				'returned'  => count( $states ),
+				'truncated' => $truncated,
+				'max_ids'   => self::VIEWER_STATE_MAX_IDS,
+			),
+			200
+		);
 	}
 
 	/**
@@ -489,7 +785,7 @@ class FeedController extends BaseRestController {
 
 		$result = $this->feed_service()->explore_feed( $cursor, $per_page );
 
-		return new WP_REST_Response( $result, 200 );
+		return $this->enriched_response( $result, get_current_user_id() );
 	}
 
 	/**
@@ -506,7 +802,7 @@ class FeedController extends BaseRestController {
 
 		$result = $this->feed_service()->profile_feed( $profile_user_id, $viewer_id, $cursor, $per_page );
 
-		return new WP_REST_Response( $result, 200 );
+		return $this->enriched_response( $result, $viewer_id );
 	}
 
 	/**
@@ -561,7 +857,7 @@ class FeedController extends BaseRestController {
 
 		$result = $this->feed_service()->space_feed( $space_id, $viewer_id, $cursor, $per_page );
 
-		return new WP_REST_Response( $result, 200 );
+		return $this->enriched_response( $result, $viewer_id );
 	}
 
 	/**

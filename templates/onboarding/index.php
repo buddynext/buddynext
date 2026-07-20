@@ -175,6 +175,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			'userLogin'           => $current_slug,
 			'bio'                 => $bio,
 			'avatarUrl'           => $custom_avatar,
+			'avatarUploading'     => false,
 			'usernameAvailable'   => true,
 			'usernameChecking'    => false,
 			'usernameStatusLabel' => '',
@@ -250,6 +251,8 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 						type="button"
 						data-size="xl"
 						aria-label="<?php esc_attr_e( 'Upload profile photo', 'buddynext' ); ?>"
+						data-wp-bind--disabled="context.avatarUploading"
+						data-wp-bind--aria-busy="context.avatarUploading"
 						data-wp-on--click="actions.triggerAvatarUpload">
 						<?php if ( $avatar_url ) : ?>
 							<img src="<?php echo esc_attr( $avatar_url ); ?>"
@@ -257,6 +260,8 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 						<?php else : ?>
 							<?php echo esc_html( $initials ); ?>
 						<?php endif; ?>
+						<span class="bn-ob-avatar__spinner" aria-hidden="true"
+							data-wp-bind--hidden="!context.avatarUploading"></span>
 					</button>
 					<input type="file"
 						class="bn-ob-avatar-input"
@@ -281,6 +286,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 					<div class="bn-ob-avatar-row__hint">
 						<button type="button"
 							class="bn-ob-avatar-row__cta"
+							data-wp-bind--disabled="context.avatarUploading"
 							data-wp-on--click="actions.triggerAvatarUpload">
 							<?php esc_html_e( 'Add a profile photo', 'buddynext' ); ?>
 						</button>

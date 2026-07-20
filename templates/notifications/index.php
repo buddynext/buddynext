@@ -4,9 +4,11 @@
  *
  * Renders inside the shared hub-shell main column. This template does NOT own
  * the rail or page grid - those are produced by templates/shell/hub-shell.php.
- * Sidebar widgets (quick filters, type breakdown, recent actors, preferences link)
- * are registered against the `buddynext_right_sidebar` action; the shell detects
- * the hook and auto-renders the right column.
+ * Sidebar widgets (quick filters, type breakdown, recent actors, preferences link,
+ * "this week" stats, muted list) are registered by
+ * includes/Sidebar/Providers/NotificationsSidebarProvider.php on the
+ * `notifications` surface; this template just calls Surface::set() with the
+ * raw context and the shell auto-renders the right column.
  *
  * Composes the v2 primitive layer:
  *   .bn-section-head            page title + Mark-all-read action
@@ -114,6 +116,10 @@ $sum_types   = static function ( array $types ) use ( $type_unread ): int {
 };
 
 $total_unread    = array_sum( array_map( 'intval', $type_unread ) );
+// Badge (bell / nav) = UNSEEN, distinct from the Unread TAB count above. By the
+// time this hub renders, the list has been marked seen (PageRouter), so this is
+// 0 here — keeping the mobile badge consistent with every other surface.
+$badge_unseen    = (int) $notification_service->unseen_count( $current_user_id );
 $reaction_unread = $sum_types( $filter_type_map['reaction'] );
 $comment_unread  = $sum_types( $filter_type_map['comment'] );
 $mention_unread  = $sum_types( $filter_type_map['mention'] );
@@ -284,9 +290,11 @@ $render_row = static function ( object $row, array $payload, callable $render_av
 };
 
 // ── Right sidebar widgets ────────────────────────────────────────────────
-// Register sidebar widget callbacks on the shared hub-shell action. The shell
-// detects via has_action() (after this template's output buffer flushes) and
-// renders the right column automatically.
+// Set the surface + raw context BEFORE the shell renders the right column,
+// same pattern as every other surface (feed/space/profile/etc.). The
+// registry reads the surface via Surface::current() and
+// NotificationsSidebarProvider reads this context via Surface::context() to
+// rebuild $quick_filters / $sidebar_types and register the six sidecards.
 $sidebar_data = array(
 	'active_filter'   => $active_filter,
 	'total_unread'    => $total_unread,
@@ -299,132 +307,7 @@ $sidebar_data = array(
 	'recent_actors'   => $recent_actors,
 );
 
-add_action(
-	'buddynext_right_sidebar',
-	static function () use ( $sidebar_data ) {
-		$active_filter   = (string) $sidebar_data['active_filter'];
-		$total_unread    = (int) $sidebar_data['total_unread'];
-		$reaction_unread = (int) $sidebar_data['reaction_unread'];
-		$comment_unread  = (int) $sidebar_data['comment_unread'];
-		$mention_unread  = (int) $sidebar_data['mention_unread'];
-		$follow_unread   = (int) $sidebar_data['follow_unread'];
-		$space_unread    = (int) $sidebar_data['space_unread'];
-		$message_unread  = (int) $sidebar_data['message_unread'];
-		$recent_actors   = (array) $sidebar_data['recent_actors'];
-
-		$quick_filters = array(
-			array(
-				'key'   => 'unread',
-				'label' => __( 'Unread only', 'buddynext' ),
-				'icon'  => 'circle-dot',
-				'count' => $total_unread,
-			),
-			array(
-				'key'   => 'mention',
-				'label' => __( 'Mentions of you', 'buddynext' ),
-				'icon'  => 'at-sign',
-				'count' => $mention_unread,
-			),
-			array(
-				'key'   => 'follow',
-				'label' => __( 'People', 'buddynext' ),
-				'icon'  => 'users',
-				'count' => $follow_unread,
-			),
-			array(
-				'key'   => 'space',
-				'label' => __( 'Spaces', 'buddynext' ),
-				'icon'  => 'home',
-				'count' => $space_unread,
-			),
-		);
-
-		$sidebar_types = array(
-			'mention'  => array(
-				'label' => __( 'Mentions', 'buddynext' ),
-				'icon'  => 'at-sign',
-				'count' => $mention_unread,
-			),
-			'reaction' => array(
-				'label' => __( 'Reactions', 'buddynext' ),
-				'icon'  => 'heart',
-				'count' => $reaction_unread,
-			),
-			'comment'  => array(
-				'label' => __( 'Comments', 'buddynext' ),
-				'icon'  => 'message-circle',
-				'count' => $comment_unread,
-			),
-			'follow'   => array(
-				'label' => __( 'People', 'buddynext' ),
-				'icon'  => 'users',
-				'count' => $follow_unread,
-			),
-			'space'    => array(
-				'label' => __( 'Spaces', 'buddynext' ),
-				'icon'  => 'home',
-				'count' => $space_unread,
-			),
-			'message'  => array(
-				'label' => __( 'Messages', 'buddynext' ),
-				'icon'  => 'mail',
-				'count' => $message_unread,
-			),
-		);
-
-		buddynext_get_template(
-			'parts/notifications-sidecard-quick-filters.php',
-			array(
-				'filters'       => $quick_filters,
-				'active_filter' => $active_filter,
-			)
-		);
-
-		buddynext_get_template(
-			'parts/notifications-sidecard-types.php',
-			array(
-				'types'         => $sidebar_types,
-				'active_filter' => $active_filter,
-			)
-		);
-
-		buddynext_get_template(
-			'parts/notifications-sidecard-recent-actors.php',
-			array(
-				'recent_actors' => $recent_actors,
-			)
-		);
-
-		buddynext_get_template(
-			'parts/notifications-sidecard-prefs.php',
-			array()
-		);
-
-		// "This week" engagement stats card (Pattern D-6). Surfaces a 2×2
-		// stat grid: notifications received with WoW delta, read rate,
-		// new followers, total reactions + comments received. Personal so
-		// it only renders for logged-in viewers.
-		$bn_stats_uid = (int) get_current_user_id();
-		if ( $bn_stats_uid > 0 ) {
-			buddynext_get_template(
-				'parts/sidebar-this-week-stats.php',
-				array(
-					'user_id' => $bn_stats_uid,
-				)
-			);
-
-			// Muted-list management widget. The part returns early when
-			// the viewer has muted nobody, so this call is free in the
-			// common case.
-			buddynext_get_template(
-				'parts/notifications-sidecard-muted.php',
-				array(
-					'user_id' => $bn_stats_uid,
-				)
-			);
-		}
-	}
-);
+\BuddyNext\Sidebar\Surface::set( 'notifications', $sidebar_data );
 
 /**
  * Fires before the notifications inner content.
@@ -440,7 +323,7 @@ $initial_context = wp_json_encode(
 		'activeFilter' => $active_filter,
 		'nonce'        => $mark_all_nonce,
 		'restUrl'      => rest_url( 'buddynext/v1/me/notifications' ),
-		'unreadCount'  => $total_unread,
+		'unreadCount'  => $badge_unseen,
 		'hasError'     => false,
 		// Per-filter unread counts power the reactive tab + sidebar badges
 		// (data-wp-text). markRead/markAllRead mutate these in place so the
