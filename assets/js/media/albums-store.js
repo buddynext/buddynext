@@ -271,7 +271,10 @@ const albumsStore = store( 'buddynext/media-albums', {
 					continue;
 				}
 
-				const res = await uploadMedia( file, { nonce: ctx.restNonce } );
+				const res = await uploadMedia( file, {
+					nonce:   ctx.restNonce,
+					privacy: ctx.activeAlbumPrivacy || 'public',
+				} );
 				if ( ! res.ok || ! res.mediaId ) {
 					bnToast( res.message || t( 'uploadFailed', 'Could not upload that file.' ), { tone: 'danger' } );
 					continue;
@@ -285,6 +288,34 @@ const albumsStore = store( 'buddynext/media-albums', {
 			if ( input ) { input.value = ''; }
 
 			if ( uploaded.length ) {
+				// Every member upload creates a feed activity — the mainstream-social
+				// model (uploading photos = posting them), matching the composer and
+				// the Media-tab uploader. Without this the album picker would be the
+				// ONE surface that leaves media with no source activity, so its
+				// single-media page (/media/{slug}/) would have nothing to resolve to
+				// and would bounce. Selecting EXISTING media never reaches this branch
+				// (no upload happened), so it does not double-post an already-shared
+				// item. The post inherits the album's privacy so a private album's new
+				// photos are not broadcast publicly.
+				try {
+					await restFetch( '/posts', {
+						method:       'POST',
+						nonce:        ctx.restNonce,
+						body:         {
+							type:      'photo',
+							content:   '',
+							media_ids: uploaded,
+							privacy:   ctx.activeAlbumPrivacy || 'public',
+						},
+						toastOnError: false,
+					} );
+				} catch ( e ) {
+					// A failed feed post must not lose the upload — the media is already
+					// stored and still gets added to the album below. It just falls back
+					// to the pre-fix behaviour (no source activity) rather than breaking
+					// the whole add-to-album flow.
+				}
+
 				await loadPicker( ctx );
 				selectPickerIds( uploaded );
 				bnToast(
