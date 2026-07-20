@@ -162,3 +162,30 @@ Return `null` from `buddynext_user_active_dates` to fall through to BuddyNext's 
 - **Recipient mirrors are conditional.** `buddynext_post_reaction_received` and `buddynext_post_comment_received` do not fire on self-engagement (author reacting to or commenting on their own post). `buddynext_follower_gained` always fires because following yourself is not possible.
 - **Overlay filters are not sanitized for you.** The six read surfaces echo raw. A plugin that returns unescaped user input introduces an XSS hole. Escape before returning.
 - **Free vs Pro.** Every hook on this page is fired by Free. Pro and gamification plugins are consumers - they attach to these seams rather than re-implementing the social graph. For notification and email seams, see Hooks: Notifications and Email.
+
+## Profile field presentation (About tab)
+
+The profile About tab renders arbitrary owner-defined field groups by field **type**, never by field identity. The renderer cannot predict which groups or fields a site owner has created, so it never keys layout on a field's key or label - it asks the type engine how that type should look. `BuddyNext\Profile\FieldType::presentation_for( string $type )` maps every field type (built-in or add-on) to one of four presentation modes. The mode selects only the wrapper layout; the value itself is still produced by `render_display()`.
+
+| Mode | When | Example types |
+|---|---|---|
+| `block` | A full-width block for long prose | `textarea` |
+| `link` | A standalone external-link affordance | `url` |
+| `chips` | A row of chips for any multi-value type (`value_kind === 'multi'`) | `multiselect`, `category_multiselect`, `member_type_multiselect` |
+| `inline` | Label + value on one line (the default) | every scalar/bool type - `text`, `number`, `date`, `email`, `phone`, `select`, `radio`, `boolean`, `color` - plus any unknown type, which degrades here safely |
+
+The decision order is: `textarea` maps to `block`, `url` maps to `link`, any type whose `value_kind` is `multi` maps to `chips`, and everything else maps to `inline`. An add-on can override the mode for any type through a filter.
+
+| Hook | Type | Fired when | Parameters |
+|---|---|---|---|
+| `buddynext_field_presentation` | filter | Resolving the About-tab layout for a field type | `string $mode, string $type` - return one of `block`, `chips`, `link`, `inline` |
+
+The filter's return value is clamped: `presentation_for()` accepts only the four valid modes, and any other return value falls back to `inline`. This keeps an add-on from breaking the About tab by returning an unrecognised layout name.
+
+Example - render a custom `spotlight` type as a full-width block instead of the default inline row:
+
+```php
+add_filter( 'buddynext_field_presentation', function ( string $mode, string $type ): string {
+    return 'spotlight' === $type ? 'block' : $mode;
+}, 10, 2 );
+```
