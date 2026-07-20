@@ -188,4 +188,30 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 0, $count );
 	}
+
+	public function test_media_delete_withdraws_the_feed_card(): void {
+		global $wpdb;
+		$url = home_url( '/media/my-clip/' );
+
+		// A media card as on_media_uploaded would publish it (non-photo media).
+		\BuddyNext\Feed\IntegrationActivity::publish( $this->sender_id, 'shared a video', $url, '', 'media', '' );
+		$before = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE type = 'media' AND link_url = %s", $url )
+		);
+		$this->assertSame( 1, $before, 'the media card is published' );
+
+		// Source media deleted → mvs_media_deleted carries the pre-delete permalink.
+		do_action( 'mvs_media_deleted', 55, $this->sender_id, $url );
+
+		$after = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE type = 'media' AND link_url = %s", $url )
+		);
+		$this->assertSame( 0, $after, 'the card is withdrawn with its source' );
+	}
+
+	public function test_media_delete_without_permalink_is_a_noop(): void {
+		// A legacy 2-arg dispatch (no permalink) must not throw or wipe anything.
+		$this->bridge->on_media_deleted( 55, $this->sender_id, '' );
+		$this->assertTrue( true );
+	}
 }

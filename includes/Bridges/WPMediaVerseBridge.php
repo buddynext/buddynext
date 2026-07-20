@@ -229,6 +229,13 @@ class WPMediaVerseBridge {
 		add_action( 'mvs_media_uploaded', array( $this, 'on_media_uploaded' ), 10, 4 );
 		add_action( 'buddynext_mvs_media_activity', array( $this, 'publish_media_activity' ), 10, 3 );
 
+		// Withdraw the media feed card when its source is deleted, so the feed
+		// never points at dead content — mirroring what JetonomyBridge and
+		// CareerBoardBridge already do on delete. WPMediaVerse's mvs_media_deleted
+		// hook carries the pre-delete permalink (the slug row is already gone by
+		// the time it fires), which is the exact link_url the card was keyed on.
+		add_action( 'mvs_media_deleted', array( $this, 'on_media_deleted' ), 10, 3 );
+
 		// Media links resolve to the activity the item was posted in, not a
 		// dedicated /media/{slug}/ page — every upload already becomes an activity
 		// (photo post or media card), so a standalone public page per item is
@@ -366,6 +373,29 @@ class WPMediaVerseBridge {
 		}
 
 		IntegrationActivity::publish( $user_id, self::media_activity_verb( (string) $media_type ), $url, '', 'media', '' );
+	}
+
+	/**
+	 * Withdraw the media feed card when the source media is deleted.
+	 *
+	 * The 'media' card published on upload is keyed on the media permalink
+	 * (`IntegrationActivity` dedups + removes by link_url + type). WPMediaVerse's
+	 * `mvs_media_deleted` fires after the slug row is gone, so it passes the
+	 * pre-delete permalink — the exact URL the card was stored under. Photo-type
+	 * uploads become native `photo` posts (not 'media' cards), so nothing matches
+	 * for them here and the call is a no-op; those are the member's own posts.
+	 *
+	 * @param int    $media_id  Deleted media ID (unused; the URL is the key).
+	 * @param int    $author_id Author (unused).
+	 * @param string $permalink The media's pre-delete public permalink.
+	 * @return void
+	 */
+	public function on_media_deleted( $media_id, $author_id = 0, $permalink = '' ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+		$permalink = (string) $permalink;
+		if ( '' === $permalink ) {
+			return;
+		}
+		IntegrationActivity::remove( $permalink, 'media' );
 	}
 
 	/**
