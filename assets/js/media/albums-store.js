@@ -288,17 +288,19 @@ const albumsStore = store( 'buddynext/media-albums', {
 			if ( input ) { input.value = ''; }
 
 			if ( uploaded.length ) {
-				// Every member upload creates a feed activity — the mainstream-social
-				// model (uploading photos = posting them), matching the composer and
-				// the Media-tab uploader. Without this the album picker would be the
-				// ONE surface that leaves media with no source activity, so its
-				// single-media page (/media/{slug}/) would have nothing to resolve to
-				// and would bounce. Selecting EXISTING media never reaches this branch
-				// (no upload happened), so it does not double-post an already-shared
-				// item. The post inherits the album's privacy so a private album's new
-				// photos are not broadcast publicly.
+				// The whole batch becomes ONE feed post carrying all the media — the
+				// mainstream-social model (uploading photos = posting them), identical
+				// to the composer and the Media-tab uploader: five photos make one
+				// post, not five. Without this the album picker would be the ONE upload
+				// surface that leaves media with no source activity, so its single-media
+				// page (/media/{slug}/) would have nothing to resolve to and would
+				// bounce. Selecting EXISTING media never reaches this branch (no upload
+				// happened), so an already-shared item is not double-posted. The post
+				// inherits the album's privacy so a private album's new photos are not
+				// broadcast publicly.
+				let posted = false;
 				try {
-					await restFetch( '/posts', {
+					const pres = await restFetch( '/posts', {
 						method:       'POST',
 						nonce:        ctx.restNonce,
 						body:         {
@@ -309,21 +311,34 @@ const albumsStore = store( 'buddynext/media-albums', {
 						},
 						toastOnError: false,
 					} );
+					posted = !! ( pres && pres.ok );
 				} catch ( e ) {
 					// A failed feed post must not lose the upload — the media is already
 					// stored and still gets added to the album below. It just falls back
 					// to the pre-fix behaviour (no source activity) rather than breaking
 					// the whole add-to-album flow.
+					posted = false;
 				}
 
 				await loadPicker( ctx );
 				selectPickerIds( uploaded );
-				bnToast(
-					1 === uploaded.length
+
+				// Tell the member the truth. If the feed post went through, say it was
+				// shared (matching the Media-tab uploader — the album picker must not
+				// silently post to the feed behind a "selected" wording). If it did
+				// not, fall back to the neutral message.
+				const single = 1 === uploaded.length;
+				let msg;
+				if ( posted ) {
+					msg = single
+						? t( 'uploadedSharedOne', 'Uploaded and shared to your feed. Choose Add to also put it in the album.' )
+						: t( 'uploadedSharedMany', 'Uploaded and shared to your feed. Choose Add to also put them in the album.' );
+				} else {
+					msg = single
 						? t( 'uploadedOne', 'Uploaded and selected. Choose Add to put it in the album.' )
-						: t( 'uploadedMany', 'Uploaded and selected. Choose Add to put them in the album.' ),
-					{ tone: 'success' }
-				);
+						: t( 'uploadedMany', 'Uploaded and selected. Choose Add to put them in the album.' );
+				}
+				bnToast( msg, { tone: 'success' } );
 			}
 
 			ctx.pickerUploading = false;
