@@ -1668,6 +1668,17 @@
 	margin-bottom: var(--bn-a-s4);
 }
 
+/*
+ * Sections that render after the main edit-member form (Member Type from Free,
+ * Member Labels from Pro) hook buddynext_after_edit_member_form and were butting
+ * straight against the form with no gap. This shared separator gives every such
+ * section a uniform top gap + rule so they read as distinct blocks, whichever
+ * plugins add them.
+ */
+.bn-field-row.bn-edit-member-extra {
+	margin-block-start: var(--bn-a-s6);
+}
+
 .bn-member-type-form {
 	display: flex;
 	align-items: center;

@@ -331,7 +331,7 @@ class MemberTypesManager {
 		$current_type = $service->get_user_type( $user_id );
 		$current_slug = $current_type ? (string) $current_type['slug'] : '';
 		?>
-		<div class="bn-field-row bn-member-type-field">
+		<div class="bn-field-row bn-member-type-field bn-edit-member-extra">
 			<div class="bn-label"><label for="bn-member-type-select"><?php esc_html_e( 'Member Type', 'buddynext' ); ?></label></div>
 			<div class="bn-control">
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
