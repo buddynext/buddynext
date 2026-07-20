@@ -110,7 +110,7 @@ class CoreRegistration {
 		// Same URL the Setup Checklist already uses for this setting.
 		$bn_terms_url = admin_url( 'admin.php?page=buddynext-members&tab=registration' );
 		?>
-		<div class="notice notice-warning">
+		<div class="notice notice-warning is-dismissible">
 			<p>
 				<strong><?php esc_html_e( 'BuddyNext: terms consent is switched on, but no Terms page is set.', 'buddynext' ); ?></strong>
 				<?php esc_html_e( 'Members would have been asked to agree to a document that does not exist, so consent is NOT being collected or enforced.', 'buddynext' ); ?>
@@ -168,7 +168,7 @@ class CoreRegistration {
 			? __( 'Turn WordPress registration off', 'buddynext' )
 			: __( 'Turn WordPress registration on', 'buddynext' );
 		?>
-		<div class="notice notice-error">
+		<div class="notice notice-error is-dismissible">
 			<p>
 				<strong><?php esc_html_e( 'BuddyNext: your registration settings disagree.', 'buddynext' ); ?></strong>
 				<?php echo esc_html( $explain ); ?>

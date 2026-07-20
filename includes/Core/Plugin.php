@@ -306,7 +306,7 @@ class Plugin {
 					}
 					$wizard_url = admin_url( 'admin.php?page=buddynext-setup' );
 					printf(
-						'<div class="notice notice-info"><p><strong>%s</strong> — <a href="%s">%s</a></p></div>',
+						'<div class="notice notice-info is-dismissible"><p><strong>%s</strong> — <a href="%s">%s</a></p></div>',
 						esc_html__( 'BuddyNext setup is not complete.', 'buddynext' ),
 						esc_url( $wizard_url ),
 						esc_html__( 'Run the setup wizard', 'buddynext' )
