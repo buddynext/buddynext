@@ -200,26 +200,15 @@ if ( null !== $bn_search_ids ) {
 // pre_user_query — never as a materialised IN / NOT IN id list — so this query AND
 // its SQL_CALC_FOUND_ROWS count stay bounded at 50k members. Identical SQL to the
 // REST list_members(), so the server render and the live pipeline agree exactly.
-$bn_dir_filter = $bn_directory_service->directory_filter_sql(
+// The service owns all SQL preparation (the template never touches $wpdb); it
+// returns a ready pre_user_query callback we wire around the WP_User_Query below.
+$bn_pre_user_query = $bn_directory_service->pre_user_query_callback(
 	$current_user_id,
 	array(
 		'member_type' => $type_slug_filter,
 		'online_only' => $bn_online_only,
-	),
-	$GLOBALS['wpdb']->users . '.ID'
+	)
 );
-
-$bn_pre_user_query = static function ( $bn_q ) use ( $bn_dir_filter ) {
-	global $wpdb;
-	[ $bn_frag, $bn_frag_params ] = $bn_dir_filter;
-	if ( '' === trim( (string) $bn_frag ) ) {
-		return;
-	}
-	$bn_clause          = ! empty( $bn_frag_params )
-		? $wpdb->prepare( $bn_frag, ...$bn_frag_params ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-		: $bn_frag;
-	$bn_q->query_where .= ' AND ' . $bn_clause; // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-};
 
 // Bounded directory total — the cached service owns this number now (A5). The template
 // used to run a SECOND WP_User_Query purely to count, uncached, on every directory page
