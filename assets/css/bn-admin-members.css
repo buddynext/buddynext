@@ -121,6 +121,13 @@
 	align-items: center;
 	gap: var(--bn-s2);
 	justify-content: flex-end;
+	/* The shared .bn-row-actions primitive (bn-admin.css) wraps, which staircased
+	   View / Edit / kebab onto three right-aligned lines once the Actions column
+	   was squeezed narrower than their combined width. In a desktop admin table
+	   they belong on one line; nowrap keeps them together and lets the auto table
+	   layout widen the column to fit. */
+	flex-wrap: nowrap;
+	white-space: nowrap;
 }
 
 .bn-table .bn-more-menu {

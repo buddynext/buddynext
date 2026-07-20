@@ -252,7 +252,6 @@ class Members extends AdminPageBase {
 				'pending_approval' => (bool) get_user_meta( $user->ID, 'bn_pending_approval', true ),
 				'role'             => ( (array) $user->roles )[0] ?? 'subscriber',
 				'last_active'      => $presence_map[ $user->ID ] ?? 0,
-				'last_login'       => (int) get_user_meta( $user->ID, 'bn_last_login', true ),
 				'post_count'       => 0,
 			);
 		}
@@ -1121,7 +1120,6 @@ class Members extends AdminPageBase {
 								<th scope="col"><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
 								<th scope="col"><?php esc_html_e( 'Joined', 'buddynext' ); ?></th>
 								<th scope="col"><?php esc_html_e( 'Last Active', 'buddynext' ); ?></th>
-								<th scope="col"><?php esc_html_e( 'Last Login', 'buddynext' ); ?></th>
 								<th scope="col" data-align="end"><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
 							</tr>
 						</thead>
@@ -1171,15 +1169,6 @@ class Members extends AdminPageBase {
 									<?php else : ?>
 										<span aria-hidden="true">&mdash;</span>
 										<span class="screen-reader-text"><?php esc_html_e( 'Never', 'buddynext' ); ?></span>
-									<?php endif; ?>
-								</td>
-								<td class="bn-col-muted">
-									<?php if ( $member['last_login'] > 0 ) : ?>
-										<time datetime="<?php echo esc_attr( gmdate( 'c', $member['last_login'] ) ); ?>">
-											<?php echo esc_html( MemberDisplay::human_time_diff_short( $member['last_login'] ) ); ?>
-										</time>
-									<?php else : ?>
-										<?php esc_html_e( 'Never', 'buddynext' ); ?>
 									<?php endif; ?>
 								</td>
 								<td data-align="end">
