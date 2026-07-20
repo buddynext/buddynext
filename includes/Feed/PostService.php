@@ -1538,6 +1538,48 @@ class PostService {
 	}
 
 	/**
+	 * Delete every post of a type whose `link_meta` carries an integer field equal
+	 * to a value — e.g. remove all of an integration's cards for one source entity
+	 * by the id it stamped on them.
+	 *
+	 * A bridge stores the partner id in link_meta at publish (an event_id, a
+	 * course_id). When that entity is deleted, matching by the id is exact and
+	 * safe, where a link_url prefix match is not (query-string permalinks collide).
+	 * JSON_UNQUOTE(JSON_EXTRACT) reads the field whether it was stored numeric or
+	 * quoted; scoped to a bounded, indexed `type` so the JSON read never scans the
+	 * whole table.
+	 *
+	 * @param string $type     Post type to scope to (e.g. 'event').
+	 * @param string $meta_key link_meta field name (e.g. 'event_id').
+	 * @param int    $value    Value to match.
+	 * @return int Rows removed.
+	 */
+	public function delete_by_link_meta_int( string $type, string $meta_key, int $value ): int {
+		if ( '' === $type || '' === $meta_key ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$deleted = (int) $wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->prefix}bn_posts
+				 WHERE type = %s
+				   AND link_meta IS NOT NULL
+				   AND JSON_VALID( link_meta )
+				   AND CAST( JSON_UNQUOTE( JSON_EXTRACT( link_meta, %s ) ) AS UNSIGNED ) = %d",
+				$type,
+				'$.' . $meta_key,
+				$value
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return $deleted;
+	}
+
+	/**
 	 * Pin a post to the author's profile.
 	 *
 	 * @param int      $post_id  Post to pin.

@@ -176,6 +176,27 @@ class IntegrationActivity {
 	}
 
 	/**
+	 * Remove EVERY card of a type that a bridge stamped with a partner id in its
+	 * link_meta — e.g. all of an event's cards (the organizer card + each
+	 * attendee's) by their shared event_id.
+	 *
+	 * Use this when a partner entity is deleted and the per-card URLs can't be
+	 * reconstructed (the source rows are already gone) or a URL match would be
+	 * unsafe: the id the bridge stored at publish time is the stable, exact key.
+	 *
+	 * @param string $type     Card post type (e.g. 'event').
+	 * @param string $meta_key link_meta field the id was stored under (e.g. 'event_id').
+	 * @param int    $value    The partner id whose cards to remove.
+	 * @return int Rows removed.
+	 */
+	public static function remove_by_meta( string $type, string $meta_key, int $value ): int {
+		if ( '' === $type || '' === $meta_key || $value <= 0 ) {
+			return 0;
+		}
+		return ( new PostService() )->delete_by_link_meta_int( $type, $meta_key, $value );
+	}
+
+	/**
 	 * Render the uniform integration feed card for a typed bridge post.
 	 *
 	 * The single card style every bridge shares: an icon + a source label + the

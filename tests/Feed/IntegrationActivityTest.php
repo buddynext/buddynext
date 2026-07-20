@@ -208,4 +208,28 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 		);
 		$this->assertSame( 0, $count );
 	}
+
+	/**
+	 * Removes every card for one partner id, and a different id whose value merely
+	 * shares a digit prefix (60 vs 600) is NOT matched.
+	 *
+	 * @return void
+	 */
+	public function test_remove_by_meta_matches_the_exact_id_only(): void {
+		global $wpdb;
+
+		// Two cards for entity 60 (an organizer card + an attendee card).
+		IntegrationActivity::publish( $this->member_id, 'scheduled an event', 'https://example.test/event/a/', 'A', 'event', '', 0, array( 'event_id' => 60 ) );
+		IntegrationActivity::publish( $this->member_id, 'is attending', 'https://example.test/event/a/?bn_rsvp=5', 'A', 'event', '', 0, array( 'event_id' => 60 ) );
+		// A different entity whose id shares a prefix — must survive a 60 removal.
+		IntegrationActivity::publish( $this->member_id, 'scheduled an event', 'https://example.test/event/b/', 'B', 'event', '', 0, array( 'event_id' => 600 ) );
+
+		$removed = IntegrationActivity::remove_by_meta( 'event', 'event_id', 60 );
+		$this->assertSame( 2, $removed, 'both event-60 cards are removed by the stamped id' );
+
+		$survives = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE type = 'event' AND link_url = %s", 'https://example.test/event/b/' )
+		);
+		$this->assertSame( 1, $survives, 'event 600 is not matched by a 60 removal (exact id, not a LIKE)' );
+	}
 }
