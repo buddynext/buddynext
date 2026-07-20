@@ -237,6 +237,51 @@ class FieldType {
 	}
 
 	/**
+	 * The display PRESENTATION mode for a field type — how its label + value are
+	 * laid out on the profile About tab. This is the whole "we can't predict the
+	 * groups or fields, so render by TYPE" contract: the About renderer never
+	 * knows a field's identity, only its type, and this maps every type (built-in
+	 * or add-on) to one of four layouts. The VALUE itself is still produced by
+	 * render_display(); this only picks the wrapper.
+	 *
+	 *  - `block`  full-width block (a paragraph) — textarea / long prose.
+	 *  - `chips`  a row of chips — any multi-value type (multiselect, category /
+	 *             member-type multiselect, and future `value_kind === 'multi'`).
+	 *  - `link`   a standalone external link affordance — url.
+	 *  - `inline` label + value on one line (the default) — every scalar/bool
+	 *             type: text, number, date, email, phone, select, radio, boolean,
+	 *             color, and any unknown type (degrades safely).
+	 *
+	 * Add-ons override a type's mode via the `buddynext_field_presentation` filter.
+	 *
+	 * @param string $type Field type slug.
+	 * @return string One of: block | chips | link | inline.
+	 */
+	public static function presentation_for( string $type ): string {
+		$type = self::resolve_type( $type );
+
+		if ( 'textarea' === $type ) {
+			$mode = 'block';
+		} elseif ( 'url' === $type ) {
+			$mode = 'link';
+		} elseif ( 'multi' === ( self::types()[ $type ]['value_kind'] ?? 'scalar' ) ) {
+			$mode = 'chips';
+		} else {
+			$mode = 'inline';
+		}
+
+		/**
+		 * Filter the About-tab presentation mode for a field type.
+		 *
+		 * @param string $mode One of block|chips|link|inline.
+		 * @param string $type Resolved field type slug.
+		 */
+		$mode = (string) apply_filters( 'buddynext_field_presentation', $mode, $type );
+
+		return in_array( $mode, array( 'block', 'chips', 'link', 'inline' ), true ) ? $mode : 'inline';
+	}
+
+	/**
 	 * Whether a placeholder can actually render inside this type's control.
 	 *
 	 * A placeholder is an attribute of a free-text input. The browser IGNORES it on
