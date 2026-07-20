@@ -174,4 +174,51 @@ class IntegrationActivity {
 		}
 		return ( new PostService() )->delete_by_link( '' !== $type ? $type : 'link', $link_url );
 	}
+
+	/**
+	 * Render the uniform integration feed card for a typed bridge post.
+	 *
+	 * The single card style every bridge shares: an icon + a source label + the
+	 * linked content title + an optional preview line — the same
+	 * `.bn-post-card__bridge-card` markup the inline discussion card uses, so a
+	 * job, listing, course, or badge card looks identical across integrations.
+	 * Bridges call this from their `buddynext_render_post_body_{type}` renderer so
+	 * the card links OUT to the partner page (never the plain-text fallback, which
+	 * would drop the link). Returns pre-escaped HTML for the seam to echo.
+	 *
+	 * @param array<string,mixed> $args  Post-body args ({ link_preview, post_content, bn_post_type }).
+	 * @param string              $icon  Lucide icon slug for the card (e.g. 'graduation-cap').
+	 * @param string              $label Source label shown above the title (e.g. "Course").
+	 * @return string Card HTML, or '' when there is no link to render (text fallback).
+	 */
+	public static function render_bridge_card( array $args, string $icon, string $label ): string {
+		$link  = isset( $args['link_preview'] ) && is_array( $args['link_preview'] ) ? $args['link_preview'] : array();
+		$url   = isset( $link['url'] ) ? (string) $link['url'] : '';
+		$title = isset( $link['title'] ) ? (string) $link['title'] : '';
+		$desc  = isset( $link['desc'] ) ? (string) $link['desc'] : '';
+		$type  = isset( $args['bn_post_type'] ) ? (string) $args['bn_post_type'] : 'link';
+
+		// No link to point at → let the caller fall back to the plain-text body.
+		if ( '' === $url ) {
+			return '';
+		}
+		// The linked line is the content's own title; fall back to a trimmed verb.
+		if ( '' === $title ) {
+			$title = wp_trim_words( wp_strip_all_tags( (string) ( $args['post_content'] ?? '' ) ), 14 );
+		}
+
+		$html  = '<div class="bn-post-card__bridge-card bn-post-card__bridge-card--' . esc_attr( sanitize_html_class( $type ) ) . '">';
+		$html .= '<span class="bn-post-card__bridge-icon" aria-hidden="true">' . buddynext_get_icon( $icon ) . '</span>';
+		$html .= '<div class="bn-post-card__bridge-content">';
+		if ( '' !== $label ) {
+			$html .= '<span class="bn-post-card__bridge-source">' . esc_html( $label ) . '</span>';
+		}
+		$html .= '<a class="bn-post-card__bridge-title" href="' . esc_url( $url ) . '">' . esc_html( $title ) . '</a>';
+		if ( '' !== $desc ) {
+			$html .= '<p class="bn-post-card__bridge-text">' . esc_html( $desc ) . '</p>';
+		}
+		$html .= '</div></div>';
+
+		return $html;
+	}
 }

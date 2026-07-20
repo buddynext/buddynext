@@ -13,18 +13,35 @@ use BuddyNext\Feed\IntegrationActivity;
 use BuddyNext\Core\Installer;
 
 /**
+ * Tests the shared integration feed-activity helper (publish/remove/render).
+ *
  * @covers \BuddyNext\Feed\IntegrationActivity
  */
 class IntegrationActivityTest extends \WP_UnitTestCase {
 
+	/**
+	 * A seeded member id used as the activity author.
+	 *
+	 * @var int
+	 */
 	private int $member_id;
 
+	/**
+	 * Install the schema and seed a member.
+	 *
+	 * @return void
+	 */
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
 		$this->member_id = self::factory()->user->create();
 	}
 
+	/**
+	 * A bare publish() records a public link post for the member.
+	 *
+	 * @return void
+	 */
 	public function test_publish_creates_a_link_post(): void {
 		global $wpdb;
 
@@ -43,6 +60,11 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 		$this->assertSame( $url, $row['link_url'] );
 	}
 
+	/**
+	 * A typed publish() records the type and merges the meta into link_meta.
+	 *
+	 * @return void
+	 */
 	public function test_publish_accepts_a_typed_type_and_merges_meta_into_link_meta(): void {
 		global $wpdb;
 
@@ -80,6 +102,11 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 		$this->assertSame( 'attending', $meta['relation'] );
 	}
 
+	/**
+	 * A second identical publish() does not create a duplicate card.
+	 *
+	 * @return void
+	 */
 	public function test_publish_is_idempotent(): void {
 		$url    = 'https://example.test/discussions/56/';
 		$first  = IntegrationActivity::publish( $this->member_id, 'started a discussion', $url );
@@ -89,11 +116,84 @@ class IntegrationActivityTest extends \WP_UnitTestCase {
 		$this->assertSame( 0, $second, 'a second identical card is not created' );
 	}
 
+	/**
+	 * Rejects a missing member id or link url.
+	 *
+	 * @return void
+	 */
 	public function test_publish_rejects_invalid_input(): void {
 		$this->assertInstanceOf( \WP_Error::class, IntegrationActivity::publish( 0, 'x', 'https://x/' ) );
 		$this->assertInstanceOf( \WP_Error::class, IntegrationActivity::publish( $this->member_id, 'x', '' ) );
 	}
 
+	/**
+	 * Builds a linked bridge card from the post-body args.
+	 *
+	 * @return void
+	 */
+	public function test_render_bridge_card_builds_a_linked_card(): void {
+		$html = IntegrationActivity::render_bridge_card(
+			array(
+				'bn_post_type' => 'course',
+				'post_content' => 'completed a course',
+				'link_preview' => array(
+					'url'   => 'https://example.test/courses/php-101/',
+					'title' => 'PHP 101',
+				),
+			),
+			'graduation-cap',
+			'Course'
+		);
+
+		$this->assertStringContainsString( 'bn-post-card__bridge-card--course', $html, 'the type modifier is applied' );
+		$this->assertStringContainsString( 'Course', $html, 'the source label renders' );
+		$this->assertStringContainsString( 'href="https://example.test/courses/php-101/"', $html, 'the card links OUT to the partner page' );
+		$this->assertStringContainsString( 'PHP 101', $html, 'the linked title is the content title' );
+	}
+
+	/**
+	 * Returns an empty string with no url so the seam uses plain text.
+	 *
+	 * @return void
+	 */
+	public function test_render_bridge_card_without_a_url_falls_back_to_text(): void {
+		$html = IntegrationActivity::render_bridge_card(
+			array(
+				'bn_post_type' => 'badge',
+				'post_content' => 'earned a badge',
+				'link_preview' => array( 'url' => '' ),
+			),
+			'award',
+			'Badge'
+		);
+
+		$this->assertSame( '', $html, 'no link → empty so the seam falls back to the plain-text body' );
+	}
+
+	/**
+	 * Uses the trimmed verb when the card has no title.
+	 *
+	 * @return void
+	 */
+	public function test_render_bridge_card_falls_back_to_trimmed_verb_when_untitled(): void {
+		$html = IntegrationActivity::render_bridge_card(
+			array(
+				'bn_post_type' => 'listing',
+				'post_content' => 'added a new listing',
+				'link_preview' => array( 'url' => 'https://example.test/l/9/' ),
+			),
+			'store',
+			'Listing'
+		);
+
+		$this->assertStringContainsString( 'added a new listing', $html, 'a titleless card shows the trimmed verb' );
+	}
+
+	/**
+	 * Deletes the card for a partner page.
+	 *
+	 * @return void
+	 */
 	public function test_remove_deletes_the_card(): void {
 		global $wpdb;
 

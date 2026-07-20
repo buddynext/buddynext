@@ -45,6 +45,9 @@ class PostService {
 		'discussion',
 		'job',
 		'event',
+		'listing',
+		'course',
+		'badge',
 	);
 
 	/**

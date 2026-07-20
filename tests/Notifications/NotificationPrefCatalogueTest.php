@@ -18,10 +18,17 @@ use BuddyNext\Notifications\NotificationPrefCatalogue;
 use ReflectionClass;
 
 /**
+ * Tests the notification preference catalogue (types, groups, resolution).
+ *
  * @covers \BuddyNext\Notifications\NotificationPrefCatalogue
  */
 class NotificationPrefCatalogueTest extends \WP_UnitTestCase {
 
+	/**
+	 * Returns a slug-keyed map with the full entry shape.
+	 *
+	 * @return void
+	 */
 	public function test_all_returns_a_keyed_map(): void {
 		$catalogue = ( new NotificationPrefCatalogue() )->all();
 
@@ -46,6 +53,11 @@ class NotificationPrefCatalogueTest extends \WP_UnitTestCase {
 		}
 	}
 
+	/**
+	 * Every single-notification compose type has a catalogue row.
+	 *
+	 * @return void
+	 */
 	public function test_catalogue_covers_every_compose_single_type(): void {
 		$compose_types = $this->collect_compose_single_types();
 
@@ -76,6 +88,11 @@ class NotificationPrefCatalogueTest extends \WP_UnitTestCase {
 		);
 	}
 
+	/**
+	 * Buckets entries into the six known groups.
+	 *
+	 * @return void
+	 */
 	public function test_grouped_returns_six_known_groups(): void {
 		$grouped = ( new NotificationPrefCatalogue() )->grouped();
 
@@ -87,6 +104,32 @@ class NotificationPrefCatalogueTest extends \WP_UnitTestCase {
 		$this->assertArrayHasKey( NotificationPrefCatalogue::GROUP_GROWTH, $grouped );
 	}
 
+	/**
+	 * Partner-sourced notifications are collect-only: BN mirrors them in the
+	 * center for display but never emails on the integration's behalf (the
+	 * integration owns its own email templates). So every integration-sourced
+	 * type must be can_email=false — badges/level-ups come from wb-gamification,
+	 * discussions from Jetonomy.
+	 */
+	public function test_partner_sourced_notifications_are_collect_only(): void {
+		$catalogue = ( new NotificationPrefCatalogue() )->all();
+
+		foreach ( array( 'bn.badge_awarded', 'bn.level_up', 'jt.notification' ) as $slug ) {
+			if ( ! isset( $catalogue[ $slug ] ) ) {
+				continue; // jt.notification is registered by the Jetonomy listener, may be absent here.
+			}
+			$this->assertFalse(
+				$catalogue[ $slug ]['can_email'],
+				"{$slug} is partner-sourced and must never be emailed by BN (collect-only)."
+			);
+		}
+	}
+
+	/**
+	 * Fills tier defaults when the user has no stored rows.
+	 *
+	 * @return void
+	 */
 	public function test_resolve_for_user_fills_defaults_when_no_stored_rows(): void {
 		$resolved = ( new NotificationPrefCatalogue() )->resolve_for_user( array() );
 
@@ -99,6 +142,11 @@ class NotificationPrefCatalogueTest extends \WP_UnitTestCase {
 		);
 	}
 
+	/**
+	 * Overlays the user stored values on the defaults.
+	 *
+	 * @return void
+	 */
 	public function test_resolve_for_user_overlays_stored_values(): void {
 		$resolved = ( new NotificationPrefCatalogue() )->resolve_for_user(
 			array(
@@ -113,6 +161,11 @@ class NotificationPrefCatalogueTest extends \WP_UnitTestCase {
 		$this->assertSame( 'weekly', $resolved['bn.new_follower']['email_freq'] );
 	}
 
+	/**
+	 * The buddynext_notification_prefs_catalogue filter can add a type.
+	 *
+	 * @return void
+	 */
 	public function test_filter_can_add_a_type(): void {
 		$cb = static function ( $cat ) {
 			$cat['bn.bridge_demo'] = array(
@@ -151,6 +204,7 @@ class NotificationPrefCatalogueTest extends \WP_UnitTestCase {
 			return array();
 		}
 
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading a local plugin source file for static analysis, not a remote URL.
 		$source = (string) file_get_contents( $file );
 		preg_match_all( "/case\s+'(bn\\.[a-z0-9_]+)'/i", $source, $m );
 

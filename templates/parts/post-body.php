@@ -292,15 +292,6 @@ do_action( 'buddynext_part_post_body_before', $args );
 			</div>
 		</div>
 
-	<?php elseif ( 'job' === $bn_body_post_type ) : ?>
-		<div class="bn-post-card__bridge-card bn-post-card__bridge-card--job">
-			<span class="bn-post-card__bridge-icon" aria-hidden="true"><?php buddynext_icon( 'briefcase' ); ?></span>
-			<div class="bn-post-card__bridge-content">
-				<span class="bn-post-card__bridge-source"><?php esc_html_e( 'Job Listing', 'buddynext' ); ?></span>
-				<p class="bn-post-card__bridge-text"><?php echo wp_kses_post( wp_trim_words( $bn_body_content, 20 ) ); ?></p>
-			</div>
-		</div>
-
 	<?php elseif ( 'share' === $bn_body_post_type ) : ?>
 		<?php if ( '' !== $bn_body_content ) : ?>
 			<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $bn_body_content ) ) ); ?></div>

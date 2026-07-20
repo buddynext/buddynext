@@ -694,13 +694,13 @@
 	gap: var(--bn-s3);
 	align-items: flex-start;
 	border: 1px solid var(--bn-line);
+	/* One uniform integration card: every bridge (discussion, job, listing,
+	   course, badge, …) shares the same accent stripe from the shared BN token,
+	   never a per-integration colour. */
+	border-inline-start: 3px solid var(--bn-accent);
 	border-radius: var(--bn-r-md);
 	padding: var(--bn-s3);
 	background: var(--bn-sunken);
-}
-
-.bn-post-card__bridge-card--job {
-	border-inline-start: 3px solid var(--bn-accent);
 }
 
 .bn-post-card__bridge-icon {
