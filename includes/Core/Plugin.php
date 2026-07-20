@@ -162,6 +162,13 @@ class Plugin {
 		// settings take effect.
 		( new \BuddyNext\Nav\NavOverrides() )->register();
 
+		// App-parity: add an ISO-8601 UTC `<key>_gmt` sibling to every whitelisted
+		// timestamp in buddynext/v1 responses, from one dispatch-time seam rather
+		// than per-controller *_gmt patches. Covers feed, comments, spaces,
+		// notifications, the member directory and integration-bridge rows, and any
+		// future endpoint under the namespace.
+		\BuddyNext\Core\Dates::register();
+
 		// Front-end cookie-consent banner (no-op unless the Privacy setting is on).
 		( new \BuddyNext\Privacy\CookieConsentService() )->register();
 
