@@ -33,7 +33,10 @@ class SpaceMemberFlushTest extends WP_UnitTestCase {
 		wp_cache_set( 'status_5_7', 'active', self::GROUP );
 		wp_cache_set( 'role_5_9', 'member', self::GROUP );
 		wp_cache_set( 'status_5_9', 'banned', self::GROUP );
-		wp_cache_set( 'members_5', array( 7, 9 ), self::GROUP );
+		// The roster list is retired by bumping its per-space version salt (not a
+		// fixed-key delete): get_members() is parameterised by viewer/role/limit, so
+		// it lives under many keys, and one bump kills them all.
+		wp_cache_set( 'members_ver_5', 3, self::GROUP );
 
 		( new SpaceMemberService() )->flush_user_caches( 5, array( 7, 9 ) );
 
@@ -41,7 +44,11 @@ class SpaceMemberFlushTest extends WP_UnitTestCase {
 		$this->assertFalse( wp_cache_get( 'status_5_7', self::GROUP ) );
 		$this->assertFalse( wp_cache_get( 'role_5_9', self::GROUP ) );
 		$this->assertFalse( wp_cache_get( 'status_5_9', self::GROUP ) );
-		$this->assertFalse( wp_cache_get( 'members_5', self::GROUP ) );
+		$this->assertGreaterThan(
+			3,
+			(int) wp_cache_get( 'members_ver_5', self::GROUP ),
+			'the roster version salt is bumped, retiring every cached get_members() page'
+		);
 	}
 
 	/**
