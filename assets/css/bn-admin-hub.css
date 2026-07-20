@@ -903,6 +903,35 @@
 	background: var(--bn-a-bg);
 }
 
+/* A step's action cluster: the primary CTA plus an optional muted opt-out
+   (the theme step's "Keep my theme"), so the recommendation never traps an
+   owner who runs another theme. */
+.bn-setup-step__actions {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-a-s2);
+	flex-shrink: 0;
+}
+
+.bn-setup-step__ack {
+	margin: 0;
+}
+
+.bn-setup-step__ack-btn {
+	background: none;
+	border: none;
+	padding: 5px var(--bn-a-s2);
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-2);
+	cursor: pointer;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.bn-setup-step__ack-btn:hover {
+	color: var(--bn-a-text-1);
+}
+
 .bn-setup-step__status {
 	flex-shrink: 0;
 	font-size: var(--bn-a-text-xs);
