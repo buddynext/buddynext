@@ -639,40 +639,36 @@ class Plugin {
 				// BuddyX is a theme bridge, not a togglable feature — always wire it.
 				( new BuddyXBridge() )->init();
 
-				// Each integration bridge is gated on its Platform → Features toggle
-				// (default-on; the bridge still self-guards via class_exists when the
-				// partner plugin is absent), so turning a bridge off actually
-				// disables it. CareerBoardBridge lives in Pro and gates itself on
-				// the 'career_board' feature on this same seam.
+				// Integration bridges are wired unconditionally; each self-guards via
+				// class_exists/function_exists when its partner plugin is absent, and
+				// its surfaces gate on the per-aspect Integrations toggle
+				// (buddynext_integration_enabled). That per-aspect toggle is the SINGLE
+				// source of truth for turning an integration on/off — there is no
+				// separate Features-tab master switch for bridges (Free and Pro gate
+				// identically). CareerBoardBridge follows the same rule in Pro.
 				$wpmediaverse = new WPMediaVerseBridge();
 
-				// The DM safety gates are not part of that toggle, because the surface
-				// they guard is not either. BuddyNext's own /messages/ hub reaches the
-				// engine through MessagesData -> MediaClient -> the engine's container,
-				// never through this bridge, so DM stays live on the Features toggle's
-				// off setting. Wiring the gates behind it disabled the checks and not
-				// the messaging: bn_blocks and DM-privacy stopped applying while members
-				// kept sending. Register them whenever the engine is present; the owner's
-				// real DM switch is Settings -> General -> Direct Messaging.
+				// The DM safety gates are wired whenever the engine is present, never
+				// behind an integration toggle: BuddyNext's own /messages/ hub reaches
+				// the engine through MessagesData -> MediaClient -> the engine's
+				// container, never through this bridge, so gating the checks would
+				// disable bn_blocks and DM-privacy while members kept sending. The
+				// owner's real DM switch is Settings -> General -> Direct Messaging.
 				$wpmediaverse->init_dm_gates();
 
-				if ( buddynext_feature_enabled( 'wpmediaverse' ) ) {
-					$wpmediaverse->init();
-				}
-				if ( buddynext_feature_enabled( 'gamification' ) ) {
-					( new GamificationBridge() )->init();
-					( new GamificationBridgeListener() )->register();
-					// Gamification's Achievements profile tab (badge grid + standing).
-					( new \BuddyNext\Profile\GamificationAchievements() )->register();
-					// Gamification's Points tab (recent ledger + how-to-earn guide).
-					( new \BuddyNext\Profile\GamificationPoints() )->register();
-					// Gamification's Kudos tab (peer recognition: give + received).
-					( new \BuddyNext\Profile\GamificationKudos() )->register();
-				}
-				if ( buddynext_feature_enabled( 'jetonomy' ) ) {
-					( new JetonomyBridge() )->init();
-					( new JetonomyBridgeListener() )->register();
-				}
+				$wpmediaverse->init();
+
+				( new GamificationBridge() )->init();
+				( new GamificationBridgeListener() )->register();
+				// Gamification's Achievements profile tab (badge grid + standing).
+				( new \BuddyNext\Profile\GamificationAchievements() )->register();
+				// Gamification's Points tab (recent ledger + how-to-earn guide).
+				( new \BuddyNext\Profile\GamificationPoints() )->register();
+				// Gamification's Kudos tab (peer recognition: give + received).
+				( new \BuddyNext\Profile\GamificationKudos() )->register();
+
+				( new JetonomyBridge() )->init();
+				( new JetonomyBridgeListener() )->register();
 			}
 		);
 

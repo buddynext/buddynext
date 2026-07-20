@@ -216,6 +216,45 @@ Bridges/JetonomyBridgeListener.php  class JetonomyBridgeListener  ← hook regis
 
 Never name a bridge adapter `class Jetonomy` — it reads like the external plugin class.
 
+### Bridge Contract (every integration bridge is born uniform)
+
+The full audit + consistency matrix lives in
+`buddynext-pro/docs/plans/bridge-uniformity-audit.md`. A "content" bridge (one
+that surfaces partner content into the community) MUST:
+
+1. **Register + self-guard.** `XxxBridge::init()` wired on `buddynext_load_bridges`;
+   bail at hook time when the partner's real bootstrap symbol is absent
+   (`class_exists` / `defined` / `function_exists`).
+2. **Gate on the Integrations toggle — the single source of truth.** Check
+   `buddynext_integration_enabled('<key>', '<aspect>')` before EACH surface
+   (`nav` / `feed` / `search`) and declare a `buddynext_integrations` entry.
+   Default-on. **There is no separate Features-tab master switch for bridges** —
+   the per-aspect Integrations toggle is the only gate (Free and Pro identical).
+3. **Feed: publish a TYPED card.** `IntegrationActivity::publish(..., $type, ...)`
+   with a real `PostService::ALLOWED_TYPES` value (never the default `'link'`) so
+   Explore/feed can classify it. Render it through the
+   `buddynext_render_post_body_{type}` seam by calling the shared
+   `IntegrationActivity::render_bridge_card( $args, $icon, $label )` — one uniform
+   card (icon + source label + linked title) for every integration. Pass the SAME
+   `$type` to `IntegrationActivity::remove()` on delete, or the card orphans.
+4. **Notifications: collect-only.** Route partner-sourced notifications through
+   `SuiteNotifications` (Pro) or the Free listener, ALWAYS `can_email=false` + a
+   prefs-catalogue entry + integration-toggle gated + block-aware. **BN never
+   emails on a partner's behalf** — the integration owns its own email templates;
+   BN's center is a collective display so members see everything in one place
+   without double emails. (Exception, documented: WPMediaVerse DM/favorite types
+   are BN-native — BN owns those and their email.)
+5. **Profile presence.** Portfolio-ish content (jobs / listings / courses) → a
+   `SuiteProfile` **panel** under the shared Portfolio tab. High-traffic social
+   surfaces (Discussions, Achievements) → a top-level profile tab. Events keeps
+   its own top-level tab (documented current placement).
+6. **One uniform look — shared tokens only.** Every BN-added bridge surface uses
+   the shared BN theme tokens (the `.bn-post-card__bridge-card` accent stripe is
+   `--bn-accent`). No per-integration accent colour (the existing `--bn-jetonomy`
+   / `--bn-media` / `--bn-events` are frozen — add no more).
+7. **Reference, not embed.** Link OUT to the partner's configured page; the bridge
+   owns all partner-table access; additive to the partner's own UI.
+
 ### Tests Mirror Source
 
 ```

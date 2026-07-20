@@ -272,21 +272,25 @@ class AppConfigControllerTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * A bridge whose plugin is absent must report false.
+	 * Integration bridges are NOT reported in the features payload.
 	 *
-	 * This is what stops the app mounting a module against routes that do not
-	 * exist. career_board's guard is defined('WCB_VERSION'), which no test site
-	 * defines.
+	 * Bridges gate on the Integrations toggle, not the Features tab, so they are
+	 * not FeatureRegistry entries and never appear in /app/config features. (The
+	 * app detects a bridge by its own Integrations config / routes, not a feature
+	 * flag.)
 	 *
 	 * @return void
 	 */
-	public function test_absent_partner_plugin_reports_its_feature_off(): void {
+	public function test_bridges_are_not_in_the_features_payload(): void {
 		$features = $this->get_config()['features'];
 
-		$this->assertFalse(
-			$features['career_board'],
-			'A bridge feature must report false when its plugin is not installed, or the app mounts a dead module.'
-		);
+		foreach ( array( 'career_board', 'jetonomy', 'gamification', 'wpmediaverse' ) as $bridge ) {
+			$this->assertArrayNotHasKey(
+				$bridge,
+				$features,
+				"{$bridge} is a bridge, not a feature — it must not appear in the features payload."
+			);
+		}
 	}
 
 	/**
