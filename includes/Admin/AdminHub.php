@@ -981,7 +981,7 @@ class AdminHub {
 			global $submenu;
 			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- appending a deep-link entry, not overriding core state.
 			$submenu[ self::TOP_SLUG ][] = array(
-				esc_html__( 'Integrations', 'buddynext' ),
+				esc_html__( 'Add-ons', 'buddynext' ),
 				'manage_options',
 				esc_url( self::tab_url( $bn_int_section, 'integrations' ) ),
 			);

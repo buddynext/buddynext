@@ -93,7 +93,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			'notifications' => __( 'Notifications', 'buddynext' ),
 			'email'         => __( 'Email', 'buddynext' ),
 			'moderation'    => __( 'Controls', 'buddynext' ),
-			'integrations'  => __( 'Integrations', 'buddynext' ),
+			'integrations'  => __( 'Add-ons', 'buddynext' ),
 			'privacy'       => __( 'Privacy & Data', 'buddynext' ),
 			'webhooks'      => __( 'Webhooks', 'buddynext' ),
 		);
@@ -2072,7 +2072,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			'notifications' => __( 'Notifications', 'buddynext' ),
 			'email'         => __( 'Email', 'buddynext' ),
 			'moderation'    => __( 'Moderation', 'buddynext' ),
-			'integrations'  => __( 'Integrations', 'buddynext' ),
+			'integrations'  => __( 'Add-ons', 'buddynext' ),
 			'privacy'       => __( 'Privacy & Data', 'buddynext' ),
 			'webhooks'      => __( 'Webhooks', 'buddynext' ),
 		);
@@ -2173,7 +2173,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		printf(
 			/* translators: %s: link to the Integration Display tab. */
 			esc_html__( 'Turn integrations on or off here; control where they appear under %s.', 'buddynext' ),
-			'<a href="' . esc_url( AdminHub::tab_url( 'settings', 'integration-controls' ) ) . '">' . esc_html__( 'Integration Display', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
+			'<a href="' . esc_url( AdminHub::tab_url( 'settings', 'integration-controls' ) ) . '">' . esc_html__( 'Integration Settings', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
 		);
 		echo '</p>';
 
