@@ -197,7 +197,7 @@ if ( ! empty( $bn_pinned_posts ) ) :
 	// strip was a dead end — a pinned post was pulled out of the feed (so its
 	// normal card, which carries the kebab Unpin, never rendered) and the compact
 	// card had no controls, leaving no way to unpin from the UI.
-	$bn_pin_viewer   = get_current_user_id();
+	$bn_pin_viewer = get_current_user_id();
 
 	/**
 	 * Render one pinned post - as a REAL post card.

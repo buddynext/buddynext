@@ -74,17 +74,21 @@ fi
 # 2. WPCS
 section "WPCS (WordPress standard)"
 if [ -x vendor/bin/phpcs ]; then
+	# No --standard: let phpcs auto-discover the ruleset (a local phpcs.xml if one
+	# exists, otherwise the committed phpcs.xml.dist). Pinning --standard=phpcs.xml
+	# broke the moment the tracked phpcs.xml was removed, and before that it forced
+	# the local-override name even on clones that only had the .dist.
 	if [ "$STAGED" = 1 ]; then
 		if [ -n "$PHP_FILES" ]; then
 			# shellcheck disable=SC2086
-			if vendor/bin/phpcs --standard=phpcs.xml $PHP_FILES; then
+			if vendor/bin/phpcs $PHP_FILES; then
 				ok "staged PHP clean"
 			else
 				fail "staged PHP has WPCS issues"
 			fi
 		fi
 	else
-		if vendor/bin/phpcs --standard=phpcs.xml; then
+		if vendor/bin/phpcs; then
 			ok "all PHP clean"
 		else
 			fail "WPCS violations"

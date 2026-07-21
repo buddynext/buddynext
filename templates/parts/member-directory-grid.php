@@ -107,8 +107,8 @@ $bn_following_map = array();
 $bn_mutual_map    = array();
 $bn_muted_set     = array();
 if ( $bn_viewer_id > 0 && ! empty( $bn_member_ids ) && function_exists( 'buddynext_service' ) ) {
-	$bn_conn_service   = buddynext_service( 'connections' );
-	$bn_status_map     = $bn_conn_service->statuses_for( $bn_viewer_id, $bn_member_ids );
+	$bn_conn_service = buddynext_service( 'connections' );
+	$bn_status_map   = $bn_conn_service->statuses_for( $bn_viewer_id, $bn_member_ids );
 	// Only when the caller has NOT supplied its own mutual map. The directory passes
 	// mutual_ids_fn (see :135, which prefers it), so this ran a full derived-table join over
 	// the viewer's entire peer set on every directory page view and threw the result away.

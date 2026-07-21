@@ -115,7 +115,7 @@ $sum_types   = static function ( array $types ) use ( $type_unread ): int {
 	return $sum;
 };
 
-$total_unread    = array_sum( array_map( 'intval', $type_unread ) );
+$total_unread = array_sum( array_map( 'intval', $type_unread ) );
 // Badge (bell / nav) = UNSEEN, distinct from the Unread TAB count above. By the
 // time this hub renders, the list has been marked seen (PageRouter), so this is
 // 0 here — keeping the mobile badge consistent with every other surface.

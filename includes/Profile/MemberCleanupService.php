@@ -318,7 +318,7 @@ class MemberCleanupService {
 	public function residue( int $user_id ): array {
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- table names and predicates come from the registry above, never from input; the id IS bound via prepare().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- table names and predicates come from the registry above, never from input; the id IS bound via prepare(). Placeholder COUNT is built at runtime (implode of %d, or placeholders living inside the registry-owned $where), so the static counter cannot see it.
 		$out = array();
 		foreach ( self::erase_map() as $table => $spec ) {
 			$where = (string) $spec['where'];
@@ -330,7 +330,7 @@ class MemberCleanupService {
 				)
 			);
 		}
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		// The bn_* usermeta footprint. A no-op on hard delete (core already removed the user's
 		// meta) but the eraser keeps an anonymised user row, so this is real there.
@@ -626,7 +626,7 @@ class MemberCleanupService {
 		$p       = $wpdb->prefix;
 		$removed = false;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		// Decrement member_count for the spaces the member actively belonged to,
 		// BEFORE the membership rows are deleted, so directory totals stay honest.
@@ -811,7 +811,7 @@ class MemberCleanupService {
 				$removed = true;
 			}
 		}
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		return $removed;
 	}
@@ -845,7 +845,7 @@ class MemberCleanupService {
 
 		$post_service = buddynext_service( 'post_service' );
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		$own_post_ids = array_map(
 			'intval',
 			(array) $wpdb->get_col(
@@ -901,7 +901,7 @@ class MemberCleanupService {
 
 		$posts_left    = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$p}bn_posts WHERE user_id = %d", $user_id ) );
 		$comments_left = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$p}bn_comments WHERE user_id = %d", $user_id ) );
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 		return array(
 			'done'    => ( 0 === $posts_left && 0 === $comments_left ),

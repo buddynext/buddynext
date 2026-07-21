@@ -185,8 +185,9 @@ class ModerationQueue {
 			<?php
 			// Preserve the admin page/tab routing params in the GET form.
 			foreach ( array( 'page', 'tab' ) as $bn_keep ) {
-				// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET filter/notice params on an admin screen; every value is sanitized here and escaped at output.
 				$bn_val = isset( $_GET[ $bn_keep ] ) ? sanitize_key( wp_unslash( (string) $_GET[ $bn_keep ] ) ) : '';
+				// phpcs:enable WordPress.Security.NonceVerification.Recommended
 				if ( '' !== $bn_val ) {
 					printf( '<input type="hidden" name="%s" value="%s">', esc_attr( $bn_keep ), esc_attr( $bn_val ) );
 				}
@@ -575,8 +576,9 @@ class ModerationQueue {
 	 * @return void
 	 */
 	public function render_log(): void {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$page     = isset( $_GET['log_page'] ) ? max( 1, absint( wp_unslash( $_GET['log_page'] ) ) ) : 1;
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET filter/notice params on an admin screen; every value is sanitized here and escaped at output.
+		$page = isset( $_GET['log_page'] ) ? max( 1, absint( wp_unslash( $_GET['log_page'] ) ) ) : 1;
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 		$per_page = 30;
 		$result   = ( new \BuddyNext\Moderation\ModerationLogService() )->get_log(
 			array(
@@ -1010,17 +1012,16 @@ class ModerationQueue {
 	 * @return void
 	 */
 	private function maybe_notice(): void {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET filter/notice params on an admin screen; every value is sanitized here and escaped at output.
 		if ( ! empty( $_GET['bn_done'] ) ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Done.', 'buddynext' ) . '</p></div>';
 		}
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( ! empty( $_GET['bn_error'] ) ) {
-			// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			$bn_err = sanitize_text_field( wp_unslash( (string) $_GET['bn_error'] ) );
 			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( $bn_err ) . '</p></div>';
 		}
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 	}
 
 	/**
@@ -1029,8 +1030,9 @@ class ModerationQueue {
 	 * @return string
 	 */
 	private function current_tab(): string {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only GET filter/notice params on an admin screen; every value is sanitized here and escaped at output.
 		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( (string) $_GET['tab'] ) ) : 'reports';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 		return in_array( $tab, array( 'pending', 'reports', 'suspensions', 'appeals', 'log' ), true ) ? $tab : 'reports';
 	}
 

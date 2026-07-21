@@ -65,3 +65,8 @@ test-results/
 /docs/*
 !/docs/website/
 !/docs/api/
+
+# PHPCS local override. The committed ruleset is phpcs.xml.dist; a tracked
+# phpcs.xml silently wins over it (PHPCS prefers the non-.dist name), which is
+# exactly how the .dist config sat dead in this repo. Keep local overrides here.
+phpcs.xml

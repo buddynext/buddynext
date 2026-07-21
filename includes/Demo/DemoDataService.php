@@ -1024,7 +1024,7 @@ class DemoDataService {
 	 * re-running tops up to $target rather than duplicating.
 	 *
 	 * @param int           $target Total scale members to ensure exist (1..5000).
-	 * @param callable|null  $log   Optional progress callback( string $message ).
+	 * @param callable|null $log   Optional progress callback( string $message ).
 	 * @return array<string,int> Counts created.
 	 */
 	public function scale( int $target, ?callable $log = null ): array {
@@ -1060,7 +1060,7 @@ class DemoDataService {
 				)
 			);
 			if ( $uid > 0 ) {
-				$ids[]    = $uid;
+				$ids[] = $uid;
 				++$created;
 				if ( 0 === $created % 100 ) {
 					$say( sprintf( '  … %d members created', $created ) );
@@ -1075,7 +1075,7 @@ class DemoDataService {
 		$say( sprintf( 'Members: %d (new: %d)', $count, $created ) );
 
 		// 2) Clustered follow graph (ring neighbours + two cross-links) so the
-		//    friends-of-friends signal has second-degree overlap to work with.
+		// friends-of-friends signal has second-degree overlap to work with.
 		$follow_edges = 0;
 		foreach ( $ids as $i => $uid ) {
 			$targets = array(
@@ -1094,7 +1094,7 @@ class DemoDataService {
 		$say( sprintf( 'Follows: %d edges', $follow_edges ) );
 
 		// 3) Connections — accepted (for the connections list) + pending (for the
-		//    request inbox). send_request() returns true on a fresh pending row.
+		// request inbox). send_request() returns true on a fresh pending row.
 		$accepted = 0;
 		$pending  = 0;
 		foreach ( $ids as $i => $uid ) {
@@ -1124,8 +1124,8 @@ class DemoDataService {
 				}
 			}
 		}
-		$manifest   = get_option( self::MANIFEST_OPTION, array() );
-		$space_ids  = is_array( $manifest ) ? array_map( 'absint', (array) ( $manifest['spaces'] ?? array() ) ) : array();
+		$manifest    = get_option( self::MANIFEST_OPTION, array() );
+		$space_ids   = is_array( $manifest ) ? array_map( 'absint', (array) ( $manifest['spaces'] ?? array() ) ) : array();
 		$space_joins = 0;
 		if ( $space_ids && is_object( $space_members ) && method_exists( $space_members, 'join' ) ) {
 			foreach ( $ids as $i => $uid ) {
@@ -1138,9 +1138,9 @@ class DemoDataService {
 		$say( sprintf( 'Member types: %d assigned. Space joins: %d.', $typed, $space_joins ) );
 
 		// 5) A light scatter of posts so the feed is not empty.
-		$posts        = new PostService();
+		$posts         = new PostService();
 		$created_posts = array();
-		$snippets     = array( 'Just joined — excited to be here!', 'Anyone else testing at scale today?', 'Sharing a quick note with the community.', 'Loving the new activity feed.', 'What is everyone working on this week?' );
+		$snippets      = array( 'Just joined — excited to be here!', 'Anyone else testing at scale today?', 'Sharing a quick note with the community.', 'Loving the new activity feed.', 'What is everyone working on this week?' );
 		foreach ( $ids as $i => $uid ) {
 			if ( 0 !== $i % 4 ) {
 				continue;
@@ -1171,7 +1171,7 @@ class DemoDataService {
 		update_option( self::MANIFEST_OPTION, $manifest, false );
 
 		// 6) Bust the per-viewer suggestion caches + object cache so the fresh
-		//    graph is reflected immediately.
+		// graph is reflected immediately.
 		if ( is_object( $follows ) && method_exists( $follows, 'flush_suggestions_for' ) ) {
 			foreach ( $ids as $uid ) {
 				$follows->flush_suggestions_for( (int) $uid );

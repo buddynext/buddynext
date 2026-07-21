@@ -72,10 +72,10 @@ $bn_require_join_approval = ! empty( $bn_settings['require_join_approval'] );
  * Asked of the registry rather than compared against 'open', so a custom type that registers with
  * join => 'direct' gets the toggle too, and one that does not, does not.
  */
-$bn_join_method      = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) ( $bn_space->type ?? 'open' ) );
-$bn_approval_is_live = 'direct' === $bn_join_method;
-$bn_auto_join_on_signup   = ! empty( $bn_settings['auto_join_on_signup'] );
-$bn_auto_join_types       = isset( $bn_settings['auto_join_member_types'] ) ? (array) $bn_settings['auto_join_member_types'] : array();
+$bn_join_method         = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) ( $bn_space->type ?? 'open' ) );
+$bn_approval_is_live    = 'direct' === $bn_join_method;
+$bn_auto_join_on_signup = ! empty( $bn_settings['auto_join_on_signup'] );
+$bn_auto_join_types     = isset( $bn_settings['auto_join_member_types'] ) ? (array) $bn_settings['auto_join_member_types'] : array();
 // Member types are resolved here (settings render only), never in the always-on
 // field registration. Empty list = the filter UI is hidden (nothing to limit by).
 $bn_member_types = buddynext_service( 'member_types' )->get_all();

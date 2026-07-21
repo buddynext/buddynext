@@ -938,7 +938,7 @@ class CommentService {
 			// Ask for one more than we can keep, so an overflow is detectable rather than assumed.
 			$params = array_merge( array( $type, $object_id ), $frontier, array( $remaining + 1 ) );
 
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 			$level_rows = (array) $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT id, user_id, object_type, object_id, parent_id, content, created_at, updated_at, is_deleted, is_edited
@@ -951,7 +951,7 @@ class CommentService {
 				),
 				ARRAY_A
 			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 			if ( empty( $level_rows ) ) {
 				return $rows;

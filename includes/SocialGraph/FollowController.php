@@ -382,8 +382,8 @@ class FollowController extends BaseRestController {
 			)
 		);
 
-		$ids  = $this->filter_blocked( $following, $viewer_id );
-		$body = array(
+		$ids      = $this->filter_blocked( $following, $viewer_id );
+		$body     = array(
 			'total'    => $service->following_count( $user_id ),
 			'page'     => $page,
 			'per_page' => $per_page,

@@ -14,7 +14,13 @@
 
 defined( 'ABSPATH' ) || exit;
 
-$status  = ( isset( $status ) && is_array( $status ) ) ? $status : array();
+// $status is the template variable documented above, NOT the WordPress global of
+// the same name. TemplateLoader::render() includes this file inside a method, so
+// these assignments are function-scoped and cannot reach the global. The sniff
+// assumes the classic-theme model where a template is included in global scope.
+// phpcs:disable WordPress.WP.GlobalVariablesOverride.Prohibited -- function-scoped template variable; see above.
+$status = ( isset( $status ) && is_array( $status ) ) ? $status : array();
+// phpcs:enable WordPress.WP.GlobalVariablesOverride.Prohibited
 $is_self = ! empty( $is_self );
 
 $strikes      = (int) ( $status['strikes'] ?? 0 );

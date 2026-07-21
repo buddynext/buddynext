@@ -91,9 +91,9 @@ $bn_class   = trim(
 	)
 );
 
-$bn_member        = $args['member'];
-$bn_member_id     = (int) $bn_member->ID;
-$bn_display_name  = (string) $bn_member->display_name;
+$bn_member       = $args['member'];
+$bn_member_id    = (int) $bn_member->ID;
+$bn_display_name = (string) $bn_member->display_name;
 // Public @handle: bn_profile_slug ?: user_nicename. NEVER user_login (a credential).
 $bn_member_handle = \BuddyNext\Core\PageRouter::member_handle( $bn_member_id );
 $bn_viewer_id     = (int) $args['viewer_id'];
