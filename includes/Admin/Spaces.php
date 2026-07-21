@@ -107,10 +107,20 @@ class Spaces extends AdminPageBase {
 		);
 		wp_set_script_translations( 'bn-admin-bulk-select', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
+		// Shared row "more" (kebab) dropdown wiring for the directory table's
+		// overflow cluster (same component the Members list uses).
+		wp_enqueue_script(
+			'bn-admin-more-menu',
+			$plugin_url . 'assets/js/admin/more-menu.js',
+			array(),
+			$version,
+			true
+		);
+
 		wp_enqueue_script(
 			'bn-admin-spaces',
 			$plugin_url . 'assets/js/admin/spaces.js',
-			array( 'wp-i18n' ),
+			array( 'wp-i18n', 'bn-admin-more-menu' ),
 			$version,
 			true
 		);
@@ -456,35 +466,47 @@ class Spaces extends AdminPageBase {
 												<?php esc_html_e( 'Manage', 'buddynext' ); ?>
 											</a>
 											<?php
-											// Archive retires a live space (destructive-adjacent, so it wears the
-											// solid danger style like Delete); Unarchive restores one, so it stays
-											// a plain secondary action.
+											// Archive/Unarchive + Delete live in the shared kebab overflow
+											// (same .bn-more-menu component as the Members list) so the row
+											// keeps two inline buttons and never stacks - and only ONE
+											// destructive control (Delete) wears the danger style.
 											$bn_space_archived = ! empty( $space['is_archived'] );
 											?>
-											<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-row-actions__form">
-												<?php wp_nonce_field( 'bn_archive_space' ); ?>
-												<input type="hidden" name="action" value="bn_archive_space">
-												<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
-												<input type="hidden" name="archive" value="<?php echo $bn_space_archived ? '0' : '1'; ?>">
-												<button type="submit" class="bn-btn" data-variant="<?php echo $bn_space_archived ? 'secondary' : 'danger'; ?>" data-size="sm">
-													<?php echo $bn_space_archived ? esc_html__( 'Unarchive', 'buddynext' ) : esc_html__( 'Archive', 'buddynext' ); ?>
+											<div class="bn-more-menu" data-space-id="<?php echo absint( $space['id'] ); ?>">
+												<button type="button" class="bn-more-btn" aria-haspopup="menu" aria-label="
+												<?php
+													/* translators: %s: space name */
+													echo esc_attr( sprintf( __( 'More actions for %s', 'buddynext' ), (string) $space['name'] ) );
+												?>
+												">
+													<?php echo \BuddyNext\Core\IconService::render( 'more-horizontal' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService returns kses-safe SVG. ?>
 												</button>
-											</form>
-											<form method="post"
-													action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
-													class="bn-row-actions__form bn-delete-space-form">
-												<?php wp_nonce_field( 'bn_delete_space' ); ?>
-												<input type="hidden" name="action" value="bn_delete_space">
-												<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
-												<button type="submit"
-														class="bn-btn"
-														data-variant="danger"
-														data-size="sm"
-														data-bn-delete-space-trigger
-														data-space-name="<?php echo esc_attr( (string) $space['name'] ); ?>">
-													<?php esc_html_e( 'Delete', 'buddynext' ); ?>
-												</button>
-											</form>
+												<div class="bn-more-dropdown" role="menu">
+													<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+														<?php wp_nonce_field( 'bn_archive_space' ); ?>
+														<input type="hidden" name="action" value="bn_archive_space">
+														<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
+														<input type="hidden" name="archive" value="<?php echo $bn_space_archived ? '0' : '1'; ?>">
+														<button type="submit" class="bn-dropdown-item" role="menuitem">
+															<?php echo $bn_space_archived ? esc_html__( 'Unarchive', 'buddynext' ) : esc_html__( 'Archive', 'buddynext' ); ?>
+														</button>
+													</form>
+													<form method="post"
+															action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+															class="bn-delete-space-form">
+														<?php wp_nonce_field( 'bn_delete_space' ); ?>
+														<input type="hidden" name="action" value="bn_delete_space">
+														<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
+														<button type="submit"
+																class="bn-dropdown-item bn-dropdown-danger"
+																role="menuitem"
+																data-bn-delete-space-trigger
+																data-space-name="<?php echo esc_attr( (string) $space['name'] ); ?>">
+															<?php esc_html_e( 'Delete', 'buddynext' ); ?>
+														</button>
+													</form>
+												</div>
+											</div>
 										</div>
 									</td>
 								</tr>

@@ -348,7 +348,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 		);
 		$this->open_section( __( 'Free vs Pro', 'buddynext' ) );
 		?>
-		<table class="bn-table widefat striped">
+		<table class="bn-table widefat">
 			<thead>
 				<tr>
 					<th scope="col"><?php esc_html_e( 'Feature', 'buddynext' ); ?></th>
@@ -3048,7 +3048,7 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				?>
 			</p>
 
-			<table class="bn-table widefat striped" data-bn-webhook-table>
+			<table class="bn-table widefat" data-bn-webhook-table>
 				<thead>
 					<tr>
 						<th scope="col"><?php esc_html_e( 'Endpoint', 'buddynext' ); ?></th>

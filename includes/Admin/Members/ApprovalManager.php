@@ -226,7 +226,7 @@ class ApprovalManager {
 			<?php if ( empty( $pending ) ) : ?>
 				<p><?php esc_html_e( 'No members awaiting approval.', 'buddynext' ); ?></p>
 			<?php else : ?>
-				<table class="wp-list-table widefat fixed striped">
+				<table class="wp-list-table widefat fixed">
 					<thead>
 						<tr>
 							<th><?php esc_html_e( 'Member', 'buddynext' ); ?></th>

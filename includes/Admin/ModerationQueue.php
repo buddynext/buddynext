@@ -120,7 +120,7 @@ class ModerationQueue {
 					);
 					?>
 				<?php else : ?>
-				<table class="widefat striped">
+				<table class="widefat">
 					<thead>
 						<tr>
 							<th><?php esc_html_e( 'Reported content', 'buddynext' ); ?></th>
@@ -272,7 +272,7 @@ class ModerationQueue {
 					);
 					?>
 				<?php else : ?>
-				<table class="widefat striped">
+				<table class="widefat">
 					<thead>
 						<tr>
 							<th><?php esc_html_e( 'Post', 'buddynext' ); ?></th>
@@ -472,7 +472,7 @@ class ModerationQueue {
 					);
 					?>
 				<?php else : ?>
-				<table class="widefat striped">
+				<table class="widefat">
 					<thead>
 						<tr>
 							<th><?php esc_html_e( 'Member', 'buddynext' ); ?></th>
@@ -534,7 +534,7 @@ class ModerationQueue {
 					);
 					?>
 				<?php else : ?>
-				<table class="widefat striped">
+				<table class="widefat">
 					<thead>
 						<tr>
 							<th><?php esc_html_e( 'Member', 'buddynext' ); ?></th>
@@ -599,7 +599,7 @@ class ModerationQueue {
 						<p class="bn-empty__title"><?php esc_html_e( 'No moderator actions have been recorded yet', 'buddynext' ); ?></p>
 					</div>
 				<?php else : ?>
-				<table class="widefat striped">
+				<table class="widefat">
 					<thead>
 						<tr>
 							<th><?php esc_html_e( 'When', 'buddynext' ); ?></th>
@@ -826,7 +826,7 @@ class ModerationQueue {
 		?>
 		<div class="bn-mod-preview" aria-hidden="true">
 			<span class="bn-mod-preview__badge"><?php esc_html_e( 'Sample preview — example only, not real data. This is how the tab looks once there is activity.', 'buddynext' ); ?></span>
-			<table class="widefat striped bn-mod-preview__table">
+			<table class="widefat bn-mod-preview__table">
 				<thead>
 					<tr>
 						<?php foreach ( $columns as $col ) : ?>

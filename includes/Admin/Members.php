@@ -85,10 +85,20 @@ class Members extends AdminPageBase {
 		);
 		wp_set_script_translations( 'bn-admin-bulk-select', 'buddynext', BUDDYNEXT_DIR . 'languages' );
 
+		// Shared row "more" (kebab) dropdown wiring, reused by every admin list
+		// page that renders a .bn-more-menu overflow cluster (Members, Spaces).
+		wp_enqueue_script(
+			'bn-admin-more-menu',
+			$plugin_url . 'assets/js/admin/more-menu.js',
+			array(),
+			$version,
+			true
+		);
+
 		wp_enqueue_script(
 			'bn-admin-members',
 			$plugin_url . 'assets/js/admin/members.js',
-			array( 'wp-i18n' ),
+			array( 'wp-i18n', 'bn-admin-more-menu' ),
 			$version,
 			true
 		);

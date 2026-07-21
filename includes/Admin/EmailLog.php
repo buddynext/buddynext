@@ -170,7 +170,7 @@ class EmailLog {
 						<p class="bn-empty__title"><?php esc_html_e( 'No sent email recorded for this filter yet', 'buddynext' ); ?></p>
 					</div>
 				<?php else : ?>
-					<table class="widefat striped">
+					<table class="widefat">
 						<thead>
 							<tr>
 								<th><?php esc_html_e( 'Recipient', 'buddynext' ); ?></th>

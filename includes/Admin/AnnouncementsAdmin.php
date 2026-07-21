@@ -106,7 +106,7 @@ class AnnouncementsAdmin {
 					<p class="bn-empty__sub"><?php esc_html_e( 'Post one from the feed composer (choose the Announcement type) and it will appear here.', 'buddynext' ); ?></p>
 				</div>
 			<?php else : ?>
-				<table class="widefat striped bn-announcements-table">
+				<table class="widefat bn-announcements-table">
 					<thead>
 						<tr>
 							<th scope="col"><?php esc_html_e( 'Announcement', 'buddynext' ); ?></th>

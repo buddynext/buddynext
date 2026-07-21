@@ -963,6 +963,18 @@ table.bn-table tr:hover td {
 	background: var(--bn-a-bg-hover);
 }
 
+/* A wrap-enabled flex cluster reports a tiny min-content width, so the auto
+   table layout starves the pinned column and the buttons stack one-per-line
+   (Spaces: 3 controls got a 114px cell). Inside a STICKY actions cell the
+   cluster must not wrap - nowrap + max-content makes the column size to the
+   full control row, and the sticky pin keeps it visible while data scrolls. */
+.bn-table-wrap__scroll .bn-table td:last-child .bn-row-actions,
+.bn-table-scroll table td:last-child .bn-row-actions {
+	flex-wrap: nowrap;
+	width: max-content;
+	margin-inline-start: auto;
+}
+
 .bn-table-scroll table th:last-child,
 .bn-table-scroll table td:last-child {
 	position: sticky;
@@ -1059,6 +1071,10 @@ table.bn-table tr:hover td {
 .bn-segment--wrap {
 	flex-wrap: wrap;
 	max-width: 100%;
+	/* The base .bn-segment pill radius (--bn-r-full) reads as an odd oval once
+	   the chips wrap onto several lines - a tall wrapped box gets a normal
+	   rounded-rect radius instead. */
+	border-radius: var(--bn-r-lg, 12px);
 }
 
 /* --------------------------------------------------------------------------

@@ -2,7 +2,7 @@
  * BuddyNext admin Members page interactions.
  *
  * Wires up:
- *   - Row "more" dropdown toggle on the Members list table.
+ *   - (Row "more" dropdown wiring lives in the shared more-menu.js.)
  *   - Confirm-modal flow for destructive row actions (suspend).
  *   - Edit-member tab switcher with sessionStorage persistence.
  *   - Repeater group add / remove / renumber on the member edit form.
@@ -16,85 +16,6 @@
 
 	var i18n = ( window.wp && window.wp.i18n ) || {};
 	var __ = i18n.__ || function ( s ) { return s; };
-
-	// ── List page: row dropdown menu ─────────────────────────────────────
-	function closeAllRowMenus() {
-		document.querySelectorAll( '.bn-more-menu.open' ).forEach( function ( open ) {
-			open.classList.remove( 'open' );
-		} );
-	}
-
-	// The dropdown is position:fixed so it escapes the overflow:hidden on the
-	// rounded card/table ancestors (which clipped the bottom rows). Place it
-	// under the trigger, right-aligned, flipping above when it would overflow
-	// the viewport bottom.
-	function positionRowMenu( menu ) {
-		var btn = menu.querySelector( '.bn-more-btn' );
-		var dd  = menu.querySelector( '.bn-more-dropdown' );
-		if ( ! btn || ! dd ) {
-			return;
-		}
-		var gap    = 4;
-		var margin = 8;
-		var br     = btn.getBoundingClientRect();
-		var ddRect = dd.getBoundingClientRect();
-
-		var left = br.right - ddRect.width;
-		if ( left < margin ) {
-			left = margin;
-		}
-		if ( left + ddRect.width > window.innerWidth - margin ) {
-			left = window.innerWidth - margin - ddRect.width;
-		}
-
-		var top = br.bottom + gap;
-		if ( top + ddRect.height > window.innerHeight - margin ) {
-			var above = br.top - gap - ddRect.height;
-			top = above >= margin ? above : Math.max( margin, window.innerHeight - margin - ddRect.height );
-		}
-
-		dd.style.left = Math.round( left ) + 'px';
-		dd.style.top  = Math.round( top ) + 'px';
-	}
-
-	function initRowMenus() {
-		var triggers = document.querySelectorAll( '.bn-more-btn' );
-		if ( ! triggers.length ) {
-			return;
-		}
-
-		triggers.forEach( function ( btn ) {
-			btn.addEventListener( 'click', function ( e ) {
-				e.stopPropagation();
-				var menu = btn.closest( '.bn-more-menu' );
-				if ( ! menu ) {
-					return;
-				}
-				document.querySelectorAll( '.bn-more-menu.open' ).forEach( function ( open ) {
-					if ( open !== menu ) {
-						open.classList.remove( 'open' );
-					}
-				} );
-				menu.classList.toggle( 'open' );
-				if ( menu.classList.contains( 'open' ) ) {
-					positionRowMenu( menu );
-				}
-			} );
-		} );
-
-		document.addEventListener( 'click', closeAllRowMenus );
-
-		document.addEventListener( 'keydown', function ( e ) {
-			if ( 'Escape' === e.key ) {
-				closeAllRowMenus();
-			}
-		} );
-
-		// A fixed menu can't follow the page as it scrolls, so close it on any
-		// scroll (capture: catch scrolling containers too) or resize.
-		window.addEventListener( 'scroll', closeAllRowMenus, true );
-		window.addEventListener( 'resize', closeAllRowMenus );
-	}
 
 	// ── Destructive confirm modal (replaces native confirm()) ────────────
 	function initConfirmModal() {
@@ -426,7 +347,6 @@
 	}
 
 	ready( function () {
-		initRowMenus();
 		initConfirmModal();
 		initEditTabs();
 		initRepeaters();
