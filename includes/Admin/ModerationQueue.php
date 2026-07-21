@@ -610,7 +610,9 @@ class ModerationQueue {
 			</div>
 			<div class="bn-ss-body">
 				<?php if ( empty( $items ) ) : ?>
-					<p><?php esc_html_e( 'No moderator actions have been recorded yet.', 'buddynext' ); ?></p>
+					<div class="bn-empty">
+						<p class="bn-empty__title"><?php esc_html_e( 'No moderator actions have been recorded yet', 'buddynext' ); ?></p>
+					</div>
 				<?php else : ?>
 				<table class="widefat striped">
 					<thead>

@@ -119,14 +119,8 @@ class NavManager extends AdminPageBase {
 		add_action( 'admin_post_bn_save_nav', array( $this, 'handle_save_nav' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 
-		// Primary action lives in the standardized AdminHub sub-header. The button
-		// sits outside #bn-nav-form, so it carries the HTML5 `form` attribute to
-		// still submit that form.
-		$save_action = sprintf(
-			'<button type="submit" form="bn-nav-form" class="bn-btn" data-variant="primary" data-size="md">%s</button>',
-			esc_html__( 'Save Changes', 'buddynext' )
-		);
-
+		// S6: this form saves via the standard bottom .bn-save-bar (rendered at
+		// the end of #bn-nav-form), not a per-tab header button.
 		AdminHub::register_tab(
 			'settings',
 			'navigation',
@@ -136,7 +130,6 @@ class NavManager extends AdminPageBase {
 				'group'    => __( 'Advanced', 'buddynext' ),
 				'layout'   => 'wide', // List-detail editor needs edge-to-edge room.
 				'subtitle' => $this->get_subtitle(),
-				'action'   => $save_action,
 			)
 		);
 
@@ -1103,6 +1096,8 @@ class NavManager extends AdminPageBase {
 				</div>
 
 			</div><!-- /.bn-three-panel -->
+
+			<?php $this->render_save_bar(); ?>
 
 		</form>
 		<?php

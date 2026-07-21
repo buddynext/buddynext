@@ -356,7 +356,10 @@ class Spaces extends AdminPageBase {
 						<?php if ( empty( $spaces ) ) : ?>
 							<tr>
 								<td colspan="8">
-									<p class="description"><?php esc_html_e( 'No spaces found.', 'buddynext' ); ?></p>
+									<div class="bn-empty">
+										<p class="bn-empty__title"><?php esc_html_e( 'No spaces found', 'buddynext' ); ?></p>
+										<p class="bn-empty__sub"><?php esc_html_e( 'Try a different search or type filter.', 'buddynext' ); ?></p>
+									</div>
 								</td>
 							</tr>
 						<?php else : ?>
@@ -364,10 +367,15 @@ class Spaces extends AdminPageBase {
 								<?php
 								// created_at is stored in UTC; convert to the site timezone
 								// for display (mysql2date would print the raw UTC value).
-								$owner    = get_userdata( $space['owner_id'] );
-								$created  = get_date_from_gmt( (string) $space['created_at'], (string) get_option( 'date_format' ) );
-								$type_key = sanitize_key( (string) $space['type'] );
-								$tone     = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->tone( $type_key );
+								$owner   = get_userdata( $space['owner_id'] );
+								$created = get_date_from_gmt( (string) $space['created_at'], (string) get_option( 'date_format' ) );
+								// Unknown/empty type values fall back to the registry's
+								// 'open' definition, so tone AND label stay consistent -
+								// never a coloured pill with no text (B4).
+								$type_key      = sanitize_key( (string) $space['type'] );
+								$bn_type_reg   = \BuddyNext\Spaces\SpaceTypeRegistry::instance();
+								$tone          = $bn_type_reg->tone( $type_key );
+								$bn_type_label = $bn_type_reg->label( $type_key );
 								?>
 								<tr>
 									<td class="bn-table__cb" data-align="center">
@@ -412,7 +420,7 @@ class Spaces extends AdminPageBase {
 									</td>
 									<td>
 										<span class="bn-badge" data-tone="<?php echo esc_attr( $tone ); ?>">
-											<?php echo esc_html( ucfirst( $type_key ) ); ?>
+											<?php echo esc_html( $bn_type_label ); ?>
 										</span>
 									</td>
 									<td><?php echo esc_html( (string) $space['member_count'] ); ?></td>
@@ -575,7 +583,14 @@ class Spaces extends AdminPageBase {
 					</thead>
 					<tbody>
 						<?php if ( empty( $cats ) ) : ?>
-							<tr><td colspan="6"><p class="description"><?php esc_html_e( 'No categories yet. Create one below.', 'buddynext' ); ?></p></td></tr>
+							<tr>
+							<td colspan="6">
+								<div class="bn-empty">
+									<p class="bn-empty__title"><?php esc_html_e( 'No categories yet', 'buddynext' ); ?></p>
+									<p class="bn-empty__sub"><?php esc_html_e( 'Create one below.', 'buddynext' ); ?></p>
+								</div>
+							</td>
+						</tr>
 						<?php else : ?>
 							<?php foreach ( $cats as $cat ) : ?>
 								<tr>

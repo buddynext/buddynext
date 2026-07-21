@@ -147,7 +147,8 @@ class EmailLog {
 			<div class="bn-ss-body">
 
 				<?php if ( ! empty( $types ) ) : ?>
-					<div class="bn-segment" role="group" aria-label="<?php esc_attr_e( 'Filter email log by type', 'buddynext' ); ?>">
+					<?php // B5: --wrap lets a long run of event-type chips break to new lines instead of clipping at the card edge. ?>
+					<div class="bn-segment bn-segment--wrap" role="group" aria-label="<?php esc_attr_e( 'Filter email log by type', 'buddynext' ); ?>">
 						<a href="<?php echo esc_url( remove_query_arg( array( 'log_type', 'paged' ), $tab_url ) ); ?>"
 							class="bn-segment__item<?php echo '' === $type_filter ? ' is-active' : ''; ?>"
 							aria-selected="<?php echo '' === $type_filter ? 'true' : 'false'; ?>">
@@ -165,7 +166,9 @@ class EmailLog {
 				<?php endif; ?>
 
 				<?php if ( empty( $rows ) ) : ?>
-					<p><?php esc_html_e( 'No sent email recorded for this filter yet.', 'buddynext' ); ?></p>
+					<div class="bn-empty">
+						<p class="bn-empty__title"><?php esc_html_e( 'No sent email recorded for this filter yet', 'buddynext' ); ?></p>
+					</div>
 				<?php else : ?>
 					<table class="widefat striped">
 						<thead>

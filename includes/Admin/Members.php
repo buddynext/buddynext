@@ -1106,7 +1106,10 @@ class Members extends AdminPageBase {
 
 			<div class="bn-table-wrap__scroll">
 				<?php if ( empty( $members ) ) : ?>
-					<p class="bn-members-empty"><?php esc_html_e( 'No members found.', 'buddynext' ); ?></p>
+					<div class="bn-empty">
+					<p class="bn-empty__title"><?php esc_html_e( 'No members found', 'buddynext' ); ?></p>
+					<p class="bn-empty__sub"><?php esc_html_e( 'Try a different search or filter.', 'buddynext' ); ?></p>
+				</div>
 				<?php else : ?>
 					<table class="bn-table" data-bn-bulk="bn-members-bulk">
 						<thead>

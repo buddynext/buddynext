@@ -126,10 +126,8 @@ class RolesTab {
 			<input type="hidden" name="action" value="bn_roles_save">
 			<?php wp_nonce_field( 'bn_roles_save' ); ?>
 
+			<?php // S5: no card header — its title would only repeat the page H1 ("Roles & Capabilities"). ?>
 			<div class="bn-settings-section">
-				<div class="bn-ss-header">
-					<span class="bn-ss-title"><?php esc_html_e( 'Roles & Capabilities', 'buddynext' ); ?></span>
-				</div>
 				<div class="bn-ss-body">
 					<p class="bn-av-section-desc">
 						<?php esc_html_e( 'Choose the minimum community role required for each action. Roles are ranked Member → Moderator → Admin; a higher role inherits everything below it. Site administrators always have full access.', 'buddynext' ); ?>

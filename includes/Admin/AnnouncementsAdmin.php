@@ -98,15 +98,13 @@ class AnnouncementsAdmin {
 		$featured_id = (int) get_option( self::FEATURED_OPTION, 0 );
 		$now         = time();
 		?>
+		<?php // S5: no card header — its title would only repeat the page H1 ("Announcements"). ?>
 		<div class="bn-settings-section">
-			<div class="bn-ss-header">
-				<span class="bn-ss-title"><?php esc_html_e( 'Announcements', 'buddynext' ); ?></span>
-			</div>
-
 			<?php if ( empty( $rows ) ) : ?>
-				<p class="bn-field-hint">
-					<?php esc_html_e( 'No announcements yet. Post one from the feed composer (choose the Announcement type) and it will appear here.', 'buddynext' ); ?>
-				</p>
+				<div class="bn-empty">
+					<p class="bn-empty__title"><?php esc_html_e( 'No announcements yet', 'buddynext' ); ?></p>
+					<p class="bn-empty__sub"><?php esc_html_e( 'Post one from the feed composer (choose the Announcement type) and it will appear here.', 'buddynext' ); ?></p>
+				</div>
 			<?php else : ?>
 				<table class="widefat striped bn-announcements-table">
 					<thead>

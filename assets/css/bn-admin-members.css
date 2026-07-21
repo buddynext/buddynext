@@ -81,14 +81,6 @@
 	max-width: 200px;
 }
 
-/* Empty-state message inside the table wrap. */
-.bn-members-empty {
-	padding: var(--bn-s5);
-	color: var(--bn-ink-3);
-	font-size: var(--bn-text-sm);
-	text-align: center;
-}
-
 /* Member identity cell — avatar + name + handle. */
 .bn-table .bn-member-cell {
 	display: flex;
@@ -677,12 +669,6 @@
 	color: var(--bn-a-brand);
 }
 
-.bn-type-empty {
-	color: var(--bn-a-text-2);
-	font-size: var(--bn-a-text-sm);
-	padding: var(--bn-a-s3) 0;
-}
-
 .bn-type-th-strong {
 	font-size: var(--bn-a-text-md);
 	color: var(--bn-a-text-1);
@@ -1247,14 +1233,6 @@
 	font-size: var(--bn-a-text-2xs);
 	color: var(--bn-a-text-3);
 	margin: 5px 0 0;
-}
-
-.bn-pf-empty {
-	padding: var(--bn-a-s5);
-	text-align: center;
-	color: var(--bn-a-text-3);
-	font-size: var(--bn-a-text-sm);
-	font-style: italic;
 }
 
 .bn-pf-af-panel {

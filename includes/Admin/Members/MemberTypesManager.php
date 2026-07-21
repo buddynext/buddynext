@@ -191,7 +191,10 @@ class MemberTypesManager {
 		<?php /* ── Types list (rendered first; the add/edit form is below, matching Spaces → Categories) ── */ ?>
 		<?php if ( empty( $types ) ) : ?>
 			<div class="bn-settings-section"><div class="bn-ss-body">
-				<p class="bn-type-empty"><?php esc_html_e( 'No member types defined yet. Add your first type below.', 'buddynext' ); ?></p>
+				<div class="bn-empty">
+					<p class="bn-empty__title"><?php esc_html_e( 'No member types defined yet', 'buddynext' ); ?></p>
+					<p class="bn-empty__sub"><?php esc_html_e( 'Add your first type below.', 'buddynext' ); ?></p>
+				</div>
 			</div></div>
 		<?php else : ?>
 			<div class="bn-settings-section">

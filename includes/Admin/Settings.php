@@ -2156,10 +2156,13 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 			'integrations' => __( 'Power-user integrations', 'buddynext' ),
 		);
 
-		$this->open_section( __( 'Features', 'buddynext' ) );
+		// S5: the page H1 + subhead already say "Features" / "Pick which features
+		// your community uses" — an empty title suppresses the card header, and
+		// the intro keeps only the one sentence the subhead does not carry.
+		$this->open_section( '' );
 
 		echo '<p class="bn-field-hint bn-a-flush-top">' .
-			esc_html__( 'Pick which features your community uses. Core features always run. You can enable or disable everything else from this tab - changes apply immediately on save.', 'buddynext' ) .
+			esc_html__( 'You can enable or disable everything except core features from this tab - changes apply immediately on save.', 'buddynext' ) .
 			'</p>';
 
 		// Search box: this tab lists many toggles across several groups, so let the
@@ -3058,7 +3061,12 @@ class Settings extends AdminPageBase implements ProvidesSettings {
 				<tbody data-bn-webhook-tbody>
 				<?php if ( empty( $webhooks ) ) : ?>
 					<tr data-bn-webhook-empty>
-						<td colspan="5"><?php esc_html_e( 'No webhooks registered yet.', 'buddynext' ); ?></td>
+						<td colspan="5">
+							<div class="bn-empty">
+								<p class="bn-empty__title"><?php esc_html_e( 'No webhooks registered yet', 'buddynext' ); ?></p>
+								<p class="bn-empty__sub"><?php esc_html_e( 'Add an endpoint below to start receiving events.', 'buddynext' ); ?></p>
+							</div>
+						</td>
 					</tr>
 				<?php else : ?>
 					<?php

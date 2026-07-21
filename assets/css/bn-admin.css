@@ -1051,6 +1051,17 @@ table.bn-table tr:hover td {
 }
 
 /* --------------------------------------------------------------------------
+   B5 — Wrapping filter chips (.bn-segment--wrap)
+   --------------------------------------------------------------------------
+   A .bn-segment holding a data-driven number of filter chips (e.g. the
+   Email Log event-type filter) wraps to new lines instead of clipping at
+   the card edge. Wrapping is preferred over horizontal scroll for filters. */
+.bn-segment--wrap {
+	flex-wrap: wrap;
+	max-width: 100%;
+}
+
+/* --------------------------------------------------------------------------
    Badges
    -------------------------------------------------------------------------- */
 

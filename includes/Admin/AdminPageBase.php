@@ -159,7 +159,11 @@ abstract class AdminPageBase {
 	 *
 	 * Must be closed with a matching close_section() call.
 	 *
-	 * @param string $title       Section heading.
+	 * Passing an empty title (and no action HTML) suppresses the whole
+	 * `.bn-ss-header` bar — the S5 standard for single-section tabs whose
+	 * card title would only repeat the page H1 (e.g. Features).
+	 *
+	 * @param string $title       Section heading. Empty string suppresses the header bar.
 	 * @param string $action_html Optional raw HTML for the header action slot.
 	 *                            Caller is responsible for escaping this value.
 	 * @return void
@@ -167,6 +171,7 @@ abstract class AdminPageBase {
 	protected function open_section( string $title, string $action_html = '' ): void {
 		?>
 		<div class="bn-settings-section">
+			<?php if ( '' !== $title || '' !== $action_html ) : ?>
 			<div class="bn-ss-header">
 				<span class="bn-ss-title"><?php echo esc_html( $title ); ?></span>
 				<?php
@@ -176,6 +181,7 @@ abstract class AdminPageBase {
 				}
 				?>
 			</div>
+			<?php endif; ?>
 			<div class="bn-ss-body">
 		<?php
 	}
