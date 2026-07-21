@@ -752,6 +752,60 @@ function buddynext_get_template( string $relative, array $vars = array() ): void
 }
 
 /**
+ * Render a member bio for display.
+ *
+ * THE BIO CONTRACT — plain text plus line breaks. No HTML, no markdown.
+ *
+ * This mirrors the model platforms rather than inventing a format: LinkedIn's
+ * About supports line breaks and bullet characters but no bold/italic/links
+ * markup, and the Facebook and X bios are plain text. Markdown would need a
+ * parser, an allow-list decision, editor affordances to stop members seeing raw
+ * `**stars**`, and it would turn the bio into a link/SEO-spam surface — all
+ * complexity none of those platforms carry.
+ *
+ * The input side already matches: the bio is a plain <textarea> with no editor,
+ * and FieldType sanitises the `textarea` type with sanitize_textarea_field(),
+ * which strips every tag while keeping newlines. So no markup can be stored
+ * through the product's own path.
+ *
+ * The OUTPUT side did not match, which is what this centralises. Six templates
+ * rendered the bio three different ways, and `templates/parts/profile-hero.php`
+ * used wp_kses_post() — permitting links, images and embeds, advertising a
+ * capability the save path makes impossible. Not a live XSS while input is
+ * stripped, but the wrong tool and a latent hole if that ever changes. Escaping
+ * first and converting newlines afterwards is the whole job.
+ *
+ * Runs of blank lines collapse to a single break, matching LinkedIn's refusal to
+ * let a member push content down the page with whitespace.
+ *
+ * Full-text surfaces (profile hero, profile-header block, onboarding preview)
+ * use this. Truncated surfaces (member cards, the directory, search results)
+ * deliberately do NOT: they clamp to 12-18 words, where a <br> would break the
+ * one-line layout, so they keep esc_html( wp_trim_words( … ) ).
+ *
+ * @since 1.1.0
+ *
+ * @param string $bio Raw stored bio.
+ * @return string Escaped HTML, safe to echo without further escaping.
+ */
+function buddynext_bio_html( string $bio ): string {
+	$bio = trim( $bio );
+
+	if ( '' === $bio ) {
+		return '';
+	}
+
+	// Normalise CRLF/CR first so the blank-run collapse below sees one form.
+	$bio = str_replace( array( "\r\n", "\r" ), "\n", $bio );
+
+	// Two or more consecutive newlines collapse to one break.
+	$bio = (string) preg_replace( "/\n{2,}/", "\n", $bio );
+
+	// Escape BEFORE inserting <br>, so the tags we add are the only markup.
+	return nl2br( esc_html( $bio ), false );
+}
+
+/**
  * Resolve the cover image URL to show for a user.
  *
  * Priority:

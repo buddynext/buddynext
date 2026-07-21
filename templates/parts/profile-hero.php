@@ -27,7 +27,7 @@
  * @var string $username            Optional. URL-safe profile slug used after `@`.
  * @var string $avatar_url          Required. Avatar URL (already resolved).
  * @var string $cover_url           Optional. Cover image URL.
- * @var string $bio                 Optional. Bio HTML (rendered via wp_kses_post).
+ * @var string $bio                 Optional. Raw bio text — plain text plus line breaks, rendered via buddynext_bio_html().
  * @var string $headline            Optional. Tagline shown next to the handle.
  * @var string $pronouns            Optional. Pronouns shown in parens after the handle.
  * @var string $location            Optional. Location string for the meta row.
@@ -307,7 +307,8 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 				<?php endif; ?>
 
 				<?php if ( $bn_pf_bio ) : ?>
-					<div class="bn-pf-bio"><?php echo wp_kses_post( $bn_pf_bio ); ?></div>
+					<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- buddynext_bio_html() escapes with esc_html() before adding <br>. ?>
+					<div class="bn-pf-bio"><?php echo buddynext_bio_html( (string) $bn_pf_bio ); ?></div>
 				<?php endif; ?>
 
 				<div class="bn-pf-meta">

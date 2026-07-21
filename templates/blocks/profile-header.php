@@ -68,7 +68,8 @@ $avatar_url = (string) get_avatar_url( $user_id, array( 'size' => 144 ) );
 		<div class="bn-profile-header__info">
 			<h2 class="bn-profile-header__name"><?php echo esc_html( $user->display_name ); ?></h2>
 			<?php if ( ! empty( $bio ) ) : ?>
-				<p class="bn-profile-header__bio"><?php echo esc_html( $bio ); ?></p>
+				<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- buddynext_bio_html() escapes with esc_html() before adding <br>. ?>
+				<p class="bn-profile-header__bio"><?php echo buddynext_bio_html( (string) $bio ); ?></p>
 			<?php endif; ?>
 
 			<?php if ( $show_stats ) : ?>
