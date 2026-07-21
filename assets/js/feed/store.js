@@ -2380,6 +2380,51 @@ function setDraftStatus( ctx, status, transient ) {
 	}
 }
 
+/**
+ * Clear every composer sub-form — the context state AND the DOM inputs.
+ *
+ * The composer has three sub-forms (schedule, poll, announcement) and their
+ * reset coverage had drifted apart. submit() cleared only the schedule; cancel()
+ * cleared none of them beyond flipping composerType. That left two ways for a
+ * post to inherit the previous one's settings:
+ *
+ *   - After posting a poll the panel stayed open with the old options and end
+ *     date, so the next post silently reused them.
+ *   - After cancelling, composerType went back to 'text' — which merely HIDES
+ *     the poll and announcement panels — while the typed values sat in the DOM
+ *     waiting to reappear the moment the panel was reopened.
+ *
+ * Clearing state is not enough on its own: the poll options and the three
+ * date inputs are plain DOM, not bound to context (submit() reads the options
+ * with querySelectorAll), so they have to be emptied explicitly.
+ *
+ * Everything lives here rather than inline at each call site, because the
+ * inline version is exactly how this drifted: the schedule reset was added when
+ * someone hit the bug with schedules, and poll and announcement kept it.
+ *
+ * @param {Object} ctx Interactivity context for the composer.
+ * @return {void}
+ */
+function resetComposerSubForms( ctx ) {
+	if ( ! ctx ) {
+		return;
+	}
+
+	// Back to the default mode. This is what closes the poll and announcement
+	// panels, both of which are shown by composerType.
+	ctx.composerType = 'text';
+
+	ctx.scheduleOpen          = false;
+	ctx.scheduledAt           = '';
+	ctx.announcementExpiresAt = '';
+
+	document.querySelectorAll(
+		'#bn-composer-schedule-at, #bn-composer-announce-expiry, #bn-composer-poll-end, .bn-composer__poll-option'
+	).forEach( function ( el ) {
+		el.value = '';
+	} );
+}
+
 function scheduleDraftSave( ctx ) {
 	const userId = parseInt( ctx.userId, 10 );
 	if ( userId <= 0 ) {
@@ -3099,13 +3144,11 @@ store( 'buddynext/post-composer', {
 						area.querySelectorAll( '.bn-composer__media-thumb' ).forEach( function ( el ) { el.remove(); } );
 					} );
 
-					// Reset the schedule sub-form too. Without this a scheduled post left
-					// the schedule panel open with the chosen date still in the field, so
-					// the next post silently inherited the old publish time (and re-typing
-					// felt broken). Close the panel, clear the state and the input.
-					ctx.scheduleOpen = false;
-					ctx.scheduledAt  = '';
-					document.querySelectorAll( '#bn-composer-schedule-at' ).forEach( function ( el ) { el.value = ''; } );
+					// Reset every sub-form — schedule, poll and announcement — so the next
+					// post cannot inherit this one's settings. Previously only the
+					// schedule was cleared, which left a posted poll's panel open with its
+					// options and end date intact.
+					resetComposerSubForms( ctx );
 
 					const created     = res.data || {};
 					const isScheduled = !! body.scheduled_at || 'scheduled' === created.status;
@@ -3242,9 +3285,12 @@ store( 'buddynext/post-composer', {
 		cancel() {
 			const ctx          = getContext();
 			ctx.composerOpen   = false;
-			ctx.composerType   = 'text';
 			ctx.content        = '';
 			ctx.submitting     = false;
+			// Sets composerType back to 'text' AND empties the sub-form inputs.
+			// Flipping composerType alone only hides the poll/announcement panels;
+			// the typed values are plain DOM and would reappear on reopen.
+			resetComposerSubForms( ctx );
 			// Abandoning the composer: delete any staged-but-unposted uploads so they
 			// don't orphan on the server (best-effort). submit() consumes the ids into
 			// the post and resets _mediaState itself, so nothing is deleted post-post.
