@@ -534,6 +534,39 @@ body.admin-bar .bn-app__rail {
 	.bn-app__main {
 		padding-bottom: var(--bn-mobile-nav-clearance); /* clear .bn-mobile-nav bottom bar */
 	}
+
+	/*
+	 * Messages runs edge-to-edge on phones.
+	 *
+	 * The shell's horizontal gutters stack: .bn-app carries 15px and
+	 * .bn-app__main adds var(--bn-s6) (24px), so every hub is inset 39px per
+	 * side. On a 390px phone that is 78px — a FIFTH of the screen — and for a
+	 * card feed it is right: cards need breathing room against the canvas.
+	 *
+	 * Messages is not a card feed. It is a full-height, pane-based surface whose
+	 * children already own their padding (the composer, the rail rows, the
+	 * bubbles' own max-width), so the shell gutter is a second, redundant margin
+	 * that only steals width from message text and the compose field. Every
+	 * mainstream messenger is edge-to-edge on mobile for exactly this reason.
+	 *
+	 * Scoped to the hub via the shell's own data-bn-hub attribute, so no other
+	 * surface loses its gutter.
+	 *
+	 * The .bn-app selector is doubled deliberately. The outer 15px is not ours —
+	 * it comes from the host theme, which gutters every grid cell:
+	 *     .wb-grid > :not(.no-gutter) { padding-left: 15px; padding-right: 15px }
+	 * (Reign/BuddyX main.min.css). .bn-app is a direct .wb-grid child, and that
+	 * selector scores the same 0-2-0 as a plain `.bn-app[data-bn-hub]`, so with
+	 * equal specificity the later-loading theme sheet wins. Repeating the class
+	 * lifts us to 0-3-0 and settles it by the cascade's own rules — no
+	 * !important, and no dependency on the theme's `.no-gutter` opt-out class,
+	 * which only exists in wb-grid themes and would silently do nothing
+	 * elsewhere.
+	 */
+	.bn-app.bn-app[data-bn-hub="messages"],
+	.bn-app.bn-app[data-bn-hub="messages"] .bn-app__main {
+		padding-inline: 0;
+	}
 }
 
 /* ── Notification dropdown (shell-extras) ────────────────────────────────── */

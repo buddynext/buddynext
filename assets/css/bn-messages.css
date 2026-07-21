@@ -2130,6 +2130,44 @@ body.admin-bar .bn-dm-info .bn-modal__panel {
 	.bn-dm-info__media {
 		grid-template-columns: repeat(4, 1fr);
 	}
+
+	/*
+	 * Composer: stack the actions BELOW the message field on phones.
+	 *
+	 * On one row the three controls are the whole bar. Measured at 390px:
+	 * emoji 46 + attach 46 + send 47, plus the row's gaps and padding, left the
+	 * textarea **99px — under a third of the composer** — and "Type a message…"
+	 * wrapped to two lines inside a 36px min-height box, so the placeholder was
+	 * visibly clipped in half.
+	 *
+	 * Tightening padding cannot fix that: the three controls are 44px tap
+	 * targets (WCAG 2.5.8) and are not negotiable, so ~170px of a 312px bar is
+	 * spoken for no matter how the padding is tuned. The row has to break.
+	 *
+	 * Typing is the primary action, so it takes the full width on its own line;
+	 * emoji and attach sit under it at the inline start, and Send docks to the
+	 * inline end — the one-handed thumb zone, and where every messenger puts it.
+	 *
+	 * KNOWN TRADE-OFF: `order: -1` moves the field visually first while the DOM
+	 * keeps emoji → attach → field → send, so on phones the tab order does not
+	 * match the visual order (WCAG 2.4.3). Accepted deliberately: it is three
+	 * adjacent controls inside one compact widget, both sequences are
+	 * meaningful, and the alternative — reordering the DOM — simply moves the
+	 * same mismatch onto desktop, where the single-row layout needs the icons
+	 * before the field. Revisit if the composer ever grows more controls.
+	 */
+	.bn-dm-composer__row {
+		flex-wrap: wrap;
+	}
+
+	.bn-dm-composer__input {
+		flex: 1 1 100%;
+		order: -1;
+	}
+
+	.bn-dm-composer__row > [type="submit"] {
+		margin-inline-start: auto;
+	}
 }
 
 /* Load-older (thread) + load-more (rail) pagination controls (C17.2). */
