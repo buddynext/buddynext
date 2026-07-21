@@ -653,6 +653,66 @@ class ProfileFieldsManager {
 	}
 
 	/**
+	 * Render a field's stored options back into the editor textarea.
+	 *
+	 * The exact inverse of parse_options_textarea(): whatever this prints must
+	 * parse back to the same option list, so opening a field's edit panel and
+	 * pressing Save without touching anything is a no-op.
+	 *
+	 * It was previously `implode( "\n", (array) $field['options'] )`, which is
+	 * only correct while `options` holds the flat string list that
+	 * parse_options_textarea() returns. It does not, whenever a Pro advanced
+	 * field is in play: handle_create/handle_update array_merge() the core list
+	 * with sanitize_field_options()'s output, which is keyed by STRING
+	 * (`choices`, `trigger_value`, `min`, `max`, `unit`, …) and whose `choices`
+	 * entry is itself an array of value/label pairs. So the stored shape is
+	 * mixed:
+	 *
+	 *   { 0:"Red", 1:"Green", choices:[{value,label},…], trigger_value:"yes", unit:"kg" }
+	 *
+	 * Imploding that raised "Array to string conversion" and printed
+	 * `Red\nGreen\nArray\nyes\nkg`. Saving that back — even with no edit —
+	 * turned the field's options into ["Red","Green","Array","yes","kg"]:
+	 * three junk entries in the member-facing dropdown, and every Pro key
+	 * destroyed. That is why this is the inverse function and not a cast.
+	 *
+	 * Only the integer-keyed part is the core choice list; string keys are
+	 * Pro's config and belong to the Pro editor, not this textarea.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param array<mixed> $options Stored `options` payload for the field.
+	 * @return string One option per line, ready for the textarea.
+	 */
+	private function options_to_textarea( array $options ): string {
+		$lines = array();
+
+		foreach ( $options as $key => $option ) {
+			// Pro's per-type configuration is string-keyed — skip it. Printing it
+			// here is what leaked "Array", the trigger value and the unit into the
+			// choice list.
+			if ( ! is_int( $key ) ) {
+				continue;
+			}
+
+			if ( is_scalar( $option ) ) {
+				$lines[] = (string) $option;
+				continue;
+			}
+
+			// Defensive: a legacy row storing value/label pairs in the integer
+			// range. Emit the VALUE only — parse_options_textarea() treats a whole
+			// line as the option string, so emitting "value|label" would store that
+			// literal text as the option and corrupt the field on the next save.
+			if ( is_array( $option ) && isset( $option['value'] ) && is_scalar( $option['value'] ) ) {
+				$lines[] = (string) $option['value'];
+			}
+		}
+
+		return implode( "\n", $lines );
+	}
+
+	/**
 	 * Handle admin_post_bn_delete_profile_group form submission.
 	 *
 	 * Delegates to ProfileService::delete_group() which enforces the system-group
@@ -1700,7 +1760,7 @@ class ProfileFieldsManager {
 							$is_date_type      = in_array( $field['type'], self::DATE_TYPES, true );
 							$is_search_capable = in_array( $field['type'], $searchable_type_slugs, true );
 							$field_searchable  = ! empty( $field['is_searchable'] );
-							$opts_text         = $is_choice_type && ! empty( $field['options'] ) ? implode( "\n", (array) $field['options'] ) : '';
+							$opts_text         = $is_choice_type && ! empty( $field['options'] ) ? $this->options_to_textarea( (array) $field['options'] ) : '';
 							$date_display_val  = ( $is_date_type && is_array( $field['options'] ) ) ? ( $field['options']['display'] ?? 'date' ) : 'date';
 							?>
 							<tr id="<?php echo esc_attr( $edit_panel_id ); ?>" style="display:none;">
