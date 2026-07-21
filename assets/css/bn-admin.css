@@ -1599,6 +1599,16 @@ button.bn-btn-danger:hover {
 	flex-wrap: wrap;
 }
 
+/* C4 — One bulk-actions select width. The select is content-sized by default,
+   so a short option list (Members: Suspend/Unsuspend) rendered a stubby
+   control while longer lists (Spaces, Moderation:Bulk) stretched wide. Every
+   .bn-bulk-bar select gets the same fixed width so the bulk toolbar reads
+   identically on all list screens. */
+.bn-admin-hub .bn-bulk-bar select {
+	width: 240px;
+	max-width: 100%;
+}
+
 /* --------------------------------------------------------------------------
    Pagination
    -------------------------------------------------------------------------- */

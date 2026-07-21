@@ -78,6 +78,55 @@ class ModerationService {
 	}
 
 	/**
+	 * Human-readable labels for every allowed report reason.
+	 *
+	 * The single label source for every surface that prints a reason —
+	 * admin Reports queue, Moderation:Bulk (Pro), filter dropdowns — so
+	 * casing never drifts between screens. Reasons added through the
+	 * `buddynext_report_reasons` filter fall back to a Title-cased slug.
+	 *
+	 * @return array<string,string> Reason slug => translated label.
+	 */
+	public static function reason_labels(): array {
+		$labels = array(
+			'spam'           => __( 'Spam', 'buddynext' ),
+			'harassment'     => __( 'Harassment', 'buddynext' ),
+			'misinformation' => __( 'Misinformation', 'buddynext' ),
+			'inappropriate'  => __( 'Inappropriate', 'buddynext' ),
+			'fake'           => __( 'Fake / scam', 'buddynext' ),
+			'impersonation'  => __( 'Impersonation', 'buddynext' ),
+			'other'          => __( 'Other', 'buddynext' ),
+		);
+
+		$out = array();
+		foreach ( self::reasons() as $reason ) {
+			$out[ $reason ] = $labels[ $reason ] ?? self::fallback_reason_label( $reason );
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Human-readable label for a single report reason.
+	 *
+	 * @param string $reason Reason slug (e.g. 'spam').
+	 * @return string Translated label, or a Title-cased slug for unknown reasons.
+	 */
+	public static function reason_label( string $reason ): string {
+		return self::reason_labels()[ $reason ] ?? self::fallback_reason_label( $reason );
+	}
+
+	/**
+	 * Title-case a reason slug that has no canonical label (filter-added).
+	 *
+	 * @param string $reason Reason slug.
+	 * @return string Title-cased label.
+	 */
+	private static function fallback_reason_label( string $reason ): string {
+		return ucwords( str_replace( array( '-', '_' ), ' ', $reason ) );
+	}
+
+	/**
 	 * Valid appeal decision values.
 	 */
 	private const APPEAL_DECISIONS = array( 'approved', 'denied' );
@@ -1838,8 +1887,9 @@ class ModerationService {
 	}
 
 	/**
-	 * expiry date, and hide_posts flag in one query. Returns null if
-	 * the user has no active suspension.
+	 * Fetch a user's active suspension row — status, expiry date, and
+	 * hide_posts flag in one query. Returns null if the user has no
+	 * active suspension.
 	 *
 	 * @param int $user_id User to check.
 	 * @return array<string, mixed>|null Hydrated suspension row, or null.

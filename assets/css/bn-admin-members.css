@@ -75,11 +75,10 @@
 	margin: 0;
 }
 
-.bn-members-toolbar .bn-bulk-bar .bn-select {
-	width: auto;
-	min-width: 150px;
-	max-width: 200px;
-}
+/* Select width intentionally NOT set here — the shared C4 rule in
+   bn-admin.css (.bn-admin-hub .bn-bulk-bar select, 240px) sizes every
+   bulk-actions select identically across Members, Spaces, and
+   Moderation:Bulk. Do not re-add a per-screen width override. */
 
 /* Member identity cell — avatar + name + handle. */
 .bn-table .bn-member-cell {

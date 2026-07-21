@@ -733,6 +733,10 @@ class AdminHub {
 	 *  - `action`   string    Pre-built, already-escaped HTML for the sub-header's right side
 	 *                         (e.g. an Export CSV form/button). Printed verbatim — the screen
 	 *                         that supplies it is responsible for escaping every value inside.
+	 *                         Variant convention (C6): create/primary actions (Add Label,
+	 *                         Upgrade) use `.bn-btn` with `data-variant="primary"`;
+	 *                         utility/export actions (Export CSV, Publish Overdue Posts Now)
+	 *                         use `data-variant="secondary"`. Both use `data-size="sm"`.
 	 *
 	 * Back-compat: passing a capability string as the 5th arg still works.
 	 *

@@ -34,21 +34,6 @@ use BuddyNext\Moderation\ModerationService;
 class ModerationQueue {
 
 	/**
-	 * Human labels for report reasons.
-	 *
-	 * @var array<string,string>
-	 */
-	private const REASON_LABELS = array(
-		'spam'           => 'Spam',
-		'harassment'     => 'Harassment',
-		'misinformation' => 'Misinformation',
-		'inappropriate'  => 'Inappropriate',
-		'fake'           => 'Fake / scam',
-		'impersonation'  => 'Impersonation',
-		'other'          => 'Other',
-	);
-
-	/**
 	 * Register hooks + the three moderation tabs.
 	 *
 	 * @return void
@@ -218,7 +203,7 @@ class ModerationQueue {
 			<label class="screen-reader-text" for="bn-mod-reason"><?php esc_html_e( 'Filter by reason', 'buddynext' ); ?></label>
 			<select name="mod_reason" id="bn-mod-reason">
 				<option value=""><?php esc_html_e( 'All reasons', 'buddynext' ); ?></option>
-				<?php foreach ( self::REASON_LABELS as $bn_key => $bn_label ) : ?>
+				<?php foreach ( \BuddyNext\Moderation\ModerationService::reason_labels() as $bn_key => $bn_label ) : ?>
 					<option value="<?php echo esc_attr( $bn_key ); ?>" <?php selected( $reason, $bn_key ); ?>><?php echo esc_html( $bn_label ); ?></option>
 				<?php endforeach; ?>
 			</select>
@@ -400,7 +385,7 @@ class ModerationQueue {
 				$bn_reasons = ( ! empty( $report['reasons'] ) && is_array( $report['reasons'] ) ) ? $report['reasons'] : array( $reason );
 				$bn_labels  = array_map(
 					static function ( $r ) {
-						return self::REASON_LABELS[ $r ] ?? ucfirst( (string) $r );
+						return \BuddyNext\Moderation\ModerationService::reason_label( (string) $r );
 					},
 					$bn_reasons
 				);
