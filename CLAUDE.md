@@ -338,9 +338,8 @@ hand-set attribute.
 
 Bare-named aliases (`--bg`, `--text-1`, `--s4`…) exist only for back-compat —
 always author with the `--bn-*` names. `bin/ux-audit.sh` flags raw hex/px and
-off-prefix token use. Note it derives the expected prefix from the plugin folder
-name (`PREFIX="${PREFIX:-...cut -c1-3}"` → `bud`), so run it as
-`PREFIX=bn bin/ux-audit.sh` until that default is fixed.
+off-prefix token use. It auto-detects the `--bn-` prefix from the CSS itself;
+`PREFIX=xx bin/ux-audit.sh` overrides that if you ever need to.
 
 ---
 
