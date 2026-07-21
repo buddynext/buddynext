@@ -135,7 +135,7 @@ class RolesTab {
 
 					<?php foreach ( self::catalog() as $group => $caps ) : ?>
 						<h3 class="bn-roles-group"><?php echo esc_html( $group ); ?></h3>
-						<table class="widefat striped bn-roles-table">
+						<table class="widefat bn-roles-table">
 							<thead>
 								<tr>
 									<th><?php esc_html_e( 'Action', 'buddynext' ); ?></th>

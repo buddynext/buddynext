@@ -346,7 +346,7 @@ class InviteManager {
 						<p><?php esc_html_e( 'No invitations match this filter.', 'buddynext' ); ?></p>
 					<?php endif; ?>
 				<?php else : ?>
-					<table class="widefat striped">
+					<table class="widefat">
 						<thead>
 							<tr>
 								<th><?php esc_html_e( 'Email', 'buddynext' ); ?></th>
