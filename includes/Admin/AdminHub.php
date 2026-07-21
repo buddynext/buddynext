@@ -965,6 +965,27 @@ class AdminHub {
 				esc_url( self::tab_url( 'settings', 'license' ) ),
 			);
 		}
+
+		// Integrations lives as a tab inside the Platform section; surface it as a
+		// direct WP submenu quick-link too so owners can jump straight to the
+		// companion apps and recommended themes. Resolve the owning section from the
+		// tab map (owner request) so the link follows the tab if it moves sections.
+		$bn_int_section = '';
+		foreach ( self::$tabs as $bn_section_key => $bn_section_tabs ) {
+			if ( isset( $bn_section_tabs['integrations'] ) ) {
+				$bn_int_section = (string) $bn_section_key;
+				break;
+			}
+		}
+		if ( '' !== $bn_int_section ) {
+			global $submenu;
+			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- appending a deep-link entry, not overriding core state.
+			$submenu[ self::TOP_SLUG ][] = array(
+				esc_html__( 'Integrations', 'buddynext' ),
+				'manage_options',
+				esc_url( self::tab_url( $bn_int_section, 'integrations' ) ),
+			);
+		}
 	}
 
 	// ── Render ───────────────────────────────────────────────────────────────
