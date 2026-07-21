@@ -58,17 +58,26 @@ Direct messaging and media are powered by the WPMediaVerse companion plugin. Bud
 
 = 1.0.9 - July 2026 =
 
-Sidebar widgets curated per surface, a profile About tab that renders any field, uniform integration cards, and the mobile app bootstrap endpoint.
+A redesigned admin with a Get Started home, sidebar widgets curated per surface, a profile About tab that renders any field, and the mobile app bootstrap endpoint.
 
+* New      - A Get Started home greets you in wp-admin with a setup checklist, one-click demo data, theme suggestions, and quick links to every area.
+* New      - The Features tab has a search box that filters the toggle list as you type.
 * New      - The profile About tab renders any field group by its type, so custom groups and fields lay out cleanly without per-field code.
 * New      - Every member upload now creates a feed post, so photos from the composer, the Media tab, or an album all appear on your feed.
 * New      - GET /buddynext/v1/app/config gives the mobile app a single bootstrap handshake for site identity, feature flags, and the time contract.
+* Improve  - Admin navigation reads clearer: Integrations is now Add-ons, Integration Display is now Integration Settings, and License and Add-ons have direct menu shortcuts.
+* Improve  - Demo data can be loaded and removed right from the admin home, with the count of sample members, spaces, and posts shown.
+* Improve  - Every admin list table shares one action-button style, one empty-state design, and an Actions column that stays visible when the table scrolls.
+* Improve  - The members directory sorts by name and join date, admin tables show a consistent result count, and settings screens share one field-spacing rhythm and one bottom save bar.
+* Improve  - Eventonomy joins the companion apps list, and a Recommended themes section presents BuddyX, BuddyX Pro, and Reign.
 * Improve  - Sidebar widgets are organised per surface (feed, explore, members, spaces, profile, notifications, hashtags), each column curated for its page.
 * Improve  - Upload progress spinners were added across every upload point: composer, DM attachment, avatar, cover, album picker, and onboarding.
 * Improve  - Integration activity renders as a consistent, typed card in the feed for events, badges, and other connected apps.
 * Improve  - Badge and level-up notifications from integrations are collected for display in one place and never send a duplicate email.
 * Improve  - Member directories, the space roster, and the discovery asides are cached per viewer for large communities.
 * Improve  - Profile fields render true to their type: paragraphs are multi-line, multiselect values are separate chips, and Work and Education show dates and admin-added sub-fields.
+* Fix      - Members list action buttons are aligned, and the redundant Last Login column was removed in favour of Last Active.
+* Fix      - Stray divider lines, duplicated section headings, and mismatched Edit and Delete buttons were cleaned up across admin screens.
 * Fix      - Profile Replies and Likes tabs could show a private post's content to anyone.
 * Fix      - A media item added to an album from the picker had no source post, so its single-media link bounced to the Media tab instead of the post.
 * Fix      - A feed card was left behind after its source media or its event was deleted.
